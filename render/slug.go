@@ -18,6 +18,14 @@ import (
 // does not leak "a namex a" into its own anchor.
 var reHTMLTag = regexp.MustCompile(`</?[a-zA-Z][^>]*>`)
 
+// reFootnoteID matches the anchors footnote.go owns. GitHub keeps them apart
+// from document anchors with a "user-content-" prefix on everything the author
+// wrote; the frontend contract fixes the plain names here, so the namespace is
+// reserved from the other side instead and a heading called "fn-1" is given
+// "fn-1-1". Raw HTML can still write the id by hand, exactly as it can write
+// any other id the app uses.
+var reFootnoteID = regexp.MustCompile(`^fn(ref)?-\d`)
+
 // Slug builds a heading anchor: NFC, drop every rune outside letters, digits,
 // "_", "-" and space, trim spaces, turn the remaining spaces into "-", then
 // lowercase. This is what GitHub and pymdownx.slugs.slugify(case='lower') both
@@ -71,7 +79,7 @@ func (s *slugIDs) Put(value []byte) {
 // unique appends -1, -2, ... until the anchor is free, remembering the last
 // suffix tried for a base so a document with many repeats stays linear.
 func (s *slugIDs) unique(base string) string {
-	if _, taken := s.used[base]; !taken {
+	if _, taken := s.used[base]; !taken && !reFootnoteID.MatchString(base) {
 		s.used[base] = 0
 		return base
 	}

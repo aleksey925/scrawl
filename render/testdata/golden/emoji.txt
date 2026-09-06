@@ -1,0 +1,10 @@
+title: Emoji
+toc:
+  h1 #emoji Emoji
+---
+<h1 id="emoji">Emoji</h1>
+<p>Готово 🎉 и 👍, а также 🚀.</p>
+<p>Время 10:30, диапазон a:b, двойное :: и <code>:tada:</code> в коде.</p>
+<div class="code-block" data-lang="text"><pre class="chroma"><code><span class="line"><span class="cl">:tada: во фенсе
+</span></span></code></pre></div>
+<p>Неизвестный шорткод :nosuchemojiname: остаётся текстом.</p>

@@ -1,0 +1,92 @@
+title: Alerts
+toc:
+  h1 #alerts Alerts
+  h2 #что-alert-ом-не-становится Что alert-ом не становится
+  h2 #что-alert-ом-становится Что alert-ом становится
+---
+<h1 id="alerts">Alerts</h1>
+<div class="alert alert-note">
+<p class="alert-title">Note</p>
+<p>Useful information that users should know, even when skimming.</p>
+</div>
+<div class="alert alert-tip">
+<p class="alert-title">Tip</p>
+<p>Helpful advice for doing things better.</p>
+</div>
+<div class="alert alert-important">
+<p class="alert-title">Important</p>
+<p>Key information users need to know.</p>
+</div>
+<div class="alert alert-warning">
+<p class="alert-title">Warning</p>
+<p>Urgent info that needs immediate attention.</p>
+</div>
+<div class="alert alert-caution">
+<p class="alert-title">Caution</p>
+<p>Advises about risks or negative outcomes.</p>
+</div>
+<h2 id="что-alert-ом-не-становится">Что alert-ом не становится</h2>
+<p>Текст на строке маркера убивает alert целиком:</p>
+<blockquote>
+<p>[!NOTE] с текстом на той же строке
+тело</p>
+</blockquote>
+<p>Маркер не на первой строке:</p>
+<blockquote>
+<p>сначала текст
+[!NOTE]</p>
+</blockquote>
+<p>Неизвестный маркер:</p>
+<blockquote>
+<p>[!FOO]
+неизвестный маркер</p>
+</blockquote>
+<p>Маркер без тела:</p>
+<blockquote>
+<p>[!WARNING]</p>
+</blockquote>
+<p>Вложенная цитата не alert, GitHub их не вкладывает:</p>
+<blockquote>
+<blockquote>
+<p>[!NOTE]
+вложенный</p>
+</blockquote>
+</blockquote>
+<p>Цитата внутри элемента списка тоже:</p>
+<ul>
+<li>
+<blockquote>
+<p>[!IMPORTANT]
+внутри списка</p>
+</blockquote>
+</li>
+</ul>
+<h2 id="что-alert-ом-становится">Что alert-ом становится</h2>
+<p>Маркер в нижнем регистре и без пробела после <code>&gt;</code>:</p>
+<div class="alert alert-tip">
+<p class="alert-title">Tip</p>
+<p>нижний регистр</p>
+</div>
+<p>Пробелы в конце строки маркера:</p>
+<div class="alert alert-note">
+<p class="alert-title">Note</p>
+<p>хвостовые пробелы</p>
+</div>
+<p>Ленивое продолжение:</p>
+<div class="alert alert-caution">
+<p class="alert-title">Caution</p>
+<p>первая строка
+вторая строка</p>
+</div>
+<p>Несколько блоков в теле, включая настоящую цитату:</p>
+<div class="alert alert-note">
+<p class="alert-title">Note</p>
+<p>Первый абзац с <code>кодом</code> и <a href="/p/docs/other.md">ссылкой</a>.</p>
+<ul>
+<li>список</li>
+<li>внутри</li>
+</ul>
+<blockquote>
+<p>обычная вложенная цитата</p>
+</blockquote>
+</div>

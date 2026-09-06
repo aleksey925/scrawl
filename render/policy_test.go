@@ -3,11 +3,13 @@ package render
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/html"
 )
 
 func TestSanitizeNeutralisesMaliciousDocument(t *testing.T) {
@@ -29,6 +31,96 @@ func TestSanitizeNeutralisesMaliciousDocument(t *testing.T) {
 	}
 }
 
+// TestSanitizeNeutralisesMaliciousGFMDocument covers the markup the GFM
+// extensions add: every one of them carries author-written content into the
+// page, and none of it may become an element.
+func TestSanitizeNeutralisesMaliciousGFMDocument(t *testing.T) {
+	// arrange
+	src, err := os.ReadFile(filepath.Join("testdata", "md", "malicious-gfm.md"))
+	require.NoError(t, err)
+
+	// act
+	out, err := New(Options{}).RenderInline(src, "docs/malicious-gfm.md")
+	require.NoError(t, err)
+
+	// assert
+	elements, attrs := collectTags(t, string(out))
+	assert.Equal(t, []string{"a", "blockquote", "div", "h1", "h2", "li", "ol", "p", "pre", "section", "span", "sup"},
+		elements)
+	assert.Equal(t, []string{"class", "href", "id"}, attrs)
+}
+
+// collectTags returns the sorted, deduplicated element and attribute names of a
+// fragment. Asserting on the whole set is the only way to see that author
+// content stayed content: a substring check cannot tell "<script" inside a text
+// node apart from a real element.
+func collectTags(t *testing.T, fragment string) (elements, attrs []string) {
+	t.Helper()
+	seenElements, seenAttrs := map[string]struct{}{}, map[string]struct{}{}
+	z := html.NewTokenizer(strings.NewReader(fragment))
+	for {
+		switch z.Next() {
+		case html.ErrorToken:
+			for name := range seenElements {
+				elements = append(elements, name)
+			}
+			for name := range seenAttrs {
+				attrs = append(attrs, name)
+			}
+			sort.Strings(elements)
+			sort.Strings(attrs)
+			return elements, attrs
+		case html.StartTagToken, html.SelfClosingTagToken:
+			tok := z.Token()
+			seenElements[tok.Data] = struct{}{}
+			for _, attr := range tok.Attr {
+				seenAttrs[attr.Key] = struct{}{}
+			}
+		}
+	}
+}
+
+func TestSanitizeEscapesRawContentInsteadOfDroppingIt(t *testing.T) {
+	tests := []struct{ name, src, want string }{
+		{"inline math", "$</span><b>x</b>$\n", `<span class="math math-inline">&lt;/span&gt;&lt;b&gt;x&lt;/b&gt;</span>`},
+		{"display math", "$$\n</div><b>x</b>\n$$\n", `<div class="math math-display">&lt;/div&gt;&lt;b&gt;x&lt;/b&gt;` + "\n</div>"},
+		{"mermaid", "```mermaid\n</pre><b>x</b>\n```\n", `<pre class="mermaid">&lt;/pre&gt;&lt;b&gt;x&lt;/b&gt;` + "\n</pre>"},
+	}
+	r := New(Options{})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := r.RenderInline([]byte(tt.src), "x.md")
+			require.NoError(t, err)
+			assert.Contains(t, string(out), tt.want)
+		})
+	}
+}
+
+func TestSanitizeSourceElement(t *testing.T) {
+	tests := []struct {
+		name, src string
+		want      bool
+	}{
+		{name: "relative srcset", src: `<source srcset="a.png">`, want: true},
+		{name: "srcset with descriptors", src: `<source srcset="a.png 1x, b.png 2x">`, want: true},
+		{name: "https srcset", src: `<source srcset="https://example.com/a.png">`, want: true},
+		{name: "javascript srcset", src: `<source srcset="javascript:alert(1)">`},
+		{name: "data srcset", src: `<source srcset="data:image/svg+xml;base64,PHN2Zz4=">`},
+		{name: "quote breakout attempt", src: `<source srcset="a.png&quot; onload=&quot;alert(1)">`},
+	}
+	r := New(Options{})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// act
+			out, err := r.RenderInline([]byte(tt.src), "x.md")
+
+			// assert
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, strings.Contains(string(out), "srcset="), "output: %s", out)
+		})
+	}
+}
+
 func TestSanitizeKeeps(t *testing.T) {
 	tests := []struct{ name, src, want string }{
 		{"manual anchor", "<a name='Общее'></a>\n", `<a name="Общее"></a>`},
@@ -43,6 +135,13 @@ func TestSanitizeKeeps(t *testing.T) {
 		{"thematic break", "a\n\n---\n\nb\n", "<hr>"},
 		{"ordered list start", "5. пятый\n", `<ol start="5">`},
 		{"hard break", "a  \nb\n", "<br>"},
+		{"alert", "> [!NOTE]\n> x\n", `<div class="alert alert-note">`},
+		{"footnote section", "x[^1]\n\n[^1]: y\n", `<section class="footnotes">`},
+		{"inline math", "$x$\n", `<span class="math math-inline">x</span>`},
+		{"display math", "$$\nx\n$$\n", `<div class="math math-display">`},
+		{"mermaid", "```mermaid\nx\n```\n", `<pre class="mermaid">`},
+		{"theme image", "<picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"d.png\"><img src=\"l.png\"></picture>\n",
+			`<source media="(prefers-color-scheme: dark)" srcset="/raw/docs/d.png">`},
 	}
 	r := New(Options{})
 	for _, tt := range tests {

@@ -9,6 +9,7 @@ import (
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
+	emoji "github.com/yuin/goldmark-emoji"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
@@ -84,9 +85,13 @@ func New(opts Options) *Renderer {
 			extension.Strikethrough,
 			extension.TaskList,
 			extension.Linkify, // 23 corpus URLs are written bare
-			// the corpus has no footnotes, but without this "[^1]: text"
-			// silently becomes a link reference definition
+			// the shape of the footnote output is not goldmark's: see
+			// footnote.go, which re-renders all four of its nodes
 			extension.Footnote,
+			// GitHub replaces a shortcode with the unicode character; the
+			// parser only fires on a name it knows, so ":" in prose and in
+			// code is left alone
+			emoji.New(emoji.WithRenderingMethod(emoji.Unicode)),
 			highlighting.NewHighlighting(
 				highlighting.WithStyle(codeStyle),
 				highlighting.WithFormatOptions(
@@ -98,16 +103,26 @@ func New(opts Options) *Renderer {
 		),
 		goldmark.WithParserOptions(
 			parser.WithAutoHeadingID(),
+			parser.WithBlockParsers(util.Prioritized(&mathBlockParser{}, 750)),
+			parser.WithInlineParsers(util.Prioritized(&mathInlineParser{}, 500)),
 			parser.WithASTTransformers(
+				util.Prioritized(&alertTransformer{}, 400),
+				util.Prioritized(&rawFenceTransformer{}, 450),
 				util.Prioritized(links, 500),
 				util.Prioritized(&tableWrapTransformer{}, 600),
 			),
 		),
 		goldmark.WithRendererOptions(
 			html.WithUnsafe(), // <a name>, <details>; bluemonday cleans up after
+			// a lower number wins, so these override the extensions that
+			// registered the same node kinds at 500
 			renderer.WithNodeRenderers(
 				util.Prioritized(&tableWrapRenderer{}, 100),
 				util.Prioritized(&indentedCodeRenderer{}, 100),
+				util.Prioritized(&alertRenderer{}, 100),
+				util.Prioritized(&rawBlockRenderer{}, 100),
+				util.Prioritized(&footnoteRenderer{}, 100),
+				util.Prioritized(&mathRenderer{}, 100),
 			),
 		),
 	)

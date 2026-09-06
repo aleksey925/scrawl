@@ -1,0 +1,27 @@
+title: ordered-start
+toc:
+---
+<ul>
+<li>ротация и отзыв ключей делаются руками.</li>
+</ul>
+<ol>
+<li>Установка</li>
+</ol>
+<div class="code-block" data-lang="bash"><pre class="chroma"><code><span class="line"><span class="cl">brew install sops age
+</span></span></code></pre></div>
+<p><code>age</code> нужен только для генерации ключа, <code>sops</code> - для шифрования
+и редактирования. Расшифровывает mise сам, встроенным rops.</p>
+<ol start="2">
+<li>Генерация ключа</li>
+</ol>
+<div class="code-block" data-lang="bash"><pre class="chroma"><code><span class="line"><span class="cl">mkdir -p ~/.config/sops/age
+</span></span><span class="line"><span class="cl">age-keygen -o ~/.config/sops/age/keys.txt
+</span></span><span class="line"><span class="cl">chmod <span class="m">600</span> ~/.config/sops/age/keys.txt
+</span></span></code></pre></div>
+<p>В файле окажется приватный ключ (<code>AGE-SECRET-KEY-1...</code>) и публичный
+комментарием (<code># public key: age1...</code>).
+Дальше идёт обычный абзац, а сразу за ним список без пустой строки.</p>
+<ol start="3">
+<li>Третий шаг</li>
+<li>Четвёртый шаг</li>
+</ol>

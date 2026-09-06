@@ -1,0 +1,23 @@
+title: База знаний
+toc:
+  h1 #база-знаний База знаний
+---
+<h1 id="база-знаний">База знаний</h1>
+<ol>
+<li>Программирование
+<ul>
+<li><a href="/p/docs/clean-code/clean-code-index.md">Чистый код</a></li>
+<li><a href="/p/docs/computer-science/computer-science-index.md">Computer Science</a></li>
+<li><a href="/p/docs/regexp/regexp-index.md">Регулярные выражения</a></li>
+<li><a href="/p/docs/info-security/info-security-notes.md">Информационная безопасность</a></li>
+<li>Python
+<ul>
+<li><a href="/p/docs/python/python-notes-index.md">Заметки про Python</a></li>
+<li><a href="/p/docs/python/code-examples-index.md">Реализации интересных заданий</a></li>
+<li><a href="/p/docs/python/libs-docs-index.md">Документация к библиотекам</a></li>
+</ul>
+</li>
+<li><a href="/p/docs/golang/golang-notes-index.md">Golang</a></li>
+</ul>
+</li>
+</ol>

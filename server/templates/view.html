@@ -1,0 +1,62 @@
+{{template "doc-head" .}}
+<body class="page page-view">
+{{template "sprite" .}}
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="app">
+    {{template "topbar-start" .}}
+        {{if and .EditURL (not .ReadOnly)}}
+            <a class="btn btn-secondary topbar-edit" href="{{.EditURL}}"
+               aria-label="{{if .Missing}}Create this page{{else}}Edit this page{{end}}">
+                <svg class="icon" aria-hidden="true"><use href="#icon-edit"></use></svg>
+                <span class="btn-text">{{if .Missing}}Create{{else}}Edit{{end}}</span>
+            </a>
+        {{end}}
+    {{template "topbar-end" .}}
+    <div class="app-body">
+        {{template "sidebar" .}}
+        <div class="scrim" data-drawer-close></div>
+        <main class="main" id="main" tabindex="-1">
+            {{if .Missing}}
+                <div class="empty">
+                    <svg class="empty-icon" aria-hidden="true"><use href="#icon-file"></use></svg>
+                    <h1 class="empty-title">This page does not exist yet</h1>
+                    <p class="empty-path"><code>{{.CurrentPath}}</code></p>
+                    <div class="empty-actions">
+                        <a class="btn btn-ghost" href="/">Go home</a>
+                        {{if not .ReadOnly}}<a class="btn btn-primary" href="{{.EditURL}}">Create this page</a>{{end}}
+                    </div>
+                </div>
+            {{else}}
+                <article class="doc" id="doc" data-path="{{.CurrentPath}}" data-rev="{{.Rev}}">
+                    {{.Content}}
+                </article>
+                <footer class="doc-foot">
+                    <p class="doc-meta">
+                        Last modified <time datetime="{{.ModTime.Format "2006-01-02T15:04:05Z07:00"}}">{{.ModTime.Format "2 January 2006, 15:04"}}</time>
+                    </p>
+                    {{if and .EditURL (not .ReadOnly)}}
+                        <a class="doc-edit" href="{{.EditURL}}">
+                            <svg class="icon" aria-hidden="true"><use href="#icon-edit"></use></svg>
+                            <span>Edit this page</span>
+                        </a>
+                    {{end}}
+                </footer>
+            {{end}}
+        </main>
+        {{if ge (len .TOC) 3}}
+            <aside class="toc-rail" id="toc-rail" aria-labelledby="toc-title">
+                <button class="icon-btn toc-sheet-close" type="button" data-toc-close aria-label="Close outline">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+                {{template "toc" .}}
+            </aside>
+        {{end}}
+    </div>
+</div>
+{{if ge (len .TOC) 3}}
+    <button class="toc-pill" type="button" data-toc-toggle aria-expanded="false" aria-controls="toc-rail">
+        <svg class="icon" aria-hidden="true"><use href="#icon-toc"></use></svg>
+        <span>Contents</span>
+    </button>
+{{end}}
+{{template "chrome-tail" .}}

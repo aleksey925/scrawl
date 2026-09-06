@@ -1,0 +1,113 @@
+{{/*
+base.html holds the pieces every page shares. Pages are whole documents:
+they call "doc-head", open their own <body>, and finish with "chrome-tail".
+Nothing here is a {{define "content"}} slot, so the whole templates/ folder
+can be parsed into one set without page templates colliding, and a page is
+rendered by its file name: ExecuteTemplate(w, "view.html", data).
+*/}}
+
+{{define "doc-head"}}<!DOCTYPE html>
+<html lang="en" data-theme="{{.Theme}}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)">
+    <title>{{if .Title}}{{.Title}} - {{end}}{{.SiteTitle}}</title>
+    <link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/{{.Version}}/css/style.css">
+    <link rel="stylesheet" href="/static/{{.Version}}/css/chroma.css">
+    <script>
+        // the server already renders data-theme from the theme cookie; this only
+        // repairs it when a page comes back from the bfcache with a stale value
+        (function () {
+            document.documentElement.classList.add('js');
+            try {
+                var m = document.cookie.match(/(?:^|;\s*)theme=(light|dark|auto)/);
+                if (m) { document.documentElement.setAttribute('data-theme', m[1]); }
+            } catch (e) { /* cookies disabled, keep the server value */ }
+        })();
+    </script>
+</head>
+{{end}}
+
+{{define "chrome-tail"}}
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<dialog class="palette" id="palette" aria-label="Search">
+    <form class="palette-head" method="get" action="/search" data-palette-form>
+        <svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg>
+        <input class="palette-input" id="palette-input" type="search" name="q" autocomplete="off"
+               spellcheck="false" placeholder="Search the knowledge base"
+               aria-label="Search query" aria-controls="palette-results" aria-expanded="true"
+               role="combobox" aria-autocomplete="list">
+        <button class="icon-btn palette-close" type="button" data-palette-close aria-label="Close search">
+            <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+        </button>
+    </form>
+    <div class="palette-body">
+        <ul class="palette-results" id="palette-results" role="listbox" aria-label="Search results"></ul>
+        <p class="palette-empty" id="palette-empty">Type to search documents and headings.</p>
+    </div>
+    <div class="palette-foot">
+        <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> navigate</span>
+        <span><kbd>&crarr;</kbd> open</span>
+        <span><kbd>Esc</kbd> close</span>
+    </div>
+</dialog>
+
+<dialog class="lightbox" id="lightbox" aria-label="Image viewer">
+    <button class="icon-btn lightbox-close" type="button" data-lightbox-close aria-label="Close image">
+        <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+    </button>
+    <img class="lightbox-img" id="lightbox-img" alt="">
+    <p class="lightbox-caption" id="lightbox-caption"></p>
+</dialog>
+
+<script type="module" src="/static/{{.Version}}/js/app.js"></script>
+</body>
+</html>
+{{end}}
+
+{{define "sprite"}}
+<svg class="sprite" aria-hidden="true" focusable="false" width="0" height="0">
+    <symbol id="icon-logo" viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10l2 2.5h6.5A1.5 1.5 0 0 1 20 8v10.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"></path></symbol>
+    <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"></path></symbol>
+    <symbol id="icon-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></symbol>
+    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></symbol>
+    <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"></path></symbol>
+    <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.2 8.2 0 0 1 9.5 4 8.3 8.3 0 1 0 20 14.5z"></path></symbol>
+    <symbol id="icon-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"></path></symbol>
+    <symbol id="icon-edit" viewBox="0 0 24 24"><path d="M15.5 5.5l3 3M4 20l1-4L16 5a1.8 1.8 0 0 1 2.6 0l.4.4a1.8 1.8 0 0 1 0 2.6L8 19z"></path></symbol>
+    <symbol id="icon-save" viewBox="0 0 24 24"><path d="M5 5h11l3 3v11H5zM8 5v5h7V5M8 19v-5h8v5"></path></symbol>
+    <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15"></path></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"></path></symbol>
+    <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="M9.5 5.5L16 12l-6.5 6.5"></path></symbol>
+    <symbol id="icon-file" viewBox="0 0 24 24"><path d="M6 3.5h7L18.5 9v11.5h-13zM13 3.5V9h5.5"></path></symbol>
+    <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2.5h8a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z"></path></symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></symbol>
+    <symbol id="icon-folder-plus" viewBox="0 0 24 24"><path d="M20.5 13V9a1.5 1.5 0 0 0-1.5-1.5h-8L9 5H5a1.5 1.5 0 0 0-1.5 1.5v11A1.5 1.5 0 0 0 5 19h8"></path><path d="M17.5 15v6M14.5 18h6"></path></symbol>
+    <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"></circle><circle cx="18" cy="12" r="1.4" fill="currentColor" stroke="none"></circle></symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13M10.5 10.5v6M13.5 10.5v6"></path></symbol>
+    <symbol id="icon-link" viewBox="0 0 24 24"><path d="M10.5 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1.5 1.5"></path><path d="M13.5 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5L12 17"></path></symbol>
+    <symbol id="icon-image" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l4.5-4.5 3.5 3.5 3-3 5 5"></path></symbol>
+    <symbol id="icon-code" viewBox="0 0 24 24"><path d="M9 8l-4.5 4L9 16M15 8l4.5 4L15 16"></path></symbol>
+    <symbol id="icon-braces" viewBox="0 0 24 24"><path d="M9.5 4.5C7.5 4.5 8 9 8 10s-.5 2-2 2c1.5 0 2 1 2 2s-.5 5.5 1.5 5.5M14.5 4.5c2 0 1.5 4.5 1.5 5.5s.5 2 2 2c-1.5 0-2 1-2 2s.5 5.5-1.5 5.5"></path></symbol>
+    <symbol id="icon-heading" viewBox="0 0 24 24"><path d="M5 5v14M13 5v14M5 12h8M16.5 19v-6.5l-2 1.3"></path></symbol>
+    <symbol id="icon-list" viewBox="0 0 24 24"><path d="M9 7h11M9 12h11M9 17h11"></path><circle cx="5" cy="7" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="5" cy="17" r="1.2" fill="currentColor" stroke="none"></circle></symbol>
+    <symbol id="icon-list-ordered" viewBox="0 0 24 24"><path d="M10 7h10M10 12h10M10 17h10M4.2 5.6L5.5 5v3.6M3.9 12.2c0-.6.5-1 1.1-1s1.1.4 1.1 1c0 1-2.2 1.5-2.2 3h2.4M4 15.9h1.2c.6 0 1 .4 1 .9s-.4.9-1 .9H4.2h1c.6 0 1 .4 1 .9s-.4.9-1 .9H4"></path></symbol>
+    <symbol id="icon-quote" viewBox="0 0 24 24"><path d="M9 6.5C6.5 8 5.5 10 5.5 12.5V18h5v-5.5h-3c0-1.8.6-3.2 2.3-4.4zM20 6.5c-2.5 1.5-3.5 3.5-3.5 6V18h5v-5.5h-3c0-1.8.6-3.2 2.3-4.4z"></path></symbol>
+    <symbol id="icon-hr" viewBox="0 0 24 24"><path d="M4 12h16"></path></symbol>
+    <symbol id="icon-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"></path></symbol>
+    <symbol id="icon-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"></circle><path d="M5 20a7 7 0 0 1 14 0"></path></symbol>
+    <symbol id="icon-logout" viewBox="0 0 24 24"><path d="M14 5.5H6.5A1.5 1.5 0 0 0 5 7v10a1.5 1.5 0 0 0 1.5 1.5H14M12 12h8M17 8.5l3.5 3.5L17 15.5"></path></symbol>
+    <symbol id="icon-toc" viewBox="0 0 24 24"><path d="M4 6h16M7 11h13M7 16h9"></path></symbol>
+    <symbol id="icon-keyboard-down" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="9" rx="1.5"></rect><path d="M7 8h.01M11 8h.01M15 8h.01M17 8h.01M8 11h8M8.5 17.5l3.5 3 3.5-3"></path></symbol>
+    <symbol id="icon-external" viewBox="0 0 24 24"><path d="M13 5h6v6M19 5l-8 8M18 14v4.5A1.5 1.5 0 0 1 16.5 20h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"></path></symbol>
+    <symbol id="icon-columns" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"></rect><path d="M12 5v14"></path></symbol>
+    <symbol id="icon-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12z"></path><circle cx="12" cy="12" r="2.8"></circle></symbol>
+    <symbol id="icon-warn" viewBox="0 0 24 24"><path d="M12 4.5l8.5 15h-17zM12 10v4.5M12 17h.01"></path></symbol>
+    <symbol id="icon-filter" viewBox="0 0 24 24"><path d="M4 6h16l-6.2 7.3V19l-3.6-2v-3.7z"></path></symbol>
+</svg>
+{{end}}

@@ -1,0 +1,59 @@
+{{template "doc-head" .}}
+<body class="page page-dir">
+{{template "sprite" .}}
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="app">
+    {{template "topbar-start" .}}
+        {{if not .ReadOnly}}
+            <button class="btn btn-secondary" type="button" data-new-page="{{.CurrentPath}}" aria-label="New page">
+                <svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>
+                <span class="btn-text">New page</span>
+            </button>
+        {{end}}
+    {{template "topbar-end" .}}
+    <div class="app-body">
+        {{template "sidebar" .}}
+        <div class="scrim" data-drawer-close></div>
+        <main class="main" id="main" tabindex="-1">
+            {{if .HasReadme}}
+                <article class="doc dir-readme" id="doc" data-path="{{.CurrentPath}}">
+                    {{.Readme}}
+                </article>
+            {{else}}
+                <h1 class="dir-title">{{.Title}}</h1>
+            {{end}}
+            <section class="dir-list" aria-label="Folder contents">
+                <h2 class="dir-list-title">{{len .Entries}} item{{if ne (len .Entries) 1}}s{{end}}</h2>
+                {{if .Entries}}
+                    <ul class="entries">
+                        {{range .Entries}}
+                            <li class="entry{{if .IsDir}} entry-dir{{end}}">
+                                <a class="entry-link" href="{{.URL}}">
+                                    <svg class="icon entry-icon" aria-hidden="true">
+                                        <use href="{{if .IsDir}}#icon-folder{{else}}#icon-file{{end}}"></use>
+                                    </svg>
+                                    <span class="entry-name">{{.Name}}</span>
+                                    <span class="entry-meta">
+                                        {{if not .IsDir}}<span class="entry-size" data-bytes="{{.Size}}">{{.Size}} B</span>{{end}}
+                                        <time datetime="{{.ModTime.Format "2006-01-02T15:04:05Z07:00"}}">{{.ModTime.Format "2 Jan 2006"}}</time>
+                                    </span>
+                                    <svg class="icon entry-go" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                                </a>
+                            </li>
+                        {{end}}
+                    </ul>
+                {{else}}
+                    <div class="empty empty-inline">
+                        <p class="empty-title">This folder is empty</p>
+                        {{if not .ReadOnly}}
+                            <div class="empty-actions">
+                                <button class="btn btn-primary" type="button" data-new-page="{{.CurrentPath}}">Create a page here</button>
+                            </div>
+                        {{end}}
+                    </div>
+                {{end}}
+            </section>
+        </main>
+    </div>
+</div>
+{{template "chrome-tail" .}}

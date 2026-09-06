@@ -1,0 +1,98 @@
+name: build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+    paths-ignore:
+      - "**.md"
+  pull_request:
+    paths-ignore:
+      - "**.md"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test and lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: check out code
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: set up go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+
+      - name: test
+        run: |
+          go test -v -race -timeout=180s -covermode=atomic -coverprofile=profile.cov_tmp ./...
+          grep -v "_mock.go" profile.cov_tmp | grep -v mocks > profile.cov
+          go tool cover -func=profile.cov | tail -1
+
+      - name: build
+        run: go build -race ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.7.2
+
+  docker:
+    name: docker
+    needs: test
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: check out code
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: set up docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: compute image tags
+        id: meta
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          tags="${image}:${REF_NAME//\//_}"
+          if [ "$IS_TAG" = "true" ]; then
+            tags="${tags},${image}:latest"
+          fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+
+      # go cross-compiles inside the Dockerfile, so one runner covers both
+      # architectures and no digest merge step is needed
+      - name: build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            CI=github
+            GIT_BRANCH=${{ github.ref_name }}
+            GITHUB_SHA=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

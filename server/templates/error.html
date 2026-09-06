@@ -1,0 +1,27 @@
+{{template "doc-head" .}}
+<body class="page page-error">
+{{template "sprite" .}}
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="app">
+    {{template "topbar-start" .}}
+    {{template "topbar-end" .}}
+    <div class="app-body">
+        {{template "sidebar" .}}
+        <div class="scrim" data-drawer-close></div>
+        <main class="main" id="main" tabindex="-1">
+            <div class="empty empty-error">
+                <p class="error-code">{{.Code}}</p>
+                <h1 class="empty-title">{{.Message}}</h1>
+                {{if .CurrentPath}}<p class="empty-path"><code>{{.CurrentPath}}</code></p>{{end}}
+                <div class="empty-actions">
+                    <a class="btn btn-ghost" href="/">Go home</a>
+                    <a class="btn btn-secondary" href="/search" data-palette-open>Search</a>
+                    {{if and (eq .Code 404) .CurrentPath (not .ReadOnly)}}
+                        <a class="btn btn-primary" href="/edit/{{.CurrentPath}}">Create this page</a>
+                    {{end}}
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{{template "chrome-tail" .}}

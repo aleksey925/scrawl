@@ -1,0 +1,65 @@
+{{/*
+LoginPage carries no Base, so this page builds its own document shell instead
+of reusing "doc-head". It works with JavaScript disabled: a plain POST form.
+*/}}
+<!DOCTYPE html>
+<html lang="en" data-theme="{{.Theme}}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#161618" media="(prefers-color-scheme: dark)">
+    <meta name="robots" content="noindex">
+    <title>Sign in - {{.SiteTitle}}</title>
+    <link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/{{.Version}}/css/style.css">
+    <script>
+        (function () {
+            document.documentElement.classList.add('js');
+            try {
+                var m = document.cookie.match(/(?:^|;\s*)theme=(light|dark|auto)/);
+                if (m) { document.documentElement.setAttribute('data-theme', m[1]); }
+            } catch (e) { /* cookies disabled, keep the server value */ }
+        })();
+    </script>
+</head>
+<body class="page page-login">
+{{template "sprite" .}}
+<button class="icon-btn login-theme" type="button" data-theme-toggle aria-label="Theme: system">
+    <svg class="icon icon-theme-auto" aria-hidden="true"><use href="#icon-auto"></use></svg>
+    <svg class="icon icon-theme-light" aria-hidden="true"><use href="#icon-sun"></use></svg>
+    <svg class="icon icon-theme-dark" aria-hidden="true"><use href="#icon-moon"></use></svg>
+</button>
+<main class="login" id="main">
+    <form class="login-card" method="post" action="/login">
+        <svg class="login-logo" aria-hidden="true"><use href="#icon-logo"></use></svg>
+        <h1 class="login-title">{{.SiteTitle}}</h1>
+        <p class="login-sub">Sign in to read and edit</p>
+
+        {{if .Error}}
+            <p class="login-error" role="alert">
+                <svg class="icon" aria-hidden="true"><use href="#icon-warn"></use></svg>
+                <span>{{.Error}}</span>
+            </p>
+        {{end}}
+
+        <input type="hidden" name="from" value="{{.From}}">
+
+        <label class="field">
+            <span class="field-label">Username</span>
+            <input class="input" type="text" name="username" autocomplete="username"
+                   autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus>
+        </label>
+
+        <label class="field">
+            <span class="field-label">Password</span>
+            <input class="input" type="password" name="password" autocomplete="current-password" required>
+        </label>
+
+        <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+    </form>
+</main>
+<script type="module" src="/static/{{.Version}}/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+title: Опасный документ
+toc:
+  h1 #опасный-документ Опасный документ
+---
+<h1 id="опасный-документ">Опасный документ</h1>
+
+
+
+
+
+
+<img src="/raw/docs/x" loading="lazy" decoding="async">
+js
+js mixed case
+data url
+
+<div>клик</div>
+<p>ссылка</p>
+

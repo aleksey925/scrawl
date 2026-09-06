@@ -1,0 +1,25 @@
+title: details-images
+toc:
+---
+<blockquote>
+<p>визуализации.</p>
+</blockquote>
+<blockquote>
+<p>Ещё необходимо понимать, что в действительности в таблице хранится указатель
+на объект python`а, а не как изображено.</p>
+</blockquote>
+<details>
+    <summary>Показать слайды</summary>
+<p><img src="/raw/docs/python-notes-index/dict/impl-dict-in-cpython/add-new-element-1.jpg" alt="" loading="lazy" decoding="async">
+<img src="/raw/docs/python-notes-index/dict/impl-dict-in-cpython/add-new-element-2.jpg" alt="" loading="lazy" decoding="async">
+<img src="/raw/docs/python-notes-index/dict/impl-dict-in-cpython/add-new-element-3.jpg" alt="" loading="lazy" decoding="async">
+<img src="/raw/docs/python-notes-index/dict/impl-dict-in-cpython/add-new-element-4.jpg" alt="" loading="lazy" decoding="async">
+<img src="/raw/docs/python-notes-index/dict/impl-dict-in-cpython/add-new-element-5.jpg" alt="" loading="lazy" decoding="async">
+<img src="/raw/docs/python-notes-index/dict/impl-dict-in-cpython/add-new-element-6.jpg" alt="" loading="lazy" decoding="async">
+<img src="/raw/docs/python-notes-index/dict/impl-dict-in-cpython/add-new-element-7.jpg" alt="" loading="lazy" decoding="async">
+<img src="/raw/docs/python-notes-index/dict/impl-dict-in-cpython/add-new-element-8.jpg" alt="" loading="lazy" decoding="async">
+<img src="/raw/docs/python-notes-index/dict/impl-dict-in-cpython/add-new-element-9.jpg" alt="" loading="lazy" decoding="async">
+<img src="/raw/docs/python-notes-index/dict/impl-dict-in-cpython/add-new-element-10.jpg" alt="" loading="lazy" decoding="async"></p>
+</details>
+<p>На данных слайдах изображен идеальный случай заполнения словаря, потому что
+у нас не возникло коллизий (не было ситуаций, когда для разных значений</p>

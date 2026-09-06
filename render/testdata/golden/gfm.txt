@@ -1,0 +1,37 @@
+title: GFM
+toc:
+  h1 #gfm GFM
+---
+<h1 id="gfm">GFM</h1>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th align="left">Слева</th>
+<th align="center">По центру</th>
+<th align="right">Справа</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left">a</td>
+<td align="center">b</td>
+<td align="right">c</td>
+</tr>
+</tbody>
+</table>
+</div>
+<ul>
+<li><input disabled="" type="checkbox"> не сделано</li>
+<li><input checked="" disabled="" type="checkbox"> сделано</li>
+</ul>
+<p><del>зачёркнуто</del>, а тут голая ссылка <a href="https://example.com/path" target="_blank" rel="noopener noreferrer nofollow">https://example.com/path</a> и <a href="http://www.example.com" target="_blank" rel="noopener noreferrer nofollow">www.example.com</a></p>
+<p>Сноска<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
+<div class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1">
+<p>текст сноски <a href="#fnref:1" class="footnote-backref" role="doc-backlink">↩︎</a></p>
+</li>
+</ol>
+</div>

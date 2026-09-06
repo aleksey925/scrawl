@@ -17,7 +17,8 @@ server/templates/      html/template pages, parsed as one set
 server/assets/         css and js, embedded and served under /static
 server/assets/vendor/  KaTeX and mermaid, checked in, never from a CDN
 e2e/                   playwright suite against a real binary
-testdata/kb/           fixture knowledge base for tests and `make run`
+testdata/kb/           fixture knowledge base: tests, `make run`, and the
+                       browser suite when the private corpus is absent
 ```
 
 ## Rules

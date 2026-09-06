@@ -12,4 +12,13 @@ small but covers every markdown feature the renderer has to handle.
 - [Deeply nested page](notes/deep/nested.md)
 - [Missing page](does-not-exist.md) - deliberately broken link
 
+## Базы данных
+
+Папка без своего индекса, четыре документа на русском языке:
+
+- [Хранение данных](db/storage.md) - длинная страница с оглавлением
+- [Очистка](db/vacuum.md)
+- [Репликация](db/replication.md)
+- [Блокировки](db/locks.md)
+
 ![Logo](images/logo.png)

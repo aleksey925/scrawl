@@ -2,12 +2,13 @@ const {expect, test} = require('@playwright/test');
 
 const fs = require('fs');
 
+const docs = require('../support/docs');
 const {
     MAIN, expectNoHorizontalScroll, fixtureFile, shot, signIn, writeFixture,
 } = require('../support/helpers');
 
 const MIN_TAP = 40;
-const DOC = 'db/postgresql.md';
+const DOC = docs.doc.path;
 const SCRATCH = 'e2e-mobile/zametka.md';
 
 // tooSmall reports every element of a selector that is under the minimum touch
@@ -57,11 +58,12 @@ test.describe('mobile', () => {
         await expect.poll(drawerLeft).toBeLessThanOrEqual(0);
 
         await page.locator('.topbar-burger').tap();
-        await sidebar.locator('details.tree-dir[data-path="db"] summary .tree-twisty').tap();
-        await sidebar.locator('.tree-link[href="/p/db/postgresql.md"]').tap();
+        await sidebar.locator(
+            `details.tree-dir[data-path="${docs.doc.folder}"] summary .tree-twisty`).tap();
+        await sidebar.locator(`.tree-link[href="/p/${DOC}"]`).tap();
 
         await expect(page).toHaveURL(new RegExp(`/p/${DOC}$`));
-        await expect(page.locator('#doc h1').first()).toContainText('PostgreSQL');
+        await expect(page.locator('#doc h1').first()).toContainText(docs.doc.title);
         await expect(page.locator('body')).not.toHaveClass(/drawer-open/);
         await shot(page, 'mobile-after-navigation');
     });
@@ -136,9 +138,9 @@ test.describe('mobile', () => {
         const routes = [
             '/',
             `/p/${DOC}`,
-            '/p/python/libs-docs/sqlalchemy-tutorial.md',
-            '/p/python/libs-docs/',
-            `/search?q=${encodeURIComponent('индексы')}`,
+            `/p/${docs.deep.path}`,
+            `/p/${docs.folder.path}/`,
+            `/search?q=${encodeURIComponent(docs.search.word)}`,
             '/p/nothing-here.md',
             `/edit/${SCRATCH}`,
         ];
@@ -189,12 +191,12 @@ test.describe('mobile', () => {
         await page.locator('.search-trigger').tap();
 
         await expect(page.locator('#palette')).toBeVisible();
-        await page.locator('#palette-input').fill('sqlalchemy');
+        await page.locator('#palette-input').fill(docs.search.palette.query);
         await expect(page.locator('#palette-results .palette-item').first()).toBeVisible();
         await shot(page, 'mobile-palette');
 
         await page.locator('#palette-results .palette-item').first().tap();
-        await expect(page).toHaveURL(/sqlalchemy-tutorial\.md$/);
+        await expect(page).toHaveURL(new RegExp(`/p/${docs.search.palette.path}$`));
     });
 
     test('the outline sheet opens from the floating pill', async ({page}) => {

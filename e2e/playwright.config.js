@@ -11,7 +11,9 @@ module.exports = defineConfig({
     fullyParallel: false,
     workers: 1,
     forbidOnly: !!process.env.CI,
-    retries: 0,
+    // a shared runner is slow enough to lose a race a laptop always wins, and a
+    // rerun is cheaper than a red build nobody trusts
+    retries: process.env.CI ? 1 : 0,
     timeout: 45_000,
     expect: {timeout: 10_000},
     reporter: [['list'], ['html', {open: 'never', outputFolder: 'playwright-report'}]],

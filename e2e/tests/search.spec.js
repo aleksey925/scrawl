@@ -2,6 +2,7 @@ const {expect, test} = require('@playwright/test');
 
 const fs = require('fs');
 
+const docs = require('../support/docs');
 const {
     fixtureFile, modifier, pressShortcut, shot, signIn, writeFixture,
 } = require('../support/helpers');
@@ -18,7 +19,7 @@ test.describe('search', () => {
         await expect(palette).toBeVisible();
         await expect(page.locator('#palette-input')).toBeFocused();
 
-        await page.locator('#palette-input').fill('индек');
+        await page.locator('#palette-input').fill(docs.search.prefix);
         await expect(page.locator('#palette-results .palette-item').first()).toBeVisible();
         await expect(page.locator('#palette-results .palette-item mark').first()).toBeVisible();
         await shot(page, 'search-palette');
@@ -29,19 +30,19 @@ test.describe('search', () => {
 
     test('enter opens the highlighted hit', async ({page}) => {
         await pressShortcut(page, `${await modifier(page)}+k`);
-        await page.locator('#palette-input').fill('postgresql');
+        await page.locator('#palette-input').fill(docs.search.doc);
         const first = page.locator('#palette-results .palette-item.is-active');
         await expect(first).toBeVisible();
 
         await page.locator('#palette-input').press('Enter');
-        await expect(page).toHaveURL(/\/p\/db\/postgresql\.md$/);
-        await expect(page.locator('#doc h1').first()).toContainText('PostgreSQL');
+        await expect(page).toHaveURL(new RegExp(`/p/${docs.doc.path}$`));
+        await expect(page.locator('#doc h1').first()).toContainText(docs.doc.title);
     });
 
     test('the search page works from a direct url', async ({page}) => {
-        await page.goto(`/search?q=${encodeURIComponent('индексы')}`);
+        await page.goto(`/search?q=${encodeURIComponent(docs.search.word)}`);
 
-        await expect(page.locator('.search-count')).toContainText('индексы');
+        await expect(page.locator('.search-count')).toContainText(docs.search.word);
         const hits = page.locator('.hits .hit');
         expect(await hits.count()).toBeGreaterThan(1);
         await expect(hits.first().locator('.hit-snippet mark').first()).toBeVisible();

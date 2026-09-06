@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1404,6 +1406,19 @@ func TestNoInlineScripts(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestEmptyStyleHashPermitsNothing checks the one relaxation in the policy: the
+// hash is the digest of the empty string, so the only inline style it lets past
+// is style="", and 'unsafe-inline' never sneaks in beside it.
+func TestEmptyStyleHashPermitsNothing(t *testing.T) {
+	// act
+	sum := sha256.Sum256(nil)
+
+	// assert
+	assert.Equal(t, "'sha256-"+base64.StdEncoding.EncodeToString(sum[:])+"'", emptyStyleHash)
+	assert.Contains(t, contentSecurityPolicy, "style-src 'self' 'unsafe-hashes' "+emptyStyleHash+";")
+	assert.NotContains(t, contentSecurityPolicy, "'unsafe-inline'")
 }
 
 // TestStoreErrorMapping locks the table the store package handed over: every

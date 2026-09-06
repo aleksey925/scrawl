@@ -65,6 +65,15 @@ const (
 	searchAPILimit  = 20
 )
 
+// emptyStyleHash is the sha256 of the empty string, so it permits exactly one
+// inline style: style="". Mermaid writes that attribute onto dozens of svg
+// nodes per diagram, and every one of them was a console error that buried the
+// violations worth reading. It grants nothing - a hash matches the declaration
+// text, and this one matches no declarations at all - and 'unsafe-hashes',
+// which is what makes a hash apply to a style attribute in the first place,
+// still needs a matching hash for any other value.
+const emptyStyleHash = "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='"
+
 // contentSecurityPolicy is strict on purpose: every script and stylesheet the
 // app needs is embedded and served from this origin, and the theme bootstrap
 // lives in boot.js rather than in an inline block, so no nonce and no hash has
@@ -73,7 +82,8 @@ const (
 // Images are the one loose end: a document may embed a remote one, and the
 // stylesheet draws its icons from data: urls.
 const contentSecurityPolicy = "default-src 'none'; base-uri 'none'; form-action 'self'; " +
-	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; style-src 'self'; " +
+	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; " +
+	"style-src 'self' 'unsafe-hashes' " + emptyStyleHash + "; " +
 	"img-src 'self' data: https:; script-src 'self'"
 
 // gzipContentTypes lists what is worth compressing. rest.Gzip decides on the

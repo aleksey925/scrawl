@@ -1,19 +1,22 @@
-# Synology example. Copy to the NAS, adjust the volume path and AUTH_USERS,
-# then `docker compose up -d` (Container Manager -> Project also works).
+# Synology example. Copy this file to the NAS, adjust the volume path, the
+# `user:` line and AUTH_USERS, then `docker compose up -d`. Container Manager ->
+# Project -> "create docker-compose.yml" takes the same file.
+#
+# There is no `build:` section on purpose: the NAS has no source tree, so a
+# build would fail. The image is pulled from ghcr.io, make it a public package
+# or `docker login ghcr.io` on the NAS first. Build it yourself with
+# `make docker` / `make docker-push` from a checkout.
 services:
   mdserver:
-    build:
-      context: .
-      args:
-        - CI=${CI:-}
-        - GIT_BRANCH=${GIT_BRANCH:-}
-        - GITHUB_SHA=${GITHUB_SHA:-}
     image: ghcr.io/aleksey925/mdserver:master
     container_name: mdserver
     hostname: mdserver
     restart: unless-stopped
 
     ports:
+      # host:container. DSM already uses 5000, 5001 and often 8080, so change
+      # the left number if the container refuses to start with "port is
+      # already allocated". Keep the right number in step with LISTEN below
       - "8080:8080"
 
     volumes:
@@ -23,8 +26,12 @@ services:
       # in every backup of the knowledge base
       - mdserver-data:/data
 
-    # the /kb mount is owned by a NAS user, not by the image's uid 1001. set
-    # this to the owner of the share (`id <user>` on the NAS) or writes fail.
+    # THE ONE LINE THAT USUALLY BREAKS A FIRST RUN.
+    # The image runs as uid 1001, the /kb share belongs to a DSM user, and a
+    # uid that does not own the share cannot write to it: every save then comes
+    # back as "forbidden" while reading keeps working. Run `id <dsm-user>` over
+    # ssh on the NAS and put the numbers here (1026:100 is a typical pair),
+    # or leave it commented out and add READ_ONLY=true below.
     # user: "1026:100"
 
     environment:
@@ -32,10 +39,15 @@ services:
       - ROOT=/kb
       - LISTEN=:8080
       - TITLE=Knowledge Base
-      # user:bcryptHash pairs. compose expands $VARS, so every literal dollar
-      # has to be doubled: a hash starting with $2a$ is written $$2a$$.
-      # get a hash with: docker run --rm ghcr.io/aleksey925/mdserver:master --gen-hash 'my-password'
-      - AUTH_USERS=alex:$$2a$$10$$replace.this.with.a.real.bcrypt.hash.value.here.padding
+      # user:bcryptHash pairs, get a hash with
+      #   docker run --rm ghcr.io/aleksey925/mdserver:master --gen-hash 'my-password'
+      # In THIS file every literal dollar has to be doubled, because compose
+      # expands $VARS: a hash printed as $2a$10$xyz is written $$2a$$10$$xyz.
+      # In Container Manager's environment table (the one with a Name and a
+      # Value column) values are taken literally, so paste the hash unchanged
+      # with single dollars. Getting it wrong is not silent: the server refuses
+      # to start and names the problem.
+      - AUTH_USERS=alex:$$2a$$10$$REPLACE_ME
       # cookie signing key. leave it empty to have one generated and kept in
       # AUTH_SECRET_FILE, which is the simpler option; set it only to share the
       # key with another instance
@@ -55,12 +67,8 @@ services:
       # only when a reverse proxy in front terminates TLS
       - TRUSTED_PROXY=false
 
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--spider", "--tries=1", "http://127.0.0.1:8080/ping"]
-      interval: 30s
-      timeout: 3s
-      start_period: 5s
-      retries: 3
+    # the healthcheck (wget on /ping, which needs no auth) comes from the image,
+    # so Container Manager shows the health column without any setup here
 
     logging:
       driver: json-file

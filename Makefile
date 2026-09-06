@@ -43,12 +43,16 @@ coverage:
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "coverage report: coverage.html"
 
+# .dockerignore drops .git, so the version has to be handed to the build the
+# same way CI does it, otherwise the image reports itself as "local-<date>"
+DOCKER_ARGS=--build-arg CI=make --build-arg GIT_BRANCH=$(BRANCH) --build-arg GITHUB_SHA=$(HASH)
+
 docker:
-	docker build -t $(DOCKER_IMAGE):$(BRANCH) .
+	DOCKER_BUILDKIT=1 docker build $(DOCKER_ARGS) -t $(DOCKER_IMAGE):$(BRANCH) .
 
 # multi-arch image for Synology NAS, amd64 and arm64 in one manifest
 docker-push:
-	docker buildx build --platform linux/amd64,linux/arm64 -t $(DOCKER_IMAGE):$(BRANCH) --push .
+	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKER_ARGS) -t $(DOCKER_IMAGE):$(BRANCH) --push .
 
 version:
 	@echo "branch: $(BRANCH), hash: $(HASH), timestamp: $(TIMESTAMP)"

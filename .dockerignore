@@ -3,6 +3,7 @@
 .idea
 .vscode
 .agentbox
+.bin
 dist
 var
 node_modules
@@ -11,3 +12,6 @@ e2e
 !README.md
 docker-compose.yml
 coverage.out
+coverage.html
+profile.cov
+*.test

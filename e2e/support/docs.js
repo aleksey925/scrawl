@@ -42,7 +42,7 @@ const corpus = {
 
 const repo = {
     name: 'testdata/notes',
-    home: {title: 'Test Knowledge Base'},
+    home: {title: 'Test Notes'},
     doc: {
         path: 'db/storage.md',
         title: 'Хранение данных',

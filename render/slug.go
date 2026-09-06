@@ -1,4 +1,4 @@
-// Package render turns knowledge-base markdown into sanitized HTML: heading
+// Package render turns a page's markdown into sanitized HTML: heading
 // anchors that survive Cyrillic, links rewritten onto the app routes, a table
 // of contents and server-side syntax highlighting.
 package render

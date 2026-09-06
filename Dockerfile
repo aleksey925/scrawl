@@ -44,14 +44,14 @@ RUN \
 FROM alpine:3.22
 
 LABEL org.opencontainers.image.source="https://github.com/aleksey925/scrawl"
-LABEL org.opencontainers.image.description="markdown knowledge base server"
+LABEL org.opencontainers.image.description="markdown notes server"
 LABEL org.opencontainers.image.licenses="MIT"
 
 # mailcap ships /etc/mime.types, which is where net/http finds the types its
 # own small table lacks. /raw/ has its own allowlist and never consults it, but
 # the embedded assets are served by http.ServeFileFS, and without it the katex
 # .woff2 faces would go out as application/octet-stream.
-# /data is 1777 like /tmp: a bind mounted knowledge base forces `user:` in
+# /data is 1777 like /tmp: a bind mounted notes directory forces `user:` in
 # compose onto the uid of the host share, and that uid still has to be able to
 # write the session key. the sticky bit keeps one uid from removing another's.
 RUN apk add --no-cache ca-certificates tzdata wget mailcap && \
@@ -67,8 +67,8 @@ USER app
 
 EXPOSE 8080
 
-# /notes is the documented mount point for the knowledge base, mount it from the
-# host (`-v /volume1/docs/knowledge-base:/notes`). no VOLUME on purpose: an
+# /notes is the documented mount point for your notes, mount it from the
+# host (`-v /volume1/docs/notes:/notes`). no VOLUME on purpose: an
 # anonymous volume would silently swallow writes when the mount is forgotten.
 # /data holds the generated session key and wants a small named volume; it is
 # deliberately outside /notes, so the key never lands in the tree or in a backup.

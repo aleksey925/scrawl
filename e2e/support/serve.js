@@ -45,7 +45,7 @@ function main() {
     const args = [
         `--root=${inst.root}`,
         `--listen=127.0.0.1:${inst.port}`,
-        '--title=E2E Knowledge Base',
+        '--title=E2E Notes',
         '--dbg',
     ];
     if (inst.readOnly) args.push('--read-only');

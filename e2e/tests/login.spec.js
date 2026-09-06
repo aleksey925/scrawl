@@ -13,7 +13,7 @@ test.describe('login', () => {
         await shot(page, 'login-wrong-password');
     });
 
-    test('accepts the right password and lands on the knowledge base', async ({page}) => {
+    test('accepts the right password and lands on the notes home', async ({page}) => {
         await signIn(page);
 
         await expect(page).toHaveURL(`${MAIN.baseURL}/`);

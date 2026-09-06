@@ -68,7 +68,7 @@ jobs:
         with:
           node-version: "22"
 
-      # no knowledge-base checkout here, so the suite falls back to testdata/notes
+      # no private corpus checkout here, so the suite falls back to testdata/notes
       - name: install playwright
         working-directory: e2e
         run: |

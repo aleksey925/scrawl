@@ -1,4 +1,4 @@
-// Package store is the only place in scrawl that touches the knowledge base
+// Package store is the only place in scrawl that touches the notes
 // directory. Every path it takes is relative to the root, slash-separated and
 // without a leading slash; "" means the root itself. All access goes through
 // os.Root, so escaping the root is impossible by construction instead of by
@@ -11,7 +11,7 @@
 // anything matching Config.Exclude report ErrNotFound from Stat, Read and
 // Open too, so a request for ".git/config" cannot leak a thing.
 //
-// Symlinks are not part of the knowledge base. They are skipped in listings
+// Symlinks are not part of the notes tree. They are skipped in listings
 // and every method reports ErrNotFound for a path with a symlink anywhere in
 // it, checked component by component. Following them would let a link named
 // "docs" pointing at ".git" walk around the ignore rules, and it would make
@@ -49,7 +49,7 @@ const (
 // defaultExcluded are the directory names hidden on top of every dot-entry.
 var defaultExcluded = []string{"node_modules", "__pycache__"}
 
-// FileInfo describes one entry of the knowledge base.
+// FileInfo describes one entry of the notes tree.
 type FileInfo struct {
 	Path    string // relative to the root, slash-separated, no leading slash
 	Name    string // base name, empty for the root itself
@@ -60,7 +60,7 @@ type FileInfo struct {
 
 // Config holds everything the store needs. Only Root is mandatory.
 type Config struct {
-	Root     string   // knowledge base directory
+	Root     string   // notes directory
 	Exclude  []string // extra ignore globs, matched against both the entry name and its path
 	ReadOnly bool     // make every mutating method fail with ErrReadOnly
 
@@ -70,7 +70,7 @@ type Config struct {
 	Rescan   time.Duration // periodic full rescan, 0 means 60s, negative disables it (WatchPoll always rescans)
 }
 
-// Store gives safe access to the knowledge base directory.
+// Store gives safe access to the notes directory.
 type Store struct {
 	cfg  Config
 	dir  string // absolute path of the root, needed by the watcher
@@ -87,7 +87,7 @@ type Store struct {
 	treeDirty bool
 }
 
-// New opens the knowledge base root and sweeps temp files left behind by a
+// New opens the notes root and sweeps temp files left behind by a
 // crash. The returned store must be closed.
 func New(cfg Config) (*Store, error) {
 	dir, err := filepath.Abs(cfg.Root)
@@ -143,7 +143,7 @@ func (s *Store) Close() error {
 	return nil
 }
 
-// Dir returns the absolute path of the knowledge base root.
+// Dir returns the absolute path of the notes root.
 func (s *Store) Dir() string { return s.dir }
 
 // ReadOnly reports whether mutating methods are refused.
@@ -478,7 +478,7 @@ func (s *Store) walkFile(p string, fn func(fi FileInfo, data []byte) error) erro
 // walkFailure decides what a failure on one entry means for the whole walk. A
 // vanished entry is normal on a live directory, and an unreadable one is a
 // deployment problem worth naming rather than a reason to abandon the rest of
-// a knowledge base that reads perfectly well.
+// a tree that reads perfectly well.
 func walkFailure(p string, d fs.DirEntry, err error) error {
 	switch {
 	case errors.Is(err, fs.ErrNotExist), errors.Is(err, ErrNotFound):
@@ -486,7 +486,7 @@ func walkFailure(p string, d fs.DirEntry, err error) error {
 	case errors.Is(err, fs.ErrPermission), errors.Is(err, ErrPermission):
 		name := displayPath(p)
 		if name == "" {
-			name = "the knowledge base root"
+			name = "the notes root"
 		}
 		log.Printf("[WARN] skipping %s: permission denied, it must be readable by the user the server runs as", name)
 		if d != nil && d.IsDir() {

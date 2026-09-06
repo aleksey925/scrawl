@@ -1,8 +1,8 @@
 # scrawl
 
-Single Go binary that serves a directory of markdown files as a
-knowledge base web app with in-browser editing. Runs in Docker, no
-external services, all state on disk.
+Single Go binary that serves a directory of markdown files as a notes
+web app with in-browser editing. Runs in Docker, no external services,
+all state on disk.
 
 ## Layout
 
@@ -17,7 +17,7 @@ server/templates/      html/template pages, parsed as one set
 server/assets/         css and js, embedded and served under /static
 server/assets/vendor/  KaTeX and mermaid, checked in, never from a CDN
 e2e/                   playwright suite against a real binary
-testdata/notes/        fixture knowledge base: tests, `make run`, and the
+testdata/notes/        sample notes: tests, `make run`, and the
                        browser suite when the private corpus is absent
 ```
 

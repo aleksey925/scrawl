@@ -87,7 +87,7 @@ func (t *linkTransformer) resolve(dest, dir string) target {
 
 	clean := path.Join(dir, u.Path)
 	if clean == ".." || strings.HasPrefix(clean, "../") {
-		// escapes the knowledge base root, so there is nothing to point at
+		// escapes the notes root, so there is nothing to point at
 		return target{dest: "#", broken: true}
 	}
 	if clean == "." {

@@ -52,7 +52,7 @@ func notesFiles() map[string]string {
 	}
 }
 
-// makeTree builds a knowledge base in a temp directory and plants a secret
+// makeTree builds a notes tree in a temp directory and plants a secret
 // next to it, so a traversal that works is visible in the assertion. A key
 // ending with a slash makes an empty directory.
 func makeTree(t *testing.T, files map[string]string) string {

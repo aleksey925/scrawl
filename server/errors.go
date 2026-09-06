@@ -89,5 +89,5 @@ func statusMessage(status int) string {
 // permissionMessage names the cause a bare "forbidden" hides. On a NAS the
 // container almost always runs as a uid that does not own the mounted folder,
 // and that is the one failure the owner has to be told about in full.
-const permissionMessage = "permission denied by the filesystem, the knowledge base folder must be " +
+const permissionMessage = "permission denied by the filesystem, the notes folder must be " +
 	"readable and writable by the user the server runs as"

@@ -28,7 +28,7 @@ const (
 	// WatchAuto watches with inotify plus a periodic rescan, and degrades to
 	// polling when the kernel runs out of watches. It is the default.
 	WatchAuto WatchMode = "auto"
-	// WatchPoll only rescans. Pick it for a knowledge base on a network share,
+	// WatchPoll only rescans. Pick it for notes on a network share,
 	// where inotify never reports another client's writes, or on a host whose
 	// inotify budget is already spent.
 	WatchPoll WatchMode = "poll"

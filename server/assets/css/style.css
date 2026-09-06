@@ -42,6 +42,8 @@
     --success-subtle: #e8f5ec;
     --warning: #9a6400;
     --warning-subtle: #fdf3e0;
+    --important: #8250df;
+    --important-subtle: #f5efff;
 
     /* --- syntax highlighting (chroma.css maps its classes onto these) --- */
     --hl-comment: #6a737d;
@@ -168,6 +170,8 @@
         --success-subtle: #14301c;
         --warning: #ffb340;
         --warning-subtle: #3a2c12;
+        --important: #bf8cff;
+        --important-subtle: #2a1f3d;
 
         --hl-comment: #7f848e;
         --hl-keyword: #c678dd;
@@ -219,6 +223,8 @@
     --success-subtle: #14301c;
     --warning: #ffb340;
     --warning-subtle: #3a2c12;
+    --important: #bf8cff;
+    --important-subtle: #2a1f3d;
 
     --hl-comment: #7f848e;
     --hl-keyword: #c678dd;
@@ -1501,6 +1507,190 @@ html.js .doc img { cursor: zoom-in; }
 .doc th:first-child, .doc td:first-child { padding-left: 0; }
 
 .doc th:last-child, .doc td:last-child { padding-right: 0; }
+
+/* --- alerts ------------------------------------------------------------- */
+
+/* the icons are masks rather than sprite <use> elements because the renderer
+   emits the alert with no svg in it, and an icon injected by javascript would
+   be missing from the page a reader gets with scripting off */
+:root {
+    --icon-note: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.6'/%3E%3Cpath d='M12 11.2v5.4M12 7.7h.01'/%3E%3C/svg%3E");
+    --icon-tip: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3a6 6 0 0 0-3.6 10.8V17h7.2v-3.2A6 6 0 0 0 12 3z'/%3E%3Cpath d='M9.6 20h4.8'/%3E%3C/svg%3E");
+    --icon-important: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.5 5.5v8.6a1.5 1.5 0 0 1-1.5 1.5h-6.4L8 20v-4.4H5a1.5 1.5 0 0 1-1.5-1.5V5.5A1.5 1.5 0 0 1 5 4h14a1.5 1.5 0 0 1 1.5 1.5z'/%3E%3Cpath d='M12 6.8v4.2M12 13.4h.01'/%3E%3C/svg%3E");
+    --icon-warning: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4.2l8.8 15.4H3.2z'/%3E%3Cpath d='M12 10v4.4M12 17.2h.01'/%3E%3C/svg%3E");
+    --icon-caution: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.6 3.5h6.8l4.9 4.9v6.8l-4.9 4.9H8.6l-4.9-4.9V8.4z'/%3E%3Cpath d='M12 7.6v4.8M12 15.8h.01'/%3E%3C/svg%3E");
+}
+
+.doc .alert {
+    --alert-color: var(--accent);
+    --alert-icon: var(--icon-note);
+    margin: 0 0 var(--s-4);
+    padding-left: var(--s-4);
+    border-left: 4px solid var(--alert-color);
+}
+
+.doc .alert-tip { --alert-color: var(--success); --alert-icon: var(--icon-tip); }
+
+.doc .alert-important { --alert-color: var(--important); --alert-icon: var(--icon-important); }
+
+.doc .alert-warning { --alert-color: var(--warning); --alert-icon: var(--icon-warning); }
+
+.doc .alert-caution { --alert-color: var(--danger); --alert-icon: var(--icon-caution); }
+
+.doc .alert > *:last-child { margin-bottom: 0; }
+
+.doc .alert-title {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    margin-bottom: var(--s-2);
+    color: var(--alert-color);
+    font-size: var(--fs-ui);
+    font-weight: var(--fw-semibold);
+    line-height: var(--lh-ui);
+}
+
+.doc .alert-title::before {
+    content: "";
+    flex: none;
+    width: 1.15em;
+    height: 1.15em;
+    background: currentColor;
+    -webkit-mask: var(--alert-icon) center / contain no-repeat;
+    mask: var(--alert-icon) center / contain no-repeat;
+}
+
+/* --- footnotes ---------------------------------------------------------- */
+
+.doc .footnote-ref { font-size: .75em; line-height: 0; }
+
+.doc .footnote-ref a {
+    padding: 0 .1em;
+    font-variant-numeric: tabular-nums;
+    text-decoration: none;
+}
+
+.doc .footnote-ref a:hover { text-decoration: underline; }
+
+.doc section.footnotes {
+    margin-top: var(--s-10);
+    padding-top: var(--s-5);
+    border-top: 1px solid var(--border);
+    color: var(--text-2);
+    font-size: var(--fs-small);
+}
+
+.doc section.footnotes h2,
+.doc section.footnotes h3 {
+    margin: 0 0 var(--s-3);
+    padding-top: 0;
+    border-top: 0;
+    color: var(--text-3);
+    font-size: var(--fs-eyebrow);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.doc section.footnotes ol { padding-left: 22px; }
+
+.doc section.footnotes li + li { margin-top: var(--s-2); }
+
+.doc section.footnotes li > *:last-child { margin-bottom: 0; }
+
+.doc .footnote-back {
+    margin-left: .3em;
+    color: var(--text-3);
+    text-decoration: none;
+}
+
+.doc .footnote-back:hover { color: var(--accent); }
+
+/* a fragment jump lands with nothing to look at, so both ends of a footnote
+   link tint themselves while they are the target */
+.doc section.footnotes li:target,
+.doc .footnote-ref a:target {
+    border-radius: var(--r-sm);
+    background: var(--accent-subtle);
+    box-shadow: 0 0 0 4px var(--accent-subtle);
+}
+
+/* --- math --------------------------------------------------------------- */
+
+/* until katex has run the element holds the raw TeX. Monospace at close to the
+   final size keeps the swap small; math.js pins the scroll for the rest */
+.doc .math {
+    font-family: var(--font-mono);
+    font-size: .9em;
+}
+
+.doc .math-display {
+    display: block;
+    margin: var(--s-5) 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    text-align: center;
+}
+
+.doc .math.is-typeset { font-family: inherit; font-size: inherit; }
+
+.doc .katex { font-size: 1.1em; }
+
+.doc .math-display .katex-display { margin: 0; padding: var(--s-1) 0; }
+
+/* --- diagrams ----------------------------------------------------------- */
+
+/* with scripting off the fence stays what the renderer sent, a code block
+   holding the diagram source; diagram.js wraps it and swaps in the svg */
+.doc pre.mermaid { color: var(--text-2); }
+
+.doc .diagram { margin: 0 0 var(--s-4); }
+
+.doc .diagram > pre.mermaid { margin: 0; }
+
+.doc .diagram-view { display: none; }
+
+.doc .diagram.is-pending > pre.mermaid,
+.doc .diagram.is-done > pre.mermaid { display: none; }
+
+.doc .diagram.is-pending > .diagram-view,
+.doc .diagram.is-done > .diagram-view { display: block; }
+
+.doc .diagram.is-pending > .diagram-view {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 140px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--bg-inset);
+    color: var(--text-3);
+    font-size: var(--fs-small);
+}
+
+.doc .diagram.is-pending > .diagram-view::after {
+    content: "Rendering diagram";
+    animation: diagram-pulse 1.4s var(--ease-in-out) infinite;
+}
+
+@keyframes diagram-pulse {
+    0%, 100% { opacity: .45; }
+    50% { opacity: 1; }
+}
+
+.doc .diagram.is-done > .diagram-view {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    text-align: center;
+}
+
+.doc .diagram-view svg { max-width: 100%; height: auto; }
+
+.doc .diagram-error {
+    margin: var(--s-2) 0 0;
+    color: var(--danger);
+    font-size: var(--fs-small);
+}
 
 /* --- document footer ---------------------------------------------------- */
 

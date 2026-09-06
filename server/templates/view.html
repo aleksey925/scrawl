@@ -43,7 +43,7 @@
                 </footer>
             {{end}}
         </main>
-        {{if ge (len .TOC) 3}}
+        {{if .ShowTOC}}
             <aside class="toc-rail" id="toc-rail" aria-labelledby="toc-title">
                 <button class="icon-btn toc-sheet-close" type="button" data-toc-close aria-label="Close outline">
                     <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
@@ -53,7 +53,7 @@
         {{end}}
     </div>
 </div>
-{{if ge (len .TOC) 3}}
+{{if .ShowTOC}}
     <button class="toc-pill" type="button" data-toc-toggle aria-expanded="false" aria-controls="toc-rail">
         <svg class="icon" aria-hidden="true"><use href="#icon-toc"></use></svg>
         <span>Contents</span>

@@ -67,10 +67,12 @@ func (wb *Web) documentPage(w http.ResponseWriter, r *http.Request, docPath stri
 		return
 	}
 
+	toc := railTOC(res.TOC)
 	page := ViewPage{
 		Base:    wb.base(r, res.Title, docPath),
 		Content: res.HTML,
-		TOC:     res.TOC,
+		TOC:     toc,
+		ShowTOC: len(toc) >= minTOCHeadings,
 		Rev:     rev,
 		ModTime: fi.ModTime,
 		EditURL: editURL(docPath),

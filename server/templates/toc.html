@@ -1,7 +1,7 @@
 {{/*
-Outline of the current document. Only H2 and H3 are listed: documents in this
-corpus carry two H1s (the setext title plus a hand written "Contents"), and the
-largest file has 112 headings, which is unusable as a flat rail.
+Outline of the current document. The page hands over the headings the rail
+lists and nothing else, so a level that is not rendered here cannot make the
+rail appear either.
 */}}
 
 {{define "toc"}}
@@ -9,8 +9,7 @@ largest file has 112 headings, which is unusable as a flat rail.
     <p class="toc-title" id="toc-title">On this page</p>
     <ul class="toc-list">
         {{range .TOC}}
-            {{if eq .Level 2}}<li class="toc-item toc-l2"><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}
-            {{if eq .Level 3}}<li class="toc-item toc-l3"><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}
+            <li class="toc-item toc-l{{.Level}}"><a href="#{{.ID}}">{{.Text}}</a></li>
         {{end}}
     </ul>
     <a class="toc-top" href="#main" data-back-to-top>

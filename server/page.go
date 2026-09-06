@@ -51,15 +51,38 @@ type Base struct {
 	CurrentPath string
 }
 
-// ViewPage renders one markdown document.
+// ViewPage renders one markdown document. TOC holds only the headings the rail
+// lists, and ShowTOC decides whether it is rendered at all, so the two cannot
+// disagree and leave an empty rail behind.
 type ViewPage struct {
 	Base
 	Content template.HTML
 	TOC     []render.Heading
+	ShowTOC bool
 	Rev     string
 	ModTime time.Time
 	EditURL string
 	Missing bool
+}
+
+// tocLevels are the heading levels the outline rail lists. Documents in this
+// corpus carry two h1s (the setext title plus a hand written "Contents") and
+// the largest one has 112 headings, which is unusable as a flat rail.
+var tocLevels = []int{2, 3}
+
+// minTOCHeadings is how many listed headings a document needs before the rail
+// earns the space it takes.
+const minTOCHeadings = 3
+
+// railTOC keeps the headings the rail renders.
+func railTOC(headings []render.Heading) []render.Heading {
+	res := make([]render.Heading, 0, len(headings))
+	for _, item := range headings {
+		if slices.Contains(tocLevels, item.Level) {
+			res = append(res, item)
+		}
+	}
+	return res
 }
 
 // DirEntry is one row of a directory listing.

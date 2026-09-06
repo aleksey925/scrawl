@@ -47,7 +47,10 @@ LABEL org.opencontainers.image.source="https://github.com/aleksey925/mdserver"
 LABEL org.opencontainers.image.description="markdown knowledge base server"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# mailcap ships /etc/mime.types, used when serving raw attachments.
+# mailcap ships /etc/mime.types, which is where net/http finds the types its
+# own small table lacks. /raw/ has its own allowlist and never consults it, but
+# the embedded assets are served by http.ServeFileFS, and without it the katex
+# .woff2 faces would go out as application/octet-stream.
 # /data is 1777 like /tmp: a bind mounted knowledge base forces `user:` in
 # compose onto the uid of the host share, and that uid still has to be able to
 # write the session key. the sticky bit keeps one uid from removing another's.

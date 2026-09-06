@@ -7,23 +7,26 @@ external services, all state on disk.
 ## Layout
 
 ```
-main.go            config (go-flags + env), wiring, graceful shutdown
-store/             safe filesystem access, tree, CRUD, watcher
-render/            markdown -> HTML, link rewrite, TOC, highlighting
-search/            in-memory full-text index
-auth/              users, sessions, middleware, CSRF, rate limit
-server/            HTTP server, handlers, page cache
-server/templates/  html/template pages, parsed as one set
-server/assets/     css and js, embedded and served under /static
-testdata/kb/       fixture knowledge base for tests and `make run`
+main.go                config (go-flags + env), wiring, graceful shutdown
+store/                 safe filesystem access, tree, CRUD, watcher
+render/                markdown -> HTML, link rewrite, TOC, highlighting
+search/                in-memory full-text index
+auth/                  users, sessions, middleware, CSRF, rate limit
+server/                HTTP server, handlers, page cache
+server/templates/      html/template pages, parsed as one set
+server/assets/         css and js, embedded and served under /static
+server/assets/vendor/  KaTeX and mermaid, checked in, never from a CDN
+e2e/                   playwright suite against a real binary
+testdata/kb/           fixture knowledge base for tests and `make run`
 ```
 
 ## Rules
 
 - Go 1.25, module `github.com/aleksey925/mdserver`.
-- Follow umputun's style: `app/` packages, `go-flags` with `env` tags,
-  `go-pkgz/lgr` for logs, `go-pkgz/rest` middlewares, `routegroup` for
-  routing, testify for tests, `moq` for mocks.
+- Follow umputun's style: `go-flags` with `env` tags, `go-pkgz/lgr` for
+  logs, `go-pkgz/rest` middlewares, `routegroup` for routing, testify
+  for tests, `moq` for mocks. Packages are flat at the repository root,
+  there is no `app/` directory.
 - Every filesystem operation goes through `store`, which is built on
   `os.Root`. Never join paths against the OS root anywhere else - path
   traversal has to be impossible by construction.
@@ -60,5 +63,5 @@ testdata/kb/       fixture knowledge base for tests and `make run`
 make build   build the binary
 make test    tests with race detector
 make lint    golangci-lint
-make run     run against ./testdata with auth disabled
+make run     run against ./testdata/kb with auth disabled
 ```

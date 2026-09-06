@@ -7,69 +7,86 @@ TIMESTAMP=$(shell git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%S HEAD
 GIT_REV=$(shell printf "%s-%s-%s" "$(BRANCH)" "$(HASH)" "$(TIMESTAMP)")
 REV=$(if $(filter --,$(GIT_REV)),latest,$(GIT_REV))
 
-BINARY=scrawl
-DOCKER_IMAGE=ghcr.io/aleksey925/scrawl
+VERSION ?= $(REV)
+LDFLAGS = -ldflags "-s -w -X main.revision=$(VERSION)"
+BUILD_FLAGS = -trimpath
 
-.PHONY: all build run test race_test lint fmt coverage docker docker-push version clean help
+BINARY ?= scrawl
+DIST_DIR = dist
+BIN_PATH = $(DIST_DIR)/$(BINARY)
+DOCKER_IMAGE = ghcr.io/aleksey925/scrawl
 
-all: test build
+.PHONY: deps build snapshot install run e2e test race cover lint docker docker-push version clean help
+
+deps:
+	@go mod tidy
+	@go mod vendor
 
 build:
-	go build -trimpath -ldflags "-X main.revision=$(REV) -s -w" -o .bin/$(BINARY) .
+	@CGO_ENABLED=0 go build $(BUILD_FLAGS) $(LDFLAGS) -o $(BIN_PATH) .
+
+snapshot:
+	@goreleaser release --snapshot --skip=publish --clean
+
+install: build
+	@mkdir -p ~/.local/bin
+	@rm -f ~/.local/bin/$(BINARY)
+	@cp $(BIN_PATH) ~/.local/bin/
 
 run:
-	go run . --root=./examples/data --listen=:8080 --auth.disabled --dbg
+	@go run . --root=./examples/data --listen=:8080 --auth.disabled --dbg
+
+e2e: build
+	@cd e2e && npx playwright test
 
 test:
-	go clean -testcache
-	go test -race -coverprofile=coverage.out ./...
-	grep -v "_mock.go" coverage.out | grep -v mocks > coverage_no_mocks.out
-	go tool cover -func=coverage_no_mocks.out
-	rm coverage.out coverage_no_mocks.out
+	@go test -timeout 3m ./...
 
-race_test:
-	go test -race -timeout=120s -count 1 ./...
+race:
+	@go test -race -timeout 3m ./...
+
+cover:
+	go test -race -covermode=atomic -coverprofile=coverage.out.tmp -timeout 3m ./...
+	grep -v "_mock.go" coverage.out.tmp | grep -v mocks > coverage.out
+	@rm -f coverage.out.tmp
+	go tool cover -func=coverage.out | tail -1
+	@echo "---"
+	@echo "HTML report: go tool cover -html=coverage.out"
 
 lint:
-	golangci-lint run ./...
-
-fmt:
-	gofmt -s -w .
-
-coverage:
-	go test -timeout=120s -covermode=count -coverprofile=coverage.out.tmp ./...
-	grep -v "_mock.go" coverage.out.tmp | grep -v mocks > coverage.out
-	rm -f coverage.out.tmp
-	go tool cover -html=coverage.out -o coverage.html
-	@echo "coverage report: coverage.html"
+	@prek run --all-files
 
 # .dockerignore drops .git, so the version has to be handed to the build the
 # same way CI does it, otherwise the image reports itself as "local-<date>"
 DOCKER_ARGS=--build-arg CI=make --build-arg GIT_BRANCH=$(BRANCH) --build-arg GITHUB_SHA=$(HASH)
 
 docker:
-	DOCKER_BUILDKIT=1 docker build $(DOCKER_ARGS) -t $(DOCKER_IMAGE):$(BRANCH) .
+	@DOCKER_BUILDKIT=1 docker build $(DOCKER_ARGS) -t $(DOCKER_IMAGE):$(BRANCH) .
 
 # multi-arch image for Synology NAS, amd64 and arm64 in one manifest
 docker-push:
-	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKER_ARGS) -t $(DOCKER_IMAGE):$(BRANCH) --push .
+	@docker buildx build --platform linux/amd64,linux/arm64 $(DOCKER_ARGS) -t $(DOCKER_IMAGE):$(BRANCH) --push .
 
 version:
 	@echo "branch: $(BRANCH), hash: $(HASH), timestamp: $(TIMESTAMP)"
 	@echo "revision: $(REV)"
 
 clean:
-	rm -rf .bin coverage.out coverage.out.tmp coverage_no_mocks.out coverage.html
+	@rm -rf $(DIST_DIR) coverage.out coverage.out.tmp
 
 help:
 	@echo "targets:"
-	@echo "  build       - build the binary into .bin/$(BINARY)"
+	@echo "  deps        - go mod tidy and go mod vendor"
+	@echo "  build       - build the binary into $(BIN_PATH)"
+	@echo "  snapshot    - local goreleaser build of every platform archive"
+	@echo "  install     - build and copy the binary to ~/.local/bin"
 	@echo "  run         - run against ./examples/data with auth disabled and debug logs"
-	@echo "  test        - tests with race detector plus a coverage summary"
-	@echo "  race_test   - race tests only"
-	@echo "  lint        - golangci-lint run ./..."
-	@echo "  fmt         - gofmt -s -w ."
-	@echo "  coverage    - html coverage report"
+	@echo "  e2e         - playwright browser suite against a freshly built binary"
+	@echo "  test        - tests"
+	@echo "  race        - tests with the race detector"
+	@echo "  cover       - race tests plus a coverage summary"
+	@echo "  lint        - prek run --all-files"
 	@echo "  docker      - local docker image"
 	@echo "  docker-push - multi-arch image (amd64, arm64)"
 	@echo "  version     - show the computed revision"
+	@echo "  clean       - remove build and coverage output"

@@ -48,7 +48,7 @@ module.exports = {
     repoRoot,
     workDir,
     instances,
-    binary: path.join(repoRoot, '.bin', 'scrawl'),
+    binary: path.join(repoRoot, 'dist', 'scrawl'),
     fixture,
     repoFixture,
     user: 'e2e',

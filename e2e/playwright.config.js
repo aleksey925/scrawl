@@ -4,7 +4,7 @@ const {instances} = require('./support/env');
 
 const launcher = require.resolve('./support/serve.js');
 
-// one worker on purpose: both projects drive the same knowledge base on disk,
+// one worker on purpose: both projects drive the same notes tree on disk,
 // and a second worker would rename files under a running test
 module.exports = defineConfig({
     testDir: './tests',

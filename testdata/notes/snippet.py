@@ -8,4 +8,4 @@ def slugify(title: str) -> str:
 
 
 if __name__ == "__main__":
-    print(slugify("Hello Knowledge Base"))
+    print(slugify("Hello Notes"))

@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Node is one entry of the knowledge base tree. Children is empty for files
+// Node is one entry of the notes tree. Children is empty for files
 // and for empty directories.
 type Node struct {
 	FileInfo

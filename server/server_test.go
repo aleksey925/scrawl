@@ -40,7 +40,7 @@ const testUser = "bob"
 
 const testPassword = "s3cret"
 
-// testServer is a whole app over a temporary knowledge base.
+// testServer is a whole app over a temporary notes directory.
 type testServer struct {
 	*Web
 	url  string
@@ -80,7 +80,7 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 
 	wb := &Web{
 		Config: Config{
-			Title:        "Test Knowledge Base",
+			Title:        "Test Notes",
 			Version:      "v1.2.3",
 			ReadOnly:     opts.readOnly,
 			MaxUpload:    64 << 10,
@@ -100,7 +100,7 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 	return &testServer{Web: wb, url: ts.URL, root: root}
 }
 
-// testNotes writes a small knowledge base covering every shape the handlers have
+// testNotes writes a small notes tree covering every shape the handlers have
 // to tell apart: a root index, a directory with its own index, a directory with
 // only a readme, a non-markdown attachment and a Cyrillic document.
 func testNotes(t *testing.T) string {
@@ -385,7 +385,7 @@ func TestHTMLRoutes(t *testing.T) {
 		contains []string
 		location string
 	}{
-		{name: "root index", path: "/", status: http.StatusOK, contains: []string{"Welcome", "Home - Test Knowledge Base"}},
+		{name: "root index", path: "/", status: http.StatusOK, contains: []string{"Welcome", "Home - Test Notes"}},
 		{name: "document", path: "/p/guide.md", status: http.StatusOK, contains: []string{"widgets and gadgets", `id="doc"`}},
 		{name: "document outline", path: "/p/guide.md", status: http.StatusOK, contains: []string{`class="toc"`, "#setup"}},
 		{name: "directory with index", path: "/p/notes/", status: http.StatusOK, contains: []string{"the notes index"}},
@@ -1383,11 +1383,11 @@ func revOf(t *testing.T, ts *testServer, contentPath string) string {
 // thing, so a field a template needs and a handler does not fill shows up here
 // instead of in a browser.
 func TestEveryTemplateExecutes(t *testing.T) {
-	wb := &Web{Config: Config{Title: "Test Knowledge Base", Version: "v1"}}
+	wb := &Web{Config: Config{Title: "Test Notes", Version: "v1"}}
 	require.NoError(t, wb.parseTemplates())
 
 	base := Base{
-		SiteTitle: "Test Knowledge Base",
+		SiteTitle: "Test Notes",
 		Title:     "Guide",
 		User:      "bob",
 		AuthOn:    true,
@@ -1437,7 +1437,7 @@ func TestEveryTemplateExecutes(t *testing.T) {
 		}},
 		{name: "search.html empty", data: SearchPage{Base: base}},
 		{name: "error.html", data: ErrorPage{Base: base, Code: 404, Message: "This page does not exist"}},
-		{name: "login.html", data: LoginPage{SiteTitle: "Test Knowledge Base", Version: "v1", Theme: "auto",
+		{name: "login.html", data: LoginPage{SiteTitle: "Test Notes", Version: "v1", Theme: "auto",
 			Error: "Wrong user name or password", From: "/p/guide.md"}},
 	}
 

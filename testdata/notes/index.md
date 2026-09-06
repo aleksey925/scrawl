@@ -1,4 +1,4 @@
-# Test Knowledge Base
+# Test Notes
 
 Fixture corpus used by `make run` and by the tests. It is deliberately
 small but covers every markdown feature the renderer has to handle.

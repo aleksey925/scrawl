@@ -32,9 +32,9 @@ import (
 var revision = "unknown"
 
 type options struct {
-	Root         string   `short:"r" long:"root" env:"ROOT" default:"/notes" description:"knowledge base root directory"`
+	Root         string   `short:"r" long:"root" env:"ROOT" default:"/notes" description:"notes root directory"`
 	Listen       string   `short:"l" long:"listen" env:"LISTEN" default:":8080" description:"address to listen on"`
-	Title        string   `long:"title" env:"TITLE" default:"Knowledge Base" description:"site title"`
+	Title        string   `long:"title" env:"TITLE" default:"Notes" description:"site title"`
 	ReadOnly     bool     `long:"read-only" env:"READ_ONLY" description:"disable all write endpoints"`
 	Exclude      []string `long:"exclude" env:"EXCLUDE" env-delim:"," description:"extra ignore globs"`
 	MaxUpload    byteSize `long:"max-upload" env:"MAX_UPLOAD" default:"20M" description:"upload size cap"`
@@ -169,7 +169,7 @@ func run(ctx context.Context, opts *options) error {
 		Rescan:   opts.Rescan,
 	})
 	if err != nil {
-		return fmt.Errorf("open knowledge base: %w", err)
+		return fmt.Errorf("open notes directory: %w", err)
 	}
 	defer notes.Close()
 	warnUnwritable(notes)
@@ -238,7 +238,7 @@ func warnUnwritable(notes *store.Store) {
 	}
 }
 
-// indexAll fills the search index from the knowledge base.
+// indexAll fills the search index from the notes directory.
 func indexAll(notes *store.Store, index *search.Index) error {
 	start := time.Now()
 	docs := 0
@@ -286,7 +286,7 @@ func watch(ctx context.Context, notes *store.Store, index *search.Index, srv *se
 	return done
 }
 
-// validate checks the options and returns the absolute knowledge base root.
+// validate checks the options and returns the absolute notes root.
 func validate(opts *options) (string, error) {
 	root, err := filepath.Abs(opts.Root)
 	if err != nil {
@@ -311,7 +311,7 @@ func validate(opts *options) (string, error) {
 	return root, nil
 }
 
-// checkSecretFile refuses a signing key stored inside the knowledge base: it
+// checkSecretFile refuses a signing key stored inside the notes directory: it
 // would show up in the tree, in the search index and in every backup of the
 // corpus, and anybody holding it can forge a session cookie.
 func checkSecretFile(root string, opts *options) error {
@@ -326,7 +326,7 @@ func checkSecretFile(root string, opts *options) error {
 	if secret != root && !strings.HasPrefix(secret, root+string(filepath.Separator)) {
 		return nil
 	}
-	return fmt.Errorf("secret file %q must live outside the knowledge base root %q", opts.Auth.SecretFile, root)
+	return fmt.Errorf("secret file %q must live outside the notes root %q", opts.Auth.SecretFile, root)
 }
 
 // genHash turns a password into a bcrypt hash. "-", which is what --gen-hash

@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// The knowledge base was authored against Python-Markdown 3.8 with
+// The notes were authored against Python-Markdown 3.8 with
 // pymdownx.superfences, md_in_html, a custom "breakless_lists" preprocessor
 // and mdx_linkify. Everything except the three constructs below is either
 // plain CommonMark or covered by a goldmark extension, so this layer stays

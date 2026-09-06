@@ -12,7 +12,7 @@ e2e
 !README.md
 docker-compose.yml
 example
-# the knowledge base the local compose file serves. it sits in the build
+# the notes directory the local compose file serves. it sits in the build
 # context, and it can be large, so keep it out of the image build
 notes
 coverage.out

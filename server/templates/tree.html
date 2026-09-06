@@ -9,7 +9,7 @@ anyway, so nav.js builds it and reads data-readonly on the nav below.
 */}}
 
 {{define "sidebar"}}
-<nav class="sidebar" id="sidebar" aria-label="Knowledge base navigation"{{if .ReadOnly}} data-readonly{{end}}>
+<nav class="sidebar" id="sidebar" aria-label="Notes navigation"{{if .ReadOnly}} data-readonly{{end}}>
     <div class="sidebar-head">
         <span class="sidebar-title">{{.SiteTitle}}</span>
         <button class="icon-btn sidebar-close" type="button" data-drawer-close aria-label="Close navigation">

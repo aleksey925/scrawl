@@ -25,7 +25,7 @@ const (
 // allowedUploads maps an accepted extension to the media types
 // http.DetectContentType may report for it. An upload whose bytes do not match
 // its extension is refused, so a .png that is really a script never lands in
-// the knowledge base.
+// the notes directory.
 var allowedUploads = map[string][]string{
 	".png":  {"image/png"},
 	".jpg":  {"image/jpeg"},

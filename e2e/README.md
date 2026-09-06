@@ -32,7 +32,7 @@ there for both fixtures instead of hard coding another path.
 
 `SCRAWL_E2E_FIXTURE` picks a different tree. Anything but `testdata/notes`
 is taken to be the private corpus or a copy of it, so pointing it at an
-unrelated knowledge base will fail on the first document a spec asks for.
+unrelated notes tree will fail on the first document a spec asks for.
 
 ## Running
 

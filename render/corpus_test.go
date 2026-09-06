@@ -13,7 +13,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-// TestCorpus renders the real knowledge base and checks that every internal
+// TestCorpus renders the real corpus and checks that every internal
 // link and every in-page anchor still resolves. It is skipped unless
 // SCRAWL_CORPUS points at a checkout:
 //

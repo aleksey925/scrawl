@@ -28,7 +28,7 @@ func TestParseOptsDefaults(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/notes", opts.Root)
 	assert.Equal(t, ":8080", opts.Listen)
-	assert.Equal(t, "Knowledge Base", opts.Title)
+	assert.Equal(t, "Notes", opts.Title)
 	assert.Equal(t, byteSize(20<<20), opts.MaxUpload)
 	assert.Equal(t, 720*time.Hour, opts.Auth.TTL)
 	assert.Equal(t, 5*time.Second, opts.Timeouts.ReadHeader)
@@ -75,7 +75,7 @@ func TestParseOptsEnv(t *testing.T) {
 	// arrange
 	t.Setenv("ROOT", "/env-root")
 	t.Setenv("LISTEN", ":7000")
-	t.Setenv("TITLE", "Env Knowledge Base")
+	t.Setenv("TITLE", "Env Notes")
 	t.Setenv("READ_ONLY", "true")
 	t.Setenv("EXCLUDE", "tmp,cache")
 	t.Setenv("MAX_UPLOAD", "1G")
@@ -98,7 +98,7 @@ func TestParseOptsEnv(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/env-root", opts.Root)
 	assert.Equal(t, ":7000", opts.Listen)
-	assert.Equal(t, "Env Knowledge Base", opts.Title)
+	assert.Equal(t, "Env Notes", opts.Title)
 	assert.True(t, opts.ReadOnly)
 	assert.True(t, opts.TrustedProxy)
 	assert.True(t, opts.Dbg)
@@ -281,7 +281,7 @@ func TestCheckSecretFile(t *testing.T) {
 			// assert
 			if tc.refused {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "must live outside the knowledge base root")
+				assert.Contains(t, err.Error(), "must live outside the notes root")
 				return
 			}
 			require.NoError(t, err)

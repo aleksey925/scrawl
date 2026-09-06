@@ -1,7 +1,7 @@
 // global keyboard shortcuts and the cheat sheet
 
 import {isMac, openDialog, qs, qsa} from './dom.js';
-import {closeDrawer, drawerOpen, closeMenu, createPage} from './nav.js';
+import {closeDrawer, drawerOpen, closeMenu} from './nav.js';
 import {openPalette} from './palette.js';
 
 const SHEET = [
@@ -106,12 +106,6 @@ export function initShortcuts() {
                 event.preventDefault();
                 location.href = edit.href;
             }
-            return;
-        }
-
-        if (event.key === 'n' && event.shiftKey) {
-            event.preventDefault();
-            createPage('');
             return;
         }
 

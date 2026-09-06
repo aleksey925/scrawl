@@ -128,7 +128,6 @@ export function initEditor() {
                 ? line.replace(/^(\s*)\d+[.)]\s+/, '$1')
                 : line.replace(/^(\s*)/, '$1' + (i + 1) + '. '));
         }),
-        task: () => eachLine((lines) => lines.map((line) => line.replace(/^(\s*)(?:-\s+)?/, '$1- [ ] '))),
         rule: () => {
             const pos = ta.selectionEnd;
             const lead = pos > 0 && ta.value[pos - 1] !== '\n' ? '\n' : '';

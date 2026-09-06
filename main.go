@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
@@ -19,7 +20,11 @@ import (
 	"github.com/jessevdk/go-flags"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/aleksey925/mdserver/auth"
+	"github.com/aleksey925/mdserver/render"
+	"github.com/aleksey925/mdserver/search"
 	"github.com/aleksey925/mdserver/server"
+	"github.com/aleksey925/mdserver/store"
 )
 
 // revision is set at build time with -ldflags "-X main.revision=..."
@@ -34,11 +39,16 @@ type options struct {
 	MaxUpload    byteSize `long:"max-upload" env:"MAX_UPLOAD" default:"20M" description:"upload size cap"`
 	TrustedProxy bool     `long:"trusted-proxy" env:"TRUSTED_PROXY" description:"trust X-Forwarded-For and X-Forwarded-Proto"`
 
+	Watch  string        `long:"watch" env:"WATCH" default:"auto" choice:"auto" choice:"poll" description:"change detection, poll for a network share"`
+	Rescan time.Duration `long:"rescan" env:"RESCAN" default:"60s" description:"periodic full rescan, negative disables it"`
+
 	Auth struct {
-		Users    []string      `long:"users" env:"USERS" env-delim:"," description:"user:bcryptHashOrPlainPassword pairs"`
-		Secret   string        `long:"secret" env:"SECRET" description:"cookie signing key, generated and persisted if empty"`
-		TTL      time.Duration `long:"ttl" env:"TTL" default:"720h" description:"session lifetime"`
-		Disabled bool          `long:"disabled" env:"DISABLED" description:"serve without authentication"`
+		Users      []string      `long:"users" env:"USERS" env-delim:"," description:"user:bcryptHashOrPlainPassword pairs"`
+		Secret     string        `long:"secret" env:"SECRET" description:"cookie signing key, generated and persisted if empty"`
+		SecretFile string        `long:"secret-file" env:"SECRET_FILE" default:"/data/session.key" description:"where a generated key is persisted"`
+		TTL        time.Duration `long:"ttl" env:"TTL" default:"720h" description:"session lifetime"`
+		Disabled   bool          `long:"disabled" env:"DISABLED" description:"serve without authentication"`
+		Secure     string        `long:"secure" env:"SECURE" default:"auto" choice:"auto" choice:"always" choice:"never" description:"Secure flag of the session cookie"`
 	} `group:"auth" namespace:"auth" env-namespace:"AUTH"`
 
 	Timeouts struct {
@@ -153,28 +163,113 @@ func run(ctx context.Context, opts *options) error {
 		log.Printf("[WARN] authentication is disabled, every visitor gets full access")
 	}
 
-	srv := &server.Web{Config: server.Config{
-		ListenAddr:        opts.Listen,
-		RootDir:           root,
-		Title:             opts.Title,
-		Version:           versionInfo(),
-		ReadOnly:          opts.ReadOnly,
-		TrustedProxy:      opts.TrustedProxy,
-		MaxUpload:         int64(opts.MaxUpload),
-		AuthDisabled:      opts.Auth.Disabled,
-		ReadHeaderTimeout: opts.Timeouts.ReadHeader,
-		ReadTimeout:       opts.Timeouts.Read,
-		WriteTimeout:      opts.Timeouts.Write,
-		IdleTimeout:       opts.Timeouts.Idle,
-		ShutdownTimeout:   opts.Timeouts.Shutdown,
-	}}
+	kb, err := store.New(store.Config{
+		Root:     root,
+		Exclude:  opts.Exclude,
+		ReadOnly: opts.ReadOnly,
+		Watch:    store.WatchMode(opts.Watch),
+		Rescan:   opts.Rescan,
+	})
+	if err != nil {
+		return fmt.Errorf("open knowledge base: %w", err)
+	}
+	defer kb.Close()
 
-	// TODO(agent): build store, render, search and auth here and hand them to server.Web
+	index := search.New()
+	if indexErr := indexAll(kb, index); indexErr != nil {
+		return indexErr
+	}
 
-	if err := srv.Run(ctx); err != nil {
-		return fmt.Errorf("run server: %w", err)
+	authSvc, err := auth.NewService(auth.Config{
+		Users:        strings.Join(opts.Auth.Users, ","),
+		Secret:       opts.Auth.Secret,
+		SecretFile:   opts.Auth.SecretFile,
+		TTL:          opts.Auth.TTL,
+		Disabled:     opts.Auth.Disabled,
+		TrustedProxy: opts.TrustedProxy,
+		Secure:       opts.Auth.Secure,
+	})
+	if err != nil {
+		return fmt.Errorf("setup auth: %w", err)
+	}
+
+	srv := &server.Web{
+		Config: server.Config{
+			ListenAddr:        opts.Listen,
+			Title:             opts.Title,
+			Version:           versionInfo(),
+			ReadOnly:          opts.ReadOnly,
+			TrustedProxy:      opts.TrustedProxy,
+			MaxUpload:         int64(opts.MaxUpload),
+			AuthDisabled:      opts.Auth.Disabled,
+			ReadHeaderTimeout: opts.Timeouts.ReadHeader,
+			ReadTimeout:       opts.Timeouts.Read,
+			WriteTimeout:      opts.Timeouts.Write,
+			IdleTimeout:       opts.Timeouts.Idle,
+			ShutdownTimeout:   opts.Timeouts.Shutdown,
+		},
+		Store:    kb,
+		Renderer: render.New(render.Options{LinkExists: kb.Exists}),
+		Index:    index,
+		Auth:     authSvc,
+	}
+
+	watchDone := watch(ctx, kb, index, srv)
+	runErr := srv.Run(ctx)
+	<-watchDone
+
+	if runErr != nil {
+		return fmt.Errorf("run server: %w", runErr)
 	}
 	return nil
+}
+
+// indexAll fills the search index from the knowledge base.
+func indexAll(kb *store.Store, index *search.Index) error {
+	start := time.Now()
+	docs := 0
+	err := kb.Walk(func(fi store.FileInfo, data []byte) error {
+		index.Set(fi.Path, data)
+		docs++
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("build search index: %w", err)
+	}
+
+	log.Printf("[INFO] indexed %d documents in %v, holding %d bytes",
+		docs, time.Since(start).Round(time.Millisecond), index.Size())
+	return nil
+}
+
+// watch keeps the search index and the rendered page cache in step with the
+// disk. The returned channel is closed once the goroutine is gone: store.Watch
+// closes its channel when ctx is canceled, so shutdown leaks nothing.
+func watch(ctx context.Context, kb *store.Store, index *search.Index, srv *server.Web) <-chan struct{} {
+	events := kb.Watch(ctx)
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		for ev := range events {
+			log.Printf("[DEBUG] change on %s: %s", ev.Path, ev.Op)
+			srv.Invalidate(ev.Path)
+			if !strings.EqualFold(path.Ext(ev.Path), ".md") {
+				continue
+			}
+			// a create and a write mean the same thing here, and so does a
+			// rename: an atomic save replaces the inode, so the file that is
+			// there now is the only thing worth asking about
+			data, _, err := kb.Read(ev.Path)
+			if err != nil {
+				index.Delete(ev.Path)
+				continue
+			}
+			index.Set(ev.Path, data)
+		}
+		log.Printf("[DEBUG] watcher stopped")
+	}()
+	return done
 }
 
 // validate checks the options and returns the absolute knowledge base root.
@@ -195,8 +290,29 @@ func validate(opts *options) (string, error) {
 	if !opts.Auth.Disabled && len(opts.Auth.Users) == 0 {
 		return "", errors.New("no users configured, set --auth.users or run with --auth.disabled")
 	}
+	if err := checkSecretFile(root, opts); err != nil {
+		return "", err
+	}
 
 	return root, nil
+}
+
+// checkSecretFile refuses a signing key stored inside the knowledge base: it
+// would show up in the tree, in the search index and in every backup of the
+// corpus, and anybody holding it can forge a session cookie.
+func checkSecretFile(root string, opts *options) error {
+	if opts.Auth.Disabled || opts.Auth.SecretFile == "" {
+		return nil
+	}
+
+	secret, err := filepath.Abs(opts.Auth.SecretFile)
+	if err != nil {
+		return fmt.Errorf("absolute path for secret file %q: %w", opts.Auth.SecretFile, err)
+	}
+	if secret != root && !strings.HasPrefix(secret, root+string(filepath.Separator)) {
+		return nil
+	}
+	return fmt.Errorf("secret file %q must live outside the knowledge base root %q", opts.Auth.SecretFile, root)
 }
 
 func genHash(password string) (string, error) {

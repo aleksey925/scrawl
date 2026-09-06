@@ -4,19 +4,28 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"embed"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io/fs"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-pkgz/lgr"
 	"github.com/go-pkgz/rest"
 	"github.com/go-pkgz/rest/logger"
 	"github.com/go-pkgz/routegroup"
+
+	"github.com/aleksey925/mdserver/auth"
+	"github.com/aleksey925/mdserver/render"
+	"github.com/aleksey925/mdserver/search"
+	"github.com/aleksey925/mdserver/store"
 )
 
 //go:embed templates assets
@@ -25,14 +34,35 @@ var content embed.FS
 const (
 	throttleLimit          = 1000
 	staticCacheTTL         = 365 * 24 * time.Hour
+	rawCacheTTL            = 5 * time.Minute
 	defaultShutdownTimeout = 5 * time.Second
+
+	// maxJSONBody caps every JSON endpoint. The biggest legitimate payload is
+	// a preview of the largest document in the corpus, which is far below it.
+	maxJSONBody = 4 << 20
+
+	pageCacheEntries = 256
+	pageCacheBytes   = 64 << 20
+
+	searchPageLimit = 50
+	searchAPILimit  = 20
 )
+
+// contentSecurityPolicy is strict on purpose: every script and stylesheet the
+// app needs is embedded and served from this origin, and the theme bootstrap
+// lives in boot.js rather than in an inline block, so no nonce and no hash has
+// to be rendered into a template. TestNoInlineScripts guards that.
+//
+// Images are the one loose end: a document may embed a remote one, and the
+// stylesheet draws its icons from data: urls.
+const contentSecurityPolicy = "default-src 'none'; base-uri 'none'; form-action 'self'; " +
+	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; style-src 'self'; " +
+	"img-src 'self' data: https:; script-src 'self'"
 
 // Config holds every knob the web layer needs. main maps its options onto it
 // field by field, no other package reads the command line.
 type Config struct {
 	ListenAddr   string // address to listen on, host:port
-	RootDir      string // absolute path of the knowledge base root
 	Title        string // site title shown in the UI
 	Version      string // build revision, also the static assets cache buster
 	ReadOnly     bool   // refuse every write endpoint
@@ -50,6 +80,15 @@ type Config struct {
 // Web is the http server of mdserver, built as a struct literal in main.
 type Web struct {
 	Config
+	Store    *store.Store
+	Renderer *render.Renderer
+	Index    *search.Index
+	Auth     *auth.Service
+
+	templates *template.Template
+
+	cacheOnce sync.Once
+	cache     *pageCache
 }
 
 // Run starts the server and blocks until ctx is canceled or the server fails.
@@ -109,34 +148,179 @@ func (wb *Web) shutdown(ctx context.Context, srv *http.Server) error {
 	return nil
 }
 
+// Invalidate drops the rendered HTML cached for a content path. main calls it
+// from the store watcher, so an edit made outside the app shows up at once.
+func (wb *Web) Invalidate(contentPath string) { wb.pages().invalidate(contentPath) }
+
+// pages returns the render cache, building it on first use so that a watcher
+// event arriving before the first request has somewhere to go.
+func (wb *Web) pages() *pageCache {
+	wb.cacheOnce.Do(func() { wb.cache = newPageCache(pageCacheEntries, pageCacheBytes) })
+	return wb.cache
+}
+
 func (wb *Web) router() (http.Handler, error) {
+	if err := wb.parseTemplates(); err != nil {
+		return nil, err
+	}
 	assetsFS, err := fs.Sub(content, "assets")
 	if err != nil {
 		return nil, fmt.Errorf("sub fs for assets: %w", err)
 	}
 
 	router := routegroup.New(http.NewServeMux())
-	router.Use(rest.Trace, rest.RealIP, rest.Recoverer(lgr.Default()))
+	router.Use(rest.Trace, rest.Recoverer(lgr.Default()), securityHeaders)
+	// RealIP rewrites RemoteAddr from a header the client controls, which would
+	// hand every visitor a fresh bucket in the login rate limiter, so it is only
+	// installed when a proxy in front is known to overwrite that header
+	if wb.TrustedProxy {
+		router.Use(rest.RealIP)
+	}
 	router.Use(rest.Throttle(throttleLimit))
 	router.Use(logger.New(logger.Log(lgr.Default()), logger.Prefix("[DEBUG]")).Handler)
 	router.Use(rest.AppInfo("mdserver", "aleksey925", wb.Version), rest.Ping)
+	if wb.Auth != nil {
+		router.Use(wb.Auth.Middleware)
+	}
 
 	// the version segment is part of the URL only to bust the cache, lookup
 	// ignores it so that an old page keeps working after a redeploy
 	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
-		HandleFunc("GET /static/{version}/{path...}", func(w http.ResponseWriter, r *http.Request) {
-			assetPath := r.PathValue("path")
-			if assetPath == "" {
-				http.NotFound(w, r)
-				return
-			}
-			http.ServeFileFS(w, r, assetsFS, assetPath)
-		})
+		HandleFunc("GET /static/{version}/{path...}", wb.staticHandler(assetsFS))
 
-	// TODO(agent): page, raw, edit, search and login routes go here
-	// TODO(agent): /api group with tree, file CRUD, move, upload, preview, search
-	// TODO(agent): auth and CSRF middleware around the write endpoints
-	// TODO(agent): template parsing and rendering helpers
+	router.HandleFunc("GET /login", wb.loginPage)
+	router.HandleFunc("GET /{$}", wb.viewHandler)
+	router.HandleFunc("GET /p/{path...}", wb.viewHandler)
+	router.HandleFunc("GET /raw/{path...}", wb.rawHandler)
+	router.HandleFunc("GET /edit/{path...}", wb.editHandler)
+	router.HandleFunc("GET /search", wb.searchHandler)
+	router.HandleFunc("GET /api/tree", wb.apiTree)
+	router.HandleFunc("GET /api/file/{path...}", wb.apiFileGet)
+	router.HandleFunc("GET /api/search", wb.apiSearch)
+
+	// everything that changes state, plus the login form itself, has to survive
+	// a cross-site POST: Go's CrossOriginProtection checks Sec-Fetch-Site
+	mutating := router.With(auth.CSRF().Handler)
+	mutating.HandleFunc("POST /login", wb.loginSubmit)
+	mutating.HandleFunc("POST /logout", wb.logout)
+	mutating.HandleFunc("PUT /api/file/{path...}", wb.apiFileSave)
+	mutating.HandleFunc("POST /api/file/{path...}", wb.apiFileCreate)
+	mutating.HandleFunc("DELETE /api/file/{path...}", wb.apiFileDelete)
+	mutating.HandleFunc("POST /api/move", wb.apiMove)
+	mutating.HandleFunc("POST /api/upload/{dir...}", wb.apiUpload)
+	mutating.HandleFunc("POST /api/preview", wb.apiPreview)
 
 	return router, nil
+}
+
+// staticHandler serves the embedded assets plus the highlighting stylesheet,
+// which render generates instead of shipping it as a file.
+func (wb *Web) staticHandler(assetsFS fs.FS) http.HandlerFunc {
+	chroma := render.ChromaCSS()
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch assetPath := r.PathValue("path"); assetPath {
+		case "":
+			http.NotFound(w, r)
+		case "css/chroma.css":
+			w.Header().Set("Content-Type", "text/css; charset=utf-8")
+			http.ServeContent(w, r, "chroma.css", time.Time{}, bytes.NewReader(chroma))
+		default:
+			http.ServeFileFS(w, r, assetsFS, assetPath)
+		}
+	}
+}
+
+// securityHeaders sets the response headers that do not depend on the route.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "same-origin")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Content-Security-Policy", contentSecurityPolicy)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (wb *Web) parseTemplates() error {
+	funcs := template.FuncMap{
+		// a search snippet arrives escaped with only <mark> left in it, so it
+		// goes into the page as it is. Anything that is not already marked safe
+		// is escaped here, so a later caller cannot turn this into a hole.
+		"safeHTML": func(v any) template.HTML {
+			if html, ok := v.(template.HTML); ok {
+				return html
+			}
+			//nolint:gosec // G203: the value is escaped on this very line
+			return template.HTML(template.HTMLEscapeString(fmt.Sprint(v)))
+		},
+	}
+	tmpl, err := template.New("mdserver").Funcs(funcs).ParseFS(content, "templates/*.html")
+	if err != nil {
+		return fmt.Errorf("parse templates: %w", err)
+	}
+	wb.templates = tmpl
+	return nil
+}
+
+// renderPage executes a template into a buffer first, so a template failure
+// cannot leave half a page on the wire with a 200 already sent.
+func (wb *Web) renderPage(w http.ResponseWriter, status int, name string, data any) {
+	var buf bytes.Buffer
+	if err := wb.templates.ExecuteTemplate(&buf, name, data); err != nil {
+		log.Printf("[ERROR] render template %s: %v", name, err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	if _, err := buf.WriteTo(w); err != nil {
+		log.Printf("[DEBUG] write page %s: %v", name, err)
+	}
+}
+
+// errorPage answers an HTML route with the styled error page.
+func (wb *Web) errorPage(w http.ResponseWriter, r *http.Request, contentPath string, status int, message string) {
+	page := ErrorPage{
+		Base:    wb.base(r, message, contentPath),
+		Code:    status,
+		Message: message,
+	}
+	wb.renderPage(w, status, "error.html", page)
+}
+
+// failPage maps a store error onto the error page.
+func (wb *Web) failPage(w http.ResponseWriter, r *http.Request, contentPath string, err error) {
+	status := statusOf(err)
+	if status == http.StatusInternalServerError {
+		log.Printf("[ERROR] %s %s: %v", r.Method, r.URL.Path, err)
+	}
+	wb.errorPage(w, r, contentPath, status, statusMessage(status))
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	body, err := json.Marshal(v)
+	if err != nil {
+		log.Printf("[ERROR] encode json response: %v", err)
+		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	if _, err := w.Write(body); err != nil {
+		log.Printf("[DEBUG] write json response: %v", err)
+	}
+}
+
+func jsonError(w http.ResponseWriter, status int, message string) {
+	writeJSON(w, status, map[string]string{"error": message})
+}
+
+// failJSON maps a store error onto a JSON error response.
+func failJSON(w http.ResponseWriter, r *http.Request, err error) {
+	status := statusOf(err)
+	if status == http.StatusInternalServerError {
+		log.Printf("[ERROR] %s %s: %v", r.Method, r.URL.Path, err)
+	}
+	jsonError(w, status, errMessage(err))
 }

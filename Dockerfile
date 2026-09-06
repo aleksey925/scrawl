@@ -47,7 +47,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 # mailcap ships /etc/mime.types, used when serving raw attachments
 RUN apk add --no-cache ca-certificates tzdata wget mailcap && \
     adduser -s /bin/sh -D -u 1001 app && \
-    mkdir -p /kb && chown app:app /kb
+    mkdir -p /kb /data && chown app:app /kb /data
 
 ENV TZ=UTC
 
@@ -61,6 +61,8 @@ EXPOSE 8080
 # /kb is the documented mount point for the knowledge base, mount it from the
 # host (`-v /volume1/docs/knowledge-base:/kb`). no VOLUME on purpose: an
 # anonymous volume would silently swallow writes when the mount is forgotten.
+# /data holds the generated session key and wants a small named volume; it is
+# deliberately outside /kb, so the key never lands in the tree or in a backup.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --quiet --spider --tries=1 http://127.0.0.1:8080/ping || exit 1
 

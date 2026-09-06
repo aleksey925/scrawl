@@ -7,6 +7,8 @@ import {
     openDialog, qs, qsa, toast
 } from './dom.js';
 import {enhanceCode} from './reader.js';
+import {initDiagrams} from './diagram.js';
+import {initMath} from './math.js';
 
 const PREVIEW_DELAY = 400;
 const DRAFT_DELAY = 800;
@@ -261,6 +263,8 @@ export function initEditor() {
             if (seq !== previewSeq) return;
             preview.innerHTML = (data && data.html) || '';
             enhanceCode(preview);
+            initMath(preview);
+            initDiagrams(preview);
         } catch (err) {
             if (seq === previewSeq) {
                 preview.innerHTML = '<p class="empty-hint">Preview failed: ' + esc(err.message) + '</p>';

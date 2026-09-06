@@ -12,6 +12,28 @@ function current() {
     return ORDER.includes(value) ? value : 'auto';
 }
 
+export function isDarkTheme() {
+    const theme = current();
+    if (theme !== 'auto') return theme === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+// onThemeChange reports a flip of the effective light or dark choice, whether it
+// came from the toggle or, under "auto", from the system. Anything that paints
+// its own colours instead of reading custom properties has to redraw then.
+export function onThemeChange(handler) {
+    let dark = isDarkTheme();
+    const check = () => {
+        if (isDarkTheme() === dark) return;
+        dark = !dark;
+        handler(dark);
+    };
+    new MutationObserver(check).observe(document.documentElement, {
+        attributes: true, attributeFilter: ['data-theme'],
+    });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', check);
+}
+
 function apply(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     document.cookie = 'theme=' + theme + ';path=/;max-age=31536000;samesite=lax';

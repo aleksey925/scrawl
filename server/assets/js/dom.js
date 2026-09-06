@@ -180,6 +180,33 @@ export async function copyText(text) {
     return ok;
 }
 
+// preserveScroll runs a layout changing update and then scrolls by however far
+// the visible content moved. Typeset math and a rendered diagram are much
+// taller than the source they replace, and without this the page jumps out from
+// under a reader who is already somewhere below them.
+export function preserveScroll(root, update) {
+    const anchor = Array.from(root.children).find((el) => el.getBoundingClientRect().bottom > 0);
+    const scroller = scrollerOf(root);
+    const before = anchor ? anchor.getBoundingClientRect().top : 0;
+    update();
+    if (!anchor) return;
+    const delta = anchor.getBoundingClientRect().top - before;
+    // instant, because html carries scroll-behavior: smooth and animating the
+    // correction is exactly the movement this exists to hide
+    if (Math.abs(delta) > 1) scroller.scrollBy({top: delta, behavior: 'instant'});
+}
+
+// the reading view scrolls the window, the editor preview pane scrolls itself
+function scrollerOf(el) {
+    for (let node = el.parentElement; node; node = node.parentElement) {
+        const overflow = getComputedStyle(node).overflowY;
+        if ((overflow === 'auto' || overflow === 'scroll') && node.scrollHeight > node.clientHeight) {
+            return node;
+        }
+    }
+    return window;
+}
+
 export function debounce(fn, wait) {
     let timer = 0;
     return function (...args) {

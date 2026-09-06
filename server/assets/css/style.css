@@ -1634,6 +1634,14 @@ html.js .doc img { cursor: zoom-in; }
 
 .doc .math.is-typeset { font-family: inherit; font-size: inherit; }
 
+/* a formula katex could not parse keeps its source, with the reason on hover */
+.doc .math.is-error {
+    color: var(--danger);
+    text-decoration: underline wavy var(--danger);
+    text-underline-offset: 3px;
+    cursor: help;
+}
+
 .doc .katex { font-size: 1.1em; }
 
 .doc .math-display .katex-display { margin: 0; padding: var(--s-1) 0; }

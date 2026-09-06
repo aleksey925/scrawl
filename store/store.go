@@ -250,6 +250,33 @@ func (s *Store) Read(p string) ([]byte, FileInfo, error) {
 	return data, fi, nil
 }
 
+// CheckWritable reports whether the root really takes a write, by creating a
+// temp file in it and removing it again. Being able to read a directory says
+// nothing about writing to it, and the temp suffix keeps the probe invisible
+// even if the process dies between the two steps.
+func (s *Store) CheckWritable() error {
+	if s.cfg.ReadOnly {
+		return fmt.Errorf("write probe: %w", ErrReadOnly)
+	}
+	suffix, err := randomSuffix()
+	if err != nil {
+		return fmt.Errorf("write probe: %w", err)
+	}
+	name := "probe-" + suffix + tmpSuffix
+
+	f, err := s.root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, filePerm)
+	if err != nil {
+		return osError("write probe", name, err)
+	}
+	if closeErr := f.Close(); closeErr != nil {
+		return osError("write probe", name, closeErr)
+	}
+	if rmErr := s.root.Remove(name); rmErr != nil {
+		return osError("write probe", name, rmErr)
+	}
+	return nil
+}
+
 // Write replaces a file atomically. An empty rev means "create", and fails
 // with ErrExists when the file is already there. A non-empty rev must match
 // the revision on disk, otherwise the write is refused with a *ConflictError
@@ -418,10 +445,7 @@ func (s *Store) Move(from, to string) error {
 func (s *Store) Walk(fn func(fi FileInfo, data []byte) error) error {
 	err := fs.WalkDir(s.root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				return nil // removed mid-walk, normal on a live directory
-			}
-			return err
+			return walkFailure(p, d, err)
 		}
 		if p == "." {
 			return nil
@@ -435,20 +459,42 @@ func (s *Store) Walk(fn func(fi FileInfo, data []byte) error) error {
 		if d.Type()&fs.ModeSymlink != 0 || s.excluded(p, d.Name()) || !isMarkdown(d.Name()) {
 			return nil
 		}
-
-		data, fi, readErr := s.Read(p)
-		if readErr != nil {
-			if errors.Is(readErr, ErrNotFound) {
-				return nil
-			}
-			return readErr
-		}
-		return fn(fi, data)
+		return s.walkFile(p, fn)
 	})
 	if err != nil {
 		return fmt.Errorf("walk %q: %w", s.dir, err)
 	}
 	return nil
+}
+
+func (s *Store) walkFile(p string, fn func(fi FileInfo, data []byte) error) error {
+	data, fi, err := s.Read(p)
+	if err != nil {
+		return walkFailure(p, nil, err)
+	}
+	return fn(fi, data)
+}
+
+// walkFailure decides what a failure on one entry means for the whole walk. A
+// vanished entry is normal on a live directory, and an unreadable one is a
+// deployment problem worth naming rather than a reason to abandon the rest of
+// a knowledge base that reads perfectly well.
+func walkFailure(p string, d fs.DirEntry, err error) error {
+	switch {
+	case errors.Is(err, fs.ErrNotExist), errors.Is(err, ErrNotFound):
+		return nil
+	case errors.Is(err, fs.ErrPermission), errors.Is(err, ErrPermission):
+		name := displayPath(p)
+		if name == "" {
+			name = "the knowledge base root"
+		}
+		log.Printf("[WARN] skipping %s: permission denied, it must be readable by the user the server runs as", name)
+		if d != nil && d.IsDir() {
+			return fs.SkipDir
+		}
+		return nil
+	}
+	return err
 }
 
 // writeAtomic replaces cleaned through a temp file in the same directory plus

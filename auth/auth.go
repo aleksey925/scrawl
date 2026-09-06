@@ -191,13 +191,21 @@ func (s *Service) User(r *http.Request) (string, bool) {
 }
 
 // Allow reports whether another login attempt from this client is permitted.
-// It consumes one attempt from the client's budget, so call it once per POST
-// to the login route and refuse the request when it returns false.
+// It consumes one attempt from every budget the request counts against, so call
+// it once per POST to the login route and refuse the request when it returns
+// false.
 func (s *Service) Allow(r *http.Request) bool {
 	if s.disabled {
 		return true
 	}
-	return s.limiter.allow(s.clientIP(r), s.now())
+	now := s.now()
+	allowed := true
+	for _, key := range s.limiterKeys(r) {
+		// every budget is charged even once one of them said no, otherwise a
+		// forged header would let the peer's own budget refill while it guesses
+		allowed = s.limiter.allow(key, now) && allowed
+	}
+	return allowed
 }
 
 // Failed records a rejected login. Enough of them lock the client out for a
@@ -206,7 +214,10 @@ func (s *Service) Failed(r *http.Request) {
 	if s.disabled {
 		return
 	}
-	s.limiter.failed(s.clientIP(r), s.now())
+	now := s.now()
+	for _, key := range s.limiterKeys(r) {
+		s.limiter.failed(key, now)
+	}
 }
 
 // isPublic reports whether path is covered by one of the public prefixes.

@@ -127,7 +127,9 @@ func (s *Service) SetCookie(w http.ResponseWriter, r *http.Request, user string)
 	if _, ok := s.users[user]; !ok {
 		return fmt.Errorf("cannot issue a session for unknown user %q", user)
 	}
-	s.limiter.reset(s.clientIP(r))
+	for _, key := range s.limiterKeys(r) {
+		s.limiter.reset(key)
+	}
 	s.issue(w, r, user)
 	return nil
 }

@@ -54,6 +54,40 @@ func TestSanitizeKeeps(t *testing.T) {
 	}
 }
 
+func TestSanitizeIDAttribute(t *testing.T) {
+	tests := []struct {
+		name, src string
+		want      bool
+	}{
+		{name: "slug", src: `<a id="общее-1">x</a>`, want: true},
+		{name: "quote breakout attempt", src: `<a id='z"onmouseover="alert(1)'>x</a>`},
+		{name: "spaces", src: `<a id="a b c">x</a>`},
+		{name: "app element id is still just an id", src: `<a id="palette">x</a>`, want: true},
+		{name: "leading dash", src: `<a id="-x">x</a>`},
+	}
+	r := New(Options{})
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			out, err := r.RenderInline([]byte(tc.src), "x.md")
+
+			// assert
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, strings.Contains(string(out), "id="), "output: %s", out)
+		})
+	}
+}
+
+func TestSanitizeDropsGlobalAttributesTheCorpusDoesNotUse(t *testing.T) {
+	// act
+	out, err := New(Options{}).RenderInline([]byte(`<p title="tip" dir="rtl" lang="en">x</p>`), "x.md")
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, "<p>x</p>", string(out))
+}
+
 func TestSanitizeStripsMarkdownAttribute(t *testing.T) {
 	// act
 	out, err := New(Options{}).RenderInline([]byte("<details markdown=\"span\">\n<summary>S</summary>\n\nx\n\n</details>\n"), "x.md")

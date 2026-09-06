@@ -4,7 +4,9 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,6 +71,27 @@ func TestServiceClientIP(t *testing.T) {
 			assert.Equal(t, tc.want, svc.clientIP(req))
 		})
 	}
+}
+
+func TestForgedForwardedHeaderBuysNoExtraAttempts(t *testing.T) {
+	// arrange
+	svc := newTestService(t, Config{TrustedProxy: true})
+	now := time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
+	svc.now = func() time.Time { return now }
+
+	// act
+	allowed := 0
+	for i := range loginBurst + 20 {
+		req := httptest.NewRequest(http.MethodPost, "/login", http.NoBody)
+		req.RemoteAddr = "172.17.0.1:4711"
+		req.Header.Set("X-Forwarded-For", "203.0.113."+strconv.Itoa(i))
+		if svc.Allow(req) {
+			allowed++
+		}
+	}
+
+	// assert
+	assert.Equal(t, loginBurst, allowed, "a fresh forged address per attempt must not refill the peer budget")
 }
 
 func TestServiceSecureFor(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -29,7 +30,7 @@ type Crumb struct {
 type TreeNode struct {
 	Name     string // display name, no extension for .md files
 	Path     string // content path, e.g. "python/notes.md"
-	URL      string // "/p/python/notes.md", empty for directories
+	URL      string // "/p/python/notes.md" for a file, "/p/python/" for a directory
 	IsDir    bool
 	Active   bool // on the path to the current document
 	Current  bool // is the current document
@@ -162,15 +163,30 @@ func (wb *Web) treeNodes(current string) []TreeNode {
 func childNodes(node *store.Node, current string) []TreeNode {
 	res := make([]TreeNode, 0, len(node.Children))
 	for _, child := range node.Children {
+		if !inDocumentTree(child) {
+			continue
+		}
 		res = append(res, treeNodeOf(child, current))
 	}
 	return res
+}
+
+// inDocumentTree reports whether a node belongs in the navigation tree. The
+// tree is an index of documents, not a file browser: an attachment and a folder
+// that holds nothing but attachments would only add rows nobody navigates by.
+// Both stay reachable through the directory page and /raw/.
+func inDocumentTree(node *store.Node) bool {
+	if !node.IsDir {
+		return isMarkdown(node.Path)
+	}
+	return slices.ContainsFunc(node.Children, inDocumentTree)
 }
 
 func treeNodeOf(node *store.Node, current string) TreeNode {
 	res := TreeNode{Name: displayName(node.Name), Path: node.Path, IsDir: node.IsDir}
 	if node.IsDir {
 		res.Active = current == node.Path || strings.HasPrefix(current, node.Path+"/")
+		res.URL = dirURL(node.Path)
 		res.Children = childNodes(node, current)
 		return res
 	}

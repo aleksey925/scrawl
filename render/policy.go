@@ -30,12 +30,20 @@ var (
 // unsafe HTML enabled so hand-written markup reaches this point intact; what
 // survives is decided here and nowhere else.
 //
+// The base is NewPolicy and not UGCPolicy on purpose. UGCPolicy calls
+// AllowStandardAttributes, which registers an unanchored global "id" pattern,
+// and bluemonday accepts an attribute when any registered policy matches it, so
+// every rule added on top can only widen the filter. Starting from nothing is
+// the only way an anchored id pattern actually holds, and it also keeps the
+// global "title", "dir" and "lang" that the corpus never uses out of the
+// output, where they could clobber the app's own element ids.
+//
 // data: URLs are refused everywhere, images included. An inline data:image is
 // convenient for a pasted screenshot, but it also carries data:image/svg+xml,
 // which is a scriptable document in an <img> and is not worth the trade when
 // the app already has /api/upload for pasted images.
 func newPolicy() *bluemonday.Policy {
-	p := bluemonday.UGCPolicy()
+	p := bluemonday.NewPolicy()
 
 	p.AllowAttrs("id").Matching(reSlugID).Globally()
 	p.AllowAttrs("class").Matching(bluemonday.SpaceSeparatedTokens).Globally()
@@ -44,8 +52,13 @@ func newPolicy() *bluemonday.Policy {
 	p.AllowAttrs("tabindex").Matching(reTabindex).OnElements("pre")
 	p.AllowAttrs("data-lang").Matching(reLang).OnElements("div")
 
+	p.AllowElements("h1", "h2", "h3", "h4", "h5", "h6",
+		"p", "div", "span", "blockquote", "pre", "code", "section", "article", "aside")
+	p.AllowElements("a", "em", "strong", "b", "i", "u", "s", "strike", "del", "ins",
+		"abbr", "cite", "dfn", "q", "samp", "var", "time", "small", "tt", "wbr")
 	p.AllowElements("details", "summary", "figure", "figcaption",
 		"kbd", "mark", "sup", "sub", "dl", "dt", "dd", "input", "hr", "br")
+	p.AllowAttrs("href").OnElements("a")
 	p.AllowAttrs("open").OnElements("details")
 
 	// GFM task lists

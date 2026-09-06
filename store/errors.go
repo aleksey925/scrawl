@@ -26,6 +26,11 @@ var (
 	// ErrForbidden is returned for a path that escapes the root and for an
 	// upload the store refuses to keep.
 	ErrForbidden = errors.New("forbidden")
+	// ErrPermission is returned when the filesystem itself refused the
+	// operation. It is kept apart from ErrForbidden because the cause is
+	// entirely different: the folder is not owned by the user the server runs
+	// as, which is the first thing a deployment gets wrong.
+	ErrPermission = errors.New("permission denied")
 	// ErrConflict is returned when a file changed on disk since the caller read
 	// it. The full detail is carried by *ConflictError.
 	ErrConflict = errors.New("revision conflict")
@@ -62,7 +67,7 @@ func osError(op, p string, err error) error {
 	case errors.Is(err, syscall.EISDIR):
 		return fmt.Errorf("%s %q: %w", op, p, ErrIsDir)
 	case errors.Is(err, fs.ErrPermission):
-		return fmt.Errorf("%s %q: %w", op, p, ErrForbidden)
+		return fmt.Errorf("%s %q: %w", op, p, ErrPermission)
 	}
 	return fmt.Errorf("%s %q: %w", op, p, err)
 }

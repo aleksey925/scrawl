@@ -984,15 +984,16 @@ html:not(.js) .user-menu .menu-item span { display: none; }
     border-radius: 2px;
 }
 
-.tree-leaf.is-current {
+.tree-row.is-current {
     background: var(--accent-subtle);
     color: var(--accent);
     font-weight: var(--fw-medium);
 }
 
-.tree-leaf.is-current .tree-kind { color: var(--accent); }
+.tree-row.is-current .tree-kind,
+.tree-dir > .tree-row.is-current .tree-name { color: var(--accent); }
 
-.tree-leaf.is-current::before {
+.tree-row.is-current::before {
     content: "";
     position: absolute;
     left: -8px;

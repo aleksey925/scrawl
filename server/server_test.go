@@ -612,7 +612,37 @@ func TestTreeDirectoriesCarryTheirPageURL(t *testing.T) {
 	require.True(t, docs.IsDir)
 	assert.Equal(t, "/p/docs/", docs.URL)
 	assert.True(t, docs.Active)
+	assert.False(t, docs.Current, "the current page is the document, not the folder holding it")
 	assert.Equal(t, "/p/docs/sub/", docs.Children[0].URL)
+}
+
+func TestTreeMarksTheFolderBeingViewed(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	// act
+	nodes := ts.treeNodes("docs/sub")
+
+	// assert
+	docs := nodes[0]
+	require.Equal(t, "docs", docs.Path)
+	assert.True(t, docs.Active)
+	assert.False(t, docs.Current)
+	assert.True(t, docs.Children[0].Current)
+	assert.True(t, docs.Children[0].Active, "the current folder is also on its own path")
+}
+
+func TestFolderPageHighlightsItsRow(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	// act
+	resp, body := ts.do(t, request{path: "/p/docs/sub/"})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Contains(t, body, `<summary class="tree-row is-current">`)
+	assert.Contains(t, body, `href="/p/docs/sub/" aria-current="page"`)
 }
 
 func TestAPIFileGet(t *testing.T) {

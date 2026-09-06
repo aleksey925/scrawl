@@ -618,4 +618,4 @@ export function initNav() {
     });
 }
 
-export {createPage, closeMenu};
+export {closeMenu};

@@ -1,0 +1,13 @@
+.git
+.github
+.idea
+.vscode
+.agentbox
+dist
+var
+node_modules
+e2e
+*.md
+!README.md
+docker-compose.yml
+coverage.out

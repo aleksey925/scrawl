@@ -1,0 +1,15 @@
+# Test Knowledge Base
+
+Fixture corpus used by `make run` and by the tests. It is deliberately
+small but covers every markdown feature the renderer has to handle.
+
+## Pages
+
+- [Guide](guide.md) - tables, code fences, task list, blockquote, details
+- [Notes index](notes/index.md) - the directory index
+- [Notes overview](notes.md) - a file that shares its name with `notes/`
+- [Cyrillic anchors](notes/cyrillic.md) - manual anchors and a TOC
+- [Deeply nested page](notes/deep/nested.md)
+- [Missing page](does-not-exist.md) - deliberately broken link
+
+![Logo](images/logo.png)

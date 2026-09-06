@@ -1,0 +1,9 @@
+title: autolink-fragment
+toc:
+---
+<p>Полезные ссылки:</p>
+<ul>
+<li><a href="https://stackoverflow.com/questions/1657017/how-to-squash-all-git-commits-into-one" target="_blank" rel="noopener noreferrer nofollow">https://stackoverflow.com/questions/1657017/how-to-squash-all-git-commits-into-one</a></li>
+<li><a href="https://pingvinus.ru/git/1591#:~:text=%D0%9E%D0%B1%D1%8A%D0%B5%D0%B4%D0%B8%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5%20%D0%BA%D0%BE%D0%BC%D0%BC%D0%B8%D1%82%D0%BE%D0%B2%20(%D1%81%20%D0%B8%D1%81%D0%BF%D0%BE%D0%BB%D1%8C%D0%B7%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5%D0%BC%20git,-i%20(%D0%B8%D0%BD%D1%82%D0%B5%D1%80%D0%B0%D0%BA%D1%82%D0%B8%D0%B2%D0%BD%D1%8B%D0%B9%20%D1%80%D0%B5%D0%B6%D0%B8%D0%BC).&amp;text=%D0%9E%D1%82%D0%BA%D1%80%D0%BE%D0%B5%D1%82%D1%81%D1%8F%20%D1%82%D0%B5%D0%BA%D1%81%D1%82%D0%BE%D0%B2%D1%8B%D0%B9%20%D1%80%D0%B5%D0%B4%D0%B0%D0%BA%D1%82%D0%BE%D1%80%2C%20%D0%B2%20%D0%BA%D0%BE%D1%82%D0%BE%D1%80%D0%BE%D0%BC,pick%20ab37583%20Added%20feature%201" target="_blank" rel="noopener noreferrer nofollow">https://pingvinus.ru/git/1591#:~:text=Объединение%20коммитов%20(с%20использованием%20git,-i%20(интерактивный%20режим).&amp;text=Откроется%20текстовый%20редактор%2C%20в%20котором,pick%20ab37583%20Added%20feature%201</a></li>
+<li><a href="https://htmlacademy.ru/blog/27-how-to-squash-commits-and-why-it-is-needed" target="_blank" rel="noopener noreferrer nofollow">https://htmlacademy.ru/blog/27-how-to-squash-commits-and-why-it-is-needed</a></li>
+</ul>

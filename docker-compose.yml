@@ -1,0 +1,54 @@
+# Synology example. Copy to the NAS, adjust the volume path and AUTH_USERS,
+# then `docker compose up -d` (Container Manager -> Project also works).
+services:
+  mdserver:
+    build:
+      context: .
+      args:
+        - CI=${CI:-}
+        - GIT_BRANCH=${GIT_BRANCH:-}
+        - GITHUB_SHA=${GITHUB_SHA:-}
+    image: ghcr.io/aleksey925/mdserver:master
+    container_name: mdserver
+    hostname: mdserver
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      - /volume1/docs/knowledge-base:/kb
+
+    # the /kb mount is owned by a NAS user, not by the image's uid 1001. set
+    # this to the owner of the share (`id <user>` on the NAS) or writes fail.
+    # user: "1026:100"
+
+    environment:
+      - TZ=Europe/Nicosia
+      - ROOT=/kb
+      - LISTEN=:8080
+      - TITLE=Knowledge Base
+      # user:bcryptHash pairs. compose expands $VARS, so every literal dollar
+      # has to be doubled: a hash starting with $2a$ is written $$2a$$.
+      # get a hash with: docker run --rm ghcr.io/aleksey925/mdserver:master --gen-hash 'my-password'
+      - AUTH_USERS=alex:$$2a$$10$$replace.this.with.a.real.bcrypt.hash.value.here.padding
+      # cookie signing key, keep it stable or every session is dropped on restart
+      - AUTH_SECRET=change-me-to-a-long-random-string
+      - AUTH_TTL=720h
+      - READ_ONLY=false
+      - MAX_UPLOAD=20M
+      # only when a reverse proxy in front terminates TLS
+      - TRUSTED_PROXY=false
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "--tries=1", "http://127.0.0.1:8080/ping"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

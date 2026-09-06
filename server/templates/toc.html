@@ -1,0 +1,21 @@
+{{/*
+Outline of the current document. Only H2 and H3 are listed: documents in this
+corpus carry two H1s (the setext title plus a hand written "Contents"), and the
+largest file has 112 headings, which is unusable as a flat rail.
+*/}}
+
+{{define "toc"}}
+<nav class="toc" aria-label="On this page">
+    <p class="toc-title" id="toc-title">On this page</p>
+    <ul class="toc-list">
+        {{range .TOC}}
+            {{if eq .Level 2}}<li class="toc-item toc-l2"><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}
+            {{if eq .Level 3}}<li class="toc-item toc-l3"><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}
+        {{end}}
+    </ul>
+    <a class="toc-top" href="#main" data-back-to-top>
+        <svg class="icon" aria-hidden="true"><use href="#icon-arrow-up"></use></svg>
+        <span>Back to top</span>
+    </a>
+</nav>
+{{end}}

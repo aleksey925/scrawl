@@ -1,0 +1,70 @@
+{{/*
+"sidebar" is the whole left column, including its mobile drawer chrome.
+"treelist" renders a []TreeNode and recurses into Children. Directories are
+<details> so the tree expands and collapses with JavaScript disabled.
+*/}}
+
+{{define "sidebar"}}
+<nav class="sidebar" id="sidebar" aria-label="Knowledge base navigation">
+    <div class="sidebar-head">
+        <span class="sidebar-title">{{.SiteTitle}}</span>
+        <button class="icon-btn sidebar-close" type="button" data-drawer-close aria-label="Close navigation">
+            <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+        </button>
+    </div>
+    <div class="sidebar-filter">
+        <svg class="icon" aria-hidden="true"><use href="#icon-filter"></use></svg>
+        <input class="filter-input" id="tree-filter" type="search" autocomplete="off" spellcheck="false"
+               placeholder="Filter pages" aria-label="Filter pages by name">
+    </div>
+    <div class="sidebar-scroll">
+        {{template "treelist" .Tree}}
+        <p class="tree-empty" id="tree-empty" hidden>No page matches the filter.</p>
+    </div>
+    {{if not .ReadOnly}}
+        <div class="sidebar-foot">
+            <button class="sidebar-action" type="button" data-new-page="">
+                <svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg>
+                <span>New page</span>
+            </button>
+            <button class="icon-btn" type="button" data-new-folder="" aria-label="New folder">
+                <svg class="icon" aria-hidden="true"><use href="#icon-folder-plus"></use></svg>
+            </button>
+        </div>
+    {{end}}
+</nav>
+{{end}}
+
+{{define "treelist"}}
+<ul class="tree">
+    {{range .}}
+        <li class="tree-item">
+            {{if .IsDir}}
+                <details class="tree-dir" data-path="{{.Path}}"{{if .Active}} open{{end}}>
+                    <summary class="tree-row">
+                        <svg class="icon tree-twisty" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                        <svg class="icon tree-kind" aria-hidden="true"><use href="#icon-folder"></use></svg>
+                        <span class="tree-name">{{.Name}}</span>
+                        <span class="tree-more" role="button" tabindex="0" data-actions="{{.Path}}"
+                              data-kind="dir" aria-label="Actions for {{.Name}}">
+                            <svg class="icon" aria-hidden="true"><use href="#icon-more"></use></svg>
+                        </span>
+                    </summary>
+                    {{template "treelist" .Children}}
+                </details>
+            {{else}}
+                <div class="tree-row tree-leaf{{if .Current}} is-current{{end}}" data-path="{{.Path}}">
+                    <a class="tree-link" href="{{.URL}}"{{if .Current}} aria-current="page"{{end}}>
+                        <svg class="icon tree-kind" aria-hidden="true"><use href="#icon-file"></use></svg>
+                        <span class="tree-name">{{.Name}}</span>
+                    </a>
+                    <button class="tree-more" type="button" data-actions="{{.Path}}"
+                            data-kind="file" aria-label="Actions for {{.Name}}">
+                        <svg class="icon" aria-hidden="true"><use href="#icon-more"></use></svg>
+                    </button>
+                </div>
+            {{end}}
+        </li>
+    {{end}}
+</ul>
+{{end}}

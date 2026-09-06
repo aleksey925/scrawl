@@ -1,0 +1,28 @@
+title: Оглавление
+toc:
+  h1 #оглавление Оглавление
+  h2 #проблемы Проблемы
+  h3 #n1-select n+1 select
+---
+<h1 id="оглавление">Оглавление</h1>
+<ol>
+<li>
+<p><strong class="md-h3"><a href="#%D0%9E%D0%B1%D1%89%D0%B5%D0%B5">Общее</a></strong></p>
+<ul>
+<li><a href="#%D0%9E%D0%B1%D0%B7%D0%BE%D1%80-%D0%B2%D0%BE%D0%B7%D0%BC%D0%BE%D0%B6%D0%BD%D0%BE%D1%81%D1%82%D0%B5%D0%B9">Обзор возможностей</a></li>
+<li><a href="#%D0%92-%D1%87%D0%B5%D0%BC-%D1%80%D0%B0%D0%B7%D0%BD%D0%B8%D1%86%D0%B0-%D0%BC%D0%B5%D0%B6%D0%B4%D1%83-flush-%D0%B8-commit">В чем разница между flush и commit</a></li>
+<li><a href="#%D0%A0%D0%B0%D0%B1%D0%BE%D1%82%D0%B0-%D1%81-%D1%81%D0%B5%D1%81%D1%81%D0%B8%D1%8F%D0%BC%D0%B8">Работа с сессиями</a></li>
+</ul>
+</li>
+<li>
+<p><strong class="md-h3"><a href="#%D0%9F%D1%80%D0%BE%D0%B1%D0%BB%D0%B5%D0%BC%D1%8B">Проблемы</a></strong></p>
+<ul>
+<li><a href="#n+1-select">n+1 select</a></li>
+</ul>
+</li>
+</ol>
+<h2 id="проблемы">Проблемы</h2>
+<a name="n+1-select"></a>
+<h3 id="n1-select">n+1 select</h3>
+<p>Предположим у нас есть объекты Car (строки таблицы) и у любой машины есть
+набор объектов Wheel (строки таблицы). Таким образом имеем отношение 1 ко</p>

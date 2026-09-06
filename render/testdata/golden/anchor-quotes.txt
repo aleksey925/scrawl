@@ -1,0 +1,22 @@
+title: anchor-quotes
+toc:
+  h3 #активация-quick-search-в-synaptic Активация "Quick Search" в synaptic
+---
+<ol start="2">
+<li>
+<p><strong class="md-h3"><a href="#%D0%9D%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B0-%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D1%8B">Настройка системы</a></strong></p>
+<ul>
+<li><a href="#%D0%97%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D0%BA%D0%B0-%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D1%8B-%D0%B8%D0%B7-%D0%BE%D0%B1%D0%BE%D0%BB%D0%BE%D1%87%D0%BA%D0%B8-GRUB">Загрузка системы из оболочки GRUB</a></li>
+<li><a href="#%D0%9F%D0%B5%D1%80%D0%B5%D1%83%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0/%D0%B2%D0%BE%D1%81%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5-%D0%B7%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D1%87%D0%B8%D0%BA%D0%B0-grub">Переустановка/восстановление загрузчика grub</a></li>
+<li><a href="#%D0%90%D0%BA%D1%82%D0%B8%D0%B2%D0%B0%D1%86%D0%B8%D1%8F-%22Quick-Search%22-%D0%B2-synaptic">Активация &#34;Quick Search&#34; в synaptic</a></li>
+<li><a href="#%D0%9D%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B0-%D1%80%D0%B0%D0%B7%D1%80%D0%B5%D1%88%D0%B5%D0%BD%D0%B8%D1%8F-%D0%B2%D1%82%D0%BE%D1%80%D0%BE%D0%B3%D0%BE-%D0%BC%D0%BE%D0%BD%D0%B8%D1%82%D0%BE%D1%80%D0%B0">Настройка разрешения второго монитора</a></li>
+<li><a href="#%D0%92%D0%BE%D1%81%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5-xorg.conf">Восстановление xorg.conf</a></li>
+<li><a href="#%D0%9D%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B0-5.1-%D0%B7%D0%B2%D1%83%D0%BA%D0%B0-%D0%B2-PulseAudio">Настройка 5.1 звука в PulseAudio</a></li>
+<li><a href="#%D0%A0%D1%83%D1%87%D0%BD%D0%BE%D0%B5-%D1%83%D0%BA%D0%B0%D0%B7%D0%B0%D0%BD%D0%B8%D0%B5-%D0%B4%D0%BE%D0%BF%D0%BE%D0%BB%D0%BD%D0%B8%D1%82%D0%B5%D0%BB%D1%8C%D0%BD%D1%8B%D1%85-DNS-%D1%81%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D0%BE%D0%B2">Ручное указание дополнительных DNS серверов</a></li>
+</ul>
+</li>
+</ol>
+<a name="Активация-&#34;Quick-Search&#34;-в-synaptic"></a>
+<h3 id="активация-quick-search-в-synaptic">Активация &#34;Quick Search&#34; в synaptic</h3>
+<p>Иногда бывает, что по умолчанию &#34;quick search&#34; не активирован в synaptic и это
+очень неудобно. Для того, чтобы исправить это, нужно выполнить следующие команды:</p>

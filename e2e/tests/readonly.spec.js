@@ -1,8 +1,9 @@
 const {expect, test} = require('@playwright/test');
 
+const docs = require('../support/docs');
 const {READONLY, jsonRequest, shot, signIn} = require('../support/helpers');
 
-const DOC = 'db/postgresql.md';
+const DOC = docs.doc.path;
 
 test.describe('read-only mode', () => {
     test.beforeEach(async ({page}) => {
@@ -13,7 +14,7 @@ test.describe('read-only mode', () => {
         await page.goto(`${READONLY.baseURL}/p/${DOC}`);
         await page.waitForLoadState('networkidle');
 
-        await expect(page.locator('#doc h1').first()).toContainText('PostgreSQL');
+        await expect(page.locator('#doc h1').first()).toContainText(docs.doc.title);
         await expect(page.locator('.topbar-edit')).toHaveCount(0);
         await expect(page.locator('.doc-foot .doc-edit')).toHaveCount(0);
         await expect(page.locator('.sidebar-foot')).toHaveCount(0);
@@ -47,8 +48,8 @@ test.describe('read-only mode', () => {
             ['POST', '/api/file/e2e-readonly.md', {type: 'file'}],
             ['POST', '/api/file/e2e-readonly', {type: 'dir'}],
             ['DELETE', `/api/file/${DOC}`, undefined],
-            ['POST', '/api/move', {from: DOC, to: 'db/moved.md'}],
-            ['POST', '/api/upload/db', {}],
+            ['POST', '/api/move', {from: DOC, to: `${docs.doc.folder}/moved.md`}],
+            ['POST', `/api/upload/${docs.doc.folder}`, {}],
         ];
         for (const [method, url, body] of calls) {
             const res = await jsonRequest(page, method, url, body);
@@ -60,7 +61,8 @@ test.describe('read-only mode', () => {
     test('reading endpoints keep working', async ({page}) => {
         await page.goto(`${READONLY.baseURL}/p/${DOC}`);
 
-        for (const url of ['/api/tree', `/api/file/${DOC}`, '/api/search?q=postgres']) {
+        const searchURL = `/api/search?q=${encodeURIComponent(docs.search.doc)}`;
+        for (const url of ['/api/tree', `/api/file/${DOC}`, searchURL]) {
             const res = await jsonRequest(page, 'GET', url);
             expect(res.status, url).toBe(200);
         }

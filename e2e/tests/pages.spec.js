@@ -1,16 +1,17 @@
 const {expect, test} = require('@playwright/test');
 
+const docs = require('../support/docs');
 const {readFixture, removeFixture, shot, signIn} = require('../support/helpers');
 
-const MISSING = 'db/nothing-here.md';
+const MISSING = docs.missing;
 
 const ROUTES = [
     '/',
-    '/p/db/postgresql.md',
-    '/p/python/libs-docs/',
-    '/p/python/libs-docs/alembic-tutorial.md',
-    '/search?q=postgres',
-    '/edit/db/postgresql.md',
+    `/p/${docs.doc.path}`,
+    `/p/${docs.folder.path}/`,
+    `/p/${docs.folder.entry}`,
+    `/search?q=${encodeURIComponent(docs.search.word)}`,
+    `/edit/${docs.doc.path}`,
 ];
 
 test.describe('pages', () => {
@@ -34,7 +35,7 @@ test.describe('pages', () => {
     });
 
     test('a directory without an index lists its entries', async ({page}) => {
-        await page.goto('/p/python/libs-docs/');
+        await page.goto(`/p/${docs.folder.path}/`);
 
         await expect(page.locator('.dir-list-title')).toContainText('items');
         const entries = page.locator('.entries .entry');
@@ -44,12 +45,12 @@ test.describe('pages', () => {
     });
 
     test('the folder being viewed is the highlighted row in the tree', async ({page}) => {
-        await page.goto('/p/python/libs-docs/');
+        await page.goto(`/p/${docs.folder.path}/`);
 
         const current = page.locator('#sidebar .tree-row.is-current');
         await expect(current).toHaveCount(1);
         await expect(current).toHaveJSProperty('tagName', 'SUMMARY');
-        await expect(current.locator('.tree-name')).toHaveText('libs-docs');
+        await expect(current.locator('.tree-name')).toHaveText(docs.folder.name);
         await expect(current.locator('.tree-link')).toHaveAttribute('aria-current', 'page');
     });
 
@@ -61,7 +62,7 @@ test.describe('pages', () => {
         await shot(page, 'pages-missing');
 
         await page.locator('.empty-actions a.btn-primary').click();
-        await expect(page).toHaveURL(/\/edit\/db\/nothing-here\.md$/);
+        await expect(page).toHaveURL(new RegExp(`/edit/${MISSING}$`));
         await expect(page.locator('#editor-source')).toHaveValue('');
         await expect(page.locator('#status-state')).toHaveText('New page');
 

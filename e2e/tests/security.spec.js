@@ -2,6 +2,7 @@ const {expect, test} = require('@playwright/test');
 
 const fs = require('fs');
 
+const docs = require('../support/docs');
 const {
     MAIN, fixtureFile, jsonRequest, removeFixture, shot, signIn, writeFixture,
 } = require('../support/helpers');
@@ -64,7 +65,7 @@ test.describe('security', () => {
     });
 
     test('markdown and svg come back inert too', async ({page}) => {
-        const markdown = await page.request.get(`${MAIN.baseURL}/raw/db/postgresql.md`);
+        const markdown = await page.request.get(`${MAIN.baseURL}/raw/${docs.doc.path}`);
         expect(markdown.headers()['content-type']).toBe('text/plain; charset=utf-8');
         expect(markdown.headers()['content-disposition']).toBeUndefined();
 
@@ -76,16 +77,16 @@ test.describe('security', () => {
     });
 
     test('an image still loads inline', async ({page}) => {
-        const res = await page.request.get(`${MAIN.baseURL}/raw/regexp/regex-cheat-sheet.png`);
+        const res = await page.request.get(`${MAIN.baseURL}/raw/${docs.illustrated.image}`);
 
         expect(res.headers()['content-type']).toBe('image/png');
         expect(res.headers()['content-disposition']).toBeUndefined();
     });
 
     test('the file api refuses binaries and oversized text', async ({page}) => {
-        await page.goto(`/p/db/postgresql.md`);
+        await page.goto(`/p/${docs.doc.path}`);
 
-        const binary = await jsonRequest(page, 'GET', '/api/file/regexp/regex-cheat-sheet.png');
+        const binary = await jsonRequest(page, 'GET', `/api/file/${docs.illustrated.image}`);
         expect(binary.status).toBe(415);
         expect(binary.body).toContain('not a text file');
 
@@ -95,7 +96,7 @@ test.describe('security', () => {
         expect(big.body).toContain('too large');
         removeFixture(BIG);
 
-        const ok = await jsonRequest(page, 'GET', '/api/file/db/postgresql.md');
+        const ok = await jsonRequest(page, 'GET', `/api/file/${docs.doc.path}`);
         expect(ok.status).toBe(200);
     });
 
@@ -104,7 +105,7 @@ test.describe('security', () => {
         expect(ping.status()).toBe(200);
         expect((await ping.text()).trim()).toBe('pong');
 
-        const nested = await page.request.get(`${MAIN.baseURL}/p/db/ping`);
+        const nested = await page.request.get(`${MAIN.baseURL}/p/${docs.doc.folder}/ping`);
         expect(nested.status(), '/p/<anything>/ping must not answer as the healthcheck').toBe(404);
     });
 });

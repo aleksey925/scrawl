@@ -1,5 +1,6 @@
 const {expect, test} = require('@playwright/test');
 
+const docs = require('../support/docs');
 const {MAIN, shot, signIn, submitCredentials} = require('../support/helpers');
 
 test.describe('login', () => {
@@ -16,7 +17,7 @@ test.describe('login', () => {
         await signIn(page);
 
         await expect(page).toHaveURL(`${MAIN.baseURL}/`);
-        await expect(page.locator('#doc h1').first()).toContainText('База знаний');
+        await expect(page.locator('#doc h1').first()).toContainText(docs.home.title);
         await expect(page.locator('#sidebar .tree-item').first()).toBeVisible();
         await shot(page, 'login-home');
     });
@@ -41,7 +42,7 @@ test.describe('login', () => {
     });
 
     test('a protected url while signed out comes back after signing in', async ({page}) => {
-        const target = '/p/db/postgresql.md';
+        const target = `/p/${docs.doc.path}`;
         await page.goto(target);
 
         await expect(page).toHaveURL(`${MAIN.baseURL}/login?from=${encodeURIComponent(target)}`);
@@ -49,6 +50,6 @@ test.describe('login', () => {
 
         await submitCredentials(page);
         await expect(page).toHaveURL(`${MAIN.baseURL}${target}`);
-        await expect(page.locator('#doc h1').first()).toContainText('PostgreSQL');
+        await expect(page.locator('#doc h1').first()).toContainText(docs.doc.title);
     });
 });

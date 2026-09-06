@@ -32,14 +32,31 @@ import (
 var content embed.FS
 
 const (
-	throttleLimit          = 1000
+	throttleLimit          = 64
 	staticCacheTTL         = 365 * 24 * time.Hour
 	rawCacheTTL            = 5 * time.Minute
 	defaultShutdownTimeout = 5 * time.Second
 
 	// maxJSONBody caps every JSON endpoint. The biggest legitimate payload is
-	// a preview of the largest document in the corpus, which is far below it.
+	// a whole document being saved, which is far below it.
 	maxJSONBody = 4 << 20
+
+	// maxPreviewBody caps /api/preview. It is an editor buffer and not a file,
+	// and rendering is superlinear in the input, so the preview gets much less
+	// room than a save.
+	maxPreviewBody = 512 << 10
+
+	// maxEditableFile caps what GET /api/file will read into memory and escape
+	// into a JSON string. A document past it is not editable in a textarea
+	// anyway, and reading it costs several times its size in RSS.
+	maxEditableFile = 2 << 20
+
+	// maxRenderBytes caps the source a page render is attempted on. Goldmark is
+	// quadratic on some inputs, so an unbounded document is a CPU sink.
+	maxRenderBytes = 2 << 20
+
+	// renderTimeout bounds how long a request waits for a render.
+	renderTimeout = 10 * time.Second
 
 	pageCacheEntries = 256
 	pageCacheBytes   = 64 << 20
@@ -68,6 +85,7 @@ type Config struct {
 	ReadOnly     bool   // refuse every write endpoint
 	TrustedProxy bool   // trust X-Forwarded-For and X-Forwarded-Proto
 	MaxUpload    int64  // upload size cap in bytes
+	UploadDir    string // one shared directory for uploads, empty keeps them next to the document
 	AuthDisabled bool   // serve without authentication
 
 	ReadHeaderTimeout time.Duration
@@ -178,10 +196,15 @@ func (wb *Web) router() (http.Handler, error) {
 	}
 	router.Use(rest.Throttle(throttleLimit))
 	router.Use(logger.New(logger.Log(lgr.Default()), logger.Prefix("[DEBUG]")).Handler)
-	router.Use(rest.AppInfo("mdserver", "aleksey925", wb.Version), rest.Ping)
 	if wb.Auth != nil {
 		router.Use(wb.Auth.Middleware)
 	}
+	router.Use(wb.appInfo)
+
+	// rest.Ping is not used: it answers any path ending in /ping, before auth,
+	// so /p/anything/ping would be an unauthenticated route and a document
+	// really named ping would be unreachable
+	router.HandleFunc("GET /ping", pingHandler)
 
 	// the version segment is part of the URL only to bust the cache, lookup
 	// ignores it so that an old page keeps working after a redeploy
@@ -228,6 +251,33 @@ func (wb *Web) staticHandler(assetsFS fs.FS) http.HandlerFunc {
 			http.ServeFileFS(w, r, assetsFS, assetPath)
 		}
 	}
+}
+
+// pingHandler answers the container healthcheck without a session.
+func pingHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	if _, err := w.Write([]byte("pong")); err != nil {
+		log.Printf("[DEBUG] write ping response: %v", err)
+	}
+}
+
+// appInfo names the running build, but only to a caller that already has a
+// session: the version is branch-sha-timestamp, which tells anybody who asks
+// exactly which commit is deployed.
+func (wb *Web) appInfo(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if wb.Auth == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if _, ok := wb.Auth.User(r); ok {
+			h := w.Header()
+			h.Set("App-Name", "mdserver")
+			h.Set("App-Version", wb.Version)
+			h.Set("Author", "aleksey925")
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // securityHeaders sets the response headers that do not depend on the route.
@@ -292,10 +342,22 @@ func (wb *Web) errorPage(w http.ResponseWriter, r *http.Request, contentPath str
 // failPage maps a store error onto the error page.
 func (wb *Web) failPage(w http.ResponseWriter, r *http.Request, contentPath string, err error) {
 	status := statusOf(err)
-	if status == http.StatusInternalServerError {
-		log.Printf("[ERROR] %s %s: %v", r.Method, r.URL.Path, err)
+	logFailure(r, status, err)
+	message := statusMessage(status)
+	if errors.Is(err, store.ErrPermission) {
+		message = permissionMessage
 	}
-	wb.errorPage(w, r, contentPath, status, statusMessage(status))
+	wb.errorPage(w, r, contentPath, status, message)
+}
+
+// logFailure records the failures nobody can diagnose from the response alone:
+// a bug behind a 500, and a permission denied, which is a deployment problem
+// the owner only ever sees in the container log.
+func logFailure(r *http.Request, status int, err error) {
+	if status != http.StatusInternalServerError && !errors.Is(err, store.ErrPermission) {
+		return
+	}
+	log.Printf("[ERROR] %s %s: %v", r.Method, r.URL.Path, err)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -319,8 +381,6 @@ func jsonError(w http.ResponseWriter, status int, message string) {
 // failJSON maps a store error onto a JSON error response.
 func failJSON(w http.ResponseWriter, r *http.Request, err error) {
 	status := statusOf(err)
-	if status == http.StatusInternalServerError {
-		log.Printf("[ERROR] %s %s: %v", r.Method, r.URL.Path, err)
-	}
+	logFailure(r, status, err)
 	jsonError(w, status, errMessage(err))
 }

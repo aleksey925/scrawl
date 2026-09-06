@@ -7,11 +7,19 @@ import (
 	"github.com/aleksey925/mdserver/store"
 )
 
+// errRenderTimeout is returned when a render outran its deadline. It is the
+// server's own error and not a store one, but it travels the same path.
+var errRenderTimeout = errors.New("render timed out")
+
 // statusOf maps a store error onto the status the API contract promises.
 func statusOf(err error) int {
 	switch {
 	case err == nil:
 		return http.StatusOK
+	case errors.Is(err, errRenderTimeout):
+		return http.StatusServiceUnavailable
+	case errors.Is(err, store.ErrPermission):
+		return http.StatusForbidden
 	case errors.Is(err, store.ErrConflict):
 		return http.StatusPreconditionFailed
 	case errors.Is(err, store.ErrNotFound):
@@ -34,6 +42,10 @@ func statusOf(err error) int {
 // response.
 func errMessage(err error) string {
 	switch {
+	case errors.Is(err, errRenderTimeout):
+		return "rendering took too long"
+	case errors.Is(err, store.ErrPermission):
+		return permissionMessage
 	case errors.Is(err, store.ErrConflict):
 		return "conflict"
 	case errors.Is(err, store.ErrNotFound):
@@ -68,6 +80,14 @@ func statusMessage(status int) string {
 		return "That is too large"
 	case http.StatusTooManyRequests:
 		return "Too many attempts"
+	case http.StatusServiceUnavailable:
+		return "That took too long"
 	}
 	return "Something went wrong"
 }
+
+// permissionMessage names the cause a bare "forbidden" hides. On a NAS the
+// container almost always runs as a uid that does not own the mounted folder,
+// and that is the one failure the owner has to be told about in full.
+const permissionMessage = "permission denied by the filesystem, the knowledge base folder must be " +
+	"readable and writable by the user the server runs as"

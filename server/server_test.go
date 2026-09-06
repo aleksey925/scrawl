@@ -261,6 +261,46 @@ func TestStaticAndPing(t *testing.T) {
 	}
 }
 
+func TestPingIsExactAndDoesNotShadowContent(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true})
+
+	tests := []struct {
+		name   string
+		path   string
+		status int
+	}{
+		{name: "the ping route", path: "/ping", status: http.StatusOK},
+		{name: "a document path ending in ping", path: "/p/notes/ping", status: http.StatusFound},
+		{name: "an api path ending in ping", path: "/api/file/x/ping", status: http.StatusUnauthorized},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			resp, _ := ts.do(t, request{path: tc.path})
+
+			// assert
+			assert.Equal(t, tc.status, resp.status)
+		})
+	}
+}
+
+func TestBuildVersionIsNotShownToStrangers(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true})
+
+	// act
+	anonymous, _ := ts.do(t, request{path: "/login"})
+	ping, _ := ts.do(t, request{path: "/ping"})
+	authenticated, _ := ts.do(t, request{path: "/", client: ts.login(t)})
+
+	// assert
+	assert.Empty(t, anonymous.header.Get("App-Version"))
+	assert.Empty(t, ping.header.Get("App-Version"))
+	assert.Equal(t, "v1.2.3", authenticated.header.Get("App-Version"))
+}
+
 func TestSecurityHeaders(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -380,6 +420,84 @@ func TestRawConditionalAndRange(t *testing.T) {
 	}
 }
 
+func TestRawNeverServesAnExecutableDocument(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	payloads := map[string][]byte{
+		"evil.html":  []byte("<html><body><script src=\"/raw/evil.js\"></script></body></html>"),
+		"evil.js":    []byte("document.title='PWNED'"),
+		"evil.svg":   []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`),
+		"evil.xhtml": []byte("<html xmlns=\"http://www.w3.org/1999/xhtml\"><body/></html>"),
+		"evil.xml":   []byte("<?xml version=\"1.0\"?><root/>"),
+		"noext":      []byte("<html><body>sniff me</body></html>"),
+	}
+	for name, data := range payloads {
+		require.NoError(t, os.WriteFile(filepath.Join(ts.root, name), data, 0o600))
+	}
+
+	tests := []struct {
+		name        string
+		path        string
+		contentType string
+		disposition string
+	}{
+		{name: "html", path: "/raw/evil.html", contentType: "application/octet-stream",
+			disposition: `attachment; filename=evil.html`},
+		{name: "javascript", path: "/raw/evil.js", contentType: "application/octet-stream",
+			disposition: `attachment; filename=evil.js`},
+		{name: "svg keeps its type but downloads", path: "/raw/evil.svg", contentType: "image/svg+xml",
+			disposition: `attachment; filename=evil.svg`},
+		{name: "xhtml", path: "/raw/evil.xhtml", contentType: "application/octet-stream",
+			disposition: `attachment; filename=evil.xhtml`},
+		{name: "xml", path: "/raw/evil.xml", contentType: "application/octet-stream",
+			disposition: `attachment; filename=evil.xml`},
+		{name: "no extension is never sniffed", path: "/raw/noext", contentType: "application/octet-stream",
+			disposition: `attachment; filename=noext`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			resp, _ := ts.do(t, request{path: tc.path})
+
+			// assert
+			assert.Equal(t, http.StatusOK, resp.status)
+			assert.Equal(t, tc.contentType, resp.header.Get("Content-Type"))
+			assert.Equal(t, tc.disposition, resp.header.Get("Content-Disposition"))
+			assert.Equal(t, rawContentSecurityPolicy, resp.header.Get("Content-Security-Policy"))
+			assert.Equal(t, "nosniff", resp.header.Get("X-Content-Type-Options"))
+		})
+	}
+}
+
+func TestRawServesSafeTypesInline(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	tests := []struct {
+		name        string
+		path        string
+		contentType string
+	}{
+		{name: "png", path: "/raw/images/logo.png", contentType: "image/png"},
+		{name: "markdown source", path: "/raw/guide.md", contentType: "text/plain; charset=utf-8"},
+		{name: "code snippet", path: "/raw/snippet.py", contentType: "text/plain; charset=utf-8"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			resp, _ := ts.do(t, request{path: tc.path})
+
+			// assert
+			assert.Equal(t, http.StatusOK, resp.status)
+			assert.Equal(t, tc.contentType, resp.header.Get("Content-Type"))
+			assert.Empty(t, resp.header.Get("Content-Disposition"))
+			assert.Equal(t, rawContentSecurityPolicy, resp.header.Get("Content-Security-Policy"))
+		})
+	}
+}
+
 func TestRawMissing(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -404,7 +522,41 @@ func TestAPITree(t *testing.T) {
 	for _, node := range body["tree"].([]any) {
 		names = append(names, node.(map[string]any)["name"].(string))
 	}
-	assert.Equal(t, []string{"docs", "images", "notes", "guide.md", "index.md", "snippet.py"}, names)
+	assert.Equal(t, []string{"docs", "notes", "guide.md", "index.md"}, names,
+		"the tree indexes documents, not every file")
+}
+
+func TestTreeSkipsFoldersWithoutDocuments(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	require.NoError(t, os.MkdirAll(filepath.Join(ts.root, "attachments"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(ts.root, "attachments", "shot.png"), tinyPNG(t), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Join(ts.root, "empty"), 0o750))
+
+	// act
+	nodes := ts.treeNodes("")
+
+	// assert
+	paths := []string{}
+	for _, node := range nodes {
+		paths = append(paths, node.Path)
+	}
+	assert.Equal(t, []string{"docs", "notes", "guide.md", "index.md"}, paths)
+}
+
+func TestTreeDirectoriesCarryTheirPageURL(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	// act
+	nodes := ts.treeNodes("docs/page.md")
+
+	// assert
+	docs := nodes[0]
+	require.True(t, docs.IsDir)
+	assert.Equal(t, "/p/docs/", docs.URL)
+	assert.True(t, docs.Active)
+	assert.Equal(t, "/p/docs/sub/", docs.Children[0].URL)
 }
 
 func TestAPIFileGet(t *testing.T) {
@@ -422,6 +574,37 @@ func TestAPIFileGet(t *testing.T) {
 	assert.Equal(t, string(source), body["content"])
 	assert.Equal(t, store.Rev(source), body["rev"])
 	assert.InDelta(t, float64(len(source)), body["size"], 0)
+}
+
+func TestAPIFileGetRefusesLargeAndBinaryFiles(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	huge := filepath.Join(ts.root, "huge.md")
+	require.NoError(t, os.WriteFile(huge, bytes.Repeat([]byte("a"), maxEditableFile+1), 0o600))
+
+	tests := []struct {
+		name   string
+		path   string
+		status int
+		error  string
+	}{
+		{name: "over the editing cap", path: "/api/file/huge.md",
+			status: http.StatusRequestEntityTooLarge, error: "file is too large to edit, read it from /raw/"},
+		{name: "binary attachment", path: "/api/file/images/logo.png",
+			status: http.StatusUnsupportedMediaType, error: "not a text file, read it from /raw/"},
+		{name: "directory", path: "/api/file/notes", status: http.StatusBadRequest, error: "path is a directory"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			resp, body := ts.json(t, request{path: tc.path})
+
+			// assert
+			assert.Equal(t, tc.status, resp.status)
+			assert.Equal(t, tc.error, body["error"])
+		})
+	}
 }
 
 func TestAPIFileLifecycle(t *testing.T) {
@@ -581,7 +764,7 @@ func TestAPIMalformedBody(t *testing.T) {
 		status int
 	}{
 		{name: "not json", body: strings.NewReader("{oops"), status: http.StatusBadRequest},
-		{name: "over the cap", body: strings.NewReader(`{"content":"` + strings.Repeat("x", maxJSONBody) + `"}`),
+		{name: "over the cap", body: strings.NewReader(`{"content":"` + strings.Repeat("x", maxPreviewBody) + `"}`),
 			status: http.StatusRequestEntityTooLarge},
 	}
 
@@ -614,6 +797,76 @@ func TestAPIPreviewMatchesTheViewPage(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.status)
 	assert.Equal(t, string(rendered.HTML), body["html"])
+}
+
+func TestPreviewBodyIsCappedBelowTheSaveBody(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	source := strings.Repeat("[x]: /y\n", maxPreviewBody/8+1)
+	require.Greater(t, len(source), maxPreviewBody)
+	require.Less(t, len(source), maxJSONBody)
+
+	// act
+	preview, previewBody := ts.json(t, request{
+		method: http.MethodPost, path: "/api/preview",
+		body: jsonBody(t, map[string]string{"content": source, "path": "guide.md"}),
+	})
+	save, _ := ts.json(t, request{
+		method: http.MethodPut, path: "/api/file/big.md",
+		body: jsonBody(t, map[string]string{"content": source, "rev": ""}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusRequestEntityTooLarge, preview.status)
+	assert.Equal(t, "request body is too large", previewBody["error"])
+	assert.Equal(t, http.StatusOK, save.status, "a whole document is still saveable")
+}
+
+func TestRenderWithDeadline(t *testing.T) {
+	tests := []struct {
+		name    string
+		src     []byte
+		limit   int
+		timeout time.Duration
+		slow    bool
+		want    error
+	}{
+		{name: "renders within the deadline", src: []byte("# hi"), limit: 16, timeout: time.Minute},
+		{name: "refuses input over the limit", src: []byte("# far too long"), limit: 4,
+			timeout: time.Minute, want: store.ErrTooLarge},
+		{name: "gives up on a slow render", src: []byte("# hi"), limit: 16,
+			timeout: time.Millisecond, slow: true, want: errRenderTimeout},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			res, err := renderWithDeadline("a.md", tc.src, tc.limit, tc.timeout, func() (string, error) {
+				if tc.slow {
+					time.Sleep(200 * time.Millisecond)
+				}
+				return "done", nil
+			})
+
+			// assert
+			if tc.want != nil {
+				assert.ErrorIs(t, err, tc.want)
+				assert.Empty(t, res)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, "done", res)
+		})
+	}
+}
+
+func TestRenderTimeoutIsServedAsUnavailable(t *testing.T) {
+	// arrange & act
+	err := fmt.Errorf("render %q: %w", "a.md", errRenderTimeout)
+
+	// assert
+	assert.Equal(t, http.StatusServiceUnavailable, statusOf(err))
+	assert.Equal(t, "rendering took too long", errMessage(err))
 }
 
 func TestAPISearch(t *testing.T) {
@@ -659,25 +912,52 @@ func TestAPIUpload(t *testing.T) {
 
 	// assert
 	require.Equal(t, http.StatusCreated, resp.status)
-	assert.Equal(t, "notes/skrinshot-diska.png", res["path"])
-	assert.Equal(t, "![](skrinshot-diska.png)", res["markdown"])
-	assert.True(t, ts.Store.Exists("notes/skrinshot-diska.png"))
+	assert.Equal(t, "notes/cyrillic/skrinshot-diska.png", res["path"])
+	assert.Equal(t, "![](cyrillic/skrinshot-diska.png)", res["markdown"])
+	assert.True(t, ts.Store.Exists("notes/cyrillic/skrinshot-diska.png"))
 }
 
-func TestAPIUploadRelativeToTheDocument(t *testing.T) {
+func TestUploadDir(t *testing.T) {
+	tests := []struct {
+		name      string
+		shared    string
+		doc       string
+		requested string
+		want      string
+	}{
+		{name: "next to the document", doc: "python/notes.md", requested: "python", want: "python/notes"},
+		{name: "document in the root", doc: "index.md", requested: "", want: "index"},
+		{name: "no document falls back to the request", requested: "attachments", want: "attachments"},
+		{name: "one shared directory", shared: "attachments", doc: "python/notes.md", want: "attachments"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			wb := &Web{Config: Config{UploadDir: tc.shared}}
+
+			// act & assert
+			assert.Equal(t, tc.want, wb.uploadDir(tc.doc, tc.requested))
+		})
+	}
+}
+
+func TestAPIUploadIntoOneSharedDirectory(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
+	ts.UploadDir = "attachments"
 	body, contentType := multipartFile(t, "file", "Screen shot.png", tinyPNG(t))
 
 	// act
 	resp, res := ts.json(t, request{
-		method: http.MethodPost, path: "/api/upload/images?doc=notes/deep/page.md",
+		method: http.MethodPost, path: "/api/upload/notes?doc=docs/sub/deep.md",
 		body: body, headers: map[string]string{"Content-Type": contentType},
 	})
 
 	// assert
 	require.Equal(t, http.StatusCreated, resp.status)
-	assert.Equal(t, "![](../../images/screen-shot.png)", res["markdown"])
+	assert.Equal(t, "attachments/screen-shot.png", res["path"])
+	assert.Equal(t, "![](../../attachments/screen-shot.png)", res["markdown"])
 }
 
 func TestAPIUploadRejects(t *testing.T) {
@@ -1091,6 +1371,8 @@ func TestStoreErrorMapping(t *testing.T) {
 		{name: "not empty", err: store.ErrNotEmpty, status: http.StatusConflict, message: "directory is not empty"},
 		{name: "read only", err: store.ErrReadOnly, status: http.StatusForbidden,
 			message: "read-only mode, writing is disabled"},
+		{name: "permission denied", err: store.ErrPermission, status: http.StatusForbidden,
+			message: permissionMessage},
 		{name: "too large", err: store.ErrTooLarge, status: http.StatusRequestEntityTooLarge,
 			message: "file is too large"},
 		{name: "anything else", err: errors.New("disk on fire"), status: http.StatusInternalServerError,

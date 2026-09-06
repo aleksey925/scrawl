@@ -8,6 +8,7 @@ import (
 	"mime"
 	"net/http"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -162,16 +163,58 @@ func (wb *Web) renderDoc(docPath string, data []byte, rev string) (render.Result
 	if res, ok := wb.pages().get(docPath, rev); ok {
 		return res, nil
 	}
-	res, err := wb.Renderer.Render(data, docPath)
+	res, err := renderWithDeadline(docPath, data, maxRenderBytes, renderTimeout, func() (render.Result, error) {
+		return wb.Renderer.Render(data, docPath)
+	})
 	if err != nil {
-		return render.Result{}, fmt.Errorf("render %q: %w", docPath, err)
+		return render.Result{}, err
 	}
 	wb.pages().put(docPath, rev, res)
 	return res, nil
 }
 
+// renderWithDeadline runs one markdown render, refusing input too big to be
+// worth rendering and giving up on one that takes too long. Goldmark is
+// superlinear on some inputs (link reference definitions above all) and offers
+// no cancellation, so the abandoned goroutine is left to finish: the size cap
+// is what keeps it short, the deadline is what keeps the request short.
+func renderWithDeadline[T any](docPath string, src []byte, limit int, timeout time.Duration,
+	fn func() (T, error)) (T, error) {
+	var zero T
+	if len(src) > limit {
+		return zero, fmt.Errorf("render %q of %d bytes: %w", docPath, len(src), store.ErrTooLarge)
+	}
+
+	type outcome struct {
+		res T
+		err error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		res, err := fn()
+		done <- outcome{res: res, err: err}
+	}()
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case out := <-done:
+		if out.err != nil {
+			return zero, fmt.Errorf("render %q: %w", docPath, out.err)
+		}
+		return out.res, nil
+	case <-timer.C:
+		return zero, fmt.Errorf("render %q: %w", docPath, errRenderTimeout)
+	}
+}
+
 // rawHandler serves a file untouched, through ServeContent so that range and
 // conditional requests keep working for images and pdfs.
+//
+// Nothing here trusts the host's mime table and nothing is ever sniffed: the
+// Content-Type decides whether a browser executes the bytes, and a document
+// link such as [x](evil.html) reaches this route in one click, so an attacker
+// who can write one file must not be able to pick the type it comes back with.
 func (wb *Web) rawHandler(w http.ResponseWriter, r *http.Request) {
 	p, ok := contentPath(r, "path")
 	if !ok || p == "" {
@@ -186,12 +229,93 @@ func (wb *Web) rawHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Close()
 
-	if ct := mime.TypeByExtension(path.Ext(fi.Name)); ct != "" {
-		w.Header().Set("Content-Type", ct)
+	contentType, inline := rawContentType(fi.Name)
+	h := w.Header()
+	h.Set("Content-Type", contentType)
+	if !inline {
+		h.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": fi.Name}))
 	}
-	w.Header().Set("Cache-Control", "private, max-age="+strconv.Itoa(int(rawCacheTTL.Seconds())))
-	w.Header().Set("ETag", rawETag(fi))
+	// the app-wide policy still allows scripts from this origin, which is what
+	// made /raw/ a script host; this one allows nothing at all and puts the
+	// response in an opaque origin, so even a document served here is inert
+	h.Set("Content-Security-Policy", rawContentSecurityPolicy)
+	h.Set("Cache-Control", "private, max-age="+strconv.Itoa(int(rawCacheTTL.Seconds())))
+	h.Set("ETag", rawETag(fi))
 	http.ServeContent(w, r, fi.Name, fi.ModTime, f)
+}
+
+// rawContentSecurityPolicy applies to /raw/ only. sandbox without allow-scripts
+// puts the response in an opaque origin, so a document that reaches a browser
+// through this route cannot run script, submit a form or reach the API.
+const rawContentSecurityPolicy = "default-src 'none'; sandbox"
+
+// rawInlineTypes maps an extension to the media type served inline. Every one
+// of them is a format a browser renders but cannot execute. SVG is deliberately
+// missing: it is a scriptable document, and while it stays harmless inside an
+// <img> (where Content-Disposition is ignored, so documents keep displaying
+// their diagrams), opening /raw/x.svg directly must download it instead.
+var rawInlineTypes = map[string]string{
+	".png":  "image/png",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".gif":  "image/gif",
+	".webp": "image/webp",
+	".avif": "image/avif",
+	".bmp":  "image/bmp",
+	".ico":  "image/vnd.microsoft.icon",
+	".pdf":  "application/pdf",
+	".mp3":  "audio/mpeg",
+	".m4a":  "audio/mp4",
+	".oga":  "audio/ogg",
+	".wav":  "audio/wav",
+	".flac": "audio/flac",
+	".mp4":  "video/mp4",
+	".webm": "video/webm",
+	".ogv":  "video/ogg",
+	".mov":  "video/quicktime",
+}
+
+// rawTextExtensions are served inline as text/plain, which no browser executes.
+// Reading the source of a note or a snippet in a tab is worth keeping, and
+// markdown is here on purpose: /raw/x.md is how the source of a document is
+// looked at, while /p/x.md is the rendered page.
+var rawTextExtensions = []string{
+	".md", ".markdown", ".txt", ".text", ".log", ".csv", ".tsv",
+	".py", ".go", ".rs", ".c", ".h", ".cpp", ".hpp", ".java", ".kt", ".rb",
+	".pl", ".lua", ".sh", ".bash", ".zsh", ".fish", ".sql", ".r",
+	".ini", ".cfg", ".conf", ".toml", ".yaml", ".yml", ".env", ".diff", ".patch",
+}
+
+// rawAttachmentTypes are types worth naming even though they are downloaded,
+// because a document may still reference them as a subresource, where the media
+// type decides whether they display at all.
+var rawAttachmentTypes = map[string]string{
+	".svg": "image/svg+xml",
+}
+
+// isTextFile reports whether a path holds text the editor can load. It shares
+// the raw serving table, so what the editor may open and what is safe to show
+// inline cannot drift apart.
+func isTextFile(p string) bool {
+	contentType, _ := rawContentType(p)
+	return strings.HasPrefix(contentType, "text/")
+}
+
+// rawContentType picks the media type of a stored file from its extension and
+// reports whether it may be shown inline. Anything unknown is an opaque
+// download: an extension nobody listed here is not worth guessing about.
+func rawContentType(name string) (contentType string, inline bool) {
+	ext := strings.ToLower(path.Ext(name))
+	if ct, ok := rawInlineTypes[ext]; ok {
+		return ct, true
+	}
+	if slices.Contains(rawTextExtensions, ext) {
+		return "text/plain; charset=utf-8", true
+	}
+	if ct, ok := rawAttachmentTypes[ext]; ok {
+		return ct, false
+	}
+	return "application/octet-stream", false
 }
 
 // rawETag identifies one version of a stored file. It is built from the size

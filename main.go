@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -18,7 +20,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/go-pkgz/lgr"
 	"github.com/jessevdk/go-flags"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/aleksey925/mdserver/auth"
 	"github.com/aleksey925/mdserver/render"
@@ -37,6 +38,7 @@ type options struct {
 	ReadOnly     bool     `long:"read-only" env:"READ_ONLY" description:"disable all write endpoints"`
 	Exclude      []string `long:"exclude" env:"EXCLUDE" env-delim:"," description:"extra ignore globs"`
 	MaxUpload    byteSize `long:"max-upload" env:"MAX_UPLOAD" default:"20M" description:"upload size cap"`
+	UploadDir    string   `long:"upload-dir" env:"UPLOAD_DIR" description:"put every upload in this one directory instead of a folder named after the document"`
 	TrustedProxy bool     `long:"trusted-proxy" env:"TRUSTED_PROXY" description:"trust X-Forwarded-For and X-Forwarded-Proto"`
 
 	Watch  string        `long:"watch" env:"WATCH" default:"auto" choice:"auto" choice:"poll" description:"change detection, poll for a network share"`
@@ -59,7 +61,7 @@ type options struct {
 		Shutdown   time.Duration `long:"shutdown" env:"SHUTDOWN" default:"5s" description:"graceful shutdown timeout"`
 	} `group:"timeout" namespace:"timeout" env-namespace:"TIMEOUT"`
 
-	GenHash string `long:"gen-hash" description:"print a bcrypt hash for the given password and exit"`
+	GenHash string `long:"gen-hash" optional:"yes" optional-value:"-" description:"print a bcrypt hash and exit, reading the password from stdin unless it is given"`
 	Version bool   `short:"v" long:"version" description:"show version and exit"`
 	Dbg     bool   `long:"dbg" env:"DEBUG" description:"debug mode"`
 }
@@ -116,7 +118,7 @@ func main() {
 	}
 
 	if opts.GenHash != "" {
-		hash, hashErr := genHash(opts.GenHash)
+		hash, hashErr := genHash(opts.GenHash, os.Stdin)
 		if hashErr != nil {
 			log.Printf("[ERROR] %v", hashErr)
 			os.Exit(1)
@@ -155,10 +157,6 @@ func run(ctx context.Context, opts *options) error {
 	if err != nil {
 		return err
 	}
-	for _, name := range plainPasswordUsers(opts.Auth.Users) {
-		log.Printf("[WARN] user %q has a plain password, use --gen-hash to make a bcrypt hash", name)
-	}
-
 	if opts.Auth.Disabled {
 		log.Printf("[WARN] authentication is disabled, every visitor gets full access")
 	}
@@ -174,6 +172,7 @@ func run(ctx context.Context, opts *options) error {
 		return fmt.Errorf("open knowledge base: %w", err)
 	}
 	defer kb.Close()
+	warnUnwritable(kb)
 
 	index := search.New()
 	if indexErr := indexAll(kb, index); indexErr != nil {
@@ -201,6 +200,7 @@ func run(ctx context.Context, opts *options) error {
 			ReadOnly:          opts.ReadOnly,
 			TrustedProxy:      opts.TrustedProxy,
 			MaxUpload:         int64(opts.MaxUpload),
+			UploadDir:         strings.Trim(opts.UploadDir, "/"),
 			AuthDisabled:      opts.Auth.Disabled,
 			ReadHeaderTimeout: opts.Timeouts.ReadHeader,
 			ReadTimeout:       opts.Timeouts.Read,
@@ -222,6 +222,20 @@ func run(ctx context.Context, opts *options) error {
 		return fmt.Errorf("run server: %w", runErr)
 	}
 	return nil
+}
+
+// warnUnwritable names the failure a NAS deployment hits first: the container
+// runs as a uid that does not own the mounted folder, reading works and every
+// save comes back as an error. One line at startup beats finding out later.
+func warnUnwritable(kb *store.Store) {
+	if kb.ReadOnly() {
+		return
+	}
+	if err := kb.CheckWritable(); err != nil {
+		log.Printf("[WARN] %s is not writable by uid %d gid %d, every save will fail: %v", kb.Dir(), os.Getuid(), os.Getgid(), err)
+		log.Printf("[WARN] set the container user to the owner of that folder (`id <user>` on the NAS gives the numbers), " +
+			"or start with --read-only")
+	}
 }
 
 // indexAll fills the search index from the knowledge base.
@@ -315,27 +329,32 @@ func checkSecretFile(root string, opts *options) error {
 	return fmt.Errorf("secret file %q must live outside the knowledge base root %q", opts.Auth.SecretFile, root)
 }
 
-func genHash(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", fmt.Errorf("generate bcrypt hash: %w", err)
-	}
-	return string(hash), nil
-}
-
-// plainPasswordUsers returns the names of users configured with a plain
-// password instead of a bcrypt hash. They work, but the password then sits in
-// the process environment and in the compose file.
-func plainPasswordUsers(users []string) []string {
-	res := []string{}
-	for _, entry := range users {
-		name, secret, found := strings.Cut(entry, ":")
-		if !found || strings.HasPrefix(secret, "$2") {
-			continue
+// genHash turns a password into a bcrypt hash. "-", which is what --gen-hash
+// means on its own, reads the password from in: a password given on the command
+// line lands in ps, in the shell history and, for the documented docker run
+// recipe, in the container config that docker inspect prints.
+func genHash(value string, in io.Reader) (string, error) {
+	password := value
+	if value == "-" {
+		line, err := bufio.NewReader(in).ReadString('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return "", fmt.Errorf("read the password from stdin: %w", err)
 		}
-		res = append(res, name)
+		password = strings.TrimRight(line, "\r\n")
+		if password == "" {
+			return "", errors.New("no password on stdin, pipe one in " +
+				"(printf 'my-password' | mdserver --gen-hash) or pass it as --gen-hash=my-password")
+		}
+	} else {
+		log.Printf("[WARN] the password was passed on the command line, where ps and the shell history keep it, " +
+			"pipe it into --gen-hash instead")
 	}
-	return res
+
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		return "", err
+	}
+	return hash, nil
 }
 
 // secretsOf collects values that must never reach the log.
@@ -365,7 +384,9 @@ func versionInfo() string {
 }
 
 func setupLog(dbg bool, secrets ...string) {
-	logOpts := []lgr.Option{lgr.Msec, lgr.LevelBraces, lgr.StackTraceOnError}
+	// no stack trace outside debug mode: an ordinary configuration error would
+	// otherwise print a dump that reads as a crash in Container Manager's log
+	logOpts := []lgr.Option{lgr.Msec, lgr.LevelBraces}
 	if dbg {
 		logOpts = []lgr.Option{lgr.Debug, lgr.CallerFile, lgr.CallerFunc, lgr.Msec,
 			lgr.LevelBraces, lgr.StackTraceOnError}

@@ -1,8 +1,10 @@
 package auth
 
 import (
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -109,22 +111,41 @@ func TestLimiterEviction(t *testing.T) {
 		assert.False(t, lim.allow("10.0.0.1", later), "the lockout outlives the sweep")
 	})
 
-	t.Run("a full map fails closed", func(t *testing.T) {
+	t.Run("a full map drops the least recently seen key", func(t *testing.T) {
 		// arrange
 		start := time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
 		lim := newLimiter(start)
 		lim.maxEntries = 3
+		for i := range lim.maxEntries {
+			require.True(t, lim.allow("10.0.0."+strconv.Itoa(i), start.Add(time.Duration(i)*time.Second)))
+		}
 
 		// act
-		for i := range lim.maxEntries {
-			require.True(t, lim.allow("10.0.0."+strconv.Itoa(i), start))
-		}
-		overflow := lim.allow("10.0.0.100", start)
-		lim.failed("10.0.0.101", start)
+		overflow := lim.allow("10.0.0.100", start.Add(time.Minute))
 
 		// assert
-		assert.False(t, overflow)
-		assert.Equal(t, lim.maxEntries, lim.size())
+		assert.True(t, overflow, "a new client is never refused just because the map is full")
+		assert.Equal(t, []string{"10.0.0.1", "10.0.0.100", "10.0.0.2"}, slices.Sorted(maps.Keys(lim.entries)))
+	})
+
+	t.Run("a flood of fresh keys locks nobody out", func(t *testing.T) {
+		// arrange
+		start := time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
+		lim := newLimiter(start)
+		lim.maxEntries = 64
+		for range lockoutAfterFails {
+			lim.failed("10.0.0.1", start)
+		}
+
+		// act
+		for i := range lim.maxEntries * 4 {
+			lim.allow("192.168."+strconv.Itoa(i/256)+"."+strconv.Itoa(i%256), start)
+		}
+
+		// assert
+		assert.True(t, lim.allow("10.0.0.2", start), "the owner can still reach the login form")
+		assert.LessOrEqual(t, lim.size(), lim.maxEntries)
+		assert.False(t, lim.allow("10.0.0.1", start), "a lockout is not shaken off by flooding the map")
 	})
 }
 

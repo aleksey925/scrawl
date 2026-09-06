@@ -1049,6 +1049,75 @@ func TestStoreReadOnly(t *testing.T) {
 	})
 }
 
+func TestStoreWalkSkipsUnreadableEntries(t *testing.T) {
+	// arrange
+	s := newStore(t, kbFiles())
+	locked := filepath.Join(s.Dir(), "locked")
+	require.NoError(t, os.MkdirAll(locked, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(locked, "page.md"), []byte("# locked"), 0o644))
+	require.NoError(t, os.Chmod(locked, 0o000))
+	t.Cleanup(func() { require.NoError(t, os.Chmod(locked, 0o755)) })
+
+	// act
+	seen := []string{}
+	err := s.Walk(func(fi FileInfo, _ []byte) error {
+		seen = append(seen, fi.Path)
+		return nil
+	})
+
+	// assert
+	require.NoError(t, err, "one unreadable folder must not abort the walk")
+	assert.NotContains(t, seen, "locked/page.md")
+	assert.Contains(t, seen, "guide.md")
+}
+
+func TestStoreCheckWritable(t *testing.T) {
+	t.Run("a writable root leaves nothing behind", func(t *testing.T) {
+		// arrange
+		s := newStore(t, kbFiles())
+
+		// act
+		err := s.CheckWritable()
+
+		// assert
+		require.NoError(t, err)
+		assert.Empty(t, tempFiles(t, s.Dir()))
+	})
+
+	t.Run("a read-only store never probes", func(t *testing.T) {
+		// arrange
+		s := newStore(t, kbFiles(), func(c *Config) { c.ReadOnly = true })
+
+		// act & assert
+		assert.ErrorIs(t, s.CheckWritable(), ErrReadOnly)
+	})
+
+	t.Run("a root owned by somebody else reports permission denied", func(t *testing.T) {
+		// arrange
+		s := newStore(t, kbFiles())
+		require.NoError(t, os.Chmod(s.Dir(), 0o555))
+		t.Cleanup(func() { require.NoError(t, os.Chmod(s.Dir(), 0o755)) })
+
+		// act & assert
+		assert.ErrorIs(t, s.CheckWritable(), ErrPermission)
+	})
+}
+
+func TestStoreMapsFilesystemPermissionErrors(t *testing.T) {
+	// arrange
+	s := newStore(t, kbFiles())
+	locked := filepath.Join(s.Dir(), "locked")
+	require.NoError(t, os.MkdirAll(locked, 0o000))
+	t.Cleanup(func() { require.NoError(t, os.Chmod(locked, 0o755)) })
+
+	// act
+	_, _, err := s.Read("locked/page.md")
+
+	// assert
+	assert.ErrorIs(t, err, ErrPermission)
+	assert.NotErrorIs(t, err, ErrForbidden)
+}
+
 func TestConflictError(t *testing.T) {
 	err := fmt.Errorf("save: %w", &ConflictError{Path: "a.md", CurrentRev: "sha256:abc", Current: []byte("x")})
 

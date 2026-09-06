@@ -16,8 +16,14 @@ services:
     ports:
       # host:container. DSM already uses 5000, 5001 and often 8080, so change
       # the left number if the container refuses to start with "port is
-      # already allocated". Keep the right number in step with LISTEN below
-      - "8080:8080"
+      # already allocated". Keep the right number in step with LISTEN below.
+      #
+      # 127.0.0.1 keeps the port off every other interface, which is what you
+      # want when a reverse proxy on the same host terminates TLS in front of
+      # it: without it the container is reachable over plain http from the LAN
+      # and, with a port forward, from the internet. Drop the 127.0.0.1 only
+      # when you reach the NAS directly over the LAN and there is no proxy
+      - "127.0.0.1:8080:8080"
 
     volumes:
       - /volume1/docs/knowledge-base:/kb
@@ -28,8 +34,9 @@ services:
 
     # THE ONE LINE THAT USUALLY BREAKS A FIRST RUN.
     # The image runs as uid 1001, the /kb share belongs to a DSM user, and a
-    # uid that does not own the share cannot write to it: every save then comes
-    # back as "forbidden" while reading keeps working. Run `id <dsm-user>` over
+    # uid that does not own the share cannot write to it: reading keeps working
+    # and every save fails. The log says so at startup, in one WARN line naming
+    # the uid the process runs as. Run `id <dsm-user>` over
     # ssh on the NAS and put the numbers here (1026:100 is a typical pair),
     # or leave it commented out and add READ_ONLY=true below.
     # user: "1026:100"
@@ -40,7 +47,9 @@ services:
       - LISTEN=:8080
       - TITLE=Knowledge Base
       # user:bcryptHash pairs, get a hash with
-      #   docker run --rm ghcr.io/aleksey925/mdserver:master --gen-hash 'my-password'
+      #   printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/mdserver:master --gen-hash
+      # (the password is read from stdin, so it stays out of ps, the shell
+      # history and the container config docker inspect prints)
       # In THIS file every literal dollar has to be doubled, because compose
       # expands $VARS: a hash printed as $2a$10$xyz is written $$2a$$10$$xyz.
       # In Container Manager's environment table (the one with a Name and a
@@ -55,7 +64,9 @@ services:
       - AUTH_SECRET_FILE=/data/session.key
       - AUTH_TTL=720h
       # Secure flag of the session cookie: auto, always or never. auto keeps the
-      # session working over plain http on the LAN
+      # session working over plain http on the LAN. Behind an HTTPS reverse
+      # proxy set it to always together with TRUSTED_PROXY=true, so the cookie
+      # is never sent over a plain connection
       - AUTH_SECURE=auto
       - READ_ONLY=false
       - MAX_UPLOAD=20M
@@ -64,8 +75,30 @@ services:
       # what another client writes
       - WATCH=auto
       - RESCAN=60s
-      # only when a reverse proxy in front terminates TLS
+      # only when a reverse proxy in front terminates TLS. The proxy must
+      # overwrite X-Forwarded-For, otherwise a client picks its own login rate
+      # limit bucket. HSTS is the proxy's job too, mdserver does not set it
       - TRUSTED_PROXY=false
+
+      # where uploads land. empty keeps them in a folder next to the document
+      # and named after it (python/notes.md -> python/notes/), which is what
+      # the knowledge base already looks like. set it to a name such as
+      # "attachments" to collect every upload in one directory instead
+      - UPLOAD_DIR=
+
+    # the binary writes to /kb and /data and nowhere else, so the root
+    # filesystem can stay read-only. /tmp is a tmpfs because a large upload is
+    # buffered there while it is being parsed
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # a cap on the container, so one very large file cannot take the NAS down
+    # with it. raise it if the knowledge base holds big documents
+    mem_limit: 512m
 
     # the healthcheck (wget on /ping, which needs no auth) comes from the image,
     # so Container Manager shows the health column without any setup here

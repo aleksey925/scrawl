@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -175,16 +176,38 @@ func TestByteSizeUnmarshalFlag(t *testing.T) {
 }
 
 func TestGenHash(t *testing.T) {
-	// arrange
 	const password = "s3cret-pa$$word"
 
+	tests := []struct {
+		name  string
+		value string
+		stdin string
+	}{
+		{name: "as the flag value", value: password},
+		{name: "from stdin", value: "-", stdin: password + "\n"},
+		{name: "from stdin without a newline", value: "-", stdin: password},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			hash, err := genHash(tc.value, strings.NewReader(tc.stdin))
+
+			// assert
+			require.NoError(t, err)
+			assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)))
+			assert.Error(t, bcrypt.CompareHashAndPassword([]byte(hash), []byte("wrong")))
+		})
+	}
+}
+
+func TestGenHashRefusesAnEmptyPassword(t *testing.T) {
 	// act
-	hash, err := genHash(password)
+	_, err := genHash("-", strings.NewReader("\n"))
 
 	// assert
-	require.NoError(t, err)
-	assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)))
-	assert.Error(t, bcrypt.CompareHashAndPassword([]byte(hash), []byte("wrong")))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no password on stdin")
 }
 
 func TestValidate(t *testing.T) {
@@ -328,19 +351,6 @@ func TestWatchKeepsTheIndexInStep(t *testing.T) {
 
 	cancel()
 	<-done
-}
-
-func TestPlainPasswordUsers(t *testing.T) {
-	// arrange
-	hash, err := genHash("hashed")
-	require.NoError(t, err)
-	users := []string{"bob:plain", "alice:" + hash, "no-colon", "empty:"}
-
-	// act
-	plain := plainPasswordUsers(users)
-
-	// assert
-	assert.Equal(t, []string{"bob", "empty"}, plain)
 }
 
 func TestSecretsOf(t *testing.T) {

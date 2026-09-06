@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"slices"
 	"sync"
 	"time"
 
@@ -23,6 +24,9 @@ const (
 	limiterIdleTTL    = time.Hour
 	limiterSweepEvery = 10 * time.Minute
 	limiterMaxEntries = 10000
+	// evictFraction is how much of a full map one eviction clears, as a divisor
+	// of the cap.
+	evictFraction = 10
 )
 
 type limiterEntry struct {
@@ -67,7 +71,7 @@ func (l *limiter) allow(key string, now time.Time) bool {
 	defer l.mu.Unlock()
 
 	entry := l.entry(key, now)
-	if entry == nil || now.Before(entry.locked) {
+	if now.Before(entry.locked) {
 		return false
 	}
 	return entry.lim.AllowN(now, 1)
@@ -79,9 +83,6 @@ func (l *limiter) failed(key string, now time.Time) {
 	defer l.mu.Unlock()
 
 	entry := l.entry(key, now)
-	if entry == nil {
-		return
-	}
 	entry.fails++
 	if entry.fails >= l.maxFails {
 		entry.fails = 0
@@ -102,9 +103,10 @@ func (l *limiter) size() int {
 	return len(l.entries)
 }
 
-// entry returns the key's state, creating it when there is room. A nil result
-// means the map is full; refusing the attempt fails closed, which is the right
-// direction for a login form.
+// entry returns the key's state, creating it when the key is new. A full map
+// evicts instead of refusing: refusing would close the login form for everybody
+// who has no entry yet, and filling the map is cheap for an attacker, so the
+// cap bounds memory and nothing else.
 func (l *limiter) entry(key string, now time.Time) *limiterEntry {
 	if entry, ok := l.entries[key]; ok {
 		entry.seen = now
@@ -114,11 +116,37 @@ func (l *limiter) entry(key string, now time.Time) *limiterEntry {
 		l.sweep(now)
 	}
 	if len(l.entries) >= l.maxEntries {
-		return nil
+		l.evict(now)
 	}
 	entry := &limiterEntry{lim: rate.NewLimiter(l.rate, l.burst), seen: now}
 	l.entries[key] = entry
 	return entry
+}
+
+// evict makes room by dropping the least recently seen keys, a batch at a time
+// so that a flood of fresh keys does not scan the whole map on every request.
+// Locked out keys go last: an attacker who filled the map must not be able to
+// shake off a lockout by flooding it again.
+func (l *limiter) evict(now time.Time) {
+	keys := make([]string, 0, len(l.entries))
+	for key := range l.entries {
+		keys = append(keys, key)
+	}
+	slices.SortFunc(keys, func(a, b string) int {
+		lockedA, lockedB := now.Before(l.entries[a].locked), now.Before(l.entries[b].locked)
+		if lockedA != lockedB {
+			if lockedA {
+				return 1
+			}
+			return -1
+		}
+		return l.entries[a].seen.Compare(l.entries[b].seen)
+	})
+
+	batch := max(1, l.maxEntries/evictFraction)
+	for _, key := range keys[:min(batch, len(keys))] {
+		delete(l.entries, key)
+	}
 }
 
 // sweep drops idle keys. A locked out key stays, otherwise the lockout could

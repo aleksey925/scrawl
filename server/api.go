@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"html/template"
 	"net/http"
 	"path"
 	"strconv"
@@ -73,6 +74,9 @@ func (wb *Web) apiTree(w http.ResponseWriter, r *http.Request) {
 func jsonChildren(node *store.Node) []treeNode {
 	res := make([]treeNode, 0, len(node.Children))
 	for _, child := range node.Children {
+		if !inDocumentTree(child) {
+			continue
+		}
 		res = append(res, treeNode{
 			Name:     child.Name,
 			Path:     child.Path,
@@ -84,10 +88,32 @@ func jsonChildren(node *store.Node) []treeNode {
 }
 
 // apiFileGet returns the source of one file, which is what the editor loads.
+//
+// The whole file is read into memory and then JSON-escaped, which costs several
+// times its size in RSS, so the size is checked before a single byte is read
+// and only text is served at all. Anything else is an attachment and streams
+// through /raw/ without ever being buffered.
 func (wb *Web) apiFileGet(w http.ResponseWriter, r *http.Request) {
 	p, ok := contentPath(r, "path")
 	if !ok || p == "" {
 		jsonError(w, http.StatusBadRequest, "bad path")
+		return
+	}
+
+	stat, err := wb.Store.Stat(p)
+	if err != nil {
+		failJSON(w, r, err)
+		return
+	}
+	switch {
+	case stat.IsDir:
+		failJSON(w, r, store.ErrIsDir)
+		return
+	case !isTextFile(p):
+		jsonError(w, http.StatusUnsupportedMediaType, "not a text file, read it from /raw/")
+		return
+	case stat.Size > maxEditableFile:
+		jsonError(w, http.StatusRequestEntityTooLarge, "file is too large to edit, read it from /raw/")
 		return
 	}
 
@@ -117,7 +143,7 @@ func (wb *Web) apiFileSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req saveRequest
-	if !decodeJSON(w, r, &req) {
+	if !decodeJSON(w, r, &req, maxJSONBody) {
 		return
 	}
 
@@ -168,7 +194,7 @@ func (wb *Web) apiFileCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req createRequest
-	if !decodeJSON(w, r, &req) {
+	if !decodeJSON(w, r, &req, maxJSONBody) {
 		return
 	}
 	if req.Type != "file" && req.Type != "dir" {
@@ -210,7 +236,7 @@ func (wb *Web) apiMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req moveRequest
-	if !decodeJSON(w, r, &req) {
+	if !decodeJSON(w, r, &req, maxJSONBody) {
 		return
 	}
 	if req.From == "" || req.To == "" {
@@ -237,6 +263,10 @@ func (wb *Web) apiUpload(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, "bad path")
 		return
 	}
+	doc, ok := contentPathOf(r.URL.Query().Get("doc"))
+	if !ok {
+		doc = ""
+	}
 	if wb.MaxUpload > 0 {
 		r.Body = http.MaxBytesReader(w, r.Body, wb.MaxUpload+multipartOverhead)
 	}
@@ -253,28 +283,40 @@ func (wb *Web) apiUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	fi, err := wb.Store.Upload(dir, header.Filename, file, wb.MaxUpload)
+	fi, err := wb.Store.Upload(wb.uploadDir(doc, dir), header.Filename, file, wb.MaxUpload)
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
 	wb.touch(fi.Path)
 
-	doc, ok := contentPathOf(r.URL.Query().Get("doc"))
-	if !ok {
-		doc = ""
-	}
 	writeJSON(w, http.StatusCreated, map[string]string{
 		"path":     fi.Path,
 		"markdown": "![](" + relativeLink(doc, fi.Path) + ")",
 	})
 }
 
+// uploadDir decides where an attachment lands. By default it is the corpus
+// convention: a folder next to the document and named after it, so that
+// python/notes.md keeps its images in python/notes/. Config.UploadDir replaces
+// that with one shared directory for everything, and the directory from the
+// request is only used when no document was named.
+func (wb *Web) uploadDir(doc, requested string) string {
+	if wb.UploadDir != "" {
+		return wb.UploadDir
+	}
+	if doc == "" {
+		return requested
+	}
+	name := path.Base(doc)
+	return path.Join(path.Dir(doc), strings.TrimSuffix(name, path.Ext(name)))
+}
+
 // apiPreview renders the editor buffer through the pipeline that renders the
 // view page, so what the writer sees is what the saved page will be.
 func (wb *Web) apiPreview(w http.ResponseWriter, r *http.Request) {
 	var req previewRequest
-	if !decodeJSON(w, r, &req) {
+	if !decodeJSON(w, r, &req, maxPreviewBody) {
 		return
 	}
 	docPath, ok := contentPathOf(req.Path)
@@ -283,7 +325,10 @@ func (wb *Web) apiPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	html, err := wb.Renderer.RenderInline([]byte(req.Content), docPath)
+	source := []byte(req.Content)
+	html, err := renderWithDeadline(docPath, source, maxPreviewBody, renderTimeout, func() (template.HTML, error) {
+		return wb.Renderer.RenderInline(source, docPath)
+	})
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -349,10 +394,10 @@ func (wb *Web) refuseReadOnly(w http.ResponseWriter) bool {
 	return true
 }
 
-// decodeJSON reads a capped JSON body and reports whether the handler may go
-// on. It answers the request itself when it cannot.
-func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBody)
+// decodeJSON reads a JSON body capped at limit and reports whether the handler
+// may go on. It answers the request itself when it cannot.
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any, limit int64) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
 		var tooBig *http.MaxBytesError
 		if errors.As(err, &tooBig) {

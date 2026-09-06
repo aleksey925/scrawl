@@ -10,14 +10,34 @@ import (
 
 const apiPrefix = "/api/"
 
-// clientIP is the key the login limiter counts against. The forwarding headers
-// are read only with TrustedProxy on, otherwise anybody could pick their own
-// bucket by sending a header.
-func (s *Service) clientIP(r *http.Request) string {
-	peer, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		peer = r.RemoteAddr
+// limiterKeys are the buckets one login attempt is counted against. The peer
+// address is always one of them: with TrustedProxy on the derived client ip
+// comes from a header, and a proxy that sets only X-Real-IP or nothing at all
+// leaves that header entirely client supplied, so a forged one must never buy
+// more attempts than the peer behind it already has.
+func (s *Service) limiterKeys(r *http.Request) []string {
+	peer := peerIP(r)
+	client := s.clientIP(r)
+	if client == peer {
+		return []string{peer}
 	}
+	return []string{peer, client}
+}
+
+// peerIP is the address of the connection itself, which no header can change.
+func peerIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// clientIP is the address the client is reported at. The forwarding headers are
+// read only with TrustedProxy on, otherwise anybody could pick their own bucket
+// by sending a header.
+func (s *Service) clientIP(r *http.Request) string {
+	peer := peerIP(r)
 	if !s.trustedProxy {
 		return peer
 	}

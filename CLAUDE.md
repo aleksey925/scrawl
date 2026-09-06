@@ -29,7 +29,20 @@ testdata/kb/       fixture knowledge base for tests and `make run`
   traversal has to be impossible by construction.
 - Writes are atomic: temp file in the same directory, then rename.
 - All rendered HTML is sanitized. Raw HTML in markdown is allowed, but
-  only through the bluemonday policy in `render`.
+  only through the bluemonday policy in `render`, which starts from
+  `NewPolicy` because a policy can only ever be widened afterwards.
+- `/raw/` never serves an executable document. The content type comes
+  from an allowlist keyed on the extension, anything outside it is a
+  download, and the route carries its own `default-src 'none'; sandbox`
+  policy on top of `nosniff`.
+- Rendering is superlinear on some inputs, so every render is bounded by
+  a size cap and a deadline, and the whole server by a small throttle.
+- Uploads land in a folder next to the document and named after it
+  (`python/notes.md` -> `python/notes/`), which is what the corpus looks
+  like. `--upload-dir` replaces that with one shared directory.
+- The sidebar tree indexes documents: markdown files and the directories
+  leading to them. Other files stay reachable through the directory page
+  and `/raw/`.
 - No npm build step and no CDN at runtime. Templates, CSS, JS and fonts
   are embedded with `//go:embed`.
 - Frontend is server-rendered HTML plus vanilla JS enhancement. Design

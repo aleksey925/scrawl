@@ -1,7 +1,7 @@
 name: build
 
 on:
-  # testdata/notes is a fixture the browser suite drives, so its markdown is code
+  # examples/data is a fixture the browser suite drives, so its markdown is code
   # here and only the documentation at the top of the tree is skipped
   push:
     branches: ["**"]
@@ -68,7 +68,7 @@ jobs:
         with:
           node-version: "22"
 
-      # no private corpus checkout here, so the suite falls back to testdata/notes
+      # no private corpus checkout here, so the suite falls back to examples/data
       - name: install playwright
         working-directory: e2e
         run: |

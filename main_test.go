@@ -291,7 +291,7 @@ func TestCheckSecretFile(t *testing.T) {
 
 func TestIndexAll(t *testing.T) {
 	// arrange
-	notes, err := store.New(store.Config{Root: "./testdata/notes", Rescan: -1})
+	notes, err := store.New(store.Config{Root: "./examples/data", Rescan: -1})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = notes.Close() })
 	index := search.New()
@@ -379,7 +379,7 @@ func TestVersionInfo(t *testing.T) {
 func TestRunSmoke(t *testing.T) {
 	// arrange
 	addr := fmt.Sprintf("127.0.0.1:%d", freePort(t))
-	opts, err := parseOpts([]string{"--root=./testdata/notes", "--listen=" + addr, "--auth.disabled", "--dbg"})
+	opts, err := parseOpts([]string{"--root=./examples/data", "--listen=" + addr, "--auth.disabled", "--dbg"})
 	require.NoError(t, err)
 
 	setupLog(opts.Dbg)

@@ -26,6 +26,22 @@ Markdown support matches GitHub: tables, task lists, footnotes, alerts
 (`> [!NOTE]`), emoji shortcodes, math, mermaid diagrams, collapsed
 sections and syntax highlighting. See [Markdown](#markdown) below.
 
+## Try it locally
+
+Builds from this checkout and serves `./kb`, no configuration:
+
+```
+mkdir -p kb
+docker compose -f docker-compose.local.yml up --build
+```
+
+Open http://localhost:8080 and sign in as `admin` / `admin`. To browse a
+knowledge base you already have, point `KB` at it:
+
+```
+KB=~/notes docker compose -f docker-compose.local.yml up --build
+```
+
 ## Quick start
 
 ```

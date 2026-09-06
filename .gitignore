@@ -4,6 +4,7 @@
 
 /dist/
 /.bin/
+/kb/
 /mdserver
 /var/
 coverage.out

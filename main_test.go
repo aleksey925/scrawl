@@ -13,6 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/aleksey925/mdserver/search"
+	"github.com/aleksey925/mdserver/server"
+	"github.com/aleksey925/mdserver/store"
 )
 
 func TestParseOptsDefaults(t *testing.T) {
@@ -30,6 +34,10 @@ func TestParseOptsDefaults(t *testing.T) {
 	assert.False(t, opts.ReadOnly)
 	assert.False(t, opts.Auth.Disabled)
 	assert.Empty(t, opts.Exclude)
+	assert.Equal(t, "auto", opts.Watch)
+	assert.Equal(t, time.Minute, opts.Rescan)
+	assert.Equal(t, "/data/session.key", opts.Auth.SecretFile)
+	assert.Equal(t, "auto", opts.Auth.Secure)
 }
 
 func TestParseOptsFlags(t *testing.T) {
@@ -37,8 +45,10 @@ func TestParseOptsFlags(t *testing.T) {
 	opts, err := parseOpts([]string{
 		"--root=/data", "--listen=:9000", "--title=Wiki", "--read-only",
 		"--exclude=vendor", "--exclude=dist", "--max-upload=512K", "--trusted-proxy",
+		"--watch=poll", "--rescan=10s",
 		"--auth.users=bob:secret", "--auth.users=alice:$2a$10$hash",
-		"--auth.secret=cookie-key", "--auth.ttl=1h", "--dbg",
+		"--auth.secret=cookie-key", "--auth.secret-file=/state/key", "--auth.secure=always",
+		"--auth.ttl=1h", "--dbg",
 	})
 
 	// assert
@@ -54,6 +64,10 @@ func TestParseOptsFlags(t *testing.T) {
 	assert.Equal(t, []string{"bob:secret", "alice:$2a$10$hash"}, opts.Auth.Users)
 	assert.Equal(t, "cookie-key", opts.Auth.Secret)
 	assert.Equal(t, time.Hour, opts.Auth.TTL)
+	assert.Equal(t, "poll", opts.Watch)
+	assert.Equal(t, 10*time.Second, opts.Rescan)
+	assert.Equal(t, "/state/key", opts.Auth.SecretFile)
+	assert.Equal(t, "always", opts.Auth.Secure)
 }
 
 func TestParseOptsEnv(t *testing.T) {
@@ -69,6 +83,10 @@ func TestParseOptsEnv(t *testing.T) {
 	t.Setenv("AUTH_SECRET", "env-key")
 	t.Setenv("AUTH_TTL", "48h")
 	t.Setenv("AUTH_DISABLED", "true")
+	t.Setenv("AUTH_SECRET_FILE", "/state/key")
+	t.Setenv("AUTH_SECURE", "never")
+	t.Setenv("WATCH", "poll")
+	t.Setenv("RESCAN", "-1s")
 	t.Setenv("TIMEOUT_SHUTDOWN", "9s")
 	t.Setenv("DEBUG", "true")
 
@@ -90,15 +108,32 @@ func TestParseOptsEnv(t *testing.T) {
 	assert.Equal(t, 48*time.Hour, opts.Auth.TTL)
 	assert.True(t, opts.Auth.Disabled)
 	assert.Equal(t, 9*time.Second, opts.Timeouts.Shutdown)
+	assert.Equal(t, "/state/key", opts.Auth.SecretFile)
+	assert.Equal(t, "never", opts.Auth.Secure)
+	assert.Equal(t, "poll", opts.Watch)
+	assert.Equal(t, -time.Second, opts.Rescan)
 }
 
 func TestParseOptsInvalid(t *testing.T) {
-	// act
-	_, err := parseOpts([]string{"--no-such-flag"})
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "unknown flag", args: []string{"--no-such-flag"}},
+		{name: "unknown watch mode", args: []string{"--watch=inotify"}},
+		{name: "unknown secure mode", args: []string{"--auth.secure=sometimes"}},
+	}
 
-	// assert
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "parse flags")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			_, err := parseOpts(tc.args)
+
+			// assert
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "parse flags")
+		})
+	}
 }
 
 func TestByteSizeUnmarshalFlag(t *testing.T) {
@@ -191,6 +226,108 @@ func TestValidate(t *testing.T) {
 			assert.Equal(t, dir, root)
 		})
 	}
+}
+
+func TestCheckSecretFile(t *testing.T) {
+	root := t.TempDir()
+
+	tests := []struct {
+		name    string
+		file    string
+		noAuth  bool
+		refused bool
+	}{
+		{name: "outside the root", file: filepath.Join(t.TempDir(), "session.key")},
+		{name: "default location", file: "/data/session.key"},
+		{name: "not set", file: ""},
+		{name: "inside the root", file: filepath.Join(root, "session.key"), refused: true},
+		{name: "deep inside the root", file: filepath.Join(root, "sub", "session.key"), refused: true},
+		{name: "inside the root but auth is off", file: filepath.Join(root, "session.key"), noAuth: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			opts := &options{}
+			opts.Auth.SecretFile = tc.file
+			opts.Auth.Disabled = tc.noAuth
+
+			// act
+			err := checkSecretFile(root, opts)
+
+			// assert
+			if tc.refused {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "must live outside the knowledge base root")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestIndexAll(t *testing.T) {
+	// arrange
+	kb, err := store.New(store.Config{Root: "./testdata/kb", Rescan: -1})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = kb.Close() })
+	index := search.New()
+
+	// act
+	err = indexAll(kb, index)
+
+	// assert
+	require.NoError(t, err)
+	assert.Positive(t, index.Len())
+	assert.Positive(t, index.Size())
+}
+
+func TestWatchStopsWithTheContext(t *testing.T) {
+	// arrange
+	kb, err := store.New(store.Config{Root: t.TempDir(), Watch: store.WatchPoll, Rescan: 20 * time.Millisecond})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = kb.Close() })
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := watch(ctx, kb, search.New(), &server.Web{})
+
+	// act
+	cancel()
+
+	// assert
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the watcher goroutine outlived its context")
+	}
+}
+
+func TestWatchKeepsTheIndexInStep(t *testing.T) {
+	// arrange
+	root := t.TempDir()
+	page := filepath.Join(root, "page.md")
+	require.NoError(t, os.WriteFile(page, []byte("# Page\n"), 0o600))
+
+	kb, err := store.New(store.Config{Root: root, Watch: store.WatchPoll, Rescan: 20 * time.Millisecond})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = kb.Close() })
+
+	index := search.New()
+	index.Set("page.md", []byte("# Page\n"))
+	ctx, cancel := context.WithCancel(t.Context())
+	done := watch(ctx, kb, index, &server.Web{})
+
+	// act & assert
+	require.NoError(t, os.WriteFile(page, []byte("# Page\n\nkumquat\n"), 0o600))
+	assert.Eventually(t, func() bool { return len(index.Search("kumquat", 5)) == 1 },
+		5*time.Second, 20*time.Millisecond, "an edited file never reached the index")
+
+	require.NoError(t, os.Remove(page))
+	assert.Eventually(t, func() bool { return index.Len() == 0 },
+		5*time.Second, 20*time.Millisecond, "a removed file stayed in the index")
+
+	cancel()
+	<-done
 }
 
 func TestPlainPasswordUsers(t *testing.T) {

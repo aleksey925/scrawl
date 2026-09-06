@@ -1,0 +1,241 @@
+package server
+
+import (
+	"html/template"
+	"log"
+	"net/http"
+	"net/url"
+	"path"
+	"strings"
+	"time"
+
+	"github.com/aleksey925/mdserver/render"
+	"github.com/aleksey925/mdserver/search"
+	"github.com/aleksey925/mdserver/store"
+)
+
+// themeCookie carries the reader's theme choice, so the server can render the
+// right one and the page does not flash on load.
+const themeCookie = "theme"
+
+// Crumb is one breadcrumb segment. URL is empty for the last one.
+type Crumb struct {
+	Name string
+	URL  string
+}
+
+// TreeNode is what the sidebar renders. Directories come first, then files,
+// both sorted by name case-insensitively, which the store already does.
+type TreeNode struct {
+	Name     string // display name, no extension for .md files
+	Path     string // content path, e.g. "python/notes.md"
+	URL      string // "/p/python/notes.md", empty for directories
+	IsDir    bool
+	Active   bool // on the path to the current document
+	Current  bool // is the current document
+	Children []TreeNode
+}
+
+// Base is embedded in every page struct.
+type Base struct {
+	SiteTitle   string
+	Title       string // page specific part of <title>
+	User        string // empty when auth is disabled
+	AuthOn      bool
+	ReadOnly    bool
+	Version     string // asset cache-busting token
+	Theme       string // "auto", "light" or "dark"
+	Tree        []TreeNode
+	Breadcrumbs []Crumb
+	CurrentPath string
+}
+
+// ViewPage renders one markdown document.
+type ViewPage struct {
+	Base
+	Content template.HTML
+	TOC     []render.Heading
+	Rev     string
+	ModTime time.Time
+	EditURL string
+	Missing bool
+}
+
+// DirEntry is one row of a directory listing.
+type DirEntry struct {
+	Name    string
+	URL     string
+	IsDir   bool
+	Size    int64
+	ModTime time.Time
+}
+
+// DirPage renders a directory listing.
+type DirPage struct {
+	Base
+	Entries   []DirEntry
+	Readme    template.HTML
+	HasReadme bool
+}
+
+// EditPage renders the editor.
+type EditPage struct {
+	Base
+	Content string
+	Rev     string
+	ViewURL string
+	IsNew   bool
+}
+
+// LoginPage renders the sign-in form. It carries no Base, because it is served
+// before there is a session and must not expose the tree.
+type LoginPage struct {
+	SiteTitle string
+	Version   string
+	Theme     string
+	Error     string
+	From      string
+}
+
+// SearchPage renders full text search results.
+type SearchPage struct {
+	Base
+	Query   string
+	Hits    []search.Hit
+	Elapsed time.Duration
+}
+
+// ErrorPage renders a failure as a normal page of the app.
+type ErrorPage struct {
+	Base
+	Code    int
+	Message string
+}
+
+// base fills the fields every page shares.
+func (wb *Web) base(r *http.Request, title, currentPath string) Base {
+	res := Base{
+		SiteTitle:   wb.Title,
+		Title:       title,
+		AuthOn:      !wb.AuthDisabled,
+		ReadOnly:    wb.ReadOnly,
+		Version:     wb.Version,
+		Theme:       themeOf(r),
+		Tree:        wb.treeNodes(currentPath),
+		Breadcrumbs: breadcrumbs(currentPath),
+		CurrentPath: currentPath,
+	}
+	if wb.Auth != nil {
+		res.User, _ = wb.Auth.User(r)
+	}
+	return res
+}
+
+// themeOf reads the theme cookie, falling back to the automatic mode.
+func themeOf(r *http.Request) string {
+	c, err := r.Cookie(themeCookie)
+	if err != nil {
+		return "auto"
+	}
+	switch c.Value {
+	case "light", "dark", "auto":
+		return c.Value
+	}
+	return "auto"
+}
+
+// treeNodes converts the store tree into what the sidebar template renders. A
+// tree that cannot be built is logged and left empty: the page itself is still
+// worth serving without its navigation.
+func (wb *Web) treeNodes(current string) []TreeNode {
+	if wb.Store == nil {
+		return nil
+	}
+	root, err := wb.Store.Tree()
+	if err != nil {
+		log.Printf("[WARN] build tree: %v", err)
+		return nil
+	}
+	return childNodes(root, current)
+}
+
+func childNodes(node *store.Node, current string) []TreeNode {
+	res := make([]TreeNode, 0, len(node.Children))
+	for _, child := range node.Children {
+		res = append(res, treeNodeOf(child, current))
+	}
+	return res
+}
+
+func treeNodeOf(node *store.Node, current string) TreeNode {
+	res := TreeNode{Name: displayName(node.Name), Path: node.Path, IsDir: node.IsDir}
+	if node.IsDir {
+		res.Active = current == node.Path || strings.HasPrefix(current, node.Path+"/")
+		res.Children = childNodes(node, current)
+		return res
+	}
+	res.URL = contentURL(node.Path)
+	res.Current = node.Path == current
+	return res
+}
+
+// breadcrumbs builds the trail for a content path. The last segment carries no
+// URL, which is how the template tells the current page from its ancestors.
+func breadcrumbs(p string) []Crumb {
+	if p == "" {
+		return []Crumb{{Name: "Home"}}
+	}
+
+	segments := strings.Split(p, "/")
+	res := make([]Crumb, 0, len(segments)+1)
+	res = append(res, Crumb{Name: "Home", URL: "/"})
+
+	prefix := ""
+	for i, seg := range segments {
+		prefix = path.Join(prefix, seg)
+		crumb := Crumb{Name: displayName(seg)}
+		if i < len(segments)-1 {
+			crumb.URL = "/p/" + encodePath(prefix) + "/"
+		}
+		res = append(res, crumb)
+	}
+	return res
+}
+
+// contentURL is where a content path is served from: markdown is rendered,
+// everything else is handed over untouched.
+func contentURL(p string) string {
+	if isMarkdown(p) {
+		return "/p/" + encodePath(p)
+	}
+	return "/raw/" + encodePath(p)
+}
+
+func dirURL(p string) string {
+	if p == "" {
+		return "/"
+	}
+	return "/p/" + encodePath(p) + "/"
+}
+
+func editURL(p string) string { return "/edit/" + encodePath(p) }
+
+// encodePath escapes a content path segment by segment, so the slashes survive
+// and everything else is safe in a URL.
+func encodePath(p string) string {
+	segments := strings.Split(p, "/")
+	for i, seg := range segments {
+		segments[i] = url.PathEscape(seg)
+	}
+	return strings.Join(segments, "/")
+}
+
+// displayName drops the markdown extension, which no reader wants to see.
+func displayName(name string) string {
+	if isMarkdown(name) {
+		return name[:len(name)-len(".md")]
+	}
+	return name
+}
+
+func isMarkdown(p string) bool { return strings.EqualFold(path.Ext(p), ".md") }

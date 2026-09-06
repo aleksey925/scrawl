@@ -18,6 +18,10 @@ services:
 
     volumes:
       - /volume1/docs/knowledge-base:/kb
+      # small state volume for the generated session key. it must not live
+      # under /kb, otherwise it shows up in the tree, in the search index and
+      # in every backup of the knowledge base
+      - mdserver-data:/data
 
     # the /kb mount is owned by a NAS user, not by the image's uid 1001. set
     # this to the owner of the share (`id <user>` on the NAS) or writes fail.
@@ -32,11 +36,22 @@ services:
       # has to be doubled: a hash starting with $2a$ is written $$2a$$.
       # get a hash with: docker run --rm ghcr.io/aleksey925/mdserver:master --gen-hash 'my-password'
       - AUTH_USERS=alex:$$2a$$10$$replace.this.with.a.real.bcrypt.hash.value.here.padding
-      # cookie signing key, keep it stable or every session is dropped on restart
-      - AUTH_SECRET=change-me-to-a-long-random-string
+      # cookie signing key. leave it empty to have one generated and kept in
+      # AUTH_SECRET_FILE, which is the simpler option; set it only to share the
+      # key with another instance
+      - AUTH_SECRET=
+      - AUTH_SECRET_FILE=/data/session.key
       - AUTH_TTL=720h
+      # Secure flag of the session cookie: auto, always or never. auto keeps the
+      # session working over plain http on the LAN
+      - AUTH_SECURE=auto
       - READ_ONLY=false
       - MAX_UPLOAD=20M
+      # change detection: auto uses inotify with a periodic rescan behind it.
+      # switch to poll when /kb is a network share, where inotify never sees
+      # what another client writes
+      - WATCH=auto
+      - RESCAN=60s
       # only when a reverse proxy in front terminates TLS
       - TRUSTED_PROXY=false
 
@@ -52,3 +67,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  mdserver-data:

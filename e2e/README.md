@@ -1,6 +1,6 @@
 # End to end tests
 
-Playwright drives a real Chromium against a real `mdserver` binary: two
+Playwright drives a real Chromium against a real `scrawl` binary: two
 projects, desktop at 1440x900 and an iPhone 13 profile at 390x844 with
 touch and a mobile user agent.
 
@@ -21,7 +21,7 @@ The suite runs against two trees and passes on both:
 
 - `~/CodeProjects/knowledge-base`, the private corpus this app was
   written for, used whenever it is there
-- `testdata/kb`, the fixture in this repository, used otherwise, which
+- `testdata/notes`, the fixture in this repository, used otherwise, which
   is what a fresh clone and CI get
 
 No spec names a document. `support/docs.js` maps a role - the document
@@ -30,7 +30,7 @@ more than one page - onto a path in whichever tree is in use, and the
 specs ask for roles. A new spec that needs something new adds the role
 there for both fixtures instead of hard coding another path.
 
-`MDSERVER_E2E_FIXTURE` picks a different tree. Anything but `testdata/kb`
+`SCRAWL_E2E_FIXTURE` picks a different tree. Anything but `testdata/notes`
 is taken to be the private corpus or a copy of it, so pointing it at an
 unrelated knowledge base will fail on the first document a spec asks for.
 
@@ -57,25 +57,25 @@ NODE_PATH=/path/to/playwright/node_modules \
 
 Add `--project=desktop` or `--project=mobile` to run one profile, and a
 file name or `-g <pattern>` to run part of the suite. To run against
-`testdata/kb` while the private corpus is on the machine:
+`testdata/notes` while the private corpus is on the machine:
 
 ```
-MDSERVER_E2E_FIXTURE=../testdata/kb npx playwright test
+SCRAWL_E2E_FIXTURE=../testdata/notes npx playwright test
 ```
 
 ## Knobs
 
 | variable | meaning | default |
 |---|---|---|
-| `MDSERVER_E2E_FIXTURE` | corpus copied for each run | the private corpus, else `testdata/kb` |
-| `MDSERVER_E2E_WORK` | where the copies and the server logs go | `$TMPDIR/mdserver-e2e` |
-| `MDSERVER_E2E_PORT` | port of the normal instance | `8731` |
-| `MDSERVER_E2E_PORT_RO` | port of the read-only instance | `8732` |
-| `MDSERVER_E2E_PORT_SHARED` | port of the `--upload-dir` instance | `8733` |
-| `MDSERVER_E2E_SHOTS` | where the step screenshots go | `e2e/screenshots` |
+| `SCRAWL_E2E_FIXTURE` | corpus copied for each run | the private corpus, else `testdata/notes` |
+| `SCRAWL_E2E_WORK` | where the copies and the server logs go | `$TMPDIR/scrawl-e2e` |
+| `SCRAWL_E2E_PORT` | port of the normal instance | `8731` |
+| `SCRAWL_E2E_PORT_RO` | port of the read-only instance | `8732` |
+| `SCRAWL_E2E_PORT_SHARED` | port of the `--upload-dir` instance | `8733` |
+| `SCRAWL_E2E_SHOTS` | where the step screenshots go | `e2e/screenshots` |
 
 Server logs are the first place to look at a failure:
-`$TMPDIR/mdserver-e2e/main.log`, `readonly.log` and `shared.log`.
+`$TMPDIR/scrawl-e2e/main.log`, `readonly.log` and `shared.log`.
 
 ## Notes
 
@@ -84,6 +84,6 @@ Server logs are the first place to look at a failure:
 - Specs that write create their own scratch documents under an
   `e2e-*` folder and remove them again, so the corpus copy stays as it
   was copied.
-- CI runs the whole suite on `testdata/kb` and keeps the HTML report of
+- CI runs the whole suite on `testdata/notes` and keeps the HTML report of
   a failed run as a build artifact. A test gets one retry there and none
   locally.

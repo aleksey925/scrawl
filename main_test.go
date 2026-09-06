@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/aleksey925/mdserver/search"
-	"github.com/aleksey925/mdserver/server"
-	"github.com/aleksey925/mdserver/store"
+	"github.com/aleksey925/scrawl/search"
+	"github.com/aleksey925/scrawl/server"
+	"github.com/aleksey925/scrawl/store"
 )
 
 func TestParseOptsDefaults(t *testing.T) {
@@ -26,7 +26,7 @@ func TestParseOptsDefaults(t *testing.T) {
 
 	// assert
 	require.NoError(t, err)
-	assert.Equal(t, "/kb", opts.Root)
+	assert.Equal(t, "/notes", opts.Root)
 	assert.Equal(t, ":8080", opts.Listen)
 	assert.Equal(t, "Knowledge Base", opts.Title)
 	assert.Equal(t, byteSize(20<<20), opts.MaxUpload)
@@ -75,7 +75,7 @@ func TestParseOptsEnv(t *testing.T) {
 	// arrange
 	t.Setenv("ROOT", "/env-root")
 	t.Setenv("LISTEN", ":7000")
-	t.Setenv("TITLE", "Env KB")
+	t.Setenv("TITLE", "Env Knowledge Base")
 	t.Setenv("READ_ONLY", "true")
 	t.Setenv("EXCLUDE", "tmp,cache")
 	t.Setenv("MAX_UPLOAD", "1G")
@@ -98,7 +98,7 @@ func TestParseOptsEnv(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/env-root", opts.Root)
 	assert.Equal(t, ":7000", opts.Listen)
-	assert.Equal(t, "Env KB", opts.Title)
+	assert.Equal(t, "Env Knowledge Base", opts.Title)
 	assert.True(t, opts.ReadOnly)
 	assert.True(t, opts.TrustedProxy)
 	assert.True(t, opts.Dbg)
@@ -291,13 +291,13 @@ func TestCheckSecretFile(t *testing.T) {
 
 func TestIndexAll(t *testing.T) {
 	// arrange
-	kb, err := store.New(store.Config{Root: "./testdata/kb", Rescan: -1})
+	notes, err := store.New(store.Config{Root: "./testdata/notes", Rescan: -1})
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = kb.Close() })
+	t.Cleanup(func() { _ = notes.Close() })
 	index := search.New()
 
 	// act
-	err = indexAll(kb, index)
+	err = indexAll(notes, index)
 
 	// assert
 	require.NoError(t, err)
@@ -307,12 +307,12 @@ func TestIndexAll(t *testing.T) {
 
 func TestWatchStopsWithTheContext(t *testing.T) {
 	// arrange
-	kb, err := store.New(store.Config{Root: t.TempDir(), Watch: store.WatchPoll, Rescan: 20 * time.Millisecond})
+	notes, err := store.New(store.Config{Root: t.TempDir(), Watch: store.WatchPoll, Rescan: 20 * time.Millisecond})
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = kb.Close() })
+	t.Cleanup(func() { _ = notes.Close() })
 
 	ctx, cancel := context.WithCancel(t.Context())
-	done := watch(ctx, kb, search.New(), &server.Web{})
+	done := watch(ctx, notes, search.New(), &server.Web{})
 
 	// act
 	cancel()
@@ -331,14 +331,14 @@ func TestWatchKeepsTheIndexInStep(t *testing.T) {
 	page := filepath.Join(root, "page.md")
 	require.NoError(t, os.WriteFile(page, []byte("# Page\n"), 0o600))
 
-	kb, err := store.New(store.Config{Root: root, Watch: store.WatchPoll, Rescan: 20 * time.Millisecond})
+	notes, err := store.New(store.Config{Root: root, Watch: store.WatchPoll, Rescan: 20 * time.Millisecond})
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = kb.Close() })
+	t.Cleanup(func() { _ = notes.Close() })
 
 	index := search.New()
 	index.Set("page.md", []byte("# Page\n"))
 	ctx, cancel := context.WithCancel(t.Context())
-	done := watch(ctx, kb, index, &server.Web{})
+	done := watch(ctx, notes, index, &server.Web{})
 
 	// act & assert
 	require.NoError(t, os.WriteFile(page, []byte("# Page\n\nkumquat\n"), 0o600))
@@ -379,7 +379,7 @@ func TestVersionInfo(t *testing.T) {
 func TestRunSmoke(t *testing.T) {
 	// arrange
 	addr := fmt.Sprintf("127.0.0.1:%d", freePort(t))
-	opts, err := parseOpts([]string{"--root=./testdata/kb", "--listen=" + addr, "--auth.disabled", "--dbg"})
+	opts, err := parseOpts([]string{"--root=./testdata/notes", "--listen=" + addr, "--auth.disabled", "--dbg"})
 	require.NoError(t, err)
 
 	setupLog(opts.Dbg)

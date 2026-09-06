@@ -1,4 +1,4 @@
-# mdserver
+# scrawl
 
 Single Go binary that serves a directory of markdown files as a
 knowledge base web app with in-browser editing. Runs in Docker, no
@@ -17,13 +17,13 @@ server/templates/      html/template pages, parsed as one set
 server/assets/         css and js, embedded and served under /static
 server/assets/vendor/  KaTeX and mermaid, checked in, never from a CDN
 e2e/                   playwright suite against a real binary
-testdata/kb/           fixture knowledge base: tests, `make run`, and the
+testdata/notes/        fixture knowledge base: tests, `make run`, and the
                        browser suite when the private corpus is absent
 ```
 
 ## Rules
 
-- Go 1.25, module `github.com/aleksey925/mdserver`.
+- Go 1.25, module `github.com/aleksey925/scrawl`.
 - Follow umputun's style: `go-flags` with `env` tags, `go-pkgz/lgr` for
   logs, `go-pkgz/rest` middlewares, `routegroup` for routing, testify
   for tests, `moq` for mocks. Packages are flat at the repository root,
@@ -68,5 +68,5 @@ testdata/kb/           fixture knowledge base: tests, `make run`, and the
 make build   build the binary
 make test    tests with race detector
 make lint    golangci-lint
-make run     run against ./testdata/kb with auth disabled
+make run     run against ./testdata/notes with auth disabled
 ```

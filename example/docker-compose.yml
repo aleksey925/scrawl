@@ -7,10 +7,10 @@
 # or `docker login ghcr.io` on the NAS first. Build it yourself with
 # `make docker` / `make docker-push` from a checkout.
 services:
-  mdserver:
-    image: ghcr.io/aleksey925/mdserver:master
-    container_name: mdserver
-    hostname: mdserver
+  scrawl:
+    image: ghcr.io/aleksey925/scrawl:master
+    container_name: scrawl
+    hostname: scrawl
     restart: unless-stopped
 
     ports:
@@ -26,14 +26,14 @@ services:
       - "127.0.0.1:8080:8080"
 
     volumes:
-      - /volume1/docs/knowledge-base:/kb
+      - /volume1/docs/knowledge-base:/notes
       # small state volume for the generated session key. it must not live
-      # under /kb, otherwise it shows up in the tree, in the search index and
+      # under /notes, otherwise it shows up in the tree, in the search index and
       # in every backup of the knowledge base
-      - mdserver-data:/data
+      - scrawl-data:/data
 
     # THE ONE LINE THAT USUALLY BREAKS A FIRST RUN.
-    # The image runs as uid 1001, the /kb share belongs to a DSM user, and a
+    # The image runs as uid 1001, the /notes share belongs to a DSM user, and a
     # uid that does not own the share cannot write to it: reading keeps working
     # and every save fails. The log says so at startup, in one WARN line naming
     # the uid the process runs as. Run `id <dsm-user>` over
@@ -43,11 +43,11 @@ services:
 
     environment:
       - TZ=Europe/Nicosia
-      - ROOT=/kb
+      - ROOT=/notes
       - LISTEN=:8080
       - TITLE=Knowledge Base
       # user:bcryptHash pairs, get a hash with
-      #   printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/mdserver:master --gen-hash
+      #   printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:master --gen-hash
       # (the password is read from stdin, so it stays out of ps, the shell
       # history and the container config docker inspect prints)
       # In THIS file every literal dollar has to be doubled, because compose
@@ -71,13 +71,13 @@ services:
       - READ_ONLY=false
       - MAX_UPLOAD=20M
       # change detection: auto uses inotify with a periodic rescan behind it.
-      # switch to poll when /kb is a network share, where inotify never sees
+      # switch to poll when /notes is a network share, where inotify never sees
       # what another client writes
       - WATCH=auto
       - RESCAN=60s
       # only when a reverse proxy in front terminates TLS. The proxy must
       # overwrite X-Forwarded-For, otherwise a client picks its own login rate
-      # limit bucket. HSTS is the proxy's job too, mdserver does not set it
+      # limit bucket. HSTS is the proxy's job too, scrawl does not set it
       - TRUSTED_PROXY=false
 
       # where uploads land. empty keeps them in a folder next to the document
@@ -86,7 +86,7 @@ services:
       # "attachments" to collect every upload in one directory instead
       - UPLOAD_DIR=
 
-    # the binary writes to /kb and /data and nowhere else, so the root
+    # the binary writes to /notes and /data and nowhere else, so the root
     # filesystem can stay read-only. /tmp is a tmpfs because a large upload is
     # buffered there while it is being parsed
     read_only: true
@@ -110,4 +110,4 @@ services:
         max-file: "3"
 
 volumes:
-  mdserver-data:
+  scrawl-data:

@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"sync"
 
-	"github.com/aleksey925/mdserver/render"
+	"github.com/aleksey925/scrawl/render"
 )
 
 // pageCache is a bounded LRU of rendered documents.

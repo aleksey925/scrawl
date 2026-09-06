@@ -36,7 +36,7 @@ var (
 	scriptSh = []byte("#!/bin/sh\nrm -rf /\n")
 )
 
-func kbFiles() map[string]string {
+func notesFiles() map[string]string {
 	return map[string]string{
 		"index.md":                   "# root\n",
 		"guide.md":                   "# guide\ntrailing   \nno newline at the end",
@@ -61,7 +61,7 @@ func makeTree(t *testing.T, files map[string]string) string {
 	base := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(base, secretName), []byte(secretBody), 0o600))
 
-	root := filepath.Join(base, "kb")
+	root := filepath.Join(base, "notes")
 	require.NoError(t, os.MkdirAll(root, 0o755))
 	for p, content := range files {
 		full := filepath.Join(root, filepath.FromSlash(p))
@@ -121,7 +121,7 @@ func tempFiles(t *testing.T, root string) []string {
 
 func TestNew(t *testing.T) {
 	t.Run("root is a file", func(t *testing.T) {
-		_, err := New(Config{Root: filepath.Join(makeTree(t, kbFiles()), "guide.md")})
+		_, err := New(Config{Root: filepath.Join(makeTree(t, notesFiles()), "guide.md")})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not a directory")
 	})
@@ -138,7 +138,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("leftover temp files are swept", func(t *testing.T) {
-		root := makeTree(t, kbFiles())
+		root := makeTree(t, notesFiles())
 		leftover := filepath.Join(root, "notes", "index.md.a1b2c3"+tmpSuffix)
 		require.NoError(t, os.WriteFile(leftover, []byte("junk"), 0o644))
 
@@ -217,7 +217,7 @@ func TestCleanPath(t *testing.T) {
 }
 
 func TestStoreTraversal(t *testing.T) {
-	s := newStore(t, kbFiles())
+	s := newStore(t, notesFiles())
 
 	tests := []struct {
 		name string
@@ -252,13 +252,13 @@ func TestStoreTraversal(t *testing.T) {
 	t.Run("dot dot inside the root is legal", func(t *testing.T) {
 		data, fi, err := s.Read("notes/../guide.md")
 		require.NoError(t, err)
-		assert.Equal(t, kbFiles()["guide.md"], string(data))
+		assert.Equal(t, notesFiles()["guide.md"], string(data))
 		assert.Equal(t, "guide.md", fi.Path)
 	})
 }
 
 func TestStoreSymlinks(t *testing.T) {
-	s := newStore(t, kbFiles())
+	s := newStore(t, notesFiles())
 	root := s.Dir()
 	outside := filepath.Join(filepath.Dir(root), secretName)
 
@@ -314,12 +314,12 @@ func TestStoreSymlinks(t *testing.T) {
 		// store filters symlinks itself instead of relying on the escape check
 		data, err := raw.ReadFile("inside.md")
 		require.NoError(t, err)
-		assert.Equal(t, kbFiles()["guide.md"], string(data))
+		assert.Equal(t, notesFiles()["guide.md"], string(data))
 	})
 }
 
 func TestStoreIgnored(t *testing.T) {
-	files := kbFiles()
+	files := notesFiles()
 	files["draft.private"] = "hidden by a glob\n"
 	files["secrets/keys.md"] = "hidden by a glob\n"
 	files["notes/index.md.a1b2c3"+tmpSuffix] = "leftover\n"
@@ -377,7 +377,7 @@ func TestStoreIgnored(t *testing.T) {
 }
 
 func TestStoreList(t *testing.T) {
-	s := newStore(t, kbFiles())
+	s := newStore(t, notesFiles())
 
 	t.Run("root, directories first", func(t *testing.T) {
 		entries, err := s.List("")
@@ -400,7 +400,7 @@ func TestStoreList(t *testing.T) {
 		assert.Equal(t, "notes/index.md", file.Path)
 		assert.Equal(t, "index.md", file.Name)
 		assert.False(t, file.IsDir)
-		assert.Equal(t, int64(len(kbFiles()["notes/index.md"])), file.Size)
+		assert.Equal(t, int64(len(notesFiles()["notes/index.md"])), file.Size)
 		assert.WithinDuration(t, time.Now(), file.ModTime, time.Minute)
 		assert.True(t, entries[0].IsDir)
 	})
@@ -424,7 +424,7 @@ func TestStoreList(t *testing.T) {
 }
 
 func TestStoreStat(t *testing.T) {
-	s := newStore(t, kbFiles())
+	s := newStore(t, notesFiles())
 
 	t.Run("root", func(t *testing.T) {
 		fi, err := s.Stat("")
@@ -440,7 +440,7 @@ func TestStoreStat(t *testing.T) {
 		assert.Equal(t, "notes/deep/nested.md", fi.Path)
 		assert.Equal(t, "nested.md", fi.Name)
 		assert.False(t, fi.IsDir)
-		assert.Equal(t, int64(len(kbFiles()["notes/deep/nested.md"])), fi.Size)
+		assert.Equal(t, int64(len(notesFiles()["notes/deep/nested.md"])), fi.Size)
 	})
 
 	t.Run("missing", func(t *testing.T) {
@@ -450,12 +450,12 @@ func TestStoreStat(t *testing.T) {
 }
 
 func TestStoreReadOpen(t *testing.T) {
-	s := newStore(t, kbFiles())
+	s := newStore(t, notesFiles())
 
 	t.Run("content is returned byte for byte", func(t *testing.T) {
 		data, fi, err := s.Read("guide.md")
 		require.NoError(t, err)
-		assert.Equal(t, kbFiles()["guide.md"], string(data))
+		assert.Equal(t, notesFiles()["guide.md"], string(data))
 		assert.Equal(t, int64(len(data)), fi.Size)
 	})
 
@@ -468,7 +468,7 @@ func TestStoreReadOpen(t *testing.T) {
 		require.NoError(t, err)
 		rest, err := io.ReadAll(f)
 		require.NoError(t, err)
-		assert.Equal(t, kbFiles()["guide.md"][2:], string(rest))
+		assert.Equal(t, notesFiles()["guide.md"][2:], string(rest))
 		assert.Equal(t, "guide.md", fi.Path)
 	})
 
@@ -487,7 +487,7 @@ func TestStoreReadOpen(t *testing.T) {
 
 func TestStoreWrite(t *testing.T) {
 	t.Run("create with an empty revision", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 
 		fi, err := s.Write("new/dir/page.md", []byte("# new\n"), "")
 		require.NoError(t, err)
@@ -499,17 +499,17 @@ func TestStoreWrite(t *testing.T) {
 	})
 
 	t.Run("create over an existing file", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		_, err := s.Write("guide.md", []byte("x"), "")
 		require.ErrorIs(t, err, ErrExists)
 
 		data, _, err := s.Read("guide.md")
 		require.NoError(t, err)
-		assert.Equal(t, kbFiles()["guide.md"], string(data))
+		assert.Equal(t, notesFiles()["guide.md"], string(data))
 	})
 
 	t.Run("update with the matching revision", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		data, _, err := s.Read("guide.md")
 		require.NoError(t, err)
 
@@ -524,7 +524,7 @@ func TestStoreWrite(t *testing.T) {
 	})
 
 	t.Run("update with a stale revision", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		data, _, err := s.Read("guide.md")
 		require.NoError(t, err)
 		_, err = s.Write("guide.md", []byte("from another tab\n"), Rev(data))
@@ -543,7 +543,7 @@ func TestStoreWrite(t *testing.T) {
 	})
 
 	t.Run("update of a file removed under us", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		data, _, err := s.Read("guide.md")
 		require.NoError(t, err)
 		require.NoError(t, s.Remove("guide.md"))
@@ -557,7 +557,7 @@ func TestStoreWrite(t *testing.T) {
 	})
 
 	t.Run("a directory is not writable", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		_, err := s.Write("notes", []byte("x"), "")
 		require.ErrorIs(t, err, ErrIsDir)
 		_, err = s.Write("", []byte("x"), "")
@@ -565,7 +565,7 @@ func TestStoreWrite(t *testing.T) {
 	})
 
 	t.Run("the mode of an existing file is preserved", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		target := filepath.Join(s.Dir(), "guide.md")
 		require.NoError(t, os.Chmod(target, 0o640))
 
@@ -580,7 +580,7 @@ func TestStoreWrite(t *testing.T) {
 	})
 
 	t.Run("no temp file is left behind", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		_, err := s.Write("fresh.md", []byte("x"), "")
 		require.NoError(t, err)
 		assert.Empty(t, tempFiles(t, s.Dir()))
@@ -588,7 +588,7 @@ func TestStoreWrite(t *testing.T) {
 
 	t.Run("a failed write leaves no temp file", func(t *testing.T) {
 		// arrange: renaming a file over a directory that has entries always fails
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 
 		// act
 		err := s.writeAtomic("notes", []byte("x"))
@@ -604,7 +604,7 @@ func TestStoreWrite(t *testing.T) {
 
 func TestStoreWriteConcurrent(t *testing.T) {
 	// arrange
-	s := newStore(t, kbFiles())
+	s := newStore(t, notesFiles())
 	data, _, err := s.Read("guide.md")
 	require.NoError(t, err)
 	rev := Rev(data)
@@ -635,7 +635,7 @@ func TestStoreWriteConcurrent(t *testing.T) {
 
 func TestStoreCreate(t *testing.T) {
 	t.Run("file with missing parents", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		fi, err := s.Create("a/b/c.md", false)
 		require.NoError(t, err)
 		assert.Equal(t, FileInfo{Path: "a/b/c.md", Name: "c.md", ModTime: fi.ModTime}, fi)
@@ -646,7 +646,7 @@ func TestStoreCreate(t *testing.T) {
 	})
 
 	t.Run("directory", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		fi, err := s.Create("a/b", true)
 		require.NoError(t, err)
 		assert.True(t, fi.IsDir)
@@ -669,7 +669,7 @@ func TestStoreCreate(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := newStore(t, kbFiles())
+			s := newStore(t, notesFiles())
 			_, err := s.Create(tc.path, false)
 			require.ErrorIs(t, err, tc.err)
 		})
@@ -692,7 +692,7 @@ func TestStoreRemove(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			files := kbFiles()
+			files := notesFiles()
 			files["empty/"] = ""
 			s := newStore(t, files)
 
@@ -710,7 +710,7 @@ func TestStoreRemove(t *testing.T) {
 	}
 
 	t.Run("the secret next to the root survives", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		require.Error(t, s.Remove("../"+secretName))
 		assert.FileExists(t, filepath.Join(filepath.Dir(s.Dir()), secretName))
 	})
@@ -718,23 +718,23 @@ func TestStoreRemove(t *testing.T) {
 
 func TestStoreMove(t *testing.T) {
 	t.Run("rename in place", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		require.NoError(t, s.Move("guide.md", "manual.md"))
 
 		assert.False(t, s.Exists("guide.md"))
 		data, _, err := s.Read("manual.md")
 		require.NoError(t, err)
-		assert.Equal(t, kbFiles()["guide.md"], string(data))
+		assert.Equal(t, notesFiles()["guide.md"], string(data))
 	})
 
 	t.Run("missing parents are created", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		require.NoError(t, s.Move("guide.md", "docs/manual/guide.md"))
 		assert.True(t, s.Exists("docs/manual/guide.md"))
 	})
 
 	t.Run("directory", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		require.NoError(t, s.Move("notes", "archive"))
 		assert.True(t, s.Exists("archive/deep/nested.md"))
 	})
@@ -753,14 +753,14 @@ func TestStoreMove(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := newStore(t, kbFiles())
+			s := newStore(t, notesFiles())
 			require.ErrorIs(t, s.Move(tc.from, tc.to), tc.err)
 		})
 	}
 }
 
 func TestStoreWalk(t *testing.T) {
-	s := newStore(t, kbFiles())
+	s := newStore(t, notesFiles())
 
 	t.Run("markdown files only", func(t *testing.T) {
 		visited := map[string]string{}
@@ -769,11 +769,11 @@ func TestStoreWalk(t *testing.T) {
 			return nil
 		}))
 		assert.Equal(t, map[string]string{
-			"guide.md":             kbFiles()["guide.md"],
-			"index.md":             kbFiles()["index.md"],
-			"notes/Cyrillic.md":    kbFiles()["notes/Cyrillic.md"],
-			"notes/index.md":       kbFiles()["notes/index.md"],
-			"notes/deep/nested.md": kbFiles()["notes/deep/nested.md"],
+			"guide.md":             notesFiles()["guide.md"],
+			"index.md":             notesFiles()["index.md"],
+			"notes/Cyrillic.md":    notesFiles()["notes/Cyrillic.md"],
+			"notes/index.md":       notesFiles()["notes/index.md"],
+			"notes/deep/nested.md": notesFiles()["notes/deep/nested.md"],
 		}, visited)
 	})
 
@@ -791,7 +791,7 @@ func TestStoreWalk(t *testing.T) {
 
 func TestStoreTree(t *testing.T) {
 	t.Run("structure and order", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		tree, err := s.Tree()
 		require.NoError(t, err)
 
@@ -804,7 +804,7 @@ func TestStoreTree(t *testing.T) {
 	})
 
 	t.Run("a mutation invalidates the cache", func(t *testing.T) {
-		s := newStore(t, kbFiles(), func(c *Config) { c.TreeTTL = time.Hour })
+		s := newStore(t, notesFiles(), func(c *Config) { c.TreeTTL = time.Hour })
 		_, err := s.Tree()
 		require.NoError(t, err)
 
@@ -817,7 +817,7 @@ func TestStoreTree(t *testing.T) {
 	})
 
 	t.Run("a change behind our back waits for the cache to expire", func(t *testing.T) {
-		s := newStore(t, kbFiles(), func(c *Config) { c.TreeTTL = time.Hour })
+		s := newStore(t, notesFiles(), func(c *Config) { c.TreeTTL = time.Hour })
 		before, err := s.Tree()
 		require.NoError(t, err)
 
@@ -834,7 +834,7 @@ func TestStoreTree(t *testing.T) {
 	})
 
 	t.Run("the cache expires on its own", func(t *testing.T) {
-		s := newStore(t, kbFiles(), func(c *Config) { c.TreeTTL = time.Millisecond })
+		s := newStore(t, notesFiles(), func(c *Config) { c.TreeTTL = time.Millisecond })
 		_, err := s.Tree()
 		require.NoError(t, err)
 
@@ -847,7 +847,7 @@ func TestStoreTree(t *testing.T) {
 	})
 
 	t.Run("the caller gets a copy", func(t *testing.T) {
-		s := newStore(t, kbFiles(), func(c *Config) { c.TreeTTL = time.Hour })
+		s := newStore(t, notesFiles(), func(c *Config) { c.TreeTTL = time.Hour })
 		first, err := s.Tree()
 		require.NoError(t, err)
 
@@ -862,7 +862,7 @@ func TestStoreTree(t *testing.T) {
 }
 
 func TestStoreTreeConcurrent(t *testing.T) {
-	s := newStore(t, kbFiles(), func(c *Config) { c.TreeTTL = time.Millisecond })
+	s := newStore(t, notesFiles(), func(c *Config) { c.TreeTTL = time.Millisecond })
 
 	var wg sync.WaitGroup
 	for i := range 4 {
@@ -935,7 +935,7 @@ func TestStoreUpload(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// arrange
-			s := newStore(t, kbFiles())
+			s := newStore(t, notesFiles())
 			maxSize := tc.maxSize
 			if maxSize == 0 {
 				maxSize = 1 << 20
@@ -960,7 +960,7 @@ func TestStoreUpload(t *testing.T) {
 	}
 
 	t.Run("a taken name gets a suffix", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		first, err := s.Upload("attachments", "pic.png", bytes.NewReader(pngData), 1<<20)
 		require.NoError(t, err)
 		second, err := s.Upload("attachments", "pic.png", bytes.NewReader(pngData), 1<<20)
@@ -973,14 +973,14 @@ func TestStoreUpload(t *testing.T) {
 	})
 
 	t.Run("no size cap", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		fi, err := s.Upload("attachments", "pic.png", bytes.NewReader(pngData), 0)
 		require.NoError(t, err)
 		assert.Equal(t, int64(len(pngData)), fi.Size)
 	})
 
 	t.Run("a broken reader is reported", func(t *testing.T) {
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		_, err := s.Upload("attachments", "pic.png", iotest.ErrReader(io.ErrUnexpectedEOF), 1<<20)
 		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
 	})
@@ -1017,7 +1017,7 @@ func TestSanitizeName(t *testing.T) {
 }
 
 func TestStoreReadOnly(t *testing.T) {
-	s := newStore(t, kbFiles(), func(c *Config) { c.ReadOnly = true })
+	s := newStore(t, notesFiles(), func(c *Config) { c.ReadOnly = true })
 	require.True(t, s.ReadOnly())
 
 	tests := []struct {
@@ -1045,13 +1045,13 @@ func TestStoreReadOnly(t *testing.T) {
 	t.Run("reading still works", func(t *testing.T) {
 		data, _, err := s.Read("guide.md")
 		require.NoError(t, err)
-		assert.Equal(t, kbFiles()["guide.md"], string(data))
+		assert.Equal(t, notesFiles()["guide.md"], string(data))
 	})
 }
 
 func TestStoreWalkSkipsUnreadableEntries(t *testing.T) {
 	// arrange
-	s := newStore(t, kbFiles())
+	s := newStore(t, notesFiles())
 	locked := filepath.Join(s.Dir(), "locked")
 	require.NoError(t, os.MkdirAll(locked, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(locked, "page.md"), []byte("# locked"), 0o644))
@@ -1074,7 +1074,7 @@ func TestStoreWalkSkipsUnreadableEntries(t *testing.T) {
 func TestStoreCheckWritable(t *testing.T) {
 	t.Run("a writable root leaves nothing behind", func(t *testing.T) {
 		// arrange
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 
 		// act
 		err := s.CheckWritable()
@@ -1086,7 +1086,7 @@ func TestStoreCheckWritable(t *testing.T) {
 
 	t.Run("a read-only store never probes", func(t *testing.T) {
 		// arrange
-		s := newStore(t, kbFiles(), func(c *Config) { c.ReadOnly = true })
+		s := newStore(t, notesFiles(), func(c *Config) { c.ReadOnly = true })
 
 		// act & assert
 		assert.ErrorIs(t, s.CheckWritable(), ErrReadOnly)
@@ -1094,7 +1094,7 @@ func TestStoreCheckWritable(t *testing.T) {
 
 	t.Run("a root owned by somebody else reports permission denied", func(t *testing.T) {
 		// arrange
-		s := newStore(t, kbFiles())
+		s := newStore(t, notesFiles())
 		require.NoError(t, os.Chmod(s.Dir(), 0o555))
 		t.Cleanup(func() { require.NoError(t, os.Chmod(s.Dir(), 0o755)) })
 
@@ -1105,7 +1105,7 @@ func TestStoreCheckWritable(t *testing.T) {
 
 func TestStoreMapsFilesystemPermissionErrors(t *testing.T) {
 	// arrange
-	s := newStore(t, kbFiles())
+	s := newStore(t, notesFiles())
 	locked := filepath.Join(s.Dir(), "locked")
 	require.NoError(t, os.MkdirAll(locked, 0o000))
 	t.Cleanup(func() { require.NoError(t, os.Chmod(locked, 0o755)) })

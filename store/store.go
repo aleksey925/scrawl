@@ -1,4 +1,4 @@
-// Package store is the only place in mdserver that touches the knowledge base
+// Package store is the only place in scrawl that touches the knowledge base
 // directory. Every path it takes is relative to the root, slash-separated and
 // without a leading slash; "" means the root itself. All access goes through
 // os.Root, so escaping the root is impossible by construction instead of by
@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	tmpSuffix = ".mdserver-tmp"
+	tmpSuffix = ".scrawl-tmp"
 	dirPerm   = fs.FileMode(0o755)
 	filePerm  = fs.FileMode(0o644)
 

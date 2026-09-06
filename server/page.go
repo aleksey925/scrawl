@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aleksey925/mdserver/render"
-	"github.com/aleksey925/mdserver/search"
-	"github.com/aleksey925/mdserver/store"
+	"github.com/aleksey925/scrawl/render"
+	"github.com/aleksey925/scrawl/search"
+	"github.com/aleksey925/scrawl/store"
 )
 
 // themeCookie carries the reader's theme choice, so the server can render the

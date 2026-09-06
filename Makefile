@@ -7,8 +7,8 @@ TIMESTAMP=$(shell git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%S HEAD
 GIT_REV=$(shell printf "%s-%s-%s" "$(BRANCH)" "$(HASH)" "$(TIMESTAMP)")
 REV=$(if $(filter --,$(GIT_REV)),latest,$(GIT_REV))
 
-BINARY=mdserver
-DOCKER_IMAGE=ghcr.io/aleksey925/mdserver
+BINARY=scrawl
+DOCKER_IMAGE=ghcr.io/aleksey925/scrawl
 
 .PHONY: all build run test race_test lint fmt coverage docker docker-push version clean help
 
@@ -18,7 +18,7 @@ build:
 	go build -trimpath -ldflags "-X main.revision=$(REV) -s -w" -o .bin/$(BINARY) .
 
 run:
-	go run . --root=./testdata/kb --listen=:8080 --auth.disabled --dbg
+	go run . --root=./testdata/notes --listen=:8080 --auth.disabled --dbg
 
 test:
 	go clean -testcache
@@ -64,7 +64,7 @@ clean:
 help:
 	@echo "targets:"
 	@echo "  build       - build the binary into .bin/$(BINARY)"
-	@echo "  run         - run against ./testdata/kb with auth disabled and debug logs"
+	@echo "  run         - run against ./testdata/notes with auth disabled and debug logs"
 	@echo "  test        - tests with race detector plus a coverage summary"
 	@echo "  race_test   - race tests only"
 	@echo "  lint        - golangci-lint run ./..."

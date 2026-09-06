@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aleksey925/mdserver/store"
+	"github.com/aleksey925/scrawl/store"
 )
 
 // multipartOverhead is the room an upload gets on top of the file itself for

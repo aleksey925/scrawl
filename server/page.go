@@ -32,8 +32,8 @@ type TreeNode struct {
 	Path     string // content path, e.g. "python/notes.md"
 	URL      string // "/p/python/notes.md" for a file, "/p/python/" for a directory
 	IsDir    bool
-	Active   bool // on the path to the current document
-	Current  bool // is the current document
+	Active   bool // on the path to the current page
+	Current  bool // is the current page
 	Children []TreeNode
 }
 
@@ -185,7 +185,8 @@ func inDocumentTree(node *store.Node) bool {
 func treeNodeOf(node *store.Node, current string) TreeNode {
 	res := TreeNode{Name: displayName(node.Name), Path: node.Path, IsDir: node.IsDir}
 	if node.IsDir {
-		res.Active = current == node.Path || strings.HasPrefix(current, node.Path+"/")
+		res.Current = current == node.Path
+		res.Active = res.Current || strings.HasPrefix(current, node.Path+"/")
 		res.URL = dirURL(node.Path)
 		res.Children = childNodes(node, current)
 		return res

@@ -43,6 +43,16 @@ test.describe('pages', () => {
         await shot(page, 'pages-directory');
     });
 
+    test('the folder being viewed is the highlighted row in the tree', async ({page}) => {
+        await page.goto('/p/python/libs-docs/');
+
+        const current = page.locator('#sidebar .tree-row.is-current');
+        await expect(current).toHaveCount(1);
+        await expect(current).toHaveJSProperty('tagName', 'SUMMARY');
+        await expect(current.locator('.tree-name')).toHaveText('libs-docs');
+        await expect(current.locator('.tree-link')).toHaveAttribute('aria-current', 'page');
+    });
+
     test('a missing page answers 404 and offers to create it', async ({page}) => {
         const response = await page.goto(`/p/${MISSING}`);
 

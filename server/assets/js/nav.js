@@ -357,7 +357,7 @@ async function deletePath(path, kind) {
 }
 
 function currentPath() {
-    const holder = qs('#doc') || qs('#editor');
+    const holder = qs('#doc') || qs('#editor') || qs('#dir');
     return holder ? holder.dataset.path : '';
 }
 
@@ -482,11 +482,13 @@ function renderNodes(nodes, here) {
     return '<ul class="tree">' + nodes.map((node) => {
         const name = esc(String(node.name || '').replace(/\.md$/, ''));
         if (node.is_dir) {
-            const open = here && (here === node.path || here.startsWith(node.path + '/'));
+            const at = here === node.path;
+            const open = at || (here && here.startsWith(node.path + '/'));
             return '<li class="tree-item"><details class="tree-dir" data-path="' + esc(node.path) + '"' +
-                (open ? ' open' : '') + '><summary class="tree-row">' +
+                (open ? ' open' : '') + '><summary class="tree-row' + (at ? ' is-current' : '') + '">' +
                 '<svg class="icon tree-twisty" aria-hidden="true"><use href="#icon-chevron"></use></svg>' +
-                '<a class="tree-link" href="/p/' + encodePath(node.path) + '/">' +
+                '<a class="tree-link" href="/p/' + encodePath(node.path) + '/"' +
+                (at ? ' aria-current="page"' : '') + '>' +
                 '<svg class="icon tree-kind" aria-hidden="true"><use href="#icon-folder"></use></svg>' +
                 '<span class="tree-name">' + name + '</span></a>' +
                 '</summary>' + renderNodes(node.children || [], here) + '</details></li>';

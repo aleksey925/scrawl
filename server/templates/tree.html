@@ -45,10 +45,10 @@ anyway, so nav.js builds it and reads data-readonly on the nav below.
         <li class="tree-item">
             {{if .IsDir}}
                 <details class="tree-dir" data-path="{{.Path}}"{{if .Active}} open{{end}}>
-                    <summary class="tree-row">
+                    <summary class="tree-row{{if .Current}} is-current{{end}}">
                         <svg class="icon tree-twisty" aria-hidden="true"><use href="#icon-chevron"></use></svg>
                         {{if .URL}}
-                            <a class="tree-link" href="{{.URL}}">
+                            <a class="tree-link" href="{{.URL}}"{{if .Current}} aria-current="page"{{end}}>
                                 <svg class="icon tree-kind" aria-hidden="true"><use href="#icon-folder"></use></svg>
                                 <span class="tree-name">{{.Name}}</span>
                             </a>

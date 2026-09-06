@@ -1,4 +1,4 @@
-module github.com/aleksey925/mdserver
+module github.com/aleksey925/scrawl
 
 go 1.25.0
 

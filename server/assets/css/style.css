@@ -1,5 +1,5 @@
 /* ==========================================================================
-   mdserver - design tokens
+   scrawl - design tokens
    Light tokens live on bare :root. Dark is applied twice:
    - under prefers-color-scheme, guarded so an explicit light choice wins
    - under [data-theme="dark"], so the toggle wins in both directions

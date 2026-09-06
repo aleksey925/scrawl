@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/aleksey925/mdserver/store"
+	"github.com/aleksey925/scrawl/store"
 )
 
 // errRenderTimeout is returned when a render outran its deadline. It is the

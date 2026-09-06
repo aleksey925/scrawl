@@ -4,8 +4,8 @@
 
 /dist/
 /.bin/
-/kb/
-/mdserver
+/notes/
+/scrawl
 /var/
 coverage.out
 coverage.out.tmp

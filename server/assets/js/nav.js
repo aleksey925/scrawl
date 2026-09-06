@@ -220,7 +220,7 @@ function initFilter() {
 
 /* --- remember which folders are open ------------------------------------ */
 
-const OPEN_KEY = 'mdserver.tree.open';
+const OPEN_KEY = 'scrawl.tree.open';
 
 function readOpen() {
     try {

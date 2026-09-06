@@ -21,18 +21,18 @@ import (
 	"github.com/go-pkgz/lgr"
 	"github.com/jessevdk/go-flags"
 
-	"github.com/aleksey925/mdserver/auth"
-	"github.com/aleksey925/mdserver/render"
-	"github.com/aleksey925/mdserver/search"
-	"github.com/aleksey925/mdserver/server"
-	"github.com/aleksey925/mdserver/store"
+	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/render"
+	"github.com/aleksey925/scrawl/search"
+	"github.com/aleksey925/scrawl/server"
+	"github.com/aleksey925/scrawl/store"
 )
 
 // revision is set at build time with -ldflags "-X main.revision=..."
 var revision = "unknown"
 
 type options struct {
-	Root         string   `short:"r" long:"root" env:"ROOT" default:"/kb" description:"knowledge base root directory"`
+	Root         string   `short:"r" long:"root" env:"ROOT" default:"/notes" description:"knowledge base root directory"`
 	Listen       string   `short:"l" long:"listen" env:"LISTEN" default:":8080" description:"address to listen on"`
 	Title        string   `long:"title" env:"TITLE" default:"Knowledge Base" description:"site title"`
 	ReadOnly     bool     `long:"read-only" env:"READ_ONLY" description:"disable all write endpoints"`
@@ -113,7 +113,7 @@ func main() {
 	setupLog(opts.Dbg, secretsOf(opts)...)
 
 	if opts.Version {
-		fmt.Printf("mdserver %s\n", versionInfo())
+		fmt.Printf("scrawl %s\n", versionInfo())
 		return
 	}
 
@@ -127,11 +127,11 @@ func main() {
 		return
 	}
 
-	log.Printf("[INFO] mdserver %s", versionInfo())
+	log.Printf("[INFO] scrawl %s", versionInfo())
 	log.Printf("[DEBUG] options: %+v", *opts)
 
 	if err := serve(opts); err != nil {
-		log.Printf("[ERROR] mdserver failed: %v", err)
+		log.Printf("[ERROR] scrawl failed: %v", err)
 		os.Exit(1)
 	}
 }
@@ -161,7 +161,7 @@ func run(ctx context.Context, opts *options) error {
 		log.Printf("[WARN] authentication is disabled, every visitor gets full access")
 	}
 
-	kb, err := store.New(store.Config{
+	notes, err := store.New(store.Config{
 		Root:     root,
 		Exclude:  opts.Exclude,
 		ReadOnly: opts.ReadOnly,
@@ -171,11 +171,11 @@ func run(ctx context.Context, opts *options) error {
 	if err != nil {
 		return fmt.Errorf("open knowledge base: %w", err)
 	}
-	defer kb.Close()
-	warnUnwritable(kb)
+	defer notes.Close()
+	warnUnwritable(notes)
 
 	index := search.New()
-	if indexErr := indexAll(kb, index); indexErr != nil {
+	if indexErr := indexAll(notes, index); indexErr != nil {
 		return indexErr
 	}
 
@@ -208,13 +208,13 @@ func run(ctx context.Context, opts *options) error {
 			IdleTimeout:       opts.Timeouts.Idle,
 			ShutdownTimeout:   opts.Timeouts.Shutdown,
 		},
-		Store:    kb,
-		Renderer: render.New(render.Options{LinkExists: kb.Exists}),
+		Store:    notes,
+		Renderer: render.New(render.Options{LinkExists: notes.Exists}),
 		Index:    index,
 		Auth:     authSvc,
 	}
 
-	watchDone := watch(ctx, kb, index, srv)
+	watchDone := watch(ctx, notes, index, srv)
 	runErr := srv.Run(ctx)
 	<-watchDone
 
@@ -227,22 +227,22 @@ func run(ctx context.Context, opts *options) error {
 // warnUnwritable names the failure a NAS deployment hits first: the container
 // runs as a uid that does not own the mounted folder, reading works and every
 // save comes back as an error. One line at startup beats finding out later.
-func warnUnwritable(kb *store.Store) {
-	if kb.ReadOnly() {
+func warnUnwritable(notes *store.Store) {
+	if notes.ReadOnly() {
 		return
 	}
-	if err := kb.CheckWritable(); err != nil {
-		log.Printf("[WARN] %s is not writable by uid %d gid %d, every save will fail: %v", kb.Dir(), os.Getuid(), os.Getgid(), err)
+	if err := notes.CheckWritable(); err != nil {
+		log.Printf("[WARN] %s is not writable by uid %d gid %d, every save will fail: %v", notes.Dir(), os.Getuid(), os.Getgid(), err)
 		log.Printf("[WARN] set the container user to the owner of that folder (`id <user>` on the NAS gives the numbers), " +
 			"or start with --read-only")
 	}
 }
 
 // indexAll fills the search index from the knowledge base.
-func indexAll(kb *store.Store, index *search.Index) error {
+func indexAll(notes *store.Store, index *search.Index) error {
 	start := time.Now()
 	docs := 0
-	err := kb.Walk(func(fi store.FileInfo, data []byte) error {
+	err := notes.Walk(func(fi store.FileInfo, data []byte) error {
 		index.Set(fi.Path, data)
 		docs++
 		return nil
@@ -259,8 +259,8 @@ func indexAll(kb *store.Store, index *search.Index) error {
 // watch keeps the search index and the rendered page cache in step with the
 // disk. The returned channel is closed once the goroutine is gone: store.Watch
 // closes its channel when ctx is canceled, so shutdown leaks nothing.
-func watch(ctx context.Context, kb *store.Store, index *search.Index, srv *server.Web) <-chan struct{} {
-	events := kb.Watch(ctx)
+func watch(ctx context.Context, notes *store.Store, index *search.Index, srv *server.Web) <-chan struct{} {
+	events := notes.Watch(ctx)
 	done := make(chan struct{})
 
 	go func() {
@@ -274,7 +274,7 @@ func watch(ctx context.Context, kb *store.Store, index *search.Index, srv *serve
 			// a create and a write mean the same thing here, and so does a
 			// rename: an atomic save replaces the inode, so the file that is
 			// there now is the only thing worth asking about
-			data, _, err := kb.Read(ev.Path)
+			data, _, err := notes.Read(ev.Path)
 			if err != nil {
 				index.Delete(ev.Path)
 				continue
@@ -343,7 +343,7 @@ func genHash(value string, in io.Reader) (string, error) {
 		password = strings.TrimRight(line, "\r\n")
 		if password == "" {
 			return "", errors.New("no password on stdin, pipe one in " +
-				"(printf 'my-password' | mdserver --gen-hash) or pass it as --gen-hash=my-password")
+				"(printf 'my-password' | scrawl --gen-hash) or pass it as --gen-hash=my-password")
 		}
 	} else {
 		log.Printf("[WARN] the password was passed on the command line, where ps and the shell history keep it, " +

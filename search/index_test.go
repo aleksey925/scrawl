@@ -32,7 +32,7 @@ func TestIndexSetDelete(t *testing.T) {
 
 	t.Run("delete drops the document", func(t *testing.T) {
 		// arrange
-		ix := loadKB(t)
+		ix := loadNotes(t)
 		before := ix.Len()
 
 		// act
@@ -47,11 +47,11 @@ func TestIndexSetDelete(t *testing.T) {
 
 	t.Run("size follows the content", func(t *testing.T) {
 		// arrange
-		ix := loadKB(t)
+		ix := loadNotes(t)
 		require.Positive(t, ix.Size())
 
 		// act
-		for _, p := range kbPaths(t) {
+		for _, p := range notesPaths(t) {
 			ix.Delete(p)
 		}
 
@@ -113,7 +113,7 @@ func TestIndexSearchRanking(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ix := loadKB(t)
+			ix := loadNotes(t)
 			if tt.docs != nil {
 				ix = indexOf(tt.docs)
 			}
@@ -123,7 +123,7 @@ func TestIndexSearchRanking(t *testing.T) {
 }
 
 func TestIndexSearchMatching(t *testing.T) {
-	ix := loadKB(t)
+	ix := loadNotes(t)
 	tests := []struct {
 		name  string
 		query string
@@ -162,7 +162,7 @@ func TestIndexSearchMatching(t *testing.T) {
 }
 
 func TestIndexSearchPrefix(t *testing.T) {
-	ix := loadKB(t)
+	ix := loadNotes(t)
 	tests := []struct {
 		name  string
 		query string
@@ -206,7 +206,7 @@ func TestIndexSearchPrefixRanking(t *testing.T) {
 
 func TestIndexSearchPrefixStaysBounded(t *testing.T) {
 	// arrange
-	ix := loadKB(t)
+	ix := loadNotes(t)
 
 	// act
 	hits := ix.SearchPrefix("с", 5)
@@ -232,7 +232,7 @@ func TestIndexSearchPrefixAfterUpdate(t *testing.T) {
 }
 
 func TestIndexSearchDegenerateQuery(t *testing.T) {
-	ix := loadKB(t)
+	ix := loadNotes(t)
 	tests := []struct {
 		name  string
 		query string
@@ -262,7 +262,7 @@ func TestIndexSearchDegenerateQuery(t *testing.T) {
 
 func TestIndexSearchLimit(t *testing.T) {
 	// arrange
-	ix := loadKB(t)
+	ix := loadNotes(t)
 
 	// act
 	hits := ix.Search("мониторинг", 2)
@@ -273,7 +273,7 @@ func TestIndexSearchLimit(t *testing.T) {
 }
 
 func TestIndexSearchHit(t *testing.T) {
-	ix := loadKB(t)
+	ix := loadNotes(t)
 
 	t.Run("title and line point at the source", func(t *testing.T) {
 		hits := ix.Search("nginx", 5)
@@ -294,8 +294,8 @@ func TestIndexSearchHit(t *testing.T) {
 
 func TestIndexConcurrentAccess(t *testing.T) {
 	// arrange
-	ix := loadKB(t)
-	paths := kbPaths(t)
+	ix := loadNotes(t)
+	paths := notesPaths(t)
 	content := []byte("Общее\n=====\n\nмониторинг сети и резервное копирование\n")
 
 	// act
@@ -395,7 +395,7 @@ func BenchmarkSearch(b *testing.B) {
 }
 
 func BenchmarkSet(b *testing.B) {
-	content, err := os.ReadFile(filepath.Join("testdata", "kb", "docker", "setup.md"))
+	content, err := os.ReadFile(filepath.Join("testdata", "notes", "docker", "setup.md"))
 	require.NoError(b, err)
 	content = []byte(strings.Repeat(string(content), 40))
 	b.SetBytes(int64(len(content)))
@@ -439,22 +439,22 @@ func benchIndex(tb testing.TB, docs, lines int) *Index {
 	return ix
 }
 
-func loadKB(tb testing.TB) *Index {
+func loadNotes(tb testing.TB) *Index {
 	tb.Helper()
 
 	ix := New()
-	for _, p := range kbPaths(tb) {
-		data, err := os.ReadFile(filepath.Join("testdata", "kb", filepath.FromSlash(p)))
+	for _, p := range notesPaths(tb) {
+		data, err := os.ReadFile(filepath.Join("testdata", "notes", filepath.FromSlash(p)))
 		require.NoError(tb, err)
 		ix.Set(p, data)
 	}
 	return ix
 }
 
-func kbPaths(tb testing.TB) []string {
+func notesPaths(tb testing.TB) []string {
 	tb.Helper()
 
-	root := filepath.Join("testdata", "kb")
+	root := filepath.Join("testdata", "notes")
 	res := []string{}
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".md") {

@@ -15,9 +15,9 @@ import (
 
 // TestCorpus renders the real knowledge base and checks that every internal
 // link and every in-page anchor still resolves. It is skipped unless
-// MDSERVER_CORPUS points at a checkout:
+// SCRAWL_CORPUS points at a checkout:
 //
-//	MDSERVER_CORPUS=~/CodeProjects/knowledge-base go test ./render/ -run Corpus
+//	SCRAWL_CORPUS=~/CodeProjects/knowledge-base go test ./render/ -run Corpus
 func TestCorpus(t *testing.T) {
 	root := corpusRoot(t)
 	docs := corpusDocs(t, root)
@@ -85,9 +85,9 @@ func TestCorpus(t *testing.T) {
 
 func corpusRoot(t *testing.T) string {
 	t.Helper()
-	root := os.Getenv("MDSERVER_CORPUS")
+	root := os.Getenv("SCRAWL_CORPUS")
 	if root == "" {
-		t.Skip("MDSERVER_CORPUS is not set")
+		t.Skip("SCRAWL_CORPUS is not set")
 	}
 	if strings.HasPrefix(root, "~/") {
 		home, err := os.UserHomeDir()

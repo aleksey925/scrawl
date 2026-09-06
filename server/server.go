@@ -1,4 +1,4 @@
-// Package server implements the HTTP layer of mdserver: the http.Server
+// Package server implements the HTTP layer of scrawl: the http.Server
 // lifecycle, routing, the middleware stack and the embedded templates and
 // static assets.
 package server
@@ -22,10 +22,10 @@ import (
 	"github.com/go-pkgz/rest/logger"
 	"github.com/go-pkgz/routegroup"
 
-	"github.com/aleksey925/mdserver/auth"
-	"github.com/aleksey925/mdserver/render"
-	"github.com/aleksey925/mdserver/search"
-	"github.com/aleksey925/mdserver/store"
+	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/render"
+	"github.com/aleksey925/scrawl/search"
+	"github.com/aleksey925/scrawl/store"
 )
 
 //go:embed templates assets
@@ -114,7 +114,7 @@ type Config struct {
 	ShutdownTimeout   time.Duration
 }
 
-// Web is the http server of mdserver, built as a struct literal in main.
+// Web is the http server of scrawl, built as a struct literal in main.
 type Web struct {
 	Config
 	Store    *store.Store
@@ -292,7 +292,7 @@ func (wb *Web) appInfo(next http.Handler) http.Handler {
 		}
 		if _, ok := wb.Auth.User(r); ok {
 			h := w.Header()
-			h.Set("App-Name", "mdserver")
+			h.Set("App-Name", "scrawl")
 			h.Set("App-Version", wb.Version)
 			h.Set("Author", "aleksey925")
 		}
@@ -332,7 +332,7 @@ func (wb *Web) parseTemplates() error {
 			return template.HTML(template.HTMLEscapeString(fmt.Sprint(v)))
 		},
 	}
-	tmpl, err := template.New("mdserver").Funcs(funcs).ParseFS(content, "templates/*.html")
+	tmpl, err := template.New("scrawl").Funcs(funcs).ParseFS(content, "templates/*.html")
 	if err != nil {
 		return fmt.Errorf("parse templates: %w", err)
 	}

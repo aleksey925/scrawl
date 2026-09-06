@@ -57,7 +57,7 @@ func fastWatch(c *Config) {
 func TestStoreWatch(t *testing.T) {
 	t.Run("reports a change and shuts down cleanly", func(t *testing.T) {
 		// arrange
-		s := newStore(t, kbFiles(), fastWatch)
+		s := newStore(t, notesFiles(), fastWatch)
 		ctx, cancel := context.WithCancel(t.Context())
 		events := s.Watch(ctx)
 
@@ -74,7 +74,7 @@ func TestStoreWatch(t *testing.T) {
 
 	t.Run("ignored paths are never reported", func(t *testing.T) {
 		// arrange
-		s := newStore(t, kbFiles(), fastWatch)
+		s := newStore(t, notesFiles(), fastWatch)
 		events := s.Watch(t.Context())
 
 		// act
@@ -91,7 +91,7 @@ func TestStoreWatch(t *testing.T) {
 
 	t.Run("an atomic save is reported", func(t *testing.T) {
 		// arrange: no rescan, so only the inotify path can deliver this
-		s := newStore(t, kbFiles(), func(c *Config) {
+		s := newStore(t, notesFiles(), func(c *Config) {
 			c.Debounce = 20 * time.Millisecond
 			c.Rescan = -1
 		})
@@ -111,7 +111,7 @@ func TestStoreWatch(t *testing.T) {
 	t.Run("a folder copied in reports its content", func(t *testing.T) {
 		// arrange: the files exist before the directory appears in the root,
 		// which is what a copy over SMB looks like
-		s := newStore(t, kbFiles(), func(c *Config) {
+		s := newStore(t, notesFiles(), func(c *Config) {
 			c.Debounce = 20 * time.Millisecond
 			c.Rescan = -1
 		})
@@ -141,7 +141,7 @@ func TestStoreWatch(t *testing.T) {
 
 	t.Run("poll mode reports a change", func(t *testing.T) {
 		// arrange
-		s := newStore(t, kbFiles(), func(c *Config) {
+		s := newStore(t, notesFiles(), func(c *Config) {
 			c.Watch = WatchPoll
 			c.Rescan = 50 * time.Millisecond
 		})
@@ -171,7 +171,7 @@ func TestStoreWatchers(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := newStore(t, kbFiles(), func(c *Config) { c.Watch = tc.mode })
+			s := newStore(t, notesFiles(), func(c *Config) { c.Watch = tc.mode })
 
 			got := []string{}
 			for _, w := range s.watchers() {
@@ -227,7 +227,7 @@ func TestRunWatchers(t *testing.T) {
 
 func TestTrackerRescan(t *testing.T) {
 	// arrange
-	s := newStore(t, kbFiles())
+	s := newStore(t, notesFiles())
 	tr := &tracker{store: s, pending: map[string]Op{}}
 	tr.seen = tr.snapshot()
 
@@ -273,7 +273,7 @@ func TestOpOf(t *testing.T) {
 }
 
 func TestTrackerRel(t *testing.T) {
-	s := newStore(t, kbFiles())
+	s := newStore(t, notesFiles())
 	tr := &tracker{store: s, pending: map[string]Op{}}
 
 	tests := []struct {

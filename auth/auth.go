@@ -1,4 +1,4 @@
-// Package auth implements authentication for mdserver: users taken from the
+// Package auth implements authentication for scrawl: users taken from the
 // environment, stateless signed session cookies, the middleware that guards
 // the routes and a per-IP login rate limiter.
 //
@@ -20,7 +20,7 @@
 // A file named by "env_file:" is not interpolated, so the hash goes in raw and
 // unquoted, which is much harder to get wrong:
 //
-//	# mdserver.env
+//	# scrawl.env
 //	AUTH_USERS=alice:$2a$10$C6UzMDM.H6dfI/f/IKcEe.aQ8B4jjM.MU0kEnJk0BF6u
 //
 // A hash that reaches the parser with the doubled $$ still in it is rejected

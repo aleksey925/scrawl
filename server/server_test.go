@@ -30,10 +30,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aleksey925/mdserver/auth"
-	"github.com/aleksey925/mdserver/render"
-	"github.com/aleksey925/mdserver/search"
-	"github.com/aleksey925/mdserver/store"
+	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/render"
+	"github.com/aleksey925/scrawl/search"
+	"github.com/aleksey925/scrawl/store"
 )
 
 const testUser = "bob"
@@ -54,14 +54,14 @@ type testOpts struct {
 
 func newTestServer(t *testing.T, opts testOpts) *testServer {
 	t.Helper()
-	root := testKB(t)
+	root := testNotes(t)
 
-	kb, err := store.New(store.Config{Root: root, ReadOnly: opts.readOnly, Rescan: -1})
+	notes, err := store.New(store.Config{Root: root, ReadOnly: opts.readOnly, Rescan: -1})
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = kb.Close() })
+	t.Cleanup(func() { _ = notes.Close() })
 
 	index := search.New()
-	require.NoError(t, kb.Walk(func(fi store.FileInfo, data []byte) error {
+	require.NoError(t, notes.Walk(func(fi store.FileInfo, data []byte) error {
 		index.Set(fi.Path, data)
 		return nil
 	}))
@@ -80,14 +80,14 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 
 	wb := &Web{
 		Config: Config{
-			Title:        "Test KB",
+			Title:        "Test Knowledge Base",
 			Version:      "v1.2.3",
 			ReadOnly:     opts.readOnly,
 			MaxUpload:    64 << 10,
 			AuthDisabled: !opts.withAuth,
 		},
-		Store:    kb,
-		Renderer: render.New(render.Options{LinkExists: kb.Exists}),
+		Store:    notes,
+		Renderer: render.New(render.Options{LinkExists: notes.Exists}),
 		Index:    index,
 		Auth:     svc,
 	}
@@ -100,10 +100,10 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 	return &testServer{Web: wb, url: ts.URL, root: root}
 }
 
-// testKB writes a small knowledge base covering every shape the handlers have
+// testNotes writes a small knowledge base covering every shape the handlers have
 // to tell apart: a root index, a directory with its own index, a directory with
 // only a readme, a non-markdown attachment and a Cyrillic document.
-func testKB(t *testing.T) string {
+func testNotes(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 
@@ -371,7 +371,7 @@ func TestSecurityHeaders(t *testing.T) {
 	assert.Equal(t, "same-origin", resp.header.Get("Referrer-Policy"))
 	assert.Equal(t, "DENY", resp.header.Get("X-Frame-Options"))
 	assert.Equal(t, contentSecurityPolicy, resp.header.Get("Content-Security-Policy"))
-	assert.Equal(t, "mdserver", resp.header.Get("App-Name"))
+	assert.Equal(t, "scrawl", resp.header.Get("App-Name"))
 	assert.Equal(t, "v1.2.3", resp.header.Get("App-Version"))
 }
 
@@ -385,7 +385,7 @@ func TestHTMLRoutes(t *testing.T) {
 		contains []string
 		location string
 	}{
-		{name: "root index", path: "/", status: http.StatusOK, contains: []string{"Welcome", "Home - Test KB"}},
+		{name: "root index", path: "/", status: http.StatusOK, contains: []string{"Welcome", "Home - Test Knowledge Base"}},
 		{name: "document", path: "/p/guide.md", status: http.StatusOK, contains: []string{"widgets and gadgets", `id="doc"`}},
 		{name: "document outline", path: "/p/guide.md", status: http.StatusOK, contains: []string{`class="toc"`, "#setup"}},
 		{name: "directory with index", path: "/p/notes/", status: http.StatusOK, contains: []string{"the notes index"}},
@@ -1383,11 +1383,11 @@ func revOf(t *testing.T, ts *testServer, contentPath string) string {
 // thing, so a field a template needs and a handler does not fill shows up here
 // instead of in a browser.
 func TestEveryTemplateExecutes(t *testing.T) {
-	wb := &Web{Config: Config{Title: "Test KB", Version: "v1"}}
+	wb := &Web{Config: Config{Title: "Test Knowledge Base", Version: "v1"}}
 	require.NoError(t, wb.parseTemplates())
 
 	base := Base{
-		SiteTitle: "Test KB",
+		SiteTitle: "Test Knowledge Base",
 		Title:     "Guide",
 		User:      "bob",
 		AuthOn:    true,
@@ -1437,7 +1437,7 @@ func TestEveryTemplateExecutes(t *testing.T) {
 		}},
 		{name: "search.html empty", data: SearchPage{Base: base}},
 		{name: "error.html", data: ErrorPage{Base: base, Code: 404, Message: "This page does not exist"}},
-		{name: "login.html", data: LoginPage{SiteTitle: "Test KB", Version: "v1", Theme: "auto",
+		{name: "login.html", data: LoginPage{SiteTitle: "Test Knowledge Base", Version: "v1", Theme: "auto",
 			Error: "Wrong user name or password", From: "/p/guide.md"}},
 	}
 
@@ -1560,7 +1560,7 @@ func TestStoreErrorMapping(t *testing.T) {
 			message: "file is too large"},
 		{name: "anything else", err: errors.New("disk on fire"), status: http.StatusInternalServerError,
 			message: "internal error"},
-		{name: "wrapped sentinel", err: fmt.Errorf("read %q: %w", "/srv/kb/a.md", store.ErrNotFound),
+		{name: "wrapped sentinel", err: fmt.Errorf("read %q: %w", "/srv/notes/a.md", store.ErrNotFound),
 			status: http.StatusNotFound, message: "not found"},
 	}
 
@@ -1569,7 +1569,7 @@ func TestStoreErrorMapping(t *testing.T) {
 			// act & assert
 			assert.Equal(t, tc.status, statusOf(tc.err))
 			assert.Equal(t, tc.message, errMessage(tc.err))
-			assert.NotContains(t, errMessage(tc.err), "/srv/kb")
+			assert.NotContains(t, errMessage(tc.err), "/srv/notes")
 		})
 	}
 }

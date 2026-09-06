@@ -185,7 +185,7 @@ func TestSafeRedirect(t *testing.T) {
 		{name: "absolute url with a path", from: "https://evil.com/p/a.md", want: "/"},
 		{name: "backslash trick", from: `/\evil.com`, want: "/"},
 		{name: "double backslash", from: `\\evil.com`, want: "/"},
-		{name: "crlf injection", from: "/p/a.md\r\nSet-Cookie: mdsession=forged", want: "/"},
+		{name: "crlf injection", from: "/p/a.md\r\nSet-Cookie: scrawl_session=forged", want: "/"},
 		{name: "bare newline", from: "/p/a.md\nLocation: https://evil.com", want: "/"},
 		{name: "null byte", from: "/p/a.md\x00", want: "/"},
 		{name: "scheme relative with credentials", from: "//user:pass@evil.com/", want: "/"},

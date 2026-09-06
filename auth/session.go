@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	// CookieName is the session cookie mdserver sets.
-	CookieName = "mdsession"
+	// CookieName is the session cookie scrawl sets.
+	CookieName = "scrawl_session"
 
 	tokenSep   = "|"
 	tokenParts = 3
@@ -35,7 +35,7 @@ var b64 = base64.RawURLEncoding
 
 // unknownEpoch stands in for a user that is not configured, so verifying a
 // forged cookie runs the same HMAC as a real one.
-var unknownEpoch = []byte("mdserver/unknown-user")
+var unknownEpoch = []byte("scrawl/unknown-user")
 
 // token is a decoded session cookie.
 type token struct {

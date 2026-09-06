@@ -1,4 +1,4 @@
-# mdserver
+# scrawl
 
 A knowledge base server for a folder of markdown files. Point it at a
 directory, open it in a browser, read and edit your notes from a laptop
@@ -28,29 +28,29 @@ sections and syntax highlighting. See [Markdown](#markdown) below.
 
 ## Try it locally
 
-Builds from this checkout and serves `./kb`, no configuration:
+Builds from this checkout and serves `./notes`, no configuration:
 
 ```
-mkdir -p kb
-docker compose -f docker-compose.local.yml up --build
+mkdir -p notes
+docker compose up --build
 ```
 
 Open http://localhost:8080 and sign in as `admin` / `admin`. To browse a
-knowledge base you already have, point `KB` at it:
+knowledge base you already have, point `NOTES` at it:
 
 ```
-KB=~/notes docker compose -f docker-compose.local.yml up --build
+NOTES=~/notes docker compose up --build
 ```
 
 ## Quick start
 
 ```
-docker run -d --name mdserver \
+docker run -d --name scrawl \
   -p 8080:8080 \
-  -v /path/to/knowledge-base:/kb \
-  -v mdserver-data:/data \
+  -v /path/to/knowledge-base:/notes \
+  -v scrawl-data:/data \
   -e AUTH_USERS='alex:my-password' \
-  ghcr.io/aleksey925/mdserver:master
+  ghcr.io/aleksey925/scrawl:master
 ```
 
 Open http://localhost:8080 and sign in.
@@ -59,7 +59,7 @@ A plain password works and is fine on a home network, but the server
 logs a warning. For anything reachable from outside, use a hash:
 
 ```
-printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/mdserver:master --gen-hash
+printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:master --gen-hash
 ```
 
 Put the result in `AUTH_USERS` as `alex:$2a$10$...`. The password is
@@ -68,9 +68,9 @@ read from stdin so it stays out of `ps`, the shell history and
 
 ## Synology
 
-[docker-compose.yml](docker-compose.yml) is a ready example with every
-decision explained. Copy it to the NAS, or paste it into Container
-Manager under Project, and change three things:
+[example/docker-compose.yml](example/docker-compose.yml) is a ready
+example with every decision explained. Copy it to the NAS, or paste it
+into Container Manager under Project, and change three things:
 
 1. the volume path, from `/volume1/docs/knowledge-base` to your share
 2. `AUTH_USERS`
@@ -91,29 +91,29 @@ hash unchanged.
 
 Everything is configured through environment variables, and every one of
 them except `TZ` is also a command line flag: `AUTH_USERS` is
-`--auth.users`, `DEBUG` is `--dbg`. Run `mdserver --help` for the full
+`--auth.users`, `DEBUG` is `--dbg`. Run `scrawl --help` for the full
 list, which also covers the HTTP timeouts left out of the table.
 
-| variable | default | meaning |
-|---|---|---|
-| `ROOT` | `/kb` | knowledge base directory |
-| `LISTEN` | `:8080` | address to listen on |
-| `TITLE` | `Knowledge Base` | site title in the interface |
-| `AUTH_USERS` | | `user:hashOrPassword`, comma separated |
-| `AUTH_SECRET` | | cookie signing key, generated if empty |
-| `AUTH_SECRET_FILE` | `/data/session.key` | where a generated key is kept |
-| `AUTH_TTL` | `720h` | how long a session lasts |
-| `AUTH_SECURE` | `auto` | `Secure` flag of the session cookie |
-| `AUTH_DISABLED` | `false` | serve without authentication |
-| `READ_ONLY` | `false` | refuse every write |
-| `EXCLUDE` | | extra ignore globs, comma separated |
-| `MAX_UPLOAD` | `20M` | upload size cap |
-| `UPLOAD_DIR` | | one shared folder for uploads |
-| `WATCH` | `auto` | `poll` when the root is a network share |
-| `RESCAN` | `60s` | periodic rescan, negative disables it unless `WATCH=poll` |
-| `TRUSTED_PROXY` | `false` | trust `X-Forwarded-For` and `-Proto` |
-| `TZ` | `UTC` | timezone |
-| `DEBUG` | `false` | debug logging |
+| variable           | default             | meaning                                                   |
+| ------------------ | ------------------- | --------------------------------------------------------- |
+| `ROOT`             | `/notes`            | knowledge base directory                                  |
+| `LISTEN`           | `:8080`             | address to listen on                                      |
+| `TITLE`            | `Knowledge Base`    | site title in the interface                               |
+| `AUTH_USERS`       |                     | `user:hashOrPassword`, comma separated                    |
+| `AUTH_SECRET`      |                     | cookie signing key, generated if empty                    |
+| `AUTH_SECRET_FILE` | `/data/session.key` | where a generated key is kept                             |
+| `AUTH_TTL`         | `720h`              | how long a session lasts                                  |
+| `AUTH_SECURE`      | `auto`              | `Secure` flag of the session cookie                       |
+| `AUTH_DISABLED`    | `false`             | serve without authentication                              |
+| `READ_ONLY`        | `false`             | refuse every write                                        |
+| `EXCLUDE`          |                     | extra ignore globs, comma separated                       |
+| `MAX_UPLOAD`       | `20M`               | upload size cap                                           |
+| `UPLOAD_DIR`       |                     | one shared folder for uploads                             |
+| `WATCH`            | `auto`              | `poll` when the root is a network share                   |
+| `RESCAN`           | `60s`               | periodic rescan, negative disables it unless `WATCH=poll` |
+| `TRUSTED_PROXY`    | `false`             | trust `X-Forwarded-For` and `-Proto`                      |
+| `TZ`               | `UTC`               | timezone                                                  |
+| `DEBUG`            | `false`             | debug logging                                             |
 
 Dot directories, `node_modules` and `__pycache__` are ignored, so a
 knowledge base that is a git repository does not expose `.git`.
@@ -162,7 +162,7 @@ collect them in one folder instead.
 
 ```
 make build      build the binary
-make run        run against ./testdata/kb without authentication
+make run        run against ./testdata/notes without authentication
 make test       tests with the race detector
 make lint       golangci-lint
 make docker     build the image

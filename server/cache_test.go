@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/aleksey925/mdserver/render"
+	"github.com/aleksey925/scrawl/render"
 )
 
 func TestPageCacheGetPut(t *testing.T) {

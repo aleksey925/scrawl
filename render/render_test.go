@@ -166,9 +166,9 @@ func TestContentDir(t *testing.T) {
 }
 
 func BenchmarkRenderLargeDocument(b *testing.B) {
-	root := os.Getenv("MDSERVER_CORPUS")
+	root := os.Getenv("SCRAWL_CORPUS")
 	if root == "" {
-		b.Skip("MDSERVER_CORPUS is not set")
+		b.Skip("SCRAWL_CORPUS is not set")
 	}
 	src, err := os.ReadFile(filepath.Join(root, "python", "python-notes-index.md"))
 	require.NoError(b, err)

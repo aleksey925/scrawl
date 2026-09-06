@@ -79,7 +79,7 @@ func TestAnalyzeFields(t *testing.T) {
 	src := "Заголовок\n=========\n\n## Раздел\n\nТекст абзаца.\n\n```go\nкод\n```\n"
 
 	// act
-	res := analyze("kb/doc.md", []byte(src))
+	res := analyze("notes/doc.md", []byte(src))
 
 	// assert
 	byField := map[field][]string{}

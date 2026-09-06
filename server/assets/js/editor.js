@@ -20,7 +20,7 @@ export function initEditor() {
     if (!shell || !ta) return;
 
     const path = shell.dataset.path || '';
-    const draftKey = 'mdserver.draft.' + path;
+    const draftKey = 'scrawl.draft.' + path;
     let rev = shell.dataset.rev || '';
     let saved = ta.value;
     let dirty = false;
@@ -470,7 +470,7 @@ export function initEditor() {
         qsa('[data-pane-tab]').forEach((b) => b.setAttribute('aria-selected',
             String((b.dataset.paneTab === 'preview') === (next === 'preview'))));
         try {
-            localStorage.setItem('mdserver.editor.mode', next);
+            localStorage.setItem('scrawl.editor.mode', next);
         } catch (e) {
             // not remembering the mode is fine
         }
@@ -488,7 +488,7 @@ export function initEditor() {
         const applySplit = (fraction) => panes.style.setProperty('--split', (fraction * 100) + '%');
         let stored = 0.5;
         try {
-            stored = parseFloat(localStorage.getItem('mdserver.editor.split')) || 0.5;
+            stored = parseFloat(localStorage.getItem('scrawl.editor.split')) || 0.5;
         } catch (e) {
             stored = 0.5;
         }
@@ -498,7 +498,7 @@ export function initEditor() {
             const fraction = Math.min(0.8, Math.max(0.2, (event.clientX - rect.left) / rect.width));
             applySplit(fraction);
             try {
-                localStorage.setItem('mdserver.editor.split', String(fraction));
+                localStorage.setItem('scrawl.editor.split', String(fraction));
             } catch (e) {
                 // ignore
             }
@@ -617,7 +617,7 @@ export function initEditor() {
 
     let start = 'split';
     try {
-        start = localStorage.getItem('mdserver.editor.mode') || 'split';
+        start = localStorage.getItem('scrawl.editor.mode') || 'split';
     } catch (e) {
         start = 'split';
     }

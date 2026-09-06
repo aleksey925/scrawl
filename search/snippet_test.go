@@ -11,7 +11,7 @@ import (
 )
 
 func TestSnippetEscapesDocumentText(t *testing.T) {
-	ix := loadKB(t)
+	ix := loadNotes(t)
 	tests := []struct {
 		name      string
 		query     string
@@ -50,7 +50,7 @@ func TestSnippetEscapesDocumentText(t *testing.T) {
 
 func TestSnippetPrefersProseOverCode(t *testing.T) {
 	// arrange
-	ix := loadKB(t)
+	ix := loadNotes(t)
 
 	// act
 	hits := ix.Search("nginx", 5)
@@ -94,7 +94,7 @@ func TestSnippetShortDocumentHasNoEllipsis(t *testing.T) {
 
 func TestSnippetMarksEveryTerm(t *testing.T) {
 	// arrange
-	ix := loadKB(t)
+	ix := loadNotes(t)
 
 	// act
 	hits := ix.Search("резервное копирование", 1)

@@ -1,5 +1,5 @@
 // the documents the specs drive, named by the role they play, so the same
-// suite runs against the private corpus and against testdata/kb
+// suite runs against the private corpus and against testdata/notes
 //
 // Every key is a role, not a file: a spec asks for "the document with an
 // outline" and gets whichever document plays that part in the tree it is
@@ -41,7 +41,7 @@ const corpus = {
 };
 
 const repo = {
-    name: 'testdata/kb',
+    name: 'testdata/notes',
     home: {title: 'Test Knowledge Base'},
     doc: {
         path: 'db/storage.md',

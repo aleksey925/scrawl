@@ -11,6 +11,10 @@ e2e
 *.md
 !README.md
 docker-compose.yml
+docker-compose.local.yml
+# the knowledge base docker-compose.local.yml serves. it sits in the build
+# context, and it can be large, so keep it out of the image build
+kb
 coverage.out
 coverage.html
 profile.cov

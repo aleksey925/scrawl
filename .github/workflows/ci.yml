@@ -9,10 +9,12 @@ on:
     paths-ignore:
       - "*.md"
       - "e2e/README.md"
+      - "img/**"
   pull_request:
     paths-ignore:
       - "*.md"
       - "e2e/README.md"
+      - "img/**"
 
 permissions:
   contents: read
@@ -27,24 +29,19 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: set up go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.25"
+      - name: set up toolchains
+        uses: jdx/mise-action@v2
 
       - name: test
-        run: |
-          go test -v -race -timeout=180s -covermode=atomic -coverprofile=profile.cov_tmp ./...
-          grep -v "_mock.go" profile.cov_tmp | grep -v mocks > profile.cov
-          go tool cover -func=profile.cov | tail -1
+        run: make cover
+        env:
+          TZ: UTC
+
+      - name: lint
+        run: make lint
 
       - name: build
-        run: go build -race ./...
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
-        with:
-          version: v2.7.2
+        run: make build
 
   browser:
     name: browser tests
@@ -55,18 +52,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: set up go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.25"
+      - name: set up toolchains
+        uses: jdx/mise-action@v2
 
       - name: build the binary the suite drives
         run: make build
-
-      - name: set up node
-        uses: actions/setup-node@v5
-        with:
-          node-version: "22"
 
       # no private corpus checkout here, so the suite falls back to examples/data
       - name: install playwright
@@ -91,8 +81,7 @@ jobs:
     name: docker
     needs: [test, browser]
     if: >-
-      github.event_name == 'push' &&
-      (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+      github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     permissions:
       contents: read

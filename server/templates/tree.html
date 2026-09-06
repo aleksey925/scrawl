@@ -2,10 +2,14 @@
 "sidebar" is the whole left column, including its mobile drawer chrome.
 "treelist" renders a []TreeNode and recurses into Children. Directories are
 <details> so the tree expands and collapses with JavaScript disabled.
+
+The recursion carries only a []TreeNode, so read-only mode cannot be tested
+inside "treelist". The per-row actions button needs scripting to do anything
+anyway, so nav.js builds it and reads data-readonly on the nav below.
 */}}
 
 {{define "sidebar"}}
-<nav class="sidebar" id="sidebar" aria-label="Knowledge base navigation">
+<nav class="sidebar" id="sidebar" aria-label="Knowledge base navigation"{{if .ReadOnly}} data-readonly{{end}}>
     <div class="sidebar-head">
         <span class="sidebar-title">{{.SiteTitle}}</span>
         <button class="icon-btn sidebar-close" type="button" data-drawer-close aria-label="Close navigation">
@@ -43,12 +47,15 @@
                 <details class="tree-dir" data-path="{{.Path}}"{{if .Active}} open{{end}}>
                     <summary class="tree-row">
                         <svg class="icon tree-twisty" aria-hidden="true"><use href="#icon-chevron"></use></svg>
-                        <svg class="icon tree-kind" aria-hidden="true"><use href="#icon-folder"></use></svg>
-                        <span class="tree-name">{{.Name}}</span>
-                        <span class="tree-more" role="button" tabindex="0" data-actions="{{.Path}}"
-                              data-kind="dir" aria-label="Actions for {{.Name}}">
-                            <svg class="icon" aria-hidden="true"><use href="#icon-more"></use></svg>
-                        </span>
+                        {{if .URL}}
+                            <a class="tree-link" href="{{.URL}}">
+                                <svg class="icon tree-kind" aria-hidden="true"><use href="#icon-folder"></use></svg>
+                                <span class="tree-name">{{.Name}}</span>
+                            </a>
+                        {{else}}
+                            <svg class="icon tree-kind" aria-hidden="true"><use href="#icon-folder"></use></svg>
+                            <span class="tree-name">{{.Name}}</span>
+                        {{end}}
                     </summary>
                     {{template "treelist" .Children}}
                 </details>
@@ -58,10 +65,6 @@
                         <svg class="icon tree-kind" aria-hidden="true"><use href="#icon-file"></use></svg>
                         <span class="tree-name">{{.Name}}</span>
                     </a>
-                    <button class="tree-more" type="button" data-actions="{{.Path}}"
-                            data-kind="file" aria-label="Actions for {{.Name}}">
-                        <svg class="icon" aria-hidden="true"><use href="#icon-more"></use></svg>
-                    </button>
                 </div>
             {{end}}
         </li>

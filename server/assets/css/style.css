@@ -931,7 +931,8 @@ html:not(.js) .user-menu .menu-item span { display: none; }
 
 .tree-dir > .tree-row { padding-left: var(--s-1); }
 
-.tree-leaf { padding-left: 22px; }
+/* line the file rows up with the folder names beside the disclosure triangle */
+.tree-leaf { padding-left: 28px; }
 
 .tree-link {
     display: flex;
@@ -944,10 +945,14 @@ html:not(.js) .user-menu .menu-item span { display: none; }
     text-decoration: none;
 }
 
+/* padding rather than a wrapper: the triangle is the one part of the row that
+   must toggle instead of navigating, so it needs a hit area of its own */
 .tree-twisty {
+    box-sizing: content-box;
     width: 16px;
     height: 16px;
     flex: none;
+    padding: 4px 2px;
     color: var(--text-3);
     stroke-width: 2;
     transition: transform var(--dur-fast) var(--ease-out);
@@ -992,8 +997,9 @@ html:not(.js) .user-menu .menu-item span { display: none; }
     background: var(--accent);
 }
 
+/* built by nav.js, and only when the server did not mark the tree read-only */
 .tree-more {
-    display: none;
+    display: flex;
     align-items: center;
     justify-content: center;
     width: 24px;
@@ -1004,18 +1010,17 @@ html:not(.js) .user-menu .menu-item span { display: none; }
     border-radius: var(--r-sm);
     background: transparent;
     color: var(--text-3);
+    opacity: 0;
     cursor: pointer;
 }
-
-html.js .tree-more { display: flex; opacity: 0; }
 
 .tree-more .icon { width: 16px; height: 16px; }
 
 .tree-more:hover { background: var(--bg-active); color: var(--text); }
 
-html.js .tree-row:hover .tree-more,
-html.js .tree-row:focus-within .tree-more,
-html.js .tree-more:focus-visible { opacity: 1; }
+.tree-row:hover .tree-more,
+.tree-row:focus-within .tree-more,
+.tree-more:focus-visible { opacity: 1; }
 
 .tree-empty {
     padding: var(--s-4) var(--s-2);
@@ -2259,11 +2264,22 @@ html.js .doc img { cursor: zoom-in; }
         max-width: 340px;
         border-right: 1px solid var(--border);
         box-shadow: var(--shadow-lg);
+        overscroll-behavior: contain;
+        touch-action: pan-y;
         transform: translateX(-100%);
-        transition: transform var(--dur-slow) var(--ease-out);
+        /* parked off screen is not enough: without visibility the ~60 rows stay
+           in the tab order and in the accessibility tree. It flips only once the
+           panel has finished sliding out, so the slide stays visible */
+        visibility: hidden;
+        transition: transform var(--dur-slow) var(--ease-out),
+        visibility 0s linear var(--dur-slow);
     }
 
-    html.js body.drawer-open .sidebar { transform: none; }
+    html.js body.drawer-open .sidebar {
+        transform: none;
+        visibility: visible;
+        transition: transform var(--dur-slow) var(--ease-out);
+    }
 
     .sidebar-head {
         display: flex;
@@ -2473,7 +2489,7 @@ html.js .doc img { cursor: zoom-in; }
 
 /* touch: nothing important may hide behind hover */
 @media (hover: none), (max-width: 767px) {
-    html.js .tree-more { opacity: 1; }
+    .tree-more { opacity: 1; }
 
     .code-copy { opacity: 1; }
 
@@ -2514,11 +2530,44 @@ html.js .doc img { cursor: zoom-in; }
     .skip-link { padding-block: var(--s-3); }
 }
 
+/* a finger has no hover to reveal a control with and no precision to hit a
+   small one, so the two controls that live inside the document grow to the
+   touch minimum and stay on screen. A narrow desktop window keeps the
+   restrained treatment above, because there hovering still works */
+@media (hover: none) {
+    .code-copy {
+        top: 4px;
+        right: 4px;
+        width: var(--tap);
+        height: var(--tap);
+    }
+
+    .code-copy .icon { width: 18px; height: 18px; }
+
+    .doc .anchor {
+        position: static;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: var(--tap);
+        height: var(--tap);
+        margin-left: 0;
+        font-size: .7em;
+        vertical-align: middle;
+        opacity: .45;
+    }
+
+    .doc :target > .anchor { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: .01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: .01ms !important;
+        /* the drawer waits out its slide before hiding itself from the tab
+           order; with no slide to wait for the wait is just a dead window */
+        transition-delay: 0s !important;
         scroll-behavior: auto !important;
     }
 }

@@ -115,6 +115,8 @@ func testKB(t *testing.T) string {
 		"docs/README.md":    []byte("# Docs\n\nthe intro above the listing\n"),
 		"docs/page.md":      []byte("# Page\n\nplain body\n"),
 		"docs/sub/deep.md":  []byte("# Deep\n\nnested body\n"),
+		"long.markdown":     []byte("# Long extension\n\nkumquat body\n"),
+		"links.md":          []byte("# Links\n\n[long](long.markdown)\n"),
 		"snippet.py":        []byte("print('hi')\n"),
 		"images/logo.png":   tinyPNG(t),
 	}
@@ -419,6 +421,30 @@ func TestHTMLRoutes(t *testing.T) {
 	}
 }
 
+func TestOnlyDotMDIsADocument(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	// act
+	view, _ := ts.do(t, request{path: "/p/long.markdown"})
+	edit, _ := ts.do(t, request{path: "/edit/long.markdown"})
+	_, linking := ts.do(t, request{path: "/p/links.md"})
+	_, found := ts.json(t, request{path: "/api/search?q=kumquat"})
+
+	// assert
+	assert.Equal(t, http.StatusFound, view.status)
+	assert.Equal(t, "/raw/long.markdown", view.header.Get("Location"))
+	assert.Equal(t, http.StatusBadRequest, edit.status)
+	assert.Contains(t, linking, `href="/raw/long.markdown"`)
+	assert.Empty(t, found["hits"])
+
+	paths := []string{}
+	for _, node := range ts.treeNodes("") {
+		paths = append(paths, node.Path)
+	}
+	assert.Equal(t, []string{"docs", "notes", "guide.md", "index.md", "links.md"}, paths)
+}
+
 func TestViewNeverLeaksTheFilesystemPath(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -578,7 +604,7 @@ func TestAPITree(t *testing.T) {
 	for _, node := range body["tree"].([]any) {
 		names = append(names, node.(map[string]any)["name"].(string))
 	}
-	assert.Equal(t, []string{"docs", "notes", "guide.md", "index.md"}, names,
+	assert.Equal(t, []string{"docs", "notes", "guide.md", "index.md", "links.md"}, names,
 		"the tree indexes documents, not every file")
 }
 
@@ -597,7 +623,7 @@ func TestTreeSkipsFoldersWithoutDocuments(t *testing.T) {
 	for _, node := range nodes {
 		paths = append(paths, node.Path)
 	}
-	assert.Equal(t, []string{"docs", "notes", "guide.md", "index.md"}, paths)
+	assert.Equal(t, []string{"docs", "notes", "guide.md", "index.md", "links.md"}, paths)
 }
 
 func TestTreeDirectoriesCarryTheirPageURL(t *testing.T) {

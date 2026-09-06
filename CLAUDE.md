@@ -54,6 +54,10 @@ testdata/kb/           fixture knowledge base for tests and `make run`
 - Content paths are relative to the root, slash-separated, without a
   leading slash. Markdown URLs keep the `.md` suffix, because a file
   and a directory can share a name (`foo.md` next to `foo/`).
+- `.md` is the only document extension, everywhere: the link rewriter,
+  the tree, the search index, the editor and the create dialog all ask
+  the same question. A `.markdown` file is an attachment like any
+  other and is read through `/raw/`.
 - Write endpoints require auth and CSRF, and are refused in read-only
   mode.
 

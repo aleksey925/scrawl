@@ -22,6 +22,8 @@ func TestResolve(t *testing.T) {
 		}},
 		{"dot slash image", "./img.png", "dir/sub", target{dest: "/raw/dir/sub/img.png", content: "dir/sub/img.png", rewrote: true}},
 		{"python file", "docs/spec.py", "dir", target{dest: "/raw/dir/docs/spec.py", content: "dir/docs/spec.py", rewrote: true}},
+		{"long markdown extension", "notes.markdown", "dir",
+			target{dest: "/raw/dir/notes.markdown", content: "dir/notes.markdown", rewrote: true}},
 		{"directory", "sub/", "dir", target{dest: "/p/dir/sub/", content: "dir/sub", rewrote: true}},
 		{"uppercase extension", "A.MD", "", target{dest: "/p/A.MD", content: "A.MD", rewrote: true}},
 		{"query string", "a.md?x=1", "", target{dest: "/p/a.md?x=1", content: "a.md", rewrote: true}},

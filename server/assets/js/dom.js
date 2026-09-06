@@ -216,11 +216,13 @@ export function debounce(fn, wait) {
 }
 
 // slugify turns a page title into an ascii file name, transliterating Cyrillic
-// so new files match the kebab-case names already in the corpus.
+// so new files match the kebab-case names already in the corpus. The table is
+// the one store/upload.go uses for attachment names, letter for letter: a page
+// and the image beside it must not romanize the same word two ways.
 const TRANSLIT = {
     'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e', 'ж': 'zh',
     'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
-    'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'c',
+    'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'ts',
     'ч': 'ch', 'ш': 'sh', 'щ': 'shch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e',
     'ю': 'yu', 'я': 'ya'
 };

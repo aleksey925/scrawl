@@ -5,7 +5,7 @@ const fs = require('fs');
 const {fixtureFile, shot, signIn} = require('../support/helpers');
 
 const FOLDER = 'e2e-fm';
-const PAGE = `${FOLDER}/testovaya-stranica.md`;
+const PAGE = `${FOLDER}/testovaya-stranitsa.md`;
 const RENAMED = `${FOLDER}/pereimenovannaya.md`;
 
 test.describe.serial('file management', () => {
@@ -41,7 +41,7 @@ test.describe.serial('file management', () => {
         await expect(dialog.locator('.modal-title')).toHaveText('New page');
         await dialog.locator('input[name="folder"]').fill(FOLDER);
         await dialog.locator('input[name="title"]').fill('Тестовая страница');
-        await expect(dialog.locator('input[name="file"]')).toHaveValue('testovaya-stranica.md');
+        await expect(dialog.locator('input[name="file"]')).toHaveValue('testovaya-stranitsa.md');
         await shot(page, 'files-new-page-dialog');
         await dialog.locator('button[type="submit"]').click();
 
@@ -62,7 +62,7 @@ test.describe.serial('file management', () => {
         await page.click('.sidebar-foot [data-new-page]');
         const dialog = page.locator('dialog.modal');
         await dialog.locator('input[name="folder"]').fill(FOLDER);
-        await dialog.locator('input[name="file"]').fill('testovaya-stranica.md');
+        await dialog.locator('input[name="file"]').fill('testovaya-stranitsa.md');
         await dialog.locator('button[type="submit"]').click();
 
         await expect(page.locator('.toast.is-error')).toContainText('That page already exists');

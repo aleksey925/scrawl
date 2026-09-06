@@ -7,12 +7,15 @@ external services, all state on disk.
 ## Layout
 
 ```
-app/main.go        config (go-flags + env), wiring, graceful shutdown
-app/store/         safe filesystem access, tree, CRUD, watcher
-app/render/        markdown -> HTML, link rewrite, TOC, highlighting
-app/search/        in-memory full-text index
-app/auth/          users, sessions, middleware, CSRF, rate limit
-app/rest/          HTTP server, handlers, templates, static assets
+main.go            config (go-flags + env), wiring, graceful shutdown
+store/             safe filesystem access, tree, CRUD, watcher
+render/            markdown -> HTML, link rewrite, TOC, highlighting
+search/            in-memory full-text index
+auth/              users, sessions, middleware, CSRF, rate limit
+server/            HTTP server, handlers, page cache
+server/templates/  html/template pages, parsed as one set
+server/assets/     css and js, embedded and served under /static
+testdata/kb/       fixture knowledge base for tests and `make run`
 ```
 
 ## Rules

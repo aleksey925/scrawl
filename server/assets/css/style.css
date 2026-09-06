@@ -63,11 +63,13 @@
     "Cascadia Mono", "Roboto Mono", "DejaVu Sans Mono", Consolas,
     "Liberation Mono", monospace;
 
-    --fs-h1: 2rem;
-    --fs-h2: 1.5rem;
-    --fs-h3: 1.25rem;
-    --fs-h4: 1.0625rem;
-    --fs-h5: 0.9375rem;
+    /* the ladder is deliberately steep: documents here carry two H1s, so the
+       page title has to read clearly larger than a section heading */
+    --fs-h1: 2.375rem;  /* 38px */
+    --fs-h2: 1.5rem;    /* 24px */
+    --fs-h3: 1.1875rem; /* 19px */
+    --fs-h4: 1.0625rem; /* 17px */
+    --fs-h5: 0.9375rem; /* 15px */
     --fs-body: 1.0625rem;
     --fs-ui: 0.9375rem;
     --fs-small: 0.875rem;
@@ -444,6 +446,9 @@ kbd {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-subtle);
 }
+
+/* stays at --fs-input: anything smaller makes iOS zoom the page on focus */
+.input-mono { font-family: var(--font-mono); }
 
 /* --- menus, toasts ------------------------------------------------------ */
 
@@ -1148,7 +1153,34 @@ body.scrolled-far .toc-top { display: flex; }
     letter-spacing: -.01em;
 }
 
-.doc h1 { margin: 0 0 var(--s-5); font-size: var(--fs-h1); line-height: var(--lh-tight); }
+.doc h1 {
+    margin: 0 0 var(--s-5);
+    font-size: var(--fs-h1);
+    line-height: 1.15;
+    letter-spacing: -.022em;
+}
+
+/* every document here carries a setext title plus a hand written "Contents"
+   H1, so only the first one is the page title and the rest read as sections */
+.doc h1 ~ h1 {
+    margin: 44px 0 var(--s-3);
+    padding-top: var(--s-5);
+    border-top: 1px solid var(--border);
+    font-size: var(--fs-h2);
+    line-height: var(--lh-heading);
+    letter-spacing: -.01em;
+}
+
+/* the renderer emits these for headings it unwrapped from list items */
+.doc .md-h3, .doc .md-h4 {
+    display: block;
+    margin: var(--s-5) 0 var(--s-2);
+    font-size: var(--fs-h3);
+    font-weight: var(--fw-semibold);
+    line-height: var(--lh-heading);
+}
+
+.doc .md-h4 { font-size: var(--fs-h4); }
 
 .doc h2 {
     margin: 44px 0 var(--s-3);
@@ -1172,6 +1204,13 @@ body.scrolled-far .toc-top { display: flex; }
 .doc a:hover { color: var(--accent-hover); }
 
 .doc a.broken { color: var(--danger); text-decoration: underline dotted; }
+
+.doc img.broken {
+    min-height: 60px;
+    padding: var(--s-4);
+    border: 1px dashed var(--danger);
+    background: var(--danger-subtle);
+}
 
 .doc a[target="_blank"]::after {
     content: "";
@@ -1251,6 +1290,16 @@ body.scrolled-far .toc-top { display: flex; }
     border-top: 1px solid var(--border);
 }
 
+/* a rule right above a section heading would draw the same hairline twice */
+.doc hr + h1,
+.doc hr + h2,
+.doc hr + p:has(> a[name]:only-child) + h1,
+.doc hr + p:has(> a[name]:only-child) + h2 {
+    margin-top: var(--s-8);
+    padding-top: 0;
+    border-top: 0;
+}
+
 .doc img {
     display: block;
     max-width: 100%;
@@ -1322,9 +1371,15 @@ html.js .doc img { cursor: zoom-in; }
 
 .doc a > code { color: inherit; }
 
+/* the renderer wraps every fence in .code-block[data-lang], data-lang missing
+   when the language is unknown. The wrapper owns the frame and the background,
+   the pre inside stays transparent so chroma does not paint a second one. */
 .code-block {
     position: relative;
     margin: 0 0 var(--s-4);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--bg-inset);
 }
 
 .code-block pre, .doc pre {
@@ -1342,20 +1397,16 @@ html.js .doc img { cursor: zoom-in; }
     tab-size: 4;
 }
 
-.code-block pre { margin-bottom: 0; }
-
-.code-block.has-label pre { padding-top: var(--s-6); }
-
-.doc pre code {
-    display: block;
-    padding: 0;
-    background: none;
+.code-block pre {
+    margin-bottom: 0;
     border: 0;
-    font-size: inherit;
-    white-space: pre;
+    background: transparent;
 }
 
-.code-lang {
+.code-block[data-lang] pre { padding-top: var(--s-6); }
+
+.code-block[data-lang]::before {
+    content: attr(data-lang);
     position: absolute;
     top: 7px;
     left: var(--s-4);
@@ -1365,6 +1416,15 @@ html.js .doc img { cursor: zoom-in; }
     letter-spacing: .04em;
     text-transform: uppercase;
     pointer-events: none;
+}
+
+.doc pre code {
+    display: block;
+    padding: 0;
+    background: none;
+    border: 0;
+    font-size: inherit;
+    white-space: pre;
 }
 
 .code-copy {
@@ -1404,8 +1464,14 @@ html.js .doc img { cursor: zoom-in; }
     -webkit-overflow-scrolling: touch;
 }
 
+/* a block level table scrolls on its own, so a wide table never widens the page
+   whether or not the renderer wrapped it in .table-wrap */
 .doc table {
-    width: 100%;
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     border-collapse: collapse;
     font-size: var(--fs-small);
     line-height: 1.5;
@@ -2279,15 +2345,15 @@ html.js .doc img { cursor: zoom-in; }
 
     .doc { font-size: 1rem; }
 
-    .doc h1 { font-size: 1.625rem; }
+    .doc h1 { font-size: 1.875rem; }
 
     .doc h2 { font-size: 1.3125rem; margin-top: var(--s-8); }
 
-    .doc h3 { font-size: 1.125rem; }
+    .doc h3 { font-size: 1.0625rem; }
+
+    .dir-title, .empty .empty-title { font-size: 1.5rem; }
 
     .doc pre, .code-block pre { border-radius: var(--r-md); }
-
-    .dir-title { font-size: 1.625rem; }
 
     .entry-meta { flex-direction: column; gap: 0; align-items: flex-end; font-size: 12px; }
 
@@ -2411,15 +2477,19 @@ html.js .doc img { cursor: zoom-in; }
 
     .code-copy { opacity: 1; }
 
-    /* in the gutter the hash would crowd the left edge on a phone */
+    /* in the gutter the hash would crowd the left edge, and next to every
+       heading it turns into noise, so keep it faint until the heading is the
+       one the reader jumped to */
     .doc .anchor {
         position: static;
         width: auto;
-        margin-left: .35em;
-        font-size: .7em;
-        vertical-align: .18em;
-        opacity: .35;
+        margin-left: .4em;
+        font-size: .6em;
+        vertical-align: .22em;
+        opacity: .18;
     }
+
+    .doc :target > .anchor { opacity: .6; }
 
     .icon-btn, .tree-more, .seg-btn { min-width: var(--tap); min-height: var(--tap); }
 

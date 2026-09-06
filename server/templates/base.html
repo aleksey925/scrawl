@@ -18,17 +18,9 @@ rendered by its file name: ExecuteTemplate(w, "view.html", data).
     <link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/static/{{.Version}}/css/style.css">
     <link rel="stylesheet" href="/static/{{.Version}}/css/chroma.css">
-    <script>
-        // the server already renders data-theme from the theme cookie; this only
-        // repairs it when a page comes back from the bfcache with a stale value
-        (function () {
-            document.documentElement.classList.add('js');
-            try {
-                var m = document.cookie.match(/(?:^|;\s*)theme=(light|dark|auto)/);
-                if (m) { document.documentElement.setAttribute('data-theme', m[1]); }
-            } catch (e) { /* cookies disabled, keep the server value */ }
-        })();
-    </script>
+    {{/* render blocking on purpose: it marks the document as scripted and
+         repairs data-theme before the first paint, so there is no flash */}}
+    <script src="/static/{{.Version}}/js/boot.js"></script>
 </head>
 {{end}}
 

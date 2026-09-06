@@ -421,6 +421,23 @@ func TestHTMLRoutes(t *testing.T) {
 	}
 }
 
+func TestOutlineRailCountsOnlyTheHeadingsItLists(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	require.NoError(t, os.WriteFile(filepath.Join(ts.root, "flat.md"),
+		[]byte("# One\n\n# Two\n\n# Three\n"), 0o600))
+
+	// act
+	_, flat := ts.do(t, request{path: "/p/flat.md"})
+	_, listed := ts.do(t, request{path: "/p/guide.md"})
+
+	// assert
+	assert.NotContains(t, flat, `id="toc-rail"`, "three h1 headings render no outline entry")
+	assert.NotContains(t, flat, "toc-pill")
+	assert.Contains(t, listed, `id="toc-rail"`)
+	assert.Contains(t, listed, "toc-pill")
+}
+
 func TestOnlyDotMDIsADocument(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})

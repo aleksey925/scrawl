@@ -8,8 +8,7 @@ import (
 
 // tocMaxLevel is the deepest heading the outline collects. The corpus has 31
 // h5 headings that would only add noise to a 112-entry rail. Which of the
-// collected levels reach the reader is the template's call: toc.html lists h2
-// and h3 only.
+// collected levels reach the reader is the server's call.
 const tocMaxLevel = 4
 
 // outline walks the document once and returns the title, which is the first

@@ -17,3 +17,5 @@ profile.cov_tmp
 node_modules/
 /e2e/test-results/
 /e2e/playwright-report/
+/e2e/screenshots/
+/e2e/node_modules/

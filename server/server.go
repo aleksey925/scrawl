@@ -314,6 +314,13 @@ func securityHeaders(next http.Handler) http.Handler {
 
 func (wb *Web) parseTemplates() error {
 	funcs := template.FuncMap{
+		// a template that pasted a content path straight into an href would
+		// leave the segments unescaped, and html/template normalizes a whole
+		// url rather than a path: a document named "a?b.md" would link to a
+		// query string. These two are the same builders the JSON API uses.
+		"contentURL": contentURL,
+		"editURL":    editURL,
+
 		// a search snippet arrives escaped with only <mark> left in it, so it
 		// goes into the page as it is. Anything that is not already marked safe
 		// is escaped here, so a later caller cannot turn this into a hole.

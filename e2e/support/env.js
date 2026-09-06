@@ -9,7 +9,7 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 // the private corpus the suite was written against, and the fixture that ships
 // with the repository, which is what a fresh clone or CI runs on
 const corpusFixture = path.join(os.homedir(), 'CodeProjects', 'knowledge-base');
-const repoFixture = path.join(repoRoot, 'testdata', 'notes');
+const repoFixture = path.join(repoRoot, 'examples', 'data');
 
 function pickFixture() {
     if (process.env.SCRAWL_E2E_FIXTURE) return path.resolve(process.env.SCRAWL_E2E_FIXTURE);

@@ -17,7 +17,7 @@ server/templates/      html/template pages, parsed as one set
 server/assets/         css and js, embedded and served under /static
 server/assets/vendor/  KaTeX and mermaid, checked in, never from a CDN
 e2e/                   playwright suite against a real binary
-testdata/notes/        sample notes: tests, `make run`, and the
+examples/data/         sample notes: tests, `make run`, and the
                        browser suite when the private corpus is absent
 ```
 
@@ -68,5 +68,5 @@ testdata/notes/        sample notes: tests, `make run`, and the
 make build   build the binary
 make test    tests with race detector
 make lint    golangci-lint
-make run     run against ./testdata/notes with auth disabled
+make run     run against ./examples/data with auth disabled
 ```

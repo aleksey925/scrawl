@@ -18,7 +18,7 @@ build:
 	go build -trimpath -ldflags "-X main.revision=$(REV) -s -w" -o .bin/$(BINARY) .
 
 run:
-	go run . --root=./testdata/notes --listen=:8080 --auth.disabled --dbg
+	go run . --root=./examples/data --listen=:8080 --auth.disabled --dbg
 
 test:
 	go clean -testcache
@@ -64,7 +64,7 @@ clean:
 help:
 	@echo "targets:"
 	@echo "  build       - build the binary into .bin/$(BINARY)"
-	@echo "  run         - run against ./testdata/notes with auth disabled and debug logs"
+	@echo "  run         - run against ./examples/data with auth disabled and debug logs"
 	@echo "  test        - tests with race detector plus a coverage summary"
 	@echo "  race_test   - race tests only"
 	@echo "  lint        - golangci-lint run ./..."

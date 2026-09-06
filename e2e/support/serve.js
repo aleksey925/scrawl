@@ -19,7 +19,7 @@ function makeWritable(dir) {
 function prepareRoot(root) {
     if (!fs.existsSync(fixture)) {
         throw new Error(`fixture tree ${fixture} not found, unset SCRAWL_E2E_FIXTURE ` +
-            'to fall back to testdata/notes');
+            'to fall back to examples/data');
     }
     fs.rmSync(root, {recursive: true, force: true});
     fs.mkdirSync(path.dirname(root), {recursive: true});

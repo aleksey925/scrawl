@@ -54,7 +54,9 @@ func stripAnchorParagraphs(fragment []byte) []byte {
 }
 
 func isLinkTag(name []byte) bool {
-	return bytes.EqualFold(name, []byte("a")) || bytes.EqualFold(name, []byte("img"))
+	return bytes.EqualFold(name, []byte("a")) ||
+		bytes.EqualFold(name, []byte("img")) ||
+		bytes.EqualFold(name, []byte("source"))
 }
 
 // rawTagName reads the element name out of a raw "<name ...>" token.
@@ -72,12 +74,19 @@ func rawTagName(raw []byte) []byte {
 func patchTag(tok *html.Token, resolve func(dest string) target) {
 	key := "href"
 	isImage := tok.Data == "img"
-	if isImage {
+	switch {
+	case isImage:
 		key = "src"
+	case tok.Data == "source":
+		key = "srcset"
 	}
 	local := false
 	for i, attr := range tok.Attr {
 		if attr.Key != key || attr.Namespace != "" {
+			continue
+		}
+		if key == "srcset" {
+			tok.Attr[i].Val = rewriteSrcset(attr.Val, resolve)
 			continue
 		}
 		tg := resolve(attr.Val)
@@ -88,6 +97,24 @@ func patchTag(tok *html.Token, resolve func(dest string) target) {
 		ensureAttr(tok, "loading", "lazy")
 		ensureAttr(tok, "decoding", "async")
 	}
+}
+
+// rewriteSrcset maps every candidate of a <source srcset> onto the app routes.
+// The descriptor after the URL, "2x" or "640w", is carried through untouched.
+func rewriteSrcset(value string, resolve func(dest string) target) string {
+	out := make([]string, 0, 4)
+	for candidate := range strings.SplitSeq(value, ",") {
+		url, descriptor, _ := strings.Cut(strings.TrimSpace(candidate), " ")
+		if url == "" {
+			continue
+		}
+		url = resolve(url).dest
+		if descriptor = strings.TrimSpace(descriptor); descriptor != "" {
+			url += " " + descriptor
+		}
+		out = append(out, url)
+	}
+	return strings.Join(out, ", ")
 }
 
 func ensureAttr(tok *html.Token, key, value string) {

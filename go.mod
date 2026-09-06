@@ -13,6 +13,7 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/stretchr/testify v1.12.1
 	github.com/yuin/goldmark v1.8.6
+	github.com/yuin/goldmark-emoji v1.0.6
 	github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc
 	golang.org/x/crypto v0.55.0
 	golang.org/x/net v0.57.0

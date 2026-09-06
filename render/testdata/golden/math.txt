@@ -1,0 +1,25 @@
+title: Math
+toc:
+  h1 #math Math
+  h2 #доллары-которые-не-математика Доллары, которые не математика
+---
+<h1 id="math">Math</h1>
+<p>Инлайн <span class="math math-inline">\sqrt{3x-1}+(1+x)^2</span> в предложении.</p>
+<p>Форма с бэктиками <span class="math math-inline">\frac{a}{b}</span> для сложных выражений.</p>
+<p>Блок на своих строках:</p>
+<div class="math math-display">\left( \sum_{k=1}^n a_k b_k \right)^2
+</div>
+<p>Однострочный блок:</p>
+<div class="math math-display">x = y + z</div>
+<p>Фенс:</p>
+<div class="math math-display">\int_0^\infty e^{-x} dx = 1
+</div>
+<h2 id="доллары-которые-не-математика">Доллары, которые не математика</h2>
+<p>Цена $100 и ещё $200 в одном предложении.</p>
+<p>Переменные $HOME и $PATH, а также $0 - $9 в тексте.</p>
+<p>Экранированный $5 и $6.</p>
+<p>Суммы подряд $100$200 без пробела.</p>
+<p>В коде <code>$x$</code> и <code>$HOME</code> не трогаем.</p>
+<div class="code-block" data-lang="bash"><pre class="chroma"><code><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span><span class="s2">&#34;</span><span class="nv">$HOME</span><span class="s2">/bin:</span><span class="nv">$PATH</span><span class="s2">&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="nv">$1</span> <span class="nv">$2</span>
+</span></span></code></pre></div>

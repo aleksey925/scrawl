@@ -1,0 +1,40 @@
+title: Опасные расширения GFM
+toc:
+  h1 #опасные-расширения-gfm Опасные расширения GFM
+  h2 #fn-1-1 fn-1
+  h2 #fnref-1-1 fnref-1
+---
+<h1 id="опасные-расширения-gfm">Опасные расширения GFM</h1>
+<p>Инлайн-математика пробует выйти наружу: <span class="math math-inline">&lt;/span&gt;&lt;script&gt;alert(1)&lt;/script&gt;&lt;span&gt;</span></p>
+<p>Блочная математика:</p>
+<div class="math math-display">&lt;/div&gt;&lt;script&gt;alert(2)&lt;/script&gt;&lt;div&gt;
+</div>
+<p>Фенс математики:</p>
+<div class="math math-display">&lt;/div&gt;&lt;img src=x onerror=&#34;alert(3)&#34;&gt;
+</div>
+<p>Mermaid со скриптом:</p>
+<pre class="mermaid">graph TD; A[&lt;script&gt;alert(4)&lt;/script&gt;] --&gt; B[&#34;&lt;/pre&gt;&lt;iframe src=//evil.example&gt;&#34;];
+</pre>
+<p>Маркер alert-а с попыткой подмешать класс:</p>
+<blockquote>
+<p>[!NOTE&#34; onclick=&#34;alert(5)]
+тело</p>
+</blockquote>
+<blockquote>
+<p>[!NOTE zzz]
+тело</p>
+</blockquote>
+<p>Подделка alert-а руками:</p>
+<div class="alert alert-note">
+<p class="alert-title">Note</p>
+</div>
+<h2 id="fn-1-1">fn-1</h2>
+<h2 id="fnref-1-1">fnref-1</h2>
+<p>Сноска<sup class="footnote-ref"><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+<p>текст сноски <a href="#fnref-1" class="footnote-back">↩</a></p>
+</li>
+</ol>
+</section>

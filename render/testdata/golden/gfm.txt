@@ -26,12 +26,11 @@ toc:
 <li><input checked="" disabled="" type="checkbox"> сделано</li>
 </ul>
 <p><del>зачёркнуто</del>, а тут голая ссылка <a href="https://example.com/path" target="_blank" rel="noopener noreferrer nofollow">https://example.com/path</a> и <a href="http://www.example.com" target="_blank" rel="noopener noreferrer nofollow">www.example.com</a></p>
-<p>Сноска<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
-<div class="footnotes" role="doc-endnotes">
-<hr>
+<p>Сноска<sup class="footnote-ref"><a href="#fn-1" id="fnref-1">1</a></sup></p>
+<section class="footnotes">
 <ol>
-<li id="fn:1">
-<p>текст сноски <a href="#fnref:1" class="footnote-backref" role="doc-backlink">↩︎</a></p>
+<li id="fn-1">
+<p>текст сноски <a href="#fnref-1" class="footnote-back">↩</a></p>
 </li>
 </ol>
-</div>
+</section>

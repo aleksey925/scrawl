@@ -1,0 +1,91 @@
+title: Синтаксис GitHub
+toc:
+  h1 #синтаксис-github Синтаксис GitHub
+  h2 #заголовки Заголовки
+  h3 #третий-уровень Третий уровень
+  h4 #четвёртый-уровень Четвёртый уровень
+  h2 #setext-второго-уровня Setext второго уровня
+  h2 #оформление-текста Оформление текста
+  h2 #экранирование Экранирование
+  h2 #переносы-строк Переносы строк
+  h2 #цитаты Цитаты
+  h2 #списки Списки
+  h2 #ссылки Ссылки
+  h2 #код Код
+  h2 #свёрнутый-блок Свёрнутый блок
+  h2 #скрытый-комментарий Скрытый комментарий
+---
+<h1 id="синтаксис-github">Синтаксис GitHub</h1>
+<h2 id="заголовки">Заголовки</h2>
+<h3 id="третий-уровень">Третий уровень</h3>
+<h4 id="четвёртый-уровень">Четвёртый уровень</h4>
+<h2 id="setext-второго-уровня">Setext второго уровня</h2>
+<h2 id="оформление-текста">Оформление текста</h2>
+<p><strong>Жирный</strong>, <strong>тоже жирный</strong>, <em>курсив</em>, <em>тоже курсив</em>, <em><strong>жирный курсив</strong></em>,
+<strong><em>и так тоже</em></strong>.</p>
+<p>Зачёркнутый двумя тильдами: <del>убрано</del>. Одной тильдой GitHub тоже
+зачёркивает: <del>убрано</del>. Три тильды не работают: ~~~не убрано~~~.</p>
+<p>Нижний индекс H<sub>2</sub>O и верхний x<sup>2</sup>.</p>
+<p>Подчёркнутый <ins>вставлено</ins> и клавиша <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+<p>Выделение <mark>маркером</mark>.</p>
+<p>Цветовые модели GitHub показывает только в issue: <code>#0969DA</code>, <code>rgb(9, 105, 218)</code>.</p>
+<h2 id="экранирование">Экранирование</h2>
+<p>Звёздочки *не курсив*, решётка # не заголовок, подчёркивания _как есть_.</p>
+<h2 id="переносы-строк">Переносы строк</h2>
+<p>Две пробела в конце строки<br>
+дают перенос.</p>
+<p>Обратный слэш в конце строки<br>
+тоже даёт перенос.</p>
+<p>Одиночный перевод строки
+переносом не является.</p>
+<h2 id="цитаты">Цитаты</h2>
+<blockquote>
+<p>Обычная цитата
+в две строки.</p>
+</blockquote>
+<h2 id="списки">Списки</h2>
+<ul>
+<li>пункт</li>
+<li>ещё пункт
+<ul>
+<li>вложенный
+<ol>
+<li>нумерованный внутри</li>
+<li>второй</li>
+</ol>
+</li>
+</ul>
+</li>
+</ul>
+<ol>
+<li>первый</li>
+<li>второй</li>
+</ol>
+<ul>
+<li><input disabled="" type="checkbox"> не сделано</li>
+<li><input checked="" disabled="" type="checkbox"> сделано
+<ul>
+<li><input disabled="" type="checkbox"> вложенная задача</li>
+</ul>
+</li>
+<li><input disabled="" type="checkbox"> (Необязательно) экранированная скобка</li>
+</ul>
+<h2 id="ссылки">Ссылки</h2>
+<p><a href="/p/docs/other.md">Обычная ссылка</a>, <a href="#%D1%81%D0%BF%D0%B8%D1%81%D0%BA%D0%B8">ссылка на раздел</a>,
+<a href="https://example.com/ref" target="_blank" rel="noopener noreferrer nofollow">ссылка по ссылке</a>, автоссылка <a href="https://example.com/auto" target="_blank" rel="noopener noreferrer nofollow">https://example.com/auto</a>,
+голая <a href="https://example.com/bare" target="_blank" rel="noopener noreferrer nofollow">https://example.com/bare</a> и <a href="http://www.example.com" target="_blank" rel="noopener noreferrer nofollow">www.example.com</a>, почта <a href="mailto:user@example.com">user@example.com</a>.</p>
+<h2 id="код">Код</h2>
+<p>Строчный <code>код</code> и код с обратной кавычкой <code>`</code> внутри.</p>
+<div class="code-block" data-lang="python"><pre class="chroma"><code><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">hello</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;hi&#34;</span><span class="p">)</span>
+</span></span></code></pre></div>
+<div class="code-block"><pre tabindex="0" class="chroma"><code>отступом в четыре пробела
+</code></pre></div>
+<h2 id="свёрнутый-блок">Свёрнутый блок</h2>
+<details>
+<summary>Показать</summary>
+<p>Содержимое с <strong>разметкой</strong>.</p>
+</details>
+<h2 id="скрытый-комментарий">Скрытый комментарий</h2>
+
+<p>Видимый текст.</p>

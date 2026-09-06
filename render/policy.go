@@ -24,7 +24,16 @@ var (
 	reCheckbox   = regexp.MustCompile(`^checkbox$`)
 	reRole       = regexp.MustCompile(`^[a-z-]{1,32}$`)
 	reTabindex   = regexp.MustCompile(`^0$`)
+	reMediaQuery = regexp.MustCompile(`^[a-zA-Z0-9 ()\-:,.]{1,128}$`)
+	reMediaType  = regexp.MustCompile(`^image/[a-z0-9.+-]{1,32}$`)
+	// srcset carries URLs, and bluemonday only validates href and src, so the
+	// pattern has to refuse a scheme by itself: a candidate is either an
+	// explicit http(s) URL or a path with no colon in it at all
+	reSrcset = regexp.MustCompile(
+		`^ *` + srcsetCandidate + `(?: *, *` + srcsetCandidate + `){0,15} *$`)
 )
+
+const srcsetCandidate = `(?:https?://[^\s,"'<>]+|[^\s,:"'<>]+)(?: +[0-9]+(?:\.[0-9]+)?[wx])?`
 
 // newPolicy builds the sanitizer for rendered documents. goldmark runs with
 // unsafe HTML enabled so hand-written markup reaches this point intact; what
@@ -47,7 +56,7 @@ func newPolicy() *bluemonday.Policy {
 
 	p.AllowAttrs("id").Matching(reSlugID).Globally()
 	p.AllowAttrs("class").Matching(bluemonday.SpaceSeparatedTokens).Globally()
-	p.AllowAttrs("role").Matching(reRole).Globally() // goldmark footnotes
+	p.AllowAttrs("role").Matching(reRole).Globally() // global on GitHub too
 	p.AllowAttrs("name").Matching(reAnchorName).OnElements("a")
 	p.AllowAttrs("tabindex").Matching(reTabindex).OnElements("pre")
 	p.AllowAttrs("data-lang").Matching(reLang).OnElements("div")
@@ -68,6 +77,12 @@ func newPolicy() *bluemonday.Policy {
 	p.AllowImages()
 	p.AllowAttrs("loading").Matching(reLoading).OnElements("img")
 	p.AllowAttrs("decoding").Matching(reDecoding).OnElements("img")
+	// GitHub's theme-aware image: a <picture> whose <source> is chosen by
+	// prefers-color-scheme
+	p.AllowElements("picture", "source")
+	p.AllowAttrs("srcset").Matching(reSrcset).OnElements("source")
+	p.AllowAttrs("media").Matching(reMediaQuery).OnElements("source")
+	p.AllowAttrs("type").Matching(reMediaType).OnElements("source")
 	p.AllowTables()
 	p.AllowLists()
 	// AllowLists does not cover start=, and 4 corpus lists open at 2..5

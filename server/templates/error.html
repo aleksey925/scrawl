@@ -17,7 +17,7 @@
                     <a class="btn btn-ghost" href="/">Go home</a>
                     <a class="btn btn-secondary" href="/search" data-palette-open>Search</a>
                     {{if and (eq .Code 404) .CurrentPath (not .ReadOnly)}}
-                        <a class="btn btn-primary" href="/edit/{{.CurrentPath}}">Create this page</a>
+                        <a class="btn btn-primary" href="{{editURL .CurrentPath}}">Create this page</a>
                     {{end}}
                 </div>
             </div>

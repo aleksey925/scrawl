@@ -1414,6 +1414,47 @@ func TestEveryTemplateExecutes(t *testing.T) {
 	}
 }
 
+// TestPageLinksEscapeAwkwardPaths guards the templates that build a link out of
+// a content path. A file name may hold anything the filesystem allows, and a
+// question mark pasted into an href would turn the rest of the name into a
+// query string.
+func TestPageLinksEscapeAwkwardPaths(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	const awkward = "notes/что? да.md"
+
+	tests := []struct {
+		name string
+		tmpl string
+		data any
+		want string
+	}{
+		{name: "search hit", tmpl: "search.html", want: "/p/notes/%D1%87%D1%82%D0%BE%3F%20%D0%B4%D0%B0.md",
+			data: SearchPage{Base: ts.base(newRequest(t), "Search", ""), Query: "да",
+				Hits: []search.Hit{{Path: awkward, Title: "Что"}}}},
+		{name: "create this page", tmpl: "error.html", want: "/edit/notes/%D1%87%D1%82%D0%BE%3F%20%D0%B4%D0%B0.md",
+			data: ErrorPage{Base: ts.base(newRequest(t), "Not found", awkward), Code: 404, Message: "gone"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			var buf bytes.Buffer
+			require.NoError(t, ts.templates.ExecuteTemplate(&buf, tc.tmpl, tc.data))
+
+			// assert
+			assert.Contains(t, buf.String(), `href="`+tc.want+`"`)
+		})
+	}
+}
+
+func newRequest(t *testing.T) *http.Request {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+	require.NoError(t, err)
+	return req
+}
+
 // TestNoInlineScripts locks the assumption the content security policy rests
 // on: an inline block would be blocked by "script-src 'self'", and the
 // templates carry no field to render a nonce into.

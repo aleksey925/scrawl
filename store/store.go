@@ -67,7 +67,7 @@ type Config struct {
 	Watch    WatchMode     // change source behind Watch, empty means WatchAuto
 	TreeTTL  time.Duration // max age of the cached tree, 0 means 5s
 	Debounce time.Duration // watcher debounce window, 0 means 300ms
-	Rescan   time.Duration // periodic full rescan, 0 means 60s, negative disables it
+	Rescan   time.Duration // periodic full rescan, 0 means 60s, negative disables it (WatchPoll always rescans)
 }
 
 // Store gives safe access to the knowledge base directory.

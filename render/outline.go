@@ -6,12 +6,14 @@ import (
 	"github.com/yuin/goldmark/ast"
 )
 
-// tocMaxLevel is the deepest heading the table of contents shows. The corpus
-// has 31 h5 headings that would only add noise to a 112-entry rail.
+// tocMaxLevel is the deepest heading the outline collects. The corpus has 31
+// h5 headings that would only add noise to a 112-entry rail. Which of the
+// collected levels reach the reader is the template's call: toc.html lists h2
+// and h3 only.
 const tocMaxLevel = 4
 
 // outline walks the document once and returns the title, which is the first
-// level-1 heading, and every h1-h4 for the table of contents.
+// level-1 heading, and every heading down to tocMaxLevel.
 func outline(doc ast.Node, source []byte) (title string, toc []Heading) {
 	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {

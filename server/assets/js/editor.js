@@ -6,7 +6,7 @@ import {
     api, confirmDialog, debounce, dirOf, encodePath, esc, formatBytes, isMac,
     openDialog, qs, qsa, toast
 } from './dom.js';
-import {enhanceCode, enhanceTables} from './reader.js';
+import {enhanceCode} from './reader.js';
 
 const PREVIEW_DELAY = 400;
 const DRAFT_DELAY = 800;
@@ -18,7 +18,6 @@ export function initEditor() {
     if (!shell || !ta) return;
 
     const path = shell.dataset.path || '';
-    const viewURL = shell.dataset.viewUrl || '/';
     const draftKey = 'mdserver.draft.' + path;
     let rev = shell.dataset.rev || '';
     let saved = ta.value;
@@ -262,7 +261,6 @@ export function initEditor() {
             if (seq !== previewSeq) return;
             preview.innerHTML = (data && data.html) || '';
             enhanceCode(preview);
-            enhanceTables(preview);
         } catch (err) {
             if (seq === previewSeq) {
                 preview.innerHTML = '<p class="empty-hint">Preview failed: ' + esc(err.message) + '</p>';

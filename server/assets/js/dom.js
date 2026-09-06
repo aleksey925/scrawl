@@ -20,11 +20,6 @@ export function dirOf(path) {
     return i < 0 ? '' : path.slice(0, i);
 }
 
-export function baseOf(path) {
-    const i = String(path).lastIndexOf('/');
-    return i < 0 ? String(path) : path.slice(i + 1);
-}
-
 export function formatBytes(bytes) {
     const n = Number(bytes);
     if (!isFinite(n)) return '';
@@ -120,9 +115,8 @@ export function formDialog({title, text, fields, submitLabel = 'Create', onReady
         const body = fields.map((f, i) => (
             '<label class="field">' +
             '<span class="field-label">' + esc(f.label) + '</span>' +
-            '<input class="input" name="' + esc(f.name) + '" value="' + esc(f.value || '') +
-            '" placeholder="' + esc(f.placeholder || '') + '"' +
-            (f.mono ? ' style="font-family:var(--font-mono);font-size:var(--fs-small)"' : '') +
+            '<input class="input' + (f.mono ? ' input-mono' : '') + '" name="' + esc(f.name) +
+            '" value="' + esc(f.value || '') + '" placeholder="' + esc(f.placeholder || '') + '"' +
             (i === 0 ? ' autofocus' : '') +
             ' autocomplete="off" spellcheck="false">' +
             '</label>'

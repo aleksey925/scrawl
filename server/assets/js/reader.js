@@ -1,5 +1,5 @@
-// reading view: code block chrome, table scroll wrappers, heading anchors,
-// the image lightbox, the outline sheet and TOC scrollspy
+// reading view: code copy buttons, heading anchors, the image lightbox, the
+// outline sheet and TOC scrollspy
 
 import {copyText, qs, qsa, toast} from './dom.js';
 
@@ -20,23 +20,21 @@ function languageOf(code) {
     return LANG_ALIASES[name] || name;
 }
 
+// the renderer already wraps fences in .code-block[data-lang]; wrapping here is
+// only the fallback for html that came from somewhere else
 export function enhanceCode(root) {
     qsa('pre', root).forEach((pre) => {
-        if (pre.closest('.code-block')) return;
         const code = pre.querySelector('code') || pre;
-        const block = document.createElement('div');
-        block.className = 'code-block';
-        pre.parentNode.insertBefore(block, pre);
-        block.appendChild(pre);
-
-        const lang = languageOf(code);
-        if (lang) {
-            block.classList.add('has-label');
-            const label = document.createElement('span');
-            label.className = 'code-lang';
-            label.textContent = lang;
-            block.appendChild(label);
+        let block = pre.closest('.code-block');
+        if (!block) {
+            block = document.createElement('div');
+            block.className = 'code-block';
+            pre.parentNode.insertBefore(block, pre);
+            block.appendChild(pre);
+            const lang = languageOf(code);
+            if (lang) block.dataset.lang = lang;
         }
+        if (block.querySelector('.code-copy')) return;
 
         const button = document.createElement('button');
         button.type = 'button';
@@ -60,17 +58,7 @@ export function enhanceCode(root) {
     });
 }
 
-export function enhanceTables(root) {
-    qsa('table', root).forEach((table) => {
-        if (table.closest('.table-wrap')) return;
-        const wrap = document.createElement('div');
-        wrap.className = 'table-wrap';
-        table.parentNode.insertBefore(wrap, table);
-        wrap.appendChild(table);
-    });
-}
-
-export function enhanceHeadings(root) {
+function enhanceHeadings(root) {
     qsa('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]', root).forEach((heading) => {
         if (heading.querySelector('.anchor')) return;
         const link = document.createElement('a');
@@ -197,7 +185,6 @@ export function initReader() {
     const root = qs('#doc');
     if (root) {
         enhanceCode(root);
-        enhanceTables(root);
         enhanceHeadings(root);
         initLightbox(root);
     }

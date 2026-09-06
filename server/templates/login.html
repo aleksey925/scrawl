@@ -14,15 +14,7 @@ of reusing "doc-head". It works with JavaScript disabled: a plain POST form.
     <title>Sign in - {{.SiteTitle}}</title>
     <link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/static/{{.Version}}/css/style.css">
-    <script>
-        (function () {
-            document.documentElement.classList.add('js');
-            try {
-                var m = document.cookie.match(/(?:^|;\s*)theme=(light|dark|auto)/);
-                if (m) { document.documentElement.setAttribute('data-theme', m[1]); }
-            } catch (e) { /* cookies disabled, keep the server value */ }
-        })();
-    </script>
+    <script src="/static/{{.Version}}/js/boot.js"></script>
 </head>
 <body class="page page-login">
 {{template "sprite" .}}

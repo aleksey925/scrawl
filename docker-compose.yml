@@ -1,0 +1,16 @@
+services:
+  scrawl:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./examples/data:/notes
+      - scrawl-data:/data
+    # write as the host user, so pages created from the browser belong to you
+    # and not to the image's own uid
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      - AUTH_USERS=admin:admin
+
+volumes:
+  scrawl-data:

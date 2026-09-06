@@ -1,94 +1,47 @@
-# Synology example. Copy this file to the NAS, adjust the volume path, the
-# `user:` line and AUTH_USERS, then `docker compose up -d`. Container Manager ->
-# Project -> "create docker-compose.yml" takes the same file.
-#
-# There is no `build:` section on purpose: the NAS has no source tree, so a
-# build would fail. The image is pulled from ghcr.io, make it a public package
-# or `docker login ghcr.io` on the NAS first. Build it yourself with
-# `make docker` / `make docker-push` from a checkout.
+# Deployment example, written for a Synology NAS but not specific to one.
+# Copy it over, change the volume path, AUTH_USERS and the user: line, then
+# `docker compose up -d`. Container Manager takes the same file under Project.
 services:
   scrawl:
     image: ghcr.io/aleksey925/scrawl:master
     container_name: scrawl
-    hostname: scrawl
     restart: unless-stopped
 
     ports:
-      # host:container. DSM already uses 5000, 5001 and often 8080, so change
-      # the left number if the container refuses to start with "port is
-      # already allocated". Keep the right number in step with LISTEN below.
-      #
-      # 127.0.0.1 keeps the port off every other interface, which is what you
-      # want when a reverse proxy on the same host terminates TLS in front of
-      # it: without it the container is reachable over plain http from the LAN
-      # and, with a port forward, from the internet. Drop the 127.0.0.1 only
-      # when you reach the NAS directly over the LAN and there is no proxy
       - "127.0.0.1:8080:8080"
 
     volumes:
-      - /volume1/docs/knowledge-base:/notes
-      # small state volume for the generated session key. it must not live
-      # under /notes, otherwise it shows up in the tree, in the search index and
-      # in every backup of the knowledge base
+      - /volume1/docs/notes:/notes
+      # the generated session key lives here. keep it out of /notes, or it
+      # lands in the page tree, the search index and every backup
       - scrawl-data:/data
 
-    # THE ONE LINE THAT USUALLY BREAKS A FIRST RUN.
-    # The image runs as uid 1001, the /notes share belongs to a DSM user, and a
-    # uid that does not own the share cannot write to it: reading keeps working
-    # and every save fails. The log says so at startup, in one WARN line naming
-    # the uid the process runs as. Run `id <dsm-user>` over
-    # ssh on the NAS and put the numbers here (1026:100 is a typical pair),
-    # or leave it commented out and add READ_ONLY=true below.
+    # the image runs as uid 1001, your share belongs to someone else, and a uid
+    # that does not own the share cannot write to it: reading works and every
+    # save fails. run `id <your-user>` on the NAS and put the numbers here
     # user: "1026:100"
 
     environment:
       - TZ=Europe/Nicosia
-      - ROOT=/notes
-      - LISTEN=:8080
-      - TITLE=Knowledge Base
-      # user:bcryptHash pairs, get a hash with
+      # in a compose file every literal dollar has to be doubled, because
+      # compose expands $VARS: a hash printed as $2a$10$xyz goes in as
+      # $$2a$$10$$xyz. in Container Manager's environment table values are
+      # taken literally, so paste the hash unchanged.
+      # get a hash with
       #   printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:master --gen-hash
-      # (the password is read from stdin, so it stays out of ps, the shell
-      # history and the container config docker inspect prints)
-      # In THIS file every literal dollar has to be doubled, because compose
-      # expands $VARS: a hash printed as $2a$10$xyz is written $$2a$$10$$xyz.
-      # In Container Manager's environment table (the one with a Name and a
-      # Value column) values are taken literally, so paste the hash unchanged
-      # with single dollars. Getting it wrong is not silent: the server refuses
-      # to start and names the problem.
       - AUTH_USERS=alex:$$2a$$10$$REPLACE_ME
-      # cookie signing key. leave it empty to have one generated and kept in
-      # AUTH_SECRET_FILE, which is the simpler option; set it only to share the
-      # key with another instance
-      - AUTH_SECRET=
-      - AUTH_SECRET_FILE=/data/session.key
-      - AUTH_TTL=720h
-      # Secure flag of the session cookie: auto, always or never. auto keeps the
-      # session working over plain http on the LAN. Behind an HTTPS reverse
-      # proxy set it to always together with TRUSTED_PROXY=true, so the cookie
-      # is never sent over a plain connection
+      # auto sends the session cookie over plain http too, which is what you
+      # want on a LAN. behind an HTTPS proxy use always, together with
+      # TRUSTED_PROXY=true, and make sure the proxy overwrites X-Forwarded-For
       - AUTH_SECURE=auto
-      - READ_ONLY=false
-      - MAX_UPLOAD=20M
-      # change detection: auto uses inotify with a periodic rescan behind it.
-      # switch to poll when /notes is a network share, where inotify never sees
-      # what another client writes
-      - WATCH=auto
-      - RESCAN=60s
-      # only when a reverse proxy in front terminates TLS. The proxy must
-      # overwrite X-Forwarded-For, otherwise a client picks its own login rate
-      # limit bucket. HSTS is the proxy's job too, scrawl does not set it
       - TRUSTED_PROXY=false
+      # inotify never sees what another client writes to a network share
+      # - WATCH=poll
+      # collect uploads in one folder instead of next to each document
+      # - UPLOAD_DIR=attachments
 
-      # where uploads land. empty keeps them in a folder next to the document
-      # and named after it (python/notes.md -> python/notes/), which is what
-      # the knowledge base already looks like. set it to a name such as
-      # "attachments" to collect every upload in one directory instead
-      - UPLOAD_DIR=
-
-    # the binary writes to /notes and /data and nowhere else, so the root
-    # filesystem can stay read-only. /tmp is a tmpfs because a large upload is
-    # buffered there while it is being parsed
+    # scrawl writes to /notes and /data and nowhere else. /tmp is a tmpfs
+    # because a large upload is buffered there while it is parsed
     read_only: true
     tmpfs:
       - /tmp
@@ -96,12 +49,7 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    # a cap on the container, so one very large file cannot take the NAS down
-    # with it. raise it if the knowledge base holds big documents
     mem_limit: 512m
-
-    # the healthcheck (wget on /ping, which needs no auth) comes from the image,
-    # so Container Manager shows the health column without any setup here
 
     logging:
       driver: json-file

@@ -3,17 +3,11 @@
 .DS_Store
 
 /dist/
-/.bin/
 /notes/
 /scrawl
 /var/
 coverage.out
 coverage.out.tmp
-coverage_no_mocks.out
-coverage.html
-profile.out
-profile.cov
-profile.cov_tmp
 *.test
 node_modules/
 /e2e/test-results/

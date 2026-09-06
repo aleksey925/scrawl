@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -259,6 +260,59 @@ func TestStaticAndPing(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTextResponsesAreCompressedAndBinaryOnesAreNot(t *testing.T) {
+	ts := newTestServer(t, testOpts{})
+
+	tests := []struct {
+		name     string
+		path     string
+		encoding string
+	}{
+		{name: "rendered page", path: "/", encoding: "gzip"},
+		{name: "stylesheet", path: "/static/v1.2.3/css/style.css", encoding: "gzip"},
+		{name: "generated chroma css", path: "/static/v1.2.3/css/chroma.css", encoding: "gzip"},
+		{name: "module", path: "/static/v1.2.3/js/app.js", encoding: "gzip"},
+		{name: "vendored bundle", path: "/static/v1.2.3/vendor/mermaid/mermaid.min.js", encoding: "gzip"},
+		{name: "favicon", path: "/static/v1.2.3/favicon.svg", encoding: "gzip"},
+		{name: "json api", path: "/api/tree", encoding: "gzip"},
+		{name: "raw markdown", path: "/raw/index.md", encoding: "gzip"},
+		{name: "vendored font", path: "/static/v1.2.3/vendor/katex/fonts/KaTeX_Main-Regular.woff2"},
+		{name: "raw png", path: "/raw/images/logo.png"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			resp, _ := ts.do(t, request{path: tc.path, headers: map[string]string{"Accept-Encoding": "gzip"}})
+
+			// assert
+			assert.Equal(t, http.StatusOK, resp.status)
+			assert.Equal(t, tc.encoding, resp.header.Get("Content-Encoding"))
+			assert.Equal(t, "Accept-Encoding", resp.header.Get("Vary"),
+				"caches have to key on the encoding even when nothing was compressed")
+		})
+	}
+}
+
+func TestCompressedBodyDecodesToTheIdentityOne(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	identity, plain := ts.do(t, request{path: "/", headers: map[string]string{"Accept-Encoding": "identity"}})
+
+	// act
+	resp, packed := ts.do(t, request{path: "/", headers: map[string]string{"Accept-Encoding": "gzip"}})
+
+	// assert
+	assert.Empty(t, identity.header.Get("Content-Encoding"))
+	assert.Equal(t, "gzip", resp.header.Get("Content-Encoding"))
+	assert.Less(t, len(packed), len(plain))
+	reader, err := gzip.NewReader(strings.NewReader(packed))
+	require.NoError(t, err)
+	decoded, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	assert.Equal(t, plain, string(decoded))
 }
 
 func TestPingIsExactAndDoesNotShadowContent(t *testing.T) {

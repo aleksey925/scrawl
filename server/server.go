@@ -76,6 +76,15 @@ const contentSecurityPolicy = "default-src 'none'; base-uri 'none'; form-action 
 	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; style-src 'self'; " +
 	"img-src 'self' data: https:; script-src 'self'"
 
+// gzipContentTypes lists what is worth compressing. rest.Gzip decides on the
+// content type of the response rather than on the extension of the request, so
+// a png, a woff2, a pdf or an unknown attachment - all of them already
+// compressed or opaque - go out untouched and only spend cpu here.
+var gzipContentTypes = []string{
+	"text/html", "text/css", "text/plain", "text/xml", "text/javascript",
+	"application/javascript", "application/json", "image/svg+xml",
+}
+
 // Config holds every knob the web layer needs. main maps its options onto it
 // field by field, no other package reads the command line.
 type Config struct {
@@ -188,6 +197,7 @@ func (wb *Web) router() (http.Handler, error) {
 
 	router := routegroup.New(http.NewServeMux())
 	router.Use(rest.Trace, rest.Recoverer(lgr.Default()), securityHeaders)
+	router.Use(rest.Gzip(gzipContentTypes...))
 	// RealIP rewrites RemoteAddr from a header the client controls, which would
 	// hand every visitor a fresh bucket in the login rate limiter, so it is only
 	// installed when a proxy in front is known to overwrite that header

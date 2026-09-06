@@ -12,8 +12,8 @@ e2e
 !README.md
 docker-compose.yml
 examples
-# the notes directory the local compose file serves. it sits in the build
-# context, and it can be large, so keep it out of the image build
+# a notes folder kept inside the checkout can be large, and the image has no
+# use for it
 notes
 coverage.out
 coverage.html

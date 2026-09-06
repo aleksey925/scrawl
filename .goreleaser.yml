@@ -1,0 +1,68 @@
+version: 2
+
+project_name: scrawl
+
+builds:
+  - id: scrawl
+    main: .
+    binary: scrawl
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.revision={{.Version}}
+
+archives:
+  - id: scrawl
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+brews:
+  - name: scrawl
+    repository:
+      owner: aleksey925
+      name: homebrew-apps
+      branch: master
+    directory: Formula
+    commit_author:
+      name: Aleksey Petrunnik
+      email: petrunnik.a@gmail.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    homepage: "https://github.com/aleksey925/scrawl"
+    description: "Markdown notes server: read and edit a folder of notes from a browser"
+    license: "MIT"
+    caveats: |
+      scrawl defaults to serving /notes on :8080, which is the layout of the
+      docker image. Started by hand, point it at your own folder:
+        scrawl --root ~/notes --listen :8080
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: aleksey925
+    name: scrawl
+  draft: false
+  prerelease: auto

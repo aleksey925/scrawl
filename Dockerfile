@@ -16,9 +16,8 @@ RUN apk add --no-cache git
 
 WORKDIR /build
 
-COPY go.mod go.sum ./
-RUN go mod download
-
+# dependencies are vendored, so they arrive with the source and there is no
+# download step to cache separately
 COPY . .
 
 # .dockerignore drops .git, so the version arrives as a build arg: CI passes it
@@ -34,7 +33,7 @@ RUN \
     fi && \
     echo "version=$version" && \
     GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build \
-      -trimpath -buildvcs=false \
+      -mod=vendor -trimpath -buildvcs=false \
       -ldflags "-X main.revision=${version} -s -w" \
       -o /build/scrawl .
 

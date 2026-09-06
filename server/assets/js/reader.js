@@ -2,6 +2,8 @@
 // outline sheet and TOC scrollspy
 
 import {copyText, qs, qsa, toast} from './dom.js';
+import {initDiagrams} from './diagram.js';
+import {initMath} from './math.js';
 
 // the corpus fences carry a few labels chroma does not know
 const LANG_ALIASES = {
@@ -23,7 +25,8 @@ function languageOf(code) {
 // the renderer already wraps fences in .code-block[data-lang]; wrapping here is
 // only the fallback for html that came from somewhere else
 export function enhanceCode(root) {
-    qsa('pre', root).forEach((pre) => {
+    // a mermaid fence is source for diagram.js, not something to copy
+    qsa('pre:not(.mermaid)', root).forEach((pre) => {
         const code = pre.querySelector('code') || pre;
         let block = pre.closest('.code-block');
         if (!block) {
@@ -187,6 +190,8 @@ export function initReader() {
         enhanceCode(root);
         enhanceHeadings(root);
         initLightbox(root);
+        initMath(root);
+        initDiagrams(root);
     }
     initToc();
 

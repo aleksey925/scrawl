@@ -6,8 +6,16 @@ import {
 } from './dom.js';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const SWIPE_THRESHOLD = 20;
 
 let lastFocused = null;
+
+// the sidebar carries the read-only flag, so every write affordance the script
+// builds can ask one question before offering anything the api would refuse
+function canWrite() {
+    const sidebar = qs('#sidebar');
+    return !!sidebar && !sidebar.hasAttribute('data-readonly');
+}
 
 export function drawerOpen() {
     return document.body.classList.contains('drawer-open');
@@ -61,6 +69,75 @@ function trapTab(event) {
         event.preventDefault();
         first.focus();
     }
+}
+
+/* --- swipe the drawer shut ---------------------------------------------- */
+
+let swipedAt = 0;
+
+function initSwipeClose(sidebar) {
+    let startX = 0;
+    let startY = 0;
+    let shift = 0;
+    let tracking = false;
+    let sliding = false;
+
+    const release = (finished) => {
+        if (!tracking) return;
+        tracking = false;
+        sidebar.style.transition = '';
+        sidebar.style.transform = '';
+        if (!sliding) return;
+        sliding = false;
+        swipedAt = Date.now();
+        if (finished && shift <= -SWIPE_THRESHOLD) closeDrawer();
+    };
+
+    sidebar.addEventListener('pointerdown', (event) => {
+        if (!drawerOpen()) return;
+        tracking = true;
+        sliding = false;
+        shift = 0;
+        startX = event.clientX;
+        startY = event.clientY;
+    });
+
+    sidebar.addEventListener('pointermove', (event) => {
+        if (!tracking) return;
+        shift = Math.min(0, event.clientX - startX);
+        if (!sliding) {
+            const moved = Math.abs(event.clientX - startX);
+            const scrolled = Math.abs(event.clientY - startY);
+            if (moved < SWIPE_THRESHOLD && scrolled < SWIPE_THRESHOLD) return;
+            if (moved <= scrolled) {
+                tracking = false;
+                return;
+            }
+            sliding = true;
+            sidebar.style.transition = 'none';
+            sidebar.setPointerCapture(event.pointerId);
+        }
+        sidebar.style.transform = 'translateX(' + shift + 'px)';
+    });
+
+    sidebar.addEventListener('pointerup', () => release(true));
+    // the browser took the gesture over, so put the panel back where it was
+    sidebar.addEventListener('pointercancel', () => release(false));
+
+    // touch-action: pan-y is not enough on chromium: it still claims the
+    // gesture a couple of moves in and cancels the pointer stream, which leaves
+    // the panel stranded half open. pointermove runs first, so by the time this
+    // fires the swipe is already recognised and safe to keep
+    sidebar.addEventListener('touchmove', (event) => {
+        if (sliding) event.preventDefault();
+    }, {passive: false});
+
+    // a swipe that starts on a row would otherwise open the page it ended on
+    sidebar.addEventListener('click', (event) => {
+        if (Date.now() - swipedAt > 400) return;
+        event.preventDefault();
+        event.stopPropagation();
+    }, true);
 }
 
 /* --- live filter over the tree ----------------------------------------- */
@@ -288,6 +365,36 @@ function currentPath() {
 
 let openMenu = null;
 
+// a folder row is a <summary>, where a nested <button> would fight the
+// disclosure widget for the click, so it gets a span with the button role
+function rowMenuTrigger(path, kind, name) {
+    const el = document.createElement(kind === 'dir' ? 'span' : 'button');
+    if (kind === 'dir') {
+        el.setAttribute('role', 'button');
+        el.tabIndex = 0;
+    } else {
+        el.type = 'button';
+    }
+    el.className = 'tree-more';
+    el.dataset.actions = path;
+    el.dataset.kind = kind;
+    el.setAttribute('aria-label', 'Actions for ' + name);
+    el.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-more"></use></svg>';
+    return el;
+}
+
+function initRowMenus() {
+    if (!canWrite()) return;
+    qsa('#sidebar .tree-row').forEach((row) => {
+        if (qs('.tree-more', row)) return;
+        const dir = row.tagName === 'SUMMARY';
+        const holder = dir ? row.parentElement : row;
+        const label = qs('.tree-name', row);
+        row.appendChild(rowMenuTrigger(holder.dataset.path, dir ? 'dir' : 'file',
+            (label && label.textContent) || ''));
+    });
+}
+
 function closeMenu() {
     if (!openMenu) return;
     openMenu.trigger.setAttribute('aria-expanded', 'false');
@@ -379,11 +486,9 @@ function renderNodes(nodes, here) {
             return '<li class="tree-item"><details class="tree-dir" data-path="' + esc(node.path) + '"' +
                 (open ? ' open' : '') + '><summary class="tree-row">' +
                 '<svg class="icon tree-twisty" aria-hidden="true"><use href="#icon-chevron"></use></svg>' +
+                '<a class="tree-link" href="/p/' + encodePath(node.path) + '/">' +
                 '<svg class="icon tree-kind" aria-hidden="true"><use href="#icon-folder"></use></svg>' +
-                '<span class="tree-name">' + name + '</span>' +
-                '<span class="tree-more" role="button" tabindex="0" data-actions="' + esc(node.path) +
-                '" data-kind="dir" aria-label="Actions for ' + name + '">' +
-                '<svg class="icon" aria-hidden="true"><use href="#icon-more"></use></svg></span>' +
+                '<span class="tree-name">' + name + '</span></a>' +
                 '</summary>' + renderNodes(node.children || [], here) + '</details></li>';
         }
         const current = here === node.path;
@@ -391,10 +496,7 @@ function renderNodes(nodes, here) {
             '" data-path="' + esc(node.path) + '">' +
             '<a class="tree-link" href="/p/' + encodePath(node.path) + '"' + (current ? ' aria-current="page"' : '') + '>' +
             '<svg class="icon tree-kind" aria-hidden="true"><use href="#icon-file"></use></svg>' +
-            '<span class="tree-name">' + name + '</span></a>' +
-            '<button class="tree-more" type="button" data-actions="' + esc(node.path) +
-            '" data-kind="file" aria-label="Actions for ' + name + '">' +
-            '<svg class="icon" aria-hidden="true"><use href="#icon-more"></use></svg></button></div></li>';
+            '<span class="tree-name">' + name + '</span></a></div></li>';
     }).join('') + '</ul>';
 }
 
@@ -414,6 +516,7 @@ export async function refreshTree() {
         }
         if (empty) host.appendChild(empty);
         initTreeState();
+        initRowMenus();
     } catch (e) {
         location.reload();
     }
@@ -442,13 +545,29 @@ function initPopovers() {
 export function initNav() {
     qsa('[data-drawer-open]').forEach((b) => b.addEventListener('click', openDrawer));
     qsa('[data-drawer-close]').forEach((b) => b.addEventListener('click', closeDrawer));
-    qs('#sidebar') && qs('#sidebar').addEventListener('click', (event) => {
-        if (event.target.closest('.tree-link') && window.innerWidth < 1000) closeDrawer();
-    });
+    const sidebar = qs('#sidebar');
+    if (sidebar) {
+        sidebar.addEventListener('click', (event) => {
+            const link = event.target.closest('.tree-link');
+            if (!link) return;
+            const folder = link.closest('.tree-dir');
+            // a section label opens its folder page and expands the row; only
+            // the disclosure triangle beside it may collapse again
+            if (folder && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
+                event.preventDefault();
+                folder.open = true;
+                location.href = link.href;
+                return;
+            }
+            if (window.innerWidth < 1000) closeDrawer();
+        });
+        initSwipeClose(sidebar);
+    }
     document.addEventListener('keydown', trapTab);
 
     initFilter();
     initTreeState();
+    initRowMenus();
     initPopovers();
 
     document.addEventListener('click', (event) => {

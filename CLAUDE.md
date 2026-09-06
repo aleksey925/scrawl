@@ -19,6 +19,8 @@ server/assets/vendor/  KaTeX and mermaid, checked in, never from a CDN
 e2e/                   playwright suite against a real binary
 examples/data/         sample notes: tests, `make run`, and the
                        browser suite when the private corpus is absent
+img/                   README screenshots, taken against examples/data
+vendor/                dependencies, checked in, `make deps` regenerates
 ```
 
 ## Rules
@@ -64,9 +66,15 @@ examples/data/         sample notes: tests, `make run`, and the
 
 ## Commands
 
+Toolchain versions come from `mise.toml`, dependencies are vendored:
+`mise install && make deps`.
+
 ```
-make build   build the binary
-make test    tests with race detector
-make lint    golangci-lint
+make build   build the binary into dist/
+make test    tests
+make race    tests with the race detector
+make cover   race tests plus a coverage summary
+make lint    every pre-commit hook, through prek
 make run     run against ./examples/data with auth disabled
+make e2e     the browser suite
 ```

@@ -1,0 +1,5 @@
+# vendored trees are stored exactly as upstream published them. without this a
+# checkout with core.autocrlf set rewrites the few CRLF files in vendor/, and
+# the next `go mod vendor` puts them back, forever
+vendor/** -text
+server/assets/vendor/** -text

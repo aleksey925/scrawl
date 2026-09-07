@@ -243,7 +243,7 @@ func (wb *Web) router() (http.Handler, error) {
 
 	// everything that changes state, plus the login form itself, has to survive
 	// a cross-site POST: Go's CrossOriginProtection checks Sec-Fetch-Site
-	mutating := router.With(auth.CSRF().Handler)
+	mutating := router.With(auth.CSRF())
 	mutating.HandleFunc("POST /login", wb.loginSubmit)
 	mutating.HandleFunc("POST /logout", wb.logout)
 	mutating.HandleFunc("PUT /api/file/{path...}", wb.apiFileSave)

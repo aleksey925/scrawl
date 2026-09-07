@@ -11,6 +11,7 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
     environment:
       - AUTH_USERS=admin:admin
+      - AUTH_TOKENS=bot:demo-token:ro
 
 volumes:
   scrawl-data:

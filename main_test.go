@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/server"
 	"github.com/aleksey925/scrawl/store"
@@ -48,6 +50,7 @@ func TestParseOptsFlags(t *testing.T) {
 		"--exclude=vendor", "--exclude=dist", "--max-upload=512K", "--trusted-proxy",
 		"--watch=poll", "--rescan=10s",
 		"--auth.users=bob:secret", "--auth.users=alice:$2a$10$hash",
+		"--auth.tokens=bot:sha256:abc", "--auth.tokens=reader:plain:ro",
 		"--auth.secret=cookie-key", "--auth.secret-file=/state/key", "--auth.secure=always",
 		"--auth.ttl=1h", "--dbg",
 	})
@@ -63,6 +66,7 @@ func TestParseOptsFlags(t *testing.T) {
 	assert.Equal(t, []string{"vendor", "dist"}, opts.Exclude)
 	assert.Equal(t, byteSize(512<<10), opts.MaxUpload)
 	assert.Equal(t, []string{"bob:secret", "alice:$2a$10$hash"}, opts.Auth.Users)
+	assert.Equal(t, []string{"bot:sha256:abc", "reader:plain:ro"}, opts.Auth.Tokens)
 	assert.Equal(t, "cookie-key", opts.Auth.Secret)
 	assert.Equal(t, time.Hour, opts.Auth.TTL)
 	assert.Equal(t, "poll", opts.Watch)
@@ -81,6 +85,7 @@ func TestParseOptsEnv(t *testing.T) {
 	t.Setenv("MAX_UPLOAD", "1G")
 	t.Setenv("TRUSTED_PROXY", "true")
 	t.Setenv("AUTH_USERS", "bob:pass,alice:pass2")
+	t.Setenv("AUTH_TOKENS", "bot:sha256:abc,reader:plain:ro")
 	t.Setenv("AUTH_SECRET", "env-key")
 	t.Setenv("AUTH_TTL", "48h")
 	t.Setenv("AUTH_DISABLED", "true")
@@ -105,6 +110,7 @@ func TestParseOptsEnv(t *testing.T) {
 	assert.Equal(t, []string{"tmp", "cache"}, opts.Exclude)
 	assert.Equal(t, byteSize(1<<30), opts.MaxUpload)
 	assert.Equal(t, []string{"bob:pass", "alice:pass2"}, opts.Auth.Users)
+	assert.Equal(t, []string{"bot:sha256:abc", "reader:plain:ro"}, opts.Auth.Tokens)
 	assert.Equal(t, "env-key", opts.Auth.Secret)
 	assert.Equal(t, 48*time.Hour, opts.Auth.TTL)
 	assert.True(t, opts.Auth.Disabled)
@@ -210,6 +216,53 @@ func TestGenHashRefusesAnEmptyPassword(t *testing.T) {
 	assert.Contains(t, err.Error(), "no password on stdin")
 }
 
+func TestGenToken(t *testing.T) {
+	// act
+	token, entry := splitGenToken(t, genToken("bot"))
+	other, _ := splitGenToken(t, genToken("bot"))
+
+	// assert
+	assert.NotEqual(t, token, other)
+	assert.Equal(t, "bot:"+auth.TokenDigest(token), entry)
+	assert.NotContains(t, entry, token, "the entry must carry the digest only")
+}
+
+func TestGenTokenEntryAcceptsThePrintedToken(t *testing.T) {
+	// arrange
+	token, entry := splitGenToken(t, genToken("bot"))
+	svc, err := auth.NewService(auth.Config{Tokens: entry, Secret: "0123456789abcdef"})
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodGet, "/api/tree", http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+
+	// act
+	svc.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, _ := svc.User(r)
+		_, _ = w.Write([]byte(user))
+	})).ServeHTTP(rec, req)
+
+	// assert
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "bot", rec.Body.String())
+}
+
+// splitGenToken reads the two labeled lines back: the token, then the entry.
+func splitGenToken(t *testing.T, out string) (token, entry string) {
+	t.Helper()
+	lines := strings.Split(out, "\n")
+	require.Len(t, lines, 2)
+	for _, line := range lines {
+		require.NotEmpty(t, strings.Fields(line))
+	}
+	return lastField(lines[0]), lastField(lines[1])
+}
+
+func lastField(line string) string {
+	fields := strings.Fields(line)
+	return fields[len(fields)-1]
+}
+
 func TestValidate(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "page.md")
@@ -219,14 +272,16 @@ func TestValidate(t *testing.T) {
 		name    string
 		root    string
 		users   []string
+		tokens  []string
 		noAuth  bool
 		errText string
 	}{
 		{name: "ok with users", root: dir, users: []string{"bob:pass"}},
+		{name: "ok with tokens and no users", root: dir, tokens: []string{"bot:sha256:abc"}},
 		{name: "ok with auth disabled", root: dir, noAuth: true},
 		{name: "missing root", root: filepath.Join(dir, "nope"), noAuth: true, errText: "root directory"},
 		{name: "root is a file", root: file, noAuth: true, errText: "is not a directory"},
-		{name: "no users", root: dir, errText: "no users configured"},
+		{name: "no users and no tokens", root: dir, errText: "no users and no tokens configured"},
 	}
 
 	for _, tc := range tests {
@@ -234,6 +289,7 @@ func TestValidate(t *testing.T) {
 			// arrange
 			opts := &options{Root: tc.root}
 			opts.Auth.Users = tc.users
+			opts.Auth.Tokens = tc.tokens
 			opts.Auth.Disabled = tc.noAuth
 
 			// act
@@ -357,13 +413,16 @@ func TestSecretsOf(t *testing.T) {
 	// arrange
 	opts := &options{}
 	opts.Auth.Secret = "cookie-key"
-	opts.Auth.Users = []string{"bob:pass", "broken-entry", "empty:"}
+	opts.Auth.Users = []string{"bob:pass", "nameless-password", "empty:"}
+	opts.Auth.Tokens = []string{"bot:plain-token:ro", "scrawl_nameless-token", "empty:"}
 
 	// act
 	secrets := secretsOf(opts)
 
 	// assert
-	assert.Equal(t, []string{"cookie-key", "pass"}, secrets)
+	assert.Equal(t, []string{
+		"cookie-key", "pass", "nameless-password", "plain-token:ro", "scrawl_nameless-token",
+	}, secrets)
 }
 
 func TestVersionInfo(t *testing.T) {

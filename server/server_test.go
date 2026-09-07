@@ -40,6 +40,12 @@ const testUser = "bob"
 
 const testPassword = "s3cret"
 
+// the API tokens the test server accepts, one of each scope.
+const (
+	testToken     = "scrawl_test-read-write"
+	testReadToken = "scrawl_test-read-only"
+)
+
 // testServer is a whole app over a temporary notes directory.
 type testServer struct {
 	*Web
@@ -66,12 +72,14 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 		return nil
 	}))
 
-	users := ""
+	users, tokens := "", ""
 	if opts.withAuth {
 		users = testUser + ":" + testPassword
+		tokens = "agent:" + auth.TokenDigest(testToken) + ",reader:" + auth.TokenDigest(testReadToken) + ":ro"
 	}
 	svc, err := auth.NewService(auth.Config{
 		Users:    users,
+		Tokens:   tokens,
 		Secret:   "test-signing-secret",
 		Disabled: !opts.withAuth,
 		TTL:      time.Hour,
@@ -1216,6 +1224,210 @@ func TestAuthGuardsEverythingButThePublicRoutes(t *testing.T) {
 	}
 }
 
+// bearer is everything an API client sends: no cookie, no CSRF hint, no form.
+func bearer(token string) map[string]string {
+	return map[string]string{"Authorization": "Bearer " + token}
+}
+
+// crossSite adds to headers what a forged write carries: the site hint the
+// browser sets by itself and the origin the form came from.
+func crossSite(headers map[string]string) map[string]string {
+	if headers == nil {
+		headers = map[string]string{}
+	}
+	headers["Sec-Fetch-Site"] = "cross-site"
+	headers["Origin"] = "https://evil.example"
+	return headers
+}
+
+// files is every file under the notes root with its content, so a refused write
+// can be shown to have left the corpus alone.
+func (ts *testServer) files(t *testing.T) map[string]string {
+	t.Helper()
+	res := map[string]string{}
+	require.NoError(t, filepath.WalkDir(ts.root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		data, readErr := os.ReadFile(p)
+		if readErr != nil {
+			return readErr
+		}
+		rel, relErr := filepath.Rel(ts.root, p)
+		if relErr != nil {
+			return relErr
+		}
+		res[filepath.ToSlash(rel)] = string(data)
+		return nil
+	}))
+	return res
+}
+
+func TestAPITokenReads(t *testing.T) {
+	ts := newTestServer(t, testOpts{withAuth: true})
+	guide, _, err := ts.Store.Read("guide.md")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name  string
+		token string
+	}{
+		{name: "read-write token", token: testToken},
+		{name: "read-only token", token: testReadToken},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			tree, treeBody := ts.json(t, request{path: "/api/tree", headers: bearer(tc.token)})
+			file, fileBody := ts.json(t, request{path: "/api/file/guide.md", headers: bearer(tc.token)})
+
+			// assert
+			assert.Equal(t, http.StatusOK, tree.status)
+			assert.NotEmpty(t, treeBody["tree"])
+			assert.Equal(t, http.StatusOK, file.status)
+			assert.Equal(t, string(guide), fileBody["content"])
+			assert.Equal(t, store.Rev(guide), fileBody["rev"])
+		})
+	}
+}
+
+func TestAPITokenWrites(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true})
+	const content = "# Written by an agent\n"
+	upload, contentType := multipartFile(t, "file", "shot.png", tinyPNG(t))
+
+	// act
+	save, saved := ts.json(t, request{method: http.MethodPut, path: "/api/file/agent.md",
+		body: jsonBody(t, map[string]string{"content": content}), headers: bearer(testToken)})
+	create, _ := ts.json(t, request{method: http.MethodPost, path: "/api/file/inbox",
+		body: jsonBody(t, map[string]string{"type": "dir"}), headers: bearer(testToken)})
+	move, _ := ts.json(t, request{method: http.MethodPost, path: "/api/move",
+		body: jsonBody(t, map[string]string{"from": "agent.md", "to": "inbox/agent.md"}), headers: bearer(testToken)})
+	attached, uploaded := ts.json(t, request{method: http.MethodPost, path: "/api/upload/inbox?doc=inbox/agent.md",
+		body: upload, headers: map[string]string{"Authorization": "Bearer " + testToken, "Content-Type": contentType}})
+	removed, _ := ts.json(t, request{method: http.MethodDelete, path: "/api/file/inbox/agent.md",
+		headers: bearer(testToken)})
+
+	// assert
+	assert.Equal(t, http.StatusOK, save.status)
+	assert.Equal(t, store.Rev([]byte(content)), saved["rev"])
+	assert.Equal(t, http.StatusCreated, create.status)
+	assert.Equal(t, http.StatusOK, move.status)
+	assert.Equal(t, http.StatusCreated, attached.status)
+	assert.Equal(t, http.StatusNoContent, removed.status)
+	assert.Contains(t, ts.files(t), uploaded["path"])
+	assert.False(t, ts.Store.Exists("inbox/agent.md"))
+}
+
+func TestTokenWriteIsNotACrossSiteTarget(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true})
+	_, loaded := ts.json(t, request{path: "/api/file/guide.md", headers: bearer(testToken)})
+
+	// act
+	resp, _ := ts.json(t, request{method: http.MethodPut, path: "/api/file/guide.md",
+		body:    jsonBody(t, map[string]any{"content": "# Guide\n\nrewritten\n", "rev": loaded["rev"]}),
+		headers: crossSite(bearer(testToken))})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, "# Guide\n\nrewritten\n", ts.files(t)["guide.md"])
+}
+
+func TestCookieWriteIsStillACrossSiteTarget(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true})
+	client := ts.login(t)
+	before := ts.files(t)
+
+	// act
+	resp, body := ts.json(t, request{method: http.MethodPut, path: "/api/file/guide.md",
+		body: jsonBody(t, map[string]string{"content": "# forged\n"}), headers: crossSite(nil), client: client})
+
+	// assert
+	assert.Equal(t, http.StatusForbidden, resp.status)
+	assert.Equal(t, "cross-origin request blocked", body["error"])
+	assert.Equal(t, before, ts.files(t))
+}
+
+func TestReadOnlyTokenRefusesEveryWrite(t *testing.T) {
+	ts := newTestServer(t, testOpts{withAuth: true})
+
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		body   any
+	}{
+		{name: "save", method: http.MethodPut, path: "/api/file/guide.md", body: map[string]string{"content": "x"}},
+		{name: "create", method: http.MethodPost, path: "/api/file/other.md", body: map[string]string{"type": "file"}},
+		{name: "delete", method: http.MethodDelete, path: "/api/file/guide.md"},
+		{name: "move", method: http.MethodPost, path: "/api/move", body: map[string]string{"from": "guide.md", "to": "x.md"}},
+		{name: "upload", method: http.MethodPost, path: "/api/upload/notes"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			before := ts.files(t)
+			req := request{method: tc.method, path: tc.path, headers: bearer(testReadToken)}
+			if tc.body != nil {
+				req.body = jsonBody(t, tc.body)
+			}
+
+			// act
+			resp, body := ts.json(t, req)
+
+			// assert
+			assert.Equal(t, http.StatusForbidden, resp.status)
+			assert.Equal(t, "read-only token, writing is disabled", body["error"])
+			assert.Equal(t, before, ts.files(t))
+		})
+	}
+}
+
+func TestReadOnlyServerRefusesAReadWriteToken(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true, readOnly: true})
+
+	// act
+	read, _ := ts.json(t, request{path: "/api/tree", headers: bearer(testToken)})
+	write, body := ts.json(t, request{method: http.MethodPut, path: "/api/file/guide.md",
+		body: jsonBody(t, map[string]string{"content": "x"}), headers: bearer(testToken)})
+
+	// assert
+	assert.Equal(t, http.StatusOK, read.status)
+	assert.Equal(t, http.StatusForbidden, write.status)
+	assert.Equal(t, "read-only mode, writing is disabled", body["error"])
+}
+
+func TestUnknownTokenIsRefusedEverywhere(t *testing.T) {
+	ts := newTestServer(t, testOpts{withAuth: true})
+
+	tests := []struct {
+		name string
+		path string
+	}{
+		{name: "api", path: "/api/tree"},
+		{name: "page", path: "/p/guide.md"},
+		{name: "public route", path: "/login"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			resp, body := ts.do(t, request{path: tc.path, headers: bearer("scrawl_nope")})
+
+			// assert
+			assert.Equal(t, http.StatusUnauthorized, resp.status)
+			assert.Contains(t, body, `{"error":"unauthorized"}`)
+			assert.Empty(t, resp.header.Get("Set-Cookie"))
+		})
+	}
+}
+
 func TestLoginFlow(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{withAuth: true})
@@ -1314,7 +1526,7 @@ func TestCSRFBlocksCrossSiteWrites(t *testing.T) {
 				method:  tc.method,
 				path:    tc.path,
 				body:    jsonBody(t, map[string]string{"content": "x"}),
-				headers: map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example"},
+				headers: crossSite(nil),
 			})
 
 			// assert

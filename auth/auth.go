@@ -1,6 +1,6 @@
-// Package auth implements authentication for scrawl: users taken from the
-// environment, stateless signed session cookies, the middleware that guards
-// the routes and a per-IP login rate limiter.
+// Package auth implements authentication for scrawl: users and API tokens
+// taken from the environment, stateless signed session cookies, the middleware
+// that guards the routes and a per-IP login rate limiter.
 //
 // Users arrive as "name:secret" pairs separated by commas, semicolons or
 // newlines. Only the first colon splits a pair, so a password may itself
@@ -8,6 +8,28 @@
 // anything else is a plain password. Plain passwords work but are logged as a
 // warning at startup: the value then sits in the process environment, visible
 // through docker inspect and /proc/<pid>/environ.
+//
+// # API tokens
+//
+// Tokens are for clients that have no browser: a script or an agent sends
+// "Authorization: Bearer <token>" and gets no session cookie back. They are
+// configured as "name:secretOrHash[:ro]" entries, separated and split the same
+// way users are. The secret is either "sha256:<hex digest>", which is the form
+// --gen-token prints and the only one worth deploying, or any other string,
+// which is a plain token and earns the same startup warning a plain password
+// does. The optional last field is the scope: "rw" by default, "ro" for a
+// token that may read everything and write nothing.
+//
+// The digest is sha256 and not bcrypt because a generated token is 32 random
+// bytes with nothing guessable about it, so there is no work factor worth
+// paying, and bcrypt's cost would land on every API request rather than once
+// per login. For the same reason tokens are not run through the login rate
+// limiter, which exists to slow down password guessing.
+//
+// A token authenticated request skips the cross-origin check, because forgery
+// rides on the credentials a browser attaches by itself and no browser
+// attaches an Authorization header across origins without a preflight this
+// server never answers.
 //
 // # The docker-compose $ trap
 //
@@ -57,6 +79,7 @@ var defaultPublicPrefixes = []string{"/login", "/static", "/ping"}
 // the command line, main maps its options onto these fields.
 type Config struct {
 	Users        string        // "user:hashOrPlain,user2:..." pairs
+	Tokens       string        // "name:secretOrHash[:ro]" entries for API clients
 	Secret       string        // signing key, empty means generate and persist
 	SecretFile   string        // where a generated secret is persisted
 	TTL          time.Duration // session lifetime, DefaultTTL when unset
@@ -69,11 +92,12 @@ type Config struct {
 	PublicPrefixes []string
 }
 
-// Service verifies passwords, issues and validates session cookies and
-// throttles login attempts. It keeps no per-session state, so a restart does
-// not log anybody out as long as the signing secret survives.
+// Service verifies passwords and API tokens, issues and validates session
+// cookies and throttles login attempts. It keeps no per-session state, so a
+// restart does not log anybody out as long as the signing secret survives.
 type Service struct {
 	users        map[string]credential
+	tokens       []apiToken
 	dummy        func() []byte
 	secret       []byte
 	ttl          time.Duration
@@ -85,16 +109,21 @@ type Service struct {
 	now          func() time.Time
 }
 
-// NewService parses the users, resolves the signing secret and returns a ready
-// service. It fails on a malformed user list, an unknown Secure mode, and on an
-// empty user list unless auth is disabled.
+// NewService parses the users and the API tokens, resolves the signing secret
+// and returns a ready service. It fails on a malformed user or token list, an
+// unknown Secure mode, and on both lists being empty unless auth is disabled: a
+// headless deployment driven only by an agent needs no browser user at all.
 func NewService(cfg Config) (*Service, error) {
 	users, err := parseUsers(cfg.Users)
 	if err != nil {
 		return nil, err
 	}
-	if !cfg.Disabled && len(users) == 0 {
-		return nil, errors.New("no users configured, set the users list or disable auth")
+	tokens, err := parseTokens(cfg.Tokens)
+	if err != nil {
+		return nil, err
+	}
+	if !cfg.Disabled && len(users) == 0 && len(tokens) == 0 {
+		return nil, errors.New("no users and no tokens configured, set one of the lists or disable auth")
 	}
 
 	secure := cfg.Secure
@@ -121,8 +150,21 @@ func NewService(cfg Config) (*Service, error) {
 			"generate a bcrypt hash instead: it is visible in docker inspect and /proc/<pid>/environ", name)
 	}
 
+	for _, name := range plainTokens(tokens) {
+		log.Printf("[WARN] token %q is configured in plain form, store its sha256 digest instead "+
+			"(scrawl --gen-token): it is visible in docker inspect and /proc/<pid>/environ", name)
+	}
+
+	for _, tok := range tokens {
+		if _, taken := users[tok.name]; taken {
+			log.Printf("[WARN] %q names both a user and a token, so nothing in the log tells the two apart, "+
+				"rename one of them", tok.name)
+		}
+	}
+
 	svc := &Service{
 		users:        users,
+		tokens:       tokens,
 		dummy:        dummyHash(users),
 		ttl:          ttl,
 		disabled:     cfg.Disabled,
@@ -141,17 +183,35 @@ func NewService(cfg Config) (*Service, error) {
 // userKey is the context key under which the middleware stores the user name.
 type userKey struct{}
 
+// tokenKey is the context key under which the middleware stores the API token a
+// request authenticated with.
+type tokenKey struct{}
+
 // Middleware guards the wrapped handler. A request carrying a valid session
 // continues with the user name in its context and gets a refreshed cookie once
 // half the TTL has passed. A request without one is let through when its path
 // matches a public prefix, answered with 401 JSON when it is an API or JSON
 // request, and redirected to the login page otherwise. With auth disabled the
 // middleware is not installed at all.
+//
+// A Bearer credential is answered before any of that and never mixed with the
+// cookie: a valid token continues with no session issued, a wrong one is a 401
+// on every path, because a credential that is present and wrong has to fail
+// where the caller can see it rather than fall back to a login page.
 func (s *Service) Middleware(next http.Handler) http.Handler {
 	if s.disabled {
 		return next
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if presented, ok := bearerToken(r); ok {
+			tok, valid := s.checkToken(presented)
+			if !valid {
+				writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+				return
+			}
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), tokenKey{}, tok)))
+			return
+		}
 		if tok, ok := s.session(r); ok {
 			// the token carries no issue time, so "more than half the ttl has
 			// elapsed" is read off the other end: less than half of it is left
@@ -173,12 +233,16 @@ func (s *Service) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-// User returns the authenticated user name. With auth disabled it reports an
-// empty name and true, so callers do not have to special-case the mode. It
-// works both inside and outside Middleware: outside it verifies the cookie.
+// User returns the authenticated user name, which for an API client is the name
+// of its token. With auth disabled it reports an empty name and true, so callers
+// do not have to special-case the mode. It works both inside and outside
+// Middleware: outside it verifies the cookie.
 func (s *Service) User(r *http.Request) (string, bool) {
 	if s.disabled {
 		return "", true
+	}
+	if tok, ok := r.Context().Value(tokenKey{}).(apiToken); ok {
+		return tok.name, true
 	}
 	if user, ok := r.Context().Value(userKey{}).(string); ok {
 		return user, true
@@ -240,10 +304,11 @@ func hasPathPrefix(path, prefix string) bool {
 	return rest == "" || strings.HasSuffix(prefix, "/") || strings.HasPrefix(rest, "/")
 }
 
-// CSRF returns the cross-origin policy for the whole server, so the rules live
-// in one place. Go's CrossOriginProtection checks Sec-Fetch-Site and falls back
-// to comparing Origin with Host, which needs no token in the templates.
-func CSRF() *http.CrossOriginProtection {
+// CSRF returns the cross-origin middleware for the whole server, so the rules
+// live in one place. Go's CrossOriginProtection checks Sec-Fetch-Site and falls
+// back to comparing Origin with Host, which needs no token in the templates.
+// A token authenticated request skips it, for the reason the package doc gives.
+func CSRF() func(http.Handler) http.Handler {
 	protection := http.NewCrossOriginProtection()
 	protection.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if wantsJSON(r) {
@@ -252,5 +317,15 @@ func CSRF() *http.CrossOriginProtection {
 		}
 		http.Error(w, "cross-origin request blocked", http.StatusForbidden)
 	}))
-	return protection
+
+	return func(next http.Handler) http.Handler {
+		checked := protection.Handler(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if ByToken(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			checked.ServeHTTP(w, r)
+		})
+	}
 }

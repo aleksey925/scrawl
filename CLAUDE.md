@@ -62,7 +62,9 @@ vendor/                dependencies, checked in, `make deps` regenerates
   the same question. A `.markdown` file is an attachment like any
   other and is read through `/raw/`.
 - Write endpoints require auth and CSRF, and are refused in read-only
-  mode.
+  mode. A `Bearer` API token authenticates instead of the cookie, gets
+  no session and skips the cross-origin check; a `:ro` token is refused
+  the same writes the server-wide read-only mode refuses.
 
 ## Commands
 

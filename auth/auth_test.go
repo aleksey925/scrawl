@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"bytes"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -65,8 +67,10 @@ func TestNewService(t *testing.T) {
 		{name: "one hashed user", cfg: Config{Users: "alice:" + testHash, Secret: testSecret}},
 		{name: "one plain user", cfg: Config{Users: "alice:pass", Secret: testSecret}},
 		{name: "disabled without users", cfg: Config{Disabled: true}},
-		{name: "no users", cfg: Config{Secret: testSecret}, err: "no users configured"},
+		{name: "tokens without users", cfg: Config{Tokens: "bot:" + TokenDigest(testAPIToken), Secret: testSecret}},
+		{name: "no users and no tokens", cfg: Config{Secret: testSecret}, err: "no users and no tokens configured"},
 		{name: "broken users", cfg: Config{Users: "alice", Secret: testSecret}, err: "bad user entry"},
+		{name: "broken tokens", cfg: Config{Users: "alice:pass", Tokens: "bot", Secret: testSecret}, err: "bad token entry"},
 		{
 			name: "unknown secure mode",
 			cfg:  Config{Users: "alice:pass", Secret: testSecret, Secure: "sometimes"},
@@ -87,6 +91,28 @@ func TestNewService(t *testing.T) {
 			assert.NotNil(t, svc)
 		})
 	}
+}
+
+func TestNewServiceWarnsAboutANameSharedByAUserAndAToken(t *testing.T) {
+	// arrange
+	var logged bytes.Buffer
+	original := log.Writer()
+	log.SetOutput(&logged)
+	t.Cleanup(func() { log.SetOutput(original) })
+
+	// act
+	svc, err := NewService(Config{
+		Users:  "alice:" + testHash + ",bob:" + testHash,
+		Tokens: "alice:" + TokenDigest(testAPIToken) + ",reader:" + TokenDigest(testReadToken),
+		Secret: testSecret,
+	})
+
+	// assert
+	require.NoError(t, err)
+	assert.NotNil(t, svc)
+	assert.Contains(t, logged.String(), `[WARN] "alice" names both a user and a token`)
+	assert.NotContains(t, logged.String(), `"reader" names both`)
+	assert.NotContains(t, logged.String(), `"bob" names both`)
 }
 
 func TestNewServiceDefaults(t *testing.T) {
@@ -176,6 +202,133 @@ func TestServiceMiddleware(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestServiceMiddlewareBearerToken(t *testing.T) {
+	svc := newTestService(t, Config{
+		Tokens: "bot:" + TokenDigest(testAPIToken) + ",reader:" + TokenDigest(testReadToken) + ":ro",
+	})
+
+	tests := []struct {
+		name     string
+		target   string
+		header   string
+		session  bool
+		code     int
+		user     string
+		byToken  bool
+		readOnly bool
+		body     string
+	}{
+		{
+			name: "read-write token", target: "/api/tree", header: "Bearer " + testAPIToken,
+			code: http.StatusOK, user: "bot", byToken: true,
+		},
+		{
+			name: "read-only token", target: "/api/tree", header: "Bearer " + testReadToken,
+			code: http.StatusOK, user: "reader", byToken: true, readOnly: true,
+		},
+		{
+			name: "scheme is case-insensitive", target: "/api/tree", header: "bearer " + testAPIToken,
+			code: http.StatusOK, user: "bot", byToken: true,
+		},
+		{
+			name: "a token also authenticates an html path", target: "/p/a.md", header: "Bearer " + testAPIToken,
+			code: http.StatusOK, user: "bot", byToken: true,
+		},
+		{
+			name: "wrong token on an html path", target: "/p/a.md", header: "Bearer nope",
+			code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`,
+		},
+		{
+			name: "wrong token on a public path", target: "/login", header: "Bearer nope",
+			code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`,
+		},
+		{
+			name: "a tab separated token", target: "/api/tree", header: "Bearer\t" + testAPIToken,
+			code: http.StatusOK, user: "bot", byToken: true,
+		},
+		{
+			name: "empty credential", target: "/api/tree", header: "Bearer ",
+			code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`,
+		},
+		{
+			name: "the scheme alone beats a valid cookie", target: "/p/a.md", header: "Bearer", session: true,
+			code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`,
+		},
+		{
+			name: "the scheme alone on a public path", target: "/login", header: "Bearer",
+			code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`,
+		},
+		{
+			name: "a token beats the cookie", target: "/p/a.md", header: "Bearer " + testReadToken, session: true,
+			code: http.StatusOK, user: "reader", byToken: true, readOnly: true,
+		},
+		{
+			name: "a wrong token beats a valid cookie", target: "/p/a.md", header: "Bearer nope", session: true,
+			code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`,
+		},
+		{
+			name: "another scheme falls through to the cookie", target: "/p/a.md", header: "Basic YWxpY2U6cGFzcw==",
+			session: true, code: http.StatusOK, user: "alice",
+		},
+		{
+			name: "another scheme without a cookie is redirected", target: "/p/a.md", header: "Basic YWxpY2U6cGFzcw==",
+			code: http.StatusFound,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			req := httptest.NewRequest(http.MethodGet, tc.target, http.NoBody)
+			req.Header.Set("Authorization", tc.header)
+			if tc.session {
+				req = withSession(t, svc, req, "alice")
+			}
+			rec := httptest.NewRecorder()
+			var user string
+			var byToken, readOnly bool
+
+			// act
+			svc.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				user, _ = svc.User(r)
+				byToken, readOnly = ByToken(r), ReadOnlyToken(r)
+				w.WriteHeader(http.StatusOK)
+			})).ServeHTTP(rec, req)
+
+			// assert
+			assert.Equal(t, tc.code, rec.Code)
+			assert.Equal(t, tc.user, user)
+			assert.Equal(t, tc.byToken, byToken)
+			assert.Equal(t, tc.readOnly, readOnly)
+			if tc.body != "" {
+				assert.Contains(t, rec.Body.String(), tc.body)
+				assert.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
+			}
+		})
+	}
+}
+
+func TestServiceMiddlewareNeverCookiesTheTokenPath(t *testing.T) {
+	// arrange
+	svc := newTestService(t, Config{TTL: 96 * time.Hour, Tokens: "bot:" + TokenDigest(testAPIToken)})
+	issued := time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
+	svc.now = func() time.Time { return issued }
+	req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/p/a.md", http.NoBody), "alice")
+	req.Header.Set("Authorization", "Bearer "+testAPIToken)
+	// past half the ttl, which is when the cookie path renews the session
+	svc.now = func() time.Time { return issued.Add(72 * time.Hour) }
+	rec := httptest.NewRecorder()
+
+	// act
+	svc.Middleware(okHandler()).ServeHTTP(rec, req)
+
+	// assert
+	res := rec.Result()
+	defer res.Body.Close()
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Empty(t, res.Cookies())
 }
 
 func TestServiceMiddlewarePublicPrefixes(t *testing.T) {
@@ -308,7 +461,7 @@ func TestCSRF(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			// act
-			CSRF().Handler(okHandler()).ServeHTTP(rec, req)
+			CSRF()(okHandler()).ServeHTTP(rec, req)
 
 			// assert
 			assert.Equal(t, tc.code, rec.Code)
@@ -318,6 +471,21 @@ func TestCSRF(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCSRFSkipsTokenAuthenticatedRequests(t *testing.T) {
+	// arrange
+	svc := newTestService(t, Config{Tokens: "bot:" + TokenDigest(testAPIToken)})
+	req := httptest.NewRequest(http.MethodPut, "/api/file/a.md", http.NoBody)
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
+	req.Header.Set("Authorization", "Bearer "+testAPIToken)
+	rec := httptest.NewRecorder()
+
+	// act
+	svc.Middleware(CSRF()(okHandler())).ServeHTTP(rec, req)
+
+	// assert
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 func okHandler() http.Handler {

@@ -8,6 +8,7 @@ files on disk are the only state.
 - an editor with live preview, on desktop and on mobile
 - create, rename and delete pages, paste images straight into the editor
 - a login page, users configured through the environment
+- a JSON API with token auth, for scripts and agents
 - light and dark themes
 
 ![Reading a page](img/reading.png)
@@ -86,6 +87,7 @@ Environment variables, each also available as a flag. Run
 | `LISTEN`           | `:8080`             | address to listen on                                      |
 | `TITLE`            | `Notes`             | site title in the interface                               |
 | `AUTH_USERS`       |                     | `user:hashOrPassword`, comma separated                    |
+| `AUTH_TOKENS`      |                     | API tokens, `name:hashOrToken[:ro]`, comma separated      |
 | `AUTH_SECRET`      |                     | cookie signing key, generated if empty                    |
 | `AUTH_SECRET_FILE` | `/data/session.key` | where a generated key is kept                             |
 | `AUTH_TTL`         | `720h`              | how long a session lasts                                  |
@@ -141,6 +143,100 @@ one folder instead.
 - if the file changed on disk since the editor opened it, the save is
   refused and you are shown both versions
 - nothing outside the root is reachable and symbolic links are ignored
+
+## API
+
+A script or an agent uses the same JSON API the browser uses, with a
+token instead of a login: no login form, no cookie jar, no CSRF header.
+Generate a token:
+
+```
+scrawl --gen-token=bot
+```
+
+```
+token, hand this to the client: scrawl_L5Y6q1vjgguEiF8ODvE_LLBABLm339BGlpPq4VSXBcg
+configuration entry for --auth.tokens: bot:sha256:d84ee1b2b0037389726bc5b846778a2a03449050e7b1b06370e10995345cf1ce
+```
+
+The token is printed once and never stored; the configuration holds only
+its digest. Put the entry in `AUTH_TOKENS`, comma separated like
+`AUTH_USERS`, and give the token to the client:
+
+```
+AUTH_TOKENS='bot:sha256:d84ee1b2...,reader:sha256:7bc27e33...:ro'
+```
+
+`AUTH_USERS` may then be left empty: a headless deployment needs no
+browser user. A plain secret in place of the digest also works and is
+warned about at startup, exactly like a plain password.
+
+Every request carries the token in a header. A wrong one is answered
+with `401 {"error":"unauthorized"}` on every path, never a redirect to
+the login page:
+
+```
+TOKEN=scrawl_L5Y6q1vjgguEiF8ODvE_LLBABLm339BGlpPq4VSXBcg
+curl -sH "Authorization: Bearer $TOKEN" http://localhost:8080/api/tree
+curl -sH "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/search?q=redis'
+curl -sH "Authorization: Bearer $TOKEN" http://localhost:8080/api/file/python/notes.md
+```
+
+The last one answers with the source and the revision it was read at:
+
+```json
+{
+  "path": "python/notes.md",
+  "content": "# Notes\n",
+  "rev": "sha256:6c8...",
+  "size": 8,
+  "mod_time": "2026-02-01T10:00:00Z"
+}
+```
+
+Only text within the editable size cap comes back that way; anything
+else answers `415` or `413` and is fetched from `/raw/<path>`, which
+takes the same header.
+
+A write sends that `rev` back, which is how the server tells that the
+file did not move on in between. Read it, then save:
+
+```
+REV=$(curl -sH "Authorization: Bearer $TOKEN" http://localhost:8080/api/file/python/notes.md | jq -r .rev)
+curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"content":"# Notes\n\nredis notes\n","rev":"'"$REV"'"}' \
+  http://localhost:8080/api/file/python/notes.md
+```
+
+The reply is `{"rev":"sha256:...","mod_time":"..."}`, and that `rev` is
+the one to send with the next save, so a series of writes never has to
+re-read the file. An empty `rev` means "create", and succeeds only while
+the path is still free.
+
+Two answers mean the file on disk is not what the client assumed. Both
+carry `current_rev` and `current_content`, so a retry needs no second
+request:
+
+- `412 {"error":"conflict",...}` - somebody else wrote the file since
+  the `rev` was read. Re-apply the change on top of `current_content`
+  and send it back with `current_rev`.
+- `409 {"error":"already exists",...}` - an empty `rev` was sent for a
+  path that already exists. Send `current_rev` to overwrite it, or pick
+  another path.
+
+The rest of the write endpoints take no revision:
+
+| request                             | body                            | answer                    |
+| ----------------------------------- | ------------------------------- | ------------------------- |
+| `POST /api/file/<path>`             | `{"type":"file"}` or `"dir"`    | `201 {"path":...}`        |
+| `DELETE /api/file/<path>`           |                                 | `204`                     |
+| `POST /api/move`                    | `{"from":"a.md","to":"b/a.md"}` | `200 {"path":...}`        |
+| `POST /api/upload/<dir>?doc=<path>` | multipart `file`                | `201 {"path","markdown"}` |
+
+A token ending in `:ro` reads everything and writes nothing: every write
+is `403 {"error":"read-only token, writing is disabled"}`. `READ_ONLY`
+on the server refuses the same writes for every token, read-write ones
+included, and says `read-only mode` instead so the two are told apart.
 
 ## Development
 

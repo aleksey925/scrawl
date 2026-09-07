@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -46,6 +47,7 @@ type options struct {
 
 	Auth struct {
 		Users      []string      `long:"users" env:"USERS" env-delim:"," description:"user:bcryptHashOrPlainPassword pairs"`
+		Tokens     []string      `long:"tokens" env:"TOKENS" env-delim:"," description:"name:tokenHashOrPlain[:ro] entries for API clients"`
 		Secret     string        `long:"secret" env:"SECRET" description:"cookie signing key, generated and persisted if empty"`
 		SecretFile string        `long:"secret-file" env:"SECRET_FILE" default:"/data/session.key" description:"where a generated key is persisted"`
 		TTL        time.Duration `long:"ttl" env:"TTL" default:"720h" description:"session lifetime"`
@@ -61,9 +63,10 @@ type options struct {
 		Shutdown   time.Duration `long:"shutdown" env:"SHUTDOWN" default:"5s" description:"graceful shutdown timeout"`
 	} `group:"timeout" namespace:"timeout" env-namespace:"TIMEOUT"`
 
-	GenHash string `long:"gen-hash" optional:"yes" optional-value:"-" description:"print a bcrypt hash and exit, reading the password from stdin unless it is given"`
-	Version bool   `short:"v" long:"version" description:"show version and exit"`
-	Dbg     bool   `long:"dbg" env:"DEBUG" description:"debug mode"`
+	GenHash  string `long:"gen-hash" optional:"yes" optional-value:"-" description:"print a bcrypt hash and exit, reading the password from stdin unless it is given"`
+	GenToken string `long:"gen-token" optional:"yes" optional-value:"bot" description:"generate an API token and exit"`
+	Version  bool   `short:"v" long:"version" description:"show version and exit"`
+	Dbg      bool   `long:"dbg" env:"DEBUG" description:"debug mode"`
 }
 
 // byteSize is a size in bytes accepting a human suffix, i.e. "20M" or "512K".
@@ -127,6 +130,11 @@ func main() {
 		return
 	}
 
+	if opts.GenToken != "" {
+		fmt.Println(genToken(opts.GenToken))
+		return
+	}
+
 	log.Printf("[INFO] scrawl %s", versionInfo())
 	log.Printf("[DEBUG] options: %+v", *opts)
 
@@ -181,6 +189,7 @@ func run(ctx context.Context, opts *options) error {
 
 	authSvc, err := auth.NewService(auth.Config{
 		Users:        strings.Join(opts.Auth.Users, ","),
+		Tokens:       strings.Join(opts.Auth.Tokens, ","),
 		Secret:       opts.Auth.Secret,
 		SecretFile:   opts.Auth.SecretFile,
 		TTL:          opts.Auth.TTL,
@@ -301,8 +310,9 @@ func validate(opts *options) (string, error) {
 		return "", fmt.Errorf("root %q is not a directory", root)
 	}
 
-	if !opts.Auth.Disabled && len(opts.Auth.Users) == 0 {
-		return "", errors.New("no users configured, set --auth.users or run with --auth.disabled")
+	if !opts.Auth.Disabled && len(opts.Auth.Users) == 0 && len(opts.Auth.Tokens) == 0 {
+		return "", errors.New("no users and no tokens configured, " +
+			"set --auth.users or --auth.tokens, or run with --auth.disabled")
 	}
 	if err := checkSecretFile(root, opts); err != nil {
 		return "", err
@@ -357,14 +367,29 @@ func genHash(value string, in io.Reader) (string, error) {
 	return hash, nil
 }
 
-// secretsOf collects values that must never reach the log.
+// genToken makes an API token and the configuration entry that accepts it. The
+// token is printed once and never stored: the configuration holds its digest
+// only, so a leaked tokens list cannot be turned back into a credential.
+func genToken(name string) string {
+	token := auth.GenerateToken()
+	return "token, hand this to the client: " + token + "\n" +
+		"configuration entry for --auth.tokens: " + name + ":" + auth.TokenDigest(token)
+}
+
+// secretsOf collects values that must never reach the log. An entry with no
+// colon in it counts as a secret whole: a token carries no natural name, so
+// forgetting one is easy, and what is left is the credential itself.
 func secretsOf(opts *options) []string {
-	res := make([]string, 0, len(opts.Auth.Users)+1)
+	res := make([]string, 0, len(opts.Auth.Users)+len(opts.Auth.Tokens)+1)
 	if opts.Auth.Secret != "" {
 		res = append(res, opts.Auth.Secret)
 	}
-	for _, entry := range opts.Auth.Users {
-		if _, secret, found := strings.Cut(entry, ":"); found && secret != "" {
+	for _, entry := range slices.Concat(opts.Auth.Users, opts.Auth.Tokens) {
+		secret := entry
+		if _, rest, found := strings.Cut(entry, ":"); found {
+			secret = rest
+		}
+		if secret != "" {
 			res = append(res, secret)
 		}
 	}

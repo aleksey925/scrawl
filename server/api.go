@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/store"
 )
 
@@ -134,7 +135,7 @@ func (wb *Web) apiFileGet(w http.ResponseWriter, r *http.Request) {
 // apiFileSave writes a file, refusing the write when the revision the editor
 // loaded is no longer the one on disk.
 func (wb *Web) apiFileSave(w http.ResponseWriter, r *http.Request) {
-	if wb.refuseReadOnly(w) {
+	if wb.refuseReadOnly(w, r) {
 		return
 	}
 	p, ok := contentPath(r, "path")
@@ -185,7 +186,7 @@ func writeConflict(w http.ResponseWriter, status int, message, rev string, curre
 
 // apiFileCreate makes an empty file or a directory.
 func (wb *Web) apiFileCreate(w http.ResponseWriter, r *http.Request) {
-	if wb.refuseReadOnly(w) {
+	if wb.refuseReadOnly(w, r) {
 		return
 	}
 	p, ok := contentPath(r, "path")
@@ -213,7 +214,7 @@ func (wb *Web) apiFileCreate(w http.ResponseWriter, r *http.Request) {
 
 // apiFileDelete removes a file or an empty directory.
 func (wb *Web) apiFileDelete(w http.ResponseWriter, r *http.Request) {
-	if wb.refuseReadOnly(w) {
+	if wb.refuseReadOnly(w, r) {
 		return
 	}
 	p, ok := contentPath(r, "path")
@@ -232,7 +233,7 @@ func (wb *Web) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 
 // apiMove renames or moves an entry.
 func (wb *Web) apiMove(w http.ResponseWriter, r *http.Request) {
-	if wb.refuseReadOnly(w) {
+	if wb.refuseReadOnly(w, r) {
 		return
 	}
 	var req moveRequest
@@ -255,7 +256,7 @@ func (wb *Web) apiMove(w http.ResponseWriter, r *http.Request) {
 // apiUpload stores an attachment and answers with a markdown link relative to
 // the document being edited, which arrives in the doc query parameter.
 func (wb *Web) apiUpload(w http.ResponseWriter, r *http.Request) {
-	if wb.refuseReadOnly(w) {
+	if wb.refuseReadOnly(w, r) {
 		return
 	}
 	dir, ok := contentPath(r, "dir")
@@ -386,11 +387,19 @@ func (wb *Web) touch(paths ...string) {
 	}
 }
 
-func (wb *Web) refuseReadOnly(w http.ResponseWriter) bool {
-	if !wb.ReadOnly {
+// refuseReadOnly guards every write endpoint against the two ways writing can
+// be off: the whole server, or the token this caller presented. The two get
+// different messages, otherwise an agent holding a read-only token cannot tell
+// whether asking for a wider one would help.
+func (wb *Web) refuseReadOnly(w http.ResponseWriter, r *http.Request) bool {
+	switch {
+	case wb.ReadOnly:
+		jsonError(w, http.StatusForbidden, errMessage(store.ErrReadOnly))
+	case auth.ReadOnlyToken(r):
+		jsonError(w, http.StatusForbidden, "read-only token, writing is disabled")
+	default:
 		return false
 	}
-	jsonError(w, http.StatusForbidden, errMessage(store.ErrReadOnly))
 	return true
 }
 

@@ -30,6 +30,12 @@ services:
       # get a hash with
       #   printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:master --gen-hash
       - AUTH_USERS=alex:$$2a$$10$$REPLACE_ME
+      # tokens for the JSON API, for a script or an agent instead of a browser.
+      # get one with
+      #   docker run --rm ghcr.io/aleksey925/scrawl:master --gen-token=bot
+      # the digest goes here and holds no dollars, the token goes to the
+      # client. an entry ending in :ro may read but never write
+      # - AUTH_TOKENS=bot:sha256:REPLACE_ME,reader:sha256:REPLACE_ME:ro
       # auto sends the session cookie over plain http too, which is what you
       # want on a LAN. behind an HTTPS proxy use always, together with
       # TRUSTED_PROXY=true, and make sure the proxy overwrites X-Forwarded-For

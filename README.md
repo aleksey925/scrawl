@@ -37,14 +37,14 @@ docker run -d --name scrawl \
   -v /path/to/notes:/notes \
   -v scrawl-data:/data \
   -e AUTH_USERS='alex:my-password' \
-  ghcr.io/aleksey925/scrawl:master
+  ghcr.io/aleksey925/scrawl:latest
 ```
 
 A plain password works and the server warns about it on startup. For
 anything reachable from outside, use a hash instead:
 
 ```
-printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:master --gen-hash
+printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:latest --gen-hash
 ```
 
 [examples/docker-compose.yml](examples/docker-compose.yml) is a fuller
@@ -53,14 +53,9 @@ image runs as uid 1001, and if your notes folder belongs to a different
 user, reading works and every save fails. The startup log says so, and
 the `user:` line fixes it.
 
-Without docker, install the binary from [Homebrew](https://brew.sh):
-
-```
-brew install aleksey925/apps/scrawl
-```
-
-or unpack the latest [release](https://github.com/aleksey925/scrawl/releases)
-archive into `~/.local/bin`:
+Without docker, unpack the latest
+[release](https://github.com/aleksey925/scrawl/releases) archive into
+`~/.local/bin`:
 
 ```
 VERSION=$(curl -sL -o /dev/null -w '%{url_effective}' https://github.com/aleksey925/scrawl/releases/latest | sed 's/.*\/v//')

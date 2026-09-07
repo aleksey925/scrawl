@@ -3,7 +3,7 @@
 # `docker compose up -d`. Container Manager takes the same file under Project.
 services:
   scrawl:
-    image: ghcr.io/aleksey925/scrawl:master
+    image: ghcr.io/aleksey925/scrawl:latest
     container_name: scrawl
     restart: unless-stopped
 
@@ -28,11 +28,11 @@ services:
       # $$2a$$10$$xyz. in Container Manager's environment table values are
       # taken literally, so paste the hash unchanged.
       # get a hash with
-      #   printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:master --gen-hash
+      #   printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:latest --gen-hash
       - AUTH_USERS=alex:$$2a$$10$$REPLACE_ME
       # tokens for the JSON API, for a script or an agent instead of a browser.
       # get one with
-      #   docker run --rm ghcr.io/aleksey925/scrawl:master --gen-token=bot
+      #   docker run --rm ghcr.io/aleksey925/scrawl:latest --gen-token=bot
       # the digest goes here and holds no dollars, the token goes to the
       # client. an entry ending in :ro may read but never write
       # - AUTH_TOKENS=bot:sha256:REPLACE_ME,reader:sha256:REPLACE_ME:ro

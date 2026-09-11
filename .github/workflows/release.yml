@@ -9,7 +9,31 @@ permissions:
   contents: read
 
 jobs:
+  # a tag points at a commit, not a branch, so without this check a tag pushed
+  # from a dev branch would take over latest on GitHub and in the registry
+  latest:
+    runs-on: ubuntu-latest
+    outputs:
+      latest: ${{ steps.check.outputs.latest }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the tag is a stable release from master
+        id: check
+        run: |
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/master && [[ "$GITHUB_REF_NAME" != *-* ]]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+          fi
+
   binaries:
+    needs: latest
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -28,8 +52,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
+          MAKE_LATEST: ${{ needs.latest.outputs.latest }}
 
   docker:
+    needs: latest
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -58,7 +84,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # go cross-compiles inside the Dockerfile, so one runner covers both
-      # architectures and no digest merge step is needed
+      # architectures and no digest merge step is needed. an empty line in tags
+      # is skipped by the action, which is what drops latest
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -66,7 +93,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/aleksey925/scrawl:latest
+            ${{ needs.latest.outputs.latest == 'true' && 'ghcr.io/aleksey925/scrawl:latest' || '' }}
             ghcr.io/aleksey925/scrawl:${{ github.ref_name }}
           build-args: |
             CI=github

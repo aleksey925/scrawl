@@ -47,3 +47,4 @@ release:
     name: scrawl
   draft: false
   prerelease: auto
+  make_latest: '{{ envOrDefault "MAKE_LATEST" "true" }}'

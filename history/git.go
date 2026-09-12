@@ -79,6 +79,9 @@ func (s *Service) baseArgs() []string {
 		// the notes directory may already be a repository somebody configured,
 		// and --no-verify does not disable every hook
 		"-c", "core.hooksPath=" + s.hooks,
+		// another command the repository config gets to name, run on the
+		// ordinary operations this package performs
+		"-c", "core.fsmonitor=",
 		"-c", "commit.gpgSign=false",
 		"-c", "core.autocrlf=false",
 		"-c", "core.quotePath=false",

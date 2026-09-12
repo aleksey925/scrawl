@@ -600,6 +600,94 @@ func TestServiceRecord(t *testing.T) {
 		assert.Equal(t, 1, commitCount(t, s))
 	})
 
+	t.Run("never runs a filter the repository already carries", func(t *testing.T) {
+		// arrange
+		root := t.TempDir()
+		gitInit(t, root)
+		marker := filepath.Join(t.TempDir(), "filter-ran")
+		writeFile(t, root, ".gitattributes", "* filter=evil\n")
+		// the command is a script rather than an inline one: a semicolon opens a
+		// comment in the config syntax, which would leave a command that cannot run
+		script := filepath.Join(t.TempDir(), "clean.sh")
+		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\ntouch "+marker+"\ncat\n"), 0o700))
+		config := filepath.Join(root, ".git", "config")
+		current, readErr := os.ReadFile(config)
+		require.NoError(t, readErr)
+		hostile := "[filter \"evil\"]\n\tclean = " + script + "\n"
+		require.NoError(t, os.WriteFile(config, append(current, hostile...), 0o600))
+		s := serviceAt(t, root)
+
+		// act
+		err := record(t, s, Op{Actor: "alex", Paths: []string{"note.md"}, Strict: true}, map[string]string{"note.md": "# note\n"})
+
+		// assert
+		require.NoError(t, err)
+		assert.NoFileExists(t, marker)
+		assert.Equal(t, 1, commitCount(t, s))
+	})
+
+	t.Run("never runs a hook reached through a symlink the repository planted", func(t *testing.T) {
+		// arrange
+		root := t.TempDir()
+		gitInit(t, root)
+		marker := filepath.Join(t.TempDir(), "hook-ran")
+		writeFile(t, root, ".git/hooks/pre-commit", "#!/bin/sh\ntouch "+marker+"\nexit 1\n")
+		require.NoError(t, os.Chmod(filepath.Join(root, ".git", "hooks", "pre-commit"), 0o755))
+		// the empty hooks directory is only empty until somebody links it back
+		require.NoError(t, os.Symlink(
+			filepath.Join(root, ".git", "hooks"), filepath.Join(root, ".git", "scrawl-no-hooks")))
+		s := serviceAt(t, root)
+
+		// act
+		err := record(t, s, Op{Actor: "alex", Paths: []string{"note.md"}, Strict: true}, map[string]string{"note.md": "# note\n"})
+
+		// assert
+		require.NoError(t, err)
+		assert.NoFileExists(t, marker)
+		assert.Equal(t, 1, commitCount(t, s))
+	})
+
+	t.Run("never writes its attributes through a symlink the repository planted", func(t *testing.T) {
+		// arrange
+		root := t.TempDir()
+		gitInit(t, root)
+		outside := filepath.Join(t.TempDir(), "outside")
+		require.NoError(t, os.WriteFile(outside, []byte("original\n"), 0o600))
+		require.NoError(t, os.MkdirAll(filepath.Join(root, ".git", "info"), 0o750))
+		require.NoError(t, os.Symlink(outside, filepath.Join(root, ".git", "info", "attributes")))
+
+		// act
+		serviceAt(t, root)
+
+		// assert
+		kept, err := os.ReadFile(outside)
+		require.NoError(t, err)
+		assert.Equal(t, "original\n", string(kept))
+	})
+
+	t.Run("never runs the fsmonitor the repository configures", func(t *testing.T) {
+		// arrange
+		root := t.TempDir()
+		gitInit(t, root)
+		marker := filepath.Join(t.TempDir(), "fsmonitor-ran")
+		script := filepath.Join(t.TempDir(), "fsmonitor.sh")
+		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\ntouch "+marker+"\nexit 1\n"), 0o700))
+		config := filepath.Join(root, ".git", "config")
+		current, readErr := os.ReadFile(config)
+		require.NoError(t, readErr)
+		hostile := "[core]\n\tfsmonitor = " + script + "\n"
+		require.NoError(t, os.WriteFile(config, append(current, hostile...), 0o600))
+		s := serviceAt(t, root)
+
+		// act
+		err := record(t, s, Op{Actor: "alex", Paths: []string{"note.md"}, Strict: true}, map[string]string{"note.md": "# note\n"})
+
+		// assert
+		require.NoError(t, err)
+		assert.NoFileExists(t, marker)
+		assert.Equal(t, 1, commitCount(t, s))
+	})
+
 	t.Run("a disabled service only runs the mutation", func(t *testing.T) {
 		// arrange
 		var s *Service

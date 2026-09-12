@@ -254,8 +254,7 @@ make race       tests with the race detector
 make cover      race tests plus a coverage summary
 make lint       every hook: formatting, go vet, golangci-lint
 make e2e        the browser suite
-make docker     build the image
+make img        build the image
 ```
 
-`make help` lists the rest. Browser tests live in [e2e/](e2e/), see
-[e2e/README.md](e2e/README.md).
+Browser tests live in [e2e/](e2e/), see [e2e/README.md](e2e/README.md).

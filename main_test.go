@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/history"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/server"
 	"github.com/aleksey925/scrawl/store"
@@ -39,6 +41,7 @@ func TestParseOptsDefaults(t *testing.T) {
 	assert.Empty(t, opts.Exclude)
 	assert.Equal(t, "auto", opts.Watch)
 	assert.Equal(t, time.Minute, opts.Rescan)
+	assert.Equal(t, historyAuto, opts.History)
 	assert.Equal(t, "/data/session.key", opts.Auth.SecretFile)
 	assert.Equal(t, "auto", opts.Auth.Secure)
 }
@@ -48,7 +51,7 @@ func TestParseOptsFlags(t *testing.T) {
 	opts, err := parseOpts([]string{
 		"--root=/data", "--listen=:9000", "--title=Wiki", "--read-only",
 		"--exclude=vendor", "--exclude=dist", "--max-upload=512K", "--trusted-proxy",
-		"--watch=poll", "--rescan=10s",
+		"--watch=poll", "--rescan=10s", "--history=off",
 		"--auth.users=bob:secret", "--auth.users=alice:$2a$10$hash",
 		"--auth.tokens=bot:sha256:abc", "--auth.tokens=reader:plain:ro",
 		"--auth.secret=cookie-key", "--auth.secret-file=/state/key", "--auth.secure=always",
@@ -71,6 +74,7 @@ func TestParseOptsFlags(t *testing.T) {
 	assert.Equal(t, time.Hour, opts.Auth.TTL)
 	assert.Equal(t, "poll", opts.Watch)
 	assert.Equal(t, 10*time.Second, opts.Rescan)
+	assert.Equal(t, historyOff, opts.History)
 	assert.Equal(t, "/state/key", opts.Auth.SecretFile)
 	assert.Equal(t, "always", opts.Auth.Secure)
 }
@@ -93,6 +97,7 @@ func TestParseOptsEnv(t *testing.T) {
 	t.Setenv("AUTH_SECURE", "never")
 	t.Setenv("WATCH", "poll")
 	t.Setenv("RESCAN", "-1s")
+	t.Setenv("HISTORY", "on")
 	t.Setenv("TIMEOUT_SHUTDOWN", "9s")
 	t.Setenv("DEBUG", "true")
 
@@ -119,6 +124,7 @@ func TestParseOptsEnv(t *testing.T) {
 	assert.Equal(t, "never", opts.Auth.Secure)
 	assert.Equal(t, "poll", opts.Watch)
 	assert.Equal(t, -time.Second, opts.Rescan)
+	assert.Equal(t, historyOn, opts.History)
 }
 
 func TestParseOptsInvalid(t *testing.T) {
@@ -128,6 +134,7 @@ func TestParseOptsInvalid(t *testing.T) {
 	}{
 		{name: "unknown flag", args: []string{"--no-such-flag"}},
 		{name: "unknown watch mode", args: []string{"--watch=inotify"}},
+		{name: "unknown history mode", args: []string{"--history=maybe"}},
 		{name: "unknown secure mode", args: []string{"--auth.secure=sometimes"}},
 	}
 
@@ -345,6 +352,114 @@ func TestCheckSecretFile(t *testing.T) {
 	}
 }
 
+func TestNewHistory(t *testing.T) {
+	t.Run("off leaves the notes directory alone", func(t *testing.T) {
+		// arrange
+		root := t.TempDir()
+
+		// act
+		hist, err := newHistory(&options{History: historyOff}, notesAt(t, root))
+
+		// assert
+		require.NoError(t, err)
+		assert.False(t, hist.Enabled())
+		assert.NoDirExists(t, filepath.Join(root, ".git"))
+	})
+
+	t.Run("auto initializes a repository", func(t *testing.T) {
+		// arrange
+		requireGit(t)
+		root := t.TempDir()
+
+		// act
+		hist, err := newHistory(&options{History: historyAuto}, notesAt(t, root))
+
+		// assert
+		require.NoError(t, err)
+		t.Cleanup(func() { assert.NoError(t, hist.Close()) })
+		assert.True(t, hist.Enabled())
+		assert.Equal(t, root, hist.Root())
+	})
+
+	t.Run("auto carries on when the root is inside another repository", func(t *testing.T) {
+		// arrange
+		root := gitChild(t)
+
+		// act
+		hist, err := newHistory(&options{History: historyAuto}, notesAt(t, root))
+
+		// assert
+		require.NoError(t, err)
+		assert.False(t, hist.Enabled())
+		assert.NoDirExists(t, filepath.Join(root, ".git"))
+	})
+
+	t.Run("on refuses to start when the root is inside another repository", func(t *testing.T) {
+		// arrange
+		root := gitChild(t)
+
+		// act
+		hist, err := newHistory(&options{History: historyOn}, notesAt(t, root))
+
+		// assert
+		require.ErrorIs(t, err, history.ErrInsideRepo)
+		assert.False(t, hist.Enabled())
+	})
+}
+
+func TestReconcileImportsWhatTheStoreShows(t *testing.T) {
+	// arrange
+	requireGit(t)
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "page.md"), []byte("# page\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "notes.txt"), []byte("plain\n"), 0o600))
+	hist, err := newHistory(&options{History: historyOn}, notesAt(t, root))
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, hist.Close()) })
+
+	// act
+	reconcile(t.Context(), hist, historyActorStartup)
+
+	// assert
+	entries, err := hist.Log(t.Context(), "page.md", 0)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	assert.Equal(t, historyActorStartup, entries[0].Actor)
+
+	plain, err := hist.Log(t.Context(), "notes.txt", 0)
+	require.NoError(t, err)
+	assert.Empty(t, plain, "only the versioned extensions are imported")
+}
+
+func notesAt(t *testing.T, root string) *store.Store {
+	t.Helper()
+	notes, err := store.New(store.Config{Root: root, Rescan: -1})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = notes.Close() })
+	return notes
+}
+
+func requireGit(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+}
+
+// gitChild is a notes directory that sits inside somebody else's repository.
+func gitChild(t *testing.T) string {
+	t.Helper()
+	requireGit(t)
+
+	parent := t.TempDir()
+	out, err := exec.CommandContext(t.Context(), "git", "init", "--quiet", parent).CombinedOutput()
+	require.NoError(t, err, "git init: %s", out)
+
+	root := filepath.Join(parent, "notes")
+	require.NoError(t, os.Mkdir(root, 0o750))
+	return root
+}
+
 func TestIndexAll(t *testing.T) {
 	// arrange
 	notes, err := store.New(store.Config{Root: "./examples/data", Rescan: -1})
@@ -368,7 +483,7 @@ func TestWatchStopsWithTheContext(t *testing.T) {
 	t.Cleanup(func() { _ = notes.Close() })
 
 	ctx, cancel := context.WithCancel(t.Context())
-	done := watch(ctx, notes, search.New(), &server.Web{})
+	done := watch(ctx, notes, search.New(), &server.Web{}, nil)
 
 	// act
 	cancel()
@@ -394,7 +509,7 @@ func TestWatchKeepsTheIndexInStep(t *testing.T) {
 	index := search.New()
 	index.Set("page.md", []byte("# Page\n"))
 	ctx, cancel := context.WithCancel(t.Context())
-	done := watch(ctx, notes, index, &server.Web{})
+	done := watch(ctx, notes, index, &server.Web{}, nil)
 
 	// act & assert
 	require.NoError(t, os.WriteFile(page, []byte("# Page\n\nkumquat\n"), 0o600))
@@ -438,7 +553,11 @@ func TestVersionInfo(t *testing.T) {
 func TestRunSmoke(t *testing.T) {
 	// arrange
 	addr := fmt.Sprintf("127.0.0.1:%d", freePort(t))
-	opts, err := parseOpts([]string{"--root=./examples/data", "--listen=" + addr, "--auth.disabled", "--dbg"})
+	// examples/data lives inside this repository, so history would initialize a
+	// nested one right in the source tree
+	opts, err := parseOpts([]string{
+		"--root=./examples/data", "--listen=" + addr, "--auth.disabled", "--history=off", "--dbg",
+	})
 	require.NoError(t, err)
 
 	setupLog(opts.Dbg)

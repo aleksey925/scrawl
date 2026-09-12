@@ -50,6 +50,7 @@ function main() {
     ];
     if (inst.readOnly) args.push('--read-only');
     if (inst.uploadDir) args.push(`--upload-dir=${inst.uploadDir}`);
+    if (inst.historyMode) args.push(`--history=${inst.historyMode}`);
 
     const log = fs.createWriteStream(inst.log, {flags: 'w'});
     const child = spawn(binary, args, {

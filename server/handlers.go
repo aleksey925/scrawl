@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/history"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
@@ -355,6 +356,62 @@ func (wb *Web) editHandler(w http.ResponseWriter, r *http.Request) {
 		page.Content, page.Rev = string(data), store.Rev(data)
 	}
 	wb.renderPage(w, http.StatusOK, "edit.html", page)
+}
+
+// historyPage lists the versions of one document. With history off the route
+// answers the 404 the app answers for anything else it does not hold, because
+// then there is no such page to serve rather than a page with nothing on it.
+func (wb *Web) historyPage(w http.ResponseWriter, r *http.Request) {
+	p, ok := contentPath(r, "path")
+	if !ok || p == "" {
+		wb.errorPage(w, r, "", http.StatusBadRequest, statusMessage(http.StatusBadRequest))
+		return
+	}
+	if !wb.history().Enabled() {
+		wb.errorPage(w, r, p, http.StatusNotFound, statusMessage(http.StatusNotFound))
+		return
+	}
+
+	entries, err := wb.history().Log(r.Context(), p, historyLimit)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, history.ErrBadPath) {
+			status = http.StatusBadRequest
+		}
+		logFailure(r, status, err)
+		wb.errorPage(w, r, p, status, statusMessage(status))
+		return
+	}
+
+	rev, known := wb.docRev(p)
+	page := HistoryPage{
+		Base:       wb.base(r, "History of "+displayName(path.Base(p)), p),
+		Entries:    historyEntries(entries),
+		ViewURL:    contentURL(p),
+		Rev:        rev,
+		CanRestore: known && !wb.ReadOnly,
+	}
+	wb.renderPage(w, http.StatusOK, "history.html", page)
+}
+
+// docRev is the revision a restore has to carry, and reports whether it could
+// be established at all. A document that is not there has the empty revision,
+// which is what the store reads as "create it", and restoring a deleted page is
+// the case that needs it. One too large to read has no revision, and a restore
+// sent without one would overwrite whatever is on disk blind.
+func (wb *Web) docRev(p string) (rev string, ok bool) {
+	fi, err := wb.Store.Stat(p)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		return "", true
+	case err != nil, fi.IsDir, fi.Size > maxEditableFile:
+		return "", false
+	}
+	data, _, err := wb.Store.Read(p)
+	if err != nil {
+		return "", false
+	}
+	return store.Rev(data), true
 }
 
 // searchHandler serves the full text search page.

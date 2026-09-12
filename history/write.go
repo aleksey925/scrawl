@@ -28,6 +28,13 @@ type Op struct {
 // request's commit picks up the first request's write and signs it with the
 // wrong actor, and the audit trail says something that never happened.
 //
+// The mutation reports the paths it touched, because not every caller knows
+// them in advance: an upload learns the name only once the store has picked a
+// free one, and naming the directory instead would stage everything under it.
+// Paths known up front go in Op.Paths and are validated before the mutation
+// runs, so one the service could never record refuses the write rather than
+// quietly skipping the audit trail.
+//
 // A failed commit is fatal only when Op.Strict is set, which is what an API
 // client gets: an automated agent must not believe it changed a document that
 // history never recorded. Otherwise the save stands, the service reports
@@ -35,9 +42,10 @@ type Op struct {
 //
 // An error from the mutation is returned untouched, so the caller can still
 // match the store sentinels on it.
-func (s *Service) Record(ctx context.Context, op Op, mutate func() error) error {
+func (s *Service) Record(ctx context.Context, op Op, mutate func() ([]string, error)) error {
 	if s == nil {
-		return mutate()
+		_, err := mutate()
+		return err
 	}
 	paths, err := s.recordPaths(op.Paths)
 	if err != nil {
@@ -48,9 +56,11 @@ func (s *Service) Record(ctx context.Context, op Op, mutate func() error) error 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if mErr := mutate(); mErr != nil {
+	touched, mErr := mutate()
+	if mErr != nil {
 		return mErr
 	}
+	paths = merge(paths, s.mutatedPaths(touched))
 	if len(paths) == 0 && len(s.pending) == 0 {
 		return nil
 	}
@@ -206,6 +216,25 @@ func (s *Service) recordPaths(paths []string) ([]string, error) {
 	return slices.Compact(res), nil
 }
 
+// mutatedPaths keeps the versionable paths a mutation reported for itself. One
+// it cannot clean is dropped instead of failing the caller: the write has
+// already happened, so refusing now would report a change that did land, and
+// the next Reconcile stages the path anyway.
+func (s *Service) mutatedPaths(paths []string) []string {
+	res := make([]string, 0, len(paths))
+	for _, p := range paths {
+		cleaned, err := cleanPath(p)
+		if err != nil {
+			log.Printf("[WARN] history: skipping %q, which the mutation reported: %v", p, err)
+			continue
+		}
+		if s.versioned(cleaned) {
+			res = append(res, cleaned)
+		}
+	}
+	return res
+}
+
 // reconcilePaths is everything worth staging: what the store still shows, plus
 // what history holds and the store no longer has. Called with the lock held.
 func (s *Service) reconcilePaths(ctx context.Context) ([]string, error) {
@@ -265,6 +294,16 @@ func (s *Service) withPending(paths []string) []string {
 	for p := range s.pending {
 		res = append(res, p)
 	}
+	slices.Sort(res)
+	return slices.Compact(res)
+}
+
+// merge joins two path sets into one sorted set without duplicates.
+func merge(known, touched []string) []string {
+	if len(touched) == 0 {
+		return known
+	}
+	res := slices.Concat(known, touched)
 	slices.Sort(res)
 	return slices.Compact(res)
 }

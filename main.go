@@ -23,6 +23,7 @@ import (
 	"github.com/jessevdk/go-flags"
 
 	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/history"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/server"
@@ -44,6 +45,8 @@ type options struct {
 
 	Watch  string        `long:"watch" env:"WATCH" default:"auto" choice:"auto" choice:"poll" description:"change detection, poll for a network share"`
 	Rescan time.Duration `long:"rescan" env:"RESCAN" default:"60s" description:"periodic full rescan, negative disables it unless watch is poll"`
+
+	History string `long:"history" env:"HISTORY" default:"auto" choice:"auto" choice:"on" choice:"off" description:"document history in git"`
 
 	Auth struct {
 		Users      []string      `long:"users" env:"USERS" env-delim:"," description:"user:bcryptHashOrPlainPassword pairs"`
@@ -201,6 +204,17 @@ func run(ctx context.Context, opts *options) error {
 		return fmt.Errorf("setup auth: %w", err)
 	}
 
+	//nolint:contextcheck // history.New bounds its own git calls with the init timeout, it takes no context
+	hist, err := newHistory(opts, notes)
+	if err != nil {
+		return err
+	}
+	defer hist.Close()
+	// before the first request: this is the baseline import of a directory
+	// history never saw, and the recovery for a crash between a write and its
+	// commit, and both have to be in place before anything can be restored
+	reconcile(ctx, hist, historyActorStartup)
+
 	srv := &server.Web{
 		Config: server.Config{
 			ListenAddr:        opts.Listen,
@@ -221,9 +235,10 @@ func run(ctx context.Context, opts *options) error {
 		Renderer: render.New(render.Options{LinkExists: notes.Exists}),
 		Index:    index,
 		Auth:     authSvc,
+		History:  hist,
 	}
 
-	watchDone := watch(ctx, notes, index, srv)
+	watchDone := watch(ctx, notes, index, srv, hist)
 	runErr := srv.Run(ctx)
 	<-watchDone
 
@@ -247,6 +262,75 @@ func warnUnwritable(notes *store.Store) {
 	}
 }
 
+// the modes of --history.
+const (
+	historyAuto = "auto"
+	historyOn   = "on"
+	historyOff  = "off"
+)
+
+// the actors a commit is attributed to when no request is behind it.
+const (
+	historyActorStartup  = "scrawl"
+	historyActorExternal = "external"
+)
+
+// newHistory builds the history service for the configured mode. "auto" is best
+// effort: a host without git, or a notes directory that lies inside another
+// repository, leaves the app exactly as it was before the feature existed.
+// "on" is a promise the deployment made, so the same conditions stop the server
+// rather than serving without the audit trail somebody asked for.
+func newHistory(opts *options, notes *store.Store) (*history.Service, error) {
+	if opts.History == historyOff {
+		return nil, nil
+	}
+
+	svc, err := history.New(history.Config{Root: notes.Dir(), Files: historyFiles(notes)})
+	switch {
+	case err == nil:
+		log.Printf("[INFO] history is on, the git repository is %s", svc.Root())
+		return svc, nil
+	case opts.History == historyOn:
+		return nil, fmt.Errorf("history is required by --history=%s: %w", historyOn, err)
+	}
+	log.Printf("[WARN] history is off: %v", err)
+	log.Printf("[WARN] nothing else changes, but no version of a document is kept and no change is attributed; "+
+		"pass --history=%s to accept that silently, or --history=%s to make it fatal", historyOff, historyOn)
+	return nil, nil
+}
+
+// historyFiles is what history asks for when it reconciles: every path the
+// store still shows, which is the only definition of visible the app has.
+func historyFiles(notes *store.Store) func() ([]string, error) {
+	return func() ([]string, error) {
+		files, err := notes.Files()
+		if err != nil {
+			return nil, err
+		}
+		res := make([]string, 0, len(files))
+		for _, fi := range files {
+			res = append(res, fi.Path)
+		}
+		return res, nil
+	}
+}
+
+// reconcile records whatever on disk history has not seen. A failure is never
+// fatal: a server that cannot commit is still worth running, the service
+// reports itself degraded, and the next successful commit folds the gap in.
+func reconcile(ctx context.Context, hist *history.Service, actor string) {
+	if !hist.Enabled() || ctx.Err() != nil {
+		return
+	}
+	start := time.Now()
+	if err := hist.Reconcile(ctx, actor); err != nil {
+		log.Printf("[ERROR] history: record what %s changed: %v", actor, err)
+		return
+	}
+	log.Printf("[DEBUG] history: up to date with the notes as %s in %v",
+		actor, time.Since(start).Round(time.Millisecond))
+}
+
 // indexAll fills the search index from the notes directory.
 func indexAll(notes *store.Store, index *search.Index) error {
 	start := time.Now()
@@ -265,34 +349,64 @@ func indexAll(notes *store.Store, index *search.Index) error {
 	return nil
 }
 
+// historyDebounce is how long the watcher waits after the last change before it
+// records the batch. The store already merges a burst into one flush, but that
+// flush still arrives as one event per path, and each of them would otherwise
+// become a commit of its own.
+const historyDebounce = 2 * time.Second
+
 // watch keeps the search index and the rendered page cache in step with the
-// disk. The returned channel is closed once the goroutine is gone: store.Watch
-// closes its channel when ctx is canceled, so shutdown leaks nothing.
-func watch(ctx context.Context, notes *store.Store, index *search.Index, srv *server.Web) <-chan struct{} {
+// disk, and hands whatever changed outside the app to history. The returned
+// channel is closed once the goroutine is gone: store.Watch closes its channel
+// when ctx is canceled, so shutdown leaks nothing.
+func watch(ctx context.Context, notes *store.Store, index *search.Index, srv *server.Web,
+	hist *history.Service) <-chan struct{} {
 	events := notes.Watch(ctx)
 	done := make(chan struct{})
 
 	go func() {
 		defer close(done)
-		for ev := range events {
-			log.Printf("[DEBUG] change on %s: %s", ev.Path, ev.Op)
-			srv.Invalidate(ev.Path)
-			if !strings.EqualFold(path.Ext(ev.Path), ".md") {
-				continue
+		batch := time.NewTimer(historyDebounce)
+		batch.Stop()
+		defer batch.Stop()
+
+		for {
+			select {
+			case ev, ok := <-events:
+				if !ok {
+					log.Printf("[DEBUG] watcher stopped")
+					return
+				}
+				log.Printf("[DEBUG] change on %s: %s", ev.Path, ev.Op)
+				srv.Invalidate(ev.Path)
+				reindex(notes, index, ev.Path)
+				if hist.Enabled() {
+					batch.Reset(historyDebounce)
+				}
+			case <-batch.C:
+				// what the app itself wrote is committed already, so this
+				// mostly finds nothing; the edit made over SMB is the point
+				reconcile(ctx, hist, historyActorExternal)
 			}
-			// a create and a write mean the same thing here, and so does a
-			// rename: an atomic save replaces the inode, so the file that is
-			// there now is the only thing worth asking about
-			data, _, err := notes.Read(ev.Path)
-			if err != nil {
-				index.Delete(ev.Path)
-				continue
-			}
-			index.Set(ev.Path, data)
 		}
-		log.Printf("[DEBUG] watcher stopped")
 	}()
 	return done
+}
+
+// reindex brings the search index back in step with one path.
+func reindex(notes *store.Store, index *search.Index, p string) {
+	if !strings.EqualFold(path.Ext(p), ".md") {
+		return
+	}
+	// a create and a write mean the same thing here, and so does a rename: an
+	// atomic save replaces the inode, so the file that is there now is the only
+	// thing worth asking about
+	data, _, err := notes.Read(p)
+	if err != nil {
+		index.Delete(p)
+		return
+	}
+	index.Set(p, data)
 }
 
 // validate checks the options and returns the absolute notes root.

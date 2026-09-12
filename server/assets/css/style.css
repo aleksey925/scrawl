@@ -2407,6 +2407,181 @@ html.js .doc img { cursor: zoom-in; }
 .statusbar.is-dirty #status-state { color: var(--warning); }
 
 /* ==========================================================================
+   history page
+   ========================================================================== */
+
+/* a list beside a patch needs more than the reading measure, and this is the
+   only page that does, so the cap is lifted here instead of on .main */
+.page-history .main > .history { max-width: 1040px; }
+
+.history-title {
+    margin: 0 0 var(--s-1);
+    font-size: var(--fs-h1);
+    font-weight: var(--fw-semibold);
+    line-height: var(--lh-tight);
+}
+
+.history-path {
+    margin: 0 0 var(--s-6);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+}
+
+.history-warn {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    margin: 0 0 var(--s-6);
+    padding: var(--s-3) var(--s-4);
+    border-radius: var(--r-lg);
+    background: var(--warning-subtle);
+    font-size: var(--fs-small);
+}
+
+.history-warn .icon { width: 17px; height: 17px; flex: none; color: var(--warning); }
+
+.history-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+    gap: var(--s-6);
+    align-items: start;
+}
+
+.versions {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.version { display: flex; align-items: center; gap: var(--s-2); }
+
+.version-pick {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: var(--s-3);
+    border: 1px solid transparent;
+    border-radius: var(--r-lg);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.version-pick:hover { background: var(--bg-hover); }
+
+.version.is-selected .version-pick {
+    border-color: var(--accent-border);
+    background: var(--accent-subtle);
+}
+
+.version-head { display: flex; align-items: center; gap: var(--s-2); }
+
+.version-kind {
+    padding: .1em .45em;
+    border-radius: var(--r-full);
+    background: var(--bg-inset);
+    color: var(--text-2);
+    font-size: var(--fs-eyebrow);
+    font-weight: var(--fw-semibold);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.version.is-added .version-kind { background: var(--success-subtle); color: var(--success); }
+
+.version.is-renamed .version-kind { background: var(--important-subtle); color: var(--important); }
+
+.version.is-deleted .version-kind { background: var(--danger-subtle); color: var(--danger); }
+
+/* a deletion and a rename are not ordinary edits: the row itself says so, so
+   they are told apart while scanning the list rather than by reading a badge */
+.version.is-renamed .version-pick,
+.version.is-deleted .version-pick { border-left-width: 3px; }
+
+.version.is-renamed .version-pick { border-left-color: var(--important); }
+
+.version.is-deleted .version-pick { border-left-color: var(--danger); }
+
+.version-time { color: var(--text-3); font-size: var(--fs-small); }
+
+.version-message {
+    overflow: hidden;
+    font-weight: var(--fw-medium);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.version-meta {
+    display: flex;
+    gap: var(--s-2);
+    color: var(--text-3);
+    font-size: 12px;
+}
+
+.version-rev { font-family: var(--font-mono); }
+
+.version-path { color: var(--text-2); font-size: 12px; }
+
+.version-path code { font-family: var(--font-mono); }
+
+.version-restore { flex: none; }
+
+.version-detail {
+    position: sticky;
+    top: calc(var(--h-topbar) + var(--s-4));
+    padding: var(--s-4);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    background: var(--bg-subtle);
+}
+
+.version-detail[aria-busy="true"] { opacity: .6; }
+
+.version-detail .modal-col-title { margin-top: 0; }
+
+.diff {
+    max-height: 46vh;
+    margin: 0 0 var(--s-5);
+    overflow: auto;
+    font-family: var(--font-mono);
+    font-size: var(--fs-code);
+    line-height: 1.55;
+    white-space: pre;
+}
+
+.diff-line { display: block; padding-inline: var(--s-2); }
+
+.diff-line.is-add { background: var(--hl-inserted-bg); }
+
+.diff-line.is-del { background: var(--hl-deleted-bg); }
+
+.diff-line.is-hunk { color: var(--accent); }
+
+.diff-line.is-meta { color: var(--text-3); }
+
+.version-content {
+    max-height: 46vh;
+    margin: 0;
+    padding: var(--s-3);
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--bg);
+    font-family: var(--font-mono);
+    font-size: var(--fs-code);
+    line-height: 1.55;
+    white-space: pre;
+}
+
+/* ==========================================================================
    responsive
    ========================================================================== */
 
@@ -2519,6 +2694,11 @@ html.js .doc img { cursor: zoom-in; }
     html:not(.js) .sidebar-scroll { max-height: 50vh; }
 
     .main { padding: var(--s-8) var(--s-5) 22vh; }
+
+    /* the patch needs the whole width long before the list stops fitting */
+    .history-cols { grid-template-columns: 1fr; }
+
+    .version-detail { position: static; }
 }
 
 @media (max-width: 767px) {
@@ -2599,6 +2779,8 @@ html.js .doc img { cursor: zoom-in; }
     .palette-foot { display: none; }
 
     .modal-cols { grid-template-columns: 1fr; }
+
+    .history-title { font-size: 1.5rem; }
 }
 
 /* editor: below 900px the split collapses into a tab switcher */

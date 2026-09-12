@@ -7,6 +7,7 @@ files on disk are the only state.
 - full text search, with a command palette on `Ctrl`/`Cmd` + `K`
 - an editor with live preview, on desktop and on mobile
 - create, rename and delete pages, paste images straight into the editor
+- a version history per page: what changed, by whom, and a restore
 - a login page, users configured through the environment
 - a JSON API with token auth, for scripts and agents
 - light and dark themes
@@ -94,6 +95,7 @@ Environment variables, each also available as a flag. Run
 | `UPLOAD_DIR`       |                     | one shared folder for uploads                             |
 | `WATCH`            | `auto`              | `poll` when the root is a network share                   |
 | `RESCAN`           | `60s`               | periodic rescan, negative disables it unless `WATCH=poll` |
+| `HISTORY`          | `auto`              | keep a git history of changes, `on` fails without git     |
 | `TRUSTED_PROXY`    | `false`             | trust `X-Forwarded-For` and `-Proto`                      |
 | `TZ`               | `UTC`               | timezone                                                  |
 | `DEBUG`            | `false`             | debug logging                                             |

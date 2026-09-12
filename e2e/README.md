@@ -4,16 +4,19 @@ Playwright drives a real Chromium against a real `scrawl` binary: two
 projects, desktop at 1440x900 and an iPhone 13 profile at 390x844 with
 touch and a mobile user agent.
 
-`playwright.config.js` starts the binary itself. Three instances come up,
+`playwright.config.js` starts the binary itself. Four instances come up,
 each against its own throwaway copy of the corpus made by
 `support/serve.js`, so a run never touches the source tree:
 
 - `127.0.0.1:8731` - normal mode, used by nearly every spec
-- `127.0.0.1:8732` - `--read-only`, used by `readonly.spec.js`
+- `127.0.0.1:8732` - `--read-only --history=on`, used by
+  `readonly.spec.js` and by the read-only half of `history.spec.js`
 - `127.0.0.1:8733` - `--upload-dir=attachments`, one upload test
+- `127.0.0.1:8734` - `--history=on`, used by `history.spec.js`
 
-All three run with authentication on, user `e2e`, password
-`e2e-secret-pass`.
+All four run with authentication on, user `e2e`, password
+`e2e-secret-pass`. Every instance passes `--history` explicitly: left to
+the default a machine without git would silently serve without versions.
 
 ## Fixtures
 
@@ -72,10 +75,12 @@ SCRAWL_E2E_FIXTURE=../examples/data npx playwright test
 | `SCRAWL_E2E_PORT` | port of the normal instance | `8731` |
 | `SCRAWL_E2E_PORT_RO` | port of the read-only instance | `8732` |
 | `SCRAWL_E2E_PORT_SHARED` | port of the `--upload-dir` instance | `8733` |
+| `SCRAWL_E2E_PORT_HISTORY` | port of the `--history=on` instance | `8734` |
 | `SCRAWL_E2E_SHOTS` | where the step screenshots go | `e2e/screenshots` |
 
 Server logs are the first place to look at a failure:
-`$TMPDIR/scrawl-e2e/main.log`, `readonly.log` and `shared.log`.
+`$TMPDIR/scrawl-e2e/main.log`, `readonly.log`, `shared.log` and
+`history.log`.
 
 ## Notes
 

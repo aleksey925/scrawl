@@ -76,5 +76,13 @@ module.exports = defineConfig({
             stdout: 'pipe',
             stderr: 'pipe',
         },
+        {
+            command: `node ${launcher} history`,
+            url: `${instances.history.baseURL}/login`,
+            reuseExistingServer: false,
+            timeout: 120_000,
+            stdout: 'pipe',
+            stderr: 'pipe',
+        },
     ],
 });

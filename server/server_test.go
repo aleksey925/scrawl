@@ -56,6 +56,7 @@ type testServer struct {
 type testOpts struct {
 	readOnly bool
 	withAuth bool
+	history  History
 }
 
 func newTestServer(t *testing.T, opts testOpts) *testServer {
@@ -98,6 +99,7 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 		Renderer: render.New(render.Options{LinkExists: notes.Exists}),
 		Index:    index,
 		Auth:     svc,
+		History:  opts.history,
 	}
 
 	router, err := wb.router()

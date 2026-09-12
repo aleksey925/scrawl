@@ -1,0 +1,236 @@
+package server
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/history"
+	"github.com/aleksey925/scrawl/store"
+)
+
+// historyLimit caps how many versions of one document the list endpoint
+// returns. The page lists them all at once, and nobody scrolls further back.
+const historyLimit = 200
+
+// History is the part of history.Service the web layer uses, so the handlers
+// can be driven without a git repository behind them.
+type History interface {
+	Enabled() bool
+	Degraded() bool
+	Record(ctx context.Context, op history.Op, mutate func() ([]string, error)) error
+	Log(ctx context.Context, p string, limit int) ([]history.Entry, error)
+	Show(ctx context.Context, blob string) ([]byte, error)
+	Diff(ctx context.Context, rev, p string) (string, error)
+}
+
+// errHistoryNotRecorded marks a write that reached the disk and never reached
+// history. Only a strict caller, which is an API client, is told about it.
+var errHistoryNotRecorded = errors.New("not recorded in history")
+
+// historyEntry is one version of a document as the JSON API spells it.
+type historyEntry struct {
+	Rev     string    `json:"rev"`
+	Short   string    `json:"short"`
+	Blob    string    `json:"blob"`
+	Actor   string    `json:"actor"`
+	Message string    `json:"message"`
+	Path    string    `json:"path"`
+	Kind    string    `json:"kind"`
+	At      time.Time `json:"at"`
+}
+
+type restoreRequest struct {
+	Blob string `json:"blob"`
+	Rev  string `json:"rev"`
+}
+
+// history returns the service, falling back to the disabled one. A nil
+// *history.Service answers every method, so a server running without history
+// needs no second code path anywhere in the handlers.
+func (wb *Web) history() History {
+	if wb.History == nil {
+		return (*history.Service)(nil)
+	}
+	return wb.History
+}
+
+// apiHistory lists the versions of a document, newest first, and serves one of
+// them instead when the query names a revision.
+func (wb *Web) apiHistory(w http.ResponseWriter, r *http.Request) {
+	p, ok := contentPath(r, "path")
+	if !ok || p == "" {
+		jsonError(w, http.StatusBadRequest, "bad path")
+		return
+	}
+	if rev := r.URL.Query().Get("rev"); rev != "" {
+		wb.historyVersion(w, r, p, rev, r.URL.Query().Get("blob"))
+		return
+	}
+
+	entries, err := wb.history().Log(r.Context(), p, historyLimit)
+	if err != nil {
+		failHistory(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"path":     p,
+		"degraded": wb.history().Degraded(),
+		"entries":  historyEntries(entries),
+	})
+}
+
+// historyVersion answers one version: the patch that commit made to the
+// document, plus the content as it stood afterwards. The path is the historical
+// one the entry carries, which is not today's path once a rename sits between
+// them, and the blob is how content is read for the same reason.
+//
+// Content is absent whenever there is nothing a reader could be shown: a
+// deletion has no blob, an attachment is not text, and a version too large to
+// edit is too large to escape into a JSON string. The diff is always there.
+func (wb *Web) historyVersion(w http.ResponseWriter, r *http.Request, p, rev, blob string) {
+	diff, err := wb.history().Diff(r.Context(), rev, p)
+	if err != nil {
+		failHistory(w, r, err)
+		return
+	}
+
+	res := map[string]any{"path": p, "rev": rev, "blob": blob, "diff": diff, "text": isTextFile(p)}
+	if blob != "" && isTextFile(p) {
+		data, showErr := wb.history().Show(r.Context(), blob)
+		if showErr != nil {
+			failHistory(w, r, showErr)
+			return
+		}
+		if len(data) <= maxEditableFile {
+			res["content"] = string(data)
+		}
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+// apiHistoryRestore writes an old version back through the store, as an
+// ordinary save that history records like any other: nothing is rewritten, and
+// undoing the undo works. The client sends the revision it last saw, so a
+// history page left open cannot silently overwrite a newer edit - that comes
+// back as the same conflict the editor already knows.
+func (wb *Web) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
+	if wb.refuseReadOnly(w, r) {
+		return
+	}
+	p, ok := contentPath(r, "path")
+	if !ok || p == "" {
+		jsonError(w, http.StatusBadRequest, "bad path")
+		return
+	}
+	var req restoreRequest
+	if !decodeJSON(w, r, &req, maxJSONBody) {
+		return
+	}
+
+	data, err := wb.history().Show(r.Context(), req.Blob)
+	if err != nil {
+		failHistory(w, r, err)
+		return
+	}
+
+	var fi store.FileInfo
+	err = wb.record(r, history.Op{Message: "restore " + p, Paths: []string{p}}, func() ([]string, error) {
+		var writeErr error
+		fi, writeErr = wb.Store.Write(p, data, req.Rev)
+		return nil, writeErr
+	})
+	var conflict *store.ConflictError
+	switch {
+	case errors.As(err, &conflict):
+		writeConflict(w, http.StatusPreconditionFailed, "conflict", conflict.CurrentRev, conflict.Current)
+		return
+	case err != nil:
+		failJSON(w, r, err)
+		return
+	}
+
+	wb.touch(p)
+	writeJSON(w, http.StatusOK, wb.withHistory(map[string]any{
+		"path": p, "rev": store.Rev(data), "mod_time": fi.ModTime,
+	}))
+}
+
+// record runs a store mutation inside history, under the actor behind the
+// request. A write from an API client is strict: an agent must never be told a
+// document changed when history holds no record of it. A write from a browser
+// is not, because a repository that cannot commit has to cost the reader a
+// warning and never the save itself.
+func (wb *Web) record(r *http.Request, op history.Op, mutate func() ([]string, error)) error {
+	op.Actor = wb.actor(r)
+	op.Strict = auth.ByToken(r)
+
+	var mutated error
+	err := wb.history().Record(r.Context(), op, func() ([]string, error) {
+		paths, mErr := mutate()
+		mutated = mErr
+		return paths, mErr
+	})
+	switch {
+	case err == nil, mutated != nil:
+		return err
+	case errors.Is(err, history.ErrBadPath):
+		// refused before the mutation ran, so nothing was written and the
+		// client gets what the store answers for a path it would not touch
+		return fmt.Errorf("%w: %w", store.ErrForbidden, err)
+	}
+	return fmt.Errorf("%w: %w", errHistoryNotRecorded, err)
+}
+
+// actor names who is behind a request. An empty name is what history reads as
+// unknown, which is all a server assembled without auth can honestly say.
+func (wb *Web) actor(r *http.Request) string {
+	if wb.Auth == nil {
+		return ""
+	}
+	return wb.Auth.Actor(r)
+}
+
+// withHistory adds what the UI needs to tell that history fell behind. Every
+// mutating endpoint carries it, because the warning belongs on the save that
+// was missed rather than on whatever page is loaded next.
+func (wb *Web) withHistory(res map[string]any) map[string]any {
+	res["history_degraded"] = wb.history().Degraded()
+	return res
+}
+
+// failHistory answers a failed history read. The status is everything a client
+// can act on, and the cause goes to the log: a repository that stopped working
+// is a deployment problem nobody can diagnose from a response body.
+func failHistory(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, history.ErrDisabled):
+		jsonError(w, http.StatusServiceUnavailable, "history is disabled")
+	case errors.Is(err, history.ErrBadPath):
+		jsonError(w, http.StatusBadRequest, "bad path")
+	default:
+		log.Printf("[ERROR] %s %s: %v", r.Method, r.URL.Path, err)
+		jsonError(w, http.StatusInternalServerError, "history is unavailable")
+	}
+}
+
+func historyEntries(entries []history.Entry) []historyEntry {
+	res := make([]historyEntry, 0, len(entries))
+	for _, ent := range entries {
+		res = append(res, historyEntry{
+			Rev:     ent.Rev,
+			Short:   ent.Short,
+			Blob:    ent.Blob,
+			Actor:   ent.Actor,
+			Message: ent.Message,
+			Path:    ent.Path,
+			Kind:    string(ent.Kind),
+			At:      ent.At,
+		})
+	}
+	return res
+}

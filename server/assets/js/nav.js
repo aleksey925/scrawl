@@ -357,7 +357,7 @@ async function deletePath(path, kind) {
 }
 
 function currentPath() {
-    const holder = qs('#doc') || qs('#editor') || qs('#dir');
+    const holder = qs('#doc') || qs('#editor') || qs('#dir') || qs('#history');
     return holder ? holder.dataset.path : '';
 }
 

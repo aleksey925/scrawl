@@ -49,6 +49,9 @@ type Base struct {
 	Tree        []TreeNode
 	Breadcrumbs []Crumb
 	CurrentPath string
+
+	HistoryOn       bool // versions of a document can be listed and restored
+	HistoryDegraded bool // a change was not recorded, so the list is behind the disk
 }
 
 // ViewPage renders one markdown document. TOC holds only the headings the rail
@@ -129,6 +132,17 @@ type SearchPage struct {
 	Elapsed time.Duration
 }
 
+// HistoryPage lists the versions of one document, newest first. Rev is the
+// revision the document had when the page was built and a restore sends it
+// back, so a page left open cannot silently overwrite an edit it never saw.
+type HistoryPage struct {
+	Base
+	Entries    []historyEntry
+	ViewURL    string
+	Rev        string
+	CanRestore bool
+}
+
 // ErrorPage renders a failure as a normal page of the app.
 type ErrorPage struct {
 	Base
@@ -148,6 +162,9 @@ func (wb *Web) base(r *http.Request, title, currentPath string) Base {
 		Tree:        wb.treeNodes(currentPath),
 		Breadcrumbs: breadcrumbs(currentPath),
 		CurrentPath: currentPath,
+
+		HistoryOn:       wb.history().Enabled(),
+		HistoryDegraded: wb.history().Degraded(),
 	}
 	if wb.Auth != nil {
 		res.User, _ = wb.Auth.User(r)
@@ -259,6 +276,8 @@ func dirURL(p string) string {
 }
 
 func editURL(p string) string { return "/edit/" + encodePath(p) }
+
+func historyURL(p string) string { return "/history/" + encodePath(p) }
 
 // encodePath escapes a content path segment by segment, so the slashes survive
 // and everything else is safe in a URL.

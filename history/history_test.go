@@ -160,11 +160,11 @@ func unlockIndex(t *testing.T, s *Service) {
 func record(t *testing.T, s *Service, op Op, files map[string]string) error {
 	t.Helper()
 
-	return s.Record(t.Context(), op, func() error {
+	return s.Record(t.Context(), op, func() ([]string, error) {
 		for rel, content := range files {
 			writeFile(t, s.Root(), rel, content)
 		}
-		return nil
+		return nil, nil
 	})
 }
 
@@ -285,6 +285,23 @@ func TestServiceRecord(t *testing.T) {
 		assert.Equal(t, []string{"note.md"}, trackedPaths(t, s))
 	})
 
+	t.Run("merges the paths the mutation reports with the ones it was given", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+
+		// act
+		op := Op{Actor: "alex", Message: "upload an attachment", Paths: []string{"note.md"}}
+		err := s.Record(t.Context(), op, func() ([]string, error) {
+			writeFile(t, s.Root(), "note.md", "# note\n")
+			writeFile(t, s.Root(), "note/image-1.png", "png\n")
+			return []string{"note/image-1.png", "note/plain.txt", "../outside.png"}, nil
+		})
+
+		// assert
+		require.NoError(t, err)
+		assert.Equal(t, []string{"note.md", "note/image-1.png"}, trackedPaths(t, s))
+	})
+
 	t.Run("skips the commit when the mutation changed nothing", func(t *testing.T) {
 		// arrange
 		s := newService(t)
@@ -305,7 +322,8 @@ func TestServiceRecord(t *testing.T) {
 		failure := os.ErrPermission
 
 		// act
-		err := s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"note.md"}}, func() error { return failure })
+		err := s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"note.md"}},
+			func() ([]string, error) { return nil, failure })
 
 		// assert
 		assert.ErrorIs(t, err, failure)
@@ -319,8 +337,9 @@ func TestServiceRecord(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"note.md"}}, map[string]string{"note.md": "# note\n"}))
 
 		// act
-		err := s.Record(t.Context(), Op{Actor: "alex", Message: "delete note.md", Paths: []string{"note.md"}}, func() error {
-			return os.Remove(filepath.Join(s.Root(), "note.md"))
+		op := Op{Actor: "alex", Message: "delete note.md", Paths: []string{"note.md"}}
+		err := s.Record(t.Context(), op, func() ([]string, error) {
+			return nil, os.Remove(filepath.Join(s.Root(), "note.md"))
 		})
 
 		// assert
@@ -345,8 +364,8 @@ func TestServiceRecord(t *testing.T) {
 
 		// act
 		op := Op{Actor: "bob", Message: "move note.md", Paths: []string{"note.md", "moved.md"}}
-		err := s.Record(t.Context(), op, func() error {
-			return os.Rename(filepath.Join(s.Root(), "note.md"), filepath.Join(s.Root(), "moved.md"))
+		err := s.Record(t.Context(), op, func() ([]string, error) {
+			return nil, os.Rename(filepath.Join(s.Root(), "note.md"), filepath.Join(s.Root(), "moved.md"))
 		})
 
 		// assert
@@ -418,9 +437,9 @@ func TestServiceRecord(t *testing.T) {
 		ran := false
 
 		// act
-		err := s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"../evil.md"}}, func() error {
+		err := s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"../evil.md"}}, func() ([]string, error) {
 			ran = true
-			return nil
+			return nil, nil
 		})
 
 		// assert
@@ -516,10 +535,10 @@ func TestServiceRecord(t *testing.T) {
 		// act
 		go func() {
 			op := Op{Actor: "alice", Message: "alice saves", Paths: []string{"shared.md", "alice.md"}}
-			firstDone <- s.Record(t.Context(), op, func() error {
+			firstDone <- s.Record(t.Context(), op, func() ([]string, error) {
 				close(firstInside)
 				<-release
-				return writeBoth(s.Root(), "shared.md", "alice\n", "alice.md", "a\n")
+				return nil, writeBoth(s.Root(), "shared.md", "alice\n", "alice.md", "a\n")
 			})
 		}()
 		<-firstInside
@@ -527,9 +546,9 @@ func TestServiceRecord(t *testing.T) {
 		go func() {
 			op := Op{Actor: "bob", Message: "bob saves", Paths: []string{"shared.md", "bob.md"}}
 			close(secondCalled)
-			secondDone <- s.Record(t.Context(), op, func() error {
+			secondDone <- s.Record(t.Context(), op, func() ([]string, error) {
 				close(secondRan)
-				return writeBoth(s.Root(), "shared.md", "bob\n", "bob.md", "b\n")
+				return nil, writeBoth(s.Root(), "shared.md", "bob\n", "bob.md", "b\n")
 			})
 		}()
 		<-secondCalled
@@ -587,9 +606,9 @@ func TestServiceRecord(t *testing.T) {
 		ran := false
 
 		// act
-		err := s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"note.md"}}, func() error {
+		err := s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"note.md"}}, func() ([]string, error) {
 			ran = true
-			return nil
+			return nil, nil
 		})
 
 		// assert
@@ -815,8 +834,8 @@ func TestServiceShow(t *testing.T) {
 		s := newService(t)
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"note.md"}}, map[string]string{"note.md": "first\n"}))
 		op := Op{Actor: "alex", Paths: []string{"note.md", "moved.md"}}
-		require.NoError(t, s.Record(t.Context(), op, func() error {
-			return os.Rename(filepath.Join(s.Root(), "note.md"), filepath.Join(s.Root(), "moved.md"))
+		require.NoError(t, s.Record(t.Context(), op, func() ([]string, error) {
+			return nil, os.Rename(filepath.Join(s.Root(), "note.md"), filepath.Join(s.Root(), "moved.md"))
 		}))
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"moved.md"}}, map[string]string{"moved.md": "second\n"}))
 

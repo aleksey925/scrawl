@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/history"
 	"github.com/aleksey925/scrawl/store"
 )
 
@@ -148,7 +149,12 @@ func (wb *Web) apiFileSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fi, err := wb.Store.Write(p, []byte(req.Content), req.Rev)
+	var fi store.FileInfo
+	err := wb.record(r, history.Op{Message: "save " + p, Paths: []string{p}}, func() ([]string, error) {
+		var writeErr error
+		fi, writeErr = wb.Store.Write(p, []byte(req.Content), req.Rev)
+		return nil, writeErr
+	})
 	var conflict *store.ConflictError
 	switch {
 	case errors.As(err, &conflict):
@@ -171,7 +177,9 @@ func (wb *Web) apiFileSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wb.touch(p)
-	writeJSON(w, http.StatusOK, map[string]any{"rev": store.Rev([]byte(req.Content)), "mod_time": fi.ModTime})
+	writeJSON(w, http.StatusOK, wb.withHistory(map[string]any{
+		"rev": store.Rev([]byte(req.Content)), "mod_time": fi.ModTime,
+	}))
 }
 
 // writeConflict answers a save that collided with the file on disk. Both
@@ -203,13 +211,24 @@ func (wb *Web) apiFileCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fi, err := wb.Store.Create(p, req.Type == "dir")
+	// only a file has content worth recording, and a new directory is empty
+	// anyway: naming one would be a pathspec over everything below it
+	var recorded []string
+	if req.Type == "file" {
+		recorded = []string{p}
+	}
+	var fi store.FileInfo
+	err := wb.record(r, history.Op{Message: "create " + p, Paths: recorded}, func() ([]string, error) {
+		var createErr error
+		fi, createErr = wb.Store.Create(p, req.Type == "dir")
+		return nil, createErr
+	})
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
 	wb.touch(p)
-	writeJSON(w, http.StatusCreated, map[string]string{"path": fi.Path})
+	writeJSON(w, http.StatusCreated, wb.withHistory(map[string]any{"path": fi.Path}))
 }
 
 // apiFileDelete removes a file or an empty directory.
@@ -223,7 +242,10 @@ func (wb *Web) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := wb.Store.Remove(p); err != nil {
+	err := wb.record(r, history.Op{Message: "delete " + p, Paths: []string{p}}, func() ([]string, error) {
+		return nil, wb.Store.Remove(p)
+	})
+	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
@@ -245,12 +267,44 @@ func (wb *Web) apiMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := wb.Store.Move(req.From, req.To); err != nil {
+	op := history.Op{Message: "move " + req.From + " to " + req.To, Paths: []string{req.From, req.To}}
+	err := wb.record(r, op, func() ([]string, error) {
+		moved := wb.movedPaths(req.From, req.To)
+		return moved, wb.Store.Move(req.From, req.To)
+	})
+	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
 	wb.touch(req.From, req.To)
-	writeJSON(w, http.StatusOK, map[string]string{"path": req.To})
+	writeJSON(w, http.StatusOK, wb.withHistory(map[string]any{"path": req.To}))
+}
+
+// movedPaths lists the documents a move carries with it. A file names itself in
+// Op.Paths, but a directory has no extension worth versioning, so moving one
+// would record nothing at all unless the files under it are named too. The list
+// has to be read before the move, while the old paths still exist.
+//
+// A failure here is not worth refusing the move over: the change still reaches
+// history through the reconcile the watcher runs, only as an external one.
+func (wb *Web) movedPaths(from, to string) []string {
+	files, err := wb.Store.Files()
+	if err != nil {
+		return nil
+	}
+	prefix := from + "/"
+	res := make([]string, 0, len(files))
+	for _, fi := range files {
+		if !strings.HasPrefix(fi.Path, prefix) {
+			continue
+		}
+		res = append(res, fi.Path, to+"/"+strings.TrimPrefix(fi.Path, prefix))
+	}
+	if len(res) == 0 {
+		// moving a file names itself in Op.Paths, so there is nothing to add
+		return nil
+	}
+	return res
 }
 
 // apiUpload stores an attachment and answers with a markdown link relative to
@@ -284,17 +338,27 @@ func (wb *Web) apiUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	fi, err := wb.Store.Upload(wb.uploadDir(doc, dir), header.Filename, file, wb.MaxUpload)
+	var fi store.FileInfo
+	err = wb.record(r, history.Op{Message: "upload an attachment"}, func() ([]string, error) {
+		var upErr error
+		fi, upErr = wb.Store.Upload(wb.uploadDir(doc, dir), header.Filename, file, wb.MaxUpload)
+		if upErr != nil {
+			return nil, upErr
+		}
+		// the store picks a free name inside the directory, so the path to
+		// record exists only once the file itself does
+		return []string{fi.Path}, nil
+	})
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
 	wb.touch(fi.Path)
 
-	writeJSON(w, http.StatusCreated, map[string]string{
+	writeJSON(w, http.StatusCreated, wb.withHistory(map[string]any{
 		"path":     fi.Path,
 		"markdown": "![](" + relativeLink(doc, fi.Path) + ")",
-	})
+	}))
 }
 
 // uploadDir decides where an attachment lands. By default it is the corpus

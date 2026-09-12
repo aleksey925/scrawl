@@ -19,21 +19,34 @@ function pickFixture() {
 const fixture = pickFixture();
 const workDir = process.env.SCRAWL_E2E_WORK || path.join(os.tmpdir(), 'scrawl-e2e');
 
+// historyMode is passed as --history, never left to the default: on a machine
+// without git "auto" turns itself off, and a spec about versions would then
+// fail for a reason nothing on the page mentions
 const instances = {
     main: {
         port: Number(process.env.SCRAWL_E2E_PORT || 8731),
         root: path.join(workDir, 'notes-main'),
         readOnly: false,
+        historyMode: 'off',
     },
     readonly: {
         port: Number(process.env.SCRAWL_E2E_PORT_RO || 8732),
         root: path.join(workDir, 'notes-readonly'),
         readOnly: true,
+        // reading the versions is a read, so read-only mode keeps the page and
+        // owes the reader no Restore button on it
+        historyMode: 'on',
     },
     shared: {
         port: Number(process.env.SCRAWL_E2E_PORT_SHARED || 8733),
         root: path.join(workDir, 'notes-shared'),
         uploadDir: 'attachments',
+        historyMode: 'off',
+    },
+    history: {
+        port: Number(process.env.SCRAWL_E2E_PORT_HISTORY || 8734),
+        root: path.join(workDir, 'notes-history'),
+        historyMode: 'on',
     },
 };
 

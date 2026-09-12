@@ -12,6 +12,7 @@ store/                 safe filesystem access, tree, CRUD, watcher
 render/                markdown -> HTML, link rewrite, TOC, highlighting
 search/                in-memory full-text index
 auth/                  users, sessions, middleware, CSRF, rate limit
+history/               git-backed document history: record, log, restore
 server/                HTTP server, handlers, page cache
 server/templates/      html/template pages, parsed as one set
 server/assets/         css and js, embedded and served under /static
@@ -65,6 +66,20 @@ vendor/                dependencies, checked in, `make deps` regenerates
   mode. A `Bearer` API token authenticates instead of the cookie, gets
   no session and skips the cross-origin check; a `:ro` token is refused
   the same writes the server-wide read-only mode refuses.
+- Document history is git and optional: `--history=auto|on|off`. The
+  repository has to be rooted exactly at the notes root; one that merely
+  sits inside another repository is refused, never adopted. Only the
+  paths an operation names are staged, never the worktree, because
+  ignore rules cannot express what `store` treats as visible: git will
+  not descend into an excluded directory, and a `.gitignore` among the
+  notes outranks anything scrawl writes. The store mutation and the
+  commit are one critical section, otherwise a second request's commit
+  picks up the first one's write and signs it with the wrong actor. A
+  version is read by its blob, because a path stops resolving against an
+  older revision once a rename sits in between. A failed commit is fatal
+  only for an API token, so an agent never gets a 200 for a change
+  history missed; a browser save survives it and the page says history
+  fell behind.
 
 ## Commands
 

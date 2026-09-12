@@ -121,6 +121,7 @@ type Web struct {
 	Renderer *render.Renderer
 	Index    *search.Index
 	Auth     *auth.Service
+	History  History
 
 	templates *template.Template
 
@@ -236,10 +237,12 @@ func (wb *Web) router() (http.Handler, error) {
 	router.HandleFunc("GET /p/{path...}", wb.viewHandler)
 	router.HandleFunc("GET /raw/{path...}", wb.rawHandler)
 	router.HandleFunc("GET /edit/{path...}", wb.editHandler)
+	router.HandleFunc("GET /history/{path...}", wb.historyPage)
 	router.HandleFunc("GET /search", wb.searchHandler)
 	router.HandleFunc("GET /api/tree", wb.apiTree)
 	router.HandleFunc("GET /api/file/{path...}", wb.apiFileGet)
 	router.HandleFunc("GET /api/search", wb.apiSearch)
+	router.HandleFunc("GET /api/history/{path...}", wb.apiHistory)
 
 	// everything that changes state, plus the login form itself, has to survive
 	// a cross-site POST: Go's CrossOriginProtection checks Sec-Fetch-Site
@@ -252,6 +255,7 @@ func (wb *Web) router() (http.Handler, error) {
 	mutating.HandleFunc("POST /api/move", wb.apiMove)
 	mutating.HandleFunc("POST /api/upload/{dir...}", wb.apiUpload)
 	mutating.HandleFunc("POST /api/preview", wb.apiPreview)
+	mutating.HandleFunc("POST /api/history/restore/{path...}", wb.apiHistoryRestore)
 
 	return router, nil
 }
@@ -320,6 +324,7 @@ func (wb *Web) parseTemplates() error {
 		// query string. These two are the same builders the JSON API uses.
 		"contentURL": contentURL,
 		"editURL":    editURL,
+		"historyURL": historyURL,
 
 		// a search snippet arrives escaped with only <mark> left in it, so it
 		// goes into the page as it is. Anything that is not already marked safe

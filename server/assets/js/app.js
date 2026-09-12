@@ -6,6 +6,7 @@ import {initNav} from './nav.js';
 import {initPalette} from './palette.js';
 import {initReader} from './reader.js';
 import {initEditor} from './editor.js';
+import {initHistory} from './history.js';
 import {initShortcuts} from './shortcuts.js';
 
 function boot() {
@@ -14,6 +15,7 @@ function boot() {
     initPalette();
     initReader();
     initEditor();
+    initHistory();
     initShortcuts();
 }
 

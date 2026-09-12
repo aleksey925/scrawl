@@ -18,6 +18,8 @@ func statusOf(err error) int {
 		return http.StatusOK
 	case errors.Is(err, errRenderTimeout):
 		return http.StatusServiceUnavailable
+	case errors.Is(err, errHistoryNotRecorded):
+		return http.StatusInternalServerError
 	case errors.Is(err, store.ErrPermission):
 		return http.StatusForbidden
 	case errors.Is(err, store.ErrConflict):
@@ -44,6 +46,8 @@ func errMessage(err error) string {
 	switch {
 	case errors.Is(err, errRenderTimeout):
 		return "rendering took too long"
+	case errors.Is(err, errHistoryNotRecorded):
+		return "the change was written but not recorded in history"
 	case errors.Is(err, store.ErrPermission):
 		return permissionMessage
 	case errors.Is(err, store.ErrConflict):

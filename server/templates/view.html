@@ -4,6 +4,13 @@
 <a class="skip-link" href="#main">Skip to content</a>
 <div class="app">
     {{template "topbar-start" .}}
+        {{if .HistoryOn}}
+            <a class="btn btn-ghost topbar-history" href="{{historyURL .CurrentPath}}"
+               aria-label="Version history of this page">
+                <svg class="icon" aria-hidden="true"><use href="#icon-history"></use></svg>
+                <span class="btn-text">History</span>
+            </a>
+        {{end}}
         {{if and .EditURL (not .ReadOnly)}}
             <a class="btn btn-secondary topbar-edit" href="{{.EditURL}}"
                aria-label="{{if .Missing}}Create this page{{else}}Edit this page{{end}}">

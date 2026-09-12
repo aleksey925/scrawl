@@ -9,6 +9,7 @@ const {instances, password, shotsDir, user} = require('./env');
 const MAIN = instances.main;
 const READONLY = instances.readonly;
 const SHARED = instances.shared;
+const HISTORY = instances.history;
 
 let shotSeq = 0;
 
@@ -99,6 +100,7 @@ async function expectNoHorizontalScroll(page) {
 }
 
 module.exports = {
+    HISTORY,
     MAIN,
     READONLY,
     SHARED,

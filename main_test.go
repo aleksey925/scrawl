@@ -378,7 +378,12 @@ func TestNewHistory(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, hist.Close()) })
 		assert.True(t, hist.Enabled())
-		assert.Equal(t, root, hist.Root())
+		// the service canonicalizes its root, so the comparison has to start
+		// from the same place: on macOS a temp directory lives under /var,
+		// which is a symlink to /private/var
+		resolved, err := filepath.EvalSymlinks(root)
+		require.NoError(t, err)
+		assert.Equal(t, resolved, hist.Root())
 	})
 
 	t.Run("auto carries on when the root is inside another repository", func(t *testing.T) {

@@ -469,7 +469,7 @@ func TestOnlyDotMDIsADocument(t *testing.T) {
 	for _, node := range ts.treeNodes("") {
 		paths = append(paths, node.Path)
 	}
-	assert.Equal(t, []string{"docs", "notes", "guide.md", "index.md", "links.md"}, paths)
+	assert.Equal(t, []string{"docs", "images", "notes", "guide.md", "index.md", "links.md"}, paths)
 }
 
 func TestViewNeverLeaksTheFilesystemPath(t *testing.T) {
@@ -631,11 +631,28 @@ func TestAPITree(t *testing.T) {
 	for _, node := range body["tree"].([]any) {
 		names = append(names, node.(map[string]any)["name"].(string))
 	}
-	assert.Equal(t, []string{"docs", "notes", "guide.md", "index.md", "links.md"}, names,
-		"the tree indexes documents, not every file")
+	assert.Equal(t, []string{"docs", "images", "notes", "guide.md", "index.md", "links.md"}, names,
+		"every folder is listed, and of the files only the documents")
 }
 
-func TestTreeSkipsFoldersWithoutDocuments(t *testing.T) {
+func TestAPITreeDirsOnly(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	// act
+	resp, body := ts.json(t, request{path: "/api/tree?dirs=1"})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	names := []string{}
+	for _, node := range body["tree"].([]any) {
+		names = append(names, node.(map[string]any)["name"].(string))
+	}
+	assert.Equal(t, []string{"docs", "images", "notes"}, names,
+		"the destination picker asks for folders, so the documents are left out")
+}
+
+func TestTreeKeepsEveryFolder(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
 	require.NoError(t, os.MkdirAll(filepath.Join(ts.root, "attachments"), 0o750))
@@ -650,7 +667,9 @@ func TestTreeSkipsFoldersWithoutDocuments(t *testing.T) {
 	for _, node := range nodes {
 		paths = append(paths, node.Path)
 	}
-	assert.Equal(t, []string{"docs", "notes", "guide.md", "index.md", "links.md"}, paths)
+	assert.Equal(t, []string{"attachments", "docs", "empty", "images", "notes",
+		"guide.md", "index.md", "links.md"}, paths,
+		"a folder is where a page is created, so it is listed before it holds one")
 }
 
 func TestTreeDirectoriesCarryTheirPageURL(t *testing.T) {
@@ -1021,7 +1040,8 @@ func TestAPISearch(t *testing.T) {
 	require.Len(t, hits, 1)
 	hit := hits[0].(map[string]any)
 	assert.Equal(t, "guide.md", hit["path"])
-	assert.Equal(t, "/p/guide.md", hit["url"])
+	assert.Equal(t, "/p/guide.md?q=widgets", hit["url"],
+		"the hit carries the query on, so the page it opens can jump to the match")
 	assert.Contains(t, hit["snippet"], "<mark>widgets</mark>")
 	assert.NotNil(t, body["elapsed_ms"])
 }
@@ -1686,7 +1706,10 @@ func TestPageLinksEscapeAwkwardPaths(t *testing.T) {
 		data any
 		want string
 	}{
-		{name: "search hit", tmpl: "search.html", want: "/p/notes/%D1%87%D1%82%D0%BE%3F%20%D0%B4%D0%B0.md",
+		// the hit carries the query on, which is what lights up the match on the
+		// page it opens, so the link is a path and a query together
+		{name: "search hit", tmpl: "search.html",
+			want: "/p/notes/%D1%87%D1%82%D0%BE%3F%20%D0%B4%D0%B0.md?q=%D0%B4%D0%B0",
 			data: SearchPage{Base: ts.base(newRequest(t), "Search", ""), Query: "да",
 				Hits: []search.Hit{{Path: awkward, Title: "Что"}}}},
 		{name: "create this page", tmpl: "error.html", want: "/edit/notes/%D1%87%D1%82%D0%BE%3F%20%D0%B4%D0%B0.md",

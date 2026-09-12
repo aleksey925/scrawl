@@ -27,7 +27,8 @@
                 {{if .Entries}}
                     <ul class="entries">
                         {{range .Entries}}
-                            <li class="entry{{if .IsDir}} entry-dir{{end}}">
+                            <li class="entry{{if .IsDir}} entry-dir{{end}}"
+                                data-path="{{.Path}}" data-kind="{{if .IsDir}}dir{{else}}file{{end}}">
                                 <a class="entry-link" href="{{.URL}}">
                                     <svg class="icon entry-icon" aria-hidden="true">
                                         <use href="{{if .IsDir}}#icon-folder{{else}}#icon-file{{end}}"></use>

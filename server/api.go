@@ -64,26 +64,30 @@ type searchHit struct {
 
 // apiTree serves the sidebar tree, which the frontend reloads after every
 // create, rename and delete.
+// dirs=1 leaves the documents out, which is what the destination picker asks
+// for: on a large corpus the files are the bulk of the tree and it lists none
+// of them.
 func (wb *Web) apiTree(w http.ResponseWriter, r *http.Request) {
 	root, err := wb.Store.Tree()
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string][]treeNode{"tree": jsonChildren(root)})
+	dirsOnly := r.URL.Query().Get("dirs") == "1"
+	writeJSON(w, http.StatusOK, map[string][]treeNode{"tree": jsonChildren(root, dirsOnly)})
 }
 
-func jsonChildren(node *store.Node) []treeNode {
+func jsonChildren(node *store.Node, dirsOnly bool) []treeNode {
 	res := make([]treeNode, 0, len(node.Children))
 	for _, child := range node.Children {
-		if !inDocumentTree(child) {
+		if !inNavTree(child) || (dirsOnly && !child.IsDir) {
 			continue
 		}
 		res = append(res, treeNode{
 			Name:     child.Name,
 			Path:     child.Path,
 			IsDir:    child.IsDir,
-			Children: jsonChildren(child),
+			Children: jsonChildren(child, dirsOnly),
 		})
 	}
 	return res
@@ -423,7 +427,7 @@ func (wb *Web) apiSearch(w http.ResponseWriter, r *http.Request) {
 				Title:   hit.Title,
 				Snippet: string(hit.Snippet),
 				Score:   hit.Score,
-				URL:     contentURL(hit.Path),
+				URL:     searchURL(hit.Path, query),
 			})
 		}
 	}

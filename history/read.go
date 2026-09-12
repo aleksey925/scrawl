@@ -14,11 +14,17 @@ import (
 // path like any other.
 const logSentinel = "COMMIT"
 
-// logFormat yields sentinel, hash, short hash, author, epoch and subject, each
+// logFormat yields sentinel, hash, author, epoch and subject, each
 // NUL-terminated, followed by the raw change rows of that commit.
-const logFormat = "COMMIT%x00%H%x00%h%x00%an%x00%at%x00%s"
+const logFormat = "COMMIT%x00%H%x00%an%x00%at%x00%s"
 
-const logFieldCount = 6
+const logFieldCount = 5
+
+// shortLen is how much of an object id identifies a version on the page. The
+// log runs with --no-abbrev so that the raw rows carry blob ids in full, and
+// that flag applies to git's own %h as well, which is why the short form is cut
+// here rather than asked for in the format.
+const shortLen = 8
 
 // Kind is what happened to a document in one commit.
 type Kind string
@@ -253,9 +259,9 @@ func parseRow(in []byte) (rawRow, []byte, error) {
 }
 
 func entryOf(fields []string, row rawRow) (Entry, error) {
-	at, err := strconv.ParseInt(fields[4], 10, 64)
+	at, err := strconv.ParseInt(fields[3], 10, 64)
 	if err != nil {
-		return Entry{}, fmt.Errorf("unexpected timestamp %q: %w", fields[4], err)
+		return Entry{}, fmt.Errorf("unexpected timestamp %q: %w", fields[3], err)
 	}
 	blob := row.blob
 	if isZeroOID(blob) {
@@ -263,14 +269,21 @@ func entryOf(fields []string, row rawRow) (Entry, error) {
 	}
 	return Entry{
 		Rev:     fields[1],
-		Short:   fields[2],
+		Short:   shortOID(fields[1]),
 		Blob:    blob,
-		Actor:   fields[3],
-		Message: fields[5],
+		Actor:   fields[2],
+		Message: fields[4],
 		Path:    row.path,
 		Kind:    kindOf(row.status),
 		At:      time.Unix(at, 0),
 	}, nil
+}
+
+func shortOID(rev string) string {
+	if len(rev) <= shortLen {
+		return rev
+	}
+	return rev[:shortLen]
 }
 
 func kindOf(status string) Kind {

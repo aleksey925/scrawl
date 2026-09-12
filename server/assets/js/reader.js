@@ -184,6 +184,102 @@ function initToc() {
     targets.forEach((target) => observer.observe(target));
 }
 
+/* --- jumping to the match a search result pointed at --------------------- */
+
+// the terms come from the ?q= a search result carried over. Quotes only group a
+// phrase for the index, so they are dropped before matching text on the page.
+function queryTerms() {
+    const raw = new URLSearchParams(location.search).get('q') || '';
+    return raw.replace(/["']/g, ' ').split(/\s+/).filter((term) => term.length > 1);
+}
+
+// katex and mermaid own their subtrees: a mark spliced into one corrupts the
+// rendering, and neither holds prose worth jumping to
+const FIND_SKIP = 'script, style, svg, .katex, .mermaid, .code-copy, .anchor';
+
+function escapeRegExp(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function markMatches(root, terms) {
+    const pattern = new RegExp('(' + terms.map(escapeRegExp).join('|') + ')', 'gi');
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: (node) => (node.nodeValue.trim() && !node.parentElement.closest(FIND_SKIP)
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT)
+    });
+    const texts = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) texts.push(node);
+
+    const hits = [];
+    texts.forEach((node) => {
+        const value = node.nodeValue;
+        pattern.lastIndex = 0;
+        if (!pattern.test(value)) return;
+        pattern.lastIndex = 0;
+        const frag = document.createDocumentFragment();
+        let last = 0;
+        for (let found = pattern.exec(value); found; found = pattern.exec(value)) {
+            frag.appendChild(document.createTextNode(value.slice(last, found.index)));
+            const mark = document.createElement('mark');
+            mark.className = 'find-hit';
+            mark.textContent = found[0];
+            frag.appendChild(mark);
+            hits.push(mark);
+            last = found.index + found[0].length;
+        }
+        frag.appendChild(document.createTextNode(value.slice(last)));
+        node.parentNode.replaceChild(frag, node);
+    });
+    return hits;
+}
+
+function initFindOnPage(root) {
+    const terms = queryTerms();
+    if (!terms.length) return;
+    const hits = markMatches(root, terms);
+    if (!hits.length) return;
+
+    let at = 0;
+    const bar = document.createElement('div');
+    bar.className = 'find-bar';
+    bar.setAttribute('role', 'status');
+    bar.innerHTML = '<span class="find-count"></span>' +
+        '<button class="icon-btn" type="button" data-find-prev aria-label="Previous match">' +
+        '<svg class="icon" aria-hidden="true"><use href="#icon-chevron"></use></svg></button>' +
+        '<button class="icon-btn" type="button" data-find-next aria-label="Next match">' +
+        '<svg class="icon" aria-hidden="true"><use href="#icon-chevron"></use></svg></button>' +
+        '<button class="icon-btn" type="button" data-find-close aria-label="Clear highlighting">' +
+        '<svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>';
+    document.body.appendChild(bar);
+    const count = qs('.find-count', bar);
+
+    const show = (index, behavior) => {
+        at = (index + hits.length) % hits.length;
+        hits.forEach((mark, i) => mark.classList.toggle('is-active', i === at));
+        count.textContent = (at + 1) + ' of ' + hits.length;
+        hits[at].scrollIntoView({block: 'center', behavior});
+    };
+
+    const clear = () => {
+        bar.remove();
+        hits.forEach((mark) => mark.parentNode.replaceChild(
+            document.createTextNode(mark.textContent), mark));
+        // the query leaves the url with it, so a reload does not light it up again
+        history.replaceState(null, '', location.pathname + location.hash);
+    };
+
+    qs('[data-find-prev]', bar).addEventListener('click', () => show(at - 1, 'smooth'));
+    qs('[data-find-next]', bar).addEventListener('click', () => show(at + 1, 'smooth'));
+    qs('[data-find-close]', bar).addEventListener('click', clear);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && bar.isConnected) clear();
+    });
+    // instant on arrival: the reader asked to be taken there, and animating the
+    // whole page down to the match only delays it
+    show(0, 'auto');
+}
+
 export function initReader() {
     const root = qs('#doc');
     if (root) {
@@ -192,6 +288,7 @@ export function initReader() {
         initLightbox(root);
         initMath(root);
         initDiagrams(root);
+        initFindOnPage(root);
     }
     initToc();
 

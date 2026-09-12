@@ -916,6 +916,8 @@ func TestServiceLog(t *testing.T) {
 		require.Len(t, entries, 1)
 		assert.Equal(t, strings.TrimSpace(runGit(t, s.Root(), "rev-parse", "HEAD")), entries[0].Rev)
 		assert.True(t, strings.HasPrefix(entries[0].Rev, entries[0].Short))
+		assert.Less(t, len(entries[0].Short), len(entries[0].Rev),
+			"--no-abbrev applies to %h too, so a short hash taken from git is the full one")
 		assert.WithinRange(t, entries[0].At, before, time.Now().Add(time.Minute))
 	})
 

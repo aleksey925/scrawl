@@ -642,6 +642,119 @@ dialog::backdrop { background: var(--bg-scrim); }
     white-space: pre;
 }
 
+/* --- jumping to a search match ------------------------------------------- */
+
+.find-hit { background: var(--warning-subtle); color: inherit; border-radius: 2px; }
+
+.find-hit.is-active { background: var(--accent); color: var(--text-on-accent); }
+
+/* centred, because the outline pill already owns the bottom right corner */
+.find-bar {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--s-4) + env(safe-area-inset-bottom));
+    z-index: var(--z-modal);
+    display: flex;
+    align-items: center;
+    gap: var(--s-1);
+    padding: var(--s-1) var(--s-1) var(--s-1) var(--s-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    background: var(--bg-raised);
+    box-shadow: var(--shadow-lg);
+    transform: translateX(-50%);
+}
+
+.find-count {
+    color: var(--text-2);
+    font-size: var(--fs-small);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.find-bar .icon-btn { width: 28px; height: 28px; }
+
+[data-find-prev] .icon { transform: rotate(-90deg); }
+
+[data-find-next] .icon { transform: rotate(90deg); }
+
+/* --- create dialog, with the destination picked rather than typed -------- */
+
+.modal-create { width: min(92vw, 520px); }
+
+.picker {
+    max-height: 216px;
+    margin-bottom: var(--s-3);
+    padding: var(--s-1);
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--bg-inset);
+}
+
+.picker-item { display: flex; align-items: center; }
+
+/* a folder with nothing under it still reserves the column, so the names do
+   not shift sideways as rows open and close */
+.picker-twisty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 24px;
+    flex: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-3);
+    cursor: pointer;
+}
+
+.picker-twisty .icon {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2;
+    transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.picker-item[aria-expanded="true"] > .picker-twisty .icon { transform: rotate(90deg); }
+
+.picker-row {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 30px;
+    padding-right: var(--s-2);
+    border: 0;
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--text-2);
+    font: inherit;
+    font-size: var(--fs-small);
+    text-align: left;
+    cursor: pointer;
+}
+
+.picker-row .icon { width: 15px; height: 15px; flex: none; color: var(--text-3); }
+
+.picker-row:hover { background: var(--bg-hover); }
+
+.picker-row.is-selected { background: var(--accent-subtle); color: var(--accent); }
+
+.picker-row.is-selected .icon { color: var(--accent); }
+
+.field-hint {
+    margin: calc(var(--s-2) * -1) 0 var(--s-4);
+    color: var(--text-3);
+    font-size: var(--fs-small);
+}
+
+.picker-path { margin: 0; color: var(--text-3); font-size: var(--fs-small); }
+
+.picker-path code { font-family: var(--font-mono); color: var(--text-2); }
+
 /* ==========================================================================
    app layout
    ========================================================================== */
@@ -929,6 +1042,7 @@ html:not(.js) .user-menu .menu-item span { display: none; }
     font-size: var(--fs-small);
     cursor: pointer;
     list-style: none;
+    transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .tree-row::-webkit-details-marker { display: none; }
@@ -939,6 +1053,10 @@ html:not(.js) .user-menu .menu-item span { display: none; }
 
 /* line the file rows up with the folder names beside the disclosure triangle */
 .tree-leaf { padding-left: 28px; }
+
+/* the root's own list is not nested inside another .tree, so it takes the
+   nesting indent here instead */
+.tree-root > .tree { padding-left: 14px; }
 
 .tree-link {
     display: flex;
@@ -984,28 +1102,20 @@ html:not(.js) .user-menu .menu-item span { display: none; }
     border-radius: 2px;
 }
 
+/* selection changes colour and nothing else: a weight change here reflows the
+   label, and the icons beside it visibly jump as the reader moves through the
+   tree. The filled row is the marker, so there is no rail to align either. */
 .tree-row.is-current {
     background: var(--accent-subtle);
     color: var(--accent);
-    font-weight: var(--fw-medium);
 }
 
 .tree-row.is-current .tree-kind,
 .tree-dir > .tree-row.is-current .tree-name { color: var(--accent); }
 
-.tree-row.is-current::before {
-    content: "";
-    position: absolute;
-    left: -8px;
-    top: 4px;
-    bottom: 4px;
-    width: 2px;
-    border-radius: 1px;
-    background: var(--accent);
-}
-
-/* built by nav.js, and only when the server did not mark the tree read-only */
-.tree-more {
+/* built by nav.js, and only when the server did not mark the tree read-only.
+   It serves the tree rows and the directory listing alike. */
+.row-more {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1019,15 +1129,19 @@ html:not(.js) .user-menu .menu-item span { display: none; }
     color: var(--text-3);
     opacity: 0;
     cursor: pointer;
+    transition: opacity var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
 }
 
-.tree-more .icon { width: 16px; height: 16px; }
+.row-more .icon { width: 16px; height: 16px; }
 
-.tree-more:hover { background: var(--bg-active); color: var(--text); }
+.row-more:hover { background: var(--bg-active); color: var(--text); }
 
-.tree-row:hover .tree-more,
-.tree-row:focus-within .tree-more,
-.tree-more:focus-visible { opacity: 1; }
+.tree-row:hover .row-more,
+.tree-row:focus-within .row-more,
+.entry:hover .row-more,
+.entry:focus-within .row-more,
+.row-more:focus-visible { opacity: 1; }
 
 .tree-empty {
     padding: var(--s-4) var(--s-2);
@@ -1819,20 +1933,32 @@ html.js .doc img { cursor: zoom-in; }
     border-top: 1px solid var(--border);
 }
 
-.entry { border-bottom: 1px solid var(--border); }
+/* the link and the actions button sit side by side, so the button is not
+   inside the anchor it would otherwise activate */
+.entry {
+    display: flex;
+    align-items: center;
+    gap: var(--s-1);
+    padding-right: var(--s-1);
+    border-bottom: 1px solid var(--border);
+}
 
 .entry-link {
     display: flex;
     align-items: center;
     gap: var(--s-3);
+    flex: 1 1 auto;
+    min-width: 0;
     min-height: var(--tap);
-    padding: var(--s-2) var(--s-2) var(--s-2) 0;
+    padding: var(--s-2);
     color: var(--text);
     text-decoration: none;
     border-radius: var(--r-md);
+    transition: background-color var(--dur-fast) var(--ease-out);
 }
 
-.entry-link:hover { background: var(--bg-hover); padding-left: var(--s-2); }
+/* the padding stays put: growing it on hover shifted the whole row sideways */
+.entry-link:hover { background: var(--bg-hover); }
 
 .entry-icon { width: 18px; height: 18px; flex: none; color: var(--text-3); }
 
@@ -2451,13 +2577,31 @@ html.js .doc img { cursor: zoom-in; }
 .versions {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--s-1);
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-.version { display: flex; align-items: center; gap: var(--s-2); }
+/* the card is the whole row, Restore included: a button sitting outside the
+   border reads as loose furniture rather than part of the version */
+.version {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding-right: var(--s-2);
+    border: 1px solid transparent;
+    border-radius: var(--r-lg);
+    transition: background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.version:hover { background: var(--bg-hover); }
+
+.version.is-selected {
+    border-color: var(--accent-border);
+    background: var(--accent-subtle);
+}
 
 .version-pick {
     display: flex;
@@ -2466,20 +2610,12 @@ html.js .doc img { cursor: zoom-in; }
     flex: 1 1 auto;
     min-width: 0;
     padding: var(--s-3);
-    border: 1px solid transparent;
-    border-radius: var(--r-lg);
+    border: 0;
     background: transparent;
     color: inherit;
     font: inherit;
     text-align: left;
     cursor: pointer;
-}
-
-.version-pick:hover { background: var(--bg-hover); }
-
-.version.is-selected .version-pick {
-    border-color: var(--accent-border);
-    background: var(--accent-subtle);
 }
 
 .version-head { display: flex; align-items: center; gap: var(--s-2); }
@@ -2503,12 +2639,12 @@ html.js .doc img { cursor: zoom-in; }
 
 /* a deletion and a rename are not ordinary edits: the row itself says so, so
    they are told apart while scanning the list rather than by reading a badge */
-.version.is-renamed .version-pick,
-.version.is-deleted .version-pick { border-left-width: 3px; }
+.version.is-renamed,
+.version.is-deleted { border-left-width: 3px; }
 
-.version.is-renamed .version-pick { border-left-color: var(--important); }
+.version.is-renamed { border-left-color: var(--important); }
 
-.version.is-deleted .version-pick { border-left-color: var(--danger); }
+.version.is-deleted { border-left-color: var(--danger); }
 
 .version-time { color: var(--text-3); font-size: var(--fs-small); }
 
@@ -2522,11 +2658,19 @@ html.js .doc img { cursor: zoom-in; }
 .version-meta {
     display: flex;
     gap: var(--s-2);
+    min-width: 0;
     color: var(--text-3);
     font-size: 12px;
 }
 
-.version-rev { font-family: var(--font-mono); }
+/* an actor is a name of any length, so it yields before the hash does */
+.version-actor {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.version-rev { flex: none; font-family: var(--font-mono); }
 
 .version-path { color: var(--text-2); font-size: 12px; }
 
@@ -2550,6 +2694,7 @@ html.js .doc img { cursor: zoom-in; }
 .diff {
     max-height: 46vh;
     margin: 0 0 var(--s-5);
+    padding-block: var(--s-2);
     overflow: auto;
     font-family: var(--font-mono);
     font-size: var(--fs-code);
@@ -2870,7 +3015,7 @@ html.js .doc img { cursor: zoom-in; }
 
 /* touch: nothing important may hide behind hover */
 @media (hover: none), (max-width: 767px) {
-    .tree-more { opacity: 1; }
+    .row-more { opacity: 1; }
 
     .code-copy { opacity: 1; }
 
@@ -2888,11 +3033,11 @@ html.js .doc img { cursor: zoom-in; }
 
     .doc :target > .anchor { opacity: .6; }
 
-    .icon-btn, .tree-more, .seg-btn { min-width: var(--tap); min-height: var(--tap); }
+    .icon-btn, .row-more, .seg-btn { min-width: var(--tap); min-height: var(--tap); }
 
     .tree-row { min-height: var(--tap); }
 
-    .tree-more { width: var(--tap); height: var(--tap); }
+    .row-more { width: var(--tap); height: var(--tap); }
 
     .sidebar-action { height: var(--tap); }
 

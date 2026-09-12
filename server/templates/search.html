@@ -29,7 +29,7 @@
                 <ol class="hits">
                     {{range .Hits}}
                         <li class="hit">
-                            <a class="hit-link" href="{{contentURL .Path}}">
+                            <a class="hit-link" href="{{searchURL .Path $.Query}}">
                                 <h2 class="hit-title">{{.Title}}</h2>
                                 <p class="hit-path">{{.Path}}</p>
                                 <p class="hit-snippet">{{safeHTML .Snippet}}</p>

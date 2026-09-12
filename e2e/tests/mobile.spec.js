@@ -163,7 +163,7 @@ test.describe('mobile', () => {
             offenders.push(...await tooSmall(page, selector));
         }
         await page.locator('.topbar-burger').tap();
-        for (const selector of ['#sidebar .tree-row', '#sidebar .tree-more', '#sidebar button']) {
+        for (const selector of ['#sidebar .tree-row', '#sidebar .row-more', '#sidebar button']) {
             offenders.push(...await tooSmall(page, selector));
         }
         await shot(page, 'mobile-tap-targets');
@@ -196,7 +196,7 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-palette');
 
         await page.locator('#palette-results .palette-item').first().tap();
-        await expect(page).toHaveURL(new RegExp(`/p/${docs.search.palette.path}$`));
+        await expect(page).toHaveURL(new RegExp(`/p/${docs.search.palette.path}\\?q=`));
     });
 
     test('the outline sheet opens from the floating pill', async ({page}) => {

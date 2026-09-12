@@ -88,9 +88,11 @@ func railTOC(headings []render.Heading) []render.Heading {
 	return res
 }
 
-// DirEntry is one row of a directory listing.
+// DirEntry is one row of a directory listing. Path is what the row's actions
+// name, which is not derivable from URL once the extension is dropped.
 type DirEntry struct {
 	Name    string
+	Path    string
 	URL     string
 	IsDir   bool
 	Size    int64
@@ -203,7 +205,7 @@ func (wb *Web) treeNodes(current string) []TreeNode {
 func childNodes(node *store.Node, current string) []TreeNode {
 	res := make([]TreeNode, 0, len(node.Children))
 	for _, child := range node.Children {
-		if !inDocumentTree(child) {
+		if !inNavTree(child) {
 			continue
 		}
 		res = append(res, treeNodeOf(child, current))
@@ -211,15 +213,14 @@ func childNodes(node *store.Node, current string) []TreeNode {
 	return res
 }
 
-// inDocumentTree reports whether a node belongs in the navigation tree. The
-// tree is an index of documents, not a file browser: an attachment and a folder
-// that holds nothing but attachments would only add rows nobody navigates by.
-// Both stay reachable through the directory page and /raw/.
-func inDocumentTree(node *store.Node) bool {
-	if !node.IsDir {
-		return isMarkdown(node.Path)
-	}
-	return slices.ContainsFunc(node.Children, inDocumentTree)
+// inNavTree reports whether a node belongs in the navigation tree. Every
+// directory is kept, empty ones included: the tree is where a folder is created,
+// renamed and deleted, and one that only appears once it holds a document
+// cannot be any of those things. Files stay markdown only, because an
+// attachment belongs to the page beside it rather than to the navigation, and
+// keeps its own way in through the directory page and /raw/.
+func inNavTree(node *store.Node) bool {
+	return node.IsDir || isMarkdown(node.Path)
 }
 
 func treeNodeOf(node *store.Node, current string) TreeNode {
@@ -266,6 +267,15 @@ func contentURL(p string) string {
 		return "/p/" + encodePath(p)
 	}
 	return "/raw/" + encodePath(p)
+}
+
+// searchURL is where a search hit leads: the document, plus the query that
+// found it, which is what marks the match and scrolls to it on arrival.
+func searchURL(p, query string) string {
+	if query == "" {
+		return contentURL(p)
+	}
+	return contentURL(p) + "?q=" + url.QueryEscape(query)
 }
 
 func dirURL(p string) string {

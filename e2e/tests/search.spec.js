@@ -35,7 +35,7 @@ test.describe('search', () => {
         await expect(first).toBeVisible();
 
         await page.locator('#palette-input').press('Enter');
-        await expect(page).toHaveURL(new RegExp(`/p/${docs.doc.path}$`));
+        await expect(page).toHaveURL(new RegExp(`/p/${docs.doc.path}\\?q=`));
         await expect(page.locator('#doc h1').first()).toContainText(docs.doc.title);
     });
 
@@ -50,6 +50,23 @@ test.describe('search', () => {
 
         await hits.first().locator('.hit-link').click();
         await expect(page.locator('#doc')).toBeVisible();
+    });
+
+    test('a result jumps to the match and steps through the others', async ({page}) => {
+        await page.goto(`/search?q=${encodeURIComponent(docs.search.word)}`);
+        await page.locator('.hits .hit-link').first().click();
+
+        await expect(page).toHaveURL(/\?q=/);
+        const marks = page.locator('#doc .find-hit');
+        expect(await marks.count()).toBeGreaterThan(0);
+        await expect(page.locator('#doc .find-hit.is-active')).toBeVisible();
+        await expect(page.locator('.find-bar')).toContainText('of');
+        await shot(page, 'search-jump-to-match');
+
+        await page.click('[data-find-close]');
+        await expect(page.locator('.find-bar')).toHaveCount(0);
+        await expect(marks).toHaveCount(0);
+        await expect(page).not.toHaveURL(/\?q=/);
     });
 
     test('a saved edit shows up in the index', async ({page}) => {

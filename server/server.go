@@ -325,6 +325,7 @@ func (wb *Web) parseTemplates() error {
 		"contentURL": contentURL,
 		"editURL":    editURL,
 		"historyURL": historyURL,
+		"searchURL":  searchURL,
 
 		// a search snippet arrives escaped with only <mark> left in it, so it
 		// goes into the page as it is. Anything that is not already marked safe

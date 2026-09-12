@@ -118,6 +118,7 @@ func (wb *Web) directoryPage(w http.ResponseWriter, r *http.Request, dir string)
 		}
 		page.Entries = append(page.Entries, DirEntry{
 			Name:    displayName(ent.Name),
+			Path:    ent.Path,
 			URL:     target,
 			IsDir:   ent.IsDir,
 			Size:    ent.Size,

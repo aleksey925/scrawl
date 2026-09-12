@@ -27,7 +27,7 @@ test.describe('read-only mode', () => {
         await page.waitForLoadState('networkidle');
         await expect(page.locator(`#sidebar .tree-row[data-path="${DOC}"]`)).toBeVisible();
 
-        await expect(page.locator('#sidebar .tree-more')).toHaveCount(0);
+        await expect(page.locator('#sidebar .row-more')).toHaveCount(0);
         await expect(page.locator('#sidebar [data-actions]')).toHaveCount(0);
         await shot(page, 'readonly-tree');
     });

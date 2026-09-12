@@ -22,7 +22,20 @@ anyway, so nav.js builds it and reads data-readonly on the nav below.
                placeholder="Filter pages" aria-label="Filter pages by name">
     </div>
     <div class="sidebar-scroll">
-        {{template "treelist" .Tree}}
+        {{/* the root discloses like any other folder: the chevron column then
+             lines up the whole way down, and collapsing it puts every page
+             away at once. It stays open on load, so a collapse is for the
+             session rather than something stored. */}}
+        <details class="tree-dir tree-root" data-path="" data-kind="dir" open>
+            <summary class="tree-row{{if not .CurrentPath}} is-current{{end}}">
+                <svg class="icon tree-twisty" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                <a class="tree-link" href="/" aria-label="Root folder"{{if not .CurrentPath}} aria-current="page"{{end}}>
+                    <svg class="icon tree-kind" aria-hidden="true"><use href="#icon-folder"></use></svg>
+                    <span class="tree-name">/</span>
+                </a>
+            </summary>
+            {{template "treelist" .Tree}}
+        </details>
         <p class="tree-empty" id="tree-empty" hidden>No page matches the filter.</p>
     </div>
     {{if not .ReadOnly}}

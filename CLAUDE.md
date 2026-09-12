@@ -47,9 +47,10 @@ vendor/                dependencies, checked in, `make deps` regenerates
 - Uploads land in a folder next to the document and named after it
   (`python/notes.md` -> `python/notes/`), which is what the corpus looks
   like. `--upload-dir` replaces that with one shared directory.
-- The sidebar tree indexes documents: markdown files and the directories
-  leading to them. Other files stay reachable through the directory page
-  and `/raw/`.
+- The sidebar tree lists every folder, empty ones included, and of the
+  files only the markdown. A folder is where a page is created, renamed
+  and deleted, so it has to be on the tree before it holds anything.
+  Other files stay reachable through the directory page and `/raw/`.
 - No npm build step and no CDN at runtime. Templates, CSS, JS and fonts
   are embedded with `//go:embed`.
 - Frontend is server-rendered HTML plus vanilla JS enhancement. Design

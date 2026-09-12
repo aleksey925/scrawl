@@ -2,7 +2,7 @@
 
 import {
     api, confirmDialog, copyText, encodePath, esc, formatBytes, formDialog,
-    qs, qsa, slugify, toast
+    openDialog, qs, qsa, slugify, toast
 } from './dom.js';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -196,7 +196,7 @@ function initFilter() {
             return show;
         };
 
-        qsa('.sidebar-scroll > .tree > .tree-item', sidebar).forEach(walk);
+        qsa('.tree-root > .tree > .tree-item', sidebar).forEach(walk);
         if (empty) empty.hidden = !(query && visible === 0);
     });
 
@@ -255,35 +255,178 @@ function fileURL(path) {
     return '/api/file/' + encodePath(path);
 }
 
+function joinPath(folder, name) {
+    return folder ? folder.replace(/\/+$/, '') + '/' + name : name;
+}
+
+// a name may carry nesting of its own, which is how a page reaches a folder
+// that does not exist yet: the store creates the missing parents. Each segment
+// is slugified on its own, because slugify would otherwise eat the slashes.
+function slugPath(name) {
+    return String(name).split('/').map(slugify).filter(Boolean).join('/');
+}
+
+// the directory page lists the same paths the tree does, and nothing here
+// rerenders it, so a change made from one of its rows reloads the page instead
+function afterChange() {
+    if (!qs('#dir')) return refreshTree();
+    location.reload();
+    return Promise.resolve();
+}
+
+// the picker only ever shows folders, and on a large corpus the documents are
+// the bulk of the tree, so they are left out of the payload entirely
+async function folderTree() {
+    try {
+        const data = await api('GET', '/api/tree?dirs=1');
+        return (data && data.tree) || [];
+    } catch (e) {
+        // the root alone is still somewhere to put the page
+        return [];
+    }
+}
+
+// ancestorsOf lists the folders that have to be open for a path to be on
+// screen, the root included
+function ancestorsOf(path) {
+    const res = [''];
+    let at = '';
+    String(path).split('/').filter(Boolean).forEach((part) => {
+        at = at ? at + '/' + part : part;
+        res.push(at);
+    });
+    return res;
+}
+
+function hasFolder(nodes, path) {
+    return nodes.some((node) => node.path === path || hasFolder(node.children || [], path));
+}
+
+// createDialog asks for a name and a destination. The destination is chosen
+// from the folders that exist rather than typed, and the path it will create is
+// spelled out under the field, so nothing is left to guess before Create.
+function createDialog({title, label, placeholder, submitLabel, tree, startIn, suffix}) {
+    return new Promise((resolve) => {
+        const dlg = openDialog(
+            '<form method="dialog">' +
+            '<h2 class="modal-title"></h2>' +
+            '<label class="field">' +
+            '<span class="field-label"></span>' +
+            '<input class="input" name="name" autocomplete="off" spellcheck="false">' +
+            '</label>' +
+            '<p class="field-hint">Use / in the name to nest it deeper.</p>' +
+            '<p class="field-label">Location</p>' +
+            '<div class="picker" role="tree" aria-label="Destination folder"></div>' +
+            '<p class="picker-path">Creates <code data-preview></code></p>' +
+            '<div class="modal-actions">' +
+            '<button class="btn btn-secondary" type="button" data-act="cancel">Cancel</button>' +
+            '<button class="btn btn-primary" type="submit"></button>' +
+            '</div></form>', 'modal modal-create');
+
+        qs('.modal-title', dlg).textContent = title;
+        qs('.field-label', dlg).textContent = label;
+        qs('[type="submit"]', dlg).textContent = submitLabel;
+        const field = qs('input[name="name"]', dlg);
+        field.placeholder = placeholder;
+
+        const host = qs('.picker', dlg);
+        const preview = qs('[data-preview]', dlg);
+        let at = startIn && hasFolder(tree, startIn) ? startIn : '';
+        // only the folders between the root and the one we start on are open,
+        // every other branch waits to be asked for
+        const expanded = new Set(ancestorsOf(at));
+
+        const paint = () => {
+            const name = slugPath(field.value);
+            preview.textContent = name ? joinPath(at, name + suffix) : (at || '/');
+        };
+
+        // visible yields the rows whose parents are all open. A corpus with
+        // thousands of folders would otherwise put every one of them into the
+        // dialog at once, which is slow to build and hopeless to read.
+        const visible = () => {
+            const out = [{path: '', name: '/', depth: 0, kids: tree.length}];
+            const walk = (nodes, depth) => {
+                nodes.forEach((node) => {
+                    const kids = (node.children || []).length;
+                    out.push({path: node.path, name: node.name, depth, kids});
+                    if (kids && expanded.has(node.path)) walk(node.children, depth + 1);
+                });
+            };
+            if (expanded.has('')) walk(tree, 1);
+            return out;
+        };
+
+        const render = () => {
+            const rows = visible();
+            host.innerHTML = rows.map((row) => (
+                '<div class="picker-item" role="treeitem" aria-level="' + (row.depth + 1) + '"' +
+                (row.kids ? ' aria-expanded="' + expanded.has(row.path) + '"' : '') +
+                ' aria-selected="' + (row.path === at) + '">' +
+                (row.kids
+                    ? '<button class="picker-twisty" type="button" data-toggle="' + esc(row.path) + '" ' +
+                      'aria-label="' + (expanded.has(row.path) ? 'Collapse' : 'Expand') + '">' +
+                      '<svg class="icon" aria-hidden="true"><use href="#icon-chevron"></use></svg></button>'
+                    : '<span class="picker-twisty"></span>') +
+                '<button class="picker-row' + (row.path === at ? ' is-selected' : '') +
+                '" type="button" data-path="' + esc(row.path) + '">' +
+                '<svg class="icon" aria-hidden="true"><use href="#icon-folder"></use></svg>' +
+                '<span>' + esc(row.name) + '</span></button></div>'
+            )).join('');
+            // the indent goes through the cssom, because the content security
+            // policy strips a style attribute before it ever applies
+            qsa('.picker-item', host).forEach((item, i) => {
+                item.style.paddingLeft = (rows[i].depth * 16) + 'px';
+            });
+            paint();
+        };
+
+        host.addEventListener('click', (event) => {
+            const toggle = event.target.closest('[data-toggle]');
+            if (toggle) {
+                const path = toggle.dataset.toggle;
+                if (!expanded.delete(path)) expanded.add(path);
+                render();
+                return;
+            }
+            const row = event.target.closest('.picker-row');
+            if (!row) return;
+            at = row.dataset.path;
+            render();
+            field.focus();
+        });
+        field.addEventListener('input', paint);
+        render();
+
+        let result = null;
+        qs('form', dlg).addEventListener('submit', (event) => {
+            event.preventDefault();
+            result = {name: field.value.trim(), folder: at};
+            dlg.close();
+        });
+        qs('[data-act="cancel"]', dlg).addEventListener('click', () => dlg.close());
+        dlg.addEventListener('close', () => resolve(result));
+        field.focus();
+    });
+}
+
 async function createPage(folder) {
-    const answer = await formDialog({
+    const answer = await createDialog({
         title: 'New page',
-        fields: [
-            {name: 'folder', label: 'Folder', value: folder || '', placeholder: 'root', mono: true},
-            {name: 'title', label: 'Title', value: '', placeholder: 'Replication'},
-            {name: 'file', label: 'File name', value: '', placeholder: 'replication.md', mono: true}
-        ],
+        label: 'Page name',
+        placeholder: 'Replication',
         submitLabel: 'Create',
-        onReady: (form) => {
-            let touched = false;
-            form.elements.file.addEventListener('input', () => {
-                touched = true;
-            });
-            form.elements.title.addEventListener('input', () => {
-                if (touched) return;
-                const name = slugify(form.elements.title.value);
-                form.elements.file.value = name ? name + '.md' : '';
-            });
-        }
+        tree: await folderTree(),
+        startIn: folder || '',
+        suffix: '.md'
     });
     if (!answer) return;
-    let name = answer.file || slugify(answer.title);
+    const name = slugPath(answer.name);
     if (!name) {
-        toast('A title or a file name is required', 'error');
+        toast('A page name is required', 'error');
         return;
     }
-    if (!name.endsWith('.md')) name += '.md';
-    const path = answer.folder ? answer.folder.replace(/\/+$/, '') + '/' + name : name;
+    const path = joinPath(answer.folder, name + '.md');
     try {
         await api('POST', fileURL(path), {type: 'file'});
         location.href = '/edit/' + encodePath(path);
@@ -293,21 +436,26 @@ async function createPage(folder) {
 }
 
 async function createFolder(parent) {
-    const answer = await formDialog({
+    const answer = await createDialog({
         title: 'New folder',
-        fields: [
-            {name: 'parent', label: 'Inside', value: parent || '', placeholder: 'root', mono: true},
-            {name: 'name', label: 'Folder name', value: '', placeholder: 'databases'}
-        ],
-        submitLabel: 'Create'
+        label: 'Folder name',
+        placeholder: 'databases',
+        submitLabel: 'Create',
+        tree: await folderTree(),
+        startIn: parent || '',
+        suffix: ''
     });
-    if (!answer || !answer.name) return;
-    const name = slugify(answer.name) || answer.name;
-    const path = answer.parent ? answer.parent.replace(/\/+$/, '') + '/' + name : name;
+    if (!answer) return;
+    const name = slugPath(answer.name) || answer.name.trim();
+    if (!name) {
+        toast('A folder name is required', 'error');
+        return;
+    }
+    const path = joinPath(answer.folder, name);
     try {
         await api('POST', fileURL(path), {type: 'dir'});
         toast('Folder created', 'success');
-        await refreshTree();
+        await afterChange();
     } catch (err) {
         toast(err.status === 409 ? 'That folder already exists' : err.message, 'error');
     }
@@ -329,7 +477,7 @@ async function renamePath(path) {
             location.href = '/p/' + encodePath(target);
             return;
         }
-        await refreshTree();
+        await afterChange();
     } catch (err) {
         toast(err.status === 409 ? 'The target already exists' : err.message, 'error');
     }
@@ -350,7 +498,7 @@ async function deletePath(path, kind) {
             location.href = '/';
             return;
         }
-        await refreshTree();
+        await afterChange();
     } catch (err) {
         toast(err.status === 409 ? 'The folder is not empty' : err.message, 'error');
     }
@@ -365,17 +513,17 @@ function currentPath() {
 
 let openMenu = null;
 
-// a folder row is a <summary>, where a nested <button> would fight the
-// disclosure widget for the click, so it gets a span with the button role
-function rowMenuTrigger(path, kind, name) {
-    const el = document.createElement(kind === 'dir' ? 'span' : 'button');
-    if (kind === 'dir') {
+// inside a <summary> a nested <button> would fight the disclosure widget for
+// the click, so there it gets a span with the button role instead
+function rowMenuTrigger(path, kind, name, inSummary) {
+    const el = document.createElement(inSummary ? 'span' : 'button');
+    if (inSummary) {
         el.setAttribute('role', 'button');
         el.tabIndex = 0;
     } else {
         el.type = 'button';
     }
-    el.className = 'tree-more';
+    el.className = 'row-more';
     el.dataset.actions = path;
     el.dataset.kind = kind;
     el.setAttribute('aria-label', 'Actions for ' + name);
@@ -383,15 +531,18 @@ function rowMenuTrigger(path, kind, name) {
     return el;
 }
 
+// the tree rows and the directory listing both get the same menu: a folder is
+// renamed and deleted from wherever the reader is looking at it
 function initRowMenus() {
     if (!canWrite()) return;
-    qsa('#sidebar .tree-row').forEach((row) => {
-        if (qs('.tree-more', row)) return;
-        const dir = row.tagName === 'SUMMARY';
-        const holder = dir ? row.parentElement : row;
-        const label = qs('.tree-name', row);
-        row.appendChild(rowMenuTrigger(holder.dataset.path, dir ? 'dir' : 'file',
-            (label && label.textContent) || ''));
+    qsa('#sidebar .tree-row, .entries .entry').forEach((row) => {
+        if (qs('.row-more', row)) return;
+        const inSummary = row.tagName === 'SUMMARY';
+        const holder = inSummary ? row.parentElement : row;
+        const kind = holder.dataset.kind || (inSummary ? 'dir' : 'file');
+        const label = qs('.tree-name, .entry-name', row);
+        row.appendChild(rowMenuTrigger(holder.dataset.path || '', kind,
+            (label && label.textContent) || '', inSummary));
     });
 }
 
@@ -412,15 +563,20 @@ function buildMenu(path, kind) {
         items.push({label: 'New folder', icon: '#icon-folder-plus', run: () => createFolder(path)});
     }
     items.push({separator: true});
-    items.push({label: 'Rename', icon: '#icon-edit', run: () => renamePath(path)});
+    // the root holds everything: it is not a folder anyone may rename or drop
+    if (path !== '') {
+        items.push({label: 'Rename', icon: '#icon-edit', run: () => renamePath(path)});
+    }
     items.push({
         label: 'Copy link', icon: '#icon-link', run: async () => {
             const url = location.origin + (kind === 'file' ? '/p/' + encodePath(path) : '/p/' + encodePath(path) + '/');
             toast(await copyText(url) ? 'Link copied' : 'Could not copy the link', 'success');
         }
     });
-    items.push({separator: true});
-    items.push({label: 'Delete', icon: '#icon-trash', danger: true, run: () => deletePath(path, kind)});
+    if (path !== '') {
+        items.push({separator: true});
+        items.push({label: 'Delete', icon: '#icon-trash', danger: true, run: () => deletePath(path, kind)});
+    }
     return items;
 }
 
@@ -509,12 +665,13 @@ export async function refreshTree() {
         const data = await api('GET', '/api/tree');
         if (!data || !Array.isArray(data.tree)) throw new Error('bad tree payload');
         const empty = qs('#tree-empty');
-        const old = qs('.sidebar-scroll > .tree');
+        const root = qs('.tree-root');
+        const old = qs('.tree-root > .tree');
         const markup = renderNodes(data.tree, currentPath());
         if (old) {
             old.outerHTML = markup;
-        } else {
-            host.insertAdjacentHTML('afterbegin', markup);
+        } else if (root) {
+            root.insertAdjacentHTML('beforeend', markup);
         }
         if (empty) host.appendChild(empty);
         initTreeState();

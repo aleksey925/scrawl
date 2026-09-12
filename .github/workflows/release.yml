@@ -9,8 +9,6 @@ permissions:
   contents: read
 
 jobs:
-  # a tag points at a commit, not a branch, so without this check a tag pushed
-  # from a dev branch would take over latest on GitHub and in the registry
   latest:
     runs-on: ubuntu-latest
     outputs:
@@ -54,7 +52,7 @@ jobs:
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
           MAKE_LATEST: ${{ needs.latest.outputs.latest }}
 
-  docker:
+  images:
     needs: latest
     runs-on: ubuntu-latest
     permissions:
@@ -67,9 +65,6 @@ jobs:
         with:
           persist-credentials: false
 
-      # the final stage runs apk and adduser, so the arm64 image needs binfmt
-      # on an amd64 runner. only the go build stage escapes emulation, through
-      # --platform=$BUILDPLATFORM in the Dockerfile
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -83,9 +78,6 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # go cross-compiles inside the Dockerfile, so one runner covers both
-      # architectures and no digest merge step is needed. an empty line in tags
-      # is skipped by the action, which is what drops latest
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -96,8 +88,6 @@ jobs:
             ${{ needs.latest.outputs.latest == 'true' && 'ghcr.io/aleksey925/scrawl:latest' || '' }}
             ghcr.io/aleksey925/scrawl:${{ github.ref_name }}
           build-args: |
-            CI=github
-            GIT_BRANCH=${{ github.ref_name }}
-            GITHUB_SHA=${{ github.sha }}
+            VERSION=${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

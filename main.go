@@ -31,7 +31,7 @@ import (
 )
 
 // revision is set at build time with -ldflags "-X main.revision=..."
-var revision = "unknown"
+var revision = "0.0.0"
 
 type options struct {
 	Root         string   `short:"r" long:"root" env:"ROOT" default:"/notes" description:"notes root directory"`
@@ -513,7 +513,7 @@ func secretsOf(opts *options) []string {
 // versionInfo returns the revision injected via ldflags and falls back to go's
 // build info for `go install` builds.
 func versionInfo() string {
-	if revision != "unknown" {
+	if revision != "0.0.0" {
 		return revision
 	}
 	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" {

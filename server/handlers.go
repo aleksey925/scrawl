@@ -367,6 +367,10 @@ func (wb *Web) historyPage(w http.ResponseWriter, r *http.Request) {
 		wb.errorPage(w, r, "", http.StatusBadRequest, statusMessage(http.StatusBadRequest))
 		return
 	}
+	if !wb.isDocument(p) {
+		wb.failPage(w, r, p, fmt.Errorf("history %q: %w", p, store.ErrNotFound))
+		return
+	}
 	if !wb.history().Enabled() {
 		wb.errorPage(w, r, p, http.StatusNotFound, statusMessage(http.StatusNotFound))
 		return

@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,17 +19,18 @@ import (
 	"github.com/aleksey925/scrawl/store"
 )
 
-// testOID is what an object id looks like to the handlers, which pass it
-// through without reading it.
-var testOID = strings.Repeat("a1b2c3d4", 5)
+// oid spells one of the object ids the handlers pass around. They compare them
+// and never read them, so a repeated pair is as good as a real digest.
+func oid(pair string) string { return strings.Repeat(pair, 20) }
 
 // fakeHistory stands in for the git-backed service: it keeps every operation
-// the handlers hand it and can be made to fail a commit on demand.
+// the handlers hand it, answers reads from the versions it was given, and can
+// be made to fail a commit on demand.
 type fakeHistory struct {
 	degraded bool
 	failWith error // what the commit answers once the mutation has already run
 	entries  []history.Entry
-	content  []byte
+	blobs    map[string][]byte // content of every blob the entries name
 	diff     string
 	readErr  error
 
@@ -59,7 +62,30 @@ func (f *fakeHistory) Log(context.Context, string, int) ([]history.Entry, error)
 	return f.entries, f.readErr
 }
 
-func (f *fakeHistory) Show(context.Context, string) ([]byte, error) { return f.content, f.readErr }
+// Version resolves the pair the way the real service does: only a commit that
+// changed that very path recorded a version of it.
+func (f *fakeHistory) Version(_ context.Context, rev, p string) (string, error) {
+	if f.readErr != nil {
+		return "", f.readErr
+	}
+	for _, ent := range f.entries {
+		if ent.Rev == rev && ent.Path == p {
+			return ent.Blob, nil
+		}
+	}
+	return "", history.ErrNoVersion
+}
+
+func (f *fakeHistory) Show(_ context.Context, blob string) ([]byte, error) {
+	if f.readErr != nil {
+		return nil, f.readErr
+	}
+	data, ok := f.blobs[blob]
+	if !ok {
+		return nil, fmt.Errorf("no blob %s", blob)
+	}
+	return data, nil
+}
 
 func (f *fakeHistory) Diff(context.Context, string, string) (string, error) {
 	return f.diff, f.readErr
@@ -84,7 +110,7 @@ func (f *fakeHistory) given() [][]string {
 func TestAPIHistoryList(t *testing.T) {
 	// arrange
 	entry := history.Entry{
-		Rev: testOID, Short: testOID[:7], Blob: strings.Repeat("f0f0f0f0", 5),
+		Rev: oid("a1"), Short: oid("a1")[:7], Blob: oid("b2"),
 		Actor: "token:agent", Message: "save index.md", Path: "index.md",
 		Kind: history.KindModified, At: time.Date(2024, time.March, 1, 10, 30, 0, 0, time.UTC),
 	}
@@ -112,47 +138,65 @@ func TestAPIHistoryList(t *testing.T) {
 }
 
 func TestAPIHistoryVersion(t *testing.T) {
-	fake := &fakeHistory{content: []byte("# the old one\n"), diff: "diff --git a/index.md b/index.md\n+the old one\n"}
+	saved := []byte("# the old one\n")
+	version := history.Entry{Rev: oid("a1"), Blob: oid("b2"), Path: "index.md", Kind: history.KindModified}
+	deletion := history.Entry{Rev: oid("c3"), Path: "index.md", Kind: history.KindDeleted}
+	fake := &fakeHistory{
+		entries: []history.Entry{version, deletion},
+		blobs:   map[string][]byte{version.Blob: saved},
+		diff:    "diff --git a/index.md b/index.md\n+the old one\n",
+	}
 	ts := newTestServer(t, testOpts{history: fake})
 
-	t.Run("carries the content and the patch of a text document", func(t *testing.T) {
+	t.Run("carries the content and the patch of the version", func(t *testing.T) {
 		// act
-		resp, body := ts.json(t, request{path: "/api/history/index.md?rev=" + testOID + "&blob=" + testOID})
+		resp, body := ts.json(t, request{path: "/api/history/index.md?rev=" + version.Rev})
 
 		// assert
 		assert.Equal(t, http.StatusOK, resp.status)
 		assert.Equal(t, map[string]any{
-			"path":    "index.md",
-			"rev":     testOID,
-			"blob":    testOID,
-			"text":    true,
-			"content": string(fake.content),
+			"path":    version.Path,
+			"rev":     version.Rev,
+			"content": string(saved),
 			"diff":    fake.diff,
 		}, body)
 	})
 
-	t.Run("leaves out the content of an attachment", func(t *testing.T) {
+	t.Run("leaves out the content of a deletion, which recorded none", func(t *testing.T) {
 		// act
-		resp, body := ts.json(t, request{path: "/api/history/images/logo.png?rev=" + testOID + "&blob=" + testOID})
-
-		// assert
-		assert.Equal(t, http.StatusOK, resp.status)
-		assert.Equal(t, map[string]any{
-			"path": "images/logo.png",
-			"rev":  testOID,
-			"blob": testOID,
-			"text": false,
-			"diff": fake.diff,
-		}, body)
-	})
-
-	t.Run("leaves out the content of a deletion, which has no blob", func(t *testing.T) {
-		// act
-		resp, body := ts.json(t, request{path: "/api/history/index.md?rev=" + testOID})
+		resp, body := ts.json(t, request{path: "/api/history/index.md?rev=" + deletion.Rev})
 
 		// assert
 		assert.Equal(t, http.StatusOK, resp.status)
 		assert.NotContains(t, body, "content")
+	})
+
+	t.Run("reads the version of the pair and not a blob the query names", func(t *testing.T) {
+		// arrange
+		secret := history.Entry{Rev: oid("d4"), Blob: oid("e5"), Path: "guide.md", Kind: history.KindModified}
+		leaky := &fakeHistory{
+			entries: []history.Entry{version, secret},
+			blobs:   map[string][]byte{version.Blob: saved, secret.Blob: []byte("TOKEN=abc123\n")},
+		}
+		other := newTestServer(t, testOpts{history: leaky})
+
+		// act
+		resp, body := other.json(t, request{
+			path: "/api/history/index.md?rev=" + version.Rev + "&blob=" + secret.Blob,
+		})
+
+		// assert
+		assert.Equal(t, http.StatusOK, resp.status)
+		assert.Equal(t, string(saved), body["content"])
+	})
+
+	t.Run("refuses a revision that never touched the path", func(t *testing.T) {
+		// act
+		resp, body := ts.json(t, request{path: "/api/history/guide.md?rev=" + version.Rev})
+
+		// assert
+		assert.Equal(t, http.StatusNotFound, resp.status)
+		assert.Equal(t, "no such version", body["error"])
 	})
 
 	t.Run("reports a repository that cannot be read", func(t *testing.T) {
@@ -160,7 +204,7 @@ func TestAPIHistoryVersion(t *testing.T) {
 		broken := newTestServer(t, testOpts{history: &fakeHistory{readErr: errors.New("git exploded")}})
 
 		// act
-		resp, body := broken.json(t, request{path: "/api/history/index.md?rev=" + testOID})
+		resp, body := broken.json(t, request{path: "/api/history/index.md?rev=" + version.Rev})
 
 		// assert
 		assert.Equal(t, http.StatusInternalServerError, resp.status)
@@ -170,10 +214,14 @@ func TestAPIHistoryVersion(t *testing.T) {
 
 func TestAPIHistoryRestore(t *testing.T) {
 	restored := []byte("# the old one\n")
+	version := history.Entry{Rev: oid("a1"), Blob: oid("b2"), Path: "index.md", Kind: history.KindModified}
+	newFake := func() *fakeHistory {
+		return &fakeHistory{entries: []history.Entry{version}, blobs: map[string][]byte{version.Blob: restored}}
+	}
 
 	t.Run("writes the old version back through the store", func(t *testing.T) {
 		// arrange
-		fake := &fakeHistory{content: restored}
+		fake := newFake()
 		ts := newTestServer(t, testOpts{history: fake})
 		_, current := ts.json(t, request{path: "/api/file/index.md"})
 
@@ -181,7 +229,9 @@ func TestAPIHistoryRestore(t *testing.T) {
 		resp, body := ts.json(t, request{
 			method: http.MethodPost,
 			path:   "/api/history/restore/index.md",
-			body:   jsonBody(t, map[string]string{"blob": testOID, "rev": current["rev"].(string)}),
+			body: jsonBody(t, restoreRequest{
+				Rev: current["rev"].(string), Version: version.Rev, From: version.Path,
+			}),
 		})
 
 		// assert
@@ -197,16 +247,90 @@ func TestAPIHistoryRestore(t *testing.T) {
 			fake.ops)
 	})
 
-	t.Run("refuses a revision that is no longer the one on disk", func(t *testing.T) {
+	t.Run("takes the version of the pair and not a blob the body names", func(t *testing.T) {
 		// arrange
-		ts := newTestServer(t, testOpts{history: &fakeHistory{content: restored}})
+		fake := newFake()
+		secret := oid("e5")
+		fake.blobs[secret] = []byte("TOKEN=abc123\n")
+		ts := newTestServer(t, testOpts{history: fake})
 		_, current := ts.json(t, request{path: "/api/file/index.md"})
 
 		// act
 		resp, body := ts.json(t, request{
 			method: http.MethodPost,
 			path:   "/api/history/restore/index.md",
-			body:   jsonBody(t, map[string]string{"blob": testOID, "rev": "written-by-somebody-else"}),
+			body: jsonBody(t, map[string]string{
+				"rev": current["rev"].(string), "version": version.Rev, "from": version.Path, "blob": secret,
+			}),
+		})
+
+		// assert
+		require.Equal(t, http.StatusOK, resp.status, body)
+		onDisk, err := os.ReadFile(filepath.Join(ts.root, "index.md"))
+		require.NoError(t, err)
+		assert.Equal(t, restored, onDisk)
+	})
+
+	t.Run("refuses a version that does not belong to the path", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{history: newFake()})
+		_, current := ts.json(t, request{path: "/api/file/index.md"})
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost,
+			path:   "/api/history/restore/index.md",
+			body: jsonBody(t, restoreRequest{
+				Rev: current["rev"].(string), Version: oid("9f"), From: version.Path,
+			}),
+		})
+
+		// assert
+		assert.Equal(t, http.StatusNotFound, resp.status)
+		assert.Equal(t, "no such version", body["error"])
+		onDisk, err := os.ReadFile(filepath.Join(ts.root, "index.md"))
+		require.NoError(t, err)
+		assert.Equal(t, current["content"], string(onDisk))
+	})
+
+	t.Run("refuses a version larger than a save would take", func(t *testing.T) {
+		// arrange
+		huge := history.Entry{Rev: oid("f0"), Blob: oid("0e"), Path: "index.md", Kind: history.KindModified}
+		fake := newFake()
+		fake.entries = append(fake.entries, huge)
+		fake.blobs[huge.Blob] = bytes.Repeat([]byte("a"), maxEditableFile+1)
+		ts := newTestServer(t, testOpts{history: fake})
+		_, current := ts.json(t, request{path: "/api/file/index.md"})
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost,
+			path:   "/api/history/restore/index.md",
+			body: jsonBody(t, restoreRequest{
+				Rev: current["rev"].(string), Version: huge.Rev, From: huge.Path,
+			}),
+		})
+
+		// assert
+		assert.Equal(t, http.StatusRequestEntityTooLarge, resp.status)
+		assert.Equal(t, "file is too large", body["error"])
+		onDisk, err := os.ReadFile(filepath.Join(ts.root, "index.md"))
+		require.NoError(t, err)
+		assert.Equal(t, current["content"], string(onDisk))
+	})
+
+	t.Run("refuses a revision that is no longer the one on disk", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{history: newFake()})
+		_, current := ts.json(t, request{path: "/api/file/index.md"})
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost,
+			path:   "/api/history/restore/index.md",
+			body: jsonBody(t, restoreRequest{
+				Rev: "written-by-somebody-else", Version: version.Rev, From: version.Path,
+			}),
 		})
 
 		// assert
@@ -218,13 +342,13 @@ func TestAPIHistoryRestore(t *testing.T) {
 
 	t.Run("is refused in read-only mode", func(t *testing.T) {
 		// arrange
-		ts := newTestServer(t, testOpts{readOnly: true, history: &fakeHistory{content: restored}})
+		ts := newTestServer(t, testOpts{readOnly: true, history: newFake()})
 
 		// act
 		resp, body := ts.json(t, request{
 			method: http.MethodPost,
 			path:   "/api/history/restore/index.md",
-			body:   jsonBody(t, map[string]string{"blob": testOID, "rev": ""}),
+			body:   jsonBody(t, restoreRequest{Version: version.Rev, From: version.Path}),
 		})
 
 		// assert
@@ -234,13 +358,13 @@ func TestAPIHistoryRestore(t *testing.T) {
 
 	t.Run("is refused for a read-only token", func(t *testing.T) {
 		// arrange
-		ts := newTestServer(t, testOpts{withAuth: true, history: &fakeHistory{content: restored}})
+		ts := newTestServer(t, testOpts{withAuth: true, history: newFake()})
 
 		// act
 		resp, body := ts.json(t, request{
 			method:  http.MethodPost,
 			path:    "/api/history/restore/index.md",
-			body:    jsonBody(t, map[string]string{"blob": testOID, "rev": ""}),
+			body:    jsonBody(t, restoreRequest{Version: version.Rev, From: version.Path}),
 			headers: map[string]string{"Authorization": "Bearer " + testReadToken},
 		})
 
@@ -248,6 +372,56 @@ func TestAPIHistoryRestore(t *testing.T) {
 		assert.Equal(t, http.StatusForbidden, resp.status)
 		assert.Equal(t, "read-only token, writing is disabled", body["error"])
 	})
+}
+
+func TestHistoryAnswersOnlyForDocumentsTheStoreShows(t *testing.T) {
+	// arrange
+	leaked := []byte("TOKEN=abc123\n")
+	secret := history.Entry{Rev: oid("a1"), Blob: oid("b2"), Path: ".env", Kind: history.KindModified}
+	ts := newTestServer(t, testOpts{history: &fakeHistory{
+		entries: []history.Entry{secret},
+		blobs:   map[string][]byte{secret.Blob: leaked},
+	}})
+	require.NoError(t, os.WriteFile(filepath.Join(ts.root, ".env"), leaked, 0o600))
+	before, err := os.ReadFile(filepath.Join(ts.root, "index.md"))
+	require.NoError(t, err)
+
+	restore := func(p string) request {
+		return request{
+			method: http.MethodPost,
+			path:   "/api/history/restore/" + p,
+			body:   jsonBody(t, restoreRequest{Version: secret.Rev, From: secret.Path}),
+		}
+	}
+	tests := []struct {
+		name string
+		req  request
+	}{
+		{name: "the page of a hidden file", req: request{path: "/history/.env"}},
+		{name: "the versions of a hidden file", req: request{path: "/api/history/.env"}},
+		{name: "one version of a hidden file", req: request{path: "/api/history/.env?rev=" + secret.Rev}},
+		{name: "a restore onto a hidden file", req: restore(".env")},
+		{name: "a restore out of a hidden file", req: restore("index.md")},
+		{name: "the versions of an attachment", req: request{path: "/api/history/images/logo.png"}},
+		{name: "the versions of a .markdown file, an attachment like any other",
+			req: request{path: "/api/history/long.markdown"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			resp, body := ts.do(t, tc.req)
+
+			// assert
+			assert.Equal(t, http.StatusNotFound, resp.status)
+			assert.NotContains(t, body, "abc123")
+		})
+	}
+
+	// assert
+	onDisk, err := os.ReadFile(filepath.Join(ts.root, "index.md"))
+	require.NoError(t, err)
+	assert.Equal(t, before, onDisk)
 }
 
 func TestAPIHistoryWithoutTheService(t *testing.T) {
@@ -259,7 +433,7 @@ func TestAPIHistoryWithoutTheService(t *testing.T) {
 		path   string
 	}{
 		{name: "list", path: "/api/history/index.md"},
-		{name: "one version", path: "/api/history/index.md?rev=" + testOID},
+		{name: "one version", path: "/api/history/index.md?rev=" + oid("a1")},
 		{name: "restore", method: http.MethodPost, path: "/api/history/restore/index.md"},
 	}
 
@@ -269,7 +443,7 @@ func TestAPIHistoryWithoutTheService(t *testing.T) {
 			resp, body := ts.json(t, request{
 				method: tc.method,
 				path:   tc.path,
-				body:   jsonBody(t, map[string]string{"blob": testOID, "rev": ""}),
+				body:   jsonBody(t, restoreRequest{Version: oid("a1")}),
 			})
 
 			// assert
@@ -283,17 +457,17 @@ func TestHistoryPage(t *testing.T) {
 	at := time.Date(2024, time.March, 1, 10, 30, 0, 0, time.UTC)
 	entries := []history.Entry{
 		{
-			Rev: testOID, Short: testOID[:7], Blob: strings.Repeat("f0f0f0f0", 5),
+			Rev: oid("a1"), Short: oid("a1")[:7], Blob: oid("b2"),
 			Actor: "token:agent", Message: "save index.md", Path: "index.md",
 			Kind: history.KindModified, At: at,
 		},
 		{
-			Rev: strings.Repeat("b1b2b3b4", 5), Short: "b1b2b3b", Blob: strings.Repeat("c4c4c4c4", 5),
+			Rev: oid("c3"), Short: oid("c3")[:7], Blob: oid("d4"),
 			Actor: "bob", Message: "move home.md to index.md", Path: "home.md",
 			Kind: history.KindRenamed, At: at.Add(-time.Hour),
 		},
 		{
-			Rev: strings.Repeat("d5d5d5d5", 5), Short: "d5d5d5d", Blob: "",
+			Rev: oid("e5"), Short: oid("e5")[:7], Blob: "",
 			Actor: "external", Message: "delete home.md", Path: "home.md",
 			Kind: history.KindDeleted, At: at.Add(-2 * time.Hour),
 		},

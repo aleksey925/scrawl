@@ -78,7 +78,10 @@ func (s *Service) baseArgs() []string {
 		"-c", "safe.directory=" + s.root,
 		// the notes directory may already be a repository somebody configured,
 		// and --no-verify does not disable every hook
-		"-c", "core.hooksPath=" + s.hooks,
+		// a place that can hold no hooks at all, rather than an empty directory
+		// of ours inside the adopted repository: whoever assembled that
+		// repository can leave a directory or a symlink standing there first
+		"-c", "core.hooksPath=/dev/null",
 		// another command the repository config gets to name, run on the
 		// ordinary operations this package performs
 		"-c", "core.fsmonitor=",

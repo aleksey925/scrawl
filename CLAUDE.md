@@ -80,6 +80,22 @@ vendor/                dependencies, checked in, `make deps` regenerates
   only for an API token, so an agent never gets a 200 for a change
   history missed; a browser save survives it and the page says history
   fell behind.
+- An adopted repository is not inert. Its config and its `.gitattributes`
+  each name a command git would run during an ordinary commit, so hooks
+  go to a `core.hooksPath` that can hold none, `core.fsmonitor` is
+  overridden empty, and the filter attribute is unset in
+  `.git/info/attributes`, where the last matching line wins. Nothing of
+  ours is created inside that repository beyond that file, and a symlink
+  standing where it belongs is removed rather than written through.
+  Failing to establish any of this stops startup: a repository that runs
+  its own command on every commit is not a degraded mode worth serving.
+- History answers only for paths the app would serve anyway: markdown,
+  and visible to `store`. Git tracks whatever the repository holds, a
+  file the store hides included, so without that check the history
+  routes are a second way into the notes with no policy on them. A blob
+  is resolved from the commit and the path it belonged to, never taken
+  from the request, and a restore is bounded by the same size an
+  ordinary save takes.
 
 ## Commands
 

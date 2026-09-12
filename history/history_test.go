@@ -626,16 +626,16 @@ func TestServiceRecord(t *testing.T) {
 		assert.Equal(t, 1, commitCount(t, s))
 	})
 
-	t.Run("never runs a hook reached through a symlink the repository planted", func(t *testing.T) {
+	t.Run("never runs a hook from a directory the repository planted for us", func(t *testing.T) {
 		// arrange
 		root := t.TempDir()
 		gitInit(t, root)
 		marker := filepath.Join(t.TempDir(), "hook-ran")
-		writeFile(t, root, ".git/hooks/pre-commit", "#!/bin/sh\ntouch "+marker+"\nexit 1\n")
-		require.NoError(t, os.Chmod(filepath.Join(root, ".git", "hooks", "pre-commit"), 0o755))
-		// the empty hooks directory is only empty until somebody links it back
-		require.NoError(t, os.Symlink(
-			filepath.Join(root, ".git", "hooks"), filepath.Join(root, ".git", "scrawl-no-hooks")))
+		// the path an earlier version pointed core.hooksPath at, standing there
+		// before we ever look: a directory of ours inside a repository somebody
+		// else assembled was never ours to begin with
+		writeFile(t, root, ".git/scrawl-no-hooks/pre-commit", "#!/bin/sh\ntouch "+marker+"\nexit 1\n")
+		require.NoError(t, os.Chmod(filepath.Join(root, ".git", "scrawl-no-hooks", "pre-commit"), 0o755))
 		s := serviceAt(t, root)
 
 		// act
@@ -645,6 +645,32 @@ func TestServiceRecord(t *testing.T) {
 		require.NoError(t, err)
 		assert.NoFileExists(t, marker)
 		assert.Equal(t, 1, commitCount(t, s))
+	})
+
+	t.Run("neutralizes a filter even when the attributes file already mentions the unset", func(t *testing.T) {
+		// arrange
+		root := t.TempDir()
+		gitInit(t, root)
+		marker := filepath.Join(t.TempDir(), "filter-ran")
+		script := filepath.Join(t.TempDir(), "clean.sh")
+		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\ntouch "+marker+"\ncat\n"), 0o700))
+		writeFile(t, root, ".gitattributes", "* filter=evil\n")
+		config := filepath.Join(root, ".git", "config")
+		current, readErr := os.ReadFile(config)
+		require.NoError(t, readErr)
+		hostile := "[filter \"evil\"]\n\tclean = " + script + "\n"
+		require.NoError(t, os.WriteFile(config, append(current, hostile...), 0o600))
+		// the unset is there only as a comment, with a real assignment after it,
+		// and the last matching line is the one git acts on
+		writeFile(t, root, ".git/info/attributes", "# "+noFilterAttr+"\n* filter=evil\n")
+		s := serviceAt(t, root)
+
+		// act
+		err := record(t, s, Op{Actor: "alex", Paths: []string{"note.md"}, Strict: true}, map[string]string{"note.md": "# note\n"})
+
+		// assert
+		require.NoError(t, err)
+		assert.NoFileExists(t, marker)
 	})
 
 	t.Run("never writes its attributes through a symlink the repository planted", func(t *testing.T) {
@@ -913,6 +939,95 @@ func TestServiceLog(t *testing.T) {
 
 		// assert
 		assert.ErrorIs(t, err, ErrDisabled)
+	})
+}
+
+func TestServiceVersion(t *testing.T) {
+	t.Run("resolves the blob the commit recorded for the path", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
+		rev := strings.TrimSpace(runGit(t, s.Root(), "rev-parse", "HEAD"))
+
+		// act
+		blob, err := s.Version(t.Context(), rev, "a.md")
+
+		// assert
+		require.NoError(t, err)
+		content, showErr := s.Show(t.Context(), blob)
+		require.NoError(t, showErr)
+		assert.Equal(t, "first\n", string(content))
+	})
+
+	t.Run("refuses a commit that never touched the path", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"b.md"}}, map[string]string{"b.md": "other\n"}))
+		// log walks backwards, so this pair answers with the older commit
+		// unless the revision that was asked for is the one that comes back
+		latest := strings.TrimSpace(runGit(t, s.Root(), "rev-parse", "HEAD"))
+
+		// act
+		_, err := s.Version(t.Context(), latest, "a.md")
+
+		// assert
+		require.ErrorIs(t, err, ErrNoVersion)
+	})
+
+	t.Run("reads the version from before a rename under its historical path", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"old.md"}}, map[string]string{"old.md": "before\n"}))
+		before := strings.TrimSpace(runGit(t, s.Root(), "rev-parse", "HEAD"))
+		require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"old.md", "new.md"}}, func() ([]string, error) {
+			return nil, os.Rename(filepath.Join(s.Root(), "old.md"), filepath.Join(s.Root(), "new.md"))
+		}))
+
+		// act
+		blob, err := s.Version(t.Context(), before, "old.md")
+
+		// assert
+		require.NoError(t, err)
+		content, showErr := s.Show(t.Context(), blob)
+		require.NoError(t, showErr)
+		assert.Equal(t, "before\n", string(content))
+	})
+
+	t.Run("resolves a deletion to no content", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
+		require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"a.md"}}, func() ([]string, error) {
+			return nil, os.Remove(filepath.Join(s.Root(), "a.md"))
+		}))
+		rev := strings.TrimSpace(runGit(t, s.Root(), "rev-parse", "HEAD"))
+
+		// act
+		blob, err := s.Version(t.Context(), rev, "a.md")
+
+		// assert
+		require.NoError(t, err)
+		assert.Empty(t, blob)
+	})
+
+	t.Run("refuses anything that is not an object id", func(t *testing.T) {
+		// act
+		_, err := newService(t).Version(t.Context(), "HEAD", "a.md")
+
+		// assert
+		require.Error(t, err)
+	})
+
+	t.Run("a disabled service reports it", func(t *testing.T) {
+		// arrange
+		var s *Service
+
+		// act
+		_, err := s.Version(t.Context(), strings.Repeat("a1b2c3d4", 5), "a.md")
+
+		// assert
+		require.ErrorIs(t, err, ErrDisabled)
 	})
 }
 

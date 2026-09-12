@@ -96,6 +96,14 @@ func names(entries []FileInfo) []string {
 	return res
 }
 
+func paths(entries []FileInfo) []string {
+	res := make([]string, 0, len(entries))
+	for _, fi := range entries {
+		res = append(res, fi.Path)
+	}
+	return res
+}
+
 func flatten(n *Node) []string {
 	res := []string{}
 	for _, sub := range n.Children {
@@ -786,6 +794,51 @@ func TestStoreWalk(t *testing.T) {
 		})
 		require.ErrorIs(t, err, stop)
 		assert.Equal(t, 1, visited)
+	})
+}
+
+func TestStoreFiles(t *testing.T) {
+	t.Run("every visible file, markdown or not", func(t *testing.T) {
+		// arrange
+		files := notesFiles()
+		files["draft.private"] = "hidden by a glob\n"
+		files["secrets/keys.md"] = "hidden by a glob\n"
+		s := newStore(t, files, func(c *Config) { c.Exclude = []string{"*.private", "secrets"} })
+		require.NoError(t, os.Symlink("guide.md", filepath.Join(s.Dir(), "inside.md")))
+
+		// act
+		got, err := s.Files()
+
+		// assert
+		require.NoError(t, err)
+		assert.Equal(t, []string{
+			"guide.md", "images/logo.png", "index.md",
+			"notes/Cyrillic.md", "notes/deep/nested.md", "notes/index.md", "snippet.py",
+		}, paths(got))
+	})
+
+	t.Run("entry fields", func(t *testing.T) {
+		// arrange
+		s := newStore(t, map[string]string{"notes/snippet.py": notesFiles()["snippet.py"]})
+
+		// act
+		got, err := s.Files()
+
+		// assert
+		require.NoError(t, err)
+		require.Len(t, got, 1)
+		assert.Equal(t, FileInfo{
+			Path:    "notes/snippet.py",
+			Name:    "snippet.py",
+			Size:    int64(len(notesFiles()["snippet.py"])),
+			ModTime: got[0].ModTime,
+		}, got[0])
+	})
+
+	t.Run("empty root", func(t *testing.T) {
+		got, err := newStore(t, nil).Files()
+		require.NoError(t, err)
+		assert.Empty(t, got)
 	})
 }
 

@@ -254,6 +254,27 @@ func (s *Service) User(r *http.Request) (string, bool) {
 	return tok.user, true
 }
 
+const (
+	anonymousActor   = "anonymous"
+	tokenActorPrefix = "token:"
+)
+
+// Actor names who is making a request, for the audit trail of the history
+// feature. A request authenticated with an API token is named after the token,
+// prefixed so it never collides with a user of the same name; one without a
+// user behind it, which includes every request with auth disabled, is
+// anonymous.
+func (s *Service) Actor(r *http.Request) string {
+	name, ok := s.User(r)
+	if !ok || name == "" {
+		return anonymousActor
+	}
+	if ByToken(r) {
+		return tokenActorPrefix + name
+	}
+	return name
+}
+
 // Allow reports whether another login attempt from this client is permitted.
 // It consumes one attempt from every budget the request counts against, so call
 // it once per POST to the login route and refuse the request when it returns

@@ -432,6 +432,55 @@ func TestServiceUser(t *testing.T) {
 	})
 }
 
+func TestServiceActor(t *testing.T) {
+	svc := newTestService(t, Config{Tokens: "bot:" + TokenDigest(testAPIToken)})
+
+	t.Run("api token", func(t *testing.T) {
+		// arrange
+		req := httptest.NewRequest(http.MethodGet, "/api/tree", http.NoBody)
+		req.Header.Set("Authorization", "Bearer "+testAPIToken)
+		var got string
+
+		// act
+		svc.Middleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			got = svc.Actor(r)
+		})).ServeHTTP(httptest.NewRecorder(), req)
+
+		// assert
+		assert.Equal(t, tokenActorPrefix+"bot", got)
+	})
+
+	t.Run("session", func(t *testing.T) {
+		// arrange
+		req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/p/a.md", http.NoBody), "alice")
+
+		// act
+		got := svc.Actor(req)
+
+		// assert
+		assert.Equal(t, "alice", got)
+	})
+
+	t.Run("auth disabled", func(t *testing.T) {
+		// arrange
+		disabled := newTestService(t, Config{Disabled: true})
+
+		// act
+		got := disabled.Actor(httptest.NewRequest(http.MethodGet, "/p/a.md", http.NoBody))
+
+		// assert
+		assert.Equal(t, anonymousActor, got)
+	})
+
+	t.Run("without a session", func(t *testing.T) {
+		// act
+		got := svc.Actor(httptest.NewRequest(http.MethodGet, "/login", http.NoBody))
+
+		// assert
+		assert.Equal(t, anonymousActor, got)
+	})
+}
+
 func TestCSRF(t *testing.T) {
 	tests := []struct {
 		name     string

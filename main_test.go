@@ -31,7 +31,7 @@ func TestParseOptsDefaults(t *testing.T) {
 	// assert
 	require.NoError(t, err)
 	assert.Equal(t, "/notes", opts.Root)
-	assert.Equal(t, ":8080", opts.Listen)
+	assert.Equal(t, ":7272", opts.Listen)
 	assert.Equal(t, "Notes", opts.Title)
 	assert.Equal(t, byteSize(20<<20), opts.MaxUpload)
 	assert.Equal(t, 720*time.Hour, opts.Auth.TTL)

@@ -4,11 +4,9 @@
 services:
   scrawl:
     image: ghcr.io/aleksey925/scrawl:latest
-    container_name: scrawl
     restart: unless-stopped
-
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:7272:7272"
 
     volumes:
       - /volume1/docs/notes:/notes

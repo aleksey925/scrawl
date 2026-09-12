@@ -35,9 +35,9 @@ COPY --from=build /build/scrawl /opt/app/scrawl
 WORKDIR /opt/app
 USER app
 
-EXPOSE 8080
+EXPOSE 7272
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --quiet --spider --tries=1 http://127.0.0.1:8080/ping || exit 1
+    CMD wget --quiet --spider --tries=1 http://127.0.0.1:7272/ping || exit 1
 
 ENTRYPOINT ["/opt/app/scrawl"]

@@ -35,7 +35,7 @@ var revision = "0.0.0"
 
 type options struct {
 	Root         string   `short:"r" long:"root" env:"ROOT" default:"/notes" description:"notes root directory"`
-	Listen       string   `short:"l" long:"listen" env:"LISTEN" default:":8080" description:"address to listen on"`
+	Listen       string   `short:"l" long:"listen" env:"LISTEN" default:":7272" description:"address to listen on"`
 	Title        string   `long:"title" env:"TITLE" default:"Notes" description:"site title"`
 	ReadOnly     bool     `long:"read-only" env:"READ_ONLY" description:"disable all write endpoints"`
 	Exclude      []string `long:"exclude" env:"EXCLUDE" env-delim:"," description:"extra ignore globs"`

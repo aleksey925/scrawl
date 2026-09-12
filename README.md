@@ -24,7 +24,7 @@ files on disk are the only state.
 docker compose up
 ```
 
-Open http://localhost:8080 and sign in as `admin` / `admin`. It serves
+Open http://localhost:7272 and sign in as `admin` / `admin`. It serves
 the sample notes from `examples/data`, so anything you edit changes
 those files.
 
@@ -34,7 +34,7 @@ Docker is the usual way to run it:
 
 ```
 docker run -d --name scrawl \
-  -p 8080:8080 \
+  -p 7272:7272 \
   -v /path/to/notes:/notes \
   -v scrawl-data:/data \
   -e AUTH_USERS='alex:my-password' \
@@ -66,7 +66,7 @@ curl -#L "https://github.com/aleksey925/scrawl/releases/download/v${VERSION}/scr
 ```
 
 or build it yourself with `go install github.com/aleksey925/scrawl@latest`.
-A binary defaults to `/notes` and `:8080`, so point it at your own folder:
+A binary defaults to `/notes` and `:7272`, so point it at your own folder:
 
 ```
 scrawl --root ~/notes --auth.users 'alex:my-password'
@@ -80,7 +80,7 @@ Environment variables, each also available as a flag. Run
 | variable           | default             | meaning                                                   |
 | ------------------ | ------------------- | --------------------------------------------------------- |
 | `ROOT`             | `/notes`            | directory to serve                                        |
-| `LISTEN`           | `:8080`             | address to listen on                                      |
+| `LISTEN`           | `:7272`             | address to listen on                                      |
 | `TITLE`            | `Notes`             | site title in the interface                               |
 | `AUTH_USERS`       |                     | `user:hashOrPassword`, comma separated                    |
 | `AUTH_TOKENS`      |                     | API tokens, `name:hashOrToken[:ro]`, comma separated      |
@@ -174,9 +174,9 @@ the login page:
 
 ```
 TOKEN=scrawl_L5Y6q1vjgguEiF8ODvE_LLBABLm339BGlpPq4VSXBcg
-curl -sH "Authorization: Bearer $TOKEN" http://localhost:8080/api/tree
-curl -sH "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/search?q=redis'
-curl -sH "Authorization: Bearer $TOKEN" http://localhost:8080/api/file/python/notes.md
+curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/api/tree
+curl -sH "Authorization: Bearer $TOKEN" 'http://localhost:7272/api/search?q=redis'
+curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/api/file/python/notes.md
 ```
 
 The last one answers with the source and the revision it was read at:
@@ -199,10 +199,10 @@ A write sends that `rev` back, which is how the server tells that the
 file did not move on in between. Read it, then save:
 
 ```
-REV=$(curl -sH "Authorization: Bearer $TOKEN" http://localhost:8080/api/file/python/notes.md | jq -r .rev)
+REV=$(curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/api/file/python/notes.md | jq -r .rev)
 curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"content":"# Notes\n\nredis notes\n","rev":"'"$REV"'"}' \
-  http://localhost:8080/api/file/python/notes.md
+  http://localhost:7272/api/file/python/notes.md
 ```
 
 The reply is `{"rev":"sha256:...","mod_time":"..."}`, and that `rev` is

@@ -35,7 +35,7 @@ order by hits desc;
 ```
 
 ```bash
-curl -sS http://localhost:8080/ping
+curl -sS http://localhost:7272/ping
 ```
 
 ## Task list

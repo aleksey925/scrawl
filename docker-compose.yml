@@ -2,7 +2,7 @@ services:
   scrawl:
     build: .
     ports:
-      - "8080:8080"
+      - "7272:7272"
     volumes:
       - ./examples/data:/notes
       - scrawl-data:/data

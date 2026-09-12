@@ -35,14 +35,10 @@ export function initHistory() {
     let pickSeq = 0;
 
     function render(data) {
-        const hasContent = typeof data.content === 'string';
-        let tail = '';
-        if (hasContent) {
-            tail = '<p class="modal-col-title">The document at this version</p>' +
-                '<pre class="version-content" data-content></pre>';
-        } else if (!data.text) {
-            tail = '<p class="empty-hint">Not a text file, so only the patch is shown.</p>';
-        }
+        const tail = typeof data.content === 'string'
+            ? '<p class="modal-col-title">The document at this version</p>' +
+                '<pre class="version-content" data-content></pre>'
+            : '';
         detail.innerHTML = '<p class="modal-col-title">What changed</p>' +
             (data.diff
                 ? '<pre class="diff" data-diff></pre>'
@@ -58,8 +54,7 @@ export function initHistory() {
         detail.setAttribute('aria-busy', 'true');
         // the historical path, which is not today's once a rename sits between
         const url = '/api/history/' + encodePath(row.dataset.path) +
-            '?rev=' + encodeURIComponent(row.dataset.rev) +
-            '&blob=' + encodeURIComponent(row.dataset.blob);
+            '?rev=' + encodeURIComponent(row.dataset.rev);
         try {
             const data = await api('GET', url);
             if (seq !== pickSeq) return;
@@ -108,7 +103,9 @@ export function initHistory() {
         });
         if (!ok) return;
         try {
-            await api('POST', '/api/history/restore/' + encodePath(path), {blob: row.dataset.blob, rev});
+            await api('POST', '/api/history/restore/' + encodePath(path), {
+                rev, version: row.dataset.rev, from: row.dataset.path,
+            });
             toast('Restored', 'success');
             location.reload();
         } catch (err) {

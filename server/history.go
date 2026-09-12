@@ -24,6 +24,7 @@ type History interface {
 	Degraded() bool
 	Record(ctx context.Context, op history.Op, mutate func() ([]string, error)) error
 	Log(ctx context.Context, p string, limit int) ([]history.Entry, error)
+	Version(ctx context.Context, rev, p string) (string, error)
 	Show(ctx context.Context, blob string) ([]byte, error)
 	Diff(ctx context.Context, rev, p string) (string, error)
 }
@@ -44,9 +45,14 @@ type historyEntry struct {
 	At      time.Time `json:"at"`
 }
 
+// restoreRequest names the version to write back. Version is the commit that
+// recorded it and From the path the document had at that commit, which is not
+// today's path once a rename sits between them; an empty From is that path.
+// Rev is the revision on disk the page was built from.
 type restoreRequest struct {
-	Blob string `json:"blob"`
-	Rev  string `json:"rev"`
+	Rev     string `json:"rev"`
+	Version string `json:"version"`
+	From    string `json:"from"`
 }
 
 // history returns the service, falling back to the disabled one. A nil
@@ -59,16 +65,39 @@ func (wb *Web) history() History {
 	return wb.History
 }
 
-// apiHistory lists the versions of a document, newest first, and serves one of
-// them instead when the query names a revision.
-func (wb *Web) apiHistory(w http.ResponseWriter, r *http.Request) {
+// isDocument reports whether history may speak about a path at all: markdown is
+// the only document the app has, and the store decides what it will serve.
+// Neither is a question git can answer - the repository tracks whatever it
+// holds, a file the store hides included - so without this the history routes
+// are a second way into the notes directory, and one with no policy on it.
+func (wb *Web) isDocument(p string) bool {
+	return isMarkdown(p) && wb.Store.Visible(p)
+}
+
+// historyPath pulls the document out of a history URL and answers the request
+// itself when the path is not one history may speak about.
+func (wb *Web) historyPath(w http.ResponseWriter, r *http.Request) (string, bool) {
 	p, ok := contentPath(r, "path")
 	if !ok || p == "" {
 		jsonError(w, http.StatusBadRequest, "bad path")
+		return "", false
+	}
+	if !wb.isDocument(p) {
+		failJSON(w, r, fmt.Errorf("history %q: %w", p, store.ErrNotFound))
+		return "", false
+	}
+	return p, true
+}
+
+// apiHistory lists the versions of a document, newest first, and serves one of
+// them instead when the query names a revision.
+func (wb *Web) apiHistory(w http.ResponseWriter, r *http.Request) {
+	p, ok := wb.historyPath(w, r)
+	if !ok {
 		return
 	}
 	if rev := r.URL.Query().Get("rev"); rev != "" {
-		wb.historyVersion(w, r, p, rev, r.URL.Query().Get("blob"))
+		wb.historyVersion(w, r, p, rev)
 		return
 	}
 
@@ -87,20 +116,28 @@ func (wb *Web) apiHistory(w http.ResponseWriter, r *http.Request) {
 // historyVersion answers one version: the patch that commit made to the
 // document, plus the content as it stood afterwards. The path is the historical
 // one the entry carries, which is not today's path once a rename sits between
-// them, and the blob is how content is read for the same reason.
+// them, and content is still read by blob for the same reason - but the blob is
+// resolved from the pair rather than taken from the request, because a blob
+// names content and nothing else: one that arrived from outside would read any
+// object the repository holds under any path the caller likes.
 //
 // Content is absent whenever there is nothing a reader could be shown: a
-// deletion has no blob, an attachment is not text, and a version too large to
-// edit is too large to escape into a JSON string. The diff is always there.
-func (wb *Web) historyVersion(w http.ResponseWriter, r *http.Request, p, rev, blob string) {
+// deletion recorded none, and a version too large to edit is too large to
+// escape into a JSON string. The diff is always there.
+func (wb *Web) historyVersion(w http.ResponseWriter, r *http.Request, p, rev string) {
+	blob, err := wb.history().Version(r.Context(), rev, p)
+	if err != nil {
+		failHistory(w, r, err)
+		return
+	}
 	diff, err := wb.history().Diff(r.Context(), rev, p)
 	if err != nil {
 		failHistory(w, r, err)
 		return
 	}
 
-	res := map[string]any{"path": p, "rev": rev, "blob": blob, "diff": diff, "text": isTextFile(p)}
-	if blob != "" && isTextFile(p) {
+	res := map[string]any{"path": p, "rev": rev, "diff": diff}
+	if blob != "" {
 		data, showErr := wb.history().Show(r.Context(), blob)
 		if showErr != nil {
 			failHistory(w, r, showErr)
@@ -113,28 +150,59 @@ func (wb *Web) historyVersion(w http.ResponseWriter, r *http.Request, p, rev, bl
 	writeJSON(w, http.StatusOK, res)
 }
 
+// versionContent reads the version a request named. A pair that resolves to no
+// blob is a commit that deleted the document, which left no content to write
+// back, and is refused like a pair that names no version at all.
+func (wb *Web) versionContent(ctx context.Context, rev, p string) ([]byte, error) {
+	blob, err := wb.history().Version(ctx, rev, p)
+	if err != nil {
+		return nil, err
+	}
+	if blob == "" {
+		return nil, fmt.Errorf("history: version %s %q: %w", rev, p, history.ErrNoVersion)
+	}
+	return wb.history().Show(ctx, blob)
+}
+
 // apiHistoryRestore writes an old version back through the store, as an
 // ordinary save that history records like any other: nothing is rewritten, and
 // undoing the undo works. The client sends the revision it last saw, so a
 // history page left open cannot silently overwrite a newer edit - that comes
 // back as the same conflict the editor already knows.
+//
+// The version is named by the commit that recorded it and the path the document
+// had back then, and both are checked before anything is written: a restore
+// that took content the caller pointed at would copy any object the repository
+// holds into any document. The content has to fit what an ordinary save takes,
+// because this is one.
 func (wb *Web) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
 	if wb.refuseReadOnly(w, r) {
 		return
 	}
-	p, ok := contentPath(r, "path")
-	if !ok || p == "" {
-		jsonError(w, http.StatusBadRequest, "bad path")
+	p, ok := wb.historyPath(w, r)
+	if !ok {
 		return
 	}
 	var req restoreRequest
 	if !decodeJSON(w, r, &req, maxJSONBody) {
 		return
 	}
+	from := req.From
+	if from == "" {
+		from = p
+	}
+	if !wb.isDocument(from) {
+		failJSON(w, r, fmt.Errorf("history %q: %w", from, store.ErrNotFound))
+		return
+	}
 
-	data, err := wb.history().Show(r.Context(), req.Blob)
+	data, err := wb.versionContent(r.Context(), req.Version, from)
 	if err != nil {
 		failHistory(w, r, err)
+		return
+	}
+	if len(data) > maxEditableFile {
+		jsonError(w, http.StatusRequestEntityTooLarge, errMessage(store.ErrTooLarge))
 		return
 	}
 
@@ -212,6 +280,8 @@ func failHistory(w http.ResponseWriter, r *http.Request, err error) {
 		jsonError(w, http.StatusServiceUnavailable, "history is disabled")
 	case errors.Is(err, history.ErrBadPath):
 		jsonError(w, http.StatusBadRequest, "bad path")
+	case errors.Is(err, history.ErrNoVersion):
+		jsonError(w, http.StatusNotFound, "no such version")
 	default:
 		log.Printf("[ERROR] %s %s: %v", r.Method, r.URL.Path, err)
 		jsonError(w, http.StatusInternalServerError, "history is unavailable")

@@ -179,6 +179,15 @@ func (s *Store) Exists(p string) bool {
 	return err == nil
 }
 
+// Visible reports whether the store would serve a path at all: it stays inside
+// the root and no ignore rule hides it. Unlike Exists it says nothing about the
+// entry being there, which is the question a caller holding a path the notes no
+// longer have - a document an older version still names - has to ask.
+func (s *Store) Visible(p string) bool {
+	_, err := s.checkPath(p)
+	return err == nil
+}
+
 // List returns the visible entries of a directory, directories first and then
 // files, both case-insensitively by name, so the UI never has to sort.
 func (s *Store) List(dir string) ([]FileInfo, error) {

@@ -78,6 +78,45 @@ func (s *Service) Log(ctx context.Context, p string, limit int) ([]Entry, error)
 	return entries, nil
 }
 
+// Version resolves the blob one commit recorded for one path, which is how a
+// caller comes by a blob at all. The pair has to be exactly a commit and a path
+// that commit changed, the way a log entry carries them, so that a blob named
+// from outside cannot be read back under a path it never belonged to.
+//
+// log walks backwards, so a commit that left the path alone answers with an
+// older one instead of nothing, and only the commit that was asked for is the
+// version that was asked for. A commit that deleted the path recorded no
+// content and resolves to an empty blob.
+func (s *Service) Version(ctx context.Context, rev, p string) (string, error) {
+	if s == nil {
+		return "", ErrDisabled
+	}
+	if !isOID(rev) {
+		return "", fmt.Errorf("history: version: %q is not an object id", rev)
+	}
+	cleaned, err := cleanPath(p)
+	if err != nil {
+		return "", fmt.Errorf("history: version: %w", err)
+	}
+
+	args := []string{
+		"log", "-n", "1", "--raw", "--no-abbrev", "-z", "--no-color",
+		"--format=" + logFormat, rev, "--", cleaned,
+	}
+	out, err := s.run(ctx, command{args: args})
+	if err != nil {
+		return "", fmt.Errorf("history: version %s %q: %w", rev, cleaned, err)
+	}
+	entries, err := parseLog(out)
+	if err != nil {
+		return "", fmt.Errorf("history: version %s %q: %w", rev, cleaned, err)
+	}
+	if len(entries) == 0 || entries[0].Rev != rev {
+		return "", fmt.Errorf("history: version %s %q: %w", rev, cleaned, ErrNoVersion)
+	}
+	return entries[0].Blob, nil
+}
+
 // Show returns the bytes git stored for a version. It takes the blob of an
 // Entry, never a revision and a path: after a rename the path does not exist at
 // the older revision and git refuses to resolve it.

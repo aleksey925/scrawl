@@ -75,6 +75,9 @@ var (
 	// ErrBadPath is returned for a path that is not a store path: absolute,
 	// empty, escaping the root or carrying a NUL.
 	ErrBadPath = errors.New("bad path")
+	// ErrNoVersion is returned for a revision and a path that name no version,
+	// which is a commit that did not change that path.
+	ErrNoVersion = errors.New("no such version")
 )
 
 // Config holds everything the service needs. Root and Files are mandatory.
@@ -92,7 +95,6 @@ type Service struct {
 	cfg   Config
 	root  string // canonical absolute path of the notes root
 	git   string // resolved git binary
-	hooks string // empty directory used as core.hooksPath
 	exts  map[string]struct{}
 	files *os.Root // for existence checks, so a path cannot escape the root
 
@@ -137,32 +139,28 @@ func New(cfg Config) (*Service, error) {
 		files:   files,
 		pending: map[string]struct{}{},
 	}
-	// core.hooksPath has to point somewhere that holds no hooks. Inside the
-	// git directory it belongs to us and survives for the life of the repo.
-	s.hooks = filepath.Join(root, ".git", "scrawl-no-hooks")
-
 	ctx, cancel := context.WithTimeout(context.Background(), s.initTimeout())
 	defer cancel()
 	if err = s.open(ctx); err != nil {
 		_ = files.Close()
 		return nil, fmt.Errorf("history: %w", err)
 	}
-	if err = ownPath(s.hooks); err != nil {
-		log.Printf("[WARN] history: %s: a hook the repository carries would run on every commit: %v", s.hooks, err)
-	} else if err = os.MkdirAll(s.hooks, 0o750); err != nil {
-		log.Printf("[DEBUG] history: no hooks directory at %s, git will find no hooks there anyway: %v", s.hooks, err)
+	// a repository whose filters still stand is one that runs a command of its
+	// own on every commit, so failing to neutralize them is not a state worth
+	// carrying on through
+	if err = s.disableFilters(); err != nil {
+		_ = files.Close()
+		return nil, fmt.Errorf("history: %w", err)
 	}
-	s.disableFilters()
 	return s, nil
 }
 
-// ownPath clears the way for something we are about to create inside the git
-// directory. A repository we adopted was assembled by somebody else, who may
-// have left a symlink where we expect our own entry: pointing core.hooksPath at
-// a link to .git/hooks brings back every hook the empty directory was meant to
-// suppress, and writing through a link lands the content outside the
-// repository. Only a symlink is removed; anything else is left alone and the
-// caller decides what to do with it.
+// ownPath clears the way for the attributes file we are about to write inside
+// the git directory. A repository we adopted was assembled by somebody else,
+// who may have left a symlink standing where our own entry belongs, and
+// writing through it would land the content outside the repository. Only a
+// symlink is removed; anything else is left alone and the caller decides what
+// to do with it.
 func ownPath(p string) error {
 	fi, err := os.Lstat(p)
 	switch {
@@ -191,32 +189,46 @@ func ownPath(p string) error {
 //
 // The cost is that a legitimate filter, git-lfs among them, does not apply to
 // our commits either: history stores what the store holds, byte for byte.
-func (s *Service) disableFilters() {
+func (s *Service) disableFilters() error {
 	dir := filepath.Join(s.root, ".git", "info")
 	if err := os.MkdirAll(dir, 0o750); err != nil {
-		log.Printf("[WARN] history: %s: a filter the repository configures would run on every commit: %v", dir, err)
-		return
+		return fmt.Errorf("prepare %s: %w", dir, err)
 	}
 
 	name := filepath.Join(dir, "attributes")
 	if err := ownPath(name); err != nil {
-		log.Printf("[WARN] history: %s: a filter the repository configures would run on every commit: %v", name, err)
-		return
+		return err
 	}
 	current, err := os.ReadFile(name) //nolint:gosec // a path inside the repository we just opened
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		log.Printf("[WARN] history: read %s: %v", name, err)
-		return
+		return fmt.Errorf("read %s: %w", name, err)
 	}
-	if bytes.Contains(current, []byte(noFilterAttr)) {
-		return
+	if lastAttrRule(current) == noFilterAttr {
+		return nil
 	}
 	if len(current) > 0 && !bytes.HasSuffix(current, []byte("\n")) {
 		current = append(current, '\n')
 	}
 	if err = os.WriteFile(name, append(current, []byte(noFilterAttr+"\n")...), 0o600); err != nil {
-		log.Printf("[WARN] history: write %s: a filter the repository configures would run on every commit: %v", name, err)
+		return fmt.Errorf("write %s: %w", name, err)
 	}
+	return nil
+}
+
+// lastAttrRule returns the line of an attributes file git would act on. Blank
+// lines and comments are not rules, and an earlier rule is not worth looking
+// at: the last match is the one that takes effect, so a file already
+// mentioning the unset somewhere above a later assignment is not covered.
+func lastAttrRule(content []byte) string {
+	res := ""
+	for line := range strings.SplitSeq(string(content), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		res = trimmed
+	}
+	return res
 }
 
 // Close releases the root handle. The repository itself needs no shutdown.

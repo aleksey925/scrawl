@@ -457,7 +457,11 @@ func gitChild(t *testing.T) string {
 	requireGit(t)
 
 	parent := t.TempDir()
-	out, err := exec.CommandContext(t.Context(), "git", "init", "--quiet", parent).CombinedOutput()
+	cmd := exec.CommandContext(t.Context(), "git", "init", "--quiet", parent)
+	// the same environment the service gives its own git calls: a host without
+	// a global or system config is one git refuses to run in otherwise
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null", "LC_ALL=C")
+	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "git init: %s", out)
 
 	root := filepath.Join(parent, "notes")

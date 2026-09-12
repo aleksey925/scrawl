@@ -443,6 +443,35 @@ func (s *Store) Move(from, to string) error {
 // entries, symlinks and non-markdown files are skipped, so the search index
 // sees exactly what the UI shows.
 func (s *Store) Walk(fn func(fi FileInfo, data []byte) error) error {
+	return s.walkVisible(func(p string, d fs.DirEntry) error {
+		if !isMarkdown(d.Name()) {
+			return nil
+		}
+		return s.walkFile(p, fn)
+	})
+}
+
+// Files returns every visible file under the root, sorted by path.
+func (s *Store) Files() ([]FileInfo, error) {
+	res := []FileInfo{}
+	err := s.walkVisible(func(p string, d fs.DirEntry) error {
+		fi, infoErr := d.Info()
+		if infoErr != nil {
+			return walkFailure(p, d, infoErr)
+		}
+		res = append(res, info(p, fi))
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	slices.SortFunc(res, func(a, b FileInfo) int { return cmp.Compare(a.Path, b.Path) })
+	return res, nil
+}
+
+// walkVisible calls fn for every visible file under the root, in lexical
+// order, skipping ignored entries and symlinks.
+func (s *Store) walkVisible(fn func(p string, d fs.DirEntry) error) error {
 	err := fs.WalkDir(s.root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return walkFailure(p, d, err)
@@ -456,10 +485,10 @@ func (s *Store) Walk(fn func(fi FileInfo, data []byte) error) error {
 			}
 			return nil
 		}
-		if d.Type()&fs.ModeSymlink != 0 || s.excluded(p, d.Name()) || !isMarkdown(d.Name()) {
+		if d.Type()&fs.ModeSymlink != 0 || s.excluded(p, d.Name()) {
 			return nil
 		}
-		return s.walkFile(p, fn)
+		return fn(p, d)
 	})
 	if err != nil {
 		return fmt.Errorf("walk %q: %w", s.dir, err)

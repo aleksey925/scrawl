@@ -6,10 +6,10 @@ services:
     volumes:
       - ./examples/data:/notes
       - scrawl-data:/data
-    user: "${UID:-1000}:${GID:-1000}"
     environment:
       - AUTH_USERS=admin:admin
       - AUTH_TOKENS=bot:demo-token:ro
+    user: "${UID:-1000}:${GID:-1000}"
 
 volumes:
   scrawl-data:

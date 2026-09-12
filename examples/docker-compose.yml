@@ -16,11 +16,6 @@ services:
       # lands in the page tree, the search index and every backup
       - scrawl-data:/data
 
-    # the image runs as uid 1001, your share belongs to someone else, and a uid
-    # that does not own the share cannot write to it: reading works and every
-    # save fails. run `id <your-user>` on the NAS and put the numbers here
-    # user: "1026:100"
-
     environment:
       - TZ=Europe/Nicosia
       # in a compose file every literal dollar has to be doubled, because
@@ -41,13 +36,30 @@ services:
       # TRUSTED_PROXY=true, and make sure the proxy overwrites X-Forwarded-For
       - AUTH_SECURE=auto
       - TRUSTED_PROXY=false
+      # every change is committed to a git repository the app keeps in
+      # /notes/.git, which is what the version history of a page reads. auto
+      # keeps the app working when git is missing or the folder already sits
+      # inside another repository, on refuses to start in that case, off never
+      # touches the notes
+      - HISTORY=auto
+      # site title in the interface
+      # - TITLE=Notes
       # inotify never sees what another client writes to a network share
       # - WATCH=poll
       # collect uploads in one folder instead of next to each document
       # - UPLOAD_DIR=attachments
+      # upload size cap
+      # - MAX_UPLOAD=20M
+      # extra ignore globs, comma separated
+      # - EXCLUDE=*.bak,private/**
+      # serve the notes and refuse every write
+      # - READ_ONLY=true
 
-    # scrawl writes to /notes and /data and nowhere else. /tmp is a tmpfs
-    # because a large upload is buffered there while it is parsed
+    # the image runs as uid 1001, your share belongs to someone else, and a uid
+    # that does not own the share cannot write to it: reading works and every
+    # save fails. run `id <your-user>` on the NAS and put the numbers here
+    # user: "1026:100"
+
     read_only: true
     tmpfs:
       - /tmp

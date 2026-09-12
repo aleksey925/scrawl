@@ -1,18 +1,11 @@
-# vendored third party trees are checked in byte for byte: the Go modules
-# under vendor/ and the KaTeX and mermaid bundles are upstream artifacts, and
-# a reformat here is a diff against upstream that nobody can review
 exclude: ^(vendor|server/assets/vendor)/
 
 repos:
   - repo: builtin
     hooks:
       - id: end-of-file-fixer
-        # the golden files pin the renderer's exact bytes and some fixtures
-        # deliberately end without a newline
         exclude: &fixtures ^(render/testdata|search/testdata|examples/data)/
       - id: trailing-whitespace
-        # trailing whitespace is markdown syntax: a whitespace-only line keeps
-        # a list going, two spaces are a hard break
         exclude: *fixtures
       - id: detect-private-key
       - id: check-yaml

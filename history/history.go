@@ -54,6 +54,10 @@ const (
 
 	actorDomain   = "scrawl.local"
 	fallbackActor = "unknown"
+
+	// noFilterAttr unsets the filter attribute for every path, which is what
+	// keeps a clean filter the adopted repository configures from running.
+	noFilterAttr = "* -filter"
 )
 
 // defaultExtensions are the files worth versioning: documents plus whatever an
@@ -143,10 +147,76 @@ func New(cfg Config) (*Service, error) {
 		_ = files.Close()
 		return nil, fmt.Errorf("history: %w", err)
 	}
-	if err = os.MkdirAll(s.hooks, 0o750); err != nil {
+	if err = ownPath(s.hooks); err != nil {
+		log.Printf("[WARN] history: %s: a hook the repository carries would run on every commit: %v", s.hooks, err)
+	} else if err = os.MkdirAll(s.hooks, 0o750); err != nil {
 		log.Printf("[DEBUG] history: no hooks directory at %s, git will find no hooks there anyway: %v", s.hooks, err)
 	}
+	s.disableFilters()
 	return s, nil
+}
+
+// ownPath clears the way for something we are about to create inside the git
+// directory. A repository we adopted was assembled by somebody else, who may
+// have left a symlink where we expect our own entry: pointing core.hooksPath at
+// a link to .git/hooks brings back every hook the empty directory was meant to
+// suppress, and writing through a link lands the content outside the
+// repository. Only a symlink is removed; anything else is left alone and the
+// caller decides what to do with it.
+func ownPath(p string) error {
+	fi, err := os.Lstat(p)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return nil
+	case err != nil:
+		return err
+	case fi.Mode()&os.ModeSymlink == 0:
+		return nil
+	}
+	if err = os.Remove(p); err != nil {
+		return fmt.Errorf("remove the symlink at %s: %w", p, err)
+	}
+	log.Printf("[WARN] history: removed %s, which was a symlink the repository carried", p)
+	return nil
+}
+
+// disableFilters stops a repository we adopted from running a command of its
+// own choosing. A clean filter is named by .gitattributes in the worktree and
+// defined in the repository config, both of which belong to whoever assembled
+// that directory rather than to us, and git runs it on every add. Emptying the
+// hooks directory does not cover this: a filter is configuration, not a hook.
+// .git/info/attributes outranks the worktree file and the last match wins, so
+// appending the unset there neutralizes the assignment without discarding
+// anything the owner of the repository wrote.
+//
+// The cost is that a legitimate filter, git-lfs among them, does not apply to
+// our commits either: history stores what the store holds, byte for byte.
+func (s *Service) disableFilters() {
+	dir := filepath.Join(s.root, ".git", "info")
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		log.Printf("[WARN] history: %s: a filter the repository configures would run on every commit: %v", dir, err)
+		return
+	}
+
+	name := filepath.Join(dir, "attributes")
+	if err := ownPath(name); err != nil {
+		log.Printf("[WARN] history: %s: a filter the repository configures would run on every commit: %v", name, err)
+		return
+	}
+	current, err := os.ReadFile(name) //nolint:gosec // a path inside the repository we just opened
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Printf("[WARN] history: read %s: %v", name, err)
+		return
+	}
+	if bytes.Contains(current, []byte(noFilterAttr)) {
+		return
+	}
+	if len(current) > 0 && !bytes.HasSuffix(current, []byte("\n")) {
+		current = append(current, '\n')
+	}
+	if err = os.WriteFile(name, append(current, []byte(noFilterAttr+"\n")...), 0o600); err != nil {
+		log.Printf("[WARN] history: write %s: a filter the repository configures would run on every commit: %v", name, err)
+	}
 }
 
 // Close releases the root handle. The repository itself needs no shutdown.

@@ -10,13 +10,17 @@ import {initHistory} from './history.js';
 import {initShortcuts} from './shortcuts.js';
 
 function boot() {
-    initTheme();
-    initNav();
-    initPalette();
-    initReader();
-    initEditor();
-    initHistory();
-    initShortcuts();
+    // one at a time, and a failure never reaches the next: note content is
+    // rendered before the app chrome and may carry an id the app looks up
+    // itself, so a lookup that comes back null has to cost that one feature
+    // rather than every feature after it
+    for (const init of [initTheme, initNav, initPalette, initReader, initEditor, initHistory, initShortcuts]) {
+        try {
+            init();
+        } catch (err) {
+            console.error('scrawl: ' + init.name + ' did not start', err);
+        }
+    }
 }
 
 if (document.readyState === 'loading') {

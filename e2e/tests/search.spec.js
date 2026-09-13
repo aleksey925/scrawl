@@ -133,9 +133,9 @@ test.describe('search', () => {
         await expect(page.getByTestId('palette-item')).toHaveCount(0);
     });
 
-    // the palette labels a hit with the title of the note and does not mark the
-    // term inside it, which the legacy palette did
-    test.fixme('the palette highlights the term in its hits', async ({page}) => {
+    // the server returns the snippet already escaped with only <mark> left in
+    // it, so the palette shows the term the same way the search page does
+    test('the palette highlights the term in its hits', async ({page}) => {
         await pressShortcut(page, `${await modifier(page)}+k`);
         await page.getByTestId('palette-input').fill(docs.search.prefix);
 

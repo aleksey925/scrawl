@@ -56,6 +56,40 @@ func TestAppShell(t *testing.T) {
 	}
 }
 
+// TestAppShellStatus checks the one thing the shell cannot leave to the client
+// router. A link to a note that is not there has to answer 404, because the
+// status is all a crawler or a link checker reads, and neither runs javascript.
+// Everything else is the router's own business and goes out as 200.
+func TestAppShellStatus(t *testing.T) {
+	ts := newTestServer(t, testOpts{})
+
+	tests := []struct {
+		name   string
+		path   string
+		status int
+	}{
+		{name: "document that exists", path: "/app/p/guide.md", status: http.StatusOK},
+		{name: "document that does not", path: "/app/p/nope.md", status: http.StatusNotFound},
+		{name: "missing document in a folder", path: "/app/p/docs/nope.md", status: http.StatusNotFound},
+		{name: "editing a missing document is how it is created", path: "/app/edit/nope.md", status: http.StatusOK},
+		{name: "a directory is not a missing document", path: "/app/p/docs", status: http.StatusOK},
+		{name: "an attachment is not judged here", path: "/app/p/snippet.py", status: http.StatusOK},
+		{name: "the app root", path: "/app", status: http.StatusOK},
+		{name: "a route only the client knows", path: "/app/nonsense", status: http.StatusOK},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			resp, body := ts.do(t, request{path: tc.path})
+
+			// assert
+			assert.Equal(t, tc.status, resp.status)
+			assert.Contains(t, body, `id="scrawl-app-root"`, "the shell is served whatever the status")
+		})
+	}
+}
+
 // TestAppShellNonceMatchesThePolicy is the join the whole scheme hangs on: the
 // meta the client feeds to Mantine has to carry the very nonce this response
 // authorized, or every style Mantine injects is blocked.

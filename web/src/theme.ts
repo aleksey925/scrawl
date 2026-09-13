@@ -1,7 +1,16 @@
-import { createTheme, type MantineColorsTuple, type MantineThemeOverride } from '@mantine/core';
+import {
+  ActionIcon,
+  Burger,
+  Button,
+  CloseButton,
+  createTheme,
+  type MantineColorsTuple,
+  type MantineThemeOverride,
+} from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 
 import breakpointValues from './breakpoints.json';
+import controls from './controls.module.css';
 
 export type BreakpointName = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -243,6 +252,13 @@ export const theme: MantineThemeOverride = createTheme({
   cursorType: 'pointer',
   focusRing: 'auto',
   respectReducedMotion: true,
+
+  components: {
+    ActionIcon: ActionIcon.extend({ classNames: { root: controls.tapTarget } }),
+    Burger: Burger.extend({ classNames: { root: controls.tapTarget } }),
+    Button: Button.extend({ classNames: { root: controls.tapTarget } }),
+    CloseButton: CloseButton.extend({ classNames: { root: controls.tapTarget } }),
+  },
 
   other: { layout, layoutBreakpoints, breakpointPx },
 });

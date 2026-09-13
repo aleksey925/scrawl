@@ -16,6 +16,11 @@ test.describe('read-only mode', () => {
         await expect(page.getByTestId('sidebar-new-page')).toHaveCount(0);
         await expect(page.getByTestId('sidebar-new-folder')).toHaveCount(0);
 
+        // History reads, so it stays; Edit leads to a save the api refuses, and
+        // the ui does not offer what it cannot do
+        await expect(page.getByTestId('doc-edit')).toHaveCount(0);
+        await expect(page.getByTestId('doc-history')).toBeVisible();
+
         await page.getByTestId('topbar-account').click();
         await expect(page.getByTestId('topbar-account-readonly')).toBeVisible();
         await shot(page, 'readonly-view');

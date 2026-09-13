@@ -18,9 +18,10 @@ function decode(text: string): string {
 
 export interface SnippetProps {
   snippet: string;
+  testId: string;
 }
 
-export function Snippet({ snippet }: SnippetProps): JSX.Element {
+export function Snippet({ snippet, testId }: SnippetProps): JSX.Element {
   const parts: JSX.Element[] = [];
   const pattern = /<mark>([\s\S]*?)<\/mark>/g;
   let at = 0;
@@ -38,7 +39,7 @@ export function Snippet({ snippet }: SnippetProps): JSX.Element {
   }
 
   return (
-    <Text data-testid="search-result-snippet" size="sm" c="dimmed">
+    <Text data-testid={testId} size="sm" c="dimmed">
       {parts}
     </Text>
   );

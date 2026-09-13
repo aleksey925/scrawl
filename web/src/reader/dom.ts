@@ -14,8 +14,17 @@ export function decodeFragment(value: string): string {
 // app chrome must never answer for it
 export function elementWithId(root: HTMLElement, id: string): HTMLElement | null {
   const wanted = decodeFragment(id);
-  for (const candidate of root.querySelectorAll<HTMLElement>('[id]')) {
+  const candidates = Array.from(root.querySelectorAll<HTMLElement>('[id]'));
+  for (const candidate of candidates) {
     if (candidate.id === id || decodeFragment(candidate.id) === wanted) {
+      return candidate;
+    }
+  }
+  // the renderer lowercases a slug while an author writes the heading as it
+  // reads, so "#Раздел" still has to find <h2 id="раздел">
+  const folded = wanted.toLowerCase();
+  for (const candidate of candidates) {
+    if (decodeFragment(candidate.id).toLowerCase() === folded) {
       return candidate;
     }
   }

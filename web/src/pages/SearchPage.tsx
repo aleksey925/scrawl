@@ -73,7 +73,7 @@ export function Component(): JSX.Element {
                       >
                         {hit.path}
                       </Text>
-                      <Snippet snippet={hit.snippet} />
+                      <Snippet snippet={hit.snippet} testId="search-result-snippet" />
                     </Stack>
                   ))}
                 </Stack>

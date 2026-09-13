@@ -113,11 +113,11 @@ test.describe('reading', () => {
         removeFixture(ANCHORS);
     });
 
-    // the lookup that resolves a fragment compares the id it was given with the
-    // id on the element, and the renderer lowercases a slug while an author
-    // writes the heading as it reads: "[x](#Индексы)" no longer finds
-    // <h2 id="индексы">. The legacy page matched the two case insensitively.
-    test.fixme('an anchor written in another case than its slug still resolves', async ({page}) => {
+    // the renderer lowercases a slug while an author writes the heading as it
+    // reads, so "[x](#Индексы)" has to find <h2 id="индексы">. The exact match
+    // is tried first, and only then the folded one, or a document holding both
+    // cases would resolve to whichever came first in the dom.
+    test('an anchor written in another case than its slug still resolves', async ({page}) => {
         writeFixture(ANCHORS, '# Якоря\n\n[раздел](#Раздел)\n\n## Раздел\n\nтекст\n');
         await page.goto(routes.doc(ANCHORS));
 
@@ -197,9 +197,9 @@ test.describe('reading', () => {
         await shot(page, 'reading-toc-active');
     });
 
-    // the app has no shortcut cheat sheet. The legacy page opened one on "?",
-    // and nothing in the react shell answers that key.
-    test.fixme('the shortcut cheat sheet opens', async ({page}) => {
+    // "?" is a character somebody types, so the sheet must stay out of the way
+    // while a field has the keyboard
+    test('the shortcut cheat sheet opens', async ({page}) => {
         await page.keyboard.press('?');
         await expect(page.getByTestId('shortcuts')).toBeVisible();
     });

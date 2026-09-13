@@ -1,6 +1,5 @@
 import { AppShell, Burger, Drawer } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
-import { useEffect, useMemo, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import { installUnauthorizedHandler } from '../api/client';
@@ -10,15 +9,17 @@ import { FileActionsProvider } from './FileActions';
 import { NavProvider } from './NavContext';
 import { SearchSpotlight } from './SearchSpotlight';
 import { ShellSlotsProvider, type ShellSlots } from './ShellSlots';
+import { ShortcutHelp } from './ShortcutHelp';
 import { SidebarNav } from './SidebarNav';
 import { Topbar } from './Topbar';
+import { useSwipeToClose } from './useSwipeToClose';
 
 export function AppLayout(): JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [navOpened, nav] = useDisclosure(false);
-  const [tocOpened, toc] = useDisclosure(false);
+  const [navOpened, setNavOpened] = useState(false);
+  const [tocOpened, setTocOpened] = useState(false);
   const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null);
   const [tocSlot, setTocSlot] = useState<HTMLElement | null>(null);
   const [tocPresent, setTocPresent] = useState(false);
@@ -26,10 +27,17 @@ export function AppLayout(): JSX.Element {
   const wideSidebar = useAtLeast(layoutBreakpoints.sidebar);
   const wideToc = useAtLeast(layoutBreakpoints.tocRail);
 
+  const closeNav = useCallback(() => setNavOpened(false), []);
+  const toggleNav = useCallback(() => setNavOpened((opened) => !opened), []);
+  const closeToc = useCallback(() => setTocOpened(false), []);
+  const openToc = useCallback(() => setTocOpened(true), []);
+
+  // a fresh key per navigation, a replace that only moves the hash included;
+  // unlike the disclosure handlers it does not change on a plain re-render
   useEffect(() => {
-    nav.close();
-    toc.close();
-  }, [location.pathname, nav, toc]);
+    closeNav();
+    closeToc();
+  }, [location.key, closeNav, closeToc]);
 
   useEffect(
     () =>
@@ -44,6 +52,8 @@ export function AppLayout(): JSX.Element {
     () => ({ actionsSlot, tocSlot, setTocPresent }),
     [actionsSlot, tocSlot],
   );
+
+  const swipeRef = useSwipeToClose(closeNav);
 
   return (
     <NavProvider>
@@ -75,7 +85,7 @@ export function AppLayout(): JSX.Element {
                     data-testid="topbar-burger"
                     data-opened={navOpened ? 'true' : 'false'}
                     opened={navOpened}
-                    onClick={nav.toggle}
+                    onClick={toggleNav}
                     hiddenFrom={layoutBreakpoints.sidebar}
                     size="sm"
                     aria-label="Open navigation"
@@ -83,7 +93,7 @@ export function AppLayout(): JSX.Element {
                 }
                 actionsRef={setActionsSlot}
                 tocAvailable={tocPresent && !wideToc}
-                onOpenToc={toc.open}
+                onOpenToc={openToc}
               />
             </AppShell.Header>
 
@@ -101,12 +111,23 @@ export function AppLayout(): JSX.Element {
             <Drawer
               data-testid="sidebar-drawer"
               opened={navOpened}
-              onClose={nav.close}
+              onClose={closeNav}
               size={layout.sidebarWidth}
               title="Navigation"
               padding="md"
             >
-              <SidebarNav />
+              <div
+                ref={swipeRef}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
+                  minHeight: 0,
+                  touchAction: 'pan-y',
+                }}
+              >
+                <SidebarNav />
+              </div>
             </Drawer>
           )}
 
@@ -114,7 +135,7 @@ export function AppLayout(): JSX.Element {
             <Drawer
               data-testid="toc-drawer"
               opened={tocOpened}
-              onClose={toc.close}
+              onClose={closeToc}
               position="bottom"
               size="60%"
               padding="md"
@@ -124,6 +145,7 @@ export function AppLayout(): JSX.Element {
           )}
 
           <SearchSpotlight />
+          <ShortcutHelp />
         </ShellSlotsProvider>
       </FileActionsProvider>
     </NavProvider>

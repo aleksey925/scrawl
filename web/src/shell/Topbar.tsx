@@ -4,6 +4,7 @@ import { IconListSearch, IconSearch } from '@tabler/icons-react';
 import type { JSX, ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
 
+import controls from '../controls.module.css';
 import { directoryUrl, displayName, documentUrl } from '../paths';
 import { layoutBreakpoints } from '../theme';
 
@@ -51,7 +52,7 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
   const crumbs = crumbsOf(location.pathname);
 
   return (
-    <Group data-testid="topbar" h="100%" px="lg" gap="sm" wrap="nowrap">
+    <Group data-testid="topbar" className={controls.topbar} h="100%" px="lg" gap="sm" wrap="nowrap">
       {burger}
 
       <Breadcrumbs

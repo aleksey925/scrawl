@@ -1,3 +1,4 @@
+import { Stack, Text } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { Spotlight, type SpotlightActionData, type SpotlightSearchProps } from '@mantine/spotlight';
 import { IconSearch } from '@tabler/icons-react';
@@ -7,6 +8,8 @@ import { useNavigate } from 'react-router';
 import { api } from '../api/client';
 import type { SearchHit } from '../api/types';
 import { documentUrl } from '../paths';
+
+import { Snippet } from './Snippet';
 
 const searchLimit = 10;
 
@@ -60,8 +63,19 @@ export function SearchSpotlight(): JSX.Element {
   const typed = query.trim();
   const actions: PaletteAction[] = hits.map((hit) => ({
     id: hit.path,
-    label: hit.title === '' ? hit.path : hit.title,
-    description: hit.path,
+    // the hit carries the matched term already marked up, so the palette shows
+    // where the word was found instead of only naming the note
+    children: (
+      <Stack gap={2} style={{ minWidth: 0 }}>
+        <Text size="sm" fw={500} truncate>
+          {hit.title === '' ? hit.path : hit.title}
+        </Text>
+        <Text size="xs" c="dimmed" truncate>
+          {hit.path}
+        </Text>
+        <Snippet snippet={hit.snippet} testId="palette-item-snippet" />
+      </Stack>
+    ),
     onClick: () => void navigate(`${documentUrl(hit.path)}?q=${encodeURIComponent(typed)}`),
     'data-testid': 'palette-item',
     'data-path': hit.path,

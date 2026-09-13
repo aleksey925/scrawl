@@ -6,6 +6,7 @@ import { Link } from 'react-router';
 import type { DocumentResponse } from '../api/types';
 import { ReadingAnchorTracker } from '../editor';
 import { historyUrl } from '../paths';
+import { useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
 
 import { DocumentHtml } from './DocumentHtml';
@@ -15,19 +16,24 @@ export interface DocumentBodyProps {
 }
 
 export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
+  const { canWrite } = useNav();
+
   return (
     <>
       <PageActions>
-        <Button
-          data-testid="doc-edit"
-          component={Link}
-          to={doc.edit_url}
-          variant="default"
-          size="xs"
-          leftSection={<IconPencil size={16} />}
-        >
-          Edit
-        </Button>
+        {canWrite && (
+          <Button
+            data-testid="doc-edit"
+            component={Link}
+            to={doc.edit_url}
+            variant="default"
+            size="xs"
+            leftSection={<IconPencil size={16} />}
+          >
+            Edit
+          </Button>
+        )}
+        {/* reading the versions is a read, so it stays where writing does not */}
         <Button
           data-testid="doc-history"
           component={Link}

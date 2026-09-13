@@ -6,11 +6,15 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
 	"log"
 	"net/http"
+	"strings"
+
+	"github.com/aleksey925/scrawl/store"
 )
 
 // appBase is the url prefix the bundle was built with. Vite bakes it into every
@@ -163,6 +167,33 @@ func newAppShell(assetsFS fs.FS) (*appShell, error) {
 	return shell, nil
 }
 
+// appStatus is the status the shell goes out with. A link to a note that is not
+// there answers 404 the way the server rendered page did, because a document
+// that does not exist is not a page that does: a crawler, a link checker and
+// `curl -f` all read the status and none of them run the client router. The
+// body is the shell either way, so the app still offers to create it.
+//
+// Only a reading url is judged. /app/edit/ of a missing note is how one is
+// created, and any other path is the client router's own not found.
+func (wb *Web) appStatus(r *http.Request) int {
+	rest, ok := contentPathOf(r.PathValue("path"))
+	if !ok {
+		return http.StatusOK
+	}
+	target, found := strings.CutPrefix(rest, "p/")
+	if !found {
+		return http.StatusOK
+	}
+	p, ok := contentPathOf(target)
+	if !ok || p == "" || !isMarkdown(p) {
+		return http.StatusOK
+	}
+	if _, err := wb.Store.Stat(p); errors.Is(err, store.ErrNotFound) {
+		return http.StatusNotFound
+	}
+	return http.StatusOK
+}
+
 // appHandler answers every app route with the same document and lets the client
 // router decide what it is. It is behind the auth middleware like any other
 // page, so an anonymous visitor is redirected to the login page instead.
@@ -193,6 +224,7 @@ func (wb *Web) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(wb.appStatus(r))
 	if _, err := buf.WriteTo(w); err != nil {
 		log.Printf("[DEBUG] write app shell: %v", err)
 	}

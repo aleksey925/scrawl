@@ -43,17 +43,34 @@ test.describe('mobile', () => {
         fs.rmSync(fixtureFile(HISTORY_FOLDER, HISTORY), {recursive: true, force: true});
     });
 
-    // the drawer opens and shuts again inside the same frame. AppLayout closes
-    // it from an effect that lists the disclosure handlers among its
-    // dependencies, and those are a fresh object on every render, so the effect
-    // runs after each one and takes the drawer down with it.
-    test.fixme('the drawer opens, navigates and closes', async ({page}) => {
+    // the panel slides in from off the screen, so it has a box long before it
+    // has a place, and toBeVisible answers for a panel that is merely translated
+    // away. Reading boundingBox() then gives coordinates outside the viewport
+    // and a gesture aimed at them lands on nothing, so wait for the right edge
+    // to arrive instead of for the element to exist.
+    async function openDrawer(page) {
+        await page.getByTestId('topbar-burger').tap();
+        const sidebar = page.getByTestId('sidebar');
+        await expect(sidebar).toBeVisible();
+        await expect
+            .poll(async () => {
+                const box = await sidebar.boundingBox();
+                return box === null ? -1 : Math.round(box.x + box.width);
+            })
+            .toBeGreaterThan(200);
+        return sidebar;
+    }
+
+    // the drawer once opened and shut again inside the same frame, because the
+    // effect that closes it on a navigation listed the disclosure handlers among
+    // its dependencies and those were a fresh object on every render. It closes
+    // on the location now, so opening has to survive the renders that follow.
+    test('the drawer opens, navigates and closes', async ({page}) => {
         const burger = page.getByTestId('topbar-burger');
         await expect(burger).toHaveAttribute('data-opened', 'false');
 
-        await burger.tap();
+        await openDrawer(page);
         await expect(burger).toHaveAttribute('data-opened', 'true');
-        await expect(page.getByTestId('sidebar')).toBeVisible();
         await shot(page, 'mobile-drawer-open');
 
         await page.locator(`[data-testid=tree-row][data-path="${docs.doc.folder}"] [data-testid=tree-twisty]`)
@@ -67,18 +84,32 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-after-navigation');
     });
 
-    // the drawer is a mantine component and closes on its overlay, on Escape and
-    // on a navigation. It has no swipe of its own, which the legacy drawer had.
-    test.fixme('swiping the drawer to the left closes it', async ({page}) => {
-        await page.getByTestId('topbar-burger').tap();
-        await expect(page.getByTestId('sidebar')).toBeVisible();
+    // mantine's drawer closes on its overlay, on Escape and on a navigation, but
+    // a thumb reaches none of those. The swipe is ours, and it has to close
+    // during the move: a guard armed after the gesture eats the next real tap.
+    test('swiping the drawer to the left closes it', async ({page}) => {
+        const sidebar = await openDrawer(page);
 
-        const box = await page.getByTestId('sidebar').boundingBox();
+        const box = await sidebar.boundingBox();
         const y = box.y + box.height / 2;
-        await page.mouse.move(box.x + box.width - 30, y);
-        await page.mouse.down();
-        await page.mouse.move(box.x + box.width - 150, y, {steps: 6});
-        await page.mouse.up();
+        const from = box.x + box.width - 30;
+        const travel = 120;
+
+        // the gesture goes in as touch input rather than through page.mouse,
+        // which is what every other interaction in this file uses. A swipe is a
+        // finger, and the panel reads it from the pointer events the browser
+        // raises for one; mouse input never becomes that drag.
+        const cdp = await page.context().newCDPSession(page);
+        const send = (type, x) => cdp.send('Input.dispatchTouchEvent', {
+            type,
+            touchPoints: type === 'touchEnd' ? [] : [{x, y}],
+        });
+
+        await send('touchStart', from);
+        for (let step = 1; step <= 6; step += 1) {
+            await send('touchMove', from - (travel * step) / 6);
+        }
+        await send('touchEnd', from - travel);
 
         await expect(page.getByTestId('sidebar')).toHaveCount(0);
     });
@@ -130,10 +161,10 @@ test.describe('mobile', () => {
         await expectNoHorizontalScroll(page);
     });
 
-    // the source pane collapses to a sliver. The wrapper around it carries the
-    // pane class but no flex-grow, and only the split layout gives it a width,
-    // so with one pane on screen it shrinks to its content.
-    test.fixme('the editor pane takes the width of the screen', async ({page}) => {
+    // the source pane once collapsed to a sliver: its wrapper carried the pane
+    // class but no flex-grow, and only the split layout handed it a width, so
+    // with one pane on screen it shrank to its content.
+    test('the editor pane takes the width of the screen', async ({page}) => {
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
         await page.goto(routes.edit(SCRATCH));
 
@@ -185,9 +216,10 @@ test.describe('mobile', () => {
         expect(await tooSmall(page, '[data-testid=editor-toolbar] button')).toEqual([]);
     });
 
-    // every control in the top bar is drawn at the desktop size: the burger is
-    // 22px square and the icon buttons beside it 34px, against a 44px minimum
-    test.fixme('the top bar controls are big enough to tap', async ({page}) => {
+    // the top bar used to keep its desktop sizes on a phone: a 22px burger and
+    // 34px icons against a 44px minimum. The breadcrumb links were the ones
+    // nobody counted, because a bare anchor is inline and ignores a min-height.
+    test('the top bar controls are big enough to tap', async ({page}) => {
         await page.goto(routes.doc(DOC));
 
         const offenders = await tooSmall(page, '[data-testid=topbar] button, [data-testid=topbar] a');
@@ -232,8 +264,9 @@ test.describe('mobile', () => {
         await expect(page.locator('[data-testid=version][data-selected="true"]')).toHaveCount(0);
     });
 
-    // Restore is an extra small button, which is 30px tall
-    test.fixme('Restore is big enough to tap', async ({page}) => {
+    // Restore is an extra small button, 30px tall until a coarse pointer grows
+    // it. It is also the one control here that rewrites the document.
+    test('Restore is big enough to tap', async ({page}) => {
         await signIn(page, {baseURL: HISTORY.baseURL, from: routes.history(HISTORY_DOC)});
 
         expect(await tooSmall(page, '[data-testid=version-restore]')).toEqual([]);
@@ -256,8 +289,9 @@ test.describe('mobile', () => {
     });
 
     // the outline lives in the same kind of drawer the navigation does, so it
-    // closes itself the moment it opens
-    test.fixme('the outline sheet opens from the top bar', async ({page}) => {
+    // went down with the same effect. It is reached by a hash, which react
+    // router replaces rather than pushes, and that still has to count as a move.
+    test('the outline sheet opens from the top bar', async ({page}) => {
         await page.goto(routes.doc(DOC));
         await page.getByTestId('topbar-toc').tap();
 

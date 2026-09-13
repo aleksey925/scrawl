@@ -92,10 +92,13 @@ function enhanceHeadings(root) {
 /* --- lightbox ----------------------------------------------------------- */
 
 function initLightbox(root) {
-    const dlg = qs('#lightbox');
+    // by shape, not by id: the lightbox is rendered after the document, so a
+    // heading "Lightbox" would be found in its place and the listeners below
+    // would throw on it, taking the rest of the reading features with them
+    const dlg = qs('body > #lightbox');
     if (!dlg) return;
-    const img = qs('#lightbox-img');
-    const caption = qs('#lightbox-caption');
+    const img = qs('.lightbox-img', dlg);
+    const caption = qs('.lightbox-caption', dlg);
     const images = qsa('img', root).filter((el) => !el.closest('a'));
     if (!images.length) return;
     let at = 0;
@@ -172,7 +175,10 @@ export function closeToc() {
 }
 
 function initToc() {
-    const rail = qs('#toc-rail');
+    // the rail follows .main in the markup, so a heading that slugs to
+    // "toc-rail" is ahead of it too. Content sits inside .main and is never a
+    // direct child of .app-body.
+    const rail = qs('.app-body > #toc-rail');
     if (!rail) return;
     const pill = qs('[data-toc-toggle]');
     // the rail is a plain column on a wide screen, and a sheet over the page only

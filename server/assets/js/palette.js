@@ -8,9 +8,18 @@ let pending = null;
 let items = [];
 let at = -1;
 
+// the dialog is resolved once, by shape rather than by id, and everything in it
+// is looked up underneath it. A note with a heading "Palette input" slugs to
+// id="palette-input" and is rendered before this chrome, so a document-wide
+// lookup would hand back the heading. class is no safer: the sanitiser lets
+// content carry any class it likes.
+let root = null;
+
+const inside = (sel) => (root ? root.querySelector(sel) : null);
+
 function render(list, query) {
-    const results = qs('#palette-results');
-    const empty = qs('#palette-empty');
+    const results = inside('.palette-results');
+    const empty = inside('.palette-empty');
     items = list;
     at = list.length ? 0 : -1;
     results.innerHTML = list.map((hit, index) => (
@@ -26,7 +35,7 @@ function render(list, query) {
         node.addEventListener('click', () => open(index));
         node.addEventListener('mousemove', () => select(index));
     });
-    const input = qs('#palette-input');
+    const input = inside('.palette-input');
     if (input && at >= 0) {
         input.setAttribute('aria-activedescendant', 'palette-opt-' + at);
     } else if (input) {
@@ -43,12 +52,12 @@ function render(list, query) {
 function select(index) {
     if (!items.length) return;
     at = (index + items.length) % items.length;
-    const nodes = qsa('.palette-item');
+    const nodes = qsa('.palette-item', root);
     nodes.forEach((node, i) => {
         node.classList.toggle('is-active', i === at);
         node.setAttribute('aria-selected', String(i === at));
     });
-    const input = qs('#palette-input');
+    const input = inside('.palette-input');
     if (input) input.setAttribute('aria-activedescendant', 'palette-opt-' + at);
     if (nodes[at]) nodes[at].scrollIntoView({block: 'nearest'});
 }
@@ -62,12 +71,12 @@ function open(index) {
 // a search that failed must not read as one that found nothing: "your notes do
 // not have this word" and "the server never answered" call for opposite moves
 function fail() {
-    const results = qs('#palette-results');
-    const empty = qs('#palette-empty');
+    const results = inside('.palette-results');
+    const empty = inside('.palette-empty');
     items = [];
     at = -1;
     results.innerHTML = '';
-    const input = qs('#palette-input');
+    const input = inside('.palette-input');
     if (input) input.removeAttribute('aria-activedescendant');
     if (empty) {
         empty.hidden = false;
@@ -82,7 +91,7 @@ async function run(query) {
         return;
     }
     pending = new AbortController();
-    const results = qs('#palette-results');
+    const results = inside('.palette-results');
     results.setAttribute('aria-busy', 'true');
     try {
         const res = await fetch('/api/search?q=' + encodeURIComponent(query) + '&limit=20',
@@ -98,9 +107,9 @@ async function run(query) {
 }
 
 export function openPalette(prefill) {
-    const dlg = qs('#palette');
+    const dlg = root;
     if (!dlg || dlg.open) return;
-    const input = qs('#palette-input');
+    const input = inside('.palette-input');
     dlg.showModal();
     input.setAttribute('aria-expanded', 'true');
     if (prefill !== undefined) input.value = prefill;
@@ -110,9 +119,10 @@ export function openPalette(prefill) {
 }
 
 export function initPalette() {
-    const dlg = qs('#palette');
+    root = qs('body > #palette');
+    const dlg = root;
     if (!dlg) return;
-    const input = qs('#palette-input');
+    const input = inside('.palette-input');
     let timer = 0;
 
     // the triggers are links to /search so the page still searches without js

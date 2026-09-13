@@ -63,7 +63,12 @@ export async function api(method, url, body, opts) {
 }
 
 export function toast(message, kind) {
-    const host = qs('#toasts');
+    // the app's own chrome sits at the end of <body>, after the document, and a
+    // heading slugs to its own text: a note with a heading "Toasts" carries
+    // id="toasts" and comes first in document order. Chrome is always a direct
+    // child of body and rendered content never is, so the shape tells them
+    // apart where the id alone cannot.
+    const host = qs('body > #toasts');
     if (!host) return;
     const node = document.createElement('div');
     node.className = 'toast' + (kind ? ' is-' + kind : '');

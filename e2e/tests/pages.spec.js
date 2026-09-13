@@ -1,9 +1,10 @@
 const {expect, test} = require('@playwright/test');
 
 const docs = require('../support/docs');
-const {readFixture, removeFixture, shot, signIn} = require('../support/helpers');
+const {readFixture, removeFixture, shot, signIn, writeFixture} = require('../support/helpers');
 
 const MISSING = docs.missing;
+const COLLIDE = 'e2e-collisions.md';
 
 const ROUTES = [
     '/',
@@ -74,6 +75,41 @@ test.describe('pages', () => {
         await page.goto(`/p/${MISSING}`);
         await expect(page.locator('#doc h1').first()).toContainText('Новая');
         removeFixture(MISSING);
+    });
+
+    test('a note cannot take the ids the app looks itself up by', async ({page}) => {
+        // each heading slugs to the id of an element the app resolves, and the
+        // document is rendered before that chrome, so a document-wide lookup
+        // comes back holding the heading
+        writeFixture(COLLIDE, [
+            '# Collisions', '', '## Toasts', '', '## Lightbox', '',
+            '## Palette input', '', '## Toc rail', '',
+            'Enough headings to earn an outline.', '',
+        ].join('\n'));
+
+        const problems = [];
+        page.on('pageerror', (err) => problems.push(err.message));
+        page.on('console', (msg) => {
+            if (msg.type() === 'error') problems.push(msg.text());
+        });
+
+        await page.goto(`/p/${COLLIDE}`);
+        await page.waitForLoadState('networkidle');
+        expect(problems, 'a shadowed id threw and took its feature down').toEqual([]);
+        // the headings really did claim the ids, so the lookups only survived
+        // by asking about shape instead
+        expect(await page.locator('#doc h2#toasts').count()).toBe(1);
+        expect(await page.locator('#doc h2#toc-rail').count()).toBe(1);
+
+        await expect(page.locator('.app-body > #toc-rail')).toBeVisible();
+
+        // the heading anchor copies the link and says so, which is the toast
+        // that used to be appended invisibly inside the heading named Toasts
+        await page.locator('#doc h2#toasts .anchor').click();
+        await expect(page.locator('body > #toasts .toast')).toBeVisible();
+        await shot(page, 'pages-id-collisions');
+
+        removeFixture(COLLIDE);
     });
 
     test('the theme toggle cycles and survives a reload', async ({page}) => {

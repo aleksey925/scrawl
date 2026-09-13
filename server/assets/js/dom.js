@@ -36,13 +36,14 @@ export function formatBytes(bytes) {
 
 // api performs a same origin JSON call. CSRF is covered by the standard library
 // cross origin protection, so no token header is needed.
-export async function api(method, url, body) {
-    const opts = {method, headers: {'Accept': 'application/json'}};
+export async function api(method, url, body, opts) {
+    const init = {method, headers: {'Accept': 'application/json'}};
+    if (opts && opts.signal) init.signal = opts.signal;
     if (body !== undefined) {
-        opts.headers['Content-Type'] = 'application/json';
-        opts.body = JSON.stringify(body);
+        init.headers['Content-Type'] = 'application/json';
+        init.body = JSON.stringify(body);
     }
-    const res = await fetch(url, opts);
+    const res = await fetch(url, init);
     const text = await res.text();
     let data = null;
     if (text) {
@@ -72,6 +73,38 @@ export function toast(message, kind) {
     node.lastElementChild.textContent = message;
     host.appendChild(node);
     setTimeout(() => node.remove(), kind === 'error' ? 5000 : 2400);
+}
+
+// a browser write can land with git history behind it, which is neither a
+// failure nor the plain success the reader would otherwise be told about
+export function savedToast(res, message) {
+    if (res && res.history_degraded) {
+        toast(message + ', but the change was not recorded in history', 'error');
+        return;
+    }
+    toast(message, 'success');
+}
+
+// the browser can restore a reading page from its back-forward cache holding the
+// DOM it had before an edit, and no request reaches the server to notice the
+// document moved on. Whoever writes records the revision it wrote, so a restored
+// page can tell that what it is showing is stale.
+const REV_KEY = 'scrawl.rev.';
+
+export function rememberRev(path, rev) {
+    try {
+        sessionStorage.setItem(REV_KEY + path, rev);
+    } catch (e) {
+        // storage disabled, a restored page may simply be behind
+    }
+}
+
+export function revSeen(path) {
+    try {
+        return sessionStorage.getItem(REV_KEY + path);
+    } catch (e) {
+        return null;
+    }
 }
 
 export function openDialog(html, className) {

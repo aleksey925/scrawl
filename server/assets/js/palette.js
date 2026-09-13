@@ -26,6 +26,12 @@ function render(list, query) {
         node.addEventListener('click', () => open(index));
         node.addEventListener('mousemove', () => select(index));
     });
+    const input = qs('#palette-input');
+    if (input && at >= 0) {
+        input.setAttribute('aria-activedescendant', 'palette-opt-' + at);
+    } else if (input) {
+        input.removeAttribute('aria-activedescendant');
+    }
     if (empty) {
         empty.hidden = list.length > 0;
         empty.textContent = query
@@ -53,6 +59,22 @@ function open(index) {
     location.href = hit.url || ('/p/' + encodePath(hit.path));
 }
 
+// a search that failed must not read as one that found nothing: "your notes do
+// not have this word" and "the server never answered" call for opposite moves
+function fail() {
+    const results = qs('#palette-results');
+    const empty = qs('#palette-empty');
+    items = [];
+    at = -1;
+    results.innerHTML = '';
+    const input = qs('#palette-input');
+    if (input) input.removeAttribute('aria-activedescendant');
+    if (empty) {
+        empty.hidden = false;
+        empty.textContent = 'The search could not be reached. Check the connection and try again.';
+    }
+}
+
 async function run(query) {
     if (pending) pending.abort();
     if (!query) {
@@ -60,6 +82,8 @@ async function run(query) {
         return;
     }
     pending = new AbortController();
+    const results = qs('#palette-results');
+    results.setAttribute('aria-busy', 'true');
     try {
         const res = await fetch('/api/search?q=' + encodeURIComponent(query) + '&limit=20',
             {signal: pending.signal, headers: {'Accept': 'application/json'}});
@@ -67,7 +91,9 @@ async function run(query) {
         const data = await res.json();
         render(Array.isArray(data.hits) ? data.hits : [], query);
     } catch (err) {
-        if (err.name !== 'AbortError') render([], query);
+        if (err.name !== 'AbortError') fail();
+    } finally {
+        results.setAttribute('aria-busy', 'false');
     }
 }
 
@@ -76,6 +102,7 @@ export function openPalette(prefill) {
     if (!dlg || dlg.open) return;
     const input = qs('#palette-input');
     dlg.showModal();
+    input.setAttribute('aria-expanded', 'true');
     if (prefill !== undefined) input.value = prefill;
     input.focus();
     input.select();
@@ -97,6 +124,7 @@ export function initPalette() {
     dlg.addEventListener('click', (event) => {
         if (event.target === dlg) dlg.close();
     });
+    dlg.addEventListener('close', () => input.setAttribute('aria-expanded', 'false'));
 
     input.addEventListener('input', () => {
         clearTimeout(timer);

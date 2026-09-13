@@ -4,7 +4,7 @@
 
 import {
     api, confirmDialog, debounce, dirOf, encodePath, esc, formatBytes, isMac,
-    openDialog, qs, qsa, toast
+    openDialog, qs, qsa, rememberRev, savedToast, toast
 } from './dom.js';
 import {enhanceCode} from './reader.js';
 import {initDiagrams} from './diagram.js';
@@ -12,7 +12,20 @@ import {initMath} from './math.js';
 
 const PREVIEW_DELAY = 400;
 const DRAFT_DELAY = 800;
+const DRAFT_MAX_AGE = 30 * 24 * 3600 * 1000;
 const INDENT = '    ';
+
+function caretOffset(x, y) {
+    if (document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(x, y);
+        return pos ? pos.offset : null;
+    }
+    if (document.caretRangeFromPoint) {
+        const range = document.caretRangeFromPoint(x, y);
+        return range ? range.startOffset : null;
+    }
+    return null;
+}
 
 export function initEditor() {
     const shell = qs('#editor');
@@ -25,6 +38,8 @@ export function initEditor() {
     let saved = ta.value;
     let dirty = false;
     let tabEscapes = false;
+    let saving = false;
+    const uploads = new Set();
 
     /* --- text mutation -------------------------------------------------- */
 
@@ -154,6 +169,9 @@ export function initEditor() {
     /* --- keyboard ------------------------------------------------------- */
 
     ta.addEventListener('keydown', (event) => {
+        // mid composition Enter and Tab belong to the IME: taking Enter here
+        // confirms no candidate and splices a list marker into a half built word
+        if (event.isComposing || event.keyCode === 229) return;
         const mod = isMac ? event.metaKey : event.ctrlKey;
 
         if (event.key === 'Escape') {
@@ -166,11 +184,6 @@ export function initEditor() {
         }
         tabEscapes = false;
 
-        if (mod && !event.shiftKey && event.key.toLowerCase() === 's') {
-            event.preventDefault();
-            save();
-            return;
-        }
         if (mod && event.key.toLowerCase() === 'b') {
             event.preventDefault();
             ACTIONS.bold();
@@ -193,7 +206,7 @@ export function initEditor() {
         }
         if (mod && event.shiftKey && event.key.toLowerCase() === 'p') {
             event.preventDefault();
-            setMode(mode === 'preview' ? 'split' : 'preview');
+            setMode(mode === 'preview' ? 'split' : 'preview', true);
             return;
         }
 
@@ -252,22 +265,36 @@ export function initEditor() {
 
     const preview = qs('#preview');
     let previewSeq = 0;
+    let previewPending = null;
+    // a document may be well inside the save limit and still over the smaller
+    // preview one. Asking again on every keystroke only burns the server's
+    // throttle, so stop until the text is shorter than what it refused.
+    let previewRefusedAt = Infinity;
 
     const renderPreview = async () => {
         if (!preview || mode === 'source') return;
+        if (ta.value.length >= previewRefusedAt) return;
         const seq = ++previewSeq;
+        if (previewPending) previewPending.abort();
+        previewPending = new AbortController();
         preview.setAttribute('aria-busy', 'true');
         try {
-            const data = await api('POST', '/api/preview', {content: ta.value, path});
+            const data = await api('POST', '/api/preview', {content: ta.value, path},
+                {signal: previewPending.signal});
             if (seq !== previewSeq) return;
             preview.innerHTML = (data && data.html) || '';
             enhanceCode(preview);
             initMath(preview);
             initDiagrams(preview);
         } catch (err) {
-            if (seq === previewSeq) {
-                preview.innerHTML = '<p class="empty-hint">Preview failed: ' + esc(err.message) + '</p>';
+            if (err.name === 'AbortError' || seq !== previewSeq) return;
+            if (err.status === 413) {
+                previewRefusedAt = ta.value.length;
+                preview.innerHTML = '<p class="empty-hint">This document is too large to preview. ' +
+                    'Editing and saving still work.</p>';
+                return;
             }
+            preview.innerHTML = '<p class="empty-hint">Preview failed: ' + esc(err.message) + '</p>';
         } finally {
             if (seq === previewSeq) preview.setAttribute('aria-busy', 'false');
         }
@@ -283,27 +310,37 @@ export function initEditor() {
     const dot = qs('[data-dirty-dot]');
 
     function setStatus(text) {
-        if (statusState) statusState.textContent = text;
+        // an aria-live region replays the whole string whenever its text node is
+        // replaced, so assigning the one already there talks over the typing
+        if (statusState && statusState.textContent !== text) statusState.textContent = text;
     }
 
+    // counting bytes copies the whole document, too much for every keystroke of
+    // a long note
+    function countNow() {
+        if (!statusCounts) return;
+        const lines = ta.value.split('\n').length;
+        statusCounts.textContent = lines + ' lines, ' + formatBytes(new Blob([ta.value]).size);
+    }
+
+    const updateCounts = debounce(countNow, 200);
+
     function updateStatus() {
-        if (statusCounts) {
-            const lines = ta.value.split('\n').length;
-            statusCounts.textContent = lines + ' lines, ' +
-                formatBytes(new Blob([ta.value]).size);
-        }
+        updateCounts();
         if (statusBar) statusBar.classList.toggle('is-dirty', dirty);
         if (dot) dot.hidden = !dirty;
     }
 
-    const saveDraft = debounce(() => {
+    function writeDraft() {
         if (!dirty) return;
         try {
             localStorage.setItem(draftKey, JSON.stringify({rev, content: ta.value, at: Date.now()}));
         } catch (e) {
             // storage full or disabled, the draft simply is not kept
         }
-    }, DRAFT_DELAY);
+    }
+
+    const saveDraft = debounce(writeDraft, DRAFT_DELAY);
 
     function clearDraft() {
         try {
@@ -323,6 +360,21 @@ export function initEditor() {
 
     ta.addEventListener('input', onInput);
 
+    // a draft nobody came back to finish is not worth keeping, and the ones
+    // whose page has since moved on would otherwise sit in storage forever
+    function pruneDrafts() {
+        try {
+            Object.keys(localStorage)
+                .filter((key) => key.startsWith('scrawl.draft.'))
+                .forEach((key) => {
+                    const at = (JSON.parse(localStorage.getItem(key) || 'null') || {}).at || 0;
+                    if (Date.now() - at > DRAFT_MAX_AGE) localStorage.removeItem(key);
+                });
+        } catch (e) {
+            // storage disabled, there is nothing to sweep
+        }
+    }
+
     function offerDraft() {
         let stored = null;
         try {
@@ -330,17 +382,20 @@ export function initEditor() {
         } catch (e) {
             stored = null;
         }
-        if (!stored || stored.rev !== rev || stored.content === ta.value) return;
+        if (!stored || stored.content === ta.value) return;
+        // a draft written against an older rev is still the reader's own unsaved
+        // text. Dropping it silently loses work; it is offered and labelled.
+        const stale = stored.rev !== rev;
         const bar = qs('#draft-bar');
         const when = new Date(stored.at || Date.now());
         qs('#draft-text').textContent = 'An unsaved draft from ' +
             when.toLocaleString([], {hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short'}) +
-            ' was found.';
+            (stale ? ' was found, written against an older version of this page.' : ' was found.');
         bar.hidden = false;
         qs('[data-draft-restore]').addEventListener('click', () => {
-            ta.value = stored.content;
+            // through replace, so restoring stays on the native undo stack
+            replace(0, ta.value.length, stored.content);
             bar.hidden = true;
-            onInput();
         });
         qs('[data-draft-discard]').addEventListener('click', () => {
             clearDraft();
@@ -354,30 +409,97 @@ export function initEditor() {
         return api('PUT', '/api/file/' + encodePath(targetPath || path), body);
     }
 
+    const saveButtons = qsa('[data-editor-save]');
+
+    function setSaving(on) {
+        saving = on;
+        saveButtons.forEach((button) => {
+            button.disabled = on;
+        });
+    }
+
+    // the text is kept here and in the draft, so what the reader needs is a way
+    // back in that does not cost them the buffer they are standing in
+    function sessionExpired() {
+        writeDraft();
+        const dlg = openDialog(
+            '<h2 class="modal-title">Your session expired</h2>' +
+            '<p class="modal-text">Nothing was saved. Your text is still here, and kept as a local ' +
+            'draft. Sign in again in the new tab, then come back and save.</p>' +
+            '<div class="modal-actions">' +
+            '<button class="btn btn-secondary" type="button" data-act="cancel">Not now</button>' +
+            '<button class="btn btn-primary" type="button" data-act="login">Sign in</button>' +
+            '</div>');
+        qs('[data-act="cancel"]', dlg).addEventListener('click', () => dlg.close());
+        qs('[data-act="login"]', dlg).addEventListener('click', () => {
+            window.open('/login?from=' + encodeURIComponent(location.pathname), '_blank', 'noopener');
+            dlg.close();
+        });
+        qs('[data-act="cancel"]', dlg).focus();
+    }
+
+    // the request body is a snapshot. Anything typed while it was in flight was
+    // never sent, so the baseline moves to what went out rather than to what the
+    // box holds now, and the draft stays until nothing is left over.
+    function markSaved(sent) {
+        saved = sent;
+        dirty = ta.value !== sent;
+        if (!dirty) clearDraft();
+        rememberRev(path, rev);
+        updateStatus();
+        setStatus(dirty ? 'Unsaved changes' : 'Saved');
+    }
+
     async function save() {
+        // a second click would send the same rev again, and it comes back as a
+        // conflict for a save that in fact went through
+        if (saving) return;
         if (!dirty) {
             toast('Nothing to save');
             return;
         }
-        setStatus('Saving');
+        setSaving(true);
+        let sent = '';
         try {
-            const res = await put({content: ta.value, rev});
+            // an upload still in flight has its ![](uploading-xxx) token sitting
+            // in the text, and saving now writes that placeholder to disk as the
+            // document, with the real link arriving too late to be saved
+            if (uploads.size) {
+                setStatus('Waiting for the upload');
+                await Promise.allSettled(Array.from(uploads));
+            }
+            setStatus('Saving');
+            sent = ta.value;
+            const res = await put({content: sent, rev});
             rev = (res && res.rev) || rev;
             shell.dataset.rev = rev;
-            saved = ta.value;
-            dirty = false;
-            clearDraft();
-            updateStatus();
-            setStatus('Saved');
-            toast('Saved', 'success');
+            markSaved(sent);
+            savedToast(res, 'Saved');
         } catch (err) {
             if ((err.status === 412 || err.status === 409) && err.data) {
+                // a response lost on the way back leaves the write done and this
+                // editor a revision behind, so the retry collides with its own
+                // text. Identical content means the save already landed, and
+                // showing a conflict for it would be alarming and wrong.
+                if (err.data.current_content === sent) {
+                    rev = err.data.current_rev || rev;
+                    shell.dataset.rev = rev;
+                    markSaved(sent);
+                    savedToast(err.data, 'Saved');
+                    return;
+                }
                 setStatus('Conflict');
                 showConflict(err.data);
                 return;
             }
             setStatus('Not saved');
+            if (err.status === 401) {
+                sessionExpired();
+                return;
+            }
             toast(err.message || 'Save failed', 'error');
+        } finally {
+            setSaving(false);
         }
     }
 
@@ -401,15 +523,13 @@ export function initEditor() {
 
         qs('[data-act="overwrite"]', dlg).addEventListener('click', async () => {
             dlg.close();
+            const sent = ta.value;
             try {
-                const res = await put({content: ta.value, rev: data.current_rev || ''});
+                const res = await put({content: sent, rev: data.current_rev || ''});
                 rev = (res && res.rev) || rev;
-                saved = ta.value;
-                dirty = false;
-                clearDraft();
-                updateStatus();
-                setStatus('Saved');
-                toast('Saved over the disk version', 'success');
+                shell.dataset.rev = rev;
+                markSaved(sent);
+                savedToast(res, 'Saved over the disk version');
             } catch (err) {
                 toast(err.message || 'Save failed', 'error');
             }
@@ -430,15 +550,31 @@ export function initEditor() {
         });
     }
 
-    qsa('[data-editor-save]').forEach((b) => b.addEventListener('click', save));
+    saveButtons.forEach((b) => b.addEventListener('click', save));
+
+    // on the document rather than the text area: with the caret in the preview
+    // pane or on the splitter this would otherwise be the browser's save dialog
+    document.addEventListener('keydown', (event) => {
+        const mod = isMac ? event.metaKey : event.ctrlKey;
+        if (!mod || event.shiftKey || event.altKey || event.key.toLowerCase() !== 's') return;
+        event.preventDefault();
+        save();
+    });
 
     /* --- leaving the page ----------------------------------------------- */
 
     window.addEventListener('beforeunload', (event) => {
         if (!dirty) return;
+        // the debounced draft may still be pending, and the prompt this raises
+        // blocks the timer that would have written it
+        writeDraft();
         event.preventDefault();
         event.returnValue = '';
     });
+
+    // beforeunload does not fire when a phone backgrounds the tab and the system
+    // later reclaims it, pagehide does
+    window.addEventListener('pagehide', writeDraft);
 
     document.addEventListener('click', async (event) => {
         const link = event.target.closest('a[href]');
@@ -446,6 +582,10 @@ export function initEditor() {
         const url = new URL(link.href, location.href);
         if (url.origin !== location.origin || url.pathname === location.pathname) return;
         event.preventDefault();
+        // nav.js navigates a folder row itself, from a bubble listener that
+        // preventDefault does not reach: without this the page leaves while the
+        // dialog is still on screen waiting for an answer
+        event.stopPropagation();
         const leave = await confirmDialog({
             title: 'Leave without saving?',
             text: 'Your changes are kept as a local draft, but they are not written to disk.',
@@ -453,6 +593,7 @@ export function initEditor() {
             danger: true
         });
         if (leave) {
+            writeDraft();
             dirty = false;
             location.href = url.href;
         }
@@ -462,24 +603,29 @@ export function initEditor() {
 
     let mode = 'split';
 
-    function setMode(next) {
+    // remember marks the reader's own choice. The boot default is derived from
+    // the window width, and storing that turns one edit on a phone into a
+    // desktop that quietly lost its split view.
+    function setMode(next, remember) {
         mode = next;
         shell.classList.remove('mode-source', 'mode-split', 'mode-preview');
         shell.classList.add('mode-' + next);
         qsa('[data-view-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.viewMode === next)));
         qsa('[data-pane-tab]').forEach((b) => b.setAttribute('aria-selected',
             String((b.dataset.paneTab === 'preview') === (next === 'preview'))));
-        try {
-            localStorage.setItem('scrawl.editor.mode', next);
-        } catch (e) {
-            // not remembering the mode is fine
+        if (remember) {
+            try {
+                localStorage.setItem('scrawl.editor.mode', next);
+            } catch (e) {
+                // not remembering the mode is fine
+            }
         }
         if (next !== 'source') renderPreview();
     }
 
-    qsa('[data-view-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.viewMode)));
+    qsa('[data-view-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.viewMode, true)));
     qsa('[data-pane-tab]').forEach((b) => b.addEventListener('click', () => {
-        setMode(b.dataset.paneTab === 'preview' ? 'preview' : 'source');
+        setMode(b.dataset.paneTab === 'preview' ? 'preview' : 'source', true);
     }));
 
     const splitter = qs('#splitter');
@@ -507,10 +653,13 @@ export function initEditor() {
             splitter.setPointerCapture(event.pointerId);
             splitter.addEventListener('pointermove', onMove);
         });
-        splitter.addEventListener('pointerup', (event) => {
+        const endDrag = (event) => {
             splitter.releasePointerCapture(event.pointerId);
             splitter.removeEventListener('pointermove', onMove);
-        });
+        };
+        splitter.addEventListener('pointerup', endDrag);
+        // the browser can claim the gesture, and then no pointerup ever arrives
+        splitter.addEventListener('pointercancel', endDrag);
         splitter.addEventListener('keydown', (event) => {
             const rect = panes.getBoundingClientRect();
             const now = (parseFloat(panes.style.getPropertyValue('--split')) || 50) / 100;
@@ -535,7 +684,19 @@ export function initEditor() {
 
     /* --- image upload --------------------------------------------------- */
 
+    // save has to know an upload is outstanding, so every one of them is tracked
+    // for as long as its placeholder is still standing in the document
     async function upload(file) {
+        const job = uploadFile(file);
+        uploads.add(job);
+        try {
+            await job;
+        } finally {
+            uploads.delete(job);
+        }
+    }
+
+    async function uploadFile(file) {
         const token = 'uploading-' + Math.random().toString(36).slice(2, 8);
         const at = ta.selectionStart;
         replace(at, ta.selectionEnd, '![](' + token + ')');
@@ -543,24 +704,33 @@ export function initEditor() {
         form.append('file', file);
         const url = '/api/upload/' + encodePath(dirOf(path)) +
             '?doc=' + encodeURIComponent(path);
+        // replace has to focus the text area for execCommand to apply, so an
+        // upload that lands while the reader is elsewhere puts them back
+        const swap = (text) => {
+            const active = document.activeElement;
+            const spot = ta.value.indexOf('![](' + token + ')');
+            if (spot >= 0) replace(spot, spot + token.length + 5, text);
+            if (active && active !== ta && active.isConnected) active.focus();
+        };
         try {
             const res = await fetch(url, {method: 'POST', body: form});
             if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'upload failed');
             const data = await res.json();
-            const markdown = data.markdown || ('![](' + data.path + ')');
-            const spot = ta.value.indexOf('![](' + token + ')');
-            if (spot >= 0) replace(spot, spot + token.length + 5, markdown);
-            toast('Image uploaded', 'success');
+            swap(data.markdown || ('![](' + data.path + ')'));
+            savedToast(data, 'Image uploaded');
         } catch (err) {
-            const spot = ta.value.indexOf('![](' + token + ')');
-            if (spot >= 0) replace(spot, spot + token.length + 5, '');
+            swap('');
             toast(err.message || 'Upload failed', 'error');
         }
     }
 
     ta.addEventListener('paste', (event) => {
-        const files = Array.from((event.clipboardData && event.clipboardData.files) || []);
+        const data = event.clipboardData;
+        const files = Array.from((data && data.files) || []);
         if (!files.length) return;
+        // Word and Excel put a screenshot on the clipboard beside the text, and
+        // uploading that picture instead of pasting the text is never the intent
+        if (Array.from(data.types || []).includes('text/plain')) return;
         event.preventDefault();
         files.forEach(upload);
     });
@@ -576,6 +746,10 @@ export function initEditor() {
         const files = Array.from((event.dataTransfer && event.dataTransfer.files) || []);
         if (!files.length) return;
         event.preventDefault();
+        // dragover is preventDefault()ed, so the browser never moved the caret
+        // to where the file landed and the markdown would go wherever it was
+        const at = caretOffset(event.clientX, event.clientY);
+        if (at !== null) ta.setSelectionRange(at, at);
         files.forEach(upload);
     });
 
@@ -588,16 +762,6 @@ export function initEditor() {
     }
 
     /* --- iOS keyboard --------------------------------------------------- */
-
-    const vv = window.visualViewport;
-    if (vv) {
-        const sync = () => {
-            document.documentElement.style.setProperty('--vvh', vv.height + 'px');
-        };
-        vv.addEventListener('resize', sync);
-        vv.addEventListener('scroll', sync);
-        sync();
-    }
 
     // WebKit unpins fixed elements when the keyboard opens and fires no resize,
     // so put the caret line a third of the way down before the keyboard animates
@@ -622,8 +786,10 @@ export function initEditor() {
         start = 'split';
     }
     setMode(window.innerWidth < 900 ? 'source' : start);
+    pruneDrafts();
     offerDraft();
     updateStatus();
+    countNow();
     setStatus(shell.dataset.new === '1' ? 'New page' : 'Saved');
     // on a phone an autofocus opens the keyboard over half the document
     if (!softKeyboard) {

@@ -2,7 +2,7 @@
 
 import {
     api, confirmDialog, copyText, encodePath, esc, formatBytes, formDialog,
-    openDialog, qs, qsa, slugify, toast
+    openDialog, qs, qsa, savedToast, slugify, toast
 } from './dom.js';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -156,6 +156,17 @@ function markMatch(node, name, query) {
         '</mark>' + esc(name.slice(at + query.length));
 }
 
+// the row Enter opens. A folder whose child matched is on screen too, and in
+// document order it comes first, so the query has to be matched again here
+// instead of trusting what the filter left visible
+function firstMatch(sidebar, query) {
+    return qsa('.tree-item:not([hidden]) .tree-link', sidebar).find((link) => {
+        const label = qs('.tree-name', link);
+        const name = (label && (label.dataset.name || label.textContent)) || '';
+        return name.toLowerCase().includes(query);
+    });
+}
+
 function initFilter() {
     const input = qs('#tree-filter');
     const sidebar = qs('#sidebar');
@@ -203,7 +214,7 @@ function initFilter() {
     input.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             event.preventDefault();
-            const first = qsa('.tree-item:not([hidden]) .tree-link', sidebar)[0];
+            const first = firstMatch(sidebar, input.value.trim().toLowerCase());
             if (first) {
                 first.click();
                 return;
@@ -233,20 +244,36 @@ function readOpen() {
 
 function initTreeState() {
     const saved = readOpen();
-    if (saved) {
-        qsa('.tree-dir').forEach((d) => {
-            // an ancestor of the current page stays open whatever was stored
-            if (!d.open) d.open = saved.has(d.dataset.path);
-        });
-    }
-    qsa('.tree-dir').forEach((d) => d.addEventListener('toggle', () => {
+    if (!saved) return;
+    qsa('.tree-dir').forEach((d) => {
+        // an ancestor of the current page stays open whatever was stored
+        if (!d.open) d.open = saved.has(d.dataset.path);
+    });
+}
+
+// toggle does not bubble, so this listens in the capture phase: one handler on
+// the sidebar outlives a rebuild that replaces every <details> underneath it
+function initTreeMemory(sidebar) {
+    sidebar.addEventListener('toggle', () => {
         try {
             const open = qsa('.tree-dir').filter((x) => x.open).map((x) => x.dataset.path);
             localStorage.setItem(OPEN_KEY, JSON.stringify(open));
         } catch (e) {
             // private mode, the tree just will not remember its state
         }
-    }));
+    }, true);
+}
+
+// the panel scrolls back to the top on every navigation, which on a corpus
+// taller than the panel leaves the page just opened somewhere off screen
+function revealCurrent() {
+    const host = qs('.sidebar-scroll');
+    const row = host && qs('.tree-row.is-current', host);
+    if (!row) return;
+    const rowBox = row.getBoundingClientRect();
+    const hostBox = host.getBoundingClientRect();
+    if (rowBox.top >= hostBox.top && rowBox.bottom <= hostBox.bottom) return;
+    host.scrollTop += rowBox.top - hostBox.top - (host.clientHeight - rowBox.height) / 2;
 }
 
 /* --- file operations ---------------------------------------------------- */
@@ -315,6 +342,7 @@ function createDialog({title, label, placeholder, submitLabel, tree, startIn, su
             '<input class="input" name="name" autocomplete="off" spellcheck="false">' +
             '</label>' +
             '<p class="field-hint">Use / in the name to nest it deeper.</p>' +
+            '<p class="field-error" data-error hidden></p>' +
             '<p class="field-label">Location</p>' +
             '<div class="picker" role="tree" aria-label="Destination folder"></div>' +
             '<p class="picker-path">Creates <code data-preview></code></p>' +
@@ -331,6 +359,7 @@ function createDialog({title, label, placeholder, submitLabel, tree, startIn, su
 
         const host = qs('.picker', dlg);
         const preview = qs('[data-preview]', dlg);
+        const error = qs('[data-error]', dlg);
         let at = startIn && hasFolder(tree, startIn) ? startIn : '';
         // only the folders between the root and the one we start on are open,
         // every other branch waits to be asked for
@@ -395,13 +424,25 @@ function createDialog({title, label, placeholder, submitLabel, tree, startIn, su
             render();
             field.focus();
         });
-        field.addEventListener('input', paint);
+        field.addEventListener('input', () => {
+            error.hidden = true;
+            paint();
+        });
         render();
 
         let result = null;
         qs('form', dlg).addEventListener('submit', (event) => {
             event.preventDefault();
-            result = {name: field.value.trim(), folder: at};
+            // closing first and complaining afterwards throws away both the
+            // typed name and the folder that was picked to put it in
+            const name = slugPath(field.value);
+            if (!name) {
+                error.textContent = label + ' has to hold a letter or a digit.';
+                error.hidden = false;
+                field.focus();
+                return;
+            }
+            result = {name, folder: at};
             dlg.close();
         });
         qs('[data-act="cancel"]', dlg).addEventListener('click', () => dlg.close());
@@ -421,12 +462,7 @@ async function createPage(folder) {
         suffix: '.md'
     });
     if (!answer) return;
-    const name = slugPath(answer.name);
-    if (!name) {
-        toast('A page name is required', 'error');
-        return;
-    }
-    const path = joinPath(answer.folder, name + '.md');
+    const path = joinPath(answer.folder, answer.name + '.md');
     try {
         await api('POST', fileURL(path), {type: 'file'});
         location.href = '/edit/' + encodePath(path);
@@ -446,15 +482,9 @@ async function createFolder(parent) {
         suffix: ''
     });
     if (!answer) return;
-    const name = slugPath(answer.name) || answer.name.trim();
-    if (!name) {
-        toast('A folder name is required', 'error');
-        return;
-    }
-    const path = joinPath(answer.folder, name);
+    const path = joinPath(answer.folder, answer.name);
     try {
-        await api('POST', fileURL(path), {type: 'dir'});
-        toast('Folder created', 'success');
+        savedToast(await api('POST', fileURL(path), {type: 'dir'}), 'Folder created');
         await afterChange();
     } catch (err) {
         toast(err.status === 409 ? 'That folder already exists' : err.message, 'error');
@@ -469,10 +499,15 @@ async function renamePath(path) {
         submitLabel: 'Rename'
     });
     if (!answer || !answer.to || answer.to === path) return;
+    // .md is what the tree, the search index and /p/ all key on, so a rename
+    // that drops it leaves the page whole on disk and gone from the app, with
+    // nothing on screen saying where it went
+    const to = /\.md$/.test(path) && !/\.md$/.test(answer.to) ? answer.to + '.md' : answer.to;
+    if (to === path) return;
     try {
-        const res = await api('POST', '/api/move', {from: path, to: answer.to});
-        toast('Renamed', 'success');
-        const target = (res && res.path) || answer.to;
+        const res = await api('POST', '/api/move', {from: path, to});
+        savedToast(res, 'Renamed');
+        const target = (res && res.path) || to;
         if (currentPath() === path) {
             location.href = '/p/' + encodePath(target);
             return;
@@ -492,8 +527,7 @@ async function deletePath(path, kind) {
     });
     if (!ok) return;
     try {
-        await api('DELETE', fileURL(path));
-        toast('Deleted', 'success');
+        savedToast(await api('DELETE', fileURL(path)), 'Deleted');
         if (currentPath() === path) {
             location.href = '/';
             return;
@@ -550,6 +584,8 @@ function closeMenu() {
     if (!openMenu) return;
     openMenu.trigger.setAttribute('aria-expanded', 'false');
     openMenu.node.remove();
+    window.removeEventListener('scroll', closeMenu, true);
+    window.removeEventListener('resize', closeMenu);
     openMenu = null;
 }
 
@@ -629,7 +665,11 @@ function showMenu(trigger) {
     });
     trigger.setAttribute('aria-expanded', 'true');
     openMenu = {node, trigger};
-    buttons[0].focus();
+    buttons[0].focus({preventScroll: true});
+    // the panel is placed once from the trigger's viewport rect, so anything
+    // that moves the trigger would leave it floating over an unrelated row
+    window.addEventListener('scroll', closeMenu, true);
+    window.addEventListener('resize', closeMenu);
 }
 
 /* --- rebuild the tree after a change ------------------------------------ */
@@ -676,8 +716,13 @@ export async function refreshTree() {
         if (empty) host.appendChild(empty);
         initTreeState();
         initRowMenus();
+        revealCurrent();
+        // the rows are new ones, so a query still sitting in the box stopped
+        // applying the moment the old rows went away
+        const filter = qs('#tree-filter');
+        if (filter && filter.value) filter.dispatchEvent(new Event('input'));
     } catch (e) {
-        location.reload();
+        toast('The tree could not be refreshed', 'error');
     }
 }
 
@@ -726,6 +771,8 @@ export function initNav() {
 
     initFilter();
     initTreeState();
+    if (sidebar) initTreeMemory(sidebar);
+    revealCurrent();
     initRowMenus();
     initPopovers();
 

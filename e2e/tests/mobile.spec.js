@@ -4,12 +4,14 @@ const fs = require('fs');
 
 const docs = require('../support/docs');
 const {
-    MAIN, expectNoHorizontalScroll, fixtureFile, shot, signIn, writeFixture,
+    HISTORY, MAIN, expectNoHorizontalScroll, fixtureFile, shot, signIn, writeFixture,
 } = require('../support/helpers');
 
 const MIN_TAP = 40;
 const DOC = docs.doc.path;
 const SCRATCH = 'e2e-mobile/zametka.md';
+const HISTORY_FOLDER = 'e2e-mobile-history';
+const HISTORY_DOC = `${HISTORY_FOLDER}/versions.md`;
 
 // tooSmall reports every element of a selector that is under the minimum touch
 // size, so a failure names the offender instead of giving a bare count
@@ -36,6 +38,7 @@ test.describe('mobile', () => {
 
     test.afterAll(() => {
         fs.rmSync(fixtureFile('e2e-mobile'), {recursive: true, force: true});
+        fs.rmSync(fixtureFile(HISTORY_FOLDER, HISTORY), {recursive: true, force: true});
     });
 
     test('the drawer opens, navigates and closes', async ({page}) => {
@@ -183,6 +186,46 @@ test.describe('mobile', () => {
             ...await tooSmall(page, '#doc .anchor'),
         ].slice(0, 3);
         expect(offenders, 'controls smaller than the 40px touch minimum').toEqual([]);
+    });
+
+    // the diff is a nowrap pre, so a bare 1fr track takes the width of the
+    // longest patch line: the page stretched to 1899px inside a 390px viewport,
+    // nothing could scroll to it, and Restore sat off screen on every row
+    test('the version history page fits the screen and Restore is reachable', async ({page}) => {
+        const wide = 'x'.repeat(200);
+        await signIn(page, {baseURL: HISTORY.baseURL});
+        await page.goto(`${HISTORY.baseURL}/edit/${HISTORY_DOC}`);
+        for (const body of [`# Одна\n\n${wide}\n`, `# Две\n\n${wide}${wide}\n`]) {
+            await page.locator('#editor-source').fill(body);
+            await page.locator('[data-editor-save]').tap();
+            await expect(page.locator('#status-state')).toHaveText('Saved');
+        }
+
+        await page.goto(`${HISTORY.baseURL}/history/${HISTORY_DOC}`);
+        await expect(page.locator('.version').first()).toBeVisible();
+        await expectNoHorizontalScroll(page);
+
+        const viewport = page.viewportSize().width;
+        const restore = page.locator('[data-restore]').first();
+        const box = await restore.boundingBox();
+        expect(box.x + box.width, 'Restore reaches past the right edge').toBeLessThanOrEqual(viewport);
+        expect(await tooSmall(page, '[data-restore]'),
+            'Restore is under the 40px touch minimum').toEqual([]);
+
+        await page.locator('.version').nth(1).locator('.version-pick').tap();
+        const diff = page.locator('#version-detail .diff');
+        await expect(diff).toBeVisible();
+        // the patch scrolls inside its own box rather than taking the page with it
+        expect(await diff.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+        await expectNoHorizontalScroll(page);
+        await shot(page, 'mobile-history');
+
+        // the same tap has to close it again, or the only way back to the list
+        // is scrolling past the whole patch
+        await page.locator('.version').nth(1).locator('.version-pick').tap();
+        await expect(page.locator('#version-detail .diff')).toHaveCount(0);
+        await expect(page.locator('.version.is-selected')).toHaveCount(0);
+        await expect(page.locator('#version-detail')).toContainText('Pick a version');
     });
 
     test('the palette opens from the top bar and navigates', async ({page}) => {

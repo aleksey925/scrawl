@@ -16,10 +16,13 @@ function lineClass(line) {
     return '';
 }
 
+// the lines go in a box as wide as the longest of them. A block paints its
+// background only as wide as its container, so scrolled sideways a coloured line
+// would otherwise run out of colour partway across and leave the rest bare.
 function diffMarkup(patch) {
-    return patch.split('\n')
+    return '<span class="diff-body">' + patch.split('\n')
         .map((line) => '<span class="diff-line' + lineClass(line) + '">' + esc(line) + '\n</span>')
-        .join('');
+        .join('') + '</span>';
 }
 
 export function initHistory() {
@@ -68,11 +71,51 @@ export function initHistory() {
         }
     }
 
-    function select(row) {
+    // stacked, the detail is a full width block after the entire list, so a pick
+    // renders a screen or more below the row that was tapped and the list is
+    // gone off the top. Under its own row the list reads as an accordion.
+    const cols = qs('.history-cols');
+    const stacked = window.matchMedia('(max-width: 999px)');
+    // what the server rendered into the panel, kept so closing restores it
+    // instead of a second copy of its wording living here
+    const emptyDetail = detail.innerHTML;
+
+    function placeDetail(row) {
+        if (!cols) return;
+        if (stacked.matches && row) {
+            if (detail.parentElement !== row) row.append(detail);
+            return;
+        }
+        if (detail.parentElement !== cols) cols.append(detail);
+    }
+
+    function deselect(row) {
+        const before = row.getBoundingClientRect().top;
+        row.classList.remove('is-selected');
+        qs('.version-pick', row).setAttribute('aria-current', 'false');
+        placeDetail(null);
+        // a response still in flight would render into the panel just emptied
+        pickSeq += 1;
+        detail.setAttribute('aria-busy', 'false');
+        detail.innerHTML = emptyDetail;
+        const moved = row.getBoundingClientRect().top - before;
+        if (Math.abs(moved) > 1) window.scrollBy({top: moved, behavior: 'instant'});
+    }
+
+    function select(row, picked) {
+        // the panel leaving the row it was in shortens everything above this
+        // one, so without holding the row still the text jumps out from under
+        // the finger that tapped it
+        const before = picked ? row.getBoundingClientRect().top : 0;
         rows.forEach((other) => {
             other.classList.toggle('is-selected', other === row);
             qs('.version-pick', other).setAttribute('aria-current', String(other === row));
         });
+        placeDetail(row);
+        if (picked) {
+            const moved = row.getBoundingClientRect().top - before;
+            if (Math.abs(moved) > 1) window.scrollBy({top: moved, behavior: 'instant'});
+        }
         show(row);
     }
 
@@ -102,6 +145,11 @@ export function initHistory() {
             danger: true
         });
         if (!ok) return;
+        // a second restore carries the rev this page was built from, which the
+        // first one has already moved on, so it comes back as a conflict for a
+        // restore that in fact succeeded
+        const button = qs('[data-restore]', row);
+        if (button) button.disabled = true;
         try {
             await api('POST', '/api/history/restore/' + encodePath(path), {
                 rev, version: row.dataset.rev, from: row.dataset.path,
@@ -109,6 +157,7 @@ export function initHistory() {
             toast('Restored', 'success');
             location.reload();
         } catch (err) {
+            if (button) button.disabled = false;
             if (err.status === 412 && err.data) {
                 showConflict(err.data);
                 return;
@@ -118,9 +167,25 @@ export function initHistory() {
     }
 
     rows.forEach((row) => {
-        qs('.version-pick', row).addEventListener('click', () => select(row));
+        qs('.version-pick', row).addEventListener('click', () => {
+            // stacked, the panel lives inside the row, so the same tap has to
+            // close it again. Wide it is a column of its own, and emptying that
+            // would leave a hole where the patch belongs.
+            if (stacked.matches && row.classList.contains('is-selected')) {
+                deselect(row);
+                return;
+            }
+            select(row, true);
+        });
         const button = qs('[data-restore]', row);
         if (button) button.addEventListener('click', () => restore(row));
     });
-    select(rows[0]);
+    // the rules that let the panel sit inside a row exist only below the
+    // breakpoint, so a layout change has to move it back out of the row or it
+    // would end up beside Restore
+    stacked.addEventListener('change', () => placeDetail(qs('.version.is-selected')));
+    // stacked, a pick opens inside its own row, so expanding the newest version
+    // on arrival would bury the list under a screen of diff before the reader
+    // has asked for anything
+    if (!stacked.matches) select(rows[0]);
 }

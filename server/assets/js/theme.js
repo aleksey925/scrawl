@@ -55,6 +55,9 @@ export function initTheme() {
     const buttons = qsa('[data-theme-toggle]');
     if (!buttons.length) return;
     buttons.forEach((btn) => btn.setAttribute('aria-label', LABEL[current()]));
+    // the head ships two metas keyed on prefers-color-scheme, which is the wrong
+    // bar colour for anyone whose stored choice disagrees with their system
+    syncBarColor(current());
     buttons.forEach((btn) => btn.addEventListener('click', () => {
         apply(ORDER[(ORDER.indexOf(current()) + 1) % ORDER.length]);
     }));

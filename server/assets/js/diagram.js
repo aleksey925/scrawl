@@ -52,7 +52,10 @@ function wrap(pre) {
 }
 
 async function renderAll(items, root) {
-    preserveScroll(root, () => items.forEach((item) => state(item, 'pending')));
+    // a theme flip re-renders diagrams that are already on screen, and dropping
+    // them all back to the placeholder blanks the page twice on the way through
+    const fresh = items.filter((item) => !item.view.firstChild);
+    if (fresh.length) preserveScroll(root, () => fresh.forEach((item) => state(item, 'pending')));
 
     try {
         await loadScript(MERMAID_JS);

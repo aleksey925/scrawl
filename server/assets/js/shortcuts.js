@@ -58,6 +58,10 @@ export function initShortcuts() {
 
     document.addEventListener('keydown', (event) => {
         if (event.defaultPrevented) return;
+        // a modal dialog owns the keyboard. Every dialog here focuses a button,
+        // which typing() does not catch, so without this "e" walks away from a
+        // delete confirmation and "?" stacks the cheat sheet on top of it
+        if (qs('dialog[open]')) return;
         const mod = isMac ? event.metaKey : event.ctrlKey;
 
         if (mod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'k') {

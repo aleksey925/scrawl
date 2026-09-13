@@ -51,9 +51,12 @@ export function enhanceCode(root) {
                 return;
             }
             button.classList.add('is-done');
+            // the swapped icon is the only sign it worked, and it is aria-hidden
+            button.setAttribute('aria-label', 'Copied');
             button.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg>';
             setTimeout(() => {
                 button.classList.remove('is-done');
+                button.setAttribute('aria-label', 'Copy code');
                 button.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-copy"></use></svg>';
             }, 1500);
         });
@@ -76,7 +79,9 @@ function enhanceHeadings(root) {
             heading.scrollIntoView();
             toast(await copyText(url) ? 'Link copied' : 'Could not copy the link', 'success');
         });
-        heading.appendChild(link);
+        // ahead of the text, which is where the gutter is and where a reader
+        // looks for it; trailing it also put the hash after a wrapped last line
+        heading.prepend(link);
     });
 }
 
@@ -99,10 +104,21 @@ function initLightbox(root) {
         caption.textContent = source.alt || decodeURIComponent((source.src || '').split('/').pop());
     };
 
+    // the zoom is advertised with cursor: zoom-in, which only a pointer ever
+    // sees, so the image has to carry the role and the key handling itself
     images.forEach((source, index) => {
-        source.addEventListener('click', () => {
+        const open = () => {
             show(index);
             dlg.showModal();
+        };
+        source.tabIndex = 0;
+        source.setAttribute('role', 'button');
+        source.setAttribute('aria-label', 'Open image full size' + (source.alt ? ': ' + source.alt : ''));
+        source.addEventListener('click', open);
+        source.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            open();
         });
     });
 
@@ -125,9 +141,39 @@ function initToc() {
     const rail = qs('#toc-rail');
     if (!rail) return;
     const pill = qs('[data-toc-toggle]');
+    // the rail is a plain column on a wide screen, and a sheet over the page only
+    // where the pill is on screen. Only then does it own the focus, and the flag
+    // keeps the inert it sets from being lifted by anything else that closes.
+    const isSheet = () => !!pill && pill.offsetParent !== null;
+    let sheetOpen = false;
+    let lastFocused = null;
+
     const setOpen = (open) => {
         document.body.classList.toggle('toc-open', open);
         if (pill) pill.setAttribute('aria-expanded', String(open));
+
+        const asSheet = open && isSheet();
+        if (asSheet === sheetOpen) return;
+        sheetOpen = asSheet;
+
+        qsa('.topbar, .main, .sidebar').forEach((el) => {
+            if (asSheet) {
+                el.setAttribute('inert', '');
+            } else {
+                el.removeAttribute('inert');
+            }
+        });
+        if (asSheet) {
+            rail.setAttribute('role', 'dialog');
+            rail.setAttribute('aria-modal', 'true');
+            lastFocused = document.activeElement;
+            const first = qs('.toc-list a', rail) || qs('[data-toc-close]', rail);
+            if (first) first.focus();
+            return;
+        }
+        rail.removeAttribute('role');
+        rail.removeAttribute('aria-modal');
+        if (lastFocused && lastFocused.isConnected) lastFocused.focus();
     };
     if (pill) pill.addEventListener('click', () => setOpen(!document.body.classList.contains('toc-open')));
     qsa('[data-toc-close]').forEach((b) => b.addEventListener('click', () => {
@@ -159,7 +205,10 @@ function initToc() {
 
     const seen = new Set();
     const mark = () => {
-        const active = targets.find((target) => seen.has(target.id));
+        // at the top of the page the first heading is usually still below the
+        // observer's band, which would leave the outline blank until a scroll
+        const active = targets.find((target) => seen.has(target.id)) ||
+            (window.scrollY < 4 ? targets[0] : null);
         if (!active) return;
         links.forEach((link) => link.parentElement.classList.remove('is-active'));
         const item = byId.get(active.id);
@@ -194,8 +243,10 @@ function queryTerms() {
 }
 
 // katex and mermaid own their subtrees: a mark spliced into one corrupts the
-// rendering, and neither holds prose worth jumping to
-const FIND_SKIP = 'script, style, svg, .katex, .mermaid, .code-copy, .anchor';
+// rendering, and neither holds prose worth jumping to. .math is the source
+// katex has not typeset yet, and typesetting it detaches any mark placed there,
+// leaving the find bar counting hits that no longer exist.
+const FIND_SKIP = 'script, style, svg, .katex, .math, .mermaid, .code-copy, .anchor';
 
 function escapeRegExp(text) {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

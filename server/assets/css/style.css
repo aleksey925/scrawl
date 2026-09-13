@@ -17,11 +17,16 @@
     --bg-active: rgba(0, 0, 0, .075);
     --bg-scrim: rgba(0, 0, 0, .32);
     --bg-blur: rgba(255, 255, 255, .82);
+    --bg-selection: #b3d7ff;
 
     /* --- text --- */
     --text: #1d1d1f;
-    --text-2: #6e6e73;
-    --text-3: #8e8e93;
+    /* AA on white caps a readable grey near #767676, which left the secondary
+       and tertiary greys a hair apart. The step is cut into --text-2 instead,
+       because darkening reads as hierarchy while lightening --text-3 again
+       would only bring back the contrast problem. */
+    --text-2: #55555c;
+    --text-3: #70707a;
     --text-on-accent: #ffffff;
 
     /* --- lines --- */
@@ -149,10 +154,11 @@
         --bg-active: rgba(255, 255, 255, .10);
         --bg-scrim: rgba(0, 0, 0, .55);
         --bg-blur: rgba(28, 28, 30, .82);
+        --bg-selection: #33639e;
 
         --text: #f5f5f7;
         --text-2: #a1a1a6;
-        --text-3: #7c7c81;
+        --text-3: #8e8e95;
         --text-on-accent: #ffffff;
 
         --border: #323235;
@@ -202,10 +208,11 @@
     --bg-active: rgba(255, 255, 255, .10);
     --bg-scrim: rgba(0, 0, 0, .55);
     --bg-blur: rgba(28, 28, 30, .82);
+    --bg-selection: #33639e;
 
     --text: #f5f5f7;
     --text-2: #a1a1a6;
-    --text-3: #7c7c81;
+    --text-3: #8e8e95;
     --text-on-accent: #ffffff;
 
     --border: #323235;
@@ -252,6 +259,9 @@
 html {
     scroll-padding-top: calc(var(--h-topbar) + var(--s-4));
     -webkit-text-size-adjust: 100%;
+    /* the gutter is reserved on a classic scrollbar platform, otherwise the
+       centred column jumps sideways between a short page and a long one */
+    scrollbar-gutter: stable;
 }
 
 body {
@@ -269,7 +279,7 @@ body {
     scroll-margin-top: calc(var(--h-topbar) + var(--s-4));
 }
 
-::selection { background: var(--accent-subtle); color: var(--text); }
+::selection { background: var(--bg-selection); color: var(--text); }
 
 :focus { outline: none; }
 
@@ -751,6 +761,12 @@ dialog::backdrop { background: var(--bg-scrim); }
     font-size: var(--fs-small);
 }
 
+.field-error {
+    margin: calc(var(--s-2) * -1) 0 var(--s-4);
+    color: var(--danger);
+    font-size: var(--fs-small);
+}
+
 .picker-path { margin: 0; color: var(--text-3); font-size: var(--fs-small); }
 
 .picker-path code { font-family: var(--font-mono); color: var(--text-2); }
@@ -771,7 +787,9 @@ dialog::backdrop { background: var(--bg-scrim); }
 .main {
     flex: 1 1 auto;
     min-width: 0;
-    padding: var(--s-10) var(--s-6) 25vh;
+    padding-block: var(--s-10) 25vh;
+    padding-inline: max(var(--s-6), env(safe-area-inset-left))
+    max(var(--s-6), env(safe-area-inset-right));
 }
 
 /* the extra class outranks the margin shorthands the blocks below set */
@@ -790,7 +808,10 @@ dialog::backdrop { background: var(--bg-scrim); }
     align-items: center;
     gap: var(--s-2);
     height: var(--h-topbar);
-    padding-inline: var(--s-3);
+    /* the page is viewport-fit=cover, so in landscape the notch sits over the
+       burger and the start of the trail unless the inset is paid here */
+    padding-inline: max(var(--s-3), env(safe-area-inset-left))
+    max(var(--s-3), env(safe-area-inset-right));
     background: var(--bg-blur);
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
@@ -970,10 +991,27 @@ html:not(.js) .user-menu .menu-item span { display: none; }
     background: var(--bg-inset);
     color: var(--text);
     font-family: inherit;
-    font-size: var(--fs-small);
+    /* stays at --fs-input for the reason .input-mono does: anything smaller
+       zooms iOS on focus, and the zoom does not come back on its own */
+    font-size: var(--fs-input);
 }
 
-.filter-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+:root {
+    --icon-clear: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6'/%3E%3C/svg%3E");
+}
+
+/* nav.js clears the filter on Escape, which a touch keyboard does not have, so
+   this button is the only way out of a query on a phone. It is rebuilt from a
+   mask rather than left native because the platform glyph ignores the theme */
+.filter-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    width: 15px;
+    height: 15px;
+    background: var(--text-3);
+    -webkit-mask: var(--icon-clear) center / contain no-repeat;
+    mask: var(--icon-clear) center / contain no-repeat;
+    cursor: pointer;
+}
 
 .filter-input:focus {
     outline: none;
@@ -1161,10 +1199,13 @@ html:not(.js) .user-menu .menu-item span { display: none; }
     background: var(--bg-scrim);
     opacity: 0;
     visibility: hidden;
+    /* the dimmed area is what a thumb lands on beside the drawer, and iOS pans
+       the document under it on a drag that body overflow alone does not stop */
+    touch-action: none;
     transition: opacity var(--dur-slow) var(--ease-out), visibility var(--dur-slow);
 }
 
-body.drawer-open { overflow: hidden; }
+body.drawer-open { overflow: hidden; overscroll-behavior: none; }
 
 body.drawer-open .scrim { opacity: 1; visibility: visible; }
 
@@ -1256,6 +1297,12 @@ body.scrolled-far .toc-top { display: flex; }
     font-size: var(--fs-small);
     font-weight: var(--fw-medium);
     cursor: pointer;
+}
+
+/* reader.js puts the find bar on the same bottom edge, centred, and at phone
+   widths the two overlap; the pill steps above it while the bar is in the page */
+body:has(.find-bar) .toc-pill {
+    bottom: calc(var(--s-4) + 52px + env(safe-area-inset-bottom));
 }
 
 /* ==========================================================================
@@ -1747,6 +1794,22 @@ html.js .doc img { cursor: zoom-in; }
     text-align: center;
 }
 
+/* a katex base is nowrap at width: min-content, so a line breaks between bases
+   but never inside one, and one unbreakable base widens the document and pans
+   the whole page sideways. Containing it costs vertical placement: with overflow
+   set, the box sits on the line by its bottom margin edge instead of its own
+   baseline, which lifts every formula carrying a subscript or a fraction. Only a
+   narrow screen actually pans, so the trade is taken there and nowhere else. */
+@media (max-width: 767px) {
+    .doc .math-inline {
+        display: inline-block;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
 .doc .math.is-typeset { font-family: inherit; font-size: inherit; }
 
 /* a formula katex could not parse keeps its source, with the reason on hover */
@@ -1807,7 +1870,12 @@ html.js .doc img { cursor: zoom-in; }
     text-align: center;
 }
 
-.doc .diagram-view svg { max-width: 100%; height: auto; }
+/* diagram.js renders with useMaxWidth off so the svg keeps its intrinsic width:
+   capping it here would scale a wide flowchart down to unreadable labels
+   instead of letting .diagram-view scroll it. Auto margins centre one that is
+   narrower than the column and collapse to zero on one that is wider, so the
+   overflow stays inside the scroller and never reaches the page */
+.doc .diagram-view svg { display: block; margin-inline: auto; }
 
 .doc .diagram-error {
     margin: var(--s-2) 0 0;
@@ -2212,14 +2280,19 @@ html.js .doc img { cursor: zoom-in; }
     padding: var(--s-6);
 }
 
+/* the image yields to the caption instead of being capped in vh: vh is the
+   large viewport, so with Safari's toolbars out a 82vh image plus the caption
+   stood taller than the dialog and the pair was clipped with nothing to scroll */
 .lightbox-img {
     max-width: 100%;
-    max-height: 82vh;
+    min-height: 0;
+    flex: 0 1 auto;
     object-fit: contain;
     border-radius: var(--r-lg);
 }
 
 .lightbox-caption {
+    flex: none;
     margin: 0;
     color: rgba(255, 255, 255, .7);
     font-family: var(--font-mono);
@@ -2702,6 +2775,10 @@ html.js .doc img { cursor: zoom-in; }
     white-space: pre;
 }
 
+/* as wide as the longest line, so the lines inside it fill the whole scrollable
+   width rather than stopping at the edge of the visible box */
+.diff-body { display: block; width: max-content; min-width: 100%; }
+
 .diff-line { display: block; padding-inline: var(--s-2); }
 
 .diff-line.is-add { background: var(--hl-inserted-bg); }
@@ -2742,7 +2819,9 @@ html.js .doc img { cursor: zoom-in; }
         max-width: calc(100vw - var(--s-8));
         max-height: 60vh;
         margin: 0;
-        padding: var(--s-4);
+        /* the top pays for the close button, which is 44px on touch and would
+           otherwise take the taps meant for the first entry of the outline */
+        padding: var(--s-10) var(--s-4) var(--s-4);
         border: 1px solid var(--border);
         border-radius: var(--r-xl);
         background: var(--bg-raised);
@@ -2781,6 +2860,7 @@ html.js .doc img { cursor: zoom-in; }
         height: 100dvh;
         width: 86vw;
         max-width: 340px;
+        padding-left: env(safe-area-inset-left);
         border-right: 1px solid var(--border);
         box-shadow: var(--shadow-lg);
         overscroll-behavior: contain;
@@ -2820,7 +2900,9 @@ html.js .doc img { cursor: zoom-in; }
 
     .topbar-burger { display: inline-flex; }
 
-    .topbar-home { display: none; }
+    /* the way home on a phone: below 900px the trail keeps the page name and
+       drops every ancestor link, leaving the drawer as the only other route */
+    .topbar-home { display: inline-flex; }
 
     /* no JavaScript: the tree drops into the page flow so it stays reachable */
     html:not(.js) .sidebar {
@@ -2838,10 +2920,38 @@ html.js .doc img { cursor: zoom-in; }
 
     html:not(.js) .sidebar-scroll { max-height: 50vh; }
 
-    .main { padding: var(--s-8) var(--s-5) 22vh; }
+    .main {
+        padding-block: var(--s-8) 22vh;
+        padding-inline: max(var(--s-5), env(safe-area-inset-left))
+        max(var(--s-5), env(safe-area-inset-right));
+    }
 
-    /* the patch needs the whole width long before the list stops fitting */
-    .history-cols { grid-template-columns: 1fr; }
+    /* the patch needs the whole width long before the list stops fitting.
+       minmax(0, ...) and not a bare 1fr: the auto floor of 1fr is max-content,
+       and the diff is a nowrap pre, so the track would take the width of the
+       longest patch line, carry the page out to it, and leave Restore parked
+       off screen with no way to scroll to it */
+    .history-cols { grid-template-columns: minmax(0, 1fr); }
+
+    /* history.js moves the detail inside the row it belongs to at this width, so
+       the row has to break rather than seat it beside Restore */
+    .version:has(> .version-detail) { flex-wrap: wrap; }
+
+    /* once the row may wrap, a basis of auto lets the message take the whole
+       line and drops Restore onto one of its own, where it reads as a control
+       belonging to nothing. A zero basis keeps the pair together and the
+       message ellipsizing the way every other row does. */
+    .version:has(> .version-detail) > .version-pick { flex-basis: 0; }
+
+    /* min-width: 0 is the flex side of the minmax(0, ...) above: a flex item
+       floors at its content, and the diff is a nowrap pre, so without this the
+       panel takes the width of the longest patch line instead of scrolling */
+    .version > .version-detail {
+        flex: 1 0 100%;
+        min-width: 0;
+        margin: 0 calc(var(--s-2) * -1) 0 0;
+        border-radius: var(--r-lg);
+    }
 
     .version-detail { position: static; }
 }
@@ -2849,7 +2959,11 @@ html.js .doc img { cursor: zoom-in; }
 @media (max-width: 767px) {
     :root { --h-topbar: var(--h-topbar-sm); }
 
-    .topbar { padding-inline: var(--s-1) var(--s-2); gap: var(--s-1); }
+    .topbar {
+        padding-inline: max(var(--s-1), env(safe-area-inset-left))
+        max(var(--s-2), env(safe-area-inset-right));
+        gap: var(--s-1);
+    }
 
     .crumb-current { font-size: var(--fs-ui); }
 
@@ -2881,7 +2995,11 @@ html.js .doc img { cursor: zoom-in; }
 
     .topbar-actions .btn-primary { background: var(--accent); color: var(--text-on-accent); }
 
-    .main { padding: var(--s-6) var(--s-4) 20vh; }
+    .main {
+        padding-block: var(--s-6) 20vh;
+        padding-inline: max(var(--s-4), env(safe-area-inset-left))
+        max(var(--s-4), env(safe-area-inset-right));
+    }
 
     .doc { font-size: 1rem; }
 
@@ -2915,7 +3033,17 @@ html.js .doc img { cursor: zoom-in; }
 
     .search-input { padding-left: var(--s-10); }
 
-    .palette { width: 100vw; max-width: 100vw; max-height: 100dvh; height: 100dvh; margin: 0; border-radius: 0; border: 0; }
+    /* palette.js focuses the input at once, so the sheet is held to the visual
+       viewport: at 100dvh the keyboard covers the bottom half of the results */
+    .palette {
+        width: 100vw;
+        max-width: 100vw;
+        max-height: var(--vvh, 100dvh);
+        height: var(--vvh, 100dvh);
+        margin: 0;
+        border-radius: 0;
+        border: 0;
+    }
 
     .palette-head { padding-top: max(var(--s-3), env(safe-area-inset-top)); }
 
@@ -3019,29 +3147,44 @@ html.js .doc img { cursor: zoom-in; }
 
     .code-copy { opacity: 1; }
 
-    /* in the gutter the hash would crowd the left edge, and next to every
-       heading it turns into noise, so keep it faint until the heading is the
-       one the reader jumped to */
-    .doc .anchor {
-        position: static;
-        width: auto;
-        margin-left: .4em;
-        font-size: .6em;
-        vertical-align: .22em;
-        opacity: .18;
-    }
+    /* there is no hover here to reveal it with and no gutter to hold it, and
+       trailing the text it reads as punctuation nobody wrote. The outline sheet
+       is how a section is reached at this width. */
+    .doc .anchor { display: none; }
 
-    .doc :target > .anchor { opacity: .6; }
-
-    .icon-btn, .row-more, .seg-btn { min-width: var(--tap); min-height: var(--tap); }
+    .icon-btn, .row-more, .seg-btn, .topbar-home { min-width: var(--tap); min-height: var(--tap); }
 
     .tree-row { min-height: var(--tap); }
+
+    /* nav.js opens a folder when its label is tapped, so the triangle is the
+       only way to collapse one. The negative margin keeps the row layout while
+       the hit area grows left into the indent gutter beside it */
+    .tree-twisty {
+        padding: 14px 2px 14px 26px;
+        margin-block: -10px;
+        margin-left: -24px;
+    }
 
     .row-more { width: var(--tap); height: var(--tap); }
 
     .sidebar-action { height: var(--tap); }
 
+    .filter-input { height: var(--tap); }
+
+    .filter-input::-webkit-search-cancel-button {
+        width: var(--tap);
+        height: var(--tap);
+        -webkit-mask-size: 17px;
+        mask-size: 17px;
+    }
+
     .entry-link { min-height: 52px; }
+
+    /* the destination picker of the create dialog, which is how every page and
+       folder in the corpus starts life */
+    .picker-row { min-height: var(--tap); }
+
+    .picker-twisty { width: var(--tap); height: var(--tap); margin: -10px -12px; }
 
     .toolbar .tool { width: var(--tap); height: var(--tap); }
 
@@ -3053,13 +3196,15 @@ html.js .doc img { cursor: zoom-in; }
 
     .doc-edit { min-height: var(--tap); }
 
+    .version-restore { min-height: var(--tap); }
+
     .skip-link { padding-block: var(--s-3); }
 }
 
-/* a finger has no hover to reveal a control with and no precision to hit a
-   small one, so the two controls that live inside the document grow to the
-   touch minimum and stay on screen. A narrow desktop window keeps the
-   restrained treatment above, because there hovering still works */
+/* a finger has no hover to reveal the copy button with and no precision to hit
+   a small one, so inside the document it grows to the touch minimum and stays
+   on screen. A narrow desktop window keeps the restrained treatment above,
+   because there hovering still works */
 @media (hover: none) {
     .code-copy {
         top: 4px;
@@ -3070,20 +3215,9 @@ html.js .doc img { cursor: zoom-in; }
 
     .code-copy .icon { width: 18px; height: 18px; }
 
-    .doc .anchor {
-        position: static;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: var(--tap);
-        height: var(--tap);
-        margin-left: 0;
-        font-size: .7em;
-        vertical-align: middle;
-        opacity: .45;
-    }
-
-    .doc :target > .anchor { opacity: 1; }
+    /* room for the button, which is opaque at this size and would otherwise
+       stand on the right hand end of the first two lines of every block */
+    .code-block pre { padding-right: calc(var(--tap) + var(--s-2)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3100,4 +3234,40 @@ html.js .doc img { cursor: zoom-in; }
 
 @media (prefers-reduced-motion: no-preference) {
     html { scroll-behavior: smooth; }
+}
+
+/* ==========================================================================
+   print
+   ========================================================================== */
+
+@media print {
+    /* the print pipeline drops backgrounds and keeps colours, so a dark theme
+       would put its near white text onto white paper. The second selector is
+       there to match the specificity of the [data-theme="dark"] block */
+    :root, :root[data-theme="dark"] {
+        --bg: #fff;
+        --bg-subtle: #fff;
+        --bg-inset: #fff;
+        --bg-raised: #fff;
+        --text: #000;
+        --text-2: #333;
+        --text-3: #555;
+        --border: #bbb;
+        --border-strong: #888;
+    }
+
+    .topbar, .sidebar, .scrim, .toc-rail, .toc-pill, .toasts, .find-bar,
+    .skip-link, .code-copy, .row-more, .doc-edit { display: none !important; }
+
+    .app-body { display: block; max-width: none; }
+
+    .main { padding: 0; }
+
+    .app .main > * { max-width: none; }
+
+    .doc pre, .code-block, .doc blockquote, .doc table { break-inside: avoid; }
+
+    .doc h1, .doc h2, .doc h3, .doc h4 { break-after: avoid; }
+
+    .doc a[target="_blank"]::after { content: none; }
 }

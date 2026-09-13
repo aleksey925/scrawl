@@ -6,7 +6,12 @@ const pending = new Map();
 
 function once(key, make) {
     if (!pending.has(key)) {
-        pending.set(key, new Promise(make));
+        // the rejection is dropped from the map, otherwise one flaky request
+        // turns into "could not load" on every page for the rest of the session
+        pending.set(key, new Promise(make).catch((err) => {
+            pending.delete(key);
+            throw err;
+        }));
     }
     return pending.get(key);
 }

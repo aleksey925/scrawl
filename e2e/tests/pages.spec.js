@@ -1,18 +1,21 @@
 const {expect, test} = require('@playwright/test');
 
 const docs = require('../support/docs');
-const {readFixture, removeFixture, shot, signIn, writeFixture} = require('../support/helpers');
+const {
+    MAIN, readFixture, removeFixture, routes, save, setSource, shot, signIn, writeFixture,
+} = require('../support/helpers');
+const text = require('../support/text');
 
 const MISSING = docs.missing;
 const COLLIDE = 'e2e-collisions.md';
 
 const ROUTES = [
-    '/',
-    `/p/${docs.doc.path}`,
-    `/p/${docs.folder.path}/`,
-    `/p/${docs.folder.entry}`,
-    `/search?q=${encodeURIComponent(docs.search.word)}`,
-    `/edit/${docs.doc.path}`,
+    routes.home(),
+    routes.doc(docs.doc.path),
+    routes.dir(docs.folder.path),
+    routes.doc(docs.folder.entry),
+    routes.search(docs.search.word),
+    routes.edit(docs.doc.path),
 ];
 
 test.describe('pages', () => {
@@ -28,6 +31,9 @@ test.describe('pages', () => {
         });
 
         for (const route of ROUTES) {
+            // every app route is the same document, and which screen it is comes
+            // from the client router, so the status is 200 even for a page that
+            // is not there
             const response = await page.goto(route);
             expect(response.status(), route).toBe(200);
             await page.waitForLoadState('networkidle');
@@ -36,54 +42,62 @@ test.describe('pages', () => {
     });
 
     test('a directory without an index lists its entries', async ({page}) => {
-        await page.goto(`/p/${docs.folder.path}/`);
+        await page.goto(routes.dir(docs.folder.path));
 
-        await expect(page.locator('.dir-list-title')).toContainText('items');
-        const entries = page.locator('.entries .entry');
-        expect(await entries.count()).toBeGreaterThan(3);
-        await expect(entries.first().locator('.entry-size')).toContainText(/KB|B/);
+        await expect(page.getByTestId('dir-title')).toBeVisible();
+        const rows = page.getByTestId('dir-row');
+        expect(await rows.count()).toBeGreaterThan(3);
+        await expect(rows.first().getByTestId('dir-row-name')).toHaveAttribute('href', /\/p\//);
         await shot(page, 'pages-directory');
+
+        await page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"] [data-testid=dir-row-name]`)
+            .click();
+        await expect(page).toHaveURL(MAIN.url.doc(docs.folder.entry));
     });
 
     test('the folder being viewed is the highlighted row in the tree', async ({page}) => {
-        await page.goto(`/p/${docs.folder.path}/`);
+        await page.goto(routes.dir(docs.folder.path));
 
-        const current = page.locator('#sidebar .tree-row.is-current');
+        const current = page.locator('[data-testid=tree-row][data-current="true"]');
         await expect(current).toHaveCount(1);
-        await expect(current).toHaveJSProperty('tagName', 'SUMMARY');
-        await expect(current.locator('.tree-name')).toHaveText(docs.folder.name);
-        await expect(current.locator('.tree-link')).toHaveAttribute('aria-current', 'page');
+        await expect(current).toHaveAttribute('data-path', docs.folder.path);
+        await expect(current).toHaveAttribute('data-dir', 'true');
+        await expect(current.getByTestId('tree-link')).toHaveAttribute('aria-current', 'page');
     });
 
-    test('a missing page answers 404 and offers to create it', async ({page}) => {
-        const response = await page.goto(`/p/${MISSING}`);
+    test('a missing page says so and offers to create it', async ({page}) => {
+        await page.goto(routes.doc(MISSING));
 
-        expect(response.status()).toBe(404);
-        await expect(page.locator('.empty-title')).toContainText('does not exist yet');
+        await expect(page.getByTestId('doc-missing')).toContainText(text.doc.missing);
         await shot(page, 'pages-missing');
 
-        await page.locator('.empty-actions a.btn-primary').click();
-        await expect(page).toHaveURL(new RegExp(`/edit/${MISSING}$`));
-        await expect(page.locator('#editor-source')).toHaveValue('');
-        await expect(page.locator('#status-state')).toHaveText('New page');
+        await page.getByTestId('doc-create').click();
+        await expect(page).toHaveURL(MAIN.url.edit(MISSING));
+        await expect(page.getByTestId('editor-status')).toHaveAttribute('data-state', 'new');
+        await expect(page.getByTestId('editor-status')).toHaveText(text.status.new);
 
-        await page.locator('#editor-source').fill('# Новая\n');
-        await page.click('[data-editor-save]');
-        await expect(page.locator('#status-state')).toHaveText('Saved');
+        await setSource(page, '# Новая\n');
+        await save(page);
         expect(readFixture(MISSING)).toBe('# Новая\n');
 
-        await page.goto(`/p/${MISSING}`);
-        await expect(page.locator('#doc h1').first()).toContainText('Новая');
+        await page.goto(routes.doc(MISSING));
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Новая');
         removeFixture(MISSING);
     });
 
+    test('a route that names nothing at all is the empty state', async ({page}) => {
+        await page.goto(`${routes.home()}this-route-does-not-exist`);
+
+        await expect(page.getByTestId('app-notfound')).toContainText(text.notFound);
+    });
+
     test('a note cannot take the ids the app looks itself up by', async ({page}) => {
-        // each heading slugs to the id of an element the app resolves, and the
-        // document is rendered before that chrome, so a document-wide lookup
-        // comes back holding the heading
+        // each heading slugs to the name of a piece of chrome, and the document
+        // is rendered before that chrome, so a document-wide lookup would come
+        // back holding the heading instead
         writeFixture(COLLIDE, [
-            '# Collisions', '', '## Toasts', '', '## Lightbox', '',
-            '## Palette input', '', '## Toc rail', '',
+            '# Collisions', '', '## Toasts', '', '## Lightbox', '', '## Palette input', '',
+            '## Toc', '', '## Doc', '', '## Editor source', '',
             'Enough headings to earn an outline.', '',
         ].join('\n'));
 
@@ -93,20 +107,30 @@ test.describe('pages', () => {
             if (msg.type() === 'error') problems.push(msg.text());
         });
 
-        await page.goto(`/p/${COLLIDE}`);
+        await page.goto(routes.doc(COLLIDE));
         await page.waitForLoadState('networkidle');
         expect(problems, 'a shadowed id threw and took its feature down').toEqual([]);
-        // the headings really did claim the ids, so the lookups only survived
-        // by asking about shape instead
-        expect(await page.locator('#doc h2#toasts').count()).toBe(1);
-        expect(await page.locator('#doc h2#toc-rail').count()).toBe(1);
 
-        await expect(page.locator('.app-body > #toc-rail')).toBeVisible();
+        // the headings really did claim the ids, so the chrome only survived by
+        // being reached through refs and portals instead of by name
+        await expect(page.locator('[data-testid=doc] h2#toasts')).toHaveCount(1);
+        await expect(page.locator('[data-testid=doc] h2#toc')).toHaveCount(1);
+        await expect(page.locator('[data-testid=doc] h2#doc')).toHaveCount(1);
+        await expect(page.locator('[data-testid=doc] h2#editor-source')).toHaveCount(1);
 
-        // the heading anchor copies the link and says so, which is the toast
-        // that used to be appended invisibly inside the heading named Toasts
-        await page.locator('#doc h2#toasts .anchor').click();
-        await expect(page.locator('body > #toasts .toast')).toBeVisible();
+        // the hooks still name one element each, and it is the chrome and not a heading
+        await expect(page.getByTestId('doc')).toHaveCount(1);
+        await expect(page.getByTestId('doc')).toHaveClass(/markdown-document/);
+        await expect(page.getByTestId('toc')).toHaveCount(1);
+        await expect(page.getByTestId('toc-entry')).toHaveCount(6);
+
+        // the heading anchor copies the link and says so, which is the toast that
+        // used to be appended invisibly inside the heading named Toasts
+        await page.locator('[data-testid=doc] h2#toasts [data-testid=doc-heading-anchor]').click();
+        const toast = page.locator('[data-testid=toast][data-kind="ok"]');
+        await expect(toast).toContainText(text.toast.linkCopied);
+        expect(await toast.evaluate((el) => el.closest('[data-testid="doc"]') === null),
+            'the toast landed inside the document').toBe(true);
         await shot(page, 'pages-id-collisions');
 
         removeFixture(COLLIDE);
@@ -114,15 +138,21 @@ test.describe('pages', () => {
 
     test('the theme toggle cycles and survives a reload', async ({page}) => {
         const root = page.locator('html');
-        await expect(root).toHaveAttribute('data-theme', 'auto');
+        const toggle = page.getByTestId('topbar-theme');
+        await expect(toggle).toHaveAttribute('data-scheme', 'auto');
 
-        await page.locator('[data-theme-toggle]').first().click();
-        await expect(root).toHaveAttribute('data-theme', 'light');
-        await page.locator('[data-theme-toggle]').first().click();
-        await expect(root).toHaveAttribute('data-theme', 'dark');
+        await toggle.click();
+        await expect(toggle).toHaveAttribute('data-scheme', 'light');
+        await expect(root).toHaveAttribute('data-mantine-color-scheme', 'light');
+
+        await toggle.click();
+        await expect(toggle).toHaveAttribute('data-scheme', 'dark');
+        await expect(root).toHaveAttribute('data-mantine-color-scheme', 'dark');
         await shot(page, 'pages-dark-theme');
 
+        // the choice is a cookie, because the server paints the first byte from it
         await page.reload();
         await expect(root).toHaveAttribute('data-theme', 'dark');
+        await expect(page.getByTestId('topbar-theme')).toHaveAttribute('data-scheme', 'dark');
     });
 });

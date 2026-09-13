@@ -1,10 +1,12 @@
 const {expect, test} = require('@playwright/test');
 
-const {
-    fixtureFile, modifier, readFixture, removeFixture, shot, signIn, writeFixture,
-} = require('../support/helpers');
-
 const fs = require('fs');
+
+const {
+    MAIN, editorStatus, fixtureFile, modifier, readFixture, removeFixture, routes, save,
+    setSource, shot, signIn, sourceText, writeFixture,
+} = require('../support/helpers');
+const text = require('../support/text');
 
 // scratch keeps every test on its own document, so a failure cannot poison the
 // next one and the corpus files stay as they were copied
@@ -20,23 +22,23 @@ test.describe('editing', () => {
     test('typing updates the preview and the save button writes the file', async ({page}) => {
         const docPath = scratch('save-button');
         writeFixture(docPath, '# Заголовок\n\nстарый текст\n');
-        await page.goto(`/edit/${docPath}`);
+        await page.goto(routes.edit(docPath));
 
-        const source = page.locator('#editor-source');
-        await expect(source).toHaveValue('# Заголовок\n\nстарый текст\n');
-        await expect(page.locator('#preview h1')).toContainText('Заголовок');
+        await expect.poll(() => sourceText(page)).toBe('# Заголовок\n\nстарый текст\n');
+        await expect(page.getByTestId('editor-preview')).toContainText('Заголовок');
 
-        await source.fill('# Заголовок\n\nновый текст\n');
-        await expect(page.locator('#preview')).toContainText('новый текст');
-        await expect(page.locator('#status-state')).toHaveText('Unsaved changes');
+        await setSource(page, '# Заголовок\n\nновый текст\n');
+        await expect(page.getByTestId('editor-preview')).toContainText('новый текст');
+        await expect(editorStatus(page)).toHaveText(text.status.dirty);
+        await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'true');
         await shot(page, 'editing-preview');
 
-        await page.click('[data-editor-save]');
-        await expect(page.locator('#status-state')).toHaveText('Saved');
+        await save(page);
+        await expect(editorStatus(page)).toHaveText(text.status.saved);
         expect(readFixture(docPath)).toBe('# Заголовок\n\nновый текст\n');
 
         await page.reload();
-        await expect(page.locator('#editor-source')).toHaveValue('# Заголовок\n\nновый текст\n');
+        await expect.poll(() => sourceText(page)).toBe('# Заголовок\n\nновый текст\n');
         await shot(page, 'editing-saved');
         removeFixture(docPath);
     });
@@ -44,12 +46,13 @@ test.describe('editing', () => {
     test('the save shortcut writes the file', async ({page}) => {
         const docPath = scratch('save-shortcut');
         writeFixture(docPath, 'before\n');
-        await page.goto(`/edit/${docPath}`);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('before\n');
 
-        await page.locator('#editor-source').fill('after the shortcut\n');
-        await page.locator('#editor-source').press(`${await modifier(page)}+s`);
+        await setSource(page, 'after the shortcut\n');
+        await page.keyboard.press(`${await modifier(page)}+s`);
 
-        await expect(page.locator('#status-state')).toHaveText('Saved');
+        await expect(editorStatus(page)).toHaveText(text.status.saved);
         await expect.poll(() => readFixture(docPath)).toBe('after the shortcut\n');
         removeFixture(docPath);
     });
@@ -58,63 +61,84 @@ test.describe('editing', () => {
         const docPath = scratch('whitespace');
         const body = '- item\n   \n- next\n';
         writeFixture(docPath, body);
-        await page.goto(`/edit/${docPath}`);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe(body);
 
-        await page.locator('#editor-source').fill(body + '- third\n');
-        await page.click('[data-editor-save]');
+        await setSource(page, `${body}- third\n`);
+        await save(page);
 
-        await expect.poll(() => readFixture(docPath)).toBe(body + '- third\n');
+        await expect.poll(() => readFixture(docPath)).toBe(`${body}- third\n`);
         removeFixture(docPath);
     });
 
     test('leaving with unsaved changes asks first and keeps a draft', async ({page}) => {
         const docPath = scratch('dirty-guard');
         writeFixture(docPath, 'kept\n');
-        await page.goto(`/edit/${docPath}`);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
 
-        await page.locator('#editor-source').fill('typed but not saved\n');
-        await expect(page.locator('.statusbar')).toHaveClass(/is-dirty/);
-        await page.click('[data-editor-cancel]');
+        await setSource(page, 'typed but not saved\n');
+        await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'true');
+        await page.getByTestId('editor-cancel').click();
 
-        const dialog = page.locator('dialog.modal');
-        await expect(dialog.locator('.modal-title')).toHaveText('Leave without saving?');
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.leave);
         await shot(page, 'editing-leave-guard');
-        await dialog.locator('[data-act="cancel"]').click();
-        await expect(page).toHaveURL(new RegExp(`/edit/${docPath}$`));
+        await page.getByTestId('modal-cancel').click();
+        await expect(page).toHaveURL(MAIN.url.edit(docPath));
 
         // the draft is debounced into localStorage and offered on the next load
         await page.waitForTimeout(1000);
-        await page.goto(`/edit/${docPath}`);
-        await expect(page.locator('#draft-bar')).toBeVisible();
-        await expect(page.locator('#draft-text')).toContainText('unsaved draft');
+        await page.goto(routes.edit(docPath));
+        await expect(page.getByTestId('editor-draft')).toContainText(text.editor.draft);
         await shot(page, 'editing-draft-bar');
 
-        await page.click('[data-draft-restore]');
-        await expect(page.locator('#editor-source')).toHaveValue('typed but not saved\n');
+        await page.getByTestId('editor-draft-restore').click();
+        await expect.poll(() => sourceText(page)).toBe('typed but not saved\n');
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
         expect(readFixture(docPath), 'nothing is written to disk without a save').toBe('kept\n');
+        removeFixture(docPath);
+    });
+
+    test('a draft can be thrown away instead of restored', async ({page}) => {
+        const docPath = scratch('draft-discard');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+
+        await setSource(page, 'a draft nobody wants\n');
+        // a reload is not a router navigation, so it leaves without asking and
+        // the debounced draft is what is left of the buffer
+        await page.waitForTimeout(1000);
+        await page.goto(routes.edit(docPath));
+
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+        await page.getByTestId('editor-draft-discard').click();
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+
+        await page.goto(routes.edit(docPath));
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
         removeFixture(docPath);
     });
 
     test('a file changed behind the browser raises the conflict dialog and overwrite wins', async ({page}) => {
         const docPath = scratch('conflict-overwrite');
         writeFixture(docPath, 'original\n');
-        await page.goto(`/edit/${docPath}`);
-        await expect(page.locator('#editor-source')).toHaveValue('original\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('original\n');
 
         writeFixture(docPath, 'written by someone else\n');
-        await page.locator('#editor-source').fill('my version\n');
-        await page.click('[data-editor-save]');
+        await setSource(page, 'my version\n');
+        await page.getByTestId('editor-save').click();
 
-        const dialog = page.locator('dialog.modal-wide');
+        const dialog = page.locator('[data-testid=modal][data-variant="conflict"]');
         await expect(dialog).toBeVisible();
-        await expect(dialog.locator('.modal-title')).toHaveText('This file changed on disk');
-        await expect(dialog.locator('[data-mine]')).toHaveText('my version');
-        await expect(dialog.locator('[data-theirs]')).toHaveText('written by someone else');
-        await expect(page.locator('#status-state')).toHaveText('Conflict');
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.conflict);
+        await expect(page.getByTestId('editor-conflict-mine')).toHaveText('my version\n');
+        await expect(page.getByTestId('editor-conflict-theirs')).toHaveText('written by someone else\n');
         await shot(page, 'editing-conflict');
 
-        await dialog.locator('[data-act="overwrite"]').click();
-        await expect(page.locator('#status-state')).toHaveText('Saved');
+        await page.getByTestId('editor-conflict-overwrite').click();
+        await expect(editorStatus(page)).toHaveText(text.status.saved);
         await expect.poll(() => readFixture(docPath)).toBe('my version\n');
         removeFixture(docPath);
     });
@@ -122,19 +146,19 @@ test.describe('editing', () => {
     test('the conflict dialog can keep both versions as a copy', async ({page}) => {
         const docPath = scratch('conflict-copy');
         writeFixture(docPath, 'original\n');
-        await page.goto(`/edit/${docPath}`);
-        await expect(page.locator('#editor-source')).toHaveValue('original\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('original\n');
 
         writeFixture(docPath, 'disk wins\n');
-        await page.locator('#editor-source').fill('mine to keep\n');
-        await page.click('[data-editor-save]');
+        await setSource(page, 'mine to keep\n');
+        await page.getByTestId('editor-save').click();
 
-        const dialog = page.locator('dialog.modal-wide');
-        await expect(dialog).toBeVisible();
-        await dialog.locator('[data-act="copy"]').click();
+        await expect(page.locator('[data-testid=modal][data-variant="conflict"]')).toBeVisible();
+        await page.getByTestId('editor-conflict-copy').click();
 
         await expect(page).toHaveURL(/\/edit\/e2e-scratch\/conflict-copy\.conflict-[\d-]+T[\d-]+\.md$/);
-        const copyPath = decodeURIComponent(new URL(page.url()).pathname.replace('/edit/', ''));
+        const copyPath = decodeURIComponent(
+            new URL(page.url()).pathname.replace(`${routes.edit('')}`, ''));
         expect(readFixture(copyPath)).toBe('mine to keep\n');
         expect(readFixture(docPath), 'the disk version must be left alone').toBe('disk wins\n');
         await shot(page, 'editing-conflict-copy');

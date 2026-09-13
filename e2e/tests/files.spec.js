@@ -2,7 +2,10 @@ const {expect, test} = require('@playwright/test');
 
 const fs = require('fs');
 
-const {fixtureFile, shot, signIn} = require('../support/helpers');
+const {
+    MAIN, atHome, fixtureFile, routes, save, setSource, shot, signIn,
+} = require('../support/helpers');
+const text = require('../support/text');
 
 const FOLDER = 'e2e-fm';
 const PAGE = `${FOLDER}/testovaya-stranitsa.md`;
@@ -18,101 +21,116 @@ test.describe.serial('file management', () => {
     });
 
     test('creates a folder, which joins the tree while it holds no document', async ({page}) => {
-        await page.click('[data-new-folder]');
-        const dialog = page.locator('dialog.modal');
-        await expect(dialog.locator('.modal-title')).toHaveText('New folder');
-        await dialog.locator('input[name="name"]').fill(FOLDER);
-        await expect(dialog.locator('[data-preview]')).toHaveText(FOLDER);
-        await shot(page, 'files-new-folder-dialog');
-        await dialog.locator('button[type="submit"]').click();
+        await page.getByTestId('sidebar-new-folder').click();
+        // the hook sits on mantine's modal root, which is a wrapper with no box
+        // of its own, so the dialog is counted and asserted on from the inside
+        await expect(page.locator('[data-testid=modal][data-variant="create"][data-entry="dir"]'))
+            .toHaveCount(1);
+        await expect(page.getByTestId('modal-name-input')).toBeVisible();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.newFolder);
 
-        await expect(page.locator('.toast.is-success')).toContainText('Folder created');
+        await page.getByTestId('modal-name-input').fill(FOLDER);
+        await expect(page.getByTestId('modal-path-preview')).toHaveText(FOLDER);
+        await shot(page, 'files-new-folder-dialog');
+        await page.getByTestId('modal-submit').click();
+
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.folderCreated);
         expect(fs.statSync(fixtureFile(FOLDER)).isDirectory()).toBe(true);
         // a folder is where a page is created, so it is on the tree before it holds one
-        await expect(page.locator(`#sidebar .tree-dir[data-path="${FOLDER}"]`)).toHaveCount(1);
+        await expect(page.locator(`[data-testid=tree-row][data-path="${FOLDER}"]`)).toHaveCount(1);
 
-        await page.goto(`/p/${FOLDER}/`);
-        await expect(page.locator('.empty-title')).toContainText('This folder is empty');
+        await page.goto(routes.dir(FOLDER));
+        await expect(page.getByTestId('dir-empty')).toHaveText(text.dir.empty);
         await shot(page, 'files-folder-created');
     });
 
     test('creates a page in the folder picked for it', async ({page}) => {
-        await page.click('.sidebar-foot [data-new-page]');
-        const dialog = page.locator('dialog.modal');
-        await expect(dialog.locator('.modal-title')).toHaveText('New page');
-        await dialog.locator(`.picker-row[data-path="${FOLDER}"]`).click();
-        await dialog.locator('input[name="name"]').fill('Тестовая страница');
-        await expect(dialog.locator('[data-preview]')).toHaveText(PAGE);
-        await shot(page, 'files-new-page-dialog');
-        await dialog.locator('button[type="submit"]').click();
+        await page.getByTestId('sidebar-new-page').click();
+        await expect(page.locator('[data-testid=modal][data-variant="create"][data-entry="file"]'))
+            .toHaveCount(1);
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.newPage);
 
-        await expect(page).toHaveURL(new RegExp(`/edit/${PAGE}$`));
+        await page.locator(`[data-testid=modal-folder-row][data-path="${FOLDER}"]`).click();
+        await expect(page.locator(`[data-testid=modal-folder-row][data-path="${FOLDER}"]`))
+            .toHaveAttribute('data-selected', 'true');
+        await page.getByTestId('modal-name-input').fill('Тестовая страница');
+        await expect(page.getByTestId('modal-path-preview')).toHaveText(PAGE);
+        await shot(page, 'files-new-page-dialog');
+        await page.getByTestId('modal-submit').click();
+
+        await expect(page).toHaveURL(MAIN.url.edit(PAGE));
         expect(fs.existsSync(fixtureFile(PAGE))).toBe(true);
 
-        await page.locator('#editor-source').fill('# Тестовая страница\n');
-        await page.click('[data-editor-save]');
-        await expect(page.locator('#status-state')).toHaveText('Saved');
+        await setSource(page, '# Тестовая страница\n');
+        await save(page);
 
-        await page.goto(`/p/${PAGE}`);
-        await expect(page.locator(`#sidebar .tree-row[data-path="${PAGE}"]`)).toHaveClass(/is-current/);
+        await page.goto(routes.doc(PAGE));
+        await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveAttribute('data-path', PAGE);
         await shot(page, 'files-page-created');
     });
 
     test('refuses to create a page that already exists', async ({page}) => {
-        await page.click('.sidebar-foot [data-new-page]');
-        const dialog = page.locator('dialog.modal');
-        await dialog.locator(`.picker-row[data-path="${FOLDER}"]`).click();
-        await dialog.locator('input[name="name"]').fill('Тестовая страница');
-        await dialog.locator('button[type="submit"]').click();
+        await page.getByTestId('sidebar-new-page').click();
+        await page.locator(`[data-testid=modal-folder-row][data-path="${FOLDER}"]`).click();
+        await page.getByTestId('modal-name-input').fill('Тестовая страница');
+        await page.getByTestId('modal-submit').click();
 
-        await expect(page.locator('.toast.is-error')).toContainText('That page already exists');
+        // the dialog stays open and complains on the field, so neither the typed
+        // name nor the folder that was picked for it is thrown away
+        await expect(page.locator('[data-testid=modal][data-variant="create"]')).toHaveCount(1);
+        await expect(page.locator('[data-testid=modal][data-variant="create"]'))
+            .toContainText(text.pageExists);
         await shot(page, 'files-duplicate-page');
     });
 
     test('refuses to delete a folder that is not empty', async ({page}) => {
-        await page.goto(`/p/${PAGE}`);
-        await page.locator(`#sidebar [data-actions="${FOLDER}"]`).click();
-        await page.locator('.menu-float').getByRole('menuitem', {name: 'Delete'}).click();
-        await page.locator('dialog.modal [data-act="ok"]').click();
+        await page.goto(routes.doc(PAGE));
+        await page.locator(`[data-testid=tree-row][data-path="${FOLDER}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-delete').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deleteFolder);
+        await page.getByTestId('modal-confirm').click();
 
-        await expect(page.locator('.toast.is-error')).toContainText('The folder is not empty');
+        const toast = page.locator('[data-testid=toast][data-kind="error"]');
+        await expect(toast).toContainText(text.toast.notDeleted);
+        await expect(toast).toContainText(text.toast.folderNotEmpty);
         expect(fs.existsSync(fixtureFile(PAGE))).toBe(true);
         await shot(page, 'files-folder-not-empty');
     });
 
     test('renames a page from the tree menu', async ({page}) => {
-        await page.goto(`/p/${PAGE}`);
-        await page.locator(`#sidebar [data-actions="${PAGE}"]`).click();
-        const menu = page.locator('.menu-float');
+        await page.goto(routes.doc(PAGE));
+        await page.locator(`[data-testid=tree-row][data-path="${PAGE}"] [data-testid=tree-row-menu]`).click();
+        const menu = page.getByTestId('tree-row-menu-dropdown');
         await expect(menu).toBeVisible();
         await shot(page, 'files-row-menu');
-        await menu.getByRole('menuitem', {name: 'Rename'}).click();
+        await page.getByTestId('tree-row-menu-rename').click();
 
-        const dialog = page.locator('dialog.modal');
-        await expect(dialog.locator('input[name="to"]')).toHaveValue(PAGE);
-        await dialog.locator('input[name="to"]').fill(RENAMED);
-        await dialog.locator('button[type="submit"]').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.rename);
+        await expect(page.getByTestId('modal-path-input')).toHaveValue(PAGE);
+        await page.getByTestId('modal-path-input').fill(RENAMED);
+        await page.getByTestId('modal-submit').click();
 
-        await expect(page).toHaveURL(new RegExp(`/p/${RENAMED}$`));
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.renamed);
+        await expect(page).toHaveURL(MAIN.url.doc(RENAMED));
         expect(fs.existsSync(fixtureFile(PAGE))).toBe(false);
         expect(fs.existsSync(fixtureFile(RENAMED))).toBe(true);
-        await expect(page.locator(`#sidebar .tree-row[data-path="${RENAMED}"]`)).toHaveCount(1);
+        await expect(page.locator(`[data-testid=tree-row][data-path="${RENAMED}"]`)).toHaveCount(1);
         await shot(page, 'files-renamed');
     });
 
     test('deletes a page and drops it from the tree', async ({page}) => {
-        await page.goto(`/p/${RENAMED}`);
-        await page.locator(`#sidebar [data-actions="${RENAMED}"]`).click();
-        await page.locator('.menu-float').getByRole('menuitem', {name: 'Delete'}).click();
+        await page.goto(routes.doc(RENAMED));
+        await page.locator(`[data-testid=tree-row][data-path="${RENAMED}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-delete').click();
 
-        const dialog = page.locator('dialog.modal');
-        await expect(dialog.locator('.modal-title')).toHaveText('Delete page?');
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deletePage);
         await shot(page, 'files-delete-confirm');
-        await dialog.locator('[data-act="ok"]').click();
+        await page.getByTestId('modal-confirm').click();
 
-        await expect(page).toHaveURL(/\/$/);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.deleted);
+        await expect(page).toHaveURL(atHome());
         await expect.poll(() => fs.existsSync(fixtureFile(RENAMED))).toBe(false);
-        await expect(page.locator(`#sidebar .tree-row[data-path="${RENAMED}"]`)).toHaveCount(0);
+        await expect(page.locator(`[data-testid=tree-row][data-path="${RENAMED}"]`)).toHaveCount(0);
         await shot(page, 'files-deleted');
     });
 });

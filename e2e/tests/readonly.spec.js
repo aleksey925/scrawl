@@ -1,48 +1,54 @@
 const {expect, test} = require('@playwright/test');
 
 const docs = require('../support/docs');
-const {READONLY, jsonRequest, shot, signIn} = require('../support/helpers');
+const {READONLY, jsonRequest, routes, shot, signIn} = require('../support/helpers');
+const text = require('../support/text');
 
 const DOC = docs.doc.path;
 
 test.describe('read-only mode', () => {
     test.beforeEach(async ({page}) => {
-        await signIn(page, {baseURL: READONLY.baseURL});
+        await signIn(page, {baseURL: READONLY.baseURL, from: routes.doc(DOC)});
     });
 
-    test('the reading ui hides every editing affordance', async ({page}) => {
-        await page.goto(`${READONLY.baseURL}/p/${DOC}`);
-        await page.waitForLoadState('networkidle');
+    test('the reading ui hides every way to write', async ({page}) => {
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.doc.title);
+        await expect(page.getByTestId('sidebar-new-page')).toHaveCount(0);
+        await expect(page.getByTestId('sidebar-new-folder')).toHaveCount(0);
 
-        await expect(page.locator('#doc h1').first()).toContainText(docs.doc.title);
-        await expect(page.locator('.topbar-edit')).toHaveCount(0);
-        await expect(page.locator('.doc-foot .doc-edit')).toHaveCount(0);
-        await expect(page.locator('.sidebar-foot')).toHaveCount(0);
-        await expect(page.locator('#sidebar')).toHaveAttribute('data-readonly', '');
+        await page.getByTestId('topbar-account').click();
+        await expect(page.getByTestId('topbar-account-readonly')).toBeVisible();
         await shot(page, 'readonly-view');
     });
 
-    test('the tree builds no row action menu', async ({page}) => {
-        await page.goto(`${READONLY.baseURL}/p/${DOC}`);
-        await page.waitForLoadState('networkidle');
-        await expect(page.locator(`#sidebar .tree-row[data-path="${DOC}"]`)).toBeVisible();
+    test('the row menu offers only what reads', async ({page}) => {
+        await expect(page.locator(`[data-testid=tree-row][data-path="${DOC}"]`)).toBeVisible();
+        await page.locator(`[data-testid=tree-row][data-path="${docs.doc.folder}"] [data-testid=tree-row-menu]`)
+            .click();
 
-        await expect(page.locator('#sidebar .row-more')).toHaveCount(0);
-        await expect(page.locator('#sidebar [data-actions]')).toHaveCount(0);
+        const items = page.getByTestId('tree-row-menu-dropdown').locator('[data-testid^="tree-row-menu-"]');
+        await expect(items).toHaveCount(2);
+        await expect(page.getByTestId('tree-row-menu-open')).toBeVisible();
+        await expect(page.getByTestId('tree-row-menu-copy-link')).toBeVisible();
+        await expect(page.getByTestId('tree-row-menu-rename')).toHaveCount(0);
+        await expect(page.getByTestId('tree-row-menu-delete')).toHaveCount(0);
+        await expect(page.getByTestId('tree-row-menu-new-page')).toHaveCount(0);
         await shot(page, 'readonly-tree');
     });
 
-    test('the editor route is refused', async ({page}) => {
-        const response = await page.goto(`${READONLY.baseURL}/edit/${DOC}`);
+    test('the editor opens as a reader and cannot save', async ({page}) => {
+        // the legacy route answered 403 outright; the app serves the source with
+        // every way to write it taken off the screen
+        await page.goto(READONLY.url.edit(DOC));
 
-        expect(response.status()).toBe(403);
-        await expect(page.locator('.error-code')).toHaveText('403');
+        await expect(page.getByTestId('editor-readonly')).toContainText(text.editor.readOnly);
+        await expect(page.getByTestId('editor-save')).toHaveCount(0);
+        await expect(page.getByTestId('editor-toolbar')).toHaveCount(0);
+        await expect(page.getByTestId('editor-cancel')).toBeVisible();
         await shot(page, 'readonly-editor-refused');
     });
 
     test('the write api refuses every mutating call', async ({page}) => {
-        await page.goto(`${READONLY.baseURL}/p/${DOC}`);
-
         const calls = [
             ['PUT', `/api/file/${DOC}`, {content: 'nope', rev: ''}],
             ['POST', '/api/file/e2e-readonly.md', {type: 'file'}],
@@ -59,10 +65,8 @@ test.describe('read-only mode', () => {
     });
 
     test('reading endpoints keep working', async ({page}) => {
-        await page.goto(`${READONLY.baseURL}/p/${DOC}`);
-
         const searchURL = `/api/search?q=${encodeURIComponent(docs.search.doc)}`;
-        for (const url of ['/api/tree', `/api/file/${DOC}`, searchURL]) {
+        for (const url of ['/api/tree', `/api/file/${DOC}`, '/api/me', searchURL]) {
             const res = await jsonRequest(page, 'GET', url);
             expect(res.status, url).toBe(200);
         }

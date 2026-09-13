@@ -1,10 +1,11 @@
-// helpers shared by the specs: signing in, screenshots and fixture file access
+// helpers shared by the specs: signing in, driving the editor, screenshots and
+// fixture file access
 
 const fs = require('fs');
 const path = require('path');
 const {expect} = require('@playwright/test');
 
-const {instances, password, shotsDir, user} = require('./env');
+const {appBase, instances, password, routes, shotsDir, user} = require('./env');
 
 const MAIN = instances.main;
 const READONLY = instances.readonly;
@@ -25,9 +26,11 @@ async function shot(page, name) {
     });
 }
 
-async function signIn(page, {baseURL = MAIN.baseURL, from} = {}) {
-    const target = from ? `${baseURL}/login?from=${encodeURIComponent(from)}` : `${baseURL}/login`;
-    await page.goto(target);
+// signIn goes through the server rendered login form, which is what an
+// anonymous visitor of an app url is handed: the session cookie is the server's,
+// and the app's own login screen is behind the same middleware.
+async function signIn(page, {baseURL = MAIN.baseURL, from = routes.home()} = {}) {
+    await page.goto(`${baseURL}/login?from=${encodeURIComponent(from)}`);
     await submitCredentials(page);
 }
 
@@ -48,12 +51,53 @@ async function modifier(page) {
     return mac ? 'Meta' : 'Control';
 }
 
-// pressShortcut waits for the module scripts to arrive before sending the key.
-// The handlers are attached by app.js, and a key pressed before it has loaded is
-// simply lost, which on a busy machine is the difference between green and red.
+// pressShortcut waits for the bundle to arrive before sending the key. The
+// handlers are attached once the app has mounted, and a key pressed before that
+// is simply lost, which on a busy machine is the difference between green and red.
 async function pressShortcut(page, key) {
     await page.waitForLoadState('networkidle');
     await page.keyboard.press(key);
+}
+
+// the editor is codemirror, not a textarea: there is no value to set, and
+// typing runs through the markdown keymap, which continues lists and indents
+// blocks. insertText goes in as one input event, so what arrives is byte for
+// byte what was asked for.
+async function setSource(page, text) {
+    const content = page.locator('[data-testid=editor-source] .cm-content');
+    await content.click();
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.insertText(text);
+}
+
+// sourceText reads the buffer back out of the rendered lines. Codemirror only
+// renders what is on screen, so this answers for the scratch documents the specs
+// write and not for a long one.
+function sourceText(page) {
+    return page.locator('[data-testid=editor-source]').evaluate((root) => Array
+        .from(root.querySelectorAll('.cm-line'))
+        .map((line) => (line.textContent === '​' ? '' : line.textContent))
+        .join('\n'));
+}
+
+function editorStatus(page) {
+    return page.locator('[data-testid=editor-status]');
+}
+
+// save clicks Save and waits for the write to land, which is the status leaving
+// the saving state rather than a fixed pause
+async function save(page) {
+    await page.locator('[data-testid=editor-save]').click();
+    await expect(editorStatus(page)).not.toHaveAttribute('data-state', 'saving');
+    await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'false');
+}
+
+// atHome matches the notes home with and without its trailing slash: the server
+// redirects to the slashed form, and the client router drops it again when it
+// navigates there itself
+function atHome(inst = MAIN) {
+    const home = `${inst.baseURL}${appBase}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`^${home}/?$`);
 }
 
 function fixtureFile(relative, inst = MAIN) {
@@ -104,6 +148,9 @@ module.exports = {
     MAIN,
     READONLY,
     SHARED,
+    appBase,
+    atHome,
+    editorStatus,
     expectNoHorizontalScroll,
     fixtureFile,
     jsonRequest,
@@ -111,8 +158,13 @@ module.exports = {
     pressShortcut,
     readFixture,
     removeFixture,
+    routes,
+    save,
+    setSource,
     shot,
     signIn,
+    sourceText,
     submitCredentials,
+    user,
     writeFixture,
 };

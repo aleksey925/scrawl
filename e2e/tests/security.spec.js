@@ -4,7 +4,7 @@ const fs = require('fs');
 
 const docs = require('../support/docs');
 const {
-    MAIN, fixtureFile, jsonRequest, removeFixture, shot, signIn, writeFixture,
+    MAIN, fixtureFile, jsonRequest, removeFixture, routes, shot, signIn, writeFixture,
 } = require('../support/helpers');
 
 const FOLDER = 'e2e-security';
@@ -28,7 +28,7 @@ test.describe('security', () => {
     test('a document named evil.html is served as an inert download', async ({page}) => {
         writeFixture(EVIL, EVIL_HTML);
 
-        const res = await page.request.get(`${MAIN.baseURL}/raw/${EVIL}`);
+        const res = await page.request.get(`${MAIN.baseURL}${routes.raw(EVIL)}`);
         expect(res.status()).toBe(200);
         expect(res.headers()['content-type']).toBe('application/octet-stream');
         expect(res.headers()['content-disposition']).toContain('attachment');
@@ -38,7 +38,7 @@ test.describe('security', () => {
 
     test('evil.html cannot run script in the app origin', async ({page}) => {
         writeFixture(EVIL, EVIL_HTML);
-        await page.goto(`/p/${FOLDER}/`);
+        await page.goto(routes.dir(FOLDER));
 
         const executed = await page.evaluate((url) => new Promise((resolve) => {
             const frame = document.createElement('iframe');
@@ -57,7 +57,7 @@ test.describe('security', () => {
             frame.addEventListener('load', finish);
             document.body.appendChild(frame);
             setTimeout(finish, 2000);
-        }), `/raw/${EVIL}`);
+        }), routes.raw(EVIL));
 
         expect(executed.title, 'the frame must not reach the app origin').not.toBe('pwned');
         expect(executed.top, 'the top document must be untouched').not.toBe('pwned');
@@ -65,26 +65,26 @@ test.describe('security', () => {
     });
 
     test('markdown and svg come back inert too', async ({page}) => {
-        const markdown = await page.request.get(`${MAIN.baseURL}/raw/${docs.doc.path}`);
+        const markdown = await page.request.get(`${MAIN.baseURL}${routes.raw(docs.doc.path)}`);
         expect(markdown.headers()['content-type']).toBe('text/plain; charset=utf-8');
         expect(markdown.headers()['content-disposition']).toBeUndefined();
 
         writeFixture(`${FOLDER}/logo.svg`,
             '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>\n');
-        const svg = await page.request.get(`${MAIN.baseURL}/raw/${FOLDER}/logo.svg`);
+        const svg = await page.request.get(`${MAIN.baseURL}${routes.raw(`${FOLDER}/logo.svg`)}`);
         expect(svg.headers()['content-type']).toBe('image/svg+xml');
         expect(svg.headers()['content-disposition']).toContain('attachment');
     });
 
     test('an image still loads inline', async ({page}) => {
-        const res = await page.request.get(`${MAIN.baseURL}/raw/${docs.illustrated.image}`);
+        const res = await page.request.get(`${MAIN.baseURL}${routes.raw(docs.illustrated.image)}`);
 
         expect(res.headers()['content-type']).toBe('image/png');
         expect(res.headers()['content-disposition']).toBeUndefined();
     });
 
     test('the file api refuses binaries and oversized text', async ({page}) => {
-        await page.goto(`/p/${docs.doc.path}`);
+        await page.goto(routes.doc(docs.doc.path));
 
         const binary = await jsonRequest(page, 'GET', `/api/file/${docs.illustrated.image}`);
         expect(binary.status).toBe(415);

@@ -3,7 +3,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
-import { setUnauthorizedHandler } from '../api/client';
+import { installUnauthorizedHandler } from '../api/client';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { FileActionsProvider } from './FileActions';
@@ -31,13 +31,14 @@ export function AppLayout(): JSX.Element {
     toc.close();
   }, [location.pathname, nav, toc]);
 
-  useEffect(() => {
-    setUnauthorizedHandler(() => {
-      const from = encodeURIComponent(location.pathname + location.search);
-      void navigate(`/login?from=${from}`);
-    });
-    return () => setUnauthorizedHandler(undefined);
-  }, [navigate, location.pathname, location.search]);
+  useEffect(
+    () =>
+      installUnauthorizedHandler('shell', () => {
+        const from = encodeURIComponent(location.pathname + location.search);
+        void navigate(`/login?from=${from}`);
+      }),
+    [navigate, location.pathname, location.search],
+  );
 
   const slots = useMemo<ShellSlots>(
     () => ({ actionsSlot, tocSlot, setTocPresent }),

@@ -9,13 +9,12 @@ import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { api } from '../api/client';
-import type { FileResponse, HistoryEntry } from '../api/types';
+import type { FileResponse, HistoryEntry, HistoryVersionResponse } from '../api/types';
 import { errorText, useApi, type AsyncState } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
 import { documentUrl } from '../paths';
 import { DiffView } from '../shell/DiffView';
 import { useNav } from '../shell/NavContext';
-import { historyVersion, restoreVersion, type HistoryVersion } from '../shell/ops';
 import { PageActions } from '../shell/ShellSlots';
 import { layoutBreakpoints, useBelow } from '../theme';
 
@@ -52,7 +51,7 @@ function ScrollingPre({ text, maxHeight }: { text: string; maxHeight: number }):
   );
 }
 
-function VersionDetail({ state }: { state: AsyncState<HistoryVersion | undefined> }): JSX.Element {
+function VersionDetail({ state }: { state: AsyncState<HistoryVersionResponse | undefined> }): JSX.Element {
   if (state.error !== undefined) {
     return (
       <Text size="sm" c="red">
@@ -188,11 +187,11 @@ export function Component(): JSX.Element {
   const entries = history.data?.entries ?? [];
   const selected = entries.find((entry) => entry.rev === selectedRev);
 
-  const detail = useApi<HistoryVersion | undefined>(
+  const detail = useApi<HistoryVersionResponse | undefined>(
     (signal) =>
       selected === undefined
         ? Promise.resolve(undefined)
-        : historyVersion(selected.path, selected.rev, signal),
+        : api.historyVersion(selected.path, selected.rev, { signal }),
     [selected?.path, selected?.rev],
   );
 
@@ -215,7 +214,11 @@ export function Component(): JSX.Element {
     }
     setRestoring(true);
     try {
-      const outcome = await restoreVersion(path, { rev: base, version: entry.rev, from: entry.path });
+      const outcome = await api.restoreVersion(path, {
+        rev: base,
+        version: entry.rev,
+        from: entry.path,
+      });
       if (!outcome.ok) {
         setConflict(outcome.current);
         return;

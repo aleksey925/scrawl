@@ -23,6 +23,10 @@ export interface ApiErrorBody {
   error: string;
   kind?: HandoffKind;
   url?: string;
+  // a write that collided answers 412 or 409 with the file as it stands on
+  // disk, so the caller settles it without reading the file back
+  current_rev?: string;
+  current_content?: string;
 }
 
 export interface DocumentFields {
@@ -133,6 +137,13 @@ export interface SaveFileResponse {
   history_recorded?: boolean;
 }
 
+export type EntryKind = 'file' | 'dir';
+
+export interface EntryPathResponse {
+  path: string;
+  history_degraded?: boolean;
+}
+
 export interface SearchHit {
   path: string;
   title: string;
@@ -171,6 +182,22 @@ export interface HistoryVersionResponse {
   // absent for a deletion, which recorded none, and for a version too large to
   // escape into a json string
   content?: string;
+}
+
+// Version is the commit that recorded the content and From the path the
+// document had at it, which is not today's once a rename sits between them. Rev
+// is the revision on disk the page was built from.
+export interface RestoreRequest {
+  rev: string;
+  version: string;
+  from: string;
+}
+
+export interface RestoreResponse {
+  path: string;
+  rev: string;
+  mod_time: string;
+  history_degraded?: boolean;
 }
 
 export interface PreviewRequest {

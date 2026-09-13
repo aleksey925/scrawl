@@ -7,8 +7,8 @@ import {
 } from 'react';
 import { useNavigate } from 'react-router';
 
-import { ApiError } from '../api/client';
-import type { NavNode } from '../api/types';
+import { ApiError, api } from '../api/client';
+import type { EntryKind, NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
 import { directoryUrl, documentUrl, editUrl, isMarkdown } from '../paths';
@@ -16,7 +16,6 @@ import { layout } from '../theme';
 
 import { FolderPicker, foldersOf } from './FolderPicker';
 import { useNav } from './NavContext';
-import { createEntry, deleteEntry, moveEntry, type EntryKind } from './ops';
 import { joinPath, slugPath } from './naming';
 
 export interface FileActions {
@@ -88,7 +87,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         onConfirm: () => {
           void (async () => {
             try {
-              await deleteEntry(path);
+              await api.deleteEntry(path);
               notifications.show({ color: 'green', message: 'Deleted' });
               if (currentPath === path || currentPath === `${path}/`) {
                 await navigate('/');
@@ -190,7 +189,7 @@ function CreateDialog({ entry, startIn, folders, onClose, onCreated }: CreateDia
     setError(undefined);
     void (async () => {
       try {
-        onCreated(await createEntry(preview, entry));
+        onCreated(await api.createEntry(preview, entry));
       } catch (failure) {
         setBusy(false);
         setError(conflictText(failure, page ? 'That page already exists' : 'That folder already exists'));
@@ -272,7 +271,7 @@ function RenameDialog({ path, onClose, onRenamed }: RenameDialogProps): JSX.Elem
     setError(undefined);
     void (async () => {
       try {
-        onRenamed(await moveEntry(path, to));
+        onRenamed(await api.move(path, to));
       } catch (failure) {
         setBusy(false);
         setError(conflictText(failure, 'The target already exists'));

@@ -23,7 +23,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useBlocker, useLocation, useNavigate } from 'react-router';
 
-import { ApiError, api, setUnauthorizedHandler } from '../api/client';
+import { ApiError, api, installUnauthorizedHandler, type ApiConflict } from '../api/client';
 import { errorText } from '../api/useApi';
 import { documentUrl, editUrl } from '../paths';
 import { PageActions } from '../shell/ShellSlots';
@@ -208,14 +208,9 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     };
   }, [view, mode, syncFromSource, syncFromPreview, preview.html]);
 
-  useEffect(() => {
-    // the shell installs a blanket 401 handler that navigates to the login
-    // page, which would unmount this editor and take the unsaved buffer with
-    // it. That handler belongs to a parent effect, so ours has to be installed
-    // after this commit to be the one that survives.
-    queueMicrotask(() => setUnauthorizedHandler(() => draftRef.current.flush()));
-    return () => setUnauthorizedHandler(undefined);
-  }, []);
+  // the shell answers a 401 by navigating to the login page, which would
+  // unmount this editor and take the unsaved buffer with it
+  useEffect(() => installUnauthorizedHandler('screen', () => draftRef.current.flush()), []);
 
   useEffect(() => {
     if (!dirty) {
@@ -297,7 +292,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         notifications.show({ message: 'Saved', color: 'green' });
       } catch (error: unknown) {
         if (error instanceof ApiError && (error.status === 412 || error.status === 409)) {
-          const current = await api.file(path).catch(() => undefined);
+          const current: ApiConflict | undefined =
+            error.conflict ?? (await api.file(path).catch(() => undefined));
           if (current === undefined) {
             notifications.show({ message: errorText(error), color: 'red' });
             return;

@@ -44,6 +44,7 @@ type alert struct {
 	ast.BaseBlock
 	kind  string // lowercase marker, always a key of alertTitles
 	title string
+	start int // offset of the marker line, which the body no longer holds
 }
 
 func (n *alert) Kind() ast.NodeKind { return kindAlert }
@@ -91,7 +92,7 @@ func convertAlert(doc *ast.Document, quote *ast.Blockquote, source []byte) {
 	}
 	dropFirstLine(para)
 
-	node := &alert{kind: marker, title: title}
+	node := &alert{kind: marker, title: title, start: first.Start}
 	doc.ReplaceChild(doc, quote, node)
 	for child := quote.FirstChild(); child != nil; child = quote.FirstChild() {
 		quote.RemoveChild(quote, child)
@@ -131,7 +132,9 @@ func (r *alertRenderer) render(
 	n := node.(*alert)
 	_, _ = w.WriteString(`<div class="alert alert-`)
 	_, _ = w.WriteString(n.kind)
-	_, _ = w.WriteString("\">\n<p class=\"alert-title\">")
+	_ = w.WriteByte('"')
+	writeSrcRange(w, node)
+	_, _ = w.WriteString(">\n<p class=\"alert-title\">")
 	_, _ = w.WriteString(n.title)
 	_, _ = w.WriteString("</p>\n")
 	return ast.WalkContinue, nil

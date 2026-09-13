@@ -21,8 +21,8 @@ const themeCookie = "theme"
 
 // Crumb is one breadcrumb segment. URL is empty for the last one.
 type Crumb struct {
-	Name string
-	URL  string
+	Name string `json:"name"`
+	URL  string `json:"url"`
 }
 
 // TreeNode is what the sidebar renders. Directories come first, then files,
@@ -91,12 +91,12 @@ func railTOC(headings []render.Heading) []render.Heading {
 // DirEntry is one row of a directory listing. Path is what the row's actions
 // name, which is not derivable from URL once the extension is dropped.
 type DirEntry struct {
-	Name    string
-	Path    string
-	URL     string
-	IsDir   bool
-	Size    int64
-	ModTime time.Time
+	Name    string    `json:"name"`
+	Path    string    `json:"path"`
+	URL     string    `json:"url"`
+	IsDir   bool      `json:"is_dir"`
+	Size    int64     `json:"size"`
+	ModTime time.Time `json:"mod_time"`
 }
 
 // DirPage renders a directory listing.
@@ -105,6 +105,26 @@ type DirPage struct {
 	Entries   []DirEntry
 	Readme    template.HTML
 	HasReadme bool
+}
+
+// dirEntries turns a store listing into the rows of a directory page.
+func dirEntries(entries []store.FileInfo) []DirEntry {
+	res := make([]DirEntry, 0, len(entries))
+	for _, ent := range entries {
+		target := contentURL(ent.Path)
+		if ent.IsDir {
+			target = dirURL(ent.Path)
+		}
+		res = append(res, DirEntry{
+			Name:    displayName(ent.Name),
+			Path:    ent.Path,
+			URL:     target,
+			IsDir:   ent.IsDir,
+			Size:    ent.Size,
+			ModTime: ent.ModTime,
+		})
+	}
+	return res
 }
 
 // EditPage renders the editor.

@@ -9,11 +9,16 @@ BIN_PATH = $(DIST_DIR)/$(BINARY)
 DOCKER_ARGS=--build-arg VERSION=$(VERSION)
 DOCKER_IMAGE = ghcr.io/aleksey925/scrawl
 
-.PHONY: deps build snapshot install run e2e test race cover lint img
+.PHONY: deps ui build snapshot install run e2e test race cover lint img
 
 deps:
 	@go mod tidy
 	@go mod vendor
+
+# the bundle this writes into server/assets/app is committed, so that go build,
+# go install and the docker image need neither node nor the network
+ui:
+	@cd web && npm ci --no-audit --no-fund && npm run build
 
 build:
 	@CGO_ENABLED=0 go build $(BUILD_FLAGS) $(LDFLAGS) -o $(BIN_PATH) .

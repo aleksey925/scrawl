@@ -4,37 +4,37 @@ toc:
   h2 #fn-1-1 fn-1
   h2 #fnref-1-1 fnref-1
 ---
-<h1 id="опасные-расширения-gfm">Опасные расширения GFM</h1>
-<p>Инлайн-математика пробует выйти наружу: <span class="math math-inline">&lt;/span&gt;&lt;script&gt;alert(1)&lt;/script&gt;&lt;span&gt;</span></p>
-<p>Блочная математика:</p>
-<div class="math math-display">&lt;/div&gt;&lt;script&gt;alert(2)&lt;/script&gt;&lt;div&gt;
+<h1 id="опасные-расширения-gfm" data-source-start="1" data-source-end="1">Опасные расширения GFM</h1>
+<p data-source-start="4" data-source-end="4">Инлайн-математика пробует выйти наружу: <span class="math math-inline">&lt;/span&gt;&lt;script&gt;alert(1)&lt;/script&gt;&lt;span&gt;</span></p>
+<p data-source-start="6" data-source-end="6">Блочная математика:</p>
+<div class="math math-display" data-source-start="8" data-source-end="10">&lt;/div&gt;&lt;script&gt;alert(2)&lt;/script&gt;&lt;div&gt;
 </div>
-<p>Фенс математики:</p>
-<div class="math math-display">&lt;/div&gt;&lt;img src=x onerror=&#34;alert(3)&#34;&gt;
+<p data-source-start="12" data-source-end="12">Фенс математики:</p>
+<div class="math math-display" data-source-start="14" data-source-end="16">&lt;/div&gt;&lt;img src=x onerror=&#34;alert(3)&#34;&gt;
 </div>
-<p>Mermaid со скриптом:</p>
-<pre class="mermaid">graph TD; A[&lt;script&gt;alert(4)&lt;/script&gt;] --&gt; B[&#34;&lt;/pre&gt;&lt;iframe src=//evil.example&gt;&#34;];
+<p data-source-start="18" data-source-end="18">Mermaid со скриптом:</p>
+<pre class="mermaid" data-source-start="20" data-source-end="22">graph TD; A[&lt;script&gt;alert(4)&lt;/script&gt;] --&gt; B[&#34;&lt;/pre&gt;&lt;iframe src=//evil.example&gt;&#34;];
 </pre>
-<p>Маркер alert-а с попыткой подмешать класс:</p>
-<blockquote>
-<p>[!NOTE&#34; onclick=&#34;alert(5)]
+<p data-source-start="24" data-source-end="24">Маркер alert-а с попыткой подмешать класс:</p>
+<blockquote data-source-start="26" data-source-end="27">
+<p data-source-start="26" data-source-end="27">[!NOTE&#34; onclick=&#34;alert(5)]
 тело</p>
 </blockquote>
-<blockquote>
-<p>[!NOTE zzz]
+<blockquote data-source-start="29" data-source-end="30">
+<p data-source-start="29" data-source-end="30">[!NOTE zzz]
 тело</p>
 </blockquote>
-<p>Подделка alert-а руками:</p>
+<p data-source-start="32" data-source-end="32">Подделка alert-а руками:</p>
 <div class="alert alert-note">
 <p class="alert-title">Note</p>
 </div>
-<h2 id="fn-1-1">fn-1</h2>
-<h2 id="fnref-1-1">fnref-1</h2>
-<p>Сноска<sup class="footnote-ref"><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
+<h2 id="fn-1-1" data-source-start="38" data-source-end="38">fn-1</h2>
+<h2 id="fnref-1-1" data-source-start="40" data-source-end="40">fnref-1</h2>
+<p data-source-start="42" data-source-end="42">Сноска<sup class="footnote-ref"><a href="#fn-1" id="fnref-1">1</a></sup>.</p>
 <section class="footnotes">
 <ol>
 <li id="fn-1">
-<p>текст сноски <a href="#fnref-1" class="footnote-back">↩</a></p>
+<p data-source-start="44" data-source-end="44">текст сноски <a href="#fnref-1" class="footnote-back">↩</a></p>
 </li>
 </ol>
 </section>

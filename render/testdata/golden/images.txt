@@ -3,13 +3,13 @@ toc:
   h3 #шпаргалка Шпаргалка
 ---
 <a name="Шпаргалка"></a>
-<h3 id="шпаргалка">Шпаргалка</h3>
-<p>Шпаргалка по синтаксису regexp
+<h3 id="шпаргалка" data-source-start="2" data-source-end="2">Шпаргалка</h3>
+<p data-source-start="4" data-source-end="5">Шпаргалка по синтаксису regexp
 <img src="/raw/docs/regex-cheat-sheet.png" alt="" loading="lazy" decoding="async"></p>
-<p>Материалы по данной теме:</p>
-<ul>
-<li><a href="http://pythonz.net/videos/95/" target="_blank" rel="noopener noreferrer nofollow">Современные словари в python: сочетание дюжины отличных идей. Реймонд Хеттинджер - PyCon 2017</a>, <a href="https://cloud.mail.ru/public/3DTb/3RiKYo5c2" target="_blank" rel="noopener noreferrer nofollow">Копия доклада</a></li>
-<li><a href="/raw/docs/python-notes-index/dict/impl-dict-in-cpython/impl-compact-and-ordered-dict.py">Реализация словарей из python &gt;= 3.6 написанная на python</a> -
+<p data-source-start="9" data-source-end="9">Материалы по данной теме:</p>
+<ul data-source-start="11" data-source-end="14">
+<li data-source-start="11" data-source-end="11"><a href="http://pythonz.net/videos/95/" target="_blank" rel="noopener noreferrer nofollow">Современные словари в python: сочетание дюжины отличных идей. Реймонд Хеттинджер - PyCon 2017</a>, <a href="https://cloud.mail.ru/public/3DTb/3RiKYo5c2" target="_blank" rel="noopener noreferrer nofollow">Копия доклада</a></li>
+<li data-source-start="12" data-source-end="13"><a href="/raw/docs/python-notes-index/dict/impl-dict-in-cpython/impl-compact-and-ordered-dict.py">Реализация словарей из python &gt;= 3.6 написанная на python</a> -
 код из презентации Реймонда Хеттинджера</li>
-<li><a href="http://code.activestate.com/recipes/578375/" target="_blank" rel="noopener noreferrer nofollow">Proof-of-concept for a more space-efficient, faster-looping dictionary</a></li>
+<li data-source-start="14" data-source-end="14"><a href="http://code.activestate.com/recipes/578375/" target="_blank" rel="noopener noreferrer nofollow">Proof-of-concept for a more space-efficient, faster-looping dictionary</a></li>
 </ul>

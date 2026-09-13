@@ -24,6 +24,10 @@ import (
 // maxLoginBody caps the login form. It carries three short fields.
 const maxLoginBody = 64 << 10
 
+// loginRetryAfter is the wait, in seconds, a throttled login is told to take.
+// The form and the JSON route answer the same one.
+const loginRetryAfter = "60"
+
 // viewHandler serves "/" and "/p/{path...}": a rendered document, a directory
 // listing, or the offer to create a markdown file that is not there yet.
 func (wb *Web) viewHandler(w http.ResponseWriter, r *http.Request) {
@@ -110,21 +114,7 @@ func (wb *Web) directoryPage(w http.ResponseWriter, r *http.Request, dir string)
 	if dir != "" {
 		title = displayName(path.Base(dir))
 	}
-	page := DirPage{Base: wb.base(r, title, dir), Entries: make([]DirEntry, 0, len(entries))}
-	for _, ent := range entries {
-		target := contentURL(ent.Path)
-		if ent.IsDir {
-			target = dirURL(ent.Path)
-		}
-		page.Entries = append(page.Entries, DirEntry{
-			Name:    displayName(ent.Name),
-			Path:    ent.Path,
-			URL:     target,
-			IsDir:   ent.IsDir,
-			Size:    ent.Size,
-			ModTime: ent.ModTime,
-		})
-	}
+	page := DirPage{Base: wb.base(r, title, dir), Entries: dirEntries(entries)}
 
 	if intro := indexOf(entries, "readme.md"); intro != "" {
 		if html, introErr := wb.renderIntro(intro); introErr == nil {
@@ -458,7 +448,7 @@ func (wb *Web) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !wb.Auth.Allow(r) {
-		w.Header().Set("Retry-After", "60")
+		w.Header().Set("Retry-After", loginRetryAfter)
 		wb.loginForm(w, r, http.StatusTooManyRequests, "Too many attempts, wait a minute and try again", "/")
 		return
 	}

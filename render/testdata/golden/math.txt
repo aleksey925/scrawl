@@ -3,23 +3,23 @@ toc:
   h1 #math Math
   h2 #доллары-которые-не-математика Доллары, которые не математика
 ---
-<h1 id="math">Math</h1>
-<p>Инлайн <span class="math math-inline">\sqrt{3x-1}+(1+x)^2</span> в предложении.</p>
-<p>Форма с бэктиками <span class="math math-inline">\frac{a}{b}</span> для сложных выражений.</p>
-<p>Блок на своих строках:</p>
-<div class="math math-display">\left( \sum_{k=1}^n a_k b_k \right)^2
+<h1 id="math" data-source-start="1" data-source-end="1">Math</h1>
+<p data-source-start="3" data-source-end="3">Инлайн <span class="math math-inline">\sqrt{3x-1}+(1+x)^2</span> в предложении.</p>
+<p data-source-start="5" data-source-end="5">Форма с бэктиками <span class="math math-inline">\frac{a}{b}</span> для сложных выражений.</p>
+<p data-source-start="7" data-source-end="7">Блок на своих строках:</p>
+<div class="math math-display" data-source-start="9" data-source-end="11">\left( \sum_{k=1}^n a_k b_k \right)^2
 </div>
-<p>Однострочный блок:</p>
-<div class="math math-display">x = y + z</div>
-<p>Фенс:</p>
-<div class="math math-display">\int_0^\infty e^{-x} dx = 1
+<p data-source-start="13" data-source-end="13">Однострочный блок:</p>
+<div class="math math-display" data-source-start="15" data-source-end="15">x = y + z</div>
+<p data-source-start="17" data-source-end="17">Фенс:</p>
+<div class="math math-display" data-source-start="19" data-source-end="21">\int_0^\infty e^{-x} dx = 1
 </div>
-<h2 id="доллары-которые-не-математика">Доллары, которые не математика</h2>
-<p>Цена $100 и ещё $200 в одном предложении.</p>
-<p>Переменные $HOME и $PATH, а также $0 - $9 в тексте.</p>
-<p>Экранированный $5 и $6.</p>
-<p>Суммы подряд $100$200 без пробела.</p>
-<p>В коде <code>$x$</code> и <code>$HOME</code> не трогаем.</p>
-<div class="code-block" data-lang="bash"><pre class="chroma"><code><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span><span class="s2">&#34;</span><span class="nv">$HOME</span><span class="s2">/bin:</span><span class="nv">$PATH</span><span class="s2">&#34;</span>
+<h2 id="доллары-которые-не-математика" data-source-start="23" data-source-end="23">Доллары, которые не математика</h2>
+<p data-source-start="25" data-source-end="25">Цена $100 и ещё $200 в одном предложении.</p>
+<p data-source-start="27" data-source-end="27">Переменные $HOME и $PATH, а также $0 - $9 в тексте.</p>
+<p data-source-start="29" data-source-end="29">Экранированный $5 и $6.</p>
+<p data-source-start="31" data-source-end="31">Суммы подряд $100$200 без пробела.</p>
+<p data-source-start="33" data-source-end="33">В коде <code>$x$</code> и <code>$HOME</code> не трогаем.</p>
+<div class="code-block" data-lang="bash" data-source-start="35" data-source-end="38"><pre class="chroma"><code><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span><span class="s2">&#34;</span><span class="nv">$HOME</span><span class="s2">/bin:</span><span class="nv">$PATH</span><span class="s2">&#34;</span>
 </span></span><span class="line"><span class="cl"><span class="nb">echo</span> <span class="nv">$1</span> <span class="nv">$2</span>
 </span></span></code></pre></div>

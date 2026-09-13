@@ -1,27 +1,27 @@
 title: ordered-start
 toc:
 ---
-<ul>
-<li>ротация и отзыв ключей делаются руками.</li>
+<ul data-source-start="1" data-source-end="1">
+<li data-source-start="1" data-source-end="1">ротация и отзыв ключей делаются руками.</li>
 </ul>
-<ol>
-<li>Установка</li>
+<ol data-source-start="3" data-source-end="3">
+<li data-source-start="3" data-source-end="3">Установка</li>
 </ol>
-<div class="code-block" data-lang="bash"><pre class="chroma"><code><span class="line"><span class="cl">brew install sops age
+<div class="code-block" data-lang="bash" data-source-start="5" data-source-end="7"><pre class="chroma"><code><span class="line"><span class="cl">brew install sops age
 </span></span></code></pre></div>
-<p><code>age</code> нужен только для генерации ключа, <code>sops</code> - для шифрования
+<p data-source-start="9" data-source-end="10"><code>age</code> нужен только для генерации ключа, <code>sops</code> - для шифрования
 и редактирования. Расшифровывает mise сам, встроенным rops.</p>
-<ol start="2">
-<li>Генерация ключа</li>
+<ol start="2" data-source-start="12" data-source-end="12">
+<li data-source-start="12" data-source-end="12">Генерация ключа</li>
 </ol>
-<div class="code-block" data-lang="bash"><pre class="chroma"><code><span class="line"><span class="cl">mkdir -p ~/.config/sops/age
+<div class="code-block" data-lang="bash" data-source-start="14" data-source-end="18"><pre class="chroma"><code><span class="line"><span class="cl">mkdir -p ~/.config/sops/age
 </span></span><span class="line"><span class="cl">age-keygen -o ~/.config/sops/age/keys.txt
 </span></span><span class="line"><span class="cl">chmod <span class="m">600</span> ~/.config/sops/age/keys.txt
 </span></span></code></pre></div>
-<p>В файле окажется приватный ключ (<code>AGE-SECRET-KEY-1...</code>) и публичный
+<p data-source-start="20" data-source-end="22">В файле окажется приватный ключ (<code>AGE-SECRET-KEY-1...</code>) и публичный
 комментарием (<code># public key: age1...</code>).
 Дальше идёт обычный абзац, а сразу за ним список без пустой строки.</p>
-<ol start="3">
-<li>Третий шаг</li>
-<li>Четвёртый шаг</li>
+<ol start="3" data-source-start="23" data-source-end="24">
+<li data-source-start="23" data-source-end="23">Третий шаг</li>
+<li data-source-start="24" data-source-end="24">Четвёртый шаг</li>
 </ol>

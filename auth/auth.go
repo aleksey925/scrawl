@@ -73,7 +73,11 @@ const (
 
 // defaultPublicPrefixes are served without a session when Config leaves
 // PublicPrefixes nil. An empty non-nil slice means nothing is public.
-var defaultPublicPrefixes = []string{"/login", "/static", "/ping"}
+//
+// The manifest is one of them because a browser fetches it before anybody can
+// sign in, and the redirect to the login page it got instead is not a document
+// it can install an app from.
+var defaultPublicPrefixes = []string{"/login", "/api/login", "/manifest.webmanifest", "/static", "/ping"}
 
 // Config holds everything the auth service needs. Nothing here is read from
 // the command line, main maps its options onto these fields.

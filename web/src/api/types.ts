@@ -1,0 +1,170 @@
+export interface Crumb {
+  name: string;
+  url: string;
+}
+
+export interface Heading {
+  level: number;
+  text: string;
+  id: string;
+}
+
+// the server answers a path it cannot serve with a 409 that names where the
+// content actually lives, so the client follows the url instead of failing
+export type HandoffKind = 'document' | 'directory' | 'attachment';
+
+export interface HandoffBody {
+  error?: string;
+  kind: HandoffKind;
+  url: string;
+}
+
+export interface ApiErrorBody {
+  error: string;
+  kind?: HandoffKind;
+  url?: string;
+}
+
+export interface PageResponse {
+  path: string;
+  kind: 'document' | 'missing-document';
+  title: string;
+  html: string;
+  toc: Heading[];
+  show_toc: boolean;
+  rev: string;
+  mod_time: string;
+  breadcrumbs: Crumb[];
+  edit_url: string;
+  missing: boolean;
+  can_create: boolean;
+}
+
+export interface DirEntry {
+  name: string;
+  path: string;
+  url: string;
+  is_dir: boolean;
+  size: number;
+  mod_time: string;
+}
+
+export interface DirResponse {
+  path: string;
+  kind: 'directory';
+  title: string;
+  entries: DirEntry[];
+  readme_html: string;
+  has_readme: boolean;
+  breadcrumbs: Crumb[];
+}
+
+export interface NavNode {
+  name: string;
+  path: string;
+  url: string;
+  is_dir: boolean;
+  active: boolean;
+  current: boolean;
+  children: NavNode[];
+}
+
+export interface NavResponse {
+  tree: NavNode[];
+  breadcrumbs: Crumb[];
+}
+
+// /api/tree answers api token clients and carries its own shape; the sidebar
+// is built from /api/nav
+export interface TreeNode {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  children?: TreeNode[];
+}
+
+export interface TreeResponse {
+  tree: TreeNode[];
+}
+
+export interface MeResponse {
+  user: string;
+  auth_on: boolean;
+  read_only: boolean;
+  history_on: boolean;
+  history_degraded: boolean;
+  site_title: string;
+  version: string;
+}
+
+export interface FileResponse {
+  path: string;
+  content: string;
+  rev: string;
+  size: number;
+  mod_time: string;
+}
+
+export interface SaveFileRequest {
+  content: string;
+  rev: string;
+}
+
+export interface SaveFileResponse {
+  rev: string;
+  mod_time: string;
+  history_recorded?: boolean;
+}
+
+export interface SearchHit {
+  path: string;
+  title: string;
+  snippet: string;
+  score: number;
+  url: string;
+}
+
+export interface SearchResponse {
+  hits: SearchHit[];
+  elapsed_ms: number;
+}
+
+export interface HistoryEntry {
+  rev: string;
+  short: string;
+  blob: string;
+  actor: string;
+  message: string;
+  path: string;
+  kind: string;
+  at: string;
+}
+
+export interface HistoryResponse {
+  entries: HistoryEntry[];
+  rev: string;
+  can_restore: boolean;
+}
+
+export interface PreviewRequest {
+  content: string;
+  path: string;
+}
+
+export interface PreviewResponse {
+  html: string;
+}
+
+export interface UploadResponse {
+  path: string;
+  markdown: string;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  user: string;
+}

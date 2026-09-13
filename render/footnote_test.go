@@ -16,7 +16,7 @@ func TestFootnoteShape(t *testing.T) {
 	assert.Equal(t, "<p>Текст<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\">1</a></sup>.</p>\n"+
 		"<section class=\"footnotes\">\n<ol>\n<li id=\"fn-1\">\n"+
 		"<p>сноска <a href=\"#fnref-1\" class=\"footnote-back\">↩</a></p>\n"+
-		"</li>\n</ol>\n</section>\n", string(out))
+		"</li>\n</ol>\n</section>\n", withoutSourceRanges(string(out)))
 }
 
 // TestFootnoteNumbersFollowFirstReference is GitHub's documented rule: the
@@ -31,7 +31,7 @@ func TestFootnoteNumbersFollowFirstReference(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(out), `Сначала<sup class="footnote-ref"><a href="#fn-1" id="fnref-1">1</a></sup>`)
 	assert.Contains(t, string(out), `потом<sup class="footnote-ref"><a href="#fn-2" id="fnref-2">2</a></sup>`)
-	assert.Contains(t, string(out), "<li id=\"fn-1\">\n<p>вторая по определению")
+	assert.Contains(t, withoutSourceRanges(string(out)), "<li id=\"fn-1\">\n<p>вторая по определению")
 }
 
 func TestFootnoteRepeatedReferenceGetsItsOwnBacklink(t *testing.T) {

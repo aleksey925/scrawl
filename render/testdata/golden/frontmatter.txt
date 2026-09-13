@@ -2,7 +2,7 @@ title: Заголовок
 toc:
   h1 #заголовок Заголовок
 ---
-<h1 id="заголовок">Заголовок</h1>
-<p>Тело документа.</p>
-<hr>
-<p>После разделителя.</p>
+<h1 id="заголовок" data-source-start="5" data-source-end="5">Заголовок</h1>
+<p data-source-start="8" data-source-end="8">Тело документа.</p>
+<hr data-source-start="10" data-source-end="10">
+<p data-source-start="12" data-source-end="12">После разделителя.</p>

@@ -138,7 +138,7 @@ func TestRenderBrokenLinks(t *testing.T) {
 	assert.Equal(t,
 		`<p><a href="/p/dir/missing.md" class="broken">a</a> <a href="/p/dir/real.md">b</a> `+
 			`<img src="/raw/dir/missing.png" alt="c" loading="lazy" decoding="async" class="broken"></p>`+"\n",
-		string(out))
+		withoutSourceRanges(string(out)))
 }
 
 func TestRenderCustomPrefixes(t *testing.T) {

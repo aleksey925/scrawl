@@ -40,40 +40,80 @@ var (
 	reDetailsClose = regexp.MustCompile(`^[ \t]*</details>[ \t]*\r?$`)
 )
 
+// document is a preprocessed source together with, for every one of its lines,
+// the 1-based line of the original file that line came from.
+type document struct {
+	src    []byte
+	origin []int
+}
+
 // preprocess applies the Python-Markdown compatibility layer and strips a
 // leading YAML frontmatter block. Fenced code is passed through untouched.
-func preprocess(src []byte) []byte {
-	lines := dropFrontmatter(strings.Split(string(src), "\n"))
-	out := make([]string, 0, len(lines)+8)
+func preprocess(src []byte) document {
+	lines, dropped := dropFrontmatter(strings.Split(string(src), "\n"))
+	out := newLineBuffer(len(lines) + 8)
 
 	var fence fenceScanner
 	inList := false
 	for i, line := range lines {
+		num := dropped + i + 1
 		if fence.step(line) {
 			if fence.opened {
 				line = normalizeFenceInfo(line, fence.length)
 			}
-			out = append(out, line)
+			out.add(line, num)
 			continue
 		}
-		prev := ""
-		if len(out) > 0 {
-			prev = out[len(out)-1]
-		}
+		prev := out.last()
 		if !inList && interruptingOrderedItem(line) && isParagraphText(prev) {
-			out = append(out, "")
+			out.add("", num)
 		}
 		inList = stillInList(inList, line, prev)
-		out = append(out, unwrapListItemHeading(line))
+		out.add(unwrapListItemHeading(line), num)
 
 		if needsBlankAfter(line, lineAt(lines, i+1)) {
-			out = append(out, "")
+			out.add("", num)
 		}
 		if reDetailsClose.MatchString(line) {
-			out = insertBlankBeforeLast(out)
+			out.insertBlankBeforeLast()
 		}
 	}
-	return []byte(strings.Join(out, "\n"))
+	return document{src: []byte(strings.Join(out.lines, "\n")), origin: out.origin}
+}
+
+// lineBuffer collects the preprocessed lines and keeps every one of them paired
+// with the original line it came from.
+type lineBuffer struct {
+	lines  []string
+	origin []int
+}
+
+func newLineBuffer(size int) lineBuffer {
+	return lineBuffer{lines: make([]string, 0, size), origin: make([]int, 0, size)}
+}
+
+func (b *lineBuffer) add(line string, src int) {
+	b.lines = append(b.lines, line)
+	b.origin = append(b.origin, src)
+}
+
+func (b *lineBuffer) last() string {
+	if len(b.lines) == 0 {
+		return ""
+	}
+	return b.lines[len(b.lines)-1]
+}
+
+// insertBlankBeforeLast puts a blank line in front of the line just added,
+// unless one is already there.
+func (b *lineBuffer) insertBlankBeforeLast() {
+	n := len(b.lines)
+	if n < 2 || blank(b.lines[n-2]) {
+		return
+	}
+	line, src := b.lines[n-1], b.origin[n-1]
+	b.lines[n-1] = ""
+	b.add(line, src)
 }
 
 // stillInList tracks whether the current line sits inside a list, because an
@@ -113,17 +153,6 @@ func needsBlankAfter(line, next string) bool {
 		return true
 	}
 	return reDetailsOpen.MatchString(line) && !strings.HasPrefix(strings.TrimSpace(next), "<summary")
-}
-
-// insertBlankBeforeLast puts a blank line in front of the line just appended,
-// unless one is already there.
-func insertBlankBeforeLast(out []string) []string {
-	if len(out) < 2 || blank(out[len(out)-2]) {
-		return out
-	}
-	last := out[len(out)-1]
-	out[len(out)-1] = ""
-	return append(out, last)
 }
 
 func lineAt(lines []string, i int) string {
@@ -166,17 +195,17 @@ func interruptingOrderedItem(line string) bool {
 // dropFrontmatter removes a leading YAML block delimited by "---". TOML "+++"
 // blocks are not supported: the corpus has no frontmatter at all, and "---" is
 // the only delimiter that markdown itself would otherwise misread.
-func dropFrontmatter(lines []string) []string {
+func dropFrontmatter(lines []string) (body []string, dropped int) {
 	if len(lines) == 0 || strings.TrimRight(lines[0], " \t\r") != "---" {
-		return lines
+		return lines, 0
 	}
 	for i := 1; i < len(lines); i++ {
 		switch strings.TrimRight(lines[i], " \t\r") {
 		case "---", "...":
-			return lines[i+1:]
+			return lines[i+1:], i + 1
 		}
 	}
-	return lines
+	return lines, 0
 }
 
 // normalizeFenceInfo maps the fence language onto a chroma lexer name. The

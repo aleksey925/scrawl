@@ -2,7 +2,7 @@ title: Тема картинки
 toc:
   h1 #тема-картинки Тема картинки
 ---
-<h1 id="тема-картинки">Тема картинки</h1>
+<h1 id="тема-картинки" data-source-start="1" data-source-end="1">Тема картинки</h1>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="/raw/docs/diagram-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="/raw/docs/diagram-light.png 1x, /raw/docs/diagram-light@2x.png 2x">

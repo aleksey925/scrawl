@@ -46,7 +46,7 @@ func TestAlertRules(t *testing.T) {
 				assert.NotContains(t, string(out), `class="alert`, "output: %s", out)
 				return
 			}
-			assert.Contains(t, string(out), `<div class="`+tt.want+`">`, "output: %s", out)
+			assert.Contains(t, withoutSourceRanges(string(out)), `<div class="`+tt.want+`">`, "output: %s", out)
 		})
 	}
 }
@@ -61,7 +61,7 @@ func TestAlertBodyKeepsEveryBlock(t *testing.T) {
 	assert.Equal(t, `<div class="alert alert-note">`+"\n"+
 		`<p class="alert-title">Note</p>`+"\n"+
 		"<p>первый</p>\n<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n"+
-		"<blockquote>\n<p>цитата</p>\n</blockquote>\n</div>\n", string(out))
+		"<blockquote>\n<p>цитата</p>\n</blockquote>\n</div>\n", withoutSourceRanges(string(out)))
 }
 
 func TestAlertTitleIsNotTakenFromTheDocument(t *testing.T) {
@@ -70,5 +70,6 @@ func TestAlertTitleIsNotTakenFromTheDocument(t *testing.T) {
 
 	// assert
 	require.NoError(t, err)
-	assert.Equal(t, "<blockquote>\n<p>[!NOTE&#34;onclick=&#34;x]\nbody</p>\n</blockquote>\n", string(out))
+	assert.Equal(t, "<blockquote>\n<p>[!NOTE&#34;onclick=&#34;x]\nbody</p>\n</blockquote>\n",
+		withoutSourceRanges(string(out)))
 }

@@ -1,27 +1,27 @@
 title: anchor-punctuation
 toc:
 ---
-<ol start="2">
-<li>
-<p><strong class="md-h3"><a href="#%D0%9D%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B0">Настройка</a></strong></p>
-<ul>
-<li>
-<p><strong class="md-h4"><a href="#%D0%9E%D0%B1%D1%89%D0%B0%D1%8F-%D0%BD%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B0">Общая настройка</a></strong></p>
-<ul>
-<li><a href="#%D0%9D%D0%B0%D1%87%D0%B0%D0%BB%D1%8C%D0%BD%D0%B0%D1%8F-%D0%BD%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B0">Начальная настройка</a></li>
-<li><a href="#%D0%90%D0%B2%D1%82%D0%BE%D0%B4%D0%BE%D0%BF%D0%BE%D0%BB%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5-%D0%B2-MacOS">Автодополнение в MacOS</a></li>
+<ol start="2" data-source-start="1" data-source-end="13">
+<li data-source-start="1" data-source-end="11">
+<p data-source-start="1" data-source-end="1"><strong class="md-h3"><a href="#%D0%9D%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B0">Настройка</a></strong></p>
+<ul data-source-start="3" data-source-end="11">
+<li data-source-start="3" data-source-end="6">
+<p data-source-start="3" data-source-end="3"><strong class="md-h4"><a href="#%D0%9E%D0%B1%D1%89%D0%B0%D1%8F-%D0%BD%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B0">Общая настройка</a></strong></p>
+<ul data-source-start="5" data-source-end="6">
+<li data-source-start="5" data-source-end="5"><a href="#%D0%9D%D0%B0%D1%87%D0%B0%D0%BB%D1%8C%D0%BD%D0%B0%D1%8F-%D0%BD%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B0">Начальная настройка</a></li>
+<li data-source-start="6" data-source-end="6"><a href="#%D0%90%D0%B2%D1%82%D0%BE%D0%B4%D0%BE%D0%BF%D0%BE%D0%BB%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5-%D0%B2-MacOS">Автодополнение в MacOS</a></li>
 </ul>
 </li>
-<li>
-<p><strong class="md-h4"><a href="#%D0%A0%D0%B5%D1%88%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BF%D1%80%D0%BE%D0%B1%D0%BB%D0%B5%D0%BC">Решение проблем</a></strong></p>
-<ul>
-<li><a href="#SSL-Certificate-problem:-unable-to-get-local-issuer-certificate">SSL Certificate problem: unable to get local issuer certificate</a></li>
-<li><a href="#%D0%9D%D0%B5-%D1%81%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D1%8F%D0%B5%D1%82%D1%81%D1%8F-%D0%BB%D0%BE%D0%B3%D0%B8%D0%BD/%D0%BF%D0%B0%D1%80%D0%BE%D0%BB%D1%8C">Не сохраняется логин/пароль</a></li>
+<li data-source-start="8" data-source-end="11">
+<p data-source-start="8" data-source-end="8"><strong class="md-h4"><a href="#%D0%A0%D0%B5%D1%88%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BF%D1%80%D0%BE%D0%B1%D0%BB%D0%B5%D0%BC">Решение проблем</a></strong></p>
+<ul data-source-start="10" data-source-end="11">
+<li data-source-start="10" data-source-end="10"><a href="#SSL-Certificate-problem:-unable-to-get-local-issuer-certificate">SSL Certificate problem: unable to get local issuer certificate</a></li>
+<li data-source-start="11" data-source-end="11"><a href="#%D0%9D%D0%B5-%D1%81%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D1%8F%D0%B5%D1%82%D1%81%D1%8F-%D0%BB%D0%BE%D0%B3%D0%B8%D0%BD/%D0%BF%D0%B0%D1%80%D0%BE%D0%BB%D1%8C">Не сохраняется логин/пароль</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li>
-<p><strong class="md-h3"><a href="#%D0%9B%D0%BE%D0%BA%D0%B0%D0%BB%D1%8C%D0%BD%D1%8B%D0%B5-%D1%80%D0%B5%D0%BF%D0%BE%D0%B7%D0%B8%D1%82%D0%BE%D1%80%D0%B8%D0%B8">Локальные репозитории</a></strong></p>
+<li data-source-start="13" data-source-end="13">
+<p data-source-start="13" data-source-end="13"><strong class="md-h3"><a href="#%D0%9B%D0%BE%D0%BA%D0%B0%D0%BB%D1%8C%D0%BD%D1%8B%D0%B5-%D1%80%D0%B5%D0%BF%D0%BE%D0%B7%D0%B8%D1%82%D0%BE%D1%80%D0%B8%D0%B8">Локальные репозитории</a></strong></p>
 </li>
 </ol>

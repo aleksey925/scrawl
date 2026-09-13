@@ -65,26 +65,29 @@ const (
 	searchAPILimit  = 20
 )
 
-// emptyStyleHash is the sha256 of the empty string, so it permits exactly one
-// inline style: style="". Mermaid writes that attribute onto dozens of svg
-// nodes per diagram, and every one of them was a console error that buried the
-// violations worth reading. It grants nothing - a hash matches the declaration
-// text, and this one matches no declarations at all - and 'unsafe-hashes',
-// which is what makes a hash apply to a style attribute in the first place,
-// still needs a matching hash for any other value.
-const emptyStyleHash = "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='"
-
 // contentSecurityPolicy is strict on purpose: every script and stylesheet the
-// app needs is embedded and served from this origin, and the theme bootstrap
-// lives in boot.js rather than in an inline block, so no nonce and no hash has
-// to be rendered into a template. TestNoInlineScripts guards that.
+// app needs is embedded and served from this origin, and nothing inline is ever
+// rendered into a script, so script-src stays 'self' with nothing to nonce.
+// TestNoInlineScripts guards that.
+//
+// Styles need three directives rather than one. Mantine injects a <style>
+// element for its css variables, which the nonce covers, and it also writes
+// style attributes, which a nonce can never cover: 'unsafe-inline' is ignored
+// whenever a nonce sits in the same directive, so the two cases cannot share
+// one. A note cannot reach style-src-attr regardless, because the bluemonday
+// policy in render never lets a style attribute through sanitization. The plain
+// style-src is the fallback for a browser that does not know the -elem and
+// -attr forms, which would otherwise drop to default-src and block every sheet.
 //
 // Images are the one loose end: a document may embed a remote one, and the
 // stylesheet draws its icons from data: urls.
-const contentSecurityPolicy = "default-src 'none'; base-uri 'none'; form-action 'self'; " +
-	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; manifest-src 'self'; " +
-	"style-src 'self' 'unsafe-hashes' " + emptyStyleHash + "; " +
-	"img-src 'self' data: https:; script-src 'self'"
+func contentSecurityPolicy(nonce string) string {
+	return "default-src 'none'; base-uri 'none'; form-action 'self'; " +
+		"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; manifest-src 'self'; " +
+		"style-src 'self' 'unsafe-inline'; " +
+		"style-src-elem 'self' 'nonce-" + nonce + "'; style-src-attr 'unsafe-inline'; " +
+		"img-src 'self' data: https:; script-src 'self'"
+}
 
 // barColorLight and barColorDark are the browser and home screen chrome colors.
 // base.html ships them as prefers-color-scheme metas and theme.js swaps between
@@ -132,6 +135,7 @@ type Web struct {
 	History  History
 
 	templates *template.Template
+	appShell  *appShell
 
 	cacheOnce sync.Once
 	cache     *pageCache
@@ -213,6 +217,9 @@ func (wb *Web) router() (http.Handler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sub fs for assets: %w", err)
 	}
+	if wb.appShell, err = newAppShell(assetsFS); err != nil {
+		return nil, fmt.Errorf("build app shell: %w", err)
+	}
 
 	router := routegroup.New(http.NewServeMux())
 	router.Use(rest.Trace, rest.Recoverer(lgr.Default()), securityHeaders)
@@ -245,6 +252,13 @@ func (wb *Web) router() (http.Handler, error) {
 	router.HandleFunc("GET /manifest.webmanifest", wb.manifestHandler)
 
 	router.HandleFunc("GET /login", wb.loginPage)
+
+	// the react app lives beside the server rendered pages until it reaches
+	// parity with them. Switching /p/ over before then would take the whole
+	// frontend and the suite that guards it down with one deploy.
+	router.HandleFunc("GET /app", wb.appHandler)
+	router.HandleFunc("GET /app/{path...}", wb.appHandler)
+
 	router.HandleFunc("GET /{$}", wb.viewHandler)
 	router.HandleFunc("GET /p/{path...}", wb.viewHandler)
 	router.HandleFunc("GET /raw/{path...}", wb.rawHandler)
@@ -255,12 +269,18 @@ func (wb *Web) router() (http.Handler, error) {
 	router.HandleFunc("GET /api/file/{path...}", wb.apiFileGet)
 	router.HandleFunc("GET /api/search", wb.apiSearch)
 	router.HandleFunc("GET /api/history/{path...}", wb.apiHistory)
+	router.HandleFunc("GET /api/page/{path...}", wb.apiPage)
+	router.HandleFunc("GET /api/dir/{path...}", wb.apiDir)
+	router.HandleFunc("GET /api/nav", wb.apiNav)
+	router.HandleFunc("GET /api/me", wb.apiMe)
 
 	// everything that changes state, plus the login form itself, has to survive
 	// a cross-site POST: Go's CrossOriginProtection checks Sec-Fetch-Site
 	mutating := router.With(auth.CSRF())
 	mutating.HandleFunc("POST /login", wb.loginSubmit)
 	mutating.HandleFunc("POST /logout", wb.logout)
+	mutating.HandleFunc("POST /api/login", wb.apiLogin)
+	mutating.HandleFunc("POST /api/logout", wb.apiLogout)
 	mutating.HandleFunc("PUT /api/file/{path...}", wb.apiFileSave)
 	mutating.HandleFunc("POST /api/file/{path...}", wb.apiFileCreate)
 	mutating.HandleFunc("DELETE /api/file/{path...}", wb.apiFileDelete)
@@ -363,15 +383,23 @@ func (wb *Web) appInfo(next http.Handler) http.Handler {
 	})
 }
 
-// securityHeaders sets the response headers that do not depend on the route.
+// securityHeaders sets the response headers that do not depend on the route and
+// mints the style nonce, which has to be fresh per response or it authorizes
+// nothing.
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nonce, err := newNonce()
+		if err != nil {
+			log.Printf("[ERROR] mint style nonce: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
 		h := w.Header()
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("X-Frame-Options", "DENY")
-		h.Set("Content-Security-Policy", contentSecurityPolicy)
-		next.ServeHTTP(w, r)
+		h.Set("Content-Security-Policy", contentSecurityPolicy(nonce))
+		next.ServeHTTP(w, r.WithContext(withNonce(r.Context(), nonce)))
 	})
 }
 

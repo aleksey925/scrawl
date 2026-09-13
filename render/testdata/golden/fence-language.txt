@@ -1,19 +1,19 @@
 title: fence-language
 toc:
 ---
-<p>проста для понимания и отличий от реализации в python 3.3 не так много.</p>
-<p>Словарь это просто последовательная область памяти (массив). Для реализации
+<p data-source-start="1" data-source-end="1">проста для понимания и отличий от реализации в python 3.3 не так много.</p>
+<p data-source-start="3" data-source-end="5">Словарь это просто последовательная область памяти (массив). Для реализации
 был выбран массив, потому что доступ к его элементам максимально быстрый.
 В Си коде массив выглядит как массив содержаший струкртуры вида:</p>
-<div class="code-block" data-lang="c"><pre class="chroma"><code><span class="line"><span class="cl"><span class="k">typedef</span> <span class="k">struct</span> <span class="p">{</span>
+<div class="code-block" data-lang="c" data-source-start="7" data-source-end="13"><pre class="chroma"><code><span class="line"><span class="cl"><span class="k">typedef</span> <span class="k">struct</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="n">Py_hash_t</span> <span class="n">me_hash</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl">    <span class="n">PyObject</span> <span class="o">*</span><span class="n">me_key</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl">    <span class="n">PyObject</span> <span class="o">*</span><span class="n">me_value</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span> <span class="n">PyDictKeyEntry</span><span class="p">;</span>
 </span></span></code></pre></div>
-<p>Описание полей стуктуры:</p>
-<ul>
-<li>me_hash - хэш</li>
-<li>*me_key - указатель на объект, который является ключом</li>
-<li>*me_value - указатель на объект, который является значеним</li>
+<p data-source-start="15" data-source-end="15">Описание полей стуктуры:</p>
+<ul data-source-start="17" data-source-end="19">
+<li data-source-start="17" data-source-end="17">me_hash - хэш</li>
+<li data-source-start="18" data-source-end="18">*me_key - указатель на объект, который является ключом</li>
+<li data-source-start="19" data-source-end="19">*me_value - указатель на объект, который является значеним</li>
 </ul>

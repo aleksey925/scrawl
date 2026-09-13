@@ -110,6 +110,7 @@ func New(opts Options) *Renderer {
 				util.Prioritized(&rawFenceTransformer{}, 450),
 				util.Prioritized(links, 500),
 				util.Prioritized(&tableWrapTransformer{}, 600),
+				util.Prioritized(&srcLineTransformer{}, 700),
 			),
 		),
 		goldmark.WithRendererOptions(
@@ -123,6 +124,8 @@ func New(opts Options) *Renderer {
 				util.Prioritized(&rawBlockRenderer{}, 100),
 				util.Prioritized(&footnoteRenderer{}, 100),
 				util.Prioritized(&mathRenderer{}, 100),
+				util.Prioritized(&detailsRenderer{}, 100),
+				util.Prioritized(&blockquoteRenderer{}, 100),
 			),
 		),
 	)
@@ -132,13 +135,13 @@ func New(opts Options) *Renderer {
 // Render converts one document. docPath is the content path of the source,
 // used to resolve relative links and as the title fallback.
 func (r *Renderer) Render(src []byte, docPath string) (Result, error) {
-	source := preprocess(src)
-	doc, pctx := r.parse(source, docPath)
-	title, toc := outline(doc, source)
+	doc := preprocess(src)
+	root, pctx := r.parse(doc, docPath)
+	title, toc := outline(root, doc.src)
 	if title == "" {
 		title = titleFromPath(docPath)
 	}
-	out, err := r.finish(doc, source, pctx)
+	out, err := r.finish(root, doc.src, pctx)
 	if err != nil {
 		return Result{}, err
 	}
@@ -148,20 +151,21 @@ func (r *Renderer) Render(src []byte, docPath string) (Result, error) {
 // RenderInline converts a document without extracting the outline. It is the
 // editor preview path, and produces byte-identical HTML to Render.
 func (r *Renderer) RenderInline(src []byte, docPath string) (template.HTML, error) {
-	source := preprocess(src)
-	doc, pctx := r.parse(source, docPath)
-	return r.finish(doc, source, pctx)
+	doc := preprocess(src)
+	root, pctx := r.parse(doc, docPath)
+	return r.finish(root, doc.src, pctx)
 }
 
-func (r *Renderer) parse(source []byte, docPath string) (ast.Node, parser.Context) {
+func (r *Renderer) parse(doc document, docPath string) (ast.Node, parser.Context) {
 	pctx := parser.NewContext(parser.WithIDs(newSlugIDs()))
 	pctx.Set(docDirKey, contentDir(docPath))
-	return r.md.Parser().Parse(text.NewReader(source), parser.WithContext(pctx)), pctx
+	pctx.Set(srcLinesKey, newSrcLines(doc))
+	return r.md.Parser().Parse(text.NewReader(doc.src), parser.WithContext(pctx)), pctx
 }
 
-func (r *Renderer) finish(doc ast.Node, source []byte, pctx parser.Context) (template.HTML, error) {
+func (r *Renderer) finish(root ast.Node, source []byte, pctx parser.Context) (template.HTML, error) {
 	var buf bytes.Buffer
-	if err := r.md.Renderer().Render(&buf, source, doc); err != nil {
+	if err := r.md.Renderer().Render(&buf, source, root); err != nil {
 		return "", err
 	}
 	clean := r.policy.SanitizeBytes(buf.Bytes())

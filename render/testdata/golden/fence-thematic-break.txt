@@ -2,8 +2,8 @@ title: fence-thematic-break
 toc:
   h2 #как-хранить-секреты-в-проектах-sops-and-age Как хранить секреты в проектах: sops and age
 ---
-<p>оказывает все равно влияение на порядок загрузки и что есть 2 прохода)</p>
-<div class="code-block" data-lang="toml"><pre class="chroma"><code><span class="line"><span class="cl"><span class="p">[[</span><span class="nx">env</span><span class="p">]]</span>
+<p data-source-start="1" data-source-end="1">оказывает все равно влияение на порядок загрузки и что есть 2 прохода)</p>
+<div class="code-block" data-lang="toml" data-source-start="3" data-source-end="12"><pre class="chroma"><code><span class="line"><span class="cl"><span class="p">[[</span><span class="nx">env</span><span class="p">]]</span>
 </span></span><span class="line"><span class="cl"><span class="nx">_</span><span class="p">.</span><span class="nx">file</span> <span class="p">=</span> <span class="s2">&#34;.env&#34;</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="p">[[</span><span class="nx">env</span><span class="p">]]</span>
@@ -12,6 +12,6 @@ toc:
 </span></span><span class="line"><span class="cl"><span class="p">[[</span><span class="nx">env</span><span class="p">]]</span>
 </span></span><span class="line"><span class="cl"><span class="nx">_</span><span class="p">.</span><span class="nx">python</span><span class="p">.</span><span class="nx">venv</span> <span class="p">=</span> <span class="p">{</span> <span class="nx">path</span> <span class="p">=</span> <span class="s2">&#34;.venv&#34;</span><span class="p">,</span> <span class="nx">create</span> <span class="p">=</span> <span class="kc">true</span> <span class="p">}</span>
 </span></span></code></pre></div>
-<hr>
-<h2 id="как-хранить-секреты-в-проектах-sops-and-age">Как хранить секреты в проектах: sops and age</h2>
-<p>Секреты проекта лежат рядом с кодом в зашифрованном файле, а mise</p>
+<hr data-source-start="13" data-source-end="13">
+<h2 id="как-хранить-секреты-в-проектах-sops-and-age" data-source-start="15" data-source-end="15">Как хранить секреты в проектах: sops and age</h2>
+<p data-source-start="17" data-source-end="17">Секреты проекта лежат рядом с кодом в зашифрованном файле, а mise</p>

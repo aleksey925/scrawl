@@ -40,6 +40,7 @@ func codeWrapper(w util.BufWriter, ctx highlighting.CodeBlockContext, entering b
 			_, _ = w.Write(util.EscapeHTML(lang))
 			_ = w.WriteByte('"')
 		}
+		writeSrcRangeAttrs(w, ctx.Attributes())
 		_ = w.WriteByte('>')
 		if !ctx.Highlighted() {
 			_, _ = w.WriteString(`<pre tabindex="0" class="chroma"><code>`)
@@ -50,6 +51,19 @@ func codeWrapper(w util.BufWriter, ctx highlighting.CodeBlockContext, entering b
 		_, _ = w.WriteString("</code></pre>")
 	}
 	_, _ = w.WriteString("</div>\n")
+}
+
+// writeSrcRangeAttrs writes the source range of a fenced block, which the
+// highlighting extension hands over as its own attribute view of the node.
+func writeSrcRangeAttrs(w util.BufWriter, attrs highlighting.ImmutableAttributes) {
+	if attrs == nil {
+		return
+	}
+	for _, name := range srcRangeAttrs {
+		if value, ok := attrs.GetString(name); ok {
+			writeSrcAttr(w, name, value)
+		}
+	}
 }
 
 // indentedCodeRenderer gives an indented code block the same container as a
@@ -68,7 +82,9 @@ func (r *indentedCodeRenderer) render(
 		_, _ = w.WriteString("</code></pre></div>\n")
 		return ast.WalkContinue, nil
 	}
-	_, _ = w.WriteString(`<div class="code-block"><pre tabindex="0" class="chroma"><code>`)
+	_, _ = w.WriteString(`<div class="code-block"`)
+	writeSrcRange(w, n)
+	_, _ = w.WriteString(`><pre tabindex="0" class="chroma"><code>`)
 	lines := n.Lines()
 	for i := range lines.Len() {
 		line := lines.At(i)

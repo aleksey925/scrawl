@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -380,9 +378,14 @@ func TestSecurityHeaders(t *testing.T) {
 	assert.Equal(t, "nosniff", resp.header.Get("X-Content-Type-Options"))
 	assert.Equal(t, "same-origin", resp.header.Get("Referrer-Policy"))
 	assert.Equal(t, "DENY", resp.header.Get("X-Frame-Options"))
-	assert.Equal(t, contentSecurityPolicy, resp.header.Get("Content-Security-Policy"))
 	assert.Equal(t, "scrawl", resp.header.Get("App-Name"))
 	assert.Equal(t, "v1.2.3", resp.header.Get("App-Version"))
+
+	policy := resp.header.Get("Content-Security-Policy")
+	assert.Contains(t, policy, "default-src 'none'")
+	assert.Contains(t, policy, "connect-src 'self'")
+	assert.Contains(t, policy, "script-src 'self'")
+	assert.Regexp(t, `style-src-elem 'self' 'nonce-[A-Za-z0-9_-]+'`, policy)
 }
 
 func TestHTMLRoutes(t *testing.T) {
@@ -1759,17 +1762,32 @@ func TestNoInlineScripts(t *testing.T) {
 	}
 }
 
-// TestEmptyStyleHashPermitsNothing checks the one relaxation in the policy: the
-// hash is the digest of the empty string, so the only inline style it lets past
-// is style="", and 'unsafe-inline' never sneaks in beside it.
-func TestEmptyStyleHashPermitsNothing(t *testing.T) {
+// TestStyleNonceIsFreshAndScriptSrcStaysStrict locks the one relaxation the
+// policy carries. Mantine writes style attributes, which a nonce can never
+// authorize, so style-src-attr takes 'unsafe-inline' while style-src-elem stays
+// on a nonce. A nonce reused across responses authorizes nothing, and neither
+// relaxation may ever reach script-src.
+func TestStyleNonceIsFreshAndScriptSrcStaysStrict(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	nonce := regexp.MustCompile(`style-src-elem 'self' 'nonce-([A-Za-z0-9_-]+)'`)
+
 	// act
-	sum := sha256.Sum256(nil)
+	first, _ := ts.do(t, request{path: "/"})
+	second, _ := ts.do(t, request{path: "/"})
 
 	// assert
-	assert.Equal(t, "'sha256-"+base64.StdEncoding.EncodeToString(sum[:])+"'", emptyStyleHash)
-	assert.Contains(t, contentSecurityPolicy, "style-src 'self' 'unsafe-hashes' "+emptyStyleHash+";")
-	assert.NotContains(t, contentSecurityPolicy, "'unsafe-inline'")
+	firstNonce := nonce.FindStringSubmatch(first.header.Get("Content-Security-Policy"))
+	secondNonce := nonce.FindStringSubmatch(second.header.Get("Content-Security-Policy"))
+	require.Len(t, firstNonce, 2)
+	require.Len(t, secondNonce, 2)
+	assert.NotEqual(t, firstNonce[1], secondNonce[1])
+
+	policy := first.header.Get("Content-Security-Policy")
+	assert.Contains(t, policy, "style-src-attr 'unsafe-inline'")
+	assert.Contains(t, policy, "script-src 'self'")
+	assert.NotContains(t, policy, "script-src 'self' 'unsafe-inline'")
+	assert.NotContains(t, policy, "script-src-elem")
 }
 
 // TestStoreErrorMapping locks the table the store package handed over: every

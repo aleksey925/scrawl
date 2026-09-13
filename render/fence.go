@@ -11,10 +11,12 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
+// the open tags are left unterminated: every raw block carries its source range
+// and the renderer closes the tag after writing it
 const (
-	openMermaid      = `<pre class="mermaid">`
+	openMermaid      = `<pre class="mermaid"`
 	closeMermaid     = "</pre>\n"
-	openDisplayMath  = `<div class="math math-display">`
+	openDisplayMath  = `<div class="math math-display"`
 	closeDisplayMath = "</div>\n"
 )
 
@@ -36,6 +38,7 @@ type rawBlock struct {
 	ast.BaseBlock
 	open   string
 	close  string
+	span   srcSpan
 	closed bool // set by the "$$" block parser once it has seen the closer
 }
 
@@ -67,7 +70,9 @@ func (t *rawFenceTransformer) Transform(doc *ast.Document, reader text.Reader, _
 		if parent == nil {
 			continue
 		}
-		node := &rawBlock{open: tags[0], close: tags[1]}
+		start, _ := fenceStart(fenced, source)
+		end, _ := fenceEnd(fenced, source)
+		node := &rawBlock{open: tags[0], close: tags[1], span: srcSpan{start: start, end: end}}
 		node.SetLines(fenced.Lines())
 		parent.ReplaceChild(parent, fenced, node)
 	}
@@ -88,6 +93,8 @@ func (r *rawBlockRenderer) render(
 		return ast.WalkContinue, nil
 	}
 	_, _ = w.WriteString(n.open)
+	writeSrcRange(w, node)
+	_ = w.WriteByte('>')
 	lines := n.Lines()
 	for i := range lines.Len() {
 		line := lines.At(i)

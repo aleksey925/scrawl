@@ -1,21 +1,21 @@
 title: list-fences
 toc:
 ---
-<ol start="2">
-<li>
-<p><strong>The Open Closed Principle</strong> (Принцип открытости/закрытости) - программные
+<ol start="2" data-source-start="1" data-source-end="30">
+<li data-source-start="1" data-source-end="30">
+<p data-source-start="1" data-source-end="2"><strong>The Open Closed Principle</strong> (Принцип открытости/закрытости) - программные
 сущности должны быть открыты для расширения, но закрыты для модификации.</p>
-<p>Цель принципа:</p>
-<ul>
-<li>разработчик всегда пишет новый код, а не переписывает старый</li>
-<li>тестирование кода происходит единожды</li>
-<li>практически не нужно тратить время на частый рефакторинг</li>
+<p data-source-start="4" data-source-end="4">Цель принципа:</p>
+<ul data-source-start="6" data-source-end="8">
+<li data-source-start="6" data-source-end="6">разработчик всегда пишет новый код, а не переписывает старый</li>
+<li data-source-start="7" data-source-end="7">тестирование кода происходит единожды</li>
+<li data-source-start="8" data-source-end="8">практически не нужно тратить время на частый рефакторинг</li>
 </ul>
-<p>При добавлении новой логики мы не должны переписывать старый код (на
+<p data-source-start="10" data-source-end="12">При добавлении новой логики мы не должны переписывать старый код (на
 пример класс), мы должны его только расширять, на пример при помощи
 наследования.</p>
-<p>Пример</p>
-<div class="code-block"><pre tabindex="0" class="chroma"><code>// Проблемный код
+<p data-source-start="14" data-source-end="14">Пример</p>
+<div class="code-block" data-source-start="16" data-source-end="26"><pre tabindex="0" class="chroma"><code>// Проблемный код
 class Order {
 
     func getTotalPrice() {
@@ -25,7 +25,7 @@ class Order {
     }
 }
 </code></pre></div>
-<div class="code-block"><pre tabindex="0" class="chroma"><code>// Правильное решение
+<div class="code-block" data-source-start="28" data-source-end="30"><pre tabindex="0" class="chroma"><code>// Правильное решение
 abstract class BaseOrderAlgoritm {
 </code></pre></div>
 </li>

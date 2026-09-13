@@ -78,7 +78,8 @@ func (p *mathBlockParser) Open(_ ast.Node, reader text.Reader, pc parser.Context
 		return nil, parser.NoChildren
 	}
 	rest := bytes.TrimRight(line[pos+2:], " \t\r\n")
-	node := &rawBlock{open: openDisplayMath, close: closeDisplayMath}
+	at := segment.Start + pos
+	node := &rawBlock{open: openDisplayMath, close: closeDisplayMath, span: srcSpan{start: at, end: at}}
 	switch {
 	case len(rest) >= 2 && bytes.HasSuffix(rest, dollarDollar):
 		node.closed = true
@@ -98,6 +99,7 @@ func (p *mathBlockParser) Continue(node ast.Node, reader text.Reader, _ parser.C
 		return parser.Close
 	}
 	line, segment := reader.PeekLine()
+	block.span.end = segment.Start
 	if bytes.Equal(bytes.TrimSpace(line), dollarDollar) {
 		block.closed = true
 		reader.Advance(segment.Stop - segment.Start - 1)

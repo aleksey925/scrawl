@@ -24,6 +24,7 @@ var (
 	reCheckbox   = regexp.MustCompile(`^checkbox$`)
 	reRole       = regexp.MustCompile(`^[a-z-]{1,32}$`)
 	reTabindex   = regexp.MustCompile(`^0$`)
+	reSrcLine    = regexp.MustCompile(`^[1-9]\d{0,8}$`)
 	reMediaQuery = regexp.MustCompile(`^[a-zA-Z0-9 ()\-:,.]{1,128}$`)
 	reMediaType  = regexp.MustCompile(`^image/[a-z0-9.+-]{1,32}$`)
 	// srcset carries URLs, and bluemonday only validates href and src, so the
@@ -60,6 +61,11 @@ func newPolicy() *bluemonday.Policy {
 	p.AllowAttrs("name").Matching(reAnchorName).OnElements("a")
 	p.AllowAttrs("tabindex").Matching(reTabindex).OnElements("pre")
 	p.AllowAttrs("data-lang").Matching(reLang).OnElements("div")
+	// the source range, on the elements the renderer puts it on and nowhere
+	// else; a line number is the only value it can ever hold
+	p.AllowAttrs(srcStartAttr, srcEndAttr).Matching(reSrcLine).OnElements(
+		"h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "pre",
+		"blockquote", "ul", "ol", "li", "hr", "details")
 
 	p.AllowElements("h1", "h2", "h3", "h4", "h5", "h6",
 		"p", "div", "span", "blockquote", "pre", "code", "section", "article", "aside")

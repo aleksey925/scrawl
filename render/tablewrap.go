@@ -52,12 +52,14 @@ func (r *tableWrapRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegistere
 }
 
 func (r *tableWrapRenderer) render(
-	w util.BufWriter, _ []byte, _ ast.Node, entering bool,
+	w util.BufWriter, _ []byte, node ast.Node, entering bool,
 ) (ast.WalkStatus, error) {
-	if entering {
-		_, _ = w.WriteString(`<div class="table-wrap">` + "\n")
-	} else {
+	if !entering {
 		_, _ = w.WriteString("</div>\n")
+		return ast.WalkContinue, nil
 	}
+	_, _ = w.WriteString(`<div class="table-wrap"`)
+	writeSrcRange(w, node)
+	_, _ = w.WriteString(">\n")
 	return ast.WalkContinue, nil
 }

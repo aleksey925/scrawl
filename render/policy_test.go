@@ -47,7 +47,7 @@ func TestSanitizeNeutralisesMaliciousGFMDocument(t *testing.T) {
 	elements, attrs := collectTags(t, string(out))
 	assert.Equal(t, []string{"a", "blockquote", "div", "h1", "h2", "li", "ol", "p", "pre", "section", "span", "sup"},
 		elements)
-	assert.Equal(t, []string{"class", "href", "id"}, attrs)
+	assert.Equal(t, []string{"class", "data-source-end", "data-source-start", "href", "id"}, attrs)
 }
 
 // collectTags returns the sorted, deduplicated element and attribute names of a
@@ -91,7 +91,7 @@ func TestSanitizeEscapesRawContentInsteadOfDroppingIt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			out, err := r.RenderInline([]byte(tt.src), "x.md")
 			require.NoError(t, err)
-			assert.Contains(t, string(out), tt.want)
+			assert.Contains(t, withoutSourceRanges(string(out)), tt.want)
 		})
 	}
 }
@@ -148,7 +148,7 @@ func TestSanitizeKeeps(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			out, err := r.RenderInline([]byte(tt.src), "docs/x.md")
 			require.NoError(t, err)
-			assert.Contains(t, string(out), tt.want)
+			assert.Contains(t, withoutSourceRanges(string(out)), tt.want)
 		})
 	}
 }
@@ -194,7 +194,7 @@ func TestSanitizeStripsMarkdownAttribute(t *testing.T) {
 	// assert
 	require.NoError(t, err)
 	assert.NotContains(t, string(out), "markdown=")
-	assert.Contains(t, string(out), "<details>")
+	assert.Contains(t, withoutSourceRanges(string(out)), "<details>")
 }
 
 func TestSanitizeDropsDataImageURLs(t *testing.T) {
@@ -216,6 +216,8 @@ func TestStripAnchorParagraphs(t *testing.T) {
 	tests := []struct{ name, in, want string }{
 		{"single anchor", `<p><a name="Общее"></a></p>`, `<a name="Общее"></a>`},
 		{"two anchors", `<p><a name="a"></a>` + "\n" + `<a name="b"></a></p>`, `<a name="a"></a>` + "\n" + `<a name="b"></a>`},
+		{"paragraph carrying a source range", `<p data-source-start="2" data-source-end="2"><a name="a"></a></p>`,
+			`<a name="a"></a>`},
 		{"anchor with text is kept", `<p><a name="a"></a>текст</p>`, `<p><a name="a"></a>текст</p>`},
 		{"plain paragraph", `<p>текст</p>`, `<p>текст</p>`},
 	}
@@ -232,7 +234,8 @@ func TestRenderAnchorAboveHeadingHasNoEmptyParagraph(t *testing.T) {
 
 	// assert
 	require.NoError(t, err)
-	assert.Equal(t, `<a name="Общее"></a>`+"\n"+`<h2 id="общее">Общее</h2>`+"\n", string(out))
+	assert.Equal(t, `<a name="Общее"></a>`+"\n"+`<h2 id="общее">Общее</h2>`+"\n",
+		withoutSourceRanges(string(out)))
 }
 
 func TestRenderInlineCodeWithAngleBrackets(t *testing.T) {

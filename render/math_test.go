@@ -80,7 +80,7 @@ func TestMathDisplay(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			out, err := r.RenderInline([]byte(tt.src), "docs/x.md")
 			require.NoError(t, err)
-			assert.Contains(t, string(out), tt.want)
+			assert.Contains(t, withoutSourceRanges(string(out)), tt.want)
 		})
 	}
 }

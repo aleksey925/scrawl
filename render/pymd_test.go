@@ -44,7 +44,7 @@ func TestPreprocessHeadingInListItem(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, string(preprocess([]byte(tt.in))))
+			assert.Equal(t, tt.want, string(preprocess([]byte(tt.in)).src))
 		})
 	}
 }
@@ -70,7 +70,7 @@ func TestPreprocessDetails(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, string(preprocess([]byte(tt.in))))
+			assert.Equal(t, tt.want, string(preprocess([]byte(tt.in)).src))
 		})
 	}
 }
@@ -112,7 +112,7 @@ func TestPreprocessOrderedListInterruptingParagraph(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, string(preprocess([]byte(tt.in))))
+			assert.Equal(t, tt.want, string(preprocess([]byte(tt.in)).src))
 		})
 	}
 }
@@ -131,7 +131,7 @@ func TestPreprocessFenceLanguage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, string(preprocess([]byte(tt.in))))
+			assert.Equal(t, tt.want, string(preprocess([]byte(tt.in)).src))
 		})
 	}
 }
@@ -146,7 +146,7 @@ func TestPreprocessFrontmatter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, string(preprocess([]byte(tt.in))))
+			assert.Equal(t, tt.want, string(preprocess([]byte(tt.in)).src))
 		})
 	}
 }

@@ -1,4 +1,7 @@
-exclude: ^(vendor|server/assets/vendor)/
+# server/assets/app is what `make ui` emits. The whitespace hooks rewrite it,
+# which both corrupts a minified bundle and makes the CI staleness check fail on
+# a tree nobody edited.
+exclude: ^(vendor|server/assets/vendor|server/assets/app)/
 
 repos:
   - repo: builtin

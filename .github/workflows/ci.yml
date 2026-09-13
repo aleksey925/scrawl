@@ -42,6 +42,31 @@ jobs:
       - name: Build
         run: make build
 
+  frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Setup mise
+        uses: jdx/mise-action@v2
+
+      - name: Rebuild the bundle
+        run: make ui
+
+      # the bundle is committed so a release needs no node. that only holds if
+      # what is committed is what the source produces
+      - name: Fail if the committed bundle is stale
+        run: |
+          if ! git diff --quiet -- server/assets/app; then
+            echo "server/assets/app is stale, run 'make ui' and commit the result"
+            git diff --stat -- server/assets/app
+            exit 1
+          fi
+
   browser:
     runs-on: ubuntu-latest
 

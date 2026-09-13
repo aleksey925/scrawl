@@ -4,89 +4,89 @@ toc:
   h2 #что-alert-ом-не-становится Что alert-ом не становится
   h2 #что-alert-ом-становится Что alert-ом становится
 ---
-<h1 id="alerts">Alerts</h1>
-<div class="alert alert-note">
+<h1 id="alerts" data-source-start="1" data-source-end="1">Alerts</h1>
+<div class="alert alert-note" data-source-start="3" data-source-end="4">
 <p class="alert-title">Note</p>
-<p>Useful information that users should know, even when skimming.</p>
+<p data-source-start="4" data-source-end="4">Useful information that users should know, even when skimming.</p>
 </div>
-<div class="alert alert-tip">
+<div class="alert alert-tip" data-source-start="6" data-source-end="7">
 <p class="alert-title">Tip</p>
-<p>Helpful advice for doing things better.</p>
+<p data-source-start="7" data-source-end="7">Helpful advice for doing things better.</p>
 </div>
-<div class="alert alert-important">
+<div class="alert alert-important" data-source-start="9" data-source-end="10">
 <p class="alert-title">Important</p>
-<p>Key information users need to know.</p>
+<p data-source-start="10" data-source-end="10">Key information users need to know.</p>
 </div>
-<div class="alert alert-warning">
+<div class="alert alert-warning" data-source-start="12" data-source-end="13">
 <p class="alert-title">Warning</p>
-<p>Urgent info that needs immediate attention.</p>
+<p data-source-start="13" data-source-end="13">Urgent info that needs immediate attention.</p>
 </div>
-<div class="alert alert-caution">
+<div class="alert alert-caution" data-source-start="15" data-source-end="16">
 <p class="alert-title">Caution</p>
-<p>Advises about risks or negative outcomes.</p>
+<p data-source-start="16" data-source-end="16">Advises about risks or negative outcomes.</p>
 </div>
-<h2 id="что-alert-ом-не-становится">Что alert-ом не становится</h2>
-<p>Текст на строке маркера убивает alert целиком:</p>
-<blockquote>
-<p>[!NOTE] с текстом на той же строке
+<h2 id="что-alert-ом-не-становится" data-source-start="18" data-source-end="18">Что alert-ом не становится</h2>
+<p data-source-start="20" data-source-end="20">Текст на строке маркера убивает alert целиком:</p>
+<blockquote data-source-start="22" data-source-end="23">
+<p data-source-start="22" data-source-end="23">[!NOTE] с текстом на той же строке
 тело</p>
 </blockquote>
-<p>Маркер не на первой строке:</p>
-<blockquote>
-<p>сначала текст
+<p data-source-start="25" data-source-end="25">Маркер не на первой строке:</p>
+<blockquote data-source-start="27" data-source-end="28">
+<p data-source-start="27" data-source-end="28">сначала текст
 [!NOTE]</p>
 </blockquote>
-<p>Неизвестный маркер:</p>
-<blockquote>
-<p>[!FOO]
+<p data-source-start="30" data-source-end="30">Неизвестный маркер:</p>
+<blockquote data-source-start="32" data-source-end="33">
+<p data-source-start="32" data-source-end="33">[!FOO]
 неизвестный маркер</p>
 </blockquote>
-<p>Маркер без тела:</p>
-<blockquote>
-<p>[!WARNING]</p>
+<p data-source-start="35" data-source-end="35">Маркер без тела:</p>
+<blockquote data-source-start="37" data-source-end="37">
+<p data-source-start="37" data-source-end="37">[!WARNING]</p>
 </blockquote>
-<p>Вложенная цитата не alert, GitHub их не вкладывает:</p>
-<blockquote>
-<blockquote>
-<p>[!NOTE]
+<p data-source-start="39" data-source-end="39">Вложенная цитата не alert, GitHub их не вкладывает:</p>
+<blockquote data-source-start="41" data-source-end="42">
+<blockquote data-source-start="41" data-source-end="42">
+<p data-source-start="41" data-source-end="42">[!NOTE]
 вложенный</p>
 </blockquote>
 </blockquote>
-<p>Цитата внутри элемента списка тоже:</p>
-<ul>
-<li>
-<blockquote>
-<p>[!IMPORTANT]
+<p data-source-start="44" data-source-end="44">Цитата внутри элемента списка тоже:</p>
+<ul data-source-start="46" data-source-end="47">
+<li data-source-start="46" data-source-end="47">
+<blockquote data-source-start="46" data-source-end="47">
+<p data-source-start="46" data-source-end="47">[!IMPORTANT]
 внутри списка</p>
 </blockquote>
 </li>
 </ul>
-<h2 id="что-alert-ом-становится">Что alert-ом становится</h2>
-<p>Маркер в нижнем регистре и без пробела после <code>&gt;</code>:</p>
-<div class="alert alert-tip">
+<h2 id="что-alert-ом-становится" data-source-start="49" data-source-end="49">Что alert-ом становится</h2>
+<p data-source-start="51" data-source-end="51">Маркер в нижнем регистре и без пробела после <code>&gt;</code>:</p>
+<div class="alert alert-tip" data-source-start="53" data-source-end="54">
 <p class="alert-title">Tip</p>
-<p>нижний регистр</p>
+<p data-source-start="54" data-source-end="54">нижний регистр</p>
 </div>
-<p>Пробелы в конце строки маркера:</p>
-<div class="alert alert-note">
+<p data-source-start="56" data-source-end="56">Пробелы в конце строки маркера:</p>
+<div class="alert alert-note" data-source-start="58" data-source-end="59">
 <p class="alert-title">Note</p>
-<p>хвостовые пробелы</p>
+<p data-source-start="59" data-source-end="59">хвостовые пробелы</p>
 </div>
-<p>Ленивое продолжение:</p>
-<div class="alert alert-caution">
+<p data-source-start="61" data-source-end="61">Ленивое продолжение:</p>
+<div class="alert alert-caution" data-source-start="63" data-source-end="65">
 <p class="alert-title">Caution</p>
-<p>первая строка
+<p data-source-start="64" data-source-end="65">первая строка
 вторая строка</p>
 </div>
-<p>Несколько блоков в теле, включая настоящую цитату:</p>
-<div class="alert alert-note">
+<p data-source-start="67" data-source-end="67">Несколько блоков в теле, включая настоящую цитату:</p>
+<div class="alert alert-note" data-source-start="69" data-source-end="76">
 <p class="alert-title">Note</p>
-<p>Первый абзац с <code>кодом</code> и <a href="/p/docs/other.md">ссылкой</a>.</p>
-<ul>
-<li>список</li>
-<li>внутри</li>
+<p data-source-start="71" data-source-end="71">Первый абзац с <code>кодом</code> и <a href="/p/docs/other.md">ссылкой</a>.</p>
+<ul data-source-start="73" data-source-end="74">
+<li data-source-start="73" data-source-end="73">список</li>
+<li data-source-start="74" data-source-end="74">внутри</li>
 </ul>
-<blockquote>
-<p>обычная вложенная цитата</p>
+<blockquote data-source-start="76" data-source-end="76">
+<p data-source-start="76" data-source-end="76">обычная вложенная цитата</p>
 </blockquote>
 </div>

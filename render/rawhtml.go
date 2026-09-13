@@ -47,7 +47,7 @@ func rewriteRawHTML(fragment []byte, resolve func(dest string) target) []byte {
 // reAnchorParagraph matches a paragraph holding nothing but the corpus's
 // manual anchors. goldmark wraps a lone <a name='x'></a> line in a paragraph,
 // which puts an empty 16px-tall block above 249 headings.
-var reAnchorParagraph = regexp.MustCompile(`<p>((?:\s*<a name="[^"]*"></a>)+)\s*</p>`)
+var reAnchorParagraph = regexp.MustCompile(`<p(?:\s[^>]*)?>((?:\s*<a name="[^"]*"></a>)+)\s*</p>`)
 
 func stripAnchorParagraphs(fragment []byte) []byte {
 	return reAnchorParagraph.ReplaceAll(fragment, []byte("$1"))

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { keysWithPrefix, localStore, readJson, removeKey, writeJson } from '../storage';
+
 import { draftDelayMs, draftMaxAgeMs, draftPrefix } from './constants';
-import { keysWithPrefix, localStore, readJson, removeKey, writeJson } from './storage';
 
 export interface Draft {
   rev: string;

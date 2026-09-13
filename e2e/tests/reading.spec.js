@@ -2,7 +2,7 @@ const {expect, test} = require('@playwright/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, removeFixture, routes, shot, signIn, writeFixture,
+    MAIN, modifier, pressShortcut, removeFixture, routes, shot, signIn, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -202,5 +202,41 @@ test.describe('reading', () => {
     test('the shortcut cheat sheet opens', async ({page}) => {
         await page.keyboard.press('?');
         await expect(page.getByTestId('shortcuts')).toBeVisible();
+    });
+
+    test('the text starts beside the tree rather than centred in the window', async ({page}) => {
+        await page.goto(routes.doc(DOC.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
+
+        const gap = await page.evaluate(() => {
+            const rail = document.querySelector('nav').getBoundingClientRect();
+            const doc = document.querySelector('[data-testid=doc]').getBoundingClientRect();
+            return doc.left - rail.right;
+        });
+        expect(gap).toBeGreaterThanOrEqual(0);
+        expect(gap).toBeLessThan(40);
+    });
+
+    test('the file list hides on demand and stays hidden', async ({page}) => {
+        const burger = page.getByTestId('topbar-burger');
+        const sidebar = page.getByTestId('sidebar');
+        const left = () => page.getByTestId('doc').evaluate((el) => el.getBoundingClientRect().left);
+
+        await page.goto(routes.doc(DOC.path));
+        await expect(sidebar).toBeVisible();
+        const beside = await left();
+
+        await burger.click();
+        await expect(sidebar).toHaveCount(0);
+        await expect(burger).toHaveAttribute('data-opened', 'false');
+        expect(await left()).toBeLessThan(beside);
+        await shot(page, 'reading-sidebar-hidden');
+
+        await page.reload();
+        await expect(sidebar).toHaveCount(0);
+
+        await pressShortcut(page, `${await modifier(page)}+b`);
+        await expect(sidebar).toBeVisible();
+        await expect(burger).toHaveAttribute('data-opened', 'true');
     });
 });

@@ -18,6 +18,7 @@ const shortcuts: readonly Shortcut[] = [
   { keys: [modKey, 'K'], what: 'Open the search palette' },
   { keys: ['/'], what: 'Open the search palette' },
   { keys: ['?'], what: 'Show this list' },
+  { keys: [modKey, 'B'], what: 'Show or hide the file list' },
   { keys: [modKey, 'S'], what: 'Save the document being edited' },
   { keys: ['Esc'], what: 'Close a panel, clear the filter or the highlighting' },
   { keys: ['←', '→'], what: 'Step through the images in the viewer' },

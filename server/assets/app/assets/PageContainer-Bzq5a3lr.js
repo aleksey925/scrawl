@@ -1,0 +1,1 @@
+import{H as e,O as t,n}from"./theme-CaleAuXY.js";var r=e();function i({children:e}){return(0,r.jsx)(t,{maw:n.contentMeasure,miw:0,children:e})}export{i as t};

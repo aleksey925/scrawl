@@ -1,12 +1,12 @@
-import { Anchor, Container, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Stack, Text, Title } from '@mantine/core';
 import type { JSX } from 'react';
 import { Link } from 'react-router';
 
-import { layout } from '../theme';
+import { PageContainer } from '../shell/PageContainer';
 
 export function Component(): JSX.Element {
   return (
-    <Container size={layout.contentMeasure} px={0}>
+    <PageContainer>
       <Stack data-testid="app-notfound" gap="md">
         <Title order={1}>Nothing here</Title>
         <Text c="dimmed">That address does not match a note or a folder.</Text>
@@ -14,6 +14,6 @@ export function Component(): JSX.Element {
           Back to all notes
         </Anchor>
       </Stack>
-    </Container>
+    </PageContainer>
   );
 }

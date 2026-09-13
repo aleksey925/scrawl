@@ -1,4 +1,5 @@
-import { AppShell, Burger, Drawer } from '@mantine/core';
+import { ActionIcon, AppShell, Burger, Drawer } from '@mantine/core';
+import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
@@ -12,6 +13,7 @@ import { ShellSlotsProvider, type ShellSlots } from './ShellSlots';
 import { ShortcutHelp } from './ShortcutHelp';
 import { SidebarNav } from './SidebarNav';
 import { Topbar } from './Topbar';
+import { useSidebarHidden } from './useSidebarHidden';
 import { useSwipeToClose } from './useSwipeToClose';
 
 export function AppLayout(): JSX.Element {
@@ -26,11 +28,23 @@ export function AppLayout(): JSX.Element {
 
   const wideSidebar = useAtLeast(layoutBreakpoints.sidebar);
   const wideToc = useAtLeast(layoutBreakpoints.tocRail);
+  const { hidden: navHidden, toggle: toggleSidebar } = useSidebarHidden();
 
   const closeNav = useCallback(() => setNavOpened(false), []);
-  const toggleNav = useCallback(() => setNavOpened((opened) => !opened), []);
   const closeToc = useCallback(() => setTocOpened(false), []);
   const openToc = useCallback(() => setTocOpened(true), []);
+
+  // the drawer is a panel a navigation dismisses, the rail is a preference that
+  // outlives one, so the same control means two different things
+  const navVisible = wideSidebar ? !navHidden : navOpened;
+  const navLabel = navVisible ? 'Hide the file list' : 'Show the file list';
+  const toggleNav = useCallback(() => {
+    if (wideSidebar) {
+      toggleSidebar();
+      return;
+    }
+    setNavOpened((opened) => !opened);
+  }, [wideSidebar, toggleSidebar]);
 
   // a fresh key per navigation, a replace that only moves the hash included;
   // unlike the disclosure handlers it does not change on a plain re-render
@@ -38,6 +52,23 @@ export function AppLayout(): JSX.Element {
     closeNav();
     closeToc();
   }, [location.key, closeNav, closeToc]);
+
+  // on the document rather than on the burger: the key belongs to the app, and
+  // the caret is in the editor or the filter box most of the time it is wanted
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) {
+        return;
+      }
+      if (event.key.toLowerCase() !== 'b') {
+        return;
+      }
+      event.preventDefault();
+      toggleNav();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [toggleNav]);
 
   useEffect(
     () =>
@@ -69,7 +100,7 @@ export function AppLayout(): JSX.Element {
             navbar={{
               width: layout.sidebarWidth,
               breakpoint: layoutBreakpoints.sidebar,
-              collapsed: { mobile: true },
+              collapsed: { mobile: true, desktop: navHidden },
             }}
             aside={{
               width: layout.tocWidth,
@@ -81,15 +112,35 @@ export function AppLayout(): JSX.Element {
             <AppShell.Header>
               <Topbar
                 burger={
-                  <Burger
-                    data-testid="topbar-burger"
-                    data-opened={navOpened ? 'true' : 'false'}
-                    opened={navOpened}
-                    onClick={toggleNav}
-                    hiddenFrom={layoutBreakpoints.sidebar}
-                    size="sm"
-                    aria-label="Open navigation"
-                  />
+                  // the rail stays where it is put, so it takes the icon for a
+                  // panel and not the burger, which stands for a panel that
+                  // covers the page and is dismissed again
+                  wideSidebar ? (
+                    <ActionIcon
+                      data-testid="topbar-burger"
+                      data-opened={navVisible ? 'true' : 'false'}
+                      variant="subtle"
+                      color="gray"
+                      size="lg"
+                      onClick={toggleNav}
+                      aria-label={navLabel}
+                    >
+                      {navVisible ? (
+                        <IconLayoutSidebarLeftCollapse size={18} />
+                      ) : (
+                        <IconLayoutSidebarLeftExpand size={18} />
+                      )}
+                    </ActionIcon>
+                  ) : (
+                    <Burger
+                      data-testid="topbar-burger"
+                      data-opened={navVisible ? 'true' : 'false'}
+                      opened={navVisible}
+                      onClick={toggleNav}
+                      size="sm"
+                      aria-label={navLabel}
+                    />
+                  )
                 }
                 actionsRef={setActionsSlot}
                 tocAvailable={tocPresent && !wideToc}
@@ -97,7 +148,9 @@ export function AppLayout(): JSX.Element {
               />
             </AppShell.Header>
 
-            <AppShell.Navbar>{wideSidebar && <SidebarNav />}</AppShell.Navbar>
+            {/* a collapsed rail is only moved out of sight, and the rows left
+                in it would still answer the tab key */}
+            <AppShell.Navbar>{wideSidebar && !navHidden && <SidebarNav />}</AppShell.Navbar>
 
             <AppShell.Aside p="lg">{wideToc ? <div ref={setTocSlot} /> : null}</AppShell.Aside>
 

@@ -52,6 +52,19 @@ vendor/                dependencies, checked in, `make deps` regenerates
   files only the markdown. A folder is where a page is created, renamed
   and deleted, so it has to be on the tree before it holds anything.
   Other files stay reachable through the directory page and `/raw/`.
+- The tree can be put away and the choice is kept. On a phone it is a
+  drawer a navigation dismisses, on a desktop a rail that stays where it
+  was put, and one control in the topbar means both. A collapsed rail
+  holds nothing: mantine only moves it out of sight, and the rows left
+  in it would still answer the tab key.
+- The content column is capped at a reading measure but never centred.
+  Centred, it put as much empty space between the tree and the text as
+  between the text and the edge of the window, and the wider the screen
+  the worse it read.
+- The editor opens where the reader was. The rendered page carries the
+  source line range of every block it emits, so the position crosses as
+  a line and not as a pixel offset, and both panes are held at it until
+  the preview has arrived and the document has stopped moving.
 - The frontend is being replaced. A react and mantine app lives in
   `web/` and answers at `/app`; the server-rendered pages under `/p/`
   are canonical until it reaches parity, and both stay working until

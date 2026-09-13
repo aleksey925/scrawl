@@ -167,6 +167,41 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('the editor opens where the reader was, in both panes', async ({page}) => {
+        const docPath = scratch('reading-position');
+        const filler = (mark) => Array
+            .from({length: 30}, (_, index) => `Абзац ${mark}-${index} наполнителя.`).join('\n\n');
+        writeFixture(docPath, `# Начало\n\n${filler('a')}\n\n## Середина\n\n${filler('b')}\n`);
+
+        await page.goto(routes.doc(docPath));
+        await page.locator('[data-testid=doc] h2').first().evaluate((el) => window.scrollTo({
+            top: el.getBoundingClientRect().top + window.scrollY - 150, behavior: 'instant',
+        }));
+
+        await page.getByTestId('doc-edit').click();
+        await expect(page.getByTestId('editor-source')).toBeVisible();
+
+        const sourceScroll = () => page.locator('[data-testid=editor-source] .cm-scroller')
+            .evaluate((el) => el.scrollTop);
+        await expect.poll(sourceScroll).toBeGreaterThan(100);
+
+        // the preview arrives after the editor, so it is the pane that says
+        // whether the position was held rather than applied once and lost
+        const preview = page.getByTestId('editor-preview');
+        await expect(preview.locator('h2')).toHaveCount(1);
+        const headingOffset = () => preview.evaluate((pane) => {
+            const heading = pane.querySelector('h2');
+            return heading === null
+                ? Number.NaN
+                : heading.getBoundingClientRect().top - pane.getBoundingClientRect().top;
+        });
+        await expect.poll(headingOffset).toBeLessThan(250);
+        expect(await headingOffset()).toBeGreaterThan(-250);
+        await shot(page, 'editing-reading-position');
+
+        removeFixture(docPath);
+    });
+
     test.afterAll(() => {
         fs.rmSync(fixtureFile('e2e-scratch'), {recursive: true, force: true});
     });

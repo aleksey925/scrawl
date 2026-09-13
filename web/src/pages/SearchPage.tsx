@@ -1,4 +1,4 @@
-import { Anchor, Container, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Stack, Text, Title } from '@mantine/core';
 import type { JSX } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
@@ -7,8 +7,8 @@ import type { SearchResponse } from '../api/types';
 import { useApi } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
 import { documentUrl } from '../paths';
+import { PageContainer } from '../shell/PageContainer';
 import { Snippet } from '../shell/Snippet';
-import { layout } from '../theme';
 
 const nothing: SearchResponse = { hits: [], elapsed_ms: 0 };
 
@@ -23,7 +23,7 @@ export function Component(): JSX.Element {
   );
 
   return (
-    <Container size={layout.contentMeasure} px={0} style={{ minWidth: 0 }}>
+    <PageContainer>
       <Stack data-testid="search" gap="xl" style={{ minWidth: 0 }}>
         <Title data-testid="search-title" order={1}>
           {wanted === '' ? 'Search' : `Search: ${wanted}`}
@@ -82,6 +82,6 @@ export function Component(): JSX.Element {
           </AsyncContent>
         )}
       </Stack>
-    </Container>
+    </PageContainer>
   );
 }

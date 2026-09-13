@@ -34,12 +34,12 @@ import { SourceEditor, type DroppedFiles } from './SourceEditor';
 import { Splitter } from './Splitter';
 import { Toolbar } from './Toolbar';
 import {
-  blockForLine,
   blockTopWithin,
   clamp,
-  fractionOfLine,
+  holdPosition,
   isReadingAnchor,
   lineAtFraction,
+  paneTopForLine,
   rememberAnchor,
   recallAnchor,
   sourceBlocks,
@@ -122,18 +122,58 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     setView(created);
   }, []);
 
+  // each pane follows the other's scroll, so a move made here is fenced off or
+  // it comes straight back as the other pane's own scroll event
+  const withoutEcho = useCallback((move: () => void): void => {
+    syncingRef.current = true;
+    move();
+    requestAnimationFrame(() => {
+      syncingRef.current = false;
+    });
+  }, []);
+
+  const [openedAt, setOpenedAt] = useState<ReadingAnchor | undefined>(undefined);
+
+  const previewPlaced = useRef(false);
+
   useEffect(() => {
-    if (view === undefined) {
-      return;
-    }
+    previewPlaced.current = false;
     const carried = arrivedWith.current;
     const anchor =
       isReadingAnchor(carried) && carried.path === path ? carried : recallAnchor('edit', path);
-    if (anchor === undefined) {
+    if (anchor !== undefined) {
+      setOpenedAt(anchor);
+    }
+  }, [path]);
+
+  const openedLine =
+    openedAt === undefined ? undefined : lineAtFraction(openedAt, openedAt.fractionWithinBlock);
+
+  useEffect(() => {
+    if (view === undefined || openedLine === undefined) {
       return;
     }
-    return holdLineAtReading(view, lineAtFraction(anchor, anchor.fractionWithinBlock));
-  }, [view, path]);
+    return holdLineAtReading(view, openedLine);
+  }, [view, openedLine]);
+
+  // the html arrives after the editor, so the pane waits for it. It is placed
+  // once and never again: every keystroke renders the preview afresh, and a
+  // second placing would drag the writer back to where they came in
+  useEffect(() => {
+    const pane = previewRef.current;
+    if (pane === null || openedLine === undefined || previewPlaced.current || preview.html === '') {
+      return;
+    }
+    previewPlaced.current = true;
+    return holdPosition(() => {
+      const top = paneTopForLine(pane, openedLine);
+      if (top !== undefined) {
+        withoutEcho(() => {
+          pane.scrollTop = top;
+        });
+      }
+    }, pane);
+  }, [openedLine, preview.html, mode, withoutEcho]);
 
   const rememberReadingPosition = useCallback((): ReadingAnchor | undefined => {
     const current = viewRef.current;
@@ -158,23 +198,17 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     if (syncingRef.current || current === undefined || pane === null) {
       return;
     }
-    syncingRef.current = true;
-    const line = lineAtReadingPosition(current);
-    const block = blockForLine(sourceBlocks(pane), line);
-    if (block === undefined) {
-      const max = current.scrollDOM.scrollHeight - current.scrollDOM.clientHeight;
-      const ratio = max > 0 ? current.scrollDOM.scrollTop / max : 0;
-      pane.scrollTop = ratio * (pane.scrollHeight - pane.clientHeight);
-    } else {
-      const top =
-        blockTopWithin(pane, block.element) +
-        block.element.offsetHeight * fractionOfLine(block, line);
-      pane.scrollTop = Math.max(0, top - pane.clientHeight * readingFraction);
-    }
-    requestAnimationFrame(() => {
-      syncingRef.current = false;
+    withoutEcho(() => {
+      const top = paneTopForLine(pane, lineAtReadingPosition(current));
+      if (top === undefined) {
+        const max = current.scrollDOM.scrollHeight - current.scrollDOM.clientHeight;
+        const ratio = max > 0 ? current.scrollDOM.scrollTop / max : 0;
+        pane.scrollTop = ratio * (pane.scrollHeight - pane.clientHeight);
+        return;
+      }
+      pane.scrollTop = top;
     });
-  }, []);
+  }, [withoutEcho]);
 
   const syncFromPreview = useCallback((): void => {
     const current = viewRef.current;
@@ -182,27 +216,24 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     if (syncingRef.current || current === undefined || pane === null) {
       return;
     }
-    syncingRef.current = true;
-    const y = pane.scrollTop + pane.clientHeight * readingFraction;
-    const blocks = sourceBlocks(pane);
-    const target = blocks.find(
-      (block) => blockTopWithin(pane, block.element) + block.element.offsetHeight > y,
-    );
-    if (target === undefined) {
-      const max = pane.scrollHeight - pane.clientHeight;
-      const ratio = max > 0 ? pane.scrollTop / max : 0;
-      const scroller = current.scrollDOM;
-      scroller.scrollTop = ratio * (scroller.scrollHeight - scroller.clientHeight);
-    } else {
+    withoutEcho(() => {
+      const y = pane.scrollTop + pane.clientHeight * readingFraction;
+      const target = sourceBlocks(pane).find(
+        (block) => blockTopWithin(pane, block.element) + block.element.offsetHeight > y,
+      );
+      if (target === undefined) {
+        const max = pane.scrollHeight - pane.clientHeight;
+        const ratio = max > 0 ? pane.scrollTop / max : 0;
+        const scroller = current.scrollDOM;
+        scroller.scrollTop = ratio * (scroller.scrollHeight - scroller.clientHeight);
+        return;
+      }
       const top = blockTopWithin(pane, target.element);
       const height = target.element.offsetHeight;
       const within = height > 0 ? clamp((y - top) / height, 0, 1) : 0;
       scrollLineToReading(current, lineAtFraction(target, within));
-    }
-    requestAnimationFrame(() => {
-      syncingRef.current = false;
     });
-  }, []);
+  }, [withoutEcho]);
 
   useEffect(() => {
     const pane = previewRef.current;

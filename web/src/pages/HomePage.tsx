@@ -1,13 +1,12 @@
-import { Container } from '@mantine/core';
 import type { JSX } from 'react';
 
 import { DirectoryView } from '../components/DirectoryView';
-import { layout } from '../theme';
+import { PageContainer } from '../shell/PageContainer';
 
 export function Component(): JSX.Element {
   return (
-    <Container size={layout.contentMeasure} px={0}>
+    <PageContainer>
       <DirectoryView path="" />
-    </Container>
+    </PageContainer>
   );
 }

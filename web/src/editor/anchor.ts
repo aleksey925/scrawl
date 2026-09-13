@@ -1,5 +1,6 @@
+import { readJson, sessionStore, writeJson } from '../storage';
+
 import { anchorPrefix, readingFraction, stabiliseDelaysMs } from './constants';
-import { readJson, sessionStore, writeJson } from './storage';
 
 // The renderer puts the inclusive 1-based source range of every block it emits
 // on the element, so a reading position survives the trip between the rendered
@@ -93,6 +94,18 @@ export function lineAtFraction(block: LineRange, fraction: number): number {
 
 export function blockTopWithin(container: HTMLElement, el: HTMLElement): number {
   return el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+}
+
+// undefined when the pane holds no block for the line, which is what the
+// rendered html looks like before the first preview arrives
+export function paneTopForLine(pane: HTMLElement, line: number): number | undefined {
+  const block = blockForLine(sourceBlocks(pane), line);
+  if (block === undefined) {
+    return undefined;
+  }
+  const top =
+    blockTopWithin(pane, block.element) + block.element.offsetHeight * fractionOfLine(block, line);
+  return Math.max(0, top - pane.clientHeight * readingFraction);
 }
 
 export function captureFromView(root: HTMLElement, path: string, rev: string): ReadingAnchor | undefined {

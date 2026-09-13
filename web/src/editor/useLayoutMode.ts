@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
 
+import { localStore, readText, writeText } from '../storage';
 import { layoutBreakpoints, useAtLeast } from '../theme';
 
 import { modeKey, splitDefault, splitKey, splitMax, splitMin } from './constants';
-import { localStore, readText, writeText } from './storage';
 
 export type LayoutMode = 'source' | 'split' | 'preview';
 

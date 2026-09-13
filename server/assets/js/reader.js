@@ -2,8 +2,12 @@
 // outline sheet and TOC scrollspy
 
 import {copyText, qs, qsa, toast} from './dom.js';
+import {closeOverlay, openOverlay} from './overlay.js';
 import {initDiagrams} from './diagram.js';
 import {initMath} from './math.js';
+
+// how far a finger travels before the lightbox counts it as a swipe and not a tap
+const SWIPE_MIN = 40;
 
 // the corpus fences carry a few labels chroma does not know
 const LANG_ALIASES = {
@@ -126,6 +130,27 @@ function initLightbox(root) {
     dlg.addEventListener('click', (event) => {
         if (event.target === dlg) dlg.close();
     });
+
+    // a finger has no arrow keys, so the set is stepped with a swipe, and the
+    // image itself closes: on a phone it covers most of the dialog and leaves
+    // barely any backdrop to aim at
+    let startX = 0;
+    let startY = 0;
+    let swiped = false;
+    dlg.addEventListener('pointerdown', (event) => {
+        startX = event.clientX;
+        startY = event.clientY;
+        swiped = false;
+    });
+    dlg.addEventListener('pointerup', (event) => {
+        const moved = event.clientX - startX;
+        if (Math.abs(moved) < SWIPE_MIN || Math.abs(moved) <= Math.abs(event.clientY - startY)) return;
+        swiped = true;
+        show(moved < 0 ? at + 1 : at - 1);
+    });
+    img.addEventListener('click', () => {
+        if (!swiped) dlg.close();
+    });
     dlg.addEventListener('keydown', (event) => {
         if (event.key === 'ArrowRight') show(at + 1);
         if (event.key === 'ArrowLeft') show(at - 1);
@@ -136,6 +161,15 @@ function initLightbox(root) {
 }
 
 /* --- outline ------------------------------------------------------------ */
+
+// the sheet owns inert, a dialog role and the focus it took, so whoever closes
+// it has to go through setOpen. Escape arrives in shortcuts.js, which has no
+// way into this closure without it.
+let closeSheet = null;
+
+export function closeToc() {
+    if (closeSheet) closeSheet();
+}
 
 function initToc() {
     const rail = qs('#toc-rail');
@@ -155,26 +189,25 @@ function initToc() {
         const asSheet = open && isSheet();
         if (asSheet === sheetOpen) return;
         sheetOpen = asSheet;
-
-        qsa('.topbar, .main, .sidebar').forEach((el) => {
-            if (asSheet) {
-                el.setAttribute('inert', '');
-            } else {
-                el.removeAttribute('inert');
-            }
-        });
-        if (asSheet) {
-            rail.setAttribute('role', 'dialog');
-            rail.setAttribute('aria-modal', 'true');
-            lastFocused = document.activeElement;
-            const first = qs('.toc-list a', rail) || qs('[data-toc-close]', rail);
-            if (first) first.focus();
+        if (!asSheet) {
+            closeOverlay('toc');
             return;
         }
-        rail.removeAttribute('role');
-        rail.removeAttribute('aria-modal');
-        if (lastFocused && lastFocused.isConnected) lastFocused.focus();
+        rail.setAttribute('role', 'dialog');
+        rail.setAttribute('aria-modal', 'true');
+        openOverlay('toc', {
+            keep: [rail, pill],
+            focus: qs('.toc-list a', rail) || qs('[data-toc-close]', rail),
+            close: () => {
+                sheetOpen = false;
+                document.body.classList.remove('toc-open');
+                if (pill) pill.setAttribute('aria-expanded', 'false');
+                rail.removeAttribute('role');
+                rail.removeAttribute('aria-modal');
+            },
+        });
     };
+    closeSheet = () => setOpen(false);
     if (pill) pill.addEventListener('click', () => setOpen(!document.body.classList.contains('toc-open')));
     qsa('[data-toc-close]').forEach((b) => b.addEventListener('click', () => {
         setOpen(false);

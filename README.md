@@ -11,6 +11,7 @@ files on disk are the only state.
 - a login page, users configured through the environment
 - a JSON API with token auth, for scripts and agents
 - light and dark themes
+- installs to a phone home screen and runs there without browser chrome
 
 ![Reading a page](img/reading.png)
 

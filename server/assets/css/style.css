@@ -256,9 +256,14 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* a tap latches :hover onto what it landed on until the next tap somewhere
+   else, so every decorative hover in this file is gated on a real pointer. The
+   platform tap highlight goes with it: it paints a rectangle that ignores the
+   radii these controls carry. */
 html {
     scroll-padding-top: calc(var(--h-topbar) + var(--s-4));
     -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
     /* the gutter is reserved on a classic scrollbar platform, otherwise the
        centred column jumps sideways between a short page and a long one */
     scrollbar-gutter: stable;
@@ -356,6 +361,15 @@ kbd {
     text-align: center;
 }
 
+/* these are controls, not text: a long press must not start a selection with
+   the platform callout over it */
+.btn, .icon-btn, .tool, .tab, .seg-btn, .menu-item, .picker-row, .tree-row,
+.sidebar-action, .row-more, .toc-pill, .version-pick, .palette-item,
+.entry-link, .crumb, .search-trigger {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
 /* --- buttons ------------------------------------------------------------ */
 
 .btn {
@@ -385,7 +399,7 @@ kbd {
     color: var(--text-on-accent);
 }
 
-.btn-primary:hover { background: var(--accent-hover); }
+@media (hover: hover) { .btn-primary:hover { background: var(--accent-hover); } }
 
 .btn-primary:active { background: var(--accent-active); }
 
@@ -397,15 +411,15 @@ kbd {
     color: var(--text);
 }
 
-.btn-secondary:hover { background: var(--bg-hover); }
+@media (hover: hover) { .btn-secondary:hover { background: var(--bg-hover); } }
 
 .btn-ghost { color: var(--text-2); }
 
-.btn-ghost:hover { background: var(--bg-hover); color: var(--text); }
+@media (hover: hover) { .btn-ghost:hover { background: var(--bg-hover); color: var(--text); } }
 
 .btn-danger { background: var(--danger); color: #fff; }
 
-.btn-danger:hover { filter: brightness(1.08); }
+@media (hover: hover) { .btn-danger:hover { filter: brightness(1.08); } }
 
 .btn-sm { height: 28px; padding: 0 var(--s-2); font-size: var(--fs-small); }
 
@@ -430,7 +444,7 @@ kbd {
     color var(--dur-fast) var(--ease-out);
 }
 
-.icon-btn:hover { background: var(--bg-hover); color: var(--text); }
+@media (hover: hover) { .icon-btn:hover { background: var(--bg-hover); color: var(--text); } }
 
 /* --- form fields -------------------------------------------------------- */
 
@@ -507,7 +521,7 @@ kbd {
     cursor: pointer;
 }
 
-.menu-item:hover { background: var(--bg-hover); }
+@media (hover: hover) { .menu-item:hover { background: var(--bg-hover); } }
 
 .menu-item .icon { width: 17px; height: 17px; color: var(--text-3); }
 
@@ -592,13 +606,22 @@ dialog::backdrop { background: var(--bg-scrim); }
 
 .modal {
     width: min(92vw, 460px);
+    /* the create dialog focuses its name field, so the keyboard is up before
+       the reader has read the dialog: --vvh is what is left of the screen */
+    max-height: var(--vvh, 100dvh);
     padding: var(--s-6);
     border: 1px solid var(--border);
     border-radius: var(--r-xl);
     background: var(--bg-raised);
     box-shadow: var(--shadow-lg);
     margin: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
+
+/* centred there is no room left: the dialog goes to the top of what the
+   keyboard leaves, which is where its fields and its buttons have to be */
+html.keyboard-up .modal { margin-top: var(--s-3); }
 
 .modal-wide { width: min(94vw, 900px); }
 
@@ -749,7 +772,7 @@ dialog::backdrop { background: var(--bg-scrim); }
 
 .picker-row .icon { width: 15px; height: 15px; flex: none; color: var(--text-3); }
 
-.picker-row:hover { background: var(--bg-hover); }
+@media (hover: hover) { .picker-row:hover { background: var(--bg-hover); } }
 
 .picker-row.is-selected { background: var(--accent-subtle); color: var(--accent); }
 
@@ -871,7 +894,7 @@ dialog::backdrop { background: var(--bg-scrim); }
     text-decoration: none;
 }
 
-.crumb a:hover { background: var(--bg-hover); color: var(--text); }
+@media (hover: hover) { .crumb a:hover { background: var(--bg-hover); color: var(--text); } }
 
 .crumb-sep { width: 14px; height: 14px; color: var(--text-3); stroke-width: 2; }
 
@@ -903,7 +926,7 @@ dialog::backdrop { background: var(--bg-scrim); }
     border-color var(--dur-fast) var(--ease-out);
 }
 
-.search-trigger:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+@media (hover: hover) { .search-trigger:hover { border-color: var(--border-strong); background: var(--bg-hover); } }
 
 .search-trigger .icon { width: 16px; height: 16px; }
 
@@ -1056,7 +1079,7 @@ html:not(.js) .user-menu .menu-item span { display: none; }
     cursor: pointer;
 }
 
-.sidebar-action:hover { background: var(--bg-hover); color: var(--text); }
+@media (hover: hover) { .sidebar-action:hover { background: var(--bg-hover); color: var(--text); } }
 
 .sidebar-action .icon { width: 17px; height: 17px; }
 
@@ -1085,7 +1108,7 @@ html:not(.js) .user-menu .menu-item span { display: none; }
 
 .tree-row::-webkit-details-marker { display: none; }
 
-.tree-row:hover { background: var(--bg-hover); }
+@media (hover: hover) { .tree-row:hover { background: var(--bg-hover); } }
 
 .tree-dir > .tree-row { padding-left: var(--s-1); }
 
@@ -1173,7 +1196,7 @@ html:not(.js) .user-menu .menu-item span { display: none; }
 
 .row-more .icon { width: 16px; height: 16px; }
 
-.row-more:hover { background: var(--bg-active); color: var(--text); }
+@media (hover: hover) { .row-more:hover { background: var(--bg-active); color: var(--text); } }
 
 .tree-row:hover .row-more,
 .tree-row:focus-within .row-more,
@@ -1251,7 +1274,7 @@ body.drawer-open .scrim { opacity: 1; visibility: visible; }
     transition: color var(--dur-fast) var(--ease-out);
 }
 
-.toc-item a:hover { color: var(--text); }
+@media (hover: hover) { .toc-item a:hover { color: var(--text); } }
 
 .toc-l3 a { padding-left: calc(var(--s-2) + 12px); font-size: 13px; }
 
@@ -1274,7 +1297,7 @@ body.drawer-open .scrim { opacity: 1; visibility: visible; }
 
 .toc-top .icon { width: 16px; height: 16px; }
 
-.toc-top:hover { color: var(--text); }
+@media (hover: hover) { .toc-top:hover { color: var(--text); } }
 
 body.scrolled-far .toc-top { display: flex; }
 
@@ -1374,7 +1397,7 @@ body:has(.find-bar) .toc-pill {
 
 .doc a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 
-.doc a:hover { color: var(--accent-hover); }
+@media (hover: hover) { .doc a:hover { color: var(--accent-hover); } }
 
 .doc a.broken { color: var(--danger); text-decoration: underline dotted; }
 
@@ -1416,7 +1439,7 @@ body:has(.find-bar) .toc-pill {
     transition: opacity var(--dur-fast) var(--ease-out);
 }
 
-.doc .anchor:hover { color: var(--accent); }
+@media (hover: hover) { .doc .anchor:hover { color: var(--accent); } }
 
 .doc h1:hover > .anchor,
 .doc h2:hover > .anchor,
@@ -1625,7 +1648,7 @@ html.js .doc img { cursor: zoom-in; }
 .code-block:hover .code-copy,
 .code-copy:focus-visible { opacity: 1; }
 
-.code-copy:hover { background: var(--bg-hover); color: var(--text); }
+@media (hover: hover) { .code-copy:hover { background: var(--bg-hover); color: var(--text); } }
 
 .code-copy.is-done { color: var(--success); border-color: var(--success); opacity: 1; }
 
@@ -1732,7 +1755,7 @@ html.js .doc img { cursor: zoom-in; }
     text-decoration: none;
 }
 
-.doc .footnote-ref a:hover { text-decoration: underline; }
+@media (hover: hover) { .doc .footnote-ref a:hover { text-decoration: underline; } }
 
 .doc section.footnotes {
     margin-top: var(--s-10);
@@ -1765,7 +1788,7 @@ html.js .doc img { cursor: zoom-in; }
     text-decoration: none;
 }
 
-.doc .footnote-back:hover { color: var(--accent); }
+@media (hover: hover) { .doc .footnote-back:hover { color: var(--accent); } }
 
 /* a fragment jump lands with nothing to look at, so both ends of a footnote
    link tint themselves while they are the target */
@@ -1800,7 +1823,7 @@ html.js .doc img { cursor: zoom-in; }
    set, the box sits on the line by its bottom margin edge instead of its own
    baseline, which lifts every formula carrying a subscript or a fraction. Only a
    narrow screen actually pans, so the trade is taken there and nowhere else. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (hover: none) and (max-height: 500px) {
     .doc .math-inline {
         display: inline-block;
         max-width: 100%;
@@ -1907,7 +1930,7 @@ html.js .doc img { cursor: zoom-in; }
     text-decoration: none;
 }
 
-.doc-edit:hover { color: var(--accent); }
+@media (hover: hover) { .doc-edit:hover { color: var(--accent); } }
 
 .doc-edit .icon { width: 16px; height: 16px; }
 
@@ -2026,7 +2049,7 @@ html.js .doc img { cursor: zoom-in; }
 }
 
 /* the padding stays put: growing it on hover shifted the whole row sideways */
-.entry-link:hover { background: var(--bg-hover); }
+@media (hover: hover) { .entry-link:hover { background: var(--bg-hover); } }
 
 .entry-icon { width: 18px; height: 18px; flex: none; color: var(--text-3); }
 
@@ -2110,7 +2133,7 @@ html.js .doc img { cursor: zoom-in; }
     text-decoration: none;
 }
 
-.hit-link:hover { background: var(--bg-hover); }
+@media (hover: hover) { .hit-link:hover { background: var(--bg-hover); } }
 
 .hit-title {
     margin: 0 0 2px;
@@ -2310,7 +2333,7 @@ html.js .doc img { cursor: zoom-in; }
     background: rgba(255, 255, 255, .12);
 }
 
-.lightbox-close:hover { background: rgba(255, 255, 255, .22); color: #fff; }
+@media (hover: hover) { .lightbox-close:hover { background: rgba(255, 255, 255, .22); color: #fff; } }
 
 /* ==========================================================================
    login
@@ -2500,7 +2523,7 @@ html.js .doc img { cursor: zoom-in; }
     transition: background-color var(--dur-fast) var(--ease-out);
 }
 
-.tool:hover { background: var(--bg-hover); color: var(--text); }
+@media (hover: hover) { .tool:hover { background: var(--bg-hover); color: var(--text); } }
 
 .tool .icon { width: 17px; height: 17px; }
 
@@ -2669,7 +2692,7 @@ html.js .doc img { cursor: zoom-in; }
     border-color var(--dur-fast) var(--ease-out);
 }
 
-.version:hover { background: var(--bg-hover); }
+@media (hover: hover) { .version:hover { background: var(--bg-hover); } }
 
 .version.is-selected {
     border-color: var(--accent-border);
@@ -2818,6 +2841,9 @@ html.js .doc img { cursor: zoom-in; }
         width: 320px;
         max-width: calc(100vw - var(--s-8));
         max-height: 60vh;
+        /* vh is the large viewport: with Safari's toolbars out the sheet stands
+           taller than the screen and is clipped at both ends */
+        max-height: 60dvh;
         margin: 0;
         /* the top pays for the close button, which is 44px on touch and would
            otherwise take the taps meant for the first entry of the outline */
@@ -2835,6 +2861,10 @@ html.js .doc img { cursor: zoom-in; }
     }
 
     body.toc-open .toc-rail { opacity: 1; visibility: visible; transform: none; }
+
+    /* the sheet floats over the article, and the drawer's lock does not cover
+       it: without this a thumb beside the sheet scrolls the page underneath */
+    body.toc-open { overflow: hidden; overscroll-behavior: none; }
 
     html.js .toc-pill { display: flex; }
 
@@ -2956,7 +2986,10 @@ html.js .doc img { cursor: zoom-in; }
     .version-detail { position: static; }
 }
 
-@media (max-width: 767px) {
+/* the phone treatment. The second query is the same phone turned sideways: at
+   844x390 it is far past the width breakpoint, and without it the search sheet
+   goes back to the centred panel that the keyboard then covers. */
+@media (max-width: 767px), (hover: none) and (max-height: 500px) {
     :root { --h-topbar: var(--h-topbar-sm); }
 
     .topbar {
@@ -3152,7 +3185,12 @@ html.js .doc img { cursor: zoom-in; }
        is how a section is reached at this width. */
     .doc .anchor { display: none; }
 
-    .icon-btn, .row-more, .seg-btn, .topbar-home { min-width: var(--tap); min-height: var(--tap); }
+    /* .tab is the editor's pane switcher and .btn-sm the draft bar's Restore and
+       Discard: both keep a desktop height that a finger cannot land on */
+    .icon-btn, .row-more, .seg-btn, .topbar-home, .tab, .toc-pill, .btn-sm {
+        min-width: var(--tap);
+        min-height: var(--tap);
+    }
 
     .tree-row { min-height: var(--tap); }
 
@@ -3190,7 +3228,7 @@ html.js .doc img { cursor: zoom-in; }
 
     .tree-link { align-self: stretch; min-height: var(--tap); }
 
-    .toc-item a { display: flex; align-items: center; min-height: 40px; }
+    .toc-item a { display: flex; align-items: center; min-height: var(--tap); }
 
     .toc-top { min-height: var(--tap); }
 

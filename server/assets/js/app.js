@@ -22,6 +22,11 @@ function trackViewport() {
         // the screen and leaves the rest of it blank
         if (vv.scale > 1.01) return;
         document.documentElement.style.setProperty('--vvh', vv.height + 'px');
+        // a keyboard is the only thing that takes this much of the screen and
+        // gives it back. Anything centred in the viewport has to move up while
+        // it is there, and css cannot ask the question itself.
+        document.documentElement.classList.toggle(
+            'keyboard-up', vv.height < window.innerHeight - 120);
     };
     vv.addEventListener('resize', sync);
     vv.addEventListener('scroll', sync);

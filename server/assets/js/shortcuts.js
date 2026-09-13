@@ -3,6 +3,7 @@
 import {isMac, openDialog, qs, qsa} from './dom.js';
 import {closeDrawer, drawerOpen, closeMenu} from './nav.js';
 import {openPalette} from './palette.js';
+import {closeToc} from './reader.js';
 
 const SHEET = [
     ['Global', [
@@ -76,11 +77,7 @@ export function initShortcuts() {
                 event.preventDefault();
                 closeDrawer();
             }
-            if (document.body.classList.contains('toc-open')) {
-                document.body.classList.remove('toc-open');
-                const pill = qs('[data-toc-toggle]');
-                if (pill) pill.setAttribute('aria-expanded', 'false');
-            }
+            closeToc();
             return;
         }
 

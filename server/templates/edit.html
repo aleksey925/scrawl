@@ -84,8 +84,11 @@
         <div class="panes" id="panes">
             <div class="pane pane-source">
                 <label class="sr-only" for="editor-source">Markdown source</label>
+                {{/* autocorrect would rewrite the markdown markers; capitalising the
+                     first letter of a sentence cannot, and without it every
+                     sentence typed on a phone starts lowercase */}}
                 <textarea class="source" id="editor-source" name="content" wrap="soft"
-                          spellcheck="true" autocapitalize="off" autocorrect="off"
+                          spellcheck="true" autocapitalize="sentences" autocorrect="off"
                           autocomplete="off" aria-describedby="editor-help">{{.Content}}</textarea>
                 <p class="sr-only" id="editor-help">Tab indents by four spaces. Press Escape and then Tab to move focus out of the editor.</p>
             </div>

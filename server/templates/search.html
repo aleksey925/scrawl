@@ -13,7 +13,8 @@
                 <label class="sr-only" for="search-q">Search your notes</label>
                 <svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg>
                 <input class="search-input" id="search-q" type="search" name="q" value="{{.Query}}"
-                       placeholder="Search your notes" autocomplete="off" spellcheck="false">
+                       placeholder="Search your notes" autocomplete="off" spellcheck="false"
+                       autocapitalize="none" enterkeyhint="search">
                 <button class="btn btn-primary" type="submit">Search</button>
             </form>
 

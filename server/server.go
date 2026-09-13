@@ -82,9 +82,17 @@ const emptyStyleHash = "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='"
 // Images are the one loose end: a document may embed a remote one, and the
 // stylesheet draws its icons from data: urls.
 const contentSecurityPolicy = "default-src 'none'; base-uri 'none'; form-action 'self'; " +
-	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; " +
+	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; manifest-src 'self'; " +
 	"style-src 'self' 'unsafe-hashes' " + emptyStyleHash + "; " +
 	"img-src 'self' data: https:; script-src 'self'"
+
+// barColorLight and barColorDark are the browser and home screen chrome colors.
+// base.html ships them as prefers-color-scheme metas and theme.js swaps between
+// them; the manifest carries one, so a change has to land in all three.
+const (
+	barColorLight = "#ffffff"
+	barColorDark  = "#1c1c1e"
+)
 
 // gzipContentTypes lists what is worth compressing. rest.Gzip decides on the
 // content type of the response rather than on the extension of the request, so
@@ -232,6 +240,10 @@ func (wb *Web) router() (http.Handler, error) {
 	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
 		HandleFunc("GET /static/{version}/{path...}", wb.staticHandler(assetsFS))
 
+	// at the root, because the scope a manifest can claim is its own directory
+	// and anywhere below /static/ would install an app that owns only that
+	router.HandleFunc("GET /manifest.webmanifest", wb.manifestHandler)
+
 	router.HandleFunc("GET /login", wb.loginPage)
 	router.HandleFunc("GET /{$}", wb.viewHandler)
 	router.HandleFunc("GET /p/{path...}", wb.viewHandler)
@@ -274,6 +286,53 @@ func (wb *Web) staticHandler(assetsFS fs.FS) http.HandlerFunc {
 		default:
 			http.ServeFileFS(w, r, assetsFS, assetPath)
 		}
+	}
+}
+
+// manifestHandler answers the web app manifest, which is what lets a phone keep
+// the notes on its home screen and run them without browser chrome. It is built
+// here rather than embedded as a file: the name on the home screen is the
+// configured site title, and the icons carry the cache busting version segment.
+func (wb *Web) manifestHandler(w http.ResponseWriter, r *http.Request) {
+	type icon struct {
+		Src     string `json:"src"`
+		Sizes   string `json:"sizes"`
+		Type    string `json:"type"`
+		Purpose string `json:"purpose"`
+	}
+	res := struct {
+		Name            string `json:"name"`
+		ShortName       string `json:"short_name"`
+		StartURL        string `json:"start_url"`
+		Scope           string `json:"scope"`
+		Display         string `json:"display"`
+		ThemeColor      string `json:"theme_color"`
+		BackgroundColor string `json:"background_color"`
+		Icons           []icon `json:"icons"`
+	}{
+		Name:      wb.Title,
+		ShortName: wb.Title,
+		StartURL:  "/",
+		Scope:     "/",
+		Display:   "standalone",
+		// the light bar color: a manifest carries one, and the metas in the
+		// document head are what actually follow the reader's theme
+		ThemeColor:      barColorLight,
+		BackgroundColor: barColorLight,
+		Icons: []icon{
+			{Src: "/static/" + wb.Version + "/icons/icon-192.png", Sizes: "192x192", Type: "image/png", Purpose: "any"},
+			{Src: "/static/" + wb.Version + "/icons/icon-512.png", Sizes: "512x512", Type: "image/png", Purpose: "any"},
+		},
+	}
+
+	body, err := json.Marshal(res)
+	if err != nil {
+		http.Error(w, "cannot build the manifest", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/manifest+json; charset=utf-8")
+	if _, err := w.Write(body); err != nil {
+		log.Printf("[DEBUG] write manifest response: %v", err)
 	}
 }
 

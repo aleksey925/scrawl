@@ -4,11 +4,10 @@ import {
     api, confirmDialog, copyText, encodePath, esc, formatBytes, formDialog,
     openDialog, qs, qsa, savedToast, slugify, toast
 } from './dom.js';
+import {closeOverlay, openOverlay} from './overlay.js';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const SWIPE_THRESHOLD = 20;
-
-let lastFocused = null;
 
 // the sidebar carries the read-only flag, so every write affordance the script
 // builds can ask one question before offering anything the api would refuse
@@ -24,35 +23,24 @@ export function drawerOpen() {
 export function openDrawer() {
     const sidebar = qs('#sidebar');
     if (!sidebar || drawerOpen()) return;
-    lastFocused = document.activeElement;
     document.body.classList.add('drawer-open');
     sidebar.setAttribute('role', 'dialog');
     sidebar.setAttribute('aria-modal', 'true');
     qsa('[data-drawer-open]').forEach((b) => b.setAttribute('aria-expanded', 'true'));
-    setBackgroundInert(true);
-    const close = qs('[data-drawer-close]', sidebar);
-    (close || sidebar).focus();
+    openOverlay('drawer', {
+        keep: [sidebar],
+        focus: qs('[data-drawer-close]', sidebar) || sidebar,
+        close: () => {
+            document.body.classList.remove('drawer-open');
+            sidebar.removeAttribute('role');
+            sidebar.removeAttribute('aria-modal');
+            qsa('[data-drawer-open]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+        },
+    });
 }
 
 export function closeDrawer() {
-    const sidebar = qs('#sidebar');
-    if (!sidebar || !drawerOpen()) return;
-    document.body.classList.remove('drawer-open');
-    sidebar.removeAttribute('role');
-    sidebar.removeAttribute('aria-modal');
-    qsa('[data-drawer-open]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
-    setBackgroundInert(false);
-    if (lastFocused && lastFocused.isConnected) lastFocused.focus();
-}
-
-function setBackgroundInert(on) {
-    qsa('.topbar, .main, .toc-rail, .toc-pill').forEach((el) => {
-        if (on) {
-            el.setAttribute('inert', '');
-        } else {
-            el.removeAttribute('inert');
-        }
-    });
+    closeOverlay('drawer');
 }
 
 function trapTab(event) {
@@ -132,9 +120,13 @@ function initSwipeClose(sidebar) {
         if (sliding) event.preventDefault();
     }, {passive: false});
 
-    // a swipe that starts on a row would otherwise open the page it ended on
+    // a swipe that starts on a row would otherwise open the page it ended on.
+    // It guards one click and 400ms, whichever comes first: a gesture that ends
+    // without a click would otherwise leave the guard armed for the next real
+    // tap, which on an aborted swipe is a row the reader did mean to open.
     sidebar.addEventListener('click', (event) => {
-        if (Date.now() - swipedAt > 400) return;
+        if (!swipedAt || Date.now() - swipedAt > 400) return;
+        swipedAt = 0;
         event.preventDefault();
         event.stopPropagation();
     }, true);

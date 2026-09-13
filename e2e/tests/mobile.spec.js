@@ -7,7 +7,7 @@ const {
     HISTORY, MAIN, expectNoHorizontalScroll, fixtureFile, shot, signIn, writeFixture,
 } = require('../support/helpers');
 
-const MIN_TAP = 40;
+const MIN_TAP = 44;
 const DOC = docs.doc.path;
 const SCRATCH = 'e2e-mobile/zametka.md';
 const HISTORY_FOLDER = 'e2e-mobile-history';
@@ -254,5 +254,77 @@ test.describe('mobile', () => {
 
         await page.locator('#toc-rail .toc-item a').first().tap();
         await expect(page.locator('body')).not.toHaveClass(/toc-open/);
+    });
+
+    test('closing the outline sheet leaves the page live behind it', async ({page}) => {
+        await page.goto(`/p/${DOC}`);
+        await page.locator('.toc-pill').tap();
+        await expect(page.locator('body')).toHaveClass(/toc-open/);
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator('body')).not.toHaveClass(/toc-open/);
+
+        // the sheet marks everything behind it inert. A close that skipped its
+        // own teardown used to leave that on, and the page took no tap at all
+        // until it was reloaded.
+        const stuck = await page.evaluate(() => Array.from(
+            document.querySelectorAll('[inert]')).map((el) => el.className));
+        expect(stuck, 'the sheet left the page inert behind it').toEqual([]);
+
+        await page.locator('.topbar-burger').tap();
+        await expect(page.locator('body')).toHaveClass(/drawer-open/);
+    });
+
+    test('the notes can be installed as an app', async ({page}) => {
+        await page.goto('/');
+        await expect(page.locator('link[rel="manifest"]')).toHaveCount(1);
+        await expect(page.locator('meta[name="apple-mobile-web-app-capable"]'))
+            .toHaveAttribute('content', 'yes');
+
+        const res = await page.request.get(`${MAIN.baseURL}/manifest.webmanifest`);
+        expect(res.status()).toBe(200);
+        expect(res.headers()['content-type']).toContain('application/manifest+json');
+
+        const manifest = await res.json();
+        expect(manifest.display).toBe('standalone');
+        const title = await page.locator('.sidebar-title').textContent();
+        expect(manifest.name, 'the home screen name is the configured site title')
+            .toBe(title.trim());
+
+        const icon = await page.request.get(`${MAIN.baseURL}${manifest.icons[0].src}`);
+        expect(icon.status()).toBe(200);
+        expect(icon.headers()['content-type']).toBe('image/png');
+    });
+
+    test('the image viewer closes on a tap', async ({page}) => {
+        await page.goto(`/p/${docs.illustrated.doc}`);
+        const image = page.locator('#doc img[src^="/raw/"]').first();
+        await expect(image).toBeVisible();
+        await image.tap();
+
+        const dialog = page.locator('#lightbox');
+        await expect(dialog).toBeVisible();
+        await shot(page, 'mobile-lightbox');
+
+        // the backdrop closes it with a pointer, and on a phone the image covers
+        // nearly the whole dialog, leaving almost no backdrop to aim at
+        await page.locator('#lightbox-img').tap();
+        await expect(dialog).not.toBeVisible();
+    });
+
+    test('the search sheet fills the screen with the phone turned sideways', async ({page}) => {
+        await page.setViewportSize({width: 844, height: 390});
+        await page.goto(`/p/${DOC}`);
+        await page.locator('.search-trigger').tap();
+
+        const dialog = page.locator('#palette');
+        await expect(dialog).toBeVisible();
+        // past the width breakpoint it fell back to the centred panel, which at
+        // this height is a strip the on-screen keyboard covers
+        const box = await dialog.boundingBox();
+        expect(box.y, 'the sheet starts at the top edge').toBeLessThan(20);
+        expect(box.height, 'the sheet takes the height').toBeGreaterThan(300);
+        await shot(page, 'mobile-landscape-palette');
+        await expectNoHorizontalScroll(page);
     });
 });

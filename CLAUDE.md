@@ -55,7 +55,14 @@ vendor/                dependencies, checked in, `make deps` regenerates
   are embedded with `//go:embed`.
 - Frontend is server-rendered HTML plus vanilla JS enhancement. Design
   tokens live in one CSS file; light and dark themes come from custom
-  properties.
+  properties. A tap latches `:hover` onto what it landed on until the
+  next tap somewhere else, so every decorative hover is gated on
+  `@media (hover: hover)` and the platform tap highlight is off.
+- A panel that covers the page goes through `overlay.js`, which owns the
+  `inert` behind it, the focus it took and which single panel is up. The
+  drawer and the outline sheet each ran their own copy of that over
+  overlapping elements, so closing one lifted the other's `inert`, and a
+  close that went around the teardown left the page taking no tap at all.
 - Content paths are relative to the root, slash-separated, without a
   leading slash. Markdown URLs keep the `.md` suffix, because a file
   and a directory can share a name (`foo.md` next to `foo/`).

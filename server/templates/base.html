@@ -16,6 +16,16 @@ rendered by its file name: ExecuteTemplate(w, "view.html", data).
     <meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)">
     <title>{{if .Title}}{{.Title}} - {{end}}{{.SiteTitle}}</title>
     <link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
+    {{/* added to the home screen the app runs without browser chrome, which is
+         what the safe-area padding throughout the stylesheet is already paying
+         for. The status bar stays "default": black-translucent would put the
+         page under it, and its white glyphs are unreadable on the light bar. */}}
+    <link rel="apple-touch-icon" href="/static/{{.Version}}/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="{{.SiteTitle}}">
     <link rel="stylesheet" href="/static/{{.Version}}/css/style.css">
     <link rel="stylesheet" href="/static/{{.Version}}/css/chroma.css">
     {{/* render blocking on purpose: it marks the document as scripted and
@@ -31,7 +41,8 @@ rendered by its file name: ExecuteTemplate(w, "view.html", data).
     <form class="palette-head" method="get" action="/search" data-palette-form>
         <svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg>
         <input class="palette-input" id="palette-input" type="search" name="q" autocomplete="off"
-               spellcheck="false" placeholder="Search your notes"
+               spellcheck="false" autocapitalize="none" enterkeyhint="search"
+               placeholder="Search your notes"
                aria-label="Search query" aria-controls="palette-results" aria-expanded="false"
                role="combobox" aria-autocomplete="list">
         <button class="icon-btn palette-close" type="button" data-palette-close aria-label="Close search">

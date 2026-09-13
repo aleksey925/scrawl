@@ -1,7 +1,6 @@
 package server
 
 import (
-	"errors"
 	"fmt"
 	"html/template"
 	"log"
@@ -15,9 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/aleksey925/scrawl/auth"
-	"github.com/aleksey925/scrawl/history"
 	"github.com/aleksey925/scrawl/render"
-	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
 )
 
@@ -27,102 +24,6 @@ const maxLoginBody = 64 << 10
 // loginRetryAfter is the wait, in seconds, a throttled login is told to take.
 // The form and the JSON route answer the same one.
 const loginRetryAfter = "60"
-
-// viewHandler serves "/" and "/p/{path...}": a rendered document, a directory
-// listing, or the offer to create a markdown file that is not there yet.
-func (wb *Web) viewHandler(w http.ResponseWriter, r *http.Request) {
-	p, ok := contentPath(r, "path")
-	if !ok {
-		wb.errorPage(w, r, "", http.StatusBadRequest, statusMessage(http.StatusBadRequest))
-		return
-	}
-
-	fi, err := wb.Store.Stat(p)
-	switch {
-	case errors.Is(err, store.ErrNotFound) && isMarkdown(p):
-		wb.missingPage(w, r, p)
-		return
-	case err != nil:
-		wb.failPage(w, r, p, err)
-		return
-	}
-
-	switch {
-	case fi.IsDir:
-		wb.directoryPage(w, r, p)
-	case isMarkdown(p):
-		wb.documentPage(w, r, p)
-	default:
-		http.Redirect(w, r, "/raw/"+encodePath(p), http.StatusFound)
-	}
-}
-
-// documentPage renders one markdown file as a page.
-func (wb *Web) documentPage(w http.ResponseWriter, r *http.Request, docPath string) {
-	data, fi, err := wb.Store.Read(docPath)
-	if err != nil {
-		wb.failPage(w, r, docPath, err)
-		return
-	}
-
-	rev := store.Rev(data)
-	res, err := wb.renderDoc(docPath, data, rev)
-	if err != nil {
-		wb.failPage(w, r, docPath, err)
-		return
-	}
-
-	toc := railTOC(res.TOC)
-	page := ViewPage{
-		Base:    wb.base(r, res.Title, docPath),
-		Content: res.HTML,
-		TOC:     toc,
-		ShowTOC: len(toc) >= minTOCHeadings,
-		Rev:     rev,
-		ModTime: fi.ModTime,
-		EditURL: editURL(docPath),
-	}
-	wb.renderPage(w, http.StatusOK, "view.html", page)
-}
-
-// missingPage offers to create a markdown file the reader followed a link to.
-// The status is still 404, but the body is the app instead of a bare message.
-func (wb *Web) missingPage(w http.ResponseWriter, r *http.Request, docPath string) {
-	page := ViewPage{
-		Base:    wb.base(r, displayName(path.Base(docPath)), docPath),
-		EditURL: editURL(docPath),
-		Missing: true,
-	}
-	wb.renderPage(w, http.StatusNotFound, "view.html", page)
-}
-
-// directoryPage lists a directory. A directory holding an index.md is that
-// document instead, and a README.md becomes the intro above the listing.
-func (wb *Web) directoryPage(w http.ResponseWriter, r *http.Request, dir string) {
-	entries, err := wb.Store.List(dir)
-	if err != nil {
-		wb.failPage(w, r, dir, err)
-		return
-	}
-
-	if intro := indexOf(entries, "index.md"); intro != "" {
-		wb.documentPage(w, r, intro)
-		return
-	}
-
-	title := "Home"
-	if dir != "" {
-		title = displayName(path.Base(dir))
-	}
-	page := DirPage{Base: wb.base(r, title, dir), Entries: dirEntries(entries)}
-
-	if intro := indexOf(entries, "readme.md"); intro != "" {
-		if html, introErr := wb.renderIntro(intro); introErr == nil {
-			page.Readme, page.HasReadme = html, true
-		}
-	}
-	wb.renderPage(w, http.StatusOK, "dir.html", page)
-}
 
 // indexOf finds a directory's own document by name, case-insensitively.
 func indexOf(entries []store.FileInfo, name string) string {
@@ -210,15 +111,20 @@ func renderWithDeadline[T any](docPath string, src []byte, limit int, timeout ti
 // link such as [x](evil.html) reaches this route in one click, so an attacker
 // who can write one file must not be able to pick the type it comes back with.
 func (wb *Web) rawHandler(w http.ResponseWriter, r *http.Request) {
+	// a file route answers in plain text: the styled page it used to render
+	// carried the whole reading chrome, and a request for an attachment has no
+	// use for a sidebar full of notes
 	p, ok := contentPath(r, "path")
 	if !ok || p == "" {
-		wb.errorPage(w, r, "", http.StatusBadRequest, statusMessage(http.StatusBadRequest))
+		http.Error(w, statusMessage(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
 	f, fi, err := wb.Store.Open(p)
 	if err != nil {
-		wb.failPage(w, r, p, err)
+		status := statusOf(err)
+		logFailure(r, status, err)
+		http.Error(w, statusMessage(status), status)
 		return
 	}
 	defer f.Close()
@@ -318,114 +224,6 @@ func rawContentType(name string) (contentType string, inline bool) {
 // request, which is exactly what ServeContent avoids.
 func rawETag(fi store.FileInfo) string {
 	return fmt.Sprintf(`"%x-%x"`, fi.ModTime.UnixNano(), fi.Size)
-}
-
-// editHandler serves the editor for a markdown path, existing or not.
-func (wb *Web) editHandler(w http.ResponseWriter, r *http.Request) {
-	if wb.ReadOnly {
-		wb.errorPage(w, r, "", http.StatusForbidden, statusMessage(http.StatusForbidden))
-		return
-	}
-	p, ok := contentPath(r, "path")
-	if !ok || p == "" || !isMarkdown(p) {
-		wb.errorPage(w, r, "", http.StatusBadRequest, statusMessage(http.StatusBadRequest))
-		return
-	}
-
-	data, _, err := wb.Store.Read(p)
-	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		wb.failPage(w, r, p, err)
-		return
-	}
-
-	page := EditPage{
-		Base:    wb.base(r, displayName(path.Base(p)), p),
-		ViewURL: "/p/" + encodePath(p),
-		IsNew:   err != nil,
-	}
-	if err == nil {
-		page.Content, page.Rev = string(data), store.Rev(data)
-	}
-	wb.renderPage(w, http.StatusOK, "edit.html", page)
-}
-
-// historyPage lists the versions of one document. With history off the route
-// answers the 404 the app answers for anything else it does not hold, because
-// then there is no such page to serve rather than a page with nothing on it.
-func (wb *Web) historyPage(w http.ResponseWriter, r *http.Request) {
-	p, ok := contentPath(r, "path")
-	if !ok || p == "" {
-		wb.errorPage(w, r, "", http.StatusBadRequest, statusMessage(http.StatusBadRequest))
-		return
-	}
-	if !wb.isDocument(p) {
-		wb.failPage(w, r, p, fmt.Errorf("history %q: %w", p, store.ErrNotFound))
-		return
-	}
-	if !wb.history().Enabled() {
-		wb.errorPage(w, r, p, http.StatusNotFound, statusMessage(http.StatusNotFound))
-		return
-	}
-
-	entries, err := wb.history().Log(r.Context(), p, historyLimit)
-	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, history.ErrBadPath) {
-			status = http.StatusBadRequest
-		}
-		logFailure(r, status, err)
-		wb.errorPage(w, r, p, status, statusMessage(status))
-		return
-	}
-
-	rev, known := wb.docRev(p)
-	page := HistoryPage{
-		Base:       wb.base(r, "History of "+displayName(path.Base(p)), p),
-		Entries:    historyEntries(entries),
-		ViewURL:    contentURL(p),
-		Rev:        rev,
-		CanRestore: known && !wb.ReadOnly,
-	}
-	wb.renderPage(w, http.StatusOK, "history.html", page)
-}
-
-// docRev is the revision a restore has to carry, and reports whether it could
-// be established at all. A document that is not there has the empty revision,
-// which is what the store reads as "create it", and restoring a deleted page is
-// the case that needs it. One too large to read has no revision, and a restore
-// sent without one would overwrite whatever is on disk blind.
-func (wb *Web) docRev(p string) (rev string, ok bool) {
-	fi, err := wb.Store.Stat(p)
-	switch {
-	case errors.Is(err, store.ErrNotFound):
-		return "", true
-	case err != nil, fi.IsDir, fi.Size > maxEditableFile:
-		return "", false
-	}
-	data, _, err := wb.Store.Read(p)
-	if err != nil {
-		return "", false
-	}
-	return store.Rev(data), true
-}
-
-// searchHandler serves the full text search page.
-func (wb *Web) searchHandler(w http.ResponseWriter, r *http.Request) {
-	query := strings.TrimSpace(r.URL.Query().Get("q"))
-
-	start := time.Now()
-	var hits []search.Hit
-	if query != "" && wb.Index != nil {
-		hits = wb.Index.Search(query, searchPageLimit)
-	}
-
-	page := SearchPage{
-		Base:    wb.base(r, "Search", ""),
-		Query:   query,
-		Hits:    hits,
-		Elapsed: time.Since(start).Round(time.Microsecond),
-	}
-	wb.renderPage(w, http.StatusOK, "search.html", page)
 }
 
 // loginPage shows the sign-in form.

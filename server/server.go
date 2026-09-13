@@ -253,18 +253,20 @@ func (wb *Web) router() (http.Handler, error) {
 
 	router.HandleFunc("GET /login", wb.loginPage)
 
-	// the react app lives beside the server rendered pages until it reaches
-	// parity with them. Switching /p/ over before then would take the whole
-	// frontend and the suite that guards it down with one deploy.
-	router.HandleFunc("GET "+appMount, wb.appHandler)
-	router.HandleFunc("GET "+appMount+"/{path...}", wb.appHandler)
+	// every page route is the app. /raw/ is not one of them: it serves a file
+	// under a content type from an allowlist and a policy of its own, and must
+	// never fall back to the shell.
+	// a path no route claimed is the app too, answering 404. It cannot be a
+	// catch-all pattern: routegroup rewrites "/" to "/{$}" on purpose, so that
+	// handling the root does not swallow every other request.
+	router.NotFoundHandler(wb.notFoundHandler)
 
-	router.HandleFunc("GET /{$}", wb.viewHandler)
-	router.HandleFunc("GET /p/{path...}", wb.viewHandler)
+	router.HandleFunc("GET /{$}", wb.appHandler)
+	router.HandleFunc("GET /p/{path...}", wb.docHandler)
+	router.HandleFunc("GET /edit/{path...}", wb.appHandler)
+	router.HandleFunc("GET /history/{path...}", wb.appHandler)
+	router.HandleFunc("GET /search", wb.appHandler)
 	router.HandleFunc("GET /raw/{path...}", wb.rawHandler)
-	router.HandleFunc("GET /edit/{path...}", wb.editHandler)
-	router.HandleFunc("GET /history/{path...}", wb.historyPage)
-	router.HandleFunc("GET /search", wb.searchHandler)
 	router.HandleFunc("GET /api/tree", wb.apiTree)
 	router.HandleFunc("GET /api/file/{path...}", wb.apiFileGet)
 	router.HandleFunc("GET /api/search", wb.apiSearch)
@@ -447,27 +449,6 @@ func (wb *Web) renderPage(w http.ResponseWriter, status int, name string, data a
 	if _, err := buf.WriteTo(w); err != nil {
 		log.Printf("[DEBUG] write page %s: %v", name, err)
 	}
-}
-
-// errorPage answers an HTML route with the styled error page.
-func (wb *Web) errorPage(w http.ResponseWriter, r *http.Request, contentPath string, status int, message string) {
-	page := ErrorPage{
-		Base:    wb.base(r, message, contentPath),
-		Code:    status,
-		Message: message,
-	}
-	wb.renderPage(w, status, "error.html", page)
-}
-
-// failPage maps a store error onto the error page.
-func (wb *Web) failPage(w http.ResponseWriter, r *http.Request, contentPath string, err error) {
-	status := statusOf(err)
-	logFailure(r, status, err)
-	message := statusMessage(status)
-	if errors.Is(err, store.ErrPermission) {
-		message = permissionMessage
-	}
-	wb.errorPage(w, r, contentPath, status, message)
 }
 
 // logFailure records the failures nobody can diagnose from the response alone:

@@ -12,7 +12,6 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/aleksey925/scrawl/store"
 )
@@ -29,9 +28,9 @@ const appBase = "/static/spa/app/"
 const appManifest = "app/manifest.json"
 
 // appMount is where the app answers. The shell hands it to the client router as
-// its basename instead of the bundle baking one in, so the same build serves
-// /app beside the old pages and / once it replaces them.
-const appMount = "/app"
+// its basename instead of the bundle baking one in, which is what let the app
+// serve /app while the old pages still owned these routes.
+const appMount = "/"
 
 const nonceBytes = 16
 
@@ -167,37 +166,52 @@ func newAppShell(assetsFS fs.FS) (*appShell, error) {
 	return shell, nil
 }
 
-// appStatus is the status the shell goes out with. A link to a note that is not
-// there answers 404 the way the server rendered page did, because a document
-// that does not exist is not a page that does: a crawler, a link checker and
-// `curl -f` all read the status and none of them run the client router. The
-// body is the shell either way, so the app still offers to create it.
-//
-// Only a reading url is judged. /app/edit/ of a missing note is how one is
-// created, and any other path is the client router's own not found.
-func (wb *Web) appStatus(r *http.Request) int {
-	rest, ok := contentPathOf(r.PathValue("path"))
-	if !ok {
-		return http.StatusOK
-	}
-	target, found := strings.CutPrefix(rest, "p/")
-	if !found {
-		return http.StatusOK
-	}
-	p, ok := contentPathOf(target)
-	if !ok || p == "" || !isMarkdown(p) {
-		return http.StatusOK
-	}
-	if _, err := wb.Store.Stat(p); errors.Is(err, store.ErrNotFound) {
-		return http.StatusNotFound
-	}
-	return http.StatusOK
+// appHandler answers a page route with the shell and lets the client router
+// decide what it is. It is behind the auth middleware like any other page, so
+// an anonymous visitor is redirected to the login page instead.
+func (wb *Web) appHandler(w http.ResponseWriter, r *http.Request) {
+	wb.serveShell(w, r, http.StatusOK)
 }
 
-// appHandler answers every app route with the same document and lets the client
-// router decide what it is. It is behind the auth middleware like any other
-// page, so an anonymous visitor is redirected to the login page instead.
-func (wb *Web) appHandler(w http.ResponseWriter, r *http.Request) {
+// notFoundHandler answers a path no route claimed. The status says the name
+// holds nothing, and the body is still the app, so the reader gets the empty
+// state with the navigation around it rather than a bare line of text.
+func (wb *Web) notFoundHandler(w http.ResponseWriter, r *http.Request) {
+	wb.serveShell(w, r, http.StatusNotFound)
+}
+
+// docHandler answers /p/. It is the one page route whose status is not always
+// 200: a link to a note that is not there answers 404 the way the server
+// rendered page did, because a crawler, a link checker and `curl -f` all read
+// the status and none of them run the client router. The body is the shell
+// either way, so the app still offers to create it.
+//
+// Only reading is judged. /edit/ of a missing note is how one is created.
+func (wb *Web) docHandler(w http.ResponseWriter, r *http.Request) {
+	p, ok := contentPath(r, "path")
+	if !ok || p == "" {
+		wb.serveShell(w, r, http.StatusOK)
+		return
+	}
+
+	fi, err := wb.Store.Stat(p)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		// nothing of that name is there, whatever the extension says. Answering
+		// 200 would make /p/<anything>/ping look like a route that exists.
+		wb.serveShell(w, r, http.StatusNotFound)
+		return
+	case err == nil && !fi.IsDir && !isMarkdown(p):
+		// an attachment is not a page: it goes to the route that serves a file
+		// under a content type from an allowlist, with a policy of its own. A
+		// directory is not markdown either, and it is a page.
+		http.Redirect(w, r, "/raw/"+encodePath(p), http.StatusFound)
+		return
+	}
+	wb.serveShell(w, r, http.StatusOK)
+}
+
+func (wb *Web) serveShell(w http.ResponseWriter, r *http.Request, status int) {
 	theme := themeOf(r)
 	data := shellData{
 		Title:   wb.Title,
@@ -224,7 +238,7 @@ func (wb *Web) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(wb.appStatus(r))
+	w.WriteHeader(status)
 	if _, err := buf.WriteTo(w); err != nil {
 		log.Printf("[DEBUG] write app shell: %v", err)
 	}

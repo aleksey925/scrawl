@@ -397,7 +397,6 @@ func TestHistoryAnswersOnlyForDocumentsTheStoreShows(t *testing.T) {
 		name string
 		req  request
 	}{
-		{name: "the page of a hidden file", req: request{path: "/history/.env"}},
 		{name: "the versions of a hidden file", req: request{path: "/api/history/.env"}},
 		{name: "one version of a hidden file", req: request{path: "/api/history/.env?rev=" + secret.Rev}},
 		{name: "a restore onto a hidden file", req: restore(".env")},
@@ -453,7 +452,7 @@ func TestAPIHistoryWithoutTheService(t *testing.T) {
 	}
 }
 
-func TestHistoryPage(t *testing.T) {
+func TestAPIHistoryListsWhatTheRepositoryHolds(t *testing.T) {
 	at := time.Date(2024, time.March, 1, 10, 30, 0, 0, time.UTC)
 	entries := []history.Entry{
 		{
@@ -473,49 +472,42 @@ func TestHistoryPage(t *testing.T) {
 		},
 	}
 
-	t.Run("lists every version and offers a restore for the ones with content", func(t *testing.T) {
+	t.Run("lists every version, naming the path each one had", func(t *testing.T) {
 		// arrange
 		ts := newTestServer(t, testOpts{history: &fakeHistory{entries: entries}})
 
 		// act
-		resp, body := ts.do(t, request{path: "/history/index.md"})
+		resp, body := ts.json(t, request{path: "/api/history/index.md"})
 
 		// assert
 		assert.Equal(t, http.StatusOK, resp.status)
-		assert.Contains(t, body, "save index.md")
-		assert.Contains(t, body, "move home.md to index.md")
-		assert.Contains(t, body, "delete home.md")
-		assert.Contains(t, body, "is-renamed")
-		assert.Contains(t, body, "is-deleted")
-		assert.Contains(t, body, "home.md", "a rename kept the path the document had back then")
-		assert.Equal(t, 2, strings.Count(body, "data-restore"),
-			"a deletion carries no content to restore")
+		assert.Equal(t, "index.md", body["path"])
+		assert.Equal(t, false, body["degraded"])
+
+		listed, ok := body["entries"].([]any)
+		require.True(t, ok)
+		require.Len(t, listed, len(entries))
+		for i, raw := range listed {
+			got, isMap := raw.(map[string]any)
+			require.True(t, isMap)
+			assert.Equal(t, entries[i].Message, got["message"])
+			assert.Equal(t, string(entries[i].Kind), got["kind"])
+			// a rename keeps the path the document had back then, because a
+			// blob is read from the pair and today's path would not resolve
+			assert.Equal(t, entries[i].Path, got["path"])
+			assert.Equal(t, entries[i].Blob, got["blob"])
+		}
 	})
 
-	t.Run("offers no restore in read-only mode", func(t *testing.T) {
-		// arrange
-		ts := newTestServer(t, testOpts{readOnly: true, history: &fakeHistory{entries: entries}})
-
-		// act
-		resp, body := ts.do(t, request{path: "/history/index.md"})
-
-		// assert
-		assert.Equal(t, http.StatusOK, resp.status)
-		assert.Contains(t, body, "save index.md")
-		assert.NotContains(t, body, "data-restore")
-		assert.NotContains(t, body, "data-can-restore")
-	})
-
-	t.Run("says on the page that history fell behind the disk", func(t *testing.T) {
+	t.Run("says the list fell behind the disk", func(t *testing.T) {
 		// arrange
 		ts := newTestServer(t, testOpts{history: &fakeHistory{degraded: true, entries: entries}})
 
 		// act
-		_, body := ts.do(t, request{path: "/history/index.md"})
+		_, body := ts.json(t, request{path: "/api/history/index.md"})
 
 		// assert
-		assert.Contains(t, body, "history-warn")
-		assert.Contains(t, body, "was not recorded")
+		assert.Equal(t, true, body["degraded"])
 	})
 
 	t.Run("takes a document that is not on disk, which is what a deletion leaves", func(t *testing.T) {
@@ -523,12 +515,11 @@ func TestHistoryPage(t *testing.T) {
 		ts := newTestServer(t, testOpts{history: &fakeHistory{entries: entries}})
 
 		// act
-		resp, body := ts.do(t, request{path: "/history/gone.md"})
+		resp, body := ts.json(t, request{path: "/api/history/gone.md"})
 
 		// assert
 		assert.Equal(t, http.StatusOK, resp.status)
-		assert.Contains(t, body, "data-can-restore", "restoring it back is the point")
-		assert.Contains(t, body, `data-rev=""`)
+		assert.NotEmpty(t, body["entries"], "restoring it back is the point")
 	})
 
 	t.Run("says there is nothing yet for a document history never saw", func(t *testing.T) {
@@ -536,23 +527,11 @@ func TestHistoryPage(t *testing.T) {
 		ts := newTestServer(t, testOpts{history: &fakeHistory{}})
 
 		// act
-		resp, body := ts.do(t, request{path: "/history/index.md"})
+		resp, body := ts.json(t, request{path: "/api/history/index.md"})
 
 		// assert
 		assert.Equal(t, http.StatusOK, resp.status)
-		assert.Contains(t, body, "No versions recorded yet")
-	})
-
-	t.Run("is not a page at all with history off", func(t *testing.T) {
-		// arrange
-		ts := newTestServer(t, testOpts{})
-
-		// act
-		resp, body := ts.do(t, request{path: "/history/index.md"})
-
-		// assert
-		assert.Equal(t, http.StatusNotFound, resp.status)
-		assert.Contains(t, body, "error-code")
+		assert.Empty(t, body["entries"])
 	})
 
 	t.Run("reports a repository that cannot be read", func(t *testing.T) {
@@ -560,25 +539,11 @@ func TestHistoryPage(t *testing.T) {
 		ts := newTestServer(t, testOpts{history: &fakeHistory{readErr: errors.New("git exploded")}})
 
 		// act
-		resp, _ := ts.do(t, request{path: "/history/index.md"})
+		resp, _ := ts.json(t, request{path: "/api/history/index.md"})
 
 		// assert
 		assert.Equal(t, http.StatusInternalServerError, resp.status)
 	})
-}
-
-func TestTheHistoryActionIsOnlyThereWhenHistoryIs(t *testing.T) {
-	// arrange
-	on := newTestServer(t, testOpts{history: &fakeHistory{}})
-	off := newTestServer(t, testOpts{})
-
-	// act
-	_, withHistory := on.do(t, request{path: "/p/index.md"})
-	_, without := off.do(t, request{path: "/p/index.md"})
-
-	// assert
-	assert.Contains(t, withHistory, `href="/history/index.md"`)
-	assert.NotContains(t, without, "/history/")
 }
 
 func TestEveryMutationIsRecorded(t *testing.T) {

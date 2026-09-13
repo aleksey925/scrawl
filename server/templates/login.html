@@ -1,6 +1,7 @@
 {{/*
-LoginPage carries no Base, so this page builds its own document shell instead
-of reusing "doc-head". It works with JavaScript disabled: a plain POST form.
+The one page the server still renders itself. It carries its own stylesheet and
+its own theme script rather than the app's bundle, because it has to work before
+any of that loads and with JavaScript off: a plain POST form.
 */}}
 <!DOCTYPE html>
 <html lang="en" data-theme="{{.Theme}}">
@@ -13,19 +14,28 @@ of reusing "doc-head". It works with JavaScript disabled: a plain POST form.
     <meta name="robots" content="noindex">
     <title>Sign in - {{.SiteTitle}}</title>
     <link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/static/{{.Version}}/css/style.css">
-    <script src="/static/{{.Version}}/js/boot.js"></script>
+    <link rel="stylesheet" href="/static/{{.Version}}/login/login.css">
+    {{/* render blocking on purpose: it repairs data-theme before the first paint */}}
+    <script src="/static/{{.Version}}/login/login.js"></script>
 </head>
-<body class="page page-login">
-{{template "sprite" .}}
-<button class="icon-btn login-theme" type="button" data-theme-toggle aria-label="Theme: system">
+<body>
+<svg class="sprite" aria-hidden="true" focusable="false" width="0" height="0">
+    <symbol id="icon-logo" viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10l2 2.5h6.5A1.5 1.5 0 0 1 20 8v10.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"></path></symbol>
+    <symbol id="icon-warn" viewBox="0 0 24 24"><path d="M12 4.5l8.5 15h-17zM12 10v4.5M12 17h.01"></path></symbol>
+    <symbol id="icon-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"></path></symbol>
+    <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"></path></symbol>
+    <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.2 8.2 0 0 1 9.5 4 8.3 8.3 0 1 0 20 14.5z"></path></symbol>
+</svg>
+
+<button class="login-theme" type="button" data-theme-toggle aria-label="Theme: system">
     <svg class="icon icon-theme-auto" aria-hidden="true"><use href="#icon-auto"></use></svg>
     <svg class="icon icon-theme-light" aria-hidden="true"><use href="#icon-sun"></use></svg>
     <svg class="icon icon-theme-dark" aria-hidden="true"><use href="#icon-moon"></use></svg>
 </button>
+
 <main class="login" id="main">
     <form class="login-card" method="post" action="/login">
-        <svg class="login-logo" aria-hidden="true"><use href="#icon-logo"></use></svg>
+        <svg class="icon login-logo" aria-hidden="true"><use href="#icon-logo"></use></svg>
         <h1 class="login-title">{{.SiteTitle}}</h1>
         <p class="login-sub">Sign in to read and edit</p>
 
@@ -49,9 +59,8 @@ of reusing "doc-head". It works with JavaScript disabled: a plain POST form.
             <input class="input" type="password" name="password" autocomplete="current-password" required>
         </label>
 
-        <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+        <button class="btn" type="submit">Sign in</button>
     </form>
 </main>
-<script type="module" src="/static/{{.Version}}/js/app.js"></script>
 </body>
 </html>

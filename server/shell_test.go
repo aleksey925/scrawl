@@ -23,7 +23,7 @@ func TestAppShell(t *testing.T) {
 		scheme string
 	}{
 		{name: "root"},
-		{name: "deep link", path: "/app/p/guide.md"},
+		{name: "deep link", path: "/p/guide.md"},
 		{name: "light", theme: "light", scheme: "light"},
 		{name: "dark", theme: "dark", scheme: "dark"},
 		{name: "auto is left to the client", theme: "auto"},
@@ -32,7 +32,7 @@ func TestAppShell(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// arrange
-			req := request{path: "/app"}
+			req := request{path: "/"}
 			if tc.path != "" {
 				req.path = tc.path
 			}
@@ -68,14 +68,13 @@ func TestAppShellStatus(t *testing.T) {
 		path   string
 		status int
 	}{
-		{name: "document that exists", path: "/app/p/guide.md", status: http.StatusOK},
-		{name: "document that does not", path: "/app/p/nope.md", status: http.StatusNotFound},
-		{name: "missing document in a folder", path: "/app/p/docs/nope.md", status: http.StatusNotFound},
-		{name: "editing a missing document is how it is created", path: "/app/edit/nope.md", status: http.StatusOK},
-		{name: "a directory is not a missing document", path: "/app/p/docs", status: http.StatusOK},
-		{name: "an attachment is not judged here", path: "/app/p/snippet.py", status: http.StatusOK},
-		{name: "the app root", path: "/app", status: http.StatusOK},
-		{name: "a route only the client knows", path: "/app/nonsense", status: http.StatusOK},
+		{name: "document that exists", path: "/p/guide.md", status: http.StatusOK},
+		{name: "document that does not", path: "/p/nope.md", status: http.StatusNotFound},
+		{name: "missing document in a folder", path: "/p/docs/nope.md", status: http.StatusNotFound},
+		{name: "editing a missing document is how it is created", path: "/edit/nope.md", status: http.StatusOK},
+		{name: "a directory is not a missing document", path: "/p/docs", status: http.StatusOK},
+		{name: "the app root", path: "/", status: http.StatusOK},
+		{name: "the search page", path: "/search", status: http.StatusOK},
 	}
 
 	for _, tc := range tests {
@@ -98,7 +97,7 @@ func TestAppShellNonceMatchesThePolicy(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	resp, body := ts.do(t, request{path: "/app"})
+	resp, body := ts.do(t, request{path: "/"})
 
 	// assert
 	meta := regexp.MustCompile(`<meta name="csp-nonce" content="([^"]+)">`).FindStringSubmatch(body)
@@ -114,7 +113,7 @@ func TestAppShellLoadsTheBuiltBundle(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	resp, body := ts.do(t, request{path: "/app"})
+	resp, body := ts.do(t, request{path: "/"})
 
 	// assert
 	require.Equal(t, http.StatusOK, resp.status)

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"html/template"
 	"log"
 	"net/http"
 	"net/url"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/aleksey925/scrawl/render"
-	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
 )
 
@@ -38,36 +36,6 @@ type TreeNode struct {
 }
 
 // Base is embedded in every page struct.
-type Base struct {
-	SiteTitle   string
-	Title       string // page specific part of <title>
-	User        string // empty when auth is disabled
-	AuthOn      bool
-	ReadOnly    bool
-	Version     string // asset cache-busting token
-	Theme       string // "auto", "light" or "dark"
-	Tree        []TreeNode
-	Breadcrumbs []Crumb
-	CurrentPath string
-
-	HistoryOn       bool // versions of a document can be listed and restored
-	HistoryDegraded bool // a change was not recorded, so the list is behind the disk
-}
-
-// ViewPage renders one markdown document. TOC holds only the headings the rail
-// lists, and ShowTOC decides whether it is rendered at all, so the two cannot
-// disagree and leave an empty rail behind.
-type ViewPage struct {
-	Base
-	Content template.HTML
-	TOC     []render.Heading
-	ShowTOC bool
-	Rev     string
-	ModTime time.Time
-	EditURL string
-	Missing bool
-}
-
 // tocLevels are the heading levels the outline rail lists. Documents in this
 // corpus carry two h1s (the setext title plus a hand written "Contents") and
 // the largest one has 112 headings, which is unusable as a flat rail.
@@ -100,13 +68,6 @@ type DirEntry struct {
 }
 
 // DirPage renders a directory listing.
-type DirPage struct {
-	Base
-	Entries   []DirEntry
-	Readme    template.HTML
-	HasReadme bool
-}
-
 // dirEntries turns a store listing into the rows of a directory page.
 func dirEntries(entries []store.FileInfo) []DirEntry {
 	res := make([]DirEntry, 0, len(entries))
@@ -127,15 +88,6 @@ func dirEntries(entries []store.FileInfo) []DirEntry {
 	return res
 }
 
-// EditPage renders the editor.
-type EditPage struct {
-	Base
-	Content string
-	Rev     string
-	ViewURL string
-	IsNew   bool
-}
-
 // LoginPage renders the sign-in form. It carries no Base, because it is served
 // before there is a session and must not expose the tree.
 type LoginPage struct {
@@ -144,54 +96,6 @@ type LoginPage struct {
 	Theme     string
 	Error     string
 	From      string
-}
-
-// SearchPage renders full text search results.
-type SearchPage struct {
-	Base
-	Query   string
-	Hits    []search.Hit
-	Elapsed time.Duration
-}
-
-// HistoryPage lists the versions of one document, newest first. Rev is the
-// revision the document had when the page was built and a restore sends it
-// back, so a page left open cannot silently overwrite an edit it never saw.
-type HistoryPage struct {
-	Base
-	Entries    []historyEntry
-	ViewURL    string
-	Rev        string
-	CanRestore bool
-}
-
-// ErrorPage renders a failure as a normal page of the app.
-type ErrorPage struct {
-	Base
-	Code    int
-	Message string
-}
-
-// base fills the fields every page shares.
-func (wb *Web) base(r *http.Request, title, currentPath string) Base {
-	res := Base{
-		SiteTitle:   wb.Title,
-		Title:       title,
-		AuthOn:      !wb.AuthDisabled,
-		ReadOnly:    wb.ReadOnly,
-		Version:     wb.Version,
-		Theme:       themeOf(r),
-		Tree:        wb.treeNodes(currentPath),
-		Breadcrumbs: breadcrumbs(currentPath),
-		CurrentPath: currentPath,
-
-		HistoryOn:       wb.history().Enabled(),
-		HistoryDegraded: wb.history().Degraded(),
-	}
-	if wb.Auth != nil {
-		res.User, _ = wb.Auth.User(r)
-	}
-	return res
 }
 
 // themeOf reads the theme cookie, falling back to the automatic mode.

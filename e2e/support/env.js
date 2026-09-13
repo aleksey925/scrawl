@@ -21,11 +21,10 @@ const fixture = pickFixture();
 const workDir = process.env.SCRAWL_E2E_WORK || path.join(os.tmpdir(), 'scrawl-e2e');
 
 // appBase is where the app answers, and the only place in the suite that knows.
-// The react app is mounted under /app while the server rendered pages still own
-// /p/, /edit/, /history/ and /search; when it takes those over, this constant
-// becomes '' and nothing else in the suite changes.
+// It owns /p/, /edit/, /history/ and /search now, so the base is empty; it was
+// '/app' while the server rendered pages still held those routes.
 const appBase = process.env.SCRAWL_E2E_APP_BASE === undefined
-    ? '/app'
+    ? ''
     : process.env.SCRAWL_E2E_APP_BASE.replace(/\/$/, '');
 
 // encodePath escapes a content path segment by segment, the way the app builds

@@ -11,7 +11,6 @@ import {
   VisuallyHidden,
 } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
-import { notifications } from '@mantine/notifications';
 import {
   IconColumns2,
   IconDeviceFloppy,
@@ -28,6 +27,7 @@ import { errorText } from '../api/useApi';
 import { documentUrl, editUrl } from '../paths';
 import { PageActions } from '../shell/ShellSlots';
 import { layout } from '../theme';
+import { showToast } from '../toast';
 
 import { PreviewPane } from './PreviewPane';
 import { SourceEditor, type DroppedFiles } from './SourceEditor';
@@ -68,6 +68,16 @@ const modeOptions = [
   { value: 'split', icon: IconColumns2, label: 'Split view' },
   { value: 'preview', icon: IconEye, label: 'Preview only' },
 ] as const;
+
+type SaveState = 'saving' | 'uploading' | 'dirty' | 'new' | 'saved';
+
+const saveStateText: Record<SaveState, string> = {
+  saving: 'Saving',
+  uploading: 'Waiting for the upload',
+  dirty: 'Unsaved changes',
+  new: 'New page',
+  saved: 'Saved',
+};
 
 export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const { path, initialContent, initialRev, isNew, readOnly } = props;
@@ -267,7 +277,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       leavingRef.current = true;
       await navigate(editUrl(copyPath));
     } catch (error: unknown) {
-      notifications.show({ message: errorText(error), color: 'red' });
+      showToast('error', { message: errorText(error) });
     }
   }, [navigate, path]);
 
@@ -289,20 +299,20 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         draftRef.current.flush();
         const res = await api.saveFile(path, { content: sent, rev: withRev ?? revRef.current });
         markSaved(sent, res.rev);
-        notifications.show({ message: 'Saved', color: 'green' });
+        showToast('ok', { message: 'Saved' });
       } catch (error: unknown) {
         if (error instanceof ApiError && (error.status === 412 || error.status === 409)) {
           const current: ApiConflict | undefined =
             error.conflict ?? (await api.file(path).catch(() => undefined));
           if (current === undefined) {
-            notifications.show({ message: errorText(error), color: 'red' });
+            showToast('error', { message: errorText(error) });
             return;
           }
           // a response lost on the way back leaves the write done and this
           // editor a revision behind, so the retry collides with its own text
           if (current.content === sent) {
             markSaved(sent, current.rev);
-            notifications.show({ message: 'Saved', color: 'green' });
+            showToast('ok', { message: 'Saved' });
             return;
           }
           openConflict({
@@ -318,7 +328,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           openSessionExpired(`/login?from=${encodeURIComponent(location.pathname)}`);
           return;
         }
-        notifications.show({ message: errorText(error), color: 'red' });
+        showToast('error', { message: errorText(error) });
       } finally {
         savingRef.current = false;
         setSaving(false);
@@ -384,15 +394,15 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const [countable] = useDebouncedValue(content, 300);
   const lines = useMemo(() => countable.split('\n').length, [countable]);
 
-  const status = saving
-    ? 'Saving'
+  const saveState: SaveState = saving
+    ? 'saving'
     : uploads.pending > 0
-      ? 'Waiting for the upload'
+      ? 'uploading'
       : dirty
-        ? 'Unsaved changes'
+        ? 'dirty'
         : isNew
-          ? 'New page'
-          : 'Saved';
+          ? 'new'
+          : 'saved';
 
   const showSource = mode !== 'preview';
   const showPreview = mode !== 'source';
@@ -400,10 +410,12 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const previewStyle = mode === 'split' ? { flex: '1 1 0' } : undefined;
 
   return (
-    <div className={classes.screen}>
+    <div data-testid="editor" className={classes.screen}>
       <PageActions>
         {wide && (
           <SegmentedControl
+            data-testid="editor-layout-mode"
+            data-mode={chosen}
             size="xs"
             value={chosen}
             onChange={(value) => choose(value as LayoutMode)}
@@ -421,6 +433,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         )}
         {!readOnly && (
           <Button
+            data-testid="editor-save"
             size="xs"
             loading={saving}
             leftSection={<IconDeviceFloppy size={16} />}
@@ -430,6 +443,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           </Button>
         )}
         <Button
+          data-testid="editor-cancel"
           variant="subtle"
           color="gray"
           size="xs"
@@ -441,13 +455,19 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       </PageActions>
 
       {readOnly && (
-        <Alert color="yellow" variant="light">
+        <Alert data-testid="editor-readonly" color="yellow" variant="light">
           This server is read-only. You can read the source here, but it cannot be saved.
         </Alert>
       )}
 
       {draft.offered !== undefined && (
-        <Alert color="yellow" variant="light" title="An unsaved draft was found">
+        <Alert
+          data-testid="editor-draft"
+          data-stale={draft.stale ? 'true' : 'false'}
+          color="yellow"
+          variant="light"
+          title="An unsaved draft was found"
+        >
           <Group justify="space-between" wrap="wrap" gap="sm">
             <Text size="sm">
               {`Written ${new Date(draft.offered.at).toLocaleString()}`}
@@ -455,6 +475,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             </Text>
             <Group gap="xs">
               <Button
+                data-testid="editor-draft-restore"
                 size="xs"
                 variant="default"
                 onClick={() => {
@@ -472,7 +493,13 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               >
                 Restore
               </Button>
-              <Button size="xs" variant="subtle" color="gray" onClick={draft.discard}>
+              <Button
+                data-testid="editor-draft-discard"
+                size="xs"
+                variant="subtle"
+                color="gray"
+                onClick={draft.discard}
+              >
                 Discard
               </Button>
             </Group>
@@ -482,14 +509,15 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
       {!wide && (
         <Tabs
+          data-testid="editor-tabs"
           value={mode === 'preview' ? 'preview' : 'source'}
           onChange={(value) => choose(value === 'preview' ? 'preview' : 'source')}
         >
           <Tabs.List grow>
-            <Tabs.Tab value="source" h={layout.tapTarget}>
+            <Tabs.Tab data-testid="editor-tab-source" value="source" h={layout.tapTarget}>
               Text
             </Tabs.Tab>
-            <Tabs.Tab value="preview" h={layout.tapTarget}>
+            <Tabs.Tab data-testid="editor-tab-preview" value="preview" h={layout.tapTarget}>
               Preview
             </Tabs.Tab>
           </Tabs.List>
@@ -500,14 +528,22 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         <Group gap="xs" wrap="nowrap">
           <Toolbar onAction={onAction} onPickImage={() => fileRef.current?.click()} />
           {uploads.pending > 0 && (
-            <ActionIcon size={layout.tapTarget} variant="subtle" color="gray" loading aria-label="Uploading">
+            <ActionIcon
+              data-testid="editor-upload-pending"
+              data-pending={uploads.pending}
+              size={layout.tapTarget}
+              variant="subtle"
+              color="gray"
+              loading
+              aria-label="Uploading"
+            >
               <IconPhoto size={18} />
             </ActionIcon>
           )}
         </Group>
       )}
 
-      <div className={classes.panes} ref={panesRef}>
+      <div data-testid="editor-panes" data-mode={mode} className={classes.panes} ref={panesRef}>
         {showSource && (
           <div className={classes.pane} style={sourceStyle}>
             <SourceEditor
@@ -536,19 +572,27 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       </div>
 
       <Group gap="xs" justify="space-between">
-        <Text size="xs" c="dimmed">
+        <Text data-testid="editor-lines" data-lines={lines} size="xs" c="dimmed">
           {`${lines} lines`}
         </Text>
-        <Text size="xs" c="dimmed" aria-live="polite">
-          {status}
+        <Text
+          data-testid="editor-status"
+          data-dirty={dirty ? 'true' : 'false'}
+          data-state={saveState}
+          size="xs"
+          c="dimmed"
+          aria-live="polite"
+        >
+          {saveStateText[saveState]}
         </Text>
-        <Text size="xs" c="dimmed" truncate>
+        <Text data-testid="editor-path" size="xs" c="dimmed" truncate>
           {path}
         </Text>
       </Group>
 
       <input
         ref={fileRef}
+        data-testid="editor-upload-input"
         type="file"
         accept={uploadAccept}
         multiple

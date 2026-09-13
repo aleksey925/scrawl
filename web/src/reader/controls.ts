@@ -10,13 +10,23 @@ export const copiedLabel = 'Copied';
 export function injectControls(root: HTMLElement): () => void {
   const added: HTMLElement[] = [];
   const prepared: HTMLImageElement[] = [];
+  const tagged: HTMLElement[] = [];
+
+  // note html is the reader's own, so every hook this puts on it is taken back
+  // off again: React never owns anything in here to re-render it away
+  const tag = (element: HTMLElement, testid: string): void => {
+    element.dataset.testid = testid;
+    tagged.push(element);
+  };
 
   for (const heading of headingsOf(root)) {
     if (heading.querySelector(`.${anchorClass}`) !== null) {
       continue;
     }
+    tag(heading, 'doc-heading');
     const anchor = document.createElement('a');
     anchor.className = anchorClass;
+    anchor.dataset.testid = 'doc-heading-anchor';
     anchor.setAttribute('href', `#${encodeURIComponent(heading.id)}`);
     anchor.dataset.headingId = heading.id;
     anchor.setAttribute('aria-label', 'Copy a link to this section');
@@ -34,9 +44,12 @@ export function injectControls(root: HTMLElement): () => void {
     if (block.querySelector(`.${copyClass}`) !== null) {
       continue;
     }
+    tag(block, 'doc-code');
     const button = document.createElement('button');
     button.type = 'button';
     button.className = copyClass;
+    button.dataset.testid = 'code-copy';
+    button.dataset.done = 'false';
     button.textContent = copyLabel;
     block.append(button);
     added.push(button);
@@ -48,12 +61,16 @@ export function injectControls(root: HTMLElement): () => void {
     image.tabIndex = 0;
     image.setAttribute('role', 'button');
     image.setAttribute('aria-label', image.alt === '' ? 'Open image' : `Open image: ${image.alt}`);
+    tag(image, 'doc-image');
     prepared.push(image);
   }
 
   return () => {
     for (const node of added) {
       node.remove();
+    }
+    for (const node of tagged) {
+      delete node.dataset.testid;
     }
     for (const image of prepared) {
       image.removeAttribute('tabindex');

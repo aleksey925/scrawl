@@ -24,26 +24,39 @@ export function Component(): JSX.Element {
 
   return (
     <Container size={layout.contentMeasure} px={0} style={{ minWidth: 0 }}>
-      <Stack gap="xl" style={{ minWidth: 0 }}>
-        <Title order={1}>{wanted === '' ? 'Search' : `Search: ${wanted}`}</Title>
+      <Stack data-testid="search" gap="xl" style={{ minWidth: 0 }}>
+        <Title data-testid="search-title" order={1}>
+          {wanted === '' ? 'Search' : `Search: ${wanted}`}
+        </Title>
 
         {wanted === '' ? (
-          <Text c="dimmed">Type a query to search every note.</Text>
+          <Text data-testid="search-prompt" c="dimmed">
+            Type a query to search every note.
+          </Text>
         ) : (
-          <AsyncContent state={state}>
+          <AsyncContent state={state} testId="search">
             {(results) =>
               results.hits.length === 0 ? (
-                <Text c="dimmed">No notes match that.</Text>
+                <Text data-testid="search-empty" c="dimmed">
+                  No notes match that.
+                </Text>
               ) : (
-                <Stack gap="xl" style={{ minWidth: 0 }}>
-                  <Text size="sm" c="dimmed">
+                <Stack data-testid="search-results" gap="xl" style={{ minWidth: 0 }}>
+                  <Text data-testid="search-count" data-total={results.hits.length} size="sm" c="dimmed">
                     {results.hits.length} {results.hits.length === 1 ? 'result' : 'results'} in{' '}
                     {results.elapsed_ms} ms
                   </Text>
 
                   {results.hits.map((hit) => (
-                    <Stack key={hit.path} gap={4} style={{ minWidth: 0 }}>
+                    <Stack
+                      key={hit.path}
+                      data-testid="search-result"
+                      data-path={hit.path}
+                      gap={4}
+                      style={{ minWidth: 0 }}
+                    >
                       <Anchor
+                        data-testid="search-result-link"
                         component={Link}
                         // the query rides along so the reader lands with the
                         // matches highlighted
@@ -52,7 +65,12 @@ export function Component(): JSX.Element {
                       >
                         {hit.title === '' ? hit.path : hit.title}
                       </Anchor>
-                      <Text size="xs" c="dimmed" style={{ overflowWrap: 'anywhere' }}>
+                      <Text
+                        data-testid="search-result-path"
+                        size="xs"
+                        c="dimmed"
+                        style={{ overflowWrap: 'anywhere' }}
+                      >
                         {hit.path}
                       </Text>
                       <Snippet snippet={hit.snippet} />

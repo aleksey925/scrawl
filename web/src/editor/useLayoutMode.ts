@@ -26,7 +26,7 @@ function storedSplit(): number {
 }
 
 export function useEditorLayout(): LayoutControl {
-  const wide = useAtLeast(layoutBreakpoints.sidebar);
+  const wide = useAtLeast(layoutBreakpoints.editorSplit);
 
   const [chosen, setChosen] = useState<LayoutMode>(() => {
     const stored = readText(localStore(), modeKey);

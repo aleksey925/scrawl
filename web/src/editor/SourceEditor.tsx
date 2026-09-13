@@ -83,7 +83,11 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
   }, []);
 
   return (
-    <div className={`${classes.pane} ${classes.grow} ${classes.source} ${dropping ? classes.dropping : ''}`}>
+    <div
+      data-testid="editor-source"
+      data-dropping={dropping ? 'true' : 'false'}
+      className={`${classes.pane} ${classes.grow} ${classes.source} ${dropping ? classes.dropping : ''}`}
+    >
       <CodeMirror
         value={value}
         height="100%"

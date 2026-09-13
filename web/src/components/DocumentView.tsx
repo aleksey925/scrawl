@@ -18,15 +18,18 @@ export function DocumentView({ path }: DocumentViewProps): JSX.Element {
   const state = useApi((signal) => api.page(path, { signal }), [path]);
 
   return (
-    <AsyncContent state={state}>
+    <AsyncContent state={state} testId="doc">
       {(page) =>
         page.kind === 'missing-document' ? (
-          <Stack gap="lg">
-            <Title order={1}>{page.title}</Title>
+          <Stack data-testid="doc-missing" gap="lg">
+            <Title data-testid="doc-title" order={1}>
+              {page.title}
+            </Title>
             <Text c="dimmed">This note does not exist yet.</Text>
             {page.can_create && (
               <Group>
                 <Button
+                  data-testid="doc-create"
                   component={Link}
                   to={editUrl(path)}
                   leftSection={<IconPlus size={16} />}

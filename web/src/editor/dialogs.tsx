@@ -13,13 +13,13 @@ export function confirmLeave(): Promise<boolean> {
     modals.openConfirmModal({
       title: 'Leave without saving?',
       children: (
-        <Text size="sm">
+        <Text data-testid="modal" data-variant="confirm" size="sm">
           Your changes are kept as a local draft, but they are not written to disk.
         </Text>
       ),
       labels: { confirm: 'Leave', cancel: 'Stay' },
-      confirmProps: { color: 'red', h: layout.tapTarget },
-      cancelProps: { h: layout.tapTarget },
+      confirmProps: { color: 'red', h: layout.tapTarget, 'data-testid': 'modal-confirm' },
+      cancelProps: { h: layout.tapTarget, 'data-testid': 'modal-cancel' },
       onConfirm: () => resolve(true),
       onCancel: () => resolve(false),
       onClose: () => resolve(false),
@@ -40,7 +40,7 @@ export function openConflict({ mine, theirs, onOverwrite, onCopy }: ConflictOpti
     title: 'This file changed on disk',
     size: 'xl',
     children: (
-      <Stack gap="md">
+      <Stack data-testid="modal" data-variant="conflict" gap="md">
         <Text size="sm">
           Someone or something else wrote to this file after you started editing.
         </Text>
@@ -49,20 +49,30 @@ export function openConflict({ mine, theirs, onOverwrite, onCopy }: ConflictOpti
             <Text size="xs" fw={600}>
               Your version
             </Text>
-            <pre className={classes.conflictText}>{mine}</pre>
+            <pre data-testid="editor-conflict-mine" className={classes.conflictText}>
+              {mine}
+            </pre>
           </Stack>
           <Stack gap="xs">
             <Text size="xs" fw={600}>
               On disk
             </Text>
-            <pre className={classes.conflictText}>{theirs}</pre>
+            <pre data-testid="editor-conflict-theirs" className={classes.conflictText}>
+              {theirs}
+            </pre>
           </Stack>
         </SimpleGrid>
         <Group justify="flex-end">
-          <Button variant="default" h={layout.tapTarget} onClick={() => modals.close(conflictId)}>
+          <Button
+            data-testid="editor-conflict-cancel"
+            variant="default"
+            h={layout.tapTarget}
+            onClick={() => modals.close(conflictId)}
+          >
             Cancel
           </Button>
           <Button
+            data-testid="editor-conflict-copy"
             variant="default"
             h={layout.tapTarget}
             onClick={() => {
@@ -73,6 +83,7 @@ export function openConflict({ mine, theirs, onOverwrite, onCopy }: ConflictOpti
             Save as copy
           </Button>
           <Button
+            data-testid="editor-conflict-overwrite"
             color="red"
             h={layout.tapTarget}
             onClick={() => {
@@ -93,16 +104,22 @@ export function openSessionExpired(loginUrl: string): void {
     modalId: sessionId,
     title: 'Your session expired',
     children: (
-      <Stack gap="md">
+      <Stack data-testid="modal" data-variant="session" gap="md">
         <Text size="sm">
           Nothing was saved. Your text is still here and kept as a local draft. Sign in again in the
           new tab, then come back and save.
         </Text>
         <Group justify="flex-end">
-          <Button variant="default" h={layout.tapTarget} onClick={() => modals.close(sessionId)}>
+          <Button
+            data-testid="editor-session-dismiss"
+            variant="default"
+            h={layout.tapTarget}
+            onClick={() => modals.close(sessionId)}
+          >
             Not now
           </Button>
           <Button
+            data-testid="editor-session-signin"
             h={layout.tapTarget}
             onClick={() => {
               window.open(loginUrl, '_blank', 'noopener');

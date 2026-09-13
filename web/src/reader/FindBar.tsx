@@ -27,12 +27,20 @@ export function FindBar({ position, total, onStep, onClose }: FindBarProps): JSX
       position={{ bottom: 'calc(var(--mantine-spacing-lg) + env(safe-area-inset-bottom))', left: '50%' }}
       style={{ transform: 'translateX(-50%)' }}
     >
-      <Paper withBorder shadow="lg" radius="xl" p={4} role="status">
+      <Paper data-testid="doc-find" withBorder shadow="lg" radius="xl" p={4} role="status">
         <Group gap={4} wrap="nowrap" pl="sm">
-          <Text size="sm" c="dimmed" style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+          <Text
+            data-testid="doc-find-count"
+            data-position={position}
+            data-total={total}
+            size="sm"
+            c="dimmed"
+            style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
+          >
             {position} of {total}
           </Text>
           <ActionIcon
+            data-testid="doc-find-prev"
             variant="subtle"
             color="gray"
             size={layout.tapTarget}
@@ -43,6 +51,7 @@ export function FindBar({ position, total, onStep, onClose }: FindBarProps): JSX
             <IconChevronUp size={18} />
           </ActionIcon>
           <ActionIcon
+            data-testid="doc-find-next"
             variant="subtle"
             color="gray"
             size={layout.tapTarget}
@@ -53,6 +62,7 @@ export function FindBar({ position, total, onStep, onClose }: FindBarProps): JSX
             <IconChevronDown size={18} />
           </ActionIcon>
           <ActionIcon
+            data-testid="doc-find-close"
             variant="subtle"
             color="gray"
             size={layout.tapTarget}

@@ -29,6 +29,7 @@ export interface DiffViewProps {
 export function DiffView({ patch }: DiffViewProps): JSX.Element {
   return (
     <Box
+      data-testid="history-diff"
       style={{
         minWidth: 0,
         maxHeight: 460,

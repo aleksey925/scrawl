@@ -17,12 +17,15 @@ export function PreviewPane({ html, notice, busy, scrollRef, alone }: PreviewPan
   return (
     <Box
       ref={scrollRef}
+      data-testid="editor-preview"
+      data-busy={busy ? 'true' : 'false'}
+      data-alone={alone ? 'true' : 'false'}
       className={`${classes.pane} ${classes.grow} ${classes.preview} ${alone ? classes.previewOnly : ''}`}
       aria-live="polite"
       aria-busy={busy}
     >
       {notice !== undefined && (
-        <Alert color="yellow" variant="light" mb="md">
+        <Alert data-testid="editor-preview-notice" color="yellow" variant="light" mb="md">
           {notice}
         </Alert>
       )}

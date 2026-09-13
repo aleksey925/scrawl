@@ -51,26 +51,46 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
   const crumbs = crumbsOf(location.pathname);
 
   return (
-    <Group h="100%" px="lg" gap="sm" wrap="nowrap">
+    <Group data-testid="topbar" h="100%" px="lg" gap="sm" wrap="nowrap">
       {burger}
 
-      <Breadcrumbs separator="/" style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+      <Breadcrumbs
+        data-testid="topbar-breadcrumbs"
+        separator="/"
+        style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}
+      >
         {crumbs.map((crumb, index) =>
           crumb.url === undefined ? (
-            <Text key={`${crumb.name}-${index}`} size="sm" fw={500} truncate>
+            <Text
+              key={`${crumb.name}-${index}`}
+              data-testid="topbar-crumb"
+              data-current="true"
+              size="sm"
+              fw={500}
+              truncate
+            >
               {crumb.name}
             </Text>
           ) : (
-            <Anchor key={`${crumb.name}-${index}`} component={Link} to={crumb.url} size="sm" c="dimmed">
+            <Anchor
+              key={`${crumb.name}-${index}`}
+              data-testid="topbar-crumb"
+              data-current="false"
+              component={Link}
+              to={crumb.url}
+              size="sm"
+              c="dimmed"
+            >
               {crumb.name}
             </Anchor>
           ),
         )}
       </Breadcrumbs>
 
-      <Group gap="xs" wrap="nowrap" ref={actionsRef} />
+      <Group data-testid="topbar-actions" gap="xs" wrap="nowrap" ref={actionsRef} />
 
       <Button
+        data-testid="topbar-search"
         variant="default"
         size="xs"
         leftSection={<IconSearch size={16} />}
@@ -80,6 +100,7 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
         Search
       </Button>
       <ActionIcon
+        data-testid="topbar-search-compact"
         variant="subtle"
         color="gray"
         size="lg"
@@ -91,7 +112,14 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
       </ActionIcon>
 
       {tocAvailable && (
-        <ActionIcon variant="subtle" color="gray" size="lg" aria-label="On this page" onClick={onOpenToc}>
+        <ActionIcon
+          data-testid="topbar-toc"
+          variant="subtle"
+          color="gray"
+          size="lg"
+          aria-label="On this page"
+          onClick={onOpenToc}
+        >
           <IconListSearch size={18} />
         </ActionIcon>
       )}

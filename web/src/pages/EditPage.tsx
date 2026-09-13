@@ -32,7 +32,7 @@ export function Component(): JSX.Element {
   }, [path]);
 
   return (
-    <AsyncContent state={state}>
+    <AsyncContent state={state} testId="editor">
       {({ me, file }) => (
         <EditorScreen
           key={path}

@@ -46,7 +46,10 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
         gap={2}
         wrap="nowrap"
         pr={4}
-        data-nav-current={node.current ? 'true' : undefined}
+        data-testid="tree-row"
+        data-current={node.current ? 'true' : 'false'}
+        data-dir={node.is_dir ? 'true' : 'false'}
+        data-path={node.path}
         style={{
           minWidth: 0,
           minHeight: touch ? layout.tapTarget : deskRowHeight,
@@ -57,6 +60,8 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
       >
         {node.is_dir ? (
           <ActionIcon
+            data-testid="tree-twisty"
+            data-open={open ? 'true' : 'false'}
             variant="subtle"
             color="gray"
             size={touch ? 'lg' : 'sm'}
@@ -72,6 +77,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
         )}
 
         <Anchor
+          data-testid="tree-link"
           component={Link}
           to={node.url}
           underline="never"
@@ -141,7 +147,7 @@ export function SidebarNav(): JSX.Element {
   // than it leaves the page just opened somewhere off screen
   useEffect(() => {
     const viewport = viewportRef.current;
-    const row = viewport?.querySelector<HTMLElement>('[data-nav-current="true"]');
+    const row = viewport?.querySelector<HTMLElement>('[data-testid="tree-row"][data-current="true"]');
     if (viewport === null || row === null || row === undefined) {
       return;
     }
@@ -172,9 +178,10 @@ export function SidebarNav(): JSX.Element {
   }
 
   return (
-    <Stack gap="xs" h="100%" style={{ minWidth: 0 }}>
+    <Stack data-testid="sidebar" gap="xs" h="100%" style={{ minWidth: 0 }}>
       <Box px="xs" pt="xs">
         <TextInput
+          data-testid="sidebar-filter"
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}
           onKeyDown={onFilterKey}
@@ -188,6 +195,7 @@ export function SidebarNav(): JSX.Element {
               // a touch keyboard has no Escape, so this is the only way out of
               // a query on a phone
               <ActionIcon
+                data-testid="sidebar-filter-clear"
                 variant="subtle"
                 color="gray"
                 size={touch ? 'lg' : 'sm'}
@@ -205,17 +213,17 @@ export function SidebarNav(): JSX.Element {
       <ScrollArea type="hover" viewportRef={viewportRef} style={{ flex: '1 1 auto', minWidth: 0 }}>
         <Box px="xs" pb="xs" style={{ minWidth: 0 }}>
           {error !== undefined ? (
-            <Text size="sm" c="dimmed">
+            <Text data-testid="sidebar-error" size="sm" c="dimmed">
               {errorText(error)}
             </Text>
           ) : loading && tree.length === 0 ? (
-            <Stack gap={6}>
+            <Stack data-testid="sidebar-loading" gap={6}>
               <Skeleton height={24} radius="sm" />
               <Skeleton height={24} radius="sm" />
               <Skeleton height={24} radius="sm" />
             </Stack>
           ) : trimmed !== '' && filtered.matches.length === 0 ? (
-            <Text size="sm" c="dimmed">
+            <Text data-testid="sidebar-empty" size="sm" c="dimmed">
               Nothing matches. Press Enter to search the text of every note.
             </Text>
           ) : (
@@ -227,6 +235,7 @@ export function SidebarNav(): JSX.Element {
       {canWrite && (
         <Group gap="xs" px="xs" pb="xs" wrap="nowrap">
           <Button
+            data-testid="sidebar-new-page"
             variant="default"
             size={touch ? 'sm' : 'xs'}
             leftSection={<IconPlus size={14} />}
@@ -236,6 +245,7 @@ export function SidebarNav(): JSX.Element {
             New page
           </Button>
           <Button
+            data-testid="sidebar-new-folder"
             variant="default"
             size={touch ? 'sm' : 'xs'}
             leftSection={<IconFolderPlus size={14} />}

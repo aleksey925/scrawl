@@ -21,6 +21,8 @@ export function ThemeToggle(): JSX.Element {
   return (
     <Tooltip label={`Theme: ${colorScheme}`}>
       <ActionIcon
+        data-testid="topbar-theme"
+        data-scheme={colorScheme}
         variant="subtle"
         color="gray"
         size="lg"

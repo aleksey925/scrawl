@@ -41,6 +41,10 @@ export const layoutBreakpoints = {
   sidebar: 'md',
   tocRail: 'lg',
   compactTopbar: 'sm',
+  // two panes side by side, or one above the other
+  splitPane: 'md',
+  // the editor's splitter, or a tab per pane
+  editorSplit: 'md',
 } as const satisfies Record<string, BreakpointName>;
 
 export const layout = {

@@ -53,6 +53,8 @@ function markMatches(root: HTMLElement, terms: string[]): HTMLElement[] {
       parts.append(document.createTextNode(value.slice(last, found.index)));
       const mark = document.createElement('mark');
       mark.className = hitClass;
+      mark.dataset.testid = 'find-hit';
+      mark.dataset.active = 'false';
       mark.textContent = found[0];
       parts.append(mark);
       hits.push(mark);
@@ -88,11 +90,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
     }
     const next = (at + found.length) % found.length;
     found.forEach((mark, position) => {
-      if (position === next) {
-        mark.dataset.active = 'true';
-      } else {
-        delete mark.dataset.active;
-      }
+      mark.dataset.active = position === next ? 'true' : 'false';
     });
     found[next]?.scrollIntoView({ block: 'center', behavior });
     setIndex(next);

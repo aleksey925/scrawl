@@ -1,6 +1,7 @@
-import { notifications } from '@mantine/notifications';
 import { useEffect, useRef, type RefObject } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+
+import { showToast } from '../toast';
 
 import { copyText } from './clipboard';
 import { anchorClass, copiedLabel, copyClass, copyLabel, injectControls } from './controls';
@@ -45,23 +46,21 @@ export function useDocumentControls(
       const id = anchor.dataset.headingId ?? '';
       jump(id, true);
       const copied = await copyText(`${window.location.origin}${window.location.pathname}#${id}`);
-      notifications.show(
-        copied
-          ? { message: 'Link copied' }
-          : { message: 'Could not copy the link', color: 'red' },
-      );
+      showToast(copied ? 'ok' : 'error', {
+        message: copied ? 'Link copied' : 'Could not copy the link',
+      });
     };
 
     const copyCode = async (button: HTMLElement): Promise<void> => {
       const code = button.closest('.code-block')?.querySelector('pre');
       if (!(await copyText(code?.textContent ?? ''))) {
-        notifications.show({ message: 'Could not copy the code', color: 'red' });
+        showToast('error', { message: 'Could not copy the code' });
         return;
       }
-      button.dataset.copied = 'true';
+      button.dataset.done = 'true';
       button.textContent = copiedLabel;
       const timer = window.setTimeout(() => {
-        delete button.dataset.copied;
+        button.dataset.done = 'false';
         button.textContent = copyLabel;
         timers.delete(timer);
       }, copiedFor);

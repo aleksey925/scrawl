@@ -11,9 +11,11 @@ export function RouteError(): JSX.Element {
     : errorText(error);
 
   return (
-    <Stack p="xl" gap="md">
+    <Stack data-testid="app-error" p="xl" gap="md">
       <Title order={2}>This page broke</Title>
-      <Alert color="red">{message}</Alert>
+      <Alert data-testid="app-error-message" color="red">
+        {message}
+      </Alert>
       <Anchor component={Link} to="/">
         Back to all notes
       </Anchor>

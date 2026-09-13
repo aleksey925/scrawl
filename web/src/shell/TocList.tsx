@@ -9,13 +9,15 @@ export interface TocListProps {
 
 export function TocList({ headings }: TocListProps): JSX.Element {
   return (
-    <Stack gap="xs">
+    <Stack data-testid="toc" gap="xs">
       <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
         On this page
       </Text>
       {headings.map((heading) => (
         <Anchor
           key={heading.id}
+          data-testid="toc-entry"
+          data-level={heading.level}
           href={`#${heading.id}`}
           size="sm"
           c="dimmed"

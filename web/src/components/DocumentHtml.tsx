@@ -46,6 +46,7 @@ export function DocumentHtml({ html, toc }: DocumentHtmlProps): JSX.Element {
             render/policy.go. */}
         <div
           ref={rootRef}
+          data-testid="doc"
           className="markdown-document"
           dangerouslySetInnerHTML={{ __html: html }}
         />

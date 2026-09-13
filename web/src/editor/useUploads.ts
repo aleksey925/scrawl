@@ -1,10 +1,10 @@
 import { EditorSelection } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
-import { notifications } from '@mantine/notifications';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { api } from '../api/client';
 import { errorText } from '../api/useApi';
+import { showToast } from '../toast';
 
 export interface UploadControl {
   pending: number;
@@ -63,14 +63,14 @@ export function useUploads(path: string, getView: () => EditorView | undefined):
             if (current !== undefined) {
               swap(current, placeholder, res.markdown === '' ? `![](${res.path})` : res.markdown);
             }
-            notifications.show({ message: 'Image uploaded', color: 'green' });
+            showToast('ok', { message: 'Image uploaded' });
           })
           .catch((error: unknown) => {
             const current = getView();
             if (current !== undefined) {
               swap(current, placeholder, '');
             }
-            notifications.show({ message: errorText(error), color: 'red' });
+            showToast('error', { message: errorText(error) });
           })
           .finally(() => {
             jobs.current.delete(job);

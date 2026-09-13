@@ -9,7 +9,7 @@ export interface ReaderTocProps {
 
 export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
   return (
-    <Stack gap={2}>
+    <Stack data-testid="toc" gap={2}>
       <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb="xs">
         On this page
       </Text>
@@ -22,6 +22,9 @@ export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
         return (
           <Anchor
             key={entry.id}
+            data-testid="toc-entry"
+            data-active={active ? 'true' : 'false'}
+            data-level={entry.level}
             href={`#${encodeURIComponent(entry.id)}`}
             onClick={onClick}
             size="sm"

@@ -38,7 +38,7 @@ export function Snippet({ snippet }: SnippetProps): JSX.Element {
   }
 
   return (
-    <Text size="sm" c="dimmed">
+    <Text data-testid="search-result-snippet" size="sm" c="dimmed">
       {parts}
     </Text>
   );

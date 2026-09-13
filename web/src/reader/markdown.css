@@ -240,7 +240,7 @@
   }
 }
 
-.md-copy[data-copied] {
+.md-copy[data-done='true'] {
   border-color: var(--scrawl-success);
   color: var(--scrawl-success);
   opacity: 1;
@@ -447,7 +447,7 @@
   color: inherit;
 }
 
-.markdown-document .md-find[data-active] {
+.markdown-document .md-find[data-active='true'] {
   background: var(--scrawl-accent);
   color: #fff;
 }

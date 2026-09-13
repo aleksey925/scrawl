@@ -38,24 +38,30 @@ export function Component(): JSX.Element {
 
   return (
     <Center mih="100dvh" p="lg">
-      <Paper withBorder shadow="md" p="xl" radius="lg" w={360}>
+      <Paper data-testid="login" withBorder shadow="md" p="xl" radius="lg" w={360}>
         <form onSubmit={form.onSubmit((values) => void submit(values))}>
           <Stack gap="lg">
             <Title order={2}>Sign in</Title>
-            {error !== undefined && <Alert color="red">{error}</Alert>}
+            {error !== undefined && (
+              <Alert data-testid="login-error" color="red">
+                {error}
+              </Alert>
+            )}
             <TextInput
+              data-testid="login-username"
               label="User name"
               autoComplete="username"
               styles={inputStyles}
               {...form.getInputProps('username')}
             />
             <PasswordInput
+              data-testid="login-password"
               label="Password"
               autoComplete="current-password"
               styles={inputStyles}
               {...form.getInputProps('password')}
             />
-            <Button type="submit" loading={busy} h={layout.tapTarget}>
+            <Button data-testid="login-submit" type="submit" loading={busy} h={layout.tapTarget}>
               Sign in
             </Button>
           </Stack>

@@ -72,6 +72,8 @@ export function AppLayout(): JSX.Element {
               <Topbar
                 burger={
                   <Burger
+                    data-testid="topbar-burger"
+                    data-opened={navOpened ? 'true' : 'false'}
                     opened={navOpened}
                     onClick={nav.toggle}
                     hiddenFrom={layoutBreakpoints.sidebar}
@@ -97,6 +99,7 @@ export function AppLayout(): JSX.Element {
           {/* Mantine owns the overlay, the focus trap and the inert page behind it */}
           {!wideSidebar && (
             <Drawer
+              data-testid="sidebar-drawer"
               opened={navOpened}
               onClose={nav.close}
               size={layout.sidebarWidth}
@@ -109,6 +112,7 @@ export function AppLayout(): JSX.Element {
 
           {!wideToc && (
             <Drawer
+              data-testid="toc-drawer"
               opened={tocOpened}
               onClose={toc.close}
               position="bottom"

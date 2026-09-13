@@ -21,6 +21,7 @@ export function Splitter({ onDrag, onNudge }: SplitterProps): JSX.Element {
   return (
     <div
       ref={self}
+      data-testid="editor-splitter"
       className={classes.splitter}
       role="separator"
       aria-orientation="vertical"

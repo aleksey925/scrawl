@@ -18,26 +18,35 @@ export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
   const state = useApi((signal) => api.dir(path, { signal }), [path]);
 
   return (
-    <AsyncContent state={state}>
+    <AsyncContent state={state} testId="dir">
       {(dir) =>
         dir.kind === 'document' ? (
           <DocumentBody doc={dir} />
         ) : (
-          <Stack gap="xl">
-            <Title order={1}>{dir.title}</Title>
+          <Stack data-testid="dir" gap="xl">
+            <Title data-testid="dir-title" order={1}>
+              {dir.title}
+            </Title>
             {dir.has_readme && <DocumentHtml html={dir.readme_html} />}
             {dir.entries.length === 0 ? (
-              <Text c="dimmed">This folder is empty.</Text>
+              <Text data-testid="dir-empty" c="dimmed">
+                This folder is empty.
+              </Text>
             ) : (
-              <Table highlightOnHover>
+              <Table data-testid="dir-table" highlightOnHover>
                 <Table.Tbody>
                   {dir.entries.map((entry) => (
-                    <Table.Tr key={entry.path}>
+                    <Table.Tr
+                      key={entry.path}
+                      data-testid="dir-row"
+                      data-path={entry.path}
+                      data-dir={entry.is_dir ? 'true' : 'false'}
+                    >
                       <Table.Td w={28}>
                         {entry.is_dir ? <IconFolder size={16} /> : <IconFile size={16} />}
                       </Table.Td>
                       <Table.Td>
-                        <Anchor component={Link} to={entry.url}>
+                        <Anchor data-testid="dir-row-name" component={Link} to={entry.url}>
                           {entry.name}
                         </Anchor>
                       </Table.Td>

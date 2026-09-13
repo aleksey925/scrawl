@@ -1,6 +1,5 @@
 import { Button, Code, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { notifications } from '@mantine/notifications';
 import {
   createContext, useCallback, useContext, useMemo, useState,
   type FormEvent, type JSX, type ReactNode,
@@ -11,12 +10,13 @@ import { ApiError, api } from '../api/client';
 import type { EntryKind, NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
-import { directoryUrl, documentUrl, editUrl, isMarkdown } from '../paths';
+import { directoryUrl, documentUrl, editUrl, isMarkdown, slugPath } from '../paths';
 import { layout } from '../theme';
+import { showToast } from '../toast';
 
 import { FolderPicker, foldersOf } from './FolderPicker';
 import { useNav } from './NavContext';
-import { joinPath, slugPath } from './naming';
+import { joinPath } from './naming';
 
 export interface FileActions {
   createPage: (folder: string) => void;
@@ -67,9 +67,9 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const copyLink = useCallback(async (path: string, isDir: boolean): Promise<void> => {
     try {
       await navigator.clipboard.writeText(appUrl(path, isDir));
-      notifications.show({ color: 'green', message: 'Link copied' });
+      showToast('ok', { message: 'Link copied' });
     } catch {
-      notifications.show({ color: 'red', message: 'Could not copy the link' });
+      showToast('error', { message: 'Could not copy the link' });
     }
   }, []);
 
@@ -78,24 +78,24 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       modals.openConfirmModal({
         title: isDir ? 'Delete folder?' : 'Delete page?',
         children: (
-          <Text size="sm">
+          <Text data-testid="modal" data-variant="confirm" size="sm">
             <Code>{path}</Code> will be removed. This cannot be undone from the browser.
           </Text>
         ),
         labels: { confirm: 'Delete', cancel: 'Cancel' },
-        confirmProps: { color: 'red' },
+        confirmProps: { color: 'red', 'data-testid': 'modal-confirm' },
+        cancelProps: { 'data-testid': 'modal-cancel' },
         onConfirm: () => {
           void (async () => {
             try {
               await api.deleteEntry(path);
-              notifications.show({ color: 'green', message: 'Deleted' });
+              showToast('ok', { message: 'Deleted' });
               if (currentPath === path || currentPath === `${path}/`) {
                 await navigate('/');
               }
               refresh();
             } catch (error) {
-              notifications.show({
-                color: 'red',
+              showToast('error', {
                 title: 'Nothing was deleted',
                 message: conflictText(error, 'The folder is not empty'),
               });
@@ -134,7 +134,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
               void navigate(editUrl(path));
               return;
             }
-            notifications.show({ color: 'green', message: 'Folder created' });
+            showToast('ok', { message: 'Folder created' });
             refresh();
           }}
         />
@@ -146,7 +146,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
           onClose={close}
           onRenamed={(to) => {
             close();
-            notifications.show({ color: 'green', message: 'Renamed' });
+            showToast('ok', { message: 'Renamed' });
             if (currentPath === dialog.path) {
               void navigate(dialog.isDir ? directoryUrl(to) : documentUrl(to));
               return;
@@ -198,10 +198,19 @@ function CreateDialog({ entry, startIn, folders, onClose, onCreated }: CreateDia
   }
 
   return (
-    <Modal opened onClose={onClose} title={page ? 'New page' : 'New folder'} size="md">
+    <Modal
+      data-testid="modal"
+      data-variant="create"
+      data-entry={entry}
+      opened
+      onClose={onClose}
+      title={page ? 'New page' : 'New folder'}
+      size="md"
+    >
       <form onSubmit={submit}>
         <Stack gap="md">
           <TextInput
+            data-testid="modal-name-input"
             data-autofocus
             label={page ? 'Page name' : 'Folder name'}
             placeholder={page ? 'Replication' : 'databases'}
@@ -225,14 +234,14 @@ function CreateDialog({ entry, startIn, folders, onClose, onCreated }: CreateDia
           </Stack>
 
           <Text size="sm" c="dimmed" style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
-            Creates <Code>{preview}</Code>
+            Creates <Code data-testid="modal-path-preview">{preview}</Code>
           </Text>
 
           <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={onClose} disabled={busy}>
+            <Button data-testid="modal-cancel" variant="default" onClick={onClose} disabled={busy}>
               Cancel
             </Button>
-            <Button type="submit" loading={busy}>
+            <Button data-testid="modal-submit" type="submit" loading={busy}>
               Create
             </Button>
           </Group>
@@ -280,13 +289,14 @@ function RenameDialog({ path, onClose, onRenamed }: RenameDialogProps): JSX.Elem
   }
 
   return (
-    <Modal opened onClose={onClose} title="Rename or move" size="md">
+    <Modal data-testid="modal" data-variant="rename" opened onClose={onClose} title="Rename or move" size="md">
       <form onSubmit={submit}>
         <Stack gap="md">
           <Text size="sm" c="dimmed">
             Links in other documents are not rewritten, so check them afterwards.
           </Text>
           <TextInput
+            data-testid="modal-path-input"
             data-autofocus
             label="New path"
             value={value}
@@ -300,10 +310,10 @@ function RenameDialog({ path, onClose, onRenamed }: RenameDialogProps): JSX.Elem
             }}
           />
           <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={onClose} disabled={busy}>
+            <Button data-testid="modal-cancel" variant="default" onClick={onClose} disabled={busy}>
               Cancel
             </Button>
-            <Button type="submit" loading={busy}>
+            <Button data-testid="modal-submit" type="submit" loading={busy}>
               Rename
             </Button>
           </Group>

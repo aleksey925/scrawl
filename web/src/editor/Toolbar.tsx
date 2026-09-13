@@ -46,6 +46,7 @@ export interface ToolbarProps {
 export function Toolbar({ onAction, onPickImage }: ToolbarProps): JSX.Element {
   return (
     <Group
+      data-testid="editor-toolbar"
       className={classes.toolbarScroll}
       gap={2}
       wrap="nowrap"
@@ -55,6 +56,7 @@ export function Toolbar({ onAction, onPickImage }: ToolbarProps): JSX.Element {
       {items.map(({ action, label, Icon }) => (
         <ActionIcon
           key={action}
+          data-testid={`editor-toolbar-${action}`}
           size={layout.tapTarget}
           variant="subtle"
           color="gray"
@@ -69,6 +71,7 @@ export function Toolbar({ onAction, onPickImage }: ToolbarProps): JSX.Element {
         </ActionIcon>
       ))}
       <ActionIcon
+        data-testid="editor-toolbar-image"
         size={layout.tapTarget}
         variant="subtle"
         color="gray"

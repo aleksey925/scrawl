@@ -19,6 +19,7 @@ export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
     <>
       <PageActions>
         <Button
+          data-testid="doc-edit"
           component={Link}
           to={doc.edit_url}
           variant="default"
@@ -28,6 +29,7 @@ export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
           Edit
         </Button>
         <Button
+          data-testid="doc-history"
           component={Link}
           to={historyUrl(doc.doc_path)}
           variant="subtle"

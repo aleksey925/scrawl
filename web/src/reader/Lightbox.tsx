@@ -56,6 +56,8 @@ export function Lightbox({ image, onClose, onStep }: LightboxProps): JSX.Element
 
   return (
     <Modal
+      data-testid="modal"
+      data-variant="lightbox"
       opened={image !== null}
       onClose={onClose}
       fullScreen
@@ -68,6 +70,7 @@ export function Lightbox({ image, onClose, onStep }: LightboxProps): JSX.Element
       {image !== null && (
         <div className="md-lightbox-body" onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
           <CloseButton
+            data-testid="doc-lightbox-close"
             className="md-lightbox-close"
             size={layout.tapTarget}
             variant="subtle"
@@ -78,6 +81,7 @@ export function Lightbox({ image, onClose, onStep }: LightboxProps): JSX.Element
           {/* on a phone the image covers nearly the whole dialog and leaves
               almost no backdrop to aim at, so it closes on a tap of its own */}
           <img
+            data-testid="doc-lightbox-image"
             className="md-lightbox-image"
             src={image.src}
             alt={image.alt}
@@ -87,7 +91,9 @@ export function Lightbox({ image, onClose, onStep }: LightboxProps): JSX.Element
               }
             }}
           />
-          <Text className="md-lightbox-caption">{image.caption}</Text>
+          <Text data-testid="doc-lightbox-caption" className="md-lightbox-caption">
+            {image.caption}
+          </Text>
         </div>
       )}
     </Modal>

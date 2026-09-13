@@ -3,7 +3,6 @@ import {
   Text, Title, UnstyledButton,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { notifications } from '@mantine/notifications';
 import { IconAlertTriangle, IconArrowBackUp } from '@tabler/icons-react';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
@@ -17,14 +16,18 @@ import { DiffView } from '../shell/DiffView';
 import { useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
 import { layoutBreakpoints, useBelow } from '../theme';
+import { showToast } from '../toast';
 
 function formatWhen(at: string): string {
   return new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-function ScrollingPre({ text, maxHeight }: { text: string; maxHeight: number }): JSX.Element {
+function ScrollingPre({
+  text, maxHeight, testId,
+}: { text: string; maxHeight: number; testId: string }): JSX.Element {
   return (
     <Box
+      data-testid={testId}
       style={{
         minWidth: 0,
         maxHeight,
@@ -54,25 +57,25 @@ function ScrollingPre({ text, maxHeight }: { text: string; maxHeight: number }):
 function VersionDetail({ state }: { state: AsyncState<HistoryVersionResponse | undefined> }): JSX.Element {
   if (state.error !== undefined) {
     return (
-      <Text size="sm" c="red">
+      <Text data-testid="history-detail-error" size="sm" c="red">
         {errorText(state.error)}
       </Text>
     );
   }
   if (state.data === undefined) {
     return (
-      <Center py="xl">
+      <Center data-testid="history-detail-loading" py="xl">
         <Loader size="sm" />
       </Center>
     );
   }
   return (
-    <Stack gap="md" style={{ minWidth: 0 }}>
+    <Stack data-testid="history-detail" gap="md" style={{ minWidth: 0 }}>
       <Text size="xs" tt="uppercase" fw={600} c="dimmed">
         What changed
       </Text>
       {state.data.diff === '' ? (
-        <Text size="sm" c="dimmed">
+        <Text data-testid="history-diff-empty" size="sm" c="dimmed">
           This version left no patch for the document.
         </Text>
       ) : (
@@ -83,7 +86,7 @@ function VersionDetail({ state }: { state: AsyncState<HistoryVersionResponse | u
           <Text size="xs" tt="uppercase" fw={600} c="dimmed">
             The document at this version
           </Text>
-          <ScrollingPre text={state.data.content} maxHeight={320} />
+          <ScrollingPre testId="history-content" text={state.data.content} maxHeight={320} />
         </>
       )}
     </Stack>
@@ -106,6 +109,9 @@ function VersionRow({
 }: VersionRowProps): JSX.Element {
   return (
     <Paper
+      data-testid="version"
+      data-rev={entry.rev}
+      data-selected={selected ? 'true' : 'false'}
       withBorder
       p="sm"
       radius="md"
@@ -117,30 +123,31 @@ function VersionRow({
     >
       <Group justify="space-between" wrap="nowrap" gap="sm" align="flex-start">
         <UnstyledButton
+          data-testid="version-pick"
           onClick={onPick}
           aria-current={selected ? 'true' : undefined}
           style={{ flex: '1 1 auto', minWidth: 0, textAlign: 'left' }}
         >
           <Stack gap={4} style={{ minWidth: 0 }}>
             <Group gap="xs" wrap="nowrap">
-              <Badge size="sm" variant="light" color="gray">
+              <Badge data-testid="version-kind" data-kind={entry.kind} size="sm" variant="light" color="gray">
                 {entry.kind}
               </Badge>
-              <Text size="xs" c="dimmed">
+              <Text data-testid="version-when" size="xs" c="dimmed">
                 {formatWhen(entry.at)}
               </Text>
             </Group>
-            <Text size="sm" style={{ overflowWrap: 'anywhere' }}>
+            <Text data-testid="version-message" size="sm" style={{ overflowWrap: 'anywhere' }}>
               {entry.message}
             </Text>
             <Group gap="xs" wrap="nowrap">
-              <Text size="xs" c="dimmed">
+              <Text data-testid="version-actor" size="xs" c="dimmed">
                 {entry.actor === '' ? 'unknown' : entry.actor}
               </Text>
-              <Code>{entry.short}</Code>
+              <Code data-testid="version-short">{entry.short}</Code>
             </Group>
             {entry.path !== path && (
-              <Text size="xs" c="dimmed" style={{ overflowWrap: 'anywhere' }}>
+              <Text data-testid="version-moved" size="xs" c="dimmed" style={{ overflowWrap: 'anywhere' }}>
                 as <Code>{entry.path}</Code>
               </Text>
             )}
@@ -149,6 +156,7 @@ function VersionRow({
 
         {canRestore && (
           <Button
+            data-testid="version-restore"
             variant="default"
             size="xs"
             style={{ flex: 'none' }}
@@ -168,7 +176,7 @@ export function Component(): JSX.Element {
   const params = useParams();
   const path = decodeURIComponent(params['*'] ?? '');
   const { me, canWrite } = useNav();
-  const stacked = useBelow(layoutBreakpoints.sidebar);
+  const stacked = useBelow(layoutBreakpoints.splitPane);
 
   const [token, setToken] = useState(0);
   const [selectedRev, setSelectedRev] = useState<string | undefined>(undefined);
@@ -223,10 +231,10 @@ export function Component(): JSX.Element {
         setConflict(outcome.current);
         return;
       }
-      notifications.show({ color: 'green', message: 'Restored' });
+      showToast('ok', { message: 'Restored' });
       setToken((seen) => seen + 1);
     } catch (error) {
-      notifications.show({ color: 'red', title: 'Restore failed', message: errorText(error) });
+      showToast('error', { title: 'Restore failed', message: errorText(error) });
     } finally {
       setRestoring(false);
     }
@@ -239,13 +247,14 @@ export function Component(): JSX.Element {
     modals.openConfirmModal({
       title: 'Restore this version?',
       children: (
-        <Text size="sm">
+        <Text data-testid="modal" data-variant="confirm" size="sm">
           The document is overwritten with the version from {formatWhen(entry.at)}. The text it has
           now stays in history and can be restored back.
         </Text>
       ),
       labels: { confirm: 'Restore', cancel: 'Cancel' },
-      confirmProps: { color: 'red' },
+      confirmProps: { color: 'red', 'data-testid': 'modal-confirm' },
+      cancelProps: { 'data-testid': 'modal-cancel' },
       onConfirm: () => void runRestore(entry, rev),
     });
   }
@@ -277,9 +286,10 @@ export function Component(): JSX.Element {
   }
 
   return (
-    <Container fluid px={0} style={{ minWidth: 0 }}>
+    <Container data-testid="history" fluid px={0} style={{ minWidth: 0 }}>
       <PageActions>
         <Button
+          data-testid="history-back"
           component={Link}
           to={documentUrl(path)}
           variant="default"
@@ -292,34 +302,43 @@ export function Component(): JSX.Element {
 
       <Stack gap="xl" style={{ minWidth: 0 }}>
         <Stack gap={4} style={{ minWidth: 0 }}>
-          <Title order={1}>History</Title>
+          <Title data-testid="history-title" order={1}>
+            History
+          </Title>
           <Text size="sm" c="dimmed" style={{ overflowWrap: 'anywhere' }}>
-            <Code>{path}</Code>
+            <Code data-testid="history-path">{path}</Code>
           </Text>
         </Stack>
 
         {me?.history_degraded === true && (
-          <Alert color="yellow" icon={<IconAlertTriangle size={18} />} title="History fell behind">
+          <Alert
+            data-testid="history-degraded"
+            color="yellow"
+            icon={<IconAlertTriangle size={18} />}
+            title="History fell behind"
+          >
             A change on disk was not recorded, so this list is behind the document.
           </Alert>
         )}
 
-        <AsyncContent state={history}>
+        <AsyncContent state={history} testId="history">
           {(data) =>
             data.entries.length === 0 ? (
-              <Text c="dimmed">Nothing was recorded for this note.</Text>
+              <Text data-testid="history-empty" c="dimmed">
+                Nothing was recorded for this note.
+              </Text>
             ) : stacked ? (
-              <Stack gap="sm" style={{ minWidth: 0 }}>
+              <Stack data-testid="history-list" gap="sm" style={{ minWidth: 0 }}>
                 {rows(data.entries)}
               </Stack>
             ) : (
               <Flex gap="xl" align="flex-start" style={{ minWidth: 0 }}>
-                <Stack gap="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
+                <Stack data-testid="history-list" gap="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
                   {rows(data.entries)}
                 </Stack>
                 <Box style={{ flex: '1 1 0', minWidth: 0 }}>
                   {selected === undefined ? (
-                    <Text size="sm" c="dimmed">
+                    <Text data-testid="history-detail-placeholder" size="sm" c="dimmed">
                       Pick a version to see what it changed.
                     </Text>
                   ) : (
@@ -333,6 +352,8 @@ export function Component(): JSX.Element {
       </Stack>
 
       <Modal
+        data-testid="modal"
+        data-variant="conflict"
         opened={conflict !== undefined}
         onClose={() => setConflict(undefined)}
         title="This page changed while the history was open"
@@ -346,12 +367,13 @@ export function Component(): JSX.Element {
           <Text size="xs" tt="uppercase" fw={600} c="dimmed">
             On disk now
           </Text>
-          <ScrollingPre text={conflict ?? ''} maxHeight={300} />
+          <ScrollingPre testId="history-conflict-current" text={conflict ?? ''} maxHeight={300} />
           <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={() => setConflict(undefined)}>
+            <Button data-testid="history-conflict-cancel" variant="default" onClick={() => setConflict(undefined)}>
               Cancel
             </Button>
             <Button
+              data-testid="history-conflict-reload"
               onClick={() => {
                 setConflict(undefined);
                 setToken((seen) => seen + 1);

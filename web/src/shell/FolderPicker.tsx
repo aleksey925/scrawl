@@ -37,6 +37,8 @@ function PickerRow({
     <Group gap={2} wrap="nowrap" style={{ paddingLeft: depth * 16, minWidth: 0 }}>
       {hasChildren ? (
         <ActionIcon
+          data-testid="modal-folder-twisty"
+          data-open={expanded ? 'true' : 'false'}
           variant="subtle"
           color="gray"
           size="sm"
@@ -52,6 +54,9 @@ function PickerRow({
         <Box w={22} style={{ flex: 'none' }} />
       )}
       <UnstyledButton
+        data-testid="modal-folder-row"
+        data-path={path}
+        data-selected={selected ? 'true' : 'false'}
         onClick={() => onPick(path)}
         aria-pressed={selected}
         style={{
@@ -127,6 +132,7 @@ export function FolderPicker({ folders, value, onChange }: FolderPickerProps): J
 
   return (
     <ScrollArea.Autosize
+      data-testid="modal-folder-picker"
       mah={220}
       type="auto"
       style={{

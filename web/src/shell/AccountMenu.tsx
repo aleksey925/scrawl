@@ -23,27 +23,44 @@ export function AccountMenu(): JSX.Element {
   return (
     <Menu position="bottom-end" withinPortal>
       <Menu.Target>
-        <ActionIcon variant="subtle" color="gray" size="lg" aria-label="Account">
+        <ActionIcon
+          data-testid="topbar-account"
+          data-signed-in={signedIn ? 'true' : 'false'}
+          variant="subtle"
+          color="gray"
+          size="lg"
+          aria-label="Account"
+        >
           <IconUserCircle size={iconSize} />
         </ActionIcon>
       </Menu.Target>
-      <Menu.Dropdown>
+      <Menu.Dropdown data-testid="topbar-account-menu">
         {signedIn && (
           <Menu.Label>
-            <Text size="xs">{me.user}</Text>
+            <Text data-testid="topbar-account-user" size="xs">
+              {me.user}
+            </Text>
           </Menu.Label>
         )}
         {me?.read_only === true && (
-          <Menu.Item disabled leftSection={<IconEyeOff size={16} />}>
+          <Menu.Item data-testid="topbar-account-readonly" disabled leftSection={<IconEyeOff size={16} />}>
             Read-only mode
           </Menu.Item>
         )}
         {signedIn ? (
-          <Menu.Item leftSection={<IconLogout size={16} />} onClick={() => void signOut()}>
+          <Menu.Item
+            data-testid="topbar-account-signout"
+            leftSection={<IconLogout size={16} />}
+            onClick={() => void signOut()}
+          >
             Sign out
           </Menu.Item>
         ) : (
-          <Menu.Item leftSection={<IconLogin size={16} />} onClick={() => void navigate('/login')}>
+          <Menu.Item
+            data-testid="topbar-account-signin"
+            leftSection={<IconLogin size={16} />}
+            onClick={() => void navigate('/login')}
+          >
             Sign in
           </Menu.Item>
         )}

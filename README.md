@@ -248,6 +248,7 @@ make deps
 ```
 
 ```
+make ui         build the interface into server/assets/app/
 make build      build the binary into dist/
 make run        run against ./examples/data without authentication
 make test       tests
@@ -257,5 +258,13 @@ make lint       every hook: formatting, go vet, golangci-lint
 make e2e        the browser suite
 make img        build the image
 ```
+
+The interface is a react app in [web/](web/), see
+[web/README.md](web/README.md). What vite builds is committed under
+`server/assets/app/` and embedded with `//go:embed`, which is what lets
+`go install` and the docker image work with neither node nor the
+network. Change anything under `web/` and the rebuilt bundle belongs in
+the same commit: CI rebuilds it and fails if what is checked in is
+stale.
 
 Browser tests live in [e2e/](e2e/), see [e2e/README.md](e2e/README.md).

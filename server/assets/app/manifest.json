@@ -1,10 +1,9 @@
 {
-  "_AsyncContent-Bl7znfUa.js": {
-    "file": "assets/AsyncContent-Bl7znfUa.js",
+  "_AsyncContent-HQiAN5CS.js": {
+    "file": "assets/AsyncContent-HQiAN5CS.js",
     "name": "AsyncContent",
     "imports": [
       "_theme-UByJbibN.js",
-      "_useApi-BoTl3xMC.js",
       "_Center-z-VSRyzq.js",
       "index.html"
     ]
@@ -23,51 +22,34 @@
       "_theme-UByJbibN.js"
     ]
   },
-  "_DirectoryView-CpvVVwVT.js": {
-    "file": "assets/DirectoryView-CpvVVwVT.js",
+  "_DirectoryView-CmFo3Af8.js": {
+    "file": "assets/DirectoryView-CmFo3Af8.js",
     "name": "DirectoryView",
     "imports": [
       "_theme-UByJbibN.js",
-      "_useApi-BoTl3xMC.js",
-      "_AsyncContent-Bl7znfUa.js",
+      "_AsyncContent-HQiAN5CS.js",
       "index.html"
     ]
   },
-  "_InputBase-B9HUkb9-.js": {
-    "file": "assets/InputBase-B9HUkb9-.js",
+  "_InputBase-BM7zxBZ_.js": {
+    "file": "assets/InputBase-BM7zxBZ_.js",
     "name": "InputBase",
     "imports": [
       "_theme-UByJbibN.js",
       "index.html"
     ]
   },
-  "_react-dom-CJdAps-M.js": {
-    "file": "assets/react-dom-CJdAps-M.js",
-    "name": "react-dom",
-    "imports": [
-      "_theme-UByJbibN.js"
-    ]
-  },
   "_theme-UByJbibN.js": {
     "file": "assets/theme-UByJbibN.js",
     "name": "theme"
   },
-  "_useApi-BoTl3xMC.js": {
-    "file": "assets/useApi-BoTl3xMC.js",
-    "name": "useApi",
-    "imports": [
-      "_theme-UByJbibN.js"
-    ]
-  },
   "index.html": {
-    "file": "assets/index-CLk7--Ca.js",
+    "file": "assets/index-CBIkDzUo.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_theme-UByJbibN.js",
-      "_react-dom-CJdAps-M.js",
-      "_useApi-BoTl3xMC.js"
+      "_theme-UByJbibN.js"
     ],
     "dynamicImports": [
       "src/pages/HomePage.tsx",
@@ -83,72 +65,68 @@
     ]
   },
   "src/pages/DocumentPage.tsx": {
-    "file": "assets/DocumentPage-ChXjXmc5.js",
+    "file": "assets/DocumentPage-B40dm59_.js",
     "name": "DocumentPage",
     "src": "src/pages/DocumentPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-UByJbibN.js",
-      "_useApi-BoTl3xMC.js",
       "_Container-B7snOK6b.js",
-      "_DirectoryView-CpvVVwVT.js",
-      "_AsyncContent-Bl7znfUa.js",
+      "_DirectoryView-CmFo3Af8.js",
+      "_AsyncContent-HQiAN5CS.js",
       "index.html"
     ]
   },
   "src/pages/EditPage.tsx": {
-    "file": "assets/EditPage-DCMXeAti.js",
+    "file": "assets/EditPage-D3b9yRjB.js",
     "name": "EditPage",
     "src": "src/pages/EditPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-UByJbibN.js",
-      "_useApi-BoTl3xMC.js",
-      "_InputBase-B9HUkb9-.js",
+      "_InputBase-BM7zxBZ_.js",
       "_Container-B7snOK6b.js",
-      "_AsyncContent-Bl7znfUa.js",
+      "_AsyncContent-HQiAN5CS.js",
       "index.html"
     ]
   },
   "src/pages/HistoryPage.tsx": {
-    "file": "assets/HistoryPage-CsZM0o66.js",
+    "file": "assets/HistoryPage-TxEy6UfW.js",
     "name": "HistoryPage",
     "src": "src/pages/HistoryPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-UByJbibN.js",
-      "_useApi-BoTl3xMC.js",
       "_Container-B7snOK6b.js",
-      "_AsyncContent-Bl7znfUa.js",
+      "_AsyncContent-HQiAN5CS.js",
       "index.html"
     ]
   },
   "src/pages/HomePage.tsx": {
-    "file": "assets/HomePage-CbVTfdwo.js",
+    "file": "assets/HomePage-BUZduEl5.js",
     "name": "HomePage",
     "src": "src/pages/HomePage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-UByJbibN.js",
       "_Container-B7snOK6b.js",
-      "_DirectoryView-CpvVVwVT.js"
+      "_DirectoryView-CmFo3Af8.js"
     ]
   },
   "src/pages/LoginPage.tsx": {
-    "file": "assets/LoginPage-pJZNQEu_.js",
+    "file": "assets/LoginPage-BBBn7q1Z.js",
     "name": "LoginPage",
     "src": "src/pages/LoginPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-UByJbibN.js",
-      "_useApi-BoTl3xMC.js",
-      "_InputBase-B9HUkb9-.js",
+      "_InputBase-BM7zxBZ_.js",
       "_Center-z-VSRyzq.js",
       "index.html"
     ]
   },
   "src/pages/NotFoundPage.tsx": {
-    "file": "assets/NotFoundPage-C2o1exWY.js",
+    "file": "assets/NotFoundPage-EdIze8r5.js",
     "name": "NotFoundPage",
     "src": "src/pages/NotFoundPage.tsx",
     "isDynamicEntry": true,
@@ -159,15 +137,14 @@
     ]
   },
   "src/pages/SearchPage.tsx": {
-    "file": "assets/SearchPage-C__xMwUv.js",
+    "file": "assets/SearchPage-B0OIkg_y.js",
     "name": "SearchPage",
     "src": "src/pages/SearchPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-UByJbibN.js",
-      "_useApi-BoTl3xMC.js",
       "_Container-B7snOK6b.js",
-      "_AsyncContent-Bl7znfUa.js",
+      "_AsyncContent-HQiAN5CS.js",
       "index.html"
     ]
   }

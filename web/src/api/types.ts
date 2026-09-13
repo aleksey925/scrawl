@@ -25,9 +25,12 @@ export interface ApiErrorBody {
   url?: string;
 }
 
-export interface PageResponse {
+export interface DocumentFields {
   path: string;
-  kind: 'document' | 'missing-document';
+  // the file this was rendered from. It differs from path when a directory is
+  // served as its index.md, and it is what history is asked about: the
+  // directory has no version of its own.
+  doc_path: string;
   title: string;
   html: string;
   toc: Heading[];
@@ -40,6 +43,16 @@ export interface PageResponse {
   can_create: boolean;
 }
 
+export interface DocumentResponse extends DocumentFields {
+  kind: 'document';
+}
+
+export interface MissingDocumentResponse extends DocumentFields {
+  kind: 'missing-document';
+}
+
+export type PageResponse = DocumentResponse | MissingDocumentResponse;
+
 export interface DirEntry {
   name: string;
   path: string;
@@ -49,7 +62,7 @@ export interface DirEntry {
   mod_time: string;
 }
 
-export interface DirResponse {
+export interface DirListing {
   path: string;
   kind: 'directory';
   title: string;
@@ -58,6 +71,10 @@ export interface DirResponse {
   has_readme: boolean;
   breadcrumbs: Crumb[];
 }
+
+// a directory holding an index.md is served as that document under the
+// directory's own path, so one route answers in two shapes
+export type DirResponse = DirListing | DocumentResponse;
 
 export interface NavNode {
   name: string;

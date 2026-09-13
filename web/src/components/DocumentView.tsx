@@ -1,16 +1,14 @@
 import { Button, Group, Stack, Text, Title } from '@mantine/core';
-import { IconHistory, IconPencil, IconPlus } from '@tabler/icons-react';
+import { IconPlus } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { Link } from 'react-router';
 
 import { api } from '../api/client';
 import { useApi } from '../api/useApi';
-import { editUrl, historyUrl } from '../paths';
-import { PageActions, PageToc } from '../shell/ShellSlots';
-import { TocList } from '../shell/TocList';
+import { editUrl } from '../paths';
 
 import { AsyncContent } from './AsyncContent';
-import { DocumentHtml } from './DocumentHtml';
+import { DocumentBody } from './DocumentBody';
 
 export interface DocumentViewProps {
   path: string;
@@ -39,37 +37,7 @@ export function DocumentView({ path }: DocumentViewProps): JSX.Element {
             )}
           </Stack>
         ) : (
-          <>
-            <PageActions>
-              <Button
-                component={Link}
-                to={page.edit_url}
-                variant="default"
-                size="xs"
-                leftSection={<IconPencil size={16} />}
-              >
-                Edit
-              </Button>
-              <Button
-                component={Link}
-                to={historyUrl(path)}
-                variant="subtle"
-                color="gray"
-                size="xs"
-                leftSection={<IconHistory size={16} />}
-              >
-                History
-              </Button>
-            </PageActions>
-
-            {page.show_toc && page.toc.length > 0 && (
-              <PageToc>
-                <TocList headings={page.toc} />
-              </PageToc>
-            )}
-
-            <DocumentHtml html={page.html} />
-          </>
+          <DocumentBody doc={page} />
         )
       }
     </AsyncContent>

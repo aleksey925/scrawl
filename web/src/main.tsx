@@ -7,18 +7,13 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './App';
 import { applyStoredColorScheme } from './colorScheme';
+import { mountNode } from './mount';
 import { installStyleNonce } from './nonce';
 
 applyStoredColorScheme();
 installStyleNonce();
 
-const mountId = 'scrawl-app-root';
-const container = document.getElementById(mountId);
-if (container === null) {
-  throw new Error(`mount node #${mountId} is missing from the shell`);
-}
-
-createRoot(container).render(
+createRoot(mountNode()).render(
   <StrictMode>
     <App />
   </StrictMode>,

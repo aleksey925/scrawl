@@ -1,6 +1,7 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 
 import { RouteError } from './components/RouteError';
+import { mountBase } from './mount';
 import { AppLayout } from './shell/AppLayout';
 
 const routes: RouteObject[] = [
@@ -24,4 +25,4 @@ const routes: RouteObject[] = [
   },
 ];
 
-export const router = createBrowserRouter(routes);
+export const router = createBrowserRouter(routes, { basename: mountBase() });

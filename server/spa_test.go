@@ -64,17 +64,18 @@ func TestAPIPage(t *testing.T) {
 		contains string
 	}{
 		{name: "document", path: "/api/page/guide.md", status: http.StatusOK,
-			fields: map[string]any{"kind": "document", "path": "guide.md", "title": "Guide", "show_toc": true,
-				"edit_url": "/edit/guide.md", "missing": false},
+			fields: map[string]any{"kind": "document", "path": "guide.md", "doc_path": "guide.md",
+				"title": "Guide", "show_toc": true, "edit_url": "/edit/guide.md", "missing": false},
 			contains: "widgets and gadgets"},
 		{name: "nested document", path: "/api/page/docs/sub/deep.md", status: http.StatusOK,
-			fields:   map[string]any{"kind": "document", "path": "docs/sub/deep.md", "title": "Deep", "show_toc": false},
+			fields: map[string]any{"kind": "document", "path": "docs/sub/deep.md",
+				"doc_path": "docs/sub/deep.md", "title": "Deep", "show_toc": false},
 			contains: "nested body"},
 		{name: "cyrillic document", path: "/api/page/notes/cyrillic.md", status: http.StatusOK,
 			fields: map[string]any{"kind": "document", "title": "Заметки"}},
 		{name: "missing document", path: "/api/page/nope.md", status: http.StatusNotFound,
 			fields: map[string]any{"kind": "missing-document", "missing": true, "title": "nope",
-				"edit_url": "/edit/nope.md", "html": ""}},
+				"doc_path": "nope.md", "edit_url": "/edit/nope.md", "html": ""}},
 		{name: "missing attachment", path: "/api/page/nope.png", status: http.StatusNotFound,
 			fields: map[string]any{"error": "not found"}},
 		{name: "directory", path: "/api/page/docs", status: http.StatusConflict,
@@ -217,20 +218,25 @@ func TestAPIDir(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	tests := []struct {
-		name   string
-		path   string
-		status int
-		fields map[string]any
+		name     string
+		path     string
+		status   int
+		fields   map[string]any
+		contains string
 	}{
 		{name: "listing", path: "/api/dir/images", status: http.StatusOK,
 			fields: map[string]any{"kind": "directory", "path": "images", "title": "images",
 				"has_readme": false, "readme_html": ""}},
 		{name: "listing with a readme", path: "/api/dir/docs", status: http.StatusOK,
 			fields: map[string]any{"kind": "directory", "path": "docs", "title": "docs", "has_readme": true}},
-		{name: "root is served as its index", path: "/api/dir/", status: http.StatusConflict,
-			fields: map[string]any{"kind": "document", "url": "/p/index.md"}},
-		{name: "directory with an index", path: "/api/dir/notes", status: http.StatusConflict,
-			fields: map[string]any{"kind": "document", "url": "/p/notes/index.md"}},
+		{name: "root is served as its index", path: "/api/dir/", status: http.StatusOK,
+			fields: map[string]any{"kind": "document", "path": "", "doc_path": "index.md",
+				"title": "Home", "edit_url": "/edit/index.md", "missing": false},
+			contains: "Welcome, see the"},
+		{name: "directory with an index", path: "/api/dir/notes", status: http.StatusOK,
+			fields: map[string]any{"kind": "document", "path": "notes", "doc_path": "notes/index.md",
+				"title": "Notes", "edit_url": "/edit/notes/index.md", "show_toc": false},
+			contains: "the notes index"},
 		{name: "document", path: "/api/dir/guide.md", status: http.StatusConflict,
 			fields: map[string]any{"kind": "document", "url": "/p/guide.md"}},
 		{name: "attachment", path: "/api/dir/snippet.py", status: http.StatusConflict,
@@ -249,8 +255,69 @@ func TestAPIDir(t *testing.T) {
 			for name, want := range tc.fields {
 				assert.Equal(t, want, body[name], name)
 			}
+			if tc.contains != "" {
+				assert.Contains(t, body["html"], tc.contains)
+			}
 		})
 	}
+}
+
+func TestAPIDirServesTheIndexUnderTheDirectoryPath(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	// act
+	resp, body := ts.json(t, request{path: "/api/dir/notes"})
+	_, doc := ts.json(t, request{path: "/api/page/notes/index.md"})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, "document", body["kind"])
+	assert.Equal(t, doc["html"], body["html"])
+	assert.Equal(t, doc["title"], body["title"])
+	assert.Equal(t, doc["rev"], body["rev"])
+	assert.Equal(t, "notes", body["path"])
+	assert.Equal(t, jsonValue(t, breadcrumbs("notes")), body["breadcrumbs"])
+	assert.NotEqual(t, doc["breadcrumbs"], body["breadcrumbs"],
+		"the trail names the directory that was asked for, not the file it is served from")
+	assert.Equal(t, "notes/index.md", body["doc_path"],
+		"history is asked about the file, because a directory has no version of its own")
+	assert.Equal(t, "/edit/notes/index.md", body["edit_url"])
+}
+
+func TestAPIDirIndexGoesThroughThePageCache(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	ts.pages().put("notes/index.md", revOf(t, ts, "notes/index.md"),
+		render.Result{HTML: "<p>served from the cache</p>", Title: "Cached"})
+
+	// act
+	resp, body := ts.json(t, request{path: "/api/dir/notes"})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, "<p>served from the cache</p>", body["html"])
+	assert.Equal(t, "Cached", body["title"])
+	assert.Equal(t, 1, ts.pages().len(), "the page route and this one share one entry")
+}
+
+func TestAPIDirIndexRevalidatesWithTheRevision(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	// act
+	first, _ := ts.json(t, request{path: "/api/dir/notes"})
+	etag := first.header.Get("ETag")
+	cached, cachedBody := ts.do(t, request{path: "/api/dir/notes",
+		headers: map[string]string{"If-None-Match": etag}})
+	listing, _ := ts.json(t, request{path: "/api/dir/images"})
+
+	// assert
+	assert.Equal(t, strconv.Quote(revOf(t, ts, "notes/index.md")), etag)
+	assert.Equal(t, pageCacheControl, first.header.Get("Cache-Control"))
+	assert.Equal(t, http.StatusNotModified, cached.status)
+	assert.Empty(t, cachedBody)
+	assert.Empty(t, listing.header.Get("ETag"), "a listing has no one revision to name")
 }
 
 func TestAPIDirListsWhatTheDirectoryPageLists(t *testing.T) {

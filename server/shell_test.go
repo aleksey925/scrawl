@@ -46,7 +46,7 @@ func TestAppShell(t *testing.T) {
 			// assert
 			require.Equal(t, http.StatusOK, resp.status)
 			assert.Contains(t, resp.header.Get("Content-Type"), "text/html")
-			assert.Contains(t, body, `<div id="scrawl-app-root"></div>`)
+			assert.Contains(t, body, `<div id="scrawl-app-root" data-base="`+appMount+`"></div>`)
 			if tc.scheme == "" {
 				assert.NotContains(t, body, "data-mantine-color-scheme")
 				return

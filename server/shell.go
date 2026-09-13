@@ -24,6 +24,11 @@ const appBase = "/static/spa/app/"
 // the bundle without the index that names its entry.
 const appManifest = "app/manifest.json"
 
+// appMount is where the app answers. The shell hands it to the client router as
+// its basename instead of the bundle baking one in, so the same build serves
+// /app beside the old pages and / once it replaces them.
+const appMount = "/app"
+
 const nonceBytes = 16
 
 // nonceKey carries the per-response style nonce from the security middleware to
@@ -76,6 +81,7 @@ type shellData struct {
 	ColorScheme string
 	Nonce       string
 	Version     string
+	Base        string
 	Entry       string
 	CSS         []string
 	Preload     []string
@@ -106,7 +112,7 @@ const shellTemplate = `<!doctype html>
 {{end}}<script type="module" crossorigin src="{{.Entry}}"></script>
 </head>
 <body>
-<div id="scrawl-app-root"></div>
+<div id="scrawl-app-root" data-base="{{.Base}}"></div>
 </body>
 </html>
 `
@@ -163,6 +169,7 @@ func (wb *Web) appHandler(w http.ResponseWriter, r *http.Request) {
 		Theme:   theme,
 		Nonce:   nonceOf(r.Context()),
 		Version: wb.Version,
+		Base:    appMount,
 		Entry:   wb.appShell.entry,
 		CSS:     wb.appShell.css,
 		Preload: wb.appShell.preload,

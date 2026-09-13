@@ -256,8 +256,8 @@ func (wb *Web) router() (http.Handler, error) {
 	// the react app lives beside the server rendered pages until it reaches
 	// parity with them. Switching /p/ over before then would take the whole
 	// frontend and the suite that guards it down with one deploy.
-	router.HandleFunc("GET /app", wb.appHandler)
-	router.HandleFunc("GET /app/{path...}", wb.appHandler)
+	router.HandleFunc("GET "+appMount, wb.appHandler)
+	router.HandleFunc("GET "+appMount+"/{path...}", wb.appHandler)
 
 	router.HandleFunc("GET /{$}", wb.viewHandler)
 	router.HandleFunc("GET /p/{path...}", wb.viewHandler)

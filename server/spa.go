@@ -41,7 +41,12 @@ type handoff struct {
 // pageResponse is one rendered document, the data the view template gets
 // without the navigation every page carries around it.
 type pageResponse struct {
-	Path    string           `json:"path"`
+	Path string `json:"path"`
+
+	// DocPath is the file this was rendered from. It differs from Path when a
+	// directory is served as its index.md, and it is what history is asked
+	// about: a directory has no version of its own.
+	DocPath string           `json:"doc_path"`
 	Kind    string           `json:"kind"`
 	Title   string           `json:"title"`
 	HTML    string           `json:"html"`
@@ -111,10 +116,6 @@ type loginResponse struct {
 // apiPage answers with the document the view route renders, through the same
 // page cache. A markdown path that is not there is the 404 the view route
 // answers too, with the shape the client needs to offer creating it.
-//
-// The revision is the ETag, so a reader coming back to a page revalidates it
-// with one conditional request instead of carrying a copy of the revision
-// around to decide whether what the browser restored is still current.
 func (wb *Web) apiPage(w http.ResponseWriter, r *http.Request) {
 	p, ok := contentPath(r, "path")
 	if !ok {
@@ -127,6 +128,7 @@ func (wb *Web) apiPage(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, store.ErrNotFound) && isMarkdown(p):
 		writeJSON(w, http.StatusNotFound, pageResponse{
 			Path:        p,
+			DocPath:     p,
 			Kind:        kindMissingDocument,
 			Title:       displayName(path.Base(p)),
 			TOC:         []render.Heading{},
@@ -147,45 +149,12 @@ func (wb *Web) apiPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, fi, err := wb.Store.Read(p)
-	if err != nil {
-		failJSON(w, r, err)
-		return
-	}
-
-	rev := store.Rev(data)
-	etag := strconv.Quote(rev)
-	w.Header().Set("ETag", etag)
-	w.Header().Set("Cache-Control", pageCacheControl)
-	if matchesETag(r.Header.Get("If-None-Match"), etag) {
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
-
-	res, err := wb.renderDoc(p, data, rev)
-	if err != nil {
-		failJSON(w, r, err)
-		return
-	}
-
-	toc := railTOC(res.TOC)
-	writeJSON(w, http.StatusOK, pageResponse{
-		Path:        p,
-		Kind:        kindDocument,
-		Title:       res.Title,
-		HTML:        string(res.HTML),
-		TOC:         toc,
-		ShowTOC:     len(toc) >= minTOCHeadings,
-		Rev:         rev,
-		ModTime:     fi.ModTime,
-		Breadcrumbs: breadcrumbs(p),
-		EditURL:     editURL(p),
-		CanCreate:   wb.canWrite(r),
-	})
+	wb.writeDoc(w, r, p, p)
 }
 
 // apiDir lists a directory. One holding an index.md is that document instead,
-// which the directory page does by rendering it and this route by naming it.
+// rendered under the directory's own path the way the directory page renders
+// it: the reader asked for the directory and keeps its address.
 func (wb *Web) apiDir(w http.ResponseWriter, r *http.Request) {
 	p, ok := contentPath(r, "path")
 	if !ok {
@@ -209,7 +178,7 @@ func (wb *Web) apiDir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if intro := indexOf(entries, "index.md"); intro != "" {
-		writeHandoff(w, kindDocument, contentURL(intro), "the directory is served as its index document")
+		wb.writeDoc(w, r, p, intro)
 		return
 	}
 
@@ -230,6 +199,53 @@ func (wb *Web) apiDir(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, res)
+}
+
+// writeDoc answers with one rendered document, read from docPath but presented
+// under navPath. The two differ for a directory served as its index.md, which
+// keeps the path and the trail of the directory so that the client never has to
+// leave the address it was asked to show. Only the edit link names the file.
+//
+// The revision is the ETag, so a reader coming back to a page revalidates it
+// with one conditional request instead of carrying a copy of the revision
+// around to decide whether what the browser restored is still current.
+func (wb *Web) writeDoc(w http.ResponseWriter, r *http.Request, navPath, docPath string) {
+	data, fi, err := wb.Store.Read(docPath)
+	if err != nil {
+		failJSON(w, r, err)
+		return
+	}
+
+	rev := store.Rev(data)
+	etag := strconv.Quote(rev)
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", pageCacheControl)
+	if matchesETag(r.Header.Get("If-None-Match"), etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	res, err := wb.renderDoc(docPath, data, rev)
+	if err != nil {
+		failJSON(w, r, err)
+		return
+	}
+
+	toc := railTOC(res.TOC)
+	writeJSON(w, http.StatusOK, pageResponse{
+		Path:        navPath,
+		DocPath:     docPath,
+		Kind:        kindDocument,
+		Title:       res.Title,
+		HTML:        string(res.HTML),
+		TOC:         toc,
+		ShowTOC:     len(toc) >= minTOCHeadings,
+		Rev:         rev,
+		ModTime:     fi.ModTime,
+		Breadcrumbs: breadcrumbs(navPath),
+		EditURL:     editURL(docPath),
+		CanCreate:   wb.canWrite(r),
+	})
 }
 
 // apiNav serves the sidebar tree and the breadcrumbs for the page named by the

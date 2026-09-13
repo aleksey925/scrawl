@@ -1,1 +1,0 @@
-import{A as e,n as t}from"./theme-UByJbibN.js";import{t as n}from"./Container-B7snOK6b.js";import{t as r}from"./DirectoryView-CpvVVwVT.js";var i=e();function a(){return(0,i.jsx)(n,{size:t.contentMeasure,px:0,children:(0,i.jsx)(r,{path:``})})}export{a as Component};

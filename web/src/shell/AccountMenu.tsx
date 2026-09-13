@@ -1,18 +1,19 @@
 import { ActionIcon, Menu, Text } from '@mantine/core';
-import { IconLogin, IconLogout, IconUserCircle } from '@tabler/icons-react';
+import { IconEyeOff, IconLogin, IconLogout, IconUserCircle } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useNavigate } from 'react-router';
 
 import { api } from '../api/client';
-import { useApi } from '../api/useApi';
+
+import { useNav } from './NavContext';
 
 const iconSize = 18;
 
 export function AccountMenu(): JSX.Element {
   const navigate = useNavigate();
-  const me = useApi((signal) => api.me({ signal }), []);
+  const { me } = useNav();
 
-  const signedIn = me.data !== undefined && me.data.user !== '';
+  const signedIn = me !== undefined && me.user !== '';
 
   async function signOut(): Promise<void> {
     await api.logout();
@@ -29,8 +30,13 @@ export function AccountMenu(): JSX.Element {
       <Menu.Dropdown>
         {signedIn && (
           <Menu.Label>
-            <Text size="xs">{me.data?.user}</Text>
+            <Text size="xs">{me.user}</Text>
           </Menu.Label>
+        )}
+        {me?.read_only === true && (
+          <Menu.Item disabled leftSection={<IconEyeOff size={16} />}>
+            Read-only mode
+          </Menu.Item>
         )}
         {signedIn ? (
           <Menu.Item leftSection={<IconLogout size={16} />} onClick={() => void signOut()}>

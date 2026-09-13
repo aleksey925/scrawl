@@ -85,6 +85,8 @@ func TestAppShellLoadsTheBuiltBundle(t *testing.T) {
 	// assert
 	require.Equal(t, http.StatusOK, resp.status)
 	assert.Regexp(t, `<script type="module" crossorigin src="`+appBase+`assets/[^"]+\.js"></script>`, body)
+	assert.Contains(t, body, "/css/chroma.css",
+		"render generates the highlighting stylesheet, so the bundle cannot carry it")
 	for _, tag := range regexp.MustCompile(`<script[^>]*>`).FindAllString(body, -1) {
 		assert.Contains(t, tag, "src=", "inline script in the app shell")
 	}

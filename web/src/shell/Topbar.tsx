@@ -8,6 +8,7 @@ import { directoryUrl, displayName, documentUrl } from '../paths';
 import { layoutBreakpoints } from '../theme';
 
 import { AccountMenu } from './AccountMenu';
+import { contentPathOf } from './naming';
 import { ThemeToggle } from './ThemeToggle';
 
 interface Crumb {
@@ -16,8 +17,7 @@ interface Crumb {
 }
 
 function crumbsOf(pathname: string): Crumb[] {
-  const match = /^\/(?:p|edit|history)\/(.*)$/.exec(pathname);
-  const content = match === null ? '' : decodeURIComponent(match[1] ?? '');
+  const content = contentPathOf(pathname);
   const segments = content.split('/').filter((segment) => segment !== '');
 
   const res: Crumb[] = [{ name: 'Home', url: '/' }];

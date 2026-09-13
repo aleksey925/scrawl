@@ -158,9 +158,19 @@ export interface HistoryEntry {
 }
 
 export interface HistoryResponse {
+  path: string;
+  // a commit the server could not record leaves this list behind the document
+  degraded: boolean;
   entries: HistoryEntry[];
+}
+
+export interface HistoryVersionResponse {
+  path: string;
   rev: string;
-  can_restore: boolean;
+  diff: string;
+  // absent for a deletion, which recorded none, and for a version too large to
+  // escape into a json string
+  content?: string;
 }
 
 export interface PreviewRequest {

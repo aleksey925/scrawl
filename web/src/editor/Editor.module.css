@@ -1,0 +1,140 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-sm);
+  min-height: 0;
+  height: calc(100dvh - var(--app-shell-header-offset, 0px) - 2 * var(--app-shell-padding, 0px));
+}
+
+.panes {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--scrawl-border);
+  border-radius: var(--mantine-radius-md);
+  overflow: hidden;
+  background: var(--scrawl-bg-raised);
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.grow {
+  flex: 1 1 0;
+}
+
+.source {
+  overflow: hidden;
+}
+
+/* react-codemirror wraps the editor in a theme div of its own, display:block
+   with no height. The percentage below then has nothing to resolve against, so
+   the editor grows to the height of the whole document and neither it nor the
+   page is left with anything to scroll. */
+.source > * {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.source :global(.cm-editor) {
+  height: 100%;
+}
+
+.source :global(.cm-editor.cm-focused) {
+  outline: none;
+}
+
+.source :global(.cm-scroller) {
+  font-family: var(--mantine-font-family-monospace);
+  /* below 16px iOS zooms the page on focus and never zooms back */
+  font-size: var(--scrawl-input-font-size);
+  line-height: 1.55;
+}
+
+.source :global(.cm-gutters) {
+  background: var(--scrawl-bg-subtle);
+  border-right: 1px solid var(--scrawl-border);
+  color: var(--scrawl-text-tertiary);
+}
+
+.dropping {
+  outline: 2px dashed var(--scrawl-accent);
+  outline-offset: -2px;
+}
+
+.preview {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  border-left: 1px solid var(--scrawl-border);
+}
+
+.previewOnly {
+  border-left: 0;
+}
+
+.splitter {
+  flex: 0 0 auto;
+  position: relative;
+  width: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.splitter::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--scrawl-border);
+}
+
+.splitter:focus-visible::after {
+  width: 3px;
+  background: var(--scrawl-accent);
+}
+
+@media (hover: hover) {
+  .splitter:hover::after {
+    width: 3px;
+    background: var(--scrawl-accent);
+  }
+}
+
+@media (hover: none) {
+  .splitter {
+    width: var(--scrawl-tap-target);
+  }
+}
+
+.toolbarScroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.toolbarScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.conflictText {
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--mantine-font-family-monospace);
+  font-size: var(--mantine-font-size-xs);
+  background: var(--scrawl-bg-inset);
+  border: 1px solid var(--scrawl-border);
+  border-radius: var(--mantine-radius-sm);
+  padding: var(--mantine-spacing-sm);
+  margin: 0;
+}

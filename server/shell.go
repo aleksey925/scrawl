@@ -107,6 +107,10 @@ const shellTemplate = `<!doctype html>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="{{.Title}}">
+{{/* render generates the highlighting stylesheet from the chroma style at
+     runtime, so it is not a file vite could bundle. It comes first, which
+     leaves the bundle free to override a token color. */}}
+<link rel="stylesheet" href="/static/{{.Version}}/css/chroma.css">
 {{range .CSS}}<link rel="stylesheet" crossorigin href="{{.}}">
 {{end}}{{range .Preload}}<link rel="modulepreload" crossorigin href="{{.}}">
 {{end}}<script type="module" crossorigin src="{{.Entry}}"></script>

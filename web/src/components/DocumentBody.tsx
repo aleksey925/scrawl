@@ -4,9 +4,9 @@ import type { JSX } from 'react';
 import { Link } from 'react-router';
 
 import type { DocumentResponse } from '../api/types';
+import { ReadingAnchorTracker } from '../editor';
 import { historyUrl } from '../paths';
-import { PageActions, PageToc } from '../shell/ShellSlots';
-import { TocList } from '../shell/TocList';
+import { PageActions } from '../shell/ShellSlots';
 
 import { DocumentHtml } from './DocumentHtml';
 
@@ -39,13 +39,10 @@ export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
         </Button>
       </PageActions>
 
-      {doc.show_toc && doc.toc.length > 0 && (
-        <PageToc>
-          <TocList headings={doc.toc} />
-        </PageToc>
-      )}
+      {/* records where the reader was, so the editor opens in the same place */}
+      <ReadingAnchorTracker path={doc.doc_path} rev={doc.rev} />
 
-      <DocumentHtml html={doc.html} />
+      <DocumentHtml html={doc.html} toc={doc.show_toc ? doc.toc : undefined} />
     </>
   );
 }

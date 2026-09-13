@@ -147,6 +147,11 @@ export function restoreToView(root: HTMLElement, anchor: ReadingAnchor): boolean
   return true;
 }
 
+// what a reader does to move a document themselves, as opposed to what the app
+// does to it. A scroll event is not among them: it says the element moved, not
+// who moved it, which is the whole difficulty these two uses share.
+export const interactionEvents = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
+
 // the anchor is re-applied until the document stops moving under it, and any
 // deliberate move by the reader ends that immediately
 export function holdPosition(apply: () => void, watched: EventTarget): () => void {
@@ -158,13 +163,12 @@ export function holdPosition(apply: () => void, watched: EventTarget): () => voi
     for (const timer of timers) {
       window.clearTimeout(timer);
     }
-    for (const name of interactions) {
+    for (const name of interactionEvents) {
       watched.removeEventListener(name, stop);
     }
   };
 
-  const interactions = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
-  for (const name of interactions) {
+  for (const name of interactionEvents) {
     watched.addEventListener(name, stop, { passive: true });
   }
   for (const delay of stabiliseDelaysMs) {

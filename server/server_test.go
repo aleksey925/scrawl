@@ -1943,7 +1943,7 @@ func TestThemeCookieReachesTheDocument(t *testing.T) {
 	_, body := ts.do(t, request{path: "/", client: client})
 
 	// assert
-	assert.Contains(t, body, `data-theme="dark"`)
+	assert.Contains(t, body, `data-mantine-color-scheme="dark"`)
 }
 
 func TestWebRunEmptyListenAddr(t *testing.T) {

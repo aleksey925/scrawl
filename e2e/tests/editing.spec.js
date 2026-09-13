@@ -14,6 +14,32 @@ function scratch(name) {
     return `e2e-scratch/${name}.md`;
 }
 
+// openTallDocument writes a note several screens high and opens the editor on
+// it, which is what the scroll specs need before they can send a wheel
+async function openTallDocument(page, name) {
+    const docPath = scratch(name);
+    const filler = Array
+        .from({length: 60}, (_, index) => `Абзац ${index} наполнителя, чтобы было что прокручивать.`)
+        .join('\n\n');
+    writeFixture(docPath, `# Начало\n\n${filler}\n`);
+
+    await page.goto(routes.edit(docPath));
+    await expect(page.getByTestId('editor-preview')).toContainText('Абзац 0');
+    return docPath;
+}
+
+// wheelOverSource sends the deltas a trackpad sends, over the source pane, and
+// answers how far it asked the pane to travel
+async function wheelOverSource(page, {steps = 20, delta = 60} = {}) {
+    const box = await page.getByTestId('editor-source').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    for (let i = 0; i < steps; i += 1) {
+        await page.mouse.wheel(0, delta);
+        await page.waitForTimeout(16);
+    }
+    return steps * delta;
+}
+
 test.describe('editing', () => {
     test.beforeEach(async ({page}) => {
         await signIn(page);
@@ -198,6 +224,66 @@ test.describe('editing', () => {
         await expect.poll(headingOffset).toBeLessThan(250);
         expect(await headingOffset()).toBeGreaterThan(-250);
         await shot(page, 'editing-reading-position');
+
+        removeFixture(docPath);
+    });
+
+    // the two panes used to answer each other's corrections: a scroll event says
+    // an element moved and not who moved it, so each pane kept putting the other
+    // back a little off where it had just been. The page shook under a finger
+    // that was already scrolling, and a third of the gesture was eaten.
+    test('a scroll in one pane does not come back as a shake in both', async ({page}) => {
+        const docPath = await openTallDocument(page, 'scroll-sync');
+        const tops = () => page.evaluate(() => ({
+            source: Math.round(document.querySelector('.cm-scroller').scrollTop),
+            preview: Math.round(document.querySelector('[data-testid=editor-preview]').scrollTop),
+        }));
+
+        const sent = await wheelOverSource(page);
+        await page.waitForTimeout(400);
+
+        const settled = await tops();
+        // the wheel was over the source, so the source keeps what it was given
+        expect(settled.source).toBeGreaterThan(sent * 0.9);
+        // and the preview came along
+        expect(settled.preview).toBeGreaterThan(0);
+
+        // nothing moves once the wheel stops
+        await page.waitForTimeout(500);
+        expect(await tops()).toEqual(settled);
+
+        removeFixture(docPath);
+    });
+
+    // the position used to cross as a source line, so the pane that follows
+    // could only land where a line did: it stood still for a few frames and
+    // then hopped a paragraph's worth at once
+    test('the pane that follows moves with the scroll instead of hopping', async ({page}) => {
+        const docPath = await openTallDocument(page, 'scroll-smooth');
+
+        await page.evaluate(() => {
+            const source = document.querySelector('.cm-scroller');
+            const preview = document.querySelector('[data-testid=editor-preview]');
+            window.__frames = [];
+            const watch = () => {
+                window.__frames.push([source.scrollTop, preview.scrollTop]);
+                if (window.__frames.length < 200) requestAnimationFrame(watch);
+            };
+            requestAnimationFrame(watch);
+        });
+        await wheelOverSource(page, {steps: 60, delta: 20});
+        await page.waitForTimeout(300);
+
+        const moved = await page.evaluate(() => {
+            const frames = window.__frames;
+            const led = frames.filter((frame, i) => i > 0 && frame[0] !== frames[i - 1][0]);
+            const still = frames.filter(
+                (frame, i) => i > 0 && frame[0] !== frames[i - 1][0] && frame[1] === frames[i - 1][1]);
+            return {led: led.length, still: still.length};
+        });
+
+        expect(moved.led).toBeGreaterThan(20);
+        expect(moved.still).toBeLessThan(moved.led / 3);
 
         removeFixture(docPath);
     });

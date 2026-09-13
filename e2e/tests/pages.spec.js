@@ -152,7 +152,7 @@ test.describe('pages', () => {
 
         // the choice is a cookie, because the server paints the first byte from it
         await page.reload();
-        await expect(root).toHaveAttribute('data-theme', 'dark');
+        await expect(root).toHaveAttribute('data-mantine-color-scheme', 'dark');
         await expect(page.getByTestId('topbar-theme')).toHaveAttribute('data-scheme', 'dark');
     });
 });

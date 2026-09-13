@@ -34,22 +34,21 @@ import { SourceEditor, type DroppedFiles } from './SourceEditor';
 import { Splitter } from './Splitter';
 import { Toolbar } from './Toolbar';
 import {
-  blockTopWithin,
-  clamp,
   holdPosition,
+  interactionEvents,
   isReadingAnchor,
   lineAtFraction,
   paneTopForLine,
   rememberAnchor,
   recallAnchor,
-  sourceBlocks,
   type ReadingAnchor,
 } from './anchor';
-import { firstVisibleLine, holdLineAtReading, lineAtReadingPosition, scrollLineToReading } from './cmAnchor';
-import { readingFraction, uploadAccept } from './constants';
+import { firstVisibleLine, holdLineAtReading } from './cmAnchor';
+import { uploadAccept } from './constants';
 import { confirmLeave, openConflict, openSessionExpired } from './dialogs';
 import classes from './Editor.module.css';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
+import { createPaneSync } from './paneSync';
 import { useDraft } from './useDraft';
 import { useEditorLayout, type LayoutMode } from './useLayoutMode';
 import { usePreview } from './usePreview';
@@ -97,7 +96,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const revRef = useRef(rev);
   const savingRef = useRef(false);
   const leavingRef = useRef(false);
-  const syncingRef = useRef(false);
+  const leaderRef = useRef<'source' | 'preview' | undefined>(undefined);
   const promptedRef = useRef(false);
   const previewRef = useRef<HTMLDivElement>(null);
   const panesRef = useRef<HTMLDivElement>(null);
@@ -120,16 +119,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const onCreate = useCallback((created: EditorView): void => {
     viewRef.current = created;
     setView(created);
-  }, []);
-
-  // each pane follows the other's scroll, so a move made here is fenced off or
-  // it comes straight back as the other pane's own scroll event
-  const withoutEcho = useCallback((move: () => void): void => {
-    syncingRef.current = true;
-    move();
-    requestAnimationFrame(() => {
-      syncingRef.current = false;
-    });
   }, []);
 
   const [openedAt, setOpenedAt] = useState<ReadingAnchor | undefined>(undefined);
@@ -168,12 +157,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     return holdPosition(() => {
       const top = paneTopForLine(pane, openedLine);
       if (top !== undefined) {
-        withoutEcho(() => {
-          pane.scrollTop = top;
-        });
+        pane.scrollTop = top;
       }
     }, pane);
-  }, [openedLine, preview.html, mode, withoutEcho]);
+  }, [openedLine, preview.html, mode]);
 
   const rememberReadingPosition = useCallback((): ReadingAnchor | undefined => {
     const current = viewRef.current;
@@ -192,60 +179,58 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     return anchor;
   }, [path]);
 
+  const panes = useMemo(createPaneSync, []);
+
   const syncFromSource = useCallback((): void => {
     const current = viewRef.current;
     const pane = previewRef.current;
-    if (syncingRef.current || current === undefined || pane === null) {
+    if (leaderRef.current !== 'source' || current === undefined || pane === null) {
       return;
     }
-    withoutEcho(() => {
-      const top = paneTopForLine(pane, lineAtReadingPosition(current));
-      if (top === undefined) {
-        const max = current.scrollDOM.scrollHeight - current.scrollDOM.clientHeight;
-        const ratio = max > 0 ? current.scrollDOM.scrollTop / max : 0;
-        pane.scrollTop = ratio * (pane.scrollHeight - pane.clientHeight);
-        return;
-      }
-      pane.scrollTop = top;
-    });
-  }, [withoutEcho]);
+    pane.scrollTop = panes.paneTop(current, pane);
+  }, [panes]);
 
   const syncFromPreview = useCallback((): void => {
     const current = viewRef.current;
     const pane = previewRef.current;
-    if (syncingRef.current || current === undefined || pane === null) {
+    if (leaderRef.current !== 'preview' || current === undefined || pane === null) {
       return;
     }
-    withoutEcho(() => {
-      const y = pane.scrollTop + pane.clientHeight * readingFraction;
-      const target = sourceBlocks(pane).find(
-        (block) => blockTopWithin(pane, block.element) + block.element.offsetHeight > y,
-      );
-      if (target === undefined) {
-        const max = pane.scrollHeight - pane.clientHeight;
-        const ratio = max > 0 ? pane.scrollTop / max : 0;
-        const scroller = current.scrollDOM;
-        scroller.scrollTop = ratio * (scroller.scrollHeight - scroller.clientHeight);
-        return;
-      }
-      const top = blockTopWithin(pane, target.element);
-      const height = target.element.offsetHeight;
-      const within = height > 0 ? clamp((y - top) / height, 0, 1) : 0;
-      scrollLineToReading(current, lineAtFraction(target, within));
-    });
-  }, [withoutEcho]);
+    current.scrollDOM.scrollTop = panes.sourceTop(current, pane);
+  }, [panes]);
 
+  // Only the pane the reader is working in moves the other one. A scroll event
+  // says an element moved and not who moved it, so without an owner the two
+  // panes answer each other's corrections forever: each one lands a little off
+  // where the other put it, and the page shakes under a finger that is already
+  // scrolling. Timing cannot settle this - the echo arrives a frame later, on
+  // the far side of any flag cleared in a rendering callback.
   useEffect(() => {
     const pane = previewRef.current;
     if (view === undefined || mode !== 'split' || pane === null) {
       return;
     }
     const scroller = view.scrollDOM;
+    const takeSource = (): void => {
+      leaderRef.current = 'source';
+    };
+    const takePreview = (): void => {
+      leaderRef.current = 'preview';
+    };
+
     scroller.addEventListener('scroll', syncFromSource, { passive: true });
     pane.addEventListener('scroll', syncFromPreview, { passive: true });
+    for (const name of interactionEvents) {
+      scroller.addEventListener(name, takeSource, { passive: true, capture: true });
+      pane.addEventListener(name, takePreview, { passive: true, capture: true });
+    }
     return () => {
       scroller.removeEventListener('scroll', syncFromSource);
       pane.removeEventListener('scroll', syncFromPreview);
+      for (const name of interactionEvents) {
+        scroller.removeEventListener(name, takeSource, { capture: true });
+        pane.removeEventListener(name, takePreview, { capture: true });
+      }
     };
   }, [view, mode, syncFromSource, syncFromPreview, preview.html]);
 

@@ -57,14 +57,32 @@ vendor/                dependencies, checked in, `make deps` regenerates
   was put, and one control in the topbar means both. A collapsed rail
   holds nothing: mantine only moves it out of sight, and the rows left
   in it would still answer the tab key.
-- The content column is capped at a reading measure but never centred.
-  Centred, it put as much empty space between the tree and the text as
-  between the text and the edge of the window, and the wider the screen
-  the worse it read.
+- Every screen puts its content in the same centered column, so the text
+  does not move sideways between a note, a search and a directory.
+- The color scheme is one attribute, mantine's
+  `data-mantine-color-scheme`. The picker reloads nothing and moves only
+  that one, so a stylesheet the server ships beside the bundle keys on it
+  too, and neither theme is written as a plain default: the two chroma
+  styles do not paint the same tokens, so an unguarded rule follows the
+  note into the other theme. Both together turned the punctuation of a
+  fence black on black.
 - The editor opens where the reader was. The rendered page carries the
   source line range of every block it emits, so the position crosses as
   a line and not as a pixel offset, and both panes are held at it until
   the preview has arrived and the document has stopped moving.
+- In the split editor only the pane the reader is working in moves the
+  other, and an interaction on a pane is what makes it that one. A
+  scroll event says an element moved, never who moved it, so two panes
+  that both follow never settle: each lands a little off where the other
+  put it, and the page shakes under a finger that is already scrolling.
+  A flag around the programmatic move does not help - the echo arrives a
+  frame later, after any rendering callback has cleared it.
+- The follower is placed by interpolating between measured pixel pairs,
+  the top and bottom of every rendered block with the document ends
+  around them, and never by way of a source line. A line is a step a
+  paragraph wide: the pane stood still for a few frames and then hopped.
+  The pairs are measured once per layout, because a wheel sends an event
+  a frame and a long note has hundreds of blocks.
 - The frontend is being replaced. A react and mantine app lives in
   `web/` and answers at `/app`; the server-rendered pages under `/p/`
   are canonical until it reaches parity, and both stay working until

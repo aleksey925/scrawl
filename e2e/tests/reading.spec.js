@@ -204,17 +204,27 @@ test.describe('reading', () => {
         await expect(page.getByTestId('shortcuts')).toBeVisible();
     });
 
-    test('the text starts beside the tree rather than centred in the window', async ({page}) => {
+    // the picker writes mantine's attribute and reloads nothing, so a
+    // stylesheet keyed on anything else keeps the colours of the theme the page
+    // was loaded in: the punctuation of a fence went black on a dark note
+    test('the code colours follow the theme picker, not the system', async ({page}) => {
         await page.goto(routes.doc(DOC.path));
-        await expect(page.getByTestId('doc')).toBeVisible();
-
-        const gap = await page.evaluate(() => {
-            const rail = document.querySelector('nav').getBoundingClientRect();
-            const doc = document.querySelector('[data-testid=doc]').getBoundingClientRect();
-            return doc.left - rail.right;
+        const contrast = () => page.locator('[data-testid=doc] .chroma .p').first().evaluate((el) => {
+            const sum = (color) => color.match(/\d+/g).slice(0, 3).reduce((a, b) => a + Number(b), 0);
+            return sum(getComputedStyle(el).color) - sum(getComputedStyle(document.body).backgroundColor);
         });
-        expect(gap).toBeGreaterThanOrEqual(0);
-        expect(gap).toBeLessThan(40);
+
+        // dark text on a light page
+        expect(await contrast()).toBeLessThan(0);
+
+        const toggle = page.getByTestId('topbar-theme');
+        await toggle.click();
+        await expect(toggle).toHaveAttribute('data-scheme', 'light');
+        await toggle.click();
+        await expect(toggle).toHaveAttribute('data-scheme', 'dark');
+
+        // light text on a dark one
+        await expect.poll(contrast).toBeGreaterThan(0);
     });
 
     test('the file list hides on demand and stays hidden', async ({page}) => {

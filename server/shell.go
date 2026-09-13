@@ -80,7 +80,6 @@ type appShell struct {
 
 type shellData struct {
 	Title       string
-	Theme       string
 	ColorScheme string
 	Nonce       string
 	Version     string
@@ -91,10 +90,10 @@ type shellData struct {
 }
 
 // shellTemplate is the document the app boots from. It carries no inline script:
-// the theme is an attribute the server resolves from the cookie, which is what
-// keeps script-src at 'self' with nothing to nonce.
+// the color scheme is an attribute the server resolves from the cookie, which
+// is what keeps script-src at 'self' with nothing to nonce.
 const shellTemplate = `<!doctype html>
-<html lang="en" data-theme="{{.Theme}}"{{if .ColorScheme}} data-mantine-color-scheme="{{.ColorScheme}}"{{end}}>
+<html lang="en"{{if .ColorScheme}} data-mantine-color-scheme="{{.ColorScheme}}"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
@@ -215,7 +214,6 @@ func (wb *Web) serveShell(w http.ResponseWriter, r *http.Request, status int) {
 	theme := themeOf(r)
 	data := shellData{
 		Title:   wb.Title,
-		Theme:   theme,
 		Nonce:   nonceOf(r.Context()),
 		Version: wb.Version,
 		Base:    appMount,

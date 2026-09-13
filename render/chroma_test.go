@@ -12,17 +12,30 @@ func TestChromaCSS(t *testing.T) {
 	css := string(ChromaCSS())
 
 	t.Run("both themes are present", func(t *testing.T) {
+		assert.Contains(t, css, "@media (prefers-color-scheme: light) {")
 		assert.Contains(t, css, "@media (prefers-color-scheme: dark) {")
-		assert.Contains(t, css, `:root:not([data-theme="light"]) .chroma`)
-		assert.Contains(t, css, `:root[data-theme="dark"] .chroma`)
-		assert.Contains(t, css, ":root .chroma")
+		assert.Contains(t, css, `:root:not([data-mantine-color-scheme="dark"]) .chroma`)
+		assert.Contains(t, css, `:root:not([data-mantine-color-scheme="light"]) .chroma`)
+		assert.Contains(t, css, `:root[data-mantine-color-scheme="light"] .chroma`)
+		assert.Contains(t, css, `:root[data-mantine-color-scheme="dark"] .chroma`)
 	})
 
-	t.Run("the dark block wins over the light one", func(t *testing.T) {
-		light := strings.Index(css, ":root .chroma ")
-		dark := strings.Index(css, `:root[data-theme="dark"] .chroma `)
-		assert.Positive(t, dark)
-		assert.Less(t, light, dark)
+	// a rule outside both guards paints whichever theme it belongs to onto the
+	// other one, for every token the other leaves to the base color
+	t.Run("no rule is left unguarded", func(t *testing.T) {
+		for line := range strings.SplitSeq(css, "\n") {
+			if !strings.HasPrefix(line, ":root .chroma") {
+				continue
+			}
+			assert.Fail(t, "rule belongs to neither theme", line)
+		}
+	})
+
+	t.Run("the chosen theme wins over the system one", func(t *testing.T) {
+		system := strings.Index(css, `:root:not([data-mantine-color-scheme="light"]) .chroma `)
+		chosen := strings.Index(css, `:root[data-mantine-color-scheme="dark"] .chroma `)
+		assert.Positive(t, chosen)
+		assert.Less(t, system, chosen)
 	})
 
 	t.Run("every selector is scoped", func(t *testing.T) {

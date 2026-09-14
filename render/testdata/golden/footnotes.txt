@@ -1,0 +1,18 @@
+title: Footnotes
+toc:
+  h1 #footnotes Footnotes
+---
+<h1 id="footnotes" data-source-start="1" data-source-end="1">Footnotes</h1>
+<p data-source-start="3" data-source-end="3">Первая сноска<sup class="footnote-ref"><a href="#fn-1" id="fnref-1">1</a></sup> и вторая<sup class="footnote-ref"><a href="#fn-2" id="fnref-2">2</a></sup>.</p>
+<p data-source-start="5" data-source-end="5">Ссылка на первую снова<sup class="footnote-ref"><a href="#fn-1" id="fnref-1-2">1</a></sup>.</p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+<p data-source-start="7" data-source-end="7">Текст первой сноски. <a href="#fnref-1" class="footnote-back">↩</a> <a href="#fnref-1-2" class="footnote-back">↩<sup>2</sup></a></p>
+</li>
+<li id="fn-2">
+<p data-source-start="8" data-source-end="8">Именованная сноска с <strong>разметкой</strong> и <a href="/p/docs/other.md">ссылкой</a>.</p>
+<p data-source-start="10" data-source-end="10">Второй абзац сноски. <a href="#fnref-2" class="footnote-back">↩</a></p>
+</li>
+</ol>
+</section>

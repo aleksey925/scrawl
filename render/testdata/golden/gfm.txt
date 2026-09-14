@@ -1,0 +1,36 @@
+title: GFM
+toc:
+  h1 #gfm GFM
+---
+<h1 id="gfm" data-source-start="1" data-source-end="1">GFM</h1>
+<div class="table-wrap" data-source-start="4" data-source-end="6">
+<table>
+<thead>
+<tr>
+<th align="left">Слева</th>
+<th align="center">По центру</th>
+<th align="right">Справа</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left">a</td>
+<td align="center">b</td>
+<td align="right">c</td>
+</tr>
+</tbody>
+</table>
+</div>
+<ul data-source-start="8" data-source-end="9">
+<li data-source-start="8" data-source-end="8"><input disabled="" type="checkbox"> не сделано</li>
+<li data-source-start="9" data-source-end="9"><input checked="" disabled="" type="checkbox"> сделано</li>
+</ul>
+<p data-source-start="11" data-source-end="11"><del>зачёркнуто</del>, а тут голая ссылка <a href="https://example.com/path" target="_blank" rel="noopener noreferrer nofollow">https://example.com/path</a> и <a href="http://www.example.com" target="_blank" rel="noopener noreferrer nofollow">www.example.com</a></p>
+<p data-source-start="13" data-source-end="13">Сноска<sup class="footnote-ref"><a href="#fn-1" id="fnref-1">1</a></sup></p>
+<section class="footnotes">
+<ol>
+<li id="fn-1">
+<p data-source-start="15" data-source-end="15">текст сноски <a href="#fnref-1" class="footnote-back">↩</a></p>
+</li>
+</ol>
+</section>

@@ -1,0 +1,502 @@
+/* Every rule here is scoped to .markdown-document: a note is markdown the
+   reader wrote, and its classes and ids must not reach app chrome. */
+
+.markdown-document {
+  color: var(--mantine-color-text);
+  overflow-wrap: break-word;
+}
+
+.markdown-document > :first-child {
+  margin-top: 0;
+}
+
+.markdown-document :is(h1, h2, h3, h4, h5, h6) {
+  position: relative;
+  scroll-margin-top: calc(var(--app-shell-header-height, 0px) + var(--mantine-spacing-xl));
+}
+
+.markdown-document a {
+  color: var(--mantine-color-anchor);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .markdown-document a:hover {
+    text-decoration: underline;
+  }
+}
+
+.markdown-document a.broken {
+  color: var(--scrawl-danger);
+  text-decoration: underline dotted;
+}
+
+.markdown-document img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: var(--mantine-spacing-xl) auto;
+  border-radius: var(--mantine-radius-md);
+  background: var(--scrawl-bg-inset);
+}
+
+.markdown-document img {
+  cursor: zoom-in;
+}
+
+.markdown-document a img {
+  cursor: pointer;
+}
+
+.markdown-document img.broken {
+  min-height: 60px;
+  padding: var(--mantine-spacing-lg);
+  border: 1px dashed var(--scrawl-danger);
+}
+
+.markdown-document blockquote {
+  margin: 0 0 var(--mantine-spacing-lg);
+  padding-left: var(--mantine-spacing-lg);
+  border-left: 3px solid var(--scrawl-border-strong);
+  color: var(--scrawl-text-secondary);
+}
+
+.markdown-document blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-document hr {
+  height: 0;
+  margin: var(--mantine-spacing-4xl) 0;
+  border: 0;
+  border-top: 1px solid var(--scrawl-border);
+}
+
+.markdown-document details {
+  margin: 0 0 var(--mantine-spacing-lg);
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  border: 1px solid var(--scrawl-border);
+  border-radius: var(--mantine-radius-lg);
+  background: var(--scrawl-bg-subtle);
+}
+
+.markdown-document summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.markdown-document details > :last-child {
+  margin-bottom: 0;
+}
+
+/* --- heading anchors ----------------------------------------------------- */
+
+/* a finger has no hover to reveal this with, so it is on screen and at the tap
+   minimum by default and only retreats into the gutter where hovering works */
+.md-anchor {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--scrawl-tap-target);
+  min-height: var(--scrawl-tap-target);
+  color: var(--scrawl-text-tertiary);
+  font-weight: 400;
+  text-decoration: none;
+  vertical-align: middle;
+}
+
+.md-anchor:focus-visible {
+  outline: 2px solid var(--scrawl-accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  /* absolute, so the gutter placement does not depend on the anchor trailing
+     the heading text, which is where a finger has to be able to reach it */
+  .md-anchor {
+    position: absolute;
+    top: 0;
+    left: -0.9em;
+    width: 0.9em;
+    min-width: 0;
+    min-height: 0;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  .markdown-document :is(h1, h2, h3, h4, h5, h6):hover > .md-anchor,
+  .md-anchor:focus-visible {
+    opacity: 1;
+  }
+
+  .md-anchor:hover {
+    color: var(--scrawl-accent);
+  }
+}
+
+/* --- code ---------------------------------------------------------------- */
+
+.markdown-document :not(pre) > code {
+  padding: 0.15em 0.35em;
+  border-radius: var(--mantine-radius-xs);
+  background: var(--scrawl-bg-inset);
+  color: var(--mantine-color-text);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.875em;
+}
+
+.markdown-document a > code {
+  color: inherit;
+}
+
+.markdown-document .code-block {
+  position: relative;
+  margin: 0 0 var(--mantine-spacing-lg);
+  border: 1px solid var(--scrawl-border);
+  border-radius: var(--mantine-radius-lg);
+  background: var(--scrawl-bg-inset);
+}
+
+.markdown-document pre {
+  margin: 0;
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: transparent;
+  color: var(--mantine-color-text);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.55;
+  tab-size: 4;
+}
+
+.markdown-document pre code {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: inherit;
+  white-space: pre;
+}
+
+.markdown-document .code-block[data-lang] pre {
+  padding-top: var(--mantine-spacing-2xl);
+}
+
+.markdown-document .code-block[data-lang]::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 7px;
+  left: var(--mantine-spacing-lg);
+  color: var(--scrawl-text-tertiary);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: var(--mantine-font-size-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.md-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--scrawl-tap-target);
+  min-height: var(--scrawl-tap-target);
+  padding: 0 var(--mantine-spacing-sm);
+  border: 1px solid var(--scrawl-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--scrawl-bg-raised);
+  color: var(--scrawl-text-secondary);
+  font-family: var(--mantine-font-family);
+  font-size: var(--mantine-font-size-xs);
+  cursor: pointer;
+}
+
+/* the button is opaque, so the first lines of every block need room beside it */
+.markdown-document .code-block pre {
+  padding-right: calc(var(--scrawl-tap-target) + var(--mantine-spacing-2xl));
+}
+
+@media (hover: hover) {
+  .md-copy {
+    min-width: 0;
+    min-height: 0;
+    height: 26px;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  .markdown-document .code-block:hover .md-copy,
+  .md-copy:focus-visible {
+    opacity: 1;
+  }
+
+  .md-copy:hover {
+    background: var(--scrawl-bg-inset);
+    color: var(--mantine-color-text);
+  }
+}
+
+.md-copy[data-done='true'] {
+  border-color: var(--scrawl-success);
+  color: var(--scrawl-success);
+  opacity: 1;
+}
+
+/* chroma paints the tokens from its own stylesheet; this only keeps an
+   unhighlighted block legible when that sheet is not on the page */
+.markdown-document .chroma {
+  color: var(--mantine-color-text);
+}
+
+/* --- tables -------------------------------------------------------------- */
+
+.markdown-document .table-wrap {
+  margin: 0 0 var(--mantine-spacing-xl);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* a wide table scrolls inside itself whether or not the renderer wrapped it */
+.markdown-document table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-collapse: collapse;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.markdown-document :is(th, td) {
+  padding: var(--mantine-spacing-sm) 14px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--scrawl-border);
+}
+
+.markdown-document th {
+  color: var(--scrawl-text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--scrawl-border-strong);
+}
+
+.markdown-document tr:last-child td {
+  border-bottom: 0;
+}
+
+/* --- alerts -------------------------------------------------------------- */
+
+.markdown-document .alert {
+  --md-alert-color: var(--scrawl-accent);
+  margin: 0 0 var(--mantine-spacing-lg);
+  padding-left: var(--mantine-spacing-lg);
+  border-left: 4px solid var(--md-alert-color);
+}
+
+.markdown-document .alert-tip {
+  --md-alert-color: var(--scrawl-success);
+}
+
+.markdown-document .alert-warning {
+  --md-alert-color: var(--scrawl-warning);
+}
+
+.markdown-document .alert-caution {
+  --md-alert-color: var(--scrawl-danger);
+}
+
+.markdown-document .alert > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-document .alert-title {
+  margin-bottom: var(--mantine-spacing-sm);
+  color: var(--md-alert-color);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+/* --- footnotes ----------------------------------------------------------- */
+
+.markdown-document .footnote-ref {
+  font-size: 0.75em;
+  line-height: 0;
+}
+
+.markdown-document section.footnotes {
+  margin-top: var(--mantine-spacing-4xl);
+  padding-top: var(--mantine-spacing-xl);
+  border-top: 1px solid var(--scrawl-border);
+  color: var(--scrawl-text-secondary);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.markdown-document section.footnotes :is(h2, h3) {
+  margin: 0 0 var(--mantine-spacing-md);
+  color: var(--scrawl-text-tertiary);
+  font-size: var(--mantine-font-size-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* a fragment jump lands with nothing to look at, so both ends of a footnote
+   link tint themselves while they are the target */
+.markdown-document section.footnotes li:target,
+.markdown-document .footnote-ref a:target {
+  border-radius: var(--mantine-radius-xs);
+  background: var(--scrawl-accent-subtle);
+  box-shadow: 0 0 0 4px var(--scrawl-accent-subtle);
+}
+
+/* --- math ---------------------------------------------------------------- */
+
+/* until katex has run the element holds the raw TeX; monospace close to the
+   final size keeps the swap small, and the scroll anchor covers the rest */
+.markdown-document .math {
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.9em;
+}
+
+.markdown-document .math-display {
+  display: block;
+  margin: var(--mantine-spacing-xl) 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  text-align: center;
+}
+
+.markdown-document .math.is-typeset {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.markdown-document .math.is-error {
+  color: var(--scrawl-danger);
+  text-decoration: underline wavy var(--scrawl-danger);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+.markdown-document .math-display .katex-display {
+  margin: 0;
+  padding: var(--mantine-spacing-xs) 0;
+}
+
+/* a katex base never breaks inside itself, so one long formula would widen the
+   document and pan the whole page sideways where there is no room to spare */
+@media (hover: none) {
+  .markdown-document .math-inline {
+    display: inline-block;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+}
+
+/* --- diagrams ------------------------------------------------------------ */
+
+.markdown-document pre.mermaid {
+  color: var(--scrawl-text-secondary);
+}
+
+.markdown-document .md-diagram {
+  margin: 0 0 var(--mantine-spacing-lg);
+}
+
+.markdown-document .md-diagram > pre.mermaid {
+  margin: 0;
+}
+
+.markdown-document .md-diagram-view {
+  display: none;
+}
+
+.markdown-document .md-diagram[data-state='done'] > pre.mermaid {
+  display: none;
+}
+
+.markdown-document .md-diagram[data-state='done'] > .md-diagram-view {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  text-align: center;
+}
+
+.markdown-document .md-diagram-view svg {
+  display: block;
+  margin-inline: auto;
+}
+
+.markdown-document .md-diagram-error {
+  margin: var(--mantine-spacing-sm) 0 0;
+  color: var(--scrawl-danger);
+  font-size: var(--mantine-font-size-sm);
+}
+
+/* --- find on page -------------------------------------------------------- */
+
+.markdown-document .md-find {
+  border-radius: 2px;
+  background: var(--scrawl-accent-subtle);
+  color: inherit;
+}
+
+.markdown-document .md-find[data-active='true'] {
+  background: var(--scrawl-accent);
+  color: #fff;
+}
+
+/* --- lightbox ------------------------------------------------------------ */
+
+.md-lightbox-content {
+  background: transparent;
+  box-shadow: none;
+}
+
+.md-lightbox-surface {
+  height: 100%;
+  padding: 0;
+}
+
+.md-lightbox-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mantine-spacing-lg);
+  height: 100%;
+  padding: var(--mantine-spacing-xl);
+}
+
+/* the image yields to the caption rather than being capped in vh: with mobile
+   Safari's toolbars out the pair stood taller than the dialog and was clipped */
+.md-lightbox-image {
+  max-width: 100%;
+  min-height: 0;
+  flex: 0 1 auto;
+  object-fit: contain;
+  border-radius: var(--mantine-radius-lg);
+  cursor: zoom-out;
+  touch-action: pan-y;
+}
+
+.md-lightbox-caption {
+  flex: none;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: var(--mantine-font-size-sm);
+  text-align: center;
+}
+
+.md-lightbox-close {
+  position: absolute;
+  top: max(var(--mantine-spacing-md), env(safe-area-inset-top));
+  right: var(--mantine-spacing-md);
+}

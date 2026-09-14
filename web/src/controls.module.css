@@ -1,0 +1,20 @@
+/* The touch minimum lives here rather than on each control, so one added later
+   cannot quietly miss it. A coarse pointer is a finger; a mouse keeps the
+   compact sizes. */
+
+@media (pointer: coarse) {
+  .tapTarget {
+    min-width: var(--scrawl-tap-target);
+    min-height: var(--scrawl-tap-target);
+  }
+
+  /* the crumbs are links the shell draws itself, and a bare <a> is inline, so
+     a minimum size would not apply to it at all */
+  .topbar a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--scrawl-tap-target);
+    min-height: var(--scrawl-tap-target);
+  }
+}

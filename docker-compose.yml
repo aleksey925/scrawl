@@ -1,0 +1,15 @@
+services:
+  scrawl:
+    build: .
+    ports:
+      - "7272:7272"
+    volumes:
+      - ./examples/data:/notes
+      - scrawl-data:/data
+    environment:
+      - AUTH_USERS=admin:admin
+      - AUTH_TOKENS=bot:demo-token:ro
+    user: "${UID:-1000}:${GID:-1000}"
+
+volumes:
+  scrawl-data:

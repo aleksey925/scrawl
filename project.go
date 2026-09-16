@@ -69,6 +69,7 @@ type runtimeProject struct {
 	notes *store.Store
 	hist  *history.Service
 	index *search.Index
+	pull  time.Duration // background fetch interval, 0 for a local project
 }
 
 // close releases what the project opened, in the reverse order it was opened.
@@ -170,6 +171,56 @@ func checkBranchName(ctx context.Context, branch string) error {
 // branchCheckTimeout bounds the one git call startup validation makes.
 const branchCheckTimeout = 5 * time.Second
 
+// ensureDirs makes every remote project's directory exist before the canonical
+// phase, which cannot resolve a path that is not there. A local project's
+// directory is never created: it is a volume the operator mounted, and one
+// scrawl made up would be an empty corpus nobody noticed.
+func ensureDirs(ctx context.Context, opts *options, cfgs []projectConfig) error {
+	for _, cfg := range cfgs {
+		if cfg.Remote == nil {
+			continue
+		}
+		empty, err := emptyDir(cfg.Dir)
+		if err != nil {
+			return fmt.Errorf("project %q: %w", cfg.Name, err)
+		}
+		if !empty {
+			continue
+		}
+		if err = history.Clone(ctx, cfg.Dir, remoteOf(opts, cfg)); err != nil {
+			return fmt.Errorf("project %q: %w", cfg.Name, err)
+		}
+	}
+	return nil
+}
+
+// emptyDir reports whether a path holds nothing worth keeping, which is what a
+// first clone needs: missing, or there and empty.
+func emptyDir(dir string) (bool, error) {
+	entries, err := os.ReadDir(dir)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return true, nil
+	case err != nil:
+		return false, fmt.Errorf("read %s: %w", dir, err)
+	}
+	return len(entries) == 0, nil
+}
+
+// remoteOf turns a project's configuration into what history takes. PullOnly is
+// the effective read-only mode seen from the git side: a project that will
+// never push has nothing to gain from trying and everything to lose from
+// reporting itself unpublished for changes nobody made.
+func remoteOf(opts *options, cfg projectConfig) history.Remote {
+	return history.Remote{
+		URL:       cfg.Remote.URL,
+		Branch:    cfg.Remote.Branch,
+		Token:     cfg.Remote.Token,
+		PullEvery: cfg.Remote.Pull,
+		PullOnly:  opts.ReadOnly || cfg.ReadOnly,
+	}
+}
+
 // resolveRoots turns each configured directory into the canonical path the
 // store and history will use, and repeats the overlap check on those. Only the
 // canonical comparison catches two symlink spellings of one directory, and it
@@ -229,21 +280,27 @@ func canonical(p string) (string, error) {
 }
 
 // newProject opens everything one project needs, in the order the design fixes:
-// the store first, then history, then the baseline reconcile, then the index.
-// Watching comes after, from run, because a watcher takes its baseline snapshot
-// when it starts and anything the worktree did before that produces no event.
+// the store, history, the baseline reconcile, the first sync, then the index.
+//
+// The order is not an implementation detail. store.Watch installs its watches
+// and takes its baseline snapshot before it returns, so a fast-forward merge
+// that landed after it produces no event and the index would stay stale for the
+// life of the process. Reconcile runs before the fetch because it only commits
+// what is already on disk, which keeps a local change from being what the merge
+// trips over. Watching itself comes last, from run.
 func newProject(ctx context.Context, opts *options, cfg projectConfig, root string) (*runtimeProject, error) {
+	readOnly := opts.ReadOnly || cfg.ReadOnly
 	notes, err := store.New(store.Config{
 		Root:     root,
 		Exclude:  slices.Concat(opts.Exclude, cfg.Exclude),
-		ReadOnly: opts.ReadOnly || cfg.ReadOnly,
+		ReadOnly: readOnly,
 		Watch:    store.WatchMode(opts.Watch),
 		Rescan:   opts.Rescan,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("open the notes directory of %q: %w", cfg.Name, err)
 	}
-	rp := &runtimeProject{notes: notes}
+	rp := &runtimeProject{notes: notes, pull: pullEvery(cfg)}
 	warnUnwritable(cfg.Name, notes)
 
 	//nolint:contextcheck // history.New bounds its own git calls with the init timeout, it takes no context
@@ -253,8 +310,15 @@ func newProject(ctx context.Context, opts *options, cfg projectConfig, root stri
 	}
 	// before the first request: this is the baseline import of a directory
 	// history never saw, and the recovery for a crash between a write and its
-	// commit, and both have to be in place before anything can be restored
-	reconcile(ctx, cfg.Name, rp.hist, historyActorStartup)
+	// commit, and both have to be in place before anything can be restored.
+	// A pull-only project is not reconciled at all: it has no push to carry the
+	// commit anywhere, and committing would report it unpublished for changes
+	// nobody made.
+	if !readOnly || cfg.Remote == nil {
+		reconcile(ctx, cfg.Name, rp.hist, historyActorStartup)
+	}
+	syncRemote(ctx, cfg.Name, rp.hist)
+	probeWritable(ctx, cfg.Name, rp.hist)
 
 	rp.index = search.New()
 	if err = indexAll(cfg.Name, notes, rp.index); err != nil {

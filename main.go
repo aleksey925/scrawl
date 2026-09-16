@@ -275,15 +275,32 @@ const (
 // "on" is a promise the deployment made, so the same conditions stop the server
 // rather than serving without the audit trail somebody asked for.
 func newHistory(opts *options, cfg projectConfig, notes *store.Store) (*history.Service, error) {
+	hcfg := history.Config{Name: cfg.Name, Root: notes.Dir(), Files: historyFiles(notes)}
+	// history is forced on for a remote, whatever --history says: a project
+	// that silently stopped recording would also silently stop pushing. It
+	// tracks every visible file too, because the editor opens far more types
+	// than local history keeps, and on a clone that gap is data loss rather
+	// than a hole in an audit trail.
+	remote := cfg.Remote != nil
+	if remote {
+		rm := remoteOf(opts, cfg)
+		hcfg.Remote, hcfg.TrackAll = &rm, true
+	}
 	if opts.History == historyOff {
-		return nil, nil
+		if !remote {
+			return nil, nil
+		}
+		log.Printf("[WARN] %s: --history=%s does not apply, a project that tracks a remote has to record "+
+			"before it can push", cfg.Name, historyOff)
 	}
 
-	svc, err := history.New(history.Config{Name: cfg.Name, Root: notes.Dir(), Files: historyFiles(notes)})
+	svc, err := history.New(hcfg)
 	switch {
 	case err == nil:
 		log.Printf("[INFO] %s: history is on, the git repository is %s", cfg.Name, svc.Root())
 		return svc, nil
+	case remote:
+		return nil, fmt.Errorf("the repository of project %q could not be opened: %w", cfg.Name, err)
 	case opts.History == historyOn:
 		return nil, fmt.Errorf("history is required by --history=%s for project %q: %w", historyOn, cfg.Name, err)
 	}
@@ -325,6 +342,45 @@ func reconcile(ctx context.Context, name string, hist *history.Service, actor st
 		name, actor, time.Since(start).Round(time.Millisecond))
 }
 
+// syncRemote fetches, fast-forwards and pushes once, before the index is built
+// and long before the watcher starts. A failure is never fatal: the project
+// keeps serving what is on disk, and Unpublished and SyncError say what fell
+// behind.
+func syncRemote(ctx context.Context, name string, hist *history.Service) {
+	if !hist.Remote() || ctx.Err() != nil {
+		return
+	}
+	start := time.Now()
+	if err := hist.Sync(ctx); err != nil {
+		log.Printf("[ERROR] %s: %v", name, err)
+		return
+	}
+	log.Printf("[DEBUG] %s: in step with the remote in %v", name, time.Since(start).Round(time.Millisecond))
+}
+
+// probeWritable says once, loudly, that a remote will refuse every push. It is
+// a warning and never a mode: a probe that flipped the project to read-only
+// would be a setting nobody configured, changing with the network.
+func probeWritable(ctx context.Context, name string, hist *history.Service) {
+	if !hist.Remote() || ctx.Err() != nil {
+		return
+	}
+	if err := hist.ProbeWritable(ctx); err != nil {
+		log.Printf("[WARN] %s: the remote refuses a push, every save will stay in this container: %v", name, err)
+		log.Printf("[WARN] give the project a credential with repo.token_file or repo.token_env, " +
+			"or mark it read_only if that is what you meant")
+	}
+}
+
+// pullEvery is how often a project fetches in the background. A local project
+// has no remote to fetch from, and 0 disables the ticker.
+func pullEvery(cfg projectConfig) time.Duration {
+	if cfg.Remote == nil {
+		return 0
+	}
+	return cfg.Remote.Pull
+}
+
 // indexAll fills the search index from the notes directory.
 func indexAll(name string, notes *store.Store, index *search.Index) error {
 	start := time.Now()
@@ -364,6 +420,12 @@ func watch(ctx context.Context, rp *runtimeProject, srv *server.Web) <-chan stru
 		batch.Stop()
 		defer batch.Stop()
 
+		// a local project never fires this, and neither does a remote whose
+		// pull interval is 0: the merge is then only what the startup sync and
+		// a webhook bring
+		pull := newTicker(rp.pull)
+		defer pull.Stop()
+
 		for {
 			select {
 			case ev, ok := <-events:
@@ -381,10 +443,26 @@ func watch(ctx context.Context, rp *runtimeProject, srv *server.Web) <-chan stru
 				// what the app itself wrote is committed already, so this
 				// mostly finds nothing; the edit made over SMB is the point
 				reconcile(ctx, name, rp.hist, historyActorExternal)
+			case <-pull.C:
+				// the merge rewrites the worktree, and the watcher above turns
+				// what it changed into reindexing and cache invalidation with
+				// no extra wiring
+				syncRemote(ctx, name, rp.hist)
 			}
 		}
 	}()
 	return done
+}
+
+// newTicker is a ticker that never fires when the interval is not positive,
+// which is what a select over an optional schedule needs.
+func newTicker(every time.Duration) *time.Ticker {
+	if every <= 0 {
+		ticker := time.NewTicker(time.Hour)
+		ticker.Stop()
+		return ticker
+	}
+	return time.NewTicker(every)
 }
 
 // reindex brings the search index back in step with one path.
@@ -415,6 +493,12 @@ func validateStartup(ctx context.Context, opts *options, cfgs []projectConfig) (
 		return nil, err
 	}
 	if err := validateProjects(ctx, cfgs); err != nil {
+		return nil, err
+	}
+	// only now, when every plainly written mistake has been refused: a clone
+	// made before that would sit in somebody else's notes and have to be found
+	// and deleted by hand
+	if err := ensureDirs(ctx, opts, cfgs); err != nil {
 		return nil, err
 	}
 	roots, rootsErr := resolveRoots(cfgs)

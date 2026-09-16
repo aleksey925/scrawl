@@ -79,7 +79,7 @@ func loadConfig(opts *options) ([]projectConfig, error) {
 			ReadOnly: prj.ReadOnly,
 			Exclude:  prj.Exclude,
 		}
-		if cfg.Remote, err = remoteOf(prj); err != nil {
+		if cfg.Remote, err = repoOf(prj); err != nil {
 			return nil, err
 		}
 		res = append(res, cfg)
@@ -87,8 +87,8 @@ func loadConfig(opts *options) ([]projectConfig, error) {
 	return res, nil
 }
 
-// remoteOf resolves one project's repo block, credential and all.
-func remoteOf(prj configProject) (*remoteConfig, error) {
+// repoOf resolves one project's repo block, credential and all.
+func repoOf(prj configProject) (*remoteConfig, error) {
 	if prj.Repo == nil {
 		return nil, nil
 	}

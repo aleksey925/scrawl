@@ -1,13 +1,15 @@
 # scrawl
 
-Single Go binary that serves a directory of markdown files as a notes
-web app with in-browser editing. Runs in Docker, no external services,
-all state on disk.
+Single Go binary that serves directories of markdown files as a notes
+web app with in-browser editing. A directory may be a git clone it
+pushes back to. Runs in Docker, no external services, all state on disk.
 
 ## Layout
 
 ```
 main.go                config (go-flags + env), wiring, graceful shutdown
+config.go              the --config file and the repository credentials
+project.go             one project: validation, the clone, the services
 store/                 safe filesystem access, tree, CRUD, watcher
 render/                markdown -> HTML, link rewrite, TOC, highlighting
 search/                in-memory full-text index
@@ -83,11 +85,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
   paragraph wide: the pane stood still for a few frames and then hopped.
   The pairs are measured once per layout, because a wheel sends an event
   a frame and a long note has hundreds of blocks.
-- The frontend is being replaced. A react and mantine app lives in
-  `web/` and answers at `/app`; the server-rendered pages under `/p/`
-  are canonical until it reaches parity, and both stay working until
-  then. The templates and `server/assets/{css,js}` go when it takes
-  over.
+- The frontend is a react and mantine app in `web/`. It owns the whole
+  origin: every page route boots the same shell and the client router
+  decides what it is. `server/templates/` holds one page, the sign-in
+  form, because it has to work before the bundle loads and with
+  javascript off.
 - Nothing is fetched from a CDN at runtime, and the build stays out of
   the release path: vite writes into `server/assets/app/`, which is
   committed and picked up by `//go:embed`. `go install` cannot run an
@@ -119,9 +121,65 @@ vendor/                dependencies, checked in, `make deps` regenerates
   drawer and the outline sheet each ran their own copy of that over
   overlapping elements, so closing one lifted the other's `inert`, and a
   close that went around the teardown left the page taking no tap at all.
-- Content paths are relative to the root, slash-separated, without a
-  leading slash. Markdown URLs keep the `.md` suffix, because a file
-  and a directory can share a name (`foo.md` next to `foo/`).
+- A project is the unit the server is built around: one store, one
+  renderer, one index, one history service, named and served under
+  `/p/<name>/`. `server.Project` holds them and every handler that reads
+  one hangs off `mount{*Web, prj}`, so each is still written against a
+  single store. The name is always written down by a human - mandatory
+  `--project`, mandatory `name:` - because a derived one would turn an
+  `mv` into a site-wide URL change.
+- Everything a project owns lives under `/p/<name>/`, including when
+  there is exactly one: `/doc/`, `/edit/`, `/history/`, `/search`,
+  `/api/` and `/raw/`. The root holds only what reads no store -
+  `/ping`, `/static/`, `/manifest.webmanifest`, `/login`, `/logout`,
+  `/api/login`, `/api/logout`, `/api/projects` and the `/` redirect to
+  the first project. Every new endpoint answers one question, does it
+  read a store, and lands on one side.
+- Two kinds of URL, and they must never be mixed. A **router-relative**
+  one goes to `<Link to>` or `navigate()`, which prepend the project's
+  basename themselves, so it carries no prefix - every builder in
+  `server/page.go` produces one, `edit_url` included. A **physical** one
+  is fetched by the browser directly - a `fetch`, an `href` the renderer
+  wrote into a note, the `/raw/` redirect, `/static/` - and carries the
+  prefix. The base is the prefix with no trailing slash and a path
+  always has a leading one, so a physical url is `base + path` and
+  nothing ever concatenates a bare segment.
+- `/raw/` in JSON is the one exception: `contentURL` writes it
+  unprefixed, because `DirEntry.URL` would otherwise hold a
+  router-relative URL for a note and a mounted one for a picture. The
+  reading side mounts it, asking the question the rest of the app asks -
+  is this markdown.
+- Global read-only is a ceiling and a project's own is a floor: the
+  effective mode is `global || project`, and that one value is what
+  `/api/me` reports and what every write is refused on. A per-project
+  `read_only: false` cannot lift the server-wide guard.
+- A remote project is a local project whose directory is a clone.
+  `history` gains a `Remote`, `main` clones before the canonical
+  validation phase, and nothing else changes shape. The startup order is
+  part of the design: open store, `Reconcile`, `Sync`, `indexAll`,
+  `Watch`. `store.Watch` takes its baseline when it is called, so a
+  fast-forward that lands after it produces no event at all.
+- `--ff-only` is the whole conflict policy. scrawl never merges, never
+  rebases and never resolves: a diverged project keeps serving, keeps
+  committing locally, and says so loudly.
+- Two states, not one. `degraded` is a commit that failed, so a change
+  is on disk and not in git. `unpublished` is a commit the remote does
+  not have. Reusing `degraded` for both would report a healthy history
+  the moment a later commit stages nothing, and would tell a strict
+  caller the change was not recorded when it was recorded and only not
+  pushed. `unpublished` is **measured**, never remembered, and never the
+  gate on the push.
+- A repository credential is resolved once, in `main`, before
+  `setupLog`, and reaches git only through `GIT_CONFIG_*` on the three
+  commands that talk to a remote. Never argv: `/proc/<pid>/cmdline` is
+  world readable and `gitError` quotes arguments. `history` never opens
+  a file and never reads a variable, because a second read could hand
+  git a rotated secret that was never registered for redaction.
+- Content paths are relative to the project's root, slash-separated,
+  without a leading slash. The project is in the URL and never in the
+  path, so `store` stays the only security boundary. Markdown URLs keep
+  the `.md` suffix, because a file and a directory can share a name
+  (`foo.md` next to `foo/`).
 - `.md` is the only document extension, everywhere: the link rewriter,
   the tree, the search index, the editor and the create dialog all ask
   the same question. A `.markdown` file is an attachment like any
@@ -130,7 +188,10 @@ vendor/                dependencies, checked in, `make deps` regenerates
   mode. A `Bearer` API token authenticates instead of the cookie, gets
   no session and skips the cross-origin check; a `:ro` token is refused
   the same writes the server-wide read-only mode refuses.
-- Document history is git and optional: `--history=auto|on|off`. The
+- Document history is git and optional: `--history=auto|on|off`, except
+  for a remote project, where it is always on and tracks every visible
+  file - one that stopped recording would also stop pushing, and the
+  editor opens far more types than the extension list keeps. The
   repository has to be rooted exactly at the notes root; one that merely
   sits inside another repository is refused, never adopted. Only the
   paths an operation names are staged, never the worktree, because
@@ -173,6 +234,6 @@ make test    tests
 make race    tests with the race detector
 make cover   race tests plus a coverage summary
 make lint    every pre-commit hook, through prek
-make run     run against ./examples/data with auth disabled
+make run     run ./examples/data as the "notes" project, auth disabled
 make e2e     the browser suite
 ```

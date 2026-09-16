@@ -16,6 +16,12 @@ services:
 
     environment:
       - TZ=Europe/Nicosia
+      # the name of the folder above, and the one URL segment everything in it
+      # is served under: /p/notes/doc/python/redis.md. it is required, because
+      # a name taken from the directory would turn one mv into a site-wide URL
+      # change. several folders at once go in a CONFIG file instead, see the
+      # README
+      - PROJECT=notes
       # in a compose file every literal dollar has to be doubled, because
       # compose expands $VARS: a hash printed as $2a$10$xyz goes in as
       # $$2a$$10$$xyz. in Container Manager's environment table values are

@@ -28,7 +28,7 @@ func cleanEnv() []string {
 	return append(res, "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null", "LC_ALL=C")
 }
 
-func runGit(t *testing.T, dir string, args ...string) string {
+func gitIn(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 
 	cmd := exec.Command("git", append([]string{"--no-pager", "-c", "safe.directory=" + dir}, args...)...)
@@ -42,7 +42,7 @@ func runGit(t *testing.T, dir string, args ...string) string {
 func gitInit(t *testing.T, dir string) {
 	t.Helper()
 
-	runGit(t, dir, "init", "--quiet", "--initial-branch="+initialBranch, ".")
+	gitIn(t, dir, "init", "--quiet", "--initial-branch="+initialBranch, ".")
 }
 
 // visibleFiles stands in for the store: every file except the dot-entries the
@@ -116,13 +116,13 @@ func writeBoth(root, first, firstContent, second, secondContent string) error {
 func trackedPaths(t *testing.T, s *Service) []string {
 	t.Helper()
 
-	return splitNul([]byte(runGit(t, s.Root(), "ls-files", "-z")))
+	return splitNul([]byte(gitIn(t, s.Root(), "ls-files", "-z")))
 }
 
 func commitPaths(t *testing.T, s *Service, rev string) []string {
 	t.Helper()
 
-	res := splitNul([]byte(runGit(t, s.Root(), "show", "--pretty=format:", "--name-only", "-z", rev)))
+	res := splitNul([]byte(gitIn(t, s.Root(), "show", "--pretty=format:", "--name-only", "-z", rev)))
 	for i := range res {
 		res[i] = strings.TrimLeft(res[i], "\n")
 	}
@@ -136,7 +136,7 @@ func commitCount(t *testing.T, s *Service) int {
 	if !s.hasHead(t.Context()) {
 		return 0
 	}
-	count, err := strconv.Atoi(strings.TrimSpace(runGit(t, s.Root(), "rev-list", "--count", "HEAD")))
+	count, err := strconv.Atoi(strings.TrimSpace(gitIn(t, s.Root(), "rev-list", "--count", "HEAD")))
 	require.NoError(t, err)
 	return count
 }
@@ -185,7 +185,7 @@ func TestNew(t *testing.T) {
 		root := t.TempDir()
 		gitInit(t, root)
 		writeFile(t, root, "old.md", "old\n")
-		runGit(t, root, "-c", "user.name=someone", "-c", "user.email=someone@example.com", "commit",
+		gitIn(t, root, "-c", "user.name=someone", "-c", "user.email=someone@example.com", "commit",
 			"--quiet", "--allow-empty", "-m", "made earlier")
 
 		// act
@@ -268,7 +268,7 @@ func TestServiceRecord(t *testing.T) {
 		content, err := s.Show(t.Context(), entries[0].Blob)
 		require.NoError(t, err)
 		assert.Equal(t, "# note\n", string(content))
-		assert.Equal(t, committerName, strings.TrimSpace(runGit(t, s.Root(), "log", "-1", "--format=%cn")))
+		assert.Equal(t, committerName, strings.TrimSpace(gitIn(t, s.Root(), "log", "-1", "--format=%cn")))
 	})
 
 	t.Run("stages only the paths the operation names", func(t *testing.T) {
@@ -914,7 +914,7 @@ func TestServiceLog(t *testing.T) {
 		// assert
 		require.NoError(t, err)
 		require.Len(t, entries, 1)
-		assert.Equal(t, strings.TrimSpace(runGit(t, s.Root(), "rev-parse", "HEAD")), entries[0].Rev)
+		assert.Equal(t, strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD")), entries[0].Rev)
 		assert.True(t, strings.HasPrefix(entries[0].Rev, entries[0].Short))
 		assert.Less(t, len(entries[0].Short), len(entries[0].Rev),
 			"--no-abbrev applies to %h too, so a short hash taken from git is the full one")
@@ -949,7 +949,7 @@ func TestServiceVersion(t *testing.T) {
 		// arrange
 		s := newService(t)
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
-		rev := strings.TrimSpace(runGit(t, s.Root(), "rev-parse", "HEAD"))
+		rev := strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
 
 		// act
 		blob, err := s.Version(t.Context(), rev, "a.md")
@@ -968,7 +968,7 @@ func TestServiceVersion(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"b.md"}}, map[string]string{"b.md": "other\n"}))
 		// log walks backwards, so this pair answers with the older commit
 		// unless the revision that was asked for is the one that comes back
-		latest := strings.TrimSpace(runGit(t, s.Root(), "rev-parse", "HEAD"))
+		latest := strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
 
 		// act
 		_, err := s.Version(t.Context(), latest, "a.md")
@@ -981,7 +981,7 @@ func TestServiceVersion(t *testing.T) {
 		// arrange
 		s := newService(t)
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"old.md"}}, map[string]string{"old.md": "before\n"}))
-		before := strings.TrimSpace(runGit(t, s.Root(), "rev-parse", "HEAD"))
+		before := strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
 		require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"old.md", "new.md"}}, func() ([]string, error) {
 			return nil, os.Rename(filepath.Join(s.Root(), "old.md"), filepath.Join(s.Root(), "new.md"))
 		}))
@@ -1003,7 +1003,7 @@ func TestServiceVersion(t *testing.T) {
 		require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"a.md"}}, func() ([]string, error) {
 			return nil, os.Remove(filepath.Join(s.Root(), "a.md"))
 		}))
-		rev := strings.TrimSpace(runGit(t, s.Root(), "rev-parse", "HEAD"))
+		rev := strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
 
 		// act
 		blob, err := s.Version(t.Context(), rev, "a.md")

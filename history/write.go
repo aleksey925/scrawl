@@ -69,6 +69,20 @@ func (s *Service) Record(ctx context.Context, op Op, mutate func() ([]string, er
 	}
 	clear(s.pending)
 	s.degraded.Store(false)
+	return s.publishFailed(op, s.publishLocked(ctx))
+}
+
+// publishFailed decides who hears about a push that did not land. A strict
+// caller gets ErrNotPublished, which is its own sentinel: telling it the change
+// was "not recorded in history" would be wrong, because it was recorded and
+// only not pushed. A browser save stands and the banner says so instead.
+func (s *Service) publishFailed(op Op, err error) error {
+	if err == nil {
+		return nil
+	}
+	if op.Strict {
+		return fmt.Errorf("history: %w: %w", ErrNotPublished, err)
+	}
 	return nil
 }
 
@@ -99,6 +113,10 @@ func (s *Service) Reconcile(ctx context.Context, actor string) error {
 	}
 	clear(s.pending)
 	s.degraded.Store(false)
+	// a push that did not land is reported by Unpublished and SyncError, and
+	// logged once by the stage that failed. It is not what Reconcile promises,
+	// which is that what is on disk has been committed.
+	_ = s.publishLocked(ctx)
 	return nil
 }
 
@@ -152,6 +170,14 @@ func (s *Service) stage(ctx context.Context, paths []string, timeout time.Durati
 		stdin.WriteByte(0)
 	}
 	args := []string{"add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"}
+	if s.cfg.TrackAll {
+		// the path list is exact and filtered before it ever reaches git, so
+		// the only thing -f overrides is the ignore rules this package
+		// documents as winning. Without it a visible file some .gitignore in
+		// the corpus happens to match can be created, served, edited and never
+		// pushed.
+		args = append(args, "-f")
+	}
 	_, err := s.run(ctx, command{args: args, stdin: stdin.Bytes(), timeout: timeout})
 	return err
 }

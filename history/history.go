@@ -88,6 +88,15 @@ type Config struct {
 	Files       func() ([]string, error) // every visible file, relative slash paths
 	Timeout     time.Duration            // per git call, 0 means 10s
 	InitTimeout time.Duration            // for Reconcile and the baseline import, 0 means 5m
+
+	// Remote makes this a clone that is fetched from and pushed to. nil is an
+	// ordinary local repository, which is what the app had before.
+	Remote *Remote
+	// TrackAll versions every visible path instead of the extension list. A
+	// remote sets it, because the editor opens far more types than local
+	// history keeps and on a clone that gap is silent data loss, not a gap in
+	// an audit trail.
+	TrackAll bool
 }
 
 // Service records changes to the notes directory in git. The zero value is not
@@ -105,6 +114,12 @@ type Service struct {
 	mu       sync.Mutex
 	pending  map[string]struct{} // paths whose commit failed, folded into the next one
 	degraded atomic.Bool
+
+	// the publication state, kept apart from the commit state above: a commit
+	// that stages nothing succeeds and clears degraded, which would report a
+	// healthy history while the remote was still behind
+	unpublished atomic.Bool
+	syncState
 }
 
 // New prepares the repository for the notes root and returns the service. It
@@ -152,6 +167,14 @@ func New(cfg Config) (*Service, error) {
 	if err = s.disableFilters(); err != nil {
 		_ = files.Close()
 		return nil, fmt.Errorf("history: %w", err)
+	}
+	// verify an existing clone rather than repair one: re-cloning or repointing
+	// would throw away commits that were never pushed
+	if cfg.Remote != nil {
+		if err = s.checkRemote(ctx); err != nil {
+			_ = files.Close()
+			return nil, fmt.Errorf("history: %w", err)
+		}
 	}
 	return s, nil
 }
@@ -325,8 +348,14 @@ func (s *Service) initTimeout() time.Duration {
 	return s.cfg.InitTimeout
 }
 
-// versioned reports whether a path is one of the extensions we keep history for.
+// versioned reports whether a path is one of the extensions we keep history
+// for. TrackAll answers yes to everything: it is consulted on the write side
+// only, and the read routes have their own markdown guard, so widening it
+// widens what is committed and nothing else.
 func (s *Service) versioned(p string) bool {
+	if s.cfg.TrackAll {
+		return true
+	}
 	_, ok := s.exts[strings.ToLower(path.Ext(p))]
 	return ok
 }

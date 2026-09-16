@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -28,46 +29,92 @@ type command struct {
 	stdin   []byte
 	limit   int64         // max bytes of stdout, 0 means defaultOutputCap
 	timeout time.Duration // 0 means Config.Timeout
+	network bool          // talks to the remote, so the credential header applies
 }
 
-// run executes git and returns its stdout. Every call is bounded by a timeout
-// and an output cap, because both the repository and the notes in it may be
-// larger or slower than anything the caller expects.
-func (s *Service) run(ctx context.Context, c command) ([]byte, error) {
-	timeout, limit := c.timeout, c.limit
-	if timeout <= 0 {
-		timeout = s.timeout()
+// gitRun is one git invocation with nothing left implicit. It exists because
+// Clone happens when there is no directory and therefore no service, so it
+// cannot take the working directory and the environment off one; every other
+// call goes through the same function so that the hardening has one home.
+type gitRun struct {
+	git     string
+	dir     string
+	env     []string
+	base    []string // top-level options, before the subcommand
+	args    []string
+	stdin   []byte
+	limit   int64
+	timeout time.Duration
+	secret  string // redacted out of any failure this call reports
+}
+
+// runGit executes git and returns its stdout. Every call is bounded by a
+// timeout and an output cap, because both the repository and the notes in it
+// may be larger or slower than anything the caller expects.
+func runGit(ctx context.Context, r gitRun) ([]byte, error) {
+	if r.timeout <= 0 {
+		r.timeout = defaultTimeout
 	}
-	if limit <= 0 {
-		limit = defaultOutputCap
+	if r.limit <= 0 {
+		r.limit = defaultOutputCap
 	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
 	//nolint:gosec // the binary is what LookPath resolved and every argument is built in this package
-	cmd := exec.CommandContext(ctx, s.git, append(s.baseArgs(), c.args...)...)
-	cmd.Dir = s.root
-	cmd.Env = s.env()
-	if len(c.stdin) > 0 {
-		cmd.Stdin = bytes.NewReader(c.stdin)
+	cmd := exec.CommandContext(ctx, r.git, append(r.base, r.args...)...)
+	cmd.Dir = r.dir
+	cmd.Env = r.env
+	if len(r.stdin) > 0 {
+		cmd.Stdin = bytes.NewReader(r.stdin)
 	}
-	out := &capWriter{limit: limit, hard: true}
+	out := &capWriter{limit: r.limit, hard: true}
 	stderr := &capWriter{limit: maxStderrBytes}
 	cmd.Stdout, cmd.Stderr = out, stderr
 
 	err := cmd.Run()
 	switch {
 	case out.exceeded:
-		return nil, fmt.Errorf("git %s: more than %d bytes of output", c.args[0], limit)
+		return nil, fmt.Errorf("git %s: more than %d bytes of output", r.args[0], r.limit)
 	case err != nil:
-		return nil, &gitError{args: c.args, stderr: strings.TrimSpace(stderr.buf.String()), err: err}
+		return nil, &gitError{
+			args:   r.args,
+			stderr: strings.TrimSpace(stderr.buf.String()),
+			err:    err,
+			secret: r.secret,
+		}
 	}
 	return out.buf.Bytes(), nil
+}
+
+// run executes git in this service's repository.
+func (s *Service) run(ctx context.Context, c command) ([]byte, error) {
+	timeout := c.timeout
+	if timeout <= 0 {
+		timeout = s.timeout()
+	}
+	return runGit(ctx, gitRun{
+		git:     s.git,
+		dir:     s.root,
+		env:     s.env(c.network),
+		base:    s.baseArgs(),
+		args:    c.args,
+		stdin:   c.stdin,
+		limit:   c.limit,
+		timeout: timeout,
+		secret:  s.token(),
+	})
 }
 
 // baseArgs are the options every call carries. They are top-level git options
 // and have to come before the subcommand; git rejects them after it.
 func (s *Service) baseArgs() []string {
+	return hardenedArgs(s.root)
+}
+
+// hardenedArgs are the options every git call carries, whether a service is
+// behind it or not.
+func hardenedArgs(root string) []string {
 	return []string{
 		"--no-pager",
 		// a path is a path: no pathspec magic, so a note named ":x.md" or
@@ -75,7 +122,7 @@ func (s *Service) baseArgs() []string {
 		"--literal-pathspecs",
 		// only protected configuration is trusted for this, which the command
 		// line is; the exact root, never "*", so no other repository is opened
-		"-c", "safe.directory=" + s.root,
+		"-c", "safe.directory=" + root,
 		// the notes directory may already be a repository somebody configured,
 		// and --no-verify does not disable every hook
 		// a place that can hold no hooks at all, rather than an empty directory
@@ -93,25 +140,56 @@ func (s *Service) baseArgs() []string {
 	}
 }
 
-// env strips every GIT_* variable the host set - GIT_DIR, GIT_WORK_TREE,
+// env is the child environment of one call. withToken carries the credential
+// header, and only the three commands that talk to a remote ask for it.
+func (s *Service) env(withToken bool) []string {
+	token := ""
+	if withToken {
+		token = s.token()
+	}
+	return gitEnv(token)
+}
+
+// gitEnv strips every GIT_* variable the host set - GIT_DIR, GIT_WORK_TREE,
 // GIT_INDEX_FILE and the author and committer overrides would each redirect a
 // commit somewhere we never looked - and pins the rest.
-func (s *Service) env() []string {
+//
+// A credential goes in here rather than on the command line: -c
+// http.extraHeader=... would put the token in /proc/<pid>/cmdline, which is
+// world readable, and in any gitError that quoted the arguments. /proc/<pid>/
+// environ is readable only by the owning uid.
+func gitEnv(token string) []string {
 	host := os.Environ()
-	res := make([]string, 0, len(host)+5)
+	res := make([]string, 0, len(host)+8)
 	for _, kv := range host {
 		if strings.HasPrefix(kv, "GIT_") {
 			continue
 		}
 		res = append(res, kv)
 	}
-	return append(res,
+	res = append(res,
 		"GIT_CONFIG_GLOBAL=/dev/null",
 		"GIT_CONFIG_SYSTEM=/dev/null",
 		"GIT_CONFIG_NOSYSTEM=1",
 		"GIT_TERMINAL_PROMPT=0",
 		"LC_ALL=C",
 	)
+	if token == "" {
+		return res
+	}
+	return append(res,
+		"GIT_CONFIG_COUNT=1",
+		"GIT_CONFIG_KEY_0=http.extraHeader",
+		"GIT_CONFIG_VALUE_0=Authorization: "+token,
+	)
+}
+
+// token is the resolved credential header value, empty for a local project.
+func (s *Service) token() string {
+	if s.cfg.Remote == nil {
+		return ""
+	}
+	return s.cfg.Remote.Token
 }
 
 // hasHead reports whether the repository has a commit. An empty one has no
@@ -140,14 +218,37 @@ type gitError struct {
 	args   []string
 	stderr string
 	err    error
+	secret string // the credential of this call, never printed
 }
 
-// Error implements the error interface.
+// redacted stands in for anything that must not reach a log or a UI.
+const redacted = "***"
+
+// Error implements the error interface. The redaction is here rather than in a
+// log filter, so it holds wherever the error is printed or returned - SyncError
+// puts this text on a page, which lgr.Secret never touches.
 func (e *gitError) Error() string {
-	if e.stderr == "" {
-		return fmt.Sprintf("git %s: %v", strings.Join(e.args, " "), e.err)
+	res := fmt.Sprintf("git %s: %v", strings.Join(redactArgs(e.args), " "), e.err)
+	if e.stderr != "" {
+		res += ": " + e.stderr
 	}
-	return fmt.Sprintf("git %s: %v: %s", strings.Join(e.args, " "), e.err, e.stderr)
+	if e.secret != "" {
+		res = strings.ReplaceAll(res, e.secret, redacted)
+	}
+	return res
+}
+
+// credentialArg matches an argument that carries a secret. Nothing in this
+// package builds one, which is the point: a future call that does is redacted
+// before anybody notices it was not.
+var credentialArg = regexp.MustCompile(`(?i)(authorization|token|password|extraheader)=\S+|://[^/\s@]+:[^/\s@]+@`)
+
+func redactArgs(args []string) []string {
+	res := make([]string, len(args))
+	for i, arg := range args {
+		res[i] = credentialArg.ReplaceAllString(arg, redacted)
+	}
+	return res
 }
 
 // Unwrap exposes the *exec.ExitError, so an exit code can be read off.

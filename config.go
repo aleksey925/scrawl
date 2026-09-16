@@ -39,11 +39,30 @@ type configProject struct {
 // and setting both is an error rather than a precedence rule an operator has to
 // remember at the worst possible moment.
 type configRepo struct {
-	URL       string        `yaml:"url"`
-	Branch    string        `yaml:"branch"`
-	TokenFile string        `yaml:"token_file"`
-	TokenEnv  string        `yaml:"token_env"`
-	Pull      time.Duration `yaml:"pull"`
+	URL       string       `yaml:"url"`
+	Branch    string       `yaml:"branch"`
+	TokenFile string       `yaml:"token_file"`
+	TokenEnv  string       `yaml:"token_env"`
+	Pull      yamlDuration `yaml:"pull"`
+}
+
+// yamlDuration reads an interval the way a human writes one, "5m". It exists
+// for the one value yaml's own duration handling refuses: a bare 0, which is
+// how a project says it wants no ticker at all.
+type yamlDuration time.Duration
+
+// UnmarshalYAML implements the yaml unmarshaler.
+func (d *yamlDuration) UnmarshalYAML(node *yaml.Node) error {
+	if node.Value == "0" {
+		*d = 0
+		return nil
+	}
+	parsed, err := time.ParseDuration(node.Value)
+	if err != nil {
+		return fmt.Errorf("read %q as an interval, try 30s or 5m: %w", node.Value, err)
+	}
+	*d = yamlDuration(parsed)
+	return nil
 }
 
 // loadConfig reads the projects a run serves. Without --config that is the
@@ -103,7 +122,7 @@ func repoOf(prj configProject) (*remoteConfig, error) {
 		URL:    prj.Repo.URL,
 		Branch: prj.Repo.Branch,
 		Token:  token,
-		Pull:   prj.Repo.Pull,
+		Pull:   time.Duration(prj.Repo.Pull),
 	}, nil
 }
 

@@ -34,12 +34,20 @@ type fakeHistory struct {
 	diff     string
 	readErr  error
 
+	// the publication state, which the commit state above never sets: a push
+	// that failed leaves history healthy and the remote behind
+	unpublished bool
+	pushFails   error
+	syncErr     string
+
 	ops      []history.Op
 	reported [][]string
 }
 
-func (f *fakeHistory) Enabled() bool  { return true }
-func (f *fakeHistory) Degraded() bool { return f.degraded }
+func (f *fakeHistory) Enabled() bool     { return true }
+func (f *fakeHistory) Degraded() bool    { return f.degraded }
+func (f *fakeHistory) Unpublished() bool { return f.unpublished }
+func (f *fakeHistory) SyncError() string { return f.syncErr }
 
 func (f *fakeHistory) Record(_ context.Context, op history.Op, mutate func() ([]string, error)) error {
 	paths, err := mutate()
@@ -48,12 +56,20 @@ func (f *fakeHistory) Record(_ context.Context, op history.Op, mutate func() ([]
 	}
 	f.ops = append(f.ops, op)
 	f.reported = append(f.reported, paths)
-	if f.failWith == nil {
+	if f.failWith != nil {
+		f.degraded = true
+		if op.Strict {
+			return f.failWith
+		}
 		return nil
 	}
-	f.degraded = true
-	if op.Strict {
-		return f.failWith
+	// the push is the stage after the commit, and it fails on its own: the
+	// commit landed, so the commit state stays healthy
+	if f.pushFails != nil {
+		f.unpublished = true
+		if op.Strict {
+			return fmt.Errorf("history: %w: %w", history.ErrNotPublished, f.pushFails)
+		}
 	}
 	return nil
 }
@@ -650,6 +666,106 @@ func TestAWriteHistoryCouldNotRecord(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, browser.status)
 	assert.Equal(t, true, browserBody["history_degraded"])
+}
+
+// TestAWriteTheRemoteMissed keeps the two failures apart. A push that did not
+// land is not a commit that did not land, and telling an agent the change was
+// "not recorded in history" when it was recorded and only not pushed would send
+// it looking in the wrong place.
+func TestAWriteTheRemoteMissed(t *testing.T) {
+	// arrange
+	fake := &fakeHistory{pushFails: errors.New("the remote refused")}
+	ts := newTestServer(t, testOpts{withAuth: true, history: fake})
+
+	// act
+	agent, agentBody := ts.json(t, request{
+		method: http.MethodPut, path: "/api/file/agent.md",
+		body:    jsonBody(t, saveRequest{Content: "# agent\n"}),
+		headers: map[string]string{"Authorization": "Bearer " + testToken},
+	})
+	browser, browserBody := ts.json(t, request{
+		method: http.MethodPut, path: "/api/file/browser.md",
+		body: jsonBody(t, saveRequest{Content: "# browser\n"}), client: ts.login(t),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusInternalServerError, agent.status)
+	assert.Equal(t, "the change was written and recorded, but not pushed to the remote", agentBody["error"])
+	assert.FileExists(t, filepath.Join(ts.root, "agent.md"), "the write itself still happened")
+
+	assert.Equal(t, http.StatusOK, browser.status, "a browser save stands and the banner says so")
+	assert.Equal(t, true, browserBody["unpublished"])
+	assert.Equal(t, false, browserBody["history_degraded"],
+		"the commit landed, so the commit state is healthy")
+}
+
+// TestEveryMutationCarriesTheState is the promise the shared shape makes: a
+// deletion that never left the container is the worst one to lose silently, so
+// it answers 200 with a body like every other mutation.
+func TestEveryMutationCarriesTheState(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{history: &fakeHistory{unpublished: true, degraded: true}})
+
+	tests := []struct {
+		name    string
+		request request
+		status  int
+	}{
+		{
+			name: "save", status: http.StatusOK,
+			request: request{
+				method: http.MethodPut, path: "/api/file/guide.md",
+				body: jsonBody(t, saveRequest{Content: "# guide\n", Rev: revOf(t, ts, "guide.md")}),
+			},
+		},
+		{
+			name: "create", status: http.StatusCreated,
+			request: request{
+				method: http.MethodPost, path: "/api/file/fresh.md",
+				body: jsonBody(t, createRequest{Type: "file"}),
+			},
+		},
+		{
+			name: "rename", status: http.StatusOK,
+			request: request{
+				method: http.MethodPost, path: "/api/move",
+				body: jsonBody(t, moveRequest{From: "docs/page.md", To: "docs/moved.md"}),
+			},
+		},
+		{
+			name:    "delete",
+			request: request{method: http.MethodDelete, path: "/api/file/docs/moved.md"},
+			status:  http.StatusOK,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			resp, body := ts.json(t, tc.request)
+
+			// assert
+			require.Equal(t, tc.status, resp.status, body)
+			assert.Equal(t, true, body["unpublished"])
+			assert.Equal(t, true, body["history_degraded"])
+		})
+	}
+}
+
+func TestAPIMeReportsThePublicationState(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{
+		history: &fakeHistory{unpublished: true, syncErr: "push: the remote refused"},
+	})
+
+	// act
+	_, body := ts.json(t, request{path: "/api/me"})
+
+	// assert
+	project, ok := body["project"].(map[string]any)
+	require.True(t, ok, body)
+	assert.Equal(t, true, project["unpublished"])
+	assert.Equal(t, "push: the remote refused", project["sync_error"])
 }
 
 func TestAStoreFailureIsNeverReadAsAHistoryOne(t *testing.T) {

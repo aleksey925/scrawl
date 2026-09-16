@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { api } from '../api/client';
 import { errorText } from '../api/useApi';
-import { showToast } from '../toast';
+import { showMutation, showToast } from '../toast';
 
 export interface UploadControl {
   pending: number;
@@ -63,7 +63,7 @@ export function useUploads(path: string, getView: () => EditorView | undefined):
             if (current !== undefined) {
               swap(current, placeholder, res.markdown === '' ? `![](${res.path})` : res.markdown);
             }
-            showToast('ok', { message: 'Image uploaded' });
+            showMutation(res, 'Image uploaded');
           })
           .catch((error: unknown) => {
             const current = getView();

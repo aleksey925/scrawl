@@ -11,6 +11,7 @@ import type {
   HistoryResponse,
   HistoryVersionResponse,
   MeResponse,
+  MutationState,
   NavResponse,
   PageResponse,
   PreviewRequest,
@@ -189,7 +190,10 @@ function historyUrl(path: string): string {
   return projectUrl(`/api/history/${encodeContentPath(path)}`);
 }
 
-export type RestoreOutcome = { ok: true } | { ok: false; current: string };
+// a restore that collided is an outcome and not a throw, so the success arm is
+// where its MutationState has to travel: widening RestoreResponse alone would
+// leave the page with nothing to show
+export type RestoreOutcome = { ok: true; state: MutationState } | { ok: false; current: string };
 
 export interface ScrawlApi {
   page(path: string, options?: RequestOptions): Promise<PageResponse>;
@@ -200,9 +204,12 @@ export interface ScrawlApi {
   tree(options?: RequestOptions): Promise<TreeResponse>;
   file(path: string, options?: RequestOptions): Promise<FileResponse>;
   saveFile(path: string, body: SaveFileRequest, options?: RequestOptions): Promise<SaveFileResponse>;
-  createEntry(path: string, kind: EntryKind, options?: RequestOptions): Promise<string>;
-  deleteEntry(path: string, options?: RequestOptions): Promise<void>;
-  move(from: string, to: string, options?: RequestOptions): Promise<string>;
+  // these three return the whole body rather than the path in it: every
+  // mutation carries where the change got to, and a deletion that never left
+  // the container is the worst one to lose silently
+  createEntry(path: string, kind: EntryKind, options?: RequestOptions): Promise<EntryPathResponse>;
+  deleteEntry(path: string, options?: RequestOptions): Promise<EntryPathResponse>;
+  move(from: string, to: string, options?: RequestOptions): Promise<EntryPathResponse>;
   search(query: string, limit?: number, options?: RequestOptions): Promise<SearchResponse>;
   history(path: string, options?: RequestOptions): Promise<HistoryResponse>;
   historyVersion(path: string, rev: string, options?: RequestOptions): Promise<HistoryVersionResponse>;
@@ -242,23 +249,13 @@ export const api: ScrawlApi = {
 
   saveFile: (path, body, options) => call<SaveFileResponse>('PUT', fileUrl(path), { ...options, body }),
 
-  createEntry: async (path, kind, options) => {
-    const res = await call<EntryPathResponse>('POST', fileUrl(path), {
-      ...options,
-      body: { type: kind },
-    });
-    return res.path;
-  },
+  createEntry: (path, kind, options) =>
+    call<EntryPathResponse>('POST', fileUrl(path), { ...options, body: { type: kind } }),
 
-  deleteEntry: (path, options) => call<void>('DELETE', fileUrl(path), options),
+  deleteEntry: (path, options) => call<EntryPathResponse>('DELETE', fileUrl(path), options),
 
-  move: async (from, to, options) => {
-    const res = await call<EntryPathResponse>('POST', projectUrl('/api/move'), {
-      ...options,
-      body: { from, to },
-    });
-    return res.path;
-  },
+  move: (from, to, options) =>
+    call<EntryPathResponse>('POST', projectUrl('/api/move'), { ...options, body: { from, to } }),
 
   search: (query, limit, options) =>
     call<SearchResponse>('GET', withQuery(projectUrl('/api/search'), { q: query, limit }), options),
@@ -278,7 +275,7 @@ export const api: ScrawlApi = {
     );
     return 'current_content' in res && res.current_content !== undefined
       ? { ok: false, current: res.current_content }
-      : { ok: true };
+      : { ok: true, state: res as MutationState };
   },
 
   preview: (body, options) =>

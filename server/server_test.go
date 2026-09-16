@@ -887,7 +887,7 @@ func TestAPIFileLifecycle(t *testing.T) {
 	assert.Equal(t, "new/renamed.md", body["path"])
 
 	removed, _ := ts.do(t, request{method: http.MethodDelete, path: "/api/file/new/renamed.md"})
-	assert.Equal(t, http.StatusNoContent, removed.status)
+	assert.Equal(t, http.StatusOK, removed.status)
 	assert.False(t, ts.Projects[0].Store.Exists("new/renamed.md"))
 }
 
@@ -1447,7 +1447,7 @@ func TestAPITokenWrites(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, create.status)
 	assert.Equal(t, http.StatusOK, move.status)
 	assert.Equal(t, http.StatusCreated, attached.status)
-	assert.Equal(t, http.StatusNoContent, removed.status)
+	assert.Equal(t, http.StatusOK, removed.status)
 	assert.Contains(t, ts.files(t), uploaded["path"])
 	assert.False(t, ts.Projects[0].Store.Exists("inbox/agent.md"))
 }

@@ -1,9 +1,9 @@
 import {
-  Alert, Badge, Box, Button, Center, Code, Container, Flex, Group, Loader, Modal, Paper, Stack,
+  Badge, Box, Button, Center, Code, Container, Flex, Group, Loader, Modal, Paper, Stack,
   Text, Title, UnstyledButton,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { IconAlertTriangle, IconArrowBackUp } from '@tabler/icons-react';
+import { IconArrowBackUp } from '@tabler/icons-react';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
@@ -16,7 +16,7 @@ import { DiffView } from '../shell/DiffView';
 import { useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
 import { layoutBreakpoints, useBelow } from '../theme';
-import { showToast } from '../toast';
+import { showMutation, showToast } from '../toast';
 
 function formatWhen(at: string): string {
   return new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -175,7 +175,7 @@ function VersionRow({
 export function Component(): JSX.Element {
   const params = useParams();
   const path = decodeURIComponent(params['*'] ?? '');
-  const { me, canWrite } = useNav();
+  const { canWrite } = useNav();
   const stacked = useBelow(layoutBreakpoints.splitPane);
 
   const [token, setToken] = useState(0);
@@ -231,7 +231,7 @@ export function Component(): JSX.Element {
         setConflict(outcome.current);
         return;
       }
-      showToast('ok', { message: 'Restored' });
+      showMutation(outcome.state, 'Restored');
       setToken((seen) => seen + 1);
     } catch (error) {
       showToast('error', { title: 'Restore failed', message: errorText(error) });
@@ -309,17 +309,6 @@ export function Component(): JSX.Element {
             <Code data-testid="history-path">{path}</Code>
           </Text>
         </Stack>
-
-        {me?.history_degraded === true && (
-          <Alert
-            data-testid="history-degraded"
-            color="yellow"
-            icon={<IconAlertTriangle size={18} />}
-            title="History fell behind"
-          >
-            A change on disk was not recorded, so this list is behind the document.
-          </Alert>
-        )}
 
         <AsyncContent state={history} testId="history">
           {(data) =>

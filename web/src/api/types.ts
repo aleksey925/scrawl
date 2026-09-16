@@ -128,6 +128,9 @@ export interface ProjectState {
   kind: ProjectKind;
   read_only: boolean;
   degraded: boolean;
+  unpublished: boolean;
+  // already redacted by the server, so it is safe to render
+  sync_error: string;
 }
 
 export type ProjectKind = 'local' | 'remote';
@@ -155,17 +158,24 @@ export interface SaveFileRequest {
   rev: string;
 }
 
-export interface SaveFileResponse {
+// MutationState is what every change that reached the disk says about where
+// else it got to. Two failures with two fixes: history_degraded is a commit
+// that failed, so the change is on disk and not in git; unpublished is a commit
+// the remote does not have.
+export interface MutationState {
+  history_degraded?: boolean;
+  unpublished?: boolean;
+}
+
+export interface SaveFileResponse extends MutationState {
   rev: string;
   mod_time: string;
-  history_recorded?: boolean;
 }
 
 export type EntryKind = 'file' | 'dir';
 
-export interface EntryPathResponse {
+export interface EntryPathResponse extends MutationState {
   path: string;
-  history_degraded?: boolean;
 }
 
 export interface SearchHit {
@@ -217,11 +227,10 @@ export interface RestoreRequest {
   from: string;
 }
 
-export interface RestoreResponse {
+export interface RestoreResponse extends MutationState {
   path: string;
   rev: string;
   mod_time: string;
-  history_degraded?: boolean;
 }
 
 export interface PreviewRequest {
@@ -233,7 +242,7 @@ export interface PreviewResponse {
   html: string;
 }
 
-export interface UploadResponse {
+export interface UploadResponse extends MutationState {
   path: string;
   markdown: string;
 }

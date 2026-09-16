@@ -9,6 +9,7 @@ import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { FileActionsProvider } from './FileActions';
 import { NavProvider } from './NavContext';
+import { ProjectAlerts } from './ProjectAlerts';
 import { SearchSpotlight } from './SearchSpotlight';
 import { ShellSlotsProvider, type ShellSlots } from './ShellSlots';
 import { ShortcutHelp } from './ShortcutHelp';
@@ -148,6 +149,7 @@ export function AppLayout(): JSX.Element {
             <AppShell.Aside p="lg">{wideToc ? <div ref={setTocSlot} /> : null}</AppShell.Aside>
 
             <AppShell.Main style={{ minWidth: 0 }}>
+              <ProjectAlerts />
               <Outlet />
             </AppShell.Main>
           </AppShell>

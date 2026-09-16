@@ -118,7 +118,12 @@ type projectState struct {
 	Label    string `json:"label"`
 	Kind     string `json:"kind"`
 	ReadOnly bool   `json:"read_only"`
-	Degraded bool   `json:"degraded"`
+	// Degraded is a commit that failed, so a change is on disk and not in git.
+	// Unpublished is a commit the remote does not have. They are different
+	// failures with different fixes, so they are two fields.
+	Degraded    bool   `json:"degraded"`
+	Unpublished bool   `json:"unpublished"`
+	SyncError   string `json:"sync_error"`
 }
 
 // projectEntry is one row of the switcher. It carries configured, immutable
@@ -301,11 +306,13 @@ func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {
 		SiteTitle:       m.Title,
 		Version:         m.Version,
 		Project: projectState{
-			Name:     m.prj.Name,
-			Label:    m.prj.Title(),
-			Kind:     m.prj.Kind,
-			ReadOnly: m.readOnly(),
-			Degraded: m.history().Degraded(),
+			Name:        m.prj.Name,
+			Label:       m.prj.Title(),
+			Kind:        m.prj.Kind,
+			ReadOnly:    m.readOnly(),
+			Degraded:    m.history().Degraded(),
+			Unpublished: m.history().Unpublished(),
+			SyncError:   m.history().SyncError(),
 		},
 	}
 	if m.Auth != nil {

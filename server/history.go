@@ -22,6 +22,14 @@ const historyLimit = 200
 type History interface {
 	Enabled() bool
 	Degraded() bool
+	// Unpublished reports that the clone holds commits the remote does not. It
+	// is a second state beside Degraded, not a reuse of it: a commit that
+	// stages nothing succeeds and clears Degraded, which would report a healthy
+	// history while the remote was still behind.
+	Unpublished() bool
+	// SyncError is what the last conversation with the remote failed with,
+	// already redacted: it is rendered in the UI, which lgr.Secret never sees.
+	SyncError() string
 	Record(ctx context.Context, op history.Op, mutate func() ([]string, error)) error
 	Log(ctx context.Context, p string, limit int) ([]history.Entry, error)
 	Version(ctx context.Context, rev, p string) (string, error)
@@ -250,6 +258,11 @@ func (m *mount) record(r *http.Request, op history.Op, mutate func() ([]string, 
 		// refused before the mutation ran, so nothing was written and the
 		// client gets what the store answers for a path it would not touch
 		return fmt.Errorf("%w: %w", store.ErrForbidden, err)
+	case errors.Is(err, history.ErrNotPublished):
+		// before the wrap below, because errHistoryNotRecorded is matched first
+		// by both statusOf and errMessage: the change was recorded, and only
+		// not pushed, and telling an agent otherwise would be wrong
+		return err
 	}
 	return fmt.Errorf("%w: %w", errHistoryNotRecorded, err)
 }
@@ -263,11 +276,13 @@ func (wb *Web) actor(r *http.Request) string {
 	return wb.Auth.Actor(r)
 }
 
-// withHistory adds what the UI needs to tell that history fell behind. Every
-// mutating endpoint carries it, because the warning belongs on the save that
-// was missed rather than on whatever page is loaded next.
+// withHistory adds what the UI needs to tell that a change did not land where
+// it was supposed to. Every mutating endpoint carries it, because the warning
+// belongs on the change that was missed rather than on whatever page is loaded
+// next - and a deletion that never left the container is the worst one to lose.
 func (m *mount) withHistory(res map[string]any) map[string]any {
 	res["history_degraded"] = m.history().Degraded()
+	res["unpublished"] = m.history().Unpublished()
 	return res
 }
 

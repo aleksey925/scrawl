@@ -27,7 +27,7 @@ import { errorText } from '../api/useApi';
 import { documentUrl, editUrl } from '../paths';
 import { PageActions } from '../shell/ShellSlots';
 import { layout } from '../theme';
-import { showToast } from '../toast';
+import { showMutation, showToast } from '../toast';
 
 import { PreviewPane } from './PreviewPane';
 import { SourceEditor, type DroppedFiles } from './SourceEditor';
@@ -315,7 +315,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         draftRef.current.flush();
         const res = await api.saveFile(path, { content: sent, rev: withRev ?? revRef.current });
         markSaved(sent, res.rev);
-        showToast('ok', { message: 'Saved' });
+        showMutation(res, 'Saved');
       } catch (error: unknown) {
         if (error instanceof ApiError && (error.status === 412 || error.status === 409)) {
           const current: ApiConflict | undefined =

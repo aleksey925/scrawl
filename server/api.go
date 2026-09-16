@@ -254,7 +254,10 @@ func (m *mount) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m.touch(p)
-	w.WriteHeader(http.StatusNoContent)
+	// 200 with a body rather than 204: every other mutation carries the state
+	// of the change it made, and a deletion that never left the container is
+	// the worst one to lose silently
+	writeJSON(w, http.StatusOK, m.withHistory(map[string]any{"path": p}))
 }
 
 // apiMove renames or moves an entry.

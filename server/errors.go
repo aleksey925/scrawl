@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/aleksey925/scrawl/history"
 	"github.com/aleksey925/scrawl/store"
 )
 
@@ -18,7 +19,7 @@ func statusOf(err error) int {
 		return http.StatusOK
 	case errors.Is(err, errRenderTimeout):
 		return http.StatusServiceUnavailable
-	case errors.Is(err, errHistoryNotRecorded):
+	case errors.Is(err, errHistoryNotRecorded), errors.Is(err, history.ErrNotPublished):
 		return http.StatusInternalServerError
 	case errors.Is(err, store.ErrPermission):
 		return http.StatusForbidden
@@ -48,6 +49,8 @@ func errMessage(err error) string {
 		return "rendering took too long"
 	case errors.Is(err, errHistoryNotRecorded):
 		return "the change was written but not recorded in history"
+	case errors.Is(err, history.ErrNotPublished):
+		return "the change was written and recorded, but not pushed to the remote"
 	case errors.Is(err, store.ErrPermission):
 		return permissionMessage
 	case errors.Is(err, store.ErrConflict):

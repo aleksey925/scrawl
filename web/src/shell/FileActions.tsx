@@ -7,12 +7,12 @@ import {
 import { useNavigate } from 'react-router';
 
 import { ApiError, api } from '../api/client';
-import type { EntryKind, NavNode } from '../api/types';
+import type { EntryKind, EntryPathResponse, NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
 import { directoryUrl, documentUrl, editUrl, isMarkdown, slugPath } from '../paths';
 import { layout } from '../theme';
-import { showToast } from '../toast';
+import { showMutation, showToast } from '../toast';
 
 import { FolderPicker, foldersOf } from './FolderPicker';
 import { useNav } from './NavContext';
@@ -88,8 +88,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         onConfirm: () => {
           void (async () => {
             try {
-              await api.deleteEntry(path);
-              showToast('ok', { message: 'Deleted' });
+              showMutation(await api.deleteEntry(path), 'Deleted');
               if (currentPath === path || currentPath === `${path}/`) {
                 await navigate('/');
               }
@@ -128,13 +127,13 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
           startIn={dialog.folder}
           folders={folders}
           onClose={close}
-          onCreated={(path) => {
+          onCreated={(res) => {
             close();
             if (dialog.entry === 'file') {
-              void navigate(editUrl(path));
+              void navigate(editUrl(res.path));
               return;
             }
-            showToast('ok', { message: 'Folder created' });
+            showMutation(res, 'Folder created');
             refresh();
           }}
         />
@@ -144,11 +143,11 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         <RenameDialog
           path={dialog.path}
           onClose={close}
-          onRenamed={(to) => {
+          onRenamed={(res) => {
             close();
-            showToast('ok', { message: 'Renamed' });
+            showMutation(res, 'Renamed');
             if (currentPath === dialog.path) {
-              void navigate(dialog.isDir ? directoryUrl(to) : documentUrl(to));
+              void navigate(dialog.isDir ? directoryUrl(res.path) : documentUrl(res.path));
               return;
             }
             refresh();
@@ -164,7 +163,7 @@ interface CreateDialogProps {
   startIn: string;
   folders: readonly NavNode[];
   onClose: () => void;
-  onCreated: (path: string) => void;
+  onCreated: (res: EntryPathResponse) => void;
 }
 
 function CreateDialog({ entry, startIn, folders, onClose, onCreated }: CreateDialogProps): JSX.Element {
@@ -254,7 +253,7 @@ function CreateDialog({ entry, startIn, folders, onClose, onCreated }: CreateDia
 interface RenameDialogProps {
   path: string;
   onClose: () => void;
-  onRenamed: (to: string) => void;
+  onRenamed: (res: EntryPathResponse) => void;
 }
 
 function RenameDialog({ path, onClose, onRenamed }: RenameDialogProps): JSX.Element {

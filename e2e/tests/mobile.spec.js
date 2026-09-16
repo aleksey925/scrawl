@@ -3,8 +3,9 @@ const {expect, test} = require('@playwright/test');
 const fs = require('fs');
 
 const docs = require('../support/docs');
+const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
-    HISTORY, MAIN, expectNoHorizontalScroll, fixtureFile, routes, save, setSource, shot, signIn,
+    HISTORY, MAIN, MULTI, expectNoHorizontalScroll, fixtureFile, routes, save, setSource, shot, signIn,
     sourceText, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -375,3 +376,73 @@ test.describe('mobile', () => {
         await expect(page).toHaveURL(new RegExp(`${routes.doc(docs.search.palette.path)}\\?q=`));
     });
 });
+
+// the tree is behind a closed drawer on a phone and the document body carries
+// no badge, so the topbar control is the one surface that answers "is this
+// note at risk". These drive the remote project for that reason.
+test.describe('mobile sync state', () => {
+    const WIKI = MULTI.projects.wiki;
+    const wiki = MULTI.extra.find((extra) => extra.name === 'wiki');
+    const SYNC_DOC = 'e2e-mobile-sync.md';
+
+    test.beforeEach(async ({page}) => {
+        restoreOrigin(wiki.origin);
+        fs.writeFileSync(`${wiki.dir}/${SYNC_DOC}`, '# Mobile sync\n\nstarting point.\n', 'utf8');
+        await signIn(page, {baseURL: MULTI.baseURL, from: WIKI.doc(SYNC_DOC)});
+        await expect.poll(async () => syncErrorOf(page, WIKI), {timeout: 20_000}).toBe('');
+    });
+
+    test.afterEach(async ({page}) => {
+        restoreOrigin(wiki.origin);
+        fs.rmSync(`${wiki.dir}/${SYNC_DOC}`, {force: true});
+        await expect.poll(async () => syncErrorOf(page, WIKI), {timeout: 20_000}).toBe('');
+    });
+
+    test('the control and the banner reach a phone with the drawer shut', async ({page}) => {
+        await page.goto(WIKI.edit(SYNC_DOC));
+        breakOrigin(wiki.origin);
+        await setSource(page, '# Mobile sync\n\nstuck.\n');
+        await save(page);
+
+        // a plain note, the root index and a folder index: on the last two the
+        // route path is not the file, and a control that asked the route would
+        // stay silent about the very note on screen
+        await page.goto(WIKI.doc(SYNC_DOC));
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
+        await expect(page.getByTestId('project-alert')).toBeVisible();
+        // the tree is behind a closed drawer, which is what makes the control
+        // the one surface that speaks for this note
+        await expect(page.getByTestId('sidebar')).toHaveCount(0);
+        await shot(page, 'mobile-sync-control');
+
+        await page.getByTestId('sync-control').tap();
+        await expect(page.getByTestId('sync-popover')).toBeVisible();
+        await shot(page, 'mobile-sync-popover');
+    });
+
+    // the one element this feature spends on a nowrap row that is already full
+    test('the top bar still fits with the control up', async ({page}) => {
+        await page.goto(WIKI.edit(SYNC_DOC));
+        breakOrigin(wiki.origin);
+        await setSource(page, '# Mobile sync\n\nstuck.\n');
+        await save(page);
+
+        await page.goto(WIKI.doc(SYNC_DOC));
+        await expect(page.getByTestId('sync-control')).toBeVisible();
+        await expectNoHorizontalScroll(page);
+
+        const offenders = await tooSmall(page, '[data-testid=topbar] button, [data-testid=topbar] a');
+        await shot(page, 'mobile-sync-tap-targets');
+        expect(offenders, 'elements smaller than the touch minimum').toEqual([]);
+    });
+});
+
+// syncErrorOf reads the state the page itself polls, so a wait for the server's
+// own rhythm is honest rather than a sleep.
+async function syncErrorOf(page, project) {
+    return page.evaluate(async (url) => {
+        const res = await fetch(url, {headers: {accept: 'application/json'}});
+        const body = await res.json();
+        return body.project.sync_error;
+    }, project.api('/me'));
+}

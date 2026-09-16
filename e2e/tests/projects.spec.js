@@ -2,10 +2,11 @@ const {expect, test} = require('@playwright/test');
 
 const fs = require('fs');
 const path = require('path');
-const {execFile, execFileSync} = require('child_process');
+const {execFile} = require('child_process');
 
 const docs = require('../support/docs');
 const {binary} = require('../support/env');
+const {pushToOrigin, tracked} = require('../support/git');
 const {MULTI, save, setSource, shot, signIn} = require('../support/helpers');
 
 const NOTES = MULTI.projects[MULTI.project];
@@ -82,12 +83,12 @@ test.describe('projects', () => {
         await save(page);
 
         await expect.poll(() => tracked(wikiOrigin), {timeout: 15_000}).toContain(name);
-        await expect(page.getByTestId('project-unpublished')).toHaveCount(0);
+        await expect(page.getByTestId('project-alert')).toHaveCount(0);
     });
 
     // a second writer moves the branch, and the pull ticker brings it in
     test('a remote project takes what the origin gained', async ({page}) => {
-        pushFromOrigin(wikiOrigin, 'e2e-upstream.md', '# Upstream note\n\npushed by somebody else.\n');
+        pushToOrigin(wikiOrigin, 'e2e-upstream.md', '# Upstream note\n\npushed by somebody else.\n');
 
         await expect.poll(
             async () => {
@@ -106,32 +107,6 @@ test.describe('projects', () => {
         expect(result.output).toContain('every project needs a name');
     });
 });
-
-// tracked lists what the bare origin holds on its branch.
-function tracked(origin) {
-    return gitOut(origin, ['ls-tree', '--name-only', 'main']).split('\n');
-}
-
-// pushFromOrigin commits straight into the bare repository, which is the
-// cheapest second writer there is: no second clone, no network.
-function pushFromOrigin(origin, name, content) {
-    const work = `${origin}-writer`;
-    fs.rmSync(work, {recursive: true, force: true});
-    gitOut(origin, ['clone', '--quiet', origin, work]);
-    fs.writeFileSync(path.join(work, name), content, 'utf8');
-    gitOut(work, ['add', name]);
-    gitOut(work, ['-c', 'user.name=other', '-c', 'user.email=o@x', 'commit', '--quiet', '-m', 'from elsewhere']);
-    gitOut(work, ['push', '--quiet', 'origin', 'main']);
-    fs.rmSync(work, {recursive: true, force: true});
-}
-
-function gitOut(dir, args) {
-    return execFileSync('git', ['--no-pager', '-c', `safe.directory=${dir}`, ...args], {
-        cwd: dir,
-        env: {...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null', LC_ALL: 'C'},
-        encoding: 'utf8',
-    });
-}
 
 // runBinary starts the server and waits for it to give up, which is what a
 // configuration it refuses does.

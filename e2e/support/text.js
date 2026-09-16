@@ -86,7 +86,9 @@ module.exports = {
 
     login: {
         title: 'Sign in',
-        wrong: 'wrong user name or password',
+        // the server's form is the one login screen there is, and it titles
+        // its message
+        wrong: 'Wrong user name or password',
     },
 
     notFound: 'Nothing here',

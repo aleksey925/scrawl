@@ -45,18 +45,16 @@ test.describe('login', () => {
         await shot(page, 'login-user-menu');
         await page.getByTestId('topbar-account-signout').click();
 
-        await expect(page).toHaveURL(MAIN.url.login());
-        await expect(page.getByTestId('login')).toBeVisible();
+        // signing out is a full page load to the server's form, the one login
+        // screen there is: it answers at the root and works without javascript
+        await expect(page).toHaveURL(new RegExp(`^${MAIN.baseURL}/login\\?from=`));
+        await expect(page.locator('form.login-card')).toBeVisible();
 
-        await page.getByTestId('login-username').fill('e2e');
-        await page.getByTestId('login-password').fill('not-the-password');
-        await page.getByTestId('login-submit').click();
-        await expect(page.getByTestId('login-error')).toContainText(text.login.wrong);
-        await expect(page).toHaveURL(MAIN.url.login());
+        await submitCredentials(page, {secret: 'not-the-password'});
+        await expect(page.locator('.login-error')).toContainText(text.login.wrong);
         await shot(page, 'login-wrong-password');
 
-        await page.getByTestId('login-password').fill('e2e-secret-pass');
-        await page.getByTestId('login-submit').click();
+        await submitCredentials(page);
         await expect(page).toHaveURL(atHome());
         await expect(page.getByTestId('doc')).toBeVisible();
     });

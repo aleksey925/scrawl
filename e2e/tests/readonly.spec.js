@@ -55,12 +55,12 @@ test.describe('read-only mode', () => {
 
     test('the write api refuses every mutating call', async ({page}) => {
         const calls = [
-            ['PUT', `/api/file/${DOC}`, {content: 'nope', rev: ''}],
-            ['POST', '/api/file/e2e-readonly.md', {type: 'file'}],
-            ['POST', '/api/file/e2e-readonly', {type: 'dir'}],
-            ['DELETE', `/api/file/${DOC}`, undefined],
-            ['POST', '/api/move', {from: DOC, to: `${docs.doc.folder}/moved.md`}],
-            ['POST', `/api/upload/${docs.doc.folder}`, {}],
+            ['PUT', routes.api(`/file/${DOC}`), {content: 'nope', rev: ''}],
+            ['POST', routes.api('/file/e2e-readonly.md'), {type: 'file'}],
+            ['POST', routes.api('/file/e2e-readonly'), {type: 'dir'}],
+            ['DELETE', routes.api(`/file/${DOC}`), undefined],
+            ['POST', routes.api('/move'), {from: DOC, to: `${docs.doc.folder}/moved.md`}],
+            ['POST', routes.api(`/upload/${docs.doc.folder}`), {}],
         ];
         for (const [method, url, body] of calls) {
             const res = await jsonRequest(page, method, url, body);
@@ -70,12 +70,13 @@ test.describe('read-only mode', () => {
     });
 
     test('reading endpoints keep working', async ({page}) => {
-        const searchURL = `/api/search?q=${encodeURIComponent(docs.search.doc)}`;
-        for (const url of ['/api/tree', `/api/file/${DOC}`, '/api/me', searchURL]) {
+        const searchURL = routes.api(`/search?q=${encodeURIComponent(docs.search.doc)}`);
+        const reads = [routes.api('/tree'), routes.api(`/file/${DOC}`), routes.api('/me'), searchURL];
+        for (const url of reads) {
             const res = await jsonRequest(page, 'GET', url);
             expect(res.status, url).toBe(200);
         }
-        const preview = await jsonRequest(page, 'POST', '/api/preview',
+        const preview = await jsonRequest(page, 'POST', routes.api('/preview'),
             {content: '# Просмотр\n', path: DOC});
         expect(preview.status, 'preview renders nothing to disk, so it stays open').toBe(200);
     });

@@ -140,7 +140,7 @@ test.describe('reading', () => {
 
     test('an image loads through /raw/', async ({page}) => {
         await page.goto(routes.doc(docs.illustrated.doc));
-        const image = page.getByTestId('doc').locator('img[src^="/raw/"]').first();
+        const image = page.getByTestId('doc').locator(`img[src^="${routes.raw('')}"]`).first();
 
         await expect(image).toBeVisible();
         const size = await image.evaluate((el) => ({w: el.naturalWidth, h: el.naturalHeight}));

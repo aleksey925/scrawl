@@ -348,7 +348,7 @@ test.describe('mobile', () => {
 
         const manifest = await res.json();
         expect(manifest.display).toBe('standalone');
-        const me = await (await page.request.get(`${MAIN.baseURL}/api/me`)).json();
+        const me = await (await page.request.get(MAIN.url.api('/me'))).json();
         expect(manifest.name, 'the home screen name is the configured site title')
             .toBe(me.site_title);
 

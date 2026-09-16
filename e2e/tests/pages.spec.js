@@ -41,13 +41,34 @@ test.describe('pages', () => {
         expect(problems).toEqual([]);
     });
 
+    // a direct load and not a click: the page segment is spelled out in the
+    // route table, in the path builders and in the pathname reader, and one of
+    // the three left behind boots the shell, renders the client 404 and asks
+    // for the root tree - which looks like a routing bug and not a stale word.
+    // Only an address typed in from outside the app catches it.
+    test('every screen answers a url typed in from outside the app', async ({page}) => {
+        const screens = [
+            [routes.doc(docs.doc.path), 'doc'],
+            [routes.dir(docs.folder.path), 'dir'],
+            [routes.edit(docs.doc.path), 'editor-source'],
+            [routes.history(docs.doc.path), 'history'],
+        ];
+
+        for (const [url, marker] of screens) {
+            await page.goto(url);
+            await expect(page.getByTestId(marker), url).toBeVisible();
+            // the tree asked about this very document, not about the root
+            await expect(page.getByTestId('tree-row').first(), url).toBeVisible();
+        }
+    });
+
     test('a directory without an index lists its entries', async ({page}) => {
         await page.goto(routes.dir(docs.folder.path));
 
         await expect(page.getByTestId('dir-title')).toBeVisible();
         const rows = page.getByTestId('dir-row');
         expect(await rows.count()).toBeGreaterThan(3);
-        await expect(rows.first().getByTestId('dir-row-name')).toHaveAttribute('href', /\/p\//);
+        await expect(rows.first().getByTestId('dir-row-name')).toHaveAttribute('href', new RegExp(`^${routes.prefix()}/doc/`));
         await shot(page, 'pages-directory');
 
         await page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"] [data-testid=dir-row-name]`)

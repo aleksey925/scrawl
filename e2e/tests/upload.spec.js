@@ -59,7 +59,7 @@ test.describe.serial('upload', () => {
 
         await page.goto(routes.doc(docPath));
         const image = page.getByTestId('doc').locator('img');
-        await expect(image).toHaveAttribute('src', `/raw/${FOLDER}/pasted/e2e-pasted.png`);
+        await expect(image).toHaveAttribute('src', routes.raw(`${FOLDER}/pasted/e2e-pasted.png`));
         expect(await image.evaluate((el) => el.naturalWidth)).toBeGreaterThan(0);
         await shot(page, 'upload-rendered');
     });

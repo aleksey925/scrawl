@@ -20,12 +20,10 @@ function pickFixture() {
 const fixture = pickFixture();
 const workDir = process.env.SCRAWL_E2E_WORK || path.join(os.tmpdir(), 'scrawl-e2e');
 
-// appBase is where the app answers, and the only place in the suite that knows.
-// It owns /p/, /edit/, /history/ and /search now, so the base is empty; it was
-// '/app' while the server rendered pages still held those routes.
-const appBase = process.env.SCRAWL_E2E_APP_BASE === undefined
-    ? ''
-    : process.env.SCRAWL_E2E_APP_BASE.replace(/\/$/, '');
+// defaultProject is the project name every single-project instance is started
+// with. There is no default in the binary, so this is also what the launcher
+// passes as --project.
+const defaultProject = 'notes';
 
 // encodePath escapes a content path segment by segment, the way the app builds
 // its own links: a whole path run through encodeURIComponent would escape the
@@ -34,23 +32,36 @@ function encodePath(contentPath) {
     return contentPath.split('/').map(encodeURIComponent).join('/');
 }
 
-// the routes of the app, every one of them built from appBase. No spec writes
-// a url by hand, so moving the app to the root is a change to the constant.
-const routes = {
-    home: () => `${appBase}/`,
-    doc: (contentPath) => `${appBase}/p/${encodePath(contentPath)}`,
-    dir: (contentPath) => (contentPath === '' ? `${appBase}/` : `${appBase}/p/${encodePath(contentPath)}/`),
-    edit: (contentPath) => `${appBase}/edit/${encodePath(contentPath)}`,
-    history: (contentPath) => `${appBase}/history/${encodePath(contentPath)}`,
-    search: (query) => `${appBase}/search?q=${encodeURIComponent(query)}`,
-    login: () => `${appBase}/login`,
-    // raw is a server route and stays where it is
-    raw: (contentPath) => `/raw/${encodePath(contentPath)}`,
-    // the href the renderer writes into note html for a link to another note.
-    // It is the renderer's prefix and not a route of the app, so it does not
-    // move with appBase; the app recognises it and routes the click itself.
-    contentHref: (contentPath) => `/p/${encodePath(contentPath)}`,
-};
+// the two halves of the server's url space. A project owns one contiguous
+// subtree and everything it serves is built from project(); the handful of
+// routes that read no store answer at the root and are built from global().
+// Nothing in the suite writes a url by hand.
+function routesFor(project) {
+    const base = `/p/${project}`;
+    const inProject = (suffix) => base + suffix;
+    return {
+        prefix: () => base,
+        home: () => inProject('/'),
+        doc: (contentPath) => inProject(`/doc/${encodePath(contentPath)}`),
+        dir: (contentPath) => (contentPath === '' ? inProject('/') : inProject(`/doc/${encodePath(contentPath)}/`)),
+        edit: (contentPath) => inProject(`/edit/${encodePath(contentPath)}`),
+        history: (contentPath) => inProject(`/history/${encodePath(contentPath)}`),
+        search: (query) => inProject(`/search?q=${encodeURIComponent(query)}`),
+        raw: (contentPath) => inProject(`/raw/${encodePath(contentPath)}`),
+        api: (suffix) => inProject(`/api${suffix}`),
+        // the href the renderer writes into note html for a link to another
+        // note. It is fetched by the browser directly, so it carries the
+        // project prefix; the app recognises it and routes the click itself.
+        contentHref: (contentPath) => inProject(`/doc/${encodePath(contentPath)}`),
+        // global routes: they read no store, so they are outside every project
+        login: () => '/login',
+        logout: () => '/logout',
+        projects: () => '/api/projects',
+        ping: () => '/ping',
+    };
+}
+
+const routes = routesFor(defaultProject);
 
 // historyMode is passed as --history, never left to the default: on a machine
 // without git "auto" turns itself off, and a spec about versions would then
@@ -85,17 +96,20 @@ const instances = {
 
 for (const [name, inst] of Object.entries(instances)) {
     inst.name = name;
+    inst.project = inst.project || defaultProject;
     inst.baseURL = `http://127.0.0.1:${inst.port}`;
     inst.log = path.join(workDir, `${name}.log`);
     inst.secretFile = path.join(workDir, `${name}-session.key`);
+    inst.routes = routesFor(inst.project);
     // absolute counterparts of the routes above, for a spec that drives an
     // instance other than the one playwright's baseURL points at
     inst.url = Object.fromEntries(
-        Object.entries(routes).map(([name2, build]) => [name2, (...args) => inst.baseURL + build(...args)]));
+        Object.entries(inst.routes).map(([key, build]) => [key, (...args) => inst.baseURL + build(...args)]));
 }
 
 module.exports = {
-    appBase,
+    defaultProject,
+    routesFor,
     repoRoot,
     workDir,
     instances,

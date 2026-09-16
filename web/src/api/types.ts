@@ -237,4 +237,3 @@ export interface UploadResponse {
   path: string;
   markdown: string;
 }
-

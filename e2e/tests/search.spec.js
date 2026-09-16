@@ -139,7 +139,7 @@ test.describe('search', () => {
         await pressShortcut(page, `${await modifier(page)}+k`);
         await page.getByTestId('palette-input').fill(docs.search.prefix);
 
-        await expect(page.getByTestId('palette-item').first().locator('mark')).toBeVisible();
+        await expect(page.getByTestId('palette-item').first().locator('mark').first()).toBeVisible();
     });
 
     test.afterAll(() => {

@@ -44,6 +44,7 @@ function main() {
 
     const args = [
         `--root=${inst.root}`,
+        `--project=${inst.project}`,
         `--listen=127.0.0.1:${inst.port}`,
         '--title=E2E Notes',
         '--dbg',

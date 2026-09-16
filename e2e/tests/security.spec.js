@@ -86,17 +86,17 @@ test.describe('security', () => {
     test('the file api refuses binaries and oversized text', async ({page}) => {
         await page.goto(routes.doc(docs.doc.path));
 
-        const binary = await jsonRequest(page, 'GET', `/api/file/${docs.illustrated.image}`);
+        const binary = await jsonRequest(page, 'GET', routes.api(`/file/${docs.illustrated.image}`));
         expect(binary.status).toBe(415);
         expect(binary.body).toContain('not a text file');
 
         writeFixture(BIG, 'x'.repeat((2 << 20) + 1024));
-        const big = await jsonRequest(page, 'GET', `/api/file/${BIG}`);
+        const big = await jsonRequest(page, 'GET', routes.api(`/file/${BIG}`));
         expect(big.status).toBe(413);
         expect(big.body).toContain('too large');
         removeFixture(BIG);
 
-        const ok = await jsonRequest(page, 'GET', `/api/file/${docs.doc.path}`);
+        const ok = await jsonRequest(page, 'GET', routes.api(`/file/${docs.doc.path}`));
         expect(ok.status).toBe(200);
     });
 
@@ -105,7 +105,7 @@ test.describe('security', () => {
         expect(ping.status()).toBe(200);
         expect((await ping.text()).trim()).toBe('pong');
 
-        const nested = await page.request.get(`${MAIN.baseURL}/p/${docs.doc.folder}/ping`);
-        expect(nested.status(), '/p/<anything>/ping must not answer as the healthcheck').toBe(404);
+        const nested = await page.request.get(MAIN.url.doc(`${docs.doc.folder}/ping`));
+        expect(nested.status(), 'a document path ending in ping must not answer as the healthcheck').toBe(404);
     });
 });

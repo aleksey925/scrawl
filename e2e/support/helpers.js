@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const {expect} = require('@playwright/test');
 
-const {appBase, instances, password, routes, shotsDir, user} = require('./env');
+const {instances, password, routes, shotsDir, user} = require('./env');
 
 const MAIN = instances.main;
 const READONLY = instances.readonly;
@@ -96,7 +96,7 @@ async function save(page) {
 // redirects to the slashed form, and the client router drops it again when it
 // navigates there itself
 function atHome(inst = MAIN) {
-    const home = `${inst.baseURL}${appBase}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const home = `${inst.baseURL}${inst.routes.prefix()}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`^${home}/?$`);
 }
 
@@ -148,7 +148,6 @@ module.exports = {
     MAIN,
     READONLY,
     SHARED,
-    appBase,
     atHome,
     editorStatus,
     expectNoHorizontalScroll,

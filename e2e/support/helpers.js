@@ -11,6 +11,7 @@ const MAIN = instances.main;
 const READONLY = instances.readonly;
 const SHARED = instances.shared;
 const HISTORY = instances.history;
+const MULTI = instances.multi;
 
 let shotSeq = 0;
 
@@ -146,6 +147,7 @@ async function expectNoHorizontalScroll(page) {
 module.exports = {
     HISTORY,
     MAIN,
+    MULTI,
     READONLY,
     SHARED,
     atHome,

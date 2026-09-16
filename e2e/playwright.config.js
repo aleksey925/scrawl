@@ -84,5 +84,13 @@ module.exports = defineConfig({
             stdout: 'pipe',
             stderr: 'pipe',
         },
+        {
+            command: `node ${launcher} multi`,
+            url: `${instances.multi.baseURL}/login`,
+            reuseExistingServer: false,
+            timeout: 120_000,
+            stdout: 'pipe',
+            stderr: 'pipe',
+        },
     ],
 });

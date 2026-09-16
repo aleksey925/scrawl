@@ -92,6 +92,30 @@ const instances = {
         root: path.join(workDir, 'notes-history'),
         historyMode: 'on',
     },
+    // the only instance started from a config file. It carries a second local
+    // project over a root of its own and a third that is a clone of a bare
+    // repository the launcher seeds, so the remote mode is driven end to end
+    // and the suite still needs no network.
+    multi: {
+        port: Number(process.env.SCRAWL_E2E_PORT_MULTI || 8735),
+        root: path.join(workDir, 'notes-multi'),
+        historyMode: 'off',
+        extra: [
+            {
+                name: 'team',
+                label: 'Team wiki',
+                dir: path.join(workDir, 'notes-team'),
+                seed: {'team.md': '# Team wiki\n\nonly this project has it.\n'},
+            },
+            {
+                name: 'wiki',
+                label: 'Remote wiki',
+                dir: path.join(workDir, 'notes-wiki'),
+                origin: path.join(workDir, 'origin.git'),
+                seed: {'remote.md': '# Remote page\n\npushed from the origin.\n'},
+            },
+        ],
+    },
 };
 
 for (const [name, inst] of Object.entries(instances)) {
@@ -101,10 +125,19 @@ for (const [name, inst] of Object.entries(instances)) {
     inst.log = path.join(workDir, `${name}.log`);
     inst.secretFile = path.join(workDir, `${name}-session.key`);
     inst.routes = routesFor(inst.project);
+    inst.configFile = path.join(workDir, `${name}.yml`);
     // absolute counterparts of the routes above, for a spec that drives an
     // instance other than the one playwright's baseURL points at
     inst.url = Object.fromEntries(
         Object.entries(inst.routes).map(([key, build]) => [key, (...args) => inst.baseURL + build(...args)]));
+    // the same builders for each of the extra projects, keyed by name, so a
+    // spec about two projects never writes one of their urls by hand
+    inst.projects = {[inst.project]: inst.url};
+    for (const extra of inst.extra || []) {
+        const build = routesFor(extra.name);
+        inst.projects[extra.name] = Object.fromEntries(
+            Object.entries(build).map(([key, make]) => [key, (...args) => inst.baseURL + make(...args)]));
+    }
 }
 
 module.exports = {

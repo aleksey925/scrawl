@@ -63,6 +63,9 @@ export const layout = {
   topbarHeight: 52,
   topbarHeightCompact: 48,
   tapTarget: 44,
+  // the switcher names the project and then gets out of the way of the
+  // breadcrumbs, which is the one thing on a phone topbar that must stay legible
+  projectSwitcherWidth: 130,
   // an input below 16px makes iOS zoom the page on focus and never zoom back
   inputFontSize: 16,
 } as const;

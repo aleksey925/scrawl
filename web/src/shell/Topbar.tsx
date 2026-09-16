@@ -10,6 +10,7 @@ import { layoutBreakpoints } from '../theme';
 
 import { AccountMenu } from './AccountMenu';
 import { contentPathOf } from './naming';
+import { ProjectSwitcher } from './ProjectSwitcher';
 import { ThemeToggle } from './ThemeToggle';
 
 interface Crumb {
@@ -54,6 +55,8 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
   return (
     <Group data-testid="topbar" className={controls.topbar} h="100%" px="lg" gap="sm" wrap="nowrap">
       {burger}
+
+      <ProjectSwitcher />
 
       <Breadcrumbs
         data-testid="topbar-breadcrumbs"

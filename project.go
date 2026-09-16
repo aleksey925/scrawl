@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/aleksey925/scrawl/history"
 	"github.com/aleksey925/scrawl/render"
@@ -34,6 +37,29 @@ type projectConfig struct {
 	Dir      string
 	ReadOnly bool
 	Exclude  []string
+	// Remote says the directory is a managed clone. It is metadata on top of
+	// Dir and never an alternative to it: both consumers take an explicit root,
+	// and the operator has to see which volume must survive a restart.
+	Remote *remoteConfig
+}
+
+// remoteConfig is a project's git remote, with the credential already resolved
+// to the value git will be handed. Where it came from - a file, a named
+// variable, REPO_TOKEN - stops in this package.
+type remoteConfig struct {
+	URL    string
+	Branch string
+	Token  string
+	Pull   time.Duration
+}
+
+// kind names where a project's notes come from, which is all /api/projects says
+// about it.
+func (cfg projectConfig) kind() string {
+	if cfg.Remote != nil {
+		return server.KindRemote
+	}
+	return server.KindLocal
 }
 
 // runtimeProject is one project as main holds it: the concrete services it has
@@ -55,20 +81,10 @@ func (rp *runtimeProject) close() {
 	}
 }
 
-// projectsOf reads the projects out of the options. Today that is the single
-// project the flags name; a configuration file declares any number of them.
-func projectsOf(opts *options) []projectConfig {
-	return []projectConfig{{
-		Name:     opts.Project,
-		Dir:      opts.Root,
-		ReadOnly: opts.ReadOnly,
-	}}
-}
-
 // validateProjects checks everything answerable from the configuration text
 // alone. None of it needs a project directory to exist, so a typo fails before
 // a directory is created or a repository cloned.
-func validateProjects(cfgs []projectConfig) error {
+func validateProjects(ctx context.Context, cfgs []projectConfig) error {
 	if len(cfgs) == 0 {
 		return errors.New("no project configured")
 	}
@@ -87,6 +103,9 @@ func validateProjects(cfgs []projectConfig) error {
 			return fmt.Errorf("two projects are named %q", cfg.Name)
 		}
 		seen[cfg.Name] = struct{}{}
+		if err := validateRemote(ctx, cfg); err != nil {
+			return err
+		}
 	}
 	// lexically, because nothing has been created yet: a remote whose directory
 	// sits inside another project's root would otherwise be cloned first and
@@ -102,6 +121,54 @@ func validateProjects(cfgs []projectConfig) error {
 	}
 	return overlapping(cfgs, dirs)
 }
+
+// validateRemote checks a repo block before anything is cloned.
+func validateRemote(ctx context.Context, cfg projectConfig) error {
+	rm := cfg.Remote
+	if rm == nil {
+		return nil
+	}
+	if rm.URL == "" {
+		return fmt.Errorf("project %q has a repo block with no url", cfg.Name)
+	}
+	// git clone writes the url into .git/config, so an inline password would be
+	// persisted in plain text inside the notes volume and printed by every
+	// later remote get-url check
+	if parsed, err := url.Parse(rm.URL); err == nil && parsed.User != nil {
+		return fmt.Errorf("the url of project %q carries credentials, name them with token_file or token_env instead",
+			cfg.Name)
+	}
+	if rm.Branch == "" {
+		return fmt.Errorf("project %q has a repo block with no branch", cfg.Name)
+	}
+	// the branch is interpolated into origin/<branch> and HEAD:refs/heads/
+	// <branch>, so a name git would read as something else has to be refused
+	// before the first fetch rather than after it
+	if err := checkBranchName(ctx, rm.Branch); err != nil {
+		return fmt.Errorf("the branch of project %q: %w", cfg.Name, err)
+	}
+	return nil
+}
+
+// checkBranchName asks git itself, because the rules are git's.
+func checkBranchName(ctx context.Context, branch string) error {
+	git, err := exec.LookPath("git")
+	if err != nil {
+		// without git there is no remote mode at all, and history says so in
+		// its own words when the project is opened
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, branchCheckTimeout)
+	defer cancel()
+	//nolint:gosec // the binary is what LookPath resolved and the branch is configuration
+	if err = exec.CommandContext(ctx, git, "check-ref-format", "--branch", branch).Run(); err != nil {
+		return fmt.Errorf("git will not read %q as a branch name", branch)
+	}
+	return nil
+}
+
+// branchCheckTimeout bounds the one git call startup validation makes.
+const branchCheckTimeout = 5 * time.Second
 
 // resolveRoots turns each configured directory into the canonical path the
 // store and history will use, and repeats the overlap check on those. Only the
@@ -198,7 +265,7 @@ func newProject(ctx context.Context, opts *options, cfg projectConfig, root stri
 	rp.web = &server.Project{
 		Name:     cfg.Name,
 		Label:    cfg.Label,
-		Kind:     server.KindLocal,
+		Kind:     cfg.kind(),
 		ReadOnly: cfg.ReadOnly,
 		Store:    notes,
 		Index:    rp.index,

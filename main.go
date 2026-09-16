@@ -31,9 +31,14 @@ import (
 // revision is set at build time with -ldflags "-X main.revision=..."
 var revision = "0.0.0"
 
+// defaultRoot is what --root carries when nobody set it, which is how a run
+// tells an explicit root from one it was simply given.
+const defaultRoot = "/notes"
+
 type options struct {
 	Root         string   `short:"r" long:"root" env:"ROOT" default:"/notes" description:"notes root directory"`
 	Project      string   `long:"project" env:"PROJECT" description:"name of the single project, the URL segment it is served under"`
+	Config       string   `long:"config" env:"CONFIG" description:"yaml file declaring several projects, replaces --root and --project"`
 	Listen       string   `short:"l" long:"listen" env:"LISTEN" default:":7272" description:"address to listen on"`
 	Title        string   `long:"title" env:"TITLE" default:"Notes" description:"site title"`
 	ReadOnly     bool     `long:"read-only" env:"READ_ONLY" description:"disable all write endpoints"`
@@ -46,6 +51,16 @@ type options struct {
 	Rescan time.Duration `long:"rescan" env:"RESCAN" default:"60s" description:"periodic full rescan, negative disables it unless watch is poll"`
 
 	History string `long:"history" env:"HISTORY" default:"auto" choice:"auto" choice:"on" choice:"off" description:"document history in git"`
+
+	// the single project's remote, mirroring the repo block of the config file
+	// field for field. There is deliberately no --repo-token: a flag value
+	// lands in /proc/<pid>/cmdline, which is world readable, so the credential
+	// comes from REPO_TOKEN and from nowhere else.
+	Repo struct {
+		URL    string        `long:"url" env:"URL" description:"clone this git remote into --root and push what is edited back"`
+		Branch string        `long:"branch" env:"BRANCH" default:"main" description:"branch to track"`
+		Pull   time.Duration `long:"pull" env:"PULL" default:"5m" description:"how often to fetch, 0 disables the background pull"`
+	} `group:"repo" namespace:"repo" env-namespace:"REPO"`
 
 	Auth struct {
 		Users      []string      `long:"users" env:"USERS" env-delim:"," description:"user:bcryptHashOrPlainPassword pairs"`
@@ -115,7 +130,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog(opts.Dbg, secretsOf(opts)...)
+	// before setupLog, because a credential read afterwards would never be in
+	// the redaction list lgr.Secret was given. The failure is held until the
+	// modes that do not serve anything have had their turn.
+	cfgs, cfgErr := loadConfig(opts)
+	setupLog(opts.Dbg, secretsOf(opts, cfgs)...)
 
 	if opts.Version {
 		fmt.Printf("scrawl %s\n", versionInfo())
@@ -140,17 +159,21 @@ func main() {
 	log.Printf("[INFO] scrawl %s", versionInfo())
 	log.Printf("[DEBUG] options: %+v", *opts)
 
-	if err := serve(opts); err != nil {
+	if cfgErr != nil {
+		log.Printf("[ERROR] scrawl failed: %v", cfgErr)
+		os.Exit(1)
+	}
+	if err := serve(opts, cfgs); err != nil {
 		log.Printf("[ERROR] scrawl failed: %v", err)
 		os.Exit(1)
 	}
 }
 
 // serve runs the server until SIGINT or SIGTERM arrives, or until it fails.
-func serve(opts *options) error {
+func serve(opts *options, cfgs []projectConfig) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	return run(ctx, opts)
+	return run(ctx, opts, cfgs)
 }
 
 func parseOpts(args []string) (*options, error) {
@@ -162,23 +185,10 @@ func parseOpts(args []string) (*options, error) {
 	return &opts, nil
 }
 
-func run(ctx context.Context, opts *options) error {
-	cfgs := projectsOf(opts)
-	if err := validateGlobal(opts); err != nil {
+func run(ctx context.Context, opts *options, cfgs []projectConfig) error {
+	roots, err := validateStartup(ctx, opts, cfgs)
+	if err != nil {
 		return err
-	}
-	if err := validateProjects(cfgs); err != nil {
-		return err
-	}
-	roots, rootsErr := resolveRoots(cfgs)
-	if rootsErr != nil {
-		return rootsErr
-	}
-	if err := checkSecretFile(roots, opts); err != nil {
-		return err
-	}
-	if opts.Auth.Disabled {
-		log.Printf("[WARN] authentication is disabled, every visitor gets full access")
 	}
 
 	authSvc, err := auth.NewService(auth.Config{
@@ -393,6 +403,33 @@ func reindex(notes *store.Store, index *search.Index, p string) {
 	index.Set(p, data)
 }
 
+// validateStartup runs both phases of validation and returns the canonical root
+// of every project. The syntactic phase comes first and needs nothing on disk,
+// so a typo fails before a directory is created or a repository cloned; the
+// canonical one answers what only a resolved path can.
+func validateStartup(ctx context.Context, opts *options, cfgs []projectConfig) ([]string, error) {
+	if opts.Config != "" && (opts.Root != defaultRoot || opts.Project != "") {
+		log.Printf("[WARN] --config wins, --root and --project are ignored")
+	}
+	if err := validateGlobal(opts); err != nil {
+		return nil, err
+	}
+	if err := validateProjects(ctx, cfgs); err != nil {
+		return nil, err
+	}
+	roots, rootsErr := resolveRoots(cfgs)
+	if rootsErr != nil {
+		return nil, rootsErr
+	}
+	if err := checkSecretFile(roots, opts); err != nil {
+		return nil, err
+	}
+	if opts.Auth.Disabled {
+		log.Printf("[WARN] authentication is disabled, every visitor gets full access")
+	}
+	return roots, nil
+}
+
 // validateGlobal checks the options no project owns.
 func validateGlobal(opts *options) error {
 	if !opts.Auth.Disabled && len(opts.Auth.Users) == 0 && len(opts.Auth.Tokens) == 0 {
@@ -442,10 +479,18 @@ func genToken(name string) string {
 // secretsOf collects values that must never reach the log. An entry with no
 // colon in it counts as a secret whole: a token carries no natural name, so
 // forgetting one is easy, and what is left is the credential itself.
-func secretsOf(opts *options) []string {
-	res := make([]string, 0, len(opts.Auth.Users)+len(opts.Auth.Tokens)+1)
+func secretsOf(opts *options, cfgs []projectConfig) []string {
+	res := make([]string, 0, len(opts.Auth.Users)+len(opts.Auth.Tokens)+len(cfgs)+1)
 	if opts.Auth.Secret != "" {
 		res = append(res, opts.Auth.Secret)
+	}
+	// the resolved repository credentials, whatever they were read from: this
+	// is the second line of defense behind the structural redaction gitError
+	// does, and it is why the config is loaded before setupLog
+	for _, cfg := range cfgs {
+		if cfg.Remote != nil && cfg.Remote.Token != "" {
+			res = append(res, cfg.Remote.Token)
+		}
 	}
 	for _, entry := range slices.Concat(opts.Auth.Users, opts.Auth.Tokens) {
 		secret := entry

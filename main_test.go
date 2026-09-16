@@ -338,7 +338,7 @@ func TestValidateProjects(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// act
-			err := validateProjects(tc.cfgs)
+			err := validateProjects(t.Context(), tc.cfgs)
 
 			// assert
 			if tc.errText != "" {
@@ -619,7 +619,7 @@ func TestSecretsOf(t *testing.T) {
 	opts.Auth.Tokens = []string{"bot:plain-token:ro", "scrawl_nameless-token", "empty:"}
 
 	// act
-	secrets := secretsOf(opts)
+	secrets := secretsOf(opts, nil)
 
 	// assert
 	assert.Equal(t, []string{
@@ -651,7 +651,7 @@ func TestRunSmoke(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	errCh := make(chan error, 1)
-	go func() { errCh <- run(ctx, opts) }()
+	go func() { errCh <- run(ctx, opts, projectsFrom(t, opts)) }()
 
 	// act
 	status := pingStatus(t, "http://"+addr+"/ping")
@@ -673,7 +673,7 @@ func TestRunRefusesAServerWithNoProjectName(t *testing.T) {
 	require.NoError(t, err)
 
 	// act
-	err = run(t.Context(), opts)
+	err = run(t.Context(), opts, projectsFrom(t, opts))
 
 	// assert
 	require.Error(t, err)
@@ -686,11 +686,19 @@ func TestRunValidationFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	// act
-	err = run(t.Context(), opts)
+	err = run(t.Context(), opts, projectsFrom(t, opts))
 
 	// assert
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no such file")
+}
+
+// projectsFrom builds the project list run takes, the way main does.
+func projectsFrom(t *testing.T, opts *options) []projectConfig {
+	t.Helper()
+	cfgs, err := loadConfig(opts)
+	require.NoError(t, err)
+	return cfgs
 }
 
 func freePort(t *testing.T) int {

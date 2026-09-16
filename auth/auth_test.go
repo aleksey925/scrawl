@@ -362,14 +362,18 @@ func TestServiceMiddlewarePublicPrefixes(t *testing.T) {
 
 func TestServiceMiddlewareSlidingRenewal(t *testing.T) {
 	tests := []struct {
-		name    string
-		elapsed time.Duration
-		renewed bool
+		name       string
+		elapsed    time.Duration
+		background bool
+		renewed    bool
 	}{
 		{name: "fresh session is left alone", elapsed: time.Hour},
 		{name: "just below half the ttl", elapsed: 47*time.Hour + 59*time.Minute},
 		{name: "past half the ttl", elapsed: 49 * time.Hour, renewed: true},
 		{name: "close to the end", elapsed: 95 * time.Hour, renewed: true},
+		// a tab polling once a minute would otherwise keep an unattended
+		// session alive forever
+		{name: "a background request never renews", elapsed: 49 * time.Hour, background: true},
 	}
 
 	for _, tc := range tests {
@@ -378,7 +382,10 @@ func TestServiceMiddlewareSlidingRenewal(t *testing.T) {
 			svc := newTestService(t, Config{TTL: 96 * time.Hour})
 			issued := time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
 			svc.now = func() time.Time { return issued }
-			req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/p/a.md", http.NoBody), "alice")
+			req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/p/notes/api/me", http.NoBody), "alice")
+			if tc.background {
+				req.Header.Set(backgroundHeader, "1")
+			}
 			svc.now = func() time.Time { return issued.Add(tc.elapsed) }
 			rec := httptest.NewRecorder()
 

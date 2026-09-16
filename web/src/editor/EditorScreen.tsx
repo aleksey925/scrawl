@@ -25,9 +25,11 @@ import { useBlocker, useLocation, useNavigate } from 'react-router';
 import { ApiError, api, installUnauthorizedHandler, type ApiConflict } from '../api/client';
 import { errorText } from '../api/useApi';
 import { documentUrl, editUrl } from '../paths';
+import { useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
+import { useMutationState } from '../shell/useMutationState';
 import { layout } from '../theme';
-import { showMutation, showToast } from '../toast';
+import { showToast } from '../toast';
 
 import { PreviewPane } from './PreviewPane';
 import { SourceEditor, type DroppedFiles } from './SourceEditor';
@@ -81,6 +83,8 @@ const saveStateText: Record<SaveState, string> = {
 export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const { path, initialContent, initialRev, isNew, readOnly } = props;
   const navigate = useNavigate();
+  const { refreshMe } = useNav();
+  const reportMutation = useMutationState();
   const location = useLocation();
 
   const [content, setContent] = useState(initialContent);
@@ -287,7 +291,11 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     const copyPath = `${path.replace(/\.md$/, '')}.conflict-${stamp}.md`;
     const sent = contentRef.current;
     try {
-      await api.saveFile(copyPath, { content: sent, rev: '' });
+      // a conflict copy is a save like any other and its push can fail like any
+      // other, so the response goes to the hook rather than being discarded
+      // before the navigation. The toast and the refresh both survive it:
+      // showToast is module level and NavProvider sits above the router.
+      reportMutation(await api.saveFile(copyPath, { content: sent, rev: '' }), 'Saved as a copy');
       setSaved(sent);
       draftRef.current.clear();
       leavingRef.current = true;
@@ -295,7 +303,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     } catch (error: unknown) {
       showToast('error', { message: errorText(error) });
     }
-  }, [navigate, path]);
+  }, [navigate, path, reportMutation]);
 
   const save = useCallback(
     async (withRev?: string): Promise<void> => {
@@ -315,7 +323,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         draftRef.current.flush();
         const res = await api.saveFile(path, { content: sent, rev: withRev ?? revRef.current });
         markSaved(sent, res.rev);
-        showMutation(res, 'Saved');
+        reportMutation(res, 'Saved');
       } catch (error: unknown) {
         if (error instanceof ApiError && (error.status === 412 || error.status === 409)) {
           const current: ApiConflict | undefined =
@@ -329,6 +337,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           if (current.content === sent) {
             markSaved(sent, current.rev);
             showToast('ok', { message: 'Saved' });
+            // the response that carried the state never arrived, so there is
+            // nothing to hand the hook: this is the one successful write with
+            // no body of its own
+            refreshMe();
             return;
           }
           openConflict({
@@ -350,7 +362,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         setSaving(false);
       }
     },
-    [location.pathname, markSaved, path, readOnly, rememberReadingPosition, saveCopy, uploads],
+    [markSaved, path, readOnly, refreshMe, rememberReadingPosition, reportMutation, saveCopy, uploads],
   );
 
   useEffect(() => {

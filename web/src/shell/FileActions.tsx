@@ -12,10 +12,11 @@ import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
 import { directoryUrl, documentUrl, editUrl, isMarkdown, slugPath } from '../paths';
 import { layout } from '../theme';
-import { showMutation, showToast } from '../toast';
+import { showToast } from '../toast';
 
 import { FolderPicker, foldersOf } from './FolderPicker';
 import { useNav } from './NavContext';
+import { useMutationState } from './useMutationState';
 import { joinPath } from './naming';
 
 export interface FileActions {
@@ -58,7 +59,8 @@ const inputStyles = { input: { fontSize: layout.inputFontSize } };
 
 export function FileActionsProvider({ children }: { children: ReactNode }): JSX.Element {
   const navigate = useNavigate();
-  const { tree, currentPath, refresh } = useNav();
+  const { tree, currentPath, refreshNav } = useNav();
+  const reportMutation = useMutationState();
   const [dialog, setDialog] = useState<Dialog>({ kind: 'none' });
 
   const folders = useMemo(() => foldersOf(tree), [tree]);
@@ -88,11 +90,11 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         onConfirm: () => {
           void (async () => {
             try {
-              showMutation(await api.deleteEntry(path), 'Deleted');
+              reportMutation(await api.deleteEntry(path), 'Deleted');
               if (currentPath === path || currentPath === `${path}/`) {
                 await navigate('/');
               }
-              refresh();
+              refreshNav();
             } catch (error) {
               showToast('error', {
                 title: 'Nothing was deleted',
@@ -103,7 +105,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         },
       });
     },
-    [currentPath, navigate, refresh],
+    [currentPath, navigate, refreshNav, reportMutation],
   );
 
   const actions = useMemo<FileActions>(
@@ -133,8 +135,8 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
               void navigate(editUrl(res.path));
               return;
             }
-            showMutation(res, 'Folder created');
-            refresh();
+            reportMutation(res, 'Folder created');
+            refreshNav();
           }}
         />
       )}
@@ -145,12 +147,12 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
           onClose={close}
           onRenamed={(res) => {
             close();
-            showMutation(res, 'Renamed');
+            reportMutation(res, 'Renamed');
             if (currentPath === dialog.path) {
               void navigate(dialog.isDir ? directoryUrl(res.path) : documentUrl(res.path));
               return;
             }
-            refresh();
+            refreshNav();
           }}
         />
       )}

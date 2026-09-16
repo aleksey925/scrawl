@@ -7,6 +7,7 @@ import { api } from '../api/client';
 import { useApi } from '../api/useApi';
 import { mountBase } from '../mount';
 import { isMarkdown } from '../paths';
+import { SyncBadge } from '../shell/SyncBadge';
 
 import { AsyncContent } from './AsyncContent';
 import { DocumentBody } from './DocumentBody';
@@ -61,6 +62,12 @@ export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
                             {entry.name}
                           </Anchor>
                         )}
+                      </Table.Td>
+                      {/* a directory listing is the only surface that shows
+                          attachments, and with a remote an unpushed image is a
+                          real case that /raw/ has no chrome to warn about */}
+                      <Table.Td w={28}>
+                        <SyncBadge path={entry.path} />
                       </Table.Td>
                     </Table.Tr>
                   ))}

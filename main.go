@@ -275,7 +275,16 @@ const (
 // "on" is a promise the deployment made, so the same conditions stop the server
 // rather than serving without the audit trail somebody asked for.
 func newHistory(opts *options, cfg projectConfig, notes *store.Store) (*history.Service, error) {
-	hcfg := history.Config{Name: cfg.Name, Root: notes.Dir(), Files: historyFiles(notes)}
+	hcfg := history.Config{
+		Name:  cfg.Name,
+		Root:  notes.Dir(),
+		Files: historyFiles(notes),
+		// what the app would serve, which is the only definition of visible it
+		// has. history filters the unsynced set with it before capping, so a
+		// path the store hides is never a second way into the notes and never
+		// spends the cap either.
+		Visible: notes.Visible,
+	}
 	// history is forced on for a remote, whatever --history says: a project
 	// that silently stopped recording would also silently stop pushing. It
 	// tracks every visible file too, because the editor opens far more types

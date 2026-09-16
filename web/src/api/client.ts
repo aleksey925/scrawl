@@ -101,6 +101,13 @@ function notifyUnauthorized(): void {
 
 export interface RequestOptions {
   signal?: AbortSignal;
+  // a request nobody made: a poll on a timer rather than something the reader
+  // is waiting for. It skips the unauthorized handler, because a poll that met
+  // an expired session would open the editor's session dialog with nobody
+  // touching anything, and it tells the server not to slide the session
+  // forward, because a tab polling once a minute would otherwise keep an
+  // unattended one alive forever.
+  background?: boolean;
 }
 
 interface CallOptions extends RequestOptions {
@@ -108,6 +115,10 @@ interface CallOptions extends RequestOptions {
   form?: FormData;
   allowStatus?: readonly number[];
 }
+
+// backgroundHeader is what auth reads. It can only shorten the life of a
+// session and never extend one.
+const backgroundHeader = 'X-Scrawl-Background';
 
 // The two halves of the server's URL space, which every request has to pick
 // between: a project's own API lives under its prefix, the handful of routes
@@ -147,6 +158,9 @@ async function errorBody(response: Response): Promise<ApiErrorBody> {
 
 async function call<T>(method: string, url: string, options: CallOptions = {}): Promise<T> {
   const headers: Record<string, string> = { accept: 'application/json' };
+  if (options.background === true) {
+    headers[backgroundHeader] = '1';
+  }
   let body: BodyInit | undefined;
   if (options.form !== undefined) {
     body = options.form;
@@ -165,7 +179,7 @@ async function call<T>(method: string, url: string, options: CallOptions = {}): 
     signal: options.signal ?? null,
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 && options.background !== true) {
     notifyUnauthorized();
   }
   const allowed = options.allowStatus?.includes(response.status) ?? false;

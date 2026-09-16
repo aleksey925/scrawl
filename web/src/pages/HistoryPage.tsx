@@ -15,8 +15,9 @@ import { documentUrl } from '../paths';
 import { DiffView } from '../shell/DiffView';
 import { useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
+import { useMutationState } from '../shell/useMutationState';
 import { layoutBreakpoints, useBelow } from '../theme';
-import { showMutation, showToast } from '../toast';
+import { showToast } from '../toast';
 
 function formatWhen(at: string): string {
   return new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -176,6 +177,7 @@ export function Component(): JSX.Element {
   const params = useParams();
   const path = decodeURIComponent(params['*'] ?? '');
   const { canWrite } = useNav();
+  const reportMutation = useMutationState();
   const stacked = useBelow(layoutBreakpoints.splitPane);
 
   const [token, setToken] = useState(0);
@@ -231,7 +233,7 @@ export function Component(): JSX.Element {
         setConflict(outcome.current);
         return;
       }
-      showMutation(outcome.state, 'Restored');
+      reportMutation(outcome.state, 'Restored');
       setToken((seen) => seen + 1);
     } catch (error) {
       showToast('error', { title: 'Restore failed', message: errorText(error) });

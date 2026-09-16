@@ -1,6 +1,7 @@
 package history
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -333,6 +334,151 @@ func TestANilServiceAnswersThePublicationState(t *testing.T) {
 	assert.Empty(t, svc.SyncError())
 	assert.NoError(t, svc.Sync(t.Context()))
 	assert.NoError(t, svc.ProbeWritable(t.Context()))
+}
+
+// TestUnsyncedListsWhatTheRemoteIsMissing is the per-file half of the state:
+// which notes the remote does not have, measured in the same breath as the
+// count so that an error can never be paired with another attempt's paths.
+func TestUnsyncedListsWhatTheRemoteIsMissing(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	writeFile(t, dir, "mine.md", "# Mine\n")
+	writeFile(t, dir, "notes/other.md", "# Other\n")
+	breakRemote(t, dir)
+
+	// act
+	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	broken := svc.SyncState()
+	fixRemote(t, dir, bare)
+	require.NoError(t, svc.Sync(t.Context()))
+	healed := svc.SyncState()
+
+	// assert
+	assert.True(t, broken.Unpublished)
+	assert.Equal(t, []string{"mine.md", "notes/other.md"}, broken.Unsynced.Paths)
+	assert.False(t, broken.Unsynced.Many)
+	assert.Contains(t, broken.Error, "push:")
+
+	assert.Equal(t, SyncState{}, healed, "a push that landed leaves nothing behind")
+}
+
+// TestUnsyncedNamesOnlyThisSide is what the three-dot form buys. A two-dot diff
+// on a diverged branch would also list every path the remote changed, and those
+// files would wear a badge although nobody here touched them.
+func TestUnsyncedNamesOnlyThisSide(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	writeFile(t, dir, "mine.md", "# Mine\n")
+	breakRemote(t, dir)
+	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	fixRemote(t, dir, bare)
+	pushFromElsewhere(t, bare, "theirs.md", "# Theirs\n")
+
+	// act
+	require.Error(t, svc.Sync(t.Context()))
+	state := svc.SyncState()
+
+	// assert
+	assert.Equal(t, []string{"mine.md"}, state.Unsynced.Paths)
+	assert.Contains(t, state.Error, "merge:")
+}
+
+// TestUnsyncedFiltersBeforeItCaps is the ordering bug the filter placement
+// exists for: hidden paths must not spend the cap and suppress the one visible
+// note that really did change.
+func TestUnsyncedFiltersBeforeItCaps(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := serviceAt(t, dir, func(cfg *Config) {
+		cfg.Remote = &Remote{URL: bare, Branch: initialBranch}
+		cfg.TrackAll = true
+		cfg.Visible = func(p string) bool { return !strings.HasPrefix(p, "hidden/") }
+	})
+	for i := range unsyncedCap + 1 {
+		writeFile(t, dir, fmt.Sprintf("hidden/%03d.md", i), "# Hidden\n")
+	}
+	writeFile(t, dir, "seen.md", "# Seen\n")
+	breakRemote(t, dir)
+
+	// act
+	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+
+	// assert
+	state := svc.SyncState()
+	assert.Equal(t, []string{"seen.md"}, state.Unsynced.Paths,
+		"a hidden path is never a second way into the notes, and never spends the cap")
+	assert.False(t, state.Unsynced.Many)
+}
+
+// TestUnsyncedDropsTheListAboveTheCap is the correct form and not a
+// compromise: past the cap the reader's question is "the whole corpus", and a
+// partial list would read as "these files and no others".
+func TestUnsyncedDropsTheListAboveTheCap(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	for i := range unsyncedCap + 1 {
+		writeFile(t, dir, fmt.Sprintf("note-%03d.md", i), "# Note\n")
+	}
+	breakRemote(t, dir)
+
+	// act
+	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+
+	// assert
+	state := svc.SyncState()
+	assert.True(t, state.Unsynced.Many)
+	assert.Empty(t, state.Unsynced.Paths)
+	assert.True(t, state.Unpublished)
+}
+
+// TestACleanProjectMeasuresNoPaths keeps the second command off the healthy
+// path: the diff runs only when the count says this copy is ahead.
+func TestACleanProjectMeasuresNoPaths(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+
+	// act
+	require.NoError(t, svc.Sync(t.Context()))
+
+	// assert
+	assert.Equal(t, SyncState{}, svc.SyncState())
+}
+
+// TestSyncStateIsOneLoad is what the snapshot is for: three getters read one
+// pointer, so an error can never be paired with another attempt's paths.
+func TestSyncStateIsOneLoad(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	writeFile(t, dir, "mine.md", "# Mine\n")
+	breakRemote(t, dir)
+	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+
+	// act
+	state := svc.SyncState()
+
+	// assert
+	assert.Equal(t, state.Unpublished, svc.Unpublished())
+	assert.Equal(t, state.Error, svc.SyncError())
+	assert.Equal(t, []string{"mine.md"}, state.Unsynced.Paths)
+}
+
+func TestANilServiceHasNoSyncState(t *testing.T) {
+	// arrange
+	var svc *Service
+
+	// act & assert
+	assert.Equal(t, SyncState{}, svc.SyncState())
 }
 
 func TestRedactURL(t *testing.T) {

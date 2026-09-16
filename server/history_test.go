@@ -39,6 +39,10 @@ type fakeHistory struct {
 	unpublished bool
 	pushFails   error
 	syncErr     string
+	unsynced    history.Unsynced
+	// syncReads counts the loads, which is what proves apiMe takes the whole
+	// state in one and never a getter at a time
+	syncReads int
 
 	ops      []history.Op
 	reported [][]string
@@ -48,6 +52,11 @@ func (f *fakeHistory) Enabled() bool     { return true }
 func (f *fakeHistory) Degraded() bool    { return f.degraded }
 func (f *fakeHistory) Unpublished() bool { return f.unpublished }
 func (f *fakeHistory) SyncError() string { return f.syncErr }
+
+func (f *fakeHistory) SyncState() history.SyncState {
+	f.syncReads++
+	return history.SyncState{Unpublished: f.unpublished, Error: f.syncErr, Unsynced: f.unsynced}
+}
 
 func (f *fakeHistory) Record(_ context.Context, op history.Op, mutate func() ([]string, error)) error {
 	paths, err := mutate()
@@ -754,18 +763,61 @@ func TestEveryMutationCarriesTheState(t *testing.T) {
 
 func TestAPIMeReportsThePublicationState(t *testing.T) {
 	// arrange
-	ts := newTestServer(t, testOpts{
-		history: &fakeHistory{unpublished: true, syncErr: "push: the remote refused"},
-	})
+	fake := &fakeHistory{
+		unpublished: true,
+		syncErr:     "push: the remote refused",
+		unsynced:    history.Unsynced{Paths: []string{"guide.md", "images/logo.png"}},
+	}
+	ts := newTestServer(t, testOpts{history: fake})
 
 	// act
-	_, body := ts.json(t, request{path: "/api/me"})
+	resp, body := ts.json(t, request{path: "/api/me"})
 
 	// assert
 	project, ok := body["project"].(map[string]any)
 	require.True(t, ok, body)
 	assert.Equal(t, true, project["unpublished"])
 	assert.Equal(t, "push: the remote refused", project["sync_error"])
+	assert.Equal(t, map[string]any{
+		"paths": []any{"guide.md", "images/logo.png"}, "many": false,
+	}, project["unsynced"])
+	// a timer polls this now, so nothing may serve it from a cache
+	assert.Equal(t, "private, no-store", resp.header.Get("Cache-Control"))
+	assert.Equal(t, 1, fake.syncReads,
+		"one load, or an error could be paired with another attempt's paths")
+}
+
+func TestAPIMeReportsTheDegradedPathSet(t *testing.T) {
+	tests := []struct {
+		name     string
+		history  History
+		expected map[string]any
+	}{
+		{
+			name:     "no history at all",
+			expected: map[string]any{"paths": []any{}, "many": false},
+		},
+		{
+			name:     "too many to list",
+			history:  &fakeHistory{unpublished: true, unsynced: history.Unsynced{Many: true}},
+			expected: map[string]any{"paths": []any{}, "many": true},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ts := newTestServer(t, testOpts{history: tc.history})
+
+			// act
+			_, body := ts.json(t, request{path: "/api/me"})
+
+			// assert
+			project, ok := body["project"].(map[string]any)
+			require.True(t, ok, body)
+			assert.Equal(t, tc.expected, project["unsynced"])
+		})
+	}
 }
 
 func TestAStoreFailureIsNeverReadAsAHistoryOne(t *testing.T) {

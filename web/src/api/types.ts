@@ -131,6 +131,16 @@ export interface ProjectState {
   unpublished: boolean;
   // already redacted by the server, so it is safe to render
   sync_error: string;
+  unsynced: Unsynced;
+}
+
+// Unsynced is which notes the remote is missing. It rides on /api/me and on
+// nothing else, so one poll refreshes every badge in the app; paths is empty
+// and many is true above the server's cap, where a per-file badge stops
+// answering the reader's question.
+export interface Unsynced {
+  paths: string[];
+  many: boolean;
 }
 
 export type ProjectKind = 'local' | 'remote';

@@ -450,6 +450,7 @@ func TestAPIMeWithAuthDisabled(t *testing.T) {
 		"project": map[string]any{
 			"name": testProject, "label": testProject, "kind": KindLocal,
 			"read_only": false, "degraded": false, "unpublished": false, "sync_error": "",
+			"unsynced": map[string]any{"paths": []any{}, "many": false},
 		},
 	}, body)
 }

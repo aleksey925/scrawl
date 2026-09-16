@@ -86,6 +86,7 @@ type Config struct {
 	Root        string                   // notes directory, the repository root
 	Extensions  []string                 // versioned extensions, empty means defaultExtensions
 	Files       func() ([]string, error) // every visible file, relative slash paths
+	Visible     func(string) bool        // a path the app would serve, nil means everything the diff lists
 	Timeout     time.Duration            // per git call, 0 means 10s
 	InitTimeout time.Duration            // for Reconcile and the baseline import, 0 means 5m
 
@@ -117,9 +118,10 @@ type Service struct {
 
 	// the publication state, kept apart from the commit state above: a commit
 	// that stages nothing succeeds and clears degraded, which would report a
-	// healthy history while the remote was still behind
-	unpublished atomic.Bool
-	syncState
+	// healthy history while the remote was still behind. One pointer, swapped
+	// once per attempt, because Sync holds mu across a network round trip and
+	// /api/me must never queue behind it.
+	sync atomic.Pointer[SyncState]
 }
 
 // New prepares the repository for the notes root and returns the service. It

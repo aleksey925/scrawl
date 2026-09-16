@@ -11,6 +11,7 @@ import { layoutBreakpoints } from '../theme';
 import { AccountMenu } from './AccountMenu';
 import { contentPathOf } from './naming';
 import { ProjectSwitcher } from './ProjectSwitcher';
+import { SyncControl } from './SyncControl';
 import { ThemeToggle } from './ThemeToggle';
 
 interface Crumb {
@@ -128,6 +129,7 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
         </ActionIcon>
       )}
 
+      <SyncControl />
       <ThemeToggle />
       <AccountMenu />
     </Group>

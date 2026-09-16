@@ -1,53 +1,58 @@
-import { Alert, Stack, Text } from '@mantine/core';
-import { IconAlertTriangle, IconCloudOff } from '@tabler/icons-react';
+import { Alert, Code, Stack, Text } from '@mantine/core';
+import { IconAlertTriangle } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import { useNav } from './NavContext';
 
-// ProjectAlerts is the one persistent place that says this project is out of
-// step. It renders above the outlet, so a reader meets it on every screen
-// rather than only after opening one document's history: both states are
-// project-wide, and a project whose commits are not leaving the container is
-// broken rather than merely worth a note.
-export function ProjectAlerts(): JSX.Element | null {
-  const { me } = useNav();
-  const project = me?.project;
-  const degraded = me?.history_degraded === true;
-  const unpublished = project?.unpublished === true;
+// ProjectAlerts is the one persistent place that explains what is wrong with
+// this project. It renders above the outlet, so a reader meets it on every
+// screen rather than only after opening one document's history.
+//
+// One box and never two. At most two states are true at once - one remote, one
+// about recording - and the winner supplies the title while the body carries
+// both facts with their own reasons. Two amber boxes above every screen would
+// be the opposite of calm; one box with two sentences is not.
+//
+// There is no close button: a state that is still true should not be hideable,
+// and remembering a dismissal would mean a reader who dismissed once never
+// hears about the next failure.
+export function ProjectAlerts(): JSX.Element {
+  const { sync } = useNav();
 
-  if (!degraded && !unpublished) {
-    return null;
-  }
-
+  // the live region is mounted at all times, even empty: one inserted into the
+  // DOM at the same moment as its text is unreliably announced, one already
+  // there announces the insertion. Polite, because nothing here is an
+  // emergency and an interruption mid-sentence is the surprise this design is
+  // trying to avoid.
   return (
-    <Stack data-testid="project-alerts" gap="sm" mb="lg">
-      {degraded && (
+    <div data-testid="project-alerts" role="status" aria-live="polite">
+      {sync !== undefined && (
         <Alert
-          data-testid="history-degraded"
+          data-testid="project-alert"
+          data-kind={sync.kind}
           color="yellow"
           icon={<IconAlertTriangle size={18} />}
-          title="History fell behind"
+          title={sync.title}
+          mb="lg"
         >
-          A change on disk was not recorded, so the versions of a document are behind it.
+          <Stack gap="xs">
+            {sync.facts.map((fact) => (
+              <Stack key={fact.kind} gap={4}>
+                <Text size="sm">{fact.body}</Text>
+                {fact.reason !== '' && (
+                  <Code
+                    data-testid="project-alert-reason"
+                    block
+                    style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+                  >
+                    {fact.reason}
+                  </Code>
+                )}
+              </Stack>
+            ))}
+          </Stack>
         </Alert>
       )}
-      {unpublished && (
-        <Alert
-          data-testid="project-unpublished"
-          color="yellow"
-          icon={<IconCloudOff size={18} />}
-          title="Not pushed to the remote"
-        >
-          <Text size="sm">
-            This project holds changes the remote does not have. They are safe on disk here.
-          </Text>
-          {project.sync_error !== '' && (
-            <Text data-testid="project-sync-error" size="sm" mt="xs" style={{ overflowWrap: 'anywhere' }}>
-              {project.sync_error}
-            </Text>
-          )}
-        </Alert>
-      )}
-    </Stack>
+    </div>
   );
 }

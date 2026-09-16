@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -120,9 +119,13 @@ func (s *Service) checkRemote(ctx context.Context) error {
 // worktree, so it must not interleave with a save.
 //
 // Three stages, each with one rule. Sync returns the first error it hit, and
-// syncError is cleared only by a run in which every stage it performed
+// the error is cleared only by a run in which every stage it performed
 // succeeded - so a pull-only project clears it after the merge, and a writable
 // one only after the push as well.
+//
+// Whatever the stage, the whole state is published once, when the attempt ends,
+// so a reader can never observe an error paired with the paths of a different
+// attempt.
 func (s *Service) Sync(ctx context.Context) error {
 	if s == nil || s.cfg.Remote == nil {
 		return nil
@@ -136,28 +139,30 @@ func (s *Service) Sync(ctx context.Context) error {
 func (s *Service) syncLocked(ctx context.Context) error {
 	rm := s.cfg.Remote
 	tracking := remoteName + "/" + rm.Branch
+	next := s.SyncState()
 
 	if _, err := s.run(ctx, command{
 		args:    []string{"fetch", "--prune", remoteName, rm.Branch},
 		network: true,
 		timeout: s.initTimeout(),
 	}); err != nil {
-		// origin/<branch> did not move, so the measurement below would answer
-		// the same thing it did before: leave unpublished as it was
-		return s.syncFailed("fetch", err)
+		// origin/<branch> did not move, so a measurement would answer what it
+		// answered before: carry the rest of the state over untouched
+		return s.syncFailed(next, "fetch", err)
 	}
 
 	if _, err := s.run(ctx, command{
 		args:    []string{"merge", "--ff-only", tracking},
 		timeout: s.initTimeout(),
 	}); err != nil {
-		s.measureUnpublished(ctx)
-		return s.syncFailed("merge", fmt.Errorf(
+		s.measure(ctx, &next)
+		return s.syncFailed(next, "merge", fmt.Errorf(
 			"the branch has diverged from %s; in %s run: git pull --rebase && git push", tracking, s.root))
 	}
 
 	if rm.PullOnly {
-		s.syncOK()
+		next.Error = ""
+		s.publish(next)
 		return nil
 	}
 	return s.publishLocked(ctx)
@@ -172,27 +177,29 @@ func (s *Service) publishLocked(ctx context.Context) error {
 	if rm == nil || rm.PullOnly {
 		return nil
 	}
+	next := s.SyncState()
 	_, err := s.run(ctx, command{
 		args:    []string{"push", remoteName, "HEAD:refs/heads/" + rm.Branch},
 		network: true,
 		timeout: s.initTimeout(),
 	})
-	s.measureUnpublished(ctx)
+	s.measure(ctx, &next)
 	if err != nil {
-		return s.syncFailed("push", err)
+		return s.syncFailed(next, "push", err)
 	}
-	s.syncOK()
+	next.Error = ""
+	s.publish(next)
 	return nil
 }
 
-// measureUnpublished asks how far ahead of the last fetched remote ref this
-// clone is. It is a measurement and never a remembered flag: a flag only set by
-// a failed push would be false in a fresh process whose clone is already ahead,
-// and on a diverged branch after a restart the ff-only merge fails before any
-// push is attempted, so nothing would ever set it.
+// measure asks how far ahead of the last fetched remote ref this clone is, and
+// which paths that covers. It is a measurement and never a remembered flag: a
+// flag only set by a failed push would be false in a fresh process whose clone
+// is already ahead, and on a diverged branch after a restart the ff-only merge
+// fails before any push is attempted, so nothing would ever set it.
 //
-// A measurement that fails leaves the flag as it was and says so in syncError.
-func (s *Service) measureUnpublished(ctx context.Context) {
+// A measurement that fails leaves the state as it was and says so in the log.
+func (s *Service) measure(ctx context.Context, into *SyncState) {
 	rm := s.cfg.Remote
 	out, err := s.run(ctx, command{
 		args: []string{"rev-list", "--count", remoteName + "/" + rm.Branch + "..HEAD"},
@@ -206,42 +213,85 @@ func (s *Service) measureUnpublished(ctx context.Context) {
 		log.Printf("[WARN] %s: cannot read the commit count: %v", s.tag(), err)
 		return
 	}
-	s.unpublished.Store(count > 0)
+	if count == 0 {
+		into.Unpublished, into.Unsynced = false, Unsynced{}
+		return
+	}
+	into.Unpublished = true
+	into.Unsynced = s.unsyncedPaths(ctx)
 }
 
-// syncFailed records a failed stage and logs it once, naming the project.
-func (s *Service) syncFailed(stage string, err error) error {
-	message := stage + ": " + err.Error()
-	s.setSyncError(message)
-	log.Printf("[WARN] %s: %s", s.tag(), message)
+// unsyncedPaths lists what this copy changed and the remote does not have. It
+// runs only when the count above is non-zero, so a healthy project pays for one
+// rev-list and nothing else.
+//
+// Three dots and not two. With --ff-only as the whole merge policy the two
+// spellings normally agree, and they differ in the case that matters most: on a
+// diverged branch a two-dot diff would also list every path the remote changed,
+// and those files would wear a badge although nobody here touched them. Three
+// dots diffs from the merge base, which is what this copy changed since it
+// forked.
+func (s *Service) unsyncedPaths(ctx context.Context) Unsynced {
+	rm := s.cfg.Remote
+	out, err := s.run(ctx, command{
+		args:  []string{"diff", "--name-only", "-z", remoteName + "/" + rm.Branch + "...HEAD"},
+		limit: maxListBytes,
+	})
+	if err != nil {
+		log.Printf("[WARN] %s: cannot list what the remote is missing: %v", s.tag(), err)
+		return Unsynced{}
+	}
+
+	// the filter runs before the cap, so the cap counts what a reader could
+	// actually see: 201 hidden paths must not spend it and suppress the one
+	// visible note that really did change
+	res := make([]string, 0, unsyncedCap)
+	for _, p := range splitNul(out) {
+		if s.cfg.Visible != nil && !s.cfg.Visible(p) {
+			continue
+		}
+		if len(res) == unsyncedCap {
+			// past the cap the reader's question is no longer "which note" but
+			// "the whole corpus", and a partial list would read as "these files
+			// and no others"
+			return Unsynced{Many: true}
+		}
+		res = append(res, p)
+	}
+	return Unsynced{Paths: res}
+}
+
+// syncFailed publishes a failed stage and logs it once, naming the project.
+func (s *Service) syncFailed(next SyncState, stage string, err error) error {
+	next.Error = stage + ": " + err.Error()
+	s.publish(next)
+	log.Printf("[WARN] %s: %s", s.tag(), next.Error)
 	return fmt.Errorf("history: sync %s: %w", stage, err)
 }
 
-// syncOK clears the last conversation's failure.
-func (s *Service) syncOK() { s.setSyncError("") }
+func (s *Service) publish(next SyncState) { s.sync.Store(&next) }
 
-func (s *Service) setSyncError(message string) {
-	s.syncMu.Lock()
-	defer s.syncMu.Unlock()
-	s.syncErr = message
+// SyncState is the whole remote state of one project, read in a single load so
+// that an error can never be paired with the paths of a different attempt.
+func (s *Service) SyncState() SyncState {
+	if s == nil {
+		return SyncState{}
+	}
+	if state := s.sync.Load(); state != nil {
+		return *state
+	}
+	return SyncState{}
 }
 
 // Unpublished reports that the clone holds commits the remote does not. It is
 // kept apart from the commit state on purpose: a commit that stages nothing
 // succeeds and clears Degraded, which would report a healthy history while the
 // remote was still behind.
-func (s *Service) Unpublished() bool { return s != nil && s.unpublished.Load() }
+func (s *Service) Unpublished() bool { return s.SyncState().Unpublished }
 
 // SyncError is what the last conversation with the remote failed with, already
 // redacted: it is shown in the UI, which lgr.Secret never touches.
-func (s *Service) SyncError() string {
-	if s == nil {
-		return ""
-	}
-	s.syncMu.Lock()
-	defer s.syncMu.Unlock()
-	return s.syncErr
-}
+func (s *Service) SyncError() string { return s.SyncState().Error }
 
 // Remote reports whether this service tracks one.
 func (s *Service) Remote() bool { return s != nil && s.cfg.Remote != nil }
@@ -260,12 +310,30 @@ func (s *Service) ProbeWritable(ctx context.Context) error {
 	return err
 }
 
-// syncState is the publication half of the service's state. It is two fields
-// because "we are ahead of the remote" and "the last conversation failed" are
-// different questions: a fetch that fails leaves the first one alone.
-type syncState struct {
-	syncMu  sync.Mutex
-	syncErr string
+// unsyncedCap is how many paths a reader is shown before the list stops being
+// worth drawing. Past it the question has changed from "which note" to "the
+// whole corpus", which a per-file badge cannot answer.
+const unsyncedCap = 200
+
+// Unsynced lists the paths this copy has committed and the remote does not
+// have. Paths is empty and Many is true above the cap: a partial list would
+// read as "these files and no others", which is worse than saying nothing
+// about files at all.
+type Unsynced struct {
+	Paths []string
+	Many  bool
+}
+
+// SyncState is the whole remote state of one project as one attempt left it.
+// The three values are published together, so a reader never observes an error
+// from one attempt beside the paths of another.
+type SyncState struct {
+	// Unpublished is the commit count, and Unsynced the paths behind it. They
+	// are two measurements and not one: a commit that changes nothing net is
+	// ahead by a commit and empty by a diff.
+	Unpublished bool
+	Error       string // already redacted
+	Unsynced    Unsynced
 }
 
 // redactURL strips a userinfo a url may carry. Validation refuses one at

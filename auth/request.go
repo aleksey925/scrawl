@@ -110,6 +110,23 @@ func isAPIPath(p string) bool {
 	return ok && name != "" && (rest == "api" || strings.HasPrefix(rest, "api/"))
 }
 
+// backgroundHeader marks a request nobody made: a poll on a timer rather than
+// something the reader is waiting for.
+const backgroundHeader = "X-Scrawl-Background"
+
+// background reports whether the caller marked this request as its own
+// housekeeping. The header is set by the client and trusted, which is safe in
+// one direction only: it can shorten the life of a session and never extend
+// one. A caller that sets it on everything simply gets no sliding renewal; a
+// caller that never sets it gets exactly the behavior there has always been.
+// Nothing about authentication or authorization reads it.
+//
+// It is a marker and not a guess from the path, because the editor fetches
+// /api/me for itself and that one is a request the reader is waiting for.
+func background(r *http.Request) bool {
+	return r.Header.Get(backgroundHeader) == "1"
+}
+
 func writeJSONError(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")

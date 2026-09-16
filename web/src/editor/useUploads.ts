@@ -4,7 +4,8 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { api } from '../api/client';
 import { errorText } from '../api/useApi';
-import { showMutation, showToast } from '../toast';
+import { useMutationState } from '../shell/useMutationState';
+import { showToast } from '../toast';
 
 export interface UploadControl {
   pending: number;
@@ -23,6 +24,7 @@ function token(): string {
 
 export function useUploads(path: string, getView: () => EditorView | undefined): UploadControl {
   const jobs = useRef(new Set<Promise<void>>());
+  const reportMutation = useMutationState();
   const [pending, setPending] = useState(0);
 
   const insert = useCallback(
@@ -63,7 +65,7 @@ export function useUploads(path: string, getView: () => EditorView | undefined):
             if (current !== undefined) {
               swap(current, placeholder, res.markdown === '' ? `![](${res.path})` : res.markdown);
             }
-            showMutation(res, 'Image uploaded');
+            reportMutation(res, 'Image uploaded');
           })
           .catch((error: unknown) => {
             const current = getView();
@@ -81,7 +83,7 @@ export function useUploads(path: string, getView: () => EditorView | undefined):
       }
       setPending(jobs.current.size);
     },
-    [getView, insert, path, swap],
+    [getView, insert, path, reportMutation, swap],
   );
 
   const wait = useCallback(async (): Promise<void> => {

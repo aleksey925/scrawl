@@ -218,8 +218,10 @@ func (s *Service) Middleware(next http.Handler) http.Handler {
 		}
 		if tok, ok := s.session(r); ok {
 			// the token carries no issue time, so "more than half the ttl has
-			// elapsed" is read off the other end: less than half of it is left
-			if tok.expiry.Sub(s.now()) < s.ttl/2 {
+			// elapsed" is read off the other end: less than half of it is left.
+			// A request the reader did not make never renews: a tab polling on
+			// a timer would otherwise keep an unattended session alive forever.
+			if !background(r) && tok.expiry.Sub(s.now()) < s.ttl/2 {
 				s.issue(w, r, tok.user)
 			}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey{}, tok.user)))

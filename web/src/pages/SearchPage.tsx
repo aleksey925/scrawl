@@ -1,4 +1,4 @@
-import { Anchor, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Group, Stack, Text, Title } from '@mantine/core';
 import type { JSX } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
@@ -9,6 +9,7 @@ import { AsyncContent } from '../components/AsyncContent';
 import { documentUrl } from '../paths';
 import { PageContainer } from '../shell/PageContainer';
 import { Snippet } from '../shell/Snippet';
+import { SyncBadge } from '../shell/SyncBadge';
 
 const nothing: SearchResponse = { hits: [], elapsed_ms: 0 };
 
@@ -55,16 +56,19 @@ export function Component(): JSX.Element {
                       gap={4}
                       style={{ minWidth: 0 }}
                     >
-                      <Anchor
-                        data-testid="search-result-link"
-                        component={Link}
-                        // the query rides along so the reader lands with the
-                        // matches highlighted
-                        to={`${documentUrl(hit.path)}?q=${encodeURIComponent(wanted)}`}
-                        fw={500}
-                      >
-                        {hit.title === '' ? hit.path : hit.title}
-                      </Anchor>
+                      <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                        <Anchor
+                          data-testid="search-result-link"
+                          component={Link}
+                          // the query rides along so the reader lands with the
+                          // matches highlighted
+                          to={`${documentUrl(hit.path)}?q=${encodeURIComponent(wanted)}`}
+                          fw={500}
+                        >
+                          {hit.title === '' ? hit.path : hit.title}
+                        </Anchor>
+                        <SyncBadge path={hit.path} />
+                      </Group>
                       <Text
                         data-testid="search-result-path"
                         size="xs"

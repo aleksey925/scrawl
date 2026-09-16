@@ -30,6 +30,10 @@ type History interface {
 	// SyncError is what the last conversation with the remote failed with,
 	// already redacted: it is rendered in the UI, which lgr.Secret never sees.
 	SyncError() string
+	// SyncState is all three of those in one load. /api/me uses it and never
+	// the getters above: a Sync finishing between two calls would hand the
+	// client an error from one attempt beside the paths of another.
+	SyncState() history.SyncState
 	Record(ctx context.Context, op history.Op, mutate func() ([]string, error)) error
 	Log(ctx context.Context, p string, limit int) ([]history.Entry, error)
 	Version(ctx context.Context, rev, p string) (string, error)

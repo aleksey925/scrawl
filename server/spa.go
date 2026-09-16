@@ -121,9 +121,22 @@ type projectState struct {
 	// Degraded is a commit that failed, so a change is on disk and not in git.
 	// Unpublished is a commit the remote does not have. They are different
 	// failures with different fixes, so they are two fields.
-	Degraded    bool   `json:"degraded"`
-	Unpublished bool   `json:"unpublished"`
-	SyncError   string `json:"sync_error"`
+	Degraded    bool          `json:"degraded"`
+	Unpublished bool          `json:"unpublished"`
+	SyncError   string        `json:"sync_error"`
+	Unsynced    unsyncedPaths `json:"unsynced"`
+}
+
+// unsyncedPaths is which notes the remote is missing. It rides on /api/me and
+// on nothing else: a flag on the tree nodes, the directory rows and the search
+// hits would mean a full tree walk per poll per tab to refresh a badge, where
+// one set here answers every surface from one request.
+//
+// history has already dropped what the store hides and capped what is left, so
+// the server copies it out and decides nothing.
+type unsyncedPaths struct {
+	Paths []string `json:"paths"`
+	Many  bool     `json:"many"`
 }
 
 // projectEntry is one row of the switcher. It carries configured, immutable
@@ -298,6 +311,8 @@ func (m *mount) apiNav(w http.ResponseWriter, r *http.Request) {
 // apiMe names the session and the modes the app runs in, which is what the HTML
 // pages carry in Base and a single page app has to ask for once.
 func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {
+	// one load, so the error and the paths always belong to the same attempt
+	sync := m.history().SyncState()
 	res := meResponse{
 		AuthOn:          !m.AuthDisabled,
 		ReadOnly:        m.readOnly(),
@@ -311,13 +326,20 @@ func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {
 			Kind:        m.prj.Kind,
 			ReadOnly:    m.readOnly(),
 			Degraded:    m.history().Degraded(),
-			Unpublished: m.history().Unpublished(),
-			SyncError:   m.history().SyncError(),
+			Unpublished: sync.Unpublished,
+			SyncError:   sync.Error,
+			Unsynced:    unsyncedPaths{Paths: sync.Unsynced.Paths, Many: sync.Unsynced.Many},
 		},
+	}
+	if res.Project.Unsynced.Paths == nil {
+		res.Project.Unsynced.Paths = []string{}
 	}
 	if m.Auth != nil {
 		res.User, _ = m.Auth.User(r)
 	}
+	// a timer polls this for freshness now, so it must never come back from a
+	// browser or proxy cache
+	w.Header().Set("Cache-Control", "private, no-store")
 	writeJSON(w, http.StatusOK, res)
 }
 

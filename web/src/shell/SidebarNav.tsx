@@ -14,6 +14,7 @@ import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { useFileActions } from './FileActions';
 import { useNav } from './NavContext';
+import { SyncBadge } from './SyncBadge';
 import { RowMenu } from './RowMenu';
 import { filterTree, type FilteredTree } from './treeFilter';
 
@@ -105,6 +106,10 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
             </Highlight>
           </Group>
         </Anchor>
+
+        {/* outside the link, so the link's accessible name stays the note's
+            name and the badge reads beside it */}
+        <SyncBadge path={node.path} />
 
         <RowMenu path={node.path} isDir={node.is_dir} name={label} touch={touch} />
       </Group>

@@ -6,6 +6,7 @@ import { Link } from 'react-router';
 import { api } from '../api/client';
 import { useApi } from '../api/useApi';
 import { editUrl } from '../paths';
+import { SyncBadge } from '../shell/SyncBadge';
 
 import { AsyncContent } from './AsyncContent';
 import { DocumentBody } from './DocumentBody';
@@ -22,9 +23,14 @@ export function DocumentView({ path }: DocumentViewProps): JSX.Element {
       {(page) =>
         page.kind === 'missing-document' ? (
           <Stack data-testid="doc-missing" gap="lg">
-            <Title data-testid="doc-title" order={1}>
-              {page.title}
-            </Title>
+            <Group gap="xs" wrap="nowrap">
+              <Title data-testid="doc-title" order={1}>
+                {page.title}
+              </Title>
+              {/* a deletion that failed to push leaves the note gone here and
+                  present on the remote, and this is the screen that says so */}
+              <SyncBadge path={path} />
+            </Group>
             <Text c="dimmed">This note does not exist yet.</Text>
             {page.can_create && (
               <Group>

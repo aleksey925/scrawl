@@ -6,7 +6,7 @@ import { Link } from 'react-router';
 import type { DocumentResponse } from '../api/types';
 import { ReadingAnchorTracker } from '../editor';
 import { historyUrl } from '../paths';
-import { useNav } from '../shell/NavContext';
+import { useCurrentDoc, useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
 
 import { DocumentHtml } from './DocumentHtml';
@@ -17,6 +17,9 @@ export interface DocumentBodyProps {
 
 export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
   const { canWrite } = useNav();
+  // the file, not the route: a directory holding an index.md is served under
+  // the directory's own address, and the root is that case with an empty path
+  useCurrentDoc(doc.doc_path);
 
   return (
     <>

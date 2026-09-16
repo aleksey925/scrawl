@@ -198,6 +198,64 @@ you create reaches the remote with the first note you put in it.
 A read-only remote never writes to git at all: it fetches and
 fast-forwards, and it does not commit, push or probe.
 
+## A webhook instead of polling
+
+Give a project a hook secret and the upstream repository can tell scrawl
+to fetch, instead of scrawl asking every few minutes.
+
+```yaml
+projects:
+  - name: team
+    dir: /data/team
+    repo:
+      url: https://github.com/acme/wiki.git
+      branch: main
+      pull: 1h
+      hook_secret_file: /run/secrets/gh-hook # or hook_secret_env: HOOK
+```
+
+With one project it is `REPO_HOOK_SECRET`, the same fixed and optional
+shape `REPO_TOKEN` has. Generate the secret rather than typing one:
+
+```
+openssl rand -hex 32
+```
+
+It has to be at least 32 bytes. The endpoint answers without a session -
+a provider cannot sign in - so the signature is the only credential
+there is, and a short one turns the route into a public "resync this
+project" button. The file has to live outside every project directory,
+for the same reason the session key does: anything inside is on the
+tree, in the search index and downloadable.
+
+Paste this URL into the repository's webhook settings, with the content
+type the provider offers by default:
+
+```
+https://notes.example.com/p/team/hook
+```
+
+Behind TLS, always. A signature proves the body was not tampered with
+and hides nothing, and GitLab's scheme sends the secret itself.
+
+GitHub, Gitea and Forgejo are verified by `X-Hub-Signature-256`, GitLab
+by `X-Gitlab-Token`. Nothing has to be configured for that: the header
+says which one the sender used. The old sha1 `X-Hub-Signature` is not
+accepted.
+
+**Keep a slow `pull` on.** `pull: 1h` with a hook means deliveries do
+the work, almost every tick finds nothing, and a delivery that goes
+missing costs an hour rather than lasting until the next restart.
+Nothing detects a lost delivery: there is no ledger and no catch-up
+request, so with `pull: 0` the clone simply stays behind.
+
+The body is never read beyond verifying it. A delivery means "something
+may have changed", so a push to a branch scrawl does not track costs one
+fetch that finds nothing - which is cheaper than a parser that has to
+know four providers' payloads. Deliveries also coalesce: twenty in a
+second cause at most two fetches, because they all ask the same
+question.
+
 ## When something is not reaching the remote
 
 Nothing about this blocks you. The save landed, the note is on disk, the
@@ -248,6 +306,7 @@ Environment variables, each also available as a flag. Run
 | `REPO_BRANCH`      | `main`              | branch to track                                                                       |
 | `REPO_PULL`        | `5m`                | how often to fetch, `0` disables the background pull                                  |
 | `REPO_TOKEN`       |                     | credential header for `REPO_URL`, i.e. `Bearer ghp_...`                               |
+| `REPO_HOOK_SECRET` |                     | webhook secret, at least 32 bytes, turns the endpoint on                              |
 | `LISTEN`           | `:7272`             | address to listen on                                                                  |
 | `TITLE`            | `Notes`             | site title in the interface                                                           |
 | `AUTH_USERS`       |                     | `user:hashOrPassword`, comma separated                                                |

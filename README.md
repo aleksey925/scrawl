@@ -198,6 +198,42 @@ you create reaches the remote with the first note you put in it.
 A read-only remote never writes to git at all: it fetches and
 fast-forwards, and it does not commit, push or probe.
 
+## When something is not reaching the remote
+
+Nothing about this blocks you. The save landed, the note is on disk, the
+history entry exists - the only thing that did not happen is the push,
+and editing carries on exactly as before.
+
+An amber control appears in the top bar and stays there. It says whether
+the note you are looking at is one of the affected ones, and clicking it
+lists them. A banner above the page explains the same thing in full and
+carries the exact git reason. The two share their words: the banner
+explains and scrolls away with the page, the control persists.
+
+The messages tell four things apart:
+
+- **Changes are not reaching the remote.** The push failed. The next
+  save tries again.
+- **The remote cannot be reached.** The fetch failed. This copy may be
+  behind, and if you saved anything it has not gone out either.
+- **This project has diverged from the remote.** Somebody else pushed
+  while this copy had commits of its own. scrawl never merges by hand:
+  nothing more reaches the remote until you run the command the message
+  gives you, in the project's directory.
+- **Changes are not being recorded.** Not the remote at all: a commit
+  failed, so a change is on disk and not in git. The next save that
+  succeeds folds it in.
+
+A first import of a large corpus can show "many files are affected"
+once, until the first push lands. Past a couple of hundred files the
+per-note markers stop and the message says so, because at that point the
+answer is "the whole corpus" and a marker per note answers nothing.
+
+The page refreshes this on its own, about once a minute and only while
+the tab is in front of you, so a push that starts working again clears
+the warning without a reload. A background refresh does not extend your
+session: a tab left open would otherwise keep one alive forever.
+
 ## Configuration
 
 Environment variables, each also available as a flag. Run

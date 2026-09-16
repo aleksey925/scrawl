@@ -169,6 +169,41 @@ vendor/                dependencies, checked in, `make deps` regenerates
   caller the change was not recorded when it was recorded and only not
   pushed. `unpublished` is **measured**, never remembered, and never the
   gate on the push.
+- The remote state reaches the client only through `/api/me`, and
+  `apiMe` reads it with one `SyncState()` and never a getter at a time:
+  a `Sync` finishing between two calls would pair an error from one
+  attempt with the paths of another, and a poll would leave that
+  impossible pair on screen for a minute. `history` publishes all three
+  values as one snapshot when an attempt ends, behind an atomic pointer,
+  because `Sync` holds the lock across a network round trip.
+- The unsynced path set is measured in the same breath as the count, and
+  only when the count says this copy is ahead. It is filtered by what
+  the store would serve **before** it is capped - hidden paths must not
+  spend the cap and suppress the one visible note that changed - and
+  above the cap the list is dropped rather than truncated: past a couple
+  of hundred files the question is "the whole corpus", which a per-file
+  badge cannot answer. The diff is three-dot, so a diverged branch lists
+  what this copy changed and not what the remote did.
+- The set rides on `/api/me` and never on the tree nodes, the directory
+  rows, the search hits or the page response. A badge that lived on the
+  tree could only be refreshed by refetching the tree, which is a full
+  store walk per tick per open tab.
+- One alert, titled by precedence - `degraded > merge > fetch > push` -
+  and carrying every active fact with its own reason. At most two are
+  true at once, one from each family. `syncMessage` is the only thing
+  that writes these words, and the banner and the topbar control both
+  render it.
+- The client polls `me` quietly and in the background: quiet so a poll
+  meeting an expired session opens no dialog nobody asked for, and
+  background so `auth` skips the sliding renewal. That marker is set by
+  the client and trusted, which is safe in one direction only - it can
+  shorten a session and never extend one. The poll never replaces a good
+  answer with nothing and orders its responses by generation.
+- The file on screen is `doc_path` and not the route. A directory
+  holding an `index.md` is served under the directory's own address, and
+  the root is that case with an empty path - so a per-file signal keyed
+  off the route would stay silent about the note most readers are
+  looking at. `DocumentBody` registers it and is the only caller.
 - A repository credential is resolved once, in `main`, before
   `setupLog`, and reaches git only through `GIT_CONFIG_*` on the three
   commands that talk to a remote. Never argv: `/proc/<pid>/cmdline` is

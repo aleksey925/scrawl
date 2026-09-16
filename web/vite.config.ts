@@ -18,8 +18,9 @@ const sharedPaths = ['/p', '/login'];
 // the routes inside a project the server always answers, whatever the Accept
 // header says. /p/<name>/raw/img.png opened in a tab carries text/html like any
 // navigation, so deciding on the header alone would hand it index.html and the
-// raw handler would never be asked.
-const projectServerRoute = /^\/p\/[^/]+\/(api|raw)(\/|$)/;
+// raw handler would never be asked. /hook is here for the same reason, for
+// anybody who ever points a provider at a dev instance.
+const projectServerRoute = /^\/p\/[^/]+\/(api|raw|hook)(\/|$)/;
 
 function isNavigation(req: IncomingMessage): boolean {
   return req.method === 'GET' && (req.headers.accept ?? '').includes('text/html');

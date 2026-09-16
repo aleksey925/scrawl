@@ -191,6 +191,28 @@ func run(ctx context.Context, opts *options, cfgs []projectConfig) error {
 		return err
 	}
 
+	// the projects come first, because the public path list is derived from
+	// them and auth has to be told about it before it is built
+	running := make([]*runtimeProject, 0, len(cfgs))
+	defer func() {
+		for _, rp := range running {
+			rp.close()
+		}
+	}()
+	projects := make([]*server.Project, 0, len(cfgs))
+	hooks := make([]string, 0, len(cfgs))
+	for i, cfg := range cfgs {
+		rp, pErr := newProject(ctx, opts, cfg, roots[i])
+		if pErr != nil {
+			return pErr
+		}
+		running = append(running, rp)
+		projects = append(projects, rp.web)
+		if rp.web.Webhook != nil {
+			hooks = append(hooks, rp.web.HookPath())
+		}
+	}
+
 	authSvc, err := auth.NewService(auth.Config{
 		Users:        strings.Join(opts.Auth.Users, ","),
 		Tokens:       strings.Join(opts.Auth.Tokens, ","),
@@ -200,17 +222,15 @@ func run(ctx context.Context, opts *options, cfgs []projectConfig) error {
 		Disabled:     opts.Auth.Disabled,
 		TrustedProxy: opts.TrustedProxy,
 		Secure:       opts.Auth.Secure,
+		// a provider cannot sign in, so its one path per project is reachable
+		// without a session. Exact matches, never prefixes, and the credential
+		// is the signature the handler checks before it touches the project.
+		PublicPaths: hooks,
 	})
 	if err != nil {
 		return fmt.Errorf("setup auth: %w", err)
 	}
 
-	running := make([]*runtimeProject, 0, len(cfgs))
-	defer func() {
-		for _, rp := range running {
-			rp.close()
-		}
-	}()
 	srv := &server.Web{
 		Config: server.Config{
 			ListenAddr:        opts.Listen,
@@ -227,25 +247,23 @@ func run(ctx context.Context, opts *options, cfgs []projectConfig) error {
 			IdleTimeout:       opts.Timeouts.Idle,
 			ShutdownTimeout:   opts.Timeouts.Shutdown,
 		},
-		Auth: authSvc,
-	}
-	for i, cfg := range cfgs {
-		rp, pErr := newProject(ctx, opts, cfg, roots[i])
-		if pErr != nil {
-			return pErr
-		}
-		running = append(running, rp)
-		srv.Projects = append(srv.Projects, rp.web)
+		Projects: projects,
+		Auth:     authSvc,
 	}
 
-	// the watchers start last, after every project has been reconciled and
+	// the workers start last, after every project has been reconciled and
 	// indexed: a watcher takes its baseline snapshot when it is called, so
-	// anything the worktree did before that produces no event, ever
-	done := make([]<-chan struct{}, 0, len(running))
-	for _, rp := range running {
-		done = append(done, watch(ctx, rp, srv))
-	}
+	// anything the worktree did before that produces no event, ever.
+	//
+	// They run under a context of their own, canceled the moment the server
+	// returns and not deferred: Web.Run returns as soon as ListenAndServe
+	// fails while ctx is still live, and a defer in this function would fire
+	// after the loop below that waits for them. A busy listen address would
+	// otherwise hang the process.
+	workers, stopWorkers := context.WithCancel(ctx)
+	done := startWorkers(workers, running, srv)
 	runErr := srv.Run(ctx)
+	stopWorkers()
 	for _, ch := range done {
 		<-ch
 	}
@@ -254,6 +272,60 @@ func run(ctx context.Context, opts *options, cfgs []projectConfig) error {
 		return fmt.Errorf("run server: %w", runErr)
 	}
 	return nil
+}
+
+// startWorkers runs the per-project background goroutines: one watcher each,
+// and one sync loop for every project that fetches on a ticker, answers a
+// webhook, or both.
+func startWorkers(ctx context.Context, running []*runtimeProject, srv *server.Web) []<-chan struct{} {
+	done := make([]<-chan struct{}, 0, 2*len(running))
+	for _, rp := range running {
+		done = append(done, watch(ctx, rp, srv))
+		if rp.pull > 0 || rp.web.Webhook != nil {
+			done = append(done, syncLoop(ctx, rp, syncRemote))
+		}
+	}
+	return done
+}
+
+// syncFunc is what a sync loop runs, taken as a parameter so a test can watch
+// the coalescing without a git remote behind it.
+type syncFunc func(ctx context.Context, name string, hist *history.Service)
+
+// syncLoop is the one place a background Sync is started from, whichever switch
+// asked for it. A nil ticker channel blocks forever, which is exactly what
+// pull: 0 means, so the two switches need no branch beyond that one if.
+func syncLoop(ctx context.Context, rp *runtimeProject, run syncFunc) <-chan struct{} {
+	name := rp.web.Name
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		var tick <-chan time.Time
+		if rp.pull > 0 {
+			ticker := time.NewTicker(rp.pull)
+			defer ticker.Stop()
+			tick = ticker.C
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick:
+			case <-rp.trigger:
+			}
+			// select picks at random among ready cases, so a trigger queued at
+			// shutdown can win against a closed ctx.Done(). Sync then takes a
+			// plain mutex that knows nothing about the context, and the
+			// shutdown would wait on a save already running.
+			if ctx.Err() != nil {
+				return
+			}
+			run(ctx, name, rp.hist)
+		}
+	}()
+	return done
 }
 
 // the modes of --history.
@@ -429,12 +501,6 @@ func watch(ctx context.Context, rp *runtimeProject, srv *server.Web) <-chan stru
 		batch.Stop()
 		defer batch.Stop()
 
-		// a local project never fires this, and neither does a remote whose
-		// pull interval is 0: the merge is then only what the startup sync and
-		// a webhook bring
-		pull := newTicker(rp.pull)
-		defer pull.Stop()
-
 		for {
 			select {
 			case ev, ok := <-events:
@@ -452,26 +518,10 @@ func watch(ctx context.Context, rp *runtimeProject, srv *server.Web) <-chan stru
 				// what the app itself wrote is committed already, so this
 				// mostly finds nothing; the edit made over SMB is the point
 				reconcile(ctx, name, rp.hist, historyActorExternal)
-			case <-pull.C:
-				// the merge rewrites the worktree, and the watcher above turns
-				// what it changed into reindexing and cache invalidation with
-				// no extra wiring
-				syncRemote(ctx, name, rp.hist)
 			}
 		}
 	}()
 	return done
-}
-
-// newTicker is a ticker that never fires when the interval is not positive,
-// which is what a select over an optional schedule needs.
-func newTicker(every time.Duration) *time.Ticker {
-	if every <= 0 {
-		ticker := time.NewTicker(time.Hour)
-		ticker.Stop()
-		return ticker
-	}
-	return time.NewTicker(every)
 }
 
 // reindex brings the search index back in step with one path.
@@ -514,7 +564,7 @@ func validateStartup(ctx context.Context, opts *options, cfgs []projectConfig) (
 	if rootsErr != nil {
 		return nil, rootsErr
 	}
-	if err := checkSecretFile(roots, opts); err != nil {
+	if err := checkSecretFiles(roots, opts, cfgs); err != nil {
 		return nil, err
 	}
 	if opts.Auth.Disabled {
@@ -581,8 +631,13 @@ func secretsOf(opts *options, cfgs []projectConfig) []string {
 	// is the second line of defense behind the structural redaction gitError
 	// does, and it is why the config is loaded before setupLog
 	for _, cfg := range cfgs {
-		if cfg.Remote != nil && cfg.Remote.Token != "" {
-			res = append(res, cfg.Remote.Token)
+		if cfg.Remote == nil {
+			continue
+		}
+		for _, secret := range []string{cfg.Remote.Token, cfg.Remote.HookSecret} {
+			if secret != "" {
+				res = append(res, secret)
+			}
 		}
 	}
 	for _, entry := range slices.Concat(opts.Auth.Users, opts.Auth.Tokens) {

@@ -49,6 +49,8 @@ function routesFor(project) {
         search: (query) => inProject(`/search?q=${encodeURIComponent(query)}`),
         raw: (contentPath) => inProject(`/raw/${encodePath(contentPath)}`),
         api: (suffix) => inProject(`/api${suffix}`),
+        // the webhook, which is a project route and outside /api on purpose
+        hook: () => inProject('/hook'),
         // the href the renderer writes into note html for a link to another
         // note. It is fetched by the browser directly, so it carries the
         // project prefix; the app recognises it and routes the click itself.
@@ -113,6 +115,20 @@ const instances = {
                 dir: path.join(workDir, 'notes-wiki'),
                 origin: path.join(workDir, 'origin.git'),
                 seed: {'remote.md': '# Remote page\n\npushed from the origin.\n'},
+                pull: '2s',
+            },
+            // a fourth project whose only refresh trigger is the webhook. pull
+            // is off, so a note that appears here appeared because a delivery
+            // arrived and for no other reason.
+            {
+                name: 'hooked',
+                label: 'Hooked wiki',
+                dir: path.join(workDir, 'notes-hooked'),
+                origin: path.join(workDir, 'hooked.git'),
+                seed: {'hooked.md': '# Hooked page\n\nrefreshed by deliveries only.\n'},
+                pull: '0',
+                // 32 bytes, which is the minimum the binary enforces
+                hookSecret: 'e2e-webhook-secret-0123456789abc',
             },
         ],
     },

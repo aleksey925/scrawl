@@ -103,10 +103,10 @@ func TestLoadConfigMissingFile(t *testing.T) {
 	assert.Contains(t, err.Error(), "read the config file")
 }
 
-// TestResolveToken is the whole credential story: a file and a variable resolve
+// TestResolveSecret is the whole credential story: a file and a variable resolve
 // to the same value, and everything downstream - the redaction list, the header
 // injection - never learns which one it came from.
-func TestResolveToken(t *testing.T) {
+func TestResolveSecret(t *testing.T) {
 	const token = "Bearer ghp_xxx"
 
 	tests := []struct {
@@ -138,7 +138,7 @@ func TestResolveToken(t *testing.T) {
 			}
 
 			// act
-			res, err := resolveToken(path, name)
+			res, err := resolveSecret(path, name)
 
 			// assert
 			require.NoError(t, err)
@@ -147,15 +147,15 @@ func TestResolveToken(t *testing.T) {
 	}
 }
 
-// TestResolveTokenClearsTheVariable covers the reason it is read once: env()
+// TestResolveSecretClearsTheVariable covers the reason it is read once: env()
 // inherits os.Environ() for every git call, so a token left in place would
 // ride along on git log and git status too.
-func TestResolveTokenClearsTheVariable(t *testing.T) {
+func TestResolveSecretClearsTheVariable(t *testing.T) {
 	// arrange
 	t.Setenv("SCRAWL_TEST_TOKEN", "Bearer ghp_xxx")
 
 	// act
-	token, err := resolveToken("", "SCRAWL_TEST_TOKEN")
+	token, err := resolveSecret("", "SCRAWL_TEST_TOKEN")
 
 	// assert
 	require.NoError(t, err)
@@ -164,7 +164,7 @@ func TestResolveTokenClearsTheVariable(t *testing.T) {
 	assert.False(t, still, "the variable must not be inherited by the git children")
 }
 
-func TestResolveTokenRefuses(t *testing.T) {
+func TestResolveSecretRefuses(t *testing.T) {
 	tests := []struct {
 		name    string
 		raw     string
@@ -182,7 +182,7 @@ func TestResolveTokenRefuses(t *testing.T) {
 			require.NoError(t, os.WriteFile(file, []byte(tc.raw), 0o600))
 
 			// act
-			_, err := resolveToken(file, "")
+			_, err := resolveSecret(file, "")
 
 			// assert
 			require.Error(t, err)

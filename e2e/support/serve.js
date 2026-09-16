@@ -84,7 +84,14 @@ function writeConfig(inst) {
         }
         lines.push('', `  - name: ${extra.name}`, `    label: ${extra.label}`, `    dir: ${extra.dir}`);
         if (extra.origin) {
-            lines.push('    repo:', `      url: ${extra.origin}`, '      branch: main', '      pull: 2s');
+            lines.push('    repo:', `      url: ${extra.origin}`, '      branch: main',
+                `      pull: ${extra.pull}`);
+        }
+        if (extra.hookSecret) {
+            // outside every project root, the way the binary requires
+            const file = path.join(workDir, `${extra.name}-hook.secret`);
+            fs.writeFileSync(file, extra.hookSecret, 'utf8');
+            lines.push(`      hook_secret_file: ${file}`);
         }
     }
     fs.writeFileSync(inst.configFile, `${lines.join('\n')}\n`, 'utf8');

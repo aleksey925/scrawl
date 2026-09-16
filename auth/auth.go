@@ -94,6 +94,14 @@ type Config struct {
 	// PublicPrefixes are the path prefixes the middleware lets through without
 	// a session. Nil means defaultPublicPrefixes.
 	PublicPrefixes []string
+
+	// PublicPaths are served without a session on an exact match. Unlike
+	// PublicPrefixes nothing below them is public: a prefix entry for
+	// /p/notes/hook would let /p/notes/hook/anything through too, and this is
+	// the list a route whose only credential is a signature goes in.
+	//
+	// Public means "no session required" and never "no credential required".
+	PublicPaths []string
 }
 
 // Service verifies passwords and API tokens, issues and validates session
@@ -109,6 +117,7 @@ type Service struct {
 	trustedProxy bool
 	secure       string
 	public       []string
+	publicPaths  []string
 	limiter      *limiter
 	now          func() time.Time
 }
@@ -175,6 +184,7 @@ func NewService(cfg Config) (*Service, error) {
 		trustedProxy: cfg.TrustedProxy,
 		secure:       secure,
 		public:       public,
+		publicPaths:  cfg.PublicPaths,
 		limiter:      newLimiter(time.Now()),
 		now:          time.Now,
 	}
@@ -311,14 +321,17 @@ func (s *Service) Failed(r *http.Request) {
 	}
 }
 
-// isPublic reports whether path is covered by one of the public prefixes.
+// isPublic reports whether path is served without a session: one of the public
+// prefixes, or an exact match on a public path. The two are different rules on
+// purpose - a webhook route has to be exactly one path, because a prefix entry
+// would make everything below it public too.
 func (s *Service) isPublic(path string) bool {
 	for _, prefix := range s.public {
 		if hasPathPrefix(path, prefix) {
 			return true
 		}
 	}
-	return false
+	return slices.Contains(s.publicPaths, path)
 }
 
 // hasPathPrefix matches on path segments, so /login covers /login and

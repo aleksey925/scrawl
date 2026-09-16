@@ -309,6 +309,16 @@ func (wb *Web) projectRoutes(g *routegroup.Bundle, prj *Project) {
 	g.HandleFunc("GET /api/nav", m.apiNav)
 	g.HandleFunc("GET /api/me", m.apiMe)
 
+	// outside the mutating group, and a method per registration. A methodless
+	// pattern would conflict with the shell catch-all below: one narrows the
+	// method, the other the path, and ServeMux calls neither more specific and
+	// panics. Registering GET separately is also what keeps an anonymous caller
+	// from being handed the app shell on a path that is in the public list.
+	if prj.Webhook != nil {
+		g.HandleFunc("POST /hook", m.hookHandler)
+		g.HandleFunc("GET /hook", m.hookHandler)
+	}
+
 	mutating := g.With(auth.CSRF())
 	mutating.HandleFunc("PUT /api/file/{path...}", m.apiFileSave)
 	mutating.HandleFunc("POST /api/file/{path...}", m.apiFileCreate)

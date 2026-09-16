@@ -17,6 +17,10 @@ import (
 // which is a supported deployment.
 const repoTokenEnv = "REPO_TOKEN"
 
+// repoHookSecretEnv is the hook secret of the flag path, the same fixed and
+// optional shape REPO_TOKEN has.
+const repoHookSecretEnv = "REPO_HOOK_SECRET" //nolint:gosec // G101: the name of a variable, never a value
+
 // configFile is the document --config names.
 type configFile struct {
 	Projects []configProject `yaml:"projects"`
@@ -44,6 +48,10 @@ type configRepo struct {
 	TokenFile string       `yaml:"token_file"`
 	TokenEnv  string       `yaml:"token_env"`
 	Pull      yamlDuration `yaml:"pull"`
+	// the shared secret the upstream repository signs its deliveries with,
+	// named exactly the way the git credential is and read by the same helper
+	HookSecretFile string `yaml:"hook_secret_file"`
+	HookSecretEnv  string `yaml:"hook_secret_env"`
 }
 
 // yamlDuration reads an interval the way a human writes one, "5m". It exists
@@ -106,7 +114,7 @@ func loadConfig(opts *options) ([]projectConfig, error) {
 	return res, nil
 }
 
-// repoOf resolves one project's repo block, credential and all.
+// repoOf resolves one project's repo block, credentials and all.
 func repoOf(prj configProject) (*remoteConfig, error) {
 	if prj.Repo == nil {
 		return nil, nil
@@ -114,15 +122,25 @@ func repoOf(prj configProject) (*remoteConfig, error) {
 	if prj.Repo.TokenFile != "" && prj.Repo.TokenEnv != "" {
 		return nil, fmt.Errorf("project %q sets both repo.token_file and repo.token_env, pick one", prj.Name)
 	}
-	token, err := resolveToken(prj.Repo.TokenFile, prj.Repo.TokenEnv)
+	if prj.Repo.HookSecretFile != "" && prj.Repo.HookSecretEnv != "" {
+		return nil, fmt.Errorf("project %q sets both repo.hook_secret_file and repo.hook_secret_env, pick one",
+			prj.Name)
+	}
+	token, err := resolveSecret(prj.Repo.TokenFile, prj.Repo.TokenEnv)
+	if err != nil {
+		return nil, fmt.Errorf("project %q: %w", prj.Name, err)
+	}
+	hook, err := resolveSecret(prj.Repo.HookSecretFile, prj.Repo.HookSecretEnv)
 	if err != nil {
 		return nil, fmt.Errorf("project %q: %w", prj.Name, err)
 	}
 	return &remoteConfig{
-		URL:    prj.Repo.URL,
-		Branch: prj.Repo.Branch,
-		Token:  token,
-		Pull:   time.Duration(prj.Repo.Pull),
+		URL:            prj.Repo.URL,
+		Branch:         prj.Repo.Branch,
+		Token:          token,
+		Pull:           time.Duration(prj.Repo.Pull),
+		HookSecret:     hook,
+		HookSecretFile: prj.Repo.HookSecretFile,
 	}, nil
 }
 
@@ -139,27 +157,35 @@ func flagProjects(opts *options) ([]projectConfig, error) {
 		return []projectConfig{cfg}, nil
 	}
 
-	// the fixed variable is optional, so it is named only when it holds
-	// something: naming an unset one is what makes a missing value an error,
-	// and nothing in the configuration named this one
-	source := ""
-	if value, ok := os.LookupEnv(repoTokenEnv); ok && value != "" {
-		source = repoTokenEnv
+	token, err := resolveSecret("", namedIfSet(repoTokenEnv))
+	if err != nil {
+		return nil, err
 	}
-	token, err := resolveToken("", source)
+	hook, err := resolveSecret("", namedIfSet(repoHookSecretEnv))
 	if err != nil {
 		return nil, err
 	}
 	cfg.Remote = &remoteConfig{
-		URL:    opts.Repo.URL,
-		Branch: opts.Repo.Branch,
-		Token:  token,
-		Pull:   opts.Repo.Pull,
+		URL:        opts.Repo.URL,
+		Branch:     opts.Repo.Branch,
+		Token:      token,
+		Pull:       opts.Repo.Pull,
+		HookSecret: hook,
 	}
 	return []projectConfig{cfg}, nil
 }
 
-// resolveToken reads the credential a project named, from a file or from an
+// namedIfSet names a fixed variable only while it holds something. Naming an
+// unset one is what makes a missing value an error, and nothing in the
+// configuration named these two: they are the flag path's own.
+func namedIfSet(name string) string {
+	if value, ok := os.LookupEnv(name); ok && value != "" {
+		return name
+	}
+	return ""
+}
+
+// resolveSecret reads the credential a project named, from a file or from an
 // environment variable, and returns the header value itself. It is the only
 // place either source is read: history rebuilds the child environment on every
 // call and has to redact the identical value out of a failure message, so a
@@ -168,7 +194,7 @@ func flagProjects(opts *options) ([]projectConfig, error) {
 //
 // A variable that was named and is empty is an error: the operator wrote the
 // name down, so a missing value is a typo or a missing -e, not a choice.
-func resolveToken(file, envVar string) (string, error) {
+func resolveSecret(file, envVar string) (string, error) {
 	var raw string
 	switch {
 	case file != "":

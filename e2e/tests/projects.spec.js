@@ -3,6 +3,7 @@ const {expect, test} = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 const {execFile} = require('child_process');
+const {createHmac} = require('crypto');
 
 const docs = require('../support/docs');
 const {binary} = require('../support/env');
@@ -48,7 +49,7 @@ test.describe('projects', () => {
 
         await page.getByTestId('topbar-project').click();
         const items = page.getByTestId('topbar-project-item');
-        await expect(items).toHaveCount(3);
+        await expect(items).toHaveCount(4);
         await expect(items.filter({hasText: 'Team wiki'})).toBeVisible();
         await shot(page, 'projects-switcher');
 
@@ -116,4 +117,57 @@ function runBinary(args) {
             resolve({code: error === null ? 0 : (error.code ?? 1), output: `${stdout}${stderr}`});
         });
     });
+}
+
+// the second refresh trigger. It drives the project whose pull is off, so a
+// note that appears there appeared because a delivery arrived and for no other
+// reason - on the ticker project the ticker would have done it anyway.
+test.describe('webhook', () => {
+    const HOOKED = MULTI.projects.hooked;
+    const hooked = MULTI.extra.find((extra) => extra.name === 'hooked');
+    const body = JSON.stringify({ref: 'refs/heads/main'});
+
+    test('a signed delivery refreshes a project nothing else fetches', async ({page}) => {
+        pushToOrigin(hooked.origin, 'e2e-delivered.md', '# Delivered\n\nby the hook alone.\n');
+        await signIn(page, {baseURL: MULTI.baseURL, from: HOOKED.home()});
+        await page.goto(HOOKED.doc('e2e-delivered.md'));
+        await expect(page.getByTestId('doc-missing'), 'nothing fetches this project on its own').toBeVisible();
+
+        // a provider cannot sign in, so the route takes no cookie at all
+        const accepted = await page.request.post(HOOKED.hook(), {
+            headers: {'X-Hub-Signature-256': sign(hooked.hookSecret, body), 'Content-Type': 'application/json'},
+            data: body,
+        });
+        expect(accepted.status()).toBe(202);
+
+        // 202 means accepted and never finished: the handler never runs git
+        await expect.poll(
+            async () => {
+                await page.goto(HOOKED.doc('e2e-delivered.md'));
+                return page.getByTestId('doc').isVisible();
+            },
+            {timeout: 20_000},
+        ).toBe(true);
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Delivered');
+    });
+
+    test('an unsigned delivery is refused and nothing below the path is public', async ({page}) => {
+        const unsigned = await page.request.post(HOOKED.hook(), {data: body});
+        const wrong = await page.request.post(HOOKED.hook(), {
+            headers: {'X-Hub-Signature-256': sign('not the secret at all 0123456789', body)},
+            data: body,
+        });
+        const below = await page.request.post(`${HOOKED.hook()}/extra`, {data: body});
+        // the ticker project declared no secret, so it has no such route
+        const absent = await page.request.post(WIKI.hook(), {data: body});
+
+        expect(unsigned.status()).toBe(401);
+        expect(wrong.status()).toBe(401);
+        expect(below.status(), 'the public list is an exact match, never a prefix').not.toBe(202);
+        expect(absent.status()).not.toBe(202);
+    });
+});
+
+function sign(secret, body) {
+    return `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
 }

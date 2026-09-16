@@ -51,6 +51,12 @@ type remoteConfig struct {
 	Branch string
 	Token  string
 	Pull   time.Duration
+	// HookSecret turns the webhook on. It is not a git credential and history
+	// never learns about it: the endpoint is the only thing that uses it.
+	HookSecret string
+	// HookSecretFile is kept only so the canonical phase can check where it
+	// lives, the way it checks the session key.
+	HookSecretFile string
 }
 
 // kind names where a project's notes come from, which is all /api/projects says
@@ -70,6 +76,25 @@ type runtimeProject struct {
 	hist  *history.Service
 	index *search.Index
 	pull  time.Duration // background fetch interval, 0 for a local project
+	// trigger carries a webhook delivery to the sync loop. Capacity one, and
+	// never closed: a delivery arriving after shutdown is a dropped send and
+	// not a panic.
+	trigger chan struct{}
+}
+
+// notify asks the sync loop to run. It never blocks, because it is called from
+// a request handler, and it never queues more than one run: twenty deliveries
+// in a second ask the same question, and twenty goroutines would each take the
+// history lock in turn and put every save behind the whole queue.
+//
+// One pending run is still kept, because a delivery that arrived while a Sync
+// was already in flight has to cause another one: that fetch may have started
+// before the push landed.
+func (rp *runtimeProject) notify() {
+	select {
+	case rp.trigger <- struct{}{}:
+	default:
+	}
 }
 
 // close releases what the project opened, in the reverse order it was opened.
@@ -129,6 +154,10 @@ func validateRemote(ctx context.Context, cfg projectConfig) error {
 	if rm == nil {
 		return nil
 	}
+	// a hook secret on a project that is not a remote is impossible rather than
+	// refused: the fields live inside the repo block, and a misspelled key is a
+	// startup error. So there is no "the hook fired for a local folder" case to
+	// answer anywhere below.
 	if rm.URL == "" {
 		return fmt.Errorf("project %q has a repo block with no url", cfg.Name)
 	}
@@ -148,7 +177,49 @@ func validateRemote(ctx context.Context, cfg projectConfig) error {
 	if err := checkBranchName(ctx, rm.Branch); err != nil {
 		return fmt.Errorf("the branch of project %q: %w", cfg.Name, err)
 	}
+	// the endpoint is reachable without a session, and nothing rate limits it,
+	// so an empty or short secret turns it into a public "resync this project"
+	// button that can be guessed against the 202/401 answer. The shared
+	// resolver may not grow this rule: a public https remote legitimately has
+	// no git credential at all.
+	if rm.HookSecret != "" && len(rm.HookSecret) < minHookSecret {
+		return fmt.Errorf("the webhook secret of project %q is shorter than %d bytes, "+
+			"generate one with: openssl rand -hex 32", cfg.Name, minHookSecret)
+	}
 	return nil
+}
+
+// minHookSecret is the length of `openssl rand -hex 32` halved, which is what
+// the README tells the operator to generate. It is not a format rule and not an
+// entropy estimate: anything longer passes.
+const minHookSecret = 32
+
+// logRemote names both refresh switches at startup, so the configuration of a
+// remote project is readable in the log rather than inferred from its silence.
+func logRemote(cfg projectConfig, rp *runtimeProject) {
+	if cfg.Remote == nil {
+		return
+	}
+	pull := "off"
+	if rp.pull > 0 {
+		pull = rp.pull.String()
+	}
+	hook := "off"
+	if rp.web.Webhook != nil {
+		hook = "on"
+	}
+	log.Printf("[INFO] %s: remote %s, pull %s, webhook %s", cfg.Name, redactURL(cfg.Remote.URL), pull, hook)
+}
+
+// redactURL strips a userinfo a url may carry. Validation refuses one, so this
+// covers a url that reached the log some other way.
+func redactURL(raw string) string {
+	at := strings.LastIndex(raw, "@")
+	scheme := strings.Index(raw, "://")
+	if at < 0 || scheme < 0 || at < scheme {
+		return raw
+	}
+	return raw[:scheme+3] + "***" + raw[at:]
 }
 
 // checkBranchName asks git itself, because the rules are git's.
@@ -300,7 +371,7 @@ func newProject(ctx context.Context, opts *options, cfg projectConfig, root stri
 	if err != nil {
 		return nil, fmt.Errorf("open the notes directory of %q: %w", cfg.Name, err)
 	}
-	rp := &runtimeProject{notes: notes, pull: pullEvery(cfg)}
+	rp := &runtimeProject{notes: notes, pull: pullEvery(cfg), trigger: make(chan struct{}, 1)}
 	warnUnwritable(cfg.Name, notes)
 
 	//nolint:contextcheck // history.New bounds its own git calls with the init timeout, it takes no context
@@ -340,32 +411,46 @@ func newProject(ctx context.Context, opts *options, cfg projectConfig, root stri
 		PagePrefix: rp.web.Prefix() + "/doc/",
 		RawPrefix:  rp.web.Prefix() + "/raw/",
 	})
+	if cfg.Remote != nil && cfg.Remote.HookSecret != "" {
+		rp.web.Webhook = &server.Webhook{Secret: cfg.Remote.HookSecret, Notify: rp.notify}
+	}
+	logRemote(cfg, rp)
 	return rp, nil
 }
 
-// checkSecretFile refuses a signing key stored inside any of the notes
+// checkSecretFiles refuses a secret stored inside any of the notes
 // directories: it would show up in the tree, in the search index and in every
-// backup of the corpus, and anybody holding it can forge a session cookie.
+// backup of the corpus, and rawHandler would serve it to anybody who can sign
+// in. It covers the session signing key and every webhook secret, because the
+// reason is the same for both.
 //
-// The file itself usually does not exist yet, auth creates it on first start,
-// so the parent directory is what gets resolved and the base name is joined
-// back on. Without that a key reached through a symlink would compare unequal
-// to a canonical root and pass.
-func checkSecretFile(roots []string, opts *options) error {
-	if opts.Auth.Disabled || opts.Auth.SecretFile == "" {
-		return nil
+// A file often does not exist yet - auth creates the session key on first
+// start - so the parent directory is what gets resolved and the base name is
+// joined back on. Without that a file reached through a symlinked parent would
+// compare unequal to a canonical root and pass.
+func checkSecretFiles(roots []string, opts *options, cfgs []projectConfig) error {
+	named := map[string]string{}
+	if !opts.Auth.Disabled && opts.Auth.SecretFile != "" {
+		named[opts.Auth.SecretFile] = "session key"
+	}
+	for _, cfg := range cfgs {
+		if cfg.Remote != nil && cfg.Remote.HookSecretFile != "" {
+			named[cfg.Remote.HookSecretFile] = "webhook secret of project " + cfg.Name
+		}
 	}
 
-	secret, err := filepath.Abs(opts.Auth.SecretFile)
-	if err != nil {
-		return fmt.Errorf("absolute path for secret file %q: %w", opts.Auth.SecretFile, err)
-	}
-	if dir, dErr := canonical(filepath.Dir(secret)); dErr == nil {
-		secret = filepath.Join(dir, filepath.Base(secret))
-	}
-	for _, root := range roots {
-		if contains(root, secret) {
-			return fmt.Errorf("secret file %q must live outside the notes root %q", opts.Auth.SecretFile, root)
+	for file, what := range named {
+		resolved, err := filepath.Abs(file)
+		if err != nil {
+			return fmt.Errorf("absolute path for the %s %q: %w", what, file, err)
+		}
+		if dir, dErr := canonical(filepath.Dir(resolved)); dErr == nil {
+			resolved = filepath.Join(dir, filepath.Base(resolved))
+		}
+		for _, root := range roots {
+			if contains(root, resolved) {
+				return fmt.Errorf("the %s %q must live outside the notes root %q", what, file, root)
+			}
 		}
 	}
 	return nil

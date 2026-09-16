@@ -32,7 +32,21 @@ type Project struct {
 	Renderer *render.Renderer
 	Index    *search.Index
 	History  History
+
+	// Webhook is nil unless the project declared a hook secret, and its route
+	// is registered only when it is not.
+	Webhook *Webhook
 }
+
+// HookPath is where this project's webhook answers. It is one method so that
+// the literal has one home: main builds the public path list from it and
+// projectRoutes registers from it.
+//
+// Under the project subtree because it acts on that project's clone, which is
+// the question that decides global versus project. Not under /api/, because
+// nothing in the frontend calls it and keeping the one public path out of the
+// API subtree makes a later mistake in the public list far cheaper.
+func (p *Project) HookPath() string { return p.Prefix() + "/hook" }
 
 // Prefix is the URL subtree this project owns. It is derived from the name so
 // the two cannot drift apart, and it carries no trailing slash: every physical

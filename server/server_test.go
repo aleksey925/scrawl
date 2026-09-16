@@ -65,6 +65,9 @@ type testServer struct {
 	// second one when testOpts named it.
 	root       string
 	secondRoot string
+	// notified counts what reached the webhook's Notify, which is the only
+	// thing a verified delivery is supposed to do
+	notified int
 }
 
 // second is the project testOpts.second asked for.
@@ -100,31 +103,55 @@ type testOpts struct {
 	// need; naming it is what a test of the boundary between two projects asks
 	// for.
 	second string
+
+	// hook gives the first project a webhook, which is also what puts its path
+	// in the public list: the two have to be built in that order, because the
+	// list is derived from the projects.
+	hook bool
 }
 
 func newTestServer(t *testing.T, opts testOpts) *testServer {
 	t.Helper()
 	root := testNotes(t)
 
+	// the projects come first, the way main builds them: the public path list
+	// is derived from them, so auth cannot be built before they exist
+	prj := testProjectAt(t, testProject, root, opts.readOnly || opts.projectReadOnly)
+	prj.ReadOnly = opts.projectReadOnly
+	prj.History = opts.history
+
+	res := &testServer{root: root}
+	projects := []*Project{prj}
+	if opts.second != "" {
+		res.secondRoot = t.TempDir()
+		projects = append(projects, testProjectAt(t, opts.second, res.secondRoot, false))
+	}
+	if opts.hook {
+		prj.Webhook = &Webhook{Secret: hookSecret, Notify: func() { res.notified++ }}
+	}
+
 	users, tokens := "", ""
 	if opts.withAuth {
 		users = testUser + ":" + testPassword
 		tokens = "agent:" + auth.TokenDigest(testToken) + ",reader:" + auth.TokenDigest(testReadToken) + ":ro"
 	}
+	public := []string{}
+	for _, project := range projects {
+		if project.Webhook != nil {
+			public = append(public, project.HookPath())
+		}
+	}
 	svc, err := auth.NewService(auth.Config{
-		Users:    users,
-		Tokens:   tokens,
-		Secret:   "test-signing-secret",
-		Disabled: !opts.withAuth,
-		TTL:      time.Hour,
+		Users:       users,
+		Tokens:      tokens,
+		Secret:      "test-signing-secret",
+		Disabled:    !opts.withAuth,
+		TTL:         time.Hour,
+		PublicPaths: public,
 	})
 	require.NoError(t, err)
 
-	prj := testProjectAt(t, testProject, root, opts.readOnly || opts.projectReadOnly)
-	prj.ReadOnly = opts.projectReadOnly
-	prj.History = opts.history
-
-	wb := &Web{
+	res.Web = &Web{
 		Config: Config{
 			Title:        "Test Notes",
 			Version:      "v1.2.3",
@@ -132,16 +159,11 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 			MaxUpload:    64 << 10,
 			AuthDisabled: !opts.withAuth,
 		},
-		Projects: []*Project{prj},
+		Projects: projects,
 		Auth:     svc,
 	}
-	res := &testServer{Web: wb, root: root}
-	if opts.second != "" {
-		res.secondRoot = t.TempDir()
-		wb.Projects = append(wb.Projects, testProjectAt(t, opts.second, res.secondRoot, false))
-	}
 
-	router, err := wb.router()
+	router, err := res.router()
 	require.NoError(t, err)
 	ts := httptest.NewServer(router)
 	t.Cleanup(ts.Close)

@@ -390,7 +390,7 @@ func TestResolveRoots(t *testing.T) {
 	}
 }
 
-func TestCheckSecretFile(t *testing.T) {
+func TestCheckSecretFiles(t *testing.T) {
 	root := t.TempDir()
 	other := t.TempDir()
 
@@ -417,7 +417,7 @@ func TestCheckSecretFile(t *testing.T) {
 			opts.Auth.Disabled = tc.noAuth
 
 			// act
-			err := checkSecretFile([]string{root, other}, opts)
+			err := checkSecretFiles([]string{root, other}, opts, nil)
 
 			// assert
 			if tc.refused {

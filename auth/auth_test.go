@@ -360,6 +360,58 @@ func TestServiceMiddlewarePublicPrefixes(t *testing.T) {
 	})
 }
 
+// TestServiceMiddlewarePublicPaths is the rule a webhook route depends on: an
+// exact match and nothing below it. A prefix entry would open the whole subtree,
+// which is why these are two lists and not one.
+func TestServiceMiddlewarePublicPaths(t *testing.T) {
+	tests := []struct {
+		name   string
+		path   string
+		public bool
+	}{
+		{name: "the exact path", path: "/p/notes/hook", public: true},
+		{name: "anything below it", path: "/p/notes/hook/extra"},
+		{name: "a longer name that starts the same", path: "/p/notes/hooked"},
+		{name: "another project's path", path: "/p/team/hook"},
+		{name: "the project root", path: "/p/notes/"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			svc := newTestService(t, Config{PublicPaths: []string{"/p/notes/hook"}})
+			rec := httptest.NewRecorder()
+
+			// act
+			svc.Middleware(okHandler()).ServeHTTP(rec, httptest.NewRequest(http.MethodPost, tc.path, http.NoBody))
+
+			// assert
+			if tc.public {
+				assert.Equal(t, http.StatusOK, rec.Code)
+				return
+			}
+			assert.NotEqual(t, http.StatusOK, rec.Code)
+		})
+	}
+}
+
+// the defaults are not replaced by a public path: the login form and the
+// manifest stay reachable beside a hook
+func TestServiceMiddlewarePublicPathsAddToTheDefaults(t *testing.T) {
+	// arrange
+	svc := newTestService(t, Config{PublicPaths: []string{"/p/notes/hook"}})
+
+	// act
+	hook := httptest.NewRecorder()
+	svc.Middleware(okHandler()).ServeHTTP(hook, httptest.NewRequest(http.MethodPost, "/p/notes/hook", http.NoBody))
+	login := httptest.NewRecorder()
+	svc.Middleware(okHandler()).ServeHTTP(login, httptest.NewRequest(http.MethodGet, "/login", http.NoBody))
+
+	// assert
+	assert.Equal(t, http.StatusOK, hook.Code)
+	assert.Equal(t, http.StatusOK, login.Code)
+}
+
 func TestServiceMiddlewareSlidingRenewal(t *testing.T) {
 	tests := []struct {
 		name       string

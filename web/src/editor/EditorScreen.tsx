@@ -341,7 +341,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         }
         if (error instanceof ApiError && error.status === 401) {
           draftRef.current.flush();
-          openSessionExpired(`/login?from=${encodeURIComponent(location.pathname)}`);
+          openSessionExpired();
           return;
         }
         showToast('error', { message: errorText(error) });

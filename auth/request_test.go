@@ -148,12 +148,27 @@ func TestWantsJSON(t *testing.T) {
 		accept string
 		want   bool
 	}{
-		{name: "html page", target: "/p/a.md", accept: "text/html,application/xhtml+xml"},
-		{name: "api path", target: "/api/tree", want: true},
-		{name: "api path with an html accept", target: "/api/tree", accept: "text/html", want: true},
-		{name: "json accept on a page", target: "/p/a.md", accept: "application/json", want: true},
-		{name: "json accept among others", target: "/p/a.md", accept: "text/html, application/json;q=0.9", want: true},
+		{name: "html page", target: "/p/notes/doc/a.md", accept: "text/html,application/xhtml+xml"},
+		{name: "global api path", target: "/api/login", want: true},
+		{name: "api path with an html accept", target: "/api/login", accept: "text/html", want: true},
+		{
+			name:   "json accept on a page",
+			target: "/p/notes/doc/a.md", accept: "application/json", want: true,
+		},
+		{
+			name:   "json accept among others",
+			target: "/p/notes/doc/a.md", accept: "text/html, application/json;q=0.9", want: true,
+		},
 		{name: "path that only looks like the api", target: "/apiary", want: false},
+		// an API client that omits Accept and calls a project's API must get a
+		// JSON 401, not a redirect to an HTML form. The question is structural,
+		// so nothing here is told when a project is added.
+		{name: "a project's api", target: "/p/notes/api/file/a.md", want: true},
+		{name: "a project's api root", target: "/p/notes/api", want: true},
+		{name: "a project's raw route", target: "/p/notes/raw/logo.png", want: false},
+		{name: "a project path that only looks like the api", target: "/p/notes/apiary", want: false},
+		{name: "a project named api", target: "/p/api/doc/a.md", want: false},
+		{name: "a project with no name", target: "/p//api/tree", want: false},
 	}
 
 	for _, tc := range tests {

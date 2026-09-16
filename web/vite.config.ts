@@ -5,14 +5,32 @@ import { defineConfig, type ProxyOptions } from 'vite';
 
 const backend = 'http://127.0.0.1:7272';
 
+// the routes that answer at the root whatever the project is. /api and /raw
+// stay here for the global half of them - /api/login, /api/logout,
+// /api/projects - which is still served from the root.
 const serverPaths = ['/api', '/raw', '/static', '/logout', '/ping', '/manifest.webmanifest'];
 
-// also app routes: a browser navigation has to reach vite's index.html, while
-// everything else on them (the login post, a raw attachment) is the server's
+// everything a project owns, plus the login form. A browser navigation to an
+// app route has to reach vite's index.html; everything else under them is the
+// server's.
 const sharedPaths = ['/p', '/login'];
+
+// the routes inside a project the server always answers, whatever the Accept
+// header says. /p/<name>/raw/img.png opened in a tab carries text/html like any
+// navigation, so deciding on the header alone would hand it index.html and the
+// raw handler would never be asked.
+const projectServerRoute = /^\/p\/[^/]+\/(api|raw)(\/|$)/;
 
 function isNavigation(req: IncomingMessage): boolean {
   return req.method === 'GET' && (req.headers.accept ?? '').includes('text/html');
+}
+
+function bypass(req: IncomingMessage): string | undefined {
+  const path = (req.url ?? '').split('?')[0] ?? '';
+  if (projectServerRoute.test(path)) {
+    return undefined;
+  }
+  return isNavigation(req) ? '/index.html' : undefined;
 }
 
 function proxy(): Record<string, ProxyOptions> {
@@ -21,11 +39,7 @@ function proxy(): Record<string, ProxyOptions> {
     res[path] = { target: backend, changeOrigin: false };
   }
   for (const path of sharedPaths) {
-    res[path] = {
-      target: backend,
-      changeOrigin: false,
-      bypass: (req) => (isNavigation(req) ? '/index.html' : undefined),
-    };
+    res[path] = { target: backend, changeOrigin: false, bypass };
   }
   return res;
 }

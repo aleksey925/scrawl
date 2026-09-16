@@ -24,7 +24,6 @@ import (
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/render"
-	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
 )
 
@@ -128,12 +127,10 @@ type Config struct {
 // Web is the http server of scrawl, built as a struct literal in main.
 type Web struct {
 	Config
-	Store    *store.Store
-	Renderer *render.Renderer
-	Index    *search.Index
+	Projects []*Project
 	Auth     *auth.Service
-	History  History
 
+	byName    map[string]*Project
 	templates *template.Template
 	appShell  *appShell
 
@@ -198,9 +195,10 @@ func (wb *Web) shutdown(ctx context.Context, srv *http.Server) error {
 	return nil
 }
 
-// Invalidate drops the rendered HTML cached for a content path. main calls it
-// from the store watcher, so an edit made outside the app shows up at once.
-func (wb *Web) Invalidate(contentPath string) { wb.pages().invalidate(contentPath) }
+// Invalidate drops the rendered HTML cached for a content path of one project.
+// main calls it from that project's store watcher, so an edit made outside the
+// app shows up at once.
+func (wb *Web) Invalidate(project, contentPath string) { wb.pages().invalidate(project, contentPath) }
 
 // pages returns the render cache, building it on first use so that a watcher
 // event arriving before the first request has somewhere to go.
@@ -210,6 +208,9 @@ func (wb *Web) pages() *pageCache {
 }
 
 func (wb *Web) router() (http.Handler, error) {
+	if len(wb.Projects) == 0 {
+		return nil, errors.New("no project configured")
+	}
 	if err := wb.parseTemplates(); err != nil {
 		return nil, err
 	}
@@ -252,29 +253,20 @@ func (wb *Web) router() (http.Handler, error) {
 	router.HandleFunc("GET /manifest.webmanifest", wb.manifestHandler)
 
 	router.HandleFunc("GET /login", wb.loginPage)
+	router.HandleFunc("GET /api/projects", wb.apiProjects)
 
-	// every page route is the app. /raw/ is not one of them: it serves a file
-	// under a content type from an allowlist and a policy of its own, and must
-	// never fall back to the shell.
-	// a path no route claimed is the app too, answering 404. It cannot be a
-	// catch-all pattern: routegroup rewrites "/" to "/{$}" on purpose, so that
-	// handling the root does not swallow every other request.
-	router.NotFoundHandler(wb.notFoundHandler)
+	// a path that belongs to no project reaches this one, which means an
+	// unknown project name or a stray root path. It answers a plain 404 and not
+	// the app shell: there is no project, so there is no base it could honestly
+	// hand the client. Each mount registers a shell fallback of its own.
+	router.NotFoundHandler(plainNotFound)
 
-	router.HandleFunc("GET /{$}", wb.appHandler)
-	router.HandleFunc("GET /p/{path...}", wb.docHandler)
-	router.HandleFunc("GET /edit/{path...}", wb.appHandler)
-	router.HandleFunc("GET /history/{path...}", wb.appHandler)
-	router.HandleFunc("GET /search", wb.appHandler)
-	router.HandleFunc("GET /raw/{path...}", wb.rawHandler)
-	router.HandleFunc("GET /api/tree", wb.apiTree)
-	router.HandleFunc("GET /api/file/{path...}", wb.apiFileGet)
-	router.HandleFunc("GET /api/search", wb.apiSearch)
-	router.HandleFunc("GET /api/history/{path...}", wb.apiHistory)
-	router.HandleFunc("GET /api/page/{path...}", wb.apiPage)
-	router.HandleFunc("GET /api/dir/{path...}", wb.apiDir)
-	router.HandleFunc("GET /api/nav", wb.apiNav)
-	router.HandleFunc("GET /api/me", wb.apiMe)
+	// the root picks nothing and resolves nothing, it only says where a browser
+	// lands. 302 and not 308, because the first project is a deployment setting
+	// the operator changes by editing the configuration.
+	router.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, wb.Projects[0].Prefix()+"/", http.StatusFound)
+	})
 
 	// everything that changes state, plus the login form itself, has to survive
 	// a cross-site POST: Go's CrossOriginProtection checks Sec-Fetch-Site
@@ -283,15 +275,57 @@ func (wb *Web) router() (http.Handler, error) {
 	mutating.HandleFunc("POST /logout", wb.logout)
 	mutating.HandleFunc("POST /api/login", wb.apiLogin)
 	mutating.HandleFunc("POST /api/logout", wb.apiLogout)
-	mutating.HandleFunc("PUT /api/file/{path...}", wb.apiFileSave)
-	mutating.HandleFunc("POST /api/file/{path...}", wb.apiFileCreate)
-	mutating.HandleFunc("DELETE /api/file/{path...}", wb.apiFileDelete)
-	mutating.HandleFunc("POST /api/move", wb.apiMove)
-	mutating.HandleFunc("POST /api/upload/{dir...}", wb.apiUpload)
-	mutating.HandleFunc("POST /api/preview", wb.apiPreview)
-	mutating.HandleFunc("POST /api/history/restore/{path...}", wb.apiHistoryRestore)
+
+	wb.byName = make(map[string]*Project, len(wb.Projects))
+	for _, prj := range wb.Projects {
+		if _, dup := wb.byName[prj.Name]; dup {
+			return nil, fmt.Errorf("two projects named %q", prj.Name)
+		}
+		wb.byName[prj.Name] = prj
+		wb.projectRoutes(router.Mount(prj.Prefix()), prj)
+	}
 
 	return router, nil
+}
+
+// projectRoutes registers everything one project owns under its own prefix.
+// The order matters: the two catch-alls come last, so Go's pattern matching
+// prefers any explicit route over them.
+func (wb *Web) projectRoutes(g *routegroup.Bundle, prj *Project) {
+	m := &mount{Web: wb, prj: prj}
+
+	g.HandleFunc("GET /{$}", m.appHandler)
+	g.HandleFunc("GET /doc/{path...}", m.docHandler)
+	g.HandleFunc("GET /edit/{path...}", m.appHandler)
+	g.HandleFunc("GET /history/{path...}", m.appHandler)
+	g.HandleFunc("GET /search", m.appHandler)
+	g.HandleFunc("GET /raw/{path...}", m.rawHandler)
+	g.HandleFunc("GET /api/tree", m.apiTree)
+	g.HandleFunc("GET /api/file/{path...}", m.apiFileGet)
+	g.HandleFunc("GET /api/search", m.apiSearch)
+	g.HandleFunc("GET /api/history/{path...}", m.apiHistory)
+	g.HandleFunc("GET /api/page/{path...}", m.apiPage)
+	g.HandleFunc("GET /api/dir/{path...}", m.apiDir)
+	g.HandleFunc("GET /api/nav", m.apiNav)
+	g.HandleFunc("GET /api/me", m.apiMe)
+
+	mutating := g.With(auth.CSRF())
+	mutating.HandleFunc("PUT /api/file/{path...}", m.apiFileSave)
+	mutating.HandleFunc("POST /api/file/{path...}", m.apiFileCreate)
+	mutating.HandleFunc("DELETE /api/file/{path...}", m.apiFileDelete)
+	mutating.HandleFunc("POST /api/move", m.apiMove)
+	mutating.HandleFunc("POST /api/upload/{dir...}", m.apiUpload)
+	mutating.HandleFunc("POST /api/preview", m.apiPreview)
+	mutating.HandleFunc("POST /api/history/restore/{path...}", m.apiHistoryRestore)
+
+	// NotFoundHandler is global whichever bundle registers it and knows no
+	// prefix, so it cannot boot the app for a path inside a project. These two
+	// are what does, and the API one keeps an unknown API path from being
+	// answered with HTML.
+	g.HandleFunc("GET /api/{path...}", func(w http.ResponseWriter, _ *http.Request) {
+		jsonError(w, http.StatusNotFound, "not found")
+	})
+	g.HandleFunc("GET /{path...}", m.notFoundHandler)
 }
 
 // staticHandler serves the embedded assets plus the highlighting stylesheet,
@@ -406,28 +440,7 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 func (wb *Web) parseTemplates() error {
-	funcs := template.FuncMap{
-		// a template that pasted a content path straight into an href would
-		// leave the segments unescaped, and html/template normalizes a whole
-		// url rather than a path: a document named "a?b.md" would link to a
-		// query string. These two are the same builders the JSON API uses.
-		"contentURL": contentURL,
-		"editURL":    editURL,
-		"historyURL": historyURL,
-		"searchURL":  searchURL,
-
-		// a search snippet arrives escaped with only <mark> left in it, so it
-		// goes into the page as it is. Anything that is not already marked safe
-		// is escaped here, so a later caller cannot turn this into a hole.
-		"safeHTML": func(v any) template.HTML {
-			if html, ok := v.(template.HTML); ok {
-				return html
-			}
-			//nolint:gosec // G203: the value is escaped on this very line
-			return template.HTML(template.HTMLEscapeString(fmt.Sprint(v)))
-		},
-	}
-	tmpl, err := template.New("scrawl").Funcs(funcs).ParseFS(content, "templates/*.html")
+	tmpl, err := template.ParseFS(content, "templates/*.html")
 	if err != nil {
 		return fmt.Errorf("parse templates: %w", err)
 	}

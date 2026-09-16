@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"path/filepath"
 	"runtime/debug"
 	"slices"
 	"strconv"
@@ -24,7 +23,6 @@ import (
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/history"
-	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/server"
 	"github.com/aleksey925/scrawl/store"
@@ -35,6 +33,7 @@ var revision = "0.0.0"
 
 type options struct {
 	Root         string   `short:"r" long:"root" env:"ROOT" default:"/notes" description:"notes root directory"`
+	Project      string   `long:"project" env:"PROJECT" description:"name of the single project, the URL segment it is served under"`
 	Listen       string   `short:"l" long:"listen" env:"LISTEN" default:":7272" description:"address to listen on"`
 	Title        string   `long:"title" env:"TITLE" default:"Notes" description:"site title"`
 	ReadOnly     bool     `long:"read-only" env:"READ_ONLY" description:"disable all write endpoints"`
@@ -164,30 +163,22 @@ func parseOpts(args []string) (*options, error) {
 }
 
 func run(ctx context.Context, opts *options) error {
-	root, err := validate(opts)
-	if err != nil {
+	cfgs := projectsOf(opts)
+	if err := validateGlobal(opts); err != nil {
+		return err
+	}
+	if err := validateProjects(cfgs); err != nil {
+		return err
+	}
+	roots, rootsErr := resolveRoots(cfgs)
+	if rootsErr != nil {
+		return rootsErr
+	}
+	if err := checkSecretFile(roots, opts); err != nil {
 		return err
 	}
 	if opts.Auth.Disabled {
 		log.Printf("[WARN] authentication is disabled, every visitor gets full access")
-	}
-
-	notes, err := store.New(store.Config{
-		Root:     root,
-		Exclude:  opts.Exclude,
-		ReadOnly: opts.ReadOnly,
-		Watch:    store.WatchMode(opts.Watch),
-		Rescan:   opts.Rescan,
-	})
-	if err != nil {
-		return fmt.Errorf("open notes directory: %w", err)
-	}
-	defer notes.Close()
-	warnUnwritable(notes)
-
-	index := search.New()
-	if indexErr := indexAll(notes, index); indexErr != nil {
-		return indexErr
 	}
 
 	authSvc, err := auth.NewService(auth.Config{
@@ -204,17 +195,12 @@ func run(ctx context.Context, opts *options) error {
 		return fmt.Errorf("setup auth: %w", err)
 	}
 
-	//nolint:contextcheck // history.New bounds its own git calls with the init timeout, it takes no context
-	hist, err := newHistory(opts, notes)
-	if err != nil {
-		return err
-	}
-	defer hist.Close()
-	// before the first request: this is the baseline import of a directory
-	// history never saw, and the recovery for a crash between a write and its
-	// commit, and both have to be in place before anything can be restored
-	reconcile(ctx, hist, historyActorStartup)
-
+	running := make([]*runtimeProject, 0, len(cfgs))
+	defer func() {
+		for _, rp := range running {
+			rp.close()
+		}
+	}()
 	srv := &server.Web{
 		Config: server.Config{
 			ListenAddr:        opts.Listen,
@@ -231,35 +217,33 @@ func run(ctx context.Context, opts *options) error {
 			IdleTimeout:       opts.Timeouts.Idle,
 			ShutdownTimeout:   opts.Timeouts.Shutdown,
 		},
-		Store:    notes,
-		Renderer: render.New(render.Options{LinkExists: notes.Exists}),
-		Index:    index,
-		Auth:     authSvc,
-		History:  hist,
+		Auth: authSvc,
+	}
+	for i, cfg := range cfgs {
+		rp, pErr := newProject(ctx, opts, cfg, roots[i])
+		if pErr != nil {
+			return pErr
+		}
+		running = append(running, rp)
+		srv.Projects = append(srv.Projects, rp.web)
 	}
 
-	watchDone := watch(ctx, notes, index, srv, hist)
+	// the watchers start last, after every project has been reconciled and
+	// indexed: a watcher takes its baseline snapshot when it is called, so
+	// anything the worktree did before that produces no event, ever
+	done := make([]<-chan struct{}, 0, len(running))
+	for _, rp := range running {
+		done = append(done, watch(ctx, rp, srv))
+	}
 	runErr := srv.Run(ctx)
-	<-watchDone
+	for _, ch := range done {
+		<-ch
+	}
 
 	if runErr != nil {
 		return fmt.Errorf("run server: %w", runErr)
 	}
 	return nil
-}
-
-// warnUnwritable names the failure a NAS deployment hits first: the container
-// runs as a uid that does not own the mounted folder, reading works and every
-// save comes back as an error. One line at startup beats finding out later.
-func warnUnwritable(notes *store.Store) {
-	if notes.ReadOnly() {
-		return
-	}
-	if err := notes.CheckWritable(); err != nil {
-		log.Printf("[WARN] %s is not writable by uid %d gid %d, every save will fail: %v", notes.Dir(), os.Getuid(), os.Getgid(), err)
-		log.Printf("[WARN] set the container user to the owner of that folder (`id <user>` on the NAS gives the numbers), " +
-			"or start with --read-only")
-	}
 }
 
 // the modes of --history.
@@ -280,20 +264,20 @@ const (
 // repository, leaves the app exactly as it was before the feature existed.
 // "on" is a promise the deployment made, so the same conditions stop the server
 // rather than serving without the audit trail somebody asked for.
-func newHistory(opts *options, notes *store.Store) (*history.Service, error) {
+func newHistory(opts *options, cfg projectConfig, notes *store.Store) (*history.Service, error) {
 	if opts.History == historyOff {
 		return nil, nil
 	}
 
-	svc, err := history.New(history.Config{Root: notes.Dir(), Files: historyFiles(notes)})
+	svc, err := history.New(history.Config{Name: cfg.Name, Root: notes.Dir(), Files: historyFiles(notes)})
 	switch {
 	case err == nil:
-		log.Printf("[INFO] history is on, the git repository is %s", svc.Root())
+		log.Printf("[INFO] %s: history is on, the git repository is %s", cfg.Name, svc.Root())
 		return svc, nil
 	case opts.History == historyOn:
-		return nil, fmt.Errorf("history is required by --history=%s: %w", historyOn, err)
+		return nil, fmt.Errorf("history is required by --history=%s for project %q: %w", historyOn, cfg.Name, err)
 	}
-	log.Printf("[WARN] history is off: %v", err)
+	log.Printf("[WARN] %s: history is off: %v", cfg.Name, err)
 	log.Printf("[WARN] nothing else changes, but no version of a document is kept and no change is attributed; "+
 		"pass --history=%s to accept that silently, or --history=%s to make it fatal", historyOff, historyOn)
 	return nil, nil
@@ -318,21 +302,21 @@ func historyFiles(notes *store.Store) func() ([]string, error) {
 // reconcile records whatever on disk history has not seen. A failure is never
 // fatal: a server that cannot commit is still worth running, the service
 // reports itself degraded, and the next successful commit folds the gap in.
-func reconcile(ctx context.Context, hist *history.Service, actor string) {
+func reconcile(ctx context.Context, name string, hist *history.Service, actor string) {
 	if !hist.Enabled() || ctx.Err() != nil {
 		return
 	}
 	start := time.Now()
 	if err := hist.Reconcile(ctx, actor); err != nil {
-		log.Printf("[ERROR] history: record what %s changed: %v", actor, err)
+		log.Printf("[ERROR] %s: history: record what %s changed: %v", name, actor, err)
 		return
 	}
-	log.Printf("[DEBUG] history: up to date with the notes as %s in %v",
-		actor, time.Since(start).Round(time.Millisecond))
+	log.Printf("[DEBUG] %s: history: up to date with the notes as %s in %v",
+		name, actor, time.Since(start).Round(time.Millisecond))
 }
 
 // indexAll fills the search index from the notes directory.
-func indexAll(notes *store.Store, index *search.Index) error {
+func indexAll(name string, notes *store.Store, index *search.Index) error {
 	start := time.Now()
 	docs := 0
 	err := notes.Walk(func(fi store.FileInfo, data []byte) error {
@@ -341,11 +325,11 @@ func indexAll(notes *store.Store, index *search.Index) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("build search index: %w", err)
+		return fmt.Errorf("build the search index of %q: %w", name, err)
 	}
 
-	log.Printf("[INFO] indexed %d documents in %v, holding %d bytes",
-		docs, time.Since(start).Round(time.Millisecond), index.Size())
+	log.Printf("[INFO] %s: indexed %d documents in %v, holding %d bytes",
+		name, docs, time.Since(start).Round(time.Millisecond), index.Size())
 	return nil
 }
 
@@ -359,9 +343,9 @@ const historyDebounce = 2 * time.Second
 // disk, and hands whatever changed outside the app to history. The returned
 // channel is closed once the goroutine is gone: store.Watch closes its channel
 // when ctx is canceled, so shutdown leaks nothing.
-func watch(ctx context.Context, notes *store.Store, index *search.Index, srv *server.Web,
-	hist *history.Service) <-chan struct{} {
-	events := notes.Watch(ctx)
+func watch(ctx context.Context, rp *runtimeProject, srv *server.Web) <-chan struct{} {
+	name := rp.web.Name
+	events := rp.notes.Watch(ctx)
 	done := make(chan struct{})
 
 	go func() {
@@ -374,19 +358,19 @@ func watch(ctx context.Context, notes *store.Store, index *search.Index, srv *se
 			select {
 			case ev, ok := <-events:
 				if !ok {
-					log.Printf("[DEBUG] watcher stopped")
+					log.Printf("[DEBUG] %s: watcher stopped", name)
 					return
 				}
-				log.Printf("[DEBUG] change on %s: %s", ev.Path, ev.Op)
-				srv.Invalidate(ev.Path)
-				reindex(notes, index, ev.Path)
-				if hist.Enabled() {
+				log.Printf("[DEBUG] %s: change on %s: %s", name, ev.Path, ev.Op)
+				srv.Invalidate(name, ev.Path)
+				reindex(rp.notes, rp.index, ev.Path)
+				if rp.hist.Enabled() {
 					batch.Reset(historyDebounce)
 				}
 			case <-batch.C:
 				// what the app itself wrote is committed already, so this
 				// mostly finds nothing; the edit made over SMB is the point
-				reconcile(ctx, hist, historyActorExternal)
+				reconcile(ctx, name, rp.hist, historyActorExternal)
 			}
 		}
 	}()
@@ -409,48 +393,13 @@ func reindex(notes *store.Store, index *search.Index, p string) {
 	index.Set(p, data)
 }
 
-// validate checks the options and returns the absolute notes root.
-func validate(opts *options) (string, error) {
-	root, err := filepath.Abs(opts.Root)
-	if err != nil {
-		return "", fmt.Errorf("absolute path for root %q: %w", opts.Root, err)
-	}
-
-	fi, err := os.Stat(root)
-	if err != nil {
-		return "", fmt.Errorf("root directory %q: %w", root, err)
-	}
-	if !fi.IsDir() {
-		return "", fmt.Errorf("root %q is not a directory", root)
-	}
-
+// validateGlobal checks the options no project owns.
+func validateGlobal(opts *options) error {
 	if !opts.Auth.Disabled && len(opts.Auth.Users) == 0 && len(opts.Auth.Tokens) == 0 {
-		return "", errors.New("no users and no tokens configured, " +
+		return errors.New("no users and no tokens configured, " +
 			"set --auth.users or --auth.tokens, or run with --auth.disabled")
 	}
-	if err := checkSecretFile(root, opts); err != nil {
-		return "", err
-	}
-
-	return root, nil
-}
-
-// checkSecretFile refuses a signing key stored inside the notes directory: it
-// would show up in the tree, in the search index and in every backup of the
-// corpus, and anybody holding it can forge a session cookie.
-func checkSecretFile(root string, opts *options) error {
-	if opts.Auth.Disabled || opts.Auth.SecretFile == "" {
-		return nil
-	}
-
-	secret, err := filepath.Abs(opts.Auth.SecretFile)
-	if err != nil {
-		return fmt.Errorf("absolute path for secret file %q: %w", opts.Auth.SecretFile, err)
-	}
-	if secret != root && !strings.HasPrefix(secret, root+string(filepath.Separator)) {
-		return nil
-	}
-	return fmt.Errorf("secret file %q must live outside the notes root %q", opts.Auth.SecretFile, root)
+	return nil
 }
 
 // genHash turns a password into a bcrypt hash. "-", which is what --gen-hash

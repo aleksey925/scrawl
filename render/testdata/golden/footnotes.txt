@@ -11,7 +11,7 @@ toc:
 <p data-source-start="7" data-source-end="7">Текст первой сноски. <a href="#fnref-1" class="footnote-back">↩</a> <a href="#fnref-1-2" class="footnote-back">↩<sup>2</sup></a></p>
 </li>
 <li id="fn-2">
-<p data-source-start="8" data-source-end="8">Именованная сноска с <strong>разметкой</strong> и <a href="/p/docs/other.md">ссылкой</a>.</p>
+<p data-source-start="8" data-source-end="8">Именованная сноска с <strong>разметкой</strong> и <a href="/doc/docs/other.md">ссылкой</a>.</p>
 <p data-source-start="10" data-source-end="10">Второй абзац сноски. <a href="#fnref-2" class="footnote-back">↩</a></p>
 </li>
 </ol>

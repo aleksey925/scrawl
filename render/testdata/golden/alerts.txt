@@ -81,7 +81,7 @@ toc:
 <p data-source-start="67" data-source-end="67">Несколько блоков в теле, включая настоящую цитату:</p>
 <div class="alert alert-note" data-source-start="69" data-source-end="76">
 <p class="alert-title">Note</p>
-<p data-source-start="71" data-source-end="71">Первый абзац с <code>кодом</code> и <a href="/p/docs/other.md">ссылкой</a>.</p>
+<p data-source-start="71" data-source-end="71">Первый абзац с <code>кодом</code> и <a href="/doc/docs/other.md">ссылкой</a>.</p>
 <ul data-source-start="73" data-source-end="74">
 <li data-source-start="73" data-source-end="73">список</li>
 <li data-source-start="74" data-source-end="74">внутри</li>

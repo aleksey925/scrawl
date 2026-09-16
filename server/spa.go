@@ -94,14 +94,42 @@ type navResponse struct {
 }
 
 // meResponse is the session and the modes the app runs in.
+//
+// ReadOnly is the effective mode of the project being served, which is the
+// server-wide guard or the project's own. There is no second field for the
+// global one: every consumer of this asks "may this reader write here", and
+// splitting it would offer a Save button the server refuses.
 type meResponse struct {
-	User            string `json:"user"`
-	AuthOn          bool   `json:"auth_on"`
-	ReadOnly        bool   `json:"read_only"`
-	HistoryOn       bool   `json:"history_on"`
-	HistoryDegraded bool   `json:"history_degraded"`
-	SiteTitle       string `json:"site_title"`
-	Version         string `json:"version"`
+	User            string       `json:"user"`
+	AuthOn          bool         `json:"auth_on"`
+	ReadOnly        bool         `json:"read_only"`
+	HistoryOn       bool         `json:"history_on"`
+	HistoryDegraded bool         `json:"history_degraded"`
+	SiteTitle       string       `json:"site_title"`
+	Version         string       `json:"version"`
+	Project         projectState `json:"project"`
+}
+
+// projectState is the project the app is running under, plus the live state of
+// its repository. /api/projects lists where a switcher can go; this says what
+// is true of the one the reader is in.
+type projectState struct {
+	Name     string `json:"name"`
+	Label    string `json:"label"`
+	Kind     string `json:"kind"`
+	ReadOnly bool   `json:"read_only"`
+	Degraded bool   `json:"degraded"`
+}
+
+// projectEntry is one row of the switcher. It carries configured, immutable
+// facts only: live state is read per project through /api/me, so this endpoint
+// reads no store and stays at the root with the other global routes.
+type projectEntry struct {
+	Name     string `json:"name"`
+	Label    string `json:"label"`
+	URL      string `json:"url"`
+	Kind     string `json:"kind"`
+	ReadOnly bool   `json:"read_only"`
 }
 
 type loginRequest struct {
@@ -116,14 +144,14 @@ type loginResponse struct {
 // apiPage answers with the document the view route renders, through the same
 // page cache. A markdown path that is not there is the 404 the view route
 // answers too, with the shape the client needs to offer creating it.
-func (wb *Web) apiPage(w http.ResponseWriter, r *http.Request) {
+func (m *mount) apiPage(w http.ResponseWriter, r *http.Request) {
 	p, ok := contentPath(r, "path")
 	if !ok {
 		jsonError(w, http.StatusBadRequest, "bad path")
 		return
 	}
 
-	stat, err := wb.Store.Stat(p)
+	stat, err := m.prj.Store.Stat(p)
 	switch {
 	case errors.Is(err, store.ErrNotFound) && isMarkdown(p):
 		writeJSON(w, http.StatusNotFound, pageResponse{
@@ -135,7 +163,7 @@ func (wb *Web) apiPage(w http.ResponseWriter, r *http.Request) {
 			Breadcrumbs: breadcrumbs(p),
 			EditURL:     editURL(p),
 			Missing:     true,
-			CanCreate:   wb.canWrite(r),
+			CanCreate:   m.canWrite(r),
 		})
 		return
 	case err != nil:
@@ -149,20 +177,20 @@ func (wb *Web) apiPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wb.writeDoc(w, r, p, p)
+	m.writeDoc(w, r, p, p)
 }
 
 // apiDir lists a directory. One holding an index.md is that document instead,
 // rendered under the directory's own path the way the directory page renders
 // it: the reader asked for the directory and keeps its address.
-func (wb *Web) apiDir(w http.ResponseWriter, r *http.Request) {
+func (m *mount) apiDir(w http.ResponseWriter, r *http.Request) {
 	p, ok := contentPath(r, "path")
 	if !ok {
 		jsonError(w, http.StatusBadRequest, "bad path")
 		return
 	}
 
-	stat, err := wb.Store.Stat(p)
+	stat, err := m.prj.Store.Stat(p)
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -172,13 +200,13 @@ func (wb *Web) apiDir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entries, err := wb.Store.List(p)
+	entries, err := m.prj.Store.List(p)
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
 	if intro := indexOf(entries, "index.md"); intro != "" {
-		wb.writeDoc(w, r, p, intro)
+		m.writeDoc(w, r, p, intro)
 		return
 	}
 
@@ -194,7 +222,7 @@ func (wb *Web) apiDir(w http.ResponseWriter, r *http.Request) {
 		Breadcrumbs: breadcrumbs(p),
 	}
 	if intro := indexOf(entries, "readme.md"); intro != "" {
-		if html, introErr := wb.renderIntro(intro); introErr == nil {
+		if html, introErr := m.renderIntro(intro); introErr == nil {
 			res.ReadmeHTML, res.HasReadme = string(html), true
 		}
 	}
@@ -209,8 +237,8 @@ func (wb *Web) apiDir(w http.ResponseWriter, r *http.Request) {
 // The revision is the ETag, so a reader coming back to a page revalidates it
 // with one conditional request instead of carrying a copy of the revision
 // around to decide whether what the browser restored is still current.
-func (wb *Web) writeDoc(w http.ResponseWriter, r *http.Request, navPath, docPath string) {
-	data, fi, err := wb.Store.Read(docPath)
+func (m *mount) writeDoc(w http.ResponseWriter, r *http.Request, navPath, docPath string) {
+	data, fi, err := m.prj.Store.Read(docPath)
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -225,7 +253,7 @@ func (wb *Web) writeDoc(w http.ResponseWriter, r *http.Request, navPath, docPath
 		return
 	}
 
-	res, err := wb.renderDoc(docPath, data, rev)
+	res, err := m.renderDoc(docPath, data, rev)
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -244,37 +272,61 @@ func (wb *Web) writeDoc(w http.ResponseWriter, r *http.Request, navPath, docPath
 		ModTime:     fi.ModTime,
 		Breadcrumbs: breadcrumbs(navPath),
 		EditURL:     editURL(docPath),
-		CanCreate:   wb.canWrite(r),
+		CanCreate:   m.canWrite(r),
 	})
 }
 
 // apiNav serves the sidebar tree and the breadcrumbs for the page named by the
 // path parameter, which is what marks the branch the reader is in.
-func (wb *Web) apiNav(w http.ResponseWriter, r *http.Request) {
+func (m *mount) apiNav(w http.ResponseWriter, r *http.Request) {
 	current, ok := contentPathOf(r.URL.Query().Get("path"))
 	if !ok {
 		jsonError(w, http.StatusBadRequest, "bad path")
 		return
 	}
 	writeJSON(w, http.StatusOK, navResponse{
-		Tree:        navNodes(wb.treeNodes(current)),
+		Tree:        navNodes(m.treeNodes(current)),
 		Breadcrumbs: breadcrumbs(current),
 	})
 }
 
 // apiMe names the session and the modes the app runs in, which is what the HTML
 // pages carry in Base and a single page app has to ask for once.
-func (wb *Web) apiMe(w http.ResponseWriter, r *http.Request) {
+func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {
 	res := meResponse{
-		AuthOn:          !wb.AuthDisabled,
-		ReadOnly:        wb.ReadOnly,
-		HistoryOn:       wb.history().Enabled(),
-		HistoryDegraded: wb.history().Degraded(),
-		SiteTitle:       wb.Title,
-		Version:         wb.Version,
+		AuthOn:          !m.AuthDisabled,
+		ReadOnly:        m.readOnly(),
+		HistoryOn:       m.history().Enabled(),
+		HistoryDegraded: m.history().Degraded(),
+		SiteTitle:       m.Title,
+		Version:         m.Version,
+		Project: projectState{
+			Name:     m.prj.Name,
+			Label:    m.prj.Title(),
+			Kind:     m.prj.Kind,
+			ReadOnly: m.readOnly(),
+			Degraded: m.history().Degraded(),
+		},
 	}
-	if wb.Auth != nil {
-		res.User, _ = wb.Auth.User(r)
+	if m.Auth != nil {
+		res.User, _ = m.Auth.User(r)
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+// apiProjects lists what the switcher can go to. It is global because it reads
+// no store, which is the one question every route in this server answers to
+// land on one side of the root-versus-project boundary.
+func (wb *Web) apiProjects(w http.ResponseWriter, _ *http.Request) {
+	res := make([]projectEntry, 0, len(wb.Projects))
+	for _, prj := range wb.Projects {
+		res = append(res, projectEntry{
+			Name:     prj.Name,
+			Label:    prj.Title(),
+			URL:      prj.Prefix() + "/",
+			Kind:     prj.Kind,
+			ReadOnly: wb.ReadOnly || prj.ReadOnly,
+		})
 	}
 	writeJSON(w, http.StatusOK, res)
 }
@@ -337,8 +389,8 @@ func fileKind(p string) string {
 // canWrite reports whether this caller may write the notes at all, which is the
 // pair of modes refuseReadOnly answers on, asked before anything is offered
 // rather than after it was tried.
-func (wb *Web) canWrite(r *http.Request) bool {
-	return !wb.ReadOnly && !auth.ReadOnlyToken(r)
+func (m *mount) canWrite(r *http.Request) bool {
+	return !m.readOnly() && !auth.ReadOnlyToken(r)
 }
 
 // matchesETag reports whether If-None-Match names the tag. A cache is allowed

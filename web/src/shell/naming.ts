@@ -18,7 +18,9 @@ export function ancestorsOf(path: string): string[] {
   return res;
 }
 
+// the pathname react-router hands over has the project basename stripped off
+// already, so this reads the route words and nothing else
 export function contentPathOf(pathname: string): string {
-  const match = /^\/(?:p|edit|history)\/(.*)$/.exec(pathname);
+  const match = /^\/(?:doc|edit|history)\/(.*)$/.exec(pathname);
   return match === null ? '' : decodeURIComponent(match[1] ?? '');
 }

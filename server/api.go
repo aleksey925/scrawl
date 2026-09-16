@@ -67,8 +67,8 @@ type searchHit struct {
 // dirs=1 leaves the documents out, which is what the destination picker asks
 // for: on a large corpus the files are the bulk of the tree and it lists none
 // of them.
-func (wb *Web) apiTree(w http.ResponseWriter, r *http.Request) {
-	root, err := wb.Store.Tree()
+func (m *mount) apiTree(w http.ResponseWriter, r *http.Request) {
+	root, err := m.prj.Store.Tree()
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -99,14 +99,14 @@ func jsonChildren(node *store.Node, dirsOnly bool) []treeNode {
 // times its size in RSS, so the size is checked before a single byte is read
 // and only text is served at all. Anything else is an attachment and streams
 // through /raw/ without ever being buffered.
-func (wb *Web) apiFileGet(w http.ResponseWriter, r *http.Request) {
+func (m *mount) apiFileGet(w http.ResponseWriter, r *http.Request) {
 	p, ok := contentPath(r, "path")
 	if !ok || p == "" {
 		jsonError(w, http.StatusBadRequest, "bad path")
 		return
 	}
 
-	stat, err := wb.Store.Stat(p)
+	stat, err := m.prj.Store.Stat(p)
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -123,7 +123,7 @@ func (wb *Web) apiFileGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, fi, err := wb.Store.Read(p)
+	data, fi, err := m.prj.Store.Read(p)
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -139,8 +139,8 @@ func (wb *Web) apiFileGet(w http.ResponseWriter, r *http.Request) {
 
 // apiFileSave writes a file, refusing the write when the revision the editor
 // loaded is no longer the one on disk.
-func (wb *Web) apiFileSave(w http.ResponseWriter, r *http.Request) {
-	if wb.refuseReadOnly(w, r) {
+func (m *mount) apiFileSave(w http.ResponseWriter, r *http.Request) {
+	if m.refuseReadOnly(w, r) {
 		return
 	}
 	p, ok := contentPath(r, "path")
@@ -154,9 +154,9 @@ func (wb *Web) apiFileSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var fi store.FileInfo
-	err := wb.record(r, history.Op{Message: "save " + p, Paths: []string{p}}, func() ([]string, error) {
+	err := m.record(r, history.Op{Message: "save " + p, Paths: []string{p}}, func() ([]string, error) {
 		var writeErr error
-		fi, writeErr = wb.Store.Write(p, []byte(req.Content), req.Rev)
+		fi, writeErr = m.prj.Store.Write(p, []byte(req.Content), req.Rev)
 		return nil, writeErr
 	})
 	var conflict *store.ConflictError
@@ -168,7 +168,7 @@ func (wb *Web) apiFileSave(w http.ResponseWriter, r *http.Request) {
 		// an empty revision means "create", and the file turning out to be
 		// there is the same collision seen from the editor: its dialog offers
 		// an overwrite, which needs the revision and the content on disk
-		current, _, readErr := wb.Store.Read(p)
+		current, _, readErr := m.prj.Store.Read(p)
 		if readErr != nil {
 			failJSON(w, r, err)
 			return
@@ -180,8 +180,8 @@ func (wb *Web) apiFileSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wb.touch(p)
-	writeJSON(w, http.StatusOK, wb.withHistory(map[string]any{
+	m.touch(p)
+	writeJSON(w, http.StatusOK, m.withHistory(map[string]any{
 		"rev": store.Rev([]byte(req.Content)), "mod_time": fi.ModTime,
 	}))
 }
@@ -197,8 +197,8 @@ func writeConflict(w http.ResponseWriter, status int, message, rev string, curre
 }
 
 // apiFileCreate makes an empty file or a directory.
-func (wb *Web) apiFileCreate(w http.ResponseWriter, r *http.Request) {
-	if wb.refuseReadOnly(w, r) {
+func (m *mount) apiFileCreate(w http.ResponseWriter, r *http.Request) {
+	if m.refuseReadOnly(w, r) {
 		return
 	}
 	p, ok := contentPath(r, "path")
@@ -222,22 +222,22 @@ func (wb *Web) apiFileCreate(w http.ResponseWriter, r *http.Request) {
 		recorded = []string{p}
 	}
 	var fi store.FileInfo
-	err := wb.record(r, history.Op{Message: "create " + p, Paths: recorded}, func() ([]string, error) {
+	err := m.record(r, history.Op{Message: "create " + p, Paths: recorded}, func() ([]string, error) {
 		var createErr error
-		fi, createErr = wb.Store.Create(p, req.Type == "dir")
+		fi, createErr = m.prj.Store.Create(p, req.Type == "dir")
 		return nil, createErr
 	})
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
-	wb.touch(p)
-	writeJSON(w, http.StatusCreated, wb.withHistory(map[string]any{"path": fi.Path}))
+	m.touch(p)
+	writeJSON(w, http.StatusCreated, m.withHistory(map[string]any{"path": fi.Path}))
 }
 
 // apiFileDelete removes a file or an empty directory.
-func (wb *Web) apiFileDelete(w http.ResponseWriter, r *http.Request) {
-	if wb.refuseReadOnly(w, r) {
+func (m *mount) apiFileDelete(w http.ResponseWriter, r *http.Request) {
+	if m.refuseReadOnly(w, r) {
 		return
 	}
 	p, ok := contentPath(r, "path")
@@ -246,20 +246,20 @@ func (wb *Web) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := wb.record(r, history.Op{Message: "delete " + p, Paths: []string{p}}, func() ([]string, error) {
-		return nil, wb.Store.Remove(p)
+	err := m.record(r, history.Op{Message: "delete " + p, Paths: []string{p}}, func() ([]string, error) {
+		return nil, m.prj.Store.Remove(p)
 	})
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
-	wb.touch(p)
+	m.touch(p)
 	w.WriteHeader(http.StatusNoContent)
 }
 
 // apiMove renames or moves an entry.
-func (wb *Web) apiMove(w http.ResponseWriter, r *http.Request) {
-	if wb.refuseReadOnly(w, r) {
+func (m *mount) apiMove(w http.ResponseWriter, r *http.Request) {
+	if m.refuseReadOnly(w, r) {
 		return
 	}
 	var req moveRequest
@@ -272,16 +272,16 @@ func (wb *Web) apiMove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	op := history.Op{Message: "move " + req.From + " to " + req.To, Paths: []string{req.From, req.To}}
-	err := wb.record(r, op, func() ([]string, error) {
-		moved := wb.movedPaths(req.From, req.To)
-		return moved, wb.Store.Move(req.From, req.To)
+	err := m.record(r, op, func() ([]string, error) {
+		moved := m.movedPaths(req.From, req.To)
+		return moved, m.prj.Store.Move(req.From, req.To)
 	})
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
-	wb.touch(req.From, req.To)
-	writeJSON(w, http.StatusOK, wb.withHistory(map[string]any{"path": req.To}))
+	m.touch(req.From, req.To)
+	writeJSON(w, http.StatusOK, m.withHistory(map[string]any{"path": req.To}))
 }
 
 // movedPaths lists the documents a move carries with it. A file names itself in
@@ -291,8 +291,8 @@ func (wb *Web) apiMove(w http.ResponseWriter, r *http.Request) {
 //
 // A failure here is not worth refusing the move over: the change still reaches
 // history through the reconcile the watcher runs, only as an external one.
-func (wb *Web) movedPaths(from, to string) []string {
-	files, err := wb.Store.Files()
+func (m *mount) movedPaths(from, to string) []string {
+	files, err := m.prj.Store.Files()
 	if err != nil {
 		return nil
 	}
@@ -313,8 +313,8 @@ func (wb *Web) movedPaths(from, to string) []string {
 
 // apiUpload stores an attachment and answers with a markdown link relative to
 // the document being edited, which arrives in the doc query parameter.
-func (wb *Web) apiUpload(w http.ResponseWriter, r *http.Request) {
-	if wb.refuseReadOnly(w, r) {
+func (m *mount) apiUpload(w http.ResponseWriter, r *http.Request) {
+	if m.refuseReadOnly(w, r) {
 		return
 	}
 	dir, ok := contentPath(r, "dir")
@@ -326,8 +326,8 @@ func (wb *Web) apiUpload(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		doc = ""
 	}
-	if wb.MaxUpload > 0 {
-		r.Body = http.MaxBytesReader(w, r.Body, wb.MaxUpload+multipartOverhead)
+	if m.MaxUpload > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, m.MaxUpload+multipartOverhead)
 	}
 
 	file, header, err := r.FormFile("file")
@@ -343,9 +343,9 @@ func (wb *Web) apiUpload(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	var fi store.FileInfo
-	err = wb.record(r, history.Op{Message: "upload an attachment"}, func() ([]string, error) {
+	err = m.record(r, history.Op{Message: "upload an attachment"}, func() ([]string, error) {
 		var upErr error
-		fi, upErr = wb.Store.Upload(wb.uploadDir(doc, dir), header.Filename, file, wb.MaxUpload)
+		fi, upErr = m.prj.Store.Upload(m.uploadDir(doc, dir), header.Filename, file, m.MaxUpload)
 		if upErr != nil {
 			return nil, upErr
 		}
@@ -357,9 +357,9 @@ func (wb *Web) apiUpload(w http.ResponseWriter, r *http.Request) {
 		failJSON(w, r, err)
 		return
 	}
-	wb.touch(fi.Path)
+	m.touch(fi.Path)
 
-	writeJSON(w, http.StatusCreated, wb.withHistory(map[string]any{
+	writeJSON(w, http.StatusCreated, m.withHistory(map[string]any{
 		"path":     fi.Path,
 		"markdown": "![](" + relativeLink(doc, fi.Path) + ")",
 	}))
@@ -383,7 +383,7 @@ func (wb *Web) uploadDir(doc, requested string) string {
 
 // apiPreview renders the editor buffer through the pipeline that renders the
 // view page, so what the writer sees is what the saved page will be.
-func (wb *Web) apiPreview(w http.ResponseWriter, r *http.Request) {
+func (m *mount) apiPreview(w http.ResponseWriter, r *http.Request) {
 	var req previewRequest
 	if !decodeJSON(w, r, &req, maxPreviewBody) {
 		return
@@ -396,7 +396,7 @@ func (wb *Web) apiPreview(w http.ResponseWriter, r *http.Request) {
 
 	source := []byte(req.Content)
 	html, err := renderWithDeadline(docPath, source, maxPreviewBody, renderTimeout, func() (template.HTML, error) {
-		return wb.Renderer.RenderInline(source, docPath)
+		return m.prj.Renderer.RenderInline(source, docPath)
 	})
 	if err != nil {
 		failJSON(w, r, err)
@@ -406,7 +406,7 @@ func (wb *Web) apiPreview(w http.ResponseWriter, r *http.Request) {
 }
 
 // apiSearch backs the command palette.
-func (wb *Web) apiSearch(w http.ResponseWriter, r *http.Request) {
+func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	limit := searchAPILimit
 	if raw := r.URL.Query().Get("limit"); raw != "" {
@@ -420,8 +420,8 @@ func (wb *Web) apiSearch(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 	hits := make([]searchHit, 0, limit)
-	if query != "" && wb.Index != nil {
-		for _, hit := range wb.Index.SearchPrefix(query, limit) {
+	if query != "" && m.prj.Index != nil {
+		for _, hit := range m.prj.Index.SearchPrefix(query, limit) {
 			hits = append(hits, searchHit{
 				Path:    hit.Path,
 				Title:   hit.Title,
@@ -440,29 +440,32 @@ func (wb *Web) apiSearch(w http.ResponseWriter, r *http.Request) {
 // touch refreshes what the server keeps about a path right after the app
 // itself changed it. The watcher reports the same change a moment later, this
 // only closes the window in which a reload would still show the old page.
-func (wb *Web) touch(paths ...string) {
+func (m *mount) touch(paths ...string) {
 	for _, p := range paths {
-		wb.pages().invalidate(p)
-		if wb.Index == nil || !isMarkdown(p) {
+		m.pages().invalidate(m.prj.Name, p)
+		if m.prj.Index == nil || !isMarkdown(p) {
 			continue
 		}
-		data, _, err := wb.Store.Read(p)
+		data, _, err := m.prj.Store.Read(p)
 		if err != nil {
-			wb.Index.Delete(p)
+			m.prj.Index.Delete(p)
 			continue
 		}
-		wb.Index.Set(p, data)
+		m.prj.Index.Set(p, data)
 	}
 }
 
-// refuseReadOnly guards every write endpoint against the two ways writing can
-// be off: the whole server, or the token this caller presented. The two get
-// different messages, otherwise an agent holding a read-only token cannot tell
-// whether asking for a wider one would help.
-func (wb *Web) refuseReadOnly(w http.ResponseWriter, r *http.Request) bool {
+// refuseReadOnly guards every write endpoint against the three ways writing can
+// be off: the whole server, this project, or the token the caller presented.
+// Each gets its own message, otherwise an agent holding a read-only token
+// cannot tell whether asking for a wider one would help, and a reader on a
+// read-only project cannot tell it from a server that refuses everything.
+func (m *mount) refuseReadOnly(w http.ResponseWriter, r *http.Request) bool {
 	switch {
-	case wb.ReadOnly:
+	case m.ReadOnly:
 		jsonError(w, http.StatusForbidden, errMessage(store.ErrReadOnly))
+	case m.prj.ReadOnly:
+		jsonError(w, http.StatusForbidden, "read-only project, writing is disabled")
 	case auth.ReadOnlyToken(r):
 		jsonError(w, http.StatusForbidden, "read-only token, writing is disabled")
 	default:

@@ -82,6 +82,7 @@ var (
 
 // Config holds everything the service needs. Root and Files are mandatory.
 type Config struct {
+	Name        string                   // project this repository belongs to, used for nothing but the log prefix
 	Root        string                   // notes directory, the repository root
 	Extensions  []string                 // versioned extensions, empty means defaultExtensions
 	Files       func() ([]string, error) // every visible file, relative slash paths
@@ -161,7 +162,7 @@ func New(cfg Config) (*Service, error) {
 // writing through it would land the content outside the repository. Only a
 // symlink is removed; anything else is left alone and the caller decides what
 // to do with it.
-func ownPath(p string) error {
+func (s *Service) ownPath(p string) error {
 	fi, err := os.Lstat(p)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
@@ -174,8 +175,17 @@ func ownPath(p string) error {
 	if err = os.Remove(p); err != nil {
 		return fmt.Errorf("remove the symlink at %s: %w", p, err)
 	}
-	log.Printf("[WARN] history: removed %s, which was a symlink the repository carried", p)
+	log.Printf("[WARN] %s: removed %s, which was a symlink the repository carried", s.tag(), p)
 	return nil
+}
+
+// tag prefixes every log line this package writes. One process serves several
+// repositories, so "history:" alone no longer says which one fell behind.
+func (s *Service) tag() string {
+	if s.cfg.Name == "" {
+		return "history"
+	}
+	return "history " + s.cfg.Name
 }
 
 // disableFilters stops a repository we adopted from running a command of its
@@ -196,7 +206,7 @@ func (s *Service) disableFilters() error {
 	}
 
 	name := filepath.Join(dir, "attributes")
-	if err := ownPath(name); err != nil {
+	if err := s.ownPath(name); err != nil {
 		return err
 	}
 	current, err := os.ReadFile(name) //nolint:gosec // a path inside the repository we just opened
@@ -272,7 +282,7 @@ func (s *Service) open(ctx context.Context) error {
 		if _, iErr := s.run(ctx, init); iErr != nil {
 			return fmt.Errorf("initialize a repository in %s: %w", s.root, iErr)
 		}
-		log.Printf("[INFO] history: initialized a git repository in %s", s.root)
+		log.Printf("[INFO] %s: initialized a git repository in %s", s.tag(), s.root)
 	default:
 		return err
 	}

@@ -71,7 +71,7 @@ toc:
 <li data-source-start="63" data-source-end="63"><input disabled="" type="checkbox"> (Необязательно) экранированная скобка</li>
 </ul>
 <h2 id="ссылки" data-source-start="65" data-source-end="65">Ссылки</h2>
-<p data-source-start="67" data-source-end="69"><a href="/p/docs/other.md">Обычная ссылка</a>, <a href="#%D1%81%D0%BF%D0%B8%D1%81%D0%BA%D0%B8">ссылка на раздел</a>,
+<p data-source-start="67" data-source-end="69"><a href="/doc/docs/other.md">Обычная ссылка</a>, <a href="#%D1%81%D0%BF%D0%B8%D1%81%D0%BA%D0%B8">ссылка на раздел</a>,
 <a href="https://example.com/ref" target="_blank" rel="noopener noreferrer nofollow">ссылка по ссылке</a>, автоссылка <a href="https://example.com/auto" target="_blank" rel="noopener noreferrer nofollow">https://example.com/auto</a>,
 голая <a href="https://example.com/bare" target="_blank" rel="noopener noreferrer nofollow">https://example.com/bare</a> и <a href="http://www.example.com" target="_blank" rel="noopener noreferrer nofollow">www.example.com</a>, почта <a href="mailto:user@example.com">user@example.com</a>.</p>
 <h2 id="код" data-source-start="73" data-source-end="73">Код</h2>

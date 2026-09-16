@@ -15,10 +15,10 @@ func TestPageCacheGetPut(t *testing.T) {
 	page := render.Result{HTML: "<p>hi</p>", Title: "Hi", TOC: []render.Heading{{Level: 2, Text: "Hi", ID: "hi"}}}
 
 	// act
-	cache.put("a/b.md", "sha256:one", page)
+	cache.put(testProject, "a/b.md", "sha256:one", page)
 
 	// assert
-	got, ok := cache.get("a/b.md", "sha256:one")
+	got, ok := cache.get(testProject, "a/b.md", "sha256:one")
 	assert.True(t, ok)
 	assert.Equal(t, page, got)
 	assert.Equal(t, 1, cache.len())
@@ -27,7 +27,7 @@ func TestPageCacheGetPut(t *testing.T) {
 func TestPageCacheMisses(t *testing.T) {
 	// arrange
 	cache := newPageCache(10, 0)
-	cache.put("a/b.md", "sha256:one", render.Result{HTML: "<p>old</p>"})
+	cache.put(testProject, "a/b.md", "sha256:one", render.Result{HTML: "<p>old</p>"})
 
 	tests := []struct {
 		name string
@@ -41,7 +41,7 @@ func TestPageCacheMisses(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// act
-			_, ok := cache.get(tc.path, tc.rev)
+			_, ok := cache.get(testProject, tc.path, tc.rev)
 
 			// assert
 			assert.False(t, ok)
@@ -52,13 +52,13 @@ func TestPageCacheMisses(t *testing.T) {
 func TestPageCacheReplacesSameKey(t *testing.T) {
 	// arrange
 	cache := newPageCache(10, 0)
-	cache.put("a/b.md", "sha256:one", render.Result{HTML: "<p>old</p>"})
+	cache.put(testProject, "a/b.md", "sha256:one", render.Result{HTML: "<p>old</p>"})
 
 	// act
-	cache.put("a/b.md", "sha256:one", render.Result{HTML: "<p>new</p>"})
+	cache.put(testProject, "a/b.md", "sha256:one", render.Result{HTML: "<p>new</p>"})
 
 	// assert
-	got, ok := cache.get("a/b.md", "sha256:one")
+	got, ok := cache.get(testProject, "a/b.md", "sha256:one")
 	assert.True(t, ok)
 	assert.Equal(t, render.Result{HTML: "<p>new</p>"}, got)
 	assert.Equal(t, 1, cache.len())
@@ -67,17 +67,17 @@ func TestPageCacheReplacesSameKey(t *testing.T) {
 func TestPageCacheInvalidateDropsEveryRevision(t *testing.T) {
 	// arrange
 	cache := newPageCache(10, 0)
-	cache.put("a/b.md", "sha256:one", render.Result{HTML: "<p>one</p>"})
-	cache.put("a/b.md", "sha256:two", render.Result{HTML: "<p>two</p>"})
-	cache.put("a/c.md", "sha256:one", render.Result{HTML: "<p>other</p>"})
+	cache.put(testProject, "a/b.md", "sha256:one", render.Result{HTML: "<p>one</p>"})
+	cache.put(testProject, "a/b.md", "sha256:two", render.Result{HTML: "<p>two</p>"})
+	cache.put(testProject, "a/c.md", "sha256:one", render.Result{HTML: "<p>other</p>"})
 
 	// act
-	cache.invalidate("a/b.md")
+	cache.invalidate(testProject, "a/b.md")
 
 	// assert
-	_, first := cache.get("a/b.md", "sha256:one")
-	_, second := cache.get("a/b.md", "sha256:two")
-	_, kept := cache.get("a/c.md", "sha256:one")
+	_, first := cache.get(testProject, "a/b.md", "sha256:one")
+	_, second := cache.get(testProject, "a/b.md", "sha256:two")
+	_, kept := cache.get(testProject, "a/c.md", "sha256:one")
 	assert.False(t, first)
 	assert.False(t, second)
 	assert.True(t, kept)
@@ -87,17 +87,17 @@ func TestPageCacheInvalidateDropsEveryRevision(t *testing.T) {
 func TestPageCacheEvictsLeastRecentlyUsed(t *testing.T) {
 	// arrange
 	cache := newPageCache(2, 0)
-	cache.put("first.md", "rev", render.Result{HTML: "<p>1</p>"})
-	cache.put("second.md", "rev", render.Result{HTML: "<p>2</p>"})
+	cache.put(testProject, "first.md", "rev", render.Result{HTML: "<p>1</p>"})
+	cache.put(testProject, "second.md", "rev", render.Result{HTML: "<p>2</p>"})
 
 	// act
-	cache.get("first.md", "rev") // first is now the most recently used
-	cache.put("third.md", "rev", render.Result{HTML: "<p>3</p>"})
+	cache.get(testProject, "first.md", "rev") // first is now the most recently used
+	cache.put(testProject, "third.md", "rev", render.Result{HTML: "<p>3</p>"})
 
 	// assert
-	_, first := cache.get("first.md", "rev")
-	_, second := cache.get("second.md", "rev")
-	_, third := cache.get("third.md", "rev")
+	_, first := cache.get(testProject, "first.md", "rev")
+	_, second := cache.get(testProject, "second.md", "rev")
+	_, third := cache.get(testProject, "third.md", "rev")
 	assert.True(t, first)
 	assert.False(t, second)
 	assert.True(t, third)
@@ -110,7 +110,7 @@ func TestPageCacheEvictsOnBytes(t *testing.T) {
 
 	// act
 	for i := range 5 {
-		cache.put("doc"+strconv.Itoa(i)+".md", "rev", render.Result{HTML: "0123456789"})
+		cache.put(testProject, "doc"+strconv.Itoa(i)+".md", "rev", render.Result{HTML: "0123456789"})
 	}
 
 	// assert
@@ -123,10 +123,10 @@ func TestPageCacheNil(t *testing.T) {
 
 	// act & assert
 	assert.NotPanics(t, func() {
-		cache.put("a.md", "rev", render.Result{})
-		cache.invalidate("a.md")
+		cache.put(testProject, "a.md", "rev", render.Result{})
+		cache.invalidate(testProject, "a.md")
 	})
-	_, ok := cache.get("a.md", "rev")
+	_, ok := cache.get(testProject, "a.md", "rev")
 	assert.False(t, ok)
 	assert.Equal(t, 0, cache.len())
 }

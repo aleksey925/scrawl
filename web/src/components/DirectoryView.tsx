@@ -5,6 +5,8 @@ import { Link } from 'react-router';
 
 import { api } from '../api/client';
 import { useApi } from '../api/useApi';
+import { mountBase } from '../mount';
+import { isMarkdown } from '../paths';
 
 import { AsyncContent } from './AsyncContent';
 import { DocumentBody } from './DocumentBody';
@@ -46,9 +48,19 @@ export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
                         {entry.is_dir ? <IconFolder size={16} /> : <IconFile size={16} />}
                       </Table.Td>
                       <Table.Td>
-                        <Anchor data-testid="dir-row-name" component={Link} to={entry.url}>
-                          {entry.name}
-                        </Anchor>
+                        {/* a row is a route of the app only when it is a
+                            folder or a note; anything else is the /raw/ url
+                            the server wrote, which the browser fetches
+                            directly and the client has to mount itself */}
+                        {entry.is_dir || isMarkdown(entry.path) ? (
+                          <Anchor data-testid="dir-row-name" component={Link} to={entry.url}>
+                            {entry.name}
+                          </Anchor>
+                        ) : (
+                          <Anchor data-testid="dir-row-name" href={mountBase() + entry.url}>
+                            {entry.name}
+                          </Anchor>
+                        )}
                       </Table.Td>
                     </Table.Tr>
                   ))}

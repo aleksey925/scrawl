@@ -79,7 +79,7 @@ func TestAPIPage(t *testing.T) {
 		{name: "missing attachment", path: "/api/page/nope.png", status: http.StatusNotFound,
 			fields: map[string]any{"error": "not found"}},
 		{name: "directory", path: "/api/page/docs", status: http.StatusConflict,
-			fields: map[string]any{"kind": "directory", "url": "/p/docs/"}},
+			fields: map[string]any{"kind": "directory", "url": "/doc/docs/"}},
 		{name: "root", path: "/api/page/", status: http.StatusConflict,
 			fields: map[string]any{"kind": "directory", "url": "/"}},
 		{name: "attachment", path: "/api/page/snippet.py", status: http.StatusConflict,
@@ -110,9 +110,9 @@ func TestAPIPageOutlineMatchesTheRail(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 	require.NoError(t, os.WriteFile(filepath.Join(ts.root, "flat.md"),
 		[]byte("# One\n\n# Two\n\n# Three\n"), 0o600))
-	source, _, err := ts.Store.Read("guide.md")
+	source, _, err := ts.Projects[0].Store.Read("guide.md")
 	require.NoError(t, err)
-	rendered, err := ts.Renderer.Render(source, "guide.md")
+	rendered, err := ts.Projects[0].Renderer.Render(source, "guide.md")
 	require.NoError(t, err)
 
 	// act
@@ -129,7 +129,7 @@ func TestAPIPageOutlineMatchesTheRail(t *testing.T) {
 func TestAPIPageGoesThroughThePageCache(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	ts.pages().put("guide.md", revOf(t, ts, "guide.md"),
+	ts.pages().put(testProject, "guide.md", revOf(t, ts, "guide.md"),
 		render.Result{HTML: "<p>served from the cache</p>", Title: "Cached"})
 
 	// act
@@ -238,7 +238,7 @@ func TestAPIDir(t *testing.T) {
 				"title": "Notes", "edit_url": "/edit/notes/index.md", "show_toc": false},
 			contains: "the notes index"},
 		{name: "document", path: "/api/dir/guide.md", status: http.StatusConflict,
-			fields: map[string]any{"kind": "document", "url": "/p/guide.md"}},
+			fields: map[string]any{"kind": "document", "url": "/doc/guide.md"}},
 		{name: "attachment", path: "/api/dir/snippet.py", status: http.StatusConflict,
 			fields: map[string]any{"kind": "attachment", "url": "/raw/snippet.py"}},
 		{name: "missing", path: "/api/dir/nope", status: http.StatusNotFound,
@@ -288,7 +288,7 @@ func TestAPIDirServesTheIndexUnderTheDirectoryPath(t *testing.T) {
 func TestAPIDirIndexGoesThroughThePageCache(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	ts.pages().put("notes/index.md", revOf(t, ts, "notes/index.md"),
+	ts.pages().put(testProject, "notes/index.md", revOf(t, ts, "notes/index.md"),
 		render.Result{HTML: "<p>served from the cache</p>", Title: "Cached"})
 
 	// act
@@ -323,7 +323,7 @@ func TestAPIDirIndexRevalidatesWithTheRevision(t *testing.T) {
 func TestAPIDirListsWhatTheDirectoryPageLists(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	entries, err := ts.Store.List("docs")
+	entries, err := ts.Projects[0].Store.List("docs")
 	require.NoError(t, err)
 
 	// act
@@ -356,7 +356,7 @@ func TestAPINav(t *testing.T) {
 		"directories first, then the documents, all without the .md suffix")
 
 	docs := nodeByName(t, tree, "docs")
-	assert.Equal(t, map[string]any{"name": "docs", "path": "docs", "url": "/p/docs/", "is_dir": true,
+	assert.Equal(t, map[string]any{"name": "docs", "path": "docs", "url": "/doc/docs/", "is_dir": true,
 		"active": true, "current": false, "children": children(t, docs)}, docs)
 
 	sub := nodeByName(t, children(t, docs), "sub")
@@ -364,7 +364,7 @@ func TestAPINav(t *testing.T) {
 	assert.Equal(t, false, sub["current"])
 
 	deep := nodeByName(t, children(t, sub), "deep")
-	assert.Equal(t, map[string]any{"name": "deep", "path": "docs/sub/deep.md", "url": "/p/docs/sub/deep.md",
+	assert.Equal(t, map[string]any{"name": "deep", "path": "docs/sub/deep.md", "url": "/doc/docs/sub/deep.md",
 		"is_dir": false, "active": false, "current": true, "children": []any{}}, deep)
 }
 
@@ -377,7 +377,7 @@ func TestAPINavMarksNothingWithoutACurrentPath(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
-	assert.Equal(t, jsonValue(t, navNodes(ts.treeNodes(""))), body["tree"])
+	assert.Equal(t, jsonValue(t, navNodes(ts.mount().treeNodes(""))), body["tree"])
 	assert.Equal(t, jsonValue(t, breadcrumbs("")), body["breadcrumbs"])
 	docs := nodeByName(t, body["tree"].([]any), "docs")
 	assert.Equal(t, false, docs["active"])
@@ -413,8 +413,8 @@ func TestSPABreadcrumbsMatchThePageTrail(t *testing.T) {
 	// assert
 	assert.Equal(t, []any{
 		map[string]any{"name": "Home", "url": "/"},
-		map[string]any{"name": "docs", "url": "/p/docs/"},
-		map[string]any{"name": "sub", "url": "/p/docs/sub/"},
+		map[string]any{"name": "docs", "url": "/doc/docs/"},
+		map[string]any{"name": "sub", "url": "/doc/docs/sub/"},
 		map[string]any{"name": "deep", "url": ""},
 	}, want)
 	assert.Equal(t, want, page["breadcrumbs"])
@@ -447,6 +447,10 @@ func TestAPIMeWithAuthDisabled(t *testing.T) {
 		"user": "", "auth_on": false, "read_only": false,
 		"history_on": false, "history_degraded": false,
 		"site_title": ts.Title, "version": ts.Version,
+		"project": map[string]any{
+			"name": testProject, "label": testProject, "kind": KindLocal,
+			"read_only": false, "degraded": false,
+		},
 	}, body)
 }
 
@@ -571,7 +575,7 @@ func TestAPILoginStartsTheSessionTheAppAccepts(t *testing.T) {
 	in, _ := ts.json(t, request{method: http.MethodPost, path: "/api/login", client: client,
 		body: jsonBody(t, map[string]string{"username": testUser, "password": testPassword})})
 	me, meBody := ts.json(t, request{path: "/api/me", client: client})
-	page, _ := ts.do(t, request{path: "/p/guide.md", client: client})
+	page, _ := ts.do(t, request{path: "/doc/guide.md", client: client})
 	out, _ := ts.json(t, request{method: http.MethodPost, path: "/api/logout", client: client})
 	after, _ := ts.json(t, request{path: "/api/me", client: client})
 

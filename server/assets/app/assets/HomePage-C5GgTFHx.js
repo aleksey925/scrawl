@@ -1,1 +1,0 @@
-import{H as e}from"./theme-CaleAuXY.js";import{t}from"./DirectoryView-1e7ag4e2.js";import{t as n}from"./PageContainer-B6pRaB9N.js";var r=e();function i(){return(0,r.jsx)(n,{children:(0,r.jsx)(t,{path:``})})}export{i as Component};

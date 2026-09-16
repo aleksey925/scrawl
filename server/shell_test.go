@@ -23,7 +23,7 @@ func TestAppShell(t *testing.T) {
 		scheme string
 	}{
 		{name: "root"},
-		{name: "deep link", path: "/p/guide.md"},
+		{name: "deep link", path: "/doc/guide.md"},
 		{name: "light", theme: "light", scheme: "light"},
 		{name: "dark", theme: "dark", scheme: "dark"},
 		{name: "auto is left to the client", theme: "auto"},
@@ -46,7 +46,7 @@ func TestAppShell(t *testing.T) {
 			// assert
 			require.Equal(t, http.StatusOK, resp.status)
 			assert.Contains(t, resp.header.Get("Content-Type"), "text/html")
-			assert.Contains(t, body, `<div id="scrawl-app-root" data-base="`+appMount+`"></div>`)
+			assert.Contains(t, body, `<div id="scrawl-app-root" data-base="`+ts.prefix()+`"></div>`)
 			if tc.scheme == "" {
 				assert.NotContains(t, body, "data-mantine-color-scheme")
 				return
@@ -68,11 +68,11 @@ func TestAppShellStatus(t *testing.T) {
 		path   string
 		status int
 	}{
-		{name: "document that exists", path: "/p/guide.md", status: http.StatusOK},
-		{name: "document that does not", path: "/p/nope.md", status: http.StatusNotFound},
-		{name: "missing document in a folder", path: "/p/docs/nope.md", status: http.StatusNotFound},
+		{name: "document that exists", path: "/doc/guide.md", status: http.StatusOK},
+		{name: "document that does not", path: "/doc/nope.md", status: http.StatusNotFound},
+		{name: "missing document in a folder", path: "/doc/docs/nope.md", status: http.StatusNotFound},
 		{name: "editing a missing document is how it is created", path: "/edit/nope.md", status: http.StatusOK},
-		{name: "a directory is not a missing document", path: "/p/docs", status: http.StatusOK},
+		{name: "a directory is not a missing document", path: "/doc/docs", status: http.StatusOK},
 		{name: "the app root", path: "/", status: http.StatusOK},
 		{name: "the search page", path: "/search", status: http.StatusOK},
 	}

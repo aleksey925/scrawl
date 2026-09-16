@@ -140,6 +140,6 @@ func parseLocal(dest string) (u *url.URL, passthrough target, ok bool) {
 
 // isMarkdown reports whether a destination points at a document. Only ".md"
 // counts, because that is the one extension the store, the tree, the search
-// index and the editor treat as a document: rewriting anything else to /p/
+// index and the editor treat as a document: rewriting anything else to /doc/
 // would send the reader to a page that cannot exist.
 func isMarkdown(p string) bool { return strings.EqualFold(path.Ext(p), ".md") }

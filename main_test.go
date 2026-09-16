@@ -270,37 +270,30 @@ func lastField(line string) string {
 	return fields[len(fields)-1]
 }
 
-func TestValidate(t *testing.T) {
-	dir := t.TempDir()
-	file := filepath.Join(dir, "page.md")
-	require.NoError(t, os.WriteFile(file, []byte("# page"), 0o600))
-
+func TestValidateGlobal(t *testing.T) {
 	tests := []struct {
 		name    string
-		root    string
 		users   []string
 		tokens  []string
 		noAuth  bool
 		errText string
 	}{
-		{name: "ok with users", root: dir, users: []string{"bob:pass"}},
-		{name: "ok with tokens and no users", root: dir, tokens: []string{"bot:sha256:abc"}},
-		{name: "ok with auth disabled", root: dir, noAuth: true},
-		{name: "missing root", root: filepath.Join(dir, "nope"), noAuth: true, errText: "root directory"},
-		{name: "root is a file", root: file, noAuth: true, errText: "is not a directory"},
-		{name: "no users and no tokens", root: dir, errText: "no users and no tokens configured"},
+		{name: "ok with users", users: []string{"bob:pass"}},
+		{name: "ok with tokens and no users", tokens: []string{"bot:sha256:abc"}},
+		{name: "ok with auth disabled", noAuth: true},
+		{name: "no users and no tokens", errText: "no users and no tokens configured"},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// arrange
-			opts := &options{Root: tc.root}
+			opts := &options{}
 			opts.Auth.Users = tc.users
 			opts.Auth.Tokens = tc.tokens
 			opts.Auth.Disabled = tc.noAuth
 
 			// act
-			root, err := validate(opts)
+			err := validateGlobal(opts)
 
 			// assert
 			if tc.errText != "" {
@@ -309,13 +302,97 @@ func TestValidate(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, dir, root)
+		})
+	}
+}
+
+func TestValidateProjects(t *testing.T) {
+	dir := t.TempDir()
+
+	tests := []struct {
+		name    string
+		cfgs    []projectConfig
+		errText string
+	}{
+		{name: "one named project", cfgs: []projectConfig{{Name: "notes", Dir: dir}}},
+		{name: "none at all", errText: "no project configured"},
+		{name: "no name", cfgs: []projectConfig{{Dir: dir}}, errText: "every project needs a name"},
+		{
+			name:    "name is not a slug",
+			cfgs:    []projectConfig{{Name: "My Notes", Dir: dir}},
+			errText: "must be a url slug",
+		},
+		{name: "no directory", cfgs: []projectConfig{{Name: "notes"}}, errText: "has no directory"},
+		{
+			name:    "two of the same name",
+			cfgs:    []projectConfig{{Name: "notes", Dir: dir}, {Name: "notes", Dir: t.TempDir()}},
+			errText: `two projects are named "notes"`,
+		},
+		{
+			name:    "one root inside the other",
+			cfgs:    []projectConfig{{Name: "outer", Dir: dir}, {Name: "inner", Dir: filepath.Join(dir, "sub")}},
+			errText: "overlap",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			err := validateProjects(tc.cfgs)
+
+			// assert
+			if tc.errText != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errText)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestResolveRoots(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "page.md")
+	require.NoError(t, os.WriteFile(file, []byte("# page"), 0o600))
+
+	tests := []struct {
+		name    string
+		cfgs    []projectConfig
+		errText string
+	}{
+		{name: "a directory", cfgs: []projectConfig{{Name: "notes", Dir: dir}}},
+		{name: "missing", cfgs: []projectConfig{{Name: "notes", Dir: filepath.Join(dir, "nope")}}, errText: "no such file"},
+		{name: "a file", cfgs: []projectConfig{{Name: "notes", Dir: file}}, errText: "is not a directory"},
+		{
+			name:    "the same directory spelled two ways",
+			cfgs:    []projectConfig{{Name: "one", Dir: dir}, {Name: "two", Dir: filepath.Join(dir, "sub", "..")}},
+			errText: "overlap",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			roots, err := resolveRoots(tc.cfgs)
+
+			// assert
+			if tc.errText != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errText)
+				return
+			}
+			require.NoError(t, err)
+			resolved, evalErr := filepath.EvalSymlinks(dir)
+			require.NoError(t, evalErr)
+			assert.Equal(t, []string{resolved}, roots)
 		})
 	}
 }
 
 func TestCheckSecretFile(t *testing.T) {
 	root := t.TempDir()
+	other := t.TempDir()
 
 	tests := []struct {
 		name    string
@@ -323,12 +400,13 @@ func TestCheckSecretFile(t *testing.T) {
 		noAuth  bool
 		refused bool
 	}{
-		{name: "outside the root", file: filepath.Join(t.TempDir(), "session.key")},
+		{name: "outside every root", file: filepath.Join(t.TempDir(), "session.key")},
 		{name: "default location", file: "/data/session.key"},
 		{name: "not set", file: ""},
-		{name: "inside the root", file: filepath.Join(root, "session.key"), refused: true},
-		{name: "deep inside the root", file: filepath.Join(root, "sub", "session.key"), refused: true},
-		{name: "inside the root but auth is off", file: filepath.Join(root, "session.key"), noAuth: true},
+		{name: "inside the first root", file: filepath.Join(root, "session.key"), refused: true},
+		{name: "inside the second root", file: filepath.Join(other, "session.key"), refused: true},
+		{name: "deep inside a root", file: filepath.Join(root, "sub", "session.key"), refused: true},
+		{name: "inside a root but auth is off", file: filepath.Join(root, "session.key"), noAuth: true},
 	}
 
 	for _, tc := range tests {
@@ -339,7 +417,7 @@ func TestCheckSecretFile(t *testing.T) {
 			opts.Auth.Disabled = tc.noAuth
 
 			// act
-			err := checkSecretFile(root, opts)
+			err := checkSecretFile([]string{root, other}, opts)
 
 			// assert
 			if tc.refused {
@@ -358,7 +436,7 @@ func TestNewHistory(t *testing.T) {
 		root := t.TempDir()
 
 		// act
-		hist, err := newHistory(&options{History: historyOff}, notesAt(t, root))
+		hist, err := newHistory(&options{History: historyOff}, projectConfig{Name: "notes"}, notesAt(t, root))
 
 		// assert
 		require.NoError(t, err)
@@ -372,7 +450,7 @@ func TestNewHistory(t *testing.T) {
 		root := t.TempDir()
 
 		// act
-		hist, err := newHistory(&options{History: historyAuto}, notesAt(t, root))
+		hist, err := newHistory(&options{History: historyAuto}, projectConfig{Name: "notes"}, notesAt(t, root))
 
 		// assert
 		require.NoError(t, err)
@@ -391,7 +469,7 @@ func TestNewHistory(t *testing.T) {
 		root := gitChild(t)
 
 		// act
-		hist, err := newHistory(&options{History: historyAuto}, notesAt(t, root))
+		hist, err := newHistory(&options{History: historyAuto}, projectConfig{Name: "notes"}, notesAt(t, root))
 
 		// assert
 		require.NoError(t, err)
@@ -404,7 +482,7 @@ func TestNewHistory(t *testing.T) {
 		root := gitChild(t)
 
 		// act
-		hist, err := newHistory(&options{History: historyOn}, notesAt(t, root))
+		hist, err := newHistory(&options{History: historyOn}, projectConfig{Name: "notes"}, notesAt(t, root))
 
 		// assert
 		require.ErrorIs(t, err, history.ErrInsideRepo)
@@ -418,12 +496,12 @@ func TestReconcileImportsWhatTheStoreShows(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "page.md"), []byte("# page\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "notes.txt"), []byte("plain\n"), 0o600))
-	hist, err := newHistory(&options{History: historyOn}, notesAt(t, root))
+	hist, err := newHistory(&options{History: historyOn}, projectConfig{Name: "notes"}, notesAt(t, root))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, hist.Close()) })
 
 	// act
-	reconcile(t.Context(), hist, historyActorStartup)
+	reconcile(t.Context(), "notes", hist, historyActorStartup)
 
 	// assert
 	entries, err := hist.Log(t.Context(), "page.md", 0)
@@ -477,7 +555,7 @@ func TestIndexAll(t *testing.T) {
 	index := search.New()
 
 	// act
-	err = indexAll(notes, index)
+	err = indexAll("notes", notes, index)
 
 	// assert
 	require.NoError(t, err)
@@ -492,7 +570,7 @@ func TestWatchStopsWithTheContext(t *testing.T) {
 	t.Cleanup(func() { _ = notes.Close() })
 
 	ctx, cancel := context.WithCancel(t.Context())
-	done := watch(ctx, notes, search.New(), &server.Web{}, nil)
+	done := watch(ctx, &runtimeProject{web: &server.Project{Name: "notes"}, notes: notes, index: search.New()}, &server.Web{})
 
 	// act
 	cancel()
@@ -518,7 +596,7 @@ func TestWatchKeepsTheIndexInStep(t *testing.T) {
 	index := search.New()
 	index.Set("page.md", []byte("# Page\n"))
 	ctx, cancel := context.WithCancel(t.Context())
-	done := watch(ctx, notes, index, &server.Web{}, nil)
+	done := watch(ctx, &runtimeProject{web: &server.Project{Name: "notes"}, notes: notes, index: index}, &server.Web{})
 
 	// act & assert
 	require.NoError(t, os.WriteFile(page, []byte("# Page\n\nkumquat\n"), 0o600))
@@ -565,7 +643,7 @@ func TestRunSmoke(t *testing.T) {
 	// examples/data lives inside this repository, so history would initialize a
 	// nested one right in the source tree
 	opts, err := parseOpts([]string{
-		"--root=./examples/data", "--listen=" + addr, "--auth.disabled", "--history=off", "--dbg",
+		"--root=./examples/data", "--project=notes", "--listen=" + addr, "--auth.disabled", "--history=off", "--dbg",
 	})
 	require.NoError(t, err)
 
@@ -589,9 +667,9 @@ func TestRunSmoke(t *testing.T) {
 	}
 }
 
-func TestRunValidationFailure(t *testing.T) {
+func TestRunRefusesAServerWithNoProjectName(t *testing.T) {
 	// arrange
-	opts, err := parseOpts([]string{"--root=/definitely/not/here", "--auth.disabled"})
+	opts, err := parseOpts([]string{"--root=./examples/data", "--auth.disabled"})
 	require.NoError(t, err)
 
 	// act
@@ -599,7 +677,20 @@ func TestRunValidationFailure(t *testing.T) {
 
 	// assert
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "root directory")
+	assert.Contains(t, err.Error(), "every project needs a name")
+}
+
+func TestRunValidationFailure(t *testing.T) {
+	// arrange
+	opts, err := parseOpts([]string{"--root=/definitely/not/here", "--project=notes", "--auth.disabled"})
+	require.NoError(t, err)
+
+	// act
+	err = run(t.Context(), opts)
+
+	// assert
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no such file")
 }
 
 func freePort(t *testing.T) int {

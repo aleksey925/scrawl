@@ -12,7 +12,9 @@
     <title>scrawl</title>
   </head>
   <body>
-    <div id="scrawl-app-root"></div>
+    <!-- the base the go shell fills in per project. `make run` pins
+         --project notes, so the dev bundle names the same one -->
+    <div id="scrawl-app-root" data-base="/p/notes"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

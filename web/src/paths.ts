@@ -1,3 +1,5 @@
+import { mountBase } from './mount';
+
 // the table store/upload.go uses for attachment names, letter for letter: a
 // page and the image beside it must not romanize the same word two ways
 const translit: Record<string, string> = {
@@ -41,12 +43,21 @@ export function displayName(name: string): string {
   return isMarkdown(name) ? name.slice(0, -'.md'.length) : name;
 }
 
+// Everything below is router-relative: React Router prepends the project's
+// basename itself, so none of these may carry the mount prefix. rawUrl is the
+// exception and says so in its own comment.
 export function documentUrl(path: string): string {
-  return isMarkdown(path) ? `/p/${encodeContentPath(path)}` : `/raw/${encodeContentPath(path)}`;
+  return `/doc/${encodeContentPath(path)}`;
 }
 
 export function directoryUrl(path: string): string {
-  return path === '' ? '/' : `/p/${encodeContentPath(path)}/`;
+  return path === '' ? '/' : `/doc/${encodeContentPath(path)}/`;
+}
+
+// rawUrl is physical: /raw/ is a server route the browser fetches directly, so
+// it is the one url the client mounts itself.
+export function rawUrl(path: string): string {
+  return `${mountBase()}/raw/${encodeContentPath(path)}`;
 }
 
 export function editUrl(path: string): string {

@@ -13,10 +13,10 @@ func TestResolve(t *testing.T) {
 		name, dest, dir string
 		want            target
 	}{
-		{"markdown in a subdir", "foo/bar.md", "dir/sub", target{dest: "/p/dir/sub/foo/bar.md", content: "dir/sub/foo/bar.md", rewrote: true}},
-		{"markdown at the root", "bar.md", "", target{dest: "/p/bar.md", content: "bar.md", rewrote: true}},
+		{"markdown in a subdir", "foo/bar.md", "dir/sub", target{dest: "/doc/dir/sub/foo/bar.md", content: "dir/sub/foo/bar.md", rewrote: true}},
+		{"markdown at the root", "bar.md", "", target{dest: "/doc/bar.md", content: "bar.md", rewrote: true}},
 		{"parent relative with a fragment", "../other/файл.md#раздел", "dir/sub", target{
-			dest:    "/p/dir/other/%D1%84%D0%B0%D0%B9%D0%BB.md#%D1%80%D0%B0%D0%B7%D0%B4%D0%B5%D0%BB",
+			dest:    "/doc/dir/other/%D1%84%D0%B0%D0%B9%D0%BB.md#%D1%80%D0%B0%D0%B7%D0%B4%D0%B5%D0%BB",
 			content: "dir/other/файл.md",
 			rewrote: true,
 		}},
@@ -24,9 +24,9 @@ func TestResolve(t *testing.T) {
 		{"python file", "docs/spec.py", "dir", target{dest: "/raw/dir/docs/spec.py", content: "dir/docs/spec.py", rewrote: true}},
 		{"long markdown extension", "notes.markdown", "dir",
 			target{dest: "/raw/dir/notes.markdown", content: "dir/notes.markdown", rewrote: true}},
-		{"directory", "sub/", "dir", target{dest: "/p/dir/sub/", content: "dir/sub", rewrote: true}},
-		{"uppercase extension", "A.MD", "", target{dest: "/p/A.MD", content: "A.MD", rewrote: true}},
-		{"query string", "a.md?x=1", "", target{dest: "/p/a.md?x=1", content: "a.md", rewrote: true}},
+		{"directory", "sub/", "dir", target{dest: "/doc/dir/sub/", content: "dir/sub", rewrote: true}},
+		{"uppercase extension", "A.MD", "", target{dest: "/doc/A.MD", content: "A.MD", rewrote: true}},
+		{"query string", "a.md?x=1", "", target{dest: "/doc/a.md?x=1", content: "a.md", rewrote: true}},
 		{"bare fragment", "#Общее", "dir", target{dest: "#Общее"}},
 		{"empty", "", "dir", target{}},
 		{"https", "https://ya.ru/x", "dir", target{dest: "https://ya.ru/x", external: true}},
@@ -34,7 +34,7 @@ func TestResolve(t *testing.T) {
 		{"protocol relative", "//ya.ru/x", "dir", target{dest: "//ya.ru/x"}},
 		{"mailto", "mailto:a@b.c", "dir", target{dest: "mailto:a@b.c"}},
 		{"tel", "tel:+79990000000", "dir", target{dest: "tel:+79990000000"}},
-		{"already an app route", "/p/a/b.md", "dir", target{dest: "/p/a/b.md"}},
+		{"already an app route", "/doc/a/b.md", "dir", target{dest: "/doc/a/b.md"}},
 		{"escapes the root", "../../../etc/passwd", "dir", target{dest: "#", broken: true}},
 		{"escapes the root from the root", "../x.md", "", target{dest: "#", broken: true}},
 		{"unparseable", "%zz.md", "dir", target{dest: "%zz.md", broken: true}},
@@ -76,7 +76,7 @@ func TestRenderLinkAttributes(t *testing.T) {
 		{
 			name:    "internal link is not nofollowed",
 			src:     "[x](other.md)",
-			want:    []string{`href="/p/dir/other.md"`},
+			want:    []string{`href="/doc/dir/other.md"`},
 			notWant: []string{"nofollow", "target="},
 		},
 		{
@@ -98,7 +98,7 @@ func TestRenderLinkAttributes(t *testing.T) {
 		{
 			name: "cyrillic file name is percent-encoded",
 			src:  "[x](файл.md)",
-			want: []string{`href="/p/dir/%D1%84%D0%B0%D0%B9%D0%BB.md"`},
+			want: []string{`href="/doc/dir/%D1%84%D0%B0%D0%B9%D0%BB.md"`},
 		},
 		{
 			name: "balanced parens survive in a fragment",
@@ -136,7 +136,7 @@ func TestRenderBrokenLinks(t *testing.T) {
 	// assert
 	require.NoError(t, err)
 	assert.Equal(t,
-		`<p><a href="/p/dir/missing.md" class="broken">a</a> <a href="/p/dir/real.md">b</a> `+
+		`<p><a href="/doc/dir/missing.md" class="broken">a</a> <a href="/doc/dir/real.md">b</a> `+
 			`<img src="/raw/dir/missing.png" alt="c" loading="lazy" decoding="async" class="broken"></p>`+"\n",
 		withoutSourceRanges(string(out)))
 }
@@ -165,6 +165,6 @@ func TestRenderRewritesRawHTMLLinks(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(out), `src="/raw/dir/%D1%81%D1%85%D0%B5%D0%BC%D0%B0.png"`)
 	assert.Contains(t, string(out), `loading="lazy"`)
-	assert.Contains(t, string(out), `href="/p/dir/other.md"`)
+	assert.Contains(t, string(out), `href="/doc/dir/other.md"`)
 	assert.Contains(t, string(out), `href="https://ya.ru"`)
 }

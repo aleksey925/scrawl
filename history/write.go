@@ -112,7 +112,7 @@ func (s *Service) recordFailed(op Op, paths []string, err error) error {
 	if op.Strict {
 		return fmt.Errorf("history: record %q: %w", op.Message, err)
 	}
-	log.Printf("[WARN] history: %q was not recorded and the next commit will fold it in: %v", op.Message, err)
+	log.Printf("[WARN] %s: %q was not recorded and the next commit will fold it in: %v", s.tag(), op.Message, err)
 	return nil
 }
 
@@ -225,7 +225,7 @@ func (s *Service) mutatedPaths(paths []string) []string {
 	for _, p := range paths {
 		cleaned, err := cleanPath(p)
 		if err != nil {
-			log.Printf("[WARN] history: skipping %q, which the mutation reported: %v", p, err)
+			log.Printf("[WARN] %s: skipping %q, which the mutation reported: %v", s.tag(), p, err)
 			continue
 		}
 		if s.versioned(cleaned) {
@@ -256,7 +256,7 @@ func (s *Service) reconcilePaths(ctx context.Context) ([]string, error) {
 		cleaned, cErr := cleanPath(p)
 		if cErr != nil {
 			// one odd entry must not stop the import of everything else
-			log.Printf("[WARN] history: skipping %q: %v", p, cErr)
+			log.Printf("[WARN] %s: skipping %q: %v", s.tag(), p, cErr)
 			continue
 		}
 		if s.versioned(cleaned) {

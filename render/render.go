@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	defaultPagePrefix = "/p/"
+	defaultPagePrefix = "/doc/"
 	defaultRawPrefix  = "/raw/"
 )
 
@@ -44,7 +44,7 @@ type Options struct {
 	// LinkExists reports whether a content path exists. Optional; when set,
 	// links to missing files are marked with the "broken" class.
 	LinkExists func(contentPath string) bool
-	// PagePrefix is the route prefix for markdown documents, "/p/" by default.
+	// PagePrefix is the route prefix for markdown documents, "/doc/" by default.
 	PagePrefix string
 	// RawPrefix is the route prefix for every other file, "/raw/" by default.
 	RawPrefix string

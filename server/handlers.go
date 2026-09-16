@@ -37,13 +37,13 @@ func indexOf(entries []store.FileInfo, name string) string {
 
 // renderIntro renders the README shown above a listing. A failure only costs
 // the intro, so it is logged and the listing is served without it.
-func (wb *Web) renderIntro(docPath string) (template.HTML, error) {
-	data, _, err := wb.Store.Read(docPath)
+func (m *mount) renderIntro(docPath string) (template.HTML, error) {
+	data, _, err := m.prj.Store.Read(docPath)
 	if err != nil {
 		log.Printf("[WARN] read intro %s: %v", docPath, err)
 		return "", err
 	}
-	res, err := wb.renderDoc(docPath, data, store.Rev(data))
+	res, err := m.renderDoc(docPath, data, store.Rev(data))
 	if err != nil {
 		log.Printf("[WARN] render intro %s: %v", docPath, err)
 		return "", err
@@ -54,17 +54,17 @@ func (wb *Web) renderIntro(docPath string) (template.HTML, error) {
 // renderDoc renders through the page cache. Rendering a large document of this
 // corpus costs around 109ms and 36MB, reading it back costs a hash of the
 // source, so the cache is keyed by the revision and can never go stale.
-func (wb *Web) renderDoc(docPath string, data []byte, rev string) (render.Result, error) {
-	if res, ok := wb.pages().get(docPath, rev); ok {
+func (m *mount) renderDoc(docPath string, data []byte, rev string) (render.Result, error) {
+	if res, ok := m.pages().get(m.prj.Name, docPath, rev); ok {
 		return res, nil
 	}
 	res, err := renderWithDeadline(docPath, data, maxRenderBytes, renderTimeout, func() (render.Result, error) {
-		return wb.Renderer.Render(data, docPath)
+		return m.prj.Renderer.Render(data, docPath)
 	})
 	if err != nil {
 		return render.Result{}, err
 	}
-	wb.pages().put(docPath, rev, res)
+	m.pages().put(m.prj.Name, docPath, rev, res)
 	return res, nil
 }
 
@@ -110,7 +110,7 @@ func renderWithDeadline[T any](docPath string, src []byte, limit int, timeout ti
 // Content-Type decides whether a browser executes the bytes, and a document
 // link such as [x](evil.html) reaches this route in one click, so an attacker
 // who can write one file must not be able to pick the type it comes back with.
-func (wb *Web) rawHandler(w http.ResponseWriter, r *http.Request) {
+func (m *mount) rawHandler(w http.ResponseWriter, r *http.Request) {
 	// a file route answers in plain text: the styled page it used to render
 	// carried the whole reading chrome, and a request for an attachment has no
 	// use for a sidebar full of notes
@@ -120,7 +120,7 @@ func (wb *Web) rawHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	f, fi, err := wb.Store.Open(p)
+	f, fi, err := m.prj.Store.Open(p)
 	if err != nil {
 		status := statusOf(err)
 		logFailure(r, status, err)

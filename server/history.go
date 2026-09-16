@@ -58,11 +58,11 @@ type restoreRequest struct {
 // history returns the service, falling back to the disabled one. A nil
 // *history.Service answers every method, so a server running without history
 // needs no second code path anywhere in the handlers.
-func (wb *Web) history() History {
-	if wb.History == nil {
+func (m *mount) history() History {
+	if m.prj.History == nil {
 		return (*history.Service)(nil)
 	}
-	return wb.History
+	return m.prj.History
 }
 
 // isDocument reports whether history may speak about a path at all: markdown is
@@ -70,19 +70,19 @@ func (wb *Web) history() History {
 // Neither is a question git can answer - the repository tracks whatever it
 // holds, a file the store hides included - so without this the history routes
 // are a second way into the notes directory, and one with no policy on it.
-func (wb *Web) isDocument(p string) bool {
-	return isMarkdown(p) && wb.Store.Visible(p)
+func (m *mount) isDocument(p string) bool {
+	return isMarkdown(p) && m.prj.Store.Visible(p)
 }
 
 // historyPath pulls the document out of a history URL and answers the request
 // itself when the path is not one history may speak about.
-func (wb *Web) historyPath(w http.ResponseWriter, r *http.Request) (string, bool) {
+func (m *mount) historyPath(w http.ResponseWriter, r *http.Request) (string, bool) {
 	p, ok := contentPath(r, "path")
 	if !ok || p == "" {
 		jsonError(w, http.StatusBadRequest, "bad path")
 		return "", false
 	}
-	if !wb.isDocument(p) {
+	if !m.isDocument(p) {
 		failJSON(w, r, fmt.Errorf("history %q: %w", p, store.ErrNotFound))
 		return "", false
 	}
@@ -91,24 +91,24 @@ func (wb *Web) historyPath(w http.ResponseWriter, r *http.Request) (string, bool
 
 // apiHistory lists the versions of a document, newest first, and serves one of
 // them instead when the query names a revision.
-func (wb *Web) apiHistory(w http.ResponseWriter, r *http.Request) {
-	p, ok := wb.historyPath(w, r)
+func (m *mount) apiHistory(w http.ResponseWriter, r *http.Request) {
+	p, ok := m.historyPath(w, r)
 	if !ok {
 		return
 	}
 	if rev := r.URL.Query().Get("rev"); rev != "" {
-		wb.historyVersion(w, r, p, rev)
+		m.historyVersion(w, r, p, rev)
 		return
 	}
 
-	entries, err := wb.history().Log(r.Context(), p, historyLimit)
+	entries, err := m.history().Log(r.Context(), p, historyLimit)
 	if err != nil {
 		failHistory(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"path":     p,
-		"degraded": wb.history().Degraded(),
+		"degraded": m.history().Degraded(),
 		"entries":  historyEntries(entries),
 	})
 }
@@ -124,13 +124,13 @@ func (wb *Web) apiHistory(w http.ResponseWriter, r *http.Request) {
 // Content is absent whenever there is nothing a reader could be shown: a
 // deletion recorded none, and a version too large to edit is too large to
 // escape into a JSON string. The diff is always there.
-func (wb *Web) historyVersion(w http.ResponseWriter, r *http.Request, p, rev string) {
-	blob, err := wb.history().Version(r.Context(), rev, p)
+func (m *mount) historyVersion(w http.ResponseWriter, r *http.Request, p, rev string) {
+	blob, err := m.history().Version(r.Context(), rev, p)
 	if err != nil {
 		failHistory(w, r, err)
 		return
 	}
-	diff, err := wb.history().Diff(r.Context(), rev, p)
+	diff, err := m.history().Diff(r.Context(), rev, p)
 	if err != nil {
 		failHistory(w, r, err)
 		return
@@ -138,7 +138,7 @@ func (wb *Web) historyVersion(w http.ResponseWriter, r *http.Request, p, rev str
 
 	res := map[string]any{"path": p, "rev": rev, "diff": diff}
 	if blob != "" {
-		data, showErr := wb.history().Show(r.Context(), blob)
+		data, showErr := m.history().Show(r.Context(), blob)
 		if showErr != nil {
 			failHistory(w, r, showErr)
 			return
@@ -153,15 +153,15 @@ func (wb *Web) historyVersion(w http.ResponseWriter, r *http.Request, p, rev str
 // versionContent reads the version a request named. A pair that resolves to no
 // blob is a commit that deleted the document, which left no content to write
 // back, and is refused like a pair that names no version at all.
-func (wb *Web) versionContent(ctx context.Context, rev, p string) ([]byte, error) {
-	blob, err := wb.history().Version(ctx, rev, p)
+func (m *mount) versionContent(ctx context.Context, rev, p string) ([]byte, error) {
+	blob, err := m.history().Version(ctx, rev, p)
 	if err != nil {
 		return nil, err
 	}
 	if blob == "" {
 		return nil, fmt.Errorf("history: version %s %q: %w", rev, p, history.ErrNoVersion)
 	}
-	return wb.history().Show(ctx, blob)
+	return m.history().Show(ctx, blob)
 }
 
 // apiHistoryRestore writes an old version back through the store, as an
@@ -175,11 +175,11 @@ func (wb *Web) versionContent(ctx context.Context, rev, p string) ([]byte, error
 // that took content the caller pointed at would copy any object the repository
 // holds into any document. The content has to fit what an ordinary save takes,
 // because this is one.
-func (wb *Web) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
-	if wb.refuseReadOnly(w, r) {
+func (m *mount) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
+	if m.refuseReadOnly(w, r) {
 		return
 	}
-	p, ok := wb.historyPath(w, r)
+	p, ok := m.historyPath(w, r)
 	if !ok {
 		return
 	}
@@ -191,12 +191,12 @@ func (wb *Web) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
 	if from == "" {
 		from = p
 	}
-	if !wb.isDocument(from) {
+	if !m.isDocument(from) {
 		failJSON(w, r, fmt.Errorf("history %q: %w", from, store.ErrNotFound))
 		return
 	}
 
-	data, err := wb.versionContent(r.Context(), req.Version, from)
+	data, err := m.versionContent(r.Context(), req.Version, from)
 	if err != nil {
 		failHistory(w, r, err)
 		return
@@ -207,9 +207,9 @@ func (wb *Web) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var fi store.FileInfo
-	err = wb.record(r, history.Op{Message: "restore " + p, Paths: []string{p}}, func() ([]string, error) {
+	err = m.record(r, history.Op{Message: "restore " + p, Paths: []string{p}}, func() ([]string, error) {
 		var writeErr error
-		fi, writeErr = wb.Store.Write(p, data, req.Rev)
+		fi, writeErr = m.prj.Store.Write(p, data, req.Rev)
 		return nil, writeErr
 	})
 	var conflict *store.ConflictError
@@ -222,8 +222,8 @@ func (wb *Web) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wb.touch(p)
-	writeJSON(w, http.StatusOK, wb.withHistory(map[string]any{
+	m.touch(p)
+	writeJSON(w, http.StatusOK, m.withHistory(map[string]any{
 		"path": p, "rev": store.Rev(data), "mod_time": fi.ModTime,
 	}))
 }
@@ -233,12 +233,12 @@ func (wb *Web) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
 // document changed when history holds no record of it. A write from a browser
 // is not, because a repository that cannot commit has to cost the reader a
 // warning and never the save itself.
-func (wb *Web) record(r *http.Request, op history.Op, mutate func() ([]string, error)) error {
-	op.Actor = wb.actor(r)
+func (m *mount) record(r *http.Request, op history.Op, mutate func() ([]string, error)) error {
+	op.Actor = m.actor(r)
 	op.Strict = auth.ByToken(r)
 
 	var mutated error
-	err := wb.history().Record(r.Context(), op, func() ([]string, error) {
+	err := m.history().Record(r.Context(), op, func() ([]string, error) {
 		paths, mErr := mutate()
 		mutated = mErr
 		return paths, mErr
@@ -266,8 +266,8 @@ func (wb *Web) actor(r *http.Request) string {
 // withHistory adds what the UI needs to tell that history fell behind. Every
 // mutating endpoint carries it, because the warning belongs on the save that
 // was missed rather than on whatever page is loaded next.
-func (wb *Web) withHistory(res map[string]any) map[string]any {
-	res["history_degraded"] = wb.history().Degraded()
+func (m *mount) withHistory(res map[string]any) map[string]any {
+	res["history_degraded"] = m.history().Degraded()
 	return res
 }
 

@@ -27,11 +27,6 @@ const appBase = "/static/spa/app/"
 // the bundle without the index that names its entry.
 const appManifest = "app/manifest.json"
 
-// appMount is where the app answers. The shell hands it to the client router as
-// its basename instead of the bundle baking one in, which is what let the app
-// serve /app while the old pages still owned these routes.
-const appMount = "/"
-
 const nonceBytes = 16
 
 // nonceKey carries the per-response style nonce from the security middleware to
@@ -168,58 +163,66 @@ func newAppShell(assetsFS fs.FS) (*appShell, error) {
 // appHandler answers a page route with the shell and lets the client router
 // decide what it is. It is behind the auth middleware like any other page, so
 // an anonymous visitor is redirected to the login page instead.
-func (wb *Web) appHandler(w http.ResponseWriter, r *http.Request) {
-	wb.serveShell(w, r, http.StatusOK)
+func (m *mount) appHandler(w http.ResponseWriter, r *http.Request) {
+	m.serveShell(w, r, http.StatusOK)
 }
 
-// notFoundHandler answers a path no route claimed. The status says the name
-// holds nothing, and the body is still the app, so the reader gets the empty
-// state with the navigation around it rather than a bare line of text.
-func (wb *Web) notFoundHandler(w http.ResponseWriter, r *http.Request) {
-	wb.serveShell(w, r, http.StatusNotFound)
+// notFoundHandler answers a path inside this project that no route claimed. The
+// status says the name holds nothing, and the body is still the app, so the
+// reader gets the empty state with the navigation around it rather than a bare
+// line of text.
+func (m *mount) notFoundHandler(w http.ResponseWriter, r *http.Request) {
+	m.serveShell(w, r, http.StatusNotFound)
 }
 
-// docHandler answers /p/. It is the one page route whose status is not always
-// 200: a link to a note that is not there answers 404 the way the server
+// plainNotFound answers a path that belongs to no project: an unknown project
+// name, or a stray path at the root. It cannot serve the shell, because the
+// base the client needs is a project's prefix and there is no project here.
+func plainNotFound(w http.ResponseWriter, _ *http.Request) {
+	http.Error(w, statusMessage(http.StatusNotFound), http.StatusNotFound)
+}
+
+// docHandler answers <prefix>/doc/. It is the one page route whose status is not
+// always 200: a link to a note that is not there answers 404 the way the server
 // rendered page did, because a crawler, a link checker and `curl -f` all read
 // the status and none of them run the client router. The body is the shell
 // either way, so the app still offers to create it.
 //
 // Only reading is judged. /edit/ of a missing note is how one is created.
-func (wb *Web) docHandler(w http.ResponseWriter, r *http.Request) {
+func (m *mount) docHandler(w http.ResponseWriter, r *http.Request) {
 	p, ok := contentPath(r, "path")
 	if !ok || p == "" {
-		wb.serveShell(w, r, http.StatusOK)
+		m.serveShell(w, r, http.StatusOK)
 		return
 	}
 
-	fi, err := wb.Store.Stat(p)
+	fi, err := m.prj.Store.Stat(p)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		// nothing of that name is there, whatever the extension says. Answering
-		// 200 would make /p/<anything>/ping look like a route that exists.
-		wb.serveShell(w, r, http.StatusNotFound)
+		// 200 would make /doc/<anything>/ping look like a route that exists.
+		m.serveShell(w, r, http.StatusNotFound)
 		return
 	case err == nil && !fi.IsDir && !isMarkdown(p):
 		// an attachment is not a page: it goes to the route that serves a file
 		// under a content type from an allowlist, with a policy of its own. A
 		// directory is not markdown either, and it is a page.
-		http.Redirect(w, r, "/raw/"+encodePath(p), http.StatusFound)
+		http.Redirect(w, r, m.prj.Prefix()+"/raw/"+encodePath(p), http.StatusFound)
 		return
 	}
-	wb.serveShell(w, r, http.StatusOK)
+	m.serveShell(w, r, http.StatusOK)
 }
 
-func (wb *Web) serveShell(w http.ResponseWriter, r *http.Request, status int) {
+func (m *mount) serveShell(w http.ResponseWriter, r *http.Request, status int) {
 	theme := themeOf(r)
 	data := shellData{
-		Title:   wb.Title,
+		Title:   m.Title,
 		Nonce:   nonceOf(r.Context()),
-		Version: wb.Version,
-		Base:    appMount,
-		Entry:   wb.appShell.entry,
-		CSS:     wb.appShell.css,
-		Preload: wb.appShell.preload,
+		Version: m.Version,
+		Base:    m.prj.Prefix(),
+		Entry:   m.appShell.entry,
+		CSS:     m.appShell.css,
+		Preload: m.appShell.preload,
 	}
 	// auto is left for the client: the system preference is not something a
 	// request carries, and guessing it here is the flash this attribute exists
@@ -229,7 +232,7 @@ func (wb *Web) serveShell(w http.ResponseWriter, r *http.Request, status int) {
 	}
 
 	var buf bytes.Buffer
-	if err := wb.appShell.tmpl.Execute(&buf, data); err != nil {
+	if err := m.appShell.tmpl.Execute(&buf, data); err != nil {
 		log.Printf("[ERROR] render app shell: %v", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return

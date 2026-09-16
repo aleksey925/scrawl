@@ -7,10 +7,14 @@ import { useLocation } from 'react-router';
 import { api } from '../api/client';
 import type { MeResponse, NavNode } from '../api/types';
 import { useApi } from '../api/useApi';
+import { mountBase } from '../mount';
 
 import { contentPathOf } from './naming';
 
-const storageKey = 'scrawl.tree.open';
+// one bucket per project: the set is read during the very first render, long
+// before /api/me has answered, so the key comes from the mount prefix and not
+// from the project name the server reports
+const storageKey = `scrawl.tree.open:${mountBase()}`;
 
 function readOpen(): ReadonlySet<string> {
   try {

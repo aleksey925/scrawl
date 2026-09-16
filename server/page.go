@@ -28,7 +28,7 @@ type Crumb struct {
 type TreeNode struct {
 	Name     string // display name, no extension for .md files
 	Path     string // content path, e.g. "python/notes.md"
-	URL      string // "/p/python/notes.md" for a file, "/p/python/" for a directory
+	URL      string // "/doc/python/notes.md" for a file, "/doc/python/" for a directory
 	IsDir    bool
 	Active   bool // on the path to the current page
 	Current  bool // is the current page
@@ -114,11 +114,11 @@ func themeOf(r *http.Request) string {
 // treeNodes converts the store tree into what the sidebar template renders. A
 // tree that cannot be built is logged and left empty: the page itself is still
 // worth serving without its navigation.
-func (wb *Web) treeNodes(current string) []TreeNode {
-	if wb.Store == nil {
+func (m *mount) treeNodes(current string) []TreeNode {
+	if m.prj.Store == nil {
 		return nil
 	}
-	root, err := wb.Store.Tree()
+	root, err := m.prj.Store.Tree()
 	if err != nil {
 		log.Printf("[WARN] build tree: %v", err)
 		return nil
@@ -177,7 +177,7 @@ func breadcrumbs(p string) []Crumb {
 		prefix = path.Join(prefix, seg)
 		crumb := Crumb{Name: displayName(seg)}
 		if i < len(segments)-1 {
-			crumb.URL = "/p/" + encodePath(prefix) + "/"
+			crumb.URL = dirURL(prefix)
 		}
 		res = append(res, crumb)
 	}
@@ -186,9 +186,15 @@ func breadcrumbs(p string) []Crumb {
 
 // contentURL is where a content path is served from: markdown is rendered,
 // everything else is handed over untouched.
+//
+// Every builder in this file produces a router-relative URL, which is what the
+// JSON hands the client: React Router prepends the project's basename itself,
+// so a prefix written in here would produce /p/notes/p/notes/... . The one
+// exception is the /raw/ half below, which names a route the browser fetches
+// directly; section 9 of the design puts the mounting on the reading side.
 func contentURL(p string) string {
 	if isMarkdown(p) {
-		return "/p/" + encodePath(p)
+		return "/doc/" + encodePath(p)
 	}
 	return "/raw/" + encodePath(p)
 }
@@ -206,7 +212,7 @@ func dirURL(p string) string {
 	if p == "" {
 		return "/"
 	}
-	return "/p/" + encodePath(p) + "/"
+	return "/doc/" + encodePath(p) + "/"
 }
 
 func editURL(p string) string { return "/edit/" + encodePath(p) }

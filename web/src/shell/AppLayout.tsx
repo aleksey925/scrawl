@@ -1,9 +1,10 @@
 import { ActionIcon, AppShell, Burger, Drawer } from '@mantine/core';
 import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router';
+import { Outlet, useLocation } from 'react-router';
 
 import { installUnauthorizedHandler } from '../api/client';
+import { goToLogin } from '../login';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { FileActionsProvider } from './FileActions';
@@ -18,7 +19,6 @@ import { useSwipeToClose } from './useSwipeToClose';
 
 export function AppLayout(): JSX.Element {
   const location = useLocation();
-  const navigate = useNavigate();
 
   const [navOpened, setNavOpened] = useState(false);
   const [tocOpened, setTocOpened] = useState(false);
@@ -70,14 +70,7 @@ export function AppLayout(): JSX.Element {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [toggleNav]);
 
-  useEffect(
-    () =>
-      installUnauthorizedHandler('shell', () => {
-        const from = encodeURIComponent(location.pathname + location.search);
-        void navigate(`/login?from=${from}`);
-      }),
-    [navigate, location.pathname, location.search],
-  );
+  useEffect(() => installUnauthorizedHandler('shell', goToLogin), []);
 
   const slots = useMemo<ShellSlots>(
     () => ({ actionsSlot, tocSlot, setTocPresent }),

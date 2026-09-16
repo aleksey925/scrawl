@@ -1,23 +1,22 @@
 import { ActionIcon, Menu, Text } from '@mantine/core';
 import { IconEyeOff, IconLogin, IconLogout, IconUserCircle } from '@tabler/icons-react';
 import type { JSX } from 'react';
-import { useNavigate } from 'react-router';
 
 import { api } from '../api/client';
+import { goToLogin } from '../login';
 
 import { useNav } from './NavContext';
 
 const iconSize = 18;
 
 export function AccountMenu(): JSX.Element {
-  const navigate = useNavigate();
   const { me } = useNav();
 
   const signedIn = me !== undefined && me.user !== '';
 
   async function signOut(): Promise<void> {
     await api.logout();
-    await navigate('/login');
+    goToLogin();
   }
 
   return (
@@ -59,7 +58,7 @@ export function AccountMenu(): JSX.Element {
           <Menu.Item
             data-testid="topbar-account-signin"
             leftSection={<IconLogin size={16} />}
-            onClick={() => void navigate('/login')}
+            onClick={goToLogin}
           >
             Sign in
           </Menu.Item>

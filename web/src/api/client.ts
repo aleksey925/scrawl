@@ -1,3 +1,4 @@
+import { mountBase } from '../mount';
 import { encodeContentPath } from '../paths';
 
 import type {
@@ -9,12 +10,11 @@ import type {
   HandoffKind,
   HistoryResponse,
   HistoryVersionResponse,
-  LoginRequest,
-  LoginResponse,
   MeResponse,
   NavResponse,
   PageResponse,
   PreviewRequest,
+  ProjectEntry,
   PreviewResponse,
   RestoreRequest,
   RestoreResponse,
@@ -55,10 +55,17 @@ export class ApiError extends Error {
 }
 
 // a 409 that names a url is the server handing the path over to another view,
-// not a failure: the caller navigates there
-export function handoffUrl(error: unknown): string | undefined {
-  if (error instanceof ApiError && error.status === 409 && error.url !== undefined) {
-    return error.url;
+// not a failure: the caller goes there. An attachment is the one kind whose
+// url is a server route rather than one of the app's, so the caller is told
+// which of the two it got.
+export interface Handoff {
+  kind: HandoffKind;
+  url: string;
+}
+
+export function handoffOf(error: unknown): Handoff | undefined {
+  if (error instanceof ApiError && error.status === 409 && error.url !== undefined && error.kind !== undefined) {
+    return { kind: error.kind, url: error.url };
   }
   return undefined;
 }
@@ -99,6 +106,18 @@ interface CallOptions extends RequestOptions {
   body?: unknown;
   form?: FormData;
   allowStatus?: readonly number[];
+}
+
+// The two halves of the server's URL space, which every request has to pick
+// between: a project's own API lives under its prefix, the handful of routes
+// that read no store answer at the root. Mixing them up is a 404 the moment the
+// prefix is not empty, which it never is.
+function projectUrl(path: string): string {
+  return mountBase() + path;
+}
+
+function globalUrl(path: string): string {
+  return path;
 }
 
 type QueryValue = string | number | undefined;
@@ -163,11 +182,11 @@ function isPage(body: PageResponse | ApiErrorBody): body is PageResponse {
 }
 
 function fileUrl(path: string): string {
-  return `/api/file/${encodeContentPath(path)}`;
+  return projectUrl(`/api/file/${encodeContentPath(path)}`);
 }
 
 function historyUrl(path: string): string {
-  return `/api/history/${encodeContentPath(path)}`;
+  return projectUrl(`/api/history/${encodeContentPath(path)}`);
 }
 
 export type RestoreOutcome = { ok: true } | { ok: false; current: string };
@@ -177,6 +196,7 @@ export interface ScrawlApi {
   dir(path: string, options?: RequestOptions): Promise<DirResponse>;
   nav(path: string, options?: RequestOptions): Promise<NavResponse>;
   me(options?: RequestOptions): Promise<MeResponse>;
+  projects(options?: RequestOptions): Promise<ProjectEntry[]>;
   tree(options?: RequestOptions): Promise<TreeResponse>;
   file(path: string, options?: RequestOptions): Promise<FileResponse>;
   saveFile(path: string, body: SaveFileRequest, options?: RequestOptions): Promise<SaveFileResponse>;
@@ -189,7 +209,6 @@ export interface ScrawlApi {
   restoreVersion(path: string, body: RestoreRequest, options?: RequestOptions): Promise<RestoreOutcome>;
   preview(body: PreviewRequest, options?: RequestOptions): Promise<PreviewResponse>;
   upload(dir: string, file: File, doc?: string, options?: RequestOptions): Promise<UploadResponse>;
-  login(body: LoginRequest, options?: RequestOptions): Promise<LoginResponse>;
   logout(options?: RequestOptions): Promise<void>;
 }
 
@@ -197,23 +216,27 @@ export const api: ScrawlApi = {
   // a missing document answers 404 with the page shape, which the document view
   // renders as an offer to create it. The browser revalidates it by ETag.
   page: async (path, options) => {
-    const body = await call<PageResponse | ApiErrorBody>('GET', `/api/page/${encodeContentPath(path)}`, {
-      ...options,
-      allowStatus: [404],
-    });
+    const body = await call<PageResponse | ApiErrorBody>(
+      'GET',
+      projectUrl(`/api/page/${encodeContentPath(path)}`),
+      { ...options, allowStatus: [404] },
+    );
     if (!isPage(body)) {
       throw new ApiError(404, body);
     }
     return body;
   },
 
-  dir: (path, options) => call<DirResponse>('GET', `/api/dir/${encodeContentPath(path)}`, options),
+  dir: (path, options) =>
+    call<DirResponse>('GET', projectUrl(`/api/dir/${encodeContentPath(path)}`), options),
 
-  nav: (path, options) => call<NavResponse>('GET', withQuery('/api/nav', { path }), options),
+  nav: (path, options) => call<NavResponse>('GET', withQuery(projectUrl('/api/nav'), { path }), options),
 
-  me: (options) => call<MeResponse>('GET', '/api/me', options),
+  me: (options) => call<MeResponse>('GET', projectUrl('/api/me'), options),
 
-  tree: (options) => call<TreeResponse>('GET', '/api/tree', options),
+  projects: (options) => call<ProjectEntry[]>('GET', globalUrl('/api/projects'), options),
+
+  tree: (options) => call<TreeResponse>('GET', projectUrl('/api/tree'), options),
 
   file: (path, options) => call<FileResponse>('GET', fileUrl(path), options),
 
@@ -230,12 +253,15 @@ export const api: ScrawlApi = {
   deleteEntry: (path, options) => call<void>('DELETE', fileUrl(path), options),
 
   move: async (from, to, options) => {
-    const res = await call<EntryPathResponse>('POST', '/api/move', { ...options, body: { from, to } });
+    const res = await call<EntryPathResponse>('POST', projectUrl('/api/move'), {
+      ...options,
+      body: { from, to },
+    });
     return res.path;
   },
 
   search: (query, limit, options) =>
-    call<SearchResponse>('GET', withQuery('/api/search', { q: query, limit }), options),
+    call<SearchResponse>('GET', withQuery(projectUrl('/api/search'), { q: query, limit }), options),
 
   history: (path, options) => call<HistoryResponse>('GET', historyUrl(path), options),
 
@@ -247,7 +273,7 @@ export const api: ScrawlApi = {
   restoreVersion: async (path, body, options) => {
     const res = await call<RestoreResponse | ApiErrorBody>(
       'POST',
-      `/api/history/restore/${encodeContentPath(path)}`,
+      projectUrl(`/api/history/restore/${encodeContentPath(path)}`),
       { ...options, body, allowStatus: [412] },
     );
     return 'current_content' in res && res.current_content !== undefined
@@ -255,18 +281,15 @@ export const api: ScrawlApi = {
       : { ok: true };
   },
 
-  preview: (body, options) => call<PreviewResponse>('POST', '/api/preview', { ...options, body }),
+  preview: (body, options) =>
+    call<PreviewResponse>('POST', projectUrl('/api/preview'), { ...options, body }),
 
   upload: (dir, file, doc, options) => {
     const form = new FormData();
     form.set('file', file);
-    return call<UploadResponse>('POST', withQuery(`/api/upload/${encodeContentPath(dir)}`, { doc }), {
-      ...options,
-      form,
-    });
+    const url = withQuery(projectUrl(`/api/upload/${encodeContentPath(dir)}`), { doc });
+    return call<UploadResponse>('POST', url, { ...options, form });
   },
 
-  login: (body, options) => call<LoginResponse>('POST', '/api/login', { ...options, body }),
-
-  logout: (options) => call<void>('POST', '/api/logout', options),
+  logout: (options) => call<void>('POST', globalUrl('/api/logout'), options),
 };

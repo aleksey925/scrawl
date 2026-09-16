@@ -32,7 +32,7 @@ install: build
 	@cp $(BIN_PATH) ~/.local/bin/
 
 run:
-	@go run . --root=./examples/data --listen=:7272 --auth.disabled --history=off --dbg
+	@go run . --root=./examples/data --project=notes --listen=:7272 --auth.disabled --history=off --dbg
 
 e2e: build
 	@cd e2e && npx playwright test

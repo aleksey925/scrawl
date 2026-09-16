@@ -8,7 +8,12 @@ import (
 	"strings"
 )
 
-const apiPrefix = "/api/"
+const (
+	apiPrefix = "/api/"
+	// projectPrefix is where every project's own URL space begins. auth knows
+	// it only to tell a project's API apart from its pages.
+	projectPrefix = "/p/"
+)
 
 // limiterKeys are the buckets one login attempt is counted against. The peer
 // address is always one of them: with TrustedProxy on the derived client ip
@@ -82,10 +87,27 @@ func (s *Service) secureFor(r *http.Request) bool {
 // wantsJSON reports whether the caller expects a JSON error instead of a
 // redirect to the login page.
 func wantsJSON(r *http.Request) bool {
-	if strings.HasPrefix(r.URL.Path, apiPrefix) {
+	if isAPIPath(r.URL.Path) {
 		return true
 	}
 	return strings.Contains(r.Header.Get("Accept"), "application/json")
+}
+
+// isAPIPath reports whether a path names an API endpoint. There are two of
+// them: the global routes at the root, and a project's own under /p/<name>/api.
+// The question is structural rather than a list of configured projects, so
+// nothing here has to be told when one is added, and an API client that omits
+// Accept still gets a JSON 401 instead of a redirect to an HTML form.
+func isAPIPath(p string) bool {
+	if strings.HasPrefix(p, apiPrefix) {
+		return true
+	}
+	rest, ok := strings.CutPrefix(p, projectPrefix)
+	if !ok {
+		return false
+	}
+	name, rest, ok := strings.Cut(rest, "/")
+	return ok && name != "" && (rest == "api" || strings.HasPrefix(rest, "api/"))
 }
 
 func writeJSONError(w http.ResponseWriter, code int, message string) {

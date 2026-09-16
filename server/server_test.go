@@ -43,32 +43,68 @@ const (
 	testReadToken = "scrawl_test-read-only"
 )
 
+// testProject is the one project every test server serves. It is named rather
+// than empty on purpose: the prefix is non-empty in every run of the real
+// binary, so a URL built without it has to fail here too.
+const testProject = "notes"
+
+// globalPaths are the routes that answer at the root instead of inside a
+// project. It is the server's own boundary - does this read a store - written
+// down once, so a test names the path it means and the helper decides which
+// tree that path lives in.
+var globalPaths = []string{
+	"/ping", "/static/", "/manifest.webmanifest",
+	"/login", "/logout", "/api/login", "/api/logout", "/api/projects",
+}
+
 // testServer is a whole app over a temporary notes directory.
 type testServer struct {
 	*Web
-	url  string
-	root string
+	url string
+	// root is the notes directory of the first project, secondRoot that of the
+	// second one when testOpts named it.
+	root       string
+	secondRoot string
+}
+
+// second is the project testOpts.second asked for.
+func (ts *testServer) second() *Project { return ts.Projects[1] }
+
+// prefix is where this server's only project answers.
+func (ts *testServer) prefix() string { return projectPrefix + testProject }
+
+// mount is the project bound to the server, which is the receiver every
+// handler that reads a store hangs off.
+func (ts *testServer) mount() *mount { return &mount{Web: ts.Web, prj: ts.Projects[0]} }
+
+// resolve turns a path a test names into the one the server answers. "/" is the
+// project's own root, not the server's: a test that means the redirect at the
+// server root asks for it literally.
+func (ts *testServer) resolve(p string) string {
+	for _, global := range globalPaths {
+		if p == global || strings.HasPrefix(p, global) || strings.HasPrefix(p, global+"?") {
+			return p
+		}
+	}
+	return ts.prefix() + p
 }
 
 type testOpts struct {
-	readOnly bool
-	withAuth bool
-	history  History
+	readOnly        bool // the whole server
+	projectReadOnly bool // this project alone
+	withAuth        bool
+	history         History
+
+	// second names a project served beside the first one, over a root of its
+	// own. Empty leaves the server with one project, which is what most tests
+	// need; naming it is what a test of the boundary between two projects asks
+	// for.
+	second string
 }
 
 func newTestServer(t *testing.T, opts testOpts) *testServer {
 	t.Helper()
 	root := testNotes(t)
-
-	notes, err := store.New(store.Config{Root: root, ReadOnly: opts.readOnly, Rescan: -1})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = notes.Close() })
-
-	index := search.New()
-	require.NoError(t, notes.Walk(func(fi store.FileInfo, data []byte) error {
-		index.Set(fi.Path, data)
-		return nil
-	}))
 
 	users, tokens := "", ""
 	if opts.withAuth {
@@ -84,6 +120,10 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 	})
 	require.NoError(t, err)
 
+	prj := testProjectAt(t, testProject, root, opts.readOnly || opts.projectReadOnly)
+	prj.ReadOnly = opts.projectReadOnly
+	prj.History = opts.history
+
 	wb := &Web{
 		Config: Config{
 			Title:        "Test Notes",
@@ -92,19 +132,45 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 			MaxUpload:    64 << 10,
 			AuthDisabled: !opts.withAuth,
 		},
-		Store:    notes,
-		Renderer: render.New(render.Options{LinkExists: notes.Exists}),
-		Index:    index,
+		Projects: []*Project{prj},
 		Auth:     svc,
-		History:  opts.history,
+	}
+	res := &testServer{Web: wb, root: root}
+	if opts.second != "" {
+		res.secondRoot = t.TempDir()
+		wb.Projects = append(wb.Projects, testProjectAt(t, opts.second, res.secondRoot, false))
 	}
 
 	router, err := wb.router()
 	require.NoError(t, err)
 	ts := httptest.NewServer(router)
 	t.Cleanup(ts.Close)
+	res.url = ts.URL
 
-	return &testServer{Web: wb, url: ts.URL, root: root}
+	return res
+}
+
+// testProjectAt builds one project over a directory, indexed and rendered the
+// way main builds one.
+func testProjectAt(t *testing.T, name, root string, readOnly bool) *Project {
+	t.Helper()
+	notes, err := store.New(store.Config{Root: root, ReadOnly: readOnly, Rescan: -1})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = notes.Close() })
+
+	index := search.New()
+	require.NoError(t, notes.Walk(func(fi store.FileInfo, data []byte) error {
+		index.Set(fi.Path, data)
+		return nil
+	}))
+
+	prj := &Project{Name: name, Kind: KindLocal, Store: notes, Index: index}
+	prj.Renderer = render.New(render.Options{
+		LinkExists: notes.Exists,
+		PagePrefix: prj.Prefix() + "/doc/",
+		RawPrefix:  prj.Prefix() + "/raw/",
+	})
+	return prj
 }
 
 // testNotes writes a small notes tree covering every shape the handlers have
@@ -142,10 +208,13 @@ func tinyPNG(t *testing.T) []byte {
 	return buf.Bytes()
 }
 
-// request is one call against the test server.
+// request is one call against the test server. path is resolved through
+// testServer.resolve unless literal is set, which is what a test asking about
+// a path outside every project needs.
 type request struct {
 	method  string
 	path    string
+	literal bool
 	body    io.Reader
 	headers map[string]string
 	client  *http.Client
@@ -167,8 +236,12 @@ func (ts *testServer) do(t *testing.T, req request) (response, string) {
 	if body == nil {
 		body = http.NoBody
 	}
+	target := req.path
+	if !req.literal {
+		target = ts.resolve(target)
+	}
 
-	httpReq, err := http.NewRequestWithContext(t.Context(), req.method, ts.url+req.path, body)
+	httpReq, err := http.NewRequestWithContext(t.Context(), req.method, ts.url+target, body)
 	require.NoError(t, err)
 	for name, value := range req.headers {
 		httpReq.Header.Set(name, value)
@@ -339,7 +412,7 @@ func TestPingIsExactAndDoesNotShadowContent(t *testing.T) {
 		status int
 	}{
 		{name: "the ping route", path: "/ping", status: http.StatusOK},
-		{name: "a document path ending in ping", path: "/p/notes/ping", status: http.StatusFound},
+		{name: "a document path ending in ping", path: "/doc/notes/ping", status: http.StatusFound},
 		{name: "an api path ending in ping", path: "/api/file/x/ping", status: http.StatusUnauthorized},
 	}
 
@@ -403,17 +476,17 @@ func TestPageRoutesServeTheApp(t *testing.T) {
 		location string
 	}{
 		{name: "root", path: "/", status: http.StatusOK},
-		{name: "document", path: "/p/guide.md", status: http.StatusOK},
-		{name: "directory", path: "/p/notes/", status: http.StatusOK},
+		{name: "document", path: "/doc/guide.md", status: http.StatusOK},
+		{name: "directory", path: "/doc/notes/", status: http.StatusOK},
 		{name: "editor", path: "/edit/guide.md", status: http.StatusOK},
 		{name: "history", path: "/history/guide.md", status: http.StatusOK},
 		{name: "search", path: "/search?q=widgets", status: http.StatusOK},
 		// a link to a note that is not there keeps answering 404: the status is
 		// all a crawler or a link checker reads, and neither runs the router
-		{name: "missing document", path: "/p/nope.md", status: http.StatusNotFound},
+		{name: "missing document", path: "/doc/nope.md", status: http.StatusNotFound},
 		// an attachment is not a page, so it goes to the route that serves files
 		// under a content type from an allowlist
-		{name: "attachment redirects to raw", path: "/p/snippet.py", status: http.StatusFound,
+		{name: "attachment redirects to raw", path: "/doc/snippet.py", status: http.StatusFound,
 			location: "/raw/snippet.py"},
 		{name: "unknown route", path: "/nothing", status: http.StatusNotFound},
 	}
@@ -426,10 +499,10 @@ func TestPageRoutesServeTheApp(t *testing.T) {
 			// assert
 			assert.Equal(t, tc.status, resp.status)
 			if tc.location != "" {
-				assert.Equal(t, tc.location, resp.header.Get("Location"))
+				assert.Equal(t, ts.prefix()+tc.location, resp.header.Get("Location"))
 				return
 			}
-			if tc.status == http.StatusOK || tc.path == "/p/nope.md" {
+			if tc.status == http.StatusOK || tc.path == "/doc/nope.md" {
 				assert.Contains(t, body, `id="scrawl-app-root"`)
 			}
 		})
@@ -458,19 +531,19 @@ func TestOnlyDotMDIsADocument(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	view, _ := ts.do(t, request{path: "/p/long.markdown"})
+	view, _ := ts.do(t, request{path: "/doc/long.markdown"})
 	_, linking := ts.json(t, request{path: "/api/page/links.md"})
 	_, found := ts.json(t, request{path: "/api/search?q=kumquat"})
 
 	// assert
 	assert.Equal(t, http.StatusFound, view.status)
-	assert.Equal(t, "/raw/long.markdown", view.header.Get("Location"))
-	assert.Contains(t, linking["html"], `href="/raw/long.markdown"`,
+	assert.Equal(t, ts.prefix()+"/raw/long.markdown", view.header.Get("Location"))
+	assert.Contains(t, linking["html"], `href="`+ts.prefix()+`/raw/long.markdown"`,
 		"the renderer sends a .markdown link to the file route, not to a page")
 	assert.Empty(t, found["hits"])
 
 	paths := []string{}
-	for _, node := range ts.treeNodes("") {
+	for _, node := range ts.mount().treeNodes("") {
 		paths = append(paths, node.Path)
 	}
 	assert.Equal(t, []string{"docs", "images", "notes", "guide.md", "index.md", "links.md"}, paths)
@@ -481,7 +554,7 @@ func TestViewNeverLeaksTheFilesystemPath(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	_, page := ts.do(t, request{path: "/p/nope/"})
+	_, page := ts.do(t, request{path: "/doc/nope/"})
 	_, api := ts.do(t, request{path: "/api/file/nope.md"})
 
 	// assert
@@ -664,7 +737,7 @@ func TestTreeKeepsEveryFolder(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(ts.root, "empty"), 0o750))
 
 	// act
-	nodes := ts.treeNodes("")
+	nodes := ts.mount().treeNodes("")
 
 	// assert
 	paths := []string{}
@@ -681,15 +754,15 @@ func TestTreeDirectoriesCarryTheirPageURL(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	nodes := ts.treeNodes("docs/page.md")
+	nodes := ts.mount().treeNodes("docs/page.md")
 
 	// assert
 	docs := nodes[0]
 	require.True(t, docs.IsDir)
-	assert.Equal(t, "/p/docs/", docs.URL)
+	assert.Equal(t, "/doc/docs/", docs.URL)
 	assert.True(t, docs.Active)
 	assert.False(t, docs.Current, "the current page is the document, not the folder holding it")
-	assert.Equal(t, "/p/docs/sub/", docs.Children[0].URL)
+	assert.Equal(t, "/doc/docs/sub/", docs.Children[0].URL)
 }
 
 func TestTreeMarksTheFolderBeingViewed(t *testing.T) {
@@ -697,7 +770,7 @@ func TestTreeMarksTheFolderBeingViewed(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	nodes := ts.treeNodes("docs/sub")
+	nodes := ts.mount().treeNodes("docs/sub")
 
 	// assert
 	docs := nodes[0]
@@ -716,7 +789,7 @@ func TestNavMarksTheFolderBeingViewed(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	page, _ := ts.do(t, request{path: "/p/docs/sub/"})
+	page, _ := ts.do(t, request{path: "/doc/docs/sub/"})
 	_, nav := ts.json(t, request{path: "/api/nav?path=docs/sub"})
 
 	// assert
@@ -737,7 +810,7 @@ func TestNavMarksTheFolderBeingViewed(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "docs/sub", sub["path"])
 	assert.Equal(t, true, sub["current"])
-	assert.Equal(t, "/p/docs/sub/", sub["url"])
+	assert.Equal(t, "/doc/docs/sub/", sub["url"])
 }
 
 func TestAPIFileGet(t *testing.T) {
@@ -748,7 +821,7 @@ func TestAPIFileGet(t *testing.T) {
 	resp, body := ts.json(t, request{path: "/api/file/guide.md"})
 
 	// assert
-	source, _, err := ts.Store.Read("guide.md")
+	source, _, err := ts.Projects[0].Store.Read("guide.md")
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.status)
 	assert.Equal(t, "guide.md", body["path"])
@@ -815,15 +888,15 @@ func TestAPIFileLifecycle(t *testing.T) {
 
 	removed, _ := ts.do(t, request{method: http.MethodDelete, path: "/api/file/new/renamed.md"})
 	assert.Equal(t, http.StatusNoContent, removed.status)
-	assert.False(t, ts.Store.Exists("new/renamed.md"))
+	assert.False(t, ts.Projects[0].Store.Exists("new/renamed.md"))
 }
 
 func TestAPIFileSaveConflict(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	original, _, err := ts.Store.Read("guide.md")
+	original, _, err := ts.Projects[0].Store.Read("guide.md")
 	require.NoError(t, err)
-	_, err = ts.Store.Write("guide.md", []byte("# Changed on disk\n"), store.Rev(original))
+	_, err = ts.Projects[0].Store.Write("guide.md", []byte("# Changed on disk\n"), store.Rev(original))
 	require.NoError(t, err)
 
 	// act
@@ -842,7 +915,7 @@ func TestAPIFileSaveConflict(t *testing.T) {
 func TestAPIFileSaveOntoAnExistingFile(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	current, _, err := ts.Store.Read("guide.md")
+	current, _, err := ts.Projects[0].Store.Read("guide.md")
 	require.NoError(t, err)
 
 	// act
@@ -861,7 +934,7 @@ func TestAPIFileSaveOntoAnExistingFile(t *testing.T) {
 func TestAPISaveRefreshesTheSearchIndex(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	require.Empty(t, ts.Index.Search("kumquat", 5))
+	require.Empty(t, ts.Projects[0].Index.Search("kumquat", 5))
 
 	// act
 	resp, _ := ts.json(t, request{
@@ -871,7 +944,7 @@ func TestAPISaveRefreshesTheSearchIndex(t *testing.T) {
 
 	// assert
 	require.Equal(t, http.StatusOK, resp.status)
-	hits := ts.Index.Search("kumquat", 5)
+	hits := ts.Projects[0].Index.Search("kumquat", 5)
 	require.Len(t, hits, 1)
 	assert.Equal(t, "guide.md", hits[0].Path)
 }
@@ -964,7 +1037,7 @@ func TestAPIMalformedBody(t *testing.T) {
 func TestAPIPreviewMatchesTheViewPage(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	source, _, err := ts.Store.Read("guide.md")
+	source, _, err := ts.Projects[0].Store.Read("guide.md")
 	require.NoError(t, err)
 
 	// act
@@ -974,7 +1047,7 @@ func TestAPIPreviewMatchesTheViewPage(t *testing.T) {
 	})
 
 	// assert
-	rendered, err := ts.Renderer.Render(source, "guide.md")
+	rendered, err := ts.Projects[0].Renderer.Render(source, "guide.md")
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.status)
 	assert.Equal(t, string(rendered.HTML), body["html"])
@@ -1063,7 +1136,7 @@ func TestAPISearch(t *testing.T) {
 	require.Len(t, hits, 1)
 	hit := hits[0].(map[string]any)
 	assert.Equal(t, "guide.md", hit["path"])
-	assert.Equal(t, "/p/guide.md?q=widgets", hit["url"],
+	assert.Equal(t, "/doc/guide.md?q=widgets", hit["url"],
 		"the hit carries the query on, so the page it opens can jump to the match")
 	assert.Contains(t, hit["snippet"], "<mark>widgets</mark>")
 	assert.NotNil(t, body["elapsed_ms"])
@@ -1096,7 +1169,7 @@ func TestAPIUpload(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.status)
 	assert.Equal(t, "notes/cyrillic/skrinshot-diska.png", res["path"])
 	assert.Equal(t, "![](cyrillic/skrinshot-diska.png)", res["markdown"])
-	assert.True(t, ts.Store.Exists("notes/cyrillic/skrinshot-diska.png"))
+	assert.True(t, ts.Projects[0].Store.Exists("notes/cyrillic/skrinshot-diska.png"))
 }
 
 func TestUploadDir(t *testing.T) {
@@ -1233,7 +1306,7 @@ func TestReadOnlyIsAnnouncedAndEnforced(t *testing.T) {
 	ts := newTestServer(t, testOpts{readOnly: true})
 
 	// act
-	page, _ := ts.do(t, request{path: "/p/guide.md"})
+	page, _ := ts.do(t, request{path: "/doc/guide.md"})
 	editor, _ := ts.do(t, request{path: "/edit/guide.md"})
 	_, me := ts.json(t, request{path: "/api/me"})
 	save, saved := ts.json(t, request{
@@ -1258,7 +1331,7 @@ func TestAuthGuardsEverythingButThePublicRoutes(t *testing.T) {
 		path   string
 		status int
 	}{
-		{name: "page redirects to login", path: "/p/guide.md", status: http.StatusFound},
+		{name: "page redirects to login", path: "/doc/guide.md", status: http.StatusFound},
 		{name: "root redirects to login", path: "/", status: http.StatusFound},
 		{name: "api answers 401", path: "/api/tree", status: http.StatusUnauthorized},
 		{name: "login page is public", path: "/login", status: http.StatusOK},
@@ -1323,7 +1396,7 @@ func (ts *testServer) files(t *testing.T) map[string]string {
 
 func TestAPITokenReads(t *testing.T) {
 	ts := newTestServer(t, testOpts{withAuth: true})
-	guide, _, err := ts.Store.Read("guide.md")
+	guide, _, err := ts.Projects[0].Store.Read("guide.md")
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -1376,7 +1449,7 @@ func TestAPITokenWrites(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, attached.status)
 	assert.Equal(t, http.StatusNoContent, removed.status)
 	assert.Contains(t, ts.files(t), uploaded["path"])
-	assert.False(t, ts.Store.Exists("inbox/agent.md"))
+	assert.False(t, ts.Projects[0].Store.Exists("inbox/agent.md"))
 }
 
 func TestTokenWriteIsNotACrossSiteTarget(t *testing.T) {
@@ -1469,7 +1542,7 @@ func TestUnknownTokenIsRefusedEverywhere(t *testing.T) {
 		path string
 	}{
 		{name: "api", path: "/api/tree"},
-		{name: "page", path: "/p/guide.md"},
+		{name: "page", path: "/doc/guide.md"},
 		{name: "public route", path: "/login"},
 	}
 
@@ -1492,12 +1565,12 @@ func TestLoginFlow(t *testing.T) {
 	client := ts.login(t)
 
 	// act
-	page, _ := ts.do(t, request{path: "/p/guide.md", client: client})
+	page, _ := ts.do(t, request{path: "/doc/guide.md", client: client})
 	// the page carries no user name any more, the app asks who it is serving
 	_, me := ts.json(t, request{path: "/api/me", client: client})
 	loginAgain, _ := ts.do(t, request{path: "/login", client: client})
 	out, _ := ts.do(t, request{method: http.MethodPost, path: "/logout", client: client})
-	afterLogout, _ := ts.do(t, request{path: "/p/guide.md", client: client})
+	afterLogout, _ := ts.do(t, request{path: "/doc/guide.md", client: client})
 
 	// assert
 	assert.Equal(t, http.StatusOK, page.status)
@@ -1510,7 +1583,7 @@ func TestLoginFlow(t *testing.T) {
 func TestLoginRedirectsBackToTheRequestedPage(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{withAuth: true})
-	form := url.Values{"username": {testUser}, "password": {testPassword}, "from": {"/p/notes/cyrillic.md"}}
+	form := url.Values{"username": {testUser}, "password": {testPassword}, "from": {"/doc/notes/cyrillic.md"}}
 
 	// act
 	resp, _ := ts.do(t, request{
@@ -1522,7 +1595,7 @@ func TestLoginRedirectsBackToTheRequestedPage(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusSeeOther, resp.status)
-	assert.Equal(t, "/p/notes/cyrillic.md", resp.header.Get("Location"))
+	assert.Equal(t, "/doc/notes/cyrillic.md", resp.header.Get("Location"))
 }
 
 func TestLoginRejectsAndThenThrottles(t *testing.T) {
@@ -1614,11 +1687,11 @@ func TestRenderCacheIsUsedAndInvalidated(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
 	rev := revOf(t, ts, "guide.md")
-	ts.pages().put("guide.md", rev, render.Result{HTML: "<p>served from the cache</p>", Title: "Cached"})
+	ts.pages().put(testProject, "guide.md", rev, render.Result{HTML: "<p>served from the cache</p>", Title: "Cached"})
 
 	// act
 	cached, cachedBody := ts.json(t, request{path: "/api/page/guide.md"})
-	ts.Invalidate("guide.md")
+	ts.Invalidate(testProject, "guide.md")
 	fresh, freshBody := ts.json(t, request{path: "/api/page/guide.md"})
 
 	// assert
@@ -1642,13 +1715,13 @@ func TestRenderCacheFillsOnTheFirstRequest(t *testing.T) {
 
 	// assert
 	assert.Equal(t, 1, ts.pages().len())
-	_, ok := ts.pages().get("guide.md", revOf(t, ts, "guide.md"))
+	_, ok := ts.pages().get(testProject, "guide.md", revOf(t, ts, "guide.md"))
 	assert.True(t, ok)
 }
 
 func revOf(t *testing.T, ts *testServer, contentPath string) string {
 	t.Helper()
-	data, _, err := ts.Store.Read(contentPath)
+	data, _, err := ts.Projects[0].Store.Read(contentPath)
 	require.NoError(t, err)
 	return store.Rev(data)
 }
@@ -1666,7 +1739,7 @@ func TestLoginTemplateExecutes(t *testing.T) {
 	}{
 		{name: "plain", data: LoginPage{SiteTitle: "Test Notes", Version: "v1", Theme: "auto"}},
 		{name: "refused", data: LoginPage{SiteTitle: "Test Notes", Version: "v1", Theme: "dark",
-			Error: "Wrong user name or password", From: "/p/guide.md"}},
+			Error: "Wrong user name or password", From: "/doc/guide.md"}},
 	}
 
 	for _, tc := range tests {
@@ -1698,13 +1771,13 @@ func TestPageLinksEscapeAwkwardPaths(t *testing.T) {
 		got  string
 		want string
 	}{
-		{name: "document", got: contentURL(awkward), want: "/p/" + escaped},
+		{name: "document", got: contentURL(awkward), want: "/doc/" + escaped},
 		{name: "editor", got: editURL(awkward), want: "/edit/" + escaped},
 		{name: "history", got: historyURL(awkward), want: "/history/" + escaped},
-		{name: "directory", got: dirURL("notes/что? да"), want: "/p/notes/%D1%87%D1%82%D0%BE%3F%20%D0%B4%D0%B0/"},
+		{name: "directory", got: dirURL("notes/что? да"), want: "/doc/notes/%D1%87%D1%82%D0%BE%3F%20%D0%B4%D0%B0/"},
 		// a hit carries the query on, which is what lights up the match on the
 		// page it opens, so the link is a path and a query together
-		{name: "search hit", got: searchURL(awkward, "да"), want: "/p/" + escaped + "?q=%D0%B4%D0%B0"},
+		{name: "search hit", got: searchURL(awkward, "да"), want: "/doc/" + escaped + "?q=%D0%B4%D0%B0"},
 	}
 
 	for _, tc := range tests {
@@ -1834,10 +1907,10 @@ func TestContentURL(t *testing.T) {
 		path     string
 		expected string
 	}{
-		{name: "markdown", path: "notes/page.md", expected: "/p/notes/page.md"},
-		{name: "uppercase markdown", path: "notes/PAGE.MD", expected: "/p/notes/PAGE.MD"},
+		{name: "markdown", path: "notes/page.md", expected: "/doc/notes/page.md"},
+		{name: "uppercase markdown", path: "notes/PAGE.MD", expected: "/doc/notes/PAGE.MD"},
 		{name: "attachment", path: "images/logo.png", expected: "/raw/images/logo.png"},
-		{name: "cyrillic", path: "заметки.md", expected: "/p/%D0%B7%D0%B0%D0%BC%D0%B5%D1%82%D0%BA%D0%B8.md"},
+		{name: "cyrillic", path: "заметки.md", expected: "/doc/%D0%B7%D0%B0%D0%BC%D0%B5%D1%82%D0%BA%D0%B8.md"},
 		{name: "space", path: "my file.png", expected: "/raw/my%20file.png"},
 	}
 
@@ -1859,11 +1932,11 @@ func TestBreadcrumbs(t *testing.T) {
 		{name: "top level file", path: "guide.md",
 			expected: []Crumb{{Name: "Home", URL: "/"}, {Name: "guide"}}},
 		{name: "nested file", path: "notes/deep/nested.md", expected: []Crumb{
-			{Name: "Home", URL: "/"}, {Name: "notes", URL: "/p/notes/"},
-			{Name: "deep", URL: "/p/notes/deep/"}, {Name: "nested"},
+			{Name: "Home", URL: "/"}, {Name: "notes", URL: "/doc/notes/"},
+			{Name: "deep", URL: "/doc/notes/deep/"}, {Name: "nested"},
 		}},
 		{name: "cyrillic segment", path: "заметки/файл.md", expected: []Crumb{
-			{Name: "Home", URL: "/"}, {Name: "заметки", URL: "/p/%D0%B7%D0%B0%D0%BC%D0%B5%D1%82%D0%BA%D0%B8/"},
+			{Name: "Home", URL: "/"}, {Name: "заметки", URL: "/doc/%D0%B7%D0%B0%D0%BC%D0%B5%D1%82%D0%BA%D0%B8/"},
 			{Name: "файл"},
 		}},
 	}
@@ -1961,7 +2034,7 @@ func TestWebRunEmptyListenAddr(t *testing.T) {
 func TestWebRunGracefulShutdown(t *testing.T) {
 	// arrange
 	addr := fmt.Sprintf("127.0.0.1:%d", freePort(t))
-	wb := &Web{Config: Config{
+	wb := &Web{Projects: []*Project{{Name: testProject}}, Config: Config{
 		ListenAddr:        addr,
 		Version:           "test",
 		ReadHeaderTimeout: time.Second,
@@ -1995,7 +2068,7 @@ func TestWebRunBusyPort(t *testing.T) {
 	require.NoError(t, err)
 	defer ln.Close()
 
-	wb := &Web{Config: Config{ListenAddr: ln.Addr().String()}}
+	wb := &Web{Projects: []*Project{{Name: testProject}}, Config: Config{ListenAddr: ln.Addr().String()}}
 
 	// act
 	err = wb.Run(t.Context())

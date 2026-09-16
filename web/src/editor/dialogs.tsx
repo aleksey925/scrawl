@@ -1,6 +1,7 @@
 import { Button, Group, SimpleGrid, Stack, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 
+import { loginUrl } from '../login';
 import { layout } from '../theme';
 
 import classes from './Editor.module.css';
@@ -99,7 +100,7 @@ export function openConflict({ mine, theirs, onOverwrite, onCopy }: ConflictOpti
   });
 }
 
-export function openSessionExpired(loginUrl: string): void {
+export function openSessionExpired(): void {
   modals.open({
     modalId: sessionId,
     title: 'Your session expired',
@@ -122,7 +123,7 @@ export function openSessionExpired(loginUrl: string): void {
             data-testid="editor-session-signin"
             h={layout.tapTarget}
             onClick={() => {
-              window.open(loginUrl, '_blank', 'noopener');
+              window.open(loginUrl(), '_blank', 'noopener');
               modals.close(sessionId);
             }}
           >

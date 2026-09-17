@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"testing"
@@ -211,6 +212,78 @@ func TestFlagProjectsReadTheFixedVariable(t *testing.T) {
 			Token: "Bearer ghp_flag", Pull: time.Minute,
 		},
 	}}, cfgs)
+}
+
+// TestResolveGitToken is what an operator actually holds: a token, not a
+// header. A whole header still passes through, because the scheme a host wants
+// is the host's business and Bitbucket takes only Bearer.
+func TestResolveGitToken(t *testing.T) {
+	const pat = "github_pat_xxx"
+	encoded := base64.StdEncoding.EncodeToString([]byte(tokenUser + ":" + pat))
+
+	tests := []struct {
+		name    string
+		raw     string
+		want    string
+		errText string
+	}{
+		{name: "a bare token", raw: pat, want: "Basic " + encoded},
+		{name: "a whole basic header", raw: "Basic " + encoded, want: "Basic " + encoded},
+		{name: "a whole bearer header", raw: "Bearer " + pat, want: "Bearer " + pat},
+		{name: "a scheme in another case", raw: "basic " + encoded, want: "basic " + encoded},
+		{name: "no credential at all", raw: "", want: ""},
+		{
+			name:    "a basic header holding the token itself",
+			raw:     "Basic " + pat,
+			errText: "not base64",
+		},
+		{
+			name:    "something else with a space in it",
+			raw:     "user pass",
+			errText: "pass the token on its own",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			file := filepath.Join(t.TempDir(), "token")
+			require.NoError(t, os.WriteFile(file, []byte(tc.raw), 0o600))
+			if tc.raw == "" {
+				file = ""
+			}
+
+			// act
+			res, err := resolveGitToken(file, "")
+
+			// assert
+			if tc.errText != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errText)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, res)
+		})
+	}
+}
+
+// the header the child git process ends up carrying, which is the only thing
+// that has to be right: whatever the operator wrote, this is what GitHub reads
+func TestABareTokenBecomesTheHeaderGitSends(t *testing.T) {
+	// arrange
+	t.Setenv(repoTokenEnv, "github_pat_xxx")
+	opts := &options{Root: "/notes", Project: "notes"}
+	opts.Repo.URL = "https://github.com/acme/wiki.git"
+	opts.Repo.Branch = "main"
+
+	// act
+	cfgs, err := loadConfig(opts)
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, "Basic "+base64.StdEncoding.EncodeToString([]byte(tokenUser+":github_pat_xxx")),
+		cfgs[0].Remote.Token)
 }
 
 // the fixed variable is optional, unlike one the configuration named: an https

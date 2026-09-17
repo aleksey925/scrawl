@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -126,7 +128,7 @@ func repoOf(prj configProject) (*remoteConfig, error) {
 		return nil, fmt.Errorf("project %q sets both repo.hook_secret_file and repo.hook_secret_env, pick one",
 			prj.Name)
 	}
-	token, err := resolveSecret(gitCredential, prj.Repo.TokenFile, prj.Repo.TokenEnv)
+	token, err := resolveGitToken(prj.Repo.TokenFile, prj.Repo.TokenEnv)
 	if err != nil {
 		return nil, fmt.Errorf("project %q: %w", prj.Name, err)
 	}
@@ -157,7 +159,7 @@ func flagProjects(opts *options) ([]projectConfig, error) {
 		return []projectConfig{cfg}, nil
 	}
 
-	token, err := resolveSecret(gitCredential, "", namedIfSet(repoTokenEnv))
+	token, err := resolveGitToken("", namedIfSet(repoTokenEnv))
 	if err != nil {
 		return nil, err
 	}
@@ -196,6 +198,51 @@ func namedIfPresent(name string) string {
 		return name
 	}
 	return ""
+}
+
+// tokenUser is the username a bare token is paired with. Every host this can
+// reach takes the token as the password of a Basic pair and ignores the name;
+// this one is what GitHub's own tooling sends, so a log on the other side reads
+// the way an operator expects.
+const tokenUser = "x-access-token"
+
+// the schemes a value may already name, in which case it is a whole header and
+// is passed through. Bitbucket takes only Bearer and GitHub's git endpoint only
+// Basic, so the choice has to stay with the operator.
+var authSchemes = []string{"basic", "bearer", "token"}
+
+// resolveGitToken reads the repository credential and turns it into the header
+// git will carry.
+//
+// A bare token is the normal case, because a token is what a provider hands
+// out, and it becomes Basic with tokenUser. A value that already names a scheme
+// is a whole header and is left alone.
+//
+// The base64 of a Basic value we did not build is checked here, and that is not
+// pedantry: GitHub answers a header it cannot decode with a bare 400, half a
+// minute into a clone, naming neither the header nor the reason.
+func resolveGitToken(file, envVar string) (string, error) {
+	raw, err := resolveSecret(gitCredential, file, envVar)
+	if err != nil || raw == "" {
+		return "", err
+	}
+	scheme, rest, named := strings.Cut(raw, " ")
+	if !named {
+		return "Basic " + base64.StdEncoding.EncodeToString([]byte(tokenUser+":"+raw)), nil
+	}
+	if !slices.Contains(authSchemes, strings.ToLower(scheme)) {
+		return "", fmt.Errorf("the %s holds a space and does not start with %s, "+
+			"pass the token on its own or a whole Authorization header",
+			gitCredential, strings.Join(authSchemes, ", "))
+	}
+	if strings.EqualFold(scheme, "basic") {
+		if _, err = base64.StdEncoding.DecodeString(rest); err != nil {
+			return "", fmt.Errorf("the %s says Basic and what follows is not base64; "+
+				"a bare token needs no scheme, or encode it with: "+
+				`printf '%s:<token>' | base64`, gitCredential, tokenUser)
+		}
+	}
+	return raw, nil
 }
 
 // minHookSecret is the length of `openssl rand -hex 32` halved, which is what

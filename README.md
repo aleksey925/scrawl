@@ -151,7 +151,7 @@ docker run -d --name scrawl -p 7272:7272 -v team:/data/team \
   -e PROJECT=team -e ROOT=/data/team \
   -e REPO_URL=https://github.com/acme/wiki.git \
   -e REPO_BRANCH=main \
-  -e REPO_TOKEN='Bearer ghp_xxx' \
+  -e REPO_TOKEN='github_pat_xxx' \
   -e AUTH_USERS='alex:my-password' \
   ghcr.io/aleksey925/scrawl:latest
 ```
@@ -165,11 +165,17 @@ and anything the remote never got is gone.
 points at a file, `token_env` at an environment variable, and the flag
 path reads the fixed `REPO_TOKEN`. Setting both `token_file` and
 `token_env` is a startup error rather than a precedence rule to
-remember. The value is a whole header - `Bearer ghp_...` or
-`Basic <base64>` - which keeps scrawl out of any per-provider encoding
-rule. A URL carrying a password is refused: `git clone` writes the URL
-into `.git/config`, where it would sit in plain text inside the notes
-volume.
+remember. A URL carrying a password is refused: `git clone` writes the
+URL into `.git/config`, where it would sit in plain text inside the
+notes volume.
+
+**The value is the token itself**, the string the provider handed you -
+`github_pat_...`, `glpat-...` - and scrawl makes the HTTP credential out
+of it. A value that already names a scheme is taken as a whole
+`Authorization` header instead and passed through untouched, which is
+what a host wanting something else needs: github.com accepts only
+`Basic` on its git endpoint, Bitbucket Data Center only
+`Bearer <token>`.
 
 A mounted file is the better option wherever a secret store can provide
 one. `token_env` and `REPO_TOKEN` are for the deployment that has none,
@@ -312,7 +318,7 @@ Environment variables, each also available as a flag. Run
 | `REPO_URL`         |                     | git remote to clone into `ROOT` and push back to                                      |
 | `REPO_BRANCH`      | `main`              | branch to track                                                                       |
 | `REPO_PULL`        | `5m`                | how often to fetch, `0` disables the background pull                                  |
-| `REPO_TOKEN`       |                     | credential header for `REPO_URL`, i.e. `Bearer ghp_...`                               |
+| `REPO_TOKEN`       |                     | token for `REPO_URL`, or a whole `Authorization` header                               |
 | `REPO_HOOK_SECRET` |                     | webhook secret, at least 32 bytes, turns the endpoint on                              |
 | `LISTEN`           | `:7272`             | address to listen on                                                                  |
 | `TITLE`            | `Notes`             | site title in the interface                                                           |

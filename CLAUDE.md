@@ -213,6 +213,15 @@ vendor/                dependencies, checked in, `make deps` regenerates
   the root is that case with an empty path - so a per-file signal keyed
   off the route would stay silent about the note most readers are
   looking at. `DocumentBody` registers it and is the only caller.
+- The credential an operator configures is the **token**, and `main`
+  makes the header out of it: `Basic` with a fixed username, which every
+  host this can reach accepts. A value that already names a scheme is a
+  whole header and passes through, because github.com's git endpoint
+  takes only `Basic` and Bitbucket only `Bearer`, and that choice cannot
+  live in a table of providers here. A `Basic` value we did not build is
+  refused at startup when what follows is not base64: the host answers a
+  header it cannot parse with a bare `400`, half a minute into a clone,
+  naming neither the header nor the reason.
 - A repository credential is resolved once, in `main`, before
   `setupLog`, and reaches git only through `GIT_CONFIG_*` on the three
   commands that talk to a remote. Never argv: `/proc/<pid>/cmdline` is

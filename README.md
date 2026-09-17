@@ -196,7 +196,10 @@ stop pushing. And git cannot represent an empty directory, so a folder
 you create reaches the remote with the first note you put in it.
 
 A read-only remote never writes to git at all: it fetches and
-fast-forwards, and it does not commit, push or probe.
+fast-forwards, and it does not commit, push or probe. A change that
+appears in its directory some other way is served and read, and it is
+never recorded: there is no push to carry that commit anywhere, and it
+would be what the next fetch from upstream trips over.
 
 ## A webhook instead of polling
 
@@ -224,9 +227,13 @@ openssl rand -hex 32
 It has to be at least 32 bytes. The endpoint answers without a session -
 a provider cannot sign in - so the signature is the only credential
 there is, and a short one turns the route into a public "resync this
-project" button. The file has to live outside every project directory,
-for the same reason the session key does: anything inside is on the
-tree, in the search index and downloadable.
+project" button. Naming a secret that turns out to hold nothing - an
+empty file, a variable that never got a value - stops the server rather
+than serving the project with its webhook quietly off, because a secret
+that failed to mount looks exactly like that. The way to have no webhook
+is to name no secret. The file has to live outside every project
+directory, for the same reason the session key does: anything inside is
+on the tree, in the search index and downloadable.
 
 Paste this URL into the repository's webhook settings, with the content
 type the provider offers by default:

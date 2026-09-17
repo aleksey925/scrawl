@@ -13,6 +13,11 @@ const wiki = MULTI.extra.find((extra) => extra.name === 'wiki');
 // outcome of this one
 const DOC = 'e2e-sync.md';
 
+// a folder served as its own index.md, which is the case where the route names
+// the directory and the file on screen is one segment longer
+const FOLDER = 'e2e-sync-folder';
+const FOLDER_DOC = `${FOLDER}/index.md`;
+
 // the client polls /api/me once a minute, which is finer than the pull interval
 // it is watching. A test that waited for it in real time would take longer than
 // the whole suite, so the clock is driven instead.
@@ -35,6 +40,7 @@ test.describe('sync state', () => {
     test.afterEach(async ({page}) => {
         restoreOrigin(wiki.origin);
         fs.rmSync(path.join(wiki.dir, DOC), {force: true});
+        fs.rmSync(path.join(wiki.dir, FOLDER), {recursive: true, force: true});
         // leave the project in step, or the next spec inherits a broken one
         await expect.poll(async () => meState(page), {timeout: 20_000}).toMatchObject({sync_error: ''});
     });
@@ -129,6 +135,14 @@ test.describe('sync state', () => {
         await expect(control(page)).toHaveAttribute('data-here', 'true');
         await expect(control(page)).toHaveAttribute('aria-label', 'This note has not reached the remote');
         await shot(page, 'sync-root-index');
+
+        // the same one level down, where the route names the folder
+        await page.goto(WIKI.edit(FOLDER_DOC));
+        await setSource(page, '# Guide\n\nthe folder index, stuck.\n');
+        await save(page);
+
+        await page.goto(WIKI.dir(FOLDER));
+        await expect(control(page)).toHaveAttribute('data-here', 'true');
 
         // a note the remote does have leaves the control speaking for the
         // project and not for the note

@@ -296,6 +296,12 @@ func (s *Service) SyncError() string { return s.SyncState().Error }
 // Remote reports whether this service tracks one.
 func (s *Service) Remote() bool { return s != nil && s.cfg.Remote != nil }
 
+// PullOnly reports that this clone never writes to git: it fetches and
+// fast-forwards, and it neither reconciles nor publishes. It is the one home of
+// that rule, so a caller asks instead of deriving it from the read-only mode a
+// second time.
+func (s *Service) PullOnly() bool { return s.Remote() && s.cfg.Remote.PullOnly }
+
 // ProbeWritable pushes nothing and reports whether a push would be refused. It
 // is a loud warning and never a mode: a probe that silently flipped a project
 // to read-only would be a setting nobody configured, changing with the network.

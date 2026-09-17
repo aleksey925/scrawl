@@ -90,8 +90,13 @@ func (s *Service) publishFailed(op Op, err error) error {
 // from what history holds. It is the baseline import on an empty repository,
 // the recovery for a crash between a write and its commit, and how a change
 // made outside the app - over SMB, by another tool - reaches history at all.
+//
+// A pull-only clone does none of it. A commit there has no push to carry it
+// anywhere, so it would sit in this copy alone, report the project unpublished
+// for a change no reader made, and turn the next upstream push into a
+// divergence the ff-only merge refuses.
 func (s *Service) Reconcile(ctx context.Context, actor string) error {
-	if s == nil {
+	if s == nil || s.PullOnly() {
 		return nil
 	}
 	s.mu.Lock()

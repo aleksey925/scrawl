@@ -138,7 +138,7 @@ func TestResolveSecret(t *testing.T) {
 			}
 
 			// act
-			res, err := resolveSecret(path, name)
+			res, err := resolveSecret(gitCredential, path, name)
 
 			// assert
 			require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestResolveSecretClearsTheVariable(t *testing.T) {
 	t.Setenv("SCRAWL_TEST_TOKEN", "Bearer ghp_xxx")
 
 	// act
-	token, err := resolveSecret("", "SCRAWL_TEST_TOKEN")
+	token, err := resolveSecret(gitCredential, "", "SCRAWL_TEST_TOKEN")
 
 	// assert
 	require.NoError(t, err)
@@ -182,7 +182,7 @@ func TestResolveSecretRefuses(t *testing.T) {
 			require.NoError(t, os.WriteFile(file, []byte(tc.raw), 0o600))
 
 			// act
-			_, err := resolveSecret(file, "")
+			_, err := resolveSecret(gitCredential, file, "")
 
 			// assert
 			require.Error(t, err)

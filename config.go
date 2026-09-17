@@ -126,11 +126,11 @@ func repoOf(prj configProject) (*remoteConfig, error) {
 		return nil, fmt.Errorf("project %q sets both repo.hook_secret_file and repo.hook_secret_env, pick one",
 			prj.Name)
 	}
-	token, err := resolveSecret(prj.Repo.TokenFile, prj.Repo.TokenEnv)
+	token, err := resolveSecret(gitCredential, prj.Repo.TokenFile, prj.Repo.TokenEnv)
 	if err != nil {
 		return nil, fmt.Errorf("project %q: %w", prj.Name, err)
 	}
-	hook, err := resolveSecret(prj.Repo.HookSecretFile, prj.Repo.HookSecretEnv)
+	hook, err := resolveHookSecret(prj.Repo.HookSecretFile, prj.Repo.HookSecretEnv)
 	if err != nil {
 		return nil, fmt.Errorf("project %q: %w", prj.Name, err)
 	}
@@ -157,11 +157,11 @@ func flagProjects(opts *options) ([]projectConfig, error) {
 		return []projectConfig{cfg}, nil
 	}
 
-	token, err := resolveSecret("", namedIfSet(repoTokenEnv))
+	token, err := resolveSecret(gitCredential, "", namedIfSet(repoTokenEnv))
 	if err != nil {
 		return nil, err
 	}
-	hook, err := resolveSecret("", namedIfSet(repoHookSecretEnv))
+	hook, err := resolveHookSecret("", namedIfPresent(repoHookSecretEnv))
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,9 @@ func flagProjects(opts *options) ([]projectConfig, error) {
 
 // namedIfSet names a fixed variable only while it holds something. Naming an
 // unset one is what makes a missing value an error, and nothing in the
-// configuration named these two: they are the flag path's own.
+// configuration named it: it is the flag path's own. An https remote with no
+// credential is a public repository, so an empty one means "no credential"
+// rather than a mistake.
 func namedIfSet(name string) string {
 	if value, ok := os.LookupEnv(name); ok && value != "" {
 		return name
@@ -185,28 +187,77 @@ func namedIfSet(name string) string {
 	return ""
 }
 
-// resolveSecret reads the credential a project named, from a file or from an
-// environment variable, and returns the header value itself. It is the only
-// place either source is read: history rebuilds the child environment on every
-// call and has to redact the identical value out of a failure message, so a
-// second read could hand git a rotated secret that was never registered for
-// redaction and the log would then print it in full.
+// namedIfPresent names a fixed variable that exists, whatever it holds. It is
+// what the hook secret reads, because there the empty string is never a choice:
+// an operator who put the variable in a compose file and got nothing into it
+// has a broken secret, not a webhook they meant to turn off.
+func namedIfPresent(name string) string {
+	if _, ok := os.LookupEnv(name); ok {
+		return name
+	}
+	return ""
+}
+
+// minHookSecret is the length of `openssl rand -hex 32` halved, which is what
+// the README tells the operator to generate. It is not a format rule and not an
+// entropy estimate: anything longer passes.
+const minHookSecret = 32
+
+// resolveHookSecret reads the secret the webhook is verified with, and refuses
+// one too short to be worth verifying against. The rule lives here and never in
+// resolveSecret, which has to keep returning the empty string for a public
+// repository that needs no git credential at all.
+//
+// A source that was named and resolved to nothing is refused rather than read
+// as "no webhook": an empty file and a file that failed to mount look the same
+// from here, the endpoint is reachable without a session, and an empty key is
+// one anybody can sign with. Turning the webhook off is done by naming no
+// source, which is the one case that answers with no secret and no error.
+func resolveHookSecret(file, envVar string) (string, error) {
+	res, err := resolveSecret(hookSecret, file, envVar)
+	if err != nil {
+		return "", err
+	}
+	if file == "" && envVar == "" {
+		return "", nil
+	}
+	if len(res) < minHookSecret {
+		return "", fmt.Errorf("the %s is shorter than %d bytes, generate one with: openssl rand -hex 32",
+			hookSecret, minHookSecret)
+	}
+	return res, nil
+}
+
+// the two things a project names a secret for, used for nothing but the words
+// an error is written in: one resolver serves both, and "the repository
+// credential could not be read" is the wrong sentence for a webhook.
+const (
+	gitCredential = "repository credential"
+	hookSecret    = "webhook secret"
+)
+
+// resolveSecret reads the secret a project named, from a file or from an
+// environment variable, and returns the value itself. It is the only place
+// either source is read: history rebuilds the child environment on every call
+// and has to redact the identical value out of a failure message, so a second
+// read could hand git a rotated secret that was never registered for redaction
+// and the log would then print it in full.
 //
 // A variable that was named and is empty is an error: the operator wrote the
 // name down, so a missing value is a typo or a missing -e, not a choice.
-func resolveSecret(file, envVar string) (string, error) {
+func resolveSecret(what, file, envVar string) (string, error) {
 	var raw string
 	switch {
 	case file != "":
 		data, err := os.ReadFile(file) //nolint:gosec // the path is configuration, which is as trusted as the flags
 		if err != nil {
-			return "", fmt.Errorf("read the repository credential: %w", err)
+			return "", fmt.Errorf("read the %s: %w", what, err)
 		}
 		raw = string(data)
 	case envVar != "":
 		value, ok := os.LookupEnv(envVar)
 		if !ok || value == "" {
-			return "", fmt.Errorf("%s names no value, set it or drop repo.token_env", envVar)
+			return "", fmt.Errorf("%s names no value, set it or drop the %s it was named for", envVar, what)
 		}
 		raw = value
 		// env() inherits os.Environ() for every git call, local ones included,
@@ -219,16 +270,16 @@ func resolveSecret(file, envVar string) (string, error) {
 	default:
 		return "", nil
 	}
-	return cleanToken(raw)
+	return cleanToken(what, raw)
 }
 
 // cleanToken strips the one trailing newline a secret file and a shell heredoc
 // both leave behind, and refuses anything else that could split a header.
-func cleanToken(raw string) (string, error) {
+func cleanToken(what, raw string) (string, error) {
 	res := strings.TrimSuffix(strings.TrimSuffix(raw, "\n"), "\r")
 	for _, r := range res {
 		if r < ' ' || r == 0x7f {
-			return "", errors.New("the repository credential holds a control character")
+			return "", fmt.Errorf("the %s holds a control character", what)
 		}
 	}
 	return res, nil

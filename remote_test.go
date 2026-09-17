@@ -177,6 +177,35 @@ func TestARemoteProjectPushesWhatTheAppSaves(t *testing.T) {
 	assert.Empty(t, hist.SyncError())
 }
 
+// TestAReadOnlyRemoteProjectRecordsNothing is the wiring of the pull-only rule,
+// through the helper both the startup and the watcher go through: a file that
+// appears on disk is served and never committed, so the project does not report
+// itself unpublished for a change no reader made.
+func TestAReadOnlyRemoteProjectRecordsNothing(t *testing.T) {
+	// arrange
+	bare := bareOrigin(t)
+	dir := filepath.Join(t.TempDir(), "clone")
+	cfg := projectConfig{Name: "wiki", Dir: dir, ReadOnly: true, Remote: &remoteConfig{URL: bare, Branch: "main"}}
+	opts := &options{History: historyAuto}
+	require.NoError(t, ensureDirs(t.Context(), opts, []projectConfig{cfg}))
+
+	hist, err := newHistory(opts, cfg, notesAt(t, dir))
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, hist.Close()) })
+	before := runGitIn(t, dir, "rev-parse", "HEAD")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "over-smb.md"), []byte("# Somebody else\n"), 0o600))
+
+	// act
+	reconcile(t.Context(), cfg.Name, hist, historyActorExternal)
+	syncRemote(t.Context(), cfg.Name, hist)
+
+	// assert
+	assert.Equal(t, before, runGitIn(t, dir, "rev-parse", "HEAD"), "nothing was committed")
+	assert.NotContains(t, runGitIn(t, bare, "ls-tree", "--name-only", "main"), "over-smb.md")
+	assert.False(t, hist.Unpublished())
+	assert.Empty(t, hist.SyncError())
+}
+
 // TestARemoteProjectTracksEveryVisibleFile is why TrackAll exists: the editor
 // opens far more types than local history keeps, and on a clone that gap is a
 // change that never leaves the container.

@@ -177,22 +177,8 @@ func validateRemote(ctx context.Context, cfg projectConfig) error {
 	if err := checkBranchName(ctx, rm.Branch); err != nil {
 		return fmt.Errorf("the branch of project %q: %w", cfg.Name, err)
 	}
-	// the endpoint is reachable without a session, and nothing rate limits it,
-	// so an empty or short secret turns it into a public "resync this project"
-	// button that can be guessed against the 202/401 answer. The shared
-	// resolver may not grow this rule: a public https remote legitimately has
-	// no git credential at all.
-	if rm.HookSecret != "" && len(rm.HookSecret) < minHookSecret {
-		return fmt.Errorf("the webhook secret of project %q is shorter than %d bytes, "+
-			"generate one with: openssl rand -hex 32", cfg.Name, minHookSecret)
-	}
 	return nil
 }
-
-// minHookSecret is the length of `openssl rand -hex 32` halved, which is what
-// the README tells the operator to generate. It is not a format rule and not an
-// entropy estimate: anything longer passes.
-const minHookSecret = 32
 
 // logRemote names both refresh switches at startup, so the configuration of a
 // remote project is readable in the log rather than inferred from its silence.
@@ -381,13 +367,10 @@ func newProject(ctx context.Context, opts *options, cfg projectConfig, root stri
 	}
 	// before the first request: this is the baseline import of a directory
 	// history never saw, and the recovery for a crash between a write and its
-	// commit, and both have to be in place before anything can be restored.
-	// A pull-only project is not reconciled at all: it has no push to carry the
-	// commit anywhere, and committing would report it unpublished for changes
-	// nobody made.
-	if !readOnly || cfg.Remote == nil {
-		reconcile(ctx, cfg.Name, rp.hist, historyActorStartup)
-	}
+	// commit, and both have to be in place before anything can be restored. A
+	// pull-only clone is refused by the service itself, here and in the watcher
+	// alike, so the mode is not read a second time here.
+	reconcile(ctx, cfg.Name, rp.hist, historyActorStartup)
 	syncRemote(ctx, cfg.Name, rp.hist)
 	probeWritable(ctx, cfg.Name, rp.hist)
 

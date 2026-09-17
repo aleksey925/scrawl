@@ -162,6 +162,15 @@ vendor/                dependencies, checked in, `make deps` regenerates
 - `--ff-only` is the whole conflict policy. scrawl never merges, never
   rebases and never resolves: a diverged project keeps serving, keeps
   committing locally, and says so loudly.
+- A clone that cannot push does not commit either. The effective
+  read-only mode of a remote project is `PullOnly`, and `history` is the
+  one place that knows it: `Reconcile` refuses there, so the startup
+  call and the watcher's are covered by the same line and `main` asks
+  rather than deriving the mode a second time. A commit no push can
+  carry would sit in this copy alone, report the project unpublished for
+  a change no reader made, and be what the next fast-forward trips over.
+  A read-only **local** project still reconciles: there is no remote for
+  the commit to fail to reach.
 - Two states, not one. `degraded` is a commit that failed, so a change
   is on disk and not in git. `unpublished` is a commit the remote does
   not have. Reusing `degraded` for both would report a healthy history
@@ -220,6 +229,14 @@ vendor/                dependencies, checked in, `make deps` regenerates
   lock, so doing it inline would block every save for the length of
   somebody else's network - and deliveries coalesce through one channel
   of capacity one.
+- A hook secret that was named and resolves to nothing stops startup.
+  The minimum length is checked where the secret is resolved and nowhere
+  else, because only there is an empty file still distinguishable from a
+  project that asked for no webhook - and an empty file is what a secret
+  that failed to mount looks like. The git credential keeps the opposite
+  rule, an empty value being a public repository, which is why the one
+  resolver never grew this check. Naming no source is the way to have no
+  webhook.
 - Its path is the one exact-match public route on the server, registered
   per method. Exact, because a prefix entry would open everything below
   it; per method, because a methodless pattern and the project's shell

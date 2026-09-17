@@ -62,6 +62,12 @@ func headOf(t *testing.T, bare string) string {
 	return strings.TrimSpace(gitIn(t, bare, "rev-parse", initialBranch))
 }
 
+// localHead reads the commit the clone itself is on.
+func localHead(t *testing.T, dir string) string {
+	t.Helper()
+	return strings.TrimSpace(gitIn(t, dir, "rev-parse", "HEAD"))
+}
+
 func TestCloneLandsCompleteOrNotAtAll(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -294,6 +300,30 @@ func TestPullOnlyNeverWritesToGit(t *testing.T) {
 	assert.Empty(t, svc.SyncError(), "a pull-only run clears after the merge, with no push to wait for")
 	assert.Equal(t, before, headOf(t, bare), "nothing was pushed")
 	assert.NotContains(t, gitIn(t, bare, "ls-tree", "--name-only", initialBranch), "local.md")
+}
+
+// TestPullOnlyNeverReconciles is the other half of the same rule, and it is the
+// half a watcher reaches: a file that appears on disk is served and indexed and
+// never committed. A commit here has no push to carry it anywhere, so it would
+// sit in this copy alone, report the project unpublished for a change no reader
+// made, and turn the next upstream push into a divergence ff-only refuses.
+func TestPullOnlyNeverReconciles(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare, func(rm *Remote) { rm.PullOnly = true })
+	before := localHead(t, dir)
+	writeFile(t, dir, "over-smb.md", "# Somebody else\n")
+
+	// act
+	require.NoError(t, svc.Reconcile(t.Context(), "external"))
+	require.NoError(t, svc.Sync(t.Context()))
+
+	// assert
+	assert.Equal(t, before, localHead(t, dir), "nothing was committed")
+	assert.NotContains(t, gitIn(t, dir, "ls-files"), "over-smb.md")
+	assert.False(t, svc.Unpublished(), "a clone that commits nothing is never ahead of its origin")
+	assert.Empty(t, svc.SyncError())
 }
 
 func TestProbeWritable(t *testing.T) {

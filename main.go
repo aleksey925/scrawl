@@ -410,8 +410,12 @@ func historyFiles(notes *store.Store) func() ([]string, error) {
 // reconcile records whatever on disk history has not seen. A failure is never
 // fatal: a server that cannot commit is still worth running, the service
 // reports itself degraded, and the next successful commit folds the gap in.
+//
+// A pull-only clone is asked rather than derived from the read-only mode: the
+// service refuses the call anyway, and asking keeps the watcher from timing and
+// logging a run that does nothing.
 func reconcile(ctx context.Context, name string, hist *history.Service, actor string) {
-	if !hist.Enabled() || ctx.Err() != nil {
+	if !hist.Enabled() || hist.PullOnly() || ctx.Err() != nil {
 		return
 	}
 	start := time.Now()

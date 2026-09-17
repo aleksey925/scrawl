@@ -80,16 +80,18 @@ projects:
 // the resolver is allowed to return the empty string, because a public https
 // remote has no git credential. A hook secret has no such case: the empty
 // string is the key anybody can compute with, on a route that needs no session
-// and has no rate limiter in front of it.
-func TestValidateRefusesAWeakHookSecret(t *testing.T) {
+// and has no rate limiter in front of it. A file that resolves to nothing is a
+// secret that failed to mount, which reads the same from here as one that was
+// never asked for and must not be served as a silently disabled webhook.
+func TestResolveHookSecretRefusesAWeakOne(t *testing.T) {
 	tests := []struct {
 		name    string
 		content string
 		errText string
 	}{
 		{name: "long enough", content: aSecret},
-		{name: "an empty file", content: "", errText: ""},
-		{name: "a file holding only a newline", content: "\n", errText: ""},
+		{name: "an empty file", content: "", errText: "shorter than 32 bytes"},
+		{name: "a file holding only a newline", content: "\n", errText: "shorter than 32 bytes"},
 		{name: "too short", content: "short", errText: "shorter than 32 bytes"},
 	}
 
@@ -98,25 +100,88 @@ func TestValidateRefusesAWeakHookSecret(t *testing.T) {
 			// arrange
 			file := filepath.Join(t.TempDir(), "hook")
 			require.NoError(t, os.WriteFile(file, []byte(tc.content), 0o600))
-			cfg := projectConfig{Name: "team", Dir: "/data/team"}
-			secret, err := resolveSecret(file, "")
-			require.NoError(t, err)
-			cfg.Remote = &remoteConfig{URL: "https://x/y.git", Branch: "main", HookSecret: secret}
 
 			// act
-			err = validateRemote(t.Context(), cfg)
+			secret, err := resolveHookSecret(file, "")
 
 			// assert
-			// an empty secret is no webhook at all rather than a weak one, so
-			// it passes validation and simply registers no route
 			if tc.errText == "" {
 				require.NoError(t, err)
+				assert.Equal(t, tc.content, secret)
 				return
 			}
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.errText)
 		})
 	}
+}
+
+// naming no source at all is the one way a project says it wants no webhook,
+// and it is the only case that answers with no secret and no error
+func TestResolveHookSecretWithoutASource(t *testing.T) {
+	// act
+	secret, err := resolveHookSecret("", "")
+
+	// assert
+	require.NoError(t, err)
+	assert.Empty(t, secret)
+}
+
+// an operator who put the variable in a compose file and got nothing into it
+// has a broken secret, which the git credential's "present but empty means no
+// credential" rule would read as a webhook nobody asked for
+func TestFlagProjectsRefuseAnEmptyHookVariable(t *testing.T) {
+	// arrange
+	t.Setenv(repoHookSecretEnv, "")
+	opts := &options{Root: "/notes", Project: "notes"}
+	opts.Repo.URL = "https://github.com/acme/wiki.git"
+	opts.Repo.Branch = "main"
+
+	// act
+	_, err := loadConfig(opts)
+
+	// assert
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), repoHookSecretEnv+" names no value")
+}
+
+func TestFlagProjectsWithoutTheFixedHookVariable(t *testing.T) {
+	// arrange
+	opts := &options{Root: "/notes", Project: "notes"}
+	opts.Repo.URL = "https://github.com/acme/wiki.git"
+	opts.Repo.Branch = "main"
+
+	// act
+	cfgs, err := loadConfig(opts)
+
+	// assert
+	require.NoError(t, err)
+	require.NotNil(t, cfgs[0].Remote)
+	assert.Empty(t, cfgs[0].Remote.HookSecret, "no variable is no webhook, and no error either")
+}
+
+// the yaml path, end to end: the file is named, it holds nothing, and the
+// server refuses to start instead of serving a project whose webhook is off
+func TestLoadConfigRefusesAnEmptyHookSecretFile(t *testing.T) {
+	// arrange
+	file := filepath.Join(t.TempDir(), "hook")
+	require.NoError(t, os.WriteFile(file, nil, 0o600))
+
+	// act
+	_, err := loadConfig(&options{Config: writeConfig(t, `
+projects:
+  - name: team
+    dir: /data/team
+    repo:
+      url: https://x/y.git
+      branch: main
+      hook_secret_file: `+file+`
+`)})
+
+	// assert
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `project "team"`)
+	assert.Contains(t, err.Error(), "shorter than 32 bytes")
 }
 
 // the reason is the session key's reason: a file inside a project is on the

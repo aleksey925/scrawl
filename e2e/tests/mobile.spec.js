@@ -384,6 +384,7 @@ test.describe('mobile sync state', () => {
     const WIKI = MULTI.projects.wiki;
     const wiki = MULTI.extra.find((extra) => extra.name === 'wiki');
     const SYNC_DOC = 'e2e-mobile-sync.md';
+    const SYNC_FOLDER = 'e2e-mobile-folder';
 
     test.beforeEach(async ({page}) => {
         restoreOrigin(wiki.origin);
@@ -395,18 +396,22 @@ test.describe('mobile sync state', () => {
     test.afterEach(async ({page}) => {
         restoreOrigin(wiki.origin);
         fs.rmSync(`${wiki.dir}/${SYNC_DOC}`, {force: true});
+        fs.rmSync(`${wiki.dir}/${SYNC_FOLDER}`, {recursive: true, force: true});
         await expect.poll(async () => syncErrorOf(page, WIKI), {timeout: 20_000}).toBe('');
     });
 
-    test('the control and the banner reach a phone with the drawer shut', async ({page}) => {
-        await page.goto(WIKI.edit(SYNC_DOC));
-        breakOrigin(wiki.origin);
-        await setSource(page, '# Mobile sync\n\nstuck.\n');
+    // saveStuck writes one note through the editor with the origin already
+    // broken, which is what puts its path in the unsynced set.
+    async function saveStuck(page, contentPath, source) {
+        await page.goto(WIKI.edit(contentPath));
+        await setSource(page, source);
         await save(page);
+    }
 
-        // a plain note, the root index and a folder index: on the last two the
-        // route path is not the file, and a control that asked the route would
-        // stay silent about the very note on screen
+    test('the control and the banner reach a phone with the drawer shut', async ({page}) => {
+        breakOrigin(wiki.origin);
+        await saveStuck(page, SYNC_DOC, '# Mobile sync\n\nstuck.\n');
+
         await page.goto(WIKI.doc(SYNC_DOC));
         await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
         await expect(page.getByTestId('project-alert')).toBeVisible();
@@ -420,12 +425,31 @@ test.describe('mobile sync state', () => {
         await shot(page, 'mobile-sync-popover');
     });
 
+    // the root index and a folder index: on both the route path is not the
+    // file, and a control that asked the route would stay silent about the very
+    // note on screen
+    test('an index note reaches the control on a phone too', async ({page}) => {
+        breakOrigin(wiki.origin);
+        // the root index belongs to the corpus and cannot be deleted between
+        // runs, so the text carries a stamp: a save that writes the bytes the
+        // file already holds stages nothing, commits nothing and is missing
+        // from the very path set this asserts on
+        await saveStuck(page, 'index.md', `# Remote page\n\nthe root index on a phone, stuck at ${Date.now()}.\n`);
+        await saveStuck(page, `${SYNC_FOLDER}/index.md`, '# Guide\n\nthe folder index, stuck.\n');
+
+        await page.goto(WIKI.home());
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
+        await expect(page.getByTestId('project-alert')).toBeVisible();
+
+        await page.goto(WIKI.dir(SYNC_FOLDER));
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
+        await shot(page, 'mobile-sync-folder-index');
+    });
+
     // the one element this feature spends on a nowrap row that is already full
     test('the top bar still fits with the control up', async ({page}) => {
-        await page.goto(WIKI.edit(SYNC_DOC));
         breakOrigin(wiki.origin);
-        await setSource(page, '# Mobile sync\n\nstuck.\n');
-        await save(page);
+        await saveStuck(page, SYNC_DOC, '# Mobile sync\n\nstuck.\n');
 
         await page.goto(WIKI.doc(SYNC_DOC));
         await expect(page.getByTestId('sync-control')).toBeVisible();

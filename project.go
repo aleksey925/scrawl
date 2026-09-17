@@ -463,22 +463,35 @@ func checkSecretFiles(roots []string, opts *options, cfgs []projectConfig) error
 	return nil
 }
 
-// resolvedPath is the absolute path with its symlinks followed. A file that is
-// not there yet - auth creates the session key on first start - is resolved
-// through its parent instead, because EvalSymlinks fails on a path that does
-// not exist.
+// resolvedPath is the absolute path with its symlinks followed, as far up as
+// the path exists, with the segments that do not exist yet joined back on.
+//
+// Walking up matters and resolving only the parent is not enough:
+// EvalSymlinks fails on a path with any missing component, so a secret named
+// inside a directory nobody has made yet - /notes/secrets/hook, with no
+// secrets/ - would resolve nothing at all and compare unequal to every root.
+// auth creates the session key on first start, and an operator names a hook
+// secret before mounting it, so a path that is not there is the normal case
+// rather than the odd one.
 func resolvedPath(p string) (string, error) {
 	abs, err := filepath.Abs(p)
 	if err != nil {
 		return "", err
 	}
-	if res, cErr := canonical(abs); cErr == nil {
-		return res, nil
+	missing := ""
+	for at := abs; ; {
+		if res, cErr := canonical(at); cErr == nil {
+			return filepath.Join(res, missing), nil
+		}
+		parent := filepath.Dir(at)
+		if parent == at {
+			// the filesystem root itself did not resolve, which leaves nothing
+			// to follow and the lexical path as the honest answer
+			return abs, nil
+		}
+		missing = filepath.Join(filepath.Base(at), missing)
+		at = parent
 	}
-	if dir, cErr := canonical(filepath.Dir(abs)); cErr == nil {
-		return filepath.Join(dir, filepath.Base(abs)), nil
-	}
-	return abs, nil
 }
 
 // warnUnwritable names the failure a NAS deployment hits first: the container

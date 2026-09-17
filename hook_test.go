@@ -125,28 +125,15 @@ func TestValidateRefusesAWeakHookSecret(t *testing.T) {
 func TestCheckSecretFilesCoversTheHookSecrets(t *testing.T) {
 	root := t.TempDir()
 	other := t.TempDir()
-	linked := filepath.Join(t.TempDir(), "link")
-	require.NoError(t, os.Symlink(root, linked))
 
 	tests := []struct {
 		name    string
 		file    string
-		roots   []string
 		refused bool
 	}{
 		{name: "outside every root", file: filepath.Join(t.TempDir(), "hook")},
 		{name: "inside its own project root", file: filepath.Join(root, "hook"), refused: true},
 		{name: "inside another project's root", file: filepath.Join(other, "hook"), refused: true},
-		{name: "deep inside a root", file: filepath.Join(root, "secrets", "hook"), refused: true},
-		// a symlinked parent is how the check is fooled unless it resolves one
-		{name: "through a symlinked parent", file: filepath.Join(linked, "hook"), refused: true},
-		// and the same trick on the other side: on macOS every temp directory
-		// is reached through a symlinked /var, so a root that is not canonical
-		// is the ordinary case and not a contrived one
-		{
-			name: "a root that is itself a symlink", file: filepath.Join(root, "hook"),
-			roots: []string{linked}, refused: true,
-		},
 	}
 
 	for _, tc := range tests {
@@ -158,13 +145,9 @@ func TestCheckSecretFilesCoversTheHookSecrets(t *testing.T) {
 				Name:   "team",
 				Remote: &remoteConfig{HookSecretFile: tc.file},
 			}}
-			roots := tc.roots
-			if roots == nil {
-				roots = []string{root, other}
-			}
 
 			// act
-			err := checkSecretFiles(roots, opts, cfgs)
+			err := checkSecretFiles([]string{root, other}, opts, cfgs)
 
 			// assert
 			if tc.refused {
@@ -174,6 +157,65 @@ func TestCheckSecretFilesCoversTheHookSecrets(t *testing.T) {
 			}
 			require.NoError(t, err)
 		})
+	}
+}
+
+// TestCheckSecretFilesResolvesBothSides is the matrix the two tests above do
+// not cover on their own, and it exists because leaving it out shipped the bug
+// twice.
+//
+// One directory can be named two ways, and a check that follows the symlinks of
+// one side only lets the other through. Both sides are varied independently,
+// because the mistake appears in both directions, and the file is placed at
+// depths that do not exist yet, because EvalSymlinks fails on a path with any
+// missing component and resolving just the parent covers one level and no more.
+//
+// None of this is contrived: on macOS every path under /var is reached through
+// a symlink, and auth creates the session key on first start, so "the caller
+// spelled it differently and the file is not there yet" is the ordinary case.
+func TestCheckSecretFilesResolvesBothSides(t *testing.T) {
+	// where the secret sits under the project root, in segments, so a case can
+	// name a directory nobody has made
+	places := map[string][]string{
+		"directly inside":                       {"secret"},
+		"one directory down, not created":       {"secrets", "secret"},
+		"two directories down, neither created": {"var", "secrets", "secret"},
+	}
+
+	for rootAs, spellRoot := range pathSpellings() {
+		for fileAs, spellFile := range pathSpellings() {
+			for place, under := range places {
+				t.Run(rootAs+" root, "+fileAs+" secret, "+place, func(t *testing.T) {
+					// arrange
+					dir := t.TempDir()
+					file := filepath.Join(append([]string{spellFile(t, dir)}, under...)...)
+					opts := &options{}
+					opts.Auth.SecretFile = file
+					cfgs := []projectConfig{{
+						Name:   "team",
+						Remote: &remoteConfig{HookSecretFile: file},
+					}}
+
+					// act & assert: the same file, named two ways, refused both
+					// as the session key and as a hook secret
+					assert.Error(t, checkSecretFiles([]string{spellRoot(t, dir)}, opts, cfgs))
+				})
+			}
+		}
+	}
+}
+
+// pathSpellings are the ways a caller happens to name one directory. They reach
+// the same place, which is exactly what a path comparison has to agree about.
+func pathSpellings() map[string]func(t *testing.T, dir string) string {
+	return map[string]func(t *testing.T, dir string) string{
+		"a plain": func(_ *testing.T, dir string) string { return dir },
+		"a symlinked": func(t *testing.T, dir string) string {
+			t.Helper()
+			link := filepath.Join(t.TempDir(), "link")
+			require.NoError(t, os.Symlink(dir, link))
+			return link
+		},
 	}
 }
 

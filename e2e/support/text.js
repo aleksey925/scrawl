@@ -15,8 +15,6 @@ module.exports = {
 
     // modal titles, which is what names the dialog a spec opened
     modal: {
-        newPage: 'New page',
-        newFolder: 'New folder',
         rename: 'Rename or move',
         deletePage: 'Delete page?',
         deleteFolder: 'Delete folder?',
@@ -31,6 +29,8 @@ module.exports = {
         saved: 'Saved',
         restored: 'Restored',
         folderCreated: 'Folder created',
+        moved: 'Moved',
+        movedMany: 'Moved 2 items',
         renamed: 'Renamed',
         deleted: 'Deleted',
         notDeleted: 'Nothing was deleted',
@@ -39,8 +39,8 @@ module.exports = {
         linkCopied: 'Link copied',
     },
 
-    // inline validation, which the create dialog shows on the field rather than
-    // as a toast: closing first would throw away the typed name and the folder
+    // what a refused creation says, on the toast the draft row raises: the row
+    // itself keeps the typed name, so the message only has to name the reason
     pageExists: 'That page already exists',
     folderExists: 'That folder already exists',
 

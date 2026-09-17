@@ -1,4 +1,4 @@
-import { Button, Code, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
+import { Button, Code, Modal, Group, Stack, Text, TextInput } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
   createContext, useCallback, useContext, useMemo, useState,
@@ -7,17 +7,25 @@ import {
 import { useNavigate } from 'react-router';
 
 import { ApiError, api } from '../api/client';
-import type { EntryKind, EntryPathResponse, NavNode } from '../api/types';
+import type { EntryKind, EntryPathResponse } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
 import { directoryUrl, documentUrl, editUrl, isMarkdown, slugPath } from '../paths';
 import { layout } from '../theme';
 import { showToast } from '../toast';
 
-import { FolderPicker, foldersOf } from './FolderPicker';
 import { useNav } from './NavContext';
 import { useMutationState } from './useMutationState';
-import { joinPath } from './naming';
+import { basenameOf, joinPath, parentOf } from './naming';
+
+// TreeDraft is a row that does not exist yet: the tree shows an input where the
+// entry will be, and the name is typed in place. There is no dialog, because a
+// dialog asks for the one thing the tree already knows - which folder - and
+// then covers the answer while the name is typed.
+export interface TreeDraft {
+  kind: EntryKind;
+  parent: string;
+}
 
 export interface FileActions {
   createPage: (folder: string) => void;
@@ -25,6 +33,15 @@ export interface FileActions {
   rename: (path: string, isDir: boolean) => void;
   remove: (path: string, isDir: boolean) => void;
   copyLink: (path: string, isDir: boolean) => void;
+  // moveInto is the drop half of dragging rows around the tree. It takes the
+  // whole selection, because dragging one of several selected rows moves them
+  // all, which is what every file manager does.
+  moveInto: (paths: readonly string[], folder: string) => void;
+  draft: TreeDraft | undefined;
+  // true when the entry was created, so the row can keep the typed name on
+  // screen for a second try when it was not
+  submitDraft: (name: string) => Promise<boolean>;
+  cancelDraft: () => void;
 }
 
 const FileActionsContext = createContext<FileActions | undefined>(undefined);
@@ -36,11 +53,6 @@ export function useFileActions(): FileActions {
   }
   return actions;
 }
-
-type Dialog =
-  | { kind: 'none' }
-  | { kind: 'create'; entry: EntryKind; folder: string }
-  | { kind: 'rename'; path: string; isDir: boolean };
 
 function conflictText(error: unknown, fallback: string): string {
   if (error instanceof ApiError && error.status === 409) {
@@ -55,16 +67,25 @@ function appUrl(path: string, isDir: boolean): string {
   return new URL(`${base}${route}`, window.location.origin).href;
 }
 
+// draftPath is what a typed name becomes. The slug rule is the store's, so a
+// page and the image dropped into it romanize the same word the same way, and
+// .md is added only when the name does not carry it already.
+function draftPath(draft: TreeDraft, name: string): string {
+  const slug = slugPath(name);
+  if (slug === '') {
+    return '';
+  }
+  return joinPath(draft.parent, draft.kind === 'file' && !isMarkdown(slug) ? `${slug}.md` : slug);
+}
+
 const inputStyles = { input: { fontSize: layout.inputFontSize } };
 
 export function FileActionsProvider({ children }: { children: ReactNode }): JSX.Element {
   const navigate = useNavigate();
-  const { tree, currentPath, refreshNav } = useNav();
+  const { currentPath, refreshNav, openFolder, setQuery } = useNav();
   const reportMutation = useMutationState();
-  const [dialog, setDialog] = useState<Dialog>({ kind: 'none' });
-
-  const folders = useMemo(() => foldersOf(tree), [tree]);
-  const close = useCallback(() => setDialog({ kind: 'none' }), []);
+  const [renaming, setRenaming] = useState<{ path: string; isDir: boolean } | undefined>(undefined);
+  const [draft, setDraft] = useState<TreeDraft | undefined>(undefined);
 
   const copyLink = useCallback(async (path: string, isDir: boolean): Promise<void> => {
     try {
@@ -91,7 +112,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
           void (async () => {
             try {
               reportMutation(await api.deleteEntry(path), 'Deleted');
-              if (currentPath === path || currentPath === `${path}/`) {
+              if (currentPath === path) {
                 await navigate('/');
               }
               refreshNav();
@@ -108,48 +129,121 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
     [currentPath, navigate, refreshNav, reportMutation],
   );
 
+  const startDraft = useCallback(
+    (kind: EntryKind, parent: string) => {
+      // the row is typed into where it will be, so the folder has to be open
+      // and a filter hiding it has to go
+      setQuery('');
+      openFolder(parent);
+      setDraft({ kind, parent });
+    },
+    [openFolder, setQuery],
+  );
+
+  const cancelDraft = useCallback(() => setDraft(undefined), []);
+
+  const submitDraft = useCallback(
+    async (name: string): Promise<boolean> => {
+      if (draft === undefined) {
+        return false;
+      }
+      const path = draftPath(draft, name);
+      const page = draft.kind === 'file';
+      if (path === '') {
+        showToast('error', { message: `${page ? 'A page' : 'A folder'} needs a letter or a digit in its name` });
+        return false;
+      }
+      let res: EntryPathResponse;
+      try {
+        res = await api.createEntry(path, draft.kind);
+      } catch (error) {
+        showToast('error', {
+          title: 'Nothing was created',
+          message: conflictText(error, page ? 'That page already exists' : 'That folder already exists'),
+        });
+        return false;
+      }
+      setDraft(undefined);
+      refreshNav();
+      if (page) {
+        // straight into the editor, because an empty note is not a thing
+        // anybody wanted, it is the first half of writing one
+        await navigate(editUrl(res.path));
+        return true;
+      }
+      reportMutation(res, 'Folder created');
+      openFolder(res.path);
+      return true;
+    },
+    [draft, navigate, openFolder, refreshNav, reportMutation],
+  );
+
+  const moveInto = useCallback(
+    (paths: readonly string[], folder: string) => {
+      void (async () => {
+        const moved: string[] = [];
+        let failure: unknown;
+        for (const path of paths) {
+          try {
+            const res = await api.move(path, joinPath(folder, basenameOf(path)));
+            moved.push(res.path);
+          } catch (error) {
+            failure = error;
+          }
+        }
+        if (moved.length > 0) {
+          refreshNav();
+          // a drop the reader cannot see landed nowhere as far as they are
+          // concerned, so the folder it went into opens
+          openFolder(folder);
+          reportMutation(undefined, moved.length === 1 ? 'Moved' : `Moved ${moved.length} items`);
+          // the page on screen moved with the rest, and its old address is a
+          // 404 the moment the tree refreshes
+          const here = moved.find((path) => path.endsWith(`/${basenameOf(currentPath)}`));
+          if (here !== undefined && paths.some((path) => path === currentPath)) {
+            await navigate(isMarkdown(here) ? documentUrl(here) : directoryUrl(here));
+          }
+        }
+        if (failure !== undefined) {
+          showToast('error', {
+            title: moved.length > 0 ? 'Some of it did not move' : 'Nothing was moved',
+            message: conflictText(failure, 'Something of that name is already there'),
+          });
+        }
+      })();
+    },
+    [currentPath, navigate, openFolder, refreshNav, reportMutation],
+  );
+
   const actions = useMemo<FileActions>(
     () => ({
-      createPage: (folder) => setDialog({ kind: 'create', entry: 'file', folder }),
-      createFolder: (folder) => setDialog({ kind: 'create', entry: 'dir', folder }),
-      rename: (path, isDir) => setDialog({ kind: 'rename', path, isDir }),
+      createPage: (folder) => startDraft('file', folder),
+      createFolder: (folder) => startDraft('dir', folder),
+      rename: (path, isDir) => setRenaming({ path, isDir }),
       remove,
       copyLink: (path, isDir) => void copyLink(path, isDir),
+      moveInto,
+      draft,
+      submitDraft,
+      cancelDraft,
     }),
-    [remove, copyLink],
+    [cancelDraft, copyLink, draft, moveInto, remove, startDraft, submitDraft],
   );
 
   return (
     <FileActionsContext.Provider value={actions}>
       {children}
 
-      {dialog.kind === 'create' && (
-        <CreateDialog
-          entry={dialog.entry}
-          startIn={dialog.folder}
-          folders={folders}
-          onClose={close}
-          onCreated={(res) => {
-            close();
-            if (dialog.entry === 'file') {
-              void navigate(editUrl(res.path));
-              return;
-            }
-            reportMutation(res, 'Folder created');
-            refreshNav();
-          }}
-        />
-      )}
-
-      {dialog.kind === 'rename' && (
+      {renaming !== undefined && (
         <RenameDialog
-          path={dialog.path}
-          onClose={close}
+          path={renaming.path}
+          onClose={() => setRenaming(undefined)}
           onRenamed={(res) => {
-            close();
+            const was = renaming;
+            setRenaming(undefined);
             reportMutation(res, 'Renamed');
-            if (currentPath === dialog.path) {
-              void navigate(dialog.isDir ? directoryUrl(res.path) : documentUrl(res.path));
+            if (currentPath === was.path) {
+              void navigate(was.isDir ? directoryUrl(res.path) : documentUrl(res.path));
               return;
             }
             refreshNav();
@@ -157,98 +251,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         />
       )}
     </FileActionsContext.Provider>
-  );
-}
-
-interface CreateDialogProps {
-  entry: EntryKind;
-  startIn: string;
-  folders: readonly NavNode[];
-  onClose: () => void;
-  onCreated: (res: EntryPathResponse) => void;
-}
-
-function CreateDialog({ entry, startIn, folders, onClose, onCreated }: CreateDialogProps): JSX.Element {
-  const page = entry === 'file';
-  const [name, setName] = useState('');
-  const [folder, setFolder] = useState(startIn);
-  const [error, setError] = useState<string | undefined>(undefined);
-  const [busy, setBusy] = useState(false);
-
-  const slug = slugPath(name);
-  const preview = slug === '' ? (folder === '' ? '/' : folder) : joinPath(folder, page ? `${slug}.md` : slug);
-
-  function submit(event: FormEvent): void {
-    event.preventDefault();
-    // closing first and complaining afterwards throws away both the typed name
-    // and the folder that was picked to put it in
-    if (slug === '') {
-      setError(`${page ? 'Page name' : 'Folder name'} has to hold a letter or a digit.`);
-      return;
-    }
-    setBusy(true);
-    setError(undefined);
-    void (async () => {
-      try {
-        onCreated(await api.createEntry(preview, entry));
-      } catch (failure) {
-        setBusy(false);
-        setError(conflictText(failure, page ? 'That page already exists' : 'That folder already exists'));
-      }
-    })();
-  }
-
-  return (
-    <Modal
-      data-testid="modal"
-      data-variant="create"
-      data-entry={entry}
-      opened
-      onClose={onClose}
-      title={page ? 'New page' : 'New folder'}
-      size="md"
-    >
-      <form onSubmit={submit}>
-        <Stack gap="md">
-          <TextInput
-            data-testid="modal-name-input"
-            data-autofocus
-            label={page ? 'Page name' : 'Folder name'}
-            placeholder={page ? 'Replication' : 'databases'}
-            description="Use / in the name to nest it deeper."
-            value={name}
-            error={error}
-            autoComplete="off"
-            spellCheck={false}
-            styles={inputStyles}
-            onChange={(event) => {
-              setName(event.currentTarget.value);
-              setError(undefined);
-            }}
-          />
-
-          <Stack gap={4}>
-            <Text size="sm" fw={500}>
-              Location
-            </Text>
-            <FolderPicker folders={folders} value={folder} onChange={setFolder} />
-          </Stack>
-
-          <Text size="sm" c="dimmed" style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
-            Creates <Code data-testid="modal-path-preview">{preview}</Code>
-          </Text>
-
-          <Group justify="flex-end" gap="sm">
-            <Button data-testid="modal-cancel" variant="default" onClick={onClose} disabled={busy}>
-              Cancel
-            </Button>
-            <Button data-testid="modal-submit" type="submit" loading={busy}>
-              Create
-            </Button>
-          </Group>
-        </Stack>
-      </form>
-    </Modal>
   );
 }
 
@@ -322,4 +324,10 @@ function RenameDialog({ path, onClose, onRenamed }: RenameDialogProps): JSX.Elem
       </form>
     </Modal>
   );
+}
+
+// folderFor is where a new entry lands when the reader did not point at one: the
+// folder they are looking at, or the folder holding the note they are reading.
+export function folderFor(path: string, isDir: boolean): string {
+  return isDir ? path : parentOf(path);
 }

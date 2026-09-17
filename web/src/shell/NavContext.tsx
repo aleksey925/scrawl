@@ -6,7 +6,7 @@ import { useLocation } from 'react-router';
 
 import { api } from '../api/client';
 import type { MeResponse, NavNode } from '../api/types';
-import { useApi } from '../api/useApi';
+import { forgetResponses, useApi } from '../api/useApi';
 import { mountBase } from '../mount';
 
 import { contentPathOf } from './naming';
@@ -53,7 +53,7 @@ export interface NavState {
   sync: SyncMessage | undefined;
   isUnsynced: (path: string) => boolean;
   // two refreshes, because they cost different things: the tree is a full walk
-  // and blanks the sidebar while it runs, me is small and never blanks anything
+  // of the store and drops every cached answer with it, me is one small read
   refreshNav: () => void;
   refreshMe: () => void;
   isOpen: (path: string) => boolean;
@@ -87,7 +87,7 @@ export function NavProvider({ children }: { children: ReactNode }): JSX.Element 
   const currentPath = contentPathOf(location.pathname);
 
   const [token, setToken] = useState(0);
-  const nav = useApi((signal) => api.nav(currentPath, { signal }), [currentPath, token]);
+  const nav = useApi((signal) => api.nav(currentPath, { signal }), [currentPath, token], `nav:${currentPath}`);
   const { me, refreshMe } = useMe();
 
   const [open, setOpen] = useState<ReadonlySet<string>>(readOpen);
@@ -133,7 +133,12 @@ export function NavProvider({ children }: { children: ReactNode }): JSX.Element 
   }, []);
 
   const isOpen = useCallback((path: string) => open.has(path), [open]);
-  const refreshNav = useCallback(() => setToken((seen) => seen + 1), []);
+  const refreshNav = useCallback(() => {
+    // the tree moved, so a directory listing or a rendered note may have too,
+    // and a screen painting from a cached one would be showing the old shape
+    forgetResponses();
+    setToken((seen) => seen + 1);
+  }, []);
 
   const sync = useMemo(() => syncMessage(me), [me]);
 

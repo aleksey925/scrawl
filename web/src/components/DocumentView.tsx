@@ -16,7 +16,7 @@ export interface DocumentViewProps {
 }
 
 export function DocumentView({ path }: DocumentViewProps): JSX.Element {
-  const state = useApi((signal) => api.page(path, { signal }), [path]);
+  const state = useApi((signal) => api.page(path, { signal }), [path], `page:${path}`);
 
   return (
     <AsyncContent state={state} testId="doc">

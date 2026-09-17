@@ -18,7 +18,7 @@ export interface DirectoryViewProps {
 }
 
 export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
-  const state = useApi((signal) => api.dir(path, { signal }), [path]);
+  const state = useApi((signal) => api.dir(path, { signal }), [path], `dir:${path}`);
 
   return (
     <AsyncContent state={state} testId="dir">

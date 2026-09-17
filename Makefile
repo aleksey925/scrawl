@@ -13,7 +13,7 @@ DOCKER_IMAGE = ghcr.io/aleksey925/scrawl
 
 img:
 	@DOCKER_BUILDKIT=1 docker build $(DOCKER_ARGS) -t $(DOCKER_IMAGE):$(VERSION) .
-	
+
 deps:
 	@go mod tidy
 	@go mod vendor

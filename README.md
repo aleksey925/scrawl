@@ -6,7 +6,8 @@ files on disk are the only state.
 
 - full text search, with a command palette on `Ctrl`/`Cmd` + `K`
 - an editor with live preview, on desktop and on mobile
-- create, rename and delete pages, paste images straight into the editor
+- pages and folders made in the tree itself, dragged between folders,
+  renamed and deleted; paste images straight into the editor
 - a version history per page: what changed, by whom, and a restore
 - several projects at once, each a folder or a git remote it clones,
   serves and pushes back to

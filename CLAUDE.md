@@ -101,6 +101,18 @@ vendor/                dependencies, checked in, `make deps` regenerates
   width. The old stylesheet answered at 767/899/999/1199 while the
   javascript answered at 900/1000, and the drawer closed at a different
   width than the one that hid the sidebar.
+- A screen keeps the answer it has while it fetches the next one, and
+  answers are remembered across a route swap (`useApi`, cleared whole by
+  any mutation). Clearing the data before the request blanked the tree,
+  the note and every control on every click, for the length of a round
+  trip. What a click may not wait for is the highlight: the current row
+  comes from the route and never from the answer.
+- The tree is where a page or a folder is made: an input appears where
+  the entry will be, in the folder the action was started from, and
+  Enter creates it. A dialog asked for the folder the tree already knew
+  and then covered it. Rows drag into folders, one or the whole picked
+  run; a plain click picks, shift takes the range, and a modified click
+  stays the browser's "open in a tab".
 - Rendered notes never share an id namespace with app chrome. A heading
   becomes an element id, so a note carrying "Toasts" took `id="toasts"`
   and every toast was appended invisibly inside it. Chrome is mantine

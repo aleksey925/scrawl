@@ -76,6 +76,40 @@ test.describe('pages', () => {
         await expect(page).toHaveURL(MAIN.url.doc(docs.folder.entry));
     });
 
+    // a click used to blank the window - tree, note and controls - for the
+    // length of the round trip, because every screen cleared its data before
+    // asking for the next one
+    test('a slow page keeps the one on screen instead of blanking', async ({page}) => {
+        await page.goto(routes.doc(docs.doc.path));
+        await expect(page.getByTestId('doc-title').or(page.locator('h1')).first()).toBeVisible();
+
+        const slow = /\/api\/(page|dir|nav)\b/;
+        await page.route(slow, async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 1_500));
+            await route.continue().catch(() => {
+                // the page moved on, which is the case the generation counter
+                // in the client covers
+            });
+        });
+        // whichever row the tree happens to show beside the one being read, so
+        // this runs on either corpus
+        const other = page.locator('[data-testid=tree-row][data-current="false"]').first();
+        const target = await other.getAttribute('data-path');
+        await other.getByTestId('tree-link').click();
+
+        // in flight: the row that was clicked is already the current one, the
+        // tree is whole, and nothing has been replaced by a spinner
+        await expect(page.locator('[data-testid=tree-row][data-current="true"]'))
+            .toHaveAttribute('data-path', target);
+        await expect(page.getByTestId('tree-row').first()).toBeVisible();
+        await expect(page.getByTestId('doc-loading')).toHaveCount(0);
+        await expect(page.getByTestId('dir-loading')).toHaveCount(0);
+        await expect(page.getByTestId('sidebar-loading')).toHaveCount(0);
+        await shot(page, 'pages-slow-navigation');
+
+        await page.unroute(slow);
+    });
+
     test('the folder being viewed is the highlighted row in the tree', async ({page}) => {
         await page.goto(routes.dir(docs.folder.path));
 

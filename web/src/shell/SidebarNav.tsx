@@ -30,6 +30,11 @@ const deskRowHeight = 30;
 // closes; anything shorter and the row cancels itself as it appears.
 const focusSettleMs = 150;
 
+// springOpenMs is how long a drag has to rest on a closed folder before it
+// opens. Long enough that crossing one on the way somewhere else does nothing,
+// short enough that aiming at it reads as holding it.
+const springOpenMs = 600;
+
 // TreeUi is what the rows share and the tree owns: which rows are picked, which
 // one is being dragged over, and the order the rows are in on screen, which is
 // the only thing a shift-click range can be measured against.
@@ -332,7 +337,7 @@ function nodeAt(nodes: readonly NavNode[], path: string): NavNode | undefined {
 
 export function SidebarNav(): JSX.Element {
   const navigate = useNavigate();
-  const { tree, error, loading, canWrite, currentPath, query, setQuery, isOpen } = useNav();
+  const { tree, error, loading, canWrite, currentPath, query, setQuery, isOpen, openFolder } = useNav();
   const actions = useFileActions();
   const touch = useBelow(layoutBreakpoints.sidebar);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -342,6 +347,8 @@ export function SidebarNav(): JSX.Element {
   // what is being dragged cannot be read back during dragover, which is when
   // the answer is needed, so it is kept here as well as in the transfer
   const dragged = useRef<readonly string[]>([]);
+  // the folder a drag is hovering over and the timer that will open it
+  const spring = useRef<{ folder: string; timer: number } | undefined>(undefined);
 
   const trimmed = query.trim().toLowerCase();
   const filtered = useMemo(() => filterTree(tree, trimmed), [tree, trimmed]);
@@ -425,6 +432,10 @@ export function SidebarNav(): JSX.Element {
 
   const endDrag = useCallback(() => {
     dragged.current = [];
+    if (spring.current !== undefined) {
+      window.clearTimeout(spring.current.timer);
+      spring.current = undefined;
+    }
     setDropTarget(undefined);
   }, []);
 
@@ -439,8 +450,19 @@ export function SidebarNav(): JSX.Element {
       event.stopPropagation();
       event.dataTransfer.dropEffect = 'move';
       setDropTarget(folder);
+      // holding over a closed folder opens it, which is the only way to reach a
+      // folder deeper in with a row already in hand
+      if (spring.current?.folder !== folder) {
+        if (spring.current !== undefined) {
+          window.clearTimeout(spring.current.timer);
+        }
+        spring.current = {
+          folder,
+          timer: window.setTimeout(() => openFolder(folder), springOpenMs),
+        };
+      }
     },
-    [canDrop],
+    [canDrop, openFolder],
   );
 
   const leaveFolder = useCallback((folder: string) => {

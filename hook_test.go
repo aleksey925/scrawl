@@ -131,6 +131,7 @@ func TestCheckSecretFilesCoversTheHookSecrets(t *testing.T) {
 	tests := []struct {
 		name    string
 		file    string
+		roots   []string
 		refused bool
 	}{
 		{name: "outside every root", file: filepath.Join(t.TempDir(), "hook")},
@@ -139,6 +140,13 @@ func TestCheckSecretFilesCoversTheHookSecrets(t *testing.T) {
 		{name: "deep inside a root", file: filepath.Join(root, "secrets", "hook"), refused: true},
 		// a symlinked parent is how the check is fooled unless it resolves one
 		{name: "through a symlinked parent", file: filepath.Join(linked, "hook"), refused: true},
+		// and the same trick on the other side: on macOS every temp directory
+		// is reached through a symlinked /var, so a root that is not canonical
+		// is the ordinary case and not a contrived one
+		{
+			name: "a root that is itself a symlink", file: filepath.Join(root, "hook"),
+			roots: []string{linked}, refused: true,
+		},
 	}
 
 	for _, tc := range tests {
@@ -150,9 +158,13 @@ func TestCheckSecretFilesCoversTheHookSecrets(t *testing.T) {
 				Name:   "team",
 				Remote: &remoteConfig{HookSecretFile: tc.file},
 			}}
+			roots := tc.roots
+			if roots == nil {
+				roots = []string{root, other}
+			}
 
 			// act
-			err := checkSecretFiles([]string{root, other}, opts, cfgs)
+			err := checkSecretFiles(roots, opts, cfgs)
 
 			// assert
 			if tc.refused {

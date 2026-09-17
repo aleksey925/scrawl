@@ -424,10 +424,16 @@ func newProject(ctx context.Context, opts *options, cfg projectConfig, root stri
 // in. It covers the session signing key and every webhook secret, because the
 // reason is the same for both.
 //
-// A file often does not exist yet - auth creates the session key on first
-// start - so the parent directory is what gets resolved and the base name is
-// joined back on. Without that a file reached through a symlinked parent would
-// compare unequal to a canonical root and pass.
+// Every path is compared after its symlinks are followed, on both sides. A
+// path that is spelled one way and reached another is exactly how this check
+// is fooled: a secret file reached through a symlinked parent, a root reached
+// through a symlinked one, or the file itself being a link into the notes.
+//
+// The roots are resolved again even though resolveRoots already did. Comparing
+// a canonical path against a root that is not one is a check that silently
+// passes, and on macOS every path under /var is reached through a symlink, so
+// that is the ordinary case rather than a contrived one. A security check may
+// not depend on its caller having remembered.
 func checkSecretFiles(roots []string, opts *options, cfgs []projectConfig) error {
 	named := map[string]string{}
 	if !opts.Auth.Disabled && opts.Auth.SecretFile != "" {
@@ -440,20 +446,39 @@ func checkSecretFiles(roots []string, opts *options, cfgs []projectConfig) error
 	}
 
 	for file, what := range named {
-		resolved, err := filepath.Abs(file)
+		resolved, err := resolvedPath(file)
 		if err != nil {
 			return fmt.Errorf("absolute path for the %s %q: %w", what, file, err)
 		}
-		if dir, dErr := canonical(filepath.Dir(resolved)); dErr == nil {
-			resolved = filepath.Join(dir, filepath.Base(resolved))
-		}
 		for _, root := range roots {
-			if contains(root, resolved) {
+			inside, rErr := resolvedPath(root)
+			if rErr != nil {
+				return fmt.Errorf("absolute path for the notes root %q: %w", root, rErr)
+			}
+			if contains(inside, resolved) {
 				return fmt.Errorf("the %s %q must live outside the notes root %q", what, file, root)
 			}
 		}
 	}
 	return nil
+}
+
+// resolvedPath is the absolute path with its symlinks followed. A file that is
+// not there yet - auth creates the session key on first start - is resolved
+// through its parent instead, because EvalSymlinks fails on a path that does
+// not exist.
+func resolvedPath(p string) (string, error) {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return "", err
+	}
+	if res, cErr := canonical(abs); cErr == nil {
+		return res, nil
+	}
+	if dir, cErr := canonical(filepath.Dir(abs)); cErr == nil {
+		return filepath.Join(dir, filepath.Base(abs)), nil
+	}
+	return abs, nil
 }
 
 // warnUnwritable names the failure a NAS deployment hits first: the container

@@ -42,40 +42,49 @@ type Remote struct {
 	PullOnly bool
 }
 
+// StagingDir is where the first fetch lands before it becomes the project, and
+// the only thing an interrupted clone leaves behind. A caller deciding whether a
+// directory still has to be cloned into ignores it: it is ours, it is never part
+// of the notes, and Clone clears whatever an earlier attempt left.
+const StagingDir = ".scrawl-clone"
+
 // Clone makes the first fetch of a remote into dir. It runs when there is no
 // directory yet and therefore no service, which is why it goes through runGit
 // with the same hardening rather than through a method.
 //
-// The clone lands in a sibling temporary directory and is renamed into place,
-// so an interrupted one leaves nothing half finished at the configured path:
-// the next start either finds nothing and clones again, or finds a complete
-// clone. Cloning straight into the final path would leave a directory that is
-// neither empty nor valid, and the check on restart would then refuse to start
-// with no way out but a manual delete.
+// The clone lands in a staging directory **inside** dir and its entries are
+// moved up one level, so an interrupted one leaves that directory behind and
+// nothing else to reason about: the next start sees it, clears what the attempt
+// had already moved, and clones again.
+//
+// Inside and not beside, which the first version had wrong. dir is what an
+// operator mounts, so its parent is the container's own filesystem - read-only
+// in any hardened deployment, and `/` for the documented default - and a mount
+// point can be neither removed nor renamed over. Staging inside it also makes
+// every move a rename on one filesystem, which a sibling never guaranteed.
 func Clone(ctx context.Context, dir string, rm Remote) error {
 	git, err := exec.LookPath("git")
 	if err != nil {
 		return fmt.Errorf("history: %w: %w", ErrNoGit, err)
 	}
-	parent := filepath.Dir(dir)
-	if err = os.MkdirAll(parent, 0o750); err != nil {
-		return fmt.Errorf("history: prepare %s: %w", parent, err)
+	if err = os.MkdirAll(dir, 0o750); err != nil {
+		return fmt.Errorf("history: prepare %s: %w", dir, err)
 	}
-	tmp, err := os.MkdirTemp(parent, ".scrawl-clone-*")
-	if err != nil {
-		return fmt.Errorf("history: make a staging directory in %s: %w", parent, err)
+	staging := filepath.Join(dir, StagingDir)
+	if cErr := clearInterrupted(dir, staging); cErr != nil {
+		return cErr
 	}
-	defer func() { _ = os.RemoveAll(tmp) }()
+	defer func() { _ = os.RemoveAll(staging) }()
 
-	target := filepath.Join(tmp, "work")
+	target := filepath.Join(staging, "work")
 	// full depth, not shallow: a shallow clone breaks Log and complicates
 	// pushing, and the corpus is text
 	args := []string{"clone", "--branch", rm.Branch, "--single-branch", "--", rm.URL, target}
 	if _, err = runGit(ctx, gitRun{
 		git:     git,
-		dir:     parent,
+		dir:     dir,
 		env:     gitEnv(rm.Token),
-		base:    hardenedArgs(parent),
+		base:    hardenedArgs(dir),
 		args:    args,
 		timeout: cloneTimeout,
 		secret:  rm.Token,
@@ -83,13 +92,50 @@ func Clone(ctx context.Context, dir string, rm Remote) error {
 		return fmt.Errorf("history: clone %s: %w", redactURL(rm.URL), err)
 	}
 
-	if err = os.Remove(dir); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("history: clear %s for the clone: %w", dir, err)
-	}
-	if err = os.Rename(target, dir); err != nil {
-		return fmt.Errorf("history: put the clone in %s: %w", dir, err)
+	if mErr := moveInto(dir, target); mErr != nil {
+		return mErr
 	}
 	log.Printf("[INFO] history: cloned %s into %s", redactURL(rm.URL), dir)
+	return nil
+}
+
+// clearInterrupted empties dir when an earlier clone died in the middle of one.
+// The staging directory is the proof that it did, and everything beside it is
+// then what that attempt had already moved: dir was empty when it started, so
+// there is nothing of anybody's to lose.
+func clearInterrupted(dir, staging string) error {
+	if _, err := os.Stat(staging); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("history: look at %s: %w", staging, err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("history: read %s: %w", dir, err)
+	}
+	for _, ent := range entries {
+		if err = os.RemoveAll(filepath.Join(dir, ent.Name())); err != nil {
+			return fmt.Errorf("history: clear what an interrupted clone left in %s: %w", dir, err)
+		}
+	}
+	log.Printf("[WARN] history: %s held an interrupted clone, cloning again", dir)
+	return nil
+}
+
+// moveInto lifts the finished clone one level up, into the directory the
+// project is served from. Both ends sit on the same filesystem, so every entry
+// moves with a rename and no copy can half-finish.
+func moveInto(dir, work string) error {
+	entries, err := os.ReadDir(work)
+	if err != nil {
+		return fmt.Errorf("history: read the clone in %s: %w", work, err)
+	}
+	for _, ent := range entries {
+		if err = os.Rename(filepath.Join(work, ent.Name()), filepath.Join(dir, ent.Name())); err != nil {
+			return fmt.Errorf("history: put the clone in %s: %w", dir, err)
+		}
+	}
 	return nil
 }
 

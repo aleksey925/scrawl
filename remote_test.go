@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aleksey925/scrawl/history"
 )
 
 // bareOrigin makes a remote nothing has to reach the network for: a bare
@@ -77,6 +79,28 @@ func TestEnsureDirsLeavesAnExistingCloneAlone(t *testing.T) {
 	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(dir, "unpushed.md"),
 		"a second clone would throw away commits that were never pushed")
+}
+
+// TestEnsureDirsClonesAgainAfterAnInterruptedOne is why a leftover staging
+// directory counts as empty: without it a clone killed halfway would leave a
+// directory that is neither empty nor a clone, and every later start would
+// refuse with nothing to do about it but delete the volume by hand.
+func TestEnsureDirsClonesAgainAfterAnInterruptedOne(t *testing.T) {
+	// arrange
+	bare := bareOrigin(t)
+	dir := filepath.Join(t.TempDir(), "clone")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, history.StagingDir, "work"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "half-moved.md"), []byte("# Half\n"), 0o600))
+	cfgs := []projectConfig{{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}}
+
+	// act
+	err := ensureDirs(t.Context(), &options{}, cfgs)
+
+	// assert
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(dir, "index.md"))
+	assert.NoFileExists(t, filepath.Join(dir, "half-moved.md"))
+	assert.NoDirExists(t, filepath.Join(dir, history.StagingDir))
 }
 
 // TestNewHistoryForcesItselfOnForARemote is the one place --history does not

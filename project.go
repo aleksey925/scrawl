@@ -252,7 +252,9 @@ func ensureDirs(ctx context.Context, opts *options, cfgs []projectConfig) error 
 }
 
 // emptyDir reports whether a path holds nothing worth keeping, which is what a
-// first clone needs: missing, or there and empty.
+// first clone needs: missing, or there and empty. A clone that was interrupted
+// counts as empty: what it left is the staging directory and whatever it had
+// already moved out of it, all of it ours, and Clone clears the lot.
 func emptyDir(dir string) (bool, error) {
 	entries, err := os.ReadDir(dir)
 	switch {
@@ -260,6 +262,11 @@ func emptyDir(dir string) (bool, error) {
 		return true, nil
 	case err != nil:
 		return false, fmt.Errorf("read %s: %w", dir, err)
+	}
+	for _, ent := range entries {
+		if ent.Name() == history.StagingDir {
+			return true, nil
+		}
 	}
 	return len(entries) == 0, nil
 }

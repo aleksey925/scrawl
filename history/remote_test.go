@@ -79,21 +79,73 @@ func TestCloneLandsCompleteOrNotAtAll(t *testing.T) {
 	// assert
 	assert.FileExists(t, filepath.Join(dir, "index.md"))
 	assert.DirExists(t, filepath.Join(dir, ".git"))
-	staging, err := filepath.Glob(filepath.Join(filepath.Dir(dir), ".scrawl-clone-*"))
-	require.NoError(t, err)
-	assert.Empty(t, staging, "the staging directory is gone whether the clone worked or not")
+	assert.NoDirExists(t, filepath.Join(dir, StagingDir), "the staging directory is gone either way")
 }
 
 func TestCloneRefusesAMissingBranch(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
+	dir := filepath.Join(t.TempDir(), "notes")
 
 	// act
-	err := Clone(t.Context(), filepath.Join(t.TempDir(), "notes"), Remote{URL: bare, Branch: "nope"})
+	err := Clone(t.Context(), dir, Remote{URL: bare, Branch: "nope"})
 
 	// assert
 	require.Error(t, err)
-	assert.NoDirExists(t, filepath.Join(t.TempDir(), "notes"))
+	assert.Empty(t, dirNames(t, dir), "nothing is left to make the next start refuse")
+}
+
+// TestCloneNeedsNothingOfTheParent is the deployment this got wrong: dir is
+// what an operator mounts, so its parent belongs to the image and is read-only
+// in any hardened container - and a mount point can be neither removed nor
+// renamed over, which is what staging beside it needed.
+func TestCloneNeedsNothingOfTheParent(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores the permissions this test is about")
+	}
+	// arrange
+	bare := bareRemote(t)
+	parent := filepath.Join(t.TempDir(), "image")
+	dir := filepath.Join(parent, "notes")
+	require.NoError(t, os.MkdirAll(dir, 0o750))
+	require.NoError(t, os.Chmod(parent, 0o555))
+	t.Cleanup(func() { _ = os.Chmod(parent, 0o750) })
+
+	// act
+	err := Clone(t.Context(), dir, Remote{URL: bare, Branch: initialBranch})
+
+	// assert
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(dir, "index.md"))
+}
+
+// TestCloneClearsAnInterruptedOne covers the state a killed first clone leaves:
+// the staging directory, and whatever it had already moved out of it.
+func TestCloneClearsAnInterruptedOne(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := filepath.Join(t.TempDir(), "notes")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, StagingDir, "work"), 0o750))
+	writeFile(t, dir, "half-moved.md", "# Half moved\n")
+
+	// act
+	require.NoError(t, Clone(t.Context(), dir, Remote{URL: bare, Branch: initialBranch}))
+
+	// assert
+	assert.Equal(t, []string{".git", "index.md"}, dirNames(t, dir))
+}
+
+// dirNames lists what a directory holds, sorted, which is what os.ReadDir
+// already answers.
+func dirNames(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	res := make([]string, 0, len(entries))
+	for _, ent := range entries {
+		res = append(res, ent.Name())
+	}
+	return res
 }
 
 // TestNewRefusesAClonePointedElsewhere is why an existing clone is verified and

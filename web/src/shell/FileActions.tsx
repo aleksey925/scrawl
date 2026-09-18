@@ -150,7 +150,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       const path = draftPath(draft, name);
       const page = draft.kind === 'file';
       if (path === '') {
-        showToast('error', { message: `${page ? 'A page' : 'A folder'} needs a letter or a digit in its name` });
+        showToast('error', { message: `${page ? 'A file' : 'A folder'} needs a letter or a digit in its name` });
         return false;
       }
       let res: EntryPathResponse;
@@ -159,7 +159,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       } catch (error) {
         showToast('error', {
           title: 'Nothing was created',
-          message: conflictText(error, page ? 'That page already exists' : 'That folder already exists'),
+          message: conflictText(error, page ? 'That file already exists' : 'That folder already exists'),
         });
         return false;
       }

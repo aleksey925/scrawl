@@ -197,6 +197,35 @@ test.describe('reading', () => {
         await shot(page, 'reading-toc-active');
     });
 
+    // a section longer than the reading band, or a jump that carries several
+    // headings past it, used to leave the marker where it was: the outline
+    // stopped following the page for the rest of the note
+    test('the outline keeps following after a jump to the end', async ({page}) => {
+        await page.goto(routes.doc(DOC.path));
+        await expect(page.getByTestId('toc')).toBeVisible();
+        const first = await page.locator('[data-testid=toc-entry][data-active="true"]').textContent();
+
+        await page.evaluate(() => window.scrollTo({top: document.body.scrollHeight, behavior: 'instant'}));
+        await expect
+            .poll(async () => page.locator('[data-testid=toc-entry][data-active="true"]').textContent())
+            .not.toBe(first);
+
+        // and the marker is somewhere the reader can see: an outline taller
+        // than the rail scrolls inside it
+        const visible = await page.evaluate(() => {
+            const entry = document.querySelector('[data-testid=toc-entry][data-active="true"]');
+            const rail = document.querySelector('[data-testid=toc]')?.closest('[class*=ScrollArea-viewport]')
+                ?? document.querySelector('[class*=AppShell-aside]');
+            if (entry === null || rail === null) {
+                return null;
+            }
+            const box = entry.getBoundingClientRect();
+            const host = rail.getBoundingClientRect();
+            return box.top >= host.top - 1 && box.bottom <= host.bottom + 1;
+        });
+        expect(visible, 'the marked entry is inside the rail').toBe(true);
+    });
+
     // "?" is a character somebody types, so the sheet must stay out of the way
     // while a field has the keyboard
     test('the shortcut cheat sheet opens', async ({page}) => {

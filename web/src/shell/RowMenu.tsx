@@ -86,7 +86,7 @@ export function RowMenu({ path, isDir, name, touch }: RowMenuProps): JSX.Element
               leftSection={<IconPlus size={iconSize} />}
               onClick={() => actions.createPage(folder)}
             >
-              New page here
+              New file
             </Menu.Item>
             <Menu.Item
               data-testid="tree-row-menu-new-folder"

@@ -1,4 +1,4 @@
-import { ActionIcon, AppShell, Burger, Drawer } from '@mantine/core';
+import { ActionIcon, AppShell, Burger, Drawer, ScrollArea } from '@mantine/core';
 import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { Outlet, useLocation } from 'react-router';
@@ -146,7 +146,16 @@ export function AppLayout(): JSX.Element {
                 in it would still answer the tab key */}
             <AppShell.Navbar>{wideSidebar && !navHidden && <SidebarNav />}</AppShell.Navbar>
 
-            <AppShell.Aside p="lg">{wideToc ? <div ref={setTocSlot} /> : null}</AppShell.Aside>
+            {/* the rail is fixed beside the note, so an outline longer than the
+                window has to scroll inside it or the last headings are simply
+                unreachable */}
+            <AppShell.Aside>
+              {wideToc ? (
+                <ScrollArea type="hover" h="100%">
+                  <div ref={setTocSlot} style={{ padding: 'var(--mantine-spacing-lg)' }} />
+                </ScrollArea>
+              ) : null}
+            </AppShell.Aside>
 
             <AppShell.Main style={{ minWidth: 0 }}>
               <ProjectAlerts />

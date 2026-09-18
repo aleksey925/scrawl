@@ -41,7 +41,7 @@ module.exports = {
 
     // what a refused creation says, on the toast the draft row raises: the row
     // itself keeps the typed name, so the message only has to name the reason
-    pageExists: 'That page already exists',
+    pageExists: 'That file already exists',
     folderExists: 'That folder already exists',
 
     doc: {
@@ -64,7 +64,7 @@ module.exports = {
     },
 
     sidebar: {
-        newPage: 'New page',
+        newPage: 'New file',
         newFolder: 'New folder',
         nothingMatches: 'Nothing matches. Press Enter to search the text of every note.',
     },

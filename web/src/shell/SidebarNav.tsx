@@ -75,12 +75,16 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
   const { draft } = useFileActions();
   const ui = useTreeUi();
 
-  if (query !== '' && !filtered.visible.has(node.path)) {
+  // the project's own row: it is the folder everything else grows out of, so a
+  // filter never hides it and nothing may drag it anywhere
+  const root = node.path === '';
+
+  if (!root && query !== '' && !filtered.visible.has(node.path)) {
     return null;
   }
 
-  const label = displayName(node.name);
-  const open = query === '' ? isOpen(node.path) : filtered.forcedOpen.has(node.path);
+  const label = root ? node.name : displayName(node.name);
+  const open = query !== '' ? root || filtered.forcedOpen.has(node.path) : isOpen(node.path);
   // the route decides this and not the answer the server sent with the tree:
   // the click has already happened, and a highlight that waits for a round trip
   // is a click that did nothing for as long as the round trip took
@@ -101,7 +105,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
         data-drop={over ? 'true' : 'false'}
         data-dir={node.is_dir ? 'true' : 'false'}
         data-path={node.path}
-        draggable={ui.canWrite}
+        draggable={ui.canWrite && !root}
         onDragStart={(event) => ui.startDrag(node.path, event)}
         onDragEnd={ui.endDrag}
         onDragOver={(event) => ui.overFolder(folderFor(node.path, node.is_dir), event)}
@@ -284,8 +288,8 @@ function DraftRow({ depth, touch }: { depth: number; touch: boolean }): JSX.Elem
         disabled={busy}
         variant="unstyled"
         size={touch ? 'md' : 'xs'}
-        placeholder={page ? 'Page name' : 'Folder name'}
-        aria-label={page ? 'Name of the new page' : 'Name of the new folder'}
+        placeholder={page ? 'File name' : 'Folder name'}
+        aria-label={page ? 'Name of the new file' : 'Name of the new folder'}
         autoComplete="off"
         spellCheck={false}
         onChange={(event) => setName(event.currentTarget.value)}
@@ -322,6 +326,10 @@ function flatten(nodes: readonly NavNode[], visible: (node: NavNode) => boolean,
   return into;
 }
 
+function inFolder(folder: string, project: string): string {
+  return `In ${folder === '' ? project : folder}`;
+}
+
 function nodeAt(nodes: readonly NavNode[], path: string): NavNode | undefined {
   for (const node of nodes) {
     if (node.path === path) {
@@ -337,7 +345,7 @@ function nodeAt(nodes: readonly NavNode[], path: string): NavNode | undefined {
 
 export function SidebarNav(): JSX.Element {
   const navigate = useNavigate();
-  const { tree, error, loading, canWrite, currentPath, query, setQuery, isOpen, openFolder } = useNav();
+  const { tree, error, loading, canWrite, currentPath, query, setQuery, isOpen, openFolder, me } = useNav();
   const actions = useFileActions();
   const touch = useBelow(layoutBreakpoints.sidebar);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -353,9 +361,25 @@ export function SidebarNav(): JSX.Element {
   const trimmed = query.trim().toLowerCase();
   const filtered = useMemo(() => filterTree(tree, trimmed), [tree, trimmed]);
 
+  // the project is a row like any other, and everything grows out of it. It is
+  // what makes the root reachable at all: without it there is nothing to point
+  // at when a new page belongs beside the folders rather than inside one.
+  const rootNode = useMemo<NavNode>(
+    () => ({
+      name: me?.project.label ?? me?.site_title ?? 'Notes',
+      path: '',
+      url: '/',
+      is_dir: true,
+      active: true,
+      current: false,
+      children: [...tree],
+    }),
+    [me?.project.label, me?.site_title, tree],
+  );
+
   const rowOrder = useMemo(
-    () => flatten(tree, (node) => (trimmed === '' ? isOpen(node.path) : filtered.forcedOpen.has(node.path)), []),
-    [tree, trimmed, isOpen, filtered],
+    () => flatten([rootNode], (node) => (trimmed === '' ? isOpen(node.path) : true), []),
+    [rootNode, trimmed, isOpen],
   );
 
   // the panel starts at the top after a navigation, which on a corpus taller
@@ -590,10 +614,7 @@ export function SidebarNav(): JSX.Element {
                 Nothing matches. Press Enter to search the text of every note.
               </Text>
             ) : (
-              <>
-                {actions.draft?.parent === '' && <DraftRow depth={0} touch={touch} />}
-                <TreeRows nodes={tree} depth={0} filtered={filtered} query={trimmed} touch={touch} />
-              </>
+              <TreeRows nodes={[rootNode]} depth={0} filtered={filtered} query={trimmed} touch={touch} />
             )}
           </Box>
         </ScrollArea>
@@ -601,15 +622,18 @@ export function SidebarNav(): JSX.Element {
 
       {canWrite && (
         <Group gap="xs" px="xs" pb="xs" wrap="nowrap">
+          {/* where it lands is the row that is picked, and the title says so
+              for the times the tree is scrolled away from it */}
           <Button
             data-testid="sidebar-new-page"
             variant="default"
             size={touch ? 'sm' : 'xs'}
             leftSection={<IconPlus size={14} />}
             onClick={() => actions.createPage(here)}
+            title={inFolder(here, rootNode.name)}
             style={{ flex: '1 1 0', minWidth: 0 }}
           >
-            New page
+            New file
           </Button>
           <Button
             data-testid="sidebar-new-folder"
@@ -617,6 +641,7 @@ export function SidebarNav(): JSX.Element {
             size={touch ? 'sm' : 'xs'}
             leftSection={<IconFolderPlus size={14} />}
             onClick={() => actions.createFolder(here)}
+            title={inFolder(here, rootNode.name)}
             style={{ flex: '1 1 0', minWidth: 0 }}
           >
             New folder

@@ -15,16 +15,26 @@ import { useMe } from './useMe';
 
 // one bucket per project: the set is read during the very first render, long
 // before /api/me has answered, so the key comes from the mount prefix and not
-// from the project name the server reports
-const storageKey = `scrawl.tree.open:${mountBase()}`;
+// from the project name the server reports.
+//
+// v2 because the project's own row joined the tree: a set written before it
+// existed holds no entry for the root and would open on a collapsed project.
+const storageKey = `scrawl.tree.open:v2:${mountBase()}`;
+
+// the project row starts open, because a tree whose only row is the project is
+// not a tree. Collapsing it is remembered like any other folder.
+const rootPath = '';
 
 function readOpen(): ReadonlySet<string> {
   try {
     const raw = localStorage.getItem(storageKey);
-    const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+    if (raw === null) {
+      return new Set([rootPath]);
+    }
+    const parsed: unknown = JSON.parse(raw);
     return new Set(Array.isArray(parsed) ? parsed.filter((path): path is string => typeof path === 'string') : []);
   } catch {
-    return new Set();
+    return new Set([rootPath]);
   }
 }
 

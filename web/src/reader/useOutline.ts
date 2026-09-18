@@ -61,12 +61,30 @@ export function useOutline(
     }
 
     const seen = new Set<Element>();
+
+    // lastPassed is the section the reader is inside when no heading is in the
+    // band at all: a section longer than the band, or a jump that carried
+    // several headings past it between two frames. Without it the marker stays
+    // on whatever was in the band last and the outline stops following.
+    const lastPassed = (): Element | undefined => {
+      let res: Element | undefined;
+      for (const target of ordered) {
+        if (target.getBoundingClientRect().top > headerHeight) {
+          break;
+        }
+        res = target;
+      }
+      return res;
+    };
+
     const mark = (): void => {
       // at the top of the page the first heading is usually still below the
       // band, which would leave the outline blank until the reader scrolls
-      const active =
-        ordered.find((target) => seen.has(target)) ??
-        (window.scrollY < atTop ? ordered[0] : undefined);
+      if (window.scrollY < atTop) {
+        setActiveId(ids.get(ordered[0] as Element) ?? null);
+        return;
+      }
+      const active = ordered.find((target) => seen.has(target)) ?? lastPassed();
       if (active !== undefined) {
         setActiveId(ids.get(active) ?? null);
       }

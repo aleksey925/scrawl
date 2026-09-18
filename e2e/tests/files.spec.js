@@ -12,6 +12,7 @@ const OTHER = 'e2e-fm-other';
 const PAGE = `${FOLDER}/testovaya-stranitsa.md`;
 const RENAMED = `${FOLDER}/pereimenovannaya.md`;
 const DRAGGED = ['e2e-drag-one.md', 'e2e-drag-two.md'];
+const ROOT_PAGE = 'e2e-root-page.md';
 
 test.describe.serial('file management', () => {
     test.beforeEach(async ({page}) => {
@@ -22,7 +23,7 @@ test.describe.serial('file management', () => {
         for (const folder of [FOLDER, OTHER]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
-        for (const name of DRAGGED) {
+        for (const name of [...DRAGGED, ROOT_PAGE]) {
             fs.rmSync(fixtureFile(name), {force: true});
         }
     });
@@ -49,6 +50,23 @@ test.describe.serial('file management', () => {
         await page.goto(routes.dir(FOLDER));
         await expect(page.getByTestId('dir-empty')).toHaveText(text.dir.empty);
         await shot(page, 'files-folder-created');
+    });
+
+    // the project has a row of its own, and it is the only thing that makes the
+    // root a place a reader can point at
+    test('creates a file in the root from the project row', async ({page}) => {
+        const row = page.locator('[data-testid=tree-row][data-path=""]');
+        await expect(page.locator('[data-testid=tree-row]').first()).toHaveAttribute('data-path', '');
+        await row.locator('[data-testid=tree-row-menu]').click();
+        await page.getByTestId('tree-row-menu-new-page').click();
+
+        await page.getByTestId('tree-draft-input').fill(ROOT_PAGE.replace('.md', ''));
+        await page.getByTestId('tree-draft-input').press('Enter');
+
+        await expect(page).toHaveURL(MAIN.url.edit(ROOT_PAGE));
+        expect(fs.existsSync(fixtureFile(ROOT_PAGE))).toBe(true);
+        await expect(page.locator(`[data-testid=tree-row][data-path="${ROOT_PAGE}"]`)).toHaveCount(1);
+        await shot(page, 'files-root-page');
     });
 
     test('creates a page inside the folder it was started from', async ({page}) => {

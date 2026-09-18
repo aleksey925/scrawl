@@ -8,6 +8,7 @@ const text = require('../support/text');
 
 const DOC = docs.doc;
 const ANCHORS = 'e2e-anchors.md';
+const OUTLINE = 'e2e-outline.md';
 
 // a page of its own for the anchor test: the fragment an author writes and the
 // slug the renderer makes have to be the same string for the jump to resolve,
@@ -197,18 +198,30 @@ test.describe('reading', () => {
         await shot(page, 'reading-toc-active');
     });
 
-    // a section longer than the reading band, or a jump that carries several
-    // headings past it, used to leave the marker where it was: the outline
-    // stopped following the page for the rest of the note
-    test('the outline keeps following after a jump to the end', async ({page}) => {
-        await page.goto(routes.doc(DOC.path));
+    // a section taller than the reading band leaves no heading in it at all,
+    // and a jump carries several past it between two frames. The marker used to
+    // stay where it was in both cases, so the outline stopped following the
+    // page for the rest of the note. The note is written here rather than
+    // looked for, because it has to be tall in a way no corpus promises.
+    test('the outline follows into a section taller than the reading band', async ({page}) => {
+        const filler = (word) => Array.from({length: 40}, () => `${word} `.repeat(12)).join('\n\n');
+        writeFixture(
+            OUTLINE,
+            ['# Outline probe', '', '## First', filler('one'), '## Second', filler('two'), '## Third', filler('three')]
+                .join('\n\n'),
+        );
+        await page.goto(routes.doc(OUTLINE));
         await expect(page.getByTestId('toc')).toBeVisible();
-        const first = await page.locator('[data-testid=toc-entry][data-active="true"]').textContent();
 
-        await page.evaluate(() => window.scrollTo({top: document.body.scrollHeight, behavior: 'instant'}));
-        await expect
-            .poll(async () => page.locator('[data-testid=toc-entry][data-active="true"]').textContent())
-            .not.toBe(first);
+        // deep inside the second section, with its heading far above the window
+        // and the next one still far below it
+        await page.evaluate(() => {
+            const second = document.querySelectorAll('[data-testid=doc] h2')[1];
+            window.scrollTo({top: second.getBoundingClientRect().top + window.scrollY + 900, behavior: 'instant'});
+        });
+
+        const active = page.locator('[data-testid=toc-entry][data-active="true"]');
+        await expect(active).toHaveText('Second');
 
         // and the marker is somewhere the reader can see: an outline taller
         // than the rail scrolls inside it
@@ -224,6 +237,8 @@ test.describe('reading', () => {
             return box.top >= host.top - 1 && box.bottom <= host.bottom + 1;
         });
         expect(visible, 'the marked entry is inside the rail').toBe(true);
+
+        removeFixture(OUTLINE);
     });
 
     // "?" is a character somebody types, so the sheet must stay out of the way

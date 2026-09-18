@@ -1,0 +1,83 @@
+# Deployment example, written for a Synology NAS but not specific to one.
+# Copy it over, change the volume path, AUTH_USERS and the user: line, then
+# `docker compose up -d`. Container Manager takes the same file under Project.
+services:
+  scrawl:
+    image: ghcr.io/aleksey925/scrawl:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7272:7272"
+
+    volumes:
+      - /volume1/docs/notes:/notes
+      # the generated session key lives here. keep it out of /notes, or it
+      # lands in the page tree, the search index and every backup
+      - scrawl-data:/data
+
+    environment:
+      - TZ=Europe/Nicosia
+      # the name of the folder above, and the one URL segment everything in it
+      # is served under: /p/notes/doc/python/redis.md. it is required, because
+      # a name taken from the directory would turn one mv into a site-wide URL
+      # change. several folders at once go in a CONFIG file instead, see the
+      # README
+      - PROJECT=notes
+      # in a compose file every literal dollar has to be doubled, because
+      # compose expands $VARS: a hash printed as $2a$10$xyz goes in as
+      # $$2a$$10$$xyz. in Container Manager's environment table values are
+      # taken literally, so paste the hash unchanged.
+      # get a hash with
+      #   printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:latest --gen-hash
+      - AUTH_USERS=alex:$$2a$$10$$REPLACE_ME
+      # tokens for the JSON API, for a script or an agent instead of a browser.
+      # get one with
+      #   docker run --rm ghcr.io/aleksey925/scrawl:latest --gen-token=bot
+      # the digest goes here and holds no dollars, the token goes to the
+      # client. an entry ending in :ro may read but never write
+      # - AUTH_TOKENS=bot:sha256:REPLACE_ME,reader:sha256:REPLACE_ME:ro
+      # auto sends the session cookie over plain http too, which is what you
+      # want on a LAN. behind an HTTPS proxy use always, together with
+      # TRUSTED_PROXY=true, and make sure the proxy overwrites X-Forwarded-For
+      - AUTH_SECURE=auto
+      - TRUSTED_PROXY=false
+      # every change is committed to a git repository the app keeps in
+      # /notes/.git, which is what the version history of a page reads. auto
+      # keeps the app working when git is missing or the folder already sits
+      # inside another repository, on refuses to start in that case, off never
+      # touches the notes
+      - HISTORY=auto
+      # site title in the interface
+      # - TITLE=Notes
+      # inotify never sees what another client writes to a network share
+      # - WATCH=poll
+      # collect uploads in one folder instead of next to each document
+      # - UPLOAD_DIR=attachments
+      # upload size cap
+      # - MAX_UPLOAD=20M
+      # extra ignore globs, comma separated
+      # - EXCLUDE=*.bak,private/**
+      # serve the notes and refuse every write
+      # - READ_ONLY=true
+
+    # the image runs as uid 1001, your share belongs to someone else, and a uid
+    # that does not own the share cannot write to it: reading works and every
+    # save fails. run `id <your-user>` on the NAS and put the numbers here
+    # user: "1026:100"
+
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  scrawl-data:

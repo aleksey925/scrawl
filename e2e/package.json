@@ -1,0 +1,12 @@
+{
+  "name": "scrawl-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "playwright browser suite for scrawl, run against a real binary",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

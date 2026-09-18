@@ -1,0 +1,219 @@
+/* The sign-in page carries its own stylesheet. Every other page is the app,
+   which brings its own, and this one has to work before any of it loads. */
+
+:root {
+  color-scheme: light dark;
+
+  --bg: #f7f7f5;
+  --bg-raised: #ffffff;
+  --text: #1d1d1f;
+  --text-dim: #55555c;
+  --border: #e6e6e3;
+  --accent: #0071e3;
+  --accent-hover: #0062c4;
+  --danger: #c9252d;
+  --danger-subtle: #fdeceb;
+  --focus: #0071e3;
+}
+
+:root:not([data-theme='light']) {
+  @media (prefers-color-scheme: dark) {
+    --bg: #161618;
+    --bg-raised: #2c2c2e;
+    --text: #f5f5f7;
+    --text-dim: #a1a1a6;
+    --border: #323235;
+    --accent: #0a84ff;
+    --accent-hover: #3d9bff;
+    --danger: #ff6961;
+    --danger-subtle: #3a1d1c;
+    --focus: #0a84ff;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #161618;
+  --bg-raised: #2c2c2e;
+  --text: #f5f5f7;
+  --text-dim: #a1a1a6;
+  --border: #323235;
+  --accent: #0a84ff;
+  --accent-hover: #3d9bff;
+  --danger: #ff6961;
+  --danger-subtle: #3a1d1c;
+  --focus: #0a84ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto,
+    'Helvetica Neue', 'Noto Sans', Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 1.5rem;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  padding: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-raised);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 8%), 0 1px 3px rgb(0 0 0 / 5%);
+  text-align: center;
+}
+
+.login-logo {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 1rem;
+  color: var(--accent);
+}
+
+.login-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.login-sub {
+  margin: 0 0 1.5rem;
+  color: var(--text-dim);
+  font-size: 0.875rem;
+}
+
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  background: var(--danger-subtle);
+  color: var(--danger);
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.login-error .icon {
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+
+.field {
+  display: block;
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text-dim);
+  font-size: 0.875rem;
+}
+
+.input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  color: var(--text);
+  /* anything under 16px makes iOS zoom the page on focus and never zoom back */
+  font: inherit;
+  font-size: 1rem;
+}
+
+.input:focus-visible,
+.btn:focus-visible,
+.login-theme:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.btn {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .btn:hover {
+    background: var(--accent-hover);
+  }
+}
+
+.login-theme {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+/* the toggle shows the icon of the mode in force, so only one is ever drawn */
+.icon-theme-auto,
+.icon-theme-light,
+.icon-theme-dark {
+  display: none;
+}
+
+:root:not([data-theme]) .icon-theme-auto,
+:root[data-theme='auto'] .icon-theme-auto,
+:root[data-theme='light'] .icon-theme-light,
+:root[data-theme='dark'] .icon-theme-dark {
+  display: block;
+}

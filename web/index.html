@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="csp-nonce" content="" />
+    <link rel="icon" href="/static/dev/favicon.svg" type="image/svg+xml" />
+    <title>scrawl</title>
+  </head>
+  <body>
+    <!-- the base the go shell fills in per project. `make run` pins
+         --project notes, so the dev bundle names the same one -->
+    <div id="scrawl-app-root" data-base="/p/notes"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

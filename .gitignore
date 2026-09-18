@@ -1,0 +1,16 @@
+.idea/
+.vscode/
+.DS_Store
+
+/dist/
+/notes/
+/scrawl
+/var/
+coverage.out
+coverage.out.tmp
+*.test
+node_modules/
+/e2e/test-results/
+/e2e/playwright-report/
+/e2e/screenshots/
+/e2e/node_modules/

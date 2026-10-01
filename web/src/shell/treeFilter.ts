@@ -1,5 +1,4 @@
 import type { NavNode } from '../api/types';
-import { displayName } from '../paths';
 
 export interface FilteredTree {
   visible: ReadonlySet<string>;
@@ -19,7 +18,7 @@ export function filterTree(nodes: readonly NavNode[], query: string): FilteredTr
   const matches: NavNode[] = [];
 
   const walk = (node: NavNode): boolean => {
-    const self = displayName(node.name).toLowerCase().includes(query);
+    const self = node.name.toLowerCase().includes(query);
     if (self) {
       matches.push(node);
     }

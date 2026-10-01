@@ -39,10 +39,6 @@ export function isMarkdown(path: string): boolean {
   return path.toLowerCase().endsWith('.md');
 }
 
-export function displayName(name: string): string {
-  return isMarkdown(name) ? name.slice(0, -'.md'.length) : name;
-}
-
 // Everything below is router-relative: React Router prepends the project's
 // basename itself, so none of these may carry the mount prefix. rawUrl is the
 // exception and says so in its own comment.

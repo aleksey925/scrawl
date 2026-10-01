@@ -91,18 +91,30 @@
 
 /* --- heading anchors ----------------------------------------------------- */
 
-/* a finger has no hover to reveal this with, so it is on screen and at the tap
-   minimum by default and only retreats into the gutter where hovering works */
+/* in the gutter left of the heading on every device. A finger has no hover to
+   reveal it with, so there it is always on screen, and its box is the tap
+   minimum laid over the start of the heading, which takes no tap of its own */
 .md-anchor {
-  display: inline-flex;
+  position: absolute;
+  top: calc((1lh - var(--scrawl-tap-target)) / 2);
+  left: calc(-1 * var(--mantine-spacing-lg));
+  display: flex;
   align-items: center;
-  justify-content: center;
-  min-width: var(--scrawl-tap-target);
-  min-height: var(--scrawl-tap-target);
+  width: var(--scrawl-tap-target);
+  height: var(--scrawl-tap-target);
   color: var(--scrawl-text-tertiary);
   font-weight: 400;
   text-decoration: none;
-  vertical-align: middle;
+}
+
+/* the glyph is drawn here and not as the anchor's text: the anchor keeps the
+   heading's font, which is what 1lh above is measured in, while the glyph
+   stays small enough for a phone gutter under an h1 */
+.md-anchor::before {
+  content: '#';
+  width: var(--mantine-spacing-lg);
+  font-size: var(--mantine-font-size-md);
+  text-align: center;
 }
 
 .md-anchor:focus-visible {
@@ -111,17 +123,18 @@
 }
 
 @media (hover: hover) {
-  /* absolute, so the gutter placement does not depend on the anchor trailing
-     the heading text, which is where a finger has to be able to reach it */
   .md-anchor {
-    position: absolute;
     top: 0;
     left: -0.9em;
     width: 0.9em;
-    min-width: 0;
-    min-height: 0;
+    height: 1lh;
     opacity: 0;
     transition: opacity 120ms ease;
+  }
+
+  .md-anchor::before {
+    width: auto;
+    font-size: inherit;
   }
 
   .markdown-document :is(h1, h2, h3, h4, h5, h6):hover > .md-anchor,

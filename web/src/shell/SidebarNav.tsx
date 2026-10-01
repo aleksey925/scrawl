@@ -12,7 +12,6 @@ import { Link, useNavigate } from 'react-router';
 
 import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
-import { displayName } from '../paths';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { folderFor, useFileActions } from './FileActions';
@@ -83,7 +82,6 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
     return null;
   }
 
-  const label = root ? node.name : displayName(node.name);
   const open = query !== '' ? root || filtered.forcedOpen.has(node.path) : isOpen(node.path);
   // the route decides this and not the answer the server sent with the tree:
   // the click has already happened, and a highlight that waits for a round trip
@@ -132,7 +130,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
             color="gray"
             size={touch ? 'lg' : 'sm'}
             style={{ flex: 'none' }}
-            aria-label={`${open ? 'Collapse' : 'Expand'} ${label}`}
+            aria-label={`${open ? 'Collapse' : 'Expand'} ${node.name}`}
             aria-expanded={open}
             onClick={() => toggleFolder(node.path)}
           >
@@ -173,7 +171,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
               c={current ? 'var(--scrawl-accent)' : undefined}
               style={{ minWidth: 0 }}
             >
-              {label}
+              {node.name}
             </Highlight>
           </Group>
         </Anchor>
@@ -182,7 +180,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
             name and the badge reads beside it */}
         <SyncBadge path={node.path} />
 
-        <RowMenu path={node.path} isDir={node.is_dir} name={label} touch={touch} />
+        <RowMenu path={node.path} isDir={node.is_dir} name={node.name} touch={touch} />
       </Group>
 
       {node.is_dir && open && (

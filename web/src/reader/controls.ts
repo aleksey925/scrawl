@@ -30,7 +30,6 @@ export function injectControls(root: HTMLElement): () => void {
     anchor.setAttribute('href', `#${encodeURIComponent(heading.id)}`);
     anchor.dataset.headingId = heading.id;
     anchor.setAttribute('aria-label', 'Copy a link to this section');
-    anchor.textContent = '#';
     heading.append(anchor);
     added.push(anchor);
   }

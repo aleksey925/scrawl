@@ -77,7 +77,7 @@ func dirEntries(entries []store.FileInfo) []DirEntry {
 			target = dirURL(ent.Path)
 		}
 		res = append(res, DirEntry{
-			Name:    displayName(ent.Name),
+			Name:    ent.Name,
 			Path:    ent.Path,
 			URL:     target,
 			IsDir:   ent.IsDir,
@@ -148,7 +148,7 @@ func inNavTree(node *store.Node) bool {
 }
 
 func treeNodeOf(node *store.Node, current string) TreeNode {
-	res := TreeNode{Name: displayName(node.Name), Path: node.Path, IsDir: node.IsDir}
+	res := TreeNode{Name: node.Name, Path: node.Path, IsDir: node.IsDir}
 	if node.IsDir {
 		res.Current = current == node.Path
 		res.Active = res.Current || strings.HasPrefix(current, node.Path+"/")
@@ -175,7 +175,7 @@ func breadcrumbs(p string) []Crumb {
 	prefix := ""
 	for i, seg := range segments {
 		prefix = path.Join(prefix, seg)
-		crumb := Crumb{Name: displayName(seg)}
+		crumb := Crumb{Name: seg}
 		if i < len(segments)-1 {
 			crumb.URL = dirURL(prefix)
 		}
@@ -227,14 +227,6 @@ func encodePath(p string) string {
 		segments[i] = url.PathEscape(seg)
 	}
 	return strings.Join(segments, "/")
-}
-
-// displayName drops the markdown extension, which no reader wants to see.
-func displayName(name string) string {
-	if isMarkdown(name) {
-		return name[:len(name)-len(".md")]
-	}
-	return name
 }
 
 func isMarkdown(p string) bool { return strings.EqualFold(path.Ext(p), ".md") }

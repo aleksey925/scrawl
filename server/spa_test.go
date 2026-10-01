@@ -74,7 +74,7 @@ func TestAPIPage(t *testing.T) {
 		{name: "cyrillic document", path: "/api/page/notes/cyrillic.md", status: http.StatusOK,
 			fields: map[string]any{"kind": "document", "title": "Заметки"}},
 		{name: "missing document", path: "/api/page/nope.md", status: http.StatusNotFound,
-			fields: map[string]any{"kind": "missing-document", "missing": true, "title": "nope",
+			fields: map[string]any{"kind": "missing-document", "missing": true, "title": "nope.md",
 				"doc_path": "nope.md", "edit_url": "/edit/nope.md", "html": ""}},
 		{name: "missing attachment", path: "/api/page/nope.png", status: http.StatusNotFound,
 			fields: map[string]any{"error": "not found"}},
@@ -352,8 +352,8 @@ func TestAPINav(t *testing.T) {
 	for _, item := range tree {
 		names = append(names, item.(map[string]any)["name"].(string))
 	}
-	assert.Equal(t, []string{"docs", "images", "notes", "guide", "index", "links"}, names,
-		"directories first, then the documents, all without the .md suffix")
+	assert.Equal(t, []string{"docs", "images", "notes", "guide.md", "index.md", "links.md"}, names,
+		"directories first, then the documents, each under its full name")
 
 	docs := nodeByName(t, tree, "docs")
 	assert.Equal(t, map[string]any{"name": "docs", "path": "docs", "url": "/doc/docs/", "is_dir": true,
@@ -363,8 +363,8 @@ func TestAPINav(t *testing.T) {
 	assert.Equal(t, true, sub["active"])
 	assert.Equal(t, false, sub["current"])
 
-	deep := nodeByName(t, children(t, sub), "deep")
-	assert.Equal(t, map[string]any{"name": "deep", "path": "docs/sub/deep.md", "url": "/doc/docs/sub/deep.md",
+	deep := nodeByName(t, children(t, sub), "deep.md")
+	assert.Equal(t, map[string]any{"name": "deep.md", "path": "docs/sub/deep.md", "url": "/doc/docs/sub/deep.md",
 		"is_dir": false, "active": false, "current": true, "children": []any{}}, deep)
 }
 
@@ -415,7 +415,7 @@ func TestSPABreadcrumbsMatchThePageTrail(t *testing.T) {
 		map[string]any{"name": "Home", "url": "/"},
 		map[string]any{"name": "docs", "url": "/doc/docs/"},
 		map[string]any{"name": "sub", "url": "/doc/docs/sub/"},
-		map[string]any{"name": "deep", "url": ""},
+		map[string]any{"name": "deep.md", "url": ""},
 	}, want)
 	assert.Equal(t, want, page["breadcrumbs"])
 	assert.Equal(t, want, nav["breadcrumbs"])

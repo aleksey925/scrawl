@@ -1952,14 +1952,14 @@ func TestBreadcrumbs(t *testing.T) {
 	}{
 		{name: "root", path: "", expected: []Crumb{{Name: "Home"}}},
 		{name: "top level file", path: "guide.md",
-			expected: []Crumb{{Name: "Home", URL: "/"}, {Name: "guide"}}},
+			expected: []Crumb{{Name: "Home", URL: "/"}, {Name: "guide.md"}}},
 		{name: "nested file", path: "notes/deep/nested.md", expected: []Crumb{
 			{Name: "Home", URL: "/"}, {Name: "notes", URL: "/doc/notes/"},
-			{Name: "deep", URL: "/doc/notes/deep/"}, {Name: "nested"},
+			{Name: "deep", URL: "/doc/notes/deep/"}, {Name: "nested.md"},
 		}},
 		{name: "cyrillic segment", path: "заметки/файл.md", expected: []Crumb{
 			{Name: "Home", URL: "/"}, {Name: "заметки", URL: "/doc/%D0%B7%D0%B0%D0%BC%D0%B5%D1%82%D0%BA%D0%B8/"},
-			{Name: "файл"},
+			{Name: "файл.md"},
 		}},
 	}
 

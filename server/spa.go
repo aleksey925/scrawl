@@ -181,7 +181,7 @@ func (m *mount) apiPage(w http.ResponseWriter, r *http.Request) {
 			Path:        p,
 			DocPath:     p,
 			Kind:        kindMissingDocument,
-			Title:       displayName(path.Base(p)),
+			Title:       path.Base(p),
 			TOC:         []render.Heading{},
 			Breadcrumbs: breadcrumbs(p),
 			EditURL:     editURL(p),
@@ -235,7 +235,7 @@ func (m *mount) apiDir(w http.ResponseWriter, r *http.Request) {
 
 	title := "Home"
 	if p != "" {
-		title = displayName(path.Base(p))
+		title = path.Base(p)
 	}
 	res := dirResponse{
 		Path:        p,

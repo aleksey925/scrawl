@@ -5,7 +5,7 @@ import type { JSX, ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
 
 import controls from '../controls.module.css';
-import { directoryUrl, displayName, documentUrl } from '../paths';
+import { directoryUrl, documentUrl } from '../paths';
 import { layoutBreakpoints } from '../theme';
 
 import { AccountMenu } from './AccountMenu';
@@ -29,7 +29,7 @@ function crumbsOf(pathname: string): Crumb[] {
     prefix = prefix === '' ? segment : `${prefix}/${segment}`;
     const last = index === segments.length - 1;
     res.push({
-      name: displayName(segment),
+      name: segment,
       url: last ? undefined : directoryUrl(prefix),
     });
   });

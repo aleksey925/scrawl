@@ -4,6 +4,7 @@ import { encodeContentPath } from '../paths';
 import type {
   ApiErrorBody,
   DirResponse,
+  Divergence,
   EntryKind,
   EntryPathResponse,
   FileResponse,
@@ -17,6 +18,8 @@ import type {
   PreviewRequest,
   ProjectEntry,
   PreviewResponse,
+  ResetRequest,
+  ResetResponse,
   RestoreRequest,
   RestoreResponse,
   SaveFileRequest,
@@ -230,6 +233,8 @@ export interface ScrawlApi {
   restoreVersion(path: string, body: RestoreRequest, options?: RequestOptions): Promise<RestoreOutcome>;
   preview(body: PreviewRequest, options?: RequestOptions): Promise<PreviewResponse>;
   upload(dir: string, file: File, doc?: string, options?: RequestOptions): Promise<UploadResponse>;
+  syncCheck(options?: RequestOptions): Promise<Divergence>;
+  syncReset(body: ResetRequest, options?: RequestOptions): Promise<ResetResponse>;
   logout(options?: RequestOptions): Promise<void>;
 }
 
@@ -301,6 +306,11 @@ export const api: ScrawlApi = {
     const url = withQuery(projectUrl(`/api/upload/${encodeContentPath(dir)}`), { doc });
     return call<UploadResponse>('POST', url, { ...options, form });
   },
+
+  syncCheck: (options) => call<Divergence>('POST', projectUrl('/api/sync/check'), options),
+
+  syncReset: (body, options) =>
+    call<ResetResponse>('POST', projectUrl('/api/sync/reset'), { ...options, body }),
 
   logout: (options) => call<void>('POST', globalUrl('/api/logout'), options),
 };

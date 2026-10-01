@@ -132,6 +132,34 @@ export interface ProjectState {
   // already redacted by the server, so it is safe to render
   sync_error: string;
   unsynced: Unsynced;
+  // measured by the server, never read off sync_error: a merge fails for other
+  // reasons too, and only this offers a reset
+  diverged: boolean;
+  // whether this reader is one the reset routes accept
+  can_reset: boolean;
+}
+
+// Divergence is what a reset to the remote version would lose. clean can be
+// false with nothing in lost: the paths are hidden, or the check did not finish.
+export interface Divergence {
+  // sent back with the reset untouched, so it acts on this state or not at all
+  head: string;
+  remote: string;
+  clean: boolean;
+  lost: Unsynced;
+  can_push_backup: boolean;
+}
+
+export interface ResetRequest {
+  head: string;
+  remote: string;
+  push_backup: boolean;
+}
+
+export interface ResetResponse {
+  // the branch that keeps what this copy held, empty when nothing was lost
+  backup: string;
+  backup_pushed: boolean;
 }
 
 // Unsynced is which notes the remote is missing. It rides on /api/me and on

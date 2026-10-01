@@ -44,6 +44,15 @@ type fakeHistory struct {
 	// state in one and never a getter at a time
 	syncReads int
 
+	// the reset: what a check answers, what either call fails with, and every
+	// reset the handlers asked for
+	remote     bool
+	diverged   bool
+	divergence history.Divergence
+	resetErr   error
+	backup     history.ResetResult
+	resets     []history.ResetOp
+
 	ops      []history.Op
 	reported [][]string
 }
@@ -55,7 +64,21 @@ func (f *fakeHistory) SyncError() string { return f.syncErr }
 
 func (f *fakeHistory) SyncState() history.SyncState {
 	f.syncReads++
-	return history.SyncState{Unpublished: f.unpublished, Error: f.syncErr, Unsynced: f.unsynced}
+	return history.SyncState{Unpublished: f.unpublished, Error: f.syncErr, Unsynced: f.unsynced, Diverged: f.diverged}
+}
+
+func (f *fakeHistory) Remote() bool { return f.remote }
+
+func (f *fakeHistory) CheckDivergence(context.Context) (history.Divergence, error) {
+	return f.divergence, f.resetErr
+}
+
+func (f *fakeHistory) ResetToRemote(_ context.Context, op history.ResetOp) (history.ResetResult, error) {
+	if f.resetErr != nil {
+		return history.ResetResult{}, f.resetErr
+	}
+	f.resets = append(f.resets, op)
+	return f.backup, nil
 }
 
 func (f *fakeHistory) Record(_ context.Context, op history.Op, mutate func() ([]string, error)) error {

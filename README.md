@@ -195,7 +195,8 @@ and the startup fetch still happens. A fetch is followed by a
 fast-forward and nothing else: scrawl never merges, never rebases and
 never resolves. If the branch has diverged, the project keeps serving,
 saves keep landing on disk and in local commits, and a banner says so on
-every screen together with the command to run in the clone.
+every screen together with a button that resets this copy to the remote
+version - see [below](#when-a-project-has-diverged).
 
 **Two things are worth knowing.** History is always on for a remote
 project, whatever `HISTORY` says: one that stopped recording would also
@@ -288,10 +289,14 @@ The messages tell four things apart:
   save tries again.
 - **The remote cannot be reached.** The fetch failed. This copy may be
   behind, and if you saved anything it has not gone out either.
-- **This project has diverged from the remote.** Somebody else pushed
-  while this copy had commits of its own. scrawl never merges by hand:
-  nothing more reaches the remote until you run the command the message
-  gives you, in the project's directory.
+- **This project has diverged from the remote.** Both sides hold
+  commits the other lacks: somebody pushed while this copy had commits
+  of its own, or the branch was rebased or force-pushed. scrawl does not
+  merge: nothing is sent or received until the copy is reset, which the
+  message offers as a button.
+- **The remote version cannot be applied here.** The fetch worked and
+  the fast-forward did not, for a reason that is not a divergence - a
+  file left in the way, most often. The git reason is in the message.
 - **Changes are not being recorded.** Not the remote at all: a commit
   failed, so a change is on disk and not in git. The next save that
   succeeds folds it in.
@@ -305,6 +310,36 @@ The page refreshes this on its own, about once a minute and only while
 the tab is in front of you, so a push that starts working again clears
 the warning without a reload. A background refresh does not extend your
 session: a tab left open would otherwise keep one alive forever.
+
+### When a project has diverged
+
+The banner and the top bar control carry one button, **Reset to the
+remote version**. It makes this copy hold exactly what the remote holds,
+and it asks first:
+
+1. It fetches and checks what the reset would lose. The check is a trial
+   merge and not a commit count, so after a rebase or a squash upstream
+   it says "nothing will be lost" when the content really is there.
+   Otherwise it lists the notes that hold changes only this copy has.
+2. If there is anything to lose, the copy is kept in a branch named
+   `scrawl-backup/<date>-<time>-<commit>` before the reset. Whatever was
+   on disk and not yet committed goes into it too.
+3. A checkbox sends that branch to the remote as well, where you can
+   open it on your git host and bring the changes back. It is on by
+   default. Turn it off when the remote was rewritten to remove
+   something for good, or the backup brings it back; the branch then
+   stays in the clone on the server. If the push fails, nothing is
+   reset.
+
+The reset never writes over a file that is in no commit. A file git does
+not track that stands where the remote has one of its own stops it, and
+the message names the file.
+
+Whoever can write can reset, and so can anybody signed in to a
+read-only project: a read-only mirror whose upstream was rebased is the
+one that needs it most. A `:ro` token cannot, and neither can a reader
+of a read-only project on a server with authentication off, where the
+button would belong to anybody who can reach the page.
 
 ## Configuration
 

@@ -55,9 +55,11 @@ const (
 	actorDomain   = "scrawl.local"
 	fallbackActor = "unknown"
 
-	// noFilterAttr unsets the filter attribute for every path, which is what
-	// keeps a clean filter the adopted repository configures from running.
-	noFilterAttr = "* -filter"
+	// inertAttr unsets the filter attribute for every path, which keeps a clean
+	// filter the adopted repository configures from running, and sets merge,
+	// which pins the built-in text merge. Set and not named: a name is looked
+	// up in the repository config first, where "text" can be a command.
+	inertAttr = "* -filter merge"
 )
 
 // defaultExtensions are the files worth versioning: documents plus whatever an
@@ -216,8 +218,9 @@ func (s *Service) tag() string {
 // disableFilters stops a repository we adopted from running a command of its
 // own choosing. A clean filter is named by .gitattributes in the worktree and
 // defined in the repository config, both of which belong to whoever assembled
-// that directory rather than to us, and git runs it on every add. Emptying the
-// hooks directory does not cover this: a filter is configuration, not a hook.
+// that directory rather than to us, and git runs it on every add. A merge driver
+// is named the same way and runs on the trial merge a reset is checked with.
+// Emptying the hooks directory covers neither: both are configuration.
 // .git/info/attributes outranks the worktree file and the last match wins, so
 // appending the unset there neutralizes the assignment without discarding
 // anything the owner of the repository wrote.
@@ -238,13 +241,13 @@ func (s *Service) disableFilters() error {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("read %s: %w", name, err)
 	}
-	if lastAttrRule(current) == noFilterAttr {
+	if lastAttrRule(current) == inertAttr {
 		return nil
 	}
 	if len(current) > 0 && !bytes.HasSuffix(current, []byte("\n")) {
 		current = append(current, '\n')
 	}
-	if err = os.WriteFile(name, append(current, []byte(noFilterAttr+"\n")...), 0o600); err != nil {
+	if err = os.WriteFile(name, append(current, []byte(inertAttr+"\n")...), 0o600); err != nil {
 		return fmt.Errorf("write %s: %w", name, err)
 	}
 	return nil

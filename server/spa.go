@@ -125,6 +125,11 @@ type projectState struct {
 	Unpublished bool          `json:"unpublished"`
 	SyncError   string        `json:"sync_error"`
 	Unsynced    unsyncedPaths `json:"unsynced"`
+	// Diverged is measured and never read off SyncError: a merge fails for
+	// other reasons too, and this is what a reset is offered on. CanReset says
+	// whether this caller is one the reset routes accept.
+	Diverged bool `json:"diverged"`
+	CanReset bool `json:"can_reset"`
 }
 
 // unsyncedPaths is which notes the remote is missing. It rides on /api/me and
@@ -328,11 +333,10 @@ func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {
 			Degraded:    m.history().Degraded(),
 			Unpublished: sync.Unpublished,
 			SyncError:   sync.Error,
-			Unsynced:    unsyncedPaths{Paths: sync.Unsynced.Paths, Many: sync.Unsynced.Many},
+			Unsynced:    unsyncedOf(sync.Unsynced),
+			Diverged:    sync.Diverged,
+			CanReset:    m.canReset(r),
 		},
-	}
-	if res.Project.Unsynced.Paths == nil {
-		res.Project.Unsynced.Paths = []string{}
 	}
 	if m.Auth != nil {
 		res.User, _ = m.Auth.User(r)

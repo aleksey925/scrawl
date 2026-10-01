@@ -10,6 +10,9 @@ export interface SyncMessage {
   // one paragraph per active fact, in precedence order. At most two states are
   // true at once, one from each family, so this is at most two entries.
   facts: SyncFact[];
+  // the project is diverged and this reader may reset it, so the surfaces
+  // that render the message offer the one way out
+  canReset: boolean;
 }
 
 export type SyncKind = 'degraded' | 'merge' | 'fetch' | 'push';
@@ -30,7 +33,7 @@ const precedence: SyncKind[] = ['degraded', 'merge', 'fetch', 'push'];
 
 const titles: Record<SyncKind, string> = {
   degraded: 'Changes are not being recorded',
-  merge: 'This project has diverged from the remote',
+  merge: 'The remote version cannot be applied here',
   fetch: 'The remote cannot be reached',
   push: 'Changes are not reaching the remote',
 };
@@ -44,7 +47,13 @@ export function syncMessage(me: MeResponse | undefined): SyncMessage | undefined
   if (first === undefined) {
     return undefined;
   }
-  return { kind: first.kind, title: titles[first.kind], facts };
+  const diverged = me.project.diverged && facts.some((fact) => fact.kind === 'merge');
+  return {
+    kind: first.kind,
+    title: first.kind === 'merge' && diverged ? divergedTitle : titles[first.kind],
+    facts,
+    canReset: diverged && me.project.can_reset,
+  };
 }
 
 function factsOf(me: MeResponse): SyncFact[] {
@@ -69,9 +78,25 @@ function factsOf(me: MeResponse): SyncFact[] {
     if (kind !== stage) {
       continue;
     }
+    if (kind === 'merge' && project.diverged) {
+      // no git reason: the body already says everything it would
+      res.push({ kind, body: divergedBody(project.can_reset) + affected, reason: '' });
+      continue;
+    }
     res.push({ kind, body: bodyOf(kind, project.unpublished) + affected, reason: project.sync_error });
   }
   return res;
+}
+
+const divergedTitle = 'This project has diverged from the remote';
+
+// divergedBody never names a clone or a command: the way out is a button, and
+// a reader who has none is told so.
+function divergedBody(canReset: boolean): string {
+  const what =
+    'This copy and the remote both changed, and scrawl does not merge the two. ' +
+    'Nothing is sent or received until this copy is reset to the remote version.';
+  return canReset ? what : `${what} You are not allowed to do that here.`;
 }
 
 function bodyOf(kind: SyncKind, unpublished: boolean): string {
@@ -88,7 +113,7 @@ function bodyOf(kind: SyncKind, unpublished: boolean): string {
         ? 'This copy may be behind the remote, and what was changed here has not reached it either.'
         : 'This copy may be behind the remote.';
     case 'merge':
-      return 'scrawl never merges by hand. Nothing more will reach the remote until this is resolved in the clone.';
+      return 'The remote has changes this copy could not take in. The reason is below.';
     default:
       return '';
   }

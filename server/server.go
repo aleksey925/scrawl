@@ -327,6 +327,8 @@ func (wb *Web) projectRoutes(g *routegroup.Bundle, prj *Project) {
 	mutating.HandleFunc("POST /api/upload/{dir...}", m.apiUpload)
 	mutating.HandleFunc("POST /api/preview", m.apiPreview)
 	mutating.HandleFunc("POST /api/history/restore/{path...}", m.apiHistoryRestore)
+	mutating.HandleFunc("POST /api/sync/check", m.apiSyncCheck)
+	mutating.HandleFunc("POST /api/sync/reset", m.apiSyncReset)
 
 	// NotFoundHandler is global whichever bundle registers it and knows no
 	// prefix, so it cannot boot the app for a path inside a project. These two

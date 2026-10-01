@@ -26,6 +26,10 @@ const cloneTimeout = 30 * time.Minute
 // remoteName is the only remote this package ever speaks to.
 const remoteName = "origin"
 
+// mergeStage is the stage word of a fast-forward that failed, which is the
+// only stage a divergence is measured in.
+const mergeStage = "merge"
+
 // Remote points a service at a git remote. Token is the resolved header value,
 // never a path and never the name of a variable: the configuration spellings
 // stop in main, which resolves whichever one was given once, before the
@@ -202,28 +206,55 @@ func (s *Service) syncLocked(ctx context.Context) error {
 		timeout: s.initTimeout(),
 	}); err != nil {
 		s.measure(ctx, &next)
-		return s.syncFailed(next, "merge", fmt.Errorf(
-			"the branch has diverged from %s; in %s run: git pull --rebase && git push", tracking, s.root))
+		// a merge can fail for other reasons, a dirty file in the way among
+		// them, and only a measured divergence may offer a reset
+		if next.Diverged = s.diverged(ctx, tracking); next.Diverged {
+			err = fmt.Errorf("the branch has diverged from %s", tracking)
+		}
+		return s.syncFailed(next, mergeStage, err)
 	}
 
+	next.Diverged = false
 	if rm.PullOnly {
 		next.Error = ""
 		s.publish(next)
 		return nil
 	}
-	return s.publishLocked(ctx)
+	return s.publishLocked(ctx, next)
+}
+
+// diverged reports that neither this copy nor the remote holds the other, so
+// no fast-forward and no push can ever bring them together.
+func (s *Service) diverged(ctx context.Context, tracking string) bool {
+	return s.notAncestor(ctx, "HEAD", tracking) && s.notAncestor(ctx, tracking, "HEAD")
+}
+
+// notAncestor is true only for git's own "no". A call that failed proves
+// nothing, and a divergence nobody measured must not offer a reset.
+func (s *Service) notAncestor(ctx context.Context, older, newer string) bool {
+	_, err := s.run(ctx, command{args: []string{"merge-base", "--is-ancestor", older, newer}, exitOne: true})
+	return errors.Is(err, errExitOne)
 }
 
 // publishLocked pushes what the clone holds. It is never gated on Unpublished:
 // that state is reported, never a retry gate, because gating would mean a
 // commit that never leaves the container whenever the measurement is wrong or
 // has not run yet. An already up-to-date push costs one round trip.
-func (s *Service) publishLocked(ctx context.Context) error {
+//
+// A diverged copy is the one gate: the remote refuses that push every time,
+// and its error would replace the divergence on screen until the next fetch.
+func (s *Service) publishLocked(ctx context.Context, next SyncState) error {
 	rm := s.cfg.Remote
 	if rm == nil || rm.PullOnly {
 		return nil
 	}
-	next := s.SyncState()
+	// asked again and not remembered: with no ticker and no webhook nothing
+	// else would notice a clone somebody brought back in line by hand
+	if next.Diverged = next.Diverged && s.diverged(ctx, remoteName+"/"+rm.Branch); next.Diverged {
+		s.measure(ctx, &next)
+		s.publish(next)
+		return errors.New(next.Error)
+	}
 	_, err := s.run(ctx, command{
 		args:    []string{"push", remoteName, "HEAD:refs/heads/" + rm.Branch},
 		network: true,
@@ -288,11 +319,17 @@ func (s *Service) unsyncedPaths(ctx context.Context) Unsynced {
 		return Unsynced{}
 	}
 
+	return s.visibleCapped(splitNul(out))
+}
+
+// visibleCapped is the form a path list reaches a reader in: what the store
+// would serve, and no list at all above the cap.
+func (s *Service) visibleCapped(paths []string) Unsynced {
 	// the filter runs before the cap, so the cap counts what a reader could
 	// actually see: 201 hidden paths must not spend it and suppress the one
 	// visible note that really did change
-	res := make([]string, 0, unsyncedCap)
-	for _, p := range splitNul(out) {
+	res := make([]string, 0, min(len(paths), unsyncedCap))
+	for _, p := range paths {
 		if s.cfg.Visible != nil && !s.cfg.Visible(p) {
 			continue
 		}
@@ -377,7 +414,7 @@ type Unsynced struct {
 }
 
 // SyncState is the whole remote state of one project as one attempt left it.
-// The three values are published together, so a reader never observes an error
+// The values are published together, so a reader never observes an error
 // from one attempt beside the paths of another.
 type SyncState struct {
 	// Unpublished is the commit count, and Unsynced the paths behind it. They
@@ -386,6 +423,10 @@ type SyncState struct {
 	Unpublished bool
 	Error       string // already redacted
 	Unsynced    Unsynced
+	// Diverged is measured by ancestry when a fast-forward fails, never read
+	// off the error: it is what offers a reset, and a merge fails for other
+	// reasons too.
+	Diverged bool
 }
 
 // redactURL strips a userinfo a url may carry. Validation refuses one at

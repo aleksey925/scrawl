@@ -306,7 +306,7 @@ func TestADivergedBranchIsLoudAndNeverPushed(t *testing.T) {
 	assert.Contains(t, err.Error(), "merge")
 	assert.True(t, svc.Unpublished())
 	assert.Contains(t, svc.SyncError(), "diverged")
-	assert.Contains(t, svc.SyncError(), "git pull --rebase")
+	assert.True(t, svc.SyncState().Diverged)
 	assert.Equal(t, before, headOf(t, bare), "nothing was pushed over the divergence")
 }
 

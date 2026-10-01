@@ -69,7 +69,7 @@ func (s *Service) Record(ctx context.Context, op Op, mutate func() ([]string, er
 	}
 	clear(s.pending)
 	s.degraded.Store(false)
-	return s.publishFailed(op, s.publishLocked(ctx))
+	return s.publishFailed(op, s.publishLocked(ctx, s.SyncState()))
 }
 
 // publishFailed decides who hears about a push that did not land. A strict
@@ -102,27 +102,37 @@ func (s *Service) Reconcile(ctx context.Context, actor string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	paths, err := s.reconcilePaths(ctx)
-	if err != nil {
-		return fmt.Errorf("history: reconcile: %w", err)
-	}
-	if len(paths) == 0 {
-		return nil
-	}
 	msg := reconcileMessage
 	if !s.hasHead(ctx) {
 		msg = baselineMessage
 	}
-	if err = s.commitLocked(ctx, actor, msg, paths, s.initTimeout()); err != nil {
-		return s.recordFailed(Op{Actor: actor, Message: msg, Strict: true}, paths, err)
+	committed, err := s.reconcileLocked(ctx, actor, msg)
+	if err != nil || !committed {
+		return err
 	}
-	clear(s.pending)
-	s.degraded.Store(false)
 	// a push that did not land is reported by Unpublished and SyncError, and
 	// logged once by the stage that failed. It is not what Reconcile promises,
 	// which is that what is on disk has been committed.
-	_ = s.publishLocked(ctx)
+	_ = s.publishLocked(ctx, s.SyncState())
 	return nil
+}
+
+// reconcileLocked commits whatever on disk differs from what history holds and
+// reports whether there was anything to stage. Called with the lock held.
+func (s *Service) reconcileLocked(ctx context.Context, actor, msg string) (bool, error) {
+	paths, err := s.reconcilePaths(ctx)
+	if err != nil {
+		return false, fmt.Errorf("history: reconcile: %w", err)
+	}
+	if len(paths) == 0 {
+		return false, nil
+	}
+	if err = s.commitLocked(ctx, actor, msg, paths, s.initTimeout()); err != nil {
+		return false, s.recordFailed(Op{Actor: actor, Message: msg, Strict: true}, paths, err)
+	}
+	clear(s.pending)
+	s.degraded.Store(false)
+	return true, nil
 }
 
 // recordFailed remembers what was missed and decides whether the caller hears

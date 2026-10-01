@@ -171,9 +171,56 @@ vendor/                dependencies, checked in, `make deps` regenerates
   part of the design: open store, `Reconcile`, `Sync`, `indexAll`,
   `Watch`. `store.Watch` takes its baseline when it is called, so a
   fast-forward that lands after it produces no event at all.
-- `--ff-only` is the whole conflict policy. scrawl never merges, never
-  rebases and never resolves: a diverged project keeps serving, keeps
-  committing locally, and says so loudly.
+- `--ff-only` is the whole unattended conflict policy. scrawl never
+  merges, never rebases and never resolves: a diverged project keeps
+  serving, keeps committing locally, and says so loudly. The one way out
+  is a reset to the remote version that a person confirms on the page,
+  and nothing destructive ever runs without one.
+- `diverged` is measured by ancestry when a fast-forward fails, and
+  never read off the `merge:` stage word. A merge fails for other
+  reasons too - a file left in the way - and offering a reset there
+  would be offering to throw a healthy copy away. A diverged copy does
+  not try the push a save would make: the remote refuses it every time,
+  and its error replaced the divergence on screen until the next fetch.
+- What a reset loses is answered by a trial merge (`merge-tree`), not by
+  a commit count: after a rebase or a squash upstream every old commit
+  still counts as ahead while its content is on the remote. A conflict
+  means "something is lost" by itself, whatever the merged tree shows: a
+  file deleted here and edited there merges to the remote version, so
+  the tree has no difference and the deletion is exactly what is lost.
+  Anything not proved clean keeps a backup branch.
+- The check and the reset each run one whole `Sync` first, under the
+  history lock, and work on the two commit ids from then on. The reset
+  takes the pair the check answered and refuses any other, the way a
+  save takes a `rev`. An unlocked check would pair the ids of one state
+  with the merge of another.
+- The reset is `reset --keep` plus a check of our own, never `--hard`.
+  `--keep` refuses to write over an uncommitted change, and git still
+  replaces an *ignored* untracked file without a word - and the store
+  serves files a `.gitignore` among the notes names. So every path the
+  remote adds is looked up on disk first, and one that is there and
+  untracked refuses the reset. A writable project commits what is on
+  disk before the backup is taken; a pull-only one never commits, so
+  there the refusal is the whole protection.
+- A backup reaches the remote only when the reader ticks it, and before
+  anything is reset: a force-push can be how a secret was removed, and a
+  backup pushed by default would bring it back. A push that fails stops
+  the reset, because a backup promised on the remote and missing there
+  is a reason not to let go of the copy.
+- The reset is not behind the read-only guard. A read-only mirror whose
+  upstream was rewritten needs it most, and no note anybody wrote here
+  is changed. `canReset` asks who is calling instead: a session or a
+  read-write token. With auth off nobody is calling, so the write guard
+  decides, and a read-only project on an open server cannot be reset
+  from the page at all. `/api/me` and both routes ask that one function.
+- A merge driver is a command the repository config names, and a trial
+  merge runs it. `.git/info/attributes` therefore sets `merge` beside
+  the filter unset: set, not named, because a name is looked up in the
+  config first, where even `text` can be a command.
+- After a reset the page reloads whole. Every screen holds an answer
+  from the copy that was just replaced, and no screen refetches on its
+  own; the result is shown in the dialog and not in a toast, because it
+  names the backup branch and a toast is gone in seconds.
 - A clone that cannot push does not commit either. The effective
   read-only mode of a remote project is `PullOnly`, and `history` is the
   one place that knows it: `Reconcile` refuses there, so the startup
@@ -194,7 +241,7 @@ vendor/                dependencies, checked in, `make deps` regenerates
   `apiMe` reads it with one `SyncState()` and never a getter at a time:
   a `Sync` finishing between two calls would pair an error from one
   attempt with the paths of another, and a poll would leave that
-  impossible pair on screen for a minute. `history` publishes all three
+  impossible pair on screen for a minute. `history` publishes all its
   values as one snapshot when an attempt ends, behind an atomic pointer,
   because `Sync` holds the lock across a network round trip.
 - The unsynced path set is measured in the same breath as the count, and

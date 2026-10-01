@@ -3,6 +3,7 @@ import { IconAlertTriangle } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import { useNav } from './NavContext';
+import { ResetAction } from './ResetDialog';
 
 // ProjectAlerts is the one persistent place that explains what is wrong with
 // this project. It renders above the outlet, so a reader meets it on every
@@ -50,6 +51,7 @@ export function ProjectAlerts(): JSX.Element {
                 )}
               </Stack>
             ))}
+            <ResetAction />
           </Stack>
         </Alert>
       )}

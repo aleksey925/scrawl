@@ -3,7 +3,7 @@ const {expect, test} = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 
-const {breakOrigin, restoreOrigin} = require('../support/git');
+const {breakOrigin, git, pushToOrigin, restoreOrigin} = require('../support/git');
 const {MULTI, editorStatus, save, setSource, shot, signIn} = require('../support/helpers');
 
 const WIKI = MULTI.projects.wiki;
@@ -17,6 +17,9 @@ const DOC = 'e2e-sync.md';
 // the directory and the file on screen is one segment longer
 const FOLDER = 'e2e-sync-folder';
 const FOLDER_DOC = `${FOLDER}/index.md`;
+
+// what a second writer pushes while this copy holds a commit of its own
+const THEIRS = 'e2e-sync-theirs.md';
 
 // the client polls /api/me once a minute, which is finer than the pull interval
 // it is watching. A test that waited for it in real time would take longer than
@@ -41,6 +44,7 @@ test.describe('sync state', () => {
         restoreOrigin(wiki.origin);
         fs.rmSync(path.join(wiki.dir, DOC), {force: true});
         fs.rmSync(path.join(wiki.dir, FOLDER), {recursive: true, force: true});
+        fs.rmSync(path.join(wiki.dir, THEIRS), {force: true});
         // leave the project in step, or the next spec inherits a broken one
         await expect.poll(async () => meState(page), {timeout: 20_000}).toMatchObject({sync_error: ''});
     });
@@ -148,6 +152,41 @@ test.describe('sync state', () => {
         // project and not for the note
         await page.goto(WIKI.doc('remote.md'));
         await expect(control(page)).toHaveAttribute('data-here', 'false');
+    });
+
+    // the way out of a divergence is on the page: the check names what only
+    // this copy holds, and the reset keeps it in a branch before it lets go
+    test('a diverged project is reset from the page', async ({page}) => {
+        await page.goto(WIKI.edit(DOC));
+        breakOrigin(wiki.origin);
+        await setSource(page, '# Sync\n\nwritten here only.\n');
+        await save(page);
+        // the second writer lands before the origin is back, so the server
+        // never gets a tick in which its own push would still go through
+        pushToOrigin(`${wiki.origin}-aside`, THEIRS, '# Theirs\n\nwritten on the other side.\n');
+        restoreOrigin(wiki.origin);
+        await expect.poll(async () => meState(page), {timeout: 20_000}).toMatchObject({diverged: true});
+
+        await page.goto(WIKI.doc(DOC));
+        await expect(page.getByTestId('project-alert')).toHaveAttribute('data-kind', 'merge');
+        await expect(page.getByTestId('project-alert')).not.toContainText('git ');
+        await page.getByTestId('project-alert').getByTestId('sync-reset').click();
+
+        const dialog = page.locator('[data-testid=modal][data-variant=reset]');
+        await expect(dialog.getByTestId('reset-lost-paths')).toContainText(DOC);
+        await shot(page, 'sync-reset-check');
+        await dialog.getByTestId('modal-confirm').click();
+
+        await expect(dialog.getByTestId('reset-backup')).toContainText('scrawl-backup/');
+        const backup = await dialog.getByTestId('reset-backup').innerText();
+        expect(git(wiki.origin, ['show', `${backup}:${DOC}`])).toContain('written here only.');
+        await shot(page, 'sync-reset-done');
+
+        await dialog.getByTestId('modal-confirm').click();
+        await expect(page.getByTestId('project-alert')).toHaveCount(0);
+        await expect(control(page)).toHaveCount(0);
+        await page.goto(WIKI.doc(THEIRS));
+        await expect(page.getByText('written on the other side.')).toBeVisible();
     });
 
     // the poll must never replace a good answer with nothing: canWrite hangs off

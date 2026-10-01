@@ -7,6 +7,7 @@ import { documentUrl, isMarkdown, rawUrl } from '../paths';
 import { layoutBreakpoints } from '../theme';
 
 import { useNav } from './NavContext';
+import { ResetAction } from './ResetDialog';
 
 // thisNote is what the control says when the note on screen is one of the
 // affected ones. It asks about the file and never about the route, which is the
@@ -75,6 +76,7 @@ export function SyncControl(): JSX.Element | null {
               )}
             </Stack>
           ))}
+          <ResetAction onOpen={() => setOpened(false)} />
           {paths.length > 0 && (
             <List data-testid="sync-popover-paths" size="sm" spacing={4} withPadding>
               {paths.map((path) => (

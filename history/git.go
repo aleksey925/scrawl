@@ -20,7 +20,12 @@ const (
 	maxStderrBytes   = 8 << 10
 )
 
-var errOutputCap = errors.New("output cap reached")
+var (
+	errOutputCap = errors.New("output cap reached")
+	// errExitOne comes back beside the output of a command that answers with
+	// its exit status: "no" from merge-base, "conflicts" from merge-tree.
+	errExitOne = errors.New("exit status 1")
+)
 
 // command is one git invocation. Everything it does not set falls back to the
 // service defaults.
@@ -30,6 +35,7 @@ type command struct {
 	limit   int64         // max bytes of stdout, 0 means defaultOutputCap
 	timeout time.Duration // 0 means Config.Timeout
 	network bool          // talks to the remote, so the credential header applies
+	exitOne bool          // exit status 1 is an answer of this command, reported as errExitOne
 }
 
 // gitRun is one git invocation with nothing left implicit. It exists because
@@ -45,6 +51,7 @@ type gitRun struct {
 	stdin   []byte
 	limit   int64
 	timeout time.Duration
+	exitOne bool
 	secret  string // redacted out of any failure this call reports
 }
 
@@ -76,6 +83,8 @@ func runGit(ctx context.Context, r gitRun) ([]byte, error) {
 	switch {
 	case out.exceeded:
 		return nil, fmt.Errorf("git %s: more than %d bytes of output", r.args[0], r.limit)
+	case r.exitOne && exitCode(err) == 1:
+		return out.buf.Bytes(), errExitOne
 	case err != nil:
 		return nil, &gitError{
 			args:   r.args,
@@ -102,8 +111,18 @@ func (s *Service) run(ctx context.Context, c command) ([]byte, error) {
 		stdin:   c.stdin,
 		limit:   c.limit,
 		timeout: timeout,
+		exitOne: c.exitOne,
 		secret:  s.token(),
 	})
+}
+
+// exitCode is the status git ended with, or -1 when it never got that far.
+func exitCode(err error) int {
+	var exit *exec.ExitError
+	if errors.As(err, &exit) {
+		return exit.ExitCode()
+	}
+	return -1
 }
 
 // baseArgs are the options every call carries. They are top-level git options
@@ -202,12 +221,11 @@ func (s *Service) hasHead(ctx context.Context) bool {
 // staged reports whether the index holds anything to commit. Deciding this
 // first means a nonzero exit from git commit is always a real failure.
 func (s *Service) staged(ctx context.Context, timeout time.Duration) (bool, error) {
-	_, err := s.run(ctx, command{args: []string{"diff", "--cached", "--quiet"}, timeout: timeout})
-	if err == nil {
+	_, err := s.run(ctx, command{args: []string{"diff", "--cached", "--quiet"}, timeout: timeout, exitOne: true})
+	switch {
+	case err == nil:
 		return false, nil
-	}
-	var exit *exec.ExitError
-	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+	case errors.Is(err, errExitOne):
 		return true, nil
 	}
 	return false, err

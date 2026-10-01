@@ -662,7 +662,7 @@ func TestServiceRecord(t *testing.T) {
 		require.NoError(t, os.WriteFile(config, append(current, hostile...), 0o600))
 		// the unset is there only as a comment, with a real assignment after it,
 		// and the last matching line is the one git acts on
-		writeFile(t, root, ".git/info/attributes", "# "+noFilterAttr+"\n* filter=evil\n")
+		writeFile(t, root, ".git/info/attributes", "# "+inertAttr+"\n* filter=evil\n")
 		s := serviceAt(t, root)
 
 		// act

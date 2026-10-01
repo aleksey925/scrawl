@@ -34,6 +34,11 @@ type History interface {
 	// the getters above: a Sync finishing between two calls would hand the
 	// client an error from one attempt beside the paths of another.
 	SyncState() history.SyncState
+	// Remote reports that the project is a clone, which is the only kind a
+	// reset means anything for.
+	Remote() bool
+	CheckDivergence(ctx context.Context) (history.Divergence, error)
+	ResetToRemote(ctx context.Context, op history.ResetOp) (history.ResetResult, error)
 	Record(ctx context.Context, op history.Op, mutate func() ([]string, error)) error
 	Log(ctx context.Context, p string, limit int) ([]history.Entry, error)
 	Version(ctx context.Context, rev, p string) (string, error)

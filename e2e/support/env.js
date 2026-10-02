@@ -164,7 +164,9 @@ module.exports = {
     instances,
     routes,
     encodePath,
-    binary: path.join(repoRoot, 'dist', 'scrawl'),
+    // overridable, because dist/ is one directory: a second checkout user - a
+    // container beside the host - building there swaps the binary under a run
+    binary: process.env.SCRAWL_E2E_BINARY || path.join(repoRoot, 'dist', 'scrawl'),
     fixture,
     repoFixture,
     user: 'e2e',

@@ -548,6 +548,12 @@ mise install
 make deps
 ```
 
+`make deps` sets up the whole working checkout: the go modules, the
+node modules of the interface and of the browser suite, and the
+Chromium the suite drives. Run it again after pulling a change to any
+lockfile; a Playwright bump wants a new browser, and without it every
+browser test fails with "Executable doesn't exist".
+
 ```
 make ui         build the interface into server/assets/app/
 make build      build the binary into dist/

@@ -17,11 +17,13 @@ img:
 deps:
 	@go mod tidy
 	@go mod vendor
+	@cd web && npm i --no-audit --no-fund
+	@cd e2e && npm i --no-audit --no-fund && npx playwright install chromium
 
 # the bundle this writes into server/assets/app is committed, so that go build,
 # go install and the docker image need neither node nor the network
 ui:
-	@cd web && npm ci --no-audit --no-fund && npm run build
+	@cd web && npm i --no-audit --no-fund && npm run build
 
 build:
 	@CGO_ENABLED=0 go build $(BUILD_FLAGS) $(LDFLAGS) -o $(BIN_PATH) .

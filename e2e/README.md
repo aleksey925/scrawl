@@ -123,12 +123,22 @@ read. `support/helpers.js` carries the two ways around that:
 `node_modules` is deliberately not part of the repository:
 
 ```
-make build
-export PATH="$HOME/.local/share/mise/shims:$PATH"
-cd e2e
-npm install
-npx playwright install chromium
-npx playwright test
+make deps
+make e2e
+```
+
+`make deps` installs the node modules and the Chromium this version of
+Playwright wants. The browser is kept per machine and per Playwright
+version, so a fresh machine or a version bump needs `make deps` again;
+without it every test fails with the same "Executable doesn't exist"
+error. `make e2e` builds the binary and runs the suite.
+
+`dist/` is one directory. When the checkout is shared - a container
+beside the host - a build on one side swaps the binary under a run on
+the other, so point one of them at a binary of its own:
+
+```
+SCRAWL_E2E_BINARY=/tmp/scrawl npx playwright test
 ```
 
 With Playwright already installed somewhere else, point `NODE_PATH` at it

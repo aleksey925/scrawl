@@ -365,8 +365,10 @@ vendor/                dependencies, checked in, `make deps` regenerates
 
 ## Commands
 
-Toolchain versions come from `mise.toml`, dependencies are vendored:
-`mise install && make deps`.
+Toolchain versions come from `mise.toml`, go dependencies are vendored:
+`mise install && make deps`. `make deps` is the whole working checkout -
+go modules, the node modules of `web/` and `e2e/`, and the browser the
+suite drives.
 
 ```
 make ui      build the frontend into server/assets/app/, then commit it

@@ -144,6 +144,25 @@ async function expectNoHorizontalScroll(page) {
         .toBeLessThanOrEqual(overflow.clientWidth + 1);
 }
 
+// inStep waits until a remote project is level with its origin, and gets it
+// there when the test before left it diverged: nothing but a reset ever does,
+// and without one a single failure takes every later test of that project down.
+async function inStep(page, project) {
+    await expect.poll(async () => page.evaluate(async (api) => {
+        const json = {accept: 'application/json', 'content-type': 'application/json'};
+        const me = await (await fetch(`${api}/me`, {headers: json})).json();
+        if (me.project.diverged) {
+            const check = await (await fetch(`${api}/sync/check`, {method: 'POST', headers: json})).json();
+            await fetch(`${api}/sync/reset`, {
+                method: 'POST',
+                headers: json,
+                body: JSON.stringify({head: check.head, remote: check.remote, push_backup: false}),
+            });
+        }
+        return me.project.sync_error;
+    }, project.api('')), {timeout: 30_000}).toBe('');
+}
+
 module.exports = {
     HISTORY,
     MAIN,
@@ -154,6 +173,7 @@ module.exports = {
     editorStatus,
     expectNoHorizontalScroll,
     fixtureFile,
+    inStep,
     jsonRequest,
     modifier,
     pressShortcut,

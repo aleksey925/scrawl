@@ -142,7 +142,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
       {(step.name === 'ready' || step.name === 'resetting') && (
         <Stack gap="md">
           {step.name === 'ready' && step.note !== '' && (
-            <Text size="sm" c="dimmed">
+            <Text data-testid="reset-moved" size="sm" c="dimmed">
               {step.note}
             </Text>
           )}
@@ -183,7 +183,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
             <BackupReport result={step.result} />
           </Alert>
           <Group justify="flex-end">
-            <Button data-testid="modal-confirm" onClick={reload}>
+            <Button data-testid="reset-reload" onClick={reload}>
               Reload the page
             </Button>
           </Group>

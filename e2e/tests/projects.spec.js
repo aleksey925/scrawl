@@ -89,7 +89,7 @@ test.describe('projects', () => {
 
     // a second writer moves the branch, and the pull ticker brings it in
     test('a remote project takes what the origin gained', async ({page}) => {
-        pushToOrigin(wikiOrigin, 'e2e-upstream.md', '# Upstream note\n\npushed by somebody else.\n');
+        pushToOrigin(wikiOrigin, 'e2e-upstream.md', `# Upstream note\n\npushed by somebody else at ${Date.now()}.\n`);
 
         await expect.poll(
             async () => {
@@ -128,9 +128,12 @@ test.describe('webhook', () => {
     const body = JSON.stringify({ref: 'refs/heads/main'});
 
     test('a signed delivery refreshes a project nothing else fetches', async ({page}) => {
-        pushToOrigin(hooked.origin, 'e2e-delivered.md', '# Delivered\n\nby the hook alone.\n');
+        // a name of its own per run: the note must be missing before the
+        // delivery, and a rerun in the same session has already fetched the last one
+        const delivered = `e2e-delivered-${Date.now()}.md`;
+        pushToOrigin(hooked.origin, delivered, '# Delivered\n\nby the hook alone.\n');
         await signIn(page, {baseURL: MULTI.baseURL, from: HOOKED.home()});
-        await page.goto(HOOKED.doc('e2e-delivered.md'));
+        await page.goto(HOOKED.doc(delivered));
         await expect(page.getByTestId('doc-missing'), 'nothing fetches this project on its own').toBeVisible();
 
         // a provider cannot sign in, so the route takes no cookie at all
@@ -143,7 +146,7 @@ test.describe('webhook', () => {
         // 202 means accepted and never finished: the handler never runs git
         await expect.poll(
             async () => {
-                await page.goto(HOOKED.doc('e2e-delivered.md'));
+                await page.goto(HOOKED.doc(delivered));
                 return page.getByTestId('doc').isVisible();
             },
             {timeout: 20_000},

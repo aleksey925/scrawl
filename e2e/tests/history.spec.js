@@ -11,6 +11,16 @@ const text = require('../support/text');
 
 const FOLDER = 'e2e-history';
 
+// a version list counts every save the repository ever saw, and deleting the
+// file does not delete its history: a test that runs again in the same session
+// needs a document of its own. A new name is not enough, the text has to be
+// new too: history follows a rename, and a new file holding the bytes of a
+// deleted one is a rename as far as git can tell.
+function freshDoc(name) {
+    const stamp = Date.now();
+    return {docPath: `${FOLDER}/${name}-${stamp}.md`, stamp};
+}
+
 async function saveInEditor(page, body) {
     await setSource(page, body);
     await save(page);
@@ -26,10 +36,11 @@ test.describe.serial('history', () => {
     });
 
     test('two edits become two versions and the older one can be restored', async ({page}) => {
-        const docPath = `${FOLDER}/restored.md`;
+        const {docPath, stamp} = freshDoc('restored');
+        const first = `# Первая версия ${stamp}\n`;
         await page.goto(HISTORY.url.edit(docPath));
-        await saveInEditor(page, '# Первая версия\n');
-        await saveInEditor(page, '# Вторая версия\n');
+        await saveInEditor(page, first);
+        await saveInEditor(page, `# Вторая версия ${stamp}\n`);
 
         await page.goto(HISTORY.url.history(docPath));
         await expect(page.getByTestId('history-title')).toHaveText(text.history.title);
@@ -52,7 +63,7 @@ test.describe.serial('history', () => {
         await page.getByTestId('modal-confirm').click();
 
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.restored);
-        await expect.poll(() => readFixture(docPath, HISTORY)).toBe('# Первая версия\n');
+        await expect.poll(() => readFixture(docPath, HISTORY)).toBe(first);
         // the restore is itself a version, so the list grows instead of rewinding
         await expect(page.getByTestId('version')).toHaveCount(3);
         await shot(page, 'history-after-restore');
@@ -62,10 +73,10 @@ test.describe.serial('history', () => {
     });
 
     test('a page left open while the document changed is refused its restore', async ({page}) => {
-        const docPath = `${FOLDER}/conflict.md`;
+        const {docPath, stamp} = freshDoc('conflict');
         await page.goto(HISTORY.url.edit(docPath));
-        await saveInEditor(page, 'first\n');
-        await saveInEditor(page, 'second\n');
+        await saveInEditor(page, `first ${stamp}\n`);
+        await saveInEditor(page, `second ${stamp}\n`);
 
         await page.goto(HISTORY.url.history(docPath));
         await expect(page.getByTestId('version')).toHaveCount(2);

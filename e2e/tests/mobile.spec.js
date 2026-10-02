@@ -5,7 +5,7 @@ const fs = require('fs');
 const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
-    HISTORY, MAIN, MULTI, expectNoHorizontalScroll, fixtureFile, routes, save, setSource, shot, signIn,
+    HISTORY, MAIN, MULTI, expectNoHorizontalScroll, fixtureFile, inStep, routes, save, setSource, shot, signIn,
     sourceText, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -390,14 +390,14 @@ test.describe('mobile sync state', () => {
         restoreOrigin(wiki.origin);
         fs.writeFileSync(`${wiki.dir}/${SYNC_DOC}`, '# Mobile sync\n\nstarting point.\n', 'utf8');
         await signIn(page, {baseURL: MULTI.baseURL, from: WIKI.doc(SYNC_DOC)});
-        await expect.poll(async () => syncErrorOf(page, WIKI), {timeout: 20_000}).toBe('');
+        await inStep(page, WIKI);
     });
 
     test.afterEach(async ({page}) => {
         restoreOrigin(wiki.origin);
         fs.rmSync(`${wiki.dir}/${SYNC_DOC}`, {force: true});
         fs.rmSync(`${wiki.dir}/${SYNC_FOLDER}`, {recursive: true, force: true});
-        await expect.poll(async () => syncErrorOf(page, WIKI), {timeout: 20_000}).toBe('');
+        await inStep(page, WIKI);
     });
 
     // saveStuck writes one note through the editor with the origin already
@@ -460,13 +460,3 @@ test.describe('mobile sync state', () => {
         expect(offenders, 'elements smaller than the touch minimum').toEqual([]);
     });
 });
-
-// syncErrorOf reads the state the page itself polls, so a wait for the server's
-// own rhythm is honest rather than a sleep.
-async function syncErrorOf(page, project) {
-    return page.evaluate(async (url) => {
-        const res = await fetch(url, {headers: {accept: 'application/json'}});
-        const body = await res.json();
-        return body.project.sync_error;
-    }, project.api('/me'));
-}

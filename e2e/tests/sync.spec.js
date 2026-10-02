@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const {breakOrigin, git, pushToOrigin, restoreOrigin} = require('../support/git');
-const {MULTI, editorStatus, save, setSource, shot, signIn} = require('../support/helpers');
+const {MULTI, editorStatus, inStep, save, setSource, shot, signIn} = require('../support/helpers');
 
 const WIKI = MULTI.projects.wiki;
 const wiki = MULTI.extra.find((extra) => extra.name === 'wiki');
@@ -20,6 +20,9 @@ const FOLDER_DOC = `${FOLDER}/index.md`;
 
 // what a second writer pushes while this copy holds a commit of its own
 const THEIRS = 'e2e-sync-theirs.md';
+
+// what lands in this copy after the reset dialog has made its check
+const LATE = 'e2e-sync-late.md';
 
 // the client polls /api/me once a minute, which is finer than the pull interval
 // it is watching. A test that waited for it in real time would take longer than
@@ -37,7 +40,7 @@ test.describe('sync state', () => {
         await signIn(page, {baseURL: MULTI.baseURL, from: WIKI.doc(DOC)});
         // the startup state is whatever the previous test left, so wait for the
         // project to be in step before breaking anything
-        await expect.poll(async () => meState(page), {timeout: 20_000}).toMatchObject({sync_error: ''});
+        await inStep(page, WIKI);
     });
 
     test.afterEach(async ({page}) => {
@@ -45,8 +48,9 @@ test.describe('sync state', () => {
         fs.rmSync(path.join(wiki.dir, DOC), {force: true});
         fs.rmSync(path.join(wiki.dir, FOLDER), {recursive: true, force: true});
         fs.rmSync(path.join(wiki.dir, THEIRS), {force: true});
+        fs.rmSync(path.join(wiki.dir, LATE), {force: true});
         // leave the project in step, or the next spec inherits a broken one
-        await expect.poll(async () => meState(page), {timeout: 20_000}).toMatchObject({sync_error: ''});
+        await inStep(page, WIKI);
     });
 
     // the first failure has to reach somebody who is looking at the editor and
@@ -132,7 +136,9 @@ test.describe('sync state', () => {
     test('an index note is the file the control speaks for', async ({page}) => {
         await page.goto(WIKI.edit('index.md'));
         breakOrigin(wiki.origin);
-        await setSource(page, '# Remote page\n\nthe root index, stuck.\n');
+        // the root index cannot be deleted between runs, so the text carries a
+        // stamp: a save of the bytes the file already holds commits nothing
+        await setSource(page, `# Remote page\n\nthe root index, stuck at ${Date.now()}.\n`);
         await save(page);
 
         await page.goto(WIKI.home());
@@ -175,14 +181,33 @@ test.describe('sync state', () => {
         const dialog = page.locator('[data-testid=modal][data-variant=reset]');
         await expect(dialog.getByTestId('reset-lost-paths')).toContainText(DOC);
         await shot(page, 'sync-reset-check');
+
+        // this copy moves after the check: a file appears on disk and the
+        // server records it. The reset must not act on an answer about a
+        // state that is gone, so it checks again and asks again.
+        const checked = git(wiki.dir, ['rev-parse', 'HEAD']);
+        fs.writeFileSync(path.join(wiki.dir, LATE), '# Late\n\nlanded after the check.\n', 'utf8');
+        await expect.poll(() => git(wiki.dir, ['rev-parse', 'HEAD']), {timeout: 15_000}).not.toBe(checked);
         await dialog.getByTestId('modal-confirm').click();
+        await expect(dialog.getByTestId('reset-moved')).toBeVisible();
+        await expect(dialog.getByTestId('reset-lost-paths')).toContainText(LATE);
+
+        // confirmed until it holds: the server records a change two seconds
+        // after it lands, so one more may arrive between a check and its reset
+        await expect(async () => {
+            if (await dialog.getAttribute('data-step') === 'ready') {
+                await dialog.getByTestId('modal-confirm').click();
+            }
+            await expect(dialog).toHaveAttribute('data-step', 'done', {timeout: 3_000});
+        }).toPass({timeout: 30_000});
 
         await expect(dialog.getByTestId('reset-backup')).toContainText('scrawl-backup/');
         const backup = await dialog.getByTestId('reset-backup').innerText();
         expect(git(wiki.origin, ['show', `${backup}:${DOC}`])).toContain('written here only.');
+        expect(git(wiki.origin, ['show', `${backup}:${LATE}`])).toContain('landed after the check.');
         await shot(page, 'sync-reset-done');
 
-        await dialog.getByTestId('modal-confirm').click();
+        await dialog.getByTestId('reset-reload').click();
         await expect(page.getByTestId('project-alert')).toHaveCount(0);
         await expect(control(page)).toHaveCount(0);
         await page.goto(WIKI.doc(THEIRS));

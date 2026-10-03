@@ -12,6 +12,7 @@ import { Link, useNavigate } from 'react-router';
 
 import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
+import controls from '../controls.module.css';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { folderFor, useFileActions } from './FileActions';
@@ -23,6 +24,8 @@ import { filterTree, type FilteredTree } from './treeFilter';
 
 const iconSize = 16;
 const deskRowHeight = 30;
+const deskTwistyWidth = 22;
+const touchTwistyWidth = 28;
 
 // focusSettleMs is how long the draft row waits before it believes a blur.
 // Measured against mantine's menu, which returns focus to its trigger when it
@@ -96,7 +99,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
       <Group
         gap={2}
         wrap="nowrap"
-        pr={4}
+        pr={touch ? 0 : 4}
         data-testid="tree-row"
         data-current={current ? 'true' : 'false'}
         data-selected={picked ? 'true' : 'false'}
@@ -128,7 +131,8 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
             data-open={open ? 'true' : 'false'}
             variant="subtle"
             color="gray"
-            size={touch ? 'lg' : 'sm'}
+            size={touch ? touchTwistyWidth : 'sm'}
+            className={touch ? controls.twisty : undefined}
             style={{ flex: 'none' }}
             aria-label={`${open ? 'Collapse' : 'Expand'} ${node.name}`}
             aria-expanded={open}
@@ -137,7 +141,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
             <IconChevronRight size={14} style={{ transform: open ? 'rotate(90deg)' : undefined }} />
           </ActionIcon>
         ) : (
-          <Box w={touch ? layout.tapTarget : 22} style={{ flex: 'none' }} />
+          <Box w={touch ? touchTwistyWidth : deskTwistyWidth} style={{ flex: 'none' }} />
         )}
 
         <Anchor
@@ -267,12 +271,12 @@ function DraftRow({ depth, touch }: { depth: number; touch: boolean }): JSX.Elem
     <Group
       gap={2}
       wrap="nowrap"
-      pr={4}
+      pr={touch ? 0 : 4}
       data-testid="tree-draft"
       data-entry={page ? 'file' : 'dir'}
       style={{ minWidth: 0, minHeight: touch ? layout.tapTarget : deskRowHeight, paddingLeft: depth * 14 }}
     >
-      <Box w={touch ? layout.tapTarget : 22} style={{ flex: 'none' }} />
+      <Box w={touch ? touchTwistyWidth : deskTwistyWidth} style={{ flex: 'none' }} />
       {page ? (
         <IconFile size={iconSize} style={{ flex: 'none' }} />
       ) : (
@@ -346,6 +350,9 @@ export function SidebarNav(): JSX.Element {
   const { tree, error, loading, canWrite, currentPath, query, setQuery, isOpen, openFolder, me } = useNav();
   const actions = useFileActions();
   const touch = useBelow(layoutBreakpoints.sidebar);
+  // the drawer leaves its sides to this, so the gutter sits inside the scroll
+  // area and the chevron's touch strip on a top-level row is not clipped
+  const gutter = touch ? 'lg' : 'xs';
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -546,7 +553,7 @@ export function SidebarNav(): JSX.Element {
         }
       }}
     >
-      <Box px="xs" pt="xs">
+      <Box px={gutter} pt="xs">
         <TextInput
           data-testid="sidebar-filter"
           value={query}
@@ -582,7 +589,7 @@ export function SidebarNav(): JSX.Element {
           {/* the empty space below the rows is the root folder, so dragging a
               note out of a folder needs no row to aim at */}
           <Box
-            px="xs"
+            px={gutter}
             pb="xs"
             mih="100%"
             data-testid="tree-root"
@@ -619,7 +626,7 @@ export function SidebarNav(): JSX.Element {
       </TreeUiContext.Provider>
 
       {canWrite && (
-        <Group gap="xs" px="xs" pb="xs" wrap="nowrap">
+        <Group gap="xs" px={gutter} pb="xs" wrap="nowrap">
           {/* where it lands is the row that is picked, and the title says so
               for the times the tree is scrolled away from it */}
           <Button

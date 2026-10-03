@@ -25,6 +25,21 @@
     min-height: var(--scrawl-tap-target);
   }
 
+  /* the chevron sits against the name it opens instead of in the middle of a
+     44px box; the width it gives up is a strip reaching left into the indent */
+  .twisty {
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .twisty::before {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    inset-inline-start: calc(100% - var(--scrawl-tap-target));
+  }
+
   /* on the page the touch height is padding taken back by a margin, so the row
      stays one line of text tall; a minimum height made it a 44px band */
   .pageCrumbs a {

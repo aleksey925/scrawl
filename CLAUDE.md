@@ -54,10 +54,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
   and deleted, so it has to be on the tree before it holds anything.
   Other files stay reachable through the directory page and `/raw/`.
 - The tree can be put away and the choice is kept. On a phone it is a
-  drawer a navigation dismisses, on a desktop a rail that stays where it
-  was put, and one control in the topbar means both. A collapsed rail
-  holds nothing: mantine only moves it out of sight, and the rows left
-  in it would still answer the tab key.
+  drawer over the whole screen that a navigation dismisses, because at
+  the rail's width every second name was cut off. On a desktop it is a
+  rail that stays where it was put, and one control in the topbar means
+  both. A collapsed rail holds nothing: mantine only moves it out of
+  sight, and the rows left in it would still answer the tab key.
 - Every screen puts its content in the same centered column, so the text
   does not move sideways between a note, a search and a directory.
 - On a phone the topbar is one row of icons: the page's own actions,

@@ -121,6 +121,34 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('sidebar')).toHaveCount(0);
     });
 
+    // at the rail's 264px every second name was cut off, and the chevron sat in
+    // the middle of a 44px box with a box as wide again in front of each file
+    test('the drawer takes the screen and the chevron hugs its folder', async ({page}) => {
+        await page.goto(routes.doc(docs.deep.path));
+        const sidebar = await openDrawer(page);
+
+        const width = page.viewportSize().width;
+        // settled, not just wide: a box read while the panel still slides in is
+        // somewhere else by the time a point is looked up in it
+        await expect.poll(async () => {
+            const box = await sidebar.boundingBox();
+            return [Math.round(box.x), Math.round(box.width)];
+        }).toEqual([0, width]);
+        const names = await page.locator('[data-testid=tree-link] p').evaluateAll(
+            (labels) => labels.filter((label) => label.scrollWidth > label.clientWidth).map((label) => label.textContent));
+        expect(names, 'names cut off in the drawer').toEqual([]);
+
+        // the chevron is narrow to the eye and still takes a finger as wide as
+        // the touch minimum, through a strip reaching left into the indent
+        const twisty = page.locator('[data-testid=tree-row][data-path=""] [data-testid=tree-twisty]');
+        const box = await twisty.boundingBox();
+        expect(box.width).toBeLessThan(MIN_TAP);
+        const reached = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)
+            ?.closest('[data-testid]')?.dataset.testid, [box.x + box.width - MIN_TAP + 1, box.y + box.height / 2]);
+        expect(reached).toBe('tree-twisty');
+        await shot(page, 'mobile-drawer-full');
+    });
+
     test('a closed drawer keeps its links out of the tab order', async ({page}) => {
         await page.goto(routes.doc(DOC));
         await expect(page.getByTestId('doc')).toBeVisible();

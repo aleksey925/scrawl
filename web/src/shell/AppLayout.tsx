@@ -30,6 +30,7 @@ export function AppLayout(): JSX.Element {
 
   const wideSidebar = useAtLeast(layoutBreakpoints.sidebar);
   const wideToc = useAtLeast(layoutBreakpoints.tocRail);
+  const wideTopbar = useAtLeast(layoutBreakpoints.compactTopbar);
   const { hidden: navHidden, toggle: toggleSidebar } = useSidebarHidden();
 
   const closeNav = useCallback(() => setNavOpened(false), []);
@@ -171,9 +172,15 @@ export function AppLayout(): JSX.Element {
                 data-testid="sidebar-drawer"
                 opened={navOpened}
                 onClose={closeNav}
-                size={layout.sidebarWidth}
+                // a phone is too narrow to share with the page it covers anyway:
+                // at the rail's width every second name was cut off
+                size={wideTopbar ? layout.sidebarWidth : '100%'}
                 title="Navigation"
-                padding="md"
+                padding="lg"
+                styles={{
+                  header: { paddingInlineEnd: 'var(--mantine-spacing-lg)' },
+                  body: { paddingInline: 0 },
+                }}
               >
                 <div
                   ref={swipeRef}

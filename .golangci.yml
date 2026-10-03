@@ -1,0 +1,128 @@
+version: "2"
+
+run:
+  concurrency: 4
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: none
+  enable:
+    - asciicheck
+    - bodyclose
+    - contextcheck
+    - copyloopvar
+    - dogsled
+    - dupl
+    - durationcheck
+    - errcheck
+    - errorlint
+    - gochecknoinits
+    - gocritic
+    - gocyclo
+    - gosec
+    - govet
+    - iface
+    - ineffassign
+    - intrange
+    - lll
+    - misspell
+    - modernize
+    - nakedret
+    - nestif
+    - nilerr
+    - noctx
+    - nolintlint
+    - perfsprint
+    - prealloc
+    - predeclared
+    - revive
+    - staticcheck
+    - testifylint
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+
+  settings:
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 2
+      min-occurrences: 3
+    gocritic:
+      disabled-checks:
+        - wrapperFunc
+        - hugeParam
+        - rangeValCopy
+        - singleCaseSwitch
+        - ifElseChain
+        - octalLiteral
+        - httpNoBody
+      enabled-tags:
+        - performance
+        - style
+        - experimental
+    gocyclo:
+      min-complexity: 15
+    govet:
+      enable:
+        - shadow
+    lll:
+      line-length: 140
+    misspell:
+      locale: US
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      rules:
+        - name: early-return
+        - name: indent-error-flow
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: empty-block
+        - name: redefines-builtin-id
+
+  exclusions:
+    generated: lax
+    rules:
+      - linters: [revive]
+        text: 'package-comments: should have a package comment'
+      - linters: [revive]
+        text: should have a package comment
+      - linters: [staticcheck]
+        text: at least one file in a package should have a package comment
+      - linters: [gocritic]
+        text: "unnamedResult: consider giving a name to these results"
+      - linters: [errcheck]
+        text: "Error return value of .*.Close.*is not checked"
+      - linters: [dupl, gosec, goconst, noctx, testifylint, unparam]
+        path: _test\.go$
+      - linters: [revive, unparam, unused]
+        path: _test\.go$
+        text: unused-parameter
+      - linters: [lll]
+        path: _test\.go$
+      - linters: [lll]
+        source: "`.*`"
+    paths:
+      - vendor
+      - third_party$
+      - builtin$
+      - examples$
+
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - vendor
+      - third_party$
+      - builtin$
+      - examples$

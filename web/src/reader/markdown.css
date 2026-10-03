@@ -1,0 +1,798 @@
+/* Every rule here is scoped to .markdown-document: a note is markdown the
+   reader wrote, and its classes and ids must not reach app chrome. The
+   look is github-markdown-css 5.9.0 ported onto the markup render emits. */
+
+.markdown-document {
+  color: var(--gh-fg-default);
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+  -webkit-text-size-adjust: 100%;
+}
+
+.markdown-document::before,
+.markdown-document::after {
+  display: table;
+  content: '';
+}
+
+.markdown-document::after {
+  clear: both;
+}
+
+.markdown-document > :first-child {
+  margin-top: 0 !important;
+}
+
+.markdown-document > :last-child {
+  margin-bottom: 0 !important;
+}
+
+/* --- inline -------------------------------------------------------------- */
+
+.markdown-document a {
+  color: var(--gh-fg-accent);
+  text-decoration: none;
+  text-underline-offset: 0.2rem;
+}
+
+@media (hover: hover) {
+  .markdown-document a:hover {
+    text-decoration: underline;
+  }
+}
+
+.markdown-document a:not([href]) {
+  color: inherit;
+  text-decoration: none;
+}
+
+.markdown-document a:focus-visible {
+  outline: 2px solid var(--gh-border-accent-emphasis);
+  outline-offset: -2px;
+}
+
+.markdown-document a:not([class]):focus-visible {
+  outline-offset: 0;
+}
+
+.markdown-document a.broken {
+  color: var(--gh-fg-danger);
+  text-decoration: underline dotted;
+}
+
+.markdown-document :is(b, strong) {
+  font-weight: 600;
+}
+
+.markdown-document dfn {
+  font-style: italic;
+}
+
+.markdown-document abbr[title] {
+  border-bottom: none;
+  text-decoration: underline dotted;
+}
+
+.markdown-document mark {
+  background-color: var(--gh-bg-attention-muted);
+  color: var(--gh-fg-default);
+}
+
+.markdown-document small {
+  font-size: 90%;
+}
+
+.markdown-document :is(sub, sup) {
+  position: relative;
+  font-size: 75%;
+  line-height: 0;
+  vertical-align: baseline;
+}
+
+.markdown-document sub {
+  bottom: -0.25em;
+}
+
+.markdown-document sup {
+  top: -0.5em;
+}
+
+.markdown-document kbd {
+  display: inline-block;
+  padding: 4px;
+  border: 1px solid var(--gh-border-muted);
+  border-radius: 6px;
+  box-shadow: inset 0 -1px 0 var(--gh-border-muted);
+  background-color: var(--gh-bg-muted);
+  color: var(--gh-fg-default);
+  font: 11px var(--mantine-font-family-monospace);
+  line-height: 10px;
+  vertical-align: middle;
+}
+
+/* --- headings ------------------------------------------------------------ */
+
+.markdown-document :is(h1, h2, h3, h4, h5, h6) {
+  position: relative;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  scroll-margin-top: calc(var(--app-shell-header-height, 0px) + var(--mantine-spacing-xl));
+}
+
+.markdown-document :is(h1, h2) {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--gh-border-muted);
+}
+
+.markdown-document h1 {
+  font-size: 2em;
+}
+
+.markdown-document h2 {
+  font-size: 1.5em;
+}
+
+.markdown-document h3 {
+  font-size: 1.25em;
+}
+
+.markdown-document h4 {
+  font-size: 1em;
+}
+
+.markdown-document h5 {
+  font-size: 0.875em;
+}
+
+.markdown-document h6 {
+  color: var(--gh-fg-muted);
+  font-size: 0.85em;
+}
+
+.markdown-document :is(h1, h2, h3, h4, h5, h6) :is(code, tt) {
+  padding: 0 0.2em;
+  font-size: inherit;
+}
+
+.markdown-document summary :is(h1, h2, h3, h4, h5, h6) {
+  display: inline-block;
+}
+
+.markdown-document summary :is(h1, h2) {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+/* --- heading anchors ----------------------------------------------------- */
+
+/* GitHub's link icon in the gutter left of the heading. A finger has no hover
+   to reveal it with, so there it is always on screen, and its box is the tap
+   minimum laid over the start of the heading, which takes no tap of its own */
+.markdown-document .md-anchor {
+  position: absolute;
+  top: calc((1lh - var(--scrawl-tap-target)) / 2);
+  left: -20px;
+  display: flex;
+  align-items: center;
+  width: var(--scrawl-tap-target);
+  height: var(--scrawl-tap-target);
+  color: var(--gh-fg-default);
+  text-decoration: none;
+}
+
+/* the icon is drawn here and not inside the anchor's text: the anchor keeps
+   the heading's font, which is what 1lh above is measured in */
+.markdown-document .md-anchor::before {
+  content: '';
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z'/></svg>")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z'/></svg>")
+    center / contain no-repeat;
+}
+
+.markdown-document .md-anchor:focus-visible {
+  outline: 2px solid var(--gh-border-accent-emphasis);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .markdown-document .md-anchor {
+    top: 0;
+    width: 20px;
+    height: 1lh;
+    opacity: 0;
+  }
+
+  .markdown-document :is(h1, h2, h3, h4, h5, h6):hover > .md-anchor,
+  .markdown-document .md-anchor:focus-visible {
+    opacity: 1;
+  }
+}
+
+/* a phone keeps 16px at the edge, and the icon's gutter is wider than that: it
+   hung off the screen over the first letter. GitHub has no hover there either. */
+@mixin smaller-than $mantine-breakpoint-sm {
+  .markdown-document .md-anchor {
+    display: none;
+  }
+}
+
+/* --- blocks -------------------------------------------------------------- */
+
+.markdown-document :is(p, blockquote, ul, ol, dl, table, pre, details, figure) {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.markdown-document blockquote {
+  margin-inline: 0;
+  padding: 0 1em;
+  border-left: 0.25em solid var(--gh-border-default);
+  color: var(--gh-fg-muted);
+}
+
+.markdown-document blockquote > :first-child {
+  margin-top: 0;
+}
+
+.markdown-document blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-document hr {
+  box-sizing: content-box;
+  height: 0.25em;
+  margin: 24px 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background-color: var(--gh-border-default);
+}
+
+.markdown-document details {
+  display: block;
+}
+
+.markdown-document summary {
+  display: list-item;
+  cursor: pointer;
+}
+
+.markdown-document figure {
+  margin-inline: 40px;
+}
+
+.markdown-document dl {
+  padding: 0;
+}
+
+.markdown-document dl dt {
+  margin-top: 16px;
+  padding: 0;
+  font-size: 1em;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.markdown-document dl dd {
+  margin-left: 0;
+  margin-bottom: 16px;
+  padding: 0 16px;
+}
+
+/* --- lists --------------------------------------------------------------- */
+
+.markdown-document :is(ul, ol) {
+  padding-left: 2em;
+}
+
+.markdown-document :is(ul, ol) :is(ul, ol) {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.markdown-document :is(ol, ul) ol {
+  list-style-type: lower-roman;
+}
+
+.markdown-document :is(ol, ul) :is(ol, ul) ol {
+  list-style-type: lower-alpha;
+}
+
+.markdown-document li + li {
+  margin-top: 0.25em;
+}
+
+.markdown-document li > p {
+  margin-top: 16px;
+}
+
+/* goldmark puts no class on a task item, so the checkbox opening it is what
+   marks one, a loose item holding it in its first paragraph */
+.markdown-document li:has(> input[type='checkbox']:first-child),
+.markdown-document li:has(> p:first-child > input[type='checkbox']:first-child) {
+  list-style-type: none;
+}
+
+.markdown-document li > input[type='checkbox']:first-child,
+.markdown-document li > p:first-child > input[type='checkbox']:first-child {
+  box-sizing: border-box;
+  margin: 0 0.2em 0.25em -1.4em;
+  padding: 0;
+  vertical-align: middle;
+}
+
+/* --- images -------------------------------------------------------------- */
+
+.markdown-document img {
+  box-sizing: content-box;
+  max-width: 100%;
+  height: auto;
+  border-style: none;
+  cursor: zoom-in;
+}
+
+.markdown-document a img {
+  cursor: pointer;
+}
+
+.markdown-document img.broken {
+  display: inline-block;
+  min-height: 60px;
+  padding: var(--mantine-spacing-lg);
+  border: 1px dashed var(--gh-fg-danger);
+}
+
+/* --- code ---------------------------------------------------------------- */
+
+.markdown-document :is(code, kbd, pre, samp, tt) {
+  font-family: var(--mantine-font-family-monospace);
+}
+
+.markdown-document :is(code, tt) {
+  margin: 0;
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  background-color: var(--gh-bg-neutral-muted);
+  font-size: 85%;
+  white-space: break-spaces;
+}
+
+.markdown-document samp {
+  font-size: 85%;
+}
+
+.markdown-document del code {
+  text-decoration: inherit;
+}
+
+.markdown-document pre {
+  padding: 16px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 6px;
+  background-color: var(--gh-bg-muted);
+  color: var(--gh-fg-default);
+  font-size: 85%;
+  line-height: 1.45;
+  overflow-wrap: normal;
+  tab-size: 4;
+}
+
+.markdown-document pre :is(code, tt) {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background-color: transparent;
+  font-size: 100%;
+  line-height: inherit;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.markdown-document .code-block {
+  position: relative;
+  margin: 0 0 16px;
+  border-radius: 6px;
+  background-color: var(--gh-bg-muted);
+}
+
+/* the block paints the background, so the copy button stays put while the
+   code scrolls under it. chroma's own sheet paints .chroma from :root, which
+   only pre.chroma here outranks */
+.markdown-document .code-block > :is(pre, pre.chroma) {
+  margin: 0;
+  background-color: transparent;
+}
+
+/* chroma paints the tokens from its own stylesheet; this only keeps an
+   unhighlighted block legible when that sheet is not on the page */
+.markdown-document .chroma {
+  color: var(--gh-fg-default);
+}
+
+.md-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--scrawl-tap-target);
+  min-height: var(--scrawl-tap-target);
+  padding: 0;
+  border: 1px solid var(--gh-border-default);
+  border-radius: 6px;
+  background-color: var(--gh-control-rest);
+  color: var(--gh-fg-muted);
+  font-size: 0;
+  cursor: pointer;
+}
+
+/* the label stays the button's text for a screen reader; GitHub shows an icon */
+.md-copy::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z'/><path d='M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z'/></svg>")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z'/><path d='M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z'/></svg>")
+    center / contain no-repeat;
+}
+
+.md-copy[data-done='true'] {
+  color: var(--gh-fg-success);
+  opacity: 1;
+}
+
+.md-copy[data-done='true']::before {
+  -webkit-mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'/></svg>");
+  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'/></svg>");
+}
+
+.md-copy:focus-visible {
+  outline: 2px solid var(--gh-border-accent-emphasis);
+  outline-offset: -2px;
+}
+
+/* a finger sees the button all the time, so the first lines of every block
+   need room beside it */
+@media (hover: none) {
+  .markdown-document .code-block > pre {
+    padding-right: calc(var(--scrawl-tap-target) + 16px);
+  }
+}
+
+@media (hover: hover) {
+  .md-copy {
+    top: 8px;
+    right: 8px;
+    min-width: 0;
+    min-height: 0;
+    width: 28px;
+    height: 28px;
+    opacity: 0;
+  }
+
+  .markdown-document .code-block:hover .md-copy,
+  .md-copy:focus-visible {
+    opacity: 1;
+  }
+
+  .md-copy:hover {
+    background-color: var(--gh-control-hover);
+  }
+}
+
+/* --- tables -------------------------------------------------------------- */
+
+.markdown-document .table-wrap {
+  margin: 0 0 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* a wide table scrolls inside itself whether or not the renderer wrapped it */
+.markdown-document table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border-spacing: 0;
+  border-collapse: collapse;
+  font-variant: tabular-nums;
+}
+
+.markdown-document .table-wrap > table {
+  margin-bottom: 0;
+}
+
+.markdown-document :is(th, td) {
+  padding: 6px 13px;
+  border: 1px solid var(--gh-border-default);
+}
+
+.markdown-document th {
+  font-weight: 600;
+}
+
+.markdown-document td > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-document tr {
+  border-top: 1px solid var(--gh-border-muted);
+}
+
+.markdown-document tr:nth-child(2n) {
+  background-color: var(--gh-bg-muted);
+}
+
+/* --- alerts -------------------------------------------------------------- */
+
+.markdown-document .alert {
+  --md-alert-border: var(--gh-border-accent-emphasis);
+  --md-alert-color: var(--gh-fg-accent);
+  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/></svg>");
+  margin-bottom: 16px;
+  padding: 8px 16px;
+  border-left: 0.25em solid var(--md-alert-border);
+  color: inherit;
+}
+
+.markdown-document .alert-tip {
+  --md-alert-border: var(--gh-border-success-emphasis);
+  --md-alert-color: var(--gh-fg-success);
+  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 1.5c-2.363 0-4 1.69-4 3.75 0 .984.424 1.625.984 2.304l.214.253c.223.264.47.556.673.848.284.411.537.896.621 1.49a.75.75 0 0 1-1.484.211c-.04-.282-.163-.547-.37-.847a8.456 8.456 0 0 0-.542-.68c-.084-.1-.173-.205-.268-.32C3.201 7.75 2.5 6.766 2.5 5.25 2.5 2.31 4.863 0 8 0s5.5 2.31 5.5 5.25c0 1.516-.701 2.5-1.328 3.259-.095.115-.184.22-.268.319-.207.245-.383.453-.541.681-.208.3-.33.565-.37.847a.751.751 0 0 1-1.485-.212c.084-.593.337-1.078.621-1.489.203-.292.45-.584.673-.848.075-.088.147-.173.213-.253.561-.679.985-1.32.985-2.304 0-2.06-1.637-3.75-4-3.75ZM5.75 12h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5ZM6 15.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z'/></svg>");
+}
+
+.markdown-document .alert-important {
+  --md-alert-border: var(--gh-border-done-emphasis);
+  --md-alert-color: var(--gh-fg-done);
+  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v9.5A1.75 1.75 0 0 1 14.25 13H8.06l-2.573 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25Zm1.75-.25a.25.25 0 0 0-.25.25v9.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-9.5a.25.25 0 0 0-.25-.25Zm7 2.25v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z'/></svg>");
+}
+
+.markdown-document .alert-warning {
+  --md-alert-border: var(--gh-border-attention-emphasis);
+  --md-alert-color: var(--gh-fg-attention);
+  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z'/></svg>");
+}
+
+.markdown-document .alert-caution {
+  --md-alert-border: var(--gh-border-danger-emphasis);
+  --md-alert-color: var(--gh-fg-danger);
+  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4.47.22A.749.749 0 0 1 5 0h6c.199 0 .389.079.53.22l4.25 4.25c.141.14.22.331.22.53v6a.749.749 0 0 1-.22.53l-4.25 4.25A.749.749 0 0 1 11 16H5a.749.749 0 0 1-.53-.22L.22 11.53A.749.749 0 0 1 0 11V5c0-.199.079-.389.22-.53Zm.84 1.28L1.5 5.31v5.38l3.81 3.81h5.38l3.81-3.81V5.31L10.69 1.5ZM8 4a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/></svg>");
+}
+
+.markdown-document .alert > :first-child {
+  margin-top: 0;
+}
+
+.markdown-document .alert > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-document .alert-title {
+  display: flex;
+  align-items: center;
+  color: var(--md-alert-color);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.markdown-document .alert-title::before {
+  content: '';
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  background-color: currentColor;
+  -webkit-mask: var(--md-alert-icon) center / contain no-repeat;
+  mask: var(--md-alert-icon) center / contain no-repeat;
+}
+
+/* --- footnotes ----------------------------------------------------------- */
+
+.markdown-document .footnote-ref a::before {
+  content: '[';
+}
+
+.markdown-document .footnote-ref a::after {
+  content: ']';
+}
+
+.markdown-document section.footnotes {
+  border-top: 1px solid var(--gh-border-default);
+  color: var(--gh-fg-muted);
+  font-size: 12px;
+}
+
+.markdown-document section.footnotes ol {
+  margin-top: 16px;
+  padding-left: 16px;
+}
+
+.markdown-document section.footnotes li {
+  position: relative;
+}
+
+/* a fragment jump lands with nothing to look at, so both ends of a footnote
+   link mark themselves while they are the target */
+.markdown-document section.footnotes li:target {
+  color: var(--gh-fg-default);
+}
+
+.markdown-document section.footnotes li:target::before {
+  content: '';
+  position: absolute;
+  inset: -8px -8px -8px -24px;
+  border: 2px solid var(--gh-border-accent-emphasis);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.markdown-document .footnote-ref a:target {
+  border-radius: 2px;
+  outline: 2px solid var(--gh-border-accent-emphasis);
+  outline-offset: 1px;
+}
+
+/* --- math ---------------------------------------------------------------- */
+
+/* until katex has run the element holds the raw TeX; monospace close to the
+   final size keeps the swap small, and the scroll anchor covers the rest */
+.markdown-document .math {
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.9em;
+}
+
+.markdown-document .math-display {
+  display: block;
+  margin: 0 0 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  text-align: center;
+}
+
+.markdown-document .math.is-typeset {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.markdown-document .math.is-error {
+  color: var(--gh-fg-danger);
+  text-decoration: underline wavy var(--gh-fg-danger);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+.markdown-document .math-display .katex-display {
+  margin: 0;
+  padding: var(--mantine-spacing-xs) 0;
+}
+
+/* a katex base never breaks inside itself, so one long formula would widen the
+   document and pan the whole page sideways where there is no room to spare */
+@media (hover: none) {
+  .markdown-document .math-inline {
+    display: inline-block;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+}
+
+/* --- diagrams ------------------------------------------------------------ */
+
+.markdown-document pre.mermaid {
+  color: var(--gh-fg-muted);
+}
+
+.markdown-document .md-diagram {
+  margin: 0 0 16px;
+}
+
+.markdown-document .md-diagram > pre.mermaid {
+  margin: 0;
+}
+
+.markdown-document .md-diagram-view {
+  display: none;
+}
+
+.markdown-document .md-diagram[data-state='done'] > pre.mermaid {
+  display: none;
+}
+
+.markdown-document .md-diagram[data-state='done'] > .md-diagram-view {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  text-align: center;
+}
+
+.markdown-document .md-diagram-view svg {
+  display: block;
+  margin-inline: auto;
+}
+
+.markdown-document .md-diagram-error {
+  margin: var(--mantine-spacing-sm) 0 0;
+  color: var(--gh-fg-danger);
+  font-size: var(--mantine-font-size-sm);
+}
+
+/* --- find on page -------------------------------------------------------- */
+
+.markdown-document .md-find {
+  border-radius: 2px;
+  background: var(--scrawl-accent-subtle);
+  color: inherit;
+}
+
+.markdown-document .md-find[data-active='true'] {
+  background: var(--scrawl-accent-emphasis);
+  color: #fff;
+}
+
+/* --- lightbox ------------------------------------------------------------ */
+
+.md-lightbox-content {
+  background: transparent;
+  box-shadow: none;
+}
+
+.md-lightbox-surface {
+  height: 100%;
+  padding: 0;
+}
+
+.md-lightbox-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mantine-spacing-lg);
+  height: 100%;
+  padding: var(--mantine-spacing-xl);
+}
+
+/* the image yields to the caption rather than being capped in vh: with mobile
+   Safari's toolbars out the pair stood taller than the dialog and was clipped */
+.md-lightbox-image {
+  max-width: 100%;
+  min-height: 0;
+  flex: 0 1 auto;
+  object-fit: contain;
+  border-radius: var(--mantine-radius-lg);
+  cursor: zoom-out;
+  touch-action: pan-y;
+}
+
+.md-lightbox-caption {
+  flex: none;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: var(--mantine-font-size-sm);
+  text-align: center;
+}
+
+.md-lightbox-close {
+  position: absolute;
+  top: max(var(--mantine-spacing-md), env(safe-area-inset-top));
+  right: var(--mantine-spacing-md);
+}

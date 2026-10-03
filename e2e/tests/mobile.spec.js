@@ -249,11 +249,24 @@ test.describe('mobile', () => {
 
         const bar = await page.getByTestId('topbar').boundingBox();
         expect(bar.height, 'the top bar wrapped onto a second line').toBeLessThanOrEqual(ROW_HEIGHT);
+        const row = await page.getByTestId('page-breadcrumbs').boundingBox();
+        expect(row.height, 'the path row grew to the touch height').toBeLessThan(MIN_TAP);
         await expectNoHorizontalScroll(page);
         await shot(page, 'mobile-path-row');
 
         await page.getByTestId('doc-history').tap();
         await expect(page).toHaveURL(MAIN.url.history(docs.deep.path));
+    });
+
+    // the burger's lines sat 6px from the edge while the menu dots sat 17px:
+    // mantine draws the lines at the left of a box the touch minimum widened
+    test('the top bar icons keep the same distance from both edges', async ({page}) => {
+        await page.goto(routes.doc(DOC));
+
+        const width = page.viewportSize().width;
+        const lines = await page.getByTestId('topbar-burger').locator('.mantine-Burger-burger').boundingBox();
+        const dots = await page.getByTestId('topbar-more').locator('svg').boundingBox();
+        expect(Math.round(lines.x)).toBe(Math.round(width - dots.x - dots.width));
     });
 
     test('the root note has no path row', async ({page}) => {

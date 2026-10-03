@@ -49,7 +49,7 @@ export function PathCrumbs({ place }: { place: 'topbar' | 'page' }): JSX.Element
   return (
     <Breadcrumbs
       data-testid={`${place}-breadcrumbs`}
-      className={controls.crumbs}
+      className={inTopbar ? controls.topbarCrumbs : controls.pageCrumbs}
       separator="/"
       style={inTopbar ? topbarStyle : undefined}
     >

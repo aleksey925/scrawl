@@ -1,0 +1,1 @@
+import{U as e,n as t,r as n}from"./theme-B4ja1B-O.js";import{t as r}from"./Container-BBe78Evh.js";var i=e();function a({children:e}){return(0,i.jsx)(r,{size:t.contentMeasure,px:{base:`lg`,[n.sidebar]:0},miw:0,children:e})}export{a as t};

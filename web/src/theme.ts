@@ -374,7 +374,7 @@ export const theme: MantineThemeOverride = createTheme({
 
   components: {
     ActionIcon: ActionIcon.extend({ classNames: { root: controls.tapTarget } }),
-    Burger: Burger.extend({ classNames: { root: controls.tapTarget } }),
+    Burger: Burger.extend({ classNames: { root: `${controls.tapTarget} ${controls.burger}` } }),
     Button: Button.extend({ classNames: { root: controls.tapTarget } }),
     CloseButton: CloseButton.extend({ classNames: { root: controls.tapTarget } }),
   },

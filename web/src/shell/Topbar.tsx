@@ -25,7 +25,7 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
   const wide = useAtLeast(layoutBreakpoints.compactTopbar);
 
   return (
-    <Group data-testid="topbar" h="100%" px={wide ? 'lg' : 'xs'} gap={wide ? 'sm' : 0} wrap="nowrap">
+    <Group data-testid="topbar" h="100%" px="lg" gap={wide ? 'sm' : 0} wrap="nowrap">
       {burger}
 
       <ProjectSwitcher />

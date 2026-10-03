@@ -2,6 +2,14 @@
    cannot quietly miss it. A coarse pointer is a finger; a mouse keeps the
    compact sizes. */
 
+/* mantine draws the burger's lines at the left of its box, so once the touch
+   minimum widens the box they sit off centre, against the edge of the screen */
+.burger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 @media (pointer: coarse) {
   .tapTarget {
     min-width: var(--scrawl-tap-target);
@@ -11,9 +19,16 @@
   /* the crumbs are links the shell draws itself, and a bare <a> is inline, so
      a minimum size would not apply to it at all. Height only: a minimum width
      spread a two-letter folder name into a gap wider than the name. */
-  .crumbs a {
+  .topbarCrumbs a {
     display: inline-flex;
     align-items: center;
     min-height: var(--scrawl-tap-target);
+  }
+
+  /* on the page the touch height is padding taken back by a margin, so the row
+     stays one line of text tall; a minimum height made it a 44px band */
+  .pageCrumbs a {
+    padding-block: calc((var(--scrawl-tap-target) - 1em) / 2);
+    margin-block: calc((1em - var(--scrawl-tap-target)) / 2);
   }
 }

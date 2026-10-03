@@ -400,17 +400,22 @@
   overflow-wrap: normal;
 }
 
+/* the copy button is a column beside the code and never a layer over it:
+   a layer covers the end of a long line, and room kept with padding on the
+   pre scrolls away with that line */
 .markdown-document .code-block {
-  position: relative;
+  display: flex;
+  align-items: flex-start;
   margin: 0 0 16px;
   border-radius: 6px;
   background-color: var(--gh-bg-muted);
 }
 
-/* the block paints the background, so the copy button stays put while the
-   code scrolls under it. chroma's own sheet paints .chroma from :root, which
-   only pre.chroma here outranks */
+/* chroma's own sheet paints .chroma from :root, which only pre.chroma here
+   outranks */
 .markdown-document .code-block > :is(pre, pre.chroma) {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   background-color: transparent;
 }
@@ -422,21 +427,25 @@
 }
 
 .md-copy {
-  position: absolute;
-  top: 6px;
-  right: 6px;
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: center;
-  min-width: var(--scrawl-tap-target);
-  min-height: var(--scrawl-tap-target);
+  width: var(--scrawl-tap-target);
+  height: var(--scrawl-tap-target);
+  /* the glyph, not the box, ends on the 16px line the code starts on */
+  margin-right: calc(16px - (var(--scrawl-tap-target) - 16px) / 2);
   padding: 0;
-  border: 1px solid var(--gh-border-default);
+  border: 0;
   border-radius: 6px;
-  background-color: var(--gh-control-rest);
+  background-color: transparent;
   color: var(--gh-fg-muted);
   font-size: 0;
   cursor: pointer;
+}
+
+.md-copy:active {
+  background-color: var(--gh-control-hover);
 }
 
 /* the label stays the button's text for a screen reader; GitHub shows an icon */
@@ -453,7 +462,6 @@
 
 .md-copy[data-done='true'] {
   color: var(--gh-fg-success);
-  opacity: 1;
 }
 
 .md-copy[data-done='true']::before {
@@ -466,28 +474,11 @@
   outline-offset: -2px;
 }
 
-/* a finger sees the button all the time, so the first lines of every block
-   need room beside it */
-@media (hover: none) {
-  .markdown-document .code-block > pre {
-    padding-right: calc(var(--scrawl-tap-target) + 16px);
-  }
-}
-
 @media (hover: hover) {
   .md-copy {
-    top: 8px;
-    right: 8px;
-    min-width: 0;
-    min-height: 0;
     width: 28px;
     height: 28px;
-    opacity: 0;
-  }
-
-  .markdown-document .code-block:hover .md-copy,
-  .md-copy:focus-visible {
-    opacity: 1;
+    margin: 8px 8px 0 0;
   }
 
   .md-copy:hover {

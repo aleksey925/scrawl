@@ -251,6 +251,22 @@ test.describe('mobile', () => {
         expect(offenders, 'controls smaller than the touch minimum').toEqual([]);
     });
 
+    test('the copy button never covers the code', async ({page}) => {
+        // arrange
+        const longLine = 'curl -fsSL https://example.com/install.sh | sh -s -- --prefix /usr/local --yes';
+        writeFixture(SCRATCH, `# Заметка\n\n\`\`\`sh\n${longLine}\n${longLine}\n\`\`\`\n`);
+
+        // act
+        await page.goto(routes.doc(SCRATCH));
+        const block = page.getByTestId('doc-code');
+
+        // assert
+        const copy = await block.getByTestId('code-copy').boundingBox();
+        const code = await block.locator('pre').boundingBox();
+        expect(code.x + code.width).toBeLessThanOrEqual(copy.x);
+        await shot(page, 'mobile-code-copy');
+    });
+
     // the heading link icon lives in a 20px gutter left of the heading, and a
     // phone keeps 16px at the edge: it hung off the screen over the first letter
     test('a heading carries no link icon on a phone', async ({page}) => {

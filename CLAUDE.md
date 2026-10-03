@@ -150,6 +150,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
   and in the drawer the filter, the chevrons and the row menus. A tree
   row there runs from edge to edge, so its highlight has no edge of its
   own to sit off that line.
+- The copy button of a code block is a column beside the code, the way
+  GitHub has it, and never a layer over it. A layer covered the end of a
+  long first line, and room kept for it with padding on the `pre`
+  scrolled away with that line. It is always visible, on a phone and
+  with a pointer, so nothing about it depends on hover.
 - A panel that covers the page goes through `overlay.js`, which owns the
   `inert` behind it, the focus it took and which single panel is up. The
   drawer and the outline sheet each ran their own copy of that over

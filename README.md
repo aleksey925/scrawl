@@ -9,7 +9,7 @@ files on disk are the only state.
 - pages and folders made in the tree itself, dragged between folders,
   renamed and deleted; paste images straight into the editor
 - a version history per page: what changed, by whom, and a restore
-- several spaces at once, each a folder or a git remote it clones,
+- several spaces at once, each a folder or a git repository it clones,
   serves and pushes back to
 - a login page, users configured through the environment
 - a JSON API with token auth, for scripts and agents
@@ -100,27 +100,27 @@ including the HTTP timeouts.
 These always apply, with a spaces file or without one. Only a way to
 sign in is required, everything else has a working default.
 
-| variable           | required              | default             | meaning                                                                                                                       |
-| ------------------ | --------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `LISTEN`           |                       | `:7272`             | address to listen on                                                                                                          |
-| `SITE_TITLE`       |                       | `Notes`             | name of the site: the browser tab, the sign-in page, the home screen icon                                                     |
-| `AUTH_USERS`       | yes, or `AUTH_TOKENS` |                     | who can sign in: `user:hashOrPassword`, comma separated                                                                       |
-| `AUTH_TOKENS`      |                       |                     | API tokens for scripts and agents, `name:hashOrToken[:ro]`, comma separated; enough alone for a server no browser signs in to |
-| `AUTH_DISABLED`    |                       | `false`             | serve without authentication, then neither of the two above is needed                                                         |
-| `AUTH_SECRET`      |                       |                     | cookie signing key; leave empty and one is generated and kept                                                                 |
-| `AUTH_SECRET_FILE` |                       | `/data/session.key` | where a generated key is kept                                                                                                 |
-| `AUTH_TTL`         |                       | `720h`              | how long a session lasts                                                                                                      |
-| `AUTH_SECURE`      |                       | `auto`              | `Secure` flag of the session cookie; `always` behind an HTTPS proxy                                                           |
-| `READ_ONLY`        |                       | `false`             | refuse every write, in every space                                                                                            |
-| `EXCLUDE`          |                       |                     | extra ignore globs for every space, comma separated                                                                           |
-| `MAX_UPLOAD`       |                       | `20M`               | upload size cap                                                                                                               |
-| `UPLOAD_DIR`       |                       |                     | put every upload in this one folder instead of a folder next to the note                                                      |
-| `WATCH`            |                       | `auto`              | set to `poll` when a space is on a network share                                                                              |
-| `RESCAN`           |                       | `60s`               | periodic rescan, negative disables it unless `WATCH=poll`                                                                     |
-| `HISTORY`          |                       | `auto`              | keep a git history of changes; `on` fails without git, `off` never touches the notes; always on for a space with a git remote |
-| `TRUSTED_PROXY`    |                       | `false`             | trust `X-Forwarded-For` and `-Proto`; set it behind a reverse proxy                                                           |
-| `TZ`               |                       | `UTC`               | timezone                                                                                                                      |
-| `DEBUG`            |                       | `false`             | debug logging                                                                                                                 |
+| variable           | required              | default             | meaning                                                                                                                              |
+| ------------------ | --------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `LISTEN`           |                       | `:7272`             | address to listen on                                                                                                                 |
+| `SITE_TITLE`       |                       | `Notes`             | name of the site: the browser tab, the sign-in page, the home screen icon                                                            |
+| `AUTH_USERS`       | yes, or `AUTH_TOKENS` |                     | who can sign in: `user:hashOrPassword`, comma separated                                                                              |
+| `AUTH_TOKENS`      |                       |                     | API tokens for scripts and agents, `name:hashOrToken[:ro]`, comma separated; enough alone for a server no browser signs in to        |
+| `AUTH_DISABLED`    |                       | `false`             | serve without authentication, then neither of the two above is needed                                                                |
+| `AUTH_SECRET`      |                       |                     | cookie signing key; leave empty and one is generated and kept                                                                        |
+| `AUTH_SECRET_FILE` |                       | `/data/session.key` | where a generated key is kept                                                                                                        |
+| `AUTH_TTL`         |                       | `720h`              | how long a session lasts                                                                                                             |
+| `AUTH_SECURE`      |                       | `auto`              | `Secure` flag of the session cookie; `always` behind an HTTPS proxy                                                                  |
+| `READ_ONLY`        |                       | `false`             | refuse every write, in every space                                                                                                   |
+| `EXCLUDE`          |                       |                     | extra ignore globs for every space, comma separated                                                                                  |
+| `MAX_UPLOAD`       |                       | `20M`               | upload size cap                                                                                                                      |
+| `UPLOAD_DIR`       |                       |                     | put every upload in this one folder instead of a folder next to the note                                                             |
+| `WATCH`            |                       | `auto`              | set to `poll` when a space is on a network share                                                                                     |
+| `RESCAN`           |                       | `60s`               | periodic rescan, negative disables it unless `WATCH=poll`                                                                            |
+| `HISTORY`          |                       | `auto`              | keep a git history of changes; `on` fails without git, `off` never touches the notes; always on for a space that is a git repository |
+| `TRUSTED_PROXY`    |                       | `false`             | trust `X-Forwarded-For` and `-Proto`; set it behind a reverse proxy                                                                  |
+| `TZ`               |                       | `UTC`               | timezone                                                                                                                             |
+| `DEBUG`            |                       | `false`             | debug logging                                                                                                                        |
 
 Dot directories, `node_modules` and `__pycache__` are ignored, so notes
 kept in git do not expose `.git`.
@@ -131,8 +131,9 @@ otherwise a client can pick its own login rate limit bucket.
 
 ### One space
 
-One space is the normal case and needs no file. These variables describe
-it.
+When you need to connect to only one space, you can describe all the
+required configuration through environment variables without creating
+a file with the space configuration.
 
 **They are ignored when `SPACES_FILE` is set**, and the startup log
 warns about each one that was set anyway. The last column is the key
@@ -144,16 +145,17 @@ that takes the variable's place in the file.
 | `SPACE_DIR`  |          | `/notes` | directory to serve                         | `dir`       |
 
 That is all a plain folder needs. The rest is only for a space that is
-a git repository, see [Git remotes](#git-remotes). Leave all of it out
-otherwise.
+a git repository, see
+[A git repository as a space](#a-git-repository-as-a-space). Leave all
+of it out otherwise.
 
-| variable           | required | default | meaning                                                                                                        | in the file                                       |
-| ------------------ | -------- | ------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `REPO_URL`         | yes      |         | git remote to clone into `SPACE_DIR` and push back to; setting it is what makes the space a git repository     | `repo.url`                                        |
-| `REPO_BRANCH`      |          | `main`  | branch to track                                                                                                | `repo.branch`                                     |
-| `REPO_PULL`        |          | `5m`    | how often to fetch, `0` disables the background pull                                                           | `repo.pull`                                       |
-| `REPO_TOKEN`       |          |         | token for `REPO_URL`, or a whole `Authorization` header; leave it out for a public repository or an ssh remote | `repo.token_file` or `repo.token_env`             |
-| `REPO_HOOK_SECRET` |          |         | webhook secret, at least 32 bytes; set it only to let the git host trigger a fetch                             | `repo.hook_secret_file` or `repo.hook_secret_env` |
+| variable           | required | default | meaning                                                                                                                    | in the file                                       |
+| ------------------ | -------- | ------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `REPO_URL`         | yes      |         | the remote: the repository to clone into `SPACE_DIR` and push back to; setting it is what makes the space a git repository | `repo.url`                                        |
+| `REPO_BRANCH`      |          | `main`  | branch to track                                                                                                            | `repo.branch`                                     |
+| `REPO_PULL`        |          | `5m`    | how often to fetch, `0` disables the background pull                                                                       | `repo.pull`                                       |
+| `REPO_TOKEN`       |          |         | token for `REPO_URL`, or a whole `Authorization` header; leave it out for a public repository or an ssh remote             | `repo.token_file` or `repo.token_env`             |
+| `REPO_HOOK_SECRET` |          |         | webhook secret, at least 32 bytes; set it only to let the git host trigger a fetch                                         | `repo.hook_secret_file` or `repo.hook_secret_env` |
 
 ### Several spaces
 
@@ -232,11 +234,12 @@ For strict isolation between spaces - separate credentials, separate
 processes - run one scrawl per folder behind a reverse proxy instead.
 That is what this feature deliberately does not do.
 
-## Git remotes
+## A git repository as a space
 
-A space may be a git repository rather than a plain folder. scrawl
-clones it, serves it, and pushes back what you edit. In the file that is
-a `repo` block:
+A space may be a git repository rather than a plain folder. Give it the
+address of the repository and scrawl clones it, serves it, and pushes
+back what you edit. That repository, on the git host, is called the
+remote below. In the file it is a `repo` block:
 
 ```yaml
 spaces:
@@ -259,8 +262,8 @@ docker run -d --name scrawl -p 7272:7272 -v team:/data/team \
 ```
 
 Every key and variable is listed under
-[Configuration](#configuration). The rest of this section is about how a
-remote behaves.
+[Configuration](#configuration). The rest of this section is about how such
+a space behaves.
 
 **The directory is a volume, and it has to survive a restart.** The
 clone lives there and so does every commit that has not been pushed yet.
@@ -273,7 +276,7 @@ space reads the fixed `REPO_TOKEN`. A URL carrying a password is
 refused: `git clone` writes the URL into `.git/config`, where it would
 sit in plain text inside the notes volume.
 
-**The value is the token itself**, the string the provider handed you -
+**The value is the token itself**, the string the git host handed you -
 `github_pat_...`, `glpat-...` - and scrawl makes the HTTP credential out
 of it. A value that already names a scheme is taken as a whole
 `Authorization` header instead and passed through untouched, which is
@@ -301,21 +304,22 @@ saves keep landing on disk and in local commits, and a banner says so on
 every screen together with a button that resets this copy to the remote
 version - see [below](#when-a-space-has-diverged).
 
-**Two things are worth knowing.** History is always on for a remote
-space, whatever `HISTORY` says: one that stopped recording would also
-stop pushing. And git cannot represent an empty directory, so a folder
-you create reaches the remote with the first note you put in it.
+**Two things are worth knowing.** History is always on for a space that
+is a git repository, whatever `HISTORY` says: one that stopped recording
+would also stop pushing. And git cannot represent an empty directory, so
+a folder you create reaches the remote with the first note you put in
+it.
 
-A read-only remote never writes to git at all: it fetches and
-fast-forwards, and it does not commit, push or probe. A change that
+A read-only space of this kind never writes to git at all: it fetches
+and fast-forwards, and it does not commit, push or probe. A change that
 appears in its directory some other way is served and read, and it is
 never recorded: there is no push to carry that commit anywhere, and it
-would be what the next fetch from upstream trips over.
+would be what the next fetch from the remote trips over.
 
 ## A webhook instead of polling
 
-Give a space a hook secret and the upstream repository can tell scrawl
-to fetch, instead of scrawl asking every few minutes.
+Give a space a hook secret and the git host can tell scrawl to fetch,
+instead of scrawl asking every few minutes.
 
 ```yaml
 spaces:
@@ -335,7 +339,7 @@ openssl rand -hex 32
 ```
 
 It has to be at least 32 bytes. The endpoint answers without a session -
-a provider cannot sign in - so the signature is the only credential
+a git host cannot sign in - so the signature is the only credential
 there is, and a short one turns the route into a public "resync this
 space" button. Naming a secret that turns out to hold nothing - an
 empty file, a variable that never got a value - stops the server rather
@@ -346,7 +350,7 @@ directory, for the same reason the session key does: anything inside is
 on the tree, in the search index and downloadable.
 
 Paste this URL into the repository's webhook settings, with the content
-type the provider offers by default:
+type the git host offers by default:
 
 ```
 https://notes.example.com/s/team/hook
@@ -369,7 +373,7 @@ request, so with `pull: 0` the clone simply stays behind.
 The body is never read beyond verifying it. A delivery means "something
 may have changed", so a push to a branch scrawl does not track costs one
 fetch that finds nothing - which is cheaper than a parser that has to
-know four providers' payloads. Deliveries also coalesce: twenty in a
+know four git hosts' payloads. Deliveries also coalesce: twenty in a
 second cause at most two fetches, because they all ask the same
 question.
 
@@ -422,7 +426,7 @@ remote version**. It makes this copy hold exactly what the remote holds,
 and it asks first:
 
 1. It fetches and checks what the reset would lose. The check is a trial
-   merge and not a commit count, so after a rebase or a squash upstream
+   merge and not a commit count, so after a rebase or a squash on the remote
    it says "nothing will be lost" when the content really is there.
    Otherwise it lists the notes that hold changes only this copy has.
 2. If there is anything to lose, the copy is kept in a branch named
@@ -440,7 +444,7 @@ not track that stands where the remote has one of its own stops it, and
 the message names the file.
 
 Whoever can write can reset, and so can anybody signed in to a
-read-only space: a read-only mirror whose upstream was rebased is the
+read-only space: a read-only mirror whose remote was rebased is the
 one that needs it most. A `:ro` token cannot, and neither can a reader
 of a read-only space on a server with authentication off, where the
 button would belong to anybody who can reach the page.

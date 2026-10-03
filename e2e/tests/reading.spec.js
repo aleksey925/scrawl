@@ -164,13 +164,9 @@ test.describe('reading', () => {
         await expect(page.getByTestId('doc-lightbox-image')).toHaveCount(0);
     });
 
-    test('a code block shows its language and the copy button copies', async ({page}) => {
+    test('the copy button copies a code block', async ({page}) => {
         await page.goto(routes.doc(DOC.path));
-        const block = page.locator('[data-testid=doc-code][data-lang]').first();
-
-        await expect(block).toHaveAttribute('data-lang', DOC.lang);
-        const label = await block.evaluate((el) => getComputedStyle(el, '::before').content);
-        expect(label).toContain(DOC.lang);
+        const block = page.getByTestId('doc-code').first();
 
         const code = (await block.locator('pre').innerText()).trim();
         const copy = block.getByTestId('code-copy');

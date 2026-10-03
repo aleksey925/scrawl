@@ -131,6 +131,74 @@ export const darkTokens: ScrawlTokens = {
   warning: '#ffb340',
 };
 
+// a rendered note is painted in GitHub's own palette, the one
+// github-markdown-css carries, so a note reads here the way it reads there
+interface MarkdownTokens {
+  fgDefault: string;
+  fgMuted: string;
+  fgAccent: string;
+  fgSuccess: string;
+  fgAttention: string;
+  fgDanger: string;
+  fgDone: string;
+  bgMuted: string;
+  bgNeutralMuted: string;
+  bgAttentionMuted: string;
+  borderDefault: string;
+  borderMuted: string;
+  borderAccentEmphasis: string;
+  borderSuccessEmphasis: string;
+  borderAttentionEmphasis: string;
+  borderDangerEmphasis: string;
+  borderDoneEmphasis: string;
+  buttonBg: string;
+  buttonBgHover: string;
+}
+
+const lightMarkdownTokens: MarkdownTokens = {
+  fgDefault: '#1f2328',
+  fgMuted: '#59636e',
+  fgAccent: '#0969da',
+  fgSuccess: '#1a7f37',
+  fgAttention: '#9a6700',
+  fgDanger: '#d1242f',
+  fgDone: '#8250df',
+  bgMuted: '#f6f8fa',
+  bgNeutralMuted: '#818b981f',
+  bgAttentionMuted: '#fff8c5',
+  borderDefault: '#d1d9e0',
+  borderMuted: '#d1d9e0b3',
+  borderAccentEmphasis: '#0969da',
+  borderSuccessEmphasis: '#1a7f37',
+  borderAttentionEmphasis: '#9a6700',
+  borderDangerEmphasis: '#cf222e',
+  borderDoneEmphasis: '#8250df',
+  buttonBg: '#f6f8fa',
+  buttonBgHover: '#eff2f5',
+};
+
+const darkMarkdownTokens: MarkdownTokens = {
+  fgDefault: '#f0f6fc',
+  fgMuted: '#9198a1',
+  fgAccent: '#4493f8',
+  fgSuccess: '#3fb950',
+  fgAttention: '#d29922',
+  fgDanger: '#f85149',
+  fgDone: '#ab7df8',
+  bgMuted: '#151b23',
+  bgNeutralMuted: '#656c7633',
+  bgAttentionMuted: '#bb800926',
+  borderDefault: '#3d444d',
+  borderMuted: '#3d444db3',
+  borderAccentEmphasis: '#1f6feb',
+  borderSuccessEmphasis: '#238636',
+  borderAttentionEmphasis: '#9e6a03',
+  borderDangerEmphasis: '#da3633',
+  borderDoneEmphasis: '#8957e5',
+  buttonBg: '#212830',
+  buttonBgHover: '#262c36',
+};
+
 const accentShades: MantineColorsTuple = [
   '#eaf3fd',
   '#d5e7fb',
@@ -149,10 +217,10 @@ const sans =
 const mono =
   'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Mono", "Roboto Mono", "DejaVu Sans Mono", Consolas, "Liberation Mono", monospace';
 
-function tokenVariables(tokens: ScrawlTokens): Record<string, string> {
+function tokenVariables(prefix: string, tokens: ScrawlTokens | MarkdownTokens): Record<string, string> {
   const res: Record<string, string> = {};
   for (const [name, value] of Object.entries(tokens)) {
-    res[`--scrawl-${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`] = value;
+    res[`--${prefix}-${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`] = value;
   }
   return res;
 }
@@ -193,8 +261,16 @@ export function cssVariablesResolver(): ThemeCssVariables {
       '--scrawl-tap-target': `${layout.tapTarget}px`,
       '--scrawl-input-font-size': `${layout.inputFontSize}px`,
     },
-    light: { ...tokenVariables(lightTokens), ...mantineVariables(lightTokens) },
-    dark: { ...tokenVariables(darkTokens), ...mantineVariables(darkTokens) },
+    light: {
+      ...tokenVariables('scrawl', lightTokens),
+      ...tokenVariables('md', lightMarkdownTokens),
+      ...mantineVariables(lightTokens),
+    },
+    dark: {
+      ...tokenVariables('scrawl', darkTokens),
+      ...tokenVariables('md', darkMarkdownTokens),
+      ...mantineVariables(darkTokens),
+    },
   };
 }
 

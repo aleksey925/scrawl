@@ -1,4 +1,3 @@
-import { Typography } from '@mantine/core';
 import { useRef, type JSX } from 'react';
 
 import type { Heading } from '../api/types';
@@ -40,17 +39,15 @@ export function DocumentHtml({ html, toc }: DocumentHtmlProps): JSX.Element {
         </PageToc>
       )}
 
-      <Typography>
-        {/* the one place in the app that injects html. What arrives here was
-            rendered and sanitized on the server by the bluemonday policy in
-            render/policy.go. */}
-        <div
-          ref={rootRef}
-          data-testid="doc"
-          className="markdown-document"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      </Typography>
+      {/* the one place in the app that injects html. What arrives here was
+          rendered and sanitized on the server by the bluemonday policy in
+          render/policy.go. */}
+      <div
+        ref={rootRef}
+        data-testid="doc"
+        className="markdown-document"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
 
       <Lightbox image={lightbox.image} onClose={lightbox.close} onStep={lightbox.step} />
 

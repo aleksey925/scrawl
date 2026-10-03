@@ -385,9 +385,10 @@ otherwise a client can pick its own login rate limit bucket.
 
 ## Markdown
 
-Pages render the way GitHub renders them: tables, task lists, footnotes,
-alerts, emoji shortcodes, math, mermaid diagrams, `<details>` sections
-and syntax highlighting.
+Pages render and look the way GitHub renders them: tables, task lists,
+footnotes, alerts, emoji shortcodes, math, mermaid diagrams, `<details>`
+sections and syntax highlighting. The styles are a port of GitHub's own
+markdown stylesheet, in both the light and the dark theme.
 
 ````
 > [!WARNING]

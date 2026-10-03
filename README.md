@@ -16,12 +16,6 @@ files on disk are the only state.
 - light and dark themes
 - installs to a phone home screen and runs there without browser chrome
 
-![Reading a page](img/reading.png)
-
-![The editor with live preview](img/editor.png)
-
-![The same page on a phone](img/mobile.png)
-
 ## Try it
 
 ```

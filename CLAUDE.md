@@ -23,7 +23,6 @@ web/                   react and mantine source for that bundle
 e2e/                   playwright suite against a real binary
 examples/data/         sample notes: tests, `make run`, and the
                        browser suite when the private corpus is absent
-img/                   README screenshots, taken against examples/data
 vendor/                dependencies, checked in, `make deps` regenerates
 ```
 

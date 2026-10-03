@@ -8,12 +8,10 @@ on:
     paths-ignore:
       - "*.md"
       - "e2e/README.md"
-      - "img/**"
   pull_request:
     paths-ignore:
       - "*.md"
       - "e2e/README.md"
-      - "img/**"
 
 permissions:
   contents: read

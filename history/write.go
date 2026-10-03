@@ -92,7 +92,7 @@ func (s *Service) publishFailed(op Op, err error) error {
 // made outside the app - over SMB, by another tool - reaches history at all.
 //
 // A pull-only clone does none of it. A commit there has no push to carry it
-// anywhere, so it would sit in this copy alone, report the project unpublished
+// anywhere, so it would sit in this copy alone, report the space unpublished
 // for a change no reader made, and turn the next upstream push into a
 // divergence the ff-only merge refuses.
 func (s *Service) Reconcile(ctx context.Context, actor string) error {

@@ -47,7 +47,7 @@ function writeSeed(dir, seed) {
     }
 }
 
-// prepareOrigin builds the bare repository a remote project clones from. It is
+// prepareOrigin builds the bare repository a remote space clones from. It is
 // a directory on this machine, so the suite drives the remote mode with no
 // network at all.
 function prepareOrigin(origin, seed) {
@@ -66,14 +66,14 @@ function prepareOrigin(origin, seed) {
     fs.rmSync(work, {recursive: true, force: true});
 }
 
-// writeConfig declares every project of an instance that has more than one. The
+// writeConfig declares every space of an instance that has more than one. The
 // first is the fixture copy the rest of the suite drives; the others are small
-// trees of their own, so a spec about the boundary between two projects cannot
+// trees of their own, so a spec about the boundary between two spaces cannot
 // be fooled by a document both of them happen to hold.
 function writeConfig(inst) {
-    const lines = ['projects:', `  - name: ${inst.project}`, `    dir: ${inst.root}`];
+    const lines = ['spaces:', `  - name: ${inst.space}`, `    dir: ${inst.root}`];
     for (const extra of inst.extra) {
-        // a remote project's directory is left missing: scrawl clones into it,
+        // a remote space's directory is left missing: scrawl clones into it,
         // which is the path a deployment actually takes
         if (extra.origin) {
             prepareOrigin(extra.origin, extra.seed);
@@ -88,7 +88,7 @@ function writeConfig(inst) {
                 `      pull: ${extra.pull}`);
         }
         if (extra.hookSecret) {
-            // outside every project root, the way the binary requires
+            // outside every space root, the way the binary requires
             const file = path.join(workDir, `${extra.name}-hook.secret`);
             fs.writeFileSync(file, extra.hookSecret, 'utf8');
             lines.push(`      hook_secret_file: ${file}`);
@@ -110,11 +110,11 @@ function main() {
     prepareRoot(inst.root);
     fs.rmSync(inst.secretFile, {force: true});
 
-    const args = [`--listen=127.0.0.1:${inst.port}`, '--title=E2E Notes', '--dbg'];
+    const args = [`--listen=127.0.0.1:${inst.port}`, '--site-title=E2E Notes', '--dbg'];
     if (inst.extra) {
-        args.push(`--config=${writeConfig(inst)}`);
+        args.push(`--spaces-file=${writeConfig(inst)}`);
     } else {
-        args.push(`--root=${inst.root}`, `--project=${inst.project}`);
+        args.push(`--space.dir=${inst.root}`, `--space.name=${inst.space}`);
     }
     if (inst.readOnly) args.push('--read-only');
     if (inst.uploadDir) args.push(`--upload-dir=${inst.uploadDir}`);

@@ -10,9 +10,9 @@ import (
 
 const (
 	apiPrefix = "/api/"
-	// projectPrefix is where every project's own URL space begins. auth knows
-	// it only to tell a project's API apart from its pages.
-	projectPrefix = "/p/"
+	// spacePrefix is where every space's own URLs begin. auth knows
+	// it only to tell a space's API apart from its pages.
+	spacePrefix = "/s/"
 )
 
 // limiterKeys are the buckets one login attempt is counted against. The peer
@@ -94,15 +94,15 @@ func wantsJSON(r *http.Request) bool {
 }
 
 // isAPIPath reports whether a path names an API endpoint. There are two of
-// them: the global routes at the root, and a project's own under /p/<name>/api.
-// The question is structural rather than a list of configured projects, so
+// them: the global routes at the root, and a space's own under /s/<name>/api.
+// The question is structural rather than a list of configured spaces, so
 // nothing here has to be told when one is added, and an API client that omits
 // Accept still gets a JSON 401 instead of a redirect to an HTML form.
 func isAPIPath(p string) bool {
 	if strings.HasPrefix(p, apiPrefix) {
 		return true
 	}
-	rest, ok := strings.CutPrefix(p, projectPrefix)
+	rest, ok := strings.CutPrefix(p, spacePrefix)
 	if !ok {
 		return false
 	}

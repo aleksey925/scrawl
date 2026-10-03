@@ -111,21 +111,21 @@ export interface TreeResponse {
 export interface MeResponse {
   user: string;
   auth_on: boolean;
-  // the effective mode of the project on screen: the server-wide guard or the
-  // project's own, whichever refuses first
+  // the effective mode of the space on screen: the server-wide guard or the
+  // space's own, whichever refuses first
   read_only: boolean;
   history_on: boolean;
   history_degraded: boolean;
   site_title: string;
   version: string;
-  project: ProjectState;
+  space: SpaceState;
 }
 
-// ProjectState is the project the app runs under and what is true of it now.
-export interface ProjectState {
+// SpaceState is the space the app runs under and what is true of it now.
+export interface SpaceState {
   name: string;
   label: string;
-  kind: ProjectKind;
+  kind: SpaceKind;
   read_only: boolean;
   degraded: boolean;
   unpublished: boolean;
@@ -171,15 +171,15 @@ export interface Unsynced {
   many: boolean;
 }
 
-export type ProjectKind = 'local' | 'remote';
+export type SpaceKind = 'local' | 'remote';
 
-// ProjectEntry is one row of the switcher: configured facts only, so the list
+// SpaceEntry is one row of the switcher: configured facts only, so the list
 // is the same for every reader and needs no refresh.
-export interface ProjectEntry {
+export interface SpaceEntry {
   name: string;
   label: string;
   url: string;
-  kind: ProjectKind;
+  kind: SpaceKind;
   read_only: boolean;
 }
 

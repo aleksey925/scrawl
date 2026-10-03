@@ -7,17 +7,17 @@ import (
 	"github.com/aleksey925/scrawl/render"
 )
 
-// pageCache is a bounded LRU of rendered documents, shared by every project.
+// pageCache is a bounded LRU of rendered documents, shared by every space.
 //
-// The key is the project plus the content path plus the revision of the source,
+// The key is the space plus the content path plus the revision of the source,
 // so a stale entry can never be served: a changed file hashes to a different
-// revision and simply misses. The project is part of it because a content path
-// is relative to its own root, so two projects name the same document. The
+// revision and simply misses. The space is part of it because a content path
+// is relative to its own root, so two spaces name the same document. The
 // watcher still drops entries by path, otherwise a deleted or renamed document
 // would hold its HTML until it was evicted.
 //
-// One cache rather than one per project, so the byte bound an operator reasons
-// about stays one number instead of being divided by however many projects the
+// One cache rather than one per space, so the byte bound an operator reasons
+// about stays one number instead of being divided by however many spaces the
 // deployment happens to have.
 //
 // Both bounds are honored at once, and either can be disabled with a zero.
@@ -31,10 +31,10 @@ type pageCache struct {
 	byPath map[pageKey]map[string]*list.Element
 }
 
-// pageKey names one document of one project.
+// pageKey names one document of one space.
 type pageKey struct {
-	project string
-	path    string
+	space string
+	path  string
 }
 
 type pageEntry struct {
@@ -54,14 +54,14 @@ func newPageCache(maxEntries int, maxBytes int64) *pageCache {
 }
 
 // get returns the rendered document for a revision of a path.
-func (c *pageCache) get(project, path, rev string) (render.Result, bool) {
+func (c *pageCache) get(space, path, rev string) (render.Result, bool) {
 	if c == nil {
 		return render.Result{}, false
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	el, ok := c.byPath[pageKey{project, path}][rev]
+	el, ok := c.byPath[pageKey{space, path}][rev]
 	if !ok {
 		return render.Result{}, false
 	}
@@ -71,14 +71,14 @@ func (c *pageCache) get(project, path, rev string) (render.Result, bool) {
 
 // put stores a rendered document, evicting the least recently used entries
 // until both bounds hold again.
-func (c *pageCache) put(project, path, rev string, res render.Result) {
+func (c *pageCache) put(space, path, rev string, res render.Result) {
 	if c == nil {
 		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	key := pageKey{project, path}
+	key := pageKey{space, path}
 	if el, ok := c.byPath[key][rev]; ok {
 		c.drop(el)
 	}
@@ -101,15 +101,15 @@ func (c *pageCache) put(project, path, rev string, res render.Result) {
 	}
 }
 
-// invalidate forgets every revision of a path of one project.
-func (c *pageCache) invalidate(project, path string) {
+// invalidate forgets every revision of a path of one space.
+func (c *pageCache) invalidate(space, path string) {
 	if c == nil {
 		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for _, el := range c.byPath[pageKey{project, path}] {
+	for _, el := range c.byPath[pageKey{space, path}] {
 		c.drop(el)
 	}
 }

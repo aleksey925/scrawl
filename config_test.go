@@ -13,20 +13,20 @@ import (
 
 func TestLoadConfigFromFlags(t *testing.T) {
 	// arrange
-	opts := &options{Root: "/notes", Project: "notes", ReadOnly: true}
+	opts := &options{Space: spaceOptions{Name: "notes", Dir: "/notes"}, ReadOnly: true}
 
 	// act
 	cfgs, err := loadConfig(opts)
 
 	// assert
 	require.NoError(t, err)
-	assert.Equal(t, []projectConfig{{Name: "notes", Dir: "/notes", ReadOnly: true}}, cfgs)
+	assert.Equal(t, []spaceConfig{{Name: "notes", Dir: "/notes", ReadOnly: true}}, cfgs)
 }
 
 func TestLoadConfigFromFile(t *testing.T) {
 	// arrange
-	opts := &options{Config: writeConfig(t, `
-projects:
+	opts := &options{SpacesFile: writeConfig(t, `
+spaces:
   - name: notes
     dir: /notes
 
@@ -46,7 +46,7 @@ projects:
 
 	// assert
 	require.NoError(t, err)
-	assert.Equal(t, []projectConfig{
+	assert.Equal(t, []spaceConfig{
 		{Name: "notes", Dir: "/notes"},
 		{
 			Name: "team", Label: "Team wiki", Dir: "/data/team", ReadOnly: true,
@@ -58,6 +58,85 @@ projects:
 	}, cfgs)
 }
 
+func TestLoadConfigRepoDefaults(t *testing.T) {
+	tests := []struct {
+		name string
+		repo string
+		want remoteConfig
+	}{
+		{
+			name: "nothing but the url",
+			repo: "",
+			want: remoteConfig{URL: "https://x/y.git", Branch: defaultRepoBranch, Pull: defaultRepoPull},
+		},
+		{
+			name: "a written zero turns the ticker off",
+			repo: "      pull: 0\n",
+			want: remoteConfig{URL: "https://x/y.git", Branch: defaultRepoBranch},
+		},
+		{
+			name: "both written",
+			repo: "      branch: trunk\n      pull: 1h\n",
+			want: remoteConfig{URL: "https://x/y.git", Branch: "trunk", Pull: time.Hour},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			opts := &options{SpacesFile: writeConfig(t, "spaces:\n  - name: wiki\n    dir: /wiki\n"+
+				"    repo:\n      url: https://x/y.git\n"+tc.repo)}
+
+			// act
+			cfgs, err := loadConfig(opts)
+
+			// assert
+			require.NoError(t, err)
+			assert.Equal(t, []spaceConfig{{Name: "wiki", Dir: "/wiki", Remote: &tc.want}}, cfgs)
+		})
+	}
+}
+
+func TestIgnoredSpaceSettings(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		env  map[string]string
+		want []string
+	}{
+		{name: "no spaces file", args: []string{"--space.name=notes", "--repo.url=https://x/y.git"}},
+		{name: "a spaces file alone", args: []string{"--spaces-file=/etc/spaces.yml"}, want: []string{}},
+		{
+			name: "every setting of the single space",
+			args: []string{
+				"--spaces-file=/etc/spaces.yml", "--space.name=notes", "--space.dir=/data",
+				"--repo.url=https://x/y.git", "--repo.branch=trunk", "--repo.pull=1h",
+			},
+			env: map[string]string{repoTokenEnv: "token", repoHookSecretEnv: "secret"},
+			want: []string{
+				"SPACE_NAME", "SPACE_DIR", "REPO_URL", "REPO_BRANCH", "REPO_PULL", repoTokenEnv, repoHookSecretEnv,
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			for name, value := range tc.env {
+				t.Setenv(name, value)
+			}
+			opts, err := parseOpts(tc.args)
+			require.NoError(t, err)
+
+			// act
+			ignored := ignoredSpaceSettings(opts)
+
+			// assert
+			assert.Equal(t, tc.want, ignored)
+		})
+	}
+}
+
 func TestLoadConfigRefuses(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -66,18 +145,18 @@ func TestLoadConfigRefuses(t *testing.T) {
 	}{
 		{
 			name:    "a misspelled key",
-			body:    "projects:\n  - name: notes\n    directory: /notes\n",
+			body:    "spaces:\n  - name: notes\n    directory: /notes\n",
 			errText: "field directory not found",
 		},
 		{
 			name: "both credential sources",
-			body: "projects:\n  - name: notes\n    dir: /notes\n    repo:\n      url: https://x/y.git\n" +
+			body: "spaces:\n  - name: notes\n    dir: /notes\n    repo:\n      url: https://x/y.git\n" +
 				"      token_file: /run/t\n      token_env: T\n",
 			errText: "sets both repo.token_file and repo.token_env",
 		},
 		{
 			name: "a named variable with nothing in it",
-			body: "projects:\n  - name: notes\n    dir: /notes\n    repo:\n      url: https://x/y.git\n" +
+			body: "spaces:\n  - name: notes\n    dir: /notes\n    repo:\n      url: https://x/y.git\n" +
 				"      token_env: SCRAWL_TEST_MISSING\n",
 			errText: "names no value",
 		},
@@ -86,7 +165,7 @@ func TestLoadConfigRefuses(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// act
-			_, err := loadConfig(&options{Config: writeConfig(t, tc.body)})
+			_, err := loadConfig(&options{SpacesFile: writeConfig(t, tc.body)})
 
 			// assert
 			require.Error(t, err)
@@ -97,11 +176,11 @@ func TestLoadConfigRefuses(t *testing.T) {
 
 func TestLoadConfigMissingFile(t *testing.T) {
 	// act
-	_, err := loadConfig(&options{Config: filepath.Join(t.TempDir(), "nope.yml")})
+	_, err := loadConfig(&options{SpacesFile: filepath.Join(t.TempDir(), "nope.yml")})
 
 	// assert
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "read the config file")
+	assert.Contains(t, err.Error(), "read the spaces file")
 }
 
 // TestResolveSecret is the whole credential story: a file and a variable resolve
@@ -192,10 +271,10 @@ func TestResolveSecretRefuses(t *testing.T) {
 	}
 }
 
-func TestFlagProjectsReadTheFixedVariable(t *testing.T) {
+func TestFlagSpacesReadTheFixedVariable(t *testing.T) {
 	// arrange
 	t.Setenv(repoTokenEnv, "Bearer ghp_flag")
-	opts := &options{Root: "/notes", Project: "notes"}
+	opts := &options{Space: spaceOptions{Name: "notes", Dir: "/notes"}}
 	opts.Repo.URL = "https://github.com/acme/wiki.git"
 	opts.Repo.Branch = "main"
 	opts.Repo.Pull = time.Minute
@@ -205,7 +284,7 @@ func TestFlagProjectsReadTheFixedVariable(t *testing.T) {
 
 	// assert
 	require.NoError(t, err)
-	assert.Equal(t, []projectConfig{{
+	assert.Equal(t, []spaceConfig{{
 		Name: "notes", Dir: "/notes",
 		Remote: &remoteConfig{
 			URL: "https://github.com/acme/wiki.git", Branch: "main",
@@ -273,7 +352,7 @@ func TestResolveGitToken(t *testing.T) {
 func TestABareTokenBecomesTheHeaderGitSends(t *testing.T) {
 	// arrange
 	t.Setenv(repoTokenEnv, "github_pat_xxx")
-	opts := &options{Root: "/notes", Project: "notes"}
+	opts := &options{Space: spaceOptions{Name: "notes", Dir: "/notes"}}
 	opts.Repo.URL = "https://github.com/acme/wiki.git"
 	opts.Repo.Branch = "main"
 
@@ -288,9 +367,9 @@ func TestABareTokenBecomesTheHeaderGitSends(t *testing.T) {
 
 // the fixed variable is optional, unlike one the configuration named: an https
 // remote with no credential is the public-repository case
-func TestFlagProjectsWithoutTheFixedVariable(t *testing.T) {
+func TestFlagSpacesWithoutTheFixedVariable(t *testing.T) {
 	// arrange
-	opts := &options{Root: "/notes", Project: "notes"}
+	opts := &options{Space: spaceOptions{Name: "notes", Dir: "/notes"}}
 	opts.Repo.URL = "https://github.com/acme/wiki.git"
 	opts.Repo.Branch = "main"
 
@@ -328,7 +407,7 @@ func TestValidateRemote(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// arrange
-			cfg := projectConfig{Name: "notes", Dir: "/notes", Remote: &tc.remote}
+			cfg := spaceConfig{Name: "notes", Dir: "/notes", Remote: &tc.remote}
 
 			// act
 			err := validateRemote(t.Context(), cfg)
@@ -344,10 +423,10 @@ func TestValidateRemote(t *testing.T) {
 	}
 }
 
-func TestProjectKind(t *testing.T) {
+func TestSpaceKind(t *testing.T) {
 	// act & assert
-	assert.Equal(t, "local", projectConfig{}.kind())
-	assert.Equal(t, "remote", projectConfig{Remote: &remoteConfig{}}.kind())
+	assert.Equal(t, "local", spaceConfig{}.kind())
+	assert.Equal(t, "remote", spaceConfig{Remote: &remoteConfig{}}.kind())
 }
 
 func writeConfig(t *testing.T, body string) string {

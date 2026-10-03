@@ -8,7 +8,7 @@ import { iconEdgeInset, layout, layoutBreakpoints, useAtLeast } from '../theme';
 import { AccountMenu } from './AccountMenu';
 import { MoreMenu } from './MoreMenu';
 import { PathCrumbs } from './PathCrumbs';
-import { ProjectSwitcher } from './ProjectSwitcher';
+import { SpaceSwitcher } from './SpaceSwitcher';
 import { SyncControl } from './SyncControl';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -28,7 +28,7 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
     <Group data-testid="topbar" h="100%" px={wide ? 'lg' : iconEdgeInset(layout.topbarIconSize)} gap={wide ? 'sm' : 0} wrap="nowrap">
       {burger}
 
-      <ProjectSwitcher />
+      <SpaceSwitcher />
 
       {wide ? <PathCrumbs place="topbar" /> : <Box flex={1} />}
 

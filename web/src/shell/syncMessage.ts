@@ -1,6 +1,6 @@
 import type { MeResponse } from '../api/types';
 
-// SyncMessage is what the project has to say about itself, in the one place it
+// SyncMessage is what the space has to say about itself, in the one place it
 // is written. The banner and the sync control render the same value, so they
 // can never drift apart.
 export interface SyncMessage {
@@ -10,7 +10,7 @@ export interface SyncMessage {
   // one paragraph per active fact, in precedence order. At most two states are
   // true at once, one from each family, so this is at most two entries.
   facts: SyncFact[];
-  // the project is diverged and this reader may reset it, so the surfaces
+  // the space is diverged and this reader may reset it, so the surfaces
   // that render the message offer the one way out
   canReset: boolean;
 }
@@ -47,18 +47,18 @@ export function syncMessage(me: MeResponse | undefined): SyncMessage | undefined
   if (first === undefined) {
     return undefined;
   }
-  const diverged = me.project.diverged && facts.some((fact) => fact.kind === 'merge');
+  const diverged = me.space.diverged && facts.some((fact) => fact.kind === 'merge');
   return {
     kind: first.kind,
     title: first.kind === 'merge' && diverged ? divergedTitle : titles[first.kind],
     facts,
-    canReset: diverged && me.project.can_reset,
+    canReset: diverged && me.space.can_reset,
   };
 }
 
 function factsOf(me: MeResponse): SyncFact[] {
-  const { project } = me;
-  const stage = stageOf(project.sync_error);
+  const { space } = me;
+  const stage = stageOf(space.sync_error);
   const affected = affectedSentence(me);
 
   const res: SyncFact[] = [];
@@ -78,17 +78,17 @@ function factsOf(me: MeResponse): SyncFact[] {
     if (kind !== stage) {
       continue;
     }
-    if (kind === 'merge' && project.diverged) {
+    if (kind === 'merge' && space.diverged) {
       // no git reason: the body already says everything it would
-      res.push({ kind, body: divergedBody(project.can_reset) + affected, reason: '' });
+      res.push({ kind, body: divergedBody(space.can_reset) + affected, reason: '' });
       continue;
     }
-    res.push({ kind, body: bodyOf(kind, project.unpublished) + affected, reason: project.sync_error });
+    res.push({ kind, body: bodyOf(kind, space.unpublished) + affected, reason: space.sync_error });
   }
   return res;
 }
 
-const divergedTitle = 'This project has diverged from the remote';
+const divergedTitle = 'This space has diverged from the remote';
 
 // divergedBody never names a clone or a command: the way out is a button, and
 // a reader who has none is told so.
@@ -123,7 +123,7 @@ function bodyOf(kind: SyncKind, unpublished: boolean): string {
 // and it never carries a count: an exact number costs the whole diff and buys a
 // digit nobody acts on.
 function affectedSentence(me: MeResponse): string {
-  const { unsynced } = me.project;
+  const { unsynced } = me.space;
   if (unsynced.many) {
     return ' Many files are affected, too many to list.';
   }

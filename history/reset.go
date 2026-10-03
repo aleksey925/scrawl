@@ -12,12 +12,12 @@ import (
 )
 
 var (
-	// ErrNotDiverged is returned when there is nothing to reset: the project
+	// ErrNotDiverged is returned when there is nothing to reset: the space
 	// has no remote, or a sync brought it back in step.
-	ErrNotDiverged = errors.New("the project has not diverged from the remote")
+	ErrNotDiverged = errors.New("the space has not diverged from the remote")
 	// ErrStateChanged is returned when either side moved after the check the
 	// caller confirmed, so the answer it was shown is not about this state.
-	ErrStateChanged = errors.New("the project changed since it was checked")
+	ErrStateChanged = errors.New("the space changed since it was checked")
 	// ErrResetRefused is returned when this copy could not be moved without
 	// losing something no commit holds. Nothing was reset.
 	ErrResetRefused = errors.New("the reset was refused")
@@ -66,7 +66,7 @@ type ResetResult struct {
 	BackupPushed bool
 }
 
-// CheckDivergence syncs once and, if the project is still diverged, measures
+// CheckDivergence syncs once and, if the space is still diverged, measures
 // what a reset would lose. It holds the lock a save holds, so the two commits
 // and the answer about them belong to one state.
 func (s *Service) CheckDivergence(ctx context.Context) (Divergence, error) {

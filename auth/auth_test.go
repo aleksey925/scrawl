@@ -159,14 +159,14 @@ func TestServiceMiddleware(t *testing.T) {
 		location string
 		body     string
 	}{
-		{name: "valid session", target: "/p/a.md", session: true, code: http.StatusOK, body: "alice"},
+		{name: "valid session", target: "/s/a.md", session: true, code: http.StatusOK, body: "alice"},
 		{
-			name: "html without session", target: "/p/a.md?x=1", code: http.StatusFound,
-			location: "/login?from=" + url.QueryEscape("/p/a.md?x=1"),
+			name: "html without session", target: "/s/a.md?x=1", code: http.StatusFound,
+			location: "/login?from=" + url.QueryEscape("/s/a.md?x=1"),
 		},
 		{name: "api without session", target: "/api/tree", code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`},
 		{
-			name: "json accept without session", target: "/p/a.md", accept: "application/json",
+			name: "json accept without session", target: "/s/a.md", accept: "application/json",
 			code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`,
 		},
 		{name: "public login", target: "/login", code: http.StatusOK},
@@ -233,11 +233,11 @@ func TestServiceMiddlewareBearerToken(t *testing.T) {
 			code: http.StatusOK, user: "bot", byToken: true,
 		},
 		{
-			name: "a token also authenticates an html path", target: "/p/a.md", header: "Bearer " + testAPIToken,
+			name: "a token also authenticates an html path", target: "/s/a.md", header: "Bearer " + testAPIToken,
 			code: http.StatusOK, user: "bot", byToken: true,
 		},
 		{
-			name: "wrong token on an html path", target: "/p/a.md", header: "Bearer nope",
+			name: "wrong token on an html path", target: "/s/a.md", header: "Bearer nope",
 			code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`,
 		},
 		{
@@ -253,7 +253,7 @@ func TestServiceMiddlewareBearerToken(t *testing.T) {
 			code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`,
 		},
 		{
-			name: "the scheme alone beats a valid cookie", target: "/p/a.md", header: "Bearer", session: true,
+			name: "the scheme alone beats a valid cookie", target: "/s/a.md", header: "Bearer", session: true,
 			code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`,
 		},
 		{
@@ -261,19 +261,19 @@ func TestServiceMiddlewareBearerToken(t *testing.T) {
 			code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`,
 		},
 		{
-			name: "a token beats the cookie", target: "/p/a.md", header: "Bearer " + testReadToken, session: true,
+			name: "a token beats the cookie", target: "/s/a.md", header: "Bearer " + testReadToken, session: true,
 			code: http.StatusOK, user: "reader", byToken: true, readOnly: true,
 		},
 		{
-			name: "a wrong token beats a valid cookie", target: "/p/a.md", header: "Bearer nope", session: true,
+			name: "a wrong token beats a valid cookie", target: "/s/a.md", header: "Bearer nope", session: true,
 			code: http.StatusUnauthorized, body: `{"error":"unauthorized"}`,
 		},
 		{
-			name: "another scheme falls through to the cookie", target: "/p/a.md", header: "Basic YWxpY2U6cGFzcw==",
+			name: "another scheme falls through to the cookie", target: "/s/a.md", header: "Basic YWxpY2U6cGFzcw==",
 			session: true, code: http.StatusOK, user: "alice",
 		},
 		{
-			name: "another scheme without a cookie is redirected", target: "/p/a.md", header: "Basic YWxpY2U6cGFzcw==",
+			name: "another scheme without a cookie is redirected", target: "/s/a.md", header: "Basic YWxpY2U6cGFzcw==",
 			code: http.StatusFound,
 		},
 	}
@@ -315,7 +315,7 @@ func TestServiceMiddlewareNeverCookiesTheTokenPath(t *testing.T) {
 	svc := newTestService(t, Config{TTL: 96 * time.Hour, Tokens: "bot:" + TokenDigest(testAPIToken)})
 	issued := time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
 	svc.now = func() time.Time { return issued }
-	req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/p/a.md", http.NoBody), "alice")
+	req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/s/a.md", http.NoBody), "alice")
 	req.Header.Set("Authorization", "Bearer "+testAPIToken)
 	// past half the ttl, which is when the cookie path renews the session
 	svc.now = func() time.Time { return issued.Add(72 * time.Hour) }
@@ -369,17 +369,17 @@ func TestServiceMiddlewarePublicPaths(t *testing.T) {
 		path   string
 		public bool
 	}{
-		{name: "the exact path", path: "/p/notes/hook", public: true},
-		{name: "anything below it", path: "/p/notes/hook/extra"},
-		{name: "a longer name that starts the same", path: "/p/notes/hooked"},
-		{name: "another project's path", path: "/p/team/hook"},
-		{name: "the project root", path: "/p/notes/"},
+		{name: "the exact path", path: "/s/notes/hook", public: true},
+		{name: "anything below it", path: "/s/notes/hook/extra"},
+		{name: "a longer name that starts the same", path: "/s/notes/hooked"},
+		{name: "another space's path", path: "/s/team/hook"},
+		{name: "the space root", path: "/s/notes/"},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// arrange
-			svc := newTestService(t, Config{PublicPaths: []string{"/p/notes/hook"}})
+			svc := newTestService(t, Config{PublicPaths: []string{"/s/notes/hook"}})
 			rec := httptest.NewRecorder()
 
 			// act
@@ -399,11 +399,11 @@ func TestServiceMiddlewarePublicPaths(t *testing.T) {
 // manifest stay reachable beside a hook
 func TestServiceMiddlewarePublicPathsAddToTheDefaults(t *testing.T) {
 	// arrange
-	svc := newTestService(t, Config{PublicPaths: []string{"/p/notes/hook"}})
+	svc := newTestService(t, Config{PublicPaths: []string{"/s/notes/hook"}})
 
 	// act
 	hook := httptest.NewRecorder()
-	svc.Middleware(okHandler()).ServeHTTP(hook, httptest.NewRequest(http.MethodPost, "/p/notes/hook", http.NoBody))
+	svc.Middleware(okHandler()).ServeHTTP(hook, httptest.NewRequest(http.MethodPost, "/s/notes/hook", http.NoBody))
 	login := httptest.NewRecorder()
 	svc.Middleware(okHandler()).ServeHTTP(login, httptest.NewRequest(http.MethodGet, "/login", http.NoBody))
 
@@ -434,7 +434,7 @@ func TestServiceMiddlewareSlidingRenewal(t *testing.T) {
 			svc := newTestService(t, Config{TTL: 96 * time.Hour})
 			issued := time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
 			svc.now = func() time.Time { return issued }
-			req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/p/notes/api/me", http.NoBody), "alice")
+			req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/s/notes/api/me", http.NoBody), "alice")
 			if tc.background {
 				req.Header.Set(backgroundHeader, "1")
 			}
@@ -458,7 +458,7 @@ func TestServiceUser(t *testing.T) {
 
 	t.Run("from the middleware context", func(t *testing.T) {
 		// arrange
-		req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/p/a.md", http.NoBody), "alice")
+		req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/s/a.md", http.NoBody), "alice")
 		var got string
 		var ok bool
 
@@ -511,7 +511,7 @@ func TestServiceActor(t *testing.T) {
 
 	t.Run("session", func(t *testing.T) {
 		// arrange
-		req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/p/a.md", http.NoBody), "alice")
+		req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/s/a.md", http.NoBody), "alice")
 
 		// act
 		got := svc.Actor(req)
@@ -525,7 +525,7 @@ func TestServiceActor(t *testing.T) {
 		disabled := newTestService(t, Config{Disabled: true})
 
 		// act
-		got := disabled.Actor(httptest.NewRequest(http.MethodGet, "/p/a.md", http.NoBody))
+		got := disabled.Actor(httptest.NewRequest(http.MethodGet, "/s/a.md", http.NoBody))
 
 		// assert
 		assert.Equal(t, anonymousActor, got)

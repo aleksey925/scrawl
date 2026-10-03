@@ -21,17 +21,17 @@ import (
 	"github.com/aleksey925/scrawl/store"
 )
 
-// projectName is what a name may look like. It is a URL slug and nothing else:
+// spaceName is what a name may look like. It is a URL slug and nothing else:
 // the name is a path segment of every URL the deployment serves, so a space or
 // an uppercase letter in it would be escaped differently by every client that
 // builds one.
-var projectName = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
+var spaceName = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 
-// projectConfig is one project as the configuration names it, before anything
-// on disk has been touched. Dir is always present: both consumers of a project
+// spaceConfig is one space as the configuration names it, before anything
+// on disk has been touched. Dir is always present: both consumers of a space
 // directory take an explicit root and derive nothing, so the configuration says
 // the same thing they do.
-type projectConfig struct {
+type spaceConfig struct {
 	Name     string
 	Label    string
 	Dir      string
@@ -43,7 +43,7 @@ type projectConfig struct {
 	Remote *remoteConfig
 }
 
-// remoteConfig is a project's git remote, with the credential already resolved
+// remoteConfig is a space's git remote, with the credential already resolved
 // to the value git will be handed. Where it came from - a file, a named
 // variable, REPO_TOKEN - stops in this package.
 type remoteConfig struct {
@@ -59,23 +59,23 @@ type remoteConfig struct {
 	HookSecretFile string
 }
 
-// kind names where a project's notes come from, which is all /api/projects says
+// kind names where a space's notes come from, which is all /api/spaces says
 // about it.
-func (cfg projectConfig) kind() string {
+func (cfg spaceConfig) kind() string {
 	if cfg.Remote != nil {
 		return server.KindRemote
 	}
 	return server.KindLocal
 }
 
-// runtimeProject is one project as main holds it: the concrete services it has
+// runtimeSpace is one space as main holds it: the concrete services it has
 // to close, watch and reconcile, around the server's view of the same thing.
-type runtimeProject struct {
-	web   *server.Project
+type runtimeSpace struct {
+	web   *server.Space
 	notes *store.Store
 	hist  *history.Service
 	index *search.Index
-	pull  time.Duration // background fetch interval, 0 for a local project
+	pull  time.Duration // background fetch interval, 0 for a local space
 	// trigger carries a webhook delivery to the sync loop. Capacity one, and
 	// never closed: a delivery arriving after shutdown is a dropped send and
 	// not a panic.
@@ -90,15 +90,15 @@ type runtimeProject struct {
 // One pending run is still kept, because a delivery that arrived while a Sync
 // was already in flight has to cause another one: that fetch may have started
 // before the push landed.
-func (rp *runtimeProject) notify() {
+func (rp *runtimeSpace) notify() {
 	select {
 	case rp.trigger <- struct{}{}:
 	default:
 	}
 }
 
-// close releases what the project opened, in the reverse order it was opened.
-func (rp *runtimeProject) close() {
+// close releases what the space opened, in the reverse order it was opened.
+func (rp *runtimeSpace) close() {
 	if rp.hist != nil {
 		_ = rp.hist.Close()
 	}
@@ -107,26 +107,26 @@ func (rp *runtimeProject) close() {
 	}
 }
 
-// validateProjects checks everything answerable from the configuration text
-// alone. None of it needs a project directory to exist, so a typo fails before
+// validateSpaces checks everything answerable from the configuration text
+// alone. None of it needs a space directory to exist, so a typo fails before
 // a directory is created or a repository cloned.
-func validateProjects(ctx context.Context, cfgs []projectConfig) error {
+func validateSpaces(ctx context.Context, cfgs []spaceConfig) error {
 	if len(cfgs) == 0 {
-		return errors.New("no project configured")
+		return errors.New("no space configured")
 	}
 
 	seen := make(map[string]struct{}, len(cfgs))
 	for _, cfg := range cfgs {
 		switch {
 		case cfg.Name == "":
-			return errors.New("every project needs a name, pass --project or set PROJECT")
-		case !projectName.MatchString(cfg.Name):
-			return fmt.Errorf("project name %q must be a url slug: lowercase letters, digits, - and _", cfg.Name)
+			return errors.New("every space needs a name, pass --space.name or set SPACE_NAME")
+		case !spaceName.MatchString(cfg.Name):
+			return fmt.Errorf("space name %q must be a url slug: lowercase letters, digits, - and _", cfg.Name)
 		case cfg.Dir == "":
-			return fmt.Errorf("project %q has no directory", cfg.Name)
+			return fmt.Errorf("space %q has no directory", cfg.Name)
 		}
 		if _, dup := seen[cfg.Name]; dup {
-			return fmt.Errorf("two projects are named %q", cfg.Name)
+			return fmt.Errorf("two spaces are named %q", cfg.Name)
 		}
 		seen[cfg.Name] = struct{}{}
 		if err := validateRemote(ctx, cfg); err != nil {
@@ -134,7 +134,7 @@ func validateProjects(ctx context.Context, cfgs []projectConfig) error {
 		}
 	}
 	// lexically, because nothing has been created yet: a remote whose directory
-	// sits inside another project's root would otherwise be cloned first and
+	// sits inside another space's root would otherwise be cloned first and
 	// the configuration rejected afterwards, leaving a clone somebody has to
 	// find and delete by hand
 	dirs := make([]string, len(cfgs))
@@ -149,40 +149,40 @@ func validateProjects(ctx context.Context, cfgs []projectConfig) error {
 }
 
 // validateRemote checks a repo block before anything is cloned.
-func validateRemote(ctx context.Context, cfg projectConfig) error {
+func validateRemote(ctx context.Context, cfg spaceConfig) error {
 	rm := cfg.Remote
 	if rm == nil {
 		return nil
 	}
-	// a hook secret on a project that is not a remote is impossible rather than
+	// a hook secret on a space that is not a remote is impossible rather than
 	// refused: the fields live inside the repo block, and a misspelled key is a
 	// startup error. So there is no "the hook fired for a local folder" case to
 	// answer anywhere below.
 	if rm.URL == "" {
-		return fmt.Errorf("project %q has a repo block with no url", cfg.Name)
+		return fmt.Errorf("space %q has a repo block with no url", cfg.Name)
 	}
 	// git clone writes the url into .git/config, so an inline password would be
 	// persisted in plain text inside the notes volume and printed by every
 	// later remote get-url check
 	if parsed, err := url.Parse(rm.URL); err == nil && parsed.User != nil {
-		return fmt.Errorf("the url of project %q carries credentials, name them with token_file or token_env instead",
+		return fmt.Errorf("the url of space %q carries credentials, name them with token_file or token_env instead",
 			cfg.Name)
 	}
 	if rm.Branch == "" {
-		return fmt.Errorf("project %q has a repo block with no branch", cfg.Name)
+		return fmt.Errorf("space %q has a repo block with no branch", cfg.Name)
 	}
 	// the branch is interpolated into origin/<branch> and HEAD:refs/heads/
 	// <branch>, so a name git would read as something else has to be refused
 	// before the first fetch rather than after it
 	if err := checkBranchName(ctx, rm.Branch); err != nil {
-		return fmt.Errorf("the branch of project %q: %w", cfg.Name, err)
+		return fmt.Errorf("the branch of space %q: %w", cfg.Name, err)
 	}
 	return nil
 }
 
 // logRemote names both refresh switches at startup, so the configuration of a
-// remote project is readable in the log rather than inferred from its silence.
-func logRemote(cfg projectConfig, rp *runtimeProject) {
+// remote space is readable in the log rather than inferred from its silence.
+func logRemote(cfg spaceConfig, rp *runtimeSpace) {
 	if cfg.Remote == nil {
 		return
 	}
@@ -213,7 +213,7 @@ func checkBranchName(ctx context.Context, branch string) error {
 	git, err := exec.LookPath("git")
 	if err != nil {
 		// without git there is no remote mode at all, and history says so in
-		// its own words when the project is opened
+		// its own words when the space is opened
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, branchCheckTimeout)
@@ -228,24 +228,24 @@ func checkBranchName(ctx context.Context, branch string) error {
 // branchCheckTimeout bounds the one git call startup validation makes.
 const branchCheckTimeout = 5 * time.Second
 
-// ensureDirs makes every remote project's directory exist before the canonical
-// phase, which cannot resolve a path that is not there. A local project's
+// ensureDirs makes every remote space's directory exist before the canonical
+// phase, which cannot resolve a path that is not there. A local space's
 // directory is never created: it is a volume the operator mounted, and one
 // scrawl made up would be an empty corpus nobody noticed.
-func ensureDirs(ctx context.Context, opts *options, cfgs []projectConfig) error {
+func ensureDirs(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 	for _, cfg := range cfgs {
 		if cfg.Remote == nil {
 			continue
 		}
 		empty, err := emptyDir(cfg.Dir)
 		if err != nil {
-			return fmt.Errorf("project %q: %w", cfg.Name, err)
+			return fmt.Errorf("space %q: %w", cfg.Name, err)
 		}
 		if !empty {
 			continue
 		}
 		if err = history.Clone(ctx, cfg.Dir, remoteOf(opts, cfg)); err != nil {
-			return fmt.Errorf("project %q: %w", cfg.Name, err)
+			return fmt.Errorf("space %q: %w", cfg.Name, err)
 		}
 	}
 	return nil
@@ -271,11 +271,11 @@ func emptyDir(dir string) (bool, error) {
 	return len(entries) == 0, nil
 }
 
-// remoteOf turns a project's configuration into what history takes. PullOnly is
-// the effective read-only mode seen from the git side: a project that will
+// remoteOf turns a space's configuration into what history takes. PullOnly is
+// the effective read-only mode seen from the git side: a space that will
 // never push has nothing to gain from trying and everything to lose from
 // reporting itself unpublished for changes nobody made.
-func remoteOf(opts *options, cfg projectConfig) history.Remote {
+func remoteOf(opts *options, cfg spaceConfig) history.Remote {
 	return history.Remote{
 		URL:       cfg.Remote.URL,
 		Branch:    cfg.Remote.Branch,
@@ -289,7 +289,7 @@ func remoteOf(opts *options, cfg projectConfig) history.Remote {
 // store and history will use, and repeats the overlap check on those. Only the
 // canonical comparison catches two symlink spellings of one directory, and it
 // can only run once the directories are there.
-func resolveRoots(cfgs []projectConfig) ([]string, error) {
+func resolveRoots(cfgs []spaceConfig) ([]string, error) {
 	res := make([]string, len(cfgs))
 	for i, cfg := range cfgs {
 		root, err := filepath.Abs(cfg.Dir)
@@ -298,13 +298,13 @@ func resolveRoots(cfgs []projectConfig) ([]string, error) {
 		}
 		fi, err := os.Stat(root)
 		if err != nil {
-			return nil, fmt.Errorf("directory %q of project %q: %w", root, cfg.Name, err)
+			return nil, fmt.Errorf("directory %q of space %q: %w", root, cfg.Name, err)
 		}
 		if !fi.IsDir() {
-			return nil, fmt.Errorf("%q of project %q is not a directory", root, cfg.Name)
+			return nil, fmt.Errorf("%q of space %q is not a directory", root, cfg.Name)
 		}
 		if res[i], err = canonical(root); err != nil {
-			return nil, fmt.Errorf("project %q: %w", cfg.Name, err)
+			return nil, fmt.Errorf("space %q: %w", cfg.Name, err)
 		}
 	}
 	if err := overlapping(cfgs, res); err != nil {
@@ -316,11 +316,11 @@ func resolveRoots(cfgs []projectConfig) ([]string, error) {
 // overlapping refuses two roots where one holds the other. Two overlapping
 // roots mean two watchers, two indexes and two repositories over the same
 // files, which history would refuse on its own with ErrInsideRepo.
-func overlapping(cfgs []projectConfig, paths []string) error {
+func overlapping(cfgs []spaceConfig, paths []string) error {
 	for i := range paths {
 		for j := i + 1; j < len(paths); j++ {
 			if contains(paths[i], paths[j]) || contains(paths[j], paths[i]) {
-				return fmt.Errorf("projects %q and %q would serve the same files: %s and %s overlap",
+				return fmt.Errorf("spaces %q and %q would serve the same files: %s and %s overlap",
 					cfgs[i].Name, cfgs[j].Name, paths[i], paths[j])
 			}
 		}
@@ -343,7 +343,7 @@ func canonical(p string) (string, error) {
 	return res, nil
 }
 
-// newProject opens everything one project needs, in the order the design fixes:
+// newSpace opens everything one space needs, in the order the design fixes:
 // the store, history, the baseline reconcile, the first sync, then the index.
 //
 // The order is not an implementation detail. store.Watch installs its watches
@@ -352,7 +352,7 @@ func canonical(p string) (string, error) {
 // life of the process. Reconcile runs before the fetch because it only commits
 // what is already on disk, which keeps a local change from being what the merge
 // trips over. Watching itself comes last, from run.
-func newProject(ctx context.Context, opts *options, cfg projectConfig, root string) (*runtimeProject, error) {
+func newSpace(ctx context.Context, opts *options, cfg spaceConfig, root string) (*runtimeSpace, error) {
 	readOnly := opts.ReadOnly || cfg.ReadOnly
 	notes, err := store.New(store.Config{
 		Root:     root,
@@ -364,7 +364,7 @@ func newProject(ctx context.Context, opts *options, cfg projectConfig, root stri
 	if err != nil {
 		return nil, fmt.Errorf("open the notes directory of %q: %w", cfg.Name, err)
 	}
-	rp := &runtimeProject{notes: notes, pull: pullEvery(cfg), trigger: make(chan struct{}, 1)}
+	rp := &runtimeSpace{notes: notes, pull: pullEvery(cfg), trigger: make(chan struct{}, 1)}
 	warnUnwritable(cfg.Name, notes)
 
 	//nolint:contextcheck // history.New bounds its own git calls with the init timeout, it takes no context
@@ -387,7 +387,7 @@ func newProject(ctx context.Context, opts *options, cfg projectConfig, root stri
 		return nil, err
 	}
 
-	rp.web = &server.Project{
+	rp.web = &server.Space{
 		Name:     cfg.Name,
 		Label:    cfg.Label,
 		Kind:     cfg.kind(),
@@ -424,14 +424,14 @@ func newProject(ctx context.Context, opts *options, cfg projectConfig, root stri
 // passes, and on macOS every path under /var is reached through a symlink, so
 // that is the ordinary case rather than a contrived one. A security check may
 // not depend on its caller having remembered.
-func checkSecretFiles(roots []string, opts *options, cfgs []projectConfig) error {
+func checkSecretFiles(roots []string, opts *options, cfgs []spaceConfig) error {
 	named := map[string]string{}
 	if !opts.Auth.Disabled && opts.Auth.SecretFile != "" {
 		named[opts.Auth.SecretFile] = "session key"
 	}
 	for _, cfg := range cfgs {
 		if cfg.Remote != nil && cfg.Remote.HookSecretFile != "" {
-			named[cfg.Remote.HookSecretFile] = "webhook secret of project " + cfg.Name
+			named[cfg.Remote.HookSecretFile] = "webhook secret of space " + cfg.Name
 		}
 	}
 

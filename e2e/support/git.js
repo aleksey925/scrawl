@@ -1,4 +1,4 @@
-// the bare repository a remote project clones from is a directory on this
+// the bare repository a remote space clones from is a directory on this
 // machine, so a spec can break it, restore it and write to it with no network
 
 const fs = require('fs');
@@ -32,7 +32,7 @@ function pushToOrigin(origin, name, content) {
     fs.rmSync(work, {recursive: true, force: true});
 }
 
-// breakOrigin moves the repository aside rather than changing the project's
+// breakOrigin moves the repository aside rather than changing the space's
 // configuration: the server keeps the url it started with, which is what a
 // remote going away actually looks like.
 function breakOrigin(origin) {

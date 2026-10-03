@@ -31,16 +31,27 @@ import (
 // revision is set at build time with -ldflags "-X main.revision=..."
 var revision = "0.0.0"
 
-// defaultRoot is what --root carries when nobody set it, which is how a run
-// tells an explicit root from one it was simply given.
-const defaultRoot = "/notes"
+// the defaults of the single space, repeated from the option tags: a run tells
+// a value somebody set from one it was simply given by comparing against them
+const (
+	defaultSpaceDir   = "/notes"
+	defaultRepoBranch = "main"
+	defaultRepoPull   = 5 * time.Minute
+)
+
+// spaceOptions is the single space of a run with no spaces file, mirroring the
+// name and dir keys of that file.
+type spaceOptions struct {
+	Name string `long:"name" env:"NAME" description:"name of the single space, the URL segment it is served under"`
+	Dir  string `long:"dir" env:"DIR" default:"/notes" description:"directory of the single space"`
+}
 
 type options struct {
-	Root         string   `short:"r" long:"root" env:"ROOT" default:"/notes" description:"notes root directory"`
-	Project      string   `long:"project" env:"PROJECT" description:"name of the single project, the URL segment it is served under"`
-	Config       string   `long:"config" env:"CONFIG" description:"yaml file declaring several projects, replaces --root and --project"`
+	Space      spaceOptions `group:"space" namespace:"space" env-namespace:"SPACE"`
+	SpacesFile string       `long:"spaces-file" env:"SPACES_FILE" description:"yaml file declaring several spaces, replaces every --space and --repo option"`
+
 	Listen       string   `short:"l" long:"listen" env:"LISTEN" default:":7272" description:"address to listen on"`
-	Title        string   `long:"title" env:"TITLE" default:"Notes" description:"site title"`
+	SiteTitle    string   `long:"site-title" env:"SITE_TITLE" default:"Notes" description:"name of the site: the browser tab, the sign-in page, the home screen icon"`
 	ReadOnly     bool     `long:"read-only" env:"READ_ONLY" description:"disable all write endpoints"`
 	Exclude      []string `long:"exclude" env:"EXCLUDE" env-delim:"," description:"extra ignore globs"`
 	MaxUpload    byteSize `long:"max-upload" env:"MAX_UPLOAD" default:"20M" description:"upload size cap"`
@@ -52,12 +63,12 @@ type options struct {
 
 	History string `long:"history" env:"HISTORY" default:"auto" choice:"auto" choice:"on" choice:"off" description:"document history in git"`
 
-	// the single project's remote, mirroring the repo block of the config file
+	// the single space's remote, mirroring the repo block of the spaces file
 	// field for field. There is deliberately no --repo-token: a flag value
 	// lands in /proc/<pid>/cmdline, which is world readable, so the credential
 	// comes from REPO_TOKEN and from nowhere else.
 	Repo struct {
-		URL    string        `long:"url" env:"URL" description:"clone this git remote into --root and push what is edited back"`
+		URL    string        `long:"url" env:"URL" description:"clone this git remote into --space.dir and push what is edited back"`
 		Branch string        `long:"branch" env:"BRANCH" default:"main" description:"branch to track"`
 		Pull   time.Duration `long:"pull" env:"PULL" default:"5m" description:"how often to fetch, 0 disables the background pull"`
 	} `group:"repo" namespace:"repo" env-namespace:"REPO"`
@@ -170,7 +181,7 @@ func main() {
 }
 
 // serve runs the server until SIGINT or SIGTERM arrives, or until it fails.
-func serve(opts *options, cfgs []projectConfig) error {
+func serve(opts *options, cfgs []spaceConfig) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	return run(ctx, opts, cfgs)
@@ -185,29 +196,29 @@ func parseOpts(args []string) (*options, error) {
 	return &opts, nil
 }
 
-func run(ctx context.Context, opts *options, cfgs []projectConfig) error {
+func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 	roots, err := validateStartup(ctx, opts, cfgs)
 	if err != nil {
 		return err
 	}
 
-	// the projects come first, because the public path list is derived from
+	// the spaces come first, because the public path list is derived from
 	// them and auth has to be told about it before it is built
-	running := make([]*runtimeProject, 0, len(cfgs))
+	running := make([]*runtimeSpace, 0, len(cfgs))
 	defer func() {
 		for _, rp := range running {
 			rp.close()
 		}
 	}()
-	projects := make([]*server.Project, 0, len(cfgs))
+	spaces := make([]*server.Space, 0, len(cfgs))
 	hooks := make([]string, 0, len(cfgs))
 	for i, cfg := range cfgs {
-		rp, pErr := newProject(ctx, opts, cfg, roots[i])
+		rp, pErr := newSpace(ctx, opts, cfg, roots[i])
 		if pErr != nil {
 			return pErr
 		}
 		running = append(running, rp)
-		projects = append(projects, rp.web)
+		spaces = append(spaces, rp.web)
 		if rp.web.Webhook != nil {
 			hooks = append(hooks, rp.web.HookPath())
 		}
@@ -222,9 +233,9 @@ func run(ctx context.Context, opts *options, cfgs []projectConfig) error {
 		Disabled:     opts.Auth.Disabled,
 		TrustedProxy: opts.TrustedProxy,
 		Secure:       opts.Auth.Secure,
-		// a provider cannot sign in, so its one path per project is reachable
+		// a provider cannot sign in, so its one path per space is reachable
 		// without a session. Exact matches, never prefixes, and the credential
-		// is the signature the handler checks before it touches the project.
+		// is the signature the handler checks before it touches the space.
 		PublicPaths: hooks,
 	})
 	if err != nil {
@@ -234,7 +245,7 @@ func run(ctx context.Context, opts *options, cfgs []projectConfig) error {
 	srv := &server.Web{
 		Config: server.Config{
 			ListenAddr:        opts.Listen,
-			Title:             opts.Title,
+			Title:             opts.SiteTitle,
 			Version:           versionInfo(),
 			ReadOnly:          opts.ReadOnly,
 			TrustedProxy:      opts.TrustedProxy,
@@ -247,11 +258,11 @@ func run(ctx context.Context, opts *options, cfgs []projectConfig) error {
 			IdleTimeout:       opts.Timeouts.Idle,
 			ShutdownTimeout:   opts.Timeouts.Shutdown,
 		},
-		Projects: projects,
-		Auth:     authSvc,
+		Spaces: spaces,
+		Auth:   authSvc,
 	}
 
-	// the workers start last, after every project has been reconciled and
+	// the workers start last, after every space has been reconciled and
 	// indexed: a watcher takes its baseline snapshot when it is called, so
 	// anything the worktree did before that produces no event, ever.
 	//
@@ -274,10 +285,10 @@ func run(ctx context.Context, opts *options, cfgs []projectConfig) error {
 	return nil
 }
 
-// startWorkers runs the per-project background goroutines: one watcher each,
-// and one sync loop for every project that fetches on a ticker, answers a
+// startWorkers runs the per-space background goroutines: one watcher each,
+// and one sync loop for every space that fetches on a ticker, answers a
 // webhook, or both.
-func startWorkers(ctx context.Context, running []*runtimeProject, srv *server.Web) []<-chan struct{} {
+func startWorkers(ctx context.Context, running []*runtimeSpace, srv *server.Web) []<-chan struct{} {
 	done := make([]<-chan struct{}, 0, 2*len(running))
 	for _, rp := range running {
 		done = append(done, watch(ctx, rp, srv))
@@ -295,7 +306,7 @@ type syncFunc func(ctx context.Context, name string, hist *history.Service)
 // syncLoop is the one place a background Sync is started from, whichever switch
 // asked for it. A nil ticker channel blocks forever, which is exactly what
 // pull: 0 means, so the two switches need no branch beyond that one if.
-func syncLoop(ctx context.Context, rp *runtimeProject, run syncFunc) <-chan struct{} {
+func syncLoop(ctx context.Context, rp *runtimeSpace, run syncFunc) <-chan struct{} {
 	name := rp.web.Name
 	done := make(chan struct{})
 
@@ -346,7 +357,7 @@ const (
 // repository, leaves the app exactly as it was before the feature existed.
 // "on" is a promise the deployment made, so the same conditions stop the server
 // rather than serving without the audit trail somebody asked for.
-func newHistory(opts *options, cfg projectConfig, notes *store.Store) (*history.Service, error) {
+func newHistory(opts *options, cfg spaceConfig, notes *store.Store) (*history.Service, error) {
 	hcfg := history.Config{
 		Name:  cfg.Name,
 		Root:  notes.Dir(),
@@ -357,7 +368,7 @@ func newHistory(opts *options, cfg projectConfig, notes *store.Store) (*history.
 		// spends the cap either.
 		Visible: notes.Visible,
 	}
-	// history is forced on for a remote, whatever --history says: a project
+	// history is forced on for a remote, whatever --history says: a space
 	// that silently stopped recording would also silently stop pushing. It
 	// tracks every visible file too, because the editor opens far more types
 	// than local history keeps, and on a clone that gap is data loss rather
@@ -371,7 +382,7 @@ func newHistory(opts *options, cfg projectConfig, notes *store.Store) (*history.
 		if !remote {
 			return nil, nil
 		}
-		log.Printf("[WARN] %s: --history=%s does not apply, a project that tracks a remote has to record "+
+		log.Printf("[WARN] %s: --history=%s does not apply, a space that tracks a remote has to record "+
 			"before it can push", cfg.Name, historyOff)
 	}
 
@@ -381,9 +392,9 @@ func newHistory(opts *options, cfg projectConfig, notes *store.Store) (*history.
 		log.Printf("[INFO] %s: history is on, the git repository is %s", cfg.Name, svc.Root())
 		return svc, nil
 	case remote:
-		return nil, fmt.Errorf("the repository of project %q could not be opened: %w", cfg.Name, err)
+		return nil, fmt.Errorf("the repository of space %q could not be opened: %w", cfg.Name, err)
 	case opts.History == historyOn:
-		return nil, fmt.Errorf("history is required by --history=%s for project %q: %w", historyOn, cfg.Name, err)
+		return nil, fmt.Errorf("history is required by --history=%s for space %q: %w", historyOn, cfg.Name, err)
 	}
 	log.Printf("[WARN] %s: history is off: %v", cfg.Name, err)
 	log.Printf("[WARN] nothing else changes, but no version of a document is kept and no change is attributed; "+
@@ -428,7 +439,7 @@ func reconcile(ctx context.Context, name string, hist *history.Service, actor st
 }
 
 // syncRemote fetches, fast-forwards and pushes once, before the index is built
-// and long before the watcher starts. A failure is never fatal: the project
+// and long before the watcher starts. A failure is never fatal: the space
 // keeps serving what is on disk, and Unpublished and SyncError say what fell
 // behind.
 func syncRemote(ctx context.Context, name string, hist *history.Service) {
@@ -444,7 +455,7 @@ func syncRemote(ctx context.Context, name string, hist *history.Service) {
 }
 
 // probeWritable says once, loudly, that a remote will refuse every push. It is
-// a warning and never a mode: a probe that flipped the project to read-only
+// a warning and never a mode: a probe that flipped the space to read-only
 // would be a setting nobody configured, changing with the network.
 func probeWritable(ctx context.Context, name string, hist *history.Service) {
 	if !hist.Remote() || ctx.Err() != nil {
@@ -452,14 +463,14 @@ func probeWritable(ctx context.Context, name string, hist *history.Service) {
 	}
 	if err := hist.ProbeWritable(ctx); err != nil {
 		log.Printf("[WARN] %s: the remote refuses a push, every save will stay in this container: %v", name, err)
-		log.Printf("[WARN] give the project a credential with repo.token_file or repo.token_env, " +
+		log.Printf("[WARN] give the space a credential with repo.token_file or repo.token_env, " +
 			"or mark it read_only if that is what you meant")
 	}
 }
 
-// pullEvery is how often a project fetches in the background. A local project
+// pullEvery is how often a space fetches in the background. A local space
 // has no remote to fetch from, and 0 disables the ticker.
-func pullEvery(cfg projectConfig) time.Duration {
+func pullEvery(cfg spaceConfig) time.Duration {
 	if cfg.Remote == nil {
 		return 0
 	}
@@ -494,7 +505,7 @@ const historyDebounce = 2 * time.Second
 // disk, and hands whatever changed outside the app to history. The returned
 // channel is closed once the goroutine is gone: store.Watch closes its channel
 // when ctx is canceled, so shutdown leaks nothing.
-func watch(ctx context.Context, rp *runtimeProject, srv *server.Web) <-chan struct{} {
+func watch(ctx context.Context, rp *runtimeSpace, srv *server.Web) <-chan struct{} {
 	name := rp.web.Name
 	events := rp.notes.Watch(ctx)
 	done := make(chan struct{})
@@ -544,18 +555,47 @@ func reindex(notes *store.Store, index *search.Index, p string) {
 	index.Set(p, data)
 }
 
+// ignoredSpaceSettings names every setting of the single space that was given
+// together with a spaces file, which replaces all of them.
+func ignoredSpaceSettings(opts *options) []string {
+	if opts.SpacesFile == "" {
+		return nil
+	}
+	_, hasToken := os.LookupEnv(repoTokenEnv)
+	_, hasHookSecret := os.LookupEnv(repoHookSecretEnv)
+	given := []struct {
+		name string
+		set  bool
+	}{
+		{name: "SPACE_NAME", set: opts.Space.Name != ""},
+		{name: "SPACE_DIR", set: opts.Space.Dir != defaultSpaceDir},
+		{name: "REPO_URL", set: opts.Repo.URL != ""},
+		{name: "REPO_BRANCH", set: opts.Repo.Branch != defaultRepoBranch},
+		{name: "REPO_PULL", set: opts.Repo.Pull != defaultRepoPull},
+		{name: repoTokenEnv, set: hasToken},
+		{name: repoHookSecretEnv, set: hasHookSecret},
+	}
+	res := make([]string, 0, len(given))
+	for _, setting := range given {
+		if setting.set {
+			res = append(res, setting.name)
+		}
+	}
+	return res
+}
+
 // validateStartup runs both phases of validation and returns the canonical root
-// of every project. The syntactic phase comes first and needs nothing on disk,
+// of every space. The syntactic phase comes first and needs nothing on disk,
 // so a typo fails before a directory is created or a repository cloned; the
 // canonical one answers what only a resolved path can.
-func validateStartup(ctx context.Context, opts *options, cfgs []projectConfig) ([]string, error) {
-	if opts.Config != "" && (opts.Root != defaultRoot || opts.Project != "") {
-		log.Printf("[WARN] --config wins, --root and --project are ignored")
+func validateStartup(ctx context.Context, opts *options, cfgs []spaceConfig) ([]string, error) {
+	if ignored := ignoredSpaceSettings(opts); len(ignored) > 0 {
+		log.Printf("[WARN] SPACES_FILE is set, so these are ignored: %s", strings.Join(ignored, ", "))
 	}
 	if err := validateGlobal(opts); err != nil {
 		return nil, err
 	}
-	if err := validateProjects(ctx, cfgs); err != nil {
+	if err := validateSpaces(ctx, cfgs); err != nil {
 		return nil, err
 	}
 	// only now, when every plainly written mistake has been refused: a clone
@@ -577,7 +617,7 @@ func validateStartup(ctx context.Context, opts *options, cfgs []projectConfig) (
 	return roots, nil
 }
 
-// validateGlobal checks the options no project owns.
+// validateGlobal checks the options no space owns.
 func validateGlobal(opts *options) error {
 	if !opts.Auth.Disabled && len(opts.Auth.Users) == 0 && len(opts.Auth.Tokens) == 0 {
 		return errors.New("no users and no tokens configured, " +
@@ -626,7 +666,7 @@ func genToken(name string) string {
 // secretsOf collects values that must never reach the log. An entry with no
 // colon in it counts as a secret whole: a token carries no natural name, so
 // forgetting one is easy, and what is left is the credential itself.
-func secretsOf(opts *options, cfgs []projectConfig) []string {
+func secretsOf(opts *options, cfgs []spaceConfig) []string {
 	res := make([]string, 0, len(opts.Auth.Users)+len(opts.Auth.Tokens)+len(cfgs)+1)
 	if opts.Auth.Secret != "" {
 		res = append(res, opts.Auth.Secret)

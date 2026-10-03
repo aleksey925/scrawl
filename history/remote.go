@@ -39,14 +39,14 @@ type Remote struct {
 	Branch    string
 	Token     string
 	PullEvery time.Duration // 0 disables the background pull
-	// PullOnly is the effective read-only mode of a remote project seen from
+	// PullOnly is the effective read-only mode of a remote space seen from
 	// this side: fetch and merge, never reconcile, never publish, never probe.
-	// A project that cannot push has nothing to gain from trying and everything
+	// A space that cannot push has nothing to gain from trying and everything
 	// to lose from reporting itself unpublished for changes nobody made.
 	PullOnly bool
 }
 
-// StagingDir is where the first fetch lands before it becomes the project, and
+// StagingDir is where the first fetch lands before it becomes the space, and
 // the only thing an interrupted clone leaves behind. A caller deciding whether a
 // directory still has to be cloned into ignores it: it is ours, it is never part
 // of the notes, and Clone clears whatever an earlier attempt left.
@@ -128,7 +128,7 @@ func clearInterrupted(dir, staging string) error {
 }
 
 // moveInto lifts the finished clone one level up, into the directory the
-// project is served from. Both ends sit on the same filesystem, so every entry
+// space is served from. Both ends sit on the same filesystem, so every entry
 // moves with a rename and no copy can half-finish.
 func moveInto(dir, work string) error {
 	entries, err := os.ReadDir(work)
@@ -149,7 +149,7 @@ func (s *Service) checkRemote(ctx context.Context) error {
 	rm := s.cfg.Remote
 	out, err := s.run(ctx, command{args: []string{"remote", "get-url", remoteName}})
 	if err != nil {
-		return fmt.Errorf("%s has no %s remote, it is not the clone this project configured: %w",
+		return fmt.Errorf("%s has no %s remote, it is not the clone this space configured: %w",
 			s.root, remoteName, err)
 	}
 	if got := string(bytes.TrimRight(out, "\n")); got != rm.URL {
@@ -170,7 +170,7 @@ func (s *Service) checkRemote(ctx context.Context) error {
 //
 // Three stages, each with one rule. Sync returns the first error it hit, and
 // the error is cleared only by a run in which every stage it performed
-// succeeded - so a pull-only project clears it after the merge, and a writable
+// succeeded - so a pull-only space clears it after the merge, and a writable
 // one only after the push as well.
 //
 // Whatever the stage, the whole state is published once, when the attempt ends,
@@ -299,7 +299,7 @@ func (s *Service) measure(ctx context.Context, into *SyncState) {
 }
 
 // unsyncedPaths lists what this copy changed and the remote does not have. It
-// runs only when the count above is non-zero, so a healthy project pays for one
+// runs only when the count above is non-zero, so a healthy space pays for one
 // rev-list and nothing else.
 //
 // Three dots and not two. With --ff-only as the whole merge policy the two
@@ -344,7 +344,7 @@ func (s *Service) visibleCapped(paths []string) Unsynced {
 	return Unsynced{Paths: res}
 }
 
-// syncFailed publishes a failed stage and logs it once, naming the project.
+// syncFailed publishes a failed stage and logs it once, naming the space.
 func (s *Service) syncFailed(next SyncState, stage string, err error) error {
 	next.Error = stage + ": " + err.Error()
 	s.publish(next)
@@ -354,7 +354,7 @@ func (s *Service) syncFailed(next SyncState, stage string, err error) error {
 
 func (s *Service) publish(next SyncState) { s.sync.Store(&next) }
 
-// SyncState is the whole remote state of one project, read in a single load so
+// SyncState is the whole remote state of one space, read in a single load so
 // that an error can never be paired with the paths of a different attempt.
 func (s *Service) SyncState() SyncState {
 	if s == nil {
@@ -386,7 +386,7 @@ func (s *Service) Remote() bool { return s != nil && s.cfg.Remote != nil }
 func (s *Service) PullOnly() bool { return s.Remote() && s.cfg.Remote.PullOnly }
 
 // ProbeWritable pushes nothing and reports whether a push would be refused. It
-// is a loud warning and never a mode: a probe that silently flipped a project
+// is a loud warning and never a mode: a probe that silently flipped a space
 // to read-only would be a setting nobody configured, changing with the network.
 func (s *Service) ProbeWritable(ctx context.Context) error {
 	if s == nil || s.cfg.Remote == nil || s.cfg.Remote.PullOnly {
@@ -413,7 +413,7 @@ type Unsynced struct {
 	Many  bool
 }
 
-// SyncState is the whole remote state of one project as one attempt left it.
+// SyncState is the whole remote state of one space as one attempt left it.
 // The values are published together, so a reader never observes an error
 // from one attempt beside the paths of another.
 type SyncState struct {

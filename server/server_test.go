@@ -43,25 +43,25 @@ const (
 	testReadToken = "scrawl_test-read-only"
 )
 
-// testProject is the one project every test server serves. It is named rather
+// testSpace is the one space every test server serves. It is named rather
 // than empty on purpose: the prefix is non-empty in every run of the real
 // binary, so a URL built without it has to fail here too.
-const testProject = "notes"
+const testSpace = "notes"
 
 // globalPaths are the routes that answer at the root instead of inside a
-// project. It is the server's own boundary - does this read a store - written
+// space. It is the server's own boundary - does this read a store - written
 // down once, so a test names the path it means and the helper decides which
 // tree that path lives in.
 var globalPaths = []string{
 	"/ping", "/static/", "/manifest.webmanifest",
-	"/login", "/logout", "/api/login", "/api/logout", "/api/projects",
+	"/login", "/logout", "/api/login", "/api/logout", "/api/spaces",
 }
 
 // testServer is a whole app over a temporary notes directory.
 type testServer struct {
 	*Web
 	url string
-	// root is the notes directory of the first project, secondRoot that of the
+	// root is the notes directory of the first space, secondRoot that of the
 	// second one when testOpts named it.
 	root       string
 	secondRoot string
@@ -70,18 +70,18 @@ type testServer struct {
 	notified int
 }
 
-// second is the project testOpts.second asked for.
-func (ts *testServer) second() *Project { return ts.Projects[1] }
+// second is the space testOpts.second asked for.
+func (ts *testServer) second() *Space { return ts.Spaces[1] }
 
-// prefix is where this server's only project answers.
-func (ts *testServer) prefix() string { return projectPrefix + testProject }
+// prefix is where this server's only space answers.
+func (ts *testServer) prefix() string { return spacePrefix + testSpace }
 
-// mount is the project bound to the server, which is the receiver every
+// mount is the space bound to the server, which is the receiver every
 // handler that reads a store hangs off.
-func (ts *testServer) mount() *mount { return &mount{Web: ts.Web, prj: ts.Projects[0]} }
+func (ts *testServer) mount() *mount { return &mount{Web: ts.Web, spc: ts.Spaces[0]} }
 
 // resolve turns a path a test names into the one the server answers. "/" is the
-// project's own root, not the server's: a test that means the redirect at the
+// space's own root, not the server's: a test that means the redirect at the
 // server root asks for it literally.
 func (ts *testServer) resolve(p string) string {
 	for _, global := range globalPaths {
@@ -93,20 +93,20 @@ func (ts *testServer) resolve(p string) string {
 }
 
 type testOpts struct {
-	readOnly        bool // the whole server
-	projectReadOnly bool // this project alone
-	withAuth        bool
-	history         History
+	readOnly      bool // the whole server
+	spaceReadOnly bool // this space alone
+	withAuth      bool
+	history       History
 
-	// second names a project served beside the first one, over a root of its
-	// own. Empty leaves the server with one project, which is what most tests
-	// need; naming it is what a test of the boundary between two projects asks
+	// second names a space served beside the first one, over a root of its
+	// own. Empty leaves the server with one space, which is what most tests
+	// need; naming it is what a test of the boundary between two spaces asks
 	// for.
 	second string
 
-	// hook gives the first project a webhook, which is also what puts its path
+	// hook gives the first space a webhook, which is also what puts its path
 	// in the public list: the two have to be built in that order, because the
-	// list is derived from the projects.
+	// list is derived from the spaces.
 	hook bool
 }
 
@@ -114,20 +114,20 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 	t.Helper()
 	root := testNotes(t)
 
-	// the projects come first, the way main builds them: the public path list
+	// the spaces come first, the way main builds them: the public path list
 	// is derived from them, so auth cannot be built before they exist
-	prj := testProjectAt(t, testProject, root, opts.readOnly || opts.projectReadOnly)
-	prj.ReadOnly = opts.projectReadOnly
-	prj.History = opts.history
+	spc := testSpaceAt(t, testSpace, root, opts.readOnly || opts.spaceReadOnly)
+	spc.ReadOnly = opts.spaceReadOnly
+	spc.History = opts.history
 
 	res := &testServer{root: root}
-	projects := []*Project{prj}
+	spaces := []*Space{spc}
 	if opts.second != "" {
 		res.secondRoot = t.TempDir()
-		projects = append(projects, testProjectAt(t, opts.second, res.secondRoot, false))
+		spaces = append(spaces, testSpaceAt(t, opts.second, res.secondRoot, false))
 	}
 	if opts.hook {
-		prj.Webhook = &Webhook{Secret: hookSecret, Notify: func() { res.notified++ }}
+		spc.Webhook = &Webhook{Secret: hookSecret, Notify: func() { res.notified++ }}
 	}
 
 	users, tokens := "", ""
@@ -136,9 +136,9 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 		tokens = "agent:" + auth.TokenDigest(testToken) + ",reader:" + auth.TokenDigest(testReadToken) + ":ro"
 	}
 	public := []string{}
-	for _, project := range projects {
-		if project.Webhook != nil {
-			public = append(public, project.HookPath())
+	for _, spc := range spaces {
+		if spc.Webhook != nil {
+			public = append(public, spc.HookPath())
 		}
 	}
 	svc, err := auth.NewService(auth.Config{
@@ -159,8 +159,8 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 			MaxUpload:    64 << 10,
 			AuthDisabled: !opts.withAuth,
 		},
-		Projects: projects,
-		Auth:     svc,
+		Spaces: spaces,
+		Auth:   svc,
 	}
 
 	router, err := res.router()
@@ -172,9 +172,9 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 	return res
 }
 
-// testProjectAt builds one project over a directory, indexed and rendered the
+// testSpaceAt builds one space over a directory, indexed and rendered the
 // way main builds one.
-func testProjectAt(t *testing.T, name, root string, readOnly bool) *Project {
+func testSpaceAt(t *testing.T, name, root string, readOnly bool) *Space {
 	t.Helper()
 	notes, err := store.New(store.Config{Root: root, ReadOnly: readOnly, Rescan: -1})
 	require.NoError(t, err)
@@ -186,13 +186,13 @@ func testProjectAt(t *testing.T, name, root string, readOnly bool) *Project {
 		return nil
 	}))
 
-	prj := &Project{Name: name, Kind: KindLocal, Store: notes, Index: index}
-	prj.Renderer = render.New(render.Options{
+	spc := &Space{Name: name, Kind: KindLocal, Store: notes, Index: index}
+	spc.Renderer = render.New(render.Options{
 		LinkExists: notes.Exists,
-		PagePrefix: prj.Prefix() + "/doc/",
-		RawPrefix:  prj.Prefix() + "/raw/",
+		PagePrefix: spc.Prefix() + "/doc/",
+		RawPrefix:  spc.Prefix() + "/raw/",
 	})
-	return prj
+	return spc
 }
 
 // testNotes writes a small notes tree covering every shape the handlers have
@@ -232,7 +232,7 @@ func tinyPNG(t *testing.T) []byte {
 
 // request is one call against the test server. path is resolved through
 // testServer.resolve unless literal is set, which is what a test asking about
-// a path outside every project needs.
+// a path outside every space needs.
 type request struct {
 	method  string
 	path    string
@@ -869,7 +869,7 @@ func TestAPIFileGet(t *testing.T) {
 	resp, body := ts.json(t, request{path: "/api/file/guide.md"})
 
 	// assert
-	source, _, err := ts.Projects[0].Store.Read("guide.md")
+	source, _, err := ts.Spaces[0].Store.Read("guide.md")
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.status)
 	assert.Equal(t, "guide.md", body["path"])
@@ -936,15 +936,15 @@ func TestAPIFileLifecycle(t *testing.T) {
 
 	removed, _ := ts.do(t, request{method: http.MethodDelete, path: "/api/file/new/renamed.md"})
 	assert.Equal(t, http.StatusOK, removed.status)
-	assert.False(t, ts.Projects[0].Store.Exists("new/renamed.md"))
+	assert.False(t, ts.Spaces[0].Store.Exists("new/renamed.md"))
 }
 
 func TestAPIFileSaveConflict(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	original, _, err := ts.Projects[0].Store.Read("guide.md")
+	original, _, err := ts.Spaces[0].Store.Read("guide.md")
 	require.NoError(t, err)
-	_, err = ts.Projects[0].Store.Write("guide.md", []byte("# Changed on disk\n"), store.Rev(original))
+	_, err = ts.Spaces[0].Store.Write("guide.md", []byte("# Changed on disk\n"), store.Rev(original))
 	require.NoError(t, err)
 
 	// act
@@ -963,7 +963,7 @@ func TestAPIFileSaveConflict(t *testing.T) {
 func TestAPIFileSaveOntoAnExistingFile(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	current, _, err := ts.Projects[0].Store.Read("guide.md")
+	current, _, err := ts.Spaces[0].Store.Read("guide.md")
 	require.NoError(t, err)
 
 	// act
@@ -982,7 +982,7 @@ func TestAPIFileSaveOntoAnExistingFile(t *testing.T) {
 func TestAPISaveRefreshesTheSearchIndex(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	require.Empty(t, ts.Projects[0].Index.Search("kumquat", 5))
+	require.Empty(t, ts.Spaces[0].Index.Search("kumquat", 5))
 
 	// act
 	resp, _ := ts.json(t, request{
@@ -992,7 +992,7 @@ func TestAPISaveRefreshesTheSearchIndex(t *testing.T) {
 
 	// assert
 	require.Equal(t, http.StatusOK, resp.status)
-	hits := ts.Projects[0].Index.Search("kumquat", 5)
+	hits := ts.Spaces[0].Index.Search("kumquat", 5)
 	require.Len(t, hits, 1)
 	assert.Equal(t, "guide.md", hits[0].Path)
 }
@@ -1085,7 +1085,7 @@ func TestAPIMalformedBody(t *testing.T) {
 func TestAPIPreviewMatchesTheViewPage(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	source, _, err := ts.Projects[0].Store.Read("guide.md")
+	source, _, err := ts.Spaces[0].Store.Read("guide.md")
 	require.NoError(t, err)
 
 	// act
@@ -1095,7 +1095,7 @@ func TestAPIPreviewMatchesTheViewPage(t *testing.T) {
 	})
 
 	// assert
-	rendered, err := ts.Projects[0].Renderer.Render(source, "guide.md")
+	rendered, err := ts.Spaces[0].Renderer.Render(source, "guide.md")
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.status)
 	assert.Equal(t, string(rendered.HTML), body["html"])
@@ -1217,7 +1217,7 @@ func TestAPIUpload(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.status)
 	assert.Equal(t, "notes/cyrillic/skrinshot-diska.png", res["path"])
 	assert.Equal(t, "![](cyrillic/skrinshot-diska.png)", res["markdown"])
-	assert.True(t, ts.Projects[0].Store.Exists("notes/cyrillic/skrinshot-diska.png"))
+	assert.True(t, ts.Spaces[0].Store.Exists("notes/cyrillic/skrinshot-diska.png"))
 }
 
 func TestUploadDir(t *testing.T) {
@@ -1444,7 +1444,7 @@ func (ts *testServer) files(t *testing.T) map[string]string {
 
 func TestAPITokenReads(t *testing.T) {
 	ts := newTestServer(t, testOpts{withAuth: true})
-	guide, _, err := ts.Projects[0].Store.Read("guide.md")
+	guide, _, err := ts.Spaces[0].Store.Read("guide.md")
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -1497,7 +1497,7 @@ func TestAPITokenWrites(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, attached.status)
 	assert.Equal(t, http.StatusOK, removed.status)
 	assert.Contains(t, ts.files(t), uploaded["path"])
-	assert.False(t, ts.Projects[0].Store.Exists("inbox/agent.md"))
+	assert.False(t, ts.Spaces[0].Store.Exists("inbox/agent.md"))
 }
 
 func TestTokenWriteIsNotACrossSiteTarget(t *testing.T) {
@@ -1735,11 +1735,11 @@ func TestRenderCacheIsUsedAndInvalidated(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
 	rev := revOf(t, ts, "guide.md")
-	ts.pages().put(testProject, "guide.md", rev, render.Result{HTML: "<p>served from the cache</p>", Title: "Cached"})
+	ts.pages().put(testSpace, "guide.md", rev, render.Result{HTML: "<p>served from the cache</p>", Title: "Cached"})
 
 	// act
 	cached, cachedBody := ts.json(t, request{path: "/api/page/guide.md"})
-	ts.Invalidate(testProject, "guide.md")
+	ts.Invalidate(testSpace, "guide.md")
 	fresh, freshBody := ts.json(t, request{path: "/api/page/guide.md"})
 
 	// assert
@@ -1763,13 +1763,13 @@ func TestRenderCacheFillsOnTheFirstRequest(t *testing.T) {
 
 	// assert
 	assert.Equal(t, 1, ts.pages().len())
-	_, ok := ts.pages().get(testProject, "guide.md", revOf(t, ts, "guide.md"))
+	_, ok := ts.pages().get(testSpace, "guide.md", revOf(t, ts, "guide.md"))
 	assert.True(t, ok)
 }
 
 func revOf(t *testing.T, ts *testServer, contentPath string) string {
 	t.Helper()
-	data, _, err := ts.Projects[0].Store.Read(contentPath)
+	data, _, err := ts.Spaces[0].Store.Read(contentPath)
 	require.NoError(t, err)
 	return store.Rev(data)
 }
@@ -2082,7 +2082,7 @@ func TestWebRunEmptyListenAddr(t *testing.T) {
 func TestWebRunGracefulShutdown(t *testing.T) {
 	// arrange
 	addr := fmt.Sprintf("127.0.0.1:%d", freePort(t))
-	wb := &Web{Projects: []*Project{{Name: testProject}}, Config: Config{
+	wb := &Web{Spaces: []*Space{{Name: testSpace}}, Config: Config{
 		ListenAddr:        addr,
 		Version:           "test",
 		ReadHeaderTimeout: time.Second,
@@ -2116,7 +2116,7 @@ func TestWebRunBusyPort(t *testing.T) {
 	require.NoError(t, err)
 	defer ln.Close()
 
-	wb := &Web{Projects: []*Project{{Name: testProject}}, Config: Config{ListenAddr: ln.Addr().String()}}
+	wb := &Web{Spaces: []*Space{{Name: testSpace}}, Config: Config{ListenAddr: ln.Addr().String()}}
 
 	// act
 	err = wb.Run(t.Context())

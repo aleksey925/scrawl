@@ -797,13 +797,13 @@ func TestAPIMeReportsThePublicationState(t *testing.T) {
 	resp, body := ts.json(t, request{path: "/api/me"})
 
 	// assert
-	project, ok := body["project"].(map[string]any)
+	space, ok := body["space"].(map[string]any)
 	require.True(t, ok, body)
-	assert.Equal(t, true, project["unpublished"])
-	assert.Equal(t, "push: the remote refused", project["sync_error"])
+	assert.Equal(t, true, space["unpublished"])
+	assert.Equal(t, "push: the remote refused", space["sync_error"])
 	assert.Equal(t, map[string]any{
 		"paths": []any{"guide.md", "images/logo.png"}, "many": false,
-	}, project["unsynced"])
+	}, space["unsynced"])
 	// a timer polls this now, so nothing may serve it from a cache
 	assert.Equal(t, "private, no-store", resp.header.Get("Cache-Control"))
 	assert.Equal(t, 1, fake.syncReads,
@@ -836,9 +836,9 @@ func TestAPIMeReportsTheDegradedPathSet(t *testing.T) {
 			_, body := ts.json(t, request{path: "/api/me"})
 
 			// assert
-			project, ok := body["project"].(map[string]any)
+			space, ok := body["space"].(map[string]any)
 			require.True(t, ok, body)
-			assert.Equal(t, tc.expected, project["unsynced"])
+			assert.Equal(t, tc.expected, space["unsynced"])
 		})
 	}
 }

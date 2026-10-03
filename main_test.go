@@ -30,9 +30,9 @@ func TestParseOptsDefaults(t *testing.T) {
 
 	// assert
 	require.NoError(t, err)
-	assert.Equal(t, "/notes", opts.Root)
+	assert.Equal(t, spaceOptions{Dir: defaultSpaceDir}, opts.Space)
 	assert.Equal(t, ":7272", opts.Listen)
-	assert.Equal(t, "Notes", opts.Title)
+	assert.Equal(t, "Notes", opts.SiteTitle)
 	assert.Equal(t, byteSize(20<<20), opts.MaxUpload)
 	assert.Equal(t, 720*time.Hour, opts.Auth.TTL)
 	assert.Equal(t, 5*time.Second, opts.Timeouts.ReadHeader)
@@ -49,7 +49,7 @@ func TestParseOptsDefaults(t *testing.T) {
 func TestParseOptsFlags(t *testing.T) {
 	// act
 	opts, err := parseOpts([]string{
-		"--root=/data", "--listen=:9000", "--title=Wiki", "--read-only",
+		"--space.dir=/data", "--listen=:9000", "--site-title=Wiki", "--read-only",
 		"--exclude=vendor", "--exclude=dist", "--max-upload=512K", "--trusted-proxy",
 		"--watch=poll", "--rescan=10s", "--history=off",
 		"--auth.users=bob:secret", "--auth.users=alice:$2a$10$hash",
@@ -60,9 +60,9 @@ func TestParseOptsFlags(t *testing.T) {
 
 	// assert
 	require.NoError(t, err)
-	assert.Equal(t, "/data", opts.Root)
+	assert.Equal(t, "/data", opts.Space.Dir)
 	assert.Equal(t, ":9000", opts.Listen)
-	assert.Equal(t, "Wiki", opts.Title)
+	assert.Equal(t, "Wiki", opts.SiteTitle)
 	assert.True(t, opts.ReadOnly)
 	assert.True(t, opts.TrustedProxy)
 	assert.True(t, opts.Dbg)
@@ -81,9 +81,11 @@ func TestParseOptsFlags(t *testing.T) {
 
 func TestParseOptsEnv(t *testing.T) {
 	// arrange
-	t.Setenv("ROOT", "/env-root")
+	t.Setenv("SPACE_NAME", "env-notes")
+	t.Setenv("SPACE_DIR", "/env-root")
+	t.Setenv("SPACES_FILE", "/env/spaces.yml")
 	t.Setenv("LISTEN", ":7000")
-	t.Setenv("TITLE", "Env Notes")
+	t.Setenv("SITE_TITLE", "Env Notes")
 	t.Setenv("READ_ONLY", "true")
 	t.Setenv("EXCLUDE", "tmp,cache")
 	t.Setenv("MAX_UPLOAD", "1G")
@@ -106,9 +108,10 @@ func TestParseOptsEnv(t *testing.T) {
 
 	// assert
 	require.NoError(t, err)
-	assert.Equal(t, "/env-root", opts.Root)
+	assert.Equal(t, spaceOptions{Name: "env-notes", Dir: "/env-root"}, opts.Space)
+	assert.Equal(t, "/env/spaces.yml", opts.SpacesFile)
 	assert.Equal(t, ":7000", opts.Listen)
-	assert.Equal(t, "Env Notes", opts.Title)
+	assert.Equal(t, "Env Notes", opts.SiteTitle)
 	assert.True(t, opts.ReadOnly)
 	assert.True(t, opts.TrustedProxy)
 	assert.True(t, opts.Dbg)
@@ -306,31 +309,31 @@ func TestValidateGlobal(t *testing.T) {
 	}
 }
 
-func TestValidateProjects(t *testing.T) {
+func TestValidateSpaces(t *testing.T) {
 	dir := t.TempDir()
 
 	tests := []struct {
 		name    string
-		cfgs    []projectConfig
+		cfgs    []spaceConfig
 		errText string
 	}{
-		{name: "one named project", cfgs: []projectConfig{{Name: "notes", Dir: dir}}},
-		{name: "none at all", errText: "no project configured"},
-		{name: "no name", cfgs: []projectConfig{{Dir: dir}}, errText: "every project needs a name"},
+		{name: "one named space", cfgs: []spaceConfig{{Name: "notes", Dir: dir}}},
+		{name: "none at all", errText: "no space configured"},
+		{name: "no name", cfgs: []spaceConfig{{Dir: dir}}, errText: "every space needs a name"},
 		{
 			name:    "name is not a slug",
-			cfgs:    []projectConfig{{Name: "My Notes", Dir: dir}},
+			cfgs:    []spaceConfig{{Name: "My Notes", Dir: dir}},
 			errText: "must be a url slug",
 		},
-		{name: "no directory", cfgs: []projectConfig{{Name: "notes"}}, errText: "has no directory"},
+		{name: "no directory", cfgs: []spaceConfig{{Name: "notes"}}, errText: "has no directory"},
 		{
 			name:    "two of the same name",
-			cfgs:    []projectConfig{{Name: "notes", Dir: dir}, {Name: "notes", Dir: t.TempDir()}},
-			errText: `two projects are named "notes"`,
+			cfgs:    []spaceConfig{{Name: "notes", Dir: dir}, {Name: "notes", Dir: t.TempDir()}},
+			errText: `two spaces are named "notes"`,
 		},
 		{
 			name:    "one root inside the other",
-			cfgs:    []projectConfig{{Name: "outer", Dir: dir}, {Name: "inner", Dir: filepath.Join(dir, "sub")}},
+			cfgs:    []spaceConfig{{Name: "outer", Dir: dir}, {Name: "inner", Dir: filepath.Join(dir, "sub")}},
 			errText: "overlap",
 		},
 	}
@@ -338,7 +341,7 @@ func TestValidateProjects(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// act
-			err := validateProjects(t.Context(), tc.cfgs)
+			err := validateSpaces(t.Context(), tc.cfgs)
 
 			// assert
 			if tc.errText != "" {
@@ -358,15 +361,15 @@ func TestResolveRoots(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		cfgs    []projectConfig
+		cfgs    []spaceConfig
 		errText string
 	}{
-		{name: "a directory", cfgs: []projectConfig{{Name: "notes", Dir: dir}}},
-		{name: "missing", cfgs: []projectConfig{{Name: "notes", Dir: filepath.Join(dir, "nope")}}, errText: "no such file"},
-		{name: "a file", cfgs: []projectConfig{{Name: "notes", Dir: file}}, errText: "is not a directory"},
+		{name: "a directory", cfgs: []spaceConfig{{Name: "notes", Dir: dir}}},
+		{name: "missing", cfgs: []spaceConfig{{Name: "notes", Dir: filepath.Join(dir, "nope")}}, errText: "no such file"},
+		{name: "a file", cfgs: []spaceConfig{{Name: "notes", Dir: file}}, errText: "is not a directory"},
 		{
 			name:    "the same directory spelled two ways",
-			cfgs:    []projectConfig{{Name: "one", Dir: dir}, {Name: "two", Dir: filepath.Join(dir, "sub", "..")}},
+			cfgs:    []spaceConfig{{Name: "one", Dir: dir}, {Name: "two", Dir: filepath.Join(dir, "sub", "..")}},
 			errText: "overlap",
 		},
 	}
@@ -436,7 +439,7 @@ func TestNewHistory(t *testing.T) {
 		root := t.TempDir()
 
 		// act
-		hist, err := newHistory(&options{History: historyOff}, projectConfig{Name: "notes"}, notesAt(t, root))
+		hist, err := newHistory(&options{History: historyOff}, spaceConfig{Name: "notes"}, notesAt(t, root))
 
 		// assert
 		require.NoError(t, err)
@@ -450,7 +453,7 @@ func TestNewHistory(t *testing.T) {
 		root := t.TempDir()
 
 		// act
-		hist, err := newHistory(&options{History: historyAuto}, projectConfig{Name: "notes"}, notesAt(t, root))
+		hist, err := newHistory(&options{History: historyAuto}, spaceConfig{Name: "notes"}, notesAt(t, root))
 
 		// assert
 		require.NoError(t, err)
@@ -469,7 +472,7 @@ func TestNewHistory(t *testing.T) {
 		root := gitChild(t)
 
 		// act
-		hist, err := newHistory(&options{History: historyAuto}, projectConfig{Name: "notes"}, notesAt(t, root))
+		hist, err := newHistory(&options{History: historyAuto}, spaceConfig{Name: "notes"}, notesAt(t, root))
 
 		// assert
 		require.NoError(t, err)
@@ -482,7 +485,7 @@ func TestNewHistory(t *testing.T) {
 		root := gitChild(t)
 
 		// act
-		hist, err := newHistory(&options{History: historyOn}, projectConfig{Name: "notes"}, notesAt(t, root))
+		hist, err := newHistory(&options{History: historyOn}, spaceConfig{Name: "notes"}, notesAt(t, root))
 
 		// assert
 		require.ErrorIs(t, err, history.ErrInsideRepo)
@@ -496,7 +499,7 @@ func TestReconcileImportsWhatTheStoreShows(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "page.md"), []byte("# page\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "notes.txt"), []byte("plain\n"), 0o600))
-	hist, err := newHistory(&options{History: historyOn}, projectConfig{Name: "notes"}, notesAt(t, root))
+	hist, err := newHistory(&options{History: historyOn}, spaceConfig{Name: "notes"}, notesAt(t, root))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, hist.Close()) })
 
@@ -570,7 +573,7 @@ func TestWatchStopsWithTheContext(t *testing.T) {
 	t.Cleanup(func() { _ = notes.Close() })
 
 	ctx, cancel := context.WithCancel(t.Context())
-	done := watch(ctx, &runtimeProject{web: &server.Project{Name: "notes"}, notes: notes, index: search.New()}, &server.Web{})
+	done := watch(ctx, &runtimeSpace{web: &server.Space{Name: "notes"}, notes: notes, index: search.New()}, &server.Web{})
 
 	// act
 	cancel()
@@ -596,7 +599,7 @@ func TestWatchKeepsTheIndexInStep(t *testing.T) {
 	index := search.New()
 	index.Set("page.md", []byte("# Page\n"))
 	ctx, cancel := context.WithCancel(t.Context())
-	done := watch(ctx, &runtimeProject{web: &server.Project{Name: "notes"}, notes: notes, index: index}, &server.Web{})
+	done := watch(ctx, &runtimeSpace{web: &server.Space{Name: "notes"}, notes: notes, index: index}, &server.Web{})
 
 	// act & assert
 	require.NoError(t, os.WriteFile(page, []byte("# Page\n\nkumquat\n"), 0o600))
@@ -643,7 +646,7 @@ func TestRunSmoke(t *testing.T) {
 	// examples/data lives inside this repository, so history would initialize a
 	// nested one right in the source tree
 	opts, err := parseOpts([]string{
-		"--root=./examples/data", "--project=notes", "--listen=" + addr, "--auth.disabled", "--history=off", "--dbg",
+		"--space.dir=./examples/data", "--space.name=notes", "--listen=" + addr, "--auth.disabled", "--history=off", "--dbg",
 	})
 	require.NoError(t, err)
 
@@ -651,7 +654,7 @@ func TestRunSmoke(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	errCh := make(chan error, 1)
-	go func() { errCh <- run(ctx, opts, projectsFrom(t, opts)) }()
+	go func() { errCh <- run(ctx, opts, spacesFrom(t, opts)) }()
 
 	// act
 	status := pingStatus(t, "http://"+addr+"/ping")
@@ -667,34 +670,34 @@ func TestRunSmoke(t *testing.T) {
 	}
 }
 
-func TestRunRefusesAServerWithNoProjectName(t *testing.T) {
+func TestRunRefusesAServerWithNoSpaceName(t *testing.T) {
 	// arrange
-	opts, err := parseOpts([]string{"--root=./examples/data", "--auth.disabled"})
+	opts, err := parseOpts([]string{"--space.dir=./examples/data", "--auth.disabled"})
 	require.NoError(t, err)
 
 	// act
-	err = run(t.Context(), opts, projectsFrom(t, opts))
+	err = run(t.Context(), opts, spacesFrom(t, opts))
 
 	// assert
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "every project needs a name")
+	assert.Contains(t, err.Error(), "every space needs a name")
 }
 
 func TestRunValidationFailure(t *testing.T) {
 	// arrange
-	opts, err := parseOpts([]string{"--root=/definitely/not/here", "--project=notes", "--auth.disabled"})
+	opts, err := parseOpts([]string{"--space.dir=/definitely/not/here", "--space.name=notes", "--auth.disabled"})
 	require.NoError(t, err)
 
 	// act
-	err = run(t.Context(), opts, projectsFrom(t, opts))
+	err = run(t.Context(), opts, spacesFrom(t, opts))
 
 	// assert
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no such file")
 }
 
-// projectsFrom builds the project list run takes, the way main does.
-func projectsFrom(t *testing.T, opts *options) []projectConfig {
+// spacesFrom builds the space list run takes, the way main does.
+func spacesFrom(t *testing.T, opts *options) []spaceConfig {
 	t.Helper()
 	cfgs, err := loadConfig(opts)
 	require.NoError(t, err)

@@ -97,7 +97,7 @@ type Config struct {
 
 	// PublicPaths are served without a session on an exact match. Unlike
 	// PublicPrefixes nothing below them is public: a prefix entry for
-	// /p/notes/hook would let /p/notes/hook/anything through too, and this is
+	// /s/notes/hook would let /s/notes/hook/anything through too, and this is
 	// the list a route whose only credential is a signature goes in.
 	//
 	// Public means "no session required" and never "no credential required".

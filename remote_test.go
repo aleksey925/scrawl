@@ -50,7 +50,7 @@ func TestEnsureDirsClonesOnlyWhatIsEmpty(t *testing.T) {
 	bare := bareOrigin(t)
 	fresh := filepath.Join(t.TempDir(), "fresh")
 	local := t.TempDir()
-	cfgs := []projectConfig{
+	cfgs := []spaceConfig{
 		{Name: "wiki", Dir: fresh, Remote: &remoteConfig{URL: bare, Branch: "main"}},
 		{Name: "notes", Dir: local},
 	}
@@ -61,14 +61,14 @@ func TestEnsureDirsClonesOnlyWhatIsEmpty(t *testing.T) {
 	// assert
 	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(fresh, "index.md"))
-	assert.NoDirExists(t, filepath.Join(local, ".git"), "a local project's directory is never touched")
+	assert.NoDirExists(t, filepath.Join(local, ".git"), "a local space's directory is never touched")
 }
 
 func TestEnsureDirsLeavesAnExistingCloneAlone(t *testing.T) {
 	// arrange
 	bare := bareOrigin(t)
 	dir := filepath.Join(t.TempDir(), "clone")
-	cfgs := []projectConfig{{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}}
+	cfgs := []spaceConfig{{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}}
 	require.NoError(t, ensureDirs(t.Context(), &options{}, cfgs))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "unpushed.md"), []byte("# Mine\n"), 0o600))
 
@@ -91,7 +91,7 @@ func TestEnsureDirsClonesAgainAfterAnInterruptedOne(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "clone")
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, history.StagingDir, "work"), 0o750))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "half-moved.md"), []byte("# Half\n"), 0o600))
-	cfgs := []projectConfig{{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}}
+	cfgs := []spaceConfig{{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}}
 
 	// act
 	err := ensureDirs(t.Context(), &options{}, cfgs)
@@ -104,14 +104,14 @@ func TestEnsureDirsClonesAgainAfterAnInterruptedOne(t *testing.T) {
 }
 
 // TestNewHistoryForcesItselfOnForARemote is the one place --history does not
-// decide: a project that silently stopped recording would also silently stop
+// decide: a space that silently stopped recording would also silently stop
 // pushing.
 func TestNewHistoryForcesItselfOnForARemote(t *testing.T) {
 	// arrange
 	bare := bareOrigin(t)
 	dir := filepath.Join(t.TempDir(), "clone")
-	cfg := projectConfig{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}
-	require.NoError(t, ensureDirs(t.Context(), &options{}, []projectConfig{cfg}))
+	cfg := spaceConfig{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}
+	require.NoError(t, ensureDirs(t.Context(), &options{}, []spaceConfig{cfg}))
 
 	// act
 	hist, err := newHistory(&options{History: historyOff}, cfg, notesAt(t, dir))
@@ -127,8 +127,8 @@ func TestNewHistoryRefusesAClonePointedElsewhere(t *testing.T) {
 	// arrange
 	bare := bareOrigin(t)
 	dir := filepath.Join(t.TempDir(), "clone")
-	cfg := projectConfig{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}
-	require.NoError(t, ensureDirs(t.Context(), &options{}, []projectConfig{cfg}))
+	cfg := spaceConfig{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}
+	require.NoError(t, ensureDirs(t.Context(), &options{}, []spaceConfig{cfg}))
 	cfg.Remote.Branch = "other"
 
 	// act
@@ -143,19 +143,19 @@ func TestRemoteOfCarriesTheEffectiveReadOnlyMode(t *testing.T) {
 	tests := []struct {
 		name     string
 		global   bool
-		project  bool
+		space    bool
 		pullOnly bool
 	}{
 		{name: "writable"},
 		{name: "the whole server is read-only", global: true, pullOnly: true},
-		{name: "this project is read-only", project: true, pullOnly: true},
+		{name: "this space is read-only", space: true, pullOnly: true},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// arrange
-			cfg := projectConfig{
-				Name: "wiki", ReadOnly: tc.project,
+			cfg := spaceConfig{
+				Name: "wiki", ReadOnly: tc.space,
 				Remote: &remoteConfig{URL: "https://x/y.git", Branch: "main", Pull: time.Minute},
 			}
 
@@ -171,19 +171,19 @@ func TestRemoteOfCarriesTheEffectiveReadOnlyMode(t *testing.T) {
 
 func TestPullEvery(t *testing.T) {
 	// act & assert
-	assert.Zero(t, pullEvery(projectConfig{}))
-	assert.Equal(t, time.Minute, pullEvery(projectConfig{Remote: &remoteConfig{Pull: time.Minute}}))
+	assert.Zero(t, pullEvery(spaceConfig{}))
+	assert.Equal(t, time.Minute, pullEvery(spaceConfig{Remote: &remoteConfig{Pull: time.Minute}}))
 }
 
-// TestARemoteProjectPushesWhatTheAppSaves is the whole feature seen from the
-// outside: a project whose directory is a clone records a save and the origin
+// TestARemoteSpacePushesWhatTheAppSaves is the whole feature seen from the
+// outside: a space whose directory is a clone records a save and the origin
 // has it.
-func TestARemoteProjectPushesWhatTheAppSaves(t *testing.T) {
+func TestARemoteSpacePushesWhatTheAppSaves(t *testing.T) {
 	// arrange
 	bare := bareOrigin(t)
 	dir := filepath.Join(t.TempDir(), "clone")
-	cfg := projectConfig{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}
-	require.NoError(t, ensureDirs(t.Context(), &options{}, []projectConfig{cfg}))
+	cfg := spaceConfig{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}
+	require.NoError(t, ensureDirs(t.Context(), &options{}, []spaceConfig{cfg}))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "added.md"), []byte("# Added\n"), 0o600))
 
 	notes := notesAt(t, dir)
@@ -201,17 +201,17 @@ func TestARemoteProjectPushesWhatTheAppSaves(t *testing.T) {
 	assert.Empty(t, hist.SyncError())
 }
 
-// TestAReadOnlyRemoteProjectRecordsNothing is the wiring of the pull-only rule,
+// TestAReadOnlyRemoteSpaceRecordsNothing is the wiring of the pull-only rule,
 // through the helper both the startup and the watcher go through: a file that
-// appears on disk is served and never committed, so the project does not report
+// appears on disk is served and never committed, so the space does not report
 // itself unpublished for a change no reader made.
-func TestAReadOnlyRemoteProjectRecordsNothing(t *testing.T) {
+func TestAReadOnlyRemoteSpaceRecordsNothing(t *testing.T) {
 	// arrange
 	bare := bareOrigin(t)
 	dir := filepath.Join(t.TempDir(), "clone")
-	cfg := projectConfig{Name: "wiki", Dir: dir, ReadOnly: true, Remote: &remoteConfig{URL: bare, Branch: "main"}}
+	cfg := spaceConfig{Name: "wiki", Dir: dir, ReadOnly: true, Remote: &remoteConfig{URL: bare, Branch: "main"}}
 	opts := &options{History: historyAuto}
-	require.NoError(t, ensureDirs(t.Context(), opts, []projectConfig{cfg}))
+	require.NoError(t, ensureDirs(t.Context(), opts, []spaceConfig{cfg}))
 
 	hist, err := newHistory(opts, cfg, notesAt(t, dir))
 	require.NoError(t, err)
@@ -230,15 +230,15 @@ func TestAReadOnlyRemoteProjectRecordsNothing(t *testing.T) {
 	assert.Empty(t, hist.SyncError())
 }
 
-// TestARemoteProjectTracksEveryVisibleFile is why TrackAll exists: the editor
+// TestARemoteSpaceTracksEveryVisibleFile is why TrackAll exists: the editor
 // opens far more types than local history keeps, and on a clone that gap is a
 // change that never leaves the container.
-func TestARemoteProjectTracksEveryVisibleFile(t *testing.T) {
+func TestARemoteSpaceTracksEveryVisibleFile(t *testing.T) {
 	// arrange
 	bare := bareOrigin(t)
 	dir := filepath.Join(t.TempDir(), "clone")
-	cfg := projectConfig{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}
-	require.NoError(t, ensureDirs(t.Context(), &options{}, []projectConfig{cfg}))
+	cfg := spaceConfig{Name: "wiki", Dir: dir, Remote: &remoteConfig{URL: bare, Branch: "main"}}
+	require.NoError(t, ensureDirs(t.Context(), &options{}, []spaceConfig{cfg}))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "config.toml"), []byte("key = 1\n"), 0o600))
 
 	hist, err := newHistory(&options{History: historyAuto}, cfg, notesAt(t, dir))

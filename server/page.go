@@ -115,10 +115,10 @@ func themeOf(r *http.Request) string {
 // tree that cannot be built is logged and left empty: the page itself is still
 // worth serving without its navigation.
 func (m *mount) treeNodes(current string) []TreeNode {
-	if m.prj.Store == nil {
+	if m.spc.Store == nil {
 		return nil
 	}
-	root, err := m.prj.Store.Tree()
+	root, err := m.spc.Store.Tree()
 	if err != nil {
 		log.Printf("[WARN] build tree: %v", err)
 		return nil
@@ -188,8 +188,8 @@ func breadcrumbs(p string) []Crumb {
 // everything else is handed over untouched.
 //
 // Every builder in this file produces a router-relative URL, which is what the
-// JSON hands the client: React Router prepends the project's basename itself,
-// so a prefix written in here would produce /p/notes/p/notes/... . The one
+// JSON hands the client: React Router prepends the space's basename itself,
+// so a prefix written in here would produce /s/notes/s/notes/... . The one
 // exception is the /raw/ half below, which names a route the browser fetches
 // directly; section 9 of the design puts the mounting on the reading side.
 func contentURL(p string) string {

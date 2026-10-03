@@ -30,7 +30,7 @@ export function ResetProvider({ children }: { children: ReactNode }): JSX.Elemen
   );
 }
 
-// ResetAction is the way out of a diverged project, drawn wherever the message
+// ResetAction is the way out of a diverged space, drawn wherever the message
 // about it is.
 export function ResetAction({ onOpen }: { onOpen?: () => void }): JSX.Element | null {
   const open = useContext(ResetContext);
@@ -60,13 +60,13 @@ type Step =
   | { name: 'ready'; check: Divergence; note: string }
   | { name: 'resetting'; check: Divergence }
   | { name: 'done'; result: ResetResponse }
-  // inStep is a project a sync brought back by itself: nothing to reset, and
+  // inStep is a space a sync brought back by itself: nothing to reset, and
   // good news rather than a failure
   | { name: 'failed'; message: string; inStep: boolean };
 
-const movedNote = 'The project changed while this dialog was open, so it was checked again.';
+const movedNote = 'The space changed while this dialog was open, so it was checked again.';
 
-// the two routes answer 409 for one thing only, a project no longer diverged
+// the two routes answer 409 for one thing only, a space no longer diverged
 function isInStep(error: unknown): boolean {
   return error instanceof ApiError && error.status === 409;
 }
@@ -179,7 +179,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
 
       {step.name === 'done' && (
         <Stack gap="md">
-          <Alert data-testid="reset-done" color="green" title="This project is on the remote version now">
+          <Alert data-testid="reset-done" color="green" title="This space is on the remote version now">
             <BackupReport result={step.result} />
           </Alert>
           <Group justify="flex-end">
@@ -194,7 +194,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
         <Stack gap="md">
           {step.inStep ? (
             <Alert data-testid="reset-in-step" color="green" title="Nothing to reset">
-              This project is back in step with the remote.
+              This space is back in step with the remote.
             </Alert>
           ) : (
             <Alert data-testid="reset-failed" color="red" title="Nothing was reset">
@@ -278,7 +278,7 @@ function BackupReport({ result }: { result: ResetResponse }): JSX.Element {
 }
 
 // noteHref is physical, because it opens in a tab of its own and no router is
-// there to prepend the project.
+// there to prepend the space.
 function noteHref(path: string): string {
   return isMarkdown(path) ? mountBase() + documentUrl(path) : rawUrl(path);
 }

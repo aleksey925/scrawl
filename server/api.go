@@ -68,7 +68,7 @@ type searchHit struct {
 // for: on a large corpus the files are the bulk of the tree and it lists none
 // of them.
 func (m *mount) apiTree(w http.ResponseWriter, r *http.Request) {
-	root, err := m.prj.Store.Tree()
+	root, err := m.spc.Store.Tree()
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -106,7 +106,7 @@ func (m *mount) apiFileGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stat, err := m.prj.Store.Stat(p)
+	stat, err := m.spc.Store.Stat(p)
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -123,7 +123,7 @@ func (m *mount) apiFileGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, fi, err := m.prj.Store.Read(p)
+	data, fi, err := m.spc.Store.Read(p)
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -156,7 +156,7 @@ func (m *mount) apiFileSave(w http.ResponseWriter, r *http.Request) {
 	var fi store.FileInfo
 	err := m.record(r, history.Op{Message: "save " + p, Paths: []string{p}}, func() ([]string, error) {
 		var writeErr error
-		fi, writeErr = m.prj.Store.Write(p, []byte(req.Content), req.Rev)
+		fi, writeErr = m.spc.Store.Write(p, []byte(req.Content), req.Rev)
 		return nil, writeErr
 	})
 	var conflict *store.ConflictError
@@ -168,7 +168,7 @@ func (m *mount) apiFileSave(w http.ResponseWriter, r *http.Request) {
 		// an empty revision means "create", and the file turning out to be
 		// there is the same collision seen from the editor: its dialog offers
 		// an overwrite, which needs the revision and the content on disk
-		current, _, readErr := m.prj.Store.Read(p)
+		current, _, readErr := m.spc.Store.Read(p)
 		if readErr != nil {
 			failJSON(w, r, err)
 			return
@@ -224,7 +224,7 @@ func (m *mount) apiFileCreate(w http.ResponseWriter, r *http.Request) {
 	var fi store.FileInfo
 	err := m.record(r, history.Op{Message: "create " + p, Paths: recorded}, func() ([]string, error) {
 		var createErr error
-		fi, createErr = m.prj.Store.Create(p, req.Type == "dir")
+		fi, createErr = m.spc.Store.Create(p, req.Type == "dir")
 		return nil, createErr
 	})
 	if err != nil {
@@ -247,7 +247,7 @@ func (m *mount) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := m.record(r, history.Op{Message: "delete " + p, Paths: []string{p}}, func() ([]string, error) {
-		return nil, m.prj.Store.Remove(p)
+		return nil, m.spc.Store.Remove(p)
 	})
 	if err != nil {
 		failJSON(w, r, err)
@@ -277,7 +277,7 @@ func (m *mount) apiMove(w http.ResponseWriter, r *http.Request) {
 	op := history.Op{Message: "move " + req.From + " to " + req.To, Paths: []string{req.From, req.To}}
 	err := m.record(r, op, func() ([]string, error) {
 		moved := m.movedPaths(req.From, req.To)
-		return moved, m.prj.Store.Move(req.From, req.To)
+		return moved, m.spc.Store.Move(req.From, req.To)
 	})
 	if err != nil {
 		failJSON(w, r, err)
@@ -295,7 +295,7 @@ func (m *mount) apiMove(w http.ResponseWriter, r *http.Request) {
 // A failure here is not worth refusing the move over: the change still reaches
 // history through the reconcile the watcher runs, only as an external one.
 func (m *mount) movedPaths(from, to string) []string {
-	files, err := m.prj.Store.Files()
+	files, err := m.spc.Store.Files()
 	if err != nil {
 		return nil
 	}
@@ -348,7 +348,7 @@ func (m *mount) apiUpload(w http.ResponseWriter, r *http.Request) {
 	var fi store.FileInfo
 	err = m.record(r, history.Op{Message: "upload an attachment"}, func() ([]string, error) {
 		var upErr error
-		fi, upErr = m.prj.Store.Upload(m.uploadDir(doc, dir), header.Filename, file, m.MaxUpload)
+		fi, upErr = m.spc.Store.Upload(m.uploadDir(doc, dir), header.Filename, file, m.MaxUpload)
 		if upErr != nil {
 			return nil, upErr
 		}
@@ -399,7 +399,7 @@ func (m *mount) apiPreview(w http.ResponseWriter, r *http.Request) {
 
 	source := []byte(req.Content)
 	html, err := renderWithDeadline(docPath, source, maxPreviewBody, renderTimeout, func() (template.HTML, error) {
-		return m.prj.Renderer.RenderInline(source, docPath)
+		return m.spc.Renderer.RenderInline(source, docPath)
 	})
 	if err != nil {
 		failJSON(w, r, err)
@@ -423,8 +423,8 @@ func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 	hits := make([]searchHit, 0, limit)
-	if query != "" && m.prj.Index != nil {
-		for _, hit := range m.prj.Index.SearchPrefix(query, limit) {
+	if query != "" && m.spc.Index != nil {
+		for _, hit := range m.spc.Index.SearchPrefix(query, limit) {
 			hits = append(hits, searchHit{
 				Path:    hit.Path,
 				Title:   hit.Title,
@@ -445,30 +445,30 @@ func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {
 // only closes the window in which a reload would still show the old page.
 func (m *mount) touch(paths ...string) {
 	for _, p := range paths {
-		m.pages().invalidate(m.prj.Name, p)
-		if m.prj.Index == nil || !isMarkdown(p) {
+		m.pages().invalidate(m.spc.Name, p)
+		if m.spc.Index == nil || !isMarkdown(p) {
 			continue
 		}
-		data, _, err := m.prj.Store.Read(p)
+		data, _, err := m.spc.Store.Read(p)
 		if err != nil {
-			m.prj.Index.Delete(p)
+			m.spc.Index.Delete(p)
 			continue
 		}
-		m.prj.Index.Set(p, data)
+		m.spc.Index.Set(p, data)
 	}
 }
 
 // refuseReadOnly guards every write endpoint against the three ways writing can
-// be off: the whole server, this project, or the token the caller presented.
+// be off: the whole server, this space, or the token the caller presented.
 // Each gets its own message, otherwise an agent holding a read-only token
 // cannot tell whether asking for a wider one would help, and a reader on a
-// read-only project cannot tell it from a server that refuses everything.
+// read-only space cannot tell it from a server that refuses everything.
 func (m *mount) refuseReadOnly(w http.ResponseWriter, r *http.Request) bool {
 	switch {
 	case m.ReadOnly:
 		jsonError(w, http.StatusForbidden, errMessage(store.ErrReadOnly))
-	case m.prj.ReadOnly:
-		jsonError(w, http.StatusForbidden, "read-only project, writing is disabled")
+	case m.spc.ReadOnly:
+		jsonError(w, http.StatusForbidden, "read-only space, writing is disabled")
 	case auth.ReadOnlyToken(r):
 		jsonError(w, http.StatusForbidden, "read-only token, writing is disabled")
 	default:

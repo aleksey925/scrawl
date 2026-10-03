@@ -5,22 +5,22 @@ import { defineConfig, type ProxyOptions } from 'vite';
 
 const backend = 'http://127.0.0.1:7272';
 
-// the routes that answer at the root whatever the project is. /api and /raw
+// the routes that answer at the root whatever the space is. /api and /raw
 // stay here for the global half of them - /api/login, /api/logout,
-// /api/projects - which is still served from the root.
+// /api/spaces - which is still served from the root.
 const serverPaths = ['/api', '/raw', '/static', '/logout', '/ping', '/manifest.webmanifest'];
 
-// everything a project owns, plus the login form. A browser navigation to an
+// everything a space owns, plus the login form. A browser navigation to an
 // app route has to reach vite's index.html; everything else under them is the
 // server's.
-const sharedPaths = ['/p', '/login'];
+const sharedPaths = ['/s', '/login'];
 
-// the routes inside a project the server always answers, whatever the Accept
-// header says. /p/<name>/raw/img.png opened in a tab carries text/html like any
+// the routes inside a space the server always answers, whatever the Accept
+// header says. /s/<name>/raw/img.png opened in a tab carries text/html like any
 // navigation, so deciding on the header alone would hand it index.html and the
 // raw handler would never be asked. /hook is here for the same reason, for
 // anybody who ever points a provider at a dev instance.
-const projectServerRoute = /^\/p\/[^/]+\/(api|raw|hook)(\/|$)/;
+const spaceServerRoute = /^\/s\/[^/]+\/(api|raw|hook)(\/|$)/;
 
 function isNavigation(req: IncomingMessage): boolean {
   return req.method === 'GET' && (req.headers.accept ?? '').includes('text/html');
@@ -28,7 +28,7 @@ function isNavigation(req: IncomingMessage): boolean {
 
 function bypass(req: IncomingMessage): string | undefined {
   const path = (req.url ?? '').split('?')[0] ?? '';
-  if (projectServerRoute.test(path)) {
+  if (spaceServerRoute.test(path)) {
     return undefined;
   }
   return isNavigation(req) ? '/index.html' : undefined;

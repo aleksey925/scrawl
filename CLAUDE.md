@@ -8,8 +8,8 @@ pushes back to. Runs in Docker, no external services, all state on disk.
 
 ```
 main.go                config (go-flags + env), wiring, graceful shutdown
-config.go              the --config file, the credentials and the hook secrets
-project.go             one project: validation, the clone, the services
+config.go              the spaces file, the credentials and the hook secrets
+space.go               one space: validation, the clone, the services
 store/                 safe filesystem access, tree, CRUD, watcher
 render/                markdown -> HTML, link rewrite, TOC, highlighting
 search/                in-memory full-text index
@@ -151,22 +151,29 @@ vendor/                dependencies, checked in, `make deps` regenerates
   drawer and the outline sheet each ran their own copy of that over
   overlapping elements, so closing one lifted the other's `inert`, and a
   close that went around the teardown left the page taking no tap at all.
-- A project is the unit the server is built around: one store, one
+- A space is the unit the server is built around: one store, one
   renderer, one index, one history service, named and served under
-  `/p/<name>/`. `server.Project` holds them and every handler that reads
-  one hangs off `mount{*Web, prj}`, so each is still written against a
+  `/s/<name>/`. `server.Space` holds them and every handler that reads
+  one hangs off `mount{*Web, spc}`, so each is still written against a
   single store. The name is always written down by a human - mandatory
-  `--project`, mandatory `name:` - because a derived one would turn an
+  `--space.name`, mandatory `name:` - because a derived one would turn an
   `mv` into a site-wide URL change.
-- Everything a project owns lives under `/p/<name>/`, including when
+- Settings split by what they describe. The server's are flags and
+  variables and always apply. A space's are the `--space.*` and
+  `--repo.*` flags for one space, or the keys of `--spaces-file` for
+  several, and the file replaces every one of those flags. The file
+  holds nothing else: a server setting in both places would need a
+  precedence rule. A key left out of the file takes the default its flag
+  has, so one space reads the same written either way.
+- Everything a space owns lives under `/s/<name>/`, including when
   there is exactly one: `/doc/`, `/edit/`, `/history/`, `/search`,
   `/api/` and `/raw/`. The root holds only what reads no store -
   `/ping`, `/static/`, `/manifest.webmanifest`, `/login`, `/logout`,
-  `/api/login`, `/api/logout`, `/api/projects` and the `/` redirect to
-  the first project. Every new endpoint answers one question, does it
+  `/api/login`, `/api/logout`, `/api/spaces` and the `/` redirect to
+  the first space. Every new endpoint answers one question, does it
   read a store, and lands on one side.
 - Two kinds of URL, and they must never be mixed. A **router-relative**
-  one goes to `<Link to>` or `navigate()`, which prepend the project's
+  one goes to `<Link to>` or `navigate()`, which prepend the space's
   basename themselves, so it carries no prefix - every builder in
   `server/page.go` produces one, `edit_url` included. A **physical** one
   is fetched by the browser directly - a `fetch`, an `href` the renderer
@@ -179,18 +186,18 @@ vendor/                dependencies, checked in, `make deps` regenerates
   router-relative URL for a note and a mounted one for a picture. The
   reading side mounts it, asking the question the rest of the app asks -
   is this markdown.
-- Global read-only is a ceiling and a project's own is a floor: the
-  effective mode is `global || project`, and that one value is what
-  `/api/me` reports and what every write is refused on. A per-project
+- Global read-only is a ceiling and a space's own is a floor: the
+  effective mode is `global || space`, and that one value is what
+  `/api/me` reports and what every write is refused on. A per-space
   `read_only: false` cannot lift the server-wide guard.
-- A remote project is a local project whose directory is a clone.
+- A remote space is a local space whose directory is a clone.
   `history` gains a `Remote`, `main` clones before the canonical
   validation phase, and nothing else changes shape. The startup order is
   part of the design: open store, `Reconcile`, `Sync`, `indexAll`,
   `Watch`. `store.Watch` takes its baseline when it is called, so a
   fast-forward that lands after it produces no event at all.
 - `--ff-only` is the whole unattended conflict policy. scrawl never
-  merges, never rebases and never resolves: a diverged project keeps
+  merges, never rebases and never resolves: a diverged space keeps
   serving, keeps committing locally, and says so loudly. The one way out
   is a reset to the remote version that a person confirms on the page,
   and nothing destructive ever runs without one.
@@ -217,7 +224,7 @@ vendor/                dependencies, checked in, `make deps` regenerates
   replaces an *ignored* untracked file without a word - and the store
   serves files a `.gitignore` among the notes names. So every path the
   remote adds is looked up on disk first, and one that is there and
-  untracked refuses the reset. A writable project commits what is on
+  untracked refuses the reset. A writable space commits what is on
   disk before the backup is taken; a pull-only one never commits, so
   there the refusal is the whole protection.
 - A backup reaches the remote only when the reader ticks it, and before
@@ -229,7 +236,7 @@ vendor/                dependencies, checked in, `make deps` regenerates
   upstream was rewritten needs it most, and no note anybody wrote here
   is changed. `canReset` asks who is calling instead: a session or a
   read-write token. With auth off nobody is calling, so the write guard
-  decides, and a read-only project on an open server cannot be reset
+  decides, and a read-only space on an open server cannot be reset
   from the page at all. `/api/me` and both routes ask that one function.
 - A merge driver is a command the repository config names, and a trial
   merge runs it. `.git/info/attributes` therefore sets `merge` beside
@@ -240,13 +247,13 @@ vendor/                dependencies, checked in, `make deps` regenerates
   own; the result is shown in the dialog and not in a toast, because it
   names the backup branch and a toast is gone in seconds.
 - A clone that cannot push does not commit either. The effective
-  read-only mode of a remote project is `PullOnly`, and `history` is the
+  read-only mode of a remote space is `PullOnly`, and `history` is the
   one place that knows it: `Reconcile` refuses there, so the startup
   call and the watcher's are covered by the same line and `main` asks
   rather than deriving the mode a second time. A commit no push can
-  carry would sit in this copy alone, report the project unpublished for
+  carry would sit in this copy alone, report the space unpublished for
   a change no reader made, and be what the next fast-forward trips over.
-  A read-only **local** project still reconciles: there is no remote for
+  A read-only **local** space still reconciles: there is no remote for
   the commit to fail to reach.
 - Two states, not one. `degraded` is a commit that failed, so a change
   is on disk and not in git. `unpublished` is a commit the remote does
@@ -318,14 +325,14 @@ vendor/                dependencies, checked in, `make deps` regenerates
 - A hook secret that was named and resolves to nothing stops startup.
   The minimum length is checked where the secret is resolved and nowhere
   else, because only there is an empty file still distinguishable from a
-  project that asked for no webhook - and an empty file is what a secret
+  space that asked for no webhook - and an empty file is what a secret
   that failed to mount looks like. The git credential keeps the opposite
   rule, an empty value being a public repository, which is why the one
   resolver never grew this check. Naming no source is the way to have no
   webhook.
 - Its path is the one exact-match public route on the server, registered
   per method. Exact, because a prefix entry would open everything below
-  it; per method, because a methodless pattern and the project's shell
+  it; per method, because a methodless pattern and the space's shell
   catch-all narrow different things and `ServeMux` calls neither more
   specific and panics. Public means no session required and never no
   credential required.
@@ -334,8 +341,8 @@ vendor/                dependencies, checked in, `make deps` regenerates
   deferred. `Web.Run` returns as soon as `ListenAndServe` fails while
   its context is still live, so a wait on a goroutine that only exits
   with that context would hang the process on a busy port.
-- Content paths are relative to the project's root, slash-separated,
-  without a leading slash. The project is in the URL and never in the
+- Content paths are relative to the space's root, slash-separated,
+  without a leading slash. The space is in the URL and never in the
   path, so `store` stays the only security boundary. Markdown URLs keep
   the `.md` suffix, because a file and a directory can share a name
   (`foo.md` next to `foo/`).
@@ -348,7 +355,7 @@ vendor/                dependencies, checked in, `make deps` regenerates
   no session and skips the cross-origin check; a `:ro` token is refused
   the same writes the server-wide read-only mode refuses.
 - Document history is git and optional: `--history=auto|on|off`, except
-  for a remote project, where it is always on and tracks every visible
+  for a remote space, where it is always on and tracks every visible
   file - one that stopped recording would also stop pushing, and the
   editor opens far more types than the extension list keeps. The
   repository has to be rooted exactly at the notes root; one that merely
@@ -395,6 +402,6 @@ make test    tests
 make race    tests with the race detector
 make cover   race tests plus a coverage summary
 make lint    every pre-commit hook, through prek
-make run     run ./examples/data as the "notes" project, auth disabled
+make run     run ./examples/data as the "notes" space, auth disabled
 make e2e     the browser suite
 ```

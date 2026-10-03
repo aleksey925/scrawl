@@ -6,7 +6,7 @@ const path = require('path');
 const {breakOrigin, git, pushToOrigin, restoreOrigin} = require('../support/git');
 const {MULTI, editorStatus, inStep, save, setSource, shot, signIn} = require('../support/helpers');
 
-const WIKI = MULTI.projects.wiki;
+const WIKI = MULTI.spaces.wiki;
 const wiki = MULTI.extra.find((extra) => extra.name === 'wiki');
 
 // the note every test breaks, written fresh so a previous run cannot decide the
@@ -39,7 +39,7 @@ test.describe('sync state', () => {
         fs.writeFileSync(path.join(wiki.dir, DOC), '# Sync\n\nstarting point.\n', 'utf8');
         await signIn(page, {baseURL: MULTI.baseURL, from: WIKI.doc(DOC)});
         // the startup state is whatever the previous test left, so wait for the
-        // project to be in step before breaking anything
+        // space to be in step before breaking anything
         await inStep(page, WIKI);
     });
 
@@ -49,7 +49,7 @@ test.describe('sync state', () => {
         fs.rmSync(path.join(wiki.dir, FOLDER), {recursive: true, force: true});
         fs.rmSync(path.join(wiki.dir, THEIRS), {force: true});
         fs.rmSync(path.join(wiki.dir, LATE), {force: true});
-        // leave the project in step, or the next spec inherits a broken one
+        // leave the space in step, or the next spec inherits a broken one
         await inStep(page, WIKI);
     });
 
@@ -65,8 +65,13 @@ test.describe('sync state', () => {
         await expect(page.getByTestId('toast')).toHaveAttribute('data-kind', 'warn');
         await expect(control(page)).toBeVisible();
         await expect(control(page)).toHaveAttribute('data-here', 'true');
-        await expect(page.getByTestId('project-alert')).toBeVisible();
-        await expect(page.getByTestId('project-alert')).toHaveAttribute('data-kind', 'push');
+        // this instance fetches every two seconds, so the page is told about
+        // whichever ran last: the failed push, or a fetch that met the same gap
+        const alert = page.getByTestId('space-alert');
+        await expect(alert).toBeVisible();
+        const kind = await alert.getAttribute('data-kind');
+        expect(['push', 'fetch']).toContain(kind);
+        await expect(alert.getByTestId('space-alert-reason')).toHaveText(new RegExp(`^${kind}: `));
         await shot(page, 'sync-editor-warned');
 
         // the badge is on the note, on every surface that lists it
@@ -91,7 +96,7 @@ test.describe('sync state', () => {
         await save(page);
 
         await expect(control(page)).toHaveCount(0);
-        await expect(page.getByTestId('project-alert')).toHaveCount(0);
+        await expect(page.getByTestId('space-alert')).toHaveCount(0);
     });
 
     // nobody caused this one: the origin comes back, the server's own ticker
@@ -111,7 +116,7 @@ test.describe('sync state', () => {
         await page.clock.runFor(pollMs);
 
         await expect(control(page)).toHaveCount(0);
-        await expect(page.getByTestId('project-alert')).toHaveCount(0);
+        await expect(page.getByTestId('space-alert')).toHaveCount(0);
     });
 
     // a conflict copy is a save like any other, and its response used to be
@@ -128,7 +133,7 @@ test.describe('sync state', () => {
 
         await expect(page).toHaveURL(new RegExp('conflict-'));
         await expect(control(page)).toBeVisible();
-        await expect(page.getByTestId('project-alert')).toBeVisible();
+        await expect(page.getByTestId('space-alert')).toBeVisible();
     });
 
     // the route path is not the file whenever a directory is served as its
@@ -155,14 +160,14 @@ test.describe('sync state', () => {
         await expect(control(page)).toHaveAttribute('data-here', 'true');
 
         // a note the remote does have leaves the control speaking for the
-        // project and not for the note
+        // space and not for the note
         await page.goto(WIKI.doc('remote.md'));
         await expect(control(page)).toHaveAttribute('data-here', 'false');
     });
 
     // the way out of a divergence is on the page: the check names what only
     // this copy holds, and the reset keeps it in a branch before it lets go
-    test('a diverged project is reset from the page', async ({page}) => {
+    test('a diverged space is reset from the page', async ({page}) => {
         await page.goto(WIKI.edit(DOC));
         breakOrigin(wiki.origin);
         await setSource(page, '# Sync\n\nwritten here only.\n');
@@ -174,9 +179,9 @@ test.describe('sync state', () => {
         await expect.poll(async () => meState(page), {timeout: 20_000}).toMatchObject({diverged: true});
 
         await page.goto(WIKI.doc(DOC));
-        await expect(page.getByTestId('project-alert')).toHaveAttribute('data-kind', 'merge');
-        await expect(page.getByTestId('project-alert')).not.toContainText('git ');
-        await page.getByTestId('project-alert').getByTestId('sync-reset').click();
+        await expect(page.getByTestId('space-alert')).toHaveAttribute('data-kind', 'merge');
+        await expect(page.getByTestId('space-alert')).not.toContainText('git ');
+        await page.getByTestId('space-alert').getByTestId('sync-reset').click();
 
         const dialog = page.locator('[data-testid=modal][data-variant=reset]');
         await expect(dialog.getByTestId('reset-lost-paths')).toContainText(DOC);
@@ -208,7 +213,7 @@ test.describe('sync state', () => {
         await shot(page, 'sync-reset-done');
 
         await dialog.getByTestId('reset-reload').click();
-        await expect(page.getByTestId('project-alert')).toHaveCount(0);
+        await expect(page.getByTestId('space-alert')).toHaveCount(0);
         await expect(control(page)).toHaveCount(0);
         await page.goto(WIKI.doc(THEIRS));
         await expect(page.getByText('written on the other side.')).toBeVisible();
@@ -254,12 +259,12 @@ test.describe('sync state', () => {
     });
 });
 
-// meState reads the project state the page itself would poll, which is what
+// meState reads the space state the page itself would poll, which is what
 // makes a wait for the server's own rhythm honest rather than a sleep.
 async function meState(page) {
     return page.evaluate(async (url) => {
         const res = await fetch(url, {headers: {accept: 'application/json'}});
         const body = await res.json();
-        return body.project;
+        return body.space;
     }, WIKI.api('/me'));
 }

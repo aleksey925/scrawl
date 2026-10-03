@@ -9,7 +9,7 @@ files on disk are the only state.
 - pages and folders made in the tree itself, dragged between folders,
   renamed and deleted; paste images straight into the editor
 - a version history per page: what changed, by whom, and a restore
-- several projects at once, each a folder or a git remote it clones,
+- several spaces at once, each a folder or a git remote it clones,
   serves and pushes back to
 - a login page, users configured through the environment
 - a JSON API with token auth, for scripts and agents
@@ -35,15 +35,15 @@ docker run -d --name scrawl \
   -p 7272:7272 \
   -v /path/to/notes:/notes \
   -v scrawl-data:/data \
-  -e PROJECT=notes \
+  -e SPACE_NAME=notes \
   -e AUTH_USERS='alex:my-password' \
   ghcr.io/aleksey925/scrawl:latest
 ```
 
-`PROJECT` names the folder you are serving, and it is required. It is
-the one segment every URL of that folder is served under -
-`/p/notes/doc/python/redis.md` - so it is written down rather than
-derived: a name taken from the directory would turn one `mv` into a
+The folder you serve is called a space. `SPACE_NAME` names it, and it is
+required. It is the one segment every URL of that folder is served
+under - `/s/notes/doc/python/redis.md` - so it is written down rather
+than derived: a name taken from the directory would turn one `mv` into a
 site-wide URL change.
 
 A plain password works and the server warns about it on startup. For
@@ -74,95 +74,204 @@ or build it yourself with `go install github.com/aleksey925/scrawl@latest`.
 A binary defaults to `/notes` and `:7272`, so point it at your own folder:
 
 ```
-scrawl --root ~/notes --project notes --auth.users 'alex:my-password'
+scrawl --space.dir ~/notes --space.name notes --auth.users 'alex:my-password'
 ```
 
-## Projects
+## Configuration
 
-A project is one folder, served under `/p/<name>/`. One is the normal
-case and needs no configuration file: `--root` says where the notes are
-and `--project` says what to call them.
+A **space** is what scrawl serves: one folder of notes, or a git
+repository cloned into one. Each space lives under `/s/<name>/` and has
+its own tree, search and history.
 
-For several, write them down instead. `--config` replaces `--root` and
-`--project`; every other setting stays global.
+There are two kinds of settings:
+
+- **Server settings** describe the server itself. They are environment
+  variables and they always apply.
+- **Space settings** describe what is served. For one space they are
+  environment variables too. For several spaces they go into a yaml
+  file, and then the space variables are ignored.
+
+Every variable is also a flag: `SITE_TITLE` is `--site-title`,
+`AUTH_USERS` is `--auth.users`. Run `scrawl --help` for the full list,
+including the HTTP timeouts.
+
+### Server settings
+
+These always apply, with a spaces file or without one. Only a way to
+sign in is required, everything else has a working default.
+
+| variable           | required              | default             | meaning                                                                                                                       |
+| ------------------ | --------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `LISTEN`           |                       | `:7272`             | address to listen on                                                                                                          |
+| `SITE_TITLE`       |                       | `Notes`             | name of the site: the browser tab, the sign-in page, the home screen icon                                                     |
+| `AUTH_USERS`       | yes, or `AUTH_TOKENS` |                     | who can sign in: `user:hashOrPassword`, comma separated                                                                       |
+| `AUTH_TOKENS`      |                       |                     | API tokens for scripts and agents, `name:hashOrToken[:ro]`, comma separated; enough alone for a server no browser signs in to |
+| `AUTH_DISABLED`    |                       | `false`             | serve without authentication, then neither of the two above is needed                                                         |
+| `AUTH_SECRET`      |                       |                     | cookie signing key; leave empty and one is generated and kept                                                                 |
+| `AUTH_SECRET_FILE` |                       | `/data/session.key` | where a generated key is kept                                                                                                 |
+| `AUTH_TTL`         |                       | `720h`              | how long a session lasts                                                                                                      |
+| `AUTH_SECURE`      |                       | `auto`              | `Secure` flag of the session cookie; `always` behind an HTTPS proxy                                                           |
+| `READ_ONLY`        |                       | `false`             | refuse every write, in every space                                                                                            |
+| `EXCLUDE`          |                       |                     | extra ignore globs for every space, comma separated                                                                           |
+| `MAX_UPLOAD`       |                       | `20M`               | upload size cap                                                                                                               |
+| `UPLOAD_DIR`       |                       |                     | put every upload in this one folder instead of a folder next to the note                                                      |
+| `WATCH`            |                       | `auto`              | set to `poll` when a space is on a network share                                                                              |
+| `RESCAN`           |                       | `60s`               | periodic rescan, negative disables it unless `WATCH=poll`                                                                     |
+| `HISTORY`          |                       | `auto`              | keep a git history of changes; `on` fails without git, `off` never touches the notes; always on for a space with a git remote |
+| `TRUSTED_PROXY`    |                       | `false`             | trust `X-Forwarded-For` and `-Proto`; set it behind a reverse proxy                                                           |
+| `TZ`               |                       | `UTC`               | timezone                                                                                                                      |
+| `DEBUG`            |                       | `false`             | debug logging                                                                                                                 |
+
+Dot directories, `node_modules` and `__pycache__` are ignored, so notes
+kept in git do not expose `.git`.
+
+Behind a proxy that terminates TLS, set `TRUSTED_PROXY=true` and
+`AUTH_SECURE=always`. The proxy must overwrite `X-Forwarded-For`,
+otherwise a client can pick its own login rate limit bucket.
+
+### One space
+
+One space is the normal case and needs no file. These variables describe
+it.
+
+**They are ignored when `SPACES_FILE` is set**, and the startup log
+warns about each one that was set anyway. The last column is the key
+that takes the variable's place in the file.
+
+| variable     | required | default  | meaning                                    | in the file |
+| ------------ | -------- | -------- | ------------------------------------------ | ----------- |
+| `SPACE_NAME` | yes      |          | name of the space, the URL segment it gets | `name`      |
+| `SPACE_DIR`  |          | `/notes` | directory to serve                         | `dir`       |
+
+That is all a plain folder needs. The rest is only for a space that is
+a git repository, see [Git remotes](#git-remotes). Leave all of it out
+otherwise.
+
+| variable           | required | default | meaning                                                                                                        | in the file                                       |
+| ------------------ | -------- | ------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `REPO_URL`         | yes      |         | git remote to clone into `SPACE_DIR` and push back to; setting it is what makes the space a git repository     | `repo.url`                                        |
+| `REPO_BRANCH`      |          | `main`  | branch to track                                                                                                | `repo.branch`                                     |
+| `REPO_PULL`        |          | `5m`    | how often to fetch, `0` disables the background pull                                                           | `repo.pull`                                       |
+| `REPO_TOKEN`       |          |         | token for `REPO_URL`, or a whole `Authorization` header; leave it out for a public repository or an ssh remote | `repo.token_file` or `repo.token_env`             |
+| `REPO_HOOK_SECRET` |          |         | webhook secret, at least 32 bytes; set it only to let the git host trigger a fetch                             | `repo.hook_secret_file` or `repo.hook_secret_env` |
+
+### Several spaces
+
+For more than one space, describe them in a yaml file and point
+`SPACES_FILE` at it.
+
+| variable      | required | default | meaning                                                                     |
+| ------------- | -------- | ------- | --------------------------------------------------------------------------- |
+| `SPACES_FILE` |          |         | path to the yaml file that lists spaces; set it only to serve more than one |
+
+The file holds space settings and nothing else. Server settings stay in
+the environment. Here is a file with every key there is:
 
 ```yaml
-projects:
+spaces:
+  # a plain folder: name and dir are all it needs
   - name: notes
     label: Personal notes
     dir: /notes
 
+  # a git repository: the repo block is what makes it one
   - name: team
     label: Team wiki
     dir: /data/team
     read_only: true
     exclude: ["drafts/*"]
+    repo:
+      url: https://github.com/acme/wiki.git
+      branch: main
+      pull: 5m
+      token_file: /run/secrets/gh-token # or token_env: GH_TOKEN
+      hook_secret_file: /run/secrets/gh-hook # or hook_secret_env: GH_HOOK
 ```
+
+| key                     | required           | default  | meaning                                                                                                                        |
+| ----------------------- | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `name`                  | yes                |          | URL segment: lowercase letters, digits, `-` and `_`, unique                                                                    |
+| `label`                 |                    | the name | what the switcher and the top of the tree show                                                                                 |
+| `dir`                   | yes                |          | directory to serve                                                                                                             |
+| `read_only`             |                    | `false`  | refuse every write in this space                                                                                               |
+| `exclude`               |                    |          | extra ignore globs for this space, added to `EXCLUDE`                                                                          |
+| `repo`                  |                    |          | add this block only for a space that is a git repository: `dir` becomes a clone of the remote; leave it out for a plain folder |
+| `repo.url`              | yes, inside `repo` |          | the remote to clone and push back to                                                                                           |
+| `repo.branch`           |                    | `main`   | branch to track                                                                                                                |
+| `repo.pull`             |                    | `5m`     | how often to fetch, `0` disables the background pull                                                                           |
+| `repo.token_file`       |                    |          | file holding the token for `repo.url`; no token at all for a public repository or an ssh remote                                |
+| `repo.token_env`        |                    |          | variable holding that token, instead of `token_file`                                                                           |
+| `repo.hook_secret_file` |                    |          | file holding the webhook secret; set it only to let the git host trigger a fetch                                               |
+| `repo.hook_secret_env`  |                    |          | variable holding that secret, instead of `hook_secret_file`                                                                    |
 
 ```
 docker run -d --name scrawl -p 7272:7272 \
-  -v ./scrawl.yml:/etc/scrawl.yml -v /path/to/notes:/notes -v team:/data/team \
-  -e CONFIG=/etc/scrawl.yml \
+  -v ./spaces.yml:/etc/spaces.yml -v /path/to/notes:/notes -v team:/data/team \
+  -e SPACES_FILE=/etc/spaces.yml \
   -e AUTH_USERS='alex:my-password' \
   ghcr.io/aleksey925/scrawl:latest
 ```
 
-A misspelled key is a startup error rather than a setting that silently
-did nothing. `read_only` only ever adds: a server started with
-`READ_ONLY` refuses every write everywhere, and `read_only: false` on a
-project cannot open it back up. `exclude` merges with the global
-`EXCLUDE` for the same reason.
+A few rules:
 
-`/` redirects to the first project, and the topbar shows a switcher once
+- A misspelled key is a startup error rather than a setting that
+  silently did nothing.
+- `read_only` only ever adds. A server started with `READ_ONLY` refuses
+  every write everywhere, and `read_only: false` on a space cannot open
+  it back up.
+- `exclude` adds to the server-wide `EXCLUDE` for the same reason.
+- Setting both `token_file` and `token_env`, or both hook secret keys,
+  is a startup error rather than a precedence rule to remember.
+
+`/` redirects to the first space, and the topbar shows a switcher once
 there is more than one. Everything else is shared: one login, one
-session, one set of API tokens, and a search that searches the project
-you are in.
+session, one set of API tokens, and a search that searches the space you
+are in.
 
-For strict isolation between projects - separate credentials, separate
+For strict isolation between spaces - separate credentials, separate
 processes - run one scrawl per folder behind a reverse proxy instead.
 That is what this feature deliberately does not do.
 
 ## Git remotes
 
-A project may be a git repository rather than a plain folder. scrawl
-clones it, serves it, and pushes back what you edit.
+A space may be a git repository rather than a plain folder. scrawl
+clones it, serves it, and pushes back what you edit. In the file that is
+a `repo` block:
 
 ```yaml
-projects:
+spaces:
   - name: team
-    label: Team wiki
     dir: /data/team
     repo:
       url: https://github.com/acme/wiki.git
-      branch: main
       token_file: /run/secrets/gh-token
-      pull: 5m
 ```
 
-With one project the same thing is three flags and one variable:
+With one space it is the `REPO_*` variables:
 
 ```
 docker run -d --name scrawl -p 7272:7272 -v team:/data/team \
-  -e PROJECT=team -e ROOT=/data/team \
+  -e SPACE_NAME=team -e SPACE_DIR=/data/team \
   -e REPO_URL=https://github.com/acme/wiki.git \
-  -e REPO_BRANCH=main \
   -e REPO_TOKEN='github_pat_xxx' \
   -e AUTH_USERS='alex:my-password' \
   ghcr.io/aleksey925/scrawl:latest
 ```
 
-**`dir` is a volume, and it has to survive a restart.** The clone lives
-there and so does every commit that has not been pushed yet. If the
-directory is inside the container's own filesystem, a restart re-clones
-and anything the remote never got is gone.
+Every key and variable is listed under
+[Configuration](#configuration). The rest of this section is about how a
+remote behaves.
+
+**The directory is a volume, and it has to survive a restart.** The
+clone lives there and so does every commit that has not been pushed yet.
+If the directory is inside the container's own filesystem, a restart
+re-clones and anything the remote never got is gone.
 
 **A credential is named, never written down inline.** `token_file`
-points at a file, `token_env` at an environment variable, and the flag
-path reads the fixed `REPO_TOKEN`. Setting both `token_file` and
-`token_env` is a startup error rather than a precedence rule to
-remember. A URL carrying a password is refused: `git clone` writes the
-URL into `.git/config`, where it would sit in plain text inside the
-notes volume.
+points at a file, `token_env` at an environment variable, and a single
+space reads the fixed `REPO_TOKEN`. A URL carrying a password is
+refused: `git clone` writes the URL into `.git/config`, where it would
+sit in plain text inside the notes volume.
 
 **The value is the token itself**, the string the provider handed you -
 `github_pat_...`, `glpat-...` - and scrawl makes the HTTP credential out
@@ -187,13 +296,13 @@ For ssh there is no setting: an ssh remote uses the agent and the
 In between, `pull` says how often to fetch; `0` turns the ticker off,
 and the startup fetch still happens. A fetch is followed by a
 fast-forward and nothing else: scrawl never merges, never rebases and
-never resolves. If the branch has diverged, the project keeps serving,
+never resolves. If the branch has diverged, the space keeps serving,
 saves keep landing on disk and in local commits, and a banner says so on
 every screen together with a button that resets this copy to the remote
-version - see [below](#when-a-project-has-diverged).
+version - see [below](#when-a-space-has-diverged).
 
 **Two things are worth knowing.** History is always on for a remote
-project, whatever `HISTORY` says: one that stopped recording would also
+space, whatever `HISTORY` says: one that stopped recording would also
 stop pushing. And git cannot represent an empty directory, so a folder
 you create reaches the remote with the first note you put in it.
 
@@ -205,21 +314,20 @@ would be what the next fetch from upstream trips over.
 
 ## A webhook instead of polling
 
-Give a project a hook secret and the upstream repository can tell scrawl
+Give a space a hook secret and the upstream repository can tell scrawl
 to fetch, instead of scrawl asking every few minutes.
 
 ```yaml
-projects:
+spaces:
   - name: team
     dir: /data/team
     repo:
       url: https://github.com/acme/wiki.git
-      branch: main
       pull: 1h
       hook_secret_file: /run/secrets/gh-hook # or hook_secret_env: HOOK
 ```
 
-With one project it is `REPO_HOOK_SECRET`, the same fixed and optional
+With one space it is `REPO_HOOK_SECRET`, the same fixed and optional
 shape `REPO_TOKEN` has. Generate the secret rather than typing one:
 
 ```
@@ -229,11 +337,11 @@ openssl rand -hex 32
 It has to be at least 32 bytes. The endpoint answers without a session -
 a provider cannot sign in - so the signature is the only credential
 there is, and a short one turns the route into a public "resync this
-project" button. Naming a secret that turns out to hold nothing - an
+space" button. Naming a secret that turns out to hold nothing - an
 empty file, a variable that never got a value - stops the server rather
-than serving the project with its webhook quietly off, because a secret
+than serving the space with its webhook quietly off, because a secret
 that failed to mount looks exactly like that. The way to have no webhook
-is to name no secret. The file has to live outside every project
+is to name no secret. The file has to live outside every space
 directory, for the same reason the session key does: anything inside is
 on the tree, in the search index and downloadable.
 
@@ -241,7 +349,7 @@ Paste this URL into the repository's webhook settings, with the content
 type the provider offers by default:
 
 ```
-https://notes.example.com/p/team/hook
+https://notes.example.com/s/team/hook
 ```
 
 Behind TLS, always. A signature proves the body was not tampered with
@@ -285,7 +393,7 @@ The messages tell four things apart:
   save tries again.
 - **The remote cannot be reached.** The fetch failed. This copy may be
   behind, and if you saved anything it has not gone out either.
-- **This project has diverged from the remote.** Both sides hold
+- **This space has diverged from the remote.** Both sides hold
   commits the other lacks: somebody pushed while this copy had commits
   of its own, or the branch was rebased or force-pushed. scrawl does not
   merge: nothing is sent or received until the copy is reset, which the
@@ -307,7 +415,7 @@ the tab is in front of you, so a push that starts working again clears
 the warning without a reload. A background refresh does not extend your
 session: a tab left open would otherwise keep one alive forever.
 
-### When a project has diverged
+### When a space has diverged
 
 The banner and the top bar control carry one button, **Reset to the
 remote version**. It makes this copy hold exactly what the remote holds,
@@ -332,52 +440,10 @@ not track that stands where the remote has one of its own stops it, and
 the message names the file.
 
 Whoever can write can reset, and so can anybody signed in to a
-read-only project: a read-only mirror whose upstream was rebased is the
+read-only space: a read-only mirror whose upstream was rebased is the
 one that needs it most. A `:ro` token cannot, and neither can a reader
-of a read-only project on a server with authentication off, where the
+of a read-only space on a server with authentication off, where the
 button would belong to anybody who can reach the page.
-
-## Configuration
-
-Environment variables, each also available as a flag. Run
-`scrawl --help` for the rest, including the HTTP timeouts.
-
-| variable           | default             | meaning                                                                               |
-| ------------------ | ------------------- | ------------------------------------------------------------------------------------- |
-| `ROOT`             | `/notes`            | directory to serve                                                                    |
-| `PROJECT`          |                     | name of that directory, required, the URL segment it gets                             |
-| `CONFIG`           |                     | yaml file of projects, replaces `ROOT` and `PROJECT`                                  |
-| `REPO_URL`         |                     | git remote to clone into `ROOT` and push back to                                      |
-| `REPO_BRANCH`      | `main`              | branch to track                                                                       |
-| `REPO_PULL`        | `5m`                | how often to fetch, `0` disables the background pull                                  |
-| `REPO_TOKEN`       |                     | token for `REPO_URL`, or a whole `Authorization` header                               |
-| `REPO_HOOK_SECRET` |                     | webhook secret, at least 32 bytes, turns the endpoint on                              |
-| `LISTEN`           | `:7272`             | address to listen on                                                                  |
-| `TITLE`            | `Notes`             | site title in the interface                                                           |
-| `AUTH_USERS`       |                     | `user:hashOrPassword`, comma separated                                                |
-| `AUTH_TOKENS`      |                     | API tokens, `name:hashOrToken[:ro]`, comma separated                                  |
-| `AUTH_SECRET`      |                     | cookie signing key, generated if empty                                                |
-| `AUTH_SECRET_FILE` | `/data/session.key` | where a generated key is kept                                                         |
-| `AUTH_TTL`         | `720h`              | how long a session lasts                                                              |
-| `AUTH_SECURE`      | `auto`              | `Secure` flag of the session cookie                                                   |
-| `AUTH_DISABLED`    | `false`             | serve without authentication                                                          |
-| `READ_ONLY`        | `false`             | refuse every write                                                                    |
-| `EXCLUDE`          |                     | extra ignore globs, comma separated                                                   |
-| `MAX_UPLOAD`       | `20M`               | upload size cap                                                                       |
-| `UPLOAD_DIR`       |                     | one shared folder for uploads                                                         |
-| `WATCH`            | `auto`              | `poll` when the root is a network share                                               |
-| `RESCAN`           | `60s`               | periodic rescan, negative disables it unless `WATCH=poll`                             |
-| `HISTORY`          | `auto`              | keep a git history of changes, `on` fails without git, always on for a remote project |
-| `TRUSTED_PROXY`    | `false`             | trust `X-Forwarded-For` and `-Proto`                                                  |
-| `TZ`               | `UTC`               | timezone                                                                              |
-| `DEBUG`            | `false`             | debug logging                                                                         |
-
-Dot directories, `node_modules` and `__pycache__` are ignored, so notes
-kept in git do not expose `.git`.
-
-Behind a proxy that terminates TLS, set `TRUSTED_PROXY=true` and
-`AUTH_SECURE=always`. The proxy must overwrite `X-Forwarded-For`,
-otherwise a client can pick its own login rate limit bucket.
 
 ## Markdown
 
@@ -412,7 +478,8 @@ one folder instead.
 - trailing whitespace is never trimmed, in markdown it can be meaningful
 - if the file changed on disk since the editor opened it, the save is
   refused and you are shown both versions
-- nothing outside the root is reachable and symbolic links are ignored
+- nothing outside the folder of a space is reachable and symbolic links
+  are ignored
 
 ## API
 
@@ -445,17 +512,17 @@ Every request carries the token in a header. A wrong one is answered
 with `401 {"error":"unauthorized"}` on every path, never a redirect to
 the login page.
 
-Every endpoint that reads or writes notes lives under the project that
-holds them, `/p/<project>/api/...`. The handful that read no notes -
-`/api/login`, `/api/logout`, `/api/projects` - answer at the root, and
-`GET /api/projects` is what lists the names to put in the other URLs.
+Every endpoint that reads or writes notes lives under the space that
+holds them, `/s/<space>/api/...`. The handful that read no notes -
+`/api/login`, `/api/logout`, `/api/spaces` - answer at the root, and
+`GET /api/spaces` is what lists the names to put in the other URLs.
 
 ```
 TOKEN=scrawl_L5Y6q1vjgguEiF8ODvE_LLBABLm339BGlpPq4VSXBcg
-curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/api/projects
-curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/p/notes/api/tree
-curl -sH "Authorization: Bearer $TOKEN" 'http://localhost:7272/p/notes/api/search?q=redis'
-curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/p/notes/api/file/python/notes.md
+curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/api/spaces
+curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/s/notes/api/tree
+curl -sH "Authorization: Bearer $TOKEN" 'http://localhost:7272/s/notes/api/search?q=redis'
+curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/s/notes/api/file/python/notes.md
 ```
 
 The last one answers with the source and the revision it was read at:
@@ -472,13 +539,13 @@ The last one answers with the source and the revision it was read at:
 
 Only text within the editable size cap comes back that way; anything
 else answers `415` or `413` and is fetched from
-`/p/<project>/raw/<path>`, which takes the same header.
+`/s/<space>/raw/<path>`, which takes the same header.
 
 A write sends that `rev` back, which is how the server tells that the
 file did not move on in between. Read it, then save:
 
 ```
-BASE=http://localhost:7272/p/notes
+BASE=http://localhost:7272/s/notes
 REV=$(curl -sH "Authorization: Bearer $TOKEN" $BASE/api/file/python/notes.md | jq -r .rev)
 curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"content":"# Notes\n\nredis notes\n","rev":"'"$REV"'"}' \
@@ -524,13 +591,13 @@ The rest of the write endpoints take no revision:
 | `POST /api/move`                    | `{"from":"a.md","to":"b/a.md"}` | `200 {"path":...}`        |
 | `POST /api/upload/<dir>?doc=<path>` | multipart `file`                | `201 {"path","markdown"}` |
 
-Each is under `/p/<project>/`, and each carries `history_degraded` and
+Each is under `/s/<space>/`, and each carries `history_degraded` and
 `unpublished` beside what the table shows.
 
 A token ending in `:ro` reads everything and writes nothing: every write
 is `403 {"error":"read-only token, writing is disabled"}`. `READ_ONLY`
 on the server refuses the same writes for every token, read-write ones
-included, and `read_only: true` on one project refuses them there.
+included, and `read_only: true` on one space refuses them there.
 All three say something different, so a client can tell whether asking
 for a wider token would help.
 
@@ -554,7 +621,7 @@ browser test fails with "Executable doesn't exist".
 ```
 make ui         build the interface into server/assets/app/
 make build      build the binary into dist/
-make run        run ./examples/data as the "notes" project, no authentication
+make run        run ./examples/data as the "notes" space, no authentication
 make test       tests
 make race       tests with the race detector
 make cover      race tests plus a coverage summary

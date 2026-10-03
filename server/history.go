@@ -34,7 +34,7 @@ type History interface {
 	// the getters above: a Sync finishing between two calls would hand the
 	// client an error from one attempt beside the paths of another.
 	SyncState() history.SyncState
-	// Remote reports that the project is a clone, which is the only kind a
+	// Remote reports that the space is a clone, which is the only kind a
 	// reset means anything for.
 	Remote() bool
 	CheckDivergence(ctx context.Context) (history.Divergence, error)
@@ -76,10 +76,10 @@ type restoreRequest struct {
 // *history.Service answers every method, so a server running without history
 // needs no second code path anywhere in the handlers.
 func (m *mount) history() History {
-	if m.prj.History == nil {
+	if m.spc.History == nil {
 		return (*history.Service)(nil)
 	}
-	return m.prj.History
+	return m.spc.History
 }
 
 // isDocument reports whether history may speak about a path at all: markdown is
@@ -88,7 +88,7 @@ func (m *mount) history() History {
 // holds, a file the store hides included - so without this the history routes
 // are a second way into the notes directory, and one with no policy on it.
 func (m *mount) isDocument(p string) bool {
-	return isMarkdown(p) && m.prj.Store.Visible(p)
+	return isMarkdown(p) && m.spc.Store.Visible(p)
 }
 
 // historyPath pulls the document out of a history URL and answers the request
@@ -226,7 +226,7 @@ func (m *mount) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
 	var fi store.FileInfo
 	err = m.record(r, history.Op{Message: "restore " + p, Paths: []string{p}}, func() ([]string, error) {
 		var writeErr error
-		fi, writeErr = m.prj.Store.Write(p, data, req.Rev)
+		fi, writeErr = m.spc.Store.Write(p, data, req.Rev)
 		return nil, writeErr
 	})
 	var conflict *store.ConflictError

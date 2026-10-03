@@ -20,10 +20,10 @@ function pickFixture() {
 const fixture = pickFixture();
 const workDir = process.env.SCRAWL_E2E_WORK || path.join(os.tmpdir(), 'scrawl-e2e');
 
-// defaultProject is the project name every single-project instance is started
+// defaultSpace is the space name every single-space instance is started
 // with. There is no default in the binary, so this is also what the launcher
-// passes as --project.
-const defaultProject = 'notes';
+// passes as --space.name.
+const defaultSpace = 'notes';
 
 // encodePath escapes a content path segment by segment, the way the app builds
 // its own links: a whole path run through encodeURIComponent would escape the
@@ -32,38 +32,38 @@ function encodePath(contentPath) {
     return contentPath.split('/').map(encodeURIComponent).join('/');
 }
 
-// the two halves of the server's url space. A project owns one contiguous
-// subtree and everything it serves is built from project(); the handful of
+// the two halves of the server's urls. A space owns one contiguous
+// subtree and everything it serves is built from space(); the handful of
 // routes that read no store answer at the root and are built from global().
 // Nothing in the suite writes a url by hand.
-function routesFor(project) {
-    const base = `/p/${project}`;
-    const inProject = (suffix) => base + suffix;
+function routesFor(space) {
+    const base = `/s/${space}`;
+    const inSpace = (suffix) => base + suffix;
     return {
         prefix: () => base,
-        home: () => inProject('/'),
-        doc: (contentPath) => inProject(`/doc/${encodePath(contentPath)}`),
-        dir: (contentPath) => (contentPath === '' ? inProject('/') : inProject(`/doc/${encodePath(contentPath)}/`)),
-        edit: (contentPath) => inProject(`/edit/${encodePath(contentPath)}`),
-        history: (contentPath) => inProject(`/history/${encodePath(contentPath)}`),
-        search: (query) => inProject(`/search?q=${encodeURIComponent(query)}`),
-        raw: (contentPath) => inProject(`/raw/${encodePath(contentPath)}`),
-        api: (suffix) => inProject(`/api${suffix}`),
-        // the webhook, which is a project route and outside /api on purpose
-        hook: () => inProject('/hook'),
+        home: () => inSpace('/'),
+        doc: (contentPath) => inSpace(`/doc/${encodePath(contentPath)}`),
+        dir: (contentPath) => (contentPath === '' ? inSpace('/') : inSpace(`/doc/${encodePath(contentPath)}/`)),
+        edit: (contentPath) => inSpace(`/edit/${encodePath(contentPath)}`),
+        history: (contentPath) => inSpace(`/history/${encodePath(contentPath)}`),
+        search: (query) => inSpace(`/search?q=${encodeURIComponent(query)}`),
+        raw: (contentPath) => inSpace(`/raw/${encodePath(contentPath)}`),
+        api: (suffix) => inSpace(`/api${suffix}`),
+        // the webhook, which is a space route and outside /api on purpose
+        hook: () => inSpace('/hook'),
         // the href the renderer writes into note html for a link to another
         // note. It is fetched by the browser directly, so it carries the
-        // project prefix; the app recognises it and routes the click itself.
-        contentHref: (contentPath) => inProject(`/doc/${encodePath(contentPath)}`),
-        // global routes: they read no store, so they are outside every project
+        // space prefix; the app recognises it and routes the click itself.
+        contentHref: (contentPath) => inSpace(`/doc/${encodePath(contentPath)}`),
+        // global routes: they read no store, so they are outside every space
         login: () => '/login',
         logout: () => '/logout',
-        projects: () => '/api/projects',
+        spaces: () => '/api/spaces',
         ping: () => '/ping',
     };
 }
 
-const routes = routesFor(defaultProject);
+const routes = routesFor(defaultSpace);
 
 // historyMode is passed as --history, never left to the default: on a machine
 // without git "auto" turns itself off, and a spec about versions would then
@@ -94,8 +94,8 @@ const instances = {
         root: path.join(workDir, 'notes-history'),
         historyMode: 'on',
     },
-    // the only instance started from a config file. It carries a second local
-    // project over a root of its own and a third that is a clone of a bare
+    // the only instance started from a spaces file. It carries a second local
+    // space over a root of its own and a third that is a clone of a bare
     // repository the launcher seeds, so the remote mode is driven end to end
     // and the suite still needs no network.
     multi: {
@@ -107,7 +107,7 @@ const instances = {
                 name: 'team',
                 label: 'Team wiki',
                 dir: path.join(workDir, 'notes-team'),
-                seed: {'team.md': '# Team wiki\n\nonly this project has it.\n'},
+                seed: {'team.md': '# Team wiki\n\nonly this space has it.\n'},
             },
             {
                 name: 'wiki',
@@ -117,7 +117,7 @@ const instances = {
                 seed: {'remote.md': '# Remote page\n\npushed from the origin.\n'},
                 pull: '2s',
             },
-            // a fourth project whose only refresh trigger is the webhook. pull
+            // a fourth space whose only refresh trigger is the webhook. pull
             // is off, so a note that appears here appeared because a delivery
             // arrived and for no other reason.
             {
@@ -136,28 +136,28 @@ const instances = {
 
 for (const [name, inst] of Object.entries(instances)) {
     inst.name = name;
-    inst.project = inst.project || defaultProject;
+    inst.space = inst.space || defaultSpace;
     inst.baseURL = `http://127.0.0.1:${inst.port}`;
     inst.log = path.join(workDir, `${name}.log`);
     inst.secretFile = path.join(workDir, `${name}-session.key`);
-    inst.routes = routesFor(inst.project);
+    inst.routes = routesFor(inst.space);
     inst.configFile = path.join(workDir, `${name}.yml`);
     // absolute counterparts of the routes above, for a spec that drives an
     // instance other than the one playwright's baseURL points at
     inst.url = Object.fromEntries(
         Object.entries(inst.routes).map(([key, build]) => [key, (...args) => inst.baseURL + build(...args)]));
-    // the same builders for each of the extra projects, keyed by name, so a
-    // spec about two projects never writes one of their urls by hand
-    inst.projects = {[inst.project]: inst.url};
+    // the same builders for each of the extra spaces, keyed by name, so a
+    // spec about two spaces never writes one of their urls by hand
+    inst.spaces = {[inst.space]: inst.url};
     for (const extra of inst.extra || []) {
         const build = routesFor(extra.name);
-        inst.projects[extra.name] = Object.fromEntries(
+        inst.spaces[extra.name] = Object.fromEntries(
             Object.entries(build).map(([key, make]) => [key, (...args) => inst.baseURL + make(...args)]));
     }
 }
 
 module.exports = {
-    defaultProject,
+    defaultSpace,
     routesFor,
     repoRoot,
     workDir,

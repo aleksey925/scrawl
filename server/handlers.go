@@ -38,7 +38,7 @@ func indexOf(entries []store.FileInfo, name string) string {
 // renderIntro renders the README shown above a listing. A failure only costs
 // the intro, so it is logged and the listing is served without it.
 func (m *mount) renderIntro(docPath string) (template.HTML, error) {
-	data, _, err := m.prj.Store.Read(docPath)
+	data, _, err := m.spc.Store.Read(docPath)
 	if err != nil {
 		log.Printf("[WARN] read intro %s: %v", docPath, err)
 		return "", err
@@ -55,16 +55,16 @@ func (m *mount) renderIntro(docPath string) (template.HTML, error) {
 // corpus costs around 109ms and 36MB, reading it back costs a hash of the
 // source, so the cache is keyed by the revision and can never go stale.
 func (m *mount) renderDoc(docPath string, data []byte, rev string) (render.Result, error) {
-	if res, ok := m.pages().get(m.prj.Name, docPath, rev); ok {
+	if res, ok := m.pages().get(m.spc.Name, docPath, rev); ok {
 		return res, nil
 	}
 	res, err := renderWithDeadline(docPath, data, maxRenderBytes, renderTimeout, func() (render.Result, error) {
-		return m.prj.Renderer.Render(data, docPath)
+		return m.spc.Renderer.Render(data, docPath)
 	})
 	if err != nil {
 		return render.Result{}, err
 	}
-	m.pages().put(m.prj.Name, docPath, rev, res)
+	m.pages().put(m.spc.Name, docPath, rev, res)
 	return res, nil
 }
 
@@ -120,7 +120,7 @@ func (m *mount) rawHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	f, fi, err := m.prj.Store.Open(p)
+	f, fi, err := m.spc.Store.Open(p)
 	if err != nil {
 		status := statusOf(err)
 		logFailure(r, status, err)
@@ -178,7 +178,7 @@ var rawInlineTypes = map[string]string{
 // rawTextExtensions are served inline as text/plain, which no browser executes.
 // Reading the source of a note or a snippet in a tab is worth keeping, and
 // markdown is here on purpose: /raw/x.md is how the source of a document is
-// looked at, while /p/x.md is the rendered page.
+// looked at, while /doc/x.md is the rendered page.
 var rawTextExtensions = []string{
 	".md", ".markdown", ".txt", ".text", ".log", ".csv", ".tsv",
 	".py", ".go", ".rs", ".c", ".h", ".cpp", ".hpp", ".java", ".kt", ".rb",

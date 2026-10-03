@@ -127,10 +127,10 @@ type Config struct {
 // Web is the http server of scrawl, built as a struct literal in main.
 type Web struct {
 	Config
-	Projects []*Project
-	Auth     *auth.Service
+	Spaces []*Space
+	Auth   *auth.Service
 
-	byName    map[string]*Project
+	byName    map[string]*Space
 	templates *template.Template
 	appShell  *appShell
 
@@ -195,10 +195,10 @@ func (wb *Web) shutdown(ctx context.Context, srv *http.Server) error {
 	return nil
 }
 
-// Invalidate drops the rendered HTML cached for a content path of one project.
-// main calls it from that project's store watcher, so an edit made outside the
+// Invalidate drops the rendered HTML cached for a content path of one space.
+// main calls it from that space's store watcher, so an edit made outside the
 // app shows up at once.
-func (wb *Web) Invalidate(project, contentPath string) { wb.pages().invalidate(project, contentPath) }
+func (wb *Web) Invalidate(space, contentPath string) { wb.pages().invalidate(space, contentPath) }
 
 // pages returns the render cache, building it on first use so that a watcher
 // event arriving before the first request has somewhere to go.
@@ -208,8 +208,8 @@ func (wb *Web) pages() *pageCache {
 }
 
 func (wb *Web) router() (http.Handler, error) {
-	if len(wb.Projects) == 0 {
-		return nil, errors.New("no project configured")
+	if len(wb.Spaces) == 0 {
+		return nil, errors.New("no space configured")
 	}
 	if err := wb.parseTemplates(); err != nil {
 		return nil, err
@@ -239,7 +239,7 @@ func (wb *Web) router() (http.Handler, error) {
 	router.Use(wb.appInfo)
 
 	// rest.Ping is not used: it answers any path ending in /ping, before auth,
-	// so /p/anything/ping would be an unauthenticated route and a document
+	// so /s/anything/ping would be an unauthenticated route and a document
 	// really named ping would be unreachable
 	router.HandleFunc("GET /ping", pingHandler)
 
@@ -253,19 +253,19 @@ func (wb *Web) router() (http.Handler, error) {
 	router.HandleFunc("GET /manifest.webmanifest", wb.manifestHandler)
 
 	router.HandleFunc("GET /login", wb.loginPage)
-	router.HandleFunc("GET /api/projects", wb.apiProjects)
+	router.HandleFunc("GET /api/spaces", wb.apiSpaces)
 
-	// a path that belongs to no project reaches this one, which means an
-	// unknown project name or a stray root path. It answers a plain 404 and not
-	// the app shell: there is no project, so there is no base it could honestly
+	// a path that belongs to no space reaches this one, which means an
+	// unknown space name or a stray root path. It answers a plain 404 and not
+	// the app shell: there is no space, so there is no base it could honestly
 	// hand the client. Each mount registers a shell fallback of its own.
 	router.NotFoundHandler(plainNotFound)
 
 	// the root picks nothing and resolves nothing, it only says where a browser
-	// lands. 302 and not 308, because the first project is a deployment setting
+	// lands. 302 and not 308, because the first space is a deployment setting
 	// the operator changes by editing the configuration.
 	router.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, wb.Projects[0].Prefix()+"/", http.StatusFound)
+		http.Redirect(w, r, wb.Spaces[0].Prefix()+"/", http.StatusFound)
 	})
 
 	// everything that changes state, plus the login form itself, has to survive
@@ -276,23 +276,23 @@ func (wb *Web) router() (http.Handler, error) {
 	mutating.HandleFunc("POST /api/login", wb.apiLogin)
 	mutating.HandleFunc("POST /api/logout", wb.apiLogout)
 
-	wb.byName = make(map[string]*Project, len(wb.Projects))
-	for _, prj := range wb.Projects {
-		if _, dup := wb.byName[prj.Name]; dup {
-			return nil, fmt.Errorf("two projects named %q", prj.Name)
+	wb.byName = make(map[string]*Space, len(wb.Spaces))
+	for _, spc := range wb.Spaces {
+		if _, dup := wb.byName[spc.Name]; dup {
+			return nil, fmt.Errorf("two spaces named %q", spc.Name)
 		}
-		wb.byName[prj.Name] = prj
-		wb.projectRoutes(router.Mount(prj.Prefix()), prj)
+		wb.byName[spc.Name] = spc
+		wb.spaceRoutes(router.Mount(spc.Prefix()), spc)
 	}
 
 	return router, nil
 }
 
-// projectRoutes registers everything one project owns under its own prefix.
+// spaceRoutes registers everything one space owns under its own prefix.
 // The order matters: the two catch-alls come last, so Go's pattern matching
 // prefers any explicit route over them.
-func (wb *Web) projectRoutes(g *routegroup.Bundle, prj *Project) {
-	m := &mount{Web: wb, prj: prj}
+func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
+	m := &mount{Web: wb, spc: spc}
 
 	g.HandleFunc("GET /{$}", m.appHandler)
 	g.HandleFunc("GET /doc/{path...}", m.docHandler)
@@ -314,7 +314,7 @@ func (wb *Web) projectRoutes(g *routegroup.Bundle, prj *Project) {
 	// method, the other the path, and ServeMux calls neither more specific and
 	// panics. Registering GET separately is also what keeps an anonymous caller
 	// from being handed the app shell on a path that is in the public list.
-	if prj.Webhook != nil {
+	if spc.Webhook != nil {
 		g.HandleFunc("POST /hook", m.hookHandler)
 		g.HandleFunc("GET /hook", m.hookHandler)
 	}
@@ -331,7 +331,7 @@ func (wb *Web) projectRoutes(g *routegroup.Bundle, prj *Project) {
 	mutating.HandleFunc("POST /api/sync/reset", m.apiSyncReset)
 
 	// NotFoundHandler is global whichever bundle registers it and knows no
-	// prefix, so it cannot boot the app for a path inside a project. These two
+	// prefix, so it cannot boot the app for a path inside a space. These two
 	// are what does, and the API one keeps an unknown API path from being
 	// answered with HTML.
 	g.HandleFunc("GET /api/{path...}", func(w http.ResponseWriter, _ *http.Request) {

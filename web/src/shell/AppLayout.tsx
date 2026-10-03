@@ -9,7 +9,7 @@ import { iconEdgeInset, layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { FileActionsProvider } from './FileActions';
 import { NavProvider } from './NavContext';
-import { ProjectAlerts } from './ProjectAlerts';
+import { SpaceAlerts } from './SpaceAlerts';
 import { ResetProvider } from './ResetDialog';
 import { SearchSpotlight } from './SearchSpotlight';
 import { ShellSlotsProvider, type ShellSlots } from './ShellSlots';
@@ -161,7 +161,7 @@ export function AppLayout(): JSX.Element {
               </AppShell.Aside>
 
               <AppShell.Main style={{ minWidth: 0 }}>
-                <ProjectAlerts />
+                <SpaceAlerts />
                 <Outlet />
               </AppShell.Main>
             </AppShell>

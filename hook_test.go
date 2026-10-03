@@ -23,8 +23,8 @@ const aSecret = "0123456789abcdef0123456789abcdef"
 func TestLoadConfigReadsTheHookSecret(t *testing.T) {
 	// arrange
 	t.Setenv("SCRAWL_TEST_HOOK", aSecret)
-	opts := &options{Config: writeConfig(t, `
-projects:
+	opts := &options{SpacesFile: writeConfig(t, `
+spaces:
   - name: team
     dir: /data/team
     repo:
@@ -44,10 +44,10 @@ projects:
 	assert.False(t, still, "the variable must not be inherited by the git children either")
 }
 
-func TestFlagProjectsReadTheFixedHookVariable(t *testing.T) {
+func TestFlagSpacesReadTheFixedHookVariable(t *testing.T) {
 	// arrange
 	t.Setenv(repoHookSecretEnv, aSecret)
-	opts := &options{Root: "/notes", Project: "notes"}
+	opts := &options{Space: spaceOptions{Name: "notes", Dir: "/notes"}}
 	opts.Repo.URL = "https://github.com/acme/wiki.git"
 	opts.Repo.Branch = "main"
 
@@ -61,8 +61,8 @@ func TestFlagProjectsReadTheFixedHookVariable(t *testing.T) {
 
 func TestLoadConfigRefusesBothHookSources(t *testing.T) {
 	// act
-	_, err := loadConfig(&options{Config: writeConfig(t, `
-projects:
+	_, err := loadConfig(&options{SpacesFile: writeConfig(t, `
+spaces:
   - name: team
     dir: /data/team
     repo:
@@ -116,7 +116,7 @@ func TestResolveHookSecretRefusesAWeakOne(t *testing.T) {
 	}
 }
 
-// naming no source at all is the one way a project says it wants no webhook,
+// naming no source at all is the one way a space says it wants no webhook,
 // and it is the only case that answers with no secret and no error
 func TestResolveHookSecretWithoutASource(t *testing.T) {
 	// act
@@ -130,10 +130,10 @@ func TestResolveHookSecretWithoutASource(t *testing.T) {
 // an operator who put the variable in a compose file and got nothing into it
 // has a broken secret, which the git credential's "present but empty means no
 // credential" rule would read as a webhook nobody asked for
-func TestFlagProjectsRefuseAnEmptyHookVariable(t *testing.T) {
+func TestFlagSpacesRefuseAnEmptyHookVariable(t *testing.T) {
 	// arrange
 	t.Setenv(repoHookSecretEnv, "")
-	opts := &options{Root: "/notes", Project: "notes"}
+	opts := &options{Space: spaceOptions{Name: "notes", Dir: "/notes"}}
 	opts.Repo.URL = "https://github.com/acme/wiki.git"
 	opts.Repo.Branch = "main"
 
@@ -145,9 +145,9 @@ func TestFlagProjectsRefuseAnEmptyHookVariable(t *testing.T) {
 	assert.Contains(t, err.Error(), repoHookSecretEnv+" names no value")
 }
 
-func TestFlagProjectsWithoutTheFixedHookVariable(t *testing.T) {
+func TestFlagSpacesWithoutTheFixedHookVariable(t *testing.T) {
 	// arrange
-	opts := &options{Root: "/notes", Project: "notes"}
+	opts := &options{Space: spaceOptions{Name: "notes", Dir: "/notes"}}
 	opts.Repo.URL = "https://github.com/acme/wiki.git"
 	opts.Repo.Branch = "main"
 
@@ -161,15 +161,15 @@ func TestFlagProjectsWithoutTheFixedHookVariable(t *testing.T) {
 }
 
 // the yaml path, end to end: the file is named, it holds nothing, and the
-// server refuses to start instead of serving a project whose webhook is off
+// server refuses to start instead of serving a space whose webhook is off
 func TestLoadConfigRefusesAnEmptyHookSecretFile(t *testing.T) {
 	// arrange
 	file := filepath.Join(t.TempDir(), "hook")
 	require.NoError(t, os.WriteFile(file, nil, 0o600))
 
 	// act
-	_, err := loadConfig(&options{Config: writeConfig(t, `
-projects:
+	_, err := loadConfig(&options{SpacesFile: writeConfig(t, `
+spaces:
   - name: team
     dir: /data/team
     repo:
@@ -180,11 +180,11 @@ projects:
 
 	// assert
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), `project "team"`)
+	assert.Contains(t, err.Error(), `space "team"`)
 	assert.Contains(t, err.Error(), "shorter than 32 bytes")
 }
 
-// the reason is the session key's reason: a file inside a project is on the
+// the reason is the session key's reason: a file inside a space is on the
 // tree, in the index, in every backup of the corpus and downloadable through
 // /raw/ by anybody who can sign in
 func TestCheckSecretFilesCoversTheHookSecrets(t *testing.T) {
@@ -197,8 +197,8 @@ func TestCheckSecretFilesCoversTheHookSecrets(t *testing.T) {
 		refused bool
 	}{
 		{name: "outside every root", file: filepath.Join(t.TempDir(), "hook")},
-		{name: "inside its own project root", file: filepath.Join(root, "hook"), refused: true},
-		{name: "inside another project's root", file: filepath.Join(other, "hook"), refused: true},
+		{name: "inside its own space root", file: filepath.Join(root, "hook"), refused: true},
+		{name: "inside another space's root", file: filepath.Join(other, "hook"), refused: true},
 	}
 
 	for _, tc := range tests {
@@ -206,7 +206,7 @@ func TestCheckSecretFilesCoversTheHookSecrets(t *testing.T) {
 			// arrange
 			opts := &options{}
 			opts.Auth.Disabled = true
-			cfgs := []projectConfig{{
+			cfgs := []spaceConfig{{
 				Name:   "team",
 				Remote: &remoteConfig{HookSecretFile: tc.file},
 			}}
@@ -239,7 +239,7 @@ func TestCheckSecretFilesCoversTheHookSecrets(t *testing.T) {
 // a symlink, and auth creates the session key on first start, so "the caller
 // spelled it differently and the file is not there yet" is the ordinary case.
 func TestCheckSecretFilesResolvesBothSides(t *testing.T) {
-	// where the secret sits under the project root, in segments, so a case can
+	// where the secret sits under the space root, in segments, so a case can
 	// name a directory nobody has made
 	places := map[string][]string{
 		"directly inside":                       {"secret"},
@@ -256,7 +256,7 @@ func TestCheckSecretFilesResolvesBothSides(t *testing.T) {
 					file := filepath.Join(append([]string{spellFile(t, dir)}, under...)...)
 					opts := &options{}
 					opts.Auth.SecretFile = file
-					cfgs := []projectConfig{{
+					cfgs := []spaceConfig{{
 						Name:   "team",
 						Remote: &remoteConfig{HookSecretFile: file},
 					}}
@@ -286,7 +286,7 @@ func pathSpellings() map[string]func(t *testing.T, dir string) string {
 
 func TestSecretsOfCarriesTheHookSecret(t *testing.T) {
 	// arrange
-	cfgs := []projectConfig{{
+	cfgs := []spaceConfig{{
 		Name:   "team",
 		Remote: &remoteConfig{Token: "Bearer ghp_xxx", HookSecret: aSecret},
 	}}
@@ -411,14 +411,14 @@ func TestRunDoesNotHangOnABusyPort(t *testing.T) {
 	// arrange
 	listener := mustListen(t)
 	opts, err := parseOpts([]string{
-		"--root=./examples/data", "--project=notes", "--listen=" + listener,
+		"--space.dir=./examples/data", "--space.name=notes", "--listen=" + listener,
 		"--auth.disabled", "--history=off",
 	})
 	require.NoError(t, err)
 
 	// act
 	failed := make(chan error, 1)
-	go func() { failed <- run(t.Context(), opts, projectsFrom(t, opts)) }()
+	go func() { failed <- run(t.Context(), opts, spacesFrom(t, opts)) }()
 
 	// assert
 	select {
@@ -437,13 +437,13 @@ func TestLogRemoteRedactsTheURL(t *testing.T) {
 	assert.Equal(t, "git@github.com:acme/wiki.git", redactURL("git@github.com:acme/wiki.git"))
 }
 
-// testRuntime is the smallest project a sync loop needs: a name, a trigger and
+// testRuntime is the smallest space a sync loop needs: a name, a trigger and
 // an interval. There is no repository behind it, because the loop's job is
 // deciding when to run and never what running means.
-func testRuntime(t *testing.T, pull time.Duration) *runtimeProject {
+func testRuntime(t *testing.T, pull time.Duration) *runtimeSpace {
 	t.Helper()
-	return &runtimeProject{
-		web:     &server.Project{Name: "wiki"},
+	return &runtimeSpace{
+		web:     &server.Space{Name: "wiki"},
 		pull:    pull,
 		trigger: make(chan struct{}, 1),
 	}

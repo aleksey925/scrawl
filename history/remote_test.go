@@ -43,7 +43,7 @@ func cloneOf(t *testing.T, bare string) string {
 }
 
 // remoteService is a service over a clone, with the remote configured the way
-// main configures one for a project whose directory is a clone.
+// main configures one for a space whose directory is a clone.
 func remoteService(t *testing.T, dir, bare string, tune ...func(*Remote)) *Service {
 	t.Helper()
 	rm := &Remote{URL: bare, Branch: initialBranch}
@@ -357,7 +357,7 @@ func TestPullOnlyNeverWritesToGit(t *testing.T) {
 // TestPullOnlyNeverReconciles is the other half of the same rule, and it is the
 // half a watcher reaches: a file that appears on disk is served and indexed and
 // never committed. A commit here has no push to carry it anywhere, so it would
-// sit in this copy alone, report the project unpublished for a change no reader
+// sit in this copy alone, report the space unpublished for a change no reader
 // made, and turn the next upstream push into a divergence ff-only refuses.
 func TestPullOnlyNeverReconciles(t *testing.T) {
 	// arrange
@@ -520,9 +520,9 @@ func TestUnsyncedDropsTheListAboveTheCap(t *testing.T) {
 	assert.True(t, state.Unpublished)
 }
 
-// TestACleanProjectMeasuresNoPaths keeps the second command off the healthy
+// TestACleanSpaceMeasuresNoPaths keeps the second command off the healthy
 // path: the diff runs only when the count says this copy is ahead.
-func TestACleanProjectMeasuresNoPaths(t *testing.T) {
+func TestACleanSpaceMeasuresNoPaths(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
 	dir := cloneOf(t, bare)

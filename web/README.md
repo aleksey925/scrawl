@@ -10,7 +10,7 @@ The dev server proxies everything the app talks to, so it needs a real
 binary behind it. In one terminal:
 
 ```
-make run          # serves ./examples/data as the "notes" project on :7272
+make run          # serves ./examples/data as the "notes" space on :7272
 ```
 
 In another:
@@ -26,22 +26,22 @@ The proxy is required, not a convenience: the server's CSRF check is
 CORS cannot make that work.
 
 Proxied to `http://127.0.0.1:7272`: `/api`, `/raw`, `/static`,
-`/logout`, `/ping`, `/manifest.webmanifest`, plus `/p` and `/login`.
-The first group is the server's alone. `/p` and `/login` are shared: a
+`/logout`, `/ping`, `/manifest.webmanifest`, plus `/s` and `/login`.
+The first group is the server's alone. `/s` and `/login` are shared: a
 browser navigation to an app route is answered with Vite's `index.html`
 and everything else on them still reaches the server, so deep links work
 in both directions.
 
 The bypass is decided on the path and not on the `Accept` header alone.
-A project owns its whole subtree now, so `/p/<name>/api`, `/p/<name>/raw`
-and `/p/<name>/hook` always proxy: an attachment opened as a top-level
+A space owns its whole subtree now, so `/s/<name>/api`, `/s/<name>/raw`
+and `/s/<name>/hook` always proxy: an attachment opened as a top-level
 navigation carries `Accept: text/html` like any other, and deciding on
 the header would hand it `index.html` and never ask the raw handler.
 
 **The dev shell's base is a constant.** The Go shell hands the client
-its project prefix, and `web/index.html` hardcodes
-`data-base="/p/notes"` to match the `--project notes` that `make run`
-passes. Running the backend with another project name means editing that
+its space prefix, and `web/index.html` hardcodes
+`data-base="/s/notes"` to match the `--space notes` that `make run`
+passes. Running the backend with another space name means editing that
 attribute too.
 
 ## Build
@@ -69,7 +69,7 @@ The build output is committed. `node_modules/` is not.
 Assets are served under `/static/{version}/app/...` and the Go handler
 ignores the version segment on lookup, so any literal in that slot
 resolves to the same file. A relative base would not work, because
-`index.html` is served from arbitrary URLs (`/p/notes/doc/a/b.md`), and the
+`index.html` is served from arbitrary URLs (`/s/notes/doc/a/b.md`), and the
 version cannot be baked in at build time, so the segment is the fixed
 placeholder `spa`. Nothing is lost: Vite content-hashes every file
 name, which is what actually busts the cache.

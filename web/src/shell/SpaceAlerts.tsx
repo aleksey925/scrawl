@@ -5,8 +5,8 @@ import type { JSX } from 'react';
 import { useNav } from './NavContext';
 import { ResetAction } from './ResetDialog';
 
-// ProjectAlerts is the one persistent place that explains what is wrong with
-// this project. It renders above the outlet, so a reader meets it on every
+// SpaceAlerts is the one persistent place that explains what is wrong with
+// this space. It renders above the outlet, so a reader meets it on every
 // screen rather than only after opening one document's history.
 //
 // One box and never two. At most two states are true at once - one remote, one
@@ -17,7 +17,7 @@ import { ResetAction } from './ResetDialog';
 // There is no close button: a state that is still true should not be hideable,
 // and remembering a dismissal would mean a reader who dismissed once never
 // hears about the next failure.
-export function ProjectAlerts(): JSX.Element {
+export function SpaceAlerts(): JSX.Element {
   const { sync } = useNav();
 
   // the live region is mounted at all times, even empty: one inserted into the
@@ -26,10 +26,10 @@ export function ProjectAlerts(): JSX.Element {
   // emergency and an interruption mid-sentence is the surprise this design is
   // trying to avoid.
   return (
-    <div data-testid="project-alerts" role="status" aria-live="polite">
+    <div data-testid="space-alerts" role="status" aria-live="polite">
       {sync !== undefined && (
         <Alert
-          data-testid="project-alert"
+          data-testid="space-alert"
           data-kind={sync.kind}
           color="yellow"
           icon={<IconAlertTriangle size={18} />}
@@ -42,7 +42,7 @@ export function ProjectAlerts(): JSX.Element {
                 <Text size="sm">{fact.body}</Text>
                 {fact.reason !== '' && (
                   <Code
-                    data-testid="project-alert-reason"
+                    data-testid="space-alert-reason"
                     block
                     style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
                   >

@@ -172,10 +172,10 @@ func TestHookAnswersOneStatusForEveryOtherMethod(t *testing.T) {
 	}
 }
 
-// a project that declared no secret has no hook route at all: the POST meets
+// a space that declared no secret has no hook route at all: the POST meets
 // ServeMux's own answer for a path only the GET catch-all claims, and a GET
 // meets the app's 404 shell like any other unknown path
-func TestAProjectWithoutAWebhookHasNoSuchRoute(t *testing.T) {
+func TestASpaceWithoutAWebhookHasNoSuchRoute(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
 
@@ -197,8 +197,8 @@ func TestAProjectWithoutAWebhookHasNoSuchRoute(t *testing.T) {
 // different things, ServeMux calls neither more specific, and it panics.
 func TestTheHookRouteDoesNotCollideWithTheShellCatchAll(t *testing.T) {
 	// arrange
-	ts := newTestServer(t, testOpts{second: secondProject})
-	ts.Projects[0].Webhook = &Webhook{Secret: hookSecret, Notify: func() {}}
+	ts := newTestServer(t, testOpts{second: secondSpace})
+	ts.Spaces[0].Webhook = &Webhook{Secret: hookSecret, Notify: func() {}}
 	ts.second().Webhook = &Webhook{Secret: hookSecret, Notify: func() {}}
 
 	// act & assert
@@ -209,7 +209,7 @@ func TestTheHookRouteDoesNotCollideWithTheShellCatchAll(t *testing.T) {
 }
 
 // TestTheHookIsReachableWithoutASession is the public-path exception end to
-// end: the provider cannot sign in, and everything else on the project still
+// end: the provider cannot sign in, and everything else on the space still
 // needs a session.
 func TestTheHookIsReachableWithoutASession(t *testing.T) {
 	// arrange

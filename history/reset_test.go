@@ -185,7 +185,7 @@ func TestCheckDivergence(t *testing.T) {
 		assert.Contains(t, svc.SyncError(), "fetch:")
 	})
 
-	t.Run("answers that a project in step has nothing to reset", func(t *testing.T) {
+	t.Run("answers that a space in step has nothing to reset", func(t *testing.T) {
 		// arrange
 		bare := bareRemote(t)
 		svc := remoteService(t, cloneOf(t, bare), bare)
@@ -197,7 +197,7 @@ func TestCheckDivergence(t *testing.T) {
 		require.ErrorIs(t, err, ErrNotDiverged)
 	})
 
-	t.Run("answers the same for a project with no remote", func(t *testing.T) {
+	t.Run("answers the same for a space with no remote", func(t *testing.T) {
 		// arrange
 		svc := newService(t)
 
@@ -365,7 +365,7 @@ func TestResetToRemote(t *testing.T) {
 		assert.Empty(t, backups(t, dir))
 	})
 
-	t.Run("refuses a project that is back in step", func(t *testing.T) {
+	t.Run("refuses a space that is back in step", func(t *testing.T) {
 		// arrange
 		bare := bareRemote(t)
 		dir := cloneOf(t, bare)

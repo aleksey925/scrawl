@@ -36,7 +36,7 @@ function SyncDetails({ onLeave }: { onLeave: () => void }): JSX.Element | null {
   if (sync === undefined || summary === undefined) {
     return null;
   }
-  const paths = me?.project.unsynced.paths ?? [];
+  const paths = me?.space.unsynced.paths ?? [];
 
   return (
     <Stack data-testid="sync-details" gap="xs">

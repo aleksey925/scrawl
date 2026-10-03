@@ -110,9 +110,9 @@ func TestAPIPageOutlineMatchesTheRail(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 	require.NoError(t, os.WriteFile(filepath.Join(ts.root, "flat.md"),
 		[]byte("# One\n\n# Two\n\n# Three\n"), 0o600))
-	source, _, err := ts.Projects[0].Store.Read("guide.md")
+	source, _, err := ts.Spaces[0].Store.Read("guide.md")
 	require.NoError(t, err)
-	rendered, err := ts.Projects[0].Renderer.Render(source, "guide.md")
+	rendered, err := ts.Spaces[0].Renderer.Render(source, "guide.md")
 	require.NoError(t, err)
 
 	// act
@@ -129,7 +129,7 @@ func TestAPIPageOutlineMatchesTheRail(t *testing.T) {
 func TestAPIPageGoesThroughThePageCache(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	ts.pages().put(testProject, "guide.md", revOf(t, ts, "guide.md"),
+	ts.pages().put(testSpace, "guide.md", revOf(t, ts, "guide.md"),
 		render.Result{HTML: "<p>served from the cache</p>", Title: "Cached"})
 
 	// act
@@ -288,7 +288,7 @@ func TestAPIDirServesTheIndexUnderTheDirectoryPath(t *testing.T) {
 func TestAPIDirIndexGoesThroughThePageCache(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	ts.pages().put(testProject, "notes/index.md", revOf(t, ts, "notes/index.md"),
+	ts.pages().put(testSpace, "notes/index.md", revOf(t, ts, "notes/index.md"),
 		render.Result{HTML: "<p>served from the cache</p>", Title: "Cached"})
 
 	// act
@@ -323,7 +323,7 @@ func TestAPIDirIndexRevalidatesWithTheRevision(t *testing.T) {
 func TestAPIDirListsWhatTheDirectoryPageLists(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	entries, err := ts.Projects[0].Store.List("docs")
+	entries, err := ts.Spaces[0].Store.List("docs")
 	require.NoError(t, err)
 
 	// act
@@ -447,8 +447,8 @@ func TestAPIMeWithAuthDisabled(t *testing.T) {
 		"user": "", "auth_on": false, "read_only": false,
 		"history_on": false, "history_degraded": false,
 		"site_title": ts.Title, "version": ts.Version,
-		"project": map[string]any{
-			"name": testProject, "label": testProject, "kind": KindLocal,
+		"space": map[string]any{
+			"name": testSpace, "label": testSpace, "kind": KindLocal,
 			"read_only": false, "degraded": false, "unpublished": false, "sync_error": "",
 			"unsynced": map[string]any{"paths": []any{}, "many": false},
 			"diverged": false, "can_reset": false,

@@ -492,9 +492,9 @@ test.describe('mobile', () => {
 
 // the tree is behind a closed drawer on a phone and the document body carries
 // no badge, so the topbar control is the one surface that answers "is this
-// note at risk". These drive the remote project for that reason.
+// note at risk". These drive the remote space for that reason.
 test.describe('mobile sync state', () => {
-    const WIKI = MULTI.projects.wiki;
+    const WIKI = MULTI.spaces.wiki;
     const wiki = MULTI.extra.find((extra) => extra.name === 'wiki');
     const SYNC_DOC = 'e2e-mobile-sync.md';
     const SYNC_FOLDER = 'e2e-mobile-folder';
@@ -527,7 +527,7 @@ test.describe('mobile sync state', () => {
 
         await page.goto(WIKI.doc(SYNC_DOC));
         await expect(page.getByTestId('topbar-more')).toHaveAttribute('data-sync', 'true');
-        await expect(page.getByTestId('project-alert')).toBeVisible();
+        await expect(page.getByTestId('space-alert')).toBeVisible();
         // the tree is behind a closed drawer, which is what makes the control
         // the one surface that speaks for this note
         await expect(page.getByTestId('sidebar')).toHaveCount(0);
@@ -556,7 +556,7 @@ test.describe('mobile sync state', () => {
         await saveStuck(page, `${SYNC_FOLDER}/index.md`, '# Guide\n\nthe folder index, stuck.\n');
 
         await page.goto(WIKI.home());
-        await expect(page.getByTestId('project-alert')).toBeVisible();
+        await expect(page.getByTestId('space-alert')).toBeVisible();
         await openMore(page);
         await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
 
@@ -566,15 +566,15 @@ test.describe('mobile sync state', () => {
         await shot(page, 'mobile-sync-folder-index');
     });
 
-    // the project switcher is on this server too, so the row is as full as it
-    // gets: every control keeps its size and the project name gives way
+    // the space switcher is on this server too, so the row is as full as it
+    // gets: every control keeps its size and the space name gives way
     test('the top bar still fits with the control up', async ({page}) => {
         breakOrigin(wiki.origin);
         await saveStuck(page, SYNC_DOC, '# Mobile sync\n\nstuck.\n');
 
         await page.goto(WIKI.doc(SYNC_DOC));
         await expect(page.getByTestId('topbar-more')).toHaveAttribute('data-sync', 'true');
-        await expect(page.getByTestId('topbar-project')).toBeVisible();
+        await expect(page.getByTestId('topbar-space')).toBeVisible();
         await expect(page.getByTestId('doc-history')).toBeInViewport({ratio: 1});
         await expectNoHorizontalScroll(page);
 

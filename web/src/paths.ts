@@ -39,7 +39,7 @@ export function isMarkdown(path: string): boolean {
   return path.toLowerCase().endsWith('.md');
 }
 
-// Everything below is router-relative: React Router prepends the project's
+// Everything below is router-relative: React Router prepends the space's
 // basename itself, so none of these may carry the mount prefix. rawUrl is the
 // exception and says so in its own comment.
 export function documentUrl(path: string): string {

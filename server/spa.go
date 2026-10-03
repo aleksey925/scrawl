@@ -95,25 +95,25 @@ type navResponse struct {
 
 // meResponse is the session and the modes the app runs in.
 //
-// ReadOnly is the effective mode of the project being served, which is the
-// server-wide guard or the project's own. There is no second field for the
+// ReadOnly is the effective mode of the space being served, which is the
+// server-wide guard or the space's own. There is no second field for the
 // global one: every consumer of this asks "may this reader write here", and
 // splitting it would offer a Save button the server refuses.
 type meResponse struct {
-	User            string       `json:"user"`
-	AuthOn          bool         `json:"auth_on"`
-	ReadOnly        bool         `json:"read_only"`
-	HistoryOn       bool         `json:"history_on"`
-	HistoryDegraded bool         `json:"history_degraded"`
-	SiteTitle       string       `json:"site_title"`
-	Version         string       `json:"version"`
-	Project         projectState `json:"project"`
+	User            string     `json:"user"`
+	AuthOn          bool       `json:"auth_on"`
+	ReadOnly        bool       `json:"read_only"`
+	HistoryOn       bool       `json:"history_on"`
+	HistoryDegraded bool       `json:"history_degraded"`
+	SiteTitle       string     `json:"site_title"`
+	Version         string     `json:"version"`
+	Space           spaceState `json:"space"`
 }
 
-// projectState is the project the app is running under, plus the live state of
-// its repository. /api/projects lists where a switcher can go; this says what
+// spaceState is the space the app is running under, plus the live state of
+// its repository. /api/spaces lists where a switcher can go; this says what
 // is true of the one the reader is in.
-type projectState struct {
+type spaceState struct {
 	Name     string `json:"name"`
 	Label    string `json:"label"`
 	Kind     string `json:"kind"`
@@ -144,10 +144,10 @@ type unsyncedPaths struct {
 	Many  bool     `json:"many"`
 }
 
-// projectEntry is one row of the switcher. It carries configured, immutable
-// facts only: live state is read per project through /api/me, so this endpoint
+// spaceEntry is one row of the switcher. It carries configured, immutable
+// facts only: live state is read per space through /api/me, so this endpoint
 // reads no store and stays at the root with the other global routes.
-type projectEntry struct {
+type spaceEntry struct {
 	Name     string `json:"name"`
 	Label    string `json:"label"`
 	URL      string `json:"url"`
@@ -174,7 +174,7 @@ func (m *mount) apiPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stat, err := m.prj.Store.Stat(p)
+	stat, err := m.spc.Store.Stat(p)
 	switch {
 	case errors.Is(err, store.ErrNotFound) && isMarkdown(p):
 		writeJSON(w, http.StatusNotFound, pageResponse{
@@ -213,7 +213,7 @@ func (m *mount) apiDir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stat, err := m.prj.Store.Stat(p)
+	stat, err := m.spc.Store.Stat(p)
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -223,7 +223,7 @@ func (m *mount) apiDir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entries, err := m.prj.Store.List(p)
+	entries, err := m.spc.Store.List(p)
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -261,7 +261,7 @@ func (m *mount) apiDir(w http.ResponseWriter, r *http.Request) {
 // with one conditional request instead of carrying a copy of the revision
 // around to decide whether what the browser restored is still current.
 func (m *mount) writeDoc(w http.ResponseWriter, r *http.Request, navPath, docPath string) {
-	data, fi, err := m.prj.Store.Read(docPath)
+	data, fi, err := m.spc.Store.Read(docPath)
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -325,10 +325,10 @@ func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {
 		HistoryDegraded: m.history().Degraded(),
 		SiteTitle:       m.Title,
 		Version:         m.Version,
-		Project: projectState{
-			Name:        m.prj.Name,
-			Label:       m.prj.Title(),
-			Kind:        m.prj.Kind,
+		Space: spaceState{
+			Name:        m.spc.Name,
+			Label:       m.spc.Title(),
+			Kind:        m.spc.Kind,
 			ReadOnly:    m.readOnly(),
 			Degraded:    m.history().Degraded(),
 			Unpublished: sync.Unpublished,
@@ -347,18 +347,18 @@ func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, res)
 }
 
-// apiProjects lists what the switcher can go to. It is global because it reads
+// apiSpaces lists what the switcher can go to. It is global because it reads
 // no store, which is the one question every route in this server answers to
-// land on one side of the root-versus-project boundary.
-func (wb *Web) apiProjects(w http.ResponseWriter, _ *http.Request) {
-	res := make([]projectEntry, 0, len(wb.Projects))
-	for _, prj := range wb.Projects {
-		res = append(res, projectEntry{
-			Name:     prj.Name,
-			Label:    prj.Title(),
-			URL:      prj.Prefix() + "/",
-			Kind:     prj.Kind,
-			ReadOnly: wb.ReadOnly || prj.ReadOnly,
+// land on one side of the root-versus-space boundary.
+func (wb *Web) apiSpaces(w http.ResponseWriter, _ *http.Request) {
+	res := make([]spaceEntry, 0, len(wb.Spaces))
+	for _, spc := range wb.Spaces {
+		res = append(res, spaceEntry{
+			Name:     spc.Name,
+			Label:    spc.Title(),
+			URL:      spc.Prefix() + "/",
+			Kind:     spc.Kind,
+			ReadOnly: wb.ReadOnly || spc.ReadOnly,
 		})
 	}
 	writeJSON(w, http.StatusOK, res)

@@ -19,7 +19,7 @@ type divergenceResponse struct {
 	// without it: the paths are hidden, or the check could not finish.
 	Clean bool          `json:"clean"`
 	Lost  unsyncedPaths `json:"lost"`
-	// CanPushBackup is false for a project that never pushes anything.
+	// CanPushBackup is false for a space that never pushes anything.
 	CanPushBackup bool `json:"can_push_backup"`
 }
 
@@ -34,9 +34,9 @@ type resetResponse struct {
 	BackupPushed bool   `json:"backup_pushed"`
 }
 
-// canReset reports whether this caller may move the project to the remote's
+// canReset reports whether this caller may move the space to the remote's
 // version. It is not the write guard: a read-only mirror whose upstream was
-// rewritten is the project that needs a reset most, and no note anybody wrote
+// rewritten is the space that needs a reset most, and no note anybody wrote
 // here is changed by one. So it asks who is calling instead - and with auth
 // off nobody is, which leaves the write guard as the only thing to go by.
 //
@@ -57,7 +57,7 @@ func (m *mount) refuseReset(w http.ResponseWriter, r *http.Request) bool {
 	if m.canReset(r) {
 		return false
 	}
-	jsonError(w, http.StatusForbidden, "resetting this project is not allowed")
+	jsonError(w, http.StatusForbidden, "resetting this space is not allowed")
 	return true
 }
 
@@ -82,7 +82,7 @@ func (m *mount) apiSyncCheck(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// apiSyncReset moves the project to the remote's version. The two commits in
+// apiSyncReset moves the space to the remote's version. The two commits in
 // the body are compared and never handed to git.
 func (m *mount) apiSyncReset(w http.ResponseWriter, r *http.Request) {
 	if m.refuseReset(w, r) {
@@ -111,9 +111,9 @@ func (m *mount) apiSyncReset(w http.ResponseWriter, r *http.Request) {
 func failSync(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, history.ErrDisabled), errors.Is(err, history.ErrNotDiverged):
-		jsonError(w, http.StatusConflict, "this project has not diverged from the remote")
+		jsonError(w, http.StatusConflict, "this space has not diverged from the remote")
 	case errors.Is(err, history.ErrStateChanged):
-		jsonError(w, http.StatusPreconditionFailed, "the project changed since it was checked")
+		jsonError(w, http.StatusPreconditionFailed, "the space changed since it was checked")
 	case errors.Is(err, history.ErrResetRefused):
 		log.Printf("[WARN] %s %s: %v", r.Method, r.URL.Path, err)
 		jsonError(w, http.StatusUnprocessableEntity, err.Error())

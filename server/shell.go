@@ -167,7 +167,7 @@ func (m *mount) appHandler(w http.ResponseWriter, r *http.Request) {
 	m.serveShell(w, r, http.StatusOK)
 }
 
-// notFoundHandler answers a path inside this project that no route claimed. The
+// notFoundHandler answers a path inside this space that no route claimed. The
 // status says the name holds nothing, and the body is still the app, so the
 // reader gets the empty state with the navigation around it rather than a bare
 // line of text.
@@ -175,9 +175,9 @@ func (m *mount) notFoundHandler(w http.ResponseWriter, r *http.Request) {
 	m.serveShell(w, r, http.StatusNotFound)
 }
 
-// plainNotFound answers a path that belongs to no project: an unknown project
+// plainNotFound answers a path that belongs to no space: an unknown space
 // name, or a stray path at the root. It cannot serve the shell, because the
-// base the client needs is a project's prefix and there is no project here.
+// base the client needs is a space's prefix and there is no space here.
 func plainNotFound(w http.ResponseWriter, _ *http.Request) {
 	http.Error(w, statusMessage(http.StatusNotFound), http.StatusNotFound)
 }
@@ -196,7 +196,7 @@ func (m *mount) docHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fi, err := m.prj.Store.Stat(p)
+	fi, err := m.spc.Store.Stat(p)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		// nothing of that name is there, whatever the extension says. Answering
@@ -207,7 +207,7 @@ func (m *mount) docHandler(w http.ResponseWriter, r *http.Request) {
 		// an attachment is not a page: it goes to the route that serves a file
 		// under a content type from an allowlist, with a policy of its own. A
 		// directory is not markdown either, and it is a page.
-		http.Redirect(w, r, m.prj.Prefix()+"/raw/"+encodePath(p), http.StatusFound)
+		http.Redirect(w, r, m.spc.Prefix()+"/raw/"+encodePath(p), http.StatusFound)
 		return
 	}
 	m.serveShell(w, r, http.StatusOK)
@@ -219,7 +219,7 @@ func (m *mount) serveShell(w http.ResponseWriter, r *http.Request, status int) {
 		Title:   m.Title,
 		Nonce:   nonceOf(r.Context()),
 		Version: m.Version,
-		Base:    m.prj.Prefix(),
+		Base:    m.spc.Prefix(),
 		Entry:   m.appShell.entry,
 		CSS:     m.appShell.css,
 		Preload: m.appShell.preload,

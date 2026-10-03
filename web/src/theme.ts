@@ -64,9 +64,9 @@ export const layout = {
   topbarHeightCompact: 48,
   topbarIconSize: 18,
   tapTarget: 44,
-  // the switcher names the project and then gets out of the way of the page
+  // the switcher names the space and then gets out of the way of the page
   // actions, which are what a phone topbar must never push off the row
-  projectSwitcherWidth: 130,
+  spaceSwitcherWidth: 130,
   // an input below 16px makes iOS zoom the page on focus and never zoom back
   inputFontSize: 16,
 } as const;

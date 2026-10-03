@@ -32,7 +32,7 @@ snapshot:
 	@goreleaser release --snapshot --skip=publish --clean
 
 run:
-	@go run . --root=./examples/data --project=notes --listen=:7272 --auth.disabled --history=off --dbg
+	@go run . --space.dir=./examples/data --space.name=notes --listen=:7272 --auth.disabled --history=off --dbg
 
 e2e: build
 	@cd e2e && npx playwright test

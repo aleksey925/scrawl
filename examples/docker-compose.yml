@@ -1,6 +1,6 @@
 # Deployment example, written for a Synology NAS but not specific to one.
 # Copy it over, change the volume path, AUTH_USERS and the user: line, then
-# `docker compose up -d`. Container Manager takes the same file under Project.
+# `docker compose up -d`. Container Manager takes the same file under Space.
 services:
   scrawl:
     image: ghcr.io/aleksey925/scrawl:latest
@@ -17,11 +17,11 @@ services:
     environment:
       - TZ=Europe/Nicosia
       # the name of the folder above, and the one URL segment everything in it
-      # is served under: /p/notes/doc/python/redis.md. it is required, because
+      # is served under: /s/notes/doc/python/redis.md. it is required, because
       # a name taken from the directory would turn one mv into a site-wide URL
-      # change. several folders at once go in a CONFIG file instead, see the
+      # change. several folders at once go in a SPACES_FILE instead, see the
       # README
-      - PROJECT=notes
+      - SPACE_NAME=notes
       # in a compose file every literal dollar has to be doubled, because
       # compose expands $VARS: a hash printed as $2a$10$xyz goes in as
       # $$2a$$10$$xyz. in Container Manager's environment table values are
@@ -47,7 +47,7 @@ services:
       # touches the notes
       - HISTORY=auto
       # site title in the interface
-      # - TITLE=Notes
+      # - SITE_TITLE=Notes
       # inotify never sees what another client writes to a network share
       # - WATCH=poll
       # collect uploads in one folder instead of next to each document

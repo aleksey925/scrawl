@@ -24,7 +24,7 @@ export function ancestorsOf(path: string): string[] {
   return res;
 }
 
-// the pathname react-router hands over has the project basename stripped off
+// the pathname react-router hands over has the space basename stripped off
 // already, so this reads the route words and nothing else.
 //
 // A directory is addressed with a trailing slash and the same folder is one

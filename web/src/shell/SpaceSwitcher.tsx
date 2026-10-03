@@ -8,17 +8,17 @@ import { layout } from '../theme';
 
 import { useNav } from './NavContext';
 
-// ProjectSwitcher goes to another project's root with a full page load, which
+// SpaceSwitcher goes to another space's root with a full page load, which
 // re-boots the shell with the new basename. There is no client-side
-// multi-project state to hold, which is the point of one subtree per project.
-export function ProjectSwitcher(): JSX.Element | null {
+// multi-space state to hold, which is the point of one subtree per space.
+export function SpaceSwitcher(): JSX.Element | null {
   const { me } = useNav();
-  const state = useApi((signal) => api.projects({ signal }), []);
+  const state = useApi((signal) => api.spaces({ signal }), []);
 
-  const projects = state.data ?? [];
-  const current = me?.project;
-  // with one project there is nothing to switch to, so the control is not there
-  if (projects.length < 2 || current === undefined) {
+  const spaces = state.data ?? [];
+  const current = me?.space;
+  // with one space there is nothing to switch to, so the control is not there
+  if (spaces.length < 2 || current === undefined) {
     return null;
   }
 
@@ -26,16 +26,16 @@ export function ProjectSwitcher(): JSX.Element | null {
     <Menu position="bottom-start" withinPortal>
       <Menu.Target>
         {/* no visibleFrom: a phone is where a reader is most likely to have
-            landed in the wrong project, and the theme gives every Button the
+            landed in the wrong space, and the theme gives every Button the
             touch minimum on a coarse pointer already. The label truncates
             instead, so the controls beside it keep their room. */}
         <Button
-          data-testid="topbar-project"
+          data-testid="topbar-space"
           variant="subtle"
           color="gray"
           size="xs"
           px="xs"
-          maw={layout.projectSwitcherWidth}
+          maw={layout.spaceSwitcherWidth}
           miw={layout.tapTarget}
           style={{ flexShrink: 1 }}
           rightSection={<IconChevronDown size={14} />}
@@ -44,22 +44,22 @@ export function ProjectSwitcher(): JSX.Element | null {
           {current.label}
         </Button>
       </Menu.Target>
-      <Menu.Dropdown data-testid="topbar-project-menu">
-        <Menu.Label>Projects</Menu.Label>
-        {projects.map((project) => (
+      <Menu.Dropdown data-testid="topbar-space-menu">
+        <Menu.Label>Spaces</Menu.Label>
+        {spaces.map((entry) => (
           <Menu.Item
-            key={project.name}
-            data-testid="topbar-project-item"
-            data-project={project.name}
-            data-current={project.name === current.name ? 'true' : 'false'}
+            key={entry.name}
+            data-testid="topbar-space-item"
+            data-space={entry.name}
+            data-current={entry.name === current.name ? 'true' : 'false'}
             component="a"
-            href={project.url}
+            href={entry.url}
             leftSection={
-              project.name === current.name ? <IconCheck size={16} /> : <span style={{ width: 16 }} />
+              entry.name === current.name ? <IconCheck size={16} /> : <span style={{ width: 16 }} />
             }
-            rightSection={project.read_only ? <IconEyeOff size={14} /> : undefined}
+            rightSection={entry.read_only ? <IconEyeOff size={14} /> : undefined}
           >
-            <Text size="sm">{project.label}</Text>
+            <Text size="sm">{entry.label}</Text>
           </Menu.Item>
         ))}
       </Menu.Dropdown>

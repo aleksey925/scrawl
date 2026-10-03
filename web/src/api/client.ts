@@ -16,7 +16,7 @@ import type {
   NavResponse,
   PageResponse,
   PreviewRequest,
-  ProjectEntry,
+  SpaceEntry,
   PreviewResponse,
   ResetRequest,
   ResetResponse,
@@ -123,11 +123,11 @@ interface CallOptions extends RequestOptions {
 // session and never extend one.
 const backgroundHeader = 'X-Scrawl-Background';
 
-// The two halves of the server's URL space, which every request has to pick
-// between: a project's own API lives under its prefix, the handful of routes
+// The two halves of the server's URLs, which every request has to pick
+// between: a space's own API lives under its prefix, the handful of routes
 // that read no store answer at the root. Mixing them up is a 404 the moment the
 // prefix is not empty, which it never is.
-function projectUrl(path: string): string {
+function spaceUrl(path: string): string {
   return mountBase() + path;
 }
 
@@ -200,11 +200,11 @@ function isPage(body: PageResponse | ApiErrorBody): body is PageResponse {
 }
 
 function fileUrl(path: string): string {
-  return projectUrl(`/api/file/${encodeContentPath(path)}`);
+  return spaceUrl(`/api/file/${encodeContentPath(path)}`);
 }
 
 function historyUrl(path: string): string {
-  return projectUrl(`/api/history/${encodeContentPath(path)}`);
+  return spaceUrl(`/api/history/${encodeContentPath(path)}`);
 }
 
 // a restore that collided is an outcome and not a throw, so the success arm is
@@ -217,7 +217,7 @@ export interface ScrawlApi {
   dir(path: string, options?: RequestOptions): Promise<DirResponse>;
   nav(path: string, options?: RequestOptions): Promise<NavResponse>;
   me(options?: RequestOptions): Promise<MeResponse>;
-  projects(options?: RequestOptions): Promise<ProjectEntry[]>;
+  spaces(options?: RequestOptions): Promise<SpaceEntry[]>;
   tree(options?: RequestOptions): Promise<TreeResponse>;
   file(path: string, options?: RequestOptions): Promise<FileResponse>;
   saveFile(path: string, body: SaveFileRequest, options?: RequestOptions): Promise<SaveFileResponse>;
@@ -244,7 +244,7 @@ export const api: ScrawlApi = {
   page: async (path, options) => {
     const body = await call<PageResponse | ApiErrorBody>(
       'GET',
-      projectUrl(`/api/page/${encodeContentPath(path)}`),
+      spaceUrl(`/api/page/${encodeContentPath(path)}`),
       { ...options, allowStatus: [404] },
     );
     if (!isPage(body)) {
@@ -254,15 +254,15 @@ export const api: ScrawlApi = {
   },
 
   dir: (path, options) =>
-    call<DirResponse>('GET', projectUrl(`/api/dir/${encodeContentPath(path)}`), options),
+    call<DirResponse>('GET', spaceUrl(`/api/dir/${encodeContentPath(path)}`), options),
 
-  nav: (path, options) => call<NavResponse>('GET', withQuery(projectUrl('/api/nav'), { path }), options),
+  nav: (path, options) => call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path }), options),
 
-  me: (options) => call<MeResponse>('GET', projectUrl('/api/me'), options),
+  me: (options) => call<MeResponse>('GET', spaceUrl('/api/me'), options),
 
-  projects: (options) => call<ProjectEntry[]>('GET', globalUrl('/api/projects'), options),
+  spaces: (options) => call<SpaceEntry[]>('GET', globalUrl('/api/spaces'), options),
 
-  tree: (options) => call<TreeResponse>('GET', projectUrl('/api/tree'), options),
+  tree: (options) => call<TreeResponse>('GET', spaceUrl('/api/tree'), options),
 
   file: (path, options) => call<FileResponse>('GET', fileUrl(path), options),
 
@@ -274,10 +274,10 @@ export const api: ScrawlApi = {
   deleteEntry: (path, options) => call<EntryPathResponse>('DELETE', fileUrl(path), options),
 
   move: (from, to, options) =>
-    call<EntryPathResponse>('POST', projectUrl('/api/move'), { ...options, body: { from, to } }),
+    call<EntryPathResponse>('POST', spaceUrl('/api/move'), { ...options, body: { from, to } }),
 
   search: (query, limit, options) =>
-    call<SearchResponse>('GET', withQuery(projectUrl('/api/search'), { q: query, limit }), options),
+    call<SearchResponse>('GET', withQuery(spaceUrl('/api/search'), { q: query, limit }), options),
 
   history: (path, options) => call<HistoryResponse>('GET', historyUrl(path), options),
 
@@ -289,7 +289,7 @@ export const api: ScrawlApi = {
   restoreVersion: async (path, body, options) => {
     const res = await call<RestoreResponse | ApiErrorBody>(
       'POST',
-      projectUrl(`/api/history/restore/${encodeContentPath(path)}`),
+      spaceUrl(`/api/history/restore/${encodeContentPath(path)}`),
       { ...options, body, allowStatus: [412] },
     );
     return 'current_content' in res && res.current_content !== undefined
@@ -298,19 +298,19 @@ export const api: ScrawlApi = {
   },
 
   preview: (body, options) =>
-    call<PreviewResponse>('POST', projectUrl('/api/preview'), { ...options, body }),
+    call<PreviewResponse>('POST', spaceUrl('/api/preview'), { ...options, body }),
 
   upload: (dir, file, doc, options) => {
     const form = new FormData();
     form.set('file', file);
-    const url = withQuery(projectUrl(`/api/upload/${encodeContentPath(dir)}`), { doc });
+    const url = withQuery(spaceUrl(`/api/upload/${encodeContentPath(dir)}`), { doc });
     return call<UploadResponse>('POST', url, { ...options, form });
   },
 
-  syncCheck: (options) => call<Divergence>('POST', projectUrl('/api/sync/check'), options),
+  syncCheck: (options) => call<Divergence>('POST', spaceUrl('/api/sync/check'), options),
 
   syncReset: (body, options) =>
-    call<ResetResponse>('POST', projectUrl('/api/sync/reset'), { ...options, body }),
+    call<ResetResponse>('POST', spaceUrl('/api/sync/reset'), { ...options, body }),
 
   logout: (options) => call<void>('POST', globalUrl('/api/logout'), options),
 };

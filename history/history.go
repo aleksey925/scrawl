@@ -84,7 +84,7 @@ var (
 
 // Config holds everything the service needs. Root and Files are mandatory.
 type Config struct {
-	Name        string                   // project this repository belongs to, used for nothing but the log prefix
+	Name        string                   // space this repository belongs to, used for nothing but the log prefix
 	Root        string                   // notes directory, the repository root
 	Extensions  []string                 // versioned extensions, empty means defaultExtensions
 	Files       func() ([]string, error) // every visible file, relative slash paths

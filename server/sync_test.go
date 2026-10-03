@@ -44,12 +44,12 @@ func TestWhoMayReset(t *testing.T) {
 		headers map[string]string
 		allowed bool
 	}{
-		{name: "no auth, writable project", allowed: true},
-		{name: "no auth, read-only project", opts: testOpts{projectReadOnly: true}},
+		{name: "no auth, writable space", allowed: true},
+		{name: "no auth, read-only space", opts: testOpts{spaceReadOnly: true}},
 		{name: "no auth, read-only server", opts: testOpts{readOnly: true}},
-		{name: "no auth, local project", local: true},
+		{name: "no auth, local space", local: true},
 		{name: "a session", opts: testOpts{withAuth: true}, signIn: true, allowed: true},
-		{name: "a session, read-only project", opts: testOpts{withAuth: true, projectReadOnly: true}, signIn: true, allowed: true},
+		{name: "a session, read-only space", opts: testOpts{withAuth: true, spaceReadOnly: true}, signIn: true, allowed: true},
 		{name: "a read-write token", opts: testOpts{withAuth: true}, headers: bearer(testToken), allowed: true},
 		{name: "a read-only token", opts: testOpts{withAuth: true}, headers: bearer(testReadToken)},
 	}
@@ -75,10 +75,10 @@ func TestWhoMayReset(t *testing.T) {
 
 			// assert
 			require.Equal(t, http.StatusOK, me.status)
-			project, ok := meBody["project"].(map[string]any)
+			space, ok := meBody["space"].(map[string]any)
 			require.True(t, ok, meBody)
-			assert.Equal(t, tc.allowed, project["can_reset"])
-			assert.Equal(t, true, project["diverged"])
+			assert.Equal(t, tc.allowed, space["can_reset"])
+			assert.Equal(t, true, space["diverged"])
 			want := http.StatusForbidden
 			if tc.allowed {
 				want = http.StatusOK
@@ -117,7 +117,7 @@ func TestSyncCheckAnswersWhatAResetWouldLose(t *testing.T) {
 
 func TestSyncCheckOffersNoPushOnAMirror(t *testing.T) {
 	// arrange
-	ts := newTestServer(t, testOpts{withAuth: true, projectReadOnly: true, history: divergedHistory()})
+	ts := newTestServer(t, testOpts{withAuth: true, spaceReadOnly: true, history: divergedHistory()})
 
 	// act
 	_, body := ts.json(t, request{
@@ -155,9 +155,9 @@ func TestSyncResetFailures(t *testing.T) {
 		message string
 	}{
 		{name: "nothing to reset", err: history.ErrNotDiverged, status: http.StatusConflict,
-			message: "this project has not diverged from the remote"},
+			message: "this space has not diverged from the remote"},
 		{name: "moved since the check", err: history.ErrStateChanged, status: http.StatusPreconditionFailed,
-			message: "the project changed since it was checked"},
+			message: "the space changed since it was checked"},
 		{name: "refused, with the reason", err: refused, status: http.StatusUnprocessableEntity, message: refused.Error()},
 		{name: "the remote did not answer", err: errors.New("history: sync fetch: no route"),
 			status: http.StatusBadGateway, message: "history: sync fetch: no route"},

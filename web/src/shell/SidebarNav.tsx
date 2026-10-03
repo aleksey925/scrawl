@@ -79,7 +79,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
   const { draft } = useFileActions();
   const ui = useTreeUi();
 
-  // the project's own row: it is the folder everything else grows out of, so a
+  // the space's own row: it is the folder everything else grows out of, so a
   // filter never hides it and nothing may drag it anywhere
   const root = node.path === '';
 
@@ -340,8 +340,8 @@ function flatten(nodes: readonly NavNode[], visible: (node: NavNode) => boolean,
   return into;
 }
 
-function inFolder(folder: string, project: string): string {
-  return `In ${folder === '' ? project : folder}`;
+function inFolder(folder: string, space: string): string {
+  return `In ${folder === '' ? space : folder}`;
 }
 
 function nodeAt(nodes: readonly NavNode[], path: string): NavNode | undefined {
@@ -378,12 +378,12 @@ export function SidebarNav(): JSX.Element {
   const trimmed = query.trim().toLowerCase();
   const filtered = useMemo(() => filterTree(tree, trimmed), [tree, trimmed]);
 
-  // the project is a row like any other, and everything grows out of it. It is
+  // the space is a row like any other, and everything grows out of it. It is
   // what makes the root reachable at all: without it there is nothing to point
   // at when a new page belongs beside the folders rather than inside one.
   const rootNode = useMemo<NavNode>(
     () => ({
-      name: me?.project.label ?? me?.site_title ?? 'Notes',
+      name: me?.space.label ?? me?.site_title ?? 'Notes',
       path: '',
       url: '/',
       is_dir: true,
@@ -391,7 +391,7 @@ export function SidebarNav(): JSX.Element {
       current: false,
       children: [...tree],
     }),
-    [me?.project.label, me?.site_title, tree],
+    [me?.space.label, me?.site_title, tree],
   );
 
   const rowOrder = useMemo(

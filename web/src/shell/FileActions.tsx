@@ -272,7 +272,7 @@ function RenameDialog({ path, onClose, onRenamed }: RenameDialogProps): JSX.Elem
       setError('The new path has to hold a name.');
       return;
     }
-    // .md is what the tree, the search index and /p/ all key on, so a rename
+    // .md is what the tree, the search index and the page route all key on, so a rename
     // that drops it leaves the page whole on disk and gone from the app
     const to = isMarkdown(path) && !isMarkdown(typed) ? `${typed}.md` : typed;
     if (to === path) {

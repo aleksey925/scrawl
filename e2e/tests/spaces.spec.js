@@ -10,72 +10,72 @@ const {binary} = require('../support/env');
 const {pushToOrigin, tracked} = require('../support/git');
 const {MULTI, save, setSource, shot, signIn} = require('../support/helpers');
 
-const NOTES = MULTI.projects[MULTI.project];
-const TEAM = MULTI.projects.team;
-const WIKI = MULTI.projects.wiki;
+const NOTES = MULTI.spaces[MULTI.space];
+const TEAM = MULTI.spaces.team;
+const WIKI = MULTI.spaces.wiki;
 
 const teamRoot = MULTI.extra.find((extra) => extra.name === 'team').dir;
 const wikiRoot = MULTI.extra.find((extra) => extra.name === 'wiki').dir;
 const wikiOrigin = MULTI.extra.find((extra) => extra.name === 'wiki').origin;
 
-test.describe('projects', () => {
+test.describe('spaces', () => {
     test.beforeEach(async ({page}) => {
         await signIn(page, {baseURL: MULTI.baseURL, from: NOTES.home()});
     });
 
-    test('the server root sends the browser to the first project', async ({page}) => {
+    test('the server root sends the browser to the first space', async ({page}) => {
         await page.goto(MULTI.baseURL);
 
         await expect(page).toHaveURL(NOTES.home());
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.home.title);
     });
 
-    test('each project serves only its own notes', async ({page}) => {
+    test('each space serves only its own notes', async ({page}) => {
         await page.goto(TEAM.doc('team.md'));
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Team wiki');
 
         await page.goto(WIKI.doc('remote.md'));
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Remote page');
 
-        // a document of one project is not reachable through another: the
-        // content path is relative to its own root, and the project is in the
+        // a document of one space is not reachable through another: the
+        // content path is relative to its own root, and the space is in the
         // url and never in the path
         await page.goto(NOTES.doc('team.md'));
         await expect(page.getByTestId('doc-missing')).toBeVisible();
     });
 
-    test('the switcher lists every project and goes to one', async ({page}) => {
+    test('the switcher lists every space and goes to one', async ({page}) => {
         await page.goto(NOTES.home());
 
-        await page.getByTestId('topbar-project').click();
-        const items = page.getByTestId('topbar-project-item');
+        await page.getByTestId('topbar-space').click();
+        const items = page.getByTestId('topbar-space-item');
         await expect(items).toHaveCount(4);
         await expect(items.filter({hasText: 'Team wiki'})).toBeVisible();
-        await shot(page, 'projects-switcher');
+        await shot(page, 'spaces-switcher');
 
         await items.filter({hasText: 'Team wiki'}).click();
         await page.waitForLoadState('networkidle');
 
         // a full page load, so the shell boots with the new basename
         await expect(page).toHaveURL(TEAM.home());
-        await expect(page.locator('#scrawl-app-root')).toHaveAttribute('data-base', '/p/team');
-        await expect(page.getByTestId('topbar-project')).toContainText('Team wiki');
+        await expect(page.locator('#scrawl-app-root')).toHaveAttribute('data-base', '/s/team');
+        await expect(page.getByTestId('topbar-space')).toContainText('Team wiki');
     });
 
-    test('a save lands in the root of the project it was made in', async ({page}) => {
+    test('a save lands in the root of the space it was made in', async ({page}) => {
         const name = 'e2e-team-note.md';
         await page.goto(TEAM.edit(name));
-        await setSource(page, '# Team note\n\nwritten through the team project.\n');
+        await setSource(page, '# Team note\n\nwritten through the team space.\n');
         await save(page);
 
-        expect(fs.readFileSync(path.join(teamRoot, name), 'utf8')).toContain('written through the team project');
-        expect(fs.existsSync(path.join(MULTI.root, name)), 'it must not reach the other project').toBe(false);
+        expect(fs.readFileSync(path.join(teamRoot, name), 'utf8')).toContain('written through the team space');
+        expect(fs.existsSync(path.join(MULTI.root, name)), 'it must not reach the other space').toBe(false);
         fs.rmSync(path.join(teamRoot, name), {force: true});
     });
 
-    // the whole remote mode from the outside: the project's directory is a
+    // the whole remote mode from the outside: the space's directory is a
     // clone the server made, and a save reaches the origin
-    test('a remote project pushes what the app saves', async ({page}) => {
+    test('a remote space pushes what the app saves', async ({page}) => {
         const name = 'e2e-remote-note.md';
         expect(fs.existsSync(path.join(wikiRoot, '.git')), 'the server cloned into the directory').toBe(true);
 
@@ -84,11 +84,11 @@ test.describe('projects', () => {
         await save(page);
 
         await expect.poll(() => tracked(wikiOrigin), {timeout: 15_000}).toContain(name);
-        await expect(page.getByTestId('project-alert')).toHaveCount(0);
+        await expect(page.getByTestId('space-alert')).toHaveCount(0);
     });
 
     // a second writer moves the branch, and the pull ticker brings it in
-    test('a remote project takes what the origin gained', async ({page}) => {
+    test('a remote space takes what the origin gained', async ({page}) => {
         pushToOrigin(wikiOrigin, 'e2e-upstream.md', `# Upstream note\n\npushed by somebody else at ${Date.now()}.\n`);
 
         await expect.poll(
@@ -101,11 +101,11 @@ test.describe('projects', () => {
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Upstream note');
     });
 
-    test('a project name is required and never invented', async () => {
-        const result = await runBinary(['--root=' + MULTI.root, '--listen=127.0.0.1:0', '--auth.disabled']);
+    test('a space name is required and never invented', async () => {
+        const result = await runBinary(['--space.dir=' + MULTI.root, '--listen=127.0.0.1:0', '--auth.disabled']);
 
         expect(result.code, result.output).not.toBe(0);
-        expect(result.output).toContain('every project needs a name');
+        expect(result.output).toContain('every space needs a name');
     });
 });
 
@@ -119,22 +119,22 @@ function runBinary(args) {
     });
 }
 
-// the second refresh trigger. It drives the project whose pull is off, so a
+// the second refresh trigger. It drives the space whose pull is off, so a
 // note that appears there appeared because a delivery arrived and for no other
-// reason - on the ticker project the ticker would have done it anyway.
+// reason - on the ticker space the ticker would have done it anyway.
 test.describe('webhook', () => {
-    const HOOKED = MULTI.projects.hooked;
+    const HOOKED = MULTI.spaces.hooked;
     const hooked = MULTI.extra.find((extra) => extra.name === 'hooked');
     const body = JSON.stringify({ref: 'refs/heads/main'});
 
-    test('a signed delivery refreshes a project nothing else fetches', async ({page}) => {
+    test('a signed delivery refreshes a space nothing else fetches', async ({page}) => {
         // a name of its own per run: the note must be missing before the
         // delivery, and a rerun in the same session has already fetched the last one
         const delivered = `e2e-delivered-${Date.now()}.md`;
         pushToOrigin(hooked.origin, delivered, '# Delivered\n\nby the hook alone.\n');
         await signIn(page, {baseURL: MULTI.baseURL, from: HOOKED.home()});
         await page.goto(HOOKED.doc(delivered));
-        await expect(page.getByTestId('doc-missing'), 'nothing fetches this project on its own').toBeVisible();
+        await expect(page.getByTestId('doc-missing'), 'nothing fetches this space on its own').toBeVisible();
 
         // a provider cannot sign in, so the route takes no cookie at all
         const accepted = await page.request.post(HOOKED.hook(), {
@@ -161,7 +161,7 @@ test.describe('webhook', () => {
             data: body,
         });
         const below = await page.request.post(`${HOOKED.hook()}/extra`, {data: body});
-        // the ticker project declared no secret, so it has no such route
+        // the ticker space declared no secret, so it has no such route
         const absent = await page.request.post(WIKI.hook(), {data: body});
 
         expect(unsigned.status()).toBe(401);

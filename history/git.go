@@ -203,7 +203,7 @@ func gitEnv(token string) []string {
 	)
 }
 
-// token is the resolved credential header value, empty for a local project.
+// token is the resolved credential header value, empty for a local space.
 func (s *Service) token() string {
 	if s.cfg.Remote == nil {
 		return ""

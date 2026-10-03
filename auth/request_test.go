@@ -148,27 +148,27 @@ func TestWantsJSON(t *testing.T) {
 		accept string
 		want   bool
 	}{
-		{name: "html page", target: "/p/notes/doc/a.md", accept: "text/html,application/xhtml+xml"},
+		{name: "html page", target: "/s/notes/doc/a.md", accept: "text/html,application/xhtml+xml"},
 		{name: "global api path", target: "/api/login", want: true},
 		{name: "api path with an html accept", target: "/api/login", accept: "text/html", want: true},
 		{
 			name:   "json accept on a page",
-			target: "/p/notes/doc/a.md", accept: "application/json", want: true,
+			target: "/s/notes/doc/a.md", accept: "application/json", want: true,
 		},
 		{
 			name:   "json accept among others",
-			target: "/p/notes/doc/a.md", accept: "text/html, application/json;q=0.9", want: true,
+			target: "/s/notes/doc/a.md", accept: "text/html, application/json;q=0.9", want: true,
 		},
 		{name: "path that only looks like the api", target: "/apiary", want: false},
-		// an API client that omits Accept and calls a project's API must get a
+		// an API client that omits Accept and calls a space's API must get a
 		// JSON 401, not a redirect to an HTML form. The question is structural,
-		// so nothing here is told when a project is added.
-		{name: "a project's api", target: "/p/notes/api/file/a.md", want: true},
-		{name: "a project's api root", target: "/p/notes/api", want: true},
-		{name: "a project's raw route", target: "/p/notes/raw/logo.png", want: false},
-		{name: "a project path that only looks like the api", target: "/p/notes/apiary", want: false},
-		{name: "a project named api", target: "/p/api/doc/a.md", want: false},
-		{name: "a project with no name", target: "/p//api/tree", want: false},
+		// so nothing here is told when a space is added.
+		{name: "a space's api", target: "/s/notes/api/file/a.md", want: true},
+		{name: "a space's api root", target: "/s/notes/api", want: true},
+		{name: "a space's raw route", target: "/s/notes/raw/logo.png", want: false},
+		{name: "a space path that only looks like the api", target: "/s/notes/apiary", want: false},
+		{name: "a space named api", target: "/s/api/doc/a.md", want: false},
+		{name: "a space with no name", target: "/s//api/tree", want: false},
 	}
 
 	for _, tc := range tests {
@@ -190,19 +190,19 @@ func TestSafeRedirect(t *testing.T) {
 	}{
 		{name: "empty", from: "", want: "/"},
 		{name: "root", from: "/", want: "/"},
-		{name: "plain path", from: "/p/notes/a.md", want: "/p/notes/a.md"},
+		{name: "plain path", from: "/s/notes/a.md", want: "/s/notes/a.md"},
 		{name: "path with a query", from: "/search?q=go&limit=5", want: "/search?q=go&limit=5"},
-		{name: "path with a fragment", from: "/p/a.md#intro", want: "/p/a.md#intro"},
-		{name: "escaped path", from: "/p/%D0%9E%D0%B1%D1%89%D0%B5%D0%B5.md", want: "/p/%D0%9E%D0%B1%D1%89%D0%B5%D0%B5.md"},
+		{name: "path with a fragment", from: "/s/a.md#intro", want: "/s/a.md#intro"},
+		{name: "escaped path", from: "/s/%D0%9E%D0%B1%D1%89%D0%B5%D0%B5.md", want: "/s/%D0%9E%D0%B1%D1%89%D0%B5%D0%B5.md"},
 		{name: "protocol relative", from: "//evil.com", want: "/"},
-		{name: "protocol relative with a path", from: "//evil.com/p/a.md", want: "/"},
+		{name: "protocol relative with a path", from: "//evil.com/s/a.md", want: "/"},
 		{name: "absolute url", from: "https://evil.com", want: "/"},
-		{name: "absolute url with a path", from: "https://evil.com/p/a.md", want: "/"},
+		{name: "absolute url with a path", from: "https://evil.com/s/a.md", want: "/"},
 		{name: "backslash trick", from: `/\evil.com`, want: "/"},
 		{name: "double backslash", from: `\\evil.com`, want: "/"},
-		{name: "crlf injection", from: "/p/a.md\r\nSet-Cookie: scrawl_session=forged", want: "/"},
-		{name: "bare newline", from: "/p/a.md\nLocation: https://evil.com", want: "/"},
-		{name: "null byte", from: "/p/a.md\x00", want: "/"},
+		{name: "crlf injection", from: "/s/a.md\r\nSet-Cookie: scrawl_session=forged", want: "/"},
+		{name: "bare newline", from: "/s/a.md\nLocation: https://evil.com", want: "/"},
+		{name: "null byte", from: "/s/a.md\x00", want: "/"},
 		{name: "scheme relative with credentials", from: "//user:pass@evil.com/", want: "/"},
 		{name: "javascript scheme", from: "javascript:alert(1)", want: "/"},
 		{name: "relative path", from: "p/a.md", want: "/"},

@@ -52,9 +52,9 @@ test.describe.serial('file management', () => {
         await shot(page, 'files-folder-created');
     });
 
-    // the project has a row of its own, and it is the only thing that makes the
+    // the space has a row of its own, and it is the only thing that makes the
     // root a place a reader can point at
-    test('creates a file in the root from the project row', async ({page}) => {
+    test('creates a file in the root from the space row', async ({page}) => {
         const row = page.locator('[data-testid=tree-row][data-path=""]');
         await expect(page.locator('[data-testid=tree-row]').first()).toHaveAttribute('data-path', '');
         await row.locator('[data-testid=tree-row-menu]').click();

@@ -13,7 +13,7 @@ export interface MeState {
   refreshMe: () => void;
 }
 
-// useMe holds the project state and keeps it fresh without the reader.
+// useMe holds the space state and keeps it fresh without the reader.
 //
 // It does not go through useApi, which clears its data before every request:
 // canWrite requires me to be defined, so an interval there would flash every

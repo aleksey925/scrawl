@@ -39,7 +39,7 @@ const signaturePrefix = "sha256="
 // so it can answer 413 rather than 401.
 var errBodyTooLarge = errors.New("body too large")
 
-// Webhook is what a project needs to answer a delivery. Notify is non-blocking
+// Webhook is what a space needs to answer a delivery. Notify is non-blocking
 // and asks main to run Sync; the handler never runs git itself.
 type Webhook struct {
 	Secret string
@@ -64,9 +64,9 @@ type Webhook struct {
 // outside it so that the one route whose credential is a signature does not
 // look like it depends on a browser-shaped check with nothing to say about it.
 func (m *mount) hookHandler(w http.ResponseWriter, r *http.Request) {
-	hook := m.prj.Webhook
+	hook := m.spc.Webhook
 	if hook == nil {
-		// the route is registered only for a project that declared a secret
+		// the route is registered only for a space that declared a secret
 		http.Error(w, statusMessage(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
@@ -81,7 +81,7 @@ func (m *mount) hookHandler(w http.ResponseWriter, r *http.Request) {
 
 	scheme, err := verifyHook(w, r, []byte(hook.Secret))
 	if err != nil {
-		log.Printf("[WARN] webhook %s: rejected a delivery: %v", m.prj.Name, err)
+		log.Printf("[WARN] webhook %s: rejected a delivery: %v", m.spc.Name, err)
 		if errors.Is(err, errBodyTooLarge) {
 			jsonError(w, http.StatusRequestEntityTooLarge, "body too large")
 			return
@@ -90,10 +90,10 @@ func (m *mount) hookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[DEBUG] webhook %s: delivery accepted (%s)", m.prj.Name, scheme)
+	log.Printf("[DEBUG] webhook %s: delivery accepted (%s)", m.spc.Name, scheme)
 	// it never runs git: a fetch is a network round trip and the provider's own
 	// delivery timeout is shorter than a slow one, and Sync takes the history
-	// lock, so doing it here would block every save on the project for the
+	// lock, so doing it here would block every save on the space for the
 	// length of somebody else's network
 	hook.Notify()
 	w.WriteHeader(http.StatusAccepted)

@@ -14,7 +14,7 @@ import (
 )
 
 // repoTokenEnv is the one variable the flag path reads a credential from. It is
-// a fixed name because with a single project there is nothing to disambiguate,
+// a fixed name because with a single space there is nothing to disambiguate,
 // and it is optional: an https remote with no credential is a public repository,
 // which is a supported deployment.
 const repoTokenEnv = "REPO_TOKEN"
@@ -23,15 +23,15 @@ const repoTokenEnv = "REPO_TOKEN"
 // optional shape REPO_TOKEN has.
 const repoHookSecretEnv = "REPO_HOOK_SECRET" //nolint:gosec // G101: the name of a variable, never a value
 
-// configFile is the document --config names.
+// configFile is the document --spaces-file names.
 type configFile struct {
-	Projects []configProject `yaml:"projects"`
+	Spaces []configSpace `yaml:"spaces"`
 }
 
-// configProject is one project as the file declares it. Every project names its
+// configSpace is one space as the file declares it. Every space names its
 // own directory, and repo is optional metadata saying that directory is a clone
 // somebody else owns rather than a folder of ours.
-type configProject struct {
+type configSpace struct {
 	Name     string      `yaml:"name"`
 	Label    string      `yaml:"label"`
 	Dir      string      `yaml:"dir"`
@@ -40,16 +40,18 @@ type configProject struct {
 	Repo     *configRepo `yaml:"repo"`
 }
 
-// configRepo points a project at a git remote. The credential is always named
+// configRepo points a space at a git remote. The credential is always named
 // and never written down here: token_file names a file, token_env a variable,
 // and setting both is an error rather than a precedence rule an operator has to
 // remember at the worst possible moment.
 type configRepo struct {
-	URL       string       `yaml:"url"`
-	Branch    string       `yaml:"branch"`
-	TokenFile string       `yaml:"token_file"`
-	TokenEnv  string       `yaml:"token_env"`
-	Pull      yamlDuration `yaml:"pull"`
+	URL       string `yaml:"url"`
+	Branch    string `yaml:"branch"`
+	TokenFile string `yaml:"token_file"`
+	TokenEnv  string `yaml:"token_env"`
+	// a pointer, because an interval left out means the default and a written
+	// 0 means no ticker, and a plain value cannot tell the two apart
+	Pull *yamlDuration `yaml:"pull"`
 	// the shared secret the upstream repository signs its deliveries with,
 	// named exactly the way the git credential is and read by the same helper
 	HookSecretFile string `yaml:"hook_secret_file"`
@@ -58,7 +60,7 @@ type configRepo struct {
 
 // yamlDuration reads an interval the way a human writes one, "5m". It exists
 // for the one value yaml's own duration handling refuses: a bare 0, which is
-// how a project says it wants no ticker at all.
+// how a space says it wants no ticker at all.
 type yamlDuration time.Duration
 
 // UnmarshalYAML implements the yaml unmarshaler.
@@ -75,40 +77,40 @@ func (d *yamlDuration) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-// loadConfig reads the projects a run serves. Without --config that is the
-// single project the flags name; with it, the file replaces them and the flags
+// loadConfig reads the spaces a run serves. Without --spaces-file that is the
+// single space the flags name; with it, the file replaces them and the flags
 // stay the global defaults.
 //
 // It runs before setupLog, because the credentials it resolves have to be in
 // the redaction list before anything can print one.
-func loadConfig(opts *options) ([]projectConfig, error) {
-	if opts.Config == "" {
-		return flagProjects(opts)
+func loadConfig(opts *options) ([]spaceConfig, error) {
+	if opts.SpacesFile == "" {
+		return flagSpaces(opts)
 	}
-	raw, err := os.ReadFile(opts.Config)
+	raw, err := os.ReadFile(opts.SpacesFile)
 	if err != nil {
-		return nil, fmt.Errorf("read the config file: %w", err)
+		return nil, fmt.Errorf("read the spaces file: %w", err)
 	}
 
 	var doc configFile
 	dec := yaml.NewDecoder(strings.NewReader(string(raw)))
 	// a misspelled key is a startup error and not a setting that silently did
-	// nothing, which is the whole reason a config file is worth having
+	// nothing, which is the whole reason a spaces file is worth having
 	dec.KnownFields(true)
 	if err = dec.Decode(&doc); err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("parse %s: %w", opts.Config, err)
+		return nil, fmt.Errorf("parse %s: %w", opts.SpacesFile, err)
 	}
 
-	res := make([]projectConfig, 0, len(doc.Projects))
-	for _, prj := range doc.Projects {
-		cfg := projectConfig{
-			Name:     prj.Name,
-			Label:    prj.Label,
-			Dir:      prj.Dir,
-			ReadOnly: prj.ReadOnly,
-			Exclude:  prj.Exclude,
+	res := make([]spaceConfig, 0, len(doc.Spaces))
+	for _, spc := range doc.Spaces {
+		cfg := spaceConfig{
+			Name:     spc.Name,
+			Label:    spc.Label,
+			Dir:      spc.Dir,
+			ReadOnly: spc.ReadOnly,
+			Exclude:  spc.Exclude,
 		}
-		if cfg.Remote, err = repoOf(prj); err != nil {
+		if cfg.Remote, err = repoOf(spc); err != nil {
 			return nil, err
 		}
 		res = append(res, cfg)
@@ -116,47 +118,55 @@ func loadConfig(opts *options) ([]projectConfig, error) {
 	return res, nil
 }
 
-// repoOf resolves one project's repo block, credentials and all.
-func repoOf(prj configProject) (*remoteConfig, error) {
-	if prj.Repo == nil {
+// repoOf resolves one space's repo block, credentials and all.
+func repoOf(spc configSpace) (*remoteConfig, error) {
+	if spc.Repo == nil {
 		return nil, nil
 	}
-	if prj.Repo.TokenFile != "" && prj.Repo.TokenEnv != "" {
-		return nil, fmt.Errorf("project %q sets both repo.token_file and repo.token_env, pick one", prj.Name)
+	if spc.Repo.TokenFile != "" && spc.Repo.TokenEnv != "" {
+		return nil, fmt.Errorf("space %q sets both repo.token_file and repo.token_env, pick one", spc.Name)
 	}
-	if prj.Repo.HookSecretFile != "" && prj.Repo.HookSecretEnv != "" {
-		return nil, fmt.Errorf("project %q sets both repo.hook_secret_file and repo.hook_secret_env, pick one",
-			prj.Name)
+	if spc.Repo.HookSecretFile != "" && spc.Repo.HookSecretEnv != "" {
+		return nil, fmt.Errorf("space %q sets both repo.hook_secret_file and repo.hook_secret_env, pick one",
+			spc.Name)
 	}
-	token, err := resolveGitToken(prj.Repo.TokenFile, prj.Repo.TokenEnv)
+	token, err := resolveGitToken(spc.Repo.TokenFile, spc.Repo.TokenEnv)
 	if err != nil {
-		return nil, fmt.Errorf("project %q: %w", prj.Name, err)
+		return nil, fmt.Errorf("space %q: %w", spc.Name, err)
 	}
-	hook, err := resolveHookSecret(prj.Repo.HookSecretFile, prj.Repo.HookSecretEnv)
+	hook, err := resolveHookSecret(spc.Repo.HookSecretFile, spc.Repo.HookSecretEnv)
 	if err != nil {
-		return nil, fmt.Errorf("project %q: %w", prj.Name, err)
+		return nil, fmt.Errorf("space %q: %w", spc.Name, err)
+	}
+	branch := spc.Repo.Branch
+	if branch == "" {
+		branch = defaultRepoBranch
+	}
+	pull := defaultRepoPull
+	if spc.Repo.Pull != nil {
+		pull = time.Duration(*spc.Repo.Pull)
 	}
 	return &remoteConfig{
-		URL:            prj.Repo.URL,
-		Branch:         prj.Repo.Branch,
+		URL:            spc.Repo.URL,
+		Branch:         branch,
 		Token:          token,
-		Pull:           time.Duration(prj.Repo.Pull),
+		Pull:           pull,
 		HookSecret:     hook,
-		HookSecretFile: prj.Repo.HookSecretFile,
+		HookSecretFile: spc.Repo.HookSecretFile,
 	}, nil
 }
 
-// flagProjects builds the single project of the flag path. It produces the same
-// shape the file does, so nothing downstream learns which way a project was
+// flagSpaces builds the single space of the flag path. It produces the same
+// shape the file does, so nothing downstream learns which way a space was
 // declared.
-func flagProjects(opts *options) ([]projectConfig, error) {
-	cfg := projectConfig{
-		Name:     opts.Project,
-		Dir:      opts.Root,
+func flagSpaces(opts *options) ([]spaceConfig, error) {
+	cfg := spaceConfig{
+		Name:     opts.Space.Name,
+		Dir:      opts.Space.Dir,
 		ReadOnly: opts.ReadOnly,
 	}
 	if opts.Repo.URL == "" {
-		return []projectConfig{cfg}, nil
+		return []spaceConfig{cfg}, nil
 	}
 
 	token, err := resolveGitToken("", namedIfSet(repoTokenEnv))
@@ -174,7 +184,7 @@ func flagProjects(opts *options) ([]projectConfig, error) {
 		Pull:       opts.Repo.Pull,
 		HookSecret: hook,
 	}
-	return []projectConfig{cfg}, nil
+	return []spaceConfig{cfg}, nil
 }
 
 // namedIfSet names a fixed variable only while it holds something. Naming an
@@ -275,7 +285,7 @@ func resolveHookSecret(file, envVar string) (string, error) {
 	return res, nil
 }
 
-// the two things a project names a secret for, used for nothing but the words
+// the two things a space names a secret for, used for nothing but the words
 // an error is written in: one resolver serves both, and "the repository
 // credential could not be read" is the wrong sentence for a webhook.
 const (
@@ -283,7 +293,7 @@ const (
 	hookSecret    = "webhook secret"
 )
 
-// resolveSecret reads the secret a project named, from a file or from an
+// resolveSecret reads the secret a space named, from a file or from an
 // environment variable, and returns the value itself. It is the only place
 // either source is read: history rebuilds the child environment on every call
 // and has to redact the identical value out of a failure message, so a second

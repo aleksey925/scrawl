@@ -13,15 +13,15 @@ import { contentPathOf } from './naming';
 import { syncMessage, type SyncMessage } from './syncMessage';
 import { useMe } from './useMe';
 
-// one bucket per project: the set is read during the very first render, long
+// one bucket per space: the set is read during the very first render, long
 // before /api/me has answered, so the key comes from the mount prefix and not
-// from the project name the server reports.
+// from the space name the server reports.
 //
-// v2 because the project's own row joined the tree: a set written before it
-// existed holds no entry for the root and would open on a collapsed project.
+// v2 because the space's own row joined the tree: a set written before it
+// existed holds no entry for the root and would open on a collapsed space.
 const storageKey = `scrawl.tree.open:v2:${mountBase()}`;
 
-// the project row starts open, because a tree whose only row is the project is
+// the space row starts open, because a tree whose only row is the space is
 // not a tree. Collapsing it is remembered like any other folder.
 const rootPath = '';
 
@@ -58,7 +58,7 @@ export interface NavState {
   // address, and the root is that case with an empty path.
   currentPath: string;
   currentDoc: string;
-  // the project's own state, resolved once so the banner and the sync control
+  // the space's own state, resolved once so the banner and the sync control
   // render the same words
   sync: SyncMessage | undefined;
   isUnsynced: (path: string) => boolean;
@@ -156,12 +156,12 @@ export function NavProvider({ children }: { children: ReactNode }): JSX.Element 
   // cap, so the degraded form draws no badges by construction rather than by
   // every surface remembering to check
   const unsynced = useMemo(() => {
-    const paths = me?.project.unsynced;
+    const paths = me?.space.unsynced;
     if (paths === undefined || paths.many) {
       return undefined;
     }
     return new Set(paths.paths);
-  }, [me?.project.unsynced]);
+  }, [me?.space.unsynced]);
   const isUnsynced = useCallback((path: string) => unsynced?.has(path) ?? false, [unsynced]);
 
   const value = useMemo<NavState>(

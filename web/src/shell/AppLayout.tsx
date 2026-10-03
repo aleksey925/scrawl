@@ -5,7 +5,7 @@ import { Outlet, useLocation } from 'react-router';
 
 import { installUnauthorizedHandler } from '../api/client';
 import { goToLogin } from '../login';
-import { layout, layoutBreakpoints, useAtLeast } from '../theme';
+import { iconEdgeInset, layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { FileActionsProvider } from './FileActions';
 import { NavProvider } from './NavContext';
@@ -123,9 +123,9 @@ export function AppLayout(): JSX.Element {
                         aria-label={navLabel}
                       >
                         {navVisible ? (
-                          <IconLayoutSidebarLeftCollapse size={18} />
+                          <IconLayoutSidebarLeftCollapse size={layout.topbarIconSize} />
                         ) : (
-                          <IconLayoutSidebarLeftExpand size={18} />
+                          <IconLayoutSidebarLeftExpand size={layout.topbarIconSize} />
                         )}
                       </ActionIcon>
                     ) : (
@@ -178,7 +178,7 @@ export function AppLayout(): JSX.Element {
                 title="Navigation"
                 padding="lg"
                 styles={{
-                  header: { paddingInlineEnd: 'var(--mantine-spacing-lg)' },
+                  header: { paddingInlineEnd: iconEdgeInset(layout.topbarIconSize) },
                   body: { paddingInline: 0 },
                 }}
               >

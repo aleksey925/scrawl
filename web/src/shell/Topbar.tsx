@@ -3,7 +3,7 @@ import { spotlight } from '@mantine/spotlight';
 import { IconListSearch, IconSearch } from '@tabler/icons-react';
 import type { JSX, ReactNode } from 'react';
 
-import { layoutBreakpoints, useAtLeast } from '../theme';
+import { iconEdgeInset, layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { AccountMenu } from './AccountMenu';
 import { MoreMenu } from './MoreMenu';
@@ -25,7 +25,7 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
   const wide = useAtLeast(layoutBreakpoints.compactTopbar);
 
   return (
-    <Group data-testid="topbar" h="100%" px="lg" gap={wide ? 'sm' : 0} wrap="nowrap">
+    <Group data-testid="topbar" h="100%" px={wide ? 'lg' : iconEdgeInset(layout.topbarIconSize)} gap={wide ? 'sm' : 0} wrap="nowrap">
       {burger}
 
       <ProjectSwitcher />
@@ -53,30 +53,31 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
           aria-label="Search"
           onClick={spotlight.open}
         >
-          <IconSearch size={18} />
+          <IconSearch size={layout.topbarIconSize} />
+        </ActionIcon>
+      )}
+
+      {tocAvailable && (
+        <ActionIcon
+          data-testid="topbar-toc"
+          variant="subtle"
+          color="gray"
+          size="lg"
+          aria-label="On this page"
+          onClick={onOpenToc}
+        >
+          <IconListSearch size={layout.topbarIconSize} />
         </ActionIcon>
       )}
 
       {wide ? (
         <>
-          {tocAvailable && (
-            <ActionIcon
-              data-testid="topbar-toc"
-              variant="subtle"
-              color="gray"
-              size="lg"
-              aria-label="On this page"
-              onClick={onOpenToc}
-            >
-              <IconListSearch size={18} />
-            </ActionIcon>
-          )}
           <SyncControl />
           <ThemeToggle />
           <AccountMenu />
         </>
       ) : (
-        <MoreMenu tocAvailable={tocAvailable} onOpenToc={onOpenToc} />
+        <MoreMenu />
       )}
     </Group>
   );

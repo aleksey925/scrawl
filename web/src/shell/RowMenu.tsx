@@ -11,7 +11,7 @@ import { useFileActions } from './FileActions';
 import { useNav } from './NavContext';
 import { parentOf } from './naming';
 
-const iconSize = 16;
+export const rowMenuIconSize = 16;
 
 export interface RowMenuProps {
   path: string;
@@ -56,14 +56,14 @@ export function RowMenu({ path, isDir, name, touch }: RowMenuProps): JSX.Element
           style={{ flex: 'none' }}
           aria-label={`Actions for ${name}`}
         >
-          <IconDots size={iconSize} />
+          <IconDots size={rowMenuIconSize} />
         </ActionIcon>
       </Menu.Target>
 
       <Menu.Dropdown data-testid="tree-row-menu-dropdown">
         <Menu.Item
           data-testid="tree-row-menu-open"
-          leftSection={isDir ? <IconFolder size={iconSize} /> : <IconFile size={iconSize} />}
+          leftSection={isDir ? <IconFolder size={rowMenuIconSize} /> : <IconFile size={rowMenuIconSize} />}
           onClick={open}
         >
           Open
@@ -71,7 +71,7 @@ export function RowMenu({ path, isDir, name, touch }: RowMenuProps): JSX.Element
         {!isDir && canWrite && (
           <Menu.Item
             data-testid="tree-row-menu-edit"
-            leftSection={<IconEdit size={iconSize} />}
+            leftSection={<IconEdit size={rowMenuIconSize} />}
             onClick={() => void navigate(editUrl(path))}
           >
             Edit
@@ -83,14 +83,14 @@ export function RowMenu({ path, isDir, name, touch }: RowMenuProps): JSX.Element
             <Menu.Divider />
             <Menu.Item
               data-testid="tree-row-menu-new-page"
-              leftSection={<IconPlus size={iconSize} />}
+              leftSection={<IconPlus size={rowMenuIconSize} />}
               onClick={() => actions.createPage(folder)}
             >
               New file
             </Menu.Item>
             <Menu.Item
               data-testid="tree-row-menu-new-folder"
-              leftSection={<IconFolderPlus size={iconSize} />}
+              leftSection={<IconFolderPlus size={rowMenuIconSize} />}
               onClick={() => actions.createFolder(folder)}
             >
               New folder
@@ -103,7 +103,7 @@ export function RowMenu({ path, isDir, name, touch }: RowMenuProps): JSX.Element
         {canWrite && path !== '' && (
           <Menu.Item
             data-testid="tree-row-menu-rename"
-            leftSection={<IconEdit size={iconSize} />}
+            leftSection={<IconEdit size={rowMenuIconSize} />}
             onClick={() => actions.rename(path, isDir)}
           >
             Rename
@@ -111,7 +111,7 @@ export function RowMenu({ path, isDir, name, touch }: RowMenuProps): JSX.Element
         )}
         <Menu.Item
           data-testid="tree-row-menu-copy-link"
-          leftSection={<IconLink size={iconSize} />}
+          leftSection={<IconLink size={rowMenuIconSize} />}
           onClick={() => actions.copyLink(path, isDir)}
         >
           Copy link
@@ -123,7 +123,7 @@ export function RowMenu({ path, isDir, name, touch }: RowMenuProps): JSX.Element
             <Menu.Item
               data-testid="tree-row-menu-delete"
               color="red"
-              leftSection={<IconTrash size={iconSize} />}
+              leftSection={<IconTrash size={rowMenuIconSize} />}
               onClick={() => actions.remove(path, isDir)}
             >
               Delete

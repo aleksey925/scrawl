@@ -3,6 +3,7 @@ import { IconDeviceDesktop, IconMoon, IconSun } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import { nextColorScheme } from '../colorScheme';
+import { layout } from '../theme';
 
 export function SchemeIcon({ scheme, size }: { scheme: MantineColorScheme; size: number }): JSX.Element {
   if (scheme === 'light') {
@@ -28,7 +29,7 @@ export function ThemeToggle(): JSX.Element {
         aria-label={`Theme: ${colorScheme}, switch to ${nextColorScheme(colorScheme)}`}
         onClick={() => setColorScheme(nextColorScheme(colorScheme))}
       >
-        <SchemeIcon scheme={colorScheme} size={18} />
+        <SchemeIcon scheme={colorScheme} size={layout.topbarIconSize} />
       </ActionIcon>
     </Tooltip>
   );

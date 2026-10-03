@@ -62,6 +62,7 @@ export const layout = {
   contentMeasure: 740,
   topbarHeight: 52,
   topbarHeightCompact: 48,
+  topbarIconSize: 18,
   tapTarget: 44,
   // the switcher names the project and then gets out of the way of the page
   // actions, which are what a phone topbar must never push off the row
@@ -69,6 +70,12 @@ export const layout = {
   // an input below 16px makes iOS zoom the page on focus and never zoom back
   inputFontSize: 16,
 } as const;
+
+// iconEdgeInset is the padding that puts the glyph of an icon button, not its
+// 44px box, on the phone's 16px edge, where the text of the page starts
+export function iconEdgeInset(glyphSize: number): string {
+  return `calc(var(--mantine-spacing-lg) - (var(--scrawl-tap-target) - ${glyphSize}px) / 2)`;
+}
 
 // GitHub's Primer palette, read off github.com, under its own token names. The
 // app and a rendered note are both painted from it, so the two cannot drift

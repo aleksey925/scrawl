@@ -139,13 +139,24 @@ test.describe('mobile', () => {
         expect(names, 'names cut off in the drawer').toEqual([]);
 
         // the chevron is narrow to the eye and still takes a finger as wide as
-        // the touch minimum, through a strip reaching left into the indent
-        const twisty = page.locator('[data-testid=tree-row][data-path=""] [data-testid=tree-twisty]');
+        // the touch minimum, through a strip reaching left into the indent. A
+        // top-level row has the edge of the screen there, so a nested one is asked.
+        const folder = docs.deep.path.split('/')[0];
+        const twisty = page.locator(`[data-testid=tree-row][data-path="${folder}"] [data-testid=tree-twisty]`);
+        await twisty.scrollIntoViewIfNeeded();
         const box = await twisty.boundingBox();
         expect(box.width).toBeLessThan(MIN_TAP);
         const reached = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)
             ?.closest('[data-testid]')?.dataset.testid, [box.x + box.width - MIN_TAP + 1, box.y + box.height / 2]);
         expect(reached).toBe('tree-twisty');
+
+        // the chevron and the row menu sit on the edges the filter above them has
+        const filter = await page.getByTestId('sidebar-filter').boundingBox();
+        const root = page.locator('[data-testid=tree-row][data-path=""]');
+        const chevron = await root.getByTestId('tree-twisty').locator('svg').boundingBox();
+        const dots = await root.getByTestId('tree-row-menu').locator('svg').boundingBox();
+        expect([Math.round(chevron.x), Math.round(width - dots.x - dots.width)])
+            .toEqual([Math.round(filter.x), Math.round(width - filter.x - filter.width)]);
         await shot(page, 'mobile-drawer-full');
     });
 
@@ -233,12 +244,18 @@ test.describe('mobile', () => {
         await page.getByTestId('doc-code').first().scrollIntoViewIfNeeded();
         await shot(page, 'mobile-doc-controls');
 
-        // the page holds dozens of each, so report the first few by name
-        const offenders = [
-            ...await tooSmall(page, '[data-testid=code-copy]'),
-            ...await tooSmall(page, '[data-testid=doc-heading-anchor]'),
-        ].slice(0, 3);
+        // the page holds dozens, so report the first few by name
+        const offenders = (await tooSmall(page, '[data-testid=code-copy]')).slice(0, 3);
         expect(offenders, 'controls smaller than the touch minimum').toEqual([]);
+    });
+
+    // the heading link icon lives in a 20px gutter left of the heading, and a
+    // phone keeps 16px at the edge: it hung off the screen over the first letter
+    test('a heading carries no link icon on a phone', async ({page}) => {
+        await page.goto(routes.doc(DOC));
+        await expect(page.getByTestId('doc').locator('h1').first()).toBeVisible();
+
+        await expect(page.getByTestId('doc-heading-anchor').first()).toBeHidden();
     });
 
     test('the editor tabs are big enough to tap', async ({page}) => {
@@ -288,13 +305,21 @@ test.describe('mobile', () => {
 
     // the burger's lines sat 6px from the edge while the menu dots sat 17px:
     // mantine draws the lines at the left of a box the touch minimum widened
-    test('the top bar icons keep the same distance from both edges', async ({page}) => {
+    // and the page text then started 3px further in, 32px from an edge GitHub
+    // keeps at 15px on a phone. The icons, the path and the note share one line.
+    test('the top bar icons and the page text share both edges', async ({page}) => {
         await page.goto(routes.doc(DOC));
 
         const width = page.viewportSize().width;
         const lines = await page.getByTestId('topbar-burger').locator('.mantine-Burger-burger').boundingBox();
         const dots = await page.getByTestId('topbar-more').locator('svg').boundingBox();
-        expect(Math.round(lines.x)).toBe(Math.round(width - dots.x - dots.width));
+        const path = await page.getByTestId('page-breadcrumbs').boundingBox();
+        const heading = await page.getByTestId('doc').locator('h1').first().boundingBox();
+        const left = Math.round(lines.x);
+        const right = Math.round(width - dots.x - dots.width);
+        expect(right).toBe(left);
+        expect([Math.round(path.x), Math.round(heading.x), Math.round(width - heading.x - heading.width)])
+            .toEqual([left, left, right]);
     });
 
     test('the root note has no path row', async ({page}) => {
@@ -382,7 +407,6 @@ test.describe('mobile', () => {
     // router replaces rather than pushes, and that still has to count as a move.
     test('the outline sheet opens from the top bar', async ({page}) => {
         await page.goto(routes.doc(DOC));
-        await openMore(page);
         await page.getByTestId('topbar-toc').tap();
 
         await expect(page.getByTestId('toc-entry').first()).toBeVisible();

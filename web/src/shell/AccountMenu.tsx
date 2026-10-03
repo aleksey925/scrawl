@@ -4,10 +4,11 @@ import type { JSX } from 'react';
 
 import { api } from '../api/client';
 import { goToLogin } from '../login';
+import { layout } from '../theme';
 
 import { useNav } from './NavContext';
 
-const iconSize = 18;
+const iconSize = layout.topbarIconSize;
 
 async function signOut(): Promise<void> {
   await api.logout();

@@ -216,6 +216,14 @@
   }
 }
 
+/* a phone keeps 16px at the edge, and the icon's gutter is wider than that: it
+   hung off the screen over the first letter. GitHub has no hover there either. */
+@mixin smaller-than $mantine-breakpoint-sm {
+  .markdown-document .md-anchor {
+    display: none;
+  }
+}
+
 /* --- blocks -------------------------------------------------------------- */
 
 .markdown-document :is(p, blockquote, ul, ol, dl, table, pre, details, figure) {

@@ -62,7 +62,7 @@ vendor/                dependencies, checked in, `make deps` regenerates
 - Every screen puts its content in the same centered column, so the text
   does not move sideways between a note, a search and a directory.
 - On a phone the topbar is one row of icons: the page's own actions,
-  search and a `⋯` menu holding the outline, the sync state, the theme
+  search, the outline and a `⋯` menu holding the sync state, the theme
   and the account. The path leaves the bar for a row on the page. Nine
   controls and the crumbs once shared it, the crumbs got 25px, wrapped
   inside the clipped bar and fell over the note as a column.
@@ -140,7 +140,12 @@ vendor/                dependencies, checked in, `make deps` regenerates
   github-markdown-css onto the markup `render` emits, and the note sits
   in no mantine `Typography`, whose prose rules would mix a second look
   in. Where the column takes the whole width it keeps GitHub's 32px from
-  the edge of the screen.
+  the edge of the screen, and on a phone GitHub's 16px.
+- On a phone everything starts on that 16px line: the page text, the
+  path, the glyph (not the 44px box) of the first and last topbar icon,
+  and in the drawer the filter, the chevrons and the row menus. A tree
+  row there runs from edge to edge, so its highlight has no edge of its
+  own to sit off that line.
 - A panel that covers the page goes through `overlay.js`, which owns the
   `inert` behind it, the focus it took and which single panel is up. The
   drawer and the outline sheet each ran their own copy of that over

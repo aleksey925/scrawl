@@ -3,7 +3,7 @@ import type { TablerIcon } from '@tabler/icons-react';
 import type { JSX, ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { layoutBreakpoints, useAtLeast } from '../theme';
+import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 export interface TopbarActionProps {
   testId: string;
@@ -34,7 +34,7 @@ export function TopbarAction({ testId, label, icon: Icon, to, onClick, primary =
         renderRoot={renderRoot}
         onClick={onClick}
       >
-        <Icon size={18} />
+        <Icon size={layout.topbarIconSize} />
       </ActionIcon>
     );
   }

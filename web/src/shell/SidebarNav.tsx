@@ -6,19 +6,19 @@ import {
 } from '@tabler/icons-react';
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
-  type DragEvent, type JSX, type KeyboardEvent, type MouseEvent,
+  type CSSProperties, type DragEvent, type JSX, type KeyboardEvent, type MouseEvent,
 } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
 import controls from '../controls.module.css';
-import { layout, layoutBreakpoints, useBelow } from '../theme';
+import { iconEdgeInset, layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { folderFor, useFileActions } from './FileActions';
 import { useNav } from './NavContext';
 import { SyncBadge } from './SyncBadge';
-import { RowMenu } from './RowMenu';
+import { RowMenu, rowMenuIconSize } from './RowMenu';
 import { basenameOf, parentOf } from './naming';
 import { filterTree, type FilteredTree } from './treeFilter';
 
@@ -26,6 +26,8 @@ const iconSize = 16;
 const deskRowHeight = 30;
 const deskTwistyWidth = 22;
 const touchTwistyWidth = 28;
+const chevronSize = 14;
+const indentStep = 14;
 
 // focusSettleMs is how long the draft row waits before it believes a blur.
 // Measured against mantine's menu, which returns focus to its trigger when it
@@ -99,7 +101,6 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
       <Group
         gap={2}
         wrap="nowrap"
-        pr={touch ? 0 : 4}
         data-testid="tree-row"
         data-current={current ? 'true' : 'false'}
         data-selected={picked ? 'true' : 'false'}
@@ -115,8 +116,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
         style={{
           minWidth: 0,
           minHeight: touch ? layout.tapTarget : deskRowHeight,
-          paddingLeft: depth * 14,
-          borderRadius: 'var(--mantine-radius-sm)',
+          ...rowInsets(depth, touch),
           background: rowBackground(current, picked, over),
           // a row that is being dragged onto is a target and not a button: the
           // outline says where the drop lands without moving anything
@@ -138,7 +138,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
             aria-expanded={open}
             onClick={() => toggleFolder(node.path)}
           >
-            <IconChevronRight size={14} style={{ transform: open ? 'rotate(90deg)' : undefined }} />
+            <IconChevronRight size={chevronSize} style={{ transform: open ? 'rotate(90deg)' : undefined }} />
           </ActionIcon>
         ) : (
           <Box w={touch ? touchTwistyWidth : deskTwistyWidth} style={{ flex: 'none' }} />
@@ -197,6 +197,19 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
       )}
     </Box>
   );
+}
+
+// on a phone a row runs from edge to edge, so its highlight has no edge of its
+// own to sit off the line the chevron, the menu glyph and the page text share
+function rowInsets(depth: number, touch: boolean): CSSProperties {
+  if (!touch) {
+    return { paddingLeft: depth * indentStep, paddingRight: 4, borderRadius: 'var(--mantine-radius-sm)' };
+  }
+  const chevronOffset = (touchTwistyWidth - chevronSize) / 2;
+  return {
+    paddingLeft: `calc(var(--mantine-spacing-lg) - ${chevronOffset}px + ${depth * indentStep}px)`,
+    paddingRight: iconEdgeInset(rowMenuIconSize),
+  };
 }
 
 function rowBackground(current: boolean, picked: boolean, over: boolean): string | undefined {
@@ -271,10 +284,9 @@ function DraftRow({ depth, touch }: { depth: number; touch: boolean }): JSX.Elem
     <Group
       gap={2}
       wrap="nowrap"
-      pr={touch ? 0 : 4}
       data-testid="tree-draft"
       data-entry={page ? 'file' : 'dir'}
-      style={{ minWidth: 0, minHeight: touch ? layout.tapTarget : deskRowHeight, paddingLeft: depth * 14 }}
+      style={{ minWidth: 0, minHeight: touch ? layout.tapTarget : deskRowHeight, ...rowInsets(depth, touch) }}
     >
       <Box w={touch ? touchTwistyWidth : deskTwistyWidth} style={{ flex: 'none' }} />
       {page ? (
@@ -350,8 +362,8 @@ export function SidebarNav(): JSX.Element {
   const { tree, error, loading, canWrite, currentPath, query, setQuery, isOpen, openFolder, me } = useNav();
   const actions = useFileActions();
   const touch = useBelow(layoutBreakpoints.sidebar);
-  // the drawer leaves its sides to this, so the gutter sits inside the scroll
-  // area and the chevron's touch strip on a top-level row is not clipped
+  // the drawer leaves its sides to this: its rows reach both edges and carry
+  // their own insets, so the chevron's touch strip on a top-level row is whole
   const gutter = touch ? 'lg' : 'xs';
   const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -589,7 +601,7 @@ export function SidebarNav(): JSX.Element {
           {/* the empty space below the rows is the root folder, so dragging a
               note out of a folder needs no row to aim at */}
           <Box
-            px={gutter}
+            px={touch ? 0 : gutter}
             pb="xs"
             mih="100%"
             data-testid="tree-root"

@@ -128,11 +128,14 @@ vendor/                dependencies, checked in, `make deps` regenerates
   in both. A tap latches `:hover` onto what it landed on until the next
   tap somewhere else, so every decorative hover is gated on
   `@media (hover: hover)` and the platform tap highlight is off.
-- A rendered note looks the way GitHub draws it: `markdown.css` is a port
-  of github-markdown-css onto the markup `render` emits, painted from the
-  `--md-*` tokens, GitHub's palette, in the theme. The chrome keeps its
-  own tokens. The note sits in no mantine `Typography`, whose prose rules
-  would mix a second look into the first.
+- The app looks the way GitHub does. The theme holds one Primer palette
+  per scheme, read off github.com under Primer's names: a note reads it
+  as `--gh-*`, the chrome through the `--scrawl-*` tokens built from it,
+  so the two cannot drift apart. `markdown.css` is a port of
+  github-markdown-css onto the markup `render` emits, and the note sits
+  in no mantine `Typography`, whose prose rules would mix a second look
+  in. Where the column takes the whole width it keeps GitHub's 32px from
+  the edge of the screen.
 - A panel that covers the page goes through `overlay.js`, which owns the
   `inert` behind it, the focus it took and which single panel is up. The
   drawer and the outline sheet each ran their own copy of that over

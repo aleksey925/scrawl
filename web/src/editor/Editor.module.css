@@ -13,7 +13,7 @@
   border: 1px solid var(--scrawl-border);
   border-radius: var(--mantine-radius-md);
   overflow: hidden;
-  background: var(--scrawl-bg-raised);
+  background: var(--scrawl-bg);
 }
 
 .pane {
@@ -54,6 +54,11 @@
   /* below 16px iOS zooms the page on focus and never zooms back */
   font-size: var(--scrawl-input-font-size);
   line-height: 1.55;
+}
+
+/* the stock dark theme paints One Dark's own grey under the text */
+.source :global(.cm-editor) {
+  background-color: var(--scrawl-bg);
 }
 
 .source :global(.cm-gutters) {

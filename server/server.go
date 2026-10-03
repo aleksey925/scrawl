@@ -93,7 +93,7 @@ func contentSecurityPolicy(nonce string) string {
 // them; the manifest carries one, so a change has to land in all three.
 const (
 	barColorLight = "#ffffff"
-	barColorDark  = "#1c1c1e"
+	barColorDark  = "#0d1117"
 )
 
 // gzipContentTypes lists what is worth compressing. rest.Gzip decides on the

@@ -140,14 +140,14 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
   };
 
   const bg = token('--scrawl-bg', '#ffffff');
-  const inset = token('--scrawl-bg-inset', '#f5f5f4');
-  const subtle = token('--scrawl-bg-subtle', '#f7f7f5');
-  const text = token('--scrawl-text', '#1d1d1f');
-  const muted = token('--scrawl-text-secondary', '#55555c');
-  const faint = token('--scrawl-text-tertiary', '#70707a');
-  const border = token('--scrawl-border', '#e6e6e3');
-  const strong = token('--scrawl-border-strong', '#d2d2cf');
-  const warning = token('--scrawl-warning', '#9a6400');
+  const inset = token('--scrawl-bg-inset', '#f6f8fa');
+  const subtle = token('--scrawl-bg-subtle', '#f6f8fa');
+  const text = token('--scrawl-text', '#1f2328');
+  const muted = token('--scrawl-text-secondary', '#59636e');
+  const faint = token('--scrawl-text-tertiary', '#59636e');
+  const border = token('--scrawl-border', '#d1d9e0');
+  const strong = token('--scrawl-border-strong', '#818b98');
+  const warning = token('--scrawl-warning', '#9a6700');
 
   return {
     text,

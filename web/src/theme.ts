@@ -70,70 +70,10 @@ export const layout = {
   inputFontSize: 16,
 } as const;
 
-export interface ScrawlTokens {
-  bg: string;
-  bgSubtle: string;
-  bgInset: string;
-  bgRaised: string;
-  text: string;
-  textSecondary: string;
-  textTertiary: string;
-  border: string;
-  borderStrong: string;
-  accent: string;
-  accentHover: string;
-  accentActive: string;
-  accentSubtle: string;
-  accentBorder: string;
-  danger: string;
-  success: string;
-  warning: string;
-}
-
-export const lightTokens: ScrawlTokens = {
-  bg: '#ffffff',
-  bgSubtle: '#f7f7f5',
-  bgInset: '#f5f5f4',
-  bgRaised: '#ffffff',
-  // the greys are tuned for AA contrast on their own surfaces, not picked
-  text: '#1d1d1f',
-  textSecondary: '#55555c',
-  textTertiary: '#70707a',
-  border: '#e6e6e3',
-  borderStrong: '#d2d2cf',
-  accent: '#0071e3',
-  accentHover: '#0062c4',
-  accentActive: '#0055ab',
-  accentSubtle: '#eaf3fd',
-  accentBorder: '#b9dbfa',
-  danger: '#c9252d',
-  success: '#1c7a3e',
-  warning: '#9a6400',
-};
-
-export const darkTokens: ScrawlTokens = {
-  bg: '#1c1c1e',
-  bgSubtle: '#161618',
-  bgInset: '#242426',
-  bgRaised: '#2c2c2e',
-  text: '#f5f5f7',
-  textSecondary: '#a1a1a6',
-  textTertiary: '#8e8e95',
-  border: '#323235',
-  borderStrong: '#48484b',
-  accent: '#0a84ff',
-  accentHover: '#3d9bff',
-  accentActive: '#63aeff',
-  accentSubtle: '#16273c',
-  accentBorder: '#1f4b7a',
-  danger: '#ff6961',
-  success: '#30d158',
-  warning: '#ffb340',
-};
-
-// a rendered note is painted in GitHub's own palette, the one
-// github-markdown-css carries, so a note reads here the way it reads there
-interface MarkdownTokens {
+// GitHub's Primer palette, read off github.com, under its own token names. The
+// app and a rendered note are both painted from it, so the two cannot drift
+// apart; a note reaches it as --gh-*, the way github-markdown-css names it
+interface Palette {
   fgDefault: string;
   fgMuted: string;
   fgAccent: string;
@@ -141,21 +81,29 @@ interface MarkdownTokens {
   fgAttention: string;
   fgDanger: string;
   fgDone: string;
+  bgDefault: string;
   bgMuted: string;
+  bgInset: string;
   bgNeutralMuted: string;
   bgAttentionMuted: string;
+  bgAccentMuted: string;
+  bgAccentEmphasis: string;
+  // not a Primer token: the next step of its blue scale, for a filled hover
+  bgAccentEmphasisHover: string;
+  controlRest: string;
+  controlHover: string;
   borderDefault: string;
   borderMuted: string;
+  borderEmphasis: string;
+  borderAccentMuted: string;
   borderAccentEmphasis: string;
   borderSuccessEmphasis: string;
   borderAttentionEmphasis: string;
   borderDangerEmphasis: string;
   borderDoneEmphasis: string;
-  buttonBg: string;
-  buttonBgHover: string;
 }
 
-const lightMarkdownTokens: MarkdownTokens = {
+const lightPalette: Palette = {
   fgDefault: '#1f2328',
   fgMuted: '#59636e',
   fgAccent: '#0969da',
@@ -163,21 +111,28 @@ const lightMarkdownTokens: MarkdownTokens = {
   fgAttention: '#9a6700',
   fgDanger: '#d1242f',
   fgDone: '#8250df',
+  bgDefault: '#ffffff',
   bgMuted: '#f6f8fa',
+  bgInset: '#f6f8fa',
   bgNeutralMuted: '#818b981f',
   bgAttentionMuted: '#fff8c5',
+  bgAccentMuted: '#ddf4ff',
+  bgAccentEmphasis: '#0969da',
+  bgAccentEmphasisHover: '#0550ae',
+  controlRest: '#f6f8fa',
+  controlHover: '#eff2f5',
   borderDefault: '#d1d9e0',
   borderMuted: '#d1d9e0b3',
+  borderEmphasis: '#818b98',
+  borderAccentMuted: '#54aeff66',
   borderAccentEmphasis: '#0969da',
   borderSuccessEmphasis: '#1a7f37',
   borderAttentionEmphasis: '#9a6700',
   borderDangerEmphasis: '#cf222e',
   borderDoneEmphasis: '#8250df',
-  buttonBg: '#f6f8fa',
-  buttonBgHover: '#eff2f5',
 };
 
-const darkMarkdownTokens: MarkdownTokens = {
+const darkPalette: Palette = {
   fgDefault: '#f0f6fc',
   fgMuted: '#9198a1',
   fgAccent: '#4493f8',
@@ -185,39 +140,123 @@ const darkMarkdownTokens: MarkdownTokens = {
   fgAttention: '#d29922',
   fgDanger: '#f85149',
   fgDone: '#ab7df8',
+  bgDefault: '#0d1117',
   bgMuted: '#151b23',
+  bgInset: '#010409',
   bgNeutralMuted: '#656c7633',
   bgAttentionMuted: '#bb800926',
+  bgAccentMuted: '#388bfd1a',
+  bgAccentEmphasis: '#1f6feb',
+  bgAccentEmphasisHover: '#388bfd',
+  controlRest: '#212830',
+  controlHover: '#262c36',
   borderDefault: '#3d444d',
   borderMuted: '#3d444db3',
+  borderEmphasis: '#656c76',
+  borderAccentMuted: '#388bfd66',
   borderAccentEmphasis: '#1f6feb',
   borderSuccessEmphasis: '#238636',
   borderAttentionEmphasis: '#9e6a03',
   borderDangerEmphasis: '#da3633',
   borderDoneEmphasis: '#8957e5',
-  buttonBg: '#212830',
-  buttonBgHover: '#262c36',
 };
 
+export interface ScrawlTokens {
+  bg: string;
+  bgSubtle: string;
+  bgInset: string;
+  text: string;
+  textSecondary: string;
+  textTertiary: string;
+  border: string;
+  borderStrong: string;
+  accent: string;
+  accentEmphasis: string;
+  accentEmphasisHover: string;
+  accentSubtle: string;
+  accentBorder: string;
+  control: string;
+  controlHover: string;
+  danger: string;
+  success: string;
+  warning: string;
+}
+
+function scrawlTokens(palette: Palette): ScrawlTokens {
+  return {
+    bg: palette.bgDefault,
+    bgSubtle: palette.bgMuted,
+    bgInset: palette.bgInset,
+    text: palette.fgDefault,
+    textSecondary: palette.fgMuted,
+    textTertiary: palette.fgMuted,
+    border: palette.borderDefault,
+    borderStrong: palette.borderEmphasis,
+    accent: palette.fgAccent,
+    accentEmphasis: palette.bgAccentEmphasis,
+    accentEmphasisHover: palette.bgAccentEmphasisHover,
+    accentSubtle: palette.bgAccentMuted,
+    accentBorder: palette.borderAccentMuted,
+    control: palette.controlRest,
+    controlHover: palette.controlHover,
+    danger: palette.fgDanger,
+    success: palette.fgSuccess,
+    warning: palette.fgAttention,
+  };
+}
+
+export const lightTokens: ScrawlTokens = scrawlTokens(lightPalette);
+export const darkTokens: ScrawlTokens = scrawlTokens(darkPalette);
+
+// Primer's blue scale; the filled shades are set from the palette below
 const accentShades: MantineColorsTuple = [
-  '#eaf3fd',
-  '#d5e7fb',
-  '#b9dbfa',
-  '#8ec4f7',
-  '#5aa8f2',
-  '#2a8bea',
-  '#0071e3',
-  '#0062c4',
-  '#0055ab',
-  '#00448a',
+  '#ddf4ff',
+  '#b6e3ff',
+  '#80ccff',
+  '#54aeff',
+  '#218bff',
+  '#0969da',
+  '#0550ae',
+  '#033d8b',
+  '#0a3069',
+  '#002155',
 ];
 
-const sans =
-  '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif';
-const mono =
-  'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Mono", "Roboto Mono", "DejaVu Sans Mono", Consolas, "Liberation Mono", monospace';
+// Primer's neutrals in the order mantine reads them: gray from light to dark
+// for the light scheme, dark from text to the deepest surface for the dark one
+const grayShades: MantineColorsTuple = [
+  '#f6f8fa',
+  '#eff2f5',
+  '#e6eaef',
+  '#dae0e7',
+  '#d1d9e0',
+  '#c8d1da',
+  '#818b98',
+  '#59636e',
+  '#393f46',
+  '#25292e',
+];
 
-function tokenVariables(prefix: string, tokens: ScrawlTokens | MarkdownTokens): Record<string, string> {
+const darkShades: MantineColorsTuple = [
+  '#f0f6fc',
+  '#d1d7e0',
+  '#b7bdc8',
+  '#9198a1',
+  '#3d444d',
+  '#262c36',
+  '#212830',
+  '#151b23',
+  '#0d1117',
+  '#010409',
+];
+
+// GitHub's own stacks. github.com names "Mona Sans VF" first but ships no face
+// for it, so what a reader sees there is the system font that follows
+const sans =
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"';
+const mono = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+
+function tokenVariables(prefix: string, tokens: ScrawlTokens | Palette): Record<string, string> {
   const res: Record<string, string> = {};
   for (const [name, value] of Object.entries(tokens)) {
     res[`--${prefix}-${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`] = value;
@@ -232,12 +271,13 @@ function mantineVariables(tokens: ScrawlTokens): Record<string, string> {
     '--mantine-color-dimmed': tokens.textSecondary,
     '--mantine-color-error': tokens.danger,
     '--mantine-color-anchor': tokens.accent,
-    '--mantine-color-default': tokens.bgRaised,
+    '--mantine-color-default': tokens.control,
     '--mantine-color-default-color': tokens.text,
     '--mantine-color-default-border': tokens.border,
-    '--mantine-color-default-hover': tokens.bgInset,
-    '--mantine-color-accent-filled': tokens.accent,
-    '--mantine-color-accent-filled-hover': tokens.accentHover,
+    '--mantine-color-default-hover': tokens.controlHover,
+    '--mantine-color-placeholder': tokens.textSecondary,
+    '--mantine-color-accent-filled': tokens.accentEmphasis,
+    '--mantine-color-accent-filled-hover': tokens.accentEmphasisHover,
     '--mantine-color-accent-light': tokens.accentSubtle,
     '--mantine-color-accent-light-hover': tokens.accentSubtle,
     '--mantine-color-accent-light-color': tokens.accent,
@@ -263,12 +303,12 @@ export function cssVariablesResolver(): ThemeCssVariables {
     },
     light: {
       ...tokenVariables('scrawl', lightTokens),
-      ...tokenVariables('md', lightMarkdownTokens),
+      ...tokenVariables('gh', lightPalette),
       ...mantineVariables(lightTokens),
     },
     dark: {
       ...tokenVariables('scrawl', darkTokens),
-      ...tokenVariables('md', darkMarkdownTokens),
+      ...tokenVariables('gh', darkPalette),
       ...mantineVariables(darkTokens),
     },
   };
@@ -276,8 +316,8 @@ export function cssVariablesResolver(): ThemeCssVariables {
 
 export const theme: MantineThemeOverride = createTheme({
   primaryColor: 'accent',
-  primaryShade: { light: 6, dark: 6 },
-  colors: { accent: accentShades },
+  primaryShade: { light: 5, dark: 5 },
+  colors: { accent: accentShades, gray: grayShades, dark: darkShades },
 
   fontFamily: sans,
   fontFamilyMonospace: mono,

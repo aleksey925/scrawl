@@ -95,7 +95,7 @@ const shellTemplate = `<!doctype html>
 <meta name="color-scheme" content="light dark">
 <meta name="csp-nonce" content="{{.Nonce}}">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
 <title>{{.Title}}</title>
 <link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/{{.Version}}/icons/apple-touch-icon.png">

@@ -4,7 +4,7 @@
 (function () {
     var ORDER = ['auto', 'light', 'dark'];
     var LABEL = {auto: 'Theme: system', light: 'Theme: light', dark: 'Theme: dark'};
-    var BAR = {light: '#f7f7f5', dark: '#161618'};
+    var BAR = {light: '#ffffff', dark: '#0d1117'};
     var root = document.documentElement;
 
     function current() {

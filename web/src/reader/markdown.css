@@ -3,7 +3,7 @@
    look is github-markdown-css 5.9.0 ported onto the markup render emits. */
 
 .markdown-document {
-  color: var(--md-fg-default);
+  color: var(--gh-fg-default);
   font-size: 1rem;
   line-height: 1.5;
   overflow-wrap: break-word;
@@ -31,7 +31,7 @@
 /* --- inline -------------------------------------------------------------- */
 
 .markdown-document a {
-  color: var(--md-fg-accent);
+  color: var(--gh-fg-accent);
   text-decoration: none;
   text-underline-offset: 0.2rem;
 }
@@ -48,7 +48,7 @@
 }
 
 .markdown-document a:focus-visible {
-  outline: 2px solid var(--md-border-accent-emphasis);
+  outline: 2px solid var(--gh-border-accent-emphasis);
   outline-offset: -2px;
 }
 
@@ -57,7 +57,7 @@
 }
 
 .markdown-document a.broken {
-  color: var(--md-fg-danger);
+  color: var(--gh-fg-danger);
   text-decoration: underline dotted;
 }
 
@@ -75,8 +75,8 @@
 }
 
 .markdown-document mark {
-  background-color: var(--md-bg-attention-muted);
-  color: var(--md-fg-default);
+  background-color: var(--gh-bg-attention-muted);
+  color: var(--gh-fg-default);
 }
 
 .markdown-document small {
@@ -101,11 +101,11 @@
 .markdown-document kbd {
   display: inline-block;
   padding: 4px;
-  border: 1px solid var(--md-border-muted);
+  border: 1px solid var(--gh-border-muted);
   border-radius: 6px;
-  box-shadow: inset 0 -1px 0 var(--md-border-muted);
-  background-color: var(--md-bg-muted);
-  color: var(--md-fg-default);
+  box-shadow: inset 0 -1px 0 var(--gh-border-muted);
+  background-color: var(--gh-bg-muted);
+  color: var(--gh-fg-default);
   font: 11px var(--mantine-font-family-monospace);
   line-height: 10px;
   vertical-align: middle;
@@ -124,7 +124,7 @@
 
 .markdown-document :is(h1, h2) {
   padding-bottom: 0.3em;
-  border-bottom: 1px solid var(--md-border-muted);
+  border-bottom: 1px solid var(--gh-border-muted);
 }
 
 .markdown-document h1 {
@@ -148,7 +148,7 @@
 }
 
 .markdown-document h6 {
-  color: var(--md-fg-muted);
+  color: var(--gh-fg-muted);
   font-size: 0.85em;
 }
 
@@ -170,19 +170,16 @@
 
 /* GitHub's link icon in the gutter left of the heading. A finger has no hover
    to reveal it with, so there it is always on screen, and its box is the tap
-   minimum laid over the start of the heading, which takes no tap of its own.
-   A phone gutter is 16px, too narrow for GitHub's 16px icon and its gap */
+   minimum laid over the start of the heading, which takes no tap of its own */
 .markdown-document .md-anchor {
-  --md-anchor-icon: 12px;
-  --md-anchor-gap: 3px;
   position: absolute;
   top: calc((1lh - var(--scrawl-tap-target)) / 2);
-  left: calc(-1 * (var(--md-anchor-icon) + var(--md-anchor-gap)));
+  left: -20px;
   display: flex;
   align-items: center;
   width: var(--scrawl-tap-target);
   height: var(--scrawl-tap-target);
-  color: var(--md-fg-default);
+  color: var(--gh-fg-default);
   text-decoration: none;
 }
 
@@ -191,8 +188,8 @@
 .markdown-document .md-anchor::before {
   content: '';
   flex: none;
-  width: var(--md-anchor-icon);
-  height: var(--md-anchor-icon);
+  width: 16px;
+  height: 16px;
   background-color: currentColor;
   -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z'/></svg>")
     center / contain no-repeat;
@@ -201,16 +198,14 @@
 }
 
 .markdown-document .md-anchor:focus-visible {
-  outline: 2px solid var(--md-border-accent-emphasis);
+  outline: 2px solid var(--gh-border-accent-emphasis);
   outline-offset: 2px;
 }
 
 @media (hover: hover) {
   .markdown-document .md-anchor {
-    --md-anchor-icon: 16px;
-    --md-anchor-gap: 4px;
     top: 0;
-    width: calc(var(--md-anchor-icon) + var(--md-anchor-gap));
+    width: 20px;
     height: 1lh;
     opacity: 0;
   }
@@ -231,8 +226,8 @@
 .markdown-document blockquote {
   margin-inline: 0;
   padding: 0 1em;
-  border-left: 0.25em solid var(--md-border-default);
-  color: var(--md-fg-muted);
+  border-left: 0.25em solid var(--gh-border-default);
+  color: var(--gh-fg-muted);
 }
 
 .markdown-document blockquote > :first-child {
@@ -250,7 +245,7 @@
   padding: 0;
   overflow: hidden;
   border: 0;
-  background-color: var(--md-border-default);
+  background-color: var(--gh-border-default);
 }
 
 .markdown-document details {
@@ -344,7 +339,7 @@
   display: inline-block;
   min-height: 60px;
   padding: var(--mantine-spacing-lg);
-  border: 1px dashed var(--md-fg-danger);
+  border: 1px dashed var(--gh-fg-danger);
 }
 
 /* --- code ---------------------------------------------------------------- */
@@ -357,7 +352,7 @@
   margin: 0;
   padding: 0.2em 0.4em;
   border-radius: 6px;
-  background-color: var(--md-bg-neutral-muted);
+  background-color: var(--gh-bg-neutral-muted);
   font-size: 85%;
   white-space: break-spaces;
 }
@@ -375,8 +370,8 @@
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   border-radius: 6px;
-  background-color: var(--md-bg-muted);
-  color: var(--md-fg-default);
+  background-color: var(--gh-bg-muted);
+  color: var(--gh-fg-default);
   font-size: 85%;
   line-height: 1.45;
   overflow-wrap: normal;
@@ -401,7 +396,7 @@
   position: relative;
   margin: 0 0 16px;
   border-radius: 6px;
-  background-color: var(--md-bg-muted);
+  background-color: var(--gh-bg-muted);
 }
 
 /* the block paints the background, so the copy button stays put while the
@@ -415,7 +410,7 @@
 /* chroma paints the tokens from its own stylesheet; this only keeps an
    unhighlighted block legible when that sheet is not on the page */
 .markdown-document .chroma {
-  color: var(--md-fg-default);
+  color: var(--gh-fg-default);
 }
 
 .md-copy {
@@ -428,10 +423,10 @@
   min-width: var(--scrawl-tap-target);
   min-height: var(--scrawl-tap-target);
   padding: 0;
-  border: 1px solid var(--md-border-default);
+  border: 1px solid var(--gh-border-default);
   border-radius: 6px;
-  background-color: var(--md-button-bg);
-  color: var(--md-fg-muted);
+  background-color: var(--gh-control-rest);
+  color: var(--gh-fg-muted);
   font-size: 0;
   cursor: pointer;
 }
@@ -449,7 +444,7 @@
 }
 
 .md-copy[data-done='true'] {
-  color: var(--md-fg-success);
+  color: var(--gh-fg-success);
   opacity: 1;
 }
 
@@ -459,7 +454,7 @@
 }
 
 .md-copy:focus-visible {
-  outline: 2px solid var(--md-border-accent-emphasis);
+  outline: 2px solid var(--gh-border-accent-emphasis);
   outline-offset: -2px;
 }
 
@@ -488,7 +483,7 @@
   }
 
   .md-copy:hover {
-    background-color: var(--md-button-bg-hover);
+    background-color: var(--gh-control-hover);
   }
 }
 
@@ -518,7 +513,7 @@
 
 .markdown-document :is(th, td) {
   padding: 6px 13px;
-  border: 1px solid var(--md-border-default);
+  border: 1px solid var(--gh-border-default);
 }
 
 .markdown-document th {
@@ -530,18 +525,18 @@
 }
 
 .markdown-document tr {
-  border-top: 1px solid var(--md-border-muted);
+  border-top: 1px solid var(--gh-border-muted);
 }
 
 .markdown-document tr:nth-child(2n) {
-  background-color: var(--md-bg-muted);
+  background-color: var(--gh-bg-muted);
 }
 
 /* --- alerts -------------------------------------------------------------- */
 
 .markdown-document .alert {
-  --md-alert-border: var(--md-border-accent-emphasis);
-  --md-alert-color: var(--md-fg-accent);
+  --md-alert-border: var(--gh-border-accent-emphasis);
+  --md-alert-color: var(--gh-fg-accent);
   --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/></svg>");
   margin-bottom: 16px;
   padding: 8px 16px;
@@ -550,26 +545,26 @@
 }
 
 .markdown-document .alert-tip {
-  --md-alert-border: var(--md-border-success-emphasis);
-  --md-alert-color: var(--md-fg-success);
+  --md-alert-border: var(--gh-border-success-emphasis);
+  --md-alert-color: var(--gh-fg-success);
   --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 1.5c-2.363 0-4 1.69-4 3.75 0 .984.424 1.625.984 2.304l.214.253c.223.264.47.556.673.848.284.411.537.896.621 1.49a.75.75 0 0 1-1.484.211c-.04-.282-.163-.547-.37-.847a8.456 8.456 0 0 0-.542-.68c-.084-.1-.173-.205-.268-.32C3.201 7.75 2.5 6.766 2.5 5.25 2.5 2.31 4.863 0 8 0s5.5 2.31 5.5 5.25c0 1.516-.701 2.5-1.328 3.259-.095.115-.184.22-.268.319-.207.245-.383.453-.541.681-.208.3-.33.565-.37.847a.751.751 0 0 1-1.485-.212c.084-.593.337-1.078.621-1.489.203-.292.45-.584.673-.848.075-.088.147-.173.213-.253.561-.679.985-1.32.985-2.304 0-2.06-1.637-3.75-4-3.75ZM5.75 12h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5ZM6 15.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z'/></svg>");
 }
 
 .markdown-document .alert-important {
-  --md-alert-border: var(--md-border-done-emphasis);
-  --md-alert-color: var(--md-fg-done);
+  --md-alert-border: var(--gh-border-done-emphasis);
+  --md-alert-color: var(--gh-fg-done);
   --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v9.5A1.75 1.75 0 0 1 14.25 13H8.06l-2.573 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25Zm1.75-.25a.25.25 0 0 0-.25.25v9.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-9.5a.25.25 0 0 0-.25-.25Zm7 2.25v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z'/></svg>");
 }
 
 .markdown-document .alert-warning {
-  --md-alert-border: var(--md-border-attention-emphasis);
-  --md-alert-color: var(--md-fg-attention);
+  --md-alert-border: var(--gh-border-attention-emphasis);
+  --md-alert-color: var(--gh-fg-attention);
   --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z'/></svg>");
 }
 
 .markdown-document .alert-caution {
-  --md-alert-border: var(--md-border-danger-emphasis);
-  --md-alert-color: var(--md-fg-danger);
+  --md-alert-border: var(--gh-border-danger-emphasis);
+  --md-alert-color: var(--gh-fg-danger);
   --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4.47.22A.749.749 0 0 1 5 0h6c.199 0 .389.079.53.22l4.25 4.25c.141.14.22.331.22.53v6a.749.749 0 0 1-.22.53l-4.25 4.25A.749.749 0 0 1 11 16H5a.749.749 0 0 1-.53-.22L.22 11.53A.749.749 0 0 1 0 11V5c0-.199.079-.389.22-.53Zm.84 1.28L1.5 5.31v5.38l3.81 3.81h5.38l3.81-3.81V5.31L10.69 1.5ZM8 4a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/></svg>");
 }
 
@@ -611,8 +606,8 @@
 }
 
 .markdown-document section.footnotes {
-  border-top: 1px solid var(--md-border-default);
-  color: var(--md-fg-muted);
+  border-top: 1px solid var(--gh-border-default);
+  color: var(--gh-fg-muted);
   font-size: 12px;
 }
 
@@ -628,21 +623,21 @@
 /* a fragment jump lands with nothing to look at, so both ends of a footnote
    link mark themselves while they are the target */
 .markdown-document section.footnotes li:target {
-  color: var(--md-fg-default);
+  color: var(--gh-fg-default);
 }
 
 .markdown-document section.footnotes li:target::before {
   content: '';
   position: absolute;
   inset: -8px -8px -8px -24px;
-  border: 2px solid var(--md-border-accent-emphasis);
+  border: 2px solid var(--gh-border-accent-emphasis);
   border-radius: 6px;
   pointer-events: none;
 }
 
 .markdown-document .footnote-ref a:target {
   border-radius: 2px;
-  outline: 2px solid var(--md-border-accent-emphasis);
+  outline: 2px solid var(--gh-border-accent-emphasis);
   outline-offset: 1px;
 }
 
@@ -670,8 +665,8 @@
 }
 
 .markdown-document .math.is-error {
-  color: var(--md-fg-danger);
-  text-decoration: underline wavy var(--md-fg-danger);
+  color: var(--gh-fg-danger);
+  text-decoration: underline wavy var(--gh-fg-danger);
   text-underline-offset: 3px;
   cursor: help;
 }
@@ -695,7 +690,7 @@
 /* --- diagrams ------------------------------------------------------------ */
 
 .markdown-document pre.mermaid {
-  color: var(--md-fg-muted);
+  color: var(--gh-fg-muted);
 }
 
 .markdown-document .md-diagram {
@@ -728,7 +723,7 @@
 
 .markdown-document .md-diagram-error {
   margin: var(--mantine-spacing-sm) 0 0;
-  color: var(--md-fg-danger);
+  color: var(--gh-fg-danger);
   font-size: var(--mantine-font-size-sm);
 }
 
@@ -741,7 +736,7 @@
 }
 
 .markdown-document .md-find[data-active='true'] {
-  background: var(--scrawl-accent);
+  background: var(--scrawl-accent-emphasis);
   color: #fff;
 }
 

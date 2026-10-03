@@ -369,6 +369,32 @@ func TestStaticAndPing(t *testing.T) {
 	}
 }
 
+func TestStaticServesEveryBuiltChunk(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	var paths []string
+	err := fs.WalkDir(os.DirFS("assets/app/assets"), ".", func(path string, entry fs.DirEntry, err error) error {
+		// a .DS_Store a mac leaves behind is no chunk, and go:embed skips it
+		if err == nil && !entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
+			paths = append(paths, path)
+		}
+		return err
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, paths)
+
+	// act
+	var missing []string
+	for _, path := range paths {
+		if resp, _ := ts.do(t, request{path: "/static/v1.2.3/app/assets/" + path}); resp.status != http.StatusOK {
+			missing = append(missing, path)
+		}
+	}
+
+	// assert
+	assert.Empty(t, missing)
+}
+
 func TestTextResponsesAreCompressedAndBinaryOnesAreNot(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 

@@ -63,6 +63,14 @@ export default defineConfig(({ command }) => ({
     // so the server would embed the bundle and none of its index
     manifest: 'manifest.json',
 
+    // go:embed skips "_"-prefixed entries as well, and lodash-es modules such
+    // as _baseUniq name chunks mermaid loads lazily: the diagram failed to load
+    rolldownOptions: {
+      output: {
+        chunkFileNames: (chunk) => `assets/${chunk.name.replace(/^[_.]+/, '')}-[hash].js`,
+      },
+    },
+
     // an inlined font would arrive as a data: uri, which font-src refuses, and
     // nothing in the build output would say so
     assetsInlineLimit: 0,

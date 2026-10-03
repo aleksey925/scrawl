@@ -1,13 +1,12 @@
-import { Button } from '@mantine/core';
 import { IconHistory, IconPencil } from '@tabler/icons-react';
 import type { JSX } from 'react';
-import { Link } from 'react-router';
 
 import type { DocumentResponse } from '../api/types';
 import { ReadingAnchorTracker } from '../editor';
 import { historyUrl } from '../paths';
 import { useCurrentDoc, useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
+import { TopbarAction } from '../shell/TopbarAction';
 
 import { DocumentHtml } from './DocumentHtml';
 
@@ -24,30 +23,9 @@ export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
   return (
     <>
       <PageActions>
-        {canWrite && (
-          <Button
-            data-testid="doc-edit"
-            component={Link}
-            to={doc.edit_url}
-            variant="default"
-            size="xs"
-            leftSection={<IconPencil size={16} />}
-          >
-            Edit
-          </Button>
-        )}
+        {canWrite && <TopbarAction testId="doc-edit" label="Edit" icon={IconPencil} to={doc.edit_url} primary />}
         {/* reading the versions is a read, so it stays where writing does not */}
-        <Button
-          data-testid="doc-history"
-          component={Link}
-          to={historyUrl(doc.doc_path)}
-          variant="subtle"
-          color="gray"
-          size="xs"
-          leftSection={<IconHistory size={16} />}
-        >
-          History
-        </Button>
+        <TopbarAction testId="doc-history" label="History" icon={IconHistory} to={historyUrl(doc.doc_path)} />
       </PageActions>
 
       {/* records where the reader was, so the editor opens in the same place */}

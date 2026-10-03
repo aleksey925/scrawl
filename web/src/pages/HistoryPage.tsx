@@ -5,7 +5,7 @@ import {
 import { modals } from '@mantine/modals';
 import { IconArrowBackUp } from '@tabler/icons-react';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 
 import { api } from '../api/client';
 import type { FileResponse, HistoryEntry, HistoryVersionResponse } from '../api/types';
@@ -15,6 +15,7 @@ import { documentUrl } from '../paths';
 import { DiffView } from '../shell/DiffView';
 import { useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
+import { TopbarAction } from '../shell/TopbarAction';
 import { useMutationState } from '../shell/useMutationState';
 import { layoutBreakpoints, useBelow } from '../theme';
 import { showToast } from '../toast';
@@ -290,16 +291,13 @@ export function Component(): JSX.Element {
   return (
     <Container data-testid="history" fluid px={0} style={{ minWidth: 0 }}>
       <PageActions>
-        <Button
-          data-testid="history-back"
-          component={Link}
+        <TopbarAction
+          testId="history-back"
+          label="Back to note"
+          icon={IconArrowBackUp}
           to={documentUrl(path)}
-          variant="default"
-          size="xs"
-          leftSection={<IconArrowBackUp size={16} />}
-        >
-          Back to note
-        </Button>
+          primary
+        />
       </PageActions>
 
       <Stack gap="xl" style={{ minWidth: 0 }}>

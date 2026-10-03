@@ -275,7 +275,9 @@ An amber control appears in the top bar and stays there. It says whether
 the note you are looking at is one of the affected ones, and clicking it
 lists them. A banner above the page explains the same thing in full and
 carries the exact git reason. The two share their words: the banner
-explains and scrolls away with the page, the control persists.
+explains and scrolls away with the page, the control persists. On a
+phone the control is an entry in the top bar's `⋯` menu, and an amber dot
+on that menu stays in sight while the problem lasts.
 
 The messages tell four things apart:
 

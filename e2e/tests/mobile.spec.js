@@ -11,6 +11,7 @@ const {
 const text = require('../support/text');
 
 const MIN_TAP = 44;
+const ROW_HEIGHT = 48;
 const DOC = docs.doc.path;
 const SCRATCH = 'e2e-mobile/zametka.md';
 const HISTORY_FOLDER = 'e2e-mobile-history';
@@ -32,6 +33,11 @@ async function tooSmall(page, selector) {
             })
             .filter((item) => item.w > 0 && (item.w < min || item.h < min));
     }, [selector, MIN_TAP]);
+}
+
+async function openMore(page) {
+    await page.getByTestId('topbar-more').tap();
+    await expect(page.getByTestId('topbar-more-menu')).toBeVisible();
 }
 
 test.describe('mobile', () => {
@@ -228,6 +234,47 @@ test.describe('mobile', () => {
         expect(offenders, 'elements smaller than the touch minimum').toEqual([]);
     });
 
+    // the path once shared the top bar with nine controls and got about 25px of
+    // it: every crumb kept its 44px minimum, so they broke onto new lines and
+    // fell over the note. On a phone the path is a row of its own on the page.
+    test('the path sits on the page and the top bar holds one row', async ({page}) => {
+        await page.goto(routes.doc(docs.deep.path));
+
+        await expect(page.getByTestId('topbar-breadcrumbs')).toHaveCount(0);
+        const crumbs = page.getByTestId('page-breadcrumbs').getByTestId('crumb');
+        await expect(crumbs).toContainText(['Home', ...docs.deep.crumbs]);
+        await expect(page.locator('[data-testid=crumb][data-current="true"]')).toBeInViewport();
+        await expect(page.getByTestId('doc-edit')).toBeVisible();
+        await expect(page.getByTestId('doc-history')).toBeVisible();
+
+        const bar = await page.getByTestId('topbar').boundingBox();
+        expect(bar.height, 'the top bar wrapped onto a second line').toBeLessThanOrEqual(ROW_HEIGHT);
+        await expectNoHorizontalScroll(page);
+        await shot(page, 'mobile-path-row');
+
+        await page.getByTestId('doc-history').tap();
+        await expect(page).toHaveURL(MAIN.url.history(docs.deep.path));
+    });
+
+    test('the root note has no path row', async ({page}) => {
+        await page.goto(routes.home());
+        await expect(page.getByTestId('doc')).toBeVisible();
+
+        await expect(page.getByTestId('page-breadcrumbs')).toHaveCount(0);
+    });
+
+    test('the menu switches the theme and names the account', async ({page}) => {
+        await page.goto(routes.doc(DOC));
+        await openMore(page);
+        await shot(page, 'mobile-more-menu');
+
+        const theme = page.getByTestId('topbar-theme');
+        const before = await theme.getAttribute('data-scheme');
+        await theme.tap();
+        await expect(theme).not.toHaveAttribute('data-scheme', before);
+        await expect(page.getByTestId('topbar-account-signout')).toBeVisible();
+    });
+
     // the diff is a nowrap pre, so a bare track takes the width of the longest
     // patch line: the page stretched far past the viewport, nothing could scroll
     // to it, and Restore sat off screen on every row
@@ -294,6 +341,7 @@ test.describe('mobile', () => {
     // router replaces rather than pushes, and that still has to count as a move.
     test('the outline sheet opens from the top bar', async ({page}) => {
         await page.goto(routes.doc(DOC));
+        await openMore(page);
         await page.getByTestId('topbar-toc').tap();
 
         await expect(page.getByTestId('toc-entry').first()).toBeVisible();
@@ -413,16 +461,21 @@ test.describe('mobile sync state', () => {
         await saveStuck(page, SYNC_DOC, '# Mobile sync\n\nstuck.\n');
 
         await page.goto(WIKI.doc(SYNC_DOC));
-        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
+        await expect(page.getByTestId('topbar-more')).toHaveAttribute('data-sync', 'true');
         await expect(page.getByTestId('project-alert')).toBeVisible();
         // the tree is behind a closed drawer, which is what makes the control
         // the one surface that speaks for this note
         await expect(page.getByTestId('sidebar')).toHaveCount(0);
+        await shot(page, 'mobile-sync-dot');
+
+        await openMore(page);
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
         await shot(page, 'mobile-sync-control');
 
         await page.getByTestId('sync-control').tap();
-        await expect(page.getByTestId('sync-popover')).toBeVisible();
-        await shot(page, 'mobile-sync-popover');
+        await expect(page.getByTestId('sync-details')).toBeVisible();
+        await expect(page.getByTestId('sync-popover-here')).toBeVisible();
+        await shot(page, 'mobile-sync-sheet');
     });
 
     // the root index and a folder index: on both the route path is not the
@@ -438,21 +491,26 @@ test.describe('mobile sync state', () => {
         await saveStuck(page, `${SYNC_FOLDER}/index.md`, '# Guide\n\nthe folder index, stuck.\n');
 
         await page.goto(WIKI.home());
-        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
         await expect(page.getByTestId('project-alert')).toBeVisible();
+        await openMore(page);
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
 
         await page.goto(WIKI.dir(SYNC_FOLDER));
+        await openMore(page);
         await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
         await shot(page, 'mobile-sync-folder-index');
     });
 
-    // the one element this feature spends on a nowrap row that is already full
+    // the project switcher is on this server too, so the row is as full as it
+    // gets: every control keeps its size and the project name gives way
     test('the top bar still fits with the control up', async ({page}) => {
         breakOrigin(wiki.origin);
         await saveStuck(page, SYNC_DOC, '# Mobile sync\n\nstuck.\n');
 
         await page.goto(WIKI.doc(SYNC_DOC));
-        await expect(page.getByTestId('sync-control')).toBeVisible();
+        await expect(page.getByTestId('topbar-more')).toHaveAttribute('data-sync', 'true');
+        await expect(page.getByTestId('topbar-project')).toBeVisible();
+        await expect(page.getByTestId('doc-history')).toBeInViewport({ratio: 1});
         await expectNoHorizontalScroll(page);
 
         const offenders = await tooSmall(page, '[data-testid=topbar] button, [data-testid=topbar] a');

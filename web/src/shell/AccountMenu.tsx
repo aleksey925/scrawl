@@ -9,15 +9,51 @@ import { useNav } from './NavContext';
 
 const iconSize = 18;
 
-export function AccountMenu(): JSX.Element {
-  const { me } = useNav();
+async function signOut(): Promise<void> {
+  await api.logout();
+  goToLogin();
+}
 
+// AccountItems are the account entries of a menu, on their own in the desktop
+// menu and at the bottom of the one menu a phone has
+export function AccountItems(): JSX.Element {
+  const { me } = useNav();
   const signedIn = me !== undefined && me.user !== '';
 
-  async function signOut(): Promise<void> {
-    await api.logout();
-    goToLogin();
-  }
+  return (
+    <>
+      {signedIn && (
+        <Menu.Label>
+          <Text data-testid="topbar-account-user" size="xs">
+            {me.user}
+          </Text>
+        </Menu.Label>
+      )}
+      {me?.read_only === true && (
+        <Menu.Item data-testid="topbar-account-readonly" disabled leftSection={<IconEyeOff size={16} />}>
+          Read-only mode
+        </Menu.Item>
+      )}
+      {signedIn ? (
+        <Menu.Item
+          data-testid="topbar-account-signout"
+          leftSection={<IconLogout size={16} />}
+          onClick={() => void signOut()}
+        >
+          Sign out
+        </Menu.Item>
+      ) : (
+        <Menu.Item data-testid="topbar-account-signin" leftSection={<IconLogin size={16} />} onClick={goToLogin}>
+          Sign in
+        </Menu.Item>
+      )}
+    </>
+  );
+}
+
+export function AccountMenu(): JSX.Element {
+  const { me } = useNav();
+  const signedIn = me !== undefined && me.user !== '';
 
   return (
     <Menu position="bottom-end" withinPortal>
@@ -34,35 +70,7 @@ export function AccountMenu(): JSX.Element {
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown data-testid="topbar-account-menu">
-        {signedIn && (
-          <Menu.Label>
-            <Text data-testid="topbar-account-user" size="xs">
-              {me.user}
-            </Text>
-          </Menu.Label>
-        )}
-        {me?.read_only === true && (
-          <Menu.Item data-testid="topbar-account-readonly" disabled leftSection={<IconEyeOff size={16} />}>
-            Read-only mode
-          </Menu.Item>
-        )}
-        {signedIn ? (
-          <Menu.Item
-            data-testid="topbar-account-signout"
-            leftSection={<IconLogout size={16} />}
-            onClick={() => void signOut()}
-          >
-            Sign out
-          </Menu.Item>
-        ) : (
-          <Menu.Item
-            data-testid="topbar-account-signin"
-            leftSection={<IconLogin size={16} />}
-            onClick={goToLogin}
-          >
-            Sign in
-          </Menu.Item>
-        )}
+        <AccountItems />
       </Menu.Dropdown>
     </Menu>
   );

@@ -28,7 +28,7 @@ export function ProjectSwitcher(): JSX.Element | null {
         {/* no visibleFrom: a phone is where a reader is most likely to have
             landed in the wrong project, and the theme gives every Button the
             touch minimum on a coarse pointer already. The label truncates
-            instead, so the breadcrumbs keep the room they can get. */}
+            instead, so the controls beside it keep their room. */}
         <Button
           data-testid="topbar-project"
           variant="subtle"
@@ -36,6 +36,8 @@ export function ProjectSwitcher(): JSX.Element | null {
           size="xs"
           px="xs"
           maw={layout.projectSwitcherWidth}
+          miw={layout.tapTarget}
+          style={{ flexShrink: 1 }}
           rightSection={<IconChevronDown size={14} />}
           styles={{ label: { overflow: 'hidden', textOverflow: 'ellipsis' } }}
         >

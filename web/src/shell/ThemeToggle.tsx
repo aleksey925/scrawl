@@ -1,22 +1,21 @@
-import { ActionIcon, Tooltip, useMantineColorScheme } from '@mantine/core';
+import { ActionIcon, Tooltip, useMantineColorScheme, type MantineColorScheme } from '@mantine/core';
 import { IconDeviceDesktop, IconMoon, IconSun } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import { nextColorScheme } from '../colorScheme';
 
-const iconSize = 18;
+export function SchemeIcon({ scheme, size }: { scheme: MantineColorScheme; size: number }): JSX.Element {
+  if (scheme === 'light') {
+    return <IconSun size={size} />;
+  }
+  if (scheme === 'dark') {
+    return <IconMoon size={size} />;
+  }
+  return <IconDeviceDesktop size={size} />;
+}
 
 export function ThemeToggle(): JSX.Element {
   const { colorScheme, setColorScheme } = useMantineColorScheme();
-
-  const icon =
-    colorScheme === 'light' ? (
-      <IconSun size={iconSize} />
-    ) : colorScheme === 'dark' ? (
-      <IconMoon size={iconSize} />
-    ) : (
-      <IconDeviceDesktop size={iconSize} />
-    );
 
   return (
     <Tooltip label={`Theme: ${colorScheme}`}>
@@ -29,7 +28,7 @@ export function ThemeToggle(): JSX.Element {
         aria-label={`Theme: ${colorScheme}, switch to ${nextColorScheme(colorScheme)}`}
         onClick={() => setColorScheme(nextColorScheme(colorScheme))}
       >
-        {icon}
+        <SchemeIcon scheme={colorScheme} size={18} />
       </ActionIcon>
     </Tooltip>
   );

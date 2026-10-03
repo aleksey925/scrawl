@@ -5,6 +5,7 @@ import { DirectoryView } from '../components/DirectoryView';
 import { DocumentView } from '../components/DocumentView';
 import { isDirectoryPath, trimTrailingSlash } from '../paths';
 import { PageContainer } from '../shell/PageContainer';
+import { PageCrumbs } from '../shell/PathCrumbs';
 
 export function Component(): JSX.Element {
   const params = useParams();
@@ -12,6 +13,7 @@ export function Component(): JSX.Element {
 
   return (
     <PageContainer>
+      <PageCrumbs />
       {isDirectoryPath(path) ? (
         <DirectoryView path={trimTrailingSlash(path)} />
       ) : (

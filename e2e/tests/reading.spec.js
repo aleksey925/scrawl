@@ -90,8 +90,8 @@ test.describe('reading', () => {
 
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.deep.title);
         await expect(page.getByTestId('doc').locator('h2')).not.toHaveCount(0);
-        await expect(page.getByTestId('topbar-crumb')).toContainText(docs.deep.crumbs);
-        await expect(page.locator('[data-testid=topbar-crumb][data-current="true"]')).toHaveCount(1);
+        await expect(page.getByTestId('topbar-breadcrumbs').getByTestId('crumb')).toContainText(docs.deep.crumbs);
+        await expect(page.locator('[data-testid=crumb][data-current="true"]')).toHaveCount(1);
         await shot(page, 'reading-deep-document');
     });
 

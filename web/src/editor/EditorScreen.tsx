@@ -27,6 +27,7 @@ import { errorText } from '../api/useApi';
 import { documentUrl, editUrl } from '../paths';
 import { useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
+import { TopbarAction } from '../shell/TopbarAction';
 import { useMutationState } from '../shell/useMutationState';
 import { layout } from '../theme';
 import { showToast } from '../toast';
@@ -470,16 +471,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             Save
           </Button>
         )}
-        <Button
-          data-testid="editor-cancel"
-          variant="subtle"
-          color="gray"
-          size="xs"
-          leftSection={<IconX size={16} />}
-          onClick={cancel}
-        >
-          Cancel
-        </Button>
+        <TopbarAction testId="editor-cancel" label="Cancel" icon={IconX} onClick={cancel} />
       </PageActions>
 
       {readOnly && (

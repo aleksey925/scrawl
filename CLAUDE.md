@@ -60,6 +60,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
   in it would still answer the tab key.
 - Every screen puts its content in the same centered column, so the text
   does not move sideways between a note, a search and a directory.
+- On a phone the topbar is one row of icons: the page's own actions,
+  search and a `⋯` menu holding the outline, the sync state, the theme
+  and the account. The path leaves the bar for a row on the page. Nine
+  controls and the crumbs once shared it, the crumbs got 25px, wrapped
+  inside the clipped bar and fell over the note as a column.
 - The color scheme is one attribute, mantine's
   `data-mantine-color-scheme`. The picker reloads nothing and moves only
   that one, so a stylesheet the server ships beside the bundle keys on it

@@ -150,13 +150,15 @@ test.describe('mobile', () => {
             ?.closest('[data-testid]')?.dataset.testid, [box.x + box.width - MIN_TAP + 1, box.y + box.height / 2]);
         expect(reached).toBe('tree-twisty');
 
-        // the chevron and the row menu sit on the edges the filter above them has
+        // the chevron and the row menu sit on the edges of the row above them,
+        // the filter on the left and the new entry button on the right
         const filter = await page.getByTestId('sidebar-filter').boundingBox();
         const root = page.locator('[data-testid=tree-row][data-path=""]');
         const chevron = await root.getByTestId('tree-twisty').locator('svg').boundingBox();
         const dots = await root.getByTestId('tree-row-menu').locator('svg').boundingBox();
-        expect([Math.round(chevron.x), Math.round(width - dots.x - dots.width)])
-            .toEqual([Math.round(filter.x), Math.round(width - filter.x - filter.width)]);
+        const add = await page.getByTestId('sidebar-new').boundingBox();
+        expect([Math.round(chevron.x), Math.round(dots.x + dots.width)])
+            .toEqual([Math.round(filter.x), Math.round(add.x + add.width)]);
         await shot(page, 'mobile-drawer-full');
     });
 

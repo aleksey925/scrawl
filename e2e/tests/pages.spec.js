@@ -193,6 +193,7 @@ test.describe('pages', () => {
 
     test('the theme toggle cycles and survives a reload', async ({page}) => {
         const root = page.locator('html');
+        await page.getByTestId('topbar-account').click();
         const toggle = page.getByTestId('topbar-theme');
         await expect(toggle).toHaveAttribute('data-scheme', 'auto');
 
@@ -208,6 +209,7 @@ test.describe('pages', () => {
         // the choice is a cookie, because the server paints the first byte from it
         await page.reload();
         await expect(root).toHaveAttribute('data-mantine-color-scheme', 'dark');
+        await page.getByTestId('topbar-account').click();
         await expect(page.getByTestId('topbar-theme')).toHaveAttribute('data-scheme', 'dark');
     });
 });

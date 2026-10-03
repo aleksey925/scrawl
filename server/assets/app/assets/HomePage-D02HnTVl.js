@@ -1,0 +1,1 @@
+import{ft as e}from"./theme-DF43i05K.js";import{t}from"./DirectoryView-B9vD2zZN.js";import{t as n}from"./PageContainer-WawzMEFM.js";var r=e();function i(){return(0,r.jsx)(n,{children:(0,r.jsx)(t,{path:``})})}export{i as Component};

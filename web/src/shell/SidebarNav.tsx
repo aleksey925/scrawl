@@ -1,8 +1,8 @@
 import {
-  ActionIcon, Anchor, Box, Button, Group, Highlight, ScrollArea, Skeleton, Stack, Text, TextInput,
+  ActionIcon, Anchor, Box, Group, Highlight, Menu, ScrollArea, Skeleton, Stack, Text, TextInput,
 } from '@mantine/core';
 import {
-  IconChevronRight, IconFile, IconFolder, IconFolderPlus, IconPlus, IconSearch, IconX,
+  IconChevronRight, IconFile, IconFilePlus, IconFolder, IconFolderPlus, IconPlus, IconSearch, IconX,
 } from '@tabler/icons-react';
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
@@ -23,6 +23,8 @@ import { basenameOf, parentOf } from './naming';
 import { filterTree, type FilteredTree } from './treeFilter';
 
 const iconSize = 16;
+// the height of the filter it stands beside
+const newEntrySize = 32;
 const deskRowHeight = 30;
 const deskTwistyWidth = 22;
 const touchTwistyWidth = 28;
@@ -301,7 +303,7 @@ function DraftRow({ depth, touch }: { depth: number; touch: boolean }): JSX.Elem
         value={name}
         disabled={busy}
         variant="unstyled"
-        size={touch ? 'md' : 'xs'}
+        size={touch ? 'md' : 'sm'}
         placeholder={page ? 'File name' : 'Folder name'}
         aria-label={page ? 'Name of the new file' : 'Name of the new folder'}
         autoComplete="off"
@@ -320,7 +322,7 @@ function DraftRow({ depth, touch }: { depth: number; touch: boolean }): JSX.Elem
             cancelDraft();
           }
         }}
-        styles={{ input: { fontSize: layout.inputFontSize, paddingLeft: 6, height: 'auto', minHeight: 24 } }}
+        styles={{ input: { paddingLeft: 6, height: 'auto', minHeight: 24 } }}
         style={{ flex: '1 1 auto', minWidth: 0 }}
       />
     </Group>
@@ -565,7 +567,7 @@ export function SidebarNav(): JSX.Element {
         }
       }}
     >
-      <Box px={gutter} pt="xs">
+      <Group gap="xs" px={gutter} pt="xs" wrap="nowrap">
         <TextInput
           data-testid="sidebar-filter"
           value={query}
@@ -592,9 +594,43 @@ export function SidebarNav(): JSX.Element {
               </ActionIcon>
             )
           }
-          styles={{ input: { fontSize: layout.inputFontSize } }}
+          style={{ flex: '1 1 auto', minWidth: 0 }}
         />
-      </Box>
+        {canWrite && (
+          <Menu position="bottom-end" withinPortal shadow="md" width={200}>
+            <Menu.Target>
+              <ActionIcon
+                data-testid="sidebar-new"
+                variant="default"
+                size={touch ? layout.tapTarget : newEntrySize}
+                style={{ flex: 'none' }}
+                aria-label="New file or folder"
+              >
+                <IconPlus size={iconSize} />
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {/* where it lands is the row that is picked, and the label says
+                  so for the times the tree is scrolled away from it */}
+              <Menu.Label data-testid="sidebar-new-where">{inFolder(here, rootNode.name)}</Menu.Label>
+              <Menu.Item
+                data-testid="sidebar-new-page"
+                leftSection={<IconFilePlus size={iconSize} />}
+                onClick={() => actions.createPage(here)}
+              >
+                New file
+              </Menu.Item>
+              <Menu.Item
+                data-testid="sidebar-new-folder"
+                leftSection={<IconFolderPlus size={iconSize} />}
+                onClick={() => actions.createFolder(here)}
+              >
+                New folder
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        )}
+      </Group>
 
       <TreeUiContext.Provider value={ui}>
         <ScrollArea type="hover" viewportRef={viewportRef} style={{ flex: '1 1 auto', minWidth: 0 }}>
@@ -636,35 +672,6 @@ export function SidebarNav(): JSX.Element {
           </Box>
         </ScrollArea>
       </TreeUiContext.Provider>
-
-      {canWrite && (
-        <Group gap="xs" px={gutter} pb="xs" wrap="nowrap">
-          {/* where it lands is the row that is picked, and the title says so
-              for the times the tree is scrolled away from it */}
-          <Button
-            data-testid="sidebar-new-page"
-            variant="default"
-            size={touch ? 'sm' : 'xs'}
-            leftSection={<IconPlus size={14} />}
-            onClick={() => actions.createPage(here)}
-            title={inFolder(here, rootNode.name)}
-            style={{ flex: '1 1 0', minWidth: 0 }}
-          >
-            New file
-          </Button>
-          <Button
-            data-testid="sidebar-new-folder"
-            variant="default"
-            size={touch ? 'sm' : 'xs'}
-            leftSection={<IconFolderPlus size={14} />}
-            onClick={() => actions.createFolder(here)}
-            title={inFolder(here, rootNode.name)}
-            style={{ flex: '1 1 0', minWidth: 0 }}
-          >
-            New folder
-          </Button>
-        </Group>
-      )}
     </Stack>
   );
 }

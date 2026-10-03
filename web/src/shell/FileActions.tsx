@@ -11,7 +11,6 @@ import type { EntryKind, EntryPathResponse } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
 import { directoryUrl, documentUrl, editUrl, isMarkdown, slugPath } from '../paths';
-import { layout } from '../theme';
 import { showToast } from '../toast';
 
 import { useNav } from './NavContext';
@@ -77,8 +76,6 @@ function draftPath(draft: TreeDraft, name: string): string {
   }
   return joinPath(draft.parent, draft.kind === 'file' && !isMarkdown(slug) ? `${slug}.md` : slug);
 }
-
-const inputStyles = { input: { fontSize: layout.inputFontSize } };
 
 export function FileActionsProvider({ children }: { children: ReactNode }): JSX.Element {
   const navigate = useNavigate();
@@ -306,7 +303,7 @@ function RenameDialog({ path, onClose, onRenamed }: RenameDialogProps): JSX.Elem
             error={error}
             autoComplete="off"
             spellCheck={false}
-            styles={{ input: { ...inputStyles.input, fontFamily: 'var(--mantine-font-family-monospace)' } }}
+            styles={{ input: { fontFamily: 'var(--mantine-font-family-monospace)' } }}
             onChange={(event) => {
               setValue(event.currentTarget.value);
               setError(undefined);

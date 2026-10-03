@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Button, Group } from '@mantine/core';
+import { ActionIcon, Box, Group, Kbd, UnstyledButton } from '@mantine/core';
 import { spotlight } from '@mantine/spotlight';
 import { IconListSearch, IconSearch } from '@tabler/icons-react';
 import type { JSX, ReactNode } from 'react';
@@ -10,7 +10,7 @@ import { MoreMenu } from './MoreMenu';
 import { PathCrumbs } from './PathCrumbs';
 import { SpaceSwitcher } from './SpaceSwitcher';
 import { SyncControl } from './SyncControl';
-import { ThemeToggle } from './ThemeToggle';
+import classes from './Topbar.module.css';
 
 export interface TopbarProps {
   burger: ReactNode;
@@ -35,15 +35,11 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
       <Group data-testid="topbar-actions" gap={wide ? 'xs' : 0} wrap="nowrap" ref={actionsRef} />
 
       {wide ? (
-        <Button
-          data-testid="topbar-search"
-          variant="default"
-          size="xs"
-          leftSection={<IconSearch size={16} />}
-          onClick={spotlight.open}
-        >
-          Search
-        </Button>
+        <UnstyledButton data-testid="topbar-search" className={classes.search} onClick={spotlight.open}>
+          <IconSearch size={16} />
+          <span className={classes.searchLabel}>Search notes</span>
+          <Kbd size="xs">/</Kbd>
+        </UnstyledButton>
       ) : (
         <ActionIcon
           data-testid="topbar-search-compact"
@@ -73,7 +69,6 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
       {wide ? (
         <>
           <SyncControl />
-          <ThemeToggle />
           <AccountMenu />
         </>
       ) : (

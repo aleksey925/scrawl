@@ -101,7 +101,7 @@ export function SyncControl(): JSX.Element | null {
           data-here={summary.here ? 'true' : 'false'}
           variant="subtle"
           color="yellow"
-          size="xs"
+          size="sm"
           px="xs"
           aria-label={summary.label}
           leftSection={<IconAlertTriangle size={16} />}

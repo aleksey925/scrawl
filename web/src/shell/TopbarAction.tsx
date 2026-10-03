@@ -5,6 +5,8 @@ import { Link } from 'react-router';
 
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
+import classes from './Topbar.module.css';
+
 export interface TopbarActionProps {
   testId: string;
   label: string;
@@ -43,7 +45,8 @@ export function TopbarAction({ testId, label, icon: Icon, to, onClick, primary =
       data-testid={testId}
       variant={primary ? 'default' : 'subtle'}
       color={primary ? undefined : 'gray'}
-      size="xs"
+      className={primary ? classes.primary : undefined}
+      size="sm"
       leftSection={<Icon size={16} />}
       renderRoot={renderRoot}
       onClick={onClick}

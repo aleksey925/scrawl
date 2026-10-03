@@ -27,6 +27,7 @@ interface PaletteSearch extends SpotlightSearchProps {
 const searchProps: PaletteSearch = {
   leftSection: <IconSearch size={18} />,
   placeholder: 'Search your notes',
+  variant: 'unstyled',
   'data-testid': 'palette-input',
 };
 

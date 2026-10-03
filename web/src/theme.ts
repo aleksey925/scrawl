@@ -4,6 +4,9 @@ import {
   Button,
   CloseButton,
   createTheme,
+  Input,
+  Menu,
+  Modal,
   type MantineColorsTuple,
   type MantineThemeOverride,
 } from '@mantine/core';
@@ -67,7 +70,6 @@ export const layout = {
   // the switcher names the space and then gets out of the way of the page
   // actions, which are what a phone topbar must never push off the row
   spaceSwitcherWidth: 130,
-  // an input below 16px makes iOS zoom the page on focus and never zoom back
   inputFontSize: 16,
 } as const;
 
@@ -347,10 +349,12 @@ export const theme: MantineThemeOverride = createTheme({
     lg: '1.0625rem',
     xl: '1.1875rem',
   },
+  // Primer sets a control in 500; mantine reads this one token and ships 600
+  fontWeights: { medium: '500' },
   lineHeights: { xs: '1.2', sm: '1.3', md: '1.45', lg: '1.55', xl: '1.65' },
 
   radius: { xs: '4px', sm: '6px', md: '8px', lg: '12px', xl: '999px' },
-  defaultRadius: 'md',
+  defaultRadius: 'sm',
 
   spacing: {
     xs: '0.25rem',
@@ -382,8 +386,12 @@ export const theme: MantineThemeOverride = createTheme({
   components: {
     ActionIcon: ActionIcon.extend({ classNames: { root: controls.tapTarget } }),
     Burger: Burger.extend({ classNames: { root: `${controls.tapTarget} ${controls.burger}` } }),
-    Button: Button.extend({ classNames: { root: controls.tapTarget } }),
+    Button: Button.extend({ classNames: { root: `${controls.tapTarget} ${controls.button}` } }),
     CloseButton: CloseButton.extend({ classNames: { root: controls.tapTarget } }),
+    Input: Input.extend({ classNames: { wrapper: controls.input, input: controls.inputField } }),
+    // a control takes Primer's 6px, a surface floating over the page its larger one
+    Menu: Menu.extend({ defaultProps: { radius: 'md' } }),
+    Modal: Modal.extend({ defaultProps: { radius: 'lg' } }),
   },
 
   other: { layout, layoutBreakpoints, breakpointPx },

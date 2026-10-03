@@ -257,6 +257,7 @@ test.describe('reading', () => {
         // dark text on a light page
         expect(await contrast()).toBeLessThan(0);
 
+        await page.getByTestId('topbar-account').click();
         const toggle = page.getByTestId('topbar-theme');
         await toggle.click();
         await expect(toggle).toHaveAttribute('data-scheme', 'light');

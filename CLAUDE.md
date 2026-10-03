@@ -139,7 +139,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
   so the two cannot drift apart. `markdown.css` is a port of
   github-markdown-css onto the markup `render` emits, and the note sits
   in no mantine `Typography`, whose prose rules would mix a second look
-  in. Where the column takes the whole width it keeps GitHub's 32px from
+  in. A control has Primer's shape as well as its colors, and the theme
+  is the one place that says so: 6px corners, a 500 weight, 28 and 32px
+  heights, and a field cut into the page instead of filled like a
+  button. Mantine's own defaults made a filter read as a third button.
+  Where the column takes the whole width it keeps GitHub's 32px from
   the edge of the screen, and on a phone GitHub's 16px.
 - On a phone everything starts on that 16px line: the page text, the
   path, the glyph (not the 44px box) of the first and last topbar icon,
@@ -221,7 +225,7 @@ vendor/                dependencies, checked in, `make deps` regenerates
   with the merge of another.
 - The reset is `reset --keep` plus a check of our own, never `--hard`.
   `--keep` refuses to write over an uncommitted change, and git still
-  replaces an *ignored* untracked file without a word - and the store
+  replaces an _ignored_ untracked file without a word - and the store
   serves files a `.gitignore` among the notes names. So every path the
   remote adds is looked up on disk first, and one that is there and
   untracked refuses the reset. A writable space commits what is on

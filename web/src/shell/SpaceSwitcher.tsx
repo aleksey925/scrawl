@@ -33,7 +33,7 @@ export function SpaceSwitcher(): JSX.Element | null {
           data-testid="topbar-space"
           variant="subtle"
           color="gray"
-          size="xs"
+          size="sm"
           px="xs"
           maw={layout.spaceSwitcherWidth}
           miw={layout.tapTarget}

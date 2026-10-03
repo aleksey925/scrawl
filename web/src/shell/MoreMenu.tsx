@@ -1,19 +1,17 @@
-import { ActionIcon, Indicator, Menu, Text, useMantineColorScheme } from '@mantine/core';
+import { ActionIcon, Indicator, Menu } from '@mantine/core';
 import { IconAlertTriangle, IconDots } from '@tabler/icons-react';
 import { useState, type JSX } from 'react';
 
-import { nextColorScheme } from '../colorScheme';
 import { layout } from '../theme';
 
 import { AccountItems } from './AccountMenu';
 import { SyncSheet, useSyncSummary } from './SyncControl';
-import { SchemeIcon } from './ThemeToggle';
+import { ThemeItem } from './ThemeItem';
 
-// MoreMenu holds on a phone what the desktop topbar spreads across a row: the
-// sync state, the theme and the account. The dot on it is what survives
+// MoreMenu holds on a phone what the desktop topbar keeps in two places: the
+// sync state, and the theme with the account. The dot on it is what survives
 // scrolling while the sync is broken, the banner having scrolled away.
 export function MoreMenu(): JSX.Element {
-  const { colorScheme, setColorScheme } = useMantineColorScheme();
   const sync = useSyncSummary();
   const [syncOpened, setSyncOpened] = useState(false);
 
@@ -46,20 +44,7 @@ export function MoreMenu(): JSX.Element {
               {sync.label}
             </Menu.Item>
           )}
-          <Menu.Item
-            data-testid="topbar-theme"
-            data-scheme={colorScheme}
-            closeMenuOnClick={false}
-            leftSection={<SchemeIcon scheme={colorScheme} size={16} />}
-            rightSection={
-              <Text size="xs" c="dimmed">
-                {colorScheme}
-              </Text>
-            }
-            onClick={() => setColorScheme(nextColorScheme(colorScheme))}
-          >
-            Theme
-          </Menu.Item>
+          <ThemeItem />
           <Menu.Divider />
           <AccountItems />
         </Menu.Dropdown>

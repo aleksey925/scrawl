@@ -7,6 +7,7 @@ import { goToLogin } from '../login';
 import { layout } from '../theme';
 
 import { useNav } from './NavContext';
+import { ThemeItem } from './ThemeItem';
 
 const iconSize = layout.topbarIconSize;
 
@@ -15,8 +16,8 @@ async function signOut(): Promise<void> {
   goToLogin();
 }
 
-// AccountItems are the account entries of a menu, on their own in the desktop
-// menu and at the bottom of the one menu a phone has
+// AccountItems are the account entries of a menu, below the theme in the
+// desktop menu and at the bottom of the one menu a phone has
 export function AccountItems(): JSX.Element {
   const { me } = useNav();
   const signedIn = me !== undefined && me.user !== '';
@@ -57,7 +58,7 @@ export function AccountMenu(): JSX.Element {
   const signedIn = me !== undefined && me.user !== '';
 
   return (
-    <Menu position="bottom-end" withinPortal>
+    <Menu position="bottom-end" width={240} withinPortal>
       <Menu.Target>
         <ActionIcon
           data-testid="topbar-account"
@@ -71,6 +72,8 @@ export function AccountMenu(): JSX.Element {
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown data-testid="topbar-account-menu">
+        <ThemeItem />
+        <Menu.Divider />
         <AccountItems />
       </Menu.Dropdown>
     </Menu>

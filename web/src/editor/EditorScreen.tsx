@@ -445,7 +445,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           <SegmentedControl
             data-testid="editor-layout-mode"
             data-mode={chosen}
-            size="xs"
+            size="sm"
             value={chosen}
             onChange={(value) => choose(value as LayoutMode)}
             aria-label="Editor layout"
@@ -463,7 +463,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         {!readOnly && (
           <Button
             data-testid="editor-save"
-            size="xs"
+            size="sm"
             loading={saving}
             leftSection={<IconDeviceFloppy size={16} />}
             onClick={() => void save()}

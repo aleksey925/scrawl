@@ -13,8 +13,7 @@ test.describe('read-only mode', () => {
 
     test('the reading ui hides every way to write', async ({page}) => {
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.doc.title);
-        await expect(page.getByTestId('sidebar-new-page')).toHaveCount(0);
-        await expect(page.getByTestId('sidebar-new-folder')).toHaveCount(0);
+        await expect(page.getByTestId('sidebar-new')).toHaveCount(0);
 
         // History reads, so it stays; Edit leads to a save the api refuses, and
         // the ui does not offer what it cannot do

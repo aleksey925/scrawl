@@ -11,6 +11,16 @@
 }
 
 @media (pointer: coarse) {
+  /* an input below 16px makes iOS zoom the page on focus and never zoom back */
+  .inputField {
+    font-size: var(--scrawl-input-font-size);
+  }
+
+  /* a field is as tall as the button beside it */
+  .input {
+    --input-height-md: var(--scrawl-tap-target);
+  }
+
   .tapTarget {
     min-width: var(--scrawl-tap-target);
     min-height: var(--scrawl-tap-target);
@@ -46,4 +56,29 @@
     padding-block: calc((var(--scrawl-tap-target) - 1em) / 2);
     margin-block: calc((1em - var(--scrawl-tap-target)) / 2);
   }
+}
+
+/* Primer's control sizes: 28px small and 32px medium, where mantine draws 30
+   and 36 with twice the side padding */
+.button {
+  --button-height-xs: 28px;
+  --button-height-sm: 32px;
+  --button-padding-x-xs: 8px;
+  --button-padding-x-sm: 12px;
+}
+
+/* a field is a hole in the page and not a raised control: mantine fills it
+   with the button gray in the dark scheme, so a filter read as a third button */
+.input {
+  --input-height-sm: 32px;
+}
+
+:global([data-mantine-color-scheme]) .input[data-variant='default'] {
+  --input-bg: var(--scrawl-bg);
+  --input-bd: var(--scrawl-border);
+  --input-bd-focus: var(--scrawl-accent-emphasis);
+}
+
+.input[data-variant='default'] .inputField:focus {
+  box-shadow: inset 0 0 0 1px var(--input-bd);
 }

@@ -29,6 +29,7 @@ test.describe.serial('file management', () => {
     });
 
     test('creates a folder where the tree stands, with no dialog in the way', async ({page}) => {
+        await page.getByTestId('sidebar-new').click();
         await page.getByTestId('sidebar-new-folder').click();
         // the row is typed in place: there is no dialog, and the input sits
         // where the folder is about to be

@@ -402,6 +402,11 @@ The messages tell four things apart:
 
 - **Changes are not reaching the remote.** The push failed. The next
   save tries again.
+- **The remote does not take changes from this space.** The push was
+  refused: the space has no token, or its token may not write there. A
+  public repository is the usual case - it clones without a token and
+  takes no push without one. No retry fixes it: give the space a token
+  with write access, or set `read_only`.
 - **The remote cannot be reached.** The fetch failed. This copy may be
   behind, and if you saved anything it has not gone out either.
 - **This space has diverged from the remote.** Both sides hold

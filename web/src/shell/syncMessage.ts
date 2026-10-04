@@ -50,10 +50,20 @@ export function syncMessage(me: MeResponse | undefined): SyncMessage | undefined
   const diverged = me.space.diverged && facts.some((fact) => fact.kind === 'merge');
   return {
     kind: first.kind,
-    title: first.kind === 'merge' && diverged ? divergedTitle : titles[first.kind],
+    title: titleOf(first.kind, diverged, me.space.push_refused),
     facts,
     canReset: diverged && me.space.can_reset,
   };
+}
+
+function titleOf(kind: SyncKind, diverged: boolean, refused: boolean): string {
+  if (kind === 'merge' && diverged) {
+    return divergedTitle;
+  }
+  if (kind === 'push' && refused) {
+    return refusedTitle;
+  }
+  return titles[kind];
 }
 
 function factsOf(me: MeResponse): SyncFact[] {
@@ -83,6 +93,12 @@ function factsOf(me: MeResponse): SyncFact[] {
       res.push({ kind, body: divergedBody(space.can_reset) + affected, reason: '' });
       continue;
     }
+    if (kind === 'push' && space.push_refused) {
+      // no git reason: it is a line about a terminal prompt, and the body
+      // already says what it means
+      res.push({ kind, body: refusedBody + affected, reason: '' });
+      continue;
+    }
     res.push({ kind, body: bodyOf(kind, space.unpublished) + affected, reason: space.sync_error });
   }
   return res;
@@ -98,6 +114,12 @@ function divergedBody(canReset: boolean): string {
     'Nothing is sent or received until this copy is reset to the remote version.';
   return canReset ? what : `${what} You are not allowed to do that here.`;
 }
+
+const refusedTitle = 'The remote does not take changes from this space';
+
+const refusedBody =
+  'This space has no token that may write to the remote, so changes stay in this copy. ' +
+  'Give the space a token with write access, or make it read-only.';
 
 function bodyOf(kind: SyncKind, unpublished: boolean): string {
   switch (kind) {

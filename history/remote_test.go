@@ -2,6 +2,8 @@ package history
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -446,6 +448,38 @@ func TestUnsyncedListsWhatTheRemoteIsMissing(t *testing.T) {
 	assert.Equal(t, SyncState{}, healed, "a push that landed leaves nothing behind")
 }
 
+func TestAPushTheRemoteWillNotAuthorizeIsRefused(t *testing.T) {
+	tests := []struct {
+		name     string
+		origin   func(t *testing.T) string
+		expected bool
+	}{
+		{name: "the remote asks for a credential", origin: originAnswering(http.StatusUnauthorized), expected: true},
+		{name: "the credential may not write", origin: originAnswering(http.StatusForbidden), expected: true},
+		{name: "the remote is not there", origin: func(t *testing.T) string {
+			return filepath.Join(t.TempDir(), "gone.git")
+		}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			bare := bareRemote(t)
+			dir := cloneOf(t, bare)
+			svc := remoteService(t, dir, bare)
+			writeFile(t, dir, "mine.md", "# Mine\n")
+			gitIn(t, dir, "remote", "set-url", remoteName, tc.origin(t))
+
+			// act
+			require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+			state := svc.SyncState()
+
+			// assert
+			assert.Contains(t, state.Error, "push:")
+			assert.Equal(t, tc.expected, state.Refused, state.Error)
+		})
+	}
+}
+
 // TestUnsyncedNamesOnlyThisSide is what the three-dot form buys. A two-dot diff
 // on a diverged branch would also list every path the remote changed, and those
 // files would wear a badge although nobody here touched them.
@@ -643,4 +677,20 @@ func breakRemote(t *testing.T, dir string) {
 func fixRemote(t *testing.T, dir, bare string) {
 	t.Helper()
 	gitIn(t, dir, "remote", "set-url", remoteName, bare)
+}
+
+// originAnswering is a git host that answers every request with one status,
+// which is all a push needs to be turned away at the door.
+func originAnswering(status int) func(t *testing.T) string {
+	return func(t *testing.T) string {
+		t.Helper()
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			if status == http.StatusUnauthorized {
+				w.Header().Set("WWW-Authenticate", `Basic realm="git"`)
+			}
+			w.WriteHeader(status)
+		}))
+		t.Cleanup(srv.Close)
+		return srv.URL + "/notes.git"
+	}
 }

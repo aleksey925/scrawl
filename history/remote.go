@@ -261,12 +261,38 @@ func (s *Service) publishLocked(ctx context.Context, next SyncState) error {
 		timeout: s.initTimeout(),
 	})
 	s.measure(ctx, &next)
+	next.Refused = refused(err)
 	if err != nil {
 		return s.syncFailed(next, "push", err)
 	}
 	next.Error = ""
 	s.publish(next)
 	return nil
+}
+
+// refusalSigns is what git says, under LC_ALL=C, when the remote wants a
+// credential this space cannot give: none configured, one rejected, or one
+// that may read and not write, which github.com answers with a 403.
+var refusalSigns = []string{
+	"could not read Username for",
+	"could not read Password for",
+	"Authentication failed for",
+	"The requested URL returned error: 403",
+}
+
+// refused reports a push the remote turned away for want of a credential that
+// may write, as opposed to one that never reached it.
+func refused(err error) bool {
+	var failed *gitError
+	if !errors.As(err, &failed) {
+		return false
+	}
+	for _, sign := range refusalSigns {
+		if strings.Contains(failed.stderr, sign) {
+			return true
+		}
+	}
+	return false
 }
 
 // measure asks how far ahead of the last fetched remote ref this clone is, and
@@ -427,6 +453,9 @@ type SyncState struct {
 	// off the error: it is what offers a reset, and a merge fails for other
 	// reasons too.
 	Diverged bool
+	// Refused is a push the remote turned away for want of a credential that
+	// may write. It is the one failure no retry fixes, so it gets its own words.
+	Refused bool
 }
 
 // redactURL strips a userinfo a url may carry. Validation refuses one at

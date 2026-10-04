@@ -240,6 +240,31 @@ test.describe('sync state', () => {
         await expect(page.getByTestId('doc-edit')).toBeVisible();
     });
 
+    // a public repository clones with no token and takes no push without one,
+    // and git says that as a line about a terminal prompt
+    test('a refused push says what to do and not what git said', async ({page}) => {
+        await page.route(/\/api\/me$/, async (route) => {
+            const res = await route.fetch();
+            const body = await res.json();
+            Object.assign(body.space, {
+                unpublished: true,
+                push_refused: true,
+                sync_error: 'push: git push origin HEAD:refs/heads/main: exit status 128: ' +
+                    "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
+            });
+            await route.fulfill({response: res, json: body});
+        });
+        await page.goto(WIKI.doc(DOC));
+
+        const alert = page.getByTestId('space-alert');
+        await expect(alert).toContainText('The remote does not take changes from this space');
+        await expect(alert).toContainText('Give the space a token with write access, or make it read-only.');
+        await expect(alert.getByTestId('space-alert-reason')).toHaveCount(0);
+        await shot(page, 'sync-push-refused');
+        // the teardown reads the same route to see the space back in step
+        await page.unroute(/\/api\/me$/);
+    });
+
     // a poll that met an expired session would otherwise open the editor's
     // session dialog with nobody touching anything
     test('a poll that meets a 401 opens no dialog', async ({page}) => {

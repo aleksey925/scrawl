@@ -295,6 +295,12 @@ vendor/                dependencies, checked in, `make deps` regenerates
   true at once, one from each family. `syncMessage` is the only thing
   that writes these words, and the banner and the topbar control both
   render it.
+- A push the remote refuses for want of a credential gets its own words
+  and no git reason. A public repository clones with no token and takes
+  no push without one, and git says that as "could not read Username,
+  terminal prompts disabled", which names neither the cause nor the fix.
+  `history` is what recognizes it, because it pins `LC_ALL=C` and owns
+  what git prints; the client reads a flag and never the error text.
 - The client polls `me` quietly and in the background: quiet so a poll
   meeting an expired session opens no dialog nobody asked for, and
   background so `auth` skips the sliding renewal. That marker is set by

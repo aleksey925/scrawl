@@ -129,7 +129,10 @@ type spaceState struct {
 	// other reasons too, and this is what a reset is offered on. CanReset says
 	// whether this caller is one the reset routes accept.
 	Diverged bool `json:"diverged"`
-	CanReset bool `json:"can_reset"`
+	// PushRefused is a push the remote turned away for want of a credential
+	// that may write, which no retry fixes.
+	PushRefused bool `json:"push_refused"`
+	CanReset    bool `json:"can_reset"`
 }
 
 // unsyncedPaths is which notes the remote is missing. It rides on /api/me and
@@ -335,6 +338,7 @@ func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {
 			SyncError:   sync.Error,
 			Unsynced:    unsyncedOf(sync.Unsynced),
 			Diverged:    sync.Diverged,
+			PushRefused: sync.Refused,
 			CanReset:    m.canReset(r),
 		},
 	}

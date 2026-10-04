@@ -40,6 +40,7 @@ type fakeHistory struct {
 	pushFails   error
 	syncErr     string
 	unsynced    history.Unsynced
+	refused     bool
 	// syncReads counts the loads, which is what proves apiMe takes the whole
 	// state in one and never a getter at a time
 	syncReads int
@@ -64,7 +65,7 @@ func (f *fakeHistory) SyncError() string { return f.syncErr }
 
 func (f *fakeHistory) SyncState() history.SyncState {
 	f.syncReads++
-	return history.SyncState{Unpublished: f.unpublished, Error: f.syncErr, Unsynced: f.unsynced, Diverged: f.diverged}
+	return history.SyncState{Unpublished: f.unpublished, Error: f.syncErr, Unsynced: f.unsynced, Diverged: f.diverged, Refused: f.refused}
 }
 
 func (f *fakeHistory) Remote() bool { return f.remote }
@@ -790,6 +791,7 @@ func TestAPIMeReportsThePublicationState(t *testing.T) {
 		unpublished: true,
 		syncErr:     "push: the remote refused",
 		unsynced:    history.Unsynced{Paths: []string{"guide.md", "images/logo.png"}},
+		refused:     true,
 	}
 	ts := newTestServer(t, testOpts{history: fake})
 
@@ -801,6 +803,7 @@ func TestAPIMeReportsThePublicationState(t *testing.T) {
 	require.True(t, ok, body)
 	assert.Equal(t, true, space["unpublished"])
 	assert.Equal(t, "push: the remote refused", space["sync_error"])
+	assert.Equal(t, true, space["push_refused"])
 	assert.Equal(t, map[string]any{
 		"paths": []any{"guide.md", "images/logo.png"}, "many": false,
 	}, space["unsynced"])

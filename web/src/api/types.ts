@@ -137,6 +137,9 @@ export interface SpaceState {
   diverged: boolean;
   // whether this reader is one the reset routes accept
   can_reset: boolean;
+  // the remote turned the push away for want of a credential that may write,
+  // which no retry fixes
+  push_refused: boolean;
 }
 
 // Divergence is what a reset to the remote version would lose. clean can be

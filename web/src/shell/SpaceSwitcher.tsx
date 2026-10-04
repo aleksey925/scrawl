@@ -4,7 +4,7 @@ import type { JSX } from 'react';
 
 import { api } from '../api/client';
 import { useApi } from '../api/useApi';
-import { layout } from '../theme';
+import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { useNav } from './NavContext';
 
@@ -13,6 +13,7 @@ import { useNav } from './NavContext';
 // multi-space state to hold, which is the point of one subtree per space.
 export function SpaceSwitcher(): JSX.Element | null {
   const { me } = useNav();
+  const wide = useAtLeast(layoutBreakpoints.compactTopbar);
   const state = useApi((signal) => api.spaces({ signal }), []);
 
   const spaces = state.data ?? [];
@@ -35,13 +36,15 @@ export function SpaceSwitcher(): JSX.Element | null {
           color="gray"
           size="sm"
           px="xs"
-          maw={layout.spaceSwitcherWidth}
+          maw={wide ? layout.spaceSwitcherWidth : layout.spaceSwitcherWidthCompact}
           miw={layout.tapTarget}
           style={{ flexShrink: 1 }}
           rightSection={<IconChevronDown size={14} />}
-          styles={{ label: { overflow: 'hidden', textOverflow: 'ellipsis' } }}
         >
-          {current.label}
+          {/* the button label is a flex box, where an ellipsis never shows */}
+          <Text span inherit truncate>
+            {current.label}
+          </Text>
         </Button>
       </Menu.Target>
       <Menu.Dropdown data-testid="topbar-space-menu">

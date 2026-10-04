@@ -1,1 +1,0 @@
-import{ft as e,i as t,r as n}from"./theme-DF43i05K.js";import{t as r}from"./Container-BVl9Qxol.js";var i=e();function a({children:e}){return(0,i.jsx)(r,{size:n.contentMeasure,px:{base:0,[t.compactTopbar]:`lg`,[t.sidebar]:0},miw:0,children:e})}export{a as t};

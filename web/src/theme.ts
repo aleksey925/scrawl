@@ -69,7 +69,8 @@ export const layout = {
   tapTarget: 44,
   // the switcher names the space and then gets out of the way of the page
   // actions, which are what a phone topbar must never push off the row
-  spaceSwitcherWidth: 130,
+  spaceSwitcherWidth: 280,
+  spaceSwitcherWidthCompact: 130,
   inputFontSize: 16,
 } as const;
 

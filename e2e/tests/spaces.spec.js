@@ -62,6 +62,33 @@ test.describe('spaces', () => {
         await expect(page.getByTestId('topbar-space')).toContainText('Team wiki');
     });
 
+    // 130px once cut a two-word name on a screen with a thousand to spare
+    test('the switcher shows an ordinary name whole and ends a long one in an ellipsis', async ({page}) => {
+        const label = page.getByTestId('topbar-space').locator('span', {hasText: /\S/}).last();
+        const cut = () => label.evaluate((el) => el.scrollWidth > el.clientWidth);
+        const named = async (name) => {
+            await page.route(/\/api\/me$/, async (route) => {
+                const res = await route.fetch();
+                const body = await res.json();
+                body.space.label = name;
+                await route.fulfill({response: res, json: body});
+            });
+            await page.goto(NOTES.home());
+            await expect(label).toHaveText(name);
+            await page.unroute(/\/api\/me$/);
+        };
+
+        await named('Записки питониста');
+        expect(await cut()).toBe(false);
+        await shot(page, 'spaces-switcher-name');
+
+        await named('A space whose name was written by somebody paid by the word');
+        expect(await cut()).toBe(true);
+        await expect(label).toHaveCSS('text-overflow', 'ellipsis');
+        await expect(page.getByTestId('doc-history')).toBeInViewport({ratio: 1});
+        await shot(page, 'spaces-switcher-long-name');
+    });
+
     test('a save lands in the root of the space it was made in', async ({page}) => {
         const name = 'e2e-team-note.md';
         await page.goto(TEAM.edit(name));

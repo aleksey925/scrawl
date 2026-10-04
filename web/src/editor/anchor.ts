@@ -219,13 +219,13 @@ function isReload(): boolean {
 // an anchor is spent by the navigation it was written for. Keeping it past that
 // would hijack a plain link to the same page; a reload is the one case where
 // the reader expects to land where they were.
-export function recallAnchor(slot: AnchorSlot, path: string): ReadingAnchor | undefined {
+export function recallAnchor(slot: AnchorSlot, path: string, replayOnReload = true): ReadingAnchor | undefined {
   const key = anchorKey(slot, path);
   const stored = readJson<StoredAnchor>(sessionStore(), key);
   if (stored === undefined || !isReadingAnchor(stored) || stored.path !== path) {
     return undefined;
   }
-  if (stored.consumed && !isReload()) {
+  if (stored.consumed && !(replayOnReload && isReload())) {
     return undefined;
   }
   writeJson(sessionStore(), key, { ...stored, consumed: true });

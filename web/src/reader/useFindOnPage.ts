@@ -66,6 +66,8 @@ function markMatches(root: HTMLElement, terms: string[]): HTMLElement[] {
   return hits;
 }
 
+export const findParam = 'q';
+
 export interface FindOnPage {
   position: number;
   total: number;
@@ -77,7 +79,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const query = searchParams.get('q') ?? '';
+  const query = searchParams.get(findParam) ?? '';
 
   const hits = useRef<HTMLElement[]>([]);
   const [index, setIndex] = useState<number | null>(null);

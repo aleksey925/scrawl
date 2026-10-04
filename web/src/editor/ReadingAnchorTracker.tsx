@@ -1,4 +1,4 @@
-import { useEffect, useRef, type JSX } from 'react';
+import { useEffect, useRef, type JSX, type RefObject } from 'react';
 import { useLocation } from 'react-router';
 
 import {
@@ -13,6 +13,8 @@ import {
 export interface ReadingAnchorTrackerProps {
   path: string;
   rev: string;
+  // set while this arrival is placed by an anchor, so a fragment in the address yields
+  placed: RefObject<boolean>;
 }
 
 const editRoute = /(?:^|\/)edit\//;
@@ -20,7 +22,7 @@ const editRoute = /(?:^|\/)edit\//;
 // Mounted beside a rendered note, this carries the reading position across the
 // step into the editor and back. It renders a marker rather than taking an id,
 // because a note heading slugged like the chrome would answer that lookup.
-export function ReadingAnchorTracker({ path, rev }: ReadingAnchorTrackerProps): JSX.Element {
+export function ReadingAnchorTracker({ path, rev, placed }: ReadingAnchorTrackerProps): JSX.Element {
   const marker = useRef<HTMLSpanElement>(null);
   const location = useLocation();
 
@@ -30,7 +32,10 @@ export function ReadingAnchorTracker({ path, rev }: ReadingAnchorTrackerProps): 
     const fromState = isReadingAnchor(location.state) && location.state.path === path
       ? location.state
       : undefined;
-    const anchor = fromState ?? recallAnchor('view', path);
+    // a position fresh from the editor beats a fragment; one replayed by a
+    // reload does not, the fragment got into the address after it
+    const anchor = fromState ?? recallAnchor('view', path, location.hash === '');
+    placed.current = anchor !== undefined;
     const release = anchor === undefined
       ? undefined
       : holdPosition(() => restoreToView(root, anchor), window);
@@ -55,7 +60,7 @@ export function ReadingAnchorTracker({ path, rev }: ReadingAnchorTrackerProps): 
       release?.();
       document.removeEventListener('click', onClick, true);
     };
-  }, [path, rev, location.state]);
+  }, [path, rev, placed, location.state, location.hash]);
 
   return <span ref={marker} hidden />;
 }

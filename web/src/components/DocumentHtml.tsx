@@ -1,4 +1,4 @@
-import { useRef, type JSX } from 'react';
+import { useRef, type JSX, type RefObject } from 'react';
 
 import type { Heading } from '../api/types';
 import { FindBar } from '../reader/FindBar';
@@ -6,6 +6,7 @@ import { Lightbox } from '../reader/Lightbox';
 import { ReaderToc } from '../reader/ReaderToc';
 import { useDocumentControls } from '../reader/useDocumentControls';
 import { useFindOnPage } from '../reader/useFindOnPage';
+import { useFragment } from '../reader/useFragment';
 import { useKatex } from '../reader/useKatex';
 import { useLightbox } from '../reader/useLightbox';
 import { useMermaid } from '../reader/useMermaid';
@@ -19,9 +20,11 @@ export interface DocumentHtmlProps {
   // with the headings given, the outline fills the shell's toc slot with the
   // scrollspy one: only this component holds the elements it follows
   toc?: Heading[];
+  // true while the reading anchor is placing this arrival
+  placed?: RefObject<boolean>;
 }
 
-export function DocumentHtml({ html, toc }: DocumentHtmlProps): JSX.Element {
+export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null);
   const lightbox = useLightbox(rootRef, html);
   const outline = useOutline(rootRef, html, toc);
@@ -30,6 +33,7 @@ export function DocumentHtml({ html, toc }: DocumentHtmlProps): JSX.Element {
   useDocumentControls(rootRef, html, lightbox.open);
   useKatex(rootRef, html);
   useMermaid(rootRef, html);
+  useFragment(rootRef, html, placed);
 
   return (
     <>

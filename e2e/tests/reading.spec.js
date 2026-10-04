@@ -8,6 +8,7 @@ const text = require('../support/text');
 
 const DOC = docs.doc;
 const ANCHORS = 'e2e-anchors.md';
+const ANCHOR_SOURCE = 'e2e-anchor-source.md';
 const OUTLINE = 'e2e-outline.md';
 
 // a page of its own for the anchor test: the fragment an author writes and the
@@ -128,6 +129,75 @@ test.describe('reading', () => {
                 (el) => el.getBoundingClientRect().top))
             .toBeLessThan(250);
 
+        removeFixture(ANCHORS);
+    });
+
+    test('a page opened with a fragment lands on its heading, and again after a reload', async ({page}) => {
+        // arrange
+        writeFixture(ANCHORS, anchorDocument());
+        const heading = page.getByTestId('doc').locator('h2').first();
+        const headingTop = () => heading.evaluate((el) => el.getBoundingClientRect().top);
+
+        // act
+        await page.goto(`${routes.doc(ANCHORS)}#${encodeURIComponent('раздел')}`);
+
+        // assert
+        await expect.poll(headingTop).toBeLessThan(250);
+        expect(await headingTop()).toBeGreaterThan(0);
+
+        // act
+        await page.reload();
+
+        // assert
+        await expect.poll(headingTop).toBeLessThan(250);
+        expect(await headingTop()).toBeGreaterThan(0);
+        await shot(page, 'reading-fragment-reload');
+
+        removeFixture(ANCHORS);
+    });
+
+    test('coming back from the editor lands where the editing was, not on the fragment', async ({page}) => {
+        // arrange
+        writeFixture(ANCHORS, anchorDocument());
+        const heading = page.getByTestId('doc').locator('h2').first();
+        const headingTop = () => heading.evaluate((el) => el.getBoundingClientRect().top);
+        await page.goto(`${routes.doc(ANCHORS)}#${encodeURIComponent('раздел')}`);
+        await expect.poll(headingTop).toBeLessThan(250);
+        await page.getByTestId('doc-edit').click();
+        const source = await page.getByTestId('editor-source').boundingBox();
+        await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+        await page.mouse.wheel(0, -100000);
+        await page.getByTestId('editor-source').locator('.cm-line').first().click();
+        await page.keyboard.type('x');
+        await page.getByTestId('editor-save').click();
+        await expect(page.getByRole('alert').filter({hasText: 'Saved'})).toBeVisible();
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(/#/);
+        await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(200);
+        expect(await headingTop()).toBeGreaterThan(250);
+
+        removeFixture(ANCHORS);
+    });
+
+    test('a link to a heading of another document lands on that heading', async ({page}) => {
+        // arrange
+        writeFixture(ANCHORS, anchorDocument());
+        writeFixture(ANCHOR_SOURCE, `# Источник\n\n[в раздел](${ANCHORS}#раздел)\n`);
+        await page.goto(routes.doc(ANCHOR_SOURCE));
+        const heading = page.getByTestId('doc').locator('h2').first();
+
+        // act
+        await page.getByTestId('doc').getByRole('link', {name: 'в раздел'}).click();
+
+        // assert
+        await expect.poll(() => heading.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(250);
+        expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
+
+        removeFixture(ANCHOR_SOURCE);
         removeFixture(ANCHORS);
     });
 

@@ -33,7 +33,7 @@ Docker is the usual way to run it:
 ```
 docker run -d --name scrawl \
   -p 7272:7272 \
-  -v /path/to/notes:/notes \
+  -v /path/to/notes:/spaces/notes \
   -v scrawl-data:/data \
   -e SPACE_NAME=notes \
   -e AUTH_USERS='alex:my-password' \
@@ -71,7 +71,8 @@ curl -#L "https://github.com/aleksey925/scrawl/releases/download/v${VERSION}/scr
 ```
 
 or build it yourself with `go install github.com/aleksey925/scrawl@latest`.
-A binary defaults to `/notes` and `:7272`, so point it at your own folder:
+A binary defaults to `/spaces/notes` and `:7272`, so point it at your own
+folder:
 
 ```
 scrawl --space.dir ~/notes --space.name notes --auth.users 'alex:my-password'
@@ -139,10 +140,10 @@ a file with the space configuration.
 warns about each one that was set anyway. The last column is the key
 that takes the variable's place in the file.
 
-| variable     | required | default  | meaning                                    | in the file |
-| ------------ | -------- | -------- | ------------------------------------------ | ----------- |
-| `SPACE_NAME` | yes      |          | name of the space, the URL segment it gets | `name`      |
-| `SPACE_DIR`  |          | `/notes` | directory to serve                         | `dir`       |
+| variable     | required | default         | meaning                                    | in the file |
+| ------------ | -------- | --------------- | ------------------------------------------ | ----------- |
+| `SPACE_NAME` | yes      |                 | name of the space, the URL segment it gets | `name`      |
+| `SPACE_DIR`  |          | `/spaces/notes` | directory to serve                         | `dir`       |
 
 That is all a plain folder needs. The rest is only for a space that is
 a git repository, see
@@ -174,12 +175,12 @@ spaces:
   # a plain folder: name and dir are all it needs
   - name: notes
     label: Personal notes
-    dir: /notes
+    dir: /spaces/notes
 
   # a git repository: the repo block is what makes it one
   - name: team
     label: Team wiki
-    dir: /data/team
+    dir: /spaces/team
     read_only: true
     exclude: ["drafts/*"]
     repo:
@@ -208,7 +209,7 @@ spaces:
 
 ```
 docker run -d --name scrawl -p 7272:7272 \
-  -v ./spaces.yml:/etc/spaces.yml -v /path/to/notes:/notes -v team:/data/team \
+  -v ./spaces.yml:/etc/spaces.yml -v /path/to/notes:/spaces/notes -v scrawl-spaces:/spaces \
   -e SPACES_FILE=/etc/spaces.yml \
   -e AUTH_USERS='alex:my-password' \
   ghcr.io/aleksey925/scrawl:latest
@@ -244,7 +245,7 @@ remote below. In the file it is a `repo` block:
 ```yaml
 spaces:
   - name: team
-    dir: /data/team
+    dir: /spaces/team
     repo:
       url: https://github.com/acme/wiki.git
       token_file: /run/secrets/gh-token
@@ -253,8 +254,8 @@ spaces:
 With one space it is the `REPO_*` variables:
 
 ```
-docker run -d --name scrawl -p 7272:7272 -v team:/data/team \
-  -e SPACE_NAME=team -e SPACE_DIR=/data/team \
+docker run -d --name scrawl -p 7272:7272 -v scrawl-spaces:/spaces \
+  -e SPACE_NAME=team -e SPACE_DIR=/spaces/team \
   -e REPO_URL=https://github.com/acme/wiki.git \
   -e REPO_TOKEN='github_pat_xxx' \
   -e AUTH_USERS='alex:my-password' \
@@ -269,6 +270,12 @@ a space behaves.
 clone lives there and so does every commit that has not been pushed yet.
 If the directory is inside the container's own filesystem, a restart
 re-clones and anything the remote never got is gone.
+
+The image keeps `/spaces` for this. It belongs to the user the image
+runs as, so a named volume mounted there is writable from the first
+start, and one volume holds every clone: `/spaces/team`,
+`/spaces/wiki`. A volume mounted at a path the image does not have
+belongs to root, and the clone fails with `permission denied`.
 
 **A credential is named, never written down inline.** `token_file`
 points at a file, `token_env` at an environment variable, and a single
@@ -324,7 +331,7 @@ instead of scrawl asking every few minutes.
 ```yaml
 spaces:
   - name: team
-    dir: /data/team
+    dir: /spaces/team
     repo:
       url: https://github.com/acme/wiki.git
       pull: 1h

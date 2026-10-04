@@ -34,7 +34,7 @@ var revision = "0.0.0"
 // the defaults of the single space, repeated from the option tags: a run tells
 // a value somebody set from one it was simply given by comparing against them
 const (
-	defaultSpaceDir   = "/notes"
+	defaultSpaceDir   = "/spaces/notes"
 	defaultRepoBranch = "main"
 	defaultRepoPull   = 5 * time.Minute
 )
@@ -43,7 +43,7 @@ const (
 // name and dir keys of that file.
 type spaceOptions struct {
 	Name string `long:"name" env:"NAME" description:"name of the single space, the URL segment it is served under"`
-	Dir  string `long:"dir" env:"DIR" default:"/notes" description:"directory of the single space"`
+	Dir  string `long:"dir" env:"DIR" default:"/spaces/notes" description:"directory of the single space"`
 }
 
 type options struct {

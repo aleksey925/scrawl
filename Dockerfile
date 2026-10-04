@@ -26,7 +26,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 
 RUN apk add --no-cache ca-certificates tzdata wget mailcap git && \
     adduser -s /bin/sh -D -u 1001 app && \
-    mkdir -p /notes /data && chown app:app /notes /data && chmod 1777 /data
+    mkdir -p /spaces/notes /data && chown -R app:app /spaces /data && chmod 1777 /data
 
 ENV TZ=UTC
 

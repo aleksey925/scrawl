@@ -458,7 +458,7 @@ func checkSecretFiles(roots []string, opts *options, cfgs []spaceConfig) error {
 //
 // Walking up matters and resolving only the parent is not enough:
 // EvalSymlinks fails on a path with any missing component, so a secret named
-// inside a directory nobody has made yet - /notes/secrets/hook, with no
+// inside a directory nobody has made yet - /spaces/notes/secrets/hook, with no
 // secrets/ - would resolve nothing at all and compare unequal to every root.
 // auth creates the session key on first start, and an operator names a hook
 // secret before mounting it, so a path that is not there is the normal case

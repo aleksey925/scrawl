@@ -4,7 +4,7 @@ services:
     ports:
       - "7272:7272"
     volumes:
-      - ./examples/data:/notes
+      - ./examples/data:/spaces/notes
       - scrawl-data:/data
     environment:
       - SPACE_NAME=notes

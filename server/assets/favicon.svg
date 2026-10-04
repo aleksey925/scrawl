@@ -1,12 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
     <style>
-        rect.bg { fill: #0071e3 }
-        path.mark { stroke: #ffffff }
+        rect.bg { fill: #0969da }
         @media (prefers-color-scheme: dark) {
-            rect.bg { fill: #0a84ff }
+            rect.bg { fill: #1f6feb }
         }
     </style>
     <rect class="bg" width="32" height="32" rx="7"/>
-    <path class="mark" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
-          d="M8 22V10l4 5 4-5v12M21 10v9M17.5 15.5L21 19l3.5-3.5"/>
+    <g fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 11.5q2.25-4 4.5 0t4.5 0 4.5 0 4.5 0"/>
+        <path opacity=".55" d="M7 17.5h18M7 22.5h11.5"/>
+    </g>
 </svg>

@@ -14,6 +14,7 @@ any of that loads and with JavaScript off: a plain POST form.
     <meta name="robots" content="noindex">
     <title>Sign in - {{.SiteTitle}}</title>
     <link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="{{.TouchIcon}}">
     <link rel="stylesheet" href="/static/{{.Version}}/login/login.css">
     {{/* render blocking on purpose: it repairs data-theme before the first paint */}}
     <script src="/static/{{.Version}}/login/login.js"></script>

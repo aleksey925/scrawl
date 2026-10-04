@@ -280,7 +280,11 @@ func (wb *Web) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wb *Web) loginForm(w http.ResponseWriter, r *http.Request, status int, message, from string) {
-	page := LoginPage{SiteTitle: wb.Title, Version: wb.Version, Theme: themeOf(r), Error: message, From: from}
+	theme := themeOf(r)
+	page := LoginPage{
+		SiteTitle: wb.Title, Version: wb.Version, Theme: theme, TouchIcon: touchIconURL(wb.Version, theme),
+		Error: message, From: from,
+	}
 	wb.renderPage(w, status, "login.html", page)
 }
 

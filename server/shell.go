@@ -76,6 +76,7 @@ type appShell struct {
 type shellData struct {
 	Title       string
 	ColorScheme string
+	TouchIcon   string
 	Nonce       string
 	Version     string
 	Base        string
@@ -98,7 +99,7 @@ const shellTemplate = `<!doctype html>
 <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
 <title>{{.Title}}</title>
 <link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/static/{{.Version}}/icons/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="{{.TouchIcon}}">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -213,16 +214,27 @@ func (m *mount) docHandler(w http.ResponseWriter, r *http.Request) {
 	m.serveShell(w, r, http.StatusOK)
 }
 
+// touchIconURL picks the home screen icon whose background is the page's own.
+// iOS shrinks a closing app into its icon, and any other color shows as a rim.
+func touchIconURL(version, theme string) string {
+	name := "apple-touch-icon.png"
+	if theme == "dark" {
+		name = "apple-touch-icon-dark.png"
+	}
+	return "/static/" + version + "/icons/" + name
+}
+
 func (m *mount) serveShell(w http.ResponseWriter, r *http.Request, status int) {
 	theme := themeOf(r)
 	data := shellData{
-		Title:   m.Title,
-		Nonce:   nonceOf(r.Context()),
-		Version: m.Version,
-		Base:    m.spc.Prefix(),
-		Entry:   m.appShell.entry,
-		CSS:     m.appShell.css,
-		Preload: m.appShell.preload,
+		Title:     m.Title,
+		TouchIcon: touchIconURL(m.Version, theme),
+		Nonce:     nonceOf(r.Context()),
+		Version:   m.Version,
+		Base:      m.spc.Prefix(),
+		Entry:     m.appShell.entry,
+		CSS:       m.appShell.css,
+		Preload:   m.appShell.preload,
 	}
 	// auto is left for the client: the system preference is not something a
 	// request carries, and guessing it here is the flash this attribute exists

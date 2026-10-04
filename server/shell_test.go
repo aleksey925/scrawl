@@ -124,3 +124,47 @@ func TestAppShellLoadsTheBuiltBundle(t *testing.T) {
 		assert.Contains(t, tag, "src=", "inline script in the app shell")
 	}
 }
+
+func TestTouchIconFollowsTheTheme(t *testing.T) {
+	ts := newTestServer(t, testOpts{withAuth: true})
+	client := ts.login(t)
+
+	tests := []struct {
+		name  string
+		path  string
+		theme string
+		icon  string
+	}{
+		{name: "shell without a choice", path: "/", icon: "apple-touch-icon.png"},
+		{name: "shell on auto", path: "/", theme: "auto", icon: "apple-touch-icon.png"},
+		{name: "shell in light", path: "/", theme: "light", icon: "apple-touch-icon.png"},
+		{name: "shell in dark", path: "/", theme: "dark", icon: "apple-touch-icon-dark.png"},
+		{name: "sign-in page in light", path: "/login", theme: "light", icon: "apple-touch-icon.png"},
+		{name: "sign-in page in dark", path: "/login", theme: "dark", icon: "apple-touch-icon-dark.png"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			req := request{path: tc.path}
+			if tc.path == "/" {
+				req.client = client
+			}
+			if tc.theme != "" {
+				req.headers = map[string]string{"Cookie": themeCookie + "=" + tc.theme}
+			}
+			iconURL := touchIconURL(ts.Version, tc.theme)
+
+			// act
+			resp, body := ts.do(t, req)
+			icon, _ := ts.do(t, request{path: iconURL})
+
+			// assert
+			require.Equal(t, http.StatusOK, resp.status)
+			assert.Equal(t, "/static/"+ts.Version+"/icons/"+tc.icon, iconURL)
+			assert.Contains(t, body, `<link rel="apple-touch-icon" href="`+iconURL+`">`)
+			assert.Equal(t, http.StatusOK, icon.status, "the icon is public: a phone fetches it without the session")
+			assert.Equal(t, "image/png", icon.header.Get("Content-Type"))
+		})
+	}
+}

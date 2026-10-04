@@ -94,6 +94,7 @@ type LoginPage struct {
 	SiteTitle string
 	Version   string
 	Theme     string
+	TouchIcon string
 	Error     string
 	From      string
 }

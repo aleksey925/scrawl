@@ -13,7 +13,7 @@ import (
 
 func TestLoadConfigFromFlags(t *testing.T) {
 	// arrange
-	opts := &options{Space: spaceOptions{Name: "notes", Dir: "/notes"}, ReadOnly: true}
+	opts := &options{Space: spaceOptions{Name: "notes", Dir: "/notes", FormatOnSave: formatOff}, ReadOnly: true}
 
 	// act
 	cfgs, err := loadConfig(opts)
@@ -34,6 +34,7 @@ spaces:
     label: Team wiki
     dir: /data/team
     read_only: true
+    format_on_save: false
     exclude: ["drafts/*"]
     repo:
       url: https://github.com/acme/wiki.git
@@ -47,7 +48,7 @@ spaces:
 	// assert
 	require.NoError(t, err)
 	assert.Equal(t, []spaceConfig{
-		{Name: "notes", Dir: "/notes"},
+		{Name: "notes", Dir: "/notes", FormatOnSave: true},
 		{
 			Name: "team", Label: "Team wiki", Dir: "/data/team", ReadOnly: true,
 			Exclude: []string{"drafts/*"},
@@ -92,7 +93,7 @@ func TestLoadConfigRepoDefaults(t *testing.T) {
 
 			// assert
 			require.NoError(t, err)
-			assert.Equal(t, []spaceConfig{{Name: "wiki", Dir: "/wiki", Remote: &tc.want}}, cfgs)
+			assert.Equal(t, []spaceConfig{{Name: "wiki", Dir: "/wiki", FormatOnSave: true, Remote: &tc.want}}, cfgs)
 		})
 	}
 }
@@ -109,12 +110,13 @@ func TestIgnoredSpaceSettings(t *testing.T) {
 		{
 			name: "every setting of the single space",
 			args: []string{
-				"--spaces-file=/etc/spaces.yml", "--space.name=notes", "--space.dir=/data",
+				"--spaces-file=/etc/spaces.yml", "--space.name=notes", "--space.dir=/data", "--space.format-on-save=off",
 				"--repo.url=https://x/y.git", "--repo.branch=trunk", "--repo.pull=1h",
 			},
 			env: map[string]string{repoTokenEnv: "token", repoHookSecretEnv: "secret"},
 			want: []string{
-				"SPACE_NAME", "SPACE_DIR", "REPO_URL", "REPO_BRANCH", "REPO_PULL", repoTokenEnv, repoHookSecretEnv,
+				"SPACE_NAME", "SPACE_DIR", "SPACE_FORMAT_ON_SAVE", "REPO_URL", "REPO_BRANCH", "REPO_PULL",
+				repoTokenEnv, repoHookSecretEnv,
 			},
 		},
 	}
@@ -285,7 +287,7 @@ func TestFlagSpacesReadTheFixedVariable(t *testing.T) {
 	// assert
 	require.NoError(t, err)
 	assert.Equal(t, []spaceConfig{{
-		Name: "notes", Dir: "/notes",
+		Name: "notes", Dir: "/notes", FormatOnSave: true,
 		Remote: &remoteConfig{
 			URL: "https://github.com/acme/wiki.git", Branch: "main",
 			Token: "Bearer ghp_flag", Pull: time.Minute,

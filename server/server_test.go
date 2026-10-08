@@ -95,6 +95,7 @@ func (ts *testServer) resolve(p string) string {
 type testOpts struct {
 	readOnly      bool // the whole server
 	spaceReadOnly bool // this space alone
+	formatOnSave  bool
 	withAuth      bool
 	history       History
 
@@ -118,6 +119,7 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 	// is derived from them, so auth cannot be built before they exist
 	spc := testSpaceAt(t, testSpace, root, opts.readOnly || opts.spaceReadOnly)
 	spc.ReadOnly = opts.spaceReadOnly
+	spc.FormatOnSave = opts.formatOnSave
 	spc.History = opts.history
 
 	res := &testServer{root: root}

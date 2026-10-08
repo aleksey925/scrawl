@@ -140,10 +140,11 @@ a file with the space configuration.
 warns about each one that was set anyway. The last column is the key
 that takes the variable's place in the file.
 
-| variable     | required | default         | meaning                                    | in the file |
-| ------------ | -------- | --------------- | ------------------------------------------ | ----------- |
-| `SPACE_NAME` | yes      |                 | name of the space, the URL segment it gets | `name`      |
-| `SPACE_DIR`  |          | `/spaces/notes` | directory to serve                         | `dir`       |
+| variable               | required | default         | meaning                                                                      | in the file      |
+| ---------------------- | -------- | --------------- | ---------------------------------------------------------------------------- | ---------------- |
+| `SPACE_NAME`           | yes      |                 | name of the space, the URL segment it gets                                   | `name`           |
+| `SPACE_DIR`            |          | `/spaces/notes` | directory to serve                                                           | `dir`            |
+| `SPACE_FORMAT_ON_SAVE` |          | `on`            | `off` stops the editor from formatting a note with prettier when it saves it | `format_on_save` |
 
 That is all a plain folder needs. The rest is only for a space that is
 a git repository, see
@@ -197,6 +198,7 @@ spaces:
 | `label`                 |                    | the name | what the switcher and the top of the tree show                                                                                 |
 | `dir`                   | yes                |          | directory to serve                                                                                                             |
 | `read_only`             |                    | `false`  | refuse every write in this space                                                                                               |
+| `format_on_save`        |                    | `true`   | `false` stops the editor from formatting a note with prettier when it saves it                                                 |
 | `exclude`               |                    |          | extra ignore globs for this space, added to `EXCLUDE`                                                                          |
 | `repo`                  |                    |          | add this block only for a space that is a git repository: `dir` becomes a clone of the remote; leave it out for a plain folder |
 | `repo.url`              | yes, inside `repo` |          | the remote to clone and push back to                                                                                           |
@@ -491,7 +493,18 @@ one folder instead.
 
 - a save writes a temporary file and renames it into place, so a crash
   cannot leave half a document behind
-- trailing whitespace is never trimmed, in markdown it can be meaningful
+- a save formats the note with [prettier](https://prettier.io) first,
+  with its default options, so every note ends up looking the way
+  `prettier --write` leaves it. `SPACE_FORMAT_ON_SAVE=off`, or
+  `format_on_save: false` on one space in the file, turns that off
+- the wand button in the toolbar, or `Shift+Alt+F`, formats the note
+  without saving it, whatever that setting says
+- prettier runs in the browser, so only the editor formats. A note
+  written through the API, restored from the history or changed on disk
+  is stored as it came. To format what is already there, run
+  `prettier --write "**/*.md"` in the folder once
+- with formatting off trailing whitespace is never trimmed, in markdown
+  it can be meaningful
 - if the file changed on disk since the editor opened it, the save is
   refused and you are shown both versions
 - nothing outside the folder of a space is reachable and symbolic links

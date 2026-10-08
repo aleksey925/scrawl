@@ -37,6 +37,8 @@ type spaceConfig struct {
 	Dir      string
 	ReadOnly bool
 	Exclude  []string
+
+	FormatOnSave bool
 	// Remote says the directory is a managed clone. It is metadata on top of
 	// Dir and never an alternative to it: both consumers take an explicit root,
 	// and the operator has to see which volume must survive a restart.
@@ -395,6 +397,8 @@ func newSpace(ctx context.Context, opts *options, cfg spaceConfig, root string) 
 		Store:    notes,
 		Index:    rp.index,
 		History:  rp.hist,
+
+		FormatOnSave: cfg.FormatOnSave,
 	}
 	rp.web.Renderer = render.New(render.Options{
 		LinkExists: notes.Exists,

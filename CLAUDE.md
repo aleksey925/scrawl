@@ -118,6 +118,15 @@ vendor/                dependencies, checked in, `make deps` regenerates
   and then covered it. Rows drag into folders, one or the whole picked
   run; a plain click picks, shift takes the range, and a modified click
   stays the browser's "open in a tab".
+- The formatter is prettier, and it runs in the browser: the binary has
+  no javascript runtime and no port of it to Go exists. So formatting is
+  something the editor does to its own buffer before a save, and the
+  server only carries the space's wish in `/api/me`. A write through the
+  API, a restore and a change on disk are stored as they came. It is on
+  unless a space turns it off, and only `.md` is formatted. The version
+  is the one `mise.toml` pins and the plugins are the ones the command
+  line loads, so a note saved here does not come back changed from
+  `prettier --write`.
 - Rendered notes never share an id namespace with app chrome. A heading
   becomes an element id, so a note carrying "Toasts" took `id="toasts"`
   and every toast was appended invisibly inside it. Chrome is mantine

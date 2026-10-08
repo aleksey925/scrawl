@@ -11,6 +11,7 @@ import {
   IconListNumbers,
   IconPhoto,
   IconQuote,
+  IconWand,
 } from '@tabler/icons-react';
 import type { ComponentType, JSX } from 'react';
 
@@ -41,9 +42,10 @@ const items: readonly ToolItem[] = [
 export interface ToolbarProps {
   onAction: (action: MarkdownAction) => void;
   onPickImage: () => void;
+  onFormat: (() => void) | undefined;
 }
 
-export function Toolbar({ onAction, onPickImage }: ToolbarProps): JSX.Element {
+export function Toolbar({ onAction, onPickImage, onFormat }: ToolbarProps): JSX.Element {
   return (
     <Group
       data-testid="editor-toolbar"
@@ -82,6 +84,20 @@ export function Toolbar({ onAction, onPickImage }: ToolbarProps): JSX.Element {
       >
         <IconPhoto size={18} />
       </ActionIcon>
+      {onFormat !== undefined && (
+        <ActionIcon
+          data-testid="editor-toolbar-format"
+          size={layout.tapTarget}
+          variant="subtle"
+          color="gray"
+          aria-label="Format with prettier"
+          title="Format with prettier"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={onFormat}
+        >
+          <IconWand size={18} />
+        </ActionIcon>
+      )}
     </Group>
   );
 }

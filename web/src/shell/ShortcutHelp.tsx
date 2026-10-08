@@ -5,6 +5,7 @@ import { useEffect, useState, type JSX } from 'react';
 // else; this only spells the same choice out for the reader
 const apple = /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent);
 const modKey = apple ? '⌘' : 'Ctrl';
+const altKey = apple ? '⌥' : 'Alt';
 
 interface Shortcut {
   keys: readonly string[];
@@ -20,6 +21,7 @@ const shortcuts: readonly Shortcut[] = [
   { keys: ['?'], what: 'Show this list' },
   { keys: [modKey, 'B'], what: 'Show or hide the file list' },
   { keys: [modKey, 'S'], what: 'Save the document being edited' },
+  { keys: ['Shift', altKey, 'F'], what: 'Format the note being edited' },
   { keys: ['Esc'], what: 'Close a panel, clear the filter or the highlighting' },
   { keys: ['←', '→'], what: 'Step through the images in the viewer' },
 ];

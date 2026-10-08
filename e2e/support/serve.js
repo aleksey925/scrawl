@@ -118,6 +118,7 @@ function main() {
     }
     if (inst.readOnly) args.push('--read-only');
     if (inst.uploadDir) args.push(`--upload-dir=${inst.uploadDir}`);
+    if (inst.formatOnSave === false) args.push('--space.format-on-save=off');
     if (inst.historyMode) args.push(`--history=${inst.historyMode}`);
 
     const log = fs.createWriteStream(inst.log, {flags: 'w'});

@@ -35,8 +35,14 @@ var revision = "0.0.0"
 // a value somebody set from one it was simply given by comparing against them
 const (
 	defaultSpaceDir   = "/spaces/notes"
+	defaultFormat     = formatOn
 	defaultRepoBranch = "main"
 	defaultRepoPull   = 5 * time.Minute
+)
+
+const (
+	formatOn  = "on"
+	formatOff = "off"
 )
 
 // spaceOptions is the single space of a run with no spaces file, mirroring the
@@ -44,6 +50,10 @@ const (
 type spaceOptions struct {
 	Name string `long:"name" env:"NAME" description:"name of the single space, the URL segment it is served under"`
 	Dir  string `long:"dir" env:"DIR" default:"/spaces/notes" description:"directory of the single space"`
+
+	// a choice and not a bool: go-flags refuses a default on a bool, and this
+	// one is on unless somebody turns it off
+	FormatOnSave string `long:"format-on-save" env:"FORMAT_ON_SAVE" default:"on" choice:"on" choice:"off" description:"the editor formats a note with prettier before it saves it"`
 }
 
 type options struct {
@@ -569,6 +579,7 @@ func ignoredSpaceSettings(opts *options) []string {
 	}{
 		{name: "SPACE_NAME", set: opts.Space.Name != ""},
 		{name: "SPACE_DIR", set: opts.Space.Dir != defaultSpaceDir},
+		{name: "SPACE_FORMAT_ON_SAVE", set: opts.Space.FormatOnSave != defaultFormat},
 		{name: "REPO_URL", set: opts.Repo.URL != ""},
 		{name: "REPO_BRANCH", set: opts.Repo.Branch != defaultRepoBranch},
 		{name: "REPO_PULL", set: opts.Repo.Pull != defaultRepoPull},

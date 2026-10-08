@@ -28,6 +28,10 @@ type Space struct {
 	Kind     string // KindLocal or KindRemote
 	ReadOnly bool   // this space alone, on top of Config.ReadOnly
 
+	// FormatOnSave is a request to the editor and nothing the server does: the
+	// formatter is prettier, which runs in the browser and not in this binary.
+	FormatOnSave bool
+
 	Store    *store.Store
 	Renderer *render.Renderer
 	Index    *search.Index

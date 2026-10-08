@@ -3,7 +3,7 @@ const {expect, test} = require('@playwright/test');
 const fs = require('fs');
 
 const {
-    MAIN, editorStatus, fixtureFile, modifier, readFixture, removeFixture, routes, save,
+    MAIN, SHARED, editorStatus, fixtureFile, modifier, readFixture, removeFixture, routes, save,
     setSource, shot, signIn, sourceText, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -83,18 +83,20 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    // on the instance that does not format: prettier drops such a line by
+    // design, and this is about the editor changing nothing on its own
     test('trailing whitespace survives a save', async ({page}) => {
         const docPath = scratch('whitespace');
         const body = '- item\n   \n- next\n';
-        writeFixture(docPath, body);
-        await page.goto(routes.edit(docPath));
+        writeFixture(docPath, body, SHARED);
+        await signIn(page, {baseURL: SHARED.baseURL, from: routes.edit(docPath)});
         await expect.poll(() => sourceText(page)).toBe(body);
 
         await setSource(page, `${body}- third\n`);
         await save(page);
 
-        await expect.poll(() => readFixture(docPath)).toBe(`${body}- third\n`);
-        removeFixture(docPath);
+        await expect.poll(() => readFixture(docPath, SHARED)).toBe(`${body}- third\n`);
+        removeFixture(docPath, SHARED);
     });
 
     test('leaving with unsaved changes asks first and keeps a draft', async ({page}) => {

@@ -30,7 +30,7 @@ func TestParseOptsDefaults(t *testing.T) {
 
 	// assert
 	require.NoError(t, err)
-	assert.Equal(t, spaceOptions{Dir: defaultSpaceDir}, opts.Space)
+	assert.Equal(t, spaceOptions{Dir: defaultSpaceDir, FormatOnSave: formatOn}, opts.Space)
 	assert.Equal(t, ":7272", opts.Listen)
 	assert.Equal(t, "Notes", opts.SiteTitle)
 	assert.Equal(t, byteSize(20<<20), opts.MaxUpload)
@@ -83,6 +83,7 @@ func TestParseOptsEnv(t *testing.T) {
 	// arrange
 	t.Setenv("SPACE_NAME", "env-notes")
 	t.Setenv("SPACE_DIR", "/env-root")
+	t.Setenv("SPACE_FORMAT_ON_SAVE", "off")
 	t.Setenv("SPACES_FILE", "/env/spaces.yml")
 	t.Setenv("LISTEN", ":7000")
 	t.Setenv("SITE_TITLE", "Env Notes")
@@ -108,7 +109,7 @@ func TestParseOptsEnv(t *testing.T) {
 
 	// assert
 	require.NoError(t, err)
-	assert.Equal(t, spaceOptions{Name: "env-notes", Dir: "/env-root"}, opts.Space)
+	assert.Equal(t, spaceOptions{Name: "env-notes", Dir: "/env-root", FormatOnSave: formatOff}, opts.Space)
 	assert.Equal(t, "/env/spaces.yml", opts.SpacesFile)
 	assert.Equal(t, ":7000", opts.Listen)
 	assert.Equal(t, "Env Notes", opts.SiteTitle)

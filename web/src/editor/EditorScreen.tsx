@@ -24,7 +24,7 @@ import { useBlocker, useLocation, useNavigate } from 'react-router';
 
 import { ApiError, api, installUnauthorizedHandler, type ApiConflict } from '../api/client';
 import { errorText } from '../api/useApi';
-import { documentUrl, editUrl } from '../paths';
+import { documentUrl, editUrl, isMarkdown } from '../paths';
 import { useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
 import { TopbarAction } from '../shell/TopbarAction';
@@ -49,6 +49,7 @@ import {
 import { firstVisibleLine, holdLineAtReading } from './cmAnchor';
 import { uploadAccept } from './constants';
 import { confirmLeave, openConflict, openSessionExpired } from './dialogs';
+import { formatMarkdown, replaceText, warmFormatter } from './format';
 import classes from './Editor.module.css';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { createPaneSync } from './paneSync';
@@ -63,6 +64,7 @@ export interface EditorScreenProps {
   initialRev: string;
   isNew: boolean;
   readOnly: boolean;
+  formatOnSave: boolean;
 }
 
 const modeOptions = [
@@ -83,6 +85,8 @@ const saveStateText: Record<SaveState, string> = {
 
 export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const { path, initialContent, initialRev, isNew, readOnly } = props;
+  const formattable = !readOnly && isMarkdown(path);
+  const formatOnSave = props.formatOnSave && formattable;
   const navigate = useNavigate();
   const { refreshMe } = useNav();
   const reportMutation = useMutationState();
@@ -125,6 +129,48 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     viewRef.current = created;
     setView(created);
   }, []);
+
+  // a pane that was put away leaves its view in the ref, already destroyed
+  const liveView = useCallback((): EditorView | undefined => {
+    const current = viewRef.current;
+    return current?.dom.isConnected === true ? current : undefined;
+  }, []);
+
+  // the editor and not the state: a change dispatched from a promise is in
+  // the editor at once and in the state only after the next render
+  const bufferText = useCallback(
+    (): string => liveView()?.state.doc.toString() ?? contentRef.current,
+    [liveView],
+  );
+
+  const formatBuffer = useCallback(async (): Promise<string> => {
+    const before = bufferText();
+    const formatted = await formatMarkdown(before, liveView()?.state.selection.main.head ?? 0);
+    // the formatter is fetched on first use, and what was typed meanwhile is
+    // not in its answer: putting the answer in the editor would drop those keys
+    if (bufferText() !== before) {
+      return formatted.text;
+    }
+    const current = liveView();
+    if (current === undefined) {
+      setContent(formatted.text);
+    } else {
+      replaceText(current, formatted.text, formatted.cursor);
+    }
+    return formatted.text;
+  }, [bufferText, liveView]);
+
+  const format = useCallback((): void => {
+    formatBuffer().catch((error: unknown) => {
+      showToast('error', { title: 'Could not format the note', message: errorText(error) });
+    });
+  }, [formatBuffer]);
+
+  useEffect(() => {
+    if (formatOnSave) {
+      warmFormatter();
+    }
+  }, [formatOnSave]);
 
   const [openedAt, setOpenedAt] = useState<ReadingAnchor | undefined>(undefined);
 
@@ -306,6 +352,16 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     }
   }, [navigate, path, reportMutation]);
 
+  // a note the formatter gave up on is still a note somebody wants saved
+  const formatForSave = useCallback(async (): Promise<string> => {
+    try {
+      return await formatBuffer();
+    } catch (error: unknown) {
+      showToast('warn', { title: 'Saved without formatting', message: errorText(error) });
+      return bufferText();
+    }
+  }, [bufferText, formatBuffer]);
+
   const save = useCallback(
     async (withRev?: string): Promise<void> => {
       // a second click would send the same revision again and come back as a
@@ -316,11 +372,12 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       savingRef.current = true;
       setSaving(true);
       rememberReadingPosition();
-      const sent = contentRef.current;
+      let sent = bufferText();
       try {
         // an upload still in flight has its placeholder sitting in the text,
         // and saving now writes that to disk as the document
         await uploads.wait();
+        sent = formatOnSave ? await formatForSave() : bufferText();
         draftRef.current.flush();
         const res = await api.saveFile(path, { content: sent, rev: withRev ?? revRef.current });
         markSaved(sent, res.rev);
@@ -363,7 +420,19 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         setSaving(false);
       }
     },
-    [markSaved, path, readOnly, refreshMe, rememberReadingPosition, reportMutation, saveCopy, uploads],
+    [
+      bufferText,
+      formatForSave,
+      formatOnSave,
+      markSaved,
+      path,
+      readOnly,
+      refreshMe,
+      rememberReadingPosition,
+      reportMutation,
+      saveCopy,
+      uploads,
+    ],
   );
 
   useEffect(() => {
@@ -382,6 +451,23 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [save]);
+
+  useEffect(() => {
+    if (!formattable) {
+      return;
+    }
+    const onKey = (event: KeyboardEvent): void => {
+      // the code and not the key: with option held a mac reports the letter
+      // the layout types there, which for this one is "Ï"
+      if (!event.shiftKey || !event.altKey || event.metaKey || event.ctrlKey || event.code !== 'KeyF') {
+        return;
+      }
+      event.preventDefault();
+      format();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [format, formattable]);
 
   const cancel = useCallback((): void => {
     const anchor = rememberReadingPosition();
@@ -546,7 +632,11 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
       {!readOnly && showSource && (
         <Group gap="xs" wrap="nowrap">
-          <Toolbar onAction={onAction} onPickImage={() => fileRef.current?.click()} />
+          <Toolbar
+            onAction={onAction}
+            onPickImage={() => fileRef.current?.click()}
+            onFormat={formattable ? format : undefined}
+          />
           {uploads.pending > 0 && (
             <ActionIcon
               data-testid="editor-upload-pending"

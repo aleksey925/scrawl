@@ -127,6 +127,7 @@ export interface SpaceState {
   label: string;
   kind: SpaceKind;
   read_only: boolean;
+  format_on_save: boolean;
   degraded: boolean;
   unpublished: boolean;
   // already redacted by the server, so it is safe to render

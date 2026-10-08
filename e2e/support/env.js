@@ -87,6 +87,8 @@ const instances = {
         port: Number(process.env.SCRAWL_E2E_PORT_SHARED || 8733),
         root: path.join(workDir, 'notes-shared'),
         uploadDir: 'attachments',
+        // the one instance that leaves a save as it was written
+        formatOnSave: false,
         historyMode: 'off',
     },
     history: {

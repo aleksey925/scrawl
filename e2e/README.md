@@ -15,7 +15,8 @@ each against its own throwaway copy of the corpus made by
 - `127.0.0.1:8731` - normal mode, used by nearly every spec
 - `127.0.0.1:8732` - `--read-only --history=on`, used by
   `readonly.spec.js` and by the read-only half of `history.spec.js`
-- `127.0.0.1:8733` - `--upload-dir=attachments`, one upload test
+- `127.0.0.1:8733` - `--upload-dir=attachments --space.format-on-save=off`,
+  one upload test and one formatting test
 - `127.0.0.1:8734` - `--history=on`, used by `history.spec.js`
 - `127.0.0.1:8735` - the only one started from a `--spaces-file` file, with
   four spaces, used by `spaces.spec.js` and `sync.spec.js`
@@ -50,13 +51,13 @@ of routes that read no store answer at the root. `routesFor(space)` in
 `support/env.js` builds both halves and no spec writes a url by hand:
 
 ```js
-routes.doc('db/notes.md')   // /s/notes/doc/db/notes.md
-routes.dir('db')            // /s/notes/doc/db/
-routes.edit('db/notes.md')  // /s/notes/edit/db/notes.md
-routes.search('индексы')    // /s/notes/search?q=...
-routes.api('/me')           // /s/notes/api/me
-routes.hook()               // /s/notes/hook
-routes.login()              // /login, which is global
+routes.doc("db/notes.md"); // /s/notes/doc/db/notes.md
+routes.dir("db"); // /s/notes/doc/db/
+routes.edit("db/notes.md"); // /s/notes/edit/db/notes.md
+routes.search("индексы"); // /s/notes/search?q=...
+routes.api("/me"); // /s/notes/api/me
+routes.hook(); // /s/notes/hook
+routes.login(); // /login, which is global
 ```
 
 `routes` is the default space's set. An instance carries its own under
@@ -159,16 +160,16 @@ SCRAWL_E2E_FIXTURE=../examples/data npx playwright test
 
 ## Knobs
 
-| variable | meaning | default |
-|---|---|---|
-| `SCRAWL_E2E_FIXTURE` | corpus copied for each run | the private corpus, else `examples/data` |
-| `SCRAWL_E2E_WORK` | where the copies, the config files and the server logs go | `$TMPDIR/scrawl-e2e` |
-| `SCRAWL_E2E_PORT` | port of the normal instance | `8731` |
-| `SCRAWL_E2E_PORT_RO` | port of the read-only instance | `8732` |
-| `SCRAWL_E2E_PORT_SHARED` | port of the `--upload-dir` instance | `8733` |
-| `SCRAWL_E2E_PORT_HISTORY` | port of the `--history=on` instance | `8734` |
-| `SCRAWL_E2E_PORT_MULTI` | port of the multi-space instance | `8735` |
-| `SCRAWL_E2E_SHOTS` | where the step screenshots go | `e2e/screenshots` |
+| variable                  | meaning                                                   | default                                  |
+| ------------------------- | --------------------------------------------------------- | ---------------------------------------- |
+| `SCRAWL_E2E_FIXTURE`      | corpus copied for each run                                | the private corpus, else `examples/data` |
+| `SCRAWL_E2E_WORK`         | where the copies, the config files and the server logs go | `$TMPDIR/scrawl-e2e`                     |
+| `SCRAWL_E2E_PORT`         | port of the normal instance                               | `8731`                                   |
+| `SCRAWL_E2E_PORT_RO`      | port of the read-only instance                            | `8732`                                   |
+| `SCRAWL_E2E_PORT_SHARED`  | port of the `--upload-dir` instance                       | `8733`                                   |
+| `SCRAWL_E2E_PORT_HISTORY` | port of the `--history=on` instance                       | `8734`                                   |
+| `SCRAWL_E2E_PORT_MULTI`   | port of the multi-space instance                          | `8735`                                   |
+| `SCRAWL_E2E_SHOTS`        | where the step screenshots go                             | `e2e/screenshots`                        |
 
 Server logs are the first place to look at a failure:
 `$TMPDIR/scrawl-e2e/main.log`, `readonly.log`, `shared.log`,

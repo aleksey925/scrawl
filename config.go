@@ -38,6 +38,9 @@ type configSpace struct {
 	ReadOnly bool        `yaml:"read_only"`
 	Exclude  []string    `yaml:"exclude"`
 	Repo     *configRepo `yaml:"repo"`
+
+	// a pointer, because a key left out means the default, which is on
+	FormatOnSave *bool `yaml:"format_on_save"`
 }
 
 // configRepo points a space at a git remote. The credential is always named
@@ -109,6 +112,8 @@ func loadConfig(opts *options) ([]spaceConfig, error) {
 			Dir:      spc.Dir,
 			ReadOnly: spc.ReadOnly,
 			Exclude:  spc.Exclude,
+
+			FormatOnSave: spc.FormatOnSave == nil || *spc.FormatOnSave,
 		}
 		if cfg.Remote, err = repoOf(spc); err != nil {
 			return nil, err
@@ -164,6 +169,8 @@ func flagSpaces(opts *options) ([]spaceConfig, error) {
 		Name:     opts.Space.Name,
 		Dir:      opts.Space.Dir,
 		ReadOnly: opts.ReadOnly,
+
+		FormatOnSave: opts.Space.FormatOnSave != formatOff,
 	}
 	if opts.Repo.URL == "" {
 		return []spaceConfig{cfg}, nil

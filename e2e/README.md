@@ -16,7 +16,7 @@ each against its own throwaway copy of the corpus made by
 - `127.0.0.1:8732` - `--read-only --history=on`, used by
   `readonly.spec.js` and by the read-only half of `history.spec.js`
 - `127.0.0.1:8733` - `--upload-dir=attachments --space.format-on-save=off`,
-  one upload test and one formatting test
+  one upload test and the specs that need a save left as it was written
 - `127.0.0.1:8734` - `--history=on`, used by `history.spec.js`
 - `127.0.0.1:8735` - the only one started from a `--spaces-file` file, with
   four spaces, used by `spaces.spec.js` and `sync.spec.js`

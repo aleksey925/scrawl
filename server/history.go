@@ -222,6 +222,8 @@ func (m *mount) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusRequestEntityTooLarge, errMessage(store.ErrTooLarge))
 		return
 	}
+	r = m.keepThrough(r, p)
+	data = []byte(m.formatOnSave(r, p, string(data), nil).text)
 
 	var fi store.FileInfo
 	err = m.record(r, history.Op{Message: "restore " + p, Paths: []string{p}}, func() ([]string, error) {

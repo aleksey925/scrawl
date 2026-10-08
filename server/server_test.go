@@ -96,6 +96,7 @@ type testOpts struct {
 	readOnly      bool // the whole server
 	spaceReadOnly bool // this space alone
 	formatOnSave  bool
+	formatErr     error // what the formatter answers instead of a note
 	withAuth      bool
 	history       History
 
@@ -161,8 +162,9 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 			MaxUpload:    64 << 10,
 			AuthDisabled: !opts.withAuth,
 		},
-		Spaces: spaces,
-		Auth:   svc,
+		Spaces:    spaces,
+		Auth:      svc,
+		Formatter: &fakeFormatter{err: opts.formatErr},
 	}
 
 	router, err := res.router()

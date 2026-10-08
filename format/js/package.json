@@ -1,0 +1,7 @@
+{
+  "name": "scrawl-formatter",
+  "private": true,
+  "dependencies": {
+    "prettier": "3.8.3"
+  }
+}

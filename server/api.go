@@ -38,6 +38,9 @@ type fileResponse struct {
 type saveRequest struct {
 	Content string `json:"content"`
 	Rev     string `json:"rev"`
+	// Cursor is where the editor's caret is, so the answer can say where it
+	// went when the save formatted the note. An API client leaves it out.
+	Cursor *int `json:"cursor"`
 }
 
 type createRequest struct {
@@ -153,10 +156,14 @@ func (m *mount) apiFileSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r = m.keepThrough(r, p)
+	// before the history lock, which every other write of the space waits on
+	stored := m.formatOnSave(r, p, req.Content, req.Cursor)
+
 	var fi store.FileInfo
 	err := m.record(r, history.Op{Message: "save " + p, Paths: []string{p}}, func() ([]string, error) {
 		var writeErr error
-		fi, writeErr = m.spc.Store.Write(p, []byte(req.Content), req.Rev)
+		fi, writeErr = m.spc.Store.Write(p, []byte(stored.text), req.Rev)
 		return nil, writeErr
 	})
 	var conflict *store.ConflictError
@@ -181,9 +188,8 @@ func (m *mount) apiFileSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	m.touch(p)
-	writeJSON(w, http.StatusOK, m.withHistory(map[string]any{
-		"rev": store.Rev([]byte(req.Content)), "mod_time": fi.ModTime,
-	}))
+	res := m.withHistory(map[string]any{"rev": store.Rev([]byte(stored.text)), "mod_time": fi.ModTime})
+	writeJSON(w, http.StatusOK, stored.describe(res, req.Content))
 }
 
 // writeConflict answers a save that collided with the file on disk. Both

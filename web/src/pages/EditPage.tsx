@@ -41,7 +41,6 @@ export function Component(): JSX.Element {
           initialRev={file?.rev ?? ''}
           isNew={file === undefined}
           readOnly={me.read_only}
-          formatOnSave={me.space.format_on_save}
         />
       )}
     </AsyncContent>

@@ -22,6 +22,7 @@ import (
 	"github.com/jessevdk/go-flags"
 
 	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/format"
 	"github.com/aleksey925/scrawl/history"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/server"
@@ -40,6 +41,11 @@ const (
 	defaultRepoPull   = 5 * time.Minute
 )
 
+// formatWorkers is how many notes prettier formats at once. A run takes a
+// whole core for as long as it lasts, and a worker that ran once stays
+// around holding some 70MB.
+const formatWorkers = 2
+
 const (
 	formatOn  = "on"
 	formatOff = "off"
@@ -53,7 +59,7 @@ type spaceOptions struct {
 
 	// a choice and not a bool: go-flags refuses a default on a bool, and this
 	// one is on unless somebody turns it off
-	FormatOnSave string `long:"format-on-save" env:"FORMAT_ON_SAVE" default:"on" choice:"on" choice:"off" description:"the editor formats a note with prettier before it saves it"`
+	FormatOnSave string `long:"format-on-save" env:"FORMAT_ON_SAVE" default:"on" choice:"on" choice:"off" description:"format a note with prettier whenever it is saved"`
 }
 
 type options struct {
@@ -140,6 +146,8 @@ func (b *byteSize) UnmarshalFlag(value string) error {
 }
 
 func main() {
+	format.RunWorkerIfAsked()
+
 	opts, err := parseOpts(os.Args[1:])
 	if err != nil {
 		var flagsErr *flags.Error
@@ -252,6 +260,9 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 		return fmt.Errorf("setup auth: %w", err)
 	}
 
+	formatter := format.New(formatWorkers)
+	defer formatter.Close()
+
 	srv := &server.Web{
 		Config: server.Config{
 			ListenAddr:        opts.Listen,
@@ -268,8 +279,9 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 			IdleTimeout:       opts.Timeouts.Idle,
 			ShutdownTimeout:   opts.Timeouts.Shutdown,
 		},
-		Spaces: spaces,
-		Auth:   authSvc,
+		Spaces:    spaces,
+		Auth:      authSvc,
+		Formatter: formatter,
 	}
 
 	// the workers start last, after every space has been reconciled and

@@ -1,6 +1,6 @@
 {
-  "_AsyncContent-BIgISew3.js": {
-    "file": "assets/AsyncContent-BIgISew3.js",
+  "_AsyncContent-Bnx0TPMH.js": {
+    "file": "assets/AsyncContent-Bnx0TPMH.js",
     "name": "AsyncContent",
     "imports": [
       "_theme-Dqfw69E-.js",
@@ -14,16 +14,16 @@
       "_theme-Dqfw69E-.js"
     ]
   },
-  "_DirectoryView-BgU9lsQR.js": {
-    "file": "assets/DirectoryView-BgU9lsQR.js",
+  "_DirectoryView-Dk9Hmza7.js": {
+    "file": "assets/DirectoryView-Dk9Hmza7.js",
     "name": "DirectoryView",
     "imports": [
       "_rolldown-runtime-Dd_uD5pT.js",
       "_theme-Dqfw69E-.js",
-      "_editor-CD-B-jdA.js",
-      "_AsyncContent-BIgISew3.js",
+      "_editor-Bcp3aZSx.js",
+      "_AsyncContent-Bnx0TPMH.js",
       "index.html",
-      "_TopbarAction-Dw5cGCn8.js"
+      "_TopbarAction-CkYFVl4n.js"
     ]
   },
   "_PageContainer-B1cx_jy_.js": {
@@ -34,8 +34,8 @@
       "_Container-DKg29kod.js"
     ]
   },
-  "_TopbarAction-Dw5cGCn8.js": {
-    "file": "assets/TopbarAction-Dw5cGCn8.js",
+  "_TopbarAction-CkYFVl4n.js": {
+    "file": "assets/TopbarAction-CkYFVl4n.js",
     "name": "TopbarAction",
     "imports": [
       "_theme-Dqfw69E-.js",
@@ -356,19 +356,19 @@
     "file": "assets/dist-DfFnJEP6.js",
     "name": "dist"
   },
-  "_editor-CD-B-jdA.js": {
-    "file": "assets/editor-CD-B-jdA.js",
+  "_editor-Bcp3aZSx.js": {
+    "file": "assets/editor-Bcp3aZSx.js",
     "name": "editor",
     "imports": [
       "_rolldown-runtime-Dd_uD5pT.js",
       "_theme-Dqfw69E-.js",
-      "_AsyncContent-BIgISew3.js",
+      "_AsyncContent-Bnx0TPMH.js",
       "_preload-helper-Q-YrVPuy.js",
       "index.html",
       "_dist-DfFnJEP6.js",
       "_dist-CfrLGHsT.js",
       "_dist-DRN8tcwY.js",
-      "_TopbarAction-Dw5cGCn8.js"
+      "_TopbarAction-CkYFVl4n.js"
     ],
     "dynamicImports": [
       "node_modules/katex/dist/katex.mjs",
@@ -384,7 +384,7 @@
       "node_modules/@codemirror/lang-json/dist/index.js",
       "node_modules/@codemirror/lang-less/dist/index.js",
       "node_modules/@codemirror/lang-liquid/dist/index.js",
-      "_editor-CD-B-jdA.js",
+      "_editor-Bcp3aZSx.js",
       "node_modules/@codemirror/lang-php/dist/index.js",
       "node_modules/@codemirror/lang-python/dist/index.js",
       "node_modules/@codemirror/lang-rust/dist/index.js",
@@ -487,17 +487,7 @@
       "node_modules/@codemirror/legacy-modes/mode/z80.js",
       "node_modules/@codemirror/legacy-modes/mode/mscgen.js",
       "node_modules/@codemirror/lang-vue/dist/index.js",
-      "node_modules/@codemirror/lang-angular/dist/index.js",
-      "node_modules/prettier/standalone.mjs",
-      "node_modules/prettier/plugins/markdown.mjs",
-      "node_modules/prettier/plugins/yaml.mjs",
-      "node_modules/prettier/plugins/babel.mjs",
-      "node_modules/prettier/plugins/estree.mjs",
-      "node_modules/prettier/plugins/typescript.mjs",
-      "node_modules/prettier/plugins/postcss.mjs",
-      "node_modules/prettier/plugins/html.mjs",
-      "node_modules/prettier/plugins/graphql.mjs",
-      "node_modules/prettier/plugins/glimmer.mjs"
+      "node_modules/@codemirror/lang-angular/dist/index.js"
     ],
     "css": [
       "assets/editor-J6nZc5n6.css"
@@ -612,7 +602,7 @@
     ]
   },
   "index.html": {
-    "file": "assets/index-CG9E6_IW.js",
+    "file": "assets/index-B9wqCGOi.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -2570,118 +2560,58 @@
       "node_modules/mermaid/dist/chunks/mermaid.core/pegDiagram-GJSIUBJH.mjs"
     ]
   },
-  "node_modules/prettier/plugins/babel.mjs": {
-    "file": "assets/babel-CoBKhvwD.js",
-    "name": "babel",
-    "src": "node_modules/prettier/plugins/babel.mjs",
-    "isDynamicEntry": true
-  },
-  "node_modules/prettier/plugins/estree.mjs": {
-    "file": "assets/estree-JdeGcfgo.js",
-    "name": "estree",
-    "src": "node_modules/prettier/plugins/estree.mjs",
-    "isDynamicEntry": true
-  },
-  "node_modules/prettier/plugins/glimmer.mjs": {
-    "file": "assets/glimmer-vUNgdhJX.js",
-    "name": "glimmer",
-    "src": "node_modules/prettier/plugins/glimmer.mjs",
-    "isDynamicEntry": true
-  },
-  "node_modules/prettier/plugins/graphql.mjs": {
-    "file": "assets/graphql-CbkrFRzR.js",
-    "name": "graphql",
-    "src": "node_modules/prettier/plugins/graphql.mjs",
-    "isDynamicEntry": true
-  },
-  "node_modules/prettier/plugins/html.mjs": {
-    "file": "assets/html-BQIunaTA.js",
-    "name": "html",
-    "src": "node_modules/prettier/plugins/html.mjs",
-    "isDynamicEntry": true
-  },
-  "node_modules/prettier/plugins/markdown.mjs": {
-    "file": "assets/markdown-CzQo0fid.js",
-    "name": "markdown",
-    "src": "node_modules/prettier/plugins/markdown.mjs",
-    "isDynamicEntry": true
-  },
-  "node_modules/prettier/plugins/postcss.mjs": {
-    "file": "assets/postcss-BqlRIulj.js",
-    "name": "postcss",
-    "src": "node_modules/prettier/plugins/postcss.mjs",
-    "isDynamicEntry": true
-  },
-  "node_modules/prettier/plugins/typescript.mjs": {
-    "file": "assets/typescript-DaP4l3iY.js",
-    "name": "typescript",
-    "src": "node_modules/prettier/plugins/typescript.mjs",
-    "isDynamicEntry": true
-  },
-  "node_modules/prettier/plugins/yaml.mjs": {
-    "file": "assets/yaml-DWr0cwu1.js",
-    "name": "yaml",
-    "src": "node_modules/prettier/plugins/yaml.mjs",
-    "isDynamicEntry": true
-  },
-  "node_modules/prettier/standalone.mjs": {
-    "file": "assets/standalone-DSu9xz3f.js",
-    "name": "standalone",
-    "src": "node_modules/prettier/standalone.mjs",
-    "isDynamicEntry": true
-  },
   "src/pages/DocumentPage.tsx": {
-    "file": "assets/DocumentPage-CAJc-wd_.js",
+    "file": "assets/DocumentPage-xd20Hxfj.js",
     "name": "DocumentPage",
     "src": "src/pages/DocumentPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-Dqfw69E-.js",
-      "_AsyncContent-BIgISew3.js",
-      "_DirectoryView-BgU9lsQR.js",
+      "_AsyncContent-Bnx0TPMH.js",
+      "_DirectoryView-Dk9Hmza7.js",
       "index.html",
       "_PageContainer-B1cx_jy_.js"
     ]
   },
   "src/pages/EditPage.tsx": {
-    "file": "assets/EditPage-CX-jPQ6e.js",
+    "file": "assets/EditPage-C0KR9hAe.js",
     "name": "EditPage",
     "src": "src/pages/EditPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-Dqfw69E-.js",
-      "_editor-CD-B-jdA.js",
-      "_AsyncContent-BIgISew3.js",
+      "_editor-Bcp3aZSx.js",
+      "_AsyncContent-Bnx0TPMH.js",
       "index.html"
     ]
   },
   "src/pages/HistoryPage.tsx": {
-    "file": "assets/HistoryPage--RYIvtE2.js",
+    "file": "assets/HistoryPage-C3UEz3vB.js",
     "name": "HistoryPage",
     "src": "src/pages/HistoryPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-Dd_uD5pT.js",
       "_theme-Dqfw69E-.js",
-      "_AsyncContent-BIgISew3.js",
+      "_AsyncContent-Bnx0TPMH.js",
       "_Container-DKg29kod.js",
       "index.html",
-      "_TopbarAction-Dw5cGCn8.js"
+      "_TopbarAction-CkYFVl4n.js"
     ]
   },
   "src/pages/HomePage.tsx": {
-    "file": "assets/HomePage-Vdzn8AKg.js",
+    "file": "assets/HomePage-CDD3vj9o.js",
     "name": "HomePage",
     "src": "src/pages/HomePage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-Dqfw69E-.js",
-      "_DirectoryView-BgU9lsQR.js",
+      "_DirectoryView-Dk9Hmza7.js",
       "_PageContainer-B1cx_jy_.js"
     ]
   },
   "src/pages/NotFoundPage.tsx": {
-    "file": "assets/NotFoundPage-tG59ffVh.js",
+    "file": "assets/NotFoundPage-BGKaPGbm.js",
     "name": "NotFoundPage",
     "src": "src/pages/NotFoundPage.tsx",
     "isDynamicEntry": true,
@@ -2692,13 +2622,13 @@
     ]
   },
   "src/pages/SearchPage.tsx": {
-    "file": "assets/SearchPage-DCZ3Pt0P.js",
+    "file": "assets/SearchPage-1ZTH5liI.js",
     "name": "SearchPage",
     "src": "src/pages/SearchPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-Dqfw69E-.js",
-      "_AsyncContent-BIgISew3.js",
+      "_AsyncContent-Bnx0TPMH.js",
       "index.html",
       "_PageContainer-B1cx_jy_.js"
     ]

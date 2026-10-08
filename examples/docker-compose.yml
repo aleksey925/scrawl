@@ -56,7 +56,7 @@ services:
       # - MAX_UPLOAD=20M
       # extra ignore globs, comma separated
       # - EXCLUDE=*.bak,private/**
-      # leave a saved note as it was written, without running prettier on it
+      # store a note as it was written, without running prettier over it
       # - SPACE_FORMAT_ON_SAVE=off
       # serve the notes and refuse every write
       # - READ_ONLY=true

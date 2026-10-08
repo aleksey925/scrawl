@@ -15,6 +15,7 @@ import type {
   MutationState,
   NavResponse,
   PageResponse,
+  FormattedText,
   PreviewRequest,
   SpaceEntry,
   PreviewResponse,
@@ -232,6 +233,7 @@ export interface ScrawlApi {
   historyVersion(path: string, rev: string, options?: RequestOptions): Promise<HistoryVersionResponse>;
   restoreVersion(path: string, body: RestoreRequest, options?: RequestOptions): Promise<RestoreOutcome>;
   preview(body: PreviewRequest, options?: RequestOptions): Promise<PreviewResponse>;
+  format(body: FormattedText, options?: RequestOptions): Promise<FormattedText>;
   upload(dir: string, file: File, doc?: string, options?: RequestOptions): Promise<UploadResponse>;
   syncCheck(options?: RequestOptions): Promise<Divergence>;
   syncReset(body: ResetRequest, options?: RequestOptions): Promise<ResetResponse>;
@@ -299,6 +301,9 @@ export const api: ScrawlApi = {
 
   preview: (body, options) =>
     call<PreviewResponse>('POST', spaceUrl('/api/preview'), { ...options, body }),
+
+  format: (body, options) =>
+    call<FormattedText>('POST', spaceUrl('/api/format'), { ...options, body }),
 
   upload: (dir, file, doc, options) => {
     const form = new FormData();

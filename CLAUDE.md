@@ -15,6 +15,7 @@ render/                markdown -> HTML, link rewrite, TOC, highlighting
 search/                in-memory full-text index
 auth/                  users, sessions, middleware, CSRF, rate limit
 history/               git-backed document history: record, log, restore
+format/                prettier in a wasm module, run by wazero
 server/                HTTP server, handlers, page cache, the webhook endpoint
 server/templates/      the sign-in page, the one page the server renders
 server/assets/login/   the stylesheet and theme script that page carries
@@ -118,15 +119,38 @@ vendor/                dependencies, checked in, `make deps` regenerates
   and then covered it. Rows drag into folders, one or the whole picked
   run; a plain click picks, shift takes the range, and a modified click
   stays the browser's "open in a tab".
-- The formatter is prettier, and it runs in the browser: the binary has
-  no javascript runtime and no port of it to Go exists. So formatting is
-  something the editor does to its own buffer before a save, and the
-  server only carries the space's wish in `/api/me`. A write through the
-  API, a restore and a change on disk are stored as they came. It is on
-  unless a space turns it off, and only `.md` is formatted. The version
-  is the one `mise.toml` pins and the plugins are the ones the command
-  line loads, so a note saved here does not come back changed from
+- The formatter is prettier itself, run inside the binary: `format`
+  embeds one wasm module holding prettier and QuickJS, built by javy,
+  and wazero executes it with no cgo. No port of prettier to Go exists,
+  and goja ran it five times slower and could not load every plugin.
+  The module is committed for the reason the bundle is, `make formatter`
+  rebuilds it, and javy's output is not byte-reproducible, so its guard
+  is a test on what it formats and not a diff in CI. The version is the
+  one `mise.toml` pins and the plugins are the ones the command line
+  loads, so a note saved here does not come back changed from
   `prettier --write`.
+- The server formats, and the editor never does: one formatter and one
+  version, and a write through the API ends up the same as a save from
+  the page. `formatOnSave` is the one place a write passes through, the
+  save and the restore both, it is on unless a space turns it off, and
+  only `.md` is formatted. A change on disk and a pull are not writes
+  of ours and stay as they came: a commit made to format what the remote
+  sent would be a reason to diverge. The button asks `/api/format` for
+  the same thing without a write.
+- Prettier runs in worker processes, copies of this binary started with
+  `SCRAWL_FORMAT_WORKER` set, and never inside the server. Nothing can
+  stop a run from within: wazero only watches a context when every
+  branch of the compiled code checks it, which made a run five times
+  slower, and prettier is quadratic on some text - 8KB of `[` runs for
+  half a minute, 256KB for hours. A process can be killed, so the
+  deadline of a call is a real one and the next call gets a fresh
+  worker. `main` asks `format.RunWorkerIfAsked` before anything else,
+  because a worker must not parse flags or open a store.
+- A note the formatter gave up on is stored as it was written, because
+  the save is what the writer asked for, and the answer says so in
+  `format_failed`. A write that formats is detached from its client:
+  formatting takes seconds, and a tab closed meanwhile would otherwise
+  cancel the commit that follows it.
 - Rendered notes never share an id namespace with app chrome. A heading
   becomes an element id, so a note carrying "Toasts" took `id="toasts"`
   and every toast was appended invisibly inside it. Chrome is mantine
@@ -420,12 +444,13 @@ go modules, the node modules of `web/` and `e2e/`, and the browser the
 suite drives.
 
 ```
-make ui      build the frontend into server/assets/app/, then commit it
-make build   build the binary into dist/
-make test    tests
-make race    tests with the race detector
-make cover   race tests plus a coverage summary
-make lint    every pre-commit hook, through prek
-make run     run ./examples/data as the "notes" space, auth disabled
-make e2e     the browser suite
+make ui         build the frontend into server/assets/app/, then commit it
+make formatter  build prettier into format/prettier.wasm, then commit it
+make build      build the binary into dist/
+make test       tests
+make race       tests with the race detector
+make cover      race tests plus a coverage summary
+make lint       every pre-commit hook, through prek
+make run        run ./examples/data as the "notes" space, auth disabled
+make e2e        the browser suite
 ```

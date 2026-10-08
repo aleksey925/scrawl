@@ -127,7 +127,6 @@ export interface SpaceState {
   label: string;
   kind: SpaceKind;
   read_only: boolean;
-  format_on_save: boolean;
   degraded: boolean;
   unpublished: boolean;
   // already redacted by the server, so it is safe to render
@@ -198,6 +197,8 @@ export interface FileResponse {
 export interface SaveFileRequest {
   content: string;
   rev: string;
+  // where the caret is, so the answer can say where formatting moved it
+  cursor?: number;
 }
 
 // MutationState is what every change that reached the disk says about where
@@ -212,6 +213,17 @@ export interface MutationState {
 export interface SaveFileResponse extends MutationState {
   rev: string;
   mod_time: string;
+  // only when the server formatted the note into something else than was sent
+  content?: string;
+  cursor?: number;
+  // prettier gave up on the note, which was stored as it was written
+  format_failed?: boolean;
+}
+
+// FormattedText is an editor buffer on its way to the formatter and back.
+export interface FormattedText {
+  content: string;
+  cursor: number;
 }
 
 export type EntryKind = 'file' | 'dir';

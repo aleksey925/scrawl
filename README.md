@@ -140,11 +140,11 @@ a file with the space configuration.
 warns about each one that was set anyway. The last column is the key
 that takes the variable's place in the file.
 
-| variable               | required | default         | meaning                                                                      | in the file      |
-| ---------------------- | -------- | --------------- | ---------------------------------------------------------------------------- | ---------------- |
-| `SPACE_NAME`           | yes      |                 | name of the space, the URL segment it gets                                   | `name`           |
-| `SPACE_DIR`            |          | `/spaces/notes` | directory to serve                                                           | `dir`            |
-| `SPACE_FORMAT_ON_SAVE` |          | `on`            | `off` stops the editor from formatting a note with prettier when it saves it | `format_on_save` |
+| variable               | required | default         | meaning                                                   | in the file      |
+| ---------------------- | -------- | --------------- | --------------------------------------------------------- | ---------------- | --- | ------ | ------------------------------------------------------------------------- |
+| `SPACE_NAME`           | yes      |                 | name of the space, the URL segment it gets                | `name`           |
+| `SPACE_DIR`            |          | `/spaces/notes` | directory to serve                                        | `dir`            |
+| `SPACE_FORMAT_ON_SAVE` |          | `on`            | `off` stops a save from formatting the note with prettier | `format_on_save` |     | `true` | `false` stops a save in this space from formatting the note with prettier |
 
 That is all a plain folder needs. The rest is only for a space that is
 a git repository, see
@@ -495,14 +495,20 @@ one folder instead.
   cannot leave half a document behind
 - a save formats the note with [prettier](https://prettier.io) first,
   with its default options, so every note ends up looking the way
-  `prettier --write` leaves it. `SPACE_FORMAT_ON_SAVE=off`, or
+  `prettier --write` leaves it. The server does it, so it holds for the
+  editor, for a write through the API and for a version restored from
+  the history alike. `SPACE_FORMAT_ON_SAVE=off`, or
   `format_on_save: false` on one space in the file, turns that off
 - the wand button in the toolbar, or `Shift+Alt+F`, formats the note
   without saving it, whatever that setting says
-- prettier runs in the browser, so only the editor formats. A note
-  written through the API, restored from the history or changed on disk
-  is stored as it came. To format what is already there, run
-  `prettier --write "**/*.md"` in the folder once
+- only what a request writes is formatted. A file changed on disk or
+  pulled from the remote stays as it came, so to format what is already
+  there run `prettier --write "**/*.md"` in the folder once
+- prettier runs inside the binary, interpreted, at roughly 30ms a
+  kilobyte: a usual note adds a fraction of a second to a save and a
+  very long one a few seconds. A note above 256KB, or one prettier could
+  not finish in 30 seconds, is saved as it was written, and the editor
+  says so
 - with formatting off trailing whitespace is never trimmed, in markdown
   it can be meaningful
 - if the file changed on disk since the editor opened it, the save is
@@ -586,6 +592,12 @@ false,"unpublished":false}`, and that `rev` is the one to send with the
 next save, so a series of writes never has to re-read the file. An empty
 `rev` means "create", and succeeds only while the path is still free.
 
+A markdown note is formatted with prettier before it is stored, unless
+the space turned that off. When that changed the text, the reply also
+carries `content`, the note as it was stored, and `rev` is the revision
+of that text and not of the one that was sent. `"format_failed":true`
+means prettier gave up on the note and it was stored as it was sent.
+
 The last two fields are on every write, and they are two different
 failures. `history_degraded` says the change is on disk and not in git.
 `unpublished` says it is in git and not on the remote. A browser save
@@ -649,6 +661,7 @@ browser test fails with "Executable doesn't exist".
 
 ```
 make ui         build the interface into server/assets/app/
+make formatter  build prettier into format/prettier.wasm
 make build      build the binary into dist/
 make run        run ./examples/data as the "notes" space, no authentication
 make test       tests

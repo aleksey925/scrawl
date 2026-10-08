@@ -3,8 +3,8 @@ const {expect, test} = require('@playwright/test');
 const fs = require('fs');
 
 const {
-    SHARED, editorStatus, fixtureFile, readFixture, routes, save, setSource, signIn, sourceText,
-    writeFixture,
+    SHARED, editorStatus, fixtureFile, jsonRequest, readFixture, routes, save, setSource, signIn,
+    sourceText, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -61,6 +61,20 @@ test.describe('formatting', () => {
         await expect(editorStatus(page)).toHaveText(text.status.saved);
         expect(readFixture(docPath)).toBe(formatted);
         await expect.poll(() => sourceText(page)).toBe(formatted);
+    });
+
+    test('a write through the API is formatted with no editor in the way', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/api.md`;
+        await signIn(page);
+
+        // act
+        const res = await jsonRequest(page, 'PUT', routes.api(`/file/${docPath}`), {content: rough, rev: ''});
+
+        // assert
+        expect(res.status).toBe(200);
+        expect(JSON.parse(res.body).content).toBe(formatted);
+        expect(readFixture(docPath)).toBe(formatted);
     });
 
     test('the toolbar button formats the buffer and saves nothing', async ({page}) => {

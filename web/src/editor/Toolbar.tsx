@@ -43,11 +43,9 @@ export interface ToolbarProps {
   onAction: (action: MarkdownAction) => void;
   onPickImage: () => void;
   onFormat: (() => void) | undefined;
-  formatting: boolean;
 }
 
-export function Toolbar(props: ToolbarProps): JSX.Element {
-  const { onAction, onPickImage, onFormat, formatting } = props;
+export function Toolbar({ onAction, onPickImage, onFormat }: ToolbarProps): JSX.Element {
   return (
     <Group
       data-testid="editor-toolbar"
@@ -94,7 +92,6 @@ export function Toolbar(props: ToolbarProps): JSX.Element {
           color="gray"
           aria-label="Format with prettier"
           title="Format with prettier"
-          loading={formatting}
           onMouseDown={(event) => event.preventDefault()}
           onClick={onFormat}
         >

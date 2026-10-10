@@ -55,10 +55,13 @@ test.describe('formatting', () => {
         await setSource(page, rough);
 
         // act
+        const sending = page.waitForRequest((req) => req.method() === 'PUT');
         await save(page);
 
         // assert
         await expect(editorStatus(page)).toHaveText(text.status.saved);
+        // formatted in the browser, so the server is told not to do it again
+        expect((await sending).postDataJSON()).toMatchObject({content: formatted, formatted: true});
         expect(readFixture(docPath)).toBe(formatted);
         await expect.poll(() => sourceText(page)).toBe(formatted);
     });

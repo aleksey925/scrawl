@@ -118,6 +118,8 @@ type spaceState struct {
 	Label    string `json:"label"`
 	Kind     string `json:"kind"`
 	ReadOnly bool   `json:"read_only"`
+	// FormatOnSave tells the editor to run prettier before it saves
+	FormatOnSave bool `json:"format_on_save"`
 	// Degraded is a commit that failed, so a change is on disk and not in git.
 	// Unpublished is a commit the remote does not have. They are different
 	// failures with different fixes, so they are two fields.
@@ -329,17 +331,18 @@ func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {
 		SiteTitle:       m.Title,
 		Version:         m.Version,
 		Space: spaceState{
-			Name:        m.spc.Name,
-			Label:       m.spc.Title(),
-			Kind:        m.spc.Kind,
-			ReadOnly:    m.readOnly(),
-			Degraded:    m.history().Degraded(),
-			Unpublished: sync.Unpublished,
-			SyncError:   sync.Error,
-			Unsynced:    unsyncedOf(sync.Unsynced),
-			Diverged:    sync.Diverged,
-			PushRefused: sync.Refused,
-			CanReset:    m.canReset(r),
+			Name:         m.spc.Name,
+			Label:        m.spc.Title(),
+			Kind:         m.spc.Kind,
+			ReadOnly:     m.readOnly(),
+			FormatOnSave: m.spc.FormatOnSave,
+			Degraded:     m.history().Degraded(),
+			Unpublished:  sync.Unpublished,
+			SyncError:    sync.Error,
+			Unsynced:     unsyncedOf(sync.Unsynced),
+			Diverged:     sync.Diverged,
+			PushRefused:  sync.Refused,
+			CanReset:     m.canReset(r),
 		},
 	}
 	if m.Auth != nil {

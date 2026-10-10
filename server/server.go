@@ -329,7 +329,6 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	mutating.HandleFunc("POST /api/move", m.apiMove)
 	mutating.HandleFunc("POST /api/upload/{dir...}", m.apiUpload)
 	mutating.HandleFunc("POST /api/preview", m.apiPreview)
-	mutating.HandleFunc("POST /api/format", m.apiFormat)
 	mutating.HandleFunc("POST /api/history/restore/{path...}", m.apiHistoryRestore)
 	mutating.HandleFunc("POST /api/sync/check", m.apiSyncCheck)
 	mutating.HandleFunc("POST /api/sync/reset", m.apiSyncReset)

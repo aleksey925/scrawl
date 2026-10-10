@@ -49,7 +49,7 @@ import {
 import { firstVisibleLine, holdLineAtReading } from './cmAnchor';
 import { uploadAccept } from './constants';
 import { confirmLeave, openConflict, openSessionExpired } from './dialogs';
-import { replaceText } from './format';
+import { formatMarkdown, replaceText, warmFormatter } from './format';
 import classes from './Editor.module.css';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { createPaneSync } from './paneSync';
@@ -64,6 +64,7 @@ export interface EditorScreenProps {
   initialRev: string;
   isNew: boolean;
   readOnly: boolean;
+  formatOnSave: boolean;
 }
 
 const modeOptions = [
@@ -85,6 +86,7 @@ const saveStateText: Record<SaveState, string> = {
 export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const { path, initialContent, initialRev, isNew, readOnly } = props;
   const formattable = !readOnly && isMarkdown(path);
+  const formatOnSave = props.formatOnSave && formattable;
   const navigate = useNavigate();
   const { refreshMe } = useNav();
   const reportMutation = useMutationState();
@@ -95,7 +97,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const [rev, setRev] = useState(initialRev);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<EditorView | undefined>(undefined);
-  const [formatting, setFormatting] = useState(false);
 
   const dirty = content !== saved;
 
@@ -103,7 +104,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const contentRef = useRef(content);
   const revRef = useRef(rev);
   const savingRef = useRef(false);
-  const formattingRef = useRef(false);
   const leavingRef = useRef(false);
   const leaderRef = useRef<'source' | 'preview' | undefined>(undefined);
   const promptedRef = useRef(false);
@@ -143,11 +143,11 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     [liveView],
   );
 
-  // putFormatted shows what the server made of `sent` and says whether it did.
-  // The answer took a round trip, and what was typed meanwhile is not in it:
+  // putFormatted shows what prettier made of `sent` and says whether it did.
+  // The answer took a while, and what was typed meanwhile is not in it:
   // putting it in the editor then would drop those keys.
   const putFormatted = useCallback(
-    (sent: string, formatted: string, cursor: number | undefined): boolean => {
+    (sent: string, formatted: string, cursor?: number): boolean => {
       if (bufferText() !== sent) {
         return false;
       }
@@ -162,25 +162,26 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     [bufferText, liveView],
   );
 
-  const format = useCallback((): void => {
-    // a held key repeats, and every request would take a worker to the end
-    if (formattingRef.current) {
-      return;
-    }
-    formattingRef.current = true;
-    setFormatting(true);
+  const formatBuffer = useCallback(async (): Promise<string> => {
     const sent = bufferText();
-    api
-      .format({ content: sent, cursor: liveView()?.state.selection.main.head ?? 0 })
-      .then((res) => putFormatted(sent, res.content, res.cursor))
-      .catch((error: unknown) => {
-        showToast('error', { title: 'Could not format the note', message: errorText(error) });
-      })
-      .finally(() => {
-        formattingRef.current = false;
-        setFormatting(false);
-      });
+    const res = await formatMarkdown(sent, liveView()?.state.selection.main.head ?? 0);
+    putFormatted(sent, res.text, res.cursor);
+    return res.text;
   }, [bufferText, liveView, putFormatted]);
+
+  const format = useCallback((): void => {
+    formatBuffer().catch((error: unknown) => {
+      showToast('error', { title: 'Could not format the note', message: errorText(error) });
+    });
+  }, [formatBuffer]);
+
+  // prettier is a chunk of its own, fetched here so that the first save does
+  // not wait for it
+  useEffect(() => {
+    if (formatOnSave) {
+      warmFormatter();
+    }
+  }, [formatOnSave]);
 
   const [openedAt, setOpenedAt] = useState<ReadingAnchor | undefined>(undefined);
 
@@ -380,16 +381,25 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         // and saving now writes that to disk as the document
         await uploads.wait();
         sent = bufferText();
+        // prettier here is the fast path and not the only one: when it cannot
+        // run, the note goes out unmarked and the server formats it
+        let formatted = false;
+        if (formatOnSave) {
+          try {
+            sent = await formatBuffer();
+            formatted = true;
+          } catch {
+            sent = bufferText();
+          }
+        }
         draftRef.current.flush();
         const res = await api.saveFile(path, {
           content: sent,
           rev: withRev ?? revRef.current,
-          cursor: liveView()?.state.selection.main.head,
+          formatted,
         });
         const shown =
-          res.content === undefined
-            ? bufferText() === sent
-            : putFormatted(sent, res.content, res.cursor);
+          res.content === undefined ? bufferText() === sent : putFormatted(sent, res.content);
         markSaved(res.content ?? sent, res.rev, shown);
         if (res.format_failed === true) {
           showToast('warn', {
@@ -438,7 +448,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     },
     [
       bufferText,
-      liveView,
+      formatBuffer,
+      formatOnSave,
       markSaved,
       path,
       putFormatted,
@@ -652,7 +663,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             onAction={onAction}
             onPickImage={() => fileRef.current?.click()}
             onFormat={formattable ? format : undefined}
-            formatting={formatting}
           />
           {uploads.pending > 0 && (
             <ActionIcon

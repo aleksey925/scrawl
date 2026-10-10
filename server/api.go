@@ -38,9 +38,11 @@ type fileResponse struct {
 type saveRequest struct {
 	Content string `json:"content"`
 	Rev     string `json:"rev"`
-	// Cursor is where the editor's caret is, so the answer can say where it
-	// went when the save formatted the note. An API client leaves it out.
-	Cursor *int `json:"cursor"`
+	// Formatted is the editor saying it ran prettier over Content itself, in
+	// the browser, where that takes no time. Any other writer leaves it out
+	// and the server formats. It is trusted: a writer who lies gets its own
+	// note stored the way it sent it, which it could do by any other means.
+	Formatted bool `json:"formatted"`
 }
 
 type createRequest struct {
@@ -156,9 +158,12 @@ func (m *mount) apiFileSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r = m.keepThrough(r, p)
-	// before the history lock, which every other write of the space waits on
-	stored := m.formatOnSave(r, p, req.Content, req.Cursor)
+	stored := saved{text: req.Content}
+	if !req.Formatted {
+		r = m.keepThrough(r, p)
+		// before the history lock, which every other write of the space waits on
+		stored = m.formatOnSave(r, p, req.Content)
+	}
 
 	var fi store.FileInfo
 	err := m.record(r, history.Op{Message: "save " + p, Paths: []string{p}}, func() ([]string, error) {

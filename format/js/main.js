@@ -29,17 +29,10 @@ function writeOutput(output) {
 }
 
 const input = JSON.parse(readInput());
-const options = { parser: "markdown", plugins: Object.values(prettierPlugins) };
 
-// tracking a cursor makes a run about a third longer, so a caller with no
-// cursor to keep does not pay for one
-const formatted =
-  input.cursor === undefined
-    ? prettier.format(input.text, options).then((text) => ({ text }))
-    : prettier
-        .formatWithCursor(input.text, { ...options, cursorOffset: input.cursor })
-        .then((res) => ({ text: res.formatted, cursor: res.cursorOffset }));
-
-formatted.then(writeOutput, (err) =>
-  writeOutput({ error: String((err && err.message) || err) }),
-);
+prettier
+  .format(input.text, { parser: "markdown", plugins: Object.values(prettierPlugins) })
+  .then(
+    (text) => writeOutput({ text }),
+    (err) => writeOutput({ error: String((err && err.message) || err) }),
+  );

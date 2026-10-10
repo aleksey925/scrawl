@@ -223,7 +223,7 @@ func (m *mount) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r = m.keepThrough(r, p)
-	data = []byte(m.formatOnSave(r, p, string(data), nil).text)
+	data = []byte(m.formatOnSave(r, p, string(data)).text)
 
 	var fi store.FileInfo
 	err = m.record(r, history.Op{Message: "restore " + p, Paths: []string{p}}, func() ([]string, error) {

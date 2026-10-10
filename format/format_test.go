@@ -2,11 +2,11 @@ package format
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf16"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -66,27 +66,6 @@ func TestMarkdown(t *testing.T) {
 	}
 }
 
-func TestMarkdownMovesTheCursorWithTheText(t *testing.T) {
-	// arrange
-	fmtr := New(1)
-	t.Cleanup(fmtr.Close)
-	// the offsets are javascript's: a cyrillic letter is one unit there and
-	// two bytes here, and the emoji is two units and four bytes
-	text := "#   Заголовок 🙂\n\n\n\n* one\n"
-	want := "# Заголовок 🙂\n\n- one\n"
-	units := func(s string) int {
-		before, _, _ := strings.Cut(s, "one")
-		return len(utf16.Encode([]rune(before)))
-	}
-
-	// act
-	res, err := fmtr.MarkdownAt(context.Background(), text, units(text))
-
-	// assert
-	require.NoError(t, err)
-	assert.Equal(t, Result{Text: want, Cursor: units(want)}, res)
-}
-
 func TestMarkdownRefusesANoteAboveTheCap(t *testing.T) {
 	// arrange
 	fmtr := New(1)
@@ -118,6 +97,28 @@ func TestMarkdownKillsARunThatOutlivesItsDeadline(t *testing.T) {
 	assert.Less(t, waited, 5*time.Second)
 	require.NoError(t, afterErr, "the one worker has to be back for the next note")
 	assert.Equal(t, "- one\n", after)
+}
+
+// the editor formats in the browser and the server formats everything else,
+// so the two copies of prettier have to be the same one
+func TestTheBrowserAndTheServerRunTheSamePrettier(t *testing.T) {
+	// arrange
+	version := func(file string) string {
+		raw, err := os.ReadFile(file)
+		require.NoError(t, err)
+		var pkg struct {
+			Dependencies map[string]string `json:"dependencies"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &pkg))
+		return pkg.Dependencies["prettier"]
+	}
+
+	// act
+	server, browser := version("js/package.json"), version("../web/package.json")
+
+	// assert
+	require.NotEmpty(t, server)
+	assert.Equal(t, server, browser)
 }
 
 func TestMarkdownAfterClose(t *testing.T) {

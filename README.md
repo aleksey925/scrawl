@@ -495,20 +495,20 @@ one folder instead.
   cannot leave half a document behind
 - a save formats the note with [prettier](https://prettier.io) first,
   with its default options, so every note ends up looking the way
-  `prettier --write` leaves it. The server does it, so it holds for the
-  editor, for a write through the API and for a version restored from
-  the history alike. `SPACE_FORMAT_ON_SAVE=off`, or
-  `format_on_save: false` on one space in the file, turns that off
+  `prettier --write` leaves it. That holds for the editor, for a write
+  through the API and for a version restored from the history alike.
+  `SPACE_FORMAT_ON_SAVE=off`, or `format_on_save: false` on one space
+  in the file, turns that off
 - the wand button in the toolbar, or `Shift+Alt+F`, formats the note
   without saving it, whatever that setting says
 - only what a request writes is formatted. A file changed on disk or
   pulled from the remote stays as it came, so to format what is already
   there run `prettier --write "**/*.md"` in the folder once
-- prettier runs inside the binary, interpreted, at roughly 30ms a
-  kilobyte: a usual note adds a fraction of a second to a save and a
-  very long one a few seconds. A note above 256KB, or one prettier could
-  not finish in 30 seconds, is saved as it was written, and the editor
-  says so
+- the editor formats in the browser, which takes no time. Any other
+  write is formatted by the server, where prettier is interpreted at
+  roughly 30ms a kilobyte: a usual note takes a fraction of a second and
+  a very long one a few seconds. There a note above 256KB, or one
+  prettier could not finish in 30 seconds, is stored as it was written
 - with formatting off trailing whitespace is never trimmed, in markdown
   it can be meaningful
 - if the file changed on disk since the editor opened it, the save is
@@ -596,7 +596,9 @@ A markdown note is formatted with prettier before it is stored, unless
 the space turned that off. When that changed the text, the reply also
 carries `content`, the note as it was stored, and `rev` is the revision
 of that text and not of the one that was sent. `"format_failed":true`
-means prettier gave up on the note and it was stored as it was sent.
+means prettier gave up on the note and it was stored as it was sent. A
+client that formats on its own side sends `"formatted":true` with the
+save, which is what the editor does, and the note is stored untouched.
 
 The last two fields are on every write, and they are two different
 failures. `history_degraded` says the change is on disk and not in git.

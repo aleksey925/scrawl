@@ -449,7 +449,8 @@ func TestAPIMeWithAuthDisabled(t *testing.T) {
 		"site_title": ts.Title, "version": ts.Version,
 		"space": map[string]any{
 			"name": testSpace, "label": testSpace, "kind": KindLocal,
-			"read_only": false, "degraded": false, "unpublished": false, "sync_error": "",
+			"read_only": false, "format_on_save": false,
+			"degraded": false, "unpublished": false, "sync_error": "",
 			"unsynced": map[string]any{"paths": []any{}, "many": false},
 			"diverged": false, "can_reset": false, "push_refused": false,
 		},
@@ -666,4 +667,16 @@ func TestManifestIsPublic(t *testing.T) {
 	assert.Contains(t, resp.header.Get("Content-Type"), "application/manifest+json")
 	assert.Contains(t, body, `"start_url":"/"`)
 	assert.Contains(t, body, ts.Title)
+}
+
+func TestAPIMeReportsFormatOnSave(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{formatOnSave: true})
+
+	// act
+	resp, body := ts.json(t, request{path: "/api/me"})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, true, body["space"].(map[string]any)["format_on_save"])
 }

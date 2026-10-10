@@ -28,7 +28,8 @@ type Space struct {
 	Kind     string // KindLocal or KindRemote
 	ReadOnly bool   // this space alone, on top of Config.ReadOnly
 
-	// FormatOnSave runs prettier over every note a request writes here
+	// FormatOnSave runs prettier over every note a request writes here,
+	// in the editor when the editor is the writer and on the server otherwise
 	FormatOnSave bool
 
 	Store    *store.Store

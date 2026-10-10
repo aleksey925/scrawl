@@ -31,22 +31,13 @@ const WorkerEnv = "SCRAWL_FORMAT_WORKER"
 // ErrTooLarge is a note above MaxSize.
 var ErrTooLarge = errors.New("note is too large to format")
 
-// Result is a formatted note. Cursor is where the offset passed in landed,
-// counted the way javascript counts, in UTF-16 code units.
-type Result struct {
-	Text   string
-	Cursor int
-}
-
 type request struct {
-	Text   string `json:"text"`
-	Cursor *int   `json:"cursor,omitempty"`
+	Text string `json:"text"`
 }
 
 type response struct {
-	Text   string `json:"text"`
-	Cursor int    `json:"cursor"`
-	Error  string `json:"error,omitempty"`
+	Text  string `json:"text"`
+	Error string `json:"error,omitempty"`
 }
 
 // Formatter runs prettier in a small pool of worker processes. A worker is
@@ -72,29 +63,19 @@ func New(workers int) *Formatter {
 
 // Markdown formats one note. When ctx ends first the run is killed.
 func (f *Formatter) Markdown(ctx context.Context, text string) (string, error) {
-	res, err := f.format(ctx, request{Text: text})
-	return res.Text, err
-}
-
-// MarkdownAt formats one note and says where the cursor of an editor ends up.
-func (f *Formatter) MarkdownAt(ctx context.Context, text string, cursor int) (Result, error) {
-	return f.format(ctx, request{Text: text, Cursor: &cursor})
-}
-
-func (f *Formatter) format(ctx context.Context, req request) (Result, error) {
-	if len(req.Text) > MaxSize {
-		return Result{}, fmt.Errorf("format %d bytes: %w", len(req.Text), ErrTooLarge)
+	if len(text) > MaxSize {
+		return "", fmt.Errorf("format %d bytes: %w", len(text), ErrTooLarge)
 	}
 
 	select {
 	case <-f.free:
 	case <-ctx.Done():
-		return Result{}, fmt.Errorf("wait for a formatter: %w", ctx.Err())
+		return "", fmt.Errorf("wait for a formatter: %w", ctx.Err())
 	}
 	wrk, err := f.take()
 	if err != nil {
 		f.free <- struct{}{}
-		return Result{}, err
+		return "", err
 	}
 	defer func() {
 		f.put(wrk)
@@ -107,7 +88,7 @@ func (f *Formatter) format(ctx context.Context, req request) (Result, error) {
 	}
 	done := make(chan outcome, 1)
 	go func() {
-		res, askErr := wrk.ask(req)
+		res, askErr := wrk.ask(request{Text: text})
 		done <- outcome{res: res, err: askErr}
 	}()
 
@@ -115,17 +96,17 @@ func (f *Formatter) format(ctx context.Context, req request) (Result, error) {
 	case out := <-done:
 		if out.err != nil {
 			wrk.stop()
-			return Result{}, out.err
+			return "", out.err
 		}
 		if out.res.Error != "" {
-			return Result{}, fmt.Errorf("prettier: %s", out.res.Error)
+			return "", fmt.Errorf("prettier: %s", out.res.Error)
 		}
-		return Result{Text: out.res.Text, Cursor: out.res.Cursor}, nil
+		return out.res.Text, nil
 	case <-ctx.Done():
 		// killing the process is what ends the read the goroutine sits in
 		wrk.stop()
 		<-done
-		return Result{}, fmt.Errorf("format: %w", ctx.Err())
+		return "", fmt.Errorf("format: %w", ctx.Err())
 	}
 }
 

@@ -129,14 +129,17 @@ vendor/                dependencies, checked in, `make deps` regenerates
   one `mise.toml` pins and the plugins are the ones the command line
   loads, so a note saved here does not come back changed from
   `prettier --write`.
-- The server formats, and the editor never does: one formatter and one
-  version, and a write through the API ends up the same as a save from
-  the page. `formatOnSave` is the one place a write passes through, the
-  save and the restore both, it is on unless a space turns it off, and
-  only `.md` is formatted. A change on disk and a pull are not writes
-  of ours and stay as they came: a commit made to format what the remote
-  sent would be a reason to diverge. The button asks `/api/format` for
-  the same thing without a write.
+- Two copies of prettier, and each write goes through exactly one. The
+  editor formats in the browser, on the button and before a save, and
+  says so with `formatted` in the request. Every other writer - an API
+  client, a restore, an editor whose prettier would not load - leaves
+  that out and the server formats, in `formatOnSave`. The server alone
+  was one copy and one answer, but its prettier is interpreted: 30ms a
+  kilobyte against nothing in a browser, eight seconds on a save of the
+  longest note here. A test holds the two versions together. It is on
+  unless a space turns it off, and only `.md` is formatted. A change on
+  disk and a pull are not writes of ours and stay as they came: a commit
+  made to format what the remote sent would be a reason to diverge.
 - Prettier runs in worker processes, copies of this binary started with
   `SCRAWL_FORMAT_WORKER` set, and never inside the server. Nothing can
   stop a run from within: wazero only watches a context when every

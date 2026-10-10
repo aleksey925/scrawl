@@ -1,0 +1,8 @@
+# vendored trees are stored exactly as upstream published them. without this a
+# checkout with core.autocrlf set rewrites the few CRLF files in vendor/, and
+# the next `go mod vendor` puts them back, forever
+vendor/** -text
+
+# `make ui` writes this tree and every name in it is content hashed, so a diff
+# of it is noise around the one thing worth reviewing, the source in web/
+server/assets/app/** linguist-generated=true -diff

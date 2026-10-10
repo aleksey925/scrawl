@@ -1,0 +1,91 @@
+title: Синтаксис GitHub
+toc:
+  h1 #синтаксис-github Синтаксис GitHub
+  h2 #заголовки Заголовки
+  h3 #третий-уровень Третий уровень
+  h4 #четвёртый-уровень Четвёртый уровень
+  h2 #setext-второго-уровня Setext второго уровня
+  h2 #оформление-текста Оформление текста
+  h2 #экранирование Экранирование
+  h2 #переносы-строк Переносы строк
+  h2 #цитаты Цитаты
+  h2 #списки Списки
+  h2 #ссылки Ссылки
+  h2 #код Код
+  h2 #свёрнутый-блок Свёрнутый блок
+  h2 #скрытый-комментарий Скрытый комментарий
+---
+<h1 id="синтаксис-github" data-source-start="1" data-source-end="1">Синтаксис GitHub</h1>
+<h2 id="заголовки" data-source-start="4" data-source-end="4">Заголовки</h2>
+<h3 id="третий-уровень" data-source-start="6" data-source-end="6">Третий уровень</h3>
+<h4 id="четвёртый-уровень" data-source-start="8" data-source-end="8">Четвёртый уровень</h4>
+<h2 id="setext-второго-уровня" data-source-start="10" data-source-end="10">Setext второго уровня</h2>
+<h2 id="оформление-текста" data-source-start="13" data-source-end="13">Оформление текста</h2>
+<p data-source-start="15" data-source-end="16"><strong>Жирный</strong>, <strong>тоже жирный</strong>, <em>курсив</em>, <em>тоже курсив</em>, <em><strong>жирный курсив</strong></em>,
+<strong><em>и так тоже</em></strong>.</p>
+<p data-source-start="18" data-source-end="19">Зачёркнутый двумя тильдами: <del>убрано</del>. Одной тильдой GitHub тоже
+зачёркивает: <del>убрано</del>. Три тильды не работают: ~~~не убрано~~~.</p>
+<p data-source-start="21" data-source-end="21">Нижний индекс H<sub>2</sub>O и верхний x<sup>2</sup>.</p>
+<p data-source-start="23" data-source-end="23">Подчёркнутый <ins>вставлено</ins> и клавиша <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+<p data-source-start="25" data-source-end="25">Выделение <mark>маркером</mark>.</p>
+<p data-source-start="27" data-source-end="27">Цветовые модели GitHub показывает только в issue: <code>#0969DA</code>, <code>rgb(9, 105, 218)</code>.</p>
+<h2 id="экранирование" data-source-start="29" data-source-end="29">Экранирование</h2>
+<p data-source-start="31" data-source-end="31">Звёздочки *не курсив*, решётка # не заголовок, подчёркивания _как есть_.</p>
+<h2 id="переносы-строк" data-source-start="33" data-source-end="33">Переносы строк</h2>
+<p data-source-start="35" data-source-end="36">Две пробела в конце строки<br>
+дают перенос.</p>
+<p data-source-start="38" data-source-end="39">Обратный слэш в конце строки<br>
+тоже даёт перенос.</p>
+<p data-source-start="41" data-source-end="42">Одиночный перевод строки
+переносом не является.</p>
+<h2 id="цитаты" data-source-start="44" data-source-end="44">Цитаты</h2>
+<blockquote data-source-start="46" data-source-end="47">
+<p data-source-start="46" data-source-end="47">Обычная цитата
+в две строки.</p>
+</blockquote>
+<h2 id="списки" data-source-start="49" data-source-end="49">Списки</h2>
+<ul data-source-start="51" data-source-end="55">
+<li data-source-start="51" data-source-end="51">пункт</li>
+<li data-source-start="52" data-source-end="55">ещё пункт
+<ul data-source-start="53" data-source-end="55">
+<li data-source-start="53" data-source-end="55">вложенный
+<ol data-source-start="54" data-source-end="55">
+<li data-source-start="54" data-source-end="54">нумерованный внутри</li>
+<li data-source-start="55" data-source-end="55">второй</li>
+</ol>
+</li>
+</ul>
+</li>
+</ul>
+<ol data-source-start="57" data-source-end="58">
+<li data-source-start="57" data-source-end="57">первый</li>
+<li data-source-start="58" data-source-end="58">второй</li>
+</ol>
+<ul data-source-start="60" data-source-end="63">
+<li data-source-start="60" data-source-end="60"><input disabled="" type="checkbox"> не сделано</li>
+<li data-source-start="61" data-source-end="62"><input checked="" disabled="" type="checkbox"> сделано
+<ul data-source-start="62" data-source-end="62">
+<li data-source-start="62" data-source-end="62"><input disabled="" type="checkbox"> вложенная задача</li>
+</ul>
+</li>
+<li data-source-start="63" data-source-end="63"><input disabled="" type="checkbox"> (Необязательно) экранированная скобка</li>
+</ul>
+<h2 id="ссылки" data-source-start="65" data-source-end="65">Ссылки</h2>
+<p data-source-start="67" data-source-end="69"><a href="/doc/docs/other.md">Обычная ссылка</a>, <a href="#%D1%81%D0%BF%D0%B8%D1%81%D0%BA%D0%B8">ссылка на раздел</a>,
+<a href="https://example.com/ref" target="_blank" rel="noopener noreferrer nofollow">ссылка по ссылке</a>, автоссылка <a href="https://example.com/auto" target="_blank" rel="noopener noreferrer nofollow">https://example.com/auto</a>,
+голая <a href="https://example.com/bare" target="_blank" rel="noopener noreferrer nofollow">https://example.com/bare</a> и <a href="http://www.example.com" target="_blank" rel="noopener noreferrer nofollow">www.example.com</a>, почта <a href="mailto:user@example.com">user@example.com</a>.</p>
+<h2 id="код" data-source-start="73" data-source-end="73">Код</h2>
+<p data-source-start="75" data-source-end="75">Строчный <code>код</code> и код с обратной кавычкой <code>`</code> внутри.</p>
+<div class="code-block" data-lang="python" data-source-start="77" data-source-end="80"><pre class="chroma"><code><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">hello</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;hi&#34;</span><span class="p">)</span>
+</span></span></code></pre></div>
+<div class="code-block" data-source-start="82" data-source-end="82"><pre tabindex="0" class="chroma"><code>отступом в четыре пробела
+</code></pre></div>
+<h2 id="свёрнутый-блок" data-source-start="84" data-source-end="84">Свёрнутый блок</h2>
+<details data-source-start="86" data-source-end="87">
+<summary>Показать</summary>
+<p data-source-start="89" data-source-end="89">Содержимое с <strong>разметкой</strong>.</p>
+</details>
+<h2 id="скрытый-комментарий" data-source-start="93" data-source-end="93">Скрытый комментарий</h2>
+
+<p data-source-start="97" data-source-end="97">Видимый текст.</p>

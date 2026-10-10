@@ -1,0 +1,13 @@
+title: Mermaid
+toc:
+  h1 #mermaid Mermaid
+---
+<h1 id="mermaid" data-source-start="1" data-source-end="1">Mermaid</h1>
+<pre class="mermaid" data-source-start="3" data-source-end="8">graph TD;
+    A[Старт] --&gt; B{Условие};
+    B --&gt;|да| C[Готово];
+    B --&gt;|нет| A;
+</pre>
+<p data-source-start="10" data-source-end="10">Обычный фенс подсвечивается как раньше:</p>
+<div class="code-block" data-lang="go" data-source-start="12" data-source-end="14"><pre class="chroma"><code><span class="line"><span class="cl"><span class="kd">func</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span></span></span></code></pre></div>

@@ -1,0 +1,26 @@
+.git
+.github
+.idea
+.vscode
+.agentbox
+dist
+var
+node_modules
+e2e
+# the frontend source is not part of the image build: the bundle it produces is
+# committed under server/assets/ and is what //go:embed picks up
+web
+*.md
+!README.md
+docker-compose.yml
+examples
+img
+# a notes folder kept inside the checkout can be large, and the image has no
+# use for it
+notes
+coverage.out
+coverage.out.tmp
+*.test
+
+# vendor/ is deliberately not listed: the build stage compiles from the
+# vendored modules and never reaches the network

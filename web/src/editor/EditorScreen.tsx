@@ -17,6 +17,8 @@ import {
   IconEye,
   IconFileText,
   IconPhoto,
+  IconTextWrap,
+  IconTextWrapDisabled,
   IconX,
 } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
@@ -55,6 +57,7 @@ import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { createPaneSync } from './paneSync';
 import { useDraft } from './useDraft';
 import { useEditorLayout, type LayoutMode } from './useLayoutMode';
+import { useLineWrap } from './useLineWrap';
 import { usePreview } from './usePreview';
 import { useUploads } from './useUploads';
 
@@ -116,6 +119,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   revRef.current = rev;
 
   const { mode, chosen, choose, split, setSplit, wide } = useEditorLayout();
+  const lineWrap = useLineWrap();
   const touch = useMediaQuery('(hover: none)', false, { getInitialValueInEffect: false }) ?? false;
 
   const preview = usePreview(content, path, mode !== 'source');
@@ -657,13 +661,29 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         </Tabs>
       )}
 
-      {!readOnly && showSource && (
+      {showSource && (
         <Group gap="xs" wrap="nowrap">
-          <Toolbar
-            onAction={onAction}
-            onPickImage={() => fileRef.current?.click()}
-            onFormat={formattable ? format : undefined}
-          />
+          {!readOnly && (
+            <Toolbar
+              onAction={onAction}
+              onPickImage={() => fileRef.current?.click()}
+              onFormat={formattable ? format : undefined}
+            />
+          )}
+          <ActionIcon
+            data-testid="editor-wrap"
+            ml="auto"
+            size={layout.tapTarget}
+            variant={lineWrap.wrap ? 'light' : 'subtle'}
+            color="gray"
+            aria-label="Wrap long lines"
+            aria-pressed={lineWrap.wrap}
+            title="Wrap long lines"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={lineWrap.toggle}
+          >
+            {lineWrap.wrap ? <IconTextWrap size={18} /> : <IconTextWrapDisabled size={18} />}
+          </ActionIcon>
           {uploads.pending > 0 && (
             <ActionIcon
               data-testid="editor-upload-pending"
@@ -688,6 +708,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               readOnly={readOnly}
               // on a phone an autofocus opens the keyboard over half the document
               autoFocus={!touch}
+              wrap={lineWrap.wrap}
               onChange={setContent}
               onCreate={onCreate}
               onFiles={onFiles}

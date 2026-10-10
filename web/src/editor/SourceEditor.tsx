@@ -18,13 +18,14 @@ export interface SourceEditorProps {
   value: string;
   readOnly: boolean;
   autoFocus: boolean;
+  wrap: boolean;
   onChange: (value: string) => void;
   onCreate: (view: EditorView) => void;
   onFiles: (dropped: DroppedFiles) => void;
 }
 
 export function SourceEditor(props: SourceEditorProps): JSX.Element {
-  const { value, readOnly, autoFocus, onChange, onCreate, onFiles } = props;
+  const { value, readOnly, autoFocus, wrap, onChange, onCreate, onFiles } = props;
   const scheme = useComputedColorScheme('light');
   const [dropping, setDropping] = useState(false);
 
@@ -40,7 +41,7 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
       // reading position lands at zero.
       ...(nonce === undefined ? [] : [EditorView.cspNonce.of(nonce)]),
       markdown({ base: markdownLanguage, codeLanguages: languages }),
-      EditorView.lineWrapping,
+      ...(wrap ? [EditorView.lineWrapping] : []),
       EditorView.domEventHandlers({
         paste: (event) => {
           const data = event.clipboardData;
@@ -80,7 +81,7 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
         },
       }),
     ];
-  }, []);
+  }, [wrap]);
 
   return (
     <div

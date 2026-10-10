@@ -40,6 +40,19 @@ async function wheelOverSource(page, {steps = 20, delta = 60} = {}) {
     return steps * delta;
 }
 
+// sourceLayout says how the source pane lays out a note of one short line and
+// one long line: by height, because a wrapped line is the taller of the two
+function sourceLayout(page) {
+    return page.getByTestId('editor-source').evaluate((root) => {
+        const heights = Array.from(root.querySelectorAll('.cm-line'), (line) => line.offsetHeight);
+        const scroller = root.querySelector('.cm-scroller');
+        return {
+            longLineWrapped: Math.max(...heights) > Math.min(...heights),
+            scrollsSideways: scroller.scrollWidth > scroller.clientWidth,
+        };
+    });
+}
+
 test.describe('editing', () => {
     test.beforeEach(async ({page}) => {
         await signIn(page);
@@ -288,6 +301,23 @@ test.describe('editing', () => {
         expect(moved.still).toBeLessThan(moved.led / 3);
 
         removeFixture(docPath);
+    });
+
+    test('line wrapping is turned off by its button and stays off after a reload', async ({page}) => {
+        // arrange
+        const docPath = scratch('line-wrap');
+        writeFixture(docPath, `короткая\n\n${'длинная строка без переноса '.repeat(40)}\n`);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceLayout(page)).toEqual({longLineWrapped: true, scrollsSideways: false});
+
+        // act
+        await page.getByTestId('editor-wrap').click();
+
+        // assert
+        await expect.poll(() => sourceLayout(page)).toEqual({longLineWrapped: false, scrollsSideways: true});
+        await page.reload();
+        await expect(page.getByTestId('editor-wrap')).toHaveAttribute('aria-pressed', 'false');
+        await expect.poll(() => sourceLayout(page)).toEqual({longLineWrapped: false, scrollsSideways: true});
     });
 
     test.afterAll(() => {

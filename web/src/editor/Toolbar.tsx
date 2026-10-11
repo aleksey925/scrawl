@@ -13,7 +13,7 @@ import {
   IconQuote,
   IconWand,
 } from '@tabler/icons-react';
-import type { ComponentType, JSX } from 'react';
+import { useEffect, useRef, useState, type ComponentType, type JSX, type RefObject } from 'react';
 
 import { layout } from '../theme';
 
@@ -45,10 +45,49 @@ export interface ToolbarProps {
   onFormat: (() => void) | undefined;
 }
 
+interface HiddenEnds {
+  start: boolean;
+  end: boolean;
+}
+
+// useHiddenEnds says which ends of a scrolling strip have more behind them, so
+// the strip can fade there: with no scrollbar a cut-off row looks complete
+function useHiddenEnds(): [RefObject<HTMLDivElement | null>, HiddenEnds] {
+  const ref = useRef<HTMLDivElement>(null);
+  const [ends, setEnds] = useState<HiddenEnds>({ start: false, end: false });
+
+  useEffect(() => {
+    const strip = ref.current;
+    if (strip === null) {
+      return undefined;
+    }
+    const measure = (): void => {
+      const start = strip.scrollLeft > 1;
+      const end = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1;
+      setEnds((was) => (was.start === start && was.end === end ? was : { start, end }));
+    };
+    measure();
+    strip.addEventListener('scroll', measure, { passive: true });
+    const observer = new ResizeObserver(measure);
+    observer.observe(strip);
+    return () => {
+      strip.removeEventListener('scroll', measure);
+      observer.disconnect();
+    };
+  }, []);
+
+  return [ref, ends];
+}
+
 export function Toolbar({ onAction, onPickImage, onFormat }: ToolbarProps): JSX.Element {
+  const [stripRef, hidden] = useHiddenEnds();
+
   return (
     <Group
+      ref={stripRef}
       data-testid="editor-toolbar"
+      data-more-start={hidden.start ? 'true' : 'false'}
+      data-more-end={hidden.end ? 'true' : 'false'}
       className={classes.toolbarScroll}
       gap={2}
       wrap="nowrap"

@@ -26,6 +26,23 @@
     min-height: var(--scrawl-tap-target);
   }
 
+  /* a menu is a list of rows for a finger: mantine draws them 26px tall in
+     14px text, three to the width of a fingertip */
+  .menu {
+    min-width: 220px;
+  }
+
+  .menuItem {
+    min-height: var(--scrawl-tap-target);
+    padding-inline: var(--mantine-spacing-md);
+    font-size: var(--scrawl-input-font-size);
+  }
+
+  .menuLabel {
+    padding-inline: var(--mantine-spacing-md);
+    font-size: var(--mantine-font-size-sm);
+  }
+
   /* the crumbs are links the shell draws itself, and a bare <a> is inline, so
      a minimum size would not apply to it at all. Height only: a minimum width
      spread a two-letter folder name into a gap wider than the name. */

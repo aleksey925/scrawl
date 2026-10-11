@@ -14,6 +14,7 @@ const MIN_TAP = 44;
 const ROW_HEIGHT = 48;
 const DOC = docs.doc.path;
 const SCRATCH = 'e2e-mobile/zametka.md';
+const EMPTY_FOLDER = 'e2e-mobile/pusto';
 const HISTORY_FOLDER = 'e2e-mobile-history';
 const HISTORY_DOC = `${HISTORY_FOLDER}/versions.md`;
 
@@ -491,7 +492,77 @@ test.describe('mobile', () => {
 
     // the legacy palette was a sheet from the top edge at every size, because a
     // centred panel on a phone held sideways is a strip the keyboard covers.
-    // The app's palette is the same centred dialog it is on a desktop.
+
+    // a menu kept mantine's desktop rows on a phone: 26px tall in 14px text,
+    // so the theme and the space sat three to a fingertip
+    test('the rows of every menu are big enough to tap', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC));
+
+        // act & assert
+        await openMore(page);
+        await expect(page.getByTestId('topbar-theme')).toBeVisible();
+        expect(await tooSmall(page, '[role=menuitem]'), 'the more menu').toEqual([]);
+        await page.keyboard.press('Escape');
+
+        const sidebar = await openDrawer(page);
+        await sidebar.getByTestId('tree-row-menu').first().tap();
+        await expect(page.getByTestId('tree-row-menu-open')).toBeVisible();
+        await shot(page, 'mobile-row-menu');
+        expect(await tooSmall(page, '[role=menuitem]'), 'the row menu').toEqual([]);
+    });
+
+    // the strip of formatting buttons followed a finger in every direction:
+    // past its ends sideways, and up and down together with the page behind it
+    test('the editor toolbar moves along one axis and shows where it goes on', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
+        await page.goto(routes.edit(SCRATCH));
+        const toolbar = page.getByTestId('editor-toolbar');
+        await expect(toolbar).toBeVisible();
+
+        // act & assert
+        const motion = await toolbar.evaluate((el) => {
+            const style = getComputedStyle(el);
+            return {
+                vertical: style.overflowY,
+                touch: style.touchAction,
+                bounce: style.overscrollBehaviorX,
+                page: getComputedStyle(document.documentElement).overscrollBehaviorY,
+                taller: el.scrollHeight > el.clientHeight,
+                wider: el.scrollWidth > el.clientWidth,
+            };
+        });
+        expect(motion).toEqual({
+            vertical: 'hidden', touch: 'pan-x', bounce: 'none', page: 'none', taller: false, wider: true,
+        });
+        await expect(toolbar).toHaveAttribute('data-more-start', 'false');
+        await expect(toolbar).toHaveAttribute('data-more-end', 'true');
+
+        await toolbar.evaluate((el) => el.scrollTo({left: el.scrollWidth}));
+        await expect(toolbar).toHaveAttribute('data-more-start', 'true');
+        await expect(toolbar).toHaveAttribute('data-more-end', 'false');
+        await expect(page.getByTestId('editor-toolbar-image')).toBeInViewport({ratio: 1});
+    });
+
+    // the tree is behind a closed drawer here, so a file started from the page
+    // was typed into a row nobody could see
+    test('a file started from an empty folder opens the drawer on its name', async ({page}) => {
+        // arrange
+        fs.mkdirSync(fixtureFile(EMPTY_FOLDER), {recursive: true});
+        await page.goto(routes.dir(EMPTY_FOLDER));
+        await expect(page.getByTestId('dir-empty-title')).toHaveText(text.dir.empty);
+        await shot(page, 'mobile-empty-folder');
+        expect(await tooSmall(page, '[data-testid=dir-empty] button')).toEqual([]);
+
+        // act
+        await page.getByTestId('dir-empty-new-page').tap();
+
+        // assert
+        await expect(page.getByTestId('tree-draft-input')).toBeInViewport();
+        await expect(page.getByTestId('tree-draft-input')).toBeFocused();
+    });
+
     test('the palette is usable with the phone turned sideways', async ({page}) => {
         await page.setViewportSize({width: 844, height: 390});
         await page.goto(routes.doc(DOC));

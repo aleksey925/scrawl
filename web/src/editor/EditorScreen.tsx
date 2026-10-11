@@ -724,6 +724,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               busy={preview.busy}
               scrollRef={previewRef}
               alone={mode === 'preview'}
+              empty={content.trim() === ''}
             />
           </div>
         )}
@@ -731,7 +732,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
       <Group gap="xs" justify="space-between">
         <Text data-testid="editor-lines" data-lines={lines} size="xs" c="dimmed">
-          {`${lines} lines`}
+          {lines === 1 ? '1 line' : `${lines} lines`}
         </Text>
         <Text
           data-testid="editor-status"

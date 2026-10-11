@@ -13,6 +13,8 @@ const PAGE = `${FOLDER}/testovaya-stranitsa.md`;
 const RENAMED = `${FOLDER}/pereimenovannaya.md`;
 const DRAGGED = ['e2e-drag-one.md', 'e2e-drag-two.md'];
 const ROOT_PAGE = 'e2e-root-page.md';
+const BLANK_FOLDER = 'e2e-fm-blank';
+const BLANK_PAGE = 'e2e-blank-page.md';
 
 test.describe.serial('file management', () => {
     test.beforeEach(async ({page}) => {
@@ -20,10 +22,10 @@ test.describe.serial('file management', () => {
     });
 
     test.afterAll(() => {
-        for (const folder of [FOLDER, OTHER]) {
+        for (const folder of [FOLDER, OTHER, BLANK_FOLDER]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
-        for (const name of [...DRAGGED, ROOT_PAGE]) {
+        for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE]) {
             fs.rmSync(fixtureFile(name), {force: true});
         }
     });
@@ -48,8 +50,14 @@ test.describe.serial('file management', () => {
         await expect(page.locator(`[data-testid=tree-row][data-path="${FOLDER}"]`)).toHaveCount(1);
         await expect(page.getByTestId('tree-draft')).toHaveCount(0);
 
-        await page.goto(routes.dir(FOLDER));
-        await expect(page.getByTestId('dir-empty')).toHaveText(text.dir.empty);
+        // the new folder is where the reader is now, so the next entry goes
+        // into it and not beside it
+        await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+        await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveAttribute('data-path', FOLDER);
+        await expect(page.getByTestId('dir-empty-title')).toHaveText(text.dir.empty);
+        await page.getByTestId('sidebar-new').click();
+        await expect(page.getByTestId('sidebar-new-where')).toContainText(FOLDER);
+        await page.keyboard.press('Escape');
         await shot(page, 'files-folder-created');
     });
 
@@ -199,5 +207,43 @@ test.describe.serial('file management', () => {
         await expect.poll(() => fs.existsSync(fixtureFile(RENAMED))).toBe(false);
         await expect(page.locator(`[data-testid=tree-row][data-path="${RENAMED}"]`)).toHaveCount(0);
         await shot(page, 'files-deleted');
+    });
+
+    // an empty note was a blank screen and an open empty folder a row with
+    // nothing under it: neither said whether anything was selected at all
+    test('an empty note says it is empty and leads into the editor', async ({page}) => {
+        // arrange
+        fs.writeFileSync(fixtureFile(BLANK_PAGE), '', 'utf8');
+
+        // act
+        await page.goto(routes.doc(BLANK_PAGE));
+
+        // assert
+        await expect(page.getByTestId('doc-empty-title')).toHaveText(text.doc.empty);
+        await expect(page.getByTestId('doc-empty')).toContainText(BLANK_PAGE);
+        await shot(page, 'files-empty-note');
+        await page.getByTestId('doc-empty-edit').click();
+        await expect(page).toHaveURL(new RegExp(`${routes.edit(BLANK_PAGE)}$`));
+        await expect(page.locator('[data-testid=editor-source] .cm-placeholder')).toBeVisible();
+        await expect(page.getByTestId('editor-lines')).toHaveText('1 line');
+    });
+
+    test('an empty folder says so on its page and in the tree, and a file starts from there', async ({page}) => {
+        // arrange
+        fs.mkdirSync(fixtureFile(BLANK_FOLDER), {recursive: true});
+
+        // act
+        await page.goto(routes.dir(BLANK_FOLDER));
+
+        // assert
+        const row = page.locator(`[data-testid=tree-row][data-path="${BLANK_FOLDER}"]`);
+        await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-empty"]')).toHaveText(text.dir.noNotes);
+        await shot(page, 'files-empty-folder');
+        await page.getByTestId('dir-empty-new-page').click();
+        await expect(page.getByTestId('tree-draft-input')).toBeFocused();
+        await expect(page.getByTestId('tree-empty')).toHaveCount(0);
+        await page.getByTestId('tree-draft-input').fill('first');
+        await page.getByTestId('tree-draft-input').press('Enter');
+        await expect(page).toHaveURL(new RegExp(`${routes.edit(`${BLANK_FOLDER}/first.md`)}$`));
     });
 });

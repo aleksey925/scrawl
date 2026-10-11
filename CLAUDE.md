@@ -181,6 +181,20 @@ vendor/                dependencies, checked in, `make deps` regenerates
   button. Mantine's own defaults made a filter read as a third button.
   Where the column takes the whole width it keeps GitHub's 32px from
   the edge of the screen, and on a phone GitHub's 16px.
+- Nothing selected is shown as nothing. An empty note, an empty folder
+  and an empty preview each say what they are through `EmptyState`, with
+  the next step as a button, and an open folder with no notes says so in
+  the tree. A blank screen read as a page that failed to load. The tree
+  row says "no notes" and not "empty", because the tree lists only
+  markdown and a folder of pictures is not empty.
+- On a touch screen a menu row is 44px tall in 16px text, set once in the
+  theme for every `Menu`. Mantine's 26px rows put the theme and the space
+  three to a fingertip.
+- The editor toolbar is a strip that moves sideways only and stops at its
+  ends, and the editor screen takes the page's rubber band away. Left to
+  the defaults the strip followed a finger up and down with the page
+  behind it. It has no scrollbar, so an end with more buttons behind it
+  fades.
 - On a phone everything starts on that 16px line: the page text, the
   path, the glyph (not the 44px box) of the first and last topbar icon,
   and in the drawer the filter, the chevrons and the row menus. A tree

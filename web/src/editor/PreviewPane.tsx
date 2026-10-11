@@ -1,7 +1,9 @@
 import { Alert, Box } from '@mantine/core';
+import { IconEyeOff } from '@tabler/icons-react';
 import type { JSX, RefObject } from 'react';
 
 import { DocumentHtml } from '../components/DocumentHtml';
+import { EmptyState } from '../components/EmptyState';
 
 import classes from './Editor.module.css';
 
@@ -11,9 +13,11 @@ export interface PreviewPaneProps {
   busy: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   alone: boolean;
+  // the source has no text, which an html still on its way cannot say
+  empty: boolean;
 }
 
-export function PreviewPane({ html, notice, busy, scrollRef, alone }: PreviewPaneProps): JSX.Element {
+export function PreviewPane({ html, notice, busy, scrollRef, alone, empty }: PreviewPaneProps): JSX.Element {
   return (
     <Box
       ref={scrollRef}
@@ -29,7 +33,13 @@ export function PreviewPane({ html, notice, busy, scrollRef, alone }: PreviewPan
           {notice}
         </Alert>
       )}
-      <DocumentHtml html={html} />
+      {empty ? (
+        <EmptyState testId="editor-preview-empty" icon={IconEyeOff} title="Nothing to preview">
+          The note has no text yet.
+        </EmptyState>
+      ) : (
+        <DocumentHtml html={html} />
+      )}
     </Box>
   );
 }

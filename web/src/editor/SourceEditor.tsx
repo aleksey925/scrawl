@@ -1,6 +1,6 @@
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
-import { EditorView } from '@codemirror/view';
+import { EditorView, placeholder } from '@codemirror/view';
 import { useComputedColorScheme } from '@mantine/core';
 import CodeMirror from '@uiw/react-codemirror';
 import { useMemo, useRef, useState, type JSX } from 'react';
@@ -42,6 +42,7 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
       ...(nonce === undefined ? [] : [EditorView.cspNonce.of(nonce)]),
       markdown({ base: markdownLanguage, codeLanguages: languages }),
       ...(wrap ? [EditorView.lineWrapping] : []),
+      ...(readOnly ? [] : [placeholder('Start writing in markdown')]),
       EditorView.domEventHandlers({
         paste: (event) => {
           const data = event.clipboardData;
@@ -81,7 +82,7 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
         },
       }),
     ];
-  }, [wrap]);
+  }, [wrap, readOnly]);
 
   return (
     <div

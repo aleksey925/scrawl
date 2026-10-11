@@ -48,6 +48,11 @@ export function AppLayout(): JSX.Element {
     }
     setNavOpened((opened) => !opened);
   }, [wideSidebar, toggleSidebar]);
+  const revealNav = useCallback(() => {
+    if (!navVisible) {
+      toggleNav();
+    }
+  }, [navVisible, toggleNav]);
 
   // a fresh key per navigation, a replace that only moves the hash included;
   // unlike the disclosure handlers it does not change on a plain re-render
@@ -85,7 +90,7 @@ export function AppLayout(): JSX.Element {
   return (
     <NavProvider>
       <ResetProvider>
-        <FileActionsProvider>
+        <FileActionsProvider revealTree={revealNav}>
           <ShellSlotsProvider value={slots}>
             <AppShell
               header={{

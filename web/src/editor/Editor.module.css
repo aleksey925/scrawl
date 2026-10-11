@@ -122,13 +122,46 @@
   }
 }
 
+/* a strip of buttons moves along one axis and stops at its ends. Left to the
+   defaults a finger dragged it sideways past the end and up and down with the
+   page behind it, so the bar wobbled under every touch. */
 .toolbarScroll {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior: none;
+  touch-action: pan-x;
   scrollbar-width: none;
+  /* with no scrollbar a cut-off row looks complete, so a hidden end fades */
+  --toolbar-fade: 28px;
+  --toolbar-fade-start: 0px;
+  --toolbar-fade-end: 0px;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--toolbar-fade-start),
+    #000 calc(100% - var(--toolbar-fade-end)),
+    transparent
+  );
+}
+
+/* the editor fills the window and nothing on it scrolls the page, so the page
+   has no rubber band to pull the whole screen by */
+:global(html):has(.screen) {
+  overscroll-behavior: none;
 }
 
 .toolbarScroll::-webkit-scrollbar {
   display: none;
+}
+
+.toolbarScroll[data-more-start='true'] {
+  --toolbar-fade-start: var(--toolbar-fade);
+}
+
+.toolbarScroll[data-more-end='true'] {
+  --toolbar-fade-end: var(--toolbar-fade);
 }
 
 .conflictText {

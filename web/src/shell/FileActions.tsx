@@ -77,7 +77,13 @@ function draftPath(draft: TreeDraft, name: string): string {
   return joinPath(draft.parent, draft.kind === 'file' && !isMarkdown(slug) ? `${slug}.md` : slug);
 }
 
-export function FileActionsProvider({ children }: { children: ReactNode }): JSX.Element {
+export interface FileActionsProviderProps {
+  // a draft is typed into the tree, so the tree has to be on screen for it
+  revealTree: () => void;
+  children: ReactNode;
+}
+
+export function FileActionsProvider({ revealTree, children }: FileActionsProviderProps): JSX.Element {
   const navigate = useNavigate();
   const { currentPath, refreshNav, openFolder, setQuery } = useNav();
   const reportMutation = useMutationState();
@@ -133,8 +139,9 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       setQuery('');
       openFolder(parent);
       setDraft({ kind, parent });
+      revealTree();
     },
-    [openFolder, setQuery],
+    [openFolder, revealTree, setQuery],
   );
 
   const cancelDraft = useCallback(() => setDraft(undefined), []);
@@ -170,6 +177,9 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       }
       reportMutation(res, 'Folder created');
       openFolder(res.path);
+      // onto the new folder, the way a new file opens: what comes next is put
+      // into it, and left on the old page the next file landed beside it
+      await navigate(directoryUrl(res.path));
       return true;
     },
     [draft, navigate, openFolder, refreshNav, reportMutation],

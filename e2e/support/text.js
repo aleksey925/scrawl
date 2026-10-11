@@ -49,10 +49,12 @@ module.exports = {
         create: 'Create it',
         edit: 'Edit',
         history: 'History',
+        empty: 'This note is empty',
     },
 
     dir: {
-        empty: 'This folder is empty.',
+        empty: 'This folder is empty',
+        noNotes: 'No notes here',
     },
 
     search: {

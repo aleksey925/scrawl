@@ -192,6 +192,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
       {node.is_dir && open && (
         <>
           {drafting && <DraftRow depth={depth + 1} touch={touch} />}
+          {!drafting && node.children.length === 0 && <EmptyRow depth={depth + 1} touch={touch} />}
           {node.children.length > 0 && (
             <TreeRows nodes={node.children} depth={depth + 1} filtered={filtered} query={query} touch={touch} />
           )}
@@ -238,6 +239,22 @@ function TreeRows({ nodes, depth, filtered, query, touch }: RowsProps): JSX.Elem
         />
       ))}
     </>
+  );
+}
+
+function EmptyRow({ depth, touch }: { depth: number; touch: boolean }): JSX.Element {
+  return (
+    <Group
+      gap={2}
+      wrap="nowrap"
+      data-testid="tree-empty"
+      style={{ minWidth: 0, minHeight: touch ? layout.tapTarget : deskRowHeight, ...rowInsets(depth, touch) }}
+    >
+      <Box w={touch ? touchTwistyWidth : deskTwistyWidth} style={{ flex: 'none' }} />
+      <Text size="sm" c="dimmed" fs="italic">
+        No notes here
+      </Text>
+    </Group>
   );
 }
 
@@ -370,6 +387,9 @@ export function SidebarNav(): JSX.Element {
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  // the pick follows the page: a row picked before a navigation would still be
+  // where the next new entry lands, though the page has moved on from it
+  useEffect(() => setSelected(new Set([currentPath])), [currentPath]);
   const [dropTarget, setDropTarget] = useState<string | undefined>(undefined);
   // what is being dragged cannot be read back during dragover, which is when
   // the answer is needed, so it is kept here as well as in the transfer

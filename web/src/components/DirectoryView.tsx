@@ -1,5 +1,5 @@
-import { Anchor, Stack, Table, Text, Title } from '@mantine/core';
-import { IconFile, IconFolder } from '@tabler/icons-react';
+import { Anchor, Button, Stack, Table, Title } from '@mantine/core';
+import { IconFile, IconFilePlus, IconFolder, IconFolderOpen, IconFolderPlus } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { Link } from 'react-router';
 
@@ -7,17 +7,22 @@ import { api } from '../api/client';
 import { useApi } from '../api/useApi';
 import { mountBase } from '../mount';
 import { isMarkdown } from '../paths';
+import { useFileActions } from '../shell/FileActions';
+import { useNav } from '../shell/NavContext';
 import { SyncBadge } from '../shell/SyncBadge';
 
 import { AsyncContent } from './AsyncContent';
 import { DocumentBody } from './DocumentBody';
 import { DocumentHtml } from './DocumentHtml';
+import { EmptyState } from './EmptyState';
 
 export interface DirectoryViewProps {
   path: string;
 }
 
 export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
+  const { canWrite } = useNav();
+  const actions = useFileActions();
   const state = useApi((signal) => api.dir(path, { signal }), [path], `dir:${path}`);
 
   return (
@@ -32,9 +37,34 @@ export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
             </Title>
             {dir.has_readme && <DocumentHtml html={dir.readme_html} />}
             {dir.entries.length === 0 ? (
-              <Text data-testid="dir-empty" c="dimmed">
-                This folder is empty.
-              </Text>
+              <EmptyState
+                testId="dir-empty"
+                icon={IconFolderOpen}
+                title="This folder is empty"
+                actions={
+                  canWrite && (
+                    <>
+                      <Button
+                        data-testid="dir-empty-new-page"
+                        leftSection={<IconFilePlus size={16} />}
+                        onClick={() => actions.createPage(path)}
+                      >
+                        New file
+                      </Button>
+                      <Button
+                        data-testid="dir-empty-new-folder"
+                        variant="default"
+                        leftSection={<IconFolderPlus size={16} />}
+                        onClick={() => actions.createFolder(path)}
+                      >
+                        New folder
+                      </Button>
+                    </>
+                  )
+                }
+              >
+                {canWrite ? 'Create the first file or folder in it.' : 'There are no files or folders in it.'}
+              </EmptyState>
             ) : (
               <Table data-testid="dir-table" highlightOnHover>
                 <Table.Tbody>

@@ -391,7 +391,10 @@ export const theme: MantineThemeOverride = createTheme({
     CloseButton: CloseButton.extend({ classNames: { root: controls.tapTarget } }),
     Input: Input.extend({ classNames: { wrapper: controls.input, input: controls.inputField } }),
     // a control takes Primer's 6px, a surface floating over the page its larger one
-    Menu: Menu.extend({ defaultProps: { radius: 'md' } }),
+    Menu: Menu.extend({
+      defaultProps: { radius: 'md' },
+      classNames: { dropdown: controls.menu, item: controls.menuItem, label: controls.menuLabel },
+    }),
     Modal: Modal.extend({ defaultProps: { radius: 'lg' } }),
   },
 

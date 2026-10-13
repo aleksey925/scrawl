@@ -15,6 +15,8 @@ const DRAGGED = ['e2e-drag-one.md', 'e2e-drag-two.md'];
 const ROOT_PAGE = 'e2e-root-page.md';
 const BLANK_FOLDER = 'e2e-fm-blank';
 const BLANK_PAGE = 'e2e-blank-page.md';
+const FULL_FOLDER = 'e2e-fm-full';
+const JUNK_FOLDER = 'e2e-fm-junk';
 
 test.describe.serial('file management', () => {
     test.beforeEach(async ({page}) => {
@@ -22,7 +24,7 @@ test.describe.serial('file management', () => {
     });
 
     test.afterAll(() => {
-        for (const folder of [FOLDER, OTHER, BLANK_FOLDER]) {
+        for (const folder of [FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
         for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE]) {
@@ -112,18 +114,23 @@ test.describe.serial('file management', () => {
         await expect(page.getByTestId('tree-draft')).toHaveCount(0);
     });
 
-    test('refuses to delete a folder that is not empty', async ({page}) => {
+    // a folder with files in it used to be refused with an error after the
+    // reader had already confirmed; now the question itself says what goes
+    test('asks before deleting a folder that is not empty, and Cancel keeps it', async ({page}) => {
+        // arrange
         await page.goto(routes.doc(PAGE));
+
+        // act
         await page.locator(`[data-testid=tree-row][data-path="${FOLDER}"] [data-testid=tree-row-menu]`).click();
         await page.getByTestId('tree-row-menu-delete').click();
-        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deleteFolder);
-        await page.getByTestId('modal-confirm').click();
 
-        const toast = page.locator('[data-testid=toast][data-kind="error"]');
-        await expect(toast).toContainText(text.toast.notDeleted);
-        await expect(toast).toContainText(text.toast.folderNotEmpty);
-        expect(fs.existsSync(fixtureFile(PAGE))).toBe(true);
+        // assert
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deleteFolderContents);
+        await expect(page.locator('[data-testid=modal][data-variant="confirm-contents"]')).toContainText(FOLDER);
         await shot(page, 'files-folder-not-empty');
+        await page.getByTestId('modal-cancel').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveCount(0);
+        expect(fs.existsSync(fixtureFile(PAGE))).toBe(true);
     });
 
     test('renames a page from the tree menu', async ({page}) => {
@@ -245,5 +252,47 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-draft-input').fill('first');
         await page.getByTestId('tree-draft-input').press('Enter');
         await expect(page).toHaveURL(new RegExp(`${routes.edit(`${BLANK_FOLDER}/first.md`)}$`));
+    });
+
+    test('deletes a folder with everything in it and leaves the page that was inside', async ({page}) => {
+        // arrange
+        const inner = `${FULL_FOLDER}/sub/note.md`;
+        fs.mkdirSync(fixtureFile(`${FULL_FOLDER}/sub`), {recursive: true});
+        fs.writeFileSync(fixtureFile(inner), '# Inner\n', 'utf8');
+        fs.writeFileSync(fixtureFile(`${FULL_FOLDER}/picture.png`), 'not really a picture', 'utf8');
+        await page.goto(routes.doc(inner));
+
+        // act
+        await page.locator(`[data-testid=tree-row][data-path="${FULL_FOLDER}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-delete').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deleteFolderContents);
+        await page.getByTestId('modal-confirm').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.deleted);
+        await expect(page).toHaveURL(atHome());
+        expect(fs.existsSync(fixtureFile(FULL_FOLDER))).toBe(false);
+        await expect(page.locator(`[data-testid=tree-row][data-path="${FULL_FOLDER}"]`)).toHaveCount(0);
+    });
+
+    // Finder leaves a .DS_Store in every folder it has shown, and the app
+    // lists no such file: the folder looked empty and still would not go
+    test('asks again when a folder that looks empty holds a file the app does not list', async ({page}) => {
+        // arrange
+        fs.mkdirSync(fixtureFile(JUNK_FOLDER), {recursive: true});
+        fs.writeFileSync(fixtureFile(`${JUNK_FOLDER}/.DS_Store`), 'junk', 'utf8');
+        await page.goto(routes.home());
+
+        // act
+        await page.locator(`[data-testid=tree-row][data-path="${JUNK_FOLDER}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-delete').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deleteFolder);
+        await page.getByTestId('modal-confirm').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deleteFolderContents);
+        await page.getByTestId('modal-confirm').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.deleted);
+        expect(fs.existsSync(fixtureFile(JUNK_FOLDER))).toBe(false);
     });
 });

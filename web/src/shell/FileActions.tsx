@@ -99,37 +99,70 @@ export function FileActionsProvider({ revealTree, children }: FileActionsProvide
     }
   }, []);
 
-  const remove = useCallback(
-    (path: string, isDir: boolean) => {
+  const confirmRemove = useCallback(
+    (path: string, isDir: boolean, withContents: boolean) => {
       modals.openConfirmModal({
-        title: isDir ? 'Delete folder?' : 'Delete page?',
+        title: withContents ? 'Delete folder and everything in it?' : isDir ? 'Delete folder?' : 'Delete page?',
         children: (
-          <Text data-testid="modal" data-variant="confirm" size="sm">
-            <Code>{path}</Code> will be removed. This cannot be undone from the browser.
+          <Text data-testid="modal" data-variant={withContents ? 'confirm-contents' : 'confirm'} size="sm">
+            {withContents ? (
+              <>
+                <Code>{path}</Code> is not empty. The folder and every file in it will be removed.
+              </>
+            ) : (
+              <>
+                <Code>{path}</Code> will be removed.
+              </>
+            )}{' '}
+            This cannot be undone from the browser.
           </Text>
         ),
-        labels: { confirm: 'Delete', cancel: 'Cancel' },
+        labels: { confirm: withContents ? 'Delete everything' : 'Delete', cancel: 'Cancel' },
         confirmProps: { color: 'red', 'data-testid': 'modal-confirm' },
         cancelProps: { 'data-testid': 'modal-cancel' },
         onConfirm: () => {
           void (async () => {
             try {
-              reportMutation(await api.deleteEntry(path), 'Deleted');
-              if (currentPath === path) {
+              reportMutation(await api.deleteEntry(path, withContents), 'Deleted');
+              if (currentPath === path || currentPath.startsWith(`${path}/`)) {
                 await navigate('/');
               }
               refreshNav();
             } catch (error) {
-              showToast('error', {
-                title: 'Nothing was deleted',
-                message: conflictText(error, 'The folder is not empty'),
-              });
+              // the folder turned out to hold something after all: a file the
+              // app does not list, or one that arrived while the dialog was up
+              if (isDir && !withContents && error instanceof ApiError && error.status === 409) {
+                confirmRemove(path, isDir, true);
+                return;
+              }
+              showToast('error', { title: 'Nothing was deleted', message: errorText(error) });
             }
           })();
         },
       });
     },
     [currentPath, navigate, refreshNav, reportMutation],
+  );
+
+  const remove = useCallback(
+    (path: string, isDir: boolean) => {
+      if (!isDir) {
+        confirmRemove(path, isDir, false);
+        return;
+      }
+      void (async () => {
+        let holdsEntries = false;
+        try {
+          const listing = await api.dir(path);
+          // a folder shown as a document is one that holds an index note
+          holdsEntries = listing.kind === 'document' || listing.entries.length > 0;
+        } catch {
+          // the delete itself answers when the folder could not be listed
+        }
+        confirmRemove(path, isDir, holdsEntries);
+      })();
+    },
+    [confirmRemove],
   );
 
   const startDraft = useCallback(

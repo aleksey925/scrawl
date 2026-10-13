@@ -225,7 +225,9 @@ export interface ScrawlApi {
   // mutation carries where the change got to, and a deletion that never left
   // the container is the worst one to lose silently
   createEntry(path: string, kind: EntryKind, options?: RequestOptions): Promise<EntryPathResponse>;
-  deleteEntry(path: string, options?: RequestOptions): Promise<EntryPathResponse>;
+  // withContents removes a folder together with everything in it; without it
+  // the server refuses a folder that is not empty
+  deleteEntry(path: string, withContents: boolean, options?: RequestOptions): Promise<EntryPathResponse>;
   move(from: string, to: string, options?: RequestOptions): Promise<EntryPathResponse>;
   search(query: string, limit?: number, options?: RequestOptions): Promise<SearchResponse>;
   history(path: string, options?: RequestOptions): Promise<HistoryResponse>;
@@ -271,7 +273,12 @@ export const api: ScrawlApi = {
   createEntry: (path, kind, options) =>
     call<EntryPathResponse>('POST', fileUrl(path), { ...options, body: { type: kind } }),
 
-  deleteEntry: (path, options) => call<EntryPathResponse>('DELETE', fileUrl(path), options),
+  deleteEntry: (path, withContents, options) =>
+    call<EntryPathResponse>(
+      'DELETE',
+      withQuery(fileUrl(path), { recursive: withContents ? 'true' : undefined }),
+      options,
+    ),
 
   move: (from, to, options) =>
     call<EntryPathResponse>('POST', spaceUrl('/api/move'), { ...options, body: { from, to } }),

@@ -943,6 +943,23 @@ func TestAPIFileLifecycle(t *testing.T) {
 	assert.False(t, ts.Spaces[0].Store.Exists("new/renamed.md"))
 }
 
+func TestAPIFileDeleteRecursive(t *testing.T) {
+	// arrange
+	fake := &fakeHistory{}
+	ts := newTestServer(t, testOpts{history: fake})
+	require.NotEmpty(t, ts.Spaces[0].Index.Search("nested", 5))
+
+	// act
+	resp, body := ts.json(t, request{method: http.MethodDelete, path: "/api/file/docs?recursive=true"})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status, body)
+	assert.Equal(t, "docs", body["path"])
+	assert.False(t, ts.Spaces[0].Store.Exists("docs"))
+	assert.Empty(t, ts.Spaces[0].Index.Search("nested", 5))
+	assert.Equal(t, [][]string{{"docs/README.md", "docs/page.md", "docs/sub/deep.md"}}, fake.reported)
+}
+
 func TestAPIFileSaveConflict(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})

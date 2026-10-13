@@ -388,6 +388,17 @@ func (s *Store) create(cleaned string, isDir bool) error {
 
 // Remove deletes a file or an empty directory.
 func (s *Store) Remove(p string) error {
+	return s.remove(p, s.root.Remove)
+}
+
+// RemoveAll deletes a file or a directory with everything under it, the
+// entries the store hides included: a folder that kept its .DS_Store would
+// otherwise never be deletable.
+func (s *Store) RemoveAll(p string) error {
+	return s.remove(p, s.root.RemoveAll)
+}
+
+func (s *Store) remove(p string, del func(name string) error) error {
 	if s.cfg.ReadOnly {
 		return fmt.Errorf("remove %q: %w", p, ErrReadOnly)
 	}
@@ -405,7 +416,7 @@ func (s *Store) Remove(p string) error {
 	if _, err := s.root.Lstat(cleaned); err != nil {
 		return osError("remove", p, err)
 	}
-	if err := s.root.Remove(cleaned); err != nil {
+	if err := del(cleaned); err != nil {
 		return osError("remove", p, err)
 	}
 	s.invalidate()

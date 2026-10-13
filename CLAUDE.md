@@ -181,6 +181,14 @@ vendor/                dependencies, checked in, `make deps` regenerates
   button. Mantine's own defaults made a filter read as a third button.
   Where the column takes the whole width it keeps GitHub's 32px from
   the edge of the screen, and on a phone GitHub's 16px.
+- A folder with things in it is deleted only on a second word. The API
+  refuses it without `recursive=true`, so an agent that named the wrong
+  path does not lose a tree to one request, and the page asks "and
+  everything in it?" in the one dialog instead of failing after the
+  reader had confirmed. The removal takes the files the store hides too:
+  a folder that kept its `.DS_Store` looked empty and never went. That
+  case is not listed, so the refusal of a plain delete is what raises
+  the question.
 - Nothing selected is shown as nothing. An empty note, an empty folder
   and an empty preview each say what they are through `EmptyState`, with
   the next step as a button, and an open folder with no notes says so in

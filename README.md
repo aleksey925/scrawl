@@ -627,15 +627,20 @@ request:
 
 The rest of the write endpoints take no revision:
 
-| request                             | body                            | answer                    |
-| ----------------------------------- | ------------------------------- | ------------------------- |
-| `POST /api/file/<path>`             | `{"type":"file"}` or `"dir"`    | `201 {"path":...}`        |
-| `DELETE /api/file/<path>`           |                                 | `200 {"path":...}`        |
-| `POST /api/move`                    | `{"from":"a.md","to":"b/a.md"}` | `200 {"path":...}`        |
-| `POST /api/upload/<dir>?doc=<path>` | multipart `file`                | `201 {"path","markdown"}` |
+| request                                 | body                            | answer                    |
+| --------------------------------------- | ------------------------------- | ------------------------- |
+| `POST /api/file/<path>`                 | `{"type":"file"}` or `"dir"`    | `201 {"path":...}`        |
+| `DELETE /api/file/<path>`               |                                 | `200 {"path":...}`        |
+| `DELETE /api/file/<dir>?recursive=true` |                                 | `200 {"path":...}`        |
+| `POST /api/move`                        | `{"from":"a.md","to":"b/a.md"}` | `200 {"path":...}`        |
+| `POST /api/upload/<dir>?doc=<path>`     | multipart `file`                | `201 {"path","markdown"}` |
 
 Each is under `/s/<space>/`, and each carries `history_degraded` and
 `unpublished` beside what the table shows.
+
+A folder that is not empty is deleted only with `recursive=true`, which
+removes it with everything in it; without it the answer is
+`409 {"error":"directory is not empty"}`.
 
 A token ending in `:ro` reads everything and writes nothing: every write
 is `403 {"error":"read-only token, writing is disabled"}`. `READ_ONLY`

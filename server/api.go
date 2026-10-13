@@ -257,14 +257,23 @@ func (m *mount) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// a folder with things in it goes only when the caller says so: an agent
+	// that named the wrong path must not lose a tree to one request
+	recursive := r.URL.Query().Get("recursive") == "true"
+
+	var removed []string
 	err := m.record(r, history.Op{Message: "delete " + p, Paths: []string{p}}, func() ([]string, error) {
-		return nil, m.spc.Store.Remove(p)
+		if !recursive {
+			return nil, m.spc.Store.Remove(p)
+		}
+		removed = m.filesUnder(p)
+		return removed, m.spc.Store.RemoveAll(p)
 	})
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
-	m.touch(p)
+	m.touch(append(removed, p)...)
 	// 200 with a body rather than 204: every other mutation carries the state
 	// of the change it made, and a deletion that never left the container is
 	// the worst one to lose silently
@@ -306,21 +315,32 @@ func (m *mount) apiMove(w http.ResponseWriter, r *http.Request) {
 // A failure here is not worth refusing the move over: the change still reaches
 // history through the reconcile the watcher runs, only as an external one.
 func (m *mount) movedPaths(from, to string) []string {
+	under := m.filesUnder(from)
+	if len(under) == 0 {
+		// moving a file names itself in Op.Paths, so there is nothing to add
+		return nil
+	}
+	res := make([]string, 0, 2*len(under))
+	for _, p := range under {
+		res = append(res, p, to+strings.TrimPrefix(p, from))
+	}
+	return res
+}
+
+// filesUnder lists the visible files below a directory, which is what history
+// has to be told when the directory itself is moved or deleted. It has to be
+// read before the change, while the paths still exist.
+func (m *mount) filesUnder(dir string) []string {
 	files, err := m.spc.Store.Files()
 	if err != nil {
 		return nil
 	}
-	prefix := from + "/"
-	res := make([]string, 0, len(files))
+	prefix := dir + "/"
+	res := []string{}
 	for _, fi := range files {
-		if !strings.HasPrefix(fi.Path, prefix) {
-			continue
+		if strings.HasPrefix(fi.Path, prefix) {
+			res = append(res, fi.Path)
 		}
-		res = append(res, fi.Path, to+"/"+strings.TrimPrefix(fi.Path, prefix))
-	}
-	if len(res) == 0 {
-		// moving a file names itself in Op.Paths, so there is nothing to add
-		return nil
 	}
 	return res
 }

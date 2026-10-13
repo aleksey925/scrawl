@@ -724,6 +724,71 @@ func TestStoreRemove(t *testing.T) {
 	})
 }
 
+func TestStoreRemoveAll(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		err  error
+	}{
+		{name: "file", path: "guide.md"},
+		{name: "empty directory", path: "empty"},
+		{name: "directory with files, a hidden one among them", path: "notes"},
+		{name: "missing", path: "nope.md", err: ErrNotFound},
+		{name: "ignored", path: ".git", err: ErrNotFound},
+		{name: "the root itself", path: "", err: ErrForbidden},
+		{name: "outside the root", path: "../" + secretName, err: ErrForbidden},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			files := notesFiles()
+			files["empty/"] = ""
+			s := newStore(t, files)
+
+			// act
+			err := s.RemoveAll(tc.path)
+
+			// assert
+			if tc.err != nil {
+				require.ErrorIs(t, err, tc.err)
+				assert.FileExists(t, filepath.Join(s.Dir(), ".git", "config"))
+				assert.FileExists(t, filepath.Join(filepath.Dir(s.Dir()), secretName))
+				return
+			}
+			require.NoError(t, err)
+			assert.NoFileExists(t, filepath.Join(s.Dir(), filepath.FromSlash(tc.path)))
+			assert.NoDirExists(t, filepath.Join(s.Dir(), filepath.FromSlash(tc.path)))
+		})
+	}
+
+	t.Run("a symlink inside goes and what it points at stays", func(t *testing.T) {
+		// arrange
+		s := newStore(t, notesFiles())
+		secret := filepath.Join(filepath.Dir(s.Dir()), secretName)
+		require.NoError(t, os.Symlink(secret, filepath.Join(s.Dir(), "notes", "link")))
+
+		// act
+		err := s.RemoveAll("notes")
+
+		// assert
+		require.NoError(t, err)
+		assert.NoDirExists(t, filepath.Join(s.Dir(), "notes"))
+		assert.FileExists(t, secret)
+	})
+
+	t.Run("a read-only store keeps the directory", func(t *testing.T) {
+		// arrange
+		s := newStore(t, notesFiles(), func(cfg *Config) { cfg.ReadOnly = true })
+
+		// act
+		err := s.RemoveAll("notes")
+
+		// assert
+		require.ErrorIs(t, err, ErrReadOnly)
+		assert.DirExists(t, filepath.Join(s.Dir(), "notes"))
+	})
+}
+
 func TestStoreMove(t *testing.T) {
 	t.Run("rename in place", func(t *testing.T) {
 		s := newStore(t, notesFiles())

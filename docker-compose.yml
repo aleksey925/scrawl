@@ -8,6 +8,7 @@ services:
       - scrawl-data:/data
     environment:
       - SPACE_NAME=notes
+      - HISTORY=off
       - AUTH_USERS=admin:admin
       - AUTH_TOKENS=bot:demo-token:ro
     user: "${UID:-1000}:${GID:-1000}"

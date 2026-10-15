@@ -1,0 +1,1 @@
+import{ft as e}from"./theme-Dr_CFGUW.js";import{t}from"./DirectoryView-dUIM0GGD.js";import{t as n}from"./PageContainer-Q-7FComS.js";var r=e();function i(){return(0,r.jsx)(n,{children:(0,r.jsx)(t,{path:``})})}export{i as Component};

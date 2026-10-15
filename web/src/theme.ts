@@ -100,10 +100,6 @@ interface Palette {
   bgMuted: string;
   bgInset: string;
   bgNeutralMuted: string;
-  bgDangerMuted: string;
-  bgDangerEmphasis: string;
-  // not a Primer token: a filled hover one step off the emphasis, as for the accent
-  bgDangerEmphasisHover: string;
   // not Primer tokens: a <mark> is a highlighter, opaque yellow under dark text
   // in both schemes, because a translucent yellow over the dark ground is brown
   bgMark: string;
@@ -139,9 +135,6 @@ const lightPalette: Palette = {
   bgMuted: '#f6f8fa',
   bgInset: '#f6f8fa',
   bgNeutralMuted: '#818b981f',
-  bgDangerMuted: '#ffebe9',
-  bgDangerEmphasis: '#cf222e',
-  bgDangerEmphasisHover: '#a40e26',
   bgMark: '#fff8c5',
   fgMark: '#1f2328',
   bgAccentMuted: '#ddf4ff',
@@ -170,17 +163,13 @@ const darkPalette: Palette = {
   fgAccent: '#478be6',
   fgSuccess: '#57ab5a',
   fgAttention: '#c69026',
-  // calmer than dimmed's #e5534b, which glared next to the muted text
-  fgDanger: '#c9554e',
+  fgDanger: '#e5534b',
   fgDone: '#986ee2',
   bgDefault: '#121821',
   bgMuted: '#1a2129',
   bgInset: '#0d1117',
   // twice Primer's alpha: at its 20% inline code was hard to tell from the page
   bgNeutralMuted: '#656c7666',
-  bgDangerMuted: '#c9554e1a',
-  bgDangerEmphasis: '#a4403b',
-  bgDangerEmphasisHover: '#b0443e',
   bgMark: '#d4b04a',
   fgMark: '#1f2328',
   bgAccentMuted: '#4184e41a',
@@ -195,7 +184,7 @@ const darkPalette: Palette = {
   borderAccentEmphasis: '#316dca',
   borderSuccessEmphasis: '#347d39',
   borderAttentionEmphasis: '#966600',
-  borderDangerEmphasis: '#a4403b',
+  borderDangerEmphasis: '#c93c37',
   borderDoneEmphasis: '#8256d0',
 };
 
@@ -216,9 +205,6 @@ export interface ScrawlTokens {
   control: string;
   controlHover: string;
   danger: string;
-  dangerEmphasis: string;
-  dangerEmphasisHover: string;
-  dangerSubtle: string;
   success: string;
   warning: string;
 }
@@ -241,9 +227,6 @@ function scrawlTokens(palette: Palette): ScrawlTokens {
     control: palette.controlRest,
     controlHover: palette.controlHover,
     danger: palette.fgDanger,
-    dangerEmphasis: palette.bgDangerEmphasis,
-    dangerEmphasisHover: palette.bgDangerEmphasisHover,
-    dangerSubtle: palette.bgDangerMuted,
     success: palette.fgSuccess,
     warning: palette.fgAttention,
   };
@@ -327,17 +310,6 @@ function mantineVariables(tokens: ScrawlTokens): Record<string, string> {
     '--mantine-color-accent-light-color': tokens.accent,
     '--mantine-color-accent-outline': tokens.accentBorder,
     '--mantine-color-accent-outline-hover': tokens.accentSubtle,
-    // mantine's own red was a second red beside the palette's: a menu item reads
-    // shade 6 directly, everything else the variant variables
-    '--mantine-color-red-6': tokens.danger,
-    '--mantine-color-red-text': tokens.danger,
-    '--mantine-color-red-filled': tokens.dangerEmphasis,
-    '--mantine-color-red-filled-hover': tokens.dangerEmphasisHover,
-    '--mantine-color-red-light': tokens.dangerSubtle,
-    '--mantine-color-red-light-hover': tokens.dangerSubtle,
-    '--mantine-color-red-light-color': tokens.danger,
-    '--mantine-color-red-outline': tokens.danger,
-    '--mantine-color-red-outline-hover': tokens.dangerSubtle,
   };
 }
 

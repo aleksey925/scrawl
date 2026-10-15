@@ -192,14 +192,10 @@ vendor/                dependencies, checked in, `make deps` regenerates
   note read as plain text. Weight alone did not fix it, so
   a note's text there is `fgBody`, a step below `fgDefault`, emphasis is
   `fgEmphasis`, a step above, and inline code gets twice Primer's alpha.
-  In the light theme all three are `fgDefault`. Its red is calmer than
-  dimmed's, which glared beside the muted text. The sign-in page, its
+  In the light theme all three are `fgDefault`. The sign-in page, its
   `login.js` and the `theme-color` metas carry the same dark background.
 - A `<mark>` is a highlighter in both schemes: opaque yellow under dark
   text. Any translucent yellow laid over the dark ground came out brown.
-- There is one red. Mantine's own palette was a second one beside
-  `fgDanger`, so `color="red"` reads the palette through the variables
-  the theme sets, the way the accent does.
 - A folder with things in it is deleted only on a second word. The API
   refuses it without `recursive=true`, so an agent that named the wrong
   path does not lose a tree to one request, and the page asks "and

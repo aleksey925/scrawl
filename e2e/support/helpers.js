@@ -144,6 +144,15 @@ async function expectNoHorizontalScroll(page) {
         .toBeLessThanOrEqual(overflow.clientWidth + 1);
 }
 
+const THEME_LABELS = {auto: 'Auto', light: 'Light', dark: 'Dark'};
+
+// chooseTheme presses one scheme in the picker of the menu that is open
+async function chooseTheme(page, scheme) {
+    const picker = page.getByTestId('topbar-theme');
+    await picker.getByText(THEME_LABELS[scheme], {exact: true}).click();
+    await expect(picker).toHaveAttribute('data-scheme', scheme);
+}
+
 // inStep waits until a remote space is level with its origin, and gets it
 // there when the test before left it diverged: nothing but a reset ever does,
 // and without one a single failure takes every later test of that space down.
@@ -170,6 +179,7 @@ module.exports = {
     READONLY,
     SHARED,
     atHome,
+    chooseTheme,
     editorStatus,
     expectNoHorizontalScroll,
     fixtureFile,

@@ -2,7 +2,7 @@ const {expect, test} = require('@playwright/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, modifier, pressShortcut, removeFixture, routes, shot, signIn, writeFixture,
+    MAIN, chooseTheme, modifier, pressShortcut, removeFixture, routes, shot, signIn, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -10,6 +10,8 @@ const DOC = docs.doc;
 const ANCHORS = 'e2e-anchors.md';
 const ANCHOR_SOURCE = 'e2e-anchor-source.md';
 const OUTLINE = 'e2e-outline.md';
+const EMPHASIS = 'e2e-emphasis.md';
+const DIAGRAM = 'e2e-diagram.md';
 
 // a page of its own for the anchor test: the fragment an author writes and the
 // slug the renderer makes have to be the same string for the jump to resolve,
@@ -328,14 +330,71 @@ test.describe('reading', () => {
         expect(await contrast()).toBeLessThan(0);
 
         await page.getByTestId('topbar-account').click();
-        const toggle = page.getByTestId('topbar-theme');
-        await toggle.click();
-        await expect(toggle).toHaveAttribute('data-scheme', 'light');
-        await toggle.click();
-        await expect(toggle).toHaveAttribute('data-scheme', 'dark');
+        await chooseTheme(page, 'light');
+        await chooseTheme(page, 'dark');
 
         // light text on a dark one
         await expect.poll(contrast).toBeGreaterThan(0);
+    });
+
+    test('bold is heavier in the dark theme than in the light one', async ({page}) => {
+        // arrange
+        writeFixture(EMPHASIS, '# Emphasis\n\nPlain **bold** text.\n');
+        await page.goto(routes.doc(EMPHASIS));
+        const weight = () => page.getByTestId('doc').locator('p strong').evaluate(
+            (el) => Number(getComputedStyle(el).fontWeight));
+        await page.getByTestId('topbar-account').click();
+        await chooseTheme(page, 'light');
+        const light = await weight();
+
+        // act
+        await chooseTheme(page, 'dark');
+
+        // assert
+        await expect.poll(weight).toBeGreaterThan(light);
+
+        removeFixture(EMPHASIS);
+    });
+
+    test('emphasis is brighter than the text around it in the dark', async ({page}) => {
+        // arrange
+        writeFixture(EMPHASIS, '# Emphasis\n\nPlain **bold** and *italic*.\n\n> Quoted **bold**.\n');
+        await page.goto(routes.doc(EMPHASIS));
+        await page.getByTestId('topbar-account').click();
+        await chooseTheme(page, 'dark');
+        const doc = page.getByTestId('doc');
+        const brightness = (selector) => doc.locator(selector).first().evaluate((el) =>
+            getComputedStyle(el).color.match(/\d+/g).slice(0, 3).reduce((a, b) => a + Number(b), 0));
+
+        // act
+        const plain = await brightness('p');
+        const emphasis = [await brightness('p strong'), await brightness('p em'), await brightness('h1')];
+        const quote = [await brightness('blockquote p'), await brightness('blockquote strong')];
+
+        // assert
+        expect(emphasis.map((value) => value - plain > 30)).toEqual([true, true, true]);
+        expect(quote[1]).toBe(quote[0]);
+
+        removeFixture(EMPHASIS);
+    });
+
+    test('a diagram label sits in the middle of its box', async ({page}) => {
+        // arrange
+        writeFixture(DIAGRAM, '# Diagram\n\n```mermaid\nflowchart TD\n    A[Запрос] --> B[Сервер]\n```\n');
+        await page.goto(routes.doc(DIAGRAM));
+        const node = page.getByTestId('doc').locator('.md-diagram[data-state="done"] svg .node').first();
+
+        // act
+        const offset = await node.evaluate((el) => {
+            const box = el.querySelector('.label-container').getBoundingClientRect();
+            const label = el.querySelector('.nodeLabel').getBoundingClientRect();
+            return Math.abs((box.top + box.bottom) / 2 - (label.top + label.bottom) / 2);
+        });
+
+        // assert
+        expect(offset).toBeLessThan(2);
+
+        removeFixture(DIAGRAM);
     });
 
     test('the file list hides on demand and stays hidden', async ({page}) => {

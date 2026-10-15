@@ -102,21 +102,8 @@ the root element before the first byte:
 The client takes `data-mantine-color-scheme` as its starting value and
 writes the cookie on every change. Mantine's `ColorSchemeScript` is
 deliberately not used: it emits an inline `<script>`, and `script-src`
-is `'self'` with no nonce. Without the server attribute (the dev
-server) the client sets it from the cookie before React mounts.
-
-**Style nonce.** The server puts the per-response nonce in one meta
-tag:
-
-```html
-<meta name="csp-nonce" content="...">
-```
-
-`src/nonce.ts` is the only reader. It feeds `getStyleNonce` on
-`MantineProvider` and also calls `setNonce` from the `get-nonce`
-package, because `react-remove-scroll` (behind `Drawer` and the modals)
-takes its nonce from there and not from Mantine. An empty or missing
-meta means no nonce, which is what the dev server serves.
+is `'self'`. Without the server attribute (the dev server) the client
+sets it from the cookie before React mounts.
 
 **Mount node.** The shell has to contain `<div id="scrawl-app-root">`.
 

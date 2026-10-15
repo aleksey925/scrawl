@@ -354,9 +354,9 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-more-menu');
 
         const theme = page.getByTestId('topbar-theme');
-        const before = await theme.getAttribute('data-scheme');
-        await theme.tap();
-        await expect(theme).not.toHaveAttribute('data-scheme', before);
+        await theme.getByText('Dark', {exact: true}).tap();
+        await expect(theme).toHaveAttribute('data-scheme', 'dark');
+        await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
         await expect(page.getByTestId('topbar-account-signout')).toBeVisible();
     });
 
@@ -503,6 +503,7 @@ test.describe('mobile', () => {
         await openMore(page);
         await expect(page.getByTestId('topbar-theme')).toBeVisible();
         expect(await tooSmall(page, '[role=menuitem]'), 'the more menu').toEqual([]);
+        expect(await tooSmall(page, '[data-testid=topbar-theme] label'), 'the theme picker').toEqual([]);
         await page.keyboard.press('Escape');
 
         const sidebar = await openDrawer(page);

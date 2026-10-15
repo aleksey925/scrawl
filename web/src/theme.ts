@@ -7,6 +7,7 @@ import {
   Input,
   Menu,
   Modal,
+  SegmentedControl,
   type MantineColorsTuple,
   type MantineThemeOverride,
 } from '@mantine/core';
@@ -85,6 +86,10 @@ export function iconEdgeInset(glyphSize: number): string {
 // apart; a note reaches it as --gh-*, the way github-markdown-css names it
 interface Palette {
   fgDefault: string;
+  // not Primer tokens: a note's text and its emphasis, which in the dark sit
+  // below and above fgDefault, so bold differs in brightness and not only weight
+  fgBody: string;
+  fgEmphasis: string;
   fgMuted: string;
   fgAccent: string;
   fgSuccess: string;
@@ -95,7 +100,14 @@ interface Palette {
   bgMuted: string;
   bgInset: string;
   bgNeutralMuted: string;
-  bgAttentionMuted: string;
+  bgDangerMuted: string;
+  bgDangerEmphasis: string;
+  // not a Primer token: a filled hover one step off the emphasis, as for the accent
+  bgDangerEmphasisHover: string;
+  // not Primer tokens: a <mark> is a highlighter, opaque yellow under dark text
+  // in both schemes, because a translucent yellow over the dark ground is brown
+  bgMark: string;
+  fgMark: string;
   bgAccentMuted: string;
   bgAccentEmphasis: string;
   // not a Primer token: the next step of its blue scale, for a filled hover
@@ -115,6 +127,8 @@ interface Palette {
 
 const lightPalette: Palette = {
   fgDefault: '#1f2328',
+  fgBody: '#1f2328',
+  fgEmphasis: '#1f2328',
   fgMuted: '#59636e',
   fgAccent: '#0969da',
   fgSuccess: '#1a7f37',
@@ -125,7 +139,11 @@ const lightPalette: Palette = {
   bgMuted: '#f6f8fa',
   bgInset: '#f6f8fa',
   bgNeutralMuted: '#818b981f',
-  bgAttentionMuted: '#fff8c5',
+  bgDangerMuted: '#ffebe9',
+  bgDangerEmphasis: '#cf222e',
+  bgDangerEmphasisHover: '#a40e26',
+  bgMark: '#fff8c5',
+  fgMark: '#1f2328',
   bgAccentMuted: '#ddf4ff',
   bgAccentEmphasis: '#0969da',
   bgAccentEmphasisHover: '#0550ae',
@@ -142,33 +160,43 @@ const lightPalette: Palette = {
   borderDoneEmphasis: '#8250df',
 };
 
+// Primer's dark dimmed text and accents on a ground darker than its own; its
+// dark put near-white text on near-black, and bold was lost among the glare
 const darkPalette: Palette = {
-  fgDefault: '#f0f6fc',
+  fgDefault: '#d1d7e0',
+  fgBody: '#b7bdc8',
+  fgEmphasis: '#f0f6fc',
   fgMuted: '#9198a1',
-  fgAccent: '#4493f8',
-  fgSuccess: '#3fb950',
-  fgAttention: '#d29922',
-  fgDanger: '#f85149',
-  fgDone: '#ab7df8',
-  bgDefault: '#0d1117',
-  bgMuted: '#151b23',
-  bgInset: '#010409',
-  bgNeutralMuted: '#656c7633',
-  bgAttentionMuted: '#bb800926',
-  bgAccentMuted: '#388bfd1a',
-  bgAccentEmphasis: '#1f6feb',
-  bgAccentEmphasisHover: '#388bfd',
+  fgAccent: '#478be6',
+  fgSuccess: '#57ab5a',
+  fgAttention: '#c69026',
+  // calmer than dimmed's #e5534b, which glared next to the muted text
+  fgDanger: '#c9554e',
+  fgDone: '#986ee2',
+  bgDefault: '#121821',
+  bgMuted: '#1a2129',
+  bgInset: '#0d1117',
+  // twice Primer's alpha: at its 20% inline code was hard to tell from the page
+  bgNeutralMuted: '#656c7666',
+  bgDangerMuted: '#c9554e1a',
+  bgDangerEmphasis: '#a4403b',
+  bgDangerEmphasisHover: '#b0443e',
+  bgMark: '#d4b04a',
+  fgMark: '#1f2328',
+  bgAccentMuted: '#4184e41a',
+  bgAccentEmphasis: '#316dca',
+  bgAccentEmphasisHover: '#4184e4',
   controlRest: '#212830',
   controlHover: '#262c36',
   borderDefault: '#3d444d',
   borderMuted: '#3d444db3',
   borderEmphasis: '#656c76',
-  borderAccentMuted: '#388bfd66',
-  borderAccentEmphasis: '#1f6feb',
-  borderSuccessEmphasis: '#238636',
-  borderAttentionEmphasis: '#9e6a03',
-  borderDangerEmphasis: '#da3633',
-  borderDoneEmphasis: '#8957e5',
+  borderAccentMuted: '#4184e466',
+  borderAccentEmphasis: '#316dca',
+  borderSuccessEmphasis: '#347d39',
+  borderAttentionEmphasis: '#966600',
+  borderDangerEmphasis: '#a4403b',
+  borderDoneEmphasis: '#8256d0',
 };
 
 export interface ScrawlTokens {
@@ -188,6 +216,9 @@ export interface ScrawlTokens {
   control: string;
   controlHover: string;
   danger: string;
+  dangerEmphasis: string;
+  dangerEmphasisHover: string;
+  dangerSubtle: string;
   success: string;
   warning: string;
 }
@@ -210,6 +241,9 @@ function scrawlTokens(palette: Palette): ScrawlTokens {
     control: palette.controlRest,
     controlHover: palette.controlHover,
     danger: palette.fgDanger,
+    dangerEmphasis: palette.bgDangerEmphasis,
+    dangerEmphasisHover: palette.bgDangerEmphasisHover,
+    dangerSubtle: palette.bgDangerMuted,
     success: palette.fgSuccess,
     warning: palette.fgAttention,
   };
@@ -248,16 +282,16 @@ const grayShades: MantineColorsTuple = [
 ];
 
 const darkShades: MantineColorsTuple = [
-  '#f0f6fc',
   '#d1d7e0',
   '#b7bdc8',
   '#9198a1',
+  '#656c76',
   '#3d444d',
   '#262c36',
   '#212830',
-  '#151b23',
+  '#1a2129',
+  '#121821',
   '#0d1117',
-  '#010409',
 ];
 
 // GitHub's own stacks. github.com names "Mona Sans VF" first but ships no face
@@ -293,6 +327,17 @@ function mantineVariables(tokens: ScrawlTokens): Record<string, string> {
     '--mantine-color-accent-light-color': tokens.accent,
     '--mantine-color-accent-outline': tokens.accentBorder,
     '--mantine-color-accent-outline-hover': tokens.accentSubtle,
+    // mantine's own red was a second red beside the palette's: a menu item reads
+    // shade 6 directly, everything else the variant variables
+    '--mantine-color-red-6': tokens.danger,
+    '--mantine-color-red-text': tokens.danger,
+    '--mantine-color-red-filled': tokens.dangerEmphasis,
+    '--mantine-color-red-filled-hover': tokens.dangerEmphasisHover,
+    '--mantine-color-red-light': tokens.dangerSubtle,
+    '--mantine-color-red-light-hover': tokens.dangerSubtle,
+    '--mantine-color-red-light-color': tokens.danger,
+    '--mantine-color-red-outline': tokens.danger,
+    '--mantine-color-red-outline-hover': tokens.dangerSubtle,
   };
 }
 
@@ -315,11 +360,15 @@ export function cssVariablesResolver(): ThemeCssVariables {
       ...tokenVariables('scrawl', lightTokens),
       ...tokenVariables('gh', lightPalette),
       ...mantineVariables(lightTokens),
+      '--scrawl-strong-weight': '600',
     },
     dark: {
       ...tokenVariables('scrawl', darkTokens),
       ...tokenVariables('gh', darkPalette),
       ...mantineVariables(darkTokens),
+      // light strokes on a dark ground already look heavy, and a semibold
+      // among them read as plain text
+      '--scrawl-strong-weight': '700',
     },
   };
 }
@@ -396,6 +445,7 @@ export const theme: MantineThemeOverride = createTheme({
       classNames: { dropdown: controls.menu, item: controls.menuItem, label: controls.menuLabel },
     }),
     Modal: Modal.extend({ defaultProps: { radius: 'lg' } }),
+    SegmentedControl: SegmentedControl.extend({ classNames: { label: controls.segment } }),
   },
 
   other: { layout, layoutBreakpoints, breakpointPx },

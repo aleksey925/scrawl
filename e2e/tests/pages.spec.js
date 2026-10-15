@@ -2,7 +2,7 @@ const {expect, test} = require('@playwright/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, readFixture, removeFixture, routes, save, setSource, shot, signIn, writeFixture,
+    MAIN, chooseTheme, readFixture, removeFixture, routes, save, setSource, shot, signIn, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -191,20 +191,21 @@ test.describe('pages', () => {
         removeFixture(COLLIDE);
     });
 
-    test('the theme toggle cycles and survives a reload', async ({page}) => {
+    test('the theme picker switches the scheme and survives a reload', async ({page}) => {
         const root = page.locator('html');
         await page.getByTestId('topbar-account').click();
-        const toggle = page.getByTestId('topbar-theme');
-        await expect(toggle).toHaveAttribute('data-scheme', 'auto');
+        await expect(page.getByTestId('topbar-theme')).toHaveAttribute('data-scheme', 'auto');
 
-        await toggle.click();
-        await expect(toggle).toHaveAttribute('data-scheme', 'light');
+        // straight to dark, past light: one press, and the menu stays open
+        await chooseTheme(page, 'dark');
+        await expect(root).toHaveAttribute('data-mantine-color-scheme', 'dark');
+        await expect(page.getByTestId('topbar-account-menu')).toBeVisible();
+        await shot(page, 'pages-dark-theme');
+
+        await chooseTheme(page, 'light');
         await expect(root).toHaveAttribute('data-mantine-color-scheme', 'light');
 
-        await toggle.click();
-        await expect(toggle).toHaveAttribute('data-scheme', 'dark');
-        await expect(root).toHaveAttribute('data-mantine-color-scheme', 'dark');
-        await shot(page, 'pages-dark-theme');
+        await chooseTheme(page, 'dark');
 
         // the choice is a cookie, because the server paints the first byte from it
         await page.reload();

@@ -12,6 +12,11 @@ small but covers every markdown feature the renderer has to handle.
 - [Deeply nested page](notes/deep/nested.md)
 - [Missing page](does-not-exist.md) - deliberately broken link
 
+## Витрина
+
+- [Кэширование в HTTP](showcase/http-caching.md) - все элементы разметки на
+  одной странице, чтобы видеть, как правки стилей меняют читаемость
+
 ## Базы данных
 
 Папка без своего индекса, четыре документа на русском языке:

@@ -158,12 +158,15 @@ vendor/                dependencies, checked in, `make deps` regenerates
   becomes an element id, so a note carrying "Toasts" took `id="toasts"`
   and every toast was appended invisibly inside it. Chrome is mantine
   components, portals and refs, never a bare id lookup.
-- `style-src` is split, because mantine sets its custom properties
-  through style attributes and a nonce can never authorize one:
-  `style-src-elem` carries a per-response nonce, `style-src-attr` takes
-  `'unsafe-inline'`. `script-src` stays `'self'` with nothing inline. A
-  note cannot reach either: the bluemonday policy refuses a style
-  attribute whatever the header allows.
+- `script-src` is `'self'` with nothing inline, and that is the line
+  that stops a script. Styles are `'self' 'unsafe-inline'`, the way
+  github.com has them. A nonce on them had to be threaded into mantine,
+  `react-remove-scroll` and CodeMirror one by one, and mermaid takes
+  none: it measures its labels in a scratch svg under a `<style>` of its
+  own, and with that style blocked every diagram came out with text
+  sized at the browser default, at the top of boxes cut for it. A note
+  cannot carry a style either way: the bluemonday policy refuses the
+  element and the attribute whatever the header allows.
 - Design tokens live in one CSS file for the old pages and in the
   mantine theme for the app; light and dark come from custom properties
   in both. A tap latches `:hover` onto what it landed on until the next
@@ -181,6 +184,22 @@ vendor/                dependencies, checked in, `make deps` regenerates
   button. Mantine's own defaults made a filter read as a third button.
   Where the column takes the whole width it keeps GitHub's 32px from
   the edge of the screen, and on a phone GitHub's 16px.
+- The dark scheme takes its text and accents from Primer's dark dimmed,
+  not the dark github.com starts in, and sets them on `#121821`, with
+  every surface kept the same step from it that Primer's dark keeps.
+  Bold there is 700 instead of 600. Near-white letters on a near-black
+  page glow and look heavy already, so bold, italic and headings in a
+  note read as plain text. Weight alone did not fix it, so
+  a note's text there is `fgBody`, a step below `fgDefault`, emphasis is
+  `fgEmphasis`, a step above, and inline code gets twice Primer's alpha.
+  In the light theme all three are `fgDefault`. Its red is calmer than
+  dimmed's, which glared beside the muted text. The sign-in page, its
+  `login.js` and the `theme-color` metas carry the same dark background.
+- A `<mark>` is a highlighter in both schemes: opaque yellow under dark
+  text. Any translucent yellow laid over the dark ground came out brown.
+- There is one red. Mantine's own palette was a second one beside
+  `fgDanger`, so `color="red"` reads the palette through the variables
+  the theme sets, the way the accent does.
 - A folder with things in it is deleted only on a second word. The API
   refuses it without `recursive=true`, so an agent that named the wrong
   path does not lose a tree to one request, and the page asks "and

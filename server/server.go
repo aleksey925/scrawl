@@ -64,36 +64,28 @@ const (
 	searchAPILimit  = 20
 )
 
-// contentSecurityPolicy is strict on purpose: every script and stylesheet the
-// app needs is embedded and served from this origin, and nothing inline is ever
-// rendered into a script, so script-src stays 'self' with nothing to nonce.
-// TestNoInlineScripts guards that.
+// contentSecurityPolicy is strict where it matters: every script the app needs
+// is embedded and served from this origin, and nothing inline is ever rendered
+// into a script, so script-src stays 'self'. TestNoInlineScripts guards that.
 //
-// Styles need three directives rather than one. Mantine injects a <style>
-// element for its css variables, which the nonce covers, and it also writes
-// style attributes, which a nonce can never cover: 'unsafe-inline' is ignored
-// whenever a nonce sits in the same directive, so the two cases cannot share
-// one. A note cannot reach style-src-attr regardless, because the bluemonday
-// policy in render never lets a style attribute through sanitization. The plain
-// style-src is the fallback for a browser that does not know the -elem and
-// -attr forms, which would otherwise drop to default-src and block every sheet.
+// Inline styles are allowed, the way github.com allows them. Mantine, mermaid
+// and CodeMirror all insert style elements of their own, a nonce had to be
+// threaded into each, and mermaid takes none: its labels were measured without
+// their style. A note still cannot carry a style, because the bluemonday policy
+// in render refuses both the element and the attribute.
 //
 // Images are the one loose end: a document may embed a remote one, and the
 // stylesheet draws its icons from data: urls.
-func contentSecurityPolicy(nonce string) string {
-	return "default-src 'none'; base-uri 'none'; form-action 'self'; " +
-		"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; manifest-src 'self'; " +
-		"style-src 'self' 'unsafe-inline'; " +
-		"style-src-elem 'self' 'nonce-" + nonce + "'; style-src-attr 'unsafe-inline'; " +
-		"img-src 'self' data: https:; script-src 'self'"
-}
+const contentSecurityPolicy = "default-src 'none'; base-uri 'none'; form-action 'self'; " +
+	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; manifest-src 'self'; " +
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; script-src 'self'"
 
 // barColorLight and barColorDark are the browser and home screen chrome colors.
 // base.html ships them as prefers-color-scheme metas and theme.js swaps between
 // them; the manifest carries one, so a change has to land in all three.
 const (
 	barColorLight = "#ffffff"
-	barColorDark  = "#0d1117"
+	barColorDark  = "#121821"
 )
 
 // gzipContentTypes lists what is worth compressing. rest.Gzip decides on the
@@ -434,23 +426,15 @@ func (wb *Web) appInfo(next http.Handler) http.Handler {
 	})
 }
 
-// securityHeaders sets the response headers that do not depend on the route and
-// mints the style nonce, which has to be fresh per response or it authorizes
-// nothing.
+// securityHeaders sets the response headers that do not depend on the route.
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		nonce, err := newNonce()
-		if err != nil {
-			log.Printf("[ERROR] mint style nonce: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
 		h := w.Header()
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("X-Frame-Options", "DENY")
-		h.Set("Content-Security-Policy", contentSecurityPolicy(nonce))
-		next.ServeHTTP(w, r.WithContext(withNonce(r.Context(), nonce)))
+		h.Set("Content-Security-Policy", contentSecurityPolicy)
+		next.ServeHTTP(w, r)
 	})
 }
 

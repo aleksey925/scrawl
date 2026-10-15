@@ -10,6 +10,17 @@
   justify-content: center;
 }
 
+/* a row of a menu that is not an item keeps the edges the items have */
+.menuControl {
+  padding: 0 var(--mantine-spacing-sm) var(--mantine-spacing-xs);
+}
+
+/* three words and their icons share a 240px menu, and mantine's 10px a side
+   left "Dark" cut off on a phone */
+.menuSegment {
+  padding-inline: var(--mantine-spacing-xs);
+}
+
 @media (pointer: coarse) {
   /* an input below 16px makes iOS zoom the page on focus and never zoom back */
   .inputField {
@@ -41,6 +52,17 @@
   .menuLabel {
     padding-inline: var(--mantine-spacing-md);
     font-size: var(--mantine-font-size-sm);
+  }
+
+  .menuControl {
+    padding-inline: var(--mantine-spacing-md);
+  }
+
+  .segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--scrawl-tap-target);
   }
 
   /* the crumbs are links the shell draws itself, and a bare <a> is inline, so

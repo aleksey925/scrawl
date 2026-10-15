@@ -22,11 +22,6 @@ const errorLimit = 200;
 
 let pass = 0;
 
-// mermaid ships its theme as a <style> element inside the svg, and
-// style-src-elem drops any style element the page inserts. The css goes through
-// the cssom instead, which the policy does not cover.
-let sheet: CSSStyleSheet | null = null;
-
 // wrap puts the fence in a box that can hold either the source or the svg, so
 // switching between them never loses what the author wrote
 function wrap(pre: HTMLElement): Diagram {
@@ -46,40 +41,6 @@ function wrap(pre: HTMLElement): Diagram {
   box.append(view);
 
   return { box, view, source: pre.textContent ?? '' };
-}
-
-// unstyle takes the style element and every style attribute out of the markup:
-// a parser applying them is where the policy says no, so they travel as inert
-// data and come back through the cssom on the other side
-function unstyle(svg: string): { markup: string; css: string } {
-  const css: string[] = [];
-  const markup = svg
-    .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (_all, body: string) => {
-      css.push(body);
-      return '';
-    })
-    .replace(/ style="([^"]*)"/g, (_all, value: string) => (value === '' ? '' : ` data-style="${value}"`));
-  return { markup, css: css.join('\n') };
-}
-
-function restyle(root: SVGElement): void {
-  const nodes = root.hasAttribute('data-style') ? [root] : [];
-  nodes.push(...root.querySelectorAll<SVGElement>('[data-style]'));
-  for (const node of nodes) {
-    node.style.cssText = node.getAttribute('data-style') ?? '';
-    node.removeAttribute('data-style');
-  }
-}
-
-function adopt(css: string): void {
-  if (css === '' || !('adoptedStyleSheets' in document)) {
-    return;
-  }
-  if (sheet === null) {
-    sheet = new CSSStyleSheet();
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
-  }
-  sheet.replaceSync(css);
 }
 
 function clearError(item: Diagram): void {
@@ -102,31 +63,33 @@ function firstLine(error: unknown): string {
 
 // mermaid 11.15 had no rule for the label inside an actor box, so the text took
 // its fill from the box behind it. Scoped to the same id mermaid scopes its own.
-function repairActors(id: string, text: string): string {
-  return id === '' ? '' : `#${id} text.actor > tspan { fill: ${text}; stroke: none; }`;
+function repairActors(svg: SVGElement, text: string): void {
+  if (svg.id === '') {
+    return;
+  }
+  const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  style.textContent = `#${svg.id} text.actor > tspan { fill: ${text}; stroke: none; }`;
+  svg.append(style);
 }
 
-function place(result: Drawn, text: string): string {
+function place(result: Drawn, text: string): void {
   const { item, svg, error } = result;
   if (svg === undefined) {
     fail(item, error ?? 'the diagram could not be rendered');
-    return '';
+    return;
   }
   try {
-    const { markup, css } = unstyle(svg);
-    const parsed = new DOMParser().parseFromString(markup, 'image/svg+xml');
+    const parsed = new DOMParser().parseFromString(svg, 'image/svg+xml');
     if (parsed.querySelector('parsererror') !== null) {
       throw new Error('mermaid returned invalid svg');
     }
     const element = document.importNode(parsed.documentElement, true) as unknown as SVGElement;
-    restyle(element);
+    repairActors(element, text);
     item.view.replaceChildren(element);
     item.box.dataset.state = 'done';
     clearError(item);
-    return css + repairActors(element.id, text);
   } catch (error) {
     fail(item, firstLine(error));
-    return '';
   }
 }
 
@@ -192,8 +155,6 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
         noteBorderColor: warning,
         noteTextColor: text,
       },
-      // an html label is measured inside a live element, where the policy drops
-      // the style attributes mermaid needs, and comes out mispositioned.
       // useMaxWidth is the one width mermaid writes as an inline style on the
       // live svg, and the view already holds the diagram to the column.
       flowchart: { htmlLabels: false, useMaxWidth: false },
@@ -260,8 +221,9 @@ export function useMermaid(rootRef: RefObject<HTMLDivElement | null>, html: stri
       }
 
       preserveScroll(root, () => {
-        const css = drawn.map((result) => place(result, text));
-        adopt(css.join('\n'));
+        for (const result of drawn) {
+          place(result, text);
+        }
       });
     })();
 

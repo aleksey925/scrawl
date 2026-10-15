@@ -6,8 +6,6 @@ const cookieName = 'theme';
 const cookieMaxAge = 60 * 60 * 24 * 365;
 const colorSchemeAttribute = 'data-mantine-color-scheme';
 
-export const colorSchemeCycle: readonly MantineColorScheme[] = ['auto', 'light', 'dark'];
-
 export function isColorScheme(value: string): value is MantineColorScheme {
   return value === 'light' || value === 'dark' || value === 'auto';
 }
@@ -27,11 +25,6 @@ export function readColorSchemeCookie(): MantineColorScheme | undefined {
 function writeColorSchemeCookie(value: MantineColorScheme): void {
   const secure = window.location.protocol === 'https:' ? '; secure' : '';
   document.cookie = `${cookieName}=${value}; path=/; max-age=${cookieMaxAge}; samesite=lax${secure}`;
-}
-
-export function nextColorScheme(current: MantineColorScheme): MantineColorScheme {
-  const index = colorSchemeCycle.indexOf(current);
-  return colorSchemeCycle[(index + 1) % colorSchemeCycle.length] ?? 'auto';
 }
 
 export function systemColorScheme(): 'light' | 'dark' {

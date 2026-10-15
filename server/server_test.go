@@ -446,12 +446,7 @@ func TestCompressedBodyDecodesToTheIdentityOne(t *testing.T) {
 	require.NoError(t, err)
 	decoded, err := io.ReadAll(reader)
 	require.NoError(t, err)
-
-	// the shell mints a fresh style nonce per response, so two answers are never
-	// byte for byte the same. Everything either side of it still has to be.
-	nonce := regexp.MustCompile(`content="[A-Za-z0-9_-]{22}"`)
-	assert.Equal(t, nonce.ReplaceAllString(plain, `content="x"`),
-		nonce.ReplaceAllString(string(decoded), `content="x"`))
+	assert.Equal(t, plain, string(decoded))
 }
 
 func TestPingIsExactAndDoesNotShadowContent(t *testing.T) {
@@ -512,7 +507,7 @@ func TestSecurityHeaders(t *testing.T) {
 	assert.Contains(t, policy, "default-src 'none'")
 	assert.Contains(t, policy, "connect-src 'self'")
 	assert.Contains(t, policy, "script-src 'self'")
-	assert.Regexp(t, `style-src-elem 'self' 'nonce-[A-Za-z0-9_-]+'`, policy)
+	assert.Contains(t, policy, "style-src 'self' 'unsafe-inline'")
 }
 
 // TestPageRoutesServeTheApp checks what the server still decides for itself now
@@ -1858,8 +1853,7 @@ func TestPageLinksEscapeAwkwardPaths(t *testing.T) {
 }
 
 // TestNoInlineScripts locks the assumption the content security policy rests
-// on: an inline block would be blocked by "script-src 'self'", and the
-// templates carry no field to render a nonce into.
+// on: an inline block would be blocked by "script-src 'self'".
 func TestNoInlineScripts(t *testing.T) {
 	// arrange
 	names, err := fs.Glob(content, "templates/*.html")
@@ -1881,32 +1875,23 @@ func TestNoInlineScripts(t *testing.T) {
 	}
 }
 
-// TestStyleNonceIsFreshAndScriptSrcStaysStrict locks the one relaxation the
-// policy carries. Mantine writes style attributes, which a nonce can never
-// authorize, so style-src-attr takes 'unsafe-inline' while style-src-elem stays
-// on a nonce. A nonce reused across responses authorizes nothing, and neither
-// relaxation may ever reach script-src.
-func TestStyleNonceIsFreshAndScriptSrcStaysStrict(t *testing.T) {
+// TestInlineStylesNeverReachScriptSrc locks the one relaxation the policy
+// carries: inline styles are allowed and scripts are not. A -elem or -attr
+// directive would override the plain one for its half, so none may appear.
+func TestInlineStylesNeverReachScriptSrc(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	nonce := regexp.MustCompile(`style-src-elem 'self' 'nonce-([A-Za-z0-9_-]+)'`)
 
 	// act
-	first, _ := ts.do(t, request{path: "/"})
-	second, _ := ts.do(t, request{path: "/"})
+	resp, _ := ts.do(t, request{path: "/"})
 
 	// assert
-	firstNonce := nonce.FindStringSubmatch(first.header.Get("Content-Security-Policy"))
-	secondNonce := nonce.FindStringSubmatch(second.header.Get("Content-Security-Policy"))
-	require.Len(t, firstNonce, 2)
-	require.Len(t, secondNonce, 2)
-	assert.NotEqual(t, firstNonce[1], secondNonce[1])
-
-	policy := first.header.Get("Content-Security-Policy")
-	assert.Contains(t, policy, "style-src-attr 'unsafe-inline'")
-	assert.Contains(t, policy, "script-src 'self'")
-	assert.NotContains(t, policy, "script-src 'self' 'unsafe-inline'")
-	assert.NotContains(t, policy, "script-src-elem")
+	directives := strings.Split(resp.header.Get("Content-Security-Policy"), "; ")
+	assert.Contains(t, directives, "style-src 'self' 'unsafe-inline'")
+	assert.Contains(t, directives, "script-src 'self'")
+	for _, directive := range directives {
+		assert.NotRegexp(t, `^(style|script)-src-(elem|attr) `, directive)
+	}
 }
 
 // TestStoreErrorMapping locks the table the store package handed over: every

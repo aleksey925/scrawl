@@ -6,7 +6,7 @@ import { layout } from '../theme';
 
 import { AccountItems } from './AccountMenu';
 import { SyncSheet, useSyncSummary } from './SyncControl';
-import { ThemeItem } from './ThemeItem';
+import { ThemePicker } from './ThemePicker';
 
 // MoreMenu holds on a phone what the desktop topbar keeps in two places: the
 // sync state, and the theme with the account. The dot on it is what survives
@@ -44,7 +44,7 @@ export function MoreMenu(): JSX.Element {
               {sync.label}
             </Menu.Item>
           )}
-          <ThemeItem />
+          <ThemePicker />
           <Menu.Divider />
           <AccountItems />
         </Menu.Dropdown>

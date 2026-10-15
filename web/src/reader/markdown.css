@@ -3,7 +3,7 @@
    look is github-markdown-css 5.9.0 ported onto the markup render emits. */
 
 .markdown-document {
-  color: var(--gh-fg-default);
+  color: var(--gh-fg-body);
   font-size: 1rem;
   line-height: 1.5;
   overflow-wrap: break-word;
@@ -62,7 +62,12 @@
 }
 
 .markdown-document :is(b, strong) {
-  font-weight: 600;
+  font-weight: var(--scrawl-strong-weight);
+}
+
+/* a link, a muted block and a highlight keep their own color */
+.markdown-document :is(b, strong, em, i, dt, th, h1, h2, h3, h4, h5):not(:is(a, blockquote, .footnotes, mark) *) {
+  color: var(--gh-fg-emphasis);
 }
 
 .markdown-document dfn {
@@ -75,8 +80,8 @@
 }
 
 .markdown-document mark {
-  background-color: var(--gh-bg-attention-muted);
-  color: var(--gh-fg-default);
+  background-color: var(--gh-bg-mark);
+  color: var(--gh-fg-mark);
 }
 
 .markdown-document small {

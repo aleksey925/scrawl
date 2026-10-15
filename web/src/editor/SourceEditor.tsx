@@ -5,7 +5,6 @@ import { useComputedColorScheme } from '@mantine/core';
 import CodeMirror from '@uiw/react-codemirror';
 import { useMemo, useRef, useState, type JSX } from 'react';
 
-import { styleNonce } from '../nonce';
 
 import classes from './Editor.module.css';
 
@@ -33,13 +32,7 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
   handlers.current = { onFiles, readOnly };
 
   const extensions = useMemo(() => {
-    const nonce = styleNonce();
     return [
-      // codemirror mounts its theme as a <style> element, which style-src-elem
-      // refuses without the nonce. A blocked sheet is not merely unstyled: the
-      // line heights it carries are what lineBlockAt measures, so restoring the
-      // reading position lands at zero.
-      ...(nonce === undefined ? [] : [EditorView.cspNonce.of(nonce)]),
       markdown({ base: markdownLanguage, codeLanguages: languages }),
       ...(wrap ? [EditorView.lineWrapping] : []),
       ...(readOnly ? [] : [placeholder('Start writing in markdown')]),

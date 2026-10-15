@@ -7,7 +7,7 @@ import { goToLogin } from '../login';
 import { layout } from '../theme';
 
 import { useNav } from './NavContext';
-import { ThemeItem } from './ThemeItem';
+import { ThemePicker } from './ThemePicker';
 
 const iconSize = layout.topbarIconSize;
 
@@ -72,7 +72,7 @@ export function AccountMenu(): JSX.Element {
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown data-testid="topbar-account-menu">
-        <ThemeItem />
+        <ThemePicker />
         <Menu.Divider />
         <AccountItems />
       </Menu.Dropdown>

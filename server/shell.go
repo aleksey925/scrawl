@@ -2,9 +2,6 @@ package server
 
 import (
 	"bytes"
-	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,34 +23,6 @@ const appBase = "/static/spa/app/"
 // skips dot-prefixed entries, so vite's default .vite/manifest.json would embed
 // the bundle without the index that names its entry.
 const appManifest = "app/manifest.json"
-
-const nonceBytes = 16
-
-// nonceKey carries the per-response style nonce from the security middleware to
-// the shell, which is the only thing that renders it.
-type nonceKey struct{}
-
-func withNonce(ctx context.Context, nonce string) context.Context {
-	return context.WithValue(ctx, nonceKey{}, nonce)
-}
-
-func nonceOf(ctx context.Context) string {
-	nonce, _ := ctx.Value(nonceKey{}).(string)
-	return nonce
-}
-
-// newNonce mints the per-response style nonce. The encoding is the url safe
-// alphabet because the standard one carries '+', which html/template escapes to
-// &#43; inside the meta attribute: the browser decodes it back, but the header
-// and the document would then show two different strings to anyone reading a
-// violation report.
-func newNonce() (string, error) {
-	buf := make([]byte, nonceBytes)
-	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("read random: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(buf), nil
-}
 
 // manifestChunk is the part of vite's build manifest the shell reads.
 type manifestChunk struct {
@@ -77,7 +46,6 @@ type shellData struct {
 	Title       string
 	ColorScheme string
 	TouchIcon   string
-	Nonce       string
 	Version     string
 	Base        string
 	Entry       string
@@ -94,9 +62,8 @@ const shellTemplate = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="color-scheme" content="light dark">
-<meta name="csp-nonce" content="{{.Nonce}}">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#121821" media="(prefers-color-scheme: dark)">
 <title>{{.Title}}</title>
 <link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{{.TouchIcon}}">
@@ -229,7 +196,6 @@ func (m *mount) serveShell(w http.ResponseWriter, r *http.Request, status int) {
 	data := shellData{
 		Title:     m.Title,
 		TouchIcon: touchIconURL(m.Version, theme),
-		Nonce:     nonceOf(r.Context()),
 		Version:   m.Version,
 		Base:      m.spc.Prefix(),
 		Entry:     m.appShell.entry,

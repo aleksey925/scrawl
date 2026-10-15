@@ -89,22 +89,6 @@ func TestAppShellStatus(t *testing.T) {
 	}
 }
 
-// TestAppShellNonceMatchesThePolicy is the join the whole scheme hangs on: the
-// meta the client feeds to Mantine has to carry the very nonce this response
-// authorized, or every style Mantine injects is blocked.
-func TestAppShellNonceMatchesThePolicy(t *testing.T) {
-	// arrange
-	ts := newTestServer(t, testOpts{})
-
-	// act
-	resp, body := ts.do(t, request{path: "/"})
-
-	// assert
-	meta := regexp.MustCompile(`<meta name="csp-nonce" content="([^"]+)">`).FindStringSubmatch(body)
-	require.Len(t, meta, 2)
-	assert.Contains(t, resp.header.Get("Content-Security-Policy"), "'nonce-"+meta[1]+"'")
-}
-
 // TestAppShellLoadsTheBuiltBundle keeps the shell pointed at what `make ui`
 // produced. The names are content hashed, so the manifest is the only place
 // they can come from, and nothing in the document may be an inline script.

@@ -309,6 +309,41 @@ test.describe('reading', () => {
         removeFixture(OUTLINE);
     });
 
+    // the last sections of a note are shorter than the screen, so the page
+    // ends before their headings reach the reading line
+    test('the outline reaches the short sections at the end of a note', async ({page}) => {
+        // arrange
+        const filler = Array.from({length: 40}, () => 'long '.repeat(12)).join('\n\n');
+        const tail = ['Fourth', 'Fifth', 'Sixth'].flatMap((name) => [`## ${name}`, 'A short section.']);
+        writeFixture(OUTLINE, ['# Outline tail', '', '## First', filler, ...tail].join('\n\n'));
+        await page.goto(routes.doc(OUTLINE));
+        const active = page.locator('[data-testid=toc-entry][data-active="true"]');
+        const entry = (name) => page.locator('[data-testid=toc-entry]', {hasText: name});
+        const scrollTo = (top) => page.evaluate((y) => window.scrollTo({top: y, behavior: 'instant'}), top);
+
+        // act & assert
+        await entry('Fifth').click();
+        await expect(page).toHaveURL(/#fifth$/);
+        await expect(active).toHaveText('Fifth');
+
+        await page.reload();
+        await expect(active).toHaveText('Fifth');
+
+        await page.mouse.wheel(0, -100000);
+        await expect(active).toHaveText('First');
+
+        const bottom = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+        const seen = [];
+        for (let top = bottom - 800; top <= bottom; top += 20) {
+            await scrollTo(top);
+            await page.waitForTimeout(50);
+            seen.push(await active.textContent());
+        }
+        expect([...new Set(seen)]).toEqual(['First', 'Fourth', 'Fifth', 'Sixth']);
+
+        removeFixture(OUTLINE);
+    });
+
     // "?" is a character somebody types, so the sheet must stay out of the way
     // while a field has the keyboard
     test('the shortcut cheat sheet opens', async ({page}) => {

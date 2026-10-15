@@ -15,7 +15,7 @@ import { useMediaQuery } from '@mantine/hooks';
 
 import breakpointValues from './breakpoints.json';
 import controls from './controls.module.css';
-import { darkPalette, lightPalette, tokenVariables, type Palette } from './palette';
+import { tokenVariables, type Palette, type ThemeColorName, type ThemeDefinition } from './themes';
 
 export type BreakpointName = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -126,9 +126,6 @@ function scrawlTokens(palette: Palette): ScrawlTokens {
   };
 }
 
-export const lightTokens: ScrawlTokens = scrawlTokens(lightPalette);
-export const darkTokens: ScrawlTokens = scrawlTokens(darkPalette);
-
 // Primer's blue scale; the filled shades are set from the palette below
 const accentShades: MantineColorsTuple = [
   '#ddf4ff',
@@ -171,6 +168,12 @@ const darkShades: MantineColorsTuple = [
   '#0d1117',
 ];
 
+const defaultColors: Record<ThemeColorName, MantineColorsTuple> = {
+  accent: accentShades,
+  gray: grayShades,
+  dark: darkShades,
+};
+
 // GitHub's own stacks. github.com names "Mona Sans VF" first but ships no face
 // for it, so what a reader sees there is the system font that follows
 const sans =
@@ -199,42 +202,29 @@ function mantineVariables(tokens: ScrawlTokens): Record<string, string> {
   };
 }
 
-export interface ThemeCssVariables {
-  variables: Record<string, string>;
-  light: Record<string, string>;
-  dark: Record<string, string>;
-}
+export const layoutVariables: Record<string, string> = {
+  '--scrawl-sidebar-width': `${layout.sidebarWidth}px`,
+  '--scrawl-toc-width': `${layout.tocWidth}px`,
+  '--scrawl-content-measure': `${layout.contentMeasure}px`,
+  '--scrawl-tap-target': `${layout.tapTarget}px`,
+  '--scrawl-input-font-size': `${layout.inputFontSize}px`,
+};
 
-export function cssVariablesResolver(): ThemeCssVariables {
+// themeVariables is what a theme sets on top of mantine's own variables
+export function themeVariables(def: ThemeDefinition): Record<string, string> {
+  const tokens = scrawlTokens(def.palette);
   return {
-    variables: {
-      '--scrawl-sidebar-width': `${layout.sidebarWidth}px`,
-      '--scrawl-toc-width': `${layout.tocWidth}px`,
-      '--scrawl-content-measure': `${layout.contentMeasure}px`,
-      '--scrawl-tap-target': `${layout.tapTarget}px`,
-      '--scrawl-input-font-size': `${layout.inputFontSize}px`,
-    },
-    light: {
-      ...tokenVariables('scrawl', lightTokens),
-      ...tokenVariables('gh', lightPalette),
-      ...mantineVariables(lightTokens),
-      '--scrawl-strong-weight': '600',
-    },
-    dark: {
-      ...tokenVariables('scrawl', darkTokens),
-      ...tokenVariables('gh', darkPalette),
-      ...mantineVariables(darkTokens),
-      // light strokes on a dark ground already look heavy, and a semibold
-      // among them read as plain text
-      '--scrawl-strong-weight': '700',
-    },
+    ...tokenVariables('scrawl', tokens),
+    ...tokenVariables('gh', def.palette),
+    ...mantineVariables(tokens),
+    '--scrawl-strong-weight': def.strongWeight,
   };
 }
 
 export const theme: MantineThemeOverride = createTheme({
   primaryColor: 'accent',
   primaryShade: { light: 5, dark: 5 },
-  colors: { accent: accentShades, gray: grayShades, dark: darkShades },
+  colors: defaultColors,
 
   fontFamily: sans,
   fontFamilyMonospace: mono,
@@ -308,3 +298,8 @@ export const theme: MantineThemeOverride = createTheme({
 
   other: { layout, layoutBreakpoints, breakpointPx },
 });
+
+// themeOverride is the mantine theme with the shade scales a theme replaces
+export function themeOverride(def: ThemeDefinition): MantineThemeOverride {
+  return { ...theme, colors: { ...defaultColors, ...def.colors } };
+}

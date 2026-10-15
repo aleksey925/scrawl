@@ -14,6 +14,7 @@ config.go              the spaces file, the credentials and the hook secrets
 space.go               one space: validation, the clone, the services
 store/                 safe filesystem access, tree, CRUD, watcher
 render/                markdown -> HTML, link rewrite, TOC, highlighting
+theme/                 the color themes, one JSON file each in themes/
 search/                in-memory full-text index
 auth/                  users, sessions, middleware, CSRF, rate limit
 history/               git-backed document history: record, log, restore
@@ -75,13 +76,25 @@ vendor/                dependencies, checked in, `make deps` regenerates
   and the account. The path leaves the bar for a row on the page. Nine
   controls and the crumbs once shared it, the crumbs got 25px, wrapped
   inside the clipped bar and fell over the note as a column.
-- The color scheme is one attribute, mantine's
-  `data-mantine-color-scheme`. The picker reloads nothing and moves only
-  that one, so a stylesheet the server ships beside the bundle keys on it
-  too, and neither theme is written as a plain default: the two chroma
-  styles do not paint the same tokens, so an unguarded rule follows the
-  note into the other theme. Both together turned the punctuation of a
-  fence black on black.
+- A theme is one file in `theme/themes/`, and nothing else names a
+  color of one: adding a theme is a file and `make ui`. The server, the
+  command line and the frontend build all read those files. The build
+  turns every theme into custom properties in one stylesheet, which the
+  app bundles, a page of the command line inlines and the sign-in page
+  links as `app/themes.css`; `render` writes the chroma style each one
+  names; the server takes the list and the bar color. `light` and
+  `dark` must exist, because they are what Auto follows.
+- The theme is one attribute, `data-scrawl-theme`, absent on Auto, where
+  the system preference picks between `light` and `dark`. Every
+  stylesheet keys on it, `theme.Scopes` and `themeStylesheet` place the
+  rules the same way, and no theme is written as a plain default: two
+  chroma styles do not paint the same tokens, so an unguarded rule
+  follows the note into the other theme and turned the punctuation of a
+  fence black on black. Mantine's `data-mantine-color-scheme` only
+  follows as the theme's scheme, because mantine knows two schemes and
+  two themes can share one. The app runs mantine with
+  `withCssVariables={false}`: its runtime variables sit under its own
+  attribute and would outrank a theme's. The picker reloads nothing.
 - The editor opens where the reader was. The rendered page carries the
   source line range of every block it emits, so the position crosses as
   a line and not as a pixel offset, and both panes are held at it until
@@ -187,13 +200,14 @@ vendor/                dependencies, checked in, `make deps` regenerates
   sized at the browser default, at the top of boxes cut for it. A note
   cannot carry a style either way: the bluemonday policy refuses the
   element and the attribute whatever the header allows.
-- Design tokens live in one CSS file for the old pages and in the
-  mantine theme for the app; light and dark come from custom properties
-  in both. A tap latches `:hover` onto what it landed on until the next
-  tap somewhere else, so every decorative hover is gated on
-  `@media (hover: hover)` and the platform tap highlight is off.
-- The app looks the way GitHub does. The theme holds one Primer palette
-  per scheme, read off github.com under Primer's names: a note reads it
+- Colors come from the theme files alone, as custom properties, in the
+  app, on the sign-in page and in a page of the command line; the fonts,
+  the spacing and the shape of a control are the mantine theme's. A tap
+  latches `:hover` onto what it landed on until the next tap somewhere
+  else, so every decorative hover is gated on `@media (hover: hover)` and
+  the platform tap highlight is off.
+- The app looks the way GitHub does. Each theme file holds one Primer
+  palette, read off github.com under Primer's names: a note reads it
   as `--gh-*`, the chrome through the `--scrawl-*` tokens built from it,
   so the two cannot drift apart. `markdown.css` is a port of
   github-markdown-css onto the markup `render` emits, and the note sits
@@ -212,8 +226,7 @@ vendor/                dependencies, checked in, `make deps` regenerates
   note read as plain text. Weight alone did not fix it, so
   a note's text there is `fgBody`, a step below `fgDefault`, emphasis is
   `fgEmphasis`, a step above, and inline code gets twice Primer's alpha.
-  In the light theme all three are `fgDefault`. The sign-in page, its
-  `login.js` and the `theme-color` metas carry the same dark background.
+  In the light theme all three are `fgDefault`.
 - A `<mark>` is a highlighter in both schemes: opaque yellow under dark
   text. Any translucent yellow laid over the dark ground came out brown.
 - A folder with things in it is deleted only on a second word. The API
@@ -508,9 +521,9 @@ vendor/                dependencies, checked in, `make deps` regenerates
   `git diff` does and answers like it: 1 is "the text changed" under
   `--exit-code`, so a failure is 2.
 - A page of the command line is one file that opens on its own. Its
-  stylesheet is the app's: `web/vite.page.config.ts` evaluates the theme
+  stylesheet is the app's: `web/vite.themes.ts` evaluates the theme
   with mantine's own resolver at build time, so the page has the same
-  custom properties with no mantine and no copied value. The scheme
+  custom properties with no mantine and no copied value. The theme
   follows the system until a button picks one, under the attribute the
   app uses. KaTeX is inlined on `--math` with woff2 alone, a quarter of
   what katex ships; mermaid is not, a 5MB script, and a diagram stays

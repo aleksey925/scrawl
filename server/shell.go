@@ -43,30 +43,28 @@ type appShell struct {
 }
 
 type shellData struct {
-	Title       string
-	ColorScheme string
-	TouchIcon   string
-	Version     string
-	Base        string
-	Entry       string
-	CSS         []string
-	Preload     []string
+	Title   string
+	Theme   pageTheme
+	Version string
+	Base    string
+	Entry   string
+	CSS     []string
+	Preload []string
 }
 
 // shellTemplate is the document the app boots from. It carries no inline script:
-// the color scheme is an attribute the server resolves from the cookie, which
-// is what keeps script-src at 'self' with nothing to nonce.
+// the theme and its scheme are attributes the server resolves from the cookie,
+// which is what keeps script-src at 'self' with nothing to nonce.
 const shellTemplate = `<!doctype html>
-<html lang="en"{{if .ColorScheme}} data-mantine-color-scheme="{{.ColorScheme}}"{{end}}>
+<html lang="en"{{with .Theme.ID}} data-scrawl-theme="{{.}}" data-mantine-color-scheme="{{$.Theme.Scheme}}"{{end}}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#121821" media="(prefers-color-scheme: dark)">
-<title>{{.Title}}</title>
+{{range .Theme.BarColors}}<meta name="theme-color" content="{{.Color}}"{{with .Media}} media="{{.}}"{{end}}>
+{{end}}<title>{{.Title}}</title>
 <link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="{{.TouchIcon}}">
+<link rel="apple-touch-icon" href="{{.Theme.TouchIcon}}">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -181,32 +179,15 @@ func (m *mount) docHandler(w http.ResponseWriter, r *http.Request) {
 	m.serveShell(w, r, http.StatusOK)
 }
 
-// touchIconURL picks the home screen icon whose background is the page's own.
-// iOS shrinks a closing app into its icon, and any other color shows as a rim.
-func touchIconURL(version, theme string) string {
-	name := "apple-touch-icon.png"
-	if theme == "dark" {
-		name = "apple-touch-icon-dark.png"
-	}
-	return "/static/" + version + "/icons/" + name
-}
-
 func (m *mount) serveShell(w http.ResponseWriter, r *http.Request, status int) {
-	theme := themeOf(r)
 	data := shellData{
-		Title:     m.Title,
-		TouchIcon: touchIconURL(m.Version, theme),
-		Version:   m.Version,
-		Base:      m.spc.Prefix(),
-		Entry:     m.appShell.entry,
-		CSS:       m.appShell.css,
-		Preload:   m.appShell.preload,
-	}
-	// auto is left for the client: the system preference is not something a
-	// request carries, and guessing it here is the flash this attribute exists
-	// to prevent
-	if theme == "light" || theme == "dark" {
-		data.ColorScheme = theme
+		Title:   m.Title,
+		Theme:   themeOf(r, m.Version),
+		Version: m.Version,
+		Base:    m.spc.Prefix(),
+		Entry:   m.appShell.entry,
+		CSS:     m.appShell.css,
+		Preload: m.appShell.preload,
 	}
 
 	var buf bytes.Buffer

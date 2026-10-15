@@ -1,6 +1,7 @@
 package page
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 
 	"github.com/aleksey925/scrawl/htmldiff"
 	"github.com/aleksey925/scrawl/render"
+	"github.com/aleksey925/scrawl/theme"
 )
 
 func TestWriteNote(t *testing.T) {
@@ -30,6 +32,23 @@ func TestWriteNote(t *testing.T) {
 		assert.Contains(t, got, string(render.ChromaCSS()))
 		assert.Contains(t, got, "<script>"+asset("page.js"))
 		assert.NotContains(t, got, asset("math.js"))
+	})
+
+	t.Run("the theme picker offers every theme", func(t *testing.T) {
+		// arrange
+		var out strings.Builder
+		want := []string{`<button type="button" data-theme="auto" aria-pressed="true">Auto</button>`}
+		for _, entry := range theme.All() {
+			want = append(want, `<button type="button" data-theme="`+entry.ID+`" aria-pressed="false">`+entry.Name+`</button>`)
+		}
+
+		// act
+		err := WriteNote(&out, note, Options{})
+
+		// assert
+		require.NoError(t, err)
+		assert.Equal(t, want, regexp.MustCompile(`<button type="button" data-theme=[^>]*>[^<]*</button>`).
+			FindAllString(out.String(), -1))
 	})
 
 	t.Run("math brings katex inline and unchanged", func(t *testing.T) {

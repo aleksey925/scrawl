@@ -18,6 +18,8 @@ import (
 	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
+
+	"github.com/aleksey925/scrawl/theme"
 )
 
 const (
@@ -106,7 +108,9 @@ func New(opts Options) *Renderer {
 			// code is left alone
 			emoji.New(emoji.WithRenderingMethod(emoji.Unicode)),
 			highlighting.NewHighlighting(
-				highlighting.WithStyle(codeStyle),
+				// with classes the markup is the same whatever the style, and the
+				// colors come from ChromaCSS
+				highlighting.WithStyle(theme.AutoTheme(theme.Light).Code),
 				highlighting.WithFormatOptions(
 					chromahtml.WithClasses(true),
 					chromahtml.WithLineNumbers(false),

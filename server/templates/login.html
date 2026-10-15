@@ -4,19 +4,21 @@ its own theme script rather than the app's bundle, because it has to work before
 any of that loads and with JavaScript off: a plain POST form.
 */}}
 <!DOCTYPE html>
-<html lang="en" data-theme="{{.Theme}}">
+<html lang="en"{{with .Theme.ID}} data-scrawl-theme="{{.}}"{{end}}>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="color-scheme" content="light dark">
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#121821" media="(prefers-color-scheme: dark)">
+    {{range .Theme.BarColors}}<meta name="theme-color" content="{{.Color}}"{{with .Media}} media="{{.}}"{{end}}>
+    {{end}}<meta name="scrawl-themes" content="{{.Themes}}">
     <meta name="robots" content="noindex">
     <title>Sign in - {{.SiteTitle}}</title>
     <link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="{{.TouchIcon}}">
+    <link rel="apple-touch-icon" href="{{.Theme.TouchIcon}}">
+    {{/* the custom properties of every theme, which `make ui` writes beside the bundle */}}
+    <link rel="stylesheet" href="/static/{{.Version}}/app/themes.css">
     <link rel="stylesheet" href="/static/{{.Version}}/login/login.css">
-    {{/* render blocking on purpose: it repairs data-theme before the first paint */}}
+    {{/* render blocking on purpose: it repairs the theme before the first paint */}}
     <script src="/static/{{.Version}}/login/login.js"></script>
 </head>
 <body>
@@ -28,7 +30,7 @@ any of that loads and with JavaScript off: a plain POST form.
     <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.2 8.2 0 0 1 9.5 4 8.3 8.3 0 1 0 20 14.5z"></path></symbol>
 </svg>
 
-<button class="login-theme" type="button" data-theme-toggle aria-label="Theme: system">
+<button class="login-theme" type="button" data-theme-toggle data-icon="{{or .Theme.Scheme "auto"}}" aria-label="Theme: {{or .Theme.Name "system"}}">
     <svg class="icon icon-theme-auto" aria-hidden="true"><use href="#icon-auto"></use></svg>
     <svg class="icon icon-theme-light" aria-hidden="true"><use href="#icon-sun"></use></svg>
     <svg class="icon icon-theme-dark" aria-hidden="true"><use href="#icon-moon"></use></svg>

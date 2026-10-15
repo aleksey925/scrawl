@@ -91,21 +91,42 @@ with nothing in the build output hinting at why.
 
 The server renders the shell, so three things have to line up.
 
-**Theme.** The choice lives in the `theme` cookie, values `auto`,
-`light` or `dark`. The server reads it and puts the resolved scheme on
-the root element before the first byte:
+**Theme.** The choice lives in the `theme` cookie, values `auto` or
+the id of a theme. For a theme the server puts it and its scheme on
+the root element before the first byte, and on `auto` neither:
 
-```html
-<html data-mantine-color-scheme="light|dark" data-theme="auto|light|dark">
+```
+<html data-scrawl-theme="dark" data-mantine-color-scheme="dark">
 ```
 
-The client takes `data-mantine-color-scheme` as its starting value and
-writes the cookie on every change. Mantine's `ColorSchemeScript` is
-deliberately not used: it emits an inline `<script>`, and `script-src`
-is `'self'`. Without the server attribute (the dev server) the client
-sets it from the cookie before React mounts.
+The client writes the cookie and both attributes on every change. Mantine's
+`ColorSchemeScript` is deliberately not used: it emits an inline
+`<script>`, and `script-src` is `'self'`. On `auto` and on the dev
+server the client sets the scheme from the cookie and the system before
+React mounts.
 
 **Mount node.** The shell has to contain `<div id="scrawl-app-root">`.
+
+## Themes
+
+A theme is one JSON file in `theme/themes/` at the root of the
+repository; the file name is its id. To add one, copy `light.json` or
+`dark.json`, change the values and run `make ui`. Nothing else names a
+color of a theme.
+
+- `name` is what the pickers show.
+- `scheme` is `light` or `dark`: what the browser draws for a form
+  control, and the editor and diagram defaults.
+- `code` is the chroma style that highlights code, one of
+  `vendor/github.com/alecthomas/chroma/v2/styles/`.
+- `strongWeight` is the weight of bold in a note.
+- `palette` is every token of `Palette` in `src/themes.ts`, under
+  Primer's names. A note reads it as `--gh-*`, the chrome as `--scrawl-*`.
+- `colors`, optional, replaces mantine's `accent`, `gray` or `dark`
+  scale of `src/theme.ts`.
+
+`light` and `dark` have to exist: they are what Auto follows. The go
+tests and the build both refuse a theme with a token missing.
 
 ## Two rules
 

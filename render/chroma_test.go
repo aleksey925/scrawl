@@ -1,49 +1,47 @@
 package render
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
+	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aleksey925/scrawl/theme"
 )
 
 func TestChromaCSS(t *testing.T) {
 	css := string(ChromaCSS())
 
-	t.Run("both themes are present", func(t *testing.T) {
-		assert.Contains(t, css, "@media (prefers-color-scheme: light) {")
-		assert.Contains(t, css, "@media (prefers-color-scheme: dark) {")
-		assert.Contains(t, css, `:root:not([data-mantine-color-scheme="dark"]) .chroma`)
-		assert.Contains(t, css, `:root:not([data-mantine-color-scheme="light"]) .chroma`)
-		assert.Contains(t, css, `:root[data-mantine-color-scheme="light"] .chroma`)
-		assert.Contains(t, css, `:root[data-mantine-color-scheme="dark"] .chroma`)
-	})
-
-	// a rule outside both guards paints whichever theme it belongs to onto the
-	// other one, for every token the other leaves to the base color
-	t.Run("no rule is left unguarded", func(t *testing.T) {
-		for line := range strings.SplitSeq(css, "\n") {
-			if !strings.HasPrefix(line, ":root .chroma") {
-				continue
-			}
-			assert.Fail(t, "rule belongs to neither theme", line)
+	// chroma falls back to its default style for a name it does not know, and
+	// nothing in the stylesheet would say so
+	t.Run("every theme names a style chroma has", func(t *testing.T) {
+		for _, entry := range theme.All() {
+			assert.Contains(t, styles.Names(), entry.Code, entry.ID)
 		}
 	})
 
-	t.Run("the chosen theme wins over the system one", func(t *testing.T) {
-		system := strings.Index(css, `:root:not([data-mantine-color-scheme="light"]) .chroma `)
-		chosen := strings.Index(css, `:root[data-mantine-color-scheme="dark"] .chroma `)
-		assert.Positive(t, chosen)
-		assert.Less(t, system, chosen)
+	t.Run("every scope is painted by the style of its theme", func(t *testing.T) {
+		for _, scope := range theme.Scopes() {
+			var want bytes.Buffer
+			writeChromaRules(&want, styles.Get(scope.Theme.Code), scope.Selector)
+			assert.Contains(t, css, want.String(), scope.Selector)
+			if scope.Media != "" {
+				assert.Contains(t, css, "@media "+scope.Media+" {\n"+want.String())
+			}
+		}
 	})
 
+	// a rule outside every guard paints whichever theme it belongs to onto the
+	// others, for every token they leave to the base color
 	t.Run("every selector is scoped", func(t *testing.T) {
 		for line := range strings.SplitSeq(css, "\n") {
 			if !strings.Contains(line, "{") || strings.HasPrefix(line, "@media") || strings.HasPrefix(line, "/*") {
 				continue
 			}
-			assert.True(t, strings.HasPrefix(line, ":root"), line)
+			assert.True(t, strings.HasPrefix(line, ":root[") || strings.HasPrefix(line, ":root:not(["), line)
 		}
 	})
 

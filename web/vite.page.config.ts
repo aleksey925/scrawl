@@ -1,4 +1,6 @@
-import { createServer, defineConfig, type Plugin } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+
+import { themeStylesheet } from './vite.themes.ts';
 
 // the stylesheets and scripts a page of `scrawl render` and `scrawl diff`
 // carries inline, written where the go package that embeds them lives. Fixed
@@ -16,39 +18,6 @@ type Entry = keyof typeof entries;
 
 function entryOf(name: string | undefined): Entry {
   return name === 'math' ? 'math' : 'page';
-}
-
-const variablesId = 'virtual:page-variables.css';
-
-// pageVariables evaluates the app's theme with mantine's own resolver, which is
-// what the app does in the browser; running it here gives the page the same
-// custom properties without mantine and without a line of them copied
-async function pageVariables(): Promise<string> {
-  const server = await createServer({
-    configFile: false,
-    root: import.meta.dirname,
-    logLevel: 'error',
-    server: { middlewareMode: true, hmr: false, ws: false },
-    appType: 'custom',
-  });
-  try {
-    const module = await server.ssrLoadModule('/src/page/variables.ts');
-    return (module as { pageVariables: () => string }).pageVariables();
-  } finally {
-    await server.close();
-  }
-}
-
-function variables(): Plugin {
-  return {
-    name: 'scrawl-page-variables',
-    resolveId(id) {
-      return id === variablesId ? `\0${variablesId}` : undefined;
-    },
-    async load(id) {
-      return id === `\0${variablesId}` ? pageVariables() : undefined;
-    },
-  };
 }
 
 // every browser the page can be opened in reads woff2, and the two older
@@ -69,7 +38,7 @@ function woff2Only(): Plugin {
 export default defineConfig(() => {
   const entry = entryOf(process.env['SCRAWL_PAGE_ENTRY']);
   return {
-    plugins: [variables(), woff2Only()],
+    plugins: [themeStylesheet(), woff2Only()],
     publicDir: false,
     build: {
       outDir,

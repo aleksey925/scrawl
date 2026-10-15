@@ -2,7 +2,6 @@ package server
 
 import (
 	"log"
-	"net/http"
 	"net/url"
 	"path"
 	"slices"
@@ -12,10 +11,6 @@ import (
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
 )
-
-// themeCookie carries the reader's theme choice, so the server can render the
-// right one and the page does not flash on load.
-const themeCookie = "theme"
 
 // Crumb is one breadcrumb segment. URL is empty for the last one.
 type Crumb struct {
@@ -93,23 +88,11 @@ func dirEntries(entries []store.FileInfo) []DirEntry {
 type LoginPage struct {
 	SiteTitle string
 	Version   string
-	Theme     string
-	TouchIcon string
-	Error     string
-	From      string
-}
-
-// themeOf reads the theme cookie, falling back to the automatic mode.
-func themeOf(r *http.Request) string {
-	c, err := r.Cookie(themeCookie)
-	if err != nil {
-		return "auto"
-	}
-	switch c.Value {
-	case "light", "dark", "auto":
-		return c.Value
-	}
-	return "auto"
+	Theme     pageTheme
+	// Themes is every theme as JSON, for the toggle's script
+	Themes string
+	Error  string
+	From   string
 }
 
 // treeNodes converts the store tree into what the sidebar template renders. A

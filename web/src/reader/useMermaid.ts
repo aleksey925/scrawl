@@ -2,6 +2,7 @@ import { useComputedColorScheme } from '@mantine/core';
 import type { MermaidConfig } from 'mermaid';
 import { useEffect, type RefObject } from 'react';
 
+import { useThemeChoice } from '../themeChoice';
 import { preserveScroll } from './scroll';
 
 type Mermaid = typeof import('mermaid').default;
@@ -97,20 +98,17 @@ function place(result: Drawn, text: string): void {
 // page in either theme rather than bringing a palette of its own
 function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
   const style = getComputedStyle(document.documentElement);
-  const token = (name: string, fallback: string): string => {
-    const value = style.getPropertyValue(name).trim();
-    return value === '' ? fallback : value;
-  };
+  const token = (name: string): string => style.getPropertyValue(name).trim();
 
-  const bg = token('--scrawl-bg', '#ffffff');
-  const inset = token('--scrawl-bg-inset', '#f6f8fa');
-  const subtle = token('--scrawl-bg-subtle', '#f6f8fa');
-  const text = token('--scrawl-text', '#1f2328');
-  const muted = token('--scrawl-text-secondary', '#59636e');
-  const faint = token('--scrawl-text-tertiary', '#59636e');
-  const border = token('--scrawl-border', '#d1d9e0');
-  const strong = token('--scrawl-border-strong', '#818b98');
-  const warning = token('--scrawl-warning', '#9a6700');
+  const bg = token('--scrawl-bg');
+  const inset = token('--scrawl-bg-inset');
+  const subtle = token('--scrawl-bg-subtle');
+  const text = token('--scrawl-text');
+  const muted = token('--scrawl-text-secondary');
+  const faint = token('--scrawl-text-tertiary');
+  const border = token('--scrawl-border');
+  const strong = token('--scrawl-border-strong');
+  const warning = token('--scrawl-warning');
 
   return {
     text,
@@ -118,7 +116,7 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
       startOnLoad: false,
       securityLevel: 'strict',
       theme: 'base',
-      fontFamily: token('--mantine-font-family', 'sans-serif'),
+      fontFamily: token('--mantine-font-family'),
       // the base theme derives what it is not given, and what it derives from
       // near white surfaces comes out too pale to read
       themeVariables: {
@@ -170,6 +168,8 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
 
 export function useMermaid(rootRef: RefObject<HTMLDivElement | null>, html: string): void {
   const colorScheme = useComputedColorScheme('light');
+  // two themes can share a scheme, and the diagram is painted with the tokens
+  const choice = useThemeChoice();
 
   useEffect(() => {
     const root = rootRef.current;
@@ -230,5 +230,5 @@ export function useMermaid(rootRef: RefObject<HTMLDivElement | null>, html: stri
     return () => {
       cancelled = true;
     };
-  }, [rootRef, html, colorScheme]);
+  }, [rootRef, html, colorScheme, choice]);
 }

@@ -4,9 +4,9 @@ import { Notifications } from '@mantine/notifications';
 import type { JSX } from 'react';
 import { RouterProvider } from 'react-router';
 
-import { cookieColorSchemeManager } from './colorScheme';
 import { router } from './routes';
-import { cssVariablesResolver, theme } from './theme';
+import { theme } from './theme';
+import { cookieColorSchemeManager } from './themeChoice';
 
 const colorSchemeManager = cookieColorSchemeManager();
 
@@ -14,7 +14,9 @@ export function App(): JSX.Element {
   return (
     <MantineProvider
       theme={theme}
-      cssVariablesResolver={cssVariablesResolver}
+      // every variable of every theme is in the theme stylesheet, keyed on an
+      // attribute mantine does not know; its runtime copy would outrank them
+      withCssVariables={false}
       colorSchemeManager={colorSchemeManager}
       defaultColorScheme="auto"
     >

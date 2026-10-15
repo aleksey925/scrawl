@@ -146,11 +146,11 @@ async function expectNoHorizontalScroll(page) {
 
 const THEME_LABELS = {auto: 'Auto', light: 'Light', dark: 'Dark'};
 
-// chooseTheme presses one scheme in the picker of the menu that is open
-async function chooseTheme(page, scheme) {
+// chooseTheme presses one theme in the picker of the menu that is open
+async function chooseTheme(page, theme) {
     const picker = page.getByTestId('topbar-theme');
-    await picker.getByText(THEME_LABELS[scheme], {exact: true}).click();
-    await expect(picker).toHaveAttribute('data-scheme', scheme);
+    await picker.getByText(THEME_LABELS[theme], {exact: true}).click();
+    await expect(picker).toHaveAttribute('data-theme', theme);
 }
 
 // inStep waits until a remote space is level with its origin, and gets it

@@ -1801,8 +1801,10 @@ func TestLoginTemplateExecutes(t *testing.T) {
 		name string
 		data LoginPage
 	}{
-		{name: "plain", data: LoginPage{SiteTitle: "Test Notes", Version: "v1", Theme: "auto"}},
-		{name: "refused", data: LoginPage{SiteTitle: "Test Notes", Version: "v1", Theme: "dark",
+		{name: "plain", data: LoginPage{SiteTitle: "Test Notes", Version: "v1",
+			Theme: themeOf(themedRequest(""), "v1"), Themes: themeOptions}},
+		{name: "refused", data: LoginPage{SiteTitle: "Test Notes", Version: "v1",
+			Theme: themeOf(themedRequest("dark"), "v1"), Themes: themeOptions,
 			Error: "Wrong user name or password", From: "/doc/guide.md"}},
 	}
 
@@ -2032,32 +2034,6 @@ func TestRelativeLink(t *testing.T) {
 	}
 }
 
-func TestThemeOf(t *testing.T) {
-	tests := []struct {
-		name     string
-		cookie   string
-		expected string
-	}{
-		{name: "no cookie", expected: "auto"},
-		{name: "dark", cookie: "dark", expected: "dark"},
-		{name: "light", cookie: "light", expected: "light"},
-		{name: "garbage", cookie: "neon", expected: "auto"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			// arrange
-			r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-			if tc.cookie != "" {
-				r.AddCookie(&http.Cookie{Name: themeCookie, Value: tc.cookie})
-			}
-
-			// act & assert
-			assert.Equal(t, tc.expected, themeOf(r))
-		})
-	}
-}
-
 func TestThemeCookieReachesTheDocument(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -2070,7 +2046,7 @@ func TestThemeCookieReachesTheDocument(t *testing.T) {
 	_, body := ts.do(t, request{path: "/", client: client})
 
 	// assert
-	assert.Contains(t, body, `data-mantine-color-scheme="dark"`)
+	assert.Contains(t, body, `data-scrawl-theme="dark" data-mantine-color-scheme="dark"`)
 }
 
 func TestWebRunEmptyListenAddr(t *testing.T) {

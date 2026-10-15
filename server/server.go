@@ -25,6 +25,7 @@ import (
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
+	"github.com/aleksey925/scrawl/theme"
 )
 
 //go:embed templates assets
@@ -79,14 +80,6 @@ const (
 const contentSecurityPolicy = "default-src 'none'; base-uri 'none'; form-action 'self'; " +
 	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; manifest-src 'self'; " +
 	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; script-src 'self'"
-
-// barColorLight and barColorDark are the browser and home screen chrome colors.
-// base.html ships them as prefers-color-scheme metas and theme.js swaps between
-// them; the manifest carries one, so a change has to land in all three.
-const (
-	barColorLight = "#ffffff"
-	barColorDark  = "#121821"
-)
 
 // gzipContentTypes lists what is worth compressing. rest.Gzip decides on the
 // content type of the response rather than on the extension of the request, so
@@ -380,8 +373,8 @@ func (wb *Web) manifestHandler(w http.ResponseWriter, r *http.Request) {
 		Display:   "standalone",
 		// the light bar color: a manifest carries one, and the metas in the
 		// document head are what actually follow the reader's theme
-		ThemeColor:      barColorLight,
-		BackgroundColor: barColorLight,
+		ThemeColor:      theme.AutoTheme(theme.Light).BarColor(),
+		BackgroundColor: theme.AutoTheme(theme.Light).BarColor(),
 		Icons: []icon{
 			{Src: "/static/" + wb.Version + "/icons/icon-192.png", Sizes: "192x192", Type: "image/png", Purpose: "any"},
 			{Src: "/static/" + wb.Version + "/icons/icon-512.png", Sizes: "512x512", Type: "image/png", Purpose: "any"},

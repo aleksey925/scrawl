@@ -1,50 +1,19 @@
 /* The sign-in page carries its own stylesheet. Every other page is the app,
    which brings its own, and this one has to work before any of it loads. */
 
+/* the colors are the theme's, from the themes.css the page links first */
 :root {
-  color-scheme: light dark;
-
-  --bg: #ffffff;
-  --bg-raised: #f6f8fa;
-  --bg-input: #ffffff;
-  --text: #1f2328;
-  --text-dim: #59636e;
-  --border: #d1d9e0;
-  --accent: #0969da;
-  --accent-hover: #0550ae;
-  --danger: #d1242f;
-  --danger-subtle: #ffebe9;
-  --focus: #0969da;
-}
-
-:root:not([data-theme='light']) {
-  @media (prefers-color-scheme: dark) {
-    --bg: #121821;
-    --bg-raised: #1a2129;
-    --bg-input: #121821;
-    --text: #d1d7e0;
-    --text-dim: #9198a1;
-    --border: #3d444d;
-    --accent: #316dca;
-    --accent-hover: #4184e4;
-    --danger: #e5534b;
-    --danger-subtle: #e5534b1a;
-    --focus: #316dca;
-  }
-}
-
-:root[data-theme='dark'] {
-  --bg: #121821;
-  --bg-raised: #1a2129;
-  --bg-input: #121821;
-  --text: #d1d7e0;
-  --text-dim: #9198a1;
-  --border: #3d444d;
-  --accent: #316dca;
-  --accent-hover: #4184e4;
-  --danger: #e5534b;
-  --danger-subtle: #e5534b1a;
-  --focus: #316dca;
+  --bg: var(--gh-bg-default);
+  --bg-raised: var(--gh-bg-muted);
+  --bg-input: var(--gh-bg-default);
+  --text: var(--gh-fg-default);
+  --text-dim: var(--gh-fg-muted);
+  --border: var(--gh-border-default);
+  --accent: var(--gh-bg-accent-emphasis);
+  --accent-hover: var(--gh-bg-accent-emphasis-hover);
+  --danger: var(--gh-fg-danger);
+  --danger-subtle: var(--gh-bg-danger-muted);
+  --focus: var(--gh-border-accent-emphasis);
 }
 
 * {
@@ -206,16 +175,15 @@ body {
   cursor: pointer;
 }
 
-/* the toggle shows the icon of the mode in force, so only one is ever drawn */
+/* the toggle shows the icon of the scheme in force, so only one is ever drawn */
 .icon-theme-auto,
 .icon-theme-light,
 .icon-theme-dark {
   display: none;
 }
 
-:root:not([data-theme]) .icon-theme-auto,
-:root[data-theme='auto'] .icon-theme-auto,
-:root[data-theme='light'] .icon-theme-light,
-:root[data-theme='dark'] .icon-theme-dark {
+.login-theme[data-icon='auto'] .icon-theme-auto,
+.login-theme[data-icon='light'] .icon-theme-light,
+.login-theme[data-icon='dark'] .icon-theme-dark {
   display: block;
 }

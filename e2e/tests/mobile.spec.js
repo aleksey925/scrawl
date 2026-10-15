@@ -430,7 +430,7 @@ test.describe('mobile', () => {
 
         const theme = page.getByTestId('topbar-theme');
         await theme.getByText('Dark', {exact: true}).tap();
-        await expect(theme).toHaveAttribute('data-scheme', 'dark');
+        await expect(theme).toHaveAttribute('data-theme', 'dark');
         await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
         await expect(page.getByTestId('topbar-account-signout')).toBeVisible();
     });

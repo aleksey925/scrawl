@@ -11,6 +11,7 @@ import (
 
 	"github.com/aleksey925/scrawl/htmldiff"
 	"github.com/aleksey925/scrawl/render"
+	"github.com/aleksey925/scrawl/theme"
 )
 
 // assets are built from web/src/page by `make ui`, which writes them here.
@@ -26,6 +27,7 @@ var tmpl = template.Must(template.New("page").Funcs(template.FuncMap{
 	"rows":   rowsOf,
 	"cell":   cellOf,
 	"trust":  trust,
+	"themes": theme.All,
 }).ParseFS(templates, "templates/*.html"))
 
 // Note is one rendered note.
@@ -97,7 +99,7 @@ func WriteDiffFragment(w io.Writer, rep Report) error {
 }
 
 // Stylesheet is everything a fragment needs from the outside: the look of a
-// note and of a diff, under both schemes, the highlighting of code included.
+// note and of a diff, in every theme, the highlighting of code included.
 func Stylesheet() string {
 	return asset("page.css") + "\n" + string(render.ChromaCSS())
 }

@@ -316,7 +316,7 @@ test.describe('reading', () => {
         await expect(page.getByTestId('shortcuts')).toBeVisible();
     });
 
-    // the picker writes mantine's attribute and reloads nothing, so a
+    // the picker writes the theme attribute and reloads nothing, so a
     // stylesheet keyed on anything else keeps the colours of the theme the page
     // was loaded in: the punctuation of a fence went black on a dark note
     test('the code colours follow the theme picker, not the system', async ({page}) => {

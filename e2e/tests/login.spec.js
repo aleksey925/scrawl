@@ -3,6 +3,7 @@ const {expect, test} = require('@playwright/test');
 const docs = require('../support/docs');
 const {MAIN, atHome, routes, shot, signIn, submitCredentials, user} = require('../support/helpers');
 const text = require('../support/text');
+const darkTheme = require('../../theme/themes/dark.json');
 
 test.describe('login', () => {
     test('accepts the right password and lands on the notes home', async ({page}) => {
@@ -57,5 +58,32 @@ test.describe('login', () => {
         await submitCredentials(page);
         await expect(page).toHaveURL(atHome());
         await expect(page.getByTestId('doc')).toBeVisible();
+    });
+
+    // the page loads no bundle: its colors come from the themes.css the build
+    // writes beside one, and its toggle walks auto and then every theme
+    test('the theme toggle walks the themes and paints the page in each', async ({page}) => {
+        // arrange
+        await page.emulateMedia({colorScheme: 'light'});
+        await page.goto(`${MAIN.baseURL}/login`);
+        const root = page.locator('html');
+        const toggle = page.locator('[data-theme-toggle]');
+        const ground = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+        const light = await ground();
+
+        // act
+        await toggle.click();
+        await toggle.click();
+
+        // assert
+        await expect(root).toHaveAttribute('data-scrawl-theme', 'dark');
+        await expect(toggle).toHaveAttribute('aria-label', `Theme: ${darkTheme.name}`);
+        await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', darkTheme.palette.bgDefault);
+        expect(await ground()).not.toBe(light);
+        await shot(page, 'login-dark-theme');
+
+        await toggle.click();
+        await expect(root).not.toHaveAttribute('data-scrawl-theme');
+        expect(await ground()).toBe(light);
     });
 });

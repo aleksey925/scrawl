@@ -3,6 +3,8 @@ import type { IncomingMessage } from 'node:http';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type ProxyOptions } from 'vite';
 
+import { themeStylesheet } from './vite.themes.ts';
+
 const backend = 'http://127.0.0.1:7272';
 
 // the routes that answer at the root whatever the space is. /api and /raw
@@ -46,7 +48,7 @@ function proxy(): Record<string, ProxyOptions> {
 }
 
 export default defineConfig(({ command }) => ({
-  plugins: [react()],
+  plugins: [react(), themeStylesheet('themes.css')],
 
   // the go server ignores the version segment of /static/{version}/... on
   // lookup, so any literal resolves; the bundle is busted by content hash
@@ -80,5 +82,7 @@ export default defineConfig(({ command }) => ({
     port: 5173,
     strictPort: true,
     proxy: proxy(),
+    // the themes are read from theme/themes, the go package that embeds them
+    fs: { allow: ['..'] },
   },
 }));

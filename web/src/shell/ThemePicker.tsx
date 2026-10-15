@@ -2,19 +2,20 @@ import { Group, Menu, SegmentedControl, useMantineColorScheme } from '@mantine/c
 import { IconDeviceDesktop, IconMoon, IconSun } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
-import { isColorScheme } from '../colorScheme';
 import controls from '../controls.module.css';
+import { setThemeChoice, useThemeChoice } from '../themeChoice';
+import { autoChoice, isThemeChoice, themes } from '../themes';
 
-const schemeOptions = [
-  { value: 'auto', icon: IconDeviceDesktop, label: 'Auto' },
-  { value: 'light', icon: IconSun, label: 'Light' },
-  { value: 'dark', icon: IconMoon, label: 'Dark' },
-] as const;
+const options = [
+  { value: autoChoice, icon: IconDeviceDesktop, label: 'Auto' },
+  ...themes.map((entry) => ({ value: entry.id, icon: entry.scheme === 'dark' ? IconMoon : IconSun, label: entry.name })),
+];
 
-// ThemePicker is the theme row of a menu: every scheme is one press away, where
+// ThemePicker is the theme row of a menu: every theme is one press away, where
 // a single item had to be pressed through the others to reach the one wanted
 export function ThemePicker(): JSX.Element {
-  const { colorScheme, setColorScheme } = useMantineColorScheme();
+  const { setColorScheme } = useMantineColorScheme();
+  const choice = useThemeChoice();
 
   return (
     <>
@@ -22,18 +23,18 @@ export function ThemePicker(): JSX.Element {
       <div className={controls.menuControl}>
         <SegmentedControl
           data-testid="topbar-theme"
-          data-scheme={colorScheme}
+          data-theme={choice}
           fullWidth
           size="sm"
           classNames={{ label: controls.menuSegment }}
-          value={colorScheme}
+          value={choice}
           onChange={(value) => {
-            if (isColorScheme(value)) {
-              setColorScheme(value);
+            if (isThemeChoice(value)) {
+              setThemeChoice(value, setColorScheme);
             }
           }}
           aria-label="Theme"
-          data={schemeOptions.map(({ value, icon: Icon, label }) => ({
+          data={options.map(({ value, icon: Icon, label }) => ({
             value,
             label: (
               <Group gap={6} wrap="nowrap" justify="center">

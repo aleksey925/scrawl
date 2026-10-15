@@ -191,26 +191,34 @@ test.describe('pages', () => {
         removeFixture(COLLIDE);
     });
 
-    test('the theme picker switches the scheme and survives a reload', async ({page}) => {
+    test('the theme picker switches the theme and survives a reload', async ({page}) => {
         const root = page.locator('html');
         await page.getByTestId('topbar-account').click();
-        await expect(page.getByTestId('topbar-theme')).toHaveAttribute('data-scheme', 'auto');
+        await expect(page.getByTestId('topbar-theme')).toHaveAttribute('data-theme', 'auto');
+        await expect(root).not.toHaveAttribute('data-scrawl-theme');
 
         // straight to dark, past light: one press, and the menu stays open
         await chooseTheme(page, 'dark');
+        await expect(root).toHaveAttribute('data-scrawl-theme', 'dark');
         await expect(root).toHaveAttribute('data-mantine-color-scheme', 'dark');
         await expect(page.getByTestId('topbar-account-menu')).toBeVisible();
         await shot(page, 'pages-dark-theme');
 
         await chooseTheme(page, 'light');
+        await expect(root).toHaveAttribute('data-scrawl-theme', 'light');
         await expect(root).toHaveAttribute('data-mantine-color-scheme', 'light');
 
         await chooseTheme(page, 'dark');
 
         // the choice is a cookie, because the server paints the first byte from it
         await page.reload();
+        await expect(root).toHaveAttribute('data-scrawl-theme', 'dark');
         await expect(root).toHaveAttribute('data-mantine-color-scheme', 'dark');
         await page.getByTestId('topbar-account').click();
-        await expect(page.getByTestId('topbar-theme')).toHaveAttribute('data-scheme', 'dark');
+        await expect(page.getByTestId('topbar-theme')).toHaveAttribute('data-theme', 'dark');
+
+        // auto takes the attribute away and leaves the theme to the system
+        await chooseTheme(page, 'auto');
+        await expect(root).not.toHaveAttribute('data-scrawl-theme');
     });
 });

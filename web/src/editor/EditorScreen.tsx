@@ -39,16 +39,16 @@ import { SourceEditor, type DroppedFiles } from './SourceEditor';
 import { Splitter } from './Splitter';
 import { Toolbar } from './Toolbar';
 import {
+  captureFromPane,
   holdPosition,
   interactionEvents,
   isReadingAnchor,
-  lineAtFraction,
-  paneTopForLine,
+  paneTopForAnchor,
   rememberAnchor,
   recallAnchor,
   type ReadingAnchor,
 } from './anchor';
-import { firstVisibleLine, holdLineAtReading } from './cmAnchor';
+import { captureFromSource, holdAnchorAtTop } from './cmAnchor';
 import { uploadAccept } from './constants';
 import { confirmLeave, openConflict, openSessionExpired } from './dialogs';
 import { formatMarkdown, replaceText, warmFormatter } from './format';
@@ -190,9 +190,11 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const [openedAt, setOpenedAt] = useState<ReadingAnchor | undefined>(undefined);
 
   const previewPlaced = useRef(false);
+  const readerMoved = useRef(false);
 
   useEffect(() => {
     previewPlaced.current = false;
+    readerMoved.current = false;
     const carried = arrivedWith.current;
     const anchor =
       isReadingAnchor(carried) && carried.path === path ? carried : recallAnchor('edit', path);
@@ -201,51 +203,73 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     }
   }, [path]);
 
-  const openedLine =
-    openedAt === undefined ? undefined : lineAtFraction(openedAt, openedAt.fractionWithinBlock);
-
   useEffect(() => {
-    if (view === undefined || openedLine === undefined) {
+    if (view === undefined || openedAt === undefined) {
       return;
     }
-    return holdLineAtReading(view, openedLine);
-  }, [view, openedLine]);
+    return holdAnchorAtTop(view, openedAt);
+  }, [view, openedAt]);
+
+  useEffect(() => {
+    const targets = [view?.dom, previewRef.current].filter((el): el is HTMLElement => el != null);
+    const moved = (): void => {
+      readerMoved.current = true;
+    };
+    for (const target of targets) {
+      for (const name of interactionEvents) {
+        target.addEventListener(name, moved, { passive: true, capture: true });
+      }
+    }
+    return () => {
+      for (const target of targets) {
+        for (const name of interactionEvents) {
+          target.removeEventListener(name, moved, { capture: true });
+        }
+      }
+    };
+  }, [view, mode]);
+
+  const panes = useMemo(createPaneSync, []);
 
   // the html arrives after the editor, so the pane waits for it. It is placed
   // once and never again: every keystroke renders the preview afresh, and a
   // second placing would drag the writer back to where they came in
   useEffect(() => {
     const pane = previewRef.current;
-    if (pane === null || openedLine === undefined || previewPlaced.current || preview.html === '') {
+    if (pane === null || openedAt === undefined || previewPlaced.current || preview.html === '') {
       return;
     }
     previewPlaced.current = true;
     return holdPosition(() => {
-      const top = paneTopForLine(pane, openedLine);
+      const source = liveView();
+      // beside the source, where the source would move it, or the first scroll jumps
+      const top = mode === 'split' && source !== undefined
+        ? panes.paneTop(source, pane)
+        : paneTopForAnchor(pane, openedAt);
       if (top !== undefined) {
         pane.scrollTop = top;
       }
     }, pane);
-  }, [openedLine, preview.html, mode]);
+  }, [openedAt, preview.html, mode, liveView, panes]);
 
+  // a position nobody moved goes back as it came: each side picks the block
+  // nearest its own top, and a round trip with no scroll in it crept every time
   const rememberReadingPosition = useCallback((): ReadingAnchor | undefined => {
-    const current = viewRef.current;
-    if (current === undefined) {
-      return undefined;
+    const source = liveView();
+    const pane = previewRef.current;
+    let anchor: ReadingAnchor | undefined;
+    if (openedAt?.path === path && !readerMoved.current) {
+      anchor = { ...openedAt, rev: revRef.current };
+    } else if (pane !== null && (source === undefined || leaderRef.current === 'preview')) {
+      anchor = captureFromPane(pane, path, revRef.current);
+    } else if (source !== undefined) {
+      anchor = captureFromSource(source, path, revRef.current);
     }
-    const line = firstVisibleLine(current);
-    const anchor: ReadingAnchor = {
-      path,
-      rev: revRef.current,
-      startLine: line,
-      endLine: line,
-      fractionWithinBlock: 0,
-    };
-    rememberAnchor('view', anchor);
+    if (anchor !== undefined) {
+      rememberAnchor('view', anchor);
+    }
     return anchor;
-  }, [path]);
-
-  const panes = useMemo(createPaneSync, []);
+  }, [path, liveView, openedAt]);
 
   const syncFromSource = useCallback((): void => {
     const current = viewRef.current;

@@ -222,6 +222,81 @@ test.describe('mobile', () => {
         expect(box.width).toBeGreaterThan(300);
     });
 
+    // taken a quarter down the screen, the position kept what was above it at
+    // its rendered height, and in the wrapped source the heading went off screen
+    test('the editor opens with the heading at the top where it was, and comes back to it', async ({page}) => {
+        // arrange
+        const filler = (mark) => Array.from({length: 12}, (_, index) =>
+            `Абзац ${mark}-${index}: длинная строка, которая в редакторе на телефоне переносится `
+            + 'на несколько рядов, а на странице занимает меньше места.').join('\n\n');
+        writeFixture(SCRATCH, `# Начало\n\n${filler('a')}\n\n## Середина\n\n${filler('b')}\n`);
+        await page.goto(routes.doc(SCRATCH));
+        const heading = page.locator('[data-testid=doc] h2');
+        const onPage = () => heading.evaluate((el) =>
+            Math.round(el.getBoundingClientRect().top - document.querySelector('header').getBoundingClientRect().bottom));
+        await heading.evaluate((el) => window.scrollTo({
+            top: el.getBoundingClientRect().top + window.scrollY
+                - document.querySelector('header').getBoundingClientRect().bottom - 8,
+            behavior: 'instant',
+        }));
+        const before = await onPage();
+
+        // act
+        await page.getByTestId('doc-edit').tap();
+        const inEditor = () => page.locator('.cm-line', {hasText: '## Середина'}).evaluate((line) =>
+            Math.round(line.getBoundingClientRect().top - line.closest('.cm-scroller').getBoundingClientRect().top));
+
+        // assert
+        await expect.poll(inEditor).toBeGreaterThanOrEqual(0);
+        await expect.poll(inEditor).toBeLessThanOrEqual(before + 4);
+
+        // act
+        await page.getByTestId('editor-cancel').tap();
+
+        // assert
+        await expect.poll(onPage).toBeGreaterThanOrEqual(before - 2);
+        await expect.poll(onPage).toBeLessThanOrEqual(before + 2);
+    });
+
+    // a fence renders a row per source line and pads its box besides, so a
+    // position taken as a fraction of the box crept a line on every round trip
+    test('a line inside a code block survives the trip to the editor and back', async ({page}) => {
+        // arrange
+        const code = Array.from({length: 150}, (_, index) => `line_${index} = ${index}`).join('\n');
+        writeFixture(SCRATCH, `# Код\n\nВступление.\n\n\`\`\`python\n${code}\n\`\`\`\n\nКонец.\n`);
+        await page.goto(routes.doc(SCRATCH));
+        const row = page.locator('[data-testid=doc] pre .line', {hasText: 'line_60 ='});
+        const onPage = () => row.evaluate((el) =>
+            Math.round(el.getBoundingClientRect().top - document.querySelector('header').getBoundingClientRect().bottom));
+        await row.evaluate((el) => window.scrollTo({
+            top: el.getBoundingClientRect().top + window.scrollY
+                - document.querySelector('header').getBoundingClientRect().bottom - 30,
+            behavior: 'instant',
+        }));
+        const before = await onPage();
+        const editorLine = page.locator('.cm-line', {hasText: 'line_60 ='});
+        const inEditor = () => editorLine.evaluate((line) =>
+            Math.round(line.getBoundingClientRect().top - line.closest('.cm-scroller').getBoundingClientRect().top));
+
+        for (let round = 0; round < 2; round++) {
+            // act
+            await page.getByTestId('doc-edit').tap();
+
+            // assert
+            // the anchor may be the row above, and a source line is taller than a row
+            const lineHeight = await editorLine.evaluate((line) => line.getBoundingClientRect().height);
+            await expect.poll(inEditor).toBeGreaterThanOrEqual(0);
+            await expect.poll(inEditor).toBeLessThanOrEqual(before + lineHeight);
+
+            // act
+            await page.getByTestId('editor-cancel').tap();
+
+            // assert
+            await expect.poll(onPage).toBeGreaterThanOrEqual(before - 2);
+            await expect.poll(onPage).toBeLessThanOrEqual(before + 2);
+        }
+    });
+
     test('no page scrolls horizontally', async ({page}) => {
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
         const pages = [

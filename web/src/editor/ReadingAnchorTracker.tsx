@@ -36,9 +36,16 @@ export function ReadingAnchorTracker({ path, rev, placed }: ReadingAnchorTracker
     // reload does not, the fragment got into the address after it
     const anchor = fromState ?? recallAnchor('view', path, location.hash === '');
     placed.current = anchor !== undefined;
+    // the scroll the anchor left the page at; while it stands, the reader has
+    // not moved and the anchor goes back to the editor as it came
+    let placedAt: number | undefined;
     const release = anchor === undefined
       ? undefined
-      : holdPosition(() => restoreToView(root, anchor), window);
+      : holdPosition(() => {
+        if (restoreToView(root, anchor)) {
+          placedAt = window.scrollY;
+        }
+      }, window);
 
     const onClick = (event: MouseEvent): void => {
       const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
@@ -49,7 +56,8 @@ export function ReadingAnchorTracker({ path, rev, placed }: ReadingAnchorTracker
       if (url.origin !== window.location.origin || !editRoute.test(url.pathname)) {
         return;
       }
-      const here = captureFromView(root, path, rev);
+      const unmoved = placedAt !== undefined && Math.abs(window.scrollY - placedAt) < 1;
+      const here = anchor !== undefined && unmoved ? { ...anchor, rev } : captureFromView(root, path, rev);
       if (here !== undefined) {
         rememberAnchor('edit', here);
       }

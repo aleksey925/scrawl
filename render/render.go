@@ -84,7 +84,11 @@ func New(opts Options) *Renderer {
 			),
 			extension.Strikethrough,
 			extension.TaskList,
-			extension.Linkify, // 23 corpus URLs are written bare
+			// 23 corpus URLs are written bare
+			extension.NewLinkify(
+				extension.WithLinkifyURLRegexp(linkifyURLRegexp),
+				extension.WithLinkifyWWWRegexp(linkifyWWWRegexp),
+			),
 			// the shape of the footnote output is not goldmark's: see
 			// footnote.go, which re-renders all four of its nodes
 			extension.Footnote,

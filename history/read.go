@@ -123,6 +123,57 @@ func (s *Service) Version(ctx context.Context, rev, p string) (string, error) {
 	return entries[0].Blob, nil
 }
 
+// Change is what one commit did to one document: the blob before and the blob
+// after, either empty where the document did not exist, and the path it had
+// before, which is not the path it has after a rename.
+type Change struct {
+	Before, After string
+	From          string
+}
+
+// Change resolves the pair of blobs one commit changed one path between, held
+// to the same pair Version is: a commit and a path that commit changed. It
+// follows the path through a rename, which is the one way the version before
+// lived under another name. A copy is not followed: the copy is a new document,
+// and what it was copied from is not a version of it.
+func (s *Service) Change(ctx context.Context, rev, p string) (Change, error) {
+	if s == nil {
+		return Change{}, ErrDisabled
+	}
+	if !isOID(rev) {
+		return Change{}, fmt.Errorf("history: change: %q is not an object id", rev)
+	}
+	cleaned, err := cleanPath(p)
+	if err != nil {
+		return Change{}, fmt.Errorf("history: change: %w", err)
+	}
+
+	args := []string{
+		"log", "-n", "1", "--follow", "--raw", "--no-abbrev", "-z", "--no-color",
+		"--format=" + logFormat, rev, "--", cleaned,
+	}
+	out, err := s.run(ctx, command{args: args})
+	if err != nil {
+		return Change{}, fmt.Errorf("history: change %s %q: %w", rev, cleaned, err)
+	}
+	fields, rows, err := firstRecord(out)
+	if err != nil {
+		return Change{}, fmt.Errorf("history: change %s %q: %w", rev, cleaned, err)
+	}
+	if len(rows) == 0 || fields[1] != rev {
+		return Change{}, fmt.Errorf("history: change %s %q: %w", rev, cleaned, ErrNoVersion)
+	}
+	row := rows[0]
+	res := Change{After: nonZero(row.blob), From: row.path}
+	if kindOf(row.status) != KindAdded {
+		res.Before = nonZero(row.srcBlob)
+	}
+	if kindOf(row.status) == KindRenamed {
+		res.From = row.from
+	}
+	return res, nil
+}
+
 // Show returns the bytes git stored for a version. It takes the blob of an
 // Entry, never a revision and a path: after a rename the path does not exist at
 // the older revision and git refuses to resolve it.
@@ -180,14 +231,7 @@ func parseLog(out []byte) ([]Entry, error) {
 	res := []Entry{}
 	rest := out
 	for len(rest) > 0 {
-		fields, tail, err := nulFields(rest, logFieldCount)
-		if err != nil {
-			return nil, err
-		}
-		if fields[0] != logSentinel {
-			return nil, fmt.Errorf("unexpected record %q", fields[0])
-		}
-		rows, tail, err := parseRows(tail)
+		fields, rows, tail, err := nextRecord(rest)
 		if err != nil {
 			return nil, err
 		}
@@ -206,12 +250,42 @@ func parseLog(out []byte) ([]Entry, error) {
 	return res, nil
 }
 
-// rawRow is one line of --raw output: the post-image blob, the status letter
-// and the path the change landed on.
+// nextRecord splits the first commit off the log output: its header fields
+// and its change rows.
+func nextRecord(in []byte) (fields []string, rows []rawRow, rest []byte, err error) {
+	fields, rest, err = nulFields(in, logFieldCount)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if fields[0] != logSentinel {
+		return nil, nil, nil, fmt.Errorf("unexpected record %q", fields[0])
+	}
+	rows, rest, err = parseRows(rest)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return fields, rows, rest, nil
+}
+
+// firstRecord reads the one commit a log limited to one prints, and nothing
+// at all from a log that found none.
+func firstRecord(out []byte) ([]string, []rawRow, error) {
+	if len(out) == 0 {
+		return nil, nil, nil
+	}
+	fields, rows, _, err := nextRecord(out)
+	return fields, rows, err
+}
+
+// rawRow is one line of --raw output: the pre- and post-image blobs, the status
+// letter, the path the change landed on and, for a rename or a copy, the path it
+// came from.
 type rawRow struct {
-	blob   string
-	status string
-	path   string
+	srcBlob string
+	blob    string
+	status  string
+	from    string
+	path    string
 }
 
 // parseRows consumes the change rows of one commit. They are separated from the
@@ -255,7 +329,7 @@ func parseRow(in []byte) (rawRow, []byte, error) {
 	if err != nil {
 		return rawRow{}, nil, err
 	}
-	return rawRow{blob: meta[3], status: status, path: paths[len(paths)-1]}, rest, nil
+	return rawRow{srcBlob: meta[2], blob: meta[3], status: status, from: paths[0], path: paths[len(paths)-1]}, rest, nil
 }
 
 func entryOf(fields []string, row rawRow) (Entry, error) {
@@ -263,10 +337,7 @@ func entryOf(fields []string, row rawRow) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("unexpected timestamp %q: %w", fields[3], err)
 	}
-	blob := row.blob
-	if isZeroOID(blob) {
-		blob = ""
-	}
+	blob := nonZero(row.blob)
 	return Entry{
 		Rev:     fields[1],
 		Short:   shortOID(fields[1]),
@@ -325,4 +396,11 @@ func isOID(s string) bool {
 	return true
 }
 
-func isZeroOID(s string) bool { return strings.Trim(s, "0") == "" }
+// nonZero is an object id, or "" for the all-zero one git writes for a side
+// that does not exist.
+func nonZero(oid string) string {
+	if strings.Trim(oid, "0") == "" {
+		return ""
+	}
+	return oid
+}

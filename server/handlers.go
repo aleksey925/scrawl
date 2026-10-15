@@ -75,11 +75,17 @@ func (m *mount) renderDoc(docPath string, data []byte, rev string) (render.Resul
 // is what keeps it short, the deadline is what keeps the request short.
 func renderWithDeadline[T any](docPath string, src []byte, limit int, timeout time.Duration,
 	fn func() (T, error)) (T, error) {
-	var zero T
 	if len(src) > limit {
+		var zero T
 		return zero, fmt.Errorf("render %q of %d bytes: %w", docPath, len(src), store.ErrTooLarge)
 	}
+	return withDeadline(docPath, timeout, fn)
+}
 
+// withDeadline gives up waiting on fn once timeout has passed, and leaves it
+// running: what it computes has no way to be stopped from outside.
+func withDeadline[T any](docPath string, timeout time.Duration, fn func() (T, error)) (T, error) {
+	var zero T
 	type outcome struct {
 		res T
 		err error

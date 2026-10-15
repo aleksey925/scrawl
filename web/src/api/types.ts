@@ -258,10 +258,28 @@ export interface HistoryResponse {
   entries: HistoryEntry[];
 }
 
+// one block of a rendered diff as htmldiff answers it: the html with the changed
+// words marked, and the source lines it was rendered from
+export interface DiffSide {
+  html: string;
+  start?: number;
+  end?: number;
+}
+
+export type DiffKind = 'same' | 'format' | 'changed' | 'added' | 'removed';
+
+export interface DiffRow {
+  kind: DiffKind;
+  old?: DiffSide;
+  new?: DiffSide;
+}
+
 export interface HistoryVersionResponse {
   path: string;
   rev: string;
   diff: string;
+  // absent when either side could not be rendered, too large or too slow
+  changes?: DiffRow[];
   // absent for a deletion, which recorded none, and for a version too large to
   // escape into a json string
   content?: string;

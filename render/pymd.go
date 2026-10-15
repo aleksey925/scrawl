@@ -192,6 +192,14 @@ func interruptingOrderedItem(line string) bool {
 	return err == nil && n != 1
 }
 
+// Frontmatter returns the leading YAML block Render leaves off the page, its
+// delimiters included, or "" when the document has none.
+func Frontmatter(src []byte) string {
+	lines := strings.Split(string(src), "\n")
+	_, dropped := dropFrontmatter(lines)
+	return strings.Join(lines[:dropped], "\n")
+}
+
 // dropFrontmatter removes a leading YAML block delimited by "---". TOML "+++"
 // blocks are not supported: the corpus has no frontmatter at all, and "---" is
 // the only delimiter that markdown itself would otherwise misread.

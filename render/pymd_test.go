@@ -161,3 +161,22 @@ func TestRenderStripsFrontmatter(t *testing.T) {
 	assert.NotContains(t, string(res.HTML), "tags")
 	assert.NotContains(t, string(res.HTML), "Метаданные")
 }
+
+func TestFrontmatter(t *testing.T) {
+	tests := []struct{ name, in, want string }{
+		{"yaml block", "---\ntitle: x\n---\n# Заголовок\n", "---\ntitle: x\n---"},
+		{"closed with dots", "---\ntitle: x\n...\nтекст\n", "---\ntitle: x\n..."},
+		{"no frontmatter", "# Заголовок\n\n---\n", ""},
+		{"unterminated block", "---\ntitle: x\n", ""},
+		{"empty document", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// act
+			got := Frontmatter([]byte(tt.in))
+
+			// assert
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

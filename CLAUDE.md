@@ -15,6 +15,7 @@ render/                markdown -> HTML, link rewrite, TOC, highlighting
 search/                in-memory full-text index
 auth/                  users, sessions, middleware, CSRF, rate limit
 history/               git-backed document history: record, log, restore
+htmldiff/              two rendered notes compared block by block, word by word
 format/                prettier in a wasm module, run by wazero
 server/                HTTP server, handlers, page cache, the webhook endpoint
 server/templates/      the sign-in page, the one page the server renders
@@ -468,6 +469,16 @@ vendor/                dependencies, checked in, `make deps` regenerates
   standing where it belongs is removed rather than written through.
   Failing to establish any of this stops startup: a repository that runs
   its own command on every commit is not a degraded mode worth serving.
+- A version is compared as a reader sees it. `htmldiff` takes the HTML
+  `render` made of both sides, lines up the top-level blocks by their
+  visible text and marks the changed words inside a pair, so a reflowed
+  paragraph, a padded table or a formatter's pass is a `format` row and
+  never rewritten text. Where a link points and which picture is shown
+  are part of that text, and inside a code block the whitespace is too:
+  the same words with another indent are another program. Ids are
+  dropped, because both sides share one page. The patch stays beside it
+  as the `Source` view, and a version too large or too slow to compare
+  still answers with the patch alone.
 - History answers only for paths the app would serve anyway: markdown,
   and visible to `store`. Git tracks whatever the repository holds, a
   file the store hides included, so without that check the history

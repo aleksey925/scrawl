@@ -54,8 +54,11 @@ test.describe.serial('history', () => {
 
         await versions.nth(1).getByTestId('version-pick').click();
         await expect(versions.nth(1)).toHaveAttribute('data-selected', 'true');
+        await expect(page.getByTestId('rendered-diff')).toContainText('Первая версия');
+        await page.getByTestId('history-diff-view').getByText('Source').click();
         await expect(page.getByTestId('history-diff')).toContainText('Первая версия');
         await shot(page, 'history-diff');
+        await page.getByTestId('history-diff-view').getByText('Rendered').click();
 
         await versions.nth(1).getByTestId('version-restore').click();
         await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.restore);
@@ -70,6 +73,33 @@ test.describe.serial('history', () => {
 
         await page.goto(HISTORY.url.doc(docPath));
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Первая версия');
+    });
+
+    test('a version is compared as a reader sees it, markup apart from words', async ({page}) => {
+        const {docPath, stamp} = freshDoc('compared');
+        await page.goto(HISTORY.url.edit(docPath));
+        await saveInEditor(page, `# Заметка ${stamp}\n\nОдна длинная строка,\nперенесённая вручную.\n\nБыстрая лиса.\n`);
+        await saveInEditor(page, `# Заметка ${stamp}\n\nОдна длинная строка, перенесённая вручную.\n\nМедленная лиса.\n`);
+
+        await page.goto(HISTORY.url.history(docPath));
+        await page.getByTestId('version').first().getByTestId('version-pick').click();
+
+        const diff = page.getByTestId('rendered-diff');
+        const rows = diff.getByTestId('diff-row');
+        await expect(rows).toHaveCount(3);
+        await expect(rows.nth(1)).toHaveAttribute('data-kind', 'format');
+        await expect(rows.nth(2)).toHaveAttribute('data-kind', 'changed');
+        await expect(rows.nth(2).locator('del.diff-del')).toHaveText('Быстрая');
+        await expect(rows.nth(2).locator('ins.diff-ins')).toHaveText('Медленная');
+        await shot(page, 'history-rendered-diff');
+
+        // the choice of view is kept for the next version and the next visit
+        await page.getByTestId('history-diff-view').getByText('Source').click();
+        await page.reload();
+        await page.getByTestId('version').first().getByTestId('version-pick').click();
+        await expect(page.getByTestId('history-diff')).toContainText('+Медленная лиса.');
+        await page.getByTestId('history-diff-view').getByText('Rendered').click();
+        await expect(page.getByTestId('rendered-diff')).toBeVisible();
     });
 
     test('a page left open while the document changed is refused its restore', async ({page}) => {

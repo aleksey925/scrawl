@@ -10,6 +10,8 @@ import (
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/history"
+	"github.com/aleksey925/scrawl/htmldiff"
+	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
 )
 
@@ -42,6 +44,7 @@ type History interface {
 	Record(ctx context.Context, op history.Op, mutate func() ([]string, error)) error
 	Log(ctx context.Context, p string, limit int) ([]history.Entry, error)
 	Version(ctx context.Context, rev, p string) (string, error)
+	Change(ctx context.Context, rev, p string) (history.Change, error)
 	Show(ctx context.Context, blob string) ([]byte, error)
 	Diff(ctx context.Context, rev, p string) (string, error)
 }
@@ -131,18 +134,20 @@ func (m *mount) apiHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 // historyVersion answers one version: the patch that commit made to the
-// document, plus the content as it stood afterwards. The path is the historical
-// one the entry carries, which is not today's path once a rename sits between
-// them, and content is still read by blob for the same reason - but the blob is
-// resolved from the pair rather than taken from the request, because a blob
-// names content and nothing else: one that arrived from outside would read any
-// object the repository holds under any path the caller likes.
+// document, the same change compared as a reader sees it, and the content as it
+// stood afterwards. The path is the historical one the entry carries, which is
+// not today's path once a rename sits between them, and content is still read
+// by blob for the same reason - but the blobs are resolved from the pair rather
+// than taken from the request, because a blob names content and nothing else:
+// one that arrived from outside would read any object the repository holds
+// under any path the caller likes.
 //
 // Content is absent whenever there is nothing a reader could be shown: a
 // deletion recorded none, and a version too large to edit is too large to
-// escape into a JSON string. The diff is always there.
+// escape into a JSON string. The patch is always there, and the compared
+// blocks are whenever both sides could be rendered.
 func (m *mount) historyVersion(w http.ResponseWriter, r *http.Request, p, rev string) {
-	blob, err := m.history().Version(r.Context(), rev, p)
+	change, err := m.history().Change(r.Context(), rev, p)
 	if err != nil {
 		failHistory(w, r, err)
 		return
@@ -152,19 +157,70 @@ func (m *mount) historyVersion(w http.ResponseWriter, r *http.Request, p, rev st
 		failHistory(w, r, err)
 		return
 	}
-
-	res := map[string]any{"path": p, "rev": rev, "diff": diff}
-	if blob != "" {
-		data, showErr := m.history().Show(r.Context(), blob)
-		if showErr != nil {
-			failHistory(w, r, showErr)
+	after, err := m.blobContent(r.Context(), change.After)
+	if err != nil {
+		failHistory(w, r, err)
+		return
+	}
+	// the version before a rename lived under another path, and history only
+	// ever speaks about one the store would serve: a note moved out of a
+	// hidden file reads as written from nothing
+	var before []byte
+	if m.isDocument(change.From) {
+		if before, err = m.blobContent(r.Context(), change.Before); err != nil {
+			failHistory(w, r, err)
 			return
 		}
-		if len(data) <= maxEditableFile {
-			res["content"] = string(data)
-		}
+	}
+
+	res := map[string]any{"path": p, "rev": rev, "diff": diff}
+	if after != nil && len(after) <= maxEditableFile {
+		res["content"] = string(after)
+	}
+	changes, err := m.compare(change.From, before, p, after)
+	if err != nil {
+		log.Printf("[WARN] compare %s at %s: %v", p, rev, err)
+	} else {
+		res["changes"] = changes
 	}
 	writeJSON(w, http.StatusOK, res)
+}
+
+// blobContent reads a blob, and nothing for the empty one a side that did not
+// exist resolves to.
+func (m *mount) blobContent(ctx context.Context, blob string) ([]byte, error) {
+	if blob == "" {
+		return nil, nil
+	}
+	return m.history().Show(ctx, blob)
+}
+
+// compare renders both sides through the page cache and lines them up block by
+// block. Lining up is quadratic in the worst case, so it runs under the render
+// deadline too; a side that did not exist is an empty document.
+func (m *mount) compare(oldPath string, old []byte, curPath string, cur []byte) ([]htmldiff.Row, error) {
+	oldDoc, err := m.diffSide(oldPath, old)
+	if err != nil {
+		return nil, err
+	}
+	curDoc, err := m.diffSide(curPath, cur)
+	if err != nil {
+		return nil, err
+	}
+	return withDeadline(curPath, renderTimeout, func() ([]htmldiff.Row, error) {
+		return htmldiff.Diff(oldDoc, curDoc)
+	})
+}
+
+func (m *mount) diffSide(p string, data []byte) (htmldiff.Document, error) {
+	if data == nil {
+		return htmldiff.Document{}, nil
+	}
+	res, err := m.renderDoc(p, data, store.Rev(data))
+	if err != nil {
+		return htmldiff.Document{}, err
+	}
+	return htmldiff.Document{Frontmatter: render.Frontmatter(data), HTML: string(res.HTML)}, nil
 }
 
 // versionContent reads the version a request named. A pair that resolves to no

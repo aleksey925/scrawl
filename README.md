@@ -8,7 +8,9 @@ files on disk are the only state.
 - an editor with live preview, on desktop and on mobile
 - pages and folders made in the tree itself, dragged between folders,
   renamed and deleted; paste images straight into the editor
-- a version history per page: what changed, by whom, and a restore
+- a version history per page: what changed, shown side by side the way
+  the page reads, with the changed words marked; who changed it; and a
+  restore
 - several spaces at once, each a folder or a git repository it clones,
   serves and pushes back to
 - a login page, users configured through the environment

@@ -1,6 +1,6 @@
 import {
-  Badge, Box, Button, Center, Code, Container, Flex, Group, Loader, Modal, Paper, Stack,
-  Text, Title, UnstyledButton,
+  Badge, Box, Button, Center, Code, Container, Flex, Group, Loader, Modal, Paper, SegmentedControl,
+  Stack, Text, Title, UnstyledButton,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { IconArrowBackUp } from '@tabler/icons-react';
@@ -11,12 +11,14 @@ import { api } from '../api/client';
 import type { FileResponse, HistoryEntry, HistoryVersionResponse } from '../api/types';
 import { errorText, useApi, type AsyncState } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
+import { RenderedDiff } from '../diff/RenderedDiff';
 import { documentUrl } from '../paths';
 import { DiffView } from '../shell/DiffView';
 import { useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
 import { TopbarAction } from '../shell/TopbarAction';
 import { useMutationState } from '../shell/useMutationState';
+import { localStore, readText, writeText } from '../storage';
 import { layoutBreakpoints, useBelow } from '../theme';
 import { showToast } from '../toast';
 
@@ -56,7 +58,24 @@ function ScrollingPre({
   );
 }
 
+type DiffView = 'rendered' | 'source';
+
+const diffViewKey = 'scrawl.history.diff';
+
+function useDiffView(): [DiffView, (view: DiffView) => void] {
+  const [view, setView] = useState<DiffView>(() =>
+    readText(localStore(), diffViewKey) === 'source' ? 'source' : 'rendered',
+  );
+  function choose(next: DiffView): void {
+    writeText(localStore(), diffViewKey, next);
+    setView(next);
+  }
+  return [view, choose];
+}
+
 function VersionDetail({ state }: { state: AsyncState<HistoryVersionResponse | undefined> }): JSX.Element {
+  const [view, setView] = useDiffView();
+
   if (state.error !== undefined) {
     return (
       <Text data-testid="history-detail-error" size="sm" c="red">
@@ -71,12 +90,30 @@ function VersionDetail({ state }: { state: AsyncState<HistoryVersionResponse | u
       </Center>
     );
   }
+  const { changes } = state.data;
   return (
     <Stack data-testid="history-detail" gap="md" style={{ minWidth: 0 }}>
-      <Text size="xs" tt="uppercase" fw={600} c="dimmed">
-        What changed
-      </Text>
-      {state.data.diff === '' ? (
+      <Group justify="space-between" gap="sm" wrap="nowrap">
+        <Text size="xs" tt="uppercase" fw={600} c="dimmed">
+          What changed
+        </Text>
+        {changes !== undefined && (
+          <SegmentedControl
+            data-testid="history-diff-view"
+            size="xs"
+            value={view}
+            onChange={(value) => setView(value === 'source' ? 'source' : 'rendered')}
+            aria-label="Show the change"
+            data={[
+              { value: 'rendered', label: 'Rendered' },
+              { value: 'source', label: 'Source' },
+            ]}
+          />
+        )}
+      </Group>
+      {changes !== undefined && view === 'rendered' ? (
+        <RenderedDiff rows={changes} oldLabel="before" newLabel="this version" version={state.data.rev} />
+      ) : state.data.diff === '' ? (
         <Text data-testid="history-diff-empty" size="sm" c="dimmed">
           This version left no patch for the document.
         </Text>
@@ -325,7 +362,7 @@ export function Component(): JSX.Element {
                 <Stack data-testid="history-list" gap="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
                   {rows(data.entries)}
                 </Stack>
-                <Box style={{ flex: '1 1 0', minWidth: 0 }}>
+                <Box style={{ flex: '2 1 0', minWidth: 0 }}>
                   {selected === undefined ? (
                     <Text data-testid="history-detail-placeholder" size="sm" c="dimmed">
                       Pick a version to see what it changed.

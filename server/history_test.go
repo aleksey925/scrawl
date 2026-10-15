@@ -31,8 +31,10 @@ type fakeHistory struct {
 	failWith error // what the commit answers once the mutation has already run
 	entries  []history.Entry
 	blobs    map[string][]byte // content of every blob the entries name
-	diff     string
-	readErr  error
+	// what came before a version, by its rev; one not listed had nothing
+	before  map[string]history.Change
+	diff    string
+	readErr error
 
 	// the publication state, which the commit state above never sets: a push
 	// that failed leaves history healthy and the remote behind
@@ -125,6 +127,21 @@ func (f *fakeHistory) Version(_ context.Context, rev, p string) (string, error) 
 	return "", history.ErrNoVersion
 }
 
+// Change answers for the same pairs Version does, with the side before taken
+// from before.
+func (f *fakeHistory) Change(ctx context.Context, rev, p string) (history.Change, error) {
+	blob, err := f.Version(ctx, rev, p)
+	if err != nil {
+		return history.Change{}, err
+	}
+	res, ok := f.before[rev]
+	if !ok {
+		res.From = p
+	}
+	res.After = blob
+	return res, nil
+}
+
 func (f *fakeHistory) Show(_ context.Context, blob string) ([]byte, error) {
 	if f.readErr != nil {
 		return nil, f.readErr
@@ -192,12 +209,15 @@ func TestAPIHistoryVersion(t *testing.T) {
 	deletion := history.Entry{Rev: oid("c3"), Path: "index.md", Kind: history.KindDeleted}
 	fake := &fakeHistory{
 		entries: []history.Entry{version, deletion},
-		blobs:   map[string][]byte{version.Blob: saved},
-		diff:    "diff --git a/index.md b/index.md\n+the old one\n",
+		blobs:   map[string][]byte{version.Blob: saved, oid("f6"): []byte("# the first one\n")},
+		before: map[string]history.Change{
+			deletion.Rev: {Before: version.Blob, From: "index.md"},
+		},
+		diff: "diff --git a/index.md b/index.md\n+the old one\n",
 	}
 	ts := newTestServer(t, testOpts{history: fake})
 
-	t.Run("carries the content and the patch of the version", func(t *testing.T) {
+	t.Run("carries the content, the patch and the compared blocks of the version", func(t *testing.T) {
 		// act
 		resp, body := ts.json(t, request{path: "/api/history/index.md?rev=" + version.Rev})
 
@@ -208,7 +228,56 @@ func TestAPIHistoryVersion(t *testing.T) {
 			"rev":     version.Rev,
 			"content": string(saved),
 			"diff":    fake.diff,
+			"changes": []any{map[string]any{
+				"kind": "added",
+				"new":  map[string]any{"html": "<h1>the old one</h1>", "start": float64(1), "end": float64(1)},
+			}},
 		}, body)
+	})
+
+	t.Run("compares the version with the one before it", func(t *testing.T) {
+		// arrange
+		edit := history.Entry{Rev: oid("d4"), Blob: oid("b2"), Path: "index.md", Kind: history.KindModified}
+		other := newTestServer(t, testOpts{history: &fakeHistory{
+			entries: []history.Entry{edit},
+			blobs:   fake.blobs,
+			before:  map[string]history.Change{edit.Rev: {Before: oid("f6"), From: "index.md"}},
+		}})
+
+		// act
+		resp, body := other.json(t, request{path: "/api/history/index.md?rev=" + edit.Rev})
+
+		// assert
+		assert.Equal(t, http.StatusOK, resp.status)
+		assert.Equal(t, []any{map[string]any{
+			"kind": "changed",
+			"old": map[string]any{
+				"html": `<h1>the <del class="diff-del">first</del> one</h1>`, "start": float64(1), "end": float64(1),
+			},
+			"new": map[string]any{
+				"html": `<h1>the <ins class="diff-ins">old</ins> one</h1>`, "start": float64(1), "end": float64(1),
+			},
+		}}, body["changes"])
+	})
+
+	t.Run("reads a version moved out of a hidden file as written from nothing", func(t *testing.T) {
+		// arrange
+		moved := history.Entry{Rev: oid("e5"), Blob: oid("b2"), Path: "index.md", Kind: history.KindRenamed}
+		other := newTestServer(t, testOpts{history: &fakeHistory{
+			entries: []history.Entry{moved},
+			blobs:   fake.blobs,
+			before:  map[string]history.Change{moved.Rev: {Before: oid("f6"), From: ".draft.md"}},
+		}})
+
+		// act
+		resp, body := other.json(t, request{path: "/api/history/index.md?rev=" + moved.Rev})
+
+		// assert
+		assert.Equal(t, http.StatusOK, resp.status)
+		assert.Equal(t, []any{map[string]any{
+			"kind": "added",
+			"new":  map[string]any{"html": "<h1>the old one</h1>", "start": float64(1), "end": float64(1)},
+		}}, body["changes"])
 	})
 
 	t.Run("leaves out the content of a deletion, which recorded none", func(t *testing.T) {
@@ -218,6 +287,28 @@ func TestAPIHistoryVersion(t *testing.T) {
 		// assert
 		assert.Equal(t, http.StatusOK, resp.status)
 		assert.NotContains(t, body, "content")
+		assert.Equal(t, []any{map[string]any{
+			"kind": "removed",
+			"old":  map[string]any{"html": "<h1>the old one</h1>", "start": float64(1), "end": float64(1)},
+		}}, body["changes"])
+	})
+
+	t.Run("keeps the patch of a version too large to compare", func(t *testing.T) {
+		// arrange
+		huge := history.Entry{Rev: oid("a7"), Blob: oid("b8"), Path: "index.md", Kind: history.KindModified}
+		other := newTestServer(t, testOpts{history: &fakeHistory{
+			entries: []history.Entry{huge},
+			blobs:   map[string][]byte{huge.Blob: bytes.Repeat([]byte("a"), maxRenderBytes+1)},
+			diff:    fake.diff,
+		}})
+
+		// act
+		resp, body := other.json(t, request{path: "/api/history/index.md?rev=" + huge.Rev})
+
+		// assert
+		assert.Equal(t, http.StatusOK, resp.status)
+		assert.Equal(t, fake.diff, body["diff"])
+		assert.NotContains(t, body, "changes")
 	})
 
 	t.Run("reads the version of the pair and not a blob the query names", func(t *testing.T) {

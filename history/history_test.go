@@ -1033,6 +1033,135 @@ func TestServiceVersion(t *testing.T) {
 	})
 }
 
+func TestServiceChange(t *testing.T) {
+	head := func(t *testing.T, s *Service) string {
+		t.Helper()
+		return strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
+	}
+	content := func(t *testing.T, s *Service, blob string) string {
+		t.Helper()
+		if blob == "" {
+			return ""
+		}
+		data, err := s.Show(t.Context(), blob)
+		require.NoError(t, err)
+		return string(data)
+	}
+
+	t.Run("an edit is the version before and the version after", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "second\n"}))
+
+		// act
+		got, err := s.Change(t.Context(), head(t, s), "a.md")
+
+		// assert
+		require.NoError(t, err)
+		assert.Equal(t, "a.md", got.From)
+		assert.Equal(t, "first\n", content(t, s, got.Before))
+		assert.Equal(t, "second\n", content(t, s, got.After))
+	})
+
+	t.Run("the first version has nothing before it", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
+
+		// act
+		got, err := s.Change(t.Context(), head(t, s), "a.md")
+
+		// assert
+		require.NoError(t, err)
+		assert.Empty(t, got.Before)
+		assert.Equal(t, "first\n", content(t, s, got.After))
+	})
+
+	t.Run("a rename names the path the version before lived under", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		text := "line one\nline two\nline three\nline four\n"
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"old.md"}}, map[string]string{"old.md": text}))
+		require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"old.md", "new.md"}}, func() ([]string, error) {
+			if err := os.Rename(filepath.Join(s.Root(), "old.md"), filepath.Join(s.Root(), "new.md")); err != nil {
+				return nil, err
+			}
+			return nil, os.WriteFile(filepath.Join(s.Root(), "new.md"), []byte(text+"line five\n"), 0o644)
+		}))
+
+		// act
+		got, err := s.Change(t.Context(), head(t, s), "new.md")
+
+		// assert
+		require.NoError(t, err)
+		assert.Equal(t, "old.md", got.From)
+		assert.Equal(t, text, content(t, s, got.Before))
+		assert.Equal(t, text+"line five\n", content(t, s, got.After))
+	})
+
+	t.Run("a deletion has nothing after it", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
+		require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"a.md"}}, func() ([]string, error) {
+			return nil, os.Remove(filepath.Join(s.Root(), "a.md"))
+		}))
+
+		// act
+		got, err := s.Change(t.Context(), head(t, s), "a.md")
+
+		// assert
+		require.NoError(t, err)
+		assert.Equal(t, "first\n", content(t, s, got.Before))
+		assert.Empty(t, got.After)
+	})
+
+	t.Run("refuses a commit that never touched the path", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"b.md"}}, map[string]string{"b.md": "other\n"}))
+
+		// act
+		_, err := s.Change(t.Context(), head(t, s), "a.md")
+
+		// assert
+		require.ErrorIs(t, err, ErrNoVersion)
+	})
+
+	t.Run("refuses a path history never held", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
+
+		// act
+		_, err := s.Change(t.Context(), head(t, s), "missing.md")
+
+		// assert
+		require.ErrorIs(t, err, ErrNoVersion)
+	})
+
+	t.Run("refuses anything that is not an object id", func(t *testing.T) {
+		// act
+		_, err := newService(t).Change(t.Context(), "HEAD", "a.md")
+
+		// assert
+		require.Error(t, err)
+	})
+
+	t.Run("a disabled service reports it", func(t *testing.T) {
+		// arrange
+		var s *Service
+
+		// act
+		_, err := s.Change(t.Context(), strings.Repeat("a", 40), "a.md")
+
+		// assert
+		require.ErrorIs(t, err, ErrDisabled)
+	})
+}
+
 func TestServiceShow(t *testing.T) {
 	t.Run("reads the version from before a rename", func(t *testing.T) {
 		// arrange

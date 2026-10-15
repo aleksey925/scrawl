@@ -82,6 +82,25 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('the source underlines no heading and no table header', async ({page}) => {
+        // arrange
+        const docPath = scratch('source-headings');
+        writeFixture(docPath, '# Заголовок\n\n| Ресурс | Доля |\n| ------ | ---- |\n| app.js | 61 % |\n');
+        await page.goto(routes.edit(docPath));
+        await expect(page.locator('.cm-line').first()).toHaveText('# Заголовок');
+        await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'light');
+
+        // act
+        const underlined = await page.locator('.cm-line span').evaluateAll((spans) => spans
+            .filter((span) => getComputedStyle(span).textDecorationLine.includes('underline'))
+            .map((span) => span.textContent));
+
+        // assert
+        expect(underlined).toEqual([]);
+
+        removeFixture(docPath);
+    });
+
     test('the save shortcut writes the file', async ({page}) => {
         const docPath = scratch('save-shortcut');
         writeFixture(docPath, 'before\n');

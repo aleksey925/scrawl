@@ -1,12 +1,23 @@
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
+import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { EditorView, placeholder } from '@codemirror/view';
+import { tags } from '@lezer/highlight';
 import { useComputedColorScheme } from '@mantine/core';
 import CodeMirror from '@uiw/react-codemirror';
 import { useMemo, useRef, useState, type JSX } from 'react';
 
-
 import classes from './Editor.module.css';
+
+// codemirror's light style underlines a heading, and the header row of a table
+// parses as one; the dark theme brings a style of its own and needs no change
+const lightHighlighting = syntaxHighlighting(
+  HighlightStyle.define(
+    defaultHighlightStyle.specs.map((spec) =>
+      spec.tag === tags.heading ? { tag: tags.heading, fontWeight: 'bold' } : spec,
+    ),
+  ),
+);
 
 export interface DroppedFiles {
   files: File[];
@@ -34,6 +45,7 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
   const extensions = useMemo(() => {
     return [
       markdown({ base: markdownLanguage, codeLanguages: languages }),
+      ...(scheme === 'dark' ? [] : [lightHighlighting]),
       ...(wrap ? [EditorView.lineWrapping] : []),
       ...(readOnly ? [] : [placeholder('Start writing in markdown')]),
       EditorView.domEventHandlers({
@@ -75,7 +87,7 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
         },
       }),
     ];
-  }, [wrap, readOnly]);
+  }, [scheme, wrap, readOnly]);
 
   return (
     <div

@@ -173,7 +173,7 @@ module.exports = {
     repoFixture,
     user: 'e2e',
     password: 'e2e-secret-pass',
-    // bcrypt hash of the password above, so a run does not pay for --gen-hash
+    // bcrypt hash of the password above, so a run does not pay for scrawl hash
     passwordHash: '$2a$10$2BAF2jSxMt9RHQ5LRTYvheiBey0jVUZPlp2qaEwp9XxecPk6IZSi.',
     shotsDir: process.env.SCRAWL_E2E_SHOTS || path.join(repoRoot, 'e2e', 'screenshots'),
 };

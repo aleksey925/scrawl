@@ -383,6 +383,10 @@ test.describe('mobile', () => {
         // arrival, which would otherwise bury the list under a screen of diff
         await expect(page.locator('[data-testid=version][data-selected="true"]')).toHaveCount(0);
         await page.getByTestId('version').nth(1).getByTestId('version-pick').tap();
+        // compared as it reads, the long word wraps inside the column
+        await expect(page.getByTestId('rendered-diff')).toBeVisible();
+        await expectNoHorizontalScroll(page);
+        await page.getByTestId('history-diff-view').getByText('Source').tap();
         const diff = page.getByTestId('history-diff');
         await expect(diff).toBeVisible();
         // the patch scrolls inside its own box rather than taking the page with it

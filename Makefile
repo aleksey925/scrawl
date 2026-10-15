@@ -21,7 +21,8 @@ deps:
 	@cd format/js && npm i --no-audit --no-fund
 	@cd e2e && npm i --no-audit --no-fund && npx playwright install chromium
 
-# the bundle this writes into server/assets/app is committed, so that go build,
+# the bundle this writes into server/assets/app, and the stylesheet and scripts
+# of the command line pages in page/assets, are committed, so that go build,
 # go install and the docker image need neither node nor the network
 ui:
 	@cd web && npm i --no-audit --no-fund && npm run build
@@ -45,7 +46,7 @@ snapshot:
 	@goreleaser release --snapshot --skip=publish --clean
 
 run:
-	@go run . --space.dir=./examples/data --space.name=notes --listen=:7272 --auth.disabled --history=off --dbg
+	@go run . serve --space.dir=./examples/data --space.name=notes --listen=:7272 --auth.disabled --history=off --dbg
 
 e2e: build
 	@cd e2e && npx playwright test

@@ -129,7 +129,7 @@ test.describe('spaces', () => {
     });
 
     test('a space name is required and never invented', async () => {
-        const result = await runBinary(['--space.dir=' + MULTI.root, '--listen=127.0.0.1:0', '--auth.disabled']);
+        const result = await runBinary(['serve', '--space.dir=' + MULTI.root, '--listen=127.0.0.1:0', '--auth.disabled']);
 
         expect(result.code, result.output).not.toBe(0);
         expect(result.output).toContain('every space needs a name');

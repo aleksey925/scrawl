@@ -21,6 +21,8 @@ const brokenClass = "broken"
 type linkTransformer struct {
 	pagePrefix string
 	rawPrefix  string
+	relative   bool
+	pageExt    string
 	exists     func(contentPath string) bool
 }
 
@@ -84,6 +86,9 @@ func (t *linkTransformer) resolve(dest, dir string) target {
 	if !ok {
 		return passthrough
 	}
+	if t.relative {
+		return t.keepRelative(u, dest)
+	}
 
 	clean := path.Join(dir, u.Path)
 	if clean == ".." || strings.HasPrefix(clean, "../") {
@@ -143,3 +148,15 @@ func parseLocal(dest string) (u *url.URL, passthrough target, ok bool) {
 // index and the editor treat as a document: rewriting anything else to /doc/
 // would send the reader to a page that cannot exist.
 func isMarkdown(p string) bool { return strings.EqualFold(path.Ext(p), ".md") }
+
+// keepRelative leaves a relative destination as written, swapping only the
+// extension of a document when one was asked for. The root is not checked:
+// outside the app there is no notes root for a link to escape.
+func (t *linkTransformer) keepRelative(u *url.URL, dest string) target {
+	if t.pageExt == "" || !isMarkdown(u.Path) {
+		return target{dest: dest}
+	}
+	swapped := *u
+	swapped.Path = strings.TrimSuffix(u.Path, path.Ext(u.Path)) + t.pageExt
+	return target{dest: swapped.String(), rewrote: true}
+}

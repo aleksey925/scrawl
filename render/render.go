@@ -48,6 +48,13 @@ type Options struct {
 	PagePrefix string
 	// RawPrefix is the route prefix for every other file, "/raw/" by default.
 	RawPrefix string
+	// Relative keeps a relative link as it was written instead of mapping it
+	// onto the app routes, for HTML read outside the app. PagePrefix and
+	// RawPrefix do not apply then.
+	Relative bool
+	// PageExt replaces the ".md" of a relative link to a document when
+	// Relative is set, so a page rendered to "a.html" links to "b.html".
+	PageExt string
 }
 
 // Renderer turns markdown into sanitized HTML. It is safe for concurrent use:
@@ -69,6 +76,8 @@ func New(opts Options) *Renderer {
 	links := &linkTransformer{
 		pagePrefix: opts.PagePrefix,
 		rawPrefix:  opts.RawPrefix,
+		relative:   opts.Relative,
+		pageExt:    opts.PageExt,
 		exists:     opts.LinkExists,
 	}
 	// goldmark's indented code block parser is kept on purpose. Removing it

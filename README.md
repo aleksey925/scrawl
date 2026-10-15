@@ -15,6 +15,8 @@ files on disk are the only state.
   serves and pushes back to
 - a login page, users configured through the environment
 - a JSON API with token auth, for scripts and agents
+- a command line that renders, compares and formats markdown without
+  the server
 - light and dark themes
 - installs to a phone home screen and runs there without browser chrome
 
@@ -52,7 +54,7 @@ A plain password works and the server warns about it on startup. For
 anything reachable from outside, use a hash instead:
 
 ```
-printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:latest --gen-hash
+printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:latest hash
 ```
 
 [examples/docker-compose.yml](examples/docker-compose.yml) is a fuller
@@ -77,7 +79,7 @@ A binary defaults to `/spaces/notes` and `:7272`, so point it at your own
 folder:
 
 ```
-scrawl --space.dir ~/notes --space.name notes --auth.users 'alex:my-password'
+scrawl serve --space.dir ~/notes --space.name notes --auth.users 'alex:my-password'
 ```
 
 ## Configuration
@@ -95,7 +97,7 @@ There are two kinds of settings:
   file, and then the space variables are ignored.
 
 Every variable is also a flag: `SITE_TITLE` is `--site-title`,
-`AUTH_USERS` is `--auth.users`. Run `scrawl --help` for the full list,
+`AUTH_USERS` is `--auth.users`. Run `scrawl serve --help` for the full list,
 including the HTTP timeouts.
 
 ### Server settings
@@ -525,7 +527,7 @@ token instead of a login: no login form, no cookie jar, no CSRF header.
 Generate a token:
 
 ```
-scrawl --gen-token=bot
+scrawl token bot
 ```
 
 ```
@@ -650,6 +652,41 @@ on the server refuses the same writes for every token, read-write ones
 included, and `read_only: true` on one space refuses them there.
 All three say something different, so a client can tell whether asking
 for a wider token would help.
+
+## Command line
+
+The server is one command of the binary, `scrawl serve`. The others use
+the same renderer, comparison and formatter on files you name, with no
+server and no configuration:
+
+```
+scrawl render note.md -o note.html        a page that opens on its own
+scrawl render note.md -f fragment         the HTML alone, to put into a page of yours
+scrawl render note.md -f json             the HTML, the title, the outline, the frontmatter
+scrawl diff old.md new.md -o diff.html    two files side by side, the way they read
+scrawl diff                               HEAD against the working tree, in a git repository
+scrawl diff main...HEAD -- docs           a branch since it left main, under docs/ only
+scrawl format -w notes/*.md               prettier, the one a save in the app runs
+scrawl stylesheet > scrawl.css            the stylesheet a fragment is drawn with
+scrawl hash                               a password hash for AUTH_USERS, read from stdin
+scrawl token bot                          an API token and its entry for AUTH_TOKENS
+```
+
+`diff` compares markdown as it reads. Both sides are rendered, the blocks
+are lined up by their text, and only the words that changed are marked:
+a reflowed paragraph, a padded table or a pass of the formatter is shown
+as a markup change and not as new text. It takes revisions the way
+`git diff` does - none, `REV`, `A..B`, `A...B` or `A B` - and paths after
+`--`, and it compares every `.md` file the range changed, renames
+included. `--exit-code` exits with 1 when some text changed, and an
+error exits with 2.
+
+`render` and `diff` write a page by default, `-f fragment` for HTML to
+put into your own page and `-f json` for a program. A relative link is
+kept as written; `--link-ext .html` turns `a.md` into `a.html` for a site
+built of rendered notes. Formulas stay TeX unless `--math` puts KaTeX
+into the page, which makes it some 600KB larger. Mermaid diagrams stay
+code.
 
 ## Development
 

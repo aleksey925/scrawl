@@ -1,0 +1,33 @@
+{{define "diff.html"}}{{template "head" .Head}}<body>
+<main class="page page-wide">
+<header class="page-head">
+<h1 class="page-title">{{.Title}}</h1>
+{{template "theme"}}
+<p class="page-sub">Compared as the page reads: a change to the markup, the whitespace or the line breaks alone is not marked.</p>
+</header>
+{{if gt (len .Files) 1}}<ul class="page-files">
+{{range $i, $file := .Files}}{{$stats := $file.Stats}}<li><a href="#file-{{$i}}"><span class="page-status" data-status="{{$file.Status}}">{{$file.Status}}</span><span class="page-path">{{$file.Path}}</span><span class="page-counts">{{if $stats.Added}}<b class="page-added">+{{$stats.Added}}</b>{{end}}{{if $stats.Removed}}<b class="page-removed">-{{$stats.Removed}}</b>{{end}}{{if $stats.Changed}}<b class="page-changed">~{{$stats.Changed}}</b>{{end}}</span></a></li>
+{{end}}</ul>
+{{end}}{{template "files" .}}{{if not .Files}}<p class="page-empty">No markdown file changed.</p>
+{{end}}</main>
+</body>
+</html>
+{{end}}
+
+{{define "files"}}{{range $i, $file := .Files}}<section class="page-file" id="file-{{$i}}">
+<header><span class="page-status" data-status="{{$file.Status}}">{{$file.Status}}</span><h2>{{$file.Path}}</h2>{{if $file.OldPath}}<div class="page-moved">{{$file.OldPath}} → {{$file.Path}}</div>{{end}}</header>
+{{template "rows" (rows $file $.Context)}}
+</section>
+{{end}}{{end}}
+
+{{define "rows"}}<div class="diff">
+<div class="diff-head"><div>{{.File.OldLabel}}</div><div>{{.File.NewLabel}}</div></div>
+{{if .File.Stats.Empty}}<p class="diff-none">The text is the same, only the markup or the whitespace changed.</p>
+{{end}}{{range .Segments}}{{if .Folded}}<details class="diff-fold"><summary>{{plural (len .Rows) "unchanged block"}}</summary>
+{{range .Rows}}{{template "row" .}}{{end}}</details>
+{{else}}{{range .Rows}}{{template "row" .}}{{end}}{{end}}{{end}}</div>{{end}}
+
+{{define "row"}}<div class="diff-row" data-kind="{{.Kind}}">{{template "cell" (cell .Old "old")}}{{template "cell" (cell .New "new")}}{{if eq .Kind "format"}}<span class="diff-badge" title="Only the markup changed">format</span>{{end}}</div>
+{{end}}
+
+{{define "cell"}}{{if .Side}}<div class="diff-cell diff-{{.Which}} markdown-document">{{trust .Side.HTML}}</div>{{else}}<div class="diff-cell diff-{{.Which}} diff-empty"></div>{{end}}{{end}}

@@ -19,7 +19,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/go-pkgz/lgr"
-	"github.com/jessevdk/go-flags"
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/format"
@@ -107,10 +106,7 @@ type options struct {
 		Shutdown   time.Duration `long:"shutdown" env:"SHUTDOWN" default:"5s" description:"graceful shutdown timeout"`
 	} `group:"timeout" namespace:"timeout" env-namespace:"TIMEOUT"`
 
-	GenHash  string `long:"gen-hash" optional:"yes" optional-value:"-" description:"print a bcrypt hash and exit, reading the password from stdin unless it is given"`
-	GenToken string `long:"gen-token" optional:"yes" optional-value:"bot" description:"generate an API token and exit"`
-	Version  bool   `short:"v" long:"version" description:"show version and exit"`
-	Dbg      bool   `long:"dbg" env:"DEBUG" description:"debug mode"`
+	Dbg bool `long:"dbg" env:"DEBUG" description:"debug mode"`
 }
 
 // byteSize is a size in bytes accepting a human suffix, i.e. "20M" or "512K".
@@ -147,71 +143,40 @@ func (b *byteSize) UnmarshalFlag(value string) error {
 
 func main() {
 	format.RunWorkerIfAsked()
+	os.Exit(runCommand(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
+}
 
-	opts, err := parseOpts(os.Args[1:])
-	if err != nil {
-		var flagsErr *flags.Error
-		if errors.As(err, &flagsErr) && flagsErr.Type == flags.ErrHelp {
-			fmt.Println(flagsErr.Message)
-			os.Exit(0)
-		}
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-
+// runServe is the serve command: it runs until SIGINT or SIGTERM arrives, or
+// until the server fails.
+func runServe(opts *options) int {
 	// before setupLog, because a credential read afterwards would never be in
-	// the redaction list lgr.Secret was given. The failure is held until the
-	// modes that do not serve anything have had their turn.
+	// the redaction list lgr.Secret was given
 	cfgs, cfgErr := loadConfig(opts)
 	setupLog(opts.Dbg, secretsOf(opts, cfgs)...)
-
-	if opts.Version {
-		fmt.Printf("scrawl %s\n", versionInfo())
-		return
-	}
-
-	if opts.GenHash != "" {
-		hash, hashErr := genHash(opts.GenHash, os.Stdin)
-		if hashErr != nil {
-			log.Printf("[ERROR] %v", hashErr)
-			os.Exit(1)
-		}
-		fmt.Println(hash)
-		return
-	}
-
-	if opts.GenToken != "" {
-		fmt.Println(genToken(opts.GenToken))
-		return
-	}
 
 	log.Printf("[INFO] scrawl %s", versionInfo())
 	log.Printf("[DEBUG] options: %+v", *opts)
 
 	if cfgErr != nil {
 		log.Printf("[ERROR] scrawl failed: %v", cfgErr)
-		os.Exit(1)
+		return 1
 	}
-	if err := serve(opts, cfgs); err != nil {
-		log.Printf("[ERROR] scrawl failed: %v", err)
-		os.Exit(1)
-	}
-}
-
-// serve runs the server until SIGINT or SIGTERM arrives, or until it fails.
-func serve(opts *options, cfgs []spaceConfig) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	return run(ctx, opts, cfgs)
+	if err := run(ctx, opts, cfgs); err != nil {
+		log.Printf("[ERROR] scrawl failed: %v", err)
+		return 1
+	}
+	return 0
 }
 
+// parseOpts reads the options of the serve command.
 func parseOpts(args []string) (*options, error) {
-	var opts options
-	p := flags.NewParser(&opts, flags.PassDoubleDash|flags.HelpFlag)
-	if _, err := p.ParseArgs(args); err != nil {
-		return nil, fmt.Errorf("parse flags: %w", err)
+	cmds, _, err := parseCommands(append([]string{serveCommand}, args...))
+	if err != nil {
+		return nil, err
 	}
-	return &opts, nil
+	return &cmds.Serve, nil
 }
 
 func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
@@ -649,13 +614,13 @@ func validateGlobal(opts *options) error {
 	return nil
 }
 
-// genHash turns a password into a bcrypt hash. "-", which is what --gen-hash
-// means on its own, reads the password from in: a password given on the command
-// line lands in ps, in the shell history and, for the documented docker run
-// recipe, in the container config that docker inspect prints.
+// genHash turns a password into a bcrypt hash. No password, or "-", reads it
+// from in: a password given on the command line lands in ps, in the shell
+// history and, for the documented docker run recipe, in the container config
+// that docker inspect prints.
 func genHash(value string, in io.Reader) (string, error) {
 	password := value
-	if value == "-" {
+	if value == "" || value == "-" {
 		line, err := bufio.NewReader(in).ReadString('\n')
 		if err != nil && !errors.Is(err, io.EOF) {
 			return "", fmt.Errorf("read the password from stdin: %w", err)
@@ -663,11 +628,11 @@ func genHash(value string, in io.Reader) (string, error) {
 		password = strings.TrimRight(line, "\r\n")
 		if password == "" {
 			return "", errors.New("no password on stdin, pipe one in " +
-				"(printf 'my-password' | scrawl --gen-hash) or pass it as --gen-hash=my-password")
+				"(printf 'my-password' | scrawl hash) or pass it as an argument")
 		}
 	} else {
 		log.Printf("[WARN] the password was passed on the command line, where ps and the shell history keep it, " +
-			"pipe it into --gen-hash instead")
+			"pipe it into scrawl hash instead")
 	}
 
 	hash, err := auth.HashPassword(password)

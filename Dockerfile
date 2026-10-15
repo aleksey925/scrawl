@@ -41,3 +41,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --quiet --spider --tries=1 http://127.0.0.1:7272/ping || exit 1
 
 ENTRYPOINT ["/opt/app/scrawl"]
+CMD ["serve"]

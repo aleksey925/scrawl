@@ -168,3 +168,46 @@ func TestRenderRewritesRawHTMLLinks(t *testing.T) {
 	assert.Contains(t, string(out), `href="/doc/dir/other.md"`)
 	assert.Contains(t, string(out), `href="https://ya.ru"`)
 }
+
+func TestResolveRelative(t *testing.T) {
+	tests := []struct {
+		name, dest, ext string
+		want            target
+	}{
+		{"document kept", "../a/b.md#раздел", "", target{dest: "../a/b.md#раздел"}},
+		{"document with a new extension", "../a/b.md#x", ".html", target{dest: "../a/b.html#x", rewrote: true}},
+		{"uppercase extension", "B.MD", ".html", target{dest: "B.html", rewrote: true}},
+		{"query kept", "b.md?x=1", ".html", target{dest: "b.html?x=1", rewrote: true}},
+		{"picture kept", "./img.png", ".html", target{dest: "./img.png"}},
+		{"outside the root kept", "../../x.md", "", target{dest: "../../x.md"}},
+		{"absolute url untouched", "https://ya.ru/a.md", ".html", target{dest: "https://ya.ru/a.md", external: true}},
+		{"fragment untouched", "#x", ".html", target{dest: "#x"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// arrange
+			tr := &linkTransformer{relative: true, pageExt: tt.ext}
+
+			// act
+			got := tr.resolve(tt.dest, "dir")
+
+			// assert
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestRenderRelativeLinks(t *testing.T) {
+	// arrange
+	r := New(Options{Relative: true, PageExt: ".html"})
+
+	// act
+	res, err := r.Render([]byte("[a](../a.md) ![p](img/p.png)\n\n<a href=\"b.md\">b</a>\n"), "dir/note.md")
+
+	// assert
+	require.NoError(t, err)
+	html := string(res.HTML)
+	assert.Contains(t, html, `href="../a.html"`)
+	assert.Contains(t, html, `src="img/p.png"`)
+	assert.Contains(t, html, `href="b.html"`)
+}

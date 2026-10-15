@@ -110,7 +110,7 @@ function main() {
     prepareRoot(inst.root);
     fs.rmSync(inst.secretFile, {force: true});
 
-    const args = [`--listen=127.0.0.1:${inst.port}`, '--site-title=E2E Notes', '--dbg'];
+    const args = ['serve', `--listen=127.0.0.1:${inst.port}`, '--site-title=E2E Notes', '--dbg'];
     if (inst.extra) {
         args.push(`--spaces-file=${writeConfig(inst)}`);
     } else {

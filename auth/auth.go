@@ -15,7 +15,7 @@
 // "Authorization: Bearer <token>" and gets no session cookie back. They are
 // configured as "name:secretOrHash[:ro]" entries, separated and split the same
 // way users are. The secret is either "sha256:<hex digest>", which is the form
-// --gen-token prints and the only one worth deploying, or any other string,
+// scrawl token prints and the only one worth deploying, or any other string,
 // which is a plain token and earns the same startup warning a plain password
 // does. The optional last field is the scope: "rw" by default, "ro" for a
 // token that may read everything and write nothing.
@@ -165,7 +165,7 @@ func NewService(cfg Config) (*Service, error) {
 
 	for _, name := range plainTokens(tokens) {
 		log.Printf("[WARN] token %q is configured in plain form, store its sha256 digest instead "+
-			"(scrawl --gen-token): it is visible in docker inspect and /proc/<pid>/environ", name)
+			"(scrawl token): it is visible in docker inspect and /proc/<pid>/environ", name)
 	}
 
 	for _, tok := range tokens {

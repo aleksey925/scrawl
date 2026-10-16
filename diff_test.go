@@ -47,11 +47,7 @@ func runGit(t *testing.T, dir string, args ...string) string {
 func commitFiles(t *testing.T, dir, message string, files map[string]string) {
 	t.Helper()
 
-	for rel, content := range files {
-		full := filepath.Join(dir, filepath.FromSlash(rel))
-		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o750))
-		require.NoError(t, os.WriteFile(full, []byte(content), 0o600))
-	}
+	writeTree(t, dir, files)
 	runGit(t, dir, "add", "-A")
 	runGit(t, dir, "commit", "-q", "-m", message)
 }

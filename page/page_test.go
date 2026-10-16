@@ -51,6 +51,47 @@ func TestWriteNote(t *testing.T) {
 			FindAllString(out.String(), -1))
 	})
 
+	t.Run("a page of a site links the shared stylesheet and script", func(t *testing.T) {
+		// arrange
+		var out strings.Builder
+
+		// act
+		err := WriteNote(&out, note, Options{Assets: "../../scrawl/", Math: true})
+
+		// assert
+		require.NoError(t, err)
+		got := out.String()
+		assert.Contains(t, got, `<link rel="stylesheet" href="../../scrawl/`+StylesheetFile+`">`)
+		assert.Contains(t, got, `<script src="../../scrawl/`+ScriptFile+`"></script>`)
+		assert.NotContains(t, got, "<style>")
+		assert.NotContains(t, got, asset("page.js"))
+	})
+
+	t.Run("the head links home when there is a home", func(t *testing.T) {
+		// arrange
+		var out strings.Builder
+		home := Link{Href: "../index.html", Title: "Notes & more"}
+
+		// act
+		err := WriteNote(&out, note, Options{Home: &home})
+
+		// assert
+		require.NoError(t, err)
+		assert.Contains(t, out.String(), `<header class="page-head"><a class="page-home" href="../index.html">Notes &amp; more</a>`)
+	})
+
+	t.Run("the head has no home link without a home", func(t *testing.T) {
+		// arrange
+		var out strings.Builder
+
+		// act
+		err := WriteNote(&out, note, Options{})
+
+		// assert
+		require.NoError(t, err)
+		assert.Contains(t, out.String(), `<header class="page-head"><span></span>`)
+	})
+
 	t.Run("math brings katex inline and unchanged", func(t *testing.T) {
 		// arrange
 		var out strings.Builder
@@ -196,4 +237,25 @@ func TestStylesheet(t *testing.T) {
 
 	// assert
 	assert.Equal(t, asset("page.css")+"\n"+string(render.ChromaCSS()), got)
+}
+
+func TestAssets(t *testing.T) {
+	t.Run("the shared files hold what a page inlines", func(t *testing.T) {
+		// act
+		got := Assets(Options{})
+
+		// assert
+		assert.Equal(t, map[string]string{StylesheetFile: Stylesheet(), ScriptFile: asset("page.js")}, got)
+	})
+
+	t.Run("math is added to both files", func(t *testing.T) {
+		// act
+		got := Assets(Options{Math: true})
+
+		// assert
+		assert.Equal(t, map[string]string{
+			StylesheetFile: Stylesheet() + "\n" + asset("math.css"),
+			ScriptFile:     asset("page.js") + "\n" + asset("math.js"),
+		}, got)
+	})
 }

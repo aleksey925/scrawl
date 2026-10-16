@@ -64,6 +64,16 @@ func TestParseCommands(t *testing.T) {
 			check: func(t *testing.T, cmds *commands) { assert.Equal(t, "-odd.md", cmds.Render.Args.File) },
 		},
 		{
+			name: "site with its options", args: []string{"site", "-o", "out", "--math", "--exclude", "drafts", "notes"},
+			command: siteCommand,
+			check: func(t *testing.T, cmds *commands) {
+				assert.Equal(t, "out", cmds.Site.Output)
+				assert.True(t, cmds.Site.Math)
+				assert.Equal(t, []string{"drafts"}, cmds.Site.Exclude)
+				assert.Equal(t, "notes", cmds.Site.Args.Dir)
+			},
+		},
+		{
 			name: "diff takes the paths after --", args: []string{"diff", "main", "HEAD", "--", "docs", "-x.md"},
 			command: diffCommand,
 			check: func(t *testing.T, cmds *commands) {
@@ -106,6 +116,8 @@ func TestParseCommandsInvalid(t *testing.T) {
 		{name: "unknown format", args: []string{"render", "-f", "pdf"}},
 		{name: "render with two files", args: []string{"render", "a.md", "--", "b.md"}},
 		{name: "hash with files after --", args: []string{"hash", "--", "x"}},
+		{name: "site without an output", args: []string{"site", "notes"}},
+		{name: "site without notes", args: []string{"site", "-o", "out"}},
 		{name: "a server option without serve", args: []string{"--listen=:9000"}},
 	}
 	for _, tc := range tests {
@@ -127,7 +139,7 @@ func TestRunCommandWithoutACommand(t *testing.T) {
 	// assert
 	assert.Equal(t, 1, code)
 	assert.Empty(t, out)
-	assert.Equal(t, "a command is required: serve, render, diff, format, stylesheet, hash, token; see scrawl --help\n",
+	assert.Equal(t, "a command is required: serve, render, site, diff, format, stylesheet, hash, token; see scrawl --help\n",
 		errOut)
 }
 

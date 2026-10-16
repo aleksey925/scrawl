@@ -1,5 +1,5 @@
-/* The page `scrawl render` and `scrawl diff` write: one file that opens on its
-   own, with the note or the diff in the column the app puts them in. */
+/* The pages `scrawl render`, `scrawl diff` and `scrawl site` write, with the
+   note or the diff in the column the app puts them in. */
 
 *,
 *::before,
@@ -40,6 +40,20 @@ body {
   font-size: 1.25rem;
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+
+.page-home {
+  color: var(--gh-fg-default);
+  font-weight: 600;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+@media (hover: hover) {
+  .page-home:hover {
+    color: var(--gh-fg-accent);
+    text-decoration: underline;
+  }
 }
 
 .page-sub {

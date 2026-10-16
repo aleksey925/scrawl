@@ -1,6 +1,6 @@
 {{define "note.html"}}{{template "head" .Head}}<body>
 <main class="page">
-<header class="page-head"><span></span>{{template "theme"}}</header>
+<header class="page-head">{{with .Home}}<a class="page-home" href="{{.Href}}">{{.Title}}</a>{{else}}<span></span>{{end}}{{template "theme"}}</header>
 <article class="markdown-document">
 {{trust .HTML}}
 </article>

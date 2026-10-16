@@ -1,6 +1,7 @@
 // Package page writes the HTML the command line hands out: a rendered note or a
 // rendered diff as one file that opens on its own, with the stylesheet of the
-// app inlined, or as a fragment to put into a page of somebody else's.
+// app inlined, as a page of a site that links one shared copy of it, or as a
+// fragment to put into a page of somebody else's.
 package page
 
 import (
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"strings"
 
 	"github.com/aleksey925/scrawl/htmldiff"
 	"github.com/aleksey925/scrawl/render"
@@ -74,6 +76,30 @@ type Options struct {
 	// Math typesets formulas with KaTeX inlined into the page, some 600KB;
 	// without it a formula stays the TeX it was written in
 	Math bool
+	// Assets is the address of the directory holding StylesheetFile and
+	// ScriptFile, relative to the page. Empty inlines both into the page.
+	Assets string
+	// Home is the front page of the site the page belongs to, nil for none.
+	Home *Link
+}
+
+// Link is an address and the words it is shown as.
+type Link struct {
+	Href  string
+	Title string
+}
+
+// the files a page with Options.Assets links to instead of inlining them
+const (
+	StylesheetFile = "page.css"
+	ScriptFile     = "page.js"
+)
+
+// Assets are the stylesheet and the script every page links to when they are
+// files of their own, keyed by StylesheetFile and ScriptFile.
+func Assets(opts Options) map[string]string {
+	style, script := pageAssets(opts)
+	return map[string]string{StylesheetFile: style, ScriptFile: script}
 }
 
 // WriteNote writes a note as a page of its own.
@@ -81,7 +107,8 @@ func WriteNote(w io.Writer, note Note, opts Options) error {
 	return execute(w, "note.html", struct {
 		Note
 		Head head
-	}{Note: note, Head: newHead(note.Title, opts)})
+		Home *Link
+	}{Note: note, Head: newHead(note.Title, opts), Home: opts.Home})
 }
 
 // WriteDiff writes a report as a page of its own.
@@ -114,22 +141,33 @@ func asset(name string) string {
 }
 
 type head struct {
-	Title  string
-	Style  template.CSS
-	Script template.JS
+	Title     string
+	Style     template.CSS
+	Script    template.JS
+	StyleHref string
+	ScriptSrc string
 }
 
 func newHead(title string, opts Options) head {
-	style, script := Stylesheet(), asset("page.js")
-	if opts.Math {
-		style += "\n" + asset("math.css")
-		script += "\n" + asset("math.js")
+	if opts.Assets != "" {
+		base := strings.TrimSuffix(opts.Assets, "/") + "/"
+		return head{Title: title, StyleHref: base + StylesheetFile, ScriptSrc: base + ScriptFile}
 	}
+	style, script := pageAssets(opts)
 	return head{
 		Title:  title,
 		Style:  template.CSS(style), //nolint:gosec // our own stylesheet, embedded at build time
 		Script: template.JS(script), //nolint:gosec // our own script, embedded at build time
 	}
+}
+
+func pageAssets(opts Options) (style, script string) {
+	style, script = Stylesheet(), asset("page.js")
+	if opts.Math {
+		style += "\n" + asset("math.css")
+		script += "\n" + asset("math.js")
+	}
+	return style, script
 }
 
 func execute(w io.Writer, name string, data any) error {

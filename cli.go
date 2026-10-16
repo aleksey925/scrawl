@@ -24,6 +24,7 @@ import (
 const (
 	serveCommand  = "serve"
 	renderCommand = "render"
+	siteCommand   = "site"
 	diffCommand   = "diff"
 	formatCommand = "format"
 	styleCommand  = "stylesheet"
@@ -46,6 +47,7 @@ type commands struct {
 
 	Serve      options       `command:"serve" description:"serve directories of notes as a web app"`
 	Render     renderOptions `command:"render" description:"render a markdown file to HTML"`
+	Site       siteOptions   `command:"site" description:"write a directory of notes as a static site, a page for every note"`
 	Diff       diffOptions   `command:"diff" description:"compare markdown as it reads, two files or two revisions of a git repository"`
 	Format     formatOptions `command:"format" description:"format markdown with the prettier the server runs"`
 	Hash       hashOptions   `command:"hash" description:"print a bcrypt hash of a password for --auth.users"`
@@ -118,6 +120,7 @@ func runCommand(args []string, in io.Reader, out, errOut io.Writer) int {
 	code := 0
 	tools := map[string]func() error{
 		renderCommand: func() error { return runRender(&cmds.Render, in, out) },
+		siteCommand:   func() error { return runSite(&cmds.Site, out) },
 		diffCommand: func() (runErr error) {
 			code, runErr = runDiff(&cmds.Diff, out)
 			return runErr
@@ -207,7 +210,7 @@ func parseCommands(args []string) (*commands, string, error) {
 }
 
 func commandNames() []string {
-	return []string{serveCommand, renderCommand, diffCommand, formatCommand, styleCommand, hashCommand, tokenCommand}
+	return []string{serveCommand, renderCommand, siteCommand, diffCommand, formatCommand, styleCommand, hashCommand, tokenCommand}
 }
 
 func orDefault(value, fallback string) string {

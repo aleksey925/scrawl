@@ -663,6 +663,7 @@ server and no configuration:
 scrawl render note.md -o note.html        a page that opens on its own
 scrawl render note.md -f fragment         the HTML alone, to put into a page of yours
 scrawl render note.md -f json             the HTML, the title, the outline, the frontmatter
+scrawl site -o site notes                 every note of a directory as a static site
 scrawl diff old.md new.md -o diff.html    two files side by side, the way they read
 scrawl diff                               HEAD against the working tree, in a git repository
 scrawl diff main...HEAD -- docs           a branch since it left main, under docs/ only
@@ -687,6 +688,15 @@ kept as written; `--link-ext .html` turns `a.md` into `a.html` for a site
 built of rendered notes. Formulas stay TeX unless `--math` puts KaTeX
 into the page, which makes it some 600KB larger. Mermaid diagrams stay
 code.
+
+`site` writes a page for every note the app would show and copies every
+other file it would serve, so pictures and links keep working. Every
+page has the look of the app and the theme picker, and the choice is
+kept from page to page. There is nothing to configure: the front page
+is `index.md` at the root of the notes, and the head of every page links
+to it by its title. The stylesheet and the script are written once, into
+`scrawl/`. The output directory has to be empty or missing, `--exclude`
+leaves more notes out, and `--math` works as for `render`.
 
 ## Development
 

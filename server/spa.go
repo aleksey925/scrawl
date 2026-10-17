@@ -287,7 +287,7 @@ func (m *mount) writeDoc(w http.ResponseWriter, r *http.Request, navPath, docPat
 		return
 	}
 
-	toc := railTOC(res.TOC)
+	toc := render.OutlineOf(res.TOC)
 	writeJSON(w, http.StatusOK, pageResponse{
 		Path:        navPath,
 		DocPath:     docPath,
@@ -295,7 +295,7 @@ func (m *mount) writeDoc(w http.ResponseWriter, r *http.Request, navPath, docPat
 		Title:       res.Title,
 		HTML:        string(res.HTML),
 		TOC:         toc,
-		ShowTOC:     len(toc) >= minTOCHeadings,
+		ShowTOC:     len(toc) >= render.MinOutline,
 		Rev:         rev,
 		ModTime:     fi.ModTime,
 		Breadcrumbs: breadcrumbs(navPath),

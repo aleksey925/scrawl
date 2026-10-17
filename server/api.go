@@ -85,7 +85,7 @@ func (m *mount) apiTree(w http.ResponseWriter, r *http.Request) {
 func jsonChildren(node *store.Node, dirsOnly bool) []treeNode {
 	res := make([]treeNode, 0, len(node.Children))
 	for _, child := range node.Children {
-		if !inNavTree(child) || (dirsOnly && !child.IsDir) {
+		if !child.InNavTree() || (dirsOnly && !child.IsDir) {
 			continue
 		}
 		res = append(res, treeNode{

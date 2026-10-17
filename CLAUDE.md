@@ -532,15 +532,26 @@ vendor/                dependencies, checked in, `make deps` regenerates
   code.
 - A site is a space shown read-only, with no server. `site` walks the
   notes through `store`, so it publishes what the app would serve and
-  nothing a dot or `--exclude` hides, and every page is the page of
-  `render`. It has one look and no settings for it: the front page is
-  the root `index.md`, the head of every page links there by its title,
-  and nothing else is configured. Something new reaches a site only
-  when the app and the site share it. The stylesheet and the script are
-  written once into `scrawl/` and not `_scrawl/`, which the Jekyll of
-  GitHub Pages drops. The theme is kept in a cookie and in the storage
-  both: from disk Firefox shares only the cookie between pages and
-  Chromium only the storage.
+  nothing a dot or `--exclude` hides. It has one look and no settings
+  for it: the front page is the root `index.md`, the head of every page
+  links there by its title, and nothing else is configured. Something
+  new reaches a site only when the app and the site share it. The
+  stylesheet and the script are written once into `scrawl/` and not
+  `_scrawl/`, which the Jekyll of GitHub Pages drops. The theme is kept
+  in a cookie and in the storage both: from disk Firefox shares only
+  the cookie between pages and Chromium only the storage.
+- A page of a site is the app's reader without React. What the reader
+  does to a note in plain DOM - the heading anchors, the copy button -
+  lives in `web/src/reader/controls.ts` and both call it. The tree and
+  the outline are components of their own, a Go template, because the
+  app's are tools for editing a space and a site only reads one. Their
+  rules have one home: `store.Node.InNavTree` says what a tree lists and
+  `render.OutlineOf` and `render.MinOutline` what an outline does. The
+  site's tree leaves out a folder with no note in it, which the app's
+  keeps to create a page in. Neither collapses or follows the section
+  being read. Below the rail's breakpoint the tree is a drawer and the
+  outline is not shown. The picture viewer, the find bar and mermaid
+  are not on a site at all.
 - The diff markup is written twice, by `web/src/diff/RenderedDiff.tsx`
   and by the templates of `page`, and `web/src/diff/diff.css` styles
   both. A change to one is a change to the other, folding included.

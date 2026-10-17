@@ -10,7 +10,7 @@ const {binary} = require('../support/env');
 
 const NOTES = {
     'index.md': '# Home\n\n[Guide](docs/guide.md)\n',
-    'docs/guide.md': '# Guide\n\ntext\n',
+    'docs/guide.md': '# Guide\n\n## One\n\ntext\n\n## Two\n\n```sh\necho hi\n```\n\n## Three\n\ntext\n',
 };
 
 // a site opened from disk, the way a reader previews one before it is
@@ -76,5 +76,57 @@ test.describe('site', () => {
 
         // assert
         await expect(page.locator('html')).toHaveAttribute('data-scrawl-theme', 'light');
+    });
+
+    test('the tree marks the note on the page and opens the folder it is in', async ({page}) => {
+        // act
+        await page.goto(at('docs/guide.html'));
+
+        // assert
+        const tree = page.getByRole('navigation', {name: 'Notes'});
+        await expect(tree.locator('[aria-current="page"]')).toHaveText('guide.md');
+        await expect(tree.locator('details', {hasText: 'docs'})).toHaveAttribute('open', '');
+    });
+
+    test('the outline lists the sections of the note', async ({page}) => {
+        // act
+        await page.goto(at('docs/guide.html'));
+
+        // assert
+        await expect(page.getByRole('navigation', {name: 'On this page'}).getByRole('link'))
+            .toHaveText(['One', 'Two', 'Three']);
+    });
+
+    test('a code block copies its code', async ({context, page}) => {
+        // arrange
+        // the config grants the clipboard to the app's origin, and a file has none
+        await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+        await page.goto(at('docs/guide.html'));
+        const copy = page.getByTestId('code-copy');
+
+        // act
+        await copy.click();
+
+        // assert
+        await expect(copy).toHaveText('Copied');
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('echo hi\n');
+    });
+
+    test('on a phone the tree is a drawer the menu opens and Escape closes', async ({page}) => {
+        // arrange
+        await page.setViewportSize({width: 390, height: 844});
+        await page.goto(at('docs/guide.html'));
+        const tree = page.getByRole('navigation', {name: 'Notes'});
+        await expect(tree).toBeHidden();
+
+        // act
+        await page.getByRole('button', {name: 'Notes'}).click();
+
+        // assert
+        await expect(tree).toBeVisible();
+        expect(await page.locator('.site-main').evaluate((main) => main.inert)).toBe(true);
+        await page.keyboard.press('Escape');
+        await expect(tree).toBeHidden();
+        expect(await page.locator('.site-main').evaluate((main) => main.inert)).toBe(false);
     });
 });

@@ -979,6 +979,33 @@ func TestStoreTree(t *testing.T) {
 	})
 }
 
+func TestNodeInNavTree(t *testing.T) {
+	// arrange
+	s := newStore(t, notesFiles())
+	tree, err := s.Tree()
+	require.NoError(t, err)
+	var kept []string
+	var walk func(n *Node)
+	walk = func(n *Node) {
+		for _, child := range n.Children {
+			if child.InNavTree() {
+				kept = append(kept, child.Path)
+			}
+			walk(child)
+		}
+	}
+
+	// act
+	walk(tree)
+
+	// assert
+	assert.Equal(t, []string{
+		"images",
+		"notes", "notes/deep", "notes/deep/nested.md", "notes/Cyrillic.md", "notes/index.md",
+		"guide.md", "index.md",
+	}, kept)
+}
+
 func TestStoreTreeConcurrent(t *testing.T) {
 	s := newStore(t, notesFiles(), func(c *Config) { c.TreeTTL = time.Millisecond })
 

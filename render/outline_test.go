@@ -85,3 +85,20 @@ func TestTitleFromPath(t *testing.T) {
 		})
 	}
 }
+
+func TestOutlineOf(t *testing.T) {
+	// arrange
+	toc := []Heading{
+		{Level: 1, Text: "Title", ID: "title"},
+		{Level: 2, Text: "Part", ID: "part"},
+		{Level: 3, Text: "Section", ID: "section"},
+		{Level: 4, Text: "Detail", ID: "detail"},
+		{Level: 2, Text: "Next", ID: "next"},
+	}
+
+	// act
+	got := OutlineOf(toc)
+
+	// assert
+	assert.Equal(t, []Heading{toc[1], toc[2], toc[4]}, got)
+}

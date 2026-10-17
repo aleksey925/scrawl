@@ -69,6 +69,16 @@ func (s *Store) buildTree(cleaned string) (*Node, error) {
 	return node, nil
 }
 
+// InNavTree reports whether a node belongs in the navigation tree. Every
+// directory is kept, empty ones included: the tree is where a folder is created,
+// renamed and deleted, and one that only appears once it holds a document
+// cannot be any of those things. Files stay markdown only, because an
+// attachment belongs to the page beside it rather than to the navigation, and
+// keeps its own way in through the directory page and /raw/.
+func (n *Node) InNavTree() bool {
+	return n.IsDir || isMarkdown(n.Path)
+}
+
 func (n *Node) clone() *Node {
 	if n == nil {
 		return nil

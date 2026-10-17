@@ -691,8 +691,10 @@ code.
 
 `site` writes a page for every note the app would show and copies every
 other file it would serve, so pictures and links keep working. Every
-page has the look of the app and the theme picker, and the choice is
-kept from page to page. There is nothing to configure: the front page
+page has the look of the app: the tree of notes on the left, a drawer on
+a phone, the outline of the note on the right, a copy button on every
+code block and the theme picker, whose choice is kept from page to
+page. There is nothing to configure: the front page
 is `index.md` at the root of the notes, and the head of every page links
 to it by its title. The stylesheet and the script are written once, into
 `scrawl/`. The output directory has to be empty or missing, `--exclude`

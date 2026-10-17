@@ -206,6 +206,7 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-sidebar-width': `${layout.sidebarWidth}px`,
   '--scrawl-toc-width': `${layout.tocWidth}px`,
   '--scrawl-content-measure': `${layout.contentMeasure}px`,
+  '--scrawl-topbar-height': `${layout.topbarHeight}px`,
   '--scrawl-tap-target': `${layout.tapTarget}px`,
   '--scrawl-input-font-size': `${layout.inputFontSize}px`,
 };

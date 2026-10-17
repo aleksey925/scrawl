@@ -1,6 +1,7 @@
 package render
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/yuin/goldmark/ast"
@@ -8,8 +9,28 @@ import (
 
 // tocMaxLevel is the deepest heading the outline collects. The corpus has 31
 // h5 headings that would only add noise to a 112-entry rail. Which of the
-// collected levels reach the reader is the server's call.
+// collected levels reach the reader is OutlineOf's call.
 const tocMaxLevel = 4
+
+// outlineLevels are the heading levels an outline beside the note lists.
+// Documents in this corpus carry two h1s (the setext title plus a hand written
+// "Contents") and the largest one has 112 headings, which is unusable flat.
+var outlineLevels = []int{2, 3}
+
+// MinOutline is how many listed headings a note needs before an outline earns
+// the space it takes.
+const MinOutline = 3
+
+// OutlineOf keeps the headings of a table of contents an outline lists.
+func OutlineOf(toc []Heading) []Heading {
+	res := make([]Heading, 0, len(toc))
+	for _, item := range toc {
+		if slices.Contains(outlineLevels, item.Level) {
+			res = append(res, item)
+		}
+	}
+	return res
+}
 
 // outline walks the document once and returns the title, which is the first
 // level-1 heading, and every heading down to tocMaxLevel.

@@ -30,6 +30,8 @@ var tmpl = template.Must(template.New("page").Funcs(template.FuncMap{
 	"cell":   cellOf,
 	"trust":  trust,
 	"themes": theme.All,
+	"level":  levelOf,
+	"inc":    func(n int) int { return n + 1 },
 }).ParseFS(templates, "templates/*.html"))
 
 // Note is one rendered note.
@@ -81,12 +83,30 @@ type Options struct {
 	Assets string
 	// Home is the front page of the site the page belongs to, nil for none.
 	Home *Link
+	// Tree is the navigation of the site beside the note. With it the page is
+	// a page of a site, laid out with the tree, the note and the outline.
+	Tree []TreeEntry
+	// Outline is the headings listed beside the note, nil for none.
+	Outline []render.Heading
 }
 
 // Link is an address and the words it is shown as.
 type Link struct {
 	Href  string
 	Title string
+}
+
+// TreeEntry is one row of the tree of a site: a folder and what it holds, or
+// a note.
+type TreeEntry struct {
+	Name string
+	// Href is where the note is, "" for a folder.
+	Href string
+	// Current is the note on this page.
+	Current bool
+	// Open is a folder on the way to the note on this page.
+	Open     bool
+	Children []TreeEntry
 }
 
 // the files a page with Options.Assets links to instead of inlining them
@@ -102,13 +122,20 @@ func Assets(opts Options) map[string]string {
 	return map[string]string{StylesheetFile: style, ScriptFile: script}
 }
 
-// WriteNote writes a note as a page of its own.
+// WriteNote writes a note as a page of its own, or as a page of a site when
+// the options carry a tree.
 func WriteNote(w io.Writer, note Note, opts Options) error {
-	return execute(w, "note.html", struct {
+	name := "note.html"
+	if opts.Tree != nil {
+		name = "site.html"
+	}
+	return execute(w, name, struct {
 		Note
-		Head head
-		Home *Link
-	}{Note: note, Head: newHead(note.Title, opts), Home: opts.Home})
+		Head    head
+		Home    *Link
+		Tree    []TreeEntry
+		Outline []render.Heading
+	}{Note: note, Head: newHead(note.Title, opts), Home: opts.Home, Tree: opts.Tree, Outline: opts.Outline})
 }
 
 // WriteDiff writes a report as a page of its own.
@@ -181,6 +208,16 @@ func execute(w io.Writer, name string, data any) error {
 // as it is.
 func trust(s string) template.HTML {
 	return template.HTML(s) //nolint:gosec // sanitized by render's bluemonday policy
+}
+
+// treeLevel is the entries of one folder of a tree and how deep it sits.
+type treeLevel struct {
+	Entries []TreeEntry
+	Depth   int
+}
+
+func levelOf(entries []TreeEntry, depth int) treeLevel {
+	return treeLevel{Entries: entries, Depth: depth}
 }
 
 func plural(n int, word string) string {

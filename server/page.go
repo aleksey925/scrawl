@@ -4,11 +4,9 @@ import (
 	"log"
 	"net/url"
 	"path"
-	"slices"
 	"strings"
 	"time"
 
-	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
 )
 
@@ -28,27 +26,6 @@ type TreeNode struct {
 	Active   bool // on the path to the current page
 	Current  bool // is the current page
 	Children []TreeNode
-}
-
-// Base is embedded in every page struct.
-// tocLevels are the heading levels the outline rail lists. Documents in this
-// corpus carry two h1s (the setext title plus a hand written "Contents") and
-// the largest one has 112 headings, which is unusable as a flat rail.
-var tocLevels = []int{2, 3}
-
-// minTOCHeadings is how many listed headings a document needs before the rail
-// earns the space it takes.
-const minTOCHeadings = 3
-
-// railTOC keeps the headings the rail renders.
-func railTOC(headings []render.Heading) []render.Heading {
-	res := make([]render.Heading, 0, len(headings))
-	for _, item := range headings {
-		if slices.Contains(tocLevels, item.Level) {
-			res = append(res, item)
-		}
-	}
-	return res
 }
 
 // DirEntry is one row of a directory listing. Path is what the row's actions
@@ -113,22 +90,12 @@ func (m *mount) treeNodes(current string) []TreeNode {
 func childNodes(node *store.Node, current string) []TreeNode {
 	res := make([]TreeNode, 0, len(node.Children))
 	for _, child := range node.Children {
-		if !inNavTree(child) {
+		if !child.InNavTree() {
 			continue
 		}
 		res = append(res, treeNodeOf(child, current))
 	}
 	return res
-}
-
-// inNavTree reports whether a node belongs in the navigation tree. Every
-// directory is kept, empty ones included: the tree is where a folder is created,
-// renamed and deleted, and one that only appears once it holds a document
-// cannot be any of those things. Files stay markdown only, because an
-// attachment belongs to the page beside it rather than to the navigation, and
-// keeps its own way in through the directory page and /raw/.
-func inNavTree(node *store.Node) bool {
-	return node.IsDir || isMarkdown(node.Path)
 }
 
 func treeNodeOf(node *store.Node, current string) TreeNode {

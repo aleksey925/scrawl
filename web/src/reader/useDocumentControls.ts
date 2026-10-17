@@ -4,11 +4,9 @@ import { useLocation, useNavigate } from 'react-router';
 import { showToast } from '../toast';
 
 import { copyText } from './clipboard';
-import { anchorClass, copiedLabel, copyClass, copyLabel, injectControls } from './controls';
+import { anchorClass, copyClass, copyCode, injectControls, sectionLink } from './controls';
 import { decodeFragment, elementWithId } from './dom';
 import { internalTarget, isPlainClick } from './links';
-
-const copiedFor = 1500;
 
 export function useDocumentControls(
   rootRef: RefObject<HTMLDivElement | null>,
@@ -45,26 +43,16 @@ export function useDocumentControls(
     const copyLink = async (anchor: HTMLElement): Promise<void> => {
       const id = anchor.dataset.headingId ?? '';
       jump(id, true);
-      const copied = await copyText(`${window.location.origin}${window.location.pathname}#${id}`);
+      const copied = await copyText(sectionLink(id));
       showToast(copied ? 'ok' : 'error', {
         message: copied ? 'Link copied' : 'Could not copy the link',
       });
     };
 
-    const copyCode = async (button: HTMLElement): Promise<void> => {
-      const code = button.closest('.code-block')?.querySelector('pre');
-      if (!(await copyText(code?.textContent ?? ''))) {
+    const copyCodeOf = async (button: HTMLElement): Promise<void> => {
+      if (!(await copyCode(button, timers))) {
         showToast('error', { message: 'Could not copy the code' });
-        return;
       }
-      button.dataset.done = 'true';
-      button.textContent = copiedLabel;
-      const timer = window.setTimeout(() => {
-        button.dataset.done = 'false';
-        button.textContent = copyLabel;
-        timers.delete(timer);
-      }, copiedFor);
-      timers.add(timer);
     };
 
     const onClick = (event: MouseEvent): void => {
@@ -76,7 +64,7 @@ export function useDocumentControls(
       const button = target.closest(`.${copyClass}`);
       if (button instanceof HTMLElement) {
         event.preventDefault();
-        void copyCode(button);
+        void copyCodeOf(button);
         return;
       }
 

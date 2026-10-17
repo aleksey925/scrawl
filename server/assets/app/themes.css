@@ -241,6 +241,7 @@
   --scrawl-sidebar-width: 264px;
   --scrawl-toc-width: 240px;
   --scrawl-content-measure: 740px;
+  --scrawl-topbar-height: 52px;
   --scrawl-tap-target: 44px;
   --scrawl-input-font-size: 16px;
 }

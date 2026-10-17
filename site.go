@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -61,6 +62,9 @@ func runSite(opts *siteOptions, out io.Writer) error {
 	if b.home, err = b.homeTitle(); err != nil {
 		return err
 	}
+	if b.tree, err = siteTree(st); err != nil {
+		return err
+	}
 
 	pages := 0
 	for _, entry := range files {
@@ -89,6 +93,7 @@ type siteBuilder struct {
 	math     bool
 	// home is the title of the front page, "" when the notes have none
 	home string
+	tree []siteNode
 }
 
 func (b *siteBuilder) homeTitle() (string, error) {
@@ -116,8 +121,11 @@ func (b *siteBuilder) writePage(notePath string) error {
 		return fmt.Errorf("render %s: %w", notePath, err)
 	}
 
-	up := strings.Repeat("../", strings.Count(notePath, "/"))
-	opts := page.Options{Math: b.math, Assets: up + siteAssets}
+	up := siteUp(notePath)
+	opts := page.Options{Math: b.math, Assets: up + siteAssets, Tree: treeEntries(b.tree, notePath, up)}
+	if outline := render.OutlineOf(res.TOC); len(outline) >= render.MinOutline {
+		opts.Outline = outline
+	}
 	if b.home != "" {
 		opts.Home = &page.Link{Href: up + sitePageOf(siteHome), Title: b.home}
 	}
@@ -160,6 +168,63 @@ func (b *siteBuilder) write(name string, data []byte) error {
 		return fmt.Errorf("write %s: %w", name, err)
 	}
 	return nil
+}
+
+// siteNode is a folder or a note of the tree every page of a site carries.
+type siteNode struct {
+	name, path string
+	dir        bool
+	children   []siteNode
+}
+
+// siteTree is what the app's tree lists, less the folders that hold no note:
+// in the app a folder is where a note is made, and a site makes none, so an
+// empty folder or one of pictures would only stand in the way.
+func siteTree(st *store.Store) ([]siteNode, error) {
+	root, err := st.Tree()
+	if err != nil {
+		return nil, fmt.Errorf("list notes: %w", err)
+	}
+	return siteNodesOf(root), nil
+}
+
+func siteNodesOf(node *store.Node) []siteNode {
+	res := []siteNode{}
+	for _, child := range node.Children {
+		if !child.InNavTree() {
+			continue
+		}
+		entry := siteNode{name: child.Name, path: child.Path, dir: child.IsDir}
+		if child.IsDir {
+			if entry.children = siteNodesOf(child); len(entry.children) == 0 {
+				continue
+			}
+		}
+		res = append(res, entry)
+	}
+	return res
+}
+
+// treeEntries is the tree as the page of current shows it: its note marked,
+// the folders on the way to it open, and every link relative to the page.
+func treeEntries(nodes []siteNode, current, up string) []page.TreeEntry {
+	res := make([]page.TreeEntry, 0, len(nodes))
+	for _, node := range nodes {
+		if node.dir {
+			res = append(res, page.TreeEntry{
+				Name:     node.name,
+				Open:     strings.HasPrefix(current, node.path+"/"),
+				Children: treeEntries(node.children, current, up),
+			})
+			continue
+		}
+		res = append(res, page.TreeEntry{
+			Name:    node.name,
+			Href:    up + (&url.URL{Path: sitePageOf(node.path)}).EscapedPath(),
+			Current: node.path == current,
+		})
+	}
+	return res
 }
 
 // siteFiles lists every file the site is made of, refusing the notes
@@ -213,6 +278,15 @@ func openSiteDir(dir string) (*os.Root, error) {
 		return nil, fmt.Errorf("open %s: %w", dir, err)
 	}
 	return root, nil
+}
+
+// siteUp leads from the page of a note back to the root of the site. At the
+// root it is "./", so a note named "a:b.md" is not read as the scheme "a:".
+func siteUp(notePath string) string {
+	if depth := strings.Count(notePath, "/"); depth > 0 {
+		return strings.Repeat("../", depth)
+	}
+	return "./"
 }
 
 func sitePageOf(notePath string) string {

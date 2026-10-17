@@ -1,3 +1,4 @@
+import { copyText } from './clipboard';
 import { headingsOf, imagesOf } from './dom';
 
 export const anchorClass = 'md-anchor';
@@ -5,20 +6,50 @@ export const copyClass = 'md-copy';
 export const copyLabel = 'Copy';
 export const copiedLabel = 'Copied';
 
+const copiedFor = 1500;
+
+type Teardown = () => void;
+
 // injectControls adds the reading controls the server does not render and
 // returns the teardown, because React never owns anything inside injected html
-export function injectControls(root: HTMLElement): () => void {
-  const added: HTMLElement[] = [];
-  const prepared: HTMLImageElement[] = [];
-  const tagged: HTMLElement[] = [];
-
-  // note html is the reader's own, so every hook this puts on it is taken back
-  // off again: React never owns anything in here to re-render it away
-  const tag = (element: HTMLElement, testid: string): void => {
-    element.dataset.testid = testid;
-    tagged.push(element);
+export function injectControls(root: HTMLElement): Teardown {
+  const teardowns = [injectHeadingAnchors(root), injectCopyButtons(root), prepareImages(root)];
+  return () => {
+    for (const teardown of teardowns) {
+      teardown();
+    }
   };
+}
 
+// note html is the reader's own, so every hook put on it is taken back off
+// again: React never owns anything in here to re-render it away
+function tagged(): { tag: (element: HTMLElement, testid: string) => void; untag: Teardown } {
+  const elements: HTMLElement[] = [];
+  return {
+    tag: (element, testid) => {
+      element.dataset.testid = testid;
+      elements.push(element);
+    },
+    untag: () => {
+      for (const element of elements) {
+        delete element.dataset.testid;
+      }
+    },
+  };
+}
+
+function removing(added: readonly HTMLElement[], untag: Teardown): Teardown {
+  return () => {
+    for (const node of added) {
+      node.remove();
+    }
+    untag();
+  };
+}
+
+export function injectHeadingAnchors(root: HTMLElement): Teardown {
+  const added: HTMLElement[] = [];
+  const { tag, untag } = tagged();
   for (const heading of headingsOf(root)) {
     if (heading.querySelector(`.${anchorClass}`) !== null) {
       continue;
@@ -33,7 +64,12 @@ export function injectControls(root: HTMLElement): () => void {
     heading.append(anchor);
     added.push(anchor);
   }
+  return removing(added, untag);
+}
 
+export function injectCopyButtons(root: HTMLElement): Teardown {
+  const added: HTMLElement[] = [];
+  const { tag, untag } = tagged();
   for (const block of root.querySelectorAll<HTMLElement>('.code-block')) {
     const code = block.querySelector('pre');
     // a mermaid fence is source for the diagram renderer, not something to copy
@@ -53,9 +89,14 @@ export function injectControls(root: HTMLElement): () => void {
     block.append(button);
     added.push(button);
   }
+  return removing(added, untag);
+}
 
-  // the zoom is advertised with cursor: zoom-in, which only a pointer sees, so
-  // the image carries the role and takes a key press of its own
+// the zoom is advertised with cursor: zoom-in, which only a pointer sees, so
+// the image carries the role and takes a key press of its own
+export function prepareImages(root: HTMLElement): Teardown {
+  const prepared: HTMLImageElement[] = [];
+  const { tag, untag } = tagged();
   for (const image of imagesOf(root)) {
     image.tabIndex = 0;
     image.setAttribute('role', 'button');
@@ -63,18 +104,36 @@ export function injectControls(root: HTMLElement): () => void {
     tag(image, 'doc-image');
     prepared.push(image);
   }
-
   return () => {
-    for (const node of added) {
-      node.remove();
-    }
-    for (const node of tagged) {
-      delete node.dataset.testid;
-    }
     for (const image of prepared) {
       image.removeAttribute('tabindex');
       image.removeAttribute('role');
       image.removeAttribute('aria-label');
     }
+    untag();
   };
+}
+
+// copyCode copies the code beside a copy button and says so on the button for
+// a moment. It answers false when the clipboard refused.
+export async function copyCode(button: HTMLElement, timers: Set<number>): Promise<boolean> {
+  const code = button.closest('.code-block')?.querySelector('pre');
+  if (!(await copyText(code?.textContent ?? ''))) {
+    return false;
+  }
+  button.dataset.done = 'true';
+  button.textContent = copiedLabel;
+  const timer = window.setTimeout(() => {
+    button.dataset.done = 'false';
+    button.textContent = copyLabel;
+    timers.delete(timer);
+  }, copiedFor);
+  timers.add(timer);
+  return true;
+}
+
+// sectionLink is the address of a heading on this page. Not location.origin: a
+// page opened from disk has none in Firefox, and the link would start "null".
+export function sectionLink(id: string): string {
+  return `${window.location.href.split(/[?#]/)[0] ?? ''}#${id}`;
 }

@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/aleksey925/scrawl/page"
+	"github.com/aleksey925/scrawl/store"
 )
 
 // writeTree creates files under dir, keyed by slash-separated paths.
@@ -46,6 +48,60 @@ func readSite(t *testing.T, dir, name string) string {
 	data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(name)))
 	require.NoError(t, err)
 	return string(data)
+}
+
+func TestTreeEntries(t *testing.T) {
+	// arrange
+	nodes := []siteNode{
+		{name: "docs", path: "docs", dir: true, children: []siteNode{
+			{name: "a b.md", path: "docs/a b.md"},
+			{name: "deep", path: "docs/deep", dir: true, children: []siteNode{{name: "x.md", path: "docs/deep/x.md"}}},
+		}},
+		{name: "index.md", path: "index.md"},
+	}
+
+	// act
+	got := treeEntries(nodes, "docs/a b.md", "../")
+
+	// assert
+	assert.Equal(t, []page.TreeEntry{
+		{Name: "docs", Open: true, Children: []page.TreeEntry{
+			{Name: "a b.md", Href: "../docs/a%20b.html", Current: true},
+			{Name: "deep", Children: []page.TreeEntry{{Name: "x.md", Href: "../docs/deep/x.html"}}},
+		}},
+		{Name: "index.md", Href: "../index.html"},
+	}, got)
+}
+
+func TestSiteTree(t *testing.T) {
+	// arrange
+	src := t.TempDir()
+	writeTree(t, src, map[string]string{
+		"index.md":           "# Home\n",
+		"docs/guide.md":      "# Guide\n",
+		"docs/guide/pic.png": "picture",
+		"pictures/a.png":     "picture",
+		"drafts/old/plan.md": "# Plan\n",
+		".hidden/secret.md":  "# Secret\n",
+		"notes.markdown":     "# Not a note\n",
+	})
+	require.NoError(t, os.MkdirAll(filepath.Join(src, "empty"), 0o750))
+	st, err := store.New(store.Config{Root: src, ReadOnly: true})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, st.Close()) })
+
+	// act
+	got, err := siteTree(st)
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, []siteNode{
+		{name: "docs", path: "docs", dir: true, children: []siteNode{{name: "guide.md", path: "docs/guide.md"}}},
+		{name: "drafts", path: "drafts", dir: true, children: []siteNode{
+			{name: "old", path: "drafts/old", dir: true, children: []siteNode{{name: "plan.md", path: "drafts/old/plan.md"}}},
+		}},
+		{name: "index.md", path: "index.md"},
+	}, got)
 }
 
 func TestRunSite(t *testing.T) {
@@ -101,7 +157,7 @@ func TestRunSite(t *testing.T) {
 		assert.Contains(t, guide, `<a href="../index.html">home</a>`)
 		assert.Contains(t, guide, `src="guide/pic.png"`)
 		home := readSite(t, out, "index.html")
-		assert.Contains(t, home, `<a class="page-home" href="index.html">Home</a>`)
+		assert.Contains(t, home, `<a class="page-home" href="./index.html">Home</a>`)
 		assert.Contains(t, home, `<a href="docs/guide.html">Guide</a>`)
 		assets := page.Assets(page.Options{})
 		assert.Equal(t, assets[page.StylesheetFile], readSite(t, out, "scrawl/page.css"))
@@ -118,7 +174,45 @@ func TestRunSite(t *testing.T) {
 
 		// assert
 		require.Equal(t, 0, code, stderr)
-		assert.Contains(t, readSite(t, out, "a.html"), `<header class="page-head"><span></span>`)
+		assert.NotContains(t, readSite(t, out, "a.html"), `class="page-home"`)
+	})
+
+	t.Run("the tree marks the note of the page and opens the way to it", func(t *testing.T) {
+		// arrange
+		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
+		writeTree(t, src, notes)
+
+		// act
+		code, _, stderr := runCLI(t, "", "site", "-o", out, src)
+
+		// assert
+		require.Equal(t, 0, code, stderr)
+		guide := readSite(t, out, "docs/guide.html")
+		assert.Contains(t, guide, `<li><details open><summary style="--depth: 0">`)
+		assert.Contains(t, guide, `<a href="../docs/guide.html" style="--depth: 1" aria-current="page">`)
+		assert.Contains(t, guide, `<a href="../index.html" style="--depth: 0">`)
+	})
+
+	t.Run("an outline is listed once a note has enough sections", func(t *testing.T) {
+		// arrange
+		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
+		writeTree(t, src, map[string]string{
+			"long.md":  "# Long\n\n## One\n\n## Two\n\n### Two and a half\n",
+			"short.md": "# Short\n\n## One\n\n## Two\n",
+		})
+
+		// act
+		code, _, stderr := runCLI(t, "", "site", "-o", out, src)
+
+		// assert
+		require.Equal(t, 0, code, stderr)
+		long := readSite(t, out, "long.html")
+		assert.Equal(t, []string{
+			`<a href="#one" data-level="2">One</a>`,
+			`<a href="#two" data-level="2">Two</a>`,
+			`<a href="#two-and-a-half" data-level="3">Two and a half</a>`,
+		}, regexp.MustCompile(`<a href="#[^"]*" data-level="\d">[^<]*</a>`).FindAllString(long, -1))
+		assert.NotContains(t, readSite(t, out, "short.html"), `class="site-outline"`)
 	})
 
 	t.Run("math goes into the shared assets once", func(t *testing.T) {

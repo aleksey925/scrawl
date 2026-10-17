@@ -120,7 +120,7 @@ func TestAPIPageOutlineMatchesTheRail(t *testing.T) {
 	_, flat := ts.json(t, request{path: "/api/page/flat.md"})
 
 	// assert
-	assert.Equal(t, jsonValue(t, railTOC(rendered.TOC)), listed["toc"])
+	assert.Equal(t, jsonValue(t, render.OutlineOf(rendered.TOC)), listed["toc"])
 	assert.Equal(t, true, listed["show_toc"])
 	assert.Equal(t, []any{}, flat["toc"], "three h1 headings are not the levels the rail lists")
 	assert.Equal(t, false, flat["show_toc"])

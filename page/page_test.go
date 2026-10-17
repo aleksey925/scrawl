@@ -80,6 +80,34 @@ func TestWriteNote(t *testing.T) {
 		assert.Contains(t, out.String(), `<header class="page-head"><a class="page-home" href="../index.html">Notes &amp; more</a>`)
 	})
 
+	t.Run("a page of a site carries its tree and its outline", func(t *testing.T) {
+		// arrange
+		var out strings.Builder
+		opts := Options{
+			Tree: []TreeEntry{
+				{Name: "a <folder>", Open: true, Children: []TreeEntry{{Name: "b.md", Href: "a/b.html", Current: true}}},
+				{Name: "c.md", Href: "c.html"},
+			},
+			Outline: []render.Heading{{Level: 2, Text: "One & two", ID: "one-two"}, {Level: 3, Text: "Three", ID: "three"}},
+		}
+
+		// act
+		err := WriteNote(&out, note, opts)
+
+		// assert
+		require.NoError(t, err)
+		got := out.String()
+		assert.Contains(t, got, `<li><details open><summary style="--depth: 0">`)
+		assert.Contains(t, got, `<span>a &lt;folder&gt;</span></summary>`)
+		assert.Contains(t, got, `<li><a href="a/b.html" style="--depth: 1" aria-current="page">`)
+		assert.Contains(t, got, `<li><a href="c.html" style="--depth: 0"><svg`)
+		assert.Equal(t, []string{
+			`<a href="#one-two" data-level="2">One &amp; two</a>`,
+			`<a href="#three" data-level="3">Three</a>`,
+		}, regexp.MustCompile(`<a href="#[^"]*" data-level="\d">[^<]*</a>`).FindAllString(got, -1))
+		assert.Contains(t, got, `<article class="markdown-document">`+"\n"+note.HTML)
+	})
+
 	t.Run("the head has no home link without a home", func(t *testing.T) {
 		// arrange
 		var out strings.Builder

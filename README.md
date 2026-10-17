@@ -35,7 +35,7 @@ those files.
 Docker is the usual way to run it:
 
 ```
-docker run -d --name scrawl \
+docker run -d \
   -p 7272:7272 \
   -v /path/to/notes:/spaces/notes \
   -v scrawl-data:/data \
@@ -58,25 +58,22 @@ printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:latest hash
 ```
 
 [examples/docker-compose.yml](examples/docker-compose.yml) is a fuller
-deployment example. One thing there is worth knowing in advance: the
-image runs as uid 1001, and if your notes folder belongs to a different
-user, reading works and every save fails. The startup log says so, and
-the `user:` line fixes it.
+deployment example.
 
-Without docker, unpack the latest
-[release](https://github.com/aleksey925/scrawl/releases) archive into
-`~/.local/bin`:
+The app in the container runs as uid 1001. If the notes folder on the
+host belongs to another user, the app can read the notes but cannot save
+them. To fix it, set `user:` to the uid and gid of the folder's owner
+(`id <user>` prints them). The startup log warns when the folder is not
+writable.
+
+You can also install it with [mise](https://mise.jdx.dev). This command
+installs the latest [release](https://github.com/aleksey925/scrawl/releases):
 
 ```
-VERSION=$(curl -sL -o /dev/null -w '%{url_effective}' https://github.com/aleksey925/scrawl/releases/latest | sed 's/.*\/v//')
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-curl -#L "https://github.com/aleksey925/scrawl/releases/download/v${VERSION}/scrawl_${VERSION}_${OS}_${ARCH}.tar.gz" | tar xz -C ~/.local/bin scrawl
+mise use -g github:aleksey925/scrawl
 ```
 
-or build it yourself with `go install github.com/aleksey925/scrawl@latest`.
-A binary defaults to `/spaces/notes` and `:7272`, so point it at your own
-folder:
+To build it yourself, run `go install github.com/aleksey925/scrawl@latest`.
 
 ```
 scrawl serve --space.dir ~/notes --space.name notes --auth.users 'alex:my-password'
@@ -214,7 +211,7 @@ spaces:
 | `repo.hook_secret_env`  |                    |          | variable holding that secret, instead of `hook_secret_file`                                                                    |
 
 ```
-docker run -d --name scrawl -p 7272:7272 \
+docker run -d -p 7272:7272 \
   -v ./spaces.yml:/etc/spaces.yml -v /path/to/notes:/spaces/notes -v scrawl-spaces:/spaces \
   -e SPACES_FILE=/etc/spaces.yml \
   -e AUTH_USERS='alex:my-password' \
@@ -260,7 +257,7 @@ spaces:
 With one space it is the `REPO_*` variables:
 
 ```
-docker run -d --name scrawl -p 7272:7272 -v scrawl-spaces:/spaces \
+docker run -d -p 7272:7272 -v scrawl-spaces:/spaces \
   -e SPACE_NAME=team -e SPACE_DIR=/spaces/team \
   -e REPO_URL=https://github.com/acme/wiki.git \
   -e REPO_TOKEN='github_pat_xxx' \

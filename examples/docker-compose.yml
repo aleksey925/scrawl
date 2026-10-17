@@ -1,0 +1,103 @@
+# A team wiki on its own server: Caddy serves it over HTTPS at
+# notes.example.com, and two GitHub repositories are its spaces - the wiki,
+# which people edit here, and the handbook, which is only read here and
+# changed through pull requests.
+#
+# Next to this file create, readable by uid 1001:
+#   secrets/github-token  a fine-grained token with Contents read and write
+#                         on both repositories
+#   secrets/wiki-hook     `openssl rand -hex 32`, also pasted into the
+#                         webhook of acme/wiki: https://notes.example.com/s/wiki/hook
+#   scrawl.env            AUTH_USERS='alice:<hash>,bob:<hash>'
+#                         AUTH_TOKENS='agent:sha256:<digest>'
+# A hash comes from `printf 'password' | docker run --rm -i
+# ghcr.io/aleksey925/scrawl:latest hash`, the token for a script or an agent
+# and its entry from `docker run --rm ghcr.io/aleksey925/scrawl:latest token agent`.
+services:
+  scrawl:
+    image: ghcr.io/aleksey925/scrawl:latest
+    restart: unless-stopped
+    # single quotes in this file keep the dollars of a hash as they are
+    env_file: scrawl.env
+    environment:
+      - SPACES_FILE=/etc/scrawl/spaces.yml
+      - SITE_TITLE=Acme wiki
+      - TRUSTED_PROXY=true
+      - AUTH_SECURE=always
+    configs:
+      - source: spaces
+        target: /etc/scrawl/spaces.yml
+    secrets:
+      - github-token
+      - wiki-hook
+    volumes:
+      - scrawl-spaces:/spaces
+      - scrawl-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+configs:
+  spaces:
+    content: |
+      spaces:
+        - name: wiki
+          label: Team wiki
+          dir: /spaces/wiki
+          repo:
+            url: https://github.com/acme/wiki.git
+            pull: 1h
+            token_file: /run/secrets/github-token
+            hook_secret_file: /run/secrets/wiki-hook
+
+        - name: handbook
+          label: Handbook
+          dir: /spaces/handbook
+          read_only: true
+          repo:
+            url: https://github.com/acme/handbook.git
+            token_file: /run/secrets/github-token
+
+  # Caddy replaces the X-Forwarded-For a client sends, which is what
+  # TRUSTED_PROXY relies on
+  caddyfile:
+    content: |
+      notes.example.com {
+        reverse_proxy scrawl:7272
+      }
+
+secrets:
+  github-token:
+    file: ./secrets/github-token
+  wiki-hook:
+    file: ./secrets/wiki-hook
+
+volumes:
+  scrawl-spaces:
+  scrawl-data:
+  caddy-data:
+  caddy-config:

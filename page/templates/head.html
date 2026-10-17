@@ -1,0 +1,15 @@
+{{define "head"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="scrawl">
+<title>{{.Title}}</title>
+{{if .StyleHref}}<link rel="stylesheet" href="{{.StyleHref}}">
+<script src="{{.ScriptSrc}}"></script>
+{{else}}<style>{{.Style}}</style>
+<script>{{.Script}}</script>
+{{end}}</head>
+{{end}}
+
+{{define "theme"}}<div class="page-theme" role="group" aria-label="Theme"><button type="button" data-theme="auto" aria-pressed="true">Auto</button>{{range themes}}<button type="button" data-theme="{{.ID}}" aria-pressed="false">{{.Name}}</button>{{end}}</div>{{end}}

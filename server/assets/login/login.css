@@ -1,0 +1,189 @@
+/* The sign-in page carries its own stylesheet. Every other page is the app,
+   which brings its own, and this one has to work before any of it loads. */
+
+/* the colors are the theme's, from the themes.css the page links first */
+:root {
+  --bg: var(--gh-bg-default);
+  --bg-raised: var(--gh-bg-muted);
+  --bg-input: var(--gh-bg-default);
+  --text: var(--gh-fg-default);
+  --text-dim: var(--gh-fg-muted);
+  --border: var(--gh-border-default);
+  --accent: var(--gh-bg-accent-emphasis);
+  --accent-hover: var(--gh-bg-accent-emphasis-hover);
+  --danger: var(--gh-fg-danger);
+  --danger-subtle: var(--gh-bg-danger-muted);
+  --focus: var(--gh-border-accent-emphasis);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial,
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 1.5rem;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  padding: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  text-align: center;
+}
+
+.login-logo {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 1rem;
+  color: var(--accent);
+}
+
+.login-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.login-sub {
+  margin: 0 0 1.5rem;
+  color: var(--text-dim);
+  font-size: 0.875rem;
+}
+
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  background: var(--danger-subtle);
+  color: var(--danger);
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.login-error .icon {
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+
+.field {
+  display: block;
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text-dim);
+  font-size: 0.875rem;
+}
+
+.input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text);
+  /* anything under 16px makes iOS zoom the page on focus and never zoom back */
+  font: inherit;
+  font-size: 1rem;
+}
+
+.input:focus-visible,
+.btn:focus-visible,
+.login-theme:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.btn {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .btn:hover {
+    background: var(--accent-hover);
+  }
+}
+
+.login-theme {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+/* the toggle shows the icon of the scheme in force, so only one is ever drawn */
+.icon-theme-auto,
+.icon-theme-light,
+.icon-theme-dark {
+  display: none;
+}
+
+.login-theme[data-icon='auto'] .icon-theme-auto,
+.login-theme[data-icon='light'] .icon-theme-light,
+.login-theme[data-icon='dark'] .icon-theme-dark {
+  display: block;
+}

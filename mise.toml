@@ -1,0 +1,18 @@
+[tools]
+go = "1.25"
+golangci-lint = "2.7.2"
+goreleaser = "2.13.2"
+node = "24.18"
+prek = "0.5.4"
+prettier = "3.8.3"
+
+# builds format/prettier.wasm, see `make formatter`. The release names an
+# arm64 build "arm", which no backend guesses, so every platform is spelled out.
+[tools."github:bytecodealliance/javy"]
+version = "9.1.0"
+
+[tools."github:bytecodealliance/javy".platforms]
+linux-arm64 = { asset_pattern = "javy-arm-linux-v*.gz" }
+linux-x64 = { asset_pattern = "javy-x86_64-linux-v*.gz" }
+macos-arm64 = { asset_pattern = "javy-arm-macos-v*.gz" }
+macos-x64 = { asset_pattern = "javy-x86_64-macos-v*.gz" }

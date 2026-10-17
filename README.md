@@ -44,25 +44,8 @@ docker run -d \
   ghcr.io/aleksey925/scrawl:latest
 ```
 
-The folder you serve is called a space. `SPACE_NAME` is its name, and it
-is required. The name is part of every URL of the space:
-`/s/notes/doc/python/redis.md`.
-
-A plain password works and the server warns about it on startup. For
-anything reachable from outside, use a hash instead:
-
-```
-printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:latest hash
-```
-
 [examples/docker-compose.yml](examples/docker-compose.yml) is a fuller
 deployment example.
-
-The app in the container runs as uid 1001. If the notes folder on the
-host belongs to another user, the app can read the notes but cannot save
-them. To fix it, set `user:` to the uid and gid of the folder's owner
-(`id <user>` prints them). The startup log warns when the folder is not
-writable.
 
 You can also install it with [mise](https://mise.jdx.dev). This command
 installs the latest [release](https://github.com/aleksey925/scrawl/releases):
@@ -82,8 +65,8 @@ scrawl serve --space.dir ~/notes --space.name notes --auth.users 'alex:my-passwo
 ## Configuration
 
 A **space** is what scrawl serves: one folder of notes, or a git
-repository cloned into one. Each space lives under `/s/<name>/` and has
-its own tree, search and history.
+repository cloned into one. Each space lives under `/s/<name>/`, as in
+`/s/notes/doc/python/redis.md`, and has its own tree, search and history.
 
 There are two kinds of settings:
 
@@ -124,6 +107,13 @@ sign in is required, everything else has a working default.
 | `TZ`               |                       | `UTC`               | timezone                                                                                                                                                                                                                                |
 | `DEBUG`            |                       | `false`             | debug logging                                                                                                                                                                                                                           |
 
+A plain password in `AUTH_USERS` works, and the server warns about it on
+startup. For anything reachable from outside, use a hash instead:
+
+```
+printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:latest hash
+```
+
 Dot directories, `node_modules` and `__pycache__` are ignored, so notes
 kept in git do not expose `.git`.
 
@@ -156,6 +146,12 @@ setting in the spaces file.
 | `SPACE_NAME`           | yes      |                 | name of the space, the URL segment it gets                | `name`           |
 | `SPACE_DIR`            |          | `/spaces/notes` | directory to serve                                        | `dir`            |
 | `SPACE_FORMAT_ON_SAVE` |          | `on`            | `off` stops a save from formatting the note with prettier | `format_on_save` |
+
+In the container the app runs as uid 1001, and the folder has to be
+writable for it: otherwise the notes are read and every save fails. If
+the folder on the host belongs to another user, set `user:` to the uid
+and gid of its owner (`id <user>` prints them). The startup log warns
+when the folder is not writable.
 
 That is all a plain folder needs. The rest is only for a space that is
 a git repository, see

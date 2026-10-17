@@ -82,6 +82,14 @@ func (f *Formatter) Markdown(ctx context.Context, text string) (string, error) {
 		f.free <- struct{}{}
 	}()
 
+	// started here and not in the goroutine: the stop on a deadline below has to
+	// see the process, or it kills nothing and waits for the whole run
+	if wrk.cmd == nil {
+		if startErr := wrk.start(); startErr != nil {
+			return "", startErr
+		}
+	}
+
 	type outcome struct {
 		res response
 		err error
@@ -179,11 +187,6 @@ func (w *worker) start() error {
 }
 
 func (w *worker) ask(req request) (response, error) {
-	if w.cmd == nil {
-		if err := w.start(); err != nil {
-			return response{}, err
-		}
-	}
 	if err := w.enc.Encode(req); err != nil {
 		return response{}, fmt.Errorf("send the note to the formatter: %w", err)
 	}

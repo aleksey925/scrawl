@@ -24,7 +24,7 @@ type diffOptions struct {
 	Context  int  `long:"context" default:"1" description:"unchanged blocks kept in sight around each change"`
 	ExitCode bool `long:"exit-code" description:"exit with 1 when the text changed, the way git diff --exit-code does"`
 	Args     struct {
-		Revs []string `positional-arg-name:"REV" description:"two markdown files, or revisions the way git diff takes them: none for HEAD against the working tree, REV, A..B, A...B, or A B; paths to limit the comparison to go after --"`
+		Revs []string `positional-arg-name:"REV" description:"two markdown files, or revisions the way git diff takes them; paths go after --"`
 	} `positional-args:"yes"`
 
 	paths []string

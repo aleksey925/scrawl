@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -150,6 +152,64 @@ func TestRunCommandVersion(t *testing.T) {
 	// assert
 	assert.Equal(t, 0, code)
 	assert.Equal(t, "scrawl "+versionInfo()+"\n", out)
+}
+
+func TestRunCommandHelp(t *testing.T) {
+	t.Run("a command opens with its description and ends with its examples", func(t *testing.T) {
+		// act
+		code, out, errOut := runCLI(t, "", "diff", "-h")
+
+		// assert
+		assert.Equal(t, 0, code)
+		assert.Empty(t, errOut)
+		assert.Contains(t, out, "\n\nCompare markdown as it reads, two files or two revisions of a git repository.\n")
+		assert.True(t, strings.HasSuffix(out, "\n\n"+formatExamples(commandExamples[diffCommand])), out)
+	})
+
+	t.Run("the top level points to the help of one command", func(t *testing.T) {
+		// act
+		code, out, _ := runCLI(t, "", "-h")
+
+		// assert
+		assert.Equal(t, 0, code)
+		assert.True(t, strings.HasSuffix(out, "\n\nRun scrawl <command> -h for the options and examples of one command.\n"), out)
+	})
+}
+
+func TestCommandExamples(t *testing.T) {
+	// act & assert
+	assert.ElementsMatch(t, commandNames(), slices.Collect(maps.Keys(commandExamples)))
+}
+
+func TestFormatExamples(t *testing.T) {
+	tests := []struct {
+		name     string
+		examples []example
+		want     string
+	}{
+		{
+			name:     "short ones share two columns",
+			examples: []example{{line: "scrawl a", what: "one"}, {line: "scrawl abc", what: "two"}},
+			want:     "Examples:\n  scrawl a     one\n  scrawl abc   two\n",
+		},
+		{
+			name: "a line too wide for the columns puts each description above its command",
+			examples: []example{
+				{line: "scrawl a", what: "one"},
+				{line: "scrawl " + strings.Repeat("x", helpWidth), what: "two"},
+			},
+			want: "Examples:\n  # one\n  scrawl a\n\n  # two\n  scrawl " + strings.Repeat("x", helpWidth) + "\n",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			got := formatExamples(tc.examples)
+
+			// assert
+			assert.Equal(t, tc.want, got)
+		})
+	}
 }
 
 func TestRunRender(t *testing.T) {

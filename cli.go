@@ -55,6 +55,109 @@ type commands struct {
 	Stylesheet struct{}      `command:"stylesheet" description:"print the stylesheet a fragment of render and diff is drawn with"`
 }
 
+// example is one line of a command's help: a command line and what it does.
+type example struct {
+	line, what string
+}
+
+// the help of a command is laid out for a terminal this wide, the width go-flags
+// wraps to when it cannot ask the terminal
+const (
+	helpWidth     = 80
+	exampleIndent = "  "
+	exampleGap    = "   "
+)
+
+var commandExamples = map[string][]example{
+	serveCommand: {
+		{"scrawl serve --space.dir ~/notes --space.name notes --auth.users 'alex:my-password'", "one folder, one user"},
+		{"scrawl serve --space.dir ~/notes --space.name notes --auth.disabled", "no sign-in, on your own machine"},
+		{"SPACES_FILE=spaces.yml AUTH_USERS='alex:my-password' scrawl serve", "several spaces from a file"},
+	},
+	renderCommand: {
+		{"scrawl render note.md -o note.html", "a page that opens on its own"},
+		{"scrawl render note.md -f fragment", "the HTML alone, for your own page"},
+		{"scrawl render note.md -f json", "HTML, title, outline, frontmatter"},
+		{"scrawl render --math note.md", "formulas typeset with KaTeX"},
+		{"cat note.md | scrawl render > note.html", "from standard input"},
+	},
+	siteCommand: {
+		{"scrawl site -o site notes", "notes/ as a static site"},
+		{"scrawl site -o site --exclude 'drafts/**' notes", "the same, without drafts/"},
+		{"scrawl site -o site --math notes", "formulas typeset with KaTeX"},
+	},
+	diffCommand: {
+		{"scrawl diff old.md new.md -o diff.html", "two files"},
+		{"scrawl diff", "HEAD against the working tree"},
+		{"scrawl diff HEAD~3", "HEAD~3 against the working tree"},
+		{"scrawl diff main..HEAD", "main against HEAD"},
+		{"scrawl diff main...HEAD -- docs", "a branch since main, docs/ only"},
+		{"scrawl diff v1.0 v1.1 -f json", "two revisions, as JSON"},
+		{"scrawl diff --exit-code", "exit with 1 when some text changed"},
+	},
+	formatCommand: {
+		{"scrawl format note.md", "print the note formatted"},
+		{"scrawl format -w notes/*.md", "write the result back to every file"},
+		{"scrawl format -c notes/*.md", "list the files that would change"},
+		{"cat note.md | scrawl format", "from standard input"},
+	},
+	styleCommand: {
+		{"scrawl stylesheet > scrawl.css", "save it to link from your page"},
+	},
+	hashCommand: {
+		{"printf 'my-password' | scrawl hash", "the password from standard input"},
+	},
+	tokenCommand: {
+		{"scrawl token", "a token named bot"},
+		{"scrawl token ci", "a token named ci"},
+	},
+}
+
+// helpFooter is what follows the help go-flags prints: the examples of one
+// command, or a pointer to them. They are printed here and not as a long
+// description, because go-flags rewraps that and drops the indent of columns.
+func helpFooter(command string) string {
+	examples, ok := commandExamples[command]
+	if !ok {
+		return "Run scrawl <command> -h for the options and examples of one command.\n"
+	}
+	return formatExamples(examples)
+}
+
+// formatExamples puts the examples in two columns, or, when the columns would
+// not fit in helpWidth, each description on a line above its command.
+func formatExamples(examples []example) string {
+	lineWidth, whatWidth := 0, 0
+	for _, ex := range examples {
+		lineWidth = max(lineWidth, len(ex.line))
+		whatWidth = max(whatWidth, len(ex.what))
+	}
+	var b strings.Builder
+	b.WriteString("Examples:\n")
+	if len(exampleIndent)+lineWidth+len(exampleGap)+whatWidth <= helpWidth {
+		for _, ex := range examples {
+			fmt.Fprintf(&b, "%s%-*s%s%s\n", exampleIndent, lineWidth, ex.line, exampleGap, ex.what)
+		}
+		return b.String()
+	}
+	for i, ex := range examples {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		fmt.Fprintf(&b, "%s# %s\n%s%s\n", exampleIndent, ex.what, exampleIndent, ex.line)
+	}
+	return b.String()
+}
+
+// sentence turns a command's short description into the line its own help
+// opens with.
+func sentence(text string) string {
+	if text == "" {
+		return ""
+	}
+	return strings.ToUpper(text[:1]) + text[1:] + "."
+}
+
 // outputOptions are where a command writes and in which shape.
 type outputOptions struct {
 	Output string `short:"o" long:"output" description:"file to write, standard output when absent"`
@@ -103,6 +206,7 @@ func runCommand(args []string, in io.Reader, out, errOut io.Writer) int {
 		var flagsErr *flags.Error
 		if errors.As(err, &flagsErr) && flagsErr.Type == flags.ErrHelp {
 			_, _ = fmt.Fprintln(out, flagsErr.Message)
+			_, _ = fmt.Fprint(out, helpFooter(name))
 			return 0
 		}
 		_, _ = fmt.Fprintln(errOut, err)
@@ -177,16 +281,19 @@ func parseCommands(args []string) (*commands, string, error) {
 	var cmds commands
 	p := flags.NewParser(&cmds, flags.HelpFlag)
 	p.SubcommandsOptional = true
+	for _, cmd := range p.Commands() {
+		cmd.LongDescription = sentence(cmd.ShortDescription)
+	}
 	rest, err := p.ParseArgs(head)
-	if err != nil {
-		return nil, "", fmt.Errorf("parse flags: %w", err)
-	}
-	if len(rest) > 0 {
-		return nil, "", fmt.Errorf("parse flags: unknown command or argument %q", rest[0])
-	}
 	name := ""
 	if p.Active != nil {
 		name = p.Active.Name
+	}
+	if err != nil {
+		return nil, name, fmt.Errorf("parse flags: %w", err)
+	}
+	if len(rest) > 0 {
+		return nil, "", fmt.Errorf("parse flags: unknown command or argument %q", rest[0])
 	}
 
 	switch name {

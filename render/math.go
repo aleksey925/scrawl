@@ -18,7 +18,7 @@ import (
 // here; the fence is handled with mermaid in fence.go.
 //
 // The delimiter rules are what keeps a shell snippet written in prose from
-// turning into a formula, which matters because the corpus is full of "$HOME"
+// turning into a formula, which matters because notes are full of "$HOME"
 // and "$1". Checked against api.github.com/markdown in "gfm" mode, an inline
 // expression needs all of:
 //
@@ -31,8 +31,8 @@ import (
 //
 // Whitespace in front of the closing "$" is allowed, unlike in Pandoc.
 // GitHub tests the neighbors for an ASCII alphanumeric; this uses the Unicode
-// classes instead, because the corpus is Russian and "$5$рублей" reads as
-// prose there for exactly the same reason "$5$x" does in English.
+// classes instead, because in Russian "$5$рублей" reads as prose for exactly
+// the same reason "$5$x" does in English.
 //
 // One deliberate difference: GitHub looks for math in the rendered HTML, so
 // "$a*b*c$" is not an expression there, the emphasis having already split the

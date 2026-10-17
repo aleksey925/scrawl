@@ -10,7 +10,7 @@ var (
 	// bluemonday's own id filter is not anchored and is ASCII only, so a
 	// Cyrillic anchor needs an explicit, anchored pattern.
 	reSlugID = regexp.MustCompile(`^[\p{L}\p{N}_][\p{L}\p{N}._:\-]{0,128}$`)
-	// the corpus has 249 hand-written anchors such as
+	// a hand-written anchor, which GitHub keeps too, can name any heading:
 	// <a name='Активация-"Quick-Search"-в-synaptic'></a>
 	reAnchorName = regexp.MustCompile(`^[^\s<>&]{1,192}$`)
 	reLang       = regexp.MustCompile(`^[\p{L}\p{N}+#._-]{1,32}$`)
@@ -45,7 +45,7 @@ const srcsetCandidate = `(?:https?://[^\s,"'<>]+|[^\s,:"'<>]+)(?: +[0-9]+(?:\.[0
 // and bluemonday accepts an attribute when any registered policy matches it, so
 // every rule added on top can only widen the filter. Starting from nothing is
 // the only way an anchored id pattern actually holds, and it also keeps the
-// global "title", "dir" and "lang" that the corpus never uses out of the
+// global "title", "dir" and "lang", which a note has no use for, out of the
 // output, where they could clobber the app's own element ids.
 //
 // data: URLs are refused everywhere, images included. An inline data:image is
@@ -91,7 +91,7 @@ func newPolicy() *bluemonday.Policy {
 	p.AllowAttrs("type").Matching(reMediaType).OnElements("source")
 	p.AllowTables()
 	p.AllowLists()
-	// AllowLists does not cover start=, and 4 corpus lists open at 2..5
+	// AllowLists does not cover start=, and a list may open at any number
 	p.AllowAttrs("start").Matching(reStart).OnElements("ol")
 	p.AllowAttrs("align").Matching(reAlign).OnElements("td", "th", "tr", "col")
 	p.AllowAttrs("colspan", "rowspan").Matching(reSpan).OnElements("td", "th")

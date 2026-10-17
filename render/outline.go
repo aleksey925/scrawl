@@ -7,14 +7,14 @@ import (
 	"github.com/yuin/goldmark/ast"
 )
 
-// tocMaxLevel is the deepest heading the outline collects. The corpus has 31
-// h5 headings that would only add noise to a 112-entry rail. Which of the
-// collected levels reach the reader is OutlineOf's call.
+// tocMaxLevel is the deepest heading the outline collects: h5 and h6 would
+// only add noise to the rail. Which of the collected levels reach the reader
+// is OutlineOf's call.
 const tocMaxLevel = 4
 
 // outlineLevels are the heading levels an outline beside the note lists.
-// Documents in this corpus carry two h1s (the setext title plus a hand written
-// "Contents") and the largest one has 112 headings, which is unusable flat.
+// The h1 is the title of a note, and a long note has more than a hundred
+// headings, which is unusable flat.
 var outlineLevels = []int{2, 3}
 
 // MinOutline is how many listed headings a note needs before an outline earns
@@ -67,8 +67,8 @@ func headingID(h *ast.Heading) string {
 }
 
 // headingText is the plain text of a heading: inline markup unwrapped and raw
-// HTML dropped, so a heading that swallowed an <a name='...'></a> line still
-// reads correctly in the sidebar.
+// HTML dropped, so a heading that holds a tag still reads correctly in the
+// sidebar.
 func headingText(n ast.Node, source []byte) string {
 	var b strings.Builder
 	_ = ast.Walk(n, func(c ast.Node, entering bool) (ast.WalkStatus, error) {

@@ -84,10 +84,8 @@ func New(opts Options) *Renderer {
 		pageExt:    opts.PageExt,
 		exists:     opts.LinkExists,
 	}
-	// goldmark's indented code block parser is kept on purpose. Removing it
-	// was tried, because the corpus has 427 fenced blocks and zero indented
-	// ones: it changed nothing in the corpus output and made goldmark drop
-	// any top-level 4-space-indented line on the floor, silently.
+	// goldmark's indented code block parser is kept on purpose: without it
+	// goldmark drops any top-level 4-space-indented line, silently.
 	md := goldmark.New(
 		goldmark.WithExtensions(
 			// not extension.GFM: the default table renderer emits
@@ -97,7 +95,7 @@ func New(opts Options) *Renderer {
 			),
 			extension.Strikethrough,
 			extension.TaskList,
-			// 23 corpus URLs are written bare
+			// GitHub links a bare URL too
 			extension.NewLinkify(
 				extension.WithLinkifyURLRegexp(linkifyURLRegexp),
 				extension.WithLinkifyWWWRegexp(linkifyWWWRegexp),
@@ -192,7 +190,6 @@ func (r *Renderer) finish(root ast.Node, source []byte, pctx parser.Context) (te
 	clean = rewriteRawHTML(clean, func(dest string) target {
 		return r.links.resolve(dest, dir)
 	})
-	clean = stripAnchorParagraphs(clean)
 	return template.HTML(clean), nil //nolint:gosec // sanitized by bluemonday above
 }
 

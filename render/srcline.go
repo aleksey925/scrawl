@@ -18,8 +18,8 @@ import (
 // editor can open where the reader was and the preview can be scrolled against
 // the source. Both bounds are 1-based and inclusive, and they are line numbers
 // rather than byte offsets: goldmark counts bytes, CodeMirror counts UTF-16
-// code units, and the corpus is Cyrillic, so an offset that reached the client
-// would be wrong on nearly every document.
+// code units, and in a Cyrillic note an offset that reached the client would be
+// wrong almost everywhere.
 const (
 	srcStartAttr = "data-source-start"
 	srcEndAttr   = "data-source-end"
@@ -48,31 +48,30 @@ type srcSpan struct {
 }
 
 // srcLines maps a byte offset of the preprocessed source onto the line of the
-// original file it came from. preprocess drops frontmatter, inserts blank lines
-// and rewrites single lines, so the two numberings do not share an offset.
+// original file it came from, which is further down by the frontmatter.
 type srcLines struct {
-	starts []int // offset every preprocessed line begins at
-	origin []int // original 1-based line every preprocessed line came from
+	starts  []int // offset every preprocessed line begins at
+	dropped int
 }
 
 func newSrcLines(doc document) srcLines {
-	starts := make([]int, 1, len(doc.origin)+1)
+	starts := []int{0}
 	for i, c := range doc.src {
 		if c == '\n' {
 			starts = append(starts, i+1)
 		}
 	}
-	return srcLines{starts: starts, origin: doc.origin}
+	return srcLines{starts: starts, dropped: doc.dropped}
 }
 
 // at is the original line the offset falls on. An offset past the end of the
 // document answers with its last line.
 func (s srcLines) at(offset int) int {
 	i := sort.SearchInts(s.starts, offset+1) - 1
-	if i < 0 || i >= len(s.origin) {
+	if i < 0 {
 		return 0
 	}
-	return s.origin[i]
+	return s.dropped + i + 1
 }
 
 // srcLineTransformer annotates every block that reaches the reader as its own

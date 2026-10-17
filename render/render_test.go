@@ -85,14 +85,14 @@ func TestRenderTitleFallback(t *testing.T) {
 
 func TestRenderInlineMatchesRender(t *testing.T) {
 	// arrange
-	src, err := os.ReadFile(filepath.Join("testdata", "md", "heading-in-list.md"))
+	src, err := os.ReadFile(filepath.Join("testdata", "md", "github-syntax.md"))
 	require.NoError(t, err)
 	r := New(Options{})
 
 	// act
-	full, err := r.Render(src, "docs/heading-in-list.md")
+	full, err := r.Render(src, "docs/github-syntax.md")
 	require.NoError(t, err)
-	inline, err := r.RenderInline(src, "docs/heading-in-list.md")
+	inline, err := r.RenderInline(src, "docs/github-syntax.md")
 
 	// assert
 	require.NoError(t, err)
@@ -162,21 +162,5 @@ func TestContentDir(t *testing.T) {
 		t.Run(tt.in, func(t *testing.T) {
 			assert.Equal(t, tt.want, contentDir(tt.in))
 		})
-	}
-}
-
-func BenchmarkRenderLargeDocument(b *testing.B) {
-	root := os.Getenv("SCRAWL_CORPUS")
-	if root == "" {
-		b.Skip("SCRAWL_CORPUS is not set")
-	}
-	src, err := os.ReadFile(filepath.Join(root, "python", "python-notes-index.md"))
-	require.NoError(b, err)
-	r := New(Options{})
-	b.ReportAllocs()
-	for b.Loop() {
-		if _, err := r.Render(src, "python/python-notes-index.md"); err != nil {
-			b.Fatal(err)
-		}
 	}
 }

@@ -18,10 +18,5 @@ toc:
 </span></span><span class="line"><span class="cl">age-keygen -o ~/.config/sops/age/keys.txt
 </span></span><span class="line"><span class="cl">chmod <span class="m">600</span> ~/.config/sops/age/keys.txt
 </span></span></code></pre></div>
-<p data-source-start="20" data-source-end="22">В файле окажется приватный ключ (<code>AGE-SECRET-KEY-1...</code>) и публичный
-комментарием (<code># public key: age1...</code>).
-Дальше идёт обычный абзац, а сразу за ним список без пустой строки.</p>
-<ol start="3" data-source-start="23" data-source-end="24">
-<li data-source-start="23" data-source-end="23">Третий шаг</li>
-<li data-source-start="24" data-source-end="24">Четвёртый шаг</li>
-</ol>
+<p data-source-start="20" data-source-end="21">В файле окажется приватный ключ (<code>AGE-SECRET-KEY-1...</code>) и публичный
+комментарием (<code># public key: age1...</code>).</p>

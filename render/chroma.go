@@ -16,10 +16,8 @@ import (
 	"github.com/aleksey925/scrawl/theme"
 )
 
-// languageAliases maps fence info strings the corpus uses onto chroma lexer
-// names. The Cyrillic "с" is a real typo in python/python-notes-index.md.
+// languageAliases maps fence languages chroma does not know onto lexer names.
 var languageAliases = map[string]string{
-	"с":              "c", // U+0441 CYRILLIC SMALL LETTER ES
 	"docker-compose": "yaml",
 	"cmd":            "batch",
 	"regexp":         "regex",

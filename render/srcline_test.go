@@ -102,23 +102,8 @@ func TestSourceRanges(t *testing.T) {
 		},
 		{
 			name: "details block",
-			src:  "# D\n\n<details markdown=\"span\">\n<summary>S</summary>\nВнутри *курсив*\n</details>\n\nхвост\n",
-			want: []string{"h1:1-1", "details:3-4", "p:5-5", "p:8-8"},
-		},
-		{
-			name: "pymd blank line before an interrupting ordered list",
-			src:  "Абзац текста.\n3. Третий\n4. Четвёртый\n\nхвост\n",
-			want: []string{"p:1-1", "ol:2-3", "li:2-2", "li:3-3", "p:5-5"},
-		},
-		{
-			name: "pymd heading unwrapped inside a list item",
-			src:  "# T\n\n1. <h3>[Принципы](#Принципы)</h3>\n2. обычный\n",
-			want: []string{"h1:1-1", "ol:3-4", "li:3-3", "li:4-4"},
-		},
-		{
-			name: "frontmatter and pymd rewrites together",
-			src:  "---\ntitle: x\n---\nАбзац текста.\n3. Третий\n4. Четвёртый\n\n<details>\nтекст\n</details>\n",
-			want: []string{"p:4-4", "ol:5-6", "li:5-5", "li:6-6", "details:8-8", "p:9-9"},
+			src:  "# D\n\n<details>\n<summary>S</summary>\n\nВнутри *курсив*\n\n</details>\n\nхвост\n",
+			want: []string{"h1:1-1", "details:3-4", "p:6-6", "p:10-10"},
 		},
 	}
 	r := New(Options{})
@@ -180,15 +165,6 @@ func TestSourceRangeSanitizer(t *testing.T) {
 			assert.Equal(t, tt.want, sourceRanges(t, string(out)))
 		})
 	}
-}
-
-func TestPreprocessLineOrigin(t *testing.T) {
-	// act
-	doc := preprocess([]byte("---\ntitle: x\n---\nАбзац текста.\n3. Третий\n"))
-
-	// assert
-	assert.Equal(t, "Абзац текста.\n\n3. Третий\n", string(doc.src))
-	assert.Equal(t, []int{4, 5, 5, 6}, doc.origin)
 }
 
 func TestSrcLinesAt(t *testing.T) {

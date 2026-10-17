@@ -56,7 +56,7 @@ func TestHighlightUnknownLanguageFallsBack(t *testing.T) {
 		wantHighlight       bool
 	}{
 		{name: "known language", src: "```python\nx = 1\n```\n", wantLang: `data-lang="python"`, wantHighlight: true},
-		{name: "cyrillic es is normalized", src: "```с\nint x;\n```\n", wantLang: `data-lang="c"`, wantHighlight: true},
+		{name: "an alias is normalized", src: "```docker-compose\nservices: {}\n```\n", wantLang: `data-lang="yaml"`, wantHighlight: true},
 		{name: "unknown language", src: "```кириллица\ntext\n```\n", wantLang: `data-lang="кириллица"`},
 		{name: "no language", src: "```\ntext\n```\n"},
 		{name: "indented block", src: "    just text\n"},
@@ -79,7 +79,6 @@ func TestHighlightUnknownLanguageFallsBack(t *testing.T) {
 
 func TestNormalizeFenceInfo(t *testing.T) {
 	tests := []struct{ name, in, want string }{
-		{"cyrillic es", "```с", "```c"},
 		{"indented", "    ```cmd", "    ```batch"},
 		{"extra info is kept", "```docker-compose title=x", "```yaml title=x"},
 		{"unknown", "```rust", "```rust"},

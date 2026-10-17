@@ -178,7 +178,7 @@ func TestSanitizeIDAttribute(t *testing.T) {
 	}
 }
 
-func TestSanitizeDropsGlobalAttributesTheCorpusDoesNotUse(t *testing.T) {
+func TestSanitizeDropsGlobalAttributesANoteHasNoUseFor(t *testing.T) {
 	// act
 	out, err := New(Options{}).RenderInline([]byte(`<p title="tip" dir="rtl" lang="en">x</p>`), "x.md")
 
@@ -210,32 +210,6 @@ func TestSanitizeDropsDataImageURLs(t *testing.T) {
 			assert.NotContains(t, string(out), "data:")
 		})
 	}
-}
-
-func TestStripAnchorParagraphs(t *testing.T) {
-	tests := []struct{ name, in, want string }{
-		{"single anchor", `<p><a name="Общее"></a></p>`, `<a name="Общее"></a>`},
-		{"two anchors", `<p><a name="a"></a>` + "\n" + `<a name="b"></a></p>`, `<a name="a"></a>` + "\n" + `<a name="b"></a>`},
-		{"paragraph carrying a source range", `<p data-source-start="2" data-source-end="2"><a name="a"></a></p>`,
-			`<a name="a"></a>`},
-		{"anchor with text is kept", `<p><a name="a"></a>текст</p>`, `<p><a name="a"></a>текст</p>`},
-		{"plain paragraph", `<p>текст</p>`, `<p>текст</p>`},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, string(stripAnchorParagraphs([]byte(tt.in))))
-		})
-	}
-}
-
-func TestRenderAnchorAboveHeadingHasNoEmptyParagraph(t *testing.T) {
-	// act
-	out, err := New(Options{}).RenderInline([]byte("<a name='Общее'></a>\n## Общее\n"), "x.md")
-
-	// assert
-	require.NoError(t, err)
-	assert.Equal(t, `<a name="Общее"></a>`+"\n"+`<h2 id="общее">Общее</h2>`+"\n",
-		withoutSourceRanges(string(out)))
 }
 
 func TestRenderInlineCodeWithAngleBrackets(t *testing.T) {

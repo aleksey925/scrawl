@@ -14,7 +14,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// reHTMLTag matches a tag so a heading that swallowed a raw <a name='x'></a>
+// reHTMLTag matches a tag so raw HTML in a heading, such as <a name='x'></a>,
 // does not leak "a namex a" into its own anchor.
 var reHTMLTag = regexp.MustCompile(`</?[a-zA-Z][^>]*>`)
 
@@ -28,12 +28,11 @@ var reFootnoteID = regexp.MustCompile(`^fn(ref)?-\d`)
 
 // Slug builds a heading anchor: NFC, drop every rune outside letters, digits,
 // "_", "-" and space, trim spaces, turn the remaining spaces into "-", then
-// lowercase. This is what GitHub and pymdownx.slugs.slugify(case='lower') both
-// do, and the corpus was published with the latter.
+// lowercase. This is what GitHub does.
 //
 // Runs of hyphens are deliberately kept: "диск — это" has to stay
 // "диск--это", because the em dash disappears and both of its spaces become
-// hyphens. Collapsing them would break the published anchors.
+// hyphens. Collapsing them would break the anchors GitHub gives.
 func Slug(text string) string {
 	var b strings.Builder
 	b.Grow(len(text))

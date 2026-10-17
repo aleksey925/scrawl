@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"regexp"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -14,7 +13,7 @@ import (
 // transformer never sees because goldmark keeps a raw HTML block as one
 // opaque blob. It works on tokens rather than on a parsed tree: re-serializing
 // a tree would silently restructure invalid-but-harmless markup such as an
-// <h3> inside a <p>, which this corpus produces.
+// <h3> inside a <p>.
 //
 // resolve is idempotent, so the links the AST pass already rewrote survive a
 // second visit untouched.
@@ -42,15 +41,6 @@ func rewriteRawHTML(fragment []byte, resolve func(dest string) target) []byte {
 		patchTag(&tok, resolve)
 		out.WriteString(tok.String())
 	}
-}
-
-// reAnchorParagraph matches a paragraph holding nothing but the corpus's
-// manual anchors. goldmark wraps a lone <a name='x'></a> line in a paragraph,
-// which puts an empty 16px-tall block above 249 headings.
-var reAnchorParagraph = regexp.MustCompile(`<p(?:\s[^>]*)?>((?:\s*<a name="[^"]*"></a>)+)\s*</p>`)
-
-func stripAnchorParagraphs(fragment []byte) []byte {
-	return reAnchorParagraph.ReplaceAll(fragment, []byte("$1"))
 }
 
 func isLinkTag(name []byte) bool {

@@ -44,11 +44,9 @@ docker run -d \
   ghcr.io/aleksey925/scrawl:latest
 ```
 
-The folder you serve is called a space. `SPACE_NAME` names it, and it is
-required. It is the one segment every URL of that folder is served
-under - `/s/notes/doc/python/redis.md` - so it is written down rather
-than derived: a name taken from the directory would turn one `mv` into a
-site-wide URL change.
+The folder you serve is called a space. `SPACE_NAME` is its name, and it
+is required. The name is part of every URL of the space:
+`/s/notes/doc/python/redis.md`.
 
 A plain password works and the server warns about it on startup. For
 anything reachable from outside, use a hash instead:
@@ -74,6 +72,8 @@ mise use -g github:aleksey925/scrawl
 ```
 
 To build it yourself, run `go install github.com/aleksey925/scrawl@latest`.
+
+Run it with the same settings as the docker example, given as flags:
 
 ```
 scrawl serve --space.dir ~/notes --space.name notes --auth.users 'alex:my-password'
@@ -102,50 +102,60 @@ including the HTTP timeouts.
 These always apply, with a spaces file or without one. Only a way to
 sign in is required, everything else has a working default.
 
-| variable           | required              | default             | meaning                                                                                                                              |
-| ------------------ | --------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `LISTEN`           |                       | `:7272`             | address to listen on                                                                                                                 |
-| `SITE_TITLE`       |                       | `Notes`             | name of the site: the browser tab, the sign-in page, the home screen icon                                                            |
-| `AUTH_USERS`       | yes, or `AUTH_TOKENS` |                     | who can sign in: `user:hashOrPassword`, comma separated                                                                              |
-| `AUTH_TOKENS`      |                       |                     | API tokens for scripts and agents, `name:hashOrToken[:ro]`, comma separated; enough alone for a server no browser signs in to        |
-| `AUTH_DISABLED`    |                       | `false`             | serve without authentication, then neither of the two above is needed                                                                |
-| `AUTH_SECRET`      |                       |                     | cookie signing key; leave empty and one is generated and kept                                                                        |
-| `AUTH_SECRET_FILE` |                       | `/data/session.key` | where a generated key is kept                                                                                                        |
-| `AUTH_TTL`         |                       | `720h`              | how long a session lasts                                                                                                             |
-| `AUTH_SECURE`      |                       | `auto`              | `Secure` flag of the session cookie; `always` behind an HTTPS proxy                                                                  |
-| `READ_ONLY`        |                       | `false`             | refuse every write, in every space                                                                                                   |
-| `EXCLUDE`          |                       |                     | extra ignore globs for every space, comma separated                                                                                  |
-| `MAX_UPLOAD`       |                       | `20M`               | upload size cap                                                                                                                      |
-| `UPLOAD_DIR`       |                       |                     | put every upload in this one folder instead of a folder next to the note                                                             |
-| `WATCH`            |                       | `auto`              | set to `poll` when a space is on a network share                                                                                     |
-| `RESCAN`           |                       | `60s`               | periodic rescan, negative disables it unless `WATCH=poll`                                                                            |
-| `HISTORY`          |                       | `auto`              | keep a git history of changes; `on` fails without git, `off` never touches the notes; always on for a space that is a git repository |
-| `TRUSTED_PROXY`    |                       | `false`             | trust `X-Forwarded-For` and `-Proto`; set it behind a reverse proxy                                                                  |
-| `TZ`               |                       | `UTC`               | timezone                                                                                                                             |
-| `DEBUG`            |                       | `false`             | debug logging                                                                                                                        |
+| variable           | required              | default             | meaning                                                                                                                                                                                                                                 |
+| ------------------ | --------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LISTEN`           |                       | `:7272`             | address to listen on                                                                                                                                                                                                                    |
+| `SITE_TITLE`       |                       | `Notes`             | name of the site: the browser tab, the sign-in page, the home screen icon                                                                                                                                                               |
+| `AUTH_USERS`       | yes, or `AUTH_TOKENS` |                     | who can sign in: `user:hashOrPassword`, comma separated                                                                                                                                                                                 |
+| `AUTH_TOKENS`      |                       |                     | API tokens for scripts and agents, `name:hashOrToken[:ro]`, comma separated; enough alone for a server no browser signs in to                                                                                                           |
+| `AUTH_DISABLED`    |                       | `false`             | serve without authentication, then neither of the two above is needed                                                                                                                                                                   |
+| `AUTH_SECRET`      |                       |                     | cookie signing key; leave empty and one is generated and kept                                                                                                                                                                           |
+| `AUTH_SECRET_FILE` |                       | `/data/session.key` | where a generated key is kept                                                                                                                                                                                                           |
+| `AUTH_TTL`         |                       | `720h`              | how long a session lasts                                                                                                                                                                                                                |
+| `AUTH_SECURE`      |                       | `auto`              | `Secure` flag of the sign-in cookie: `auto` sets it when the request came over HTTPS, `always` always, `never` never                                                                                                                    |
+| `READ_ONLY`        |                       | `false`             | refuse every write, in every space                                                                                                                                                                                                      |
+| `EXCLUDE`          |                       |                     | extra ignore globs for every space, comma separated                                                                                                                                                                                     |
+| `MAX_UPLOAD`       |                       | `20M`               | upload size cap                                                                                                                                                                                                                         |
+| `UPLOAD_DIR`       |                       |                     | put every upload in this one folder instead of a folder next to the note                                                                                                                                                                |
+| `WATCH`            |                       | `auto`              | how changes made outside scrawl are found: `auto` - the system reports them, plus a rescan every `RESCAN`; `poll` - the rescan only. Use `poll` for a network share: the system does not report changes made there from another machine |
+| `RESCAN`           |                       | `60s`               | how often every folder is reread to find changes; negative turns it off, except with `WATCH=poll`                                                                                                                                       |
+| `HISTORY`          |                       | `auto`              | keep a git history of changes; `on` fails without git, `off` never touches the notes; always on for a space that is a git repository                                                                                                    |
+| `TRUSTED_PROXY`    |                       | `false`             | trust `X-Forwarded-For` and `-Proto`; set it behind a reverse proxy                                                                                                                                                                     |
+| `TZ`               |                       | `UTC`               | timezone                                                                                                                                                                                                                                |
+| `DEBUG`            |                       | `false`             | debug logging                                                                                                                                                                                                                           |
 
 Dot directories, `node_modules` and `__pycache__` are ignored, so notes
 kept in git do not expose `.git`.
 
-Behind a proxy that terminates TLS, set `TRUSTED_PROXY=true` and
-`AUTH_SECURE=always`. The proxy must overwrite `X-Forwarded-For`,
-otherwise a client can pick its own login rate limit bucket.
+If scrawl runs behind a reverse proxy (nginx, Caddy or any other), set:
+
+- `TRUSTED_PROXY=true` - scrawl then takes the user's address from the
+  `X-Forwarded-For` header and the scheme from `X-Forwarded-Proto`,
+  instead of from the connection. Without it, every request comes from
+  the proxy's address, and the limit on wrong passwords counts all users
+  together: 10 wrong passwords from anyone lock everyone out for 15
+  minutes. The proxy must set `X-Forwarded-For` itself, otherwise anyone
+  can write a new address there for each try and guess passwords
+  without a limit.
+- `AUTH_SECURE=always` - if the proxy serves HTTPS. scrawl then always
+  sets the `Secure` flag on the sign-in cookie, and a browser will never
+  send a cookie with this flag over plain http. This matters if the proxy
+  still answers on plain http.
 
 ### One space
 
-When you need to connect to only one space, you can describe all the
-required configuration through environment variables without creating
-a file with the space configuration.
+With one space, all its settings can be environment variables, and no
+spaces file is needed.
 
 **They are ignored when `SPACES_FILE` is set**, and the startup log
-warns about each one that was set anyway. The last column is the key
-that takes the variable's place in the file.
+warns about each one that was set anyway. The last column shows the same
+setting in the spaces file.
 
 | variable               | required | default         | meaning                                                   | in the file      |
-| ---------------------- | -------- | --------------- | --------------------------------------------------------- | ---------------- | --- | ------ | ------------------------------------------------------------------------- |
+| ---------------------- | -------- | --------------- | --------------------------------------------------------- | ---------------- |
 | `SPACE_NAME`           | yes      |                 | name of the space, the URL segment it gets                | `name`           |
 | `SPACE_DIR`            |          | `/spaces/notes` | directory to serve                                        | `dir`            |
-| `SPACE_FORMAT_ON_SAVE` |          | `on`            | `off` stops a save from formatting the note with prettier | `format_on_save` |     | `true` | `false` stops a save in this space from formatting the note with prettier |
+| `SPACE_FORMAT_ON_SAVE` |          | `on`            | `off` stops a save from formatting the note with prettier | `format_on_save` |
 
 That is all a plain folder needs. The rest is only for a space that is
 a git repository, see
@@ -210,6 +220,9 @@ spaces:
 | `repo.hook_secret_file` |                    |          | file holding the webhook secret; set it only to let the git host trigger a fetch                                               |
 | `repo.hook_secret_env`  |                    |          | variable holding that secret, instead of `hook_secret_file`                                                                    |
 
+Then start it with the file. Here `notes` is a folder on the host, and
+the clone of `team` lives in the `scrawl-spaces` volume:
+
 ```
 docker run -d -p 7272:7272 \
   -v ./spaces.yml:/etc/spaces.yml -v /path/to/notes:/spaces/notes -v scrawl-spaces:/spaces \
@@ -220,23 +233,20 @@ docker run -d -p 7272:7272 \
 
 A few rules:
 
-- A misspelled key is a startup error rather than a setting that
-  silently did nothing.
-- `read_only` only ever adds. A server started with `READ_ONLY` refuses
-  every write everywhere, and `read_only: false` on a space cannot open
-  it back up.
-- `exclude` adds to the server-wide `EXCLUDE` for the same reason.
+- A misspelled key stops startup with an error.
+- `read_only` can only add a limit. With `READ_ONLY` set on the server,
+  `read_only: false` on a space does not allow writes there.
+- `exclude` adds globs to `EXCLUDE` and never removes any.
 - Setting both `token_file` and `token_env`, or both hook secret keys,
-  is a startup error rather than a precedence rule to remember.
+  stops startup with an error.
 
 `/` redirects to the first space, and the topbar shows a switcher once
 there is more than one. Everything else is shared: one login, one
 session, one set of API tokens, and a search that searches the space you
 are in.
 
-For strict isolation between spaces - separate credentials, separate
-processes - run one scrawl per folder behind a reverse proxy instead.
-That is what this feature deliberately does not do.
+For full separation between spaces - separate users, separate
+processes - run one scrawl per folder behind a reverse proxy.
 
 ## A git repository as a space
 
@@ -269,47 +279,41 @@ Every key and variable is listed under
 [Configuration](#configuration). The rest of this section is about how such
 a space behaves.
 
-**The directory is a volume, and it has to survive a restart.** The
-clone lives there and so does every commit that has not been pushed yet.
-If the directory is inside the container's own filesystem, a restart
-re-clones and anything the remote never got is gone.
+**Keep the clone in a volume.** The clone lives in the space folder,
+together with every commit not pushed yet. If that folder is inside the
+container, a restart clones again and those commits are lost.
 
-The image keeps `/spaces` for this. It belongs to the user the image
-runs as, so a named volume mounted there is writable from the first
-start, and one volume holds every clone: `/spaces/team`,
-`/spaces/wiki`. A volume mounted at a path the image does not have
+Mount a named volume at `/spaces` and put every clone under it:
+`/spaces/team`, `/spaces/wiki`. `/spaces` already exists in the image
+and belongs to the user the app runs as, so the volume is writable from
+the first start. A volume mounted at a path the image does not have
 belongs to root, and the clone fails with `permission denied`.
 
-**A credential is named, never written down inline.** `token_file`
-points at a file, `token_env` at an environment variable, and a single
-space reads the fixed `REPO_TOKEN`. A URL carrying a password is
-refused: `git clone` writes the URL into `.git/config`, where it would
-sit in plain text inside the notes volume.
+**In the spaces file the token is not written directly.** `token_file`
+points at a file that holds it, `token_env` at an environment variable.
+With one space it is the `REPO_TOKEN` variable. A URL with a password in it is
+refused: `git clone` would save it in plain text in `.git/config`,
+inside the notes folder.
 
-**The value is the token itself**, the string the git host handed you -
-`github_pat_...`, `glpat-...` - and scrawl makes the HTTP credential out
-of it. A value that already names a scheme is taken as a whole
-`Authorization` header instead and passed through untouched, which is
-what a host wanting something else needs: github.com accepts only
-`Basic` on its git endpoint, Bitbucket Data Center only
-`Bearer <token>`.
+**Use the token as the git host gave it** - `github_pat_...`,
+`glpat-...`. For most hosts that is enough. A value that starts with a
+scheme name is sent as the whole `Authorization` header instead: this is
+for a host that wants another kind of header, like Bitbucket Data
+Center, which takes `Bearer <token>`.
 
-A mounted file is the better option wherever a secret store can provide
-one. `token_env` and `REPO_TOKEN` are for the deployment that has none,
-and it is worth knowing what an environment variable is visible to:
-`docker inspect`, `docker compose config`, the systemd unit and the
-shell history of whoever typed the command all keep the value. scrawl
-unsets the variable as soon as it has read it, which stops it reaching
-the git children and does nothing at all about any of those.
+A file is safer than a variable. The value of an environment variable
+stays visible in `docker inspect`, `docker compose config`, a systemd
+unit and the shell history. scrawl removes the variable once it has
+read it, but that does not hide it from any of these.
 
 For ssh there is no setting: an ssh remote uses the agent and the
 `~/.ssh` you mount into the container, like every other tool on the box.
 
 **Pulling and pushing.** A save is committed and pushed straight away.
-In between, `pull` says how often to fetch; `0` turns the ticker off,
-and the startup fetch still happens. A fetch is followed by a
-fast-forward and nothing else: scrawl never merges, never rebases and
-never resolves. If the branch has diverged, the space keeps serving,
+In between, `pull` says how often to fetch from the remote; `0` turns
+that off, but scrawl still fetches once at startup. A fetch is followed
+by a fast-forward and nothing else: scrawl never merges, never rebases
+and never resolves conflicts. If the branch has diverged, the space keeps serving,
 saves keep landing on disk and in local commits, and a banner says so on
 every screen together with a button that resets this copy to the remote
 version - see [below](#when-a-space-has-diverged).
@@ -320,11 +324,9 @@ would also stop pushing. And git cannot represent an empty directory, so
 a folder you create reaches the remote with the first note you put in
 it.
 
-A read-only space of this kind never writes to git at all: it fetches
-and fast-forwards, and it does not commit, push or probe. A change that
-appears in its directory some other way is served and read, and it is
-never recorded: there is no push to carry that commit anywhere, and it
-would be what the next fetch from the remote trips over.
+A read-only space of this kind only fetches and fast-forwards. It never
+commits or pushes. A file changed in its folder some other way is
+served, but not recorded in git.
 
 ## A webhook instead of polling
 
@@ -341,23 +343,20 @@ spaces:
       hook_secret_file: /run/secrets/gh-hook # or hook_secret_env: HOOK
 ```
 
-With one space it is `REPO_HOOK_SECRET`, the same fixed and optional
-shape `REPO_TOKEN` has. Generate the secret rather than typing one:
+With one space it is the `REPO_HOOK_SECRET` variable. Generate the
+secret rather than typing one:
 
 ```
 openssl rand -hex 32
 ```
 
-It has to be at least 32 bytes. The endpoint answers without a session -
-a git host cannot sign in - so the signature is the only credential
-there is, and a short one turns the route into a public "resync this
-space" button. Naming a secret that turns out to hold nothing - an
-empty file, a variable that never got a value - stops the server rather
-than serving the space with its webhook quietly off, because a secret
-that failed to mount looks exactly like that. The way to have no webhook
-is to name no secret. The file has to live outside every space
-directory, for the same reason the session key does: anything inside is
-on the tree, in the search index and downloadable.
+The secret must be at least 32 bytes. The webhook URL needs no sign-in,
+because a git host cannot sign in, so the secret is its only protection.
+If a secret is set but turns out empty - an empty file, a variable with
+no value - the server does not start: that is how a secret that failed
+to mount looks. To have no webhook, set no secret. Keep the file outside
+every space folder: anything inside is on the tree, in search and can be
+downloaded.
 
 Paste this URL into the repository's webhook settings, with the content
 type the git host offers by default:
@@ -366,26 +365,22 @@ type the git host offers by default:
 https://notes.example.com/s/team/hook
 ```
 
-Behind TLS, always. A signature proves the body was not tampered with
-and hides nothing, and GitLab's scheme sends the secret itself.
+Always use HTTPS for it: GitLab sends the secret itself in a header.
 
 GitHub, Gitea and Forgejo are verified by `X-Hub-Signature-256`, GitLab
 by `X-Gitlab-Token`. Nothing has to be configured for that: the header
 says which one the sender used. The old sha1 `X-Hub-Signature` is not
 accepted.
 
-**Keep a slow `pull` on.** `pull: 1h` with a hook means deliveries do
-the work, almost every tick finds nothing, and a delivery that goes
-missing costs an hour rather than lasting until the next restart.
-Nothing detects a lost delivery: there is no ledger and no catch-up
-request, so with `pull: 0` the clone simply stays behind.
+**Keep a slow `pull` on.** With a webhook, `pull: 1h` is a good value:
+if a delivery gets lost, the clone catches up within an hour. Nothing
+notices a lost delivery, so with `pull: 0` the clone stays behind until
+the next delivery.
 
-The body is never read beyond verifying it. A delivery means "something
-may have changed", so a push to a branch scrawl does not track costs one
-fetch that finds nothing - which is cheaper than a parser that has to
-know four git hosts' payloads. Deliveries also coalesce: twenty in a
-second cause at most two fetches, because they all ask the same
-question.
+scrawl does not read what a delivery says. Any delivery means "something
+may have changed" and starts one fetch, even for a push to a branch
+scrawl does not track. Many deliveries at once start at most two
+fetches.
 
 ## When something is not reaching the remote
 
@@ -394,14 +389,12 @@ history entry exists - the only thing that did not happen is the push,
 and editing carries on exactly as before.
 
 An amber control appears in the top bar and stays there. It says whether
-the note you are looking at is one of the affected ones, and clicking it
-lists them. A banner above the page explains the same thing in full and
-carries the exact git reason. The two share their words: the banner
-explains and scrolls away with the page, the control persists. On a
-phone the control is an entry in the top bar's `⋯` menu, and an amber dot
-on that menu stays in sight while the problem lasts.
+the note you are looking at is affected, and clicking it lists the
+affected notes. A banner above the page says the same in full, with the
+exact git error. On a phone the control is in the `⋯` menu, and an amber
+dot on that menu shows while the problem lasts.
 
-The messages tell four things apart:
+The messages are:
 
 - **Changes are not reaching the remote.** The push failed. The next
   save tries again.
@@ -422,12 +415,11 @@ The messages tell four things apart:
   file left in the way, most often. The git reason is in the message.
 - **Changes are not being recorded.** Not the remote at all: a commit
   failed, so a change is on disk and not in git. The next save that
-  succeeds folds it in.
+  succeeds commits it too.
 
-A first import of a large corpus can show "many files are affected"
-once, until the first push lands. Past a couple of hundred files the
-per-note markers stop and the message says so, because at that point the
-answer is "the whole corpus" and a marker per note answers nothing.
+When many notes are added at once, the message can say "many files are
+affected" until the push goes through. Past a couple of hundred files
+the per-note markers stop and the message says so.
 
 The page refreshes this on its own, about once a minute and only while
 the tab is in front of you, so a push that starts working again clears
@@ -440,29 +432,28 @@ The banner and the top bar control carry one button, **Reset to the
 remote version**. It makes this copy hold exactly what the remote holds,
 and it asks first:
 
-1. It fetches and checks what the reset would lose. The check is a trial
-   merge and not a commit count, so after a rebase or a squash on the remote
-   it says "nothing will be lost" when the content really is there.
-   Otherwise it lists the notes that hold changes only this copy has.
+1. It fetches and checks what the reset would lose. It compares content,
+   not commits, so after a rebase or a squash on the remote it says
+   "nothing will be lost" when your changes are already there. Otherwise
+   it lists the notes with changes that only this copy has.
 2. If there is anything to lose, the copy is kept in a branch named
    `scrawl-backup/<date>-<time>-<commit>` before the reset. Whatever was
    on disk and not yet committed goes into it too.
-3. A checkbox sends that branch to the remote as well, where you can
-   open it on your git host and bring the changes back. It is on by
-   default. Turn it off when the remote was rewritten to remove
-   something for good, or the backup brings it back; the branch then
-   stays in the clone on the server. If the push fails, nothing is
-   reset.
+3. A checkbox, on by default, also pushes that branch to the remote, so
+   you can open it on your git host and bring the changes back. If the
+   push fails, nothing is reset. Turn it off if something was removed
+   from the remote on purpose, such as a leaked password: the backup
+   would bring it back there. The branch then stays only in the clone on
+   the server.
 
-The reset never writes over a file that is in no commit. A file git does
-not track that stands where the remote has one of its own stops it, and
-the message names the file.
+The reset never overwrites a file that git does not track. If the remote
+has a file at the same path, the reset stops and the message names the
+file.
 
-Whoever can write can reset, and so can anybody signed in to a
-read-only space: a read-only mirror whose remote was rebased is the
-one that needs it most. A `:ro` token cannot, and neither can a reader
-of a read-only space on a server with authentication off, where the
-button would belong to anybody who can reach the page.
+Anyone who can write can reset, and so can anyone signed in to a
+read-only space: a read-only mirror whose remote was rebased needs it
+most. A `:ro` token cannot reset. On a server with authentication off,
+nobody can reset a read-only space from the page.
 
 ## Markdown
 
@@ -502,14 +493,14 @@ one folder instead.
   in the file, turns that off
 - the wand button in the toolbar, or `Shift+Alt+F`, formats the note
   without saving it, whatever that setting says
-- only what a request writes is formatted. A file changed on disk or
-  pulled from the remote stays as it came, so to format what is already
+- only notes saved through scrawl are formatted. A file changed on disk
+  or pulled from the remote stays as it is, so to format what is already
   there run `prettier --write "**/*.md"` in the folder once
-- the editor formats in the browser, which takes no time. Any other
-  write is formatted by the server, where prettier is interpreted at
-  roughly 30ms a kilobyte: a usual note takes a fraction of a second and
-  a very long one a few seconds. There a note above 256KB, or one
-  prettier could not finish in 30 seconds, is stored as it was written
+- the editor formats in the browser, which is instant. Any other write
+  is formatted by the server, which is slower: a usual note takes a
+  fraction of a second, a very long one a few seconds. There a note above
+  256KB, or one prettier could not finish in 30 seconds, is stored as it
+  was written
 - with formatting off trailing whitespace is never trimmed, in markdown
   it can be meaningful
 - if the file changed on disk since the editor opened it, the save is
@@ -573,12 +564,12 @@ The last one answers with the source and the revision it was read at:
 }
 ```
 
-Only text within the editable size cap comes back that way; anything
-else answers `415` or `413` and is fetched from
-`/s/<space>/raw/<path>`, which takes the same header.
+Only a text file up to 2MB comes back this way. For any other file the
+answer is `415` (not text) or `413` (too large); read it from
+`/s/<space>/raw/<path>` with the same header.
 
-A write sends that `rev` back, which is how the server tells that the
-file did not move on in between. Read it, then save:
+A save sends that `rev` back. If the file changed since it was read, the
+`rev` no longer matches and the save is refused. Read it, then save:
 
 ```
 BASE=http://localhost:7272/s/notes
@@ -612,7 +603,7 @@ not:
 - `500 {"error":"the change was written and recorded, but not pushed to
 the remote"}`
 
-Both retry themselves: the next commit folds in what was missed, and
+Both fix themselves: the next commit also records what was missed, and
 every push and every fetch tries again.
 
 Two answers mean the file on disk is not what the client assumed. Both
@@ -692,11 +683,12 @@ page has the look of the app: the tree of notes on the left, a drawer on
 a phone, the outline of the note on the right, a copy button on every
 code block, a viewer for the pictures, mermaid diagrams and the theme
 picker, whose choice is kept from page to page. The diagram renderer,
-some 5MB, is written only when a note has a diagram. There is nothing to configure: the front page
-is `index.md` at the root of the notes, and the head of every page links
-to it by its title. The stylesheet and the script are written once, into
-`scrawl/`. The output directory has to be empty or missing, `--exclude`
-leaves more notes out, and `--math` works as for `render`.
+some 5MB, is written only when a note has a diagram. There is nothing to
+configure: the front page is `index.md` at the root of the notes, and
+the head of every page links to it by its title. The stylesheet and the
+script are written once, into `scrawl/`. The output directory has to be
+empty or missing, `--exclude` leaves more notes out, and `--math` works
+as for `render`.
 
 ## Development
 

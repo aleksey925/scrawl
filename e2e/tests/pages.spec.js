@@ -91,8 +91,7 @@ test.describe('pages', () => {
                 // in the client covers
             });
         });
-        // whichever row the tree happens to show beside the one being read, so
-        // this runs on either corpus
+        // whichever row the tree happens to show beside the one being read
         const other = page.locator('[data-testid=tree-row][data-current="false"]').first();
         const target = await other.getAttribute('data-path');
         await other.getByTestId('tree-link').click();

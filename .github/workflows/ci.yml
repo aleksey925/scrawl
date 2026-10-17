@@ -80,7 +80,6 @@ jobs:
       - name: Build the binary the suite drives
         run: make build
 
-      # no private corpus checkout here, so the suite falls back to examples/data
       - name: Install playwright
         working-directory: e2e
         run: |

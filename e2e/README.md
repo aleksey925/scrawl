@@ -92,22 +92,14 @@ is one edit there.
 
 ## Fixtures
 
-The suite runs against two trees and passes on both:
-
-- `~/CodeProjects/knowledge-base`, the private corpus this app was
-  written for, used whenever it is there
-- `examples/data`, the fixture in this repository, used otherwise, which
-  is what a fresh clone and CI get
+The suite runs against `examples/data`, the notes in this repository,
+on every machine.
 
 No spec names a document. `support/docs.js` maps a role - the document
 with an outline, the folder without an index, the word that is found in
-more than one page - onto a path in whichever tree is in use, and the
-specs ask for roles. A new spec that needs something new adds the role
-there for both fixtures instead of hard coding another path.
-
-`SCRAWL_E2E_FIXTURE` picks a different tree. Anything but `examples/data`
-is taken to be the private corpus or a copy of it, so pointing it at an
-unrelated notes tree will fail on the first document a spec asks for.
+more than one page - onto a path in that tree, and the specs ask for
+roles. A new spec that needs something new adds the role there instead of
+hard coding another path.
 
 ## The editor
 
@@ -155,26 +147,19 @@ NODE_PATH=/path/to/playwright/node_modules \
 
 Add `--project=desktop` or `--project=mobile` to run one profile, and a
 file name or `-g <pattern>` to run part of the suite. Playwright runs half
-as many workers as the machine has cores, `--workers=N` changes that. To
-run against
-`examples/data` while the private corpus is on the machine:
-
-```
-SCRAWL_E2E_FIXTURE=../examples/data npx playwright test
-```
+as many workers as the machine has cores, `--workers=N` changes that.
 
 ## Knobs
 
-| variable                  | meaning                                                   | default                                  |
-| ------------------------- | --------------------------------------------------------- | ---------------------------------------- |
-| `SCRAWL_E2E_FIXTURE`      | corpus copied for each run                                | the private corpus, else `examples/data` |
-| `SCRAWL_E2E_WORK`         | where the copies, the config files and the server logs go | `$TMPDIR/scrawl-e2e`                     |
-| `SCRAWL_E2E_PORT`         | port of the normal instance                               | `8731`                                   |
-| `SCRAWL_E2E_PORT_RO`      | port of the read-only instance                            | `8732`                                   |
-| `SCRAWL_E2E_PORT_SHARED`  | port of the `--upload-dir` instance                       | `8733`                                   |
-| `SCRAWL_E2E_PORT_HISTORY` | port of the `--history=on` instance                       | `8734`                                   |
-| `SCRAWL_E2E_PORT_MULTI`   | port of the multi-space instance                          | `8735`                                   |
-| `SCRAWL_E2E_SHOTS`        | where the step screenshots go                             | `e2e/screenshots`                        |
+| variable                  | meaning                                                   | default              |
+| ------------------------- | --------------------------------------------------------- | -------------------- |
+| `SCRAWL_E2E_WORK`         | where the copies, the config files and the server logs go | `$TMPDIR/scrawl-e2e` |
+| `SCRAWL_E2E_PORT`         | port of the normal instance                               | `8731`               |
+| `SCRAWL_E2E_PORT_RO`      | port of the read-only instance                            | `8732`               |
+| `SCRAWL_E2E_PORT_SHARED`  | port of the `--upload-dir` instance                       | `8733`               |
+| `SCRAWL_E2E_PORT_HISTORY` | port of the `--history=on` instance                       | `8734`               |
+| `SCRAWL_E2E_PORT_MULTI`   | port of the multi-space instance                          | `8735`               |
+| `SCRAWL_E2E_SHOTS`        | where the step screenshots go                             | `e2e/screenshots`    |
 
 The ports are the first worker's, worker `N` adds `10 * N` to each.
 
@@ -198,6 +183,5 @@ expected.
   was copied. The ones that break a git origin restore it in an
   `afterEach` and wait for the space to be in step again, so the next
   spec never inherits a broken remote.
-- CI runs the whole suite on `examples/data` and keeps the HTML report of
-  a failed run as a build artifact. A test gets one retry there and none
+- CI keeps the HTML report of a failed run as a build artifact. A test gets one retry there and none
   locally.

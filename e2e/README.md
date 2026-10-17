@@ -8,9 +8,12 @@ nothing to do with scrawl's spaces.
 The suite drives the react app. The one page the server renders itself is
 the sign-in form.
 
-`playwright.config.js` starts the binary itself. Five instances come up,
-each against its own throwaway copy of the corpus made by
-`support/serve.js`, so a run never touches the source tree:
+The suite starts the binary itself. Every spec takes `test` from
+`support/test.js`, which brings up five instances for each Playwright
+worker before its first test, each against its own throwaway copy of the
+corpus made by `support/serve.js`, so a run never touches the source tree
+and two workers never share a tree. The ports below are the first
+worker's; worker `N` adds `10 * N` to each:
 
 - `127.0.0.1:8731` - normal mode, used by nearly every spec
 - `127.0.0.1:8732` - `--read-only --history=on`, used by
@@ -151,7 +154,9 @@ NODE_PATH=/path/to/playwright/node_modules \
 ```
 
 Add `--project=desktop` or `--project=mobile` to run one profile, and a
-file name or `-g <pattern>` to run part of the suite. To run against
+file name or `-g <pattern>` to run part of the suite. Playwright runs half
+as many workers as the machine has cores, `--workers=N` changes that. To
+run against
 `examples/data` while the private corpus is on the machine:
 
 ```
@@ -171,16 +176,23 @@ SCRAWL_E2E_FIXTURE=../examples/data npx playwright test
 | `SCRAWL_E2E_PORT_MULTI`   | port of the multi-space instance                          | `8735`                                   |
 | `SCRAWL_E2E_SHOTS`        | where the step screenshots go                             | `e2e/screenshots`                        |
 
-Server logs are the first place to look at a failure:
-`$TMPDIR/scrawl-e2e/main.log`, `readonly.log`, `shared.log`,
-`history.log` and `multi.log`. The generated config of the multi
-instance is `$TMPDIR/scrawl-e2e/multi.yml`, which is worth reading when a
-space starts in a state nobody expected.
+The ports are the first worker's, worker `N` adds `10 * N` to each.
+
+Server logs are the first place to look at a failure. Each worker keeps
+its own under `$TMPDIR/scrawl-e2e/worker-N/`: `main.log`, `readonly.log`,
+`shared.log`, `history.log` and `multi.log`. The worker that ran a test
+is in the HTML report, and the step screenshots carry it as a `wN-`
+prefix. The generated config of the multi instance is `multi.yml` in the
+same folder, which is worth reading when a space starts in a state nobody
+expected.
 
 ## Notes
 
-- The suite runs with one worker. Both profiles drive the same trees on
-  disk, and a second worker would rename files under a running test.
+- The tests of one desktop file run in order in one worker, because they
+  share the trees of that worker and some lean on what the one before
+  wrote. The mobile profile is one file whose tests do not, so they spread
+  over every worker. A worker that replaces a crashed one starts its
+  servers again from a fresh copy.
 - Specs that write create their own scratch documents under an
   `e2e-*` folder and remove them again, so the corpus copy stays as it
   was copied. The ones that break a git origin restore it in an

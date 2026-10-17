@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const {expect} = require('@playwright/test');
 
-const {instances, password, routes, shotsDir, user} = require('./env');
+const {instances, password, routes, shotsDir, slot, user} = require('./env');
 
 const MAIN = instances.main;
 const READONLY = instances.readonly;
@@ -15,14 +15,14 @@ const MULTI = instances.multi;
 
 let shotSeq = 0;
 
-// shot writes a full page screenshot under a run-wide, ordered name so the
-// files read as a story of the run when sorted
+// shot writes a full page screenshot under an ordered name per worker, so the
+// files read as a story of each worker when sorted
 async function shot(page, name) {
     fs.mkdirSync(shotsDir, {recursive: true});
     shotSeq += 1;
     const prefix = String(shotSeq).padStart(3, '0');
     await page.screenshot({
-        path: path.join(shotsDir, `${prefix}-${name}.png`),
+        path: path.join(shotsDir, `w${slot}-${prefix}-${name}.png`),
         fullPage: false,
     });
 }

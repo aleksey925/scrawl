@@ -1,4 +1,4 @@
-const {expect, test} = require('@playwright/test');
+const {expect, test} = require('../support/test');
 
 const fs = require('fs');
 
@@ -438,7 +438,7 @@ test.describe('mobile', () => {
     // the diff is a nowrap pre, so a bare track takes the width of the longest
     // patch line: the page stretched far past the viewport, nothing could scroll
     // to it, and Restore sat off screen on every row
-    test('the version history page fits the screen and collapses on a second tap', async ({page}) => {
+    test('the version history page fits the screen, Restore is big enough to tap, and collapses on a second tap', async ({page}) => {
         const wide = 'x'.repeat(200);
         await signIn(page, {baseURL: HISTORY.baseURL, from: routes.edit(HISTORY_DOC)});
         for (const body of [`# Одна\n\n${wide}\n`, `# Две\n\n${wide}${wide}\n`]) {
@@ -453,6 +453,9 @@ test.describe('mobile', () => {
         const viewport = page.viewportSize().width;
         const box = await page.getByTestId('version-restore').first().boundingBox();
         expect(box.x + box.width, 'Restore reaches past the right edge').toBeLessThanOrEqual(viewport);
+        // Restore is an extra small button, 30px tall until a coarse pointer
+        // grows it. It is also the one control here that rewrites the document.
+        expect(await tooSmall(page, '[data-testid=version-restore]')).toEqual([]);
 
         // stacked, a version opens inside its own row and nothing is picked on
         // arrival, which would otherwise bury the list under a screen of diff
@@ -474,14 +477,6 @@ test.describe('mobile', () => {
         await page.getByTestId('version').nth(1).getByTestId('version-pick').tap();
         await expect(page.getByTestId('history-diff')).toHaveCount(0);
         await expect(page.locator('[data-testid=version][data-selected="true"]')).toHaveCount(0);
-    });
-
-    // Restore is an extra small button, 30px tall until a coarse pointer grows
-    // it. It is also the one control here that rewrites the document.
-    test('Restore is big enough to tap', async ({page}) => {
-        await signIn(page, {baseURL: HISTORY.baseURL, from: routes.history(HISTORY_DOC)});
-
-        expect(await tooSmall(page, '[data-testid=version-restore]')).toEqual([]);
     });
 
     test('the palette opens from the top bar and navigates', async ({page}) => {

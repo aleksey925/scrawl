@@ -1,15 +1,10 @@
 const {defineConfig, devices} = require('@playwright/test');
 
-const {instances} = require('./support/env');
-
-const launcher = require.resolve('./support/serve.js');
-
-// one worker on purpose: both projects drive the same notes tree on disk,
-// and a second worker would rename files under a running test
+// a worker brings up servers of its own in support/test.js, so files run in
+// parallel, and the tests of one file in order, on the trees that file shares
 module.exports = defineConfig({
     testDir: './tests',
     fullyParallel: false,
-    workers: 1,
     forbidOnly: !!process.env.CI,
     // a shared runner is slow enough to lose a race a laptop always wins, and a
     // rerun is cheaper than a red build nobody trusts
@@ -20,7 +15,6 @@ module.exports = defineConfig({
     outputDir: './test-results',
 
     use: {
-        baseURL: instances.main.baseURL,
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
         video: 'off',
@@ -48,49 +42,9 @@ module.exports = defineConfig({
                 defaultBrowserType: 'chromium',
             },
             testMatch: /mobile\.spec\.js/,
-        },
-    ],
-
-    webServer: [
-        {
-            command: `node ${launcher} main`,
-            url: `${instances.main.baseURL}/login`,
-            reuseExistingServer: false,
-            timeout: 120_000,
-            stdout: 'pipe',
-            stderr: 'pipe',
-        },
-        {
-            command: `node ${launcher} readonly`,
-            url: `${instances.readonly.baseURL}/login`,
-            reuseExistingServer: false,
-            timeout: 120_000,
-            stdout: 'pipe',
-            stderr: 'pipe',
-        },
-        {
-            command: `node ${launcher} shared`,
-            url: `${instances.shared.baseURL}/login`,
-            reuseExistingServer: false,
-            timeout: 120_000,
-            stdout: 'pipe',
-            stderr: 'pipe',
-        },
-        {
-            command: `node ${launcher} history`,
-            url: `${instances.history.baseURL}/login`,
-            reuseExistingServer: false,
-            timeout: 120_000,
-            stdout: 'pipe',
-            stderr: 'pipe',
-        },
-        {
-            command: `node ${launcher} multi`,
-            url: `${instances.multi.baseURL}/login`,
-            reuseExistingServer: false,
-            timeout: 120_000,
-            stdout: 'pipe',
-            stderr: 'pipe',
+            // the profile is one file, a minute long in one worker, and none of
+            // its tests leans on another
+            fullyParallel: true,
         },
     ],
 });

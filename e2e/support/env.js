@@ -18,7 +18,17 @@ function pickFixture() {
 }
 
 const fixture = pickFixture();
-const workDir = process.env.SCRAWL_E2E_WORK || path.join(os.tmpdir(), 'scrawl-e2e');
+
+// every playwright worker drives servers and trees of its own, so two of them
+// never rename files under each other. A worker that replaces a crashed one
+// takes over its index, and with it the ports and the directory.
+const slot = Number(process.env.TEST_PARALLEL_INDEX || 0);
+const PORT_STEP = 10;
+const workDir = path.join(process.env.SCRAWL_E2E_WORK || path.join(os.tmpdir(), 'scrawl-e2e'), `worker-${slot}`);
+
+function port(variable, fallback) {
+    return Number(process.env[variable] || fallback) + slot * PORT_STEP;
+}
 
 // defaultSpace is the space name every single-space instance is started
 // with. There is no default in the binary, so this is also what the launcher
@@ -70,13 +80,13 @@ const routes = routesFor(defaultSpace);
 // fail for a reason nothing on the page mentions
 const instances = {
     main: {
-        port: Number(process.env.SCRAWL_E2E_PORT || 8731),
+        port: port('SCRAWL_E2E_PORT', 8731),
         root: path.join(workDir, 'notes-main'),
         readOnly: false,
         historyMode: 'off',
     },
     readonly: {
-        port: Number(process.env.SCRAWL_E2E_PORT_RO || 8732),
+        port: port('SCRAWL_E2E_PORT_RO', 8732),
         root: path.join(workDir, 'notes-readonly'),
         readOnly: true,
         // reading the versions is a read, so read-only mode keeps the page and
@@ -84,7 +94,7 @@ const instances = {
         historyMode: 'on',
     },
     shared: {
-        port: Number(process.env.SCRAWL_E2E_PORT_SHARED || 8733),
+        port: port('SCRAWL_E2E_PORT_SHARED', 8733),
         root: path.join(workDir, 'notes-shared'),
         uploadDir: 'attachments',
         // the one instance that leaves a save as it was written
@@ -92,7 +102,7 @@ const instances = {
         historyMode: 'off',
     },
     history: {
-        port: Number(process.env.SCRAWL_E2E_PORT_HISTORY || 8734),
+        port: port('SCRAWL_E2E_PORT_HISTORY', 8734),
         root: path.join(workDir, 'notes-history'),
         historyMode: 'on',
     },
@@ -101,7 +111,7 @@ const instances = {
     // repository the launcher seeds, so the remote mode is driven end to end
     // and the suite still needs no network.
     multi: {
-        port: Number(process.env.SCRAWL_E2E_PORT_MULTI || 8735),
+        port: port('SCRAWL_E2E_PORT_MULTI', 8735),
         root: path.join(workDir, 'notes-multi'),
         historyMode: 'off',
         extra: [
@@ -162,6 +172,7 @@ module.exports = {
     defaultSpace,
     routesFor,
     repoRoot,
+    slot,
     workDir,
     instances,
     routes,

@@ -4,7 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {pathToFileURL} = require('node:url');
 
-const {expect, test} = require('@playwright/test');
+const {expect, test} = require('../support/test');
 
 const {binary} = require('../support/env');
 

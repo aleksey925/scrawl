@@ -1,12 +1,17 @@
-// launcher used by the playwright webServer entries: it makes a throwaway copy
-// of the corpus and runs the binary against it, so every run starts from the
-// same tree no matter what the previous one wrote
+// launcher of the servers a worker drives: it makes a throwaway copy of the
+// corpus and runs the binary against it, so every worker starts from the same
+// tree no matter what the previous one wrote
 
 const fs = require('fs');
 const path = require('path');
 const {execFileSync, spawn} = require('child_process');
+const {once} = require('events');
 
-const {binary, fixture, instances, passwordHash, user, workDir} = require('./env');
+const {binary, fixture, passwordHash, user, workDir} = require('./env');
+
+const READY_TIMEOUT_MS = 120_000;
+const READY_POLL_MS = 100;
+const STOP_TIMEOUT_MS = 10_000;
 
 function makeWritable(dir) {
     for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
@@ -98,18 +103,7 @@ function writeConfig(inst) {
     return inst.configFile;
 }
 
-function main() {
-    const name = process.argv[2];
-    const inst = instances[name];
-    if (!inst) throw new Error(`unknown instance ${name}, expected one of ${Object.keys(instances)}`);
-    if (!fs.existsSync(binary)) {
-        throw new Error(`${binary} not found, run "make build" first`);
-    }
-
-    fs.mkdirSync(workDir, {recursive: true});
-    prepareRoot(inst.root);
-    fs.rmSync(inst.secretFile, {force: true});
-
+function serveArgs(inst) {
     const args = ['serve', `--listen=127.0.0.1:${inst.port}`, '--site-title=E2E Notes', '--dbg'];
     if (inst.extra) {
         args.push(`--spaces-file=${writeConfig(inst)}`);
@@ -120,25 +114,74 @@ function main() {
     if (inst.uploadDir) args.push(`--upload-dir=${inst.uploadDir}`);
     if (inst.formatOnSave === false) args.push('--space.format-on-save=off');
     if (inst.historyMode) args.push(`--history=${inst.historyMode}`);
+    return args;
+}
 
-    const log = fs.createWriteStream(inst.log, {flags: 'w'});
-    const child = spawn(binary, args, {
+// a server left over from a run that was killed would answer the readiness
+// probe in place of the one about to start, and every spec would drive it
+async function refuseTakenPort(inst) {
+    const taken = await fetch(`${inst.baseURL}/ping`).then(() => true, () => false);
+    if (taken) throw new Error(`${inst.baseURL} is already taken, stop whatever listens there`);
+}
+
+function running(child) {
+    return child.exitCode === null && child.signalCode === null;
+}
+
+async function waitReady(inst, child) {
+    const deadline = Date.now() + READY_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+        if (!running(child)) {
+            const status = child.exitCode ?? child.signalCode;
+            throw new Error(`${inst.name} exited with ${status} before it was ready, see ${inst.log}`);
+        }
+        const ok = await fetch(`${inst.baseURL}/login`).then((res) => res.ok, () => false);
+        if (ok) return;
+        await new Promise((resolve) => setTimeout(resolve, READY_POLL_MS));
+    }
+    child.kill('SIGKILL');
+    throw new Error(`${inst.name} was not ready in ${READY_TIMEOUT_MS}ms, see ${inst.log}`);
+}
+
+// start makes a fresh copy of the corpus for one instance, runs the binary
+// against it and resolves once it answers, with the function that stops it
+async function start(inst) {
+    if (!fs.existsSync(binary)) {
+        throw new Error(`${binary} not found, run "make build" first`);
+    }
+    await refuseTakenPort(inst);
+
+    fs.mkdirSync(workDir, {recursive: true});
+    prepareRoot(inst.root);
+    fs.rmSync(inst.secretFile, {force: true});
+
+    const log = fs.openSync(inst.log, 'w');
+    const child = spawn(binary, serveArgs(inst), {
         env: {
             ...process.env,
             AUTH_USERS: `${user}:${passwordHash}`,
             AUTH_SECRET_FILE: inst.secretFile,
         },
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['ignore', log, log],
     });
-    child.stdout.pipe(log, {end: false});
-    child.stderr.pipe(log, {end: false});
-    child.stdout.pipe(process.stdout);
-    child.stderr.pipe(process.stderr);
+    fs.closeSync(log);
 
-    const stop = () => child.kill('SIGTERM');
-    process.on('SIGTERM', stop);
-    process.on('SIGINT', stop);
-    child.on('exit', (code) => process.exit(code === null ? 1 : code));
+    // the worker can die without tearing its fixtures down, and a server it
+    // leaves behind holds the ports the worker that replaces it needs
+    const reap = () => child.kill('SIGKILL');
+    process.on('exit', reap);
+
+    await waitReady(inst, child);
+
+    return async () => {
+        process.off('exit', reap);
+        if (!running(child)) return;
+        const done = once(child, 'exit');
+        child.kill('SIGTERM');
+        const timer = setTimeout(() => child.kill('SIGKILL'), STOP_TIMEOUT_MS);
+        await done;
+        clearTimeout(timer);
+    };
 }
 
-main();
+module.exports = {start};

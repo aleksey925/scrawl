@@ -78,7 +78,11 @@ func runSite(opts *siteOptions, out io.Writer) error {
 			return err
 		}
 	}
-	for name, content := range page.Assets(page.Options{Math: opts.Math}) {
+	assets := page.Assets(page.Options{Math: opts.Math})
+	if b.diagrams {
+		assets[page.DiagramsFile] = page.Diagrams()
+	}
+	for name, content := range assets {
 		if err := b.write(path.Join(siteAssets, name), []byte(content)); err != nil {
 			return err
 		}
@@ -94,6 +98,8 @@ type siteBuilder struct {
 	// home is the title of the front page, "" when the notes have none
 	home string
 	tree []siteNode
+	// diagrams is whether a page written so far has a diagram to draw
+	diagrams bool
 }
 
 func (b *siteBuilder) homeTitle() (string, error) {
@@ -120,6 +126,7 @@ func (b *siteBuilder) writePage(notePath string) error {
 	if err != nil {
 		return fmt.Errorf("render %s: %w", notePath, err)
 	}
+	b.diagrams = b.diagrams || res.Diagrams
 
 	up := siteUp(notePath)
 	opts := page.Options{Math: b.math, Assets: up + siteAssets, Tree: treeEntries(b.tree, notePath, up)}

@@ -1,16 +1,16 @@
-import { useRef, type JSX, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, type JSX, type RefObject } from 'react';
 
 import type { Heading } from '../api/types';
+import { imagesOf } from '../reader/dom';
 import { FindBar } from '../reader/FindBar';
-import { Lightbox } from '../reader/Lightbox';
 import { ReaderToc } from '../reader/ReaderToc';
 import { useDocumentControls } from '../reader/useDocumentControls';
 import { useFindOnPage } from '../reader/useFindOnPage';
 import { useFragment } from '../reader/useFragment';
 import { useKatex } from '../reader/useKatex';
-import { useLightbox } from '../reader/useLightbox';
 import { useMermaid } from '../reader/useMermaid';
 import { useOutline } from '../reader/useOutline';
+import { openViewer } from '../reader/viewer';
 import { PageToc } from '../shell/ShellSlots';
 
 import '../reader/markdown.css';
@@ -26,11 +26,26 @@ export interface DocumentHtmlProps {
 
 export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null);
-  const lightbox = useLightbox(rootRef, html);
   const outline = useOutline(rootRef, html, toc);
   const find = useFindOnPage(rootRef, html);
 
-  useDocumentControls(rootRef, html, lightbox.open);
+  const closeViewer = useRef<(() => void) | null>(null);
+  const openPicture = useCallback((image: HTMLImageElement): void => {
+    const root = rootRef.current;
+    if (root !== null) {
+      closeViewer.current = openViewer(imagesOf(root), image);
+    }
+  }, []);
+  // the viewer is a dialog on the body, so it outlives a note it is not closed with
+  useEffect(
+    () => () => {
+      closeViewer.current?.();
+      closeViewer.current = null;
+    },
+    [html],
+  );
+
+  useDocumentControls(rootRef, html, openPicture);
   useKatex(rootRef, html);
   useMermaid(rootRef, html);
   useFragment(rootRef, html, placed);
@@ -52,8 +67,6 @@ export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Elem
         className="markdown-document"
         dangerouslySetInnerHTML={{ __html: html }}
       />
-
-      <Lightbox image={lightbox.image} onClose={lightbox.close} onStep={lightbox.step} />
 
       {find !== null && (
         <FindBar position={find.position} total={find.total} onStep={find.step} onClose={find.close} />

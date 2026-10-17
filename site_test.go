@@ -230,6 +230,20 @@ func TestRunSite(t *testing.T) {
 		assert.Equal(t, assets[page.ScriptFile], readSite(t, out, "scrawl/page.js"))
 	})
 
+	t.Run("the diagram renderer is written once a note has a diagram", func(t *testing.T) {
+		// arrange
+		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
+		writeTree(t, src, map[string]string{"a.md": "# A\n\n```mermaid\ngraph TD;\n```\n", "b.md": "# B\n"})
+
+		// act
+		code, _, stderr := runCLI(t, "", "site", "-o", out, src)
+
+		// assert
+		require.Equal(t, 0, code, stderr)
+		assert.Equal(t, []string{"a.html", "b.html", "scrawl/diagrams.js", "scrawl/page.css", "scrawl/page.js"}, listTree(t, out))
+		assert.Equal(t, page.Diagrams(), readSite(t, out, "scrawl/"+page.DiagramsFile))
+	})
+
 	t.Run("exclude leaves notes out", func(t *testing.T) {
 		// arrange
 		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")

@@ -4,8 +4,21 @@ import './page.css';
 import 'virtual:theme-stylesheet.css';
 
 import { copyText } from '../reader/clipboard';
-import { anchorClass, copyClass, copyCode, injectCopyButtons, injectHeadingAnchors, sectionLink } from '../reader/controls';
+import {
+  anchorClass,
+  copyClass,
+  copyCode,
+  injectCopyButtons,
+  injectHeadingAnchors,
+  pictureKeyed,
+  pictureOf,
+  prepareImages,
+  sectionLink,
+} from '../reader/controls';
+import { diagramSelector } from '../reader/diagrams';
+import { imagesOf } from '../reader/dom';
 import { isPlainClick } from '../reader/links';
+import { openViewer } from '../reader/viewer';
 import { applyThemeAttribute, autoChoice, isThemeChoice } from '../themes';
 
 // the choice is kept twice, because a site opened from disk has only one of
@@ -64,11 +77,11 @@ window.addEventListener('pageshow', (event) => {
   }
 });
 
-// the reading controls the app puts on a note, without the picture viewer: a
-// page has nothing to show a picture in, so an image is not made a button
+// the reading controls the app puts on a note
 function prepareNote(note: HTMLElement): void {
   injectHeadingAnchors(note);
   injectCopyButtons(note);
+  prepareImages(note);
   const timers = new Set<number>();
   note.addEventListener('click', (event) => {
     if (!isPlainClick(event) || !(event.target instanceof Element)) {
@@ -84,8 +97,34 @@ function prepareNote(note: HTMLElement): void {
     const anchor = event.target.closest(`.${anchorClass}`);
     if (anchor instanceof HTMLElement) {
       void copyText(sectionLink(anchor.dataset['headingId'] ?? ''));
+      return;
+    }
+    const image = pictureOf(event.target);
+    if (image !== undefined) {
+      openViewer(imagesOf(note), image);
     }
   });
+  note.addEventListener('keydown', (event) => {
+    const image = pictureKeyed(event);
+    if (image !== undefined) {
+      event.preventDefault();
+      openViewer(imagesOf(note), image);
+    }
+  });
+}
+
+// a page of a site links this script and the diagram renderer sits beside it;
+// a page of render carries it inline, and there a diagram stays its source
+const scriptSource = document.currentScript instanceof HTMLScriptElement ? document.currentScript.src : '';
+const diagramsFile = 'diagrams.js';
+
+function loadDiagrams(note: HTMLElement): void {
+  if (scriptSource === '' || note.querySelector(diagramSelector) === null) {
+    return;
+  }
+  const script = document.createElement('script');
+  script.src = new URL(diagramsFile, scriptSource).href;
+  document.head.append(script);
 }
 
 const drawerOpen = 'site-tree-open';
@@ -128,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const note = document.querySelector<HTMLElement>('article.markdown-document');
   if (note !== null) {
     prepareNote(note);
+    loadDiagrams(note);
   }
   for (const button of document.querySelectorAll<HTMLButtonElement>('.page-theme button')) {
     button.addEventListener('click', () => {

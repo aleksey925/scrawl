@@ -7,7 +7,7 @@
     "build": "tsc --noEmit && vite build && npm run build:page",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "build:page": "vite build -c vite.page.config.ts && SCRAWL_PAGE_ENTRY=math vite build -c vite.page.config.ts"
+    "build:page": "vite build -c vite.page.config.ts && SCRAWL_PAGE_ENTRY=math vite build -c vite.page.config.ts && SCRAWL_PAGE_ENTRY=diagrams vite build -c vite.page.config.ts"
   },
   "dependencies": {
     "@codemirror/commands": "6.9.0",

@@ -132,6 +132,18 @@ export async function copyCode(button: HTMLElement, timers: Set<number>): Promis
   return true;
 }
 
+// pictureOf is the picture a click or a key press on it opens. One inside a
+// link is not: the link is the author's, and following it is what they meant.
+export function pictureOf(target: EventTarget | null): HTMLImageElement | undefined {
+  const image = target instanceof Element ? target.closest('img') : null;
+  return image instanceof HTMLImageElement && image.closest('a') === null ? image : undefined;
+}
+
+// pictureKeyed is the picture Enter or Space was pressed on
+export function pictureKeyed(event: KeyboardEvent): HTMLImageElement | undefined {
+  return event.key === 'Enter' || event.key === ' ' ? pictureOf(event.target) : undefined;
+}
+
 // sectionLink is the address of a heading on this page. Not location.origin: a
 // page opened from disk has none in Firefox, and the link would start "null".
 export function sectionLink(id: string): string {

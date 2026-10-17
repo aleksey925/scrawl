@@ -744,51 +744,145 @@
   color: #fff;
 }
 
-/* --- lightbox ------------------------------------------------------------ */
+/* --- picture viewer ------------------------------------------------------- */
 
-.md-lightbox-content {
+/* a modal dialog over the whole screen; the backdrop is the browser's own, so
+   a click beside the picture lands on the dialog and closes it */
+.md-viewer {
+  box-sizing: border-box;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: calc(var(--scrawl-tap-target) + var(--mantine-spacing-md)) var(--mantine-spacing-xl);
+  border: 0;
   background: transparent;
-  box-shadow: none;
+  color: #fff;
 }
 
-.md-lightbox-surface {
-  height: 100%;
-  padding: 0;
-}
-
-.md-lightbox-body {
-  position: relative;
+.md-viewer[open] {
   display: flex;
   flex-direction: column;
+  gap: var(--mantine-spacing-md);
   align-items: center;
   justify-content: center;
-  gap: var(--mantine-spacing-lg);
-  height: 100%;
-  padding: var(--mantine-spacing-xl);
+  animation: md-viewer-in 160ms ease-out;
+}
+
+.md-viewer::backdrop {
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  animation: md-viewer-fade 160ms ease-out;
 }
 
 /* the image yields to the caption rather than being capped in vh: with mobile
    Safari's toolbars out the pair stood taller than the dialog and was clipped */
-.md-lightbox-image {
+.md-viewer-image {
+  flex: 0 1 auto;
   max-width: 100%;
   min-height: 0;
-  flex: 0 1 auto;
   object-fit: contain;
   border-radius: var(--mantine-radius-lg);
   cursor: zoom-out;
   touch-action: pan-y;
+  user-select: none;
 }
 
-.md-lightbox-caption {
-  flex: none;
+.md-viewer-caption,
+.md-viewer-count {
+  margin: 0;
   color: rgba(255, 255, 255, 0.75);
-  font-family: var(--mantine-font-family-monospace);
   font-size: var(--mantine-font-size-sm);
+}
+
+.md-viewer-caption {
+  flex: none;
+  font-family: var(--mantine-font-family-monospace);
   text-align: center;
 }
 
-.md-lightbox-close {
+.md-viewer-count {
   position: absolute;
   top: max(var(--mantine-spacing-md), env(safe-area-inset-top));
+  left: var(--mantine-spacing-md);
+  line-height: var(--scrawl-tap-target);
+}
+
+.md-viewer-close,
+.md-viewer-step {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--scrawl-tap-target);
+  height: var(--scrawl-tap-target);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+}
+
+.md-viewer-close {
+  top: max(var(--mantine-spacing-md), env(safe-area-inset-top));
   right: var(--mantine-spacing-md);
+}
+
+.md-viewer-step {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.md-viewer-previous {
+  left: var(--mantine-spacing-md);
+}
+
+.md-viewer-next {
+  right: var(--mantine-spacing-md);
+}
+
+.md-viewer svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (hover: hover) {
+  .md-viewer-close:hover,
+  .md-viewer-step:hover {
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
+/* a finger steps the pictures with a swipe, and the arrows would only cover them */
+@media (hover: none) {
+  .md-viewer-step {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .md-viewer[open],
+  .md-viewer::backdrop {
+    animation: none;
+  }
+}
+
+@keyframes md-viewer-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes md-viewer-fade {
+  from {
+    opacity: 0;
+  }
 }

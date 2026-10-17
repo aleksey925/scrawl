@@ -278,8 +278,7 @@ test.describe('sync state', () => {
         await page.waitForTimeout(500);
         await page.unroute(/\/api\/me$/);
 
-        // the variant, not a bare modal: the lightbox is mounted closed on
-        // every page that renders a document, preview pane included
+        // the variant, not a bare modal: every dialog of the app carries that test id
         await expect(page.locator('[data-testid=modal][data-variant=session]')).toHaveCount(0);
     });
 });

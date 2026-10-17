@@ -18,7 +18,7 @@ import (
 
 // assets are built from web/src/page by `make ui`, which writes them here.
 //
-//go:embed assets/page.css assets/page.js assets/math.css assets/math.js
+//go:embed assets/page.css assets/page.js assets/math.css assets/math.js assets/diagrams.js
 var assets embed.FS
 
 //go:embed templates/*.html
@@ -109,10 +109,13 @@ type TreeEntry struct {
 	Children []TreeEntry
 }
 
-// the files a page with Options.Assets links to instead of inlining them
+// the files a page with Options.Assets links to instead of inlining them, and
+// the diagram renderer its script loads from beside itself on a page that has
+// a diagram; web/src/page/page.ts names that one too
 const (
 	StylesheetFile = "page.css"
 	ScriptFile     = "page.js"
+	DiagramsFile   = "diagrams.js"
 )
 
 // Assets are the stylesheet and the script every page links to when they are
@@ -121,6 +124,10 @@ func Assets(opts Options) map[string]string {
 	style, script := pageAssets(opts)
 	return map[string]string{StylesheetFile: style, ScriptFile: script}
 }
+
+// Diagrams is the mermaid renderer a site writes as DiagramsFile, some 5MB,
+// only when one of its notes has a diagram.
+func Diagrams() string { return asset(DiagramsFile) }
 
 // WriteNote writes a note as a page of its own, or as a page of a site when
 // the options carry a tree.

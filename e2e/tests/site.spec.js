@@ -8,8 +8,17 @@ const {expect, test} = require('@playwright/test');
 
 const {binary} = require('../support/env');
 
+// a picture of one pixel, which is all the viewer needs to have something to show
+const PIXEL = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    'base64',
+);
+
 const NOTES = {
     'index.md': '# Home\n\n[Guide](docs/guide.md)\n',
+    'pictures.md': '# Pictures\n\n![one](pics/one.png)\n\n![two](pics/two.png)\n\n```mermaid\ngraph TD;\n  A-->B;\n```\n',
+    'pics/one.png': PIXEL,
+    'pics/two.png': PIXEL,
     'docs/guide.md': '# Guide\n\n## One\n\ntext\n\n## Two\n\n```sh\necho hi\n```\n\n## Three\n\ntext\n',
 };
 
@@ -128,5 +137,29 @@ test.describe('site', () => {
         await page.keyboard.press('Escape');
         await expect(tree).toBeHidden();
         expect(await page.locator('.site-main').evaluate((main) => main.inert)).toBe(false);
+    });
+
+    test('the viewer steps through the pictures and closes on a click beside them', async ({page}) => {
+        // arrange
+        await page.goto(at('pictures.html'));
+        await page.getByRole('button', {name: 'Open image: one'}).click();
+        await expect(page.getByTestId('doc-lightbox-count')).toHaveText('1 / 2');
+
+        // act
+        await page.keyboard.press('ArrowRight');
+
+        // assert
+        await expect(page.getByTestId('doc-lightbox-caption')).toHaveText('two');
+        await expect(page.getByTestId('doc-lightbox-count')).toHaveText('2 / 2');
+        await page.mouse.click(8, page.viewportSize().height - 8);
+        await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+    });
+
+    test('a diagram is drawn from the renderer beside the page', async ({page}) => {
+        // act
+        await page.goto(at('pictures.html'));
+
+        // assert
+        await expect(page.locator('.md-diagram[data-state="done"] svg')).toBeVisible({timeout: 20_000});
     });
 });

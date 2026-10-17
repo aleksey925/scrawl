@@ -541,8 +541,9 @@ vendor/                dependencies, checked in, `make deps` regenerates
   in a cookie and in the storage both: from disk Firefox shares only
   the cookie between pages and Chromium only the storage.
 - A page of a site is the app's reader without React. What the reader
-  does to a note in plain DOM - the heading anchors, the copy button -
-  lives in `web/src/reader/controls.ts` and both call it. The tree and
+  does to a note in plain DOM lives outside React and both call it: the
+  heading anchors and the copy button in `web/src/reader/controls.ts`,
+  the picture viewer in `viewer.ts`, the diagrams in `diagrams.ts`. The tree and
   the outline are components of their own, a Go template, because the
   app's are tools for editing a space and a site only reads one. Their
   rules have one home: `store.Node.InNavTree` says what a tree lists and
@@ -550,8 +551,16 @@ vendor/                dependencies, checked in, `make deps` regenerates
   site's tree leaves out a folder with no note in it, which the app's
   keeps to create a page in. Neither collapses or follows the section
   being read. Below the rail's breakpoint the tree is a drawer and the
-  outline is not shown. The picture viewer, the find bar and mermaid
-  are not on a site at all.
+  outline is not shown. The find bar is not on a site. Mermaid is a file
+  of its own, some 5MB, which `site` writes only when a note has a
+  diagram and a page loads only when it holds one: the page script is
+  one file, because a page opened from disk loads no module.
+- The picture viewer is a native modal `<dialog>` and not a mantine
+  `Modal`. The browser keeps the page behind it inert, closes it on
+  Escape and gives the focus back, and a click beside the picture lands
+  on the dialog itself and closes it. The full-screen `Modal` had no
+  backdrop to click and closed only on its cross. The dialog sits on the
+  body, so `DocumentHtml` closes it together with the note.
 - The diff markup is written twice, by `web/src/diff/RenderedDiff.tsx`
   and by the templates of `page`, and `web/src/diff/diff.css` styles
   both. A change to one is a change to the other, folding included.

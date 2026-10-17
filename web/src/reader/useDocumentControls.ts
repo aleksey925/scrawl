@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { showToast } from '../toast';
 
 import { copyText } from './clipboard';
-import { anchorClass, copyClass, copyCode, injectControls, sectionLink } from './controls';
+import { anchorClass, copyClass, copyCode, injectControls, pictureKeyed, pictureOf, sectionLink } from './controls';
 import { decodeFragment, elementWithId } from './dom';
 import { internalTarget, isPlainClick } from './links';
 
@@ -91,18 +91,15 @@ export function useDocumentControls(
         return;
       }
 
-      const image = target.closest('img');
-      if (image instanceof HTMLImageElement && image.closest('a') === null) {
+      const image = pictureOf(target);
+      if (image !== undefined) {
         latest.current.onImage(image);
       }
     };
 
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Enter' && event.key !== ' ') {
-        return;
-      }
-      const image = event.target;
-      if (!(image instanceof HTMLImageElement) || image.closest('a') !== null) {
+      const image = pictureKeyed(event);
+      if (image === undefined) {
         return;
       }
       event.preventDefault();

@@ -226,14 +226,27 @@ test.describe('reading', () => {
         await page.goto(routes.doc(docs.illustrated.doc));
         await page.getByTestId('doc-image').first().click();
 
-        // the viewer is mounted whether or not it is open, so the image it puts
-        // on the screen is what says it is up
         await expect(page.getByTestId('doc-lightbox-image')).toBeVisible();
         await expect(page.getByTestId('doc-lightbox-caption')).toBeVisible();
         await shot(page, 'reading-lightbox');
 
         await page.getByTestId('doc-lightbox-close').click();
         await expect(page.getByTestId('doc-lightbox-image')).toHaveCount(0);
+    });
+
+    test('a click beside the image closes the viewer', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.illustrated.doc));
+        await page.getByTestId('doc-image').first().click();
+        await expect(page.getByTestId('doc-lightbox-image')).toBeVisible();
+        const size = page.viewportSize();
+
+        // act
+        await page.mouse.click(8, size.height - 8);
+
+        // assert
+        await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+        await expect(page.getByTestId('doc-image').first()).toBeFocused();
     });
 
     test('the copy button copies a code block', async ({page}) => {

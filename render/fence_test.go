@@ -26,6 +26,29 @@ func TestMermaidFence(t *testing.T) {
 	}
 }
 
+func TestRenderReportsDiagrams(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want bool
+	}{
+		{name: "a mermaid fence", src: "# A\n\n```mermaid\ngraph TD;\n```\n", want: true},
+		{name: "code that names mermaid", src: "```go\n// mermaid\n```\n", want: false},
+		{name: "no fence at all", src: "# A\n\ntext\n", want: false},
+	}
+	r := New(Options{})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			res, err := r.Render([]byte(tc.src), "a.md")
+
+			// assert
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, res.Diagrams)
+		})
+	}
+}
+
 func TestMermaidFenceIsNeverHighlighted(t *testing.T) {
 	// act
 	out, err := New(Options{}).RenderInline([]byte("```mermaid\ngraph TD; A-->B;\n```\n"), "docs/x.md")

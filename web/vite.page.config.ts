@@ -12,12 +12,14 @@ const outDir = '../page/assets';
 const entries = {
   page: 'src/page/page.ts',
   math: 'src/page/math.ts',
+  // a site loads it as a file of its own, only on a page with a diagram
+  diagrams: 'src/page/diagrams.ts',
 } as const;
 
 type Entry = keyof typeof entries;
 
 function entryOf(name: string | undefined): Entry {
-  return name === 'math' ? 'math' : 'page';
+  return name !== undefined && name in entries ? (name as Entry) : 'page';
 }
 
 // every browser the page can be opened in reads woff2, and the two older

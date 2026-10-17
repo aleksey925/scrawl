@@ -39,6 +39,8 @@ type Result struct {
 	HTML  template.HTML
 	Title string
 	TOC   []Heading
+	// Diagrams is whether the HTML holds a mermaid diagram to draw.
+	Diagrams bool
 }
 
 // Options configures a Renderer.
@@ -162,7 +164,7 @@ func (r *Renderer) Render(src []byte, docPath string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	return Result{HTML: out, Title: title, TOC: toc}, nil
+	return Result{HTML: out, Title: title, TOC: toc, Diagrams: strings.Contains(string(out), openMermaid)}, nil
 }
 
 // RenderInline converts a document without extracting the outline. It is the

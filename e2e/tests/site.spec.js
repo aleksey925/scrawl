@@ -10,7 +10,7 @@ const {binary} = require('../support/env');
 
 const NOTES = {
     'index.md': '# Home\n\n[Guide](docs/guide.md)\n',
-    'docs/guide.md': '# Guide\n\n[Part](#part)\n\n## Part\n\ntext\n',
+    'docs/guide.md': '# Guide\n\ntext\n',
 };
 
 // a site opened from disk, the way a reader previews one before it is
@@ -36,7 +36,7 @@ test.describe('site', () => {
         fs.rmSync(tmp, {recursive: true, force: true});
     });
 
-    test('a theme picked on one page follows the links to the next', async ({page}) => {
+    test('a theme picked on one page holds on the next', async ({page}) => {
         // arrange
         await page.goto(at('index.html'));
         await page.getByRole('button', {name: 'Dark', exact: true}).click();
@@ -45,34 +45,36 @@ test.describe('site', () => {
         await page.getByRole('link', {name: 'Guide'}).click();
 
         // assert
-        await expect(page).toHaveURL(/\/docs\/guide\.html\?theme=dark$/);
-        await expect(page.locator('html')).toHaveAttribute('data-scrawl-theme', 'dark');
-        await expect(page.locator('.page-home')).toHaveAttribute('href', /\/site\/index\.html\?theme=dark$/);
-    });
-
-    test('the address carries the theme when the storage is empty', async ({browser}) => {
-        // arrange
-        const context = await browser.newContext();
-        const page = await context.newPage();
-
-        // act
-        await page.goto(`${at('docs/guide.html')}?theme=dark`);
-
-        // assert
         await expect(page.locator('html')).toHaveAttribute('data-scrawl-theme', 'dark');
         await expect(page.getByRole('button', {name: 'Dark', exact: true})).toHaveAttribute('aria-pressed', 'true');
-        await context.close();
     });
 
-    test('a link to a heading on the page stays an anchor', async ({page}) => {
+    test('auto picked on a page holds on the next', async ({page}) => {
         // arrange
-        await page.goto(at('docs/guide.html'));
+        await page.goto(at('index.html'));
+        await page.getByRole('button', {name: 'Dark', exact: true}).click();
+        await page.getByRole('link', {name: 'Guide'}).click();
+        await page.getByRole('button', {name: 'Auto', exact: true}).click();
 
         // act
-        await page.getByRole('button', {name: 'Dark', exact: true}).click();
+        await page.locator('.page-home').click();
 
         // assert
-        await expect(page.getByRole('link', {name: 'Part', exact: true})).toHaveAttribute('href', '#part');
-        await expect(page).toHaveURL(/\/docs\/guide\.html\?theme=dark$/);
+        await expect(page.locator('html')).not.toHaveAttribute('data-scrawl-theme', /.*/);
+        await expect(page.getByRole('button', {name: 'Auto', exact: true})).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    test('back shows the theme picked last', async ({page}) => {
+        // arrange
+        await page.goto(at('index.html'));
+        await page.getByRole('button', {name: 'Dark', exact: true}).click();
+        await page.getByRole('link', {name: 'Guide'}).click();
+        await page.getByRole('button', {name: 'Light', exact: true}).click();
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page.locator('html')).toHaveAttribute('data-scrawl-theme', 'light');
     });
 });

@@ -5,60 +5,43 @@ import 'virtual:theme-stylesheet.css';
 
 import { applyThemeAttribute, autoChoice, isThemeChoice } from '../themes';
 
+// the choice is kept twice, because a site opened from disk has only one of
+// them shared between its pages: Firefox the cookie, Chromium the storage
 const choiceKey = 'scrawl.page.scheme';
-// a page opened from disk is an origin of its own in Firefox, so the storage
-// the next page reads is empty; there the choice rides on the links instead
-const choiceParam = 'theme';
-const fromDisk = window.location.protocol === 'file:';
+const choiceCookie = 'scrawl-page-theme';
+const cookieMaxAge = 60 * 60 * 24 * 365;
 
-function carried(): string | undefined {
-  if (!fromDisk) {
-    return undefined;
-  }
-  const value = new URLSearchParams(window.location.search).get(choiceParam);
-  return value !== null && isThemeChoice(value) ? value : undefined;
-}
-
-function withChoice(url: URL, choice: string): string {
-  if (choice === autoChoice) {
-    url.searchParams.delete(choiceParam);
-  } else {
-    url.searchParams.set(choiceParam, choice);
-  }
-  return url.href;
-}
-
-// carry puts the choice on every link to another page of the site, and on the
-// address itself, so a reload keeps it too
-function carry(choice: string): void {
-  if (!fromDisk) {
-    return;
-  }
-  for (const link of document.querySelectorAll<HTMLAnchorElement>('a[href]')) {
-    const url = new URL(link.href);
-    // an anchor on this page would turn into a reload
-    if (link.getAttribute('href')?.startsWith('#') || url.protocol !== 'file:' || !url.pathname.endsWith('.html')) {
-      continue;
+function fromCookie(): string | undefined {
+  for (const part of document.cookie.split(';')) {
+    const [name, value] = part.trim().split('=');
+    if (name === choiceCookie && value !== undefined && isThemeChoice(value)) {
+      return value;
     }
-    link.href = withChoice(url, choice);
   }
-  try {
-    window.history.replaceState(window.history.state, '', withChoice(new URL(window.location.href), choice));
-  } catch {
-    // the address keeps the old choice, the links already carry the new one
-  }
+  return undefined;
 }
 
-function stored(): string {
-  const fromLink = carried();
-  if (fromLink !== undefined) {
-    return fromLink;
-  }
+function fromStorage(): string | undefined {
   try {
     const value = window.localStorage.getItem(choiceKey);
-    return value !== null && isThemeChoice(value) ? value : autoChoice;
+    return value !== null && isThemeChoice(value) ? value : undefined;
   } catch {
-    return autoChoice;
+    return undefined;
+  }
+}
+
+// the cookie goes first: Firefox keeps a storage per page from disk, so a page
+// may still hold a choice made on it before the one made elsewhere
+function stored(): string {
+  return fromCookie() ?? fromStorage() ?? autoChoice;
+}
+
+function store(choice: string): void {
+  document.cookie = `${choiceCookie}=${choice}; path=/; max-age=${cookieMaxAge}; samesite=lax`;
+  try {
+    window.localStorage.setItem(choiceKey, choice);
+  } catch {
+    // the cookie alone keeps it
   }
 }
 
@@ -71,22 +54,23 @@ function apply(choice: string): void {
 
 apply(stored());
 
+// Back shows the page the way it was left, with the theme it had then
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    apply(stored());
+  }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   apply(stored());
-  carry(stored());
   for (const button of document.querySelectorAll<HTMLButtonElement>('.page-theme button')) {
     button.addEventListener('click', () => {
       const choice = button.dataset['theme'];
       if (choice === undefined || !isThemeChoice(choice)) {
         return;
       }
-      try {
-        window.localStorage.setItem(choiceKey, choice);
-      } catch {
-        // the choice holds for this visit only
-      }
+      store(choice);
       apply(choice);
-      carry(choice);
     });
   }
 });

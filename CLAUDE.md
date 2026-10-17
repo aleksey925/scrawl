@@ -538,9 +538,9 @@ vendor/                dependencies, checked in, `make deps` regenerates
   and nothing else is configured. Something new reaches a site only
   when the app and the site share it. The stylesheet and the script are
   written once into `scrawl/` and not `_scrawl/`, which the Jekyll of
-  GitHub Pages drops. A page opened from disk is an origin of its own
-  in Firefox, so its storage is empty on the next page, and there the
-  theme rides on the links as `?theme=`.
+  GitHub Pages drops. The theme is kept in a cookie and in the storage
+  both: from disk Firefox shares only the cookie between pages and
+  Chromium only the storage.
 - The diff markup is written twice, by `web/src/diff/RenderedDiff.tsx`
   and by the templates of `page`, and `web/src/diff/diff.css` styles
   both. A change to one is a change to the other, folding included.

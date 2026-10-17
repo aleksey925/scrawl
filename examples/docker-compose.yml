@@ -1,71 +1,38 @@
-# Deployment example, written for a Synology NAS but not specific to one.
-# Copy it over, change the volume path, AUTH_USERS and the user: line, then
-# `docker compose up -d`. Container Manager takes the same file under Space.
+# A team wiki on its own server: Caddy serves it over HTTPS at
+# notes.example.com, and two GitHub repositories are its spaces - the wiki,
+# which people edit here, and the handbook, which is only read here and
+# changed through pull requests.
+#
+# Next to this file create, readable by uid 1001:
+#   secrets/github-token  a fine-grained token with Contents read and write
+#                         on both repositories
+#   secrets/wiki-hook     `openssl rand -hex 32`, also pasted into the
+#                         webhook of acme/wiki: https://notes.example.com/s/wiki/hook
+#   scrawl.env            AUTH_USERS='alice:<hash>,bob:<hash>'
+#                         AUTH_TOKENS='agent:sha256:<digest>'
+# A hash comes from `printf 'password' | docker run --rm -i
+# ghcr.io/aleksey925/scrawl:latest hash`, the token for a script or an agent
+# and its entry from `docker run --rm ghcr.io/aleksey925/scrawl:latest token agent`.
 services:
   scrawl:
     image: ghcr.io/aleksey925/scrawl:latest
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:7272:7272"
-
-    volumes:
-      - /volume1/docs/notes:/spaces/notes
-      # the generated session key lives here. keep it out of /spaces/notes, or
-      # it lands in the page tree, the search index and every backup
-      - scrawl-data:/data
-
+    # single quotes in this file keep the dollars of a hash as they are
+    env_file: scrawl.env
     environment:
-      - TZ=Europe/Nicosia
-      # the name of the folder above, and the one URL segment everything in it
-      # is served under: /s/notes/doc/python/redis.md. it is required, because
-      # a name taken from the directory would turn one mv into a site-wide URL
-      # change. several folders at once go in a SPACES_FILE instead, see the
-      # README
-      - SPACE_NAME=notes
-      # in a compose file every literal dollar has to be doubled, because
-      # compose expands $VARS: a hash printed as $2a$10$xyz goes in as
-      # $$2a$$10$$xyz. in Container Manager's environment table values are
-      # taken literally, so paste the hash unchanged.
-      # get a hash with
-      #   printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:latest hash
-      - AUTH_USERS=alex:$$2a$$10$$REPLACE_ME
-      # tokens for the JSON API, for a script or an agent instead of a browser.
-      # get one with
-      #   docker run --rm ghcr.io/aleksey925/scrawl:latest token bot
-      # the digest goes here and holds no dollars, the token goes to the
-      # client. an entry ending in :ro may read but never write
-      # - AUTH_TOKENS=bot:sha256:REPLACE_ME,reader:sha256:REPLACE_ME:ro
-      # auto sends the session cookie over plain http too, which is what you
-      # want on a LAN. behind an HTTPS proxy use always, together with
-      # TRUSTED_PROXY=true, and make sure the proxy overwrites X-Forwarded-For
-      - AUTH_SECURE=auto
-      - TRUSTED_PROXY=false
-      # every change is committed to a git repository the app keeps in
-      # /spaces/notes/.git, which is what the version history of a page reads.
-      # auto keeps the app working when git is missing or the folder already
-      # sits inside another repository, on refuses to start in that case, off
-      # never touches the notes
-      - HISTORY=auto
-      # site title in the interface
-      # - SITE_TITLE=Notes
-      # inotify never sees what another client writes to a network share
-      # - WATCH=poll
-      # collect uploads in one folder instead of next to each document
-      # - UPLOAD_DIR=attachments
-      # upload size cap
-      # - MAX_UPLOAD=20M
-      # extra ignore globs, comma separated
-      # - EXCLUDE=*.bak,private/**
-      # store a note as it was written, without running prettier over it
-      # - SPACE_FORMAT_ON_SAVE=off
-      # serve the notes and refuse every write
-      # - READ_ONLY=true
-
-    # the image runs as uid 1001, your share belongs to someone else, and a uid
-    # that does not own the share cannot write to it: reading works and every
-    # save fails. run `id <your-user>` on the NAS and put the numbers here
-    # user: "1026:100"
-
+      - SPACES_FILE=/etc/scrawl/spaces.yml
+      - SITE_TITLE=Acme wiki
+      - TRUSTED_PROXY=true
+      - AUTH_SECURE=always
+    configs:
+      - source: spaces
+        target: /etc/scrawl/spaces.yml
+    secrets:
+      - github-token
+      - wiki-hook
+    volumes:
+      - scrawl-spaces:/spaces
+      - scrawl-data:/data
     read_only: true
     tmpfs:
       - /tmp
@@ -74,12 +41,63 @@ services:
     security_opt:
       - no-new-privileges:true
     mem_limit: 512m
-
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
 
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+configs:
+  spaces:
+    content: |
+      spaces:
+        - name: wiki
+          label: Team wiki
+          dir: /spaces/wiki
+          repo:
+            url: https://github.com/acme/wiki.git
+            pull: 1h
+            token_file: /run/secrets/github-token
+            hook_secret_file: /run/secrets/wiki-hook
+
+        - name: handbook
+          label: Handbook
+          dir: /spaces/handbook
+          read_only: true
+          repo:
+            url: https://github.com/acme/handbook.git
+            token_file: /run/secrets/github-token
+
+  # Caddy replaces the X-Forwarded-For a client sends, which is what
+  # TRUSTED_PROXY relies on
+  caddyfile:
+    content: |
+      notes.example.com {
+        reverse_proxy scrawl:7272
+      }
+
+secrets:
+  github-token:
+    file: ./secrets/github-token
+  wiki-hook:
+    file: ./secrets/wiki-hook
+
 volumes:
+  scrawl-spaces:
   scrawl-data:
+  caddy-data:
+  caddy-config:

@@ -36,10 +36,12 @@ export function useDocumentControls(
 
     const timers = new Set<number>();
 
-    const jump = (id: string, replace: boolean): void => {
+    // a bare fragment keeps the query on screen, a link that names the note
+    // brings its own
+    const jump = (id: string, replace: boolean, search?: string): void => {
       elementWithId(root, id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       const { navigate: go, location: at } = latest.current;
-      void go({ pathname: at.pathname, search: at.search, hash: `#${id}` }, { replace });
+      void go({ pathname: at.pathname, search: search ?? at.search, hash: `#${id}` }, { replace });
     };
 
     const copyLink = async (anchor: HTMLElement): Promise<void> => {
@@ -94,7 +96,7 @@ export function useDocumentControls(
         // nothing else would land on the heading
         const to = parsePath(internal.to);
         if (to.pathname === latest.current.location.pathname && to.hash !== undefined && to.hash.length > 1) {
-          jump(decodeFragment(to.hash.slice(1)), false);
+          jump(decodeFragment(to.hash.slice(1)), false, to.search ?? '');
           return;
         }
         void latest.current.navigate(internal.to);

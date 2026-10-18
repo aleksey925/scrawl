@@ -5,24 +5,41 @@ import {
 import { Router, parsePath, type Location, type Navigator, type To } from 'react-router';
 
 import { holdPosition } from '../reader/position';
+import { readJson, sessionStore, writeJson } from '../storage';
 
 import { fileOf } from './files';
 import { loadPage, type PageStore } from './pages';
 
 // what a page of a site keeps in the history entries it adds itself: the
-// route the entry shows, which the address bar does not say, its title, and
-// where it was scrolled to, which survives a reload of the page
+// route the entry shows, which the address bar does not say, and its title
 interface Entry {
   usr: unknown;
   key: string;
   route: string;
   title: string;
-  scroll?: number;
 }
 
-// a reader scrolls in bursts, and a browser limits how often an entry may be
-// rewritten, so the position is written once the burst is over
+// where every entry of the tab was left, by its key, kept for the tab so that a
+// reload and a Back after it still know; a reader scrolls in bursts, so a
+// position is written once the burst is over, and only so many are kept
+const positionsKey = 'scrawl.site.positions';
 const keepScrollMs = 300;
+const maxPositions = 200;
+
+function readPositions(): Record<string, number> {
+  return readJson<Record<string, number>>(sessionStore(), positionsKey) ?? {};
+}
+
+function writePosition(key: string, top: number): void {
+  const positions = readPositions();
+  delete positions[key];
+  positions[key] = top;
+  const keys = Object.keys(positions);
+  for (const old of keys.slice(0, Math.max(0, keys.length - maxPositions))) {
+    delete positions[old];
+  }
+  writeJson(sessionStore(), positionsKey, positions);
+}
 
 function freshKey(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -78,8 +95,8 @@ export function SiteRouter({ route: first, root, store, children }: SiteRouterPr
   const current = useRef(location);
   current.current = location;
 
-  // where each entry of this tab was left, by its key, and where the entry
-  // being shown has to be put once it is on screen
+  // where each entry was left, and where the entry being shown has to be put
+  // once it is on screen
   const scrolls = useRef(new Map<string, number>());
   const pending = useRef<number | undefined>(undefined);
   const inFlight = useRef<AbortController | undefined>(undefined);
@@ -94,35 +111,42 @@ export function SiteRouter({ route: first, root, store, children }: SiteRouterPr
       // the browser cannot put a page back where it was when it never loaded
       // it, so every position is kept and put back here
       window.history.scrollRestoration = 'manual';
-      if (entry.scroll !== undefined) {
-        pending.current = entry.scroll;
+      const kept = entry.key === undefined ? undefined : readPositions()[entry.key];
+      if (kept !== undefined) {
+        pending.current = kept;
       }
     }
     setLocation(locationAt(entryNow().route ?? first));
   }, [first]);
 
-  // the position of the entry on screen goes into the entry itself, so a
-  // reload and a Back after it still know where every entry was left
+  // keep records where the entry on screen is; now is for the moment it is
+  // left, when a burst still being waited out would be lost
   const keep = useMemo(() => {
     let timer: number | undefined;
-    const write = (key: string, top: number): void => {
-      const entry = entryNow();
-      if (entry.key === key) {
-        window.history.replaceState({ ...entry, scroll: top }, '');
+    let waiting: { key: string; top: number } | undefined;
+    const flush = (): void => {
+      window.clearTimeout(timer);
+      if (waiting !== undefined) {
+        writePosition(waiting.key, waiting.top);
+        waiting = undefined;
       }
     };
     return {
       later: (): void => {
         const { key } = current.current;
         scrolls.current.set(key, window.scrollY);
+        if (waiting !== undefined && waiting.key !== key) {
+          flush();
+        }
+        waiting = { key, top: window.scrollY };
         window.clearTimeout(timer);
-        timer = window.setTimeout(() => write(key, window.scrollY), keepScrollMs);
+        timer = window.setTimeout(flush, keepScrollMs);
       },
       now: (): void => {
+        flush();
         const { key } = current.current;
-        window.clearTimeout(timer);
         scrolls.current.set(key, window.scrollY);
-        write(key, window.scrollY);
+        writePosition(key, window.scrollY);
       },
     };
   }, []);
@@ -184,6 +208,7 @@ export function SiteRouter({ route: first, root, store, children }: SiteRouterPr
         return;
       }
       store.add(shown);
+      keep.now();
       const entry: Entry = { usr: state ?? null, key: freshKey(), route: shown.page.route, title: shown.title };
       if (replace) {
         window.history.replaceState(entry, '', target);
@@ -235,7 +260,7 @@ export function SiteRouter({ route: first, root, store, children }: SiteRouterPr
   useEffect(() => {
     const arrive = (route: string, title: string | undefined): void => {
       const entry = entryNow();
-      const kept = entry.key === undefined ? undefined : (scrolls.current.get(entry.key) ?? entry.scroll);
+      const kept = entry.key === undefined ? undefined : (scrolls.current.get(entry.key) ?? readPositions()[entry.key]);
       // history knows where the entry was left, and that beats the heading a
       // hash names; an entry it knows nothing of starts at the top
       pending.current = kept ?? (window.location.hash === '' ? 0 : undefined);
@@ -248,6 +273,9 @@ export function SiteRouter({ route: first, root, store, children }: SiteRouterPr
 
     const onPop = (): void => {
       const controller = cancelPending();
+      // the entry left is still the one on screen, and the browser has not
+      // moved the page, so where it was left is where the page is now
+      keep.now();
       const entry = entryNow();
       const route = entry.route ?? first;
       if (route === current.current.pathname) {
@@ -280,7 +308,7 @@ export function SiteRouter({ route: first, root, store, children }: SiteRouterPr
       window.removeEventListener('popstate', onPop);
       window.removeEventListener('hashchange', onPop);
     };
-  }, [first, store]);
+  }, [first, store, keep]);
 
   return (
     <Router location={location} navigator={navigator}>

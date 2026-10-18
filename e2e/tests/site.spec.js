@@ -20,7 +20,7 @@ const filler = (word) => Array.from({length: 30}, () => `${word} `.repeat(14)).j
 const NOTES = {
     'index.md': '# Home\n\n[Guide](docs/guide.md), the [docs folder](docs/), [pictures](pictures.md) and [the third part of the guide](docs/guide.md#three)\n',
     'docs/guide.md': [
-        '# Guide', '[Back home](../index.md), [the third part](#Three) and [the third part again](guide.md#three).',
+        '# Guide', '[Back home](../index.md), [the third part](#Three), [the third part again](guide.md#three) and [the word three](guide.md?q=three#three).',
         '## One', filler('one'),
         '## Two', '```sh\necho hi\n```', filler('two'),
         '## Three', filler('three'),
@@ -201,6 +201,18 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await expect.poll(() => page.locator('h2#three').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
                 .toBeLessThan(120);
             expect(await page.evaluate(() => window.marker)).toBe('same page');
+        });
+
+        test('a link to this very note with a query brings the query along', async ({page}) => {
+            // arrange
+            await page.goto(at('docs/guide.html'));
+
+            // act
+            await page.getByRole('link', {name: 'the word three'}).click();
+
+            // assert
+            await expect(page).toHaveURL(/\?q=three#three$/);
+            await expect(page.locator('[data-testid=doc] mark.md-find').first()).toBeVisible();
         });
 
         test('a link of a note opens the note it names', async ({page}) => {
@@ -536,6 +548,26 @@ test.describe('site from a host moves between notes without a page load', () => 
         // assert
         await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
         await expect.poll(() => scrollY(page)).toBe(1200);
+    });
+
+    test('a position left by a quick Back survives a reload', async ({page}) => {
+        // arrange
+        await page.goto(at('docs/guide.html'));
+        await row(page, 'docs/long.md').getByTestId('tree-link').click();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Long');
+        await page.evaluate(() => window.scrollTo({top: 1800, behavior: 'instant'}));
+        const left = await scrollY(page);
+        await page.goBack();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+        await page.reload();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+
+        // act
+        await page.goForward();
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Long');
+        await expect.poll(() => scrollY(page)).toBe(left);
     });
 
     test('Back puts a note opened at a heading where the reader left it, not at the heading', async ({page}) => {

@@ -27,10 +27,14 @@ declare global {
 
 // readPage takes the answer the page carries, found by an attribute and never
 // by an id, which a heading of the note could take
-export function readPage(): SitePage {
-  const node = document.querySelector('script[type="application/json"][data-scrawl="page"]');
+export function readPage(doc: Document = document): SitePage {
+  const node = doc.querySelector('script[type="application/json"][data-scrawl="page"]');
   if (node === null) {
     throw new Error('the page carries no answer, it was not written by scrawl site');
   }
-  return JSON.parse(node.textContent ?? '') as SitePage;
+  const page = JSON.parse(node.textContent ?? '') as Partial<SitePage>;
+  if (typeof page.route !== 'string' || typeof page.root !== 'string' || page.answer === undefined) {
+    throw new Error('the answer the page carries is not one scrawl site writes');
+  }
+  return page as SitePage;
 }

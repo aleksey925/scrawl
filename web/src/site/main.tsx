@@ -10,7 +10,6 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Route, Routes } from 'react-router';
 
-import { answerKeys, seedResponse } from '../api/useApi';
 import { mountNode } from '../mount';
 import { Component as DocumentPage } from '../pages/DocumentPage';
 import { Component as HomePage } from '../pages/HomePage';
@@ -23,8 +22,8 @@ import { keepThemeIn, themeColorSchemeManager } from '../themeChoice';
 import { pagePersistence } from '../themePersistence';
 
 import { readPage } from './data';
-import { isFolderRoute } from './files';
 import { PageRestore } from './PageRestore';
+import { PageStore } from './pages';
 import { SiteBoundary } from './SiteBoundary';
 import { SiteRouter } from './SiteRouter';
 import { siteStatus, sitePlatform } from './sitePlatform';
@@ -33,11 +32,11 @@ keepThemeIn(pagePersistence());
 
 const page = readPage();
 const site = window.scrawlSite ?? { title: 'Notes', tree: [] };
-const platform = sitePlatform(page, site);
+const root = new URL(page.root, window.location.href);
+const store = new PageStore();
+store.add({ page, title: document.title });
+const platform = sitePlatform(root, store, site);
 const status = siteStatus(site.title);
-
-// the first render paints what the page brought instead of waiting for it
-seedResponse(isFolderRoute(page.route) ? answerKeys.dir(page.answer.path) : answerKeys.page(page.answer.path), page.answer);
 
 // the copy kept for a reader without javascript goes before the app draws the
 // same note: its headings carry the same ids
@@ -53,7 +52,7 @@ createRoot(mountNode()).render(
     >
       <Notifications position="top-right" />
       <PlatformProvider value={platform}>
-        <SiteRouter route={page.route} root={page.root}>
+        <SiteRouter route={page.route} root={root} store={store}>
           <NavProvider status={status}>
             <ReaderLayout overlays={<PageRestore />}>
               <SiteBoundary>

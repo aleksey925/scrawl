@@ -18,7 +18,7 @@ const PIXEL = Buffer.from(
 const filler = (word) => Array.from({length: 30}, () => `${word} `.repeat(14)).join('\n\n');
 
 const NOTES = {
-    'index.md': '# Home\n\n[Guide](docs/guide.md), the [docs folder](docs/) and [pictures](pictures.md)\n',
+    'index.md': '# Home\n\n[Guide](docs/guide.md), the [docs folder](docs/), [pictures](pictures.md) and [the third part of the guide](docs/guide.md#three)\n',
     'docs/guide.md': [
         '# Guide', '[Back home](../index.md) and [the third part](#Three).',
         '## One', filler('one'),
@@ -244,7 +244,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await chooseTheme(page, 'Dark');
 
             // act
-            await page.getByRole('link', {name: 'Guide'}).click();
+            await page.getByRole('link', {name: 'Guide', exact: true}).click();
 
             // assert
             await expect(page).toHaveURL(at('docs/guide.html'));
@@ -262,7 +262,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await chooseTheme(page, 'Auto');
 
             // act
-            await page.getByRole('link', {name: 'Guide'}).click();
+            await page.getByRole('link', {name: 'Guide', exact: true}).click();
 
             // assert
             await expect(page).toHaveURL(at('docs/guide.html'));
@@ -402,7 +402,151 @@ for (const [target, at] of Object.entries(TARGETS)) {
     });
 }
 
-// Back after a link brings the page out of the browser's cache as it was left.
+// a page from a host reads the next page and shows it with no page load, the
+// way the app moves between notes; a value left on the window says whether
+// the page was loaded again
+test.describe('site from a host moves between notes without a page load', () => {
+    const at = (name) => TARGETS.host(name);
+    const mark = (page) => page.evaluate(() => {
+        window.marker = 'still here';
+    });
+    const marked = (page) => page.evaluate(() => window.marker);
+    const scrollY = (page) => page.evaluate(() => Math.round(window.scrollY));
+
+    test('a link of the tree shows its note, and the address and the title follow', async ({page}) => {
+        // arrange
+        await page.goto(at('index.html'));
+        await mark(page);
+
+        // act
+        await row(page, 'docs').getByTestId('tree-twisty').click();
+        await row(page, 'docs/guide.md').getByTestId('tree-link').click();
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+        await expect(page).toHaveURL(at('docs/guide.html'));
+        await expect(page).toHaveTitle('Guide');
+        expect(await marked(page)).toBe('still here');
+        await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveAttribute('data-path', 'docs/guide.md');
+    });
+
+    test('a link of a note moves the same way, and the links of the next one work', async ({page}) => {
+        // arrange
+        await page.goto(at('docs/guide.html'));
+        await mark(page);
+
+        // act
+        await page.getByRole('link', {name: 'Back home'}).click();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Home');
+        await page.getByRole('link', {name: 'pictures', exact: true}).click();
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');
+        await expect(page).toHaveURL(at('pictures.html'));
+        await expect(page.getByTestId('doc').locator('img').first()).toHaveJSProperty('naturalWidth', 1);
+        expect(await marked(page)).toBe('still here');
+    });
+
+    test('a link to a section of another note lands on the section', async ({page}) => {
+        // arrange
+        await page.goto(at('index.html'));
+        await mark(page);
+
+        // act
+        await page.getByRole('link', {name: 'the third part of the guide'}).click();
+
+        // assert
+        await expect(page).toHaveURL(`${at('docs/guide.html')}#three`);
+        await expect.poll(() => page.locator('h2#three').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
+            .toBeLessThan(120);
+        expect(await marked(page)).toBe('still here');
+    });
+
+    test('a new note starts at its top, and Back and Forward put each where it was', async ({page}) => {
+        // arrange
+        await page.goto(at('docs/guide.html'));
+        await mark(page);
+        await page.evaluate(() => window.scrollTo({top: 1200, behavior: 'instant'}));
+        await expect.poll(() => scrollY(page)).toBe(1200);
+
+        // act
+        await row(page, 'pictures.md').getByTestId('tree-link').click();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');
+
+        // assert
+        expect(await scrollY(page)).toBe(0);
+        await page.goBack();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+        await expect(page).toHaveTitle('Guide');
+        await expect.poll(() => scrollY(page)).toBe(1200);
+        await page.goForward();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');
+        await expect.poll(() => scrollY(page)).toBe(0);
+        expect(await marked(page)).toBe('still here');
+    });
+
+    test('what the reader typed into the filter stays when a note is picked from it', async ({page}) => {
+        // arrange
+        await page.goto(at('index.html'));
+        await page.getByTestId('sidebar-filter').fill('pic');
+
+        // act
+        await row(page, 'pictures.md').getByTestId('tree-link').click();
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');
+        await expect(page.getByTestId('sidebar-filter')).toHaveValue('pic');
+    });
+
+    test('a page that cannot be read is loaded instead', async ({page}) => {
+        // arrange
+        await page.route('**/pictures.html', (route) => (route.request().resourceType() === 'fetch' ? route.abort() : route.continue()));
+        await page.goto(at('index.html'));
+        await mark(page);
+
+        // act
+        await page.getByRole('link', {name: 'pictures', exact: true}).click();
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');
+        await expect(page).toHaveURL(at('pictures.html'));
+        expect(await marked(page)).toBeUndefined();
+    });
+
+    test('a reload after a move shows the note moved to', async ({page}) => {
+        // arrange
+        await page.goto(at('index.html'));
+        await page.getByRole('link', {name: 'Guide', exact: true}).click();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+
+        // act
+        await page.reload();
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+        await page.goBack();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Home');
+    });
+});
+
+test('from disk a move to another note is a page load', async ({page}) => {
+    // arrange
+    await page.goto(TARGETS.disk('index.html'));
+    await page.evaluate(() => {
+        window.marker = 'still here';
+    });
+
+    // act
+    await page.getByRole('link', {name: 'Guide', exact: true}).click();
+
+    // assert
+    await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+    expect(await page.evaluate(() => window.marker)).toBeUndefined();
+});
+
+// Back after a page load brings the page out of the browser's cache as it was
+// left: a link of a site from disk loads the next page, and from a host so does
+// an address typed or a link to the site from elsewhere.
 // Playwright turns that cache off in Chromium, and its headless shell has none,
 // so this test runs the whole browser with the cache back on.
 test('a page Back brings out of the cache takes the theme picked since and closes its drawer', async ({playwright, browserName}) => {
@@ -417,8 +561,8 @@ test('a page Back brings out of the cache takes the theme picked since and close
         window.restored = event.persisted;
     }));
     await page.getByTestId('topbar-burger').click();
-    await page.getByTestId('sidebar-drawer').locator('[data-testid=tree-row][data-path="pictures.md"] [data-testid=tree-link]').click();
-    await expect(page).toHaveURL(TARGETS.host('pictures.html'));
+    await expect(page.getByTestId('sidebar-drawer').getByTestId('tree-row').first()).toBeVisible();
+    await page.goto(TARGETS.host('pictures.html'));
     await chooseTheme(page, 'Dark');
 
     // act

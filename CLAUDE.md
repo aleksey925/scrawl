@@ -559,12 +559,18 @@ vendor/                dependencies, checked in, `make deps` regenerates
   twice, in the answer and as markup a reader without javascript reads
   together with the path and what its folder holds. Taking the note back
   out of that markup would parse sanitized HTML a second time.
-- Every move to another route on a site is a page load the browser
-  makes, from disk and from a host alike; only a fragment or a query
-  stays on the page. A page opened from disk can load no module and
-  fetch nothing, so the reader is one classic script, the data are
-  scripts that hand themselves over, and mermaid and KaTeX are files of
-  their own that a page loads only when its note needs them. A folder is
+- From a host a site moves between notes the way the app does: the next
+  page is read and its answer shown, with no page load, so the tree, its
+  filter and its scroll stay where they were. The page is the one copy of
+  its answer, so nothing else is written for this. Back puts each note
+  where it was left, which the browser cannot do for a page it never
+  loaded, and a page that cannot be read is loaded instead. From disk a
+  page can fetch nothing and cannot put another file in the address bar,
+  so there every move to another note is a page load; only a fragment or
+  a query stays on the page either way. A page opened from disk can load
+  no module, so the reader is one classic script, the data are scripts
+  that hand themselves over, and mermaid and KaTeX are files of their own
+  that a page loads only when its note needs them. A folder is
   `index.html`, written for every folder, with its `index.md` as its
   page when it has one, and a relative link to a folder points there:
   opened from disk a folder is the system's listing.

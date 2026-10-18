@@ -2,27 +2,28 @@ import type { MeResponse } from '../api/types';
 import type { Platform } from '../platform';
 import type { MeState } from '../shell/useMe';
 
-import type { SiteData, SitePage } from './data';
+import type { SiteData } from './data';
 import { fileOf } from './files';
+import { siteLinks } from './links';
 import { loadKatex, loadMermaid } from './loaders';
+import type { PageStore } from './pages';
 import { staticSource } from './staticSource';
 
-// a site is the app's reader with no server behind it: the answers came with
-// the pages, a link to a note is a file the browser opens itself, and the
-// renderers are files beside the script
-export function sitePlatform(page: SitePage, site: SiteData): Platform {
+// a site is the app's reader with no server behind it: the answers come with
+// the pages, a link is a file of the site, and the renderers are files beside
+// the script
+export function sitePlatform(root: URL, store: PageStore, site: SiteData): Platform {
   return {
-    source: staticSource(page, site),
-    physicalUrl: (url) => page.root + fileOf(url),
-    internalTarget: () => undefined,
+    source: staticSource(store, site),
+    physicalUrl: (url) => new URL(fileOf(url), root).href,
+    internalTarget: siteLinks(root, site.tree),
     loadMermaid,
     loadKatex,
-    storageScope: new URL(page.root, window.location.href).pathname,
+    storageScope: root.pathname,
     search: false,
     editing: false,
   };
 }
-
 // siteStatus is what a site is as a space: one nobody signs in to, writes to,
 // keeps the versions of or syncs
 export function siteStatus(title: string): MeState {

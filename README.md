@@ -680,6 +680,8 @@ on a phone, the outline with the section being read marked, a sheet for
 it on a phone, the path to the note, a page for every folder, a copy
 button on every code block, a viewer for the pictures, mermaid diagrams,
 formulas and the theme picker, whose choice is kept from page to page.
+From a host the site moves between notes without loading the page again,
+as the app does; opened from disk, every note is a page load.
 Search, editing, history and sync need the server and are not on a site.
 The diagram renderer, some 5MB, and the formula renderer are written only
 when a note needs them. There is nothing to configure: the front page is

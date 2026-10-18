@@ -1,6 +1,6 @@
 import { readJson, sessionStore, writeJson } from '../storage';
 
-import { anchorPrefix, readingFraction, stabiliseDelaysMs } from './constants';
+import { anchorPrefix, readingFraction } from './constants';
 
 // The renderer puts the inclusive 1-based source range of every block it emits
 // on the element, so a reading position survives the trip between the rendered
@@ -261,42 +261,6 @@ export function restoreToView(root: HTMLElement, anchor: ReadingAnchor): boolean
     window.scrollY + rect.top + rect.height * fractionInBlock(target, anchor) - visibleTopY() - anchor.offset;
   window.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
   return true;
-}
-
-// what a reader does to move a document themselves, as opposed to what the app
-// does to it. A scroll event is not among them: it says the element moved, not
-// who moved it, which is the whole difficulty these two uses share.
-export const interactionEvents = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
-
-// the anchor is re-applied until the document stops moving under it, and any
-// deliberate move by the reader ends that immediately
-export function holdPosition(apply: () => void, watched: EventTarget): () => void {
-  let stopped = false;
-  const timers: number[] = [];
-
-  const stop = (): void => {
-    stopped = true;
-    for (const timer of timers) {
-      window.clearTimeout(timer);
-    }
-    for (const name of interactionEvents) {
-      watched.removeEventListener(name, stop);
-    }
-  };
-
-  for (const name of interactionEvents) {
-    watched.addEventListener(name, stop, { passive: true });
-  }
-  for (const delay of stabiliseDelaysMs) {
-    timers.push(
-      window.setTimeout(() => {
-        if (!stopped) {
-          apply();
-        }
-      }, delay),
-    );
-  }
-  return stop;
 }
 
 export type AnchorSlot = 'edit' | 'view';

@@ -3,9 +3,9 @@ import { IconAlertTriangle } from '@tabler/icons-react';
 import type { JSX, ReactNode } from 'react';
 import { Navigate } from 'react-router';
 
-import { handoffOf } from '../api/client';
+import { handoffOf } from '../api/errors';
 import { errorText, type AsyncState } from '../api/useApi';
-import { mountBase } from '../mount';
+import { usePlatform } from '../platform';
 
 export interface AsyncContentProps<T> {
   state: AsyncState<T>;
@@ -16,12 +16,13 @@ export interface AsyncContentProps<T> {
 }
 
 export function AsyncContent<T>({ state, testId, children }: AsyncContentProps<T>): JSX.Element {
+  const { physicalUrl } = usePlatform();
   if (state.error !== undefined) {
     const elsewhere = handoffOf(state.error);
     if (elsewhere?.kind === 'attachment') {
       // /raw/ is a server route: a router navigation would put the right url
       // in the address bar, never ask the raw handler and render the app's 404
-      window.location.replace(mountBase() + elsewhere.url);
+      window.location.replace(physicalUrl(elsewhere.url));
       return <></>;
     }
     if (elsewhere !== undefined) {

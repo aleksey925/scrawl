@@ -7,18 +7,10 @@ import { useNavigate } from 'react-router';
 
 import { directoryUrl, documentUrl, editUrl } from '../paths';
 
-import { useFileActions } from './FileActions';
+import { rowMenuIconSize, type RowMenuProps } from './extensions';
+import { useFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
 import { parentOf } from './naming';
-
-export const rowMenuIconSize = 16;
-
-export interface RowMenuProps {
-  path: string;
-  isDir: boolean;
-  name: string;
-  touch: boolean;
-}
 
 export function RowMenu({ path, isDir, name, touch }: RowMenuProps): JSX.Element {
   const navigate = useNavigate();

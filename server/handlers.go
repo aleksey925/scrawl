@@ -25,16 +25,6 @@ const maxLoginBody = 64 << 10
 // The form and the JSON route answer the same one.
 const loginRetryAfter = "60"
 
-// indexOf finds a directory's own document by name, case-insensitively.
-func indexOf(entries []store.FileInfo, name string) string {
-	for _, ent := range entries {
-		if !ent.IsDir && strings.EqualFold(ent.Name, name) {
-			return ent.Path
-		}
-	}
-	return ""
-}
-
 // renderIntro renders the README shown above a listing. A failure only costs
 // the intro, so it is logged and the listing is served without it.
 func (m *mount) renderIntro(docPath string) (template.HTML, error) {

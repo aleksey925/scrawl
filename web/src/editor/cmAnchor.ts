@@ -1,12 +1,13 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 
+import { holdPosition } from '../reader/position';
+
 import {
   anchorLine,
   atDocumentStart,
   clamp,
   documentStart,
-  holdPosition,
   nearTop,
   type LineRange,
   type ReadingAnchor,

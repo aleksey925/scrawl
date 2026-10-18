@@ -4,23 +4,12 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aleksey925/scrawl/auth"
-	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
-)
-
-// the kinds every answer of the view routes carries, so a client tells the
-// cases apart by a field and never by the text of an error.
-const (
-	kindDocument        = "document"
-	kindMissingDocument = "missing-document"
-	kindDirectory       = "directory"
-	kindAttachment      = "attachment"
+	"github.com/aleksey925/scrawl/view"
 )
 
 // pageCacheControl keeps a rendered document out of a shared cache and sends
@@ -38,59 +27,9 @@ type handoff struct {
 	URL   string `json:"url"`
 }
 
-// pageResponse is one rendered document, the data the view template gets
-// without the navigation every page carries around it.
-type pageResponse struct {
-	Path string `json:"path"`
-
-	// DocPath is the file this was rendered from. It differs from Path when a
-	// directory is served as its index.md, and it is what history is asked
-	// about: a directory has no version of its own.
-	DocPath string           `json:"doc_path"`
-	Kind    string           `json:"kind"`
-	Title   string           `json:"title"`
-	HTML    string           `json:"html"`
-	TOC     []render.Heading `json:"toc"`
-	ShowTOC bool             `json:"show_toc"`
-	Rev     string           `json:"rev"`
-	ModTime time.Time        `json:"mod_time"`
-
-	Breadcrumbs []Crumb `json:"breadcrumbs"`
-	EditURL     string  `json:"edit_url"`
-	Missing     bool    `json:"missing"`
-
-	// CanCreate reports whether a write to this path would be allowed at all,
-	// which is what the offer to create a missing page hangs on.
-	CanCreate bool `json:"can_create"`
-}
-
-// dirResponse is one directory listing.
-type dirResponse struct {
-	Path        string     `json:"path"`
-	Kind        string     `json:"kind"`
-	Title       string     `json:"title"`
-	Entries     []DirEntry `json:"entries"`
-	ReadmeHTML  string     `json:"readme_html"`
-	HasReadme   bool       `json:"has_readme"`
-	Breadcrumbs []Crumb    `json:"breadcrumbs"`
-}
-
-// navNode is one node of the sidebar tree. It is not the shape /api/tree
-// serves: that one answers API token clients and names only what a file
-// operation needs, while this one carries what the sidebar draws.
-type navNode struct {
-	Name     string    `json:"name"`
-	Path     string    `json:"path"`
-	URL      string    `json:"url"`
-	IsDir    bool      `json:"is_dir"`
-	Active   bool      `json:"active"`
-	Current  bool      `json:"current"`
-	Children []navNode `json:"children"`
-}
-
 type navResponse struct {
-	Tree        []navNode `json:"tree"`
-	Breadcrumbs []Crumb   `json:"breadcrumbs"`
+	Tree        []view.NavNode `json:"tree"`
+	Breadcrumbs []view.Crumb   `json:"breadcrumbs"`
 }
 
 // meResponse is the session and the modes the app runs in.
@@ -182,26 +121,16 @@ func (m *mount) apiPage(w http.ResponseWriter, r *http.Request) {
 	stat, err := m.spc.Store.Stat(p)
 	switch {
 	case errors.Is(err, store.ErrNotFound) && isMarkdown(p):
-		writeJSON(w, http.StatusNotFound, pageResponse{
-			Path:        p,
-			DocPath:     p,
-			Kind:        kindMissingDocument,
-			Title:       path.Base(p),
-			TOC:         []render.Heading{},
-			Breadcrumbs: breadcrumbs(p),
-			EditURL:     editURL(p),
-			Missing:     true,
-			CanCreate:   m.canWrite(r),
-		})
+		writeJSON(w, http.StatusNotFound, view.MissingPage(p, m.canWrite(r)))
 		return
 	case err != nil:
 		failJSON(w, r, err)
 		return
 	case stat.IsDir:
-		writeHandoff(w, kindDirectory, dirURL(p), "path is a directory, list it from /api/dir/")
+		writeHandoff(w, view.KindDirectory, view.DirURL(p), "path is a directory, list it from /api/dir/")
 		return
 	case !isMarkdown(p):
-		writeHandoff(w, kindAttachment, contentURL(p), "not a document, read it from /raw/")
+		writeHandoff(w, view.KindAttachment, view.ContentURL(p), "not a document, read it from /raw/")
 		return
 	}
 
@@ -224,7 +153,7 @@ func (m *mount) apiDir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !stat.IsDir {
-		writeHandoff(w, fileKind(p), contentURL(p), "path is not a directory")
+		writeHandoff(w, fileKind(p), view.ContentURL(p), "path is not a directory")
 		return
 	}
 
@@ -233,23 +162,13 @@ func (m *mount) apiDir(w http.ResponseWriter, r *http.Request) {
 		failJSON(w, r, err)
 		return
 	}
-	if intro := indexOf(entries, "index.md"); intro != "" {
+	if intro := view.IndexOf(entries, view.IndexName); intro != "" {
 		m.writeDoc(w, r, p, intro)
 		return
 	}
 
-	title := "Home"
-	if p != "" {
-		title = path.Base(p)
-	}
-	res := dirResponse{
-		Path:        p,
-		Kind:        kindDirectory,
-		Title:       title,
-		Entries:     dirEntries(entries),
-		Breadcrumbs: breadcrumbs(p),
-	}
-	if intro := indexOf(entries, "readme.md"); intro != "" {
+	res := view.NewDir(p, entries)
+	if intro := view.IndexOf(entries, view.ReadmeName); intro != "" {
 		if html, introErr := m.renderIntro(intro); introErr == nil {
 			res.ReadmeHTML, res.HasReadme = string(html), true
 		}
@@ -287,21 +206,7 @@ func (m *mount) writeDoc(w http.ResponseWriter, r *http.Request, navPath, docPat
 		return
 	}
 
-	toc := render.OutlineOf(res.TOC)
-	writeJSON(w, http.StatusOK, pageResponse{
-		Path:        navPath,
-		DocPath:     docPath,
-		Kind:        kindDocument,
-		Title:       res.Title,
-		HTML:        string(res.HTML),
-		TOC:         toc,
-		ShowTOC:     len(toc) >= render.MinOutline,
-		Rev:         rev,
-		ModTime:     fi.ModTime,
-		Breadcrumbs: breadcrumbs(navPath),
-		EditURL:     editURL(docPath),
-		CanCreate:   m.canWrite(r),
-	})
+	writeJSON(w, http.StatusOK, view.NewPage(navPath, docPath, res, rev, fi.ModTime, m.canWrite(r)))
 }
 
 // apiNav serves the sidebar tree and the breadcrumbs for the page named by the
@@ -313,8 +218,8 @@ func (m *mount) apiNav(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, navResponse{
-		Tree:        navNodes(m.treeNodes(current)),
-		Breadcrumbs: breadcrumbs(current),
+		Tree:        m.treeNodes(current),
+		Breadcrumbs: view.Breadcrumbs(current),
 	})
 }
 
@@ -421,9 +326,9 @@ func writeHandoff(w http.ResponseWriter, kind, target, message string) {
 // everything else is an attachment handed over by /raw/.
 func fileKind(p string) string {
 	if isMarkdown(p) {
-		return kindDocument
+		return view.KindDocument
 	}
-	return kindAttachment
+	return view.KindAttachment
 }
 
 // canWrite reports whether this caller may write the notes at all, which is the
@@ -444,20 +349,4 @@ func matchesETag(header, tag string) bool {
 		}
 	}
 	return false
-}
-
-func navNodes(nodes []TreeNode) []navNode {
-	res := make([]navNode, 0, len(nodes))
-	for _, item := range nodes {
-		res = append(res, navNode{
-			Name:     item.Name,
-			Path:     item.Path,
-			URL:      item.URL,
-			IsDir:    item.IsDir,
-			Active:   item.Active,
-			Current:  item.Current,
-			Children: navNodes(item.Children),
-		})
-	}
-	return res
 }

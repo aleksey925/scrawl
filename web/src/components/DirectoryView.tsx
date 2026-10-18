@@ -3,11 +3,10 @@ import { IconFile, IconFilePlus, IconFolder, IconFolderOpen, IconFolderPlus } fr
 import type { JSX } from 'react';
 import { Link } from 'react-router';
 
-import { api } from '../api/client';
 import { useApi } from '../api/useApi';
-import { mountBase } from '../mount';
 import { isMarkdown } from '../paths';
-import { useFileActions } from '../shell/FileActions';
+import { usePlatform } from '../platform';
+import { useOptionalFileActions } from '../shell/fileActionsContext';
 import { useNav } from '../shell/NavContext';
 import { SyncBadge } from '../shell/SyncBadge';
 
@@ -22,8 +21,9 @@ export interface DirectoryViewProps {
 
 export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
   const { canWrite } = useNav();
-  const actions = useFileActions();
-  const state = useApi((signal) => api.dir(path, { signal }), [path], `dir:${path}`);
+  const actions = useOptionalFileActions();
+  const { source, physicalUrl } = usePlatform();
+  const state = useApi((signal) => source.dir(path, { signal }), [source, path], `dir:${path}`);
 
   return (
     <AsyncContent state={state} testId="dir">
@@ -42,7 +42,7 @@ export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
                 icon={IconFolderOpen}
                 title="This folder is empty"
                 actions={
-                  canWrite && (
+                  canWrite && actions !== undefined && (
                     <>
                       <Button
                         data-testid="dir-empty-new-page"
@@ -88,7 +88,7 @@ export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
                             {entry.name}
                           </Anchor>
                         ) : (
-                          <Anchor data-testid="dir-row-name" href={mountBase() + entry.url}>
+                          <Anchor data-testid="dir-row-name" href={physicalUrl(entry.url)}>
                             {entry.name}
                           </Anchor>
                         )}

@@ -197,6 +197,37 @@ func TestResolveRelative(t *testing.T) {
 	}
 }
 
+func TestResolveRelativeFolderPage(t *testing.T) {
+	tests := []struct {
+		name, dest string
+		want       target
+	}{
+		{"folder with a slash", "../a/", target{dest: "../a/index.html", rewrote: true}},
+		{"folder with a fragment", "a/#x", target{dest: "a/index.html#x", rewrote: true}},
+		{"this folder", ".", target{dest: "./index.html", rewrote: true}},
+		{"the folder above", "..", target{dest: "../index.html", rewrote: true}},
+		{"the folder above a folder", "a/..", target{dest: "a/../index.html", rewrote: true}},
+		{"index of a folder", "a/index.md", target{dest: "a/index.html", rewrote: true}},
+		{"index in another case", "../a/INDEX.MD?x=1", target{dest: "../a/index.html?x=1", rewrote: true}},
+		{"index of this folder", "index.md", target{dest: "index.html", rewrote: true}},
+		{"a note named like an index", "a/index.md.md", target{dest: "a/index.md.html", rewrote: true}},
+		{"other note", "a/b.md", target{dest: "a/b.html", rewrote: true}},
+		{"picture kept", "a/p.png", target{dest: "a/p.png"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// arrange
+			tr := &linkTransformer{relative: true, pageExt: ".html", folderPage: "index.html"}
+
+			// act
+			got := tr.resolve(tt.dest, "dir")
+
+			// assert
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestRenderRelativeLinks(t *testing.T) {
 	// arrange
 	r := New(Options{Relative: true, PageExt: ".html"})

@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/aleksey925/scrawl/render"
+	"github.com/aleksey925/scrawl/view"
 )
 
 // jsonValue round-trips a value through JSON, so an expectation can be built
@@ -277,7 +278,7 @@ func TestAPIDirServesTheIndexUnderTheDirectoryPath(t *testing.T) {
 	assert.Equal(t, doc["title"], body["title"])
 	assert.Equal(t, doc["rev"], body["rev"])
 	assert.Equal(t, "notes", body["path"])
-	assert.Equal(t, jsonValue(t, breadcrumbs("notes")), body["breadcrumbs"])
+	assert.Equal(t, jsonValue(t, view.Breadcrumbs("notes")), body["breadcrumbs"])
 	assert.NotEqual(t, doc["breadcrumbs"], body["breadcrumbs"],
 		"the trail names the directory that was asked for, not the file it is served from")
 	assert.Equal(t, "notes/index.md", body["doc_path"],
@@ -331,7 +332,7 @@ func TestAPIDirListsWhatTheDirectoryPageLists(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
-	assert.Equal(t, jsonValue(t, dirEntries(entries)), body["entries"])
+	assert.Equal(t, jsonValue(t, view.DirEntries(entries)), body["entries"])
 	assert.Contains(t, body["readme_html"], "the intro above the listing")
 	assert.Equal(t, true, body["has_readme"])
 }
@@ -377,8 +378,8 @@ func TestAPINavMarksNothingWithoutACurrentPath(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
-	assert.Equal(t, jsonValue(t, navNodes(ts.mount().treeNodes(""))), body["tree"])
-	assert.Equal(t, jsonValue(t, breadcrumbs("")), body["breadcrumbs"])
+	assert.Equal(t, jsonValue(t, ts.mount().treeNodes("")), body["tree"])
+	assert.Equal(t, jsonValue(t, view.Breadcrumbs("")), body["breadcrumbs"])
 	docs := nodeByName(t, body["tree"].([]any), "docs")
 	assert.Equal(t, false, docs["active"])
 }
@@ -403,7 +404,7 @@ func TestAPINavIsNotTheTokenTree(t *testing.T) {
 func TestSPABreadcrumbsMatchThePageTrail(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	want := jsonValue(t, breadcrumbs("docs/sub/deep.md"))
+	want := jsonValue(t, view.Breadcrumbs("docs/sub/deep.md"))
 
 	// act
 	_, page := ts.json(t, request{path: "/api/page/docs/sub/deep.md"})
@@ -419,7 +420,7 @@ func TestSPABreadcrumbsMatchThePageTrail(t *testing.T) {
 	}, want)
 	assert.Equal(t, want, page["breadcrumbs"])
 	assert.Equal(t, want, nav["breadcrumbs"])
-	assert.Equal(t, jsonValue(t, breadcrumbs("docs/sub")), dir["breadcrumbs"])
+	assert.Equal(t, jsonValue(t, view.Breadcrumbs("docs/sub")), dir["breadcrumbs"])
 }
 
 func TestSPARefusesABadPath(t *testing.T) {

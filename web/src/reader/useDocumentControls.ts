@@ -1,12 +1,13 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
+import { usePlatform } from '../platform';
 import { showToast } from '../toast';
 
 import { copyText } from './clipboard';
 import { anchorClass, copyClass, copyCode, injectControls, pictureKeyed, pictureOf, sectionLink } from './controls';
 import { decodeFragment, elementWithId } from './dom';
-import { internalTarget, isPlainClick } from './links';
+import { isPlainClick } from './links';
 
 export function useDocumentControls(
   rootRef: RefObject<HTMLDivElement | null>,
@@ -15,10 +16,11 @@ export function useDocumentControls(
 ): void {
   const navigate = useNavigate();
   const location = useLocation();
+  const { internalTarget } = usePlatform();
 
-  const latest = useRef({ navigate, location, onImage });
+  const latest = useRef({ navigate, location, onImage, internalTarget });
   useEffect(() => {
-    latest.current = { navigate, location, onImage };
+    latest.current = { navigate, location, onImage, internalTarget };
   });
 
   useEffect(() => {
@@ -83,7 +85,7 @@ export function useDocumentControls(
           jump(decodeFragment(href.slice(1)), false);
           return;
         }
-        const internal = internalTarget(link);
+        const internal = latest.current.internalTarget(link);
         if (internal !== undefined) {
           event.preventDefault();
           void latest.current.navigate(internal.to);

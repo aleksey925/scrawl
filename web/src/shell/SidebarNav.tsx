@@ -13,13 +13,14 @@ import { Link, useNavigate } from 'react-router';
 import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
 import controls from '../controls.module.css';
+import { usePlatform } from '../platform';
 import { iconEdgeInset, layout, layoutBreakpoints, useBelow } from '../theme';
 
-import { folderFor, useFileActions } from './FileActions';
+import { rowMenuIconSize, useReaderExtensions } from './extensions';
+import { useFileActions, useOptionalFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
 import { SyncBadge } from './SyncBadge';
-import { RowMenu, rowMenuIconSize } from './RowMenu';
-import { basenameOf, parentOf } from './naming';
+import { basenameOf, folderFor, parentOf } from './naming';
 import { filterTree, type FilteredTree } from './treeFilter';
 
 const iconSize = 16;
@@ -78,7 +79,8 @@ type TreeRowProps = Omit<RowsProps, 'nodes'> & { node: NavNode };
 
 function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Element | null {
   const { isOpen, openFolder, toggleFolder, currentPath } = useNav();
-  const { draft } = useFileActions();
+  const draft = useOptionalFileActions()?.draft;
+  const { RowMenu } = useReaderExtensions();
   const ui = useTreeUi();
 
   // the space's own row: it is the folder everything else grows out of, so a
@@ -186,7 +188,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
             name and the badge reads beside it */}
         <SyncBadge path={node.path} />
 
-        <RowMenu path={node.path} isDir={node.is_dir} name={node.name} touch={touch} />
+        {RowMenu !== undefined && <RowMenu path={node.path} isDir={node.is_dir} name={node.name} touch={touch} />}
       </Group>
 
       {node.is_dir && open && (
@@ -378,8 +380,11 @@ function nodeAt(nodes: readonly NavNode[], path: string): NavNode | undefined {
 
 export function SidebarNav(): JSX.Element {
   const navigate = useNavigate();
-  const { tree, error, loading, canWrite, currentPath, query, setQuery, isOpen, openFolder, me } = useNav();
-  const actions = useFileActions();
+  const { tree, error, loading, canWrite: mayWrite, currentPath, query, setQuery, isOpen, openFolder, me } = useNav();
+  const actions = useOptionalFileActions();
+  const { search } = usePlatform();
+  // a reader with nowhere to write offers no write, whatever the space allows
+  const canWrite = mayWrite && actions !== undefined;
   const touch = useBelow(layoutBreakpoints.sidebar);
   // the drawer leaves its sides to this: its rows reach both edges and carry
   // their own insets, so the chevron's touch strip on a top-level row is whole
@@ -542,7 +547,7 @@ export function SidebarNav(): JSX.Element {
       event.preventDefault();
       event.stopPropagation();
       setSelected(new Set());
-      actions.moveInto(paths, folder);
+      actions?.moveInto(paths, folder);
     },
     [actions, canDrop, endDrag],
   );
@@ -566,7 +571,11 @@ export function SidebarNav(): JSX.Element {
       // a folder whose child matched is on screen too and comes first in
       // document order, so the query is matched again rather than trusted
       const first = filtered.matches[0];
-      void navigate(first === undefined ? `/search?q=${encodeURIComponent(query.trim())}` : first.url);
+      if (first !== undefined) {
+        void navigate(first.url);
+      } else if (search) {
+        void navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+      }
       return;
     }
     if (event.key === 'Escape' && query !== '') {
@@ -616,7 +625,7 @@ export function SidebarNav(): JSX.Element {
           }
           style={{ flex: '1 1 auto', minWidth: 0 }}
         />
-        {canWrite && (
+        {canWrite && actions !== undefined && (
           <Menu position="bottom-end" withinPortal shadow="md" width={200}>
             <Menu.Target>
               <ActionIcon
@@ -684,7 +693,7 @@ export function SidebarNav(): JSX.Element {
               </Stack>
             ) : trimmed !== '' && filtered.matches.length === 0 ? (
               <Text data-testid="sidebar-empty" size="sm" c="dimmed">
-                Nothing matches. Press Enter to search the text of every note.
+                {search ? 'Nothing matches. Press Enter to search the text of every note.' : 'Nothing matches.'}
               </Text>
             ) : (
               <TreeRows nodes={[rootNode]} depth={0} filtered={filtered} query={trimmed} touch={touch} />

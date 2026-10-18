@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { useLocation, useNavigate } from 'react-router';
 
 import type { Heading } from '../api/types';
-import { interactionEvents } from '../editor/anchor';
+import { interactionEvents } from './position';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { decodeFragment, elementWithId } from './dom';

@@ -3,17 +3,26 @@ import { spotlight } from '@mantine/spotlight';
 import { IconListSearch, IconSearch } from '@tabler/icons-react';
 import type { JSX, ReactNode } from 'react';
 
+import { usePlatform } from '../platform';
 import { iconEdgeInset, layout, layoutBreakpoints, useAtLeast } from '../theme';
 
-import { AccountMenu } from './AccountMenu';
 import { MoreMenu } from './MoreMenu';
 import { PathCrumbs } from './PathCrumbs';
-import { SpaceSwitcher } from './SpaceSwitcher';
-import { SyncControl } from './SyncControl';
 import classes from './Topbar.module.css';
+
+// TopbarChrome is what the app adds to the bar. Without it the bar holds the
+// reader's own controls and one menu with the theme, at every width.
+export interface TopbarChrome {
+  // beside the burger
+  start?: ReactNode;
+  // at the end on a wide screen, and the one menu on a phone
+  wide?: ReactNode;
+  compact?: ReactNode;
+}
 
 export interface TopbarProps {
   burger: ReactNode;
+  chrome?: TopbarChrome;
   actionsRef: (element: HTMLElement | null) => void;
   tocAvailable: boolean;
   onOpenToc: () => void;
@@ -21,26 +30,28 @@ export interface TopbarProps {
 
 // on a phone the row holds only icons: the path moves to the top of the page
 // and everything that is not about the page moves into one menu
-export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarProps): JSX.Element {
+export function Topbar({ burger, chrome, actionsRef, tocAvailable, onOpenToc }: TopbarProps): JSX.Element {
   const wide = useAtLeast(layoutBreakpoints.compactTopbar);
+  const { search } = usePlatform();
 
   return (
     <Group data-testid="topbar" h="100%" px={wide ? 'lg' : iconEdgeInset(layout.topbarIconSize)} gap={wide ? 'sm' : 0} wrap="nowrap">
       {burger}
 
-      <SpaceSwitcher />
+      {chrome?.start}
 
       {wide ? <PathCrumbs place="topbar" /> : <Box flex={1} />}
 
       <Group data-testid="topbar-actions" gap={wide ? 'xs' : 0} wrap="nowrap" ref={actionsRef} />
 
-      {wide ? (
+      {search && wide && (
         <UnstyledButton data-testid="topbar-search" className={classes.search} onClick={spotlight.open}>
           <IconSearch size={16} />
           <span className={classes.searchLabel}>Search notes</span>
           <Kbd size="xs">/</Kbd>
         </UnstyledButton>
-      ) : (
+      )}
+      {search && !wide && (
         <ActionIcon
           data-testid="topbar-search-compact"
           variant="subtle"
@@ -66,14 +77,7 @@ export function Topbar({ burger, actionsRef, tocAvailable, onOpenToc }: TopbarPr
         </ActionIcon>
       )}
 
-      {wide ? (
-        <>
-          <SyncControl />
-          <AccountMenu />
-        </>
-      ) : (
-        <MoreMenu />
-      )}
+      {wide ? (chrome?.wide ?? <MoreMenu />) : (chrome?.compact ?? <MoreMenu />)}
     </Group>
   );
 }

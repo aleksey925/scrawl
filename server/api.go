@@ -13,6 +13,7 @@ import (
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/history"
 	"github.com/aleksey925/scrawl/store"
+	"github.com/aleksey925/scrawl/view"
 )
 
 // multipartOverhead is the room an upload gets on top of the file itself for
@@ -461,7 +462,7 @@ func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {
 				Title:   hit.Title,
 				Snippet: string(hit.Snippet),
 				Score:   hit.Score,
-				URL:     searchURL(hit.Path, query),
+				URL:     view.SearchURL(hit.Path, query),
 			})
 		}
 	}

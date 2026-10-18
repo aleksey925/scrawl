@@ -1,10 +1,17 @@
 {
-  "_AsyncContent-KLkTAiNy.js": {
-    "file": "assets/AsyncContent-KLkTAiNy.js",
+  "_Anchor-DuuTtneT.js": {
+    "file": "assets/Anchor-DuuTtneT.js",
+    "name": "Anchor",
+    "imports": [
+      "_theme-KIvH2wW_.js"
+    ]
+  },
+  "_AsyncContent-BQ2PS-RM.js": {
+    "file": "assets/AsyncContent-BQ2PS-RM.js",
     "name": "AsyncContent",
     "imports": [
       "_theme-KIvH2wW_.js",
-      "index.html"
+      "_NavContext-BL4FskQO.js"
     ]
   },
   "_Container-BzUyM0gr.js": {
@@ -14,16 +21,38 @@
       "_theme-KIvH2wW_.js"
     ]
   },
-  "_DirectoryView-Cs6ghbVE.js": {
-    "file": "assets/DirectoryView-Cs6ghbVE.js",
+  "_DirectoryView-BH7rahkk.js": {
+    "file": "assets/DirectoryView-BH7rahkk.js",
     "name": "DirectoryView",
     "imports": [
       "_rolldown-runtime-Dd_uD5pT.js",
       "_theme-KIvH2wW_.js",
-      "_editor-D8XZgzOK.js",
-      "_markdown-CC1wWFjm.js",
-      "_AsyncContent-KLkTAiNy.js",
+      "_NavContext-BL4FskQO.js",
+      "_EmptyState-D1Xvr4aI.js",
+      "_Anchor-DuuTtneT.js",
+      "_AsyncContent-BQ2PS-RM.js",
       "index.html"
+    ]
+  },
+  "_EmptyState-D1Xvr4aI.js": {
+    "file": "assets/EmptyState-D1Xvr4aI.js",
+    "name": "EmptyState",
+    "imports": [
+      "_rolldown-runtime-Dd_uD5pT.js",
+      "_theme-KIvH2wW_.js",
+      "_toast-BrXKD2NE.js",
+      "_markdown-DxhAo_bR.js",
+      "_NavContext-BL4FskQO.js",
+      "_Anchor-DuuTtneT.js",
+      "index.html"
+    ]
+  },
+  "_NavContext-BL4FskQO.js": {
+    "file": "assets/NavContext-BL4FskQO.js",
+    "name": "NavContext",
+    "imports": [
+      "_rolldown-runtime-Dd_uD5pT.js",
+      "_theme-KIvH2wW_.js"
     ]
   },
   "_PageContainer-DGseGpYJ.js": {
@@ -348,155 +377,6 @@
     "file": "assets/dist-DfFnJEP6.js",
     "name": "dist"
   },
-  "_editor-BSx08UYZ.css": {
-    "file": "assets/editor-BSx08UYZ.css",
-    "src": "_editor-BSx08UYZ.css"
-  },
-  "_editor-D8XZgzOK.js": {
-    "file": "assets/editor-D8XZgzOK.js",
-    "name": "editor",
-    "imports": [
-      "_rolldown-runtime-Dd_uD5pT.js",
-      "_theme-KIvH2wW_.js",
-      "_markdown-CC1wWFjm.js",
-      "_AsyncContent-KLkTAiNy.js",
-      "_preload-helper-Q-YrVPuy.js",
-      "index.html",
-      "_dist-DfFnJEP6.js",
-      "_dist-CfrLGHsT.js",
-      "_dist-DRN8tcwY.js"
-    ],
-    "dynamicImports": [
-      "node_modules/@codemirror/lang-sql/dist/index.js",
-      "node_modules/@codemirror/lang-cpp/dist/index.js",
-      "_dist-C1RE_vqM.js",
-      "node_modules/@codemirror/lang-go/dist/index.js",
-      "_dist-CfrLGHsT.js",
-      "node_modules/@codemirror/lang-java/dist/index.js",
-      "_dist-CaHwnvTQ.js",
-      "node_modules/@codemirror/lang-jinja/dist/index.js",
-      "node_modules/@codemirror/lang-json/dist/index.js",
-      "node_modules/@codemirror/lang-less/dist/index.js",
-      "node_modules/@codemirror/lang-liquid/dist/index.js",
-      "_editor-D8XZgzOK.js",
-      "node_modules/@codemirror/lang-php/dist/index.js",
-      "node_modules/@codemirror/lang-python/dist/index.js",
-      "node_modules/@codemirror/lang-rust/dist/index.js",
-      "node_modules/@codemirror/lang-sass/dist/index.js",
-      "node_modules/@codemirror/lang-wast/dist/index.js",
-      "node_modules/@codemirror/lang-xml/dist/index.js",
-      "node_modules/@codemirror/lang-yaml/dist/index.js",
-      "node_modules/@codemirror/legacy-modes/mode/apl.js",
-      "node_modules/@codemirror/legacy-modes/mode/asciiarmor.js",
-      "node_modules/@codemirror/legacy-modes/mode/asn1.js",
-      "node_modules/@codemirror/legacy-modes/mode/asterisk.js",
-      "node_modules/@codemirror/legacy-modes/mode/brainfuck.js",
-      "node_modules/@codemirror/legacy-modes/mode/cobol.js",
-      "node_modules/@codemirror/legacy-modes/mode/clike.js",
-      "node_modules/@codemirror/legacy-modes/mode/clojure.js",
-      "node_modules/@codemirror/legacy-modes/mode/css.js",
-      "node_modules/@codemirror/legacy-modes/mode/cmake.js",
-      "node_modules/@codemirror/legacy-modes/mode/coffeescript.js",
-      "node_modules/@codemirror/legacy-modes/mode/commonlisp.js",
-      "node_modules/@codemirror/legacy-modes/mode/cypher.js",
-      "node_modules/@codemirror/legacy-modes/mode/python.js",
-      "node_modules/@codemirror/legacy-modes/mode/crystal.js",
-      "node_modules/@codemirror/legacy-modes/mode/d.js",
-      "node_modules/@codemirror/legacy-modes/mode/diff.js",
-      "node_modules/@codemirror/legacy-modes/mode/dockerfile.js",
-      "node_modules/@codemirror/legacy-modes/mode/dtd.js",
-      "node_modules/@codemirror/legacy-modes/mode/dylan.js",
-      "node_modules/@codemirror/legacy-modes/mode/ebnf.js",
-      "node_modules/@codemirror/legacy-modes/mode/ecl.js",
-      "node_modules/@codemirror/legacy-modes/mode/eiffel.js",
-      "node_modules/@codemirror/legacy-modes/mode/elm.js",
-      "node_modules/@codemirror/legacy-modes/mode/erlang.js",
-      "node_modules/@codemirror/legacy-modes/mode/sql.js",
-      "node_modules/@codemirror/legacy-modes/mode/factor.js",
-      "node_modules/@codemirror/legacy-modes/mode/fcl.js",
-      "node_modules/@codemirror/legacy-modes/mode/forth.js",
-      "node_modules/@codemirror/legacy-modes/mode/fortran.js",
-      "node_modules/@codemirror/legacy-modes/mode/mllike.js",
-      "node_modules/@codemirror/legacy-modes/mode/gas.js",
-      "node_modules/@codemirror/legacy-modes/mode/gherkin.js",
-      "node_modules/@codemirror/legacy-modes/mode/groovy.js",
-      "node_modules/@codemirror/legacy-modes/mode/haskell.js",
-      "node_modules/@codemirror/legacy-modes/mode/haxe.js",
-      "node_modules/@codemirror/legacy-modes/mode/http.js",
-      "node_modules/@codemirror/legacy-modes/mode/idl.js",
-      "node_modules/@codemirror/legacy-modes/mode/javascript.js",
-      "node_modules/@codemirror/legacy-modes/mode/julia.js",
-      "node_modules/@codemirror/legacy-modes/mode/livescript.js",
-      "node_modules/@codemirror/legacy-modes/mode/lua.js",
-      "node_modules/@codemirror/legacy-modes/mode/mirc.js",
-      "node_modules/@codemirror/legacy-modes/mode/mathematica.js",
-      "node_modules/@codemirror/legacy-modes/mode/modelica.js",
-      "node_modules/@codemirror/legacy-modes/mode/mumps.js",
-      "node_modules/@codemirror/legacy-modes/mode/mbox.js",
-      "node_modules/@codemirror/legacy-modes/mode/nginx.js",
-      "node_modules/@codemirror/legacy-modes/mode/nsis.js",
-      "node_modules/@codemirror/legacy-modes/mode/ntriples.js",
-      "node_modules/@codemirror/legacy-modes/mode/octave.js",
-      "node_modules/@codemirror/legacy-modes/mode/oz.js",
-      "node_modules/@codemirror/legacy-modes/mode/pascal.js",
-      "node_modules/@codemirror/legacy-modes/mode/perl.js",
-      "node_modules/@codemirror/legacy-modes/mode/pig.js",
-      "node_modules/@codemirror/legacy-modes/mode/powershell.js",
-      "node_modules/@codemirror/legacy-modes/mode/properties.js",
-      "node_modules/@codemirror/legacy-modes/mode/protobuf.js",
-      "node_modules/@codemirror/legacy-modes/mode/pug.js",
-      "node_modules/@codemirror/legacy-modes/mode/puppet.js",
-      "node_modules/@codemirror/legacy-modes/mode/q.js",
-      "node_modules/@codemirror/legacy-modes/mode/r.js",
-      "node_modules/@codemirror/legacy-modes/mode/rpm.js",
-      "node_modules/@codemirror/legacy-modes/mode/ruby.js",
-      "node_modules/@codemirror/legacy-modes/mode/sas.js",
-      "node_modules/@codemirror/legacy-modes/mode/scheme.js",
-      "node_modules/@codemirror/legacy-modes/mode/shell.js",
-      "node_modules/@codemirror/legacy-modes/mode/sieve.js",
-      "node_modules/@codemirror/legacy-modes/mode/smalltalk.js",
-      "node_modules/@codemirror/legacy-modes/mode/solr.js",
-      "node_modules/@codemirror/legacy-modes/mode/sparql.js",
-      "node_modules/@codemirror/legacy-modes/mode/spreadsheet.js",
-      "node_modules/@codemirror/legacy-modes/mode/stylus.js",
-      "node_modules/@codemirror/legacy-modes/mode/swift.js",
-      "node_modules/@codemirror/legacy-modes/mode/stex.js",
-      "node_modules/@codemirror/legacy-modes/mode/verilog.js",
-      "node_modules/@codemirror/legacy-modes/mode/tcl.js",
-      "node_modules/@codemirror/legacy-modes/mode/textile.js",
-      "node_modules/@codemirror/legacy-modes/mode/tiddlywiki.js",
-      "node_modules/@codemirror/legacy-modes/mode/tiki.js",
-      "node_modules/@codemirror/legacy-modes/mode/toml.js",
-      "node_modules/@codemirror/legacy-modes/mode/troff.js",
-      "node_modules/@codemirror/legacy-modes/mode/ttcn.js",
-      "node_modules/@codemirror/legacy-modes/mode/ttcn-cfg.js",
-      "node_modules/@codemirror/legacy-modes/mode/turtle.js",
-      "node_modules/@codemirror/legacy-modes/mode/webidl.js",
-      "node_modules/@codemirror/legacy-modes/mode/vb.js",
-      "node_modules/@codemirror/legacy-modes/mode/vbscript.js",
-      "node_modules/@codemirror/legacy-modes/mode/velocity.js",
-      "node_modules/@codemirror/legacy-modes/mode/vhdl.js",
-      "node_modules/@codemirror/legacy-modes/mode/xquery.js",
-      "node_modules/@codemirror/legacy-modes/mode/yacas.js",
-      "node_modules/@codemirror/legacy-modes/mode/z80.js",
-      "node_modules/@codemirror/legacy-modes/mode/mscgen.js",
-      "node_modules/@codemirror/lang-vue/dist/index.js",
-      "node_modules/@codemirror/lang-angular/dist/index.js",
-      "node_modules/prettier/standalone.mjs",
-      "node_modules/prettier/plugins/markdown.mjs",
-      "node_modules/prettier/plugins/yaml.mjs",
-      "node_modules/prettier/plugins/babel.mjs",
-      "node_modules/prettier/plugins/estree.mjs",
-      "node_modules/prettier/plugins/typescript.mjs",
-      "node_modules/prettier/plugins/postcss.mjs",
-      "node_modules/prettier/plugins/html.mjs",
-      "node_modules/prettier/plugins/graphql.mjs",
-      "node_modules/prettier/plugins/glimmer.mjs"
-    ],
-    "css": [
-      "assets/editor-BSx08UYZ.css"
-    ]
-  },
   "_graphlib-DyD3Ow9l.js": {
     "file": "assets/graphlib-DyD3Ow9l.js",
     "name": "graphlib",
@@ -526,26 +406,22 @@
       "_init-C-OQMol4.js"
     ]
   },
-  "_markdown-CC1wWFjm.js": {
-    "file": "assets/markdown-CC1wWFjm.js",
+  "_markdown-Cr3qmq8t.css": {
+    "file": "assets/markdown-Cr3qmq8t.css",
+    "src": "_markdown-Cr3qmq8t.css"
+  },
+  "_markdown-DxhAo_bR.js": {
+    "file": "assets/markdown-DxhAo_bR.js",
     "name": "markdown",
     "imports": [
       "_rolldown-runtime-Dd_uD5pT.js",
       "_theme-KIvH2wW_.js",
-      "_preload-helper-Q-YrVPuy.js",
-      "index.html"
-    ],
-    "dynamicImports": [
-      "node_modules/katex/dist/katex.mjs",
-      "node_modules/mermaid/dist/mermaid.core.mjs"
+      "_toast-BrXKD2NE.js",
+      "_NavContext-BL4FskQO.js"
     ],
     "css": [
       "assets/markdown-Cr3qmq8t.css"
     ]
-  },
-  "_markdown-Cr3qmq8t.css": {
-    "file": "assets/markdown-Cr3qmq8t.css",
-    "src": "_markdown-Cr3qmq8t.css"
   },
   "_mermaid-parser.core-BRgN6G-k.js": {
     "file": "assets/mermaid-parser.core-BRgN6G-k.js",
@@ -622,17 +498,30 @@
       "assets/theme-FPdxRAbM.css"
     ]
   },
+  "_toast-BrXKD2NE.js": {
+    "file": "assets/toast-BrXKD2NE.js",
+    "name": "toast",
+    "imports": [
+      "_rolldown-runtime-Dd_uD5pT.js",
+      "_theme-KIvH2wW_.js"
+    ]
+  },
   "index.html": {
-    "file": "assets/index-Ij6pAQc3.js",
+    "file": "assets/index-Dd1YHmLi.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
       "_rolldown-runtime-Dd_uD5pT.js",
       "_theme-KIvH2wW_.js",
+      "_toast-BrXKD2NE.js",
+      "_NavContext-BL4FskQO.js",
+      "_Anchor-DuuTtneT.js",
       "_preload-helper-Q-YrVPuy.js"
     ],
     "dynamicImports": [
+      "node_modules/mermaid/dist/mermaid.core.mjs",
+      "node_modules/katex/dist/katex.mjs",
       "src/pages/HomePage.tsx",
       "src/pages/DocumentPage.tsx",
       "src/pages/EditPage.tsx",
@@ -720,6 +609,15 @@
     "imports": [
       "_dist-DfFnJEP6.js",
       "_dist-CfrLGHsT.js"
+    ]
+  },
+  "node_modules/@codemirror/lang-markdown/dist/index.js": {
+    "file": "assets/dist-BJtgI3ft.js",
+    "name": "dist",
+    "src": "node_modules/@codemirror/lang-markdown/dist/index.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/pages/EditPage.tsx"
     ]
   },
   "node_modules/@codemirror/lang-php/dist/index.js": {
@@ -2642,40 +2540,181 @@
     "isDynamicEntry": true
   },
   "src/pages/DocumentPage.tsx": {
-    "file": "assets/DocumentPage-DFF93uKk.js",
+    "file": "assets/DocumentPage-i5ZUZrvy.js",
     "name": "DocumentPage",
     "src": "src/pages/DocumentPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-KIvH2wW_.js",
-      "_AsyncContent-KLkTAiNy.js",
-      "_DirectoryView-Cs6ghbVE.js",
+      "_NavContext-BL4FskQO.js",
+      "_AsyncContent-BQ2PS-RM.js",
+      "_DirectoryView-BH7rahkk.js",
       "index.html",
       "_PageContainer-DGseGpYJ.js"
     ]
   },
   "src/pages/EditPage.tsx": {
-    "file": "assets/EditPage-Cc8xZm_4.js",
+    "file": "assets/EditPage-DdUE0yOY.js",
     "name": "EditPage",
     "src": "src/pages/EditPage.tsx",
     "isDynamicEntry": true,
     "imports": [
+      "_rolldown-runtime-Dd_uD5pT.js",
       "_theme-KIvH2wW_.js",
-      "_editor-D8XZgzOK.js",
-      "_AsyncContent-KLkTAiNy.js",
-      "index.html"
+      "_toast-BrXKD2NE.js",
+      "_markdown-DxhAo_bR.js",
+      "_NavContext-BL4FskQO.js",
+      "_EmptyState-D1Xvr4aI.js",
+      "_AsyncContent-BQ2PS-RM.js",
+      "_preload-helper-Q-YrVPuy.js",
+      "index.html",
+      "_dist-DfFnJEP6.js",
+      "_dist-CfrLGHsT.js",
+      "_dist-DRN8tcwY.js"
+    ],
+    "dynamicImports": [
+      "node_modules/@codemirror/lang-sql/dist/index.js",
+      "node_modules/@codemirror/lang-cpp/dist/index.js",
+      "_dist-C1RE_vqM.js",
+      "node_modules/@codemirror/lang-go/dist/index.js",
+      "_dist-CfrLGHsT.js",
+      "node_modules/@codemirror/lang-java/dist/index.js",
+      "_dist-CaHwnvTQ.js",
+      "node_modules/@codemirror/lang-jinja/dist/index.js",
+      "node_modules/@codemirror/lang-json/dist/index.js",
+      "node_modules/@codemirror/lang-less/dist/index.js",
+      "node_modules/@codemirror/lang-liquid/dist/index.js",
+      "node_modules/@codemirror/lang-markdown/dist/index.js",
+      "node_modules/@codemirror/lang-php/dist/index.js",
+      "node_modules/@codemirror/lang-python/dist/index.js",
+      "node_modules/@codemirror/lang-rust/dist/index.js",
+      "node_modules/@codemirror/lang-sass/dist/index.js",
+      "node_modules/@codemirror/lang-wast/dist/index.js",
+      "node_modules/@codemirror/lang-xml/dist/index.js",
+      "node_modules/@codemirror/lang-yaml/dist/index.js",
+      "node_modules/@codemirror/legacy-modes/mode/apl.js",
+      "node_modules/@codemirror/legacy-modes/mode/asciiarmor.js",
+      "node_modules/@codemirror/legacy-modes/mode/asn1.js",
+      "node_modules/@codemirror/legacy-modes/mode/asterisk.js",
+      "node_modules/@codemirror/legacy-modes/mode/brainfuck.js",
+      "node_modules/@codemirror/legacy-modes/mode/cobol.js",
+      "node_modules/@codemirror/legacy-modes/mode/clike.js",
+      "node_modules/@codemirror/legacy-modes/mode/clojure.js",
+      "node_modules/@codemirror/legacy-modes/mode/css.js",
+      "node_modules/@codemirror/legacy-modes/mode/cmake.js",
+      "node_modules/@codemirror/legacy-modes/mode/coffeescript.js",
+      "node_modules/@codemirror/legacy-modes/mode/commonlisp.js",
+      "node_modules/@codemirror/legacy-modes/mode/cypher.js",
+      "node_modules/@codemirror/legacy-modes/mode/python.js",
+      "node_modules/@codemirror/legacy-modes/mode/crystal.js",
+      "node_modules/@codemirror/legacy-modes/mode/d.js",
+      "node_modules/@codemirror/legacy-modes/mode/diff.js",
+      "node_modules/@codemirror/legacy-modes/mode/dockerfile.js",
+      "node_modules/@codemirror/legacy-modes/mode/dtd.js",
+      "node_modules/@codemirror/legacy-modes/mode/dylan.js",
+      "node_modules/@codemirror/legacy-modes/mode/ebnf.js",
+      "node_modules/@codemirror/legacy-modes/mode/ecl.js",
+      "node_modules/@codemirror/legacy-modes/mode/eiffel.js",
+      "node_modules/@codemirror/legacy-modes/mode/elm.js",
+      "node_modules/@codemirror/legacy-modes/mode/erlang.js",
+      "node_modules/@codemirror/legacy-modes/mode/sql.js",
+      "node_modules/@codemirror/legacy-modes/mode/factor.js",
+      "node_modules/@codemirror/legacy-modes/mode/fcl.js",
+      "node_modules/@codemirror/legacy-modes/mode/forth.js",
+      "node_modules/@codemirror/legacy-modes/mode/fortran.js",
+      "node_modules/@codemirror/legacy-modes/mode/mllike.js",
+      "node_modules/@codemirror/legacy-modes/mode/gas.js",
+      "node_modules/@codemirror/legacy-modes/mode/gherkin.js",
+      "node_modules/@codemirror/legacy-modes/mode/groovy.js",
+      "node_modules/@codemirror/legacy-modes/mode/haskell.js",
+      "node_modules/@codemirror/legacy-modes/mode/haxe.js",
+      "node_modules/@codemirror/legacy-modes/mode/http.js",
+      "node_modules/@codemirror/legacy-modes/mode/idl.js",
+      "node_modules/@codemirror/legacy-modes/mode/javascript.js",
+      "node_modules/@codemirror/legacy-modes/mode/julia.js",
+      "node_modules/@codemirror/legacy-modes/mode/livescript.js",
+      "node_modules/@codemirror/legacy-modes/mode/lua.js",
+      "node_modules/@codemirror/legacy-modes/mode/mirc.js",
+      "node_modules/@codemirror/legacy-modes/mode/mathematica.js",
+      "node_modules/@codemirror/legacy-modes/mode/modelica.js",
+      "node_modules/@codemirror/legacy-modes/mode/mumps.js",
+      "node_modules/@codemirror/legacy-modes/mode/mbox.js",
+      "node_modules/@codemirror/legacy-modes/mode/nginx.js",
+      "node_modules/@codemirror/legacy-modes/mode/nsis.js",
+      "node_modules/@codemirror/legacy-modes/mode/ntriples.js",
+      "node_modules/@codemirror/legacy-modes/mode/octave.js",
+      "node_modules/@codemirror/legacy-modes/mode/oz.js",
+      "node_modules/@codemirror/legacy-modes/mode/pascal.js",
+      "node_modules/@codemirror/legacy-modes/mode/perl.js",
+      "node_modules/@codemirror/legacy-modes/mode/pig.js",
+      "node_modules/@codemirror/legacy-modes/mode/powershell.js",
+      "node_modules/@codemirror/legacy-modes/mode/properties.js",
+      "node_modules/@codemirror/legacy-modes/mode/protobuf.js",
+      "node_modules/@codemirror/legacy-modes/mode/pug.js",
+      "node_modules/@codemirror/legacy-modes/mode/puppet.js",
+      "node_modules/@codemirror/legacy-modes/mode/q.js",
+      "node_modules/@codemirror/legacy-modes/mode/r.js",
+      "node_modules/@codemirror/legacy-modes/mode/rpm.js",
+      "node_modules/@codemirror/legacy-modes/mode/ruby.js",
+      "node_modules/@codemirror/legacy-modes/mode/sas.js",
+      "node_modules/@codemirror/legacy-modes/mode/scheme.js",
+      "node_modules/@codemirror/legacy-modes/mode/shell.js",
+      "node_modules/@codemirror/legacy-modes/mode/sieve.js",
+      "node_modules/@codemirror/legacy-modes/mode/smalltalk.js",
+      "node_modules/@codemirror/legacy-modes/mode/solr.js",
+      "node_modules/@codemirror/legacy-modes/mode/sparql.js",
+      "node_modules/@codemirror/legacy-modes/mode/spreadsheet.js",
+      "node_modules/@codemirror/legacy-modes/mode/stylus.js",
+      "node_modules/@codemirror/legacy-modes/mode/swift.js",
+      "node_modules/@codemirror/legacy-modes/mode/stex.js",
+      "node_modules/@codemirror/legacy-modes/mode/verilog.js",
+      "node_modules/@codemirror/legacy-modes/mode/tcl.js",
+      "node_modules/@codemirror/legacy-modes/mode/textile.js",
+      "node_modules/@codemirror/legacy-modes/mode/tiddlywiki.js",
+      "node_modules/@codemirror/legacy-modes/mode/tiki.js",
+      "node_modules/@codemirror/legacy-modes/mode/toml.js",
+      "node_modules/@codemirror/legacy-modes/mode/troff.js",
+      "node_modules/@codemirror/legacy-modes/mode/ttcn.js",
+      "node_modules/@codemirror/legacy-modes/mode/ttcn-cfg.js",
+      "node_modules/@codemirror/legacy-modes/mode/turtle.js",
+      "node_modules/@codemirror/legacy-modes/mode/webidl.js",
+      "node_modules/@codemirror/legacy-modes/mode/vb.js",
+      "node_modules/@codemirror/legacy-modes/mode/vbscript.js",
+      "node_modules/@codemirror/legacy-modes/mode/velocity.js",
+      "node_modules/@codemirror/legacy-modes/mode/vhdl.js",
+      "node_modules/@codemirror/legacy-modes/mode/xquery.js",
+      "node_modules/@codemirror/legacy-modes/mode/yacas.js",
+      "node_modules/@codemirror/legacy-modes/mode/z80.js",
+      "node_modules/@codemirror/legacy-modes/mode/mscgen.js",
+      "node_modules/@codemirror/lang-vue/dist/index.js",
+      "node_modules/@codemirror/lang-angular/dist/index.js",
+      "node_modules/prettier/standalone.mjs",
+      "node_modules/prettier/plugins/markdown.mjs",
+      "node_modules/prettier/plugins/yaml.mjs",
+      "node_modules/prettier/plugins/babel.mjs",
+      "node_modules/prettier/plugins/estree.mjs",
+      "node_modules/prettier/plugins/typescript.mjs",
+      "node_modules/prettier/plugins/postcss.mjs",
+      "node_modules/prettier/plugins/html.mjs",
+      "node_modules/prettier/plugins/graphql.mjs",
+      "node_modules/prettier/plugins/glimmer.mjs"
+    ],
+    "css": [
+      "assets/EditPage-BSx08UYZ.css"
     ]
   },
   "src/pages/HistoryPage.tsx": {
-    "file": "assets/HistoryPage-bI8lTWtw.js",
+    "file": "assets/HistoryPage-C8_YPUKb.js",
     "name": "HistoryPage",
     "src": "src/pages/HistoryPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-Dd_uD5pT.js",
       "_theme-KIvH2wW_.js",
-      "_markdown-CC1wWFjm.js",
-      "_AsyncContent-KLkTAiNy.js",
+      "_toast-BrXKD2NE.js",
+      "_markdown-DxhAo_bR.js",
+      "_NavContext-BL4FskQO.js",
+      "_AsyncContent-BQ2PS-RM.js",
       "_Container-BzUyM0gr.js",
       "index.html"
     ],
@@ -2684,35 +2723,37 @@
     ]
   },
   "src/pages/HomePage.tsx": {
-    "file": "assets/HomePage-DECS2CCx.js",
+    "file": "assets/HomePage-COyvGOUk.js",
     "name": "HomePage",
     "src": "src/pages/HomePage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-KIvH2wW_.js",
-      "_DirectoryView-Cs6ghbVE.js",
+      "_DirectoryView-BH7rahkk.js",
       "_PageContainer-DGseGpYJ.js"
     ]
   },
   "src/pages/NotFoundPage.tsx": {
-    "file": "assets/NotFoundPage-CyHVOqeD.js",
+    "file": "assets/NotFoundPage-PWlXyK9w.js",
     "name": "NotFoundPage",
     "src": "src/pages/NotFoundPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-KIvH2wW_.js",
-      "index.html",
+      "_Anchor-DuuTtneT.js",
       "_PageContainer-DGseGpYJ.js"
     ]
   },
   "src/pages/SearchPage.tsx": {
-    "file": "assets/SearchPage-C0q5bqqn.js",
+    "file": "assets/SearchPage-DYNy2T_Q.js",
     "name": "SearchPage",
     "src": "src/pages/SearchPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_theme-KIvH2wW_.js",
-      "_AsyncContent-KLkTAiNy.js",
+      "_NavContext-BL4FskQO.js",
+      "_Anchor-DuuTtneT.js",
+      "_AsyncContent-BQ2PS-RM.js",
       "index.html",
       "_PageContainer-DGseGpYJ.js"
     ]

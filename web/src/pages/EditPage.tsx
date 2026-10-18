@@ -1,7 +1,8 @@
 import type { JSX } from 'react';
 import { useParams } from 'react-router';
 
-import { ApiError, api } from '../api/client';
+import { api } from '../api/client';
+import { ApiError } from '../api/errors';
 import type { FileResponse, MeResponse } from '../api/types';
 import { useApi } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';

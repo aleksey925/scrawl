@@ -3,9 +3,9 @@ import { IconPlus } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { Link } from 'react-router';
 
-import { api } from '../api/client';
 import { useApi } from '../api/useApi';
 import { editUrl } from '../paths';
+import { usePlatform } from '../platform';
 import { SyncBadge } from '../shell/SyncBadge';
 
 import { AsyncContent } from './AsyncContent';
@@ -16,7 +16,8 @@ export interface DocumentViewProps {
 }
 
 export function DocumentView({ path }: DocumentViewProps): JSX.Element {
-  const state = useApi((signal) => api.page(path, { signal }), [path], `page:${path}`);
+  const { source } = usePlatform();
+  const state = useApi((signal) => source.page(path, { signal }), [source, path], `page:${path}`);
 
   return (
     <AsyncContent state={state} testId="doc">

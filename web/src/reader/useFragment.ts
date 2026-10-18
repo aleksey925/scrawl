@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { useLocation } from 'react-router';
 
-import { holdPosition } from '../editor/anchor';
+import { holdPosition } from './position';
 
 import { elementWithId } from './dom';
 import { findParam } from './useFindOnPage';

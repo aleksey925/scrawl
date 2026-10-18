@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/aleksey925/scrawl/store"
+	"github.com/aleksey925/scrawl/view"
 )
 
 // appBase is the url prefix the bundle was built with. Vite bakes it into every
@@ -173,7 +174,7 @@ func (m *mount) docHandler(w http.ResponseWriter, r *http.Request) {
 		// an attachment is not a page: it goes to the route that serves a file
 		// under a content type from an allowlist, with a policy of its own. A
 		// directory is not markdown either, and it is a page.
-		http.Redirect(w, r, m.spc.Prefix()+"/raw/"+encodePath(p), http.StatusFound)
+		http.Redirect(w, r, m.spc.Prefix()+"/raw/"+view.EncodePath(p), http.StatusFound)
 		return
 	}
 	m.serveShell(w, r, http.StatusOK)

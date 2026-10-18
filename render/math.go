@@ -2,6 +2,7 @@ package render
 
 import (
 	"bytes"
+	"regexp"
 	"unicode"
 	"unicode/utf8"
 
@@ -48,6 +49,10 @@ const (
 	// same way, but it is a span: a div inside a paragraph is not valid HTML.
 	openDisplayMathInline = `<span class="math math-display">`
 )
+
+// mathClass finds what the frontend typesets: an element of the class "math",
+// whether this renderer opened it or the HTML of the note did
+var mathClass = regexp.MustCompile(`class="(?:[^"]*\s)?math[\s"]`)
 
 var kindMathInline = ast.NewNodeKind("MathInline")
 

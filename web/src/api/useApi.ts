@@ -1,6 +1,6 @@
 import { useEffect, useState, type DependencyList } from 'react';
 
-import { ApiError } from './client';
+import { ApiError } from './errors';
 
 export interface AsyncState<T> {
   data?: T;

@@ -1,9 +1,13 @@
 import { useEffect, type RefObject } from 'react';
 
+import { usePlatform } from '../platform';
+
 import { preserveScroll } from './scroll';
 import { fontsReady, mathSelector, typeset, type Katex } from './typeset';
 
 export function useKatex(rootRef: RefObject<HTMLDivElement | null>, html: string): void {
+  const { loadKatex } = usePlatform();
+
   useEffect(() => {
     const root = rootRef.current;
     if (root === null) {
@@ -20,8 +24,7 @@ export function useKatex(rootRef: RefObject<HTMLDivElement | null>, html: string
     void (async () => {
       let katex: Katex;
       try {
-        const [module] = await Promise.all([import('katex'), import('katex/dist/katex.min.css')]);
-        katex = module.default;
+        katex = await loadKatex();
       } catch {
         return;
       }
@@ -42,5 +45,5 @@ export function useKatex(rootRef: RefObject<HTMLDivElement | null>, html: string
     return () => {
       cancelled = true;
     };
-  }, [rootRef, html]);
+  }, [rootRef, html, loadKatex]);
 }

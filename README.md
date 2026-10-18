@@ -673,18 +673,23 @@ built of rendered notes. Formulas stay TeX unless `--math` puts KaTeX
 into the page, which makes it some 600KB larger. Mermaid diagrams stay
 code.
 
-`site` writes a page for every note the app would show and copies every
-other file it would serve, so pictures and links keep working. Every
-page has the look of the app: the tree of notes on the left, a drawer on
-a phone, the outline of the note on the right, a copy button on every
-code block, a viewer for the pictures, mermaid diagrams and the theme
-picker, whose choice is kept from page to page. The diagram renderer,
-some 5MB, is written only when a note has a diagram. There is nothing to
-configure: the front page is `index.md` at the root of the notes, and
-the head of every page links to it by its title. The stylesheet and the
-script are written once, into `scrawl/`. The output directory has to be
-empty or missing, `--exclude` leaves more notes out, and `--math` works
-as for `render`.
+`site` writes the notes as a static site, for any static host under any
+path, or to open straight from disk. A page of the site is the app's
+reader with nothing to write: the tree of notes with its filter, a drawer
+on a phone, the outline with the section being read marked, a sheet for
+it on a phone, the path to the note, a page for every folder, a copy
+button on every code block, a viewer for the pictures, mermaid diagrams,
+formulas and the theme picker, whose choice is kept from page to page.
+Search, editing, history and sync need the server and are not on a site.
+The diagram renderer, some 5MB, and the formula renderer are written only
+when a note needs them. There is nothing to configure: the front page is
+`index.md` at the root of the notes, or the list of what the root holds.
+The scripts and the stylesheets are written once, into `scrawl/`. Every
+other file is copied as it is, and `site` names the ones a browser runs a
+script from, such as `.html` or `.svg`: opened from the site, they run
+with its rights. A page still shows its note, its path and what its
+folder holds without javascript. The output directory has to be empty or
+missing, and `--exclude` leaves more notes out.
 
 ## Development
 

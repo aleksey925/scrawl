@@ -490,3 +490,13 @@ func failJSON(w http.ResponseWriter, r *http.Request, err error) {
 	logFailure(r, status, err)
 	jsonError(w, status, errMessage(err))
 }
+
+// Favicon is the icon the app shows in a tab, which a site the command line
+// writes carries too.
+func Favicon() []byte {
+	data, err := content.ReadFile("assets/favicon.svg")
+	if err != nil {
+		panic("server: embedded favicon: " + err.Error())
+	}
+	return data
+}

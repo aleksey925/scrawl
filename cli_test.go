@@ -66,11 +66,10 @@ func TestParseCommands(t *testing.T) {
 			check: func(t *testing.T, cmds *commands) { assert.Equal(t, "-odd.md", cmds.Render.Args.File) },
 		},
 		{
-			name: "site with its options", args: []string{"site", "-o", "out", "--math", "--exclude", "drafts", "notes"},
+			name: "site with its options", args: []string{"site", "-o", "out", "--exclude", "drafts", "notes"},
 			command: siteCommand,
 			check: func(t *testing.T, cmds *commands) {
 				assert.Equal(t, "out", cmds.Site.Output)
-				assert.True(t, cmds.Site.Math)
 				assert.Equal(t, []string{"drafts"}, cmds.Site.Exclude)
 				assert.Equal(t, "notes", cmds.Site.Args.Dir)
 			},

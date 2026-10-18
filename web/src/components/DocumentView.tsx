@@ -3,7 +3,7 @@ import { IconPlus } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { Link } from 'react-router';
 
-import { useApi } from '../api/useApi';
+import { answerKeys, useApi } from '../api/useApi';
 import { editUrl } from '../paths';
 import { usePlatform } from '../platform';
 import { SyncBadge } from '../shell/SyncBadge';
@@ -17,7 +17,7 @@ export interface DocumentViewProps {
 
 export function DocumentView({ path }: DocumentViewProps): JSX.Element {
   const { source } = usePlatform();
-  const state = useApi((signal) => source.page(path, { signal }), [source, path], `page:${path}`);
+  const state = useApi((signal) => source.page(path, { signal }), [source, path], answerKeys.page(path));
 
   return (
     <AsyncContent state={state} testId="doc">

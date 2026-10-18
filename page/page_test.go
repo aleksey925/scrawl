@@ -1,6 +1,7 @@
 package page
 
 import (
+	"encoding/json"
 	"regexp"
 	"strings"
 	"testing"
@@ -51,64 +52,7 @@ func TestWriteNote(t *testing.T) {
 			FindAllString(out.String(), -1))
 	})
 
-	t.Run("a page of a site links the shared stylesheet and script", func(t *testing.T) {
-		// arrange
-		var out strings.Builder
-
-		// act
-		err := WriteNote(&out, note, Options{Assets: "../../scrawl/", Math: true})
-
-		// assert
-		require.NoError(t, err)
-		got := out.String()
-		assert.Contains(t, got, `<link rel="stylesheet" href="../../scrawl/`+StylesheetFile+`">`)
-		assert.Contains(t, got, `<script src="../../scrawl/`+ScriptFile+`"></script>`)
-		assert.NotContains(t, got, "<style>")
-		assert.NotContains(t, got, asset("page.js"))
-	})
-
-	t.Run("the head links home when there is a home", func(t *testing.T) {
-		// arrange
-		var out strings.Builder
-		home := Link{Href: "../index.html", Title: "Notes & more"}
-
-		// act
-		err := WriteNote(&out, note, Options{Home: &home})
-
-		// assert
-		require.NoError(t, err)
-		assert.Contains(t, out.String(), `<header class="page-head"><a class="page-home" href="../index.html">Notes &amp; more</a>`)
-	})
-
-	t.Run("a page of a site carries its tree and its outline", func(t *testing.T) {
-		// arrange
-		var out strings.Builder
-		opts := Options{
-			Tree: []TreeEntry{
-				{Name: "a <folder>", Open: true, Children: []TreeEntry{{Name: "b.md", Href: "a/b.html", Current: true}}},
-				{Name: "c.md", Href: "c.html"},
-			},
-			Outline: []render.Heading{{Level: 2, Text: "One & two", ID: "one-two"}, {Level: 3, Text: "Three", ID: "three"}},
-		}
-
-		// act
-		err := WriteNote(&out, note, opts)
-
-		// assert
-		require.NoError(t, err)
-		got := out.String()
-		assert.Contains(t, got, `<li><details open><summary style="--depth: 0">`)
-		assert.Contains(t, got, `<span>a &lt;folder&gt;</span></summary>`)
-		assert.Contains(t, got, `<li><a href="a/b.html" style="--depth: 1" aria-current="page">`)
-		assert.Contains(t, got, `<li><a href="c.html" style="--depth: 0"><svg`)
-		assert.Equal(t, []string{
-			`<a href="#one-two" data-level="2">One &amp; two</a>`,
-			`<a href="#three" data-level="3">Three</a>`,
-		}, regexp.MustCompile(`<a href="#[^"]*" data-level="\d">[^<]*</a>`).FindAllString(got, -1))
-		assert.Contains(t, got, `<article class="markdown-document">`+"\n"+note.HTML)
-	})
-
-	t.Run("the head has no home link without a home", func(t *testing.T) {
+	t.Run("the head holds the theme picker and nothing else", func(t *testing.T) {
 		// arrange
 		var out strings.Builder
 
@@ -267,23 +211,123 @@ func TestStylesheet(t *testing.T) {
 	assert.Equal(t, asset("page.css")+"\n"+string(render.ChromaCSS()), got)
 }
 
-func TestAssets(t *testing.T) {
-	t.Run("the shared files hold what a page inlines", func(t *testing.T) {
+func marshaled(t *testing.T, value any) []byte {
+	t.Helper()
+	data, err := json.Marshal(value)
+	require.NoError(t, err)
+	return data
+}
+
+func TestWriteSitePage(t *testing.T) {
+	sp := SitePage{
+		Title:   "A <title>",
+		Assets:  "../scrawl",
+		Data:    marshaled(t, map[string]string{"html": "</script><script>alert(1)</script>"}),
+		Crumbs:  []Link{{Title: "Home", Href: "../index.html"}, {Title: "a & b.md"}},
+		HTML:    `<h1>Head</h1>`,
+		Entries: []Link{{Title: "sub", Href: "./sub/index.html"}},
+	}
+
+	t.Run("the head links every shared file and follows the system's bar color", func(t *testing.T) {
+		// arrange
+		var out strings.Builder
+
 		// act
-		got := Assets(Options{})
+		err := WriteSitePage(&out, sp)
 
 		// assert
-		assert.Equal(t, map[string]string{StylesheetFile: Stylesheet(), ScriptFile: asset("page.js")}, got)
+		require.NoError(t, err)
+		got := out.String()
+		assert.Contains(t, got, "<title>A &lt;title&gt;</title>")
+		assert.Equal(t, []string{
+			`<link rel="icon" href="../scrawl/favicon.svg" type="image/svg+xml">`,
+			`<script src="../scrawl/` + SiteBootFile + `"></script>`,
+			`<link rel="stylesheet" href="../scrawl/chroma.css">`,
+			`<link rel="stylesheet" href="../scrawl/` + SiteStyleFile + `">`,
+			`<script defer src="../scrawl/tree.js"></script>`,
+			`<script defer src="../scrawl/` + SiteScriptFile + `"></script>`,
+		}, regexp.MustCompile(`<(?:link|script)[^>]* (?:href|src)="\.\./scrawl/[^"]*"[^>]*>(?:</script>)?`).FindAllString(got, -1))
+		for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
+			assert.Contains(t, got, `<meta name="theme-color" content="`+theme.AutoTheme(scheme).BarColor()+
+				`" media="(prefers-color-scheme: `+string(scheme)+`)">`)
+		}
 	})
 
-	t.Run("math is added to both files", func(t *testing.T) {
+	t.Run("the answer is carried as marshaled, and what it holds closes no script", func(t *testing.T) {
+		// arrange
+		var out strings.Builder
+
 		// act
-		got := Assets(Options{Math: true})
+		err := WriteSitePage(&out, sp)
 
 		// assert
-		assert.Equal(t, map[string]string{
-			StylesheetFile: Stylesheet() + "\n" + asset("math.css"),
-			ScriptFile:     asset("page.js") + "\n" + asset("math.js"),
-		}, got)
+		require.NoError(t, err)
+		got := out.String()
+		assert.Contains(t, got, `<script type="application/json" data-scrawl="page">`+string(sp.Data)+`</script>`)
+		assert.NotContains(t, got, "alert(1)</script>")
 	})
+
+	t.Run("a reader without javascript gets the path, the note and the entries", func(t *testing.T) {
+		// arrange
+		var out strings.Builder
+
+		// act
+		err := WriteSitePage(&out, sp)
+
+		// assert
+		require.NoError(t, err)
+		got := out.String()
+		assert.Contains(t, got, `<ol class="scrawl-static-crumbs"><li><a href="../index.html">Home</a></li><li>a &amp; b.md</li></ol>`)
+		assert.Contains(t, got, `<article class="markdown-document">`+"\n"+sp.HTML)
+		assert.Contains(t, got, `<li><a href="./sub/index.html">sub</a></li>`)
+	})
+
+	t.Run("a folder with nothing to read has no article", func(t *testing.T) {
+		// arrange
+		var out strings.Builder
+		empty := sp
+		empty.HTML = ""
+
+		// act
+		err := WriteSitePage(&out, empty)
+
+		// assert
+		require.NoError(t, err)
+		assert.NotContains(t, out.String(), "<article")
+	})
+}
+
+func TestWriteNotFound(t *testing.T) {
+	// arrange
+	var out strings.Builder
+
+	// act
+	err := WriteNotFound(&out)
+
+	// assert
+	require.NoError(t, err)
+	got := out.String()
+	assert.Contains(t, got, "<h1>Nothing here</h1>")
+	assert.NotContains(t, got, "href=")
+	assert.NotContains(t, got, "src=")
+}
+
+func TestSiteAssets(t *testing.T) {
+	// act
+	got := SiteAssets()
+
+	// assert
+	assert.Equal(t, map[string]string{
+		SiteBootFile:   asset(SiteBootFile),
+		SiteScriptFile: asset(SiteScriptFile),
+		SiteStyleFile:  asset(SiteStyleFile),
+	}, got)
+}
+
+func TestMath(t *testing.T) {
+	// act
+	got := Math()
+
+	// assert
+	assert.Equal(t, map[string]string{MathScriptFile: asset("math.js"), MathStyleFile: asset("math.css")}, got)
 }

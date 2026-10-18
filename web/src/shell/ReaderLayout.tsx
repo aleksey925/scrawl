@@ -18,6 +18,8 @@ import { useSwipeToClose } from './useSwipeToClose';
 export interface ReaderLayoutState {
   // revealNav puts the tree on screen, as a rail or as the drawer
   revealNav: () => void;
+  // closePanels puts away the drawer and the outline sheet
+  closePanels: () => void;
 }
 
 const ReaderLayoutContext = createContext<ReaderLayoutState | undefined>(undefined);
@@ -82,12 +84,14 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
     }
   }, [navVisible, toggleNav]);
 
-  // a fresh key per navigation, a replace that only moves the hash included;
-  // unlike the disclosure handlers it does not change on a plain re-render
-  useEffect(() => {
+  const closePanels = useCallback(() => {
     closeNav();
     closeToc();
-  }, [location.key, closeNav, closeToc]);
+  }, [closeNav, closeToc]);
+
+  // a fresh key per navigation, a replace that only moves the hash included;
+  // unlike the disclosure handlers it does not change on a plain re-render
+  useEffect(() => closePanels(), [location.key, closePanels]);
 
   // on the document rather than on the burger: the key belongs to the app, and
   // the caret is in the editor or the filter box most of the time it is wanted
@@ -106,7 +110,7 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [toggleNav]);
 
-  const layoutState = useMemo<ReaderLayoutState>(() => ({ revealNav }), [revealNav]);
+  const layoutState = useMemo<ReaderLayoutState>(() => ({ revealNav, closePanels }), [revealNav, closePanels]);
 
   const slots = useMemo<ShellSlots>(
     () => ({ actionsSlot, tocSlot, setTocPresent }),

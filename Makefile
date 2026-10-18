@@ -19,7 +19,7 @@ deps:
 	@go mod vendor
 	@cd web && npm i --no-audit --no-fund
 	@cd format/js && npm i --no-audit --no-fund
-	@cd e2e && npm i --no-audit --no-fund && npx playwright install chromium
+	@cd e2e && npm i --no-audit --no-fund && npx playwright install chromium firefox
 
 # the bundle this writes into server/assets/app, and the stylesheet and scripts
 # of the command line pages in page/assets, are committed, so that go build,

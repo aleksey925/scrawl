@@ -84,7 +84,7 @@ jobs:
         working-directory: e2e
         run: |
           npm install --no-audit --no-fund
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium firefox
 
       - name: Browser suite
         working-directory: e2e

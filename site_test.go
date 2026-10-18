@@ -1,19 +1,24 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aleksey925/scrawl/page"
+	"github.com/aleksey925/scrawl/render"
+	"github.com/aleksey925/scrawl/server"
 	"github.com/aleksey925/scrawl/store"
+	"github.com/aleksey925/scrawl/view"
 )
 
 // writeTree creates files under dir, keyed by slash-separated paths.
@@ -50,65 +55,53 @@ func readSite(t *testing.T, dir, name string) string {
 	return string(data)
 }
 
-func TestTreeEntries(t *testing.T) {
-	// arrange
-	nodes := []siteNode{
-		{name: "docs", path: "docs", dir: true, children: []siteNode{
-			{name: "a b.md", path: "docs/a b.md"},
-			{name: "deep", path: "docs/deep", dir: true, children: []siteNode{{name: "x.md", path: "docs/deep/x.md"}}},
-		}},
-		{name: "index.md", path: "index.md"},
-	}
+var pageData = regexp.MustCompile(`<script type="application/json" data-scrawl="page">(.*?)</script>`)
 
-	// act
-	got := treeEntries(nodes, "docs/a b.md", "../")
-
-	// assert
-	assert.Equal(t, []page.TreeEntry{
-		{Name: "docs", Open: true, Children: []page.TreeEntry{
-			{Name: "a b.md", Href: "../docs/a%20b.html", Current: true},
-			{Name: "deep", Children: []page.TreeEntry{{Name: "x.md", Href: "../docs/deep/x.html"}}},
-		}},
-		{Name: "index.md", Href: "../index.html"},
-	}, got)
+// readPageData is the JSON a page carries, decoded the way the reader decodes it
+func readPageData(t *testing.T, dir, name string) map[string]any {
+	t.Helper()
+	match := pageData.FindStringSubmatch(readSite(t, dir, name))
+	require.Len(t, match, 2, "%s carries no answer", name)
+	var res map[string]any
+	require.NoError(t, json.Unmarshal([]byte(match[1]), &res))
+	return res
 }
 
-func TestSiteTree(t *testing.T) {
-	// arrange
-	src := t.TempDir()
-	writeTree(t, src, map[string]string{
-		"index.md":           "# Home\n",
-		"docs/guide.md":      "# Guide\n",
-		"docs/guide/pic.png": "picture",
-		"pictures/a.png":     "picture",
-		"drafts/old/plan.md": "# Plan\n",
-		".hidden/secret.md":  "# Secret\n",
-		"notes.markdown":     "# Not a note\n",
-	})
-	require.NoError(t, os.MkdirAll(filepath.Join(src, "empty"), 0o750))
-	st, err := store.New(store.Config{Root: src, ReadOnly: true})
+// jsonOf is a value as the reader sees it once it went through JSON
+func jsonOf(t *testing.T, value any) any {
+	t.Helper()
+	data, err := json.Marshal(value)
+	require.NoError(t, err)
+	var res any
+	require.NoError(t, json.Unmarshal(data, &res))
+	return res
+}
+
+func openNotes(t *testing.T, dir string) *store.Store {
+	t.Helper()
+	st, err := store.New(store.Config{Root: dir, ReadOnly: true})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, st.Close()) })
+	return st
+}
 
-	// act
-	got, err := siteTree(st)
+// siteAssetFiles are the files of scrawl/ every site has
+var siteAssetFiles = []string{
+	"scrawl/boot.js", "scrawl/chroma.css", "scrawl/favicon.svg", "scrawl/site.css", "scrawl/site.js", "scrawl/tree.js",
+}
 
-	// assert
-	require.NoError(t, err)
-	assert.Equal(t, []siteNode{
-		{name: "docs", path: "docs", dir: true, children: []siteNode{{name: "guide.md", path: "docs/guide.md"}}},
-		{name: "drafts", path: "drafts", dir: true, children: []siteNode{
-			{name: "old", path: "drafts/old", dir: true, children: []siteNode{{name: "plan.md", path: "drafts/old/plan.md"}}},
-		}},
-		{name: "index.md", path: "index.md"},
-	}, got)
+func withAssets(files ...string) []string {
+	res := append(slices.Clone(siteAssetFiles), files...)
+	slices.Sort(res)
+	return res
 }
 
 func TestRunSite(t *testing.T) {
 	notes := map[string]string{
-		"index.md":                  "# Home\n\n[Guide](docs/guide.md)\n",
+		"index.md":                  "# Home\n\n[Guide](docs/guide.md) and [docs](docs/)\n",
 		"docs/guide.md":             "# Guide\n\n[home](../index.md) and ![pic](guide/pic.png)\n",
 		"docs/guide/pic.png":        "\x89PNG picture",
+		"docs/README.md":            "# Docs\n\nwhat is here\n",
 		".hidden/secret.md":         "# Secret\n",
 		".env":                      "TOKEN=secret\n",
 		"docs/node_modules/a/x.md":  "# Dependency\n",
@@ -117,7 +110,7 @@ func TestRunSite(t *testing.T) {
 		"drafts/unfinished.md.orig": "# Old draft\n",
 	}
 
-	t.Run("every visible note is a page and every other file is copied", func(t *testing.T) {
+	t.Run("every visible note and folder is a page and every other file is copied", func(t *testing.T) {
 		// arrange
 		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
 		writeTree(t, src, notes)
@@ -127,20 +120,104 @@ func TestRunSite(t *testing.T) {
 
 		// assert
 		require.Equal(t, 0, code, stderr)
-		assert.Equal(t, fmt.Sprintf("3 pages and 2 other files written to %s\n", out), stdout)
-		assert.Equal(t, []string{
+		assert.Equal(t, fmt.Sprintf("7 pages and 2 other files written to %s\n", out), stdout)
+		assert.Equal(t, withAssets(
+			"404.html",
+			"docs/README.html",
 			"docs/guide.html",
+			"docs/guide/index.html",
 			"docs/guide/pic.png",
+			"docs/index.html",
+			"drafts/index.html",
 			"drafts/unfinished.html",
 			"drafts/unfinished.md.orig",
 			"index.html",
-			"scrawl/page.css",
-			"scrawl/page.js",
-		}, listTree(t, out))
+		), listTree(t, out))
 		assert.Equal(t, notes["docs/guide/pic.png"], readSite(t, out, "docs/guide/pic.png"))
 	})
 
-	t.Run("a page links the shared assets, its home and its neighbors", func(t *testing.T) {
+	t.Run("a note carries the answer the server gives for it", func(t *testing.T) {
+		// arrange
+		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
+		writeTree(t, src, notes)
+		st := openNotes(t, src)
+		data, fi, err := st.Read("docs/guide.md")
+		require.NoError(t, err)
+		res, err := render.New(render.Options{Relative: true, PageExt: ".html", FolderPage: "index.html"}).Render(data, "docs/guide.md")
+		require.NoError(t, err)
+
+		// act
+		code, _, stderr := runCLI(t, "", "site", "-o", out, src)
+
+		// assert
+		require.Equal(t, 0, code, stderr)
+		assert.Equal(t, map[string]any{
+			"route":  view.ContentURL("docs/guide.md"),
+			"root":   "../",
+			"answer": jsonOf(t, view.NewPage("docs/guide.md", "docs/guide.md", res, store.Rev(data), fi.ModTime, false)),
+		}, readPageData(t, out, "docs/guide.html"))
+	})
+
+	t.Run("a folder with an index is that note under the folder's own route", func(t *testing.T) {
+		// arrange
+		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
+		writeTree(t, src, notes)
+
+		// act
+		code, _, stderr := runCLI(t, "", "site", "-o", out, src)
+
+		// assert
+		require.Equal(t, 0, code, stderr)
+		home := readPageData(t, out, "index.html")
+		assert.Equal(t, "/", home["route"])
+		assert.Equal(t, "./", home["root"])
+		answer, ok := home["answer"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, []any{"", "index.md", view.KindDocument}, []any{answer["path"], answer["doc_path"], answer["kind"]})
+	})
+
+	t.Run("a folder without one is its listing with the readme above", func(t *testing.T) {
+		// arrange
+		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
+		writeTree(t, src, notes)
+		entries, err := openNotes(t, src).List("docs")
+		require.NoError(t, err)
+
+		// act
+		code, _, stderr := runCLI(t, "", "site", "-o", out, src)
+
+		// assert
+		require.Equal(t, 0, code, stderr)
+		docs := readPageData(t, out, "docs/index.html")
+		assert.Equal(t, view.DirURL("docs"), docs["route"])
+		answer, ok := docs["answer"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, view.KindDirectory, answer["kind"])
+		assert.Equal(t, jsonOf(t, view.DirEntries(entries)), answer["entries"])
+		assert.Equal(t, true, answer["has_readme"])
+		assert.Contains(t, answer["readme_html"], "what is here")
+	})
+
+	t.Run("the links between pages are the files of the site", func(t *testing.T) {
+		// arrange
+		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
+		writeTree(t, src, notes)
+
+		// act
+		code, _, stderr := runCLI(t, "", "site", "-o", out, src)
+
+		// assert
+		require.Equal(t, 0, code, stderr)
+		home := readSite(t, out, "index.html")
+		assert.Contains(t, home, `<a href="docs/guide.html">Guide</a>`)
+		assert.Contains(t, home, `<a href="docs/index.html">docs</a>`)
+		guide := readSite(t, out, "docs/guide.html")
+		assert.Contains(t, guide, `<a href="../index.html">home</a>`)
+		assert.Contains(t, guide, `src="guide/pic.png"`)
+		assert.Contains(t, guide, `<script defer src="../scrawl/site.js"></script>`)
+	})
+
+	t.Run("a reader without javascript gets the path and what a folder holds", func(t *testing.T) {
 		// arrange
 		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
 		writeTree(t, src, notes)
@@ -151,20 +228,37 @@ func TestRunSite(t *testing.T) {
 		// assert
 		require.Equal(t, 0, code, stderr)
 		guide := readSite(t, out, "docs/guide.html")
-		assert.Contains(t, guide, `<link rel="stylesheet" href="../scrawl/page.css">`)
-		assert.Contains(t, guide, `<script src="../scrawl/page.js"></script>`)
-		assert.Contains(t, guide, `<a class="page-home" href="../index.html">Home</a>`)
-		assert.Contains(t, guide, `<a href="../index.html">home</a>`)
-		assert.Contains(t, guide, `src="guide/pic.png"`)
-		home := readSite(t, out, "index.html")
-		assert.Contains(t, home, `<a class="page-home" href="./index.html">Home</a>`)
-		assert.Contains(t, home, `<a href="docs/guide.html">Guide</a>`)
-		assets := page.Assets(page.Options{})
-		assert.Equal(t, assets[page.StylesheetFile], readSite(t, out, "scrawl/page.css"))
-		assert.Equal(t, assets[page.ScriptFile], readSite(t, out, "scrawl/page.js"))
+		assert.Contains(t, guide, `<li><a href="../index.html">Home</a></li><li><a href="../docs/index.html">docs</a></li><li>guide.md</li>`)
+		docs := readSite(t, out, "docs/index.html")
+		assert.Equal(t, []string{
+			`<li><a href="./guide/index.html">guide</a></li>`,
+			`<li><a href="./guide.html">guide.md</a></li>`,
+			`<li><a href="./README.html">README.md</a></li>`,
+		}, regexp.MustCompile(`<li><a href="\./[^"]*">[^<]*</a></li>`).FindAllString(docs, -1))
 	})
 
-	t.Run("without an index there is no home link", func(t *testing.T) {
+	t.Run("the tree is one file and leaves out folders with no note", func(t *testing.T) {
+		// arrange
+		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
+		writeTree(t, src, notes)
+		root, err := openNotes(t, src).Tree()
+		require.NoError(t, err)
+
+		// act
+		code, _, stderr := runCLI(t, "", "site", "-o", out, src)
+
+		// assert
+		require.Equal(t, 0, code, stderr)
+		tree := readSite(t, out, "scrawl/tree.js")
+		require.True(t, strings.HasPrefix(tree, "self.scrawlSite = "))
+		var got siteData
+		require.NoError(t, json.Unmarshal([]byte(strings.TrimSuffix(strings.TrimPrefix(tree, "self.scrawlSite = "), ";\n")), &got))
+		assert.Equal(t, siteData{Title: "Home", Tree: withNotes(view.Nav(root, ""))}, got)
+		assert.Equal(t, []string{"docs", "drafts", "index.md"}, []string{got.Tree[0].Name, got.Tree[1].Name, got.Tree[2].Name})
+		assert.Equal(t, []string{"guide.md", "README.md"}, []string{got.Tree[0].Children[0].Name, got.Tree[0].Children[1].Name})
+	})
+
+	t.Run("without an index the site is called Notes", func(t *testing.T) {
 		// arrange
 		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
 		writeTree(t, src, map[string]string{"a.md": "# A\n"})
@@ -174,10 +268,10 @@ func TestRunSite(t *testing.T) {
 
 		// assert
 		require.Equal(t, 0, code, stderr)
-		assert.NotContains(t, readSite(t, out, "a.html"), `class="page-home"`)
+		assert.Contains(t, readSite(t, out, "scrawl/tree.js"), `"title":"Notes"`)
 	})
 
-	t.Run("the tree marks the note of the page and opens the way to it", func(t *testing.T) {
+	t.Run("the shared files are the ones the binary carries", func(t *testing.T) {
 		// arrange
 		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
 		writeTree(t, src, notes)
@@ -187,61 +281,87 @@ func TestRunSite(t *testing.T) {
 
 		// assert
 		require.Equal(t, 0, code, stderr)
-		guide := readSite(t, out, "docs/guide.html")
-		assert.Contains(t, guide, `<li><details open><summary style="--depth: 0">`)
-		assert.Contains(t, guide, `<a href="../docs/guide.html" style="--depth: 1" aria-current="page">`)
-		assert.Contains(t, guide, `<a href="../index.html" style="--depth: 0">`)
+		for name, content := range page.SiteAssets() {
+			assert.Equal(t, content, readSite(t, out, "scrawl/"+name))
+		}
+		assert.Equal(t, string(render.ChromaCSS()), readSite(t, out, "scrawl/chroma.css"))
+		assert.Equal(t, string(server.Favicon()), readSite(t, out, "scrawl/favicon.svg"))
 	})
 
-	t.Run("an outline is listed once a note has enough sections", func(t *testing.T) {
+	t.Run("a renderer is written only once a note needs it", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			notes map[string]string
+			want  []string
+		}{
+			{name: "nothing to render", notes: map[string]string{"a.md": "# A\n"}, want: withAssets("404.html", "a.html", "index.html")},
+			{
+				name:  "a diagram",
+				notes: map[string]string{"a.md": "# A\n\n```mermaid\ngraph TD;\n```\n"},
+				want:  withAssets("404.html", "a.html", "index.html", "scrawl/"+page.DiagramsFile),
+			},
+			{
+				name:  "a formula in a folder's readme",
+				notes: map[string]string{"d/README.md": "# D\n\n$x$\n"},
+				want: withAssets("404.html", "d/README.html", "d/index.html", "index.html",
+					"scrawl/"+page.MathScriptFile, "scrawl/"+page.MathStyleFile),
+			},
+		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				// arrange
+				src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
+				writeTree(t, src, tc.notes)
+
+				// act
+				code, _, stderr := runCLI(t, "", "site", "-o", out, src)
+
+				// assert
+				require.Equal(t, 0, code, stderr)
+				assert.Equal(t, tc.want, listTree(t, out))
+			})
+		}
+	})
+
+	t.Run("a note of its own takes the place of the page for a missing address", func(t *testing.T) {
 		// arrange
 		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
-		writeTree(t, src, map[string]string{
-			"long.md":  "# Long\n\n## One\n\n## Two\n\n### Two and a half\n",
-			"short.md": "# Short\n\n## One\n\n## Two\n",
-		})
+		writeTree(t, src, map[string]string{"404.md": "# Lost\n"})
 
 		// act
 		code, _, stderr := runCLI(t, "", "site", "-o", out, src)
 
 		// assert
 		require.Equal(t, 0, code, stderr)
-		long := readSite(t, out, "long.html")
-		assert.Equal(t, []string{
-			`<a href="#one" data-level="2">One</a>`,
-			`<a href="#two" data-level="2">Two</a>`,
-			`<a href="#two-and-a-half" data-level="3">Two and a half</a>`,
-		}, regexp.MustCompile(`<a href="#[^"]*" data-level="\d">[^<]*</a>`).FindAllString(long, -1))
-		assert.NotContains(t, readSite(t, out, "short.html"), `class="site-outline"`)
+		assert.Contains(t, readSite(t, out, "404.html"), "<title>Lost</title>")
 	})
 
-	t.Run("math goes into the shared assets once", func(t *testing.T) {
+	t.Run("a note that names the closing tag of a script stays inside its own", func(t *testing.T) {
 		// arrange
 		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
-		writeTree(t, src, map[string]string{"a.md": "# A\n\n$x$\n"})
-
-		// act
-		code, _, stderr := runCLI(t, "", "site", "--math", "-o", out, src)
-
-		// assert
-		require.Equal(t, 0, code, stderr)
-		assets := page.Assets(page.Options{Math: true})
-		assert.Equal(t, assets[page.StylesheetFile], readSite(t, out, "scrawl/page.css"))
-		assert.Equal(t, assets[page.ScriptFile], readSite(t, out, "scrawl/page.js"))
-	})
-
-	t.Run("the diagram renderer is written once a note has a diagram", func(t *testing.T) {
-		// arrange
-		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
-		writeTree(t, src, map[string]string{"a.md": "# A\n\n```mermaid\ngraph TD;\n```\n", "b.md": "# B\n"})
+		writeTree(t, src, map[string]string{"a.md": "# `</script><script>` in a title\n"})
 
 		// act
 		code, _, stderr := runCLI(t, "", "site", "-o", out, src)
 
 		// assert
 		require.Equal(t, 0, code, stderr)
-		assert.Equal(t, []string{"a.html", "b.html", "scrawl/diagrams.js", "scrawl/page.css", "scrawl/page.js"}, listTree(t, out))
-		assert.Equal(t, page.Diagrams(), readSite(t, out, "scrawl/"+page.DiagramsFile))
+		answer, ok := readPageData(t, out, "a.html")["answer"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "</script><script> in a title", answer["title"])
+	})
+
+	t.Run("files a browser runs a script from are named", func(t *testing.T) {
+		// arrange
+		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
+		writeTree(t, src, map[string]string{"a.md": "# A\n", "art/logo.SVG": "<svg/>", "demo.html": "<p>x</p>", "pic.png": "png"})
+
+		// act
+		code, stdout, stderr := runCLI(t, "", "site", "-o", out, src)
+
+		// assert
+		require.Equal(t, 0, code, stderr)
+		assert.Contains(t, stdout, "warning: copied as they are, these files run their scripts when opened from the site: art/logo.SVG, demo.html\n")
 	})
 
 	t.Run("exclude leaves notes out", func(t *testing.T) {
@@ -254,13 +374,8 @@ func TestRunSite(t *testing.T) {
 
 		// assert
 		require.Equal(t, 0, code, stderr)
-		assert.Equal(t, []string{
-			"docs/guide.html",
-			"docs/guide/pic.png",
-			"index.html",
-			"scrawl/page.css",
-			"scrawl/page.js",
-		}, listTree(t, out))
+		assert.NotContains(t, listTree(t, out), "drafts/unfinished.html")
+		assert.NotContains(t, listTree(t, out), "drafts/index.html")
 	})
 
 	t.Run("an output directory with something in it is left alone", func(t *testing.T) {
@@ -290,9 +405,19 @@ func TestRunSite(t *testing.T) {
 				want:  "a.html and a.md would both be written to a.html",
 			},
 			{
-				name:  "notes in the directory of the stylesheet",
+				name:  "a page where the page of a folder goes",
+				files: map[string]string{"docs/a.md": "# A\n", "docs/index.html": "<p>mine</p>"},
+				want:  "docs/ and docs/index.html would both be written to docs/index.html",
+			},
+			{
+				name:  "a note where a folder of the site goes",
+				files: map[string]string{"a.md": "# A\n", "a.html/b.md": "# B\n"},
+				want:  "a.md is written to a.html, where a.html/b.md needs a folder",
+			},
+			{
+				name:  "notes in the directory of the scripts",
 				files: map[string]string{"scrawl/notes.md": "# Notes\n"},
-				want:  "scrawl/ is where the site keeps its stylesheet, and the notes hold scrawl/notes.md",
+				want:  "scrawl/ is where the site keeps its scripts, and the notes hold scrawl/",
 			},
 		}
 		for _, tc := range tests {
@@ -311,4 +436,29 @@ func TestRunSite(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestWithNotes(t *testing.T) {
+	// arrange
+	nodes := []view.NavNode{
+		{Name: "docs", Path: "docs", IsDir: true, Children: []view.NavNode{
+			{Name: "a.md", Path: "docs/a.md", Children: []view.NavNode{}},
+			{Name: "empty", Path: "docs/empty", IsDir: true, Children: []view.NavNode{}},
+		}},
+		{Name: "pictures", Path: "pictures", IsDir: true, Children: []view.NavNode{
+			{Name: "deeper", Path: "pictures/deeper", IsDir: true, Children: []view.NavNode{}},
+		}},
+		{Name: "b.md", Path: "b.md", Children: []view.NavNode{}},
+	}
+
+	// act
+	got := withNotes(nodes)
+
+	// assert
+	assert.Equal(t, []view.NavNode{
+		{Name: "docs", Path: "docs", IsDir: true, Children: []view.NavNode{
+			{Name: "a.md", Path: "docs/a.md", Children: []view.NavNode{}},
+		}},
+		{Name: "b.md", Path: "b.md", Children: []view.NavNode{}},
+	}, got)
 }

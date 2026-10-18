@@ -1,0 +1,38 @@
+/* the page as it reads with no javascript: the note, the path to it and what
+   the folder holds, in the column the app keeps it in */
+[data-scrawl-static] {
+  box-sizing: border-box;
+  max-width: calc(var(--scrawl-content-measure) + 2 * 32px);
+  margin: 0 auto;
+  padding: 24px 32px;
+}
+
+@media (width < $mantine-breakpoint-sm) {
+  [data-scrawl-static] {
+    padding: 16px;
+  }
+}
+
+.scrawl-js [data-scrawl-static] {
+  display: none;
+}
+
+.scrawl-static-crumbs,
+.scrawl-static-list {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.scrawl-static-crumbs li {
+  display: inline;
+}
+
+.scrawl-static-crumbs li + li::before {
+  content: ' / ';
+  color: var(--gh-fg-muted);
+}
+
+.scrawl-static-list li {
+  padding: 4px 0;
+}

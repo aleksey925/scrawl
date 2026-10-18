@@ -1,7 +1,7 @@
 // Package page writes the HTML the command line hands out: a rendered note or a
 // rendered diff as one file that opens on its own, with the stylesheet of the
-// app inlined, as a page of a site that links one shared copy of it, or as a
-// fragment to put into a page of somebody else's.
+// app inlined, or as a fragment to put into a page of somebody else's; and the
+// pages of a site, each the app's reader started on the answer it carries.
 package page
 
 import (
@@ -9,16 +9,17 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"strings"
 
 	"github.com/aleksey925/scrawl/htmldiff"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/theme"
 )
 
-// assets are built from web/src/page by `make ui`, which writes them here.
+// assets are built from web/src/page and web/src/site by `make ui`, which
+// writes them here.
 //
 //go:embed assets/page.css assets/page.js assets/math.css assets/math.js assets/diagrams.js
+//go:embed assets/site.js assets/site.css assets/boot.js
 var assets embed.FS
 
 //go:embed templates/*.html
@@ -30,8 +31,6 @@ var tmpl = template.Must(template.New("page").Funcs(template.FuncMap{
 	"cell":   cellOf,
 	"trust":  trust,
 	"themes": theme.All,
-	"level":  levelOf,
-	"inc":    func(n int) int { return n + 1 },
 }).ParseFS(templates, "templates/*.html"))
 
 // Note is one rendered note.
@@ -78,16 +77,6 @@ type Options struct {
 	// Math typesets formulas with KaTeX inlined into the page, some 600KB;
 	// without it a formula stays the TeX it was written in
 	Math bool
-	// Assets is the address of the directory holding StylesheetFile and
-	// ScriptFile, relative to the page. Empty inlines both into the page.
-	Assets string
-	// Home is the front page of the site the page belongs to, nil for none.
-	Home *Link
-	// Tree is the navigation of the site beside the note. With it the page is
-	// a page of a site, laid out with the tree, the note and the outline.
-	Tree []TreeEntry
-	// Outline is the headings listed beside the note, nil for none.
-	Outline []render.Heading
 }
 
 // Link is an address and the words it is shown as.
@@ -96,53 +85,96 @@ type Link struct {
 	Title string
 }
 
-// TreeEntry is one row of the tree of a site: a folder and what it holds, or
-// a note.
-type TreeEntry struct {
-	Name string
-	// Href is where the note is, "" for a folder.
-	Href string
-	// Current is the note on this page.
-	Current bool
-	// Open is a folder on the way to the note on this page.
-	Open     bool
-	Children []TreeEntry
+// SitePage is one page of a site. The reader draws the page from Data; the
+// path, the note and the folder's entries are the same page for a reader
+// without javascript.
+type SitePage struct {
+	Title string
+	// Assets leads from the page to the directory SiteAssets are written to
+	Assets string
+	// Data is the answer the page stands for as JSON, from encoding/json,
+	// which escapes every character that could close the script holding it
+	Data []byte
+	// Crumbs is the path to the page, the last one with no Href
+	Crumbs []Link
+	// HTML is the note, "" for a folder with neither an index nor a readme
+	HTML string
+	// Entries is what a folder holds, nil on the page of a note
+	Entries []Link
 }
 
-// the files a page with Options.Assets links to instead of inlining them, and
-// the diagram renderer its script loads from beside itself on a page that has
-// a diagram; web/src/page/page.ts names that one too
+// the files of a site's assets directory the pages of a site link, beside the
+// ones the site writes itself; web/src/site/loaders.ts names the renderers
 const (
-	StylesheetFile = "page.css"
-	ScriptFile     = "page.js"
+	SiteBootFile   = "boot.js"
+	SiteScriptFile = "site.js"
+	SiteStyleFile  = "site.css"
 	DiagramsFile   = "diagrams.js"
+	MathScriptFile = "math.js"
+	MathStyleFile  = "math.css"
 )
 
-// Assets are the stylesheet and the script every page links to when they are
-// files of their own, keyed by StylesheetFile and ScriptFile.
-func Assets(opts Options) map[string]string {
-	style, script := pageAssets(opts)
-	return map[string]string{StylesheetFile: style, ScriptFile: script}
+// SiteAssets are the scripts and the stylesheet every page of a site links.
+func SiteAssets() map[string]string {
+	return map[string]string{
+		SiteBootFile:   asset(SiteBootFile),
+		SiteScriptFile: asset(SiteScriptFile),
+		SiteStyleFile:  asset(SiteStyleFile),
+	}
 }
 
 // Diagrams is the mermaid renderer a site writes as DiagramsFile, some 5MB,
 // only when one of its notes has a diagram.
 func Diagrams() string { return asset(DiagramsFile) }
 
-// WriteNote writes a note as a page of its own, or as a page of a site when
-// the options carry a tree.
-func WriteNote(w io.Writer, note Note, opts Options) error {
-	name := "note.html"
-	if opts.Tree != nil {
-		name = "site.html"
+// Math is the formula renderer a site writes as MathScriptFile and
+// MathStyleFile, only when one of its notes has a formula.
+func Math() map[string]string {
+	return map[string]string{MathScriptFile: asset(MathScriptFile), MathStyleFile: asset(MathStyleFile)}
+}
+
+// barColor is one theme-color meta of a page.
+type barColor struct {
+	Color string
+	Media string
+}
+
+// siteBars follow the system, as a page of a site does until a theme is picked
+var siteBars = func() []barColor {
+	res := []barColor{}
+	for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
+		res = append(res, barColor{
+			Color: theme.AutoTheme(scheme).BarColor(),
+			Media: "(prefers-color-scheme: " + string(scheme) + ")",
+		})
 	}
-	return execute(w, name, struct {
+	return res
+}()
+
+// WriteSitePage writes one page of a site.
+func WriteSitePage(w io.Writer, p SitePage) error {
+	return execute(w, "site.html", struct {
+		SitePage
+		Data template.JS
+		Bars []barColor
+	}{
+		SitePage: p,
+		Data:     template.JS(p.Data), //nolint:gosec // JSON from encoding/json, which escapes <, > and &
+		Bars:     siteBars,
+	})
+}
+
+// WriteNotFound writes the page a host answers a missing address of a site with.
+func WriteNotFound(w io.Writer) error {
+	return execute(w, "404.html", nil)
+}
+
+// WriteNote writes a note as a page of its own.
+func WriteNote(w io.Writer, note Note, opts Options) error {
+	return execute(w, "note.html", struct {
 		Note
-		Head    head
-		Home    *Link
-		Tree    []TreeEntry
-		Outline []render.Heading
-	}{Note: note, Head: newHead(note.Title, opts), Home: opts.Home, Tree: opts.Tree, Outline: opts.Outline})
+		Head head
+	}{Note: note, Head: newHead(note.Title, opts)})
 }
 
 // WriteDiff writes a report as a page of its own.
@@ -175,33 +207,22 @@ func asset(name string) string {
 }
 
 type head struct {
-	Title     string
-	Style     template.CSS
-	Script    template.JS
-	StyleHref string
-	ScriptSrc string
+	Title  string
+	Style  template.CSS
+	Script template.JS
 }
 
 func newHead(title string, opts Options) head {
-	if opts.Assets != "" {
-		base := strings.TrimSuffix(opts.Assets, "/") + "/"
-		return head{Title: title, StyleHref: base + StylesheetFile, ScriptSrc: base + ScriptFile}
+	style, script := Stylesheet(), asset("page.js")
+	if opts.Math {
+		style += "\n" + asset(MathStyleFile)
+		script += "\n" + asset(MathScriptFile)
 	}
-	style, script := pageAssets(opts)
 	return head{
 		Title:  title,
 		Style:  template.CSS(style), //nolint:gosec // our own stylesheet, embedded at build time
 		Script: template.JS(script), //nolint:gosec // our own script, embedded at build time
 	}
-}
-
-func pageAssets(opts Options) (style, script string) {
-	style, script = Stylesheet(), asset("page.js")
-	if opts.Math {
-		style += "\n" + asset("math.css")
-		script += "\n" + asset("math.js")
-	}
-	return style, script
 }
 
 func execute(w io.Writer, name string, data any) error {
@@ -215,16 +236,6 @@ func execute(w io.Writer, name string, data any) error {
 // as it is.
 func trust(s string) template.HTML {
 	return template.HTML(s) //nolint:gosec // sanitized by render's bluemonday policy
-}
-
-// treeLevel is the entries of one folder of a tree and how deep it sits.
-type treeLevel struct {
-	Entries []TreeEntry
-	Depth   int
-}
-
-func levelOf(entries []TreeEntry, depth int) treeLevel {
-	return treeLevel{Entries: entries, Depth: depth}
 }
 
 func plural(n int, word string) string {

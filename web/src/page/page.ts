@@ -15,50 +15,16 @@ import {
   prepareImages,
   sectionLink,
 } from '../reader/controls';
-import { diagramSelector } from '../reader/diagrams';
 import { imagesOf } from '../reader/dom';
 import { isPlainClick } from '../reader/links';
 import { openViewer } from '../reader/viewer';
+import { pagePersistence } from '../themePersistence';
 import { applyThemeAttribute, autoChoice, isThemeChoice } from '../themes';
 
-// the choice is kept twice, because a site opened from disk has only one of
-// them shared between its pages: Firefox the cookie, Chromium the storage
-const choiceKey = 'scrawl.page.scheme';
-const choiceCookie = 'scrawl-page-theme';
-const cookieMaxAge = 60 * 60 * 24 * 365;
+const persistence = pagePersistence();
 
-function fromCookie(): string | undefined {
-  for (const part of document.cookie.split(';')) {
-    const [name, value] = part.trim().split('=');
-    if (name === choiceCookie && value !== undefined && isThemeChoice(value)) {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-function fromStorage(): string | undefined {
-  try {
-    const value = window.localStorage.getItem(choiceKey);
-    return value !== null && isThemeChoice(value) ? value : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-// the cookie goes first: Firefox keeps a storage per page from disk, so a page
-// may still hold a choice made on it before the one made elsewhere
 function stored(): string {
-  return fromCookie() ?? fromStorage() ?? autoChoice;
-}
-
-function store(choice: string): void {
-  document.cookie = `${choiceCookie}=${choice}; path=/; max-age=${cookieMaxAge}; samesite=lax`;
-  try {
-    window.localStorage.setItem(choiceKey, choice);
-  } catch {
-    // the cookie alone keeps it
-  }
+  return persistence.read() ?? autoChoice;
 }
 
 function apply(choice: string): void {
@@ -113,61 +79,11 @@ function prepareNote(note: HTMLElement): void {
   });
 }
 
-// a page of a site links this script and the diagram renderer sits beside it;
-// a page of render carries it inline, and there a diagram stays its source
-const scriptSource = document.currentScript instanceof HTMLScriptElement ? document.currentScript.src : '';
-const diagramsFile = 'diagrams.js';
-
-function loadDiagrams(note: HTMLElement): void {
-  if (scriptSource === '' || note.querySelector(diagramSelector) === null) {
-    return;
-  }
-  const script = document.createElement('script');
-  script.src = new URL(diagramsFile, scriptSource).href;
-  document.head.append(script);
-}
-
-const drawerOpen = 'site-tree-open';
-
-// the tree of a site is a drawer below the rail's breakpoint; what it covers
-// is made inert, so a tab cannot land on a link nobody can see
-function prepareDrawer(burger: HTMLButtonElement): void {
-  const behind = document.querySelectorAll<HTMLElement>('.site-main, .site-outline');
-  const show = (open: boolean): void => {
-    document.documentElement.classList.toggle(drawerOpen, open);
-    burger.setAttribute('aria-expanded', String(open));
-    for (const element of behind) {
-      element.inert = open;
-    }
-  };
-  burger.addEventListener('click', () => {
-    show(!document.documentElement.classList.contains(drawerOpen));
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && document.documentElement.classList.contains(drawerOpen)) {
-      show(false);
-      burger.focus();
-    }
-  });
-  // the stylesheet hides the button where the tree is a rail, so a drawer left
-  // open on a phone turned sideways does not keep the note inert
-  window.addEventListener('resize', () => {
-    if (burger.offsetParent === null && document.documentElement.classList.contains(drawerOpen)) {
-      show(false);
-    }
-  });
-}
-
 document.addEventListener('DOMContentLoaded', () => {
   apply(stored());
-  const burger = document.querySelector<HTMLButtonElement>('.site-burger');
-  if (burger !== null) {
-    prepareDrawer(burger);
-  }
   const note = document.querySelector<HTMLElement>('article.markdown-document');
   if (note !== null) {
     prepareNote(note);
-    loadDiagrams(note);
   }
   for (const button of document.querySelectorAll<HTMLButtonElement>('.page-theme button')) {
     button.addEventListener('click', () => {
@@ -175,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (choice === undefined || !isThemeChoice(choice)) {
         return;
       }
-      store(choice);
+      persistence.write(choice);
       apply(choice);
     });
   }

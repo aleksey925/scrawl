@@ -123,3 +123,14 @@ export function tokenVariables(prefix: string, tokens: object): Record<string, s
   }
   return res;
 }
+
+// the attribute mantine keys its own rules on, set here before mantine is
+// there to set it
+export const colorSchemeAttribute = 'data-mantine-color-scheme';
+
+// applyChoiceAttributes puts the page on a choice before the first paint
+export function applyChoiceAttributes(choice: string): void {
+  applyThemeAttribute(choice);
+  const scheme = lookupTheme(choice)?.scheme ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute(colorSchemeAttribute, scheme);
+}

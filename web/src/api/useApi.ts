@@ -38,6 +38,19 @@ function remember(key: string, data: unknown): void {
   }
 }
 
+// answerKeys name what each screen remembers its answer under
+export const answerKeys = {
+  page: (path: string): string => `page:${path}`,
+  dir: (path: string): string => `dir:${path}`,
+  nav: (path: string): string => `nav:${path}`,
+};
+
+// seedResponse hands over an answer that came with the page itself, so the
+// first render paints it instead of waiting
+export function seedResponse(key: string, data: unknown): void {
+  remember(key, data);
+}
+
 // forgetResponses drops every cached answer. Every mutation calls it: a save, a
 // rename or a delete can change any of them, and the cheapest correct rule is
 // to keep none of it rather than to reason about which.

@@ -5,7 +5,7 @@ import {
 import { useLocation } from 'react-router';
 
 import type { MeResponse, NavNode } from '../api/types';
-import { forgetResponses, useApi } from '../api/useApi';
+import { answerKeys, forgetResponses, useApi } from '../api/useApi';
 import { usePlatform } from '../platform';
 
 import { contentPathOf } from './naming';
@@ -106,7 +106,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
   const [token, setToken] = useState(0);
   const { source, storageScope } = usePlatform();
   const storageKey = openKey(storageScope);
-  const nav = useApi((signal) => source.nav(currentPath, { signal }), [source, currentPath, token], `nav:${currentPath}`);
+  const nav = useApi((signal) => source.nav(currentPath, { signal }), [source, currentPath, token], answerKeys.nav(currentPath));
   const { me, refreshMe } = status;
 
   const [open, setOpen] = useState<ReadonlySet<string>>(() => readOpen(storageKey));

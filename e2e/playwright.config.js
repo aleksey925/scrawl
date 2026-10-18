@@ -46,5 +46,12 @@ module.exports = defineConfig({
             // its tests leans on another
             fullyParallel: true,
         },
+        {
+            // a site opened from disk is where the engines part ways: Firefox
+            // shares the cookie between files and Chromium the storage
+            name: 'site-firefox',
+            use: {...devices['Desktop Firefox'], permissions: []},
+            testMatch: /site\.spec\.js/,
+        },
     ],
 });

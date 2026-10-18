@@ -3,7 +3,7 @@ import { IconFile, IconFilePlus, IconFolder, IconFolderOpen, IconFolderPlus } fr
 import type { JSX } from 'react';
 import { Link } from 'react-router';
 
-import { useApi } from '../api/useApi';
+import { answerKeys, useApi } from '../api/useApi';
 import { isMarkdown } from '../paths';
 import { usePlatform } from '../platform';
 import { useOptionalFileActions } from '../shell/fileActionsContext';
@@ -23,7 +23,7 @@ export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
   const { canWrite } = useNav();
   const actions = useOptionalFileActions();
   const { source, physicalUrl } = usePlatform();
-  const state = useApi((signal) => source.dir(path, { signal }), [source, path], `dir:${path}`);
+  const state = useApi((signal) => source.dir(path, { signal }), [source, path], answerKeys.dir(path));
 
   return (
     <AsyncContent state={state} testId="dir">

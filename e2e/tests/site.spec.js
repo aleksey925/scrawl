@@ -1,10 +1,11 @@
 const {execFileSync} = require('node:child_process');
 const fs = require('node:fs');
+const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const {pathToFileURL} = require('node:url');
 
-const {expect, test} = require('../support/test');
+const {expect, test} = require('@playwright/test');
 
 const {binary} = require('../support/env');
 
@@ -14,152 +15,414 @@ const PIXEL = Buffer.from(
     'base64',
 );
 
+const filler = (word) => Array.from({length: 30}, () => `${word} `.repeat(14)).join('\n\n');
+
 const NOTES = {
-    'index.md': '# Home\n\n[Guide](docs/guide.md)\n',
+    'index.md': '# Home\n\n[Guide](docs/guide.md), the [docs folder](docs/) and [pictures](pictures.md)\n',
+    'docs/guide.md': [
+        '# Guide', '[Back home](../index.md) and [the third part](#Three).',
+        '## One', filler('one'),
+        '## Two', '```sh\necho hi\n```', filler('two'),
+        '## Three', filler('three'),
+        '## Four', 'A short section.',
+        '## Five', 'A short section.',
+    ].join('\n\n'),
+    'docs/deep/inner.md': '# Inner\n\ntext\n',
+    'docs/README.md': '# Docs\n\nWhat the folder holds.\n',
     'pictures.md': '# Pictures\n\n![one](pics/one.png)\n\n![two](pics/two.png)\n\n```mermaid\ngraph TD;\n  A-->B;\n```\n',
     'pics/one.png': PIXEL,
     'pics/two.png': PIXEL,
-    'docs/guide.md': '# Guide\n\n## One\n\ntext\n\n## Two\n\n```sh\necho hi\n```\n\n## Three\n\ntext\n',
+    'math.md': '# Math\n\nA formula: $x^2 + 1$.\n',
 };
 
-// a site opened from disk, the way a reader previews one before it is
-// published, and the way Firefox gives every page an origin of its own
+// the address a site is published under: anything but the root of the host
+const PREFIX = '/pub/notes/';
+
+const TYPES = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml'};
+
+// serve answers a site the way a static host does: a file, a folder's
+// index.html, and 404.html for anything else
+function serve(root) {
+    return new Promise((resolve) => {
+        const server = http.createServer((req, res) => {
+            const url = new URL(req.url, 'http://host');
+            if (!url.pathname.startsWith(PREFIX)) {
+                res.writeHead(404).end();
+                return;
+            }
+            let file = path.join(root, decodeURIComponent(url.pathname.slice(PREFIX.length)));
+            if (fs.existsSync(file) && fs.statSync(file).isDirectory()) {
+                file = path.join(file, 'index.html');
+            }
+            const found = fs.existsSync(file);
+            const body = fs.readFileSync(found ? file : path.join(root, '404.html'));
+            res.writeHead(found ? 200 : 404, {'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream'});
+            res.end(body);
+        });
+        server.listen(0, '127.0.0.1', () => resolve(server));
+    });
+}
+
 let tmp;
 let site;
+let server;
 
-const at = (name) => pathToFileURL(path.join(site, name)).href;
+test.beforeAll(async () => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'scrawl-site-'));
+    const notes = path.join(tmp, 'notes');
+    for (const [name, content] of Object.entries(NOTES)) {
+        fs.mkdirSync(path.dirname(path.join(notes, name)), {recursive: true});
+        fs.writeFileSync(path.join(notes, name), content);
+    }
+    site = path.join(tmp, 'site');
+    execFileSync(binary, ['site', '-o', site, notes]);
+    server = await serve(site);
+});
 
-test.describe('site', () => {
-    test.beforeAll(() => {
-        tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'scrawl-site-'));
-        const notes = path.join(tmp, 'notes');
-        for (const [name, content] of Object.entries(NOTES)) {
-            fs.mkdirSync(path.dirname(path.join(notes, name)), {recursive: true});
-            fs.writeFileSync(path.join(notes, name), content);
-        }
-        site = path.join(tmp, 'site');
-        execFileSync(binary, ['site', '-o', site, notes]);
+test.afterAll(async () => {
+    await new Promise((resolve) => server.close(resolve));
+    fs.rmSync(tmp, {recursive: true, force: true});
+});
+
+// a site is read from disk, the way it is checked before it is published, and
+// from a host under a path of its own, the way it is read once it is
+const TARGETS = {
+    disk: (name) => pathToFileURL(path.join(site, name)).href,
+    host: (name) => `http://127.0.0.1:${server.address().port}${PREFIX}${name}`,
+};
+
+const active = (page) => page.locator('[data-testid=toc-entry][data-active="true"]');
+const row = (page, contentPath) => page.locator(`[data-testid=tree-row][data-path="${contentPath}"]`);
+
+async function chooseTheme(page, name) {
+    await page.getByTestId('topbar-more').click();
+    const picker = page.getByTestId('topbar-theme');
+    await picker.getByText(name, {exact: true}).click();
+    await page.keyboard.press('Escape');
+}
+
+for (const [target, at] of Object.entries(TARGETS)) {
+    test.describe(`site from the ${target}`, () => {
+        test('the tree marks the note on the page and opens the folder it is in', async ({page}) => {
+            // act
+            await page.goto(at('docs/deep/inner.html'));
+
+            // assert
+            await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveAttribute('data-path', 'docs/deep/inner.md');
+            await expect(row(page, 'docs').getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+            await expect(row(page, 'docs/deep').getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+            await expect(row(page, '').getByTestId('tree-link')).toHaveText('Home');
+        });
+
+        test('a link of the tree opens its note and the folder opened stays open', async ({page, browserName}) => {
+            // arrange
+            await page.goto(at('index.html'));
+            await row(page, 'docs').getByTestId('tree-twisty').click();
+
+            // act
+            await row(page, 'docs/guide.md').getByTestId('tree-link').click();
+
+            // assert
+            await expect(page).toHaveURL(at('docs/guide.html'));
+            await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+            // Firefox keeps a storage per page opened from disk, so there only
+            // the way to the note is open on the next page
+            if (!(browserName === 'firefox' && target === 'disk')) {
+                await expect(row(page, 'docs').getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+            }
+        });
+
+        test('the outline marks the section being read and reaches the last ones', async ({page}) => {
+            // arrange
+            await page.goto(at('docs/guide.html'));
+            await expect(page.getByTestId('toc')).toBeVisible();
+
+            // act
+            await page.locator('[data-testid=doc] h2#two').evaluate((el) => {
+                window.scrollTo({top: el.getBoundingClientRect().top + window.scrollY - 100, behavior: 'instant'});
+            });
+
+            // assert
+            await expect(active(page)).toHaveText('Two');
+            await page.evaluate(() => window.scrollTo({top: document.documentElement.scrollHeight, behavior: 'instant'}));
+            await expect(active(page)).toHaveText('Five');
+        });
+
+        test('an outline entry moves the page and the address, and stays on the page', async ({page}) => {
+            // arrange
+            await page.goto(at('docs/guide.html'));
+            await page.evaluate(() => {
+                window.marker = 'same page';
+            });
+
+            // act
+            await page.locator('[data-testid=toc-entry]', {hasText: 'Four'}).click();
+
+            // assert
+            await expect(page).toHaveURL(`${at('docs/guide.html')}#four`);
+            await expect(active(page)).toHaveText('Four');
+            expect(await page.evaluate(() => window.marker)).toBe('same page');
+        });
+
+        test('a link to a section written in another case still lands on it', async ({page}) => {
+            // arrange
+            await page.goto(at('docs/guide.html'));
+            await page.evaluate(() => {
+                window.marker = 'same page';
+            });
+
+            // act
+            await page.getByRole('link', {name: 'the third part'}).click();
+
+            // assert
+            await expect(page).toHaveURL(/#Three$/);
+            await expect.poll(() => page.locator('h2#three').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
+                .toBeLessThan(120);
+            expect(await page.evaluate(() => window.marker)).toBe('same page');
+        });
+
+        test('a link of a note opens the note it names', async ({page}) => {
+            // arrange
+            await page.goto(at('docs/guide.html'));
+
+            // act
+            await page.getByRole('link', {name: 'Back home'}).click();
+
+            // assert
+            await expect(page).toHaveURL(at('index.html'));
+            await expect(page.getByTestId('doc').locator('h1')).toHaveText('Home');
+        });
+
+        test('a folder without an index is its listing, with its readme above', async ({page}) => {
+            // act
+            await page.goto(at('index.html'));
+            await page.getByRole('link', {name: 'docs folder'}).click();
+
+            // assert
+            await expect(page).toHaveURL(at('docs/index.html'));
+            await expect(page.getByTestId('dir-title')).toHaveText('docs');
+            await expect(page.getByTestId('doc')).toContainText('What the folder holds.');
+            await expect(page.getByTestId('dir-row')).toHaveCount(3);
+            await page.locator('[data-testid=dir-row][data-path="docs/guide.md"] [data-testid=dir-row-name]').click();
+            await expect(page).toHaveURL(at('docs/guide.html'));
+        });
+
+        test('the path leads back to the folders above', async ({page}) => {
+            // arrange
+            await page.goto(at('docs/deep/inner.html'));
+            const crumbs = page.getByTestId('topbar-breadcrumbs').getByTestId('crumb');
+            await expect(crumbs).toHaveText(['Home', 'docs', 'deep', 'inner.md']);
+
+            // act
+            await crumbs.filter({hasText: 'docs'}).click();
+
+            // assert
+            await expect(page).toHaveURL(at('docs/index.html'));
+        });
+
+        test('a theme picked on one page holds on the next and after Back', async ({page}) => {
+            // arrange
+            await page.goto(at('index.html'));
+            await chooseTheme(page, 'Dark');
+
+            // act
+            await page.getByRole('link', {name: 'Guide'}).click();
+
+            // assert
+            await expect(page).toHaveURL(at('docs/guide.html'));
+            await expect(page.locator('html')).toHaveAttribute('data-scrawl-theme', 'dark');
+            await chooseTheme(page, 'Light');
+            await page.goBack();
+            await expect(page.locator('html')).toHaveAttribute('data-scrawl-theme', 'light');
+            await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'light');
+        });
+
+        test('auto picked on a page holds on the next', async ({page}) => {
+            // arrange
+            await page.goto(at('index.html'));
+            await chooseTheme(page, 'Dark');
+            await chooseTheme(page, 'Auto');
+
+            // act
+            await page.getByRole('link', {name: 'Guide'}).click();
+
+            // assert
+            await expect(page).toHaveURL(at('docs/guide.html'));
+            await expect(page.locator('html')).not.toHaveAttribute('data-scrawl-theme', /.*/);
+        });
+
+        test('a code block copies its code', async ({context, page, browserName}) => {
+            // the clipboard cannot be read back in Firefox under playwright
+            test.skip(browserName === 'firefox', 'the clipboard is not readable in Firefox');
+
+            // arrange
+            await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+            await page.goto(at('docs/guide.html'));
+            const copy = page.getByTestId('code-copy');
+
+            // act
+            await copy.click();
+
+            // assert
+            await expect(copy).toHaveAttribute('data-done', 'true');
+            expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('echo hi\n');
+        });
+
+        test('the viewer steps through the pictures and closes on a click beside them', async ({page}) => {
+            // arrange
+            await page.goto(at('pictures.html'));
+            await page.getByRole('button', {name: 'Open image: one'}).click();
+            await expect(page.getByTestId('doc-lightbox-count')).toHaveText('1 / 2');
+
+            // act
+            await page.keyboard.press('ArrowRight');
+
+            // assert
+            await expect(page.getByTestId('doc-lightbox-caption')).toHaveText('two');
+            await page.mouse.click(8, page.viewportSize().height - 8);
+            await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+        });
+
+        test('a diagram is drawn by the renderer beside the pages', async ({page}) => {
+            // act
+            await page.goto(at('pictures.html'));
+
+            // assert
+            await expect(page.locator('.md-diagram[data-state="done"] svg')).toBeVisible({timeout: 20_000});
+        });
+
+        test('a formula is typeset by the renderer beside the pages', async ({page}) => {
+            // act
+            await page.goto(at('math.html'));
+
+            // assert
+            await expect(page.locator('.math.is-typeset .katex')).toBeVisible({timeout: 20_000});
+        });
+
+        test('a site offers no search and asks nothing of a server', async ({page}) => {
+            // arrange
+            const asked = [];
+            page.on('request', (req) => asked.push(req.url()));
+
+            // act
+            await page.goto(at('docs/guide.html'));
+            await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+            await page.keyboard.press('Control+K');
+
+            // assert
+            await expect(page.getByTestId('topbar-search')).toHaveCount(0);
+            await expect(page.getByTestId('palette-input')).toHaveCount(0);
+            await expect(page.getByTestId('topbar-account')).toHaveCount(0);
+            await expect(page.getByTestId('doc-edit')).toHaveCount(0);
+            await expect(page.getByTestId('doc-history')).toHaveCount(0);
+            expect(asked.filter((url) => !url.startsWith(at('')) && !url.startsWith('data:'))).toEqual([]);
+        });
+
+        test('a reader without javascript gets the note, its path and what a folder holds', async ({browser}) => {
+            // arrange
+            const context = await browser.newContext({javaScriptEnabled: false});
+            const page = await context.newPage();
+
+            // act
+            await page.goto(at('docs/index.html'));
+
+            // assert
+            await expect(page.locator('article.markdown-document')).toContainText('What the folder holds.');
+            await expect(page.locator('.scrawl-static-crumbs li')).toHaveText(['Home', 'docs']);
+            await page.getByRole('link', {name: 'guide.md'}).click();
+            await expect(page).toHaveURL(at('docs/guide.html'));
+            await expect(page.locator('article.markdown-document h1')).toHaveText('Guide');
+            await context.close();
+        });
     });
 
-    test.afterAll(() => {
-        fs.rmSync(tmp, {recursive: true, force: true});
+    test.describe(`site from the ${target} on a phone`, () => {
+        test.use({viewport: {width: 390, height: 844}, hasTouch: true});
+
+        test('the outline is a sheet the top bar opens, and an entry closes it', async ({page}) => {
+            // arrange
+            await page.goto(at('docs/guide.html'));
+
+            // act
+            await page.getByTestId('topbar-toc').click();
+
+            // assert
+            await expect(page.getByTestId('toc-entry')).toHaveText(['One', 'Two', 'Three', 'Four', 'Five']);
+            await page.getByTestId('toc-entry').filter({hasText: 'Three'}).click();
+            await expect(page.getByTestId('toc-entry')).toHaveCount(0);
+            await expect(page).toHaveURL(/#three$/);
+            await page.getByTestId('topbar-toc').click();
+            await expect(active(page)).toHaveText('Three');
+        });
+
+        test('the tree is a drawer, and a note picked in it opens', async ({page}) => {
+            // arrange
+            await page.goto(at('index.html'));
+
+            // act
+            await page.getByTestId('topbar-burger').click();
+
+            // assert
+            const drawer = page.getByTestId('sidebar-drawer');
+            await expect(drawer.getByTestId('tree-row').first()).toBeVisible();
+            await drawer.locator('[data-testid=tree-row][data-path="pictures.md"] [data-testid=tree-link]').click();
+            await expect(page).toHaveURL(at('pictures.html'));
+            await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');
+            await expect(page.getByTestId('sidebar-drawer').getByTestId('tree-row')).toHaveCount(0);
+        });
+
+        test('the bar is one row of icons and the path sits on the page', async ({page}) => {
+            // act
+            await page.goto(at('docs/deep/inner.html'));
+
+            // assert
+            await expect(page.getByTestId('topbar-breadcrumbs')).toHaveCount(0);
+            await expect(page.getByTestId('page-breadcrumbs').getByTestId('crumb')).toHaveText(['Home', 'docs', 'deep', 'inner.md']);
+            const box = await page.getByTestId('topbar').boundingBox();
+            expect(box.height).toBeLessThanOrEqual(56);
+        });
     });
+}
 
-    test('a theme picked on one page holds on the next', async ({page}) => {
-        // arrange
-        await page.goto(at('index.html'));
-        await page.getByRole('button', {name: 'Dark', exact: true}).click();
+// Back after a link brings the page out of the browser's cache as it was left.
+// Playwright turns that cache off in Chromium, and its headless shell has none,
+// so this test runs the whole browser with the cache back on.
+test('a page Back brings out of the cache takes the theme picked since and closes its drawer', async ({playwright, browserName}) => {
+    // arrange
+    const browser = await playwright[browserName].launch(browserName === 'chromium'
+        ? {channel: 'chromium', ignoreDefaultArgs: ['--disable-back-forward-cache']}
+        : {});
+    const context = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true});
+    const page = await context.newPage();
+    await page.goto(TARGETS.host('index.html'));
+    await page.evaluate(() => window.addEventListener('pageshow', (event) => {
+        window.restored = event.persisted;
+    }));
+    await page.getByTestId('topbar-burger').click();
+    await page.getByTestId('sidebar-drawer').locator('[data-testid=tree-row][data-path="pictures.md"] [data-testid=tree-link]').click();
+    await expect(page).toHaveURL(TARGETS.host('pictures.html'));
+    await chooseTheme(page, 'Dark');
 
-        // act
-        await page.getByRole('link', {name: 'Guide'}).click();
+    // act
+    // a page out of the cache fires no load event
+    await page.goBack({waitUntil: 'commit'});
 
-        // assert
-        await expect(page.locator('html')).toHaveAttribute('data-scrawl-theme', 'dark');
-        await expect(page.getByRole('button', {name: 'Dark', exact: true})).toHaveAttribute('aria-pressed', 'true');
-    });
+    // assert
+    if (browserName === 'chromium') {
+        await expect.poll(() => page.evaluate(() => window.restored)).toBe(true);
+    }
+    await expect(page.locator('html')).toHaveAttribute('data-scrawl-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
+    await expect(page.getByTestId('sidebar-drawer').getByTestId('tree-row')).toHaveCount(0);
+    expect(await page.evaluate(() => document.querySelectorAll('[inert]').length)).toBe(0);
+    await browser.close();
+});
 
-    test('auto picked on a page holds on the next', async ({page}) => {
-        // arrange
-        await page.goto(at('index.html'));
-        await page.getByRole('button', {name: 'Dark', exact: true}).click();
-        await page.getByRole('link', {name: 'Guide'}).click();
-        await page.getByRole('button', {name: 'Auto', exact: true}).click();
+test('a missing address of a host gets the page that says so', async ({page}) => {
+    // act
+    const res = await page.goto(TARGETS.host('docs/gone.html'));
 
-        // act
-        await page.locator('.page-home').click();
-
-        // assert
-        await expect(page.locator('html')).not.toHaveAttribute('data-scrawl-theme', /.*/);
-        await expect(page.getByRole('button', {name: 'Auto', exact: true})).toHaveAttribute('aria-pressed', 'true');
-    });
-
-    test('back shows the theme picked last', async ({page}) => {
-        // arrange
-        await page.goto(at('index.html'));
-        await page.getByRole('button', {name: 'Dark', exact: true}).click();
-        await page.getByRole('link', {name: 'Guide'}).click();
-        await page.getByRole('button', {name: 'Light', exact: true}).click();
-
-        // act
-        await page.goBack();
-
-        // assert
-        await expect(page.locator('html')).toHaveAttribute('data-scrawl-theme', 'light');
-    });
-
-    test('the tree marks the note on the page and opens the folder it is in', async ({page}) => {
-        // act
-        await page.goto(at('docs/guide.html'));
-
-        // assert
-        const tree = page.getByRole('navigation', {name: 'Notes'});
-        await expect(tree.locator('[aria-current="page"]')).toHaveText('guide.md');
-        await expect(tree.locator('details', {hasText: 'docs'})).toHaveAttribute('open', '');
-    });
-
-    test('the outline lists the sections of the note', async ({page}) => {
-        // act
-        await page.goto(at('docs/guide.html'));
-
-        // assert
-        await expect(page.getByRole('navigation', {name: 'On this page'}).getByRole('link'))
-            .toHaveText(['One', 'Two', 'Three']);
-    });
-
-    test('a code block copies its code', async ({context, page}) => {
-        // arrange
-        // the config grants the clipboard to the app's origin, and a file has none
-        await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-        await page.goto(at('docs/guide.html'));
-        const copy = page.getByTestId('code-copy');
-
-        // act
-        await copy.click();
-
-        // assert
-        await expect(copy).toHaveText('Copied');
-        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('echo hi\n');
-    });
-
-    test('on a phone the tree is a drawer the menu opens and Escape closes', async ({page}) => {
-        // arrange
-        await page.setViewportSize({width: 390, height: 844});
-        await page.goto(at('docs/guide.html'));
-        const tree = page.getByRole('navigation', {name: 'Notes'});
-        await expect(tree).toBeHidden();
-
-        // act
-        await page.getByRole('button', {name: 'Notes'}).click();
-
-        // assert
-        await expect(tree).toBeVisible();
-        expect(await page.locator('.site-main').evaluate((main) => main.inert)).toBe(true);
-        await page.keyboard.press('Escape');
-        await expect(tree).toBeHidden();
-        expect(await page.locator('.site-main').evaluate((main) => main.inert)).toBe(false);
-    });
-
-    test('the viewer steps through the pictures and closes on a click beside them', async ({page}) => {
-        // arrange
-        await page.goto(at('pictures.html'));
-        await page.getByRole('button', {name: 'Open image: one'}).click();
-        await expect(page.getByTestId('doc-lightbox-count')).toHaveText('1 / 2');
-
-        // act
-        await page.keyboard.press('ArrowRight');
-
-        // assert
-        await expect(page.getByTestId('doc-lightbox-caption')).toHaveText('two');
-        await expect(page.getByTestId('doc-lightbox-count')).toHaveText('2 / 2');
-        await page.mouse.click(8, page.viewportSize().height - 8);
-        await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
-    });
-
-    test('a diagram is drawn from the renderer beside the page', async ({page}) => {
-        // act
-        await page.goto(at('pictures.html'));
-
-        // assert
-        await expect(page.locator('.md-diagram[data-state="done"] svg')).toBeVisible({timeout: 20_000});
-    });
+    // assert
+    expect(res.status()).toBe(404);
+    await expect(page.getByRole('heading', {name: 'Nothing here'})).toBeVisible();
 });

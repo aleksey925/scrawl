@@ -2,9 +2,7 @@ import type { MantineColorScheme, MantineColorSchemeManager } from '@mantine/cor
 import { useSyncExternalStore } from 'react';
 
 import { serverPersistence, type ThemePersistence } from './themePersistence';
-import { applyThemeAttribute, autoChoice, lookupTheme } from './themes';
-
-const colorSchemeAttribute = 'data-mantine-color-scheme';
+import { applyChoiceAttributes, applyThemeAttribute, autoChoice, colorSchemeAttribute, lookupTheme } from './themes';
 
 let persistence = serverPersistence();
 let current: string | undefined;
@@ -19,10 +17,6 @@ export function keepThemeIn(where: ThemePersistence): void {
 function choice(): string {
   current ??= persistence.read() ?? autoChoice;
   return current;
-}
-
-function systemColorScheme(): 'light' | 'dark' {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 // schemeOf is the mantine color scheme a choice puts the page in
@@ -89,8 +83,5 @@ export function applyStoredTheme(): void {
   if (document.documentElement.hasAttribute(colorSchemeAttribute)) {
     return;
   }
-  const picked = choice();
-  applyThemeAttribute(picked);
-  const scheme = schemeOf(picked);
-  document.documentElement.setAttribute(colorSchemeAttribute, scheme === 'auto' ? systemColorScheme() : scheme);
+  applyChoiceAttributes(choice());
 }

@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
+import {
+  createContext, useContext, useEffect, useMemo, useRef, useState,
+  type JSX, type ReactNode,
+} from 'react';
 import { Router, parsePath, type Location, type Navigator, type To } from 'react-router';
 
 import { holdPosition } from '../reader/position';
@@ -7,15 +10,19 @@ import { fileOf } from './files';
 import { loadPage, type PageStore } from './pages';
 
 // what a page of a site keeps in the history entries it adds itself: the
-// route the entry shows, which the address bar does not say, and its title
+// route the entry shows, which the address bar does not say, its title, and
+// where it was scrolled to, which survives a reload of the page
 interface Entry {
   usr: unknown;
   key: string;
   route: string;
   title: string;
-  // where the entry was scrolled to, for a Back after a reload
   scroll?: number;
 }
+
+// a reader scrolls in bursts, and a browser limits how often an entry may be
+// rewritten, so the position is written once the burst is over
+const keepScrollMs = 300;
 
 function freshKey(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -44,6 +51,14 @@ function canFetchPages(): boolean {
   return window.location.protocol === 'http:' || window.location.protocol === 'https:';
 }
 
+// the key of the arrival history puts back where it was, which nothing else
+// may move while it is being put there
+const HistoryPlacedContext = createContext<string | undefined>(undefined);
+
+export function useHistoryPlaced(): string | undefined {
+  return useContext(HistoryPlacedContext);
+}
+
 export interface SiteRouterProps {
   // the route of the app the page was loaded for
   route: string;
@@ -59,6 +74,7 @@ export interface SiteRouterProps {
 // page load, and only a move within the page stays on it.
 export function SiteRouter({ route: first, root, store, children }: SiteRouterProps): JSX.Element {
   const [location, setLocation] = useState(() => locationAt(entryNow().route ?? first));
+  const [placedKey, setPlacedKey] = useState<string | undefined>(undefined);
   const current = useRef(location);
   current.current = location;
 
@@ -85,32 +101,63 @@ export function SiteRouter({ route: first, root, store, children }: SiteRouterPr
     setLocation(locationAt(entryNow().route ?? first));
   }, [first]);
 
-  useEffect(() => {
-    const keep = (): void => {
-      scrolls.current.set(current.current.key, window.scrollY);
+  // the position of the entry on screen goes into the entry itself, so a
+  // reload and a Back after it still know where every entry was left
+  const keep = useMemo(() => {
+    let timer: number | undefined;
+    const write = (key: string, top: number): void => {
+      const entry = entryNow();
+      if (entry.key === key) {
+        window.history.replaceState({ ...entry, scroll: top }, '');
+      }
     };
-    // a reload brings the entry back with nothing of this tab's memory
-    const leave = (): void => {
-      window.history.replaceState({ ...entryNow(), scroll: window.scrollY }, '');
-    };
-    window.addEventListener('scroll', keep, { passive: true });
-    window.addEventListener('pagehide', leave);
-    return () => {
-      window.removeEventListener('scroll', keep);
-      window.removeEventListener('pagehide', leave);
+    return {
+      later: (): void => {
+        const { key } = current.current;
+        scrolls.current.set(key, window.scrollY);
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => write(key, window.scrollY), keepScrollMs);
+      },
+      now: (): void => {
+        const { key } = current.current;
+        window.clearTimeout(timer);
+        scrolls.current.set(key, window.scrollY);
+        write(key, window.scrollY);
+      },
     };
   }, []);
 
+  useEffect(() => {
+    window.addEventListener('scroll', keep.later, { passive: true });
+    window.addEventListener('pagehide', keep.now);
+    return () => {
+      window.removeEventListener('scroll', keep.later);
+      window.removeEventListener('pagehide', keep.now);
+    };
+  }, [keep]);
+
   // a page is put where it belongs once it is drawn, and held there while its
-  // pictures and diagrams move it, until the reader moves it themselves
+  // pictures and diagrams move it, until the reader moves it themselves; an
+  // entry nobody scrolled is still where it starts, which is a place too
   useEffect(() => {
     const top = pending.current;
     pending.current = undefined;
     if (top === undefined) {
+      scrolls.current.set(location.key, window.scrollY);
       return undefined;
     }
+    scrolls.current.set(location.key, top);
     return holdPosition(() => window.scrollTo({ top, behavior: 'instant' }), window);
   }, [location.key]);
+
+  // a move the reader asked for after this one wins: the page still on its
+  // way must not be shown over it
+  const cancelPending = (): AbortController => {
+    inFlight.current?.abort();
+    const controller = new AbortController();
+    inFlight.current = controller;
+    return controller;
+  };
 
   const navigator = useMemo<Navigator>(() => {
     const pathOf = (to: To): Partial<Location> => (typeof to === 'string' ? parsePath(to) : to);
@@ -120,20 +167,13 @@ export function SiteRouter({ route: first, root, store, children }: SiteRouterPr
       return url.href + (target.search ?? '') + (target.hash ?? '');
     };
 
-    const show = (route: string, title: string, top: number | undefined): void => {
-      document.title = title;
-      pending.current = top;
-      setLocation(locationAt(route));
-    };
-
     const goTo = async (to: To, state: unknown, replace: boolean): Promise<void> => {
       const target = href(to);
-      inFlight.current?.abort();
-      const controller = new AbortController();
-      inFlight.current = controller;
+      const controller = cancelPending();
+      keep.now();
       let shown;
       try {
-        shown = await loadPage(new URL(target).href.replace(/#.*$/, ''), controller.signal);
+        shown = await loadPage(target.replace(/#.*$/, ''), controller.signal);
       } catch {
         if (!controller.signal.aborted) {
           window.location.assign(target);
@@ -150,8 +190,12 @@ export function SiteRouter({ route: first, root, store, children }: SiteRouterPr
       } else {
         window.history.pushState(entry, '', target);
       }
-      // a hash is the heading the note lands on by itself
-      show(shown.page.route, shown.title, new URL(target).hash === '' ? 0 : undefined);
+      document.title = shown.title;
+      // a new note starts at its top, unless a hash names the heading it
+      // lands on by itself
+      pending.current = new URL(target).hash === '' ? 0 : undefined;
+      setPlacedKey(undefined);
+      setLocation(locationAt(shown.page.route));
     };
 
     const move = (to: To, state: unknown, replace: boolean): void => {
@@ -166,6 +210,8 @@ export function SiteRouter({ route: first, root, store, children }: SiteRouterPr
         }
         return;
       }
+      cancelPending();
+      keep.now();
       const url = new URL(window.location.href);
       url.search = target.search ?? '';
       url.hash = target.hash ?? '';
@@ -184,34 +230,42 @@ export function SiteRouter({ route: first, root, store, children }: SiteRouterPr
       push: (to, state) => move(to, state, false),
       replace: (to, state) => move(to, state, true),
     };
-  }, [root, store]);
+  }, [root, store, keep]);
 
   useEffect(() => {
+    const arrive = (route: string, title: string | undefined): void => {
+      const entry = entryNow();
+      const kept = entry.key === undefined ? undefined : (scrolls.current.get(entry.key) ?? entry.scroll);
+      // history knows where the entry was left, and that beats the heading a
+      // hash names; an entry it knows nothing of starts at the top
+      pending.current = kept ?? (window.location.hash === '' ? 0 : undefined);
+      if (title !== undefined) {
+        document.title = title;
+      }
+      setPlacedKey(kept === undefined ? undefined : entry.key);
+      setLocation(locationAt(route));
+    };
+
     const onPop = (): void => {
+      const controller = cancelPending();
       const entry = entryNow();
       const route = entry.route ?? first;
-      const top = entry.key === undefined ? undefined : scrolls.current.get(entry.key) ?? entry.scroll;
-      if (route === current.current.pathname || store.shown(route) !== undefined) {
-        if (route !== current.current.pathname) {
-          document.title = entry.title ?? store.shown(route)?.title ?? document.title;
-        }
-        pending.current = top;
-        setLocation(locationAt(route));
+      if (route === current.current.pathname) {
+        arrive(route, undefined);
+        return;
+      }
+      const shown = store.shown(route);
+      if (shown !== undefined) {
+        arrive(route, entry.title ?? shown.title);
         return;
       }
       // the page was let go of to keep the memory bounded, so it is read again
-      inFlight.current?.abort();
-      const controller = new AbortController();
-      inFlight.current = controller;
       loadPage(window.location.href.replace(/#.*$/, ''), controller.signal).then(
-        (shown) => {
-          if (controller.signal.aborted) {
-            return;
+        (loaded) => {
+          if (!controller.signal.aborted) {
+            store.add(loaded);
+            arrive(route, loaded.title);
           }
-          store.add(shown);
-          document.title = shown.title;
-          pending.current = top;
-          setLocation(locationAt(route));
         },
         () => {
           if (!controller.signal.aborted) {
@@ -230,7 +284,7 @@ export function SiteRouter({ route: first, root, store, children }: SiteRouterPr
 
   return (
     <Router location={location} navigator={navigator}>
-      {children}
+      <HistoryPlacedContext.Provider value={placedKey}>{children}</HistoryPlacedContext.Provider>
     </Router>
   );
 }

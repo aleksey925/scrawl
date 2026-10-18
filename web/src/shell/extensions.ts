@@ -18,8 +18,8 @@ export interface DocumentExtrasProps {
   placed: RefObject<boolean>;
 }
 
-// ReaderExtensions are what the app adds to the reader around a note and a
-// tree row. The reader imports none of them, so a site carries none of them.
+// ReaderExtensions are what an entry adds to the reader around a note and a
+// tree row. The reader imports none of them, so a site carries only its own.
 export interface ReaderExtensions {
   DocumentExtras?: ComponentType<DocumentExtrasProps>;
   RowMenu?: ComponentType<RowMenuProps>;

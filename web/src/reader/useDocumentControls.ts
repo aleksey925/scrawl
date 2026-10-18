@@ -1,5 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { parsePath, useLocation, useNavigate } from 'react-router';
 
 import { usePlatform } from '../platform';
 import { showToast } from '../toast';
@@ -86,10 +86,18 @@ export function useDocumentControls(
           return;
         }
         const internal = latest.current.internalTarget(link);
-        if (internal !== undefined) {
-          event.preventDefault();
-          void latest.current.navigate(internal.to);
+        if (internal === undefined) {
+          return;
         }
+        event.preventDefault();
+        // a link to a heading of this very note is a jump: no note arrives, so
+        // nothing else would land on the heading
+        const to = parsePath(internal.to);
+        if (to.pathname === latest.current.location.pathname && to.hash !== undefined && to.hash.length > 1) {
+          jump(decodeFragment(to.hash.slice(1)), false);
+          return;
+        }
+        void latest.current.navigate(internal.to);
         return;
       }
 

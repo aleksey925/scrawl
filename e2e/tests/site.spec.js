@@ -20,7 +20,7 @@ const filler = (word) => Array.from({length: 30}, () => `${word} `.repeat(14)).j
 const NOTES = {
     'index.md': '# Home\n\n[Guide](docs/guide.md), the [docs folder](docs/), [pictures](pictures.md) and [the third part of the guide](docs/guide.md#three)\n',
     'docs/guide.md': [
-        '# Guide', '[Back home](../index.md) and [the third part](#Three).',
+        '# Guide', '[Back home](../index.md), [the third part](#Three) and [the third part again](guide.md#three).',
         '## One', filler('one'),
         '## Two', '```sh\necho hi\n```', filler('two'),
         '## Three', filler('three'),
@@ -28,6 +28,7 @@ const NOTES = {
         '## Five', 'A short section.',
     ].join('\n\n'),
     'docs/deep/inner.md': '# Inner\n\ntext\n',
+    'docs/long.md': ['# Long', filler('long'), '## End', filler('end')].join('\n\n'),
     'docs/README.md': '# Docs\n\nWhat the folder holds.\n',
     'pictures.md': '# Pictures\n\n![one](pics/one.png)\n\n![two](pics/two.png)\n\n```mermaid\ngraph TD;\n  A-->B;\n```\n',
     'pics/one.png': PIXEL,
@@ -176,10 +177,27 @@ for (const [target, at] of Object.entries(TARGETS)) {
             });
 
             // act
-            await page.getByRole('link', {name: 'the third part'}).click();
+            await page.getByRole('link', {name: 'the third part', exact: true}).click();
 
             // assert
             await expect(page).toHaveURL(/#Three$/);
+            await expect.poll(() => page.locator('h2#three').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
+                .toBeLessThan(120);
+            expect(await page.evaluate(() => window.marker)).toBe('same page');
+        });
+
+        test('a link to a heading of this very note by its file lands on the heading', async ({page}) => {
+            // arrange
+            await page.goto(at('docs/guide.html'));
+            await page.evaluate(() => {
+                window.marker = 'same page';
+            });
+
+            // act
+            await page.getByRole('link', {name: 'the third part again'}).click();
+
+            // assert
+            await expect(page).toHaveURL(/#three$/);
             await expect.poll(() => page.locator('h2#three').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
                 .toBeLessThan(120);
             expect(await page.evaluate(() => window.marker)).toBe('same page');
@@ -206,7 +224,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await expect(page).toHaveURL(at('docs/index.html'));
             await expect(page.getByTestId('dir-title')).toHaveText('docs');
             await expect(page.getByTestId('doc')).toContainText('What the folder holds.');
-            await expect(page.getByTestId('dir-row')).toHaveCount(3);
+            await expect(page.getByTestId('dir-row')).toHaveCount(4);
             await page.locator('[data-testid=dir-row][data-path="docs/guide.md"] [data-testid=dir-row-name]').click();
             await expect(page).toHaveURL(at('docs/guide.html'));
         });
@@ -483,6 +501,92 @@ test.describe('site from a host moves between notes without a page load', () => 
         await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');
         await expect.poll(() => scrollY(page)).toBe(0);
         expect(await marked(page)).toBe('still here');
+    });
+
+    test('a note left at its top comes back at its top', async ({page}) => {
+        // arrange
+        await page.goto(at('docs/guide.html'));
+        await row(page, 'docs/long.md').getByTestId('tree-link').click();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Long');
+        await page.evaluate(() => window.scrollTo({top: 1200, behavior: 'instant'}));
+        await expect.poll(() => scrollY(page)).toBe(1200);
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+        await page.waitForTimeout(500);
+        expect(await scrollY(page)).toBe(0);
+    });
+
+    test('a position survives a reload of the page moved to', async ({page}) => {
+        // arrange
+        await page.goto(at('docs/guide.html'));
+        await page.evaluate(() => window.scrollTo({top: 1200, behavior: 'instant'}));
+        await expect.poll(() => scrollY(page)).toBe(1200);
+        await row(page, 'pictures.md').getByTestId('tree-link').click();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');
+        await page.reload();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+        await expect.poll(() => scrollY(page)).toBe(1200);
+    });
+
+    test('Back puts a note opened at a heading where the reader left it, not at the heading', async ({page}) => {
+        // arrange
+        await page.goto(at('docs/guide.html#two'));
+        await expect.poll(() => page.locator('h2#two').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
+            .toBeLessThan(120);
+        await page.mouse.wheel(0, 600);
+        await expect.poll(() => page.locator('h2#two').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
+            .toBeLessThan(-400);
+        const left = await scrollY(page);
+        await row(page, 'pictures.md').getByTestId('tree-link').click();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+        await page.waitForTimeout(1000);
+        expect(await scrollY(page)).toBe(left);
+    });
+
+    test('a page still on its way is not shown over the move made after it', async ({page}) => {
+        // arrange
+        let release;
+        const held = new Promise((resolve) => {
+            release = resolve;
+        });
+        await page.goto(at('index.html'));
+        await page.getByRole('link', {name: 'Guide', exact: true}).click();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+        await page.reload();
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+        await page.route('**/index.html', async (route) => {
+            if (route.request().resourceType() === 'fetch') {
+                await held;
+            }
+            await route.continue();
+        });
+
+        // act
+        await page.goBack({waitUntil: 'commit'});
+        await page.goForward({waitUntil: 'commit'});
+        release();
+
+        // assert
+        await page.waitForTimeout(1000);
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+        await expect(page).toHaveTitle('Guide');
+        await expect(page).toHaveURL(at('docs/guide.html'));
     });
 
     test('what the reader typed into the filter stays when a note is picked from it', async ({page}) => {

@@ -49,6 +49,22 @@ test.describe('reading', () => {
         }
     });
 
+    test('a link to a heading of the same note by its file lands on the heading', async ({page}) => {
+        // arrange
+        const filler = Array.from({length: 40}, () => 'line '.repeat(12)).join('\n\n');
+        writeFixture('e2e-self.md', `# Self\n\n[jump](e2e-self.md#second)\n\n${filler}\n\n## Second\n\n${filler}\n`);
+        await page.goto(routes.doc('e2e-self.md'));
+
+        // act
+        await page.getByTestId('doc').getByRole('link', {name: 'jump'}).click();
+
+        // assert
+        await expect(page).toHaveURL(/#second$/);
+        await expect.poll(() => page.locator('[data-testid=doc] h2#second').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
+            .toBeLessThan(120);
+        removeFixture('e2e-self.md');
+    });
+
     test('the disclosure triangle expands a folder without leaving the page', async ({page}) => {
         const row = page.locator(`[data-testid=tree-row][data-path="${DOC.folder}"]`);
         const twisty = row.getByTestId('tree-twisty');

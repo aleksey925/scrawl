@@ -15,6 +15,7 @@ import { Component as DocumentPage } from '../pages/DocumentPage';
 import { Component as HomePage } from '../pages/HomePage';
 import { Component as NotFoundPage } from '../pages/NotFoundPage';
 import { PlatformProvider } from '../platform';
+import { ReaderExtensionsProvider, type ReaderExtensions } from '../shell/extensions';
 import { NavProvider } from '../shell/NavContext';
 import { ReaderLayout } from '../shell/ReaderLayout';
 import { theme } from '../theme';
@@ -22,6 +23,7 @@ import { keepThemeIn, themeColorSchemeManager } from '../themeChoice';
 import { pagePersistence } from '../themePersistence';
 
 import { readPage } from './data';
+import { HistoryPlacement } from './HistoryPlacement';
 import { PageRestore } from './PageRestore';
 import { PageStore } from './pages';
 import { SiteBoundary } from './SiteBoundary';
@@ -37,6 +39,7 @@ const store = new PageStore();
 store.add({ page, title: document.title });
 const platform = sitePlatform(root, store, site);
 const status = siteStatus(site.title);
+const extensions: ReaderExtensions = { DocumentExtras: HistoryPlacement };
 
 // the copy kept for a reader without javascript goes before the app draws the
 // same note: its headings carry the same ids
@@ -54,15 +57,17 @@ createRoot(mountNode()).render(
       <PlatformProvider value={platform}>
         <SiteRouter route={page.route} root={root} store={store}>
           <NavProvider status={status}>
-            <ReaderLayout overlays={<PageRestore />}>
-              <SiteBoundary>
-                <Routes>
-                  <Route index element={<HomePage />} />
-                  <Route path="doc/*" element={<DocumentPage />} />
-                  <Route path="*" element={<NotFoundPage />} />
-                </Routes>
-              </SiteBoundary>
-            </ReaderLayout>
+            <ReaderExtensionsProvider value={extensions}>
+              <ReaderLayout overlays={<PageRestore />}>
+                <SiteBoundary>
+                  <Routes>
+                    <Route index element={<HomePage />} />
+                    <Route path="doc/*" element={<DocumentPage />} />
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Routes>
+                </SiteBoundary>
+              </ReaderLayout>
+            </ReaderExtensionsProvider>
           </NavProvider>
         </SiteRouter>
       </PlatformProvider>

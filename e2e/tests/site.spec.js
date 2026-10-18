@@ -33,6 +33,10 @@ const NOTES = {
     'pics/one.png': PIXEL,
     'pics/two.png': PIXEL,
     'math.md': '# Math\n\nA formula: $x^2 + 1$.\n',
+    // names a url has to escape, and one that looks escaped already
+    'odd/100%.md': '# Percent\n',
+    'odd/a%20b.md': '# Escaped\n',
+    'odd/what? #1.md': '# Question\n',
 };
 
 // the address a site is published under: anything but the root of the host
@@ -205,6 +209,20 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await expect(page.getByTestId('dir-row')).toHaveCount(3);
             await page.locator('[data-testid=dir-row][data-path="docs/guide.md"] [data-testid=dir-row-name]').click();
             await expect(page).toHaveURL(at('docs/guide.html'));
+        });
+
+        test('a note whose name a url has to escape opens from its folder', async ({page}) => {
+            for (const [name, title] of [['100%.md', 'Percent'], ['a%20b.md', 'Escaped'], ['what? #1.md', 'Question']]) {
+                // arrange
+                await page.goto(at('odd/index.html'));
+
+                // act
+                await page.locator(`[data-testid=dir-row][data-path="odd/${name}"] [data-testid=dir-row-name]`).click();
+
+                // assert
+                await expect(page.getByTestId('doc').locator('h1')).toHaveText(title);
+                await expect(page.locator(`[data-testid=tree-row][data-current="true"]`)).toHaveAttribute('data-path', `odd/${name}`);
+            }
         });
 
         test('the path leads back to the folders above', async ({page}) => {

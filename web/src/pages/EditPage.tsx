@@ -15,7 +15,7 @@ interface EditData {
 
 export function Component(): JSX.Element {
   const params = useParams();
-  const path = decodeURIComponent(params['*'] ?? '');
+  const path = params['*'] ?? '';
 
   const state = useApi<EditData>(async (signal) => {
     const [me, file] = await Promise.all([

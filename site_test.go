@@ -336,6 +336,36 @@ func TestRunSite(t *testing.T) {
 		assert.Contains(t, readSite(t, out, "404.html"), "<title>Lost</title>")
 	})
 
+	t.Run("a folder where the page for a missing address goes keeps its place", func(t *testing.T) {
+		// arrange
+		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
+		writeTree(t, src, map[string]string{"404.html/a.md": "# A\n"})
+
+		// act
+		code, _, stderr := runCLI(t, "", "site", "-o", out, src)
+
+		// assert
+		require.Equal(t, 0, code, stderr)
+		assert.Equal(t, withAssets("404.html/a.html", "404.html/index.html", "index.html"), listTree(t, out))
+	})
+
+	t.Run("two indexes of the root in another case are refused", func(t *testing.T) {
+		// arrange
+		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")
+		writeTree(t, src, map[string]string{"index.md": "# One\n", "INDEX.md": "# Two\n"})
+		if entries, err := os.ReadDir(src); err != nil || len(entries) != 2 {
+			t.Skip("the filesystem folds the case of a name, so it holds one of them")
+		}
+
+		// act
+		code, _, stderr := runCLI(t, "", "site", "-o", out, src)
+
+		// assert
+		assert.Equal(t, 1, code)
+		assert.Contains(t, stderr, "would both be written to index.html")
+		assert.NoDirExists(t, out)
+	})
+
 	t.Run("a note that names the closing tag of a script stays inside its own", func(t *testing.T) {
 		// arrange
 		src, out := t.TempDir(), filepath.Join(t.TempDir(), "site")

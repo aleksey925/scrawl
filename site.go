@@ -133,7 +133,7 @@ func planSite(st *store.Store) (sitePlan, error) {
 		case node.Path == index:
 			return nil
 		case isMarkdown(node.Path) && isFolderIndex(node.Path):
-			return claim(folderPageOf(path.Dir(node.Path)), node.Path)
+			return claim(folderPageOf(folderOf(node.Path)), node.Path)
 		case isMarkdown(node.Path):
 			plan.notes = append(plan.notes, node.Path)
 			return claim(notePageOf(node.Path), node.Path)
@@ -148,8 +148,11 @@ func planSite(st *store.Store) (sitePlan, error) {
 	if err := checkSiteDirs(written); err != nil {
 		return sitePlan{}, err
 	}
-	_, taken := written[siteNotFound]
-	plan.notFound = !taken
+	// the notes may hold a page for a missing address of their own, or a folder
+	// where it would go
+	plan.notFound = !slices.ContainsFunc(slices.Collect(maps.Keys(written)), func(name string) bool {
+		return name == siteNotFound || strings.HasPrefix(name, siteNotFound+"/")
+	})
 	return plan, nil
 }
 
@@ -504,6 +507,14 @@ func notePageOf(notePath string) string {
 
 func folderPageOf(dir string) string {
 	return folderPrefix(dir) + siteFolder
+}
+
+// folderOf is the folder a file is in, "" for the root
+func folderOf(p string) string {
+	if dir := path.Dir(p); dir != "." {
+		return dir
+	}
+	return ""
 }
 
 func folderPrefix(dir string) string {

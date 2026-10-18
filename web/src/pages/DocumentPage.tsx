@@ -9,7 +9,7 @@ import { PageCrumbs } from '../shell/PathCrumbs';
 
 export function Component(): JSX.Element {
   const params = useParams();
-  const path = decodeURIComponent(params['*'] ?? '');
+  const path = params['*'] ?? '';
 
   return (
     <PageContainer>

@@ -213,7 +213,7 @@ function VersionRow({
 
 export function Component(): JSX.Element {
   const params = useParams();
-  const path = decodeURIComponent(params['*'] ?? '');
+  const path = params['*'] ?? '';
   const { canWrite } = useNav();
   const reportMutation = useMutationState();
   const stacked = useBelow(layoutBreakpoints.splitPane);

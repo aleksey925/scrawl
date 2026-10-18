@@ -35,6 +35,20 @@ test.describe('reading', () => {
         await shot(page, 'reading-root');
     });
 
+    test('a note whose name a url has to escape opens', async ({page}) => {
+        for (const [name, title] of [['e2e-100%.md', 'Percent'], ['e2e-a%20b.md', 'Escaped']]) {
+            // arrange
+            writeFixture(name, `# ${title}\n`);
+
+            // act
+            await page.goto(routes.doc(name));
+
+            // assert
+            await expect(page.getByTestId('doc').locator('h1')).toHaveText(title);
+            removeFixture(name);
+        }
+    });
+
     test('the disclosure triangle expands a folder without leaving the page', async ({page}) => {
         const row = page.locator(`[data-testid=tree-row][data-path="${DOC.folder}"]`);
         const twisty = row.getByTestId('tree-twisty');

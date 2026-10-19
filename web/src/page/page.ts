@@ -1,6 +1,7 @@
 import '../reader/markdown.css';
 import '../diff/diff.css';
 import './page.css';
+import '../print.css';
 import 'virtual:theme-stylesheet.css';
 
 import { copyText } from '../reader/clipboard';

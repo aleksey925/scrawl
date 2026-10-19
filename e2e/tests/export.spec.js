@@ -85,6 +85,37 @@ test.describe('export', () => {
         await expect(page.getByTestId('doc-export')).toBeHidden();
         await expect(page.getByTestId('topbar-burger')).toBeHidden();
     });
+
+    test('a print leaves the browser no room for the address and the date', async ({page}) => {
+        // arrange
+        writeFixture(NOTE, SOURCE);
+        await page.goto(routes.doc(NOTE));
+        await expect(page.getByTestId('doc').locator('h1')).toBeVisible();
+
+        // act
+        await page.emulateMedia({media: 'print'});
+
+        // assert
+        const pageMargins = await page.evaluate(() => {
+            const found = [];
+            const visit = (rules) => {
+                for (const rule of rules) {
+                    if (rule instanceof CSSPageRule) {
+                        found.push(rule.style.margin);
+                    } else if (rule.cssRules !== undefined) {
+                        visit(rule.cssRules);
+                    }
+                }
+            };
+            for (const sheet of document.styleSheets) {
+                visit(sheet.cssRules);
+            }
+            return found;
+        });
+        expect(pageMargins).toEqual(['0px']);
+        const margin = await page.evaluate(() => parseFloat(getComputedStyle(document.body).paddingTop));
+        expect(margin, 'the page keeps a margin of its own').toBeGreaterThan(0);
+    });
 });
 
 test.describe('export to pdf of wide content', () => {

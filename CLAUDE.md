@@ -555,7 +555,13 @@ vendor/                dependencies, checked in, `make deps` regenerates
   page background. The export menu switches the theme for real and waits
   for the formulas and for the diagrams to be drawn again; the browser's
   own print only swaps the attributes, because `beforeprint` leaves no
-  time for a redraw.
+  time for a redraw. A printed page has no margin, which leaves the
+  browser no room for the address and the date it writes there; the
+  body's padding, repeated on every page, stands in for it. Safari
+  cannot repeat a block's padding and keeps the page margin, or every
+  page break would run to the edge of the paper, and so does a diff:
+  the size containment its columns are laid out by keeps it from being
+  split, so no padding would repeat on its pages either.
 - A site is a space shown read-only, with no server, and it is the
   app's reader and not a second one. The reader is one set of components
   run from two entries: the app's, against the server, and a site's,

@@ -8,6 +8,7 @@ files on disk are the only state.
 - an editor with live preview, on desktop and on mobile
 - pages and folders made in the tree itself, dragged between folders,
   renamed and deleted; paste images straight into the editor
+- export note as Markdown, HTML or PDF
 - a version history per page: what changed, shown side by side the way
   the page reads, with the changed words marked; who changed it; and a
   restore
@@ -636,6 +637,14 @@ on the server refuses the same writes for every token, read-write ones
 included, and `read_only: true` on one space refuses them there.
 All three say something different, so a client can tell whether asking
 for a wider token would help.
+
+The Export button has an endpoint too. `format=md` answers with the note
+as it is stored, `format=html` with the page; both come as a file to
+save:
+
+```
+curl -sOJH "Authorization: Bearer $TOKEN" 'http://localhost:7272/s/notes/api/export/python/notes.md?format=html'
+```
 
 ## Command line
 

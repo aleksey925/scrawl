@@ -128,9 +128,13 @@ export function tokenVariables(prefix: string, tokens: object): Record<string, s
 // there to set it
 export const colorSchemeAttribute = 'data-mantine-color-scheme';
 
+// schemeOfChoice is the scheme a choice shows, auto's from the system
+export function schemeOfChoice(choice: string): Scheme {
+  return lookupTheme(choice)?.scheme ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+}
+
 // applyChoiceAttributes puts the page on a choice before the first paint
 export function applyChoiceAttributes(choice: string): void {
   applyThemeAttribute(choice);
-  const scheme = lookupTheme(choice)?.scheme ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  document.documentElement.setAttribute(colorSchemeAttribute, scheme);
+  document.documentElement.setAttribute(colorSchemeAttribute, schemeOfChoice(choice));
 }

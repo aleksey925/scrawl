@@ -20,6 +20,7 @@ import { NavProvider } from '../shell/NavContext';
 import { ReaderLayout } from '../shell/ReaderLayout';
 import { theme } from '../theme';
 import { keepThemeIn, themeColorSchemeManager } from '../themeChoice';
+import { printInLight } from '../print';
 import { pagePersistence } from '../themePersistence';
 
 import { readPage } from './data';
@@ -31,6 +32,7 @@ import { SiteRouter } from './SiteRouter';
 import { siteStatus, sitePlatform } from './sitePlatform';
 
 keepThemeIn(pagePersistence());
+printInLight();
 
 const page = readPage();
 const site = window.scrawlSite ?? { title: 'Notes', tree: [] };

@@ -1,3 +1,5 @@
+import '../print.css';
+
 import { ActionIcon, AppShell, Burger, Drawer, ScrollArea } from '@mantine/core';
 import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
 import {

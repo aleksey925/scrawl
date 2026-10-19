@@ -18,6 +18,7 @@ import {
 import { imagesOf } from '../reader/dom';
 import { isPlainClick } from '../reader/links';
 import { openViewer } from '../reader/viewer';
+import { printInLight } from '../print';
 import { pagePersistence } from '../themePersistence';
 import { applyThemeAttribute, autoChoice, isThemeChoice } from '../themes';
 
@@ -35,6 +36,7 @@ function apply(choice: string): void {
 }
 
 apply(stored());
+printInLight();
 
 // Back shows the page the way it was left, with the theme it had then
 window.addEventListener('pageshow', (event) => {

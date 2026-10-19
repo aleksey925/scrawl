@@ -295,6 +295,7 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	g.HandleFunc("GET /api/dir/{path...}", m.apiDir)
 	g.HandleFunc("GET /api/nav", m.apiNav)
 	g.HandleFunc("GET /api/me", m.apiMe)
+	g.HandleFunc("GET /api/export/{path...}", m.apiExport)
 
 	// outside the mutating group, and a method per registration. A methodless
 	// pattern would conflict with the shell catch-all below: one narrows the

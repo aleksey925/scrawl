@@ -186,3 +186,13 @@ body {
     padding: 16px;
   }
 }
+
+@media print {
+  .page {
+    padding: 0;
+  }
+
+  .page-theme {
+    display: none;
+  }
+}

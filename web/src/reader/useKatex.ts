@@ -2,6 +2,7 @@ import { useEffect, type RefObject } from 'react';
 
 import { usePlatform } from '../platform';
 
+import { track } from './pending';
 import { preserveScroll } from './scroll';
 import { fontsReady, mathSelector, typeset, type Katex } from './typeset';
 
@@ -21,7 +22,7 @@ export function useKatex(rootRef: RefObject<HTMLDivElement | null>, html: string
     }
 
     let cancelled = false;
-    void (async () => {
+    track((async () => {
       let katex: Katex;
       try {
         katex = await loadKatex();
@@ -40,7 +41,7 @@ export function useKatex(rootRef: RefObject<HTMLDivElement | null>, html: string
           typeset(katex, item.node, item.tex);
         }
       });
-    })();
+    })());
 
     return () => {
       cancelled = true;

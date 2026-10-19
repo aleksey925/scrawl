@@ -223,6 +223,9 @@ export interface SaveFileResponse extends MutationState {
 
 export type EntryKind = 'file' | 'dir';
 
+// the formats the server exports a note in; a PDF is printed in the browser
+export type ExportFormat = 'md' | 'html';
+
 export interface EntryPathResponse extends MutationState {
   path: string;
 }

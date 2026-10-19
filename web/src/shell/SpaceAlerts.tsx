@@ -26,7 +26,7 @@ export function SpaceAlerts(): JSX.Element {
   // emergency and an interruption mid-sentence is the surprise this design is
   // trying to avoid.
   return (
-    <div data-testid="space-alerts" role="status" aria-live="polite">
+    <div data-testid="space-alerts" data-print="hide" role="status" aria-live="polite">
       {sync !== undefined && (
         <Alert
           data-testid="space-alert"

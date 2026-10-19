@@ -546,6 +546,16 @@ vendor/                dependencies, checked in, `make deps` regenerates
   app uses. KaTeX is inlined on `--math` with woff2 alone, a quarter of
   what katex ships; mermaid is not, a 5MB script, and a diagram stays
   code.
+- An exported note is that page. `/api/export/` renders it the way
+  `render` does, links left as written, and carries the space's
+  pictures inside as data URLs up to a budget: the file leaves the
+  server, and a relative picture would stay behind. A PDF is a print of
+  the note on screen, because no engine that lays out HTML fits in the
+  binary. Paper is always the light theme, since a browser drops the
+  page background. The export menu switches the theme for real and waits
+  for the formulas and for the diagrams to be drawn again; the browser's
+  own print only swaps the attributes, because `beforeprint` leaves no
+  time for a redraw.
 - A site is a space shown read-only, with no server, and it is the
   app's reader and not a second one. The reader is one set of components
   run from two entries: the app's, against the server, and a site's,

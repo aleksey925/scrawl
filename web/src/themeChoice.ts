@@ -69,6 +69,12 @@ export function setThemeChoice(picked: string, setColorScheme: (value: MantineCo
   show(picked, setColorScheme);
 }
 
+// previewThemeChoice shows a theme without keeping it, for a print the page is
+// put back from with restoreThemeChoice
+export function previewThemeChoice(picked: string, setColorScheme: (value: MantineColorScheme) => void): void {
+  show(picked, setColorScheme);
+}
+
 // restoreThemeChoice puts the page back on the choice that is kept, for a page
 // the browser brings back as it was left after another page changed the choice
 export function restoreThemeChoice(setColorScheme: (value: MantineColorScheme) => void): void {

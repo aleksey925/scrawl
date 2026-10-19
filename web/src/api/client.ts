@@ -8,6 +8,7 @@ import type {
   Divergence,
   EntryKind,
   EntryPathResponse,
+  ExportFormat,
   FileResponse,
   HistoryResponse,
   HistoryVersionResponse,
@@ -114,7 +115,7 @@ async function errorBody(response: Response): Promise<ApiErrorBody> {
   }
 }
 
-async function call<T>(method: string, url: string, options: CallOptions = {}): Promise<T> {
+async function send(method: string, url: string, options: CallOptions = {}): Promise<Response> {
   const headers: Record<string, string> = { accept: 'application/json' };
   if (options.background === true) {
     headers[backgroundHeader] = '1';
@@ -144,6 +145,11 @@ async function call<T>(method: string, url: string, options: CallOptions = {}): 
   if (!response.ok && !allowed) {
     throw new ApiError(response.status, await errorBody(response));
   }
+  return response;
+}
+
+async function call<T>(method: string, url: string, options: CallOptions = {}): Promise<T> {
+  const response = await send(method, url, options);
   if (response.status === 204) {
     return undefined as T;
   }
@@ -192,6 +198,8 @@ export interface ScrawlApi {
   upload(dir: string, file: File, doc?: string, options?: RequestOptions): Promise<UploadResponse>;
   syncCheck(options?: RequestOptions): Promise<Divergence>;
   syncReset(body: ResetRequest, options?: RequestOptions): Promise<ResetResponse>;
+  // the note as a file to save, the source or a page of its own
+  exportNote(path: string, format: ExportFormat, options?: RequestOptions): Promise<Blob>;
   logout(options?: RequestOptions): Promise<void>;
 }
 
@@ -273,6 +281,11 @@ export const api: ScrawlApi = {
 
   syncReset: (body, options) =>
     call<ResetResponse>('POST', spaceUrl('/api/sync/reset'), { ...options, body }),
+
+  exportNote: async (path, format, options) => {
+    const url = withQuery(spaceUrl(`/api/export/${encodeContentPath(path)}`), { format });
+    return (await send('GET', url, options)).blob();
+  },
 
   logout: (options) => call<void>('POST', globalUrl('/api/logout'), options),
 };

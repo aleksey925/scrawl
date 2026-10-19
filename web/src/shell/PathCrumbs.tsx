@@ -95,7 +95,7 @@ export function PageCrumbs(): JSX.Element | null {
     return null;
   }
   return (
-    <Box mb="md">
+    <Box mb="md" data-print="hide">
       <PathCrumbs place="page" />
     </Box>
   );

@@ -1,0 +1,18 @@
+/* A print is the note alone: the PDF of the export menu is a print. The chrome
+   is mantine's, found by its static classes, and what sits in the column
+   beside the note carries data-print="hide". */
+@media print {
+  .mantine-AppShell-header,
+  .mantine-AppShell-navbar,
+  .mantine-AppShell-aside,
+  .mantine-Affix-root,
+  .mantine-Notifications-root,
+  [data-print='hide'] {
+    display: none !important;
+  }
+
+  .mantine-AppShell-main {
+    min-height: 0 !important;
+    padding: 0 !important;
+  }
+}

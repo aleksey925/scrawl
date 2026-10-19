@@ -9,9 +9,11 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './App';
 import { mountNode } from './mount';
+import { printInLight } from './print';
 import { applyStoredTheme } from './themeChoice';
 
 applyStoredTheme();
+printInLight();
 
 createRoot(mountNode()).render(
   <StrictMode>

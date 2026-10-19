@@ -22,6 +22,8 @@ auth/                  users, sessions, middleware, CSRF, rate limit
 history/               git-backed document history: record, log, restore
 htmldiff/              two rendered notes compared block by block, word by word
 format/                prettier in a wasm module, run by wazero
+gzassets/              embedded files a release stores gzip-compressed, and the
+                       tool that compresses them
 server/                HTTP server, handlers, page cache, the webhook endpoint
 server/templates/      the sign-in page, the one page the server renders
 server/assets/login/   the stylesheet and theme script that page carries
@@ -138,6 +140,16 @@ vendor/                dependencies, checked in, `make deps` regenerates
   npm hook and a lockfile is not vendoring, so building it on the fly
   would make a reproducible release need node and a warm cache.
   `make ui` rebuilds it and CI fails when what is committed is stale.
+- A release embeds the bundle, the pages' assets and the formatter
+  gzip-compressed, under the `gzassets` build tag: `make build`, the
+  image and goreleaser run `go run ./gzassets/pack` first, which writes
+  the copies into each package's `gzassets/`, kept out of git. A build
+  without the tag embeds the committed files as they are, so
+  `go install` and a fresh clone keep building. The `.gz` files are not
+  committed because git keeps no delta between two gzip files, and every
+  `make ui` would add the whole bundle to the history. A file stored
+  compressed is read through `gzassets` and goes out as stored to a
+  client that accepts gzip, so the server spends nothing compressing it.
 - Breakpoints have one home, `web/src/breakpoints.json`, reached through
   the theme. No component reads `window.innerWidth` or names a pixel
   width. The old stylesheet answered at 767/899/999/1199 while the
@@ -619,8 +631,9 @@ suite drives.
 make ui         build the frontend into server/assets/app/ and page/assets/,
                 then commit both
 make formatter  build prettier into format/prettier.wasm, then commit it
-make build      build the binary into dist/
+make build      build the binary into dist/, with the assets compressed
 make test       tests
+make test-gzassets  tests of the build with the assets compressed
 make race       tests with the race detector
 make cover      race tests plus a coverage summary
 make lint       every pre-commit hook, through prek

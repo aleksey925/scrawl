@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io/fs"
 	"log"
 	"net/http"
 
+	"github.com/aleksey925/scrawl/gzassets"
 	"github.com/aleksey925/scrawl/store"
 	"github.com/aleksey925/scrawl/view"
 )
@@ -87,8 +87,8 @@ const shellTemplate = `<!doctype html>
 
 // newAppShell reads the vite manifest and resolves the entry chunk, its
 // stylesheets and the chunks worth preloading.
-func newAppShell(assetsFS fs.FS) (*appShell, error) {
-	raw, err := fs.ReadFile(assetsFS, appManifest)
+func newAppShell(files gzassets.Files) (*appShell, error) {
+	raw, err := files.ReadFile(appManifest)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", appManifest, err)
 	}

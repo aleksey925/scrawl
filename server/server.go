@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io/fs"
 	"log"
 	"net/http"
 	"sync"
@@ -23,13 +22,16 @@ import (
 	"github.com/go-pkgz/routegroup"
 
 	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/gzassets"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
 	"github.com/aleksey925/scrawl/theme"
 )
 
-//go:embed templates assets
-var content embed.FS
+//go:embed templates
+var templateFiles embed.FS
+
+var assets = gzassets.Sub(assetFiles, assetDir)
 
 const (
 	throttleLimit          = 64
@@ -202,11 +204,8 @@ func (wb *Web) router() (http.Handler, error) {
 	if err := wb.parseTemplates(); err != nil {
 		return nil, err
 	}
-	assetsFS, err := fs.Sub(content, "assets")
-	if err != nil {
-		return nil, fmt.Errorf("sub fs for assets: %w", err)
-	}
-	if wb.appShell, err = newAppShell(assetsFS); err != nil {
+	var err error
+	if wb.appShell, err = newAppShell(assets); err != nil {
 		return nil, fmt.Errorf("build app shell: %w", err)
 	}
 
@@ -234,7 +233,7 @@ func (wb *Web) router() (http.Handler, error) {
 	// the version segment is part of the URL only to bust the cache, lookup
 	// ignores it so that an old page keeps working after a redeploy
 	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
-		HandleFunc("GET /static/{version}/{path...}", wb.staticHandler(assetsFS))
+		HandleFunc("GET /static/{version}/{path...}", wb.staticHandler(assets))
 
 	// at the root, because the scope a manifest can claim is its own directory
 	// and anywhere below /static/ would install an app that owns only that
@@ -330,7 +329,7 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 
 // staticHandler serves the embedded assets plus the highlighting stylesheet,
 // which render generates instead of shipping it as a file.
-func (wb *Web) staticHandler(assetsFS fs.FS) http.HandlerFunc {
+func (wb *Web) staticHandler(files gzassets.Files) http.HandlerFunc {
 	chroma := render.ChromaCSS()
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch assetPath := r.PathValue("path"); assetPath {
@@ -340,7 +339,7 @@ func (wb *Web) staticHandler(assetsFS fs.FS) http.HandlerFunc {
 			w.Header().Set("Content-Type", "text/css; charset=utf-8")
 			http.ServeContent(w, r, "chroma.css", time.Time{}, bytes.NewReader(chroma))
 		default:
-			http.ServeFileFS(w, r, assetsFS, assetPath)
+			files.ServeFile(w, r, assetPath)
 		}
 	}
 }
@@ -432,7 +431,7 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 func (wb *Web) parseTemplates() error {
-	tmpl, err := template.ParseFS(content, "templates/*.html")
+	tmpl, err := template.ParseFS(templateFiles, "templates/*.html")
 	if err != nil {
 		return fmt.Errorf("parse templates: %w", err)
 	}
@@ -494,7 +493,7 @@ func failJSON(w http.ResponseWriter, r *http.Request, err error) {
 // Favicon is the icon the app shows in a tab, which a site the command line
 // writes carries too.
 func Favicon() []byte {
-	data, err := content.ReadFile("assets/favicon.svg")
+	data, err := assets.ReadFile("favicon.svg")
 	if err != nil {
 		panic("server: embedded favicon: " + err.Error())
 	}

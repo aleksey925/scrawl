@@ -713,9 +713,10 @@ browser test fails with "Executable doesn't exist".
 ```
 make ui         build the interface into server/assets/app/
 make formatter  build prettier into format/prettier.wasm
-make build      build the binary into dist/
+make build      build the binary into dist/, with the assets compressed
 make run        run ./examples/data as the "notes" space, no authentication
 make test       tests
+make test-gzassets  tests of the build with the assets compressed
 make race       tests with the race detector
 make cover      race tests plus a coverage summary
 make lint       every hook: formatting, go vet, golangci-lint
@@ -730,5 +731,10 @@ The interface is a react app in [web/](web/), see
 network. Change anything under `web/` and the rebuilt bundle belongs in
 the same commit: CI rebuilds it and fails if what is checked in is
 stale.
+
+`make build`, the docker image and the release binaries store these
+files gzip-compressed, which makes the binary about 26 MB instead of
+about 40 MB. `go install` builds without that step and embeds the files
+as they are.
 
 Browser tests live in [e2e/](e2e/), see [e2e/README.md](e2e/README.md).

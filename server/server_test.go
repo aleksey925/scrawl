@@ -1827,7 +1827,7 @@ func TestLoginTemplateExecutes(t *testing.T) {
 // on: an inline block would be blocked by "script-src 'self'".
 func TestNoInlineScripts(t *testing.T) {
 	// arrange
-	names, err := fs.Glob(content, "templates/*.html")
+	names, err := fs.Glob(templateFiles, "templates/*.html")
 	require.NoError(t, err)
 	require.NotEmpty(t, names)
 	openTag := regexp.MustCompile(`<script[^>]*>`)
@@ -1835,7 +1835,7 @@ func TestNoInlineScripts(t *testing.T) {
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
 			// act
-			data, readErr := fs.ReadFile(content, name)
+			data, readErr := fs.ReadFile(templateFiles, name)
 			require.NoError(t, readErr)
 
 			// assert

@@ -18,6 +18,8 @@ img
 # a notes folder kept inside the checkout can be large, and the image has no
 # use for it
 notes
+# what the build stage packs again
+*/gzassets
 coverage.out
 coverage.out.tmp
 *.test

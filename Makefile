@@ -9,7 +9,7 @@ BIN_PATH = $(DIST_DIR)/$(BINARY)
 DOCKER_ARGS=--build-arg VERSION=$(VERSION)
 DOCKER_IMAGE = ghcr.io/aleksey925/scrawl
 
-.PHONY: deps ui formatter build snapshot run e2e test race cover lint img
+.PHONY: deps ui formatter gzassets build snapshot run e2e test test-gzassets race cover lint img
 
 img:
 	@DOCKER_BUILDKIT=1 docker build $(DOCKER_ARGS) -t $(DOCKER_IMAGE):$(VERSION) .
@@ -39,8 +39,14 @@ formatter:
 	@javy build -J event-loop=y -J javy-stream-io=y -J text-encoding=y -o format/prettier.wasm format/js/bundle.js
 	@rm format/js/bundle.js
 
-build:
-	@CGO_ENABLED=0 go build $(BUILD_FLAGS) $(LDFLAGS) -o $(BIN_PATH) .
+# the assets above compressed, for a binary that embeds them that way. They
+# are not committed: a build without the gzassets tag embeds the files as they
+# are, which is what keeps go install working
+gzassets:
+	@go run ./gzassets/pack
+
+build: gzassets
+	@CGO_ENABLED=0 go build $(BUILD_FLAGS) -tags gzassets $(LDFLAGS) -o $(BIN_PATH) .
 
 snapshot:
 	@goreleaser release --snapshot --skip=publish --clean
@@ -53,6 +59,9 @@ e2e: build
 
 test:
 	@go test -timeout 3m ./...
+
+test-gzassets: gzassets
+	@go test -tags gzassets -timeout 3m ./...
 
 race:
 	@go test -race -timeout 3m ./...

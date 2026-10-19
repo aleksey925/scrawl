@@ -10,17 +10,13 @@ import (
 	"html/template"
 	"io"
 
+	"github.com/aleksey925/scrawl/gzassets"
 	"github.com/aleksey925/scrawl/htmldiff"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/theme"
 )
 
-// assets are built from web/src/page and web/src/site by `make ui`, which
-// writes them here.
-//
-//go:embed assets/page.css assets/page.js assets/math.css assets/math.js assets/diagrams.js
-//go:embed assets/site.js assets/site.css assets/boot.js
-var assets embed.FS
+var assets = gzassets.Sub(assetFiles, assetDir)
 
 //go:embed templates/*.html
 var templates embed.FS
@@ -197,9 +193,9 @@ func Stylesheet() string {
 	return asset("page.css") + "\n" + string(render.ChromaCSS())
 }
 
-// asset reads a file go:embed already proved is there.
+// asset reads a file the package embeds, which only a broken build lacks.
 func asset(name string) string {
-	data, err := assets.ReadFile("assets/" + name)
+	data, err := assets.ReadFile(name)
 	if err != nil {
 		panic(fmt.Sprintf("page: embedded asset %s: %v", name, err))
 	}

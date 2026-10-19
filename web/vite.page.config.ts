@@ -1,6 +1,7 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
+import { woff2Only } from './vite.fonts.ts';
 import { themeStylesheet } from './vite.themes.ts';
 
 // the stylesheets and scripts a page of `scrawl render` and `scrawl diff`
@@ -27,21 +28,6 @@ type Entry = keyof typeof entries;
 
 function entryOf(name: string | undefined): Entry {
   return name !== undefined && name in entries ? (name as Entry) : 'page';
-}
-
-// every browser the page can be opened in reads woff2, and the two older
-// formats katex lists after it would triple what is inlined
-function woff2Only(): Plugin {
-  return {
-    name: 'scrawl-katex-woff2',
-    enforce: 'pre',
-    transform(code, id) {
-      if (!/katex(\.min)?\.css$/.test(id)) {
-        return undefined;
-      }
-      return code.replace(/,\s*url\([^)]*\.(?:woff|ttf)\)\s*format\("(?:woff|truetype)"\)/g, '');
-    },
-  };
 }
 
 // what only the app can do, which a site must not carry: the editor, the

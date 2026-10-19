@@ -34,7 +34,7 @@ export function Topbar({ burger, chrome, actionsRef, tocAvailable, onOpenToc }: 
   const { search } = usePlatform();
 
   return (
-    <Group data-testid="topbar" h="100%" px={wide ? '2xl' : iconEdgeInset(layout.topbarIconSize)} gap={wide ? 'sm' : 0} wrap="nowrap">
+    <Group data-testid="topbar" h="100%" px={wide ? 'lg' : iconEdgeInset(layout.topbarIconSize)} gap={wide ? 'sm' : 0} wrap="nowrap">
       {burger}
 
       {chrome?.start}

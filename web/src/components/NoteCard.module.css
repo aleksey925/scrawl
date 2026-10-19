@@ -1,5 +1,5 @@
 .body {
-  padding: var(--mantine-spacing-3xl) var(--card-inset);
+  padding: var(--mantine-spacing-2xl) var(--card-inset);
 }
 
 @mixin smaller-than $mantine-breakpoint-sm {

@@ -19,7 +19,7 @@ export interface TopbarActionProps extends Omit<ComponentPropsWithRef<'button'>,
   primary?: boolean;
 }
 
-// TopbarAction is a page action: a whole button in the panel beside the note,
+// TopbarAction is a page action: a small button in the head of a note's card,
 // a labelled one in a wide topbar, an icon named by its label on a phone
 export function TopbarAction({
   testId, label, icon: Icon, to, primary = false, ...rest
@@ -29,16 +29,14 @@ export function TopbarAction({
   const renderRoot =
     to === undefined ? undefined : (props: Record<string, unknown>): ReactNode => <Link to={to} {...props} />;
 
-  if (place === 'panel') {
+  if (place === 'head') {
     return (
       <Button
         {...rest}
         data-testid={testId}
-        data-primary={primary ? 'true' : 'false'}
         variant={primary ? 'filled' : 'default'}
-        size={primary ? 'md' : 'sm'}
-        fullWidth
-        leftSection={<Icon size={16} />}
+        size="xs"
+        leftSection={<Icon size={14} />}
         renderRoot={renderRoot}
       >
         {label}

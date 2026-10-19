@@ -148,8 +148,10 @@ test.describe('export to pdf of wide content', () => {
             const width = element.closest('.markdown-document').getBoundingClientRect().width;
             return Math.max(element.scrollWidth, element.getBoundingClientRect().width) - width;
         });
-        expect(await overflow('table')).toBeLessThanOrEqual(0);
-        expect(await overflow('.md-diagram-view svg')).toBeLessThanOrEqual(0);
+        // scrollWidth is a whole number of pixels and the column is not, so a
+        // fit can read as a fraction of a pixel over
+        expect(await overflow('table')).toBeLessThan(1);
+        expect(await overflow('.md-diagram-view svg')).toBeLessThan(1);
     });
 });
 

@@ -1,4 +1,4 @@
-import { Button } from '@mantine/core';
+import { Button, Group } from '@mantine/core';
 import { IconFileText, IconPencil } from '@tabler/icons-react';
 import { useRef, type JSX } from 'react';
 import { Link } from 'react-router';
@@ -8,6 +8,8 @@ import { useReaderExtensions } from '../shell/extensions';
 import { useCurrentDoc, useNav } from '../shell/NavContext';
 import { basenameOf } from '../shell/naming';
 import { NoteCrumbs } from '../shell/PathCrumbs';
+import { ActionPlaceProvider } from '../shell/ShellSlots';
+import { layoutBreakpoints, useAtLeast } from '../theme';
 
 import { DocumentHtml } from './DocumentHtml';
 import { EmptyState } from './EmptyState';
@@ -19,7 +21,8 @@ export interface DocumentBodyProps {
 
 export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
   const { canWrite } = useNav();
-  const { DocumentExtras } = useReaderExtensions();
+  const { DocumentExtras, NoteActions } = useReaderExtensions();
+  const wide = useAtLeast(layoutBreakpoints.compactTopbar);
   // the file, not the route: a directory holding an index.md is served under
   // the directory's own address, and the root is that case with an empty path
   useCurrentDoc(doc.doc_path);
@@ -29,7 +32,20 @@ export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
     <>
       {DocumentExtras !== undefined && <DocumentExtras doc={doc} placed={placed} />}
 
-      <NoteCard header={<NoteCrumbs />}>
+      <NoteCard
+        header={
+          <>
+            <NoteCrumbs />
+            {wide && NoteActions !== undefined && (
+              <ActionPlaceProvider value="head">
+                <Group data-testid="doc-actions" gap="xs" wrap="nowrap" ml="auto">
+                  <NoteActions doc={doc} />
+                </Group>
+              </ActionPlaceProvider>
+            )}
+          </>
+        }
+      >
         {doc.html.trim() === '' ? (
           <EmptyState
             testId="doc-empty"

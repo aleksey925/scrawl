@@ -3,9 +3,7 @@ import { createPortal } from 'react-dom';
 
 export interface ShellSlots {
   actionsSlot: HTMLElement | null;
-  panelActionsSlot: HTMLElement | null;
   tocSlot: HTMLElement | null;
-  setPanelActionsPresent: (present: boolean) => void;
   setTocPresent: (present: boolean) => void;
 }
 
@@ -22,10 +20,12 @@ export function useShellSlots(): ShellSlots {
 }
 
 // ActionPlace is where a page action is drawn: in the row of the topbar, or in
-// the card of the panel beside the note, where each one is a whole button
-export type ActionPlace = 'topbar' | 'panel';
+// the head of the card the note is read in
+export type ActionPlace = 'topbar' | 'head';
 
 const ActionPlaceContext = createContext<ActionPlace>('topbar');
+
+export const ActionPlaceProvider = ActionPlaceContext.Provider;
 
 export function useActionPlace(): ActionPlace {
   return useContext(ActionPlaceContext);
@@ -36,19 +36,6 @@ export function useActionPlace(): ActionPlace {
 export function PageActions({ children }: { children: ReactNode }): JSX.Element | null {
   const { actionsSlot } = useShellSlots();
   return actionsSlot === null ? null : createPortal(children, actionsSlot);
-}
-
-export function PanelActions({ children }: { children: ReactNode }): JSX.Element | null {
-  const { panelActionsSlot, setPanelActionsPresent } = useShellSlots();
-
-  useEffect(() => {
-    setPanelActionsPresent(true);
-    return () => setPanelActionsPresent(false);
-  }, [setPanelActionsPresent]);
-
-  return panelActionsSlot === null
-    ? null
-    : createPortal(<ActionPlaceContext.Provider value="panel">{children}</ActionPlaceContext.Provider>, panelActionsSlot);
 }
 
 export function PageToc({ children }: { children: ReactNode }): JSX.Element | null {

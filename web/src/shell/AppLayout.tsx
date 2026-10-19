@@ -6,7 +6,7 @@ import { goToLogin } from '../login';
 
 import { AccountMenu } from './AccountMenu';
 import { AppMoreMenu } from './AppMoreMenu';
-import { DocumentExtras } from './DocumentExtras';
+import { DocumentExtras, NoteActions } from './DocumentExtras';
 import { ReaderExtensionsProvider, type ReaderExtensions } from './extensions';
 import { FileActionsProvider } from './FileActions';
 import { NavProvider } from './NavContext';
@@ -21,7 +21,7 @@ import type { TopbarChrome } from './Topbar';
 import { useMe } from './useMe';
 import { Wordmark } from './Wordmark';
 
-const extensions: ReaderExtensions = { DocumentExtras, RowMenu };
+const extensions: ReaderExtensions = { DocumentExtras, NoteActions, RowMenu };
 
 const chrome: TopbarChrome = {
   start: (

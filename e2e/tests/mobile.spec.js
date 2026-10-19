@@ -404,7 +404,7 @@ test.describe('mobile', () => {
         await expect(crumbs).toContainText(['Home', ...docs.deep.crumbs]);
         await expect(page.locator('[data-testid=crumb][data-current="true"]')).toBeInViewport();
         await expect(page.getByTestId('doc-edit')).toBeVisible();
-        await expect(page.getByTestId('doc-history')).toBeVisible();
+        await expect(page.getByTestId('doc-export')).toBeVisible();
 
         const bar = await page.getByTestId('topbar').boundingBox();
         expect(bar.height, 'the top bar wrapped onto a second line').toBeLessThanOrEqual(ROW_HEIGHT);
@@ -413,8 +413,8 @@ test.describe('mobile', () => {
         await expectNoHorizontalScroll(page);
         await shot(page, 'mobile-path-row');
 
-        await page.getByTestId('doc-history').tap();
-        await expect(page).toHaveURL(MAIN.url.history(docs.deep.path));
+        await page.getByTestId('doc-edit').tap();
+        await expect(page).toHaveURL(MAIN.url.edit(docs.deep.path));
     });
 
     // the burger's lines sat 6px from the edge while the menu dots sat 17px:

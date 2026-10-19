@@ -61,7 +61,7 @@ test.describe('reading', () => {
         // assert
         await expect(page).toHaveURL(/#second$/);
         await expect.poll(() => page.locator('[data-testid=doc] h2#second').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
-            .toBeLessThan(120);
+            .toBeLessThan(170);
         removeFixture('e2e-self.md');
     });
 
@@ -81,6 +81,15 @@ test.describe('reading', () => {
         await expect(page).toHaveURL(MAIN.url.doc(DOC.path));
         await expect(page.locator('[data-testid=tree-row][data-current="true"]'))
             .toHaveAttribute('data-path', DOC.path);
+    });
+
+    test('a space that records no versions offers no History', async ({page}) => {
+        // act
+        await page.goto(routes.doc(DOC.path));
+
+        // assert
+        await expect(page.getByTestId('doc-export')).toBeVisible();
+        await expect(page.getByTestId('doc-history')).toHaveCount(0);
     });
 
     test('a folder label opens the folder page and expands the row', async ({page}) => {
@@ -370,8 +379,7 @@ test.describe('reading', () => {
         // than the rail scrolls inside it
         const visible = await page.evaluate(() => {
             const entry = document.querySelector('[data-testid=toc-entry][data-active="true"]');
-            const rail = document.querySelector('[data-testid=toc]')?.closest('[class*=ScrollArea-viewport]')
-                ?? document.querySelector('[class*=AppShell-aside]');
+            const rail = document.querySelector('[data-testid=toc-rail]');
             if (entry === null || rail === null) {
                 return null;
             }

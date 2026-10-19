@@ -85,7 +85,7 @@ test.describe('spaces', () => {
         await named('A space whose name was written by somebody paid by the word');
         expect(await cut()).toBe(true);
         await expect(label).toHaveCSS('text-overflow', 'ellipsis');
-        await expect(page.getByTestId('doc-history')).toBeInViewport({ratio: 1});
+        await expect(page.getByTestId('doc-export')).toBeInViewport({ratio: 1});
         await shot(page, 'spaces-switcher-long-name');
     });
 

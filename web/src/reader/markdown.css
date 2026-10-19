@@ -124,7 +124,9 @@
   margin-bottom: 16px;
   font-weight: 600;
   line-height: 1.25;
-  scroll-margin-top: calc(var(--app-shell-header-height, 0px) + var(--mantine-spacing-xl));
+  scroll-margin-top: calc(
+    var(--app-shell-header-height, 0px) + var(--scrawl-sticky-head, 0px) + var(--mantine-spacing-xl)
+  );
 }
 
 .markdown-document :is(h1, h2) {

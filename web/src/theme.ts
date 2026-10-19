@@ -65,12 +65,14 @@ export const layout = {
   sidebarWidth: 264,
   tocWidth: 256,
   // the gap between a rail card and the edge of the screen or the page
-  railGutter: 24,
+  railGutter: 8,
   contentMeasure: 740,
   // the room a note card keeps around the text, on a desktop and on a phone
-  notePadding: 40,
+  notePadding: 32,
   topbarHeight: 60,
   topbarHeightCompact: 48,
+  // the head of a card, which holds the path and the note's actions
+  cardHeadHeight: 46,
   topbarIconSize: 18,
   // a button and a field beside it, at their usual size
   controlHeight: 36,
@@ -218,6 +220,7 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-content-measure': `${layout.contentMeasure}px`,
   '--scrawl-note-padding': `${layout.notePadding}px`,
   '--scrawl-topbar-height': `${layout.topbarHeight}px`,
+  '--scrawl-card-head': `${layout.cardHeadHeight}px`,
   '--scrawl-tap-target': `${layout.tapTarget}px`,
   '--scrawl-control-height': `${layout.controlHeight}px`,
   '--scrawl-control-height-small': `${layout.controlHeightSmall}px`,

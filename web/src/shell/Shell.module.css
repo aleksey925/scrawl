@@ -1,5 +1,5 @@
 /* the page is a gray ground and every block on it is a card: the bar, the
-   tree, the panel beside the note and what is on the page */
+   tree and what is on the page */
 .header {
   background: var(--scrawl-bg);
 }
@@ -8,22 +8,19 @@
   background: var(--scrawl-ground);
 }
 
-.navbar,
-.aside {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mantine-spacing-lg);
-  border: 0;
-  background: var(--scrawl-ground);
-  padding-block: var(--scrawl-rail-gutter);
+/* the page does not stretch past its ends: the tree is fixed and stood still
+   while the rubber band pulled the note and its stuck head away from it */
+:global(html) {
+  overscroll-behavior-y: none;
 }
 
 .navbar {
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  background: var(--scrawl-ground);
+  padding-block: var(--scrawl-rail-gutter);
   padding-inline-start: var(--scrawl-rail-gutter);
-}
-
-.aside {
-  padding-inline-end: var(--scrawl-rail-gutter);
 }
 
 .treeCard {
@@ -31,37 +28,6 @@
   min-height: 0;
   overflow: hidden;
   padding-block: var(--mantine-spacing-sm);
-}
-
-/* a slot that nothing was rendered into takes no room in the panel */
-.panelCard {
-  flex: none;
-}
-
-.panelCard:empty {
-  display: none;
-}
-
-.panelActions {
-  composes: panelCard;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--mantine-spacing-sm);
-  padding: var(--mantine-spacing-lg);
-}
-
-.panelActions > [data-primary='true'] {
-  grid-column: 1 / -1;
-}
-
-/* the outline scrolls inside its card: a note can have more headings than the
-   window is tall, and the actions above it stay where they are */
-.tocCard {
-  composes: panelCard;
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding: var(--mantine-spacing-lg);
 }
 
 .wordmark {

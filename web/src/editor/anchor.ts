@@ -106,8 +106,9 @@ function cssPx(name: string): number {
   return height;
 }
 
+// the reader sees the note from under the topbar and the head of its card
 function visibleTopY(): number {
-  return cssPx('--app-shell-header-offset');
+  return cssPx('--app-shell-header-offset') + cssPx('--scrawl-sticky-head');
 }
 
 export function blockForLine(blocks: readonly SourceBlock[], line: number): SourceBlock | undefined {

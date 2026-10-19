@@ -1,3 +1,15 @@
+/* the head of a card on the page stays under the topbar while what it heads
+   scrolls, with the note's actions in it; a phone has them in the topbar */
+:global(:root) {
+  --scrawl-sticky-head: 0px;
+}
+
+@mixin larger-than $mantine-breakpoint-sm {
+  :global(:root) {
+    --scrawl-sticky-head: calc(var(--scrawl-card-head) + var(--scrawl-rail-gutter) + 1px);
+  }
+}
+
 /* the one look of a card: every block on the gray ground is one */
 .card {
   border: 1px solid var(--scrawl-border);
@@ -11,7 +23,6 @@
   composes: card;
   --card-inset: var(--mantine-spacing-lg);
   min-width: 0;
-  overflow: hidden;
 }
 
 /* a card in the column of a note keeps the note's inset, so the path in its
@@ -27,16 +38,47 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--mantine-spacing-sm);
-  min-height: 46px;
+  min-height: var(--scrawl-card-head);
   padding: var(--mantine-spacing-xs) var(--card-inset);
   border-bottom: 1px solid var(--scrawl-border);
+  border-start-start-radius: calc(var(--mantine-radius-lg) - 1px);
+  border-start-end-radius: calc(var(--mantine-radius-lg) - 1px);
   background: var(--scrawl-bg-subtle);
   color: var(--scrawl-text-secondary);
   font-size: var(--mantine-font-size-sm);
 }
 
-.head:empty {
+.headBar:has(> .head:empty) {
   display: none;
+}
+
+@mixin larger-than $mantine-breakpoint-sm {
+  /* one pixel lower, below the card's top edge, the head stops where it
+     stood, so sticking moves it by nothing */
+  .headBar {
+    position: sticky;
+    top: calc(var(--app-shell-header-offset, 0px) + var(--scrawl-rail-gutter) + 1px);
+    z-index: 3;
+  }
+
+  /* stuck, the head is drawn as the top of a card: the ground fills the gap
+     above it and the outside of its round corners, behind it */
+  .headBar[data-stuck='true']::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    bottom: calc(100% - var(--mantine-radius-lg));
+    inset-inline: -1px;
+    height: calc(var(--scrawl-rail-gutter) + 1px + var(--mantine-radius-lg));
+    background: var(--scrawl-ground);
+  }
+
+  /* the card's edge is drawn around the head, outside it, where the card's
+     own edge was, so the head keeps its size; its bottom has a border already */
+  .headBar[data-stuck='true'] > .head {
+    box-shadow: 0 0 0 1px var(--scrawl-border);
+    clip-path: inset(-1px -1px 0 -1px);
+  }
 }
 
 /* on a phone a filled head read as one more gray band under the ground */

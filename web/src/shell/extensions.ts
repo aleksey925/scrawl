@@ -16,6 +16,10 @@ export interface RowMenuProps {
   onOpenedChange: (opened: boolean) => void;
 }
 
+export interface NoteActionsProps {
+  doc: DocumentResponse;
+}
+
 export interface DocumentExtrasProps {
   doc: DocumentResponse;
   // true while the reading anchor is placing this arrival
@@ -26,6 +30,8 @@ export interface DocumentExtrasProps {
 // tree row. The reader imports none of them, so a site carries only its own.
 export interface ReaderExtensions {
   DocumentExtras?: ComponentType<DocumentExtrasProps>;
+  // the buttons in the head of a note's card
+  NoteActions?: ComponentType<NoteActionsProps>;
   RowMenu?: ComponentType<RowMenuProps>;
 }
 

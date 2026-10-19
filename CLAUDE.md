@@ -87,20 +87,34 @@ vendor/                dependencies, checked in, `make deps` regenerates
   menu: a right click opens it, and on a phone a long press, timed by
   the row because iOS sends no `contextmenu` for one. A site has no menu
   to offer and leaves the browser's own.
-- Every screen puts its content in the same centered column, so the text
-  does not move sideways between a note, a search and a directory.
+- Every screen puts its content in one card as wide as the room beside
+  the tree, so nothing moves sideways from a note to a folder or a
+  search. A rail beside the note held the actions and the outline, and a
+  folder had none, so every move between the two shifted the page. The
+  outline is a pane of the note's card, from its head to its bottom edge
+  on a fill of its own, and its list stays on screen while the text
+  scrolls; a line beside the text read as a second column of text. Below
+  the width it needs it is the sheet the topbar opens.
 - The path is the head of the card a note or a folder is shown in, at
-  every width, so the top edge of that card is the one the rails beside
-  it start at; a row above the card left it lower than both. A folder is
-  drawn the way a note is, the path in the head and its rows below, with
-  no title of its own repeating the last name of the path, and a readme
-  below it. A note that does not exist yet has no card and carries the
-  path as a row above the page. The topbar holds the name of the app and
-  the controls. On a phone the topbar is one row of icons: the page's
-  own actions, search, the outline and a `⋯` menu holding the sync
-  state, the theme and the account. Nine controls and the crumbs once
-  shared it, the crumbs got 25px, wrapped inside the clipped bar and
-  fell over the note as a column.
+  every width, so the top edge of that card is the one the tree beside
+  it starts at. Past the compact width the head holds the note's actions
+  too and stays where it started, level with the tree, while the note
+  scrolls, the way a file's head does on GitHub. A card that slid up to
+  the topbar while the tree stood still looked loose, so the stuck head
+  paints the gap above it in the ground and keeps the round corners of a
+  card's top, and the page has no rubber band at its ends. The reader's
+  top edge, where a heading lands and where the editor takes its
+  position from, is the bottom of that head. History is among the
+  actions only where the space records versions. A folder is a table in
+  its card, its name, size and the time it changed, led by a `..` row to
+  the folder above, with no title repeating the last name of the path,
+  and a readme below it. A note that does not exist yet is a card too,
+  with its path in the head and the way to create it inside. The topbar
+  holds the name of the app and the controls. On a phone the topbar is
+  one row of icons: the page's own actions, search, the outline and a
+  `⋯` menu holding the sync state, the theme and the account. Nine
+  controls and the crumbs once shared it, the crumbs got 25px, wrapped
+  inside the clipped bar and fell over the note as a column.
 - A theme is one file in `theme/themes/`, and nothing else names a
   color of one: adding a theme is a file and `make ui`. The server, the
   command line and the frontend build all read those files. The build
@@ -250,17 +264,14 @@ vendor/                dependencies, checked in, `make deps` regenerates
   second look in.
 - The page is a gray ground, the palette's `bgInset`, and every block on
   it is a card with a thin border and 12px corners: the topbar, the
-  tree, the panel beside the note, the note, and a list of entries,
-  results or versions, which is a card of rows split by hairlines under
-  a head. Filled rows inside a card read as cards in a card. Where the
-  panel is on screen the note's actions are its first card, above the
-  outline; below that width they stay in the topbar, and the editor and
-  the history keep theirs there at every width. A control has one shape,
-  and the theme is the one place that says so: 8px corners, a 500
-  weight, 30 and 36px heights, and a field cut into the page instead of
-  filled like a button. Mantine's own defaults made a filter read as a
-  third button. The rails keep 24px from the edge of the screen, and on
-  a phone a card runs from edge to edge.
+  tree, the note, and a list of entries, results or versions, which is a
+  card of rows split by hairlines under a head. Filled rows inside a
+  card read as cards in a card. A control has one shape, and the theme
+  is the one place that says so: 8px corners, a 500 weight, 30 and 36px
+  heights, and a field cut into the page instead of filled like a
+  button. Mantine's own defaults made a filter read as a third button.
+  The tree keeps 8px from the edge of the screen and from the page, and
+  on a phone a card runs from edge to edge.
 - The dark scheme takes its text and accents from Primer's dark dimmed,
   not the dark github.com starts in, and sets them on `#121821`, with
   every surface kept the same step from it that Primer's dark keeps.

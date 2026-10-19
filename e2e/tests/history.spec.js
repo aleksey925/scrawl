@@ -138,20 +138,20 @@ test.describe.serial('history', () => {
         await shot(page, 'history-readonly');
     });
 
-    test('the History action leads to the page, and says so when history is off', async ({page}) => {
+    test('the History action leads to the page, and is gone where history is off', async ({page}) => {
         await page.goto(HISTORY.url.doc(docs.doc.path));
         await page.getByTestId('doc-history').click();
         await expect(page).toHaveURL(HISTORY.url.history(docs.doc.path));
         await expect(page.getByTestId('history-title')).toHaveText(text.history.title);
         await expect(page.getByTestId('version').first()).toBeVisible();
 
-        // the action is on the page whatever the server does with versions, so
-        // an instance running without history answers the route with the reason
+        // an instance running without history offers no action, and its route
+        // typed in by hand answers with the reason
         await signIn(page, {baseURL: MAIN.baseURL, from: routes.doc(docs.doc.path)});
-        await expect(page.getByTestId('doc-history')).toBeVisible();
-        await page.getByTestId('doc-history').click();
+        await expect(page.getByTestId('doc-export')).toBeVisible();
+        await expect(page.getByTestId('doc-history')).toHaveCount(0);
+        await page.goto(MAIN.url.history(docs.doc.path));
 
-        await expect(page).toHaveURL(MAIN.url.history(docs.doc.path));
         await expect(page.getByTestId('history-error')).toContainText('history is disabled');
         await expect(page.getByTestId('version')).toHaveCount(0);
         await shot(page, 'history-disabled');

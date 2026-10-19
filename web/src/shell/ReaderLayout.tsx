@@ -59,9 +59,7 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
   const [navOpened, setNavOpened] = useState(false);
   const [tocOpened, setTocOpened] = useState(false);
   const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null);
-  const [panelActionsSlot, setPanelActionsSlot] = useState<HTMLElement | null>(null);
   const [tocSlot, setTocSlot] = useState<HTMLElement | null>(null);
-  const [panelActionsPresent, setPanelActionsPresent] = useState(false);
   const [tocPresent, setTocPresent] = useState(false);
 
   const wideSidebar = useAtLeast(layoutBreakpoints.sidebar);
@@ -119,8 +117,8 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
   const layoutState = useMemo<ReaderLayoutState>(() => ({ revealNav, closePanels }), [revealNav, closePanels]);
 
   const slots = useMemo<ShellSlots>(
-    () => ({ actionsSlot, panelActionsSlot, tocSlot, setPanelActionsPresent, setTocPresent }),
-    [actionsSlot, panelActionsSlot, tocSlot],
+    () => ({ actionsSlot, tocSlot, setTocPresent }),
+    [actionsSlot, tocSlot],
   );
 
   const swipeRef = useSwipeToClose(closeNav);
@@ -141,13 +139,9 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
               breakpoint: layoutBreakpoints.sidebar,
               collapsed: { mobile: true, desktop: navHidden },
             }}
-            aside={{
-              width: layout.tocWidth + layout.railGutter,
-              breakpoint: layoutBreakpoints.tocRail,
-              collapsed: { mobile: true, desktop: !tocPresent && !panelActionsPresent },
-            }}
-            padding={{ base: 'lg', [layoutBreakpoints.compactTopbar]: '2xl' }}
-            classNames={{ header: classes.header, navbar: classes.navbar, aside: classes.aside, main: classes.main }}
+            // a phone keeps 16px, the line its text and its topbar icons share
+            padding={{ base: 'lg', [layoutBreakpoints.compactTopbar]: layout.railGutter }}
+            classNames={{ header: classes.header, navbar: classes.navbar, main: classes.main }}
           >
             <AppShell.Header>
               <Topbar
@@ -198,15 +192,6 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
                 </div>
               )}
             </AppShell.Navbar>
-
-            <AppShell.Aside>
-              {wideToc ? (
-                <>
-                  <div ref={setPanelActionsSlot} data-testid="panel-actions" className={`${card.card} ${classes.panelActions}`} />
-                  <div ref={setTocSlot} className={`${card.card} ${classes.tocCard}`} />
-                </>
-              ) : null}
-            </AppShell.Aside>
 
             <AppShell.Main style={{ minWidth: 0 }}>
               {banner}

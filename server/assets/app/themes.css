@@ -240,10 +240,11 @@
   --mantine-h6-font-weight: 600;
   --scrawl-sidebar-width: 264px;
   --scrawl-toc-width: 256px;
-  --scrawl-rail-gutter: 24px;
+  --scrawl-rail-gutter: 8px;
   --scrawl-content-measure: 740px;
-  --scrawl-note-padding: 40px;
+  --scrawl-note-padding: 32px;
   --scrawl-topbar-height: 60px;
+  --scrawl-card-head: 46px;
   --scrawl-tap-target: 44px;
   --scrawl-control-height: 36px;
   --scrawl-control-height-small: 30px;

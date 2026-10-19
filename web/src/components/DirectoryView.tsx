@@ -1,25 +1,22 @@
-import { Anchor, Button, Stack, Text } from '@mantine/core';
-import { IconFile, IconFilePlus, IconFolder, IconFolderOpen, IconFolderPlus } from '@tabler/icons-react';
+import { Button, Stack, Text } from '@mantine/core';
+import { IconFilePlus, IconFolderOpen, IconFolderPlus } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import type { DirEntry } from '../api/types';
-import { Link } from 'react-router';
-
 import { answerKeys, useApi } from '../api/useApi';
 import { isMarkdown } from '../paths';
 import { usePlatform } from '../platform';
 import { useOptionalFileActions } from '../shell/fileActionsContext';
 import { useNav } from '../shell/NavContext';
 import { NoteCrumbs } from '../shell/PathCrumbs';
-import { SyncBadge } from '../shell/SyncBadge';
 
 import { AsyncContent } from './AsyncContent';
+import { DirTable } from './DirTable';
 import { DocumentBody } from './DocumentBody';
 import { DocumentHtml } from './DocumentHtml';
 import { EmptyState } from './EmptyState';
 import { NoteCard } from './NoteCard';
 import { PageCard } from './PageCard';
-import rows from './rows.module.css';
 
 export interface DirectoryViewProps {
   path: string;
@@ -28,7 +25,7 @@ export interface DirectoryViewProps {
 export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
   const { canWrite } = useNav();
   const actions = useOptionalFileActions();
-  const { source, physicalUrl } = usePlatform();
+  const { source } = usePlatform();
   const state = useApi((signal) => source.dir(path, { signal }), [source, path], answerKeys.dir(path));
 
   return (
@@ -75,40 +72,7 @@ export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
                 wide
                 header={<DirHead path={path} title={dir.title} entries={dir.entries} />}
               >
-                {dir.entries.map((entry) => (
-                  <div
-                    key={entry.path}
-                    data-testid="dir-row"
-                    data-path={entry.path}
-                    data-dir={entry.is_dir ? 'true' : 'false'}
-                    className={rows.row}
-                  >
-                    {entry.is_dir ? (
-                      <IconFolder size={18} className={rows.icon} aria-hidden />
-                    ) : (
-                      <IconFile size={18} className={rows.icon} aria-hidden />
-                    )}
-                    <span className={rows.body}>
-                      {/* a row is a route of the app only when it is a folder
-                          or a note; anything else is the /raw/ url the server
-                          wrote, which the browser fetches directly and the
-                          client has to mount itself */}
-                      {entry.is_dir || isMarkdown(entry.path) ? (
-                        <Anchor data-testid="dir-row-name" component={Link} to={entry.url} c="var(--scrawl-text)">
-                          {entry.name}
-                        </Anchor>
-                      ) : (
-                        <Anchor data-testid="dir-row-name" href={physicalUrl(entry.url)} c="var(--scrawl-text)">
-                          {entry.name}
-                        </Anchor>
-                      )}
-                    </span>
-                    {/* a directory listing is the only surface that shows
-                        attachments, and with a remote an unpushed image is a
-                        real case that /raw/ has no chrome to warn about */}
-                    <SyncBadge path={entry.path} />
-                  </div>
-                ))}
+                <DirTable path={path} entries={dir.entries} />
               </PageCard>
             )}
             {dir.has_readme && (

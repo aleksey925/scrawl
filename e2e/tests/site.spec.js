@@ -182,7 +182,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
             // assert
             await expect(page).toHaveURL(/#Three$/);
             await expect.poll(() => page.locator('h2#three').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
-                .toBeLessThan(120);
+                .toBeLessThan(170);
             expect(await page.evaluate(() => window.marker)).toBe('same page');
         });
 
@@ -199,7 +199,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
             // assert
             await expect(page).toHaveURL(/#three$/);
             await expect.poll(() => page.locator('h2#three').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
-                .toBeLessThan(120);
+                .toBeLessThan(170);
             expect(await page.evaluate(() => window.marker)).toBe('same page');
         });
 
@@ -490,7 +490,7 @@ test.describe('site from a host moves between notes without a page load', () => 
         // assert
         await expect(page).toHaveURL(`${at('docs/guide.html')}#three`);
         await expect.poll(() => page.locator('h2#three').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
-            .toBeLessThan(120);
+            .toBeLessThan(170);
         expect(await marked(page)).toBe('still here');
     });
 
@@ -576,7 +576,7 @@ test.describe('site from a host moves between notes without a page load', () => 
         // arrange
         await page.goto(at('docs/guide.html#two'));
         await expect.poll(() => page.locator('h2#two').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
-            .toBeLessThan(120);
+            .toBeLessThan(170);
         await page.mouse.wheel(0, 600);
         await expect.poll(() => page.locator('h2#two').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
             .toBeLessThan(-400);

@@ -1,1 +1,0 @@
-import{bt as e,n as t}from"./theme-DnJDCnH9.js";import{t as n}from"./Container-KwfydiAh.js";var r=e();function i({children:e}){return(0,r.jsx)(n,{size:t.contentMeasure+2*t.notePadding,px:0,miw:0,children:e})}export{i as t};

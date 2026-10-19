@@ -1,4 +1,4 @@
-import { Anchor, Box, Breadcrumbs, Text } from '@mantine/core';
+import { Anchor, Breadcrumbs, Text } from '@mantine/core';
 import type { JSX } from 'react';
 import { Link, useLocation } from 'react-router';
 
@@ -78,19 +78,4 @@ function PathCrumbs({ pathname }: { pathname: string }): JSX.Element {
 export function NoteCrumbs(): JSX.Element | null {
   const location = useLocation();
   return contentPathOf(location.pathname) === '' ? null : <PathCrumbs pathname={location.pathname} />;
-}
-
-// PageCrumbs is the path as a row above a page that is not a note: a folder
-// and a note that does not exist yet
-export function PageCrumbs(): JSX.Element | null {
-  const location = useLocation();
-
-  if (contentPathOf(location.pathname) === '') {
-    return null;
-  }
-  return (
-    <Box mb="lg" data-print="hide">
-      <PathCrumbs pathname={location.pathname} />
-    </Box>
-  );
 }

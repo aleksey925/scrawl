@@ -87,10 +87,41 @@ test.describe('reading', () => {
         await page.locator(`[data-testid=tree-row][data-path="${DOC.folder}"] [data-testid=tree-link]`).click();
 
         await expect(page).toHaveURL(MAIN.url.dir(DOC.folder));
-        await expect(page.getByTestId('dir-title')).toBeVisible();
+        await expect(page.getByTestId('dir')).toBeVisible();
         await expect(page.locator(`[data-testid=tree-row][data-path="${DOC.folder}"] [data-testid=tree-twisty]`))
             .toHaveAttribute('data-open', 'true');
         await shot(page, 'reading-folder-page');
+    });
+
+    test('a right click on a tree row opens its menu and stays on the page', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC.path));
+        const other = page.locator('[data-testid=tree-row][data-current="false"][data-dir="false"]').first();
+
+        // act
+        await other.getByTestId('tree-link').click({button: 'right'});
+
+        // assert
+        await expect(page.getByTestId('tree-row-menu-dropdown')).toBeVisible();
+        await expect(other.getByTestId('tree-row-menu')).toHaveAttribute('data-opened', 'true');
+        await expect(page).toHaveURL(MAIN.url.doc(DOC.path));
+    });
+
+    test('an open folder label opens its page first and folds the folder on its page', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC.path));
+        const folder = page.locator(`[data-testid=tree-row][data-path="${DOC.folder}"]`);
+        await expect(folder.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+
+        // act & assert
+        await folder.getByTestId('tree-link').click();
+        await expect(page).toHaveURL(MAIN.url.dir(DOC.folder));
+        await expect(folder.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+
+        await folder.getByTestId('tree-link').click();
+        await expect(folder.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'false');
+        await expect(page.locator(`[data-testid=tree-row][data-path="${DOC.path}"]`)).toHaveCount(0);
+        await expect(page).toHaveURL(MAIN.url.dir(DOC.folder));
     });
 
     test('the sidebar filter narrows the tree and highlights the match', async ({page}) => {
@@ -123,7 +154,7 @@ test.describe('reading', () => {
 
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.deep.title);
         await expect(page.getByTestId('doc').locator('h2')).not.toHaveCount(0);
-        await expect(page.getByTestId('topbar-breadcrumbs').getByTestId('crumb')).toContainText(docs.deep.crumbs);
+        await expect(page.getByTestId('page-breadcrumbs').getByTestId('crumb')).toContainText(docs.deep.crumbs);
         await expect(page.locator('[data-testid=crumb][data-current="true"]')).toHaveCount(1);
         await shot(page, 'reading-deep-document');
     });
@@ -152,14 +183,15 @@ test.describe('reading', () => {
     // is tried first, and only then the folded one, or a document holding both
     // cases would resolve to whichever came first in the dom.
     test('an anchor written in another case than its slug still resolves', async ({page}) => {
-        writeFixture(ANCHORS, '# Якоря\n\n[раздел](#Раздел)\n\n## Раздел\n\nтекст\n');
+        writeFixture(ANCHORS, anchorDocument().replace('(#раздел)', '(#Раздел)'));
         await page.goto(routes.doc(ANCHORS));
 
-        await page.getByTestId('doc').getByRole('link', {name: 'раздел'}).click();
+        await page.getByTestId('doc').getByRole('link', {name: 'разделу'}).click();
         await expect
             .poll(() => page.getByTestId('doc').locator('h2').first().evaluate(
                 (el) => el.getBoundingClientRect().top))
             .toBeLessThan(250);
+        expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
 
         removeFixture(ANCHORS);
     });

@@ -244,7 +244,7 @@ test.describe.serial('file management', () => {
 
         // assert
         const row = page.locator(`[data-testid=tree-row][data-path="${BLANK_FOLDER}"]`);
-        await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-empty"]')).toHaveText(text.dir.noNotes);
+        await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-children"]').getByTestId('tree-empty')).toHaveText(text.dir.noNotes);
         await shot(page, 'files-empty-folder');
         await page.getByTestId('dir-empty-new-page').click();
         await expect(page.getByTestId('tree-draft-input')).toBeFocused();

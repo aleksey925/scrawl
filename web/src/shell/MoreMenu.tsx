@@ -2,7 +2,7 @@ import { ActionIcon, Indicator, Menu } from '@mantine/core';
 import { IconDots } from '@tabler/icons-react';
 import type { JSX, ReactNode } from 'react';
 
-import { layout } from '../theme';
+import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { ThemePicker } from './ThemePicker';
 
@@ -19,15 +19,16 @@ export interface MoreMenuProps {
 // around the theme a site has nothing else to hold. The dot on it is what
 // survives scrolling while the sync is broken, the banner having scrolled away.
 export function MoreMenu({ alert, before, after }: MoreMenuProps): JSX.Element {
+  const wide = useAtLeast(layoutBreakpoints.compactTopbar);
   return (
     <Menu position="bottom-end" width={240} withinPortal>
       <Menu.Target>
         <ActionIcon
           data-testid="topbar-more"
           data-sync={alert === undefined ? 'false' : 'true'}
-          variant="subtle"
+          variant={wide ? 'default' : 'subtle'}
           color="gray"
-          size="lg"
+          size={wide ? layout.controlHeight : 'lg'}
           aria-label={alert === undefined ? 'More' : `More: ${alert}`}
         >
           <Indicator disabled={alert === undefined} color="yellow" size={8} offset={2}>

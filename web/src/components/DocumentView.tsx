@@ -6,6 +6,7 @@ import { Link } from 'react-router';
 import { answerKeys, useApi } from '../api/useApi';
 import { editUrl } from '../paths';
 import { usePlatform } from '../platform';
+import { PageCrumbs } from '../shell/PathCrumbs';
 import { SyncBadge } from '../shell/SyncBadge';
 
 import { AsyncContent } from './AsyncContent';
@@ -24,6 +25,7 @@ export function DocumentView({ path }: DocumentViewProps): JSX.Element {
       {(page) =>
         page.kind === 'missing-document' ? (
           <Stack data-testid="doc-missing" gap="lg">
+            <PageCrumbs />
             <Group gap="xs" wrap="nowrap">
               <Title data-testid="doc-title" order={1}>
                 {page.title}

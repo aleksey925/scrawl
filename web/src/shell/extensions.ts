@@ -10,6 +10,10 @@ export interface RowMenuProps {
   isDir: boolean;
   name: string;
   touch: boolean;
+  // the row holds the state, because a right click or a long press anywhere
+  // on it opens the menu too
+  opened: boolean;
+  onOpenedChange: (opened: boolean) => void;
 }
 
 export interface DocumentExtrasProps {

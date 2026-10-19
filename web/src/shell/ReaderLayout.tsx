@@ -1,15 +1,17 @@
 import '../print.css';
 
-import { ActionIcon, AppShell, Burger, Drawer, ScrollArea } from '@mantine/core';
-import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
+import { ActionIcon, AppShell, Burger, Drawer } from '@mantine/core';
+import { IconLayoutSidebar, IconLayoutSidebarFilled } from '@tabler/icons-react';
 import {
   createContext, Fragment, useCallback, useContext, useEffect, useMemo, useState,
   type ComponentType, type JSX, type ReactNode,
 } from 'react';
 import { useLocation } from 'react-router';
 
+import card from '../card.module.css';
 import { iconEdgeInset, layout, layoutBreakpoints, useAtLeast } from '../theme';
 
+import classes from './Shell.module.css';
 import { ShellSlotsProvider, type ShellSlots } from './ShellSlots';
 import { ShortcutHelp } from './ShortcutHelp';
 import { SidebarNav } from './SidebarNav';
@@ -57,7 +59,9 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
   const [navOpened, setNavOpened] = useState(false);
   const [tocOpened, setTocOpened] = useState(false);
   const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null);
+  const [panelActionsSlot, setPanelActionsSlot] = useState<HTMLElement | null>(null);
   const [tocSlot, setTocSlot] = useState<HTMLElement | null>(null);
+  const [panelActionsPresent, setPanelActionsPresent] = useState(false);
   const [tocPresent, setTocPresent] = useState(false);
 
   const wideSidebar = useAtLeast(layoutBreakpoints.sidebar);
@@ -115,8 +119,8 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
   const layoutState = useMemo<ReaderLayoutState>(() => ({ revealNav, closePanels }), [revealNav, closePanels]);
 
   const slots = useMemo<ShellSlots>(
-    () => ({ actionsSlot, tocSlot, setTocPresent }),
-    [actionsSlot, tocSlot],
+    () => ({ actionsSlot, panelActionsSlot, tocSlot, setPanelActionsPresent, setTocPresent }),
+    [actionsSlot, panelActionsSlot, tocSlot],
   );
 
   const swipeRef = useSwipeToClose(closeNav);
@@ -133,16 +137,17 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
               },
             }}
             navbar={{
-              width: layout.sidebarWidth,
+              width: layout.sidebarWidth + layout.railGutter,
               breakpoint: layoutBreakpoints.sidebar,
               collapsed: { mobile: true, desktop: navHidden },
             }}
             aside={{
-              width: layout.tocWidth,
+              width: layout.tocWidth + layout.railGutter,
               breakpoint: layoutBreakpoints.tocRail,
-              collapsed: { mobile: true, desktop: !tocPresent },
+              collapsed: { mobile: true, desktop: !tocPresent && !panelActionsPresent },
             }}
-            padding="lg"
+            padding={{ base: 'lg', [layoutBreakpoints.compactTopbar]: '2xl' }}
+            classNames={{ header: classes.header, navbar: classes.navbar, aside: classes.aside, main: classes.main }}
           >
             <AppShell.Header>
               <Topbar
@@ -161,9 +166,9 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
                       aria-label={navLabel}
                     >
                       {navVisible ? (
-                        <IconLayoutSidebarLeftCollapse size={layout.topbarIconSize} />
+                        <IconLayoutSidebarFilled size={layout.topbarIconSize} />
                       ) : (
-                        <IconLayoutSidebarLeftExpand size={layout.topbarIconSize} />
+                        <IconLayoutSidebar size={layout.topbarIconSize} />
                       )}
                     </ActionIcon>
                   ) : (
@@ -186,16 +191,20 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
 
             {/* a collapsed rail is only moved out of sight, and the rows left
                 in it would still answer the tab key */}
-            <AppShell.Navbar>{wideSidebar && !navHidden && <SidebarNav />}</AppShell.Navbar>
+            <AppShell.Navbar>
+              {wideSidebar && !navHidden && (
+                <div className={`${card.card} ${classes.treeCard}`}>
+                  <SidebarNav />
+                </div>
+              )}
+            </AppShell.Navbar>
 
-            {/* the rail is fixed beside the note, so an outline longer than the
-                window has to scroll inside it or the last headings are simply
-                unreachable */}
             <AppShell.Aside>
               {wideToc ? (
-                <ScrollArea type="hover" h="100%">
-                  <div ref={setTocSlot} style={{ padding: 'var(--mantine-spacing-lg)' }} />
-                </ScrollArea>
+                <>
+                  <div ref={setPanelActionsSlot} data-testid="panel-actions" className={`${card.card} ${classes.panelActions}`} />
+                  <div ref={setTocSlot} className={`${card.card} ${classes.tocCard}`} />
+                </>
               ) : null}
             </AppShell.Aside>
 

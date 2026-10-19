@@ -29,7 +29,7 @@ const (
 )
 
 // the documents a directory is shown by: an index replaces its listing, a
-// readme is set above it
+// readme is shown with it
 const (
 	IndexName  = "index.md"
 	ReadmeName = "readme.md"

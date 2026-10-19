@@ -74,13 +74,33 @@ vendor/                dependencies, checked in, `make deps` regenerates
   rail that stays where it was put, and one control in the topbar means
   both. A collapsed rail holds nothing: mantine only moves it out of
   sight, and the rows left in it would still answer the tab key.
+- A folder's icon opens and closes it, and there is no column of
+  chevrons: the rows of an open folder hang off a line under that icon,
+  one step to its right, the way an editor draws its tree. Drawn under a
+  chevron left of the icons, the line stood apart from every row it was
+  meant to group. The label opens the folder's page, unfolded, and only
+  on that page folds and unfolds it too: folding on the way there took a
+  second click to see what the folder holds, and arriving unfolded it
+  again anyway. A row's `⋯` shows under the pointer, under the
+  keyboard's focus and while its menu is open; a touch screen has no
+  hover, so there it always shows. The same menu is the row's context
+  menu: a right click opens it, and on a phone a long press, timed by
+  the row because iOS sends no `contextmenu` for one. A site has no menu
+  to offer and leaves the browser's own.
 - Every screen puts its content in the same centered column, so the text
   does not move sideways between a note, a search and a directory.
-- On a phone the topbar is one row of icons: the page's own actions,
-  search, the outline and a `⋯` menu holding the sync state, the theme
-  and the account. The path leaves the bar for a row on the page. Nine
-  controls and the crumbs once shared it, the crumbs got 25px, wrapped
-  inside the clipped bar and fell over the note as a column.
+- The path is the head of the card a note or a folder is shown in, at
+  every width, so the top edge of that card is the one the rails beside
+  it start at; a row above the card left it lower than both. A folder is
+  drawn the way a note is, the path in the head and its rows below, with
+  no title of its own repeating the last name of the path, and a readme
+  below it. A note that does not exist yet has no card and carries the
+  path as a row above the page. The topbar holds the name of the app and
+  the controls. On a phone the topbar is one row of icons: the page's
+  own actions, search, the outline and a `⋯` menu holding the sync
+  state, the theme and the account. Nine controls and the crumbs once
+  shared it, the crumbs got 25px, wrapped inside the clipped bar and
+  fell over the note as a column.
 - A theme is one file in `theme/themes/`, and nothing else names a
   color of one: adding a theme is a file and `make ui`. The server, the
   command line and the frontend build all read those files. The build
@@ -221,18 +241,26 @@ vendor/                dependencies, checked in, `make deps` regenerates
   latches `:hover` onto what it landed on until the next tap somewhere
   else, so every decorative hover is gated on `@media (hover: hover)` and
   the platform tap highlight is off.
-- The app looks the way GitHub does. Each theme file holds one Primer
-  palette, read off github.com under Primer's names: a note reads it
-  as `--gh-*`, the chrome through the `--scrawl-*` tokens built from it,
-  so the two cannot drift apart. `markdown.css` is a port of
-  github-markdown-css onto the markup `render` emits, and the note sits
-  in no mantine `Typography`, whose prose rules would mix a second look
-  in. A control has Primer's shape as well as its colors, and the theme
-  is the one place that says so: 6px corners, a 500 weight, 28 and 32px
-  heights, and a field cut into the page instead of filled like a
-  button. Mantine's own defaults made a filter read as a third button.
-  Where the column takes the whole width it keeps GitHub's 32px from
-  the edge of the screen, and on a phone GitHub's 16px.
+- A note reads the way GitHub renders it. Each theme file holds one
+  Primer palette, read off github.com under Primer's names: a note
+  reads it as `--gh-*`, the chrome through the `--scrawl-*` tokens
+  built from it, so the two cannot drift apart. `markdown.css` is a
+  port of github-markdown-css onto the markup `render` emits, and the
+  note sits in no mantine `Typography`, whose prose rules would mix a
+  second look in.
+- The page is a gray ground, the palette's `bgInset`, and every block on
+  it is a card with a thin border and 12px corners: the topbar, the
+  tree, the panel beside the note, the note, and a list of entries,
+  results or versions, which is a card of rows split by hairlines under
+  a head. Filled rows inside a card read as cards in a card. Where the
+  panel is on screen the note's actions are its first card, above the
+  outline; below that width they stay in the topbar, and the editor and
+  the history keep theirs there at every width. A control has one shape,
+  and the theme is the one place that says so: 8px corners, a 500
+  weight, 30 and 36px heights, and a field cut into the page instead of
+  filled like a button. Mantine's own defaults made a filter read as a
+  third button. The rails keep 24px from the edge of the screen, and on
+  a phone a card runs from edge to edge.
 - The dark scheme takes its text and accents from Primer's dark dimmed,
   not the dark github.com starts in, and sets them on `#121821`, with
   every surface kept the same step from it that Primer's dark keeps.
@@ -266,11 +294,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
   the defaults the strip followed a finger up and down with the page
   behind it. It has no scrollbar, so an end with more buttons behind it
   fades.
-- On a phone everything starts on that 16px line: the page text, the
+- On a phone everything starts on a 16px line: the page text, the
   path, the glyph (not the 44px box) of the first and last topbar icon,
-  and in the drawer the filter, the chevrons and the row menus. A tree
-  row there runs from edge to edge, so its highlight has no edge of its
-  own to sit off that line.
+  and in the drawer the filter, the root's icon and the row menus. A tree
+  row and a card there run from edge to edge, so neither has an edge of
+  its own to sit off that line.
 - The copy button of a code block is a column beside the code, the way
   GitHub has it, and never a layer over it. A layer covered the end of a
   long first line, and room kept for it with padding on the `pre`

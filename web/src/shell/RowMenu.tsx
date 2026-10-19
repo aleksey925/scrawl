@@ -2,7 +2,7 @@ import { ActionIcon, Menu } from '@mantine/core';
 import {
   IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconPlus, IconTrash,
 } from '@tabler/icons-react';
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 
 import { directoryUrl, documentUrl, editUrl } from '../paths';
@@ -11,12 +11,14 @@ import { rowMenuIconSize, type RowMenuProps } from './extensions';
 import { useFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
 import { parentOf } from './naming';
+import treeClasses from './Tree.module.css';
 
-export function RowMenu({ path, isDir, name, touch }: RowMenuProps): JSX.Element {
+export function RowMenu({
+  path, isDir, name, touch, opened, onOpenedChange: setOpened,
+}: RowMenuProps): JSX.Element {
   const navigate = useNavigate();
   const { canWrite } = useNav();
   const actions = useFileActions();
-  const [opened, setOpened] = useState(false);
 
   // the dropdown is anchored to a row inside a panel that scrolls on its own,
   // so anything that moves the trigger has to take the menu with it
@@ -31,7 +33,7 @@ export function RowMenu({ path, isDir, name, touch }: RowMenuProps): JSX.Element
       window.removeEventListener('scroll', close, true);
       window.removeEventListener('resize', close);
     };
-  }, [opened]);
+  }, [opened, setOpened]);
 
   const folder = isDir ? path : parentOf(path);
   const open = (): void => void navigate(isDir ? directoryUrl(path) : documentUrl(path));
@@ -42,6 +44,8 @@ export function RowMenu({ path, isDir, name, touch }: RowMenuProps): JSX.Element
         <ActionIcon
           data-testid="tree-row-menu"
           data-path={path}
+          data-opened={opened ? 'true' : 'false'}
+          className={treeClasses.menu}
           variant="subtle"
           color="gray"
           size={touch ? 'lg' : 'sm'}

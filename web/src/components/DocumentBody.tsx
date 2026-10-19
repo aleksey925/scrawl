@@ -7,9 +7,11 @@ import type { DocumentResponse } from '../api/types';
 import { useReaderExtensions } from '../shell/extensions';
 import { useCurrentDoc, useNav } from '../shell/NavContext';
 import { basenameOf } from '../shell/naming';
+import { NoteCrumbs } from '../shell/PathCrumbs';
 
 import { DocumentHtml } from './DocumentHtml';
 import { EmptyState } from './EmptyState';
+import { NoteCard } from './NoteCard';
 
 export interface DocumentBodyProps {
   doc: DocumentResponse;
@@ -27,29 +29,31 @@ export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
     <>
       {DocumentExtras !== undefined && <DocumentExtras doc={doc} placed={placed} />}
 
-      {doc.html.trim() === '' ? (
-        <EmptyState
-          testId="doc-empty"
-          icon={IconFileText}
-          title="This note is empty"
-          actions={
-            canWrite && (
-              <Button
-                data-testid="doc-empty-edit"
-                component={Link}
-                to={doc.edit_url}
-                leftSection={<IconPencil size={16} />}
-              >
-                Start writing
-              </Button>
-            )
-          }
-        >
-          {`Nothing has been written in ${basenameOf(doc.doc_path)} yet.`}
-        </EmptyState>
-      ) : (
-        <DocumentHtml html={doc.html} toc={doc.show_toc ? doc.toc : undefined} placed={placed} />
-      )}
+      <NoteCard header={<NoteCrumbs />}>
+        {doc.html.trim() === '' ? (
+          <EmptyState
+            testId="doc-empty"
+            icon={IconFileText}
+            title="This note is empty"
+            actions={
+              canWrite && (
+                <Button
+                  data-testid="doc-empty-edit"
+                  component={Link}
+                  to={doc.edit_url}
+                  leftSection={<IconPencil size={16} />}
+                >
+                  Start writing
+                </Button>
+              )
+            }
+          >
+            {`Nothing has been written in ${basenameOf(doc.doc_path)} yet.`}
+          </EmptyState>
+        ) : (
+          <DocumentHtml html={doc.html} toc={doc.show_toc ? doc.toc : undefined} placed={placed} />
+        )}
+      </NoteCard>
     </>
   );
 }

@@ -4,7 +4,6 @@ import { Link, useLocation } from 'react-router';
 
 import controls from '../controls.module.css';
 import { directoryUrl, documentUrl } from '../paths';
-import { layoutBreakpoints, useAtLeast } from '../theme';
 
 import { contentPathOf } from './naming';
 
@@ -36,23 +35,13 @@ function crumbsOf(pathname: string): Crumb[] {
   return res;
 }
 
-// the topbar keeps the path on one line and truncates the current name: a row
-// of crumbs that wraps inside a clipped bar breaks into a column over the page
-const topbarStyle = { minWidth: 0, flex: '1 1 auto', overflow: 'hidden', flexWrap: 'nowrap' } as const;
-const pageItemStyle = { whiteSpace: 'normal', overflowWrap: 'anywhere' } as const;
+const itemStyle = { whiteSpace: 'normal', overflowWrap: 'anywhere' } as const;
 
-export function PathCrumbs({ place }: { place: 'topbar' | 'page' }): JSX.Element {
-  const location = useLocation();
-  const crumbs = crumbsOf(location.pathname);
-  const inTopbar = place === 'topbar';
+function PathCrumbs({ pathname }: { pathname: string }): JSX.Element {
+  const crumbs = crumbsOf(pathname);
 
   return (
-    <Breadcrumbs
-      data-testid={`${place}-breadcrumbs`}
-      className={inTopbar ? controls.topbarCrumbs : controls.pageCrumbs}
-      separator="/"
-      style={inTopbar ? topbarStyle : undefined}
-    >
+    <Breadcrumbs data-testid="page-breadcrumbs" className={controls.pageCrumbs} separator="/" separatorMargin="xs">
       {crumbs.map((crumb, index) =>
         crumb.url === undefined ? (
           <Text
@@ -60,9 +49,8 @@ export function PathCrumbs({ place }: { place: 'topbar' | 'page' }): JSX.Element
             data-testid="crumb"
             data-current="true"
             size="sm"
-            fw={500}
-            truncate={inTopbar}
-            style={inTopbar ? undefined : pageItemStyle}
+            c="var(--scrawl-text)"
+            style={itemStyle}
           >
             {crumb.name}
           </Text>
@@ -75,7 +63,7 @@ export function PathCrumbs({ place }: { place: 'topbar' | 'page' }): JSX.Element
             to={crumb.url}
             size="sm"
             c="dimmed"
-            style={inTopbar ? undefined : pageItemStyle}
+            style={itemStyle}
           >
             {crumb.name}
           </Anchor>
@@ -85,18 +73,24 @@ export function PathCrumbs({ place }: { place: 'topbar' | 'page' }): JSX.Element
   );
 }
 
-// PageCrumbs is the path on a phone, where the topbar has no room left for it.
-// The root has no path to show, so it gets no row.
+// NoteCrumbs is the path alone, for the head of the card a note is read in.
+// The root has no path to show.
+export function NoteCrumbs(): JSX.Element | null {
+  const location = useLocation();
+  return contentPathOf(location.pathname) === '' ? null : <PathCrumbs pathname={location.pathname} />;
+}
+
+// PageCrumbs is the path as a row above a page that is not a note: a folder
+// and a note that does not exist yet
 export function PageCrumbs(): JSX.Element | null {
   const location = useLocation();
-  const wide = useAtLeast(layoutBreakpoints.compactTopbar);
 
-  if (wide || contentPathOf(location.pathname) === '') {
+  if (contentPathOf(location.pathname) === '') {
     return null;
   }
   return (
-    <Box mb="md" data-print="hide">
-      <PathCrumbs place="page" />
+    <Box mb="lg" data-print="hide">
+      <PathCrumbs pathname={location.pathname} />
     </Box>
   );
 }

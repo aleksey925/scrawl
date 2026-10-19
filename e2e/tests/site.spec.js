@@ -227,16 +227,19 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await expect(page.getByTestId('doc').locator('h1')).toHaveText('Home');
         });
 
-        test('a folder without an index is its listing, with its readme above', async ({page}) => {
+        test('a folder without an index is its listing, with its readme below', async ({page}) => {
             // act
             await page.goto(at('index.html'));
             await page.getByRole('link', {name: 'docs folder'}).click();
 
             // assert
             await expect(page).toHaveURL(at('docs/index.html'));
-            await expect(page.getByTestId('dir-title')).toHaveText('docs');
+            await expect(page.locator('[data-testid=crumb][data-current="true"]')).toHaveText('docs');
             await expect(page.getByTestId('doc')).toContainText('What the folder holds.');
             await expect(page.getByTestId('dir-row')).toHaveCount(4);
+            const list = await page.getByTestId('dir-table').boundingBox();
+            const readme = await page.getByTestId('doc').boundingBox();
+            expect(readme.y).toBeGreaterThan(list.y + list.height);
             await page.locator('[data-testid=dir-row][data-path="docs/guide.md"] [data-testid=dir-row-name]').click();
             await expect(page).toHaveURL(at('docs/guide.html'));
         });
@@ -258,7 +261,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
         test('the path leads back to the folders above', async ({page}) => {
             // arrange
             await page.goto(at('docs/deep/inner.html'));
-            const crumbs = page.getByTestId('topbar-breadcrumbs').getByTestId('crumb');
+            const crumbs = page.getByTestId('page-breadcrumbs').getByTestId('crumb');
             await expect(crumbs).toHaveText(['Home', 'docs', 'deep', 'inner.md']);
 
             // act
@@ -424,7 +427,6 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await page.goto(at('docs/deep/inner.html'));
 
             // assert
-            await expect(page.getByTestId('topbar-breadcrumbs')).toHaveCount(0);
             await expect(page.getByTestId('page-breadcrumbs').getByTestId('crumb')).toHaveText(['Home', 'docs', 'deep', 'inner.md']);
             const box = await page.getByTestId('topbar').boundingBox();
             expect(box.height).toBeLessThanOrEqual(56);

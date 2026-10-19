@@ -19,11 +19,17 @@ import { SpaceSwitcher } from './SpaceSwitcher';
 import { SyncControl } from './SyncControl';
 import type { TopbarChrome } from './Topbar';
 import { useMe } from './useMe';
+import { Wordmark } from './Wordmark';
 
 const extensions: ReaderExtensions = { DocumentExtras, RowMenu };
 
 const chrome: TopbarChrome = {
-  start: <SpaceSwitcher />,
+  start: (
+    <>
+      <Wordmark />
+      <SpaceSwitcher />
+    </>
+  ),
   wide: (
     <>
       <SyncControl />

@@ -2,11 +2,11 @@ import {
   ActionIcon, Anchor, Box, Group, Highlight, Menu, ScrollArea, Skeleton, Stack, Text, TextInput,
 } from '@mantine/core';
 import {
-  IconChevronRight, IconFile, IconFilePlus, IconFolder, IconFolderPlus, IconPlus, IconSearch, IconX,
+  IconFile, IconFilePlus, IconFolder, IconFolderOpen, IconFolderPlus, IconPlus, IconSearch, IconX,
 } from '@tabler/icons-react';
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
-  type CSSProperties, type DragEvent, type JSX, type KeyboardEvent, type MouseEvent,
+  type CSSProperties, type DragEvent, type JSX, type KeyboardEvent, type MouseEvent, type ReactNode,
 } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -21,16 +21,17 @@ import { useFileActions, useOptionalFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
 import { SyncBadge } from './SyncBadge';
 import { basenameOf, folderFor, parentOf } from './naming';
+import treeClasses from './Tree.module.css';
 import { filterTree, type FilteredTree } from './treeFilter';
+import { useLongPress } from './useLongPress';
 
 const iconSize = 16;
-// the height of the filter it stands beside
-const newEntrySize = 32;
-const deskRowHeight = 30;
-const deskTwistyWidth = 22;
-const touchTwistyWidth = 28;
-const chevronSize = 14;
-const indentStep = 14;
+const deskRowHeight = 32;
+// the box an entry's icon sits in, which for a folder is the button that
+// opens and closes it
+const deskIconBox = 22;
+const touchIconBox = 28;
+const indentStep = 18;
 
 // focusSettleMs is how long the draft row waits before it believes a blur.
 // Measured against mantine's menu, which returns focus to its trigger when it
@@ -82,6 +83,9 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
   const draft = useOptionalFileActions()?.draft;
   const { RowMenu } = useReaderExtensions();
   const ui = useTreeUi();
+  const [menuOpened, setMenuOpened] = useState(false);
+  const openMenu = useCallback(() => setMenuOpened(true), []);
+  const longPress = useLongPress(openMenu);
 
   // the space's own row: it is the folder everything else grows out of, so a
   // filter never hides it and nothing may drag it anywhere
@@ -103,9 +107,10 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
   return (
     <Box style={{ minWidth: 0 }}>
       <Group
-        gap={2}
+        gap={4}
         wrap="nowrap"
         data-testid="tree-row"
+        className={RowMenu === undefined ? treeClasses.row : `${treeClasses.row} ${treeClasses.pressable}`}
         data-current={current ? 'true' : 'false'}
         data-selected={picked ? 'true' : 'false'}
         data-drop={over ? 'true' : 'false'}
@@ -117,6 +122,17 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
         onDragOver={(event) => ui.overFolder(folderFor(node.path, node.is_dir), event)}
         onDragLeave={() => ui.leaveFolder(folderFor(node.path, node.is_dir))}
         onDrop={(event) => ui.dropOn(folderFor(node.path, node.is_dir), event)}
+        // the row's menu is its context menu too, and a site, which has no
+        // menu to offer, leaves the browser's own in place
+        {...(RowMenu === undefined
+          ? {}
+          : {
+              ...longPress,
+              onContextMenu: (event: MouseEvent) => {
+                event.preventDefault();
+                openMenu();
+              },
+            })}
         style={{
           minWidth: 0,
           minHeight: touch ? layout.tapTarget : deskRowHeight,
@@ -135,17 +151,19 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
             data-open={open ? 'true' : 'false'}
             variant="subtle"
             color="gray"
-            size={touch ? touchTwistyWidth : 'sm'}
+            size={touch ? touchIconBox : 'sm'}
             className={touch ? controls.twisty : undefined}
             style={{ flex: 'none' }}
             aria-label={`${open ? 'Collapse' : 'Expand'} ${node.name}`}
             aria-expanded={open}
             onClick={() => toggleFolder(node.path)}
           >
-            <IconChevronRight size={chevronSize} style={{ transform: open ? 'rotate(90deg)' : undefined }} />
+            {open ? <IconFolderOpen size={iconSize} /> : <IconFolder size={iconSize} />}
           </ActionIcon>
         ) : (
-          <Box w={touch ? touchTwistyWidth : deskTwistyWidth} style={{ flex: 'none' }} />
+          <EntryIcon touch={touch}>
+            <IconFile size={iconSize} />
+          </EntryIcon>
         )}
 
         <Anchor
@@ -155,66 +173,104 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
           underline="never"
           draggable={false}
           aria-current={current ? 'page' : undefined}
-          // a section label opens its folder page and expands the row; only the
-          // chevron beside it may collapse again
+          // a folder's label opens its page unfolded, and on that page folds
+          // and unfolds it; a filter holds open what matched, so there it is a link
           onClick={(event: MouseEvent) => {
             ui.pick(node.path, event);
-            if (node.is_dir && !event.defaultPrevented) {
-              openFolder(node.path);
+            if (!node.is_dir || query !== '' || event.defaultPrevented || event.metaKey || event.ctrlKey) {
+              return;
             }
+            if (current) {
+              event.preventDefault();
+              toggleFolder(node.path);
+              return;
+            }
+            openFolder(node.path);
           }}
           style={{ flex: '1 1 auto', minWidth: 0, color: 'inherit' }}
         >
-          <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
-            {node.is_dir ? (
-              <IconFolder size={iconSize} style={{ flex: 'none' }} />
-            ) : (
-              <IconFile size={iconSize} style={{ flex: 'none' }} />
-            )}
-            <Highlight
-              size="sm"
-              truncate
-              highlight={query === '' ? [] : query}
-              fw={current ? 600 : undefined}
-              c={current ? 'var(--scrawl-accent)' : undefined}
-              style={{ minWidth: 0 }}
-            >
-              {node.name}
-            </Highlight>
-          </Group>
+          <Highlight
+            size="sm"
+            truncate
+            highlight={query === '' ? [] : query}
+            fw={current ? 600 : undefined}
+            c={current ? 'var(--scrawl-accent)' : undefined}
+            style={{ minWidth: 0 }}
+          >
+            {node.name}
+          </Highlight>
         </Anchor>
 
         {/* outside the link, so the link's accessible name stays the note's
             name and the badge reads beside it */}
         <SyncBadge path={node.path} />
 
-        {RowMenu !== undefined && <RowMenu path={node.path} isDir={node.is_dir} name={node.name} touch={touch} />}
+        {RowMenu !== undefined && (
+          <RowMenu
+            path={node.path}
+            isDir={node.is_dir}
+            name={node.name}
+            touch={touch}
+            opened={menuOpened}
+            onOpenedChange={setMenuOpened}
+          />
+        )}
       </Group>
 
       {node.is_dir && open && (
-        <>
+        // the space's own row holds everything, and a line beside every row
+        // of the tree would say nothing
+        <div
+          data-testid="tree-children"
+          className={root ? undefined : treeClasses.children}
+          style={root ? undefined : ({ '--tree-guide-x': guideX(depth, touch) } as CSSProperties)}
+        >
           {drafting && <DraftRow depth={depth + 1} touch={touch} />}
           {!drafting && node.children.length === 0 && <EmptyRow depth={depth + 1} touch={touch} />}
           {node.children.length > 0 && (
             <TreeRows nodes={node.children} depth={depth + 1} filtered={filtered} query={query} touch={touch} />
           )}
-        </>
+        </div>
       )}
     </Box>
   );
 }
 
+// EntryIcon holds the icon of a row that is not a folder's button, in a box
+// of the same width, so every icon of one depth stands in one column
+function EntryIcon({ touch, children }: { touch: boolean; children?: ReactNode }): JSX.Element {
+  return (
+    <Box
+      w={touch ? touchIconBox : deskIconBox}
+      style={{ flex: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+    >
+      {children}
+    </Box>
+  );
+}
+
+// the glyph of the icon, not its box, starts on the phone's 16px line
+const touchIconOffset = (touchIconBox - iconSize) / 2;
+
 // on a phone a row runs from edge to edge, so its highlight has no edge of its
-// own to sit off the line the chevron, the menu glyph and the page text share
+// own to sit off the line the icon, the menu glyph and the page text share
 function rowInsets(depth: number, touch: boolean): CSSProperties {
   if (!touch) {
-    return { paddingLeft: depth * indentStep, paddingRight: 4, borderRadius: 'var(--mantine-radius-sm)' };
+    return { paddingLeft: depth * indentStep, paddingRight: 4, borderRadius: 'var(--mantine-radius-md)' };
   }
-  const chevronOffset = (touchTwistyWidth - chevronSize) / 2;
   return {
-    paddingLeft: `calc(var(--mantine-spacing-lg) - ${chevronOffset}px + ${depth * indentStep}px)`,
+    paddingLeft: `calc(var(--mantine-spacing-lg) - ${touchIconOffset}px + ${depth * indentStep}px)`,
     paddingRight: iconEdgeInset(rowMenuIconSize),
   };
+}
+
+// guideX is the middle of the icon of a folder at this depth, where the line
+// its open rows hang off is drawn
+function guideX(depth: number, touch: boolean): string {
+  if (!touch) {
+    return `${depth * indentStep + deskIconBox / 2}px`;
+  }
+  return `calc(var(--mantine-spacing-lg) - ${touchIconOffset}px + ${depth * indentStep + touchIconBox / 2}px)`;
 }
 
 function rowBackground(current: boolean, picked: boolean, over: boolean): string | undefined {
@@ -247,12 +303,12 @@ function TreeRows({ nodes, depth, filtered, query, touch }: RowsProps): JSX.Elem
 function EmptyRow({ depth, touch }: { depth: number; touch: boolean }): JSX.Element {
   return (
     <Group
-      gap={2}
+      gap={4}
       wrap="nowrap"
       data-testid="tree-empty"
       style={{ minWidth: 0, minHeight: touch ? layout.tapTarget : deskRowHeight, ...rowInsets(depth, touch) }}
     >
-      <Box w={touch ? touchTwistyWidth : deskTwistyWidth} style={{ flex: 'none' }} />
+      <EntryIcon touch={touch} />
       <Text size="sm" c="dimmed" fs="italic">
         No notes here
       </Text>
@@ -303,18 +359,15 @@ function DraftRow({ depth, touch }: { depth: number; touch: boolean }): JSX.Elem
 
   return (
     <Group
-      gap={2}
+      gap={4}
       wrap="nowrap"
       data-testid="tree-draft"
       data-entry={page ? 'file' : 'dir'}
       style={{ minWidth: 0, minHeight: touch ? layout.tapTarget : deskRowHeight, ...rowInsets(depth, touch) }}
     >
-      <Box w={touch ? touchTwistyWidth : deskTwistyWidth} style={{ flex: 'none' }} />
-      {page ? (
-        <IconFile size={iconSize} style={{ flex: 'none' }} />
-      ) : (
-        <IconFolder size={iconSize} style={{ flex: 'none' }} />
-      )}
+      <EntryIcon touch={touch}>
+        {page ? <IconFile size={iconSize} /> : <IconFolder size={iconSize} />}
+      </EntryIcon>
       <TextInput
         data-testid="tree-draft-input"
         ref={inputRef}
@@ -388,7 +441,7 @@ export function SidebarNav(): JSX.Element {
   const touch = useBelow(layoutBreakpoints.sidebar);
   // the drawer leaves its sides to this: its rows reach both edges and carry
   // their own insets, so the chevron's touch strip on a top-level row is whole
-  const gutter = touch ? 'lg' : 'xs';
+  const gutter = touch ? 'lg' : 'md';
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -631,7 +684,7 @@ export function SidebarNav(): JSX.Element {
               <ActionIcon
                 data-testid="sidebar-new"
                 variant="default"
-                size={touch ? layout.tapTarget : newEntrySize}
+                size={touch ? layout.tapTarget : layout.controlHeight}
                 style={{ flex: 'none' }}
                 aria-label="New file or folder"
               >

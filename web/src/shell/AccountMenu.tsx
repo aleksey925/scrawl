@@ -4,7 +4,7 @@ import type { JSX } from 'react';
 
 import { api } from '../api/client';
 import { goToLogin } from '../login';
-import { layout } from '../theme';
+import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { useNav } from './NavContext';
 import { ThemePicker } from './ThemePicker';
@@ -55,6 +55,7 @@ export function AccountItems(): JSX.Element {
 
 export function AccountMenu(): JSX.Element {
   const { me } = useNav();
+  const wide = useAtLeast(layoutBreakpoints.compactTopbar);
   const signedIn = me !== undefined && me.user !== '';
 
   return (
@@ -63,9 +64,9 @@ export function AccountMenu(): JSX.Element {
         <ActionIcon
           data-testid="topbar-account"
           data-signed-in={signedIn ? 'true' : 'false'}
-          variant="subtle"
+          variant={wide ? 'default' : 'subtle'}
           color="gray"
-          size="lg"
+          size={wide ? layout.controlHeight : 'lg'}
           aria-label="Account"
         >
           <IconUserCircle size={iconSize} />

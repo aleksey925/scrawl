@@ -263,7 +263,7 @@ func (b *siteBuilder) writeNote(notePath string) error {
 }
 
 // writeFolder writes the page of a folder the way /api/dir/ answers for it: its
-// index.md under the folder's own path, or the listing with its readme above.
+// index.md under the folder's own path, or the listing with its readme.
 func (b *siteBuilder) writeFolder(dir string) error {
 	entries, err := b.st.List(dir)
 	if err != nil {

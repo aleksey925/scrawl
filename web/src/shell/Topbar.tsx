@@ -7,7 +7,6 @@ import { usePlatform } from '../platform';
 import { iconEdgeInset, layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { MoreMenu } from './MoreMenu';
-import { PathCrumbs } from './PathCrumbs';
 import classes from './Topbar.module.css';
 
 // TopbarChrome is what the app adds to the bar. Without it the bar holds the
@@ -28,19 +27,19 @@ export interface TopbarProps {
   onOpenToc: () => void;
 }
 
-// on a phone the row holds only icons: the path moves to the top of the page
-// and everything that is not about the page moves into one menu
+// the path is on the page and not in the bar; on a phone the row holds only
+// icons, and everything that is not about the page moves into one menu
 export function Topbar({ burger, chrome, actionsRef, tocAvailable, onOpenToc }: TopbarProps): JSX.Element {
   const wide = useAtLeast(layoutBreakpoints.compactTopbar);
   const { search } = usePlatform();
 
   return (
-    <Group data-testid="topbar" h="100%" px={wide ? 'lg' : iconEdgeInset(layout.topbarIconSize)} gap={wide ? 'sm' : 0} wrap="nowrap">
+    <Group data-testid="topbar" h="100%" px={wide ? '2xl' : iconEdgeInset(layout.topbarIconSize)} gap={wide ? 'sm' : 0} wrap="nowrap">
       {burger}
 
       {chrome?.start}
 
-      {wide ? <PathCrumbs place="topbar" /> : <Box flex={1} />}
+      <Box flex={1} />
 
       <Group data-testid="topbar-actions" gap={wide ? 'xs' : 0} wrap="nowrap" ref={actionsRef} />
 

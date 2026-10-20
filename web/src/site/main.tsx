@@ -6,11 +6,11 @@ import '../global.css';
 import './site.css';
 
 import { MantineProvider } from '@mantine/core';
-import { Notifications } from '@mantine/notifications';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Route, Routes } from 'react-router';
 
+import { Toasts } from '../components/Toasts';
 import { mountNode } from '../mount';
 import { Component as DocumentPage } from '../pages/DocumentPage';
 import { Component as HomePage } from '../pages/HomePage';
@@ -63,7 +63,7 @@ createRoot(mountNode()).render(
       colorSchemeManager={themeColorSchemeManager()}
       defaultColorScheme="auto"
     >
-      <Notifications position="top-right" />
+      <Toasts />
       <PlatformProvider value={platform}>
         <SiteRouter route={page.route} root={root} store={store}>
           <NavProvider status={status}>

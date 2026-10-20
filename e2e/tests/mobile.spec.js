@@ -901,6 +901,10 @@ test.describe('mobile', () => {
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.linkCopied);
         const copied = await page.evaluate(() => window.copied);
+        const toast = await page.getByTestId('toast').boundingBox();
+        expect(Math.abs(toast.x + toast.width / 2 - page.viewportSize().width / 2)).toBeLessThan(2);
+        expect(toast.y).toBeLessThan(40);
+        await expect(page.getByTestId('toast').locator('.mantine-Notification-closeButton')).toHaveCount(0);
         expect(copied).toEqual([`copy:${new URL(MAIN.url.dir(docs.folder.path)).href}`]);
     });
 

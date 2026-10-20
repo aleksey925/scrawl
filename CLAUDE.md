@@ -420,6 +420,12 @@ vendor/                dependencies, checked in, `make deps` regenerates
   the tree. A blank screen read as a page that failed to load. The tree
   row says "no notes" and not "empty", because the tree lists only
   markdown and a folder of pictures is not empty.
+- A toast on a phone is the pill an app drops from the top for a word or
+  two: dark, centred under the status bar, as wide as its words, with a
+  check or a warning sign and no close button, coming down and fading in
+  and gone after 2.5 seconds. Mantine's card slid in sideways from the
+  edge and read as a web page. A desktop keeps the card at the top right.
+  `Toasts` draws both, for the app and for a site.
 - A touch screen has one scale of sizes, set once in the theme: a menu
   row and an icon button 44px, a labelled button and a field 40px, and a
   choice of a few, a segmented control or a chip beside one, 36px.

@@ -78,7 +78,7 @@ const saveStateText: Record<SaveState, string> = {
   saving: 'Saving',
   uploading: 'Waiting for the upload',
   dirty: 'Unsaved changes',
-  new: 'New page',
+  new: 'New note',
   saved: 'Saved',
 };
 

@@ -6,9 +6,9 @@ module.exports = {
     status: {
         saved: 'Saved',
         dirty: 'Unsaved changes',
-        // a page created in this session keeps saying "New page": the editor is
+        // a note created in this session keeps saying "New note": the editor is
         // told it is new when the route loads and never asked again
-        new: 'New page',
+        new: 'New note',
         saving: 'Saving',
         uploading: 'Waiting for the upload',
     },

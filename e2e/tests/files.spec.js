@@ -13,6 +13,8 @@ const PAGE = `${FOLDER}/testovaya-stranitsa.md`;
 const RENAMED = `${FOLDER}/pereimenovannaya.md`;
 const DRAGGED = ['e2e-drag-one.md', 'e2e-drag-two.md'];
 const ROOT_PAGE = 'e2e-root-page.md';
+const TYPED_FILE = 'E2eTyped.java';
+const DATED_PAGE = 'e2e-meeting-2024.10.21.md';
 const BLANK_FOLDER = 'e2e-fm-blank';
 const BLANK_PAGE = 'e2e-blank-page.md';
 const FULL_FOLDER = 'e2e-fm-full';
@@ -28,7 +30,7 @@ test.describe.serial('file management', () => {
         for (const folder of [FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER, LISTED_FOLDER]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
-        for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE]) {
+        for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE, TYPED_FILE, DATED_PAGE]) {
             fs.rmSync(fixtureFile(name), {force: true});
         }
     });
@@ -77,6 +79,59 @@ test.describe.serial('file management', () => {
         expect(fs.existsSync(fixtureFile(ROOT_PAGE))).toBe(true);
         await expect(page.locator(`[data-testid=tree-row][data-path="${ROOT_PAGE}"]`)).toHaveCount(1);
         await shot(page, 'files-root-page');
+    });
+
+    test('a name with an extension of its own makes that file, named as typed', async ({page}) => {
+        // arrange
+        await page.getByTestId('sidebar-section').hover();
+        await page.getByTestId('sidebar-section-new').click();
+
+        // act
+        await page.getByTestId('tree-draft-input').fill(TYPED_FILE);
+        await page.getByTestId('tree-draft-input').press('Enter');
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.edit(TYPED_FILE));
+        await expect(page.getByTestId('editor')).toHaveAttribute('data-kind', 'text');
+        expect(fs.existsSync(fixtureFile(TYPED_FILE))).toBe(true);
+        expect(fs.existsSync(fixtureFile(`${TYPED_FILE}.md`))).toBe(false);
+    });
+
+    test('a title with a date in it is still a note', async ({page}) => {
+        // arrange
+        await page.getByTestId('sidebar-section').hover();
+        await page.getByTestId('sidebar-section-new').click();
+
+        // act
+        await page.getByTestId('tree-draft-input').fill('E2E Meeting 2024.10.21');
+        await page.getByTestId('tree-draft-input').press('Enter');
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.edit(DATED_PAGE));
+        expect(fs.existsSync(fixtureFile(DATED_PAGE))).toBe(true);
+    });
+
+    test('a note renamed with an extension of its own becomes that file, and with a bare title stays a note', async ({page}) => {
+        // arrange
+        const note = `${FOLDER}/to-text.txt.md`;
+        writeFixture(note, 'text\n');
+        await page.goto(MAIN.url.dir(FOLDER));
+        const rename = async (from, to) => {
+            await page.locator(`[data-testid=tree-row][data-path="${from}"] [data-testid=tree-row-menu]`).click();
+            await page.getByTestId('tree-row-menu-rename').click();
+            await page.getByTestId('modal-path-input').fill(to);
+            await page.getByTestId('modal-submit').click();
+            await expect(page.locator('.mantine-Modal-title')).toHaveCount(0);
+        };
+
+        // act
+        await rename(note, `${FOLDER}/bare title`);
+        await rename(`${FOLDER}/bare title.md`, `${FOLDER}/to-text.txt`);
+
+        // assert
+        await expect.poll(() => fs.existsSync(fixtureFile(`${FOLDER}/to-text.txt`))).toBe(true);
+        expect([note, `${FOLDER}/bare title.md`, `${FOLDER}/to-text.txt.md`].filter((p) => fs.existsSync(fixtureFile(p))))
+            .toEqual([]);
     });
 
     test('creates a page inside the folder it was started from', async ({page}) => {

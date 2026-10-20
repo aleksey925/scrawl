@@ -88,7 +88,7 @@ export function TabBar(): JSX.Element | null {
               leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
               onClick={() => actions.createPage(here)}
             >
-              New note
+              New file
             </Menu.Item>
             <Menu.Item
               data-testid="new-menu-folder"

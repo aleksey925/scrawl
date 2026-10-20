@@ -181,7 +181,7 @@ function FolderMenu({ path, actions }: { path: string; actions: FileActions }): 
           leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
           onClick={() => actions.createPage(path)}
         >
-          New note
+          New file
         </Menu.Item>
         <Menu.Item
           data-testid="folder-menu-new-folder"

@@ -20,7 +20,7 @@ import { useReaderLayout } from './ReaderLayout';
 import { useNav } from './NavContext';
 import { NewEntryDialog } from './NewEntryDialog';
 import { useMutationState } from './useMutationState';
-import { basenameOf, joinPath } from './naming';
+import { basenameOf, hasOwnExtension, joinPath } from './naming';
 
 function conflictText(error: unknown, fallback: string): string {
   if (error instanceof ApiError && error.status === 409) {
@@ -35,10 +35,19 @@ function appUrl(path: string, isDir: boolean): string {
   return new URL(`${base}${route}`, window.location.origin).href;
 }
 
-// draftPath is what a typed name becomes. The slug rule is the store's, so a
-// page and the image dropped into it romanize the same word the same way, and
-// .md is added only when the name does not carry it already.
+// draftPath is what a typed name becomes. A title is a note: its slug, by the
+// store's rule so a page and the image dropped into it romanize the same word
+// the same way, with .md added. A name with an extension of its own is a file
+// named as typed: a slug would lowercase Main.java, which java will not compile.
 function draftPath(draft: TreeDraft, name: string): string {
+  if (draft.kind === 'file' && hasOwnExtension(name) && !isMarkdown(name.trim())) {
+    const typed = name
+      .split('/')
+      .map((part) => part.trim())
+      .filter((part) => part !== '')
+      .join('/');
+    return joinPath(draft.parent, typed);
+  }
   const slug = slugPath(name);
   if (slug === '') {
     return '';
@@ -297,9 +306,9 @@ function RenameDialog({ path, onClose, onRenamed }: RenameDialogProps): JSX.Elem
       setError('The new path has to hold a name.');
       return;
     }
-    // .md is what the tree, the search index and the page route all key on, so a rename
-    // that drops it leaves the page whole on disk and gone from the app
-    const to = isMarkdown(path) && !isMarkdown(typed) ? `${typed}.md` : typed;
+    // a note renamed to a bare title stays a note: a cleared field typed over
+    // with a new title dropped the .md and took the page off the tree
+    const to = isMarkdown(path) && !hasOwnExtension(typed) ? `${typed}.md` : typed;
     if (to === path) {
       onClose();
       return;

@@ -39,7 +39,7 @@ export function NewEntryDialog({ draft, onCreate, onClose }: NewEntryDialogProps
       size={320}
       radius="lg"
       withCloseButton={false}
-      title={page ? 'New note' : 'New folder'}
+      title={page ? 'New file' : 'New folder'}
       data-testid="new-entry"
     >
       <form onSubmit={submit}>
@@ -47,12 +47,17 @@ export function NewEntryDialog({ draft, onCreate, onClose }: NewEntryDialogProps
           data-testid="new-entry-name"
           data-autofocus
           size="md"
-          placeholder={page ? 'Name of the note' : 'Name of the folder'}
-          aria-label={page ? 'Name of the new note' : 'Name of the new folder'}
+          placeholder={page ? 'File name' : 'Folder name'}
+          aria-label={page ? 'Name of the new file' : 'Name of the new folder'}
           value={name}
           autoComplete="off"
           onChange={(event) => setName(event.currentTarget.value)}
         />
+        {page && (
+          <Text data-testid="new-entry-hint" size="sm" c="dimmed" mt={6}>
+            Without an extension it is a note
+          </Text>
+        )}
         {draft.parent !== '' && (
           <Text size="sm" c="dimmed" mt={6}>
             In {draft.parent}

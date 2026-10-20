@@ -46,3 +46,10 @@ export function folderFor(path: string, isDir: boolean): string {
 export function pageName(name: string, isDir: boolean): string {
   return isDir ? name : name.replace(/\.md$/i, '');
 }
+
+// hasOwnExtension says whether a name typed for a file carries an extension: a
+// dot and a word that starts with a letter, so the date or the version in a
+// title (Meeting 2024.10.21, v1.2) is not taken for one
+export function hasOwnExtension(name: string): boolean {
+  return /^[^.].*\.[a-z][a-z0-9]{0,15}$/i.test(basenameOf(name.trim()));
+}

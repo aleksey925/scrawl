@@ -267,9 +267,20 @@ vendor/                dependencies, checked in, `make deps` regenerates
   reader was looking at. Rows drag into folders, one or the whole picked
   run; a plain click picks, shift takes the range, and a modified click
   stays the browser's "open in a tab". On a phone there is no tree to
-  type into: the New tab opens a menu over itself, Note or Folder, and
-  the name is asked in a small dialog in the middle, the way a phone asks
-  for a new folder's name. A create started from a list asks the same.
+  type into: the New tab opens a menu over itself, New file or New
+  folder, and the name is asked in a small dialog in the middle, the way
+  a phone asks for a new folder's name, with a line saying a name without
+  an extension makes a note. A create started from a list asks the same.
+  Every place says New file, the tree, the menus and the dialog, since
+  one action makes a note or any file; the editor calls a new note a note.
+- A name typed for a file is a note unless it carries an extension of its
+  own: a title becomes its slug with `.md`, and `notes.txt` or
+  `Main.java` is that file, named as typed, case and all, since a slug
+  lowercased the class java names the file after. An extension is a dot
+  and a word starting with a letter, so the date or the version in a
+  title is not one. A rename takes the same rule: a note renamed to a
+  bare title stays a note, and one renamed with an extension becomes
+  that file, which the `.md` added to every name had made impossible.
 - On a phone the controls sit at the bottom, under the thumb: a bar of
   tabs (Notes, Search, Recent, New) and a round Edit button above it.
   Scrolling down puts the bar and the button away and scrolling up brings

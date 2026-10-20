@@ -1,0 +1,1 @@
+import{H as e,L as t,Lt as n,et as r}from"./naming-DI6sH7M8.js";import{t as i}from"./DirectoryView-DeTecFXM.js";import{t as a}from"./DocumentView-DltlJRO4.js";var o=n();function s(){let n=r()[`*`]??``;return t(n)?(0,o.jsx)(i,{path:e(n)}):(0,o.jsx)(a,{path:n})}export{s as Component};

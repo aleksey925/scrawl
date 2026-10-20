@@ -460,8 +460,11 @@ test.describe('mobile', () => {
 
         // act
         await page.getByTestId('tab-new').tap();
+        await expect(page.getByTestId('new-menu-note')).toHaveText('New file');
         await page.getByTestId('new-menu-note').tap();
         await expect(page.getByTestId('new-entry-name')).toBeFocused();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText('New file');
+        await expect(page.getByTestId('new-entry-hint')).toHaveText('Without an extension it is a note');
         await page.getByTestId('new-entry-name').fill('made on a phone');
         await shot(page, 'mobile-new-entry');
         await page.getByTestId('new-entry-create').tap();

@@ -98,7 +98,21 @@ vendor/                dependencies, checked in, `make deps` regenerates
   hover, so there the `⋯` always shows and the `+` never. The same menu
   is the row's context menu: a right click opens it, and on a tablet a
   long press, timed by the row because iOS sends no `contextmenu` for
-  one. A site has no menu to offer and leaves the browser's own.
+  one. A site has no menu to offer and leaves the browser's own. A phone
+  has no tree, so a row of a folder's list carries the same menu: a `⋯`
+  beside the row, which a link cannot hold, and a long press anywhere on
+  it. They feel the way iOS has them: the `⋯` leaves the row as it is,
+  and a resting finger shrinks the row a little, then lifts a copy of it
+  as a card over the dimmed and blurred page, with the menu growing out
+  of the card and hanging from the row's right edge, inside the page's
+  gutter, where a right thumb reaches it, as iOS's own lists hang it;
+  tied to the card's start it stood against the left edge. Closing the
+  menu sets the row back down. A row lit gray
+  while its menu was up read as a web page. React hands a press inside a
+  menu's portal up to the row it belongs to, so a long press only times
+  a press that started inside the row itself. A folder's list asks for
+  its answer again after every write the tree is refreshed for: it kept
+  showing a file deleted from the tree beside it.
 - Every screen is one white page in the room beside the sidebar, with no
   card around it, and 16px sides on a phone. A note is one column of one
   width, its tables and code included: 720px by default, as Notion has
@@ -386,7 +400,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
   the chip beside it. On a touch screen an open menu or popover has a
   clear ground under it that takes the tap closing it (`TapGuard`): the
   menu's own outside tap closed it on touchstart, and the click went on
-  to the row underneath and opened the file there. A phone shows no keys,
+  to the row underneath and opened the file there. The guard closes only
+  on a tap that started on it: a long press opens a menu while the finger
+  is down, and lifting that finger sent the guard a click. On a touch
+  screen a menu grows out of the corner nearest what opened it, the
+  corner taken from where it was placed after any flip. A phone shows no keys,
   neither the list of shortcuts nor a key beside a menu row.
 - A touch screen answers a tap the way an app does. A pressed row or menu
   item darkens, a list row from edge to edge of the screen, and a tab, the

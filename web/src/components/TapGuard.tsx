@@ -1,6 +1,6 @@
 import { Overlay } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import type { JSX } from 'react';
+import { useRef, type JSX } from 'react';
 
 import classes from './TapGuard.module.css';
 
@@ -15,8 +15,27 @@ export function useTouchScreen(): boolean {
 // there, so on a touch screen the guard does the closing, on the click.
 export function TapGuard({ active, onClose }: { active: boolean; onClose: () => void }): JSX.Element | null {
   const touch = useTouchScreen();
+  // only a tap that started on the guard closes: a long press opens a menu
+  // while the finger is still down, and lifting it sent the guard a click
+  const pressed = useRef(false);
   if (!active || !touch) {
     return null;
   }
-  return <Overlay data-testid="tap-guard" fixed className={classes.guard} zIndex={299} onClick={onClose} />;
+  return (
+    <Overlay
+      data-testid="tap-guard"
+      fixed
+      className={classes.guard}
+      zIndex={299}
+      onPointerDown={() => {
+        pressed.current = true;
+      }}
+      onClick={() => {
+        if (pressed.current) {
+          pressed.current = false;
+          onClose();
+        }
+      }}
+    />
+  );
 }

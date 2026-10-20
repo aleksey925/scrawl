@@ -226,10 +226,18 @@
 .listRow {
   display: flex;
   align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--scrawl-border-light);
+}
+
+.listLink {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
   gap: 12px;
+  min-width: 0;
   min-height: 56px;
   padding-block: 8px;
-  border-bottom: 1px solid var(--scrawl-border-light);
   color: var(--scrawl-text);
   text-decoration: none;
 }
@@ -268,7 +276,8 @@
 }
 
 /* a pressed row darkens from edge to edge of the screen, past the page's
-   gutter, the way a row of an app's list does */
+   gutter, the way a row of an app's list does; a finger resting on it shrinks
+   it a little, the sign that holding on lifts it for its menu */
 @media (hover: none) {
   .row,
   .listRow {
@@ -276,14 +285,28 @@
   }
 
   .row:active,
-  .listRow:active {
+  .listRow:has(.listLink:active) {
     background: var(--scrawl-pressed);
     transition: var(--scrawl-press-in);
   }
 
-  .listRow:active {
+  .listRow:has(.listLink:active) {
     box-shadow:
       calc(-1 * var(--mantine-spacing-lg)) 0 var(--scrawl-pressed),
       var(--mantine-spacing-lg) 0 var(--scrawl-pressed);
   }
+
+  .listLink {
+    transition: transform 150ms ease-out;
+  }
+
+  .listRow[data-holding='true'] .listLink {
+    transform: scale(0.97);
+    transition: transform 400ms ease-out;
+  }
+}
+
+/* the lifted card stands where the row was, so the row itself steps aside */
+.listRow[data-lifted='true'] > * {
+  visibility: hidden;
 }

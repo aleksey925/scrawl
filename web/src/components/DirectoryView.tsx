@@ -27,7 +27,8 @@ export interface DirectoryViewProps {
 
 export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
   const { source } = usePlatform();
-  const state = useApi((signal) => source.dir(path, { signal }), [source, path], answerKeys.dir(path));
+  const { changes } = useNav();
+  const state = useApi((signal) => source.dir(path, { signal }), [source, path, changes], answerKeys.dir(path));
 
   return (
     <AsyncContent state={state} testId="dir" page>

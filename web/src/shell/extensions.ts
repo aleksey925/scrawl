@@ -1,4 +1,4 @@
-import { createContext, useContext, type ComponentType, type RefObject } from 'react';
+import { createContext, useContext, type ComponentType, type ReactElement, type RefObject } from 'react';
 
 import type { DocumentResponse, FilePageResponse } from '../api/types';
 import { layout } from '../theme';
@@ -15,6 +15,9 @@ export interface RowMenuProps {
   // on it opens the menu too
   opened: boolean;
   onOpenedChange: (opened: boolean) => void;
+  // target is what the menu opens from in place of the row's own button: a
+  // row lifted by a long press opens it from its own right edge
+  target?: ReactElement;
 }
 
 export interface DocumentExtrasProps {

@@ -64,6 +64,9 @@ export interface NavState {
   // of the store and drops every cached answer with it, me is one small read
   refreshNav: () => void;
   refreshMe: () => void;
+  // changes counts the refreshes of the tree, so a screen that lists what the
+  // tree holds asks again after a write made anywhere in the app
+  changes: number;
   isOpen: (path: string) => boolean;
   toggleFolder: (path: string) => void;
   openFolder: (path: string) => void;
@@ -181,6 +184,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       isUnsynced,
       refreshNav,
       refreshMe,
+      changes: token,
       isOpen,
       toggleFolder,
       openFolder,
@@ -189,7 +193,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
     }),
     [
       tree, nav.error, nav.loading, me, currentPath, sync, isUnsynced,
-      refreshNav, refreshMe, isOpen, toggleFolder, openFolder, query,
+      refreshNav, refreshMe, token, isOpen, toggleFolder, openFolder, query,
     ],
   );
 

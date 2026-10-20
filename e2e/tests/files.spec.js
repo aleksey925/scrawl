@@ -17,6 +17,7 @@ const BLANK_FOLDER = 'e2e-fm-blank';
 const BLANK_PAGE = 'e2e-blank-page.md';
 const FULL_FOLDER = 'e2e-fm-full';
 const JUNK_FOLDER = 'e2e-fm-junk';
+const LISTED_FOLDER = 'e2e-fm-listed';
 
 test.describe.serial('file management', () => {
     test.beforeEach(async ({page}) => {
@@ -24,7 +25,7 @@ test.describe.serial('file management', () => {
     });
 
     test.afterAll(() => {
-        for (const folder of [FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER]) {
+        for (const folder of [FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER, LISTED_FOLDER]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
         for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE]) {
@@ -212,6 +213,24 @@ test.describe.serial('file management', () => {
         await expect.poll(() => fs.existsSync(fixtureFile(RENAMED))).toBe(false);
         await expect(page.locator(`[data-testid=tree-row][data-path="${RENAMED}"]`)).toHaveCount(0);
         await shot(page, 'files-deleted');
+    });
+
+    test('a folder on screen drops a page deleted from the tree', async ({page}) => {
+        // arrange
+        const file = `${LISTED_FOLDER}/listed.md`;
+        writeFixture(file, '# Listed\n');
+        await page.goto(MAIN.url.dir(LISTED_FOLDER));
+        const listed = page.locator(`[data-testid=dir-row][data-path="${file}"]`);
+        await expect(listed).toBeVisible();
+
+        // act
+        await page.locator(`[data-testid=tree-row][data-path="${file}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-delete').click();
+        await page.getByTestId('modal-confirm').click();
+
+        // assert
+        await expect(listed).toHaveCount(0);
+        await expect(page).toHaveURL(MAIN.url.dir(LISTED_FOLDER));
     });
 
     // an empty note was a blank screen and an open empty folder a row with

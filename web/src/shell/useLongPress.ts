@@ -17,12 +17,22 @@ export interface LongPressHandlers {
 // useLongPress calls back when a finger or a pen rests on an element. iOS sends
 // no contextmenu for a long press, so the press is timed here; the click the
 // lifted finger sends afterwards is swallowed, or the row would also open.
-export function useLongPress(onLongPress: () => void): LongPressHandlers {
+// onHold hears when a finger starts resting and when it stops, by lifting,
+// moving off or having held long enough.
+export function useLongPress(onLongPress: () => void, onHold?: (holding: boolean) => void): LongPressHandlers {
   const timer = useRef<number | undefined>(undefined);
   const start = useRef<{ x: number; y: number } | undefined>(undefined);
   const fired = useRef(false);
 
+  const holdRef = useRef(onHold);
+  useEffect(() => {
+    holdRef.current = onHold;
+  });
+
   const cancel = useCallback(() => {
+    if (timer.current !== undefined) {
+      holdRef.current?.(false);
+    }
     window.clearTimeout(timer.current);
     timer.current = undefined;
     start.current = undefined;
@@ -33,14 +43,19 @@ export function useLongPress(onLongPress: () => void): LongPressHandlers {
   const onPointerDown = useCallback(
     (event: PointerEvent) => {
       fired.current = false;
-      if (event.pointerType === 'mouse') {
+      // react hands a press inside a menu in a portal up to the row the menu
+      // belongs to, and that press must not start timing the row
+      if (event.pointerType === 'mouse' || !event.currentTarget.contains(event.target as Node)) {
         return;
       }
       cancel();
       start.current = { x: event.clientX, y: event.clientY };
+      holdRef.current?.(true);
       timer.current = window.setTimeout(() => {
         fired.current = true;
         start.current = undefined;
+        timer.current = undefined;
+        holdRef.current?.(false);
         onLongPress();
       }, longPressMs);
     },

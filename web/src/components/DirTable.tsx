@@ -1,16 +1,19 @@
 import { IconArrowUp, IconChevronRight, IconClock, IconFileText, IconFolder, IconHash } from '../icons';
-import { useEffect, useRef, useState, type JSX, type KeyboardEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type JSX, type KeyboardEvent, type MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import type { DirEntry, EntryKind } from '../api/types';
 import { directoryUrl, isMarkdown } from '../paths';
 import { usePlatform } from '../platform';
+import { useReaderExtensions } from '../shell/extensions';
 import { parentOf } from '../shell/naming';
 import { SyncBadge } from '../shell/SyncBadge';
+import { useLongPress } from '../shell/useLongPress';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import classes from './DirTable.module.css';
 import { EntryIcon } from './EntryIcon';
+import { LiftedRow } from './LiftedRow';
 import { absoluteTime, fileSize, itemCount, shortDate, shortTime } from './formats';
 
 export interface DirTableProps {
@@ -195,20 +198,80 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
       {entry.is_dir && <IconChevronRight size={layout.iconSizeSmall} aria-hidden className={classes.listChevron} />}
     </>
   );
-  const props = {
-    'data-testid': 'dir-row',
-    'data-path': entry.path,
-    'data-dir': entry.is_dir ? 'true' : 'false',
-    className: classes.listRow,
-  };
-  return routed ? (
-    <Link {...props} to={entry.url}>
+  const { RowMenu } = useReaderExtensions();
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [menuOpened, setMenuOpened] = useState(false);
+  const [holding, setHolding] = useState(false);
+  const [lifted, setLifted] = useState<DOMRect | undefined>(undefined);
+  const lift = useCallback(() => setLifted(rowRef.current?.getBoundingClientRect()), []);
+  const longPress = useLongPress(lift, setHolding);
+  const link = routed ? (
+    <Link className={classes.listLink} to={entry.url}>
       {body}
     </Link>
   ) : (
-    <a {...props} href={href}>
+    <a className={classes.listLink} href={href}>
       {body}
     </a>
+  );
+
+  // the row's menu is the tree's: its button opens it, a long press or a right
+  // click anywhere on the row lifts the row and opens it from there, and a
+  // site, which has no menu to offer, leaves the row a link
+  return (
+    <>
+      <div
+        ref={rowRef}
+        data-testid="dir-row"
+        data-path={entry.path}
+        data-dir={entry.is_dir ? 'true' : 'false'}
+        data-holding={holding ? 'true' : 'false'}
+        data-lifted={lifted === undefined ? 'false' : 'true'}
+        className={classes.listRow}
+        {...(RowMenu === undefined
+          ? {}
+          : {
+              ...longPress,
+              onContextMenu: (event: MouseEvent) => {
+                event.preventDefault();
+                if (event.currentTarget.contains(event.target as Node)) {
+                  lift();
+                }
+              },
+            })}
+      >
+        {link}
+        {RowMenu !== undefined && (
+          <RowMenu
+            path={entry.path}
+            isDir={entry.is_dir}
+            name={entry.name}
+            touch
+            opened={menuOpened}
+            onOpenedChange={setMenuOpened}
+          />
+        )}
+      </div>
+      {RowMenu !== undefined && lifted !== undefined && (
+        <LiftedRow
+          rect={lifted}
+          onDropped={() => setLifted(undefined)}
+          menu={(card, opened, setOpened) => (
+            <RowMenu
+              path={entry.path}
+              isDir={entry.is_dir}
+              name={entry.name}
+              touch
+              opened={opened}
+              onOpenedChange={setOpened}
+              target={card}
+            />
+          )}
+        >
+          <div className={classes.listLink}>{body}</div>
+        </LiftedRow>
+      )}
+    </>
   );
 }
 

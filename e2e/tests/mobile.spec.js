@@ -40,12 +40,21 @@ async function tooSmall(page, selector, min = MIN_TAP) {
     }, [selector, min]);
 }
 
+// openedMenu waits for a menu to be up and done growing: a phone's menu grows
+// out of what opened it, and measured on the way it is half its size
+async function openedMenu(page, testId) {
+    const menu = page.getByTestId(testId);
+    await expect(menu).toBeVisible();
+    await expect.poll(() => menu.evaluate((el) => getComputedStyle(el).transform))
+        .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+}
+
 // openSpaceMenu opens the menu of the space, which on a phone heads the root
 // list in the top bar
 async function openSpaceMenu(page) {
     await page.goto(routes.home());
     await page.getByTestId('space-menu').tap();
-    await expect(page.getByTestId('space-menu-dropdown')).toBeVisible();
+    await openedMenu(page, 'space-menu-dropdown');
 }
 
 // boxOf is where an element sits on the screen, in whole pixels
@@ -184,6 +193,107 @@ test.describe('mobile', () => {
         });
     });
 
+    test.describe('the menu of a row in a folder', () => {
+        const FOLDER = 'e2e-mobile/menu';
+        const rowOf = (page, path) => page.locator(`[data-testid=dir-row][data-path="${path}"]`);
+
+        test('a long press lifts the row, opens its menu from it, and Delete takes the file away', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/drop-me.md`;
+            writeFixture(file, '# Drop me\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            const box = await rowOf(page, file).boundingBox();
+            const cdp = await page.context().newCDPSession(page);
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {
+                type: 'touchStart', touchPoints: [{x: box.x + 80, y: box.y + box.height / 2}],
+            });
+            await page.waitForTimeout(700);
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+
+            // assert
+            await expect(page.getByTestId('tree-row-menu-dropdown')).toBeVisible();
+            await expect(page.getByTestId('row-lift')).toContainText('drop-me.md');
+            await expect(rowOf(page, file)).toHaveAttribute('data-lifted', 'true');
+            await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+            await shot(page, 'mobile-row-menu');
+            await page.getByTestId('tree-row-menu-delete').tap();
+            await expect(page.getByTestId('row-lift')).toHaveCount(0);
+            await page.getByTestId('modal-confirm').tap();
+            await expect(rowOf(page, file)).toHaveCount(0);
+            expect(fs.existsSync(fixtureFile(file))).toBe(false);
+        });
+
+        test('the menu of a lifted row hangs at the row\'s right edge wherever the finger rests', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/hang-right.md`;
+            writeFixture(file, '# Hang right\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            const cdp = await page.context().newCDPSession(page);
+            const width = page.viewportSize().width;
+            const row = await rowOf(page, file).boundingBox();
+            const rightAfterLift = async (x) => {
+                await cdp.send('Input.dispatchTouchEvent', {
+                    type: 'touchStart', touchPoints: [{x, y: row.y + row.height / 2}],
+                });
+                await page.waitForTimeout(700);
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+                await openedMenu(page, 'tree-row-menu-dropdown');
+                const menu = await page.getByTestId('tree-row-menu-dropdown').boundingBox();
+                await page.touchscreen.tap(width / 2, 60);
+                await expect(page.getByTestId('row-lift')).toHaveCount(0);
+                return Math.round(menu.x + menu.width);
+            };
+
+            // act
+            const fromLeft = await rightAfterLift(40);
+            const fromRight = await rightAfterLift(width - 40);
+
+            // assert
+            expect([fromLeft, fromRight]).toEqual([Math.round(row.x + row.width), Math.round(row.x + row.width)]);
+        });
+
+        test('a tap beside a lifted row sets it back down and opens nothing', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/lift-me.md`;
+            writeFixture(file, '# Lift me\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            const box = await rowOf(page, file).boundingBox();
+            const cdp = await page.context().newCDPSession(page);
+            await cdp.send('Input.dispatchTouchEvent', {
+                type: 'touchStart', touchPoints: [{x: box.x + 80, y: box.y + box.height / 2}],
+            });
+            await page.waitForTimeout(700);
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+            await expect(page.getByTestId('row-lift')).toBeVisible();
+
+            // act
+            await page.touchscreen.tap(30, 120);
+
+            // assert
+            await expect(page.getByTestId('row-lift')).toHaveCount(0);
+            await expect(rowOf(page, file)).toHaveAttribute('data-lifted', 'false');
+            await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+        });
+
+        test('opens from the row\'s own button, which leaves the row as it is', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/keep-me.md`;
+            writeFixture(file, '# Keep me\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+
+            // act
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+
+            // assert
+            await expect(page.getByTestId('tree-row-menu-dropdown')).toBeVisible();
+            await expect(page.getByTestId('tree-row-menu-rename')).toBeVisible();
+            await expect(page.getByTestId('row-lift')).toHaveCount(0);
+            await expect(rowOf(page, file)).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+        });
+    });
+
     test('a long press on the chrome selects nothing, and the text of a note still selects', async ({page}) => {
         // act
         await page.goto(routes.doc(DOC));
@@ -244,7 +354,7 @@ test.describe('mobile', () => {
         await page.getByTestId('note-menu').tap();
 
         // assert
-        await expect(page.getByTestId('note-menu-dropdown')).toBeVisible();
+        await openedMenu(page, 'note-menu-dropdown');
         const button = await boxOf(page, 'note-menu');
         const menu = await boxOf(page, 'note-menu-dropdown');
         expect(menu.top).toBeGreaterThanOrEqual(button.bottom);
@@ -275,7 +385,7 @@ test.describe('mobile', () => {
         const row = page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`);
         await expect(row).toBeVisible();
         await page.getByTestId('folder-menu').tap();
-        await expect(page.getByTestId('folder-menu-dropdown')).toBeVisible();
+        await openedMenu(page, 'folder-menu-dropdown');
         const box = await row.boundingBox();
 
         // act
@@ -775,7 +885,7 @@ test.describe('mobile', () => {
 
         await page.goto(routes.doc(DOC));
         await page.getByTestId('note-menu').tap();
-        await expect(page.getByTestId('note-menu-dropdown')).toBeVisible();
+        await openedMenu(page, 'note-menu-dropdown');
         await shot(page, 'mobile-note-menu');
         expect(await tooSmall(page, '[role=menuitem]'), 'the note menu').toEqual([]);
     });

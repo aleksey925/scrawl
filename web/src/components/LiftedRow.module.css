@@ -1,0 +1,36 @@
+/* a row lifted by a long press: the page behind dimmed and blurred, the row a
+   card over it at its own place, the way iOS lifts a row for its menu */
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  touch-action: none;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--scrawl-overlay);
+  opacity: 0.55;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.card {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: var(--scrawl-popover);
+  box-shadow: var(--scrawl-shadow-large);
+}
+
+/* the menu opens from a line down the row's right edge, so it hangs at the
+   right inside the page's gutter, where a right thumb reaches it, as iOS hangs
+   the menu of a row */
+.mark {
+  position: fixed;
+  width: 1px;
+  pointer-events: none;
+}

@@ -14,7 +14,7 @@ import { useNav } from './NavContext';
 import { parentOf } from './naming';
 
 export function RowMenu({
-  path, isDir, name, touch, opened, onOpenedChange: setOpened,
+  path, isDir, name, touch, opened, onOpenedChange: setOpened, target,
 }: RowMenuProps): JSX.Element {
   const navigate = useNavigate();
   const { canWrite } = useNav();
@@ -39,20 +39,30 @@ export function RowMenu({
   const open = (): void => void navigate(isDir ? directoryUrl(path) : documentUrl(path));
 
   return (
-    <PopupMenu opened={opened} onChange={setOpened} position="bottom-end" withinPortal shadow="md" width={200}>
+    <PopupMenu
+      opened={opened}
+      onChange={setOpened}
+      position="bottom-end"
+      offset={target === undefined ? undefined : 8}
+      withinPortal
+      shadow="md"
+      width={200}
+    >
       <Menu.Target>
-        <ActionIcon
-          data-testid="tree-row-menu"
-          data-path={path}
-          data-opened={opened ? 'true' : 'false'}
-          variant="subtle"
-          color="gray"
-          size={touch ? 'lg' : 'sm'}
-          style={{ flex: 'none' }}
-          aria-label={`Actions for ${name}`}
-        >
-          <IconDots size={rowMenuIconSize} />
-        </ActionIcon>
+        {target ?? (
+          <ActionIcon
+            data-testid="tree-row-menu"
+            data-path={path}
+            data-opened={opened ? 'true' : 'false'}
+            variant="subtle"
+            color="gray"
+            size={touch ? 'lg' : 'sm'}
+            style={{ flex: 'none' }}
+            aria-label={`Actions for ${name}`}
+          >
+            <IconDots size={rowMenuIconSize} />
+          </ActionIcon>
+        )}
       </Menu.Target>
 
       <Menu.Dropdown data-testid="tree-row-menu-dropdown">

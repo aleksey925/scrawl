@@ -475,6 +475,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
   under it and under the focus; a touch screen has no hover, so there it
   always shows. Copy takes the text of the `pre` and nothing else, so
   the head is never inside it.
+- Every copy goes through `copyText` in `web/src/reader/clipboard.ts`,
+  never `navigator.clipboard` alone: a phone that opens the server by its
+  address on the network is on plain http, where the page has no
+  clipboard api, and Copy link failed there while it worked on
+  localhost.
 - A panel that covers the page is mantine's `Drawer`, which owns the
   `inert` behind it, the focus it took and which single panel is up. The
   drawer and the outline sheet once each ran their own copy of that over

@@ -11,6 +11,7 @@ import { ApiError } from '../api/errors';
 import type { EntryKind, EntryPathResponse } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
+import { copyText } from '../reader/clipboard';
 import { directoryUrl, documentUrl, editUrl, isMarkdown, slugPath } from '../paths';
 import { layoutBreakpoints, useBelow } from '../theme';
 import { showToast } from '../toast';
@@ -68,10 +69,9 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const [naming, setNaming] = useState<TreeDraft | undefined>(undefined);
 
   const copyLink = useCallback(async (path: string, isDir: boolean): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(appUrl(path, isDir));
+    if (await copyText(appUrl(path, isDir))) {
       showToast('ok', { message: 'Link copied' });
-    } catch {
+    } else {
       showToast('error', { message: 'Could not copy the link' });
     }
   }, []);

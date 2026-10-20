@@ -880,6 +880,30 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('space-menu')).toBeVisible();
     });
 
+    test('Copy link copies on a plain http address, where the page has no clipboard api', async ({page}) => {
+        // arrange
+        await page.addInitScript(() => {
+            Object.defineProperty(navigator, 'clipboard', {value: undefined});
+            window.copied = [];
+            document.execCommand = (command) => {
+                const field = document.activeElement;
+                window.copied.push(`${command}:${field.value.slice(field.selectionStart, field.selectionEnd)}`);
+                return true;
+            };
+        });
+        await page.goto(routes.home());
+        const row = page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`);
+
+        // act
+        await row.getByTestId('tree-row-menu').tap();
+        await page.getByTestId('tree-row-menu-copy-link').tap();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.linkCopied);
+        const copied = await page.evaluate(() => window.copied);
+        expect(copied).toEqual([`copy:${new URL(MAIN.url.dir(docs.folder.path)).href}`]);
+    });
+
     test('the menu switches the theme and names the account', async ({page}) => {
         await openSpaceMenu(page);
         await shot(page, 'mobile-more-menu');

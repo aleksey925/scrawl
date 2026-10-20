@@ -1,0 +1,1 @@
+import{Lt as e}from"./naming-DI6sH7M8.js";import{t}from"./DirectoryView-CnT6gENJ.js";var n=e();function r(){return(0,n.jsx)(t,{path:``})}export{r as Component};

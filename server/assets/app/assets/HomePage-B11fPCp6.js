@@ -1,1 +1,0 @@
-import{Lt as e}from"./naming-DI6sH7M8.js";import{t}from"./DirectoryView-DeTecFXM.js";var n=e();function r(){return(0,n.jsx)(t,{path:``})}export{r as Component};

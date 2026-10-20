@@ -80,6 +80,10 @@ export const layout = {
   controlHeight: 28,
   controlHeightLarge: 36,
   tapTarget: 44,
+  // on a touch screen: a button or a field, and a choice of a few, each one
+  // height wherever it stands, so nothing beside it looks bigger or smaller
+  touchControl: 40,
+  touchChoice: 36,
   tabBarHeight: 56,
   editButtonSize: 54,
   inputFontSize: 16,
@@ -182,6 +186,8 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-topbar-height': `${layout.topbarHeight}px`,
   '--scrawl-row-height': `${layout.rowHeight}px`,
   '--scrawl-tap-target': `${layout.tapTarget}px`,
+  '--scrawl-touch-control': `${layout.touchControl}px`,
+  '--scrawl-touch-choice': `${layout.touchChoice}px`,
   '--scrawl-control-height': `${layout.controlHeight}px`,
   '--scrawl-control-height-large': `${layout.controlHeightLarge}px`,
   '--scrawl-input-font-size': `${layout.inputFontSize}px`,
@@ -274,7 +280,7 @@ export const theme: MantineThemeOverride = createTheme({
   components: {
     ActionIcon: ActionIcon.extend({ classNames: { root: `${controls.tapTarget} ${controls.actionIcon}` } }),
     Burger: Burger.extend({ classNames: { root: `${controls.tapTarget} ${controls.burger}` } }),
-    Button: Button.extend({ classNames: { root: `${controls.tapTarget} ${controls.button}` } }),
+    Button: Button.extend({ classNames: { root: controls.button } }),
     CloseButton: CloseButton.extend({ classNames: { root: controls.tapTarget } }),
     Input: Input.extend({ classNames: { wrapper: controls.input, input: controls.inputField } }),
     Menu: Menu.extend({

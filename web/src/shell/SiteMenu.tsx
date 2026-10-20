@@ -2,12 +2,13 @@ import { ActionIcon, Menu, Text } from '@mantine/core';
 import { IconDots, IconKeyboard, IconListSearch } from '../icons';
 import type { JSX } from 'react';
 
-import { SheetMenu } from '../components/SheetMenu';
+import { PopupMenu } from '../components/PopupMenu';
 import { layout } from '../theme';
 
 import { useNav } from './NavContext';
 import { PageWidthControl } from './PageWidthControl';
 import { useReaderLayout } from './ReaderLayout';
+import { useKeyboardPlace } from './shortcuts';
 import { SpaceButton } from './SpaceButton';
 import { ThemePicker } from './ThemePicker';
 
@@ -17,10 +18,11 @@ import { ThemePicker } from './ThemePicker';
 export function SiteMenu({ dots = false }: { dots?: boolean }): JSX.Element {
   const { me } = useNav();
   const { openShortcuts, openOutline } = useReaderLayout();
+  const keyboard = useKeyboardPlace();
   const name = me?.site_title ?? 'Notes';
 
   return (
-    <SheetMenu position="bottom-start" width={280} withinPortal closeOnItemClick>
+    <PopupMenu position="bottom-start" width={280} withinPortal closeOnItemClick>
       <Menu.Target>
         {dots ? (
           <ActionIcon data-testid="site-menu" variant="subtle" color="gray" size="lg" aria-label="Theme and outline">
@@ -43,15 +45,17 @@ export function SiteMenu({ dots = false }: { dots?: boolean }): JSX.Element {
         <ThemePicker />
         {!dots && <PageWidthControl />}
         <Menu.Divider />
-        <Menu.Item
-          data-testid="space-menu-shortcuts"
-          leftSection={<IconKeyboard size={layout.iconSizeSmall} />}
-          rightSection={<Text size="xs" c="dimmed">?</Text>}
-          onClick={openShortcuts}
-        >
-          Keyboard shortcuts
-        </Menu.Item>
+        {keyboard && (
+          <Menu.Item
+            data-testid="space-menu-shortcuts"
+            leftSection={<IconKeyboard size={layout.iconSizeSmall} />}
+            rightSection={<Text size="xs" c="dimmed">?</Text>}
+            onClick={openShortcuts}
+          >
+            Keyboard shortcuts
+          </Menu.Item>
+        )}
       </Menu.Dropdown>
-    </SheetMenu>
+    </PopupMenu>
   );
 }

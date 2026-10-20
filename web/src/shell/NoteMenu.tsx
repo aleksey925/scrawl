@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 
 import type { DocumentResponse } from '../api/types';
 import { absoluteTime } from '../components/formats';
-import { SheetMenu } from '../components/SheetMenu';
+import { PopupMenu } from '../components/PopupMenu';
 import { IconDots, IconEdit, IconHistory, IconLink, IconListSearch, IconSearch, IconTrash } from '../icons';
 import { useFindControl } from '../reader/findControl';
 import { historyUrl } from '../paths';
@@ -15,6 +15,7 @@ import { useFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
 import classes from './NoteMenu.module.css';
 import { PageWidthControl } from './PageWidthControl';
+import { useKeyboardPlace } from './shortcuts';
 import { useReaderLayout } from './ReaderLayout';
 
 const apple = /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent);
@@ -38,11 +39,12 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
   const find = useFindControl();
   const { openOutline } = useReaderLayout();
   const wide = useAtLeast(layoutBreakpoints.sidebar);
+  const keyboard = useKeyboardPlace();
   const [opened, setOpened] = useState(false);
   const words = useMemo(() => (opened ? wordsOf(doc.html) : 0), [opened, doc.html]);
 
   return (
-    <SheetMenu position="bottom-end" width={260} withinPortal opened={opened} onChange={setOpened}>
+    <PopupMenu position="bottom-end" width={260} withinPortal opened={opened} onChange={setOpened}>
       <Menu.Target>
         <ActionIcon data-testid="note-menu" variant="subtle" color="gray" size="lg" aria-label="More actions">
           <IconDots size={layout.iconSize} />
@@ -64,7 +66,7 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
           <Menu.Item
             data-testid="note-menu-find"
             leftSection={<IconSearch size={layout.iconSizeSmall} />}
-            rightSection={<span className={classes.keys}>{findKeys}</span>}
+            rightSection={keyboard && <span className={classes.keys}>{findKeys}</span>}
             onClick={find.open}
           >
             Find in note
@@ -120,6 +122,6 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
           )}
         </Text>
       </Menu.Dropdown>
-    </SheetMenu>
+    </PopupMenu>
   );
 }

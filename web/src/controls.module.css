@@ -117,9 +117,15 @@
     font-size: var(--scrawl-input-font-size);
   }
 
-  /* a field is as tall as the button beside it */
+  /* a touch screen has one height for a button and a field, and one for a
+     choice of a few, wherever they stand */
   .input {
-    --input-height-md: var(--scrawl-tap-target);
+    --input-height-sm: var(--scrawl-touch-control);
+    --input-height-md: var(--scrawl-touch-control);
+  }
+
+  .button {
+    min-height: var(--scrawl-touch-control);
   }
 
   .tapTarget {
@@ -152,7 +158,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: var(--scrawl-tap-target);
+    min-height: calc(var(--scrawl-touch-choice) - 4px);
+    font-size: 13px;
   }
 
   /* a folder's icon sits against its name instead of in the middle of a 44px
@@ -175,32 +182,6 @@
   .pageCrumbs a {
     padding-block: calc((var(--scrawl-tap-target) - 1em) / 2);
     margin-block: calc((1em - var(--scrawl-tap-target)) / 2);
-  }
-}
-
-/* below the phone width a menu is a sheet from the bottom, never a small box
-   in a corner the thumb does not reach; the floating position mantine writes
-   inline is overruled */
-@mixin smaller-than $mantine-breakpoint-sm {
-  .menu {
-    position: fixed !important;
-    inset: auto 0 var(--scrawl-tabbar-space) !important;
-    width: auto !important;
-    max-height: 75dvh;
-    padding: 8px 8px calc(8px + var(--scrawl-sheet-inset));
-    overflow-y: auto;
-    border-radius: var(--mantine-radius-xl) var(--mantine-radius-xl) 0 0;
-    box-shadow: var(--scrawl-shadow-large);
-  }
-
-  .menuItem {
-    min-height: 48px;
-    padding-inline: var(--mantine-spacing-md);
-    font-size: 16px;
-  }
-
-  .menuLabel {
-    padding-inline: var(--mantine-spacing-md);
   }
 }
 
@@ -232,4 +213,9 @@
    keeps the page readable behind it */
 .overlay {
   --overlay-bg: var(--scrawl-overlay) !important;
+}
+
+/* a menu stays on a narrow screen whatever width it asked for */
+.menu {
+  max-width: calc(100vw - 16px);
 }

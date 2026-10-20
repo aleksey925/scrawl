@@ -726,7 +726,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
                   <ActionIcon
                     data-testid="editor-wrap"
                     className={classes.tool}
-                    variant={lineWrap.wrap ? 'light' : 'subtle'}
+                    variant="subtle"
                     color="gray"
                     aria-label="Wrap long lines"
                     aria-pressed={lineWrap.wrap}

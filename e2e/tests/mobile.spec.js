@@ -10,7 +10,11 @@ const {
 } = require('../support/helpers');
 const text = require('../support/text');
 
+// an icon and a menu row take a fingertip; a labelled button and a choice of
+// a few are a little lower, one height each wherever they stand
 const MIN_TAP = 44;
+const BUTTON_HEIGHT = 40;
+const CHOICE_HEIGHT = 36;
 const ROW_HEIGHT = 48;
 const DOC = docs.doc.path;
 const SCRATCH = 'e2e-mobile/zametka.md';
@@ -20,7 +24,7 @@ const HISTORY_DOC = `${HISTORY_FOLDER}/versions.md`;
 
 // tooSmall reports every element of a selector that is under the minimum touch
 // size, so a failure names the offender instead of giving a bare count
-async function tooSmall(page, selector) {
+async function tooSmall(page, selector, min = MIN_TAP) {
     return page.evaluate(([sel, min]) => {
         return Array.from(document.querySelectorAll(sel))
             .filter((el) => el.offsetParent !== null || el === document.activeElement)
@@ -33,7 +37,7 @@ async function tooSmall(page, selector) {
                 };
             })
             .filter((item) => item.w > 0 && (item.w < min || item.h < min));
-    }, [selector, MIN_TAP]);
+    }, [selector, min]);
 }
 
 // openSpaceMenu opens the menu of the space, which on a phone heads the root
@@ -44,10 +48,13 @@ async function openSpaceMenu(page) {
     await expect(page.getByTestId('space-menu-dropdown')).toBeVisible();
 }
 
-// sheetEdges is where a menu drawn as a sheet sits: its sides and its bottom
-async function sheetEdges(page, testId) {
+// boxOf is where an element sits on the screen, in whole pixels
+async function boxOf(page, testId) {
     const box = await page.getByTestId(testId).boundingBox();
-    return {left: Math.round(box.x), right: Math.round(box.x + box.width), bottom: Math.round(box.y + box.height)};
+    return {
+        left: Math.round(box.x), top: Math.round(box.y),
+        right: Math.round(box.x + box.width), bottom: Math.round(box.y + box.height),
+    };
 }
 
 test.describe('mobile', () => {
@@ -129,19 +136,20 @@ test.describe('mobile', () => {
 
         // act
         await page.getByTestId('tab-new').tap();
-        await expect(page.getByTestId('new-sheet-name')).toBeVisible();
-        await page.getByTestId('new-sheet-name').fill('made on a phone');
-        await shot(page, 'mobile-new-sheet');
-        await page.getByTestId('new-sheet-create').tap();
+        await page.getByTestId('new-menu-note').tap();
+        await expect(page.getByTestId('new-entry-name')).toBeFocused();
+        await page.getByTestId('new-entry-name').fill('made on a phone');
+        await shot(page, 'mobile-new-entry');
+        await page.getByTestId('new-entry-create').tap();
 
         // assert
         await expect(page).toHaveURL(MAIN.url.edit(`${EMPTY_FOLDER}/made-on-a-phone.md`));
         expect(fs.existsSync(fixtureFile(`${EMPTY_FOLDER}/made-on-a-phone.md`))).toBe(true);
     });
 
-    // a menu in a corner of the top bar is out of reach of the thumb that holds
-    // the phone, so every menu is a sheet over the bottom of the screen
-    test('the note menu is a sheet from the bottom, above the tab bar', async ({page}) => {
+    // a menu opens beside the control that opened it, the way a phone's own
+    // menus do, and stays on the screen
+    test('the note menu opens under its button, on the screen', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
 
@@ -150,22 +158,45 @@ test.describe('mobile', () => {
 
         // assert
         await expect(page.getByTestId('note-menu-dropdown')).toBeVisible();
-        const bar = await page.getByTestId('tab-bar').boundingBox();
-        expect(await sheetEdges(page, 'note-menu-dropdown')).toEqual({
-            left: 0, right: page.viewportSize().width, bottom: Math.round(bar.y),
-        });
+        const button = await boxOf(page, 'note-menu');
+        const menu = await boxOf(page, 'note-menu-dropdown');
+        expect(menu.top).toBeGreaterThanOrEqual(button.bottom);
+        expect(menu.top - button.bottom).toBeLessThan(16);
+        expect([menu.left >= 0, menu.right <= page.viewportSize().width]).toEqual([true, true]);
         await expect(page.getByTestId('note-menu-find')).toBeVisible();
         await expect(page.getByTestId('note-menu-outline')).toBeVisible();
-        await shot(page, 'mobile-note-sheet');
+        await shot(page, 'mobile-note-menu-open');
     });
 
-    test('the space button opens the space menu as a sheet', async ({page}) => {
+    test('the space button opens the space menu under it', async ({page}) => {
         // act
         await openSpaceMenu(page);
 
         // assert
-        const sheet = await sheetEdges(page, 'space-menu-dropdown');
-        expect([sheet.left, sheet.right]).toEqual([0, page.viewportSize().width]);
+        const button = await boxOf(page, 'space-menu');
+        const menu = await boxOf(page, 'space-menu-dropdown');
+        expect(menu.top).toBeGreaterThanOrEqual(button.bottom);
+        expect(menu.left).toBeLessThan(page.viewportSize().width / 2);
+        await expect(page.getByTestId('space-menu-shortcuts')).toHaveCount(0);
+    });
+
+    // the tap that put a menu away went on to the row under it and opened
+    // the file there
+    test('a tap beside an open menu closes it and opens nothing', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(docs.folder.path));
+        const row = page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`);
+        await expect(row).toBeVisible();
+        await page.getByTestId('folder-menu').tap();
+        await expect(page.getByTestId('folder-menu-dropdown')).toBeVisible();
+        const box = await row.boundingBox();
+
+        // act
+        await page.touchscreen.tap(box.x + 20, box.y + box.height / 2);
+
+        // assert
+        await expect(page.getByTestId('folder-menu-dropdown')).toHaveCount(0);
+        await expect(page).toHaveURL(MAIN.url.dir(docs.folder.path));
     });
 
     test('the Edit button opens the editor', async ({page}) => {
@@ -195,9 +226,9 @@ test.describe('mobile', () => {
         await expect.poll(bottom).toBeLessThan(height);
     });
 
-    // the search ends above the bar, which stays live: a tap on a tab puts the
-    // search away first and then does what the tab does
-    test('the search leaves the tab bar on screen, and a tab closes it', async ({page}) => {
+    // the search takes the screen the way a phone's own does, and Cancel is
+    // the way back
+    test('the search takes the whole screen and Cancel puts it away', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
 
@@ -206,14 +237,18 @@ test.describe('mobile', () => {
 
         // assert
         await expect(page.getByTestId('search-input')).toBeVisible();
-        await expect(page.getByTestId('tab-search')).toHaveAttribute('data-current', 'true');
-        const dialog = await page.getByTestId('search-dialog').boundingBox();
-        const bar = await page.getByTestId('tab-bar').boundingBox();
-        expect(Math.round(dialog.y + dialog.height)).toBeLessThanOrEqual(Math.round(bar.y));
+        const dialog = await boxOf(page, 'search-dialog');
+        expect([dialog.top, dialog.bottom]).toEqual([0, page.viewportSize().height]);
+        await expect(page.getByTestId('search-footer')).not.toContainText('Select');
+        // the mode and the titles chip beside it are one height, not two
+        const mode = await boxOf(page, 'search-mode');
+        const titles = await boxOf(page, 'search-titles');
+        expect([mode.bottom - mode.top, titles.bottom - titles.top]).toEqual([CHOICE_HEIGHT, CHOICE_HEIGHT]);
+        await shot(page, 'mobile-search-open');
 
-        await page.getByTestId('tab-recent').tap();
+        await page.getByTestId('search-close').tap();
         await expect(page.getByTestId('search-dialog')).toHaveCount(0);
-        await expect(page).toHaveURL(MAIN.url.recent());
+        await expect(page).toHaveURL(MAIN.url.doc(DOC));
     });
 
     test('the bar shows the title of a note once its own has scrolled away', async ({page}) => {
@@ -410,6 +445,24 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('doc-heading-anchor').first()).toBeHidden();
     });
 
+    // the preview alone sat in a column as wide as its longest line, and the
+    // text ran off the right edge of the screen
+    test('the preview in the editor fits the screen', async ({page}) => {
+        // arrange
+        await page.goto(routes.edit(DOC));
+        await expect(page.getByTestId('editor-tabs')).toBeVisible();
+
+        // act
+        await page.getByTestId('editor-tab-preview').tap();
+
+        // assert
+        const doc = page.getByTestId('editor-preview').getByTestId('doc');
+        await expect(doc).toBeVisible();
+        const box = await doc.boundingBox();
+        expect(Math.round(box.x + box.width)).toBeLessThanOrEqual(page.viewportSize().width - 16);
+        expect(await doc.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    });
+
     test('the editor tabs are big enough to tap', async ({page}) => {
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
         await page.goto(routes.edit(SCRATCH));
@@ -516,7 +569,7 @@ test.describe('mobile', () => {
         const viewport = page.viewportSize().width;
         const box = await page.getByTestId('version-restore').boundingBox();
         expect(box.x + box.width, 'Restore reaches past the right edge').toBeLessThanOrEqual(viewport);
-        expect(await tooSmall(page, '[data-testid=version-restore]')).toEqual([]);
+        expect(await tooSmall(page, '[data-testid=version-restore]', BUTTON_HEIGHT)).toEqual([]);
 
         await page.getByTestId('version').nth(1).tap();
         await expect(page.locator('[data-testid=version][data-selected="true"]')).toHaveAttribute(
@@ -626,7 +679,8 @@ test.describe('mobile', () => {
         await openSpaceMenu(page);
         await expect(page.getByTestId('space-menu-theme')).toBeVisible();
         expect(await tooSmall(page, '[role=menuitem]'), 'the space menu').toEqual([]);
-        expect(await tooSmall(page, '[data-testid=space-menu-theme] label'), 'the theme picker').toEqual([]);
+        const themes = await page.getByTestId('space-menu-theme').boundingBox();
+        expect(Math.round(themes.height), 'the theme picker').toBe(CHOICE_HEIGHT);
         await page.keyboard.press('Escape');
 
         await page.goto(routes.doc(DOC));
@@ -670,22 +724,23 @@ test.describe('mobile', () => {
     });
 
     // a phone has no room for a name row, so a file started from the page is
-    // named in the sheet the New tab opens
-    test('a file started from an empty folder is named in a sheet', async ({page}) => {
+    // named in a small dialog
+    test('a file started from an empty folder is named in a dialog', async ({page}) => {
         // arrange
         fs.mkdirSync(fixtureFile(EMPTY_FOLDER), {recursive: true});
         await page.goto(routes.dir(EMPTY_FOLDER));
         await expect(page.getByTestId('dir-empty-title')).toHaveText(text.dir.empty);
         await shot(page, 'mobile-empty-folder');
-        expect(await tooSmall(page, '[data-testid=dir-empty] button')).toEqual([]);
+        expect(await tooSmall(page, '[data-testid=dir-empty] button', BUTTON_HEIGHT)).toEqual([]);
 
         // act
         await page.getByTestId('dir-empty-new-page').tap();
 
         // assert
-        await expect(page.getByTestId('new-sheet-name')).toBeInViewport();
-        await expect(page.getByTestId('new-sheet-name')).toBeFocused();
-        await expect(page.getByTestId('new-sheet-kind').getByRole('radio', {name: 'Note'})).toBeChecked();
+        await expect(page.getByTestId('new-entry-name')).toBeInViewport();
+        await expect(page.getByTestId('new-entry-name')).toBeFocused();
+        expect(await tooSmall(page, '[data-testid=new-entry-cancel], [data-testid=new-entry-create]', BUTTON_HEIGHT))
+            .toEqual([]);
     });
 
     test('the search is usable with the phone turned sideways', async ({page}) => {

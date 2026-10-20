@@ -27,3 +27,23 @@
 .banner:not(:empty) {
   padding: 12px 16px 0;
 }
+
+/* a sheet from the bottom is a card with round top corners, as tall as what it
+   holds and never past most of the screen, with its name in its head */
+.sheet {
+  flex: none !important;
+  width: 100%;
+  height: auto;
+  max-height: 75dvh;
+  border-radius: var(--mantine-radius-xl) var(--mantine-radius-xl) 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.sheetHead {
+  padding-block: 12px 4px;
+}
+
+.sheetTitle {
+  font-size: 16px;
+  font-weight: 600;
+}

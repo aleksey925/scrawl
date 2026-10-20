@@ -1,4 +1,4 @@
-import { CloseButton, Modal, SegmentedControl } from '@mantine/core';
+import { Modal, SegmentedControl } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconFileText, IconSearch } from '../icons';
 import {
@@ -179,36 +179,42 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
       shadow="lg"
       trapFocus
     >
-      <div data-testid="search-dialog" className={classes.dialog} style={phone ? { maxHeight: 'none', height: 'calc(100dvh - var(--scrawl-tabbar-space))' } : undefined}>
+      <div data-testid="search-dialog" className={classes.dialog} style={phone ? { maxHeight: 'none', height: '100dvh' } : undefined}>
         <div className={classes.inputRow}>
-          <IconSearch size={layout.iconSize} />
-          <input
-            data-testid="search-input"
-            className={classes.input}
-            value={text}
-            autoFocus
-            placeholder="Search the space"
-            aria-label="Search the space"
-            autoComplete="off"
-            spellCheck={false}
-            onChange={(event) => setText(event.currentTarget.value)}
-            onKeyDown={onKeyDown}
-          />
-          <div className={classes.toggles}>
-            <Toggle testId="search-case" label="Match case" on={settings.matchCase} disabled={!toggles}
-              onClick={() => setSettings({ ...settings, matchCase: !settings.matchCase })}>
-              Aa
-            </Toggle>
-            <Toggle testId="search-word" label="Whole word" on={settings.word} disabled={!toggles}
-              onClick={() => setSettings({ ...settings, word: !settings.word })}>
-              <u>ab</u>
-            </Toggle>
-            <Toggle testId="search-regex" label="Regular expression" on={settings.regex}
-              onClick={() => setSettings({ ...settings, regex: !settings.regex })}>
-              .*
-            </Toggle>
+          <div className={classes.field}>
+            <IconSearch size={layout.iconSize} />
+            <input
+              data-testid="search-input"
+              className={classes.input}
+              value={text}
+              autoFocus
+              placeholder="Search the space"
+              aria-label="Search the space"
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(event) => setText(event.currentTarget.value)}
+              onKeyDown={onKeyDown}
+            />
+            <div className={classes.toggles}>
+              <Toggle testId="search-case" label="Match case" on={settings.matchCase} disabled={!toggles}
+                onClick={() => setSettings({ ...settings, matchCase: !settings.matchCase })}>
+                Aa
+              </Toggle>
+              <Toggle testId="search-word" label="Whole word" on={settings.word} disabled={!toggles}
+                onClick={() => setSettings({ ...settings, word: !settings.word })}>
+                <u>ab</u>
+              </Toggle>
+              <Toggle testId="search-regex" label="Regular expression" on={settings.regex}
+                onClick={() => setSettings({ ...settings, regex: !settings.regex })}>
+                .*
+              </Toggle>
+            </div>
           </div>
-          {phone && <CloseButton data-testid="search-close" aria-label="Close the search" onClick={onClose} />}
+          {phone && (
+            <button type="button" data-testid="search-close" className={classes.cancel} onClick={onClose}>
+              Cancel
+            </button>
+          )}
         </div>
 
         <div className={classes.options}>
@@ -261,15 +267,19 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
         </div>
 
         <div data-testid="search-footer" className={classes.footer}>
-          <span>
-            <kbd>↑↓</kbd>Select
-          </span>
-          <span>
-            <kbd>↵</kbd>Open
-          </span>
-          <span>
-            <kbd>⌥F</kbd>Fuzzy or exact
-          </span>
+          {!phone && (
+            <>
+              <span>
+                <kbd>↑↓</kbd>Select
+              </span>
+              <span>
+                <kbd>↵</kbd>Open
+              </span>
+              <span>
+                <kbd>⌥F</kbd>Fuzzy or exact
+              </span>
+            </>
+          )}
           {answer.response !== undefined && query !== '' && (
             <span data-testid="search-stats" className={classes.stats}>
               {matches} {matches === 1 ? 'match' : 'matches'} in {hits.length} {hits.length === 1 ? 'note' : 'notes'},{' '}

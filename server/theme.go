@@ -61,7 +61,7 @@ func touchIconURL(version string, scheme theme.Scheme) string {
 	if scheme == theme.Dark {
 		name = "apple-touch-icon-dark.png"
 	}
-	return "/static/" + version + "/icons/" + name
+	return iconURL(version, "icons/"+name)
 }
 
 // themeOption is what the sign-in page's toggle knows of a theme.

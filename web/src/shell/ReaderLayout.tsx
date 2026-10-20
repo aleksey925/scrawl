@@ -193,8 +193,10 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
                   opened={tocOpened}
                   onClose={closeToc}
                   position="bottom"
-                  size="60%"
+                  size="auto"
                   padding="md"
+                  title="Outline"
+                  classNames={{ content: classes.sheet, header: classes.sheetHead, title: classes.sheetTitle }}
                 >
                   <div ref={setTocSlot} />
                 </Drawer>

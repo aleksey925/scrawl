@@ -4,12 +4,13 @@ import type { JSX } from 'react';
 
 import { api } from '../api/client';
 import { useApi } from '../api/useApi';
-import { SheetMenu } from '../components/SheetMenu';
+import { PopupMenu } from '../components/PopupMenu';
 import { goToLogin } from '../login';
 import { layout } from '../theme';
 
 import { useNav } from './NavContext';
 import { useReaderLayout } from './ReaderLayout';
+import { useKeyboardPlace } from './shortcuts';
 import { SpaceButton } from './SpaceButton';
 import { SpaceTile } from './SpaceTile';
 import { ThemePicker } from './ThemePicker';
@@ -26,6 +27,7 @@ async function signOut(): Promise<void> {
 export function SpaceMenu(): JSX.Element {
   const { me } = useNav();
   const { openShortcuts } = useReaderLayout();
+  const keyboard = useKeyboardPlace();
   const state = useApi((signal) => api.spaces({ signal }), []);
   const spaces = state.data ?? [];
   const current = me?.space;
@@ -33,7 +35,7 @@ export function SpaceMenu(): JSX.Element {
   const name = current?.label ?? me?.site_title ?? 'Notes';
 
   return (
-    <SheetMenu position="bottom-start" width={280} withinPortal>
+    <PopupMenu position="bottom-start" width={280} withinPortal>
       <Menu.Target>
         <SpaceButton name={name} aria-label={`${name}: spaces, theme and account`} />
       </Menu.Target>
@@ -88,14 +90,16 @@ export function SpaceMenu(): JSX.Element {
             Read-only mode
           </Menu.Item>
         )}
-        <Menu.Item
-          data-testid="space-menu-shortcuts"
-          leftSection={<IconKeyboard size={layout.iconSizeSmall} />}
-          rightSection={<Text size="xs" c="dimmed">?</Text>}
-          onClick={openShortcuts}
-        >
-          Keyboard shortcuts
-        </Menu.Item>
+        {keyboard && (
+          <Menu.Item
+            data-testid="space-menu-shortcuts"
+            leftSection={<IconKeyboard size={layout.iconSizeSmall} />}
+            rightSection={<Text size="xs" c="dimmed">?</Text>}
+            onClick={openShortcuts}
+          >
+            Keyboard shortcuts
+          </Menu.Item>
+        )}
         {signedIn ? (
           <Menu.Item
             data-testid="space-menu-signout"
@@ -119,6 +123,6 @@ export function SpaceMenu(): JSX.Element {
           </Menu.Item>
         )}
       </Menu.Dropdown>
-    </SheetMenu>
+    </PopupMenu>
   );
 }

@@ -28,7 +28,7 @@ func TestThemeOf(t *testing.T) {
 			{Color: light.BarColor(), Media: "(prefers-color-scheme: light)"},
 			{Color: dark.BarColor(), Media: "(prefers-color-scheme: dark)"},
 		},
-		TouchIcon: "/static/v1/icons/apple-touch-icon.png",
+		TouchIcon: "/static/v1/icons/apple-touch-icon.png?v=" + iconStamp(),
 	}
 
 	tests := []struct {
@@ -42,12 +42,12 @@ func TestThemeOf(t *testing.T) {
 		{name: "light", cookie: light.ID, expected: pageTheme{
 			ID: light.ID, Name: light.Name, Scheme: theme.Light,
 			BarColors: []barColor{{Color: light.BarColor()}},
-			TouchIcon: "/static/v1/icons/apple-touch-icon.png",
+			TouchIcon: "/static/v1/icons/apple-touch-icon.png?v=" + iconStamp(),
 		}},
 		{name: "dark", cookie: dark.ID, expected: pageTheme{
 			ID: dark.ID, Name: dark.Name, Scheme: theme.Dark,
 			BarColors: []barColor{{Color: dark.BarColor()}},
-			TouchIcon: "/static/v1/icons/apple-touch-icon-dark.png",
+			TouchIcon: "/static/v1/icons/apple-touch-icon-dark.png?v=" + iconStamp(),
 		}},
 	}
 
@@ -137,7 +137,7 @@ func TestTouchIconFollowsTheTheme(t *testing.T) {
 			if tc.theme != "" {
 				req.headers = map[string]string{"Cookie": themeCookie + "=" + tc.theme}
 			}
-			iconURL := "/static/" + ts.Version + "/icons/" + tc.icon
+			iconURL := "/static/" + ts.Version + "/icons/" + tc.icon + "?v=" + iconStamp()
 
 			// act
 			resp, body := ts.do(t, req)

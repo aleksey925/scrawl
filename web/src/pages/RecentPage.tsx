@@ -5,7 +5,7 @@ import { Link } from 'react-router';
 
 import { EmptyState } from '../components/EmptyState';
 import { Page, PageTitle } from '../components/Page';
-import { SheetMenu } from '../components/SheetMenu';
+import { PopupMenu } from '../components/PopupMenu';
 import { documentUrl } from '../paths';
 import { usePageChrome } from '../shell/PageChrome';
 import { useRecentNotes } from '../shell/recentNotes';
@@ -22,7 +22,7 @@ export function Component(): JSX.Element {
   return (
     <Page data-testid="recent">
       <PageActions>
-        <SheetMenu position="bottom-end" width={220} withinPortal>
+        <PopupMenu position="bottom-end" width={220} withinPortal>
           <Menu.Target>
             <ActionIcon data-testid="recent-menu" variant="subtle" color="gray" size="lg" aria-label="More actions">
               <IconDots size={layout.iconSize} />
@@ -38,7 +38,7 @@ export function Component(): JSX.Element {
               Clear the list
             </Menu.Item>
           </Menu.Dropdown>
-        </SheetMenu>
+        </PopupMenu>
       </PageActions>
 
       <PageTitle testId="recent-title">Recent</PageTitle>

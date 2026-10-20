@@ -1,1 +1,0 @@
-import{J as e}from"./naming-5KNf5Wb_.js";import{t}from"./DirectoryView-DoMhUulQ.js";var n=e();function r(){return(0,n.jsx)(t,{path:``})}export{r as Component};

@@ -1,3 +1,5 @@
+import { useMediaQuery } from '@mantine/hooks';
+
 // ownsShortcutsAttribute marks an element whose own keys outrank the app's: an
 // editor's keymap may leave a key unhandled, bold inside a code block, and the
 // sidebar must not toggle in the middle of typing
@@ -26,4 +28,11 @@ export function typingInto(target: EventTarget | null): boolean {
     target.tagName === 'TEXTAREA' ||
     target.tagName === 'SELECT'
   );
+}
+
+// useKeyboardPlace says whether the place is one with a keyboard to speak of:
+// a pointer that hovers. A phone gets no list of keys and no key beside a menu
+// row, which it has nothing to press with.
+export function useKeyboardPlace(): boolean {
+  return useMediaQuery('(hover: hover)', true, { getInitialValueInEffect: false });
 }

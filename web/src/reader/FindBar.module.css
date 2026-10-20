@@ -16,10 +16,56 @@
   color: var(--scrawl-icon-secondary);
 }
 
+/* a phone has no room for it all in a row: the field, the count and the close
+   on top, the toggles and the steps under them */
 @mixin smaller-than $mantine-breakpoint-sm {
   .bar {
     inset-inline: 8px;
+    flex-wrap: wrap;
+    row-gap: 0;
     width: auto;
+    height: auto;
+    padding: 2px 2px 2px 12px;
+  }
+
+  .icon {
+    order: 1;
+  }
+
+  .input {
+    order: 2;
+    flex: 1 1 auto;
+    height: 44px;
+  }
+
+  .count {
+    order: 3;
+  }
+
+  .close {
+    order: 4;
+  }
+
+  .bar .break {
+    display: block;
+    order: 5;
+    flex-basis: 100%;
+    height: 0;
+  }
+
+  .toggle {
+    order: 6;
+    height: 36px;
+    min-width: 40px;
+  }
+
+  .prev {
+    order: 7;
+    margin-inline-start: auto;
+  }
+
+  .next {
+    order: 8;
   }
 }
 
@@ -85,4 +131,19 @@
   .bar {
     display: none;
   }
+}
+
+.icon {
+  flex: none;
+}
+
+.break {
+  display: none;
+}
+
+/* a step with no match to go to is not a button to press */
+.prev:disabled,
+.next:disabled {
+  background: transparent;
+  color: var(--scrawl-text-faint);
 }

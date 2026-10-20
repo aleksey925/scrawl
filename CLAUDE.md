@@ -232,17 +232,20 @@ vendor/                dependencies, checked in, `make deps` regenerates
   create started from a list jumped to the tree, away from what the
   reader was looking at. Rows drag into folders, one or the whole picked
   run; a plain click picks, shift takes the range, and a modified click
-  stays the browser's "open in a tab". On a phone the New tab's sheet
-  creates it, in the folder on screen, and a create started from a list
-  opens that sheet too: there is no tree to type into.
+  stays the browser's "open in a tab". On a phone there is no tree to
+  type into: the New tab opens a menu over itself, Note or Folder, and
+  the name is asked in a small dialog in the middle, the way a phone asks
+  for a new folder's name. A create started from a list asks the same.
 - On a phone the controls sit at the bottom, under the thumb: a bar of
-  tabs (Notes, Search, Recent, New), a round Edit button above it and
-  every menu as a sheet from the bottom. Scrolling down puts the bar and
-  the button away and scrolling up brings them back. Nine controls and
-  the crumbs once shared one row on top, and the crumbs got 25px, wrapped
-  and fell over the note as a column. The search, the history and the
-  sheets end above the bar, which stays live: a tab closes what is up and
-  then does what it does. The editor has no bar, and a site has none.
+  tabs (Notes, Search, Recent, New) and a round Edit button above it.
+  Scrolling down puts the bar and the button away and scrolling up brings
+  them back. Nine controls and the crumbs once shared one row on top, and
+  the crumbs got 25px, wrapped and fell over the note as a column. A
+  menu opens beside the control that opened it, the way a phone's own
+  menus do; drawn as a sheet from the bottom, every menu sat apart from
+  its button. The search and the history take the whole screen and the
+  outline is a sheet, each over the bar. The editor has no bar, and a site
+  has none.
 - The formatter is prettier itself, run inside the binary: `format`
   embeds one wasm module holding prettier and QuickJS, built by javy,
   and wazero executes it with no cgo. No port of prettier to Go exists,
@@ -360,12 +363,16 @@ vendor/                dependencies, checked in, `make deps` regenerates
   the tree. A blank screen read as a page that failed to load. The tree
   row says "no notes" and not "empty", because the tree lists only
   markdown and a folder of pictures is not empty.
-- On a touch screen a menu row is 44px tall in 16px text, set once in the
-  theme for every `Menu`. Mantine's 26px rows put the theme and the space
-  three to a fingertip. Below the phone width the theme draws every menu
-  as a sheet from the bottom with 48px rows, and `SheetMenu` adds the
-  dimmed ground that takes the tap closing it, so no menu is written
-  twice.
+- A touch screen has one scale of sizes, set once in the theme: a menu
+  row and an icon button 44px, a labelled button and a field 40px, and a
+  choice of a few, a segmented control or a chip beside one, 36px.
+  Mantine's 26px menu rows put the theme and the space three to a
+  fingertip, and a choice drawn at the tap height stood twice as tall as
+  the chip beside it. On a touch screen an open menu or popover has a
+  clear ground under it that takes the tap closing it (`TapGuard`): the
+  menu's own outside tap closed it on touchstart, and the click went on
+  to the row underneath and opened the file there. A phone shows no keys,
+  neither the list of shortcuts nor a key beside a menu row.
 - The editor toolbar is a strip that moves sideways only and stops at its
   ends, and the editor screen takes the page's rubber band away. Left to
   the defaults the strip followed a finger up and down with the page

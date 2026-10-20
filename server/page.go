@@ -15,6 +15,7 @@ type LoginPage struct {
 	SiteTitle string
 	Version   string
 	Logo      template.HTML
+	Favicon   string
 	Theme     pageTheme
 	// Themes is every theme as JSON, for the toggle's script
 	Themes string

@@ -3,6 +3,7 @@ import { IconCloudOff } from '../icons';
 import { useState, type JSX } from 'react';
 import { Link } from 'react-router';
 
+import { TapGuard, useTouchScreen } from '../components/TapGuard';
 import { documentUrl } from '../paths';
 
 import { useNav } from './NavContext';
@@ -79,6 +80,7 @@ function SyncDetails({ onLeave }: { onLeave: () => void }): JSX.Element | null {
 export function SyncControl(): JSX.Element | null {
   const summary = useSyncSummary();
   const [opened, setOpened] = useState(false);
+  const touch = useTouchScreen();
   const wide = useAtLeast(layoutBreakpoints.compactTopbar);
 
   if (summary === undefined) {
@@ -86,7 +88,8 @@ export function SyncControl(): JSX.Element | null {
   }
 
   return (
-    <Popover position="bottom-end" width={320} withinPortal opened={opened} onChange={setOpened}>
+    <>
+    <Popover position="bottom-end" width={320} withinPortal floatingStrategy="fixed" opened={opened} onChange={setOpened} closeOnClickOutside={!touch}>
       <Popover.Target>
         {wide ? (
           <Button
@@ -121,5 +124,7 @@ export function SyncControl(): JSX.Element | null {
         <SyncDetails onLeave={() => setOpened(false)} />
       </Popover.Dropdown>
     </Popover>
+    <TapGuard active={opened} onClose={() => setOpened(false)} />
+    </>
   );
 }

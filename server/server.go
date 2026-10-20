@@ -6,7 +6,9 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -387,8 +389,8 @@ func (wb *Web) manifestHandler(w http.ResponseWriter, r *http.Request) {
 		ThemeColor:      theme.AutoTheme(theme.Light).BarColor(),
 		BackgroundColor: theme.AutoTheme(theme.Light).BarColor(),
 		Icons: []icon{
-			{Src: "/static/" + wb.Version + "/icons/icon-192.png", Sizes: "192x192", Type: "image/png", Purpose: "any"},
-			{Src: "/static/" + wb.Version + "/icons/icon-512.png", Sizes: "512x512", Type: "image/png", Purpose: "any"},
+			{Src: iconURL(wb.Version, "icons/icon-192.png"), Sizes: "192x192", Type: "image/png", Purpose: "any"},
+			{Src: iconURL(wb.Version, "icons/icon-512.png"), Sizes: "512x512", Type: "image/png", Purpose: "any"},
 		},
 	}
 
@@ -510,6 +512,23 @@ func Favicon() []byte {
 		panic("server: embedded favicon: " + err.Error())
 	}
 	return data
+}
+
+// iconStamp names the drawing of the logo, which every icon of the app is
+// drawn from. An icon's address carries it, because a browser keeps a tab's
+// icon long after the file changed under an address it already knows.
+var iconStamp = sync.OnceValue(func() string {
+	data, err := assets.ReadFile("logo.svg")
+	if err != nil {
+		panic("server: embedded logo: " + err.Error())
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:4])
+})
+
+// iconURL is the address of one of the app's icons under the static route.
+func iconURL(version, name string) string {
+	return "/static/" + version + "/" + name + "?v=" + iconStamp()
 }
 
 // Logo is the logo inline, so it is drawn in the page's text color through

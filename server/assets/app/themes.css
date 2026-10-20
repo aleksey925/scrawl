@@ -246,6 +246,8 @@
   --scrawl-topbar-height: 45px;
   --scrawl-row-height: 30px;
   --scrawl-tap-target: 44px;
+  --scrawl-touch-control: 40px;
+  --scrawl-touch-choice: 36px;
   --scrawl-control-height: 28px;
   --scrawl-control-height-large: 36px;
   --scrawl-input-font-size: 16px;

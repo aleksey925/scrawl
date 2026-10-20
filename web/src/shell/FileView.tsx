@@ -6,7 +6,7 @@ import type { FilePageResponse } from '../api/types';
 import { EmptyState } from '../components/EmptyState';
 import { absoluteTime, fileSize, shortTime } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
-import { SheetMenu } from '../components/SheetMenu';
+import { PopupMenu } from '../components/PopupMenu';
 import { usePlatform } from '../platform';
 import { useDocumentControls } from '../reader/useDocumentControls';
 import { openViewer } from '../reader/viewer';
@@ -160,7 +160,7 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
       >
         <IconDownload size={layout.iconSize} />
       </ActionIcon>
-      <SheetMenu position="bottom-end" width={220} withinPortal>
+      <PopupMenu position="bottom-end" width={220} withinPortal>
         <Menu.Target>
           <ActionIcon data-testid="file-menu" variant="subtle" color="gray" size="lg" aria-label="More actions">
             <IconDots size={layout.iconSize} />
@@ -195,7 +195,7 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
             </>
           )}
         </Menu.Dropdown>
-      </SheetMenu>
+      </PopupMenu>
     </>
   );
 }

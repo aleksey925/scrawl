@@ -25,7 +25,7 @@ files on disk are the only state.
   the server
 - a Notion-like look, in a light and a dark theme
 - a phone layout of its own: tabs at the bottom, folder lists, the notes
-  opened last, and menus as sheets under the thumb
+  opened last and a round Edit button under the thumb
 - installs to a phone home screen and runs there without browser chrome
 
 ## Try it

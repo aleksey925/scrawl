@@ -2,7 +2,7 @@
   position: fixed;
   right: max(16px, env(safe-area-inset-right, 0px));
   bottom: calc(var(--scrawl-tabbar-space) + 16px);
-  z-index: 205;
+  z-index: 140;
   display: grid;
   place-items: center;
   width: 54px;

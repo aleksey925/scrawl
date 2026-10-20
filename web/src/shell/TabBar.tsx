@@ -1,8 +1,11 @@
-import { IconClock, IconFolder, IconPlus, IconSearch, type Icon } from '../icons';
-import type { JSX } from 'react';
+import { Menu } from '@mantine/core';
+import type { ComponentPropsWithRef, JSX } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
+import { PopupMenu } from '../components/PopupMenu';
+import { IconClock, IconFilePlus, IconFolder, IconFolderPlus, IconPlus, IconSearch, type Icon } from '../icons';
 import { isDirectoryPath, recentUrl } from '../paths';
+import { layout } from '../theme';
 
 import { useFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
@@ -15,23 +18,24 @@ const tabBarIconSize = 22;
 
 type TabName = 'notes' | 'search' | 'recent' | 'new';
 
-interface TabProps {
+// the rest is what a mantine Menu.Target hands its button: a ref, the click
+// that opens it and the aria state of the menu
+interface TabProps extends Omit<ComponentPropsWithRef<'button'>, 'children'> {
   name: TabName;
   label: string;
   icon: Icon;
   current: boolean;
-  onClick: () => void;
 }
 
-function Tab({ name, label, icon: TabIcon, current, onClick }: TabProps): JSX.Element {
+function Tab({ name, label, icon: TabIcon, current, ...rest }: TabProps): JSX.Element {
   return (
     <button
+      {...rest}
       type="button"
       data-testid={`tab-${name}`}
       data-current={current ? 'true' : 'false'}
       aria-current={current ? 'page' : undefined}
       className={classes.tab}
-      onClick={onClick}
     >
       <TabIcon size={tabBarIconSize} />
       <span className={classes.label}>{label}</span>
@@ -41,8 +45,8 @@ function Tab({ name, label, icon: TabIcon, current, onClick }: TabProps): JSX.El
 
 // TabBar is what a phone has instead of a sidebar, under the thumb: the notes
 // of the space folder by folder, the search, the notes opened last, and a new
-// note or folder where the reader is. A tap closes the search first.
-// The editor is left out, it needs the screen for the text and the keyboard.
+// note or folder where the reader is, picked in a menu over the tab. The
+// editor is left out, it needs the screen for the text and the keyboard.
 export function TabBar(): JSX.Element | null {
   const location = useLocation();
   const navigate = useNavigate();
@@ -56,6 +60,7 @@ export function TabBar(): JSX.Element | null {
   }
 
   const searching = search?.opened ?? false;
+  const here = folderFor(currentPath, currentPath === '' || isDirectoryPath(location.pathname));
   const atRecent = location.pathname === recentUrl();
   const atNotes = !searching && !atRecent;
   const go = (url: string): void => {
@@ -71,16 +76,27 @@ export function TabBar(): JSX.Element | null {
       )}
       <Tab name="recent" label="Recent" icon={IconClock} current={!searching && atRecent} onClick={() => go(recentUrl())} />
       {canWrite && (
-        <Tab
-          name="new"
-          label="New"
-          icon={IconPlus}
-          current={false}
-          onClick={() => {
-            search?.close();
-            actions.createPage(folderFor(currentPath, currentPath === '' || isDirectoryPath(location.pathname)));
-          }}
-        />
+        <PopupMenu position="top-end" offset={4} width={220} withinPortal>
+          <Menu.Target>
+            <Tab name="new" label="New" icon={IconPlus} current={false} />
+          </Menu.Target>
+          <Menu.Dropdown data-testid="new-menu">
+            <Menu.Item
+              data-testid="new-menu-note"
+              leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
+              onClick={() => actions.createPage(here)}
+            >
+              New note
+            </Menu.Item>
+            <Menu.Item
+              data-testid="new-menu-folder"
+              leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
+              onClick={() => actions.createFolder(here)}
+            >
+              New folder
+            </Menu.Item>
+          </Menu.Dropdown>
+        </PopupMenu>
       )}
     </nav>
   );

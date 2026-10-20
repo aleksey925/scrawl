@@ -263,3 +263,70 @@
 .stats {
   margin-inline-start: auto;
 }
+
+/* the field and its toggles: the row itself on a wide screen, and on a phone
+   a filled field beside Cancel, the way a phone's own search looks */
+.field {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cancel {
+  flex: none;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--scrawl-accent);
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .inputRow {
+    gap: 12px;
+    height: 56px;
+    padding: 0 16px;
+    border-bottom: 0;
+  }
+
+  .field {
+    gap: 8px;
+    height: 38px;
+    padding: 0 6px 0 10px;
+    border-radius: var(--mantine-radius-lg);
+    background: var(--scrawl-hover);
+  }
+
+  .field > svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .input {
+    font-size: 16px;
+  }
+
+  .options {
+    gap: 6px;
+    padding: 0 16px 10px;
+  }
+
+  .chip {
+    height: var(--scrawl-touch-choice);
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  .hint {
+    flex-basis: 100%;
+  }
+
+  .footer:not(:has(*)) {
+    display: none;
+  }
+}

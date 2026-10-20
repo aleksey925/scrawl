@@ -18,7 +18,7 @@ import { showToast } from '../toast';
 import { FileActionsContext, type FileActions, type TreeDraft } from './fileActionsContext';
 import { useReaderLayout } from './ReaderLayout';
 import { useNav } from './NavContext';
-import { NewSheet } from './NewSheet';
+import { NewEntryDialog } from './NewEntryDialog';
 import { useMutationState } from './useMutationState';
 import { basenameOf, joinPath } from './naming';
 
@@ -54,9 +54,9 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const reportMutation = useMutationState();
   const [renaming, setRenaming] = useState<{ path: string; isDir: boolean } | undefined>(undefined);
   const [draft, setDraft] = useState<TreeDraft | undefined>(undefined);
-  // a phone has no tree to type a name into, so it asks in a sheet instead
+  // a phone has no tree to type a name into, so it asks in a dialog instead
   const phone = useBelow(layoutBreakpoints.phone);
-  const [sheet, setSheet] = useState<TreeDraft | undefined>(undefined);
+  const [naming, setNaming] = useState<TreeDraft | undefined>(undefined);
 
   const copyLink = useCallback(async (path: string, isDir: boolean): Promise<void> => {
     try {
@@ -134,7 +134,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const startDraft = useCallback(
     (kind: EntryKind, parent: string) => {
       if (phone) {
-        setSheet({ kind, parent });
+        setNaming({ kind, parent });
         return;
       }
       // the row is typed into where it will be, so the folder has to be open
@@ -257,7 +257,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
     <FileActionsContext.Provider value={actions}>
       {children}
 
-      {sheet !== undefined && <NewSheet draft={sheet} onCreate={createEntry} onClose={() => setSheet(undefined)} />}
+      {naming !== undefined && <NewEntryDialog draft={naming} onCreate={createEntry} onClose={() => setNaming(undefined)} />}
 
       {renaming !== undefined && (
         <RenameDialog

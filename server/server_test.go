@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -2136,4 +2138,24 @@ func TestTheFaviconIsTheLogoInBothSchemes(t *testing.T) {
 	// assert
 	assert.Contains(t, favicon, shape)
 	assert.Contains(t, favicon, "@media (prefers-color-scheme:dark)")
+}
+
+func TestTheIconsCarryTheDrawingOfTheLogo(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true})
+	logo, err := assets.ReadFile("logo.svg")
+	require.NoError(t, err)
+	sum := sha256.Sum256(logo)
+	stamp := "?v=" + hex.EncodeToString(sum[:4])
+
+	// act
+	_, login := ts.do(t, request{path: "/login"})
+	_, shell := ts.do(t, request{path: "/", client: ts.login(t)})
+	_, manifest := ts.do(t, request{path: "/manifest.webmanifest"})
+
+	// assert
+	favicon := `<link rel="icon" href="/static/` + ts.Version + `/favicon.svg` + stamp + `"`
+	assert.Contains(t, login, favicon)
+	assert.Contains(t, shell, favicon)
+	assert.Contains(t, manifest, "/icons/icon-512.png"+stamp)
 }

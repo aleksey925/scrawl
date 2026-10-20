@@ -1,1 +1,0 @@
-import{J as e,j as t,m as n,y as r}from"./naming-5KNf5Wb_.js";import{t as i}from"./DirectoryView-DoMhUulQ.js";import{t as a}from"./DocumentView-BFqOEibM.js";var o=e();function s(){let e=t()[`*`]??``;return n(e)?(0,o.jsx)(i,{path:r(e)}):(0,o.jsx)(a,{path:e})}export{s as Component};

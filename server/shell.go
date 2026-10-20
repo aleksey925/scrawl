@@ -46,6 +46,7 @@ type shellData struct {
 	Title   string
 	Theme   pageTheme
 	Version string
+	Favicon string
 	Base    string
 	Entry   string
 	CSS     []string
@@ -63,7 +64,7 @@ const shellTemplate = `<!doctype html>
 <meta name="color-scheme" content="light dark">
 {{range .Theme.BarColors}}<meta name="theme-color" content="{{.Color}}"{{with .Media}} media="{{.}}"{{end}}>
 {{end}}<title>{{.Title}}</title>
-<link rel="icon" href="/static/{{.Version}}/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="{{.Favicon}}" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{{.Theme.TouchIcon}}">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -177,6 +178,7 @@ func (m *mount) serveShell(w http.ResponseWriter, r *http.Request, status int) {
 		Title:   m.Title,
 		Theme:   themeOf(r, m.Version),
 		Version: m.Version,
+		Favicon: iconURL(m.Version, "favicon.svg"),
 		Base:    m.spc.Prefix(),
 		Entry:   m.appShell.entry,
 		CSS:     m.appShell.css,

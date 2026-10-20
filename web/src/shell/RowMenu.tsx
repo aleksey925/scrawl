@@ -5,7 +5,7 @@ import {
 import { useEffect, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 
-import { SheetMenu } from '../components/SheetMenu';
+import { PopupMenu } from '../components/PopupMenu';
 import { directoryUrl, documentUrl, editUrl } from '../paths';
 
 import { rowMenuIconSize, type RowMenuProps } from './extensions';
@@ -39,7 +39,7 @@ export function RowMenu({
   const open = (): void => void navigate(isDir ? directoryUrl(path) : documentUrl(path));
 
   return (
-    <SheetMenu opened={opened} onChange={setOpened} position="bottom-end" withinPortal shadow="md" width={200}>
+    <PopupMenu opened={opened} onChange={setOpened} position="bottom-end" withinPortal shadow="md" width={200}>
       <Menu.Target>
         <ActionIcon
           data-testid="tree-row-menu"
@@ -126,6 +126,6 @@ export function RowMenu({
           </>
         )}
       </Menu.Dropdown>
-    </SheetMenu>
+    </PopupMenu>
   );
 }

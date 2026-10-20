@@ -72,9 +72,12 @@ export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
 
   return (
     <Stack data-testid="toc" gap={0}>
-      <Text size="xs" c="dimmed" fw={500} mb="xs" px={8}>
-        On this page
-      </Text>
+      {/* a sheet carries its name in its own head */}
+      {rail && (
+        <Text size="xs" c="dimmed" fw={500} mb="xs" px={8}>
+          On this page
+        </Text>
+      )}
       <Stack gap={2}>
         {outline.entries.map((entry) => {
           const active = entry.id === outline.activeId;
@@ -91,8 +94,8 @@ export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
               data-level={entry.level}
               href={`#${encodeURIComponent(entry.id)}`}
               onClick={onClick}
-              size={rail ? '13px' : 'sm'}
-              c={active ? 'accent' : 'dimmed'}
+              size={rail ? '13px' : 'md'}
+              c={active ? 'accent' : rail ? 'dimmed' : 'var(--scrawl-text)'}
               fw={active ? 500 : 400}
               underline="never"
               style={{

@@ -197,6 +197,7 @@
 
 /* the preview alone reads the way the note does, in its column */
 .previewOnly > * {
+  width: 100%;
   max-width: var(--scrawl-note-width);
   margin-inline: auto;
 }
@@ -310,11 +311,16 @@
 @mixin smaller-than $mantine-breakpoint-sm {
   .save {
     min-height: 0;
-    height: 32px;
+    height: var(--scrawl-touch-choice);
     margin-inline-end: 12px;
   }
 
   .cancel {
     color: var(--scrawl-accent);
   }
+}
+
+/* a toggle that is on says so by its color, not by a box around it */
+.tool[aria-pressed='true'] {
+  color: var(--scrawl-accent);
 }

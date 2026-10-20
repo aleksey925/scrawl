@@ -75,7 +75,7 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
 
   return (
     <div data-testid="doc-find" className={classes.bar} role="search" data-print="hide">
-      <IconSearch size={layout.iconSizeSmall} />
+      <IconSearch size={layout.iconSizeSmall} className={classes.icon} />
       <input
         ref={input}
         data-testid="doc-find-input"
@@ -98,6 +98,7 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
       >
         {counterOf(find)}
       </span>
+      <span className={classes.break} aria-hidden />
       <Toggle testId="doc-find-case" label="Match case" on={query.matchCase}
         onClick={() => setQuery({ ...query, matchCase: !query.matchCase })}>
         Aa
@@ -110,15 +111,15 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
         onClick={() => setQuery({ ...query, regex: !query.regex })}>
         .*
       </Toggle>
-      <ActionIcon data-testid="doc-find-prev" variant="subtle" color="gray" aria-label="Previous match"
+      <ActionIcon data-testid="doc-find-prev" className={classes.prev} variant="subtle" color="gray" aria-label="Previous match"
         disabled={find.total === 0} onClick={() => find.step(-1)}>
         <IconChevronUp size={layout.iconSizeSmall} />
       </ActionIcon>
-      <ActionIcon data-testid="doc-find-next" variant="subtle" color="gray" aria-label="Next match"
+      <ActionIcon data-testid="doc-find-next" className={classes.next} variant="subtle" color="gray" aria-label="Next match"
         disabled={find.total === 0} onClick={() => find.step(1)}>
         <IconChevronDown size={layout.iconSizeSmall} />
       </ActionIcon>
-      <ActionIcon data-testid="doc-find-close" variant="subtle" color="gray" aria-label="Close the find" onClick={find.close}>
+      <ActionIcon data-testid="doc-find-close" className={classes.close} variant="subtle" color="gray" aria-label="Close the find" onClick={find.close}>
         <IconX size={layout.iconSizeSmall} />
       </ActionIcon>
     </div>

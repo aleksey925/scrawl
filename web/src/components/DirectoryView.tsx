@@ -19,7 +19,7 @@ import classes from './DirTable.module.css';
 import { EmptyState } from './EmptyState';
 import { itemCount } from './formats';
 import { Page, PageTitle } from './Page';
-import { SheetMenu } from './SheetMenu';
+import { PopupMenu } from './PopupMenu';
 
 export interface DirectoryViewProps {
   path: string;
@@ -89,7 +89,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
             {itemCount(dir.entries.length)}
           </span>
           {writable && !phone && (
-            <SheetMenu position="bottom-end" width={200} withinPortal>
+            <PopupMenu position="bottom-end" width={200} withinPortal>
               <Menu.Target>
                 <Button data-testid="dir-new" size="xs" rightSection={<IconChevronDown size={14} />}>
                   New
@@ -111,7 +111,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
                   New folder
                 </Menu.Item>
               </Menu.Dropdown>
-            </SheetMenu>
+            </PopupMenu>
           )}
         </div>
       </div>
@@ -168,7 +168,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
 // folder's menu: what to make in it, and what to do to it
 function FolderMenu({ path, actions }: { path: string; actions: FileActions }): JSX.Element {
   return (
-    <SheetMenu position="bottom-end" width={220} withinPortal>
+    <PopupMenu position="bottom-end" width={220} withinPortal>
       <Menu.Target>
         <ActionIcon data-testid="folder-menu" variant="subtle" color="gray" size="lg" aria-label="More actions">
           <IconDots size={layout.iconSize} />
@@ -217,6 +217,6 @@ function FolderMenu({ path, actions }: { path: string; actions: FileActions }): 
           </>
         )}
       </Menu.Dropdown>
-    </SheetMenu>
+    </PopupMenu>
   );
 }

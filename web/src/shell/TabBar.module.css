@@ -1,9 +1,9 @@
-/* the bar of tabs at the bottom of a phone, over the page and over a search
-   dialog, which ends above it */
+/* the bar of tabs at the bottom of a phone, over the page and under every
+   dialog and sheet, which cover it the way they cover the page */
 .bar {
   position: fixed;
   inset: auto 0 0;
-  z-index: 210;
+  z-index: 150;
   display: flex;
   height: var(--scrawl-tabbar-space);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -14,7 +14,6 @@
 
 :global(:root):has(.bar) {
   --scrawl-tabbar-space: calc(56px + env(safe-area-inset-bottom, 0px));
-  --scrawl-sheet-inset: 0px;
 }
 
 :global(:root[data-scrawl-bars='hidden']) .bar {

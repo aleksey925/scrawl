@@ -3,7 +3,6 @@ package format
 import (
 	"bytes"
 	"context"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,10 +11,11 @@ import (
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
+
+	"github.com/aleksey925/scrawl/gzassets"
 )
 
-//go:embed prettier.wasm
-var prettierWasm []byte
+const wasmFile = "prettier.wasm"
 
 // memoryPages caps one run at 256MB of 64KB pages, far above what a note of
 // MaxSize takes and far below what a runaway allocation would.
@@ -38,13 +38,17 @@ func RunWorkerIfAsked() {
 // serve answers one request a line until the input closes, which is how a
 // worker learns that the server it belonged to is gone.
 func serve(in io.Reader, out io.Writer) error {
+	wasm, err := gzassets.Sub(wasmFiles, wasmDir).ReadFile(wasmFile)
+	if err != nil {
+		return fmt.Errorf("read prettier: %w", err)
+	}
 	ctx := context.Background()
 	runtime := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().WithMemoryLimitPages(memoryPages))
 	defer runtime.Close(ctx)
-	if _, err := wasi_snapshot_preview1.Instantiate(ctx, runtime); err != nil {
+	if _, err = wasi_snapshot_preview1.Instantiate(ctx, runtime); err != nil {
 		return fmt.Errorf("set up wasi: %w", err)
 	}
-	module, err := runtime.CompileModule(ctx, prettierWasm)
+	module, err := runtime.CompileModule(ctx, wasm)
 	if err != nil {
 		return fmt.Errorf("compile prettier: %w", err)
 	}

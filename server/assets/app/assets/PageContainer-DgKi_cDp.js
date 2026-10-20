@@ -1,0 +1,1 @@
+import{A as e}from"./lib-DeYc_glu.js";import{t}from"./Container-IMU2BtVG.js";var n=e();function r({children:e}){return(0,n.jsx)(t,{fluid:!0,px:0,miw:0,children:e})}export{r as t};

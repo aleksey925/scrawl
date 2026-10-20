@@ -34,6 +34,11 @@ jobs:
         env:
           TZ: UTC
 
+      - name: Test the build that embeds the assets compressed
+        run: make test-gzassets
+        env:
+          TZ: UTC
+
       - name: Lint
         run: make lint
 
@@ -84,7 +89,7 @@ jobs:
         working-directory: e2e
         run: |
           npm install --no-audit --no-fund
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium firefox
 
       - name: Browser suite
         working-directory: e2e

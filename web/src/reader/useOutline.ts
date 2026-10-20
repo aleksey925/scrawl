@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { useLocation, useNavigate } from 'react-router';
 
 import type { Heading } from '../api/types';
-import { interactionEvents } from '../editor/anchor';
+import { interactionEvents } from './position';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { decodeFragment, elementWithId } from './dom';
@@ -134,7 +134,10 @@ export function useOutline(
   const navigate = useNavigate();
   const location = useLocation();
   const compact = !useAtLeast(layoutBreakpoints.compactTopbar);
-  const headerHeight = compact ? layout.topbarHeightCompact : layout.topbarHeight;
+  // past the compact width the head of the note's card stays under the topbar
+  const headerHeight = compact
+    ? layout.topbarHeightCompact
+    : layout.topbarHeight + layout.railGutter + 1 + layout.cardHeadHeight;
   const [spiedId, setSpiedId] = useState<string | null>(null);
 
   const entries = useMemo<OutlineEntry[]>(

@@ -4,28 +4,29 @@ import {
 } from 'react';
 import { useLocation } from 'react-router';
 
-import { api } from '../api/client';
 import type { MeResponse, NavNode } from '../api/types';
-import { forgetResponses, useApi } from '../api/useApi';
-import { mountBase } from '../mount';
+import { answerKeys, forgetResponses, useApi } from '../api/useApi';
+import { usePlatform } from '../platform';
 
 import { contentPathOf } from './naming';
 import { syncMessage, type SyncMessage } from './syncMessage';
-import { useMe } from './useMe';
+import type { MeState } from './useMe';
 
 // one bucket per space: the set is read during the very first render, long
-// before /api/me has answered, so the key comes from the mount prefix and not
-// from the space name the server reports.
+// before /api/me has answered, so the key comes from the platform's scope and
+// not from the space name the server reports.
 //
 // v2 because the space's own row joined the tree: a set written before it
 // existed holds no entry for the root and would open on a collapsed space.
-const storageKey = `scrawl.tree.open:v2:${mountBase()}`;
+function openKey(scope: string): string {
+  return `scrawl.tree.open:v2:${scope}`;
+}
 
 // the space row starts open, because a tree whose only row is the space is
 // not a tree. Collapsing it is remembered like any other folder.
 const rootPath = '';
 
-function readOpen(): ReadonlySet<string> {
+function readOpen(storageKey: string): ReadonlySet<string> {
   try {
     const raw = localStorage.getItem(storageKey);
     if (raw === null) {
@@ -38,7 +39,7 @@ function readOpen(): ReadonlySet<string> {
   }
 }
 
-function writeOpen(open: ReadonlySet<string>): void {
+function writeOpen(storageKey: string, open: ReadonlySet<string>): void {
   try {
     localStorage.setItem(storageKey, JSON.stringify([...open]));
   } catch {
@@ -92,15 +93,23 @@ function activeFolders(nodes: readonly NavNode[], into: Set<string>): void {
   }
 }
 
-export function NavProvider({ children }: { children: ReactNode }): JSX.Element {
+export interface NavProviderProps {
+  // the space's state, kept fresh by whoever knows where it comes from
+  status: MeState;
+  children: ReactNode;
+}
+
+export function NavProvider({ status, children }: NavProviderProps): JSX.Element {
   const location = useLocation();
   const currentPath = contentPathOf(location.pathname);
 
   const [token, setToken] = useState(0);
-  const nav = useApi((signal) => api.nav(currentPath, { signal }), [currentPath, token], `nav:${currentPath}`);
-  const { me, refreshMe } = useMe();
+  const { source, storageScope } = usePlatform();
+  const storageKey = openKey(storageScope);
+  const nav = useApi((signal) => source.nav(currentPath, { signal }), [source, currentPath, token], answerKeys.nav(currentPath));
+  const { me, refreshMe } = status;
 
-  const [open, setOpen] = useState<ReadonlySet<string>>(readOpen);
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => readOpen(storageKey));
   const [query, setQuery] = useState('');
   // the file a document registered, empty while none is mounted
   const [mountedDoc, setMountedDoc] = useState('');
@@ -115,10 +124,10 @@ export function NavProvider({ children }: { children: ReactNode }): JSX.Element 
       if (next.size === before) {
         return prev;
       }
-      writeOpen(next);
+      writeOpen(storageKey, next);
       return next;
     });
-  }, [tree]);
+  }, [tree, storageKey]);
 
   const toggleFolder = useCallback((path: string) => {
     setOpen((prev) => {
@@ -126,10 +135,10 @@ export function NavProvider({ children }: { children: ReactNode }): JSX.Element 
       if (!next.delete(path)) {
         next.add(path);
       }
-      writeOpen(next);
+      writeOpen(storageKey, next);
       return next;
     });
-  }, []);
+  }, [storageKey]);
 
   const openFolder = useCallback((path: string) => {
     setOpen((prev) => {
@@ -137,10 +146,10 @@ export function NavProvider({ children }: { children: ReactNode }): JSX.Element 
         return prev;
       }
       const next = new Set(prev).add(path);
-      writeOpen(next);
+      writeOpen(storageKey, next);
       return next;
     });
-  }, []);
+  }, [storageKey]);
 
   const isOpen = useCallback((path: string) => open.has(path), [open]);
   const refreshNav = useCallback(() => {

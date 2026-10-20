@@ -1,5 +1,6 @@
 import type { MermaidConfig } from 'mermaid';
 
+import { track } from './pending';
 import { preserveScroll } from './scroll';
 
 export type Mermaid = typeof import('mermaid').default;
@@ -177,7 +178,7 @@ export function drawDiagrams(root: HTMLElement, load: () => Promise<Mermaid>, da
   const items = blocks.map(wrap);
 
   let cancelled = false;
-  void (async () => {
+  const run = (async () => {
     let mermaid: Mermaid;
     try {
       mermaid = await load();
@@ -220,6 +221,7 @@ export function drawDiagrams(root: HTMLElement, load: () => Promise<Mermaid>, da
       }
     });
   })();
+  track(run);
 
   return () => {
     cancelled = true;

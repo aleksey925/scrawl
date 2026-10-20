@@ -4,7 +4,8 @@ import {
   type JSX, type ReactNode,
 } from 'react';
 
-import { ApiError, api } from '../api/client';
+import { api } from '../api/client';
+import { ApiError } from '../api/errors';
 import type { Divergence, ResetResponse } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';

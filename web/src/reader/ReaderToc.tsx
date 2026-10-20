@@ -1,4 +1,4 @@
-import { Anchor, Box, Stack, Text } from '@mantine/core';
+import { Anchor, Stack, Text } from '@mantine/core';
 import { useEffect, useRef, type JSX, type MouseEvent } from 'react';
 
 import { layoutBreakpoints, useAtLeast } from '../theme';
@@ -58,7 +58,7 @@ function useKeepInView(activeId: string | null): (node: HTMLAnchorElement | null
 // indentStep is how far one level of nesting moves a heading in. It is smaller
 // than a paragraph indent on purpose: the outline is read as a shape, and the
 // shape is lost once the deepest entries wrap.
-const indentStep = 12;
+const indentStep = 10;
 
 export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
   // the same question the shell asks to decide where this is rendered: a rail
@@ -72,10 +72,10 @@ export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
 
   return (
     <Stack data-testid="toc" gap={0}>
-      <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb="xs">
+      <Text size="sm" c="dimmed" fw={500} mb="sm">
         On this page
       </Text>
-      <Box style={{ borderLeft: '1px solid var(--mantine-color-default-border)' }}>
+      <Stack gap={2}>
         {outline.entries.map((entry) => {
           const active = entry.id === outline.activeId;
           const onClick = (event: MouseEvent<HTMLAnchorElement>): void => {
@@ -93,28 +93,29 @@ export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
               onClick={onClick}
               size="sm"
               c={active ? 'accent' : 'dimmed'}
-              fw={active ? 600 : 400}
+              fw={active ? 500 : 400}
               underline="never"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 minHeight: rail ? undefined : 'var(--scrawl-tap-target)',
-                paddingTop: rail ? 4 : 0,
-                paddingBottom: rail ? 4 : 0,
+                paddingTop: rail ? 5 : 0,
+                paddingBottom: rail ? 5 : 0,
                 paddingLeft: indentStep + Math.max(0, entry.level - top) * indentStep,
-                // the rail is the marker: the section being read moves one line
-                // from grey to the accent instead of the row changing shape
-                marginLeft: -1,
-                borderLeft: `2px solid ${active ? 'var(--scrawl-accent)' : 'transparent'}`,
+                paddingRight: indentStep,
+                borderRadius: 'var(--mantine-radius-md)',
+                // the section being read is marked by its fill and colour, and
+                // the row keeps its size, so the outline never shifts under it
+                background: active ? 'var(--scrawl-accent-subtle)' : undefined,
                 lineHeight: 1.35,
-                transition: 'color 120ms ease, border-color 120ms ease',
+                transition: 'color 120ms ease, background-color 120ms ease',
               }}
             >
               {entry.text}
             </Anchor>
           );
         })}
-      </Box>
+      </Stack>
     </Stack>
   );
 }

@@ -1,57 +1,24 @@
 import { Button, Code, Modal, Group, Stack, Text, TextInput } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
-  createContext, useCallback, useContext, useMemo, useState,
+  useCallback, useMemo, useState,
   type FormEvent, type JSX, type ReactNode,
 } from 'react';
 import { useNavigate } from 'react-router';
 
-import { ApiError, api } from '../api/client';
+import { api } from '../api/client';
+import { ApiError } from '../api/errors';
 import type { EntryKind, EntryPathResponse } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
 import { directoryUrl, documentUrl, editUrl, isMarkdown, slugPath } from '../paths';
 import { showToast } from '../toast';
 
+import { FileActionsContext, type FileActions, type TreeDraft } from './fileActionsContext';
+import { useReaderLayout } from './ReaderLayout';
 import { useNav } from './NavContext';
 import { useMutationState } from './useMutationState';
-import { basenameOf, joinPath, parentOf } from './naming';
-
-// TreeDraft is a row that does not exist yet: the tree shows an input where the
-// entry will be, and the name is typed in place. There is no dialog, because a
-// dialog asks for the one thing the tree already knows - which folder - and
-// then covers the answer while the name is typed.
-export interface TreeDraft {
-  kind: EntryKind;
-  parent: string;
-}
-
-export interface FileActions {
-  createPage: (folder: string) => void;
-  createFolder: (folder: string) => void;
-  rename: (path: string, isDir: boolean) => void;
-  remove: (path: string, isDir: boolean) => void;
-  copyLink: (path: string, isDir: boolean) => void;
-  // moveInto is the drop half of dragging rows around the tree. It takes the
-  // whole selection, because dragging one of several selected rows moves them
-  // all, which is what every file manager does.
-  moveInto: (paths: readonly string[], folder: string) => void;
-  draft: TreeDraft | undefined;
-  // true when the entry was created, so the row can keep the typed name on
-  // screen for a second try when it was not
-  submitDraft: (name: string) => Promise<boolean>;
-  cancelDraft: () => void;
-}
-
-const FileActionsContext = createContext<FileActions | undefined>(undefined);
-
-export function useFileActions(): FileActions {
-  const actions = useContext(FileActionsContext);
-  if (actions === undefined) {
-    throw new Error('file actions are only available inside the app shell');
-  }
-  return actions;
-}
+import { basenameOf, joinPath } from './naming';
 
 function conflictText(error: unknown, fallback: string): string {
   if (error instanceof ApiError && error.status === 409) {
@@ -77,13 +44,9 @@ function draftPath(draft: TreeDraft, name: string): string {
   return joinPath(draft.parent, draft.kind === 'file' && !isMarkdown(slug) ? `${slug}.md` : slug);
 }
 
-export interface FileActionsProviderProps {
+export function FileActionsProvider({ children }: { children: ReactNode }): JSX.Element {
   // a draft is typed into the tree, so the tree has to be on screen for it
-  revealTree: () => void;
-  children: ReactNode;
-}
-
-export function FileActionsProvider({ revealTree, children }: FileActionsProviderProps): JSX.Element {
+  const { revealNav: revealTree } = useReaderLayout();
   const navigate = useNavigate();
   const { currentPath, refreshNav, openFolder, setQuery } = useNav();
   const reportMutation = useMutationState();
@@ -364,10 +327,4 @@ function RenameDialog({ path, onClose, onRenamed }: RenameDialogProps): JSX.Elem
       </form>
     </Modal>
   );
-}
-
-// folderFor is where a new entry lands when the reader did not point at one: the
-// folder they are looking at, or the folder holding the note they are reading.
-export function folderFor(path: string, isDir: boolean): string {
-  return isDir ? path : parentOf(path);
 }

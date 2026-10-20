@@ -3,6 +3,7 @@ import type { IncomingMessage } from 'node:http';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type ProxyOptions } from 'vite';
 
+import { woff2Only } from './vite.fonts.ts';
 import { themeStylesheet } from './vite.themes.ts';
 
 const backend = 'http://127.0.0.1:7272';
@@ -48,7 +49,7 @@ function proxy(): Record<string, ProxyOptions> {
 }
 
 export default defineConfig(({ command }) => ({
-  plugins: [react(), themeStylesheet('themes.css')],
+  plugins: [react(), themeStylesheet('themes.css'), woff2Only()],
 
   // the go server ignores the version segment of /static/{version}/... on
   // lookup, so any literal resolves; the bundle is busted by content hash

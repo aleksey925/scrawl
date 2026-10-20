@@ -34,3 +34,9 @@ export function contentPathOf(pathname: string): string {
   const match = /^\/(?:doc|edit|history)\/(.*)$/.exec(pathname);
   return match === null ? '' : decodeURIComponent(match[1] ?? '').replace(/\/+$/, '');
 }
+
+// folderFor is where a new entry lands when the reader did not point at one: the
+// folder they are looking at, or the folder holding the note they are reading.
+export function folderFor(path: string, isDir: boolean): string {
+  return isDir ? path : parentOf(path);
+}

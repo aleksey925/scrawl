@@ -1,12 +1,13 @@
 import { useEffect, useRef, type RefObject } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { parsePath, useLocation, useNavigate } from 'react-router';
 
+import { usePlatform } from '../platform';
 import { showToast } from '../toast';
 
 import { copyText } from './clipboard';
 import { anchorClass, copyClass, copyCode, injectControls, pictureKeyed, pictureOf, sectionLink } from './controls';
 import { decodeFragment, elementWithId } from './dom';
-import { internalTarget, isPlainClick } from './links';
+import { isPlainClick } from './links';
 
 export function useDocumentControls(
   rootRef: RefObject<HTMLDivElement | null>,
@@ -15,10 +16,11 @@ export function useDocumentControls(
 ): void {
   const navigate = useNavigate();
   const location = useLocation();
+  const { internalTarget } = usePlatform();
 
-  const latest = useRef({ navigate, location, onImage });
+  const latest = useRef({ navigate, location, onImage, internalTarget });
   useEffect(() => {
-    latest.current = { navigate, location, onImage };
+    latest.current = { navigate, location, onImage, internalTarget };
   });
 
   useEffect(() => {
@@ -34,10 +36,12 @@ export function useDocumentControls(
 
     const timers = new Set<number>();
 
-    const jump = (id: string, replace: boolean): void => {
+    // a bare fragment keeps the query on screen, a link that names the note
+    // brings its own
+    const jump = (id: string, replace: boolean, search?: string): void => {
       elementWithId(root, id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       const { navigate: go, location: at } = latest.current;
-      void go({ pathname: at.pathname, search: at.search, hash: `#${id}` }, { replace });
+      void go({ pathname: at.pathname, search: search ?? at.search, hash: `#${id}` }, { replace });
     };
 
     const copyLink = async (anchor: HTMLElement): Promise<void> => {
@@ -83,11 +87,19 @@ export function useDocumentControls(
           jump(decodeFragment(href.slice(1)), false);
           return;
         }
-        const internal = internalTarget(link);
-        if (internal !== undefined) {
-          event.preventDefault();
-          void latest.current.navigate(internal.to);
+        const internal = latest.current.internalTarget(link);
+        if (internal === undefined) {
+          return;
         }
+        event.preventDefault();
+        // a link to a heading of this very note is a jump: no note arrives, so
+        // nothing else would land on the heading
+        const to = parsePath(internal.to);
+        if (to.pathname === latest.current.location.pathname && to.hash !== undefined && to.hash.length > 1) {
+          jump(decodeFragment(to.hash.slice(1)), false, to.search ?? '');
+          return;
+        }
+        void latest.current.navigate(internal.to);
         return;
       }
 

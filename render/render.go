@@ -41,6 +41,8 @@ type Result struct {
 	TOC   []Heading
 	// Diagrams is whether the HTML holds a mermaid diagram to draw.
 	Diagrams bool
+	// Math is whether the HTML holds a formula to typeset.
+	Math bool
 }
 
 // Options configures a Renderer.
@@ -59,6 +61,10 @@ type Options struct {
 	// PageExt replaces the ".md" of a relative link to a document when
 	// Relative is set, so a page rendered to "a.html" links to "b.html".
 	PageExt string
+	// FolderPage is the file a folder is shown by when Relative is set, as
+	// "index.html": a relative link to a folder or to its index.md points
+	// there, because a folder opened from disk is the system's listing.
+	FolderPage string
 }
 
 // Renderer turns markdown into sanitized HTML. It is safe for concurrent use:
@@ -82,6 +88,7 @@ func New(opts Options) *Renderer {
 		rawPrefix:  opts.RawPrefix,
 		relative:   opts.Relative,
 		pageExt:    opts.PageExt,
+		folderPage: opts.FolderPage,
 		exists:     opts.LinkExists,
 	}
 	// goldmark's indented code block parser is kept on purpose: without it
@@ -162,7 +169,13 @@ func (r *Renderer) Render(src []byte, docPath string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	return Result{HTML: out, Title: title, TOC: toc, Diagrams: strings.Contains(string(out), openMermaid)}, nil
+	return Result{
+		HTML:     out,
+		Title:    title,
+		TOC:      toc,
+		Diagrams: strings.Contains(string(out), openMermaid),
+		Math:     mathClass.MatchString(string(out)),
+	}, nil
 }
 
 // RenderInline converts a document without extracting the outline. It is the

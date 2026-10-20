@@ -4,11 +4,13 @@ import { Notifications } from '@mantine/notifications';
 import type { JSX } from 'react';
 import { RouterProvider } from 'react-router';
 
+import { appPlatform } from './appPlatform';
+import { PlatformProvider } from './platform';
 import { router } from './routes';
 import { theme } from './theme';
-import { cookieColorSchemeManager } from './themeChoice';
+import { themeColorSchemeManager } from './themeChoice';
 
-const colorSchemeManager = cookieColorSchemeManager();
+const colorSchemeManager = themeColorSchemeManager();
 
 export function App(): JSX.Element {
   return (
@@ -22,7 +24,9 @@ export function App(): JSX.Element {
     >
       <ModalsProvider>
         <Notifications position="top-right" />
-        <RouterProvider router={router} />
+        <PlatformProvider value={appPlatform}>
+          <RouterProvider router={router} />
+        </PlatformProvider>
       </ModalsProvider>
     </MantineProvider>
   );

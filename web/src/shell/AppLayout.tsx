@@ -1,225 +1,70 @@
-import { ActionIcon, AppShell, Burger, Drawer, ScrollArea } from '@mantine/core';
-import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
-import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
-import { Outlet, useLocation } from 'react-router';
+import { useEffect, type JSX, type ReactNode } from 'react';
+import { Outlet } from 'react-router';
 
 import { installUnauthorizedHandler } from '../api/client';
 import { goToLogin } from '../login';
-import { iconEdgeInset, layout, layoutBreakpoints, useAtLeast } from '../theme';
 
+import { AccountMenu } from './AccountMenu';
+import { AppMoreMenu } from './AppMoreMenu';
+import { DocumentExtras, NoteActions } from './DocumentExtras';
+import { ReaderExtensionsProvider, type ReaderExtensions } from './extensions';
 import { FileActionsProvider } from './FileActions';
 import { NavProvider } from './NavContext';
-import { SpaceAlerts } from './SpaceAlerts';
+import { ReaderLayout } from './ReaderLayout';
 import { ResetProvider } from './ResetDialog';
+import { RowMenu } from './RowMenu';
 import { SearchSpotlight } from './SearchSpotlight';
-import { ShellSlotsProvider, type ShellSlots } from './ShellSlots';
-import { ShortcutHelp } from './ShortcutHelp';
-import { SidebarNav } from './SidebarNav';
-import { Topbar } from './Topbar';
-import { useSidebarHidden } from './useSidebarHidden';
-import { useSwipeToClose } from './useSwipeToClose';
+import { SpaceAlerts } from './SpaceAlerts';
+import { SpaceSwitcher } from './SpaceSwitcher';
+import { SyncControl } from './SyncControl';
+import type { TopbarChrome } from './Topbar';
+import { useMe } from './useMe';
+import { Wordmark } from './Wordmark';
 
+const extensions: ReaderExtensions = { DocumentExtras, NoteActions, RowMenu };
+
+const chrome: TopbarChrome = {
+  start: (
+    <>
+      <Wordmark />
+      <SpaceSwitcher />
+    </>
+  ),
+  wide: (
+    <>
+      <SyncControl />
+      <AccountMenu />
+    </>
+  ),
+  compact: <AppMoreMenu />,
+};
+
+// AppLayout is the reader with what the server makes possible around it: the
+// spaces, the sync state, the account, search, and every write
 export function AppLayout(): JSX.Element {
-  const location = useLocation();
-
-  const [navOpened, setNavOpened] = useState(false);
-  const [tocOpened, setTocOpened] = useState(false);
-  const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null);
-  const [tocSlot, setTocSlot] = useState<HTMLElement | null>(null);
-  const [tocPresent, setTocPresent] = useState(false);
-
-  const wideSidebar = useAtLeast(layoutBreakpoints.sidebar);
-  const wideToc = useAtLeast(layoutBreakpoints.tocRail);
-  const wideTopbar = useAtLeast(layoutBreakpoints.compactTopbar);
-  const { hidden: navHidden, toggle: toggleSidebar } = useSidebarHidden();
-
-  const closeNav = useCallback(() => setNavOpened(false), []);
-  const closeToc = useCallback(() => setTocOpened(false), []);
-  const openToc = useCallback(() => setTocOpened(true), []);
-
-  // the drawer is a panel a navigation dismisses, the rail is a preference that
-  // outlives one, so the same control means two different things
-  const navVisible = wideSidebar ? !navHidden : navOpened;
-  const navLabel = navVisible ? 'Hide the file list' : 'Show the file list';
-  const toggleNav = useCallback(() => {
-    if (wideSidebar) {
-      toggleSidebar();
-      return;
-    }
-    setNavOpened((opened) => !opened);
-  }, [wideSidebar, toggleSidebar]);
-  const revealNav = useCallback(() => {
-    if (!navVisible) {
-      toggleNav();
-    }
-  }, [navVisible, toggleNav]);
-
-  // a fresh key per navigation, a replace that only moves the hash included;
-  // unlike the disclosure handlers it does not change on a plain re-render
-  useEffect(() => {
-    closeNav();
-    closeToc();
-  }, [location.key, closeNav, closeToc]);
-
-  // on the document rather than on the burger: the key belongs to the app, and
-  // the caret is in the editor or the filter box most of the time it is wanted
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) {
-        return;
-      }
-      if (event.key.toLowerCase() !== 'b') {
-        return;
-      }
-      event.preventDefault();
-      toggleNav();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [toggleNav]);
-
   useEffect(() => installUnauthorizedHandler('shell', goToLogin), []);
 
-  const slots = useMemo<ShellSlots>(
-    () => ({ actionsSlot, tocSlot, setTocPresent }),
-    [actionsSlot, tocSlot],
-  );
-
-  const swipeRef = useSwipeToClose(closeNav);
-
   return (
-    <NavProvider>
-      <ResetProvider>
-        <FileActionsProvider revealTree={revealNav}>
-          <ShellSlotsProvider value={slots}>
-            <AppShell
-              header={{
-                height: {
-                  base: layout.topbarHeightCompact,
-                  [layoutBreakpoints.compactTopbar]: layout.topbarHeight,
-                },
-              }}
-              navbar={{
-                width: layout.sidebarWidth,
-                breakpoint: layoutBreakpoints.sidebar,
-                collapsed: { mobile: true, desktop: navHidden },
-              }}
-              aside={{
-                width: layout.tocWidth,
-                breakpoint: layoutBreakpoints.tocRail,
-                collapsed: { mobile: true, desktop: !tocPresent },
-              }}
-              padding="lg"
-            >
-              <AppShell.Header>
-                <Topbar
-                  burger={
-                    // the rail stays where it is put, so it takes the icon for a
-                    // panel and not the burger, which stands for a panel that
-                    // covers the page and is dismissed again
-                    wideSidebar ? (
-                      <ActionIcon
-                        data-testid="topbar-burger"
-                        data-opened={navVisible ? 'true' : 'false'}
-                        variant="subtle"
-                        color="gray"
-                        size="lg"
-                        onClick={toggleNav}
-                        aria-label={navLabel}
-                      >
-                        {navVisible ? (
-                          <IconLayoutSidebarLeftCollapse size={layout.topbarIconSize} />
-                        ) : (
-                          <IconLayoutSidebarLeftExpand size={layout.topbarIconSize} />
-                        )}
-                      </ActionIcon>
-                    ) : (
-                      <Burger
-                        data-testid="topbar-burger"
-                        data-opened={navVisible ? 'true' : 'false'}
-                        opened={navVisible}
-                        onClick={toggleNav}
-                        size="sm"
-                        aria-label={navLabel}
-                      />
-                    )
-                  }
-                  actionsRef={setActionsSlot}
-                  tocAvailable={tocPresent && !wideToc}
-                  onOpenToc={openToc}
-                />
-              </AppShell.Header>
-
-              {/* a collapsed rail is only moved out of sight, and the rows left
-                  in it would still answer the tab key */}
-              <AppShell.Navbar>{wideSidebar && !navHidden && <SidebarNav />}</AppShell.Navbar>
-
-              {/* the rail is fixed beside the note, so an outline longer than the
-                  window has to scroll inside it or the last headings are simply
-                  unreachable */}
-              <AppShell.Aside>
-                {wideToc ? (
-                  <ScrollArea type="hover" h="100%">
-                    <div ref={setTocSlot} style={{ padding: 'var(--mantine-spacing-lg)' }} />
-                  </ScrollArea>
-                ) : null}
-              </AppShell.Aside>
-
-              <AppShell.Main style={{ minWidth: 0 }}>
-                <SpaceAlerts />
-                <Outlet />
-              </AppShell.Main>
-            </AppShell>
-
-            {/* Mantine owns the overlay, the focus trap and the inert page behind it */}
-            {!wideSidebar && (
-              <Drawer
-                data-testid="sidebar-drawer"
-                opened={navOpened}
-                onClose={closeNav}
-                // a phone is too narrow to share with the page it covers anyway:
-                // at the rail's width every second name was cut off
-                size={wideTopbar ? layout.sidebarWidth : '100%'}
-                title="Navigation"
-                padding="lg"
-                styles={{
-                  header: { paddingInlineEnd: iconEdgeInset(layout.topbarIconSize) },
-                  body: { paddingInline: 0 },
-                }}
-              >
-                <div
-                  ref={swipeRef}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    height: '100%',
-                    minHeight: 0,
-                    touchAction: 'pan-y',
-                  }}
-                >
-                  <SidebarNav />
-                </div>
-              </Drawer>
-            )}
-
-            {!wideToc && (
-              <Drawer
-                data-testid="toc-drawer"
-                opened={tocOpened}
-                onClose={closeToc}
-                position="bottom"
-                size="60%"
-                padding="md"
-              >
-                <div ref={setTocSlot} />
-              </Drawer>
-            )}
-
-            <SearchSpotlight />
-            <ShortcutHelp />
-          </ShellSlotsProvider>
-        </FileActionsProvider>
-      </ResetProvider>
-    </NavProvider>
+    <SpaceNavProvider>
+      <ReaderExtensionsProvider value={extensions}>
+        <ReaderLayout chrome={chrome} providers={AppProviders} banner={<SpaceAlerts />} overlays={<SearchSpotlight />}>
+          <Outlet />
+        </ReaderLayout>
+      </ReaderExtensionsProvider>
+    </SpaceNavProvider>
   );
+}
+
+function AppProviders({ children }: { children: ReactNode }): JSX.Element {
+  return (
+    <ResetProvider>
+      <FileActionsProvider>{children}</FileActionsProvider>
+    </ResetProvider>
+  );
+}
+
+// the space's state is polled here and not in the layout, so a poll re-renders
+// what reads the navigation state and nothing else
+function SpaceNavProvider({ children }: { children: ReactNode }): JSX.Element {
+  return <NavProvider status={useMe()}>{children}</NavProvider>;
 }

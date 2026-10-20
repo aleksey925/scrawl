@@ -65,17 +65,8 @@
     min-height: var(--scrawl-tap-target);
   }
 
-  /* the crumbs are links the shell draws itself, and a bare <a> is inline, so
-     a minimum size would not apply to it at all. Height only: a minimum width
-     spread a two-letter folder name into a gap wider than the name. */
-  .topbarCrumbs a {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--scrawl-tap-target);
-  }
-
-  /* the chevron sits against the name it opens instead of in the middle of a
-     44px box; the width it gives up is a strip reaching left into the indent */
+  /* a folder's icon sits against its name instead of in the middle of a 44px
+     box; the width it gives up is a strip reaching left into the indent */
   .twisty {
     min-width: 0;
     overflow: visible;
@@ -97,19 +88,17 @@
   }
 }
 
-/* Primer's control sizes: 28px small and 32px medium, where mantine draws 30
-   and 36 with twice the side padding */
 .button {
-  --button-height-xs: 28px;
-  --button-height-sm: 32px;
-  --button-padding-x-xs: 8px;
-  --button-padding-x-sm: 12px;
+  --button-height-xs: var(--scrawl-control-height-small);
+  --button-height-sm: var(--scrawl-control-height);
+  --button-padding-x-xs: 10px;
+  --button-padding-x-sm: 14px;
 }
 
 /* a field is a hole in the page and not a raised control: mantine fills it
    with the button gray in the dark scheme, so a filter read as a third button */
 .input {
-  --input-height-sm: 32px;
+  --input-height-sm: var(--scrawl-control-height);
 }
 
 :global([data-mantine-color-scheme]) .input[data-variant='default'] {

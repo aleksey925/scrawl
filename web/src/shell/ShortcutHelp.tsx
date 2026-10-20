@@ -1,6 +1,8 @@
 import { Group, Kbd, Modal, Stack, Text } from '@mantine/core';
 import { useEffect, useState, type JSX } from 'react';
 
+import { usePlatform } from '../platform';
+
 // Mantine resolves "mod" to command on apple hardware and to control everywhere
 // else; this only spells the same choice out for the reader
 const apple = /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent);
@@ -10,18 +12,20 @@ const altKey = apple ? '⌥' : 'Alt';
 interface Shortcut {
   keys: readonly string[];
   what: string;
+  // needs is what the reader must offer for the keys to do anything
+  needs?: 'search' | 'editing';
 }
 
 // only what the app really answers to: the palette shortcuts on Spotlight, the
 // save in the editor, Escape on the find bar and the filter, the arrows in the
 // image viewer
 const shortcuts: readonly Shortcut[] = [
-  { keys: [modKey, 'K'], what: 'Open the search palette' },
-  { keys: ['/'], what: 'Open the search palette' },
+  { keys: [modKey, 'K'], what: 'Open the search palette', needs: 'search' },
+  { keys: ['/'], what: 'Open the search palette', needs: 'search' },
   { keys: ['?'], what: 'Show this list' },
   { keys: [modKey, 'B'], what: 'Show or hide the file list' },
-  { keys: [modKey, 'S'], what: 'Save the document being edited' },
-  { keys: ['Shift', altKey, 'F'], what: 'Format the note being edited' },
+  { keys: [modKey, 'S'], what: 'Save the document being edited', needs: 'editing' },
+  { keys: ['Shift', altKey, 'F'], what: 'Format the note being edited', needs: 'editing' },
   { keys: ['Esc'], what: 'Close a panel, clear the filter or the highlighting' },
   { keys: ['←', '→'], what: 'Step through the images in the viewer' },
 ];
@@ -40,6 +44,8 @@ function typingInto(target: EventTarget | null): boolean {
 
 export function ShortcutHelp(): JSX.Element {
   const [opened, setOpened] = useState(false);
+  const platform = usePlatform();
+  const offered = shortcuts.filter((shortcut) => shortcut.needs === undefined || platform[shortcut.needs]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -61,7 +67,7 @@ export function ShortcutHelp(): JSX.Element {
       {/* the modal root is a zero height wrapper around the portal, so the name
           goes on the list itself, which is what is actually on the screen */}
       <Stack data-testid="shortcuts" gap="sm">
-        {shortcuts.map((shortcut) => (
+        {offered.map((shortcut) => (
           <Group key={shortcut.what + shortcut.keys.join()} justify="space-between" wrap="nowrap" gap="lg">
             <Text size="sm">{shortcut.what}</Text>
             <Group gap={4} wrap="nowrap" style={{ flex: 'none' }}>

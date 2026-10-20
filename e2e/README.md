@@ -2,13 +2,18 @@
 
 Playwright drives a real Chromium against a real `scrawl` binary, in two
 profiles: desktop at 1440x900, and an iPhone 13 at 390x844 with touch and
-a mobile user agent. They are playwright's own "projects", which have
-nothing to do with scrawl's spaces.
+a mobile user agent. A third profile runs `site.spec.js` in Firefox, which
+shares other things than Chromium between pages opened from disk. They are
+playwright's own "projects", which have nothing to do with scrawl's spaces.
 
 The suite drives the react app. The one page the server renders itself is
 the sign-in form.
 
-The suite starts the binary itself. Every spec takes `test` from
+`site.spec.js` writes a site with `scrawl site` and reads it from disk and
+from a small static server under a path of its own. It runs no instance of
+the server and takes `test` from playwright directly.
+
+The suite starts the binary itself. Every other spec takes `test` from
 `support/test.js`, which brings up five instances for each Playwright
 worker before its first test, each against its own throwaway copy of the
 corpus made by `support/serve.js`, so a run never touches the source tree
@@ -123,8 +128,8 @@ make deps
 make e2e
 ```
 
-`make deps` installs the node modules and the Chromium this version of
-Playwright wants. The browser is kept per machine and per Playwright
+`make deps` installs the node modules and the Chromium and Firefox this
+version of Playwright wants. The browser is kept per machine and per Playwright
 version, so a fresh machine or a version bump needs `make deps` again;
 without it every test fails with the same "Executable doesn't exist"
 error. `make e2e` builds the binary and runs the suite.

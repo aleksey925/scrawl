@@ -124,7 +124,7 @@ test.describe('mobile', () => {
 
     // at the rail's 264px every second name was cut off, and the chevron sat in
     // the middle of a 44px box with a box as wide again in front of each file
-    test('the drawer takes the screen and the chevron hugs its folder', async ({page}) => {
+    test('the drawer takes the screen and the folder icon hugs its name', async ({page}) => {
         await page.goto(routes.doc(docs.deep.path));
         const sidebar = await openDrawer(page);
 
@@ -139,7 +139,7 @@ test.describe('mobile', () => {
             (labels) => labels.filter((label) => label.scrollWidth > label.clientWidth).map((label) => label.textContent));
         expect(names, 'names cut off in the drawer').toEqual([]);
 
-        // the chevron is narrow to the eye and still takes a finger as wide as
+        // a folder's icon is narrow to the eye and still takes a finger as wide as
         // the touch minimum, through a strip reaching left into the indent. A
         // top-level row has the edge of the screen there, so a nested one is asked.
         const folder = docs.deep.path.split('/')[0];
@@ -151,16 +151,37 @@ test.describe('mobile', () => {
             ?.closest('[data-testid]')?.dataset.testid, [box.x + box.width - MIN_TAP + 1, box.y + box.height / 2]);
         expect(reached).toBe('tree-twisty');
 
-        // the chevron and the row menu sit on the edges of the row above them,
+        // the root's icon and its menu sit on the edges of the row above them,
         // the filter on the left and the new entry button on the right
         const filter = await page.getByTestId('sidebar-filter').boundingBox();
         const root = page.locator('[data-testid=tree-row][data-path=""]');
-        const chevron = await root.getByTestId('tree-twisty').locator('svg').boundingBox();
+        const icon = await root.getByTestId('tree-twisty').locator('svg').boundingBox();
         const dots = await root.getByTestId('tree-row-menu').locator('svg').boundingBox();
         const add = await page.getByTestId('sidebar-new').boundingBox();
-        expect([Math.round(chevron.x), Math.round(dots.x + dots.width)])
+        expect([Math.round(icon.x), Math.round(dots.x + dots.width)])
             .toEqual([Math.round(filter.x), Math.round(add.x + add.width)]);
         await shot(page, 'mobile-drawer-full');
+    });
+
+    // iOS sends no contextmenu for a long press, so the press is timed by the row
+    test('a long press on a tree row opens its menu and does not follow the link', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC));
+        const sidebar = await openDrawer(page);
+        const link = sidebar.locator('[data-testid=tree-row][data-current="false"][data-dir="false"]')
+            .first().getByTestId('tree-link');
+        const box = await link.boundingBox();
+        const at = {pointerType: 'touch', isPrimary: true, clientX: box.x + 10, clientY: box.y + box.height / 2};
+
+        // act
+        await link.dispatchEvent('pointerdown', at);
+        await page.waitForTimeout(700);
+        await link.dispatchEvent('pointerup', at);
+        await link.dispatchEvent('click');
+
+        // assert
+        await expect(page.getByTestId('tree-row-menu-open')).toBeVisible();
+        await expect(page).toHaveURL(MAIN.url.doc(DOC));
     });
 
     test('a closed drawer keeps its links out of the tab order', async ({page}) => {
@@ -379,12 +400,11 @@ test.describe('mobile', () => {
     test('the path sits on the page and the top bar holds one row', async ({page}) => {
         await page.goto(routes.doc(docs.deep.path));
 
-        await expect(page.getByTestId('topbar-breadcrumbs')).toHaveCount(0);
         const crumbs = page.getByTestId('page-breadcrumbs').getByTestId('crumb');
         await expect(crumbs).toContainText(['Home', ...docs.deep.crumbs]);
         await expect(page.locator('[data-testid=crumb][data-current="true"]')).toBeInViewport();
         await expect(page.getByTestId('doc-edit')).toBeVisible();
-        await expect(page.getByTestId('doc-history')).toBeVisible();
+        await expect(page.getByTestId('doc-export')).toBeVisible();
 
         const bar = await page.getByTestId('topbar').boundingBox();
         expect(bar.height, 'the top bar wrapped onto a second line').toBeLessThanOrEqual(ROW_HEIGHT);
@@ -393,8 +413,8 @@ test.describe('mobile', () => {
         await expectNoHorizontalScroll(page);
         await shot(page, 'mobile-path-row');
 
-        await page.getByTestId('doc-history').tap();
-        await expect(page).toHaveURL(MAIN.url.history(docs.deep.path));
+        await page.getByTestId('doc-edit').tap();
+        await expect(page).toHaveURL(MAIN.url.edit(docs.deep.path));
     });
 
     // the burger's lines sat 6px from the edge while the menu dots sat 17px:

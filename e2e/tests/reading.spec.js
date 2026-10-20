@@ -35,6 +35,36 @@ test.describe('reading', () => {
         await shot(page, 'reading-root');
     });
 
+    test('a note whose name a url has to escape opens', async ({page}) => {
+        for (const [name, title] of [['e2e-100%.md', 'Percent'], ['e2e-a%20b.md', 'Escaped']]) {
+            // arrange
+            writeFixture(name, `# ${title}\n`);
+
+            // act
+            await page.goto(routes.doc(name));
+
+            // assert
+            await expect(page.getByTestId('doc').locator('h1')).toHaveText(title);
+            removeFixture(name);
+        }
+    });
+
+    test('a link to a heading of the same note by its file lands on the heading', async ({page}) => {
+        // arrange
+        const filler = Array.from({length: 40}, () => 'line '.repeat(12)).join('\n\n');
+        writeFixture('e2e-self.md', `# Self\n\n[jump](e2e-self.md#second)\n\n${filler}\n\n## Second\n\n${filler}\n`);
+        await page.goto(routes.doc('e2e-self.md'));
+
+        // act
+        await page.getByTestId('doc').getByRole('link', {name: 'jump'}).click();
+
+        // assert
+        await expect(page).toHaveURL(/#second$/);
+        await expect.poll(() => page.locator('[data-testid=doc] h2#second').evaluate((el) => Math.round(el.getBoundingClientRect().top)))
+            .toBeLessThan(170);
+        removeFixture('e2e-self.md');
+    });
+
     test('the disclosure triangle expands a folder without leaving the page', async ({page}) => {
         const row = page.locator(`[data-testid=tree-row][data-path="${DOC.folder}"]`);
         const twisty = row.getByTestId('tree-twisty');
@@ -53,14 +83,54 @@ test.describe('reading', () => {
             .toHaveAttribute('data-path', DOC.path);
     });
 
+    test('a space that records no versions offers no History', async ({page}) => {
+        // act
+        await page.goto(routes.doc(DOC.path));
+
+        // assert
+        await expect(page.getByTestId('doc-export')).toBeVisible();
+        await expect(page.getByTestId('doc-history')).toHaveCount(0);
+    });
+
     test('a folder label opens the folder page and expands the row', async ({page}) => {
         await page.locator(`[data-testid=tree-row][data-path="${DOC.folder}"] [data-testid=tree-link]`).click();
 
         await expect(page).toHaveURL(MAIN.url.dir(DOC.folder));
-        await expect(page.getByTestId('dir-title')).toBeVisible();
+        await expect(page.getByTestId('dir')).toBeVisible();
         await expect(page.locator(`[data-testid=tree-row][data-path="${DOC.folder}"] [data-testid=tree-twisty]`))
             .toHaveAttribute('data-open', 'true');
         await shot(page, 'reading-folder-page');
+    });
+
+    test('a right click on a tree row opens its menu and stays on the page', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC.path));
+        const other = page.locator('[data-testid=tree-row][data-current="false"][data-dir="false"]').first();
+
+        // act
+        await other.getByTestId('tree-link').click({button: 'right'});
+
+        // assert
+        await expect(page.getByTestId('tree-row-menu-dropdown')).toBeVisible();
+        await expect(other.getByTestId('tree-row-menu')).toHaveAttribute('data-opened', 'true');
+        await expect(page).toHaveURL(MAIN.url.doc(DOC.path));
+    });
+
+    test('an open folder label opens its page first and folds the folder on its page', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC.path));
+        const folder = page.locator(`[data-testid=tree-row][data-path="${DOC.folder}"]`);
+        await expect(folder.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+
+        // act & assert
+        await folder.getByTestId('tree-link').click();
+        await expect(page).toHaveURL(MAIN.url.dir(DOC.folder));
+        await expect(folder.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+
+        await folder.getByTestId('tree-link').click();
+        await expect(folder.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'false');
+        await expect(page.locator(`[data-testid=tree-row][data-path="${DOC.path}"]`)).toHaveCount(0);
+        await expect(page).toHaveURL(MAIN.url.dir(DOC.folder));
     });
 
     test('the sidebar filter narrows the tree and highlights the match', async ({page}) => {
@@ -93,7 +163,7 @@ test.describe('reading', () => {
 
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.deep.title);
         await expect(page.getByTestId('doc').locator('h2')).not.toHaveCount(0);
-        await expect(page.getByTestId('topbar-breadcrumbs').getByTestId('crumb')).toContainText(docs.deep.crumbs);
+        await expect(page.getByTestId('page-breadcrumbs').getByTestId('crumb')).toContainText(docs.deep.crumbs);
         await expect(page.locator('[data-testid=crumb][data-current="true"]')).toHaveCount(1);
         await shot(page, 'reading-deep-document');
     });
@@ -122,14 +192,15 @@ test.describe('reading', () => {
     // is tried first, and only then the folded one, or a document holding both
     // cases would resolve to whichever came first in the dom.
     test('an anchor written in another case than its slug still resolves', async ({page}) => {
-        writeFixture(ANCHORS, '# Якоря\n\n[раздел](#Раздел)\n\n## Раздел\n\nтекст\n');
+        writeFixture(ANCHORS, anchorDocument().replace('(#раздел)', '(#Раздел)'));
         await page.goto(routes.doc(ANCHORS));
 
-        await page.getByTestId('doc').getByRole('link', {name: 'раздел'}).click();
+        await page.getByTestId('doc').getByRole('link', {name: 'разделу'}).click();
         await expect
             .poll(() => page.getByTestId('doc').locator('h2').first().evaluate(
                 (el) => el.getBoundingClientRect().top))
             .toBeLessThan(250);
+        expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
 
         removeFixture(ANCHORS);
     });
@@ -308,8 +379,7 @@ test.describe('reading', () => {
         // than the rail scrolls inside it
         const visible = await page.evaluate(() => {
             const entry = document.querySelector('[data-testid=toc-entry][data-active="true"]');
-            const rail = document.querySelector('[data-testid=toc]')?.closest('[class*=ScrollArea-viewport]')
-                ?? document.querySelector('[class*=AppShell-aside]');
+            const rail = document.querySelector('[data-testid=toc-rail]');
             if (entry === null || rail === null) {
                 return null;
             }

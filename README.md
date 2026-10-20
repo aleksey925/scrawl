@@ -8,6 +8,7 @@ files on disk are the only state.
 - an editor with live preview, on desktop and on mobile
 - pages and folders made in the tree itself, dragged between folders,
   renamed and deleted; paste images straight into the editor
+- export note as Markdown, HTML or PDF
 - a version history per page: what changed, shown side by side the way
   the page reads, with the changed words marked; who changed it; and a
   restore
@@ -637,6 +638,14 @@ included, and `read_only: true` on one space refuses them there.
 All three say something different, so a client can tell whether asking
 for a wider token would help.
 
+The Export button has an endpoint too. `format=md` answers with the note
+as it is stored, `format=html` with the page; both come as a file to
+save:
+
+```
+curl -sOJH "Authorization: Bearer $TOKEN" 'http://localhost:7272/s/notes/api/export/python/notes.md?format=html'
+```
+
 ## Command line
 
 The server is one command of the binary, `scrawl serve`. The others use
@@ -673,18 +682,25 @@ built of rendered notes. Formulas stay TeX unless `--math` puts KaTeX
 into the page, which makes it some 600KB larger. Mermaid diagrams stay
 code.
 
-`site` writes a page for every note the app would show and copies every
-other file it would serve, so pictures and links keep working. Every
-page has the look of the app: the tree of notes on the left, a drawer on
-a phone, the outline of the note on the right, a copy button on every
-code block, a viewer for the pictures, mermaid diagrams and the theme
-picker, whose choice is kept from page to page. The diagram renderer,
-some 5MB, is written only when a note has a diagram. There is nothing to
-configure: the front page is `index.md` at the root of the notes, and
-the head of every page links to it by its title. The stylesheet and the
-script are written once, into `scrawl/`. The output directory has to be
-empty or missing, `--exclude` leaves more notes out, and `--math` works
-as for `render`.
+`site` writes the notes as a static site, for any static host under any
+path, or to open straight from disk. A page of the site is the app's
+reader with nothing to write: the tree of notes with its filter, a drawer
+on a phone, the outline with the section being read marked, a sheet for
+it on a phone, the path to the note, a page for every folder, a copy
+button on every code block, a viewer for the pictures, mermaid diagrams,
+formulas and the theme picker, whose choice is kept from page to page.
+From a host the site moves between notes without loading the page again,
+as the app does; opened from disk, every note is a page load.
+Search, editing, history and sync need the server and are not on a site.
+The diagram renderer, some 5MB, and the formula renderer are written only
+when a note needs them. There is nothing to configure: the front page is
+`index.md` at the root of the notes, or the list of what the root holds.
+The scripts and the stylesheets are written once, into `scrawl/`. Every
+other file is copied as it is, and `site` names the ones a browser runs a
+script from, such as `.html` or `.svg`: opened from the site, they run
+with its rights. A page still shows its note, its path and what its
+folder holds without javascript. The output directory has to be empty or
+missing, and `--exclude` leaves more notes out.
 
 ## Development
 
@@ -706,9 +722,10 @@ browser test fails with "Executable doesn't exist".
 ```
 make ui         build the interface into server/assets/app/
 make formatter  build prettier into format/prettier.wasm
-make build      build the binary into dist/
+make build      build the binary into dist/, with the assets compressed
 make run        run ./examples/data as the "notes" space, no authentication
 make test       tests
+make test-gzassets  tests of the build with the assets compressed
 make race       tests with the race detector
 make cover      race tests plus a coverage summary
 make lint       every hook: formatting, go vet, golangci-lint
@@ -723,5 +740,10 @@ The interface is a react app in [web/](web/), see
 network. Change anything under `web/` and the rebuilt bundle belongs in
 the same commit: CI rebuilds it and fails if what is checked in is
 stale.
+
+`make build`, the docker image and the release binaries store these
+files gzip-compressed, which makes the binary about 26 MB instead of
+about 40 MB. `go install` builds without that step and embeds the files
+as they are.
 
 Browser tests live in [e2e/](e2e/), see [e2e/README.md](e2e/README.md).

@@ -1,15 +1,15 @@
-/* the search is a field that opens the palette, the way GitHub's header has
-   it: drawn as a button it was one more gray block between the page actions */
+/* the search is a field that opens the palette: drawn as a button it was one
+   more gray block between the page actions */
 .search {
   display: flex;
-  flex: 0 1 220px;
+  flex: 0 1 280px;
   align-items: center;
   gap: var(--mantine-spacing-sm);
   min-width: 120px;
-  height: 32px;
-  padding-inline: var(--mantine-spacing-sm);
+  height: var(--scrawl-control-height);
+  padding-inline: var(--mantine-spacing-md) var(--mantine-spacing-sm);
   border: 1px solid var(--scrawl-border);
-  border-radius: var(--mantine-radius-sm);
+  border-radius: var(--mantine-radius-md);
   background: var(--scrawl-bg);
   color: var(--scrawl-text-secondary);
   font-size: var(--mantine-font-size-sm);
@@ -21,12 +21,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* the bar is a flat surface, so the main action is an outline on it and takes
-   the control fill only under the pointer */
-.primary {
-  background-color: transparent;
 }
 
 @media (hover: hover) {

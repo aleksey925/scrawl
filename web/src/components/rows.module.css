@@ -1,0 +1,55 @@
+/* a list on a page is a card of rows split by hairlines, the way a folder of
+   a repository reads */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--mantine-spacing-sm) var(--card-inset);
+  transition: background-color 120ms ease;
+}
+
+.row + .row {
+  border-top: 1px solid var(--scrawl-border);
+}
+
+/* the last row's fill keeps to the card's rounded corners */
+.row:last-child {
+  border-end-start-radius: calc(var(--mantine-radius-lg) - 1px);
+  border-end-end-radius: calc(var(--mantine-radius-lg) - 1px);
+}
+
+.row[data-selected='true'] {
+  background: var(--scrawl-accent-subtle);
+}
+
+@media (hover: hover) {
+  .row:not([data-selected='true']):hover {
+    background: var(--scrawl-bg-subtle);
+  }
+}
+
+.icon {
+  flex: none;
+  color: var(--scrawl-text-secondary);
+}
+
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--scrawl-bg-subtle);
+  color: var(--scrawl-accent);
+}
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}

@@ -1,9 +1,10 @@
 import { useEffect, useRef, type JSX, type RefObject } from 'react';
 import { useLocation } from 'react-router';
 
+import { holdPosition } from '../reader/position';
+
 import {
   captureFromView,
-  holdPosition,
   isReadingAnchor,
   recallAnchor,
   rememberAnchor,

@@ -1,7 +1,8 @@
 import type { JSX } from 'react';
 import { useParams } from 'react-router';
 
-import { ApiError, api } from '../api/client';
+import { api } from '../api/client';
+import { ApiError } from '../api/errors';
 import type { FileResponse, MeResponse } from '../api/types';
 import { useApi } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
@@ -14,7 +15,7 @@ interface EditData {
 
 export function Component(): JSX.Element {
   const params = useParams();
-  const path = decodeURIComponent(params['*'] ?? '');
+  const path = params['*'] ?? '';
 
   const state = useApi<EditData>(async (signal) => {
     const [me, file] = await Promise.all([

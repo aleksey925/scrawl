@@ -1,6 +1,6 @@
 import {
-  Badge, Box, Button, Center, Code, Container, Flex, Group, Loader, Modal, Paper, SegmentedControl,
-  Stack, Text, Title, UnstyledButton,
+  Badge, Box, Button, Center, Code, Container, Flex, Group, Loader, Modal, SegmentedControl, Stack, Text,
+  Title, UnstyledButton,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { IconArrowBackUp } from '@tabler/icons-react';
@@ -11,6 +11,8 @@ import { api } from '../api/client';
 import type { FileResponse, HistoryEntry, HistoryVersionResponse } from '../api/types';
 import { errorText, useApi, type AsyncState } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
+import { PageCard } from '../components/PageCard';
+import rows from '../components/rows.module.css';
 import { RenderedDiff } from '../diff/RenderedDiff';
 import { documentUrl } from '../paths';
 import { DiffView } from '../shell/DiffView';
@@ -24,6 +26,15 @@ import { showToast } from '../toast';
 
 function formatWhen(at: string): string {
   return new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+// initialsOf is the two letters a version is led by: the first of the first
+// two words of whoever made it, or the first two of a single word
+function initialsOf(actor: string): string {
+  const words = actor.split(/[\s._@-]+/).filter((word) => word !== '');
+  const [first = '?', second] = words;
+  const letters = second === undefined ? first.slice(0, 2) : `${first.slice(0, 1)}${second.slice(0, 1)}`;
+  return letters.toUpperCase();
 }
 
 function ScrollingPre({
@@ -94,7 +105,7 @@ function VersionDetail({ state }: { state: AsyncState<HistoryVersionResponse | u
   return (
     <Stack data-testid="history-detail" gap="md" style={{ minWidth: 0 }}>
       <Group justify="space-between" gap="sm" wrap="nowrap">
-        <Text size="xs" tt="uppercase" fw={600} c="dimmed">
+        <Text size="sm" fw={500} c="dimmed">
           What changed
         </Text>
         {changes !== undefined && (
@@ -122,13 +133,22 @@ function VersionDetail({ state }: { state: AsyncState<HistoryVersionResponse | u
       )}
       {state.data.content !== undefined && (
         <>
-          <Text size="xs" tt="uppercase" fw={600} c="dimmed">
+          <Text size="sm" fw={500} c="dimmed">
             The document at this version
           </Text>
           <ScrollingPre testId="history-content" text={state.data.content} maxHeight={320} />
         </>
       )}
     </Stack>
+  );
+}
+
+function VersionsTitle({ count }: { count: number }): JSX.Element {
+  return (
+    <>
+      <span>Versions</span>
+      <span>{count}</span>
+    </>
   );
 }
 
@@ -147,20 +167,19 @@ function VersionRow({
   entry, path, selected, canRestore, restoring, onPick, onRestore, children,
 }: VersionRowProps): JSX.Element {
   return (
-    <Paper
+    <div
       data-testid="version"
       data-rev={entry.rev}
       data-selected={selected ? 'true' : 'false'}
-      withBorder
-      p="sm"
-      radius="md"
-      style={{
-        minWidth: 0,
-        borderColor: selected ? 'var(--scrawl-accent-border)' : undefined,
-        background: selected ? 'var(--scrawl-accent-subtle)' : undefined,
-      }}
+      className={rows.row}
+      style={{ flexDirection: 'column', alignItems: 'stretch' }}
     >
-      <Group justify="space-between" wrap="nowrap" gap="sm" align="flex-start">
+      <Group wrap="nowrap" gap="md" align="flex-start">
+        <span className={rows.avatar} aria-hidden>
+          <Text span size="xs" fw={600}>
+            {initialsOf(entry.actor)}
+          </Text>
+        </span>
         <UnstyledButton
           data-testid="version-pick"
           onClick={onPick}
@@ -168,8 +187,15 @@ function VersionRow({
           style={{ flex: '1 1 auto', minWidth: 0, textAlign: 'left' }}
         >
           <Stack gap={4} style={{ minWidth: 0 }}>
-            <Group gap="xs" wrap="nowrap">
-              <Badge data-testid="version-kind" data-kind={entry.kind} size="sm" variant="light" color="gray">
+            <Group gap="xs" wrap="wrap">
+              <Badge
+                data-testid="version-kind"
+                data-kind={entry.kind}
+                size="sm"
+                variant="light"
+                color="gray"
+                style={{ flex: 'none' }}
+              >
                 {entry.kind}
               </Badge>
               <Text data-testid="version-when" size="xs" c="dimmed">
@@ -207,13 +233,13 @@ function VersionRow({
         )}
       </Group>
       {children}
-    </Paper>
+    </div>
   );
 }
 
 export function Component(): JSX.Element {
   const params = useParams();
-  const path = decodeURIComponent(params['*'] ?? '');
+  const path = params['*'] ?? '';
   const { canWrite } = useNav();
   const reportMutation = useMutationState();
   const stacked = useBelow(layoutBreakpoints.splitPane);
@@ -304,7 +330,7 @@ export function Component(): JSX.Element {
     setSelectedRev((prev) => (stacked && prev === entry.rev ? undefined : entry.rev));
   }
 
-  function rows(list: readonly HistoryEntry[]): JSX.Element[] {
+  function versionRows(list: readonly HistoryEntry[]): JSX.Element[] {
     return list.map((entry) => (
       <VersionRow
         key={entry.rev}
@@ -354,15 +380,19 @@ export function Component(): JSX.Element {
                 Nothing was recorded for this note.
               </Text>
             ) : stacked ? (
-              <Stack data-testid="history-list" gap="sm" style={{ minWidth: 0 }}>
-                {rows(data.entries)}
-              </Stack>
+              <PageCard data-testid="history-list" header={<VersionsTitle count={data.entries.length} />}>
+                {versionRows(data.entries)}
+              </PageCard>
             ) : (
               <Flex gap="xl" align="flex-start" style={{ minWidth: 0 }}>
-                <Stack data-testid="history-list" gap="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
-                  {rows(data.entries)}
-                </Stack>
-                <Box style={{ flex: '2 1 0', minWidth: 0 }}>
+                <PageCard
+                  data-testid="history-list"
+                  header={<VersionsTitle count={data.entries.length} />}
+                  style={{ flex: '1 1 0' }}
+                >
+                  {versionRows(data.entries)}
+                </PageCard>
+                <PageCard style={{ flex: '2 1 0', padding: 'var(--mantine-spacing-lg)' }}>
                   {selected === undefined ? (
                     <Text data-testid="history-detail-placeholder" size="sm" c="dimmed">
                       Pick a version to see what it changed.
@@ -370,7 +400,7 @@ export function Component(): JSX.Element {
                   ) : (
                     <VersionDetail state={detail} />
                   )}
-                </Box>
+                </PageCard>
               </Flex>
             )
           }
@@ -390,7 +420,7 @@ export function Component(): JSX.Element {
             Something wrote to the document after this page was loaded, so nothing was restored.
             Reload to see where the document stands now, then restore again.
           </Text>
-          <Text size="xs" tt="uppercase" fw={600} c="dimmed">
+          <Text size="sm" fw={500} c="dimmed">
             On disk now
           </Text>
           <ScrollingPre testId="history-conflict-current" text={conflict ?? ''} maxHeight={300} />

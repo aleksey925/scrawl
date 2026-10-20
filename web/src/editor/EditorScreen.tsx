@@ -24,9 +24,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useBlocker, useLocation, useNavigate } from 'react-router';
 
-import { ApiError, api, installUnauthorizedHandler, type ApiConflict } from '../api/client';
+import { api, installUnauthorizedHandler } from '../api/client';
+import { ApiError, type ApiConflict } from '../api/errors';
 import { errorText } from '../api/useApi';
 import { documentUrl, editUrl, isMarkdown } from '../paths';
+import { holdPosition, interactionEvents } from '../reader/position';
 import { useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
 import { TopbarAction } from '../shell/TopbarAction';
@@ -40,8 +42,6 @@ import { Splitter } from './Splitter';
 import { Toolbar } from './Toolbar';
 import {
   captureFromPane,
-  holdPosition,
-  interactionEvents,
   isReadingAnchor,
   paneTopForAnchor,
   rememberAnchor,

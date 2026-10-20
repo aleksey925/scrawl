@@ -12,6 +12,9 @@ import { useMermaid } from '../reader/useMermaid';
 import { useOutline } from '../reader/useOutline';
 import { openViewer } from '../reader/viewer';
 import { PageToc } from '../shell/ShellSlots';
+import { layoutBreakpoints, useAtLeast } from '../theme';
+
+import classes from './DocumentHtml.module.css';
 
 import '../reader/markdown.css';
 
@@ -28,6 +31,7 @@ export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Elem
   const rootRef = useRef<HTMLDivElement>(null);
   const outline = useOutline(rootRef, html, toc);
   const find = useFindOnPage(rootRef, html);
+  const inline = useAtLeast(layoutBreakpoints.tocRail);
 
   const closeViewer = useRef<(() => void) | null>(null);
   const openPicture = useCallback((image: HTMLImageElement): void => {
@@ -52,21 +56,32 @@ export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Elem
 
   return (
     <>
-      {outline !== null && (
+      {outline !== null && !inline && (
         <PageToc>
           <ReaderToc outline={outline} />
         </PageToc>
       )}
 
-      {/* the one place in the app that injects html. What arrives here was
-          rendered and sanitized on the server by the bluemonday policy in
-          render/policy.go. */}
-      <div
-        ref={rootRef}
-        data-testid="doc"
-        className="markdown-document"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      {/* one wrapper either way, so the text is never mounted again when the
+          outline moves between the card and the sheet */}
+      <div className={outline !== null && inline ? classes.withToc : undefined}>
+        {/* the one place in the app that injects html. What arrives here was
+            rendered and sanitized on the server by the bluemonday policy in
+            render/policy.go. */}
+        <div
+          ref={rootRef}
+          data-testid="doc"
+          className={`markdown-document ${classes.text}`}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+        {outline !== null && inline && (
+          <div className={classes.pane} data-print="hide">
+            <nav data-testid="toc-rail" className={classes.toc} aria-label="On this page">
+              <ReaderToc outline={outline} />
+            </nav>
+          </div>
+        )}
+      </div>
 
       {find !== null && (
         <FindBar position={find.position} total={find.total} onStep={find.step} onClose={find.close} />

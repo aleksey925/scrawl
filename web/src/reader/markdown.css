@@ -124,7 +124,9 @@
   margin-bottom: 16px;
   font-weight: 600;
   line-height: 1.25;
-  scroll-margin-top: calc(var(--app-shell-header-height, 0px) + var(--mantine-spacing-xl));
+  scroll-margin-top: calc(
+    var(--app-shell-header-height, 0px) + var(--scrawl-sticky-head, 0px) + var(--mantine-spacing-xl)
+  );
 }
 
 .markdown-document :is(h1, h2) {
@@ -884,5 +886,57 @@
 @keyframes md-viewer-fade {
   from {
     opacity: 0;
+  }
+}
+
+/* --- print --------------------------------------------------------------- */
+
+/* paper does not scroll, so what scrolls sideways on screen wraps or shows
+   whole, and the controls of a screen stay off it; the code and the tables
+   keep their backgrounds, which a browser drops by default */
+@media print {
+  .markdown-document {
+    print-color-adjust: exact;
+  }
+
+  .markdown-document .md-anchor,
+  .markdown-document .md-copy {
+    display: none;
+  }
+
+  .markdown-document pre,
+  .markdown-document pre :is(code, tt) {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .markdown-document :is(pre, .table-wrap, .math-display),
+  .markdown-document .md-diagram[data-state='done'] > .md-diagram-view {
+    overflow: visible;
+  }
+
+  /* a table is laid out in the width of the paper, its cells wrapping */
+  .markdown-document table {
+    display: table;
+    width: auto;
+    max-width: none;
+    overflow: visible;
+  }
+
+  .markdown-document :is(th, td) {
+    overflow-wrap: anywhere;
+  }
+
+  .markdown-document .md-diagram-view svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .markdown-document :is(h1, h2, h3, h4, h5, h6) {
+    break-after: avoid;
+  }
+
+  .markdown-document :is(img, svg, tr) {
+    break-inside: avoid;
   }
 }

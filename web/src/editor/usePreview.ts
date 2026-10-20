@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { ApiError, api } from '../api/client';
+import { api } from '../api/client';
+import { ApiError } from '../api/errors';
 import { errorText } from '../api/useApi';
 
 import { previewDelayMs } from './constants';

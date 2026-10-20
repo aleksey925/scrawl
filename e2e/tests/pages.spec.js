@@ -65,7 +65,7 @@ test.describe('pages', () => {
     test('a directory without an index lists its entries', async ({page}) => {
         await page.goto(routes.dir(docs.folder.path));
 
-        await expect(page.getByTestId('dir-title')).toBeVisible();
+        await expect(page.getByTestId('dir-table')).toBeVisible();
         const rows = page.getByTestId('dir-row');
         expect(await rows.count()).toBeGreaterThan(3);
         await expect(rows.first().getByTestId('dir-row-name')).toHaveAttribute('href', new RegExp(`^${routes.prefix()}/doc/`));
@@ -91,8 +91,9 @@ test.describe('pages', () => {
                 // in the client covers
             });
         });
-        // whichever row the tree happens to show beside the one being read
-        const other = page.locator('[data-testid=tree-row][data-current="false"]').first();
+        // whichever note the tree happens to show beside the one being read; an
+        // open folder's label folds it and goes nowhere
+        const other = page.locator('[data-testid=tree-row][data-current="false"][data-dir="false"]').first();
         const target = await other.getAttribute('data-path');
         await other.getByTestId('tree-link').click();
 

@@ -1,0 +1,81 @@
+/* a folder is a table, the way a file manager and a repository show one:
+   name, size and when it changed, with a row up to the folder above */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.table th,
+.table td {
+  padding-inline: 0 var(--mantine-spacing-xl);
+}
+
+.table th:first-child,
+.table td:first-child {
+  padding-inline-start: var(--card-inset);
+}
+
+.table th:last-child,
+.table td:last-child {
+  padding-inline-end: var(--card-inset);
+}
+
+.table th {
+  padding-block: var(--mantine-spacing-xs);
+  border-bottom: 1px solid var(--scrawl-border);
+  color: var(--scrawl-text-secondary);
+  font-weight: 500;
+  text-align: start;
+  white-space: nowrap;
+}
+
+.table td {
+  height: 40px;
+  color: var(--scrawl-text-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.table tr + tr td {
+  border-top: 1px solid var(--scrawl-border);
+}
+
+/* the name takes what the other columns leave and is the one to wrap */
+.name {
+  width: 100%;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+
+.name > span {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+}
+
+.table .end {
+  text-align: end;
+}
+
+@media (hover: hover) {
+  .table tbody tr:hover td {
+    background: var(--scrawl-bg-subtle);
+  }
+}
+
+/* the last row's fill keeps to the card's rounded corners */
+.table tbody tr:last-child td:first-child {
+  border-end-start-radius: calc(var(--mantine-radius-lg) - 1px);
+}
+
+.table tbody tr:last-child td:last-child {
+  border-end-end-radius: calc(var(--mantine-radius-lg) - 1px);
+}
+
+/* on a phone the size gives its room to the name */
+@mixin smaller-than $mantine-breakpoint-sm {
+  .size {
+    display: none;
+  }
+}

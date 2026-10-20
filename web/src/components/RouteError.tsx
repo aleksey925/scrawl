@@ -10,6 +10,12 @@ export function RouteError(): JSX.Element {
     ? `${error.status} ${error.statusText}`
     : errorText(error);
 
+  return <ErrorView message={message} />;
+}
+
+// ErrorView is a screen that broke, for the router that caught it and for the
+// boundary a site has instead
+export function ErrorView({ message }: { message: string }): JSX.Element {
   return (
     <Stack data-testid="app-error" p="xl" gap="md">
       <Title order={2}>This page broke</Title>

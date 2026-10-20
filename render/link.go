@@ -23,6 +23,7 @@ type linkTransformer struct {
 	rawPrefix  string
 	relative   bool
 	pageExt    string
+	folderPage string
 	exists     func(contentPath string) bool
 }
 
@@ -153,10 +154,25 @@ func isMarkdown(p string) bool { return strings.EqualFold(path.Ext(p), ".md") }
 // extension of a document when one was asked for. The root is not checked:
 // outside the app there is no notes root for a link to escape.
 func (t *linkTransformer) keepRelative(u *url.URL, dest string) target {
-	if t.pageExt == "" || !isMarkdown(u.Path) {
+	swapped := *u
+	switch {
+	case t.folderPage != "" && isFolder(u.Path):
+		swapped.Path = strings.TrimSuffix(u.Path, "/") + "/" + t.folderPage
+	case t.folderPage != "" && strings.EqualFold(path.Base(u.Path), folderIndex):
+		swapped.Path = path.Join(path.Dir(u.Path), t.folderPage)
+	case t.pageExt != "" && isMarkdown(u.Path):
+		swapped.Path = strings.TrimSuffix(u.Path, path.Ext(u.Path)) + t.pageExt
+	default:
 		return target{dest: dest}
 	}
-	swapped := *u
-	swapped.Path = strings.TrimSuffix(u.Path, path.Ext(u.Path)) + t.pageExt
 	return target{dest: swapped.String(), rewrote: true}
+}
+
+// folderIndex is the note a folder is shown as instead of its listing.
+const folderIndex = "index.md"
+
+// isFolder is a relative destination that names a folder: a trailing slash, or
+// the folder itself or its parent with none.
+func isFolder(p string) bool {
+	return strings.HasSuffix(p, "/") || p == "." || p == ".." || strings.HasSuffix(p, "/..") || strings.HasSuffix(p, "/.")
 }

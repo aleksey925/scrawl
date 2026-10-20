@@ -78,3 +78,29 @@ func TestEmojiShortcodes(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderReportsMath(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want bool
+	}{
+		{name: "an inline formula", src: "a $x^2$ b\n", want: true},
+		{name: "a display block", src: "$$\nx\n$$\n", want: true},
+		{name: "a math fence", src: "```math\nx\n```\n", want: true},
+		{name: "raw html of the class", src: "<span class=\"big math\">x</span>\n", want: true},
+		{name: "a class that only starts with it", src: "<span class=\"mathematics\">x</span>\n", want: false},
+		{name: "a dollar amount", src: "it costs $5\n", want: false},
+	}
+	r := New(Options{})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			res, err := r.Render([]byte(tc.src), "a.md")
+
+			// assert
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, res.Math)
+		})
+	}
+}

@@ -19,6 +19,18 @@ export function useShellSlots(): ShellSlots {
   return slots;
 }
 
+// ActionPlace is where a page action is drawn: in the row of the topbar, or in
+// the head of the card the note is read in
+export type ActionPlace = 'topbar' | 'head';
+
+const ActionPlaceContext = createContext<ActionPlace>('topbar');
+
+export const ActionPlaceProvider = ActionPlaceContext.Provider;
+
+export function useActionPlace(): ActionPlace {
+  return useContext(ActionPlaceContext);
+}
+
 // the slots are reached through refs the shell owns, never by element id: a
 // note heading slugged "toc" would otherwise answer a lookup meant for chrome
 export function PageActions({ children }: { children: ReactNode }): JSX.Element | null {

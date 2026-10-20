@@ -84,7 +84,6 @@ var commandExamples = map[string][]example{
 	siteCommand: {
 		{"scrawl site -o site notes", "notes/ as a static site"},
 		{"scrawl site -o site --exclude 'drafts/**' notes", "the same, without drafts/"},
-		{"scrawl site -o site --math notes", "formulas typeset with KaTeX"},
 	},
 	diffCommand: {
 		{"scrawl diff old.md new.md -o diff.html", "two files"},

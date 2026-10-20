@@ -1,55 +1,46 @@
 import { ActionIcon, Indicator, Menu } from '@mantine/core';
-import { IconAlertTriangle, IconDots } from '@tabler/icons-react';
-import { useState, type JSX } from 'react';
+import { IconDots } from '@tabler/icons-react';
+import type { JSX, ReactNode } from 'react';
 
-import { layout } from '../theme';
+import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
-import { AccountItems } from './AccountMenu';
-import { SyncSheet, useSyncSummary } from './SyncControl';
 import { ThemePicker } from './ThemePicker';
 
-// MoreMenu holds on a phone what the desktop topbar keeps in two places: the
-// sync state, and the theme with the account. The dot on it is what survives
-// scrolling while the sync is broken, the banner having scrolled away.
-export function MoreMenu(): JSX.Element {
-  const sync = useSyncSummary();
-  const [syncOpened, setSyncOpened] = useState(false);
+export interface MoreMenuProps {
+  // alert is what is wrong with the space, which the dot on the menu stands for
+  alert?: string;
+  // items above the theme and below it
+  before?: ReactNode;
+  after?: ReactNode;
+}
 
+// MoreMenu is the one menu of the bar: on a phone in the app it holds what the
+// desktop topbar keeps in two places, the sync state and the account, and
+// around the theme a site has nothing else to hold. The dot on it is what
+// survives scrolling while the sync is broken, the banner having scrolled away.
+export function MoreMenu({ alert, before, after }: MoreMenuProps): JSX.Element {
+  const wide = useAtLeast(layoutBreakpoints.compactTopbar);
   return (
-    <>
-      <Menu position="bottom-end" width={240} withinPortal>
-        <Menu.Target>
-          <ActionIcon
-            data-testid="topbar-more"
-            data-sync={sync === undefined ? 'false' : 'true'}
-            variant="subtle"
-            color="gray"
-            size="lg"
-            aria-label={sync === undefined ? 'More' : `More: ${sync.label}`}
-          >
-            <Indicator disabled={sync === undefined} color="yellow" size={8} offset={2}>
-              <IconDots size={layout.topbarIconSize} />
-            </Indicator>
-          </ActionIcon>
-        </Menu.Target>
-        <Menu.Dropdown data-testid="topbar-more-menu">
-          {sync !== undefined && (
-            <Menu.Item
-              data-testid="sync-control"
-              data-here={sync.here ? 'true' : 'false'}
-              color="yellow"
-              leftSection={<IconAlertTriangle size={16} />}
-              onClick={() => setSyncOpened(true)}
-            >
-              {sync.label}
-            </Menu.Item>
-          )}
-          <ThemePicker />
-          <Menu.Divider />
-          <AccountItems />
-        </Menu.Dropdown>
-      </Menu>
-      <SyncSheet opened={syncOpened} onClose={() => setSyncOpened(false)} />
-    </>
+    <Menu position="bottom-end" width={240} withinPortal>
+      <Menu.Target>
+        <ActionIcon
+          data-testid="topbar-more"
+          data-sync={alert === undefined ? 'false' : 'true'}
+          variant={wide ? 'default' : 'subtle'}
+          color="gray"
+          size={wide ? layout.controlHeight : 'lg'}
+          aria-label={alert === undefined ? 'More' : `More: ${alert}`}
+        >
+          <Indicator disabled={alert === undefined} color="yellow" size={8} offset={2}>
+            <IconDots size={layout.topbarIconSize} />
+          </Indicator>
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown data-testid="topbar-more-menu">
+        {before}
+        <ThemePicker />
+        {after}
+      </Menu.Dropdown>
+    </Menu>
   );
 }

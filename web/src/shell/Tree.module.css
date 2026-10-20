@@ -1,0 +1,38 @@
+/* the rows of an open folder hang off a line under its chevron, so the depth
+   of a row reads at a glance and not by measuring its indent */
+.children {
+  position: relative;
+}
+
+.children::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: var(--tree-guide-x);
+  width: 1px;
+  background: var(--scrawl-border);
+  pointer-events: none;
+}
+
+/* the menu shows under the pointer, the keyboard's focus or open, not after a
+   click left the focus on the chevron; with no pointer it always shows */
+@media (hover: hover) {
+  .row .menu:not([data-opened='true']) {
+    opacity: 0;
+  }
+
+  .row:hover .menu,
+  .row:has(:focus-visible) .menu {
+    opacity: 1;
+  }
+}
+
+/* a long press is the row's menu, and iOS would also preview the link under
+   the finger and pick a word of its name */
+@media (pointer: coarse) {
+  .pressable {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}

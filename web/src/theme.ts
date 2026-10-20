@@ -63,11 +63,20 @@ export const layoutBreakpoints = {
 
 export const layout = {
   sidebarWidth: 264,
-  tocWidth: 240,
+  tocWidth: 256,
+  // the gap between a rail card and the edge of the screen or the page
+  railGutter: 8,
   contentMeasure: 740,
-  topbarHeight: 52,
+  // the room a note card keeps around the text, on a desktop and on a phone
+  notePadding: 32,
+  topbarHeight: 60,
   topbarHeightCompact: 48,
+  // the head of a card, which holds the path and the note's actions
+  cardHeadHeight: 46,
   topbarIconSize: 18,
+  // a button and a field beside it, at their usual size
+  controlHeight: 36,
+  controlHeightSmall: 30,
   tapTarget: 44,
   // the switcher names the space and then gets out of the way of the page
   // actions, which are what a phone topbar must never push off the row
@@ -84,6 +93,7 @@ export function iconEdgeInset(glyphSize: number): string {
 
 export interface ScrawlTokens {
   bg: string;
+  ground: string;
   bgSubtle: string;
   bgInset: string;
   text: string;
@@ -106,6 +116,7 @@ export interface ScrawlTokens {
 function scrawlTokens(palette: Palette): ScrawlTokens {
   return {
     bg: palette.bgDefault,
+    ground: palette.bgInset,
     bgSubtle: palette.bgMuted,
     bgInset: palette.bgInset,
     text: palette.fgDefault,
@@ -205,9 +216,14 @@ function mantineVariables(tokens: ScrawlTokens): Record<string, string> {
 export const layoutVariables: Record<string, string> = {
   '--scrawl-sidebar-width': `${layout.sidebarWidth}px`,
   '--scrawl-toc-width': `${layout.tocWidth}px`,
+  '--scrawl-rail-gutter': `${layout.railGutter}px`,
   '--scrawl-content-measure': `${layout.contentMeasure}px`,
+  '--scrawl-note-padding': `${layout.notePadding}px`,
   '--scrawl-topbar-height': `${layout.topbarHeight}px`,
+  '--scrawl-card-head': `${layout.cardHeadHeight}px`,
   '--scrawl-tap-target': `${layout.tapTarget}px`,
+  '--scrawl-control-height': `${layout.controlHeight}px`,
+  '--scrawl-control-height-small': `${layout.controlHeightSmall}px`,
   '--scrawl-input-font-size': `${layout.inputFontSize}px`,
 };
 
@@ -253,7 +269,7 @@ export const theme: MantineThemeOverride = createTheme({
   lineHeights: { xs: '1.2', sm: '1.3', md: '1.45', lg: '1.55', xl: '1.65' },
 
   radius: { xs: '4px', sm: '6px', md: '8px', lg: '12px', xl: '999px' },
-  defaultRadius: 'sm',
+  defaultRadius: 'md',
 
   spacing: {
     xs: '0.25rem',
@@ -288,9 +304,9 @@ export const theme: MantineThemeOverride = createTheme({
     Button: Button.extend({ classNames: { root: `${controls.tapTarget} ${controls.button}` } }),
     CloseButton: CloseButton.extend({ classNames: { root: controls.tapTarget } }),
     Input: Input.extend({ classNames: { wrapper: controls.input, input: controls.inputField } }),
-    // a control takes Primer's 6px, a surface floating over the page its larger one
+    // a surface floating over the page takes the radius of a card
     Menu: Menu.extend({
-      defaultProps: { radius: 'md' },
+      defaultProps: { radius: 'lg' },
       classNames: { dropdown: controls.menu, item: controls.menuItem, label: controls.menuLabel },
     }),
     Modal: Modal.extend({ defaultProps: { radius: 'lg' } }),

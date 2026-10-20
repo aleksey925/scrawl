@@ -11,6 +11,8 @@ export interface RowMenuProps {
   isDir: boolean;
   name: string;
   touch: boolean;
+  // where the entry is edited; the menu offers no Edit without one
+  editUrl?: string;
   // the row holds the state, because a right click or a long press anywhere
   // on it opens the menu too
   opened: boolean;

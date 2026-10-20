@@ -251,7 +251,8 @@
 }
 
 @container (min-width: 560px) {
-  .diff[data-layout='unified'] :is(.diff-row, .diff-fold, .diff-none) {
+  /* the gutter is the column's own: a row in an open fold takes it from the fold */
+  .diff[data-layout='unified'] > :is(.diff-row, .diff-fold, .diff-none) {
     margin-inline-start: 96px;
   }
 

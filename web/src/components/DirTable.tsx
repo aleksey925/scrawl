@@ -247,6 +247,7 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
             isDir={entry.is_dir}
             name={entry.name}
             touch
+            editUrl={entry.edit_url}
             opened={menuOpened}
             onOpenedChange={setMenuOpened}
           />
@@ -262,6 +263,7 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
               isDir={entry.is_dir}
               name={entry.name}
               touch
+              editUrl={entry.edit_url}
               opened={opened}
               onOpenedChange={setOpened}
               target={card}

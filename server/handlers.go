@@ -186,6 +186,12 @@ func isTextFile(p string) bool {
 	return strings.HasPrefix(contentType, "text/")
 }
 
+// editable reports whether the editor can open a file by what a listing knows of
+// it: a text name and a size the editor loads. Its bytes are checked on opening.
+func editable(fi store.FileInfo) bool {
+	return !fi.IsDir && isTextFile(fi.Path) && fi.Size <= maxEditableFile
+}
+
 // textContent reports whether bytes are text a page can show and the editor
 // can load: valid UTF-8 with no NUL. A name on the text list is not enough,
 // because a binary file can carry any name.

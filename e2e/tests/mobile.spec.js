@@ -191,6 +191,112 @@ test.describe('mobile', () => {
             await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
             await expect(page).toHaveURL(folder());
         });
+
+        test('a tab tapped while the swiped page is leaving wins over the way back', async ({page}) => {
+            // arrange
+            await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
+            await page.goto(folder());
+            await expect(page.getByTestId('dir-row').first()).toBeVisible();
+
+            // act
+            await swipe(page, 300);
+            await page.getByTestId('tab-recent').tap();
+
+            // assert
+            await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
+            await page.waitForTimeout(600);
+            await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
+        });
+
+        test('a tab whose screen is still loading when the leave ends keeps its place', async ({page}) => {
+            // arrange
+            await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
+            await page.goto(routes.doc(DOC));
+            await expect(page.locator('[data-screen]')).toBeVisible();
+            await page.route(/\/api\/(dir|page)\//, async (route) => {
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                await route.continue();
+            });
+
+            // act
+            await swipe(page, 300);
+            await page.getByTestId('tab-notes').tap();
+
+            // assert
+            await expect(page).toHaveURL(atHome());
+            await page.waitForTimeout(1500);
+            await expect(page).toHaveURL(atHome());
+        });
+
+        test('with less motion asked for, a short drag puts the page back with no move', async ({page}) => {
+            // arrange
+            await page.emulateMedia({reducedMotion: 'reduce'});
+            await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
+            await page.goto(folder());
+            await expect(page.getByTestId('dir-row').first()).toBeVisible();
+
+            // act
+            await swipe(page, 60, 40);
+
+            // assert
+            const moving = await page.locator('[data-screen]').evaluate((el) => el.getAnimations()
+                .filter((animation) => animation.playState === 'running' && animation.effect.getTiming().duration > 0)
+                .length);
+            expect(moving).toBe(0);
+            await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
+        });
+
+        test('a second finger gives the drag up and puts the page back', async ({page}) => {
+            // arrange
+            await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
+            await page.goto(folder());
+            await expect(page.getByTestId('dir-row').first()).toBeVisible();
+            const cdp = await page.context().newCDPSession(page);
+            const y = 400;
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y, id: 1}]});
+            for (const x of [20, 60, 100]) {
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y, id: 1}]});
+            }
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {
+                type: 'touchStart', touchPoints: [{x: 100, y, id: 1}, {x: 200, y: 500, id: 2}],
+            });
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+
+            // assert
+            await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
+            await expect(page).toHaveURL(folder());
+        });
+    });
+
+    test.describe('a tablet', () => {
+        test.use({viewport: {width: 1024, height: 768}});
+
+        test('a touch beside a menu that never became a tap does not close the next one', async ({page}) => {
+            // arrange
+            await page.goto(routes.home());
+            const opener = page.getByTestId('tree-row').first().getByTestId('tree-row-menu');
+            const menu = page.getByTestId('tree-row-menu-dropdown');
+            const cdp = await page.context().newCDPSession(page);
+            await opener.tap();
+            await expect(menu).toBeVisible();
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 900, y: 700}]});
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
+            // the touch scrolled the page, and a scroll closes a row's menu
+            await page.evaluate(() => window.dispatchEvent(new Event('scroll')));
+            await expect(menu).toHaveCount(0);
+            await opener.tap();
+            await expect(menu).toBeVisible();
+
+            // act: the click a finger lifted after a long press sends, with no press of its own
+            await page.getByTestId('tap-guard').dispatchEvent('click');
+
+            // assert
+            await page.waitForTimeout(400);
+            await expect(opener).toHaveAttribute('data-opened', 'true');
+            await expect(menu).toBeVisible();
+        });
     });
 
     test.describe('the menu of a row in a folder', () => {
@@ -275,6 +381,27 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('row-lift')).toHaveCount(0);
             await expect(rowOf(page, file)).toHaveAttribute('data-lifted', 'false');
             await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+        });
+
+        test('offers Edit for a note and not for a picture the editor cannot open', async ({page}) => {
+            // arrange
+            const note = `${FOLDER}/editable.md`;
+            const picture = `${FOLDER}/picture.png`;
+            writeFixture(note, '# Editable\n');
+            writeFixture(picture, 'not really a png');
+            await page.goto(MAIN.url.dir(FOLDER));
+
+            // act & assert
+            await rowOf(page, note).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await expect(page.getByTestId('tree-row-menu-edit')).toBeVisible();
+            await page.touchscreen.tap(30, 120);
+            await expect(page.getByTestId('tree-row-menu-dropdown')).toHaveCount(0);
+
+            await rowOf(page, picture).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await expect(page.getByTestId('tree-row-menu-rename')).toBeVisible();
+            await expect(page.getByTestId('tree-row-menu-edit')).toHaveCount(0);
         });
 
         test('opens from the row\'s own button, which leaves the row as it is', async ({page}) => {

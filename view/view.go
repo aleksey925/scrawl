@@ -91,6 +91,8 @@ type DirEntry struct {
 	FolderPage bool `json:"folder_page,omitempty"`
 	// Items is how many entries a folder shows one level down
 	Items int `json:"items,omitempty"`
+	// EditURL is where the file is edited, left out of one the editor cannot open
+	EditURL string `json:"edit_url,omitempty"`
 }
 
 // File is a file of the space that is not a note, on a page of its own: a
@@ -182,7 +184,7 @@ func NewFile(fi store.FileInfo, fileType string) File {
 
 // NewDir is the listing of a directory, which is what a folder is always shown
 // as. Its index.md is one of the rows, tagged as the folder page.
-func NewDir(p string, entries []store.FileInfo, items Counter) Dir {
+func NewDir(p string, entries []store.FileInfo, items Counter, editable Editable) Dir {
 	title := homeTitle
 	if p != "" {
 		title = path.Base(p)
@@ -191,7 +193,7 @@ func NewDir(p string, entries []store.FileInfo, items Counter) Dir {
 		Path:        p,
 		Kind:        KindDirectory,
 		Title:       title,
-		Entries:     DirEntries(entries, items),
+		Entries:     DirEntries(entries, items, editable),
 		Breadcrumbs: Breadcrumbs(p),
 	}
 }
@@ -199,6 +201,13 @@ func NewDir(p string, entries []store.FileInfo, items Counter) Dir {
 // Counter answers how many entries a folder shows, for the line under its name
 // on a phone.
 type Counter func(dir string) int
+
+// Editable answers whether the editor can open a file of a listing, which only
+// the server can say.
+type Editable func(fi store.FileInfo) bool
+
+// NotEditable is a listing the reader can only read, a site's.
+func NotEditable(store.FileInfo) bool { return false }
 
 // ItemsIn counts what a listing of the folder holds; a folder that cannot be
 // listed holds nothing worth counting.
@@ -213,15 +222,19 @@ func ItemsIn(list func(dir string) ([]store.FileInfo, error)) Counter {
 }
 
 // DirEntries turns a store listing into the rows of a directory page.
-func DirEntries(entries []store.FileInfo, items Counter) []DirEntry {
+func DirEntries(entries []store.FileInfo, items Counter, editable Editable) []DirEntry {
 	index := IndexOf(entries)
 	res := make([]DirEntry, 0, len(entries))
 	for _, ent := range entries {
 		target := ContentURL(ent.Path)
 		count := 0
-		if ent.IsDir {
+		edit := ""
+		switch {
+		case ent.IsDir:
 			target = DirURL(ent.Path)
 			count = items(ent.Path)
+		case editable(ent):
+			edit = EditURL(ent.Path)
 		}
 		res = append(res, DirEntry{
 			Name:       ent.Name,
@@ -232,6 +245,7 @@ func DirEntries(entries []store.FileInfo, items Counter) []DirEntry {
 			ModTime:    ent.ModTime,
 			FolderPage: index != "" && ent.Path == index,
 			Items:      count,
+			EditURL:    edit,
 		})
 	}
 	return res

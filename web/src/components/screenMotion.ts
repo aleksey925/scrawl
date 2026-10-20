@@ -27,12 +27,20 @@ let leaving: Animation | undefined;
 // the longest a swiped screen stays away for a next one that never enters
 const leaveHoldMs = 3000;
 
+// motionMs is how long a move takes, none at all for a reader who asked the
+// system for less motion
+export function motionMs(ms: number): number {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : ms;
+}
+
 // leaveScreen moves the page out past the right edge from where a finger left
-// it, and keeps it there until the page of the next route enters
-export async function leaveScreen(element: HTMLElement, from: number): Promise<void> {
+// it, and keeps it there until the page of the next route enters. It answers
+// whether the page got there: a tap, a navigation or a second swipe that
+// cancels the move cancels what was to follow it too.
+export function leaveScreen(element: HTMLElement, from: number): Promise<boolean> {
   leaving?.cancel();
   const animation = element.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100%)' }], {
-    duration: 200,
+    duration: motionMs(200),
     easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
     fill: 'forwards',
   });
@@ -43,7 +51,10 @@ export async function leaveScreen(element: HTMLElement, from: number): Promise<v
       leaving = undefined;
     }
   }, leaveHoldMs);
-  await animation.finished.catch(() => undefined);
+  return animation.finished.then(
+    () => true,
+    () => false,
+  );
 }
 
 // the location the last page entered for; undefined until the first page is
@@ -66,10 +77,7 @@ function motionOf(pathname: string, navigation: string): Motion {
 }
 
 function moves(): boolean {
-  return (
-    window.matchMedia(`(hover: none) and ${maxWidthQuery(layoutBreakpoints.phone)}`).matches &&
-    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
+  return window.matchMedia(`(hover: none) and ${maxWidthQuery(layoutBreakpoints.phone)}`).matches;
 }
 
 // useScreenEnter moves a page in the way a phone app moves a screen in: from
@@ -94,7 +102,7 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
     }
     const from = motion === 'forward' ? offset : `-${offset}`;
     ref.current.animate([{ transform: `translateX(${from})`, opacity: 0 }, { transform: 'none', opacity: 1 }], {
-      duration: enterMs,
+      duration: motionMs(enterMs),
       easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
     });
   }, [ready, location.key]);

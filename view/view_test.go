@@ -3,6 +3,7 @@ package view
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -159,14 +160,14 @@ func TestNewDir(t *testing.T) {
 			entries := []store.FileInfo{{Name: "a.md", Path: tc.path + "/a.md"}}
 
 			// act
-			got := NewDir(tc.path, entries, noItems)
+			got := NewDir(tc.path, entries, noItems, NotEditable)
 
 			// assert
 			assert.Equal(t, Dir{
 				Path:        tc.path,
 				Kind:        KindDirectory,
 				Title:       tc.title,
-				Entries:     DirEntries(entries, noItems),
+				Entries:     DirEntries(entries, noItems, NotEditable),
 				Breadcrumbs: Breadcrumbs(tc.path),
 			}, got)
 		})
@@ -184,14 +185,16 @@ func TestDirEntries(t *testing.T) {
 	}
 
 	// act
-	got := DirEntries(entries, func(dir string) int { return len(dir) })
+	notes := func(fi store.FileInfo) bool { return strings.HasSuffix(fi.Name, ".md") }
+	got := DirEntries(entries, func(dir string) int { return len(dir) }, notes)
 
 	// assert
 	assert.Equal(t, []DirEntry{
 		{Name: "sub", Path: "docs/sub", URL: "/doc/docs/sub/", IsDir: true, ModTime: mod, Items: len("docs/sub")},
-		{Name: "a.md", Path: "docs/a.md", URL: "/doc/docs/a.md", Size: 3, ModTime: mod},
+		{Name: "a.md", Path: "docs/a.md", URL: "/doc/docs/a.md", Size: 3, ModTime: mod, EditURL: "/edit/docs/a.md"},
 		{Name: "b.png", Path: "docs/b.png", URL: "/doc/docs/b.png", Size: 4, ModTime: mod},
-		{Name: "Index.md", Path: "docs/Index.md", URL: "/doc/docs/Index.md", Size: 5, ModTime: mod, FolderPage: true},
+		{Name: "Index.md", Path: "docs/Index.md", URL: "/doc/docs/Index.md", Size: 5, ModTime: mod, FolderPage: true,
+			EditURL: "/edit/docs/Index.md"},
 	}, got)
 }
 

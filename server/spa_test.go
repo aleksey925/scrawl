@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/aleksey925/scrawl/render"
+	"github.com/aleksey925/scrawl/store"
 	"github.com/aleksey925/scrawl/view"
 )
 
@@ -350,7 +351,7 @@ func TestAPIDirListsWhatTheDirectoryPageLists(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
-	assert.Equal(t, jsonValue(t, view.DirEntries(entries, view.ItemsIn(ts.Spaces[0].Store.List))), body["entries"])
+	assert.Equal(t, jsonValue(t, view.DirEntries(entries, view.ItemsIn(ts.Spaces[0].Store.List), editable)), body["entries"])
 	assert.NotContains(t, body, "readme_html")
 }
 
@@ -697,4 +698,24 @@ func TestAPIMeReportsFormatOnSave(t *testing.T) {
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
 	assert.Equal(t, true, body["space"].(map[string]any)["format_on_save"])
+}
+
+func TestEditable(t *testing.T) {
+	tests := []struct {
+		name string
+		fi   store.FileInfo
+		want bool
+	}{
+		{name: "a note", fi: store.FileInfo{Path: "docs/a.md", Size: 10}, want: true},
+		{name: "a text file", fi: store.FileInfo{Path: "docs/log.txt", Size: 10}, want: true},
+		{name: "a picture", fi: store.FileInfo{Path: "docs/pic.png", Size: 10}, want: false},
+		{name: "a text file too large to load", fi: store.FileInfo{Path: "docs/big.txt", Size: maxEditableFile + 1}, want: false},
+		{name: "a folder named like a note", fi: store.FileInfo{Path: "docs/sub.md", IsDir: true}, want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act & assert
+			assert.Equal(t, tc.want, editable(tc.fi))
+		})
+	}
 }

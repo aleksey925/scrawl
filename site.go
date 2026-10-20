@@ -270,7 +270,8 @@ func (b *siteBuilder) writeFolder(dir string) error {
 	name := folderPageOf(dir)
 	up := siteUp(name)
 	sp := page.SitePage{Title: folderTitle(dir), Crumbs: siteCrumbs(dir, up), Entries: siteEntries(entries, dir)}
-	return b.writePage(name, sp, sitePageData{Route: view.DirURL(dir), Answer: view.NewDir(dir, entries, view.ItemsIn(b.st.List))})
+	answer := view.NewDir(dir, entries, view.ItemsIn(b.st.List), view.NotEditable)
+	return b.writePage(name, sp, sitePageData{Route: view.DirURL(dir), Answer: answer})
 }
 
 // sitePageData is the JSON a page carries: the route of the app it stands for,

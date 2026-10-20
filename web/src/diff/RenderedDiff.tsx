@@ -95,8 +95,10 @@ export interface RenderedDiffProps {
 // marked and unchanged stretches folded away
 export function RenderedDiff({ rows, layout, oldLabel, newLabel, version }: RenderedDiffProps): JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null);
-  useKatex(rootRef, version);
-  useMermaid(rootRef, version);
+  // the other layout draws every row anew, its formulas and diagrams untypeset
+  const drawn = `${version}:${layout}`;
+  useKatex(rootRef, drawn);
+  useMermaid(rootRef, drawn);
   const Row = layout === 'split' ? SplitRow : UnifiedRow;
 
   return (

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type JSX, type ReactEleme
 import { createPortal } from 'react-dom';
 
 import classes from './LiftedRow.module.css';
+import { motionMs } from './screenMotion';
 
 const liftMs = 220;
 const dropMs = 160;
@@ -21,10 +22,6 @@ export interface LiftedRowProps {
   onDropped: () => void;
 }
 
-function motion(ms: number): number {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : ms;
-}
-
 // LiftedRow raises a copy of a row over the page and opens the row's menu from
 // it; closing the menu sets the row back down
 export function LiftedRow({ rect, children, menu, onDropped }: LiftedRowProps): JSX.Element {
@@ -35,18 +32,18 @@ export function LiftedRow({ rect, children, menu, onDropped }: LiftedRowProps): 
   useLayoutEffect(() => {
     const easing = 'cubic-bezier(0.2, 0.9, 0.3, 1.15)';
     cardRef.current?.animate([{ transform: 'scale(1)', boxShadow: 'none' }, { transform: `scale(${liftScale})` }], {
-      duration: motion(liftMs),
+      duration: motionMs(liftMs),
       easing,
       fill: 'forwards',
     });
-    backdropRef.current?.animate([{ opacity: 0 }, {}], { duration: motion(liftMs), easing: 'ease-out' });
+    backdropRef.current?.animate([{ opacity: 0 }, {}], { duration: motionMs(liftMs), easing: 'ease-out' });
   }, []);
 
   useEffect(() => {
     if (opened) {
       return;
     }
-    const options = { duration: motion(dropMs), easing: 'ease-in', fill: 'forwards' as const };
+    const options = { duration: motionMs(dropMs), easing: 'ease-in', fill: 'forwards' as const };
     backdropRef.current?.animate([{}, { opacity: 0 }], options);
     const drop = cardRef.current?.animate([{ transform: `scale(${liftScale})` }, { transform: 'scale(1)', boxShadow: 'none' }], options);
     if (drop === undefined) {

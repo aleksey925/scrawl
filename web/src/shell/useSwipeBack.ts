@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { leaveScreen } from '../components/screenMotion';
+import { leaveScreen, motionMs } from '../components/screenMotion';
 
 // how far from the left edge a finger has to land to start the swipe
 const edgePx = 24;
@@ -22,7 +22,8 @@ interface Track {
   y: number;
   dx: number;
   samples: Sample[];
-  engaged: boolean;
+  // the page the finger drags, once the drag has started
+  element?: HTMLElement;
 }
 
 // speedOf is how fast the finger moved over the last stretch before it lifted
@@ -52,6 +53,12 @@ function covered(): boolean {
   );
 }
 
+// entryKey names the entry of the history the app is on, which the router keeps
+// in the history's state
+function entryKey(): string | undefined {
+  return (window.history.state as { key?: string } | null)?.key;
+}
+
 function screen(): HTMLElement | null {
   return document.querySelector<HTMLElement>('[data-screen]');
 }
@@ -59,7 +66,7 @@ function screen(): HTMLElement | null {
 function settle(element: HTMLElement, from: number): void {
   element.style.transform = '';
   element.animate([{ transform: `translateX(${from}px)` }, { transform: 'none' }], {
-    duration: 200,
+    duration: motionMs(200),
     easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
   });
 }
@@ -79,44 +86,58 @@ export function useSwipeBack(goBack: (() => void) | null): void {
     }
     let track: Track | undefined;
 
+    // drop gives up the drag and puts the page back where it was: a second
+    // finger, a touch the system took, or the page going away mid-drag
+    const drop = (): void => {
+      const ended = track;
+      track = undefined;
+      if (ended?.element !== undefined) {
+        settle(ended.element, ended.dx);
+      }
+    };
+
     const onStart = (event: TouchEvent): void => {
+      if (track?.element !== undefined) {
+        drop();
+        return;
+      }
       const touch = event.touches[0];
       track =
         event.touches.length === 1 && touch !== undefined && touch.clientX <= edgePx && goBackRef.current !== null && !covered()
-          ? { x: touch.clientX, y: touch.clientY, dx: 0, samples: [], engaged: false }
+          ? { x: touch.clientX, y: touch.clientY, dx: 0, samples: [] }
           : undefined;
     };
 
     const onMove = (event: TouchEvent): void => {
       const touch = event.touches[0];
-      const element = screen();
-      if (track === undefined || touch === undefined || element === null) {
+      if (track === undefined || touch === undefined) {
         return;
       }
       const dx = Math.max(0, touch.clientX - track.x);
       const dy = Math.abs(touch.clientY - track.y);
-      if (!track.engaged) {
-        if (dy > startPx && dy > dx) {
+      if (track.element === undefined) {
+        const element = screen();
+        if (element === null || (dy > startPx && dy > dx)) {
           track = undefined;
           return;
         }
         if (dx < startPx) {
           return;
         }
-        track.engaged = true;
+        track.element = element;
       }
       event.preventDefault();
       track.dx = dx;
       const recent = track.samples.filter((sample) => event.timeStamp - sample.at <= flickWindowMs);
       track.samples = [...recent, { dx, at: event.timeStamp }];
-      element.style.transform = `translateX(${dx}px)`;
+      track.element.style.transform = `translateX(${dx}px)`;
     };
 
     const onEnd = (event: TouchEvent): void => {
-      const element = screen();
       const ended = track;
       track = undefined;
-      if (ended === undefined || !ended.engaged || element === null) {
+      const element = ended?.element;
+      if (ended === undefined || element === undefined) {
         return;
       }
       const done = ended.dx > window.innerWidth * completeShare || speedOf(ended.samples, event.timeStamp) > flickPxPerMs;
@@ -125,28 +146,26 @@ export function useSwipeBack(goBack: (() => void) | null): void {
         return;
       }
       element.style.transform = '';
-      void leaveScreen(element, ended.dx).then(() => goBackRef.current?.());
-    };
-
-    // the system took the touch: the page goes back where it was, and nothing else
-    const onCancel = (): void => {
-      const element = screen();
-      const ended = track;
-      track = undefined;
-      if (ended?.engaged === true && element !== null) {
-        settle(element, ended.dx);
-      }
+      const from = entryKey();
+      void leaveScreen(element, ended.dx).then((gone) => {
+        // a tab tapped while the page was leaving moved the history on, and its
+        // screen may still be loading, too late to have cancelled the leave
+        if (gone && entryKey() === from) {
+          goBackRef.current?.();
+        }
+      });
     };
 
     document.addEventListener('touchstart', onStart, { passive: true });
     document.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('touchend', onEnd);
-    document.addEventListener('touchcancel', onCancel);
+    document.addEventListener('touchcancel', drop);
     return () => {
       document.removeEventListener('touchstart', onStart);
       document.removeEventListener('touchmove', onMove);
       document.removeEventListener('touchend', onEnd);
-      document.removeEventListener('touchcancel', onCancel);
+      document.removeEventListener('touchcancel', drop);
+      drop();
     };
   }, []);
 }

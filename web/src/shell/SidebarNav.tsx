@@ -14,6 +14,7 @@ import { Link, useNavigate } from 'react-router';
 import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
 import controls from '../controls.module.css';
+import { editUrl } from '../paths';
 import { iconEdgeInset, layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { rowMenuIconSize, useReaderExtensions } from './extensions';
@@ -202,6 +203,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
               isDir={node.is_dir}
               name={node.name}
               touch={touch}
+              editUrl={node.is_dir ? undefined : editUrl(node.path)}
               opened={menuOpened}
               onOpenedChange={setMenuOpened}
             />

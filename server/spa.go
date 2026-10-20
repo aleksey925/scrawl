@@ -165,7 +165,7 @@ func (m *mount) apiDir(w http.ResponseWriter, r *http.Request) {
 		failJSON(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, view.NewDir(p, entries, view.ItemsIn(m.spc.Store.List)))
+	writeJSON(w, http.StatusOK, view.NewDir(p, entries, view.ItemsIn(m.spc.Store.List), editable))
 }
 
 // writeDoc answers with one rendered document.
@@ -208,7 +208,7 @@ func (m *mount) writeFile(w http.ResponseWriter, r *http.Request, fi store.FileI
 		// opened on its own
 		writeJSON(w, http.StatusOK, view.NewFile(fi, view.FileImage))
 		return
-	case !isTextFile(fi.Path) || fi.Size > maxEditableFile:
+	case !editable(fi):
 		writeJSON(w, http.StatusOK, view.NewFile(fi, view.FileOther))
 		return
 	}

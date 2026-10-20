@@ -6,7 +6,7 @@ import { useEffect, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 
 import { PopupMenu } from '../components/PopupMenu';
-import { directoryUrl, documentUrl, editUrl } from '../paths';
+import { directoryUrl, documentUrl } from '../paths';
 
 import { rowMenuIconSize, type RowMenuProps } from './extensions';
 import { useFileActions } from './fileActionsContext';
@@ -14,7 +14,7 @@ import { useNav } from './NavContext';
 import { parentOf } from './naming';
 
 export function RowMenu({
-  path, isDir, name, touch, opened, onOpenedChange: setOpened, target,
+  path, isDir, name, touch, editUrl, opened, onOpenedChange: setOpened, target,
 }: RowMenuProps): JSX.Element {
   const navigate = useNavigate();
   const { canWrite } = useNav();
@@ -73,11 +73,11 @@ export function RowMenu({
         >
           Open
         </Menu.Item>
-        {!isDir && canWrite && (
+        {editUrl !== undefined && canWrite && (
           <Menu.Item
             data-testid="tree-row-menu-edit"
             leftSection={<IconEdit size={rowMenuIconSize} />}
-            onClick={() => void navigate(editUrl(path))}
+            onClick={() => void navigate(editUrl)}
           >
             Edit
           </Menu.Item>

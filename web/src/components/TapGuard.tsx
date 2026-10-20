@@ -1,6 +1,6 @@
 import { Overlay } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { useRef, type JSX } from 'react';
+import { useEffect, useRef, type JSX } from 'react';
 
 import classes from './TapGuard.module.css';
 
@@ -18,6 +18,11 @@ export function TapGuard({ active, onClose }: { active: boolean; onClose: () => 
   // only a tap that started on the guard closes: a long press opens a menu
   // while the finger is still down, and lifting it sent the guard a click
   const pressed = useRef(false);
+  // a tap that started on the guard and turned into a scroll never clicks, and
+  // left set it closed the next menu the moment a long press opened it
+  useEffect(() => {
+    pressed.current = false;
+  }, [active]);
   if (!active || !touch) {
     return null;
   }

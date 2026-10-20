@@ -117,6 +117,51 @@ test.describe.serial('history', () => {
         await expect(page.getByTestId('rendered-diff')).toBeVisible();
     });
 
+    test('formulas and diagrams stay drawn when the layout changes', async ({page}) => {
+        // arrange
+        const {docPath, stamp} = freshDoc('typeset');
+        const diagram = (to) => `\`\`\`mermaid\nflowchart TD\n  A --> ${to}\n\`\`\`\n`;
+        await page.goto(HISTORY.url.edit(docPath));
+        await saveInEditor(page, `# Формулы ${stamp}\n\nБыстрая лиса $x^2$.\n\n${diagram('B')}`);
+        await saveInEditor(page, `# Формулы ${stamp}\n\nМедленная лиса $x^2$.\n\n${diagram('C')}`);
+        await page.goto(HISTORY.url.history(docPath));
+        const diff = page.getByTestId('rendered-diff');
+        const math = diff.locator('.math.is-typeset .katex');
+        const diagrams = diff.locator('.md-diagram[data-state="done"] svg');
+        await expect(math.first()).toBeVisible();
+        await expect(diagrams.first()).toBeVisible();
+
+        // act
+        await page.getByTestId('history-diff-layout').getByText('Unified').click();
+
+        // assert
+        await expect(diff).toHaveAttribute('data-layout', 'unified');
+        await expect(math.first()).toBeVisible();
+        await expect(diagrams.first()).toBeVisible();
+        await expect(diff.locator('.math:not(.is-typeset)')).toHaveCount(0);
+    });
+
+    test('a row in an open fold lines up with the rows around it', async ({page}) => {
+        // arrange
+        const {docPath, stamp} = freshDoc('folded');
+        const paragraphs = (last) => ['Один.', 'Два.', 'Три.', 'Четыре.', last].join('\n\n');
+        await page.goto(HISTORY.url.edit(docPath));
+        await saveInEditor(page, `# Свёрнутое ${stamp}\n\n${paragraphs('Пять.')}\n`);
+        await saveInEditor(page, `# Свёрнутое ${stamp}\n\n${paragraphs('Шесть.')}\n`);
+        await page.goto(HISTORY.url.history(docPath));
+        await page.getByTestId('history-diff-layout').getByText('Unified').click();
+        const diff = page.getByTestId('rendered-diff');
+        const fold = diff.getByTestId('diff-fold').first();
+
+        // act
+        await fold.locator('summary').click();
+
+        // assert
+        const inside = await fold.getByTestId('diff-row').first().boundingBox();
+        const outside = await diff.locator(':scope > [data-testid=diff-row]').first().boundingBox();
+        expect(Math.round(inside.x)).toBe(Math.round(outside.x));
+    });
+
     test('a page left open while the document changed is refused its restore', async ({page}) => {
         const {docPath, stamp} = freshDoc('conflict');
         await page.goto(HISTORY.url.edit(docPath));

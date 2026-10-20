@@ -84,6 +84,8 @@ export interface DirEntry {
   folder_page?: boolean;
   // how many entries a folder shows one level down, left out when none
   items?: number;
+  // where the file is edited, left out of one the editor cannot open
+  edit_url?: string;
 }
 
 export interface DirListing {

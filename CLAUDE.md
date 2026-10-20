@@ -107,12 +107,15 @@ vendor/                dependencies, checked in, `make deps` regenerates
   of the card and hanging from the row's right edge, inside the page's
   gutter, where a right thumb reaches it, as iOS's own lists hang it;
   tied to the card's start it stood against the left edge. Closing the
-  menu sets the row back down. A row lit gray
-  while its menu was up read as a web page. React hands a press inside a
-  menu's portal up to the row it belongs to, so a long press only times
-  a press that started inside the row itself. A folder's list asks for
-  its answer again after every write the tree is refreshed for: it kept
-  showing a file deleted from the tree beside it.
+  menu sets the row back down. A row lit gray while its menu was up read
+  as a web page. React hands a press inside a menu's portal up to the
+  row it belongs to, so a long press only times a press that started
+  inside the row itself. The menu offers Edit only where the answer
+  gives an edit address: the server writes one on a listing row the
+  editor opens, a text name within the size it loads, so a picture's row
+  offers none, and a site's rows never carry one. A folder's list asks
+  for its answer again after every write the tree is refreshed for: it
+  kept showing a file deleted from the tree beside it.
 - Every screen is one white page in the room beside the sidebar, with no
   card around it, and 16px sides on a phone. A note is one column of one
   width, its tables and code included: 720px by default, as Notion has
@@ -424,11 +427,16 @@ vendor/                dependencies, checked in, `make deps` regenerates
 - In an app opened from an iPhone's home screen a finger drags the page
   off from the left edge and goes back: in the history when the app has
   one, else to the folder above, as the way up does. A short or slow drag
-  puts the page back. Only there: a tab of Safari has its own swipe back,
-  and both went back once each, and Android's back gesture is the
-  system's. The swiped page stays off the edge until the next one enters,
-  and the swipe never starts under a dialog, a sheet or a menu, nor in
-  the editor.
+  puts the page back, and so does a second finger or a touch the system
+  takes: a drag given up any other way left the page shifted. Only
+  there: a tab of Safari has its own swipe back, and both went back once
+  each, and Android's back gesture is the system's. The swiped page stays
+  off the edge until the next one enters, and the way back follows only
+  a leave that got there, from the entry of the history the drag ended
+  on: a tab tapped meanwhile won, and was then taken back, whether its
+  screen had come in or was still loading. The swipe never starts under
+  a dialog, a sheet or a menu, nor in the editor, and for a reader who
+  asked for less motion it moves nothing on its own.
 - The editor toolbar is a strip that moves sideways only and stops at its
   ends, and the editor screen takes the page's rubber band away. Left to
   the defaults the strip followed a finger up and down with the page

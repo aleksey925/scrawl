@@ -1,4 +1,18 @@
-import { Box, Button, Center, CloseButton, Group, Loader, Modal, SegmentedControl, Stack, Text } from '@mantine/core';
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Center,
+  CloseButton,
+  Group,
+  Loader,
+  MANTINE_TRANSITIONS,
+  Modal,
+  SegmentedControl,
+  Stack,
+  Text,
+  type MantineTransition,
+} from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { useEffect, useState, type JSX } from 'react';
 
@@ -6,8 +20,9 @@ import { api } from '../api/client';
 import type { FileResponse, HistoryEntry, HistoryVersionResponse } from '../api/types';
 import { errorText, useApi, type AsyncState } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
-import { RenderedDiff } from '../diff/RenderedDiff';
+import { RenderedDiff, type DiffLayout } from '../diff/RenderedDiff';
 import { shortTime } from '../components/formats';
+import { IconMaximize, IconMinimize } from '../icons';
 import { localStore, readText, writeText } from '../storage';
 import { layoutBreakpoints, useBelow } from '../theme';
 import { blockNames } from '../themes';
@@ -95,20 +110,48 @@ function restoreReason(entry: HistoryEntry): string | undefined {
 
 type DiffMode = 'rendered' | 'source';
 
-const diffModeKey = 'scrawl.history.diff';
+const diffModes: readonly [DiffMode, ...DiffMode[]] = ['rendered', 'source'];
 
-function useDiffMode(): [DiffMode, (mode: DiffMode) => void] {
-  const [mode, setMode] = useState<DiffMode>(() =>
-    readText(localStore(), diffModeKey) === 'source' ? 'source' : 'rendered',
-  );
-  function choose(next: DiffMode): void {
-    writeText(localStore(), diffModeKey, next);
-    setMode(next);
+const diffLayouts: readonly [DiffLayout, ...DiffLayout[]] = ['split', 'unified'];
+
+const dialogSizes = ['normal', 'expanded'] as const;
+
+// the room an expanded history leaves around it, so it still reads as a dialog
+// over the note and the overlay a click closes it on stays in reach
+const expandedGap = 16;
+
+// mantine writes the transition of its fade inline, which outranks the
+// stylesheet, so a change of size only animates as part of that transition
+const dialogTransition: MantineTransition = {
+  ...MANTINE_TRANSITIONS['fade-down'],
+  transitionProperty: 'opacity, transform, flex-basis, height',
+};
+
+// useStoredChoice is a choice of the view kept for the next version and the
+// next visit, the first of the values until one is picked
+function useStoredChoice<T extends string>(key: string, values: readonly [T, ...T[]]): [T, (next: string) => void] {
+  const [value, setValue] = useState<T>(() => {
+    const stored = readText(localStore(), key);
+    return values.find((entry) => entry === stored) ?? values[0];
+  });
+  function choose(next: string): void {
+    const picked = values.find((entry) => entry === next);
+    if (picked === undefined) {
+      return;
+    }
+    writeText(localStore(), key, picked);
+    setValue(picked);
   }
-  return [mode, choose];
+  return [value, choose];
 }
 
-function VersionDiff({ state, mode }: { state: AsyncState<HistoryVersionResponse | undefined>; mode: DiffMode }): JSX.Element {
+interface VersionDiffProps {
+  state: AsyncState<HistoryVersionResponse | undefined>;
+  mode: DiffMode;
+  layout: DiffLayout;
+}
+
+function VersionDiff({ state, mode, layout }: VersionDiffProps): JSX.Element {
   if (state.error !== undefined) {
     return (
       <Text data-testid="history-detail-error" size="sm" c="red">
@@ -125,7 +168,7 @@ function VersionDiff({ state, mode }: { state: AsyncState<HistoryVersionResponse
   }
   const { changes, diff, rev } = state.data;
   if (changes !== undefined && mode === 'rendered') {
-    return <RenderedDiff rows={changes} version={rev} />;
+    return <RenderedDiff rows={changes} layout={layout} oldLabel="Before" newLabel="This version" version={rev} />;
   }
   if (diff === '') {
     return (
@@ -206,7 +249,10 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
   const { canWrite } = useNav();
   const reportMutation = useMutationState();
   const phone = useBelow(layoutBreakpoints.compactTopbar);
-  const [mode, setMode] = useDiffMode();
+  const [mode, setMode] = useStoredChoice('scrawl.history.diff', diffModes);
+  const [layout, setLayout] = useStoredChoice('scrawl.history.layout', diffLayouts);
+  const [size, setSize] = useStoredChoice('scrawl.history.size', dialogSizes);
+  const expanded = size === 'expanded' && !phone;
 
   const [token, setToken] = useState(0);
   const [selectedRev, setSelectedRev] = useState<string | undefined>(undefined);
@@ -286,8 +332,11 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
       <Modal
         opened
         onClose={onClose}
-        size={1100}
+        size={expanded ? '100%' : 1100}
+        xOffset={expanded ? expandedGap : undefined}
+        yOffset={expanded ? expandedGap : undefined}
         fullScreen={phone}
+        transitionProps={{ transition: dialogTransition }}
         withCloseButton={false}
         padding={0}
         radius="xl"
@@ -295,19 +344,36 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
         centered
         aria-label="History"
         classNames={{ content: classes.content, body: classes.body }}
+        data-testid="history-dialog"
+        data-expanded={expanded ? 'true' : 'false'}
       >
         <section data-testid="history-version" className={classes.version}>
           <div className={classes.bar}>
             {detail.data?.changes !== undefined && (
               <SegmentedControl
                 data-testid="history-diff-view"
+                className={classes.toggle}
                 size="xs"
                 value={mode}
-                onChange={(value) => setMode(value === 'source' ? 'source' : 'rendered')}
+                onChange={setMode}
                 aria-label="Show the change"
                 data={[
                   { value: 'rendered', label: 'Rendered' },
                   { value: 'source', label: 'Source' },
+                ]}
+              />
+            )}
+            {detail.data?.changes !== undefined && mode === 'rendered' && (
+              <SegmentedControl
+                data-testid="history-diff-layout"
+                className={classes.toggle}
+                size="xs"
+                value={layout}
+                onChange={setLayout}
+                aria-label="Lay out the change"
+                data={[
+                  { value: 'split', label: 'Split' },
+                  { value: 'unified', label: 'Unified' },
                 ]}
               />
             )}
@@ -316,7 +382,7 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
             </span>
           </div>
           <div className={classes.diff}>
-            {selected !== undefined && <VersionDiff state={detail} mode={mode} />}
+            {selected !== undefined && <VersionDiff state={detail} mode={mode} layout={layout} />}
           </div>
         </section>
 
@@ -328,6 +394,19 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
             <span data-testid="history-count" className={classes.count}>
               {history.data?.entries.length}
             </span>
+            {!phone && (
+              <ActionIcon
+                data-testid="history-expand"
+                variant="subtle"
+                color="gray"
+                aria-label={expanded ? 'Shrink the history' : 'Expand the history'}
+                title={expanded ? 'Shrink' : 'Expand'}
+                aria-pressed={expanded}
+                onClick={() => setSize(expanded ? 'normal' : 'expanded')}
+              >
+                {expanded ? <IconMinimize size={16} /> : <IconMaximize size={16} />}
+              </ActionIcon>
+            )}
             <CloseButton data-testid="history-close" aria-label="Close the history" onClick={onClose} />
           </div>
           {/* the dialog takes the focus here and not on its close button, which would

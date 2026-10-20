@@ -144,6 +144,28 @@ func TestRunCommandWithoutACommand(t *testing.T) {
 		errOut)
 }
 
+func TestRunCommandUnknownFlag(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		want    int
+	}{
+		{name: "diff fails with 2, its 1 being a difference", command: diffCommand, want: 2},
+		{name: "any other command fails with 1", command: renderCommand, want: 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			code, out, errOut := runCLI(t, "", tc.command, "--no-such-flag")
+
+			// assert
+			assert.Equal(t, tc.want, code)
+			assert.Empty(t, out)
+			assert.Contains(t, errOut, "no-such-flag")
+		})
+	}
+}
+
 func TestRunCommandVersion(t *testing.T) {
 	// act
 	code, out, _ := runCLI(t, "", "--version")

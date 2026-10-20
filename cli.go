@@ -209,7 +209,7 @@ func runCommand(args []string, in io.Reader, out, errOut io.Writer) int {
 			return 0
 		}
 		_, _ = fmt.Fprintln(errOut, err)
-		return 1
+		return failureCode(name)
 	}
 	if cmds.Version {
 		_, _ = fmt.Fprintf(out, "scrawl %s\n", versionInfo())
@@ -251,14 +251,18 @@ func runCommand(args []string, in io.Reader, out, errOut io.Writer) int {
 	setupLog(false)
 	if err = tool(); err != nil {
 		_, _ = fmt.Fprintf(errOut, "scrawl %s: %v\n", name, err)
-		// git diff's convention: 1 is "there are differences", so a failure
-		// of diff has to be something else
-		if name == diffCommand {
-			return 2
-		}
-		return 1
+		return failureCode(name)
 	}
 	return code
+}
+
+// failureCode is the exit code of a command that failed. git diff's convention:
+// 1 is "there are differences", so a failure of diff has to be something else.
+func failureCode(name string) int {
+	if name == diffCommand {
+		return 2
+	}
+	return 1
 }
 
 func writeText(out io.Writer, text string) error {

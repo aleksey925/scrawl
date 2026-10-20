@@ -675,13 +675,16 @@ vendor/                dependencies, checked in, `make deps` regenerates
   never rewritten text. Where a link points and which picture is shown
   are part of that text, and inside a code block the whitespace is too:
   the same words with another indent are another program. Ids are
-  dropped, because both sides share one page. A change is shown in one
-  column, the note as it reads now with a tag beside each block that
-  changed: a changed block is one block with its lost words struck and
-  its new words marked, which `htmldiff` builds as `Inline`, and a
-  removed block is struck through. The patch stays beside it as the
-  `Source` view, and a version too large or too slow to compare still
-  answers with the patch alone.
+  dropped, because both sides share one page. A change has two layouts
+  drawn from the same rows, and split is the default in the app and in
+  `scrawl diff`: split puts the version before beside the one after,
+  block by block, and stacks them below the width two columns need.
+  Unified is the note as it reads now, in one column, with a tag beside
+  each block that changed: a changed block is one block with its lost
+  words struck and its new words marked, which `htmldiff` builds as
+  `Inline`, and a removed block is struck through. The patch stays beside
+  them as the `Source` view, and a version too large or too slow to
+  compare still answers with the patch alone.
 - The server is one command, `serve`, and the rest of the binary is
   markdown tools on files the caller names: `render`, `site`, `diff`,
   `format`, `stylesheet`. They run the renderer, `htmldiff` and the formatter the
@@ -787,7 +790,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
   the versions with the colored initial of their author and a tag on the
   right, Restore below them. The tag says how a version was made when it
   was not in the app (API, On disk) and otherwise what it did (Create,
-  Edit, Rename, Delete). Closing it goes to the note. The server says which
+  Edit, Rename, Delete). Closing it goes to the note. A button beside the
+  close one expands it to the window less 16px a side, and the choice is
+  kept; on a phone it is the whole screen anyway. The change of size is
+  part of mantine's own transition, because mantine writes that one
+  inline and it outranks the stylesheet. The server says which
   versions can be restored, in `restorable`: never a deletion and never
   the text the file has now, hashed the way git names a blob. The client
   read it off the blob and the row's place once, and the newest row stops

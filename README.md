@@ -15,8 +15,8 @@ files on disk are the only state.
   editor
 - export note as Markdown, HTML or PDF
 - a version history per page, in a large dialog over it: what changed,
-  shown side by side the way the page reads, with the changed words
-  marked; who changed it; and a restore
+  shown the way the page reads, side by side or in one column, with the
+  changed words marked; who changed it; and a restore
 - several spaces at once, each a folder or a git repository it clones,
   serves and pushes back to
 - a login page, users configured through the environment
@@ -699,8 +699,10 @@ a reflowed paragraph, a padded table or a pass of the formatter is shown
 as a markup change and not as new text. It takes revisions the way
 `git diff` does - none, `REV`, `A..B`, `A...B` or `A B` - and paths after
 `--`, and it compares every `.md` file the range changed, renames
-included. `--exit-code` exits with 1 when some text changed, and an
-error exits with 2.
+included. It puts the two versions side by side; `--layout unified` shows
+the note once, as it reads now, with each changed block tagged and its
+old and new words marked in it. `--exit-code` exits with 1 when some text
+changed, and an error exits with 2.
 
 `render` and `diff` write a page by default, `-f fragment` for HTML to
 put into your own page and `-f json` for a program. A relative link is

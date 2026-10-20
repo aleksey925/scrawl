@@ -91,6 +91,43 @@ func TestRunDiffTwoFiles(t *testing.T) {
 	assert.Equal(t, `<p>The <ins class="diff-ins">slow</ins> fox.</p>`, got.Files[0].Rows[1].New.HTML)
 }
 
+func TestRunDiffLayout(t *testing.T) {
+	dir := t.TempDir()
+	oldFile, newFile := filepath.Join(dir, "old.md"), filepath.Join(dir, "new.md")
+	require.NoError(t, os.WriteFile(oldFile, []byte("The quick fox.\n"), 0o600))
+	require.NoError(t, os.WriteFile(newFile, []byte("The slow fox.\n"), 0o600))
+
+	tests := []struct {
+		name string
+		args []string
+		want page.Layout
+	}{
+		{name: "the two versions side by side unless asked otherwise", args: nil, want: page.Split},
+		{name: "split", args: []string{"--layout", "split"}, want: page.Split},
+		{name: "unified", args: []string{"--layout", "unified"}, want: page.Unified},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			code, out, errOut := runCLI(t, "", append(append([]string{"diff", "-f", "fragment"}, tc.args...),
+				oldFile, newFile)...)
+
+			// assert
+			assert.Equal(t, 0, code, errOut)
+			assert.Contains(t, out, `<div class="diff" data-layout="`+string(tc.want)+`">`)
+		})
+	}
+
+	t.Run("an unknown layout is refused as a failure and not a difference", func(t *testing.T) {
+		// act
+		code, _, errOut := runCLI(t, "", "diff", "--layout", "stacked", oldFile, newFile)
+
+		// assert
+		assert.Equal(t, 2, code)
+		assert.Contains(t, errOut, "stacked")
+	})
+}
+
 func TestRunDiffExitCode(t *testing.T) {
 	// arrange
 	dir := t.TempDir()

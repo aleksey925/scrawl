@@ -24,6 +24,7 @@ var templates embed.FS
 var tmpl = template.Must(template.New("page").Funcs(template.FuncMap{
 	"plural": plural,
 	"rows":   rowsOf,
+	"cell":   cellOf,
 	"shown":  shownOf,
 	"tag":    tagOf,
 	"trust":  trust,
@@ -66,8 +67,21 @@ type Report struct {
 	Title string
 	// Context is how many unchanged blocks stay in sight around a change.
 	Context int
+	Layout  Layout
 	Files   []File
 }
+
+// Layout is how the rows of a diff are laid out.
+type Layout string
+
+// The layouts of a diff; a Report that names none is Split.
+const (
+	// Split puts the version before beside the version after, block by block.
+	Split Layout = "split"
+	// Unified shows the note once, as it reads now, with a changed block's lost
+	// and new words in one block.
+	Unified Layout = "unified"
+)
 
 // Options are what a page carries beyond the note and its look.
 type Options struct {
@@ -245,14 +259,29 @@ func plural(n int, word string) string {
 // rowsData is what the rows template draws for one file.
 type rowsData struct {
 	File     File
+	Layout   Layout
 	Segments []segment
 }
 
-func rowsOf(file File, context int) rowsData {
-	return rowsData{File: file, Segments: fold(file.Rows, context)}
+func rowsOf(file File, context int, layout Layout) rowsData {
+	if layout == "" {
+		layout = Split
+	}
+	return rowsData{File: file, Layout: layout, Segments: fold(file.Rows, context)}
 }
 
-// shownOf is what a row shows in the one column of a diff: a removed block as
+// cellData is one side of a split row; a nil Side is a block that side does
+// not have.
+type cellData struct {
+	Side  *htmldiff.Side
+	Which string
+}
+
+func cellOf(side *htmldiff.Side, which string) cellData {
+	return cellData{Side: side, Which: which}
+}
+
+// shownOf is what a row shows in the unified layout: a removed block as
 // it was, a changed one with its lost and its new words in one block, or both
 // sides when that block could not be built, and anything else as it is now.
 // web/src/diff/RenderedDiff.tsx shows the same.

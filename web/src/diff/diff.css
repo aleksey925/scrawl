@@ -1,24 +1,20 @@
-/* A rendered diff: the note in one column, as it reads now, and every block
-   that changed tagged with what happened to it, the tag in a gutter at the
-   left on a wide screen and over the block on a narrow one. The app and the
-   page `scrawl diff` writes both load this file, so the markup is the same in
-   both and this is its only stylesheet. */
+/* A rendered diff in one of two layouts, named by `data-layout`. Split puts
+   the version before on the left and the one after on the right, a row a pair
+   of blocks, and stacks them below the width two columns need. Unified is the
+   note in one column, as it reads now, and every block that changed tagged
+   with what happened to it, the tag in a gutter at the left on a wide screen
+   and over the block on a narrow one. The app and the page `scrawl diff`
+   writes both load this file, so the markup is the same in both and this is
+   its only stylesheet. */
 
 .diff {
   container-type: inline-size;
   min-width: 0;
 }
 
-.diff-labels {
-  margin: 0 0 16px;
-  color: var(--scrawl-text-tertiary);
-  font-size: 12px;
-}
-
 .diff-row {
   position: relative;
   min-width: 0;
-  margin-block: 2px;
 }
 
 .diff-cell {
@@ -27,8 +23,6 @@
 }
 
 .diff-tag {
-  display: inline-block;
-  margin: 8px 0 2px;
   padding: 0 6px;
   border-radius: 4px;
   font-size: 12px;
@@ -56,53 +50,224 @@
   color: var(--scrawl-color-gray);
 }
 
+/* split */
+
+.diff[data-layout='split'] {
+  overflow: hidden;
+  border: 1px solid var(--scrawl-border-light);
+  border-radius: 8px;
+  background: var(--scrawl-bg);
+}
+
+.diff-head {
+  display: none;
+  border-bottom: 1px solid var(--scrawl-border-light);
+  background: var(--scrawl-sidebar);
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+}
+
+.diff-head > div {
+  min-width: 0;
+  padding: 4px 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff[data-layout='split'] .diff-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-bottom: 1px solid var(--scrawl-border-light);
+}
+
+.diff[data-layout='split'] .diff-row:last-child,
+.diff[data-layout='split'] .diff-fold:last-child > .diff-row:last-child {
+  border-bottom: 0;
+}
+
+.diff[data-layout='split'] .diff-cell {
+  padding: 8px 16px;
+}
+
+/* one column: a block nothing changed in is shown once, and a missing side
+   not at all */
+.diff[data-layout='split'] .diff-row:is([data-kind='same'], [data-kind='format']) > .diff-old,
+.diff-empty {
+  display: none;
+}
+
+.diff[data-layout='split'] .diff-row:is([data-kind='same'], [data-kind='format']) > .diff-cell {
+  opacity: 0.6;
+}
+
+.diff[data-layout='split'] .diff-row[data-kind='removed'] > .diff-old {
+  background: var(--scrawl-diff-delete-line);
+  box-shadow: inset 3px 0 var(--scrawl-color-red);
+}
+
+.diff[data-layout='split'] .diff-row[data-kind='added'] > .diff-new {
+  background: var(--scrawl-diff-add-line);
+  box-shadow: inset 3px 0 var(--scrawl-color-green);
+}
+
+.diff[data-layout='split'] .diff-row[data-kind='changed'] > .diff-old {
+  box-shadow: inset 3px 0 var(--scrawl-color-red);
+}
+
+.diff[data-layout='split'] .diff-row[data-kind='changed'] > .diff-new {
+  box-shadow: inset 3px 0 var(--scrawl-color-green);
+}
+
+.diff[data-layout='split'] .diff-row[data-kind='changed'] > .diff-old + .diff-new {
+  border-top: 1px dashed var(--scrawl-border-light);
+}
+
+.diff[data-layout='split'] .diff-tag {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+}
+
+/* room for the tag, which otherwise sits over the end of a short first line */
+.diff[data-layout='split'] .diff-row[data-kind='format'] > .diff-new {
+  padding-right: 72px;
+}
+
+@container (min-width: $mantine-breakpoint-xs) {
+  .diff[data-layout='split'] .diff-head,
+  .diff[data-layout='split'] .diff-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .diff[data-layout='split'] .diff-head > div + div,
+  .diff[data-layout='split'] .diff-new {
+    border-left: 1px solid var(--scrawl-border-light);
+  }
+
+  .diff[data-layout='split'] .diff-row:is([data-kind='same'], [data-kind='format']) > .diff-old,
+  .diff-empty {
+    display: block;
+  }
+
+  .diff[data-layout='split'] .diff-row[data-kind='changed'] > .diff-old + .diff-new {
+    border-top: 0;
+  }
+
+  .diff[data-layout='split'] .diff-row[data-kind='format'] > .diff-new {
+    border-left-style: dashed;
+  }
+}
+
+.diff-empty {
+  min-height: 1.5em;
+  background: repeating-linear-gradient(135deg, transparent 0 6px, var(--scrawl-sidebar) 6px 12px);
+}
+
+.diff[data-layout='split'] .diff-fold {
+  border-bottom: 1px solid var(--scrawl-border-light);
+}
+
+.diff[data-layout='split'] .diff-fold:last-child {
+  border-bottom: 0;
+}
+
+.diff[data-layout='split'] .diff-fold > summary {
+  padding: 4px 16px;
+  background: var(--scrawl-sidebar);
+}
+
+.diff[data-layout='split'] .diff-fold[open] > summary {
+  border-bottom: 1px solid var(--scrawl-border-light);
+}
+
+.diff[data-layout='split'] .diff-none {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--scrawl-border-light);
+}
+
+/* unified */
+
+.diff-labels {
+  margin: 0 0 16px;
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+}
+
+.diff[data-layout='unified'] .diff-row {
+  margin-block: 2px;
+}
+
+.diff[data-layout='unified'] .diff-tag {
+  display: inline-block;
+  margin: 8px 0 2px;
+}
+
 /* a block written anew is outlined, and one that only changed its markup sits
    on a faint ground, so the eye finds both without reading them */
-.diff-row:is([data-kind='added'], [data-kind='format']) > .diff-cell {
+.diff[data-layout='unified'] .diff-row:is([data-kind='added'], [data-kind='format']) > .diff-cell {
   padding: 2px 8px;
   border-radius: 6px;
 }
 
-.diff-row[data-kind='added'] > .diff-cell {
+.diff[data-layout='unified'] .diff-row[data-kind='added'] > .diff-cell {
   box-shadow: inset 0 0 0 1px var(--scrawl-color-green);
 }
 
-.diff-row[data-kind='format'] > .diff-cell {
+.diff[data-layout='unified'] .diff-row[data-kind='format'] > .diff-cell {
   background: var(--scrawl-code-bg);
 }
 
 /* a removed block reads struck through, a step back from the text */
-.diff-row[data-kind='removed'] > .diff-cell {
+.diff[data-layout='unified'] .diff-row[data-kind='removed'] > .diff-cell {
   color: var(--scrawl-text-secondary);
   text-decoration: line-through;
   text-decoration-color: var(--scrawl-color-red);
 }
 
 /* a changed block too long to join shows both sides, the old one above */
-.diff-row[data-kind='changed'] > .diff-cell + .diff-cell {
+.diff[data-layout='unified'] .diff-row[data-kind='changed'] > .diff-cell + .diff-cell {
   margin-top: 6px;
   padding-top: 6px;
   border-top: 1px dashed var(--scrawl-border-light);
 }
 
+.diff[data-layout='unified'] .diff-fold > summary {
+  width: fit-content;
+  margin-block: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+@media (hover: hover) {
+  .diff[data-layout='unified'] .diff-fold > summary:hover {
+    background: var(--scrawl-hover);
+  }
+}
+
+.diff[data-layout='unified'] .diff-none {
+  margin: 0 0 12px;
+}
+
 @container (min-width: 560px) {
-  .diff-row,
-  .diff-fold,
-  .diff-none {
+  .diff[data-layout='unified'] :is(.diff-row, .diff-fold, .diff-none) {
     margin-inline-start: 96px;
   }
 
-  .diff-tag {
+  .diff[data-layout='unified'] .diff-tag {
     position: absolute;
     top: 4px;
     right: calc(100% + 14px);
     margin: 0;
   }
 
-  .diff-row:is([data-kind='added'], [data-kind='format']) > .diff-tag {
+  .diff[data-layout='unified'] .diff-row:is([data-kind='added'], [data-kind='format']) > .diff-tag {
     top: 6px;
   }
 }
+
+/* both */
 
 /* a reader sees the marks, not the strike of a note's own <del> */
 .diff del.diff-del {
@@ -132,20 +297,10 @@
 }
 
 .diff-fold > summary {
-  width: fit-content;
-  margin-block: 4px;
-  padding: 2px 8px;
-  border-radius: 6px;
   color: var(--scrawl-text-tertiary);
   font-size: 12px;
   cursor: pointer;
   list-style: none;
-}
-
-@media (hover: hover) {
-  .diff-fold > summary:hover {
-    background: var(--scrawl-hover);
-  }
 }
 
 .diff-fold > summary::-webkit-details-marker {
@@ -161,6 +316,5 @@
 }
 
 .diff-none {
-  margin: 0 0 12px;
   color: var(--scrawl-text-secondary);
 }

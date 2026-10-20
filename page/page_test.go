@@ -89,7 +89,7 @@ func TestWriteDiff(t *testing.T) {
 		},
 	}
 
-	t.Run("a page draws the rows the way the app does", func(t *testing.T) {
+	t.Run("a report that names no layout puts the two versions side by side", func(t *testing.T) {
 		// arrange
 		var out strings.Builder
 
@@ -102,7 +102,32 @@ func TestWriteDiff(t *testing.T) {
 		assert.Contains(t, got, `<h1 class="page-title">v1 → v2</h1>`)
 		assert.NotContains(t, got, `<ul class="page-files">`)
 		assert.Contains(t, got, `<div class="page-moved">a.md → b.md</div>`)
-		assert.Contains(t, got, `<p class="diff-labels">v1 → v2</p>`)
+		assert.Contains(t, got, `<div class="diff" data-layout="split">`+"\n"+
+			`<div class="diff-head"><div>v1</div><div>v2</div></div>`)
+		assert.Contains(t, got, `<details class="diff-fold"><summary>1 unchanged block</summary>`+"\n"+
+			`<div class="diff-row" data-kind="same"><div class="diff-cell diff-old markdown-document"><p>far</p></div>`+
+			`<div class="diff-cell diff-new markdown-document"><p>far</p></div></div>`)
+		assert.Contains(t, got, `<div class="diff-row" data-kind="added"><div class="diff-cell diff-old diff-empty"></div>`+
+			`<div class="diff-cell diff-new markdown-document"><p>new</p></div></div>`)
+		assert.Contains(t, got, `<div class="diff-row" data-kind="format"><div class="diff-cell diff-old markdown-document">`+
+			"<p>a\nb</p></div>"+`<div class="diff-cell diff-new markdown-document"><p>a b</p></div>`+
+			`<span class="diff-tag" title="Only the markup changed">Format</span></div>`)
+		assert.NotContains(t, got, `<p class="diff-labels">`)
+		assert.NotContains(t, got, `<p class="diff-none">`)
+	})
+
+	t.Run("the unified layout shows the note once, each change tagged", func(t *testing.T) {
+		// arrange
+		var out strings.Builder
+
+		// act
+		err := WriteDiff(&out, Report{Title: "v1 → v2", Context: 1, Layout: Unified, Files: []File{file}}, Options{})
+
+		// assert
+		require.NoError(t, err)
+		got := out.String()
+		assert.Contains(t, got, `<div class="diff" data-layout="unified">`+"\n"+`<p class="diff-labels">v1 → v2</p>`)
+		assert.NotContains(t, got, `<div class="diff-head">`)
 		assert.Contains(t, got, `<details class="diff-fold"><summary>1 unchanged block</summary>`+"\n"+
 			`<div class="diff-row" data-kind="same"><div class="diff-cell markdown-document"><p>far</p></div></div>`)
 		assert.Contains(t, got, `<div class="diff-row" data-kind="added"><span class="diff-tag">Added</span>`+

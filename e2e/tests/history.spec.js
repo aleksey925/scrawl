@@ -90,12 +90,24 @@ test.describe.serial('history', () => {
         await page.goto(HISTORY.url.history(docPath));
         const diff = page.getByTestId('rendered-diff');
         const rows = diff.getByTestId('diff-row');
+        await expect(diff).toHaveAttribute('data-layout', 'split');
         await expect(rows).toHaveCount(3);
         await expect(rows.nth(1)).toHaveAttribute('data-kind', 'format');
         await expect(rows.nth(2)).toHaveAttribute('data-kind', 'changed');
+        await expect(rows.nth(2).locator('.diff-old del.diff-del')).toHaveText('Быстрая');
+        await expect(rows.nth(2).locator('.diff-new ins.diff-ins')).toHaveText('Медленная');
+        await shot(page, 'history-rendered-diff');
+
+        // unified shows the changed block once, both marks in it
+        await page.getByTestId('history-diff-layout').getByText('Unified').click();
+        await expect(diff).toHaveAttribute('data-layout', 'unified');
+        await expect(rows.nth(2).locator('.diff-cell')).toHaveCount(1);
         await expect(rows.nth(2).locator('del.diff-del')).toHaveText('Быстрая');
         await expect(rows.nth(2).locator('ins.diff-ins')).toHaveText('Медленная');
-        await shot(page, 'history-rendered-diff');
+        await shot(page, 'history-rendered-diff-unified');
+        await page.reload();
+        await expect(page.getByTestId('rendered-diff')).toHaveAttribute('data-layout', 'unified');
+        await page.getByTestId('history-diff-layout').getByText('Split').click();
 
         // the choice of view is kept for the next version and the next visit
         await page.getByTestId('history-diff-view').getByText('Source').click();
@@ -147,6 +159,27 @@ test.describe.serial('history', () => {
         await expect(page.getByTestId('history-list')).toHaveCount(0);
         await expect(page).toHaveURL(HISTORY.url.doc(docs.doc.path));
         await expect(page.getByTestId('doc')).toBeVisible();
+    });
+
+    test('the history expands to nearly the whole window, and stays so', async ({page}) => {
+        // arrange
+        await page.goto(HISTORY.url.history(docs.doc.path));
+        const dialog = page.getByTestId('history-dialog');
+        const content = dialog.locator('.mantine-Modal-content');
+        await expect(dialog).toHaveAttribute('data-expanded', 'false');
+        const before = await content.boundingBox();
+
+        // act
+        await page.getByTestId('history-expand').click();
+
+        // assert
+        await expect(dialog).toHaveAttribute('data-expanded', 'true');
+        await expect.poll(async () => (await content.boundingBox()).width).toBe(page.viewportSize().width - 32);
+        expect((await content.boundingBox()).width).toBeGreaterThan(before.width);
+        await page.reload();
+        await expect(page.getByTestId('history-dialog')).toHaveAttribute('data-expanded', 'true');
+        await page.getByTestId('history-expand').click();
+        await expect(page.getByTestId('history-dialog')).toHaveAttribute('data-expanded', 'false');
     });
 
     test('read-only mode lists the versions and offers no restore', async ({page}) => {

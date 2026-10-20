@@ -5,6 +5,8 @@ export type { Icon } from '@phosphor-icons/react';
 
 export {
   ArrowUpIcon as IconArrowUp,
+  ArrowsInSimpleIcon as IconMinimize,
+  ArrowsOutSimpleIcon as IconMaximize,
   CaretDoubleLeftIcon as IconChevronsLeft,
   CaretDownIcon as IconChevronDown,
   CaretLeftIcon as IconChevronLeft,

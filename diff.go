@@ -21,8 +21,9 @@ import (
 
 type diffOptions struct {
 	outputOptions
-	Context  int  `long:"context" default:"1" description:"unchanged blocks kept in sight around each change"`
-	ExitCode bool `long:"exit-code" description:"exit with 1 when the text changed, the way git diff --exit-code does"`
+	Context  int    `long:"context" default:"1" description:"unchanged blocks kept in sight around each change"`
+	Layout   string `long:"layout" default:"split" choice:"split" choice:"unified" description:"the two versions side by side, or the note once with the changes marked in it"`
+	ExitCode bool   `long:"exit-code" description:"exit with 1 when the text changed, the way git diff --exit-code does"`
 	Args     struct {
 		Revs []string `positional-arg-name:"REV" description:"two markdown files, or revisions the way git diff takes them; paths go after --"`
 	} `positional-args:"yes"`
@@ -62,6 +63,7 @@ func runDiff(opts *diffOptions, out io.Writer) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	rep.Layout = page.Layout(opts.Layout)
 
 	var buf bytes.Buffer
 	switch opts.Format {

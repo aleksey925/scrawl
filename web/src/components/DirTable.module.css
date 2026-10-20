@@ -1,81 +1,263 @@
-/* a folder is a table, the way a file manager and a repository show one:
-   name, size and when it changed, with a row up to the folder above */
+/* a folder is a Notion database: a bar with its one view and the count, then a
+   table of name, size and the time it changed, split by faint lines */
+.bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--scrawl-border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 2px;
+  box-shadow: inset 0 -2px 0 var(--scrawl-text);
+  color: var(--scrawl-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+}
+
+.tab svg {
+  color: var(--scrawl-icon-secondary);
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.count {
+  margin-inline-end: 4px;
+  color: var(--scrawl-text-tertiary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wrap {
+  overflow-x: auto;
+}
+
 .table {
   width: 100%;
+  min-width: 460px;
   border-collapse: collapse;
   font-size: var(--mantine-font-size-sm);
 }
 
 .table th,
 .table td {
-  padding-inline: 0 var(--mantine-spacing-xl);
+  height: 34px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--scrawl-border-light);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.table th:first-child,
-.table td:first-child {
-  padding-inline-start: var(--card-inset);
-}
-
-.table th:last-child,
-.table td:last-child {
-  padding-inline-end: var(--card-inset);
+.table th + th,
+.table td + td {
+  border-left: 1px solid var(--scrawl-border-light);
 }
 
 .table th {
-  padding-block: var(--mantine-spacing-xs);
-  border-bottom: 1px solid var(--scrawl-border);
   color: var(--scrawl-text-secondary);
-  font-weight: 500;
+  font-weight: 400;
   text-align: start;
-  white-space: nowrap;
+}
+
+.table th > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.table th svg,
+.aa {
+  color: var(--scrawl-icon-tertiary);
+}
+
+.aa {
+  width: 16px;
+  font-size: 13px;
+  text-align: center;
 }
 
 .table td {
-  height: 40px;
   color: var(--scrawl-text-secondary);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 
-.table tr + tr td {
-  border-top: 1px solid var(--scrawl-border);
+.row {
+  cursor: pointer;
+  transition: background-color 20ms ease-in;
 }
 
-/* the name takes what the other columns leave and is the one to wrap */
+@media (hover: hover) {
+  .row:hover {
+    background: var(--scrawl-row-hover);
+  }
+}
+
+/* the name takes what the other columns leave */
 .name {
   width: 100%;
-  white-space: normal !important;
-  overflow-wrap: anywhere;
+  max-width: 0;
 }
 
 .name > span {
   display: flex;
   align-items: center;
-  gap: var(--mantine-spacing-sm);
+  gap: 6px;
+  min-width: 0;
 }
 
-.table .end {
+.name svg {
+  flex: none;
+  color: var(--scrawl-icon-secondary);
+}
+
+.link {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--scrawl-text);
+  font-weight: 500;
+  text-decoration: none;
+  text-overflow: ellipsis;
+}
+
+.table .size {
+  width: 120px;
+  min-width: 120px;
   text-align: end;
 }
 
+.table .date {
+  width: 200px;
+  min-width: 200px;
+}
+
+.dim {
+  color: var(--scrawl-text-faint);
+}
+
+/* the tag that marks a folder's own note */
+.tag {
+  flex: none;
+  margin-inline-start: 4px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--scrawl-bg-blue);
+  color: var(--scrawl-color-blue);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+/* a new entry is typed into a row of the table, where it will be */
+.draft td {
+  background: var(--scrawl-bg);
+  box-shadow: inset 0 1px 0 var(--scrawl-accent), inset 0 -1px 0 var(--scrawl-accent);
+}
+
+.draft td:first-child {
+  box-shadow:
+    inset 0 1px 0 var(--scrawl-accent),
+    inset 0 -1px 0 var(--scrawl-accent),
+    inset 1px 0 0 var(--scrawl-accent);
+}
+
+.draft td:last-child {
+  box-shadow:
+    inset 0 1px 0 var(--scrawl-accent),
+    inset 0 -1px 0 var(--scrawl-accent),
+    inset -1px 0 0 var(--scrawl-accent);
+}
+
+.draftInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--scrawl-text);
+  font: inherit;
+  font-weight: 500;
+}
+
+.add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 34px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--scrawl-text-tertiary);
+  font: inherit;
+  font-size: var(--mantine-font-size-sm);
+  cursor: pointer;
+}
+
 @media (hover: hover) {
-  .table tbody tr:hover td {
-    background: var(--scrawl-bg-subtle);
+  .add:hover {
+    background: var(--scrawl-row-hover);
   }
 }
 
-/* the last row's fill keeps to the card's rounded corners */
-.table tbody tr:last-child td:first-child {
-  border-end-start-radius: calc(var(--mantine-radius-lg) - 1px);
+/* a phone's list: a row a finger can hit, a name over the line that says what
+   the entry is, and a chevron on a folder, which opens the next list */
+.list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
 }
 
-.table tbody tr:last-child td:last-child {
-  border-end-end-radius: calc(var(--mantine-radius-lg) - 1px);
+.listRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding-block: 8px;
+  border-bottom: 1px solid var(--scrawl-border-light);
+  color: var(--scrawl-text);
+  text-decoration: none;
 }
 
-/* on a phone the size gives its room to the name */
-@mixin smaller-than $mantine-breakpoint-sm {
-  .size {
-    display: none;
-  }
+.listIcon,
+.listChevron {
+  flex: none;
+  color: var(--scrawl-icon-secondary);
+}
+
+.listText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.listName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.listLabel {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listMeta {
+  color: var(--scrawl-text-tertiary);
+  font-size: 13px;
 }

@@ -2,9 +2,12 @@ const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, chooseTheme, modifier, pressShortcut, removeFixture, routes, shot, signIn, writeFixture,
+    MAIN, chooseTheme, modifier, openSpaceMenu, pressShortcut, removeFixture, rgb, routes, shot, showOutline,
+    signIn, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
+const darkTheme = require('../../theme/themes/dark.json');
+const lightTheme = require('../../theme/themes/light.json');
 
 const DOC = docs.doc;
 const ANCHORS = 'e2e-anchors.md';
@@ -12,6 +15,7 @@ const ANCHOR_SOURCE = 'e2e-anchor-source.md';
 const OUTLINE = 'e2e-outline.md';
 const EMPHASIS = 'e2e-emphasis.md';
 const DIAGRAM = 'e2e-diagram.md';
+const LOOK = 'e2e-look.md';
 
 // a page of its own for the anchor test: the fragment an author writes and the
 // slug the renderer makes have to be the same string for the jump to resolve,
@@ -28,11 +32,28 @@ test.describe('reading', () => {
         await signIn(page);
     });
 
-    test('the root page renders the index document', async ({page}) => {
-        await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.home.title);
-        await expect(page.getByTestId('doc').locator(
-            `a[href="${routes.contentHref(docs.linked.path)}"]`).first()).toBeVisible();
+    test('the root page lists the root folder, its index a row tagged as the folder page', async ({page}) => {
+        await expect(page.getByTestId('dir')).toBeVisible();
+        const index = page.locator('[data-testid=dir-row][data-path="index.md"]');
+        await expect(index.getByTestId('dir-folder-page')).toBeVisible();
+        await expect(page.getByTestId('dir-folder-page')).toHaveCount(1);
         await shot(page, 'reading-root');
+    });
+
+    test('Home opens the root index note', async ({page}) => {
+        await page.getByTestId('sidebar-home').click();
+
+        await expect(page).toHaveURL(MAIN.url.doc('index.md'));
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.home.title);
+        await expect(page.getByTestId('sidebar-home')).toHaveAttribute('data-current', 'true');
+    });
+
+    test('a click on a row of a folder opens it', async ({page}) => {
+        await page.locator(`[data-testid=dir-row][data-path="${DOC.folder}"]`).click({position: {x: 400, y: 10}});
+
+        await expect(page).toHaveURL(MAIN.url.dir(DOC.folder));
+        await page.locator(`[data-testid=dir-row][data-path="${DOC.path}"] td`).last().click();
+        await expect(page).toHaveURL(MAIN.url.doc(DOC.path));
     });
 
     test('a note whose name a url has to escape opens', async ({page}) => {
@@ -88,8 +109,11 @@ test.describe('reading', () => {
         await page.goto(routes.doc(DOC.path));
 
         // assert
-        await expect(page.getByTestId('doc-export')).toBeVisible();
+        await expect(page.getByTestId('note-menu')).toBeVisible();
         await expect(page.getByTestId('doc-history')).toHaveCount(0);
+        await page.getByTestId('note-menu').click();
+        await expect(page.getByTestId('doc-export-md')).toBeVisible();
+        await expect(page.getByTestId('note-menu-history')).toHaveCount(0);
     });
 
     test('a folder label opens the folder page and expands the row', async ({page}) => {
@@ -163,7 +187,7 @@ test.describe('reading', () => {
 
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.deep.title);
         await expect(page.getByTestId('doc').locator('h2')).not.toHaveCount(0);
-        await expect(page.getByTestId('page-breadcrumbs').getByTestId('crumb')).toContainText(docs.deep.crumbs);
+        await expect(page.getByTestId('topbar-crumbs').getByTestId('crumb')).toContainText(docs.deep.crumbs);
         await expect(page.locator('[data-testid=crumb][data-current="true"]')).toHaveCount(1);
         await shot(page, 'reading-deep-document');
     });
@@ -275,6 +299,7 @@ test.describe('reading', () => {
     });
 
     test('a relative link between documents navigates', async ({page}) => {
+        await page.getByTestId('sidebar-home').click();
         await page.getByTestId('doc').locator(
             `a[href="${routes.contentHref(docs.linked.path)}"]`).first().click();
 
@@ -338,7 +363,7 @@ test.describe('reading', () => {
 
     test('the outline highlights the section being read', async ({page}) => {
         await page.goto(routes.doc(DOC.path));
-        await expect(page.getByTestId('toc')).toBeVisible();
+        await showOutline(page);
 
         await page.locator(`[data-testid=doc] h2#${DOC.heading.id}`).evaluate((el) => {
             window.scrollTo({top: el.getBoundingClientRect().top + window.scrollY - 100, behavior: 'instant'});
@@ -363,7 +388,7 @@ test.describe('reading', () => {
                 .join('\n\n'),
         );
         await page.goto(routes.doc(OUTLINE));
-        await expect(page.getByTestId('toc')).toBeVisible();
+        await showOutline(page);
 
         // deep inside the second section, with its heading far above the window
         // and the next one still far below it
@@ -376,10 +401,10 @@ test.describe('reading', () => {
         await expect(active).toHaveText('Second');
 
         // and the marker is somewhere the reader can see: an outline taller
-        // than the rail scrolls inside it
+        // than the panel scrolls inside it
         const visible = await page.evaluate(() => {
             const entry = document.querySelector('[data-testid=toc-entry][data-active="true"]');
-            const rail = document.querySelector('[data-testid=toc-rail]');
+            const rail = document.querySelector('[data-testid=mini-outline-panel]');
             if (entry === null || rail === null) {
                 return null;
             }
@@ -387,7 +412,7 @@ test.describe('reading', () => {
             const host = rail.getBoundingClientRect();
             return box.top >= host.top - 1 && box.bottom <= host.bottom + 1;
         });
-        expect(visible, 'the marked entry is inside the rail').toBe(true);
+        expect(visible, 'the marked entry is inside the panel').toBe(true);
 
         removeFixture(OUTLINE);
     });
@@ -405,11 +430,13 @@ test.describe('reading', () => {
         const scrollTo = (top) => page.evaluate((y) => window.scrollTo({top: y, behavior: 'instant'}), top);
 
         // act & assert
+        await showOutline(page);
         await entry('Fifth').click();
         await expect(page).toHaveURL(/#fifth$/);
         await expect(active).toHaveText('Fifth');
 
         await page.reload();
+        await showOutline(page);
         await expect(active).toHaveText('Fifth');
 
         await page.mouse.wheel(0, -100000);
@@ -429,9 +456,39 @@ test.describe('reading', () => {
 
     // "?" is a character somebody types, so the sheet must stay out of the way
     // while a field has the keyboard
-    test('the shortcut cheat sheet opens', async ({page}) => {
+    test('? opens the shortcuts, grouped by where they work', async ({page}) => {
+        // act
         await page.keyboard.press('?');
+
+        // assert
         await expect(page.getByTestId('shortcuts')).toBeVisible();
+        await expect(page.getByTestId('shortcuts-group')).toHaveText([
+            /^General/, /^Note/, /^Search/, /^Editor/,
+        ]);
+    });
+
+    test('the space menu opens the shortcuts', async ({page}) => {
+        // arrange
+        await openSpaceMenu(page);
+
+        // act
+        await page.getByTestId('space-menu-shortcuts').click();
+
+        // assert
+        await expect(page.getByTestId('shortcuts')).toBeVisible();
+    });
+
+    test('E on a note opens the editor', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
+
+        // act
+        await page.keyboard.press('e');
+
+        // assert
+        await expect(page).toHaveURL(new RegExp(`${routes.edit(DOC.path)}$`));
+        await expect(page.getByTestId('editor-source')).toBeVisible();
     });
 
     // the picker writes the theme attribute and reloads nothing, so a
@@ -447,7 +504,7 @@ test.describe('reading', () => {
         // dark text on a light page
         expect(await contrast()).toBeLessThan(0);
 
-        await page.getByTestId('topbar-account').click();
+        await openSpaceMenu(page);
         await chooseTheme(page, 'light');
         await chooseTheme(page, 'dark');
 
@@ -461,7 +518,7 @@ test.describe('reading', () => {
         await page.goto(routes.doc(EMPHASIS));
         const weight = () => page.getByTestId('doc').locator('p strong').evaluate(
             (el) => Number(getComputedStyle(el).fontWeight));
-        await page.getByTestId('topbar-account').click();
+        await openSpaceMenu(page);
         await chooseTheme(page, 'light');
         const light = await weight();
 
@@ -478,7 +535,7 @@ test.describe('reading', () => {
         // arrange
         writeFixture(EMPHASIS, '# Emphasis\n\nPlain **bold** and *italic*.\n\n> Quoted **bold**.\n');
         await page.goto(routes.doc(EMPHASIS));
-        await page.getByTestId('topbar-account').click();
+        await openSpaceMenu(page);
         await chooseTheme(page, 'dark');
         const doc = page.getByTestId('doc');
         const brightness = (selector) => doc.locator(selector).first().evaluate((el) =>
@@ -491,7 +548,7 @@ test.describe('reading', () => {
 
         // assert
         expect(emphasis.map((value) => value - plain > 30)).toEqual([true, true, true]);
-        expect(quote[1]).toBe(quote[0]);
+        expect(quote[1] - quote[0]).toBeGreaterThan(30);
 
         removeFixture(EMPHASIS);
     });
@@ -515,16 +572,18 @@ test.describe('reading', () => {
         removeFixture(DIAGRAM);
     });
 
-    test('the file list hides on demand and stays hidden', async ({page}) => {
+    test('the sidebar hides on demand and stays hidden', async ({page}) => {
         const burger = page.getByTestId('topbar-burger');
         const sidebar = page.getByTestId('sidebar');
         const left = () => page.getByTestId('doc').evaluate((el) => el.getBoundingClientRect().left);
 
         await page.goto(routes.doc(DOC.path));
         await expect(sidebar).toBeVisible();
+        await expect(burger).toHaveCount(0);
         const beside = await left();
 
-        await burger.click();
+        await sidebar.hover();
+        await page.getByTestId('sidebar-hide').click();
         await expect(sidebar).toHaveCount(0);
         await expect(burger).toHaveAttribute('data-opened', 'false');
         expect(await left()).toBeLessThan(beside);
@@ -532,9 +591,149 @@ test.describe('reading', () => {
 
         await page.reload();
         await expect(sidebar).toHaveCount(0);
+        await burger.click();
+        await expect(sidebar).toBeVisible();
+        await expect(burger).toHaveCount(0);
 
         await pressShortcut(page, `${await modifier(page)}+b`);
+        await expect(sidebar).toHaveCount(0);
+        await pressShortcut(page, `${await modifier(page)}+b`);
         await expect(sidebar).toBeVisible();
-        await expect(burger).toHaveAttribute('data-opened', 'true');
+    });
+
+    test('the sidebar is a flush 240px panel on its own ground', async ({page}) => {
+        // arrange
+        const sidebar = page.getByTestId('sidebar');
+
+        // act
+        await page.goto(routes.doc(DOC.path));
+
+        // assert
+        await expect(sidebar).toBeVisible();
+        expect(Math.round((await sidebar.boundingBox()).width)).toBe(240);
+        await expect(page.locator('.mantine-AppShell-navbar')).toHaveCSS('background-color', rgb(lightTheme.palette.sidebar));
+        await expect(page.getByTestId('note')).toHaveCSS('border-top-width', '0px');
+    });
+
+    test('a note is read at one width the reader picks, and the choice is kept', async ({page}) => {
+        // arrange
+        const doc = page.getByTestId('doc');
+        const width = async (locator) => Math.round((await locator.boundingBox()).width);
+        const pick = async (label) => {
+            await page.getByTestId('note-menu').click();
+            await page.getByTestId('page-width').getByText(label, {exact: true}).click();
+            await page.keyboard.press('Escape');
+        };
+        await page.goto(routes.doc(docs.linked.path));
+        await expect(doc.locator('table').first()).toBeVisible();
+
+        // act & assert
+        expect(await width(doc)).toBe(720);
+        expect(await width(doc.locator('table').first())).toBeLessThanOrEqual(720);
+
+        await pick('Wide');
+        await expect.poll(() => width(doc)).toBe(960);
+
+        await pick('Full');
+        const room = page.viewportSize().width - 240;
+        await expect.poll(() => width(doc)).toBe(room - 2 * 96);
+
+        await page.reload();
+        await expect.poll(() => width(doc)).toBe(room - 2 * 96);
+        await pick('Normal');
+        await expect.poll(() => width(doc)).toBe(720);
+    });
+
+    test('the topbar names the note by its title and a folder by its name', async ({page}) => {
+        // arrange
+        const crumbs = page.getByTestId('topbar-crumbs').getByTestId('crumb');
+
+        // act & assert
+        await page.goto(routes.doc(docs.deep.path));
+        await expect(crumbs).toContainText(docs.deep.crumbs);
+        await expect(crumbs.last()).toHaveText(docs.deep.title);
+
+        await page.goto(routes.dir(DOC.folder));
+        await expect(crumbs.last()).toHaveText(DOC.folder);
+    });
+
+    test('the sidebar shortcut works from the reader and from the source editor', async ({page}) => {
+        // arrange
+        const sidebar = page.getByTestId('sidebar');
+        const toggle = async () => pressShortcut(page, `${await modifier(page)}+b`);
+        await page.goto(routes.edit(DOC.path));
+        await page.locator('[data-testid=editor-source] .cm-content').click();
+
+        // act & assert
+        await toggle();
+        await expect(sidebar).toHaveCount(0);
+        await toggle();
+        await expect(sidebar).toBeVisible();
+    });
+
+    test('a note that does not exist offers to create it, and Enter does', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.missing));
+
+        // act & assert
+        await expect(page.getByTestId('doc-missing-title')).toHaveText(docs.missing.split('/').pop());
+        await expect(page.getByTestId('doc-create')).toBeVisible();
+        await expect(page.getByTestId('doc-missing-folder')).toHaveAttribute('href', new RegExp(`/doc/${DOC.folder}/$`));
+        await page.keyboard.press('Enter');
+        await expect(page).toHaveURL(MAIN.url.edit(docs.missing));
+    });
+
+    test('a note reads the way Notion shows a page', async ({page}) => {
+        // arrange
+        const source = 'fmt.Println("hi")';
+        writeFixture(LOOK, [
+            '# Look', '', 'Text with `code` and <mark>marked</mark> words.', '',
+            '> [!NOTE]', '> A note.', '', '- [ ] open task', '', '```go', source, '```', '',
+        ].join('\n'));
+        const doc = page.getByTestId('doc');
+        await page.goto(routes.doc(LOOK));
+
+        // act & assert
+        await expect(doc.locator('h1')).toHaveCSS('font-size', '40px');
+        await expect(doc.locator('.alert-note')).toHaveCSS('background-color', rgb(lightTheme.blocks.blue.bg));
+        await expect(doc.locator('p code')).toHaveCSS('color', rgb(lightTheme.palette.inlineCode));
+        await expect(doc.locator('mark')).toHaveCSS('background-color', rgb(lightTheme.blocks.yellow.bg));
+
+        await openSpaceMenu(page);
+        await chooseTheme(page, 'dark');
+        await page.keyboard.press('Escape');
+        await expect(doc.locator('mark')).toHaveCSS('background-color', rgb(darkTheme.blocks.yellow.bg));
+
+        const copy = doc.getByTestId('code-copy');
+        await copy.click();
+        await expect(copy).toHaveAttribute('data-done', 'true');
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${source}\n`);
+
+        removeFixture(LOOK);
+    });
+
+    // a tick on the page would be a write, and every tick a commit and a push
+    test('a task box on the page takes no click and sends nothing', async ({page}) => {
+        // arrange
+        writeFixture(LOOK, '# Tasks\n\n- [ ] open task\n');
+        await page.goto(routes.doc(LOOK));
+        const box = page.getByTestId('doc').locator('input[type=checkbox]');
+        await expect(box).toBeVisible();
+        const sent = [];
+        page.on('request', (req) => {
+            if (req.method() !== 'GET') {
+                sent.push(req.url());
+            }
+        });
+
+        // act
+        await box.click({force: true});
+
+        // assert
+        await expect(box).not.toBeChecked();
+        await expect(box).toBeDisabled();
+        expect(sent).toEqual([]);
+
+        removeFixture(LOOK);
     });
 });

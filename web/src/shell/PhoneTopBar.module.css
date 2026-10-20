@@ -1,0 +1,87 @@
+/* the bar on top of a phone: back at the left, the title in the middle once
+   the page's own has gone, the page's menu at the right */
+.bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  padding-inline: calc(var(--mantine-spacing-lg) - 12px);
+  transition: box-shadow 150ms;
+}
+
+.bar[data-scrolled='true'] {
+  box-shadow: inset 0 -1px var(--scrawl-border-light);
+}
+
+.start {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.up,
+.home {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: var(--scrawl-tap-target);
+  padding-inline: 12px 8px;
+  color: var(--scrawl-text-secondary);
+  font-size: 16px;
+  text-decoration: none;
+}
+
+.up {
+  padding-inline-start: 12px;
+}
+
+.home {
+  color: var(--scrawl-text);
+  font-weight: 600;
+}
+
+.upName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title {
+  min-width: 0;
+  max-width: 50vw;
+  overflow: hidden;
+  color: var(--scrawl-text);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+
+.title[data-shown='true'] {
+  opacity: 1;
+}
+
+.end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar,
+  .title {
+    transition: none;
+  }
+}

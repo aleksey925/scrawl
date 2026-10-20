@@ -1,17 +1,16 @@
-import { Anchor, Button, Code, Drawer, List, Popover, Stack, Text } from '@mantine/core';
-import { IconAlertTriangle } from '@tabler/icons-react';
+import { ActionIcon, Anchor, Button, Code, List, Popover, Stack, Text } from '@mantine/core';
+import { IconCloudOff } from '@tabler/icons-react';
 import { useState, type JSX } from 'react';
 import { Link } from 'react-router';
 
-import { documentUrl, isMarkdown, rawUrl } from '../paths';
+import { documentUrl } from '../paths';
 
 import { useNav } from './NavContext';
 import { ResetAction } from './ResetDialog';
+import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 // thisNote is what the control says when the note on screen is one of the
-// affected ones. It asks about the file and never about the route, which is the
-// whole point: on the home screen the route path is "" while the note is
-// index.md, and that is the page most readers are looking at.
+// affected ones
 const thisNote = 'This note has not reached the remote';
 
 export interface SyncSummary {
@@ -22,11 +21,11 @@ export interface SyncSummary {
 // useSyncSummary is undefined while everything is fine, so a control built on
 // it renders nothing at all until something is wrong
 export function useSyncSummary(): SyncSummary | undefined {
-  const { sync, isUnsynced, currentDoc } = useNav();
+  const { sync, isUnsynced, currentPath } = useNav();
   if (sync === undefined) {
     return undefined;
   }
-  const here = isUnsynced(currentDoc);
+  const here = isUnsynced(currentPath);
   return { here, label: here ? thisNote : sync.title };
 }
 
@@ -63,17 +62,9 @@ function SyncDetails({ onLeave }: { onLeave: () => void }): JSX.Element | null {
         <List data-testid="sync-popover-paths" size="sm" spacing={4} withPadding>
           {paths.map((path) => (
             <List.Item key={path} style={{ overflowWrap: 'anywhere' }}>
-              {/* /raw/ is a server route with no shell, so a router link
-                  there would change the address bar and never reach it */}
-              {isMarkdown(path) ? (
-                <Anchor component={Link} to={documentUrl(path)} size="sm" onClick={onLeave}>
-                  {path}
-                </Anchor>
-              ) : (
-                <Anchor href={rawUrl(path)} size="sm">
-                  {path}
-                </Anchor>
-              )}
+              <Anchor component={Link} to={documentUrl(path)} size="sm" onClick={onLeave}>
+                {path}
+              </Anchor>
             </List.Item>
           ))}
         </List>
@@ -88,6 +79,7 @@ function SyncDetails({ onLeave }: { onLeave: () => void }): JSX.Element | null {
 export function SyncControl(): JSX.Element | null {
   const summary = useSyncSummary();
   const [opened, setOpened] = useState(false);
+  const wide = useAtLeast(layoutBreakpoints.compactTopbar);
 
   if (summary === undefined) {
     return null;
@@ -96,34 +88,38 @@ export function SyncControl(): JSX.Element | null {
   return (
     <Popover position="bottom-end" width={320} withinPortal opened={opened} onChange={setOpened}>
       <Popover.Target>
-        <Button
-          data-testid="sync-control"
-          data-here={summary.here ? 'true' : 'false'}
-          variant="subtle"
-          color="yellow"
-          size="sm"
-          px="xs"
-          aria-label={summary.label}
-          leftSection={<IconAlertTriangle size={16} />}
-          onClick={() => setOpened((open) => !open)}
-        >
-          Not synced
-        </Button>
+        {wide ? (
+          <Button
+            data-testid="sync-control"
+            data-here={summary.here ? 'true' : 'false'}
+            variant="subtle"
+            color="orange"
+            px="xs"
+            aria-label={summary.label}
+            leftSection={<IconCloudOff size={layout.iconSizeSmall} />}
+            style={{ color: 'var(--scrawl-color-orange)' }}
+            onClick={() => setOpened((open) => !open)}
+          >
+            Not synced
+          </Button>
+        ) : (
+          <ActionIcon
+            data-testid="sync-control"
+            data-here={summary.here ? 'true' : 'false'}
+            variant="subtle"
+            size="lg"
+            aria-label={summary.label}
+            style={{ color: 'var(--scrawl-color-orange)' }}
+            onClick={() => setOpened((open) => !open)}
+          >
+            <IconCloudOff size={layout.iconSize} />
+          </ActionIcon>
+        )}
       </Popover.Target>
 
       <Popover.Dropdown data-testid="sync-popover">
         <SyncDetails onLeave={() => setOpened(false)} />
       </Popover.Dropdown>
     </Popover>
-  );
-}
-
-// SyncSheet carries the same details on a phone, where the control is an entry
-// in the topbar menu and a popover would hang off a menu that is already gone
-export function SyncSheet({ opened, onClose }: { opened: boolean; onClose: () => void }): JSX.Element {
-  return (
-    <Drawer data-testid="sync-sheet" opened={opened} onClose={onClose} position="bottom" size="60%" title="Not synced" padding="md">
-      <SyncDetails onLeave={onClose} />
-    </Drawer>
   );
 }

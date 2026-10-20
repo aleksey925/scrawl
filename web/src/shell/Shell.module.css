@@ -1,15 +1,16 @@
-/* the page is a gray ground and every block on it is a card: the bar, the
-   tree and what is on the page */
+/* the page is white, and the sidebar a flush warm gray panel beside it with a
+   thin line on its edge */
 .header {
+  border: 0;
   background: var(--scrawl-bg);
 }
 
 .main {
-  background: var(--scrawl-ground);
+  background: var(--scrawl-bg);
 }
 
-/* the page does not stretch past its ends: the tree is fixed and stood still
-   while the rubber band pulled the note and its stuck head away from it */
+/* the page does not stretch past its ends: the sidebar is fixed and stood
+   still while the rubber band pulled the note away from it */
 :global(html) {
   overscroll-behavior-y: none;
 }
@@ -18,23 +19,11 @@
   display: flex;
   flex-direction: column;
   border: 0;
-  background: var(--scrawl-ground);
-  padding-block: var(--scrawl-rail-gutter);
-  padding-inline-start: var(--scrawl-rail-gutter);
+  background: var(--scrawl-sidebar);
+  box-shadow: inset -1px 0 0 var(--scrawl-sidebar-edge);
 }
 
-.treeCard {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-  padding-block: var(--mantine-spacing-sm);
-}
-
-.wordmark {
-  color: var(--scrawl-text);
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  text-decoration: none;
-  white-space: nowrap;
+/* the banner about the space, a callout under the topbar across the page */
+.banner:not(:empty) {
+  padding: 12px 16px 0;
 }

@@ -191,16 +191,70 @@ func TestAPIHistoryList(t *testing.T) {
 		"path":     "index.md",
 		"degraded": true,
 		"entries": []any{map[string]any{
-			"rev":     entry.Rev,
-			"short":   entry.Short,
-			"blob":    entry.Blob,
-			"actor":   entry.Actor,
-			"message": entry.Message,
-			"path":    entry.Path,
-			"kind":    string(entry.Kind),
-			"at":      entry.At.Format(time.RFC3339),
+			"rev":        entry.Rev,
+			"short":      entry.Short,
+			"blob":       entry.Blob,
+			"actor":      entry.Actor,
+			"message":    entry.Message,
+			"path":       entry.Path,
+			"kind":       string(entry.Kind),
+			"at":         entry.At.Format(time.RFC3339),
+			"restorable": true,
 		}},
 	}, body)
+}
+
+func TestAPIHistoryRestorable(t *testing.T) {
+	now := []byte("# Now\n\ntext on disk\n")
+	tests := []struct {
+		name  string
+		entry history.Entry
+		write []byte
+		want  bool
+	}{
+		{name: "a deletion holds nothing to write back",
+			entry: history.Entry{Rev: oid("a1"), Path: "note.md", Kind: history.KindDeleted}, write: now},
+		{name: "the version the file is now changes nothing",
+			entry: history.Entry{Rev: oid("a1"), Blob: blobID(now, 40), Path: "note.md", Kind: history.KindModified}, write: now},
+		{name: "a sha-256 repository is compared in its own hash",
+			entry: history.Entry{Rev: oid("a1"), Blob: blobID(now, 64), Path: "note.md", Kind: history.KindModified}, write: now},
+		{name: "an older version with other content",
+			entry: history.Entry{Rev: oid("a1"), Blob: oid("b2"), Path: "note.md", Kind: history.KindModified},
+			write: now, want: true},
+		{name: "the last commit, after an edit on disk not committed yet",
+			entry: history.Entry{Rev: oid("a1"), Blob: blobID(now, 40), Path: "note.md", Kind: history.KindModified},
+			write: []byte("# Now\n\nedited since\n"), want: true},
+		{name: "any version with content of a file no longer on disk",
+			entry: history.Entry{Rev: oid("a1"), Blob: oid("b2"), Path: "note.md", Kind: history.KindModified}, want: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ts := newTestServer(t, testOpts{history: &fakeHistory{entries: []history.Entry{tc.entry}}})
+			if tc.write != nil {
+				require.NoError(t, os.WriteFile(filepath.Join(ts.root, "note.md"), tc.write, 0o600))
+			}
+
+			// act
+			resp, body := ts.json(t, request{path: "/api/history/note.md"})
+
+			// assert
+			require.Equal(t, http.StatusOK, resp.status)
+			listed, ok := body["entries"].([]any)
+			require.True(t, ok)
+			require.Len(t, listed, 1)
+			got, ok := listed[0].(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, tc.want, got["restorable"])
+		})
+	}
+}
+
+func TestBlobIDIsGits(t *testing.T) {
+	// act & assert
+	assert.Equal(t, "ce013625030ba8dba906f756967f9e9ca394464a", blobID([]byte("hello\n"), 40))
+	assert.Equal(t, "2cf8d83d9ee29543b34a87727421fdecb7e3f3a183d337639025de576db9ebb4", blobID([]byte("hello\n"), 64))
 }
 
 func TestAPIHistoryVersion(t *testing.T) {

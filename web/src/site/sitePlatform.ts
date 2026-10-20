@@ -1,5 +1,6 @@
 import type { MeResponse } from '../api/types';
 import type { Platform } from '../platform';
+import { findMatches } from '../reader/findMatches';
 import type { MeState } from '../shell/useMe';
 
 import type { SiteData } from './data';
@@ -22,6 +23,10 @@ export function sitePlatform(root: URL, store: PageStore, site: SiteData): Platf
     storageScope: root.pathname,
     search: false,
     editing: false,
+    filePages: false,
+    // a page opened from disk can start no worker, so the find runs here
+    runFind: async (texts, pattern) => findMatches(texts, pattern),
+    boundedFind: false,
   };
 }
 // siteStatus is what a site is as a space: one nobody signs in to, writes to,

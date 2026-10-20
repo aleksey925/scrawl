@@ -351,7 +351,9 @@ type scored struct {
 	score float64
 }
 
-func (ix *Index) rank(q parsedQuery, slots []slot, limit int) []Hit {
+// top scores every document that holds all the query terms and keeps the best
+// limit of them that also hold the quoted phrases
+func (ix *Index) top(q parsedQuery, slots []slot, limit int) []topDoc {
 	n := float64(len(ix.docs))
 	avg := math.Max(float64(ix.length)/n, 1)
 	idf := inverseFreq(slots, n)
@@ -379,16 +381,32 @@ func (ix *Index) rank(q parsedQuery, slots []slot, limit int) []Hit {
 	// phrases are checked on the way down the sorted list, not while scoring:
 	// the check walks the document text and only the hits actually returned
 	// have to pay for it
-	hits := make([]Hit, 0, min(limit, len(res)))
+	top := make([]topDoc, 0, min(limit, len(res)))
 	for _, cand := range res {
-		if len(hits) == limit {
+		if len(top) == limit {
 			break
 		}
 		collect(slots, cand.doc.id, match, boost)
 		if !matchesPhrases(cand.doc.plain, q, match) {
 			continue
 		}
-		snippet, line := cand.doc.snippet(q.terms, match)
+		top = append(top, topDoc{scored: cand, match: slices.Clone(match)})
+	}
+	return top
+}
+
+// topDoc is a document that made the cut, with the posting each query term
+// found in it
+type topDoc struct {
+	scored
+	match []*posting
+}
+
+func (ix *Index) rank(q parsedQuery, slots []slot, limit int) []Hit {
+	top := ix.top(q, slots, limit)
+	hits := make([]Hit, 0, len(top))
+	for _, cand := range top {
+		snippet, line := cand.doc.snippet(q.terms, cand.match)
 		hits = append(hits, Hit{
 			Path: cand.doc.path, Title: cand.doc.title, Snippet: snippet, Score: cand.score, Line: line,
 		})
@@ -502,10 +520,11 @@ func findPosting(list []posting, id uint32) (int, bool) {
 }
 
 // queryTerm is one term of a query. A prefix term matches every indexed term
-// starting with it.
+// starting with it, a typo term the indexed terms one edit away from it.
 type queryTerm struct {
 	text   string
 	prefix bool
+	typo   bool
 }
 
 // parsedQuery is a query split into the terms that must all be present and the

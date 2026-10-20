@@ -71,3 +71,7 @@ export function isDirectoryPath(path: string): boolean {
 export function trimTrailingSlash(path: string): string {
   return path.endsWith('/') ? path.slice(0, -1) : path;
 }
+
+export function recentUrl(): string {
+  return '/recent';
+}

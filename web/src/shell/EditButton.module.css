@@ -1,0 +1,32 @@
+.button {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: calc(var(--scrawl-tabbar-space) + 16px);
+  z-index: 205;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--scrawl-accent);
+  box-shadow: var(--scrawl-shadow-medium);
+  color: var(--scrawl-on-accent);
+  transition: transform 200ms ease;
+}
+
+/* it leaves with the tab bar, the whole way down past the bottom edge */
+:global(:root[data-scrawl-bars='hidden']) .button {
+  transform: translateY(calc(var(--scrawl-tabbar-space) + 16px + 54px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
+}
+
+@media print {
+  .button {
+    display: none;
+  }
+}

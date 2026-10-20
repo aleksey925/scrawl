@@ -1,0 +1,6 @@
+/* the page behind a menu drawn as a sheet, down to the bar of tabs, which
+   stays live under the thumb */
+.ground {
+  bottom: var(--scrawl-tabbar-space);
+  background: var(--scrawl-overlay);
+}

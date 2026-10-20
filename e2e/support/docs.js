@@ -20,7 +20,7 @@ const docs = {
     deep: {
         path: 'notes/deep/nested.md',
         title: 'Deeply nested page',
-        crumbs: [/notes/, /deep/, /nested/],
+        crumbs: [/notes/, /deep/, /Deeply nested page/],
     },
     folder: {path: 'db', name: 'db', entry: 'db/vacuum.md'},
     illustrated: {doc: 'guide.md', image: 'images/logo.png'},

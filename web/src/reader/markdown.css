@@ -1,23 +1,19 @@
 /* Every rule here is scoped to .markdown-document: a note is markdown the
-   reader wrote, and its classes and ids must not reach app chrome. The
-   look is github-markdown-css 5.9.0 ported onto the markup render emits. */
+   reader wrote, and its classes and ids must not reach app chrome. The look
+   is the way Notion shows a page, laid onto the markup render emits. */
 
 .markdown-document {
-  color: var(--gh-fg-body);
+  color: var(--scrawl-text-body);
   font-size: 1rem;
   line-height: 1.5;
   overflow-wrap: break-word;
   -webkit-text-size-adjust: 100%;
 }
 
-.markdown-document::before,
 .markdown-document::after {
   display: table;
-  content: '';
-}
-
-.markdown-document::after {
   clear: both;
+  content: '';
 }
 
 .markdown-document > :first-child {
@@ -30,15 +26,20 @@
 
 /* --- inline -------------------------------------------------------------- */
 
+/* a link is the text itself with a faint line under it, darker under the
+   pointer */
 .markdown-document a {
-  color: var(--gh-fg-accent);
-  text-decoration: none;
-  text-underline-offset: 0.2rem;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--scrawl-link-line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 100ms ease-in;
 }
 
 @media (hover: hover) {
   .markdown-document a:hover {
-    text-decoration: underline;
+    text-decoration-color: var(--scrawl-text-secondary);
   }
 }
 
@@ -48,26 +49,28 @@
 }
 
 .markdown-document a:focus-visible {
-  outline: 2px solid var(--gh-border-accent-emphasis);
-  outline-offset: -2px;
-}
-
-.markdown-document a:not([class]):focus-visible {
-  outline-offset: 0;
+  border-radius: 2px;
+  outline: 2px solid var(--scrawl-accent);
+  outline-offset: 1px;
 }
 
 .markdown-document a.broken {
-  color: var(--gh-fg-danger);
-  text-decoration: underline dotted;
+  color: var(--scrawl-color-red);
+  text-decoration-color: currentColor;
+  text-decoration-style: dashed;
 }
 
 .markdown-document :is(b, strong) {
   font-weight: var(--scrawl-strong-weight);
 }
 
-/* a link, a muted block and a highlight keep their own color */
-.markdown-document :is(b, strong, em, i, dt, th, h1, h2, h3, h4, h5):not(:is(a, blockquote, .footnotes, mark) *) {
-  color: var(--gh-fg-emphasis);
+/* a link and a highlight keep their own color */
+.markdown-document :is(b, strong, em, i, dt, h1, h2, h3, h4, h5):not(:is(a, .footnotes, mark) *) {
+  color: var(--scrawl-text-emphasis);
+}
+
+.markdown-document del {
+  color: var(--scrawl-text-secondary);
 }
 
 .markdown-document dfn {
@@ -79,9 +82,12 @@
   text-decoration: underline dotted;
 }
 
+/* a highlighter: the yellow block ground under the note's own text */
 .markdown-document mark {
-  background-color: var(--gh-bg-mark);
-  color: var(--gh-fg-mark);
+  padding: 0 2px;
+  border-radius: 3px;
+  background-color: var(--scrawl-bg-yellow);
+  color: inherit;
 }
 
 .markdown-document small {
@@ -104,38 +110,29 @@
 }
 
 .markdown-document kbd {
-  display: inline-block;
-  padding: 4px;
-  border: 1px solid var(--gh-border-muted);
-  border-radius: 6px;
-  box-shadow: inset 0 -1px 0 var(--gh-border-muted);
-  background-color: var(--gh-bg-muted);
-  color: var(--gh-fg-default);
-  font: 11px var(--mantine-font-family-monospace);
-  line-height: 10px;
-  vertical-align: middle;
+  padding: 1px 5px;
+  border: 1px solid var(--scrawl-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background-color: var(--scrawl-bg);
+  color: var(--scrawl-text);
+  font: 12px var(--mantine-font-family-monospace);
 }
 
 /* --- headings ------------------------------------------------------------ */
 
 .markdown-document :is(h1, h2, h3, h4, h5, h6) {
   position: relative;
-  margin-top: 24px;
-  margin-bottom: 16px;
+  margin-top: 1.1em;
+  margin-bottom: 1px;
+  padding: 3px 2px;
   font-weight: 600;
-  line-height: 1.25;
-  scroll-margin-top: calc(
-    var(--app-shell-header-height, 0px) + var(--scrawl-sticky-head, 0px) + var(--mantine-spacing-xl)
-  );
-}
-
-.markdown-document :is(h1, h2) {
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid var(--gh-border-muted);
+  line-height: 1.3;
+  scroll-margin-top: calc(var(--app-shell-header-height, 0px) + var(--mantine-spacing-xl));
 }
 
 .markdown-document h1 {
-  font-size: 2em;
+  font-size: 1.875em;
 }
 
 .markdown-document h2 {
@@ -143,34 +140,51 @@
 }
 
 .markdown-document h3 {
+  margin-top: 0.9em;
   font-size: 1.25em;
 }
 
 .markdown-document h4 {
+  margin-top: 0.8em;
   font-size: 1em;
 }
 
 .markdown-document h5 {
+  margin-top: 0.8em;
   font-size: 0.875em;
 }
 
 .markdown-document h6 {
-  color: var(--gh-fg-muted);
+  margin-top: 0.8em;
+  color: var(--scrawl-text-secondary);
   font-size: 0.85em;
 }
 
+/* the note's leading heading is its page title */
+.markdown-document > h1:first-child {
+  margin-bottom: 6px;
+  color: var(--scrawl-text-emphasis);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .markdown-document > h1:first-child {
+    font-size: 32px;
+  }
+}
+
 .markdown-document :is(h1, h2, h3, h4, h5, h6) :is(code, tt) {
-  padding: 0 0.2em;
   font-size: inherit;
 }
 
 .markdown-document summary :is(h1, h2, h3, h4, h5, h6) {
   display: inline-block;
-}
-
-.markdown-document summary :is(h1, h2) {
-  padding-bottom: 0;
-  border-bottom: 0;
+  margin: 0;
+  padding: 0;
 }
 
 /* --- heading anchors ----------------------------------------------------- */
@@ -186,7 +200,7 @@
   align-items: center;
   width: var(--scrawl-tap-target);
   height: var(--scrawl-tap-target);
-  color: var(--gh-fg-default);
+  color: var(--scrawl-text);
   text-decoration: none;
 }
 
@@ -205,7 +219,7 @@
 }
 
 .markdown-document .md-anchor:focus-visible {
-  outline: 2px solid var(--gh-border-accent-emphasis);
+  outline: 2px solid var(--scrawl-color-blue);
   outline-offset: 2px;
 }
 
@@ -233,16 +247,24 @@
 
 /* --- blocks -------------------------------------------------------------- */
 
-.markdown-document :is(p, blockquote, ul, ol, dl, table, pre, details, figure) {
-  margin-top: 0;
-  margin-bottom: 16px;
+/* a block is a line of the page: 3px 2px of room and 1px between two */
+.markdown-document :is(p, blockquote, ul, ol, dl, table, figure) {
+  margin-top: 1px;
+  margin-bottom: 1px;
+}
+
+.markdown-document p {
+  padding: 3px 2px;
 }
 
 .markdown-document blockquote {
-  margin-inline: 0;
-  padding: 0 1em;
-  border-left: 0.25em solid var(--gh-border-default);
-  color: var(--gh-fg-muted);
+  margin: 4px 0;
+  padding: 3px 2px 3px 14px;
+  border-left: 3px solid currentColor;
+}
+
+.markdown-document blockquote p {
+  padding-inline: 0;
 }
 
 .markdown-document blockquote > :first-child {
@@ -254,22 +276,11 @@
 }
 
 .markdown-document hr {
-  box-sizing: content-box;
-  height: 0.25em;
-  margin: 24px 0;
+  height: 1px;
+  margin: 12px 2px;
   padding: 0;
-  overflow: hidden;
   border: 0;
-  background-color: var(--gh-border-default);
-}
-
-.markdown-document details {
-  display: block;
-}
-
-.markdown-document summary {
-  display: list-item;
-  cursor: pointer;
+  background-color: var(--scrawl-border);
 }
 
 .markdown-document figure {
@@ -281,48 +292,97 @@
 }
 
 .markdown-document dl dt {
-  margin-top: 16px;
-  padding: 0;
-  font-size: 1em;
-  font-style: italic;
+  margin-top: 12px;
+  padding: 0 2px;
   font-weight: 600;
 }
 
 .markdown-document dl dd {
   margin-left: 0;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   padding: 0 16px;
+}
+
+/* a toggle: no box, a chevron that turns when it opens, its body indented */
+.markdown-document details {
+  display: block;
+  margin: 1px 0;
+}
+
+.markdown-document summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 3px 2px 3px 0;
+  list-style: none;
+  cursor: pointer;
+}
+
+.markdown-document summary::-webkit-details-marker {
+  display: none;
+}
+
+.markdown-document summary::before {
+  content: '';
+  flex: none;
+  width: 24px;
+  height: 1lh;
+  background-color: var(--scrawl-icon);
+  -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M9 6l6 6l-6 6'/></svg>") center / 18px no-repeat;
+  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M9 6l6 6l-6 6'/></svg>") center / 18px no-repeat;
+  transition: transform 150ms ease;
+}
+
+.markdown-document details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.markdown-document details > :not(summary) {
+  margin-left: 26px;
 }
 
 /* --- lists --------------------------------------------------------------- */
 
 .markdown-document :is(ul, ol) {
-  padding-left: 2em;
+  padding-left: 1.7em;
+}
+
+.markdown-document li {
+  padding: 3px 0 3px 2px;
+}
+
+.markdown-document li::marker {
+  color: var(--scrawl-text-body);
 }
 
 .markdown-document :is(ul, ol) :is(ul, ol) {
-  margin-top: 0;
+  margin-top: 2px;
   margin-bottom: 0;
 }
 
-.markdown-document :is(ol, ul) ol {
-  list-style-type: lower-roman;
+.markdown-document ul ul {
+  list-style-type: circle;
 }
 
-.markdown-document :is(ol, ul) :is(ol, ul) ol {
+.markdown-document ul ul ul {
+  list-style-type: square;
+}
+
+.markdown-document ol ol {
   list-style-type: lower-alpha;
 }
 
-.markdown-document li + li {
-  margin-top: 0.25em;
+.markdown-document ol ol ol {
+  list-style-type: lower-roman;
 }
 
 .markdown-document li > p {
-  margin-top: 16px;
+  padding-inline: 0;
 }
 
 /* goldmark puts no class on a task item, so the checkbox opening it is what
-   marks one, a loose item holding it in its first paragraph */
+   marks one, a loose item holding it in its first paragraph. The box stays
+   disabled: a task is ticked in the editor and saved like any change. */
 .markdown-document li:has(> input[type='checkbox']:first-child),
 .markdown-document li:has(> p:first-child > input[type='checkbox']:first-child) {
   list-style-type: none;
@@ -331,9 +391,31 @@
 .markdown-document li > input[type='checkbox']:first-child,
 .markdown-document li > p:first-child > input[type='checkbox']:first-child {
   box-sizing: border-box;
-  margin: 0 0.2em 0.25em -1.4em;
+  width: 16px;
+  height: 16px;
+  margin: 0 8px 0 -1.4em;
   padding: 0;
-  vertical-align: middle;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1.5px var(--scrawl-text);
+  vertical-align: -2px;
+  opacity: 1;
+  cursor: default;
+  appearance: none;
+}
+
+.markdown-document li > input[type='checkbox']:first-child:checked,
+.markdown-document li > p:first-child > input[type='checkbox']:first-child:checked {
+  box-shadow: none;
+  background: var(--scrawl-accent)
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M5 12l5 5l10 -10'/></svg>")
+    center / 12px no-repeat;
+}
+
+.markdown-document li:has(> input[type='checkbox']:first-child:checked),
+.markdown-document li:has(> p:first-child > input[type='checkbox']:first-child:checked) {
+  color: var(--scrawl-text-tertiary);
+  text-decoration: line-through;
+  text-decoration-color: var(--scrawl-text-faint);
 }
 
 /* --- images -------------------------------------------------------------- */
@@ -343,6 +425,7 @@
   max-width: 100%;
   height: auto;
   border-style: none;
+  border-radius: 6px;
   cursor: zoom-in;
 }
 
@@ -354,7 +437,7 @@
   display: inline-block;
   min-height: 60px;
   padding: var(--mantine-spacing-lg);
-  border: 1px dashed var(--gh-fg-danger);
+  border: 1px dashed var(--scrawl-color-red);
 }
 
 /* --- code ---------------------------------------------------------------- */
@@ -366,8 +449,9 @@
 .markdown-document :is(code, tt) {
   margin: 0;
   padding: 0.2em 0.4em;
-  border-radius: 6px;
-  background-color: var(--gh-bg-neutral-muted);
+  border-radius: 4px;
+  background-color: var(--scrawl-inline-code-bg);
+  color: var(--scrawl-inline-code);
   font-size: 85%;
   white-space: break-spaces;
 }
@@ -381,16 +465,17 @@
 }
 
 .markdown-document pre {
-  padding: 16px;
+  margin: 6px 0;
+  padding: 6px 16px 20px 14px;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   border-radius: 6px;
-  background-color: var(--gh-bg-muted);
-  color: var(--gh-fg-default);
-  font-size: 85%;
-  line-height: 1.45;
+  background-color: var(--scrawl-code-bg);
+  color: var(--scrawl-text);
+  font-size: 13.6px;
+  line-height: 1.55;
   overflow-wrap: normal;
-  tab-size: 4;
+  tab-size: 2;
 }
 
 .markdown-document pre :is(code, tt) {
@@ -399,7 +484,9 @@
   padding: 0;
   overflow: visible;
   border: 0;
+  border-radius: 0;
   background-color: transparent;
+  color: inherit;
   font-size: 100%;
   line-height: inherit;
   white-space: pre;
@@ -407,96 +494,124 @@
   overflow-wrap: normal;
 }
 
-/* the copy button is a column beside the code and never a layer over it:
-   a layer covers the end of a long line, and room kept with padding on the
-   pre scrolls away with that line */
+/* a block of code is a box with a head row inside it: the language at the
+   left and Copy at the right, above the code and never over it */
 .markdown-document .code-block {
-  display: flex;
-  align-items: flex-start;
-  margin: 0 0 16px;
+  margin: 6px 0;
   border-radius: 6px;
-  background-color: var(--gh-bg-muted);
+  background-color: var(--scrawl-code-bg);
 }
 
 /* chroma's own sheet paints .chroma from :root, which only pre.chroma here
    outranks */
 .markdown-document .code-block > :is(pre, pre.chroma) {
-  flex: 1;
-  min-width: 0;
   margin: 0;
   background-color: transparent;
+}
+
+.markdown-document .md-code-head + :is(pre, pre.chroma) {
+  padding-top: 0;
 }
 
 /* chroma paints the tokens from its own stylesheet; this only keeps an
    unhighlighted block legible when that sheet is not on the page */
 .markdown-document .chroma {
-  color: var(--gh-fg-default);
+  color: var(--scrawl-text);
+}
+
+.md-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 32px;
+  padding: 4px 6px 0 14px;
+  color: var(--scrawl-text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
 }
 
 .md-copy {
-  display: flex;
+  display: inline-flex;
   flex: none;
   align-items: center;
-  justify-content: center;
-  width: var(--scrawl-tap-target);
-  height: var(--scrawl-tap-target);
-  /* the glyph, not the box, ends on the 16px line the code starts on */
-  margin-right: calc(16px - (var(--scrawl-tap-target) - 16px) / 2);
-  padding: 0;
+  gap: 4px;
+  height: 24px;
+  margin-inline-start: auto;
+  padding: 0 6px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 4px;
   background-color: transparent;
-  color: var(--gh-fg-muted);
-  font-size: 0;
+  color: var(--scrawl-text-secondary);
+  font: inherit;
+  font-size: 12px;
   cursor: pointer;
 }
 
-.md-copy:active {
-  background-color: var(--gh-control-hover);
-}
-
-/* the label stays the button's text for a screen reader; GitHub shows an icon */
 .md-copy::before {
   content: '';
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   background-color: currentColor;
-  -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z'/><path d='M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z'/></svg>")
-    center / contain no-repeat;
-  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z'/><path d='M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z'/></svg>")
-    center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z'/><path d='M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1'/></svg>") center / contain no-repeat;
+  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z'/><path d='M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1'/></svg>") center / contain no-repeat;
 }
 
 .md-copy[data-done='true'] {
-  color: var(--gh-fg-success);
+  color: var(--scrawl-color-green);
 }
 
 .md-copy[data-done='true']::before {
-  -webkit-mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'/></svg>");
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'/></svg>");
+  -webkit-mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M5 12l5 5l10 -10'/></svg>");
+  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M5 12l5 5l10 -10'/></svg>");
+}
+
+.md-copy:active {
+  background-color: var(--scrawl-pressed);
 }
 
 .md-copy:focus-visible {
-  outline: 2px solid var(--gh-border-accent-emphasis);
+  outline: 2px solid var(--scrawl-accent);
   outline-offset: -2px;
 }
 
+/* with a pointer Copy shows under it and under the keyboard's focus; a touch
+   screen has no hover, so there it always shows, at the touch height */
 @media (hover: hover) {
   .md-copy {
-    width: 28px;
-    height: 28px;
-    margin: 8px 8px 0 0;
+    opacity: 0;
+    transition: opacity 100ms ease;
+  }
+
+  .code-block:hover .md-copy,
+  .md-copy:focus-visible,
+  .md-copy[data-done='true'] {
+    opacity: 1;
   }
 
   .md-copy:hover {
-    background-color: var(--gh-control-hover);
+    background-color: var(--scrawl-hover);
+  }
+}
+
+@media (hover: none) {
+  .md-code-head {
+    height: var(--scrawl-tap-target);
+    padding-top: 0;
+  }
+
+  .md-copy {
+    height: var(--scrawl-tap-target);
+    min-width: var(--scrawl-tap-target);
+    justify-content: center;
   }
 }
 
 /* --- tables -------------------------------------------------------------- */
 
 .markdown-document .table-wrap {
-  margin: 0 0 16px;
+  margin: 6px 0 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -506,72 +621,77 @@
   display: block;
   width: max-content;
   max-width: 100%;
+  margin-top: 6px;
+  margin-bottom: 8px;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   border-spacing: 0;
   border-collapse: collapse;
+  font-size: 14px;
   font-variant: tabular-nums;
 }
 
 .markdown-document .table-wrap > table {
-  margin-bottom: 0;
+  margin: 0;
 }
 
 .markdown-document :is(th, td) {
-  padding: 6px 13px;
-  border: 1px solid var(--gh-border-default);
+  padding: 7px 9px;
+  border: 1px solid var(--scrawl-border);
+  vertical-align: top;
 }
 
 .markdown-document th {
-  font-weight: 600;
+  background-color: var(--scrawl-code-bg);
+  color: var(--scrawl-text);
+  font-weight: 500;
 }
 
-.markdown-document td > :last-child {
+.markdown-document :is(th, td) > :last-child {
   margin-bottom: 0;
 }
 
-.markdown-document tr {
-  border-top: 1px solid var(--gh-border-muted);
+.markdown-document :is(th, td) p {
+  padding: 0;
 }
 
-.markdown-document tr:nth-child(2n) {
-  background-color: var(--gh-bg-muted);
-}
+/* --- callouts ------------------------------------------------------------ */
 
-/* --- alerts -------------------------------------------------------------- */
-
+/* an alert is a callout: a box on the block ground with an icon in the block
+   color in a column of its own. The icons are Tabler's (MIT). */
 .markdown-document .alert {
-  --md-alert-border: var(--gh-border-accent-emphasis);
-  --md-alert-color: var(--gh-fg-accent);
-  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/></svg>");
-  margin-bottom: 16px;
-  padding: 8px 16px;
-  border-left: 0.25em solid var(--md-alert-border);
-  color: inherit;
+  --md-alert-color: var(--scrawl-color-blue);
+  --md-alert-bg: var(--scrawl-bg-blue);
+  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0'/><path d='M12 9h.01'/><path d='M11 12h1v4h1'/></svg>");
+  position: relative;
+  margin: 4px 0;
+  padding: 14px 16px 14px 44px;
+  border-radius: 6px;
+  background-color: var(--md-alert-bg);
 }
 
 .markdown-document .alert-tip {
-  --md-alert-border: var(--gh-border-success-emphasis);
-  --md-alert-color: var(--gh-fg-success);
-  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 1.5c-2.363 0-4 1.69-4 3.75 0 .984.424 1.625.984 2.304l.214.253c.223.264.47.556.673.848.284.411.537.896.621 1.49a.75.75 0 0 1-1.484.211c-.04-.282-.163-.547-.37-.847a8.456 8.456 0 0 0-.542-.68c-.084-.1-.173-.205-.268-.32C3.201 7.75 2.5 6.766 2.5 5.25 2.5 2.31 4.863 0 8 0s5.5 2.31 5.5 5.25c0 1.516-.701 2.5-1.328 3.259-.095.115-.184.22-.268.319-.207.245-.383.453-.541.681-.208.3-.33.565-.37.847a.751.751 0 0 1-1.485-.212c.084-.593.337-1.078.621-1.489.203-.292.45-.584.673-.848.075-.088.147-.173.213-.253.561-.679.985-1.32.985-2.304 0-2.06-1.637-3.75-4-3.75ZM5.75 12h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5ZM6 15.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z'/></svg>");
+  --md-alert-color: var(--scrawl-color-green);
+  --md-alert-bg: var(--scrawl-bg-green);
+  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M3 12h1m8 -9v1m8 8h1m-15.4 -6.4l.7 .7m12.1 -.7l-.7 .7'/><path d='M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0 -1 3a2 2 0 0 1 -4 0a3.5 3.5 0 0 0 -1 -3'/><path d='M9.7 17l4.6 0'/></svg>");
 }
 
 .markdown-document .alert-important {
-  --md-alert-border: var(--gh-border-done-emphasis);
-  --md-alert-color: var(--gh-fg-done);
-  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v9.5A1.75 1.75 0 0 1 14.25 13H8.06l-2.573 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25Zm1.75-.25a.25.25 0 0 0-.25.25v9.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-9.5a.25.25 0 0 0-.25-.25Zm7 2.25v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z'/></svg>");
+  --md-alert-color: var(--scrawl-color-purple);
+  --md-alert-bg: var(--scrawl-bg-purple);
+  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M18 8a3 3 0 0 1 0 6'/><path d='M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5'/><path d='M12 8h0l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8'/></svg>");
 }
 
 .markdown-document .alert-warning {
-  --md-alert-border: var(--gh-border-attention-emphasis);
-  --md-alert-color: var(--gh-fg-attention);
-  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z'/></svg>");
+  --md-alert-color: var(--scrawl-color-yellow);
+  --md-alert-bg: var(--scrawl-bg-yellow);
+  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 9v4'/><path d='M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z'/><path d='M12 16h.01'/></svg>");
 }
 
 .markdown-document .alert-caution {
-  --md-alert-border: var(--gh-border-danger-emphasis);
-  --md-alert-color: var(--gh-fg-danger);
-  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4.47.22A.749.749 0 0 1 5 0h6c.199 0 .389.079.53.22l4.25 4.25c.141.14.22.331.22.53v6a.749.749 0 0 1-.22.53l-4.25 4.25A.749.749 0 0 1 11 16H5a.749.749 0 0 1-.53-.22L.22 11.53A.749.749 0 0 1 0 11V5c0-.199.079-.389.22-.53Zm.84 1.28L1.5 5.31v5.38l3.81 3.81h5.38l3.81-3.81V5.31L10.69 1.5ZM8 4a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/></svg>");
+  --md-alert-color: var(--scrawl-color-red);
+  --md-alert-bg: var(--scrawl-bg-red);
+  --md-alert-icon: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12.802 2.165l5.575 2.389c.48 .206 .863 .589 1.07 1.07l2.388 5.574c.22 .512 .22 1.092 0 1.604l-2.389 5.575c-.206 .48 -.589 .863 -1.07 1.07l-5.574 2.388c-.512 .22 -1.092 .22 -1.604 0l-5.575 -2.389a2.036 2.036 0 0 1 -1.07 -1.07l-2.388 -5.574a2.036 2.036 0 0 1 0 -1.604l2.389 -5.575c.206 -.48 .589 -.863 1.07 -1.07l5.574 -2.388a2.036 2.036 0 0 1 1.604 0z'/><path d='M12 8v4'/><path d='M12 16h.01'/></svg>");
 }
 
 .markdown-document .alert > :first-child {
@@ -582,26 +702,34 @@
   margin-bottom: 0;
 }
 
-.markdown-document .alert-title {
-  display: flex;
-  align-items: center;
-  color: var(--md-alert-color);
-  font-weight: 500;
-  line-height: 1;
+.markdown-document .alert p {
+  padding-block: 0;
 }
 
+.markdown-document .alert-title {
+  color: var(--md-alert-color);
+  font-weight: 600;
+}
+
+/* the icon is drawn by the title, placed in the left column of the box, so the
+   markup render emits stays what it is */
 .markdown-document .alert-title::before {
   content: '';
-  flex: none;
-  width: 16px;
-  height: 16px;
-  margin-right: 8px;
-  background-color: currentColor;
-  -webkit-mask: var(--md-alert-icon) center / contain no-repeat;
-  mask: var(--md-alert-icon) center / contain no-repeat;
+  position: absolute;
+  top: 14px;
+  left: 12px;
+  width: 24px;
+  height: 24px;
+  background-color: var(--md-alert-color);
+  -webkit-mask: var(--md-alert-icon) center / 22px no-repeat;
+  mask: var(--md-alert-icon) center / 22px no-repeat;
 }
 
 /* --- footnotes ----------------------------------------------------------- */
+
+.markdown-document .footnote-ref a {
+  text-decoration: none;
+}
 
 .markdown-document .footnote-ref a::before {
   content: '[';
@@ -612,13 +740,14 @@
 }
 
 .markdown-document section.footnotes {
-  border-top: 1px solid var(--gh-border-default);
-  color: var(--gh-fg-muted);
-  font-size: 12px;
+  margin-top: 24px;
+  border-top: 1px solid var(--scrawl-border);
+  color: var(--scrawl-text-secondary);
+  font-size: 13px;
 }
 
 .markdown-document section.footnotes ol {
-  margin-top: 16px;
+  margin-top: 12px;
   padding-left: 16px;
 }
 
@@ -629,21 +758,14 @@
 /* a fragment jump lands with nothing to look at, so both ends of a footnote
    link mark themselves while they are the target */
 .markdown-document section.footnotes li:target {
-  color: var(--gh-fg-default);
-}
-
-.markdown-document section.footnotes li:target::before {
-  content: '';
-  position: absolute;
-  inset: -8px -8px -8px -24px;
-  border: 2px solid var(--gh-border-accent-emphasis);
-  border-radius: 6px;
-  pointer-events: none;
+  border-radius: 4px;
+  background: var(--scrawl-bg-yellow);
+  color: var(--scrawl-text);
 }
 
 .markdown-document .footnote-ref a:target {
   border-radius: 2px;
-  outline: 2px solid var(--gh-border-accent-emphasis);
+  outline: 2px solid var(--scrawl-accent);
   outline-offset: 1px;
 }
 
@@ -671,8 +793,8 @@
 }
 
 .markdown-document .math.is-error {
-  color: var(--gh-fg-danger);
-  text-decoration: underline wavy var(--gh-fg-danger);
+  color: var(--scrawl-color-red);
+  text-decoration: underline wavy var(--scrawl-color-red);
   text-underline-offset: 3px;
   cursor: help;
 }
@@ -696,7 +818,7 @@
 /* --- diagrams ------------------------------------------------------------ */
 
 .markdown-document pre.mermaid {
-  color: var(--gh-fg-muted);
+  color: var(--scrawl-text-secondary);
 }
 
 .markdown-document .md-diagram {
@@ -727,23 +849,31 @@
   margin-inline: auto;
 }
 
+/* mermaid writes a label as a paragraph inside its svg, measured with no room
+   around it; the note's block padding pushed every label off its middle */
+.markdown-document .md-diagram-view p {
+  margin: 0;
+  padding: 0;
+}
+
 .markdown-document .md-diagram-error {
   margin: var(--mantine-spacing-sm) 0 0;
-  color: var(--gh-fg-danger);
+  color: var(--scrawl-color-red);
   font-size: var(--mantine-font-size-sm);
 }
 
 /* --- find on page -------------------------------------------------------- */
 
 .markdown-document .md-find {
+  padding: 0;
   border-radius: 2px;
-  background: var(--scrawl-accent-subtle);
+  background: var(--scrawl-bg-yellow);
   color: inherit;
 }
 
 .markdown-document .md-find[data-active='true'] {
-  background: var(--scrawl-accent-emphasis);
-  color: #fff;
+  background: var(--scrawl-color-orange);
+  color: var(--scrawl-on-accent);
 }
 
 /* --- picture viewer ------------------------------------------------------- */
@@ -900,7 +1030,7 @@
   }
 
   .markdown-document .md-anchor,
-  .markdown-document .md-copy {
+  .markdown-document .md-code-head {
     display: none;
   }
 

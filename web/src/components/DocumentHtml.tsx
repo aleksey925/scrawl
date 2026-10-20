@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, type JSX, type RefObject } from 'react'
 import type { Heading } from '../api/types';
 import { imagesOf } from '../reader/dom';
 import { FindBar } from '../reader/FindBar';
+import { useFindControl } from '../reader/findControl';
+import { MiniOutline } from '../reader/MiniOutline';
 import { ReaderToc } from '../reader/ReaderToc';
 import { useDocumentControls } from '../reader/useDocumentControls';
 import { useFindOnPage } from '../reader/useFindOnPage';
@@ -12,6 +14,7 @@ import { useMermaid } from '../reader/useMermaid';
 import { useOutline } from '../reader/useOutline';
 import { openViewer } from '../reader/viewer';
 import { PageToc } from '../shell/ShellSlots';
+import { appShortcut } from '../shell/shortcuts';
 import { layoutBreakpoints, useAtLeast } from '../theme';
 
 import classes from './DocumentHtml.module.css';
@@ -31,7 +34,8 @@ export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Elem
   const rootRef = useRef<HTMLDivElement>(null);
   const outline = useOutline(rootRef, html, toc);
   const find = useFindOnPage(rootRef, html);
-  const inline = useAtLeast(layoutBreakpoints.tocRail);
+  useFindShortcut(rootRef, find.open);
+  const floating = useAtLeast(layoutBreakpoints.miniOutline);
 
   const closeViewer = useRef<(() => void) | null>(null);
   const openPicture = useCallback((image: HTMLImageElement): void => {
@@ -56,36 +60,65 @@ export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Elem
 
   return (
     <>
-      {outline !== null && !inline && (
+      {outline !== null && !floating && (
         <PageToc>
           <ReaderToc outline={outline} />
         </PageToc>
       )}
 
-      {/* one wrapper either way, so the text is never mounted again when the
-          outline moves between the card and the sheet */}
-      <div className={outline !== null && inline ? classes.withToc : undefined}>
-        {/* the one place in the app that injects html. What arrives here was
-            rendered and sanitized on the server by the bluemonday policy in
-            render/policy.go. */}
-        <div
-          ref={rootRef}
-          data-testid="doc"
-          className={`markdown-document ${classes.text}`}
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-        {outline !== null && inline && (
-          <div className={classes.pane} data-print="hide">
-            <nav data-testid="toc-rail" className={classes.toc} aria-label="On this page">
-              <ReaderToc outline={outline} />
-            </nav>
-          </div>
-        )}
-      </div>
+      {/* the one place in the app that injects html. What arrives here was
+          rendered and sanitized on the server by the bluemonday policy in
+          render/policy.go. */}
+      <div
+        ref={rootRef}
+        data-testid="doc"
+        className={`markdown-document ${classes.text}`}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {outline !== null && floating && <MiniOutline outline={outline} />}
 
-      {find !== null && (
-        <FindBar position={find.position} total={find.total} onStep={find.step} onClose={find.close} />
-      )}
+      {find.opened && <FindBar find={find} />}
     </>
   );
+}
+
+// selectedText is the selection inside the note, when it is a piece of one
+// line worth finding
+function selectedText(root: HTMLElement): string | undefined {
+  const selection = window.getSelection();
+  if (selection === null || selection.rangeCount === 0 || !root.contains(selection.anchorNode)) {
+    return undefined;
+  }
+  const text = selection.toString().trim();
+  return text === '' || text.includes('\n') ? undefined : text;
+}
+
+// useFindShortcut takes Cmd+F while the note is on screen and offers the same
+// opening to the note's menu. A second Cmd+F in the bar is the browser's.
+function useFindShortcut(rootRef: RefObject<HTMLDivElement | null>, open: (text?: string) => void): void {
+  const { register } = useFindControl();
+
+  useEffect(() => {
+    const openHere = (): void => {
+      const root = rootRef.current;
+      open(root === null ? undefined : selectedText(root));
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== 'f') {
+        return;
+      }
+      const { target } = event;
+      if (!appShortcut(event) || (target instanceof Element && target.closest('[data-testid="doc-find"]') !== null)) {
+        return;
+      }
+      event.preventDefault();
+      openHere();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    register(openHere);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      register(undefined);
+    };
+  }, [rootRef, open, register]);
 }

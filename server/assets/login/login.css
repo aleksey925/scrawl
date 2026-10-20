@@ -1,20 +1,6 @@
 /* The sign-in page carries its own stylesheet. Every other page is the app,
-   which brings its own, and this one has to work before any of it loads. */
-
-/* the colors are the theme's, from the themes.css the page links first */
-:root {
-  --bg: var(--gh-bg-default);
-  --bg-raised: var(--gh-bg-muted);
-  --bg-input: var(--gh-bg-default);
-  --text: var(--gh-fg-default);
-  --text-dim: var(--gh-fg-muted);
-  --border: var(--gh-border-default);
-  --accent: var(--gh-bg-accent-emphasis);
-  --accent-hover: var(--gh-bg-accent-emphasis-hover);
-  --danger: var(--gh-fg-danger);
-  --danger-subtle: var(--gh-bg-danger-muted);
-  --focus: var(--gh-border-accent-emphasis);
-}
+   which brings its own, and this one has to work before any of it loads. The
+   colors are the theme's, from the themes.css the page links first. */
 
 * {
   box-sizing: border-box;
@@ -22,12 +8,13 @@
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial,
-    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  background: var(--scrawl-bg);
+  color: var(--scrawl-text);
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, 'Apple Color Emoji', Arial,
+    sans-serif, 'Segoe UI Emoji', 'Segoe UI Symbol';
   font-size: 1rem;
-  line-height: 1.45;
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sprite {
@@ -52,127 +39,143 @@ body {
   justify-content: center;
   min-height: 100vh;
   min-height: 100dvh;
-  padding: 1.5rem;
+  padding-block: 24px;
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
 }
 
-.login-card {
+.login-box {
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  max-width: 360px;
-  padding: 2rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-raised);
-  text-align: center;
+  max-width: 320px;
 }
 
 .login-logo {
-  width: 40px;
-  height: 40px;
-  margin-bottom: 1rem;
-  color: var(--accent);
+  width: 44px;
+  height: 44px;
+  margin-bottom: 18px;
+  color: var(--scrawl-text);
 }
 
 .login-title {
-  margin: 0 0 0.25rem;
-  font-size: 1.75rem;
-  font-weight: 600;
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.01em;
 }
 
 .login-sub {
-  margin: 0 0 1.5rem;
-  color: var(--text-dim);
-  font-size: 0.875rem;
+  margin: 6px 0 26px;
+  color: var(--scrawl-text-secondary);
+  font-size: 16px;
 }
 
 .login-error {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 1.25rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--danger);
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 8px 10px;
   border-radius: 6px;
-  background: var(--danger-subtle);
-  color: var(--danger);
-  font-size: 0.875rem;
-  text-align: left;
+  background: var(--scrawl-bg-red);
+  color: var(--scrawl-color-red);
+  font-size: 14px;
 }
 
 .login-error .icon {
+  flex: none;
   width: 17px;
   height: 17px;
-  flex: none;
-}
-
-.field {
-  display: block;
-  margin-bottom: 1rem;
-  text-align: left;
 }
 
 .field-label {
-  display: block;
-  margin-bottom: 0.25rem;
-  color: var(--text-dim);
-  font-size: 0.875rem;
+  margin: 0 0 4px;
+  color: var(--scrawl-text-secondary);
+  font-size: 12px;
 }
 
 .input {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
+  height: 36px;
+  margin-bottom: 14px;
+  padding: 0 10px;
+  border: 0;
   border-radius: 6px;
-  background: var(--bg-input);
-  color: var(--text);
-  /* anything under 16px makes iOS zoom the page on focus and never zoom back */
+  outline: none;
+  background: var(--scrawl-hover);
+  box-shadow: inset 0 0 0 1px var(--scrawl-border-translucent);
+  color: var(--scrawl-text);
   font: inherit;
-  font-size: 1rem;
+  /* anything under 16px makes iOS zoom the page on focus and never zoom back */
+  font-size: 16px;
 }
 
-.input:focus-visible,
-.btn:focus-visible,
-.login-theme:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+.input::placeholder {
+  color: var(--scrawl-placeholder);
+}
+
+.input:focus {
+  box-shadow:
+    inset 0 0 0 1px var(--scrawl-accent),
+    0 0 0 3px var(--scrawl-accent-tint);
 }
 
 .btn {
-  width: 100%;
-  min-height: 44px;
-  margin-top: 0.5rem;
-  padding: 0.5rem 1rem;
-  border: 1px solid transparent;
+  height: 36px;
+  margin-top: 6px;
+  padding: 0 12px;
+  border: 0;
   border-radius: 6px;
-  background: var(--accent);
-  color: #ffffff;
+  background: var(--scrawl-accent);
+  color: var(--scrawl-on-accent);
   font: inherit;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
 }
 
 @media (hover: hover) {
   .btn:hover {
-    background: var(--accent-hover);
+    background: var(--scrawl-accent-strong);
   }
+
+  .login-theme:hover {
+    background: var(--scrawl-hover);
+  }
+}
+
+.btn:focus-visible,
+.login-theme:focus-visible {
+  outline: 2px solid var(--scrawl-accent);
+  outline-offset: 2px;
 }
 
 .login-theme {
   position: fixed;
-  top: 1rem;
-  right: 1rem;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 6px;
   background: transparent;
-  color: var(--text-dim);
+  color: var(--scrawl-icon-secondary);
   cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .login-theme {
+    width: 44px;
+    height: 44px;
+  }
+
+  .btn {
+    height: 44px;
+  }
 }
 
 /* the toggle shows the icon of the scheme in force, so only one is ever drawn */

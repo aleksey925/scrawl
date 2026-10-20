@@ -1,51 +1,67 @@
 import type { MantineColorsTuple } from '@mantine/core';
 
 // The color themes, one JSON file each in theme/themes/ at the root of the
-// repository, where the go server reads them too. A palette is named the way
-// GitHub's Primer names its tokens; a note reaches it as --gh-*, the way
-// github-markdown-css names it, and the app's chrome through --scrawl-*
+// repository, where the go server reads them too. A palette is named by the
+// role a color plays on Notion's page; each key becomes a --scrawl-* property
+// that the note and the app's chrome both read
 export interface Palette {
-  fgDefault: string;
-  // not Primer tokens: a note's text and its emphasis, which in the dark sit
-  // below and above fgDefault, so bold differs in brightness and not only weight
-  fgBody: string;
-  fgEmphasis: string;
-  fgMuted: string;
-  fgAccent: string;
-  fgSuccess: string;
-  fgAttention: string;
-  fgDanger: string;
-  fgDone: string;
-  bgDefault: string;
-  bgMuted: string;
-  bgInset: string;
-  bgNeutralMuted: string;
-  // not Primer tokens: a <mark> is a highlighter, opaque yellow under dark text
-  // in both schemes, because a translucent yellow over the dark ground is brown
-  bgMark: string;
-  fgMark: string;
-  bgAccentMuted: string;
-  bgAccentEmphasis: string;
-  // not a Primer token: the next step of its blue scale, for a filled hover
-  bgAccentEmphasisHover: string;
-  bgDangerMuted: string;
-  controlRest: string;
-  controlHover: string;
-  borderDefault: string;
-  borderMuted: string;
-  borderEmphasis: string;
-  borderAccentMuted: string;
-  borderAccentEmphasis: string;
-  borderSuccessEmphasis: string;
-  borderAttentionEmphasis: string;
-  borderDangerEmphasis: string;
-  borderDoneEmphasis: string;
-  // Primer's diffBlob tokens: the ground of a changed line, and of a changed
-  // word within it
-  diffAdditionLine: string;
-  diffAdditionWord: string;
-  diffDeletionLine: string;
-  diffDeletionWord: string;
+  bg: string;
+  sidebar: string;
+  sidebarEdge: string;
+  sidebarText: string;
+  text: string;
+  // a note's text and its emphasis, which in the dark sit below and above
+  // text, so bold differs in brightness and not only in weight
+  textBody: string;
+  textEmphasis: string;
+  textSecondary: string;
+  textTertiary: string;
+  textFaint: string;
+  icon: string;
+  iconSecondary: string;
+  iconTertiary: string;
+  border: string;
+  borderLight: string;
+  borderTranslucent: string;
+  hover: string;
+  pressed: string;
+  selected: string;
+  rowHover: string;
+  popover: string;
+  overlay: string;
+  codeBg: string;
+  linkLine: string;
+  placeholder: string;
+  accent: string;
+  accentStrong: string;
+  accentTint: string;
+  onAccent: string;
+  inlineCode: string;
+  inlineCodeBg: string;
+  toastBg: string;
+  toastText: string;
+  // the ground of a changed line, and of a changed word within it
+  diffAddLine: string;
+  diffAddWord: string;
+  diffDeleteLine: string;
+  diffDeleteWord: string;
+}
+
+export const blockNames = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const;
+
+export type BlockName = (typeof blockNames)[number];
+
+export interface BlockColor {
+  text: string;
+  bg: string;
+}
+
+export type BlockColors = Record<BlockName, BlockColor>;
+
+export interface Shadows {
+  small: string;
+  medium: string;
+  large: string;
 }
 
 export type Scheme = 'light' | 'dark';
@@ -55,10 +71,13 @@ export type ThemeColorName = 'accent' | 'gray' | 'dark';
 interface ThemeFile {
   name: string;
   scheme: Scheme;
-  // the chroma style of code; only the go side reads it
-  code: string;
+  // the colors of code, which render builds a chroma style from; only the
+  // go side reads them
+  code: Record<'keyword' | 'string' | 'comment' | 'function' | 'number' | 'builtin', string>;
   strongWeight: string;
   palette: Palette;
+  blocks: BlockColors;
+  shadows: Shadows;
   // mantine's shade scales, where the theme replaces the ones in theme.ts
   colors?: Partial<Record<ThemeColorName, MantineColorsTuple>>;
 }
@@ -114,8 +133,8 @@ export function applyThemeAttribute(choice: string): void {
   }
 }
 
-// tokenVariables spells a token object as custom properties: fgDefault under
-// the prefix gh becomes --gh-fg-default
+// tokenVariables spells a token object as custom properties: textSecondary
+// under the prefix scrawl becomes --scrawl-text-secondary
 export function tokenVariables(prefix: string, tokens: object): Record<string, string> {
   const res: Record<string, string> = {};
   for (const [name, value] of Object.entries(tokens)) {

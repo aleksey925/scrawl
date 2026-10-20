@@ -8,6 +8,7 @@ const {pathToFileURL} = require('node:url');
 const {expect, test} = require('@playwright/test');
 
 const {binary} = require('../support/env');
+const {openSpaceMenu, showOutline} = require('../support/helpers');
 
 // a picture of one pixel, which is all the viewer needs to have something to show
 const PIXEL = Buffer.from(
@@ -100,8 +101,8 @@ const active = (page) => page.locator('[data-testid=toc-entry][data-active="true
 const row = (page, contentPath) => page.locator(`[data-testid=tree-row][data-path="${contentPath}"]`);
 
 async function chooseTheme(page, name) {
-    await page.getByTestId('topbar-more').click();
-    const picker = page.getByTestId('topbar-theme');
+    await openSpaceMenu(page);
+    const picker = page.getByTestId('space-menu-theme');
     await picker.getByText(name, {exact: true}).click();
     await page.keyboard.press('Escape');
 }
@@ -116,12 +117,12 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveAttribute('data-path', 'docs/deep/inner.md');
             await expect(row(page, 'docs').getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
             await expect(row(page, 'docs/deep').getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
-            await expect(row(page, '').getByTestId('tree-link')).toHaveText('Home');
+            await expect(page.getByTestId('sidebar-home')).toHaveText('Home');
         });
 
         test('a link of the tree opens its note and the folder opened stays open', async ({page, browserName}) => {
             // arrange
-            await page.goto(at('index.html'));
+            await page.goto(at('index.md.html'));
             await row(page, 'docs').getByTestId('tree-twisty').click();
 
             // act
@@ -140,7 +141,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
         test('the outline marks the section being read and reaches the last ones', async ({page}) => {
             // arrange
             await page.goto(at('docs/guide.html'));
-            await expect(page.getByTestId('toc')).toBeVisible();
+            await showOutline(page);
 
             // act
             await page.locator('[data-testid=doc] h2#two').evaluate((el) => {
@@ -161,6 +162,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
             });
 
             // act
+            await showOutline(page);
             await page.locator('[data-testid=toc-entry]', {hasText: 'Four'}).click();
 
             // assert
@@ -223,23 +225,34 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await page.getByRole('link', {name: 'Back home'}).click();
 
             // assert
-            await expect(page).toHaveURL(at('index.html'));
+            await expect(page).toHaveURL(at('index.md.html'));
             await expect(page.getByTestId('doc').locator('h1')).toHaveText('Home');
         });
 
-        test('a folder without an index is its listing, with its readme below', async ({page}) => {
-            // act
+        test('the front page is the root list, and Home opens the root note', async ({page}) => {
+            // arrange
             await page.goto(at('index.html'));
+            await expect(page.locator('[data-testid=dir-row][data-path="index.md"]').getByTestId('dir-folder-page')).toBeVisible();
+
+            // act
+            await page.getByTestId('sidebar-home').click();
+
+            // assert
+            await expect(page).toHaveURL(at('index.md.html'));
+            await expect(page.getByTestId('doc').locator('h1')).toHaveText('Home');
+        });
+
+        test('a folder is its listing, its readme a row of it', async ({page}) => {
+            // act
+            await page.goto(at('index.md.html'));
             await page.getByRole('link', {name: 'docs folder'}).click();
 
             // assert
             await expect(page).toHaveURL(at('docs/index.html'));
             await expect(page.locator('[data-testid=crumb][data-current="true"]')).toHaveText('docs');
-            await expect(page.getByTestId('doc')).toContainText('What the folder holds.');
             await expect(page.getByTestId('dir-row')).toHaveCount(4);
-            const list = await page.getByTestId('dir-table').boundingBox();
-            const readme = await page.getByTestId('doc').boundingBox();
-            expect(readme.y).toBeGreaterThan(list.y + list.height);
+            await expect(page.locator('[data-testid=dir-row][data-path="docs/README.md"]')).toBeVisible();
+            await expect(page.getByTestId('doc')).toHaveCount(0);
             await page.locator('[data-testid=dir-row][data-path="docs/guide.md"] [data-testid=dir-row-name]').click();
             await expect(page).toHaveURL(at('docs/guide.html'));
         });
@@ -261,8 +274,8 @@ for (const [target, at] of Object.entries(TARGETS)) {
         test('the path leads back to the folders above', async ({page}) => {
             // arrange
             await page.goto(at('docs/deep/inner.html'));
-            const crumbs = page.getByTestId('page-breadcrumbs').getByTestId('crumb');
-            await expect(crumbs).toHaveText(['Home', 'docs', 'deep', 'inner.md']);
+            const crumbs = page.getByTestId('topbar-crumbs').getByTestId('crumb');
+            await expect(crumbs).toHaveText(['Home', 'docs', 'deep', 'Inner']);
 
             // act
             await crumbs.filter({hasText: 'docs'}).click();
@@ -273,7 +286,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
 
         test('a theme picked on one page holds on the next and after Back', async ({page}) => {
             // arrange
-            await page.goto(at('index.html'));
+            await page.goto(at('index.md.html'));
             await chooseTheme(page, 'Dark');
 
             // act
@@ -288,9 +301,26 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'light');
         });
 
+        test('a page width picked on one page holds on the next', async ({page}) => {
+            // arrange
+            await page.goto(at('index.md.html'));
+            await openSpaceMenu(page);
+            await page.getByTestId('page-width').getByText('Wide', {exact: true}).click();
+            await page.keyboard.press('Escape');
+            await expect(page.locator('html')).toHaveAttribute('data-page-width', 'wide');
+
+            // act
+            await page.getByRole('link', {name: 'Guide', exact: true}).click();
+
+            // assert
+            await expect(page).toHaveURL(at('docs/guide.html'));
+            await page.reload();
+            await expect(page.locator('html')).toHaveAttribute('data-page-width', 'wide');
+        });
+
         test('auto picked on a page holds on the next', async ({page}) => {
             // arrange
-            await page.goto(at('index.html'));
+            await page.goto(at('index.md.html'));
             await chooseTheme(page, 'Dark');
             await chooseTheme(page, 'Auto');
 
@@ -350,6 +380,20 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await expect(page.locator('.math.is-typeset .katex')).toBeVisible({timeout: 20_000});
         });
 
+        test('Cmd+F finds in the note', async ({page}) => {
+            // arrange
+            await page.goto(at('docs/guide.html'));
+            await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
+
+            // act
+            await page.keyboard.press('ControlOrMeta+f');
+            await page.keyboard.type('short section');
+
+            // assert
+            await expect(page.getByTestId('doc-find-count')).toHaveAttribute('data-total', '2');
+            await expect(page.getByTestId('find-hit')).toHaveCount(2);
+        });
+
         test('a site offers no search and asks nothing of a server', async ({page}) => {
             // arrange
             const asked = [];
@@ -362,8 +406,9 @@ for (const [target, at] of Object.entries(TARGETS)) {
 
             // assert
             await expect(page.getByTestId('topbar-search')).toHaveCount(0);
-            await expect(page.getByTestId('palette-input')).toHaveCount(0);
-            await expect(page.getByTestId('topbar-account')).toHaveCount(0);
+            await expect(page.getByTestId('search-dialog')).toHaveCount(0);
+            await expect(page.getByTestId('space-menu-signout')).toHaveCount(0);
+            await expect(page.getByTestId('note-menu')).toHaveCount(0);
             await expect(page.getByTestId('doc-edit')).toHaveCount(0);
             await expect(page.getByTestId('doc-history')).toHaveCount(0);
             expect(asked.filter((url) => !url.startsWith(at('')) && !url.startsWith('data:'))).toEqual([]);
@@ -378,7 +423,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await page.goto(at('docs/index.html'));
 
             // assert
-            await expect(page.locator('article.markdown-document')).toContainText('What the folder holds.');
+            await expect(page.locator('.scrawl-static-list')).toContainText('README.md');
             await expect(page.locator('.scrawl-static-crumbs li')).toHaveText(['Home', 'docs']);
             await page.getByRole('link', {name: 'guide.md'}).click();
             await expect(page).toHaveURL(at('docs/guide.html'));
@@ -390,44 +435,46 @@ for (const [target, at] of Object.entries(TARGETS)) {
     test.describe(`site from the ${target} on a phone`, () => {
         test.use({viewport: {width: 390, height: 844}, hasTouch: true});
 
-        test('the outline is a sheet the top bar opens, and an entry closes it', async ({page}) => {
+        test('the outline is a sheet the menu opens, and an entry closes it', async ({page}) => {
             // arrange
             await page.goto(at('docs/guide.html'));
 
             // act
-            await page.getByTestId('topbar-toc').click();
+            await page.getByTestId('site-menu').click();
+            await page.getByTestId('site-menu-outline').click();
 
             // assert
             await expect(page.getByTestId('toc-entry')).toHaveText(['One', 'Two', 'Three', 'Four', 'Five']);
             await page.getByTestId('toc-entry').filter({hasText: 'Three'}).click();
             await expect(page.getByTestId('toc-entry')).toHaveCount(0);
             await expect(page).toHaveURL(/#three$/);
-            await page.getByTestId('topbar-toc').click();
+            await page.getByTestId('site-menu').click();
+            await page.getByTestId('site-menu-outline').click();
             await expect(active(page)).toHaveText('Three');
         });
 
-        test('the tree is a drawer, and a note picked in it opens', async ({page}) => {
+        test('the folder lists lead through the site, and the back link goes up', async ({page}) => {
             // arrange
             await page.goto(at('index.html'));
 
-            // act
-            await page.getByTestId('topbar-burger').click();
-
-            // assert
-            const drawer = page.getByTestId('sidebar-drawer');
-            await expect(drawer.getByTestId('tree-row').first()).toBeVisible();
-            await drawer.locator('[data-testid=tree-row][data-path="pictures.md"] [data-testid=tree-link]').click();
+            // act & assert
+            await expect(page.getByTestId('tab-bar')).toHaveCount(0);
+            await page.locator('[data-testid=dir-row][data-path="docs"]').click();
+            await expect(page).toHaveURL(at('docs/index.html'));
+            await page.getByTestId('topbar-up').click();
+            await expect(page).toHaveURL(at('index.html'));
+            await page.locator('[data-testid=dir-row][data-path="pictures.md"]').click();
             await expect(page).toHaveURL(at('pictures.html'));
             await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');
-            await expect(page.getByTestId('sidebar-drawer').getByTestId('tree-row')).toHaveCount(0);
         });
 
-        test('the bar is one row of icons and the path sits on the page', async ({page}) => {
+        test('the bar is one row that goes back to the folder', async ({page}) => {
             // act
             await page.goto(at('docs/deep/inner.html'));
 
             // assert
-            await expect(page.getByTestId('page-breadcrumbs').getByTestId('crumb')).toHaveText(['Home', 'docs', 'deep', 'inner.md']);
+            await expect(page.getByTestId('topbar-up')).toHaveText('deep');
+            await expect(page.getByTestId('topbar-crumbs')).toHaveCount(0);
             const box = await page.getByTestId('topbar').boundingBox();
             expect(box.height).toBeLessThanOrEqual(56);
         });
@@ -447,7 +494,7 @@ test.describe('site from a host moves between notes without a page load', () => 
 
     test('a link of the tree shows its note, and the address and the title follow', async ({page}) => {
         // arrange
-        await page.goto(at('index.html'));
+        await page.goto(at('index.md.html'));
         await mark(page);
 
         // act
@@ -481,7 +528,7 @@ test.describe('site from a host moves between notes without a page load', () => 
 
     test('a link to a section of another note lands on the section', async ({page}) => {
         // arrange
-        await page.goto(at('index.html'));
+        await page.goto(at('index.md.html'));
         await mark(page);
 
         // act
@@ -599,12 +646,12 @@ test.describe('site from a host moves between notes without a page load', () => 
         const held = new Promise((resolve) => {
             release = resolve;
         });
-        await page.goto(at('index.html'));
+        await page.goto(at('index.md.html'));
         await page.getByRole('link', {name: 'Guide', exact: true}).click();
         await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
         await page.reload();
         await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
-        await page.route('**/index.html', async (route) => {
+        await page.route('**/index.md.html', async (route) => {
             if (route.request().resourceType() === 'fetch') {
                 await held;
             }
@@ -625,7 +672,7 @@ test.describe('site from a host moves between notes without a page load', () => 
 
     test('what the reader typed into the filter stays when a note is picked from it', async ({page}) => {
         // arrange
-        await page.goto(at('index.html'));
+        await page.goto(at('index.md.html'));
         await page.getByTestId('sidebar-filter').fill('pic');
 
         // act
@@ -639,7 +686,7 @@ test.describe('site from a host moves between notes without a page load', () => 
     test('a page that cannot be read is loaded instead', async ({page}) => {
         // arrange
         await page.route('**/pictures.html', (route) => (route.request().resourceType() === 'fetch' ? route.abort() : route.continue()));
-        await page.goto(at('index.html'));
+        await page.goto(at('index.md.html'));
         await mark(page);
 
         // act
@@ -653,7 +700,7 @@ test.describe('site from a host moves between notes without a page load', () => 
 
     test('a reload after a move shows the note moved to', async ({page}) => {
         // arrange
-        await page.goto(at('index.html'));
+        await page.goto(at('index.md.html'));
         await page.getByRole('link', {name: 'Guide', exact: true}).click();
         await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
 
@@ -669,7 +716,7 @@ test.describe('site from a host moves between notes without a page load', () => 
 
 test('from disk a move to another note is a page load', async ({page}) => {
     // arrange
-    await page.goto(TARGETS.disk('index.html'));
+    await page.goto(TARGETS.disk('index.md.html'));
     await page.evaluate(() => {
         window.marker = 'still here';
     });
@@ -687,19 +734,20 @@ test('from disk a move to another note is a page load', async ({page}) => {
 // an address typed or a link to the site from elsewhere.
 // Playwright turns that cache off in Chromium, and its headless shell has none,
 // so this test runs the whole browser with the cache back on.
-test('a page Back brings out of the cache takes the theme picked since and closes its drawer', async ({playwright, browserName}) => {
+test('a page Back brings out of the cache takes the theme picked since and closes its sheet', async ({playwright, browserName}) => {
     // arrange
     const browser = await playwright[browserName].launch(browserName === 'chromium'
         ? {channel: 'chromium', ignoreDefaultArgs: ['--disable-back-forward-cache']}
         : {});
     const context = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true});
     const page = await context.newPage();
-    await page.goto(TARGETS.host('index.html'));
+    await page.goto(TARGETS.host('docs/guide.html'));
     await page.evaluate(() => window.addEventListener('pageshow', (event) => {
         window.restored = event.persisted;
     }));
-    await page.getByTestId('topbar-burger').click();
-    await expect(page.getByTestId('sidebar-drawer').getByTestId('tree-row').first()).toBeVisible();
+    await page.getByTestId('site-menu').click();
+    await page.getByTestId('site-menu-outline').click();
+    await expect(page.getByTestId('toc-entry').first()).toBeVisible();
     await page.goto(TARGETS.host('pictures.html'));
     await chooseTheme(page, 'Dark');
 
@@ -713,7 +761,7 @@ test('a page Back brings out of the cache takes the theme picked since and close
     }
     await expect(page.locator('html')).toHaveAttribute('data-scrawl-theme', 'dark');
     await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
-    await expect(page.getByTestId('sidebar-drawer').getByTestId('tree-row')).toHaveCount(0);
+    await expect(page.getByTestId('toc-entry')).toHaveCount(0);
     expect(await page.evaluate(() => document.querySelectorAll('[inert]').length)).toBe(0);
     await browser.close();
 });

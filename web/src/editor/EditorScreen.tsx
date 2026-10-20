@@ -594,7 +594,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               value,
               label: (
                 <Center>
-                  <Icon size={16} />
+                  <Icon size={layout.iconSizeSmall} />
                   <VisuallyHidden>{label}</VisuallyHidden>
                 </Center>
               ),
@@ -606,7 +606,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             data-testid="editor-save"
             size="sm"
             loading={saving}
-            leftSection={<IconDeviceFloppy size={16} />}
+            leftSection={<IconDeviceFloppy size={layout.iconSizeSmall} />}
             onClick={() => void save()}
           >
             Save
@@ -706,7 +706,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             onMouseDown={(event) => event.preventDefault()}
             onClick={lineWrap.toggle}
           >
-            {lineWrap.wrap ? <IconTextWrap size={18} /> : <IconTextWrapDisabled size={18} />}
+            {lineWrap.wrap ? <IconTextWrap size={layout.iconSize} /> : <IconTextWrapDisabled size={layout.iconSize} />}
           </ActionIcon>
           {uploads.pending > 0 && (
             <ActionIcon
@@ -718,7 +718,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               loading
               aria-label="Uploading"
             >
-              <IconPhoto size={18} />
+              <IconPhoto size={layout.iconSize} />
             </ActionIcon>
           )}
         </Group>

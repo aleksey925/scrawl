@@ -2,9 +2,12 @@ const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, chooseTheme, readFixture, removeFixture, routes, save, setSource, shot, signIn, writeFixture,
+    MAIN, chooseTheme, openSpaceMenu, readFixture, removeFixture, rgb, routes, save, setSource, shot, signIn,
+    writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
+const darkTheme = require('../../theme/themes/dark.json');
+const lightTheme = require('../../theme/themes/light.json');
 
 const MISSING = docs.missing;
 const COLLIDE = 'e2e-collisions.md';
@@ -51,7 +54,7 @@ test.describe('pages', () => {
             [routes.doc(docs.doc.path), 'doc'],
             [routes.dir(docs.folder.path), 'dir'],
             [routes.edit(docs.doc.path), 'editor-source'],
-            [routes.history(docs.doc.path), 'history'],
+            [routes.history(docs.doc.path), 'history-list'],
         ];
 
         for (const [url, marker] of screens) {
@@ -193,20 +196,22 @@ test.describe('pages', () => {
 
     test('the theme picker switches the theme and survives a reload', async ({page}) => {
         const root = page.locator('html');
-        await page.getByTestId('topbar-account').click();
-        await expect(page.getByTestId('topbar-theme')).toHaveAttribute('data-theme', 'auto');
+        await openSpaceMenu(page);
+        await expect(page.getByTestId('space-menu-theme')).toHaveAttribute('data-theme', 'auto');
         await expect(root).not.toHaveAttribute('data-scrawl-theme');
 
         // straight to dark, past light: one press, and the menu stays open
         await chooseTheme(page, 'dark');
         await expect(root).toHaveAttribute('data-scrawl-theme', 'dark');
         await expect(root).toHaveAttribute('data-mantine-color-scheme', 'dark');
-        await expect(page.getByTestId('topbar-account-menu')).toBeVisible();
+        await expect(page.getByTestId('space-menu-dropdown')).toBeVisible();
+        await expect(page.locator('body')).toHaveCSS('color', rgb(darkTheme.palette.text));
         await shot(page, 'pages-dark-theme');
 
         await chooseTheme(page, 'light');
         await expect(root).toHaveAttribute('data-scrawl-theme', 'light');
         await expect(root).toHaveAttribute('data-mantine-color-scheme', 'light');
+        await expect(page.locator('body')).toHaveCSS('color', rgb(lightTheme.palette.text));
 
         await chooseTheme(page, 'dark');
 
@@ -214,8 +219,8 @@ test.describe('pages', () => {
         await page.reload();
         await expect(root).toHaveAttribute('data-scrawl-theme', 'dark');
         await expect(root).toHaveAttribute('data-mantine-color-scheme', 'dark');
-        await page.getByTestId('topbar-account').click();
-        await expect(page.getByTestId('topbar-theme')).toHaveAttribute('data-theme', 'dark');
+        await openSpaceMenu(page);
+        await expect(page.getByTestId('space-menu-theme')).toHaveAttribute('data-theme', 'dark');
 
         // auto takes the attribute away and leaves the theme to the system
         await chooseTheme(page, 'auto');

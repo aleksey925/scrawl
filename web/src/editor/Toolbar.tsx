@@ -108,7 +108,7 @@ export function Toolbar({ onAction, onPickImage, onFormat }: ToolbarProps): JSX.
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => onAction(action)}
         >
-          <Icon size={18} />
+          <Icon size={layout.iconSize} />
         </ActionIcon>
       ))}
       <ActionIcon
@@ -121,7 +121,7 @@ export function Toolbar({ onAction, onPickImage, onFormat }: ToolbarProps): JSX.
         onMouseDown={(event) => event.preventDefault()}
         onClick={onPickImage}
       >
-        <IconPhoto size={18} />
+        <IconPhoto size={layout.iconSize} />
       </ActionIcon>
       {onFormat !== undefined && (
         <ActionIcon
@@ -134,7 +134,7 @@ export function Toolbar({ onAction, onPickImage, onFormat }: ToolbarProps): JSX.
           onMouseDown={(event) => event.preventDefault()}
           onClick={onFormat}
         >
-          <IconWand size={18} />
+          <IconWand size={layout.iconSize} />
         </ActionIcon>
       )}
     </Group>

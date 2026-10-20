@@ -1,4 +1,4 @@
-import type { DirResponse, NavNode, PageResponse } from '../api/types';
+import type { DirListing, NavNode, PageResponse } from '../api/types';
 import type { Mermaid } from '../reader/diagrams';
 import type { Katex } from '../reader/typeset';
 
@@ -8,7 +8,7 @@ import type { Katex } from '../reader/typeset';
 export interface SitePage {
   route: string;
   root: string;
-  answer: PageResponse | DirResponse;
+  answer: PageResponse | DirListing;
 }
 
 // SiteData is what scrawl/tree.js holds, the one copy every page shares

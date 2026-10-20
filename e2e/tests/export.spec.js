@@ -10,7 +10,7 @@ const SOURCE = '# Export\n\nA picture:\n\n![logo](images/logo.png)\n';
 const DIAGRAM = '# Export\n\n```mermaid\nflowchart TD\n  A --> B\n```\n';
 
 async function download(page, format) {
-    await page.getByTestId('doc-export').click();
+    await page.getByTestId('note-menu').click();
     const [file] = await Promise.all([
         page.waitForEvent('download'),
         page.getByTestId(`doc-export-${format}`).click(),
@@ -75,15 +75,16 @@ test.describe('export', () => {
         // arrange
         writeFixture(NOTE, SOURCE);
         await page.goto(routes.doc(NOTE));
-        await expect(page.getByTestId('doc-export')).toBeVisible();
+        await expect(page.getByTestId('note-menu')).toBeVisible();
 
         // act
         await page.emulateMedia({media: 'print'});
 
         // assert
         await expect(page.getByTestId('doc').locator('h1')).toBeVisible();
-        await expect(page.getByTestId('doc-export')).toBeHidden();
-        await expect(page.getByTestId('topbar-burger')).toBeHidden();
+        await expect(page.getByTestId('note-menu')).toBeHidden();
+        await expect(page.getByTestId('sidebar')).toBeHidden();
+        await expect(page.getByTestId('topbar-crumbs')).toBeHidden();
     });
 
     test('a print leaves the browser no room for the address and the date', async ({page}) => {
@@ -179,7 +180,7 @@ test.describe('export to pdf of a formula', () => {
         });
 
         // act
-        await page.getByTestId('doc-export').click();
+        await page.getByTestId('note-menu').click();
         await page.getByTestId('doc-export-pdf').click();
 
         // assert
@@ -209,7 +210,7 @@ test.describe('export to pdf on a dark screen', () => {
         const drawn = await page.getByTestId('doc').locator('.md-diagram-view svg').getAttribute('id');
 
         // act
-        await page.getByTestId('doc-export').click();
+        await page.getByTestId('note-menu').click();
         await page.getByTestId('doc-export-pdf').click();
 
         // assert
@@ -233,7 +234,7 @@ test.describe('export to pdf on a dark screen', () => {
         const title = await page.title();
 
         // act
-        await page.getByTestId('doc-export').click();
+        await page.getByTestId('note-menu').click();
         await page.getByTestId('doc-export-pdf').click();
         await page.getByTestId('doc').getByRole('link', {name: 'next'}).click();
 

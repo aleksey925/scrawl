@@ -138,7 +138,7 @@ test.describe('sync state', () => {
 
     // the route path is not the file whenever a directory is served as its
     // index.md, and the root is that case with an empty path
-    test('an index note is the file the control speaks for', async ({page}) => {
+    test('an index note is spoken for under its own address', async ({page}) => {
         await page.goto(WIKI.edit('index.md'));
         breakOrigin(wiki.origin);
         // the root index cannot be deleted between runs, so the text carries a
@@ -146,17 +146,17 @@ test.describe('sync state', () => {
         await setSource(page, `# Remote page\n\nthe root index, stuck at ${Date.now()}.\n`);
         await save(page);
 
-        await page.goto(WIKI.home());
+        await page.goto(WIKI.doc('index.md'));
         await expect(control(page)).toHaveAttribute('data-here', 'true');
         await expect(control(page)).toHaveAttribute('aria-label', 'This note has not reached the remote');
         await shot(page, 'sync-root-index');
 
-        // the same one level down, where the route names the folder
+        // the same one level down
         await page.goto(WIKI.edit(FOLDER_DOC));
         await setSource(page, '# Guide\n\nthe folder index, stuck.\n');
         await save(page);
 
-        await page.goto(WIKI.dir(FOLDER));
+        await page.goto(WIKI.doc(FOLDER_DOC));
         await expect(control(page)).toHaveAttribute('data-here', 'true');
 
         // a note the remote does have leaves the control speaking for the

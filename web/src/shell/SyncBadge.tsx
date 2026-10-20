@@ -24,7 +24,7 @@ export function SyncBadge({ path }: SyncBadgeProps): JSX.Element | null {
   }
   return (
     <span data-testid="sync-badge" data-path={path} style={{ display: 'inline-flex', flex: 'none' }}>
-      <IconCloudUp size={14} aria-hidden color="var(--scrawl-warning)" />
+      <IconCloudUp size={14} aria-hidden color="var(--scrawl-color-orange)" />
       <VisuallyHidden>, not pushed to the remote</VisuallyHidden>
     </span>
   );

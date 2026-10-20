@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,18 +14,17 @@ import (
 func TestChromaCSS(t *testing.T) {
 	css := string(ChromaCSS())
 
-	// chroma falls back to its default style for a name it does not know, and
-	// nothing in the stylesheet would say so
-	t.Run("every theme names a style chroma has", func(t *testing.T) {
-		for _, entry := range theme.All() {
-			assert.Contains(t, styles.Names(), entry.Code, entry.ID)
+	t.Run("a theme's code colors are under its scope", func(t *testing.T) {
+		for _, scope := range theme.Scopes() {
+			assert.Contains(t, css, scope.Selector+" .chroma .k { color: "+scope.Theme.Code["keyword"]+" }", scope.Selector)
+			assert.Contains(t, css, scope.Selector+" .chroma .c { color: "+scope.Theme.Code["comment"]+"; font-style: italic }", scope.Selector)
 		}
 	})
 
 	t.Run("every scope is painted by the style of its theme", func(t *testing.T) {
 		for _, scope := range theme.Scopes() {
 			var want bytes.Buffer
-			writeChromaRules(&want, styles.Get(scope.Theme.Code), scope.Selector)
+			writeChromaRules(&want, codeStyle(scope.Theme), scope.Selector)
 			assert.Contains(t, css, want.String(), scope.Selector)
 			if scope.Media != "" {
 				assert.Contains(t, css, "@media "+scope.Media+" {\n"+want.String())

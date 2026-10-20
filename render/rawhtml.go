@@ -15,9 +15,9 @@ import (
 // a tree would silently restructure invalid-but-harmless markup such as an
 // <h3> inside a <p>.
 //
-// resolve is idempotent, so the links the AST pass already rewrote survive a
-// second visit untouched.
-func rewriteRawHTML(fragment []byte, resolve func(dest string) target) []byte {
+// Both resolvers are idempotent, so the links the AST pass already rewrote
+// survive a second visit untouched.
+func rewriteRawHTML(fragment []byte, resolvers linkResolvers) []byte {
 	var out bytes.Buffer
 	out.Grow(len(fragment))
 	z := html.NewTokenizer(bytes.NewReader(fragment))
@@ -38,7 +38,7 @@ func rewriteRawHTML(fragment []byte, resolve func(dest string) target) []byte {
 			continue
 		}
 		tok := z.Token()
-		patchTag(&tok, resolve)
+		patchTag(&tok, resolvers)
 		out.WriteString(tok.String())
 	}
 }
@@ -61,14 +61,21 @@ func rawTagName(raw []byte) []byte {
 	return raw[1 : 1+end]
 }
 
-func patchTag(tok *html.Token, resolve func(dest string) target) {
+// linkResolvers map the destination of a link, which leads to a page, and that
+// of an embedded resource, which the browser fetches as bytes
+type linkResolvers struct {
+	link, embed func(dest string) target
+}
+
+func patchTag(tok *html.Token, resolvers linkResolvers) {
 	key := "href"
+	resolve := resolvers.link
 	isImage := tok.Data == "img"
 	switch {
 	case isImage:
-		key = "src"
+		key, resolve = "src", resolvers.embed
 	case tok.Data == "source":
-		key = "srcset"
+		key, resolve = "srcset", resolvers.embed
 	}
 	local := false
 	for i, attr := range tok.Attr {

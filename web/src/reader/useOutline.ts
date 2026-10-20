@@ -134,10 +134,8 @@ export function useOutline(
   const navigate = useNavigate();
   const location = useLocation();
   const compact = !useAtLeast(layoutBreakpoints.compactTopbar);
-  // past the compact width the head of the note's card stays under the topbar
-  const headerHeight = compact
-    ? layout.topbarHeightCompact
-    : layout.topbarHeight + layout.railGutter + 1 + layout.cardHeadHeight;
+  // the reader's top edge is the bottom of the topbar
+  const headerHeight = compact ? layout.topbarHeightCompact : layout.topbarHeight;
   const [spiedId, setSpiedId] = useState<string | null>(null);
 
   const entries = useMemo<OutlineEntry[]>(

@@ -11,6 +11,7 @@ import (
 	"image/png"
 	"io"
 	"io/fs"
+	"maps"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -31,6 +33,7 @@ import (
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
+	"github.com/aleksey925/scrawl/view"
 )
 
 const testUser = "bob"
@@ -531,10 +534,8 @@ func TestPageRoutesServeTheApp(t *testing.T) {
 		// a link to a note that is not there keeps answering 404: the status is
 		// all a crawler or a link checker reads, and neither runs the router
 		{name: "missing document", path: "/doc/nope.md", status: http.StatusNotFound},
-		// an attachment is not a page, so it goes to the route that serves files
-		// under a content type from an allowlist
-		{name: "attachment redirects to raw", path: "/doc/snippet.py", status: http.StatusFound,
-			location: "/raw/snippet.py"},
+		// every file has a page, the bytes stay on /raw/
+		{name: "a file is a page", path: "/doc/snippet.py", status: http.StatusOK},
 		{name: "unknown route", path: "/nothing", status: http.StatusNotFound},
 	}
 
@@ -578,15 +579,14 @@ func TestOnlyDotMDIsADocument(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	view, _ := ts.do(t, request{path: "/doc/long.markdown"})
+	_, page := ts.json(t, request{path: "/api/page/long.markdown"})
 	_, linking := ts.json(t, request{path: "/api/page/links.md"})
 	_, found := ts.json(t, request{path: "/api/search?q=kumquat"})
 
 	// assert
-	assert.Equal(t, http.StatusFound, view.status)
-	assert.Equal(t, ts.prefix()+"/raw/long.markdown", view.header.Get("Location"))
-	assert.Contains(t, linking["html"], `href="`+ts.prefix()+`/raw/long.markdown"`,
-		"the renderer sends a .markdown link to the file route, not to a page")
+	assert.Equal(t, []any{view.KindFile, view.FileText}, []any{page["kind"], page["type"]},
+		"a .markdown file is a text file on a page, not a note")
+	assert.Contains(t, linking["html"], `href="`+ts.prefix()+`/doc/long.markdown"`)
 	assert.Empty(t, found["hits"])
 
 	paths := []string{}
@@ -674,16 +674,14 @@ func TestRawNeverServesAnExecutableDocument(t *testing.T) {
 		contentType string
 		disposition string
 	}{
-		{name: "html", path: "/raw/evil.html", contentType: "application/octet-stream",
-			disposition: `attachment; filename=evil.html`},
-		{name: "javascript", path: "/raw/evil.js", contentType: "application/octet-stream",
-			disposition: `attachment; filename=evil.js`},
+		// as text under the sandbox policy, a page or a script is only read
+		{name: "html is text", path: "/raw/evil.html", contentType: "text/plain; charset=utf-8"},
+		{name: "javascript is text", path: "/raw/evil.js", contentType: "text/plain; charset=utf-8"},
 		{name: "svg keeps its type but downloads", path: "/raw/evil.svg", contentType: "image/svg+xml",
 			disposition: `attachment; filename=evil.svg`},
 		{name: "xhtml", path: "/raw/evil.xhtml", contentType: "application/octet-stream",
 			disposition: `attachment; filename=evil.xhtml`},
-		{name: "xml", path: "/raw/evil.xml", contentType: "application/octet-stream",
-			disposition: `attachment; filename=evil.xml`},
+		{name: "xml is text", path: "/raw/evil.xml", contentType: "text/plain; charset=utf-8"},
 		{name: "no extension is never sniffed", path: "/raw/noext", contentType: "application/octet-stream",
 			disposition: `attachment; filename=noext`},
 	}
@@ -706,6 +704,7 @@ func TestRawNeverServesAnExecutableDocument(t *testing.T) {
 func TestRawServesSafeTypesInline(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
+	require.NoError(t, os.WriteFile(filepath.Join(ts.root, "data.json"), []byte(`{"a": 1}`), 0o600))
 
 	tests := []struct {
 		name        string
@@ -715,6 +714,7 @@ func TestRawServesSafeTypesInline(t *testing.T) {
 		{name: "png", path: "/raw/images/logo.png", contentType: "image/png"},
 		{name: "markdown source", path: "/raw/guide.md", contentType: "text/plain; charset=utf-8"},
 		{name: "code snippet", path: "/raw/snippet.py", contentType: "text/plain; charset=utf-8"},
+		{name: "json is shown, not downloaded", path: "/raw/data.json", contentType: "text/plain; charset=utf-8"},
 	}
 
 	for _, tc := range tests {
@@ -1204,6 +1204,62 @@ func TestAPISearch(t *testing.T) {
 		"the hit carries the query on, so the page it opens can jump to the match")
 	assert.Contains(t, hit["snippet"], "<mark>widgets</mark>")
 	assert.NotNil(t, body["elapsed_ms"])
+	assert.Equal(t, []string{"path", "score", "snippet", "title", "url"}, slices.Sorted(maps.Keys(hit)),
+		"a request that names no mode is answered the way scripts know it")
+	assert.NotContains(t, body, "truncated")
+}
+
+func TestAPISearchModes(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	writeNote(t, ts.root, "tags.md", "# Tags\n\nSo 1 < 2 & Widgets.\n")
+	ts.mount().touch("tags.md")
+
+	// act
+	resp, body := ts.json(t, request{path: "/api/search?q=Widgets&mode=exact&case=1"})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, false, body["truncated"])
+	hits := body["hits"].([]any)
+	require.Len(t, hits, 1)
+	hit := hits[0].(map[string]any)
+	assert.Equal(t, "tags.md", hit["path"])
+	assert.Equal(t, "/doc/tags.md?case=1&q=Widgets", hit["url"])
+	assert.Contains(t, hit["snippet"], "1 &lt; 2 &amp; ", "the snippet stays escaped html")
+	assert.Contains(t, hit["snippet"], "<mark>Widgets</mark>")
+	assert.Equal(t, float64(1), hit["match_count"])
+	assert.Equal(t, []any{map[string]any{
+		"line": float64(3), "url": "/doc/tags.md?case=1&line=3&q=Widgets",
+		"spans": []any{
+			map[string]any{"text": "So 1 < 2 & ", "hit": false},
+			map[string]any{"text": "Widgets", "hit": true},
+			map[string]any{"text": ".", "hit": false},
+		},
+	}}, hit["lines"])
+}
+
+func TestAPISearchRefusesABadQuery(t *testing.T) {
+	tests := []struct {
+		name, query, message string
+	}{
+		{name: "an unknown mode", query: "q=x&mode=near", message: "mode must be"},
+		{name: "a pattern RE2 refuses", query: "q=(&regex=1", message: "missing closing )"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ts := newTestServer(t, testOpts{})
+
+			// act
+			resp, body := ts.json(t, request{path: "/api/search?" + tc.query})
+
+			// assert
+			assert.Equal(t, http.StatusBadRequest, resp.status)
+			assert.Contains(t, body["error"], tc.message)
+		})
+	}
 }
 
 func TestAPISearchEmptyQuery(t *testing.T) {
@@ -2052,4 +2108,32 @@ func waitForPing(t *testing.T, addr string) int {
 	}
 	t.Fatalf("server never answered on %s: %v", addr, lastErr)
 	return 0
+}
+
+func TestTheLoginPageShowsTheLogoInline(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true})
+
+	// act
+	resp, body := ts.do(t, request{path: "/login"})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Contains(t, body, string(Logo()))
+	assert.Contains(t, string(Logo()), `<svg class="login-logo" aria-hidden="true" `)
+}
+
+func TestTheFaviconIsTheLogoInBothSchemes(t *testing.T) {
+	// arrange
+	logo, err := assets.ReadFile("logo.svg")
+	require.NoError(t, err)
+	shape := regexp.MustCompile(`<path d="[^"]+"`).FindString(string(logo))
+	require.NotEmpty(t, shape)
+
+	// act
+	favicon := string(Favicon())
+
+	// assert
+	assert.Contains(t, favicon, shape)
+	assert.Contains(t, favicon, "@media (prefers-color-scheme:dark)")
 }

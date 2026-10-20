@@ -1,6 +1,8 @@
 const markdown = /\.md$/i;
 const folderIndex = 'index.md';
 const folderPage = 'index.html';
+// a folder's index.md, written beside the folder's list and not over it
+const indexPage = 'index.md.html';
 
 // fileOf is the file of a site a route of the app is written to, relative to
 // the root of the site. Both sides are percent-encoded the same way, so a name
@@ -19,13 +21,13 @@ export function fileOf(pathname: string): string {
   }
   const at = rest.lastIndexOf('/') + 1;
   if (rest.slice(at).toLowerCase() === folderIndex) {
-    return rest.slice(0, at) + folderPage;
+    return rest.slice(0, at) + indexPage;
   }
   return rest.replace(markdown, '.html');
 }
 
-// isFolderRoute is a route of a folder, which a page of a site answers with a
-// listing or with the folder's own note
+// isFolderRoute is a route of a folder, which a page of a site answers with its
+// listing
 export function isFolderRoute(route: string): boolean {
   return route === '/' || route.endsWith('/');
 }

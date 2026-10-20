@@ -1,8 +1,10 @@
 package theme
 
 import (
+	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -93,11 +95,38 @@ func TestScopes(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
+// themeJSON is a theme file that passes every check; drop names a block color,
+// a shadow or a code color to leave out
+func themeJSON(name, scheme, bg, drop string) string {
+	blocks := make([]string, 0, len(BlockNames))
+	for _, block := range BlockNames {
+		if block != drop {
+			blocks = append(blocks, fmt.Sprintf(`%q: {"text": "#111", "bg": "#eee"}`, block))
+		}
+	}
+	shadows := make([]string, 0, len(ShadowNames))
+	for _, shadow := range ShadowNames {
+		if shadow != drop {
+			shadows = append(shadows, fmt.Sprintf(`%q: "0 1px 2px #000"`, shadow))
+		}
+	}
+	code := make([]string, 0, len(CodeNames))
+	for _, token := range CodeNames {
+		if token != drop {
+			code = append(code, fmt.Sprintf(`%q: "#123456"`, token))
+		}
+	}
+	palette := ""
+	if bg != "" {
+		palette = fmt.Sprintf(`"bg": %q`, bg)
+	}
+	return fmt.Sprintf(`{"name": %q, "scheme": %q, "code": {%s}, "palette": {%s}, "blocks": {%s}, "shadows": {%s}}`,
+		name, scheme, strings.Join(code, ", "), palette, strings.Join(blocks, ", "), strings.Join(shadows, ", "))
+}
+
 func TestLoad(t *testing.T) {
-	const (
-		light = `{"name": "Light", "scheme": "light", "code": "github", "palette": {"bgDefault": "#fff"}}`
-		dark  = `{"name": "Dark", "scheme": "dark", "code": "github-dark", "palette": {"bgDefault": "#000"}}`
-	)
+	light := themeJSON("Light", "light", "#fff", "")
+	dark := themeJSON("Dark", "dark", "#000", "")
 
 	tests := []struct {
 		name    string
@@ -108,14 +137,11 @@ func TestLoad(t *testing.T) {
 		{
 			name: "sorted for the picker",
 			files: map[string]string{
-				"light.json": light,
-				"dark.json":  dark,
-				"dimmed.json": `{"name": "Dimmed", "scheme": "dark", "code": "github-dark",
-					"palette": {"bgDefault": "#222"}}`,
-				"sepia.json": `{"name": "Sepia", "scheme": "light", "code": "github",
-					"palette": {"bgDefault": "#f4ecd8"}}`,
-				"paper.json": `{"name": "Paper", "scheme": "light", "code": "github",
-					"palette": {"bgDefault": "#fafafa"}}`,
+				"light.json":  light,
+				"dark.json":   dark,
+				"dimmed.json": themeJSON("Dimmed", "dark", "#222", ""),
+				"sepia.json":  themeJSON("Sepia", "light", "#f4ecd8", ""),
+				"paper.json":  themeJSON("Paper", "light", "#fafafa", ""),
 			},
 			wantIDs: []string{"light", "paper", "sepia", "dark", "dimmed"},
 		},
@@ -125,11 +151,8 @@ func TestLoad(t *testing.T) {
 			wantErr: "no light theme",
 		},
 		{
-			name: "the light theme on the dark scheme",
-			files: map[string]string{
-				"light.json": `{"name": "Light", "scheme": "dark", "code": "github", "palette": {"bgDefault": "#fff"}}`,
-				"dark.json":  dark,
-			},
+			name:    "the light theme on the dark scheme",
+			files:   map[string]string{"light.json": themeJSON("Light", "dark", "#fff", ""), "dark.json": dark},
 			wantErr: "no light theme",
 		},
 		{
@@ -143,28 +166,40 @@ func TestLoad(t *testing.T) {
 			wantErr: `"My Theme" is not one`,
 		},
 		{
-			name: "no name",
-			files: map[string]string{"light.json": light, "dark.json": dark,
-				"x.json": `{"scheme": "light", "code": "github", "palette": {"bgDefault": "#fff"}}`},
+			name:    "no name",
+			files:   map[string]string{"light.json": light, "dark.json": dark, "x.json": themeJSON("", "light", "#fff", "")},
 			wantErr: "no name",
 		},
 		{
-			name: "unknown scheme",
-			files: map[string]string{"light.json": light, "dark.json": dark,
-				"x.json": `{"name": "X", "scheme": "dim", "code": "github", "palette": {"bgDefault": "#fff"}}`},
+			name:    "unknown scheme",
+			files:   map[string]string{"light.json": light, "dark.json": dark, "x.json": themeJSON("X", "dim", "#fff", "")},
 			wantErr: `scheme "dim"`,
 		},
 		{
-			name: "no code style",
+			name: "no code colors",
 			files: map[string]string{"light.json": light, "dark.json": dark,
-				"x.json": `{"name": "X", "scheme": "light", "palette": {"bgDefault": "#fff"}}`},
-			wantErr: "no code style",
+				"x.json": `{"name": "X", "scheme": "light", "palette": {"bg": "#fff"}}`},
+			wantErr: "no code colors",
 		},
 		{
-			name: "no ground",
-			files: map[string]string{"light.json": light, "dark.json": dark,
-				"x.json": `{"name": "X", "scheme": "light", "code": "github", "palette": {}}`},
-			wantErr: "no bgDefault",
+			name:    "no code color",
+			files:   map[string]string{"light.json": light, "dark.json": dark, "x.json": themeJSON("X", "light", "#fff", "comment")},
+			wantErr: "no comment code color",
+		},
+		{
+			name:    "no ground",
+			files:   map[string]string{"light.json": light, "dark.json": dark, "x.json": themeJSON("X", "light", "", "")},
+			wantErr: "no bg in the palette",
+		},
+		{
+			name:    "no block color",
+			files:   map[string]string{"light.json": light, "dark.json": dark, "x.json": themeJSON("X", "light", "#fff", "purple")},
+			wantErr: "no purple block color",
+		},
+		{
+			name:    "no shadow",
+			files:   map[string]string{"light.json": light, "dark.json": dark, "x.json": themeJSON("X", "light", "#fff", "medium")},
+			wantErr: "no medium shadow",
 		},
 	}
 
@@ -192,4 +227,15 @@ func TestLoad(t *testing.T) {
 			assert.Equal(t, tc.wantIDs, ids)
 		})
 	}
+}
+
+func TestBarColorIsTheGround(t *testing.T) {
+	// arrange
+	light := AutoTheme(Light)
+
+	// act
+	got := light.BarColor()
+
+	// assert
+	assert.Equal(t, light.Palette["bg"], got)
 }

@@ -1,8 +1,8 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
-	"html/template"
 	"log"
 	"mime"
 	"net/http"
@@ -24,22 +24,6 @@ const maxLoginBody = 64 << 10
 // loginRetryAfter is the wait, in seconds, a throttled login is told to take.
 // The form and the JSON route answer the same one.
 const loginRetryAfter = "60"
-
-// renderIntro renders the README shown above a listing. A failure only costs
-// the intro, so it is logged and the listing is served without it.
-func (m *mount) renderIntro(docPath string) (template.HTML, error) {
-	data, _, err := m.spc.Store.Read(docPath)
-	if err != nil {
-		log.Printf("[WARN] read intro %s: %v", docPath, err)
-		return "", err
-	}
-	res, err := m.renderDoc(docPath, data, store.Rev(data))
-	if err != nil {
-		log.Printf("[WARN] render intro %s: %v", docPath, err)
-		return "", err
-	}
-	return res.HTML, nil
-}
 
 // renderDoc renders through the page cache. Rendering a large document of this
 // corpus costs around 109ms and 36MB, reading it back costs a hash of the
@@ -171,15 +155,20 @@ var rawInlineTypes = map[string]string{
 	".mov":  "video/quicktime",
 }
 
-// rawTextExtensions are served inline as text/plain, which no browser executes.
+// rawTextExtensions are served inline as text/plain, which no browser executes,
+// and are what a file's page shows as numbered lines and the editor opens.
 // Reading the source of a note or a snippet in a tab is worth keeping, and
 // markdown is here on purpose: /raw/x.md is how the source of a document is
-// looked at, while /doc/x.md is the rendered page.
+// looked at, while /doc/x.md is the rendered page. html and js are text too:
+// as text/plain under the sandbox policy none of them runs.
 var rawTextExtensions = []string{
 	".md", ".markdown", ".txt", ".text", ".log", ".csv", ".tsv",
 	".py", ".go", ".rs", ".c", ".h", ".cpp", ".hpp", ".java", ".kt", ".rb",
 	".pl", ".lua", ".sh", ".bash", ".zsh", ".fish", ".sql", ".r",
 	".ini", ".cfg", ".conf", ".toml", ".yaml", ".yml", ".env", ".diff", ".patch",
+	".json", ".jsonc", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".css", ".scss",
+	".html", ".htm", ".xml", ".proto", ".graphql", ".tf", ".hcl", ".swift", ".php",
+	".cs", ".scala", ".ex", ".exs", ".hs", ".ml", ".clj", ".vim",
 }
 
 // rawAttachmentTypes are types worth naming even though they are downloaded,
@@ -195,6 +184,13 @@ var rawAttachmentTypes = map[string]string{
 func isTextFile(p string) bool {
 	contentType, _ := rawContentType(p)
 	return strings.HasPrefix(contentType, "text/")
+}
+
+// textContent reports whether bytes are text a page can show and the editor
+// can load: valid UTF-8 with no NUL. A name on the text list is not enough,
+// because a binary file can carry any name.
+func textContent(data []byte) bool {
+	return utf8.Valid(data) && bytes.IndexByte(data, 0) < 0
 }
 
 // rawContentType picks the media type of a stored file from its extension and
@@ -277,7 +273,7 @@ func (wb *Web) logout(w http.ResponseWriter, r *http.Request) {
 
 func (wb *Web) loginForm(w http.ResponseWriter, r *http.Request, status int, message, from string) {
 	page := LoginPage{
-		SiteTitle: wb.Title, Version: wb.Version, Theme: themeOf(r, wb.Version), Themes: themeOptions,
+		SiteTitle: wb.Title, Version: wb.Version, Logo: Logo(), Theme: themeOf(r, wb.Version), Themes: themeOptions,
 		Error: message, From: from,
 	}
 	wb.renderPage(w, status, "login.html", page)

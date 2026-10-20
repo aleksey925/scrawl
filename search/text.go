@@ -121,6 +121,11 @@ func allDigits(term string) bool {
 // matchTerm matches one query term against text at byte offset at and returns
 // the offset just past the match, or -1.
 func matchTerm(text string, term queryTerm, at int) int {
+	if term.typo {
+		// the postings say a term one edit away starts here, so the match is
+		// the word itself
+		return matchPrefixAt(text, "", at)
+	}
 	if term.prefix {
 		return matchPrefixAt(text, term.text, at)
 	}
@@ -167,8 +172,11 @@ func matchPrefixAt(text, term string, at int) int {
 
 // matchRunes consumes the runes of term in text starting at at.
 func matchRunes(text, term string, at int) int {
-	if at < 0 || at > len(text) || term == "" {
+	if at < 0 || at > len(text) {
 		return -1
+	}
+	if term == "" {
+		return at
 	}
 
 	i, ti := at, 0

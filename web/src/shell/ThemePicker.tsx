@@ -5,6 +5,7 @@ import type { JSX } from 'react';
 import controls from '../controls.module.css';
 import { setThemeChoice, useThemeChoice } from '../themeChoice';
 import { autoChoice, isThemeChoice, themes } from '../themes';
+import { layout } from '../theme';
 
 const options = [
   { value: autoChoice, icon: IconDeviceDesktop, label: 'Auto' },
@@ -22,7 +23,7 @@ export function ThemePicker(): JSX.Element {
       <Menu.Label>Theme</Menu.Label>
       <div className={controls.menuControl}>
         <SegmentedControl
-          data-testid="topbar-theme"
+          data-testid="space-menu-theme"
           data-theme={choice}
           fullWidth
           size="sm"
@@ -38,7 +39,7 @@ export function ThemePicker(): JSX.Element {
             value,
             label: (
               <Group gap={6} wrap="nowrap" justify="center">
-                <Icon size={16} />
+                <Icon size={layout.iconSizeSmall} />
                 <span>{label}</span>
               </Group>
             ),

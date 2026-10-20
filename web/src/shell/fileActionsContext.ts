@@ -28,6 +28,9 @@ export interface FileActions {
   // screen for a second try when it was not
   submitDraft: (name: string) => Promise<boolean>;
   cancelDraft: () => void;
+  // createEntry makes the entry a name row typed outside the tree, the way
+  // submitDraft does for the tree's own
+  createEntry: (draft: TreeDraft, name: string) => Promise<boolean>;
 }
 
 export const FileActionsContext = createContext<FileActions | undefined>(undefined);

@@ -38,3 +38,13 @@ export function fileSize(bytes: number): string {
   const digits = unit === 0 || value >= 10 ? 0 : 1;
   return `${value.toFixed(digits)} ${sizeUnits[unit]}`;
 }
+
+// shortDate is the day a file changed, the way a phone's file list writes it:
+// "Oct 17"
+export function shortDate(at: string): string {
+  return new Date(at).toLocaleDateString('en', { month: 'short', day: 'numeric' });
+}
+
+export function itemCount(count: number): string {
+  return `${count} ${count === 1 ? 'item' : 'items'}`;
+}

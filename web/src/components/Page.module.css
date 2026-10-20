@@ -1,0 +1,61 @@
+/* every screen is one white page in the room beside the sidebar: a column of
+   the note's width with the room around it split evenly, at least 48px a side */
+.page {
+  display: grid;
+  grid-template-columns: minmax(var(--scrawl-page-margin-min), 1fr) minmax(0, var(--scrawl-note-width)) minmax(var(--scrawl-page-margin-min), 1fr);
+  padding-top: 72px;
+  padding-bottom: calc(30vh + var(--scrawl-tabbar-space));
+}
+
+.page > * {
+  grid-column: 2;
+  min-width: 0;
+}
+
+/* the room beside the sidebar less up to 96px a side: a folder's list always,
+   a note when the reader asked for the full width */
+.page[data-variant='wide'],
+:global(:root[data-page-width='full']) .page {
+  grid-template-columns: minmax(var(--scrawl-page-margin-min), var(--scrawl-page-margin-max)) minmax(0, 1fr) minmax(var(--scrawl-page-margin-min), var(--scrawl-page-margin-max));
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .page,
+  .page[data-variant='wide'],
+  :global(:root[data-page-width='full']) .page {
+    grid-template-columns: var(--mantine-spacing-lg) minmax(0, 1fr) var(--mantine-spacing-lg);
+    padding-top: 28px;
+  }
+}
+
+@media print {
+  .page,
+  .page[data-variant='wide'],
+  :global(:root[data-page-width='full']) .page {
+    display: block;
+    padding: 0;
+  }
+}
+
+/* a page's title, where the page has no heading of its own to show as one */
+.title {
+  margin: 0 0 6px;
+  padding: 3px 2px;
+  color: var(--scrawl-text-emphasis);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.faint {
+  color: var(--scrawl-placeholder);
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .title {
+    font-size: 32px;
+  }
+}

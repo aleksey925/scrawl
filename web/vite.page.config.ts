@@ -36,9 +36,9 @@ function entryOf(name: string | undefined): Entry {
 const appOnly = [
   /\/src\/editor\//,
   /\/src\/api\/client\.ts$/,
-  /\/src\/(App|appPlatform|routes|main)\.tsx?$/,
+  /\/src\/(App|appPlatform|findWorker|routes|main)\.tsx?$/,
   /\/src\/pages\/(EditPage|HistoryPage|SearchPage)\.tsx$/,
-  /\/src\/shell\/(AccountMenu|AppLayout|AppMoreMenu|DocumentExtras|FileActions|ResetDialog|RowMenu|SearchSpotlight|SpaceAlerts|SpaceSwitcher|SyncControl|useMe|useMutationState)\.tsx?$/,
+  /\/src\/shell\/(AppLayout|DocumentExtras|ExportMenu|FileActions|FileView|NoteMenu|ResetDialog|RowMenu|SearchDialog|SearchResults|SpaceAlerts|SpaceMenu|SyncControl|useMe|useMutationState)\.tsx?$/,
   /\/node_modules\/(@codemirror|@uiw|prettier|mermaid|katex)\//,
 ];
 

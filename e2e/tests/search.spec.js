@@ -8,48 +8,104 @@ const {
 } = require('../support/helpers');
 const text = require('../support/text');
 
+const MANY = 'e2e-search/many.md';
+
+// indexed waits for the watcher to bring a fixture written by a test into the
+// index, which the search reads
+async function indexed(page, word, path) {
+    await expect.poll(async () => {
+        const res = await page.request.get(`${MAIN.baseURL}${routes.api(`/search?q=${encodeURIComponent(word)}`)}`);
+        return (await res.json()).hits.map((hit) => hit.path);
+    }).toContain(path);
+}
+
+async function openSearch(page) {
+    await pressShortcut(page, `${await modifier(page)}+k`);
+    await expect(page.getByTestId('search-input')).toBeFocused();
+}
+
 test.describe('search', () => {
     test.beforeEach(async ({page}) => {
         await signIn(page);
     });
 
-    test('the palette opens with the keyboard and lists the hits', async ({page}) => {
-        await pressShortcut(page, `${await modifier(page)}+k`);
+    test('Cmd+K opens the search, which lists notes with their matching lines', async ({page}) => {
+        await openSearch(page);
 
-        await expect(page.getByTestId('palette-input')).toBeVisible();
-        await expect(page.getByTestId('palette-input')).toBeFocused();
+        await page.getByTestId('search-input').fill(docs.search.prefix);
+        await expect(page.getByTestId('search-result').first()).toBeVisible();
+        await shot(page, 'search-dialog');
 
-        await page.getByTestId('palette-input').fill(docs.search.prefix);
-        await expect(page.getByTestId('palette-item').first()).toBeVisible();
-        await shot(page, 'search-palette');
-
-        expect(await page.getByTestId('palette-item').count()).toBeGreaterThan(1);
-        await expect(page.getByTestId('palette-item').first()).toHaveAttribute('data-path', /\.md$/);
+        expect(await page.getByTestId('search-result').count()).toBeGreaterThan(1);
+        await expect(page.getByTestId('search-result').first()).toHaveAttribute('data-path', /\.md$/);
+        await expect(page.getByTestId('search-line').first()).toHaveAttribute('data-line', /^\d+$/);
+        await expect(page.getByTestId('search-line').first().locator('mark').first()).toBeVisible();
+        await expect(page.getByTestId('search-stats')).toContainText(' ms');
     });
 
-    test('the slash key opens the palette too', async ({page}) => {
+    test('the slash key opens nothing', async ({page}) => {
         await pressShortcut(page, '/');
 
-        await expect(page.getByTestId('palette-input')).toBeVisible();
-        await expect(page.getByTestId('palette-input')).toBeFocused();
+        await expect(page.getByTestId('search-dialog')).toHaveCount(0);
     });
 
-    test('arrowing to a hit and pressing enter opens it', async ({page}) => {
-        await pressShortcut(page, `${await modifier(page)}+k`);
-        await page.getByTestId('palette-input').fill(docs.search.palette.query);
-        await expect(page.getByTestId('palette-item').first()).toBeVisible();
+    test('a line picked with the arrows opens the note at it with the find filled in', async ({page}) => {
+        await openSearch(page);
+        await page.getByTestId('search-input').fill(docs.search.palette.query);
+        await expect(page.getByTestId('search-line').first()).toBeVisible();
 
-        // nothing is highlighted until the reader arrows onto it, so enter on a
-        // freshly typed query would go nowhere
-        await expect(page.locator('[data-testid=palette-item][data-selected]')).toHaveCount(0);
         await page.keyboard.press('ArrowDown');
-        const selected = page.locator('[data-testid=palette-item][data-selected]');
-        await expect(selected).toHaveCount(1);
-        await expect(selected).toHaveAttribute('data-path', docs.search.palette.path);
+        await expect(page.locator('[data-testid=search-result][data-active="true"]'))
+            .toHaveAttribute('data-path', docs.search.palette.path);
+        await page.keyboard.press('ArrowDown');
+        await expect(page.locator('[data-testid=search-line][data-active="true"]')).toHaveCount(1);
 
         await page.keyboard.press('Enter');
-        await expect(page).toHaveURL(new RegExp(`${routes.doc(docs.search.palette.path)}\\?q=`));
+        await expect(page).toHaveURL(new RegExp(`${routes.doc(docs.search.palette.path)}\\?.*line=\\d+`));
+        await expect(page).toHaveURL(/[?&]q=/);
         await expect(page.getByTestId('doc')).toBeVisible();
+    });
+
+    test('Alt+R turns Regex on, which takes the mode away and says what is wrong with a pattern', async ({page}) => {
+        await openSearch(page);
+        await page.getByTestId('search-input').fill('(');
+
+        await page.keyboard.press('Alt+KeyR');
+
+        await expect(page.getByTestId('search-regex')).toHaveAttribute('data-on', 'true');
+        await expect(page.getByTestId('search-mode').locator('input').first()).toBeDisabled();
+        await expect(page.getByTestId('search-error')).toContainText('missing closing )');
+        await expect(page.getByTestId('search-hint')).toHaveText(text.search.regexHint);
+    });
+
+    test('Exact turns on Match case and Whole word, which narrow the lines', async ({page}) => {
+        writeFixture(MANY, '# Many\n\nKumquat here\n\nkumquat there\n\nkumquats elsewhere\n');
+        await indexed(page, 'kumquats', MANY);
+        await openSearch(page);
+        await page.getByTestId('search-input').fill('kumquat');
+        const lines = page.locator(`[data-testid=search-result][data-path="${MANY}"] ~ [data-testid=search-line]`);
+        await expect(page.getByTestId('search-case')).toBeDisabled();
+
+        await page.keyboard.press('Alt+KeyF');
+        await expect(page.getByTestId('search-mode')).toHaveAttribute('data-mode', 'exact');
+        await expect(lines).toHaveCount(3);
+        await page.keyboard.press('Alt+KeyW');
+        await expect(lines).toHaveCount(2);
+        await page.keyboard.press('Alt+KeyC');
+        await expect(lines).toHaveCount(1);
+    });
+
+    test('a note shows three lines and the rest on a click', async ({page}) => {
+        writeFixture(MANY, `# Many\n\n${Array.from({length: 6}, (_, i) => `zebrafinch ${i}`).join('\n\n')}\n`);
+        await indexed(page, 'zebrafinch', MANY);
+        await openSearch(page);
+        await page.getByTestId('search-input').fill('zebrafinch');
+        const lines = page.locator(`[data-testid=search-result][data-path="${MANY}"] ~ [data-testid=search-line]`);
+
+        await expect(lines).toHaveCount(3);
+        await expect(page.getByTestId('search-more')).toHaveText('3 more lines');
+        await page.getByTestId('search-more').click();
+        await expect(lines).toHaveCount(6);
     });
 
     test('the search page works from a direct url', async ({page}) => {
@@ -61,17 +117,16 @@ test.describe('search', () => {
         await expect(page.getByTestId('search-count')).toContainText(text.search.results);
         await expect(page.getByTestId('search-count'))
             .toHaveAttribute('data-total', String(await hits.count()));
-        await expect(hits.first().getByTestId('search-result-snippet').locator('mark').first()).toBeVisible();
+        await expect(page.getByTestId('search-line').first().locator('mark').first()).toBeVisible();
         await shot(page, 'search-page');
 
-        await hits.first().getByTestId('search-result-link').click();
+        await hits.first().click();
         await expect(page.getByTestId('doc')).toBeVisible();
     });
 
     test('a result jumps to the match and steps through the others', async ({page}) => {
         await page.goto(routes.search(docs.search.word));
-        await page.getByTestId('search-result-link').first().click();
-
+        await page.getByTestId('search-result').first().click();
         await expect(page).toHaveURL(/\?q=/);
         // the document is fetched after the navigation and the marks go in once
         // it is on the page, so the bar showing up is the gate to count on
@@ -109,7 +164,7 @@ test.describe('search', () => {
 
         await expect.poll(async () => {
             await page.goto(routes.search(word));
-            return page.getByTestId('search-result-path').allTextContents();
+            return page.getByTestId('search-result').evaluateAll((heads) => heads.map((head) => head.dataset.path));
         }).toEqual([docPath]);
         await shot(page, 'search-after-edit');
 
@@ -123,26 +178,163 @@ test.describe('search', () => {
         await expect(page.getByTestId('search-count')).toHaveCount(0);
     });
 
-    test('the palette says so when nothing matches', async ({page}) => {
+    test('the search says so when nothing matches', async ({page}) => {
         await page.goto(routes.home());
-        await pressShortcut(page, `${await modifier(page)}+k`);
-        await page.getByTestId('palette-input').fill('zzzznotinthecorpuszzzz');
+        await openSearch(page);
+        await page.getByTestId('search-input').fill('zzzznotinthecorpuszzzz');
 
-        await expect(page.getByTestId('palette-empty')).toBeVisible();
-        await expect(page.getByTestId('palette-empty')).toHaveAttribute('data-kind', 'none');
-        await expect(page.getByTestId('palette-item')).toHaveCount(0);
+        await expect(page.getByTestId('search-empty')).toHaveText(text.search.empty);
+        await expect(page.getByTestId('search-result')).toHaveCount(0);
     });
 
-    // the server returns the snippet already escaped with only <mark> left in
-    // it, so the palette shows the term the same way the search page does
-    test('the palette highlights the term in its hits', async ({page}) => {
-        await pressShortcut(page, `${await modifier(page)}+k`);
-        await page.getByTestId('palette-input').fill(docs.search.prefix);
+    test('an empty field shows the notes opened last', async ({page}) => {
+        await page.goto(routes.doc(docs.search.palette.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await openSearch(page);
 
-        await expect(page.getByTestId('palette-item').first().locator('mark').first()).toBeVisible();
+        await expect(page.getByTestId('search-recent-item').first()).toContainText(docs.search.palette.path);
     });
 
     test.afterAll(() => {
         fs.rmSync(fixtureFile('e2e-search'), {recursive: true, force: true});
+    });
+});
+
+test.describe('find in the note', () => {
+    const FIND = 'e2e-find/note.md';
+
+    test.beforeAll(() => {
+        writeFixture(FIND, [
+            '# Find',
+            '',
+            'Plain foo **bar** here. Foobar too.',
+            '',
+            'Second Foo line.',
+            '',
+            '<details>',
+            '<summary>More</summary>',
+            '',
+            'The hidden kumquat sits here.',
+            '',
+            '</details>',
+            '',
+        ].join('\n'));
+    });
+
+    test.beforeEach(async ({page}) => {
+        await signIn(page);
+        await page.goto(routes.doc(FIND));
+        await expect(page.getByTestId('doc')).toBeVisible();
+    });
+
+    async function openFind(page) {
+        await pressShortcut(page, `${await modifier(page)}+f`);
+        await expect(page.getByTestId('doc-find-input')).toBeFocused();
+    }
+
+    test('Cmd+F opens the bar, which counts and steps through the matches', async ({page}) => {
+        // arrange
+        const counter = page.getByTestId('doc-find-count');
+        await openFind(page);
+
+        // act
+        await page.keyboard.type('foo');
+
+        // assert
+        await expect(counter).toHaveAttribute('data-total', '3');
+        await expect(counter).toHaveAttribute('data-position', '1');
+        await page.keyboard.press('Enter');
+        await expect(counter).toHaveAttribute('data-position', '2');
+        await page.keyboard.press('Shift+Enter');
+        await expect(counter).toHaveAttribute('data-position', '1');
+        await shot(page, 'find-in-note');
+    });
+
+    test('Case and Whole word narrow the matches', async ({page}) => {
+        // arrange
+        const counter = page.getByTestId('doc-find-count');
+        await openFind(page);
+        await page.keyboard.type('foo');
+        await expect(counter).toHaveAttribute('data-total', '3');
+
+        // act & assert
+        await page.getByTestId('doc-find-case').click();
+        await expect(counter).toHaveAttribute('data-total', '1');
+        await page.getByTestId('doc-find-case').click();
+        await page.getByTestId('doc-find-word').click();
+        await expect(counter).toHaveAttribute('data-total', '2');
+    });
+
+    test('a phrase across bold is one match', async ({page}) => {
+        // arrange
+        await openFind(page);
+
+        // act
+        await page.keyboard.type('foo bar');
+
+        // assert
+        await expect(page.getByTestId('doc-find-count')).toHaveAttribute('data-total', '1');
+        await expect(page.getByTestId('find-hit')).toHaveText(['foo ', 'bar']);
+    });
+
+    test('a bad pattern says so and an empty match counts nothing', async ({page}) => {
+        // arrange
+        const counter = page.getByTestId('doc-find-count');
+        const input = page.getByTestId('doc-find-input');
+        await openFind(page);
+        await page.keyboard.press('Alt+KeyR');
+        await expect(page.getByTestId('doc-find-regex')).toHaveAttribute('data-on', 'true');
+
+        // act & assert
+        await input.fill('(');
+        await expect(counter).toHaveText('Bad pattern');
+        for (const pattern of ['^', '$', 'z*']) {
+            await input.fill(pattern);
+            await expect(counter).toHaveText('No results');
+        }
+        await input.fill('^Second');
+        await expect(counter).toHaveAttribute('data-total', '1');
+    });
+
+    test('a match in a closed details opens it', async ({page}) => {
+        // arrange
+        const details = page.locator('[data-testid=doc] details');
+        await expect(details).not.toHaveAttribute('open', '');
+        await openFind(page);
+
+        // act
+        await page.keyboard.type('kumquat');
+
+        // assert
+        await expect(details).toHaveAttribute('open', '');
+        await expect(page.getByTestId('find-hit')).toBeVisible();
+    });
+
+    test('Esc closes the bar and takes the marks and the query away', async ({page}) => {
+        // arrange
+        await page.goto(`${routes.doc(FIND)}?q=foo`);
+        await expect(page.getByTestId('doc-find-count')).toHaveAttribute('data-total', '3');
+        await page.getByTestId('doc-find-input').focus();
+
+        // act
+        await page.keyboard.press('Escape');
+
+        // assert
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+        await expect(page.getByTestId('find-hit')).toHaveCount(0);
+        await expect(page).not.toHaveURL(/\?q=/);
+    });
+
+    test('the note menu opens the bar too', async ({page}) => {
+        // act
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('note-menu-find').click();
+
+        // assert
+        await expect(page.getByTestId('doc-find-input')).toBeFocused();
+    });
+
+    test.afterAll(() => {
+        fs.rmSync(fixtureFile('e2e-find'), {recursive: true, force: true});
     });
 });

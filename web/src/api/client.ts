@@ -4,7 +4,8 @@ import { encodeContentPath } from '../paths';
 import { ApiError } from './errors';
 import type {
   ApiErrorBody,
-  DirResponse,
+  SearchSettings,
+  DirListing,
   Divergence,
   EntryKind,
   EntryPathResponse,
@@ -104,6 +105,18 @@ function withQuery(url: string, query: Record<string, QueryValue>): string {
   return search === '' ? url : `${url}?${search}`;
 }
 
+// searchParams spells the mode and the toggles of a search the way the search
+// route and the search page read them: the toggles only when they are on
+export function searchParams(settings: SearchSettings): Record<string, string | undefined> {
+  return {
+    mode: settings.mode,
+    case: settings.matchCase ? '1' : undefined,
+    word: settings.word ? '1' : undefined,
+    regex: settings.regex ? '1' : undefined,
+    titles: settings.titles ? '1' : undefined,
+  };
+}
+
 async function errorBody(response: Response): Promise<ApiErrorBody> {
   const fallback = `request failed with status ${response.status}`;
   try {
@@ -157,7 +170,7 @@ async function call<T>(method: string, url: string, options: CallOptions = {}): 
 }
 
 function isPage(body: PageResponse | ApiErrorBody): body is PageResponse {
-  return body.kind === 'document' || body.kind === 'missing-document';
+  return body.kind === 'document' || body.kind === 'missing-document' || body.kind === 'file';
 }
 
 function fileUrl(path: string): string {
@@ -175,7 +188,7 @@ export type RestoreOutcome = { ok: true; state: MutationState } | { ok: false; c
 
 export interface ScrawlApi {
   page(path: string, options?: RequestOptions): Promise<PageResponse>;
-  dir(path: string, options?: RequestOptions): Promise<DirResponse>;
+  dir(path: string, options?: RequestOptions): Promise<DirListing>;
   nav(path: string, options?: RequestOptions): Promise<NavResponse>;
   me(options?: RequestOptions): Promise<MeResponse>;
   spaces(options?: RequestOptions): Promise<SpaceEntry[]>;
@@ -191,6 +204,9 @@ export interface ScrawlApi {
   deleteEntry(path: string, withContents: boolean, options?: RequestOptions): Promise<EntryPathResponse>;
   move(from: string, to: string, options?: RequestOptions): Promise<EntryPathResponse>;
   search(query: string, limit?: number, options?: RequestOptions): Promise<SearchResponse>;
+  // find is a search with its mode and its toggles named, which answers with
+  // the matching lines
+  find(query: string, settings: SearchSettings, limit?: number, options?: RequestOptions): Promise<SearchResponse>;
   history(path: string, options?: RequestOptions): Promise<HistoryResponse>;
   historyVersion(path: string, rev: string, options?: RequestOptions): Promise<HistoryVersionResponse>;
   restoreVersion(path: string, body: RestoreRequest, options?: RequestOptions): Promise<RestoreOutcome>;
@@ -219,7 +235,7 @@ export const api: ScrawlApi = {
   },
 
   dir: (path, options) =>
-    call<DirResponse>('GET', spaceUrl(`/api/dir/${encodeContentPath(path)}`), options),
+    call<DirListing>('GET', spaceUrl(`/api/dir/${encodeContentPath(path)}`), options),
 
   nav: (path, options) => call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path }), options),
 
@@ -248,6 +264,9 @@ export const api: ScrawlApi = {
 
   search: (query, limit, options) =>
     call<SearchResponse>('GET', withQuery(spaceUrl('/api/search'), { q: query, limit }), options),
+
+  find: (query, settings, limit, options) =>
+    call<SearchResponse>('GET', withQuery(spaceUrl('/api/search'), { q: query, limit, ...searchParams(settings) }), options),
 
   history: (path, options) => call<HistoryResponse>('GET', historyUrl(path), options),
 

@@ -1,104 +1,77 @@
-import { Anchor, Group, Stack, Text } from '@mantine/core';
-import { IconFileText } from '@tabler/icons-react';
-import type { JSX } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Text } from '@mantine/core';
+import { useState, type JSX } from 'react';
+import { useSearchParams } from 'react-router';
 
 import { api } from '../api/client';
-import type { SearchResponse } from '../api/types';
+import type { SearchResponse, SearchSettings } from '../api/types';
 import { useApi } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
-import { PageCard } from '../components/PageCard';
-import rows from '../components/rows.module.css';
-import { documentUrl } from '../paths';
-import { PageContainer } from '../shell/PageContainer';
-import { Snippet } from '../shell/Snippet';
-import { SyncBadge } from '../shell/SyncBadge';
+import { Page, PageTitle } from '../components/Page';
+import { usePageChrome } from '../shell/PageChrome';
+import { hintOf } from '../shell/SearchDialog';
+import { SearchResults } from '../shell/SearchResults';
 
 const nothing: SearchResponse = { hits: [], elapsed_ms: 0 };
+const pageLimit = 50;
 
+// settingsOf reads the mode and the toggles the way the search route does
+function settingsOf(params: URLSearchParams): SearchSettings {
+  return {
+    mode: params.get('mode') === 'exact' ? 'exact' : 'fuzzy',
+    matchCase: params.get('case') === '1',
+    word: params.get('word') === '1',
+    regex: params.get('regex') === '1',
+    titles: params.get('titles') === '1',
+  };
+}
+
+// the search page is a typed or shared address of a search, drawn with the
+// results the dialog shows
 export function Component(): JSX.Element {
   const [searchParams] = useSearchParams();
-  const query = searchParams.get('q') ?? '';
-  const wanted = query.trim();
+  const wanted = (searchParams.get('q') ?? '').trim();
+  const settings = settingsOf(searchParams);
+  const key = searchParams.toString();
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  usePageChrome({ crumbs: [], title: 'Search', ownTitle: true });
 
   const state = useApi<SearchResponse>(
-    (signal) => (wanted === '' ? Promise.resolve(nothing) : api.search(wanted, undefined, { signal })),
-    [wanted],
+    (signal) => (wanted === '' ? Promise.resolve(nothing) : api.find(wanted, settings, pageLimit, { signal })),
+    [key],
   );
   const found = wanted === '' ? undefined : state.data;
 
   return (
-    <PageContainer>
-      <PageCard
-        data-testid="search"
-        wide
-        header={
-          <>
-            <Text data-testid="search-title" size="sm" fw={500} c="var(--scrawl-text)" truncate>
-              {wanted === '' ? 'Search' : `Search: ${wanted}`}
-            </Text>
-            {found !== undefined && found.hits.length > 0 && (
-              <Text
-                data-testid="search-count"
-                data-total={found.hits.length}
-                size="sm"
-                c="dimmed"
-                style={{ flex: 'none' }}
-              >
-                {found.hits.length} {found.hits.length === 1 ? 'result' : 'results'} in {found.elapsed_ms} ms
+    <Page data-testid="search">
+      <PageTitle testId="search-title">{wanted === '' ? 'Search' : `Search: ${wanted}`}</PageTitle>
+      {found !== undefined && found.hits.length > 0 && (
+        <Text data-testid="search-count" data-total={found.hits.length} size="sm" c="dimmed" mb="md">
+          {found.hits.length} {found.hits.length === 1 ? 'result' : 'results'} in {found.elapsed_ms} ms ·{' '}
+          {hintOf(settings)}
+          {found.truncated === true ? ', stopped early' : ''}
+        </Text>
+      )}
+      {wanted === '' ? (
+        <Text data-testid="search-prompt" c="dimmed">
+          Type a query to search every note.
+        </Text>
+      ) : (
+        <AsyncContent state={state} testId="search">
+          {(results) =>
+            results.hits.length === 0 ? (
+              <Text data-testid="search-empty" c="dimmed">
+                No notes match that.
               </Text>
-            )}
-          </>
-        }
-      >
-        {wanted === '' ? (
-          <Text data-testid="search-prompt" c="dimmed" className={rows.row}>
-            Type a query to search every note.
-          </Text>
-        ) : (
-          <AsyncContent state={state} testId="search">
-            {(results) =>
-              results.hits.length === 0 ? (
-                <Text data-testid="search-empty" c="dimmed" className={rows.row}>
-                  No notes match that.
-                </Text>
-              ) : (
-                <div data-testid="search-results">
-                  {results.hits.map((hit) => (
-                    <div key={hit.path} data-testid="search-result" data-path={hit.path} className={rows.row}>
-                      <IconFileText size={18} className={rows.icon} aria-hidden />
-                      <Stack gap={2} className={rows.body}>
-                        <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-                          <Anchor
-                            data-testid="search-result-link"
-                            component={Link}
-                            // the query rides along so the reader lands with
-                            // the matches highlighted
-                            to={`${documentUrl(hit.path)}?q=${encodeURIComponent(wanted)}`}
-                            c="var(--scrawl-text)"
-                          >
-                            {hit.title === '' ? hit.path : hit.title}
-                          </Anchor>
-                          <SyncBadge path={hit.path} />
-                        </Group>
-                        <Text
-                          data-testid="search-result-path"
-                          size="xs"
-                          c="dimmed"
-                          style={{ overflowWrap: 'anywhere' }}
-                        >
-                          {hit.path}
-                        </Text>
-                        <Snippet snippet={hit.snippet} testId="search-result-snippet" />
-                      </Stack>
-                    </div>
-                  ))}
-                </div>
-              )
-            }
-          </AsyncContent>
-        )}
-      </PageCard>
-    </PageContainer>
+            ) : (
+              <SearchResults
+                hits={results.hits}
+                expanded={expanded}
+                onExpand={(path) => setExpanded((prev) => new Set(prev).add(path))}
+              />
+            )
+          }
+        </AsyncContent>
+      )}
+    </Page>
   );
 }

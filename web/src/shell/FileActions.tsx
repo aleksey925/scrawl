@@ -12,11 +12,13 @@ import type { EntryKind, EntryPathResponse } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
 import { directoryUrl, documentUrl, editUrl, isMarkdown, slugPath } from '../paths';
+import { layoutBreakpoints, useBelow } from '../theme';
 import { showToast } from '../toast';
 
 import { FileActionsContext, type FileActions, type TreeDraft } from './fileActionsContext';
 import { useReaderLayout } from './ReaderLayout';
 import { useNav } from './NavContext';
+import { NewSheet } from './NewSheet';
 import { useMutationState } from './useMutationState';
 import { basenameOf, joinPath } from './naming';
 
@@ -52,6 +54,9 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const reportMutation = useMutationState();
   const [renaming, setRenaming] = useState<{ path: string; isDir: boolean } | undefined>(undefined);
   const [draft, setDraft] = useState<TreeDraft | undefined>(undefined);
+  // a phone has no tree to type a name into, so it asks in a sheet instead
+  const phone = useBelow(layoutBreakpoints.phone);
+  const [sheet, setSheet] = useState<TreeDraft | undefined>(undefined);
 
   const copyLink = useCallback(async (path: string, isDir: boolean): Promise<void> => {
     try {
@@ -116,9 +121,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       void (async () => {
         let holdsEntries = false;
         try {
-          const listing = await api.dir(path);
-          // a folder shown as a document is one that holds an index note
-          holdsEntries = listing.kind === 'document' || listing.entries.length > 0;
+          holdsEntries = (await api.dir(path)).entries.length > 0;
         } catch {
           // the delete itself answers when the folder could not be listed
         }
@@ -130,6 +133,10 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const startDraft = useCallback(
     (kind: EntryKind, parent: string) => {
+      if (phone) {
+        setSheet({ kind, parent });
+        return;
+      }
       // the row is typed into where it will be, so the folder has to be open
       // and a filter hiding it has to go
       setQuery('');
@@ -137,16 +144,15 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       setDraft({ kind, parent });
       revealTree();
     },
-    [openFolder, revealTree, setQuery],
+    [openFolder, phone, revealTree, setQuery],
   );
 
   const cancelDraft = useCallback(() => setDraft(undefined), []);
 
-  const submitDraft = useCallback(
-    async (name: string): Promise<boolean> => {
-      if (draft === undefined) {
-        return false;
-      }
+  // createEntry is the one way a page or a folder is made, from the tree's name
+  // field and from a folder list's name row alike
+  const createEntry = useCallback(
+    async (draft: TreeDraft, name: string): Promise<boolean> => {
       const path = draftPath(draft, name);
       const page = draft.kind === 'file';
       if (path === '') {
@@ -163,7 +169,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         });
         return false;
       }
-      setDraft(undefined);
       refreshNav();
       if (page) {
         // straight into the editor, because an empty note is not a thing
@@ -178,7 +183,21 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       await navigate(directoryUrl(res.path));
       return true;
     },
-    [draft, navigate, openFolder, refreshNav, reportMutation],
+    [navigate, openFolder, refreshNav, reportMutation],
+  );
+
+  const submitDraft = useCallback(
+    async (name: string): Promise<boolean> => {
+      if (draft === undefined) {
+        return false;
+      }
+      const created = await createEntry(draft, name);
+      if (created) {
+        setDraft(undefined);
+      }
+      return created;
+    },
+    [createEntry, draft],
   );
 
   const moveInto = useCallback(
@@ -229,13 +248,16 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       draft,
       submitDraft,
       cancelDraft,
+      createEntry,
     }),
-    [cancelDraft, copyLink, draft, moveInto, remove, startDraft, submitDraft],
+    [cancelDraft, copyLink, createEntry, draft, moveInto, remove, startDraft, submitDraft],
   );
 
   return (
     <FileActionsContext.Provider value={actions}>
       {children}
+
+      {sheet !== undefined && <NewSheet draft={sheet} onCreate={createEntry} onClose={() => setSheet(undefined)} />}
 
       {renaming !== undefined && (
         <RenameDialog

@@ -54,7 +54,7 @@ module.exports = {
 
     dir: {
         empty: 'This folder is empty',
-        noNotes: 'No notes here',
+        noNotes: 'No notes inside',
     },
 
     search: {
@@ -63,6 +63,7 @@ module.exports = {
         // the count reads "3 results in 1 ms", so a spec asserts the number
         // through data-total and only the unit here
         results: 'results',
+        regexHint: 'Regular expression over the text as shown, line by line',
     },
 
     sidebar: {

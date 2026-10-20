@@ -1,10 +1,13 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"path"
 	"strconv"
 	"strings"
@@ -12,6 +15,7 @@ import (
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/history"
+	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
 	"github.com/aleksey925/scrawl/view"
 )
@@ -60,12 +64,30 @@ type previewRequest struct {
 	Path    string `json:"path"`
 }
 
+// searchHit is one note a search found. The fields after url come with a
+// request that names a mode or a toggle; one that names none is answered the
+// way it always was, for the scripts that read it.
 type searchHit struct {
-	Path    string  `json:"path"`
-	Title   string  `json:"title"`
-	Snippet string  `json:"snippet"`
-	Score   float64 `json:"score"`
-	URL     string  `json:"url"`
+	Path       string        `json:"path"`
+	Title      string        `json:"title"`
+	Snippet    string        `json:"snippet"`
+	Score      float64       `json:"score"`
+	URL        string        `json:"url"`
+	TitleSpans []searchSpan  `json:"title_spans,omitempty"`
+	MatchCount *int          `json:"match_count,omitempty"`
+	LineCount  *int          `json:"line_count,omitempty"`
+	Lines      *[]searchLine `json:"lines,omitempty"`
+}
+
+type searchSpan struct {
+	Text string `json:"text"`
+	Hit  bool   `json:"hit"`
+}
+
+type searchLine struct {
+	Line  int          `json:"line"`
+	URL   string       `json:"url"`
+	Spans []searchSpan `json:"spans"`
 }
 
 // apiTree serves the sidebar tree, which the frontend reloads after every
@@ -132,6 +154,10 @@ func (m *mount) apiFileGet(w http.ResponseWriter, r *http.Request) {
 	data, fi, err := m.spc.Store.Read(p)
 	if err != nil {
 		failJSON(w, r, err)
+		return
+	}
+	if !textContent(data) {
+		jsonError(w, http.StatusUnsupportedMediaType, "not text, read it from /raw/")
 		return
 	}
 	writeJSON(w, http.StatusOK, fileResponse{
@@ -440,9 +466,16 @@ func (m *mount) apiPreview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"html": string(html)})
 }
 
-// apiSearch backs the command palette.
+// apiSearch searches the space. With no mode and no toggle it is the ranked
+// word search it always was; with them it is Find, which answers with the
+// matching lines and the url that opens each one.
 func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	find, extended, err := searchQueryOf(r.URL.Query())
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	limit := searchAPILimit
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		parsed, err := strconv.Atoi(raw)
@@ -454,6 +487,10 @@ func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
+	if extended {
+		m.findSearch(w, r, find, limit, start)
+		return
+	}
 	hits := make([]searchHit, 0, limit)
 	if query != "" && m.spc.Index != nil {
 		for _, hit := range m.spc.Index.SearchPrefix(query, limit) {
@@ -555,4 +592,71 @@ func relativeLink(doc, target string) string {
 		res = append(res, "..")
 	}
 	return path.Join(append(res, targetSegments[shared:]...)...)
+}
+
+// searchQueryOf reads the mode and the toggles of a search, and whether the
+// request named any of them at all
+func searchQueryOf(values url.Values) (search.Query, bool, error) {
+	q := search.Query{Text: strings.TrimSpace(values.Get("q")), Mode: search.ModeFuzzy}
+	extended := false
+	switch mode := values.Get("mode"); mode {
+	case "":
+	case string(search.ModeFuzzy), string(search.ModeExact):
+		q.Mode, extended = search.Mode(mode), true
+	default:
+		return q, false, fmt.Errorf("mode must be %s or %s", search.ModeFuzzy, search.ModeExact)
+	}
+	for name, field := range map[string]*bool{"case": &q.Case, "word": &q.Word, "regex": &q.Regex, "titles": &q.TitlesOnly} {
+		if values.Has(name) {
+			*field, extended = values.Get(name) == "1", true
+		}
+	}
+	return q, extended, nil
+}
+
+// findSearch answers a search that named a mode or a toggle
+func (m *mount) findSearch(w http.ResponseWriter, r *http.Request, q search.Query, limit int, start time.Time) {
+	found := search.Found{}
+	if m.spc.Index != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), searchTimeout)
+		defer cancel()
+		var err error
+		if found, err = m.spc.Index.Find(ctx, q, limit); err != nil {
+			jsonError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+
+	hits := make([]searchHit, 0, len(found.Results))
+	for _, res := range found.Results {
+		find := view.Find{Text: res.Find.Text, Case: res.Find.Case, Word: res.Find.Word, Regex: res.Find.Regex}
+		lines := make([]searchLine, 0, len(res.Lines))
+		for _, line := range res.Lines {
+			lines = append(lines, searchLine{Line: line.Line, URL: view.FindURL(res.Path, find, line.Line), Spans: spansOf(line.Spans)})
+		}
+		hits = append(hits, searchHit{
+			Path:       res.Path,
+			Title:      res.Title,
+			Snippet:    string(res.Snippet),
+			Score:      res.Score,
+			URL:        view.FindURL(res.Path, find, 0),
+			TitleSpans: spansOf(res.TitleSpans),
+			MatchCount: &res.MatchCount,
+			LineCount:  &res.LineCount,
+			Lines:      &lines,
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"hits":       hits,
+		"elapsed_ms": time.Since(start).Milliseconds(),
+		"truncated":  found.Truncated,
+	})
+}
+
+func spansOf(spans []search.Span) []searchSpan {
+	res := make([]searchSpan, 0, len(spans))
+	for _, span := range spans {
+		res = append(res, searchSpan{Text: span.Text, Hit: span.Hit})
+	}
+	return res
 }

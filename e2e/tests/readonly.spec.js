@@ -1,7 +1,7 @@
 const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
-const {READONLY, jsonRequest, routes, shot, signIn} = require('../support/helpers');
+const {READONLY, jsonRequest, openSpaceMenu, routes, shot, signIn} = require('../support/helpers');
 const text = require('../support/text');
 
 const DOC = docs.doc.path;
@@ -20,8 +20,8 @@ test.describe('read-only mode', () => {
         await expect(page.getByTestId('doc-edit')).toHaveCount(0);
         await expect(page.getByTestId('doc-history')).toBeVisible();
 
-        await page.getByTestId('topbar-account').click();
-        await expect(page.getByTestId('topbar-account-readonly')).toBeVisible();
+        await openSpaceMenu(page);
+        await expect(page.getByTestId('space-menu-readonly')).toBeVisible();
         await shot(page, 'readonly-view');
     });
 

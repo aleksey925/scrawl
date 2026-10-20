@@ -1,7 +1,7 @@
 import { DEFAULT_THEME, defaultCssVariablesResolver, mergeMantineTheme } from '@mantine/core';
 
 import { layoutVariables, themeOverride, themeVariables } from './theme';
-import { autoTheme, themeAttribute, themes, type Scheme, type ThemeDefinition } from './themes';
+import { autoTheme, blockNames, themeAttribute, themes, type Scheme, type ThemeDefinition } from './themes';
 
 type Variables = Record<string, string>;
 
@@ -25,11 +25,18 @@ function scopes(): Scope[] {
 // a theme file is read without a schema, so one that left a token out would
 // paint that part of the page in whatever theme came before it
 function validate(): void {
-  const want = Object.keys(autoTheme('light').palette).sort().join(' ');
+  const keysOf = (tokens: object | undefined): string => Object.keys(tokens ?? {}).sort().join(' ');
+  const light = autoTheme('light');
   for (const entry of themes) {
-    const got = Object.keys(entry.palette).sort().join(' ');
-    if (got !== want) {
-      throw new Error(`theme ${entry.id}: the palette has ${got}, the light theme ${want}`);
+    for (const part of ['palette', 'blocks', 'shadows', 'code'] as const) {
+      const got = keysOf(entry[part]);
+      const want = keysOf(light[part]);
+      if (got !== want) {
+        throw new Error(`theme ${entry.id}: the ${part} has ${got}, the light theme ${want}`);
+      }
+    }
+    if (keysOf(entry.blocks) !== [...blockNames].sort().join(' ')) {
+      throw new Error(`theme ${entry.id}: the blocks are not ${blockNames.join(', ')}`);
     }
     if (typeof entry.strongWeight !== 'string' || entry.strongWeight === '') {
       throw new Error(`theme ${entry.id}: no strongWeight`);

@@ -62,7 +62,7 @@
 }
 
 .source :global(.cm-gutters) {
-  background: var(--scrawl-bg-subtle);
+  background: var(--scrawl-code-bg);
   border-right: 1px solid var(--scrawl-border);
   color: var(--scrawl-text-tertiary);
 }
@@ -171,7 +171,7 @@
   word-break: break-word;
   font-family: var(--mantine-font-family-monospace);
   font-size: var(--mantine-font-size-xs);
-  background: var(--scrawl-bg-inset);
+  background: var(--scrawl-sidebar);
   border: 1px solid var(--scrawl-border);
   border-radius: var(--mantine-radius-sm);
   padding: var(--mantine-spacing-sm);

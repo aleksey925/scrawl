@@ -39,20 +39,39 @@ const (
 	Dark  Scheme = "dark"
 )
 
+// BlockNames are the colors a block can take beside the text's own: a callout,
+// a tag and a diff all pick from them.
+var BlockNames = []string{"gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"}
+
+// ShadowNames are the depths of a surface floating over the page.
+var ShadowNames = []string{"small", "medium", "large"}
+
+// CodeNames are the kinds of token a theme colors in code. Everything else in
+// a block of code takes the page's text color.
+var CodeNames = []string{"keyword", "string", "comment", "function", "number", "builtin"}
+
+// BlockColor is one block color: its text, and the ground behind a block of it.
+type BlockColor struct {
+	Text string `json:"text"`
+	Bg   string `json:"bg"`
+}
+
 // Theme is one file of themes/, named by its file name.
 type Theme struct {
 	ID     string `json:"-"`
 	Name   string `json:"name"`
 	Scheme Scheme `json:"scheme"`
-	// Code is the chroma style that highlights code
-	Code    string            `json:"code"`
-	Palette map[string]string `json:"palette"`
+	// Code is the color of each of CodeNames
+	Code    map[string]string     `json:"code"`
+	Palette map[string]string     `json:"palette"`
+	Blocks  map[string]BlockColor `json:"blocks"`
+	Shadows map[string]string     `json:"shadows"`
 }
 
 // BarColor is the color of the browser bar and of the home screen splash, the
 // page's own ground.
 func (t Theme) BarColor() string {
-	return t.Palette["bgDefault"]
+	return t.Palette["bg"]
 }
 
 //go:embed themes/*.json
@@ -158,12 +177,36 @@ func loadOne(fsys fs.FS, name string) (Theme, error) {
 		return Theme{}, errors.New("no name")
 	case res.Scheme != Light && res.Scheme != Dark:
 		return Theme{}, fmt.Errorf("scheme %q is neither light nor dark", res.Scheme)
-	case res.Code == "":
-		return Theme{}, errors.New("no code style")
+	case len(res.Code) == 0:
+		return Theme{}, errors.New("no code colors")
 	case res.BarColor() == "":
-		return Theme{}, errors.New("no bgDefault in the palette")
+		return Theme{}, errors.New("no bg in the palette")
+	}
+	if err := checkColors(res); err != nil {
+		return Theme{}, err
 	}
 	return res, nil
+}
+
+// checkColors finds the color a theme left out, which the frontend would paint
+// in the color of the theme before it
+func checkColors(res Theme) error {
+	for _, name := range BlockNames {
+		if block := res.Blocks[name]; block.Text == "" || block.Bg == "" {
+			return fmt.Errorf("no %s block color", name)
+		}
+	}
+	for _, name := range ShadowNames {
+		if res.Shadows[name] == "" {
+			return fmt.Errorf("no %s shadow", name)
+		}
+	}
+	for _, name := range CodeNames {
+		if res.Code[name] == "" {
+			return fmt.Errorf("no %s code color", name)
+		}
+	}
+	return nil
 }
 
 func compare(a, b Theme) int {

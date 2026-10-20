@@ -4,10 +4,11 @@ const fs = require('fs');
 
 const docs = require('../support/docs');
 const {
-    HISTORY, MAIN, READONLY, fixtureFile, readFixture, routes, save, setSource, shot, signIn,
+    HISTORY, MAIN, READONLY, fixtureFile, readFixture, rgb, routes, save, setSource, shot, signIn,
     writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
+const lightTheme = require('../../theme/themes/light.json');
 
 const FOLDER = 'e2e-history';
 
@@ -46,13 +47,18 @@ test.describe.serial('history', () => {
         await expect(page.getByTestId('history-title')).toHaveText(text.history.title);
         const versions = page.getByTestId('version');
         await expect(versions).toHaveCount(2);
-        await expect(versions.first().getByTestId('version-message')).toHaveText(`save ${docPath}`);
         await expect(versions.first().getByTestId('version-actor')).toHaveText('e2e');
         await expect(versions.first().getByTestId('version-kind')).toHaveText('modified');
         await expect(versions.nth(1).getByTestId('version-kind')).toHaveText('added');
+        await expect(versions.nth(1).getByTestId('version-kind'))
+            .toHaveCSS('background-color', rgb(lightTheme.blocks.green.bg));
+        // the newest version is the note as it is now, and writing it back changes nothing
+        await expect(versions.first()).toHaveAttribute('data-selected', 'true');
+        await expect(page.getByTestId('version-restore')).toBeDisabled();
+        await expect(page.getByTestId('history-restore-reason')).toHaveText('Same as the current note');
         await shot(page, 'history-versions');
 
-        await versions.nth(1).getByTestId('version-pick').click();
+        await versions.nth(1).click();
         await expect(versions.nth(1)).toHaveAttribute('data-selected', 'true');
         await expect(page.getByTestId('rendered-diff')).toContainText('Первая версия');
         await page.getByTestId('history-diff-view').getByText('Source').click();
@@ -60,7 +66,7 @@ test.describe.serial('history', () => {
         await shot(page, 'history-diff');
         await page.getByTestId('history-diff-view').getByText('Rendered').click();
 
-        await versions.nth(1).getByTestId('version-restore').click();
+        await page.getByTestId('version-restore').click();
         await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.restore);
         await shot(page, 'history-restore-confirm');
         await page.getByTestId('modal-confirm').click();
@@ -82,8 +88,6 @@ test.describe.serial('history', () => {
         await saveInEditor(page, `# Заметка ${stamp}\n\nОдна длинная строка, перенесённая вручную.\n\nМедленная лиса.\n`);
 
         await page.goto(HISTORY.url.history(docPath));
-        await page.getByTestId('version').first().getByTestId('version-pick').click();
-
         const diff = page.getByTestId('rendered-diff');
         const rows = diff.getByTestId('diff-row');
         await expect(rows).toHaveCount(3);
@@ -96,7 +100,6 @@ test.describe.serial('history', () => {
         // the choice of view is kept for the next version and the next visit
         await page.getByTestId('history-diff-view').getByText('Source').click();
         await page.reload();
-        await page.getByTestId('version').first().getByTestId('version-pick').click();
         await expect(page.getByTestId('history-diff')).toContainText('+Медленная лиса.');
         await page.getByTestId('history-diff-view').getByText('Rendered').click();
         await expect(page.getByTestId('rendered-diff')).toBeVisible();
@@ -112,7 +115,8 @@ test.describe.serial('history', () => {
         await expect(page.getByTestId('version')).toHaveCount(2);
         writeFixture(docPath, 'written by someone else\n', HISTORY);
 
-        await page.getByTestId('version').nth(1).getByTestId('version-restore').click();
+        await page.getByTestId('version').nth(1).click();
+        await page.getByTestId('version-restore').click();
         await page.getByTestId('modal-confirm').click();
 
         // the dialog is mounted whether or not it is open, so what it holds is
@@ -130,6 +134,21 @@ test.describe.serial('history', () => {
         await expect(page.getByTestId('history-conflict-current')).toHaveCount(0);
     });
 
+    test('the history is a dialog over the note, and Esc goes back to the note', async ({page}) => {
+        // arrange
+        await page.goto(HISTORY.url.doc(docs.doc.path));
+        await page.getByTestId('doc-history').click();
+        await expect(page.getByTestId('history-list')).toBeVisible();
+
+        // act
+        await page.keyboard.press('Escape');
+
+        // assert
+        await expect(page.getByTestId('history-list')).toHaveCount(0);
+        await expect(page).toHaveURL(HISTORY.url.doc(docs.doc.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
+    });
+
     test('read-only mode lists the versions and offers no restore', async ({page}) => {
         await signIn(page, {baseURL: READONLY.baseURL, from: routes.history(docs.doc.path)});
 
@@ -142,13 +161,14 @@ test.describe.serial('history', () => {
         await page.goto(HISTORY.url.doc(docs.doc.path));
         await page.getByTestId('doc-history').click();
         await expect(page).toHaveURL(HISTORY.url.history(docs.doc.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
         await expect(page.getByTestId('history-title')).toHaveText(text.history.title);
         await expect(page.getByTestId('version').first()).toBeVisible();
 
         // an instance running without history offers no action, and its route
         // typed in by hand answers with the reason
         await signIn(page, {baseURL: MAIN.baseURL, from: routes.doc(docs.doc.path)});
-        await expect(page.getByTestId('doc-export')).toBeVisible();
+        await expect(page.getByTestId('note-menu')).toBeVisible();
         await expect(page.getByTestId('doc-history')).toHaveCount(0);
         await page.goto(MAIN.url.history(docs.doc.path));
 

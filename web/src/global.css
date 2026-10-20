@@ -1,0 +1,22 @@
+/* every icon is drawn thin, the weight of Notion's: 1.5 on Tabler's 24 unit
+   grid is 1.25px at the 20px they are shown at, and this outranks the stroke
+   width the component writes as an attribute */
+.tabler-icon {
+  stroke-width: 1.5;
+}
+
+/* the width a note is read at, which the reader picks in the note's menu */
+:root {
+  --scrawl-note-width: var(--scrawl-note-width-normal);
+}
+
+:root[data-page-width='wide'] {
+  --scrawl-note-width: var(--scrawl-note-width-wide);
+}
+
+/* the room the bar of tabs takes at the bottom of a phone, and what is left of
+   the safe area under a sheet; the bar sets both while it is on screen */
+:root {
+  --scrawl-tabbar-space: 0px;
+  --scrawl-sheet-inset: env(safe-area-inset-bottom, 0px);
+}

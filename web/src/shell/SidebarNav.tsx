@@ -1,8 +1,9 @@
 import {
-  ActionIcon, Anchor, Box, Group, Highlight, Menu, ScrollArea, Skeleton, Stack, Text, TextInput,
+  ActionIcon, Anchor, Box, Group, Highlight, Menu, ScrollArea, Skeleton, Stack, Text, TextInput, UnstyledButton,
 } from '@mantine/core';
 import {
-  IconFile, IconFilePlus, IconFolder, IconFolderOpen, IconFolderPlus, IconPlus, IconSearch, IconX,
+  IconChevronDown, IconChevronRight, IconChevronsLeft, IconFile, IconFilePlus, IconFolder, IconFolderOpen,
+  IconFolderPlus, IconHome, IconPlus, IconSearch, IconSquarePlus, IconX,
 } from '@tabler/icons-react';
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
@@ -13,25 +14,27 @@ import { Link, useNavigate } from 'react-router';
 import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
 import controls from '../controls.module.css';
-import { usePlatform } from '../platform';
 import { iconEdgeInset, layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { rowMenuIconSize, useReaderExtensions } from './extensions';
 import { useFileActions, useOptionalFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
-import { SyncBadge } from './SyncBadge';
 import { basenameOf, folderFor, parentOf } from './naming';
+import { useSearchOpener } from './searchOpener';
+import sidebarClasses from './Sidebar.module.css';
+import { SyncBadge } from './SyncBadge';
 import treeClasses from './Tree.module.css';
 import { filterTree, type FilteredTree } from './treeFilter';
 import { useLongPress } from './useLongPress';
 
-const iconSize = 16;
-const deskRowHeight = 32;
+const iconSize = layout.iconSizeSmall;
 // the box an entry's icon sits in, which for a folder is the button that
 // opens and closes it
 const deskIconBox = 22;
 const touchIconBox = 28;
-const indentStep = 18;
+const indentStep = 14;
+// the room before a top-level row's icon, inside the row's own corners
+const deskRowStart = 6;
 
 // focusSettleMs is how long the draft row waits before it believes a blur.
 // Measured against mantine's menu, which returns focus to its trigger when it
@@ -79,23 +82,20 @@ interface RowsProps {
 type TreeRowProps = Omit<RowsProps, 'nodes'> & { node: NavNode };
 
 function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Element | null {
-  const { isOpen, openFolder, toggleFolder, currentPath } = useNav();
-  const draft = useOptionalFileActions()?.draft;
+  const { isOpen, openFolder, toggleFolder, currentPath, canWrite } = useNav();
+  const actions = useOptionalFileActions();
+  const draft = actions?.draft;
   const { RowMenu } = useReaderExtensions();
   const ui = useTreeUi();
   const [menuOpened, setMenuOpened] = useState(false);
   const openMenu = useCallback(() => setMenuOpened(true), []);
   const longPress = useLongPress(openMenu);
 
-  // the space's own row: it is the folder everything else grows out of, so a
-  // filter never hides it and nothing may drag it anywhere
-  const root = node.path === '';
-
-  if (!root && query !== '' && !filtered.visible.has(node.path)) {
+  if (query !== '' && !filtered.visible.has(node.path)) {
     return null;
   }
 
-  const open = query !== '' ? root || filtered.forcedOpen.has(node.path) : isOpen(node.path);
+  const open = query !== '' ? filtered.forcedOpen.has(node.path) : isOpen(node.path);
   // the route decides this and not the answer the server sent with the tree:
   // the click has already happened, and a highlight that waits for a round trip
   // is a click that did nothing for as long as the round trip took
@@ -106,17 +106,16 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
 
   return (
     <Box style={{ minWidth: 0 }}>
-      <Group
-        gap={4}
-        wrap="nowrap"
+      <div
         data-testid="tree-row"
         className={RowMenu === undefined ? treeClasses.row : `${treeClasses.row} ${treeClasses.pressable}`}
         data-current={current ? 'true' : 'false'}
         data-selected={picked ? 'true' : 'false'}
         data-drop={over ? 'true' : 'false'}
         data-dir={node.is_dir ? 'true' : 'false'}
+        data-menu={menuOpened ? 'true' : 'false'}
         data-path={node.path}
-        draggable={ui.canWrite && !root}
+        draggable={ui.canWrite}
         onDragStart={(event) => ui.startDrag(node.path, event)}
         onDragEnd={ui.endDrag}
         onDragOver={(event) => ui.overFolder(folderFor(node.path, node.is_dir), event)}
@@ -133,17 +132,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
                 openMenu();
               },
             })}
-        style={{
-          minWidth: 0,
-          minHeight: touch ? layout.tapTarget : deskRowHeight,
-          ...rowInsets(depth, touch),
-          background: rowBackground(current, picked, over),
-          // a row that is being dragged onto is a target and not a button: the
-          // outline says where the drop lands without moving anything
-          outline: over ? '1px solid var(--scrawl-accent)' : undefined,
-          outlineOffset: -1,
-          transition: 'background-color 120ms ease',
-        }}
+        style={{ minHeight: touch ? layout.tapTarget : undefined, ...rowInsets(depth, touch) }}
       >
         {node.is_dir ? (
           <ActionIcon
@@ -151,14 +140,22 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
             data-open={open ? 'true' : 'false'}
             variant="subtle"
             color="gray"
-            size={touch ? touchIconBox : 'sm'}
-            className={touch ? controls.twisty : undefined}
-            style={{ flex: 'none' }}
+            size={touch ? touchIconBox : deskIconBox}
+            className={touch ? `${treeClasses.icon} ${controls.twisty}` : treeClasses.icon}
             aria-label={`${open ? 'Collapse' : 'Expand'} ${node.name}`}
             aria-expanded={open}
             onClick={() => toggleFolder(node.path)}
           >
-            {open ? <IconFolderOpen size={iconSize} /> : <IconFolder size={iconSize} />}
+            {open ? (
+              <IconFolderOpen size={iconSize} className={treeClasses.glyph} />
+            ) : (
+              <IconFolder size={iconSize} className={treeClasses.glyph} />
+            )}
+            {open ? (
+              <IconChevronDown size={iconSize} className={treeClasses.chevron} />
+            ) : (
+              <IconChevronRight size={iconSize} className={treeClasses.chevron} />
+            )}
           </ActionIcon>
         ) : (
           <EntryIcon touch={touch}>
@@ -173,6 +170,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
           underline="never"
           draggable={false}
           aria-current={current ? 'page' : undefined}
+          className={treeClasses.label}
           // a folder's label opens its page unfolded, and on that page folds
           // and unfolds it; a filter holds open what matched, so there it is a link
           onClick={(event: MouseEvent) => {
@@ -187,16 +185,8 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
             }
             openFolder(node.path);
           }}
-          style={{ flex: '1 1 auto', minWidth: 0, color: 'inherit' }}
         >
-          <Highlight
-            size="sm"
-            truncate
-            highlight={query === '' ? [] : query}
-            fw={current ? 600 : undefined}
-            c={current ? 'var(--scrawl-accent)' : undefined}
-            style={{ minWidth: 0 }}
-          >
+          <Highlight size="sm" truncate highlight={query === '' ? [] : query} fw="inherit" style={{ minWidth: 0 }}>
             {node.name}
           </Highlight>
         </Anchor>
@@ -206,25 +196,37 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
         <SyncBadge path={node.path} />
 
         {RowMenu !== undefined && (
-          <RowMenu
-            path={node.path}
-            isDir={node.is_dir}
-            name={node.name}
-            touch={touch}
-            opened={menuOpened}
-            onOpenedChange={setMenuOpened}
-          />
+          <div className={treeClasses.tools}>
+            <RowMenu
+              path={node.path}
+              isDir={node.is_dir}
+              name={node.name}
+              touch={touch}
+              opened={menuOpened}
+              onOpenedChange={setMenuOpened}
+            />
+            {node.is_dir && canWrite && actions !== undefined && (
+              <ActionIcon
+                data-testid="tree-row-add"
+                variant="subtle"
+                color="gray"
+                size={touch ? 'lg' : 'sm'}
+                className={treeClasses.add}
+                aria-label={`New file in ${node.name}`}
+                onClick={() => {
+                  openFolder(node.path);
+                  actions.createPage(node.path);
+                }}
+              >
+                <IconPlus size={rowMenuIconSize} />
+              </ActionIcon>
+            )}
+          </div>
         )}
-      </Group>
+      </div>
 
       {node.is_dir && open && (
-        // the space's own row holds everything, and a line beside every row
-        // of the tree would say nothing
-        <div
-          data-testid="tree-children"
-          className={root ? undefined : treeClasses.children}
-          style={root ? undefined : ({ '--tree-guide-x': guideX(depth, touch) } as CSSProperties)}
-        >
+        <div data-testid="tree-children">
           {drafting && <DraftRow depth={depth + 1} touch={touch} />}
           {!drafting && node.children.length === 0 && <EmptyRow depth={depth + 1} touch={touch} />}
           {node.children.length > 0 && (
@@ -242,7 +244,8 @@ function EntryIcon({ touch, children }: { touch: boolean; children?: ReactNode }
   return (
     <Box
       w={touch ? touchIconBox : deskIconBox}
-      style={{ flex: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+      className={treeClasses.icon}
+      style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
     >
       {children}
     </Box>
@@ -256,45 +259,20 @@ const touchIconOffset = (touchIconBox - iconSize) / 2;
 // own to sit off the line the icon, the menu glyph and the page text share
 function rowInsets(depth: number, touch: boolean): CSSProperties {
   if (!touch) {
-    return { paddingLeft: depth * indentStep, paddingRight: 4, borderRadius: 'var(--mantine-radius-md)' };
+    return { marginInline: 8, paddingLeft: deskRowStart + depth * indentStep, paddingRight: 4 };
   }
   return {
+    borderRadius: 0,
     paddingLeft: `calc(var(--mantine-spacing-lg) - ${touchIconOffset}px + ${depth * indentStep}px)`,
     paddingRight: iconEdgeInset(rowMenuIconSize),
   };
-}
-
-// guideX is the middle of the icon of a folder at this depth, where the line
-// its open rows hang off is drawn
-function guideX(depth: number, touch: boolean): string {
-  if (!touch) {
-    return `${depth * indentStep + deskIconBox / 2}px`;
-  }
-  return `calc(var(--mantine-spacing-lg) - ${touchIconOffset}px + ${depth * indentStep + touchIconBox / 2}px)`;
-}
-
-function rowBackground(current: boolean, picked: boolean, over: boolean): string | undefined {
-  if (over) {
-    return 'var(--scrawl-accent-subtle)';
-  }
-  if (current) {
-    return 'var(--scrawl-accent-subtle)';
-  }
-  return picked ? 'var(--mantine-color-default-hover)' : undefined;
 }
 
 function TreeRows({ nodes, depth, filtered, query, touch }: RowsProps): JSX.Element {
   return (
     <>
       {nodes.map((node) => (
-        <TreeRow
-          key={node.path}
-          node={node}
-          depth={depth}
-          filtered={filtered}
-          query={query}
-          touch={touch}
-        />
+        <TreeRow key={node.path} node={node} depth={depth} filtered={filtered} query={query} touch={touch} />
       ))}
     </>
   );
@@ -302,17 +280,16 @@ function TreeRows({ nodes, depth, filtered, query, touch }: RowsProps): JSX.Elem
 
 function EmptyRow({ depth, touch }: { depth: number; touch: boolean }): JSX.Element {
   return (
-    <Group
-      gap={4}
-      wrap="nowrap"
+    <div
       data-testid="tree-empty"
-      style={{ minWidth: 0, minHeight: touch ? layout.tapTarget : deskRowHeight, ...rowInsets(depth, touch) }}
+      className={`${treeClasses.row} ${treeClasses.none}`}
+      style={{ minHeight: touch ? layout.tapTarget : undefined, ...rowInsets(depth, touch) }}
     >
       <EntryIcon touch={touch} />
-      <Text size="sm" c="dimmed" fs="italic">
-        No notes here
+      <Text span inherit>
+        No notes inside
       </Text>
-    </Group>
+    </div>
   );
 }
 
@@ -359,15 +336,19 @@ function DraftRow({ depth, touch }: { depth: number; touch: boolean }): JSX.Elem
 
   return (
     <Group
-      gap={4}
+      gap={6}
       wrap="nowrap"
       data-testid="tree-draft"
       data-entry={page ? 'file' : 'dir'}
-      style={{ minWidth: 0, minHeight: touch ? layout.tapTarget : deskRowHeight, ...rowInsets(depth, touch) }}
+      className={treeClasses.row}
+      style={{
+        minHeight: touch ? layout.tapTarget : undefined,
+        ...rowInsets(depth, touch),
+        background: 'var(--scrawl-bg)',
+        boxShadow: 'inset 0 0 0 1px var(--scrawl-accent)',
+      }}
     >
-      <EntryIcon touch={touch}>
-        {page ? <IconFile size={iconSize} /> : <IconFolder size={iconSize} />}
-      </EntryIcon>
+      <EntryIcon touch={touch}>{page ? <IconFile size={iconSize} /> : <IconFolder size={iconSize} />}</EntryIcon>
       <TextInput
         data-testid="tree-draft-input"
         ref={inputRef}
@@ -394,7 +375,7 @@ function DraftRow({ depth, touch }: { depth: number; touch: boolean }): JSX.Elem
             cancelDraft();
           }
         }}
-        styles={{ input: { paddingLeft: 6, height: 'auto', minHeight: 24 } }}
+        styles={{ input: { height: 'auto', minHeight: 24 } }}
         style={{ flex: '1 1 auto', minWidth: 0 }}
       />
     </Group>
@@ -431,18 +412,23 @@ function nodeAt(nodes: readonly NavNode[], path: string): NavNode | undefined {
   return undefined;
 }
 
-export function SidebarNav(): JSX.Element {
+export interface SidebarNavProps {
+  // the space's button, which opens its menu
+  head?: ReactNode;
+  // onHide puts the sidebar away, where it is a rail that can be put away
+  onHide?: () => void;
+}
+
+export function SidebarNav({ head, onHide }: SidebarNavProps): JSX.Element {
   const navigate = useNavigate();
   const { tree, error, loading, canWrite: mayWrite, currentPath, query, setQuery, isOpen, openFolder, me } = useNav();
   const actions = useOptionalFileActions();
-  const { search } = usePlatform();
+  const openSearch = useSearchOpener();
   // a reader with nowhere to write offers no write, whatever the space allows
   const canWrite = mayWrite && actions !== undefined;
   const touch = useBelow(layoutBreakpoints.sidebar);
-  // the drawer leaves its sides to this: its rows reach both edges and carry
-  // their own insets, so the chevron's touch strip on a top-level row is whole
-  const gutter = touch ? 'lg' : 'md';
   const viewportRef = useRef<HTMLDivElement>(null);
+  const spaceName = me?.space.label ?? me?.site_title ?? 'Notes';
 
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   // the pick follows the page: a row picked before a navigation would still be
@@ -458,25 +444,9 @@ export function SidebarNav(): JSX.Element {
   const trimmed = query.trim().toLowerCase();
   const filtered = useMemo(() => filterTree(tree, trimmed), [tree, trimmed]);
 
-  // the space is a row like any other, and everything grows out of it. It is
-  // what makes the root reachable at all: without it there is nothing to point
-  // at when a new page belongs beside the folders rather than inside one.
-  const rootNode = useMemo<NavNode>(
-    () => ({
-      name: me?.space.label ?? me?.site_title ?? 'Notes',
-      path: '',
-      url: '/',
-      is_dir: true,
-      active: true,
-      current: false,
-      children: [...tree],
-    }),
-    [me?.space.label, me?.site_title, tree],
-  );
-
   const rowOrder = useMemo(
-    () => flatten([rootNode], (node) => (trimmed === '' ? isOpen(node.path) : true), []),
-    [rootNode, trimmed, isOpen],
+    () => flatten(tree, (node) => (trimmed === '' ? isOpen(node.path) : true), []),
+    [tree, trimmed, isOpen],
   );
 
   // the panel starts at the top after a navigation, which on a corpus taller
@@ -524,11 +494,7 @@ export function SidebarNav(): JSX.Element {
       return false;
     }
     return paths.every(
-      (path) =>
-        path !== '' &&
-        parentOf(path) !== folder &&
-        folder !== path &&
-        !folder.startsWith(`${path}/`),
+      (path) => path !== '' && parentOf(path) !== folder && folder !== path && !folder.startsWith(`${path}/`),
     );
   }, []);
 
@@ -573,7 +539,7 @@ export function SidebarNav(): JSX.Element {
       setDropTarget(folder);
       // holding over a closed folder opens it, which is the only way to reach a
       // folder deeper in with a row already in hand
-      if (spring.current?.folder !== folder) {
+      if (folder !== '' && spring.current?.folder !== folder) {
         if (spring.current !== undefined) {
           window.clearTimeout(spring.current.timer);
         }
@@ -614,6 +580,10 @@ export function SidebarNav(): JSX.Element {
   // the row they picked if they picked one, otherwise the page they are on
   const at = selected.size === 1 ? ([...selected][0] ?? currentPath) : currentPath;
   const here = folderFor(at, nodeAt(tree, at)?.is_dir ?? at === '');
+  const draftAtRoot = actions?.draft !== undefined && actions.draft.parent === '';
+  // Home is the root's own note, and the root's list where it has none
+  const home = tree.find((node) => node.folder_page === true);
+  const atHome = currentPath === (home?.path ?? '');
 
   function onFilterKey(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key === 'Enter') {
@@ -626,8 +596,8 @@ export function SidebarNav(): JSX.Element {
       const first = filtered.matches[0];
       if (first !== undefined) {
         void navigate(first.url);
-      } else if (search) {
-        void navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+      } else if (openSearch !== undefined) {
+        openSearch(query.trim());
       }
       return;
     }
@@ -637,19 +607,121 @@ export function SidebarNav(): JSX.Element {
     }
   }
 
+  const rootDrop = {
+    onDragOver: (event: DragEvent) => ui.overFolder('', event),
+    onDragLeave: () => ui.leaveFolder(''),
+    onDrop: (event: DragEvent) => ui.dropOn('', event),
+  };
+
   return (
-    <Stack
+    <div
       data-testid="sidebar"
-      gap="xs"
-      h="100%"
-      style={{ minWidth: 0 }}
+      className={sidebarClasses.sidebar}
       onKeyDown={(event) => {
         if (event.key === 'Escape' && selected.size > 0) {
           setSelected(new Set());
         }
       }}
     >
-      <Group gap="xs" px={gutter} pt="xs" wrap="nowrap">
+      {(head !== undefined || onHide !== undefined || canWrite) && (
+        <div className={sidebarClasses.head}>
+          {head}
+          {onHide !== undefined && (
+            <ActionIcon
+              data-testid="sidebar-hide"
+              variant="subtle"
+              color="gray"
+              className={sidebarClasses.hide}
+              aria-label="Hide the sidebar"
+              onClick={onHide}
+            >
+              <IconChevronsLeft size={layout.iconSize} />
+            </ActionIcon>
+          )}
+          {canWrite && actions !== undefined && (
+            <Menu position="bottom-end" withinPortal width={220}>
+              <Menu.Target>
+                <ActionIcon
+                  data-testid="sidebar-new"
+                  variant="subtle"
+                  color="gray"
+                  size={touch ? layout.tapTarget : layout.controlHeight}
+                  aria-label="New file or folder"
+                >
+                  <IconSquarePlus size={layout.iconSize} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {/* where it lands is the row that is picked, and the label says
+                    so for the times the tree is scrolled away from it */}
+                <Menu.Label data-testid="sidebar-new-where">{inFolder(here, spaceName)}</Menu.Label>
+                <Menu.Item
+                  data-testid="sidebar-new-page"
+                  leftSection={<IconFilePlus size={iconSize} />}
+                  onClick={() => actions.createPage(here)}
+                >
+                  New file
+                </Menu.Item>
+                <Menu.Item
+                  data-testid="sidebar-new-folder"
+                  leftSection={<IconFolderPlus size={iconSize} />}
+                  onClick={() => actions.createFolder(here)}
+                >
+                  New folder
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          )}
+        </div>
+      )}
+
+      <div className={sidebarClasses.top}>
+        {openSearch !== undefined && (
+          <UnstyledButton data-testid="sidebar-search" className={sidebarClasses.navRow} onClick={() => openSearch()}>
+            <IconSearch size={layout.iconSizeSmall} />
+            <span>Search</span>
+          </UnstyledButton>
+        )}
+        <Link
+          data-testid="sidebar-home"
+          to={home?.url ?? '/'}
+          className={sidebarClasses.navRow}
+          data-current={atHome ? 'true' : 'false'}
+          aria-current={atHome ? 'page' : undefined}
+        >
+          <IconHome size={layout.iconSizeSmall} />
+          <span>Home</span>
+        </Link>
+      </div>
+
+      {/* the label is the root folder: it opens the root's list and takes a
+          drop, so dragging a note out of a folder needs no row to aim at */}
+      <div
+        data-testid="sidebar-section"
+        className={sidebarClasses.section}
+        data-drop={dropTarget === '' ? 'true' : 'false'}
+        {...rootDrop}
+      >
+        <Link to="/" className={sidebarClasses.sectionLabel}>
+          Notes
+        </Link>
+        {canWrite && actions !== undefined && (
+          <div className={sidebarClasses.sectionTools}>
+            <ActionIcon
+              data-testid="sidebar-section-new"
+              variant="subtle"
+              color="gray"
+              size="sm"
+              aria-label={`New file in ${spaceName}`}
+              onClick={() => actions.createPage('')}
+            >
+              <IconPlus size={rowMenuIconSize} />
+            </ActionIcon>
+          </div>
+        )}
+      </div>
+
+      <div className={sidebarClasses.filter}>
         <TextInput
           data-testid="sidebar-filter"
           value={query}
@@ -676,84 +748,44 @@ export function SidebarNav(): JSX.Element {
               </ActionIcon>
             )
           }
-          style={{ flex: '1 1 auto', minWidth: 0 }}
         />
-        {canWrite && actions !== undefined && (
-          <Menu position="bottom-end" withinPortal shadow="md" width={200}>
-            <Menu.Target>
-              <ActionIcon
-                data-testid="sidebar-new"
-                variant="default"
-                size={touch ? layout.tapTarget : layout.controlHeight}
-                style={{ flex: 'none' }}
-                aria-label="New file or folder"
-              >
-                <IconPlus size={iconSize} />
-              </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown>
-              {/* where it lands is the row that is picked, and the label says
-                  so for the times the tree is scrolled away from it */}
-              <Menu.Label data-testid="sidebar-new-where">{inFolder(here, rootNode.name)}</Menu.Label>
-              <Menu.Item
-                data-testid="sidebar-new-page"
-                leftSection={<IconFilePlus size={iconSize} />}
-                onClick={() => actions.createPage(here)}
-              >
-                New file
-              </Menu.Item>
-              <Menu.Item
-                data-testid="sidebar-new-folder"
-                leftSection={<IconFolderPlus size={iconSize} />}
-                onClick={() => actions.createFolder(here)}
-              >
-                New folder
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
-        )}
-      </Group>
+      </div>
 
       <TreeUiContext.Provider value={ui}>
         <ScrollArea type="hover" viewportRef={viewportRef} style={{ flex: '1 1 auto', minWidth: 0 }}>
-          {/* the empty space below the rows is the root folder, so dragging a
-              note out of a folder needs no row to aim at */}
-          <Box
-            px={touch ? 0 : gutter}
-            pb="xs"
+          <Stack
+            gap={1}
+            pb="md"
             mih="100%"
             data-testid="tree-root"
             data-drop={dropTarget === '' ? 'true' : 'false'}
-            onDragOver={(event) => ui.overFolder('', event)}
-            onDragLeave={() => ui.leaveFolder('')}
-            onDrop={(event) => ui.dropOn('', event)}
-            style={{
-              minWidth: 0,
-              borderRadius: 'var(--mantine-radius-sm)',
-              outline: dropTarget === '' ? '1px solid var(--scrawl-accent)' : undefined,
-              outlineOffset: -1,
-            }}
+            {...rootDrop}
+            style={{ minWidth: 0 }}
           >
             {error !== undefined ? (
-              <Text data-testid="sidebar-error" size="sm" c="dimmed">
+              <Text data-testid="sidebar-error" size="sm" c="dimmed" px="md">
                 {errorText(error)}
               </Text>
             ) : loading && tree.length === 0 ? (
-              <Stack data-testid="sidebar-loading" gap={6}>
-                <Skeleton height={24} radius="sm" />
-                <Skeleton height={24} radius="sm" />
-                <Skeleton height={24} radius="sm" />
+              <Stack data-testid="sidebar-loading" gap={6} px="md">
+                <Skeleton height={22} radius="sm" />
+                <Skeleton height={22} radius="sm" />
+                <Skeleton height={22} radius="sm" />
               </Stack>
             ) : trimmed !== '' && filtered.matches.length === 0 ? (
-              <Text data-testid="sidebar-empty" size="sm" c="dimmed">
-                {search ? 'Nothing matches. Press Enter to search the text of every note.' : 'Nothing matches.'}
+              <Text data-testid="sidebar-empty" size="sm" c="dimmed" px="md">
+                {openSearch !== undefined ? 'Nothing matches. Press Enter to search the text of every note.' : 'Nothing matches.'}
               </Text>
             ) : (
-              <TreeRows nodes={[rootNode]} depth={0} filtered={filtered} query={trimmed} touch={touch} />
+              <>
+                {draftAtRoot && <DraftRow depth={0} touch={touch} />}
+                {!draftAtRoot && tree.length === 0 && <EmptyRow depth={0} touch={touch} />}
+                <TreeRows nodes={tree} depth={0} filtered={filtered} query={trimmed} touch={touch} />
+              </>
             )}
-          </Box>
+          </Stack>
         </ScrollArea>
       </TreeUiContext.Provider>
-    </Stack>
+    </div>
   );
 }

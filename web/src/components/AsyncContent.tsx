@@ -5,45 +5,44 @@ import { Navigate } from 'react-router';
 
 import { handoffOf } from '../api/errors';
 import { errorText, type AsyncState } from '../api/useApi';
-import { usePlatform } from '../platform';
+import { layout } from '../theme';
+
+import { Page } from './Page';
 
 export interface AsyncContentProps<T> {
   state: AsyncState<T>;
   // the screen this is standing in for, so its waiting and failed states are
   // reachable under that screen's own name
   testId?: string;
+  // page draws the waiting and the failure on a page of their own, for a
+  // screen whose answer is the whole page
+  page?: boolean;
   children: (data: T) => ReactNode;
 }
 
-export function AsyncContent<T>({ state, testId, children }: AsyncContentProps<T>): JSX.Element {
-  const { physicalUrl } = usePlatform();
+export function AsyncContent<T>({ state, testId, page = false, children }: AsyncContentProps<T>): JSX.Element {
+  const framed = (content: JSX.Element): JSX.Element => (page ? <Page>{content}</Page> : content);
   if (state.error !== undefined) {
     const elsewhere = handoffOf(state.error);
-    if (elsewhere?.kind === 'attachment') {
-      // /raw/ is a server route: a router navigation would put the right url
-      // in the address bar, never ask the raw handler and render the app's 404
-      window.location.replace(physicalUrl(elsewhere.url));
-      return <></>;
-    }
     if (elsewhere !== undefined) {
       return <Navigate to={elsewhere.url} replace />;
     }
-    return (
+    return framed(
       <Alert
         data-testid={testId === undefined ? undefined : `${testId}-error`}
         color="red"
-        icon={<IconAlertTriangle size={18} />}
+        icon={<IconAlertTriangle size={layout.iconSize} />}
         title="That did not work"
       >
         {errorText(state.error)}
-      </Alert>
+      </Alert>,
     );
   }
   if (state.data === undefined) {
-    return (
+    return framed(
       <Center data-testid={testId === undefined ? undefined : `${testId}-loading`} py="3xl">
         <Loader size="sm" />
-      </Center>
+      </Center>,
     );
   }
   return <>{children(state.data)}</>;

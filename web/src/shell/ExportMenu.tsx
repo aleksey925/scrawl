@@ -1,18 +1,25 @@
 import { Menu, useMantineColorScheme } from '@mantine/core';
-import { IconDownload, IconFileTypeHtml, IconFileTypePdf, IconMarkdown } from '@tabler/icons-react';
+import { IconFileTypeHtml, IconFileTypePdf, IconMarkdown } from '@tabler/icons-react';
 import { useEffect, useRef, type JSX } from 'react';
 
 import { api } from '../api/client';
 import type { ExportFormat } from '../api/types';
 import { errorText } from '../api/useApi';
+import { layout } from '../theme';
 import { showToast } from '../toast';
 
 import { exportName, printNote, saveFile } from './exportNote';
-import { TopbarAction } from './TopbarAction';
 
-// ExportMenu saves the note on screen as a file: the source and a page of its
-// own come from the server, a PDF from the browser's print dialog
-export function ExportMenu({ path }: { path: string }): JSX.Element {
+export interface NoteExport {
+  print: () => void;
+  download: (format: ExportFormat) => void;
+}
+
+// useNoteExport saves the note on screen as a file: the source and a page of
+// its own come from the server, a PDF from the browser's print dialog. It
+// lives with the menu's trigger and not in the dropdown, which unmounts as the
+// menu closes and would cancel a print still waiting for its formulas.
+export function useNoteExport(path: string): NoteExport {
   const { setColorScheme } = useMantineColorScheme();
   const pendingPrint = useRef<AbortController | undefined>(undefined);
 
@@ -36,34 +43,35 @@ export function ExportMenu({ path }: { path: string }): JSX.Element {
     })();
   };
 
+  return { print, download };
+}
+
+// ExportItems are the exports among the items of a menu
+export function ExportItems({ print, download }: NoteExport): JSX.Element {
   return (
-    <Menu position="bottom-end" withinPortal>
-      <Menu.Target>
-        <TopbarAction testId="doc-export" label="Export" icon={IconDownload} />
-      </Menu.Target>
-      <Menu.Dropdown data-testid="doc-export-menu">
-        <Menu.Item
-          data-testid="doc-export-md"
-          leftSection={<IconMarkdown size={16} />}
-          onClick={() => download('md')}
-        >
-          Markdown
-        </Menu.Item>
-        <Menu.Item
-          data-testid="doc-export-html"
-          leftSection={<IconFileTypeHtml size={16} />}
-          onClick={() => download('html')}
-        >
-          HTML
-        </Menu.Item>
-        <Menu.Item
-          data-testid="doc-export-pdf"
-          leftSection={<IconFileTypePdf size={16} />}
-          onClick={print}
-        >
-          PDF / Print
-        </Menu.Item>
-      </Menu.Dropdown>
-    </Menu>
+    <>
+      <Menu.Label>Export</Menu.Label>
+      <Menu.Item
+        data-testid="doc-export-md"
+        leftSection={<IconMarkdown size={layout.iconSizeSmall} />}
+        onClick={() => download('md')}
+      >
+        Markdown
+      </Menu.Item>
+      <Menu.Item
+        data-testid="doc-export-html"
+        leftSection={<IconFileTypeHtml size={layout.iconSizeSmall} />}
+        onClick={() => download('html')}
+      >
+        HTML
+      </Menu.Item>
+      <Menu.Item
+        data-testid="doc-export-pdf"
+        leftSection={<IconFileTypePdf size={layout.iconSizeSmall} />}
+        onClick={print}
+      >
+        PDF / Print
+      </Menu.Item>
+    </>
   );
 }

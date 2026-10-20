@@ -1,13 +1,17 @@
 package server
 
 import (
+	"bytes"
 	"errors"
+	"html/template"
 	"log"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 
 	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
 	"github.com/aleksey925/scrawl/view"
 )
@@ -130,16 +134,15 @@ func (m *mount) apiPage(w http.ResponseWriter, r *http.Request) {
 		writeHandoff(w, view.KindDirectory, view.DirURL(p), "path is a directory, list it from /api/dir/")
 		return
 	case !isMarkdown(p):
-		writeHandoff(w, view.KindAttachment, view.ContentURL(p), "not a document, read it from /raw/")
+		m.writeFile(w, r, stat)
 		return
 	}
 
-	m.writeDoc(w, r, p, p)
+	m.writeDoc(w, r, p)
 }
 
-// apiDir lists a directory. One holding an index.md is that document instead,
-// rendered under the directory's own path the way the directory page renders
-// it: the reader asked for the directory and keeps its address.
+// apiDir lists a directory. A folder is always its list, and its index.md is a
+// row of it, tagged as the folder page.
 func (m *mount) apiDir(w http.ResponseWriter, r *http.Request) {
 	p, ok := contentPath(r, "path")
 	if !ok {
@@ -153,7 +156,7 @@ func (m *mount) apiDir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !stat.IsDir {
-		writeHandoff(w, fileKind(p), view.ContentURL(p), "path is not a directory")
+		writeHandoff(w, view.KindDocument, view.ContentURL(p), "path is not a directory")
 		return
 	}
 
@@ -162,30 +165,16 @@ func (m *mount) apiDir(w http.ResponseWriter, r *http.Request) {
 		failJSON(w, r, err)
 		return
 	}
-	if intro := view.IndexOf(entries, view.IndexName); intro != "" {
-		m.writeDoc(w, r, p, intro)
-		return
-	}
-
-	res := view.NewDir(p, entries)
-	if intro := view.IndexOf(entries, view.ReadmeName); intro != "" {
-		if html, introErr := m.renderIntro(intro); introErr == nil {
-			res.ReadmeHTML, res.HasReadme = string(html), true
-		}
-	}
-	writeJSON(w, http.StatusOK, res)
+	writeJSON(w, http.StatusOK, view.NewDir(p, entries, view.ItemsIn(m.spc.Store.List)))
 }
 
-// writeDoc answers with one rendered document, read from docPath but presented
-// under navPath. The two differ for a directory served as its index.md, which
-// keeps the path and the trail of the directory so that the client never has to
-// leave the address it was asked to show. Only the edit link names the file.
+// writeDoc answers with one rendered document.
 //
 // The revision is the ETag, so a reader coming back to a page revalidates it
 // with one conditional request instead of carrying a copy of the revision
 // around to decide whether what the browser restored is still current.
-func (m *mount) writeDoc(w http.ResponseWriter, r *http.Request, navPath, docPath string) {
-	data, fi, err := m.spc.Store.Read(docPath)
+func (m *mount) writeDoc(w http.ResponseWriter, r *http.Request, p string) {
+	data, fi, err := m.spc.Store.Read(p)
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -200,13 +189,76 @@ func (m *mount) writeDoc(w http.ResponseWriter, r *http.Request, navPath, docPat
 		return
 	}
 
-	res, err := m.renderDoc(docPath, data, rev)
+	res, err := m.renderDoc(p, data, rev)
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, view.NewPage(navPath, docPath, res, rev, fi.ModTime, m.canWrite(r)))
+	writeJSON(w, http.StatusOK, view.NewPage(p, res, rev, fi.ModTime, m.canWrite(r)))
+}
+
+// writeFile answers with the page of a file that is not a note: a picture, a
+// text file with its lines, or anything else as its download.
+func (m *mount) writeFile(w http.ResponseWriter, r *http.Request, fi store.FileInfo) {
+	contentType, _ := rawContentType(fi.Name)
+	switch {
+	case strings.HasPrefix(contentType, "image/"):
+		// an <img> runs no script, svg included; /raw/ still downloads an svg
+		// opened on its own
+		writeJSON(w, http.StatusOK, view.NewFile(fi, view.FileImage))
+		return
+	case !isTextFile(fi.Path) || fi.Size > maxEditableFile:
+		writeJSON(w, http.StatusOK, view.NewFile(fi, view.FileOther))
+		return
+	}
+
+	data, fi, err := m.spc.Store.Read(fi.Path)
+	if err != nil {
+		failJSON(w, r, err)
+		return
+	}
+	if !textContent(data) {
+		writeJSON(w, http.StatusOK, view.NewFile(fi, view.FileOther))
+		return
+	}
+	res := view.NewFile(fi, view.FileText)
+	res.Rev = store.Rev(data)
+	res.EditURL = view.EditURL(fi.Path)
+	res.Lines = lineCount(data)
+	res.HTML, res.Language = m.highlight(fi.Path, data)
+	writeJSON(w, http.StatusOK, res)
+}
+
+// highlight colors a text file up to maxHighlightBytes and under the render
+// deadline; past either it is plain text, which costs one escape.
+func (m *mount) highlight(p string, data []byte) (string, string) {
+	if len(data) > maxHighlightBytes {
+		return string(render.PlainFile(data)), render.PlainLanguage
+	}
+	type highlighted struct {
+		html     template.HTML
+		language string
+	}
+	res, err := withDeadline(p, renderTimeout, func() (highlighted, error) {
+		html, language, highlightErr := m.spc.Renderer.HighlightFile(path.Base(p), data)
+		return highlighted{html: html, language: language}, highlightErr
+	})
+	if err != nil {
+		log.Printf("[WARN] %v, shown as plain text", err)
+		return string(render.PlainFile(data)), render.PlainLanguage
+	}
+	return string(res.html), res.language
+}
+
+// lineCount is how many lines a text file has, a last line with no newline
+// included
+func lineCount(data []byte) int {
+	res := bytes.Count(data, []byte("\n"))
+	if len(data) > 0 && data[len(data)-1] != '\n' {
+		res++
+	}
+	return res
 }
 
 // apiNav serves the sidebar tree and the breadcrumbs for the page named by the
@@ -320,15 +372,6 @@ func (wb *Web) apiLogout(w http.ResponseWriter, r *http.Request) {
 
 func writeHandoff(w http.ResponseWriter, kind, target, message string) {
 	writeJSON(w, http.StatusConflict, handoff{Error: message, Kind: kind, URL: target})
-}
-
-// fileKind names what a file is served as: markdown is rendered as a document,
-// everything else is an attachment handed over by /raw/.
-func fileKind(p string) string {
-	if isMarkdown(p) {
-		return view.KindDocument
-	}
-	return view.KindAttachment
 }
 
 // canWrite reports whether this caller may write the notes at all, which is the

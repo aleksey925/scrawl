@@ -146,9 +146,24 @@ async function expectNoHorizontalScroll(page) {
 
 const THEME_LABELS = {auto: 'Auto', light: 'Light', dark: 'Dark'};
 
+// showOutline opens the list of the mini outline at the right edge, which
+// shows under the pointer
+async function showOutline(page) {
+    await page.getByTestId('mini-outline').hover();
+    await expect(page.getByTestId('toc')).toBeVisible();
+}
+
+// openSpaceMenu opens the menu in the head of the sidebar; a site on a phone
+// has the same theme picker in the menu at the right of its bar
+async function openSpaceMenu(page) {
+    const button = page.getByTestId('space-menu');
+    await ((await button.isVisible()) ? button : page.getByTestId('site-menu')).click();
+    await expect(page.getByTestId('space-menu-dropdown')).toBeVisible();
+}
+
 // chooseTheme presses one theme in the picker of the menu that is open
 async function chooseTheme(page, theme) {
-    const picker = page.getByTestId('topbar-theme');
+    const picker = page.getByTestId('space-menu-theme');
     await picker.getByText(THEME_LABELS[theme], {exact: true}).click();
     await expect(picker).toHaveAttribute('data-theme', theme);
 }
@@ -172,6 +187,12 @@ async function inStep(page, space) {
     }, space.api('')), {timeout: 30_000}).toBe('');
 }
 
+// rgb spells a theme file's #rrggbb the way getComputedStyle reports it
+function rgb(hex) {
+    const [r, g, b] = [1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16));
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
 module.exports = {
     HISTORY,
     MAIN,
@@ -186,13 +207,16 @@ module.exports = {
     inStep,
     jsonRequest,
     modifier,
+    openSpaceMenu,
     pressShortcut,
     readFixture,
     removeFixture,
+    rgb,
     routes,
     save,
     setSource,
     shot,
+    showOutline,
     signIn,
     sourceText,
     submitCredentials,

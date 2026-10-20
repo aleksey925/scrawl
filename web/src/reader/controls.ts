@@ -3,6 +3,7 @@ import { headingsOf, imagesOf } from './dom';
 
 export const anchorClass = 'md-anchor';
 export const copyClass = 'md-copy';
+export const codeHeadClass = 'md-code-head';
 export const copyLabel = 'Copy';
 export const copiedLabel = 'Copied';
 
@@ -67,6 +68,9 @@ export function injectHeadingAnchors(root: HTMLElement): Teardown {
   return removing(added, untag);
 }
 
+// injectCopyButtons puts a head row into every block of code, the language at
+// the left and Copy at the right. The head is never inside the pre: Copy takes
+// the text of the pre, and that has to be exactly the source.
 export function injectCopyButtons(root: HTMLElement): Teardown {
   const added: HTMLElement[] = [];
   const { tag, untag } = tagged();
@@ -76,18 +80,24 @@ export function injectCopyButtons(root: HTMLElement): Teardown {
     if (code === null || code.classList.contains('mermaid')) {
       continue;
     }
-    if (block.querySelector(`.${copyClass}`) !== null) {
+    if (block.querySelector(`.${codeHeadClass}`) !== null) {
       continue;
     }
     tag(block, 'doc-code');
+    const head = document.createElement('div');
+    head.className = codeHeadClass;
+    const language = document.createElement('span');
+    language.dataset.testid = 'code-language';
+    language.textContent = block.dataset.lang ?? '';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = copyClass;
     button.dataset.testid = 'code-copy';
     button.dataset.done = 'false';
     button.textContent = copyLabel;
-    block.append(button);
-    added.push(button);
+    head.append(language, button);
+    block.prepend(head);
+    added.push(head);
   }
   return removing(added, untag);
 }

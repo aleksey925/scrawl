@@ -99,14 +99,17 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
   const token = (name: string): string => style.getPropertyValue(name).trim();
 
   const bg = token('--scrawl-bg');
-  const inset = token('--scrawl-bg-inset');
-  const subtle = token('--scrawl-bg-subtle');
+  const inset = token('--scrawl-sidebar');
+  // the code ground is translucent in the dark, and mermaid mixes colors it
+  // can only read as opaque
+  const subtle = token('--scrawl-bg-gray');
+  const note = token('--scrawl-bg-yellow');
   const text = token('--scrawl-text');
   const muted = token('--scrawl-text-secondary');
   const faint = token('--scrawl-text-tertiary');
   const border = token('--scrawl-border');
-  const strong = token('--scrawl-border-strong');
-  const warning = token('--scrawl-warning');
+  const strong = token('--scrawl-icon-tertiary');
+  const warning = token('--scrawl-color-orange');
 
   return {
     text,
@@ -147,7 +150,7 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
         loopTextColor: text,
         activationBkgColor: subtle,
         activationBorderColor: strong,
-        noteBkgColor: subtle,
+        noteBkgColor: note,
         noteBorderColor: warning,
         noteTextColor: text,
       },

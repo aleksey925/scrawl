@@ -1,51 +1,41 @@
-import { Button, Group } from '@mantine/core';
+import { Button } from '@mantine/core';
 import { IconFileText, IconPencil } from '@tabler/icons-react';
-import { useRef, type JSX } from 'react';
+import { useEffect, useRef, type JSX } from 'react';
 import { Link } from 'react-router';
 
 import type { DocumentResponse } from '../api/types';
 import { useReaderExtensions } from '../shell/extensions';
-import { useCurrentDoc, useNav } from '../shell/NavContext';
+import { useNav } from '../shell/NavContext';
 import { basenameOf } from '../shell/naming';
-import { NoteCrumbs } from '../shell/PathCrumbs';
-import { ActionPlaceProvider } from '../shell/ShellSlots';
-import { layoutBreakpoints, useAtLeast } from '../theme';
+import { chromeOf, usePageChrome } from '../shell/PageChrome';
+import { useRecentNotes } from '../shell/recentNotes';
+import { layout } from '../theme';
 
 import { DocumentHtml } from './DocumentHtml';
 import { EmptyState } from './EmptyState';
-import { NoteCard } from './NoteCard';
+import { Page } from './Page';
 
 export interface DocumentBodyProps {
   doc: DocumentResponse;
 }
 
+// a note's leading heading is its page title, so the page draws the title
+// itself and the topbar repeats it only once it has scrolled away
+const leadingHeading = /^\s*<h1[\s>]/;
+
 export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
   const { canWrite } = useNav();
-  const { DocumentExtras, NoteActions } = useReaderExtensions();
-  const wide = useAtLeast(layoutBreakpoints.compactTopbar);
-  // the file, not the route: a directory holding an index.md is served under
-  // the directory's own address, and the root is that case with an empty path
-  useCurrentDoc(doc.doc_path);
+  const { DocumentExtras } = useReaderExtensions();
+  usePageChrome(chromeOf(doc.breadcrumbs, doc.title, leadingHeading.test(doc.html)));
+  const { remember } = useRecentNotes();
+  useEffect(() => remember({ path: doc.path, title: doc.title }), [remember, doc.path, doc.title]);
   const placed = useRef(false);
 
   return (
     <>
       {DocumentExtras !== undefined && <DocumentExtras doc={doc} placed={placed} />}
 
-      <NoteCard
-        header={
-          <>
-            <NoteCrumbs />
-            {wide && NoteActions !== undefined && (
-              <ActionPlaceProvider value="head">
-                <Group data-testid="doc-actions" gap="xs" wrap="nowrap" ml="auto">
-                  <NoteActions doc={doc} />
-                </Group>
-              </ActionPlaceProvider>
-            )}
-          </>
-        }
-      >
+      <Page data-testid="note">
         {doc.html.trim() === '' ? (
           <EmptyState
             testId="doc-empty"
@@ -57,19 +47,19 @@ export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
                   data-testid="doc-empty-edit"
                   component={Link}
                   to={doc.edit_url}
-                  leftSection={<IconPencil size={16} />}
+                  leftSection={<IconPencil size={layout.iconSizeSmall} />}
                 >
                   Start writing
                 </Button>
               )
             }
           >
-            {`Nothing has been written in ${basenameOf(doc.doc_path)} yet.`}
+            {`Nothing has been written in ${basenameOf(doc.path)} yet.`}
           </EmptyState>
         ) : (
           <DocumentHtml html={doc.html} toc={doc.show_toc ? doc.toc : undefined} placed={placed} />
         )}
-      </NoteCard>
+      </Page>
     </>
   );
 }

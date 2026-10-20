@@ -27,7 +27,7 @@ test.describe('spaces', () => {
         await page.goto(MULTI.baseURL);
 
         await expect(page).toHaveURL(NOTES.home());
-        await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.home.title);
+        await expect(page.getByTestId('dir')).toBeVisible();
     });
 
     test('each space serves only its own notes', async ({page}) => {
@@ -47,8 +47,8 @@ test.describe('spaces', () => {
     test('the switcher lists every space and goes to one', async ({page}) => {
         await page.goto(NOTES.home());
 
-        await page.getByTestId('topbar-space').click();
-        const items = page.getByTestId('topbar-space-item');
+        await page.getByTestId('space-menu').click();
+        const items = page.getByTestId('space-menu-space-item');
         await expect(items).toHaveCount(4);
         await expect(items.filter({hasText: 'Team wiki'})).toBeVisible();
         await shot(page, 'spaces-switcher');
@@ -59,12 +59,12 @@ test.describe('spaces', () => {
         // a full page load, so the shell boots with the new basename
         await expect(page).toHaveURL(TEAM.home());
         await expect(page.locator('#scrawl-app-root')).toHaveAttribute('data-base', '/s/team');
-        await expect(page.getByTestId('topbar-space')).toContainText('Team wiki');
+        await expect(page.getByTestId('space-menu')).toContainText('Team wiki');
     });
 
     // 130px once cut a two-word name on a screen with a thousand to spare
     test('the switcher shows an ordinary name whole and ends a long one in an ellipsis', async ({page}) => {
-        const label = page.getByTestId('topbar-space').locator('span', {hasText: /\S/}).last();
+        const label = page.getByTestId('space-menu').locator('span', {hasText: /\S/}).last();
         const cut = () => label.evaluate((el) => el.scrollWidth > el.clientWidth);
         const named = async (name) => {
             await page.route(/\/api\/me$/, async (route) => {
@@ -85,7 +85,7 @@ test.describe('spaces', () => {
         await named('A space whose name was written by somebody paid by the word');
         expect(await cut()).toBe(true);
         await expect(label).toHaveCSS('text-overflow', 'ellipsis');
-        await expect(page.getByTestId('doc-export')).toBeInViewport({ratio: 1});
+        await expect(page.getByTestId('sidebar-new')).toBeInViewport({ratio: 1});
         await shot(page, 'spaces-switcher-long-name');
     });
 

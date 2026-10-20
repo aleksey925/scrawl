@@ -1,19 +1,21 @@
-import { Anchor, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Text } from '@mantine/core';
 import type { JSX } from 'react';
 import { Link } from 'react-router';
 
-import { PageContainer } from '../shell/PageContainer';
+import { Page, PageTitle } from '../components/Page';
+import { usePageChrome } from '../shell/PageChrome';
 
 export function Component(): JSX.Element {
+  usePageChrome({ crumbs: [], title: 'Nothing here', ownTitle: true });
   return (
-    <PageContainer>
-      <Stack data-testid="app-notfound" gap="md">
-        <Title order={1}>Nothing here</Title>
-        <Text c="dimmed">That address does not match a note or a folder.</Text>
-        <Anchor component={Link} to="/">
-          Back to all notes
-        </Anchor>
-      </Stack>
-    </PageContainer>
+    <Page data-testid="app-notfound">
+      <PageTitle>Nothing here</PageTitle>
+      <Text c="dimmed" mb="md">
+        That address does not match a note or a folder.
+      </Text>
+      <Anchor component={Link} to="/">
+        Back to all notes
+      </Anchor>
+    </Page>
   );
 }

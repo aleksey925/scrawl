@@ -46,6 +46,7 @@ function routesFor(space) {
         edit: (contentPath) => inSpace(`/edit/${encodePath(contentPath)}`),
         history: (contentPath) => inSpace(`/history/${encodePath(contentPath)}`),
         search: (query) => inSpace(`/search?q=${encodeURIComponent(query)}`),
+        recent: () => inSpace('/recent'),
         raw: (contentPath) => inSpace(`/raw/${encodePath(contentPath)}`),
         api: (suffix) => inSpace(`/api${suffix}`),
         // the webhook, which is a space route and outside /api on purpose

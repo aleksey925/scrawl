@@ -21,6 +21,96 @@
   padding-inline: var(--mantine-spacing-xs);
 }
 
+/* a control is quiet until it is used: no fill and no line on an icon button,
+   the hover tint under the pointer and a darker one while pressed */
+.actionIcon {
+  --ai-radius: var(--mantine-radius-md);
+}
+
+.actionIcon[data-variant='subtle'] {
+  --ai-color: var(--scrawl-icon-secondary);
+  --ai-hover: var(--scrawl-hover);
+  --ai-hover-color: var(--scrawl-icon);
+}
+
+.actionIcon[data-variant='subtle']:active {
+  background: var(--scrawl-pressed);
+}
+
+.button {
+  --button-height-xs: var(--scrawl-control-height);
+  --button-height-sm: var(--scrawl-control-height);
+  --button-height-md: var(--scrawl-control-height-large);
+  --button-padding-x-xs: 8px;
+  --button-padding-x-sm: 10px;
+  --button-radius: var(--mantine-radius-md);
+  font-weight: 500;
+}
+
+.button[data-variant='default'] {
+  --button-bg: transparent;
+  --button-bd: 1px solid var(--scrawl-border);
+  --button-hover: var(--scrawl-hover);
+  --button-color: var(--scrawl-text);
+}
+
+.button[data-variant='subtle'] {
+  --button-color: var(--scrawl-text);
+  --button-hover: var(--scrawl-hover);
+}
+
+.button:is([data-variant='default'], [data-variant='subtle']):active {
+  background: var(--scrawl-pressed);
+}
+
+/* a field is cut into the page with the hover tint and a faint line, and
+   shows the accent as a ring when it has the focus */
+.input {
+  --input-height-sm: var(--scrawl-control-height);
+  --input-radius: var(--mantine-radius-md);
+}
+
+:global([data-mantine-color-scheme]) .input[data-variant='default'] {
+  --input-bg: var(--scrawl-hover);
+  --input-bd: var(--scrawl-border-translucent);
+  --input-bd-focus: var(--scrawl-accent);
+}
+
+.input[data-variant='default'] .inputField {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--input-bd);
+}
+
+.input[data-variant='default'] .inputField:focus {
+  border-color: transparent;
+  box-shadow:
+    inset 0 0 0 1px var(--input-bd-focus),
+    0 0 0 3px var(--scrawl-accent-tint);
+}
+
+.input .inputField::placeholder {
+  color: var(--scrawl-text-tertiary);
+}
+
+/* a menu floats on the popover ground, its edge drawn by the shadow */
+.menu {
+  border: 0;
+  background: var(--scrawl-popover);
+  box-shadow: var(--scrawl-shadow-medium);
+}
+
+.menuItem {
+  min-height: var(--scrawl-control-height);
+  border-radius: var(--mantine-radius-md);
+  --menu-item-hover: var(--scrawl-hover);
+}
+
+.menuLabel {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+  color: var(--scrawl-text-tertiary);
+}
+
 @media (pointer: coarse) {
   /* an input below 16px makes iOS zoom the page on focus and never zoom back */
   .inputField {
@@ -88,25 +178,28 @@
   }
 }
 
-.button {
-  --button-height-xs: var(--scrawl-control-height-small);
-  --button-height-sm: var(--scrawl-control-height);
-  --button-padding-x-xs: 10px;
-  --button-padding-x-sm: 14px;
-}
+/* below the phone width a menu is a sheet from the bottom, never a small box
+   in a corner the thumb does not reach; the floating position mantine writes
+   inline is overruled */
+@mixin smaller-than $mantine-breakpoint-sm {
+  .menu {
+    position: fixed !important;
+    inset: auto 0 var(--scrawl-tabbar-space) !important;
+    width: auto !important;
+    max-height: 75dvh;
+    padding: 8px 8px calc(8px + var(--scrawl-sheet-inset));
+    overflow-y: auto;
+    border-radius: var(--mantine-radius-xl) var(--mantine-radius-xl) 0 0;
+    box-shadow: var(--scrawl-shadow-large);
+  }
 
-/* a field is a hole in the page and not a raised control: mantine fills it
-   with the button gray in the dark scheme, so a filter read as a third button */
-.input {
-  --input-height-sm: var(--scrawl-control-height);
-}
+  .menuItem {
+    min-height: 48px;
+    padding-inline: var(--mantine-spacing-md);
+    font-size: 16px;
+  }
 
-:global([data-mantine-color-scheme]) .input[data-variant='default'] {
-  --input-bg: var(--scrawl-bg);
-  --input-bd: var(--scrawl-border);
-  --input-bd-focus: var(--scrawl-accent-emphasis);
-}
-
-.input[data-variant='default'] .inputField:focus {
-  box-shadow: inset 0 0 0 1px var(--input-bd);
+  .menuLabel {
+    padding-inline: var(--mantine-spacing-md);
+  }
 }

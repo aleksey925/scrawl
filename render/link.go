@@ -24,6 +24,7 @@ type linkTransformer struct {
 	relative   bool
 	pageExt    string
 	folderPage string
+	indexPage  string
 	exists     func(contentPath string) bool
 }
 
@@ -44,7 +45,7 @@ func (t *linkTransformer) Transform(doc *ast.Document, _ text.Reader, pc parser.
 		}
 		switch node := n.(type) {
 		case *ast.Link:
-			tg := t.resolve(string(node.Destination), dir)
+			tg := t.resolveLink(string(node.Destination), dir)
 			node.Destination = []byte(tg.dest)
 			t.decorate(node, tg, false)
 		case *ast.Image:
@@ -80,9 +81,22 @@ func setExternal(n ast.Node) {
 	n.SetAttributeString("rel", []byte("noopener noreferrer"))
 }
 
-// resolve maps one destination, relative to dir. It is idempotent: an
-// absolute URL, an app route and a bare fragment all pass through unchanged.
+// resolve maps the destination of an embedded resource, a picture or a source
+// of one, relative to dir: the browser fetches it as bytes, so a file that is
+// not a note goes to the raw route. It is idempotent: an absolute URL, an app
+// route and a bare fragment all pass through unchanged.
 func (t *linkTransformer) resolve(dest, dir string) target {
+	return t.route(dest, dir, true)
+}
+
+// resolveLink maps the destination of a link, which a reader follows to a page:
+// every local file has one, so a link to a picture or a pdf opens its page the
+// way a row of a folder does.
+func (t *linkTransformer) resolveLink(dest, dir string) target {
+	return t.route(dest, dir, false)
+}
+
+func (t *linkTransformer) route(dest, dir string, embed bool) target {
 	u, passthrough, ok := parseLocal(dest)
 	if !ok {
 		return passthrough
@@ -107,7 +121,7 @@ func (t *linkTransformer) resolve(dest, dir string) target {
 	switch {
 	case strings.HasSuffix(u.Path, "/"):
 		route = t.pagePrefix + escaped + "/"
-	case isMarkdown(u.Path):
+	case isMarkdown(u.Path) || !embed:
 		route = t.pagePrefix + escaped
 	}
 	if u.RawQuery != "" {
@@ -158,8 +172,8 @@ func (t *linkTransformer) keepRelative(u *url.URL, dest string) target {
 	switch {
 	case t.folderPage != "" && isFolder(u.Path):
 		swapped.Path = strings.TrimSuffix(u.Path, "/") + "/" + t.folderPage
-	case t.folderPage != "" && strings.EqualFold(path.Base(u.Path), folderIndex):
-		swapped.Path = path.Join(path.Dir(u.Path), t.folderPage)
+	case t.indexPage != "" && strings.EqualFold(path.Base(u.Path), folderIndex):
+		swapped.Path = path.Join(path.Dir(u.Path), t.indexPage)
 	case t.pageExt != "" && isMarkdown(u.Path):
 		swapped.Path = strings.TrimSuffix(u.Path, path.Ext(u.Path)) + t.pageExt
 	default:
@@ -168,7 +182,7 @@ func (t *linkTransformer) keepRelative(u *url.URL, dest string) target {
 	return target{dest: swapped.String(), rewrote: true}
 }
 
-// folderIndex is the note a folder is shown as instead of its listing.
+// folderIndex is a folder's own note, written to indexPage on a site.
 const folderIndex = "index.md"
 
 // isFolder is a relative destination that names a folder: a trailing slash, or

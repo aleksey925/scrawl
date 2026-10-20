@@ -4,21 +4,28 @@ A web app for a folder of markdown files. Read and edit your notes from
 a browser, on a laptop or a phone. One static binary, no database: the
 files on disk are the only state.
 
-- full text search, with a command palette on `Ctrl`/`Cmd` + `K`
+- search of the whole space on `Ctrl`/`Cmd` + `K`: fuzzy, exact or by a
+  regular expression, with the lines that matched; and find in the note
+  on screen on `Ctrl`/`Cmd` + `F`
 - an editor with live preview, on desktop and on mobile
-- pages and folders made in the tree itself, dragged between folders,
-  renamed and deleted; paste images straight into the editor
+- every file in a folder opens: a picture as a preview, a text file as
+  highlighted code
+- pages and folders made in the tree or in a folder's list, dragged
+  between folders, renamed and deleted; paste images straight into the
+  editor
 - export note as Markdown, HTML or PDF
-- a version history per page: what changed, shown side by side the way
-  the page reads, with the changed words marked; who changed it; and a
-  restore
+- a version history per page, in a large dialog over it: what changed,
+  shown side by side the way the page reads, with the changed words
+  marked; who changed it; and a restore
 - several spaces at once, each a folder or a git repository it clones,
   serves and pushes back to
 - a login page, users configured through the environment
 - a JSON API with token auth, for scripts and agents
 - a command line that renders, compares and formats markdown without
   the server
-- light and dark themes
+- a Notion-like look, in a light and a dark theme
+- a phone layout of its own: tabs at the bottom, folder lists, the notes
+  opened last, and menus as sheets under the thumb
 - installs to a phone home screen and runs there without browser chrome
 
 ## Try it
@@ -452,12 +459,21 @@ read-only space: a read-only mirror whose remote was rebased needs it
 most. A `:ro` token cannot reset. On a server with authentication off,
 nobody can reset a read-only space from the page.
 
+## Keyboard shortcuts
+
+- `Ctrl`/`Cmd` + `K` searches the space, `Ctrl`/`Cmd` + `F` finds in the
+  note on screen
+- `Ctrl`/`Cmd` + `B` shows or hides the sidebar
+- `E` opens the note in the editor, `Ctrl`/`Cmd` + `S` saves it
+- `?` shows the whole list
+
 ## Markdown
 
-Pages render and look the way GitHub renders them: tables, task lists,
-footnotes, alerts, emoji shortcodes, math, mermaid diagrams, `<details>`
-sections and syntax highlighting. The styles are a port of GitHub's own
-markdown stylesheet, in both the light and the dark theme.
+Pages take GitHub's markdown and show it in a Notion-like style: tables,
+task lists, footnotes, alerts as callouts, emoji shortcodes, math,
+mermaid diagrams, `<details>` sections as toggles and syntax
+highlighting, in both the light and the dark theme. A task is ticked in
+the editor, not on the page.
 
 ````
 > [!WARNING]
@@ -561,9 +577,20 @@ The last one answers with the source and the revision it was read at:
 }
 ```
 
-Only a text file up to 2MB comes back this way. For any other file the
-answer is `415` (not text) or `413` (too large); read it from
+Only a text file up to 2MB, in UTF-8, comes back this way. For any other
+file the answer is `415` (not text) or `413` (too large); read it from
 `/s/<space>/raw/<path>` with the same header.
+
+To get the lines that matched, name a mode, `mode=fuzzy` or `mode=exact`,
+or any of `case=1`, `word=1`, `regex=1` and `titles=1`. Fuzzy takes every
+word in any order and allows one typo in a word of four letters or more;
+exact takes the text as typed; `regex=1` takes an RE2 regular expression.
+Exact and regex run line by line over the text as a reader sees it, so
+`^Install` finds a heading and `^## ` finds nothing. Each hit then carries
+`title_spans`, `match_count`, `line_count` and up to 20 `lines`, each with
+its line number, its text in `spans` and a `url` that opens the note at
+that line. A bad pattern is answered with `400` and the reason. A search
+that names none of these is answered as before.
 
 A save sends that `rev` back. If the file changed since it was read, the
 `rev` no longer matches and the save is refused. Read it, then save:
@@ -684,17 +711,19 @@ code.
 
 `site` writes the notes as a static site, for any static host under any
 path, or to open straight from disk. A page of the site is the app's
-reader with nothing to write: the tree of notes with its filter, a drawer
-on a phone, the outline with the section being read marked, a sheet for
-it on a phone, the path to the note, a page for every folder, a copy
+reader with nothing to write: the tree of notes with its filter, folder
+lists on a phone, the outline with the section being read marked, a sheet
+for it on a phone, the path to the note, a list for every folder, a copy
 button on every code block, a viewer for the pictures, mermaid diagrams,
-formulas and the theme picker, whose choice is kept from page to page.
+formulas, and the theme and page width, kept from page to page.
 From a host the site moves between notes without loading the page again,
 as the app does; opened from disk, every note is a page load.
 Search, editing, history and sync need the server and are not on a site.
 The diagram renderer, some 5MB, and the formula renderer are written only
 when a note needs them. There is nothing to configure: the front page is
-`index.md` at the root of the notes, or the list of what the root holds.
+the list of what the root holds, and Home opens `index.md` at the root of
+the notes. A folder's `index.md` is written as `index.md.html`, beside the
+folder's list.
 The scripts and the stylesheets are written once, into `scrawl/`. Every
 other file is copied as it is, and `site` names the ones a browser runs a
 script from, such as `.html` or `.svg`: opened from the site, they run

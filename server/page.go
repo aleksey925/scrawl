@@ -1,6 +1,7 @@
 package server
 
 import (
+	"html/template"
 	"log"
 	"path"
 	"strings"
@@ -13,6 +14,7 @@ import (
 type LoginPage struct {
 	SiteTitle string
 	Version   string
+	Logo      template.HTML
 	Theme     pageTheme
 	// Themes is every theme as JSON, for the toggle's script
 	Themes string

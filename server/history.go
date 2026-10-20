@@ -2,10 +2,15 @@ package server
 
 import (
 	"context"
+	"crypto/sha1" //nolint:gosec // git names a blob by its sha-1, this is no security check
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/aleksey925/scrawl/auth"
@@ -63,6 +68,9 @@ type historyEntry struct {
 	Path    string    `json:"path"`
 	Kind    string    `json:"kind"`
 	At      time.Time `json:"at"`
+	// Restorable says the version holds content other than the file on disk now,
+	// so writing it back changes something; a deletion holds none
+	Restorable bool `json:"restorable"`
 }
 
 // restoreRequest names the version to write back. Version is the commit that
@@ -129,7 +137,7 @@ func (m *mount) apiHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"path":     p,
 		"degraded": m.history().Degraded(),
-		"entries":  historyEntries(entries),
+		"entries":  historyEntries(entries, m.currentBlob(p)),
 	})
 }
 
@@ -370,19 +378,53 @@ func failHistory(w http.ResponseWriter, r *http.Request, err error) {
 	}
 }
 
-func historyEntries(entries []history.Entry) []historyEntry {
+func historyEntries(entries []history.Entry, current func(like string) string) []historyEntry {
 	res := make([]historyEntry, 0, len(entries))
 	for _, ent := range entries {
 		res = append(res, historyEntry{
-			Rev:     ent.Rev,
-			Short:   ent.Short,
-			Blob:    ent.Blob,
-			Actor:   ent.Actor,
-			Message: ent.Message,
-			Path:    ent.Path,
-			Kind:    string(ent.Kind),
-			At:      ent.At,
+			Rev:        ent.Rev,
+			Short:      ent.Short,
+			Blob:       ent.Blob,
+			Actor:      ent.Actor,
+			Message:    ent.Message,
+			Path:       ent.Path,
+			Kind:       string(ent.Kind),
+			At:         ent.At,
+			Restorable: ent.Blob != "" && ent.Blob != current(ent.Blob),
 		})
 	}
 	return res
+}
+
+// currentBlob answers the id git would give the file on disk now, hashed once
+// and in the hash of the id it is asked to match. A file that is not there
+// answers an empty id, which no version with content has.
+func (m *mount) currentBlob(p string) func(like string) string {
+	data, _, err := m.spc.Store.Read(p)
+	ids := map[int]string{}
+	return func(like string) string {
+		if err != nil {
+			return ""
+		}
+		id, ok := ids[len(like)]
+		if !ok {
+			id = blobID(data, len(like))
+			ids[len(like)] = id
+		}
+		return id
+	}
+}
+
+// blobID is the id git gives content as a blob: sha-1 in an ordinary
+// repository and sha-256 in one made with --object-format=sha256.
+func blobID(data []byte, idLen int) string {
+	var h hash.Hash
+	if idLen == sha256.Size*2 {
+		h = sha256.New()
+	} else {
+		h = sha1.New() //nolint:gosec // git names a blob by its sha-1, this is no security check
+	}
+	h.Write([]byte("blob " + strconv.Itoa(len(data)) + "\x00"))
+	h.Write(data)
+	return hex.EncodeToString(h.Sum(nil))
 }

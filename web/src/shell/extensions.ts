@@ -1,9 +1,10 @@
 import { createContext, useContext, type ComponentType, type RefObject } from 'react';
 
-import type { DocumentResponse } from '../api/types';
+import type { DocumentResponse, FilePageResponse } from '../api/types';
+import { layout } from '../theme';
 
 // the glyph a row menu draws, which the inset of a tree row lines up with
-export const rowMenuIconSize = 16;
+export const rowMenuIconSize = layout.iconSizeSmall;
 
 export interface RowMenuProps {
   path: string;
@@ -16,10 +17,6 @@ export interface RowMenuProps {
   onOpenedChange: (opened: boolean) => void;
 }
 
-export interface NoteActionsProps {
-  doc: DocumentResponse;
-}
-
 export interface DocumentExtrasProps {
   doc: DocumentResponse;
   // true while the reading anchor is placing this arrival
@@ -30,9 +27,9 @@ export interface DocumentExtrasProps {
 // tree row. The reader imports none of them, so a site carries only its own.
 export interface ReaderExtensions {
   DocumentExtras?: ComponentType<DocumentExtrasProps>;
-  // the buttons in the head of a note's card
-  NoteActions?: ComponentType<NoteActionsProps>;
   RowMenu?: ComponentType<RowMenuProps>;
+  // the page of a file that is not a note, which only the app has
+  FileView?: ComponentType<{ file: FilePageResponse }>;
 }
 
 const none: ReaderExtensions = {};

@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 
 import type { ScrawlApi } from './api/client';
 import type { Mermaid } from './reader/diagrams';
+import type { FindMatch, FindPattern } from './reader/findMatches';
 import type { InternalTarget } from './reader/links';
 import type { Katex } from './reader/typeset';
 
@@ -25,6 +26,14 @@ export interface Platform {
   search: boolean;
   // editing is whether a note can be written here at all
   editing: boolean;
+  // filePages is whether a file that is not a note has a page of its own; on
+  // a site it is the copy the browser opens
+  filePages: boolean;
+  // runFind runs the find of a note over the joined text of its blocks
+  runFind: (texts: string[], pattern: FindPattern) => Promise<FindMatch[]>;
+  // boundedFind is whether runFind stops a pattern that runs too long, which
+  // a worker can and a page opened from disk, which starts none, cannot
+  boundedFind: boolean;
 }
 
 const PlatformContext = createContext<Platform | undefined>(undefined);

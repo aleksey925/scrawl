@@ -22,16 +22,18 @@ import (
 const (
 	// siteAssets is where the scripts and the stylesheets every page links to
 	// are written. Not "_scrawl": GitHub Pages runs Jekyll, which drops it.
-	siteAssets   = "scrawl"
-	sitePage     = ".html"
-	siteFolder   = "index.html"
-	siteNotFound = "404.html"
-	siteTreeFile = "tree.js"
-	siteChroma   = "chroma.css"
-	siteFavicon  = "favicon.svg"
-	siteTitle    = "Notes"
-	siteDirMode  = fs.FileMode(0o755)
-	siteFileMode = fs.FileMode(0o644)
+	siteAssets = "scrawl"
+	sitePage   = ".html"
+	siteFolder = "index.html"
+	// siteIndexPage is a folder's index.md, whose folder is its list
+	siteIndexPage = "index.md.html"
+	siteNotFound  = "404.html"
+	siteTreeFile  = "tree.js"
+	siteChroma    = "chroma.css"
+	siteFavicon   = "favicon.svg"
+	siteTitle     = "Notes"
+	siteDirMode   = fs.FileMode(0o755)
+	siteFileMode  = fs.FileMode(0o644)
 )
 
 // activeExtensions are the files a browser runs a script from when one is
@@ -69,7 +71,9 @@ func runSite(opts *siteOptions, out io.Writer) error {
 
 	b := siteBuilder{
 		st: st, dst: dst,
-		renderer: render.New(render.Options{Relative: true, PageExt: sitePage, FolderPage: siteFolder}),
+		renderer: render.New(render.Options{
+			Relative: true, PageExt: sitePage, FolderPage: siteFolder, IndexPage: siteIndexPage,
+		}),
 	}
 	if writeErr := b.writeSite(plan); writeErr != nil {
 		return writeErr
@@ -85,10 +89,9 @@ func runSite(opts *siteOptions, out io.Writer) error {
 // written, so a name two of them would share is refused with nothing on disk.
 type sitePlan struct {
 	root *store.Node
-	// folders are every folder, the root first, each written as its index page
+	// folders are every folder, the root first, each written as its list
 	folders []string
-	// notes are the notes with a page of their own, which a folder's index
-	// does not have: it is the folder's page
+	// notes are every note, a folder's index.md included
 	notes []string
 	// files are copied as they are
 	files []string
@@ -114,26 +117,21 @@ func planSite(st *store.Store) (sitePlan, error) {
 		return nil
 	}
 
-	var walk func(node *store.Node, index string) error
-	walk = func(node *store.Node, index string) error {
+	var walk func(node *store.Node) error
+	walk = func(node *store.Node) error {
 		if node.IsDir {
 			plan.folders = append(plan.folders, node.Path)
 			if err := claim(folderPageOf(node.Path), folderName(node.Path)); err != nil {
 				return err
 			}
-			own := indexOfFolder(node)
 			for _, child := range node.Children {
-				if err := walk(child, own); err != nil {
+				if err := walk(child); err != nil {
 					return err
 				}
 			}
 			return nil
 		}
 		switch {
-		case node.Path == index:
-			return nil
-		case isMarkdown(node.Path) && isFolderIndex(node.Path):
-			return claim(folderPageOf(folderOf(node.Path)), node.Path)
 		case isMarkdown(node.Path):
 			plan.notes = append(plan.notes, node.Path)
 			return claim(notePageOf(node.Path), node.Path)
@@ -142,7 +140,7 @@ func planSite(st *store.Store) (sitePlan, error) {
 			return claim(node.Path, node.Path)
 		}
 	}
-	if err := walk(root, ""); err != nil {
+	if err := walk(root); err != nil {
 		return sitePlan{}, err
 	}
 	if err := checkSiteDirs(written); err != nil {
@@ -258,12 +256,12 @@ func (b *siteBuilder) writeNote(notePath string) error {
 		HTML:   string(res.HTML),
 	}, sitePageData{
 		Route:  view.ContentURL(notePath),
-		Answer: view.NewPage(notePath, notePath, res, store.Rev(src), fi.ModTime, false),
+		Answer: view.NewPage(notePath, res, store.Rev(src), fi.ModTime, false),
 	})
 }
 
 // writeFolder writes the page of a folder the way /api/dir/ answers for it: its
-// index.md under the folder's own path, or the listing with its readme.
+// list, its index.md a row of it.
 func (b *siteBuilder) writeFolder(dir string) error {
 	entries, err := b.st.List(dir)
 	if err != nil {
@@ -272,29 +270,7 @@ func (b *siteBuilder) writeFolder(dir string) error {
 	name := folderPageOf(dir)
 	up := siteUp(name)
 	sp := page.SitePage{Title: folderTitle(dir), Crumbs: siteCrumbs(dir, up), Entries: siteEntries(entries, dir)}
-	data := sitePageData{Route: view.DirURL(dir)}
-
-	if index := view.IndexOf(entries, view.IndexName); index != "" {
-		res, src, fi, renderErr := b.render(index)
-		if renderErr != nil {
-			return renderErr
-		}
-		sp.Title, sp.HTML = res.Title, string(res.HTML)
-		data.Answer = view.NewPage(dir, index, res, store.Rev(src), fi.ModTime, false)
-		return b.writePage(name, sp, data)
-	}
-
-	listing := view.NewDir(dir, entries)
-	if readme := view.IndexOf(entries, view.ReadmeName); readme != "" {
-		res, _, _, renderErr := b.render(readme)
-		if renderErr != nil {
-			return renderErr
-		}
-		listing.ReadmeHTML, listing.HasReadme = string(res.HTML), true
-		sp.HTML = listing.ReadmeHTML
-	}
-	data.Answer = listing
-	return b.writePage(name, sp, data)
+	return b.writePage(name, sp, sitePageData{Route: view.DirURL(dir), Answer: view.NewDir(dir, entries, view.ItemsIn(b.st.List))})
 }
 
 // sitePageData is the JSON a page carries: the route of the app it stands for,
@@ -423,8 +399,6 @@ func siteEntries(entries []store.FileInfo, dir string) []page.Link {
 		switch {
 		case ent.IsDir:
 			target = folderPageOf(ent.Path)
-		case isMarkdown(ent.Path) && isFolderIndex(ent.Path):
-			target = folderPageOf(dir)
 		case isMarkdown(ent.Path):
 			target = notePageOf(ent.Path)
 		}
@@ -476,14 +450,13 @@ func openSiteDir(dir string) (*os.Root, error) {
 	return root, nil
 }
 
-// indexOfFolder is the note a folder of the tree is shown as, "" for none: the
-// one /api/dir/ picks.
+// indexOfFolder is a folder's own note, "" for none: the one /api/dir/ tags.
 func indexOfFolder(node *store.Node) string {
 	infos := make([]store.FileInfo, 0, len(node.Children))
 	for _, child := range node.Children {
 		infos = append(infos, child.FileInfo)
 	}
-	return view.IndexOf(infos, view.IndexName)
+	return view.IndexOf(infos)
 }
 
 func isFolderIndex(notePath string) bool {
@@ -500,8 +473,13 @@ func siteUp(name string) string {
 }
 
 // notePageOf and folderPageOf are the files of a site a note and a folder are
-// written to; web/src/site/files.ts maps a route of the app the same way.
+// written to; web/src/site/files.ts maps a route of the app the same way. A
+// folder's index.md, in any case, is index.md.html, because index.html is the
+// folder's list.
 func notePageOf(notePath string) string {
+	if isFolderIndex(notePath) {
+		return folderPrefix(folderOf(notePath)) + siteIndexPage
+	}
 	return strings.TrimSuffix(notePath, path.Ext(notePath)) + sitePage
 }
 

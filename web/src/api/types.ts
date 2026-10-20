@@ -11,7 +11,7 @@ export interface Heading {
 
 // the server answers a path it cannot serve with a 409 that names where the
 // content actually lives, so the client follows the url instead of failing
-export type HandoffKind = 'document' | 'directory' | 'attachment';
+export type HandoffKind = 'document' | 'directory';
 
 export interface HandoffBody {
   error?: string;
@@ -31,10 +31,6 @@ export interface ApiErrorBody {
 
 export interface DocumentFields {
   path: string;
-  // the file this was rendered from. It differs from path when a directory is
-  // served as its index.md, and it is what history is asked about: the
-  // directory has no version of its own.
-  doc_path: string;
   title: string;
   html: string;
   toc: Heading[];
@@ -55,7 +51,27 @@ export interface MissingDocumentResponse extends DocumentFields {
   kind: 'missing-document';
 }
 
-export type PageResponse = DocumentResponse | MissingDocumentResponse;
+// FilePageResponse is the page of a file that is not a note. It is not
+// FileResponse, which is the source the editor loads.
+export interface FilePageResponse {
+  path: string;
+  kind: 'file';
+  name: string;
+  type: 'image' | 'text' | 'other';
+  size: number;
+  mod_time: string;
+  breadcrumbs: Crumb[];
+  // a physical url, fetched by the browser itself
+  raw_url: string;
+  rev?: string;
+  edit_url?: string;
+  language?: string;
+  lines?: number;
+  // one pre with one element per line, highlighted or plain
+  html?: string;
+}
+
+export type PageResponse = DocumentResponse | MissingDocumentResponse | FilePageResponse;
 
 export interface DirEntry {
   name: string;
@@ -64,6 +80,10 @@ export interface DirEntry {
   is_dir: boolean;
   size: number;
   mod_time: string;
+  // the folder's own note, its index.md
+  folder_page?: boolean;
+  // how many entries a folder shows one level down, left out when none
+  items?: number;
 }
 
 export interface DirListing {
@@ -71,14 +91,8 @@ export interface DirListing {
   kind: 'directory';
   title: string;
   entries: DirEntry[];
-  readme_html: string;
-  has_readme: boolean;
   breadcrumbs: Crumb[];
 }
-
-// a directory holding an index.md is served as that document under the
-// directory's own path, so one route answers in two shapes
-export type DirResponse = DirListing | DocumentResponse;
 
 export interface NavNode {
   name: string;
@@ -87,6 +101,8 @@ export interface NavNode {
   is_dir: boolean;
   active: boolean;
   current: boolean;
+  // the folder's own note, its index.md
+  folder_page?: boolean;
   children: NavNode[];
 }
 
@@ -230,17 +246,49 @@ export interface EntryPathResponse extends MutationState {
   path: string;
 }
 
+export interface SearchSpan {
+  text: string;
+  hit: boolean;
+}
+
+// SearchLine is a line of a note that matched, by its line in the source, with
+// the url that opens the note at it
+export interface SearchLine {
+  line: number;
+  url: string;
+  spans: SearchSpan[];
+}
+
 export interface SearchHit {
   path: string;
   title: string;
+  // escaped html with the matches marked
   snippet: string;
   score: number;
+  // opens the note; with a mode named, with its find bar filled in
   url: string;
+  // these come with a request that names a mode or a toggle
+  title_spans?: SearchSpan[];
+  match_count?: number;
+  line_count?: number;
+  lines?: SearchLine[];
 }
 
 export interface SearchResponse {
   hits: SearchHit[];
   elapsed_ms: number;
+  truncated?: boolean;
+}
+
+export type SearchMode = 'fuzzy' | 'exact';
+
+// SearchSettings are the mode and the toggles of a search of the space
+export interface SearchSettings {
+  mode: SearchMode;
+  matchCase: boolean;
+  word: boolean;
+  regex: boolean;
+  titles: boolean;
 }
 
 export interface HistoryEntry {
@@ -252,6 +300,9 @@ export interface HistoryEntry {
   path: string;
   kind: string;
   at: string;
+  // restorable is the server's word that writing the version back changes the
+  // note: it holds content, and not the content the file has now
+  restorable: boolean;
 }
 
 export interface HistoryResponse {

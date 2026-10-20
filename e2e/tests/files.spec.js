@@ -3,7 +3,7 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    MAIN, atHome, fixtureFile, routes, save, setSource, shot, signIn,
+    MAIN, atHome, fixtureFile, removeFixture, routes, save, setSource, shot, signIn, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -63,13 +63,11 @@ test.describe.serial('file management', () => {
         await shot(page, 'files-folder-created');
     });
 
-    // the space has a row of its own, and it is the only thing that makes the
-    // root a place a reader can point at
-    test('creates a file in the root from the space row', async ({page}) => {
-        const row = page.locator('[data-testid=tree-row][data-path=""]');
-        await expect(page.locator('[data-testid=tree-row]').first()).toHaveAttribute('data-path', '');
-        await row.locator('[data-testid=tree-row-menu]').click();
-        await page.getByTestId('tree-row-menu-new-page').click();
+    // the "Notes" label over the tree is the root, and its + is the way to make
+    // a note beside the folders rather than inside one
+    test('creates a file in the root from the Notes section', async ({page}) => {
+        await page.getByTestId('sidebar-section').hover();
+        await page.getByTestId('sidebar-section-new').click();
 
         await page.getByTestId('tree-draft-input').fill(ROOT_PAGE.replace('.md', ''));
         await page.getByTestId('tree-draft-input').press('Enter');
@@ -246,12 +244,54 @@ test.describe.serial('file management', () => {
         const row = page.locator(`[data-testid=tree-row][data-path="${BLANK_FOLDER}"]`);
         await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-children"]').getByTestId('tree-empty')).toHaveText(text.dir.noNotes);
         await shot(page, 'files-empty-folder');
+        await expect(page.getByTestId('dir-empty-new-folder')).toBeVisible();
         await page.getByTestId('dir-empty-new-page').click();
-        await expect(page.getByTestId('tree-draft-input')).toBeFocused();
-        await expect(page.getByTestId('tree-empty')).toHaveCount(0);
-        await page.getByTestId('tree-draft-input').fill('first');
-        await page.getByTestId('tree-draft-input').press('Enter');
+        // the name is typed in the list the reader is looking at, not in the tree
+        await expect(page.getByTestId('dir-draft-input')).toBeFocused();
+        await expect(page.getByTestId('tree-draft')).toHaveCount(0);
+        await expect(page.getByTestId('dir-empty')).toHaveCount(0);
+        await page.getByTestId('dir-draft-input').fill('first');
+        await page.getByTestId('dir-draft-input').press('Enter');
         await expect(page).toHaveURL(new RegExp(`${routes.edit(`${BLANK_FOLDER}/first.md`)}$`));
+    });
+
+    test('New in a folder list names the entry in a row of the table', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(BLANK_FOLDER));
+        const draft = page.getByTestId('dir-draft');
+
+        // act & assert
+        await page.getByTestId('dir-new').click();
+        await page.getByTestId('dir-new-folder').click();
+        await expect(draft).toHaveAttribute('data-entry', 'dir');
+        await expect(page.getByTestId('tree-draft')).toHaveCount(0);
+        await expect(page.getByTestId('dir-add-row')).toHaveCount(0);
+        await shot(page, 'files-list-draft');
+
+        await page.getByTestId('dir-draft-input').press('Escape');
+        await expect(draft).toHaveCount(0);
+        await expect(page.getByTestId('dir-add-row')).toBeVisible();
+
+        await page.getByTestId('dir-add-row').click();
+        await expect(draft).toHaveAttribute('data-entry', 'file');
+        await page.getByTestId('dir-draft-input').fill('second');
+        await page.getByTestId('dir-draft-input').press('Enter');
+        await expect(page).toHaveURL(new RegExp(`${routes.edit(`${BLANK_FOLDER}/second.md`)}$`));
+        expect(fs.existsSync(fixtureFile(`${BLANK_FOLDER}/second.md`))).toBe(true);
+    });
+
+    test('the sidebar still names a new entry in the tree', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(BLANK_FOLDER));
+
+        // act
+        await page.getByTestId('sidebar-new').click();
+        await page.getByTestId('sidebar-new-page').click();
+
+        // assert
+        await expect(page.getByTestId('tree-draft-input')).toBeFocused();
+        await expect(page.getByTestId('dir-draft')).toHaveCount(0);
+        await page.getByTestId('tree-draft-input').press('Escape');
     });
 
     test('deletes a folder with everything in it and leaves the page that was inside', async ({page}) => {
@@ -294,5 +334,89 @@ test.describe.serial('file management', () => {
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.deleted);
         expect(fs.existsSync(fixtureFile(JUNK_FOLDER))).toBe(false);
+    });
+});
+
+const PAGES = 'e2e-file-pages';
+const PIXEL = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    'base64',
+);
+const CODE = 'def greet(name):\n    return f"hello, {name}"\n\nprint(greet("you"))\n';
+
+test.describe('file pages', () => {
+    test.beforeAll(() => {
+        writeFixture(`${PAGES}/pic.png`, PIXEL);
+        writeFixture(`${PAGES}/code.py`, CODE);
+        writeFixture(`${PAGES}/blob.bin`, Buffer.from([0, 1, 2, 3]));
+        writeFixture(`${PAGES}/links.md`, '# Links\n\n[the code](code.py) and [the folder](../e2e-file-pages)\n');
+    });
+
+    test.beforeEach(async ({page}) => {
+        await signIn(page);
+    });
+
+    test.afterAll(() => {
+        removeFixture(PAGES);
+    });
+
+    test('a picture row opens its page, and a click opens the viewer', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(PAGES));
+
+        // act
+        await page.locator(`[data-testid=dir-row][data-path="${PAGES}/pic.png"]`).click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(`${PAGES}/pic.png`));
+        await expect(page.getByTestId('file')).toHaveAttribute('data-type', 'image');
+        await expect(page.getByTestId('file-meta')).toContainText('1 × 1');
+        await page.getByTestId('file-preview').click();
+        await expect(page.getByTestId('doc-lightbox-image')).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+    });
+
+    test('a text file is numbered lines, and Copy takes the text alone', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(`${PAGES}/code.py`));
+        const code = page.getByTestId('file-code');
+
+        // act
+        await code.hover();
+        await code.getByTestId('code-copy').click();
+
+        // assert
+        await expect(page.getByTestId('file-meta')).toContainText('Python, 4 lines');
+        await expect(code.locator('.line')).toHaveCount(4);
+        await expect(code.locator('pre span[class]').first()).toBeVisible();
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(CODE);
+        await shot(page, 'files-text-page');
+    });
+
+    test('Download is a link to the bytes, and a file that cannot be shown offers it', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(`${PAGES}/blob.bin`));
+
+        // act & assert
+        await expect(page.getByTestId('file')).toHaveAttribute('data-type', 'other');
+        await expect(page.getByTestId('file-other-download')).toHaveAttribute('href', routes.raw(`${PAGES}/blob.bin`));
+        await expect(page.getByTestId('file-download')).toHaveAttribute('download', 'blob.bin');
+        await expect(page.getByTestId('doc-history')).toHaveCount(0);
+    });
+
+    test('a link in a note opens the page of a file, and one to a folder its list', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(`${PAGES}/links.md`));
+
+        // act & assert
+        await page.getByTestId('doc').getByRole('link', {name: 'the code'}).click();
+        await expect(page).toHaveURL(MAIN.url.doc(`${PAGES}/code.py`));
+        await expect(page.getByTestId('file')).toHaveAttribute('data-type', 'text');
+
+        await page.goBack();
+        await page.getByTestId('doc').getByRole('link', {name: 'the folder'}).click();
+        await expect(page).toHaveURL(MAIN.url.dir(PAGES));
+        await expect(page.getByTestId('dir')).toBeVisible();
     });
 });

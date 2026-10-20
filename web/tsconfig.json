@@ -23,5 +23,5 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "vite.config.ts", "vite.fonts.ts", "vite.themes.ts"]
+  "include": ["src", "vite.config.ts", "vite.fonts.ts", "vite.themes.ts", "icons.ts"]
 }

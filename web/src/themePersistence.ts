@@ -10,24 +10,25 @@ export interface ThemePersistence {
 
 const cookieMaxAge = 60 * 60 * 24 * 365;
 
-function readCookie(name: string): string | undefined {
+// readCookie is the value of a cookie that passes valid, or nothing
+export function readCookie(name: string, valid: (value: string) => boolean): string | undefined {
   for (const part of document.cookie.split(';')) {
     const [key, ...rest] = part.trim().split('=');
     if (key !== name) {
       continue;
     }
     const value = decodeURIComponent(rest.join('='));
-    return isThemeChoice(value) ? value : undefined;
+    return valid(value) ? value : undefined;
   }
   return undefined;
 }
 
-function writeCookie(name: string, value: string, secure: boolean): void {
+export function writeCookie(name: string, value: string, secure: boolean): void {
   const flag = secure ? '; secure' : '';
   document.cookie = `${name}=${value}; path=/; max-age=${cookieMaxAge}; samesite=lax${flag}`;
 }
 
-function clearCookie(name: string): void {
+export function clearCookie(name: string): void {
   document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
 }
 
@@ -36,7 +37,7 @@ function clearCookie(name: string): void {
 export function serverPersistence(): ThemePersistence {
   const name = 'theme';
   return {
-    read: () => readCookie(name),
+    read: () => readCookie(name, isThemeChoice),
     write: (choice) => writeCookie(name, choice, window.location.protocol === 'https:'),
     clear: () => clearCookie(name),
   };
@@ -53,7 +54,7 @@ export function pagePersistence(): ThemePersistence {
     // page may still hold a choice made on it before the one made elsewhere
     read: () => {
       const stored = readText(localStore(), key);
-      return readCookie(name) ?? (stored !== undefined && isThemeChoice(stored) ? stored : undefined);
+      return readCookie(name, isThemeChoice) ?? (stored !== undefined && isThemeChoice(stored) ? stored : undefined);
     },
     write: (choice) => {
       writeCookie(name, choice, false);

@@ -62,9 +62,12 @@ type Options struct {
 	// Relative is set, so a page rendered to "a.html" links to "b.html".
 	PageExt string
 	// FolderPage is the file a folder is shown by when Relative is set, as
-	// "index.html": a relative link to a folder or to its index.md points
-	// there, because a folder opened from disk is the system's listing.
+	// "index.html": a relative link to a folder points there, because a folder
+	// opened from disk is the system's listing.
 	FolderPage string
+	// IndexPage is the file a folder's index.md is written to when Relative is
+	// set, as "index.md.html": the folder's own page is its list.
+	IndexPage string
 }
 
 // Renderer turns markdown into sanitized HTML. It is safe for concurrent use:
@@ -89,6 +92,7 @@ func New(opts Options) *Renderer {
 		relative:   opts.Relative,
 		pageExt:    opts.PageExt,
 		folderPage: opts.FolderPage,
+		indexPage:  opts.IndexPage,
 		exists:     opts.LinkExists,
 	}
 	// goldmark's indented code block parser is kept on purpose: without it
@@ -117,7 +121,7 @@ func New(opts Options) *Renderer {
 			highlighting.NewHighlighting(
 				// with classes the markup is the same whatever the style, and the
 				// colors come from ChromaCSS
-				highlighting.WithStyle(theme.AutoTheme(theme.Light).Code),
+				highlighting.WithCustomStyle(codeStyle(theme.AutoTheme(theme.Light))),
 				highlighting.WithFormatOptions(
 					chromahtml.WithClasses(true),
 					chromahtml.WithLineNumbers(false),
@@ -200,8 +204,9 @@ func (r *Renderer) finish(root ast.Node, source []byte, pctx parser.Context) (te
 	}
 	clean := r.policy.SanitizeBytes(buf.Bytes())
 	dir, _ := pctx.Get(docDirKey).(string)
-	clean = rewriteRawHTML(clean, func(dest string) target {
-		return r.links.resolve(dest, dir)
+	clean = rewriteRawHTML(clean, linkResolvers{
+		link:  func(dest string) target { return r.links.resolveLink(dest, dir) },
+		embed: func(dest string) target { return r.links.resolve(dest, dir) },
 	})
 	return template.HTML(clean), nil //nolint:gosec // sanitized by bluemonday above
 }

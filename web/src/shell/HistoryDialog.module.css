@@ -1,0 +1,227 @@
+/* the history of a note: the version on the left, the versions on the right */
+.content {
+  overflow: hidden;
+  height: 92vh;
+}
+
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  height: 100%;
+  padding: 0;
+}
+
+.version {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 48px;
+  padding: 0 16px 0 24px;
+  border-bottom: 1px solid var(--scrawl-border-light);
+}
+
+.when {
+  overflow: hidden;
+  color: var(--scrawl-text-secondary);
+  font-size: var(--mantine-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 20px 24px 32px;
+  overflow: auto;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--scrawl-sidebar);
+  box-shadow: inset 1px 0 var(--scrawl-sidebar-edge);
+}
+
+.head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 8px 0 16px;
+}
+
+.title {
+  margin: 0;
+  color: var(--scrawl-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+.count {
+  flex: 1 1 auto;
+  color: var(--scrawl-text-tertiary);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 8px 8px;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 2px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--mantine-radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.row[data-selected='true'] {
+  border-color: var(--scrawl-border);
+  background: var(--scrawl-selected);
+}
+
+@media (hover: hover) {
+  .row:not([data-selected='true']):hover {
+    background: var(--scrawl-hover);
+  }
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.time {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--scrawl-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.current {
+  flex: none;
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+}
+
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--scrawl-bg-gray);
+  color: var(--scrawl-text-secondary);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.actor,
+.moved {
+  overflow: hidden;
+  color: var(--scrawl-text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kind {
+  flex: none;
+  padding: 0 6px;
+  border-radius: var(--mantine-radius-xs);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.kind[data-kind='added'] {
+  background: var(--scrawl-bg-green);
+  color: var(--scrawl-color-green);
+}
+
+.kind[data-kind='modified'] {
+  background: var(--scrawl-bg-gray);
+  color: var(--scrawl-color-gray);
+}
+
+.kind[data-kind='renamed'] {
+  background: var(--scrawl-bg-blue);
+  color: var(--scrawl-color-blue);
+}
+
+.kind[data-kind='deleted'] {
+  background: var(--scrawl-bg-red);
+  color: var(--scrawl-color-red);
+}
+
+.foot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--scrawl-border-light);
+}
+
+.reason {
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+}
+
+.empty {
+  padding: 24px;
+  color: var(--scrawl-text-secondary);
+  font-size: var(--mantine-font-size-sm);
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .content {
+    height: 100dvh;
+  }
+
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 58fr) minmax(0, 42fr);
+  }
+
+  .bar,
+  .diff {
+    padding-inline: 16px;
+  }
+
+  .panel {
+    box-shadow: inset 0 1px var(--scrawl-sidebar-edge);
+  }
+
+  .row {
+    min-height: var(--scrawl-tap-target);
+  }
+}

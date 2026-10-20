@@ -4,6 +4,7 @@ import type { JSX } from 'react';
 
 import { useNav } from './NavContext';
 import { ResetAction } from './ResetDialog';
+import { layout } from '../theme';
 
 // SpaceAlerts is the one persistent place that explains what is wrong with
 // this space. It renders above the outlet, so a reader meets it on every
@@ -32,7 +33,7 @@ export function SpaceAlerts(): JSX.Element {
           data-testid="space-alert"
           data-kind={sync.kind}
           color="yellow"
-          icon={<IconAlertTriangle size={18} />}
+          icon={<IconAlertTriangle size={layout.iconSize} />}
           title={sync.title}
           mb="lg"
         >

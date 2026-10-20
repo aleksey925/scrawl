@@ -1,0 +1,1 @@
+import{A as e,p as t,q as n,v as r}from"./naming-BnD9Xe5M.js";import{t as i}from"./DirectoryView-UefY6DnO.js";import{t as a}from"./DocumentView-BRDgwpwI.js";var o=n();function s(){let n=e()[`*`]??``;return t(n)?(0,o.jsx)(i,{path:r(n)}):(0,o.jsx)(a,{path:n})}export{s as Component};

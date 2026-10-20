@@ -4,14 +4,14 @@
 //
 // Every URL here is router-relative, which is what the JSON hands the client:
 // React Router prepends the space's basename itself, so a prefix written in
-// here would produce /s/notes/s/notes/... . The one exception is the /raw/ half
-// of ContentURL, which names a route the browser fetches directly; the reading
-// side mounts it.
+// here would produce /s/notes/s/notes/... . The one exception is File.RawURL,
+// which names a route the browser fetches directly; the reading side mounts it.
 package view
 
 import (
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,15 +25,19 @@ const (
 	KindDocument        = "document"
 	KindMissingDocument = "missing-document"
 	KindDirectory       = "directory"
-	KindAttachment      = "attachment"
+	KindFile            = "file"
 )
 
-// the documents a directory is shown by: an index replaces its listing, a
-// readme is shown with it
+// the ways a file that is not a note is shown on its page
 const (
-	IndexName  = "index.md"
-	ReadmeName = "readme.md"
+	FileImage = "image"
+	FileText  = "text"
+	FileOther = "other"
 )
+
+// IndexName is a folder's own note, its folder page: a row of its list like any
+// other, which Home opens at the root. The name is matched in any case.
+const IndexName = "index.md"
 
 // homeTitle names the root, which has no name of its own.
 const homeTitle = "Home"
@@ -47,12 +51,7 @@ type Crumb struct {
 // Page is one rendered document, without the navigation every page carries
 // around it.
 type Page struct {
-	Path string `json:"path"`
-
-	// DocPath is the file this was rendered from. It differs from Path when a
-	// directory is served as its index.md, and it is what history is asked
-	// about: a directory has no version of its own.
-	DocPath string           `json:"doc_path"`
+	Path    string           `json:"path"`
 	Kind    string           `json:"kind"`
 	Title   string           `json:"title"`
 	HTML    string           `json:"html"`
@@ -76,8 +75,6 @@ type Dir struct {
 	Kind        string     `json:"kind"`
 	Title       string     `json:"title"`
 	Entries     []DirEntry `json:"entries"`
-	ReadmeHTML  string     `json:"readme_html"`
-	HasReadme   bool       `json:"has_readme"`
 	Breadcrumbs []Crumb    `json:"breadcrumbs"`
 }
 
@@ -90,6 +87,29 @@ type DirEntry struct {
 	IsDir   bool      `json:"is_dir"`
 	Size    int64     `json:"size"`
 	ModTime time.Time `json:"mod_time"`
+	// FolderPage is the folder's own note, its index.md
+	FolderPage bool `json:"folder_page,omitempty"`
+	// Items is how many entries a folder shows one level down
+	Items int `json:"items,omitempty"`
+}
+
+// File is a file of the space that is not a note, on a page of its own: a
+// picture previewed from /raw/, a text file as numbered lines, anything else
+// as its download. Language, Lines and HTML are only a text file's.
+type File struct {
+	Path        string    `json:"path"`
+	Kind        string    `json:"kind"`
+	Name        string    `json:"name"`
+	Type        string    `json:"type"`
+	Size        int64     `json:"size"`
+	ModTime     time.Time `json:"mod_time"`
+	Breadcrumbs []Crumb   `json:"breadcrumbs"`
+	RawURL      string    `json:"raw_url"`
+	Rev         string    `json:"rev,omitempty"`
+	EditURL     string    `json:"edit_url,omitempty"`
+	Language    string    `json:"language,omitempty"`
+	Lines       int       `json:"lines,omitempty"`
+	HTML        string    `json:"html,omitempty"`
 }
 
 // NavNode is one node of the sidebar tree. It is not the shape /api/tree
@@ -104,20 +124,19 @@ type NavNode struct {
 	// IsDir is a folder, whose URL is its listing
 	IsDir bool `json:"is_dir"`
 	// Active is on the way to the current page, Current is that page
-	Active   bool      `json:"active"`
-	Current  bool      `json:"current"`
-	Children []NavNode `json:"children"`
+	Active  bool `json:"active"`
+	Current bool `json:"current"`
+	// FolderPage is the folder's own note, its index.md
+	FolderPage bool      `json:"folder_page,omitempty"`
+	Children   []NavNode `json:"children"`
 }
 
-// NewPage is the document rendered from docPath and presented under navPath.
-// The two differ for a directory served as its index.md, which keeps the path
-// and the trail of the directory so that the client never has to leave the
-// address it was asked to show. Only the edit link names the file.
-func NewPage(navPath, docPath string, res render.Result, rev string, modTime time.Time, canCreate bool) Page {
+// NewPage is the document rendered from p. A note is shown under its own
+// address only: a folder is always its list.
+func NewPage(p string, res render.Result, rev string, modTime time.Time, canCreate bool) Page {
 	toc := render.OutlineOf(res.TOC)
 	return Page{
-		Path:        navPath,
-		DocPath:     docPath,
+		Path:        p,
 		Kind:        KindDocument,
 		Title:       res.Title,
 		HTML:        string(res.HTML),
@@ -125,8 +144,8 @@ func NewPage(navPath, docPath string, res render.Result, rev string, modTime tim
 		ShowTOC:     len(toc) >= render.MinOutline,
 		Rev:         rev,
 		ModTime:     modTime,
-		Breadcrumbs: Breadcrumbs(navPath),
-		EditURL:     EditURL(docPath),
+		Breadcrumbs: Breadcrumbs(p),
+		EditURL:     EditURL(p),
 		CanCreate:   canCreate,
 	}
 }
@@ -136,7 +155,6 @@ func NewPage(navPath, docPath string, res render.Result, rev string, modTime tim
 func MissingPage(p string, canCreate bool) Page {
 	return Page{
 		Path:        p,
-		DocPath:     p,
 		Kind:        KindMissingDocument,
 		Title:       path.Base(p),
 		TOC:         []render.Heading{},
@@ -147,9 +165,24 @@ func MissingPage(p string, canCreate bool) Page {
 	}
 }
 
-// NewDir is the listing of a directory holding no index.md. Its README is the
-// caller's to render, because rendering it is what may fail.
-func NewDir(p string, entries []store.FileInfo) Dir {
+// NewFile is the page of a file that is not a note, shown as fileType. What a
+// text file shows is the caller's to add, because reading it is what may fail.
+func NewFile(fi store.FileInfo, fileType string) File {
+	return File{
+		Path:        fi.Path,
+		Kind:        KindFile,
+		Name:        fi.Name,
+		Type:        fileType,
+		Size:        fi.Size,
+		ModTime:     fi.ModTime,
+		Breadcrumbs: Breadcrumbs(fi.Path),
+		RawURL:      "/raw/" + EncodePath(fi.Path),
+	}
+}
+
+// NewDir is the listing of a directory, which is what a folder is always shown
+// as. Its index.md is one of the rows, tagged as the folder page.
+func NewDir(p string, entries []store.FileInfo, items Counter) Dir {
 	title := homeTitle
 	if p != "" {
 		title = path.Base(p)
@@ -158,49 +191,84 @@ func NewDir(p string, entries []store.FileInfo) Dir {
 		Path:        p,
 		Kind:        KindDirectory,
 		Title:       title,
-		Entries:     DirEntries(entries),
+		Entries:     DirEntries(entries, items),
 		Breadcrumbs: Breadcrumbs(p),
 	}
 }
 
+// Counter answers how many entries a folder shows, for the line under its name
+// on a phone.
+type Counter func(dir string) int
+
+// ItemsIn counts what a listing of the folder holds; a folder that cannot be
+// listed holds nothing worth counting.
+func ItemsIn(list func(dir string) ([]store.FileInfo, error)) Counter {
+	return func(dir string) int {
+		entries, err := list(dir)
+		if err != nil {
+			return 0
+		}
+		return len(entries)
+	}
+}
+
 // DirEntries turns a store listing into the rows of a directory page.
-func DirEntries(entries []store.FileInfo) []DirEntry {
+func DirEntries(entries []store.FileInfo, items Counter) []DirEntry {
+	index := IndexOf(entries)
 	res := make([]DirEntry, 0, len(entries))
 	for _, ent := range entries {
 		target := ContentURL(ent.Path)
+		count := 0
 		if ent.IsDir {
 			target = DirURL(ent.Path)
+			count = items(ent.Path)
 		}
 		res = append(res, DirEntry{
-			Name:    ent.Name,
-			Path:    ent.Path,
-			URL:     target,
-			IsDir:   ent.IsDir,
-			Size:    ent.Size,
-			ModTime: ent.ModTime,
+			Name:       ent.Name,
+			Path:       ent.Path,
+			URL:        target,
+			IsDir:      ent.IsDir,
+			Size:       ent.Size,
+			ModTime:    ent.ModTime,
+			FolderPage: index != "" && ent.Path == index,
+			Items:      count,
 		})
 	}
 	return res
 }
 
-// IndexOf finds a directory's own document by name, case-insensitively.
-func IndexOf(entries []store.FileInfo, name string) string {
+// IndexOf finds a directory's own note, its index.md in any case. A folder
+// holding more than one case of the name has none: which one it meant cannot
+// be told, and a site would write both to the same file.
+func IndexOf(entries []store.FileInfo) string {
+	res := ""
 	for _, ent := range entries {
-		if !ent.IsDir && strings.EqualFold(ent.Name, name) {
-			return ent.Path
+		if ent.IsDir || !strings.EqualFold(ent.Name, IndexName) {
+			continue
 		}
+		if res != "" {
+			return ""
+		}
+		res = ent.Path
 	}
-	return ""
+	return res
 }
 
 // Nav is the sidebar tree below root, with the branch to current marked.
 func Nav(root *store.Node, current string) []NavNode {
+	infos := make([]store.FileInfo, 0, len(root.Children))
+	for _, child := range root.Children {
+		infos = append(infos, child.FileInfo)
+	}
+	index := IndexOf(infos)
 	res := make([]NavNode, 0, len(root.Children))
 	for _, child := range root.Children {
 		if !child.InNavTree() {
 			continue
 		}
-		res = append(res, navNodeOf(child, current))
+		node := navNodeOf(child, current)
+		node.FolderPage = index != "" && child.Path == index
+		res = append(res, node)
 	}
 	return res
 }
@@ -243,13 +311,10 @@ func Breadcrumbs(p string) []Crumb {
 	return res
 }
 
-// ContentURL is where a content path is served from: markdown is rendered,
-// everything else is handed over untouched.
+// ContentURL is the page of a file: a note rendered, any other file shown the
+// way its page shows it.
 func ContentURL(p string) string {
-	if isMarkdown(p) {
-		return "/doc/" + EncodePath(p)
-	}
-	return "/raw/" + EncodePath(p)
+	return "/doc/" + EncodePath(p)
 }
 
 // SearchURL is where a search hit leads: the document, plus the query that
@@ -259,6 +324,29 @@ func SearchURL(p, query string) string {
 		return ContentURL(p)
 	}
 	return ContentURL(p) + "?q=" + url.QueryEscape(query)
+}
+
+// Find is what a note opens with in its find bar: the text, and the toggles it
+// is matched with.
+type Find struct {
+	Text              string
+	Case, Word, Regex bool
+}
+
+// FindURL opens a note with its find bar filled in, and at a line of its
+// source when line is not 0: what a search result leads to.
+func FindURL(p string, f Find, line int) string {
+	q := url.Values{}
+	q.Set("q", f.Text)
+	for name, on := range map[string]bool{"case": f.Case, "word": f.Word, "regex": f.Regex} {
+		if on {
+			q.Set(name, "1")
+		}
+	}
+	if line > 0 {
+		q.Set("line", strconv.Itoa(line))
+	}
+	return ContentURL(p) + "?" + q.Encode()
 }
 
 // DirURL is where a directory is listed.
@@ -281,5 +369,3 @@ func EncodePath(p string) string {
 	}
 	return strings.Join(segments, "/")
 }
-
-func isMarkdown(p string) bool { return strings.EqualFold(path.Ext(p), ".md") }

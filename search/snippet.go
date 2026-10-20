@@ -42,6 +42,19 @@ func (d *document) snippet(terms []queryTerm, match []*posting) (template.HTML, 
 	}
 
 	best := marks[d.bestWindow(marks)]
+	return d.snippetAround(marks, best), d.lineAt(best.start)
+}
+
+// snippetAt is the window around the first of the marks, for a scan that
+// found them in the order of the text
+func (d *document) snippetAt(marks []mark) template.HTML {
+	if len(marks) == 0 {
+		return d.lead()
+	}
+	return d.snippetAround(marks, marks[0])
+}
+
+func (d *document) snippetAround(marks []mark, best mark) template.HTML {
 	start, end := d.window(best)
 
 	inside := make([]mark, 0, 8)
@@ -52,7 +65,7 @@ func (d *document) snippet(terms []queryTerm, match []*posting) (template.HTML, 
 	}
 
 	text, spans := collapseWindow(d.plain[start:end], inside)
-	return renderSnippet(text, spans, cutBefore(d.plain, start), cutAfter(d.plain, end)), d.lineAt(best.start)
+	return renderSnippet(text, spans, cutBefore(d.plain, start), cutAfter(d.plain, end))
 }
 
 // lead is the snippet of a document matched only through its title.

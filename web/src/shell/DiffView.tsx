@@ -14,10 +14,10 @@ function lineColor(line: string): string | undefined {
     return 'var(--scrawl-accent)';
   }
   if (line.startsWith('+')) {
-    return 'var(--scrawl-success)';
+    return 'var(--scrawl-color-green)';
   }
   if (line.startsWith('-')) {
-    return 'var(--scrawl-danger)';
+    return 'var(--scrawl-color-red)';
   }
   return undefined;
 }
@@ -36,7 +36,7 @@ export function DiffView({ patch }: DiffViewProps): JSX.Element {
         overflow: 'auto',
         border: '1px solid var(--scrawl-border)',
         borderRadius: 'var(--mantine-radius-md)',
-        background: 'var(--scrawl-bg-inset)',
+        background: 'var(--scrawl-sidebar)',
       }}
     >
       {/* the box is as wide as the longest line, so a coloured row keeps its

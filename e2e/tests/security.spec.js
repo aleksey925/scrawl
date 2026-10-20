@@ -25,13 +25,13 @@ test.describe('security', () => {
         fs.rmSync(fixtureFile(FOLDER), {recursive: true, force: true});
     });
 
-    test('a document named evil.html is served as an inert download', async ({page}) => {
+    // a page is text to read: as text/plain under the sandbox nothing in it runs
+    test('a document named evil.html is served as inert text', async ({page}) => {
         writeFixture(EVIL, EVIL_HTML);
 
         const res = await page.request.get(`${MAIN.baseURL}${routes.raw(EVIL)}`);
         expect(res.status()).toBe(200);
-        expect(res.headers()['content-type']).toBe('application/octet-stream');
-        expect(res.headers()['content-disposition']).toContain('attachment');
+        expect(res.headers()['content-type']).toBe('text/plain; charset=utf-8');
         expect(res.headers()['content-security-policy']).toContain('sandbox');
         expect(res.headers()['x-content-type-options']).toBe('nosniff');
     });

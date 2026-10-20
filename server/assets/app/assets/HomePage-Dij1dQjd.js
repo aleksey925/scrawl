@@ -1,1 +1,0 @@
-import{A as e}from"./lib-DeYc_glu.js";import{t}from"./DirectoryView-DqK0W0Uv.js";import{t as n}from"./PageContainer-DgKi_cDp.js";var r=e();function i(){return(0,r.jsx)(n,{children:(0,r.jsx)(t,{path:``})})}export{i as Component};

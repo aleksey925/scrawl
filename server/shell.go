@@ -11,7 +11,6 @@ import (
 
 	"github.com/aleksey925/scrawl/gzassets"
 	"github.com/aleksey925/scrawl/store"
-	"github.com/aleksey925/scrawl/view"
 )
 
 // appBase is the url prefix the bundle was built with. Vite bakes it into every
@@ -163,18 +162,11 @@ func (m *mount) docHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fi, err := m.spc.Store.Stat(p)
-	switch {
-	case errors.Is(err, store.ErrNotFound):
-		// nothing of that name is there, whatever the extension says. Answering
-		// 200 would make /doc/<anything>/ping look like a route that exists.
+	// every file has a page, a note, a folder and any other file alike; nothing
+	// of that name is there, whatever the extension says, answers 404, or
+	// /doc/<anything>/ping would look like a route that exists
+	if _, err := m.spc.Store.Stat(p); errors.Is(err, store.ErrNotFound) {
 		m.serveShell(w, r, http.StatusNotFound)
-		return
-	case err == nil && !fi.IsDir && !isMarkdown(p):
-		// an attachment is not a page: it goes to the route that serves a file
-		// under a content type from an allowlist, with a policy of its own. A
-		// directory is not markdown either, and it is a page.
-		http.Redirect(w, r, m.spc.Prefix()+"/raw/"+view.EncodePath(p), http.StatusFound)
 		return
 	}
 	m.serveShell(w, r, http.StatusOK)

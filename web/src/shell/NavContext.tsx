@@ -53,12 +53,9 @@ export interface NavState {
   loading: boolean;
   me: MeResponse | undefined;
   canWrite: boolean;
-  // currentPath is the route's content path, which is what the tree and the
-  // breadcrumbs want. currentDoc is the file on screen, which is not the same
-  // thing: a directory holding an index.md is served under the directory's own
-  // address, and the root is that case with an empty path.
+  // currentPath is the route's content path, which is the file on screen: a
+  // folder is always its list, so a note is shown under its own address only
   currentPath: string;
-  currentDoc: string;
   // the space's own state, resolved once so the banner and the sync control
   // render the same words
   sync: SyncMessage | undefined;
@@ -111,9 +108,6 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
 
   const [open, setOpen] = useState<ReadonlySet<string>>(() => readOpen(storageKey));
   const [query, setQuery] = useState('');
-  // the file a document registered, empty while none is mounted
-  const [mountedDoc, setMountedDoc] = useState('');
-
   const tree = useMemo(() => nav.data?.tree ?? [], [nav.data]);
 
   useEffect(() => {
@@ -183,9 +177,6 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       // where auth is on, a reader who has not signed in
       canWrite: me !== undefined && !me.read_only && (!me.auth_on || me.user !== ''),
       currentPath,
-      // no document mounted means /edit/ or /history/, whose routes do name
-      // the file
-      currentDoc: mountedDoc === '' ? currentPath : mountedDoc,
       sync,
       isUnsynced,
       refreshNav,
@@ -197,38 +188,10 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       setQuery,
     }),
     [
-      tree, nav.error, nav.loading, me, currentPath, mountedDoc, sync, isUnsynced,
+      tree, nav.error, nav.loading, me, currentPath, sync, isUnsynced,
       refreshNav, refreshMe, isOpen, toggleFolder, openFolder, query,
     ],
   );
 
-  return (
-    <NavContext.Provider value={value}>
-      <MountedDocContext.Provider value={setMountedDoc}>{children}</MountedDocContext.Provider>
-    </NavContext.Provider>
-  );
-}
-
-// MountedDocContext is how a document tells the shell which file it is. It is
-// separate from NavContext so that registering does not re-render everything
-// that reads the navigation state.
-const MountedDocContext = createContext<((path: string) => void) | undefined>(undefined);
-
-// useCurrentDoc registers the file being rendered. DocumentBody is the only
-// caller, and that covers every case: it is the one component that renders a
-// document, from the document route and from the directory route when the
-// folder has an index.
-//
-// It matters because the route path is not the file whenever a directory is
-// served as its index.md - the root above all, which is the page most readers
-// are looking at. A per-file signal keyed off the route would stay silent about
-// the very note on screen.
-export function useCurrentDoc(docPath: string): void {
-  const setMountedDoc = useContext(MountedDocContext);
-  useEffect(() => {
-    setMountedDoc?.(docPath);
-    // React runs the cleanup of the old document before the effect of the new
-    // one, so the value never points at the note the reader just left
-    return () => setMountedDoc?.('');
-  }, [docPath, setMountedDoc]);
+  return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
 }

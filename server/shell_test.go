@@ -76,6 +76,7 @@ func TestAppShellStatus(t *testing.T) {
 		{name: "a directory is not a missing document", path: "/doc/docs", status: http.StatusOK},
 		{name: "the app root", path: "/", status: http.StatusOK},
 		{name: "the search page", path: "/search", status: http.StatusOK},
+		{name: "the notes opened last", path: "/recent", status: http.StatusOK},
 	}
 
 	for _, tc := range tests {

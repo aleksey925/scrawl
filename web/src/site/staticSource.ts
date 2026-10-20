@@ -35,7 +35,7 @@ export function staticSource(store: PageStore, site: SiteData): Platform['source
     },
     dir: (path) => {
       const answer = store.answer(answerKeys.dir(path));
-      return answer !== undefined && answer.kind !== 'missing-document' ? Promise.resolve(answer) : missing();
+      return answer !== undefined && answer.kind === 'directory' ? Promise.resolve(answer) : missing();
     },
     nav: (path) => Promise.resolve({ tree: markBranch(site.tree, path), breadcrumbs: [] }),
   };

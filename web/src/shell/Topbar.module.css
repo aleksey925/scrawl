@@ -1,30 +1,85 @@
-/* the search is a field that opens the palette: drawn as a button it was one
-   more gray block between the page actions */
-.search {
+/* the topbar belongs to the page's column: the page's ground, the path at its
+   left and the page's actions at its right */
+.topbar {
   display: flex;
-  flex: 0 1 280px;
   align-items: center;
-  gap: var(--mantine-spacing-sm);
-  min-width: 120px;
-  height: var(--scrawl-control-height);
-  padding-inline: var(--mantine-spacing-md) var(--mantine-spacing-sm);
-  border: 1px solid var(--scrawl-border);
-  border-radius: var(--mantine-radius-md);
-  background: var(--scrawl-bg);
-  color: var(--scrawl-text-secondary);
-  font-size: var(--mantine-font-size-sm);
+  gap: 4px;
+  height: 100%;
+  padding-inline: 12px;
 }
 
-.searchLabel {
+.crumbs {
+  display: flex;
   flex: 1 1 auto;
+  align-items: center;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.step {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 0;
+}
+
+.last {
+  flex-shrink: 0;
+  max-width: 60%;
+}
+
+.crumb {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 26px;
+  padding-inline: 6px;
+  border-radius: var(--mantine-radius-md);
+  color: var(--scrawl-text-secondary);
+  font-size: var(--mantine-font-size-sm);
+  text-decoration: none;
   white-space: nowrap;
 }
 
+.current {
+  color: var(--scrawl-text);
+}
+
+.last .crumb {
+  max-width: 100%;
+}
+
+.crumbText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (hover: hover) {
-  .search:hover {
-    border-color: var(--scrawl-border-strong);
+  a.crumb:hover {
+    background: var(--scrawl-hover);
   }
+}
+
+.separator {
+  flex: none;
+  padding-inline: 1px;
+  color: var(--scrawl-text-faint);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.edited {
+  margin-inline-end: 6px;
+  color: var(--scrawl-text-tertiary);
+  font-size: var(--mantine-font-size-sm);
+  white-space: nowrap;
 }

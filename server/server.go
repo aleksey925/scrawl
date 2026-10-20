@@ -13,6 +13,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -60,11 +61,20 @@ const (
 	// renderTimeout bounds how long a request waits for a render.
 	renderTimeout = 10 * time.Second
 
+	// maxHighlightBytes caps the text file chroma is started on, the size search
+	// keeps of a note. A render past its deadline keeps running in its goroutine,
+	// so above this a file goes straight to plain text and chroma never starts.
+	maxHighlightBytes = 256 << 10
+
 	pageCacheEntries = 256
 	pageCacheBytes   = 64 << 20
 
 	searchPageLimit = 50
 	searchAPILimit  = 20
+
+	// searchTimeout bounds an exact or regex scan of the whole space; it holds
+	// the index's read lock, so a reindex waits at most this long
+	searchTimeout = 2 * time.Second
 )
 
 // contentSecurityPolicy is strict where it matters: every script the app needs
@@ -286,6 +296,7 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	g.HandleFunc("GET /edit/{path...}", m.appHandler)
 	g.HandleFunc("GET /history/{path...}", m.appHandler)
 	g.HandleFunc("GET /search", m.appHandler)
+	g.HandleFunc("GET /recent", m.appHandler)
 	g.HandleFunc("GET /raw/{path...}", m.rawHandler)
 	g.HandleFunc("GET /api/tree", m.apiTree)
 	g.HandleFunc("GET /api/file/{path...}", m.apiFileGet)
@@ -499,4 +510,15 @@ func Favicon() []byte {
 		panic("server: embedded favicon: " + err.Error())
 	}
 	return data
+}
+
+// Logo is the logo inline, so it is drawn in the page's text color through
+// currentColor, which an <img> of the same file would not take.
+func Logo() template.HTML {
+	data, err := assets.ReadFile("logo.svg")
+	if err != nil {
+		panic("server: embedded logo: " + err.Error())
+	}
+	svg := strings.Replace(strings.TrimSpace(string(data)), "<svg ", `<svg class="login-logo" aria-hidden="true" `, 1)
+	return template.HTML(svg) //nolint:gosec // the logo is a file of the binary and never input
 }

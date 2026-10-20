@@ -39,6 +39,8 @@
     "accent": "#2383e2",
     "accentStrong": "#105fad",
     "accentTint": "#2383e224",
+    "focusRing": "#2383e2",
+    "focusRingOuter": "#2383e2",
     "onAccent": "#ffffff",
     "inlineCode": "#eb5757",
     "inlineCodeBg": "#87837826",

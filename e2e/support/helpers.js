@@ -187,10 +187,15 @@ async function inStep(page, space) {
     }, space.api('')), {timeout: 30_000}).toBe('');
 }
 
-// rgb spells a theme file's #rrggbb the way getComputedStyle reports it
+// rgb spells a theme file's #rrggbb or #rrggbbaa the way getComputedStyle
+// reports it, which rounds an alpha to two places
 function rgb(hex) {
     const [r, g, b] = [1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16));
-    return `rgb(${r}, ${g}, ${b})`;
+    if (hex.length === 7) {
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+    const alpha = Math.round((Number.parseInt(hex.slice(7, 9), 16) / 255) * 100) / 100;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 module.exports = {

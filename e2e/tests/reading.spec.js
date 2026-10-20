@@ -175,6 +175,23 @@ test.describe('reading', () => {
         await expect.poll(async () => (await shown()).length).toBeGreaterThan(4);
     });
 
+    for (const theme of [lightTheme, darkTheme]) {
+        test(`a field in focus is drawn with the focus ring of the theme, ${theme.scheme}`, async ({page}) => {
+            // arrange
+            await page.emulateMedia({colorScheme: theme.scheme});
+            await page.goto(routes.home());
+            const filter = page.getByTestId('sidebar-filter');
+
+            // act
+            await filter.focus();
+
+            // assert
+            const [inner, outer] = [rgb(theme.palette.focusRing), rgb(theme.palette.focusRingOuter)];
+            await expect(filter).toHaveCSS('box-shadow', `${inner} 0px 0px 0px 1px inset, ${outer} 0px 0px 0px 1px`);
+            await shot(page, `reading-field-focus-${theme.scheme}`);
+        });
+    }
+
     test('a filter that matches nothing offers the full text search instead', async ({page}) => {
         await page.getByTestId('sidebar-filter').fill('zzzznotinthetreezzzz');
 

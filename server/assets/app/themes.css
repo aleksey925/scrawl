@@ -420,6 +420,8 @@
   --scrawl-accent: #2383e2;
   --scrawl-accent-strong: #105fad;
   --scrawl-accent-tint: #2383e224;
+  --scrawl-focus-ring: #2383e2;
+  --scrawl-focus-ring-outer: #2383e2;
   --scrawl-on-accent: #ffffff;
   --scrawl-inline-code: #eb5757;
   --scrawl-inline-code-bg: #87837826;
@@ -628,6 +630,8 @@
   --scrawl-accent: #2383e2;
   --scrawl-accent-strong: #3b91e6;
   --scrawl-accent-tint: #2383e240;
+  --scrawl-focus-ring: #ffffff59;
+  --scrawl-focus-ring-outer: #ffffff00;
   --scrawl-on-accent: #ffffff;
   --scrawl-inline-code: #ff7369;
   --scrawl-inline-code-bg: #ffffff14;
@@ -835,6 +839,8 @@
   --scrawl-accent: #2383e2;
   --scrawl-accent-strong: #105fad;
   --scrawl-accent-tint: #2383e224;
+  --scrawl-focus-ring: #2383e2;
+  --scrawl-focus-ring-outer: #2383e2;
   --scrawl-on-accent: #ffffff;
   --scrawl-inline-code: #eb5757;
   --scrawl-inline-code-bg: #87837826;
@@ -1041,6 +1047,8 @@
   --scrawl-accent: #2383e2;
   --scrawl-accent-strong: #3b91e6;
   --scrawl-accent-tint: #2383e240;
+  --scrawl-focus-ring: #ffffff59;
+  --scrawl-focus-ring-outer: #ffffff00;
   --scrawl-on-accent: #ffffff;
   --scrawl-inline-code: #ff7369;
   --scrawl-inline-code-bg: #ffffff14;

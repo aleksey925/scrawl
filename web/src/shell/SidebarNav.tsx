@@ -345,7 +345,7 @@ function DraftRow({ depth, touch }: { depth: number; touch: boolean }): JSX.Elem
         minHeight: touch ? layout.tapTarget : undefined,
         ...rowInsets(depth, touch),
         background: 'var(--scrawl-bg)',
-        boxShadow: 'inset 0 0 0 1px var(--scrawl-accent)',
+        boxShadow: 'inset 0 0 0 1px var(--scrawl-focus-ring), inset 0 0 0 2px var(--scrawl-focus-ring-outer)',
       }}
     >
       <EntryIcon touch={touch}>{page ? <IconFile size={iconSize} /> : <IconFolder size={iconSize} />}</EntryIcon>

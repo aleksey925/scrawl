@@ -35,6 +35,10 @@ export interface Palette {
   accent: string;
   accentStrong: string;
   accentTint: string;
+  // the line round a field in focus, drawn inside its edge and once more just
+  // outside it; a dark theme leaves the outer one clear and draws no color
+  focusRing: string;
+  focusRingOuter: string;
   onAccent: string;
   inlineCode: string;
   inlineCodeBg: string;

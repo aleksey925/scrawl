@@ -157,24 +157,29 @@
   line-height: 18px;
 }
 
-/* a new entry is typed into a row of the table, where it will be */
+/* a new entry is typed into a row of the table, where it will be, framed by the
+   focus ring a field has; both of its lines go inside, a row has no room out */
 .draft td {
+  --ring-y:
+    inset 0 1px 0 var(--scrawl-focus-ring), inset 0 -1px 0 var(--scrawl-focus-ring),
+    inset 0 2px 0 var(--scrawl-focus-ring-outer), inset 0 -2px 0 var(--scrawl-focus-ring-outer);
+
   background: var(--scrawl-bg);
-  box-shadow: inset 0 1px 0 var(--scrawl-accent), inset 0 -1px 0 var(--scrawl-accent);
+  box-shadow: var(--ring-y);
 }
 
 .draft td:first-child {
   box-shadow:
-    inset 0 1px 0 var(--scrawl-accent),
-    inset 0 -1px 0 var(--scrawl-accent),
-    inset 1px 0 0 var(--scrawl-accent);
+    inset 1px 0 0 var(--scrawl-focus-ring),
+    inset 2px 0 0 var(--scrawl-focus-ring-outer),
+    var(--ring-y);
 }
 
 .draft td:last-child {
   box-shadow:
-    inset 0 1px 0 var(--scrawl-accent),
-    inset 0 -1px 0 var(--scrawl-accent),
-    inset -1px 0 0 var(--scrawl-accent);
+    inset -1px 0 0 var(--scrawl-focus-ring),
+    inset -2px 0 0 var(--scrawl-focus-ring-outer),
+    var(--ring-y);
 }
 
 .draftInput {

@@ -329,9 +329,14 @@ vendor/                dependencies, checked in, `make deps` regenerates
   is the one place that says so. A control is Notion's: 28px (36px when
   it runs the width of its column) with 6px corners and a 500 weight,
   transparent until hovered; a field is filled with the hover tint and a
-  faint line, and in focus has a two pixel accent line and no halo. The
-  accent is spent the way Notion spends it, read off its own pages: the
-  one main button, a focused field and a toggle that is on; the search
+  faint line, and in focus has the theme's focus ring and no halo: two
+  pixels of the accent in the light theme, and in the dark one a lighter
+  line and no color, the way Raycast and Vercel draw it. A solid blue line
+  on the dark ground glared, and Notion's own dark fields disagree with
+  each other on it. A row a name is typed into, in the tree or a folder's
+  list, is framed by the same ring. The accent is spent the way Notion
+  spends it, read off its own pages: the one main button, a focused field
+  in the light theme and a toggle that is on; the search
   field has no ring, the back link and Cancel are plain text, and a main
   button that cannot be pressed yet fades in its color. A menu has 10px
   corners and Notion's shadow, a dialog 12px. Icons are Phosphor's

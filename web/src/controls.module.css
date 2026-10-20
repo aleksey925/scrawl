@@ -81,7 +81,6 @@
 :global([data-mantine-color-scheme]) .input[data-variant='default'] {
   --input-bg: var(--scrawl-hover);
   --input-bd: var(--scrawl-border-translucent);
-  --input-bd-focus: var(--scrawl-accent);
 }
 
 .input[data-variant='default'] .inputField {
@@ -89,13 +88,12 @@
   box-shadow: inset 0 0 0 1px var(--input-bd);
 }
 
-/* a field in focus is drawn with a two pixel line in the accent and no halo,
-   the way Notion draws one */
+/* a field in focus is drawn with the theme's focus ring and no halo */
 .input[data-variant='default'] .inputField:focus {
   border-color: transparent;
   box-shadow:
-    inset 0 0 0 1px var(--input-bd-focus),
-    0 0 0 1px var(--input-bd-focus);
+    inset 0 0 0 1px var(--scrawl-focus-ring),
+    0 0 0 1px var(--scrawl-focus-ring-outer);
 }
 
 .input .inputField::placeholder {

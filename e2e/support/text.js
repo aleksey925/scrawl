@@ -73,7 +73,7 @@ module.exports = {
     },
 
     history: {
-        title: 'History',
+        title: 'Versions',
         restore: 'Restore',
         empty: 'Nothing was recorded for this note.',
         placeholder: 'Pick a version to see what it changed.',

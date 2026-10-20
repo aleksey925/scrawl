@@ -1,5 +1,5 @@
 import { Alert, Code, Stack, Text } from '@mantine/core';
-import { IconAlertTriangle } from '@tabler/icons-react';
+import { IconAlertTriangle } from '../icons';
 import type { JSX } from 'react';
 
 import { useNav } from './NavContext';

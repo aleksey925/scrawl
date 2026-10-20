@@ -1,4 +1,4 @@
-import { IconChevronLeft } from '@tabler/icons-react';
+import { IconChevronLeft } from '../icons';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
 
@@ -51,6 +51,17 @@ export function PhoneTopBar({ home, end, menu, actionsRef }: PhoneTopBarProps): 
   const atRoot = chrome.title === '';
   const parent = chrome.crumbs[chrome.crumbs.length - 1] ?? { name: space, url: '/' };
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
+  const location = useLocation();
+  // the editor's own actions are the whole bar: Cancel at one end, Save at the other
+  const editing = location.pathname.startsWith('/edit/');
+
+  if (editing) {
+    return (
+      <div data-testid="topbar" data-editing="true" className={classes.bar}>
+        <div data-testid="topbar-actions" className={classes.editActions} ref={actionsRef} />
+      </div>
+    );
+  }
 
   return (
     <div data-testid="topbar" data-scrolled={scrolled ? 'true' : 'false'} className={classes.bar}>

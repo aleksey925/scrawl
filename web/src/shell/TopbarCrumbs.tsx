@@ -1,7 +1,13 @@
 import type { JSX } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
+
+import { EntryIcon } from '../components/EntryIcon';
+import { IconFolder } from '../icons';
+import { isDirectoryPath } from '../paths';
+import { layout } from '../theme';
 
 import { useNav } from './NavContext';
+import { contentPathOf } from './naming';
 import { useShownChrome } from './PageChrome';
 import { SpaceTile } from './SpaceTile';
 import classes from './Topbar.module.css';
@@ -21,6 +27,8 @@ export function TopbarCrumbs(): JSX.Element {
   const chrome = useShownChrome();
   const space = me?.space.label ?? me?.site_title ?? 'Notes';
   const atSpace = chrome.title === '';
+  const location = useLocation();
+  const current = contentPathOf(location.pathname);
 
   return (
     <nav data-testid="topbar-crumbs" aria-label="Path" className={classes.crumbs}>
@@ -39,6 +47,7 @@ export function TopbarCrumbs(): JSX.Element {
         <span key={crumb.url} className={classes.step}>
           <Separator />
           <Link data-testid="crumb" data-current="false" to={crumb.url} className={classes.crumb}>
+            <IconFolder size={layout.iconSizeSmall} className={classes.crumbIcon} />
             <span className={classes.crumbText}>{crumb.name}</span>
           </Link>
         </span>
@@ -47,6 +56,12 @@ export function TopbarCrumbs(): JSX.Element {
         <span className={`${classes.step} ${classes.last}`}>
           <Separator />
           <span data-testid="crumb" data-current="true" className={`${classes.crumb} ${classes.current}`}>
+            <EntryIcon
+              name={current}
+              isDir={isDirectoryPath(location.pathname)}
+              size={layout.iconSizeSmall}
+              className={classes.crumbIcon}
+            />
             <span className={classes.crumbText}>{chrome.title}</span>
           </span>
         </span>

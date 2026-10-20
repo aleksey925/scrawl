@@ -32,7 +32,7 @@
   display: inline-flex;
   flex: 0 1 auto;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
   height: 26px;
   padding-inline: 6px;
@@ -82,4 +82,9 @@
   color: var(--scrawl-text-tertiary);
   font-size: var(--mantine-font-size-sm);
   white-space: nowrap;
+}
+
+.crumbIcon {
+  flex: none;
+  color: var(--scrawl-icon-secondary);
 }

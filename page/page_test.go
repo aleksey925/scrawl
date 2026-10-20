@@ -102,12 +102,12 @@ func TestWriteDiff(t *testing.T) {
 		assert.Contains(t, got, `<h1 class="page-title">v1 → v2</h1>`)
 		assert.NotContains(t, got, `<ul class="page-files">`)
 		assert.Contains(t, got, `<div class="page-moved">a.md → b.md</div>`)
-		assert.Contains(t, got, `<div class="diff-head"><div>v1</div><div>v2</div></div>`)
+		assert.Contains(t, got, `<p class="diff-labels">v1 → v2</p>`)
 		assert.Contains(t, got, `<details class="diff-fold"><summary>1 unchanged block</summary>`+"\n"+
-			`<div class="diff-row" data-kind="same"><div class="diff-cell diff-old markdown-document"><p>far</p></div>`)
-		assert.Contains(t, got, `<div class="diff-row" data-kind="added"><div class="diff-cell diff-old diff-empty"></div>`+
-			`<div class="diff-cell diff-new markdown-document"><p>new</p></div></div>`)
-		assert.Contains(t, got, `<span class="diff-badge" title="Only the markup changed">format</span>`)
+			`<div class="diff-row" data-kind="same"><div class="diff-cell markdown-document"><p>far</p></div></div>`)
+		assert.Contains(t, got, `<div class="diff-row" data-kind="added"><span class="diff-tag">Added</span>`+
+			`<div class="diff-cell markdown-document"><p>new</p></div></div>`)
+		assert.Contains(t, got, `<div class="diff-row" data-kind="format"><span class="diff-tag">Format</span>`)
 		assert.NotContains(t, got, `<p class="diff-none">`)
 	})
 
@@ -330,4 +330,26 @@ func TestMath(t *testing.T) {
 
 	// assert
 	assert.Equal(t, map[string]string{MathScriptFile: asset("math.js"), MathStyleFile: asset("math.css")}, got)
+}
+
+func TestShownOf(t *testing.T) {
+	old, cur, inline := &htmldiff.Side{HTML: "<p>a</p>"}, &htmldiff.Side{HTML: "<p>b</p>"}, &htmldiff.Side{HTML: "<p>ab</p>"}
+	tests := []struct {
+		name string
+		row  htmldiff.Row
+		want []*htmldiff.Side
+	}{
+		{name: "a removed block as it was", row: htmldiff.Row{Kind: htmldiff.Removed, Old: old}, want: []*htmldiff.Side{old}},
+		{name: "a changed block in one", row: htmldiff.Row{Kind: htmldiff.Changed, Old: old, New: cur, Inline: inline},
+			want: []*htmldiff.Side{inline}},
+		{name: "a changed block too long to join", row: htmldiff.Row{Kind: htmldiff.Changed, Old: old, New: cur},
+			want: []*htmldiff.Side{old, cur}},
+		{name: "a block as it is now", row: htmldiff.Row{Kind: htmldiff.Format, Old: old, New: cur}, want: []*htmldiff.Side{cur}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act & assert
+			assert.Equal(t, tc.want, shownOf(tc.row))
+		})
+	}
 }

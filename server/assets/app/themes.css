@@ -448,6 +448,12 @@
   --scrawl-shadow-small: 0 2px 4px #0000000a, 0 0 0 1px #2a1c0012;
   --scrawl-shadow-medium: 0 8px 12px #19191907, 0 2px 6px #19191907, 0 0 0 1px #2a1c0012, 0 12px 32px #1919190f;
   --scrawl-shadow-large: 0 24px 48px #1919193d, 0 4px 12px #19191924, 0 0 0 1px #2a1c0012;
+  --scrawl-code-keyword: #0077aa;
+  --scrawl-code-string: #669900;
+  --scrawl-code-comment: #8e8b86;
+  --scrawl-code-function: #dd4a68;
+  --scrawl-code-number: #990055;
+  --scrawl-code-builtin: #a0522d;
   --scrawl-strong-weight: 600;
   color-scheme: light;
 }
@@ -650,6 +656,12 @@
   --scrawl-shadow-small: 0 2px 4px #00000033, 0 0 0 1px #383836;
   --scrawl-shadow-medium: 0 8px 12px #00000040, 0 2px 6px #00000033, 0 0 0 1px #383836;
   --scrawl-shadow-large: 0 24px 48px #00000080, 0 4px 12px #00000059, 0 0 0 1px #383836;
+  --scrawl-code-keyword: #7ab8e6;
+  --scrawl-code-string: #a7c97f;
+  --scrawl-code-comment: #8e8b86;
+  --scrawl-code-function: #e48ca5;
+  --scrawl-code-number: #d6a0c9;
+  --scrawl-code-builtin: #e0a477;
   --scrawl-strong-weight: 700;
   color-scheme: dark;
 }
@@ -851,6 +863,12 @@
   --scrawl-shadow-small: 0 2px 4px #0000000a, 0 0 0 1px #2a1c0012;
   --scrawl-shadow-medium: 0 8px 12px #19191907, 0 2px 6px #19191907, 0 0 0 1px #2a1c0012, 0 12px 32px #1919190f;
   --scrawl-shadow-large: 0 24px 48px #1919193d, 0 4px 12px #19191924, 0 0 0 1px #2a1c0012;
+  --scrawl-code-keyword: #0077aa;
+  --scrawl-code-string: #669900;
+  --scrawl-code-comment: #8e8b86;
+  --scrawl-code-function: #dd4a68;
+  --scrawl-code-number: #990055;
+  --scrawl-code-builtin: #a0522d;
   --scrawl-strong-weight: 600;
   color-scheme: light;
 }
@@ -1051,6 +1069,12 @@
   --scrawl-shadow-small: 0 2px 4px #00000033, 0 0 0 1px #383836;
   --scrawl-shadow-medium: 0 8px 12px #00000040, 0 2px 6px #00000033, 0 0 0 1px #383836;
   --scrawl-shadow-large: 0 24px 48px #00000080, 0 4px 12px #00000059, 0 0 0 1px #383836;
+  --scrawl-code-keyword: #7ab8e6;
+  --scrawl-code-string: #a7c97f;
+  --scrawl-code-comment: #8e8b86;
+  --scrawl-code-function: #e48ca5;
+  --scrawl-code-number: #d6a0c9;
+  --scrawl-code-builtin: #e0a477;
   --scrawl-strong-weight: 700;
   color-scheme: dark;
 }

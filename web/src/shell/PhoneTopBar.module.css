@@ -1,8 +1,7 @@
 /* the bar on top of a phone: back at the left, the title in the middle once
    the page's own has gone, the page's menu at the right */
 .bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
+  display: flex;
   align-items: center;
   gap: 4px;
   height: 100%;
@@ -16,6 +15,7 @@
 
 .start {
   display: flex;
+  flex: 1 1 0;
   align-items: center;
   min-width: 0;
 }
@@ -35,6 +35,7 @@
 
 .up {
   padding-inline-start: 12px;
+  color: var(--scrawl-accent);
 }
 
 .home {
@@ -50,6 +51,7 @@
 }
 
 .title {
+  flex: 0 1 auto;
   min-width: 0;
   max-width: 50vw;
   overflow: hidden;
@@ -63,12 +65,17 @@
   transition: opacity 150ms;
 }
 
+.title[data-shown='false'] {
+  max-width: 0;
+}
+
 .title[data-shown='true'] {
   opacity: 1;
 }
 
 .end {
   display: flex;
+  flex: 1 1 0;
   align-items: center;
   justify-content: flex-end;
   min-width: 0;
@@ -84,4 +91,13 @@
   .title {
     transition: none;
   }
+}
+
+/* the editor's bar: Cancel at the start, Save at the end */
+.editActions {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }

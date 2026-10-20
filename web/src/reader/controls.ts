@@ -4,6 +4,7 @@ import { headingsOf, imagesOf } from './dom';
 export const anchorClass = 'md-anchor';
 export const copyClass = 'md-copy';
 export const codeHeadClass = 'md-code-head';
+export const tableWrapClass = 'table-wrap';
 export const copyLabel = 'Copy';
 export const copiedLabel = 'Copied';
 
@@ -14,7 +15,7 @@ type Teardown = () => void;
 // injectControls adds the reading controls the server does not render and
 // returns the teardown, because React never owns anything inside injected html
 export function injectControls(root: HTMLElement): Teardown {
-  const teardowns = [injectHeadingAnchors(root), injectCopyButtons(root), prepareImages(root)];
+  const teardowns = [injectHeadingAnchors(root), injectCopyButtons(root), wrapTables(root), prepareImages(root)];
   return () => {
     for (const teardown of teardowns) {
       teardown();
@@ -100,6 +101,28 @@ export function injectCopyButtons(root: HTMLElement): Teardown {
     added.push(head);
   }
   return removing(added, untag);
+}
+
+// wrapTables puts every table in a box that scrolls sideways, so the table
+// itself can run the width of the note: a table that scrolls by itself is
+// only as wide as its text
+export function wrapTables(root: HTMLElement): Teardown {
+  const wrapped: HTMLElement[] = [];
+  for (const table of root.querySelectorAll<HTMLTableElement>('table')) {
+    if (table.parentElement?.classList.contains(tableWrapClass) === true) {
+      continue;
+    }
+    const wrap = document.createElement('div');
+    wrap.className = tableWrapClass;
+    table.replaceWith(wrap);
+    wrap.append(table);
+    wrapped.push(wrap);
+  }
+  return () => {
+    for (const wrap of wrapped) {
+      wrap.replaceWith(...wrap.childNodes);
+    }
+  };
 }
 
 // the zoom is advertised with cursor: zoom-in, which only a pointer sees, so

@@ -1,5 +1,5 @@
 import { ActionIcon } from '@mantine/core';
-import { IconChevronDown, IconChevronUp, IconSearch, IconX } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronUp, IconSearch, IconX } from '../icons';
 import { useEffect, useRef, type JSX, type KeyboardEvent, type ReactNode } from 'react';
 
 import { layout } from '../theme';

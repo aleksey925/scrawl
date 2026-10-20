@@ -48,3 +48,9 @@ export function shortDate(at: string): string {
 export function itemCount(count: number): string {
   return `${count} ${count === 1 ? 'item' : 'items'}`;
 }
+
+// shortTime is when a file changed, the way a folder's list writes it:
+// "Oct 17, 12:30"
+export function shortTime(at: string): string {
+  return new Date(at).toLocaleString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+}

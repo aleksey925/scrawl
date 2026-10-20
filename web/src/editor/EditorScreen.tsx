@@ -3,24 +3,20 @@ import {
   ActionIcon,
   Alert,
   Button,
-  Center,
   Group,
   SegmentedControl,
   Tabs,
   Text,
-  VisuallyHidden,
 } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import {
   IconColumns2,
-  IconDeviceFloppy,
+  IconBraces,
   IconEye,
-  IconFileText,
   IconPhoto,
   IconTextWrap,
   IconTextWrapDisabled,
-  IconX,
-} from '@tabler/icons-react';
+} from '../icons';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useBlocker, useLocation, useNavigate } from 'react-router';
 
@@ -31,7 +27,6 @@ import { documentUrl, editUrl, isMarkdown } from '../paths';
 import { holdPosition, interactionEvents } from '../reader/position';
 import { useNav } from '../shell/NavContext';
 import { PageActions } from '../shell/ShellSlots';
-import { TopbarAction } from '../shell/TopbarAction';
 import { useMutationState } from '../shell/useMutationState';
 import { layout } from '../theme';
 import { showToast } from '../toast';
@@ -71,9 +66,9 @@ export interface EditorScreenProps {
 }
 
 const modeOptions = [
-  { value: 'source', icon: IconFileText, label: 'Source only' },
-  { value: 'split', icon: IconColumns2, label: 'Split view' },
-  { value: 'preview', icon: IconEye, label: 'Preview only' },
+  { value: 'source', icon: IconBraces, label: 'Source' },
+  { value: 'split', icon: IconColumns2, label: 'Split' },
+  { value: 'preview', icon: IconEye, label: 'Preview' },
 ] as const;
 
 type SaveState = 'saving' | 'uploading' | 'dirty' | 'new' | 'saved';
@@ -580,92 +575,103 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const previewStyle = mode === 'split' ? { flex: '1 1 0' } : undefined;
 
   return (
-    <div data-testid="editor" className={classes.screen}>
+    <div data-testid="editor" data-mode={mode} className={classes.screen}>
       <PageActions>
+        <Text
+          data-testid="editor-status"
+          data-dirty={dirty ? 'true' : 'false'}
+          data-state={saveState}
+          className={classes.status}
+          hidden={!wide}
+          aria-live="polite"
+        >
+          {saveStateText[saveState]}
+        </Text>
         {wide && (
           <SegmentedControl
             data-testid="editor-layout-mode"
             data-mode={chosen}
-            size="sm"
+            size="xs"
             value={chosen}
             onChange={(value) => choose(value as LayoutMode)}
             aria-label="Editor layout"
+            classNames={{ root: classes.modes }}
             data={modeOptions.map(({ value, icon: Icon, label }) => ({
               value,
               label: (
-                <Center>
+                <span className={classes.mode}>
                   <Icon size={layout.iconSizeSmall} />
-                  <VisuallyHidden>{label}</VisuallyHidden>
-                </Center>
+                  {label}
+                </span>
               ),
             }))}
           />
         )}
+        <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" className={classes.cancel} onClick={cancel}>
+          Cancel
+        </Button>
         {!readOnly && (
-          <Button
-            data-testid="editor-save"
-            size="sm"
-            loading={saving}
-            leftSection={<IconDeviceFloppy size={layout.iconSizeSmall} />}
-            onClick={() => void save()}
-          >
+          <Button data-testid="editor-save" size="sm" className={classes.save} loading={saving} onClick={() => void save()}>
             Save
           </Button>
         )}
-        <TopbarAction testId="editor-cancel" label="Cancel" icon={IconX} onClick={cancel} />
       </PageActions>
 
-      {readOnly && (
-        <Alert data-testid="editor-readonly" color="yellow" variant="light">
-          This server is read-only. You can read the source here, but it cannot be saved.
-        </Alert>
-      )}
+      {(readOnly || draft.offered !== undefined) && (
+        <div className={classes.notices}>
+          {readOnly && (
+            <Alert data-testid="editor-readonly" color="yellow" variant="light">
+              This server is read-only. You can read the source here, but it cannot be saved.
+            </Alert>
+          )}
 
-      {draft.offered !== undefined && (
-        <Alert
-          data-testid="editor-draft"
-          data-stale={draft.stale ? 'true' : 'false'}
-          color="yellow"
-          variant="light"
-          title="An unsaved draft was found"
-        >
-          <Group justify="space-between" wrap="wrap" gap="sm">
-            <Text size="sm">
-              {`Written ${new Date(draft.offered.at).toLocaleString()}`}
-              {draft.stale ? ', against an older version of this page.' : '.'}
-            </Text>
-            <Group gap="xs">
-              <Button
-                data-testid="editor-draft-restore"
-                size="xs"
-                variant="default"
-                onClick={() => {
-                  const current = viewRef.current;
-                  const text = draft.offered?.content ?? '';
-                  if (current !== undefined) {
-                    current.dispatch({
-                      changes: { from: 0, to: current.state.doc.length, insert: text },
-                    });
-                  } else {
-                    setContent(text);
-                  }
-                  draft.dismiss();
-                }}
-              >
-                Restore
-              </Button>
-              <Button
-                data-testid="editor-draft-discard"
-                size="xs"
-                variant="subtle"
-                color="gray"
-                onClick={draft.discard}
-              >
-                Discard
-              </Button>
-            </Group>
-          </Group>
-        </Alert>
+          {draft.offered !== undefined && (
+            <Alert
+              data-testid="editor-draft"
+              data-stale={draft.stale ? 'true' : 'false'}
+              color="yellow"
+              variant="light"
+              title="An unsaved draft was found"
+            >
+              <Group justify="space-between" wrap="wrap" gap="sm">
+                <Text size="sm">
+                  {`Written ${new Date(draft.offered.at).toLocaleString()}`}
+                  {draft.stale ? ', against an older version of this page.' : '.'}
+                </Text>
+                <Group gap="xs">
+                  <Button
+                    data-testid="editor-draft-restore"
+                    size="xs"
+                    variant="default"
+                    onClick={() => {
+                      const current = viewRef.current;
+                      const text = draft.offered?.content ?? '';
+                      if (current !== undefined) {
+                        current.dispatch({
+                          changes: { from: 0, to: current.state.doc.length, insert: text },
+                        });
+                      } else {
+                        setContent(text);
+                      }
+                      draft.dismiss();
+                    }}
+                  >
+                    Restore
+                  </Button>
+                  <Button
+                    data-testid="editor-draft-discard"
+                    size="xs"
+                    variant="subtle"
+                    color="gray"
+                    onClick={draft.discard}
+                  >
+                    Discard
+                  </Button>
+                </Group>
+              </Group>
+            </Alert>
+          )}
+        </div>
       )}
 
       {!wide && (
@@ -685,48 +691,58 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         </Tabs>
       )}
 
-      {showSource && (
-        <Group gap="xs" wrap="nowrap">
-          {!readOnly && (
-            <Toolbar
-              onAction={onAction}
-              onPickImage={() => fileRef.current?.click()}
-              onFormat={formattable ? format : undefined}
-            />
-          )}
-          <ActionIcon
-            data-testid="editor-wrap"
-            ml="auto"
-            size={layout.tapTarget}
-            variant={lineWrap.wrap ? 'light' : 'subtle'}
-            color="gray"
-            aria-label="Wrap long lines"
-            aria-pressed={lineWrap.wrap}
-            title="Wrap long lines"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={lineWrap.toggle}
-          >
-            {lineWrap.wrap ? <IconTextWrap size={layout.iconSize} /> : <IconTextWrapDisabled size={layout.iconSize} />}
-          </ActionIcon>
-          {uploads.pending > 0 && (
-            <ActionIcon
-              data-testid="editor-upload-pending"
-              data-pending={uploads.pending}
-              size={layout.tapTarget}
-              variant="subtle"
-              color="gray"
-              loading
-              aria-label="Uploading"
-            >
-              <IconPhoto size={layout.iconSize} />
-            </ActionIcon>
-          )}
-        </Group>
-      )}
-
       <div data-testid="editor-panes" data-mode={mode} className={classes.panes} ref={panesRef}>
         {showSource && (
           <div className={classes.pane} style={sourceStyle}>
+            <div className={classes.paneHead}>
+              <div className={classes.paneHeadInner}>
+                {mode === 'split' && <span className={classes.paneLabel}>Source</span>}
+                {!readOnly && (
+                  <Toolbar
+                    onAction={onAction}
+                    onPickImage={() => fileRef.current?.click()}
+                    onFormat={formattable ? format : undefined}
+                  />
+                )}
+                <div className={classes.paneTools}>
+                  {uploads.pending > 0 && (
+                    <ActionIcon
+                      data-testid="editor-upload-pending"
+                      data-pending={uploads.pending}
+                      className={classes.tool}
+                      variant="subtle"
+                      color="gray"
+                      loading
+                      aria-label="Uploading"
+                    >
+                      <IconPhoto size={layout.iconSizeSmall} />
+                    </ActionIcon>
+                  )}
+                  {wide && (
+                    <Text data-testid="editor-lines" data-lines={lines} className={classes.lines}>
+                      {lines === 1 ? '1 line' : `${lines} lines`}
+                    </Text>
+                  )}
+                  <ActionIcon
+                    data-testid="editor-wrap"
+                    className={classes.tool}
+                    variant={lineWrap.wrap ? 'light' : 'subtle'}
+                    color="gray"
+                    aria-label="Wrap long lines"
+                    aria-pressed={lineWrap.wrap}
+                    title="Wrap long lines"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={lineWrap.toggle}
+                  >
+                    {lineWrap.wrap ? (
+                      <IconTextWrap size={layout.iconSizeSmall} />
+                    ) : (
+                      <IconTextWrapDisabled size={layout.iconSizeSmall} />
+                    )}
+                  </ActionIcon>
+                </div>
+              </div>
+            </div>
             <SourceEditor
               value={content}
               readOnly={readOnly}
@@ -742,6 +758,13 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         {mode === 'split' && <Splitter onDrag={dragSplit} onNudge={nudgeSplit} />}
         {showPreview && (
           <div className={classes.pane} style={previewStyle}>
+            {mode === 'split' && (
+              <div className={classes.paneHead}>
+                <div className={classes.paneHeadInner}>
+                  <span className={classes.paneLabel}>Preview</span>
+                </div>
+              </div>
+            )}
             <PreviewPane
               html={preview.html}
               notice={preview.notice}
@@ -754,24 +777,11 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         )}
       </div>
 
-      <Group gap="xs" justify="space-between">
-        <Text data-testid="editor-lines" data-lines={lines} size="xs" c="dimmed">
+      {!wide && (
+        <Text data-testid="editor-lines" data-lines={lines} className={classes.footLines}>
           {lines === 1 ? '1 line' : `${lines} lines`}
         </Text>
-        <Text
-          data-testid="editor-status"
-          data-dirty={dirty ? 'true' : 'false'}
-          data-state={saveState}
-          size="xs"
-          c="dimmed"
-          aria-live="polite"
-        >
-          {saveStateText[saveState]}
-        </Text>
-        <Text data-testid="editor-path" size="xs" c="dimmed" truncate>
-          {path}
-        </Text>
-      </Group>
+      )}
 
       <input
         ref={fileRef}

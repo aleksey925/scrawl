@@ -6,6 +6,7 @@ import {
   createTheme,
   Input,
   Menu,
+  Drawer,
   Modal,
   SegmentedControl,
   type MantineColorsTuple,
@@ -203,6 +204,7 @@ export function themeVariables(def: ThemeDefinition): Record<string, string> {
     ...tokenVariables('scrawl', def.palette),
     ...blockVariables(def.blocks),
     ...tokenVariables('scrawl-shadow', def.shadows),
+    ...tokenVariables('scrawl-code', def.code),
     ...mantineVariables(def),
     '--scrawl-strong-weight': def.strongWeight,
   };
@@ -279,8 +281,12 @@ export const theme: MantineThemeOverride = createTheme({
       defaultProps: { radius: 'lg', shadow: 'md' },
       classNames: { dropdown: controls.menu, item: controls.menuItem, label: controls.menuLabel },
     }),
-    Modal: Modal.extend({ defaultProps: { radius: 'xl', shadow: 'lg' } }),
-    SegmentedControl: SegmentedControl.extend({ classNames: { label: controls.segment } }),
+    Modal: Modal.extend({ defaultProps: { radius: 'xl', shadow: 'lg' }, classNames: { overlay: controls.overlay } }),
+    Drawer: Drawer.extend({ classNames: { overlay: controls.overlay } }),
+    SegmentedControl: SegmentedControl.extend({
+      defaultProps: { withItemsBorders: false, radius: 'md' },
+      classNames: { root: controls.segmentRoot, indicator: controls.segmentIndicator, label: controls.segment },
+    }),
   },
 
   other: { layout, layoutBreakpoints, breakpointPx },

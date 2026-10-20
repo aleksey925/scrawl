@@ -1,4 +1,4 @@
-import { IconClock, IconFolder, IconPlus, IconSearch, type Icon } from '@tabler/icons-react';
+import { IconClock, IconFolder, IconPlus, IconSearch, type Icon } from '../icons';
 import type { JSX } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 

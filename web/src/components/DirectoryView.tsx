@@ -1,7 +1,7 @@
 import { ActionIcon, Button, Menu } from '@mantine/core';
 import {
   IconChevronDown, IconDots, IconEdit, IconFilePlus, IconFolderOpen, IconFolderPlus, IconLink, IconPlus, IconTable, IconTrash,
-} from '@tabler/icons-react';
+} from '../icons';
 import { useEffect, useState, type JSX } from 'react';
 
 import type { DirListing, EntryKind } from '../api/types';
@@ -73,7 +73,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
 
   return (
     <Page data-testid="dir" wide>
-      {phone && writable && actions !== undefined && (
+      {writable && actions !== undefined && (
         <PageActions>
           <FolderMenu path={path} actions={actions} />
         </PageActions>

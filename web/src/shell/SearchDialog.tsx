@@ -1,6 +1,6 @@
 import { CloseButton, Modal, SegmentedControl } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconFileText, IconSearch } from '@tabler/icons-react';
+import { IconFileText, IconSearch } from '../icons';
 import {
   useCallback, useEffect, useMemo, useState,
   type JSX, type KeyboardEvent as ReactKeyboardEvent, type ReactNode,

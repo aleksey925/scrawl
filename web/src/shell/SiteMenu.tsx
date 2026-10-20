@@ -1,5 +1,5 @@
 import { ActionIcon, Menu, Text } from '@mantine/core';
-import { IconDots, IconKeyboard, IconListSearch } from '@tabler/icons-react';
+import { IconDots, IconKeyboard, IconListSearch } from '../icons';
 import type { JSX } from 'react';
 
 import { SheetMenu } from '../components/SheetMenu';

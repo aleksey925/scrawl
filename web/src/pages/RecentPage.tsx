@@ -1,5 +1,5 @@
 import { ActionIcon, Menu } from '@mantine/core';
-import { IconClock, IconDots, IconFileText, IconTrash } from '@tabler/icons-react';
+import { IconClock, IconDots, IconFileText, IconTrash } from '../icons';
 import type { JSX } from 'react';
 import { Link } from 'react-router';
 

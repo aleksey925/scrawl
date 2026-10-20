@@ -1,7 +1,7 @@
 import '../print.css';
 
 import { ActionIcon, AppShell, Drawer } from '@mantine/core';
-import { IconMenu2 } from '@tabler/icons-react';
+import { IconMenu2 } from '../icons';
 import {
   createContext, Fragment, useCallback, useContext, useEffect, useMemo, useState,
   type ComponentType, type JSX, type ReactNode,

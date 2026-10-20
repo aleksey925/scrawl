@@ -1,5 +1,5 @@
 import { Alert, Box } from '@mantine/core';
-import { IconEyeOff } from '@tabler/icons-react';
+import { IconEyeOff } from '../icons';
 import type { JSX, RefObject } from 'react';
 
 import { DocumentHtml } from '../components/DocumentHtml';

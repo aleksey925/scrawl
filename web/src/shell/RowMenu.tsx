@@ -1,7 +1,7 @@
 import { ActionIcon, Menu } from '@mantine/core';
 import {
   IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconPlus, IconTrash,
-} from '@tabler/icons-react';
+} from '../icons';
 import { useEffect, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 

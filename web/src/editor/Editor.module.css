@@ -1,18 +1,25 @@
+/* the editor is the page itself: no box around it, a quiet row of tools over
+   the text, and the source in a column the width a note is read at */
 .screen {
+  --editor-column: calc(var(--scrawl-note-width) + 120px);
+
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: calc(100dvh - var(--app-shell-header-offset, 0px) - 2 * var(--app-shell-padding, 0px));
+}
+
+.notices {
   display: flex;
   flex-direction: column;
   gap: var(--mantine-spacing-sm);
-  min-height: 0;
-  height: calc(100dvh - var(--app-shell-header-offset, 0px) - 2 * var(--app-shell-padding, 0px));
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg) 0;
 }
 
 .panes {
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
-  border: 1px solid var(--scrawl-border);
-  border-radius: var(--mantine-radius-md);
-  overflow: hidden;
   background: var(--scrawl-bg);
 }
 
@@ -26,6 +33,85 @@
 
 .grow {
   flex: 1 1 0;
+}
+
+/* the row over a pane: in the split its name, over the source the tools */
+.paneHead {
+  flex: none;
+  border-bottom: 1px solid var(--scrawl-border-light);
+}
+
+.paneHeadInner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 44px;
+  padding-inline: var(--mantine-spacing-lg);
+}
+
+.screen[data-mode='source'] .paneHeadInner {
+  max-width: var(--editor-column);
+  margin-inline: auto;
+}
+
+.paneLabel {
+  flex: none;
+  margin-inline-end: 8px;
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+}
+
+.paneTools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  margin-inline-start: auto;
+}
+
+.tool {
+  --ai-size: var(--scrawl-control-height);
+  flex: none;
+  color: var(--scrawl-icon-secondary);
+}
+
+.toolSeparator {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin-inline: 6px;
+  background: var(--scrawl-border);
+}
+
+.lines {
+  margin-inline-end: 6px;
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.footLines {
+  display: none;
+}
+
+/* the state of the save, where a note shows when it was edited */
+.status {
+  margin-inline-end: 8px;
+  color: var(--scrawl-text-tertiary);
+  font-size: var(--mantine-font-size-sm);
+  white-space: nowrap;
+}
+
+.modes {
+  margin-inline-end: 4px;
+}
+
+.mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 4px;
 }
 
 .source {
@@ -50,21 +136,52 @@
 }
 
 .source :global(.cm-scroller) {
+  padding: 28px var(--mantine-spacing-md) 30vh;
   font-family: var(--mantine-font-family-monospace);
-  /* below 16px iOS zooms the page on focus and never zooms back */
-  font-size: var(--scrawl-input-font-size);
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.7;
 }
 
-/* the stock dark theme paints One Dark's own grey under the text */
-.source :global(.cm-editor) {
-  background-color: var(--scrawl-bg);
+.screen[data-mode='source'] .source :global(.cm-scroller) {
+  padding-inline: max(var(--mantine-spacing-md), calc((100% - var(--editor-column)) / 2));
 }
 
 .source :global(.cm-gutters) {
-  background: var(--scrawl-code-bg);
-  border-right: 1px solid var(--scrawl-border);
-  color: var(--scrawl-text-tertiary);
+  padding-inline-end: 12px;
+}
+
+.source :global(.cm-lineNumbers .cm-gutterElement) {
+  min-width: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (pointer: coarse) {
+  /* below 16px iOS zooms the page on focus and never zooms back */
+  .source :global(.cm-scroller) {
+    font-size: var(--scrawl-input-font-size);
+  }
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .source :global(.cm-gutters) {
+    display: none;
+  }
+
+  .source :global(.cm-scroller) {
+    padding: 16px var(--mantine-spacing-lg) 30vh;
+  }
+
+  .paneHeadInner {
+    padding-inline: 0;
+  }
+
+  .footLines {
+    display: block;
+    padding: 6px var(--mantine-spacing-lg);
+    border-top: 1px solid var(--scrawl-border-light);
+    color: var(--scrawl-text-tertiary);
+    font-size: 12px;
+  }
 }
 
 .dropping {
@@ -75,12 +192,19 @@
 .preview {
   overflow-y: auto;
   overflow-x: hidden;
-  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
-  border-left: 1px solid var(--scrawl-border);
+  padding: 28px 32px 30vh;
 }
 
-.previewOnly {
-  border-left: 0;
+/* the preview alone reads the way the note does, in its column */
+.previewOnly > * {
+  max-width: var(--scrawl-note-width);
+  margin-inline: auto;
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .preview {
+    padding: 16px var(--mantine-spacing-lg) 30vh;
+  }
 }
 
 .splitter {
@@ -126,7 +250,10 @@
    defaults a finger dragged it sideways past the end and up and down with the
    page behind it, so the bar wobbled under every touch. */
 .toolbarScroll {
+  display: flex;
   flex: 1 1 auto;
+  align-items: center;
+  gap: 2px;
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
@@ -176,4 +303,18 @@
   border-radius: var(--mantine-radius-sm);
   padding: var(--mantine-spacing-sm);
   margin: 0;
+}
+
+/* on a phone Cancel and Save are the two ends of the bar, Save a button of the
+   bar's size and not a block as tall as the bar */
+@mixin smaller-than $mantine-breakpoint-sm {
+  .save {
+    min-height: 0;
+    height: 32px;
+    margin-inline-end: 12px;
+  }
+
+  .cancel {
+    color: var(--scrawl-accent);
+  }
 }

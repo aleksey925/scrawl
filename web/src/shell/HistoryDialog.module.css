@@ -22,10 +22,9 @@
   display: flex;
   flex: none;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   height: 48px;
-  padding: 0 16px 0 24px;
+  padding: 0 14px;
   border-bottom: 1px solid var(--scrawl-border-light);
 }
 
@@ -40,7 +39,7 @@
 .diff {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 20px 24px 32px;
+  padding: 32px 56px 80px 24px;
   overflow: auto;
 }
 
@@ -127,9 +126,8 @@
 }
 
 .current {
-  flex: none;
   color: var(--scrawl-text-tertiary);
-  font-size: 12px;
+  font-weight: 400;
 }
 
 .avatar {
@@ -139,17 +137,17 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--scrawl-bg-gray);
-  color: var(--scrawl-text-secondary);
   font-size: 9px;
   font-weight: 600;
 }
 
 .actor,
 .moved {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   color: var(--scrawl-text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -162,25 +160,6 @@
   line-height: 18px;
 }
 
-.kind[data-kind='added'] {
-  background: var(--scrawl-bg-green);
-  color: var(--scrawl-color-green);
-}
-
-.kind[data-kind='modified'] {
-  background: var(--scrawl-bg-gray);
-  color: var(--scrawl-color-gray);
-}
-
-.kind[data-kind='renamed'] {
-  background: var(--scrawl-bg-blue);
-  color: var(--scrawl-color-blue);
-}
-
-.kind[data-kind='deleted'] {
-  background: var(--scrawl-bg-red);
-  color: var(--scrawl-color-red);
-}
 
 .foot {
   display: flex;
@@ -194,6 +173,7 @@
 .reason {
   color: var(--scrawl-text-tertiary);
   font-size: 12px;
+  text-align: center;
 }
 
 .empty {
@@ -212,9 +192,12 @@
     grid-template-rows: minmax(0, 58fr) minmax(0, 42fr);
   }
 
-  .bar,
-  .diff {
+  .bar {
     padding-inline: 16px;
+  }
+
+  .diff {
+    padding: 20px 16px 40px;
   }
 
   .panel {
@@ -224,4 +207,8 @@
   .row {
     min-height: var(--scrawl-tap-target);
   }
+}
+
+.list:focus {
+  outline: none;
 }

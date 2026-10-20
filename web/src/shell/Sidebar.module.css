@@ -189,16 +189,7 @@
   padding: 2px 8px 6px;
 }
 
-/* in the phone's drawer everything starts on the 16px line the page text and
-   the topbar icons share */
-@mixin smaller-than $mantine-breakpoint-sm {
-  .head,
-  .top,
-  .filter {
-    padding-inline: var(--mantine-spacing-lg);
-  }
-
-  .section {
-    margin-inline: var(--mantine-spacing-lg);
-  }
+/* the filter is a tint in the sidebar with no line round it until it is used */
+.filter :global(.mantine-Input-wrapper) :global(.mantine-Input-input):not(:focus) {
+  box-shadow: none;
 }

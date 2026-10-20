@@ -1,5 +1,5 @@
 import { Button } from '@mantine/core';
-import { IconFileText, IconPencil } from '@tabler/icons-react';
+import { IconFileText, IconPencil } from '../icons';
 import { useEffect, useRef, type JSX } from 'react';
 import { Link } from 'react-router';
 

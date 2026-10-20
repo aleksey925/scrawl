@@ -1,4 +1,4 @@
-import { IconArrowUp, IconChevronRight, IconClock, IconFile, IconFolder, IconHash } from '@tabler/icons-react';
+import { IconArrowUp, IconChevronRight, IconClock, IconFileText, IconFolder, IconHash } from '../icons';
 import { useEffect, useRef, useState, type JSX, type KeyboardEvent, type MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -10,7 +10,8 @@ import { SyncBadge } from '../shell/SyncBadge';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import classes from './DirTable.module.css';
-import { absoluteTime, fileSize, itemCount, relativeTime, shortDate } from './formats';
+import { EntryIcon } from './EntryIcon';
+import { absoluteTime, fileSize, itemCount, shortDate, shortTime } from './formats';
 
 export interface DirTableProps {
   // the folder listed, "" for the root, which has nothing above it
@@ -64,11 +65,11 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
           {entry.is_dir ? (
             <IconFolder size={layout.iconSizeSmall} aria-hidden />
           ) : (
-            <IconFile size={layout.iconSizeSmall} aria-hidden />
+            <EntryIcon name={entry.name} size={layout.iconSizeSmall} />
           )}
           {routed(entry) ? (
             <Link data-testid="dir-row-name" to={entry.url} className={classes.link}>
-              {entry.name}
+              {entry.is_dir ? `${entry.name}/` : entry.name}
             </Link>
           ) : (
             <a data-testid="dir-row-name" href={physicalUrl(entry.url)} className={classes.link}>
@@ -87,7 +88,7 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
       </td>
       <td className={classes.size}>{entry.is_dir ? <span className={classes.dim}>-</span> : fileSize(entry.size)}</td>
       <td className={classes.date} title={absoluteTime(entry.mod_time)}>
-        {relativeTime(entry.mod_time)}
+        {shortTime(entry.mod_time)}
       </td>
     </tr>
   );
@@ -173,7 +174,7 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
       {entry.is_dir ? (
         <IconFolder size={layout.iconSize} aria-hidden className={classes.listIcon} />
       ) : (
-        <IconFile size={layout.iconSize} aria-hidden className={classes.listIcon} />
+        <EntryIcon name={entry.name} size={layout.iconSize} className={classes.listIcon} />
       )}
       <span className={classes.listText}>
         <span className={classes.listName}>
@@ -243,7 +244,7 @@ function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
     <tr data-testid="dir-draft" data-entry={page ? 'file' : 'dir'} className={classes.draft}>
       <td className={classes.name}>
         <span>
-          {page ? <IconFile size={layout.iconSizeSmall} aria-hidden /> : <IconFolder size={layout.iconSizeSmall} aria-hidden />}
+          {page ? <IconFileText size={layout.iconSizeSmall} aria-hidden /> : <IconFolder size={layout.iconSizeSmall} aria-hidden />}
           <input
             data-testid="dir-draft-input"
             ref={inputRef}

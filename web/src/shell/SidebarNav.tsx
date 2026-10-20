@@ -2,9 +2,9 @@ import {
   ActionIcon, Anchor, Box, Group, Highlight, Menu, ScrollArea, Skeleton, Stack, Text, TextInput, UnstyledButton,
 } from '@mantine/core';
 import {
-  IconChevronDown, IconChevronRight, IconChevronsLeft, IconFile, IconFilePlus, IconFolder, IconFolderOpen,
+  IconChevronDown, IconChevronRight, IconChevronsLeft, IconFile, IconFilePlus, IconFileText, IconFolder, IconFolderOpen,
   IconFolderPlus, IconHome, IconPlus, IconSearch, IconSquarePlus, IconX,
-} from '@tabler/icons-react';
+} from '../icons';
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
   type CSSProperties, type DragEvent, type JSX, type KeyboardEvent, type MouseEvent, type ReactNode,
@@ -19,7 +19,7 @@ import { iconEdgeInset, layout, layoutBreakpoints, useBelow } from '../theme';
 import { rowMenuIconSize, useReaderExtensions } from './extensions';
 import { useFileActions, useOptionalFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
-import { basenameOf, folderFor, parentOf } from './naming';
+import { basenameOf, folderFor, pageName, parentOf } from './naming';
 import { useSearchOpener } from './searchOpener';
 import sidebarClasses from './Sidebar.module.css';
 import { SyncBadge } from './SyncBadge';
@@ -27,7 +27,7 @@ import treeClasses from './Tree.module.css';
 import { filterTree, type FilteredTree } from './treeFilter';
 import { useLongPress } from './useLongPress';
 
-const iconSize = layout.iconSizeSmall;
+const iconSize = 18;
 // the box an entry's icon sits in, which for a folder is the button that
 // opens and closes it
 const deskIconBox = 22;
@@ -159,7 +159,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
           </ActionIcon>
         ) : (
           <EntryIcon touch={touch}>
-            <IconFile size={iconSize} />
+            <IconFileText size={iconSize} />
           </EntryIcon>
         )}
 
@@ -187,7 +187,7 @@ function TreeRow({ node, depth, filtered, query, touch }: TreeRowProps): JSX.Ele
           }}
         >
           <Highlight size="sm" truncate highlight={query === '' ? [] : query} fw="inherit" style={{ minWidth: 0 }}>
-            {node.name}
+            {pageName(node.name, node.is_dir)}
           </Highlight>
         </Anchor>
 

@@ -676,7 +676,7 @@ test.describe('reading', () => {
         await page.goto(routes.doc(docs.missing));
 
         // act & assert
-        await expect(page.getByTestId('doc-missing-title')).toHaveText(docs.missing.split('/').pop());
+        await expect(page.getByTestId('doc-missing-title')).toHaveText(docs.missing.split('/').pop().replace(/\.md$/, ''));
         await expect(page.getByTestId('doc-create')).toBeVisible();
         await expect(page.getByTestId('doc-missing-folder')).toHaveAttribute('href', new RegExp(`/doc/${DOC.folder}/$`));
         await page.keyboard.press('Enter');

@@ -179,3 +179,172 @@ func addClass(node *html.Node, class string) {
 	}
 	node.Attr = append(node.Attr, html.Attribute{Key: "class", Val: class})
 }
+
+// inlineWords is one block that changed shown once: the new block with its
+// added words marked and the words it lost put back in front of them, struck
+// out, the way a reader follows an edit in one column. It is "" when the pair
+// is too long to compare word by word.
+func inlineWords(left, right block) string {
+	oldNode, curNode := reparse(left), reparse(right)
+	if oldNode == nil || curNode == nil {
+		return ""
+	}
+	ta, tb := tokensOf(oldNode), tokensOf(curNode)
+	if len(ta) > maxTokens || len(tb) > maxTokens {
+		return ""
+	}
+	texts := func(tokens []token) []string {
+		res := make([]string, len(tokens))
+		for i, tok := range tokens {
+			res[i] = tok.text
+		}
+		return res
+	}
+
+	var inss []int
+	lost := map[int]string{}
+	var at []int
+	for _, op := range opcodes(texts(ta), texts(tb)) {
+		if op.kind == opReplace || op.kind == opInsert {
+			inss = appendRange(inss, op.j1, op.j2)
+		}
+		if op.kind == opReplace || op.kind == opDelete {
+			if words := spoken(ta[op.i1:op.i2]); words != "" {
+				if _, seen := lost[op.j1]; !seen {
+					at = append(at, op.j1)
+				}
+				lost[op.j1] += words
+			}
+		}
+	}
+	// from the end backwards, so a split never moves a place not yet used
+	slices.Sort(at)
+	for k := len(at) - 1; k >= 0; k-- {
+		putBack(tb, curNode, at[k], lost[at[k]])
+	}
+	applyMarks(tb, inss, atom.Ins, InsClass)
+
+	res, err := renderNode(curNode)
+	if err != nil {
+		return ""
+	}
+	return res
+}
+
+// reparse reads a block's markup again into a tree of its own, which marks
+// can be put into without touching the block
+func reparse(blk block) *html.Node {
+	blocks, err := split(blk.html)
+	if err != nil || len(blocks) != 1 {
+		return nil
+	}
+	return blocks[0].node
+}
+
+// spoken is the text of a run of tokens as it read, one space between words
+// that were apart, without the markers that stand for an element
+func spoken(tokens []token) string {
+	var sb strings.Builder
+	for i, tok := range tokens {
+		if tok.element {
+			continue
+		}
+		if sb.Len() > 0 {
+			prev := tokens[i-1]
+			if prev.node != tok.node || prev.end < tok.start {
+				sb.WriteByte(' ')
+			}
+		}
+		sb.WriteString(tok.text)
+	}
+	return sb.String()
+}
+
+// putBack puts the lost words in front of the token at, or after the last one
+// when at is past the end, as a struck mark and a space, and keeps the tokens
+// pointing at the text they were read from
+func putBack(tokens []token, root *html.Node, at int, words string) {
+	mark := &html.Node{
+		Type: html.ElementNode, Data: atom.Del.String(), DataAtom: atom.Del,
+		Attr: []html.Attribute{{Key: "class", Val: DelClass}},
+	}
+	mark.AppendChild(&html.Node{Type: html.TextNode, Data: words})
+	// a space keeps the lost words apart from the new ones, except in code,
+	// where a space is part of the text
+	gap := " "
+	if len(tokens) > 0 && insidePre(tokens[min(at, len(tokens)-1)].node) {
+		gap = ""
+	}
+	space := func() *html.Node { return &html.Node{Type: html.TextNode, Data: gap} }
+
+	if len(tokens) == 0 {
+		root.AppendChild(mark)
+		return
+	}
+	if at >= len(tokens) {
+		last := tokens[len(tokens)-1]
+		if !last.element {
+			if rest := splitText(tokens, last.node, last.end); rest != nil {
+				rest.Parent.InsertBefore(space(), rest)
+				rest.Parent.InsertBefore(mark, rest)
+				return
+			}
+		}
+		gap := space()
+		insertAfter(last.node, gap)
+		insertAfter(gap, mark)
+		return
+	}
+	tok := tokens[at]
+	before := tok.node
+	if !tok.element {
+		if rest := splitText(tokens, tok.node, tok.start); rest != nil {
+			before = rest
+		}
+	}
+	if before.Parent == nil {
+		return
+	}
+	before.Parent.InsertBefore(mark, before)
+	before.Parent.InsertBefore(space(), before)
+}
+
+// splitText cuts a text node at offset and returns the node holding the rest,
+// moving the tokens read from the rest onto it; it is nil when nothing follows
+// the cut, and the node itself when nothing comes before it
+func splitText(tokens []token, node *html.Node, offset int) *html.Node {
+	if offset >= len(node.Data) {
+		return nil
+	}
+	if offset == 0 {
+		return node
+	}
+	rest := &html.Node{Type: html.TextNode, Data: node.Data[offset:]}
+	node.Data = node.Data[:offset]
+	insertAfter(node, rest)
+	for i := range tokens {
+		if tokens[i].node == node && !tokens[i].element && tokens[i].start >= offset {
+			tokens[i].node = rest
+			tokens[i].start -= offset
+			tokens[i].end -= offset
+		}
+	}
+	return rest
+}
+
+func insertAfter(node, added *html.Node) {
+	if node.NextSibling == nil {
+		node.Parent.AppendChild(added)
+		return
+	}
+	node.Parent.InsertBefore(added, node.NextSibling)
+}
+
+func insidePre(node *html.Node) bool {
+	for n := node; n != nil; n = n.Parent {
+		if n.DataAtom == atom.Pre {
+			return true
+		}
+	}
+	return false
+}

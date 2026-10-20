@@ -311,6 +311,10 @@ func TestAPIHistoryVersion(t *testing.T) {
 			"new": map[string]any{
 				"html": `<h1>the <ins class="diff-ins">old</ins> one</h1>`, "start": float64(1), "end": float64(1),
 			},
+			"inline": map[string]any{
+				"html":  `<h1>the <del class="diff-del">first</del> <ins class="diff-ins">old</ins> one</h1>`,
+				"start": float64(1), "end": float64(1),
+			},
 		}}, body["changes"])
 	})
 

@@ -45,12 +45,14 @@ type Side struct {
 	End   int    `json:"end,omitempty"`
 }
 
-// Row is one line of a side-by-side diff. Old is nil for an added block, New
-// for a removed one.
+// Row is one block of a diff. Old is nil for an added block, New for a removed
+// one, and Inline, a changed block shown once with the words it lost and the
+// words it gained both marked, is set on a changed row alone.
 type Row struct {
-	Kind Kind  `json:"kind"`
-	Old  *Side `json:"old,omitempty"`
-	New  *Side `json:"new,omitempty"`
+	Kind   Kind  `json:"kind"`
+	Old    *Side `json:"old,omitempty"`
+	New    *Side `json:"new,omitempty"`
+	Inline *Side `json:"inline,omitempty"`
 }
 
 // Stats counts the rows that carry a change of text.

@@ -517,7 +517,7 @@ test.describe('site from a host moves between notes without a page load', () => 
         // act
         await page.getByRole('link', {name: 'Back home'}).click();
         await expect(page.getByTestId('doc').locator('h1')).toHaveText('Home');
-        await page.getByRole('link', {name: 'pictures', exact: true}).click();
+        await page.getByTestId('doc').getByRole('link', {name: 'pictures', exact: true}).click();
 
         // assert
         await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');
@@ -690,7 +690,7 @@ test.describe('site from a host moves between notes without a page load', () => 
         await mark(page);
 
         // act
-        await page.getByRole('link', {name: 'pictures', exact: true}).click();
+        await page.getByTestId('doc').getByRole('link', {name: 'pictures', exact: true}).click();
 
         // assert
         await expect(page.getByTestId('doc').locator('h1')).toHaveText('Pictures');

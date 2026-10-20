@@ -1,10 +1,10 @@
 import { ActionIcon, Button, Menu } from '@mantine/core';
-import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconPencil, IconTrash, IconZoomIn } from '@tabler/icons-react';
+import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconPencil, IconTrash } from '../icons';
 import { useRef, useState, type JSX } from 'react';
 
 import type { FilePageResponse } from '../api/types';
 import { EmptyState } from '../components/EmptyState';
-import { absoluteTime, fileSize, relativeTime } from '../components/formats';
+import { absoluteTime, fileSize, shortTime } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
 import { SheetMenu } from '../components/SheetMenu';
 import { usePlatform } from '../platform';
@@ -70,14 +70,20 @@ function Meta({ file, kind }: { file: FilePageResponse; kind?: string }): JSX.El
     <div data-testid="file-meta" className={classes.meta}>
       {kind !== undefined && <span>{kind}</span>}
       <span>{fileSize(file.size)}</span>
-      <span title={absoluteTime(file.mod_time)}>Edited {relativeTime(file.mod_time)}</span>
+      <span title={absoluteTime(file.mod_time)}>Edited {shortTime(file.mod_time)}</span>
     </div>
   );
 }
 
+// a picture smaller than this is drawn bigger, by whole steps and with sharp
+// pixels, so an icon is seen and not a speck
+const smallPicture = 128;
+
 function Picture({ file, raw }: { file: FilePageResponse; raw: string }): JSX.Element {
   const image = useRef<HTMLImageElement>(null);
-  const [pixels, setPixels] = useState<string | undefined>(undefined);
+  const [size, setSize] = useState<{ width: number; height: number } | undefined>(undefined);
+  const pixels = size === undefined ? undefined : `${size.width} × ${size.height} px`;
+  const scale = size === undefined || size.width === 0 ? 1 : Math.max(1, Math.floor(smallPicture / Math.max(size.width, size.height)));
   const type = file.name.replace(/^.*\./, '').toUpperCase();
 
   return (
@@ -94,11 +100,11 @@ function Picture({ file, raw }: { file: FilePageResponse; raw: string }): JSX.El
           ref={image}
           src={raw}
           alt={file.name}
-          onLoad={(event) => setPixels(`${event.currentTarget.naturalWidth} × ${event.currentTarget.naturalHeight}`)}
+          style={scale > 1 && size !== undefined ? { width: size.width * scale, imageRendering: 'pixelated' } : undefined}
+          onLoad={(event) => setSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
         />
       </button>
       <p className={classes.hint}>
-        <IconZoomIn size={layout.iconSizeSmall} />
         Click the picture to see it full size.
       </p>
     </>
@@ -141,33 +147,19 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
           <EditButton to={file.edit_url} />
         )
       )}
-      {wide ? (
-        <Button
-          data-testid="file-download"
-          component="a"
-          href={raw}
-          download={file.name}
-          variant="subtle"
-          color="gray"
-          size="sm"
-          leftSection={<IconDownload size={layout.iconSizeSmall} />}
-        >
-          Download
-        </Button>
-      ) : (
-        <ActionIcon
-          data-testid="file-download"
-          component="a"
-          href={raw}
-          download={file.name}
-          variant="subtle"
-          color="gray"
-          size="lg"
-          aria-label="Download"
-        >
-          <IconDownload size={layout.iconSize} />
-        </ActionIcon>
-      )}
+      <ActionIcon
+        data-testid="file-download"
+        component="a"
+        href={raw}
+        download={file.name}
+        variant="subtle"
+        color="gray"
+        size="lg"
+        aria-label="Download"
+        title="Download"
+      >
+        <IconDownload size={layout.iconSize} />
+      </ActionIcon>
       <SheetMenu position="bottom-end" width={220} withinPortal>
         <Menu.Target>
           <ActionIcon data-testid="file-menu" variant="subtle" color="gray" size="lg" aria-label="More actions">

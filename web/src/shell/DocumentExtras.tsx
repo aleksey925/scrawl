@@ -1,9 +1,9 @@
 import { Text } from '@mantine/core';
-import { IconHistory, IconPencil } from '@tabler/icons-react';
+import { IconHistory, IconPencil } from '../icons';
 import { useEffect, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 
-import { absoluteTime, relativeTime } from '../components/formats';
+import { absoluteTime, shortDate } from '../components/formats';
 import { ReadingAnchorTracker } from '../editor/ReadingAnchorTracker';
 import { historyUrl } from '../paths';
 import { layoutBreakpoints, useAtLeast } from '../theme';
@@ -43,7 +43,7 @@ function NoteActions({ doc }: { doc: DocumentExtrasProps['doc'] }): JSX.Element 
     <>
       {wide && doc.mod_time !== '' && (
         <Text data-testid="doc-edited" component="span" className={classes.edited} title={absoluteTime(doc.mod_time)}>
-          Edited {relativeTime(doc.mod_time)}
+          Edited {shortDate(doc.mod_time)}
         </Text>
       )}
       {canWrite && (wide ? (
@@ -54,7 +54,7 @@ function NoteActions({ doc }: { doc: DocumentExtrasProps['doc'] }): JSX.Element 
       {/* reading the versions is a read, so it stays where writing does not;
           a space that records no versions has none to show */}
       {wide && me?.history_on === true && (
-        <TopbarAction testId="doc-history" label="History" icon={IconHistory} to={historyUrl(doc.path)} />
+        <TopbarAction testId="doc-history" label="History" icon={IconHistory} to={historyUrl(doc.path)} iconOnly />
       )}
       <NoteMenu doc={doc} />
     </>

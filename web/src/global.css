@@ -1,10 +1,3 @@
-/* every icon is drawn thin, the weight of Notion's: 1.5 on Tabler's 24 unit
-   grid is 1.25px at the 20px they are shown at, and this outranks the stroke
-   width the component writes as an attribute */
-.tabler-icon {
-  stroke-width: 1.5;
-}
-
 /* the width a note is read at, which the reader picks in the note's menu */
 :root {
   --scrawl-note-width: var(--scrawl-note-width-normal);

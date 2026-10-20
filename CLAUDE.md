@@ -69,7 +69,8 @@ vendor/                dependencies, checked in, `make deps` regenerates
 - The sidebar tree lists every folder, empty ones included, and of the
   files only the markdown. A folder is where a page is created, renamed
   and deleted, so it has to be on the tree before it holds anything.
-  Other files are rows of the folder's list and open in the app.
+  Other files are rows of the folder's list and open in the app. A note
+  is named on the tree without `.md`, the way Notion names a page.
 - The sidebar can be put away and the choice is kept. On a desktop it is
   a 240px rail the full height of the screen that stays where it was
   put: `«` in its head hides it, the menu icon the topbar shows then
@@ -305,7 +306,9 @@ vendor/                dependencies, checked in, `make deps` regenerates
   the page title, an alert is a callout and `<details>` a toggle, all by
   CSS, so the markup stays what it is. The syntax is GitHub's. The note
   sits in no mantine `Typography`, whose prose rules would mix a second
-  look in.
+  look in. A table runs the width of the note: the reader puts it in a
+  box that scrolls sideways, because a table that scrolls by itself is
+  only as wide as its text.
 - A task box on the page is disabled, as GitHub shows a file and unlike
   Notion. A task is ticked in the editor and saved like any change,
   because a click on the page would be a write, and every tick a commit
@@ -319,8 +322,19 @@ vendor/                dependencies, checked in, `make deps` regenerates
   it runs the width of its column) with 6px corners and a 500 weight,
   transparent until hovered; a field is filled with the hover tint and a
   faint line, with an accent ring on focus; a menu has 10px corners and
-  Notion's shadow, a dialog 12px. Icons are Tabler's at 20px, 16px in
-  menus, drawn with a 1.5 stroke, which is Notion's 1.25px line.
+  Notion's shadow, a dialog 12px. Icons are Phosphor's regular weight at
+  20px, 16px in menus, and `web/src/icons.ts` is the one place that says
+  which drawing each one is: Notion's own set cannot be taken, and
+  Phosphor is the open one closest to it. A choice of a few is a tray of
+  the hover tint with the picked one raised on the popover ground.
+- The editor is the page and not a box on it: a row of tools over the
+  text, split by thin lines into groups, and the source in a column the
+  width of the note with line numbers beside it. The source reads as text
+  with its markup set back: the words in the text color, a heading and
+  bold by weight, the marks around them faint, a link in the accent. The
+  topbar holds the state of the save, the layout as Source, Split or
+  Preview, Cancel and Save; on a phone Cancel and Save are the two ends
+  of the bar.
 - The dark scheme is Notion's dark: a `#191919` page, a `#202020`
   sidebar and `#f0efed` text. Bold there is 700 instead of 600.
   Near-white letters on a near-black page glow and look heavy already,
@@ -644,9 +658,13 @@ vendor/                dependencies, checked in, `make deps` regenerates
   never rewritten text. Where a link points and which picture is shown
   are part of that text, and inside a code block the whitespace is too:
   the same words with another indent are another program. Ids are
-  dropped, because both sides share one page. The patch stays beside it
-  as the `Source` view, and a version too large or too slow to compare
-  still answers with the patch alone.
+  dropped, because both sides share one page. A change is shown in one
+  column, the note as it reads now with a tag beside each block that
+  changed: a changed block is one block with its lost words struck and
+  its new words marked, which `htmldiff` builds as `Inline`, and a
+  removed block is struck through. The patch stays beside it as the
+  `Source` view, and a version too large or too slow to compare still
+  answers with the patch alone.
 - The server is one command, `serve`, and the rest of the binary is
   markdown tools on files the caller names: `render`, `site`, `diff`,
   `format`, `stylesheet`. They run the renderer, `htmldiff` and the formatter the
@@ -728,8 +746,9 @@ vendor/                dependencies, checked in, `make deps` regenerates
   into `scrawl/` and not `_scrawl/`, which the Jekyll of GitHub Pages
   drops. The theme and the page width are kept in a cookie and in the
   storage both: from disk Firefox shares only the cookie between pages
-  and Chromium only the storage; the open folders are kept in the storage alone, so in
-  Firefox from disk only the way to the note is open. A page the browser
+  and Chromium only the storage; the open folders are kept in the
+  storage alone, so in Firefox from disk only the way to the note is
+  open. A page the browser
   brings back on Back takes the theme picked since and closes its
   sheet. A copied file a browser runs a script from is named when it
   is written, because on a host nothing gives it the headers `/raw/`
@@ -748,8 +767,10 @@ vendor/                dependencies, checked in, `make deps` regenerates
   own page opens the same viewer.
 - History is a large dialog over the note at `/history/<path>`, so a link
   and Back still reach it: what the picked version changed on the left,
-  the versions with their author and a colored kind tag on the right,
-  Restore below them. Closing it goes to the note. The server says which
+  the versions with the colored initial of their author and a tag on the
+  right, Restore below them. The tag says how a version was made when it
+  was not in the app (API, On disk) and otherwise what it did (Create,
+  Edit, Rename, Delete). Closing it goes to the note. The server says which
   versions can be restored, in `restorable`: never a deletion and never
   the text the file has now, hashed the way git names a blob. The client
   read it off the blob and the row's place once, and the newest row stops

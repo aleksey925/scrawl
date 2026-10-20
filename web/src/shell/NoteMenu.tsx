@@ -1,22 +1,34 @@
-import { ActionIcon, Menu } from '@mantine/core';
-import { IconDots, IconEdit, IconHistory, IconLink, IconListSearch, IconSearch, IconTrash } from '@tabler/icons-react';
-import type { JSX } from 'react';
+import { ActionIcon, Menu, Text } from '@mantine/core';
+import { useMemo, useState, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 
 import type { DocumentResponse } from '../api/types';
+import { absoluteTime } from '../components/formats';
 import { SheetMenu } from '../components/SheetMenu';
+import { IconDots, IconEdit, IconHistory, IconLink, IconListSearch, IconSearch, IconTrash } from '../icons';
 import { useFindControl } from '../reader/findControl';
 import { historyUrl } from '../paths';
-import { layout } from '../theme';
+import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { ExportItems, useNoteExport } from './ExportMenu';
 import { useFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
-import { useReaderLayout } from './ReaderLayout';
+import classes from './NoteMenu.module.css';
 import { PageWidthControl } from './PageWidthControl';
+import { useReaderLayout } from './ReaderLayout';
 
-// NoteMenu is the note's `⋯`: how wide it is read, the exports, its versions
-// and what can be done to the file itself
+const apple = /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent);
+const findKeys = apple ? '⌘F' : 'Ctrl+F';
+
+// wordsOf counts the words a reader sees in the rendered note, so markup and
+// addresses are not counted
+function wordsOf(html: string): number {
+  const text = new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+  return text.split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
+}
+
+// NoteMenu is the note's `⋯`: how wide it is read, the find, the exports, its
+// versions, what can be done to the file, and a line about the note
 export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
   const navigate = useNavigate();
   const { canWrite, me } = useNav();
@@ -25,15 +37,20 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
   const exporter = useNoteExport(path);
   const find = useFindControl();
   const { openOutline } = useReaderLayout();
+  const wide = useAtLeast(layoutBreakpoints.sidebar);
+  const [opened, setOpened] = useState(false);
+  const words = useMemo(() => (opened ? wordsOf(doc.html) : 0), [opened, doc.html]);
 
   return (
-    <SheetMenu position="bottom-end" width={260} withinPortal>
+    <SheetMenu position="bottom-end" width={260} withinPortal opened={opened} onChange={setOpened}>
       <Menu.Target>
         <ActionIcon data-testid="note-menu" variant="subtle" color="gray" size="lg" aria-label="More actions">
           <IconDots size={layout.iconSize} />
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown data-testid="note-menu-dropdown">
+        <PageWidthControl />
+        {wide && <Menu.Divider />}
         {openOutline !== undefined && (
           <Menu.Item
             data-testid="note-menu-outline"
@@ -43,18 +60,19 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
             Outline
           </Menu.Item>
         )}
-        <PageWidthControl />
-        <ExportItems {...exporter} />
-        <Menu.Divider />
         {find.open !== undefined && (
           <Menu.Item
             data-testid="note-menu-find"
             leftSection={<IconSearch size={layout.iconSizeSmall} />}
+            rightSection={<span className={classes.keys}>{findKeys}</span>}
             onClick={find.open}
           >
             Find in note
           </Menu.Item>
         )}
+        <Menu.Divider />
+        <ExportItems {...exporter} />
+        <Menu.Divider />
         {me?.history_on === true && (
           <Menu.Item
             data-testid="note-menu-history"
@@ -78,7 +96,7 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
               leftSection={<IconEdit size={layout.iconSizeSmall} />}
               onClick={() => actions.rename(path, false)}
             >
-              Rename
+              Rename or move
             </Menu.Item>
             <Menu.Divider />
             <Menu.Item
@@ -91,6 +109,16 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
             </Menu.Item>
           </>
         )}
+        <Menu.Divider />
+        <Text data-testid="note-menu-about" className={classes.about}>
+          Words: {words.toLocaleString()}
+          {doc.mod_time !== '' && (
+            <>
+              <br />
+              Last edited {absoluteTime(doc.mod_time)}
+            </>
+          )}
+        </Text>
       </Menu.Dropdown>
     </SheetMenu>
   );

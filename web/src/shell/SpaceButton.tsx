@@ -1,5 +1,5 @@
 import { UnstyledButton } from '@mantine/core';
-import { IconSelector } from '@tabler/icons-react';
+import { IconSelector } from '../icons';
 import type { ComponentPropsWithRef, JSX } from 'react';
 
 import { layout } from '../theme';

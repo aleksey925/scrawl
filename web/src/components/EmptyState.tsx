@@ -5,7 +5,7 @@ const iconSize = 32;
 
 export interface EmptyStateProps {
   testId: string;
-  icon: ComponentType<{ size?: number; stroke?: number }>;
+  icon: ComponentType<{ size?: number }>;
   title: string;
   children?: ReactNode;
   actions?: ReactNode;
@@ -15,20 +15,20 @@ export interface EmptyStateProps {
 // blank screen reads as a page that failed to load
 export function EmptyState({ testId, icon: Icon, title, children, actions }: EmptyStateProps): JSX.Element {
   return (
-    <Stack data-testid={testId} align="center" gap="sm" py="5xl" px="lg" ta="center">
-      <Text c="dimmed" lh={1} aria-hidden>
-        <Icon size={iconSize} stroke={1.5} />
+    <Stack data-testid={testId} align="center" gap={6} py="4xl" px="lg" ta="center">
+      <Text lh={1} mb={6} style={{ color: 'var(--scrawl-icon-tertiary)' }} aria-hidden>
+        <Icon size={iconSize} />
       </Text>
-      <Title data-testid={`${testId}-title`} order={2} size="h3">
+      <Title data-testid={`${testId}-title`} order={2} fz="md" fw={600}>
         {title}
       </Title>
       {children !== undefined && (
-        <Text c="dimmed" maw={420} style={{ overflowWrap: 'anywhere' }}>
+        <Text c="dimmed" fz="sm" maw={420} style={{ overflowWrap: 'anywhere' }}>
           {children}
         </Text>
       )}
       {Boolean(actions) && (
-        <Group gap="sm" justify="center" mt="sm">
+        <Group gap="xs" justify="center" mt="sm">
           {actions}
         </Group>
       )}

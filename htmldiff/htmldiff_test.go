@@ -39,9 +39,32 @@ func TestDiff(t *testing.T) {
 			old:  "<p>the quick fox</p>",
 			cur:  "<p>the slow fox</p>",
 			want: []Row{{
-				Kind: Changed,
-				Old:  &Side{HTML: `<p>the <del class="diff-del">quick</del> fox</p>`},
-				New:  &Side{HTML: `<p>the <ins class="diff-ins">slow</ins> fox</p>`},
+				Kind:   Changed,
+				Old:    &Side{HTML: `<p>the <del class="diff-del">quick</del> fox</p>`},
+				New:    &Side{HTML: `<p>the <ins class="diff-ins">slow</ins> fox</p>`},
+				Inline: &Side{HTML: `<p>the <del class="diff-del">quick</del> <ins class="diff-ins">slow</ins> fox</p>`},
+			}},
+		},
+		{
+			name: "a word dropped from the middle",
+			old:  "<p>one two three</p>",
+			cur:  "<p>one three</p>",
+			want: []Row{{
+				Kind:   Changed,
+				Old:    &Side{HTML: `<p>one <del class="diff-del">two</del> three</p>`},
+				New:    &Side{HTML: `<p>one three</p>`},
+				Inline: &Side{HTML: `<p>one <del class="diff-del">two</del> three</p>`},
+			}},
+		},
+		{
+			name: "a word changed inside bold",
+			old:  "<p>very <strong>old</strong> text</p>",
+			cur:  "<p>very <strong>new</strong> text</p>",
+			want: []Row{{
+				Kind:   Changed,
+				Old:    &Side{HTML: `<p>very <strong><del class="diff-del">old</del></strong> text</p>`},
+				New:    &Side{HTML: `<p>very <strong><ins class="diff-ins">new</ins></strong> text</p>`},
+				Inline: &Side{HTML: `<p>very <strong><del class="diff-del">old</del> <ins class="diff-ins">new</ins></strong> text</p>`},
 			}},
 		},
 		{
@@ -49,9 +72,10 @@ func TestDiff(t *testing.T) {
 			old:  "<p>keep this and that</p>",
 			cur:  "<p>keep</p>",
 			want: []Row{{
-				Kind: Changed,
-				Old:  &Side{HTML: `<p>keep <del class="diff-del">this and that</del></p>`},
-				New:  &Side{HTML: `<p>keep</p>`},
+				Kind:   Changed,
+				Old:    &Side{HTML: `<p>keep <del class="diff-del">this and that</del></p>`},
+				New:    &Side{HTML: `<p>keep</p>`},
+				Inline: &Side{HTML: `<p>keep <del class="diff-del">this and that</del></p>`},
 			}},
 		},
 		{
@@ -69,9 +93,10 @@ func TestDiff(t *testing.T) {
 			old:  "<h1>Python</h1>",
 			cur:  "<h1>Питон</h1>",
 			want: []Row{{
-				Kind: Changed,
-				Old:  &Side{HTML: `<h1><del class="diff-del">Python</del></h1>`},
-				New:  &Side{HTML: `<h1><ins class="diff-ins">Питон</ins></h1>`},
+				Kind:   Changed,
+				Old:    &Side{HTML: `<h1><del class="diff-del">Python</del></h1>`},
+				New:    &Side{HTML: `<h1><ins class="diff-ins">Питон</ins></h1>`},
+				Inline: &Side{HTML: `<h1><del class="diff-del">Python</del> <ins class="diff-ins">Питон</ins></h1>`},
 			}},
 		},
 		{
@@ -81,9 +106,10 @@ func TestDiff(t *testing.T) {
 			want: []Row{
 				{Kind: Added, New: &Side{HTML: "<p>inserted</p>"}},
 				{
-					Kind: Changed,
-					Old:  &Side{HTML: `<p>alpha beta gamma <del class="diff-del">delta</del></p>`},
-					New:  &Side{HTML: `<p>alpha beta gamma <ins class="diff-ins">epsilon</ins></p>`},
+					Kind:   Changed,
+					Old:    &Side{HTML: `<p>alpha beta gamma <del class="diff-del">delta</del></p>`},
+					New:    &Side{HTML: `<p>alpha beta gamma <ins class="diff-ins">epsilon</ins></p>`},
+					Inline: &Side{HTML: `<p>alpha beta gamma <del class="diff-del">delta</del> <ins class="diff-ins">epsilon</ins></p>`},
 				},
 			},
 		},
@@ -92,9 +118,10 @@ func TestDiff(t *testing.T) {
 			old:  `<p>see <a href="/a.md">docs</a></p>`,
 			cur:  `<p>see <a href="/b.md">docs</a></p>`,
 			want: []Row{{
-				Kind: Changed,
-				Old:  &Side{HTML: `<p>see <a href="/a.md" class="diff-del">docs</a></p>`},
-				New:  &Side{HTML: `<p>see <a href="/b.md" class="diff-ins">docs</a></p>`},
+				Kind:   Changed,
+				Old:    &Side{HTML: `<p>see <a href="/a.md" class="diff-del">docs</a></p>`},
+				New:    &Side{HTML: `<p>see <a href="/b.md" class="diff-ins">docs</a></p>`},
+				Inline: &Side{HTML: `<p>see <a href="/b.md" class="diff-ins">docs</a></p>`},
 			}},
 		},
 		{
@@ -102,9 +129,10 @@ func TestDiff(t *testing.T) {
 			old:  `<p><img src="a.png" alt="x" class="wide"/></p>`,
 			cur:  `<p><img src="b.png" alt="x" class="wide"/></p>`,
 			want: []Row{{
-				Kind: Changed,
-				Old:  &Side{HTML: `<p><img src="a.png" alt="x" class="wide diff-del"/></p>`},
-				New:  &Side{HTML: `<p><img src="b.png" alt="x" class="wide diff-ins"/></p>`},
+				Kind:   Changed,
+				Old:    &Side{HTML: `<p><img src="a.png" alt="x" class="wide diff-del"/></p>`},
+				New:    &Side{HTML: `<p><img src="b.png" alt="x" class="wide diff-ins"/></p>`},
+				Inline: &Side{HTML: `<p><img src="b.png" alt="x" class="wide diff-ins"/></p>`},
 			}},
 		},
 		{
@@ -112,9 +140,10 @@ func TestDiff(t *testing.T) {
 			old:  "<pre><code>if x:\n  y()\n</code></pre>",
 			cur:  "<pre><code>if x:\n    y()\n</code></pre>",
 			want: []Row{{
-				Kind: Changed,
-				Old:  &Side{HTML: "<pre><code>if x:\n<del class=\"diff-del\">  </del>y()\n</code></pre>"},
-				New:  &Side{HTML: "<pre><code>if x:\n<ins class=\"diff-ins\">    </ins>y()\n</code></pre>"},
+				Kind:   Changed,
+				Old:    &Side{HTML: "<pre><code>if x:\n<del class=\"diff-del\">  </del>y()\n</code></pre>"},
+				New:    &Side{HTML: "<pre><code>if x:\n<ins class=\"diff-ins\">    </ins>y()\n</code></pre>"},
+				Inline: &Side{HTML: "<pre><code>if x:\n<del class=\"diff-del\">  </del><ins class=\"diff-ins\">    </ins>y()\n</code></pre>"},
 			}},
 		},
 		{
@@ -161,9 +190,10 @@ func TestDiff(t *testing.T) {
 			old:  "<p>привет, мир</p>",
 			cur:  "<p>привет, город</p>",
 			want: []Row{{
-				Kind: Changed,
-				Old:  &Side{HTML: `<p>привет, <del class="diff-del">мир</del></p>`},
-				New:  &Side{HTML: `<p>привет, <ins class="diff-ins">город</ins></p>`},
+				Kind:   Changed,
+				Old:    &Side{HTML: `<p>привет, <del class="diff-del">мир</del></p>`},
+				New:    &Side{HTML: `<p>привет, <ins class="diff-ins">город</ins></p>`},
+				Inline: &Side{HTML: `<p>привет, <del class="diff-del">мир</del> <ins class="diff-ins">город</ins></p>`},
 			}},
 		},
 	}
@@ -200,6 +230,10 @@ func TestDiffFrontmatter(t *testing.T) {
 				HTML:  "<pre class=\"frontmatter\"><code>---\ntitle: <ins class=\"diff-ins\">b</ins>\n---</code></pre>",
 				Start: 1, End: 3,
 			},
+			Inline: &Side{
+				HTML:  "<pre class=\"frontmatter\"><code>---\ntitle: <del class=\"diff-del\">a</del><ins class=\"diff-ins\">b</ins>\n---</code></pre>",
+				Start: 1, End: 3,
+			},
 		},
 		{Kind: Same, Old: &Side{HTML: "<p>body</p>"}, New: &Side{HTML: "<p>body</p>"}},
 	}, got)
@@ -230,9 +264,10 @@ func TestDiffEscapesText(t *testing.T) {
 	// assert
 	require.NoError(t, err)
 	assert.Equal(t, []Row{{
-		Kind: Changed,
-		Old:  &Side{HTML: `<p>a &lt;<del class="diff-del">b</del>&gt; c</p>`},
-		New:  &Side{HTML: `<p>a &lt;<ins class="diff-ins">i</ins>&gt; c</p>`},
+		Kind:   Changed,
+		Old:    &Side{HTML: `<p>a &lt;<del class="diff-del">b</del>&gt; c</p>`},
+		New:    &Side{HTML: `<p>a &lt;<ins class="diff-ins">i</ins>&gt; c</p>`},
+		Inline: &Side{HTML: `<p>a &lt;<del class="diff-del">b</del> <ins class="diff-ins">i</ins>&gt; c</p>`},
 	}}, got)
 }
 

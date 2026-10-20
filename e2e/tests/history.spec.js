@@ -48,8 +48,8 @@ test.describe.serial('history', () => {
         const versions = page.getByTestId('version');
         await expect(versions).toHaveCount(2);
         await expect(versions.first().getByTestId('version-actor')).toHaveText('e2e');
-        await expect(versions.first().getByTestId('version-kind')).toHaveText('modified');
-        await expect(versions.nth(1).getByTestId('version-kind')).toHaveText('added');
+        await expect(versions.first().getByTestId('version-kind')).toHaveText('Edit');
+        await expect(versions.nth(1).getByTestId('version-kind')).toHaveText('Create');
         await expect(versions.nth(1).getByTestId('version-kind'))
             .toHaveCSS('background-color', rgb(lightTheme.blocks.green.bg));
         // the newest version is the note as it is now, and writing it back changes nothing

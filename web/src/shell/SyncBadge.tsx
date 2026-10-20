@@ -1,5 +1,5 @@
 import { VisuallyHidden } from '@mantine/core';
-import { IconCloudUp } from '@tabler/icons-react';
+import { IconCloudUp } from '../icons';
 import type { JSX } from 'react';
 
 import { useNav } from './NavContext';
@@ -13,9 +13,8 @@ export interface SyncBadgeProps {
 // cap - isUnsynced answers false for everything then, so the degraded form
 // draws no badges by construction.
 //
-// The icon is aria-hidden and the meaning is in hidden text beside it, which is
-// the pattern the editor's layout control already uses: an <svg> is not
-// focusable, so a tooltip on one never opens on keyboard focus and an
+// The icon is aria-hidden and the meaning is in hidden text beside it: an <svg>
+// is not focusable, so a tooltip on one never opens on keyboard focus and an
 // aria-label on an element with no role is not reliably announced.
 export function SyncBadge({ path }: SyncBadgeProps): JSX.Element | null {
   const { isUnsynced } = useNav();

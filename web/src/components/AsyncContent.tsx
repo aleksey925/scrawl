@@ -1,5 +1,5 @@
 import { Alert, Center, Loader } from '@mantine/core';
-import { IconAlertTriangle } from '@tabler/icons-react';
+import { IconAlertTriangle } from '../icons';
 import type { JSX, ReactNode } from 'react';
 import { Navigate } from 'react-router';
 

@@ -326,6 +326,9 @@ export interface DiffRow {
   kind: DiffKind;
   old?: DiffSide;
   new?: DiffSide;
+  // a changed block once, its lost words and its new ones both marked; absent
+  // when the pair was too long to compare word by word
+  inline?: DiffSide;
 }
 
 export interface HistoryVersionResponse {

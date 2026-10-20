@@ -1,5 +1,5 @@
 import { Badge, Menu, Text } from '@mantine/core';
-import { IconCheck, IconEyeOff, IconKeyboard, IconLogin, IconLogout } from '@tabler/icons-react';
+import { IconCheck, IconEyeOff, IconKeyboard, IconLogin, IconLogout } from '../icons';
 import type { JSX } from 'react';
 
 import { api } from '../api/client';

@@ -7,8 +7,10 @@ import type { FileResponse, HistoryEntry, HistoryVersionResponse } from '../api/
 import { errorText, useApi, type AsyncState } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
 import { RenderedDiff } from '../diff/RenderedDiff';
+import { shortTime } from '../components/formats';
 import { localStore, readText, writeText } from '../storage';
 import { layoutBreakpoints, useBelow } from '../theme';
+import { blockNames } from '../themes';
 import { showToast } from '../toast';
 
 import { DiffView } from './DiffView';
@@ -20,13 +22,62 @@ function formatWhen(at: string): string {
   return new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-// initialsOf is the two letters a version is led by: the first of the first
-// two words of whoever made it, or the first two of a single word
-function initialsOf(actor: string): string {
-  const words = actor.split(/[\s._@-]+/).filter((word) => word !== '');
-  const [first = '?', second] = words;
-  const letters = second === undefined ? first.slice(0, 2) : `${first.slice(0, 1)}${second.slice(0, 1)}`;
-  return letters.toUpperCase();
+// versionTime is when a version was made, the way a list of them reads: the
+// day in words while it is recent, the date after that
+export function versionTime(at: string, now: Date = new Date()): string {
+  const when = new Date(at);
+  const time = when.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const day = (date: Date): number => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const days = Math.round((day(now) - day(when)) / 86_400_000);
+  if (days === 0) {
+    return `Today, ${time}`;
+  }
+  if (days === 1) {
+    return `Yesterday, ${time}`;
+  }
+  return shortTime(at);
+}
+
+// whoOf is the name a version shows: an API token's name without its prefix,
+// and a change made outside the app said in words
+function whoOf(actor: string): string {
+  if (actor === '') {
+    return 'unknown';
+  }
+  if (actor === 'external') {
+    return 'outside the app';
+  }
+  return actor.replace(/^token:/, '');
+}
+
+// tagOf is the word beside a version: how it was made, when that was not in
+// the app, and otherwise what it did to the note
+export function tagOf(entry: HistoryEntry): { label: string; color: string } {
+  if (entry.actor.startsWith('token:')) {
+    return { label: 'API', color: 'purple' };
+  }
+  if (entry.actor === 'external') {
+    return { label: 'On disk', color: 'orange' };
+  }
+  switch (entry.kind) {
+    case 'added':
+      return { label: 'Create', color: 'green' };
+    case 'renamed':
+      return { label: 'Rename', color: 'blue' };
+    case 'deleted':
+      return { label: 'Delete', color: 'red' };
+    default:
+      return { label: 'Edit', color: 'gray' };
+  }
+}
+
+// avatarColor gives everybody one block color of their own, the same every time
+function avatarColor(name: string): string {
+  let sum = 0;
+  for (const char of name) {
+    sum = (sum * 31 + (char.codePointAt(0) ?? 0)) % 9973;
+  }
+  return blockNames[sum % blockNames.length] ?? 'gray';
 }
 
 // sameAsNow is a version holding the text the note has now, which the server
@@ -74,7 +125,7 @@ function VersionDiff({ state, mode }: { state: AsyncState<HistoryVersionResponse
   }
   const { changes, diff, rev } = state.data;
   if (changes !== undefined && mode === 'rendered') {
-    return <RenderedDiff rows={changes} oldLabel="before" newLabel="this version" version={rev} />;
+    return <RenderedDiff rows={changes} version={rev} />;
   }
   if (diff === '') {
     return (
@@ -94,6 +145,9 @@ interface VersionRowProps {
 }
 
 function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Element {
+  const who = whoOf(entry.actor);
+  const tag = tagOf(entry);
+  const color = avatarColor(who);
   return (
     <button
       type="button"
@@ -105,20 +159,29 @@ function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Ele
       onClick={onPick}
     >
       <span className={classes.line}>
-        <span data-testid="version-when" className={classes.time}>
-          {formatWhen(entry.at)}
-        </span>
-        {sameAsNow(entry) && <span className={classes.current}>current</span>}
-        <span data-testid="version-kind" data-kind={entry.kind} className={classes.kind}>
-          {entry.kind}
+        <span data-testid="version-when" className={classes.time} title={formatWhen(entry.at)}>
+          {versionTime(entry.at)}
+          {sameAsNow(entry) && <span className={classes.current}> current</span>}
         </span>
       </span>
       <span className={classes.line}>
-        <span className={classes.avatar} aria-hidden>
-          {initialsOf(entry.actor)}
+        <span
+          className={classes.avatar}
+          style={{ background: `var(--scrawl-bg-${color})`, color: `var(--scrawl-color-${color})` }}
+          aria-hidden
+        >
+          {who.slice(0, 1).toUpperCase()}
         </span>
         <span data-testid="version-actor" className={classes.actor}>
-          {entry.actor === '' ? 'unknown' : entry.actor}
+          {who}
+        </span>
+        <span
+          data-testid="version-kind"
+          data-kind={entry.kind}
+          className={classes.kind}
+          style={{ background: `var(--scrawl-bg-${tag.color})`, color: `var(--scrawl-color-${tag.color})` }}
+        >
+          {tag.label}
         </span>
       </span>
       {entry.path !== path && (
@@ -235,9 +298,6 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
       >
         <section data-testid="history-version" className={classes.version}>
           <div className={classes.bar}>
-            <span data-testid="history-when" className={classes.when}>
-              {selected === undefined ? 'What changed' : `What changed on ${formatWhen(selected.at)}`}
-            </span>
             {detail.data?.changes !== undefined && (
               <SegmentedControl
                 data-testid="history-diff-view"
@@ -251,6 +311,9 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
                 ]}
               />
             )}
+            <span data-testid="history-when" className={classes.when}>
+              {selected === undefined ? 'What changed' : `What changed in ${versionTime(selected.at)}`}
+            </span>
           </div>
           <div className={classes.diff}>
             {selected !== undefined && <VersionDiff state={detail} mode={mode} />}
@@ -260,14 +323,16 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
         <aside data-testid="history-list" className={classes.panel}>
           <div className={classes.head}>
             <h2 data-testid="history-title" className={classes.title}>
-              History
+              Versions
             </h2>
             <span data-testid="history-count" className={classes.count}>
               {history.data?.entries.length}
             </span>
             <CloseButton data-testid="history-close" aria-label="Close the history" onClick={onClose} />
           </div>
-          <div className={classes.list}>
+          {/* the dialog takes the focus here and not on its close button, which would
+              stand ringed the moment it opens */}
+          <div className={classes.list} tabIndex={-1} data-autofocus>
             <AsyncContent state={history} testId="history">
               {(data) =>
                 data.entries.length === 0 ? (
@@ -299,11 +364,9 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
               >
                 Restore version
               </Button>
-              {reason !== undefined && (
-                <span data-testid="history-restore-reason" className={classes.reason}>
-                  {reason}
-                </span>
-              )}
+              <span data-testid="history-restore-reason" className={classes.reason}>
+                {reason ?? 'A restore is a new version. Nothing is lost.'}
+              </span>
             </div>
           )}
         </aside>

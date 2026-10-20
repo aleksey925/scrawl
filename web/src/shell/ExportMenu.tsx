@@ -1,5 +1,5 @@
 import { Menu, useMantineColorScheme } from '@mantine/core';
-import { IconFileTypeHtml, IconFileTypePdf, IconMarkdown } from '@tabler/icons-react';
+import { IconDownload } from '../icons';
 import { useEffect, useRef, type JSX } from 'react';
 
 import { api } from '../api/client';
@@ -50,27 +50,26 @@ export function useNoteExport(path: string): NoteExport {
 export function ExportItems({ print, download }: NoteExport): JSX.Element {
   return (
     <>
-      <Menu.Label>Export</Menu.Label>
       <Menu.Item
         data-testid="doc-export-md"
-        leftSection={<IconMarkdown size={layout.iconSizeSmall} />}
+        leftSection={<IconDownload size={layout.iconSizeSmall} />}
         onClick={() => download('md')}
       >
-        Markdown
+        Export as Markdown
       </Menu.Item>
       <Menu.Item
         data-testid="doc-export-html"
-        leftSection={<IconFileTypeHtml size={layout.iconSizeSmall} />}
+        leftSection={<IconDownload size={layout.iconSizeSmall} />}
         onClick={() => download('html')}
       >
-        HTML
+        Export as HTML
       </Menu.Item>
       <Menu.Item
         data-testid="doc-export-pdf"
-        leftSection={<IconFileTypePdf size={layout.iconSizeSmall} />}
+        leftSection={<IconDownload size={layout.iconSizeSmall} />}
         onClick={print}
       >
-        PDF / Print
+        Export as PDF
       </Menu.Item>
     </>
   );

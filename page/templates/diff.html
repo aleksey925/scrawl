@@ -21,13 +21,11 @@
 {{end}}{{end}}
 
 {{define "rows"}}<div class="diff">
-<div class="diff-head"><div>{{.File.OldLabel}}</div><div>{{.File.NewLabel}}</div></div>
+<p class="diff-labels">{{.File.OldLabel}} → {{.File.NewLabel}}</p>
 {{if .File.Stats.Empty}}<p class="diff-none">The text is the same, only the markup or the whitespace changed.</p>
 {{end}}{{range .Segments}}{{if .Folded}}<details class="diff-fold"><summary>{{plural (len .Rows) "unchanged block"}}</summary>
 {{range .Rows}}{{template "row" .}}{{end}}</details>
 {{else}}{{range .Rows}}{{template "row" .}}{{end}}{{end}}{{end}}</div>{{end}}
 
-{{define "row"}}<div class="diff-row" data-kind="{{.Kind}}">{{template "cell" (cell .Old "old")}}{{template "cell" (cell .New "new")}}{{if eq .Kind "format"}}<span class="diff-badge" title="Only the markup changed">format</span>{{end}}</div>
+{{define "row"}}<div class="diff-row" data-kind="{{.Kind}}">{{with tag .Kind}}<span class="diff-tag">{{.}}</span>{{end}}{{range shown .}}<div class="diff-cell markdown-document">{{trust .HTML}}</div>{{end}}</div>
 {{end}}
-
-{{define "cell"}}{{if .Side}}<div class="diff-cell diff-{{.Which}} markdown-document">{{trust .Side.HTML}}</div>{{else}}<div class="diff-cell diff-{{.Which}} diff-empty"></div>{{end}}{{end}}

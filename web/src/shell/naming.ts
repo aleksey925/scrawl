@@ -40,3 +40,9 @@ export function contentPathOf(pathname: string): string {
 export function folderFor(path: string, isDir: boolean): string {
   return isDir ? path : parentOf(path);
 }
+
+// pageName is how the tree names an entry: a note by its name without `.md`,
+// the way Notion names a page, and anything else as it is
+export function pageName(name: string, isDir: boolean): string {
+  return isDir ? name : name.replace(/\.md$/i, '');
+}

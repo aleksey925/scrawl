@@ -15,6 +15,7 @@ import {
   pictureOf,
   prepareImages,
   sectionLink,
+  wrapTables,
 } from '../reader/controls';
 import { imagesOf } from '../reader/dom';
 import { isPlainClick } from '../reader/links';
@@ -50,6 +51,7 @@ window.addEventListener('pageshow', (event) => {
 function prepareNote(note: HTMLElement): void {
   injectHeadingAnchors(note);
   injectCopyButtons(note);
+  wrapTables(note);
   prepareImages(note);
   const timers = new Set<number>();
   note.addEventListener('click', (event) => {

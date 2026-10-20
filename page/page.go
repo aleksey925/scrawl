@@ -24,7 +24,8 @@ var templates embed.FS
 var tmpl = template.Must(template.New("page").Funcs(template.FuncMap{
 	"plural": plural,
 	"rows":   rowsOf,
-	"cell":   cellOf,
+	"shown":  shownOf,
+	"tag":    tagOf,
 	"trust":  trust,
 	"themes": theme.All,
 }).ParseFS(templates, "templates/*.html"))
@@ -251,14 +252,38 @@ func rowsOf(file File, context int) rowsData {
 	return rowsData{File: file, Segments: fold(file.Rows, context)}
 }
 
-// cellData is one side of a row; a nil Side is a block that side does not have.
-type cellData struct {
-	Side  *htmldiff.Side
-	Which string
+// shownOf is what a row shows in the one column of a diff: a removed block as
+// it was, a changed one with its lost and its new words in one block, or both
+// sides when that block could not be built, and anything else as it is now.
+// web/src/diff/RenderedDiff.tsx shows the same.
+func shownOf(row htmldiff.Row) []*htmldiff.Side {
+	switch {
+	case row.Kind == htmldiff.Removed:
+		return []*htmldiff.Side{row.Old}
+	case row.Kind == htmldiff.Changed && row.Inline != nil:
+		return []*htmldiff.Side{row.Inline}
+	case row.Kind == htmldiff.Changed:
+		return []*htmldiff.Side{row.Old, row.New}
+	default:
+		return []*htmldiff.Side{row.New}
+	}
 }
 
-func cellOf(side *htmldiff.Side, which string) cellData {
-	return cellData{Side: side, Which: which}
+// tagOf is the word beside a block that says what happened to it, none for a
+// block that stayed as it was
+func tagOf(kind htmldiff.Kind) string {
+	switch kind {
+	case htmldiff.Changed:
+		return "Changed"
+	case htmldiff.Added:
+		return "Added"
+	case htmldiff.Removed:
+		return "Removed"
+	case htmldiff.Format:
+		return "Format"
+	default:
+		return ""
+	}
 }
 
 // segment is a stretch of rows that is either in sight or folded away.

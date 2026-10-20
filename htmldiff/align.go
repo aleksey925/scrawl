@@ -47,8 +47,7 @@ func align(old, cur []block) []Row {
 // few words survived, the way a renamed heading is.
 func pair(removed, added []block) []Row {
 	if len(removed) == 1 && len(added) == 1 && removed[0].tag == added[0].tag {
-		oldHTML, newHTML := markWords(removed[0], added[0])
-		return []Row{{Kind: Changed, Old: sideOf(removed[0], oldHTML), New: sideOf(added[0], newHTML)}}
+		return []Row{changed(removed[0], added[0])}
 	}
 	res := []Row{}
 	next := 0
@@ -73,12 +72,23 @@ func pair(removed, added []block) []Row {
 		for ; next < best; next++ {
 			res = append(res, Row{Kind: Added, New: sideOf(added[next], added[next].html)})
 		}
-		oldHTML, newHTML := markWords(left, added[best])
-		res = append(res, Row{Kind: Changed, Old: sideOf(left, oldHTML), New: sideOf(added[best], newHTML)})
+		res = append(res, changed(left, added[best]))
 		next++
 	}
 	for _, right := range added[next:] {
 		res = append(res, Row{Kind: Added, New: sideOf(right, right.html)})
+	}
+	return res
+}
+
+// changed is the row of a pair of blocks that read differently: each side
+// with its own words marked, and the two in one block where that can be built
+func changed(left, right block) Row {
+	inline := inlineWords(left, right)
+	oldHTML, newHTML := markWords(left, right)
+	res := Row{Kind: Changed, Old: sideOf(left, oldHTML), New: sideOf(right, newHTML)}
+	if inline != "" {
+		res.Inline = sideOf(right, inline)
 	}
 	return res
 }

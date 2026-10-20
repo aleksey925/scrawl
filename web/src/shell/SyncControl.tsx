@@ -1,5 +1,5 @@
 import { ActionIcon, Anchor, Button, Code, List, Popover, Stack, Text } from '@mantine/core';
-import { IconCloudOff } from '@tabler/icons-react';
+import { IconCloudOff } from '../icons';
 import { useState, type JSX } from 'react';
 import { Link } from 'react-router';
 

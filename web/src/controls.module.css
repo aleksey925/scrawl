@@ -203,3 +203,33 @@
     padding-inline: var(--mantine-spacing-md);
   }
 }
+
+/* a choice of a few is a tray of the hover tint, the one picked raised on the
+   popover ground, with no lines between the others */
+.segmentRoot {
+  --sc-padding: 2px;
+  padding: 2px;
+  border-radius: var(--mantine-radius-md);
+  background: var(--scrawl-hover);
+}
+
+.segmentIndicator {
+  border-radius: var(--mantine-radius-sm);
+  background: var(--scrawl-popover);
+  box-shadow: var(--scrawl-shadow-small);
+}
+
+.segment {
+  color: var(--scrawl-text-secondary);
+  font-weight: 500;
+}
+
+.segment[data-active] {
+  color: var(--scrawl-text);
+}
+
+/* the ground behind a dialog or a sheet is the theme's, a light dim that
+   keeps the page readable behind it */
+.overlay {
+  --overlay-bg: var(--scrawl-overlay) !important;
+}

@@ -1,11 +1,11 @@
-import { IconFilePlus, IconFolder, IconSearch } from '@tabler/icons-react';
+import { IconFilePlus, IconFolder, IconSearch } from '../icons';
 import { useEffect, type JSX } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import type { MissingDocumentResponse } from '../api/types';
 import { directoryUrl, editUrl } from '../paths';
 import { usePlatform } from '../platform';
-import { basenameOf, parentOf } from '../shell/naming';
+import { basenameOf, pageName, parentOf } from '../shell/naming';
 import { chromeOf, usePageChrome } from '../shell/PageChrome';
 import { typingInto } from '../shell/shortcuts';
 import { SyncBadge } from '../shell/SyncBadge';
@@ -24,7 +24,7 @@ export interface MissingNoteProps {
 export function MissingNote({ path, page }: MissingNoteProps): JSX.Element {
   const navigate = useNavigate();
   const { search } = usePlatform();
-  const name = basenameOf(path);
+  const name = pageName(basenameOf(path), false);
   const folder = parentOf(path);
   usePageChrome(chromeOf(page.breadcrumbs, name));
 
@@ -67,12 +67,12 @@ export function MissingNote({ path, page }: MissingNoteProps): JSX.Element {
         )}
         <Link data-testid="doc-missing-folder" to={folder === '' ? '/' : directoryUrl(folder)} className={classes.option}>
           <IconFolder size={layout.iconSize} />
-          <span>Open the folder</span>
+          <span>{folder === '' ? 'Open the notes of the space' : `Open the folder ${basenameOf(folder)}`}</span>
         </Link>
         {search && (
           <Link
             data-testid="doc-missing-search"
-            to={`/search?q=${encodeURIComponent(name.replace(/\.md$/i, ''))}`}
+            to={`/search?q=${encodeURIComponent(name)}`}
             className={classes.option}
           >
             <IconSearch size={layout.iconSize} />

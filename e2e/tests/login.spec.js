@@ -82,6 +82,7 @@ test.describe('login', () => {
         await expect(root).toHaveAttribute('data-scrawl-theme', 'dark');
         await expect(toggle).toHaveAttribute('aria-label', `Theme: ${darkTheme.name}`);
         await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', darkTheme.palette.bg);
+        await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href', /apple-touch-icon-dark\.png/);
         expect(await ground()).not.toBe(light);
         await shot(page, 'login-dark-theme');
 

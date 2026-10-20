@@ -17,6 +17,7 @@ import { useRecentNotes } from './recentNotes';
 import classes from './Search.module.css';
 import { SearchControlProvider, SearchOpenerProvider, type SearchControl } from './searchOpener';
 import { SearchResults, targetsOf } from './SearchResults';
+import { useVisibleArea } from './useVisualViewport';
 import { appShortcut } from './shortcuts';
 
 const debounceMs = 200;
@@ -101,6 +102,7 @@ export function SearchProvider({ children }: { children: ReactNode }): JSX.Eleme
 function SearchDialog({ initial, onClose }: { initial: string; onClose: () => void }): JSX.Element {
   const navigate = useNavigate();
   const phone = useBelow(layoutBreakpoints.compactTopbar);
+  const area = useVisibleArea(phone);
   const { notes: recent } = useRecentNotes();
   const [text, setText] = useState(initial);
   const [settings, setSettings] = useState<SearchSettings>(defaultSettings);
@@ -179,7 +181,15 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
       shadow="lg"
       trapFocus
     >
-      <div data-testid="search-dialog" className={classes.dialog} style={phone ? { maxHeight: 'none', height: '100dvh' } : undefined}>
+      <div
+        data-testid="search-dialog"
+        className={classes.dialog}
+        style={
+          phone
+            ? { maxHeight: 'none', height: area === undefined ? '100dvh' : area.height, transform: `translateY(${area?.top ?? 0}px)` }
+            : undefined
+        }
+      >
         <div className={classes.inputRow}>
           <div className={classes.field}>
             <IconSearch size={layout.iconSize} />

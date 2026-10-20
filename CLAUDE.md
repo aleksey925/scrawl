@@ -162,7 +162,10 @@ vendor/                dependencies, checked in, `make deps` regenerates
   follows as the theme's scheme, because mantine knows two schemes and
   two themes can share one. The app runs mantine with
   `withCssVariables={false}`: its runtime variables sit under its own
-  attribute and would outrank a theme's. The picker reloads nothing.
+  attribute and would outrank a theme's. The picker reloads nothing, so
+  it also puts the head on the theme: the bar color and the home screen
+  icon, the light or the dark one, which the server writes per scheme
+  behind the system preference on Auto.
 - The editor opens where the reader was. The rendered page carries the
   source line range of every block it emits, so the position crosses as
   a line and not as a pixel offset, and both panes are held at it until
@@ -244,8 +247,10 @@ vendor/                dependencies, checked in, `make deps` regenerates
   menu opens beside the control that opened it, the way a phone's own
   menus do; drawn as a sheet from the bottom, every menu sat apart from
   its button. The search and the history take the whole screen and the
-  outline is a sheet, each over the bar. The editor has no bar, and a site
-  has none.
+  outline is a sheet, each over the bar. The search keeps its field at
+  the bottom, over the keyboard, with the results above it: a field at
+  the top of a tall phone is out of the thumb's reach. The editor has no
+  bar, and a site has none.
 - The formatter is prettier itself, run inside the binary: `format`
   embeds one wasm module holding prettier and QuickJS, built by javy,
   and wazero executes it with no cgo. No port of prettier to Go exists,
@@ -324,12 +329,17 @@ vendor/                dependencies, checked in, `make deps` regenerates
   is the one place that says so. A control is Notion's: 28px (36px when
   it runs the width of its column) with 6px corners and a 500 weight,
   transparent until hovered; a field is filled with the hover tint and a
-  faint line, with an accent ring on focus; a menu has 10px corners and
-  Notion's shadow, a dialog 12px. Icons are Phosphor's regular weight at
-  20px, 16px in menus, and `web/src/icons.ts` is the one place that says
-  which drawing each one is: Notion's own set cannot be taken, and
-  Phosphor is the open one closest to it. A choice of a few is a tray of
-  the hover tint with the picked one raised on the popover ground.
+  faint line, and in focus has a two pixel accent line and no halo. The
+  accent is spent the way Notion spends it, read off its own pages: the
+  one main button, a focused field and a toggle that is on; the search
+  field has no ring, the back link and Cancel are plain text, and a main
+  button that cannot be pressed yet fades in its color. A menu has 10px
+  corners and Notion's shadow, a dialog 12px. Icons are Phosphor's
+  regular weight at 20px, 16px in menus, and `web/src/icons.ts` is the
+  one place that says which drawing each one is: Notion's own set cannot
+  be taken, and Phosphor is the open one closest to it. A choice of a few
+  is a tray of the hover tint with the picked one raised on the popover
+  ground.
 - The editor is the page and not a box on it: a row of tools over the
   text, split by thin lines into groups, and the source in a column the
   width of the note with line numbers beside it. The source reads as text

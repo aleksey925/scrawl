@@ -37,6 +37,14 @@
   background: var(--scrawl-pressed);
 }
 
+/* the one main button that cannot be pressed yet fades and keeps its color,
+   as Notion's does, instead of turning into a gray box beside its neighbor */
+.button:is(:not([data-variant]), [data-variant='filled']):is(:disabled, [data-disabled]) {
+  background: var(--scrawl-accent);
+  color: var(--scrawl-on-accent);
+  opacity: 0.4;
+}
+
 .button {
   --button-height-xs: var(--scrawl-control-height);
   --button-height-sm: var(--scrawl-control-height);
@@ -81,11 +89,13 @@
   box-shadow: inset 0 0 0 1px var(--input-bd);
 }
 
+/* a field in focus is drawn with a two pixel line in the accent and no halo,
+   the way Notion draws one */
 .input[data-variant='default'] .inputField:focus {
   border-color: transparent;
   box-shadow:
     inset 0 0 0 1px var(--input-bd-focus),
-    0 0 0 3px var(--scrawl-accent-tint);
+    0 0 0 1px var(--input-bd-focus);
 }
 
 .input .inputField::placeholder {

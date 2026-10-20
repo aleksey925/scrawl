@@ -226,9 +226,9 @@ test.describe('mobile', () => {
         await expect.poll(bottom).toBeLessThan(height);
     });
 
-    // the search takes the screen the way a phone's own does, and Cancel is
-    // the way back
-    test('the search takes the whole screen and Cancel puts it away', async ({page}) => {
+    // the search takes the screen the way a phone's own does, its field at the
+    // bottom where the thumb is, and Cancel is the way back
+    test('the search takes the whole screen, its field at the bottom, and Cancel puts it away', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
 
@@ -239,6 +239,9 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('search-input')).toBeVisible();
         const dialog = await boxOf(page, 'search-dialog');
         expect([dialog.top, dialog.bottom]).toEqual([0, page.viewportSize().height]);
+        // the field sits at the bottom, under the thumb, and the results above it
+        const field = await boxOf(page, 'search-input');
+        expect(field.top).toBeGreaterThan(page.viewportSize().height * 0.75);
         await expect(page.getByTestId('search-footer')).not.toContainText('Select');
         // the mode and the titles chip beside it are one height, not two
         const mode = await boxOf(page, 'search-mode');

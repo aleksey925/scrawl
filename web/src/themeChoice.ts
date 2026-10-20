@@ -1,6 +1,7 @@
 import type { MantineColorScheme, MantineColorSchemeManager } from '@mantine/core';
 import { useSyncExternalStore } from 'react';
 
+import { syncHead } from './headTheme';
 import { serverPersistence, type ThemePersistence } from './themePersistence';
 import { applyChoiceAttributes, applyThemeAttribute, autoChoice, colorSchemeAttribute, lookupTheme } from './themes';
 
@@ -56,6 +57,7 @@ export function useThemeChoice(): string {
 function show(picked: string, setColorScheme: (value: MantineColorScheme) => void): void {
   current = picked;
   applyThemeAttribute(picked);
+  syncHead(picked);
   setColorScheme(schemeOf(picked));
   for (const listener of listeners) {
     listener();

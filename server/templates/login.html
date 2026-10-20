@@ -14,7 +14,8 @@ any of that loads and with JavaScript off: a plain POST form.
     <meta name="robots" content="noindex">
     <title>Sign in - {{.SiteTitle}}</title>
     <link rel="icon" href="{{.Favicon}}" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="{{.Theme.TouchIcon}}">
+    {{range .Theme.TouchIcons}}<link rel="apple-touch-icon" href="{{.Href}}"{{with .Media}} media="{{.}}"{{end}}>
+    {{end}}
     {{/* the custom properties of every theme, which `make ui` writes beside the bundle */}}
     <link rel="stylesheet" href="/static/{{.Version}}/app/themes.css">
     <link rel="stylesheet" href="/static/{{.Version}}/login/login.css">

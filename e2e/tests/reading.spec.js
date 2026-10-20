@@ -491,6 +491,33 @@ test.describe('reading', () => {
         await expect(page.getByTestId('editor-source')).toBeVisible();
     });
 
+    // the picker reloads nothing, and the head kept the bar color and the
+    // home screen icon of the theme the page was loaded in
+    test('the bar color and the home screen icon follow the theme picker', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC.path));
+        const icons = () => page.locator('link[rel="apple-touch-icon"]').evaluateAll(
+            (links) => links.map((link) => [link.getAttribute('href').replace(/^.*\/icons\/|\?.*$/g, ''), link.media]));
+        const bars = () => page.locator('meta[name="theme-color"]').evaluateAll(
+            (metas) => metas.map((meta) => [meta.content, meta.media]));
+        await expect.poll(icons).toEqual([
+            ['apple-touch-icon.png', '(prefers-color-scheme: light)'],
+            ['apple-touch-icon-dark.png', '(prefers-color-scheme: dark)'],
+        ]);
+
+        // act
+        await openSpaceMenu(page);
+        await chooseTheme(page, 'dark');
+
+        // assert
+        await expect.poll(icons).toEqual([['apple-touch-icon-dark.png', '']]);
+        await expect.poll(bars).toEqual([[darkTheme.palette.bg, '']]);
+
+        await chooseTheme(page, 'light');
+        await expect.poll(icons).toEqual([['apple-touch-icon.png', '']]);
+        await expect.poll(bars).toEqual([[lightTheme.palette.bg, '']]);
+    });
+
     // the picker writes the theme attribute and reloads nothing, so a
     // stylesheet keyed on anything else keeps the colours of the theme the page
     // was loaded in: the punctuation of a fence went black on a dark note

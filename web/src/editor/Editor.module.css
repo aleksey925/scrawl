@@ -316,7 +316,7 @@
   }
 
   .cancel {
-    color: var(--scrawl-accent);
+    color: var(--scrawl-text);
   }
 }
 

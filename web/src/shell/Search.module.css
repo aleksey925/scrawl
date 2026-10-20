@@ -279,18 +279,33 @@
   padding: 0 2px;
   border: 0;
   background: none;
-  color: var(--scrawl-accent);
+  color: var(--scrawl-text);
   font: inherit;
   font-size: 16px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
+/* on a phone the field is at the bottom, under the thumb and over the
+   keyboard, and the results grow up from it */
 @mixin smaller-than $mantine-breakpoint-sm {
+  .body {
+    order: 1;
+  }
+
+  .footer {
+    order: 2;
+  }
+
+  .options {
+    order: 3;
+  }
+
   .inputRow {
+    order: 4;
     gap: 12px;
-    height: 56px;
-    padding: 0 16px;
+    height: auto;
+    padding: 8px 16px max(8px, env(safe-area-inset-bottom, 0px));
     border-bottom: 0;
   }
 
@@ -313,7 +328,9 @@
 
   .options {
     gap: 6px;
-    padding: 0 16px 10px;
+    padding: 10px 16px 4px;
+    border-top: 1px solid var(--scrawl-border-light);
+    border-bottom: 0;
   }
 
   .chip {

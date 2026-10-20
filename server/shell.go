@@ -65,7 +65,8 @@ const shellTemplate = `<!doctype html>
 {{range .Theme.BarColors}}<meta name="theme-color" content="{{.Color}}"{{with .Media}} media="{{.}}"{{end}}>
 {{end}}<title>{{.Title}}</title>
 <link rel="icon" href="{{.Favicon}}" type="image/svg+xml">
-<link rel="apple-touch-icon" href="{{.Theme.TouchIcon}}">
+{{range .Theme.TouchIcons}}<link rel="apple-touch-icon" href="{{.Href}}"{{with .Media}} media="{{.}}"{{end}}>
+{{end}}
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">

@@ -28,7 +28,10 @@ func TestThemeOf(t *testing.T) {
 			{Color: light.BarColor(), Media: "(prefers-color-scheme: light)"},
 			{Color: dark.BarColor(), Media: "(prefers-color-scheme: dark)"},
 		},
-		TouchIcon: "/static/v1/icons/apple-touch-icon.png?v=" + iconStamp(),
+		TouchIcons: []touchIcon{
+			{Href: "/static/v1/icons/apple-touch-icon.png?v=" + iconStamp(), Media: "(prefers-color-scheme: light)"},
+			{Href: "/static/v1/icons/apple-touch-icon-dark.png?v=" + iconStamp(), Media: "(prefers-color-scheme: dark)"},
+		},
 	}
 
 	tests := []struct {
@@ -41,13 +44,13 @@ func TestThemeOf(t *testing.T) {
 		{name: "garbage", cookie: "neon", expected: auto},
 		{name: "light", cookie: light.ID, expected: pageTheme{
 			ID: light.ID, Name: light.Name, Scheme: theme.Light,
-			BarColors: []barColor{{Color: light.BarColor()}},
-			TouchIcon: "/static/v1/icons/apple-touch-icon.png?v=" + iconStamp(),
+			BarColors:  []barColor{{Color: light.BarColor()}},
+			TouchIcons: []touchIcon{{Href: "/static/v1/icons/apple-touch-icon.png?v=" + iconStamp()}},
 		}},
 		{name: "dark", cookie: dark.ID, expected: pageTheme{
 			ID: dark.ID, Name: dark.Name, Scheme: theme.Dark,
-			BarColors: []barColor{{Color: dark.BarColor()}},
-			TouchIcon: "/static/v1/icons/apple-touch-icon-dark.png?v=" + iconStamp(),
+			BarColors:  []barColor{{Color: dark.BarColor()}},
+			TouchIcons: []touchIcon{{Href: "/static/v1/icons/apple-touch-icon-dark.png?v=" + iconStamp()}},
 		}},
 	}
 
@@ -112,19 +115,28 @@ func TestBarColorFollowsTheTheme(t *testing.T) {
 func TestTouchIconFollowsTheTheme(t *testing.T) {
 	ts := newTestServer(t, testOpts{withAuth: true})
 	client := ts.login(t)
+	link := func(name, media string) string {
+		res := `<link rel="apple-touch-icon" href="/static/` + ts.Version + "/icons/" + name + "?v=" + iconStamp() + `"`
+		if media != "" {
+			res += ` media="(prefers-color-scheme: ` + media + `)"`
+		}
+		return res + ">"
+	}
+	both := []string{link("apple-touch-icon.png", "light"), link("apple-touch-icon-dark.png", "dark")}
 
 	tests := []struct {
 		name  string
 		path  string
 		theme string
-		icon  string
+		links []string
 	}{
-		{name: "shell without a choice", path: "/", icon: "apple-touch-icon.png"},
-		{name: "shell on auto", path: "/", theme: "auto", icon: "apple-touch-icon.png"},
-		{name: "shell in light", path: "/", theme: "light", icon: "apple-touch-icon.png"},
-		{name: "shell in dark", path: "/", theme: "dark", icon: "apple-touch-icon-dark.png"},
-		{name: "sign-in page in light", path: "/login", theme: "light", icon: "apple-touch-icon.png"},
-		{name: "sign-in page in dark", path: "/login", theme: "dark", icon: "apple-touch-icon-dark.png"},
+		{name: "shell without a choice", path: "/", links: both},
+		{name: "shell on auto", path: "/", theme: "auto", links: both},
+		{name: "shell in light", path: "/", theme: "light", links: []string{link("apple-touch-icon.png", "")}},
+		{name: "shell in dark", path: "/", theme: "dark", links: []string{link("apple-touch-icon-dark.png", "")}},
+		{name: "sign-in page on auto", path: "/login", links: both},
+		{name: "sign-in page in light", path: "/login", theme: "light", links: []string{link("apple-touch-icon.png", "")}},
+		{name: "sign-in page in dark", path: "/login", theme: "dark", links: []string{link("apple-touch-icon-dark.png", "")}},
 	}
 
 	for _, tc := range tests {
@@ -137,15 +149,26 @@ func TestTouchIconFollowsTheTheme(t *testing.T) {
 			if tc.theme != "" {
 				req.headers = map[string]string{"Cookie": themeCookie + "=" + tc.theme}
 			}
-			iconURL := "/static/" + ts.Version + "/icons/" + tc.icon + "?v=" + iconStamp()
 
 			// act
 			resp, body := ts.do(t, req)
-			icon, _ := ts.do(t, request{path: iconURL})
 
 			// assert
 			require.Equal(t, http.StatusOK, resp.status)
-			assert.Contains(t, body, `<link rel="apple-touch-icon" href="`+iconURL+`">`)
+			assert.Equal(t, tc.links, regexp.MustCompile(`<link rel="apple-touch-icon"[^>]*>`).FindAllString(body, -1))
+		})
+	}
+}
+
+func TestTouchIconsArePublic(t *testing.T) {
+	ts := newTestServer(t, testOpts{withAuth: true})
+
+	for _, name := range []string{"apple-touch-icon.png", "apple-touch-icon-dark.png"} {
+		t.Run(name, func(t *testing.T) {
+			// act
+			icon, _ := ts.do(t, request{path: "/static/" + ts.Version + "/icons/" + name + "?v=" + iconStamp()})
+
+			// assert
 			assert.Equal(t, http.StatusOK, icon.status, "the icon is public: a phone fetches it without the session")
 			assert.Equal(t, "image/png", icon.header.Get("Content-Type"))
 		})

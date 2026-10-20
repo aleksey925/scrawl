@@ -24,6 +24,7 @@ import { SiteMenu } from '../shell/SiteMenu';
 import { theme } from '../theme';
 import { keepThemeIn, themeColorSchemeManager } from '../themeChoice';
 import { printInLight } from '../print';
+import { enablePressFeedback } from '../pressFeedback';
 import { pagePersistence } from '../themePersistence';
 
 import { readPage } from './data';
@@ -38,6 +39,7 @@ keepThemeIn(pagePersistence());
 keepPageWidthIn(sitePersistence());
 applyStoredPageWidth();
 printInLight();
+enablePressFeedback();
 
 const page = readPage();
 const site = window.scrawlSite ?? { title: 'Notes', tree: [] };

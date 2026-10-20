@@ -6,6 +6,9 @@
 }
 
 .main {
+  /* clip, not hidden: a screen that slides in reaches past the edge for a
+     moment, and hidden would make main a scroller and unstick every bar in it */
+  overflow-x: clip;
   background: var(--scrawl-bg);
 }
 

@@ -41,6 +41,17 @@
   color: var(--scrawl-text);
 }
 
+/* a tab dims under the finger, as the bars of iOS do, rather than taking a
+   ground */
+.tab {
+  transition: var(--scrawl-press-out);
+}
+
+.tab:active {
+  opacity: 0.4;
+  transition: var(--scrawl-press-in);
+}
+
 .label {
   font-size: 11px;
   line-height: 1.2;

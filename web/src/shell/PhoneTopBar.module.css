@@ -35,6 +35,12 @@
 
 .up {
   padding-inline-start: 12px;
+  transition: var(--scrawl-press-out);
+}
+
+.up:active {
+  opacity: 0.4;
+  transition: var(--scrawl-press-in);
 }
 
 .home {

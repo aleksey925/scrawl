@@ -3,6 +3,7 @@ import type { ComponentPropsWithRef, JSX } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
 import { PopupMenu } from '../components/PopupMenu';
+import { planMotion } from '../components/screenMotion';
 import { IconClock, IconFilePlus, IconFolder, IconFolderPlus, IconPlus, IconSearch, type Icon } from '../icons';
 import { isDirectoryPath, recentUrl } from '../paths';
 import { layout } from '../theme';
@@ -65,6 +66,7 @@ export function TabBar(): JSX.Element | null {
   const atNotes = !searching && !atRecent;
   const go = (url: string): void => {
     search?.close();
+    planMotion(url, 'none');
     void navigate(url);
   };
 

@@ -261,3 +261,24 @@
   color: var(--scrawl-text-tertiary);
   font-size: 13px;
 }
+
+/* a pressed row darkens from edge to edge of the screen, past the page's
+   gutter, the way a row of an app's list does */
+@media (hover: none) {
+  .row,
+  .listRow {
+    transition: var(--scrawl-press-out);
+  }
+
+  .row:active,
+  .listRow:active {
+    background: var(--scrawl-pressed);
+    transition: var(--scrawl-press-in);
+  }
+
+  .listRow:active {
+    box-shadow:
+      calc(-1 * var(--mantine-spacing-lg)) 0 var(--scrawl-pressed),
+      var(--mantine-spacing-lg) 0 var(--scrawl-pressed);
+  }
+}

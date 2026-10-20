@@ -8,6 +8,7 @@ import { errorText, type AsyncState } from '../api/useApi';
 import { layout } from '../theme';
 
 import { Page } from './Page';
+import { ScreenReady } from './screenMotion';
 
 export interface AsyncContentProps<T> {
   state: AsyncState<T>;
@@ -39,11 +40,15 @@ export function AsyncContent<T>({ state, testId, page = false, children }: Async
     );
   }
   if (state.data === undefined) {
-    return framed(
-      <Center data-testid={testId === undefined ? undefined : `${testId}-loading`} py="3xl">
-        <Loader size="sm" />
-      </Center>,
+    return (
+      <ScreenReady value={false}>
+        {framed(
+          <Center data-testid={testId === undefined ? undefined : `${testId}-loading`} py="3xl">
+            <Loader size="sm" />
+          </Center>,
+        )}
+      </ScreenReady>
     );
   }
-  return <>{children(state.data)}</>;
+  return <ScreenReady value={!state.stale}>{children(state.data)}</ScreenReady>;
 }

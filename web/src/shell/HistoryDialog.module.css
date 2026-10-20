@@ -115,6 +115,17 @@
   }
 }
 
+@media (hover: none) {
+  .row {
+    transition: var(--scrawl-press-out);
+  }
+
+  .row:not([data-selected='true']):active {
+    background: var(--scrawl-pressed);
+    transition: var(--scrawl-press-in);
+  }
+}
+
 .line {
   display: flex;
   align-items: center;

@@ -107,6 +107,93 @@ test.describe('mobile', () => {
         await expect(page).toHaveURL(atHome());
     });
 
+    test('a screen opened slides in from the right, one gone back to from the left, a tab not at all', async ({page}) => {
+        // arrange
+        await page.addInitScript(() => {
+            window.moves = [];
+            const animate = Element.prototype.animate;
+            Element.prototype.animate = function (keyframes, options) {
+                if (Array.isArray(keyframes) && String(keyframes[0]?.transform).startsWith('translateX')) {
+                    window.moves.push(keyframes[0].transform);
+                }
+                return animate.call(this, keyframes, options);
+            };
+        });
+        await page.goto(routes.home());
+        const folder = page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`);
+        const moves = () => page.evaluate(() => window.moves);
+
+        // act & assert
+        await folder.tap();
+        await expect(page).toHaveURL(MAIN.url.dir(docs.folder.path));
+        await expect.poll(moves).toEqual(['translateX(28%)']);
+        await page.getByTestId('topbar-up').tap();
+        await expect(page).toHaveURL(atHome());
+        await expect.poll(moves).toEqual(['translateX(28%)', 'translateX(-28%)']);
+        await page.getByTestId('tab-recent').tap();
+        await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
+        await page.getByTestId('tab-notes').tap();
+        await expect(page).toHaveURL(atHome());
+        expect(await moves()).toEqual(['translateX(28%)', 'translateX(-28%)']);
+    });
+
+    test.describe('a swipe from the left edge', () => {
+        // swipe drags a finger from the left edge of the screen across to x, resting
+        // between its steps the way a slow finger does
+        async function swipe(page, to, rest = 0) {
+            const cdp = await page.context().newCDPSession(page);
+            const y = 400;
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y}]});
+            for (let step = 1; step <= 8; step++) {
+                const x = 4 + ((to - 4) * step) / 8;
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y}]});
+                await page.waitForTimeout(rest);
+            }
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+        }
+
+        const folder = () => MAIN.url.dir(docs.folder.path);
+
+        test('in an app from the home screen goes back, and a short one leaves the page', async ({page}) => {
+            // arrange
+            await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
+            await page.goto(folder());
+            await expect(page.getByTestId('dir-row').first()).toBeVisible();
+
+            // act & assert
+            await swipe(page, 60, 40);
+            await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
+            await expect(page).toHaveURL(folder());
+
+            await swipe(page, 300);
+            await expect(page).toHaveURL(atHome());
+            await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
+        });
+
+        test('in a tab of the browser is left to the browser', async ({page}) => {
+            // arrange
+            await page.goto(folder());
+            await expect(page.getByTestId('dir-row').first()).toBeVisible();
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
+            await expect(page).toHaveURL(folder());
+        });
+    });
+
+    test('a long press on the chrome selects nothing, and the text of a note still selects', async ({page}) => {
+        // act
+        await page.goto(routes.doc(DOC));
+
+        // assert
+        await expect(page.getByTestId('tab-bar')).toHaveCSS('user-select', 'none');
+        await expect(page.getByTestId('topbar')).toHaveCSS('user-select', 'none');
+        await expect(page.getByTestId('doc')).toHaveCSS('user-select', 'text');
+    });
+
     test('Recent lists a note opened, keeps it after a reload, and its menu clears it', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));

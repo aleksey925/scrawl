@@ -104,6 +104,23 @@ test.describe('login', () => {
         await shot(page, 'login-page');
     });
 
+    for (const theme of [lightTheme, darkTheme]) {
+        test(`a field in focus has a two pixel line in the accent and no halo, ${theme.scheme}`, async ({page}) => {
+            // arrange
+            await page.emulateMedia({colorScheme: theme.scheme});
+            await page.goto(`${MAIN.baseURL}/login`);
+            const field = page.locator('#login-password');
+
+            // act
+            await field.focus();
+
+            // assert
+            const accent = rgb(theme.palette.accent);
+            await expect(field).toHaveCSS('box-shadow', `${accent} 0px 0px 0px 1px inset, ${accent} 0px 0px 0px 1px`);
+            await shot(page, `login-field-focus-${theme.scheme}`);
+        });
+    }
+
     test('the form signs in without javascript', async ({browser}) => {
         // arrange
         const context = await browser.newContext({javaScriptEnabled: false});

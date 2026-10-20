@@ -6,6 +6,8 @@ export interface AsyncState<T> {
   data?: T;
   error?: unknown;
   loading: boolean;
+  // stale is data kept from an earlier key while this key's answer is on its way
+  stale: boolean;
 }
 
 export function errorText(error: unknown): string {
@@ -58,6 +60,14 @@ export function forgetResponses(): void {
   responses.clear();
 }
 
+// Answer is what useApi holds: the data and the key it was fetched under
+interface Answer<T> {
+  data?: T;
+  dataKey?: string;
+  error?: unknown;
+  loading: boolean;
+}
+
 // useApi runs a request and keeps an answer on screen while the next one is on
 // its way - the cached one for this key if there is one, otherwise the one this
 // screen showed a moment ago. That is the whole difference from the obvious
@@ -72,21 +82,23 @@ export function useApi<T>(
   deps: DependencyList,
   key?: string,
 ): AsyncState<T> {
-  const [state, setState] = useState<AsyncState<T>>(() => ({
-    data: key === undefined ? undefined : (responses.get(key) as T | undefined),
-    loading: true,
-  }));
+  const [state, setState] = useState<Answer<T>>(() => {
+    const cached = key === undefined ? undefined : (responses.get(key) as T | undefined);
+    return { data: cached, dataKey: cached === undefined ? undefined : key, loading: true };
+  });
 
   useEffect(() => {
     const controller = new AbortController();
     const cached = key === undefined ? undefined : (responses.get(key) as T | undefined);
-    setState((prev) => ({ data: cached ?? prev.data, loading: true }));
+    setState((prev) =>
+      cached === undefined ? { ...prev, error: undefined, loading: true } : { data: cached, dataKey: key, loading: true },
+    );
     run(controller.signal).then(
       (data) => {
         if (key !== undefined) {
           remember(key, data);
         }
-        setState({ data, loading: false });
+        setState({ data, dataKey: key, loading: false });
       },
       (error: unknown) => {
         if (!controller.signal.aborted) {
@@ -97,5 +109,6 @@ export function useApi<T>(
     return () => controller.abort();
   }, deps);
 
-  return state;
+  const { dataKey, ...rest } = state;
+  return { ...rest, stale: key !== undefined && state.data !== undefined && dataKey !== key };
 }

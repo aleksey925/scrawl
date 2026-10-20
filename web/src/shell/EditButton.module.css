@@ -11,7 +11,16 @@
   background: var(--scrawl-accent);
   box-shadow: var(--scrawl-shadow-medium);
   color: var(--scrawl-on-accent);
-  transition: transform 200ms ease;
+  transition:
+    transform 200ms ease,
+    var(--scrawl-press-out);
+}
+
+.button:active {
+  opacity: 0.7;
+  transition:
+    transform 200ms ease,
+    var(--scrawl-press-in);
 }
 
 /* it leaves with the tab bar, the whole way down past the bottom edge */

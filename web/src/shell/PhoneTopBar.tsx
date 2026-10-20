@@ -1,12 +1,14 @@
 import { IconChevronLeft } from '../icons';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 
+import { planMotion } from '../components/screenMotion';
 import { layout } from '../theme';
 
 import { useNav } from './NavContext';
 import { useShownChrome } from './PageChrome';
 import classes from './PhoneTopBar.module.css';
+import { useSwipeBack } from './useSwipeBack';
 
 // titleGone says whether the page's own title has scrolled under the bar. The
 // title is the first heading of the page, a note's leading one included.
@@ -54,6 +56,22 @@ export function PhoneTopBar({ home, end, menu, actionsRef }: PhoneTopBarProps): 
   const location = useLocation();
   // the editor's own actions are the whole bar: Cancel at one end, Save at the other
   const editing = location.pathname.startsWith('/edit/');
+  const navigate = useNavigate();
+  // the router numbers the entries of the history it made; 0 is the page the app
+  // was opened on, before which there is nothing of ours to go back to
+  const inHistory = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
+  useSwipeBack(
+    editing || (atRoot && !inHistory)
+      ? null
+      : () => {
+          if (inHistory) {
+            void navigate(-1);
+            return;
+          }
+          planMotion(parent.url, 'back');
+          void navigate(parent.url);
+        },
+  );
 
   if (editing) {
     return (
@@ -69,7 +87,13 @@ export function PhoneTopBar({ home, end, menu, actionsRef }: PhoneTopBarProps): 
         {atRoot ? (
           (home ?? <span className={classes.home}>{space}</span>)
         ) : (
-          <Link data-testid="topbar-up" to={parent.url} className={classes.up} aria-label={`Back to ${parent.name}`}>
+          <Link
+            data-testid="topbar-up"
+            to={parent.url}
+            onClick={() => planMotion(parent.url, 'back')}
+            className={classes.up}
+            aria-label={`Back to ${parent.name}`}
+          >
             <IconChevronLeft size={layout.iconSize} />
             <span className={classes.upName}>{parent.name}</span>
           </Link>

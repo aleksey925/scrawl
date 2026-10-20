@@ -383,6 +383,29 @@ vendor/                dependencies, checked in, `make deps` regenerates
   menu's own outside tap closed it on touchstart, and the click went on
   to the row underneath and opened the file there. A phone shows no keys,
   neither the list of shortcuts nor a key beside a menu row.
+- A touch screen answers a tap the way an app does. A pressed row or menu
+  item darkens, a list row from edge to edge of the screen, and a tab, the
+  way back and the round Edit button dim, as the bars of iOS do; the press
+  shows 60ms after the finger lands, so a finger that only starts a scroll
+  leaves no flash. A long press on the chrome selects nothing and opens no
+  preview of a link, while a note, code and what a reader types still
+  select. iOS draws `:active` only under a `touchstart` listener, so the
+  document carries an empty one.
+- On a phone a screen opened slides in from the right and one gone back to
+  from the left, as an app moves its screens; a tab is switched to with no
+  move, and the way up moves back although it pushes an address. The move
+  starts when the page first shows the answer of its route, not on the
+  tap: a screen keeps the last answer while the next one loads, and a move
+  on the tap slid in the old screen and then swapped it. Only the page
+  moves, never the bars, and `main` clips what reaches past its edge.
+- In an app opened from an iPhone's home screen a finger drags the page
+  off from the left edge and goes back: in the history when the app has
+  one, else to the folder above, as the way up does. A short or slow drag
+  puts the page back. Only there: a tab of Safari has its own swipe back,
+  and both went back once each, and Android's back gesture is the
+  system's. The swiped page stays off the edge until the next one enters,
+  and the swipe never starts under a dialog, a sheet or a menu, nor in
+  the editor.
 - The editor toolbar is a strip that moves sideways only and stops at its
   ends, and the editor screen takes the page's rubber band away. Left to
   the defaults the strip followed a finger up and down with the page

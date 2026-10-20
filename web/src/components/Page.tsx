@@ -1,6 +1,7 @@
-import type { ComponentPropsWithoutRef, JSX, ReactNode } from 'react';
+import { useRef, type ComponentPropsWithoutRef, type JSX, type ReactNode } from 'react';
 
 import classes from './Page.module.css';
+import { useScreenEnter } from './screenMotion';
 
 export interface PageProps extends ComponentPropsWithoutRef<'div'> {
   // wide runs the room beside the sidebar whatever the page width setting,
@@ -12,8 +13,16 @@ export interface PageProps extends ComponentPropsWithoutRef<'div'> {
 // Page is the one surface every screen is drawn on: a note, a folder, a file,
 // a search, a note that does not exist and a page that broke
 export function Page({ wide = false, className, children, ...rest }: PageProps): JSX.Element {
+  const ref = useRef<HTMLDivElement>(null);
+  useScreenEnter(ref);
   return (
-    <div {...rest} className={className === undefined ? classes.page : `${classes.page} ${className}`} data-variant={wide ? 'wide' : 'note'}>
+    <div
+      {...rest}
+      ref={ref}
+      data-screen
+      className={className === undefined ? classes.page : `${classes.page} ${className}`}
+      data-variant={wide ? 'wide' : 'note'}
+    >
       {children}
     </div>
   );

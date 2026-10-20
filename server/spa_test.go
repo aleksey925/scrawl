@@ -710,6 +710,7 @@ func TestEditable(t *testing.T) {
 		{name: "a text file", fi: store.FileInfo{Path: "docs/log.txt", Size: 10}, want: true},
 		{name: "a picture", fi: store.FileInfo{Path: "docs/pic.png", Size: 10}, want: false},
 		{name: "a text file too large to load", fi: store.FileInfo{Path: "docs/big.txt", Size: maxEditableFile + 1}, want: false},
+		{name: "a known name with no extension", fi: store.FileInfo{Path: "tools/Makefile", Size: 10}, want: true},
 		{name: "a folder named like a note", fi: store.FileInfo{Path: "docs/sub.md", IsDir: true}, want: false},
 	}
 	for _, tc := range tests {

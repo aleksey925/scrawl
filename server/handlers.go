@@ -169,6 +169,23 @@ var rawTextExtensions = []string{
 	".json", ".jsonc", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".css", ".scss",
 	".html", ".htm", ".xml", ".proto", ".graphql", ".tf", ".hcl", ".swift", ".php",
 	".cs", ".scala", ".ex", ".exs", ".hs", ".ml", ".clj", ".vim",
+	".cc", ".cxx", ".hh", ".hxx", ".m", ".mm", ".kts", ".gradle", ".groovy", ".sbt", ".dart",
+	".vue", ".svelte", ".astro", ".sass", ".less", ".styl", ".pyi", ".pyw", ".ipynb",
+	".ps1", ".psm1", ".bat", ".cmd", ".erl", ".hrl", ".elm", ".jl", ".nim", ".zig", ".sol",
+	".fs", ".fsx", ".vb", ".cljs", ".cljc", ".edn", ".lisp", ".el", ".scm", ".rkt", ".pas",
+	".f90", ".asm", ".s", ".cr", ".d", ".tcl", ".awk", ".nix", ".cmake", ".mk", ".tex", ".bib",
+	".rst", ".adoc", ".properties", ".gql", ".jinja", ".j2", ".njk", ".hbs", ".pug", ".twig",
+	".xsl", ".xsd", ".plist", ".json5", ".jsonl", ".ndjson", ".webmanifest", ".lock",
+}
+
+// rawTextNames are files that are text by their whole name, having no extension
+// to say so. ".mod" is no extension of text, a tracker song is binary, so
+// go.mod is here by name.
+var rawTextNames = []string{
+	"Dockerfile", "Containerfile", "Makefile", "GNUmakefile", "makefile", "Jenkinsfile",
+	"Gemfile", "Rakefile", "Procfile", "Vagrantfile", "Brewfile", "Podfile", "Justfile",
+	"justfile", "Caddyfile", "Pipfile", "go.mod", "go.sum", "LICENSE", "README",
+	"AUTHORS", "CODEOWNERS", "CHANGELOG", "NOTICE",
 }
 
 // rawAttachmentTypes are types worth naming even though they are downloaded,
@@ -207,7 +224,7 @@ func rawContentType(name string) (contentType string, inline bool) {
 	if ct, ok := rawInlineTypes[ext]; ok {
 		return ct, true
 	}
-	if slices.Contains(rawTextExtensions, ext) {
+	if slices.Contains(rawTextExtensions, ext) || slices.Contains(rawTextNames, path.Base(name)) {
 		return "text/plain; charset=utf-8", true
 	}
 	if ct, ok := rawAttachmentTypes[ext]; ok {

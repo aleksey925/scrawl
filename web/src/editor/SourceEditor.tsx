@@ -6,8 +6,9 @@ import { EditorView, placeholder } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { useComputedColorScheme } from '@mantine/core';
 import CodeMirror from '@uiw/react-codemirror';
-import { useMemo, useRef, useState, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
+import { codeLanguageOf } from './codeLanguages';
 import classes from './Editor.module.css';
 
 // the source reads as text with its markup set back: the words in the text
@@ -60,36 +61,75 @@ export interface DroppedFiles {
   at: number | undefined;
 }
 
+// EditorKind is what the buffer holds: a note, written in markdown, or a text file
+// of any other kind, which is only text
+export type EditorKind = 'markdown' | 'text';
+
 export interface SourceEditorProps {
+  kind: EditorKind;
+  // name picks the colors of a text file, by its extension
+  name: string;
   value: string;
   readOnly: boolean;
   autoFocus: boolean;
   wrap: boolean;
   onChange: (value: string) => void;
   onCreate: (view: EditorView) => void;
-  onFiles: (dropped: DroppedFiles) => void;
+  // onFiles takes a picture dropped or pasted in; a text file has nowhere to
+  // show one, so it takes none
+  onFiles?: (dropped: DroppedFiles) => void;
+}
+
+// useCodeLanguage loads the colors of a text file's language, when codemirror
+// knows one by the file's name; a file it does not know stays plain
+function useCodeLanguage(kind: EditorKind, name: string): Extension | undefined {
+  const [language, setLanguage] = useState<Extension | undefined>(undefined);
+  useEffect(() => {
+    setLanguage(undefined);
+    const found = kind === 'text' ? codeLanguageOf(name) : null;
+    if (found === null) {
+      return undefined;
+    }
+    let live = true;
+    void found.load().then(
+      (support) => {
+        if (live) {
+          setLanguage(support);
+        }
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [kind, name]);
+  return language;
 }
 
 export function SourceEditor(props: SourceEditorProps): JSX.Element {
-  const { value, readOnly, autoFocus, wrap, onChange, onCreate, onFiles } = props;
+  const { kind, name, value, readOnly, autoFocus, wrap, onChange, onCreate, onFiles } = props;
   const scheme = useComputedColorScheme('light');
   const [dropping, setDropping] = useState(false);
 
   const handlers = useRef({ onFiles, readOnly });
   handlers.current = { onFiles, readOnly };
 
+  const code = useCodeLanguage(kind, name);
+
   const extensions = useMemo(() => {
+    const markup = kind === 'markdown' ? markdown({ base: markdownLanguage, codeLanguages: languages }) : code;
     return [
-      markdown({ base: markdownLanguage, codeLanguages: languages }),
+      ...(markup === undefined ? [] : [markup]),
       highlighting,
       surface(scheme === 'dark'),
       ...(wrap ? [EditorView.lineWrapping] : []),
-      ...(readOnly ? [] : [placeholder('Start writing in markdown')]),
+      ...(readOnly || kind !== 'markdown' ? [] : [placeholder('Start writing in markdown')]),
       EditorView.domEventHandlers({
         paste: (event) => {
           const data = event.clipboardData;
           const files = Array.from(data?.files ?? []);
-          if (files.length === 0 || handlers.current.readOnly) {
+          const take = handlers.current.onFiles;
+          if (files.length === 0 || handlers.current.readOnly || take === undefined) {
             return false;
           }
           // Word and Excel put a screenshot on the clipboard beside the text,
@@ -99,12 +139,12 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
             return false;
           }
           event.preventDefault();
-          handlers.current.onFiles({ files, at: undefined });
+          take({ files, at: undefined });
           return true;
         },
         dragover: (event) => {
           event.preventDefault();
-          setDropping(true);
+          setDropping(handlers.current.onFiles !== undefined);
           return false;
         },
         dragleave: () => {
@@ -114,17 +154,22 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
         drop: (event, view) => {
           const files = Array.from(event.dataTransfer?.files ?? []);
           setDropping(false);
-          if (files.length === 0 || handlers.current.readOnly) {
+          if (files.length === 0) {
             return false;
           }
+          // a file dropped where it cannot go would otherwise be opened by the
+          // browser in place of the editor and its unsaved text
           event.preventDefault();
-          const at = view.posAtCoords({ x: event.clientX, y: event.clientY });
-          handlers.current.onFiles({ files, at: at ?? undefined });
+          const take = handlers.current.onFiles;
+          if (take !== undefined && !handlers.current.readOnly) {
+            const at = view.posAtCoords({ x: event.clientX, y: event.clientY });
+            take({ files, at: at ?? undefined });
+          }
           return true;
         },
       }),
     ];
-  }, [scheme, wrap, readOnly]);
+  }, [kind, code, scheme, wrap, readOnly]);
 
   return (
     <div
@@ -143,7 +188,7 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
         onChange={onChange}
         onCreateEditor={onCreate}
         basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: true }}
-        aria-label="Document source"
+        aria-label={kind === 'markdown' ? 'Document source' : 'File text'}
       />
     </div>
   );

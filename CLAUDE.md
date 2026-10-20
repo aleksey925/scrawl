@@ -58,9 +58,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
   only through the bluemonday policy in `render`, which starts from
   `NewPolicy` because a policy can only ever be widened afterwards.
 - `/raw/` never serves an executable document. The content type comes
-  from an allowlist keyed on the extension, anything outside it is a
-  download, and the route carries its own `default-src 'none'; sandbox`
-  policy on top of `nosniff`.
+  from an allowlist keyed on the extension, or on the whole name for the
+  few text files that have none (`Makefile`, `Dockerfile`, `go.mod`),
+  anything outside it is a download, and the route carries its own
+  `default-src 'none'; sandbox` policy on top of `nosniff`. A file with no
+  extension is never sniffed.
 - Rendering is superlinear on some inputs, so every render is bounded by
   a size cap and a deadline, and the whole server by a small throttle.
 - Uploads land in a folder next to the document and named after it
@@ -183,6 +185,18 @@ vendor/                dependencies, checked in, `make deps` regenerates
   it also puts the head on the theme: the bar color and the home screen
   icon, the light or the dark one, which the server writes per scheme
   behind the system preference on Auto.
+- A text file that is not a note is edited as text alone: the source,
+  colored by its language, with Save, Cancel and the wrap, and no modes,
+  toolbar, preview, formatter or picture upload, none of which means
+  anything for it. It is the same editor screen with the markdown parts
+  left out, not a second one: the save, the draft, the conflict and the
+  guard on leaving stay one flow. A copy kept from a conflict keeps the
+  file's extension. The language comes from the name: codemirror's set,
+  and for what it lacks or guesses wrong the closest language it holds,
+  in `web/src/editor/codeLanguages.ts` (a svelte component as html,
+  elixir as ruby, a makefile as shell). No new grammar is a dependency of
+  ours, so a name with nothing close (terraform, graphql, zig) stays
+  plain.
 - The editor opens where the reader was. The rendered page carries the
   source line range of every block it emits, so the position crosses as
   a line and not as a pixel offset, and both panes are held at it until

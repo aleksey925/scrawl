@@ -630,6 +630,22 @@ test.describe('mobile', () => {
     // the source pane once collapsed to a sliver: its wrapper carried the pane
     // class but no flex-grow, and only the split layout handed it a width, so
     // with one pane on screen it shrank to its content.
+    test('a text file opens in the editor with no Text and Preview tabs', async ({page}) => {
+        // arrange
+        const filePath = 'e2e-mobile/plain.txt';
+        writeFixture(filePath, 'just text\n');
+
+        // act
+        await page.goto(routes.edit(filePath));
+
+        // assert
+        await expect(page.getByTestId('editor')).toHaveAttribute('data-kind', 'text');
+        await expect(page.getByTestId('editor-source')).toContainText('just text');
+        await expect(page.getByTestId('editor-tabs')).toHaveCount(0);
+        await expect(page.getByTestId('editor-language')).toHaveText('Plain text');
+        await shot(page, 'mobile-plain-text-editor');
+    });
+
     test('the editor pane takes the width of the screen', async ({page}) => {
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
         await page.goto(routes.edit(SCRATCH));

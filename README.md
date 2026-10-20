@@ -9,7 +9,8 @@ files on disk are the only state.
   on screen on `Ctrl`/`Cmd` + `F`
 - an editor with live preview, on desktop and on mobile
 - every file in a folder opens: a picture as a preview, a text file as
-  highlighted code
+  highlighted code, and edits as plain text, without the note's preview
+  and formatting
 - pages and folders made in the tree or in a folder's list, dragged
   between folders, renamed and deleted; paste images straight into the
   editor

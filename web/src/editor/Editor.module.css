@@ -175,6 +175,11 @@
     padding-inline: 0;
   }
 
+  /* a text file's head starts with words, which keep to the page's line */
+  .screen[data-kind='text'] .paneHeadInner {
+    padding-inline-start: var(--mantine-spacing-lg);
+  }
+
   .footLines {
     display: block;
     padding: 6px var(--mantine-spacing-lg);

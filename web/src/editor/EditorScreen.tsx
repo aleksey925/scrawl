@@ -32,7 +32,7 @@ import { layout } from '../theme';
 import { showToast } from '../toast';
 
 import { PreviewPane } from './PreviewPane';
-import { SourceEditor, type DroppedFiles } from './SourceEditor';
+import { SourceEditor, type DroppedFiles, type EditorKind } from './SourceEditor';
 import { Splitter } from './Splitter';
 import { Toolbar } from './Toolbar';
 import {
@@ -44,6 +44,7 @@ import {
   type ReadingAnchor,
 } from './anchor';
 import { captureFromSource, holdAnchorAtTop } from './cmAnchor';
+import { codeLanguageOf } from './codeLanguages';
 import { uploadAccept } from './constants';
 import { confirmLeave, openConflict, openSessionExpired } from './dialogs';
 import { formatMarkdown, replaceText, warmFormatter } from './format';
@@ -81,9 +82,20 @@ const saveStateText: Record<SaveState, string> = {
   saved: 'Saved',
 };
 
+// conflictCopyPath is where a copy of a refused save goes: beside the file,
+// with its extension kept, so a copy of a text file is not a note
+function conflictCopyPath(path: string, stamp: string): string {
+  const name = path.lastIndexOf('/') + 1;
+  const dot = path.lastIndexOf('.');
+  const [stem, ext] = dot > name ? [path.slice(0, dot), path.slice(dot)] : [path, ''];
+  return `${stem}.conflict-${stamp}${ext}`;
+}
+
 export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const { path, initialContent, initialRev, isNew, readOnly } = props;
-  const formattable = !readOnly && isMarkdown(path);
+  const kind: EditorKind = isMarkdown(path) ? 'markdown' : 'text';
+  const fileName = path.slice(path.lastIndexOf('/') + 1);
+  const formattable = !readOnly && kind === 'markdown';
   const formatOnSave = props.formatOnSave && formattable;
   const navigate = useNavigate();
   const { refreshMe } = useNav();
@@ -113,7 +125,9 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   contentRef.current = content;
   revRef.current = rev;
 
-  const { mode, chosen, choose, split, setSplit, wide } = useEditorLayout();
+  const layoutControl = useEditorLayout();
+  const { chosen, choose, split, setSplit, wide } = layoutControl;
+  const mode = kind === 'markdown' ? layoutControl.mode : 'source';
   const lineWrap = useLineWrap();
   const touch = useMediaQuery('(hover: none)', false, { getInitialValueInEffect: false }) ?? false;
 
@@ -371,7 +385,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   const saveCopy = useCallback(async (): Promise<void> => {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const copyPath = `${path.replace(/\.md$/, '')}.conflict-${stamp}.md`;
+    const copyPath = conflictCopyPath(path, stamp);
     const sent = contentRef.current;
     try {
       // a conflict copy is a save like any other and its push can fail like any
@@ -575,7 +589,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const previewStyle = mode === 'split' ? { flex: '1 1 0' } : undefined;
 
   return (
-    <div data-testid="editor" data-mode={mode} className={classes.screen}>
+    <div data-testid="editor" data-mode={mode} data-kind={kind} className={classes.screen}>
       <PageActions>
         <Text
           data-testid="editor-status"
@@ -585,9 +599,9 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           hidden={!wide}
           aria-live="polite"
         >
-          {saveStateText[saveState]}
+          {saveState === 'new' && kind === 'text' ? 'New file' : saveStateText[saveState]}
         </Text>
-        {wide && (
+        {wide && kind === 'markdown' && (
           <SegmentedControl
             data-testid="editor-layout-mode"
             data-mode={chosen}
@@ -674,7 +688,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         </div>
       )}
 
-      {!wide && (
+      {!wide && kind === 'markdown' && (
         <Tabs
           data-testid="editor-tabs"
           value={mode === 'preview' ? 'preview' : 'source'}
@@ -697,7 +711,12 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             <div className={classes.paneHead}>
               <div className={classes.paneHeadInner}>
                 {mode === 'split' && <span className={classes.paneLabel}>Source</span>}
-                {!readOnly && (
+                {kind === 'text' && (
+                  <span data-testid="editor-language" className={classes.paneLabel}>
+                    {codeLanguageOf(fileName)?.name ?? 'Plain text'}
+                  </span>
+                )}
+                {!readOnly && kind === 'markdown' && (
                   <Toolbar
                     onAction={onAction}
                     onPickImage={() => fileRef.current?.click()}
@@ -744,6 +763,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               </div>
             </div>
             <SourceEditor
+              kind={kind}
+              name={fileName}
               value={content}
               readOnly={readOnly}
               // on a phone an autofocus opens the keyboard over half the document
@@ -751,7 +772,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               wrap={lineWrap.wrap}
               onChange={setContent}
               onCreate={onCreate}
-              onFiles={onFiles}
+              onFiles={kind === 'markdown' ? onFiles : undefined}
             />
           </div>
         )}

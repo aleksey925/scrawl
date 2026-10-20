@@ -665,6 +665,7 @@ func TestRawNeverServesAnExecutableDocument(t *testing.T) {
 		"evil.xhtml": []byte("<html xmlns=\"http://www.w3.org/1999/xhtml\"><body/></html>"),
 		"evil.xml":   []byte("<?xml version=\"1.0\"?><root/>"),
 		"noext":      []byte("<html><body>sniff me</body></html>"),
+		"song.mod":   []byte("M.K."),
 	}
 	for name, data := range payloads {
 		require.NoError(t, os.WriteFile(filepath.Join(ts.root, name), data, 0o600))
@@ -686,6 +687,8 @@ func TestRawNeverServesAnExecutableDocument(t *testing.T) {
 		{name: "xml is text", path: "/raw/evil.xml", contentType: "text/plain; charset=utf-8"},
 		{name: "no extension is never sniffed", path: "/raw/noext", contentType: "application/octet-stream",
 			disposition: `attachment; filename=noext`},
+		{name: "an extension text only has under a known name", path: "/raw/song.mod",
+			contentType: "application/octet-stream", disposition: `attachment; filename=song.mod`},
 	}
 
 	for _, tc := range tests {
@@ -706,7 +709,11 @@ func TestRawNeverServesAnExecutableDocument(t *testing.T) {
 func TestRawServesSafeTypesInline(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	require.NoError(t, os.WriteFile(filepath.Join(ts.root, "data.json"), []byte(`{"a": 1}`), 0o600))
+	files := map[string]string{"data.json": `{"a": 1}`, "app.vue": "<template/>\n", "go.mod": "module x\n", "tools/Makefile": "all:\n"}
+	for name, data := range files {
+		require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(ts.root, name)), 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(ts.root, name), []byte(data), 0o600))
+	}
 
 	tests := []struct {
 		name        string
@@ -717,6 +724,9 @@ func TestRawServesSafeTypesInline(t *testing.T) {
 		{name: "markdown source", path: "/raw/guide.md", contentType: "text/plain; charset=utf-8"},
 		{name: "code snippet", path: "/raw/snippet.py", contentType: "text/plain; charset=utf-8"},
 		{name: "json is shown, not downloaded", path: "/raw/data.json", contentType: "text/plain; charset=utf-8"},
+		{name: "a component of a web framework", path: "/raw/app.vue", contentType: "text/plain; charset=utf-8"},
+		{name: "a known name with no extension", path: "/raw/tools/Makefile", contentType: "text/plain; charset=utf-8"},
+		{name: "a known name with an extension of its own", path: "/raw/go.mod", contentType: "text/plain; charset=utf-8"},
 	}
 
 	for _, tc := range tests {

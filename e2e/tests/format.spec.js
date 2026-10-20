@@ -113,7 +113,7 @@ test.describe('formatting', () => {
         await expect.poll(() => sourceText(page)).toBe(rough);
     });
 
-    test('a file that is not markdown is saved as written and offers no button', async ({page}) => {
+    test('a file that is not markdown is saved as written and offers no toolbar to format with', async ({page}) => {
         // arrange
         const docPath = `${FOLDER}/data.txt`;
         writeFixture(docPath, 'начало\n');
@@ -126,7 +126,7 @@ test.describe('formatting', () => {
 
         // assert
         expect(readFixture(docPath)).toBe(rough);
-        await expect(page.getByTestId('editor-toolbar')).toBeVisible();
+        await expect(page.getByTestId('editor-toolbar')).toHaveCount(0);
         await expect(page.getByTestId('editor-toolbar-format')).toHaveCount(0);
     });
 

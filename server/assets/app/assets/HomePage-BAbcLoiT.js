@@ -1,1 +1,0 @@
-import{Lt as e}from"./naming-DYDoUNaH.js";import{t}from"./DirectoryView-DP3RTBUX.js";var n=e();function r(){return(0,n.jsx)(t,{path:``})}export{r as Component};

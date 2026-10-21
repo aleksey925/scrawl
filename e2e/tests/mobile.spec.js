@@ -908,6 +908,56 @@ test.describe('mobile', () => {
         expect(copied).toEqual([`copy:${new URL(MAIN.url.dir(docs.folder.path)).href}`]);
     });
 
+    test.describe('a toast', () => {
+        // copied shows the toast Copy link gives
+        async function copied(page) {
+            await page.goto(routes.home());
+            await page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`).getByTestId('tree-row-menu').tap();
+            await page.getByTestId('tree-row-menu-copy-link').tap();
+            await expect(page.getByTestId('toast-pill')).toBeVisible();
+        }
+
+        test('leaves the bar beside it to take a tap, and goes on its own after one', async ({page}) => {
+            // arrange
+            await copied(page);
+
+            // act
+            await page.getByTestId('folder-menu').tap();
+
+            // assert
+            await expect(page.getByTestId('folder-menu-dropdown')).toBeVisible();
+            await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 5000});
+        });
+
+        test('goes at a tap on it', async ({page}) => {
+            // arrange
+            await copied(page);
+
+            // act
+            await page.getByTestId('toast-pill').tap();
+
+            // assert
+            await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 1500});
+        });
+
+        test('goes at a flick up', async ({page}) => {
+            // arrange
+            await copied(page);
+            const box = await page.getByTestId('toast-pill').boundingBox();
+            const x = box.x + box.width / 2;
+            const cdp = await page.context().newCDPSession(page);
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x, y: box.y + 20}]});
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: box.y + 5}]});
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: box.y - 20}]});
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+
+            // assert
+            await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 1500});
+        });
+    });
+
     test('the menu switches the theme and names the account', async ({page}) => {
         await openSpaceMenu(page);
         await shot(page, 'mobile-more-menu');

@@ -423,8 +423,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
 - A toast on a phone is the pill an app drops from the top for a word or
   two: dark, centred under the status bar, as wide as its words, with a
   check or a warning sign and no close button, coming down and fading in
-  and gone after 2.5 seconds. Mantine's card slid in sideways from the
-  edge and read as a web page. A desktop keeps the card at the top right.
+  and gone after 2.5 seconds, or at a tap on it or a flick up. Mantine's
+  card slid in sideways from the edge and read as a web page. Only the
+  pill takes a touch: the containers span the screen, took the taps meant
+  for the bar under them, and on iOS kept the hover that pauses a toast,
+  which then never left. A desktop keeps the card at the top right.
   `Toasts` draws both, for the app and for a site.
 - A touch screen has one scale of sizes, set once in the theme: a menu
   row and an icon button 44px, a labelled button and a field 40px, and a

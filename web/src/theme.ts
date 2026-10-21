@@ -287,7 +287,10 @@ export const theme: MantineThemeOverride = createTheme({
       defaultProps: { radius: 'lg', shadow: 'md' },
       classNames: { dropdown: controls.menu, item: controls.menuItem, label: controls.menuLabel },
     }),
-    Modal: Modal.extend({ defaultProps: { radius: 'xl', shadow: 'lg' }, classNames: { overlay: controls.overlay } }),
+    Modal: Modal.extend({
+      defaultProps: { radius: 'xl', shadow: 'lg' },
+      classNames: { overlay: controls.overlay, inner: controls.modalInner },
+    }),
     Drawer: Drawer.extend({ classNames: { overlay: controls.overlay } }),
     SegmentedControl: SegmentedControl.extend({
       defaultProps: { withItemsBorders: false, radius: 'md' },

@@ -16,7 +16,7 @@ module.exports = {
     // modal titles, which is what names the dialog a spec opened
     modal: {
         rename: 'Rename or move',
-        deletePage: 'Delete page?',
+        deleteFile: 'Delete file?',
         deleteFolder: 'Delete folder?',
         deleteFolderContents: 'Delete folder and everything in it?',
         leave: 'Leave without saving?',

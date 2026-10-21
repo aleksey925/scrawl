@@ -908,6 +908,24 @@ test.describe('mobile', () => {
         expect(copied).toEqual([`copy:${new URL(MAIN.url.dir(docs.folder.path)).href}`]);
     });
 
+    test('a dialog stands in the middle of the screen', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+        await page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`).getByTestId('tree-row-menu').tap();
+
+        // act
+        await page.getByTestId('tree-row-menu-delete').tap();
+
+        // assert
+        const dialog = page.locator('.mantine-Modal-content');
+        await expect(dialog).toBeVisible();
+        await page.waitForTimeout(400);
+        const box = await dialog.boundingBox();
+        const below = page.viewportSize().height - box.y - box.height;
+        expect(Math.abs(box.y - below)).toBeLessThan(2);
+        await page.getByTestId('modal-cancel').tap();
+    });
+
     test.describe('a toast', () => {
         // copied shows the toast Copy link gives
         async function copied(page) {

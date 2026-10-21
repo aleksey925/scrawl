@@ -420,6 +420,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
   the tree. A blank screen read as a page that failed to load. The tree
   row says "no notes" and not "empty", because the tree lists only
   markdown and a folder of pictures is not empty.
+- On a phone a dialog stands in the middle of the screen, where the
+  system's own alerts stand: at the top it hung from the edge like a page
+  sliding down. A desktop keeps mantine's place near the top, where the
+  search, a dialog too, belongs. One rule in the theme does it for every
+  `Modal`, the confirms included.
 - A toast on a phone is the pill an app drops from the top for a word or
   two: dark, centred under the status bar, as wide as its words, with a
   check or a warning sign and no close button, coming down and fading in

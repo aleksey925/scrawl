@@ -259,7 +259,7 @@ test.describe.serial('file management', () => {
         await page.locator(`[data-testid=tree-row][data-path="${RENAMED}"] [data-testid=tree-row-menu]`).click();
         await page.getByTestId('tree-row-menu-delete').click();
 
-        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deletePage);
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deleteFile);
         await shot(page, 'files-delete-confirm');
         await page.getByTestId('modal-confirm').click();
 

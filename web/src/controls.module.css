@@ -234,6 +234,12 @@
   --overlay-bg: var(--scrawl-overlay) !important;
 }
 
+@mixin smaller-than $mantine-breakpoint-sm {
+  .modalInner {
+    align-items: center;
+  }
+}
+
 /* a menu stays on a narrow screen whatever width it asked for */
 .menu {
   max-width: calc(100vw - 16px);

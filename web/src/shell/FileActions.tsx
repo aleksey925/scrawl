@@ -79,7 +79,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const confirmRemove = useCallback(
     (path: string, isDir: boolean, withContents: boolean) => {
       modals.openConfirmModal({
-        title: withContents ? 'Delete folder and everything in it?' : isDir ? 'Delete folder?' : 'Delete page?',
+        title: withContents ? 'Delete folder and everything in it?' : isDir ? 'Delete folder?' : 'Delete file?',
         children: (
           <Text data-testid="modal" data-variant={withContents ? 'confirm-contents' : 'confirm'} size="sm">
             {withContents ? (

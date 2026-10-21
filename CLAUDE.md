@@ -283,9 +283,12 @@ vendor/                dependencies, checked in, `make deps` regenerates
   that file, which the `.md` added to every name had made impossible.
 - On a phone the controls sit at the bottom, under the thumb: a bar of
   tabs (Notes, Search, Recent, New) and a round Edit button above it.
-  Scrolling down puts the bar and the button away and scrolling up brings
-  them back. Nine controls and the crumbs once shared one row on top, and
-  the crumbs got 25px, wrapped and fell over the note as a column. A
+  Both stay put while the page scrolls, as an app's tab bar does: put
+  away on a scroll down, they read as the toolbar of a browser. A page
+  ends at the bar, a note or a file clear of the Edit button, so a list
+  that fits the screen does not scroll. Nine controls and the crumbs
+  once shared one row on top, and the crumbs got 25px, wrapped and fell
+  over the note as a column. A
   menu opens beside the control that opened it, the way a phone's own
   menus do; drawn as a sheet from the bottom, every menu sat apart from
   its button. The search and the history take the whole screen and the

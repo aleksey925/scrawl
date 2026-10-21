@@ -1,1 +1,0 @@
-import{Lt as e}from"./naming-BPx61vBR.js";import{t}from"./DirectoryView-Dcv1Rb4u.js";var n=e();function r(){return(0,n.jsx)(t,{path:``})}export{r as Component};

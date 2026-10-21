@@ -26,6 +26,16 @@
     grid-template-columns: var(--mantine-spacing-lg) minmax(0, 1fr) var(--mantine-spacing-lg);
     padding-top: 28px;
   }
+
+  /* a phone page ends at the tab bar, and a note or a file a little higher, clear
+     of the round Edit button: a list that fits the screen does not scroll */
+  .page {
+    padding-bottom: calc(var(--scrawl-tabbar-space) + var(--scrawl-edit-button) + 2 * var(--mantine-spacing-lg));
+  }
+
+  .page[data-variant='wide'] {
+    padding-bottom: calc(var(--scrawl-tabbar-space) + var(--mantine-spacing-lg));
+  }
 }
 
 @media print {

@@ -13,7 +13,6 @@ import { useNav } from './NavContext';
 import { folderFor } from './naming';
 import { useSearchControl } from './searchOpener';
 import classes from './TabBar.module.css';
-import { useBarsHidden } from './useBarsHidden';
 
 const tabBarIconSize = 22;
 
@@ -54,7 +53,6 @@ export function TabBar(): JSX.Element | null {
   const search = useSearchControl();
   const actions = useFileActions();
   const { canWrite, currentPath } = useNav();
-  useBarsHidden();
 
   if (location.pathname.startsWith('/edit/')) {
     return null;

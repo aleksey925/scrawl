@@ -539,18 +539,39 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('tab-bar')).toHaveCount(0);
     });
 
-    test('scrolling down puts the tab bar away and scrolling up brings it back', async ({page}) => {
+    test('the tab bar and the Edit button stay where they are while the page scrolls', async ({page}) => {
         // arrange
         await page.goto(routes.doc(docs.long.path));
         await expect(page.getByTestId('doc')).toBeVisible();
-        const bottom = async () => Math.round((await page.getByTestId('tab-bar').boundingBox()).y);
-        const height = page.viewportSize().height;
+        const places = async () => [
+            Math.round((await page.getByTestId('tab-bar').boundingBox()).y),
+            Math.round((await page.getByTestId('edit-button').boundingBox()).y),
+        ];
+        const before = await places();
 
-        // act & assert
+        // act
         await page.mouse.wheel(0, 600);
-        await expect.poll(bottom).toBeGreaterThanOrEqual(height);
-        await page.mouse.wheel(0, -200);
-        await expect.poll(bottom).toBeLessThan(height);
+        await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+        // assert
+        expect(await places()).toEqual(before);
+    });
+
+    test('a folder list that fits the screen does not scroll', async ({page}) => {
+        // arrange
+        const folder = 'e2e-mobile/short';
+        const names = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
+        for (const name of names) {
+            writeFixture(`${folder}/${name}.md`, `# ${name}\n`);
+        }
+
+        // act
+        await page.goto(MAIN.url.dir(folder));
+        await expect(page.getByTestId('dir-row')).toHaveCount(names.length);
+
+        // assert
+        const room = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+        expect(room).toBeLessThanOrEqual(0);
     });
 
     // the search takes the screen the way a phone's own does, its field at the

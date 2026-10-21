@@ -37,3 +37,8 @@
     user-select: text;
   }
 }
+
+/* the round Edit button of a phone, which a page leaves room for at its end */
+:root {
+  --scrawl-edit-button: 54px;
+}

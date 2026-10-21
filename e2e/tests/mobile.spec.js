@@ -557,6 +557,19 @@ test.describe('mobile', () => {
         expect(await places()).toEqual(before);
     });
 
+    test('the reader ends a scroll with the rubber band of an app, and the editor without', async ({page}) => {
+        // arrange
+        const overscroll = () => page.evaluate(() => getComputedStyle(document.documentElement).overscrollBehaviorY);
+
+        // act & assert
+        await page.goto(routes.doc(DOC));
+        await expect(page.getByTestId('doc')).toBeVisible();
+        expect(await overscroll()).toBe('auto');
+        await page.goto(routes.edit(DOC));
+        await expect(page.getByTestId('editor')).toBeVisible();
+        expect(await overscroll()).toBe('none');
+    });
+
     test('a folder list that fits the screen does not scroll', async ({page}) => {
         // arrange
         const folder = 'e2e-mobile/short';

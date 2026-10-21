@@ -136,9 +136,11 @@ vendor/                dependencies, checked in, `make deps` regenerates
   right. The path comes from the page's own answer through one page
   chrome context, never from the URL alone, because only the answer
   knows a note's title. The topbar stays at the top while the note
-  scrolls, and the page has no rubber band at its ends. The reader's top
-  edge, where a heading lands and where the editor takes its position
-  from, is the bottom of the topbar. History is among the actions only
+  scrolls, and beside the sidebar the page has no rubber band at its
+  ends, which pulled the note away from the fixed sidebar; a phone has no
+  sidebar and keeps the rubber band its own apps end a scroll with. The
+  reader's top edge, where a heading lands and where the editor takes its
+  position from, is the bottom of the topbar. History is among the actions only
   where the space records versions. A folder is always its list, the root
   included: a Notion database of Name, Size and Modified led by a `..`
   row, and a click anywhere on a row opens it. Its `index.md` is a row

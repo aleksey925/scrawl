@@ -199,6 +199,15 @@ test.describe('reading', () => {
         await expect(page.getByTestId('tree-row')).toHaveCount(0);
     });
 
+    test('the page does not stretch past its ends beside the sidebar', async ({page}) => {
+        // act
+        await page.goto(routes.doc(DOC.path));
+
+        // assert
+        await expect(page.getByTestId('doc')).toBeVisible();
+        expect(await page.evaluate(() => getComputedStyle(document.documentElement).overscrollBehaviorY)).toBe('none');
+    });
+
     test('a deeply nested document renders', async ({page}) => {
         await page.goto(routes.doc(docs.deep.path));
 

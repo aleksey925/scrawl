@@ -12,10 +12,13 @@
   background: var(--scrawl-bg);
 }
 
-/* the page does not stretch past its ends: the sidebar is fixed and stood
-   still while the rubber band pulled the note away from it */
-:global(html) {
-  overscroll-behavior-y: none;
+/* beside a sidebar the page does not stretch past its ends: the sidebar is fixed
+   and stood still while the rubber band pulled the note away from it. A phone
+   has no sidebar, and there the rubber band is how a scroll ends in an app. */
+@mixin larger-than $mantine-breakpoint-sm {
+  :global(html) {
+    overscroll-behavior-y: none;
+  }
 }
 
 .navbar {

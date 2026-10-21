@@ -1,4 +1,3 @@
-import { Anchor } from '@mantine/core';
 import type { JSX } from 'react';
 
 import { answerKeys, useApi } from '../api/useApi';
@@ -8,14 +7,13 @@ import { useReaderExtensions } from '../shell/extensions';
 import { AsyncContent } from './AsyncContent';
 import { DocumentBody } from './DocumentBody';
 import { MissingNote } from './MissingNote';
-import { Page, PageTitle } from './Page';
 
 export interface DocumentViewProps {
   path: string;
 }
 
 export function DocumentView({ path }: DocumentViewProps): JSX.Element {
-  const { source, physicalUrl } = usePlatform();
+  const { source } = usePlatform();
   const { FileView } = useReaderExtensions();
   const state = useApi((signal) => source.page(path, { signal }), [source, path], answerKeys.page(path));
 
@@ -24,17 +22,10 @@ export function DocumentView({ path }: DocumentViewProps): JSX.Element {
       {(page) => {
         switch (page.kind) {
           case 'missing-document':
-            return <MissingNote path={path} page={page} />;
+            return <MissingNote path={page.path} page={page} />;
           case 'file':
-            // only the app gives a file a page; anywhere else it is its bytes
-            return FileView !== undefined ? (
-              <FileView file={page} />
-            ) : (
-              <Page>
-                <PageTitle>{page.name}</PageTitle>
-                <Anchor href={physicalUrl(page.raw_url)}>Open the file</Anchor>
-              </Page>
-            );
+            // only the server answers with a file, and only the app plugs in its page
+            return FileView === undefined ? null : <FileView file={page} />;
           default:
             return <DocumentBody doc={page} />;
         }

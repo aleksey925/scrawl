@@ -1,12 +1,13 @@
 import { ActionIcon, Menu } from '@mantine/core';
-import {
-  IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconPlus, IconTrash,
-} from '../icons';
 import { useEffect, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 
 import { PopupMenu } from '../components/PopupMenu';
+import {
+  IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconPlus, IconTrash,
+} from '../icons';
 import { directoryUrl, documentUrl } from '../paths';
+import { layout } from '../theme';
 
 import { rowMenuIconSize, type RowMenuProps } from './extensions';
 import { useFileActions } from './fileActionsContext';
@@ -46,7 +47,7 @@ export function RowMenu({
       offset={target === undefined ? undefined : 8}
       withinPortal
       shadow="md"
-      width={200}
+      width={layout.menuWidthNarrow}
     >
       <Menu.Target>
         {target ?? (
@@ -109,7 +110,7 @@ export function RowMenu({
           <Menu.Item
             data-testid="tree-row-menu-rename"
             leftSection={<IconEdit size={rowMenuIconSize} />}
-            onClick={() => actions.rename(path, isDir)}
+            onClick={() => actions.rename(path)}
           >
             Rename
           </Menu.Item>

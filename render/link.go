@@ -49,7 +49,7 @@ func (t *linkTransformer) Transform(doc *ast.Document, _ text.Reader, pc parser.
 			node.Destination = []byte(tg.dest)
 			t.decorate(node, tg, false)
 		case *ast.Image:
-			tg := t.resolve(string(node.Destination), dir)
+			tg := t.resolveEmbed(string(node.Destination), dir)
 			node.Destination = []byte(tg.dest)
 			t.decorate(node, tg, true)
 		case *ast.AutoLink:
@@ -81,11 +81,11 @@ func setExternal(n ast.Node) {
 	n.SetAttributeString("rel", []byte("noopener noreferrer"))
 }
 
-// resolve maps the destination of an embedded resource, a picture or a source
+// resolveEmbed maps the destination of an embedded resource, a picture or a source
 // of one, relative to dir: the browser fetches it as bytes, so a file that is
 // not a note goes to the raw route. It is idempotent: an absolute URL, an app
 // route and a bare fragment all pass through unchanged.
-func (t *linkTransformer) resolve(dest, dir string) target {
+func (t *linkTransformer) resolveEmbed(dest, dir string) target {
 	return t.route(dest, dir, true)
 }
 
@@ -160,8 +160,8 @@ func parseLocal(dest string) (u *url.URL, passthrough target, ok bool) {
 
 // isMarkdown reports whether a destination points at a document. Only ".md"
 // counts, because that is the one extension the store, the tree, the search
-// index and the editor treat as a document: rewriting anything else to /doc/
-// would send the reader to a page that cannot exist.
+// index and the editor treat as a document: an embedded picture of any other
+// name is fetched as bytes from /raw/, and a site swaps only ".md" for a page.
 func isMarkdown(p string) bool { return strings.EqualFold(path.Ext(p), ".md") }
 
 // keepRelative leaves a relative destination as written, swapping only the

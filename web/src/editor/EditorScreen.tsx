@@ -9,24 +9,27 @@ import {
   Text,
 } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
-import {
-  IconColumns2,
-  IconBraces,
-  IconEye,
-  IconPhoto,
-  IconTextWrap,
-  IconTextWrapDisabled,
-} from '../icons';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useBlocker, useLocation, useNavigate } from 'react-router';
 
 import { api, installUnauthorizedHandler } from '../api/client';
 import { ApiError, type ApiConflict } from '../api/errors';
 import { errorText } from '../api/useApi';
+import { countOf } from '../components/formats';
+import {
+  IconBraces,
+  IconColumns,
+  IconEye,
+  IconPhoto,
+  IconTextWrap,
+  IconTextWrapDisabled,
+} from '../icons';
 import { documentUrl, editUrl, isMarkdown } from '../paths';
 import { holdPosition, interactionEvents } from '../reader/position';
 import { useNav } from '../shell/NavContext';
+import { basenameOf } from '../shell/naming';
 import { PageActions } from '../shell/ShellSlots';
+import { modChord } from '../shell/shortcuts';
 import { useMutationState } from '../shell/useMutationState';
 import { layout } from '../theme';
 import { showToast } from '../toast';
@@ -68,7 +71,7 @@ export interface EditorScreenProps {
 
 const modeOptions = [
   { value: 'source', icon: IconBraces, label: 'Source' },
-  { value: 'split', icon: IconColumns2, label: 'Split' },
+  { value: 'split', icon: IconColumns, label: 'Split' },
   { value: 'preview', icon: IconEye, label: 'Preview' },
 ] as const;
 
@@ -82,19 +85,35 @@ const saveStateText: Record<SaveState, string> = {
   saved: 'Saved',
 };
 
+// the server's text names that carry a dot: `.mod` and `.sum` are no
+// extensions of text, so a stamp before them would leave the copy unopenable
+const dottedTextNames: ReadonlySet<string> = new Set(['go.mod', 'go.sum']);
+
 // conflictCopyPath is where a copy of a refused save goes: beside the file,
-// with its extension kept, so a copy of a text file is not a note
+// with its extension kept, so a copy of a text file is not a note. A file that
+// is text by its whole name, a Makefile, is kept whole and its copy is `.txt`.
 function conflictCopyPath(path: string, stamp: string): string {
-  const name = path.lastIndexOf('/') + 1;
-  const dot = path.lastIndexOf('.');
-  const [stem, ext] = dot > name ? [path.slice(0, dot), path.slice(dot)] : [path, ''];
-  return `${stem}.conflict-${stamp}${ext}`;
+  const name = basenameOf(path);
+  const dot = name.lastIndexOf('.');
+  if (dot <= 0 || dottedTextNames.has(name)) {
+    return `${path}.conflict-${stamp}.txt`;
+  }
+  const ext = name.slice(dot);
+  return `${path.slice(0, path.length - ext.length)}.conflict-${stamp}${ext}`;
+}
+
+function LineCount({ lines, className }: { lines: number; className: string | undefined }): JSX.Element {
+  return (
+    <Text data-testid="editor-lines" data-lines={lines} className={className}>
+      {countOf(lines, 'line')}
+    </Text>
+  );
 }
 
 export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const { path, initialContent, initialRev, isNew, readOnly } = props;
   const kind: EditorKind = isMarkdown(path) ? 'markdown' : 'text';
-  const fileName = path.slice(path.lastIndexOf('/') + 1);
+  const fileName = basenameOf(path);
   const formattable = !readOnly && kind === 'markdown';
   const formatOnSave = props.formatOnSave && formattable;
   const navigate = useNavigate();
@@ -503,10 +522,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     // on the document rather than the editor: with the caret in the preview
     // pane this would otherwise be the browser's own save dialog
     const onKey = (event: KeyboardEvent): void => {
-      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) {
-        return;
-      }
-      if (event.key.toLowerCase() !== 's') {
+      if (!modChord(event, 's')) {
         return;
       }
       event.preventDefault();
@@ -738,9 +754,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
                     </ActionIcon>
                   )}
                   {wide && (
-                    <Text data-testid="editor-lines" data-lines={lines} className={classes.lines}>
-                      {lines === 1 ? '1 line' : `${lines} lines`}
-                    </Text>
+                    <LineCount lines={lines} className={classes.lines} />
                   )}
                   <ActionIcon
                     data-testid="editor-wrap"
@@ -799,9 +813,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       </div>
 
       {!wide && (
-        <Text data-testid="editor-lines" data-lines={lines} className={classes.footLines}>
-          {lines === 1 ? '1 line' : `${lines} lines`}
-        </Text>
+        <LineCount lines={lines} className={classes.footLines} />
       )}
 
       <input

@@ -1,7 +1,8 @@
 import { ActionIcon } from '@mantine/core';
-import { IconChevronDown, IconChevronUp, IconSearch, IconX } from '../icons';
 import { useEffect, useRef, type JSX, type KeyboardEvent, type ReactNode } from 'react';
 
+import { IconChevronDown, IconChevronUp, IconSearch, IconX } from '../icons';
+import { ownsShortcuts } from '../shell/shortcuts';
 import { layout } from '../theme';
 
 import classes from './FindBar.module.css';
@@ -23,26 +24,18 @@ function counterOf(find: FindOnPage): string {
   }
 }
 
-// withToggle flips a toggle by the key Alt is held with, read by its code: on
-// a Mac Option+C types ç
-function withToggle(query: FindQuery, code: string): FindQuery | undefined {
-  switch (code) {
-    case 'KeyC':
-      return { ...query, matchCase: !query.matchCase };
-    case 'KeyW':
-      return { ...query, word: !query.word };
-    case 'KeyR':
-      return { ...query, regex: !query.regex };
-    default:
-      return undefined;
-  }
-}
+type ToggleName = keyof Omit<FindQuery, 'text'>;
+
+// the toggle each key flips with Alt held, read by its code: on a Mac Option+C
+// types ç
+const toggleKeys: Partial<Record<string, ToggleName>> = { KeyC: 'matchCase', KeyW: 'word', KeyR: 'regex' };
 
 // FindBar is the find of the note on screen: a field, the count, the toggles
 // of case, whole word and regex, and the steps between the matches
 export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
   const input = useRef<HTMLInputElement>(null);
   const { query, setQuery } = find;
+  const flip = (name: ToggleName): void => setQuery({ ...query, [name]: !query[name] });
 
   useEffect(() => {
     input.current?.focus();
@@ -51,10 +44,10 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.altKey) {
-      const next = withToggle(query, event.nativeEvent.code);
-      if (next !== undefined) {
+      const name = toggleKeys[event.nativeEvent.code];
+      if (name !== undefined) {
         event.preventDefault();
-        setQuery(next);
+        flip(name);
       }
       return;
     }
@@ -74,7 +67,7 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
   };
 
   return (
-    <div data-testid="doc-find" className={classes.bar} role="search" data-print="hide">
+    <div data-testid="doc-find" className={classes.bar} role="search" data-print="hide" {...ownsShortcuts}>
       <IconSearch size={layout.iconSizeSmall} className={classes.icon} />
       <input
         ref={input}
@@ -100,15 +93,15 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
       </span>
       <span className={classes.break} aria-hidden />
       <Toggle testId="doc-find-case" label="Match case" on={query.matchCase}
-        onClick={() => setQuery({ ...query, matchCase: !query.matchCase })}>
+        onClick={() => flip('matchCase')}>
         Aa
       </Toggle>
       <Toggle testId="doc-find-word" label="Whole word" on={query.word}
-        onClick={() => setQuery({ ...query, word: !query.word })}>
+        onClick={() => flip('word')}>
         <u>ab</u>
       </Toggle>
       <Toggle testId="doc-find-regex" label="Regular expression" on={query.regex}
-        onClick={() => setQuery({ ...query, regex: !query.regex })}>
+        onClick={() => flip('regex')}>
         .*
       </Toggle>
       <ActionIcon data-testid="doc-find-prev" className={classes.prev} variant="subtle" color="gray" aria-label="Previous match"

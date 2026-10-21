@@ -1,10 +1,10 @@
 import { Menu, useMantineColorScheme } from '@mantine/core';
-import { IconDownload } from '../icons';
 import { useEffect, useRef, type JSX } from 'react';
 
 import { api } from '../api/client';
 import type { ExportFormat } from '../api/types';
 import { errorText } from '../api/useApi';
+import { IconDownload } from '../icons';
 import { layout } from '../theme';
 import { showToast } from '../toast';
 

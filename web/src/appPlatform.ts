@@ -8,21 +8,29 @@ import { internalTarget } from './reader/links';
 // stopped: a regular expression can run for minutes and freeze the tab
 const findDeadlineMs = 1000;
 
-function runFind(texts: string[], pattern: FindPattern): Promise<FindMatch[]> {
+function runFind(texts: string[], pattern: FindPattern, signal: AbortSignal): Promise<FindMatch[]> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./findWorker.ts', import.meta.url), { type: 'module' });
-    const timer = window.setTimeout(() => {
+    const stop = (): void => {
+      window.clearTimeout(timer);
+      signal.removeEventListener('abort', abort);
       worker.terminate();
+    };
+    const abort = (): void => {
+      stop();
+      reject(new Error('the find was replaced'));
+    };
+    const timer = window.setTimeout(() => {
+      stop();
       reject(new FindTimeout());
     }, findDeadlineMs);
+    signal.addEventListener('abort', abort);
     worker.addEventListener('message', (event: MessageEvent<FindMatch[]>) => {
-      window.clearTimeout(timer);
-      worker.terminate();
+      stop();
       resolve(event.data);
     });
     worker.addEventListener('error', (event) => {
-      window.clearTimeout(timer);
-      worker.terminate();
+      stop();
       reject(new Error(event.message));
     });
     worker.postMessage({ texts, pattern });
@@ -43,7 +51,6 @@ export const appPlatform: Platform = {
   storageScope: mountBase(),
   search: true,
   editing: true,
-  filePages: true,
   runFind,
   boundedFind: true,
 };

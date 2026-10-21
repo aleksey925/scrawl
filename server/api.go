@@ -64,19 +64,23 @@ type previewRequest struct {
 	Path    string `json:"path"`
 }
 
-// searchHit is one note a search found. The fields after url come with a
-// request that names a mode or a toggle; one that names none is answered the
-// way it always was, for the scripts that read it.
+// searchHit is one note a search found. findHit comes with a request that
+// names a mode or a toggle; one that names none is answered the way it always
+// was, for the scripts that read it.
 type searchHit struct {
-	Path       string        `json:"path"`
-	Title      string        `json:"title"`
-	Snippet    string        `json:"snippet"`
-	Score      float64       `json:"score"`
-	URL        string        `json:"url"`
-	TitleSpans []searchSpan  `json:"title_spans,omitempty"`
-	MatchCount *int          `json:"match_count,omitempty"`
-	LineCount  *int          `json:"line_count,omitempty"`
-	Lines      *[]searchLine `json:"lines,omitempty"`
+	Path    string  `json:"path"`
+	Title   string  `json:"title"`
+	Snippet string  `json:"snippet"`
+	Score   float64 `json:"score"`
+	URL     string  `json:"url"`
+	*findHit
+}
+
+type findHit struct {
+	TitleSpans []searchSpan `json:"title_spans,omitempty"`
+	MatchCount int          `json:"match_count"`
+	LineCount  int          `json:"line_count"`
+	Lines      []searchLine `json:"lines"`
 }
 
 type searchSpan struct {
@@ -270,7 +274,11 @@ func (m *mount) apiFileCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m.touch(p)
-	writeJSON(w, http.StatusCreated, m.withHistory(map[string]any{"path": fi.Path}))
+	res := map[string]any{"path": fi.Path}
+	if editable(fi) {
+		res["edit_url"] = view.EditURL(fi.Path)
+	}
+	writeJSON(w, http.StatusCreated, m.withHistory(res))
 }
 
 // apiFileDelete removes a file or an empty directory.
@@ -597,7 +605,7 @@ func relativeLink(doc, target string) string {
 // searchQueryOf reads the mode and the toggles of a search, and whether the
 // request named any of them at all
 func searchQueryOf(values url.Values) (search.Query, bool, error) {
-	q := search.Query{Text: strings.TrimSpace(values.Get("q")), Mode: search.ModeFuzzy}
+	q := search.Query{Text: values.Get("q"), Mode: search.ModeFuzzy}
 	extended := false
 	switch mode := values.Get("mode"); mode {
 	case "":
@@ -610,6 +618,10 @@ func searchQueryOf(values url.Values) (search.Query, bool, error) {
 		if values.Has(name) {
 			*field, extended = values.Get(name) == "1", true
 		}
+	}
+	// a space typed around an exact text or a pattern is part of what is looked for
+	if q.Mode == search.ModeFuzzy && !q.Regex {
+		q.Text = strings.TrimSpace(q.Text)
 	}
 	return q, extended, nil
 }
@@ -629,21 +641,23 @@ func (m *mount) findSearch(w http.ResponseWriter, r *http.Request, q search.Quer
 
 	hits := make([]searchHit, 0, len(found.Results))
 	for _, res := range found.Results {
-		find := view.Find{Text: res.Find.Text, Case: res.Find.Case, Word: res.Find.Word, Regex: res.Find.Regex}
+		find := view.Find(res.Find)
 		lines := make([]searchLine, 0, len(res.Lines))
-		for _, line := range res.Lines {
-			lines = append(lines, searchLine{Line: line.Line, URL: view.FindURL(res.Path, find, line.Line), Spans: spansOf(line.Spans)})
+		for _, matched := range res.Lines {
+			lines = append(lines, searchLine{Line: matched.Line, URL: view.FindURL(res.Path, find, matched.Line), Spans: spansOf(matched.Spans)})
 		}
 		hits = append(hits, searchHit{
-			Path:       res.Path,
-			Title:      res.Title,
-			Snippet:    string(res.Snippet),
-			Score:      res.Score,
-			URL:        view.FindURL(res.Path, find, 0),
-			TitleSpans: spansOf(res.TitleSpans),
-			MatchCount: &res.MatchCount,
-			LineCount:  &res.LineCount,
-			Lines:      &lines,
+			Path:    res.Path,
+			Title:   res.Title,
+			Snippet: string(res.Snippet),
+			Score:   res.Score,
+			URL:     view.FindURL(res.Path, find, 0),
+			findHit: &findHit{
+				TitleSpans: spansOf(res.TitleSpans),
+				MatchCount: res.MatchCount,
+				LineCount:  res.LineCount,
+				Lines:      lines,
+			},
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -655,8 +669,8 @@ func (m *mount) findSearch(w http.ResponseWriter, r *http.Request, q search.Quer
 
 func spansOf(spans []search.Span) []searchSpan {
 	res := make([]searchSpan, 0, len(spans))
-	for _, span := range spans {
-		res = append(res, searchSpan{Text: span.Text, Hit: span.Hit})
+	for _, piece := range spans {
+		res = append(res, searchSpan{Text: piece.Text, Hit: piece.Hit})
 	}
 	return res
 }

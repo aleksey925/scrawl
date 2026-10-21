@@ -11,9 +11,7 @@ import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { codeLanguageOf } from './codeLanguages';
 import classes from './Editor.module.css';
 
-// the source reads as text with its markup set back: the words in the text
-// color, the marks around them faint, a heading and bold by weight alone. The
-// colors are the theme's properties, so one style serves every theme.
+// the colors are the theme's properties, so one style serves every theme
 const highlighting = syntaxHighlighting(
   HighlightStyle.define([
     { tag: tags.heading, fontWeight: 'var(--scrawl-strong-weight)', color: 'var(--scrawl-text)' },

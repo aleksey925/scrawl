@@ -1,9 +1,9 @@
 import { Button } from '@mantine/core';
-import { IconFileText, IconPencil } from '../icons';
 import { useEffect, useRef, type JSX } from 'react';
 import { Link } from 'react-router';
 
 import type { DocumentResponse } from '../api/types';
+import { IconFileText, IconPencil } from '../icons';
 import { useReaderExtensions } from '../shell/extensions';
 import { useNav } from '../shell/NavContext';
 import { basenameOf } from '../shell/naming';

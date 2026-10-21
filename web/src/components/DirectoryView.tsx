@@ -1,11 +1,11 @@
 import { ActionIcon, Button, Menu } from '@mantine/core';
-import {
-  IconChevronDown, IconDots, IconEdit, IconFilePlus, IconFolderOpen, IconFolderPlus, IconLink, IconPlus, IconTable, IconTrash,
-} from '../icons';
 import { useEffect, useState, type JSX } from 'react';
 
 import type { DirListing, EntryKind } from '../api/types';
 import { answerKeys, useApi } from '../api/useApi';
+import {
+  IconChevronDown, IconDots, IconEdit, IconFilePlus, IconFolderOpen, IconFolderPlus, IconLink, IconPlus, IconTable, IconTrash,
+} from '../icons';
 import { usePlatform } from '../platform';
 import { useOptionalFileActions, type FileActions } from '../shell/fileActionsContext';
 import { useNav } from '../shell/NavContext';
@@ -14,10 +14,10 @@ import { PageActions } from '../shell/ShellSlots';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { AsyncContent } from './AsyncContent';
+import classes from './DirectoryView.module.css';
 import { DirTable } from './DirTable';
-import classes from './DirTable.module.css';
 import { EmptyState } from './EmptyState';
-import { itemCount } from './formats';
+import { countOf } from './formats';
 import { Page, PageTitle } from './Page';
 import { PopupMenu } from './PopupMenu';
 
@@ -32,15 +32,12 @@ export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
 
   return (
     <AsyncContent state={state} testId="dir" page>
-      {(dir) => <FolderList path={path} dir={dir} />}
+      {(dir) => <FolderList path={dir.path} dir={dir} />}
     </AsyncContent>
   );
 }
 
-// FolderList is a folder's page: its name and the table of what it holds. It
-// runs the width of the room beside the sidebar whatever the page width is,
-// because a table has no line of text to keep short and long names need room.
-// A new entry is named in a row of the table, where it will be.
+// FolderList is a folder's page: its name and the table of what it holds
 function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Element {
   const { canWrite, me } = useNav();
   const actions = useOptionalFileActions();
@@ -52,7 +49,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
   useEffect(() => setDraft(undefined), [path]);
 
   const writable = canWrite && actions !== undefined;
-  // a phone names a new entry in the sheet the file actions open, having no
+  // a phone names a new entry in the dialog the file actions open, having no
   // room for a name row
   const startDraft = (kind: EntryKind): void => {
     if (phone && actions !== undefined) {
@@ -74,7 +71,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
 
   return (
     <Page data-testid="dir" wide>
-      {writable && actions !== undefined && (
+      {writable && (
         <PageActions>
           <FolderMenu path={path} actions={actions} />
         </PageActions>
@@ -87,12 +84,12 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
         </div>
         <div className={classes.tools}>
           <span data-testid="dir-count" className={classes.count}>
-            {itemCount(dir.entries.length)}
+            {countOf(dir.entries.length, 'item')}
           </span>
           {writable && !phone && (
-            <PopupMenu position="bottom-end" width={200} withinPortal>
+            <PopupMenu position="bottom-end" width={layout.menuWidthNarrow} withinPortal>
               <Menu.Target>
-                <Button data-testid="dir-new" size="xs" rightSection={<IconChevronDown size={14} />}>
+                <Button data-testid="dir-new" size="xs" rightSection={<IconChevronDown size={layout.iconSizeTiny} />}>
                   New
                 </Button>
               </Menu.Target>
@@ -140,7 +137,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
             writable && (
               <>
                 <Button
-                  data-testid="dir-empty-new-page"
+                  data-testid="dir-empty-new-file"
                   leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
                   onClick={() => startDraft('file')}
                 >
@@ -165,11 +162,11 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
   );
 }
 
-// FolderMenu is the `⋯` of a folder on a phone, which has no tree to hold a
-// folder's menu: what to make in it, and what to do to it
+// FolderMenu is the `⋯` of a folder's page: what to make in it, and what to do
+// to it
 function FolderMenu({ path, actions }: { path: string; actions: FileActions }): JSX.Element {
   return (
-    <PopupMenu position="bottom-end" width={220} withinPortal>
+    <PopupMenu position="bottom-end" width={layout.menuWidth} withinPortal>
       <Menu.Target>
         <ActionIcon data-testid="folder-menu" variant="subtle" color="gray" size="lg" aria-label="More actions">
           <IconDots size={layout.iconSize} />
@@ -203,7 +200,7 @@ function FolderMenu({ path, actions }: { path: string; actions: FileActions }): 
             <Menu.Item
               data-testid="folder-menu-rename"
               leftSection={<IconEdit size={layout.iconSizeSmall} />}
-              onClick={() => actions.rename(path, true)}
+              onClick={() => actions.rename(path)}
             >
               Rename or move
             </Menu.Item>

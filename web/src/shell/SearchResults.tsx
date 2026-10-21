@@ -1,12 +1,20 @@
-import { IconFileText } from '../icons';
 import type { JSX } from 'react';
 import { Link } from 'react-router';
 
-import type { SearchHit, SearchSpan } from '../api/types';
+import type { SearchHit, SearchSettings, SearchSpan } from '../api/types';
+import { IconFileText } from '../icons';
 import { layout } from '../theme';
 
 import classes from './Search.module.css';
 import { SyncBadge } from './SyncBadge';
+
+// hintOf says what the field matches the way the settings stand
+export function hintOf(settings: SearchSettings): string {
+  if (settings.regex) {
+    return 'Regular expression over the text as shown, line by line';
+  }
+  return settings.mode === 'exact' ? 'The text exactly as typed' : 'Words in any order, one typo per word is fine';
+}
 
 // linesShown is how many matching lines a note shows before "N more lines"
 const linesShown = 3;
@@ -20,24 +28,24 @@ export interface SearchTarget {
 // targetsOf is every row of the results in the order they are on screen,
 // which is what the arrows walk
 export function targetsOf(hits: readonly SearchHit[], expanded: ReadonlySet<string>): SearchTarget[] {
-  return hits.flatMap((hit) => [
-    { key: hit.path, url: hit.url },
-    ...(hit.lines ?? [])
-      .slice(0, expanded.has(hit.path) ? undefined : linesShown)
-      .map((line) => ({ key: `${hit.path}:${line.line}`, url: line.url })),
+  return hits.flatMap((row) => [
+    { key: row.path, url: row.url },
+    ...(row.lines ?? [])
+      .slice(0, expanded.has(row.path) ? undefined : linesShown)
+      .map((match) => ({ key: `${row.path}:${match.line}`, url: match.url })),
   ]);
 }
 
 function Spans({ spans }: { spans: readonly SearchSpan[] }): JSX.Element {
   return (
     <>
-      {spans.map((span, index) =>
-        span.hit ? (
+      {spans.map((part, index) =>
+        part.hit ? (
           <mark key={index} className={classes.hit}>
-            {span.text}
+            {part.text}
           </mark>
         ) : (
-          <span key={index}>{span.text}</span>
+          <span key={index}>{part.text}</span>
         ),
       )}
     </>
@@ -59,41 +67,41 @@ export interface SearchResultsProps {
 // line number and the line as a reader sees it, the matches marked. The urls
 // are the server's, and the client only follows them.
 export function SearchResults({ hits, active, expanded, onExpand, onOpen }: SearchResultsProps): JSX.Element {
-
   return (
     <div data-testid="search-results">
-      {hits.map((hit) => {
-        const lines = hit.lines ?? [];
-        const shown = expanded.has(hit.path) ? lines : lines.slice(0, linesShown);
-        const rest = lines.length - shown.length;
+      {hits.map((row) => {
+        const lines = row.lines ?? [];
+        const shown = expanded.has(row.path) ? lines : lines.slice(0, linesShown);
+        const rest = Math.max(row.line_count ?? 0, lines.length) - shown.length;
+        const restLabel = `${rest} more ${rest === 1 ? 'line' : 'lines'}`;
         return (
-          <div key={hit.path} className={classes.file}>
+          <div key={row.path} className={classes.file}>
             <Link
               data-testid="search-result"
-              data-path={hit.path}
-              data-active={active === hit.path ? 'true' : 'false'}
-              to={hit.url}
+              data-path={row.path}
+              data-active={active === row.path ? 'true' : 'false'}
+              to={row.url}
               className={classes.head}
               onClick={onOpen}
             >
               <IconFileText size={layout.iconSizeSmall} />
               <span data-testid="search-result-title" className={classes.title}>
-                {hit.title_spans === undefined || hit.title_spans.length === 0 ? (
-                  hit.title === '' ? hit.path : hit.title
+                {row.title_spans === undefined || row.title_spans.length === 0 ? (
+                  row.title === '' ? row.path : row.title
                 ) : (
-                  <Spans spans={hit.title_spans} />
+                  <Spans spans={row.title_spans} />
                 )}
               </span>
-              <span className={classes.path}>{hit.path}</span>
-              <SyncBadge path={hit.path} />
-              {hit.match_count !== undefined && hit.match_count > 0 && (
+              <span className={classes.path}>{row.path}</span>
+              <SyncBadge path={row.path} />
+              {row.match_count !== undefined && row.match_count > 0 && (
                 <span className={classes.count}>
-                  {hit.match_count} {hit.match_count === 1 ? 'match' : 'matches'}
+                  {row.match_count} {row.match_count === 1 ? 'match' : 'matches'}
                 </span>
               )}
             </Link>
             {shown.map((line) => {
-              const key = `${hit.path}:${line.line}`;
+              const key = `${row.path}:${line.line}`;
               return (
                 <Link
                   key={key}
@@ -111,16 +119,16 @@ export function SearchResults({ hits, active, expanded, onExpand, onOpen }: Sear
                 </Link>
               );
             })}
-            {rest > 0 && (
-              <button
-                type="button"
-                data-testid="search-more"
-                className={classes.more}
-                onClick={() => onExpand(hit.path)}
-              >
-                {rest} more {rest === 1 ? 'line' : 'lines'}
-              </button>
-            )}
+            {rest > 0 &&
+              (shown.length < lines.length ? (
+                <button type="button" data-testid="search-more" className={classes.more} onClick={() => onExpand(row.path)}>
+                  {restLabel}
+                </button>
+              ) : (
+                <Link data-testid="search-more" to={row.url} className={classes.more} onClick={onOpen}>
+                  {restLabel} in the note
+                </Link>
+              ))}
           </div>
         );
       })}

@@ -1,5 +1,7 @@
 import type { NavNode } from '../api/types';
 
+import { pageName } from './naming';
+
 export interface FilteredTree {
   visible: ReadonlySet<string>;
   forcedOpen: ReadonlySet<string>;
@@ -18,7 +20,7 @@ export function filterTree(nodes: readonly NavNode[], query: string): FilteredTr
   const matches: NavNode[] = [];
 
   const walk = (node: NavNode): boolean => {
-    const self = node.name.toLowerCase().includes(query);
+    const self = pageName(node.name, node.is_dir).toLowerCase().includes(query);
     if (self) {
       matches.push(node);
     }
@@ -36,8 +38,8 @@ export function filterTree(nodes: readonly NavNode[], query: string): FilteredTr
     return show;
   };
 
-  for (const node of nodes) {
-    walk(node);
+  for (const root of nodes) {
+    walk(root);
   }
   return { visible, forcedOpen, matches };
 }

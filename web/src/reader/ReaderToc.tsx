@@ -9,9 +9,8 @@ export interface ReaderTocProps {
   outline: Outline;
 }
 
-// scrollParent is the panel the outline sits in, which is the floating panel on a desktop
-// and the sheet on a phone. It is found rather than passed, because the outline
-// is rendered through a portal and does not know which one took it.
+// scrollParent is the panel the outline sits in: the floating panel on a
+// desktop, the sheet on a phone. It is found because the sheet is a portal.
 function scrollParent(from: HTMLElement): HTMLElement | null {
   for (let at = from.parentElement; at !== null; at = at.parentElement) {
     if (at.scrollHeight > at.clientHeight && /auto|scroll/.test(getComputedStyle(at).overflowY)) {
@@ -22,7 +21,7 @@ function scrollParent(from: HTMLElement): HTMLElement | null {
 }
 
 // useKeepInView follows the reader inside the outline. A long note has more
-// headings than the rail is tall, so the section being read walks off the
+// headings than the panel is tall, so the section being read walks off the
 // bottom and the marker moves somewhere nobody can see.
 function useKeepInView(activeId: string | null): (node: HTMLAnchorElement | null) => void {
   const active = useRef<HTMLAnchorElement | null>(null);
@@ -64,7 +63,7 @@ export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
   // the same question the shell asks to decide where this is rendered: a panel
   // over the note, where a row is a line of text, or a sheet a thumb opens,
   // where a row has to be something a thumb can hit
-  const rail = useAtLeast(layoutBreakpoints.miniOutline);
+  const floating = useAtLeast(layoutBreakpoints.miniOutline);
   // the shallowest heading the note actually uses is the left edge, so a note
   // whose sections are all h2 does not sit indented for nothing
   const top = outline.entries.reduce((min, entry) => Math.min(min, entry.level), 6);
@@ -73,7 +72,7 @@ export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
   return (
     <Stack data-testid="toc" gap={0}>
       {/* a sheet carries its name in its own head */}
-      {rail && (
+      {floating && (
         <Text size="xs" c="dimmed" fw={500} mb="xs" px={8}>
           On this page
         </Text>
@@ -94,16 +93,16 @@ export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
               data-level={entry.level}
               href={`#${encodeURIComponent(entry.id)}`}
               onClick={onClick}
-              size={rail ? '13px' : 'md'}
-              c={active ? 'accent' : rail ? 'dimmed' : 'var(--scrawl-text)'}
+              size={floating ? '13px' : 'md'}
+              c={active ? 'accent' : floating ? 'dimmed' : 'var(--scrawl-text)'}
               fw={active ? 500 : 400}
               underline="never"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                minHeight: rail ? undefined : 'var(--scrawl-tap-target)',
-                paddingTop: rail ? 5 : 0,
-                paddingBottom: rail ? 5 : 0,
+                minHeight: floating ? undefined : 'var(--scrawl-tap-target)',
+                paddingTop: floating ? 5 : 0,
+                paddingBottom: floating ? 5 : 0,
                 paddingLeft: 8 + Math.max(0, entry.level - top) * indentStep,
                 paddingRight: 8,
                 borderRadius: 'var(--mantine-radius-md)',

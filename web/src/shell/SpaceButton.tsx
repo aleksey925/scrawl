@@ -1,7 +1,7 @@
 import { UnstyledButton } from '@mantine/core';
-import { IconSelector } from '../icons';
 import type { ComponentPropsWithRef, JSX } from 'react';
 
+import { IconSelector } from '../icons';
 import { layout } from '../theme';
 
 import classes from './Sidebar.module.css';

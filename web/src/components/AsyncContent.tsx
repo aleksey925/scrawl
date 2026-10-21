@@ -1,10 +1,11 @@
 import { Alert, Center, Loader } from '@mantine/core';
-import { IconAlertTriangle } from '../icons';
 import type { JSX, ReactNode } from 'react';
 import { Navigate } from 'react-router';
 
 import { handoffOf } from '../api/errors';
 import { errorText, type AsyncState } from '../api/useApi';
+import { IconAlertTriangle } from '../icons';
+import { RouteChrome } from '../shell/PageChrome';
 import { layout } from '../theme';
 
 import { Page } from './Page';
@@ -28,15 +29,19 @@ export function AsyncContent<T>({ state, testId, page = false, children }: Async
     if (elsewhere !== undefined) {
       return <Navigate to={elsewhere.url} replace />;
     }
+    // a failed page hands in no chrome, and the last page's names another page
     return framed(
-      <Alert
-        data-testid={testId === undefined ? undefined : `${testId}-error`}
-        color="red"
-        icon={<IconAlertTriangle size={layout.iconSize} />}
-        title="That did not work"
-      >
-        {errorText(state.error)}
-      </Alert>,
+      <>
+        {page && <RouteChrome />}
+        <Alert
+          data-testid={testId === undefined ? undefined : `${testId}-error`}
+          color="red"
+          icon={<IconAlertTriangle size={layout.iconSize} />}
+          title="That did not work"
+        >
+          {errorText(state.error)}
+        </Alert>
+      </>,
     );
   }
   if (state.data === undefined) {

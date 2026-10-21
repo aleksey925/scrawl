@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { leaveScreen, motionMs } from '../components/screenMotion';
+import { leaveScreen, motionMs, screenEasing, swipeEndMs } from '../components/screenMotion';
 
 // how far from the left edge a finger has to land to start the swipe
 const edgePx = 24;
@@ -28,7 +28,7 @@ interface Track {
 
 // speedOf is how fast the finger moved over the last stretch before it lifted
 function speedOf(samples: Sample[], now: number): number {
-  const recent = samples.filter((sample) => now - sample.at <= flickWindowMs);
+  const recent = samples.filter((point) => now - point.at <= flickWindowMs);
   const first = recent[0];
   const last = recent[recent.length - 1];
   if (first === undefined || last === undefined || last.at === first.at) {
@@ -66,8 +66,8 @@ function screen(): HTMLElement | null {
 function settle(element: HTMLElement, from: number): void {
   element.style.transform = '';
   element.animate([{ transform: `translateX(${from}px)` }, { transform: 'none' }], {
-    duration: motionMs(200),
-    easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+    duration: motionMs(swipeEndMs),
+    easing: screenEasing,
   });
 }
 
@@ -128,7 +128,7 @@ export function useSwipeBack(goBack: (() => void) | null): void {
       }
       event.preventDefault();
       track.dx = dx;
-      const recent = track.samples.filter((sample) => event.timeStamp - sample.at <= flickWindowMs);
+      const recent = track.samples.filter((point) => event.timeStamp - point.at <= flickWindowMs);
       track.samples = [...recent, { dx, at: event.timeStamp }];
       track.element.style.transform = `translateX(${dx}px)`;
     };
@@ -140,7 +140,7 @@ export function useSwipeBack(goBack: (() => void) | null): void {
       if (ended === undefined || element === undefined) {
         return;
       }
-      const done = ended.dx > window.innerWidth * completeShare || speedOf(ended.samples, event.timeStamp) > flickPxPerMs;
+      const done = ended.dx > element.offsetWidth * completeShare || speedOf(ended.samples, event.timeStamp) > flickPxPerMs;
       if (!done) {
         settle(element, ended.dx);
         return;

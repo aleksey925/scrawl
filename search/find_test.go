@@ -2,11 +2,14 @@ package search
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/text/unicode/norm"
 )
 
 // findIndex is an index over the notes given by path
@@ -30,8 +33,8 @@ func paths(found Found) []string {
 // hits are the matched pieces of every line of a result
 func hits(r Result) []string {
 	res := []string{}
-	for _, line := range r.Lines {
-		for _, s := range line.Spans {
+	for _, matched := range r.Lines {
+		for _, s := range matched.Spans {
 			if s.Hit {
 				res = append(res, s.Text)
 			}
@@ -83,6 +86,91 @@ func TestFindFuzzyHandsTheMatchedWordsToTheNote(t *testing.T) {
 	assert.Equal(t, []string{"vacuum", "Vacuum"}, hits(got.Results[0]))
 }
 
+func TestFindFuzzyHandsAWordJoinedByUnderscoreWhole(t *testing.T) {
+	// arrange
+	ix := findIndex(t, map[string]string{"db.md": "# DB\n\nCall foo_bar and bar.\n"})
+
+	// act
+	got, err := ix.Find(context.Background(), Query{Text: "bar", Mode: ModeFuzzy}, 10)
+
+	// assert
+	require.NoError(t, err)
+	require.Len(t, got.Results, 1)
+	assert.Equal(t, FindQuery{Text: "foo_bar|bar", Word: true, Regex: true}, got.Results[0].Find)
+}
+
+func TestFindFuzzyCountsEveryMatch(t *testing.T) {
+	// arrange
+	ix := findIndex(t, map[string]string{"a.md": "# A\n\n" + strings.Repeat("word word\n\n", maxSnippetMarks)})
+
+	// act
+	got, err := ix.Find(context.Background(), Query{Text: "word", Mode: ModeFuzzy}, 10)
+
+	// assert
+	require.NoError(t, err)
+	require.Len(t, got.Results, 1)
+	assert.Equal(t, 2*maxSnippetMarks, got.Results[0].MatchCount)
+	assert.Equal(t, maxSnippetMarks, got.Results[0].LineCount)
+}
+
+func TestFindFuzzyMarksATypoInTheTitle(t *testing.T) {
+	// arrange
+	ix := findIndex(t, map[string]string{"db.md": "# Vacuum notes\n\nbody\n"})
+
+	// act
+	got, err := ix.Find(context.Background(), Query{Text: "vacum", Mode: ModeFuzzy}, 10)
+
+	// assert
+	require.NoError(t, err)
+	require.Len(t, got.Results, 1)
+	assert.Equal(t, []Span{{Text: "Vacuum", Hit: true}, {Text: " notes"}}, got.Results[0].TitleSpans)
+}
+
+func TestFindFuzzyWidensATypoToAFewWords(t *testing.T) {
+	// arrange
+	notes := map[string]string{}
+	for i, r := range []rune("abcdefghijklmnopqrstuwxyzабвгдежзийклмнопрстуфхцчшщ") {
+		notes[fmt.Sprintf("n%02d.md", i)] = "# N\n\n" + string(r) + "acuum\n"
+	}
+	ix := findIndex(t, notes)
+
+	// act
+	got, err := ix.Find(context.Background(), Query{Text: "vacuum", Mode: ModeFuzzy}, 100)
+
+	// assert
+	require.NoError(t, err)
+	assert.Len(t, got.Results, maxTypoTerms)
+}
+
+func TestFindExactOrder(t *testing.T) {
+	ix := findIndex(t, map[string]string{
+		"d.md": "# D\n\nword\n",
+		"b.md": "# B\n\nword word\n\nword\n",
+		"c.md": "# The word\n\nnothing\n",
+		"a.md": "# A\n\nword\n",
+	})
+
+	tests := []struct {
+		name  string
+		limit int
+		want  []string
+	}{
+		{name: "a title first, then the most matches, then the path", limit: 10, want: []string{"c.md", "b.md", "a.md", "d.md"}},
+		{name: "the limit keeps the best", limit: 2, want: []string{"c.md", "b.md"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			got, err := ix.Find(context.Background(), Query{Text: "word", Mode: ModeExact}, tc.limit)
+
+			// assert
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, paths(got))
+		})
+	}
+}
+
 func TestFindExact(t *testing.T) {
 	ix := findIndex(t, map[string]string{
 		"a.md": "# Notes\n\nfoo **bar** baz\n\nИндексы, индекс.\nиндексы\n",
@@ -118,6 +206,29 @@ func TestFindExact(t *testing.T) {
 	}
 }
 
+func TestFindExactAndRegexMatchADecomposedQuery(t *testing.T) {
+	// arrange
+	composed := "café"
+	decomposed := norm.NFD.String(composed)
+	ix := findIndex(t, map[string]string{
+		"a.md":                   "# Notes\n\nA " + decomposed + " here.\n",
+		decomposed + "-notes.md": "nothing\n",
+	})
+
+	for _, q := range []Query{{Text: decomposed, Mode: ModeExact}, {Text: decomposed, Regex: true}} {
+		t.Run(fmt.Sprintf("regex=%v", q.Regex), func(t *testing.T) {
+			// act
+			got, err := ix.Find(context.Background(), q, 10)
+
+			// assert
+			require.NoError(t, err)
+			assert.Equal(t, []string{decomposed + "-notes.md", "a.md"}, paths(got))
+			assert.Equal(t, []string{composed}, hits(got.Results[1]))
+			assert.Equal(t, []Span{{Text: composed, Hit: true}, {Text: "-notes"}}, got.Results[0].TitleSpans)
+		})
+	}
+}
+
 func TestFindRegexRunsOverTheTextAsShown(t *testing.T) {
 	// arrange
 	ix := findIndex(t, map[string]string{"a.md": "# Title\n\n## Heading two\n\ntext\n"})
@@ -144,10 +255,7 @@ func TestFindSkipsEmptyMatches(t *testing.T) {
 
 			// assert
 			require.NoError(t, err)
-			for _, r := range got.Results {
-				assert.Zero(t, r.MatchCount)
-				assert.Empty(t, r.Lines)
-			}
+			assert.Empty(t, got.Results)
 		})
 	}
 }
@@ -170,6 +278,37 @@ func TestFindTitlesOnly(t *testing.T) {
 	}
 }
 
+func TestFindTitlesOnlyKeepsTheSnippet(t *testing.T) {
+	// arrange
+	ix := findIndex(t, map[string]string{"a.md": "# Vacuum\n\nsome vacuum body\n"})
+	tests := []struct {
+		name  string
+		query Query
+	}{
+		{name: "exact", query: Query{Text: "vacuum", Mode: ModeExact}},
+		{name: "regex", query: Query{Text: "vac+uum", Regex: true}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			titles := tt.query
+			titles.TitlesOnly = true
+
+			// act
+			got, err := ix.Find(context.Background(), titles, 10)
+			require.NoError(t, err)
+			everywhere, err := ix.Find(context.Background(), tt.query, 10)
+			require.NoError(t, err)
+
+			// assert
+			require.Len(t, got.Results, 1)
+			require.Len(t, everywhere.Results, 1)
+			assert.NotEmpty(t, got.Results[0].Snippet)
+			assert.Equal(t, everywhere.Results[0].Snippet, got.Results[0].Snippet)
+		})
+	}
+}
+
 func TestFindLineNumbersAndCounts(t *testing.T) {
 	// arrange
 	many := strings.Repeat("word\n\n", 30)
@@ -189,7 +328,7 @@ func TestFindLineNumbersAndCounts(t *testing.T) {
 	assert.Equal(t, 7, fence.Results[0].Lines[0].Line)
 	require.Len(t, repeated.Results, 1)
 	assert.Equal(t, 30, repeated.Results[0].LineCount)
-	assert.Len(t, repeated.Results[0].Lines, MaxLinesPerResult)
+	assert.Len(t, repeated.Results[0].Lines, maxLinesPerResult)
 }
 
 func TestFindRefusesABadPattern(t *testing.T) {
@@ -221,6 +360,81 @@ func TestFindStopsAtTheDeadline(t *testing.T) {
 	// assert
 	require.NoError(t, err)
 	assert.True(t, got.Truncated)
+}
+
+// cancelAfter is a context that ends at its calls-th look at Err
+type cancelAfter struct {
+	context.Context
+	calls int
+}
+
+func (c *cancelAfter) Err() error {
+	c.calls--
+	if c.calls <= 0 {
+		return context.Canceled
+	}
+	return nil
+}
+
+func TestFindStopsInsideANote(t *testing.T) {
+	// arrange
+	ix := findIndex(t, map[string]string{"a.md": "# A\n\n" + strings.Repeat("word\n\n", checkEvery+10)})
+	ctx := &cancelAfter{Context: context.Background(), calls: 2}
+
+	// act
+	got, err := ix.Find(ctx, Query{Text: "word", Mode: ModeExact}, 10)
+
+	// assert
+	require.NoError(t, err)
+	assert.True(t, got.Truncated)
+	require.Len(t, got.Results, 1)
+	assert.Equal(t, checkEvery-2, got.Results[0].LineCount, "the title is a line, and the line the stop came on is not read")
+}
+
+func TestFindStopsAtTheCapOnMatchedLines(t *testing.T) {
+	// arrange
+	ix := findIndex(t, map[string]string{
+		"a.md": "# A\n\n" + strings.Repeat("word\n\n", maxMatchedLines+10),
+		"b.md": "# B\n\nword\n",
+	})
+
+	// act
+	got, err := ix.Find(context.Background(), Query{Text: "word", Mode: ModeExact}, 10)
+
+	// assert
+	require.NoError(t, err)
+	assert.True(t, got.Truncated)
+	assert.Equal(t, []string{"a.md"}, paths(got))
+	assert.Equal(t, maxMatchedLines, got.Results[0].LineCount)
+}
+
+func TestCutLine(t *testing.T) {
+	// arrange
+	before, after := strings.Repeat("я", 150), strings.Repeat("ю", 150)
+	line := before + "цель" + after + "цель"
+	first := mark{start: off32(len(before)), end: off32(len(before) + len("цель"))}
+	last := mark{start: off32(len(line) - len("цель")), end: off32(len(line))}
+
+	// act
+	got := cutLine(line, []mark{first, last})
+
+	// assert
+	shown := lineWindowRunes - lineLeadRunes - utf8.RuneCountInString("цель")
+	assert.Equal(t, []Span{
+		{Text: ellipsis},
+		{Text: strings.Repeat("я", lineLeadRunes)},
+		{Text: "цель", Hit: true},
+		{Text: strings.Repeat("ю", shown)},
+		{Text: ellipsis},
+	}, got)
+}
+
+func TestCutLineKeepsAShortLine(t *testing.T) {
+	// act
+	got := cutLine("a цель b", []mark{{start: 2, end: 10}})
+
+	// assert
+	assert.Equal(t, []Span{{Text: "a "}, {Text: "цель", Hit: true}, {Text: " b"}}, got)
 }
 
 func TestOneEdit(t *testing.T) {

@@ -2,56 +2,49 @@ import { Text } from '@mantine/core';
 import { useState, type JSX } from 'react';
 import { useSearchParams } from 'react-router';
 
-import { api } from '../api/client';
-import type { SearchResponse, SearchSettings } from '../api/types';
+import { api, searchTextOf, settingsOfSearch } from '../api/client';
+import type { SearchResponse } from '../api/types';
 import { useApi } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
+import { countOf } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
 import { usePageChrome } from '../shell/PageChrome';
-import { hintOf } from '../shell/SearchDialog';
-import { SearchResults } from '../shell/SearchResults';
+import { hintOf, SearchResults } from '../shell/SearchResults';
 
 const nothing: SearchResponse = { hits: [], elapsed_ms: 0 };
 const pageLimit = 50;
-
-// settingsOf reads the mode and the toggles the way the search route does
-function settingsOf(params: URLSearchParams): SearchSettings {
-  return {
-    mode: params.get('mode') === 'exact' ? 'exact' : 'fuzzy',
-    matchCase: params.get('case') === '1',
-    word: params.get('word') === '1',
-    regex: params.get('regex') === '1',
-    titles: params.get('titles') === '1',
-  };
-}
+const noneExpanded: ReadonlySet<string> = new Set();
 
 // the search page is a typed or shared address of a search, drawn with the
 // results the dialog shows
 export function Component(): JSX.Element {
   const [searchParams] = useSearchParams();
-  const wanted = (searchParams.get('q') ?? '').trim();
-  const settings = settingsOf(searchParams);
+  const settings = settingsOfSearch(searchParams);
+  const wanted = searchTextOf(searchParams.get('q') ?? '', settings);
+  const empty = wanted.trim() === '';
   const key = searchParams.toString();
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  // the notes opened in full belong to the search they were opened in
+  const [opened, setOpened] = useState<{ key: string; paths: ReadonlySet<string> }>({ key, paths: noneExpanded });
+  const expanded = opened.key === key ? opened.paths : noneExpanded;
   usePageChrome({ crumbs: [], title: 'Search', ownTitle: true });
 
   const state = useApi<SearchResponse>(
-    (signal) => (wanted === '' ? Promise.resolve(nothing) : api.find(wanted, settings, pageLimit, { signal })),
+    (signal) => (empty ? Promise.resolve(nothing) : api.find(wanted, settings, pageLimit, { signal })),
     [key],
   );
-  const found = wanted === '' ? undefined : state.data;
+  const found = empty ? undefined : state.data;
 
   return (
     <Page data-testid="search">
-      <PageTitle testId="search-title">{wanted === '' ? 'Search' : `Search: ${wanted}`}</PageTitle>
+      <PageTitle testId="search-title">{empty ? 'Search' : `Search: ${wanted}`}</PageTitle>
       {found !== undefined && found.hits.length > 0 && (
         <Text data-testid="search-count" data-total={found.hits.length} size="sm" c="dimmed" mb="md">
-          {found.hits.length} {found.hits.length === 1 ? 'result' : 'results'} in {found.elapsed_ms} ms ·{' '}
+          {countOf(found.hits.length, 'result')} in {found.elapsed_ms} ms ·{' '}
           {hintOf(settings)}
           {found.truncated === true ? ', stopped early' : ''}
         </Text>
       )}
-      {wanted === '' ? (
+      {empty ? (
         <Text data-testid="search-prompt" c="dimmed">
           Type a query to search every note.
         </Text>
@@ -66,7 +59,7 @@ export function Component(): JSX.Element {
               <SearchResults
                 hits={results.hits}
                 expanded={expanded}
-                onExpand={(path) => setExpanded((prev) => new Set(prev).add(path))}
+                onExpand={(path) => setOpened({ key, paths: new Set(expanded).add(path) })}
               />
             )
           }

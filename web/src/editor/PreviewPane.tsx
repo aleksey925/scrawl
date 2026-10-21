@@ -1,9 +1,9 @@
 import { Alert, Box } from '@mantine/core';
-import { IconEyeOff } from '../icons';
 import type { JSX, RefObject } from 'react';
 
 import { DocumentHtml } from '../components/DocumentHtml';
 import { EmptyState } from '../components/EmptyState';
+import { IconEyeOff } from '../icons';
 
 import classes from './Editor.module.css';
 

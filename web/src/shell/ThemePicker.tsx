@@ -1,8 +1,8 @@
 import { Group, Menu, SegmentedControl, useMantineColorScheme } from '@mantine/core';
-import { IconDeviceDesktop, IconMoon, IconSun } from '../icons';
 import type { JSX } from 'react';
 
 import controls from '../controls.module.css';
+import { IconDeviceDesktop, IconMoon, IconSun } from '../icons';
 import { setThemeChoice, useThemeChoice } from '../themeChoice';
 import { autoChoice, isThemeChoice, themes } from '../themes';
 import { layout } from '../theme';

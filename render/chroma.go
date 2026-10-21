@@ -101,6 +101,14 @@ var codeTokens = map[string]chroma.TokenType{
 
 // codeStyle is the chroma style of a theme, built from its code colors. The
 // text and the ground of a block are the page's, so the style names neither.
+// with classes the markup of a fence is the same whatever the style, and the
+// colors come from ChromaCSS
+var (
+	markupStyle     = codeStyle(theme.AutoTheme(theme.Light))
+	markupOptions   = []chromahtml.Option{chromahtml.WithClasses(true), chromahtml.WithLineNumbers(false)}
+	markupFormatter = chromahtml.New(markupOptions...)
+)
+
 func codeStyle(t theme.Theme) *chroma.Style {
 	entries := chroma.StyleEntries{}
 	for _, name := range theme.CodeNames {

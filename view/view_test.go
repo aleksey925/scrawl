@@ -142,7 +142,7 @@ func TestMissingPage(t *testing.T) {
 	}, got)
 }
 
-func noItems(string) int { return 0 }
+func noItems(string) (int, error) { return 0, nil }
 
 func TestNewDir(t *testing.T) {
 	tests := []struct {
@@ -184,9 +184,11 @@ func TestDirEntries(t *testing.T) {
 		{Name: "Index.md", Path: "docs/Index.md", Size: 5, ModTime: mod},
 	}
 
-	// act
 	notes := func(fi store.FileInfo) bool { return strings.HasSuffix(fi.Name, ".md") }
-	got := DirEntries(entries, func(dir string) int { return len(dir) }, notes)
+	count := func(dir string) (int, error) { return len(dir), nil }
+
+	// act
+	got := DirEntries(entries, count, notes)
 
 	// assert
 	assert.Equal(t, []DirEntry{
@@ -198,22 +200,16 @@ func TestDirEntries(t *testing.T) {
 	}, got)
 }
 
-func TestItemsIn(t *testing.T) {
+func TestDirEntriesOfAFolderThatCannotBeCounted(t *testing.T) {
 	// arrange
-	listings := map[string][]store.FileInfo{"docs": {{Name: "a.md"}, {Name: "b"}}}
-	list := func(dir string) ([]store.FileInfo, error) {
-		entries, ok := listings[dir]
-		if !ok {
-			return nil, store.ErrNotFound
-		}
-		return entries, nil
-	}
+	entries := []store.FileInfo{{Name: "gone", Path: "gone", IsDir: true}}
+	count := func(string) (int, error) { return 7, store.ErrNotFound }
 
 	// act
-	count := ItemsIn(list)
+	got := DirEntries(entries, count, NotEditable)
 
 	// assert
-	assert.Equal(t, []int{len(listings["docs"]), 0}, []int{count("docs"), count("gone")})
+	assert.Equal(t, []DirEntry{{Name: "gone", Path: "gone", URL: "/doc/gone/", IsDir: true}}, got)
 }
 
 func TestIndexOf(t *testing.T) {
@@ -311,6 +307,8 @@ func TestFindURL(t *testing.T) {
 		{name: "a word", find: Find{Text: "vacuum"}, want: "/doc/db/a.md?q=vacuum"},
 		{name: "every toggle and a line", find: Find{Text: "a|b", Case: true, Word: true, Regex: true}, line: 12,
 			want: "/doc/db/a.md?case=1&line=12&q=a%7Cb&regex=1&word=1"},
+		{name: "a title with nothing to find", find: Find{Word: true, Regex: true}, want: "/doc/db/a.md"},
+		{name: "a space kept", find: Find{Text: " x "}, want: "/doc/db/a.md?q=+x+"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

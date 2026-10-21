@@ -14,7 +14,7 @@ import { useMermaid } from '../reader/useMermaid';
 import { useOutline } from '../reader/useOutline';
 import { openViewer } from '../reader/viewer';
 import { PageToc } from '../shell/ShellSlots';
-import { appShortcut } from '../shell/shortcuts';
+import { appShortcut, modChord } from '../shell/shortcuts';
 import { layoutBreakpoints, useAtLeast } from '../theme';
 
 import classes from './DocumentHtml.module.css';
@@ -104,11 +104,7 @@ function useFindShortcut(rootRef: RefObject<HTMLDivElement | null>, open: (text?
       open(root === null ? undefined : selectedText(root));
     };
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== 'f') {
-        return;
-      }
-      const { target } = event;
-      if (!appShortcut(event) || (target instanceof Element && target.closest('[data-testid="doc-find"]') !== null)) {
+      if (!modChord(event, 'f') || !appShortcut(event)) {
         return;
       }
       event.preventDefault();

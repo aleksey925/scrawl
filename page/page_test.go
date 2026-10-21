@@ -86,6 +86,13 @@ func TestWriteDiff(t *testing.T) {
 			{Kind: htmldiff.Same, Old: &htmldiff.Side{HTML: "<p>near</p>"}, New: &htmldiff.Side{HTML: "<p>near</p>"}},
 			{Kind: htmldiff.Added, New: &htmldiff.Side{HTML: "<p>new</p>"}},
 			{Kind: htmldiff.Format, Old: &htmldiff.Side{HTML: "<p>a\nb</p>"}, New: &htmldiff.Side{HTML: "<p>a b</p>"}},
+			{Kind: htmldiff.Removed, Old: &htmldiff.Side{HTML: "<p>gone</p>"}},
+			{
+				Kind:   htmldiff.Changed,
+				Old:    &htmldiff.Side{HTML: `<p><del class="diff-del">old</del></p>`},
+				New:    &htmldiff.Side{HTML: `<p><ins class="diff-ins">new</ins></p>`},
+				Inline: &htmldiff.Side{HTML: `<p><del class="diff-del">old</del> <ins class="diff-ins">new</ins></p>`},
+			},
 		},
 	}
 
@@ -133,12 +140,16 @@ func TestWriteDiff(t *testing.T) {
 		assert.Contains(t, got, `<div class="diff-row" data-kind="added"><span class="diff-tag">Added</span>`+
 			`<div class="diff-cell markdown-document"><p>new</p></div></div>`)
 		assert.Contains(t, got, `<div class="diff-row" data-kind="format"><span class="diff-tag">Format</span>`)
+		assert.Contains(t, got, `<div class="diff-row" data-kind="removed"><span class="diff-tag">Removed</span>`+
+			`<div class="diff-cell markdown-document"><p>gone</p></div></div>`)
+		assert.Contains(t, got, `<div class="diff-row" data-kind="changed"><span class="diff-tag">Changed</span>`+
+			`<div class="diff-cell markdown-document"><p><del class="diff-del">old</del> <ins class="diff-ins">new</ins></p></div></div>`)
 		assert.NotContains(t, got, `<p class="diff-none">`)
 	})
 
 	t.Run("several files get a list, and a file with no change of text says so", func(t *testing.T) {
 		// arrange
-		quiet := File{Path: "c.md", Status: Modified, Rows: file.Rows[3:]}
+		quiet := File{Path: "c.md", Status: Modified, Rows: file.Rows[3:4]}
 		var out strings.Builder
 
 		// act
@@ -148,7 +159,7 @@ func TestWriteDiff(t *testing.T) {
 		require.NoError(t, err)
 		got := out.String()
 		assert.Contains(t, got, `<li><a href="#file-0"><span class="page-status" data-status="renamed">renamed</span>`+
-			`<span class="page-path">b.md</span><span class="page-counts"><b class="page-added">+1</b></span></a></li>`)
+			`<span class="page-path">b.md</span><span class="page-counts"><b class="page-added">+1</b><b class="page-removed">-1</b><b class="page-changed">~1</b></span></a></li>`)
 		assert.Contains(t, got, `<section class="page-file" id="file-1">`)
 		assert.Equal(t, 1, strings.Count(got, `<p class="diff-none">`))
 	})

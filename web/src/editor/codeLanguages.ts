@@ -9,8 +9,7 @@ interface Alias {
 }
 
 // the names codemirror's set does not know, or knows as a rarer language, each
-// put on the closest language it holds: a svelte component is html with a
-// script in it, a makefile reads as the shell it mostly is, elixir as ruby
+// put on the closest language it holds
 const aliases: Alias[] = [
   // before the config files below, which would take its extension
   { name: 'Nginx', of: 'Nginx', filename: /^nginx.*\.conf$/i },
@@ -36,7 +35,7 @@ const aliases: Alias[] = [
 ];
 
 const aliased: LanguageDescription[] = aliases.flatMap(({ name, of, extensions, filename }) => {
-  const target = languages.find((language) => language.name === of);
+  const target = languages.find((known) => known.name === of);
   return target === undefined ? [] : [LanguageDescription.of({ name, extensions, filename, load: () => target.load() })];
 });
 

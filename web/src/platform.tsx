@@ -26,11 +26,9 @@ export interface Platform {
   search: boolean;
   // editing is whether a note can be written here at all
   editing: boolean;
-  // filePages is whether a file that is not a note has a page of its own; on
-  // a site it is the copy the browser opens
-  filePages: boolean;
-  // runFind runs the find of a note over the joined text of its blocks
-  runFind: (texts: string[], pattern: FindPattern) => Promise<FindMatch[]>;
+  // runFind runs the find of a note over the joined text of its blocks, and
+  // gives up when the signal says the find is no longer wanted
+  runFind: (texts: string[], pattern: FindPattern, signal: AbortSignal) => Promise<FindMatch[]>;
   // boundedFind is whether runFind stops a pattern that runs too long, which
   // a worker can and a page opened from disk, which starts none, cannot
   boundedFind: boolean;

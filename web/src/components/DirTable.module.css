@@ -1,44 +1,5 @@
-/* a folder is a Notion database: a bar with its one view and the count, then a
-   table of name, size and the time it changed, split by faint lines */
-.bar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 8px;
-  border-bottom: 1px solid var(--scrawl-border);
-}
-
-.tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 2px;
-  box-shadow: inset 0 -2px 0 var(--scrawl-text);
-  color: var(--scrawl-text);
-  font-size: var(--mantine-font-size-sm);
-  font-weight: 500;
-}
-
-.tab svg {
-  color: var(--scrawl-icon-secondary);
-}
-
-.tools {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding-bottom: 4px;
-}
-
-.count {
-  margin-inline-end: 4px;
-  color: var(--scrawl-text-tertiary);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
+/* the table of a folder: name, size and the time it changed, split by faint
+   lines */
 .wrap {
   overflow-x: auto;
 }
@@ -194,27 +155,6 @@
   font-weight: 500;
 }
 
-.add {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  height: 34px;
-  padding: 0 8px;
-  border: 0;
-  background: none;
-  color: var(--scrawl-text-tertiary);
-  font: inherit;
-  font-size: var(--mantine-font-size-sm);
-  cursor: pointer;
-}
-
-@media (hover: hover) {
-  .add:hover {
-    background: var(--scrawl-row-hover);
-  }
-}
-
 /* a phone's list: a row a finger can hit, a name over the line that says what
    the entry is, and a chevron on a folder, which opens the next list */
 .list {
@@ -291,9 +231,7 @@
   }
 
   .listRow:has(.listLink:active) {
-    box-shadow:
-      calc(-1 * var(--mantine-spacing-lg)) 0 var(--scrawl-pressed),
-      var(--mantine-spacing-lg) 0 var(--scrawl-pressed);
+    box-shadow: var(--scrawl-press-edge);
   }
 
   .listLink {

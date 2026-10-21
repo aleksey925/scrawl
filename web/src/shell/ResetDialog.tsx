@@ -224,7 +224,7 @@ const backupSentence = 'This copy is kept in a backup branch first, so nothing i
 
 // LossReport answers the one question a reset raises, before it is confirmed.
 function LossReport({ check }: { check: Divergence }): JSX.Element {
-  const links = useMemo(() => check.lost.paths.map((path) => ({ path, href: noteHref(path) })), [check.lost.paths]);
+  const links = useMemo(() => check.lost.paths.map((lost) => ({ path: lost, href: noteHref(lost) })), [check.lost.paths]);
 
   if (check.clean) {
     return (

@@ -2,10 +2,8 @@ import { createContext, useContext } from 'react';
 
 import type { EntryKind } from '../api/types';
 
-// TreeDraft is a row that does not exist yet: the tree shows an input where the
-// entry will be, and the name is typed in place. There is no dialog, because a
-// dialog asks for the one thing the tree already knows - which folder - and
-// then covers the answer while the name is typed.
+// TreeDraft is an entry that does not exist yet: its kind and the folder it
+// goes in, while its name is typed
 export interface TreeDraft {
   kind: EntryKind;
   parent: string;
@@ -16,7 +14,7 @@ export interface TreeDraft {
 export interface FileActions {
   createPage: (folder: string) => void;
   createFolder: (folder: string) => void;
-  rename: (path: string, isDir: boolean) => void;
+  rename: (path: string) => void;
   remove: (path: string, isDir: boolean) => void;
   copyLink: (path: string, isDir: boolean) => void;
   // moveInto is the drop half of dragging rows around the tree. It takes the

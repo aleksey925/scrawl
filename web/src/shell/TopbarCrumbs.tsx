@@ -6,7 +6,7 @@ import { IconFolder } from '../icons';
 import { isDirectoryPath } from '../paths';
 import { layout } from '../theme';
 
-import { useNav } from './NavContext';
+import { spaceLabel, useNav } from './NavContext';
 import { contentPathOf } from './naming';
 import { useShownChrome } from './PageChrome';
 import { SpaceTile } from './SpaceTile';
@@ -25,7 +25,7 @@ function Separator(): JSX.Element {
 export function TopbarCrumbs(): JSX.Element {
   const { me } = useNav();
   const chrome = useShownChrome();
-  const space = me?.space.label ?? me?.site_title ?? 'Notes';
+  const space = spaceLabel(me);
   const atSpace = chrome.title === '';
   const location = useLocation();
   const current = contentPathOf(location.pathname);
@@ -43,12 +43,12 @@ export function TopbarCrumbs(): JSX.Element {
           <span className={classes.crumbText}>{space}</span>
         </Link>
       )}
-      {chrome.crumbs.map((crumb) => (
-        <span key={crumb.url} className={classes.step}>
+      {chrome.crumbs.map((link) => (
+        <span key={link.url} className={classes.step}>
           <Separator />
-          <Link data-testid="crumb" data-current="false" to={crumb.url} className={classes.crumb}>
+          <Link data-testid="crumb" data-current="false" to={link.url} className={classes.crumb}>
             <IconFolder size={layout.iconSizeSmall} className={classes.crumbIcon} />
-            <span className={classes.crumbText}>{crumb.name}</span>
+            <span className={classes.crumbText}>{link.name}</span>
           </Link>
         </span>
       ))}

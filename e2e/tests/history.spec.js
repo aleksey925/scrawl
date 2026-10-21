@@ -4,8 +4,8 @@ const fs = require('fs');
 
 const docs = require('../support/docs');
 const {
-    HISTORY, MAIN, READONLY, fixtureFile, readFixture, rgb, routes, save, setSource, shot, signIn,
-    writeFixture,
+    HISTORY, MAIN, READONLY, fixtureFile, readFixture, removeFixture, rgb, routes, save, setSource, shot,
+    signIn, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const lightTheme = require('../../theme/themes/light.json');
@@ -160,6 +160,32 @@ test.describe.serial('history', () => {
         const inside = await fold.getByTestId('diff-row').first().boundingBox();
         const outside = await diff.locator(':scope > [data-testid=diff-row]').first().boundingBox();
         expect(Math.round(inside.x)).toBe(Math.round(outside.x));
+    });
+
+    test('a deleted note is brought back from a version before the deletion', async ({page}) => {
+        // arrange
+        const {docPath, stamp} = freshDoc('deleted');
+        const body = `kept ${stamp}\n`;
+        await page.goto(HISTORY.url.edit(docPath));
+        await saveInEditor(page, body);
+        await page.goto(HISTORY.url.history(docPath));
+        await expect(page.getByTestId('version')).toHaveCount(1);
+        removeFixture(docPath, HISTORY);
+        const versions = page.getByTestId('version');
+        await expect.poll(async () => {
+            await page.reload();
+            await page.getByTestId('history-list').waitFor();
+            return versions.count();
+        }).toBe(2);
+
+        // act
+        await versions.nth(1).click();
+        await page.getByTestId('version-restore').click();
+        await page.getByTestId('modal-confirm').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.restored);
+        await expect.poll(() => fs.existsSync(fixtureFile(docPath, HISTORY)) && readFixture(docPath, HISTORY)).toBe(body);
     });
 
     test('a page left open while the document changed is refused its restore', async ({page}) => {

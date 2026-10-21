@@ -1,10 +1,11 @@
 import { Alert, Code, Stack, Text } from '@mantine/core';
-import { IconAlertTriangle } from '../icons';
 import type { JSX } from 'react';
+
+import { IconAlertTriangle } from '../icons';
+import { layout } from '../theme';
 
 import { useNav } from './NavContext';
 import { ResetAction } from './ResetDialog';
-import { layout } from '../theme';
 
 // SpaceAlerts is the one persistent place that explains what is wrong with
 // this space. It renders above the outlet, so a reader meets it on every
@@ -38,16 +39,16 @@ export function SpaceAlerts(): JSX.Element {
           mb="lg"
         >
           <Stack gap="xs">
-            {sync.facts.map((fact) => (
-              <Stack key={fact.kind} gap={4}>
-                <Text size="sm">{fact.body}</Text>
-                {fact.reason !== '' && (
+            {sync.facts.map((entry) => (
+              <Stack key={entry.kind} gap={4}>
+                <Text size="sm">{entry.body}</Text>
+                {entry.reason !== '' && (
                   <Code
                     data-testid="space-alert-reason"
                     block
                     style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
                   >
-                    {fact.reason}
+                    {entry.reason}
                   </Code>
                 )}
               </Stack>

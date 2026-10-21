@@ -23,7 +23,6 @@ export function sitePlatform(root: URL, store: PageStore, site: SiteData): Platf
     storageScope: root.pathname,
     search: false,
     editing: false,
-    filePages: false,
     // a page opened from disk can start no worker, so the find runs here
     runFind: async (texts, pattern) => findMatches(texts, pattern),
     boundedFind: false,

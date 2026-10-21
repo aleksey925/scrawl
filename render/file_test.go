@@ -45,6 +45,8 @@ func TestHighlightFile(t *testing.T) {
 			wantColored:  true,
 		},
 		{name: "unknown extension", file: "notes.zzz", src: "plain\ntext\n", wantLanguage: PlainLanguage},
+		{name: "a last line with no newline", file: "main.go", src: "package main\n\nvar x = 1", wantLanguage: "Go",
+			wantColored: true},
 		{
 			name:         "a script in html is text",
 			file:         "x.html",
@@ -65,7 +67,11 @@ func TestHighlightFile(t *testing.T) {
 			// assert
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantLanguage, language)
-			assert.Equal(t, strings.Count(tc.src, "\n"), strings.Count(string(markup), `<span class="line">`))
+			lines := strings.Count(tc.src, "\n")
+			if !strings.HasSuffix(tc.src, "\n") {
+				lines++
+			}
+			assert.Equal(t, lines, strings.Count(string(markup), `<span class="line">`))
 			assert.Equal(t, tc.wantColored, strings.Contains(string(markup), `<span class="k`) ||
 				strings.Contains(string(markup), `<span class="nt`))
 			assert.NotContains(t, string(markup), "<table")

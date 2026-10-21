@@ -33,6 +33,7 @@ test.describe('reading', () => {
     });
 
     test('the root page lists the root folder, its index a row tagged as the folder page', async ({page}) => {
+        // assert
         await expect(page.getByTestId('dir')).toBeVisible();
         const index = page.locator('[data-testid=dir-row][data-path="index.md"]');
         await expect(index.getByTestId('dir-folder-page')).toBeVisible();
@@ -41,16 +42,18 @@ test.describe('reading', () => {
     });
 
     test('Home opens the root index note', async ({page}) => {
+        // act
         await page.getByTestId('sidebar-home').click();
 
+        // assert
         await expect(page).toHaveURL(MAIN.url.doc('index.md'));
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.home.title);
         await expect(page.getByTestId('sidebar-home')).toHaveAttribute('data-current', 'true');
     });
 
     test('a click on a row of a folder opens it', async ({page}) => {
+        // act & assert
         await page.locator(`[data-testid=dir-row][data-path="${DOC.folder}"]`).click({position: {x: 400, y: 10}});
-
         await expect(page).toHaveURL(MAIN.url.dir(DOC.folder));
         await page.locator(`[data-testid=dir-row][data-path="${DOC.path}"] td`).last().click();
         await expect(page).toHaveURL(MAIN.url.doc(DOC.path));
@@ -523,9 +526,9 @@ test.describe('reading', () => {
         // arrange
         await page.goto(routes.doc(DOC.path));
         const icons = () => page.locator('link[rel="apple-touch-icon"]').evaluateAll(
-            (links) => links.map((link) => [link.getAttribute('href').replace(/^.*\/icons\/|\?.*$/g, ''), link.media]));
+            (links) => links.map((el) => [el.getAttribute('href').replace(/^.*\/icons\/|\?.*$/g, ''), el.media]));
         const bars = () => page.locator('meta[name="theme-color"]').evaluateAll(
-            (metas) => metas.map((meta) => [meta.content, meta.media]));
+            (metas) => metas.map((el) => [el.content, el.media]));
         await expect.poll(icons).toEqual([
             ['apple-touch-icon.png', '(prefers-color-scheme: light)'],
             ['apple-touch-icon-dark.png', '(prefers-color-scheme: dark)'],
@@ -626,15 +629,16 @@ test.describe('reading', () => {
     });
 
     test('the sidebar hides on demand and stays hidden', async ({page}) => {
+        // arrange
         const burger = page.getByTestId('topbar-burger');
         const sidebar = page.getByTestId('sidebar');
         const left = () => page.getByTestId('doc').evaluate((el) => el.getBoundingClientRect().left);
-
         await page.goto(routes.doc(DOC.path));
         await expect(sidebar).toBeVisible();
         await expect(burger).toHaveCount(0);
         const beside = await left();
 
+        // act & assert
         await sidebar.hover();
         await page.getByTestId('sidebar-hide').click();
         await expect(sidebar).toHaveCount(0);
@@ -734,6 +738,35 @@ test.describe('reading', () => {
         await expect(page.getByTestId('doc-missing-folder')).toHaveAttribute('href', new RegExp(`/doc/${DOC.folder}/$`));
         await page.keyboard.press('Enter');
         await expect(page).toHaveURL(MAIN.url.edit(docs.missing));
+    });
+
+    test('a missing note kept while the next note loads still offers to create itself', async ({page}) => {
+        // arrange
+        let release;
+        const waiting = new Promise((resolve) => {
+            release = resolve;
+        });
+        await page.goto(routes.doc(docs.missing));
+        await expect(page.getByTestId('doc-missing-title')).toBeVisible();
+        const twisty = page.locator(`[data-testid=tree-row][data-path="${DOC.folder}"] [data-testid=tree-twisty]`);
+        if (await twisty.getAttribute('data-open') === 'false') {
+            await twisty.click();
+        }
+        await page.route(`**/api/page/${DOC.path}`, async (route) => {
+            await waiting;
+            await route.continue();
+        });
+        try {
+            // act
+            await page.locator(`[data-testid=tree-row][data-path="${DOC.path}"] [data-testid=tree-link]`).click();
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(DOC.path));
+            await expect(page.getByTestId('doc-create')).toHaveAttribute('href', new RegExp(`/edit/${docs.missing}$`));
+        } finally {
+            release();
+        }
+        await expect(page.getByTestId('doc-missing')).toHaveCount(0);
     });
 
     test('a note reads the way Notion shows a page', async ({page}) => {

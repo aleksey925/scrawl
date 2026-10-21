@@ -1,11 +1,11 @@
 import { ActionIcon, Menu } from '@mantine/core';
-import { IconClock, IconDots, IconFileText, IconTrash } from '../icons';
 import type { JSX } from 'react';
 import { Link } from 'react-router';
 
 import { EmptyState } from '../components/EmptyState';
 import { Page, PageTitle } from '../components/Page';
 import { PopupMenu } from '../components/PopupMenu';
+import { IconClock, IconDots, IconFileText, IconTrash } from '../icons';
 import { documentUrl } from '../paths';
 import { usePageChrome } from '../shell/PageChrome';
 import { useRecentNotes } from '../shell/recentNotes';
@@ -22,7 +22,7 @@ export function Component(): JSX.Element {
   return (
     <Page data-testid="recent">
       <PageActions>
-        <PopupMenu position="bottom-end" width={220} withinPortal>
+        <PopupMenu position="bottom-end" width={layout.menuWidth} withinPortal>
           <Menu.Target>
             <ActionIcon data-testid="recent-menu" variant="subtle" color="gray" size="lg" aria-label="More actions">
               <IconDots size={layout.iconSize} />
@@ -48,12 +48,12 @@ export function Component(): JSX.Element {
         </EmptyState>
       ) : (
         <div className={classes.list}>
-          {notes.map((note) => (
-            <Link key={note.path} data-testid="recent-item" data-path={note.path} to={documentUrl(note.path)} className={classes.row}>
+          {notes.map((recent) => (
+            <Link key={recent.path} data-testid="recent-item" data-path={recent.path} to={documentUrl(recent.path)} className={classes.row}>
               <IconFileText size={layout.iconSize} aria-hidden className={classes.icon} />
               <span className={classes.text}>
-                <span className={classes.title}>{note.title === '' ? note.path : note.title}</span>
-                <span className={classes.path}>{note.path}</span>
+                <span className={classes.title}>{recent.title === '' ? recent.path : recent.title}</span>
+                <span className={classes.path}>{recent.path}</span>
               </span>
             </Link>
           ))}

@@ -2,6 +2,7 @@ import { Menu, type FloatingPosition, type MantineTransition, type MenuProps } f
 import { useUncontrolled } from '@mantine/hooks';
 import { useState, type JSX } from 'react';
 
+import { springEasing } from './screenMotion';
 import { TapGuard, useTouchScreen } from './TapGuard';
 
 // growOrigin is the corner of a menu nearest what opened it: a menu under its
@@ -13,6 +14,8 @@ function growOrigin(position: FloatingPosition): string {
     side === 'left' ? 'right' : side === 'right' ? 'left' : align === 'start' ? 'left' : align === 'end' ? 'right' : 'center';
   return `${vertical} ${horizontal}`;
 }
+
+const menuGrowMs = 220;
 
 // a phone's menu grows out of what opened it, with a little spring at the end
 function grow(position: FloatingPosition): MantineTransition {
@@ -45,7 +48,7 @@ export function PopupMenu({
       <Menu
         floatingStrategy="fixed"
         transitionProps={
-          touch ? { transition: grow(placed), duration: 220, timingFunction: 'cubic-bezier(0.2, 0.9, 0.3, 1.15)' } : undefined
+          touch ? { transition: grow(placed), duration: menuGrowMs, timingFunction: springEasing } : undefined
         }
         middlewares={touch ? { flip: true, shift: { padding: 8 } } : undefined}
         {...rest}

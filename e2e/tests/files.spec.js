@@ -14,6 +14,7 @@ const RENAMED = `${FOLDER}/pereimenovannaya.md`;
 const DRAGGED = ['e2e-drag-one.md', 'e2e-drag-two.md'];
 const ROOT_PAGE = 'e2e-root-page.md';
 const TYPED_FILE = 'E2eTyped.java';
+const TYPED_PICTURE = 'e2e-typed.png';
 const DATED_PAGE = 'e2e-meeting-2024.10.21.md';
 const BLANK_FOLDER = 'e2e-fm-blank';
 const BLANK_PAGE = 'e2e-blank-page.md';
@@ -30,7 +31,7 @@ test.describe.serial('file management', () => {
         for (const folder of [FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER, LISTED_FOLDER]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
-        for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE, TYPED_FILE, DATED_PAGE]) {
+        for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE, TYPED_FILE, TYPED_PICTURE, DATED_PAGE]) {
             fs.rmSync(fixtureFile(name), {force: true});
         }
     });
@@ -69,12 +70,15 @@ test.describe.serial('file management', () => {
     // the "Notes" label over the tree is the root, and its + is the way to make
     // a note beside the folders rather than inside one
     test('creates a file in the root from the Notes section', async ({page}) => {
+        // arrange
         await page.getByTestId('sidebar-section').hover();
         await page.getByTestId('sidebar-section-new').click();
 
+        // act
         await page.getByTestId('tree-draft-input').fill(ROOT_PAGE.replace('.md', ''));
         await page.getByTestId('tree-draft-input').press('Enter');
 
+        // assert
         await expect(page).toHaveURL(MAIN.url.edit(ROOT_PAGE));
         expect(fs.existsSync(fixtureFile(ROOT_PAGE))).toBe(true);
         await expect(page.locator(`[data-testid=tree-row][data-path="${ROOT_PAGE}"]`)).toHaveCount(1);
@@ -95,6 +99,20 @@ test.describe.serial('file management', () => {
         await expect(page.getByTestId('editor')).toHaveAttribute('data-kind', 'text');
         expect(fs.existsSync(fixtureFile(TYPED_FILE))).toBe(true);
         expect(fs.existsSync(fixtureFile(`${TYPED_FILE}.md`))).toBe(false);
+    });
+
+    test('a name the editor cannot open makes that file and opens its page', async ({page}) => {
+        // arrange
+        await page.getByTestId('sidebar-section').hover();
+        await page.getByTestId('sidebar-section-new').click();
+
+        // act
+        await page.getByTestId('tree-draft-input').fill(TYPED_PICTURE);
+        await page.getByTestId('tree-draft-input').press('Enter');
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(TYPED_PICTURE));
+        expect(fs.existsSync(fixtureFile(TYPED_PICTURE))).toBe(true);
     });
 
     test('a title with a date in it is still a note', async ({page}) => {
@@ -319,7 +337,7 @@ test.describe.serial('file management', () => {
         await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-children"]').getByTestId('tree-empty')).toHaveText(text.dir.noNotes);
         await shot(page, 'files-empty-folder');
         await expect(page.getByTestId('dir-empty-new-folder')).toBeVisible();
-        await page.getByTestId('dir-empty-new-page').click();
+        await page.getByTestId('dir-empty-new-file').click();
         // the name is typed in the list the reader is looking at, not in the tree
         await expect(page.getByTestId('dir-draft-input')).toBeFocused();
         await expect(page.getByTestId('tree-draft')).toHaveCount(0);
@@ -352,6 +370,39 @@ test.describe.serial('file management', () => {
         await page.getByTestId('dir-draft-input').press('Enter');
         await expect(page).toHaveURL(new RegExp(`${routes.edit(`${BLANK_FOLDER}/second.md`)}$`));
         expect(fs.existsSync(fixtureFile(`${BLANK_FOLDER}/second.md`))).toBe(true);
+    });
+
+    test('a folder list kept while the next one loads creates in the folder it shows', async ({page}) => {
+        // arrange
+        const held = 'e2e-fm-held';
+        writeFixture(`${held}/inner/note.md`, '# Note\n');
+        let release;
+        const waiting = new Promise((resolve) => {
+            release = resolve;
+        });
+        try {
+            await page.route(`**/api/dir/${held}/inner`, async (route) => {
+                await waiting;
+                await route.continue();
+            });
+            await page.goto(routes.dir(held));
+            await page.locator(`[data-testid=dir-row][data-path="${held}/inner"]`).click();
+            await expect(page).toHaveURL(MAIN.url.dir(`${held}/inner`));
+            await expect(page.getByTestId('dir-title')).toHaveText(held);
+
+            // act
+            await page.getByTestId('dir-new').click();
+            await page.getByTestId('dir-new-folder').click();
+            await page.getByTestId('dir-draft-input').fill('made');
+            await page.getByTestId('dir-draft-input').press('Enter');
+
+            // assert
+            await expect.poll(() => fs.existsSync(fixtureFile(`${held}/made`))).toBe(true);
+            expect(fs.existsSync(fixtureFile(`${held}/inner/made`))).toBe(false);
+        } finally {
+            release();
+            removeFixture(held);
+        }
     });
 
     test('the sidebar still names a new entry in the tree', async ({page}) => {
@@ -449,6 +500,22 @@ test.describe('file pages', () => {
         await expect(page.getByTestId('doc-lightbox-image')).toBeVisible();
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+    });
+
+    test('Back with the viewer of a picture open closes it and leaves the page free', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(PAGES));
+        await page.locator(`[data-testid=dir-row][data-path="${PAGES}/pic.png"]`).click();
+        await page.getByTestId('file-preview').click();
+        await expect(page.getByTestId('doc-lightbox-image')).toBeVisible();
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page.getByTestId('dir')).toBeVisible();
+        await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+        expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('');
     });
 
     test('a text file is numbered lines, and Copy takes the text alone', async ({page}) => {

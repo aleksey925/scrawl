@@ -1,6 +1,5 @@
 import {
   ActionIcon,
-  Box,
   Button,
   Center,
   CloseButton,
@@ -17,41 +16,22 @@ import { modals } from '@mantine/modals';
 import { useEffect, useState, type JSX } from 'react';
 
 import { api } from '../api/client';
-import type { FileResponse, HistoryEntry, HistoryVersionResponse } from '../api/types';
+import { ApiError } from '../api/errors';
+import type { HistoryEntry, HistoryVersionResponse } from '../api/types';
 import { errorText, useApi, type AsyncState } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
+import { absoluteTime, versionTime } from '../components/formats';
 import { RenderedDiff, type DiffLayout } from '../diff/RenderedDiff';
-import { shortTime } from '../components/formats';
 import { IconMaximize, IconMinimize } from '../icons';
 import { localStore, readText, writeText } from '../storage';
-import { layoutBreakpoints, useBelow } from '../theme';
-import { blockNames } from '../themes';
+import { layout, layoutBreakpoints, useBelow } from '../theme';
+import { blockColorOf, blockStyle, type BlockName } from '../themes';
 import { showToast } from '../toast';
 
 import { DiffView } from './DiffView';
 import classes from './HistoryDialog.module.css';
 import { useNav } from './NavContext';
 import { useMutationState } from './useMutationState';
-
-function formatWhen(at: string): string {
-  return new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-}
-
-// versionTime is when a version was made, the way a list of them reads: the
-// day in words while it is recent, the date after that
-export function versionTime(at: string, now: Date = new Date()): string {
-  const when = new Date(at);
-  const time = when.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-  const day = (date: Date): number => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  const days = Math.round((day(now) - day(when)) / 86_400_000);
-  if (days === 0) {
-    return `Today, ${time}`;
-  }
-  if (days === 1) {
-    return `Yesterday, ${time}`;
-  }
-  return shortTime(at);
-}
 
 // whoOf is the name a version shows: an API token's name without its prefix,
 // and a change made outside the app said in words
@@ -67,7 +47,7 @@ function whoOf(actor: string): string {
 
 // tagOf is the word beside a version: how it was made, when that was not in
 // the app, and otherwise what it did to the note
-export function tagOf(entry: HistoryEntry): { label: string; color: string } {
+function tagOf(entry: HistoryEntry): { label: string; color: BlockName } {
   if (entry.actor.startsWith('token:')) {
     return { label: 'API', color: 'purple' };
   }
@@ -86,19 +66,21 @@ export function tagOf(entry: HistoryEntry): { label: string; color: string } {
   }
 }
 
-// avatarColor gives everybody one block color of their own, the same every time
-function avatarColor(name: string): string {
-  let sum = 0;
-  for (const char of name) {
-    sum = (sum * 31 + (char.codePointAt(0) ?? 0)) % 9973;
-  }
-  return blockNames[sum % blockNames.length] ?? 'gray';
-}
-
 // sameAsNow is a version holding the text the note has now, which the server
 // tells apart from a deletion by the blob a deletion lacks
 function sameAsNow(entry: HistoryEntry): boolean {
   return !entry.restorable && entry.blob !== '';
+}
+
+async function diskRev(path: string, signal: AbortSignal): Promise<string> {
+  try {
+    return (await api.file(path, { signal })).rev;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return '';
+    }
+    throw error;
+  }
 }
 
 function restoreReason(entry: HistoryEntry): string | undefined {
@@ -190,7 +172,7 @@ interface VersionRowProps {
 function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Element {
   const who = whoOf(entry.actor);
   const tag = tagOf(entry);
-  const color = avatarColor(who);
+  const color = blockColorOf(who);
   return (
     <button
       type="button"
@@ -202,7 +184,7 @@ function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Ele
       onClick={onPick}
     >
       <span className={classes.line}>
-        <span data-testid="version-when" className={classes.time} title={formatWhen(entry.at)}>
+        <span data-testid="version-when" className={classes.time} title={absoluteTime(entry.at)}>
           {versionTime(entry.at)}
           {sameAsNow(entry) && <span className={classes.current}> current</span>}
         </span>
@@ -210,7 +192,7 @@ function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Ele
       <span className={classes.line}>
         <span
           className={classes.avatar}
-          style={{ background: `var(--scrawl-bg-${color})`, color: `var(--scrawl-color-${color})` }}
+          style={blockStyle(color)}
           aria-hidden
         >
           {who.slice(0, 1).toUpperCase()}
@@ -222,7 +204,7 @@ function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Ele
           data-testid="version-kind"
           data-kind={entry.kind}
           className={classes.kind}
-          style={{ background: `var(--scrawl-bg-${tag.color})`, color: `var(--scrawl-color-${tag.color})` }}
+          style={blockStyle(tag.color)}
         >
           {tag.label}
         </span>
@@ -239,18 +221,19 @@ function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Ele
 export interface HistoryDialogProps {
   path: string;
   onClose: () => void;
-  // onRestored lets the note behind the dialog read the text written back
-  onRestored: () => void;
+  // onNoteChanged lets the note behind the dialog read its text again, after a
+  // restore or after a conflict showed it had changed
+  onNoteChanged: () => void;
 }
 
 // HistoryDialog is the history of a note over the note itself: what the picked
 // version changed on the left, every version on the right, Restore below them
-export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps): JSX.Element {
+export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogProps): JSX.Element {
   const { canWrite } = useNav();
   const reportMutation = useMutationState();
-  const phone = useBelow(layoutBreakpoints.compactTopbar);
+  const phone = useBelow(layoutBreakpoints.phone);
   const [mode, setMode] = useStoredChoice('scrawl.history.diff', diffModes);
-  const [layout, setLayout] = useStoredChoice('scrawl.history.layout', diffLayouts);
+  const [diffLayout, setDiffLayout] = useStoredChoice('scrawl.history.layout', diffLayouts);
   const [size, setSize] = useStoredChoice('scrawl.history.size', dialogSizes);
   const expanded = size === 'expanded' && !phone;
 
@@ -261,15 +244,15 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
 
   const history = useApi((signal) => api.history(path, { signal }), [path, token]);
 
-  // the revision on disk a restore is checked against. The version list does
-  // not carry it, and only a reader who may write ever needs it.
-  const file = useApi<FileResponse | undefined>(
-    (signal) => (canWrite ? api.file(path, { signal }) : Promise.resolve(undefined)),
+  // the revision on disk a restore is checked against, empty for a note that
+  // was deleted. Only a reader who may write ever needs it.
+  const disk = useApi<string | undefined>(
+    (signal) => (canWrite ? diskRev(path, signal) : Promise.resolve(undefined)),
     [path, canWrite, token],
   );
 
   const entries = history.data?.entries ?? [];
-  const selected = entries.find((entry) => entry.rev === selectedRev) ?? entries[0];
+  const selected = entries.find((row) => row.rev === selectedRev) ?? entries[0];
 
   const detail = useApi<HistoryVersionResponse | undefined>(
     (signal) =>
@@ -281,7 +264,7 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
     setSelectedRev((prev) => prev ?? history.data?.entries[0]?.rev);
   }, [history.data]);
 
-  const rev = file.data?.rev;
+  const rev = disk.data;
 
   async function runRestore(entry: HistoryEntry, base: string): Promise<void> {
     // a second restore carries the revision this page was built from, which the
@@ -298,7 +281,7 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
       }
       reportMutation(outcome.state, 'Restored');
       setToken((seen) => seen + 1);
-      onRestored();
+      onNoteChanged();
     } catch (error) {
       showToast('error', { title: 'Restore failed', message: errorText(error) });
     } finally {
@@ -314,7 +297,7 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
       title: 'Restore this version?',
       children: (
         <Text data-testid="modal" data-variant="confirm" size="sm">
-          The note is overwritten with the version from {formatWhen(entry.at)}. The text it has now stays in history
+          The note is overwritten with the version from {absoluteTime(entry.at)}. The text it has now stays in history
           and can be restored back.
         </Text>
       ),
@@ -339,8 +322,6 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
         transitionProps={{ transition: dialogTransition }}
         withCloseButton={false}
         padding={0}
-        radius="xl"
-        shadow="lg"
         centered
         aria-label="History"
         classNames={{ content: classes.content, body: classes.body }}
@@ -368,8 +349,8 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
                 data-testid="history-diff-layout"
                 className={classes.toggle}
                 size="xs"
-                value={layout}
-                onChange={setLayout}
+                value={diffLayout}
+                onChange={setDiffLayout}
                 aria-label="Lay out the change"
                 data={[
                   { value: 'split', label: 'Split' },
@@ -382,7 +363,7 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
             </span>
           </div>
           <div className={classes.diff}>
-            {selected !== undefined && <VersionDiff state={detail} mode={mode} layout={layout} />}
+            {selected !== undefined && <VersionDiff state={detail} mode={mode} layout={diffLayout} />}
           </div>
         </section>
 
@@ -404,7 +385,7 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
                 aria-pressed={expanded}
                 onClick={() => setSize(expanded ? 'normal' : 'expanded')}
               >
-                {expanded ? <IconMinimize size={16} /> : <IconMaximize size={16} />}
+                {expanded ? <IconMinimize size={layout.iconSizeSmall} /> : <IconMaximize size={layout.iconSizeSmall} />}
               </ActionIcon>
             )}
             <CloseButton data-testid="history-close" aria-label="Close the history" onClick={onClose} />
@@ -419,13 +400,13 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
                     Nothing was recorded for this note.
                   </div>
                 ) : (
-                  data.entries.map((entry) => (
+                  data.entries.map((version) => (
                     <VersionRow
-                      key={entry.rev}
-                      entry={entry}
+                      key={version.rev}
+                      entry={version}
                       path={path}
-                      selected={entry.rev === selected?.rev}
-                      onPick={() => setSelectedRev(entry.rev)}
+                      selected={version.rev === selected?.rev}
+                      onPick={() => setSelectedRev(version.rev)}
                     />
                   ))
                 )
@@ -467,23 +448,9 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
           <Text size="sm" fw={500} c="dimmed">
             On disk now
           </Text>
-          <Box
-            data-testid="history-conflict-current"
-            component="pre"
-            style={{
-              margin: 0,
-              padding: 12,
-              maxHeight: 300,
-              overflow: 'auto',
-              border: '1px solid var(--scrawl-border)',
-              borderRadius: 'var(--mantine-radius-md)',
-              background: 'var(--scrawl-sidebar)',
-              fontFamily: 'var(--mantine-font-family-monospace)',
-              fontSize: 12,
-            }}
-          >
+          <pre data-testid="history-conflict-current" className={classes.conflictText}>
             {conflict ?? ''}
-          </Box>
+          </pre>
           <Group justify="flex-end" gap="sm">
             <Button data-testid="history-conflict-cancel" variant="default" onClick={() => setConflict(undefined)}>
               Cancel
@@ -493,6 +460,7 @@ export function HistoryDialog({ path, onClose, onRestored }: HistoryDialogProps)
               onClick={() => {
                 setConflict(undefined);
                 setToken((seen) => seen + 1);
+                onNoteChanged();
               }}
             >
               Reload

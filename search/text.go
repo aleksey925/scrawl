@@ -124,7 +124,7 @@ func matchTerm(text string, term queryTerm, at int) int {
 	if term.typo {
 		// the postings say a term one edit away starts here, so the match is
 		// the word itself
-		return matchPrefixAt(text, "", at)
+		return wordEndAt(text, at)
 	}
 	if term.prefix {
 		return matchPrefixAt(text, term.text, at)
@@ -159,7 +159,15 @@ func matchPrefixAt(text, term string, at int) int {
 	if i < 0 {
 		return -1
 	}
+	return wordEndAt(text, i)
+}
 
+// wordEndAt returns the offset past the word that runs on at at, or -1.
+func wordEndAt(text string, at int) int {
+	if at < 0 || at > len(text) {
+		return -1
+	}
+	i := at
 	for i < len(text) {
 		r, size := utf8.DecodeRuneInString(text[i:])
 		if !wordRune(r) && !ignorable(r) {

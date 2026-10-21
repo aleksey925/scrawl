@@ -1,4 +1,5 @@
 import type { MantineColorsTuple } from '@mantine/core';
+import type { CSSProperties } from 'react';
 
 // The color themes, one JSON file each in theme/themes/ at the root of the
 // repository, where the go server reads them too. A palette is named by the
@@ -54,6 +55,20 @@ export interface Palette {
 export const blockNames = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const;
 
 export type BlockName = (typeof blockNames)[number];
+
+// blockColorOf picks a block color for a name, the same one every time, so a
+// space or a person is recognized by the color before the name is read
+export function blockColorOf(name: string): BlockName {
+  let hash = 0;
+  for (const char of name) {
+    hash = (hash * 31 + (char.codePointAt(0) ?? 0)) >>> 0;
+  }
+  return blockNames[hash % blockNames.length] ?? 'gray';
+}
+
+export function blockStyle(name: BlockName): CSSProperties {
+  return { background: `var(--scrawl-bg-${name})`, color: `var(--scrawl-color-${name})` };
+}
 
 export interface BlockColor {
   text: string;

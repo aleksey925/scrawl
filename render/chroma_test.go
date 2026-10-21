@@ -2,9 +2,12 @@ package render
 
 import (
 	"bytes"
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/alecthomas/chroma/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -14,20 +17,28 @@ import (
 func TestChromaCSS(t *testing.T) {
 	css := string(ChromaCSS())
 
-	t.Run("a theme's code colors are under its scope", func(t *testing.T) {
-		for _, scope := range theme.Scopes() {
-			assert.Contains(t, css, scope.Selector+" .chroma .k { color: "+scope.Theme.Code["keyword"]+" }", scope.Selector)
-			assert.Contains(t, css, scope.Selector+" .chroma .c { color: "+scope.Theme.Code["comment"]+"; font-style: italic }", scope.Selector)
+	t.Run("every code color names its tokens", func(t *testing.T) {
+		// assert
+		assert.ElementsMatch(t, theme.CodeNames, slices.Collect(maps.Keys(codeTokens)))
+	})
+
+	t.Run("every code color of a theme is under its scope", func(t *testing.T) {
+		// assert
+		for _, scoped := range theme.Scopes() {
+			for _, name := range theme.CodeNames {
+				class := chroma.StandardTypes[codeTokens[name]]
+				assert.Contains(t, css, scoped.Selector+" .chroma ."+class+" { color: "+scoped.Theme.Code[name], scoped.Selector)
+			}
 		}
 	})
 
 	t.Run("every scope is painted by the style of its theme", func(t *testing.T) {
-		for _, scope := range theme.Scopes() {
+		for _, scoped := range theme.Scopes() {
 			var want bytes.Buffer
-			writeChromaRules(&want, codeStyle(scope.Theme), scope.Selector)
-			assert.Contains(t, css, want.String(), scope.Selector)
-			if scope.Media != "" {
-				assert.Contains(t, css, "@media "+scope.Media+" {\n"+want.String())
+			writeChromaRules(&want, codeStyle(scoped.Theme), scoped.Selector)
+			assert.Contains(t, css, want.String(), scoped.Selector)
+			if scoped.Media != "" {
+				assert.Contains(t, css, "@media "+scoped.Media+" {\n"+want.String())
 			}
 		}
 	})

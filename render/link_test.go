@@ -42,7 +42,7 @@ func TestResolve(t *testing.T) {
 	tr := &linkTransformer{pagePrefix: defaultPagePrefix, rawPrefix: defaultRawPrefix}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tr.resolve(tt.dest, tt.dir))
+			assert.Equal(t, tt.want, tr.resolveEmbed(tt.dest, tt.dir))
 		})
 	}
 }
@@ -75,8 +75,8 @@ func TestResolveIsIdempotent(t *testing.T) {
 	tr := &linkTransformer{pagePrefix: defaultPagePrefix, rawPrefix: defaultRawPrefix}
 	for _, dest := range []string{"a/b.md", "./img.png", "https://ya.ru", "#Общее", "../c.md#раздел"} {
 		t.Run(dest, func(t *testing.T) {
-			once := tr.resolve(dest, "dir/sub")
-			assert.Equal(t, once.dest, tr.resolve(once.dest, "dir/sub").dest)
+			once := tr.resolveEmbed(dest, "dir/sub")
+			assert.Equal(t, once.dest, tr.resolveEmbed(once.dest, "dir/sub").dest)
 		})
 	}
 }
@@ -228,7 +228,7 @@ func TestResolveRelative(t *testing.T) {
 			tr := &linkTransformer{relative: true, pageExt: tt.ext}
 
 			// act
-			got := tr.resolve(tt.dest, "dir")
+			got := tr.resolveEmbed(tt.dest, "dir")
 
 			// assert
 			assert.Equal(t, tt.want, got)
@@ -259,7 +259,7 @@ func TestResolveRelativeFolderPage(t *testing.T) {
 			tr := &linkTransformer{relative: true, pageExt: ".html", folderPage: "index.html", indexPage: "index.md.html"}
 
 			// act
-			got := tr.resolve(tt.dest, "dir")
+			got := tr.resolveEmbed(tt.dest, "dir")
 
 			// assert
 			assert.Equal(t, tt.want, got)

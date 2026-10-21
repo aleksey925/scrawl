@@ -108,7 +108,7 @@ type SitePage struct {
 	Data []byte
 	// Crumbs is the path to the page, the last one with no Href
 	Crumbs []Link
-	// HTML is the note, "" for a folder with neither an index nor a readme
+	// HTML is the note, "" on a folder's page
 	HTML string
 	// Entries is what a folder holds, nil on the page of a note
 	Entries []Link
@@ -260,6 +260,7 @@ func plural(n int, word string) string {
 type rowsData struct {
 	File     File
 	Layout   Layout
+	Split    bool
 	Segments []segment
 }
 
@@ -267,7 +268,7 @@ func rowsOf(file File, context int, layout Layout) rowsData {
 	if layout == "" {
 		layout = Split
 	}
-	return rowsData{File: file, Layout: layout, Segments: fold(file.Rows, context)}
+	return rowsData{File: file, Layout: layout, Split: layout == Split, Segments: fold(file.Rows, context)}
 }
 
 // cellData is one side of a split row; a nil Side is a block that side does

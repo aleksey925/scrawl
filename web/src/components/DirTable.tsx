@@ -1,8 +1,11 @@
-import { IconArrowUp, IconChevronRight, IconClock, IconFileText, IconFolder, IconHash } from '../icons';
-import { useCallback, useEffect, useRef, useState, type JSX, type KeyboardEvent, type MouseEvent } from 'react';
+import {
+  useCallback, useEffect, useRef, useState,
+  type JSX, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactElement, type ReactNode,
+} from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import type { DirEntry, EntryKind } from '../api/types';
+import { IconArrowUp, IconChevronRight, IconClock, IconFileText, IconFolder, IconHash } from '../icons';
 import { directoryUrl, isMarkdown } from '../paths';
 import { usePlatform } from '../platform';
 import { useReaderExtensions } from '../shell/extensions';
@@ -14,7 +17,7 @@ import { layout, layoutBreakpoints, useBelow } from '../theme';
 import classes from './DirTable.module.css';
 import { EntryIcon } from './EntryIcon';
 import { LiftedRow } from './LiftedRow';
-import { absoluteTime, fileSize, itemCount, shortDate, shortTime } from './formats';
+import { absoluteTime, countOf, fileSize, shortDate, shortTime } from './formats';
 
 export interface DirTableProps {
   // the folder listed, "" for the root, which has nothing above it
@@ -33,11 +36,12 @@ function opensRow(event: MouseEvent): boolean {
 }
 
 export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }: DirTableProps): JSX.Element {
-  const { physicalUrl, filePages } = usePlatform();
+  const { physicalUrl } = usePlatform();
+  const filePages = useReaderExtensions().FileView !== undefined;
   const navigate = useNavigate();
   const phone = useBelow(layoutBreakpoints.phone);
-  const folders = entries.filter((entry) => entry.is_dir);
-  const files = entries.filter((entry) => !entry.is_dir);
+  const folders = entries.filter((listed) => listed.is_dir);
+  const files = entries.filter((listed) => !listed.is_dir);
   const draftRow =
     draft === undefined || onDraftSubmit === undefined || onDraftCancel === undefined ? null : (
       <DraftRow kind={draft} onSubmit={onDraftSubmit} onCancel={onDraftCancel} />
@@ -79,14 +83,7 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
               {entry.name}
             </a>
           )}
-          {entry.folder_page === true && (
-            <span data-testid="dir-folder-page" className={classes.tag}>
-              Folder page
-            </span>
-          )}
-          {/* a listing is the only surface that shows attachments, and with a
-              remote an unpushed image is a real case /raw/ has no chrome for */}
-          <SyncBadge path={entry.path} />
+          <RowTags entry={entry} />
         </span>
       </td>
       <td className={classes.size}>{entry.is_dir ? <span className={classes.dim}>-</span> : fileSize(entry.size)}</td>
@@ -123,13 +120,13 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
             </th>
             <th className={classes.size}>
               <span>
-                <IconHash size={15} aria-hidden />
+                <IconHash size={layout.iconSizeColumn} aria-hidden />
                 Size
               </span>
             </th>
             <th className={classes.date}>
               <span>
-                <IconClock size={15} aria-hidden />
+                <IconClock size={layout.iconSizeColumn} aria-hidden />
                 Modified
               </span>
             </th>
@@ -164,6 +161,26 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
   );
 }
 
+// RowTags are what follows a name: the folder page tag and the sync badge
+function RowTags({ entry }: { entry: DirEntry }): JSX.Element {
+  return (
+    <>
+      {entry.folder_page === true && (
+        <span data-testid="dir-folder-page" className={classes.tag}>
+          Folder page
+        </span>
+      )}
+      <SyncBadge path={entry.path} />
+    </>
+  );
+}
+
+// the row's `⋯` opens its menu and leaves the row as it is, so a press on it
+// neither shrinks the row nor lifts it
+function onMenuButton(event: MouseEvent | PointerEvent): boolean {
+  return event.target instanceof Element && event.target.closest('button') !== null;
+}
+
 interface PhoneRowProps {
   entry: DirEntry;
   routed: boolean;
@@ -171,7 +188,7 @@ interface PhoneRowProps {
 }
 
 function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
-  const meta = entry.is_dir ? itemCount(entry.items ?? 0) : `${fileSize(entry.size)} · ${shortDate(entry.mod_time)}`;
+  const meta = entry.is_dir ? countOf(entry.items ?? 0, 'item') : `${fileSize(entry.size)} · ${shortDate(entry.mod_time)}`;
   const body = (
     <>
       {entry.is_dir ? (
@@ -184,12 +201,7 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
           <span data-testid="dir-row-name" className={classes.listLabel}>
             {entry.name}
           </span>
-          {entry.folder_page === true && (
-            <span data-testid="dir-folder-page" className={classes.tag}>
-              Folder page
-            </span>
-          )}
-          <SyncBadge path={entry.path} />
+          <RowTags entry={entry} />
         </span>
         <span data-testid="dir-row-meta" className={classes.listMeta}>
           {meta}
@@ -205,6 +217,19 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
   const [lifted, setLifted] = useState<DOMRect | undefined>(undefined);
   const lift = useCallback(() => setLifted(rowRef.current?.getBoundingClientRect()), []);
   const longPress = useLongPress(lift, setHolding);
+  const menu = (opened: boolean, setOpened: (opened: boolean) => void, target?: ReactElement): ReactNode =>
+    RowMenu !== undefined && (
+      <RowMenu
+        path={entry.path}
+        isDir={entry.is_dir}
+        name={entry.name}
+        touch
+        editUrl={entry.edit_url}
+        opened={opened}
+        onOpenedChange={setOpened}
+        target={target}
+      />
+    );
   const link = routed ? (
     <Link className={classes.listLink} to={entry.url}>
       {body}
@@ -215,9 +240,6 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
     </a>
   );
 
-  // the row's menu is the tree's: its button opens it, a long press or a right
-  // click anywhere on the row lifts the row and opens it from there, and a
-  // site, which has no menu to offer, leaves the row a link
   return (
     <>
       <div
@@ -232,43 +254,27 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
           ? {}
           : {
               ...longPress,
+              onPointerDown: (event: PointerEvent) => {
+                if (!onMenuButton(event)) {
+                  longPress.onPointerDown(event);
+                }
+              },
               onContextMenu: (event: MouseEvent) => {
                 event.preventDefault();
-                if (event.currentTarget.contains(event.target as Node)) {
+                if (event.currentTarget.contains(event.target as Node) && !onMenuButton(event)) {
                   lift();
                 }
               },
             })}
       >
         {link}
-        {RowMenu !== undefined && (
-          <RowMenu
-            path={entry.path}
-            isDir={entry.is_dir}
-            name={entry.name}
-            touch
-            editUrl={entry.edit_url}
-            opened={menuOpened}
-            onOpenedChange={setMenuOpened}
-          />
-        )}
+        {menu(menuOpened, setMenuOpened)}
       </div>
       {RowMenu !== undefined && lifted !== undefined && (
         <LiftedRow
           rect={lifted}
           onDropped={() => setLifted(undefined)}
-          menu={(card, opened, setOpened) => (
-            <RowMenu
-              path={entry.path}
-              isDir={entry.is_dir}
-              name={entry.name}
-              touch
-              editUrl={entry.edit_url}
-              opened={opened}
-              onOpenedChange={setOpened}
-              target={card}
-            />
-          )}
+          menu={(card, opened, setOpened) => menu(opened, setOpened, card)}
         >
           <div className={classes.listLink}>{body}</div>
         </LiftedRow>
@@ -289,7 +295,6 @@ function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const page = kind === 'file';
 
   useEffect(() => inputRef.current?.focus(), []);
 
@@ -306,18 +311,18 @@ function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
   };
 
   return (
-    <tr data-testid="dir-draft" data-entry={page ? 'file' : 'dir'} className={classes.draft}>
+    <tr data-testid="dir-draft" data-entry={kind} className={classes.draft}>
       <td className={classes.name}>
         <span>
-          {page ? <IconFileText size={layout.iconSizeSmall} aria-hidden /> : <IconFolder size={layout.iconSizeSmall} aria-hidden />}
+          {kind === 'file' ? <IconFileText size={layout.iconSizeSmall} aria-hidden /> : <IconFolder size={layout.iconSizeSmall} aria-hidden />}
           <input
             data-testid="dir-draft-input"
             ref={inputRef}
             className={classes.draftInput}
             value={name}
             disabled={busy}
-            placeholder={page ? 'File name' : 'Folder name'}
-            aria-label={page ? 'Name of the new file' : 'Name of the new folder'}
+            placeholder={kind === 'file' ? 'File name' : 'Folder name'}
+            aria-label={kind === 'file' ? 'Name of the new file' : 'Name of the new folder'}
             autoComplete="off"
             spellCheck={false}
             onChange={(event) => setName(event.currentTarget.value)}

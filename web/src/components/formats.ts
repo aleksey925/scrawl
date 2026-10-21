@@ -1,26 +1,3 @@
-const units: [Intl.RelativeTimeFormatUnit, number][] = [
-  ['year', 365 * 24 * 3600],
-  ['month', 30 * 24 * 3600],
-  ['week', 7 * 24 * 3600],
-  ['day', 24 * 3600],
-  ['hour', 3600],
-  ['minute', 60],
-];
-
-const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-
-// relativeTime says how long ago a moment was, in the largest unit it fills:
-// "3 days ago", "last week", "just now"
-export function relativeTime(at: string, now: Date = new Date()): string {
-  const seconds = (new Date(at).getTime() - now.getTime()) / 1000;
-  for (const [unit, size] of units) {
-    if (Math.abs(seconds) >= size) {
-      return relative.format(Math.round(seconds / size), unit);
-    }
-  }
-  return 'just now';
-}
-
 export function absoluteTime(at: string): string {
   return new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
@@ -45,12 +22,31 @@ export function shortDate(at: string): string {
   return new Date(at).toLocaleDateString('en', { month: 'short', day: 'numeric' });
 }
 
-export function itemCount(count: number): string {
-  return `${count} ${count === 1 ? 'item' : 'items'}`;
+// countOf writes a count with its word: "1 item", "3 items"
+export function countOf(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
 // shortTime is when a file changed, the way a folder's list writes it:
 // "Oct 17, 12:30"
 export function shortTime(at: string): string {
   return new Date(at).toLocaleString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+}
+
+const dayMs = 86_400_000;
+
+// versionTime is when a version was made, the way a list of them reads: the
+// day in words while it is recent, the date after that
+export function versionTime(at: string, now: Date = new Date()): string {
+  const when = new Date(at);
+  const time = when.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const day = (date: Date): number => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const days = Math.round((day(now) - day(when)) / dayMs);
+  if (days === 0) {
+    return `Today, ${time}`;
+  }
+  if (days === 1) {
+    return `Yesterday, ${time}`;
+  }
+  return shortTime(at);
 }

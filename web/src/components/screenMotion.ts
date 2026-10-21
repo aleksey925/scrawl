@@ -11,9 +11,8 @@ type Motion = 'forward' | 'back' | 'none';
 // the reader is going to.
 export const ScreenReady = createContext(true);
 
-// the move the reader asked for by what they tapped, which the kind of
-// navigation alone does not say: the way up the folders pushes an address, and
-// a tab is switched to, not moved to
+// the move the reader asked for by what they tapped: the way up pushes an
+// address, and a tab is switched to, not moved to
 let planned: { pathname: string; motion: Motion } | undefined;
 
 // planMotion names the move the next page at pathname enters with
@@ -26,6 +25,13 @@ let leaving: Animation | undefined;
 
 // the longest a swiped screen stays away for a next one that never enters
 const leaveHoldMs = 3000;
+
+// a screen moves on screenEasing; a lifted card and a menu grow on springEasing,
+// which overshoots a little
+export const screenEasing = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+export const springEasing = 'cubic-bezier(0.2, 0.9, 0.3, 1.15)';
+// swipeEndMs is how long a swiped page takes to leave or to settle back
+export const swipeEndMs = 200;
 
 // motionMs is how long a move takes, none at all for a reader who asked the
 // system for less motion
@@ -40,8 +46,8 @@ export function motionMs(ms: number): number {
 export function leaveScreen(element: HTMLElement, from: number): Promise<boolean> {
   leaving?.cancel();
   const animation = element.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100%)' }], {
-    duration: motionMs(200),
-    easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+    duration: motionMs(swipeEndMs),
+    easing: screenEasing,
     fill: 'forwards',
   });
   leaving = animation;
@@ -103,7 +109,7 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
     const from = motion === 'forward' ? offset : `-${offset}`;
     ref.current.animate([{ transform: `translateX(${from})`, opacity: 0 }, { transform: 'none', opacity: 1 }], {
       duration: motionMs(enterMs),
-      easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+      easing: screenEasing,
     });
   }, [ready, location.key]);
 }

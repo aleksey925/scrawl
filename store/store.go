@@ -207,7 +207,7 @@ func (s *Store) list(cleaned string) ([]FileInfo, error) {
 	res := make([]FileInfo, 0, len(entries))
 	for _, ent := range entries {
 		child := join(cleaned, ent.Name())
-		if s.excluded(child, ent.Name()) || ent.Type()&fs.ModeSymlink != 0 {
+		if s.unlisted(child, ent) {
 			continue
 		}
 		fi, infoErr := ent.Info()
@@ -219,6 +219,30 @@ func (s *Store) list(cleaned string) ([]FileInfo, error) {
 
 	slices.SortFunc(res, byDirThenName)
 	return res, nil
+}
+
+// Count is how many entries List returns for a directory, read without a stat
+// of each one.
+func (s *Store) Count(dir string) (int, error) {
+	cleaned, err := s.checkPath(dir)
+	if err != nil {
+		return 0, err
+	}
+	entries, err := fs.ReadDir(s.root.FS(), cleaned)
+	if err != nil {
+		return 0, osError("list", displayPath(cleaned), err)
+	}
+	res := 0
+	for _, ent := range entries {
+		if !s.unlisted(join(cleaned, ent.Name()), ent) {
+			res++
+		}
+	}
+	return res, nil
+}
+
+func (s *Store) unlisted(full string, ent fs.DirEntry) bool {
+	return s.excluded(full, ent.Name()) || ent.Type()&fs.ModeSymlink != 0
 }
 
 // Open returns a reader for a file. The caller closes it.

@@ -251,6 +251,9 @@
   --scrawl-control-height: 28px;
   --scrawl-control-height-large: 36px;
   --scrawl-input-font-size: 16px;
+  --scrawl-menu-width: 220px;
+  --scrawl-tabbar-height: 56px;
+  --scrawl-edit-button: 54px;
 }
 
 @media (prefers-color-scheme: light) {

@@ -396,20 +396,18 @@ func historyEntries(entries []history.Entry, current func(like string) string) [
 	return res
 }
 
-// currentBlob answers the id git would give the file on disk now, hashed once
-// and in the hash of the id it is asked to match. A file that is not there
-// answers an empty id, which no version with content has.
+// currentBlob answers the id git would give the file on disk now, hashed once,
+// in the hash of the first id it is asked to match: a repository has one. A
+// file that is not there answers an empty id, which no version with content has.
 func (m *mount) currentBlob(p string) func(like string) string {
 	data, _, err := m.spc.Store.Read(p)
-	ids := map[int]string{}
+	if err != nil {
+		return func(string) string { return "" }
+	}
+	id := ""
 	return func(like string) string {
-		if err != nil {
-			return ""
-		}
-		id, ok := ids[len(like)]
-		if !ok {
+		if id == "" {
 			id = blobID(data, len(like))
-			ids[len(like)] = id
 		}
 		return id
 	}

@@ -38,7 +38,7 @@ const appOnly = [
   /\/src\/api\/client\.ts$/,
   /\/src\/(App|appPlatform|findWorker|routes|main)\.tsx?$/,
   /\/src\/pages\/(EditPage|HistoryPage|SearchPage)\.tsx$/,
-  /\/src\/shell\/(AppLayout|DocumentExtras|ExportMenu|FileActions|FileView|NoteMenu|ResetDialog|RowMenu|SearchDialog|SearchResults|SpaceAlerts|SpaceMenu|SyncControl|useMe|useMutationState)\.tsx?$/,
+  /\/src\/shell\/(AppLayout|DocumentExtras|EditButton|ExportMenu|FileActions|FileView|HistoryDialog|NewEntryDialog|NoteMenu|ResetDialog|RowMenu|SearchDialog|SearchResults|SpaceAlerts|SpaceMenu|SyncControl|TabBar|useMe|useMutationState)\.tsx?$/,
   /\/node_modules\/(@codemirror|@uiw|prettier|mermaid|katex)\//,
 ];
 

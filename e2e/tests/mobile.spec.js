@@ -49,12 +49,28 @@ async function openedMenu(page, testId) {
         .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
 }
 
-// openSpaceMenu opens the menu of the space, which on a phone heads the root
+// tapSpaceMenu opens the menu of the space, which on a phone heads the root
 // list in the top bar
-async function openSpaceMenu(page) {
+async function tapSpaceMenu(page) {
     await page.goto(routes.home());
     await page.getByTestId('space-menu').tap();
     await openedMenu(page, 'space-menu-dropdown');
+}
+
+// a finger resting this long is a long press: the app counts one at 500ms
+const LONG_PRESS_HOLD = 700;
+
+// longPress rests a finger at x, y for a long press, then lifts it
+async function longPress(page, x, y) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x, y}]});
+    await page.waitForTimeout(LONG_PRESS_HOLD);
+    await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+}
+
+// asStandalone opens the app as one opened from the home screen of an iPhone
+async function asStandalone(page) {
+    await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
 }
 
 // boxOf is where an element sits on the screen, in whole pixels
@@ -163,9 +179,55 @@ test.describe('mobile', () => {
 
         const folder = () => MAIN.url.dir(docs.folder.path);
 
+        // inStandalone opens the app as one opened from the home screen, and logs
+        // every path it goes to and whether a touch landed while the screen was
+        // still moving
+        async function inStandalone(page) {
+            await asStandalone(page);
+            await page.addInitScript(() => {
+                window.visited = [];
+                const log = () => window.visited.push(location.pathname.replace(/\/$/, ''));
+                for (const name of ['pushState', 'replaceState']) {
+                    const original = history[name];
+                    history[name] = function (...args) {
+                        const res = original.apply(this, args);
+                        log();
+                        return res;
+                    };
+                }
+                window.addEventListener('popstate', log);
+                document.addEventListener('touchstart', () => {
+                    window.tappedMoving = (document.querySelector('[data-screen]')?.getAnimations() ?? [])
+                        .some((animation) => animation.playState === 'running');
+                }, {capture: true});
+            });
+        }
+
+        // swipeAndTap swipes the page away and taps the middle of what the testid
+        // names at once, while the page is still leaving: a tap of playwright
+        // waits for the element first and can land after the move is over
+        async function swipeAndTap(page, testId) {
+            const box = await page.getByTestId(testId).boundingBox();
+            await swipe(page, 300);
+            const cdp = await page.context().newCDPSession(page);
+            const point = {x: box.x + box.width / 2, y: box.y + box.height / 2};
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [point]});
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+        }
+
+        // settled waits until nothing on the page moves any more, which is when the
+        // way back would have been taken
+        async function settled(page) {
+            await expect.poll(() => page.evaluate(() => document.getAnimations()
+                .filter((animation) => animation.playState === 'running').length)).toBe(0);
+        }
+
+        const visited = (page) => page.evaluate(() => window.visited);
+        const pathOf = (url) => new URL(url, MAIN.baseURL).pathname.replace(/\/$/, '');
+
         test('in an app from the home screen goes back, and a short one leaves the page', async ({page}) => {
             // arrange
-            await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
+            await asStandalone(page);
             await page.goto(folder());
             await expect(page.getByTestId('dir-row').first()).toBeVisible();
 
@@ -194,23 +256,24 @@ test.describe('mobile', () => {
 
         test('a tab tapped while the swiped page is leaving wins over the way back', async ({page}) => {
             // arrange
-            await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
+            await inStandalone(page);
             await page.goto(folder());
             await expect(page.getByTestId('dir-row').first()).toBeVisible();
 
             // act
-            await swipe(page, 300);
-            await page.getByTestId('tab-recent').tap();
+            await swipeAndTap(page, 'tab-recent');
 
             // assert
+            expect(await page.evaluate(() => window.tappedMoving)).toBe(true);
             await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
-            await page.waitForTimeout(600);
+            await settled(page);
             await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
+            expect(await visited(page)).not.toContain(pathOf(routes.home()));
         });
 
         test('a tab whose screen is still loading when the leave ends keeps its place', async ({page}) => {
             // arrange
-            await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
+            await inStandalone(page);
             await page.goto(routes.doc(DOC));
             await expect(page.locator('[data-screen]')).toBeVisible();
             await page.route(/\/api\/(dir|page)\//, async (route) => {
@@ -219,19 +282,21 @@ test.describe('mobile', () => {
             });
 
             // act
-            await swipe(page, 300);
-            await page.getByTestId('tab-notes').tap();
+            await swipeAndTap(page, 'tab-notes');
 
             // assert
+            expect(await page.evaluate(() => window.tappedMoving)).toBe(true);
             await expect(page).toHaveURL(atHome());
-            await page.waitForTimeout(1500);
+            await expect(page.locator(`[data-testid=dir-row][data-path="${docs.doc.folder}"]`)).toBeVisible();
+            await settled(page);
             await expect(page).toHaveURL(atHome());
+            expect(await visited(page)).not.toContain(pathOf(MAIN.url.dir(docs.doc.folder)));
         });
 
         test('with less motion asked for, a short drag puts the page back with no move', async ({page}) => {
             // arrange
             await page.emulateMedia({reducedMotion: 'reduce'});
-            await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
+            await asStandalone(page);
             await page.goto(folder());
             await expect(page.getByTestId('dir-row').first()).toBeVisible();
 
@@ -248,7 +313,7 @@ test.describe('mobile', () => {
 
         test('a second finger gives the drag up and puts the page back', async ({page}) => {
             // arrange
-            await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
+            await asStandalone(page);
             await page.goto(folder());
             await expect(page.getByTestId('dir-row').first()).toBeVisible();
             const cdp = await page.context().newCDPSession(page);
@@ -289,7 +354,8 @@ test.describe('mobile', () => {
             await opener.tap();
             await expect(menu).toBeVisible();
 
-            // act: the click a finger lifted after a long press sends, with no press of its own
+            // act
+            // the click a finger lifted after a long press sends, with no press of its own
             await page.getByTestId('tap-guard').dispatchEvent('click');
 
             // assert
@@ -309,14 +375,9 @@ test.describe('mobile', () => {
             writeFixture(file, '# Drop me\n');
             await page.goto(MAIN.url.dir(FOLDER));
             const box = await rowOf(page, file).boundingBox();
-            const cdp = await page.context().newCDPSession(page);
 
             // act
-            await cdp.send('Input.dispatchTouchEvent', {
-                type: 'touchStart', touchPoints: [{x: box.x + 80, y: box.y + box.height / 2}],
-            });
-            await page.waitForTimeout(700);
-            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+            await longPress(page, box.x + 80, box.y + box.height / 2);
 
             // assert
             await expect(page.getByTestId('tree-row-menu-dropdown')).toBeVisible();
@@ -336,15 +397,12 @@ test.describe('mobile', () => {
             const file = `${FOLDER}/hang-right.md`;
             writeFixture(file, '# Hang right\n');
             await page.goto(MAIN.url.dir(FOLDER));
-            const cdp = await page.context().newCDPSession(page);
             const width = page.viewportSize().width;
             const row = await rowOf(page, file).boundingBox();
+            // a press on the row's own ⋯ lifts nothing, so the right end is left of it
+            const button = await rowOf(page, file).getByTestId('tree-row-menu').boundingBox();
             const rightAfterLift = async (x) => {
-                await cdp.send('Input.dispatchTouchEvent', {
-                    type: 'touchStart', touchPoints: [{x, y: row.y + row.height / 2}],
-                });
-                await page.waitForTimeout(700);
-                await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+                await longPress(page, x, row.y + row.height / 2);
                 await openedMenu(page, 'tree-row-menu-dropdown');
                 const menu = await page.getByTestId('tree-row-menu-dropdown').boundingBox();
                 await page.touchscreen.tap(width / 2, 60);
@@ -354,7 +412,7 @@ test.describe('mobile', () => {
 
             // act
             const fromLeft = await rightAfterLift(40);
-            const fromRight = await rightAfterLift(width - 40);
+            const fromRight = await rightAfterLift(button.x - 16);
 
             // assert
             expect([fromLeft, fromRight]).toEqual([Math.round(row.x + row.width), Math.round(row.x + row.width)]);
@@ -366,12 +424,7 @@ test.describe('mobile', () => {
             writeFixture(file, '# Lift me\n');
             await page.goto(MAIN.url.dir(FOLDER));
             const box = await rowOf(page, file).boundingBox();
-            const cdp = await page.context().newCDPSession(page);
-            await cdp.send('Input.dispatchTouchEvent', {
-                type: 'touchStart', touchPoints: [{x: box.x + 80, y: box.y + box.height / 2}],
-            });
-            await page.waitForTimeout(700);
-            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+            await longPress(page, box.x + 80, box.y + box.height / 2);
             await expect(page.getByTestId('row-lift')).toBeVisible();
 
             // act
@@ -497,7 +550,7 @@ test.describe('mobile', () => {
 
     test('the space button opens the space menu under it', async ({page}) => {
         // act
-        await openSpaceMenu(page);
+        await tapSpaceMenu(page);
 
         // assert
         const button = await boxOf(page, 'space-menu');
@@ -574,8 +627,8 @@ test.describe('mobile', () => {
         // arrange
         const folder = 'e2e-mobile/short';
         const names = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
-        for (const name of names) {
-            writeFixture(`${folder}/${name}.md`, `# ${name}\n`);
+        for (const stem of names) {
+            writeFixture(`${folder}/${stem}.md`, `# ${stem}\n`);
         }
 
         // act
@@ -953,10 +1006,10 @@ test.describe('mobile', () => {
         // assert
         const dialog = page.locator('.mantine-Modal-content');
         await expect(dialog).toBeVisible();
-        await page.waitForTimeout(400);
-        const box = await dialog.boundingBox();
-        const below = page.viewportSize().height - box.y - box.height;
-        expect(Math.abs(box.y - below)).toBeLessThan(2);
+        await expect.poll(async () => {
+            const box = await dialog.boundingBox();
+            return Math.abs(box.y - (page.viewportSize().height - box.y - box.height));
+        }).toBeLessThan(2);
         await page.getByTestId('modal-cancel').tap();
     });
 
@@ -1011,7 +1064,7 @@ test.describe('mobile', () => {
     });
 
     test('the menu switches the theme and names the account', async ({page}) => {
-        await openSpaceMenu(page);
+        await tapSpaceMenu(page);
         await shot(page, 'mobile-more-menu');
 
         const theme = page.getByTestId('space-menu-theme');
@@ -1063,10 +1116,12 @@ test.describe('mobile', () => {
     });
 
     test('the search opens from its tab and navigates', async ({page}) => {
+        // arrange
         await page.goto(routes.doc(DOC));
         await page.waitForLoadState('networkidle');
-        await page.getByTestId('tab-search').tap();
 
+        // act & assert
+        await page.getByTestId('tab-search').tap();
         await expect(page.getByTestId('search-input')).toBeVisible();
         await page.getByTestId('search-input').fill(docs.search.palette.query);
         await expect(page.getByTestId('search-result').first()).toBeVisible();
@@ -1079,10 +1134,14 @@ test.describe('mobile', () => {
     // an entry is reached by a hash, which react router replaces rather than
     // pushes, and that still has to close the sheet
     test('the outline sheet opens from the note menu', async ({page}) => {
+        // arrange
         await page.goto(routes.doc(DOC));
         await page.getByTestId('note-menu').tap();
+
+        // act
         await page.getByTestId('note-menu-outline').tap();
 
+        // assert
         await expect(page.getByTestId('toc-entry').first()).toBeVisible();
         await shot(page, 'mobile-toc-sheet');
 
@@ -1152,7 +1211,7 @@ test.describe('mobile', () => {
     // so the theme and the space sat three to a fingertip
     test('the rows of every menu are big enough to tap', async ({page}) => {
         // act & assert
-        await openSpaceMenu(page);
+        await tapSpaceMenu(page);
         await expect(page.getByTestId('space-menu-theme')).toBeVisible();
         expect(await tooSmall(page, '[role=menuitem]'), 'the space menu').toEqual([]);
         const themes = await page.getByTestId('space-menu-theme').boundingBox();
@@ -1210,7 +1269,7 @@ test.describe('mobile', () => {
         expect(await tooSmall(page, '[data-testid=dir-empty] button', BUTTON_HEIGHT)).toEqual([]);
 
         // act
-        await page.getByTestId('dir-empty-new-page').tap();
+        await page.getByTestId('dir-empty-new-file').tap();
 
         // assert
         await expect(page.getByTestId('new-entry-name')).toBeInViewport();
@@ -1220,10 +1279,12 @@ test.describe('mobile', () => {
     });
 
     test('the search is usable with the phone turned sideways', async ({page}) => {
+        // arrange
         await page.setViewportSize({width: 844, height: 390});
         await page.goto(routes.doc(DOC));
-        await page.getByTestId('sidebar-search').tap();
 
+        // act & assert
+        await page.getByTestId('sidebar-search').tap();
         await expect(page.getByTestId('search-input')).toBeVisible();
         await page.getByTestId('search-input').fill(docs.search.palette.query);
         await expect(page.getByTestId('search-result').first()).toBeVisible();
@@ -1267,10 +1328,14 @@ test.describe('mobile sync state', () => {
     }
 
     test('the control and the banner reach a phone, which has no tree', async ({page}) => {
+        // arrange
         breakOrigin(wiki.origin);
         await saveStuck(page, SYNC_DOC, '# Mobile sync\n\nstuck.\n');
 
+        // act
         await page.goto(WIKI.doc(SYNC_DOC));
+
+        // assert
         await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
         await expect(page.getByTestId('space-alert')).toBeVisible();
         // a phone has no tree, which is what makes the control the one surface

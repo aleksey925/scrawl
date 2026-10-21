@@ -231,3 +231,15 @@
 .list:focus {
   outline: none;
 }
+
+.conflictText {
+  max-height: 300px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--scrawl-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--scrawl-sidebar);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 12px;
+}

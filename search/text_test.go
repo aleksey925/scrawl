@@ -86,6 +86,7 @@ func TestMatchAt(t *testing.T) {
 		{"offset in the middle", "на сервер", "сервер", 5, 17},
 		{"no match", "сервер", "сеть", 0, -1},
 		{"empty term", "сервер", "", 0, -1},
+		{"empty term at a word's end", " x", "", 0, 0},
 		{"offset past end", "сервер", "сервер", 99, -1},
 		{"negative offset", "сервер", "сервер", -1, -1},
 		{"term longer than text", "сер", "сервер", 0, -1},

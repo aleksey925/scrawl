@@ -1,5 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react';
 
+import { changeSignal } from '../changeSignal';
 import { usePlatform } from '../platform';
 import { localStore, readJson, writeJson } from '../storage';
 
@@ -11,7 +12,7 @@ export interface RecentNote {
 
 const maxRecent = 8;
 
-const listeners = new Set<() => void>();
+const changes = changeSignal();
 const cache = new Map<string, readonly RecentNote[]>();
 
 function keyOf(scope: string): string {
@@ -36,14 +37,7 @@ function read(scope: string): readonly RecentNote[] {
 function write(scope: string, notes: readonly RecentNote[]): void {
   cache.set(scope, notes);
   writeJson(localStore(), keyOf(scope), notes);
-  for (const listener of listeners) {
-    listener();
-  }
-}
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+  changes.notify();
 }
 
 export interface RecentNotes {
@@ -57,7 +51,7 @@ export interface RecentNotes {
 // refuse to keep
 export function useRecentNotes(): RecentNotes {
   const { storageScope } = usePlatform();
-  const notes = useSyncExternalStore(subscribe, () => read(storageScope));
+  const notes = useSyncExternalStore(changes.subscribe, () => read(storageScope));
   const remember = useCallback(
     (note: RecentNote) => {
       const rest = read(storageScope).filter((entry) => entry.path !== note.path);

@@ -24,9 +24,15 @@ function colorsOf(theme: string): Colors {
 
 // the logo's own markup without its svg element, drawn in currentColor
 const logo = readFileSync(join(assets, 'logo.svg'), 'utf8');
-const viewBox = /viewBox="([^"]+)"/.exec(logo)?.[1] ?? '0 0 44 44';
+const viewBox = /viewBox="([^"]+)"/.exec(logo)?.[1];
+if (viewBox === undefined) {
+  throw new Error('server/assets/logo.svg has no viewBox');
+}
 const inner = logo.replace(/^\s*<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
-const [, , width = 44] = viewBox.split(/\s+/).map(Number);
+const width = Number(viewBox.split(/\s+/)[2]);
+if (!Number.isFinite(width)) {
+  throw new Error(`server/assets/logo.svg has a viewBox with no width: ${viewBox}`);
+}
 const middle = width / 2;
 
 // a favicon inherits no currentColor, so it names both colors and switches on

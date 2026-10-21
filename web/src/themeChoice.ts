@@ -1,6 +1,7 @@
 import type { MantineColorScheme, MantineColorSchemeManager } from '@mantine/core';
 import { useSyncExternalStore } from 'react';
 
+import { changeSignal } from './changeSignal';
 import { syncHead } from './headTheme';
 import { serverPersistence, type ThemePersistence } from './themePersistence';
 import { applyChoiceAttributes, applyThemeAttribute, autoChoice, colorSchemeAttribute, lookupTheme } from './themes';
@@ -42,16 +43,11 @@ export function themeColorSchemeManager(): MantineColorSchemeManager {
   };
 }
 
-const listeners = new Set<() => void>();
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
+const changes = changeSignal();
 
 // useThemeChoice is the theme the reader picked, or auto
 export function useThemeChoice(): string {
-  return useSyncExternalStore(subscribe, choice);
+  return useSyncExternalStore(changes.subscribe, choice);
 }
 
 function show(picked: string, setColorScheme: (value: MantineColorScheme) => void): void {
@@ -59,9 +55,7 @@ function show(picked: string, setColorScheme: (value: MantineColorScheme) => voi
   applyThemeAttribute(picked);
   syncHead(picked);
   setColorScheme(schemeOf(picked));
-  for (const listener of listeners) {
-    listener();
-  }
+  changes.notify();
 }
 
 // setThemeChoice moves the page to another theme. The stylesheets key on the

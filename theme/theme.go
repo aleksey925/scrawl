@@ -80,6 +80,10 @@ var files embed.FS
 // an id lands in a cookie, an attribute and a selector unquoted by anything
 var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 
+// codeColorPattern is the one form of a code color chroma reads: rgb() and a
+// name stop its style from building, at startup
+var codeColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
 var all = mustLoad(files)
 
 // All lists the themes in the order a picker shows them: the light ones first,
@@ -177,8 +181,6 @@ func loadOne(fsys fs.FS, name string) (Theme, error) {
 		return Theme{}, errors.New("no name")
 	case res.Scheme != Light && res.Scheme != Dark:
 		return Theme{}, fmt.Errorf("scheme %q is neither light nor dark", res.Scheme)
-	case len(res.Code) == 0:
-		return Theme{}, errors.New("no code colors")
 	case res.BarColor() == "":
 		return Theme{}, errors.New("no bg in the palette")
 	}
@@ -202,8 +204,8 @@ func checkColors(res Theme) error {
 		}
 	}
 	for _, name := range CodeNames {
-		if res.Code[name] == "" {
-			return fmt.Errorf("no %s code color", name)
+		if !codeColorPattern.MatchString(res.Code[name]) {
+			return fmt.Errorf("the %s code color %q is not #rrggbb", name, res.Code[name])
 		}
 	}
 	return nil

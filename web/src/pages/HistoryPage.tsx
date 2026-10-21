@@ -11,15 +11,15 @@ export function Component(): JSX.Element {
   const params = useParams();
   const path = params['*'] ?? '';
   const navigate = useNavigate();
-  const [restored, setRestored] = useState(0);
+  const [reads, setReads] = useState(0);
 
   return (
     <>
-      <DocumentView key={restored} path={path} />
+      <DocumentView key={reads} path={path} />
       <HistoryDialog
         path={path}
         onClose={() => void navigate(documentUrl(path))}
-        onRestored={() => setRestored((count) => count + 1)}
+        onNoteChanged={() => setReads((count) => count + 1)}
       />
     </>
   );

@@ -1,15 +1,16 @@
 import { Badge, Menu, Text } from '@mantine/core';
-import { IconCheck, IconEyeOff, IconKeyboard, IconLogin, IconLogout } from '../icons';
 import type { JSX } from 'react';
 
 import { api } from '../api/client';
 import { useApi } from '../api/useApi';
 import { PopupMenu } from '../components/PopupMenu';
+import { IconCheck, IconEyeOff, IconLogin, IconLogout } from '../icons';
 import { goToLogin } from '../login';
 import { layout } from '../theme';
 
-import { useNav } from './NavContext';
+import { spaceLabel, useNav } from './NavContext';
 import { useReaderLayout } from './ReaderLayout';
+import { ShortcutsMenuItem } from './ShortcutHelp';
 import { useKeyboardPlace } from './shortcuts';
 import { SpaceButton } from './SpaceButton';
 import { SpaceTile } from './SpaceTile';
@@ -32,7 +33,7 @@ export function SpaceMenu(): JSX.Element {
   const spaces = state.data ?? [];
   const current = me?.space;
   const signedIn = me !== undefined && me.user !== '';
-  const name = current?.label ?? me?.site_title ?? 'Notes';
+  const name = spaceLabel(me);
 
   return (
     <PopupMenu position="bottom-start" width={280} withinPortal>
@@ -91,14 +92,7 @@ export function SpaceMenu(): JSX.Element {
           </Menu.Item>
         )}
         {keyboard && (
-          <Menu.Item
-            data-testid="space-menu-shortcuts"
-            leftSection={<IconKeyboard size={layout.iconSizeSmall} />}
-            rightSection={<Text size="xs" c="dimmed">?</Text>}
-            onClick={openShortcuts}
-          >
-            Keyboard shortcuts
-          </Menu.Item>
+          <ShortcutsMenuItem onClick={openShortcuts} />
         )}
         {signedIn ? (
           <Menu.Item

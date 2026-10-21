@@ -270,7 +270,7 @@ func (b *siteBuilder) writeFolder(dir string) error {
 	name := folderPageOf(dir)
 	up := siteUp(name)
 	sp := page.SitePage{Title: folderTitle(dir), Crumbs: siteCrumbs(dir, up), Entries: siteEntries(entries, dir)}
-	answer := view.NewDir(dir, entries, view.ItemsIn(b.st.List), view.NotEditable)
+	answer := view.NewDir(dir, entries, b.st.Count, view.NotEditable)
 	return b.writePage(name, sp, sitePageData{Route: view.DirURL(dir), Answer: answer})
 }
 
@@ -307,7 +307,7 @@ type siteData struct {
 
 func (b *siteBuilder) writeTree(root *store.Node) error {
 	title := siteTitle
-	if index := indexOfFolder(root); index != "" {
+	if index := view.IndexOfNode(root); index != "" {
 		res, _, _, err := b.render(index)
 		if err != nil {
 			return err
@@ -449,15 +449,6 @@ func openSiteDir(dir string) (*os.Root, error) {
 		return nil, fmt.Errorf("open %s: %w", dir, err)
 	}
 	return root, nil
-}
-
-// indexOfFolder is a folder's own note, "" for none: the one /api/dir/ tags.
-func indexOfFolder(node *store.Node) string {
-	infos := make([]store.FileInfo, 0, len(node.Children))
-	for _, child := range node.Children {
-		infos = append(infos, child.FileInfo)
-	}
-	return view.IndexOf(infos)
 }
 
 func isFolderIndex(notePath string) bool {

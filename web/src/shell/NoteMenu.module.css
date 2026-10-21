@@ -1,8 +1,3 @@
-.keys {
-  color: var(--scrawl-text-tertiary);
-  font-size: 12px;
-}
-
 /* a line about the note under its menu, not a thing to pick */
 .about {
   padding: 4px 8px 2px;

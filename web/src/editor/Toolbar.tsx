@@ -1,24 +1,24 @@
 import { ActionIcon } from '@mantine/core';
+import { Fragment, useEffect, useRef, useState, type ComponentType, type JSX, type RefObject } from 'react';
+
 import {
   IconBold,
   IconBraces,
   IconCode,
   IconHeading,
   IconItalic,
-  IconLineDashed,
   IconLink,
   IconList,
   IconListNumbers,
+  IconMinus,
   IconPhoto,
   IconQuote,
   IconWand,
 } from '../icons';
-import { Fragment, useEffect, useRef, useState, type ComponentType, type JSX, type RefObject } from 'react';
+import { layout } from '../theme';
 
 import classes from './Editor.module.css';
 import type { MarkdownAction } from './markdownActions';
-
-const toolIconSize = 18;
 
 interface ToolItem {
   action: MarkdownAction;
@@ -40,7 +40,7 @@ const groups: readonly (readonly ToolItem[])[] = [
     { action: 'ordered', label: 'Numbered list', Icon: IconListNumbers },
     { action: 'quote', label: 'Blockquote', Icon: IconQuote },
     { action: 'fence', label: 'Code block', Icon: IconBraces },
-    { action: 'rule', label: 'Horizontal rule', Icon: IconLineDashed },
+    { action: 'rule', label: 'Horizontal rule', Icon: IconMinus },
   ],
 ];
 
@@ -118,23 +118,23 @@ export function Toolbar({ onAction, onPickImage, onFormat }: ToolbarProps): JSX.
       role="toolbar"
       aria-label="Markdown formatting"
     >
-      {groups.map((group, index) => (
-        <Fragment key={group[0]?.action}>
+      {groups.map((tools, index) => (
+        <Fragment key={tools[0]?.action}>
           {index > 0 && <span className={classes.toolSeparator} aria-hidden />}
-          {group.map(({ action, label, Icon }) => (
+          {tools.map(({ action, label, Icon }) => (
             <ToolButton key={action} testId={`editor-toolbar-${action}`} label={label} onClick={() => onAction(action)}>
-              <Icon size={toolIconSize} />
+              <Icon size={layout.iconSizeTool} />
             </ToolButton>
           ))}
         </Fragment>
       ))}
       <span className={classes.toolSeparator} aria-hidden />
       <ToolButton testId="editor-toolbar-image" label="Upload image" onClick={onPickImage}>
-        <IconPhoto size={toolIconSize} />
+        <IconPhoto size={layout.iconSizeTool} />
       </ToolButton>
       {onFormat !== undefined && (
         <ToolButton testId="editor-toolbar-format" label="Format with prettier" onClick={onFormat}>
-          <IconWand size={toolIconSize} />
+          <IconWand size={layout.iconSizeTool} />
         </ToolButton>
       )}
     </div>

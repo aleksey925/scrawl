@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { PopupMenu } from '../components/PopupMenu';
 import { planMotion } from '../components/screenMotion';
 import { IconClock, IconFilePlus, IconFolder, IconFolderPlus, IconPlus, IconSearch, type Icon } from '../icons';
-import { isDirectoryPath, recentUrl } from '../paths';
+import { isDirectoryPath, isEditPath, recentUrl } from '../paths';
 import { layout } from '../theme';
 
 import { useFileActions } from './fileActionsContext';
@@ -13,8 +13,6 @@ import { useNav } from './NavContext';
 import { folderFor } from './naming';
 import { useSearchControl } from './searchOpener';
 import classes from './TabBar.module.css';
-
-const tabBarIconSize = 22;
 
 type TabName = 'notes' | 'search' | 'recent' | 'new';
 
@@ -37,7 +35,7 @@ function Tab({ name, label, icon: TabIcon, current, ...rest }: TabProps): JSX.El
       aria-current={current ? 'page' : undefined}
       className={classes.tab}
     >
-      <TabIcon size={tabBarIconSize} />
+      <TabIcon size={layout.iconSizeLarge} />
       <span className={classes.label}>{label}</span>
     </button>
   );
@@ -54,7 +52,7 @@ export function TabBar(): JSX.Element | null {
   const actions = useFileActions();
   const { canWrite, currentPath } = useNav();
 
-  if (location.pathname.startsWith('/edit/')) {
+  if (isEditPath(location.pathname)) {
     return null;
   }
 
@@ -76,7 +74,7 @@ export function TabBar(): JSX.Element | null {
       )}
       <Tab name="recent" label="Recent" icon={IconClock} current={!searching && atRecent} onClick={() => go(recentUrl())} />
       {canWrite && (
-        <PopupMenu position="top-end" offset={4} width={220} withinPortal>
+        <PopupMenu position="top-end" offset={4} width={layout.menuWidth} withinPortal>
           <Menu.Target>
             <Tab name="new" label="New" icon={IconPlus} current={false} />
           </Menu.Target>

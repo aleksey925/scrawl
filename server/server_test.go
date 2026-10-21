@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,6 +22,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -894,6 +893,8 @@ func TestAPIFileGetRefusesLargeAndBinaryFiles(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 	huge := filepath.Join(ts.root, "huge.md")
 	require.NoError(t, os.WriteFile(huge, bytes.Repeat([]byte("a"), maxEditableFile+1), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(ts.root, "latin1.txt"), []byte("caf\xe9\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(ts.root, "nul.py"), []byte("x = 1\x00\n"), 0o600))
 
 	tests := []struct {
 		name   string
@@ -906,6 +907,10 @@ func TestAPIFileGetRefusesLargeAndBinaryFiles(t *testing.T) {
 		{name: "binary attachment", path: "/api/file/images/logo.png",
 			status: http.StatusUnsupportedMediaType, error: "not a text file, read it from /raw/"},
 		{name: "directory", path: "/api/file/notes", status: http.StatusBadRequest, error: "path is a directory"},
+		{name: "text name, bytes not in UTF-8", path: "/api/file/latin1.txt",
+			status: http.StatusUnsupportedMediaType, error: "not text, read it from /raw/"},
+		{name: "text name, bytes holding a NUL", path: "/api/file/nul.py",
+			status: http.StatusUnsupportedMediaType, error: "not text, read it from /raw/"},
 	}
 
 	for _, tc := range tests {
@@ -948,6 +953,40 @@ func TestAPIFileLifecycle(t *testing.T) {
 	removed, _ := ts.do(t, request{method: http.MethodDelete, path: "/api/file/new/renamed.md"})
 	assert.Equal(t, http.StatusOK, removed.status)
 	assert.False(t, ts.Spaces[0].Store.Exists("new/renamed.md"))
+}
+
+func TestAPIFileCreateNamesTheEditorOnlyForText(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		kind     string
+		editable bool
+	}{
+		{name: "note", path: "new/page.md", kind: "file", editable: true},
+		{name: "text file", path: "new/main.go", kind: "file", editable: true},
+		{name: "picture", path: "new/image.png", kind: "file"},
+		{name: "folder", path: "new/dir", kind: "dir"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ts := newTestServer(t, testOpts{})
+
+			// act
+			created, body := ts.json(t, request{
+				method: http.MethodPost, path: "/api/file/" + tc.path, body: jsonBody(t, map[string]string{"type": tc.kind}),
+			})
+
+			// assert
+			require.Equal(t, http.StatusCreated, created.status)
+			if tc.editable {
+				assert.Equal(t, view.EditURL(tc.path), body["edit_url"])
+			} else {
+				assert.NotContains(t, body, "edit_url")
+			}
+		})
+	}
 }
 
 func TestAPIFileDeleteRecursive(t *testing.T) {
@@ -1190,6 +1229,18 @@ func TestRenderWithDeadline(t *testing.T) {
 	}
 }
 
+func TestWithDeadlineTurnsAPanicIntoAnError(t *testing.T) {
+	// act
+	res, err := withDeadline("a.md", time.Minute, func() (string, error) {
+		var node *struct{ next *int }
+		return strconv.Itoa(*node.next), nil
+	})
+
+	// assert
+	require.ErrorContains(t, err, `render "a.md": panic: runtime error`)
+	assert.Empty(t, res)
+}
+
 func TestRenderTimeoutIsServedAsUnavailable(t *testing.T) {
 	// arrange & act
 	err := fmt.Errorf("render %q: %w", "a.md", errRenderTimeout)
@@ -1251,12 +1302,64 @@ func TestAPISearchModes(t *testing.T) {
 	}}, hit["lines"])
 }
 
+func TestAPISearchKeepsTheSpacesOfAnExactText(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	writeNote(t, ts.root, "tags.md", "# Tags\n\nSo Widgets and xWidgets.\n")
+	ts.mount().touch("tags.md")
+
+	// act
+	resp, body := ts.json(t, request{path: "/api/search?q=+Widgets&mode=exact&case=1"})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	hits := body["hits"].([]any)
+	require.Len(t, hits, 1)
+	hit := hits[0].(map[string]any)
+	assert.Equal(t, "/doc/tags.md?case=1&q=+Widgets", hit["url"])
+	assert.Equal(t, float64(1), hit["match_count"])
+}
+
+func TestAPISearchTitlesOnly(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	writeNote(t, ts.root, "gadgets.md", "# Widgets and gadgets\n\nNothing else.\n")
+	ts.mount().touch("gadgets.md")
+
+	// act
+	resp, body := ts.json(t, request{path: "/api/search?q=widgets&titles=1&case=0"})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	paths := []any{}
+	for _, hit := range body["hits"].([]any) {
+		paths = append(paths, hit.(map[string]any)["path"])
+	}
+	assert.Equal(t, []any{"gadgets.md"}, paths)
+}
+
+func TestAPISearchSaysWhenItStoppedEarly(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	writeNote(t, ts.root, "many.md", strings.Repeat("hit\n\n", 5001))
+	ts.mount().touch("many.md")
+
+	// act
+	resp, body := ts.json(t, request{path: "/api/search?q=hit&mode=exact"})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, true, body["truncated"])
+}
+
 func TestAPISearchRefusesABadQuery(t *testing.T) {
 	tests := []struct {
 		name, query, message string
 	}{
 		{name: "an unknown mode", query: "q=x&mode=near", message: "mode must be"},
 		{name: "a pattern RE2 refuses", query: "q=(&regex=1", message: "missing closing )"},
+		{name: "a pattern over 1KB", query: "q=" + strings.Repeat("a", search.MaxPattern+1) + "&mode=exact",
+			message: "longer than"},
 	}
 
 	for _, tc := range tests {
@@ -2131,8 +2234,8 @@ func TestTheLoginPageShowsTheLogoInline(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
-	assert.Contains(t, body, string(Logo()))
-	assert.Contains(t, string(Logo()), `<svg class="login-logo" aria-hidden="true" `)
+	assert.Contains(t, body, string(loginLogo()))
+	assert.Contains(t, string(loginLogo()), `<svg class="login-logo" aria-hidden="true" `)
 }
 
 func TestTheFaviconIsTheLogoInBothSchemes(t *testing.T) {
@@ -2153,10 +2256,8 @@ func TestTheFaviconIsTheLogoInBothSchemes(t *testing.T) {
 func TestTheIconsCarryTheDrawingOfTheLogo(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{withAuth: true})
-	logo, err := assets.ReadFile("logo.svg")
-	require.NoError(t, err)
-	sum := sha256.Sum256(logo)
-	stamp := "?v=" + hex.EncodeToString(sum[:4])
+	require.Regexp(t, `^[0-9a-f]{8}$`, iconStamp())
+	stamp := "?v=" + iconStamp()
 
 	// act
 	_, login := ts.do(t, request{path: "/login"})

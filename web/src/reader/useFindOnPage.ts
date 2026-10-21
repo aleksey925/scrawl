@@ -4,12 +4,12 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { usePlatform } from '../platform';
 
 import { blocksOf, markMatches, matchAtLine, reveal, unmark } from './findDom';
-import { FindTimeout, patternOf, type FindQuery } from './findMatches';
+import { FindTimeout, patternOf, togglesOf, type FindPattern, type FindQuery } from './findMatches';
 
-// the parameters a search result opens a note with, read and taken off here
-// findParam is the query, the one whose presence means a find is asked for
+// the parameters a search result opens a note with, read and taken off here;
+// findParam is the query, whose presence means a find is asked for
 export const findParam = 'q';
-export const findParams = [findParam, 'case', 'word', 'regex', 'line'] as const;
+const findParams = [findParam, 'case', 'word', 'regex', 'line'] as const;
 
 const typingDelayMs = 150;
 
@@ -41,7 +41,7 @@ function queryOf(params: URLSearchParams): FindQuery | undefined {
   if (text === null || text === '') {
     return undefined;
   }
-  return { text, matchCase: params.get('case') === '1', word: params.get('word') === '1', regex: params.get('regex') === '1' };
+  return { text, ...togglesOf(params) };
 }
 
 export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: string): FindOnPage {
@@ -63,9 +63,23 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
   // a search result hands its query, its options and its line over in the
   // address; a regular expression waits for Enter where it cannot be stopped
   const fromUrl = queryOf(searchParams);
-  const urlKey = searchParams.toString();
+  const address = `${location.pathname}?${searchParams.toString()}`;
+  const readFor = useRef<{ address: string; html: string; again: boolean } | undefined>(undefined);
   useEffect(() => {
+    // the url is read when the address changes and again when its note arrives,
+    // an address with no query closing the bar; the bar is the reader's after that
+    const last = readFor.current;
+    const fresh = last === undefined || last.address !== address;
+    if (!fresh && !(last.again && last.html !== html)) {
+      return;
+    }
+    readFor.current = { address, html, again: fresh };
     if (fromUrl === undefined) {
+      if (fresh) {
+        line.current = undefined;
+        setOpened(false);
+        setQueryState(emptyQuery);
+      }
       return;
     }
     const wanted = Number(searchParams.get('line'));
@@ -73,8 +87,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
     setQueryState(fromUrl);
     setArmed(boundedFind || !fromUrl.regex);
     setOpened(true);
-    // the url is read once per address, and the bar is the reader's after that
-  }, [urlKey, html]);
+  }, [address, html]);
 
   const show = useCallback((at: number, scroll: boolean): void => {
     const found = groups.current;
@@ -82,8 +95,8 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
       return;
     }
     const next = ((at % found.length) + found.length) % found.length;
-    found.forEach((marks, position) => {
-      for (const mark of marks) {
+    found.forEach((group, position) => {
+      for (const mark of group) {
         mark.dataset.active = position === next ? 'true' : 'false';
       }
     });
@@ -105,17 +118,27 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
 
     let stale = false;
     let marked: HTMLElement[][] = [];
+    const replaced = new AbortController();
     const timer = window.setTimeout(() => {
-      let pattern;
+      let pattern: FindPattern;
       try {
         pattern = patternOf(query);
       } catch {
         setStatus('bad');
         setTotal(0);
+        // a pattern the search took and the browser refuses still opens at its line
+        if (line.current !== undefined) {
+          matchAtLine(root, [], line.current).block?.scrollIntoView({ block: 'center', behavior: 'instant' });
+          line.current = undefined;
+        }
         return;
       }
       const blocks = blocksOf(root);
-      runFind(blocks.map((block) => block.text), pattern).then(
+      runFind(
+        blocks.map((entry) => entry.text),
+        pattern,
+        replaced.signal,
+      ).then(
         (matches) => {
           if (stale) {
             return;
@@ -132,16 +155,18 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
           }
           setStatus('found');
           let first = 0;
+          let scroll = true;
           if (line.current !== undefined) {
             const at = matchAtLine(root, marked, line.current);
             if (at.match !== undefined) {
               first = at.match;
-            } else {
-              at.block?.scrollIntoView({ block: 'center', behavior: 'instant' });
+            } else if (at.block !== undefined) {
+              at.block.scrollIntoView({ block: 'center', behavior: 'instant' });
+              scroll = false;
             }
             line.current = undefined;
           }
-          show(first, true);
+          show(first, scroll);
         },
         (error: unknown) => {
           if (!stale) {
@@ -155,6 +180,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
     return () => {
       stale = true;
       window.clearTimeout(timer);
+      replaced.abort();
       unmark(marked);
       groups.current = [];
     };

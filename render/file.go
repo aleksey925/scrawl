@@ -8,10 +8,7 @@ import (
 	"strings"
 
 	"github.com/alecthomas/chroma/v2"
-	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/lexers"
-
-	"github.com/aleksey925/scrawl/theme"
 )
 
 // PlainLanguage names a text file chroma has no lexer for.
@@ -31,9 +28,8 @@ func (r *Renderer) HighlightFile(name string, data []byte) (template.HTML, strin
 	if err != nil {
 		return "", "", fmt.Errorf("highlight %s: %w", name, err)
 	}
-	formatter := chromahtml.New(chromahtml.WithClasses(true), chromahtml.WithLineNumbers(false))
 	var buf bytes.Buffer
-	if err = formatter.Format(&buf, codeStyle(theme.AutoTheme(theme.Light)), tokens); err != nil {
+	if err = markupFormatter.Format(&buf, markupStyle, tokens); err != nil {
 		return "", "", fmt.Errorf("highlight %s: %w", name, err)
 	}
 	clean := r.policy.SanitizeBytes(buf.Bytes())

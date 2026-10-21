@@ -176,15 +176,15 @@ func TestLoad(t *testing.T) {
 			wantErr: `scheme "dim"`,
 		},
 		{
-			name: "no code colors",
-			files: map[string]string{"light.json": light, "dark.json": dark,
-				"x.json": `{"name": "X", "scheme": "light", "palette": {"bg": "#fff"}}`},
-			wantErr: "no code colors",
-		},
-		{
 			name:    "no code color",
 			files:   map[string]string{"light.json": light, "dark.json": dark, "x.json": themeJSON("X", "light", "#fff", "comment")},
-			wantErr: "no comment code color",
+			wantErr: `the comment code color "" is not #rrggbb`,
+		},
+		{
+			name: "a code color chroma cannot read",
+			files: map[string]string{"light.json": light, "dark.json": dark, "x.json": strings.Replace(
+				themeJSON("X", "light", "#fff", ""), `"comment": "#123456"`, `"comment": "rgb(1, 2, 3)"`, 1)},
+			wantErr: `the comment code color "rgb(1, 2, 3)" is not #rrggbb`,
 		},
 		{
 			name:    "no ground",
@@ -194,6 +194,12 @@ func TestLoad(t *testing.T) {
 		{
 			name:    "no block color",
 			files:   map[string]string{"light.json": light, "dark.json": dark, "x.json": themeJSON("X", "light", "#fff", "purple")},
+			wantErr: "no purple block color",
+		},
+		{
+			name: "a block color with no ground",
+			files: map[string]string{"light.json": light, "dark.json": dark, "x.json": strings.Replace(
+				themeJSON("X", "light", "#fff", ""), `"purple": {"text": "#111", "bg": "#eee"}`, `"purple": {"text": "#111"}`, 1)},
 			wantErr: "no purple block color",
 		},
 		{

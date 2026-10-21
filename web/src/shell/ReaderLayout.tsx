@@ -1,13 +1,13 @@
 import '../print.css';
 
 import { ActionIcon, AppShell, Drawer } from '@mantine/core';
-import { IconMenu2 } from '../icons';
 import {
   createContext, Fragment, useCallback, useContext, useEffect, useMemo, useState,
   type ComponentType, type JSX, type ReactNode,
 } from 'react';
 import { useLocation } from 'react-router';
 
+import { IconMenu } from '../icons';
 import { FindControlProvider, type FindControl } from '../reader/findControl';
 import { layout, layoutBreakpoints, useAtLeast, useBelow } from '../theme';
 
@@ -16,7 +16,7 @@ import { PhoneTopBar } from './PhoneTopBar';
 import classes from './Shell.module.css';
 import { ShellSlotsProvider, type ShellSlots } from './ShellSlots';
 import { ShortcutHelp } from './ShortcutHelp';
-import { appShortcut } from './shortcuts';
+import { appShortcut, modChord } from './shortcuts';
 import { SidebarNav } from './SidebarNav';
 import { Topbar } from './Topbar';
 import { useSidebarHidden } from './useSidebarHidden';
@@ -108,10 +108,7 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
   // the caret is in the editor or the filter box most of the time it is wanted
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) {
-        return;
-      }
-      if (event.key.toLowerCase() !== 'b' || !appShortcut(event) || phone) {
+      if (!modChord(event, 'b') || !appShortcut(event) || phone) {
         return;
       }
       event.preventDefault();
@@ -139,7 +136,7 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
       onClick={toggleNav}
       aria-label="Show the sidebar"
     >
-      <IconMenu2 size={layout.iconSize} />
+      <IconMenu size={layout.iconSize} />
     </ActionIcon>
   );
 

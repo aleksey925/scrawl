@@ -1,6 +1,7 @@
 import { useRef, type JSX } from 'react';
 
 import type { DiffKind, DiffRow, DiffSide } from '../api/types';
+import { countOf } from '../components/formats';
 import { useKatex } from '../reader/useKatex';
 import { useMermaid } from '../reader/useMermaid';
 
@@ -23,9 +24,8 @@ const tags: Record<DiffKind, string | undefined> = {
   removed: 'Removed',
 };
 
-// shownOf is what a row shows in the unified layout: a removed block as it was,
-// a changed one with its lost and new words in one block, or both sides when
-// that could not be built, and anything else as it is now. page/page.go: shownOf.
+// shownOf is what a row shows in the unified layout, the way page/page.go's
+// shownOf does: a removed block as it was, a changed one inline or both sides
 function shownOf(row: DiffRow): DiffSide[] {
   const sides =
     row.kind === 'removed'
@@ -35,7 +35,7 @@ function shownOf(row: DiffRow): DiffSide[] {
           ? [row.inline]
           : [row.old, row.new]
         : [row.new];
-  return sides.filter((side): side is DiffSide => side !== undefined);
+  return sides.filter((shown): shown is DiffSide => shown !== undefined);
 }
 
 // Html is a side as the server sent it: rendered and sanitized by the policy in
@@ -77,10 +77,6 @@ function UnifiedRow({ row }: { row: DiffRow }): JSX.Element {
   );
 }
 
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`;
-}
-
 export interface RenderedDiffProps {
   rows: DiffRow[];
   layout: DiffLayout;
@@ -103,11 +99,15 @@ export function RenderedDiff({ rows, layout, oldLabel, newLabel, version }: Rend
 
   return (
     <div ref={rootRef} className="diff" data-testid="rendered-diff" data-layout={layout}>
-      {layout === 'split' && (
+      {layout === 'split' ? (
         <div className="diff-head">
           <div>{oldLabel}</div>
           <div>{newLabel}</div>
         </div>
+      ) : (
+        <p className="diff-labels">
+          {oldLabel} → {newLabel}
+        </p>
       )}
       {!rows.some(isChange) && (
         <p className="diff-none" data-testid="rendered-diff-none">
@@ -117,7 +117,7 @@ export function RenderedDiff({ rows, layout, oldLabel, newLabel, version }: Rend
       {foldRows(rows).map((segment, index) =>
         segment.folded ? (
           <details key={index} className="diff-fold" data-testid="diff-fold">
-            <summary>{plural(segment.rows.length, 'unchanged block')}</summary>
+            <summary>{countOf(segment.rows.length, 'unchanged block')}</summary>
             {segment.rows.map((row, at) => (
               <Row key={at} row={row} />
             ))}

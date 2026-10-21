@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
+import { changeSignal } from '../changeSignal';
 import { localStore, readText, writeText } from '../storage';
 import { readCookie, writeCookie } from '../themePersistence';
 
@@ -49,7 +50,7 @@ export function sitePersistence(): WidthPersistence {
 
 let persistence = browserPersistence();
 let current: PageWidth | undefined;
-const listeners = new Set<() => void>();
+const changes = changeSignal();
 
 // keepPageWidthIn picks where the choice is kept, before the first render
 export function keepPageWidthIn(where: WidthPersistence): void {
@@ -74,20 +75,21 @@ export function applyStoredPageWidth(): void {
   apply(width());
 }
 
+// restorePageWidth reads the kept width again, for a page the browser brings
+// back as it was left after another page changed the choice
+export function restorePageWidth(): void {
+  current = undefined;
+  apply(width());
+  changes.notify();
+}
+
 export function setPageWidth(picked: PageWidth): void {
   current = picked;
   persistence.write(picked);
   apply(picked);
-  for (const listener of listeners) {
-    listener();
-  }
-}
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+  changes.notify();
 }
 
 export function usePageWidth(): PageWidth {
-  return useSyncExternalStore(subscribe, width);
+  return useSyncExternalStore(changes.subscribe, width);
 }

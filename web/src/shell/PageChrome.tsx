@@ -2,9 +2,9 @@ import { createContext, useContext, useEffect, useMemo, useState, type JSX, type
 import { useLocation } from 'react-router';
 
 import type { Crumb } from '../api/types';
-import { directoryUrl } from '../paths';
+import { directoryUrl, isDirectoryPath } from '../paths';
 
-import { contentPathOf } from './naming';
+import { ancestorsOf, basenameOf, contentPathOf, pageName } from './naming';
 
 // PageChrome is what the page on screen tells the topbar about itself: the
 // folders on the way to it and its title. Only the page's answer knows a
@@ -33,7 +33,7 @@ export function PageChromeProvider({ children }: { children: ReactNode }): JSX.E
   return <PageChromeContext.Provider value={value}>{children}</PageChromeContext.Provider>;
 }
 
-export function usePageChromeValue(): PageChrome | undefined {
+function usePageChromeValue(): PageChrome | undefined {
   return useContext(PageChromeContext)?.chrome;
 }
 
@@ -44,25 +44,30 @@ export function chromeOf(breadcrumbs: readonly Crumb[], title: string, ownTitle 
 }
 
 // usePageChrome hands the page's chrome to the topbar while the page is shown
-export function usePageChrome(chrome: PageChrome): void {
+export function usePageChrome({ crumbs, title, ownTitle }: PageChrome): void {
   const setChrome = useContext(PageChromeContext)?.setChrome;
-  const key = JSON.stringify(chrome);
+  const crumbsKey = crumbs.map((step) => `${step.url}\n${step.name}`).join('\n');
   useEffect(() => {
-    setChrome?.(JSON.parse(key) as PageChrome);
-  }, [key, setChrome]);
+    setChrome?.({ crumbs, title, ownTitle });
+    // crumbs is a new array on every render, so its contents are the dependency
+  }, [crumbsKey, title, ownTitle, setChrome]);
 }
 
-// chromeFromRoute is what the bar can say before the first answer has arrived:
-// the folders of the route by their names, and the last segment as the title
+// chromeFromRoute is what the bar can say without an answer: the folders of the
+// route by their names, and the last segment as the tree names it
 function chromeFromRoute(pathname: string): PageChrome {
-  const segments = contentPathOf(pathname).split('/').filter((segment) => segment !== '');
-  const crumbs: Crumb[] = [];
-  let prefix = '';
-  for (const segment of segments.slice(0, -1)) {
-    prefix = prefix === '' ? segment : `${prefix}/${segment}`;
-    crumbs.push({ name: segment, url: directoryUrl(prefix) });
-  }
-  return { crumbs, title: segments[segments.length - 1] ?? '', ownTitle: false };
+  const ancestors = ancestorsOf(contentPathOf(pathname));
+  const crumbs = ancestors.slice(1, -1).map((folder) => ({ name: basenameOf(folder), url: directoryUrl(folder) }));
+  const last = basenameOf(ancestors[ancestors.length - 1] ?? '');
+  return { crumbs, title: pageName(last, isDirectoryPath(pathname)), ownTitle: false };
+}
+
+// RouteChrome is the chrome of a page that has no answer to take it from: the
+// editor, or a page whose answer failed
+export function RouteChrome(): null {
+  const location = useLocation();
+  usePageChrome(chromeFromRoute(location.pathname));
+  return null;
 }
 
 // useShownChrome is the chrome of the page on screen, or the route's until the

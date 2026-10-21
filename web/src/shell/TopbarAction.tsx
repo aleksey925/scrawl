@@ -1,33 +1,27 @@
 import { ActionIcon, Button } from '@mantine/core';
-import type { Icon } from '../icons';
-import type { ComponentPropsWithRef, JSX, ReactNode } from 'react';
+import type { JSX, ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { layout, layoutBreakpoints, useAtLeast } from '../theme';
+import type { Icon } from '../icons';
+import { layout } from '../theme';
 
-// the rest is what a mantine Menu.Target hands its button: a ref, the click
-// that opens it and the aria state of the menu
-export interface TopbarActionProps extends Omit<ComponentPropsWithRef<'button'>, 'children' | 'color'> {
+export interface TopbarActionProps {
   testId: string;
   label: string;
-  icon: Icon;
-  to?: string;
-  // iconOnly keeps the icon with the label as its tooltip on a wide screen too,
-  // for an action the bar names by a picture the way Notion does History
-  iconOnly?: boolean;
+  to: string;
+  // icon replaces the word, with the label as its tooltip, for an action the
+  // bar names by a picture the way Notion does History
+  icon?: Icon;
 }
 
-// TopbarAction is a page action in the topbar: a quiet word, and on a phone
-// an icon named by its label
-export function TopbarAction({ testId, label, icon: Icon, to, iconOnly = false, ...rest }: TopbarActionProps): JSX.Element {
-  const wide = useAtLeast(layoutBreakpoints.compactTopbar);
-  const renderRoot =
-    to === undefined ? undefined : (props: Record<string, unknown>): ReactNode => <Link to={to} {...props} />;
+// TopbarAction is a page action in the topbar: a quiet word that leads to a
+// route, or its icon named by the label
+export function TopbarAction({ testId, label, icon: Icon, to }: TopbarActionProps): JSX.Element {
+  const renderRoot = (props: Record<string, unknown>): ReactNode => <Link to={to} {...props} />;
 
-  if (!wide || iconOnly) {
+  if (Icon !== undefined) {
     return (
       <ActionIcon
-        {...rest}
         data-testid={testId}
         variant="subtle"
         color="gray"
@@ -41,14 +35,7 @@ export function TopbarAction({ testId, label, icon: Icon, to, iconOnly = false, 
     );
   }
   return (
-    <Button
-      {...rest}
-      data-testid={testId}
-      variant="subtle"
-      color="gray"
-      size="sm"
-      renderRoot={renderRoot}
-    >
+    <Button data-testid={testId} variant="subtle" color="gray" size="sm" renderRoot={renderRoot}>
       {label}
     </Button>
   );

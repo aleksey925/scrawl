@@ -203,6 +203,26 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('the topbar names the note the editor has open', async ({page}) => {
+        // arrange
+        const docPath = scratch('editor-crumbs');
+        writeFixture(docPath, '# Elsewhere\n');
+        await page.goto(routes.doc(docPath));
+        const crumbs = page.getByTestId('topbar-crumbs').getByTestId('crumb');
+        await expect(crumbs.last()).toHaveText('Elsewhere');
+
+        try {
+            // act
+            await page.getByTestId('doc-edit').click();
+            await expect.poll(() => sourceText(page)).toBe('# Elsewhere\n');
+
+            // assert
+            await expect(crumbs.last()).toHaveText('editor-crumbs');
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
     test('the conflict dialog can keep both versions as a copy', async ({page}) => {
         const docPath = scratch('conflict-copy');
         writeFixture(docPath, 'original\n');
@@ -217,6 +237,9 @@ test.describe('editing', () => {
         await page.getByTestId('editor-conflict-copy').click();
 
         await expect(page).toHaveURL(/\/edit\/e2e-scratch\/conflict-copy\.conflict-[\d-]+T[\d-]+\.md$/);
+        await expect.poll(() => sourceText(page), 'the copy opens with its own text').toBe('mine to keep\n');
+        await expect(page.getByTestId('topbar-crumbs').getByTestId('crumb').last())
+            .toHaveText(/^conflict-copy\.conflict-[\d-]+T[\d-]+$/);
         const copyPath = decodeURIComponent(
             new URL(page.url()).pathname.replace(`${routes.edit('')}`, ''));
         expect(readFixture(copyPath)).toBe('mine to keep\n');
@@ -228,9 +251,15 @@ test.describe('editing', () => {
     });
 
     test.describe('a text file that is not a note', () => {
+        const TEXT_DIR = 'e2e-scratch/text';
+
+        test.afterEach(() => {
+            removeFixture(TEXT_DIR);
+        });
+
         test('opens as plain text with no modes, no toolbar and no preview, and saves as written', async ({page}) => {
             // arrange
-            const filePath = 'e2e-scratch/plain.txt';
+            const filePath = `${TEXT_DIR}/plain.txt`;
             const written = '  * not a list\n# not a heading\n';
             writeFixture(filePath, 'before\n');
             const previews = [];
@@ -256,12 +285,11 @@ test.describe('editing', () => {
             await expect.poll(() => readFixture(filePath)).toBe(written);
             expect(previews).toEqual([]);
             await shot(page, 'editing-plain-text');
-            removeFixture(filePath);
         });
 
         test('a file of a known language is named and colored as code', async ({page}) => {
             // arrange
-            const filePath = 'e2e-scratch/colored.py';
+            const filePath = `${TEXT_DIR}/colored.py`;
             writeFixture(filePath, 'def slugify(title):\n    return title\n');
 
             // act
@@ -270,13 +298,12 @@ test.describe('editing', () => {
             // assert
             await expect(page.getByTestId('editor-language')).toHaveText('Python');
             await expect(page.getByTestId('editor-source').locator('.cm-line span').first()).toBeVisible();
-            removeFixture(filePath);
         });
 
         for (const [file, language, body] of [
-            ['e2e-scratch/tools/Makefile', 'Makefile', 'all:\n\techo "built" # done\n'],
-            ['e2e-scratch/Widget.svelte', 'Svelte', '<script>let count = 0;</script>\n<button>{count}</button>\n'],
-            ['e2e-scratch/main.rs', 'Rust', 'fn main() {\n    println!("hi");\n}\n'],
+            [`${TEXT_DIR}/tools/Makefile`, 'Makefile', 'all:\n\techo "built" # done\n'],
+            [`${TEXT_DIR}/Widget.svelte`, 'Svelte', '<script>let count = 0;</script>\n<button>{count}</button>\n'],
+            [`${TEXT_DIR}/main.rs`, 'Rust', 'fn main() {\n    println!("hi");\n}\n'],
         ]) {
             test(`${language} opens named and colored`, async ({page}) => {
                 // arrange
@@ -289,13 +316,12 @@ test.describe('editing', () => {
                 await expect(page.getByTestId('editor')).toHaveAttribute('data-kind', 'text');
                 await expect(page.getByTestId('editor-language')).toHaveText(language);
                 await expect(page.getByTestId('editor-source').locator('.cm-line span').first()).toBeVisible();
-                removeFixture(file);
             });
         }
 
         test('a copy kept from a conflict keeps the file\'s own extension', async ({page}) => {
             // arrange
-            const filePath = 'e2e-scratch/conflict-copy.txt';
+            const filePath = `${TEXT_DIR}/conflict-copy.txt`;
             writeFixture(filePath, 'original\n');
             await page.goto(routes.edit(filePath));
             await expect.poll(() => sourceText(page)).toBe('original\n');
@@ -308,12 +334,33 @@ test.describe('editing', () => {
             await page.getByTestId('editor-conflict-copy').click();
 
             // assert
-            await expect(page).toHaveURL(/\/edit\/e2e-scratch\/conflict-copy\.conflict-[\d-]+T[\d-]+\.txt$/);
+            await expect(page).toHaveURL(/\/edit\/e2e-scratch\/text\/conflict-copy\.conflict-[\d-]+T[\d-]+\.txt$/);
             const copyPath = decodeURIComponent(new URL(page.url()).pathname.replace(`${routes.edit('')}`, ''));
             expect(readFixture(copyPath)).toBe('mine to keep\n');
-            removeFixture(copyPath);
-            removeFixture(filePath);
         });
+
+        for (const name of ['Makefile', 'go.mod']) {
+            test(`a copy kept from a conflict of ${name}, text by its whole name, opens in the editor`, async ({page}) => {
+                // arrange
+                const filePath = `${TEXT_DIR}/${name}`;
+                writeFixture(filePath, 'original\n');
+                await page.goto(routes.edit(filePath));
+                await expect.poll(() => sourceText(page)).toBe('original\n');
+                writeFixture(filePath, 'disk wins\n');
+                await setSource(page, 'mine to keep\n');
+                await page.getByTestId('editor-save').click();
+                await expect(page.locator('[data-testid=modal][data-variant="conflict"]')).toBeVisible();
+
+                // act
+                await page.getByTestId('editor-conflict-copy').click();
+
+                // assert
+                const escaped = name.replace('.', '\\.');
+                await expect(page).toHaveURL(new RegExp(`/edit/e2e-scratch/text/${escaped}\\.conflict-[\\d-]+T[\\d-]+\\.txt$`));
+                await expect(page.getByTestId('editor')).toHaveAttribute('data-kind', 'text');
+                await expect.poll(() => sourceText(page)).toBe('mine to keep\n');
+            });
+        }
     });
 
     test('the editor opens where the reader was, in both panes', async ({page}) => {

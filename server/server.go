@@ -518,12 +518,16 @@ func Favicon() []byte {
 // drawn from. An icon's address carries it, because a browser keeps a tab's
 // icon long after the file changed under an address it already knows.
 var iconStamp = sync.OnceValue(func() string {
+	sum := sha256.Sum256(logoSVG())
+	return hex.EncodeToString(sum[:4])
+})
+
+var logoSVG = sync.OnceValue(func() []byte {
 	data, err := assets.ReadFile("logo.svg")
 	if err != nil {
 		panic("server: embedded logo: " + err.Error())
 	}
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:4])
+	return data
 })
 
 // iconURL is the address of one of the app's icons under the static route.
@@ -531,13 +535,9 @@ func iconURL(version, name string) string {
 	return "/static/" + version + "/" + name + "?v=" + iconStamp()
 }
 
-// Logo is the logo inline, so it is drawn in the page's text color through
-// currentColor, which an <img> of the same file would not take.
-func Logo() template.HTML {
-	data, err := assets.ReadFile("logo.svg")
-	if err != nil {
-		panic("server: embedded logo: " + err.Error())
-	}
-	svg := strings.Replace(strings.TrimSpace(string(data)), "<svg ", `<svg class="login-logo" aria-hidden="true" `, 1)
+// loginLogo is the logo inline on the sign-in page, so it is drawn in the text
+// color through currentColor, which an <img> of the same file would not take.
+var loginLogo = sync.OnceValue(func() template.HTML {
+	svg := strings.Replace(strings.TrimSpace(string(logoSVG())), "<svg ", `<svg class="login-logo" aria-hidden="true" `, 1)
 	return template.HTML(svg) //nolint:gosec // the logo is a file of the binary and never input
-}
+})

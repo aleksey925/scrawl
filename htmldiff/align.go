@@ -82,10 +82,16 @@ func pair(removed, added []block) []Row {
 }
 
 // changed is the row of a pair of blocks that read differently: each side
-// with its own words marked, and the two in one block where that can be built
+// with its own words marked, and the two in one block where that can be built.
+// A pair too long to compare word by word is shown with no word marked.
 func changed(left, right block) Row {
-	inline := inlineWords(left, right)
-	oldHTML, newHTML := markWords(left, right)
+	ta, tb := tokensOf(left.node), tokensOf(right.node)
+	if len(ta) > maxTokens || len(tb) > maxTokens {
+		return Row{Kind: Changed, Old: sideOf(left, left.html), New: sideOf(right, right.html)}
+	}
+	ops := opcodes(textsOf(ta), textsOf(tb))
+	inline := inlineWords(right, ta, ops)
+	oldHTML, newHTML := markWords(left, right, ta, tb, ops)
 	res := Row{Kind: Changed, Old: sideOf(left, oldHTML), New: sideOf(right, newHTML)}
 	if inline != "" {
 		res.Inline = sideOf(right, inline)

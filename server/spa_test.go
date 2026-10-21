@@ -2,6 +2,8 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
+	"html/template"
 	"maps"
 	"net/http"
 	"net/url"
@@ -11,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -219,19 +222,27 @@ func TestAPIPageOffersCreatingAMissingDocument(t *testing.T) {
 }
 
 func TestAPIPageOfAFile(t *testing.T) {
-	big := strings.Repeat("a log line of some length\n", (1<<20)/26)
+	big := strings.Repeat("a = 'a line of python'\n", maxHighlightBytes/22+1)
 	tests := []struct {
 		name, file string
 		data       []byte
 		wantType   string
+		wantLines  int
 		wantPlain  bool
 	}{
 		{name: "a script is highlighted and stays text", file: "x.py", data: []byte("<script>alert(1)</script>\nx = 1\n"),
-			wantType: view.FileText},
+			wantType: view.FileText, wantLines: 2},
+		{name: "a last line with no newline", file: "x.py", data: []byte("x = 1\ny = 2"),
+			wantType: view.FileText, wantLines: 2},
+		{name: "an empty text file", file: "x.txt", data: []byte{}, wantType: view.FileText, wantPlain: true},
 		{name: "text that is not utf-8", file: "x.txt", data: []byte{0xff, 0xfe, 'a', '\n'}, wantType: view.FileOther},
 		{name: "text with a nul", file: "x.txt", data: []byte("a\x00b\n"), wantType: view.FileOther},
-		{name: "a log too large to show", file: "x.log", data: []byte(strings.Repeat(big, 3)), wantType: view.FileOther},
-		{name: "a log too large to color", file: "x.log", data: []byte(big), wantType: view.FileText, wantPlain: true},
+		{name: "a log too large to show", file: "x.log", data: []byte(strings.Repeat("a log line\n", maxEditableFile/11+1)),
+			wantType: view.FileOther},
+		{name: "a script too large to color", file: "x.py", data: []byte(big), wantType: view.FileText,
+			wantLines: strings.Count(big, "\n"), wantPlain: true},
+		{name: "a picture, svg included", file: "x.svg", data: []byte(`<svg xmlns="http://www.w3.org/2000/svg"/>`),
+			wantType: view.FileImage},
 		{name: "an unknown binary", file: "x.bin", data: []byte{1, 2, 3}, wantType: view.FileOther},
 	}
 
@@ -253,9 +264,40 @@ func TestAPIPageOfAFile(t *testing.T) {
 			}
 			html, _ := body["html"].(string)
 			assert.NotContains(t, html, "<script")
-			assert.Equal(t, float64(strings.Count(string(tc.data), "\n")), body["lines"])
-			assert.Equal(t, strings.Count(string(tc.data), "\n"), strings.Count(html, `<span class="line">`))
+			lines, _ := body["lines"].(float64)
+			assert.Equal(t, float64(tc.wantLines), lines)
+			assert.Equal(t, tc.wantLines, strings.Count(html, `<span class="line">`))
 			assert.Equal(t, tc.wantPlain, !strings.Contains(html, `<span class="cl"><span class=`))
+		})
+	}
+}
+
+func TestHighlightFileFallsBackToPlainText(t *testing.T) {
+	data := []byte("x = 1\n")
+	tests := []struct {
+		name    string
+		timeout time.Duration
+		color   func(string, []byte) (template.HTML, string, error)
+	}{
+		{name: "past the deadline", timeout: time.Millisecond,
+			color: func(string, []byte) (template.HTML, string, error) {
+				time.Sleep(200 * time.Millisecond)
+				return "colored", "Python", nil
+			}},
+		{name: "a failed highlight", timeout: time.Minute,
+			color: func(string, []byte) (template.HTML, string, error) {
+				return "", "", errors.New("no lexer")
+			}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			html, language := highlightFile("x.py", data, tc.timeout, tc.color)
+
+			// assert
+			assert.Equal(t, string(render.PlainFile(data)), html)
+			assert.Equal(t, render.PlainLanguage, language)
 		})
 	}
 }
@@ -332,8 +374,8 @@ func TestAPIDirTagsTheFolderPage(t *testing.T) {
 			entries, ok := body["entries"].([]any)
 			require.True(t, ok)
 			got := []any{}
-			for _, entry := range entries {
-				got = append(got, entry.(map[string]any)["folder_page"])
+			for _, row := range entries {
+				got = append(got, row.(map[string]any)["folder_page"])
 			}
 			assert.Equal(t, tc.want, got)
 		})
@@ -351,7 +393,7 @@ func TestAPIDirListsWhatTheDirectoryPageLists(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
-	assert.Equal(t, jsonValue(t, view.DirEntries(entries, view.ItemsIn(ts.Spaces[0].Store.List), editable)), body["entries"])
+	assert.Equal(t, jsonValue(t, view.DirEntries(entries, ts.Spaces[0].Store.Count, editable)), body["entries"])
 	assert.NotContains(t, body, "readme_html")
 }
 

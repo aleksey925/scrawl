@@ -7,6 +7,7 @@ import (
 	"mime"
 	"net/http"
 	"path"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -65,7 +66,15 @@ func withDeadline[T any](docPath string, timeout time.Duration, fn func() (T, er
 		err error
 	}
 	done := make(chan outcome, 1)
+	// a panic here is past rest.Recoverer, which only guards the request's own
+	// goroutine, and would end the process
 	go func() {
+		defer func() {
+			if p := recover(); p != nil {
+				log.Printf("[ERROR] render %q panicked: %v\n%s", docPath, p, debug.Stack())
+				done <- outcome{err: fmt.Errorf("panic: %v", p)}
+			}
+		}()
 		res, err := fn()
 		done <- outcome{res: res, err: err}
 	}()
@@ -161,6 +170,8 @@ var rawInlineTypes = map[string]string{
 // markdown is here on purpose: /raw/x.md is how the source of a document is
 // looked at, while /doc/x.md is the rendered page. html and js are text too:
 // as text/plain under the sandbox policy none of them runs.
+// `.ts` is TypeScript: a video stream named so fails the byte check on opening
+// and its page offers the download.
 var rawTextExtensions = []string{
 	".md", ".markdown", ".txt", ".text", ".log", ".csv", ".tsv",
 	".py", ".go", ".rs", ".c", ".h", ".cpp", ".hpp", ".java", ".kt", ".rb",
@@ -296,7 +307,7 @@ func (wb *Web) logout(w http.ResponseWriter, r *http.Request) {
 
 func (wb *Web) loginForm(w http.ResponseWriter, r *http.Request, status int, message, from string) {
 	page := LoginPage{
-		SiteTitle: wb.Title, Version: wb.Version, Logo: Logo(), Favicon: iconURL(wb.Version, "favicon.svg"),
+		SiteTitle: wb.Title, Version: wb.Version, Logo: loginLogo(), Favicon: iconURL(wb.Version, "favicon.svg"),
 		Theme: themeOf(r, wb.Version), Themes: themeOptions,
 		Error: message, From: from,
 	}

@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 
 	"github.com/aleksey925/scrawl/render"
 )
@@ -196,6 +198,39 @@ func TestDiff(t *testing.T) {
 				Inline: &Side{HTML: `<p>привет, <del class="diff-del">мир</del> <ins class="diff-ins">город</ins></p>`},
 			}},
 		},
+		{
+			name: "link block that lost its text",
+			old:  "<a href=\"x.md\">\nsome words\n</a>",
+			cur:  "<a href=\"x.md\">\n</a>",
+			want: []Row{{
+				Kind:   Changed,
+				Old:    &Side{HTML: "<a href=\"x.md\">\n<del class=\"diff-del\">some words</del>\n</a>"},
+				New:    &Side{HTML: "<a href=\"x.md\">\n</a>"},
+				Inline: &Side{HTML: "<a href=\"x.md\">\n <del class=\"diff-del\">some words</del></a>"},
+			}},
+		},
+		{
+			name: "link block that lost its text and its target",
+			old:  "<a href=\"x.md\">\nsome words\n</a>",
+			cur:  "<a href=\"y.md\">\n</a>",
+			want: []Row{{
+				Kind:   Changed,
+				Old:    &Side{HTML: "<a href=\"x.md\" class=\"diff-del\">\n<del class=\"diff-del\">some words</del>\n</a>"},
+				New:    &Side{HTML: "<a href=\"y.md\" class=\"diff-ins\">\n</a>"},
+				Inline: &Side{HTML: "<a href=\"y.md\" class=\"diff-ins\"><del class=\"diff-del\">some words</del> \n</a>"},
+			}},
+		},
+		{
+			name: "words lost before a picture",
+			old:  `<p>gone <img src="a.png"/></p>`,
+			cur:  `<p><img src="a.png"/></p>`,
+			want: []Row{{
+				Kind:   Changed,
+				Old:    &Side{HTML: `<p><del class="diff-del">gone</del> <img src="a.png"/></p>`},
+				New:    &Side{HTML: `<p><img src="a.png"/></p>`},
+				Inline: &Side{HTML: `<p><del class="diff-del">gone</del> <img src="a.png"/></p>`},
+			}},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -328,4 +363,17 @@ func TestDiffRenderedNotes(t *testing.T) {
 	}
 	assert.Equal(t, []Kind{Same, Format, Same, Changed}, kinds)
 	assert.Equal(t, Side{HTML: `<p>The <ins class="diff-ins">slow</ins> fox.</p>`, Start: 9, End: 9}, *got[3].New)
+}
+
+func TestPutBackIntoBlockWithNoWords(t *testing.T) {
+	// arrange
+	root := &html.Node{Type: html.ElementNode, Data: "p", DataAtom: atom.P}
+
+	// act
+	putBack(tokensOf(root), root, 0, "gone")
+
+	// assert
+	got, err := renderNode(root)
+	require.NoError(t, err)
+	assert.Equal(t, `<p><del class="diff-del">gone</del></p>`, got)
 }

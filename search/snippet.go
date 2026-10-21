@@ -36,10 +36,15 @@ type mark struct {
 // snippet returns the best window of the document with every matched term
 // wrapped in <mark>, plus the source line the window starts at.
 func (d *document) snippet(terms []queryTerm, match []*posting) (template.HTML, int) {
-	marks := d.matches(terms, match)
+	return d.snippetOf(d.matches(terms, match))
+}
+
+// snippetOf is the snippet of the marks a query found in the document
+func (d *document) snippetOf(marks []mark) (template.HTML, int) {
 	if len(marks) == 0 {
 		return d.lead(), 1
 	}
+	marks = marks[:min(len(marks), maxSnippetMarks)]
 
 	best := marks[d.bestWindow(marks)]
 	return d.snippetAround(marks, best), d.lineAt(best.start)
@@ -96,9 +101,6 @@ func (d *document) matches(terms []queryTerm, match []*posting) []mark {
 		}
 		out = append(out, m)
 		prev = m.end
-	}
-	if len(out) > maxSnippetMarks {
-		out = out[:maxSnippetMarks]
 	}
 	return out
 }

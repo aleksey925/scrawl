@@ -54,6 +54,7 @@
 
   .row:active {
     background: var(--scrawl-pressed);
+    box-shadow: var(--scrawl-press-edge);
     transition: var(--scrawl-press-in);
   }
 }

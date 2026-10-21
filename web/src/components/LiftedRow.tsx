@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type JSX, type ReactEleme
 import { createPortal } from 'react-dom';
 
 import classes from './LiftedRow.module.css';
-import { motionMs } from './screenMotion';
+import { motionMs, springEasing } from './screenMotion';
 
 const liftMs = 220;
 const dropMs = 160;
@@ -30,10 +30,9 @@ export function LiftedRow({ rect, children, menu, onDropped }: LiftedRowProps): 
   const backdropRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
-    const easing = 'cubic-bezier(0.2, 0.9, 0.3, 1.15)';
     cardRef.current?.animate([{ transform: 'scale(1)', boxShadow: 'none' }, { transform: `scale(${liftScale})` }], {
       duration: motionMs(liftMs),
-      easing,
+      easing: springEasing,
       fill: 'forwards',
     });
     backdropRef.current?.animate([{ opacity: 0 }, {}], { duration: motionMs(liftMs), easing: 'ease-out' });

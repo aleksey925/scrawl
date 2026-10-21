@@ -4,9 +4,9 @@ import {
   Button,
   CloseButton,
   createTheme,
+  Drawer,
   Input,
   Menu,
-  Drawer,
   Modal,
   SegmentedControl,
   type MantineColorsTuple,
@@ -58,8 +58,6 @@ export const layoutBreakpoints = {
   sidebar: 'sm',
   miniOutline: 'sm',
   compactTopbar: 'sm',
-  // two panes side by side, or one above the other
-  splitPane: 'md',
   // the editor's splitter, or a tab per pane
   editorSplit: 'md',
 } as const satisfies Record<string, BreakpointName>;
@@ -74,7 +72,11 @@ export const layout = {
   topbarHeightCompact: 48,
   rowHeight: 30,
   iconSize: 20,
+  iconSizeLarge: 22,
   iconSizeSmall: 16,
+  iconSizeTool: 18,
+  iconSizeColumn: 15,
+  iconSizeTiny: 14,
   // a button and a field beside it, at their usual size, and a button that
   // runs the width of its column
   controlHeight: 28,
@@ -84,16 +86,12 @@ export const layout = {
   // height wherever it stands, so nothing beside it looks bigger or smaller
   touchControl: 40,
   touchChoice: 36,
+  menuWidth: 220,
+  menuWidthNarrow: 200,
   tabBarHeight: 56,
   editButtonSize: 54,
   inputFontSize: 16,
 } as const;
-
-// iconEdgeInset is the padding that puts the glyph of an icon button, not its
-// 44px box, on the phone's 16px edge, where the text of the page starts
-export function iconEdgeInset(glyphSize: number): string {
-  return `calc(var(--mantine-spacing-lg) - (var(--scrawl-tap-target) - ${glyphSize}px) / 2)`;
-}
 
 // Notion's blue; the filled shade, 5, is the accent of the palette
 const accentShades: MantineColorsTuple = [
@@ -191,6 +189,9 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-control-height': `${layout.controlHeight}px`,
   '--scrawl-control-height-large': `${layout.controlHeightLarge}px`,
   '--scrawl-input-font-size': `${layout.inputFontSize}px`,
+  '--scrawl-menu-width': `${layout.menuWidth}px`,
+  '--scrawl-tabbar-height': `${layout.tabBarHeight}px`,
+  '--scrawl-edit-button': `${layout.editButtonSize}px`,
 };
 
 // blockVariables spells the block colors: blue's text is --scrawl-color-blue

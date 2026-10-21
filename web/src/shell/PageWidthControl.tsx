@@ -2,23 +2,21 @@ import { Menu, SegmentedControl } from '@mantine/core';
 import type { JSX } from 'react';
 
 import controls from '../controls.module.css';
-import { layoutBreakpoints, useAtLeast } from '../theme';
+import { layoutBreakpoints, useBelow } from '../theme';
 
-import { isPageWidth, setPageWidth, usePageWidth } from './pageWidth';
+import { isPageWidth, pageWidths, setPageWidth, usePageWidth, type PageWidth } from './pageWidth';
 
-const options = [
-  { value: 'normal', label: 'Normal' },
-  { value: 'wide', label: 'Wide' },
-  { value: 'full', label: 'Full' },
-];
+const labels: Record<PageWidth, string> = { normal: 'Normal', wide: 'Wide', full: 'Full' };
+const options = pageWidths.map((value) => ({ value, label: labels[value] }));
 
 // PageWidthControl is the width row of a menu. The width changes at once and
 // the menu stays open, so the reader sees what each one does. A phone has one
-// width, the screen's, and no row.
-export function PageWidthControl(): JSX.Element | null {
+// width, the screen's, and no row. Divided puts a line under the row, so a
+// menu has none where the row is missing.
+export function PageWidthControl({ divided = false }: { divided?: boolean }): JSX.Element | null {
   const picked = usePageWidth();
-  const wide = useAtLeast(layoutBreakpoints.sidebar);
-  if (!wide) {
+  const phone = useBelow(layoutBreakpoints.phone);
+  if (phone) {
     return null;
   }
 
@@ -41,6 +39,7 @@ export function PageWidthControl(): JSX.Element | null {
           data={options}
         />
       </div>
+      {divided && <Menu.Divider />}
     </>
   );
 }

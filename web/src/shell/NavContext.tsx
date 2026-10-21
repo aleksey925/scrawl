@@ -14,28 +14,22 @@ import type { MeState } from './useMe';
 
 // one bucket per space: the set is read during the very first render, long
 // before /api/me has answered, so the key comes from the platform's scope and
-// not from the space name the server reports.
-//
-// v2 because the space's own row joined the tree: a set written before it
-// existed holds no entry for the root and would open on a collapsed space.
+// not from the space name the server reports
 function openKey(scope: string): string {
+  // v2: a set kept under v1 predates the root's own row and is left unread
   return `scrawl.tree.open:v2:${scope}`;
 }
-
-// the space row starts open, because a tree whose only row is the space is
-// not a tree. Collapsing it is remembered like any other folder.
-const rootPath = '';
 
 function readOpen(storageKey: string): ReadonlySet<string> {
   try {
     const raw = localStorage.getItem(storageKey);
     if (raw === null) {
-      return new Set([rootPath]);
+      return new Set();
     }
     const parsed: unknown = JSON.parse(raw);
     return new Set(Array.isArray(parsed) ? parsed.filter((path): path is string => typeof path === 'string') : []);
   } catch {
-    return new Set([rootPath]);
+    return new Set();
   }
 }
 
@@ -84,12 +78,16 @@ export function useNav(): NavState {
   return state;
 }
 
+export function spaceLabel(me: MeResponse | undefined): string {
+  return me?.space.label ?? me?.site_title ?? 'Notes';
+}
+
 function activeFolders(nodes: readonly NavNode[], into: Set<string>): void {
-  for (const node of nodes) {
-    if (node.is_dir && node.active) {
-      into.add(node.path);
+  for (const entry of nodes) {
+    if (entry.is_dir && entry.active) {
+      into.add(entry.path);
     }
-    activeFolders(node.children, into);
+    activeFolders(entry.children, into);
   }
 }
 

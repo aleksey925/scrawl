@@ -164,8 +164,7 @@ func (m *mount) docHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// every file has a page, a note, a folder and any other file alike; nothing
-	// of that name is there, whatever the extension says, answers 404, or
+	// a missing name answers 404 whatever its extension, or
 	// /doc/<anything>/ping would look like a route that exists
 	if _, err := m.spc.Store.Stat(p); errors.Is(err, store.ErrNotFound) {
 		m.serveShell(w, r, http.StatusNotFound)

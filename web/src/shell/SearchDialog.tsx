@@ -1,46 +1,38 @@
 import { Modal, SegmentedControl } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconFileText, IconSearch } from '../icons';
 import {
-  useCallback, useEffect, useMemo, useState,
+  useCallback, useEffect, useMemo, useRef, useState,
   type JSX, type KeyboardEvent as ReactKeyboardEvent, type ReactNode,
 } from 'react';
 import { Link, useNavigate } from 'react-router';
 
-import { api } from '../api/client';
+import { api, searchTextOf } from '../api/client';
 import type { SearchResponse, SearchSettings } from '../api/types';
 import { errorText } from '../api/useApi';
+import { IconFileText, IconSearch } from '../icons';
 import { documentUrl } from '../paths';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
-import { useRecentNotes } from './recentNotes';
+import { useRecentNotes, type RecentNote } from './recentNotes';
 import classes from './Search.module.css';
 import { SearchControlProvider, SearchOpenerProvider, type SearchControl } from './searchOpener';
-import { SearchResults, targetsOf } from './SearchResults';
-import { useVisibleArea } from './useVisualViewport';
-import { appShortcut } from './shortcuts';
+import { hintOf, SearchResults, targetsOf } from './SearchResults';
+import { altKey, appShortcut, keysLabel, modChord } from './shortcuts';
+import { useVisibleArea } from './useVisibleArea';
 
 const debounceMs = 200;
 const resultLimit = 30;
 
-export const defaultSettings: SearchSettings = { mode: 'fuzzy', matchCase: false, word: false, regex: false, titles: false };
-
-// hintOf says what the field matches the way the settings stand
-export function hintOf(settings: SearchSettings): string {
-  if (settings.regex) {
-    return 'Regular expression over the text as shown, line by line';
-  }
-  return settings.mode === 'exact' ? 'The text exactly as typed' : 'Words in any order, one typo per word is fine';
-}
+const defaultSettings: SearchSettings = { mode: 'fuzzy', matchCase: false, word: false, regex: false, titles: false };
 
 // Case and Whole word are the toggles of Exact; Regex turns Fuzzy off
-export function togglesOn(settings: SearchSettings): boolean {
+function togglesOn(settings: SearchSettings): boolean {
   return settings.mode === 'exact' || settings.regex;
 }
 
 // withToggle flips one toggle by the key Alt is held with. The key is read by
 // its code: on a Mac Option+C types ç, and the letter is no use
-export function withToggle(settings: SearchSettings, code: string): SearchSettings | undefined {
+function withToggle(settings: SearchSettings, code: string): SearchSettings | undefined {
   switch (code) {
     case 'KeyC':
       return togglesOn(settings) ? { ...settings, matchCase: !settings.matchCase } : settings;
@@ -56,6 +48,9 @@ export function withToggle(settings: SearchSettings, code: string): SearchSettin
 }
 
 interface Answer {
+  // query and settings are what the answer was asked with
+  query?: string;
+  settings?: SearchSettings;
   response?: SearchResponse;
   error?: string;
 }
@@ -76,10 +71,7 @@ export function SearchProvider({ children }: { children: ReactNode }): JSX.Eleme
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== 'k') {
-        return;
-      }
-      if (!appShortcut(event)) {
+      if (!modChord(event, 'k') || !appShortcut(event)) {
         return;
       }
       event.preventDefault();
@@ -101,7 +93,7 @@ export function SearchProvider({ children }: { children: ReactNode }): JSX.Eleme
 
 function SearchDialog({ initial, onClose }: { initial: string; onClose: () => void }): JSX.Element {
   const navigate = useNavigate();
-  const phone = useBelow(layoutBreakpoints.compactTopbar);
+  const phone = useBelow(layoutBreakpoints.phone);
   const area = useVisibleArea(phone);
   const { notes: recent } = useRecentNotes();
   const [text, setText] = useState(initial);
@@ -110,21 +102,25 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
   const [answer, setAnswer] = useState<Answer>({});
   const [active, setActive] = useState<string | undefined>(undefined);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  // openPending is an Enter pressed before the answer to what was typed came
+  const [openPending, setOpenPending] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
-  const query = debounced.trim();
+  const query = searchTextOf(debounced, settings);
+  const empty = query.trim() === '';
   useEffect(() => {
     setExpanded(new Set());
     setActive(undefined);
-    if (query === '') {
-      setAnswer({});
+    if (query.trim() === '') {
+      setAnswer({ query, settings });
       return undefined;
     }
     const controller = new AbortController();
     api.find(query, settings, resultLimit, { signal: controller.signal }).then(
-      (response) => setAnswer({ response }),
+      (response) => setAnswer({ query, settings, response }),
       (error: unknown) => {
         if (!controller.signal.aborted) {
-          setAnswer({ error: errorText(error) });
+          setAnswer({ query, settings, error: errorText(error) });
         }
       },
     );
@@ -133,11 +129,30 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
 
   const hits = useMemo(() => answer.response?.hits ?? [], [answer.response]);
   const targets = useMemo(() => targetsOf(hits, expanded), [hits, expanded]);
+  const answered = searchTextOf(text, settings) === query && answer.query === query && answer.settings === settings;
 
-  const go = (url: string): void => {
-    onClose();
-    void navigate(url);
-  };
+  const go = useCallback(
+    (url: string): void => {
+      onClose();
+      void navigate(url);
+    },
+    [onClose, navigate],
+  );
+
+  useEffect(() => {
+    if (!openPending || !answered) {
+      return;
+    }
+    setOpenPending(false);
+    const target = targets[0];
+    if (target !== undefined) {
+      go(target.url);
+    }
+  }, [openPending, answered, targets, go]);
+
+  useEffect(() => {
+    bodyRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest' });
+  }, [active]);
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>): void => {
     if (event.altKey) {
@@ -150,7 +165,7 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
     }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
-      const at = targets.findIndex((target) => target.key === active);
+      const at = targets.findIndex((entry) => entry.key === active);
       const step = event.key === 'ArrowDown' ? 1 : -1;
       const next = targets[Math.min(Math.max(at + step, 0), targets.length - 1)];
       setActive(next?.key);
@@ -158,6 +173,10 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
     }
     if (event.key === 'Enter') {
       event.preventDefault();
+      if (!answered) {
+        setOpenPending(true);
+        return;
+      }
       const target = targets.find((entry) => entry.key === active) ?? targets[0];
       if (target !== undefined) {
         go(target.url);
@@ -166,7 +185,7 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
   };
 
   const toggles = togglesOn(settings);
-  const matches = hits.reduce((sum, hit) => sum + (hit.match_count ?? 0), 0);
+  const matches = hits.reduce((sum, row) => sum + (row.match_count ?? 0), 0);
 
   return (
     <Modal
@@ -177,8 +196,6 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
       fullScreen={phone}
       withCloseButton={false}
       padding={0}
-      radius="xl"
-      shadow="lg"
       trapFocus
     >
       <div
@@ -202,7 +219,10 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
               aria-label="Search the space"
               autoComplete="off"
               spellCheck={false}
-              onChange={(event) => setText(event.currentTarget.value)}
+              onChange={(event) => {
+                setText(event.currentTarget.value);
+                setOpenPending(false);
+              }}
               onKeyDown={onKeyDown}
             />
             <div className={classes.toggles}>
@@ -244,6 +264,7 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
             type="button"
             data-testid="search-titles"
             data-on={settings.titles ? 'true' : 'false'}
+            aria-pressed={settings.titles}
             className={classes.chip}
             onClick={() => setSettings({ ...settings, titles: !settings.titles })}
           >
@@ -254,8 +275,8 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
           </span>
         </div>
 
-        <div className={classes.body}>
-          {query === '' ? (
+        <div ref={bodyRef} className={classes.body}>
+          {empty ? (
             <Recent notes={recent} onOpen={onClose} />
           ) : answer.error !== undefined ? (
             <div data-testid="search-error" className={classes.error}>
@@ -286,11 +307,11 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
                 <kbd>↵</kbd>Open
               </span>
               <span>
-                <kbd>⌥F</kbd>Fuzzy or exact
+                <kbd>{keysLabel(altKey, 'F')}</kbd>Fuzzy or exact
               </span>
             </>
           )}
-          {answer.response !== undefined && query !== '' && (
+          {answer.response !== undefined && !empty && (
             <span data-testid="search-stats" className={classes.stats}>
               {matches} {matches === 1 ? 'match' : 'matches'} in {hits.length} {hits.length === 1 ? 'note' : 'notes'},{' '}
               {answer.response.elapsed_ms} ms{answer.response.truncated === true ? ', stopped early' : ''}
@@ -331,7 +352,7 @@ function Toggle({ testId, label, on, disabled = false, onClick, children }: Togg
 
 // Recent is what the dialog shows before anything is typed: the notes opened
 // last in this browser
-function Recent({ notes, onOpen }: { notes: ReturnType<typeof useRecentNotes>['notes']; onOpen: () => void }): JSX.Element {
+function Recent({ notes, onOpen }: { notes: readonly RecentNote[]; onOpen: () => void }): JSX.Element {
   if (notes.length === 0) {
     return (
       <div data-testid="search-recent-empty" className={classes.empty}>
@@ -342,11 +363,11 @@ function Recent({ notes, onOpen }: { notes: ReturnType<typeof useRecentNotes>['n
   return (
     <div data-testid="search-recent">
       <div className={classes.group}>Recent</div>
-      {notes.map((note) => (
-        <Link key={note.path} data-testid="search-recent-item" to={documentUrl(note.path)} className={classes.head} onClick={onOpen}>
+      {notes.map((recent) => (
+        <Link key={recent.path} data-testid="search-recent-item" to={documentUrl(recent.path)} className={classes.head} onClick={onOpen}>
           <IconFileText size={layout.iconSizeSmall} />
-          <span className={classes.title}>{note.title === '' ? note.path : note.title}</span>
-          <span className={classes.path}>{note.path}</span>
+          <span className={classes.title}>{recent.title === '' ? recent.path : recent.title}</span>
+          <span className={classes.path}>{recent.path}</span>
         </Link>
       ))}
     </div>

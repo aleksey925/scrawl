@@ -28,7 +28,7 @@ export function writeCookie(name: string, value: string, secure: boolean): void 
   document.cookie = `${name}=${value}; path=/; max-age=${cookieMaxAge}; samesite=lax${flag}`;
 }
 
-export function clearCookie(name: string): void {
+function clearCookie(name: string): void {
   document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
 }
 

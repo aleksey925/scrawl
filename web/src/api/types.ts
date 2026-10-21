@@ -246,6 +246,8 @@ export type ExportFormat = 'md' | 'html';
 
 export interface EntryPathResponse extends MutationState {
   path: string;
+  // edit_url is where a created file is edited, left out of one the editor cannot open
+  edit_url?: string;
 }
 
 export interface SearchSpan {

@@ -250,6 +250,7 @@
   color: var(--scrawl-accent);
   font: inherit;
   font-size: 12px;
+  text-decoration: none;
   cursor: pointer;
 }
 

@@ -9,6 +9,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/render"
@@ -165,7 +166,7 @@ func (m *mount) apiDir(w http.ResponseWriter, r *http.Request) {
 		failJSON(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, view.NewDir(p, entries, view.ItemsIn(m.spc.Store.List), editable))
+	writeJSON(w, http.StatusOK, view.NewDir(p, entries, m.spc.Store.Count, editable))
 }
 
 // writeDoc answers with one rendered document.
@@ -213,26 +214,32 @@ func (m *mount) writeFile(w http.ResponseWriter, r *http.Request, fi store.FileI
 		return
 	}
 
-	data, fi, err := m.spc.Store.Read(fi.Path)
+	data, read, err := m.spc.Store.Read(fi.Path)
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
 	if !textContent(data) {
-		writeJSON(w, http.StatusOK, view.NewFile(fi, view.FileOther))
+		writeJSON(w, http.StatusOK, view.NewFile(read, view.FileOther))
 		return
 	}
-	res := view.NewFile(fi, view.FileText)
+	res := view.NewFile(read, view.FileText)
 	res.Rev = store.Rev(data)
-	res.EditURL = view.EditURL(fi.Path)
+	res.EditURL = view.EditURL(read.Path)
 	res.Lines = lineCount(data)
-	res.HTML, res.Language = m.highlight(fi.Path, data)
+	res.HTML, res.Language = m.highlight(read.Path, data)
 	writeJSON(w, http.StatusOK, res)
 }
 
 // highlight colors a text file up to maxHighlightBytes and under the render
 // deadline; past either it is plain text, which costs one escape.
 func (m *mount) highlight(p string, data []byte) (string, string) {
+	return highlightFile(p, data, renderTimeout, m.spc.Renderer.HighlightFile)
+}
+
+func highlightFile(p string, data []byte, timeout time.Duration,
+	color func(name string, data []byte) (template.HTML, string, error),
+) (string, string) {
 	if len(data) > maxHighlightBytes {
 		return string(render.PlainFile(data)), render.PlainLanguage
 	}
@@ -240,8 +247,8 @@ func (m *mount) highlight(p string, data []byte) (string, string) {
 		html     template.HTML
 		language string
 	}
-	res, err := withDeadline(p, renderTimeout, func() (highlighted, error) {
-		html, language, highlightErr := m.spc.Renderer.HighlightFile(path.Base(p), data)
+	res, err := withDeadline(p, timeout, func() (highlighted, error) {
+		html, language, highlightErr := color(path.Base(p), data)
 		return highlighted{html: html, language: language}, highlightErr
 	})
 	if err != nil {

@@ -1,19 +1,19 @@
 import { Text } from '@mantine/core';
-import { IconHistory, IconPencil } from '../icons';
 import { useEffect, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 
 import { absoluteTime, shortDate } from '../components/formats';
 import { ReadingAnchorTracker } from '../editor/ReadingAnchorTracker';
+import { IconHistory } from '../icons';
 import { historyUrl } from '../paths';
 import { layoutBreakpoints, useAtLeast } from '../theme';
 
 import type { DocumentExtrasProps } from './extensions';
-import { EditButton } from './EditButton';
+import { EditAction } from './EditButton';
 import { useNav } from './NavContext';
 import { NoteMenu } from './NoteMenu';
 import { PageActions } from './ShellSlots';
-import { appShortcut, typingInto } from './shortcuts';
+import { plainShortcut } from './shortcuts';
 import classes from './Topbar.module.css';
 import { TopbarAction } from './TopbarAction';
 
@@ -46,15 +46,11 @@ function NoteActions({ doc }: { doc: DocumentExtrasProps['doc'] }): JSX.Element 
           Edited {shortDate(doc.mod_time)}
         </Text>
       )}
-      {canWrite && (wide ? (
-        <TopbarAction testId="doc-edit" label="Edit" icon={IconPencil} to={doc.edit_url} />
-      ) : (
-        <EditButton to={doc.edit_url} />
-      ))}
+      {canWrite && <EditAction testId="doc-edit" to={doc.edit_url} />}
       {/* reading the versions is a read, so it stays where writing does not;
           a space that records no versions has none to show */}
       {wide && me?.history_on === true && (
-        <TopbarAction testId="doc-history" label="History" icon={IconHistory} to={historyUrl(doc.path)} iconOnly />
+        <TopbarAction testId="doc-history" label="History" icon={IconHistory} to={historyUrl(doc.path)} />
       )}
       <NoteMenu doc={doc} />
     </>
@@ -73,7 +69,7 @@ function useEditShortcut(editUrl: string | undefined): void {
       if (event.key.toLowerCase() !== 'e' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
         return;
       }
-      if (typingInto(event.target) || !appShortcut(event)) {
+      if (!plainShortcut(event)) {
         return;
       }
       event.preventDefault();

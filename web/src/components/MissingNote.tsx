@@ -1,13 +1,13 @@
-import { IconFilePlus, IconFolder, IconSearch } from '../icons';
 import { useEffect, type JSX } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import type { MissingDocumentResponse } from '../api/types';
-import { directoryUrl, editUrl } from '../paths';
+import { IconFilePlus, IconFolder, IconSearch } from '../icons';
+import { directoryUrl, editUrl, searchUrl } from '../paths';
 import { usePlatform } from '../platform';
 import { basenameOf, pageName, parentOf } from '../shell/naming';
 import { chromeOf, usePageChrome } from '../shell/PageChrome';
-import { typingInto } from '../shell/shortcuts';
+import { plainShortcut } from '../shell/shortcuts';
 import { SyncBadge } from '../shell/SyncBadge';
 import { layout } from '../theme';
 
@@ -33,7 +33,8 @@ export function MissingNote({ path, page }: MissingNoteProps): JSX.Element {
       return undefined;
     }
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Enter' || event.defaultPrevented || typingInto(event.target)) {
+      const modified = event.metaKey || event.ctrlKey || event.altKey || event.shiftKey;
+      if (event.key !== 'Enter' || modified || !plainShortcut(event)) {
         return;
       }
       if (event.target instanceof HTMLElement && event.target.closest('a, button') !== null) {
@@ -65,16 +66,12 @@ export function MissingNote({ path, page }: MissingNoteProps): JSX.Element {
             <span>Create {path}</span>
           </Link>
         )}
-        <Link data-testid="doc-missing-folder" to={folder === '' ? '/' : directoryUrl(folder)} className={classes.option}>
+        <Link data-testid="doc-missing-folder" to={directoryUrl(folder)} className={classes.option}>
           <IconFolder size={layout.iconSize} />
           <span>{folder === '' ? 'Open the notes of the space' : `Open the folder ${basenameOf(folder)}`}</span>
         </Link>
         {search && (
-          <Link
-            data-testid="doc-missing-search"
-            to={`/search?q=${encodeURIComponent(name)}`}
-            className={classes.option}
-          >
+          <Link data-testid="doc-missing-search" to={searchUrl(name)} className={classes.option}>
             <IconSearch size={layout.iconSize} />
             <span>Search for a similar note</span>
           </Link>

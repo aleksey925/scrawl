@@ -7,8 +7,10 @@ import type { FileResponse, MeResponse } from '../api/types';
 import { useApi } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
 import { EditorScreen } from '../editor';
+import { RouteChrome } from '../shell/PageChrome';
 
 interface EditData {
+  path: string;
   me: MeResponse;
   file: FileResponse | undefined;
 }
@@ -29,22 +31,28 @@ export function Component(): JSX.Element {
         throw error;
       }),
     ]);
-    return { me, file };
+    return { path, me, file };
   }, [path]);
+  // the editor takes its text once, on mount, so the answer kept from the note
+  // edited before must never reach it
+  const current = state.data?.path === path ? state : { ...state, data: undefined };
 
   return (
-    <AsyncContent state={state} testId="editor">
-      {({ me, file }) => (
-        <EditorScreen
-          key={path}
-          path={path}
-          initialContent={file?.content ?? ''}
-          initialRev={file?.rev ?? ''}
-          isNew={file === undefined}
-          readOnly={me.read_only}
-          formatOnSave={me.space.format_on_save}
-        />
-      )}
-    </AsyncContent>
+    <>
+      <RouteChrome />
+      <AsyncContent state={current} testId="editor">
+        {({ me, file }) => (
+          <EditorScreen
+            key={path}
+            path={path}
+            initialContent={file?.content ?? ''}
+            initialRev={file?.rev ?? ''}
+            isNew={file === undefined}
+            readOnly={me.read_only}
+            formatOnSave={me.space.format_on_save}
+          />
+        )}
+      </AsyncContent>
+    </>
   );
 }

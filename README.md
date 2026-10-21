@@ -211,7 +211,7 @@ spaces:
 | key                     | required           | default  | meaning                                                                                                                        |
 | ----------------------- | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `name`                  | yes                |          | URL segment: lowercase letters, digits, `-` and `_`, unique                                                                    |
-| `label`                 |                    | the name | what the switcher and the top of the tree show                                                                                 |
+| `label`                 |                    | the name | what the space's button at the head of the sidebar shows                                                                       |
 | `dir`                   | yes                |          | directory to serve                                                                                                             |
 | `read_only`             |                    | `false`  | refuse every write in this space                                                                                               |
 | `format_on_save`        |                    | `true`   | `false` stops the editor from formatting a note with prettier when it saves it                                                 |
@@ -245,8 +245,9 @@ A few rules:
 - Setting both `token_file` and `token_env`, or both hook secret keys,
   stops startup with an error.
 
-`/` redirects to the first space, and the topbar shows a switcher once
-there is more than one. Everything else is shared: one login, one
+`/` redirects to the first space, and the space's button at the head of
+the sidebar opens a menu that switches to another one. Everything else
+is shared: one login, one
 session, one set of API tokens, and a search that searches the space you
 are in.
 
@@ -393,11 +394,11 @@ Nothing about this blocks you. The save landed, the note is on disk, the
 history entry exists - the only thing that did not happen is the push,
 and editing carries on exactly as before.
 
-An amber control appears in the top bar and stays there. It says whether
-the note you are looking at is affected, and clicking it lists the
-affected notes. A banner above the page says the same in full, with the
-exact git error. On a phone the control is in the `⋯` menu, and an amber
-dot on that menu shows while the problem lasts.
+An orange "Not synced" control appears in the top bar and stays there.
+It says whether the note you are looking at is affected, and clicking it
+lists the affected notes. A banner above the page says the same in full,
+with the exact git error. On a phone the control is an orange cloud icon
+in the bar on top.
 
 The messages are:
 
@@ -590,8 +591,11 @@ Exact and regex run line by line over the text as a reader sees it, so
 `^Install` finds a heading and `^## ` finds nothing. Each hit then carries
 `title_spans`, `match_count`, `line_count` and up to 20 `lines`, each with
 its line number, its text in `spans` and a `url` that opens the note at
-that line. A bad pattern is answered with `400` and the reason. A search
-that names none of these is answered as before.
+that line with its find bar filled in: the `url` carries `q`, the toggles
+that were on and `line`. A pattern over 1KB, or a bad one, is answered
+with `400` and the reason. `"truncated":true` says the search stopped
+early, at its time limit or after too many matching lines, so some notes
+may be missing. A search that names none of these is answered as before.
 
 A save sends that `rev` back. If the file changed since it was read, the
 `rev` no longer matches and the save is refused. Read it, then save:
@@ -752,8 +756,9 @@ lockfile; a Playwright bump wants a new browser, and without it every
 browser test fails with "Executable doesn't exist".
 
 ```
-make ui         build the interface into server/assets/app/
+make ui         build the interface into server/assets/app/ and page/assets/
 make formatter  build prettier into format/prettier.wasm
+make icons      draw the favicon and the PNG icons from the logo
 make build      build the binary into dist/, with the assets compressed
 make run        run ./examples/data as the "notes" space, no authentication
 make test       tests
@@ -767,11 +772,11 @@ make img        build the image
 
 The interface is a react app in [web/](web/), see
 [web/README.md](web/README.md). What vite builds is committed under
-`server/assets/app/` and embedded with `//go:embed`, which is what lets
-`go install` and the docker image work with neither node nor the
-network. Change anything under `web/` and the rebuilt bundle belongs in
-the same commit: CI rebuilds it and fails if what is checked in is
-stale.
+`server/assets/app/` and `page/assets/` and embedded with `//go:embed`,
+which is what lets `go install` and the docker image work with neither
+node nor the network. Change anything under `web/` and the rebuilt
+bundle belongs in the same commit: CI rebuilds it and fails if what is
+checked in is stale.
 
 `make build`, the docker image and the release binaries store these
 files gzip-compressed, which makes the binary about 26 MB instead of

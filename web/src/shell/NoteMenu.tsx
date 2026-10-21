@@ -6,20 +6,18 @@ import type { DocumentResponse } from '../api/types';
 import { absoluteTime } from '../components/formats';
 import { PopupMenu } from '../components/PopupMenu';
 import { IconDots, IconEdit, IconHistory, IconLink, IconListSearch, IconSearch, IconTrash } from '../icons';
-import { useFindControl } from '../reader/findControl';
 import { historyUrl } from '../paths';
-import { layout, layoutBreakpoints, useAtLeast } from '../theme';
+import { useFindControl } from '../reader/findControl';
+import { layout } from '../theme';
 
 import { ExportItems, useNoteExport } from './ExportMenu';
 import { useFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
 import classes from './NoteMenu.module.css';
 import { PageWidthControl } from './PageWidthControl';
-import { useKeyboardPlace } from './shortcuts';
 import { useReaderLayout } from './ReaderLayout';
-
-const apple = /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent);
-const findKeys = apple ? '⌘F' : 'Ctrl+F';
+import { MenuKeys } from './ShortcutHelp';
+import { keysLabel, modKey, useKeyboardPlace } from './shortcuts';
 
 // wordsOf counts the words a reader sees in the rendered note, so markup and
 // addresses are not counted
@@ -38,7 +36,6 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
   const exporter = useNoteExport(path);
   const find = useFindControl();
   const { openOutline } = useReaderLayout();
-  const wide = useAtLeast(layoutBreakpoints.sidebar);
   const keyboard = useKeyboardPlace();
   const [opened, setOpened] = useState(false);
   const words = useMemo(() => (opened ? wordsOf(doc.html) : 0), [opened, doc.html]);
@@ -51,8 +48,7 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown data-testid="note-menu-dropdown">
-        <PageWidthControl />
-        {wide && <Menu.Divider />}
+        <PageWidthControl divided />
         {openOutline !== undefined && (
           <Menu.Item
             data-testid="note-menu-outline"
@@ -66,7 +62,7 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
           <Menu.Item
             data-testid="note-menu-find"
             leftSection={<IconSearch size={layout.iconSizeSmall} />}
-            rightSection={keyboard && <span className={classes.keys}>{findKeys}</span>}
+            rightSection={keyboard && <MenuKeys>{keysLabel(modKey, 'F')}</MenuKeys>}
             onClick={find.open}
           >
             Find in note
@@ -96,7 +92,7 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
             <Menu.Item
               data-testid="note-menu-rename"
               leftSection={<IconEdit size={layout.iconSizeSmall} />}
-              onClick={() => actions.rename(path, false)}
+              onClick={() => actions.rename(path)}
             >
               Rename or move
             </Menu.Item>

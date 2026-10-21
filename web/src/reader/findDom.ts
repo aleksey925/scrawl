@@ -1,15 +1,19 @@
+import { anchorClass, codeHeadClass } from './controls';
 import type { FindMatch } from './findMatches';
 
-// katex and mermaid own their subtrees: a mark spliced into one corrupts the
-// rendering, and .math is source that typesetting detaches marks from; the
-// head of a code block is the app's own words
-const skipSelector = 'script, style, svg, .katex, .math, .mermaid, .md-anchor, .md-code-head';
+// a mark spliced into katex or mermaid corrupts it, typesetting detaches marks
+// from .math, and a code block's head is the app's own words
+const skipSelector = `script, style, svg, .katex, .math, .mermaid, .${anchorClass}, .${codeHeadClass}`;
 
 // a block is a unit of text a match may run across, inline markup included: a
 // paragraph, a heading, a list item, a cell, a line of code
 const blockSelector = 'p, h1, h2, h3, h4, h5, h6, li, td, th, dt, dd, summary, figcaption, .line, pre';
 
-export const hitClass = 'md-find';
+// text raw HTML leaves outside every block joins its nearest container: joined
+// to the note, one match could run from one end of the page to the other
+const looseSelector = 'blockquote, details, div, section, article, aside, figure, table, ul, ol, dl';
+
+const hitClass = 'md-find';
 
 interface Piece {
   node: Text;
@@ -36,7 +40,8 @@ export function blocksOf(root: HTMLElement): FindBlock[] {
   const byElement = new Map<Element, FindBlock>();
   const res: FindBlock[] = [];
   for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-    const element = node.parentElement?.closest(blockSelector) ?? root;
+    const parent = node.parentElement;
+    const element = parent?.closest(blockSelector) ?? parent?.closest(looseSelector) ?? root;
     let block = byElement.get(element);
     if (block === undefined) {
       block = { element, text: '', pieces: [] };
@@ -56,26 +61,32 @@ export function markMatches(blocks: readonly FindBlock[], matches: readonly Find
   // per text node the ranges to wrap, wrapped from the end so the offsets of
   // the earlier ones stay where they were
   const ranges = new Map<Text, { from: number; to: number; match: number }[]>();
-  matches.forEach((match, index) => {
-    const block = blocks[match.block];
+  matches.forEach((found, index) => {
+    const block = blocks[found.block];
     if (block === undefined) {
       return;
     }
-    for (const piece of block.pieces) {
-      const length = piece.node.nodeValue?.length ?? 0;
-      const from = Math.max(match.start - piece.start, 0);
-      const to = Math.min(match.end - piece.start, length);
+    for (const part of block.pieces) {
+      const length = part.node.nodeValue?.length ?? 0;
+      const from = Math.max(found.start - part.start, 0);
+      const to = Math.min(found.end - part.start, length);
       if (from >= to) {
         continue;
       }
-      const list = ranges.get(piece.node) ?? [];
+      const list = ranges.get(part.node) ?? [];
       list.push({ from, to, match: index });
-      ranges.set(piece.node, list);
+      ranges.set(part.node, list);
     }
   });
   for (const [node, list] of ranges) {
     list.sort((a, b) => b.from - a.from);
+    // a range reaching into the one wrapped after it would split past the end
+    let limit = Infinity;
     for (const range of list) {
+      if (range.to > limit) {
+        continue;
+      }
+      limit = range.from;
       const tail = node.splitText(range.from);
       tail.splitText(range.to - range.from);
       const mark = document.createElement('mark');
@@ -84,26 +95,26 @@ export function markMatches(blocks: readonly FindBlock[], matches: readonly Find
       mark.dataset.active = 'false';
       tail.replaceWith(mark);
       mark.append(tail);
-      groups[range.match]?.unshift(mark);
+      groups[range.match]?.push(mark);
     }
   }
-  return groups;
+  return groups.filter((marks) => marks.length > 0);
 }
 
 // unmark takes the marks back out, leaving the text as it was
 export function unmark(groups: readonly HTMLElement[][]): void {
-  const parents = new Set<Node>();
-  for (const marks of groups) {
-    for (const mark of marks) {
+  const touched = new Set<Node>();
+  for (const matchMarks of groups) {
+    for (const mark of matchMarks) {
       const parent = mark.parentNode;
       if (parent === null) {
         continue;
       }
       mark.replaceWith(...mark.childNodes);
-      parents.add(parent);
+      touched.add(parent);
     }
   }
-  for (const parent of parents) {
+  for (const parent of touched) {
     parent.normalize();
   }
 }
@@ -116,19 +127,53 @@ function sourceRange(element: Element): [number, number] | undefined {
   return Number.isFinite(start) && Number.isFinite(end) && holder !== null ? [start, end] : undefined;
 }
 
-// matchAtLine is the first match inside the block that holds a source line,
-// and when that block holds none, the first match after it; the block itself
-// comes back too, to scroll to when there is no match at all
+// breaksBefore counts the line breaks in the text of from up to node
+function breaksBefore(from: Node, node: Node): number {
+  const range = document.createRange();
+  range.setStart(from, 0);
+  range.setEndBefore(node);
+  return range.toString().split('\n').length - 1;
+}
+
+// lineOf is the source line a mark is on: a table row and a line of code are
+// a line each, and a break in the text of a paragraph is one in the source
+function lineOf(mark: Element): number | undefined {
+  const holder = mark.closest('[data-source-start]');
+  const range = holder === null ? undefined : sourceRange(holder);
+  if (holder === null || range === undefined) {
+    return undefined;
+  }
+  const [start, end] = range;
+  const code = mark.closest('pre code');
+  if (code !== null && holder.contains(code)) {
+    const lines = (code.textContent ?? '').replace(/\n$/, '').split('\n').length;
+    // indented code fills its range; a fence's opening line is in the range and
+    // not in the code, and its closing one too unless the fence was left open
+    const first = lines > end - start ? start : start + 1;
+    return Math.min(first + breaksBefore(code, mark), end);
+  }
+  const row = mark.closest('tr');
+  if (row !== null && holder.contains(row)) {
+    const index = Array.from(holder.querySelectorAll('tr')).indexOf(row);
+    // the row under the header is the delimiter line, which renders nothing
+    return Math.min(index === 0 ? start : start + index + 1, end);
+  }
+  return Math.min(start + breaksBefore(holder, mark), end);
+}
+
+// matchAtLine is the first match on a source line or after it; the innermost
+// block holding the line comes back too, to scroll to when there is no match
 export function matchAtLine(root: HTMLElement, groups: readonly HTMLElement[][], line: number): {
   match: number | undefined;
   block: Element | undefined;
 } {
-  for (let i = 0; i < groups.length; i++) {
-    const first = groups[i]?.[0];
-    const range = first === undefined ? undefined : sourceRange(first);
-    if (range !== undefined && range[0] <= line && line <= range[1]) {
-      return { match: i, block: first };
-    }
+  const at = groups.findIndex((marks) => {
+    const first = marks[0];
+    const found = first === undefined ? undefined : lineOf(first);
+    return found !== undefined && found >= line;
+  });
+  if (at >= 0) {
+    return { match: at, block: groups[at]?.[0] };
   }
   let block: Element | undefined;
   for (const element of root.querySelectorAll('[data-source-start]')) {
@@ -137,22 +182,15 @@ export function matchAtLine(root: HTMLElement, groups: readonly HTMLElement[][],
       block = element;
     }
   }
-  if (block === undefined) {
-    return { match: undefined, block: undefined };
-  }
-  const after = groups.findIndex((marks) => {
-    const first = marks[0];
-    return first !== undefined && (block.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-  });
-  return { match: after < 0 ? undefined : after, block };
+  return { match: undefined, block };
 }
 
 // reveal opens every closed details around a mark, so the current match is
 // on screen and not folded away
 export function reveal(mark: Element): void {
   for (let details = mark.closest('details'); details !== null; details = details.parentElement?.closest('details') ?? null) {
-    if (!(details as HTMLDetailsElement).open) {
-      (details as HTMLDetailsElement).open = true;
+    if (!details.open) {
+      details.open = true;
     }
   }
 }

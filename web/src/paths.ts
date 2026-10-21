@@ -60,6 +60,14 @@ export function editUrl(path: string): string {
   return `/edit/${encodeContentPath(path)}`;
 }
 
+export function isEditPath(pathname: string): boolean {
+  return pathname.startsWith('/edit/');
+}
+
+export function searchUrl(query: string): string {
+  return `/search?q=${encodeURIComponent(query)}`;
+}
+
 export function historyUrl(path: string): string {
   return `/history/${encodeContentPath(path)}`;
 }

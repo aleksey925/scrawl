@@ -1,13 +1,14 @@
-import { ActionIcon, Menu, Text } from '@mantine/core';
-import { IconDots, IconKeyboard, IconListSearch } from '../icons';
+import { ActionIcon, Menu } from '@mantine/core';
 import type { JSX } from 'react';
 
 import { PopupMenu } from '../components/PopupMenu';
+import { IconDots, IconListSearch } from '../icons';
 import { layout } from '../theme';
 
 import { useNav } from './NavContext';
 import { PageWidthControl } from './PageWidthControl';
 import { useReaderLayout } from './ReaderLayout';
+import { ShortcutsMenuItem } from './ShortcutHelp';
 import { useKeyboardPlace } from './shortcuts';
 import { SpaceButton } from './SpaceButton';
 import { ThemePicker } from './ThemePicker';
@@ -44,16 +45,11 @@ export function SiteMenu({ dots = false }: { dots?: boolean }): JSX.Element {
         )}
         <ThemePicker />
         {!dots && <PageWidthControl />}
-        <Menu.Divider />
         {keyboard && (
-          <Menu.Item
-            data-testid="space-menu-shortcuts"
-            leftSection={<IconKeyboard size={layout.iconSizeSmall} />}
-            rightSection={<Text size="xs" c="dimmed">?</Text>}
-            onClick={openShortcuts}
-          >
-            Keyboard shortcuts
-          </Menu.Item>
+          <>
+            <Menu.Divider />
+            <ShortcutsMenuItem onClick={openShortcuts} />
+          </>
         )}
       </Menu.Dropdown>
     </PopupMenu>

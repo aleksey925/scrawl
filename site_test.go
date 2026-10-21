@@ -202,7 +202,7 @@ func TestRunSite(t *testing.T) {
 		answer, ok := docs["answer"].(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, view.KindDirectory, answer["kind"])
-		assert.Equal(t, jsonOf(t, view.DirEntries(entries, view.ItemsIn(st.List), view.NotEditable)), answer["entries"])
+		assert.Equal(t, jsonOf(t, view.DirEntries(entries, st.Count, view.NotEditable)), answer["entries"])
 		assert.NotContains(t, answer, "readme_html")
 	})
 

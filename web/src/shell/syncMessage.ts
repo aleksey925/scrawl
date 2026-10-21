@@ -47,7 +47,7 @@ export function syncMessage(me: MeResponse | undefined): SyncMessage | undefined
   if (first === undefined) {
     return undefined;
   }
-  const diverged = me.space.diverged && facts.some((fact) => fact.kind === 'merge');
+  const diverged = me.space.diverged && facts.some((entry) => entry.kind === 'merge');
   return {
     kind: first.kind,
     title: titleOf(first.kind, diverged, me.space.push_refused),

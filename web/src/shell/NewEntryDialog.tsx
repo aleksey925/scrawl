@@ -15,7 +15,7 @@ export interface NewEntryDialogProps {
 export function NewEntryDialog({ draft, onCreate, onClose }: NewEntryDialogProps): JSX.Element {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
-  const page = draft.kind === 'file';
+  const isFile = draft.kind === 'file';
 
   function submit(event: FormEvent): void {
     event.preventDefault();
@@ -37,9 +37,8 @@ export function NewEntryDialog({ draft, onCreate, onClose }: NewEntryDialogProps
       onClose={onClose}
       centered
       size={320}
-      radius="lg"
       withCloseButton={false}
-      title={page ? 'New file' : 'New folder'}
+      title={isFile ? 'New file' : 'New folder'}
       data-testid="new-entry"
     >
       <form onSubmit={submit}>
@@ -47,13 +46,13 @@ export function NewEntryDialog({ draft, onCreate, onClose }: NewEntryDialogProps
           data-testid="new-entry-name"
           data-autofocus
           size="md"
-          placeholder={page ? 'File name' : 'Folder name'}
-          aria-label={page ? 'Name of the new file' : 'Name of the new folder'}
+          placeholder={isFile ? 'File name' : 'Folder name'}
+          aria-label={isFile ? 'Name of the new file' : 'Name of the new folder'}
           value={name}
           autoComplete="off"
           onChange={(event) => setName(event.currentTarget.value)}
         />
-        {page && (
+        {isFile && (
           <Text data-testid="new-entry-hint" size="sm" c="dimmed" mt={6}>
             Without an extension it is a note
           </Text>

@@ -4,9 +4,9 @@ import { headingsOf, imagesOf } from './dom';
 export const anchorClass = 'md-anchor';
 export const copyClass = 'md-copy';
 export const codeHeadClass = 'md-code-head';
-export const tableWrapClass = 'table-wrap';
-export const copyLabel = 'Copy';
-export const copiedLabel = 'Copied';
+const tableWrapClass = 'table-wrap';
+const copyLabel = 'Copy';
+const copiedLabel = 'Copied';
 
 const copiedFor = 1500;
 

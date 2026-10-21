@@ -100,8 +100,10 @@
   color: var(--scrawl-text-tertiary);
 }
 
-/* a menu floats on the popover ground, its edge drawn by the shadow */
+/* a menu floats on the popover ground, its edge drawn by the shadow, and
+   stays on a narrow screen whatever width it asked for */
 .menu {
+  max-width: calc(100vw - 16px);
   border: 0;
   background: var(--scrawl-popover);
   box-shadow: var(--scrawl-shadow-medium);
@@ -155,7 +157,7 @@
   /* a menu is a list of rows for a finger: mantine draws them 26px tall in
      14px text, three to the width of a fingertip */
   .menu {
-    min-width: 220px;
+    min-width: var(--scrawl-menu-width);
   }
 
   .menuItem {
@@ -179,28 +181,6 @@
     justify-content: center;
     min-height: calc(var(--scrawl-touch-choice) - 4px);
     font-size: 13px;
-  }
-
-  /* a folder's icon sits against its name instead of in the middle of a 44px
-     box; the width it gives up is a strip reaching left into the indent */
-  .twisty {
-    min-width: 0;
-    overflow: visible;
-  }
-
-  .twisty::before {
-    content: '';
-    position: absolute;
-    inset-block: 0;
-    inset-inline-end: 0;
-    inset-inline-start: calc(100% - var(--scrawl-tap-target));
-  }
-
-  /* on the page the touch height is padding taken back by a margin, so the row
-     stays one line of text tall; a minimum height made it a 44px band */
-  .pageCrumbs a {
-    padding-block: calc((var(--scrawl-tap-target) - 1em) / 2);
-    margin-block: calc((1em - var(--scrawl-tap-target)) / 2);
   }
 }
 
@@ -238,9 +218,4 @@
   .modalInner {
     align-items: center;
   }
-}
-
-/* a menu stays on a narrow screen whatever width it asked for */
-.menu {
-  max-width: calc(100vw - 16px);
 }

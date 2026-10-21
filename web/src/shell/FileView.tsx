@@ -1,24 +1,23 @@
 import { ActionIcon, Button, Menu } from '@mantine/core';
-import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconPencil, IconTrash } from '../icons';
-import { useRef, useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 
 import type { FilePageResponse } from '../api/types';
 import { EmptyState } from '../components/EmptyState';
 import { absoluteTime, fileSize, shortTime } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
 import { PopupMenu } from '../components/PopupMenu';
+import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconTrash } from '../icons';
 import { usePlatform } from '../platform';
 import { useDocumentControls } from '../reader/useDocumentControls';
 import { openViewer } from '../reader/viewer';
-import { layout, layoutBreakpoints, useAtLeast } from '../theme';
+import { layout } from '../theme';
 
-import { EditButton } from './EditButton';
+import { EditAction } from './EditButton';
 import { useFileActions } from './fileActionsContext';
 import classes from './FileView.module.css';
 import { useNav } from './NavContext';
 import { chromeOf, usePageChrome } from './PageChrome';
 import { PageActions } from './ShellSlots';
-import { TopbarAction } from './TopbarAction';
 
 // FileView is the page of a file that is not a note: a picture as a preview
 // that opens the viewer, a text file as numbered, highlighted lines, and any
@@ -85,6 +84,15 @@ function Picture({ file, raw }: { file: FilePageResponse; raw: string }): JSX.El
   const pixels = size === undefined ? undefined : `${size.width} × ${size.height} px`;
   const scale = size === undefined || size.width === 0 ? 1 : Math.max(1, Math.floor(smallPicture / Math.max(size.width, size.height)));
   const type = file.name.replace(/^.*\./, '').toUpperCase();
+  const closeViewer = useRef<(() => void) | null>(null);
+  // the viewer is a dialog on the body, so it outlives a picture it is not closed with
+  useEffect(
+    () => () => {
+      closeViewer.current?.();
+      closeViewer.current = null;
+    },
+    [raw],
+  );
 
   return (
     <>
@@ -94,7 +102,11 @@ function Picture({ file, raw }: { file: FilePageResponse; raw: string }): JSX.El
         data-testid="file-preview"
         className={classes.preview}
         aria-label={`Open ${file.name} full size`}
-        onClick={() => image.current !== null && openViewer([image.current], image.current)}
+        onClick={() => {
+          if (image.current !== null) {
+            closeViewer.current = openViewer([image.current], image.current);
+          }
+        }}
       >
         <img
           ref={image}
@@ -136,17 +148,10 @@ function TextLines({ file }: { file: FilePageResponse }): JSX.Element {
 function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }): JSX.Element {
   const { canWrite } = useNav();
   const actions = useFileActions();
-  const wide = useAtLeast(layoutBreakpoints.compactTopbar);
 
   return (
     <>
-      {canWrite && file.edit_url !== undefined && (
-        wide ? (
-          <TopbarAction testId="file-edit" label="Edit" icon={IconPencil} to={file.edit_url} />
-        ) : (
-          <EditButton to={file.edit_url} />
-        )
-      )}
+      {canWrite && file.edit_url !== undefined && <EditAction testId="file-edit" to={file.edit_url} />}
       <ActionIcon
         data-testid="file-download"
         component="a"
@@ -160,7 +165,7 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
       >
         <IconDownload size={layout.iconSize} />
       </ActionIcon>
-      <PopupMenu position="bottom-end" width={220} withinPortal>
+      <PopupMenu position="bottom-end" width={layout.menuWidth} withinPortal>
         <Menu.Target>
           <ActionIcon data-testid="file-menu" variant="subtle" color="gray" size="lg" aria-label="More actions">
             <IconDots size={layout.iconSize} />
@@ -179,7 +184,7 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
               <Menu.Item
                 data-testid="file-menu-rename"
                 leftSection={<IconEdit size={layout.iconSizeSmall} />}
-                onClick={() => actions.rename(file.path, false)}
+                onClick={() => actions.rename(file.path)}
               >
                 Rename
               </Menu.Item>

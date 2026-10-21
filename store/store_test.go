@@ -431,6 +431,33 @@ func TestStoreList(t *testing.T) {
 	}
 }
 
+func TestStoreCount(t *testing.T) {
+	tests := []struct {
+		name string
+		dir  string
+		err  error
+	}{
+		{name: "root", dir: ""},
+		{name: "folder", dir: "notes"},
+		{name: "missing directory", dir: "nope", err: ErrNotFound},
+		{name: "ignored directory", dir: ".git", err: ErrNotFound},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			s := newStore(t, notesFiles())
+			entries, _ := s.List(tc.dir)
+
+			// act
+			got, err := s.Count(tc.dir)
+
+			// assert
+			require.ErrorIs(t, err, tc.err)
+			assert.Equal(t, len(entries), got)
+		})
+	}
+}
+
 func TestStoreStat(t *testing.T) {
 	s := newStore(t, notesFiles())
 

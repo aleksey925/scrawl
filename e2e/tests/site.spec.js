@@ -766,6 +766,35 @@ test('a page Back brings out of the cache takes the theme picked since and close
     await browser.close();
 });
 
+test('a page Back brings out of the cache takes the page width picked since', async ({playwright, browserName}) => {
+    // arrange
+    const browser = await playwright[browserName].launch(browserName === 'chromium'
+        ? {channel: 'chromium', ignoreDefaultArgs: ['--disable-back-forward-cache']}
+        : {});
+    const page = await browser.newPage({viewport: {width: 1280, height: 800}});
+    await page.goto(TARGETS.host('docs/guide.html'));
+    await page.evaluate(() => window.addEventListener('pageshow', (event) => {
+        window.restored = event.persisted;
+    }));
+    await expect(page.locator('html')).toHaveAttribute('data-page-width', 'normal');
+    await page.goto(TARGETS.host('pictures.html'));
+    await openSpaceMenu(page);
+    await page.getByTestId('page-width').getByText('Wide', {exact: true}).click();
+    await page.keyboard.press('Escape');
+
+    // act
+    await page.goBack({waitUntil: 'commit'});
+
+    // assert
+    if (browserName === 'chromium') {
+        await expect.poll(() => page.evaluate(() => window.restored)).toBe(true);
+    }
+    await expect(page.locator('html')).toHaveAttribute('data-page-width', 'wide');
+    await openSpaceMenu(page);
+    await expect(page.getByTestId('page-width')).toHaveAttribute('data-width', 'wide');
+    await browser.close();
+});
+
 test('a missing address of a host gets the page that says so', async ({page}) => {
     // act
     const res = await page.goto(TARGETS.host('docs/gone.html'));

@@ -27,8 +27,8 @@ const (
 const (
 	// MaxPattern caps the text of an exact or regex query
 	MaxPattern = 1 << 10
-	// MaxLinesPerResult is how many matching lines one note carries
-	MaxLinesPerResult = 20
+	// maxLinesPerResult is how many matching lines one note carries
+	maxLinesPerResult = 20
 	// maxMatchedLines stops a scan that matched this many lines in all
 	maxMatchedLines = 5000
 	// checkEvery is how many lines a scan reads between two looks at its
@@ -123,7 +123,7 @@ func compileQuery(q Query) (*regexp.Regexp, error) {
 	if len(q.Text) > MaxPattern {
 		return nil, fmt.Errorf("%w: longer than %d bytes", ErrPattern, MaxPattern)
 	}
-	pattern := q.Text
+	pattern := normalize(q.Text)
 	if !q.Regex {
 		pattern = regexp.QuoteMeta(pattern)
 	}
@@ -215,11 +215,14 @@ func inTitles(s slot) slot {
 // oneEdit reports whether b is a away by exactly one insertion, deletion or
 // substitution of a rune
 func oneEdit(a, b string) bool {
+	if a == b || len(a)-len(b) > utf8.UTFMax || len(b)-len(a) > utf8.UTFMax {
+		return false
+	}
 	ra, rb := []rune(a), []rune(b)
 	if len(ra) > len(rb) {
 		ra, rb = rb, ra
 	}
-	if len(rb)-len(ra) > 1 || a == b {
+	if len(rb)-len(ra) > 1 {
 		return false
 	}
 	i := 0
@@ -234,7 +237,7 @@ func oneEdit(a, b string) bool {
 
 func (d *document) fuzzyResult(terms []queryTerm, cand topDoc, titlesOnly bool) Result {
 	marks := d.matches(terms, cand.match)
-	snippet, _ := d.snippet(terms, cand.match)
+	snippet, _ := d.snippetOf(marks)
 	res := Result{
 		Path:       d.path,
 		Title:      d.title,
@@ -258,7 +261,7 @@ func (d *document) matchedWords(marks []mark) string {
 	seen := map[string]bool{}
 	words := make([]string, 0, 4)
 	for _, m := range marks {
-		word := d.plain[m.start:matchPrefixAt(d.plain, "", int(m.start))]
+		word := findWordAt(d.plain, int(m.start))
 		key := strings.ToLower(word)
 		if word == "" || seen[key] {
 			continue
@@ -269,16 +272,38 @@ func (d *document) matchedWords(marks []mark) string {
 	return strings.Join(words, "|")
 }
 
+// findWordAt is the word around at as the find bar of a note bounds a whole
+// word: _ joins it, where the index splits "foo_bar" into two words
+func findWordAt(text string, at int) string {
+	start := at
+	for start > 0 {
+		r, size := utf8.DecodeLastRuneInString(text[:start])
+		if !isWordChar(r) && !ignorable(r) {
+			break
+		}
+		start -= size
+	}
+	end := at
+	for end < len(text) {
+		r, size := utf8.DecodeRuneInString(text[end:])
+		if !isWordChar(r) && !ignorable(r) {
+			break
+		}
+		end += size
+	}
+	return text[start:end]
+}
+
 // titleSpans marks the words of a title a fuzzy query matched
 func titleSpans(title string, terms []queryTerm) []Span {
 	text := normalize(title)
 	marks := make([]mark, 0, 2)
 	for _, tok := range tokenize(text) {
-		for k, term := range terms {
-			if !termMatches(term, tok.term) {
+		for k, wanted := range terms {
+			if !termMatches(wanted, tok.term) {
 				continue
 			}
-			end := matchPrefixAt(text, "", tok.off)
+			end := wordEndAt(text, tok.off)
 			marks = append(marks, mark{start: off32(tok.off), end: off32(end), term: k})
 			break
 		}
@@ -338,12 +363,12 @@ func (d *document) lineBounds(i int) (int, int) {
 }
 
 // linesOf groups the marks by the line they are on, carrying the first
-// MaxLinesPerResult of them, and counts the lines
+// maxLinesPerResult of them, and counts the lines
 func (d *document) linesOf(marks []mark) ([]Line, int) {
 	if len(d.lines) == 0 {
 		return nil, 0
 	}
-	res := make([]Line, 0, min(len(marks), MaxLinesPerResult))
+	res := make([]Line, 0, min(len(marks), maxLinesPerResult))
 	count := 0
 	for i := 0; i < len(marks); {
 		at := d.lineOf(marks[i].start)
@@ -353,7 +378,7 @@ func (d *document) linesOf(marks []mark) ([]Line, int) {
 			j++
 		}
 		count++
-		if len(res) < MaxLinesPerResult {
+		if len(res) < maxLinesPerResult {
 			res = append(res, Line{Line: int(d.lines[at].line), Spans: cutLine(d.plain[start:end], shift(marks[i:j], start))})
 		}
 		i = j
@@ -370,6 +395,11 @@ func shift(marks []mark, start int) []mark {
 	return res
 }
 
+// unshift moves the marks of a line that starts at start back onto the whole text
+func unshift(marks []mark, start int) []mark {
+	return shift(marks, -start)
+}
+
 // cutLine is a line as spans, a long one cut to a window around its first
 // match, with an ellipsis where text was left out
 func cutLine(line string, marks []mark) []Span {
@@ -381,10 +411,10 @@ func cutLine(line string, marks []mark) []Span {
 	inside := make([]mark, 0, len(marks))
 	for _, m := range marks {
 		if int(m.start) >= start && int(m.end) <= end {
-			inside = append(inside, mark{start: m.start - off32(start), end: m.end - off32(start), term: m.term})
+			inside = append(inside, m)
 		}
 	}
-	res := spansOf(line[start:end], inside)
+	res := spansOf(line[start:end], shift(inside, start))
 	if start > 0 {
 		res = append([]Span{{Text: ellipsis}}, res...)
 	}
@@ -400,24 +430,26 @@ func (ix *Index) scan(ctx context.Context, q Query, re *regexp.Regexp, limit int
 	ix.mu.RLock()
 	defer ix.mu.RUnlock()
 
-	docs := make([]*document, 0, len(ix.docs))
-	for _, doc := range ix.docs {
-		docs = append(docs, doc)
+	byPath := make([]*document, 0, len(ix.docs))
+	for _, entry := range ix.docs {
+		byPath = append(byPath, entry)
 	}
-	slices.SortFunc(docs, func(a, b *document) int { return strings.Compare(a.path, b.path) })
+	slices.SortFunc(byPath, func(a, b *document) int { return strings.Compare(a.path, b.path) })
 
 	res := Found{}
 	matched, read := 0, 0
 	find := FindQuery{Text: q.Text, Case: q.Case, Word: q.Word, Regex: q.Regex}
-	for _, doc := range docs {
+	for _, doc := range byPath {
 		if ctx.Err() != nil || matched >= maxMatchedLines {
 			res.Truncated = true
 			break
 		}
-		titleMarks := patternMarks(doc.title, re, q.Word)
-		result := Result{Path: doc.path, Title: doc.title, TitleSpans: spansOf(doc.title, titleMarks), Find: find}
+		title := normalize(doc.title)
+		titleMarks := patternMarks(title, re, q.Word)
+		result := Result{Path: doc.path, Title: doc.title, TitleSpans: spansOf(title, titleMarks), Find: find}
 		if q.TitlesOnly {
 			if len(titleMarks) > 0 {
+				result.Snippet = doc.firstSnippet(ctx, re, q.Word)
 				res.Results = append(res.Results, result)
 			}
 			continue
@@ -472,7 +504,7 @@ func (d *document) scanLines(ctx context.Context, re *regexp.Regexp, word bool, 
 		res.MatchCount += len(marks)
 		res.LineCount++
 		*matched++
-		if len(res.Lines) < MaxLinesPerResult {
+		if len(res.Lines) < maxLinesPerResult {
 			res.Lines = append(res.Lines, Line{Line: int(d.lines[i].line), Spans: cutLine(d.plain[start:end], marks)})
 		}
 		if *matched >= maxMatchedLines {
@@ -480,11 +512,26 @@ func (d *document) scanLines(ctx context.Context, re *regexp.Regexp, word bool, 
 		}
 	}
 	if first != nil {
-		res.Snippet = d.snippetAt(shift(first, -firstStart))
+		res.Snippet = d.snippetAt(unshift(first, firstStart))
 	} else {
 		res.Snippet = d.lead()
 	}
 	return *matched >= maxMatchedLines
+}
+
+// firstSnippet is the window around the first line that matches, or the lead
+// of a note where none does before the deadline
+func (d *document) firstSnippet(ctx context.Context, re *regexp.Regexp, word bool) template.HTML {
+	for i := range d.lines {
+		if (i+1)%checkEvery == 0 && ctx.Err() != nil {
+			break
+		}
+		start, end := d.lineBounds(i)
+		if marks := patternMarks(d.plain[start:end], re, word); len(marks) > 0 {
+			return d.snippetAt(unshift(marks, start))
+		}
+	}
+	return d.lead()
 }
 
 // patternMarks are the matches of re in text, the empty ones left out: ^, $

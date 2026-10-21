@@ -156,8 +156,7 @@ async function showOutline(page) {
 // openSpaceMenu opens the menu in the head of the sidebar; a site on a phone
 // has the same theme picker in the menu at the right of its bar
 async function openSpaceMenu(page) {
-    const button = page.getByTestId('space-menu');
-    await ((await button.isVisible()) ? button : page.getByTestId('site-menu')).click();
+    await page.getByTestId('space-menu').or(page.getByTestId('site-menu')).filter({visible: true}).click();
     await expect(page.getByTestId('space-menu-dropdown')).toBeVisible();
 }
 

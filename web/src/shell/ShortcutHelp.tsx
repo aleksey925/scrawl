@@ -1,16 +1,12 @@
-import { Modal } from '@mantine/core';
-import { useEffect, type JSX } from 'react';
+import { Menu, Modal } from '@mantine/core';
+import { useEffect, type JSX, type ReactNode } from 'react';
 
+import { IconKeyboard } from '../icons';
 import { usePlatform } from '../platform';
+import { layout } from '../theme';
 
 import classes from './ShortcutHelp.module.css';
-import { appShortcut, typingInto } from './shortcuts';
-
-// Mantine resolves "mod" to command on apple hardware and to control everywhere
-// else; this only spells the same choice out for the reader
-const apple = /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent);
-const modKey = apple ? '⌘' : 'Ctrl';
-const altKey = apple ? '⌥' : 'Alt';
+import { altKey, modKey, plainShortcut } from './shortcuts';
 
 type Need = 'search' | 'editing';
 
@@ -48,6 +44,7 @@ const groups: readonly ShortcutGroup[] = [
       { keys: [altKey, 'W'], what: 'Whole word' },
       { keys: [altKey, 'R'], what: 'Regular expression' },
       { keys: ['E'], what: 'Edit the note', needs: 'editing' },
+      { keys: ['↵'], what: 'Create a note that does not exist yet', needs: 'editing' },
       { keys: ['←', '→'], what: 'Step through the images in the viewer' },
     ],
   },
@@ -73,6 +70,24 @@ const groups: readonly ShortcutGroup[] = [
   },
 ];
 
+// MenuKeys is the key of a menu row, at its right
+export function MenuKeys({ children }: { children: ReactNode }): JSX.Element {
+  return <span className={classes.menuKeys}>{children}</span>;
+}
+
+export function ShortcutsMenuItem({ onClick }: { onClick: () => void }): JSX.Element {
+  return (
+    <Menu.Item
+      data-testid="space-menu-shortcuts"
+      leftSection={<IconKeyboard size={layout.iconSizeSmall} />}
+      rightSection={<MenuKeys>?</MenuKeys>}
+      onClick={onClick}
+    >
+      Keyboard shortcuts
+    </Menu.Item>
+  );
+}
+
 export interface ShortcutHelpProps {
   opened: boolean;
   onOpen: () => void;
@@ -88,7 +103,7 @@ export function ShortcutHelp({ opened, onOpen, onClose }: ShortcutHelpProps): JS
       if (event.key !== '?' || event.metaKey || event.ctrlKey || event.altKey) {
         return;
       }
-      if (typingInto(event.target) || !appShortcut(event)) {
+      if (!plainShortcut(event)) {
         return;
       }
       event.preventDefault();
@@ -99,24 +114,24 @@ export function ShortcutHelp({ opened, onOpen, onClose }: ShortcutHelpProps): JS
   }, [onOpen]);
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Keyboard shortcuts" size={560} radius="lg">
+    <Modal opened={opened} onClose={onClose} title="Keyboard shortcuts" size={560}>
       {/* the modal root is a zero height wrapper around the portal, so the name
           goes on the list itself, which is what is actually on the screen */}
       <div data-testid="shortcuts" className={classes.groups}>
         {groups
-          .filter((group) => offers(group.needs))
-          .map((group) => (
-            <section key={group.name} data-testid="shortcuts-group" data-group={group.name} className={classes.group}>
-              <h3 className={classes.name}>{group.name}</h3>
-              {group.rows
-                .filter((row) => offers(row.needs))
-                .map((row) => (
-                  <div key={row.what + row.keys.join()} className={classes.row}>
-                    <span>{row.what}</span>
+          .filter((entry) => offers(entry.needs))
+          .map((entry) => (
+            <section key={entry.name} data-testid="shortcuts-group" data-group={entry.name} className={classes.group}>
+              <h3 className={classes.name}>{entry.name}</h3>
+              {entry.rows
+                .filter((shortcut) => offers(shortcut.needs))
+                .map((shortcut) => (
+                  <div key={shortcut.what + shortcut.keys.join()} className={classes.row}>
+                    <span>{shortcut.what}</span>
                     <span className={classes.keys}>
-                      {row.keys.map((key) => (
-                        <kbd key={key} className={classes.key}>
-                          {key}
+                      {shortcut.keys.map((name) => (
+                        <kbd key={name} className={classes.key}>
+                          {name}
                         </kbd>
                       ))}
                     </span>

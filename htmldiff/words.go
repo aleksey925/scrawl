@@ -39,26 +39,14 @@ type token struct {
 
 // markWords marks the words a pair of blocks does not share, in place on the
 // parsed trees, and returns both rendered again.
-func markWords(left, right block) (string, string) {
-	ta, tb := tokensOf(left.node), tokensOf(right.node)
-	if len(ta) > maxTokens || len(tb) > maxTokens {
-		return left.html, right.html
-	}
-	texts := func(tokens []token) []string {
-		res := make([]string, len(tokens))
-		for i, tok := range tokens {
-			res[i] = tok.text
-		}
-		return res
-	}
-
+func markWords(left, right block, ta, tb []token, ops []opcode) (string, string) {
 	var dels, inss []int
-	for _, op := range opcodes(texts(ta), texts(tb)) {
-		if op.kind == opReplace || op.kind == opDelete {
-			dels = appendRange(dels, op.i1, op.i2)
+	for _, edit := range ops {
+		if edit.kind == opReplace || edit.kind == opDelete {
+			dels = appendRange(dels, edit.i1, edit.i2)
 		}
-		if op.kind == opReplace || op.kind == opInsert {
-			inss = appendRange(inss, op.j1, op.j2)
+		if edit.kind == opReplace || edit.kind == opInsert {
+			inss = appendRange(inss, edit.j1, edit.j2)
 		}
 	}
 	applyMarks(ta, dels, atom.Del, DelClass)
@@ -70,6 +58,14 @@ func markWords(left, right block) (string, string) {
 		return left.html, right.html
 	}
 	return oldHTML, newHTML
+}
+
+func textsOf(tokens []token) []string {
+	res := make([]string, len(tokens))
+	for i, tok := range tokens {
+		res[i] = tok.text
+	}
+	return res
 }
 
 func appendRange(dst []int, from, to int) []int {
@@ -182,38 +178,29 @@ func addClass(node *html.Node, class string) {
 
 // inlineWords is one block that changed shown once: the new block with its
 // added words marked and the words it lost put back in front of them, struck
-// out, the way a reader follows an edit in one column. It is "" when the pair
-// is too long to compare word by word.
-func inlineWords(left, right block) string {
-	oldNode, curNode := reparse(left), reparse(right)
-	if oldNode == nil || curNode == nil {
+// out, the way a reader follows an edit in one column. ta are the tokens of the
+// old block and ops their word diff against the new one. It is "" when the new
+// block cannot be read again.
+func inlineWords(right block, ta []token, ops []opcode) string {
+	curNode := reparse(right)
+	if curNode == nil {
 		return ""
 	}
-	ta, tb := tokensOf(oldNode), tokensOf(curNode)
-	if len(ta) > maxTokens || len(tb) > maxTokens {
-		return ""
-	}
-	texts := func(tokens []token) []string {
-		res := make([]string, len(tokens))
-		for i, tok := range tokens {
-			res[i] = tok.text
-		}
-		return res
-	}
+	tb := tokensOf(curNode)
 
 	var inss []int
 	lost := map[int]string{}
 	var at []int
-	for _, op := range opcodes(texts(ta), texts(tb)) {
-		if op.kind == opReplace || op.kind == opInsert {
-			inss = appendRange(inss, op.j1, op.j2)
+	for _, edit := range ops {
+		if edit.kind == opReplace || edit.kind == opInsert {
+			inss = appendRange(inss, edit.j1, edit.j2)
 		}
-		if op.kind == opReplace || op.kind == opDelete {
-			if words := spoken(ta[op.i1:op.i2]); words != "" {
-				if _, seen := lost[op.j1]; !seen {
-					at = append(at, op.j1)
+		if edit.kind == opReplace || edit.kind == opDelete {
+			if words := spoken(ta[edit.i1:edit.i2]); words != "" {
+				if _, seen := lost[edit.j1]; !seen {
+					at = append(at, edit.j1)
 				}
-				lost[op.j1] += words
+				lost[edit.j1] += words
 			}
 		}
 	}
@@ -290,9 +277,14 @@ func putBack(tokens []token, root *html.Node, at int, words string) {
 				return
 			}
 		}
-		gap := space()
-		insertAfter(last.node, gap)
-		insertAfter(gap, mark)
+		if last.node.Parent == nil {
+			root.AppendChild(space())
+			root.AppendChild(mark)
+			return
+		}
+		sep := space()
+		insertAfter(last.node, sep)
+		insertAfter(sep, mark)
 		return
 	}
 	tok := tokens[at]
@@ -303,6 +295,9 @@ func putBack(tokens []token, root *html.Node, at int, words string) {
 		}
 	}
 	if before.Parent == nil {
+		first := root.FirstChild
+		root.InsertBefore(mark, first)
+		root.InsertBefore(space(), first)
 		return
 	}
 	before.Parent.InsertBefore(mark, before)

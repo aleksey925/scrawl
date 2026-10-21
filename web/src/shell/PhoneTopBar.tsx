@@ -1,11 +1,12 @@
-import { IconChevronLeft } from '../icons';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { planMotion } from '../components/screenMotion';
+import { IconChevronLeft } from '../icons';
+import { isEditPath } from '../paths';
 import { layout } from '../theme';
 
-import { useNav } from './NavContext';
+import { spaceLabel, useNav } from './NavContext';
 import { useShownChrome } from './PageChrome';
 import classes from './PhoneTopBar.module.css';
 import { useSwipeBack } from './useSwipeBack';
@@ -49,13 +50,13 @@ export interface PhoneTopBarProps {
 export function PhoneTopBar({ home, end, menu, actionsRef }: PhoneTopBarProps): JSX.Element {
   const { me } = useNav();
   const chrome = useShownChrome();
-  const space = me?.space.label ?? me?.site_title ?? 'Notes';
+  const space = spaceLabel(me);
   const atRoot = chrome.title === '';
   const parent = chrome.crumbs[chrome.crumbs.length - 1] ?? { name: space, url: '/' };
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const location = useLocation();
   // the editor's own actions are the whole bar: Cancel at one end, Save at the other
-  const editing = location.pathname.startsWith('/edit/');
+  const editing = isEditPath(location.pathname);
   const navigate = useNavigate();
   // the router numbers the entries of the history it made; 0 is the page the app
   // was opened on, before which there is nothing of ours to go back to

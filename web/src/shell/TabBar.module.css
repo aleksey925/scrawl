@@ -12,7 +12,7 @@
 }
 
 :global(:root):has(.bar) {
-  --scrawl-tabbar-space: calc(56px + env(safe-area-inset-bottom, 0px));
+  --scrawl-tabbar-space: calc(var(--scrawl-tabbar-height) + env(safe-area-inset-bottom, 0px));
 }
 
 .tab {
@@ -30,6 +30,7 @@
   font: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: var(--scrawl-press-out);
 }
 
 .tab[data-current='true'] {
@@ -38,9 +39,6 @@
 
 /* a tab dims under the finger, as the bars of iOS do, rather than taking a
    ground */
-.tab {
-  transition: var(--scrawl-press-out);
-}
 
 .tab:active {
   opacity: 0.4;
@@ -50,10 +48,4 @@
 .label {
   font-size: 11px;
   line-height: 1.2;
-}
-
-@media print {
-  .bar {
-    display: none;
-  }
 }

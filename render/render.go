@@ -6,7 +6,6 @@ import (
 	"path"
 	"strings"
 
-	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
 	emoji "github.com/yuin/goldmark-emoji"
@@ -18,8 +17,6 @@ import (
 	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
-
-	"github.com/aleksey925/scrawl/theme"
 )
 
 const (
@@ -119,13 +116,8 @@ func New(opts Options) *Renderer {
 			// code is left alone
 			emoji.New(emoji.WithRenderingMethod(emoji.Unicode)),
 			highlighting.NewHighlighting(
-				// with classes the markup is the same whatever the style, and the
-				// colors come from ChromaCSS
-				highlighting.WithCustomStyle(codeStyle(theme.AutoTheme(theme.Light))),
-				highlighting.WithFormatOptions(
-					chromahtml.WithClasses(true),
-					chromahtml.WithLineNumbers(false),
-				),
+				highlighting.WithCustomStyle(markupStyle),
+				highlighting.WithFormatOptions(markupOptions...),
 				highlighting.WithWrapperRenderer(codeWrapper),
 			),
 		),
@@ -206,7 +198,7 @@ func (r *Renderer) finish(root ast.Node, source []byte, pctx parser.Context) (te
 	dir, _ := pctx.Get(docDirKey).(string)
 	clean = rewriteRawHTML(clean, linkResolvers{
 		link:  func(dest string) target { return r.links.resolveLink(dest, dir) },
-		embed: func(dest string) target { return r.links.resolve(dest, dir) },
+		embed: func(dest string) target { return r.links.resolveEmbed(dest, dir) },
 	})
 	return template.HTML(clean), nil //nolint:gosec // sanitized by bluemonday above
 }

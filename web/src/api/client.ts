@@ -1,10 +1,10 @@
 import { mountBase } from '../mount';
 import { encodeContentPath } from '../paths';
+import { togglesOf } from '../reader/findMatches';
 
 import { ApiError } from './errors';
 import type {
   ApiErrorBody,
-  SearchSettings,
   DirListing,
   Divergence,
   EntryKind,
@@ -18,7 +18,6 @@ import type {
   NavResponse,
   PageResponse,
   PreviewRequest,
-  SpaceEntry,
   PreviewResponse,
   ResetRequest,
   ResetResponse,
@@ -27,6 +26,8 @@ import type {
   SaveFileRequest,
   SaveFileResponse,
   SearchResponse,
+  SearchSettings,
+  SpaceEntry,
   TreeResponse,
   UploadResponse,
 } from './types';
@@ -106,8 +107,8 @@ function withQuery(url: string, query: Record<string, QueryValue>): string {
 }
 
 // searchParams spells the mode and the toggles of a search the way the search
-// route and the search page read them: the toggles only when they are on
-export function searchParams(settings: SearchSettings): Record<string, string | undefined> {
+// route and settingsOfSearch read them: the toggles only when they are on
+function searchParams(settings: SearchSettings): Record<string, string | undefined> {
   return {
     mode: settings.mode,
     case: settings.matchCase ? '1' : undefined,
@@ -115,6 +116,21 @@ export function searchParams(settings: SearchSettings): Record<string, string | 
     regex: settings.regex ? '1' : undefined,
     titles: settings.titles ? '1' : undefined,
   };
+}
+
+// settingsOfSearch reads the mode and the toggles of a search address
+export function settingsOfSearch(params: URLSearchParams): SearchSettings {
+  return {
+    mode: params.get('mode') === 'exact' ? 'exact' : 'fuzzy',
+    ...togglesOf(params),
+    titles: params.get('titles') === '1',
+  };
+}
+
+// searchTextOf is the text a search looks for: a space typed around an exact
+// text or a pattern is part of it, as the server reads it
+export function searchTextOf(text: string, settings: SearchSettings): string {
+  return settings.mode === 'fuzzy' && !settings.regex ? text.trim() : text;
 }
 
 async function errorBody(response: Response): Promise<ApiErrorBody> {
@@ -203,7 +219,6 @@ export interface ScrawlApi {
   // the server refuses a folder that is not empty
   deleteEntry(path: string, withContents: boolean, options?: RequestOptions): Promise<EntryPathResponse>;
   move(from: string, to: string, options?: RequestOptions): Promise<EntryPathResponse>;
-  search(query: string, limit?: number, options?: RequestOptions): Promise<SearchResponse>;
   // find is a search with its mode and its toggles named, which answers with
   // the matching lines
   find(query: string, settings: SearchSettings, limit?: number, options?: RequestOptions): Promise<SearchResponse>;
@@ -261,9 +276,6 @@ export const api: ScrawlApi = {
 
   move: (from, to, options) =>
     call<EntryPathResponse>('POST', spaceUrl('/api/move'), { ...options, body: { from, to } }),
-
-  search: (query, limit, options) =>
-    call<SearchResponse>('GET', withQuery(spaceUrl('/api/search'), { q: query, limit }), options),
 
   find: (query, settings, limit, options) =>
     call<SearchResponse>('GET', withQuery(spaceUrl('/api/search'), { q: query, limit, ...searchParams(settings) }), options),

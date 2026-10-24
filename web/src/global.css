@@ -19,9 +19,6 @@
 :root {
   --scrawl-press-in: background-color 0s 60ms, opacity 0s 60ms;
   --scrawl-press-out: background-color 150ms ease-out, opacity 150ms ease-out;
-  /* a pressed list row darkens past the page's gutter, from edge to edge */
-  --scrawl-press-edge:
-    calc(-1 * var(--mantine-spacing-lg)) 0 var(--scrawl-pressed), var(--mantine-spacing-lg) 0 var(--scrawl-pressed);
 }
 
 /* on a touch screen the chrome is not text: a long press on a name neither

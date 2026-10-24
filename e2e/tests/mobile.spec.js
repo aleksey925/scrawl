@@ -131,6 +131,52 @@ test.describe('mobile', () => {
         await expect(page).toHaveURL(atHome());
     });
 
+    test('a pressed row is one band from edge to edge of the screen', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+        const selector = `[data-testid=dir-row][data-path="${docs.folder.path}"]`;
+        const folder = page.locator(selector);
+        await expect(folder).toBeVisible();
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send('DOM.enable');
+        await cdp.send('CSS.enable');
+        const {root} = await cdp.send('DOM.getDocument');
+        const {nodeId} = await cdp.send('DOM.querySelector', {nodeId: root.nodeId, selector});
+
+        // act
+        // a touch sent through the protocol never sets :active in a headless browser
+        await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: ['active']});
+
+        // assert
+        await expect.poll(() => folder.evaluate((el) => getComputedStyle(el, '::before').opacity)).toBe('1');
+        const edges = await folder.evaluate((el) => {
+            const band = getComputedStyle(el, '::before');
+            const row = el.getBoundingClientRect();
+            return [row.left + parseFloat(band.left), row.right - parseFloat(band.right)];
+        });
+        expect(edges).toEqual([0, page.viewportSize().width]);
+    });
+
+    test('a finger that only taps a row does not shrink it', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+        const folder = page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`);
+        const box = await folder.boundingBox();
+        const cdp = await page.context().newCDPSession(page);
+
+        // act
+        await cdp.send('Input.dispatchTouchEvent', {
+            type: 'touchStart', touchPoints: [{x: box.x + 80, y: box.y + box.height / 2}],
+        });
+        await page.waitForTimeout(100);
+
+        // assert
+        await expect(folder).toHaveAttribute('data-holding', 'true');
+        const transforms = await folder.evaluate((el) => [el, el.querySelector('a')].map((node) => getComputedStyle(node).transform));
+        expect(transforms.filter((value) => !/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/.test(value))).toEqual([]);
+        await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
+    });
+
     test('a screen opened slides in from the right, one gone back to from the left, a tab not at all', async ({page}) => {
         // arrange
         await page.addInitScript(() => {
@@ -469,7 +515,7 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('tree-row-menu-dropdown')).toBeVisible();
             await expect(page.getByTestId('tree-row-menu-rename')).toBeVisible();
             await expect(page.getByTestId('row-lift')).toHaveCount(0);
-            await expect(rowOf(page, file)).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+            expect(await rowOf(page, file).evaluate((el) => getComputedStyle(el, '::before').opacity)).toBe('0');
         });
     });
 

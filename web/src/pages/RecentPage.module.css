@@ -46,15 +46,3 @@
     background: var(--scrawl-row-hover);
   }
 }
-
-@media (hover: none) {
-  .row {
-    transition: var(--scrawl-press-out);
-  }
-
-  .row:active {
-    background: var(--scrawl-pressed);
-    box-shadow: var(--scrawl-press-edge);
-    transition: var(--scrawl-press-in);
-  }
-}

@@ -21,7 +21,8 @@
       "_NavContext.js",
       "_AsyncContent.js",
       "_platform.js",
-      "index.html"
+      "index.html",
+      "_PressRow.module.js"
     ],
     "css": [
       "assets/DirectoryView.css"
@@ -86,6 +87,17 @@
     ],
     "css": [
       "assets/PageChrome.css"
+    ]
+  },
+  "_PressRow.css": {
+    "file": "assets/PressRow.css",
+    "src": "_PressRow.css"
+  },
+  "_PressRow.module.js": {
+    "file": "assets/PressRow.module.js",
+    "name": "PressRow.module",
+    "css": [
+      "assets/PressRow.css"
     ]
   },
   "_arc.js": {
@@ -2582,7 +2594,8 @@
     "imports": [
       "_PageChrome.js",
       "_platform.js",
-      "index.html"
+      "index.html",
+      "_PressRow.module.js"
     ],
     "css": [
       "assets/RecentPage.css"

@@ -212,32 +212,26 @@
   font-size: 13px;
 }
 
-/* a pressed row darkens from edge to edge of the screen, past the page's
-   gutter, the way a row of an app's list does; a finger resting on it shrinks
-   it a little, the sign that holding on lifts it for its menu */
 @media (hover: none) {
-  .row,
-  .listRow {
+  .row {
     transition: var(--scrawl-press-out);
   }
 
-  .row:active,
-  .listRow:has(.listLink:active) {
+  .row:active {
     background: var(--scrawl-pressed);
     transition: var(--scrawl-press-in);
   }
 
-  .listRow:has(.listLink:active) {
-    box-shadow: var(--scrawl-press-edge);
-  }
-
-  .listLink {
+  /* a finger resting on a row shrinks it a little, its pressed band too, the
+     sign that holding on lifts it for its menu; a tap ends before it starts,
+     because a row that shrank under every tap shook on the way to a page */
+  .listRow {
     transition: transform 150ms ease-out;
   }
 
-  .listRow[data-holding='true'] .listLink {
+  .listRow[data-holding='true'] {
     transform: scale(0.97);
-    transition: transform 400ms ease-out;
+    transition: transform 350ms ease-out 150ms;
   }
 }
 

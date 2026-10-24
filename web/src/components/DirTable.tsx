@@ -17,6 +17,7 @@ import { layout, layoutBreakpoints, useBelow } from '../theme';
 import classes from './DirTable.module.css';
 import { EntryIcon } from './EntryIcon';
 import { LiftedRow } from './LiftedRow';
+import press from './PressRow.module.css';
 import { absoluteTime, countOf, fileSize, shortDate, shortTime } from './formats';
 
 export interface DirTableProps {
@@ -182,6 +183,15 @@ function RowTags({ entry }: { entry: DirEntry }): JSX.Element {
   );
 }
 
+// restingRect is where an element stands with no transform on it: a row shrinks
+// while a finger rests on it, and the lifted card stands where the row was
+function restingRect(element: HTMLElement): DOMRect {
+  const rect = element.getBoundingClientRect();
+  const width = element.offsetWidth;
+  const height = element.offsetHeight;
+  return new DOMRect(rect.left + (rect.width - width) / 2, rect.top + (rect.height - height) / 2, width, height);
+}
+
 // the row's `⋯` opens its menu and leaves the row as it is, so a press on it
 // neither shrinks the row nor lifts it
 function onMenuButton(event: MouseEvent | PointerEvent): boolean {
@@ -222,7 +232,7 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
   const [menuOpened, setMenuOpened] = useState(false);
   const [holding, setHolding] = useState(false);
   const [lifted, setLifted] = useState<DOMRect | undefined>(undefined);
-  const lift = useCallback(() => setLifted(rowRef.current?.getBoundingClientRect()), []);
+  const lift = useCallback(() => setLifted(rowRef.current === null ? undefined : restingRect(rowRef.current)), []);
   const longPress = useLongPress(lift, setHolding);
   const menu = (opened: boolean, setOpened: (opened: boolean) => void, target?: ReactElement): ReactNode =>
     RowMenu !== undefined && (
@@ -256,7 +266,7 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
         data-dir={entry.is_dir ? 'true' : 'false'}
         data-holding={holding ? 'true' : 'false'}
         data-lifted={lifted === undefined ? 'false' : 'true'}
-        className={classes.listRow}
+        className={`${classes.listRow} ${press.row}`}
         {...(RowMenu === undefined
           ? {}
           : {

@@ -522,7 +522,10 @@ vendor/                dependencies, checked in, `make deps` regenerates
   item darkens, a list row from edge to edge of the screen, and a tab, the
   way back and the round Edit button dim, as the bars of iOS do; the press
   shows 60ms after the finger lands, so a finger that only starts a scroll
-  leaves no flash. A long press on the chrome selects nothing and opens no
+  leaves no flash. A list row's press is one band under the whole row:
+  drawn as its background with a shadow for the gutter, the two ends lit
+  and went out apart from the middle. A row shrinks for a long press only
+  once the finger has rested 150ms, so a tap moves nothing. A long press on the chrome selects nothing and opens no
   preview of a link, while a note, code and what a reader types still
   select. iOS draws `:active` only under a `touchstart` listener, so the
   document carries an empty one.

@@ -56,7 +56,14 @@ snapshot:
 	@goreleaser release --snapshot --skip=publish --clean
 
 run:
-	@go run . serve --space.dir=./examples/data --space.name=notes --listen=:7272 --auth.disabled --history=off --dbg
+	go run . serve \
+    --space.dir=./examples/data \
+    --space.name=notes \
+    --listen=:7272 \
+    --history=off \
+    --auth.users=admin:admin \
+    --auth.tokens=bot:demo-token:ro \
+    --auth.secret-file=/tmp/scrawl-session.key
 
 e2e: build
 	@cd e2e && npx playwright test

@@ -15,7 +15,7 @@ import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { useRecentNotes, type RecentNote } from './recentNotes';
 import classes from './Search.module.css';
-import { SearchControlProvider, SearchOpenerProvider, type SearchControl } from './searchOpener';
+import { SearchControlProvider, type SearchControl } from './searchOpener';
 import { hintOf, SearchResults, targetsOf } from './SearchResults';
 import { altKey, appShortcut, keysLabel, modChord } from './shortcuts';
 import { useVisibleArea } from './useVisibleArea';
@@ -57,7 +57,7 @@ interface Answer {
 
 // SearchProvider holds the search of the space and opens it: on Cmd+K
 // anywhere in the app, and for the sidebar row and the phone's icon through
-// the opener it provides
+// the control it provides
 export function SearchProvider({ children }: { children: ReactNode }): JSX.Element {
   const [opened, setOpened] = useState(false);
   const [initial, setInitial] = useState('');
@@ -67,7 +67,7 @@ export function SearchProvider({ children }: { children: ReactNode }): JSX.Eleme
     setOpened(true);
   }, []);
   const close = useCallback(() => setOpened(false), []);
-  const control = useMemo<SearchControl>(() => ({ opened, open: () => open(), close }), [opened, open, close]);
+  const control = useMemo<SearchControl>(() => ({ opened, open, close }), [opened, open, close]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -82,12 +82,10 @@ export function SearchProvider({ children }: { children: ReactNode }): JSX.Eleme
   }, [open]);
 
   return (
-    <SearchOpenerProvider value={open}>
-      <SearchControlProvider value={control}>
-        {children}
-        {opened && <SearchDialog initial={initial} onClose={close} />}
-      </SearchControlProvider>
-    </SearchOpenerProvider>
+    <SearchControlProvider value={control}>
+      {children}
+      {opened && <SearchDialog initial={initial} onClose={close} />}
+    </SearchControlProvider>
   );
 }
 

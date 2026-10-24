@@ -80,7 +80,7 @@ export function TabBar(): JSX.Element | null {
     <nav data-testid="tab-bar" aria-label="Tabs" className={classes.bar} data-print="hide">
       <Tab name="notes" label="Notes" icon={IconFolder} current={atNotes} onClick={() => go('/')} />
       {search !== undefined && (
-        <Tab name="search" label="Search" icon={IconSearch} current={searching} onClick={search.open} />
+        <Tab name="search" label="Search" icon={IconSearch} current={searching} onClick={() => search.open()} />
       )}
       <Tab name="recent" label="Recent" icon={IconClock} current={!searching && atRecent} onClick={() => go(recentUrl())} />
       {canWrite && (

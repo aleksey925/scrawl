@@ -10,6 +10,7 @@ import (
 	"hash"
 	"log"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
@@ -137,7 +138,7 @@ func (m *mount) apiHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"path":     p,
 		"degraded": m.history().Degraded(),
-		"entries":  historyEntries(entries, m.currentBlob(p)),
+		"entries":  historyEntries(entries, m.currentBlob(p, entries)),
 	})
 }
 
@@ -378,7 +379,7 @@ func failHistory(w http.ResponseWriter, r *http.Request, err error) {
 	}
 }
 
-func historyEntries(entries []history.Entry, current func(like string) string) []historyEntry {
+func historyEntries(entries []history.Entry, current string) []historyEntry {
 	res := make([]historyEntry, 0, len(entries))
 	for _, ent := range entries {
 		res = append(res, historyEntry{
@@ -390,27 +391,26 @@ func historyEntries(entries []history.Entry, current func(like string) string) [
 			Path:       ent.Path,
 			Kind:       string(ent.Kind),
 			At:         ent.At,
-			Restorable: ent.Blob != "" && ent.Blob != current(ent.Blob),
+			Restorable: ent.Blob != "" && ent.Blob != current,
 		})
 	}
 	return res
 }
 
-// currentBlob answers the id git would give the file on disk now, hashed once,
-// in the hash of the first id it is asked to match: a repository has one. A
-// file that is not there answers an empty id, which no version with content has.
-func (m *mount) currentBlob(p string) func(like string) string {
+// currentBlob answers the id git would give the file on disk now, in the hash
+// the ids of the entries are in: a repository has one. A file that is not
+// there, or a log with no content in it, answers an empty id, which no version
+// with content has.
+func (m *mount) currentBlob(p string, entries []history.Entry) string {
+	idx := slices.IndexFunc(entries, func(ent history.Entry) bool { return ent.Blob != "" })
+	if idx < 0 {
+		return ""
+	}
 	data, _, err := m.spc.Store.Read(p)
 	if err != nil {
-		return func(string) string { return "" }
+		return ""
 	}
-	id := ""
-	return func(like string) string {
-		if id == "" {
-			id = blobID(data, len(like))
-		}
-		return id
-	}
+	return blobID(data, len(entries[idx].Blob))
 }
 
 // blobID is the id git gives content as a blob: sha-1 in an ordinary

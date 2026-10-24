@@ -1,7 +1,7 @@
 import { DEFAULT_THEME, defaultCssVariablesResolver, mergeMantineTheme } from '@mantine/core';
 
 import { layoutVariables, themeOverride, themeVariables } from './theme';
-import { autoTheme, blockNames, themeAttribute, themes, type Scheme, type ThemeDefinition } from './themes';
+import { autoTheme, blockNames, fontSmoothings, themeAttribute, themes, type Scheme, type ThemeDefinition } from './themes';
 
 type Variables = Record<string, string>;
 
@@ -42,6 +42,9 @@ function validate(): void {
       if (typeof entry[key] !== 'string' || entry[key] === '') {
         throw new Error(`theme ${entry.id}: no ${key}`);
       }
+    }
+    if (!(fontSmoothings as readonly string[]).includes(entry.fontSmoothing)) {
+      throw new Error(`theme ${entry.id}: fontSmoothing is ${entry.fontSmoothing}, not one of ${fontSmoothings.join(', ')}`);
     }
   }
 }

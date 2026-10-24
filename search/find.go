@@ -386,18 +386,14 @@ func (d *document) linesOf(marks []mark) ([]Line, int) {
 	return res, count
 }
 
-// shift moves marks onto a line that starts at start
+// shift moves marks onto a line that starts at start, and with -start back off
+// it onto the whole text
 func shift(marks []mark, start int) []mark {
 	res := make([]mark, 0, len(marks))
 	for _, m := range marks {
 		res = append(res, mark{start: m.start - off32(start), end: m.end - off32(start), term: m.term})
 	}
 	return res
-}
-
-// unshift moves the marks of a line that starts at start back onto the whole text
-func unshift(marks []mark, start int) []mark {
-	return shift(marks, -start)
 }
 
 // cutLine is a line as spans, a long one cut to a window around its first
@@ -512,7 +508,7 @@ func (d *document) scanLines(ctx context.Context, re *regexp.Regexp, word bool, 
 		}
 	}
 	if first != nil {
-		res.Snippet = d.snippetAt(unshift(first, firstStart))
+		res.Snippet = d.snippetAt(shift(first, -firstStart))
 	} else {
 		res.Snippet = d.lead()
 	}
@@ -528,7 +524,7 @@ func (d *document) firstSnippet(ctx context.Context, re *regexp.Regexp, word boo
 		}
 		start, end := d.lineBounds(i)
 		if marks := patternMarks(d.plain[start:end], re, word); len(marks) > 0 {
-			return d.snippetAt(unshift(marks, start))
+			return d.snippetAt(shift(marks, -start))
 		}
 	}
 	return d.lead()

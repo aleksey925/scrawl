@@ -168,7 +168,7 @@ test.describe('export to pdf of a formula', () => {
     test('a print started before katex arrives waits for the formula', async ({page}) => {
         // arrange
         writeFixture(NOTE, '# Export\n\n$$\n\\frac{a}{b}\n$$\n');
-        await page.route(/\/katex-[^/]*\.js$/, async (route) => {
+        await page.route('**/assets/katex.js', async (route) => {
             await new Promise((resolve) => setTimeout(resolve, 1_500));
             await route.continue();
         });

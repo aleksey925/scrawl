@@ -67,43 +67,23 @@
   color: var(--scrawl-icon-tertiary);
 }
 
-.logo {
-  display: inline-flex;
-  flex: none;
-  width: 22px;
-  height: 22px;
-  color: var(--scrawl-icon);
-}
-
-.logo svg {
-  width: 100%;
-  height: 100%;
-}
-
 .tile {
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-/* the letter is drawn and not written, so it is no part of the name a crumb or
-   the space button reads as */
-.tile::before {
-  content: attr(data-letter);
-}
-
-.tileSmall {
   width: 18px;
   height: 18px;
   border-radius: 4px;
   font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* the letter is drawn and not written, so it is no part of the name the menu
+   row of the space reads as */
+.tile::before {
+  content: attr(data-letter);
 }
 
 /* Search and Home, the rows above the notes */

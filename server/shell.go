@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"slices"
 
 	"github.com/aleksey925/scrawl/gzassets"
 	"github.com/aleksey925/scrawl/store"
@@ -47,12 +48,15 @@ type manifestChunk struct {
 // hand, and put under the address of this bundle's version.
 type appShell struct {
 	tmpl *template.Template
-	// version is the digest of the bundle, and base the address it gives
+	// version is the digest of the bundle
 	version string
-	base    string
 	entry   string
 	css     []string
 	preload []string
+}
+
+func (s *appShell) base() string {
+	return appBase(s.version)
 }
 
 type shellData struct {
@@ -134,8 +138,8 @@ func newAppShell(files gzassets.Files) (*appShell, error) {
 		return nil, fmt.Errorf("digest the bundle: %w", err)
 	}
 	base := appBase(version)
-	shell := &appShell{tmpl: tmpl, version: version, base: base, entry: base + entry.File}
-	for _, href := range entry.CSS {
+	shell := &appShell{tmpl: tmpl, version: version, entry: base + entry.File}
+	for _, href := range shellCSS(chunks, entry) {
 		shell.css = append(shell.css, base+href)
 	}
 	for _, name := range entry.Imports {
@@ -144,6 +148,33 @@ func newAppShell(files gzassets.Files) (*appShell, error) {
 		}
 	}
 	return shell, nil
+}
+
+// shellCSS is the entry's stylesheets and then those of every chunk it imports,
+// which vite links from no page of ours. They follow the entry's, where
+// mantine's sheet is, because the chrome's controls override it at equal
+// specificity.
+func shellCSS(chunks map[string]manifestChunk, entry manifestChunk) []string {
+	css := slices.Clone(entry.CSS)
+	seen := map[string]bool{}
+	var walk func(names []string)
+	walk = func(names []string) {
+		for _, name := range names {
+			chunk, ok := chunks[name]
+			if !ok || seen[name] {
+				continue
+			}
+			seen[name] = true
+			walk(chunk.Imports)
+			for _, href := range chunk.CSS {
+				if !slices.Contains(css, href) {
+					css = append(css, href)
+				}
+			}
+		}
+	}
+	walk(entry.Imports)
+	return css
 }
 
 // appAssetHandler serves a file of the bundle under this binary's version

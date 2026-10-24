@@ -110,3 +110,20 @@ func TestAppShellLoadsTheBuiltBundle(t *testing.T) {
 		assert.Contains(t, tag, "src=", "inline script in the app shell")
 	}
 }
+
+func TestShellCSSLinksTheImportedChunksAfterTheEntry(t *testing.T) {
+	// arrange
+	chunks := map[string]manifestChunk{
+		"index.html":  {File: "assets/index.js", IsEntry: true, CSS: []string{"assets/index.css"}, Imports: []string{"_chrome.js", "_nav.js"}},
+		"_chrome.js":  {File: "assets/chrome.js", CSS: []string{"assets/chrome.css"}, Imports: []string{"_runtime.js"}},
+		"_nav.js":     {File: "assets/nav.js", Imports: []string{"_chrome.js", "_deep.js"}},
+		"_deep.js":    {File: "assets/deep.js", CSS: []string{"assets/deep.css", "assets/chrome.css"}},
+		"_runtime.js": {File: "assets/runtime.js"},
+	}
+
+	// act
+	got := shellCSS(chunks, chunks["index.html"])
+
+	// assert
+	assert.Equal(t, []string{"assets/index.css", "assets/chrome.css", "assets/deep.css"}, got)
+}

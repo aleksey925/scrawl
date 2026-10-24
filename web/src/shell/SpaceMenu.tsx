@@ -70,7 +70,7 @@ export function SpaceMenuDropdown(): JSX.Element {
               data-current={entry.name === current?.name ? 'true' : 'false'}
               component="a"
               href={entry.url}
-              leftSection={<SpaceTile name={entry.label} small />}
+              leftSection={<SpaceTile name={entry.label} />}
               rightSection={
                 entry.name === current?.name ? (
                   <IconCheck size={layout.iconSizeSmall} />

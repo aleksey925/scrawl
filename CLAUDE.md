@@ -75,29 +75,27 @@ vendor/                dependencies, checked in, `make deps` regenerates
   and deleted, so it has to be on the tree before it holds anything.
   Other files are rows of the folder's list and open in the app. A note
   is named on the tree without `.md`, the way Notion names a page.
-- The sidebar can be put away and the choice is kept. On a desktop it is
-  a 240px rail the full height of the screen that stays where it was
-  put: the sidebar icon at the left of its head hides it, the menu icon
-  the topbar shows then brings it back, and `Cmd+B` does both. A phone has no tree: the Notes
-  tab opens the root's list and a folder opens the next list, the way
-  the Files app on iOS has it, because deep folders ran off a narrow
-  screen as an indented tree. A hidden rail holds nothing:
-  mantine only moves it out of sight, and the rows left in it would
-  still answer the tab key.
-- The head of the sidebar is two icons and nothing else, as Notion's
-  Mail and Calendar have it: the sidebar's own at the left, which hides
-  it, and a new entry at the right, the sidebar's one way to make one:
-  New file or New folder, in the row that is picked, else in the folder
-  of the page on screen, and the menu names that folder. Search and Home
-  are the two rows under it. Search shows its key, `⌘K`, at its end
-  where there is a keyboard, and Home is always filled with the current
-  row's gray, on the home page or not. The label over the tree is the
-  space's name and the root folder: it opens the root's list and takes a drop. The
-  foot is the space's button under a line across the sidebar, as wide as
-  it: the app's logo, the space's name and a chevron at the right edge,
-  and it opens one menu upward: the account, the spaces with a check on
-  this one, the theme and the shortcuts, then sign out. A site's foot is its
-  title, with a menu of the theme, the page width and the shortcuts.
+- The sidebar can be put away and the choice is kept. On a desktop it is a
+  240px rail the full height of the screen that stays where it was put: the
+  sidebar icon at the left of its head hides it, the menu icon the topbar shows
+  then brings it back, and `Cmd+B` does both. A phone has no tree: the Notes
+  tab opens the root's list and a folder opens the next list, the way the Files
+  app on iOS has it, because deep folders ran off a narrow screen as an
+  indented tree. A hidden rail holds nothing: mantine only moves it out of
+  sight, and the rows left in it would still answer the tab key.
+- The head of the sidebar is two icons and nothing else, as Notion's Mail and
+  Calendar have it: the sidebar's own at the left, which hides it, and a new
+  entry at the right, the sidebar's one way to make one: New file or New
+  folder, in the row that is picked, else in the folder of the page on screen,
+  and the menu names that folder. Search and Home are the two rows under it.
+  Search shows its key, `⌘K`, at its end where there is a keyboard, and Home is
+  always filled with the current row's gray, on the home page or not. The label
+  over the tree is the space's name and the root folder: it opens the root's
+  list and takes a drop. The foot is the space's button under a line across the
+  sidebar, as wide as it: the app's logo, the space's name and a chevron at the
+  right edge, and it opens one menu upward: the account, the spaces with a
+  check on this one, the theme and the shortcuts, then sign out. A site's foot
+  is its title, with a menu of the theme, the page width and the shortcuts.
 - A folder's icon opens and closes it. The rows of an open folder are
   indented 14px and there is no guide line; under the pointer the
   folder's icon turns into a chevron, the sign of what a click on it
@@ -140,46 +138,43 @@ vendor/                dependencies, checked in, `make deps` regenerates
   sidebar, less up to 96px a side, whatever the page width: a table has
   no reading line to keep short and long names need the room. The page's
   left edge moves between a note and a folder, and that is accepted.
-- The topbar heads the page's column: the path at its left, the space
-  first and the page's own title last, and the page's actions at its
-  right. The path comes from the page's own answer through one page
-  chrome context, never from the URL alone, because only the answer
-  knows a note's title. The topbar stays at the top while the note
-  scrolls, and beside the sidebar the page has no rubber band at its
-  ends, which pulled the note away from the fixed sidebar; a phone has no
-  sidebar and keeps the rubber band its own apps end a scroll with. The
-  reader's top edge, where a heading lands and where the editor takes its
-  position from, is the bottom of the topbar. History is among the actions only
-  where the space records versions. A folder is always its list, the root
-  included: a Notion database of Name, Size and Modified led by a `..`
-  row, and a click anywhere on a row opens it. New, a file or a folder,
-  is a large main button at the right of the folder's title, where
-  Notion puts New page. The table is Notion's too: its one view a gray
-  pill with no line under it, no line between the columns, which read as
-  a spreadsheet, and columns of their own width, the name 530px and the
-  others 150px, as a file name carries its extension, with an empty one at the end
-  taking the rest and the row lines running across it, so a date is not
-  a screen away from its name. Every column starts at its left edge, the
-  size too: a size against its right edge stood against the date and the
-  two read as one column. On a narrow page the name gives way. A
-  column's header is gray text of the regular weight with a filled icon,
-  as Notion heads one; 500 beside the system's own smoothing read bold, and an empty folder keeps the header with its empty
-  state under it, one plain New file button. Its
-  `index.md` is a row
-  like any other, in its place by name, with a "Folder page" tag, and no
-  readme is shown under the list; Home in the sidebar opens the root
-  `index.md`, or the root's list when there is none. A folder holding two
-  cases of `index.md` has no folder page, and a site refuses it, because
-  both would be written to one file. A note that does not exist yet is a
-  page too, its name as a faint title and the ways on from there, the
-  first of them, create it, on Enter. On a phone the bar on top holds
-  `‹` with the folder above, the title once the page's own has scrolled
-  under the bar, at once on a page that has none of its own, and the
-  page's `⋯`. The root has no way up, and the app's logo and the space's
-  name stand there instead. Every screen has the bar as a row of its own
-  and its title on one line under it: a root drawn another way made the
-  page jump on the way to a folder. A folder there is a list and not a
-  table: a name over one line of what it is, and no `..` row.
+- The topbar heads the page's column: the path at its left, the space first and
+  the page's own title last, and the page's actions at its right. The path
+  comes from the page's own answer through one page chrome context, never from
+  the URL alone, because only the answer knows a note's title. The topbar stays
+  at the top while the note scrolls, and beside the sidebar the page has no
+  rubber band at its ends, which pulled the note away from the fixed sidebar; a
+  phone has no sidebar and keeps the rubber band its own apps end a scroll
+  with. The reader's top edge, where a heading lands and where the editor takes
+  its position from, is the bottom of the topbar. History is among the actions
+  only where the space records versions. A folder is always its list, the root
+  included: a Notion database of Name, Size and Modified led by a `..` row, and
+  a click anywhere on a row opens it. New, a file or a folder, is a large main
+  button at the right of the folder's title, where Notion puts New page. The
+  table is Notion's too: its one view a gray pill with no line under it, no
+  line between the columns, which read as a spreadsheet, and columns of their
+  own width, the name 530px and the others 150px, as a file name carries its
+  extension, with an empty one at the end taking the rest and the row lines
+  running across it, so a date is not a screen away from its name. Every column
+  starts at its left edge, the size too: a size against its right edge stood
+  against the date and the two read as one column. On a narrow page the name
+  gives way. A column's header is gray text of the regular weight with a filled
+  icon, as Notion heads one; 500 beside the system's own smoothing read bold,
+  and an empty folder keeps the header with its empty state under it, one plain
+  New file button. Its `index.md` is a row like any other, in its place by
+  name, with a "Folder page" tag, and no readme is shown under the list; Home
+  in the sidebar opens the root `index.md`, or the root's list when there is
+  none. A folder holding two cases of `index.md` has no folder page, and a site
+  refuses it, because both would be written to one file. A note that does not
+  exist yet is a page too, its name as a faint title and the ways on from
+  there, the first of them, create it, on Enter. On a phone the bar on top
+  holds `‹` with the folder above, the title once the page's own has scrolled
+  under the bar, at once on a page that has none of its own, and the page's
+  `⋯`. The root has no way up, and the app's logo and the space's name stand
+  there instead. Every screen has the bar as a row of its own and its title on
+  one line under it: a root drawn another way made the page jump on the way to
+  a folder. A folder there is a list and not a table: a name over one line of
+  what it is, and no `..` row.
 - A global shortcut gives way to an editor. It does nothing when the
   event was already handled or was pressed inside an element that owns
   the app's shortcuts (`data-owns-shortcuts`), because a keymap may
@@ -187,20 +182,18 @@ vendor/                dependencies, checked in, `make deps` regenerates
   not toggle while typing.
   Every shortcut is a row of the one table in `ShortcutHelp`, which shows
   only the rows the place offers.
-- A theme is one file in `theme/themes/`, and nothing else names a
-  color of one: adding a theme is a file and `make ui`. The file holds
-  Notion's color roles, its nine block colors, three shadows, the
-  weight of bold and that of the sidebar's current row, and how a Mac
-  smooths the letters: the light theme keeps the system's own, as
-  Notion's light page does, and the dark one draws them thinner, since
-  light letters on a dark page glow; mantine's antialiased everywhere
-  made the light page read thin beside Notion's. The server, the command
-  line and the frontend build all read those files. The build turns every key into a `--scrawl-*`
-  custom property in one stylesheet, which the
-  app bundles, a page of the command line inlines and the sign-in page
-  links as `app/themes.css`; `render` builds a chroma style from the six
-  code colors each one lists; the server takes the list and the bar
-  color. `light` and
+- A theme is one file in `theme/themes/`, and nothing else names a color of
+  one: adding a theme is a file and `make ui`. The file holds Notion's color
+  roles, its nine block colors, three shadows, the weight of bold and that of
+  the sidebar's current row, and how a Mac smooths the letters: the light theme
+  keeps the system's own, as Notion's light page does, and the dark one draws
+  them thinner, since light letters on a dark page glow; mantine's antialiased
+  everywhere made the light page read thin beside Notion's. The server, the
+  command line and the frontend build all read those files. The build turns
+  every key into a `--scrawl-*` custom property in one stylesheet, which the
+  app bundles, a page of the command line inlines and the sign-in page links as
+  `app/themes.css`; `render` builds a chroma style from the six code colors
+  each one lists; the server takes the list and the bar color. `light` and
   `dark` must exist, because they are what Auto follows.
 - The theme is one attribute, `data-scrawl-theme`, absent on Auto, where
   the system preference picks between `light` and `dark`. Every
@@ -264,12 +257,12 @@ vendor/                dependencies, checked in, `make deps` regenerates
   decides what it is. `server/templates/` holds one page, the sign-in
   form, because it has to work before the bundle loads and with
   javascript off.
-- Nothing is fetched from a CDN at runtime, and the build stays out of
-  the release path: vite writes into `server/assets/app/` and
-  `page/assets/`, which are committed and picked up by `//go:embed`. `go install` cannot run an
-  npm hook and a lockfile is not vendoring, so building it on the fly
-  would make a reproducible release need node and a warm cache.
-  `make ui` rebuilds it and CI fails when what is committed is stale.
+- Nothing is fetched from a CDN at runtime, and the build stays out of the
+  release path: vite writes into `server/assets/app/` and `page/assets/`, which
+  are committed and picked up by `//go:embed`. `go install` cannot run an npm
+  hook and a lockfile is not vendoring, so building it on the fly would make a
+  reproducible release need node and a warm cache. `make ui` rebuilds it and CI
+  fails when what is committed is stale.
 - The bundle's file names carry no hash, so a rebuild changes in git only
   the files that changed; a hash in every name renamed a dozen of them
   for one changed line, because a chunk's name is part of each chunk that
@@ -396,19 +389,18 @@ vendor/                dependencies, checked in, `make deps` regenerates
   latches `:hover` onto what it landed on until the next tap somewhere
   else, so every decorative hover is gated on `@media (hover: hover)` and
   the platform tap highlight is off.
-- A note reads the way Notion shows a page. The dark theme file holds
-  Notion's dark palette, read off notion.so in October 2026, and the
-  light one the colors of macOS: its system blue, cool grays, Xcode's
-  code colors and its own text and separator grays. Each color sits
-  under the role it plays; a palette key is the property's name, so a
-  note and the chrome cannot drift apart. `markdown.css` styles the markup `render`
-  emits with Notion's type scale and block spacing: the leading `h1` is
-  the page title, an alert is a callout and `<details>` a toggle, all by
-  CSS, so the markup stays what it is. The syntax is GitHub's. The note
-  sits in no mantine `Typography`, whose prose rules would mix a second
-  look in. A table runs the width of the note: the reader puts it in a
-  box that scrolls sideways, because a table that scrolls by itself is
-  only as wide as its text.
+- A note reads the way Notion shows a page. The dark theme file holds Notion's
+  dark palette, read off notion.so in October 2026, and the light one the
+  colors of macOS: its system blue, cool grays, Xcode's code colors and its own
+  text and separator grays. Each color sits under the role it plays; a palette
+  key is the property's name, so a note and the chrome cannot drift apart.
+  `markdown.css` styles the markup `render` emits with Notion's type scale and
+  block spacing: the leading `h1` is the page title, an alert is a callout and
+  `<details>` a toggle, all by CSS, so the markup stays what it is. The syntax
+  is GitHub's. The note sits in no mantine `Typography`, whose prose rules
+  would mix a second look in. A table runs the width of the note: the reader
+  puts it in a box that scrolls sideways, because a table that scrolls by
+  itself is only as wide as its text.
 - A task box on the page is disabled, as GitHub shows a file and unlike
   Notion. A task is ticked in the editor and saved like any change,
   because a click on the page would be a write, and every tick a commit
@@ -484,12 +476,12 @@ vendor/                dependencies, checked in, `make deps` regenerates
   a folder that kept its `.DS_Store` looked empty and never went. That
   case is not listed, so the refusal of a plain delete is what raises
   the question.
-- Nothing selected is shown as nothing. An empty note, an empty folder
-  and an empty preview each say what they are through `EmptyState`, a
-  gray title as Notion has it, with the next step as a button, and an open folder with no notes says so in
-  the tree. A blank screen read as a page that failed to load. The tree
-  row says "No notes inside" and not "Empty", because the tree lists only
-  markdown and a folder of pictures is not empty.
+- Nothing selected is shown as nothing. An empty note, an empty folder and an
+  empty preview each say what they are through `EmptyState`, a gray title as
+  Notion has it, with the next step as a button, and an open folder with no
+  notes says so in the tree. A blank screen read as a page that failed to load.
+  The tree row says "No notes inside" and not "Empty", because the tree lists
+  only markdown and a folder of pictures is not empty.
 - On a phone a dialog stands in the middle of the screen, where the
   system's own alerts stand: at the top it hung from the edge like a page
   sliding down. A desktop keeps mantine's place near the top, where the
@@ -518,17 +510,17 @@ vendor/                dependencies, checked in, `make deps` regenerates
   screen a menu grows out of the corner nearest what opened it, the
   corner taken from where it was placed after any flip. A phone shows no keys,
   neither the list of shortcuts nor a key beside a menu row.
-- A touch screen answers a tap the way an app does. A pressed row or menu
-  item darkens, a list row from edge to edge of the screen, and a tab, the
-  way back and the round Edit button dim, as the bars of iOS do; the press
-  shows 60ms after the finger lands, so a finger that only starts a scroll
-  leaves no flash. A list row's press is one band under the whole row:
-  drawn as its background with a shadow for the gutter, the two ends lit
-  and went out apart from the middle. A row shrinks for a long press only
-  once the finger has rested 150ms, so a tap moves nothing. A long press on the chrome selects nothing and opens no
-  preview of a link, while a note, code and what a reader types still
-  select. iOS draws `:active` only under a `touchstart` listener, so the
-  document carries an empty one.
+- A touch screen answers a tap the way an app does. A pressed row or menu item
+  darkens, a list row from edge to edge of the screen, and a tab, the way back
+  and the round Edit button dim, as the bars of iOS do; the press shows 60ms
+  after the finger lands, so a finger that only starts a scroll leaves no
+  flash. A list row's press is one band under the whole row: drawn as its
+  background with a shadow for the gutter, the two ends lit and went out apart
+  from the middle. A row shrinks for a long press only once the finger has
+  rested 150ms, so a tap moves nothing. A long press on the chrome selects
+  nothing and opens no preview of a link, while a note, code and what a reader
+  types still select. iOS draws `:active` only under a `touchstart` listener,
+  so the document carries an empty one.
 - On a phone a screen opened slides in from the right and one gone back to
   from the left, as an app moves its screens; a tab is switched to with no
   move, and the way up moves back although it pushes an address. The move
@@ -869,15 +861,14 @@ vendor/                dependencies, checked in, `make deps` regenerates
   `Inline`, and a removed block is struck through. The patch stays beside
   them as the `Source` view, and a version too large or too slow to
   compare still answers with the patch alone.
-- The server is one command, `serve`, and the rest of the binary is
-  markdown tools on files the caller names: `render`, `site`, `diff`,
-  `format`, `stylesheet`. They run the renderer, `htmldiff` and the formatter the
-  server runs and add nothing to them, so a note reads and compares the
-  same in the app and out of it. Outside the app a relative link stays
-  as written, because there is no route to map it onto, and
-  `--link-ext` swaps `.md` for a site. `diff` takes revisions the way
-  `git diff` does and answers like it: 1 is "the text changed" under
-  `--exit-code`, so a failure is 2.
+- The server is one command, `serve`, and the rest of the binary is markdown
+  tools on files the caller names: `render`, `site`, `diff`, `format`,
+  `stylesheet`. They run the renderer, `htmldiff` and the formatter the server
+  runs and add nothing to them, so a note reads and compares the same in the
+  app and out of it. Outside the app a relative link stays as written, because
+  there is no route to map it onto, and `--link-ext` swaps `.md` for a site.
+  `diff` takes revisions the way `git diff` does and answers like it: 1 is "the
+  text changed" under `--exit-code`, so a failure is 2.
 - A page of `render` and `diff` is one file that opens on its own. Its
   stylesheet is the app's: `web/vite.themes.ts` evaluates the theme
   with mantine's own resolver at build time, so the page has the same

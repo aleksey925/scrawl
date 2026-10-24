@@ -11,6 +11,8 @@ const lightTheme = require('../../theme/themes/light.json');
 
 const MISSING = docs.missing;
 const COLLIDE = 'e2e-collisions.md';
+const MATH = 'e2e-pages-math.md';
+const TOKENS = 'e2e-pages-tokens.md';
 
 const ROUTES = [
     routes.home(),
@@ -89,6 +91,94 @@ test.describe('pages', () => {
         await reloaded;
         await expect(page.getByTestId('editor-source')).toBeVisible();
         expect(asked).toBe(2);
+    });
+
+    test('a chunk that is gone again within a minute shows its error and no second reload', async ({page}) => {
+        // arrange
+        await page.route('**/assets/EditPage.js', (route) => route.fulfill({status: 404, body: 'gone'}));
+        await page.goto(routes.doc(docs.doc.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
+        let loads = 0;
+        page.on('load', () => {
+            loads += 1;
+        });
+
+        // act
+        await page.getByTestId('doc-edit').click();
+
+        // assert
+        await expect(page.getByTestId('app-error-message')).toBeVisible();
+        await expect(page).toHaveURL(MAIN.url.edit(docs.doc.path));
+        await page.waitForTimeout(500);
+        expect(loads).toBe(1);
+    });
+
+    test('a chunk a note asks for that is gone reloads the note', async ({page}) => {
+        // arrange
+        writeFixture(MATH, '# Math\n\n$$\n\\frac{a}{b}\n$$\n');
+        let asked = 0;
+        await page.route('**/assets/katex.js', async (route) => {
+            asked += 1;
+            if (asked === 1) {
+                await route.fulfill({status: 404, body: 'gone'});
+                return;
+            }
+            await route.continue();
+        });
+
+        // act
+        await page.goto(routes.doc(MATH));
+
+        // assert
+        await expect.poll(() => asked).toBe(2);
+        await expect(page.getByTestId('doc').locator('.katex')).toBeVisible();
+        await expect(page).toHaveURL(MAIN.url.doc(MATH));
+        expect(asked).toBe(2);
+        removeFixture(MATH);
+    });
+
+    test('a folder\'s table keeps its columns, and on a narrow page the name gives way', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(docs.folder.path));
+        const head = page.getByTestId('dir-table').locator('th');
+        await expect(head).toHaveCount(4);
+        const widths = () => head.evaluateAll((cells) => cells.map((cell) => Math.round(cell.getBoundingClientRect().width)));
+        const table = await page.getByTestId('dir-table').boundingBox();
+
+        // act & assert
+        const [name, size, date, rest] = await widths();
+        expect([name, size, date]).toEqual([530, 150, 150]);
+        expect(Math.abs(rest - (table.width - 830))).toBeLessThanOrEqual(1);
+        const sizeCell = page.locator('[data-testid=dir-row][data-dir=false] td').nth(1);
+        await expect(sizeCell).toHaveCSS('text-align', 'start');
+
+        await page.setViewportSize({width: 900, height: 900});
+        await expect.poll(async () => (await widths())[0]).toBeLessThan(530);
+        expect((await widths()).slice(1, 3)).toEqual([150, 150]);
+    });
+
+    test('the space button stands at the foot of the sidebar and its menu opens upward', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+        const button = page.getByTestId('space-menu');
+        const sidebar = await page.getByTestId('sidebar').boundingBox();
+        const box = await button.boundingBox();
+
+        // act
+        await button.click();
+
+        // assert
+        expect(sidebar.y + sidebar.height - (box.y + box.height)).toBeLessThan(16);
+        const menu = await page.getByTestId('space-menu-dropdown').boundingBox();
+        expect(menu.y + menu.height).toBeLessThanOrEqual(box.y);
+    });
+
+    test('the Search row of the sidebar shows its key', async ({page}) => {
+        // act
+        await page.goto(routes.home());
+
+        // assert
+        await expect(page.getByTestId('sidebar-search-keys')).toHaveText(/K$/);
     });
 
     test('a directory without an index lists its entries', async ({page}) => {
@@ -253,3 +343,49 @@ test.describe('pages', () => {
         await expect(root).not.toHaveAttribute('data-scrawl-theme');
     });
 });
+
+for (const [scheme, file] of [['light', lightTheme], ['dark', darkTheme]]) {
+    test.describe(`the ${scheme} theme`, () => {
+        test.use({colorScheme: scheme});
+
+        test.beforeEach(async ({page}) => {
+            await signIn(page);
+            writeFixture(TOKENS, `# Tokens\n\nA [link](${docs.doc.path}) in the text.\n`);
+        });
+
+        test.afterEach(() => {
+            removeFixture(TOKENS);
+        });
+
+        test('paints a link, the current row, Home and the letters with its own tokens', async ({page}) => {
+            // act
+            await page.goto(routes.doc(TOKENS));
+
+            // assert
+            const link = page.getByTestId('doc').locator('p a');
+            const linkColor = file.palette.link === 'currentColor'
+                ? await link.evaluate((el) => getComputedStyle(el.parentElement).color)
+                : rgb(file.palette.link);
+            await expect(link).toHaveCSS('color', linkColor);
+            const current = page.locator(`[data-testid=tree-row][data-path="${TOKENS}"]`);
+            await expect(current).toHaveAttribute('data-current', 'true');
+            await expect(current).toHaveCSS('font-weight', file.currentWeight);
+            await expect(page.getByTestId('sidebar-home')).toHaveCSS('background-color', rgb(file.palette.selected));
+            await expect(page.locator('body')).toHaveCSS('-webkit-font-smoothing', file.fontSmoothing);
+        });
+
+        test('fills the menu row under the pointer', async ({page}) => {
+            // arrange
+            await page.goto(routes.doc(TOKENS));
+            await page.getByTestId('note-menu').click();
+            const row = page.getByTestId('note-menu-copy-link');
+
+            // act
+            await row.hover();
+
+            // assert
+            await expect(row).toHaveCSS('background-color', rgb(file.palette.menuHighlight));
+            await expect(row).toHaveCSS('color', rgb(file.palette.menuHighlightText));
+        });
+    });
+}

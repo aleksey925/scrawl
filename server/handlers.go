@@ -307,7 +307,7 @@ func (wb *Web) logout(w http.ResponseWriter, r *http.Request) {
 
 func (wb *Web) loginForm(w http.ResponseWriter, r *http.Request, status int, message, from string) {
 	page := LoginPage{
-		SiteTitle: wb.Title, Version: wb.Version, AppThemes: wb.appShell.base + "themes.css",
+		SiteTitle: wb.Title, Version: wb.Version, AppThemes: wb.appShell.base() + "themes.css",
 		Logo: loginLogo(), Favicon: iconURL(wb.Version, "favicon.svg"),
 		Theme: themeOf(r, wb.Version), Themes: themeOptions,
 		Error: message, From: from,

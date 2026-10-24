@@ -127,7 +127,6 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
   const start = navHidden && (
     <ActionIcon
       data-testid="topbar-burger"
-      data-opened="false"
       variant="subtle"
       color="gray"
       onClick={toggleNav}

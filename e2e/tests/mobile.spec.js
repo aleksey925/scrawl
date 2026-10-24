@@ -67,6 +67,26 @@ async function longPress(page, x, y) {
     await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
 }
 
+// pressedBand presses the element the selector names and answers where its
+// pressed band starts and ends on the screen
+async function pressedBand(page, selector) {
+    const element = page.locator(selector).first();
+    await expect(element).toBeVisible();
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('DOM.enable');
+    await cdp.send('CSS.enable');
+    const {root} = await cdp.send('DOM.getDocument');
+    const {nodeId} = await cdp.send('DOM.querySelector', {nodeId: root.nodeId, selector});
+    // a touch sent through the protocol never sets :active in a headless browser
+    await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: ['active']});
+    await expect.poll(() => element.evaluate((el) => getComputedStyle(el, '::before').opacity)).toBe('1');
+    return element.evaluate((el) => {
+        const band = getComputedStyle(el, '::before');
+        const row = el.getBoundingClientRect();
+        return [row.left + parseFloat(band.left), row.right - parseFloat(band.right)];
+    });
+}
+
 // asStandalone opens the app as one opened from the home screen of an iPhone
 async function asStandalone(page) {
     await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
@@ -134,27 +154,45 @@ test.describe('mobile', () => {
     test('a pressed row is one band from edge to edge of the screen', async ({page}) => {
         // arrange
         await page.goto(routes.home());
-        const selector = `[data-testid=dir-row][data-path="${docs.folder.path}"]`;
-        const folder = page.locator(selector);
-        await expect(folder).toBeVisible();
-        const cdp = await page.context().newCDPSession(page);
-        await cdp.send('DOM.enable');
-        await cdp.send('CSS.enable');
-        const {root} = await cdp.send('DOM.getDocument');
-        const {nodeId} = await cdp.send('DOM.querySelector', {nodeId: root.nodeId, selector});
 
         // act
-        // a touch sent through the protocol never sets :active in a headless browser
-        await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: ['active']});
+        const edges = await pressedBand(page, `[data-testid=dir-row][data-path="${docs.folder.path}"]`);
 
         // assert
-        await expect.poll(() => folder.evaluate((el) => getComputedStyle(el, '::before').opacity)).toBe('1');
-        const edges = await folder.evaluate((el) => {
-            const band = getComputedStyle(el, '::before');
-            const row = el.getBoundingClientRect();
-            return [row.left + parseFloat(band.left), row.right - parseFloat(band.right)];
-        });
         expect(edges).toEqual([0, page.viewportSize().width]);
+    });
+
+    test('a pressed row of Recent is one band from edge to edge of the screen too', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC));
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await page.getByTestId('tab-recent').tap();
+
+        // act
+        const edges = await pressedBand(page, '[data-testid=recent-item]');
+
+        // assert
+        expect(edges).toEqual([0, page.viewportSize().width]);
+    });
+
+    test('a finger resting on a row shrinks it a little', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+        const folder = page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`);
+        const box = await folder.boundingBox();
+        const cdp = await page.context().newCDPSession(page);
+
+        // act
+        await cdp.send('Input.dispatchTouchEvent', {
+            type: 'touchStart', touchPoints: [{x: box.x + 80, y: box.y + box.height / 2}],
+        });
+        // past the 150ms the shrink waits for, short of the long press at 500ms
+        await page.waitForTimeout(400);
+
+        // assert
+        const scale = await folder.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
+        await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
+        expect(scale).toBeLessThan(1);
     });
 
     test('a finger that only taps a row does not shrink it', async ({page}) => {
@@ -304,6 +342,32 @@ test.describe('mobile', () => {
                 .filter((animation) => animation.playState === 'running').length)).toBe(0);
         }
 
+        // touchesFrom sends a touch at the first point and moves it through the
+        // rest, as events made in the page, and answers which moves the page
+        // took for itself. Chromium holds back a move the protocol sends inside
+        // its slop, so a short first step never reached the page that way.
+        async function touchesFrom(page, [start, ...moves], end = 'touchcancel') {
+            return page.evaluate(async ({start, moves, end}) => {
+                const send = (type, point) => {
+                    const touches = point === undefined
+                        ? []
+                        : [new Touch({identifier: 1, target: document.body, clientX: point[0], clientY: point[1]})];
+                    const event = new TouchEvent(type, {touches, changedTouches: touches, bubbles: true, cancelable: true});
+                    document.body.dispatchEvent(event);
+                    return event.defaultPrevented;
+                };
+                send('touchstart', start);
+                const taken = [];
+                for (const point of moves) {
+                    taken.push(send('touchmove', point));
+                    await new Promise((resolve) => setTimeout(resolve, 16));
+                }
+                window.layer = document.querySelector('[data-screen]')?.style.willChange;
+                send(end);
+                return taken;
+            }, {start, moves, end});
+        }
+
         const visited = (page) => page.evaluate(() => window.visited);
         const pathOf = (url) => new URL(url, MAIN.baseURL).pathname.replace(/\/$/, '');
 
@@ -312,26 +376,15 @@ test.describe('mobile', () => {
             await asStandalone(page);
             await page.goto(folder());
             await expect(page.getByTestId('dir-row').first()).toBeVisible();
-            await page.evaluate(() => {
-                window.moves = [];
-                window.addEventListener('touchmove', (event) => window.moves.push(event.defaultPrevented));
-            });
-            const cdp = await page.context().newCDPSession(page);
-            const y = 400;
 
             // act
-            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y}]});
-            // the steps lean up a little, as a thumb drawing a swipe does
-            for (const [x, dy] of [[20, -4], [40, -5], [80, -6]]) {
-                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: y + dy}]});
-                await page.waitForTimeout(30);
-            }
-            const layer = await page.locator('[data-screen]').evaluate((el) => el.style.willChange);
-            await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
+            // the first steps stay short of where the page starts to move, and
+            // they lean up a little, as a thumb drawing a swipe does
+            const taken = await touchesFrom(page, [[4, 400], [7, 399], [10, 398], [20, 396], [40, 395], [80, 394]]);
 
             // assert
-            expect(await page.evaluate(() => window.moves)).toEqual([true, true, true]);
-            expect(layer).toBe('transform');
+            expect(taken).toEqual([true, true, true, true, true]);
+            expect(await page.evaluate(() => window.layer)).toBe('transform');
             await expect.poll(() => page.locator('[data-screen]').evaluate((el) => el.style.willChange)).toBe('');
         });
 
@@ -358,6 +411,79 @@ test.describe('mobile', () => {
             await expect(page).toHaveURL(folder());
         });
 
+        test('a slow drag from the edge up the page scrolls it', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(routes.doc(DOC));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            const cdp = await page.context().newCDPSession(page);
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y: 600}]});
+            for (let y = 598; y >= 300; y -= 2) {
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: 4, y}]});
+            }
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+
+            // assert
+            await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+            await expect(page).toHaveURL(MAIN.url.doc(DOC));
+        });
+
+        test('a drag from near the edge back toward it is let go like a scroll', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(folder());
+            await expect(page.getByTestId('dir-row').first()).toBeVisible();
+
+            // act
+            const taken = await touchesFrom(page, [[20, 400], [17, 400], [12, 400], [8, 400]], 'touchend');
+
+            // assert
+            expect(taken).toEqual([true, false, false]);
+            await expect(page).toHaveURL(folder());
+        });
+
+        test('a fast flick sends the page off sooner than a slow drag does', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.addInitScript(() => {
+                window.leaves = [];
+                const animate = Element.prototype.animate;
+                Element.prototype.animate = function (keyframes, options) {
+                    if (Array.isArray(keyframes) && keyframes[1]?.transform === 'translateX(100%)') {
+                        window.leaves.push(options.duration);
+                    }
+                    return animate.call(this, keyframes, options);
+                };
+            });
+            const leaves = () => page.evaluate(() => window.leaves);
+            const cdp = await page.context().newCDPSession(page);
+            const y = 400;
+
+            // act
+            await page.goto(routes.doc(DOC));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y}]});
+            for (const x of [40, 120, 200, 300]) {
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y}]});
+            }
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+            await expect.poll(leaves).toHaveLength(1);
+            const [fast] = await leaves();
+
+            await page.goto(routes.doc(DOC));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await swipe(page, 300, 50);
+            await expect.poll(leaves).toHaveLength(1);
+            const [slow] = await leaves();
+
+            // assert
+            expect(fast).toBeLessThan(200);
+            expect(fast).toBeGreaterThanOrEqual(120);
+            expect(slow).toBe(200);
+        });
+
         test('a finger drawn back toward the edge as it lifts keeps the page', async ({page}) => {
             // arrange
             await asStandalone(page);
@@ -368,8 +494,13 @@ test.describe('mobile', () => {
 
             // act
             await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y}]});
-            for (const x of [40, 120, 200, 280, 250, 220, 190]) {
+            for (const x of [40, 120, 200, 280]) {
                 await page.waitForTimeout(20);
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y}]});
+            }
+            // the way back is sent at once, so a slow runner cannot stretch it
+            // past the stretch the speed of the release is read over
+            for (const x of [250, 220, 190]) {
                 await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y}]});
             }
             await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
@@ -540,6 +671,30 @@ test.describe('mobile', () => {
             await expect(opener).toHaveAttribute('data-opened', 'true');
             await expect(menu).toBeVisible();
         });
+
+        test('the Search row of the sidebar shows no key on a touch screen', async ({page}) => {
+            // act
+            await page.goto(routes.home());
+
+            // assert
+            await expect(page.getByTestId('sidebar-search')).toBeVisible();
+            await expect(page.getByTestId('sidebar-search-keys')).toHaveCount(0);
+        });
+
+        // a guard inside the row was a press on the row: a finger resting on it
+        // timed the row's long press, which then swallowed the guard's click
+        test('the guard under a tree row\'s menu is no part of the row', async ({page}) => {
+            // arrange
+            await page.goto(routes.home());
+            const row = page.getByTestId('tree-row').first();
+
+            // act
+            await row.getByTestId('tree-row-menu').tap();
+
+            // assert
+            await expect(page.getByTestId('tree-row-menu-dropdown')).toBeVisible();
+            expect(await page.getByTestId('tap-guard').evaluate((el) => el.closest('[data-testid=tree-row]'))).toBeNull();
+        });
     });
 
     test.describe('the menu of a row in a folder', () => {
@@ -632,6 +787,48 @@ test.describe('mobile', () => {
             await openedMenu(page, 'tree-row-menu-dropdown');
             await expect(page.getByTestId('tree-row-menu-rename')).toBeVisible();
             await expect(page.getByTestId('tree-row-menu-edit')).toHaveCount(0);
+        });
+
+        test('a tap on a row below an open menu only closes the menu', async ({page}) => {
+            // arrange
+            const files = ['first', 'second', 'third', 'fourth'].map((name) => `${FOLDER}/below-${name}.md`);
+            for (const file of files) {
+                writeFixture(file, '# Below\n');
+            }
+            await page.goto(MAIN.url.dir(FOLDER));
+            await rowOf(page, files[0]).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            const box = await rowOf(page, files[3]).boundingBox();
+
+            // act
+            await page.touchscreen.tap(box.x + 20, box.y + box.height / 2);
+
+            // assert
+            await expect(page.getByTestId('tree-row-menu-dropdown')).toHaveCount(0);
+            await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+        });
+
+        test('a finger resting beside an open menu leaves the row of the menu as it is', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/rest-beside.md`;
+            writeFixture(file, '# Rest beside\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            const row = rowOf(page, file);
+            await row.getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            const box = await row.boundingBox();
+            const cdp = await page.context().newCDPSession(page);
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {
+                type: 'touchStart', touchPoints: [{x: box.x + 20, y: box.y + box.height / 2}],
+            });
+            await page.waitForTimeout(LONG_PRESS_HOLD);
+
+            // assert
+            await expect(row).toHaveAttribute('data-holding', 'false');
+            await expect(row).toHaveAttribute('data-lifted', 'false');
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
         });
 
         test('opens from the row\'s own button, which leaves the row as it is', async ({page}) => {

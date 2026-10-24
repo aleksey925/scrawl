@@ -2,6 +2,8 @@ import { EditorSelection } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import type { Plugin } from 'prettier';
 
+import { loadChunk } from '../staleBundle';
+
 type FormatWithCursor = (typeof import('prettier/standalone'))['formatWithCursor'];
 
 interface Formatter {
@@ -23,18 +25,20 @@ function load(): Promise<Formatter> {
   if (loading !== undefined) {
     return loading;
   }
-  const started = Promise.all([
-    import('prettier/standalone'),
-    import('prettier/plugins/markdown'),
-    import('prettier/plugins/yaml'),
-    import('prettier/plugins/babel'),
-    import('prettier/plugins/estree'),
-    import('prettier/plugins/typescript'),
-    import('prettier/plugins/postcss'),
-    import('prettier/plugins/html'),
-    import('prettier/plugins/graphql'),
-    import('prettier/plugins/glimmer'),
-  ]).then(([prettier, ...plugins]) => ({
+  const started = loadChunk(
+    Promise.all([
+      import('prettier/standalone'),
+      import('prettier/plugins/markdown'),
+      import('prettier/plugins/yaml'),
+      import('prettier/plugins/babel'),
+      import('prettier/plugins/estree'),
+      import('prettier/plugins/typescript'),
+      import('prettier/plugins/postcss'),
+      import('prettier/plugins/html'),
+      import('prettier/plugins/graphql'),
+      import('prettier/plugins/glimmer'),
+    ]),
+  ).then(([prettier, ...plugins]) => ({
     formatWithCursor: prettier.formatWithCursor,
     plugins: plugins as Plugin[],
   }));

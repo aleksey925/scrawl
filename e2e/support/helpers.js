@@ -153,7 +153,7 @@ async function showOutline(page) {
     await expect(page.getByTestId('toc')).toBeVisible();
 }
 
-// openSpaceMenu opens the menu in the head of the sidebar; a site on a phone
+// openSpaceMenu opens the menu at the foot of the sidebar; a site on a phone
 // has the same theme picker in the menu at the right of its bar
 async function openSpaceMenu(page) {
     await page.getByTestId('space-menu').or(page.getByTestId('site-menu')).filter({visible: true}).click();
@@ -187,13 +187,16 @@ async function inStep(page, space) {
 }
 
 // rgb spells a theme file's #rrggbb or #rrggbbaa the way getComputedStyle
-// reports it, which rounds an alpha to two places
+// reports it, which rounds an alpha to two places, or to three when two do
+// not give the same byte back
 function rgb(hex) {
     const [r, g, b] = [1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16));
     if (hex.length === 7) {
         return `rgb(${r}, ${g}, ${b})`;
     }
-    const alpha = Math.round((Number.parseInt(hex.slice(7, 9), 16) / 255) * 100) / 100;
+    const byte = Number.parseInt(hex.slice(7, 9), 16);
+    const short = Math.round((byte / 255) * 100) / 100;
+    const alpha = Math.round(short * 255) === byte ? short : Math.round((byte / 255) * 1000) / 1000;
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 

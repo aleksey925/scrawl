@@ -82,10 +82,17 @@ test.describe('spaces', () => {
         expect(await cut()).toBe(false);
         await shot(page, 'spaces-switcher-name');
 
-        await named('A space whose name was written by somebody paid by the word');
+        const long = 'A space whose name was written by somebody paid by the word';
+        await named(long);
         expect(await cut()).toBe(true);
         await expect(label).toHaveCSS('text-overflow', 'ellipsis');
-        await expect(page.getByTestId('sidebar-new')).toBeInViewport({ratio: 1});
+        const sidebar = await page.getByTestId('sidebar').boundingBox();
+        const chevron = await page.getByTestId('space-menu').locator('svg').last().boundingBox();
+        expect(chevron.x + chevron.width).toBeLessThanOrEqual(sidebar.x + sidebar.width);
+        const section = page.getByTestId('sidebar-section-label');
+        await expect(section).toContainText(long);
+        const sectionBox = await section.boundingBox();
+        expect(sectionBox.x + sectionBox.width).toBeLessThanOrEqual(sidebar.x + sidebar.width);
         await shot(page, 'spaces-switcher-long-name');
     });
 

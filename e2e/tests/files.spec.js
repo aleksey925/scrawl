@@ -338,6 +338,7 @@ test.describe.serial('file management', () => {
         await shot(page, 'files-empty-folder');
         // an empty folder keeps its table's header, as Notion keeps a database's
         await expect(page.getByTestId('dir-table').locator('th').first()).toBeVisible();
+        await expect(page.getByTestId('dir-empty-new-folder')).toHaveCount(0);
         await page.getByTestId('dir-empty-new-file').click();
         // the name is typed in the list the reader is looking at, not in the tree
         await expect(page.getByTestId('dir-draft-input')).toBeFocused();
@@ -473,6 +474,7 @@ const CODE = 'def greet(name):\n    return f"hello, {name}"\n\nprint(greet("you"
 test.describe('file pages', () => {
     test.beforeAll(() => {
         writeFixture(`${PAGES}/pic.png`, PIXEL);
+        writeFixture(`${PAGES}/wide.svg`, '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="10"></svg>\n');
         writeFixture(`${PAGES}/code.py`, CODE);
         writeFixture(`${PAGES}/blob.bin`, Buffer.from([0, 1, 2, 3]));
         writeFixture(`${PAGES}/links.md`, '# Links\n\n[the code](code.py) and [the folder](../e2e-file-pages)\n');
@@ -501,6 +503,29 @@ test.describe('file pages', () => {
         await expect(page.getByTestId('doc-lightbox-image')).toBeVisible();
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+    });
+
+    test('the next picture is not drawn at the scale of the one before', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(`${PAGES}/pic.png`));
+        const image = page.getByTestId('file-preview').locator('img');
+        await expect(image).toHaveCSS('width', '128px');
+        await page.route('**/raw/**/wide.svg', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await route.continue().catch(() => undefined);
+        });
+
+        // act
+        // a move inside the router, which keeps the file's page mounted
+        await page.evaluate((url) => {
+            window.history.pushState(null, '', url);
+            window.dispatchEvent(new PopStateEvent('popstate'));
+        }, routes.doc(`${PAGES}/wide.svg`));
+
+        // assert
+        await expect(page.getByTestId('file-title')).toHaveText('wide.svg');
+        expect(await image.evaluate((el) => el.style.width)).toBe('');
+        await expect(image).toHaveCSS('width', '300px');
     });
 
     test('Back with the viewer of a picture open closes it and leaves the page free', async ({page}) => {

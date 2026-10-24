@@ -1,12 +1,12 @@
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
-import logo from '../../../server/assets/logo.svg?raw';
 import { planMotion } from '../components/screenMotion';
 import { IconChevronLeft } from '../icons';
 import { isEditPath } from '../paths';
 import { layout } from '../theme';
 
+import { AppLogo } from './AppLogo';
 import { spaceLabel, useNav } from './NavContext';
 import { useShownChrome } from './PageChrome';
 import classes from './PhoneTopBar.module.css';
@@ -87,7 +87,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
       <div className={classes.start}>
         {atRoot ? (
           <span data-testid="topbar-home" className={classes.home}>
-            <span aria-hidden className={classes.logo} dangerouslySetInnerHTML={{ __html: logo }} />
+            <AppLogo />
             <span className={classes.homeName}>{space}</span>
           </span>
         ) : (

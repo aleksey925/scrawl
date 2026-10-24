@@ -2277,6 +2277,7 @@
     "src": "node_modules/mermaid/dist/mermaid.core.mjs",
     "isDynamicEntry": true,
     "imports": [
+      "_rolldown-runtime.js",
       "_preload-helper.js",
       "_chunk-Y2CYZVJY.js",
       "_src.js",

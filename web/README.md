@@ -39,11 +39,10 @@ and `/s/<name>/hook` always proxy: an attachment opened as a top-level
 navigation carries `Accept: text/html` like any other, and deciding on
 the header would hand it `index.html` and never ask the raw handler.
 
-**The dev shell's base is a constant.** The Go shell hands the client
-its space prefix, and `web/index.html` hardcodes
-`data-base="/s/notes"` to match the `--space notes` that `make run`
-passes. Running the backend with another space name means editing that
-attribute too.
+**The dev shell's base is a constant.** The Go shell hands the client its space
+prefix, and `web/index.html` hardcodes `data-base="/s/notes"` to match the
+`--space.name=notes` that `make run` passes. Running the backend with another
+space name means editing that attribute too.
 
 ## Build
 
@@ -177,8 +176,12 @@ focus trap and `inert`; shell slots are reached through refs the shell
 holds (`src/shell/ShellSlots.tsx`) and filled with React portals. The
 one id in the app is the mount node, read once before any note exists.
 
-Note html is injected in exactly one component,
-`src/components/DocumentHtml.tsx`. It is safe because the server
-sanitized it with the bluemonday policy in `render/policy.go`, and
-keeping the injection in one place keeps that trust boundary to one
-file.
+Html from the server is injected in three components only:
+`src/components/DocumentHtml.tsx` for a note, `src/diff/RenderedDiff.tsx`
+for the two sides of a version and `src/shell/FileView.tsx` for a
+highlighted text file. It is safe because the server made it: a note and a
+diff side are sanitized with the bluemonday policy in `render/policy.go`,
+and a text file is highlighted by `render` from escaped source. Keeping the
+injection in these three places keeps that trust boundary small. The one
+other `dangerouslySetInnerHTML` is `src/shell/AppLogo.tsx`, which draws the
+logo, a file of the bundle and never input.

@@ -21,7 +21,7 @@ import { rowMenuIconSize, useReaderExtensions } from './extensions';
 import { useFileActions, useOptionalFileActions } from './fileActionsContext';
 import { spaceLabel, useNav } from './NavContext';
 import { basenameOf, folderFor, pageName, parentOf } from './naming';
-import { useSearchOpener } from './searchOpener';
+import { useSearchControl } from './searchOpener';
 import { keysLabel, modKey, useKeyboardPlace } from './shortcuts';
 import sidebarClasses from './Sidebar.module.css';
 import { SyncBadge } from './SyncBadge';
@@ -412,7 +412,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const location = useLocation();
   const { tree, error, loading, canWrite: mayWrite, currentPath, query, setQuery, isOpen, openFolder, me } = useNav();
   const actions = useOptionalFileActions();
-  const openSearch = useSearchOpener();
+  const openSearch = useSearchControl()?.open;
   const keyboard = useKeyboardPlace();
   // a reader with nowhere to write offers no write, whatever the space allows
   const canWrite = mayWrite && actions !== undefined;

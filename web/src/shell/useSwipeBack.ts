@@ -117,14 +117,16 @@ export function useSwipeBack(goBack: (() => void) | null): void {
       if (track === undefined || touch === undefined) {
         return;
       }
-      const dx = Math.max(0, touch.clientX - track.x);
+      const moved = touch.clientX - track.x;
+      const dx = Math.max(0, moved);
       const dy = Math.abs(touch.clientY - track.y);
       if (!track.across) {
-        if (Math.hypot(dx, dy) >= decidePx && dy > dx) {
+        // not dx, which is clamped: a move back toward the edge is no swipe either
+        if (Math.hypot(moved, dy) >= decidePx && dy > moved) {
           track = undefined;
           return;
         }
-        track.across = Math.hypot(dx, dy) >= decidePx;
+        track.across = Math.hypot(moved, dy) >= decidePx;
       }
       // every move until the direction is known too: a move let through starts
       // the page's own scroll, which then shifts the page up and down under the drag

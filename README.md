@@ -27,7 +27,8 @@ files on disk are the only state.
 - a Notion-like look, in a light and a dark theme
 - a phone layout of its own: tabs at the bottom, folder lists, the notes
   opened last and a round Edit button under the thumb
-- installs to a phone home screen and runs there without browser chrome
+- installs to a phone home screen and runs there without browser chrome;
+  on an iPhone a swipe from the left edge of the screen then goes back
 
 ## Try it
 
@@ -245,12 +246,10 @@ A few rules:
 - Setting both `token_file` and `token_env`, or both hook secret keys,
   stops startup with an error.
 
-`/` redirects to the first space, and the space's button at the foot of
-the sidebar, or the Profile tab on a phone, opens a menu that switches to
-another one. Everything else
-is shared: one login, one
-session, one set of API tokens, and a search that searches the space you
-are in.
+`/` redirects to the first space, and the space's button at the foot of the
+sidebar, or the Profile tab on a phone, opens a menu that switches to another
+one. Everything else is shared: one login, one session, one set of API tokens,
+and a search that searches the space you are in.
 
 For full separation between spaces - separate users, separate
 processes - run one scrawl per folder behind a reverse proxy.
@@ -316,14 +315,14 @@ read it, but that does not hide it from any of these.
 For ssh there is no setting: an ssh remote uses the agent and the
 `~/.ssh` you mount into the container, like every other tool on the box.
 
-**Pulling and pushing.** A save is committed and pushed straight away.
-In between, `pull` says how often to fetch from the remote; `0` turns
-that off, but scrawl still fetches once at startup. A fetch is followed
-by a fast-forward and nothing else: scrawl never merges, never rebases
-and never resolves conflicts. If the branch has diverged, the space keeps serving,
-saves keep landing on disk and in local commits, and a banner says so on
-every screen together with a button that resets this copy to the remote
-version - see [below](#when-a-space-has-diverged).
+**Pulling and pushing.** A save is committed and pushed straight away. In
+between, `pull` says how often to fetch from the remote; `0` turns that off,
+but scrawl still fetches once at startup. A fetch is followed by a fast-forward
+and nothing else: scrawl never merges, never rebases and never resolves
+conflicts. If the branch has diverged, the space keeps serving, saves keep
+landing on disk and in local commits, and a banner says so on every screen
+together with a button that resets this copy to the remote version - see
+[below](#when-a-space-has-diverged).
 
 **Two things are worth knowing.** History is always on for a space that
 is a git repository, whatever `HISTORY` says: one that stopped recording
@@ -509,6 +508,11 @@ one folder instead.
   in the file, turns that off
 - the wand button in the toolbar, or `Shift+Alt+F`, formats the note
   without saving it, whatever that setting says
+- a text file that is not a note, such as `config.yml` or a `Makefile`,
+  opens in the same editor as plain source, colored by its language, with
+  Save, Cancel and line wrap. It has no preview, toolbar or formatting,
+  and a save leaves it as you wrote it. The editor opens text files up to
+  2MB
 - only notes saved through scrawl are formatted. A file changed on disk
   or pulled from the remote stays as it is, so to format what is already
   there run `prettier --write "**/*.md"` in the folder once

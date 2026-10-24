@@ -129,11 +129,13 @@ function useStoredChoice<T extends string>(key: string, values: readonly [T, ...
 
 interface VersionDiffProps {
   state: AsyncState<HistoryVersionResponse | undefined>;
+  // the version picked, which the answer on hand may not be yet
+  rev: string;
   mode: DiffMode;
   layout: DiffLayout;
 }
 
-function VersionDiff({ state, mode, layout }: VersionDiffProps): JSX.Element {
+function VersionDiff({ state, rev, mode, layout }: VersionDiffProps): JSX.Element {
   if (state.error !== undefined) {
     return (
       <Text data-testid="history-detail-error" size="sm" c="red">
@@ -141,14 +143,14 @@ function VersionDiff({ state, mode, layout }: VersionDiffProps): JSX.Element {
       </Text>
     );
   }
-  if (state.data === undefined) {
+  if (state.data?.rev !== rev) {
     return (
       <Center data-testid="history-detail-loading" py="xl">
         <Loader size="sm" />
       </Center>
     );
   }
-  const { changes, diff, rev } = state.data;
+  const { changes, diff } = state.data;
   if (changes !== undefined && mode === 'rendered') {
     return <RenderedDiff rows={changes} layout={layout} oldLabel="Before" newLabel="This version" version={rev} />;
   }
@@ -363,7 +365,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
             </span>
           </div>
           <div className={classes.diff}>
-            {selected !== undefined && <VersionDiff state={detail} mode={mode} layout={diffLayout} />}
+            {selected !== undefined && <VersionDiff state={detail} rev={selected.rev} mode={mode} layout={diffLayout} />}
           </div>
         </section>
 
@@ -419,7 +421,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
                 data-testid="version-restore"
                 fullWidth
                 size="md"
-                disabled={reason !== undefined || restoring || rev === undefined}
+                disabled={reason !== undefined || restoring || rev === undefined || disk.loading || history.loading}
                 onClick={() => askRestore(selected)}
               >
                 Restore version

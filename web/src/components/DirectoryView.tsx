@@ -8,7 +8,7 @@ import {
 } from '../icons';
 import { usePlatform } from '../platform';
 import { useOptionalFileActions, type FileActions } from '../shell/fileActionsContext';
-import { useNav } from '../shell/NavContext';
+import { spaceLabel, useNav } from '../shell/NavContext';
 import { chromeOf, usePageChrome } from '../shell/PageChrome';
 import { PageActions } from '../shell/ShellSlots';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
@@ -43,7 +43,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
   const actions = useOptionalFileActions();
   const [draft, setDraft] = useState<EntryKind | undefined>(undefined);
   const phone = useBelow(layoutBreakpoints.phone);
-  const space = me?.space.label ?? me?.site_title ?? dir.title;
+  const space = spaceLabel(me);
   usePageChrome(chromeOf(dir.breadcrumbs, path === '' ? '' : dir.title, true));
   // a name row belongs to the folder it was opened in
   useEffect(() => setDraft(undefined), [path]);

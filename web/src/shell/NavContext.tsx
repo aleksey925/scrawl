@@ -7,6 +7,7 @@ import { useLocation } from 'react-router';
 import type { MeResponse, NavNode } from '../api/types';
 import { answerKeys, forgetResponses, useApi } from '../api/useApi';
 import { usePlatform } from '../platform';
+import { localStore, readJson, writeJson } from '../storage';
 
 import { contentPathOf } from './naming';
 import { syncMessage, type SyncMessage } from './syncMessage';
@@ -21,24 +22,12 @@ function openKey(scope: string): string {
 }
 
 function readOpen(storageKey: string): ReadonlySet<string> {
-  try {
-    const raw = localStorage.getItem(storageKey);
-    if (raw === null) {
-      return new Set();
-    }
-    const parsed: unknown = JSON.parse(raw);
-    return new Set(Array.isArray(parsed) ? parsed.filter((path): path is string => typeof path === 'string') : []);
-  } catch {
-    return new Set();
-  }
+  const parsed = readJson<unknown>(localStore(), storageKey);
+  return new Set(Array.isArray(parsed) ? parsed.filter((path): path is string => typeof path === 'string') : []);
 }
 
 function writeOpen(storageKey: string, open: ReadonlySet<string>): void {
-  try {
-    localStorage.setItem(storageKey, JSON.stringify([...open]));
-  } catch {
-    // private mode, the tree just will not remember which folders were open
-  }
+  writeJson(localStore(), storageKey, [...open]);
 }
 
 export interface NavState {

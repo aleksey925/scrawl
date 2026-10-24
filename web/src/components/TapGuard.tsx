@@ -1,4 +1,4 @@
-import { Overlay } from '@mantine/core';
+import { Overlay, Portal } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { useEffect, useRef, type JSX } from 'react';
 
@@ -26,21 +26,25 @@ export function TapGuard({ active, onClose }: { active: boolean; onClose: () => 
   if (!active || !touch) {
     return null;
   }
+  // in a portal: inside a row the row's stacking context let later rows paint
+  // over the guard, and a press on the guard pressed the row and timed it
   return (
-    <Overlay
-      data-testid="tap-guard"
-      fixed
-      className={classes.guard}
-      zIndex={299}
-      onPointerDown={() => {
-        pressed.current = true;
-      }}
-      onClick={() => {
-        if (pressed.current) {
-          pressed.current = false;
-          onClose();
-        }
-      }}
-    />
+    <Portal>
+      <Overlay
+        data-testid="tap-guard"
+        fixed
+        className={classes.guard}
+        zIndex={299}
+        onPointerDown={() => {
+          pressed.current = true;
+        }}
+        onClick={() => {
+          if (pressed.current) {
+            pressed.current = false;
+            onClose();
+          }
+        }}
+      />
+    </Portal>
   );
 }

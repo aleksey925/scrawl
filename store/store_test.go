@@ -446,7 +446,8 @@ func TestStoreCount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// arrange
 			s := newStore(t, notesFiles())
-			entries, _ := s.List(tc.dir)
+			entries, listErr := s.List(tc.dir)
+			require.ErrorIs(t, listErr, tc.err)
 
 			// act
 			got, err := s.Count(tc.dir)
@@ -454,6 +455,9 @@ func TestStoreCount(t *testing.T) {
 			// assert
 			require.ErrorIs(t, err, tc.err)
 			assert.Equal(t, len(entries), got)
+			if tc.err == nil {
+				assert.NotZero(t, got)
+			}
 		})
 	}
 }

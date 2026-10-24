@@ -34,7 +34,8 @@ export function FileView({ file }: { file: FilePageResponse }): JSX.Element {
       </PageActions>
       <Page data-testid="file" data-type={file.type}>
         <PageTitle testId="file-title">{file.name}</PageTitle>
-        {file.type === 'image' && <Picture file={file} raw={raw} />}
+        {/* keyed, or the next picture is drawn at the last one's scale until it loads */}
+        {file.type === 'image' && <Picture key={raw} file={file} raw={raw} />}
         {file.type === 'text' && <TextLines file={file} />}
         {file.type === 'other' && (
           <>

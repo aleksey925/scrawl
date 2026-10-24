@@ -61,6 +61,10 @@ export interface Palette {
   diffDeleteWord: string;
 }
 
+export const fontSmoothings = ['auto', 'antialiased'] as const;
+
+export type FontSmoothing = (typeof fontSmoothings)[number];
+
 export const blockNames = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const;
 
 export type BlockName = (typeof blockNames)[number];
@@ -108,7 +112,7 @@ interface ThemeFile {
   // how a Mac draws the letters: auto keeps its own smoothing, which Notion's
   // light page has, and antialiased draws them thinner, which light letters on
   // a dark page need not to glow
-  fontSmoothing: 'auto' | 'antialiased';
+  fontSmoothing: FontSmoothing;
   palette: Palette;
   blocks: BlockColors;
   shadows: Shadows;

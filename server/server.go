@@ -242,8 +242,9 @@ func (wb *Web) router() (http.Handler, error) {
 	// really named ping would be unreachable
 	router.HandleFunc("GET /ping", pingHandler)
 
-	// the version segment is part of the URL only to bust the cache, lookup
-	// ignores it so that an old page keeps working after a redeploy
+	// the version segment of a static file is there only to bust the cache, and
+	// any version is answered, so an old page keeps working after a redeploy;
+	// the bundle answers its own digest only, see appAssetHandler
 	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
 		HandleFunc("GET /static/{version}/{path...}", wb.staticHandler(assets))
 	router.HandleFunc("GET /static/{version}/"+appDir+"/{path...}", wb.appAssetHandler(assets))

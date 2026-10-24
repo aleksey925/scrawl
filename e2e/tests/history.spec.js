@@ -217,6 +217,42 @@ test.describe.serial('history', () => {
         await expect(page.getByTestId('history-conflict-current')).toHaveCount(0);
     });
 
+    test('a picked version waits for its own change, and Restore for the list read again after one', async ({page}) => {
+        // arrange
+        const {docPath, stamp} = freshDoc('waits');
+        await page.goto(HISTORY.url.edit(docPath));
+        await saveInEditor(page, `# Waits first ${stamp}\n`);
+        await saveInEditor(page, `# Waits second ${stamp}\n`);
+        await saveInEditor(page, `# Waits third ${stamp}\n`);
+        await page.goto(HISTORY.url.history(docPath));
+        const versions = page.getByTestId('version');
+        await expect(versions).toHaveCount(3);
+        await expect(page.getByTestId('rendered-diff')).toContainText('Waits third');
+        const slow = (url, wanted) => new URL(url).pathname.includes('/api/history/') && new URL(url).searchParams.has('rev') === wanted;
+        const held = async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await route.continue().catch(() => undefined);
+        };
+        await page.route((url) => slow(url.href, true), held);
+
+        // act & assert
+        await versions.nth(2).click();
+        await expect(page.getByTestId('history-detail-loading')).toBeVisible();
+        await expect(page.getByTestId('rendered-diff')).toHaveCount(0);
+        await expect(page.getByTestId('rendered-diff')).toContainText('Waits first');
+        await page.unroute((url) => slow(url.href, true));
+
+        await versions.nth(1).click();
+        await expect(page.getByTestId('rendered-diff')).toContainText('Waits second');
+        await page.route((url) => slow(url.href, false), held);
+        await page.getByTestId('version-restore').click();
+        await page.getByTestId('modal-confirm').click();
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.restored);
+        await expect(page.getByTestId('version-restore')).toBeDisabled();
+        await expect(page.getByTestId('history-restore-reason')).toHaveText('A restore is a new version. Nothing is lost.');
+        await expect(versions).toHaveCount(4);
+    });
+
     test('the history is a dialog over the note, and Esc goes back to the note', async ({page}) => {
         // arrange
         await page.goto(HISTORY.url.doc(docs.doc.path));

@@ -3,6 +3,7 @@ import { mountBase } from './mount';
 import type { Platform } from './platform';
 import { FindTimeout, type FindMatch, type FindPattern } from './reader/findMatches';
 import { internalTarget } from './reader/links';
+import { loadChunk } from './staleBundle';
 
 // findDeadlineMs is how long a find of a note may run before its worker is
 // stopped: a regular expression can run for minutes and freeze the tab
@@ -43,9 +44,9 @@ export const appPlatform: Platform = {
   source: api,
   physicalUrl: (url) => mountBase() + url,
   internalTarget,
-  loadMermaid: async () => (await import('mermaid')).default,
+  loadMermaid: async () => (await loadChunk(import('mermaid'))).default,
   loadKatex: async () => {
-    const [module] = await Promise.all([import('katex'), import('katex/dist/katex.min.css')]);
+    const [module] = await loadChunk(Promise.all([import('katex'), import('katex/dist/katex.min.css')]));
     return module.default;
   },
   storageScope: mountBase(),

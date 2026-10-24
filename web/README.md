@@ -68,17 +68,27 @@ module.
 
 The build output is committed. `node_modules/` is not.
 
-### Vite base path
+### Vite base path and file names
 
-`base` is `/static/spa/app/` for a build and `/` for the dev server.
+`base` is `./` for a build and `/` for the dev server, and the file
+names carry no hash: `assets/EditPage.js`, not `assets/EditPage-3f9a1c.js`.
+A rebuild changes in git only the files whose content changed.
 
-Assets are served under `/static/{version}/app/...` and the Go handler
-ignores the version segment on lookup, so any literal in that slot
-resolves to the same file. A relative base would not work, because
-`index.html` is served from arbitrary URLs (`/s/notes/doc/a/b.md`), and the
-version cannot be baked in at build time, so the segment is the fixed
-placeholder `spa`. Nothing is lost: Vite content-hashes every file
-name, which is what actually busts the cache.
+The server takes a digest of the embedded bundle at startup and serves the
+bundle under `/static/<digest>/app/`. The shell names the entry, its CSS
+and its preloads under that address, and a relative base makes every chunk
+a page imports later resolve against the module that imports it, so it
+carries the same digest. Vite's own `index.html` is not used.
+
+Only the current digest is answered, with a cache of a year. A page left
+open across an upgrade finds its next chunk gone: `vite:preloadError`
+fires and `src/staleBundle.ts` loads the page again, at the address the
+click was going to.
+
+A chunk made of a package's index is named after the package
+(`codemirror-lang-python.js`), not after the file (`dist2.js`). Names
+like `c4Diagram-YGBWAQC7.js` are mermaid's own file names and change only
+with its version.
 
 ### Manifest
 

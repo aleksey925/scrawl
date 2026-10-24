@@ -65,6 +65,32 @@ test.describe('pages', () => {
         }
     });
 
+    // the bundle is answered for the server's own release only, so a page left
+    // open across an upgrade finds the next chunk it asks for gone
+    test('a chunk that is gone reloads the page into the screen asked for', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.doc.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
+        let asked = 0;
+        await page.route('**/assets/EditPage.js', async (route) => {
+            asked += 1;
+            if (asked === 1) {
+                await route.fulfill({status: 404, body: 'gone'});
+                return;
+            }
+            await route.continue();
+        });
+        const reloaded = page.waitForEvent('load');
+
+        // act
+        await page.getByTestId('doc-edit').click();
+
+        // assert
+        await reloaded;
+        await expect(page.getByTestId('editor-source')).toBeVisible();
+        expect(asked).toBe(2);
+    });
+
     test('a directory without an index lists its entries', async ({page}) => {
         await page.goto(routes.dir(docs.folder.path));
 

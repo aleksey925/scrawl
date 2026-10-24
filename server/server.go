@@ -246,6 +246,7 @@ func (wb *Web) router() (http.Handler, error) {
 	// ignores it so that an old page keeps working after a redeploy
 	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
 		HandleFunc("GET /static/{version}/{path...}", wb.staticHandler(assets))
+	router.HandleFunc("GET /static/{version}/"+appDir+"/{path...}", wb.appAssetHandler(assets))
 
 	// at the root, because the scope a manifest can claim is its own directory
 	// and anywhere below /static/ would install an app that owns only that

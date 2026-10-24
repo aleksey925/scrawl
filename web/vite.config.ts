@@ -37,6 +37,18 @@ function bypass(req: IncomingMessage): string | undefined {
   return isNavigation(req) ? '/index.html' : undefined;
 }
 
+// chunkFile names a chunk with no hash. One made of a package's index is named
+// after the package: rolldown names it after the file, and the index of every
+// codemirror language came out as dist, dist2, ... in the order met, so one
+// language more renamed the rest. go:embed skips "_"-prefixed entries, and
+// lodash-es modules such as _baseUniq name chunks mermaid loads lazily.
+function chunkFile(chunk: { name: string; facadeModuleId: string | null; moduleIds: string[] }): string {
+  const first = chunk.facadeModuleId ?? chunk.moduleIds[0] ?? '';
+  const pkg = /.*node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(first)?.[1];
+  const name = (chunk.name === 'dist' || chunk.name === 'index') && pkg !== undefined ? pkg.replace(/^@/, '').replace('/', '-') : chunk.name;
+  return `assets/${name.replace(/^[_.]+/, '')}.js`;
+}
+
 function proxy(): Record<string, ProxyOptions> {
   const res: Record<string, ProxyOptions> = {};
   for (const path of serverPaths) {
@@ -51,9 +63,10 @@ function proxy(): Record<string, ProxyOptions> {
 export default defineConfig(({ command }) => ({
   plugins: [react(), themeStylesheet('themes.css'), woff2Only()],
 
-  // the go server ignores the version segment of /static/{version}/... on
-  // lookup, so any literal resolves; the bundle is busted by content hash
-  base: command === 'build' ? '/static/spa/app/' : '/',
+  // relative, so every chunk is imported from the address the page started
+  // with: the server puts the bundle's digest there, and the names carry no
+  // hash, which would rename a dozen files in git for one changed line
+  base: command === 'build' ? './' : '/',
 
   build: {
     outDir: '../server/assets/app',
@@ -66,17 +79,23 @@ export default defineConfig(({ command }) => ({
     // so the server would embed the bundle and none of its index
     manifest: 'manifest.json',
 
-    // go:embed skips "_"-prefixed entries as well, and lodash-es modules such
-    // as _baseUniq name chunks mermaid loads lazily: the diagram failed to load
     rolldownOptions: {
       output: {
-        chunkFileNames: (chunk) => `assets/${chunk.name.replace(/^[_.]+/, '')}-[hash].js`,
+        entryFileNames: 'assets/[name].js',
+        chunkFileNames: chunkFile,
+        assetFileNames: 'assets/[name][extname]',
       },
     },
 
     // an inlined font would arrive as a data: uri, which font-src refuses, and
     // nothing in the build output would say so
     assetsInlineLimit: 0,
+  },
+
+  worker: {
+    rolldownOptions: {
+      output: { entryFileNames: 'assets/[name].js', chunkFileNames: chunkFile },
+    },
   },
 
   server: {

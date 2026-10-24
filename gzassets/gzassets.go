@@ -6,6 +6,8 @@ package gzassets
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -50,6 +52,39 @@ func (f Files) ReadFile(name string) ([]byte, error) {
 		return nil, err
 	}
 	return decompress(packed)
+}
+
+// Has says whether name is a file of the tree, stored either way.
+func (f Files) Has(name string) bool {
+	for _, stored := range []string{name + Ext, name} {
+		if info, err := fs.Stat(f.fsys, stored); err == nil && !info.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
+// Digest names the content of the files under dir: a file changed, added or
+// removed gives another value. The files are read as they are stored, so a
+// build with the gzassets tag has digests of its own.
+func (f Files) Digest(dir string) (string, error) {
+	sum := sha256.New()
+	err := fs.WalkDir(f.fsys, dir, func(name string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		data, err := fs.ReadFile(f.fsys, name)
+		if err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(sum, "%s\x00%d\x00", name, len(data))
+		_, _ = sum.Write(data)
+		return nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("gzassets: %w", err)
+	}
+	return hex.EncodeToString(sum.Sum(nil)[:6]), nil
 }
 
 // ServeFile answers with name. A file stored compressed goes out as it is

@@ -14,6 +14,8 @@ import (
 type LoginPage struct {
 	SiteTitle string
 	Version   string
+	// AppThemes is the stylesheet of every theme, which the bundle carries
+	AppThemes string
 	Logo      template.HTML
 	Favicon   string
 	Theme     pageTheme

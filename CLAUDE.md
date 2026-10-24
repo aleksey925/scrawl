@@ -267,6 +267,16 @@ vendor/                dependencies, checked in, `make deps` regenerates
   npm hook and a lockfile is not vendoring, so building it on the fly
   would make a reproducible release need node and a warm cache.
   `make ui` rebuilds it and CI fails when what is committed is stale.
+- The bundle's file names carry no hash, so a rebuild changes in git only
+  the files that changed; a hash in every name renamed a dozen of them
+  for one changed line, because a chunk's name is part of each chunk that
+  imports it. The release is told apart by the address instead:
+  `/static/<digest>/app/`, the digest of the embedded bundle, which the
+  server takes at startup and vite's relative base passes on to every
+  chunk a page imports later. The server answers that digest only, and
+  lets a browser keep the files a year. A page left open across an
+  upgrade finds its next chunk gone and loads again, at the address it
+  was going to.
 - A release embeds the bundle, the pages' assets and the formatter
   gzip-compressed, under the `gzassets` build tag: `make build`, the
   image and goreleaser run `go run ./gzassets/pack` first, which writes

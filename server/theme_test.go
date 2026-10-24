@@ -176,11 +176,11 @@ func TestTouchIconsArePublic(t *testing.T) {
 }
 
 // the sign-in page loads no bundle, so the colors of every theme reach it as
-// the stylesheet `make ui` writes beside one, under a name with no hash
+// the stylesheet `make ui` writes beside one, under the bundle's address
 func TestSignInPageLoadsTheThemes(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{withAuth: true})
-	href := "/static/" + ts.Version + "/app/themes.css"
+	href := ts.appShell.base + "themes.css"
 
 	// act
 	_, page := ts.do(t, request{path: "/login"})

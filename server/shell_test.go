@@ -92,8 +92,8 @@ func TestAppShellStatus(t *testing.T) {
 }
 
 // TestAppShellLoadsTheBuiltBundle keeps the shell pointed at what `make ui`
-// produced. The names are content hashed, so the manifest is the only place
-// they can come from, and nothing in the document may be an inline script.
+// produced, under the address of the bundle's version, and nothing in the
+// document may be an inline script.
 func TestAppShellLoadsTheBuiltBundle(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -103,7 +103,7 @@ func TestAppShellLoadsTheBuiltBundle(t *testing.T) {
 
 	// assert
 	require.Equal(t, http.StatusOK, resp.status)
-	assert.Regexp(t, `<script type="module" crossorigin src="`+appBase+`assets/[^"]+\.js"></script>`, body)
+	assert.Regexp(t, `<script type="module" crossorigin src="`+appBase(ts.appShell.version)+`assets/[^"]+\.js"></script>`, body)
 	assert.Contains(t, body, "/css/chroma.css",
 		"render generates the highlighting stylesheet, so the bundle cannot carry it")
 	for _, tag := range regexp.MustCompile(`<script[^>]*>`).FindAllString(body, -1) {

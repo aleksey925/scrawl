@@ -13,16 +13,26 @@ import (
 	"github.com/aleksey925/scrawl/store"
 )
 
-// appBase is the url prefix the bundle was built with. Vite bakes it into every
-// dynamic import it emits, so the shell has to name the same one. The static
-// route ignores the version segment on lookup, which is why a fixed literal
-// stands where the build cannot know the revision.
-const appBase = "/static/spa/app/"
+// appDir is where the bundle sits among the embedded assets, and the last
+// segment of the address it is served under.
+const appDir = "app"
 
 // appManifest is the name vite is configured to write. go:embed on a directory
 // skips dot-prefixed entries, so vite's default .vite/manifest.json would embed
 // the bundle without the index that names its entry.
-const appManifest = "app/manifest.json"
+const appManifest = appDir + "/manifest.json"
+
+// appCacheControl lets a browser keep a file of the bundle for a year without
+// asking again: its address changes whenever its content may have.
+const appCacheControl = "max-age=31536000, immutable"
+
+// appBase is the address the bundle is served under. The version is a digest
+// of the bundle, so the names in it carry no hash and stay the same in git,
+// and vite builds with a relative base, so every chunk a page imports later
+// is asked for under the version the page started with.
+func appBase(version string) string {
+	return "/static/" + version + "/" + appDir + "/"
+}
 
 // manifestChunk is the part of vite's build manifest the shell reads.
 type manifestChunk struct {
@@ -32,11 +42,14 @@ type manifestChunk struct {
 	Imports []string `json:"imports"`
 }
 
-// appShell renders the single page app's document. The asset names are content
-// hashed and change on every build, so they are read from the manifest once at
-// startup rather than written into a template by hand.
+// appShell renders the single page app's document. The asset names are read
+// from the manifest once at startup rather than written into a template by
+// hand, and put under the address of this bundle's version.
 type appShell struct {
-	tmpl    *template.Template
+	tmpl *template.Template
+	// version is the digest of the bundle, and base the address it gives
+	version string
+	base    string
 	entry   string
 	css     []string
 	preload []string
@@ -116,16 +129,38 @@ func newAppShell(files gzassets.Files) (*appShell, error) {
 		return nil, fmt.Errorf("parse shell template: %w", err)
 	}
 
-	shell := &appShell{tmpl: tmpl, entry: appBase + entry.File}
+	version, err := files.Digest(appDir)
+	if err != nil {
+		return nil, fmt.Errorf("digest the bundle: %w", err)
+	}
+	base := appBase(version)
+	shell := &appShell{tmpl: tmpl, version: version, base: base, entry: base + entry.File}
 	for _, href := range entry.CSS {
-		shell.css = append(shell.css, appBase+href)
+		shell.css = append(shell.css, base+href)
 	}
 	for _, name := range entry.Imports {
 		if chunk, ok := chunks[name]; ok {
-			shell.preload = append(shell.preload, appBase+chunk.File)
+			shell.preload = append(shell.preload, base+chunk.File)
 		}
 	}
 	return shell, nil
+}
+
+// appAssetHandler serves a file of the bundle under this binary's version
+// only. The names carry no hash, so a page left open from an older release
+// must fail to load a chunk and reload, rather than get this release's chunk
+// under the name of its own.
+func (wb *Web) appAssetHandler(files gzassets.Files) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		name := appDir + "/" + r.PathValue("path")
+		if r.PathValue("version") != wb.appShell.version || !files.Has(name) {
+			w.Header().Set("Cache-Control", "no-store")
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Cache-Control", appCacheControl)
+		files.ServeFile(w, r, name)
+	}
 }
 
 // appHandler answers a page route with the shell and lets the client router

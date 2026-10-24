@@ -451,10 +451,15 @@ const PIXEL = Buffer.from(
 );
 const CODE = 'def greet(name):\n    return f"hello, {name}"\n\nprint(greet("you"))\n';
 
+async function settled(locator) {
+    await locator.evaluate((el) => Promise.all(el.getAnimations({subtree: true}).map((motion) => motion.finished)));
+}
+
 test.describe('file pages', () => {
     test.beforeAll(() => {
         writeFixture(`${PAGES}/pic.png`, PIXEL);
         writeFixture(`${PAGES}/wide.svg`, '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="10"></svg>\n');
+        writeFixture(`${PAGES}/big.svg`, '<svg xmlns="http://www.w3.org/2000/svg" width="3000" height="2000"><rect width="3000" height="2000" fill="teal"/></svg>\n');
         writeFixture(`${PAGES}/code.py`, CODE);
         writeFixture(`${PAGES}/blob.bin`, Buffer.from([0, 1, 2, 3]));
         writeFixture(`${PAGES}/links.md`, '# Links\n\n[the code](code.py) and [the folder](../e2e-file-pages)\n');
@@ -521,6 +526,70 @@ test.describe('file pages', () => {
         await expect(page.getByTestId('dir')).toBeVisible();
         await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
         expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe('');
+    });
+
+    test('a picture page draws no box behind the picture', async ({page}) => {
+        // act
+        await page.goto(routes.doc(`${PAGES}/wide.svg`));
+
+        // assert
+        const preview = page.getByTestId('file-preview');
+        await expect(preview).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+        await expect(preview).toHaveCSS('background-image', 'none');
+        await expect(preview).toHaveCSS('padding', '0px');
+    });
+
+    test('a click zooms the picture in the viewer, a drag moves it, and a click fits it back', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(`${PAGES}/big.svg`));
+        await page.getByTestId('file-preview').click();
+        const picture = page.getByTestId('doc-lightbox-image');
+        await expect(picture).toBeVisible();
+        await settled(page.getByTestId('doc-lightbox'));
+        const fitted = await picture.boundingBox();
+        const centre = {x: fitted.x + fitted.width / 2, y: fitted.y + fitted.height / 2};
+
+        // act
+        await page.mouse.click(centre.x, centre.y);
+        await expect(picture).toHaveAttribute('data-zoomed', 'true');
+        await settled(picture);
+        const zoomed = await picture.boundingBox();
+        await page.mouse.move(centre.x, centre.y);
+        await page.mouse.down();
+        await page.mouse.move(centre.x + 200, centre.y + 100, {steps: 5});
+        await page.mouse.up();
+
+        // assert
+        expect(zoomed.width).toBeGreaterThan(fitted.width * 1.5);
+        const dragged = await picture.boundingBox();
+        expect({dx: Math.round(dragged.x - zoomed.x), dy: Math.round(dragged.y - zoomed.y)}).toEqual({dx: 200, dy: 100});
+        await expect(picture).toHaveAttribute('data-zoomed', 'true');
+        await page.mouse.click(centre.x, centre.y);
+        await expect(picture).toHaveAttribute('data-zoomed', 'false');
+        await expect(page.getByTestId('doc-lightbox')).toBeVisible();
+    });
+
+    test('the wheel and the keys zoom the picture, and Escape still closes the viewer', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(`${PAGES}/big.svg`));
+        await page.getByTestId('file-preview').click();
+        const picture = page.getByTestId('doc-lightbox-image');
+        await expect(picture).toBeVisible();
+        await settled(page.getByTestId('doc-lightbox'));
+        const box = await picture.boundingBox();
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+        // act
+        await page.mouse.wheel(0, -300);
+
+        // assert
+        await expect(picture).toHaveAttribute('data-zoomed', 'true');
+        await page.keyboard.press('0');
+        await expect(picture).toHaveAttribute('data-zoomed', 'false');
+        await page.keyboard.press('+');
+        await expect(picture).toHaveAttribute('data-zoomed', 'true');
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
     });
 
     test('a text file is numbered lines, and Copy takes the text alone', async ({page}) => {

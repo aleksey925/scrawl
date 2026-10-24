@@ -9,18 +9,12 @@
 }
 
 .preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 240px;
+  display: block;
+  max-width: 100%;
   margin-top: 8px;
-  padding: 32px;
+  padding: 0;
   border: 0;
-  border-radius: var(--mantine-radius-md);
-  background-color: var(--scrawl-code-bg);
-  background-image: conic-gradient(var(--scrawl-hover) 25%, transparent 0 50%, var(--scrawl-hover) 0 75%, transparent 0);
-  background-size: 16px 16px;
+  background: none;
   cursor: zoom-in;
 }
 

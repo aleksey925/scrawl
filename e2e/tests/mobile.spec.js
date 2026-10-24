@@ -1479,17 +1479,44 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('doc-lightbox-image')).toBeVisible();
     });
 
-    test('the image viewer closes on a tap', async ({page}) => {
+    test('the image viewer stays on a tap on the picture and closes on a tap beside it', async ({page}) => {
+        // arrange
         await page.goto(routes.doc(docs.illustrated.doc));
         const image = page.getByTestId('doc-image').first();
         await expect(image).toBeVisible();
         await image.tap();
-
-        await expect(page.getByTestId('doc-lightbox-image')).toBeVisible();
+        const picture = page.getByTestId('doc-lightbox-image');
+        await expect(picture).toBeVisible();
         await shot(page, 'mobile-lightbox');
 
-        await page.getByTestId('doc-lightbox-image').tap();
-        await expect(page.getByTestId('doc-lightbox-image')).toHaveCount(0);
+        // act
+        await picture.tap();
+
+        // assert
+        await expect(picture).toBeVisible();
+        await expect(picture).toHaveAttribute('data-zoomed', 'false');
+        await page.touchscreen.tap(8, page.viewportSize().height - 8);
+        await expect(picture).toHaveCount(0);
+    });
+
+    test('a double tap zooms the picture in the viewer and another fits it back', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.illustrated.doc));
+        await page.getByTestId('doc-image').first().tap();
+        const picture = page.getByTestId('doc-lightbox-image');
+        await expect(picture).toBeVisible();
+        const box = await picture.boundingBox();
+        const centre = {x: box.x + box.width / 2, y: box.y + box.height / 2};
+
+        // act
+        await page.touchscreen.tap(centre.x, centre.y);
+        await page.touchscreen.tap(centre.x, centre.y);
+
+        // assert
+        await expect(picture).toHaveAttribute('data-zoomed', 'true');
+        await page.touchscreen.tap(centre.x, centre.y);
+        await page.touchscreen.tap(centre.x, centre.y);
+        await expect(picture).toHaveAttribute('data-zoomed', 'false');
     });
 
     test('the notes can be installed as an app', async ({page}) => {

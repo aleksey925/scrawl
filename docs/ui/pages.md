@@ -79,9 +79,19 @@ opens over them.
   focus back, and a click beside the picture lands on the dialog itself and
   closes it. The full-screen `Modal` had no backdrop to click and closed only
   on its cross. The dialog sits on the body, so `DocumentHtml` closes it
-  together with the note. A picture's own page opens the same viewer. The
+  together with the note. A picture's own page opens the same viewer, and shows
+  the picture on the page itself with no box or checkerboard behind it. The
   picture gives way to its caption and is not capped in `vh`: with mobile
   Safari's bars out, the two stood taller than the dialog and were cut off.
+- The viewer zooms. A click on the picture zooms to its full size at that point
+  and a second click fits it back, the wheel and a trackpad pinch zoom around
+  the pointer, `+`, `-` and `0` zoom from the keyboard. On a touch screen two
+  fingers pinch and a double tap toggles, and a single tap on the picture does
+  nothing, so the first tap of a double tap does not close it. A zoomed picture
+  is dragged by one finger or the mouse and never leaves a gap at an edge. A
+  swipe steps to the next picture only when it is not zoomed, and a step fits
+  the next one. The dialog takes `touch-action: none`, or the browser zooms the
+  page under it instead.
 - History is a large dialog over the note at `/history/<path>`, so a link and
   Back still reach it: what the picked version changed on the left, the
   versions with the colored initial of their author and a tag on the right,

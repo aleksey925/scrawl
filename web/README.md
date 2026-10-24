@@ -196,31 +196,4 @@ logo, a file of the bundle and never input.
 
 ## Browser and library quirks
 
-**The editor.** react-codemirror wraps the editor in a div with
-`display: block` and no height, so the stylesheet makes that div a flex child,
-or the editor grows to the whole document and nothing scrolls. A draft is also
-saved on `pagehide`, because a phone that puts a tab away and later drops it
-fires no `beforeunload`. A paste that carries `text/plain` is never taken as a
-picture: Word and Excel put a picture on the clipboard beside the text.
-
-**Mantine.** It writes lengths as `calc(3rem * 1)`, which no parse of the
-string reads, so the topbar height is measured on a hidden probe. `PopupMenu`
-uses `floatingStrategy="fixed"`: a menu placed in the page moved the page,
-because the focus it takes on opening scrolled to where it stood before it was
-placed. A `Menu` or `Popover` unmounts its dropdown as it closes, so what must
-outlive the menu lives with its trigger or in a provider above it: the export's
-print waits for formulas after the menu is gone, and the reset dialog opens
-from the sync popover.
-
-**Tables.** The name column of a folder's table is sized in `cqw` and not `%`,
-because a table column reads a percentage inside `clamp()` as `auto`.
-
-**Mermaid.** It finds its scratch element by id, so every pass renders under
-fresh ids, or the svg already on the page answers for it, and a failed parse
-leaves that element on the body, where it is removed. It gets opaque colors
-only, because it mixes colors as if they were opaque, and `useMaxWidth` is off,
-because it is the one width mermaid writes inline.
-
-**KaTeX.** Its stylesheet says `font-display: block`, so formulas are typeset
-only after its faces load, or they paint blank and the page moves. KaTeX
-empties the node before it builds, so on an error the source is put back.
+They are kept with the others in [`docs/quirks.md`](../docs/quirks.md).

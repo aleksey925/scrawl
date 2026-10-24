@@ -1,8 +1,8 @@
 # scrawl
 
-Single Go binary that serves directories of markdown files as a notes
-web app with in-browser editing. A directory may be a git clone it
-pushes back to. Runs in Docker, no external services, all state on disk.
+Single Go binary that serves directories of markdown files as a notes web app
+with in-browser editing. A directory may be a git clone it pushes back to. Runs
+in Docker, no external services, all state on disk.
 
 ## Layout
 
@@ -39,1009 +39,143 @@ web/icons.ts           the script that draws them, not the icon set of
 e2e/                   playwright suite against a real binary
 examples/data/         sample notes: tests, `make run` and the browser suite
 vendor/                dependencies, checked in, `make deps` regenerates
+docs/design/           how each part works and the rules it keeps
+docs/ui/               how each screen looks and behaves
+docs/adr/              decisions, with the options turned down
+docs/quirks.md         facts about browsers, libraries, git and the OS
+docs/plans/            plans of past and current work
 ```
 
 ## Rules
 
+These hold everywhere. The rules of each part, and the reasons, are in the doc
+the link names.
+
 - Go 1.25, module `github.com/aleksey925/scrawl`.
-- Follow umputun's style: `go-flags` with `env` tags, `go-pkgz/lgr` for
-  logs, `go-pkgz/rest` middlewares, `routegroup` for routing, testify
-  for tests, `moq` for mocks. Packages are flat at the repository root,
-  there is no `app/` directory.
-- Every filesystem operation goes through `store`, which is built on
-  `os.Root`. Never join paths against the OS root anywhere else - path
-  traversal has to be impossible by construction.
-  The command line is the one exception: it reads the files the person
-  running it named, the way any tool does, and a working tree only
-  through an `os.Root` of the repository. `site` reads the notes through
-  `store` and writes through an `os.Root` of the output.
-- Writes are atomic: temp file in the same directory, then rename. The temp
-  file is opened with `O_CREATE|O_EXCL`, because `os.Root` follows no symlink
-  when both are set, so a link planted at the temp path cannot redirect the
-  write. The file is synced before the rename and its directory after it:
-  without that, a power cut left a renamed file with the right name and no
-  content.
-- A change on disk comes from the watcher as a create as often as a write,
-  because an atomic save, from an editor or over SMB, replaces the file, so a
-  consumer that listens for writes alone sees no saves. A bare chmod is
-  dropped, since on Linux one also comes with a delete. The watcher is
-  buffered, so an rsync or a Synology Drive sync does not overflow the inotify
-  queue and lose events without a word, and the cached tree still expires on
-  its own, because inotify is not reliable on a bind mount or a network share.
-- All rendered HTML is sanitized. Raw HTML in markdown is allowed, but
-  only through the bluemonday policy in `render`, which starts from
-  `NewPolicy` because a policy can only ever be widened afterwards.
-- `/raw/` never serves an executable document. The content type comes
-  from an allowlist keyed on the extension, or on the whole name for the
-  few text files that have none (`Makefile`, `Dockerfile`, `go.mod`),
-  anything outside it is a download, and the route carries its own
-  `default-src 'none'; sandbox` policy on top of `nosniff`. A file with no
-  extension is never sniffed.
-- Rendering is superlinear on some inputs, so every render is bounded by
-  a size cap and a deadline, and the whole server by a small throttle.
-- Uploads land in a folder next to the document and named after it
-  (`python/notes.md` -> `python/notes/`), which is what the corpus looks
-  like. `--upload-dir` replaces that with one shared directory.
-- The sidebar tree lists every folder, empty ones included, and of the
-  files only the markdown. A folder is where a page is created, renamed
-  and deleted, so it has to be on the tree before it holds anything.
-  Other files are rows of the folder's list and open in the app. A note
-  is named on the tree without `.md`, the way Notion names a page.
-- The sidebar can be put away and the choice is kept. On a desktop it is a
-  240px rail the full height of the screen that stays where it was put: the
-  sidebar icon at the left of its head hides it, the menu icon the topbar shows
-  then brings it back, and `Cmd+B` does both. A phone has no tree: the Notes
-  tab opens the root's list and a folder opens the next list, the way the Files
-  app on iOS has it, because deep folders ran off a narrow screen as an
-  indented tree. A hidden rail holds nothing: mantine only moves it out of
-  sight, and the rows left in it would still answer the tab key.
-- The head of the sidebar is two icons and nothing else, as Notion's Mail and
-  Calendar have it: the sidebar's own at the left, which hides it, and a new
-  entry at the right, the sidebar's one way to make one: New file or New
-  folder, in the row that is picked, else in the folder of the page on screen,
-  and the menu names that folder. Search and Home are the two rows under it.
-  Search shows its key, `⌘K`, at its end where there is a keyboard, and Home is
-  always filled with the current row's gray, on the home page or not. The label
-  over the tree is the space's name and the root folder: it opens the root's
-  list and takes a drop. The foot is the space's button under a line across the
-  sidebar, as wide as it: the app's logo, the space's name and a chevron at the
-  right edge, and it opens one menu upward: the account, the spaces with a
-  check on this one, the theme and the shortcuts, then sign out. A site's foot
-  is its title, with a menu of the theme, the page width and the shortcuts.
-- A folder's icon opens and closes it. The rows of an open folder are
-  indented 14px and there is no guide line; under the pointer the
-  folder's icon turns into a chevron, the sign of what a click on it
-  does. The label opens the folder's page, unfolded, and only on that
-  page folds and unfolds it too: folding on the way there took a second
-  click to see what the folder holds, and arriving unfolded it again
-  anyway. A row's `⋯`, and a folder's `+`, show under the pointer, under
-  the keyboard's focus and while the menu is open; a touch screen has no
-  hover, so there the `⋯` always shows and the `+` never. The same menu
-  is the row's context menu: a right click opens it, and on a tablet a
-  long press, timed by the row because iOS sends no `contextmenu` for
-  one. A site has no menu to offer and leaves the browser's own. A phone
-  has no tree, so a row of a folder's list carries the same menu: a `⋯`
-  beside the row, which a link cannot hold, and a long press anywhere on
-  it. They feel the way iOS has them: the `⋯` leaves the row as it is,
-  and a resting finger shrinks the row a little, then lifts a copy of it
-  as a card over the dimmed and blurred page, with the menu growing out
-  of the card and hanging from the row's right edge, inside the page's
-  gutter, where a right thumb reaches it, as iOS's own lists hang it;
-  tied to the card's start it stood against the left edge. Closing the
-  menu sets the row back down. A row lit gray while its menu was up read
-  as a web page. React hands a press inside a menu's portal up to the
-  row it belongs to, so a long press only times a press that started
-  inside the row itself. The menu offers Edit only where the answer
-  gives an edit address: the server writes one on a listing row the
-  editor opens, a text name within the size it loads, so a picture's row
-  offers none, and a site's rows never carry one. A folder's list asks
-  for its answer again after every write the tree is refreshed for: it
-  kept showing a file deleted from the tree beside it.
-- Every screen is one white page in the room beside the sidebar, with no
-  card around it, and 16px sides on a phone. A note is one column of one
-  width, its tables and code included: 720px by default, as Notion has
-  it, or 960px, or the room less 96px a side, by the reader's choice in
-  the note's `⋯` menu, kept in the browser. Two widths in one note, a
-  narrow text with wide tables, read as a mistake. The outline floats at
-  the right edge as a column of short dashes, and its list opens under
-  the pointer or the focus; a line beside the text read as a second
-  column of text. Below the width it needs it is a sheet the page's `⋯`
-  opens. A folder's list always runs the width of the room beside the
-  sidebar, less up to 96px a side, whatever the page width: a table has
-  no reading line to keep short and long names need the room. The page's
-  left edge moves between a note and a folder, and that is accepted.
-- The topbar heads the page's column: the path at its left, the space first and
-  the page's own title last, and the page's actions at its right. The path
-  comes from the page's own answer through one page chrome context, never from
-  the URL alone, because only the answer knows a note's title. The topbar stays
-  at the top while the note scrolls, and beside the sidebar the page has no
-  rubber band at its ends, which pulled the note away from the fixed sidebar; a
-  phone has no sidebar and keeps the rubber band its own apps end a scroll
-  with. The reader's top edge, where a heading lands and where the editor takes
-  its position from, is the bottom of the topbar. History is among the actions
-  only where the space records versions. A folder is always its list, the root
-  included: a Notion database of Name, Size and Modified led by a `..` row, and
-  a click anywhere on a row opens it. New, a file or a folder, is a large main
-  button at the right of the folder's title, where Notion puts New page. The
-  table is Notion's too: its one view a gray pill with no line under it, no
-  line between the columns, which read as a spreadsheet, and columns of their
-  own width, the name 530px and the others 150px, as a file name carries its
-  extension, with an empty one at the end taking the rest and the row lines
-  running across it, so a date is not a screen away from its name. Every column
-  starts at its left edge, the size too: a size against its right edge stood
-  against the date and the two read as one column. On a narrow page the name
-  gives way. A column's header is gray text of the regular weight with a filled
-  icon, as Notion heads one; 500 beside the system's own smoothing read bold,
-  and an empty folder keeps the header with its empty state under it, one plain
-  New file button. Its `index.md` is a row like any other, in its place by
-  name, with a "Folder page" tag, and no readme is shown under the list; Home
-  in the sidebar opens the root `index.md`, or the root's list when there is
-  none. A folder holding two cases of `index.md` has no folder page, and a site
-  refuses it, because both would be written to one file. A note that does not
-  exist yet is a page too, its name as a faint title and the ways on from
-  there, the first of them, create it, on Enter. On a phone the bar on top
-  holds `‹` with the folder above, the title once the page's own has scrolled
-  under the bar, at once on a page that has none of its own, and the page's
-  `⋯`. The root has no way up, and the app's logo and the space's name stand
-  there instead. Every screen has the bar as a row of its own and its title on
-  one line under it: a root drawn another way made the page jump on the way to
-  a folder. A folder there is a list and not a table: a name over one line of
-  what it is, and no `..` row.
-- A global shortcut gives way to an editor. It does nothing when the event was
-  already handled or was pressed inside an element that owns the app's
-  shortcuts (`data-owns-shortcuts`), because a keymap may leave a key
-  unhandled, bold inside a code block, and the sidebar must not toggle while
-  typing. Every shortcut is a row of the one table in `ShortcutHelp`, which
-  shows only the rows the place offers. A shortcut with Alt is matched on the
-  key's `code`, never its `key`: on a Mac Option+C types `ç`.
-- A theme is one file in `theme/themes/`, and nothing else names a color of
-  one: adding a theme is a file and `make ui`. The file holds Notion's color
-  roles, its nine block colors, three shadows, the weight of bold and that of
-  the sidebar's current row, and how a Mac smooths the letters: the light theme
-  keeps the system's own, as Notion's light page does, and the dark one draws
-  them thinner, since light letters on a dark page glow; mantine's antialiased
-  everywhere made the light page read thin beside Notion's. The server, the
-  command line and the frontend build all read those files. The build turns
-  every key into a `--scrawl-*` custom property in one stylesheet, which the
-  app bundles, a page of the command line inlines and the sign-in page links as
-  `app/themes.css`; `render` builds a chroma style from the six code colors
-  each one lists; the server takes the list and the bar color. `light` and
-  `dark` must exist, because they are what Auto follows.
-- The theme is one attribute, `data-scrawl-theme`, absent on Auto, where
-  the system preference picks between `light` and `dark`. Every
-  stylesheet keys on it, `theme.Scopes` and `themeStylesheet` place the
-  rules the same way, and no theme is written as a plain default: two
-  chroma styles do not paint the same tokens, so an unguarded rule
-  follows the note into the other theme and turned the punctuation of a
-  fence black on black. Mantine's `data-mantine-color-scheme` only
-  follows as the theme's scheme, because mantine knows two schemes and
-  two themes can share one. The app runs mantine with
-  `withCssVariables={false}`: its runtime variables sit under its own
-  attribute and would outrank a theme's. The picker reloads nothing, so
-  it also puts the head on the theme: the bar color and the home screen
-  icon, the light or the dark one, which the server writes per scheme
-  behind the system preference on Auto.
-- A text file that is not a note is edited as text alone: the source,
-  colored by its language, with Save, Cancel and the wrap, and no modes,
-  toolbar, preview, formatter or picture upload, none of which means
-  anything for it. It is the same editor screen with the markdown parts
-  left out, not a second one: the save, the draft, the conflict and the
-  guard on leaving stay one flow. A copy kept from a conflict keeps the
-  file's extension, and a file that is text by its whole name, a
-  `Makefile` or `go.mod`, gets a `.txt` copy, which the editor still opens.
-  The language comes from the name: codemirror's set,
-  and for what it lacks or guesses wrong the closest language it holds,
-  in `web/src/editor/codeLanguages.ts` (a svelte component as html,
-  elixir as ruby, a makefile as shell). No new grammar is a dependency of
-  ours, so a name with nothing close (terraform, graphql, zig) stays
-  plain.
-- The editor opens where the reader was. The rendered page carries the
-  source line range of every block it emits, so the position crosses as
-  a line and not as a pixel offset, and both panes are held at it until
-  the preview has arrived and the document has stopped moving.
-- The position is the top edge of the screen, on both sides. Taken a quarter
-  down, it kept what sat above it at its rendered height, and in the wrapped
-  source on a phone the heading at the top went under the toolbar. The edge
-  often cuts a sliver off the block above, and that sliver is a line or two of
-  source, so a block that starts in the top quarter is the anchor, kept at its
-  distance from the edge; only a block that fills the top is anchored where it
-  is cut. The anchor is always a line the other side can place exactly: a
-  block's first line, a row of code, never the middle of a paragraph, an
-  opening fence or an alert's marker. A position the reader did not move goes
-  back as it came, because each side picks the block nearest its own top and a
-  round trip with no scroll in it crept every time. The source is placed with
-  codemirror's `scrollIntoView` and never by setting `scrollTop`, because the
-  height of a line not drawn yet is an estimate, hundreds of pixels off in a
-  wrapped note. A line's top is read off its glyph and not its line box, since
-  the glyph is what `scrollIntoView` lines up, and the space between the two
-  crept on every round trip.
-- In the split editor only the pane the reader is working in moves the
-  other, and an interaction on a pane is what makes it that one. A
-  scroll event says an element moved, never who moved it, so two panes
-  that both follow never settle: each lands a little off where the other
-  put it, and the page shakes under a finger that is already scrolling.
-  A flag around the programmatic move does not help - the echo arrives a
-  frame later, after any rendering callback has cleared it.
-- The follower is placed by interpolating between measured pixel pairs,
-  the top and bottom of every rendered block with the document ends
-  around them, and never by way of a source line. A line is a step a
-  paragraph wide: the pane stood still for a few frames and then hopped.
-  The pairs are measured once per layout, because a wheel sends an event
-  a frame and a long note has hundreds of blocks.
-- The frontend is a react and mantine app in `web/`. It owns the whole
-  origin: every page route boots the same shell and the client router
-  decides what it is. `server/templates/` holds one page, the sign-in
-  form, because it has to work before the bundle loads and with
-  javascript off.
-- Nothing is fetched from a CDN at runtime, and the build stays out of the
-  release path: vite writes into `server/assets/app/` and `page/assets/`, which
-  are committed and picked up by `//go:embed`. `go install` cannot run an npm
-  hook and a lockfile is not vendoring, so building it on the fly would make a
-  reproducible release need node and a warm cache. `make ui` rebuilds it and CI
-  fails when what is committed is stale.
-- The bundle's file names carry no hash, so a rebuild changes in git only
-  the files that changed; a hash in every name renamed a dozen of them
-  for one changed line, because a chunk's name is part of each chunk that
-  imports it. The release is told apart by the address instead:
-  `/static/<digest>/app/`, the digest of the embedded bundle, which the
-  server takes at startup and vite's relative base passes on to every
-  chunk a page imports later. The server answers that digest only, and
-  lets a browser keep the files a year. A page left open across an
-  upgrade finds its next chunk, or the find's worker, gone and loads
-  again, at the address it was going to, unless leaving would ask about
-  unsaved changes: a reload that prompt refused left every chunk
-  waiting for a page that never came. A chunk made of a package's index is named after the
-  package: rolldown names it after the file, and the index of every
-  codemirror language came out as `dist`, `dist2` and on in the order met,
-  so one language more renamed the rest.
-- A release embeds the bundle, the pages' assets and the formatter
-  gzip-compressed, under the `gzassets` build tag: `make build`, the
-  image and goreleaser run `go run ./gzassets/pack` first, which writes
-  the copies into each package's `gzassets/`, kept out of git. A build
-  without the tag embeds the committed files as they are, so
-  `go install` and a fresh clone keep building. The `.gz` files are not
-  committed because git keeps no delta between two gzip files, and every
-  `make ui` would add the whole bundle to the history. A file stored
-  compressed is read through `gzassets` and goes out as stored to a
-  client that accepts gzip, so the server spends nothing compressing it.
-- Breakpoints have one home, `web/src/breakpoints.json`, reached through
-  the theme. No component reads `window.innerWidth` or names a pixel
-  width. The old stylesheet answered at 767/899/999/1199 while the
-  javascript answered at 900/1000, and the drawer closed at a different
-  width than the one that hid the sidebar.
-- A screen keeps the answer it has while it fetches the next one, and
-  answers are remembered across a route swap (`useApi`, cleared whole by
-  any mutation). Clearing the data before the request blanked the tree,
-  the note and every control on every click, for the length of a round
-  trip. What a click may not wait for is the highlight: the current row
-  comes from the route and never from the answer.
-- An entry is made where the action was started: from the sidebar a name field
-  appears in the tree, in the folder the action came from, and from a folder's
-  list a name row appears in that table. Enter creates it, through the one
-  create path both share. A dialog asked for the folder the tree already knew
-  and then covered it, and a create started from a list jumped to the tree,
-  away from what the reader was looking at. Rows drag into folders, one or the
-  whole picked run; a plain click picks, shift takes the range, and a modified
-  click stays the browser's "open in a tab". On a phone there is no tree to
-  type into: the New tab opens a menu over itself, New file or New folder, and
-  the name is asked in a small dialog in the middle, the way a phone asks for a
-  new folder's name, with a line saying a name without an extension makes a
-  note. A create started from a list asks the same. Every place says New file,
-  the tree, the menus and the dialog, since one action makes a note or any
-  file; the editor calls a new note a note. The name field ignores a blur for a
-  moment after it appears: mantine's menu gives the focus back to its button a
-  tick after the field took it, and the field cancelled itself. The rows being
-  dragged are kept in state as well as in the drag's data, because a page
-  cannot read that data during `dragover`, when a folder says whether it takes
-  the drop.
-- A name typed for a file is a note unless it carries an extension of its own:
-  a title becomes its slug with `.md`, and `notes.txt` or `Main.java` is that
-  file, named as typed, case and all, since a slug lowercased the class java
-  names the file after. An extension is a dot and a word starting with a
-  letter, so the date or the version in a title is not one. A rename takes the
-  same rule: a note renamed to a bare title stays a note, and one renamed with
-  an extension becomes that file, which the `.md` added to every name had made
-  impossible. The slug turns Cyrillic into Latin with the same table
-  `store/upload.go` uses for attachment names, letter for letter, and no test
-  holds the two together: a page and the pictures beside it must not spell one
-  word two ways.
-- On a phone the controls sit at the bottom, under the thumb: a bar of tabs
-  (Notes, Search, Recent, New, Profile) and a round Edit button above it.
-  Profile opens the space's menu, the one the sidebar's foot opens: in the bar
-  on top it was on the root alone. Both stay put while the page scrolls, as an
-  app's tab bar does: put away on a scroll down, they read as the toolbar of a
-  browser. A page ends at the bar, a note or a file clear of the Edit button,
-  so a list that fits the screen does not scroll. Nine controls and the crumbs
-  once shared one row on top, and the crumbs got 25px, wrapped and fell over
-  the note as a column. A menu opens beside the control that opened it, the way
-  a phone's own menus do; drawn as a sheet from the bottom, every menu sat
-  apart from its button. The search and the history take the whole screen and
-  the outline is a sheet, each over the bar. The search keeps its field at the
-  bottom, over the keyboard, with the results above it: a field at the top of a
-  tall phone is out of the thumb's reach. The editor has no bar, and a site has
-  none. The search field is placed by the visible area of the screen, not by
-  CSS alone: a phone's keyboard covers the bottom of the page without making it
-  shorter, and a field fixed to the bottom sat under the keys.
-- The formatter is prettier itself, run inside the binary: `format`
-  embeds one wasm module holding prettier and QuickJS, built by javy,
-  and wazero executes it with no cgo. No port of prettier to Go exists,
-  and goja ran it five times slower and could not load every plugin.
-  The module is committed for the reason the bundle is, `make formatter`
-  rebuilds it, and javy's output is not byte-reproducible, so its guard
-  is a test on what it formats and not a diff in CI. The version is the
-  one `mise.toml` pins and the plugins are the ones the command line
-  loads, so a note saved here does not come back changed from
-  `prettier --write`.
-- Two copies of prettier, and each write goes through exactly one. The
-  editor formats in the browser, on the button and before a save, and
-  says so with `formatted` in the request. Every other writer - an API
-  client, a restore, an editor whose prettier would not load - leaves
-  that out and the server formats, in `formatOnSave`. The server alone
-  was one copy and one answer, but its prettier is interpreted: 30ms a
-  kilobyte against nothing in a browser, eight seconds on a save of the
-  longest note here. A test holds the two versions together. It is on
-  unless a space turns it off, and only `.md` is formatted. A change on
-  disk and a pull are not writes of ours and stay as they came: a commit
-  made to format what the remote sent would be a reason to diverge.
-- Prettier runs in worker processes, copies of this binary started with
-  `SCRAWL_FORMAT_WORKER` set, and never inside the server. Nothing can
-  stop a run from within: wazero only watches a context when every
-  branch of the compiled code checks it, which made a run five times
-  slower, and prettier is quadratic on some text - 8KB of `[` runs for
-  half a minute, 256KB for hours. A process can be killed, so the
-  deadline of a call is a real one and the next call gets a fresh
-  worker. `main` asks `format.RunWorkerIfAsked` before anything else,
-  because a worker must not parse flags or open a store.
-- A note the formatter gave up on is stored as it was written, because
-  the save is what the writer asked for, and the answer says so in
-  `format_failed`. A write that formats is detached from its client:
-  formatting takes seconds, and a tab closed meanwhile would otherwise
-  cancel the commit that follows it.
-- Rendered notes never share an id namespace with app chrome. A heading
-  becomes an element id, so a note carrying "Toasts" took `id="toasts"`
-  and every toast was appended invisibly inside it. Chrome is mantine
-  components, portals and refs, never a bare id lookup.
-- `script-src` is `'self'` with nothing inline, and that is the line
-  that stops a script. Styles are `'self' 'unsafe-inline'`, the way
-  github.com has them. A nonce on them had to be threaded into mantine,
-  `react-remove-scroll` and CodeMirror one by one, and mermaid takes
-  none: it measures its labels in a scratch svg under a `<style>` of its
-  own, and with that style blocked every diagram came out with text
-  sized at the browser default, at the top of boxes cut for it. A note
-  cannot carry a style either way: the bluemonday policy refuses the
-  element and the attribute whatever the header allows.
-- Colors come from the theme files alone, as `--scrawl-*` custom
-  properties, the one family the note and the chrome both read, in the
-  app, on the sign-in page and in a page of the command line; the fonts,
-  the spacing and the shape of a control are the mantine theme's. A tap
-  latches `:hover` onto what it landed on until the next tap somewhere
-  else, so every decorative hover is gated on `@media (hover: hover)` and
-  the platform tap highlight is off.
-- A note reads the way Notion shows a page. The dark theme file holds Notion's
-  dark palette, read off notion.so in October 2026, and the light one the
-  colors of macOS: its system blue, cool grays, Xcode's code colors and its own
-  text and separator grays. Each color sits under the role it plays; a palette
-  key is the property's name, so a note and the chrome cannot drift apart.
-  `markdown.css` styles the markup `render` emits with Notion's type scale and
-  block spacing: the leading `h1` is the page title, an alert is a callout and
-  `<details>` a toggle, all by CSS, so the markup stays what it is. The syntax
-  is GitHub's. The note sits in no mantine `Typography`, whose prose rules
-  would mix a second look in. A table runs the width of the note: the reader
-  puts it in a box that scrolls sideways, because a table that scrolls by
-  itself is only as wide as its text.
-- A task box on the page is disabled, as GitHub shows a file and unlike
-  Notion. A task is ticked in the editor and saved like any change,
-  because a click on the page would be a write, and every tick a commit
-  and a push.
-- The page is white and the sidebar a flush gray panel with a thin line on its
-  edge, warm in the dark theme and cool in the light one, where the sidebar's
-  icons are the accent and its text black, and the current row is gray with its
-  name in the regular weight, as Finder draws them; a bold name beside the gray
-  was one mark too many. Borders are only on tables, menus and dialogs, and a
-  row is filled only under the pointer or when it is the current one: a list of
-  entries, results or versions is rows split by hairlines. A row of the sidebar
-  under the pointer takes the current row's gray, and the current row under it,
-  Home included, lays that gray twice, as Notion does; a lighter hover read as
-  another color and faded the current row a reader pointed at. A picked row
-  keeps its tint. A control has one shape, and the theme is the one place that
-  says so. A control is Notion's: 28px (36px when it runs the width of its
-  column) with 6px corners and a 500 weight, transparent until hovered; a field
-  is filled with the hover tint and a faint line, and in focus has the theme's
-  focus ring and no halo: in the light theme one solid band of a light blue
-  three pixels wide, as macOS rings a field; the field's border takes the
-  band's color, or its tint shows through as a gap and the band reads as two
-  rings. In the dark one a lighter line and no color, the way Raycast and
-  Vercel draw it. A solid blue line on the dark ground glared, and Notion's own
-  dark fields disagree with each other on it. A row a name is typed into, in
-  the tree or a folder's list, is framed by the same ring. The accent is spent
-  the way Notion spends it, read off its own pages: the one main button, a
-  focused field in the light theme and a toggle that is on; the search field
-  has no ring, the back link and Cancel are plain text, and a main button that
-  cannot be pressed yet fades in its color. The light theme spends it the way
-  macOS does on two more things: a link in a note, which the dark theme draws
-  in the text's color, and the menu row under the pointer, filled with the
-  accent and lettered white, which in the dark is the hover tint. A tap latches
-  the hover, so a touch screen keeps the tint in both. A menu has 10px corners
-  and the theme's shadow, a dialog 12px; a translucent menu ground blurs what
-  is under it, as a menu of macOS does. Icons are Phosphor's regular weight at
-  20px, 16px in menus, and `web/src/icons.ts` is the one place that says which
-  drawing each one is: Notion's own set cannot be taken, and Phosphor is the
-  open one closest to it. The new entry in the sidebar's head is drawn there in
-  Phosphor's line, a rounded square with a slim pencil as Notion's and Apple's
-  apps draw it, because Phosphor's has sharp corners. A choice of a few is a
-  tray of the hover tint with the picked one raised on the popover ground.
-- The editor is the page and not a box on it: a row of tools over the
-  text, split by thin lines into groups, and the source in a column the
-  width of the note with line numbers beside it. The source reads as text
-  with its markup set back: the words in the text color, a heading and
-  bold by weight, the marks around them faint, a link in the accent. The
-  topbar holds the state of the save, the layout as Source, Split or
-  Preview, Cancel and Save; on a phone Cancel and Save are the two ends
-  of the bar.
-- The dark scheme is Notion's dark: a `#191919` page, a `#202020`
-  sidebar and `#f0efed` text. Bold there is 700 instead of 600.
-  Near-white letters on a near-black page glow and look heavy already,
-  so bold, italic and headings in a note read as plain text. Weight
-  alone did not fix it, so a note's text there is `textBody`, a clear
-  step below `text`, and emphasis, headings and the page title are
-  `textEmphasis`, a step above. In the light theme all three are `text`.
-- A `<mark>` is the yellow block ground under the note's own text, in
-  both schemes, the way Notion highlights; each scheme's yellow ground is
-  opaque, because a translucent yellow laid over the dark page came out
-  brown.
-- A folder with things in it is deleted only on a second word. The API
-  refuses it without `recursive=true`, so an agent that named the wrong
-  path does not lose a tree to one request, and the page asks "and
-  everything in it?" in the one dialog instead of failing after the
-  reader had confirmed. The removal takes the files the store hides too:
-  a folder that kept its `.DS_Store` looked empty and never went. That
-  case is not listed, so the refusal of a plain delete is what raises
-  the question.
-- Nothing selected is shown as nothing. An empty note, an empty folder and an
-  empty preview each say what they are through `EmptyState`, a gray title as
-  Notion has it, with the next step as a button, and an open folder with no
-  notes says so in the tree. A blank screen read as a page that failed to load.
-  The tree row says "No notes inside" and not "Empty", because the tree lists
-  only markdown and a folder of pictures is not empty.
-- On a phone a dialog stands in the middle of the screen, where the
-  system's own alerts stand: at the top it hung from the edge like a page
-  sliding down. A desktop keeps mantine's place near the top, where the
-  search, a dialog too, belongs. One rule in the theme does it for every
-  `Modal`, the confirms included.
-- A toast on a phone is the pill an app drops from the top for a word or
-  two: dark, centred under the status bar, as wide as its words, with a
-  check or a warning sign and no close button, coming down and fading in
-  and gone after 2.5 seconds, or at a tap on it or a flick up. Mantine's
-  card slid in sideways from the edge and read as a web page. Only the
-  pill takes a touch: the containers span the screen, took the taps meant
-  for the bar under them, and on iOS kept the hover that pauses a toast,
-  which then never left. A desktop keeps the card at the top right.
-  `Toasts` draws both, for the app and for a site.
-- A touch screen has one scale of sizes, set once in the theme: a menu row and
-  an icon button 44px, a labelled button and a field 40px, and a choice of a
-  few, a segmented control or a chip beside one, 36px. Mantine's 26px menu rows
-  put the theme and the space three to a fingertip, and a choice drawn at the
-  tap height stood twice as tall as the chip beside it. On a touch screen an
-  open menu or popover has a clear ground under it that takes the tap closing
-  it (`TapGuard`): the menu's own outside tap closed it on touchstart, and the
-  click went on to the row underneath and opened the file there. The guard
-  closes only on a tap that started on it: a long press opens a menu while the
-  finger is down, and lifting that finger sent the guard a click. On a touch
-  screen a menu grows out of the corner nearest what opened it, the corner
-  taken from where it was placed after any flip. A phone shows no keys, neither
-  the list of shortcuts nor a key beside a menu row. The text of a field is
-  never under 16px on a touch screen, the sign-in form, the editor and the
-  hidden field a copy uses included: iOS zooms the page into a smaller field
-  when it takes the focus and never zooms back. `TapGuard` is in a portal, and
-  the mark a lifted row's menu opens from sits beside the scaled card and not
-  in it: inside a row, the rows after it painted over the guard and a press on
-  the guard pressed the row, and inside a scaled element a fixed one is placed
-  in that element, which shrank the guard to the card.
-- A touch screen answers a tap the way an app does. A pressed row or menu item
-  darkens, a list row from edge to edge of the screen, and a tab, the way back
-  and the round Edit button dim, as the bars of iOS do; the press shows 60ms
-  after the finger lands, so a finger that only starts a scroll leaves no
-  flash. A list row's press is one band under the whole row: drawn as its
-  background with a shadow for the gutter, the two ends lit and went out apart
-  from the middle. A row shrinks for a long press only once the finger has
-  rested 150ms, so a tap moves nothing. A long press on the chrome selects
-  nothing and opens no preview of a link, while a note, code and what a reader
-  types still select. iOS draws `:active` only under a `touchstart` listener,
-  so the document carries an empty one.
-- On a phone a screen opened slides in from the right and one gone back to from
-  the left, as an app moves its screens; a tab is switched to with no move, and
-  the way up moves back although it pushes an address. The move starts when the
-  page first shows the answer of its route, not on the tap: a screen keeps the
-  last answer while the next one loads, and a move on the tap slid in the old
-  screen and then swapped it. Only the page moves, never the bars, and `main`
-  clips what reaches past its edge. A back the browser takes moves nothing
-  outside an app from the home screen: Safari draws the page gone back to under
-  its own swipe, and a move of ours after it shook the page. The move's start
-  is also held inline, because WebKit paints a page just put in once at rest
-  before the move takes it, and the page jumped back to where the move starts.
-  `main` clips with `overflow-x: clip` and never `hidden`, which makes it a
-  scroll container, and every sticky bar inside it stopped sticking.
-- In an app opened from an iPhone's home screen a finger drags the page
-  off from the left edge and goes back: in the history when the app has
-  one, else to the folder above, as the way up does. A short or slow drag
-  puts the page back, and so does a second finger or a touch the system
-  takes: a drag given up any other way left the page shifted. Only
-  there: a tab of Safari has its own swipe back, and both went back once
-  each, and Android's back gesture is the system's. The swiped page stays
-  off the edge until the next one enters, and the way back follows only
-  a leave that got there, from the entry of the history the drag ended
-  on: a tab tapped meanwhile won, and was then taken back, whether its
-  screen had come in or was still loading. The swipe never starts under
-  a dialog, a sheet or a menu, nor in the editor, and for a reader who
-  asked for less motion it moves nothing on its own. A touch at the edge
-  holds every move until its direction is known, since a move let through
-  starts the page's own scroll, which shook the page up and down under the
-  drag; one that goes up or down is the scroll. The dragged page is a layer
-  of its own, or WebKit paints a long note again on every move. Let go, the
-  page goes on at the finger's speed, and a finger drawn back toward the
-  edge as it lifts keeps the page. A screen still loading shows its spinner
-  only after 400ms: one that came up the moment the swiped page was gone
-  read as the page jerking.
-- The editor toolbar is a strip that moves sideways only and stops at its
-  ends, and the editor screen takes the page's rubber band away. Left to
-  the defaults the strip followed a finger up and down with the page
-  behind it. It has no scrollbar, so an end with more buttons behind it
-  fades.
-- On a phone everything starts on a 16px line: the page text and the
-  first and last icon of the bar on top.
-- A block of code has a head row inside its box, the language at the
-  left and Copy at the right, above the code and never a layer over it:
-  a layer covered the end of a long first line. With a pointer Copy shows
-  under it and under the focus; a touch screen has no hover, so there it
-  always shows. Copy takes the text of the `pre` and nothing else, so
-  the head is never inside it.
-- Every copy goes through `copyText` in `web/src/reader/clipboard.ts`, never
-  `navigator.clipboard` alone: a phone that opens the server by its address on
-  the network is on plain http, where the page has no clipboard api, and Copy
-  link failed there while it worked on localhost. Without the clipboard api it
-  copies through a hidden `readonly` textarea and `execCommand`: `readonly`
-  keeps a phone's keyboard down, and the text is picked with
-  `setSelectionRange` as well as `select()`, because iOS ignores `select()`
-  there.
-- A panel that covers the page is mantine's `Drawer`, which owns the
-  `inert` behind it, the focus it took and which single panel is up. The
-  drawer and the outline sheet once each ran their own copy of that over
-  overlapping elements, so closing one lifted the other's `inert`, and a
-  close that went around the teardown left the page taking no tap at all.
-- A space is the unit the server is built around: one store, one
-  renderer, one index, one history service, named and served under
-  `/s/<name>/`. `server.Space` holds them and every handler that reads
-  one hangs off `mount{*Web, spc}`, so each is still written against a
-  single store. The name is always written down by a human - mandatory
-  `--space.name`, mandatory `name:` - because a derived one would turn an
-  `mv` into a site-wide URL change.
-- Settings split by what they describe. The server's are flags and
-  variables and always apply. A space's are the `--space.*` and
-  `--repo.*` flags for one space, or the keys of `--spaces-file` for
-  several, and the file replaces every one of those flags. The file
-  holds nothing else: a server setting in both places would need a
-  precedence rule. A key left out of the file takes the default its flag
-  has, so one space reads the same written either way.
-- Everything a space owns lives under `/s/<name>/`, including when
-  there is exactly one: `/doc/`, `/edit/`, `/history/`, `/search`, `/recent`,
-  `/api/` and `/raw/`. The root holds only what reads no store -
-  `/ping`, `/static/`, `/manifest.webmanifest`, `/login`, `/logout`,
-  `/api/login`, `/api/logout`, `/api/spaces` and the `/` redirect to
-  the first space. Every new endpoint answers one question, does it
-  read a store, and lands on one side.
-- Two kinds of URL, and they must never be mixed. A **router-relative**
-  one goes to `<Link to>` or `navigate()`, which prepend the space's
-  basename themselves, so it carries no prefix - every builder in
-  `view` produces one, `edit_url` included. A **physical** one
-  is fetched by the browser directly - a `fetch`, an `href` the renderer
-  wrote into a note, `/raw/`, `/static/` - and carries the
-  prefix. The base is the prefix with no trailing slash and a path
-  always has a leading one, so a physical url is `base + path` and
-  nothing ever concatenates a bare segment. The reader asks the platform
-  for it and never builds one: on a site a physical url is the file a
-  route is written to, `/doc/a/b.md` is `a/b.html`, `/doc/a/` is
-  `a/index.html` and `/doc/a/index.md` is `a/index.md.html`, relative to
-  the page.
-- Every file has a page under `/doc/`: a note is rendered, a picture is
-  previewed from `/raw/`, a text file is highlighted by `render` up to
-  its own small cap and plain above it, and any other file offers its
-  download. The text list is one list in the server, and bytes that are
-  not UTF-8, or hold a NUL, are not text whatever the name. A link in a
-  note goes to a file's page and an embedded picture to `/raw/`, because
-  the browser fetches a picture as bytes. The line numbers of a text
-  file are a CSS counter and never text, so a copy holds only the
-  source. A file's page is the app's alone: a site links a file to its
-  copy, so the file view is plugged into the reader and never imported
-  by it. `File.RawURL` is the one physical url in JSON; the reading side
-  mounts it.
-- Search is the server's. A result line is a line of the index's cleaned
-  text with its line in the source, so a pattern matches the text as a
-  reader sees it and never markdown syntax: `^Heading`, not `^## `.
-  Keeping the raw source as well would double the memory and find
-  matches in URLs the note does not show. Fuzzy is the ranked word
-  search, the last word a prefix and one typo allowed in a word of four
-  runes or more. Exact and Regex scan that text with RE2 under a
-  deadline, a cap on the pattern and a cap on matched lines, skip empty
-  matches, and say when they stopped early. The server builds the url
-  that opens a result with the note's find bar filled in, and for Fuzzy
-  it is the whole words the postings matched, typos included. The API
-  only grows: a request that names no mode or toggle is answered the
-  way it always was, and `snippet` stays escaped HTML.
-- `Cmd+F` on a note opens the reader's own find bar, in the app and in a
-  site. It matches each block's visible text as one string, the way the
-  index flattens a note, so a phrase across bold is one match, and marks
-  the text nodes a match covers. An empty match is skipped, and a
-  closed `<details>` around the current match is opened. The match runs
-  in a worker the app ends after a second, because a regular expression
-  in javascript cannot be stopped from inside; a site has no worker, so
-  there a pattern that came in the address waits for Enter. A search
-  result hands its query, its options and its line over in the url the
-  server built.
-- Global read-only is a ceiling and a space's own is a floor: the
-  effective mode is `global || space`, and that one value is what
-  `/api/me` reports and what every write is refused on. A per-space
-  `read_only: false` cannot lift the server-wide guard.
-- A remote space is a local space whose directory is a clone. `history` gains a
-  `Remote`, `main` clones before the canonical validation phase, and nothing
-  else changes shape. The startup order is part of the design: open store,
-  `Reconcile`, `Sync`, `indexAll`, `Watch`. `store.Watch` takes its baseline
-  when it is called, so a fast-forward that lands after it produces no event at
-  all. The first clone lands in a staging folder inside the space's directory
-  and its entries are moved up one level: that directory is what an operator
-  mounts, its parent is often read-only, and a mount point can be neither
-  removed nor renamed over. The clone is full depth, because a shallow one
-  breaks the history log and the push.
-- `--ff-only` is the whole unattended conflict policy. scrawl never
-  merges, never rebases and never resolves: a diverged space keeps
-  serving, keeps committing locally, and says so loudly. The one way out
-  is a reset to the remote version that a person confirms on the page,
-  and nothing destructive ever runs without one.
-- `diverged` is measured by ancestry when a fast-forward fails, and
-  never read off the `merge:` stage word. A merge fails for other
-  reasons too - a file left in the way - and offering a reset there
-  would be offering to throw a healthy copy away. A diverged copy does
-  not try the push a save would make: the remote refuses it every time,
-  and its error replaced the divergence on screen until the next fetch.
-- What a reset loses is answered by a trial merge (`merge-tree`), not by
-  a commit count: after a rebase or a squash upstream every old commit
-  still counts as ahead while its content is on the remote. A conflict
-  means "something is lost" by itself, whatever the merged tree shows: a
-  file deleted here and edited there merges to the remote version, so
-  the tree has no difference and the deletion is exactly what is lost.
-  Anything not proved clean keeps a backup branch.
-- The check and the reset each run one whole `Sync` first, under the
-  history lock, and work on the two commit ids from then on. The reset
-  takes the pair the check answered and refuses any other, the way a
-  save takes a `rev`. An unlocked check would pair the ids of one state
-  with the merge of another.
-- The reset is `reset --keep` plus a check of our own, never `--hard`.
-  `--keep` refuses to write over an uncommitted change, and git still
-  replaces an _ignored_ untracked file without a word - and the store
-  serves files a `.gitignore` among the notes names. So every path the
-  remote adds is looked up on disk first, and one that is there and
-  untracked refuses the reset. A writable space commits what is on
-  disk before the backup is taken; a pull-only one never commits, so
-  there the refusal is the whole protection.
-- A backup reaches the remote only when the reader ticks it, and before
-  anything is reset: a force-push can be how a secret was removed, and a
-  backup pushed by default would bring it back. A push that fails stops
-  the reset, because a backup promised on the remote and missing there
-  is a reason not to let go of the copy.
-- The reset is not behind the read-only guard. A read-only mirror whose
-  upstream was rewritten needs it most, and no note anybody wrote here
-  is changed. `canReset` asks who is calling instead: a session or a
-  read-write token. With auth off nobody is calling, so the write guard
-  decides, and a read-only space on an open server cannot be reset
-  from the page at all. `/api/me` and both routes ask that one function.
-- A merge driver is a command the repository config names, and a trial
-  merge runs it. `.git/info/attributes` therefore sets `merge` beside
-  the filter unset: set, not named, because a name is looked up in the
-  config first, where even `text` can be a command.
-- After a reset the page reloads whole. Every screen holds an answer
-  from the copy that was just replaced, and no screen refetches on its
-  own; the result is shown in the dialog and not in a toast, because it
-  names the backup branch and a toast is gone in seconds.
-- A clone that cannot push does not commit either. The effective
-  read-only mode of a remote space is `PullOnly`, and `history` is the
-  one place that knows it: `Reconcile` refuses there, so the startup
-  call and the watcher's are covered by the same line and `main` asks
-  rather than deriving the mode a second time. A commit no push can
-  carry would sit in this copy alone, report the space unpublished for
-  a change no reader made, and be what the next fast-forward trips over.
-  A read-only **local** space still reconciles: there is no remote for
-  the commit to fail to reach.
-- Two states, not one. `degraded` is a commit that failed, so a change
-  is on disk and not in git. `unpublished` is a commit the remote does
-  not have. Reusing `degraded` for both would report a healthy history
-  the moment a later commit stages nothing, and would tell a strict
-  caller the change was not recorded when it was recorded and only not
-  pushed. `unpublished` is **measured**, never remembered, and never the
-  gate on the push.
-- The remote state reaches the client only through `/api/me`, and
-  `apiMe` reads it with one `SyncState()` and never a getter at a time:
-  a `Sync` finishing between two calls would pair an error from one
-  attempt with the paths of another, and a poll would leave that
-  impossible pair on screen for a minute. `history` publishes all its
-  values as one snapshot when an attempt ends, behind an atomic pointer,
-  because `Sync` holds the lock across a network round trip.
-- The unsynced path set is measured in the same breath as the count, and
-  only when the count says this copy is ahead. It is filtered by what
-  the store would serve **before** it is capped - hidden paths must not
-  spend the cap and suppress the one visible note that changed - and
-  above the cap the list is dropped rather than truncated: past a couple
-  of hundred files the question is "the whole corpus", which a per-file
-  badge cannot answer. The diff is three-dot, so a diverged branch lists
-  what this copy changed and not what the remote did.
-- The set rides on `/api/me` and never on the tree nodes, the directory
-  rows, the search hits or the page response. A badge that lived on the
-  tree could only be refreshed by refetching the tree, which is a full
-  store walk per tick per open tab.
-- One alert, titled by precedence - `degraded > merge > fetch > push` - and
-  carrying every active fact with its own reason. At most two are true at once,
-  one from each family. `syncMessage` is the only thing that writes these
-  words, and the banner and the topbar control both render it. Its live region
-  is always on the page, empty or not, and polite: a region put in together
-  with its text is not reliably read out. A note's unsynced badge is an
-  `aria-hidden` icon with its meaning in hidden text beside it, because a
-  tooltip on an `<svg>` never opens on keyboard focus and an `aria-label` on an
-  element with no role is not reliably read.
-- A push the remote refuses for want of a credential gets its own words
-  and no git reason. A public repository clones with no token and takes
-  no push without one, and git says that as "could not read Username,
-  terminal prompts disabled", which names neither the cause nor the fix.
-  `history` is what recognizes it, because it pins `LC_ALL=C` and owns
-  what git prints; the client reads a flag and never the error text.
-- The client polls `me` quietly and in the background: quiet so a poll
-  meeting an expired session opens no dialog nobody asked for, and
-  background so `auth` skips the sliding renewal. That marker is set by
-  the client and trusted, which is safe in one direction only - it can
-  shorten a session and never extend one. The poll never replaces a good
-  answer with nothing and orders its responses by generation.
-- The file on screen is the route. A folder is always its list, so a
-  note is shown under its own address only, and a per-file signal keys
-  off the route.
-- The credential an operator configures is the **token**, and `main`
-  makes the header out of it: `Basic` with a fixed username, which every
-  host this can reach accepts. A value that already names a scheme is a
-  whole header and passes through, because github.com's git endpoint
-  takes only `Basic` and Bitbucket only `Bearer`, and that choice cannot
-  live in a table of providers here. A `Basic` value we did not build is
-  refused at startup when what follows is not base64: the host answers a
-  header it cannot parse with a bare `400`, half a minute into a clone,
-  naming neither the header nor the reason.
-- A repository credential is resolved once, in `main`, before `setupLog`, and
-  reaches git only through `GIT_CONFIG_*` on the three commands that talk to a
-  remote. Never argv: `/proc/<pid>/cmdline` is world readable and `gitError`
-  quotes arguments. `history` never opens a file and never reads a variable,
-  because a second read could hand git a rotated secret that was never
-  registered for redaction. A webhook secret is spelled the same way and read
-  by the same helper, and it never reaches `history` at all. No secret is a
-  flag of scrawl either: there is no `--repo.token`, and `hash` reads the
-  password from stdin and warns when it comes as an argument, because our own
-  argv is in `/proc`, in `ps`, in the shell history and in `docker inspect`.
-- The webhook is an optional second trigger for the same `Sync`, and `history`
-  knows nothing about it. A verified POST is a trigger and never a payload: no
-  JSON is parsed, no event type is read, no branch is filtered, which is also
-  what makes a plain GitLab token usable at all. It answers `202` and never
-  runs git - `Sync` takes the history lock, so doing it inline would block
-  every save for the length of somebody else's network - and deliveries
-  coalesce through one channel of capacity one. A delivery body may be up to 25
-  MB, the limit GitHub documents: with a smaller cap a busy repository's
-  deliveries fail with a 413 the operator never sees. The body streams through
-  the cap into the hash, so the cap costs no memory.
-- A hook secret that was named and resolves to nothing stops startup.
-  The minimum length is checked where the secret is resolved and nowhere
-  else, because only there is an empty file still distinguishable from a
-  space that asked for no webhook - and an empty file is what a secret
-  that failed to mount looks like. The git credential keeps the opposite
-  rule, an empty value being a public repository, which is why the one
-  resolver never grew this check. Naming no source is the way to have no
-  webhook.
-- Its path is the one exact-match public route on the server, registered
-  per method. Exact, because a prefix entry would open everything below
-  it; per method, because a methodless pattern and the space's shell
-  catch-all narrow different things and `ServeMux` calls neither more
-  specific and panics. Public means no session required and never no
-  credential required.
-- Every background goroutine runs under a worker context canceled the
-  moment `srv.Run` returns, and that cancel is called rather than
-  deferred. `Web.Run` returns as soon as `ListenAndServe` fails while
-  its context is still live, so a wait on a goroutine that only exits
-  with that context would hang the process on a busy port.
-- Content paths are relative to the space's root, slash-separated,
-  without a leading slash. The space is in the URL and never in the
-  path, so `store` stays the only security boundary. Markdown URLs keep
-  the `.md` suffix, because a file and a directory can share a name
-  (`foo.md` next to `foo/`).
-- `.md` is the only document extension, everywhere: the link rewriter,
-  the tree, the search index, the editor and the create dialog all ask
-  the same question. A `.markdown` file is an attachment like any
-  other and is read through `/raw/`.
-- Write endpoints require auth and CSRF, and are refused in read-only
-  mode. A `Bearer` API token authenticates instead of the cookie, gets
-  no session and skips the cross-origin check; a `:ro` token is refused
-  the same writes the server-wide read-only mode refuses.
-- Document history is git and optional: `--history=auto|on|off`, except for a
-  remote space, where it is always on and tracks every visible file - one that
-  stopped recording would also stop pushing, and the editor opens far more
-  types than the extension list keeps. The repository has to be rooted exactly
-  at the notes root; one that merely sits inside another repository is refused,
-  never adopted. Only the paths an operation names are staged, never the
-  worktree, because ignore rules cannot express what `store` treats as visible:
-  git will not descend into an excluded directory, and a `.gitignore` among the
-  notes outranks anything scrawl writes. The store mutation and the commit are
-  one critical section, otherwise a second request's commit picks up the first
-  one's write and signs it with the wrong actor. A version is read by its blob,
-  because a path stops resolving against an older revision once a rename sits
-  in between. A failed commit is fatal only for an API token, so an agent never
-  gets a 200 for a change history missed; a browser save survives it and the
-  page says history fell behind. Paths reach git NUL-separated on stdin and
-  never in argv, and the tracked set is read as the whole index rather than
-  path by path, because a reconcile of a large corpus does not fit in argv.
-- An adopted repository is not inert. Its config and its `.gitattributes` each
-  name a command git would run during an ordinary commit, so hooks go to a
-  `core.hooksPath` that can hold none, `core.fsmonitor` is overridden empty,
-  and the filter attribute is unset in `.git/info/attributes`, where the last
-  matching line wins. Nothing of ours is created inside that repository beyond
-  that file, and a symlink standing where it belongs is removed rather than
-  written through. Failing to establish any of this stops startup: a repository
-  that runs its own command on every commit is not a degraded mode worth
-  serving. Diff and log run with `--no-ext-diff` and `--no-textconv`, since a
-  diff driver and a textconv filter are commands the repository names too.
-  Every git call drops each `GIT_*` variable of the host, because `GIT_DIR`,
-  `GIT_INDEX_FILE` or an author override would send a commit somewhere we never
-  looked, and `safe.directory` names the exact root, never `*`.
-- A version is compared as a reader sees it. `htmldiff` takes the HTML
-  `render` made of both sides, lines up the top-level blocks by their
-  visible text and marks the changed words inside a pair, so a reflowed
-  paragraph, a padded table or a formatter's pass is a `format` row and
-  never rewritten text. Where a link points and which picture is shown
-  are part of that text, and inside a code block the whitespace is too:
-  the same words with another indent are another program. Ids are
-  dropped, because both sides share one page. A change has two layouts
-  drawn from the same rows, and split is the default in the app and in
-  `scrawl diff`: split puts the version before beside the one after,
-  block by block, and stacks them below the width two columns need.
-  Unified is the note as it reads now, in one column, with a tag beside
-  each block that changed: a changed block is one block with its lost
-  words struck and its new words marked, which `htmldiff` builds as
-  `Inline`, and a removed block is struck through. The patch stays beside
-  them as the `Source` view, and a version too large or too slow to
-  compare still answers with the patch alone.
-- The server is one command, `serve`, and the rest of the binary is markdown
-  tools on files the caller names: `render`, `site`, `diff`, `format`,
-  `stylesheet`. They run the renderer, `htmldiff` and the formatter the server
-  runs and add nothing to them, so a note reads and compares the same in the
-  app and out of it. Outside the app a relative link stays as written, because
-  there is no route to map it onto, and `--link-ext` swaps `.md` for a site.
-  `diff` takes revisions the way `git diff` does and answers like it: 1 is "the
-  text changed" under `--exit-code`, so a failure is 2.
-- A page of `render` and `diff` is one file that opens on its own. Its
-  stylesheet is the app's: `web/vite.themes.ts` evaluates the theme
-  with mantine's own resolver at build time, so the page has the same
-  custom properties with no mantine and no copied value. The theme
-  follows the system until a button picks one, under the attribute the
-  app uses. KaTeX is inlined on `--math` with woff2 alone, a quarter of
-  what katex ships; mermaid is not, a 5MB script, and a diagram stays
-  code.
-- An exported note is that page. `/api/export/` renders it the way `render`
-  does, links left as written, and carries the space's pictures inside as data
-  URLs up to a budget: the file leaves the server, and a relative picture would
-  stay behind. A PDF is a print of the note on screen, because no engine that
-  lays out HTML fits in the binary. Paper is always the light theme, since a
-  browser drops the page background. The export menu switches the theme for
-  real and waits for the formulas and for the diagrams to be drawn again; the
-  browser's own print only swaps the attributes, because `beforeprint` leaves
-  no time for a redraw. A printed page has no margin, which leaves the browser
-  no room for the address and the date it writes there; the body's padding,
-  repeated on every page, stands in for it. Safari cannot repeat a block's
-  padding and keeps the page margin, or every page break would run to the edge
-  of the paper, and so does a diff: the size containment its columns are laid
-  out by keeps it from being split, so no padding would repeat on its pages
-  either. The page with no margin is set on every element of the body and not
-  on the body alone: on the body alone Firefox gave the margins back from the
-  third page.
-- A site is a space shown read-only, with no server, and it is the
-  app's reader and not a second one. The reader is one set of components
-  run from two entries: the app's, against the server, and a site's,
-  against the answers `site` wrote into its pages. The app had a reader
-  and a site had another, written as Go templates, and every fix to the
-  first was missing from the second - no outline on a phone, nothing
-  marked while reading, a tree that forgot its folders. What a reader
-  can do without a server reaches a site by being in the reader.
-- The reader asks the place it runs in for everything that differs: the
-  answers, the physical urls, which link it routes, the two renderers
-  and where a choice is kept. That is the platform, given by each entry.
-  What only the app does - writes, history, sync, the account, the
-  spaces, search - is plugged into the reader by the app and never
-  imported by it, and the build of a site fails when the reader reaches
-  any of it, so the reader cannot grow a dependency on the server
-  unnoticed.
-- A site's answers are the server's. The JSON shapes and their builders
-  live in `view`, which the handlers and `site` both call, so a page
-  describes a note exactly as `/api/page/` would; HTTP caching, auth and
-  the space's state stay in the handlers. Each page carries its own
-  answer, and the tree is one shared `scrawl/tree.js`: written into
-  every page it grew with the square of the notes. A page holds its note
-  twice, in the answer and as markup a reader without javascript reads
-  together with the path and what its folder holds. Taking the note back
-  out of that markup would parse sanitized HTML a second time.
-- From a host a site moves between notes the way the app does: the next page is
-  read and its answer shown, with no page load, so the tree, its filter and its
-  scroll stay where they were. The page is the one copy of its answer, so
-  nothing else is written for this. Back puts each note where it was left,
-  which the browser cannot do for a page it never loaded, and a page that
-  cannot be read is loaded instead. From disk a page can fetch nothing and
-  cannot put another file in the address bar, so there every move to another
-  note is a page load; only a fragment or a query stays on the page either way.
-  A page opened from disk can load no module, so the reader is one classic
-  script, the data are scripts that hand themselves over, and mermaid and KaTeX
-  are files of their own that a page loads only when its note needs them. A
-  folder is `index.html`, its list, written for every folder, and its
-  `index.md` is `index.md.html`. A relative link to a folder points to the
-  list, because opened from disk a folder is the system's listing, and one to
-  `index.md` to the note's page. Opened from disk, a page in Firefox has the
-  origin `null`, so a heading's link is built without it, and the script finds
-  the folder of the renderers from `document.currentScript`, which is set only
-  while the script runs, so it is read when the script loads.
-- A site has one look, and its only settings are the reader's theme and
-  page width; nothing `site` copies is changed. The front page is the
-  root's list, Home opens the root `index.md`, and the site takes its
-  title from that note. The scripts are written once
-  into `scrawl/` and not `_scrawl/`, which the Jekyll of GitHub Pages
-  drops. The theme and the page width are kept in a cookie and in the
-  storage both: from disk Firefox shares only the cookie between pages
-  and Chromium only the storage; the open folders are kept in the
-  storage alone, so in Firefox from disk only the way to the note is
-  open. A page the browser
-  brings back on Back takes the theme picked since and closes its
-  sheet. A copied file a browser runs a script from is named when it
-  is written, because on a host nothing gives it the headers `/raw/`
-  gives it.
-- The store decides what a site lists: `site` walks the notes through
-  it, so a site publishes what the app would serve and nothing a dot or
-  `--exclude` hides. The site's tree leaves out a folder with no note
-  in it, which the app's keeps to create a page in; the folder still has
-  its page.
-- The picture viewer is a native modal `<dialog>` and not a mantine `Modal`.
-  The browser keeps the page behind it inert, closes it on Escape and gives the
-  focus back, and a click beside the picture lands on the dialog itself and
-  closes it. The full-screen `Modal` had no backdrop to click and closed only
-  on its cross. The dialog sits on the body, so `DocumentHtml` closes it
-  together with the note. A picture's own page opens the same viewer. The
-  picture gives way to its caption and is not capped in `vh`: with mobile
-  Safari's bars out, the two stood taller than the dialog and were cut off.
-- History is a large dialog over the note at `/history/<path>`, so a link
-  and Back still reach it: what the picked version changed on the left,
-  the versions with the colored initial of their author and a tag on the
-  right, Restore below them. The tag says how a version was made when it
-  was not in the app (API, On disk) and otherwise what it did (Create,
-  Edit, Rename, Delete). Closing it goes to the note. A button beside the
-  close one expands it to the window less 16px a side, and the choice is
-  kept; on a phone it is the whole screen anyway. The change of size is
-  part of mantine's own transition, because mantine writes that one
-  inline and it outranks the stylesheet. The server says which
-  versions can be restored, in `restorable`: never a deletion and never
-  the text the file has now, hashed the way git names a blob. The client
-  read it off the blob and the row's place once, and the newest row stops
-  being the current text the moment the file changes on disk.
-- The diff markup is written twice, by `web/src/diff/RenderedDiff.tsx`
-  and by the templates of `page`, and `web/src/diff/diff.css` styles
-  both. A change to one is a change to the other, folding included.
-- History answers only for paths the app would serve anyway: markdown,
-  and visible to `store`. Git tracks whatever the repository holds, a
-  file the store hides included, so without that check the history
-  routes are a second way into the notes with no policy on them. A blob
-  is resolved from the commit and the path it belonged to, never taken
-  from the request, and a restore is bounded by the same size an
-  ordinary save takes.
+- Follow umputun's style: `go-flags` with `env` tags, `go-pkgz/lgr` for logs,
+  `go-pkgz/rest` middlewares, `routegroup` for routing, testify for tests,
+  `moq` for mocks. Packages are flat at the repository root, there is no `app/`
+  directory.
+- The code - Go, TypeScript, CSS, the templates - has no comments, apart from
+  tool directives and the `arrange`, `act`, `assert` markers of a test; config
+  files keep theirs. A reason that must survive goes into the doc it belongs
+  to.
+- Every filesystem operation goes through `store`, which is built on `os.Root`.
+  Never join paths against the OS root anywhere else. The command line is the
+  one exception: it reads the files the person running it named, and a working
+  tree only through an `os.Root` of the repository.
+  [storage](docs/design/storage.md#access)
+- Writes are atomic: an `O_CREATE|O_EXCL` temp file in the same directory,
+  synced, renamed, then the directory synced.
+  [storage](docs/design/storage.md#writes)
+- Content paths are relative to the space's root, slash-separated, without a
+  leading slash, and `.md` is the only document extension, everywhere.
+  [storage](docs/design/storage.md#access)
+- All rendered HTML is sanitized by the bluemonday policy in `render`, every
+  render is bounded by a size cap and a deadline, `/raw/` never serves an
+  executable document, and `script-src` is `'self'` with nothing inline.
+  [server](docs/design/server.md#guards)
+- Write endpoints require auth and CSRF and are refused in read-only mode. A
+  `Bearer` API token authenticates instead of the cookie and skips the
+  cross-origin check, and a `:ro` token is refused the same writes.
+  [server](docs/design/server.md#guards)
+- Global read-only is a ceiling and a space's own is a floor. The reset of a
+  diverged clone is not behind that guard: it asks who is calling instead.
+  [server](docs/design/server.md#spaces-and-settings),
+  [remote sync](docs/design/remote-sync.md#conflicts-and-reset)
+- Everything a space owns lives under `/s/<name>/`, and the root holds only
+  what reads no store. A router-relative URL and a physical one are never
+  mixed. [server](docs/design/server.md#routes-and-urls)
+- Every background goroutine runs under the worker context, which is canceled,
+  not deferred, when `srv.Run` returns.
+  [server](docs/design/server.md#lifecycle)
+- No secret is a flag of scrawl, and a repository credential reaches git only
+  through `GIT_CONFIG_*`, never argv. Every git call drops the host's `GIT_*`
+  variables, and the commands an adopted repository names never run.
+  [remote sync](docs/design/remote-sync.md#credentials),
+  [history](docs/design/history.md#recording)
+- scrawl never merges, rebases or resolves a conflict, and nothing destructive
+  runs without a person confirming it.
+  [remote sync](docs/design/remote-sync.md#conflicts-and-reset)
+- The built frontend is committed: a change in `web/` is followed by `make ui`
+  and a commit of what it wrote. Nothing is fetched from a CDN.
+  [frontend](docs/design/frontend.md#build-and-release)
+- Rendered notes never share an id namespace with app chrome, so chrome never
+  looks an element up by a bare id. [frontend](docs/design/frontend.md#app)
+- Colors come only from the theme files in `theme/themes/`, breakpoints only
+  from `web/src/breakpoints.json`, and every decorative hover is gated on
+  `@media (hover: hover)`. [themes](docs/design/themes.md),
+  [frontend](docs/design/frontend.md#app)
+- The reader never imports what only the app does: writes, history, sync, the
+  account, the spaces, search. [site](docs/design/site.md)
+
+## Docs
+
+One kind of knowledge per place:
+
+- `docs/design/` - how a part works and the rules it keeps, with the reasons.
+  Kept current: a change in behavior updates its doc in the same change.
+- `docs/ui/` - how a screen looks and behaves. Kept current the same way.
+- `docs/adr/` - one decision per file, with the options turned down. An ADR is
+  not rewritten: a new decision is a new file, and the old one's status names
+  the file that replaced it.
+- `docs/quirks.md` - facts about browsers, libraries, git and the OS, found by
+  hitting them. A rule cites a fact in a few words, and the fact is written
+  there once.
+- `docs/plans/` - plans of past and current work. A plan describes the code at
+  the time it was written, not the code today.
+
+Before changing a part, read its doc:
+
+- `store`, `os.Root`, atomic writes, the watcher, uploads, paths:
+  [storage](docs/design/storage.md)
+- spaces, settings, routes, the two kinds of URL, guards, CSP, `/raw/`, a
+  file's page, background goroutines: [server](docs/design/server.md)
+- the build, the bundle, gzassets, breakpoints, `useApi`, the route as the file
+  on screen, ids of a note against the chrome, shortcuts, the clipboard,
+  drawers: [frontend](docs/design/frontend.md)
+- theme files, `data-scrawl-theme`, `--scrawl-*`, chroma styles:
+  [themes](docs/design/themes.md)
+- prettier, its workers, formatting on save:
+  [formatter](docs/design/formatter.md)
+- the editor opening where the reader was, the split panes:
+  [editor position](docs/design/editor-position.md)
+- the index, the search modes, the find bar: [search](docs/design/search.md)
+- git history, an adopted repository, restore, comparing versions:
+  [history](docs/design/history.md)
+- a clone, `--ff-only`, diverged, reset, sync state, credentials, the webhook:
+  [remote sync](docs/design/remote-sync.md)
+- `render`, `diff`, the pages of the command line, export and PDF:
+  [command line](docs/design/cli.md)
+- a static site, the reader's platform, a site from disk and from a host:
+  [site](docs/design/site.md)
+- the tree, hiding the sidebar, its head and foot, a row's menu:
+  [sidebar](docs/ui/sidebar.md)
+- the page width, the outline, the topbar and a phone's bar on top, a folder's
+  list, a note not created yet, empty states, task boxes, code blocks, the
+  picture viewer, the history dialog: [pages](docs/ui/pages.md)
+- creating, naming, dragging and deleting files and folders:
+  [entries](docs/ui/entries.md)
+- the editor screen and its toolbar, text files: [editor](docs/ui/editor.md)
+- palettes, controls, the focus ring, menus, icons: [look](docs/ui/look.md)
+- the tab bar, dialogs, toasts, screen moves, swipe back:
+  [phone](docs/ui/phone.md)
+- tap sizes, `TapGuard`, the pressed state, a long press:
+  [touch](docs/ui/touch.md)
+- why something is built the way it is: [`docs/adr/`](docs/adr/)
+- a strange browser, library or git behavior:
+  [`docs/quirks.md`](docs/quirks.md)
+- the dev server, the build output, the shell's contract, the theme file
+  format, the three places that inject the server's HTML:
+  [`web/README.md`](web/README.md)
+- the browser suite: [`e2e/README.md`](e2e/README.md)
 
 ## Commands
 
 Toolchain versions come from `mise.toml`, go dependencies are vendored:
-`mise install && make deps`. `make deps` is the whole working checkout -
-go modules, the node modules of `web/` and `e2e/`, and the browser the
-suite drives.
+`mise install && make deps`. `make deps` is the whole working checkout - go
+modules, the node modules of `web/` and `e2e/`, and the browser the suite
+drives.
 
 ```
 make ui         build the frontend into server/assets/app/ and page/assets/,

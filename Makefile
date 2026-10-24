@@ -9,7 +9,7 @@ BIN_PATH = $(DIST_DIR)/$(BINARY)
 DOCKER_ARGS=--build-arg VERSION=$(VERSION)
 DOCKER_IMAGE = ghcr.io/aleksey925/scrawl
 
-.PHONY: deps ui formatter icons gzassets build snapshot run e2e test test-gzassets race cover lint img
+.PHONY: deps ui formatter gzassets build snapshot run e2e test test-gzassets race cover lint img
 
 img:
 	@DOCKER_BUILDKIT=1 docker build $(DOCKER_ARGS) -t $(DOCKER_IMAGE):$(VERSION) .
@@ -21,15 +21,8 @@ deps:
 	@cd format/js && npm i --no-audit --no-fund
 	@cd e2e && npm i --no-audit --no-fund && npx playwright install chromium firefox
 
-# the bundle this writes into server/assets/app, and the stylesheet and scripts
-# of the command line pages in page/assets, are committed, so that go build,
-# go install and the docker image need neither node nor the network
 ui:
 	@cd web && npm i --no-audit --no-fund && npm run build
-
-# the favicon and the PNG icons, drawn from server/assets/logo.svg and committed
-icons:
-	@cd web && npm i --no-audit --no-fund && node icons.ts
 
 # prettier and QuickJS in one module, committed for the reason the bundle is.
 # The plugins are the ones the command line loads for a markdown file, so a

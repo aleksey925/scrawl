@@ -1,4 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44">
-<style>svg{color:#2c2c2b}@media (prefers-color-scheme:dark){svg{color:#f0efed}}</style>
+<style>svg{color:#1d1d1f}@media (prefers-color-scheme:dark){svg{color:#f0efed}}</style>
 <rect x="2" y="2" width="40" height="40" rx="10" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M11 27c3.5-9 6-9 7-4s3 6 6-1 5-7 6 0 2 4 4 2" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

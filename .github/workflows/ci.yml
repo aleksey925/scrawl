@@ -64,9 +64,10 @@ jobs:
       # what is committed is what the source produces
       - name: Fail if the committed bundle is stale
         run: |
-          if ! git diff --quiet -- server/assets/app page/assets; then
-            echo "server/assets/app or page/assets is stale, run 'make ui' and commit the result"
-            git diff --stat -- server/assets/app page/assets
+          paths="server/assets/app page/assets server/assets/favicon.svg server/assets/icons"
+          if ! git diff --quiet -- $paths; then
+            echo "the bundle or the icons are stale, run 'make ui' and commit the result"
+            git diff --stat -- $paths
             exit 1
           fi
 

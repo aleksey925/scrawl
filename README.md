@@ -761,9 +761,9 @@ lockfile; a Playwright bump wants a new browser, and without it every
 browser test fails with "Executable doesn't exist".
 
 ```
-make ui         build the interface into server/assets/app/ and page/assets/
+make ui         build the interface into server/assets/app/ and page/assets/,
+                and draw the favicon and the PNG icons from the logo
 make formatter  build prettier into format/prettier.wasm
-make icons      draw the favicon and the PNG icons from the logo
 make build      build the binary into dist/, with the assets compressed
 make run        run ./examples/data as the "notes" space, no authentication
 make test       tests

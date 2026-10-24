@@ -205,6 +205,43 @@ test.describe('mobile', () => {
         await page.getByTestId('tab-notes').tap();
         await expect(page).toHaveURL(atHome());
         expect(await moves()).toEqual(['translateX(28%)', 'translateX(-28%)']);
+        await expect.poll(() => page.locator('[data-screen]').evaluate((el) => [el.style.transform, el.style.opacity]))
+            .toEqual(['', '']);
+    });
+
+    // Safari draws the page gone back to under its own swipe, and a move of
+    // ours after it shook the page
+    test('a back the browser takes moves nothing in a tab, and slides in from the left in an app', async ({page}) => {
+        // arrange
+        await page.addInitScript(() => {
+            window.moves = [];
+            const animate = Element.prototype.animate;
+            Element.prototype.animate = function (keyframes, options) {
+                if (Array.isArray(keyframes) && String(keyframes[0]?.transform).startsWith('translateX')) {
+                    window.moves.push(keyframes[0].transform);
+                }
+                return animate.call(this, keyframes, options);
+            };
+        });
+        const moves = () => page.evaluate(() => window.moves);
+        const folder = page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`);
+        await page.goto(routes.home());
+        await folder.tap();
+        await expect(page).toHaveURL(MAIN.url.dir(docs.folder.path));
+        await expect.poll(moves).toEqual(['translateX(28%)']);
+
+        // act & assert
+        await page.goBack();
+        await expect(folder).toBeVisible();
+        await page.waitForTimeout(300);
+        expect(await moves()).toEqual(['translateX(28%)']);
+
+        await asStandalone(page);
+        await page.goto(routes.home());
+        await folder.tap();
+        await expect.poll(moves).toEqual(['translateX(28%)']);
+        await page.goBack();
+        await expect.poll(moves).toEqual(['translateX(28%)', 'translateX(-28%)']);
     });
 
     test.describe('a swipe from the left edge', () => {
@@ -269,6 +306,101 @@ test.describe('mobile', () => {
 
         const visited = (page) => page.evaluate(() => window.visited);
         const pathOf = (url) => new URL(url, MAIN.baseURL).pathname.replace(/\/$/, '');
+
+        test('every move of a drag from the edge is the drag\'s, and the page is a layer while it is dragged', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(folder());
+            await expect(page.getByTestId('dir-row').first()).toBeVisible();
+            await page.evaluate(() => {
+                window.moves = [];
+                window.addEventListener('touchmove', (event) => window.moves.push(event.defaultPrevented));
+            });
+            const cdp = await page.context().newCDPSession(page);
+            const y = 400;
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y}]});
+            // the steps lean up a little, as a thumb drawing a swipe does
+            for (const [x, dy] of [[20, -4], [40, -5], [80, -6]]) {
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: y + dy}]});
+                await page.waitForTimeout(30);
+            }
+            const layer = await page.locator('[data-screen]').evaluate((el) => el.style.willChange);
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
+
+            // assert
+            expect(await page.evaluate(() => window.moves)).toEqual([true, true, true]);
+            expect(layer).toBe('transform');
+            await expect.poll(() => page.locator('[data-screen]').evaluate((el) => el.style.willChange)).toBe('');
+        });
+
+        test('a drag from the edge that goes up and down is the page\'s scroll', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(folder());
+            await expect(page.getByTestId('dir-row').first()).toBeVisible();
+            await page.evaluate(() => {
+                window.moves = [];
+                window.addEventListener('touchmove', (event) => window.moves.push(event.defaultPrevented));
+            });
+            const cdp = await page.context().newCDPSession(page);
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y: 400}]});
+            for (const y of [380, 350, 300]) {
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: 6, y}]});
+            }
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+
+            // assert
+            expect(await page.evaluate(() => window.moves)).toEqual([false, false, false]);
+            await expect(page).toHaveURL(folder());
+        });
+
+        test('a finger drawn back toward the edge as it lifts keeps the page', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(folder());
+            await expect(page.getByTestId('dir-row').first()).toBeVisible();
+            const cdp = await page.context().newCDPSession(page);
+            const y = 400;
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y}]});
+            for (const x of [40, 120, 200, 280, 250, 220, 190]) {
+                await page.waitForTimeout(20);
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y}]});
+            }
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+
+            // assert
+            await settled(page);
+            await expect(page).toHaveURL(folder());
+            await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
+        });
+
+        // a spinner that came up the moment the page was gone, and went as the
+        // next screen moved in, read as the page jerking
+        test('a page swiped back to a screen still on its way shows no spinner for a short wait', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(routes.doc(DOC));
+            await expect(page.locator('[data-screen]')).toBeVisible();
+            await page.route(/\/api\/(dir|page)\//, async (route) => {
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                await route.continue();
+            });
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            const loading = page.getByTestId('dir-loading');
+            await expect(loading).toHaveCount(1);
+            expect(await loading.evaluate((el) => getComputedStyle(el).opacity)).toBe('0');
+            await expect.poll(() => loading.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+        });
 
         test('in an app from the home screen goes back, and a short one leaves the page', async ({page}) => {
             // arrange

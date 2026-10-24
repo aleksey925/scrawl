@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 
-import { leaveScreen, motionMs, screenEasing, swipeEndMs } from '../components/screenMotion';
+import { leaveScreen, releaseMotion, standalone } from '../components/screenMotion';
 
 // how far from the left edge a finger has to land to start the swipe
 const edgePx = 24;
-// how far it travels before it counts as a swipe and not a tap or a scroll
+// how far it travels before its direction says a swipe or a scroll
+const decidePx = 6;
+// how far it travels before the page moves, so a tap does not shift it
 const startPx = 8;
 // past this part of the width, or faster than this, the swipe goes back
 const completeShare = 0.35;
@@ -22,6 +24,8 @@ interface Track {
   y: number;
   dx: number;
   samples: Sample[];
+  // a swipe and not a scroll, once the direction is known
+  across: boolean;
   // the page the finger drags, once the drag has started
   element?: HTMLElement;
 }
@@ -35,12 +39,6 @@ function speedOf(samples: Sample[], now: number): number {
     return 0;
   }
   return (last.dx - first.dx) / (last.at - first.at);
-}
-
-// standalone is an app opened from the home screen of an iPhone. In a tab of
-// Safari the browser has its own swipe back, and both would go back once each.
-function standalone(): boolean {
-  return (navigator as { standalone?: boolean }).standalone === true;
 }
 
 // covered says something is open over the page, which the swipe must not move
@@ -63,12 +61,18 @@ function screen(): HTMLElement | null {
   return document.querySelector<HTMLElement>('[data-screen]');
 }
 
-function settle(element: HTMLElement, from: number): void {
+// the page a finger drags is a layer of its own: WebKit paints a 2D transform
+// set from script again on every move, which a long note cannot keep up with
+function release(element: HTMLElement): void {
   element.style.transform = '';
-  element.animate([{ transform: `translateX(${from}px)` }, { transform: 'none' }], {
-    duration: motionMs(swipeEndMs),
-    easing: screenEasing,
-  });
+  element.style.willChange = '';
+}
+
+// settle puts the page back from where the finger left it, at speed px/ms
+// toward the left edge
+function settle(element: HTMLElement, from: number, speed: number): void {
+  release(element);
+  element.animate([{ transform: `translateX(${from}px)` }, { transform: 'none' }], releaseMotion(from, speed));
 }
 
 // useSwipeBack lets a finger drag the page off to the right from the left edge
@@ -92,7 +96,7 @@ export function useSwipeBack(goBack: (() => void) | null): void {
       const ended = track;
       track = undefined;
       if (ended?.element !== undefined) {
-        settle(ended.element, ended.dx);
+        settle(ended.element, ended.dx, 0);
       }
     };
 
@@ -104,7 +108,7 @@ export function useSwipeBack(goBack: (() => void) | null): void {
       const touch = event.touches[0];
       track =
         event.touches.length === 1 && touch !== undefined && touch.clientX <= edgePx && goBackRef.current !== null && !covered()
-          ? { x: touch.clientX, y: touch.clientY, dx: 0, samples: [] }
+          ? { x: touch.clientX, y: touch.clientY, dx: 0, samples: [], across: false }
           : undefined;
     };
 
@@ -115,18 +119,28 @@ export function useSwipeBack(goBack: (() => void) | null): void {
       }
       const dx = Math.max(0, touch.clientX - track.x);
       const dy = Math.abs(touch.clientY - track.y);
+      if (!track.across) {
+        if (Math.hypot(dx, dy) >= decidePx && dy > dx) {
+          track = undefined;
+          return;
+        }
+        track.across = Math.hypot(dx, dy) >= decidePx;
+      }
+      // every move until the direction is known too: a move let through starts
+      // the page's own scroll, which then shifts the page up and down under the drag
+      event.preventDefault();
       if (track.element === undefined) {
         const element = screen();
-        if (element === null || (dy > startPx && dy > dx)) {
+        if (element === null) {
           track = undefined;
           return;
         }
         if (dx < startPx) {
           return;
         }
+        element.style.willChange = 'transform';
         track.element = element;
       }
-      event.preventDefault();
       track.dx = dx;
       const recent = track.samples.filter((point) => event.timeStamp - point.at <= flickWindowMs);
       track.samples = [...recent, { dx, at: event.timeStamp }];
@@ -140,14 +154,16 @@ export function useSwipeBack(goBack: (() => void) | null): void {
       if (ended === undefined || element === undefined) {
         return;
       }
-      const done = ended.dx > element.offsetWidth * completeShare || speedOf(ended.samples, event.timeStamp) > flickPxPerMs;
+      const speed = speedOf(ended.samples, event.timeStamp);
+      // a finger drawn back toward the edge as it lifts means to stay
+      const done = speed > flickPxPerMs || (ended.dx > element.offsetWidth * completeShare && speed > -flickPxPerMs);
       if (!done) {
-        settle(element, ended.dx);
+        settle(element, ended.dx, -speed);
         return;
       }
-      element.style.transform = '';
+      release(element);
       const from = entryKey();
-      void leaveScreen(element, ended.dx).then((gone) => {
+      void leaveScreen(element, ended.dx, speed).then((gone) => {
         // a tab tapped while the page was leaving moved the history on, and its
         // screen may still be loading, too late to have cancelled the leave
         if (gone && entryKey() === from) {

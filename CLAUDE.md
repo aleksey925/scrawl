@@ -535,7 +535,12 @@ vendor/                dependencies, checked in, `make deps` regenerates
   starts when the page first shows the answer of its route, not on the
   tap: a screen keeps the last answer while the next one loads, and a move
   on the tap slid in the old screen and then swapped it. Only the page
-  moves, never the bars, and `main` clips what reaches past its edge.
+  moves, never the bars, and `main` clips what reaches past its edge. A
+  back the browser takes moves nothing outside an app from the home
+  screen: Safari draws the page gone back to under its own swipe, and a
+  move of ours after it shook the page. The move's start is also held
+  inline, because WebKit paints a page just put in once at rest before the
+  move takes it, and the page jumped back to where the move starts.
 - In an app opened from an iPhone's home screen a finger drags the page
   off from the left edge and goes back: in the history when the app has
   one, else to the folder above, as the way up does. A short or slow drag
@@ -548,7 +553,15 @@ vendor/                dependencies, checked in, `make deps` regenerates
   on: a tab tapped meanwhile won, and was then taken back, whether its
   screen had come in or was still loading. The swipe never starts under
   a dialog, a sheet or a menu, nor in the editor, and for a reader who
-  asked for less motion it moves nothing on its own.
+  asked for less motion it moves nothing on its own. A touch at the edge
+  holds every move until its direction is known, since a move let through
+  starts the page's own scroll, which shook the page up and down under the
+  drag; one that goes up or down is the scroll. The dragged page is a layer
+  of its own, or WebKit paints a long note again on every move. Let go, the
+  page goes on at the finger's speed, and a finger drawn back toward the
+  edge as it lifts keeps the page. A screen still loading shows its spinner
+  only after 400ms: one that came up the moment the swiped page was gone
+  read as the page jerking.
 - The editor toolbar is a strip that moves sideways only and stops at its
   ends, and the editor screen takes the page's rubber band away. Left to
   the defaults the strip followed a finger up and down with the page

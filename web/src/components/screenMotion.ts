@@ -28,10 +28,40 @@ const leaveHoldMs = 3000;
 
 // a screen moves on screenEasing; a lifted card and a menu grow on springEasing,
 // which overshoots a little
-export const screenEasing = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+const screenEasing = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 export const springEasing = 'cubic-bezier(0.2, 0.9, 0.3, 1.15)';
 // swipeEndMs is how long a swiped page takes to leave or to settle back
 export const swipeEndMs = 200;
+// a released page is never sent off faster than this, however fast the flick
+const minReleaseMs = 120;
+// the steepest start of the release curve, as a multiple of its average speed
+const maxReleaseSlope = 4;
+
+export interface Release {
+  duration: number;
+  easing: string;
+}
+
+// releaseMotion carries a page the last distance px on from the speed the
+// finger let it go at, in px/ms toward where it is going: one curve for every
+// release sped a slow finger's page up the moment it was let go
+export function releaseMotion(distance: number, speed: number): Release {
+  const toward = Math.max(0, speed);
+  const duration =
+    distance <= 0 || toward * swipeEndMs <= maxReleaseSlope * distance
+      ? swipeEndMs
+      : Math.max(minReleaseMs, (maxReleaseSlope * distance) / toward);
+  const slope = distance <= 0 ? 1 : Math.min(maxReleaseSlope, Math.max(1, (toward * duration) / distance));
+  return { duration: motionMs(duration), easing: `cubic-bezier(0.25, ${(0.25 * slope).toFixed(3)}, 0.25, 1)` };
+}
+
+// standalone is an app opened from the home screen of an iPhone, where the way
+// back is the app's own swipe. A tab of Safari has a swipe back of its own, which
+// draws the page gone back to under the finger: a swipe of ours there went back
+// a second time, and a move of ours after Safari's shook the page.
+export function standalone(): boolean {
+  return (navigator as { standalone?: boolean }).standalone === true;
+}
 
 // motionMs is how long a move takes, none at all for a reader who asked the
 // system for less motion
@@ -43,11 +73,10 @@ export function motionMs(ms: number): number {
 // it, and keeps it there until the page of the next route enters. It answers
 // whether the page got there: a tap, a navigation or a second swipe that
 // cancels the move cancels what was to follow it too.
-export function leaveScreen(element: HTMLElement, from: number): Promise<boolean> {
+export function leaveScreen(element: HTMLElement, from: number, speed: number): Promise<boolean> {
   leaving?.cancel();
   const animation = element.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100%)' }], {
-    duration: motionMs(swipeEndMs),
-    easing: screenEasing,
+    ...releaseMotion(element.offsetWidth - from, speed),
     fill: 'forwards',
   });
   leaving = animation;
@@ -77,7 +106,7 @@ function motionOf(pathname: string, navigation: string): Motion {
     return asked;
   }
   if (navigation === 'POP') {
-    return 'back';
+    return standalone() ? 'back' : 'none';
   }
   return navigation === 'PUSH' ? 'forward' : 'none';
 }
@@ -103,13 +132,25 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
     leaving?.cancel();
     leaving = undefined;
     const motion = motionOf(location.pathname, navigation);
-    if (first || motion === 'none' || ref.current === null || !moves()) {
+    const element = ref.current;
+    const duration = motionMs(enterMs);
+    if (first || motion === 'none' || element === null || !moves() || duration === 0) {
       return;
     }
-    const from = motion === 'forward' ? offset : `-${offset}`;
-    ref.current.animate([{ transform: `translateX(${from})`, opacity: 0 }, { transform: 'none', opacity: 1 }], {
-      duration: motionMs(enterMs),
+    const start = { transform: `translateX(${motion === 'forward' ? offset : `-${offset}`})`, opacity: '0' };
+    // held inline too: WebKit paints a page put in this frame once at rest before
+    // the move takes it, and the page then jumped back to where the move starts
+    Object.assign(element.style, start);
+    const animation = element.animate([start, { transform: 'none', opacity: '1' }], {
+      duration,
       easing: screenEasing,
+      fill: 'forwards',
     });
+    const done = (): void => {
+      element.style.transform = '';
+      element.style.opacity = '';
+      animation.cancel();
+    };
+    void animation.finished.then(done, done);
   }, [ready, location.key]);
 }

@@ -1,4 +1,8 @@
 {
+  "_AsyncContent.css": {
+    "file": "assets/AsyncContent.css",
+    "src": "_AsyncContent.css"
+  },
   "_AsyncContent.js": {
     "file": "assets/AsyncContent.js",
     "name": "AsyncContent",
@@ -6,6 +10,9 @@
       "_PageChrome.js",
       "_NavContext.js",
       "_platform.js"
+    ],
+    "css": [
+      "assets/AsyncContent.css"
     ]
   },
   "_DirectoryView.css": {

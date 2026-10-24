@@ -8,6 +8,7 @@ import { IconAlertTriangle } from '../icons';
 import { RouteChrome } from '../shell/PageChrome';
 import { layout } from '../theme';
 
+import classes from './AsyncContent.module.css';
 import { Page } from './Page';
 import { ScreenReady } from './screenMotion';
 
@@ -48,7 +49,7 @@ export function AsyncContent<T>({ state, testId, page = false, children }: Async
     return (
       <ScreenReady value={false}>
         {framed(
-          <Center data-testid={testId === undefined ? undefined : `${testId}-loading`} py="3xl">
+          <Center data-testid={testId === undefined ? undefined : `${testId}-loading`} py="3xl" className={classes.waiting}>
             <Loader size="sm" />
           </Center>,
         )}

@@ -9,8 +9,9 @@
   font-size: var(--mantine-font-size-sm);
 }
 
+/* the head is two icons: the sidebar's own at the left, a new entry at the
+   right */
 .head {
-  position: relative;
   display: flex;
   flex: none;
   align-items: center;
@@ -19,23 +20,17 @@
   padding-inline: 8px;
 }
 
-/* the hide control shows over the end of the space button when the sidebar
-   is pointed at or focused, so it takes none of the room of the name */
-@media (hover: hover) {
-  .head .hide {
-    position: absolute;
-    inset-inline-end: 38px;
-    background: var(--scrawl-sidebar);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 120ms ease;
-  }
+.compose {
+  margin-inline-start: auto;
+}
 
-  .sidebar:hover .head .hide,
-  .head .hide:focus-visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
+/* the foot is the space's button, as wide as the sidebar, under a line across
+   the whole of it */
+.foot {
+  display: flex;
+  flex: none;
+  padding: 6px 8px 8px;
+  border-top: 1px solid var(--scrawl-sidebar-edge);
 }
 
 .spaceButton {
@@ -44,8 +39,8 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  height: var(--scrawl-row-height);
-  padding-inline: 6px;
+  height: var(--scrawl-control-height-large);
+  padding-inline: 6px 8px;
   border-radius: var(--mantine-radius-md);
   color: var(--scrawl-text);
   font-size: var(--mantine-font-size-sm);
@@ -68,7 +63,21 @@
 
 .spaceSelector {
   flex: none;
+  margin-inline-start: auto;
   color: var(--scrawl-icon-tertiary);
+}
+
+.logo {
+  display: inline-flex;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--scrawl-icon);
+}
+
+.logo svg {
+  width: 100%;
+  height: 100%;
 }
 
 .tile {
@@ -120,22 +129,27 @@
 
 .navRow svg {
   flex: none;
-  color: var(--scrawl-icon-secondary);
+  color: var(--scrawl-sidebar-icon);
 }
 
 .navRow[data-current='true'] {
   background: var(--scrawl-selected);
   color: var(--scrawl-text);
-  font-weight: 500;
+  font-weight: var(--scrawl-current-weight);
+}
+
+.homeRow {
+  background: var(--scrawl-selected);
+  color: var(--scrawl-text);
 }
 
 @media (hover: hover) {
   .navRow:hover {
-    background: var(--scrawl-hover);
+    background: var(--scrawl-selected);
   }
 }
 
-/* "Notes", the label over the tree, which is the root folder: it opens the
+/* the space's name over the tree, which is the root folder: it opens the
    root's list and takes a drop like a folder row */
 .section {
   display: flex;
@@ -159,29 +173,17 @@
 .sectionLabel {
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
   color: inherit;
   text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (hover: hover) {
   .sectionLabel:hover {
     color: var(--scrawl-text-secondary);
   }
-
-  .section .sectionTools {
-    opacity: 0;
-    transition: opacity 120ms ease;
-  }
-
-  .section:hover .sectionTools,
-  .sectionTools:focus-within {
-    opacity: 1;
-  }
-}
-
-.sectionTools {
-  display: flex;
-  flex: none;
 }
 
 .filter {

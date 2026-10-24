@@ -49,7 +49,7 @@ store.add({ page, title: document.title });
 const platform = sitePlatform(root, store, site);
 const status = siteStatus(site.title);
 const extensions: ReaderExtensions = { DocumentExtras: HistoryPlacement };
-const chrome: ReaderChrome = { sidebarHead: <SiteMenu />, phoneMenu: <SiteMenu dots /> };
+const chrome: ReaderChrome = { sidebarFoot: <SiteMenu />, phoneMenu: <SiteMenu dots /> };
 
 // the copy kept for a reader without javascript goes before the app draws the
 // same note: its headings carry the same ids

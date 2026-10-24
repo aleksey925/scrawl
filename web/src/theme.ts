@@ -214,6 +214,7 @@ export function themeVariables(def: ThemeDefinition): Record<string, string> {
     ...tokenVariables('scrawl-code', def.code),
     ...mantineVariables(def),
     '--scrawl-strong-weight': def.strongWeight,
+    '--scrawl-current-weight': def.currentWeight,
   };
 }
 

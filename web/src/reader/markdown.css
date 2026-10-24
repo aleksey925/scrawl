@@ -26,10 +26,10 @@
 
 /* --- inline -------------------------------------------------------------- */
 
-/* a link is the text itself with a faint line under it, darker under the
-   pointer */
+/* a link has the theme's link color, the text's own in the dark, with a faint
+   line under it, darker under the pointer */
 .markdown-document a {
-  color: inherit;
+  color: var(--scrawl-link);
   text-decoration: underline;
   text-decoration-color: var(--scrawl-link-line);
   text-decoration-thickness: 1px;

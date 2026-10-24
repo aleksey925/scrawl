@@ -9,7 +9,6 @@ import { layout } from '../theme';
 import { spaceLabel, useNav } from './NavContext';
 import { contentPathOf } from './naming';
 import { useShownChrome } from './PageChrome';
-import { SpaceTile } from './SpaceTile';
 import classes from './Topbar.module.css';
 
 function Separator(): JSX.Element {
@@ -34,12 +33,10 @@ export function TopbarCrumbs(): JSX.Element {
     <nav data-testid="topbar-crumbs" aria-label="Path" className={classes.crumbs}>
       {atSpace ? (
         <span data-testid="crumb" data-current="true" className={`${classes.crumb} ${classes.current}`}>
-          <SpaceTile name={space} small />
           <span className={classes.crumbText}>{space}</span>
         </span>
       ) : (
         <Link data-testid="crumb" data-current="false" to="/" className={classes.crumb}>
-          <SpaceTile name={space} small />
           <span className={classes.crumbText}>{space}</span>
         </Link>
       )}

@@ -42,11 +42,11 @@ export function useReaderLayout(): ReaderLayoutState {
   return state;
 }
 
-// ReaderChrome is what an entry adds to the shell: the head of the sidebar,
+// ReaderChrome is what an entry adds to the shell: the foot of the sidebar,
 // which opens the space's menu, the end of the topbar, and on a phone what
 // stands for the sidebar
 export interface ReaderChrome {
-  sidebarHead?: ReactNode;
+  sidebarFoot?: ReactNode;
   topbarEnd?: ReactNode;
   // phoneHome is the left of the phone's bar at the root, where there is no
   // folder above to go back to
@@ -173,7 +173,7 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
                 {/* a hidden rail is only moved out of sight, and the rows left in
                     it would still answer the tab key */}
                 <AppShell.Navbar data-print="hide">
-                  {!phone && !navHidden && <SidebarNav head={chrome?.sidebarHead} onHide={toggleNav} />}
+                  {!phone && !navHidden && <SidebarNav foot={chrome?.sidebarFoot} onHide={toggleNav} />}
                 </AppShell.Navbar>
 
                 <AppShell.Main style={{ minWidth: 0 }}>

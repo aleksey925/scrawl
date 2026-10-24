@@ -11,8 +11,8 @@ import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
 import { PopupMenu } from '../components/PopupMenu';
 import {
-  IconChevronDown, IconChevronRight, IconChevronsLeft, IconFile, IconFilePlus, IconFileText, IconFolder, IconFolderOpen,
-  IconFolderPlus, IconHome, IconPlus, IconSearch, IconNotePencil, IconX,
+  IconChevronDown, IconChevronRight, IconFile, IconFilePlus, IconFileText, IconFolder, IconFolderOpen,
+  IconFolderPlus, IconHome, IconPlus, IconCompose, IconSearch, IconSidebar, IconX,
 } from '../icons';
 import { editUrl } from '../paths';
 import { layout } from '../theme';
@@ -400,11 +400,13 @@ function nodeAt(nodes: readonly NavNode[], path: string): NavNode | undefined {
 }
 
 export interface SidebarNavProps {
-  head?: ReactNode;
+  // foot is the button at the bottom, which opens the menu of the spaces, the
+  // theme and the account
+  foot?: ReactNode;
   onHide?: () => void;
 }
 
-export function SidebarNav({ head, onHide }: SidebarNavProps): JSX.Element {
+export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const { tree, error, loading, canWrite: mayWrite, currentPath, query, setQuery, isOpen, openFolder, me } = useNav();
@@ -621,19 +623,18 @@ export function SidebarNav({ head, onHide }: SidebarNavProps): JSX.Element {
         }
       }}
     >
-      {(head !== undefined || onHide !== undefined || canWrite) && (
+      {(onHide !== undefined || canWrite) && (
         <div className={sidebarClasses.head}>
-          {head}
           {onHide !== undefined && (
             <ActionIcon
               data-testid="sidebar-hide"
               variant="subtle"
               color="gray"
-              className={sidebarClasses.hide}
+              size={layout.controlHeight}
               aria-label="Hide the sidebar"
               onClick={onHide}
             >
-              <IconChevronsLeft size={layout.iconSize} />
+              <IconSidebar size={layout.iconSize} />
             </ActionIcon>
           )}
           {canWrite && actions !== undefined && (
@@ -644,9 +645,10 @@ export function SidebarNav({ head, onHide }: SidebarNavProps): JSX.Element {
                   variant="subtle"
                   color="gray"
                   size={layout.controlHeight}
+                  className={sidebarClasses.compose}
                   aria-label="New file or folder"
                 >
-                  <IconNotePencil size={layout.iconSize} />
+                  <IconCompose size={layout.iconSize} />
                 </ActionIcon>
               </Menu.Target>
               <Menu.Dropdown>
@@ -683,7 +685,7 @@ export function SidebarNav({ head, onHide }: SidebarNavProps): JSX.Element {
         <Link
           data-testid="sidebar-home"
           to={home?.url ?? '/'}
-          className={sidebarClasses.navRow}
+          className={`${sidebarClasses.navRow} ${sidebarClasses.homeRow}`}
           data-current={atHome ? 'true' : 'false'}
           aria-current={atHome ? 'page' : undefined}
         >
@@ -700,23 +702,9 @@ export function SidebarNav({ head, onHide }: SidebarNavProps): JSX.Element {
         data-drop={dropTarget === '' ? 'true' : 'false'}
         {...rootDrop}
       >
-        <Link to="/" className={sidebarClasses.sectionLabel}>
-          Notes
+        <Link to="/" data-testid="sidebar-section-label" className={sidebarClasses.sectionLabel}>
+          {spaceName}
         </Link>
-        {canWrite && actions !== undefined && (
-          <div className={sidebarClasses.sectionTools}>
-            <ActionIcon
-              data-testid="sidebar-section-new"
-              variant="subtle"
-              color="gray"
-              size="sm"
-              aria-label={`New file in ${spaceName}`}
-              onClick={() => actions.createPage('')}
-            >
-              <IconPlus size={rowMenuIconSize} />
-            </ActionIcon>
-          </div>
-        )}
       </div>
 
       <div className={sidebarClasses.filter}>
@@ -784,6 +772,8 @@ export function SidebarNav({ head, onHide }: SidebarNavProps): JSX.Element {
           </Stack>
         </ScrollArea>
       </TreeUiContext.Provider>
+
+      {foot !== undefined && <div className={sidebarClasses.foot}>{foot}</div>}
     </div>
   );
 }

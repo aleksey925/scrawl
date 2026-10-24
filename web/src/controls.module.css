@@ -88,9 +88,11 @@
   box-shadow: inset 0 0 0 1px var(--input-bd);
 }
 
-/* a field in focus is drawn with the theme's focus ring and no halo */
+/* a field in focus is drawn with the theme's focus ring: a line inside its
+   border and the outer color on the border and outside it; a clear border
+   let the field's tint through as a gap between two rings */
 .input[data-variant='default'] .inputField:focus {
-  border-color: transparent;
+  border-color: var(--scrawl-focus-ring-outer);
   box-shadow:
     inset 0 0 0 1px var(--scrawl-focus-ring),
     0 0 0 1px var(--scrawl-focus-ring-outer);
@@ -100,23 +102,35 @@
   color: var(--scrawl-text-tertiary);
 }
 
-/* a menu floats on the popover ground, its edge drawn by the shadow, and
-   stays on a narrow screen whatever width it asked for */
+/* a menu floats on the theme's menu ground, its edge drawn by the shadow, and
+   stays on a narrow screen whatever width it asked for; a translucent ground
+   blurs what is behind it, as macOS draws a menu */
 .menu {
   max-width: calc(100vw - 16px);
   border: 0;
-  background: var(--scrawl-popover);
+  background: var(--scrawl-menu);
   box-shadow: var(--scrawl-shadow-medium);
+  backdrop-filter: blur(24px) saturate(1.6);
 }
 
 .menuItem {
   min-height: var(--scrawl-control-height);
   border-radius: var(--mantine-radius-md);
-  --menu-item-hover: var(--scrawl-hover);
+  --menu-item-hover: var(--scrawl-menu-highlight);
 }
 
+/* a red item keeps its color, which mantine sets as --menu-item-color */
+@media (hover: hover) {
+  .menuItem:is(:hover, :focus, [data-menu-active]):not(:disabled, [data-disabled]) {
+    --scrawl-text-tertiary: var(--scrawl-menu-highlight-muted);
+    color: var(--menu-item-color, var(--scrawl-menu-highlight-text));
+  }
+}
+
+/* a tap latches :hover, so a finger gets the quiet tint and not the fill */
 @media (hover: none) {
   .menuItem {
+    --menu-item-hover: var(--scrawl-hover);
     transition: var(--scrawl-press-out);
   }
 

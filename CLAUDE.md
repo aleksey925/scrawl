@@ -77,20 +77,26 @@ vendor/                dependencies, checked in, `make deps` regenerates
   is named on the tree without `.md`, the way Notion names a page.
 - The sidebar can be put away and the choice is kept. On a desktop it is
   a 240px rail the full height of the screen that stays where it was
-  put: `«` in its head hides it, the menu icon the topbar shows then
-  brings it back, and `Cmd+B` does both. A phone has no tree: the Notes
+  put: the sidebar icon at the left of its head hides it, the menu icon
+  the topbar shows then brings it back, and `Cmd+B` does both. A phone has no tree: the Notes
   tab opens the root's list and a folder opens the next list, the way
   the Files app on iOS has it, because deep folders ran off a narrow
   screen as an indented tree. A hidden rail holds nothing:
   mantine only moves it out of sight, and the rows left in it would
   still answer the tab key.
-- The head of the sidebar is the space's button, which opens one menu
-  with the spaces, the theme, the account, the shortcuts and sign out;
-  there is no account row at the bottom, as Notion has none. Search and
-  Home are the two rows under it. The label "Notes" over the tree is the
-  root folder: it opens the root's list, takes a drop and has a `+` for
-  a note there. A site's head is its title, with a menu of the theme,
-  the page width and the shortcuts.
+- The head of the sidebar is two icons and nothing else, as Notion's
+  Mail and Calendar have it: the sidebar's own at the left, which hides
+  it, and a new entry at the right, the sidebar's one way to make one:
+  New file or New folder, in the row that is picked, else in the folder
+  of the page on screen, and the menu names that folder. Search and Home
+  are the two rows under it, and Home is always filled with the current
+  row's gray, on the home page or not. The label over the tree is the space's name
+  and the root folder: it opens the root's list and takes a drop. The
+  foot is the space's button under a line across the sidebar, as wide as
+  it: the app's logo, the space's name and a chevron at the right edge,
+  and it opens one menu upward: the account, the spaces with a check on
+  this one, the theme and the shortcuts, then sign out. A site's foot is its
+  title, with a menu of the theme, the page width and the shortcuts.
 - A folder's icon opens and closes it. The rows of an open folder are
   indented 14px and there is no guide line; under the pointer the
   folder's icon turns into a chevron, the sign of what a click on it
@@ -166,8 +172,8 @@ vendor/                dependencies, checked in, `make deps` regenerates
   only the rows the place offers.
 - A theme is one file in `theme/themes/`, and nothing else names a
   color of one: adding a theme is a file and `make ui`. The file holds
-  Notion's color roles, its nine block colors, three shadows and the
-  weight of bold. The server, the command line and the frontend build
+  Notion's color roles, its nine block colors, three shadows, the
+  weight of bold and that of the sidebar's current row. The server, the command line and the frontend build
   all read those files. The build turns every key into a `--scrawl-*`
   custom property in one stylesheet, which the
   app bundles, a page of the command line inlines and the sign-in page
@@ -357,10 +363,12 @@ vendor/                dependencies, checked in, `make deps` regenerates
   latches `:hover` onto what it landed on until the next tap somewhere
   else, so every decorative hover is gated on `@media (hover: hover)` and
   the platform tap highlight is off.
-- A note reads the way Notion shows a page. Each theme file holds one
-  Notion palette, read off notion.so in October 2026 under the role each
-  color plays; a palette key is the property's name, so a note and the
-  chrome cannot drift apart. `markdown.css` styles the markup `render`
+- A note reads the way Notion shows a page. The dark theme file holds
+  Notion's dark palette, read off notion.so in October 2026, and the
+  light one the colors of macOS: its system blue, cool grays, Xcode's
+  code colors and its own text and separator grays. Each color sits
+  under the role it plays; a palette key is the property's name, so a
+  note and the chrome cannot drift apart. `markdown.css` styles the markup `render`
   emits with Notion's type scale and block spacing: the leading `h1` is
   the page title, an alert is a callout and `<details>` a toggle, all by
   CSS, so the markup stays what it is. The syntax is GitHub's. The note
@@ -372,16 +380,28 @@ vendor/                dependencies, checked in, `make deps` regenerates
   Notion. A task is ticked in the editor and saved like any change,
   because a click on the page would be a write, and every tick a commit
   and a push.
-- The page is white and the sidebar a flush warm gray panel with a thin
-  line on its edge. Borders are only on tables, menus and dialogs, and a
+- The page is white and the sidebar a flush gray panel with a thin line
+  on its edge, warm in the dark theme and cool in the light one, where
+  the sidebar's icons are the accent and its text black, and the current
+  row is a clear gray with its name in the regular weight, as Finder
+  draws them; a gray as faint as Notion's read as nothing picked there,
+  and with the clear gray a bold name was one mark too many. Borders are only on
+  tables, menus and dialogs, and a
   row is filled only under the pointer or when it is the current one: a
-  list of entries, results or versions is rows split by hairlines. A
+  list of entries, results or versions is rows split by hairlines. A row
+  of the sidebar under the pointer takes the current row's gray, as the
+  dark theme's two nearly equal grays always had it, and a picked row
+  keeps its tint; a lighter hover read as another color and faded the
+  current row a reader pointed at. A
   control has one shape, and the theme
   is the one place that says so. A control is Notion's: 28px (36px when
   it runs the width of its column) with 6px corners and a 500 weight,
   transparent until hovered; a field is filled with the hover tint and a
-  faint line, and in focus has the theme's focus ring and no halo: two
-  pixels of the accent in the light theme, and in the dark one a lighter
+  faint line, and in focus has the theme's focus ring and no halo: in
+  the light theme one solid band of a light blue three pixels wide, as
+  macOS rings a field; the field's border takes the band's color, or its
+  tint shows through as a gap and the band reads as two rings. In the
+  dark one a lighter
   line and no color, the way Raycast and Vercel draw it. A solid blue line
   on the dark ground glared, and Notion's own dark fields disagree with
   each other on it. A row a name is typed into, in the tree or a folder's
@@ -389,11 +409,20 @@ vendor/                dependencies, checked in, `make deps` regenerates
   spends it, read off its own pages: the one main button, a focused field
   in the light theme and a toggle that is on; the search
   field has no ring, the back link and Cancel are plain text, and a main
-  button that cannot be pressed yet fades in its color. A menu has 10px
-  corners and Notion's shadow, a dialog 12px. Icons are Phosphor's
+  button that cannot be pressed yet fades in its color. The light theme
+  spends it the way macOS does on two more things: a link in a note,
+  which the dark theme draws in the text's color, and the menu row under
+  the pointer, filled with the accent and lettered white, which in the
+  dark is the hover tint. A tap latches the hover, so a touch screen
+  keeps the tint in both. A menu has 10px corners and the theme's
+  shadow, a dialog 12px; a translucent menu ground blurs what is under
+  it, as a menu of macOS does. Icons are Phosphor's
   regular weight at 20px, 16px in menus, and `web/src/icons.ts` is the
   one place that says which drawing each one is: Notion's own set cannot
-  be taken, and Phosphor is the open one closest to it. A choice of a few
+  be taken, and Phosphor is the open one closest to it. The new entry
+  in the sidebar's head is drawn there in Phosphor's line, a rounded
+  square with a slim pencil as Notion's and Apple's apps draw it, because
+  Phosphor's has sharp corners. A choice of a few
   is a tray of the hover tint with the picked one raised on the popover
   ground.
 - The editor is the page and not a box on it: a row of tools over the

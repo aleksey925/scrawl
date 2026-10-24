@@ -13,7 +13,7 @@ import { useKeyboardPlace } from './shortcuts';
 import { SpaceButton } from './SpaceButton';
 import { ThemePicker } from './ThemePicker';
 
-// SiteMenu is the head of a site's sidebar: a site has no spaces and nobody
+// SiteMenu is the foot of a site's sidebar: a site has no spaces and nobody
 // signs in to it, so its menu holds the theme, the page width and the keys. On
 // a phone it is the `⋯` of the top bar and holds the outline too.
 export function SiteMenu({ dots = false }: { dots?: boolean }): JSX.Element {
@@ -23,7 +23,7 @@ export function SiteMenu({ dots = false }: { dots?: boolean }): JSX.Element {
   const name = me?.site_title ?? 'Notes';
 
   return (
-    <PopupMenu position="bottom-start" width={280} withinPortal closeOnItemClick>
+    <PopupMenu position={dots ? 'bottom-start' : 'top-start'} width={280} withinPortal closeOnItemClick>
       <Menu.Target>
         {dots ? (
           <ActionIcon data-testid="site-menu" variant="subtle" color="gray" size="lg" aria-label="Theme and outline">

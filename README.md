@@ -211,7 +211,7 @@ spaces:
 | key                     | required           | default  | meaning                                                                                                                        |
 | ----------------------- | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `name`                  | yes                |          | URL segment: lowercase letters, digits, `-` and `_`, unique                                                                    |
-| `label`                 |                    | the name | what the space's button at the head of the sidebar shows                                                                       |
+| `label`                 |                    | the name | the name over the sidebar's tree and on the space's button at its foot                                                         |
 | `dir`                   | yes                |          | directory to serve                                                                                                             |
 | `read_only`             |                    | `false`  | refuse every write in this space                                                                                               |
 | `format_on_save`        |                    | `true`   | `false` stops the editor from formatting a note with prettier when it saves it                                                 |
@@ -245,7 +245,7 @@ A few rules:
 - Setting both `token_file` and `token_env`, or both hook secret keys,
   stops startup with an error.
 
-`/` redirects to the first space, and the space's button at the head of
+`/` redirects to the first space, and the space's button at the foot of
 the sidebar opens a menu that switches to another one. Everything else
 is shared: one login, one
 session, one set of API tokens, and a search that searches the space you

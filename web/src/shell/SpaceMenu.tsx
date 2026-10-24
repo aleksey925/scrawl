@@ -21,11 +21,16 @@ async function signOut(): Promise<void> {
   goToLogin();
 }
 
-// SpaceMenu is everything about the space and the reader, in the head of the
-// sidebar: the spaces to switch to, the theme, the account and the keys. A
-// switch is a full page load, which boots the shell again under the space's
-// own basename.
-export function SpaceMenu(): JSX.Element {
+export interface SpaceMenuProps {
+  // top opens the menu above the button, at the foot of the sidebar, and
+  // bottom below it, in the bar of a phone
+  placement: 'top' | 'bottom';
+}
+
+// SpaceMenu is everything about the space and the reader: the account, the
+// spaces to switch to, the theme, the keys and signing out. A switch is a full
+// page load, which boots the shell again under the space's own basename.
+export function SpaceMenu({ placement }: SpaceMenuProps): JSX.Element {
   const { me } = useNav();
   const { openShortcuts } = useReaderLayout();
   const keyboard = useKeyboardPlace();
@@ -36,14 +41,20 @@ export function SpaceMenu(): JSX.Element {
   const name = spaceLabel(me);
 
   return (
-    <PopupMenu position="bottom-start" width={280} withinPortal>
+    <PopupMenu position={`${placement}-start`} width={280} withinPortal>
       <Menu.Target>
         <SpaceButton name={name} aria-label={`${name}: spaces, theme and account`} />
       </Menu.Target>
       <Menu.Dropdown data-testid="space-menu-dropdown">
+        {signedIn && (
+          <Menu.Label>
+            <Text data-testid="space-menu-user" size="xs" truncate>
+              {me.user}
+            </Text>
+          </Menu.Label>
+        )}
         {spaces.length > 0 && (
           <>
-            <Menu.Label>Spaces</Menu.Label>
             {spaces.map((entry) => (
               <Menu.Item
                 key={entry.name}
@@ -73,15 +84,9 @@ export function SpaceMenu(): JSX.Element {
         )}
 
         <ThemePicker />
+        {keyboard && <ShortcutsMenuItem onClick={openShortcuts} />}
         <Menu.Divider />
 
-        {signedIn && (
-          <Menu.Label>
-            <Text data-testid="space-menu-user" size="xs" truncate>
-              {me.user}
-            </Text>
-          </Menu.Label>
-        )}
         {me?.read_only === true && (
           <Menu.Item
             data-testid="space-menu-readonly"
@@ -91,18 +96,10 @@ export function SpaceMenu(): JSX.Element {
             Read-only mode
           </Menu.Item>
         )}
-        {keyboard && (
-          <ShortcutsMenuItem onClick={openShortcuts} />
-        )}
         {signedIn ? (
           <Menu.Item
             data-testid="space-menu-signout"
             leftSection={<IconLogout size={layout.iconSizeSmall} />}
-            rightSection={
-              <Text size="xs" c="dimmed" truncate maw={120}>
-                {me.user}
-              </Text>
-            }
             onClick={() => void signOut()}
           >
             Sign out

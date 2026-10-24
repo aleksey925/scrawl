@@ -10,6 +10,7 @@ export interface Palette {
   sidebar: string;
   sidebarEdge: string;
   sidebarText: string;
+  sidebarIcon: string;
   text: string;
   // a note's text and its emphasis, which in the dark sit below and above
   // text, so bold differs in brightness and not only in weight
@@ -29,8 +30,16 @@ export interface Palette {
   selected: string;
   rowHover: string;
   popover: string;
+  // a menu's ground, and the row under the pointer or the keys with the text
+  // and the faint parts of it, which macOS fills with the accent
+  menu: string;
+  menuHighlight: string;
+  menuHighlightText: string;
+  menuHighlightMuted: string;
   overlay: string;
   codeBg: string;
+  // a link in a note; the dark theme keeps the text's color with currentColor
+  link: string;
   linkLine: string;
   placeholder: string;
   accent: string;
@@ -94,6 +103,8 @@ interface ThemeFile {
   // go side reads them
   code: Record<'keyword' | 'string' | 'comment' | 'function' | 'number' | 'builtin', string>;
   strongWeight: string;
+  // the weight of the current row of the sidebar
+  currentWeight: string;
   palette: Palette;
   blocks: BlockColors;
   shadows: Shadows;

@@ -127,6 +127,7 @@ color of a theme.
   `function`, `number` and `builtin`. `render` builds a chroma style
   from them.
 - `strongWeight` is the weight of bold in a note.
+- `currentWeight` is the weight of the current row of the sidebar.
 - `palette` is every token of `Palette` in `src/themes.ts`, Notion's
   color roles. The note and the chrome both read it as `--scrawl-<key>`.
 - `blocks` is Notion's nine block colors, a text and a ground each, as

@@ -67,12 +67,12 @@ test.describe.serial('file management', () => {
         await shot(page, 'files-folder-created');
     });
 
-    // the "Notes" label over the tree is the root, and its + is the way to make
-    // a note beside the folders rather than inside one
-    test('creates a file in the root from the Notes section', async ({page}) => {
+    // the new entry in the sidebar's head makes it where the reader is, and on
+    // the root's list that is the root, beside the folders
+    test('creates a file in the root from the sidebar', async ({page}) => {
         // arrange
-        await page.getByTestId('sidebar-section').hover();
-        await page.getByTestId('sidebar-section-new').click();
+        await page.getByTestId('sidebar-new').click();
+        await page.getByTestId('sidebar-new-page').click();
 
         // act
         await page.getByTestId('tree-draft-input').fill(ROOT_PAGE.replace('.md', ''));
@@ -87,8 +87,8 @@ test.describe.serial('file management', () => {
 
     test('a name with an extension of its own makes that file, named as typed', async ({page}) => {
         // arrange
-        await page.getByTestId('sidebar-section').hover();
-        await page.getByTestId('sidebar-section-new').click();
+        await page.getByTestId('sidebar-new').click();
+        await page.getByTestId('sidebar-new-page').click();
 
         // act
         await page.getByTestId('tree-draft-input').fill(TYPED_FILE);
@@ -103,8 +103,8 @@ test.describe.serial('file management', () => {
 
     test('a name the editor cannot open makes that file and opens its page', async ({page}) => {
         // arrange
-        await page.getByTestId('sidebar-section').hover();
-        await page.getByTestId('sidebar-section-new').click();
+        await page.getByTestId('sidebar-new').click();
+        await page.getByTestId('sidebar-new-page').click();
 
         // act
         await page.getByTestId('tree-draft-input').fill(TYPED_PICTURE);
@@ -117,8 +117,8 @@ test.describe.serial('file management', () => {
 
     test('a title with a date in it is still a note', async ({page}) => {
         // arrange
-        await page.getByTestId('sidebar-section').hover();
-        await page.getByTestId('sidebar-section-new').click();
+        await page.getByTestId('sidebar-new').click();
+        await page.getByTestId('sidebar-new-page').click();
 
         // act
         await page.getByTestId('tree-draft-input').fill('E2E Meeting 2024.10.21');

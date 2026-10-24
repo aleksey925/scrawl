@@ -14,7 +14,7 @@
 .row[data-current='true'] {
   background: var(--scrawl-selected);
   color: var(--scrawl-text);
-  font-weight: 500;
+  font-weight: var(--scrawl-current-weight);
 }
 
 .row[data-selected='true']:not([data-current='true']) {
@@ -29,9 +29,11 @@
   outline-offset: -1px;
 }
 
+/* a row under the pointer takes the current row's gray, and a picked row
+   keeps its tint: a lighter hover faded the current row a reader pointed at */
 @media (hover: hover) {
-  .row:hover {
-    background: var(--scrawl-hover);
+  .row:not([data-selected='true']):hover {
+    background: var(--scrawl-selected);
   }
 }
 
@@ -39,7 +41,7 @@
    opens and closes it: under the pointer its icon turns into a chevron */
 .icon {
   flex: none;
-  color: var(--scrawl-icon-secondary);
+  color: var(--scrawl-sidebar-icon);
 }
 
 .icon .chevron {
@@ -56,10 +58,13 @@
   }
 }
 
+/* the weight is the row's: mantine's Anchor sets 400 of its own, and the
+   current row lost its medium */
 .label {
   flex: 1 1 auto;
   min-width: 0;
   color: inherit;
+  font-weight: inherit;
 }
 
 /* the row's tools show under the pointer, the keyboard's focus or while their

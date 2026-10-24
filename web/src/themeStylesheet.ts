@@ -38,8 +38,10 @@ function validate(): void {
     if (keysOf(entry.blocks) !== [...blockNames].sort().join(' ')) {
       throw new Error(`theme ${entry.id}: the blocks are not ${blockNames.join(', ')}`);
     }
-    if (typeof entry.strongWeight !== 'string' || entry.strongWeight === '') {
-      throw new Error(`theme ${entry.id}: no strongWeight`);
+    for (const key of ['strongWeight', 'currentWeight'] as const) {
+      if (typeof entry[key] !== 'string' || entry[key] === '') {
+        throw new Error(`theme ${entry.id}: no ${key}`);
+      }
     }
   }
 }

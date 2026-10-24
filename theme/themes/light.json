@@ -11,6 +11,7 @@
   },
   "strongWeight": "600",
   "currentWeight": "400",
+  "fontSmoothing": "auto",
   "palette": {
     "bg": "#ffffff",
     "sidebar": "#eeeef1",

@@ -5,7 +5,7 @@ import {
 import { Link, useNavigate } from 'react-router';
 
 import type { DirEntry, EntryKind } from '../api/types';
-import { IconArrowUp, IconChevronRight, IconClock, IconFileText, IconFolder, IconHash } from '../icons';
+import { IconArrowUp, IconChevronRight, IconClock, IconFile, IconFileText, IconFolder, IconHash } from '../icons';
 import { directoryUrl, isMarkdown } from '../paths';
 import { usePlatform } from '../platform';
 import { useReaderExtensions } from '../shell/extensions';
@@ -119,21 +119,19 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
           <tr>
             <th>
               <span>
-                <span className={classes.aa} aria-hidden>
-                  Aa
-                </span>
+                <IconFile size={layout.iconSizeColumn} weight="fill" aria-hidden />
                 Name
               </span>
             </th>
             <th className={classes.size}>
               <span>
-                <IconHash size={layout.iconSizeColumn} aria-hidden />
+                <IconHash size={layout.iconSizeColumn} weight="bold" aria-hidden />
                 Size
               </span>
             </th>
             <th className={classes.date}>
               <span>
-                <IconClock size={layout.iconSizeColumn} aria-hidden />
+                <IconClock size={layout.iconSizeColumn} weight="fill" aria-hidden />
                 Modified
               </span>
             </th>

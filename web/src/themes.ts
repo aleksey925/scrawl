@@ -105,6 +105,10 @@ interface ThemeFile {
   strongWeight: string;
   // the weight of the current row of the sidebar
   currentWeight: string;
+  // how a Mac draws the letters: auto keeps its own smoothing, which Notion's
+  // light page has, and antialiased draws them thinner, which light letters on
+  // a dark page need not to glow
+  fontSmoothing: 'auto' | 'antialiased';
   palette: Palette;
   blocks: BlockColors;
   shadows: Shadows;

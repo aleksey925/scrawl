@@ -469,6 +469,8 @@
   --scrawl-code-builtin: #3900a0;
   --scrawl-strong-weight: 600;
   --scrawl-current-weight: 400;
+  --mantine-webkit-font-smoothing: auto;
+  --mantine-moz-font-smoothing: auto;
   color-scheme: light;
 }
 }
@@ -706,6 +708,8 @@
   --scrawl-code-builtin: #e0a477;
   --scrawl-strong-weight: 700;
   --scrawl-current-weight: 500;
+  --mantine-webkit-font-smoothing: antialiased;
+  --mantine-moz-font-smoothing: grayscale;
   color-scheme: dark;
 }
 }
@@ -942,6 +946,8 @@
   --scrawl-code-builtin: #3900a0;
   --scrawl-strong-weight: 600;
   --scrawl-current-weight: 400;
+  --mantine-webkit-font-smoothing: auto;
+  --mantine-moz-font-smoothing: auto;
   color-scheme: light;
 }
 
@@ -1177,5 +1183,7 @@
   --scrawl-code-builtin: #e0a477;
   --scrawl-strong-weight: 700;
   --scrawl-current-weight: 500;
+  --mantine-webkit-font-smoothing: antialiased;
+  --mantine-moz-font-smoothing: grayscale;
   color-scheme: dark;
 }

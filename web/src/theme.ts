@@ -215,6 +215,8 @@ export function themeVariables(def: ThemeDefinition): Record<string, string> {
     ...mantineVariables(def),
     '--scrawl-strong-weight': def.strongWeight,
     '--scrawl-current-weight': def.currentWeight,
+    '--mantine-webkit-font-smoothing': def.fontSmoothing,
+    '--mantine-moz-font-smoothing': def.fontSmoothing === 'antialiased' ? 'grayscale' : 'auto',
   };
 }
 

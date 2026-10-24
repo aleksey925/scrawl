@@ -53,6 +53,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* an empty folder keeps its table's header, as Notion keeps a database's,
+   with what to do next well under it */
+.empty {
+  padding-top: 48px;
+}
+
 .add {
   display: flex;
   align-items: center;

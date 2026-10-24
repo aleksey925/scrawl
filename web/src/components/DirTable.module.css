@@ -24,6 +24,8 @@
   white-space: nowrap;
 }
 
+/* a header is Notion's: gray text of the regular weight under a filled icon,
+   so the head of the table reads apart from what is in it */
 .table th {
   color: var(--scrawl-text-secondary);
   font-weight: 400;
@@ -36,15 +38,8 @@
   gap: 6px;
 }
 
-.table th svg,
-.aa {
-  color: var(--scrawl-icon-tertiary);
-}
-
-.aa {
-  width: 16px;
-  font-size: 13px;
-  text-align: center;
+.table th svg {
+  color: var(--scrawl-icon-secondary);
 }
 
 .table td {

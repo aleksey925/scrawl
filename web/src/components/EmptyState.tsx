@@ -16,10 +16,10 @@ export interface EmptyStateProps {
 export function EmptyState({ testId, icon: Icon, title, children, actions }: EmptyStateProps): JSX.Element {
   return (
     <Stack data-testid={testId} align="center" gap={6} py="4xl" px="lg" ta="center">
-      <Text lh={1} mb={6} style={{ color: 'var(--scrawl-icon-tertiary)' }} aria-hidden>
+      <Text lh={1} mb={6} style={{ color: 'var(--scrawl-icon-secondary)' }} aria-hidden>
         <Icon size={iconSize} />
       </Text>
-      <Title data-testid={`${testId}-title`} order={2} fz="md" fw={600}>
+      <Title data-testid={`${testId}-title`} order={2} fz="md" fw={600} c="var(--scrawl-text-secondary)">
         {title}
       </Title>
       {children !== undefined && (

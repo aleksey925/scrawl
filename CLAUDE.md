@@ -159,7 +159,10 @@ vendor/                dependencies, checked in, `make deps` regenerates
   a spreadsheet, and columns of their own width in Notion's proportions,
   the name about twice each of the others, with an empty one at the end
   taking the rest and the row lines running across it, so a date is not
-  a screen away from its name. On a narrow page the name gives way. Its
+  a screen away from its name. On a narrow page the name gives way. A
+  column's header is gray text of the regular weight with a filled icon,
+  as Notion heads one; 500 beside the system's own smoothing read bold, and an empty folder keeps the header with its empty
+  state under it, one plain New file button. Its
   `index.md` is a row
   like any other, in its place by name, with a "Folder page" tag, and no
   readme is shown under the list; Home in the sidebar opens the root
@@ -182,8 +185,12 @@ vendor/                dependencies, checked in, `make deps` regenerates
 - A theme is one file in `theme/themes/`, and nothing else names a
   color of one: adding a theme is a file and `make ui`. The file holds
   Notion's color roles, its nine block colors, three shadows, the
-  weight of bold and that of the sidebar's current row. The server, the command line and the frontend build
-  all read those files. The build turns every key into a `--scrawl-*`
+  weight of bold and that of the sidebar's current row, and how a Mac
+  smooths the letters: the light theme keeps the system's own, as
+  Notion's light page does, and the dark one draws them thinner, since
+  light letters on a dark page glow; mantine's antialiased everywhere
+  made the light page read thin beside Notion's. The server, the command
+  line and the frontend build all read those files. The build turns every key into a `--scrawl-*`
   custom property in one stylesheet, which the
   app bundles, a page of the command line inlines and the sign-in page
   links as `app/themes.css`; `render` builds a chroma style from the six
@@ -461,8 +468,8 @@ vendor/                dependencies, checked in, `make deps` regenerates
   case is not listed, so the refusal of a plain delete is what raises
   the question.
 - Nothing selected is shown as nothing. An empty note, an empty folder
-  and an empty preview each say what they are through `EmptyState`, with
-  the next step as a button, and an open folder with no notes says so in
+  and an empty preview each say what they are through `EmptyState`, a
+  gray title as Notion has it, with the next step as a button, and an open folder with no notes says so in
   the tree. A blank screen read as a page that failed to load. The tree
   row says "No notes inside" and not "Empty", because the tree lists only
   markdown and a folder of pictures is not empty.

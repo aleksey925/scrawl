@@ -336,7 +336,8 @@ test.describe.serial('file management', () => {
         const row = page.locator(`[data-testid=tree-row][data-path="${BLANK_FOLDER}"]`);
         await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-children"]').getByTestId('tree-empty')).toHaveText(text.dir.noNotes);
         await shot(page, 'files-empty-folder');
-        await expect(page.getByTestId('dir-empty-new-folder')).toBeVisible();
+        // an empty folder keeps its table's header, as Notion keeps a database's
+        await expect(page.getByTestId('dir-table').locator('th').first()).toBeVisible();
         await page.getByTestId('dir-empty-new-file').click();
         // the name is typed in the list the reader is looking at, not in the tree
         await expect(page.getByTestId('dir-draft-input')).toBeFocused();

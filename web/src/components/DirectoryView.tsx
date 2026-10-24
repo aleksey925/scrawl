@@ -117,7 +117,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
           {countOf(dir.entries.length, 'item')}
         </span>
       </div>
-      {(dir.entries.length > 0 || draft !== undefined) && (
+      {(dir.entries.length > 0 || draft !== undefined || !phone) && (
         <DirTable
           path={path}
           entries={dir.entries}
@@ -133,34 +133,22 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
         </button>
       )}
       {draft === undefined && dir.entries.length === 0 && (
-        <EmptyState
-          testId="dir-empty"
-          icon={IconFolderOpen}
-          title="This folder is empty"
-          actions={
-            writable && (
-              <>
-                <Button
-                  data-testid="dir-empty-new-file"
-                  leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-                  onClick={() => startDraft('file')}
-                >
+        <div className={classes.empty}>
+          <EmptyState
+            testId="dir-empty"
+            icon={IconFolderOpen}
+            title="This folder is empty"
+            actions={
+              writable && (
+                <Button data-testid="dir-empty-new-file" variant="default" onClick={() => startDraft('file')}>
                   New file
                 </Button>
-                <Button
-                  data-testid="dir-empty-new-folder"
-                  variant="default"
-                  leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-                  onClick={() => startDraft('dir')}
-                >
-                  New folder
-                </Button>
-              </>
-            )
-          }
-        >
-          {canWrite ? 'It holds no notes and no files yet.' : 'There are no files or folders in it.'}
-        </EmptyState>
+              )
+            }
+          >
+            {canWrite ? 'It holds no notes and no files yet.' : 'There are no files or folders in it.'}
+          </EmptyState>
+        </div>
       )}
     </Page>
   );

@@ -38,7 +38,7 @@ function validate(): void {
     if (keysOf(entry.blocks) !== [...blockNames].sort().join(' ')) {
       throw new Error(`theme ${entry.id}: the blocks are not ${blockNames.join(', ')}`);
     }
-    for (const key of ['strongWeight', 'currentWeight'] as const) {
+    for (const key of ['strongWeight', 'currentWeight', 'fontSmoothing'] as const) {
       if (typeof entry[key] !== 'string' || entry[key] === '') {
         throw new Error(`theme ${entry.id}: no ${key}`);
       }

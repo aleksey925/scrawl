@@ -16,8 +16,6 @@ import (
 	"github.com/aleksey925/scrawl/store"
 )
 
-// fakeFormatter stands in for prettier with a change a test can read back:
-// every list marker becomes a dash.
 type fakeFormatter struct {
 	err error
 }

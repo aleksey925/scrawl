@@ -17,9 +17,6 @@ import { plainShortcut } from './shortcuts';
 import classes from './Topbar.module.css';
 import { TopbarAction } from './TopbarAction';
 
-// DocumentExtras is what the app puts around a note: its actions in the
-// topbar, and the record of where the reader was, so the editor opens in the
-// same place
 export function DocumentExtras({ doc, placed }: DocumentExtrasProps): JSX.Element {
   return (
     <>
@@ -32,8 +29,6 @@ export function DocumentExtras({ doc, placed }: DocumentExtrasProps): JSX.Elemen
   );
 }
 
-// NoteActions are when the note last changed, the way into the editor, its
-// versions, and the rest in its menu
 function NoteActions({ doc }: { doc: DocumentExtrasProps['doc'] }): JSX.Element {
   const { canWrite, me } = useNav();
   const wide = useAtLeast(layoutBreakpoints.compactTopbar);
@@ -47,8 +42,6 @@ function NoteActions({ doc }: { doc: DocumentExtrasProps['doc'] }): JSX.Element 
         </Text>
       )}
       {canWrite && <EditAction testId="doc-edit" to={doc.edit_url} />}
-      {/* reading the versions is a read, so it stays where writing does not;
-          a space that records no versions has none to show */}
       {wide && me?.history_on === true && (
         <TopbarAction testId="doc-history" label="History" icon={IconHistory} to={historyUrl(doc.path)} />
       )}
@@ -57,7 +50,6 @@ function NoteActions({ doc }: { doc: DocumentExtrasProps['doc'] }): JSX.Element 
   );
 }
 
-// useEditShortcut opens the editor on a plain E, where the note can be written
 function useEditShortcut(editUrl: string | undefined): void {
   const navigate = useNavigate();
 

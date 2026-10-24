@@ -29,8 +29,6 @@ export class ApiError extends Error {
   }
 }
 
-// a 409 that names a url is the server handing the path over to another view,
-// not a failure: the caller goes there
 export interface Handoff {
   kind: HandoffKind;
   url: string;

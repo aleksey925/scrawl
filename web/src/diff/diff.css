@@ -1,12 +1,3 @@
-/* A rendered diff in one of two layouts, named by `data-layout`. Split puts
-   the version before on the left and the one after on the right, a row a pair
-   of blocks, and stacks them below the width two columns need. Unified is the
-   note in one column, as it reads now, and every block that changed tagged
-   with what happened to it, the tag in a gutter at the left on a wide screen
-   and over the block on a narrow one. The app and the page `scrawl diff`
-   writes both load this file, so the markup is the same in both and this is
-   its only stylesheet. */
-
 .diff {
   container-type: inline-size;
   min-width: 0;
@@ -50,8 +41,6 @@
   color: var(--scrawl-color-gray);
 }
 
-/* split */
-
 .diff[data-layout='split'] {
   overflow: hidden;
   border: 1px solid var(--scrawl-border-light);
@@ -90,8 +79,6 @@
   padding: 8px 16px;
 }
 
-/* one column: a block nothing changed in is shown once, and a missing side
-   not at all */
 .diff[data-layout='split'] .diff-row:is([data-kind='same'], [data-kind='format']) > .diff-old,
 .diff-empty {
   display: none;
@@ -129,7 +116,6 @@
   right: 8px;
 }
 
-/* room for the tag, which otherwise sits over the end of a short first line */
 .diff[data-layout='split'] .diff-row[data-kind='format'] > .diff-new {
   padding-right: 72px;
 }
@@ -187,8 +173,6 @@
   border-bottom: 1px solid var(--scrawl-border-light);
 }
 
-/* unified */
-
 .diff-labels {
   margin: 0 0 16px;
   color: var(--scrawl-text-tertiary);
@@ -204,8 +188,6 @@
   margin: 8px 0 2px;
 }
 
-/* a block written anew is outlined, and one that only changed its markup sits
-   on a faint ground, so the eye finds both without reading them */
 .diff[data-layout='unified'] .diff-row:is([data-kind='added'], [data-kind='format']) > .diff-cell {
   padding: 2px 8px;
   border-radius: 6px;
@@ -219,14 +201,12 @@
   background: var(--scrawl-code-bg);
 }
 
-/* a removed block reads struck through, a step back from the text */
 .diff[data-layout='unified'] .diff-row[data-kind='removed'] > .diff-cell {
   color: var(--scrawl-text-secondary);
   text-decoration: line-through;
   text-decoration-color: var(--scrawl-color-red);
 }
 
-/* a changed block too long to join shows both sides, the old one above */
 .diff[data-layout='unified'] .diff-row[data-kind='changed'] > .diff-cell + .diff-cell {
   margin-top: 6px;
   padding-top: 6px;
@@ -251,7 +231,6 @@
 }
 
 @container (min-width: 560px) {
-  /* the gutter is the column's own: a row in an open fold takes it from the fold */
   .diff[data-layout='unified'] > :is(.diff-row, .diff-fold, .diff-none) {
     margin-inline-start: 96px;
   }
@@ -268,9 +247,6 @@
   }
 }
 
-/* both */
-
-/* a reader sees the marks, not the strike of a note's own <del> */
 .diff del.diff-del {
   border-radius: 3px;
   background: var(--scrawl-diff-delete-word);
@@ -286,7 +262,6 @@
   text-decoration: none;
 }
 
-/* a link or a picture that only changed where it points */
 .diff :is(a, img).diff-del {
   outline: 2px solid var(--scrawl-color-red);
   outline-offset: 1px;

@@ -10,12 +10,8 @@ import { foldRows, isChange } from './fold';
 import '../reader/markdown.css';
 import './diff.css';
 
-// DiffLayout is how the rows are laid out: the two versions side by side, or
-// the note once with the changes marked in it. page.Layout names the same two.
 export type DiffLayout = 'split' | 'unified';
 
-// the word beside a block that says what happened to it; page/page.go writes
-// the same words in tagOf
 const tags: Record<DiffKind, string | undefined> = {
   same: undefined,
   format: 'Format',
@@ -24,8 +20,6 @@ const tags: Record<DiffKind, string | undefined> = {
   removed: 'Removed',
 };
 
-// shownOf is what a row shows in the unified layout, the way page/page.go's
-// shownOf does: a removed block as it was, a changed one inline or both sides
 function shownOf(row: DiffRow): DiffSide[] {
   const sides =
     row.kind === 'removed'
@@ -38,8 +32,6 @@ function shownOf(row: DiffRow): DiffSide[] {
   return sides.filter((shown): shown is DiffSide => shown !== undefined);
 }
 
-// Html is a side as the server sent it: rendered and sanitized by the policy in
-// render/policy.go, and htmldiff only added its own marks to it
 function Html({ side, className }: { side: DiffSide; className: string }): JSX.Element {
   return <div className={`${className} markdown-document`} dangerouslySetInnerHTML={{ __html: side.html }} />;
 }
@@ -82,16 +74,11 @@ export interface RenderedDiffProps {
   layout: DiffLayout;
   oldLabel: string;
   newLabel: string;
-  // names what is compared, so formulas and diagrams are typeset again when it
-  // changes and not on every render
   version: string;
 }
 
-// RenderedDiff shows what changed in a note as a reader sees it, changed words
-// marked and unchanged stretches folded away
 export function RenderedDiff({ rows, layout, oldLabel, newLabel, version }: RenderedDiffProps): JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null);
-  // the other layout draws every row anew, its formulas and diagrams untypeset
   const drawn = `${version}:${layout}`;
   useKatex(rootRef, drawn);
   useMermaid(rootRef, drawn);

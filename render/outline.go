@@ -7,21 +7,12 @@ import (
 	"github.com/yuin/goldmark/ast"
 )
 
-// tocMaxLevel is the deepest heading the outline collects: h5 and h6 would
-// only add noise to the rail. Which of the collected levels reach the reader
-// is OutlineOf's call.
 const tocMaxLevel = 4
 
-// outlineLevels are the heading levels an outline beside the note lists.
-// The h1 is the title of a note, and a long note has more than a hundred
-// headings, which is unusable flat.
 var outlineLevels = []int{2, 3}
 
-// MinOutline is how many listed headings a note needs before an outline earns
-// the space it takes.
 const MinOutline = 3
 
-// OutlineOf keeps the headings of a table of contents an outline lists.
 func OutlineOf(toc []Heading) []Heading {
 	res := make([]Heading, 0, len(toc))
 	for _, item := range toc {
@@ -32,8 +23,6 @@ func OutlineOf(toc []Heading) []Heading {
 	return res
 }
 
-// outline walks the document once and returns the title, which is the first
-// level-1 heading, and every heading down to tocMaxLevel.
 func outline(doc ast.Node, source []byte) (title string, toc []Heading) {
 	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
@@ -66,9 +55,6 @@ func headingID(h *ast.Heading) string {
 	return ""
 }
 
-// headingText is the plain text of a heading: inline markup unwrapped and raw
-// HTML dropped, so a heading that holds a tag still reads correctly in the
-// sidebar.
 func headingText(n ast.Node, source []byte) string {
 	var b strings.Builder
 	_ = ast.Walk(n, func(c ast.Node, entering bool) (ast.WalkStatus, error) {

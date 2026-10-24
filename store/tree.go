@@ -5,20 +5,11 @@ import (
 	"time"
 )
 
-// Node is one entry of the notes tree. Children is empty for files
-// and for empty directories.
 type Node struct {
 	FileInfo
 	Children []*Node
 }
 
-// Tree returns the whole visible tree, rooted at a node with an empty path.
-// The result is a private copy of the cache, so the caller may keep it and
-// walk it, but nothing it does can reach the cached snapshot.
-//
-// The cache is dropped by every mutation and by the watcher. It is also
-// rebuilt once it is older than Config.TreeTTL, because the watcher cannot be
-// trusted on a bind mount or a network share.
 func (s *Store) Tree() (*Node, error) {
 	s.treeMu.Lock()
 	defer s.treeMu.Unlock()
@@ -33,7 +24,6 @@ func (s *Store) Tree() (*Node, error) {
 	return s.tree.clone(), nil
 }
 
-// invalidate marks the cached tree stale.
 func (s *Store) invalidate() {
 	s.treeMu.Lock()
 	s.treeDirty = true
@@ -60,7 +50,7 @@ func (s *Store) buildTree(cleaned string) (*Node, error) {
 		sub, subErr := s.buildTree(ent.Path)
 		if subErr != nil {
 			if errors.Is(subErr, ErrNotFound) {
-				continue // removed while we were walking
+				continue
 			}
 			return nil, subErr
 		}
@@ -69,12 +59,6 @@ func (s *Store) buildTree(cleaned string) (*Node, error) {
 	return node, nil
 }
 
-// InNavTree reports whether a node belongs in the navigation tree. Every
-// directory is kept, empty ones included: the tree is where a folder is created,
-// renamed and deleted, and one that only appears once it holds a document
-// cannot be any of those things. Files stay markdown only, because an
-// attachment belongs to the page beside it rather than to the navigation, and
-// keeps its own way in through the directory page and /raw/.
 func (n *Node) InNavTree() bool {
 	return n.IsDir || isMarkdown(n.Path)
 }

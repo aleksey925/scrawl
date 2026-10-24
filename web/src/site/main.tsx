@@ -1,6 +1,5 @@
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
-// after mantine's own sheet, whose defaults it replaces at equal specificity
 import 'virtual:theme-stylesheet.css';
 import '../global.css';
 import './site.css';
@@ -51,8 +50,6 @@ const status = siteStatus(site.title);
 const extensions: ReaderExtensions = { DocumentExtras: HistoryPlacement };
 const chrome: ReaderChrome = { sidebarFoot: <SiteMenu />, phoneMenu: <SiteMenu dots /> };
 
-// the copy kept for a reader without javascript goes before the app draws the
-// same note: its headings carry the same ids
 document.querySelector('[data-scrawl-static]')?.remove();
 
 createRoot(mountNode()).render(

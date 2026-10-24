@@ -9,10 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAppShell checks the contract web/README.md names: one mount node, and the
-// theme and its scheme resolved server side so the app does not paint the
-// wrong theme before react mounts. Auto is the one case the server cannot answer, because a
-// request does not carry the system preference.
 func TestAppShell(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
@@ -57,10 +53,6 @@ func TestAppShell(t *testing.T) {
 	}
 }
 
-// TestAppShellStatus checks the one thing the shell cannot leave to the client
-// router. A link to a note that is not there has to answer 404, because the
-// status is all a crawler or a link checker reads, and neither runs javascript.
-// Everything else is the router's own business and goes out as 200.
 func TestAppShellStatus(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
@@ -91,9 +83,6 @@ func TestAppShellStatus(t *testing.T) {
 	}
 }
 
-// TestAppShellLoadsTheBuiltBundle keeps the shell pointed at what `make ui`
-// produced, under the address of the bundle's version, and nothing in the
-// document may be an inline script.
 func TestAppShellLoadsTheBuiltBundle(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})

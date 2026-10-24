@@ -1,6 +1,3 @@
-// one place for the ports, paths, urls and credentials the suite and the
-// launcher share
-
 const os = require('os');
 const path = require('path');
 
@@ -8,9 +5,6 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 
 const fixture = path.join(repoRoot, 'examples', 'data');
 
-// every playwright worker drives servers and trees of its own, so two of them
-// never rename files under each other. A worker that replaces a crashed one
-// takes over its index, and with it the ports and the directory.
 const slot = Number(process.env.TEST_PARALLEL_INDEX || 0);
 const PORT_STEP = 10;
 const workDir = path.join(process.env.SCRAWL_E2E_WORK || path.join(os.tmpdir(), 'scrawl-e2e'), `worker-${slot}`);
@@ -19,22 +13,12 @@ function port(variable, fallback) {
     return Number(process.env[variable] || fallback) + slot * PORT_STEP;
 }
 
-// defaultSpace is the space name every single-space instance is started
-// with. There is no default in the binary, so this is also what the launcher
-// passes as --space.name.
 const defaultSpace = 'notes';
 
-// encodePath escapes a content path segment by segment, the way the app builds
-// its own links: a whole path run through encodeURIComponent would escape the
-// separators too
 function encodePath(contentPath) {
     return contentPath.split('/').map(encodeURIComponent).join('/');
 }
 
-// the two halves of the server's urls. A space owns one contiguous
-// subtree and everything it serves is built from space(); the handful of
-// routes that read no store answer at the root and are built from global().
-// Nothing in the suite writes a url by hand.
 function routesFor(space) {
     const base = `/s/${space}`;
     const inSpace = (suffix) => base + suffix;
@@ -49,13 +33,8 @@ function routesFor(space) {
         recent: () => inSpace('/recent'),
         raw: (contentPath) => inSpace(`/raw/${encodePath(contentPath)}`),
         api: (suffix) => inSpace(`/api${suffix}`),
-        // the webhook, which is a space route and outside /api on purpose
         hook: () => inSpace('/hook'),
-        // the href the renderer writes into note html for a link to another
-        // note. It is fetched by the browser directly, so it carries the
-        // space prefix; the app recognises it and routes the click itself.
         contentHref: (contentPath) => inSpace(`/doc/${encodePath(contentPath)}`),
-        // global routes: they read no store, so they are outside every space
         login: () => '/login',
         logout: () => '/logout',
         spaces: () => '/api/spaces',
@@ -65,9 +44,6 @@ function routesFor(space) {
 
 const routes = routesFor(defaultSpace);
 
-// historyMode is passed as --history, never left to the default: on a machine
-// without git "auto" turns itself off, and a spec about versions would then
-// fail for a reason nothing on the page mentions
 const instances = {
     main: {
         port: port('SCRAWL_E2E_PORT', 8731),
@@ -79,15 +55,12 @@ const instances = {
         port: port('SCRAWL_E2E_PORT_RO', 8732),
         root: path.join(workDir, 'notes-readonly'),
         readOnly: true,
-        // reading the versions is a read, so read-only mode keeps the page and
-        // owes the reader no Restore button on it
         historyMode: 'on',
     },
     shared: {
         port: port('SCRAWL_E2E_PORT_SHARED', 8733),
         root: path.join(workDir, 'notes-shared'),
         uploadDir: 'attachments',
-        // the one instance that leaves a save as it was written
         formatOnSave: false,
         historyMode: 'off',
     },
@@ -96,10 +69,6 @@ const instances = {
         root: path.join(workDir, 'notes-history'),
         historyMode: 'on',
     },
-    // the only instance started from a spaces file. It carries a second local
-    // space over a root of its own and a third that is a clone of a bare
-    // repository the launcher seeds, so the remote mode is driven end to end
-    // and the suite still needs no network.
     multi: {
         port: port('SCRAWL_E2E_PORT_MULTI', 8735),
         root: path.join(workDir, 'notes-multi'),
@@ -119,9 +88,6 @@ const instances = {
                 seed: {'remote.md': '# Remote page\n\npushed from the origin.\n'},
                 pull: '2s',
             },
-            // a fourth space whose only refresh trigger is the webhook. pull
-            // is off, so a note that appears here appeared because a delivery
-            // arrived and for no other reason.
             {
                 name: 'hooked',
                 label: 'Hooked wiki',
@@ -129,7 +95,6 @@ const instances = {
                 origin: path.join(workDir, 'hooked.git'),
                 seed: {'hooked.md': '# Hooked page\n\nrefreshed by deliveries only.\n'},
                 pull: '0',
-                // 32 bytes, which is the minimum the binary enforces
                 hookSecret: 'e2e-webhook-secret-0123456789abc',
             },
         ],
@@ -144,12 +109,8 @@ for (const [name, inst] of Object.entries(instances)) {
     inst.secretFile = path.join(workDir, `${name}-session.key`);
     inst.routes = routesFor(inst.space);
     inst.configFile = path.join(workDir, `${name}.yml`);
-    // absolute counterparts of the routes above, for a spec that drives an
-    // instance other than the one playwright's baseURL points at
     inst.url = Object.fromEntries(
         Object.entries(inst.routes).map(([key, build]) => [key, (...args) => inst.baseURL + build(...args)]));
-    // the same builders for each of the extra spaces, keyed by name, so a
-    // spec about two spaces never writes one of their urls by hand
     inst.spaces = {[inst.space]: inst.url};
     for (const extra of inst.extra || []) {
         const build = routesFor(extra.name);
@@ -167,13 +128,10 @@ module.exports = {
     instances,
     routes,
     encodePath,
-    // overridable, because dist/ is one directory: a second checkout user - a
-    // container beside the host - building there swaps the binary under a run
     binary: process.env.SCRAWL_E2E_BINARY || path.join(repoRoot, 'dist', 'scrawl'),
     fixture,
     user: 'e2e',
     password: 'e2e-secret-pass',
-    // bcrypt hash of the password above, so a run does not pay for scrawl hash
     passwordHash: '$2a$10$2BAF2jSxMt9RHQ5LRTYvheiBey0jVUZPlp2qaEwp9XxecPk6IZSi.',
     shotsDir: process.env.SCRAWL_E2E_SHOTS || path.join(repoRoot, 'e2e', 'screenshots'),
 };

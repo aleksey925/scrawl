@@ -21,10 +21,6 @@ export function showToast(kind: ToastKind, options: ToastOptions): void {
   });
 }
 
-// showMutation reports a change that reached the disk. The success message is
-// the usual one, unless the body says the change did not get where it was
-// supposed to: a change that never left the container is loud, on every
-// mutation and not only on the save.
 export function showMutation(state: MutationState | undefined, message: string): void {
   if (state?.unpublished === true) {
     showToast('warn', { title: 'Not pushed to the remote', message: `${message}, but only here.` });

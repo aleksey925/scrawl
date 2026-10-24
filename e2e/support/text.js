@@ -1,19 +1,12 @@
-// every string of the interface a spec asserts on, in one place, so a wording
-// change is one edit here instead of a hunt through the specs
-
 module.exports = {
-    // the editor status line, which carries the same word as data-state
     status: {
         saved: 'Saved',
         dirty: 'Unsaved changes',
-        // a note created in this session keeps saying "New note": the editor is
-        // told it is new when the route loads and never asked again
         new: 'New note',
         saving: 'Saving',
         uploading: 'Waiting for the upload',
     },
 
-    // modal titles, which is what names the dialog a spec opened
     modal: {
         rename: 'Rename or move',
         deleteFile: 'Delete file?',
@@ -39,8 +32,6 @@ module.exports = {
         linkCopied: 'Link copied',
     },
 
-    // what a refused creation says, on the toast the draft row raises: the row
-    // itself keeps the typed name, so the message only has to name the reason
     pageExists: 'That file already exists',
     folderExists: 'That folder already exists',
 
@@ -60,8 +51,6 @@ module.exports = {
     search: {
         empty: 'No notes match that.',
         prompt: 'Type a query to search every note.',
-        // the count reads "3 results in 1 ms", so a spec asserts the number
-        // through data-total and only the unit here
         results: 'results',
         regexHint: 'Regular expression over the text as shown, line by line',
     },
@@ -89,8 +78,6 @@ module.exports = {
 
     login: {
         title: 'Sign in',
-        // the server's form is the one login screen there is, and it titles
-        // its message
         wrong: 'Wrong user name or password',
     },
 

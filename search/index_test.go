@@ -406,8 +406,6 @@ func BenchmarkSet(b *testing.B) {
 	}
 }
 
-// filler pads a fixture so two documents compared by ranking have the same
-// length and differ only in where the query terms sit.
 const filler = "остальной текст заметки нужен только чтобы документы были одинаковой длины " +
 	"и отличались лишь местом совпадения внутри текста документа заметки"
 

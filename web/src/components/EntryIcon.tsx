@@ -12,8 +12,6 @@ export interface EntryIconProps {
   className?: string;
 }
 
-// EntryIcon draws an entry the way Notion draws a page: a note with lines in
-// it, a picture as a picture, a folder as one, anything else as a plain sheet
 export function EntryIcon({ name, isDir = false, size, className }: EntryIconProps): JSX.Element {
   const Icon = isDir ? IconFolder : isMarkdown(name) ? IconFileText : pictureExtension.test(name) ? IconPhoto : IconFile;
   return <Icon size={size} aria-hidden className={className} />;

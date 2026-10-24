@@ -1,5 +1,3 @@
-// ChangeSignal is the half of an external store useSyncExternalStore listens
-// to: who to tell, and telling them
 export interface ChangeSignal {
   subscribe: (listener: () => void) => () => void;
   notify: () => void;

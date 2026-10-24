@@ -15,7 +15,6 @@ import { layout } from '../theme';
 
 import classes from './RecentPage.module.css';
 
-// the notes opened last on this device, newest first: the phone's Recent tab
 export function Component(): JSX.Element {
   const { notes, clear } = useRecentNotes();
   usePageChrome({ crumbs: [], title: 'Recent', ownTitle: true });

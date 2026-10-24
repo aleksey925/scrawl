@@ -13,7 +13,6 @@ export interface PreviewPaneProps {
   busy: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   alone: boolean;
-  // the source has no text, which an html still on its way cannot say
   empty: boolean;
 }
 

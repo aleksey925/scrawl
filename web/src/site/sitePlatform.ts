@@ -10,9 +10,6 @@ import { loadKatex, loadMermaid } from './loaders';
 import type { PageStore } from './pages';
 import { staticSource } from './staticSource';
 
-// a site is the app's reader with no server behind it: the answers come with
-// the pages, a link is a file of the site, and the renderers are files beside
-// the script
 export function sitePlatform(root: URL, store: PageStore, site: SiteData): Platform {
   return {
     source: staticSource(store, site),
@@ -23,13 +20,10 @@ export function sitePlatform(root: URL, store: PageStore, site: SiteData): Platf
     storageScope: root.pathname,
     search: false,
     editing: false,
-    // a page opened from disk can start no worker, so the find runs here
     runFind: async (texts, pattern) => findMatches(texts, pattern),
     boundedFind: false,
   };
 }
-// siteStatus is what a site is as a space: one nobody signs in to, writes to,
-// keeps the versions of or syncs
 export function siteStatus(title: string): MeState {
   const me: MeResponse = {
     user: '',

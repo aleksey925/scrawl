@@ -19,8 +19,6 @@ export function useShellSlots(): ShellSlots {
   return slots;
 }
 
-// the slots are reached through refs the shell owns, never by element id: a
-// note heading slugged "toc" would otherwise answer a lookup meant for chrome
 export function PageActions({ children }: { children: ReactNode }): JSX.Element | null {
   const { actionsSlot } = useShellSlots();
   return actionsSlot === null ? null : createPortal(children, actionsSlot);

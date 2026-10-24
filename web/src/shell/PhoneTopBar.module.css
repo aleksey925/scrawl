@@ -1,5 +1,3 @@
-/* the bar on top of a phone: back at the left, the title in the middle once
-   the page's own has gone, the page's menu at the right */
 .bar {
   display: flex;
   align-items: center;
@@ -42,8 +40,6 @@
   transition: var(--scrawl-press-in);
 }
 
-/* the root has no way up: the app's logo and the space's name stand there, on
-   the line the back link's chevron starts on */
 .home {
   display: inline-flex;
   align-items: center;
@@ -106,7 +102,6 @@
   }
 }
 
-/* the editor's bar: Cancel at the start, Save at the end */
 .editActions {
   display: flex;
   flex: 1 1 auto;

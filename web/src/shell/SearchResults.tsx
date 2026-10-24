@@ -8,7 +8,6 @@ import { layout } from '../theme';
 import classes from './Search.module.css';
 import { SyncBadge } from './SyncBadge';
 
-// hintOf says what the field matches the way the settings stand
 export function hintOf(settings: SearchSettings): string {
   if (settings.regex) {
     return 'Regular expression over the text as shown, line by line';
@@ -16,17 +15,13 @@ export function hintOf(settings: SearchSettings): string {
   return settings.mode === 'exact' ? 'The text exactly as typed' : 'Words in any order, one typo per word is fine';
 }
 
-// linesShown is how many matching lines a note shows before "N more lines"
 const linesShown = 3;
 
-// SearchTarget is one row a search can open: a note's head, or one of its lines
 export interface SearchTarget {
   key: string;
   url: string;
 }
 
-// targetsOf is every row of the results in the order they are on screen,
-// which is what the arrows walk
 export function targetsOf(hits: readonly SearchHit[], expanded: ReadonlySet<string>): SearchTarget[] {
   return hits.flatMap((row) => [
     { key: row.path, url: row.url },
@@ -54,18 +49,12 @@ function Spans({ spans }: { spans: readonly SearchSpan[] }): JSX.Element {
 
 export interface SearchResultsProps {
   hits: readonly SearchHit[];
-  // active is the key of the row the arrows are on
   active?: string;
-  // expanded are the notes showing every line the answer carried
   expanded: ReadonlySet<string>;
   onExpand: (path: string) => void;
-  // onOpen is called as a row is followed, before the router moves
   onOpen?: () => void;
 }
 
-// SearchResults is the notes a search found, each with its matching lines: the
-// line number and the line as a reader sees it, the matches marked. The urls
-// are the server's, and the client only follows them.
 export function SearchResults({ hits, active, expanded, onExpand, onOpen }: SearchResultsProps): JSX.Element {
   return (
     <div data-testid="search-results">

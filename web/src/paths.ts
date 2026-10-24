@@ -1,7 +1,5 @@
 import { mountBase } from './mount';
 
-// the table store/upload.go uses for attachment names, letter for letter: a
-// page and the image beside it must not romanize the same word two ways
 const translit: Record<string, string> = {
   а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh',
   з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o',
@@ -21,8 +19,6 @@ export function slugify(title: string): string {
     .replace(/^-|-$/g, '');
 }
 
-// a name may carry nesting of its own, which is how a page reaches a folder
-// that does not exist yet: the store creates the missing parents
 export function slugPath(name: string): string {
   return name
     .split('/')
@@ -39,9 +35,6 @@ export function isMarkdown(path: string): boolean {
   return path.toLowerCase().endsWith('.md');
 }
 
-// Everything below is router-relative: React Router prepends the space's
-// basename itself, so none of these may carry the mount prefix. rawUrl is the
-// exception and says so in its own comment.
 export function documentUrl(path: string): string {
   return `/doc/${encodeContentPath(path)}`;
 }
@@ -50,8 +43,6 @@ export function directoryUrl(path: string): string {
   return path === '' ? '/' : `/doc/${encodeContentPath(path)}/`;
 }
 
-// rawUrl is physical: /raw/ is a server route the browser fetches directly, so
-// it is the one url the client mounts itself.
 export function rawUrl(path: string): string {
   return `${mountBase()}/raw/${encodeContentPath(path)}`;
 }

@@ -1,8 +1,5 @@
 import { createContext, useContext } from 'react';
 
-// FindControl opens the find bar of the note on screen from outside the note,
-// the way the note's menu does on a phone. The note registers how to open its
-// bar while it is mounted.
 export interface FindControl {
   open: (() => void) | undefined;
   register: (open: (() => void) | undefined) => void;

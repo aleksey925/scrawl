@@ -15,31 +15,19 @@ const (
 	bm25K1 = 1.2
 	bm25B  = 0.75
 
-	// anything past this is not a query a person typed, and the intersection
-	// cost grows with every extra term
 	maxQueryTerms = 16
 
-	// bonuses on top of the field score: terms standing close to each other
-	// and matches near the top of the document both read as more relevant
 	proximityWeight = 0.6
 	proximityScale  = 60
 	earlinessWeight = 0.25
 	earlinessScale  = 400
 
-	// the last term of a search-as-you-type query is still being typed, so it
-	// matches by prefix; a document that only holds an expansion of it, and
-	// not the term as typed, scores lower
-	prefixWeight = 0.5
-	// a one letter prefix must not pull the whole vocabulary into one query
+	prefixWeight   = 0.5
 	maxPrefixTerms = 50
 
-	// rough cost of one posting entry plus its slot in the term map, used by
-	// Size to report how much the index holds
 	postingBytes = 48
 )
 
-// Hit is one search result. Snippet is ready to be inserted into a page: the
-// document text is escaped and only the matched terms carry markup.
 type Hit struct {
 	Path    string
 	Title   string
@@ -48,15 +36,12 @@ type Hit struct {
 	Line    int
 }
 
-// posting is what one document contributes for one term.
 type posting struct {
 	doc    uint32
 	counts [numFields]uint32
 	offs   []int32
 }
 
-// document keeps the stripped text of one file. It is the only copy of the
-// text the index holds, and snippets are cut straight out of it.
 type document struct {
 	id     uint32
 	path   string
@@ -69,7 +54,6 @@ type document struct {
 	mem    int64
 }
 
-// Index is a full-text index over markdown documents, safe for concurrent use.
 type Index struct {
 	mu         sync.RWMutex
 	docs       map[uint32]*document
@@ -82,9 +66,6 @@ type Index struct {
 	size       int64
 }
 
-// slot holds the postings of one query term. A prefix term merges the lists of
-// every term it expanded to, and exact says which of those documents carry the
-// term exactly as typed.
 type slot struct {
 	list  []posting
 	exact []bool
@@ -97,7 +78,6 @@ func (s slot) boost(i int) float64 {
 	return prefixWeight
 }
 
-// New returns an empty index.
 func New() *Index {
 	return &Index{
 		docs:     make(map[uint32]*document),
@@ -106,9 +86,8 @@ func New() *Index {
 	}
 }
 
-// Set indexes a document, replacing the one stored under the same path.
 func (ix *Index) Set(path string, content []byte) {
-	res := analyze(path, content) // the expensive half, deliberately outside the lock
+	res := analyze(path, content)
 
 	ix.mu.Lock()
 	defer ix.mu.Unlock()
@@ -116,38 +95,28 @@ func (ix *Index) Set(path string, content []byte) {
 	ix.add(path, res)
 }
 
-// Delete drops a document, ignoring paths that were never indexed.
 func (ix *Index) Delete(path string) {
 	ix.mu.Lock()
 	defer ix.mu.Unlock()
 	ix.remove(path)
 }
 
-// Len returns the number of indexed documents.
 func (ix *Index) Len() int {
 	ix.mu.RLock()
 	defer ix.mu.RUnlock()
 	return len(ix.docs)
 }
 
-// Size returns how many bytes the index holds, for logging. Postings are an
-// estimate, the document text is exact.
 func (ix *Index) Size() int64 {
 	ix.mu.RLock()
 	defer ix.mu.RUnlock()
 	return ix.size
 }
 
-// Search returns at most limit hits, best first. Every term of the query has
-// to be present in a document, and a quoted group has to appear as a phrase.
 func (ix *Index) Search(query string, limit int) []Hit {
 	return ix.find(query, limit, false)
 }
 
-// SearchPrefix is Search with the last term of the query treated as a prefix,
-// for a palette that searches while the reader is still typing. The term is
-// taken literally when the query ends in anything but a word character, and a
-// quoted term is never expanded.
 func (ix *Index) SearchPrefix(query string, limit int) []Hit {
 	ix.ensureVocab()
 	return ix.find(query, limit, true)
@@ -187,9 +156,6 @@ func (ix *Index) slotFor(term queryTerm) (slot, bool) {
 	return res, len(res.list) > 0
 }
 
-// prefixMatches returns the indexed terms starting with p, alphabetically. The
-// term as typed sorts before everything it is a prefix of, so the cap can only
-// ever drop expansions, never the exact match.
 func (ix *Index) prefixMatches(p string) []string {
 	i, _ := slices.BinarySearch(ix.vocab, p)
 	res := make([]string, 0, 8)
@@ -202,8 +168,6 @@ func (ix *Index) prefixMatches(p string) []string {
 	return res
 }
 
-// mergeTerms folds the posting lists of an expanded prefix into one list
-// ordered by document, summing the per-field counts and merging the offsets.
 func (ix *Index) mergeTerms(exact string, terms []string) slot {
 	lists := make([][]posting, 0, len(terms))
 	exactAt := -1
@@ -247,7 +211,6 @@ func (ix *Index) mergeTerms(exact string, terms []string) slot {
 	}
 }
 
-// minDoc returns the smallest document id still ahead in any of the lists.
 func minDoc(lists [][]posting, at []int) (uint32, bool) {
 	res, found := uint32(0), false
 	for k := range lists {
@@ -261,10 +224,6 @@ func minDoc(lists [][]posting, at []int) (uint32, bool) {
 	return res, found
 }
 
-// ensureVocab rebuilds the sorted term list a prefix search binary searches.
-// It is a cache: a search running while another goroutine indexes may see the
-// previous list, and every term it yields is looked up in the postings again,
-// so a stale entry costs one expansion, never a wrong hit.
 func (ix *Index) ensureVocab() {
 	ix.mu.RLock()
 	stale := ix.vocabStale
@@ -309,7 +268,6 @@ func (ix *Index) add(path string, res analyzed) {
 		doc.mem += int64(len(term)+postingBytes) + int64(len(p.offs))*4
 		list, known := ix.postings[term]
 		ix.vocabStale = ix.vocabStale || !known
-		// ids only ever grow, so appending keeps the list sorted by document
 		ix.postings[term] = append(list, *p)
 	}
 
@@ -345,15 +303,11 @@ func (ix *Index) remove(path string) {
 	ix.size -= doc.mem
 }
 
-// scored is a candidate document with its final score.
 type scored struct {
 	doc   *document
 	score float64
 }
 
-// top scores every document that holds all the query terms and keeps the best
-// limit of them that also hold the quoted phrases, in the title alone when
-// titlesOnly is set
 func (ix *Index) top(q parsedQuery, slots []slot, limit int, titlesOnly bool) []topDoc {
 	n := float64(len(ix.docs))
 	avg := math.Max(float64(ix.length)/n, 1)
@@ -379,9 +333,6 @@ func (ix *Index) top(q parsedQuery, slots []slot, limit int, titlesOnly bool) []
 		return strings.Compare(a.doc.path, b.doc.path)
 	})
 
-	// phrases are checked on the way down the sorted list, not while scoring:
-	// the check walks the document text and only the hits actually returned
-	// have to pay for it
 	top := make([]topDoc, 0, min(limit, len(res)))
 	for _, cand := range res {
 		if len(top) == limit {
@@ -399,8 +350,6 @@ func (ix *Index) top(q parsedQuery, slots []slot, limit int, titlesOnly bool) []
 	return top
 }
 
-// topDoc is a document that made the cut, with the posting each query term
-// found in it
 type topDoc struct {
 	scored
 	match []*posting
@@ -418,8 +367,6 @@ func (ix *Index) rank(q parsedQuery, slots []slot, limit int) []Hit {
 	return hits
 }
 
-// score is BM25 saturation per field, weighted by field, plus the proximity
-// and earliness bonuses.
 func score(doc *document, idf []float64, match []*posting, boost []float64, avg float64) float64 {
 	lenNorm := 1 - bm25B + bm25B*float64(doc.length)/avg
 
@@ -438,8 +385,6 @@ func score(doc *document, idf []float64, match []*posting, boost []float64, avg 
 	return base * (1 + proximity(match)) * (1 + earliness(match))
 }
 
-// proximity rewards terms standing close to each other. It walks the offset
-// lists in step to find the smallest window that covers every term.
 func proximity(match []*posting) float64 {
 	lists := make([][]int32, 0, len(match))
 	for _, p := range match {
@@ -471,7 +416,6 @@ func proximity(match []*posting) float64 {
 	return proximityWeight / (1 + float64(best)/proximityScale)
 }
 
-// earliness rewards a match near the top of the document.
 func earliness(match []*posting) float64 {
 	first := int32(math.MaxInt32)
 	for _, p := range match {
@@ -504,8 +448,6 @@ func shortest(slots []slot) int {
 	return res
 }
 
-// collect fills match and boost for one document and reports whether every
-// query term is present in it.
 func collect(slots []slot, id uint32, match []*posting, boost []float64) bool {
 	for k := range slots {
 		i, ok := findPosting(slots[k].list, id)
@@ -523,16 +465,12 @@ func findPosting(list []posting, id uint32) (int, bool) {
 	})
 }
 
-// queryTerm is one term of a query. A prefix term matches every indexed term
-// starting with it, a typo term the indexed terms one edit away from it.
 type queryTerm struct {
 	text   string
 	prefix bool
 	typo   bool
 }
 
-// parsedQuery is a query split into the terms that must all be present and the
-// quoted groups that must appear as phrases.
 type parsedQuery struct {
 	terms   []queryTerm
 	index   map[string]int
@@ -565,8 +503,6 @@ func parseQuery(query string, prefix bool) parsedQuery {
 	return res
 }
 
-// endsWithWord reports whether the query stops in the middle of a word, which
-// is what tells a term still being typed from one the reader finished.
 func endsWithWord(query string) bool {
 	r, _ := utf8.DecodeLastRuneInString(query)
 	return wordRune(r)
@@ -588,7 +524,6 @@ func matchesPhrases(plain string, q parsedQuery, match []*posting) bool {
 	return true
 }
 
-// titleMatchesPhrases reports whether the title holds every quoted phrase
 func titleMatchesPhrases(title string, q parsedQuery) bool {
 	text := normalize(title)
 	words := tokenize(text)

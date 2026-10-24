@@ -26,12 +26,8 @@ function counterOf(find: FindOnPage): string {
 
 type ToggleName = keyof Omit<FindQuery, 'text'>;
 
-// the toggle each key flips with Alt held, read by its code: on a Mac Option+C
-// types ç
 const toggleKeys: Partial<Record<string, ToggleName>> = { KeyC: 'matchCase', KeyW: 'word', KeyR: 'regex' };
 
-// FindBar is the find of the note on screen: a field, the count, the toggles
-// of case, whole word and regex, and the steps between the matches
 export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
   const input = useRef<HTMLInputElement>(null);
   const { query, setQuery } = find;

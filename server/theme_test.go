@@ -62,8 +62,6 @@ func TestThemeOf(t *testing.T) {
 	}
 }
 
-// the browser bar is painted before any stylesheet, so its color has to be in
-// the head the server writes, for the theme the cookie names
 func TestBarColorFollowsTheTheme(t *testing.T) {
 	ts := newTestServer(t, testOpts{withAuth: true})
 	client := ts.login(t)
@@ -175,8 +173,6 @@ func TestTouchIconsArePublic(t *testing.T) {
 	}
 }
 
-// the sign-in page loads no bundle, so the colors of every theme reach it as
-// the stylesheet `make ui` writes beside one, under the bundle's address
 func TestSignInPageLoadsTheThemes(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{withAuth: true})

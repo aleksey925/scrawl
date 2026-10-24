@@ -19,9 +19,6 @@ import { useNav } from './NavContext';
 import { chromeOf, usePageChrome } from './PageChrome';
 import { PageActions } from './ShellSlots';
 
-// FileView is the page of a file that is not a note: a picture as a preview
-// that opens the viewer, a text file as numbered, highlighted lines, and any
-// other file as the way to download it
 export function FileView({ file }: { file: FilePageResponse }): JSX.Element {
   const { physicalUrl } = usePlatform();
   const raw = physicalUrl(file.raw_url);
@@ -34,7 +31,6 @@ export function FileView({ file }: { file: FilePageResponse }): JSX.Element {
       </PageActions>
       <Page data-testid="file" data-type={file.type}>
         <PageTitle testId="file-title">{file.name}</PageTitle>
-        {/* keyed, or the next picture is drawn at the last one's scale until it loads */}
         {file.type === 'image' && <Picture key={raw} file={file} raw={raw} />}
         {file.type === 'text' && <TextLines file={file} />}
         {file.type === 'other' && (
@@ -75,8 +71,6 @@ function Meta({ file, kind }: { file: FilePageResponse; kind?: string }): JSX.El
   );
 }
 
-// a picture smaller than this is drawn bigger, by whole steps and with sharp
-// pixels, so an icon is seen and not a speck
 const smallPicture = 128;
 
 function Picture({ file, raw }: { file: FilePageResponse; raw: string }): JSX.Element {
@@ -86,7 +80,6 @@ function Picture({ file, raw }: { file: FilePageResponse; raw: string }): JSX.El
   const scale = size === undefined || size.width === 0 ? 1 : Math.max(1, Math.floor(smallPicture / Math.max(size.width, size.height)));
   const type = file.name.replace(/^.*\./, '').toUpperCase();
   const closeViewer = useRef<(() => void) | null>(null);
-  // the viewer is a dialog on the body, so it outlives a picture it is not closed with
   useEffect(
     () => () => {
       closeViewer.current?.();
@@ -133,7 +126,6 @@ function TextLines({ file }: { file: FilePageResponse }): JSX.Element {
   return (
     <>
       <Meta file={file} kind={`${file.language ?? 'Text'}, ${lines} ${lines === 1 ? 'line' : 'lines'}`} />
-      {/* rendered and sanitized on the server, the way a note is */}
       <div ref={root} data-testid="file-code" className={`markdown-document ${classes.code}`}>
         <div
           className="code-block"
@@ -145,7 +137,6 @@ function TextLines({ file }: { file: FilePageResponse }): JSX.Element {
   );
 }
 
-// FileActionsBar is what the topbar offers on a file's page
 function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }): JSX.Element {
   const { canWrite } = useNav();
   const actions = useFileActions();

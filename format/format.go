@@ -1,12 +1,3 @@
-// Package format formats markdown the way `prettier --write` does. It runs
-// prettier itself: prettier.wasm holds it together with QuickJS, built by
-// `make formatter`, and wazero executes that module with no cgo.
-//
-// The module runs in worker processes, copies of this binary started with
-// WorkerEnv set, because nothing can stop it from inside: wazero only watches
-// a context when every branch of the compiled code checks it, which made a run
-// five times slower, and prettier is quadratic on some text. A process can be
-// killed, so the deadline of a call is a real one.
 package format
 
 import (
@@ -20,15 +11,10 @@ import (
 	"sync"
 )
 
-// MaxSize caps what is worth formatting. QuickJS interprets prettier at about
-// 30ms a kilobyte on ordinary prose, so a note at the cap takes many seconds.
 const MaxSize = 256 << 10
 
-// WorkerEnv marks a process as a worker. An environment variable and not an
-// argument, so that a test binary, which owns its arguments, can be one too.
 const WorkerEnv = "SCRAWL_FORMAT_WORKER"
 
-// ErrTooLarge is a note above MaxSize.
 var ErrTooLarge = errors.New("note is too large to format")
 
 type request struct {
@@ -40,9 +26,6 @@ type response struct {
 	Error string `json:"error,omitempty"`
 }
 
-// Formatter runs prettier in a small pool of worker processes. A worker is
-// started by the first call that needs one, so a server that never formats
-// pays for none of it.
 type Formatter struct {
 	free chan struct{}
 
@@ -51,7 +34,6 @@ type Formatter struct {
 	closed bool
 }
 
-// New makes a formatter that runs at most workers notes at a time.
 func New(workers int) *Formatter {
 	f := &Formatter{free: make(chan struct{}, workers)}
 	for range workers {
@@ -61,7 +43,6 @@ func New(workers int) *Formatter {
 	return f
 }
 
-// Markdown formats one note. When ctx ends first the run is killed.
 func (f *Formatter) Markdown(ctx context.Context, text string) (string, error) {
 	if len(text) > MaxSize {
 		return "", fmt.Errorf("format %d bytes: %w", len(text), ErrTooLarge)
@@ -82,8 +63,6 @@ func (f *Formatter) Markdown(ctx context.Context, text string) (string, error) {
 		f.free <- struct{}{}
 	}()
 
-	// started here and not in the goroutine: the stop on a deadline below has to
-	// see the process, or it kills nothing and waits for the whole run
 	if wrk.cmd == nil {
 		if startErr := wrk.start(); startErr != nil {
 			return "", startErr
@@ -111,15 +90,12 @@ func (f *Formatter) Markdown(ctx context.Context, text string) (string, error) {
 		}
 		return out.res.Text, nil
 	case <-ctx.Done():
-		// killing the process is what ends the read the goroutine sits in
 		wrk.stop()
 		<-done
 		return "", fmt.Errorf("format: %w", ctx.Err())
 	}
 }
 
-// take hands out the worker used last, so a quiet server keeps one process
-// and not the whole pool.
 func (f *Formatter) take() (*worker, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -141,7 +117,6 @@ func (f *Formatter) put(wrk *worker) {
 	f.idle = append(f.idle, wrk)
 }
 
-// Close stops the workers. One that is busy is stopped when its call returns.
 func (f *Formatter) Close() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -152,8 +127,6 @@ func (f *Formatter) Close() {
 	f.idle = nil
 }
 
-// worker is one process, started on first use and again after it was stopped.
-// Only the call that took it from the pool touches it.
 type worker struct {
 	cmd   *exec.Cmd
 	stdin io.WriteCloser

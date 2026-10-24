@@ -21,17 +21,13 @@ import pressClasses from './PressRow.module.css';
 import { absoluteTime, countOf, fileSize, shortDate, shortTime } from './formats';
 
 export interface DirTableProps {
-  // the folder listed, "" for the root, which has nothing above it
   path: string;
   entries: readonly DirEntry[];
-  // draft is the kind of entry being named in a row of the table
   draft?: EntryKind;
   onDraftSubmit?: (name: string) => Promise<boolean>;
   onDraftCancel?: () => void;
 }
 
-// a click on a row opens it, unless it landed on the link itself, which the
-// browser follows with whatever key was held
 function opensRow(event: MouseEvent): boolean {
   return !(event.target instanceof Element && event.target.closest('a') !== null);
 }
@@ -48,8 +44,6 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
       <DraftRow kind={draft} onSubmit={onDraftSubmit} onCancel={onDraftCancel} />
     );
 
-  // in the app every row is a page; on a site a file that is not a note is its
-  // copy, which the browser opens itself
   const routed = (entry: DirEntry): boolean => filePages || entry.is_dir || isMarkdown(entry.path);
   const open = (entry: DirEntry): void => {
     if (routed(entry)) {
@@ -95,8 +89,6 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
     </tr>
   );
 
-  // a phone lists what a folder holds the way its file app does: a name over
-  // one line of what it is, and no columns to scroll sideways for
   if (phone) {
     return (
       <div data-testid="dir-table" data-variant="list" className={classes.list}>
@@ -169,7 +161,6 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
   );
 }
 
-// RowTags are what follows a name: the folder page tag and the sync badge
 function RowTags({ entry }: { entry: DirEntry }): JSX.Element {
   return (
     <>
@@ -183,8 +174,6 @@ function RowTags({ entry }: { entry: DirEntry }): JSX.Element {
   );
 }
 
-// restingRect is where an element stands with no transform on it: a row shrinks
-// while a finger rests on it, and the lifted card stands where the row was
 function restingRect(element: HTMLElement): DOMRect {
   const rect = element.getBoundingClientRect();
   const width = element.offsetWidth;
@@ -192,8 +181,6 @@ function restingRect(element: HTMLElement): DOMRect {
   return new DOMRect(rect.left + (rect.width - width) / 2, rect.top + (rect.height - height) / 2, width, height);
 }
 
-// the row's `⋯` opens its menu and leaves the row as it is, so a press on it
-// neither shrinks the row nor lifts it
 function onMenuButton(event: MouseEvent | PointerEvent): boolean {
   return event.target instanceof Element && event.target.closest('button') !== null;
 }
@@ -306,8 +293,6 @@ interface DraftRowProps {
   onCancel: () => void;
 }
 
-// DraftRow is the new entry before it exists, in the table where it will be.
-// Enter creates it; Escape, or leaving the field empty, removes the row.
 function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);

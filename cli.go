@@ -20,7 +20,6 @@ import (
 	"github.com/aleksey925/scrawl/render"
 )
 
-// the names of the commands
 const (
 	serveCommand  = "serve"
 	renderCommand = "render"
@@ -32,16 +31,12 @@ const (
 	tokenCommand  = "token"
 )
 
-// the output formats of render and diff
 const (
 	outputPage     = "page"
 	outputFragment = "fragment"
 	outputJSON     = "json"
 )
 
-// commands is the whole command line. The server is one command; the others
-// are the same renderer, comparison and formatter used without it, on files
-// the caller names.
 type commands struct {
 	Version bool `short:"v" long:"version" description:"show version and exit"`
 
@@ -55,13 +50,10 @@ type commands struct {
 	Stylesheet struct{}      `command:"stylesheet" description:"print the stylesheet a fragment of render and diff is drawn with"`
 }
 
-// example is one line of a command's help: a command line and what it does.
 type example struct {
 	line, what string
 }
 
-// the help of a command is laid out for a terminal this wide, the width go-flags
-// wraps to when it cannot ask the terminal
 const (
 	helpWidth     = 80
 	exampleIndent = "  "
@@ -112,9 +104,6 @@ var commandExamples = map[string][]example{
 	},
 }
 
-// helpFooter is what follows the help go-flags prints: the examples of one
-// command, or a pointer to them. They are printed here and not as a long
-// description, because go-flags rewraps that and drops the indent of columns.
 func helpFooter(command string) string {
 	examples, ok := commandExamples[command]
 	if !ok {
@@ -123,8 +112,6 @@ func helpFooter(command string) string {
 	return formatExamples(examples)
 }
 
-// formatExamples puts the examples in two columns, or, when the columns would
-// not fit in helpWidth, each description on a line above its command.
 func formatExamples(examples []example) string {
 	lineWidth, whatWidth := 0, 0
 	for _, ex := range examples {
@@ -148,8 +135,6 @@ func formatExamples(examples []example) string {
 	return b.String()
 }
 
-// sentence turns a command's short description into the line its own help
-// opens with.
 func sentence(text string) string {
 	if text == "" {
 		return ""
@@ -157,12 +142,9 @@ func sentence(text string) string {
 	return strings.ToUpper(text[:1]) + text[1:] + "."
 }
 
-// outputOptions are where a command writes and in which shape.
 type outputOptions struct {
-	Output string `short:"o" long:"output" description:"file to write, standard output when absent"`
-	Format string `short:"f" long:"format" default:"page" choice:"page" choice:"fragment" choice:"json" description:"a page that opens on its own, an HTML fragment, or JSON"`
-	// a relative link is kept as written outside the app, and a site built of
-	// rendered notes needs a.md to become a.html
+	Output  string `short:"o" long:"output" description:"file to write, standard output when absent"`
+	Format  string `short:"f" long:"format" default:"page" choice:"page" choice:"fragment" choice:"json" description:"a page that opens on its own, an HTML fragment, or JSON"`
 	LinkExt string `long:"link-ext" description:"replace the .md of a relative link with this extension, such as .html"`
 	Math    bool   `long:"math" description:"typeset formulas in a page with KaTeX, which makes it some 600KB larger"`
 }
@@ -194,11 +176,8 @@ type tokenOptions struct {
 	} `positional-args:"yes"`
 }
 
-// formatTimeout bounds one run of prettier from the command line. The server
-// keeps its own; here the caller sees the error and can try a smaller file.
 const formatTimeout = time.Minute
 
-// runCommand runs one command line and returns the exit code.
 func runCommand(args []string, in io.Reader, out, errOut io.Writer) int {
 	cmds, name, err := parseCommands(args)
 	if err != nil {
@@ -219,7 +198,6 @@ func runCommand(args []string, in io.Reader, out, errOut io.Writer) int {
 		return runServe(&cmds.Serve)
 	}
 
-	// diff and format have an exit code of their own beyond failing
 	code := 0
 	tools := map[string]func() error{
 		renderCommand: func() error { return runRender(&cmds.Render, in, out) },
@@ -256,8 +234,6 @@ func runCommand(args []string, in io.Reader, out, errOut io.Writer) int {
 	return code
 }
 
-// failureCode is the exit code of a command that failed. git diff's convention:
-// 1 is "there are differences", so a failure of diff has to be something else.
 func failureCode(name string) int {
 	if name == diffCommand {
 		return 2
@@ -272,9 +248,6 @@ func writeText(out io.Writer, text string) error {
 	return nil
 }
 
-// parseCommands reads a command line. Whatever follows "--" is never an option:
-// for diff it is the paths the comparison is limited to, the way git takes
-// them, and for every other command it is more files.
 func parseCommands(args []string) (*commands, string, error) {
 	head, tail := args, []string(nil)
 	if at := slices.Index(args, "--"); at >= 0 {
@@ -330,9 +303,6 @@ func orDefault(value, fallback string) string {
 	return value
 }
 
-// newCLIRenderer is the renderer of every command but serve: a relative link
-// stays relative, because outside the app there is no route to map it onto.
-// pageOptions is what a page of render or diff carries beyond the note.
 func (o outputOptions) pageOptions() page.Options {
 	return page.Options{Math: o.Math}
 }
@@ -341,7 +311,6 @@ func newCLIRenderer(opts outputOptions) *render.Renderer {
 	return render.New(render.Options{Relative: true, PageExt: opts.LinkExt})
 }
 
-// noteJSON is a rendered note as `render --format json` answers it.
 type noteJSON struct {
 	Title       string           `json:"title"`
 	HTML        string           `json:"html"`
@@ -376,8 +345,6 @@ func runRender(opts *renderOptions, in io.Reader, out io.Writer) error {
 	return writeOutput(opts.Output, buf.Bytes(), out)
 }
 
-// readInput reads a file, or standard input for "" and "-", and names it the
-// way the renderer wants a document named.
 func readInput(file string, in io.Reader) (string, []byte, error) {
 	if file == "" || file == "-" {
 		data, err := io.ReadAll(in)
@@ -393,7 +360,6 @@ func readInput(file string, in io.Reader) (string, []byte, error) {
 	return filepath.ToSlash(filepath.Base(file)), data, nil
 }
 
-// writeOutput writes to the file the caller named, or to out.
 func writeOutput(file string, data []byte, out io.Writer) error {
 	if file == "" || file == "-" {
 		if _, err := out.Write(data); err != nil {
@@ -417,9 +383,6 @@ func writeJSONTo(w io.Writer, value any) error {
 	return nil
 }
 
-// runFormat formats every file it is given, or standard input, with the same
-// prettier a save in the app goes through. The exit code is 1 when --check
-// found a file that would change.
 func runFormat(opts *formatOptions, in io.Reader, out io.Writer) (int, error) {
 	files, err := formatTargets(opts)
 	if err != nil {
@@ -457,8 +420,6 @@ func runFormat(opts *formatOptions, in io.Reader, out io.Writer) (int, error) {
 	return code, nil
 }
 
-// formatTargets is the files a format run reads, "-" for standard input,
-// refusing the combinations that would print several notes as one.
 func formatTargets(opts *formatOptions) ([]string, error) {
 	if opts.Write && opts.Check {
 		return nil, errors.New("--write and --check exclude each other")
@@ -476,8 +437,6 @@ func formatTargets(opts *formatOptions) ([]string, error) {
 	return files, nil
 }
 
-// writeInPlace replaces a file the way the store does: a temporary file beside
-// it, then a rename, so an interrupted run never leaves half a note behind.
 func writeInPlace(file string, data []byte) error {
 	info, err := os.Stat(file)
 	if err != nil {

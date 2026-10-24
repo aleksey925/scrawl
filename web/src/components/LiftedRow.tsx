@@ -6,24 +6,16 @@ import { motionMs, springEasing } from './screenMotion';
 
 const liftMs = 220;
 const dropMs = 160;
-// the card stands a little proud of the row it was, as iOS shows a lifted row
 const liftScale = 1.03;
-// the card reaches past the row by this much a side, into the page's gutter
 const cardBleed = 8;
 
 export interface LiftedRowProps {
-  // where the row stood when the finger lifted it
   rect: DOMRect;
   children: ReactNode;
-  // menu draws the row's menu opening from the mark it is given, a line down
-  // the row's right edge
   menu: (mark: ReactElement, opened: boolean, setOpened: (opened: boolean) => void) => ReactNode;
-  // onDropped runs once the card has gone back into the row
   onDropped: () => void;
 }
 
-// LiftedRow raises a copy of a row over the page and opens the row's menu from
-// it; closing the menu sets the row back down
 export function LiftedRow({ rect, children, menu, onDropped }: LiftedRowProps): JSX.Element {
   const [opened, setOpened] = useState(true);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -68,8 +60,6 @@ export function LiftedRow({ rect, children, menu, onDropped }: LiftedRowProps): 
       {children}
     </div>
   );
-  // beside the card and not in it: the card is scaled, and a fixed element in a
-  // scaled one is placed in it, which would shrink the menu's tap guard to the card
   const mark = <span className={classes.mark} style={{ top: rect.top, left: rect.right - 1, height: rect.height }} />;
 
   return createPortal(

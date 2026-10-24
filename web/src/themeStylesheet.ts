@@ -11,8 +11,6 @@ interface Scope {
   selector: string;
 }
 
-// the scopes of theme.Scopes in go: every theme under its own attribute value,
-// and the auto pair under a root with none, behind the system preference
 function scopes(): Scope[] {
   const auto = (['light', 'dark'] as const satisfies readonly Scheme[]).map((scheme) => ({
     theme: autoTheme(scheme),
@@ -22,8 +20,6 @@ function scopes(): Scope[] {
   return [...auto, ...themes.map((entry) => ({ theme: entry, selector: `:root[${themeAttribute}="${entry.id}"]` }))];
 }
 
-// a theme file is read without a schema, so one that left a token out would
-// paint that part of the page in whatever theme came before it
 function validate(): void {
   const keysOf = (tokens: object | undefined): string => Object.keys(tokens ?? {}).sort().join(' ');
   const light = autoTheme('light');
@@ -70,10 +66,6 @@ function rule(selector: string, variables: Variables, scheme?: Scheme): string {
   return `${selector} {\n${lines.join('\n')}\n}`;
 }
 
-// themeStylesheet is every custom property the app, the sign-in page and a page
-// of the command line read, for every theme. What all themes share goes on
-// :root once. A scheme variable never does: mantine's own sheet sets those
-// under its attribute, which outranks a bare :root
 export function themeStylesheet(): string {
   validate();
   const resolved = new Map(themes.map((entry) => [entry.id, resolve(entry)]));

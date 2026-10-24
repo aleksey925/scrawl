@@ -1,8 +1,5 @@
 import { applyChoiceAttributes, autoChoice, colorSchemeAttribute, schemeOfChoice, themeAttribute } from './themes';
 
-// paperTheme is what a note is printed in whatever the screen shows: a browser
-// leaves the page background out, and the pale letters of a dark theme came
-// out pale on white paper
 export const paperTheme = 'light';
 
 export function onDarkScreen(): boolean {
@@ -17,9 +14,6 @@ function restoreAttribute(name: string, value: string | null): void {
   }
 }
 
-// printInLight puts every print of the page on the paper theme, the browser's
-// own menu and shortcut included. It changes the attributes alone, because
-// beforeprint gives no time to redraw a diagram; the export menu does that.
 export function printInLight(): void {
   let restore: (() => void) | undefined;
   window.addEventListener('beforeprint', () => {

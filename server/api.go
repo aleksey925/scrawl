@@ -20,11 +20,8 @@ import (
 	"github.com/aleksey925/scrawl/view"
 )
 
-// multipartOverhead is the room an upload gets on top of the file itself for
-// the multipart headers and boundaries.
 const multipartOverhead = 1 << 20
 
-// treeNode is one node of the sidebar tree as the JSON API spells it.
 type treeNode struct {
 	Name     string     `json:"name"`
 	Path     string     `json:"path"`
@@ -41,13 +38,9 @@ type fileResponse struct {
 }
 
 type saveRequest struct {
-	Content string `json:"content"`
-	Rev     string `json:"rev"`
-	// Formatted is the editor saying it ran prettier over Content itself, in
-	// the browser, where that takes no time. Any other writer leaves it out
-	// and the server formats. It is trusted: a writer who lies gets its own
-	// note stored the way it sent it, which it could do by any other means.
-	Formatted bool `json:"formatted"`
+	Content   string `json:"content"`
+	Rev       string `json:"rev"`
+	Formatted bool   `json:"formatted"`
 }
 
 type createRequest struct {
@@ -64,9 +57,6 @@ type previewRequest struct {
 	Path    string `json:"path"`
 }
 
-// searchHit is one note a search found. findHit comes with a request that
-// names a mode or a toggle; one that names none is answered the way it always
-// was, for the scripts that read it.
 type searchHit struct {
 	Path    string  `json:"path"`
 	Title   string  `json:"title"`
@@ -94,11 +84,6 @@ type searchLine struct {
 	Spans []searchSpan `json:"spans"`
 }
 
-// apiTree serves the sidebar tree, which the frontend reloads after every
-// create, rename and delete.
-// dirs=1 leaves the documents out, which is what the destination picker asks
-// for: on a large corpus the files are the bulk of the tree and it lists none
-// of them.
 func (m *mount) apiTree(w http.ResponseWriter, r *http.Request) {
 	root, err := m.spc.Store.Tree()
 	if err != nil {
@@ -125,12 +110,6 @@ func jsonChildren(node *store.Node, dirsOnly bool) []treeNode {
 	return res
 }
 
-// apiFileGet returns the source of one file, which is what the editor loads.
-//
-// The whole file is read into memory and then JSON-escaped, which costs several
-// times its size in RSS, so the size is checked before a single byte is read
-// and only text is served at all. Anything else is an attachment and streams
-// through /raw/ without ever being buffered.
 func (m *mount) apiFileGet(w http.ResponseWriter, r *http.Request) {
 	p, ok := contentPath(r, "path")
 	if !ok || p == "" {
@@ -173,8 +152,6 @@ func (m *mount) apiFileGet(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// apiFileSave writes a file, refusing the write when the revision the editor
-// loaded is no longer the one on disk.
 func (m *mount) apiFileSave(w http.ResponseWriter, r *http.Request) {
 	if m.refuseReadOnly(w, r) {
 		return
@@ -192,7 +169,6 @@ func (m *mount) apiFileSave(w http.ResponseWriter, r *http.Request) {
 	stored := saved{text: req.Content}
 	if !req.Formatted {
 		r = m.keepThrough(r, p)
-		// before the history lock, which every other write of the space waits on
 		stored = m.formatOnSave(r, p, req.Content)
 	}
 
@@ -208,9 +184,6 @@ func (m *mount) apiFileSave(w http.ResponseWriter, r *http.Request) {
 		writeConflict(w, http.StatusPreconditionFailed, "conflict", conflict.CurrentRev, conflict.Current)
 		return
 	case errors.Is(err, store.ErrExists):
-		// an empty revision means "create", and the file turning out to be
-		// there is the same collision seen from the editor: its dialog offers
-		// an overwrite, which needs the revision and the content on disk
 		current, _, readErr := m.spc.Store.Read(p)
 		if readErr != nil {
 			failJSON(w, r, err)
@@ -228,8 +201,6 @@ func (m *mount) apiFileSave(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, stored.describe(res, req.Content))
 }
 
-// writeConflict answers a save that collided with the file on disk. Both
-// statuses carry the same fields, because the editor treats them the same way.
 func writeConflict(w http.ResponseWriter, status int, message, rev string, current []byte) {
 	writeJSON(w, status, map[string]any{
 		"error":           message,
@@ -238,7 +209,6 @@ func writeConflict(w http.ResponseWriter, status int, message, rev string, curre
 	})
 }
 
-// apiFileCreate makes an empty file or a directory.
 func (m *mount) apiFileCreate(w http.ResponseWriter, r *http.Request) {
 	if m.refuseReadOnly(w, r) {
 		return
@@ -257,8 +227,6 @@ func (m *mount) apiFileCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// only a file has content worth recording, and a new directory is empty
-	// anyway: naming one would be a pathspec over everything below it
 	var recorded []string
 	if req.Type == "file" {
 		recorded = []string{p}
@@ -281,7 +249,6 @@ func (m *mount) apiFileCreate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, m.withHistory(res))
 }
 
-// apiFileDelete removes a file or an empty directory.
 func (m *mount) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 	if m.refuseReadOnly(w, r) {
 		return
@@ -292,8 +259,6 @@ func (m *mount) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// a folder with things in it goes only when the caller says so: an agent
-	// that named the wrong path must not lose a tree to one request
 	recursive := r.URL.Query().Get("recursive") == "true"
 
 	var removed []string
@@ -309,13 +274,9 @@ func (m *mount) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m.touch(append(removed, p)...)
-	// 200 with a body rather than 204: every other mutation carries the state
-	// of the change it made, and a deletion that never left the container is
-	// the worst one to lose silently
 	writeJSON(w, http.StatusOK, m.withHistory(map[string]any{"path": p}))
 }
 
-// apiMove renames or moves an entry.
 func (m *mount) apiMove(w http.ResponseWriter, r *http.Request) {
 	if m.refuseReadOnly(w, r) {
 		return
@@ -342,17 +303,9 @@ func (m *mount) apiMove(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, m.withHistory(map[string]any{"path": req.To}))
 }
 
-// movedPaths lists the documents a move carries with it. A file names itself in
-// Op.Paths, but a directory has no extension worth versioning, so moving one
-// would record nothing at all unless the files under it are named too. The list
-// has to be read before the move, while the old paths still exist.
-//
-// A failure here is not worth refusing the move over: the change still reaches
-// history through the reconcile the watcher runs, only as an external one.
 func (m *mount) movedPaths(from, to string) []string {
 	under := m.filesUnder(from)
 	if len(under) == 0 {
-		// moving a file names itself in Op.Paths, so there is nothing to add
 		return nil
 	}
 	res := make([]string, 0, 2*len(under))
@@ -362,9 +315,6 @@ func (m *mount) movedPaths(from, to string) []string {
 	return res
 }
 
-// filesUnder lists the visible files below a directory, which is what history
-// has to be told when the directory itself is moved or deleted. It has to be
-// read before the change, while the paths still exist.
 func (m *mount) filesUnder(dir string) []string {
 	files, err := m.spc.Store.Files()
 	if err != nil {
@@ -380,8 +330,6 @@ func (m *mount) filesUnder(dir string) []string {
 	return res
 }
 
-// apiUpload stores an attachment and answers with a markdown link relative to
-// the document being edited, which arrives in the doc query parameter.
 func (m *mount) apiUpload(w http.ResponseWriter, r *http.Request) {
 	if m.refuseReadOnly(w, r) {
 		return
@@ -418,8 +366,6 @@ func (m *mount) apiUpload(w http.ResponseWriter, r *http.Request) {
 		if upErr != nil {
 			return nil, upErr
 		}
-		// the store picks a free name inside the directory, so the path to
-		// record exists only once the file itself does
 		return []string{fi.Path}, nil
 	})
 	if err != nil {
@@ -434,11 +380,6 @@ func (m *mount) apiUpload(w http.ResponseWriter, r *http.Request) {
 	}))
 }
 
-// uploadDir decides where an attachment lands. By default it is the corpus
-// convention: a folder next to the document and named after it, so that
-// python/notes.md keeps its images in python/notes/. Config.UploadDir replaces
-// that with one shared directory for everything, and the directory from the
-// request is only used when no document was named.
 func (wb *Web) uploadDir(doc, requested string) string {
 	if wb.UploadDir != "" {
 		return wb.UploadDir
@@ -450,8 +391,6 @@ func (wb *Web) uploadDir(doc, requested string) string {
 	return path.Join(path.Dir(doc), strings.TrimSuffix(name, path.Ext(name)))
 }
 
-// apiPreview renders the editor buffer through the pipeline that renders the
-// view page, so what the writer sees is what the saved page will be.
 func (m *mount) apiPreview(w http.ResponseWriter, r *http.Request) {
 	var req previewRequest
 	if !decodeJSON(w, r, &req, maxPreviewBody) {
@@ -474,9 +413,6 @@ func (m *mount) apiPreview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"html": string(html)})
 }
 
-// apiSearch searches the space. With no mode and no toggle it is the ranked
-// word search it always was; with them it is Find, which answers with the
-// matching lines and the url that opens each one.
 func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	find, extended, err := searchQueryOf(r.URL.Query())
@@ -517,9 +453,6 @@ func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// touch refreshes what the server keeps about a path right after the app
-// itself changed it. The watcher reports the same change a moment later, this
-// only closes the window in which a reload would still show the old page.
 func (m *mount) touch(paths ...string) {
 	for _, p := range paths {
 		m.pages().invalidate(m.spc.Name, p)
@@ -535,11 +468,6 @@ func (m *mount) touch(paths ...string) {
 	}
 }
 
-// refuseReadOnly guards every write endpoint against the three ways writing can
-// be off: the whole server, this space, or the token the caller presented.
-// Each gets its own message, otherwise an agent holding a read-only token
-// cannot tell whether asking for a wider one would help, and a reader on a
-// read-only space cannot tell it from a server that refuses everything.
 func (m *mount) refuseReadOnly(w http.ResponseWriter, r *http.Request) bool {
 	switch {
 	case m.ReadOnly:
@@ -554,8 +482,6 @@ func (m *mount) refuseReadOnly(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-// decodeJSON reads a JSON body capped at limit and reports whether the handler
-// may go on. It answers the request itself when it cannot.
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any, limit int64) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
@@ -570,8 +496,6 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any, limit int64) bool
 	return true
 }
 
-// contentPathOf validates a content path that arrived in a body or a query
-// parameter instead of in the URL path.
 func contentPathOf(p string) (string, bool) {
 	p = strings.Trim(p, "/")
 	if strings.ContainsRune(p, 0) {
@@ -580,8 +504,6 @@ func contentPathOf(p string) (string, bool) {
 	return p, true
 }
 
-// relativeLink writes the markdown target from the document being edited to an
-// uploaded file, so the link keeps working wherever the document is read from.
 func relativeLink(doc, target string) string {
 	base := path.Dir(doc)
 	if doc == "" || base == "." || base == "/" {
@@ -602,8 +524,6 @@ func relativeLink(doc, target string) string {
 	return path.Join(append(res, targetSegments[shared:]...)...)
 }
 
-// searchQueryOf reads the mode and the toggles of a search, and whether the
-// request named any of them at all
 func searchQueryOf(values url.Values) (search.Query, bool, error) {
 	q := search.Query{Text: values.Get("q"), Mode: search.ModeFuzzy}
 	extended := false
@@ -619,14 +539,12 @@ func searchQueryOf(values url.Values) (search.Query, bool, error) {
 			*field, extended = values.Get(name) == "1", true
 		}
 	}
-	// a space typed around an exact text or a pattern is part of what is looked for
 	if q.Mode == search.ModeFuzzy && !q.Regex {
 		q.Text = strings.TrimSpace(q.Text)
 	}
 	return q, extended, nil
 }
 
-// findSearch answers a search that named a mode or a toggle
 func (m *mount) findSearch(w http.ResponseWriter, r *http.Request, q search.Query, limit int, start time.Time) {
 	found := search.Found{}
 	if m.spc.Index != nil {

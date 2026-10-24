@@ -11,8 +11,6 @@ export interface SpaceButtonProps extends Omit<ComponentPropsWithRef<'button'>, 
   name: string;
 }
 
-// SpaceButton opens the menu of the space: the app's logo, the space's name and
-// the sign of a list to pick from. The foot of the sidebar is it.
 export function SpaceButton({ name, ...rest }: SpaceButtonProps): JSX.Element {
   return (
     <UnstyledButton {...rest} data-testid="space-menu" className={classes.spaceButton}>

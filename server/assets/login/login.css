@@ -1,7 +1,3 @@
-/* The sign-in page carries its own stylesheet. Every other page is the app,
-   which brings its own, and this one has to work before any of it loads. The
-   colors are the theme's, from the themes.css the page links first. */
-
 * {
   box-sizing: border-box;
 }
@@ -102,7 +98,6 @@ body {
   box-shadow: inset 0 0 0 1px var(--scrawl-border-translucent);
   color: var(--scrawl-text);
   font: inherit;
-  /* anything under 16px makes iOS zoom the page on focus and never zoom back */
   font-size: 16px;
 }
 
@@ -110,7 +105,6 @@ body {
   color: var(--scrawl-placeholder);
 }
 
-/* the theme's focus ring and no halo, the way the app draws its own fields */
 .input:focus {
   box-shadow:
     inset 0 0 0 1px var(--scrawl-focus-ring),
@@ -175,7 +169,6 @@ body {
   }
 }
 
-/* the toggle shows the icon of the scheme in force, so only one is ever drawn */
 .icon-theme-auto,
 .icon-theme-light,
 .icon-theme-dark {

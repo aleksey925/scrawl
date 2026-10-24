@@ -17,14 +17,11 @@ import (
 	"github.com/aleksey925/scrawl/page"
 )
 
-// TestMain lets the format command start this test binary as its worker, the
-// way the real binary starts itself.
 func TestMain(m *testing.M) {
 	format.RunWorkerIfAsked()
 	os.Exit(m.Run())
 }
 
-// runCLI runs one command line and returns the exit code and both outputs.
 func runCLI(t *testing.T, stdin string, args ...string) (int, string, string) {
 	t.Helper()
 

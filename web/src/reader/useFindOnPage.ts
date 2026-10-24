@@ -6,8 +6,6 @@ import { usePlatform } from '../platform';
 import { blocksOf, markMatches, matchAtLine, reveal, unmark } from './findDom';
 import { FindTimeout, patternOf, togglesOf, type FindPattern, type FindQuery } from './findMatches';
 
-// the parameters a search result opens a note with, read and taken off here;
-// findParam is the query, whose presence means a find is asked for
 export const findParam = 'q';
 const findParams = [findParam, 'case', 'word', 'regex', 'line'] as const;
 
@@ -17,18 +15,13 @@ export type FindStatus = 'idle' | 'found' | 'none' | 'bad' | 'slow';
 
 export interface FindOnPage {
   opened: boolean;
-  // openings counts the times the bar was asked for, so an open bar takes the
-  // focus back on a second Cmd+F
   openings: number;
   query: FindQuery;
   status: FindStatus;
-  // position counts from 1, total is how many matches were marked
   position: number;
   total: number;
   open: (text?: string) => void;
   setQuery: (query: FindQuery) => void;
-  // run starts a find that waits to be confirmed: a regular expression that
-  // came with the address, where nothing can stop one that runs too long
   run: () => void;
   step: (delta: number) => void;
   close: () => void;
@@ -60,14 +53,10 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
   const groups = useRef<HTMLElement[][]>([]);
   const line = useRef<number | undefined>(undefined);
 
-  // a search result hands its query, its options and its line over in the
-  // address; a regular expression waits for Enter where it cannot be stopped
   const fromUrl = queryOf(searchParams);
   const address = `${location.pathname}?${searchParams.toString()}`;
   const readFor = useRef<{ address: string; html: string; again: boolean } | undefined>(undefined);
   useEffect(() => {
-    // the url is read when the address changes and again when its note arrives,
-    // an address with no query closing the bar; the bar is the reader's after that
     const last = readFor.current;
     const fresh = last === undefined || last.address !== address;
     if (!fresh && !(last.again && last.html !== html)) {
@@ -126,7 +115,6 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
       } catch {
         setStatus('bad');
         setTotal(0);
-        // a pattern the search took and the browser refuses still opens at its line
         if (line.current !== undefined) {
           matchAtLine(root, [], line.current).block?.scrollIntoView({ block: 'center', behavior: 'instant' });
           line.current = undefined;
@@ -200,8 +188,6 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
     setQueryState(next);
   }, []);
 
-  // the query leaves the url with the highlighting, so a reload does not light
-  // the page up again
   const close = useCallback((): void => {
     setOpened(false);
     setQueryState(emptyQuery);

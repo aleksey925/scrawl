@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// issue returns the raw session cookie value for user.
 func issue(t *testing.T, svc *Service, user string) string {
 	t.Helper()
 	rec := httptest.NewRecorder()

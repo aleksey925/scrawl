@@ -53,12 +53,10 @@ export function useBelow(name: BreakpointName): boolean {
 }
 
 export const layoutBreakpoints = {
-  // below it the app is a phone: a bar of tabs, a round Edit button, sheets
   phone: 'sm',
   sidebar: 'sm',
   miniOutline: 'sm',
   compactTopbar: 'sm',
-  // the editor's splitter, or a tab per pane
   editorSplit: 'md',
 } as const satisfies Record<string, BreakpointName>;
 
@@ -77,13 +75,9 @@ export const layout = {
   iconSizeTool: 18,
   iconSizeColumn: 15,
   iconSizeTiny: 14,
-  // a button and a field beside it, at their usual size, and a button that
-  // runs the width of its column
   controlHeight: 28,
   controlHeightLarge: 36,
   tapTarget: 44,
-  // on a touch screen: a button or a field, and a choice of a few, each one
-  // height wherever it stands, so nothing beside it looks bigger or smaller
   touchControl: 40,
   touchChoice: 36,
   menuWidth: 220,
@@ -94,7 +88,6 @@ export const layout = {
   inputFontSize: 16,
 } as const;
 
-// Notion's blue; the filled shade, 5, is the accent of the palette
 const accentShades: MantineColorsTuple = [
   '#e5f2fc',
   '#cce4f8',
@@ -108,8 +101,6 @@ const accentShades: MantineColorsTuple = [
   '#063766',
 ];
 
-// Notion's warm grays in the order mantine reads them: gray from light to dark
-// for the light scheme, dark from text to the deepest surface for the dark one
 const grayShades: MantineColorsTuple = [
   '#f9f8f7',
   '#f7f6f3',
@@ -142,7 +133,6 @@ const defaultColors: Record<ThemeColorName, MantineColorsTuple> = {
   dark: darkShades,
 };
 
-// Notion's own stacks
 const sans =
   'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"';
 const mono = '"SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
@@ -195,8 +185,6 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-edit-button': `${layout.editButtonSize}px`,
 };
 
-// blockVariables spells the block colors: blue's text is --scrawl-color-blue
-// and its ground --scrawl-bg-blue
 function blockVariables(blocks: BlockColors): Record<string, string> {
   const res: Record<string, string> = {};
   for (const [name, color] of Object.entries(blocks)) {
@@ -206,7 +194,6 @@ function blockVariables(blocks: BlockColors): Record<string, string> {
   return res;
 }
 
-// themeVariables is what a theme sets on top of mantine's own variables
 export function themeVariables(def: ThemeDefinition): Record<string, string> {
   return {
     ...tokenVariables('scrawl', def.palette),
@@ -247,11 +234,9 @@ export const theme: MantineThemeOverride = createTheme({
     lg: '1.125rem',
     xl: '1.25rem',
   },
-  // Notion sets a control in 500; mantine reads this one token and ships 600
   fontWeights: { medium: '500' },
   lineHeights: { xs: '1.2', sm: '1.3', md: '1.5', lg: '1.55', xl: '1.65' },
 
-  // controls are md, menus lg and dialogs xl
   radius: { xs: '3px', sm: '4px', md: '6px', lg: '10px', xl: '12px' },
   defaultRadius: 'md',
 
@@ -306,7 +291,6 @@ export const theme: MantineThemeOverride = createTheme({
   other: { layout, layoutBreakpoints, breakpointPx },
 });
 
-// themeOverride is the mantine theme with the shade scales a theme replaces
 export function themeOverride(def: ThemeDefinition): MantineThemeOverride {
   return { ...theme, colors: { ...defaultColors, ...def.colors } };
 }

@@ -18,8 +18,6 @@ export function usePreview(content: string, path: string, enabled: boolean): Pre
   const [state, setState] = useState<PreviewState>({ html: '', busy: false });
   const seqRef = useRef(0);
   const abortRef = useRef<AbortController | undefined>(undefined);
-  // a document can be well inside the save limit and still over the smaller
-  // preview one, and asking again on every keystroke only burns the throttle
   const refusedAtRef = useRef(Number.POSITIVE_INFINITY);
 
   useEffect(() => () => abortRef.current?.abort(), []);

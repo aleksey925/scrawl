@@ -27,8 +27,6 @@ const chrome: ReaderChrome = {
   phoneBottom: <TabBar />,
 };
 
-// AppLayout is the reader with what the server makes possible around it: the
-// spaces, the sync state, the account, search, and every write
 export function AppLayout(): JSX.Element {
   useEffect(() => installUnauthorizedHandler('shell', goToLogin), []);
 
@@ -53,8 +51,6 @@ function AppProviders({ children }: { children: ReactNode }): JSX.Element {
   );
 }
 
-// the space's state is polled here and not in the layout, so a poll re-renders
-// what reads the navigation state and nothing else
 function SpaceNavProvider({ children }: { children: ReactNode }): JSX.Element {
   return <NavProvider status={useMe()}>{children}</NavProvider>;
 }

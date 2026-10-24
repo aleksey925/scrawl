@@ -1,6 +1,5 @@
 import type { DiffRow } from '../api/types';
 
-// how many unchanged blocks stay in sight around a change
 export const diffContext = 1;
 
 export interface DiffSegment {
@@ -12,8 +11,6 @@ export function isChange(row: DiffRow): boolean {
   return row.kind !== 'same' && row.kind !== 'format';
 }
 
-// foldRows keeps every change and the context around it in sight, and puts each
-// stretch of unchanged blocks between them under one fold
 export function foldRows(rows: readonly DiffRow[], context: number = diffContext): DiffSegment[] {
   const shown = rows.map(() => false);
   rows.forEach((row, index) => {

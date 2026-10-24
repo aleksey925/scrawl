@@ -1,18 +1,11 @@
-/* mantine puts the class on a container for every position, and a top on the
-   bottom ones stretched them over the screen, taking every tap */
 .root[data-position='top-center'] {
   top: calc(env(safe-area-inset-top, 0px) + 8px);
 }
 
-/* the containers span the width of the screen, and they took the taps meant for
-   the bar under them; iOS also left a hover there that held the toast up for
-   good. Only the pill itself is touched. */
 .root {
   pointer-events: none;
 }
 
-/* a phone's toast is the pill iOS drops from the top for a short word: dark,
-   centred under the status bar, as wide as its words */
 .pill {
   display: flex;
   align-items: center;

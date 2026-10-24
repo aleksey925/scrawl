@@ -26,7 +26,6 @@ interface ToolItem {
   Icon: ComponentType<{ size?: number }>;
 }
 
-// the buttons in groups of a kind, which the bar splits by a thin line
 const groups: readonly (readonly ToolItem[])[] = [
   [
     { action: 'heading', label: 'Cycle heading level', Icon: IconHeading },
@@ -55,8 +54,6 @@ interface HiddenEnds {
   end: boolean;
 }
 
-// useHiddenEnds says which ends of a scrolling strip have more behind them, so
-// the strip can fade there: with no scrollbar a cut-off row looks complete
 function useHiddenEnds(): [RefObject<HTMLDivElement | null>, HiddenEnds] {
   const ref = useRef<HTMLDivElement>(null);
   const [ends, setEnds] = useState<HiddenEnds>({ start: false, end: false });
@@ -93,8 +90,6 @@ function ToolButton({ testId, label, onClick, children }: { testId: string; labe
       color="gray"
       aria-label={label}
       title={label}
-      // the button would otherwise take focus and drop the selection the
-      // action is about to operate on
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
     >
@@ -103,8 +98,6 @@ function ToolButton({ testId, label, onClick, children }: { testId: string; labe
   );
 }
 
-// Toolbar is the markdown the editor can write for the reader: the marks of
-// the text, the blocks, a picture and the formatter, in groups split by a line
 export function Toolbar({ onAction, onPickImage, onFormat }: ToolbarProps): JSX.Element {
   const [stripRef, hidden] = useHiddenEnds();
 

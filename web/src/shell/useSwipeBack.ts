@@ -2,16 +2,11 @@ import { useEffect, useRef } from 'react';
 
 import { leaveScreen, releaseMotion, standalone } from '../components/screenMotion';
 
-// how far from the left edge a finger has to land to start the swipe
 const edgePx = 24;
-// how far it travels before its direction says a swipe or a scroll
 const decidePx = 6;
-// how far it travels before the page moves, so a tap does not shift it
 const startPx = 8;
-// past this part of the width, or faster than this, the swipe goes back
 const completeShare = 0.35;
 const flickPxPerMs = 0.4;
-// the speed of the release is read over the last stretch of the movement
 const flickWindowMs = 100;
 
 interface Sample {
@@ -24,13 +19,10 @@ interface Track {
   y: number;
   dx: number;
   samples: Sample[];
-  // a swipe and not a scroll, once the direction is known
   across: boolean;
-  // the page the finger drags, once the drag has started
   element?: HTMLElement;
 }
 
-// speedOf is how fast the finger moved over the last stretch before it lifted
 function speedOf(samples: Sample[], now: number): number {
   const recent = samples.filter((point) => now - point.at <= flickWindowMs);
   const first = recent[0];
@@ -41,8 +33,6 @@ function speedOf(samples: Sample[], now: number): number {
   return (last.dx - first.dx) / (last.at - first.at);
 }
 
-// covered says something is open over the page, which the swipe must not move
-// from under it: a dialog, a sheet, a menu, the search or the picture viewer
 function covered(): boolean {
   return (
     document.querySelector(
@@ -51,8 +41,6 @@ function covered(): boolean {
   );
 }
 
-// entryKey names the entry of the history the app is on, which the router keeps
-// in the history's state
 function entryKey(): string | undefined {
   return (window.history.state as { key?: string } | null)?.key;
 }
@@ -66,16 +54,11 @@ function clearDrag(element: HTMLElement): void {
   element.style.willChange = '';
 }
 
-// settle puts the page back from where the finger left it, at speed px/ms
-// toward the left edge
 function settle(element: HTMLElement, from: number, speed: number): void {
   clearDrag(element);
   element.animate([{ transform: `translateX(${from}px)` }, { transform: 'none' }], releaseMotion(from, speed));
 }
 
-// useSwipeBack lets a finger drag the page off to the right from the left edge
-// of the screen and go back, the way an iPhone app goes back. goBack is null
-// where there is nowhere to go.
 export function useSwipeBack(goBack: (() => void) | null): void {
   const goBackRef = useRef(goBack);
   useEffect(() => {
@@ -88,8 +71,6 @@ export function useSwipeBack(goBack: (() => void) | null): void {
     }
     let track: Track | undefined;
 
-    // drop gives up the drag and puts the page back where it was: a second
-    // finger, a touch the system took, or the page going away mid-drag
     const drop = (): void => {
       const ended = track;
       track = undefined;
@@ -119,7 +100,6 @@ export function useSwipeBack(goBack: (() => void) | null): void {
       const dx = Math.max(0, moved);
       const dy = Math.abs(touch.clientY - track.y);
       if (!track.across) {
-        // not dx, which is clamped: a move back toward the edge is no swipe either
         const decided = Math.hypot(moved, dy) >= decidePx;
         if (decided && dy > moved) {
           track = undefined;
@@ -127,8 +107,6 @@ export function useSwipeBack(goBack: (() => void) | null): void {
         }
         track.across = decided;
       }
-      // every move until the direction is known too: a move let through starts
-      // the page's own scroll, which then shifts the page up and down under the drag
       event.preventDefault();
       if (track.element === undefined) {
         const element = screen();
@@ -139,8 +117,6 @@ export function useSwipeBack(goBack: (() => void) | null): void {
         if (dx < startPx) {
           return;
         }
-        // the page a finger drags is a layer of its own: WebKit paints a 2D transform
-        // set from script again on every move, which a long note cannot keep up with
         element.style.willChange = 'transform';
         track.element = element;
       }
@@ -158,7 +134,6 @@ export function useSwipeBack(goBack: (() => void) | null): void {
         return;
       }
       const speed = speedOf(ended.samples, event.timeStamp);
-      // a finger drawn back toward the edge as it lifts means to stay
       const done = speed > flickPxPerMs || (ended.dx > element.offsetWidth * completeShare && speed > -flickPxPerMs);
       if (!done) {
         settle(element, ended.dx, -speed);
@@ -167,8 +142,6 @@ export function useSwipeBack(goBack: (() => void) | null): void {
       clearDrag(element);
       const from = entryKey();
       void leaveScreen(element, ended.dx, speed).then((gone) => {
-        // a tab tapped while the page was leaving moved the history on, and its
-        // screen may still be loading, too late to have cancelled the leave
         if (gone && entryKey() === from) {
           goBackRef.current?.();
         }

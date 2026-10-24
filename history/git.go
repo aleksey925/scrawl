@@ -13,51 +13,40 @@ import (
 )
 
 const (
-	defaultOutputCap = 8 << 20  // enough for a long log, small enough to bound a response
-	maxBlobBytes     = 64 << 20 // a version of an upload, which the store caps far below this
+	defaultOutputCap = 8 << 20
+	maxBlobBytes     = 64 << 20
 	maxDiffBytes     = 2 << 20
-	maxListBytes     = 32 << 20 // the whole index of a large corpus
+	maxListBytes     = 32 << 20
 	maxStderrBytes   = 8 << 10
 )
 
 var (
 	errOutputCap = errors.New("output cap reached")
-	// errExitOne comes back beside the output of a command that answers with
-	// its exit status: "no" from merge-base, "conflicts" from merge-tree.
-	errExitOne = errors.New("exit status 1")
+	errExitOne   = errors.New("exit status 1")
 )
 
-// command is one git invocation. Everything it does not set falls back to the
-// service defaults.
 type command struct {
 	args    []string
 	stdin   []byte
-	limit   int64         // max bytes of stdout, 0 means defaultOutputCap
-	timeout time.Duration // 0 means Config.Timeout
-	network bool          // talks to the remote, so the credential header applies
-	exitOne bool          // exit status 1 is an answer of this command, reported as errExitOne
+	limit   int64
+	timeout time.Duration
+	network bool
+	exitOne bool
 }
 
-// gitRun is one git invocation with nothing left implicit. It exists because
-// Clone happens when there is no directory and therefore no service, so it
-// cannot take the working directory and the environment off one; every other
-// call goes through the same function so that the hardening has one home.
 type gitRun struct {
 	git     string
 	dir     string
 	env     []string
-	base    []string // top-level options, before the subcommand
+	base    []string
 	args    []string
 	stdin   []byte
 	limit   int64
 	timeout time.Duration
 	exitOne bool
-	secret  string // redacted out of any failure this call reports
+	secret  string
 }
 
-// runGit executes git and returns its stdout. Every call is bounded by a
-// timeout and an output cap, because both the repository and the notes in it
-// may be larger or slower than anything the caller expects.
 func runGit(ctx context.Context, r gitRun) ([]byte, error) {
 	if r.timeout <= 0 {
 		r.timeout = defaultTimeout
@@ -96,7 +85,6 @@ func runGit(ctx context.Context, r gitRun) ([]byte, error) {
 	return out.buf.Bytes(), nil
 }
 
-// run executes git in this service's repository.
 func (s *Service) run(ctx context.Context, c command) ([]byte, error) {
 	timeout := c.timeout
 	if timeout <= 0 {
@@ -116,7 +104,6 @@ func (s *Service) run(ctx context.Context, c command) ([]byte, error) {
 	})
 }
 
-// exitCode is the status git ended with, or -1 when it never got that far.
 func exitCode(err error) int {
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
@@ -125,31 +112,16 @@ func exitCode(err error) int {
 	return -1
 }
 
-// baseArgs are the options every call carries. They are top-level git options
-// and have to come before the subcommand; git rejects them after it.
 func (s *Service) baseArgs() []string {
 	return hardenedArgs(s.root)
 }
 
-// hardenedArgs are the options every git call carries, whether a service is
-// behind it or not.
 func hardenedArgs(root string) []string {
 	return []string{
 		"--no-pager",
-		// a path is a path: no pathspec magic, so a note named ":x.md" or
-		// "-x.md" is staged and logged like any other
 		"--literal-pathspecs",
-		// only protected configuration is trusted for this, which the command
-		// line is; the exact root, never "*", so no other repository is opened
 		"-c", "safe.directory=" + root,
-		// the notes directory may already be a repository somebody configured,
-		// and --no-verify does not disable every hook
-		// a place that can hold no hooks at all, rather than an empty directory
-		// of ours inside the adopted repository: whoever assembled that
-		// repository can leave a directory or a symlink standing there first
 		"-c", "core.hooksPath=/dev/null",
-		// another command the repository config gets to name, run on the
-		// ordinary operations this package performs
 		"-c", "core.fsmonitor=",
 		"-c", "commit.gpgSign=false",
 		"-c", "core.autocrlf=false",
@@ -159,8 +131,6 @@ func hardenedArgs(root string) []string {
 	}
 }
 
-// env is the child environment of one call. withToken carries the credential
-// header, and only the three commands that talk to a remote ask for it.
 func (s *Service) env(withToken bool) []string {
 	token := ""
 	if withToken {
@@ -169,14 +139,6 @@ func (s *Service) env(withToken bool) []string {
 	return gitEnv(token)
 }
 
-// gitEnv strips every GIT_* variable the host set - GIT_DIR, GIT_WORK_TREE,
-// GIT_INDEX_FILE and the author and committer overrides would each redirect a
-// commit somewhere we never looked - and pins the rest.
-//
-// A credential goes in here rather than on the command line: -c
-// http.extraHeader=... would put the token in /proc/<pid>/cmdline, which is
-// world readable, and in any gitError that quoted the arguments. /proc/<pid>/
-// environ is readable only by the owning uid.
 func gitEnv(token string) []string {
 	host := os.Environ()
 	res := make([]string, 0, len(host)+8)
@@ -203,7 +165,6 @@ func gitEnv(token string) []string {
 	)
 }
 
-// token is the resolved credential header value, empty for a local space.
 func (s *Service) token() string {
 	if s.cfg.Remote == nil {
 		return ""
@@ -211,15 +172,11 @@ func (s *Service) token() string {
 	return s.cfg.Remote.Token
 }
 
-// hasHead reports whether the repository has a commit. An empty one has no
-// HEAD at all and every reader has to answer without asking git.
 func (s *Service) hasHead(ctx context.Context) bool {
 	_, err := s.run(ctx, command{args: []string{"rev-parse", "--verify", "-q", "HEAD"}})
 	return err == nil
 }
 
-// staged reports whether the index holds anything to commit. Deciding this
-// first means a nonzero exit from git commit is always a real failure.
 func (s *Service) staged(ctx context.Context, timeout time.Duration) (bool, error) {
 	_, err := s.run(ctx, command{args: []string{"diff", "--cached", "--quiet"}, timeout: timeout, exitOne: true})
 	switch {
@@ -231,20 +188,15 @@ func (s *Service) staged(ctx context.Context, timeout time.Duration) (bool, erro
 	return false, err
 }
 
-// gitError carries what git said, which is the only useful part of a failure.
 type gitError struct {
 	args   []string
 	stderr string
 	err    error
-	secret string // the credential of this call, never printed
+	secret string
 }
 
-// redacted stands in for anything that must not reach a log or a UI.
 const redacted = "***"
 
-// Error implements the error interface. The redaction is here rather than in a
-// log filter, so it holds wherever the error is printed or returned - SyncError
-// puts this text on a page, which lgr.Secret never touches.
 func (e *gitError) Error() string {
 	res := fmt.Sprintf("git %s: %v", strings.Join(redactArgs(e.args), " "), e.err)
 	if e.stderr != "" {
@@ -256,9 +208,6 @@ func (e *gitError) Error() string {
 	return res
 }
 
-// credentialArg matches an argument that carries a secret. Nothing in this
-// package builds one, which is the point: a future call that does is redacted
-// before anybody notices it was not.
 var credentialArg = regexp.MustCompile(`(?i)(authorization|token|password|extraheader)=\S+|://[^/\s@]+:[^/\s@]+@`)
 
 func redactArgs(args []string) []string {
@@ -269,20 +218,13 @@ func redactArgs(args []string) []string {
 	return res
 }
 
-// Unwrap exposes the *exec.ExitError, so an exit code can be read off.
 func (e *gitError) Unwrap() error { return e.err }
 
-// isNotRepo reports the one failure of rev-parse that means "there is nothing
-// here yet" rather than "something is wrong". The message is matched because
-// git has no distinct exit code for it; LC_ALL=C keeps it in English.
 func isNotRepo(err error) bool {
 	var gitErr *gitError
 	return errors.As(err, &gitErr) && strings.Contains(gitErr.stderr, "not a git repository")
 }
 
-// capWriter collects output up to a limit. A hard one fails the call when the
-// limit is passed, a soft one keeps the head and drops the rest, which is what
-// an error message needs.
 type capWriter struct {
 	buf      bytes.Buffer
 	limit    int64
@@ -290,7 +232,6 @@ type capWriter struct {
 	exceeded bool
 }
 
-// Write implements io.Writer.
 func (w *capWriter) Write(p []byte) (int, error) {
 	room := w.limit - int64(w.buf.Len())
 	if int64(len(p)) <= room {

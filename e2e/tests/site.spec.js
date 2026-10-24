@@ -10,7 +10,6 @@ const {expect, test} = require('@playwright/test');
 const {binary} = require('../support/env');
 const {openSpaceMenu, showOutline} = require('../support/helpers');
 
-// a picture of one pixel, which is all the viewer needs to have something to show
 const PIXEL = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
     'base64',
@@ -35,19 +34,15 @@ const NOTES = {
     'pics/one.png': PIXEL,
     'pics/two.png': PIXEL,
     'math.md': '# Math\n\nA formula: $x^2 + 1$.\n',
-    // names a url has to escape, and one that looks escaped already
     'odd/100%.md': '# Percent\n',
     'odd/a%20b.md': '# Escaped\n',
     'odd/what? #1.md': '# Question\n',
 };
 
-// the address a site is published under: anything but the root of the host
 const PREFIX = '/pub/notes/';
 
 const TYPES = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml'};
 
-// serve answers a site the way a static host does: a file, a folder's
-// index.html, and 404.html for anything else
 function serve(root) {
     return new Promise((resolve) => {
         const server = http.createServer((req, res) => {
@@ -90,8 +85,6 @@ test.afterAll(async () => {
     fs.rmSync(tmp, {recursive: true, force: true});
 });
 
-// a site is read from disk, the way it is checked before it is published, and
-// from a host under a path of its own, the way it is read once it is
 const TARGETS = {
     disk: (name) => pathToFileURL(path.join(site, name)).href,
     host: (name) => `http://127.0.0.1:${server.address().port}${PREFIX}${name}`,
@@ -131,8 +124,6 @@ for (const [target, at] of Object.entries(TARGETS)) {
             // assert
             await expect(page).toHaveURL(at('docs/guide.html'));
             await expect(page.getByTestId('doc').locator('h1')).toHaveText('Guide');
-            // Firefox keeps a storage per page opened from disk, so there only
-            // the way to the note is open on the next page
             if (!(browserName === 'firefox' && target === 'disk')) {
                 await expect(row(page, 'docs').getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
             }
@@ -333,7 +324,6 @@ for (const [target, at] of Object.entries(TARGETS)) {
         });
 
         test('a code block copies its code', async ({context, page, browserName}) => {
-            // the clipboard cannot be read back in Firefox under playwright
             test.skip(browserName === 'firefox', 'the clipboard is not readable in Firefox');
 
             // arrange
@@ -481,9 +471,6 @@ for (const [target, at] of Object.entries(TARGETS)) {
     });
 }
 
-// a page from a host reads the next page and shows it with no page load, the
-// way the app moves between notes; a value left on the window says whether
-// the page was loaded again
 test.describe('site from a host moves between notes without a page load', () => {
     const at = (name) => TARGETS.host(name);
     const mark = (page) => page.evaluate(() => {
@@ -729,11 +716,6 @@ test('from disk a move to another note is a page load', async ({page}) => {
     expect(await page.evaluate(() => window.marker)).toBeUndefined();
 });
 
-// Back after a page load brings the page out of the browser's cache as it was
-// left: a link of a site from disk loads the next page, and from a host so does
-// an address typed or a link to the site from elsewhere.
-// Playwright turns that cache off in Chromium, and its headless shell has none,
-// so this test runs the whole browser with the cache back on.
 test('a page Back brings out of the cache takes the theme picked since and closes its sheet', async ({playwright, browserName}) => {
     // arrange
     const browser = await playwright[browserName].launch(browserName === 'chromium'
@@ -752,7 +734,6 @@ test('a page Back brings out of the cache takes the theme picked since and close
     await chooseTheme(page, 'Dark');
 
     // act
-    // a page out of the cache fires no load event
     await page.goBack({waitUntil: 'commit'});
 
     // assert

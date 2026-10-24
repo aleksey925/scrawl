@@ -12,8 +12,6 @@ const copiedFor = 1500;
 
 type Teardown = () => void;
 
-// injectControls adds the reading controls the server does not render and
-// returns the teardown, because React never owns anything inside injected html
 export function injectControls(root: HTMLElement): Teardown {
   const teardowns = [injectHeadingAnchors(root), injectCopyButtons(root), wrapTables(root), prepareImages(root)];
   return () => {
@@ -23,8 +21,6 @@ export function injectControls(root: HTMLElement): Teardown {
   };
 }
 
-// note html is the reader's own, so every hook put on it is taken back off
-// again: React never owns anything in here to re-render it away
 function tagged(): { tag: (element: HTMLElement, testid: string) => void; untag: Teardown } {
   const elements: HTMLElement[] = [];
   return {
@@ -69,15 +65,11 @@ export function injectHeadingAnchors(root: HTMLElement): Teardown {
   return removing(added, untag);
 }
 
-// injectCopyButtons puts a head row into every block of code, the language at
-// the left and Copy at the right. The head is never inside the pre: Copy takes
-// the text of the pre, and that has to be exactly the source.
 export function injectCopyButtons(root: HTMLElement): Teardown {
   const added: HTMLElement[] = [];
   const { tag, untag } = tagged();
   for (const block of root.querySelectorAll<HTMLElement>('.code-block')) {
     const code = block.querySelector('pre');
-    // a mermaid fence is source for the diagram renderer, not something to copy
     if (code === null || code.classList.contains('mermaid')) {
       continue;
     }
@@ -103,9 +95,6 @@ export function injectCopyButtons(root: HTMLElement): Teardown {
   return removing(added, untag);
 }
 
-// wrapTables puts every table in a box that scrolls sideways, so the table
-// itself can run the width of the note: a table that scrolls by itself is
-// only as wide as its text
 export function wrapTables(root: HTMLElement): Teardown {
   const wrapped: HTMLElement[] = [];
   for (const table of root.querySelectorAll<HTMLTableElement>('table')) {
@@ -125,8 +114,6 @@ export function wrapTables(root: HTMLElement): Teardown {
   };
 }
 
-// the zoom is advertised with cursor: zoom-in, which only a pointer sees, so
-// the image carries the role and takes a key press of its own
 export function prepareImages(root: HTMLElement): Teardown {
   const prepared: HTMLImageElement[] = [];
   const { tag, untag } = tagged();
@@ -147,8 +134,6 @@ export function prepareImages(root: HTMLElement): Teardown {
   };
 }
 
-// copyCode copies the code beside a copy button and says so on the button for
-// a moment. It answers false when the clipboard refused.
 export async function copyCode(button: HTMLElement, timers: Set<number>): Promise<boolean> {
   const code = button.closest('.code-block')?.querySelector('pre');
   if (!(await copyText(code?.textContent ?? ''))) {
@@ -165,20 +150,15 @@ export async function copyCode(button: HTMLElement, timers: Set<number>): Promis
   return true;
 }
 
-// pictureOf is the picture a click or a key press on it opens. One inside a
-// link is not: the link is the author's, and following it is what they meant.
 export function pictureOf(target: EventTarget | null): HTMLImageElement | undefined {
   const image = target instanceof Element ? target.closest('img') : null;
   return image instanceof HTMLImageElement && image.closest('a') === null ? image : undefined;
 }
 
-// pictureKeyed is the picture Enter or Space was pressed on
 export function pictureKeyed(event: KeyboardEvent): HTMLImageElement | undefined {
   return event.key === 'Enter' || event.key === ' ' ? pictureOf(event.target) : undefined;
 }
 
-// sectionLink is the address of a heading on this page. Not location.origin: a
-// page opened from disk has none in Firefox, and the link would start "null".
 export function sectionLink(id: string): string {
   return `${window.location.href.split(/[?#]/)[0] ?? ''}#${id}`;
 }

@@ -8,7 +8,6 @@
   font-size: var(--mantine-font-size-sm);
 }
 
-/* a picture sits on a checkerboard, so a transparent one shows its edges */
 .preview {
   display: flex;
   align-items: center;
@@ -42,8 +41,6 @@
   font-size: var(--mantine-font-size-sm);
 }
 
-/* the line numbers are a counter and never text: a copy, a selection and the
-   find all read the text of the pre, and take only the source */
 .code :global(code) {
   counter-reset: line;
 }

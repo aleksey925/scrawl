@@ -26,8 +26,6 @@ import classes from './TabBar.module.css';
 
 type TabName = 'notes' | 'search' | 'recent' | 'new' | 'profile';
 
-// the rest is what a mantine Menu.Target hands its button: a ref, the click
-// that opens it and the aria state of the menu
 interface TabProps extends Omit<ComponentPropsWithRef<'button'>, 'children'> {
   name: TabName;
   label: string;
@@ -51,10 +49,6 @@ function Tab({ name, label, icon: TabIcon, current, ...rest }: TabProps): JSX.El
   );
 }
 
-// TabBar is what a phone has instead of a sidebar, under the thumb: the notes
-// of the space folder by folder, the search, the notes opened last, a new note
-// or folder where the reader is, picked in a menu over the tab, and the space's
-// menu. The editor is left out, it needs the screen for the text and the keyboard.
 export function TabBar(): JSX.Element | null {
   const location = useLocation();
   const navigate = useNavigate();

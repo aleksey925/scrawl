@@ -17,13 +17,8 @@ import (
 
 const wasmFile = "prettier.wasm"
 
-// memoryPages caps one run at 256MB of 64KB pages, far above what a note of
-// MaxSize takes and far below what a runaway allocation would.
 const memoryPages = 4096
 
-// RunWorkerIfAsked turns this process into a worker when it was started as
-// one, and never returns then. It has to be the first thing main does: a
-// worker must not parse flags, open a store or listen on anything.
 func RunWorkerIfAsked() {
 	if os.Getenv(WorkerEnv) == "" {
 		return
@@ -35,8 +30,6 @@ func RunWorkerIfAsked() {
 	os.Exit(0)
 }
 
-// serve answers one request a line until the input closes, which is how a
-// worker learns that the server it belonged to is gone.
 func serve(in io.Reader, out io.Writer) error {
 	wasm, err := gzassets.Sub(wasmFiles, wasmDir).ReadFile(wasmFile)
 	if err != nil {
@@ -72,8 +65,6 @@ func serve(in io.Reader, out io.Writer) error {
 	}
 }
 
-// run executes the module once. Every run gets an instance of its own, so
-// nothing one note did to the interpreter is there for the next.
 func run(ctx context.Context, runtime wazero.Runtime, module wazero.CompiledModule, req request) (response, error) {
 	input, err := json.Marshal(req)
 	if err != nil {

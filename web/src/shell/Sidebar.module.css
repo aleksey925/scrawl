@@ -1,5 +1,3 @@
-/* the sidebar is a flush warm gray panel with a thin line on its right edge,
-   no card and no gutter around it */
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -9,8 +7,6 @@
   font-size: var(--mantine-font-size-sm);
 }
 
-/* the head is two icons: the sidebar's own at the left, a new entry at the
-   right */
 .head {
   display: flex;
   flex: none;
@@ -24,8 +20,6 @@
   margin-inline-start: auto;
 }
 
-/* the foot is the space's button, as wide as the sidebar, under a line across
-   the whole of it */
 .foot {
   display: flex;
   flex: none;
@@ -80,13 +74,10 @@
   line-height: 1;
 }
 
-/* the letter is drawn and not written, so it is no part of the name the menu
-   row of the space reads as */
 .tile::before {
   content: attr(data-letter);
 }
 
-/* Search and Home, the rows above the notes */
 .top {
   display: flex;
   flex-direction: column;
@@ -137,8 +128,6 @@
   }
 }
 
-/* the space's name over the tree, which is the root folder: it opens the
-   root's list and takes a drop like a folder row */
 .section {
   display: flex;
   flex: none;
@@ -179,7 +168,6 @@
   padding: 2px 8px 6px;
 }
 
-/* the filter is a tint in the sidebar with no line round it until it is used */
 .filter :global(.mantine-Input-wrapper) :global(.mantine-Input-input):not(:focus) {
   box-shadow: none;
 }

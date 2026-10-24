@@ -9,24 +9,15 @@ const {MULTI, editorStatus, inStep, save, setSource, shot, signIn} = require('..
 const WIKI = MULTI.spaces.wiki;
 const wiki = MULTI.extra.find((extra) => extra.name === 'wiki');
 
-// the note every test breaks, written fresh so a previous run cannot decide the
-// outcome of this one
 const DOC = 'e2e-sync.md';
 
-// a folder served as its own index.md, which is the case where the route names
-// the directory and the file on screen is one segment longer
 const FOLDER = 'e2e-sync-folder';
 const FOLDER_DOC = `${FOLDER}/index.md`;
 
-// what a second writer pushes while this copy holds a commit of its own
 const THEIRS = 'e2e-sync-theirs.md';
 
-// what lands in this copy after the reset dialog has made its check
 const LATE = 'e2e-sync-late.md';
 
-// the client polls /api/me once a minute, which is finer than the pull interval
-// it is watching. A test that waited for it in real time would take longer than
-// the whole suite, so the clock is driven instead.
 const pollMs = 61_000;
 
 function control(page) {
@@ -38,8 +29,6 @@ test.describe('sync state', () => {
         restoreOrigin(wiki.origin);
         fs.writeFileSync(path.join(wiki.dir, DOC), '# Sync\n\nstarting point.\n', 'utf8');
         await signIn(page, {baseURL: MULTI.baseURL, from: WIKI.doc(DOC)});
-        // the startup state is whatever the previous test left, so wait for the
-        // space to be in step before breaking anything
         await inStep(page, WIKI);
     });
 
@@ -49,12 +38,9 @@ test.describe('sync state', () => {
         fs.rmSync(path.join(wiki.dir, FOLDER), {recursive: true, force: true});
         fs.rmSync(path.join(wiki.dir, THEIRS), {force: true});
         fs.rmSync(path.join(wiki.dir, LATE), {force: true});
-        // leave the space in step, or the next spec inherits a broken one
         await inStep(page, WIKI);
     });
 
-    // the first failure has to reach somebody who is looking at the editor and
-    // nothing else: a toast now, and two persistent surfaces with no reload
     test('a failed push shows up everywhere without a reload', async ({page}) => {
         await page.goto(WIKI.edit(DOC));
         breakOrigin(wiki.origin);
@@ -65,8 +51,6 @@ test.describe('sync state', () => {
         await expect(page.getByTestId('toast')).toHaveAttribute('data-kind', 'warn');
         await expect(control(page)).toBeVisible();
         await expect(control(page)).toHaveAttribute('data-here', 'true');
-        // this instance fetches every two seconds, so the page is told about
-        // whichever ran last: the failed push, or a fetch that met the same gap
         const alert = page.getByTestId('space-alert');
         await expect(alert).toBeVisible();
         const kind = await alert.getAttribute('data-kind');
@@ -74,7 +58,6 @@ test.describe('sync state', () => {
         await expect(alert.getByTestId('space-alert-reason')).toHaveText(new RegExp(`^${kind}: `));
         await shot(page, 'sync-editor-warned');
 
-        // the badge is on the note, on every surface that lists it
         await page.goto(WIKI.doc(DOC));
         await expect(page.getByTestId('sync-badge').first()).toBeVisible();
         await page.goto(WIKI.search('stuck'));
@@ -82,8 +65,6 @@ test.describe('sync state', () => {
         await shot(page, 'sync-search-badge');
     });
 
-    // the reader's own change settles the screen in one round trip, in either
-    // direction: refreshing only on a dirty response would leave the warning up
     test('a save that finally pushes clears the state on its own', async ({page}) => {
         await page.goto(WIKI.edit(DOC));
         breakOrigin(wiki.origin);
@@ -99,8 +80,6 @@ test.describe('sync state', () => {
         await expect(page.getByTestId('space-alert')).toHaveCount(0);
     });
 
-    // nobody caused this one: the origin comes back, the server's own ticker
-    // syncs, and only a poll can tell the page about it
     test('a background sync that succeeded clears the state on a poll', async ({page}) => {
         await page.clock.install();
         await page.goto(WIKI.edit(DOC));
@@ -110,8 +89,6 @@ test.describe('sync state', () => {
         await expect(control(page)).toBeVisible();
 
         restoreOrigin(wiki.origin);
-        // the server's pull interval is seconds on this instance, the client's
-        // is a minute: give the first one real time and the second the clock
         await expect.poll(async () => meState(page), {timeout: 20_000}).toMatchObject({sync_error: ''});
         await page.clock.runFor(pollMs);
 
@@ -119,12 +96,9 @@ test.describe('sync state', () => {
         await expect(page.getByTestId('space-alert')).toHaveCount(0);
     });
 
-    // a conflict copy is a save like any other, and its response used to be
-    // thrown away before the navigation
     test('a conflict copy reports its own push', async ({page}) => {
         await page.goto(WIKI.edit(DOC));
         await setSource(page, '# Sync\n\nmine.\n');
-        // somebody else writes the file while this editor holds a stale revision
         fs.writeFileSync(path.join(wiki.dir, DOC), '# Sync\n\ntheirs.\n', 'utf8');
         breakOrigin(wiki.origin);
 
@@ -136,13 +110,9 @@ test.describe('sync state', () => {
         await expect(page.getByTestId('space-alert')).toBeVisible();
     });
 
-    // the route path is not the file whenever a directory is served as its
-    // index.md, and the root is that case with an empty path
     test('an index note is spoken for under its own address', async ({page}) => {
         await page.goto(WIKI.edit('index.md'));
         breakOrigin(wiki.origin);
-        // the root index cannot be deleted between runs, so the text carries a
-        // stamp: a save of the bytes the file already holds commits nothing
         await setSource(page, `# Remote page\n\nthe root index, stuck at ${Date.now()}.\n`);
         await save(page);
 
@@ -151,7 +121,6 @@ test.describe('sync state', () => {
         await expect(control(page)).toHaveAttribute('aria-label', 'This note has not reached the remote');
         await shot(page, 'sync-root-index');
 
-        // the same one level down
         await page.goto(WIKI.edit(FOLDER_DOC));
         await setSource(page, '# Guide\n\nthe folder index, stuck.\n');
         await save(page);
@@ -159,21 +128,15 @@ test.describe('sync state', () => {
         await page.goto(WIKI.doc(FOLDER_DOC));
         await expect(control(page)).toHaveAttribute('data-here', 'true');
 
-        // a note the remote does have leaves the control speaking for the
-        // space and not for the note
         await page.goto(WIKI.doc('remote.md'));
         await expect(control(page)).toHaveAttribute('data-here', 'false');
     });
 
-    // the way out of a divergence is on the page: the check names what only
-    // this copy holds, and the reset keeps it in a branch before it lets go
     test('a diverged space is reset from the page', async ({page}) => {
         await page.goto(WIKI.edit(DOC));
         breakOrigin(wiki.origin);
         await setSource(page, '# Sync\n\nwritten here only.\n');
         await save(page);
-        // the second writer lands before the origin is back, so the server
-        // never gets a tick in which its own push would still go through
         pushToOrigin(`${wiki.origin}-aside`, THEIRS, '# Theirs\n\nwritten on the other side.\n');
         restoreOrigin(wiki.origin);
         await expect.poll(async () => meState(page), {timeout: 20_000}).toMatchObject({diverged: true});
@@ -187,9 +150,6 @@ test.describe('sync state', () => {
         await expect(dialog.getByTestId('reset-lost-paths')).toContainText(DOC);
         await shot(page, 'sync-reset-check');
 
-        // this copy moves after the check: a file appears on disk and the
-        // server records it. The reset must not act on an answer about a
-        // state that is gone, so it checks again and asks again.
         const checked = git(wiki.dir, ['rev-parse', 'HEAD']);
         fs.writeFileSync(path.join(wiki.dir, LATE), '# Late\n\nlanded after the check.\n', 'utf8');
         await expect.poll(() => git(wiki.dir, ['rev-parse', 'HEAD']), {timeout: 15_000}).not.toBe(checked);
@@ -197,8 +157,6 @@ test.describe('sync state', () => {
         await expect(dialog.getByTestId('reset-moved')).toBeVisible();
         await expect(dialog.getByTestId('reset-lost-paths')).toContainText(LATE);
 
-        // confirmed until it holds: the server records a change two seconds
-        // after it lands, so one more may arrive between a check and its reset
         await expect(async () => {
             if (await dialog.getAttribute('data-step') === 'ready') {
                 await dialog.getByTestId('modal-confirm').click();
@@ -219,8 +177,6 @@ test.describe('sync state', () => {
         await expect(page.getByText('written on the other side.')).toBeVisible();
     });
 
-    // the poll must never replace a good answer with nothing: canWrite hangs off
-    // me, so a blank one would flash every write control off once a tick
     test('a slow poll blanks nothing', async ({page}) => {
         await page.clock.install();
         await page.goto(WIKI.doc(DOC));
@@ -229,8 +185,6 @@ test.describe('sync state', () => {
         await page.route(/\/api\/me$/, async (route) => {
             await new Promise((resolve) => setTimeout(resolve, 3_000));
             await route.continue().catch(() => {
-                // the page moved on, which is exactly the case the generation
-                // counter covers
             });
         });
         await page.clock.runFor(pollMs);
@@ -240,8 +194,6 @@ test.describe('sync state', () => {
         await expect(page.getByTestId('doc-edit')).toBeVisible();
     });
 
-    // a public repository clones with no token and takes no push without one,
-    // and git says that as a line about a terminal prompt
     test('a refused push says what to do and not what git said', async ({page}) => {
         await page.route(/\/api\/me$/, async (route) => {
             const res = await route.fetch();
@@ -261,12 +213,9 @@ test.describe('sync state', () => {
         await expect(alert).toContainText('Give the space a token with write access, or make it read-only.');
         await expect(alert.getByTestId('space-alert-reason')).toHaveCount(0);
         await shot(page, 'sync-push-refused');
-        // the teardown reads the same route to see the space back in step
         await page.unroute(/\/api\/me$/);
     });
 
-    // a poll that met an expired session would otherwise open the editor's
-    // session dialog with nobody touching anything
     test('a poll that meets a 401 opens no dialog', async ({page}) => {
         await page.clock.install();
         await page.goto(WIKI.edit(DOC));
@@ -278,13 +227,10 @@ test.describe('sync state', () => {
         await page.waitForTimeout(500);
         await page.unroute(/\/api\/me$/);
 
-        // the variant, not a bare modal: every dialog of the app carries that test id
         await expect(page.locator('[data-testid=modal][data-variant=session]')).toHaveCount(0);
     });
 });
 
-// meState reads the space state the page itself would poll, which is what
-// makes a wait for the server's own rhythm honest rather than a sleep.
 async function meState(page) {
     return page.evaluate(async (url) => {
         const res = await fetch(url, {headers: {accept: 'application/json'}});

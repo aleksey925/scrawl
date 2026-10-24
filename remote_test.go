@@ -14,8 +14,6 @@ import (
 	"github.com/aleksey925/scrawl/history"
 )
 
-// bareOrigin makes a remote nothing has to reach the network for: a bare
-// repository with one commit on main.
 func bareOrigin(t *testing.T) string {
 	t.Helper()
 	requireGit(t)
@@ -81,10 +79,6 @@ func TestEnsureDirsLeavesAnExistingCloneAlone(t *testing.T) {
 		"a second clone would throw away commits that were never pushed")
 }
 
-// TestEnsureDirsClonesAgainAfterAnInterruptedOne is why a leftover staging
-// directory counts as empty: without it a clone killed halfway would leave a
-// directory that is neither empty nor a clone, and every later start would
-// refuse with nothing to do about it but delete the volume by hand.
 func TestEnsureDirsClonesAgainAfterAnInterruptedOne(t *testing.T) {
 	// arrange
 	bare := bareOrigin(t)
@@ -103,9 +97,6 @@ func TestEnsureDirsClonesAgainAfterAnInterruptedOne(t *testing.T) {
 	assert.NoDirExists(t, filepath.Join(dir, history.StagingDir))
 }
 
-// TestNewHistoryForcesItselfOnForARemote is the one place --history does not
-// decide: a space that silently stopped recording would also silently stop
-// pushing.
 func TestNewHistoryForcesItselfOnForARemote(t *testing.T) {
 	// arrange
 	bare := bareOrigin(t)
@@ -175,9 +166,6 @@ func TestPullEvery(t *testing.T) {
 	assert.Equal(t, time.Minute, pullEvery(spaceConfig{Remote: &remoteConfig{Pull: time.Minute}}))
 }
 
-// TestARemoteSpacePushesWhatTheAppSaves is the whole feature seen from the
-// outside: a space whose directory is a clone records a save and the origin
-// has it.
 func TestARemoteSpacePushesWhatTheAppSaves(t *testing.T) {
 	// arrange
 	bare := bareOrigin(t)
@@ -201,10 +189,6 @@ func TestARemoteSpacePushesWhatTheAppSaves(t *testing.T) {
 	assert.Empty(t, hist.SyncError())
 }
 
-// TestAReadOnlyRemoteSpaceRecordsNothing is the wiring of the pull-only rule,
-// through the helper both the startup and the watcher go through: a file that
-// appears on disk is served and never committed, so the space does not report
-// itself unpublished for a change no reader made.
 func TestAReadOnlyRemoteSpaceRecordsNothing(t *testing.T) {
 	// arrange
 	bare := bareOrigin(t)
@@ -230,9 +214,6 @@ func TestAReadOnlyRemoteSpaceRecordsNothing(t *testing.T) {
 	assert.Empty(t, hist.SyncError())
 }
 
-// TestARemoteSpaceTracksEveryVisibleFile is why TrackAll exists: the editor
-// opens far more types than local history keeps, and on a clone that gap is a
-// change that never leaves the container.
 func TestARemoteSpaceTracksEveryVisibleFile(t *testing.T) {
 	// arrange
 	bare := bareOrigin(t)

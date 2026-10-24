@@ -1,5 +1,3 @@
-/* a folder is a Notion database: its title with New at the right, as Notion
-   puts New page, then a bar with its one view and the count over the table */
 .head {
   display: flex;
   align-items: center;
@@ -23,8 +21,6 @@
   margin-block: 8px 4px;
 }
 
-/* the one view is a pill of the hover tint, as Notion marks the view on
-   screen, with no line under the bar: the header row draws the table's top */
 .tab {
   display: inline-flex;
   align-items: center;
@@ -49,8 +45,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* an empty folder keeps its table's header, as Notion keeps a database's,
-   with what to do next well under it */
 .empty {
   padding-top: 48px;
 }

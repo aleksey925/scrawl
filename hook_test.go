@@ -16,8 +16,6 @@ import (
 	"github.com/aleksey925/scrawl/server"
 )
 
-// aSecret is long enough to pass the minimum, which is the length of
-// `openssl rand -hex 32` halved.
 const aSecret = "0123456789abcdef0123456789abcdef"
 
 func TestLoadConfigReadsTheHookSecret(t *testing.T) {
@@ -77,12 +75,6 @@ spaces:
 	assert.Contains(t, err.Error(), "sets both repo.hook_secret_file and repo.hook_secret_env")
 }
 
-// the resolver is allowed to return the empty string, because a public https
-// remote has no git credential. A hook secret has no such case: the empty
-// string is the key anybody can compute with, on a route that needs no session
-// and has no rate limiter in front of it. A file that resolves to nothing is a
-// secret that failed to mount, which reads the same from here as one that was
-// never asked for and must not be served as a silently disabled webhook.
 func TestResolveHookSecretRefusesAWeakOne(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -116,8 +108,6 @@ func TestResolveHookSecretRefusesAWeakOne(t *testing.T) {
 	}
 }
 
-// naming no source at all is the one way a space says it wants no webhook,
-// and it is the only case that answers with no secret and no error
 func TestResolveHookSecretWithoutASource(t *testing.T) {
 	// act
 	secret, err := resolveHookSecret("", "")
@@ -127,9 +117,6 @@ func TestResolveHookSecretWithoutASource(t *testing.T) {
 	assert.Empty(t, secret)
 }
 
-// an operator who put the variable in a compose file and got nothing into it
-// has a broken secret, which the git credential's "present but empty means no
-// credential" rule would read as a webhook nobody asked for
 func TestFlagSpacesRefuseAnEmptyHookVariable(t *testing.T) {
 	// arrange
 	t.Setenv(repoHookSecretEnv, "")
@@ -160,8 +147,6 @@ func TestFlagSpacesWithoutTheFixedHookVariable(t *testing.T) {
 	assert.Empty(t, cfgs[0].Remote.HookSecret, "no variable is no webhook, and no error either")
 }
 
-// the yaml path, end to end: the file is named, it holds nothing, and the
-// server refuses to start instead of serving a space whose webhook is off
 func TestLoadConfigRefusesAnEmptyHookSecretFile(t *testing.T) {
 	// arrange
 	file := filepath.Join(t.TempDir(), "hook")
@@ -184,9 +169,6 @@ spaces:
 	assert.Contains(t, err.Error(), "shorter than 32 bytes")
 }
 
-// the reason is the session key's reason: a file inside a space is on the
-// tree, in the index, in every backup of the corpus and downloadable through
-// /raw/ by anybody who can sign in
 func TestCheckSecretFilesCoversTheHookSecrets(t *testing.T) {
 	root := t.TempDir()
 	other := t.TempDir()
@@ -225,22 +207,7 @@ func TestCheckSecretFilesCoversTheHookSecrets(t *testing.T) {
 	}
 }
 
-// TestCheckSecretFilesResolvesBothSides is the matrix the two tests above do
-// not cover on their own, and it exists because leaving it out shipped the bug
-// twice.
-//
-// One directory can be named two ways, and a check that follows the symlinks of
-// one side only lets the other through. Both sides are varied independently,
-// because the mistake appears in both directions, and the file is placed at
-// depths that do not exist yet, because EvalSymlinks fails on a path with any
-// missing component and resolving just the parent covers one level and no more.
-//
-// None of this is contrived: on macOS every path under /var is reached through
-// a symlink, and auth creates the session key on first start, so "the caller
-// spelled it differently and the file is not there yet" is the ordinary case.
 func TestCheckSecretFilesResolvesBothSides(t *testing.T) {
-	// where the secret sits under the space root, in segments, so a case can
-	// name a directory nobody has made
 	places := map[string][]string{
 		"directly inside":                       {"secret"},
 		"one directory down, not created":       {"secrets", "secret"},
@@ -261,8 +228,6 @@ func TestCheckSecretFilesResolvesBothSides(t *testing.T) {
 						Remote: &remoteConfig{HookSecretFile: file},
 					}}
 
-					// act & assert: the same file, named two ways, refused both
-					// as the session key and as a hook secret
 					assert.Error(t, checkSecretFiles([]string{spellRoot(t, dir)}, opts, cfgs))
 				})
 			}
@@ -270,8 +235,6 @@ func TestCheckSecretFilesResolvesBothSides(t *testing.T) {
 	}
 }
 
-// pathSpellings are the ways a caller happens to name one directory. They reach
-// the same place, which is exactly what a path comparison has to agree about.
 func pathSpellings() map[string]func(t *testing.T, dir string) string {
 	return map[string]func(t *testing.T, dir string) string{
 		"a plain": func(_ *testing.T, dir string) string { return dir },
@@ -298,11 +261,6 @@ func TestSecretsOfCarriesTheHookSecret(t *testing.T) {
 	assert.Equal(t, []string{"Bearer ghp_xxx", aSecret}, secrets)
 }
 
-// TestSyncLoopCoalesces is why the trigger is a capacity-one channel: twenty
-// deliveries ask the same question, and twenty goroutines would each take the
-// history lock in turn and put every save behind the whole queue. One pending
-// run is still kept, because a delivery that arrived while a Sync was in
-// flight has to cause another one.
 func TestSyncLoopCoalesces(t *testing.T) {
 	// arrange
 	rp := testRuntime(t, 0)
@@ -363,9 +321,6 @@ func TestSyncLoopWithoutATickerSitsIdle(t *testing.T) {
 	assert.Empty(t, runs, "pull: 0 and no delivery means nothing fetches")
 }
 
-// select picks at random among ready cases, so a trigger queued at shutdown can
-// win against a closed ctx.Done(). Sync then takes a plain mutex that knows
-// nothing about the context, and the shutdown would wait on a save.
 func TestSyncLoopIgnoresATriggerQueuedAtShutdown(t *testing.T) {
 	// arrange
 	rp := testRuntime(t, 0)
@@ -403,10 +358,6 @@ func TestSyncLoopRunsOnTheTicker(t *testing.T) {
 	<-done
 }
 
-// TestRunDoesNotHangOnABusyPort is the deadlock the worker context exists to
-// avoid: Web.Run returns as soon as ListenAndServe fails while ctx is still
-// live, and a wait on a goroutine that only exits with that context would hang
-// the process.
 func TestRunDoesNotHangOnABusyPort(t *testing.T) {
 	// arrange
 	listener := mustListen(t)
@@ -437,9 +388,6 @@ func TestLogRemoteRedactsTheURL(t *testing.T) {
 	assert.Equal(t, "git@github.com:acme/wiki.git", redactURL("git@github.com:acme/wiki.git"))
 }
 
-// testRuntime is the smallest space a sync loop needs: a name, a trigger and
-// an interval. There is no repository behind it, because the loop's job is
-// deciding when to run and never what running means.
 func testRuntime(t *testing.T, pull time.Duration) *runtimeSpace {
 	t.Helper()
 	return &runtimeSpace{
@@ -449,7 +397,6 @@ func testRuntime(t *testing.T, pull time.Duration) *runtimeSpace {
 	}
 }
 
-// mustListen holds a port so a second server cannot have it.
 func mustListen(t *testing.T) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

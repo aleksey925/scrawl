@@ -160,9 +160,6 @@ func TestWantsJSON(t *testing.T) {
 			target: "/s/notes/doc/a.md", accept: "text/html, application/json;q=0.9", want: true,
 		},
 		{name: "path that only looks like the api", target: "/apiary", want: false},
-		// an API client that omits Accept and calls a space's API must get a
-		// JSON 401, not a redirect to an HTML form. The question is structural,
-		// so nothing here is told when a space is added.
 		{name: "a space's api", target: "/s/notes/api/file/a.md", want: true},
 		{name: "a space's api root", target: "/s/notes/api", want: true},
 		{name: "a space's raw route", target: "/s/notes/raw/logo.png", want: false},

@@ -22,10 +22,6 @@ const (
 	sniffLen       = 512
 )
 
-// allowedUploads maps an accepted extension to the media types
-// http.DetectContentType may report for it. An upload whose bytes do not match
-// its extension is refused, so a .png that is really a script never lands in
-// the notes directory.
 var allowedUploads = map[string][]string{
 	".png":  {"image/png"},
 	".jpg":  {"image/jpeg"},
@@ -33,13 +29,9 @@ var allowedUploads = map[string][]string{
 	".gif":  {"image/gif"},
 	".webp": {"image/webp"},
 	".pdf":  {"application/pdf"},
-	// an svg is text, and the sniffer only ever calls it xml or plain text,
-	// so the "<svg" check below carries the real weight here
-	".svg": {"image/svg+xml", "text/xml", "text/plain"},
+	".svg":  {"image/svg+xml", "text/xml", "text/plain"},
 }
 
-// cyrillic is the transliteration table for upload names. The corpus is
-// Russian, and percent-encoded names make markdown links unreadable.
 var cyrillic = map[rune]string{
 	'а': "a", 'б': "b", 'в': "v", 'г': "g", 'д': "d", 'е': "e", 'ё': "e",
 	'ж': "zh", 'з': "z", 'и': "i", 'й': "y", 'к': "k", 'л': "l", 'м': "m",
@@ -48,9 +40,6 @@ var cyrillic = map[rune]string{
 	'ъ': "", 'ы': "y", 'ь': "", 'э': "e", 'ю': "yu", 'я': "ya",
 }
 
-// Upload stores an attachment in dir under a sanitized, unique name and
-// returns where it landed. maxSize caps the number of bytes read, zero or less
-// means no cap.
 func (s *Store) Upload(dir, filename string, r io.Reader, maxSize int64) (FileInfo, error) {
 	if s.cfg.ReadOnly {
 		return FileInfo{}, fmt.Errorf("upload to %q: %w", dir, ErrReadOnly)
@@ -96,9 +85,6 @@ func (s *Store) Upload(dir, filename string, r io.Reader, maxSize int64) (FileIn
 	return info(target, fi), nil
 }
 
-// readLimited reads at most maxSize bytes and refuses anything longer. The
-// limit reader gets one extra byte, which is the only way to tell "exactly at
-// the cap" from "cut short".
 func readLimited(r io.Reader, maxSize int64) ([]byte, error) {
 	if maxSize <= 0 {
 		data, err := io.ReadAll(r)
@@ -118,9 +104,6 @@ func readLimited(r io.Reader, maxSize int64) ([]byte, error) {
 	return data, nil
 }
 
-// sanitizeName reduces a client-supplied filename to a lowercase ASCII slug
-// plus its original extension. Directories are stripped, so a browser sending
-// "../../etc/passwd.png" or a Windows path cannot steer the write.
 func sanitizeName(filename string) (name, ext string, err error) {
 	base := path.Base(filepath.ToSlash(strings.ReplaceAll(filename, `\`, "/")))
 	ext = strings.ToLower(path.Ext(base))
@@ -138,8 +121,6 @@ func sanitizeName(filename string) (name, ext string, err error) {
 	return name, ext, nil
 }
 
-// slugify keeps ASCII letters and digits, transliterates Cyrillic, strips
-// Latin accents and turns every other run of characters into a single dash.
 func slugify(s string) string {
 	var b strings.Builder
 	dash := false
@@ -164,9 +145,6 @@ func slugify(s string) string {
 	return strings.Trim(b.String(), "-")
 }
 
-// foldASCII returns the ASCII letter or digit a rune stands for, taking the
-// base of an accented one through the canonical decomposition, or 0 when the
-// rune has no ASCII form.
 func foldASCII(r rune) byte {
 	if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
 		return byte(r)
@@ -180,7 +158,6 @@ func foldASCII(r rune) byte {
 	return 0
 }
 
-// checkContent refuses a file whose bytes disagree with its extension.
 func checkContent(ext string, data []byte) error {
 	head := data
 	if len(head) > sniffLen {
@@ -192,15 +169,12 @@ func checkContent(ext string, data []byte) error {
 	if !slices.Contains(allowedUploads[ext], detected) {
 		return fmt.Errorf("content type %q does not match extension %q: %w", detected, ext, ErrForbidden)
 	}
-	// the sniffer cannot tell an svg from any other text, so look for the tag
 	if ext == ".svg" && !strings.Contains(strings.ToLower(string(head)), "<svg") {
 		return fmt.Errorf("content is not an svg image: %w", ErrForbidden)
 	}
 	return nil
 }
 
-// uniqueName finds a free name in dir, appending a short random suffix as soon
-// as the plain one is taken.
 func (s *Store) uniqueName(dir, name, ext string) (string, error) {
 	for attempt := range uniqueAttempts {
 		candidate := name + ext

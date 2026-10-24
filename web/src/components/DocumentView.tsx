@@ -24,7 +24,6 @@ export function DocumentView({ path }: DocumentViewProps): JSX.Element {
           case 'missing-document':
             return <MissingNote path={page.path} page={page} />;
           case 'file':
-            // only the server answers with a file, and only the app plugs in its page
             return FileView === undefined ? null : <FileView file={page} />;
           default:
             return <DocumentBody doc={page} />;

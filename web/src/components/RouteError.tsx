@@ -15,8 +15,6 @@ export function RouteError(): JSX.Element {
   return <ErrorView message={message} />;
 }
 
-// ErrorView is a screen that broke, for the router that caught it and for the
-// boundary a site has instead
 export function ErrorView({ message }: { message: string }): JSX.Element {
   return (
     <Page data-testid="app-error">

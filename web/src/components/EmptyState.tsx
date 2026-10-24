@@ -11,8 +11,6 @@ export interface EmptyStateProps {
   actions?: ReactNode;
 }
 
-// EmptyState says what is selected when there is nothing in it to show: a
-// blank screen reads as a page that failed to load
 export function EmptyState({ testId, icon: Icon, title, children, actions }: EmptyStateProps): JSX.Element {
   return (
     <Stack data-testid={testId} align="center" gap={6} py="4xl" px="lg" ta="center">

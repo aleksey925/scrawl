@@ -40,14 +40,12 @@ function apply(choice: string): void {
 apply(stored());
 printInLight();
 
-// Back shows the page the way it was left, with the theme it had then
 window.addEventListener('pageshow', (event) => {
   if (event.persisted) {
     apply(stored());
   }
 });
 
-// the reading controls the app puts on a note
 function prepareNote(note: HTMLElement): void {
   injectHeadingAnchors(note);
   injectCopyButtons(note);
@@ -64,7 +62,6 @@ function prepareNote(note: HTMLElement): void {
       void copyCode(button, timers);
       return;
     }
-    // the browser follows the anchor to its heading, the link is copied beside
     const anchor = event.target.closest(`.${anchorClass}`);
     if (anchor instanceof HTMLElement) {
       void copyText(sectionLink(anchor.dataset['headingId'] ?? ''));

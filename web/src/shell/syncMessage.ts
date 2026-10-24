@@ -1,17 +1,9 @@
 import type { MeResponse } from '../api/types';
 
-// SyncMessage is what the space has to say about itself, in the one place it
-// is written. The banner and the sync control render the same value, so they
-// can never drift apart.
 export interface SyncMessage {
-  // the state that supplies the title, which is all precedence decides
   kind: SyncKind;
   title: string;
-  // one paragraph per active fact, in precedence order. At most two states are
-  // true at once, one from each family, so this is at most two entries.
   facts: SyncFact[];
-  // the space is diverged and this reader may reset it, so the surfaces
-  // that render the message offer the one way out
   canReset: boolean;
 }
 
@@ -20,15 +12,9 @@ export type SyncKind = 'degraded' | 'merge' | 'fetch' | 'push';
 export interface SyncFact {
   kind: SyncKind;
   body: string;
-  // the redacted git reason, empty for the degraded state, which has none
   reason: string;
 }
 
-// degraded wins a title because it is the only state where the change has no
-// record at all, not merely unpushed. merge comes next because it is the only
-// remote state that will never fix itself. fetch outranks push because an
-// unreachable remote explains a failed push and a failed push does not explain
-// an unreachable remote.
 const precedence: SyncKind[] = ['degraded', 'merge', 'fetch', 'push'];
 
 const titles: Record<SyncKind, string> = {
@@ -77,8 +63,6 @@ function factsOf(me: MeResponse): SyncFact[] {
       if (me.history_degraded) {
         res.push({
           kind,
-          // no affected sentence: degraded says nothing about which paths the
-          // remote is missing
           body: 'A change reached the disk and history did not record it. The next save that succeeds folds it in.',
           reason: '',
         });
@@ -89,13 +73,10 @@ function factsOf(me: MeResponse): SyncFact[] {
       continue;
     }
     if (kind === 'merge' && space.diverged) {
-      // no git reason: the body already says everything it would
       res.push({ kind, body: divergedBody(space.can_reset) + affected, reason: '' });
       continue;
     }
     if (kind === 'push' && space.push_refused) {
-      // no git reason: it is a line about a terminal prompt, and the body
-      // already says what it means
       res.push({ kind, body: refusedBody + affected, reason: '' });
       continue;
     }
@@ -106,8 +87,6 @@ function factsOf(me: MeResponse): SyncFact[] {
 
 const divergedTitle = 'This space has diverged from the remote';
 
-// divergedBody never names a clone or a command: the way out is a button, and
-// a reader who has none is told so.
 function divergedBody(canReset: boolean): string {
   const what =
     'This copy and the remote both changed, and scrawl does not merge the two. ' +
@@ -126,8 +105,6 @@ function bodyOf(kind: SyncKind, unpublished: boolean): string {
     case 'push':
       return (
         'The change is saved here and recorded in history, it has not reached the remote. ' +
-        // true with no ticker and no webhook, because the push runs inside the
-        // save itself
         'The next save tries again.'
       );
     case 'fetch':
@@ -141,9 +118,6 @@ function bodyOf(kind: SyncKind, unpublished: boolean): string {
   }
 }
 
-// affectedSentence is the only place "some notes" and "many files" are written,
-// and it never carries a count: an exact number costs the whole diff and buys a
-// digit nobody acts on.
 function affectedSentence(me: MeResponse): string {
   const { unsynced } = me.space;
   if (unsynced.many) {
@@ -155,9 +129,6 @@ function affectedSentence(me: MeResponse): string {
   return '';
 }
 
-// stageOf reads the stage word Sync puts at the front of its error. Sync
-// returns the first error it hit, so at most one stage is current at any
-// moment, which is what makes the remote states mutually exclusive.
 function stageOf(syncError: string): SyncKind | undefined {
   for (const kind of ['merge', 'fetch', 'push'] as const) {
     if (syncError.startsWith(`${kind}:`)) {

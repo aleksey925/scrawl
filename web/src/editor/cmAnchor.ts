@@ -13,15 +13,11 @@ import {
   type ReadingAnchor,
 } from './anchor';
 
-// block.top is measured from the start of the document, which is not where the
-// scroller's own content box begins
 function documentOffset(view: EditorView): number {
   const scroller = view.scrollDOM;
   return view.documentTop - scroller.getBoundingClientRect().top + scroller.scrollTop;
 }
 
-// lineSpan is the pixel extent of a source line range in the scroller's own
-// space, which is what pairs a block of source with the block it renders as.
 export function lineSpan(view: EditorView, range: LineRange): { top: number; bottom: number } {
   const doc = view.state.doc;
   const offset = documentOffset(view);
@@ -30,8 +26,6 @@ export function lineSpan(view: EditorView, range: LineRange): { top: number; bot
   return { top: offset + first.top, bottom: offset + last.bottom };
 }
 
-// A line cut by the top edge is anchored at the first character on the top
-// row, because a wrapped line is many rows tall on a phone.
 export function captureFromSource(view: EditorView, path: string, rev: string): ReadingAnchor {
   const scroller = view.scrollDOM;
   if (scroller.scrollTop <= 0) {
@@ -43,8 +37,6 @@ export function captureFromSource(view: EditorView, path: string, rev: string): 
   const pos = view.posAtCoords({ x: left, y: top + 1 }, false);
   const cut = doc.lineAt(pos);
 
-  // the glyph and not the line box, because the glyph is what scrollIntoView
-  // aligns, and the half-leading between the two would drift every round trip
   const lineTop = (from: number): number =>
     view.coordsAtPos(from, 1)?.top ?? view.documentTop + view.lineBlockAt(from).top;
   const first = lineTop(cut.from) >= top ? cut.number : cut.number + 1;
@@ -65,8 +57,6 @@ export function captureFromSource(view: EditorView, path: string, rev: string): 
 
 const codeNodes = new Set(['FencedCode', 'CodeBlock']);
 
-// leaves only: the page places the blocks inside a quote or a list, and the
-// container itself only where none of them is
 const leafNodes = new Set([
   ...codeNodes,
   'Paragraph',
@@ -83,8 +73,6 @@ const leafNodes = new Set([
   'HTMLBlock',
 ]);
 
-// the marker line of an alert is the title row the alert draws, so its body
-// starts on the next line, as it does in render
 const alertMarker = /^>\s*\[!(?:note|tip|important|warning|caution)\]\s*$/i;
 
 function bodyStart(view: EditorView, name: string, from: number, to: number): number {
@@ -94,8 +82,6 @@ function bodyStart(view: EditorView, name: string, from: number, to: number): nu
   return skipsFirst ? Math.min(start.number + 1, doc.lineAt(to).number) : start.number;
 }
 
-// the first line from number on that the page places exactly: a block's start
-// or a line of code, never a later line of a paragraph or an opening fence
 function blockLineFrom(view: EditorView, number: number): number | undefined {
   const doc = view.state.doc;
   const from = doc.line(number).from;
@@ -118,8 +104,6 @@ function blockLineFrom(view: EditorView, number: number): number | undefined {
   return found;
 }
 
-// not scrollTop: the height of a line not drawn yet is an estimate, hundreds of
-// pixels off in a wrapped note, and scrollIntoView measures and scrolls again
 export function scrollAnchorToTop(view: EditorView, anchor: ReadingAnchor): void {
   if (atDocumentStart(anchor)) {
     view.scrollDOM.scrollTop = 0;

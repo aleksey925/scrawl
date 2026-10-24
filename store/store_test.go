@@ -52,9 +52,6 @@ func notesFiles() map[string]string {
 	}
 }
 
-// makeTree builds a notes tree in a temp directory and plants a secret
-// next to it, so a traversal that works is visible in the assertion. A key
-// ending with a slash makes an empty directory.
 func makeTree(t *testing.T, files map[string]string) string {
 	t.Helper()
 
@@ -318,8 +315,6 @@ func TestStoreSymlinks(t *testing.T) {
 			assert.False(t, errors.Is(readErr, fs.ErrNotExist), "the escape error is not ErrNotExist")
 		}
 
-		// a link that stays inside is followed by os.Root, which is why the
-		// store filters symlinks itself instead of relying on the escape check
 		data, err := raw.ReadFile("inside.md")
 		require.NoError(t, err)
 		assert.Equal(t, notesFiles()["guide.md"], string(data))
@@ -625,7 +620,6 @@ func TestStoreWrite(t *testing.T) {
 	})
 
 	t.Run("a failed write leaves no temp file", func(t *testing.T) {
-		// arrange: renaming a file over a directory that has entries always fails
 		s := newStore(t, notesFiles())
 
 		// act

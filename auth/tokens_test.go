@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// testAPIToken and testReadToken are the values a client presents; the
-// configuration in the tests holds their digests.
 const (
 	testAPIToken  = "scrawl_read-write-token"
 	testReadToken = "scrawl_read-only-token"

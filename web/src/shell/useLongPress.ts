@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent } from 'react';
 
-// longPressMs is how long a finger rests on a row before it counts as asking
-// for the row's menu, the time a phone's own long press takes
 const longPressMs = 500;
-// a finger drifts while it rests; past this it is scrolling the list
 const longPressSlop = 10;
 
 export interface LongPressHandlers {
@@ -14,11 +11,6 @@ export interface LongPressHandlers {
   onClickCapture: (event: MouseEvent) => void;
 }
 
-// useLongPress calls back when a finger or a pen rests on an element. iOS sends
-// no contextmenu for a long press, so the press is timed here; the click the
-// lifted finger sends afterwards is swallowed, or the row would also open.
-// onHold hears when a finger starts resting and when it stops, by lifting,
-// moving off or having held long enough.
 export function useLongPress(onLongPress: () => void, onHold?: (holding: boolean) => void): LongPressHandlers {
   const timer = useRef<number | undefined>(undefined);
   const start = useRef<{ x: number; y: number } | undefined>(undefined);
@@ -43,8 +35,6 @@ export function useLongPress(onLongPress: () => void, onHold?: (holding: boolean
   const onPointerDown = useCallback(
     (event: PointerEvent) => {
       fired.current = false;
-      // react hands a press inside a menu in a portal up to the row the menu
-      // belongs to, and that press must not start timing the row
       if (event.pointerType === 'mouse' || !event.currentTarget.contains(event.target as Node)) {
         return;
       }

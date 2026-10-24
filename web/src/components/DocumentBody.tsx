@@ -19,8 +19,6 @@ export interface DocumentBodyProps {
   doc: DocumentResponse;
 }
 
-// a note's leading heading is its page title, so the page draws the title
-// itself and the topbar repeats it only once it has scrolled away
 const leadingHeading = /^\s*<h1[\s>]/;
 
 export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {

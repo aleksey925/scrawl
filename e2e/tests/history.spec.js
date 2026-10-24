@@ -12,11 +12,6 @@ const lightTheme = require('../../theme/themes/light.json');
 
 const FOLDER = 'e2e-history';
 
-// a version list counts every save the repository ever saw, and deleting the
-// file does not delete its history: a test that runs again in the same session
-// needs a document of its own. A new name is not enough, the text has to be
-// new too: history follows a rename, and a new file holding the bytes of a
-// deleted one is a rename as far as git can tell.
 function freshDoc(name) {
     const stamp = Date.now();
     return {docPath: `${FOLDER}/${name}-${stamp}.md`, stamp};
@@ -52,7 +47,6 @@ test.describe.serial('history', () => {
         await expect(versions.nth(1).getByTestId('version-kind')).toHaveText('Create');
         await expect(versions.nth(1).getByTestId('version-kind'))
             .toHaveCSS('background-color', rgb(lightTheme.blocks.green.bg));
-        // the newest version is the note as it is now, and writing it back changes nothing
         await expect(versions.first()).toHaveAttribute('data-selected', 'true');
         await expect(page.getByTestId('version-restore')).toBeDisabled();
         await expect(page.getByTestId('history-restore-reason')).toHaveText('Same as the current note');
@@ -73,7 +67,6 @@ test.describe.serial('history', () => {
 
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.restored);
         await expect.poll(() => readFixture(docPath, HISTORY)).toBe(first);
-        // the restore is itself a version, so the list grows instead of rewinding
         await expect(page.getByTestId('version')).toHaveCount(3);
         await shot(page, 'history-after-restore');
 
@@ -98,7 +91,6 @@ test.describe.serial('history', () => {
         await expect(rows.nth(2).locator('.diff-new ins.diff-ins')).toHaveText('Медленная');
         await shot(page, 'history-rendered-diff');
 
-        // unified shows the changed block once, both marks in it
         await page.getByTestId('history-diff-layout').getByText('Unified').click();
         await expect(diff).toHaveAttribute('data-layout', 'unified');
         await expect(rows.nth(2).locator('.diff-cell')).toHaveCount(1);
@@ -109,7 +101,6 @@ test.describe.serial('history', () => {
         await expect(page.getByTestId('rendered-diff')).toHaveAttribute('data-layout', 'unified');
         await page.getByTestId('history-diff-layout').getByText('Split').click();
 
-        // the choice of view is kept for the next version and the next visit
         await page.getByTestId('history-diff-view').getByText('Source').click();
         await page.reload();
         await expect(page.getByTestId('history-diff')).toContainText('+Медленная лиса.');
@@ -202,12 +193,8 @@ test.describe.serial('history', () => {
         await page.getByTestId('version-restore').click();
         await page.getByTestId('modal-confirm').click();
 
-        // the dialog is mounted whether or not it is open, so what it holds is
-        // what says it is up
         const conflict = page.locator('[data-testid=modal][data-variant="conflict"]');
         await expect(page.getByTestId('history-conflict-current')).toBeVisible();
-        // the confirm dialog is still on its way out, so the title is looked up
-        // inside this one rather than anywhere on the page
         await expect(conflict.locator('.mantine-Modal-title')).toContainText(text.modal.restoreConflict);
         await expect(page.getByTestId('history-conflict-current')).toHaveText('written by someone else\n');
         expect(readFixture(docPath, HISTORY)).toBe('written by someone else\n');
@@ -307,8 +294,6 @@ test.describe.serial('history', () => {
         await expect(page.getByTestId('history-title')).toHaveText(text.history.title);
         await expect(page.getByTestId('version').first()).toBeVisible();
 
-        // an instance running without history offers no action, and its route
-        // typed in by hand answers with the reason
         await signIn(page, {baseURL: MAIN.baseURL, from: routes.doc(docs.doc.path)});
         await expect(page.getByTestId('note-menu')).toBeVisible();
         await expect(page.getByTestId('doc-history')).toHaveCount(0);

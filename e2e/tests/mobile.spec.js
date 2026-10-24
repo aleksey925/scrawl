@@ -10,8 +10,6 @@ const {
 } = require('../support/helpers');
 const text = require('../support/text');
 
-// an icon and a menu row take a fingertip; a labelled button and a choice of
-// a few are a little lower, one height each wherever they stand
 const MIN_TAP = 44;
 const BUTTON_HEIGHT = 40;
 const CHOICE_HEIGHT = 36;
@@ -22,8 +20,6 @@ const EMPTY_FOLDER = 'e2e-mobile/pusto';
 const HISTORY_FOLDER = 'e2e-mobile-history';
 const HISTORY_DOC = `${HISTORY_FOLDER}/versions.md`;
 
-// tooSmall reports every element of a selector that is under the minimum touch
-// size, so a failure names the offender instead of giving a bare count
 async function tooSmall(page, selector, min = MIN_TAP) {
     return page.evaluate(([sel, min]) => {
         return Array.from(document.querySelectorAll(sel))
@@ -40,8 +36,6 @@ async function tooSmall(page, selector, min = MIN_TAP) {
     }, [selector, min]);
 }
 
-// openedMenu waits for a menu to be up and done growing: a phone's menu grows
-// out of what opened it, and measured on the way it is half its size
 async function openedMenu(page, testId) {
     const menu = page.getByTestId(testId);
     await expect(menu).toBeVisible();
@@ -49,17 +43,14 @@ async function openedMenu(page, testId) {
         .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
 }
 
-// tapSpaceMenu opens the menu of the space, which on a phone is the last tab
 async function tapSpaceMenu(page) {
     await page.goto(routes.home());
     await page.getByTestId('tab-profile').tap();
     await openedMenu(page, 'space-menu-dropdown');
 }
 
-// a finger resting this long is a long press: the app counts one at 500ms
 const LONG_PRESS_HOLD = 700;
 
-// longPress rests a finger at x, y for a long press, then lifts it
 async function longPress(page, x, y) {
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x, y}]});
@@ -67,8 +58,6 @@ async function longPress(page, x, y) {
     await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
 }
 
-// pressedBand presses the element the selector names and answers where its
-// pressed band starts and ends on the screen
 async function pressedBand(page, selector) {
     const element = page.locator(selector).first();
     await expect(element).toBeVisible();
@@ -77,7 +66,6 @@ async function pressedBand(page, selector) {
     await cdp.send('CSS.enable');
     const {root} = await cdp.send('DOM.getDocument');
     const {nodeId} = await cdp.send('DOM.querySelector', {nodeId: root.nodeId, selector});
-    // a touch sent through the protocol never sets :active in a headless browser
     await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: ['active']});
     await expect.poll(() => element.evaluate((el) => getComputedStyle(el, '::before').opacity)).toBe('1');
     return element.evaluate((el) => {
@@ -87,12 +75,10 @@ async function pressedBand(page, selector) {
     });
 }
 
-// asStandalone opens the app as one opened from the home screen of an iPhone
 async function asStandalone(page) {
     await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
 }
 
-// boxOf is where an element sits on the screen, in whole pixels
 async function boxOf(page, testId) {
     const box = await page.getByTestId(testId).boundingBox();
     return {
@@ -111,8 +97,6 @@ test.describe('mobile', () => {
         fs.rmSync(fixtureFile(HISTORY_FOLDER, HISTORY), {recursive: true, force: true});
     });
 
-    // every control a thumb needs sits at the bottom of a phone: the tabs, and
-    // on a note the round Edit button above them
     test('the tab bar sits at the bottom with Notes, Search, Recent, New and Profile', async ({page}) => {
         // act
         await page.goto(routes.doc(DOC));
@@ -128,8 +112,6 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-tab-bar');
     });
 
-    // a phone has no tree: the folder list is the way through the space, one
-    // level at a time, the way the Files app on iOS has it
     test('Notes opens the root list, a folder opens its list, and the back link goes up', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
@@ -189,7 +171,6 @@ test.describe('mobile', () => {
 
         // assert
         const scale = () => folder.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
-        // short of the long press at 500ms, which lifts the row instead
         await expect.poll(scale, {timeout: 450, intervals: [50]}).toBeLessThan(1);
         await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
     });
@@ -246,8 +227,6 @@ test.describe('mobile', () => {
             .toEqual(['', '']);
     });
 
-    // Safari draws the page gone back to under its own swipe, and a move of
-    // ours after it shook the page
     test('a back the browser takes moves nothing in a tab, and slides in from the left in an app', async ({page}) => {
         // arrange
         await page.addInitScript(() => {
@@ -281,8 +260,6 @@ test.describe('mobile', () => {
     });
 
     test.describe('a swipe from the left edge', () => {
-        // swipe drags a finger from the left edge of the screen across to x, resting
-        // between its steps the way a slow finger does
         async function swipe(page, to, rest = 0) {
             const cdp = await page.context().newCDPSession(page);
             const y = 400;
@@ -297,9 +274,6 @@ test.describe('mobile', () => {
 
         const folder = () => MAIN.url.dir(docs.folder.path);
 
-        // inStandalone opens the app as one opened from the home screen, and logs
-        // every path it goes to and whether a touch landed while the screen was
-        // still moving
         async function inStandalone(page) {
             await asStandalone(page);
             await page.addInitScript(() => {
@@ -321,9 +295,6 @@ test.describe('mobile', () => {
             });
         }
 
-        // swipeAndTap swipes the page away and taps the middle of what the testid
-        // names at once, while the page is still leaving: a tap of playwright
-        // waits for the element first and can land after the move is over
         async function swipeAndTap(page, testId) {
             const box = await page.getByTestId(testId).boundingBox();
             await swipe(page, 300);
@@ -333,17 +304,11 @@ test.describe('mobile', () => {
             await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
         }
 
-        // settled waits until nothing on the page moves any more, which is when the
-        // way back would have been taken
         async function settled(page) {
             await expect.poll(() => page.evaluate(() => document.getAnimations()
                 .filter((animation) => animation.playState === 'running').length)).toBe(0);
         }
 
-        // touchesFrom sends a touch at the first point and moves it through the
-        // rest, as events made in the page, and answers which moves the page
-        // took for itself. Chromium holds back a move the protocol sends inside
-        // its slop, so a short first step never reached the page that way.
         async function touchesFrom(page, [start, ...moves], end = 'touchcancel') {
             return page.evaluate(async ({start, moves, end}) => {
                 const send = (type, point) => {
@@ -376,8 +341,6 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('dir-row').first()).toBeVisible();
 
             // act
-            // the first steps stay short of where the page starts to move, and
-            // they lean up a little, as a thumb drawing a swipe does
             const taken = await touchesFrom(page, [[4, 400], [7, 399], [10, 398], [20, 396], [40, 395], [80, 394]]);
 
             // assert
@@ -496,8 +459,6 @@ test.describe('mobile', () => {
                 await page.waitForTimeout(20);
                 await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y}]});
             }
-            // the way back is sent at once, so a slow runner cannot stretch it
-            // past the stretch the speed of the release is read over
             for (const x of [250, 220, 190]) {
                 await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y}]});
             }
@@ -509,8 +470,6 @@ test.describe('mobile', () => {
             await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
         });
 
-        // a spinner that came up the moment the page was gone, and went as the
-        // next screen moved in, read as the page jerking
         test('a page swiped back to a screen still on its way shows no spinner for a short wait', async ({page}) => {
             // arrange
             await asStandalone(page);
@@ -654,14 +613,12 @@ test.describe('mobile', () => {
             await expect(menu).toBeVisible();
             await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 900, y: 700}]});
             await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
-            // the touch scrolled the page, and a scroll closes a row's menu
             await page.evaluate(() => window.dispatchEvent(new Event('scroll')));
             await expect(menu).toHaveCount(0);
             await opener.tap();
             await expect(menu).toBeVisible();
 
             // act
-            // the click a finger lifted after a long press sends, with no press of its own
             await page.getByTestId('tap-guard').dispatchEvent('click');
 
             // assert
@@ -678,8 +635,6 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('sidebar-search-keys')).toHaveCount(0);
         });
 
-        // a guard inside the row was a press on the row: a finger resting on it
-        // timed the row's long press, which then swallowed the guard's click
         test('the guard under a tree row\'s menu is no part of the row', async ({page}) => {
             // arrange
             await page.goto(routes.home());
@@ -728,7 +683,6 @@ test.describe('mobile', () => {
             await page.goto(MAIN.url.dir(FOLDER));
             const width = page.viewportSize().width;
             const row = await rowOf(page, file).boundingBox();
-            // a press on the row's own ⋯ lifts nothing, so the right end is left of it
             const button = await rowOf(page, file).getByTestId('tree-row-menu').boundingBox();
             const rightAfterLift = async (x) => {
                 await longPress(page, x, row.y + row.height / 2);
@@ -898,8 +852,6 @@ test.describe('mobile', () => {
         expect(fs.existsSync(fixtureFile(`${EMPTY_FOLDER}/made-on-a-phone.md`))).toBe(true);
     });
 
-    // a menu opens beside the control that opened it, the way a phone's own
-    // menus do, and stays on the screen
     test('the note menu opens under its button, on the screen', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
@@ -931,8 +883,6 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('space-menu-shortcuts')).toHaveCount(0);
     });
 
-    // the tap that put a menu away went on to the row under it and opened
-    // the file there
     test('a tap beside an open menu closes it and opens nothing', async ({page}) => {
         // arrange
         await page.goto(routes.dir(docs.folder.path));
@@ -1011,8 +961,6 @@ test.describe('mobile', () => {
         expect(room).toBeLessThanOrEqual(0);
     });
 
-    // the search takes the screen the way a phone's own does, its field at the
-    // bottom where the thumb is, and Cancel is the way back
     test('the search takes the whole screen, its field at the bottom, and Cancel puts it away', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
@@ -1024,11 +972,9 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('search-input')).toBeVisible();
         const dialog = await boxOf(page, 'search-dialog');
         expect([dialog.top, dialog.bottom]).toEqual([0, page.viewportSize().height]);
-        // the field sits at the bottom, under the thumb, and the results above it
         const field = await boxOf(page, 'search-input');
         expect(field.top).toBeGreaterThan(page.viewportSize().height * 0.75);
         await expect(page.getByTestId('search-footer')).not.toContainText('Select');
-        // the mode and the titles chip beside it are one height, not two
         const mode = await boxOf(page, 'search-mode');
         const titles = await boxOf(page, 'search-titles');
         expect([mode.bottom - mode.top, titles.bottom - titles.top]).toEqual([CHOICE_HEIGHT, CHOICE_HEIGHT]);
@@ -1067,8 +1013,6 @@ test.describe('mobile', () => {
         const fontSize = await source.locator('.cm-content').evaluate(
             (el) => parseFloat(getComputedStyle(el).fontSize));
         expect(fontSize, 'iOS zooms into any field under 16px').toBeGreaterThanOrEqual(16);
-        // one pane at a time on a phone, so the layout control is off and the
-        // tabs stand in for it
         await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'source');
         await expect(page.getByTestId('editor-layout-mode')).toHaveCount(0);
         await shot(page, 'mobile-editor');
@@ -1088,9 +1032,6 @@ test.describe('mobile', () => {
         await expectNoHorizontalScroll(page);
     });
 
-    // the source pane once collapsed to a sliver: its wrapper carried the pane
-    // class but no flex-grow, and only the split layout handed it a width, so
-    // with one pane on screen it shrank to its content.
     test('a text file opens in the editor with no Text and Preview tabs', async ({page}) => {
         // arrange
         const filePath = 'e2e-mobile/plain.txt';
@@ -1116,8 +1057,6 @@ test.describe('mobile', () => {
         expect(box.width).toBeGreaterThan(300);
     });
 
-    // taken a quarter down the screen, the position kept what was above it at
-    // its rendered height, and in the wrapped source the heading went off screen
     test('the editor opens with the heading at the top where it was, and comes back to it', async ({page}) => {
         // arrange
         const filler = (mark) => Array.from({length: 12}, (_, index) =>
@@ -1136,8 +1075,6 @@ test.describe('mobile', () => {
         const before = await onPage();
 
         // act
-        // the button left with the tab bar on the way down, and a tap on it
-        // would have to scroll back up first
         await page.getByTestId('edit-button').dispatchEvent('click');
         const inEditor = () => page.locator('.cm-line', {hasText: '## Середина'}).evaluate((line) =>
             Math.round(line.getBoundingClientRect().top - line.closest('.cm-scroller').getBoundingClientRect().top));
@@ -1154,8 +1091,6 @@ test.describe('mobile', () => {
         await expect.poll(onPage).toBeLessThanOrEqual(before + 2);
     });
 
-    // a fence renders a row per source line and pads its box besides, so a
-    // position taken as a fraction of the box crept a line on every round trip
     test('a line inside a code block survives the trip to the editor and back', async ({page}) => {
         // arrange
         const code = Array.from({length: 150}, (_, index) => `line_${index} = ${index}`).join('\n');
@@ -1179,7 +1114,6 @@ test.describe('mobile', () => {
             await page.getByTestId('edit-button').dispatchEvent('click');
 
             // assert
-            // the anchor may be the row above, and a source line is taller than a row
             const lineHeight = await editorLine.evaluate((line) => line.getBoundingClientRect().height);
             await expect.poll(inEditor).toBeGreaterThanOrEqual(0);
             await expect.poll(inEditor).toBeLessThanOrEqual(before + lineHeight);
@@ -1219,7 +1153,6 @@ test.describe('mobile', () => {
         await page.getByTestId('doc-code').first().scrollIntoViewIfNeeded();
         await shot(page, 'mobile-doc-controls');
 
-        // the page holds dozens, so report the first few by name
         const offenders = (await tooSmall(page, '[data-testid=code-copy]')).slice(0, 3);
         expect(offenders, 'controls smaller than the touch minimum').toEqual([]);
     });
@@ -1240,8 +1173,6 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-code-copy');
     });
 
-    // the heading link icon lives in a 20px gutter left of the heading, and a
-    // phone keeps 16px at the edge: it hung off the screen over the first letter
     test('a heading carries no link icon on a phone', async ({page}) => {
         await page.goto(routes.doc(DOC));
         await expect(page.getByTestId('doc').locator('h1').first()).toBeVisible();
@@ -1249,8 +1180,6 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('doc-heading-anchor').first()).toBeHidden();
     });
 
-    // the preview alone sat in a column as wide as its longest line, and the
-    // text ran off the right edge of the screen
     test('the preview in the editor fits the screen', async ({page}) => {
         // arrange
         await page.goto(routes.edit(DOC));
@@ -1277,9 +1206,6 @@ test.describe('mobile', () => {
         expect(await tooSmall(page, '[data-testid=editor-toolbar] button')).toEqual([]);
     });
 
-    // the top bar used to keep its desktop sizes on a phone: a 22px burger and
-    // 34px icons against a 44px minimum. The breadcrumb links were the ones
-    // nobody counted, because a bare anchor is inline and ignores a min-height.
     test('the top bar controls are big enough to tap', async ({page}) => {
         await page.goto(routes.doc(DOC));
 
@@ -1288,9 +1214,6 @@ test.describe('mobile', () => {
         expect(offenders, 'elements smaller than the touch minimum').toEqual([]);
     });
 
-    // the path once shared the top bar with nine controls and got about 25px of
-    // it, and its crumbs fell over the note. On a phone the bar holds the way
-    // back, the title once the note's own has gone, and the note's menu.
     test('the top bar goes back to the folder and holds one row', async ({page}) => {
         // arrange
         await page.goto(routes.doc(docs.deep.path));
@@ -1310,8 +1233,6 @@ test.describe('mobile', () => {
         await expect(page).toHaveURL(MAIN.url.dir(docs.deep.path.split('/').slice(0, -1).join('/')));
     });
 
-    // the icons and the note share one line 16px from either edge, the way
-    // GitHub keeps 15px on a phone
     test('the top bar icons and the page text share both edges', async ({page}) => {
         await page.goto(routes.doc(DOC));
 
@@ -1338,8 +1259,6 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('topbar-up')).toHaveCount(0);
     });
 
-    // the root's bar once took a row of its own and the other screens' not, and
-    // the page jumped on the way from the root to a folder
     test('the root, a folder and a note start their title on one line, which the bar does not repeat', async ({page}) => {
         // arrange
         const screens = [routes.home(), routes.dir(docs.folder.path), routes.doc(DOC)];
@@ -1416,7 +1335,6 @@ test.describe('mobile', () => {
     });
 
     test.describe('a toast', () => {
-        // copied shows the toast Copy link gives
         async function copied(page) {
             await page.goto(routes.home());
             await page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`).getByTestId('tree-row-menu').tap();
@@ -1476,9 +1394,6 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('space-menu-signout')).toBeVisible();
     });
 
-    // the diff is a nowrap pre, so a bare track takes the width of the longest
-    // patch line: the page stretched far past the viewport and Restore sat off
-    // screen
     test('the history fills the screen, the versions under the version, Restore big enough to tap', async ({page}) => {
         // arrange
         const wide = 'x'.repeat(200);
@@ -1511,7 +1426,6 @@ test.describe('mobile', () => {
         await page.getByTestId('history-diff-view').getByText('Source').tap();
         const diff = page.getByTestId('history-diff');
         await expect(diff).toBeVisible();
-        // the patch scrolls inside its own box rather than taking the page with it
         expect(await diff.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
         await expectNoHorizontalScroll(page);
         await shot(page, 'mobile-history');
@@ -1533,8 +1447,6 @@ test.describe('mobile', () => {
         await expect(page).toHaveURL(new RegExp(`${routes.doc(docs.search.palette.path)}\\?q=`));
     });
 
-    // an entry is reached by a hash, which react router replaces rather than
-    // pushes, and that still has to close the sheet
     test('the outline sheet opens from the note menu', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
@@ -1559,9 +1471,6 @@ test.describe('mobile', () => {
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('doc-lightbox-image')).toHaveCount(0);
 
-        // a panel that covers the page marks everything behind it inert. A close
-        // that skipped its own teardown used to leave that on, and the page took
-        // no tap at all until it was reloaded.
         const stuck = await page.evaluate(() => Array.from(
             document.querySelectorAll('[inert]')).map((el) => el.className));
         expect(stuck, 'the sheet left the page inert behind it').toEqual([]);
@@ -1579,8 +1488,6 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('doc-lightbox-image')).toBeVisible();
         await shot(page, 'mobile-lightbox');
 
-        // on a phone the image covers nearly the whole dialog, leaving almost no
-        // backdrop to aim at, so it closes on a tap of its own
         await page.getByTestId('doc-lightbox-image').tap();
         await expect(page.getByTestId('doc-lightbox-image')).toHaveCount(0);
     });
@@ -1606,11 +1513,6 @@ test.describe('mobile', () => {
         expect(icon.headers()['content-type']).toBe('image/png');
     });
 
-    // the legacy palette was a sheet from the top edge at every size, because a
-    // centred panel on a phone held sideways is a strip the keyboard covers.
-
-    // a menu kept mantine's desktop rows on a phone: 26px tall in 14px text,
-    // so the theme and the space sat three to a fingertip
     test('the rows of every menu are big enough to tap', async ({page}) => {
         // act & assert
         await tapSpaceMenu(page);
@@ -1627,8 +1529,6 @@ test.describe('mobile', () => {
         expect(await tooSmall(page, '[role=menuitem]'), 'the note menu').toEqual([]);
     });
 
-    // the strip of formatting buttons followed a finger in every direction:
-    // past its ends sideways, and up and down together with the page behind it
     test('the editor toolbar moves along one axis and shows where it goes on', async ({page}) => {
         // arrange
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
@@ -1660,8 +1560,6 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('editor-toolbar-image')).toBeInViewport({ratio: 1});
     });
 
-    // a phone has no room for a name row, so a file started from the page is
-    // named in a small dialog
     test('a file started from an empty folder is named in a dialog', async ({page}) => {
         // arrange
         fs.mkdirSync(fixtureFile(EMPTY_FOLDER), {recursive: true});
@@ -1698,9 +1596,6 @@ test.describe('mobile', () => {
     });
 });
 
-// a phone has no tree and the document body carries
-// no badge, so the topbar control is the one surface that answers "is this
-// note at risk". These drive the remote space for that reason.
 test.describe('mobile sync state', () => {
     const WIKI = MULTI.spaces.wiki;
     const wiki = MULTI.extra.find((extra) => extra.name === 'wiki');
@@ -1721,8 +1616,6 @@ test.describe('mobile sync state', () => {
         await inStep(page, WIKI);
     });
 
-    // saveStuck writes one note through the editor with the origin already
-    // broken, which is what puts its path in the unsynced set.
     async function saveStuck(page, contentPath, source) {
         await page.goto(WIKI.edit(contentPath));
         await setSource(page, source);
@@ -1740,8 +1633,6 @@ test.describe('mobile sync state', () => {
         // assert
         await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
         await expect(page.getByTestId('space-alert')).toBeVisible();
-        // a phone has no tree, which is what makes the control the one surface
-        // that speaks for this note
         await expect(page.getByTestId('sidebar')).toHaveCount(0);
         await shot(page, 'mobile-sync-control');
 
@@ -1751,13 +1642,8 @@ test.describe('mobile sync state', () => {
         await shot(page, 'mobile-sync-sheet');
     });
 
-    // the root index and a folder index, each under its own address
     test('an index note reaches the control on a phone too', async ({page}) => {
         breakOrigin(wiki.origin);
-        // the root index belongs to the corpus and cannot be deleted between
-        // runs, so the text carries a stamp: a save that writes the bytes the
-        // file already holds stages nothing, commits nothing and is missing
-        // from the very path set this asserts on
         await saveStuck(page, 'index.md', `# Remote page\n\nthe root index on a phone, stuck at ${Date.now()}.\n`);
         await saveStuck(page, `${SYNC_FOLDER}/index.md`, '# Guide\n\nthe folder index, stuck.\n');
 
@@ -1770,8 +1656,6 @@ test.describe('mobile sync state', () => {
         await shot(page, 'mobile-sync-folder-index');
     });
 
-    // the row is as full as it gets: every control keeps its size and the
-    // title gives way
     test('the top bar still fits with the control up', async ({page}) => {
         breakOrigin(wiki.origin);
         await saveStuck(page, SYNC_DOC, '# Mobile sync\n\nstuck.\n');

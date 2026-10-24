@@ -31,9 +31,6 @@ func TestSanitizeNeutralisesMaliciousDocument(t *testing.T) {
 	}
 }
 
-// TestSanitizeNeutralisesMaliciousGFMDocument covers the markup the GFM
-// extensions add: every one of them carries author-written content into the
-// page, and none of it may become an element.
 func TestSanitizeNeutralisesMaliciousGFMDocument(t *testing.T) {
 	// arrange
 	src, err := os.ReadFile(filepath.Join("testdata", "md", "malicious-gfm.md"))
@@ -50,10 +47,6 @@ func TestSanitizeNeutralisesMaliciousGFMDocument(t *testing.T) {
 	assert.Equal(t, []string{"class", "data-source-end", "data-source-start", "href", "id"}, attrs)
 }
 
-// collectTags returns the sorted, deduplicated element and attribute names of a
-// fragment. Asserting on the whole set is the only way to see that author
-// content stayed content: a substring check cannot tell "<script" inside a text
-// node apart from a real element.
 func collectTags(t *testing.T, fragment string) (elements, attrs []string) {
 	t.Helper()
 	seenElements, seenAttrs := map[string]struct{}{}, map[string]struct{}{}

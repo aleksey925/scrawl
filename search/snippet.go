@@ -12,34 +12,25 @@ import (
 )
 
 const (
-	// how much text a snippet shows, and how much of it comes before the first
-	// match so the reader sees the term in context
 	snippetRunes = 160
 	snippetLead  = 50
 
-	// a window opening inside a code fence loses against any window in prose
 	codePenalty = 1000
 
-	// a document made of one repeated word would otherwise make window picking
-	// quadratic; the best window is always among the first matches anyway
 	maxSnippetMarks = 1000
 
 	ellipsis = "…"
 )
 
-// mark is one matched term inside the plain text of a document.
 type mark struct {
 	start, end int32
 	term       int
 }
 
-// snippet returns the best window of the document with every matched term
-// wrapped in <mark>, plus the source line the window starts at.
 func (d *document) snippet(terms []queryTerm, match []*posting) (template.HTML, int) {
 	return d.snippetOf(d.matches(terms, match))
 }
 
-// snippetOf is the snippet of the marks a query found in the document
 func (d *document) snippetOf(marks []mark) (template.HTML, int) {
 	if len(marks) == 0 {
 		return d.lead(), 1
@@ -50,8 +41,6 @@ func (d *document) snippetOf(marks []mark) (template.HTML, int) {
 	return d.snippetAround(marks, best), d.lineAt(best.start)
 }
 
-// snippetAt is the window around the first of the marks, for a scan that
-// found them in the order of the text
 func (d *document) snippetAt(marks []mark) template.HTML {
 	if len(marks) == 0 {
 		return d.lead()
@@ -73,15 +62,12 @@ func (d *document) snippetAround(marks []mark, best mark) template.HTML {
 	return renderSnippet(text, spans, cutBefore(d.plain, start), cutAfter(d.plain, end))
 }
 
-// lead is the snippet of a document matched only through its title.
 func (d *document) lead() template.HTML {
 	end := wordEnd(d.plain, advanceRunes(d.plain, 0, snippetRunes), 0)
 	text, _ := collapseWindow(d.plain[:end], nil)
 	return renderSnippet(text, nil, false, cutAfter(d.plain, end))
 }
 
-// matches lists every occurrence of every query term in document order,
-// without overlaps so the renderer can never slice a string backwards.
 func (d *document) matches(terms []queryTerm, match []*posting) []mark {
 	res := make([]mark, 0, 16)
 	for k, p := range match {
@@ -105,8 +91,6 @@ func (d *document) matches(terms []queryTerm, match []*posting) []mark {
 	return out
 }
 
-// bestWindow picks the mark the snippet should open on: most distinct terms
-// first, prose before code, earliest position on a tie.
 func (d *document) bestWindow(marks []mark) int {
 	want := 0
 	for _, m := range marks {
@@ -138,7 +122,6 @@ func (d *document) bestWindow(marks []mark) int {
 	return best
 }
 
-// window returns the byte range to show around a match, cut at word boundaries.
 func (d *document) window(m mark) (start, end int) {
 	start = wordStart(d.plain, retreatRunes(d.plain, int(m.start), snippetLead), int(m.start))
 	end = max(advanceRunes(d.plain, start, snippetRunes), int(m.end))
@@ -158,7 +141,6 @@ func (d *document) inCode(off int32) bool {
 	return ok
 }
 
-// lineAt maps an offset of the plain text back to its line in the markdown.
 func (d *document) lineAt(off int32) int {
 	i, ok := slices.BinarySearchFunc(d.lines, off, func(m lineMark, off int32) int {
 		return cmp.Compare(m.off, off)
@@ -172,17 +154,14 @@ func (d *document) lineAt(off int32) int {
 	return int(d.lines[i].line)
 }
 
-// cutBefore reports whether text was dropped in front of the window.
 func cutBefore(plain string, start int) bool {
 	return start > 0 && strings.TrimSpace(plain[:start]) != ""
 }
 
-// cutAfter reports whether text was dropped after the window.
 func cutAfter(plain string, end int) bool {
 	return end < len(plain) && strings.TrimSpace(plain[end:]) != ""
 }
 
-// wordStart moves at forward out of the word it landed in, never past limit.
 func wordStart(text string, at, limit int) int {
 	if at <= 0 {
 		return 0
@@ -206,7 +185,6 @@ func wordStart(text string, at, limit int) int {
 	return at
 }
 
-// wordEnd moves at back to the end of the last whole word, never before least.
 func wordEnd(text string, at, least int) int {
 	if at >= len(text) {
 		return len(text)
@@ -224,8 +202,6 @@ func wordEnd(text string, at, least int) int {
 	return at
 }
 
-// collapseWindow squeezes every whitespace run in text into a single space and
-// returns the marks moved onto the squeezed copy.
 func collapseWindow(text string, marks []mark) (string, []mark) {
 	var b strings.Builder
 	b.Grow(len(text))
@@ -259,7 +235,6 @@ func collapseWindow(text string, marks []mark) (string, []mark) {
 	return b.String(), out
 }
 
-// writeSpace flushes a pending whitespace run, dropping it at the very start.
 func writeSpace(b *strings.Builder, pending bool) bool {
 	if pending && b.Len() > 0 {
 		b.WriteByte(' ')
@@ -267,8 +242,6 @@ func writeSpace(b *strings.Builder, pending bool) bool {
 	return false
 }
 
-// renderSnippet escapes the text and wraps every match in <mark>. The result
-// goes straight into a page, so nothing but the mark tags may survive here.
 func renderSnippet(text string, marks []mark, lead, tail bool) template.HTML {
 	var b strings.Builder
 	if lead {

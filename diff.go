@@ -31,10 +31,8 @@ type diffOptions struct {
 	paths []string
 }
 
-// workingTree labels the side read off the disk.
 const workingTree = "working tree"
 
-// diffFileJSON is one compared file as `diff --format json` answers it.
 type diffFileJSON struct {
 	Path    string         `json:"path"`
 	OldPath string         `json:"old_path,omitempty"`
@@ -49,8 +47,6 @@ type diffJSON struct {
 	Files []diffFileJSON `json:"files"`
 }
 
-// runDiff compares and writes the report. The code is 1 only when --exit-code
-// asked for it and some text changed.
 func runDiff(opts *diffOptions, out io.Writer) (int, error) {
 	if opts.Context < 0 {
 		return 0, errors.New("--context must not be negative")
@@ -86,14 +82,11 @@ func runDiff(opts *diffOptions, out io.Writer) (int, error) {
 	return 0, nil
 }
 
-// comparison is every note two sides of a diff hold, and what the sides are.
 type comparison struct {
 	oldLabel, newLabel string
 	files              []sides
 }
 
-// collect reads both sides: two files when the arguments are exactly two that
-// exist, revisions of the repository around the working directory otherwise.
 func collect(ctx context.Context, revs, paths []string) (comparison, error) {
 	if len(revs) == 2 && len(paths) == 0 && isFile(revs[0]) && isFile(revs[1]) {
 		files, err := fileSides(revs[0], revs[1])
@@ -156,8 +149,6 @@ func reportJSON(oldLabel, newLabel string, rep page.Report) diffJSON {
 	return res
 }
 
-// sides is one note on both sides of a comparison. A nil side is a note that
-// side does not have.
 type sides struct {
 	status  page.Status
 	oldPath string
@@ -205,8 +196,6 @@ func isFile(name string) bool {
 	return err == nil && info.Mode().IsRegular()
 }
 
-// fileSides compares two files named on the command line, whatever they are
-// called: a caller that names them knows they are markdown.
 func fileSides(oldFile, newFile string) ([]sides, error) {
 	old, err := os.ReadFile(oldFile) //nolint:gosec // a file the caller named on its own command line
 	if err != nil {
@@ -222,16 +211,11 @@ func fileSides(oldFile, newFile string) ([]sides, error) {
 	}}, nil
 }
 
-// gitRepo is the repository the working directory is in. The command reads it
-// the way git diff does, as the person who ran it, so its config applies; only
-// the commands that could run a program it names for a diff are told not to.
 type gitRepo struct {
 	top string
 	cwd string
 }
 
-// revRange is the two sides of a comparison: revisions, and an empty newRev for
-// the working tree.
 type revRange struct {
 	oldRev, newRev     string
 	oldLabel, newLabel string
@@ -271,12 +255,8 @@ func (r *gitRepo) git(ctx context.Context, args ...string) ([]byte, error) {
 	return out, nil
 }
 
-// reOID is a full object id, which is shortened in a label.
 var reOID = regexp.MustCompile(`^[0-9a-f]{40}([0-9a-f]{24})?$`)
 
-// resolve reads revisions the way git diff takes them: none is HEAD against the
-// working tree, one is that revision against it, A..B and A B compare the two,
-// and A...B compares B with where it left A.
 func (r *gitRepo) resolve(ctx context.Context, revs []string) (revRange, error) {
 	label := func(rev string) string {
 		if reOID.MatchString(rev) {
@@ -317,8 +297,6 @@ func (r *gitRepo) resolve(ctx context.Context, revs []string) (revRange, error) 
 	}
 }
 
-// sides lists every markdown file the range changed under the paths, and reads
-// both versions of each. A rename counts as one file, as git detects it.
 func (r *gitRepo) sides(ctx context.Context, rng revRange, paths []string) ([]sides, error) {
 	for _, rev := range []string{rng.oldRev, rng.newRev} {
 		if rev == "" {
@@ -369,8 +347,6 @@ func (r *gitRepo) sides(ctx context.Context, rng revRange, paths []string) ([]si
 	return res, nil
 }
 
-// pathspecs turns paths given relative to the working directory into literal
-// pathspecs relative to the top of the repository, which is where git runs.
 func (r *gitRepo) pathspecs(paths []string) ([]string, error) {
 	res := make([]string, 0, len(paths))
 	for _, p := range paths {
@@ -387,8 +363,6 @@ func (r *gitRepo) pathspecs(paths []string) ([]string, error) {
 	return res, nil
 }
 
-// read fills in both versions of a file: a revision through git, the working
-// tree through a root that keeps every read inside the repository.
 func (r *gitRepo) read(ctx context.Context, rng revRange, sd *sides) error {
 	if sd.oldPath != "" {
 		data, err := r.git(ctx, "cat-file", "blob", rng.oldRev+":"+sd.oldPath)
@@ -421,8 +395,6 @@ func (r *gitRepo) read(ctx context.Context, rng revRange, sd *sides) error {
 	return nil
 }
 
-// parseNameStatus reads `git diff -z --name-status`: a status, then one path,
-// or two for a rename and a copy.
 func parseNameStatus(out []byte) ([]sides, error) {
 	fields := nulSplit(out)
 	res := []sides{}
@@ -471,5 +443,4 @@ func nulSplit(out []byte) []string {
 	return res
 }
 
-// isMarkdown asks the question the whole app asks: only .md is a document.
 func isMarkdown(p string) bool { return p != "" && strings.EqualFold(path.Ext(p), ".md") }

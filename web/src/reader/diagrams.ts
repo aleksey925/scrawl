@@ -21,8 +21,6 @@ const errorLimit = 200;
 
 let pass = 0;
 
-// wrap puts the fence in a box that can hold either the source or the svg, so
-// switching between them never loses what the author wrote
 function wrap(pre: HTMLElement): Diagram {
   const parent = pre.parentElement;
   const existing = parent?.querySelector<HTMLElement>(':scope > .md-diagram-view');
@@ -60,8 +58,6 @@ function firstLine(error: unknown): string {
   return (text.split('\n')[0] ?? '').slice(0, errorLimit);
 }
 
-// mermaid 11.15 had no rule for the label inside an actor box, so the text took
-// its fill from the box behind it. Scoped to the same id mermaid scopes its own.
 function repairActors(svg: SVGElement, text: string): void {
   if (svg.id === '') {
     return;
@@ -92,16 +88,12 @@ function place(result: Drawn, text: string): void {
   }
 }
 
-// config paints mermaid with the app's own tokens, so a diagram belongs to the
-// page in either theme rather than bringing a palette of its own
 function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
   const style = getComputedStyle(document.documentElement);
   const token = (name: string): string => style.getPropertyValue(name).trim();
 
   const bg = token('--scrawl-bg');
   const inset = token('--scrawl-sidebar');
-  // the code ground is translucent in the dark, and mermaid mixes colors it
-  // can only read as opaque
   const subtle = token('--scrawl-bg-gray');
   const note = token('--scrawl-bg-yellow');
   const text = token('--scrawl-text');
@@ -118,8 +110,6 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
       securityLevel: 'strict',
       theme: 'base',
       fontFamily: token('--mantine-font-family'),
-      // the base theme derives what it is not given, and what it derives from
-      // near white surfaces comes out too pale to read
       themeVariables: {
         darkMode: dark,
         fontSize: '14px',
@@ -154,8 +144,6 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
         noteBorderColor: warning,
         noteTextColor: text,
       },
-      // useMaxWidth is the one width mermaid writes as an inline style on the
-      // live svg, and the view already holds the diagram to the column.
       flowchart: { htmlLabels: false, useMaxWidth: false },
       class: { htmlLabels: false, useMaxWidth: false },
       sequence: { useMaxWidth: false },
@@ -169,10 +157,6 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
 
 export const diagramSelector = 'pre.mermaid';
 
-// drawDiagrams replaces every mermaid fence under root with its diagram, painted
-// with the tokens of the theme on screen, and returns what cancels a pass that
-// has not finished. The source stays beside the drawing, so a second pass can
-// draw it again in another theme.
 export function drawDiagrams(root: HTMLElement, load: () => Promise<Mermaid>, dark: boolean): () => void {
   const blocks = Array.from(root.querySelectorAll<HTMLElement>(diagramSelector));
   if (blocks.length === 0) {
@@ -201,15 +185,11 @@ export function drawDiagrams(root: HTMLElement, load: () => Promise<Mermaid>, da
 
     const drawn: Drawn[] = [];
     for (const [index, item] of items.entries()) {
-      // a fresh id every pass: mermaid looks its scratch element up by id, and
-      // the svg already on the page would answer for the previous one
       const id = `md-mermaid-${pass}-${index}`;
       try {
         const { svg } = await mermaid.render(id, item.source);
         drawn.push({ item, svg });
       } catch (error) {
-        // a parse failure leaves mermaid's scratch element on the body, where
-        // it is found by shape rather than by a bare id a note could carry
         document.querySelector(`body > [id="d${id}"]`)?.remove();
         drawn.push({ item, error: firstLine(error) });
       }

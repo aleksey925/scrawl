@@ -16,8 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// cleanEnv is what the test's own git calls run with, matching what the service
-// gives its subprocesses: nothing the host set can steer them.
 func cleanEnv() []string {
 	res := []string{}
 	for _, kv := range os.Environ() {
@@ -45,8 +43,6 @@ func gitInit(t *testing.T, dir string) {
 	gitIn(t, dir, "init", "--quiet", "--initial-branch="+initialBranch, ".")
 }
 
-// visibleFiles stands in for the store: every file except the dot-entries the
-// rest of the app never sees.
 func visibleFiles(root string) ([]string, error) {
 	res := []string{}
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
@@ -104,8 +100,6 @@ func writeFile(t *testing.T, root, rel, content string) {
 	require.NoError(t, os.WriteFile(full, []byte(content), 0o644))
 }
 
-// writeBoth writes two files without touching testing.T, which is what makes it
-// safe inside the goroutines that drive two records into each other.
 func writeBoth(root, first, firstContent, second, secondContent string) error {
 	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(first)), []byte(firstContent), 0o644); err != nil {
 		return err
@@ -141,9 +135,6 @@ func commitCount(t *testing.T, s *Service) int {
 	return count
 }
 
-// lockIndex leaves behind what a crashed git leaves behind. Every later call
-// that touches the index fails, which is the cheapest way to make a commit fail
-// for real instead of faking one.
 func lockIndex(t *testing.T, s *Service) {
 	t.Helper()
 
@@ -156,7 +147,6 @@ func unlockIndex(t *testing.T, s *Service) {
 	require.NoError(t, os.Remove(filepath.Join(s.Root(), ".git", "index.lock")))
 }
 
-// record is the common shape of a test write: put the content there, record it.
 func record(t *testing.T, s *Service, op Op, files map[string]string) error {
 	t.Helper()
 
@@ -553,8 +543,6 @@ func TestServiceRecord(t *testing.T) {
 		}()
 		<-secondCalled
 
-		// bob is inside Record now, so the only thing that can hold his mutation
-		// back is the lock alice took before running hers
 		select {
 		case <-secondRan:
 			t.Fatal("the second record mutated while the first was still inside its own")
@@ -606,8 +594,6 @@ func TestServiceRecord(t *testing.T) {
 		gitInit(t, root)
 		marker := filepath.Join(t.TempDir(), "filter-ran")
 		writeFile(t, root, ".gitattributes", "* filter=evil\n")
-		// the command is a script rather than an inline one: a semicolon opens a
-		// comment in the config syntax, which would leave a command that cannot run
 		script := filepath.Join(t.TempDir(), "clean.sh")
 		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\ntouch "+marker+"\ncat\n"), 0o700))
 		config := filepath.Join(root, ".git", "config")
@@ -631,9 +617,6 @@ func TestServiceRecord(t *testing.T) {
 		root := t.TempDir()
 		gitInit(t, root)
 		marker := filepath.Join(t.TempDir(), "hook-ran")
-		// the path an earlier version pointed core.hooksPath at, standing there
-		// before we ever look: a directory of ours inside a repository somebody
-		// else assembled was never ours to begin with
 		writeFile(t, root, ".git/scrawl-no-hooks/pre-commit", "#!/bin/sh\ntouch "+marker+"\nexit 1\n")
 		require.NoError(t, os.Chmod(filepath.Join(root, ".git", "scrawl-no-hooks", "pre-commit"), 0o755))
 		s := serviceAt(t, root)
@@ -660,8 +643,6 @@ func TestServiceRecord(t *testing.T) {
 		require.NoError(t, readErr)
 		hostile := "[filter \"evil\"]\n\tclean = " + script + "\n"
 		require.NoError(t, os.WriteFile(config, append(current, hostile...), 0o600))
-		// the unset is there only as a comment, with a real assignment after it,
-		// and the last matching line is the one git acts on
 		writeFile(t, root, ".git/info/attributes", "# "+inertAttr+"\n* filter=evil\n")
 		s := serviceAt(t, root)
 
@@ -966,8 +947,6 @@ func TestServiceVersion(t *testing.T) {
 		s := newService(t)
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"b.md"}}, map[string]string{"b.md": "other\n"}))
-		// log walks backwards, so this pair answers with the older commit
-		// unless the revision that was asked for is the one that comes back
 		latest := strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
 
 		// act

@@ -43,8 +43,6 @@ func TestChromaCSS(t *testing.T) {
 		}
 	})
 
-	// a rule outside every guard paints whichever theme it belongs to onto the
-	// others, for every token they leave to the base color
 	t.Run("every selector is scoped", func(t *testing.T) {
 		for line := range strings.SplitSeq(css, "\n") {
 			if !strings.Contains(line, "{") || strings.HasPrefix(line, "@media") || strings.HasPrefix(line, "/*") {

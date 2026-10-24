@@ -15,9 +15,6 @@ import { useNav } from './NavContext';
 
 const ResetContext = createContext<(() => void) | undefined>(undefined);
 
-// ResetProvider owns the one reset dialog. The banner and the sync popover both
-// offer the reset, and the popover unmounts what is in it the moment it
-// closes, so the dialog cannot live inside either.
 export function ResetProvider({ children }: { children: ReactNode }): JSX.Element {
   const [opened, setOpened] = useState(false);
   const open = useCallback(() => setOpened(true), []);
@@ -31,8 +28,6 @@ export function ResetProvider({ children }: { children: ReactNode }): JSX.Elemen
   );
 }
 
-// ResetAction is the way out of a diverged space, drawn wherever the message
-// about it is.
 export function ResetAction({ onOpen }: { onOpen?: () => void }): JSX.Element | null {
   const open = useContext(ResetContext);
   const { sync } = useNav();
@@ -61,13 +56,10 @@ type Step =
   | { name: 'ready'; check: Divergence; note: string }
   | { name: 'resetting'; check: Divergence }
   | { name: 'done'; result: ResetResponse }
-  // inStep is a space a sync brought back by itself: nothing to reset, and
-  // good news rather than a failure
   | { name: 'failed'; message: string; inStep: boolean };
 
 const movedNote = 'The space changed while this dialog was open, so it was checked again.';
 
-// the two routes answer 409 for one thing only, a space no longer diverged
 function isInStep(error: unknown): boolean {
   return error instanceof ApiError && error.status === 409;
 }
@@ -107,8 +99,6 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
       });
   };
 
-  // every note on screen is from the copy that was just replaced, and the
-  // screens do not refetch on their own, so the page starts over
   const reload = (): void => window.location.reload();
 
   const close = (): void => {
@@ -116,7 +106,6 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
       reload();
       return;
     }
-    // a check syncs, so the state may have moved even when nothing was reset
     refreshMe();
     onClose();
   };
@@ -222,7 +211,6 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
 
 const backupSentence = 'This copy is kept in a backup branch first, so nothing is deleted for good.';
 
-// LossReport answers the one question a reset raises, before it is confirmed.
 function LossReport({ check }: { check: Divergence }): JSX.Element {
   const links = useMemo(() => check.lost.paths.map((lost) => ({ path: lost, href: noteHref(lost) })), [check.lost.paths]);
 
@@ -242,7 +230,6 @@ function LossReport({ check }: { check: Divergence }): JSX.Element {
             <List data-testid="reset-lost-paths" size="sm" spacing={4} withPadding>
               {links.map(({ path, href }) => (
                 <List.Item key={path} style={{ overflowWrap: 'anywhere' }}>
-                  {/* a new tab, so looking at a note does not throw the check away */}
                   <Anchor href={href} target="_blank" rel="noreferrer" size="sm">
                     {path}
                   </Anchor>
@@ -278,8 +265,6 @@ function BackupReport({ result }: { result: ResetResponse }): JSX.Element {
   );
 }
 
-// noteHref is physical, because it opens in a tab of its own and no router is
-// there to prepend the space.
 function noteHref(path: string): string {
   return isMarkdown(path) ? mountBase() + documentUrl(path) : rawUrl(path);
 }

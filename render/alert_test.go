@@ -7,12 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAlertRules is GitHub's own behavior, checked case by case against
-// api.github.com/markdown in "gfm" mode.
 func TestAlertRules(t *testing.T) {
 	tests := []struct {
 		name, src string
-		want      string // "" means the blockquote is left alone
+		want      string
 	}{
 		{name: "note", src: "> [!NOTE]\n> body\n", want: "alert alert-note"},
 		{name: "tip", src: "> [!TIP]\n> body\n", want: "alert alert-tip"},

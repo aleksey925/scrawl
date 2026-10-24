@@ -2,10 +2,6 @@ import { readJson, sessionStore, writeJson } from '../storage';
 
 import { anchorPrefix, readingFraction } from './constants';
 
-// The renderer puts the inclusive 1-based source range of every block it emits
-// on the element, so a reading position survives the trip between the rendered
-// page and the editor as a line rather than as a pixel offset. The offset is
-// how far below the top of the screen that line was.
 export interface ReadingAnchor {
   path: string;
   rev: string;
@@ -51,14 +47,10 @@ function annotated(root: ParentNode, innermost: boolean): SourceBlock[] {
   return res;
 }
 
-// nesting is annotated too, so a list and every item in it both answer the
-// selector; only the innermost one is a position a reader can be at
 export function sourceBlocks(root: ParentNode): SourceBlock[] {
   return annotated(root, true);
 }
 
-// a line in a container and in none of its blocks is drawn by the container
-// itself, like the title row of an alert, so it maps to the container's top
 function containerForLine(root: ParentNode, line: number): SourceBlock | undefined {
   let res: SourceBlock | undefined;
   for (const block of annotated(root, false)) {
@@ -69,8 +61,6 @@ function containerForLine(root: ParentNode, line: number): SourceBlock | undefin
   return res;
 }
 
-// a highlighted fence renders a row per source line, the fences excepted, so a
-// line of code is a row and not a fraction of a padded box
 function codeRows(block: SourceBlock): SourceBlock[] | undefined {
   const rows = block.element.querySelectorAll<HTMLElement>('pre .line');
   if (rows.length === 0) {
@@ -95,8 +85,6 @@ function anchorBlocks(root: ParentNode): SourceBlock[] {
   return sourceBlocks(root).flatMap((block) => codeRows(block) ?? [block]);
 }
 
-// mantine writes its lengths as calc(3rem * 1), which no parse of the string
-// reads, so the browser resolves the variable on a probe of its own
 function cssPx(name: string): number {
   const probe = document.createElement('div');
   probe.style.cssText = `position: absolute; visibility: hidden; height: var(${name}, 0px)`;
@@ -106,7 +94,6 @@ function cssPx(name: string): number {
   return height;
 }
 
-// the reader sees the note from under the topbar
 function visibleTopY(): number {
   return cssPx('--app-shell-header-offset');
 }
@@ -131,8 +118,6 @@ export function documentStart(path: string, rev: string): ReadingAnchor {
   return { path, rev, startLine: 1, endLine: 1, fractionWithinBlock: 0, offset: 0 };
 }
 
-// a reader at the very top sees what comes before the first block too: the
-// path row on the page, the padding of a pane
 export function atDocumentStart(anchor: ReadingAnchor): boolean {
   return anchor.startLine <= 1 && anchor.fractionWithinBlock === 0;
 }
@@ -149,13 +134,10 @@ function anchorPoint(anchor: ReadingAnchor): number {
   return anchor.startLine + anchor.fractionWithinBlock * lineCount(anchor);
 }
 
-// the editor answers with a line and the page with a block, so the anchor is a
-// point on the source lines, found again in whichever block holds it
 function fractionInBlock(block: LineRange, anchor: ReadingAnchor): number {
   return clamp((anchorPoint(anchor) - block.startLine) / lineCount(block), 0, 1);
 }
 
-// the source line the anchor points into, and how far into that line
 export function anchorLine(anchor: ReadingAnchor): { line: number; within: number } {
   const point = anchorPoint(anchor);
   const line = Math.min(Math.floor(point), anchor.endLine);
@@ -175,8 +157,6 @@ export function blockTopWithin(container: HTMLElement, el: HTMLElement): number 
   return el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
 }
 
-// undefined when the pane holds no block for the anchor, which is what the
-// rendered html looks like before the first preview arrives
 export function paneTopForAnchor(pane: HTMLElement, anchor: ReadingAnchor): number | undefined {
   if (atDocumentStart(anchor)) {
     return 0;
@@ -298,9 +278,6 @@ function isReload(): boolean {
   return entry instanceof PerformanceNavigationTiming && entry.type === 'reload';
 }
 
-// an anchor is spent by the navigation it was written for. Keeping it past that
-// would hijack a plain link to the same page; a reload is the one case where
-// the reader expects to land where they were.
 export function recallAnchor(slot: AnchorSlot, path: string, replayOnReload = true): ReadingAnchor | undefined {
   const key = anchorKey(slot, path);
   const stored = readJson<StoredAnchor>(sessionStore(), key);

@@ -34,9 +34,6 @@ import type {
 
 export type UnauthorizedHandler = () => void;
 
-// React runs a child's effect before its parent's, so a screen cannot take the
-// handler over by registering last: a screen handler wins over the shell's
-// whenever one is installed.
 export type UnauthorizedScope = 'shell' | 'screen';
 
 const unauthorizedHandlers = new Map<UnauthorizedScope, UnauthorizedHandler>();
@@ -47,8 +44,6 @@ export function installUnauthorizedHandler(
 ): () => void {
   unauthorizedHandlers.set(scope, handler);
   return () => {
-    // a remount installs the next handler before this one is disposed of, and
-    // deleting the entry blindly would leave the scope with none
     if (unauthorizedHandlers.get(scope) === handler) {
       unauthorizedHandlers.delete(scope);
     }
@@ -62,12 +57,6 @@ function notifyUnauthorized(): void {
 
 export interface RequestOptions {
   signal?: AbortSignal;
-  // a request nobody made: a poll on a timer rather than something the reader
-  // is waiting for. It skips the unauthorized handler, because a poll that met
-  // an expired session would open the editor's session dialog with nobody
-  // touching anything, and it tells the server not to slide the session
-  // forward, because a tab polling once a minute would otherwise keep an
-  // unattended one alive forever.
   background?: boolean;
 }
 
@@ -77,14 +66,8 @@ interface CallOptions extends RequestOptions {
   allowStatus?: readonly number[];
 }
 
-// backgroundHeader is what auth reads. It can only shorten the life of a
-// session and never extend one.
 const backgroundHeader = 'X-Scrawl-Background';
 
-// The two halves of the server's URLs, which every request has to pick
-// between: a space's own API lives under its prefix, the handful of routes
-// that read no store answer at the root. Mixing them up is a 404 the moment the
-// prefix is not empty, which it never is.
 function spaceUrl(path: string): string {
   return mountBase() + path;
 }
@@ -106,8 +89,6 @@ function withQuery(url: string, query: Record<string, QueryValue>): string {
   return search === '' ? url : `${url}?${search}`;
 }
 
-// searchParams spells the mode and the toggles of a search the way the search
-// route and settingsOfSearch read them: the toggles only when they are on
 function searchParams(settings: SearchSettings): Record<string, string | undefined> {
   return {
     mode: settings.mode,
@@ -118,7 +99,6 @@ function searchParams(settings: SearchSettings): Record<string, string | undefin
   };
 }
 
-// settingsOfSearch reads the mode and the toggles of a search address
 export function settingsOfSearch(params: URLSearchParams): SearchSettings {
   return {
     mode: params.get('mode') === 'exact' ? 'exact' : 'fuzzy',
@@ -127,8 +107,6 @@ export function settingsOfSearch(params: URLSearchParams): SearchSettings {
   };
 }
 
-// searchTextOf is the text a search looks for: a space typed around an exact
-// text or a pattern is part of it, as the server reads it
 export function searchTextOf(text: string, settings: SearchSettings): string {
   return settings.mode === 'fuzzy' && !settings.regex ? text.trim() : text;
 }
@@ -139,7 +117,6 @@ async function errorBody(response: Response): Promise<ApiErrorBody> {
     const body = (await response.json()) as Partial<ApiErrorBody>;
     return { ...body, error: body.error !== undefined && body.error !== '' ? body.error : fallback };
   } catch {
-    // the throttle and any proxy in front answer in plain text, not the envelope
     return { error: fallback };
   }
 }
@@ -157,8 +134,6 @@ async function send(method: string, url: string, options: CallOptions = {}): Pro
     body = JSON.stringify(options.body);
   }
 
-  // the server checks Sec-Fetch-Site instead of a csrf token, so a mutating
-  // request only has to stay same-origin and carry the session cookie
   const response = await fetch(url, {
     method,
     headers,
@@ -197,9 +172,6 @@ function historyUrl(path: string): string {
   return spaceUrl(`/api/history/${encodeContentPath(path)}`);
 }
 
-// a restore that collided is an outcome and not a throw, so the success arm is
-// where its MutationState has to travel: widening RestoreResponse alone would
-// leave the page with nothing to show
 export type RestoreOutcome = { ok: true; state: MutationState } | { ok: false; current: string };
 
 export interface ScrawlApi {
@@ -211,16 +183,9 @@ export interface ScrawlApi {
   tree(options?: RequestOptions): Promise<TreeResponse>;
   file(path: string, options?: RequestOptions): Promise<FileResponse>;
   saveFile(path: string, body: SaveFileRequest, options?: RequestOptions): Promise<SaveFileResponse>;
-  // these three return the whole body rather than the path in it: every
-  // mutation carries where the change got to, and a deletion that never left
-  // the container is the worst one to lose silently
   createEntry(path: string, kind: EntryKind, options?: RequestOptions): Promise<EntryPathResponse>;
-  // withContents removes a folder together with everything in it; without it
-  // the server refuses a folder that is not empty
   deleteEntry(path: string, withContents: boolean, options?: RequestOptions): Promise<EntryPathResponse>;
   move(from: string, to: string, options?: RequestOptions): Promise<EntryPathResponse>;
-  // find is a search with its mode and its toggles named, which answers with
-  // the matching lines
   find(query: string, settings: SearchSettings, limit?: number, options?: RequestOptions): Promise<SearchResponse>;
   history(path: string, options?: RequestOptions): Promise<HistoryResponse>;
   historyVersion(path: string, rev: string, options?: RequestOptions): Promise<HistoryVersionResponse>;
@@ -229,14 +194,11 @@ export interface ScrawlApi {
   upload(dir: string, file: File, doc?: string, options?: RequestOptions): Promise<UploadResponse>;
   syncCheck(options?: RequestOptions): Promise<Divergence>;
   syncReset(body: ResetRequest, options?: RequestOptions): Promise<ResetResponse>;
-  // the note as a file to save, the source or a page of its own
   exportNote(path: string, format: ExportFormat, options?: RequestOptions): Promise<Blob>;
   logout(options?: RequestOptions): Promise<void>;
 }
 
 export const api: ScrawlApi = {
-  // a missing document answers 404 with the page shape, which the document view
-  // renders as an offer to create it. The browser revalidates it by ETag.
   page: async (path, options) => {
     const body = await call<PageResponse | ApiErrorBody>(
       'GET',
@@ -285,8 +247,6 @@ export const api: ScrawlApi = {
   historyVersion: (path, rev, options) =>
     call<HistoryVersionResponse>('GET', withQuery(historyUrl(path), { rev }), options),
 
-  // a restore that collided is not a failure to report as one: the page has to
-  // show what stands on disk now, so 412 comes back as an outcome and not a throw
   restoreVersion: async (path, body, options) => {
     const res = await call<RestoreResponse | ApiErrorBody>(
       'POST',

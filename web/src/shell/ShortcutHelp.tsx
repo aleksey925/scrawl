@@ -13,7 +13,6 @@ type Need = 'search' | 'editing';
 interface Shortcut {
   keys: readonly string[];
   what: string;
-  // needs is what the reader must offer for the keys to do anything
   needs?: Need;
 }
 
@@ -23,7 +22,6 @@ interface ShortcutGroup {
   rows: readonly Shortcut[];
 }
 
-// the one table of what the app answers to, shown only where the place offers it
 const groups: readonly ShortcutGroup[] = [
   {
     name: 'General',
@@ -70,7 +68,6 @@ const groups: readonly ShortcutGroup[] = [
   },
 ];
 
-// MenuKeys is the key of a menu row, at its right
 export function MenuKeys({ children }: { children: ReactNode }): JSX.Element {
   return <span className={classes.menuKeys}>{children}</span>;
 }
@@ -115,8 +112,6 @@ export function ShortcutHelp({ opened, onOpen, onClose }: ShortcutHelpProps): JS
 
   return (
     <Modal opened={opened} onClose={onClose} title="Keyboard shortcuts" size={560}>
-      {/* the modal root is a zero height wrapper around the portal, so the name
-          goes on the list itself, which is what is actually on the screen */}
       <div data-testid="shortcuts" className={classes.groups}>
         {groups
           .filter((entry) => offers(entry.needs))

@@ -91,7 +91,7 @@ func TestPageCacheEvictsLeastRecentlyUsed(t *testing.T) {
 	cache.put(testSpace, "second.md", "rev", render.Result{HTML: "<p>2</p>"})
 
 	// act
-	cache.get(testSpace, "first.md", "rev") // first is now the most recently used
+	cache.get(testSpace, "first.md", "rev")
 	cache.put(testSpace, "third.md", "rev", render.Result{HTML: "<p>3</p>"})
 
 	// assert

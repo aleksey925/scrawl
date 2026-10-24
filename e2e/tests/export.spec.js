@@ -18,8 +18,6 @@ async function download(page, format) {
     return {name: file.suggestedFilename(), body: fs.readFileSync(await file.path(), 'utf8')};
 }
 
-// print is the browser's dialog, which a test cannot drive: the stub records
-// the page as the dialog would have printed it, then closes it
 async function stubPrint(page) {
     await page.evaluate(() => {
         window.printed = [];
@@ -149,8 +147,6 @@ test.describe('export to pdf of wide content', () => {
             const width = element.closest('.markdown-document').getBoundingClientRect().width;
             return Math.max(element.scrollWidth, element.getBoundingClientRect().width) - width;
         });
-        // scrollWidth is a whole number of pixels and the column is not, so a
-        // fit can read as a fraction of a pixel over
         expect(await overflow('table')).toBeLessThan(1);
         expect(await overflow('.md-diagram-view svg')).toBeLessThan(1);
     });
@@ -227,7 +223,6 @@ test.describe('export to pdf on a dark screen', () => {
         // arrange
         writeFixture(NOTE, `# Export\n\n[next](${OTHER})\n\n![slow](images/slow.png)\n`);
         writeFixture(OTHER, '# Other\n');
-        // a picture that never arrives keeps the print waiting for it
         await page.route('**/raw/images/slow.png', () => {});
         await page.goto(routes.doc(NOTE));
         await stubPrint(page);
@@ -242,7 +237,6 @@ test.describe('export to pdf on a dark screen', () => {
         await expect(page.getByTestId('doc').locator('h1')).toHaveText('Other');
         await expect(page).toHaveTitle(title);
         await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
-        // past the longest wait of a print
         await page.waitForTimeout(6_000);
         expect(await page.evaluate(() => window.printed)).toEqual([]);
     });

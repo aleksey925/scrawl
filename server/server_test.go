@@ -41,52 +41,32 @@ const testUser = "bob"
 
 const testPassword = "s3cret"
 
-// the API tokens the test server accepts, one of each scope.
 const (
 	testToken     = "scrawl_test-read-write"
 	testReadToken = "scrawl_test-read-only"
 )
 
-// testSpace is the one space every test server serves. It is named rather
-// than empty on purpose: the prefix is non-empty in every run of the real
-// binary, so a URL built without it has to fail here too.
 const testSpace = "notes"
 
-// globalPaths are the routes that answer at the root instead of inside a
-// space. It is the server's own boundary - does this read a store - written
-// down once, so a test names the path it means and the helper decides which
-// tree that path lives in.
 var globalPaths = []string{
 	"/ping", "/static/", "/manifest.webmanifest",
 	"/login", "/logout", "/api/login", "/api/logout", "/api/spaces",
 }
 
-// testServer is a whole app over a temporary notes directory.
 type testServer struct {
 	*Web
-	url string
-	// root is the notes directory of the first space, secondRoot that of the
-	// second one when testOpts named it.
+	url        string
 	root       string
 	secondRoot string
-	// notified counts what reached the webhook's Notify, which is the only
-	// thing a verified delivery is supposed to do
-	notified int
+	notified   int
 }
 
-// second is the space testOpts.second asked for.
 func (ts *testServer) second() *Space { return ts.Spaces[1] }
 
-// prefix is where this server's only space answers.
 func (ts *testServer) prefix() string { return spacePrefix + testSpace }
 
-// mount is the space bound to the server, which is the receiver every
-// handler that reads a store hangs off.
 func (ts *testServer) mount() *mount { return &mount{Web: ts.Web, spc: ts.Spaces[0]} }
 
-// resolve turns a path a test names into the one the server answers. "/" is the
-// space's own root, not the server's: a test that means the redirect at the
-// server root asks for it literally.
 func (ts *testServer) resolve(p string) string {
 	for _, global := range globalPaths {
 		if p == global || strings.HasPrefix(p, global) || strings.HasPrefix(p, global+"?") {
@@ -97,22 +77,15 @@ func (ts *testServer) resolve(p string) string {
 }
 
 type testOpts struct {
-	readOnly      bool // the whole server
-	spaceReadOnly bool // this space alone
+	readOnly      bool
+	spaceReadOnly bool
 	formatOnSave  bool
-	formatErr     error // what the formatter answers instead of a note
+	formatErr     error
 	withAuth      bool
 	history       History
 
-	// second names a space served beside the first one, over a root of its
-	// own. Empty leaves the server with one space, which is what most tests
-	// need; naming it is what a test of the boundary between two spaces asks
-	// for.
 	second string
 
-	// hook gives the first space a webhook, which is also what puts its path
-	// in the public list: the two have to be built in that order, because the
-	// list is derived from the spaces.
 	hook bool
 }
 
@@ -120,8 +93,6 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 	t.Helper()
 	root := testNotes(t)
 
-	// the spaces come first, the way main builds them: the public path list
-	// is derived from them, so auth cannot be built before they exist
 	spc := testSpaceAt(t, testSpace, root, opts.readOnly || opts.spaceReadOnly)
 	spc.ReadOnly = opts.spaceReadOnly
 	spc.FormatOnSave = opts.formatOnSave
@@ -180,8 +151,6 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 	return res
 }
 
-// testSpaceAt builds one space over a directory, indexed and rendered the
-// way main builds one.
 func testSpaceAt(t *testing.T, name, root string, readOnly bool) *Space {
 	t.Helper()
 	notes, err := store.New(store.Config{Root: root, ReadOnly: readOnly, Rescan: -1})
@@ -203,9 +172,6 @@ func testSpaceAt(t *testing.T, name, root string, readOnly bool) *Space {
 	return spc
 }
 
-// testNotes writes a small notes tree covering every shape the handlers have
-// to tell apart: a root index, a directory with its own index, a directory with
-// only a readme, a non-markdown attachment and a Cyrillic document.
 func testNotes(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
@@ -238,9 +204,6 @@ func tinyPNG(t *testing.T) []byte {
 	return buf.Bytes()
 }
 
-// request is one call against the test server. path is resolved through
-// testServer.resolve unless literal is set, which is what a test asking about
-// a path outside every space needs.
 type request struct {
 	method  string
 	path    string
@@ -250,8 +213,6 @@ type request struct {
 	client  *http.Client
 }
 
-// response is the part of an answer the tests look at. do drains and closes
-// the body before it returns, so nothing here has to be released.
 type response struct {
 	status int
 	header http.Header
@@ -322,7 +283,6 @@ func noRedirectClient(t *testing.T) *http.Client {
 	}
 }
 
-// login signs in and returns a client carrying the session cookie.
 func (ts *testServer) login(t *testing.T) *http.Client {
 	t.Helper()
 	client := noRedirectClient(t)
@@ -350,8 +310,6 @@ func TestStaticAndPing(t *testing.T) {
 		contentType string
 	}{
 		{name: "ping", path: "/ping", status: http.StatusOK, body: "pong", contentType: "text/plain"},
-		// chroma is generated by render at runtime rather than built, so it is
-		// the one stylesheet vite cannot carry and the shell links it itself
 		{name: "generated chroma css", path: "/static/v1.2.3/css/chroma.css", status: http.StatusOK, contentType: "text/css"},
 		{name: "app manifest", path: ts.appShell.base() + "manifest.json", status: http.StatusOK},
 		{name: "favicon", path: "/static/v1.2.3/favicon.svg", status: http.StatusOK, contentType: "image/svg+xml"},
@@ -382,7 +340,6 @@ func TestStaticServesEveryBuiltChunk(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 	var paths []string
 	err := fs.WalkDir(os.DirFS("assets/app/assets"), ".", func(path string, entry fs.DirEntry, err error) error {
-		// a .DS_Store a mac leaves behind is no chunk, and go:embed skips it
 		if err == nil && !entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
 			paths = append(paths, path)
 		}
@@ -403,9 +360,6 @@ func TestStaticServesEveryBuiltChunk(t *testing.T) {
 	assert.Empty(t, missing)
 }
 
-// the bundle's names carry no hash, so the version in its address is what
-// tells one release from another: a page from an older one gets nothing and
-// reloads, and the current one may be kept by the browser for good
 func TestAppBundleIsServedForItsOwnVersionOnly(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -559,9 +513,6 @@ func TestSecurityHeaders(t *testing.T) {
 	assert.Contains(t, policy, "style-src 'self' 'unsafe-inline'")
 }
 
-// TestPageRoutesServeTheApp checks what the server still decides for itself now
-// that every page is the app: the status of a reading url, and the one path that
-// is not a page at all. What the app then draws is the browser suite's business.
 func TestPageRoutesServeTheApp(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
@@ -577,10 +528,7 @@ func TestPageRoutesServeTheApp(t *testing.T) {
 		{name: "editor", path: "/edit/guide.md", status: http.StatusOK},
 		{name: "history", path: "/history/guide.md", status: http.StatusOK},
 		{name: "search", path: "/search?q=widgets", status: http.StatusOK},
-		// a link to a note that is not there keeps answering 404: the status is
-		// all a crawler or a link checker reads, and neither runs the router
 		{name: "missing document", path: "/doc/nope.md", status: http.StatusNotFound},
-		// every file has a page, the bytes stay on /raw/
 		{name: "a file is a page", path: "/doc/snippet.py", status: http.StatusOK},
 		{name: "unknown route", path: "/nothing", status: http.StatusNotFound},
 	}
@@ -721,7 +669,6 @@ func TestRawNeverServesAnExecutableDocument(t *testing.T) {
 		contentType string
 		disposition string
 	}{
-		// as text under the sandbox policy, a page or a script is only read
 		{name: "html is text", path: "/raw/evil.html", contentType: "text/plain; charset=utf-8"},
 		{name: "javascript is text", path: "/raw/evil.js", contentType: "text/plain; charset=utf-8"},
 		{name: "svg keeps its type but downloads", path: "/raw/evil.svg", contentType: "image/svg+xml",
@@ -884,9 +831,6 @@ func TestTreeMarksTheFolderBeingViewed(t *testing.T) {
 	assert.True(t, docs.Children[0].Active, "the current folder is also on its own path")
 }
 
-// TestNavMarksTheFolderBeingViewed keeps the flags the sidebar draws itself
-// from. A folder is the one case that has to carry both: it is the page being
-// read and an ancestor of nothing, and it once went unmarked entirely.
 func TestNavMarksTheFolderBeingViewed(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -1577,10 +1521,6 @@ func TestReadOnlyRefusesEveryWrite(t *testing.T) {
 	}
 }
 
-// TestReadOnlyIsAnnouncedAndEnforced records where the refusal lives now. The
-// editor route used to answer 403 outright; it serves the app like every other
-// page, and what a reader is offered comes from /api/me while the api is what
-// actually refuses the write.
 func TestReadOnlyIsAnnouncedAndEnforced(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{readOnly: true})
@@ -1615,8 +1555,6 @@ func TestAuthGuardsEverythingButThePublicRoutes(t *testing.T) {
 		{name: "root redirects to login", path: "/", status: http.StatusFound},
 		{name: "api answers 401", path: "/api/tree", status: http.StatusUnauthorized},
 		{name: "login page is public", path: "/login", status: http.StatusOK},
-		// the sign-in page carries its own stylesheet, so it has to be readable
-		// by someone who has no session yet or the form arrives unstyled
 		{name: "assets are public", path: "/static/v1.2.3/login/login.css", status: http.StatusOK},
 		{name: "ping is public", path: "/ping", status: http.StatusOK},
 	}
@@ -1635,13 +1573,10 @@ func TestAuthGuardsEverythingButThePublicRoutes(t *testing.T) {
 	}
 }
 
-// bearer is everything an API client sends: no cookie, no CSRF hint, no form.
 func bearer(token string) map[string]string {
 	return map[string]string{"Authorization": "Bearer " + token}
 }
 
-// crossSite adds to headers what a forged write carries: the site hint the
-// browser sets by itself and the origin the form came from.
 func crossSite(headers map[string]string) map[string]string {
 	if headers == nil {
 		headers = map[string]string{}
@@ -1651,8 +1586,6 @@ func crossSite(headers map[string]string) map[string]string {
 	return headers
 }
 
-// files is every file under the notes root with its content, so a refused write
-// can be shown to have left the corpus alone.
 func (ts *testServer) files(t *testing.T) map[string]string {
 	t.Helper()
 	res := map[string]string{}
@@ -1846,7 +1779,6 @@ func TestLoginFlow(t *testing.T) {
 
 	// act
 	page, _ := ts.do(t, request{path: "/doc/guide.md", client: client})
-	// the page carries no user name any more, the app asks who it is serving
 	_, me := ts.json(t, request{path: "/api/me", client: client})
 	loginAgain, _ := ts.do(t, request{path: "/login", client: client})
 	out, _ := ts.do(t, request{method: http.MethodPost, path: "/logout", client: client})
@@ -1988,8 +1920,6 @@ func TestRenderCacheFillsOnTheFirstRequest(t *testing.T) {
 	require.Equal(t, 0, ts.pages().len())
 
 	// act
-	// the shell renders no markdown, so the cache is filled by the route that
-	// hands the document over
 	ts.do(t, request{path: "/api/page/guide.md"})
 	ts.do(t, request{path: "/api/page/guide.md"})
 
@@ -2006,9 +1936,6 @@ func revOf(t *testing.T, ts *testServer, contentPath string) string {
 	return store.Rev(data)
 }
 
-// TestLoginTemplateExecutes renders the one page the server still builds
-// itself, so a field the template needs and the handler does not fill shows up
-// here instead of in a browser. Every other page is the app now.
 func TestLoginTemplateExecutes(t *testing.T) {
 	wb := &Web{Config: Config{Title: "Test Notes", Version: "v1"}}
 	require.NoError(t, wb.parseTemplates())
@@ -2039,8 +1966,6 @@ func TestLoginTemplateExecutes(t *testing.T) {
 	}
 }
 
-// TestNoInlineScripts locks the assumption the content security policy rests
-// on: an inline block would be blocked by "script-src 'self'".
 func TestNoInlineScripts(t *testing.T) {
 	// arrange
 	names, err := fs.Glob(templateFiles, "templates/*.html")
@@ -2062,9 +1987,6 @@ func TestNoInlineScripts(t *testing.T) {
 	}
 }
 
-// TestInlineStylesNeverReachScriptSrc locks the one relaxation the policy
-// carries: inline styles are allowed and scripts are not. A -elem or -attr
-// directive would override the plain one for its half, so none may appear.
 func TestInlineStylesNeverReachScriptSrc(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -2081,8 +2003,6 @@ func TestInlineStylesNeverReachScriptSrc(t *testing.T) {
 	}
 }
 
-// TestStoreErrorMapping locks the table the store package handed over: every
-// sentinel has one status and one message, and neither ever quotes a path.
 func TestStoreErrorMapping(t *testing.T) {
 	tests := []struct {
 		name    string

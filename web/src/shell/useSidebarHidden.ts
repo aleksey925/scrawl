@@ -9,8 +9,6 @@ export interface SidebarVisibility {
   toggle: () => void;
 }
 
-// hiding the tree is a choice about the whole app rather than about one note,
-// so it outlives the navigation that follows it and the tab it was made in
 export function useSidebarHidden(): SidebarVisibility {
   const [hidden, setHidden] = useState(() => readText(localStore(), hiddenKey) === 'true');
 

@@ -10,8 +10,6 @@ import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 import { useNav } from './NavContext';
 import { ResetAction } from './ResetDialog';
 
-// thisNote is what the control says when the note on screen is one of the
-// affected ones
 const thisNote = 'This note has not reached the remote';
 
 interface SyncSummary {
@@ -19,8 +17,6 @@ interface SyncSummary {
   label: string;
 }
 
-// useSyncSummary is undefined while everything is fine, so a control built on
-// it renders nothing at all until something is wrong
 function useSyncSummary(): SyncSummary | undefined {
   const { sync, isUnsynced, currentPath } = useNav();
   if (sync === undefined) {
@@ -74,9 +70,6 @@ function SyncDetails({ onLeave }: { onLeave: () => void }): JSX.Element | null {
   );
 }
 
-// SyncControl is the one persistent surface that survives scrolling: the banner
-// lives inside AppShell.Main, which scrolls away on a long note, and the header
-// does not. They share their words and do different jobs.
 export function SyncControl(): JSX.Element | null {
   const summary = useSyncSummary();
   const [opened, setOpened] = useState(false);

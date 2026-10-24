@@ -14,10 +14,6 @@ import (
 	"github.com/aleksey925/scrawl/store"
 )
 
-// TestURLsEscapeAwkwardPaths guards the builders that make a link out of a
-// content path. A file name may hold anything the filesystem allows, and a
-// question mark pasted into an href would turn the rest of the name into a
-// query string.
 func TestURLsEscapeAwkwardPaths(t *testing.T) {
 	// arrange
 	const awkward = "notes/что? да.md"
@@ -31,8 +27,6 @@ func TestURLsEscapeAwkwardPaths(t *testing.T) {
 		{name: "document", got: ContentURL(awkward), want: "/doc/" + escaped},
 		{name: "editor", got: EditURL(awkward), want: "/edit/" + escaped},
 		{name: "directory", got: DirURL("notes/что? да"), want: "/doc/notes/%D1%87%D1%82%D0%BE%3F%20%D0%B4%D0%B0/"},
-		// a hit carries the query on, which is what lights up the match on the
-		// page it opens, so the link is a path and a query together
 		{name: "search hit", got: SearchURL(awkward, "да"), want: "/doc/" + escaped + "?q=%D0%B4%D0%B0"},
 	}
 

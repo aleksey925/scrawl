@@ -1,6 +1,3 @@
-// Package render turns a page's markdown into sanitized HTML: heading
-// anchors that survive Cyrillic, links rewritten onto the app routes, a table
-// of contents and server-side syntax highlighting.
 package render
 
 import (
@@ -14,25 +11,10 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// reHTMLTag matches a tag so raw HTML in a heading, such as <a name='x'></a>,
-// does not leak "a namex a" into its own anchor.
 var reHTMLTag = regexp.MustCompile(`</?[a-zA-Z][^>]*>`)
 
-// reFootnoteID matches the anchors footnote.go owns. GitHub keeps them apart
-// from document anchors with a "user-content-" prefix on everything the author
-// wrote; the frontend contract fixes the plain names here, so the namespace is
-// reserved from the other side instead and a heading called "fn-1" is given
-// "fn-1-1". Raw HTML can still write the id by hand, exactly as it can write
-// any other id the app uses.
 var reFootnoteID = regexp.MustCompile(`^fn(ref)?-\d`)
 
-// Slug builds a heading anchor: NFC, drop every rune outside letters, digits,
-// "_", "-" and space, trim spaces, turn the remaining spaces into "-", then
-// lowercase. This is what GitHub does.
-//
-// Runs of hyphens are deliberately kept: "диск — это" has to stay
-// "диск--это", because the em dash disappears and both of its spaces become
-// hyphens. Collapsing them would break the anchors GitHub gives.
 func Slug(text string) string {
 	var b strings.Builder
 	b.Grow(len(text))
@@ -47,11 +29,6 @@ func Slug(text string) string {
 	return strings.ReplaceAll(strings.Trim(b.String(), " "), " ", "-")
 }
 
-// slugIDs is a parser.IDs that keeps non-ASCII letters. goldmark's own
-// implementation drops every multi-byte rune, which turns a whole Russian
-// document into "heading", "heading-1", "heading-2".
-//
-// It is stateful per document, so a fresh one goes into every parser.Context.
 type slugIDs struct {
 	used map[string]int
 }
@@ -75,8 +52,6 @@ func (s *slugIDs) Put(value []byte) {
 	s.used[string(value)] = 0
 }
 
-// unique appends -1, -2, ... until the anchor is free, remembering the last
-// suffix tried for a base so a document with many repeats stays linear.
 func (s *slugIDs) unique(base string) string {
 	if _, taken := s.used[base]; !taken && !reFootnoteID.MatchString(base) {
 		s.used[base] = 0

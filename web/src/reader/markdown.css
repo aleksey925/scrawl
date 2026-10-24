@@ -1,7 +1,3 @@
-/* Every rule here is scoped to .markdown-document: a note is markdown the
-   reader wrote, and its classes and ids must not reach app chrome. The look
-   is the way Notion shows a page, laid onto the markup render emits. */
-
 .markdown-document {
   color: var(--scrawl-text-body);
   font-size: 1rem;
@@ -24,10 +20,6 @@
   margin-bottom: 0 !important;
 }
 
-/* --- inline -------------------------------------------------------------- */
-
-/* a link has the theme's link color, the text's own in the dark, with a faint
-   line under it, darker under the pointer */
 .markdown-document a {
   color: var(--scrawl-link);
   text-decoration: underline;
@@ -64,7 +56,6 @@
   font-weight: var(--scrawl-strong-weight);
 }
 
-/* a link and a highlight keep their own color */
 .markdown-document :is(b, strong, em, i, dt, h1, h2, h3, h4, h5):not(:is(a, .footnotes, mark) *) {
   color: var(--scrawl-text-emphasis);
 }
@@ -82,7 +73,6 @@
   text-decoration: underline dotted;
 }
 
-/* a highlighter: the yellow block ground under the note's own text */
 .markdown-document mark {
   padding: 0 2px;
   border-radius: 3px;
@@ -118,8 +108,6 @@
   color: var(--scrawl-text);
   font: 12px var(--mantine-font-family-monospace);
 }
-
-/* --- headings ------------------------------------------------------------ */
 
 .markdown-document :is(h1, h2, h3, h4, h5, h6) {
   position: relative;
@@ -160,7 +148,6 @@
   font-size: 0.85em;
 }
 
-/* the note's leading heading is its page title */
 .markdown-document > h1:first-child {
   margin-bottom: 6px;
   color: var(--scrawl-text-emphasis);
@@ -187,11 +174,6 @@
   padding: 0;
 }
 
-/* --- heading anchors ----------------------------------------------------- */
-
-/* GitHub's link icon in the gutter left of the heading. A finger has no hover
-   to reveal it with, so there it is always on screen, and its box is the tap
-   minimum laid over the start of the heading, which takes no tap of its own */
 .markdown-document .md-anchor {
   position: absolute;
   top: calc((1lh - var(--scrawl-tap-target)) / 2);
@@ -204,8 +186,6 @@
   text-decoration: none;
 }
 
-/* the icon is drawn here and not inside the anchor's text: the anchor keeps
-   the heading's font, which is what 1lh above is measured in */
 .markdown-document .md-anchor::before {
   content: '';
   flex: none;
@@ -237,17 +217,12 @@
   }
 }
 
-/* a phone keeps 16px at the edge, and the icon's gutter is wider than that: it
-   hung off the screen over the first letter. GitHub has no hover there either. */
 @mixin smaller-than $mantine-breakpoint-sm {
   .markdown-document .md-anchor {
     display: none;
   }
 }
 
-/* --- blocks -------------------------------------------------------------- */
-
-/* a block is a line of the page: 3px 2px of room and 1px between two */
 .markdown-document :is(p, blockquote, ul, ol, dl, table, figure) {
   margin-top: 1px;
   margin-bottom: 1px;
@@ -303,7 +278,6 @@
   padding: 0 16px;
 }
 
-/* a toggle: no box, a chevron that turns when it opens, its body indented */
 .markdown-document details {
   display: block;
   margin: 1px 0;
@@ -340,8 +314,6 @@
 .markdown-document details > :not(summary) {
   margin-left: 26px;
 }
-
-/* --- lists --------------------------------------------------------------- */
 
 .markdown-document :is(ul, ol) {
   padding-left: 1.7em;
@@ -380,9 +352,6 @@
   padding-inline: 0;
 }
 
-/* goldmark puts no class on a task item, so the checkbox opening it is what
-   marks one, a loose item holding it in its first paragraph. The box stays
-   disabled: a task is ticked in the editor and saved like any change. */
 .markdown-document li:has(> input[type='checkbox']:first-child),
 .markdown-document li:has(> p:first-child > input[type='checkbox']:first-child) {
   list-style-type: none;
@@ -418,8 +387,6 @@
   text-decoration-color: var(--scrawl-text-faint);
 }
 
-/* --- images -------------------------------------------------------------- */
-
 .markdown-document img {
   box-sizing: content-box;
   max-width: 100%;
@@ -439,8 +406,6 @@
   padding: var(--mantine-spacing-lg);
   border: 1px dashed var(--scrawl-color-red);
 }
-
-/* --- code ---------------------------------------------------------------- */
 
 .markdown-document :is(code, kbd, pre, samp, tt) {
   font-family: var(--mantine-font-family-monospace);
@@ -494,16 +459,12 @@
   overflow-wrap: normal;
 }
 
-/* a block of code is a box with a head row inside it: the language at the
-   left and Copy at the right, above the code and never over it */
 .markdown-document .code-block {
   margin: 6px 0;
   border-radius: 6px;
   background-color: var(--scrawl-code-bg);
 }
 
-/* chroma's own sheet paints .chroma from :root, which only pre.chroma here
-   outranks */
 .markdown-document .code-block > :is(pre, pre.chroma) {
   margin: 0;
   background-color: transparent;
@@ -513,8 +474,6 @@
   padding-top: 0;
 }
 
-/* chroma paints the tokens from its own stylesheet; this only keeps an
-   unhighlighted block legible when that sheet is not on the page */
 .markdown-document .chroma {
   color: var(--scrawl-text);
 }
@@ -576,8 +535,6 @@
   outline-offset: -2px;
 }
 
-/* with a pointer Copy shows under it and under the keyboard's focus; a touch
-   screen has no hover, so there it always shows, at the touch height */
 @media (hover: hover) {
   .md-copy {
     opacity: 0;
@@ -608,15 +565,12 @@
   }
 }
 
-/* --- tables -------------------------------------------------------------- */
-
 .markdown-document .table-wrap {
   margin: 6px 0 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-/* a wide table scrolls inside itself whether or not the renderer wrapped it */
 .markdown-document table {
   display: block;
   width: max-content;
@@ -631,8 +585,6 @@
   font-variant: tabular-nums;
 }
 
-/* wrapped by the reader, the table runs the width of the note and the box
-   around it scrolls */
 .markdown-document .table-wrap > table {
   display: table;
   width: auto;
@@ -666,10 +618,6 @@
   padding: 0;
 }
 
-/* --- callouts ------------------------------------------------------------ */
-
-/* an alert is a callout: a box on the block ground with an icon in the block
-   color in a column of its own. The icons are Phosphor's (MIT). */
 .markdown-document .alert {
   --md-alert-color: var(--scrawl-color-blue);
   --md-alert-bg: var(--scrawl-bg-blue);
@@ -722,8 +670,6 @@
   font-weight: 600;
 }
 
-/* the icon is drawn by the title, placed in the left column of the box, so the
-   markup render emits stays what it is */
 .markdown-document .alert-title::before {
   content: '';
   position: absolute;
@@ -735,8 +681,6 @@
   -webkit-mask: var(--md-alert-icon) center / 22px no-repeat;
   mask: var(--md-alert-icon) center / 22px no-repeat;
 }
-
-/* --- footnotes ----------------------------------------------------------- */
 
 .markdown-document .footnote-ref a {
   text-decoration: none;
@@ -766,8 +710,6 @@
   position: relative;
 }
 
-/* a fragment jump lands with nothing to look at, so both ends of a footnote
-   link mark themselves while they are the target */
 .markdown-document section.footnotes li:target {
   border-radius: 4px;
   background: var(--scrawl-bg-yellow);
@@ -780,10 +722,6 @@
   outline-offset: 1px;
 }
 
-/* --- math ---------------------------------------------------------------- */
-
-/* until katex has run the element holds the raw TeX; monospace close to the
-   final size keeps the swap small, and the scroll anchor covers the rest */
 .markdown-document .math {
   font-family: var(--mantine-font-family-monospace);
   font-size: 0.9em;
@@ -815,8 +753,6 @@
   padding: var(--mantine-spacing-xs) 0;
 }
 
-/* a katex base never breaks inside itself, so one long formula would widen the
-   document and pan the whole page sideways where there is no room to spare */
 @media (hover: none) {
   .markdown-document .math-inline {
     display: inline-block;
@@ -825,8 +761,6 @@
     overflow-y: hidden;
   }
 }
-
-/* --- diagrams ------------------------------------------------------------ */
 
 .markdown-document pre.mermaid {
   color: var(--scrawl-text-secondary);
@@ -860,8 +794,6 @@
   margin-inline: auto;
 }
 
-/* mermaid writes a label as a paragraph inside its svg, measured with no room
-   around it; the note's block padding pushed every label off its middle */
 .markdown-document .md-diagram-view p {
   margin: 0;
   padding: 0;
@@ -872,8 +804,6 @@
   color: var(--scrawl-color-red);
   font-size: var(--mantine-font-size-sm);
 }
-
-/* --- find on page -------------------------------------------------------- */
 
 .markdown-document .md-find {
   padding: 0;
@@ -887,10 +817,6 @@
   color: var(--scrawl-on-accent);
 }
 
-/* --- picture viewer ------------------------------------------------------- */
-
-/* a modal dialog over the whole screen; the backdrop is the browser's own, so
-   a click beside the picture lands on the dialog and closes it */
 .md-viewer {
   box-sizing: border-box;
   width: 100vw;
@@ -919,8 +845,6 @@
   animation: md-viewer-fade 160ms ease-out;
 }
 
-/* the image yields to the caption rather than being capped in vh: with mobile
-   Safari's toolbars out the pair stood taller than the dialog and was clipped */
 .md-viewer-image {
   flex: 0 1 auto;
   max-width: 100%;
@@ -1003,7 +927,6 @@
   }
 }
 
-/* a finger steps the pictures with a swipe, and the arrows would only cover them */
 @media (hover: none) {
   .md-viewer-step {
     display: none;
@@ -1030,11 +953,6 @@
   }
 }
 
-/* --- print --------------------------------------------------------------- */
-
-/* paper does not scroll, so what scrolls sideways on screen wraps or shows
-   whole, and the controls of a screen stay off it; the code and the tables
-   keep their backgrounds, which a browser drops by default */
 @media print {
   .markdown-document {
     print-color-adjust: exact;
@@ -1056,7 +974,6 @@
     overflow: visible;
   }
 
-  /* a table is laid out in the width of the paper, its cells wrapping */
   .markdown-document table {
     display: table;
     width: auto;

@@ -15,15 +15,12 @@ const nothing: SearchResponse = { hits: [], elapsed_ms: 0 };
 const pageLimit = 50;
 const noneExpanded: ReadonlySet<string> = new Set();
 
-// the search page is a typed or shared address of a search, drawn with the
-// results the dialog shows
 export function Component(): JSX.Element {
   const [searchParams] = useSearchParams();
   const settings = settingsOfSearch(searchParams);
   const wanted = searchTextOf(searchParams.get('q') ?? '', settings);
   const empty = wanted.trim() === '';
   const key = searchParams.toString();
-  // the notes opened in full belong to the search they were opened in
   const [opened, setOpened] = useState<{ key: string; paths: ReadonlySet<string> }>({ key, paths: noneExpanded });
   const expanded = opened.key === key ? opened.paths : noneExpanded;
   usePageChrome({ crumbs: [], title: 'Search', ownTitle: true });

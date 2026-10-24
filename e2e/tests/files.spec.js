@@ -39,11 +39,8 @@ test.describe.serial('file management', () => {
     test('creates a folder where the tree stands, with no dialog in the way', async ({page}) => {
         await page.getByTestId('sidebar-new').click();
         await page.getByTestId('sidebar-new-folder').click();
-        // the row is typed in place: there is no dialog, and the input sits
-        // where the folder is about to be
         await expect(page.getByTestId('tree-draft')).toHaveAttribute('data-entry', 'dir');
         await expect(page.locator('[data-testid=modal][data-variant="create"]')).toHaveCount(0);
-        // the caret is already in it, so the name is the next thing typed
         await expect(page.getByTestId('tree-draft-input')).toBeFocused();
         await shot(page, 'files-new-folder-draft');
 
@@ -52,12 +49,9 @@ test.describe.serial('file management', () => {
 
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.folderCreated);
         expect(fs.statSync(fixtureFile(FOLDER)).isDirectory()).toBe(true);
-        // a folder is where a page is created, so it is on the tree before it holds one
         await expect(page.locator(`[data-testid=tree-row][data-path="${FOLDER}"]`)).toHaveCount(1);
         await expect(page.getByTestId('tree-draft')).toHaveCount(0);
 
-        // the new folder is where the reader is now, so the next entry goes
-        // into it and not beside it
         await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
         await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveAttribute('data-path', FOLDER);
         await expect(page.getByTestId('dir-empty-title')).toHaveText(text.dir.empty);
@@ -67,8 +61,6 @@ test.describe.serial('file management', () => {
         await shot(page, 'files-folder-created');
     });
 
-    // the new entry in the sidebar's head makes it where the reader is, and on
-    // the root's list that is the root, beside the folders
     test('creates a file in the root from the sidebar', async ({page}) => {
         // arrange
         await page.getByTestId('sidebar-new').click();
@@ -179,15 +171,12 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-draft-input').press('Enter');
 
         await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.pageExists);
-        // the row stays open with the name in it, so a second try is one edit
         await expect(page.getByTestId('tree-draft-input')).toHaveValue('Тестовая страница');
         await shot(page, 'files-duplicate-page');
         await page.getByTestId('tree-draft-input').press('Escape');
         await expect(page.getByTestId('tree-draft')).toHaveCount(0);
     });
 
-    // a folder with files in it used to be refused with an error after the
-    // reader had already confirmed; now the question itself says what goes
     test('asks before deleting a folder that is not empty, and Cancel keeps it', async ({page}) => {
         // arrange
         await page.goto(routes.doc(PAGE));
@@ -226,8 +215,6 @@ test.describe.serial('file management', () => {
         await shot(page, 'files-renamed');
     });
 
-    // dragging is the shortest way to move a note, and the one a reader reaches
-    // for first: the rename dialog asks for a whole path to say the same thing
     test('moves a page into another folder by dragging its row', async ({page}) => {
         // arrange
         fs.mkdirSync(fixtureFile(OTHER), {recursive: true});
@@ -258,7 +245,6 @@ test.describe.serial('file management', () => {
 
         // act
         await page.locator(`${rows[0]} [data-testid=tree-link]`).click();
-        // shift takes the run between the two rows, the way a file manager does
         await page.locator(`${rows[1]} [data-testid=tree-link]`).click({modifiers: ['Shift']});
         await expect(page.locator('[data-testid=tree-row][data-selected="true"]')).toHaveCount(2);
         await shot(page, 'files-multi-selected');
@@ -306,8 +292,6 @@ test.describe.serial('file management', () => {
         await expect(page).toHaveURL(MAIN.url.dir(LISTED_FOLDER));
     });
 
-    // an empty note was a blank screen and an open empty folder a row with
-    // nothing under it: neither said whether anything was selected at all
     test('an empty note says it is empty and leads into the editor', async ({page}) => {
         // arrange
         fs.writeFileSync(fixtureFile(BLANK_PAGE), '', 'utf8');
@@ -336,11 +320,9 @@ test.describe.serial('file management', () => {
         const row = page.locator(`[data-testid=tree-row][data-path="${BLANK_FOLDER}"]`);
         await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-children"]').getByTestId('tree-empty')).toHaveText(text.dir.noNotes);
         await shot(page, 'files-empty-folder');
-        // an empty folder keeps its table's header, as Notion keeps a database's
         await expect(page.getByTestId('dir-table').locator('th').first()).toBeVisible();
         await expect(page.getByTestId('dir-empty-new-folder')).toHaveCount(0);
         await page.getByTestId('dir-empty-new-file').click();
-        // the name is typed in the list the reader is looking at, not in the tree
         await expect(page.getByTestId('dir-draft-input')).toBeFocused();
         await expect(page.getByTestId('tree-draft')).toHaveCount(0);
         await expect(page.getByTestId('dir-empty')).toHaveCount(0);
@@ -442,8 +424,6 @@ test.describe.serial('file management', () => {
         await expect(page.locator(`[data-testid=tree-row][data-path="${FULL_FOLDER}"]`)).toHaveCount(0);
     });
 
-    // Finder leaves a .DS_Store in every folder it has shown, and the app
-    // lists no such file: the folder looked empty and still would not go
     test('asks again when a folder that looks empty holds a file the app does not list', async ({page}) => {
         // arrange
         fs.mkdirSync(fixtureFile(JUNK_FOLDER), {recursive: true});
@@ -516,7 +496,6 @@ test.describe('file pages', () => {
         });
 
         // act
-        // a move inside the router, which keeps the file's page mounted
         await page.evaluate((url) => {
             window.history.pushState(null, '', url);
             window.dispatchEvent(new PopStateEvent('popstate'));

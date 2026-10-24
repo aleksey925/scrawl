@@ -9,8 +9,6 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-// kindTableWrap is the scroll container every table is put into, so a wide
-// table scrolls on its own instead of widening the whole page.
 var kindTableWrap = ast.NewNodeKind("TableWrap")
 
 type tableWrap struct {

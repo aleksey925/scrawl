@@ -39,8 +39,6 @@ export function DiffView({ patch }: DiffViewProps): JSX.Element {
         background: 'var(--scrawl-sidebar)',
       }}
     >
-      {/* the box is as wide as the longest line, so a coloured row keeps its
-          colour all the way across when the patch is scrolled sideways */}
       <pre
         style={{
           margin: 0,

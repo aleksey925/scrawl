@@ -5,8 +5,6 @@ import { FindTimeout, type FindMatch, type FindPattern } from './reader/findMatc
 import { internalTarget } from './reader/links';
 import { loadChunk, reloadForStaleBundle } from './staleBundle';
 
-// findDeadlineMs is how long a find of a note may run before its worker is
-// stopped: a regular expression can run for minutes and freeze the tab
 const findDeadlineMs = 1000;
 
 function runFind(texts: string[], pattern: FindPattern, signal: AbortSignal): Promise<FindMatch[]> {
@@ -32,8 +30,6 @@ function runFind(texts: string[], pattern: FindPattern, signal: AbortSignal): Pr
     });
     worker.addEventListener('error', (event: Event) => {
       stop();
-      // a worker that never loaded gets a plain event and not an ErrorEvent,
-      // and after an upgrade its file is gone like any chunk of the release
       if (!(event instanceof ErrorEvent) && reloadForStaleBundle()) {
         return;
       }
@@ -43,8 +39,6 @@ function runFind(texts: string[], pattern: FindPattern, signal: AbortSignal): Pr
   });
 }
 
-// the app is served by the go server: answers are fetched, every url carries
-// the space's prefix, and the heavy renderers are chunks of the bundle
 export const appPlatform: Platform = {
   source: api,
   physicalUrl: (url) => mountBase() + url,

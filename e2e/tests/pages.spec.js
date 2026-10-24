@@ -37,9 +37,6 @@ test.describe('pages', () => {
         });
 
         for (const route of ROUTES) {
-            // every app route is the same document, and which screen it is comes
-            // from the client router, so the status is 200 even for a page that
-            // is not there
             const response = await page.goto(route);
             expect(response.status(), route).toBe(200);
             await page.waitForLoadState('networkidle');
@@ -47,11 +44,6 @@ test.describe('pages', () => {
         expect(problems).toEqual([]);
     });
 
-    // a direct load and not a click: the page segment is spelled out in the
-    // route table, in the path builders and in the pathname reader, and one of
-    // the three left behind boots the shell, renders the client 404 and asks
-    // for the root tree - which looks like a routing bug and not a stale word.
-    // Only an address typed in from outside the app catches it.
     test('every screen answers a url typed in from outside the app', async ({page}) => {
         const screens = [
             [routes.doc(docs.doc.path), 'doc'],
@@ -63,13 +55,10 @@ test.describe('pages', () => {
         for (const [url, marker] of screens) {
             await page.goto(url);
             await expect(page.getByTestId(marker), url).toBeVisible();
-            // the tree asked about this very document, not about the root
             await expect(page.getByTestId('tree-row').first(), url).toBeVisible();
         }
     });
 
-    // the bundle is answered for the server's own release only, so a page left
-    // open across an upgrade finds the next chunk it asks for gone
     test('a chunk that is gone reloads the page into the screen asked for', async ({page}) => {
         // arrange
         await page.goto(routes.doc(docs.doc.path));
@@ -113,8 +102,6 @@ test.describe('pages', () => {
         await stays(() => loads, 1, 500);
     });
 
-    // a reload the browser's leave prompt refuses leaves the page waiting on a
-    // chunk that never comes
     test('a chunk that is gone under unsaved changes shows its error and brings up no leave prompt', async ({page}) => {
         // arrange
         writeFixture(GUARDED, 'kept\n');
@@ -230,9 +217,6 @@ test.describe('pages', () => {
         await expect(page).toHaveURL(MAIN.url.doc(docs.folder.entry));
     });
 
-    // a click used to blank the window - tree, note and controls - for the
-    // length of the round trip, because every screen cleared its data before
-    // asking for the next one
     test('a slow page keeps the one on screen instead of blanking', async ({page}) => {
         await page.goto(routes.doc(docs.doc.path));
         await expect(page.getByTestId('doc-title').or(page.locator('h1')).first()).toBeVisible();
@@ -241,18 +225,12 @@ test.describe('pages', () => {
         await page.route(slow, async (route) => {
             await new Promise((resolve) => setTimeout(resolve, 1_500));
             await route.continue().catch(() => {
-                // the page moved on, which is the case the generation counter
-                // in the client covers
             });
         });
-        // whichever note the tree happens to show beside the one being read; an
-        // open folder's label folds it and goes nowhere
         const other = page.locator('[data-testid=tree-row][data-current="false"][data-dir="false"]').first();
         const target = await other.getAttribute('data-path');
         await other.getByTestId('tree-link').click();
 
-        // in flight: the row that was clicked is already the current one, the
-        // tree is whole, and nothing has been replaced by a spinner
         await expect(page.locator('[data-testid=tree-row][data-current="true"]'))
             .toHaveAttribute('data-path', target);
         await expect(page.getByTestId('tree-row').first()).toBeVisible();
@@ -301,9 +279,6 @@ test.describe('pages', () => {
     });
 
     test('a note cannot take the ids the app looks itself up by', async ({page}) => {
-        // each heading slugs to the name of a piece of chrome, and the document
-        // is rendered before that chrome, so a document-wide lookup would come
-        // back holding the heading instead
         writeFixture(COLLIDE, [
             '# Collisions', '', '## Toasts', '', '## Lightbox', '', '## Palette input', '',
             '## Toc', '', '## Doc', '', '## Editor source', '',
@@ -320,21 +295,16 @@ test.describe('pages', () => {
         await page.waitForLoadState('networkidle');
         expect(problems, 'a shadowed id threw and took its feature down').toEqual([]);
 
-        // the headings really did claim the ids, so the chrome only survived by
-        // being reached through refs and portals instead of by name
         await expect(page.locator('[data-testid=doc] h2#toasts')).toHaveCount(1);
         await expect(page.locator('[data-testid=doc] h2#toc')).toHaveCount(1);
         await expect(page.locator('[data-testid=doc] h2#doc')).toHaveCount(1);
         await expect(page.locator('[data-testid=doc] h2#editor-source')).toHaveCount(1);
 
-        // the hooks still name one element each, and it is the chrome and not a heading
         await expect(page.getByTestId('doc')).toHaveCount(1);
         await expect(page.getByTestId('doc')).toHaveClass(/markdown-document/);
         await expect(page.getByTestId('toc')).toHaveCount(1);
         await expect(page.getByTestId('toc-entry')).toHaveCount(6);
 
-        // the heading anchor copies the link and says so, which is the toast that
-        // used to be appended invisibly inside the heading named Toasts
         await page.locator('[data-testid=doc] h2#toasts [data-testid=doc-heading-anchor]').click();
         const toast = page.locator('[data-testid=toast][data-kind="ok"]');
         await expect(toast).toContainText(text.toast.linkCopied);
@@ -351,7 +321,6 @@ test.describe('pages', () => {
         await expect(page.getByTestId('space-menu-theme')).toHaveAttribute('data-theme', 'auto');
         await expect(root).not.toHaveAttribute('data-scrawl-theme');
 
-        // straight to dark, past light: one press, and the menu stays open
         await chooseTheme(page, 'dark');
         await expect(root).toHaveAttribute('data-scrawl-theme', 'dark');
         await expect(root).toHaveAttribute('data-mantine-color-scheme', 'dark');
@@ -366,14 +335,12 @@ test.describe('pages', () => {
 
         await chooseTheme(page, 'dark');
 
-        // the choice is a cookie, because the server paints the first byte from it
         await page.reload();
         await expect(root).toHaveAttribute('data-scrawl-theme', 'dark');
         await expect(root).toHaveAttribute('data-mantine-color-scheme', 'dark');
         await openSpaceMenu(page);
         await expect(page.getByTestId('space-menu-theme')).toHaveAttribute('data-theme', 'dark');
 
-        // auto takes the attribute away and leaves the theme to the system
         await chooseTheme(page, 'auto');
         await expect(root).not.toHaveAttribute('data-scrawl-theme');
     });

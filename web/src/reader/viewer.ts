@@ -1,6 +1,5 @@
 import { imageCaption } from './dom';
 
-// how far a finger travels before it counts as a swipe and not a tap
 const swipeMin = 40;
 
 const chevronLeft = 'M15 6l-6 6l6 6';
@@ -31,9 +30,6 @@ function sourceOf(image: HTMLImageElement): string {
   return image.currentSrc === '' ? image.src : image.currentSrc;
 }
 
-// openViewer shows the pictures of a note one at a time, starting at the one
-// clicked, and returns what closes it. It is a modal dialog, so the browser
-// keeps the page behind it inert, closes it on Escape and gives the focus back.
 export function openViewer(images: readonly HTMLImageElement[], start: HTMLImageElement): () => void {
   let at = Math.max(0, images.indexOf(start));
 
@@ -82,7 +78,6 @@ export function openViewer(images: readonly HTMLImageElement[], start: HTMLImage
     from = { x: event.clientX, y: event.clientY };
     swiped = false;
   });
-  // a finger has no arrow keys, so the set is stepped with a swipe
   dialog.addEventListener('pointerup', (event) => {
     const start = from;
     from = null;
@@ -97,8 +92,6 @@ export function openViewer(images: readonly HTMLImageElement[], start: HTMLImage
     step(moved < 0 ? 1 : -1);
   });
 
-  // anything but a button closes it, the picture included: on a phone the
-  // picture covers nearly the whole screen and leaves no backdrop to aim at
   dialog.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target.closest('button') : null;
     if (target === previous) {
@@ -127,7 +120,6 @@ export function openViewer(images: readonly HTMLImageElement[], start: HTMLImage
 
   show();
   document.body.append(dialog);
-  // the page behind does not scroll under a finger that swipes the pictures
   document.documentElement.style.overflow = 'hidden';
   dialog.showModal();
   close.focus();

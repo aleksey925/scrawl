@@ -9,9 +9,6 @@ export interface NewEntryDialogProps {
   onClose: () => void;
 }
 
-// NewEntryDialog asks a phone for the name of a new note or folder, the way a
-// phone asks for one: a small dialog in the middle with the field and two
-// buttons side by side. A phone has no tree to type the name into.
 export function NewEntryDialog({ draft, onCreate, onClose }: NewEntryDialogProps): JSX.Element {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);

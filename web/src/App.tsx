@@ -16,8 +16,6 @@ export function App(): JSX.Element {
   return (
     <MantineProvider
       theme={theme}
-      // every variable of every theme is in the theme stylesheet, keyed on an
-      // attribute mantine does not know; its runtime copy would outrank them
       withCssVariables={false}
       colorSchemeManager={colorSchemeManager}
       defaultColorScheme="auto"

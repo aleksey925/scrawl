@@ -11,8 +11,6 @@ function mediaOf(scheme: Scheme): string {
   return `(prefers-color-scheme: ${scheme})`;
 }
 
-// syncHead puts the browser's own chrome on the theme picked: the color of its
-// bar and the icon a phone puts on its home screen
 export function syncHead(choice: string): void {
   const picked = lookupTheme(choice);
   const wanted = picked === undefined ? schemes.map((each) => ({ scheme: each, media: mediaOf(each) })) : [{ scheme: picked.scheme, media: '' }];

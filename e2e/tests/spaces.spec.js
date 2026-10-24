@@ -37,9 +37,6 @@ test.describe('spaces', () => {
         await page.goto(WIKI.doc('remote.md'));
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Remote page');
 
-        // a document of one space is not reachable through another: the
-        // content path is relative to its own root, and the space is in the
-        // url and never in the path
         await page.goto(NOTES.doc('team.md'));
         await expect(page.getByTestId('doc-missing')).toBeVisible();
     });
@@ -56,13 +53,11 @@ test.describe('spaces', () => {
         await items.filter({hasText: 'Team wiki'}).click();
         await page.waitForLoadState('networkidle');
 
-        // a full page load, so the shell boots with the new basename
         await expect(page).toHaveURL(TEAM.home());
         await expect(page.locator('#scrawl-app-root')).toHaveAttribute('data-base', '/s/team');
         await expect(page.getByTestId('space-menu')).toContainText('Team wiki');
     });
 
-    // 130px once cut a two-word name on a screen with a thousand to spare
     test('the switcher shows an ordinary name whole and ends a long one in an ellipsis', async ({page}) => {
         const label = page.getByTestId('space-menu').locator('span', {hasText: /\S/}).last();
         const cut = () => label.evaluate((el) => el.scrollWidth > el.clientWidth);
@@ -107,8 +102,6 @@ test.describe('spaces', () => {
         fs.rmSync(path.join(teamRoot, name), {force: true});
     });
 
-    // the whole remote mode from the outside: the space's directory is a
-    // clone the server made, and a save reaches the origin
     test('a remote space pushes what the app saves', async ({page}) => {
         const name = 'e2e-remote-note.md';
         expect(fs.existsSync(path.join(wikiRoot, '.git')), 'the server cloned into the directory').toBe(true);
@@ -121,7 +114,6 @@ test.describe('spaces', () => {
         await expect(page.getByTestId('space-alert')).toHaveCount(0);
     });
 
-    // a second writer moves the branch, and the pull ticker brings it in
     test('a remote space takes what the origin gained', async ({page}) => {
         pushToOrigin(wikiOrigin, 'e2e-upstream.md', `# Upstream note\n\npushed by somebody else at ${Date.now()}.\n`);
 
@@ -143,8 +135,6 @@ test.describe('spaces', () => {
     });
 });
 
-// runBinary starts the server and waits for it to give up, which is what a
-// configuration it refuses does.
 function runBinary(args) {
     return new Promise((resolve) => {
         execFile(binary, args, {timeout: 20_000}, (error, stdout, stderr) => {
@@ -153,31 +143,24 @@ function runBinary(args) {
     });
 }
 
-// the second refresh trigger. It drives the space whose pull is off, so a
-// note that appears there appeared because a delivery arrived and for no other
-// reason - on the ticker space the ticker would have done it anyway.
 test.describe('webhook', () => {
     const HOOKED = MULTI.spaces.hooked;
     const hooked = MULTI.extra.find((extra) => extra.name === 'hooked');
     const body = JSON.stringify({ref: 'refs/heads/main'});
 
     test('a signed delivery refreshes a space nothing else fetches', async ({page}) => {
-        // a name of its own per run: the note must be missing before the
-        // delivery, and a rerun in the same session has already fetched the last one
         const delivered = `e2e-delivered-${Date.now()}.md`;
         pushToOrigin(hooked.origin, delivered, '# Delivered\n\nby the hook alone.\n');
         await signIn(page, {baseURL: MULTI.baseURL, from: HOOKED.home()});
         await page.goto(HOOKED.doc(delivered));
         await expect(page.getByTestId('doc-missing'), 'nothing fetches this space on its own').toBeVisible();
 
-        // a provider cannot sign in, so the route takes no cookie at all
         const accepted = await page.request.post(HOOKED.hook(), {
             headers: {'X-Hub-Signature-256': sign(hooked.hookSecret, body), 'Content-Type': 'application/json'},
             data: body,
         });
         expect(accepted.status()).toBe(202);
 
-        // 202 means accepted and never finished: the handler never runs git
         await expect.poll(
             async () => {
                 await page.goto(HOOKED.doc(delivered));
@@ -195,7 +178,6 @@ test.describe('webhook', () => {
             data: body,
         });
         const below = await page.request.post(`${HOOKED.hook()}/extra`, {data: body});
-        // the ticker space declared no secret, so it has no such route
         const absent = await page.request.post(WIKI.hook(), {data: body});
 
         expect(unsigned.status()).toBe(401);

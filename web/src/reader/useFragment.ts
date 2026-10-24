@@ -6,8 +6,6 @@ import { holdPosition } from './position';
 import { elementWithId } from './dom';
 import { findParam } from './useFindOnPage';
 
-// The browser looks for the fragment when the shell loads, before the note is
-// on the page, and never looks again. So the note does it once it has arrived.
 export function useFragment(
   rootRef: RefObject<HTMLDivElement | null>,
   html: string,
@@ -25,8 +23,6 @@ export function useFragment(
   useEffect(() => {
     const root = rootRef.current;
     const { pathname, search, hash } = latest.current;
-    // once per arrival: the same note rendered again must not pull the reader
-    // back to the heading they have since scrolled away from
     if (root === null || landedOn.current === pathname) {
       return undefined;
     }

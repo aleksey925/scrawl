@@ -19,8 +19,6 @@ function Separator(): JSX.Element {
   );
 }
 
-// TopbarCrumbs is the path of the page on screen: the space first, the folders
-// on the way, and the page's own title last.
 export function TopbarCrumbs(): JSX.Element {
   const { me } = useNav();
   const chrome = useShownChrome();

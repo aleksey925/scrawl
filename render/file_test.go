@@ -10,7 +10,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-// textOf is what a copy of the rendered file takes: the text of its markup
 func textOf(t *testing.T, markup template.HTML) string {
 	t.Helper()
 	doc, err := html.Parse(strings.NewReader(string(markup)))

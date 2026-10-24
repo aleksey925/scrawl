@@ -185,15 +185,11 @@ func TestLoadConfigMissingFile(t *testing.T) {
 	assert.Contains(t, err.Error(), "read the spaces file")
 }
 
-// TestResolveSecret is the whole credential story: a file and a variable resolve
-// to the same value, and everything downstream - the redaction list, the header
-// injection - never learns which one it came from.
 func TestResolveSecret(t *testing.T) {
 	const token = "Bearer ghp_xxx"
 
 	tests := []struct {
 		name string
-		// exactly one of the two is set, which is what the caller enforces
 		file string
 		env  string
 		want string
@@ -229,9 +225,6 @@ func TestResolveSecret(t *testing.T) {
 	}
 }
 
-// TestResolveSecretClearsTheVariable covers the reason it is read once: env()
-// inherits os.Environ() for every git call, so a token left in place would
-// ride along on git log and git status too.
 func TestResolveSecretClearsTheVariable(t *testing.T) {
 	// arrange
 	t.Setenv("SCRAWL_TEST_TOKEN", "Bearer ghp_xxx")
@@ -295,9 +288,6 @@ func TestFlagSpacesReadTheFixedVariable(t *testing.T) {
 	}}, cfgs)
 }
 
-// TestResolveGitToken is what an operator actually holds: a token, not a
-// header. A whole header still passes through, because the scheme a host wants
-// is the host's business and Bitbucket takes only Bearer.
 func TestResolveGitToken(t *testing.T) {
 	const pat = "github_pat_xxx"
 	encoded := base64.StdEncoding.EncodeToString([]byte(tokenUser + ":" + pat))
@@ -349,8 +339,6 @@ func TestResolveGitToken(t *testing.T) {
 	}
 }
 
-// the header the child git process ends up carrying, which is the only thing
-// that has to be right: whatever the operator wrote, this is what GitHub reads
 func TestABareTokenBecomesTheHeaderGitSends(t *testing.T) {
 	// arrange
 	t.Setenv(repoTokenEnv, "github_pat_xxx")
@@ -367,8 +355,6 @@ func TestABareTokenBecomesTheHeaderGitSends(t *testing.T) {
 		cfgs[0].Remote.Token)
 }
 
-// the fixed variable is optional, unlike one the configuration named: an https
-// remote with no credential is the public-repository case
 func TestFlagSpacesWithoutTheFixedVariable(t *testing.T) {
 	// arrange
 	opts := &options{Space: spaceOptions{Name: "notes", Dir: "/notes"}}

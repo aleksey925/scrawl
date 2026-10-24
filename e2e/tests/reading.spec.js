@@ -17,9 +17,6 @@ const EMPHASIS = 'e2e-emphasis.md';
 const DIAGRAM = 'e2e-diagram.md';
 const LOOK = 'e2e-look.md';
 
-// a page of its own for the anchor test: the fragment an author writes and the
-// slug the renderer makes have to be the same string for the jump to resolve,
-// and whether they are in the corpus is not this test's subject
 function anchorDocument() {
     const filler = Array.from(
         {length: 40},
@@ -166,7 +163,6 @@ test.describe('reading', () => {
 
         await expect(page.locator(`[data-testid=tree-row][data-path="${docs.filter.path}"] mark`))
             .toHaveText(docs.filter.term);
-        // the folder holding the match is on screen too, and nothing else is
         const shown = () => page.getByTestId('tree-row').evaluateAll(
             (rows) => rows.map((row) => row.dataset.path));
         await expect.poll(shown).toContain(docs.filter.path);
@@ -229,7 +225,6 @@ test.describe('reading', () => {
 
         await page.getByTestId('doc').getByRole('link', {name: 'разделу'}).click();
 
-        // the scroll is animated, so wait for the heading to settle under the top bar
         await expect
             .poll(() => page.getByTestId('doc').locator('h2').first().evaluate(
                 (el) => el.getBoundingClientRect().top))
@@ -240,10 +235,6 @@ test.describe('reading', () => {
         removeFixture(ANCHORS);
     });
 
-    // the renderer lowercases a slug while an author writes the heading as it
-    // reads, so "[x](#Индексы)" has to find <h2 id="индексы">. The exact match
-    // is tried first, and only then the folded one, or a document holding both
-    // cases would resolve to whichever came first in the dom.
     test('an anchor written in another case than its slug still resolves', async ({page}) => {
         writeFixture(ANCHORS, anchorDocument().replace('(#раздел)', '(#Раздел)'));
         await page.goto(routes.doc(ANCHORS));
@@ -404,11 +395,6 @@ test.describe('reading', () => {
         await shot(page, 'reading-toc-active');
     });
 
-    // a section taller than the reading band leaves no heading in it at all,
-    // and a jump carries several past it between two frames. The marker used to
-    // stay where it was in both cases, so the outline stopped following the
-    // page for the rest of the note. The note is written here rather than
-    // looked for, because it has to be tall in a way no corpus promises.
     test('the outline follows into a section taller than the reading band', async ({page}) => {
         const filler = (word) => Array.from({length: 40}, () => `${word} `.repeat(12)).join('\n\n');
         writeFixture(
@@ -419,8 +405,6 @@ test.describe('reading', () => {
         await page.goto(routes.doc(OUTLINE));
         await showOutline(page);
 
-        // deep inside the second section, with its heading far above the window
-        // and the next one still far below it
         await page.evaluate(() => {
             const second = document.querySelectorAll('[data-testid=doc] h2')[1];
             window.scrollTo({top: second.getBoundingClientRect().top + window.scrollY + 900, behavior: 'instant'});
@@ -429,8 +413,6 @@ test.describe('reading', () => {
         const active = page.locator('[data-testid=toc-entry][data-active="true"]');
         await expect(active).toHaveText('Second');
 
-        // and the marker is somewhere the reader can see: an outline taller
-        // than the panel scrolls inside it
         const visible = await page.evaluate(() => {
             const entry = document.querySelector('[data-testid=toc-entry][data-active="true"]');
             const rail = document.querySelector('[data-testid=mini-outline-panel]');
@@ -446,8 +428,6 @@ test.describe('reading', () => {
         removeFixture(OUTLINE);
     });
 
-    // the last sections of a note are shorter than the screen, so the page
-    // ends before their headings reach the reading line
     test('the outline reaches the short sections at the end of a note', async ({page}) => {
         // arrange
         const filler = Array.from({length: 40}, () => 'long '.repeat(12)).join('\n\n');
@@ -483,8 +463,6 @@ test.describe('reading', () => {
         removeFixture(OUTLINE);
     });
 
-    // "?" is a character somebody types, so the sheet must stay out of the way
-    // while a field has the keyboard
     test('? opens the shortcuts, grouped by where they work', async ({page}) => {
         // act
         await page.keyboard.press('?');
@@ -520,8 +498,6 @@ test.describe('reading', () => {
         await expect(page.getByTestId('editor-source')).toBeVisible();
     });
 
-    // the picker reloads nothing, and the head kept the bar color and the
-    // home screen icon of the theme the page was loaded in
     test('the bar color and the home screen icon follow the theme picker', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC.path));
@@ -547,9 +523,6 @@ test.describe('reading', () => {
         await expect.poll(bars).toEqual([[lightTheme.palette.bg, '']]);
     });
 
-    // the picker writes the theme attribute and reloads nothing, so a
-    // stylesheet keyed on anything else keeps the colours of the theme the page
-    // was loaded in: the punctuation of a fence went black on a dark note
     test('the code colours follow the theme picker, not the system', async ({page}) => {
         await page.goto(routes.doc(DOC.path));
         const contrast = () => page.locator('[data-testid=doc] .chroma .p').first().evaluate((el) => {
@@ -557,14 +530,12 @@ test.describe('reading', () => {
             return sum(getComputedStyle(el).color) - sum(getComputedStyle(document.body).backgroundColor);
         });
 
-        // dark text on a light page
         expect(await contrast()).toBeLessThan(0);
 
         await openSpaceMenu(page);
         await chooseTheme(page, 'light');
         await chooseTheme(page, 'dark');
 
-        // light text on a dark one
         await expect.poll(contrast).toBeGreaterThan(0);
     });
 
@@ -798,7 +769,6 @@ test.describe('reading', () => {
         removeFixture(LOOK);
     });
 
-    // a tick on the page would be a write, and every tick a commit and a push
     test('a task box on the page takes no click and sends nothing', async ({page}) => {
         // arrange
         writeFixture(LOOK, '# Tasks\n\n- [ ] open task\n');

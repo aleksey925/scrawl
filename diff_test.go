@@ -15,8 +15,6 @@ import (
 	"github.com/aleksey925/scrawl/page"
 )
 
-// gitRepoAt makes a repository in a temporary directory and moves the test into
-// it, the way a person runs scrawl diff from inside a clone.
 func gitRepoAt(t *testing.T) string {
 	t.Helper()
 
@@ -52,7 +50,6 @@ func commitFiles(t *testing.T, dir, message string, files map[string]string) {
 	runGit(t, dir, "commit", "-q", "-m", message)
 }
 
-// diffJSONOf runs diff with the JSON output and reads it back.
 func diffJSONOf(t *testing.T, args ...string) (int, diffJSON) {
 	t.Helper()
 

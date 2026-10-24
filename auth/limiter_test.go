@@ -46,7 +46,6 @@ func TestLimiterLockout(t *testing.T) {
 	for range lockoutAfterFails {
 		lim.failed("10.0.0.1", start)
 	}
-	// the budget has refilled long ago, only the lockout can block now
 	locked := lim.allow("10.0.0.1", start.Add(time.Minute))
 	stillLocked := lim.allow("10.0.0.1", start.Add(lockoutFor-time.Second))
 	released := lim.allow("10.0.0.1", start.Add(lockoutFor))
@@ -95,7 +94,7 @@ func TestLimiterEviction(t *testing.T) {
 		// arrange
 		start := time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
 		lim := newLimiter(start)
-		lim.idle, lim.sweepEvery = time.Minute, time.Minute // short enough for a lockout to outlive them
+		lim.idle, lim.sweepEvery = time.Minute, time.Minute
 		for range lockoutAfterFails {
 			lim.failed("10.0.0.1", start)
 		}

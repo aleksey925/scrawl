@@ -8,10 +8,7 @@ interface Alias {
   filename?: RegExp;
 }
 
-// the names codemirror's set does not know, or knows as a rarer language, each
-// put on the closest language it holds
 const aliases: Alias[] = [
-  // before the config files below, which would take its extension
   { name: 'Nginx', of: 'Nginx', filename: /^nginx.*\.conf$/i },
   { name: 'Config', of: 'Properties files', extensions: ['conf', 'cfg', 'env', 'editorconfig'] },
   { name: 'Objective-C', of: 'Objective-C', extensions: ['m'] },
@@ -39,8 +36,6 @@ const aliased: LanguageDescription[] = aliases.flatMap(({ name, of, extensions, 
   return target === undefined ? [] : [LanguageDescription.of({ name, extensions, filename, load: () => target.load() })];
 });
 
-// codeLanguageOf is the language a text file's name says it is written in, if
-// the editor can color it
 export function codeLanguageOf(name: string): LanguageDescription | null {
   return LanguageDescription.matchFilename(aliased, name) ?? LanguageDescription.matchFilename(languages, name);
 }

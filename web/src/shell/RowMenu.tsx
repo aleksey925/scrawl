@@ -21,8 +21,6 @@ export function RowMenu({
   const { canWrite } = useNav();
   const actions = useFileActions();
 
-  // the dropdown is anchored to a row inside a panel that scrolls on its own,
-  // so anything that moves the trigger has to take the menu with it
   useEffect(() => {
     if (!opened) {
       return;
@@ -105,7 +103,6 @@ export function RowMenu({
         )}
 
         <Menu.Divider />
-        {/* the root holds everything: it is not a folder anyone may rename or drop */}
         {canWrite && path !== '' && (
           <Menu.Item
             data-testid="tree-row-menu-rename"

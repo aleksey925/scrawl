@@ -9,14 +9,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-// rewriteRawHTML patches href and src on hand-written HTML, which the AST
-// transformer never sees because goldmark keeps a raw HTML block as one
-// opaque blob. It works on tokens rather than on a parsed tree: re-serializing
-// a tree would silently restructure invalid-but-harmless markup such as an
-// <h3> inside a <p>.
-//
-// Both resolvers are idempotent, so the links the AST pass already rewrote
-// survive a second visit untouched.
 func rewriteRawHTML(fragment []byte, resolvers linkResolvers) []byte {
 	var out bytes.Buffer
 	out.Grow(len(fragment))
@@ -29,8 +21,6 @@ func rewriteRawHTML(fragment []byte, resolvers linkResolvers) []byte {
 			}
 			return out.Bytes()
 		}
-		// the tag name is read straight from the raw bytes: calling
-		// Tokenizer.TagName first would leave Token with nothing to parse
 		raw := z.Raw()
 		isTag := tt == html.StartTagToken || tt == html.SelfClosingTagToken
 		if !isTag || !isLinkTag(rawTagName(raw)) {
@@ -49,7 +39,6 @@ func isLinkTag(name []byte) bool {
 		bytes.EqualFold(name, []byte("source"))
 }
 
-// rawTagName reads the element name out of a raw "<name ...>" token.
 func rawTagName(raw []byte) []byte {
 	if len(raw) < 2 || raw[0] != '<' {
 		return nil
@@ -61,8 +50,6 @@ func rawTagName(raw []byte) []byte {
 	return raw[1 : 1+end]
 }
 
-// linkResolvers map the destination of a link, which leads to a page, and that
-// of an embedded resource, which the browser fetches as bytes
 type linkResolvers struct {
 	link, embed func(dest string) target
 }
@@ -96,8 +83,6 @@ func patchTag(tok *html.Token, resolvers linkResolvers) {
 	}
 }
 
-// rewriteSrcset maps every candidate of a <source srcset> onto the app routes.
-// The descriptor after the URL, "2x" or "640w", is carried through untouched.
 func rewriteSrcset(value string, resolve func(dest string) target) string {
 	out := make([]string, 0, 4)
 	for candidate := range strings.SplitSeq(value, ",") {

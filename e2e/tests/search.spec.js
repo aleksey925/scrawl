@@ -10,8 +10,6 @@ const text = require('../support/text');
 
 const MANY = 'e2e-search/many.md';
 
-// indexed waits for the watcher to bring a fixture written by a test into the
-// index, which the search reads
 async function indexed(page, word, path) {
     await expect.poll(async () => {
         const res = await page.request.get(`${MAIN.baseURL}${routes.api(`/search?q=${encodeURIComponent(word)}`)}`);
@@ -171,8 +169,6 @@ test.describe('search', () => {
         await page.goto(routes.search(docs.search.word));
         await page.getByTestId('search-result').first().click();
         await expect(page).toHaveURL(/\?q=/);
-        // the document is fetched after the navigation and the marks go in once
-        // it is on the page, so the bar showing up is the gate to count on
         const counter = page.getByTestId('doc-find-count');
         await expect(counter).toBeVisible();
 
@@ -188,8 +184,6 @@ test.describe('search', () => {
         await page.getByTestId('doc-find-prev').click();
         await expect(counter).toHaveAttribute('data-position', '1');
 
-        // the query leaves the url with the highlighting, so a reload does not
-        // light the page up again
         await page.getByTestId('doc-find-close').click();
         await expect(page.getByTestId('doc-find')).toHaveCount(0);
         await expect(hits).toHaveCount(0);

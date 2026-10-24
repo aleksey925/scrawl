@@ -13,11 +13,7 @@ import { contentPathOf } from './naming';
 import { syncMessage, type SyncMessage } from './syncMessage';
 import type { MeState } from './useMe';
 
-// one bucket per space: the set is read during the very first render, long
-// before /api/me has answered, so the key comes from the platform's scope and
-// not from the space name the server reports
 function openKey(scope: string): string {
-  // v2: a set kept under v1 predates the root's own row and is left unread
   return `scrawl.tree.open:v2:${scope}`;
 }
 
@@ -36,19 +32,11 @@ export interface NavState {
   loading: boolean;
   me: MeResponse | undefined;
   canWrite: boolean;
-  // currentPath is the route's content path, which is the file on screen: a
-  // folder is always its list, so a note is shown under its own address only
   currentPath: string;
-  // the space's own state, resolved once so the banner and the sync control
-  // render the same words
   sync: SyncMessage | undefined;
   isUnsynced: (path: string) => boolean;
-  // two refreshes, because they cost different things: the tree is a full walk
-  // of the store and drops every cached answer with it, me is one small read
   refreshNav: () => void;
   refreshMe: () => void;
-  // changes counts the refreshes of the tree, so a screen that lists what the
-  // tree holds asks again after a write made anywhere in the app
   changes: number;
   isOpen: (path: string) => boolean;
   toggleFolder: (path: string) => void;
@@ -81,7 +69,6 @@ function activeFolders(nodes: readonly NavNode[], into: Set<string>): void {
 }
 
 export interface NavProviderProps {
-  // the space's state, kept fresh by whoever knows where it comes from
   status: MeState;
   children: ReactNode;
 }
@@ -137,17 +124,12 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
 
   const isOpen = useCallback((path: string) => open.has(path), [open]);
   const refreshNav = useCallback(() => {
-    // the tree moved, so a directory listing or a rendered note may have too,
-    // and a screen painting from a cached one would be showing the old shape
     forgetResponses();
     setToken((seen) => seen + 1);
   }, []);
 
   const sync = useMemo(() => syncMessage(me), [me]);
 
-  // isUnsynced answers false for every path once the set was dropped above the
-  // cap, so the degraded form draws no badges by construction rather than by
-  // every surface remembering to check
   const unsynced = useMemo(() => {
     const paths = me?.space.unsynced;
     if (paths === undefined || paths.many) {
@@ -163,8 +145,6 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       error: nav.error,
       loading: nav.loading,
       me,
-      // a write the server would refuse is never offered: read-only mode and,
-      // where auth is on, a reader who has not signed in
       canWrite: me !== undefined && !me.read_only && (!me.auth_on || me.user !== ''),
       currentPath,
       sync,

@@ -55,7 +55,19 @@ vendor/                dependencies, checked in, `make deps` regenerates
   running it named, the way any tool does, and a working tree only
   through an `os.Root` of the repository. `site` reads the notes through
   `store` and writes through an `os.Root` of the output.
-- Writes are atomic: temp file in the same directory, then rename.
+- Writes are atomic: temp file in the same directory, then rename. The temp
+  file is opened with `O_CREATE|O_EXCL`, because `os.Root` follows no symlink
+  when both are set, so a link planted at the temp path cannot redirect the
+  write. The file is synced before the rename and its directory after it:
+  without that, a power cut left a renamed file with the right name and no
+  content.
+- A change on disk comes from the watcher as a create as often as a write,
+  because an atomic save, from an editor or over SMB, replaces the file, so a
+  consumer that listens for writes alone sees no saves. A bare chmod is
+  dropped, since on Linux one also comes with a delete. The watcher is
+  buffered, so an rsync or a Synology Drive sync does not overflow the inotify
+  queue and lose events without a word, and the cached tree still expires on
+  its own, because inotify is not reliable on a bind mount or a network share.
 - All rendered HTML is sanitized. Raw HTML in markdown is allowed, but
   only through the bluemonday policy in `render`, which starts from
   `NewPolicy` because a policy can only ever be widened afterwards.
@@ -175,13 +187,13 @@ vendor/                dependencies, checked in, `make deps` regenerates
   one line under it: a root drawn another way made the page jump on the way to
   a folder. A folder there is a list and not a table: a name over one line of
   what it is, and no `..` row.
-- A global shortcut gives way to an editor. It does nothing when the
-  event was already handled or was pressed inside an element that owns
-  the app's shortcuts (`data-owns-shortcuts`), because a keymap may
-  leave a key unhandled, bold inside a code block, and the sidebar must
-  not toggle while typing.
-  Every shortcut is a row of the one table in `ShortcutHelp`, which shows
-  only the rows the place offers.
+- A global shortcut gives way to an editor. It does nothing when the event was
+  already handled or was pressed inside an element that owns the app's
+  shortcuts (`data-owns-shortcuts`), because a keymap may leave a key
+  unhandled, bold inside a code block, and the sidebar must not toggle while
+  typing. Every shortcut is a row of the one table in `ShortcutHelp`, which
+  shows only the rows the place offers. A shortcut with Alt is matched on the
+  key's `code`, never its `key`: on a Mac Option+C types `ç`.
 - A theme is one file in `theme/themes/`, and nothing else names a color of
   one: adding a theme is a file and `make ui`. The file holds Notion's color
   roles, its nine block colors, three shadows, the weight of bold and that of
@@ -227,18 +239,22 @@ vendor/                dependencies, checked in, `make deps` regenerates
   source line range of every block it emits, so the position crosses as
   a line and not as a pixel offset, and both panes are held at it until
   the preview has arrived and the document has stopped moving.
-- The position is the top edge of the screen, on both sides. Taken a
-  quarter down, it kept what sat above it at its rendered height, and in
-  the wrapped source on a phone the heading at the top went under the
-  toolbar. The edge often cuts a sliver off the block above, and that
-  sliver is a line or two of source, so a block that starts in the top
-  quarter is the anchor, kept at its distance from the edge; only a
-  block that fills the top is anchored where it is cut. The anchor is
-  always a line the other side can place exactly: a block's first line,
-  a row of code, never the middle of a paragraph, an opening fence or an
-  alert's marker. A position the reader did not move goes back as it
-  came, because each side picks the block nearest its own top and a
-  round trip with no scroll in it crept every time.
+- The position is the top edge of the screen, on both sides. Taken a quarter
+  down, it kept what sat above it at its rendered height, and in the wrapped
+  source on a phone the heading at the top went under the toolbar. The edge
+  often cuts a sliver off the block above, and that sliver is a line or two of
+  source, so a block that starts in the top quarter is the anchor, kept at its
+  distance from the edge; only a block that fills the top is anchored where it
+  is cut. The anchor is always a line the other side can place exactly: a
+  block's first line, a row of code, never the middle of a paragraph, an
+  opening fence or an alert's marker. A position the reader did not move goes
+  back as it came, because each side picks the block nearest its own top and a
+  round trip with no scroll in it crept every time. The source is placed with
+  codemirror's `scrollIntoView` and never by setting `scrollTop`, because the
+  height of a line not drawn yet is an estimate, hundreds of pixels off in a
+  wrapped note. A line's top is read off its glyph and not its line box, since
+  the glyph is what `scrollIntoView` lines up, and the space between the two
+  crept on every round trip.
 - In the split editor only the pane the reader is working in moves the
   other, and an interaction on a pane is what makes it that one. A
   scroll event says an element moved, never who moved it, so two panes
@@ -299,46 +315,53 @@ vendor/                dependencies, checked in, `make deps` regenerates
   the note and every control on every click, for the length of a round
   trip. What a click may not wait for is the highlight: the current row
   comes from the route and never from the answer.
-- An entry is made where the action was started: from the sidebar a
-  name field appears in the tree, in the folder the action came from,
-  and from a folder's list a name row appears in that table. Enter
-  creates it, through the one create path both share. A dialog asked
-  for the folder the tree already knew and then covered it, and a
-  create started from a list jumped to the tree, away from what the
-  reader was looking at. Rows drag into folders, one or the whole picked
-  run; a plain click picks, shift takes the range, and a modified click
-  stays the browser's "open in a tab". On a phone there is no tree to
-  type into: the New tab opens a menu over itself, New file or New
-  folder, and the name is asked in a small dialog in the middle, the way
-  a phone asks for a new folder's name, with a line saying a name without
-  an extension makes a note. A create started from a list asks the same.
-  Every place says New file, the tree, the menus and the dialog, since
-  one action makes a note or any file; the editor calls a new note a note.
-- A name typed for a file is a note unless it carries an extension of its
-  own: a title becomes its slug with `.md`, and `notes.txt` or
-  `Main.java` is that file, named as typed, case and all, since a slug
-  lowercased the class java names the file after. An extension is a dot
-  and a word starting with a letter, so the date or the version in a
-  title is not one. A rename takes the same rule: a note renamed to a
-  bare title stays a note, and one renamed with an extension becomes
-  that file, which the `.md` added to every name had made impossible.
-- On a phone the controls sit at the bottom, under the thumb: a bar of
-  tabs (Notes, Search, Recent, New, Profile) and a round Edit button
-  above it. Profile opens the space's menu, the one the sidebar's foot
-  opens: in the bar on top it was on the root alone.
-  Both stay put while the page scrolls, as an app's tab bar does: put
-  away on a scroll down, they read as the toolbar of a browser. A page
-  ends at the bar, a note or a file clear of the Edit button, so a list
-  that fits the screen does not scroll. Nine controls and the crumbs
-  once shared one row on top, and the crumbs got 25px, wrapped and fell
-  over the note as a column. A
-  menu opens beside the control that opened it, the way a phone's own
-  menus do; drawn as a sheet from the bottom, every menu sat apart from
-  its button. The search and the history take the whole screen and the
-  outline is a sheet, each over the bar. The search keeps its field at
-  the bottom, over the keyboard, with the results above it: a field at
-  the top of a tall phone is out of the thumb's reach. The editor has no
-  bar, and a site has none.
+- An entry is made where the action was started: from the sidebar a name field
+  appears in the tree, in the folder the action came from, and from a folder's
+  list a name row appears in that table. Enter creates it, through the one
+  create path both share. A dialog asked for the folder the tree already knew
+  and then covered it, and a create started from a list jumped to the tree,
+  away from what the reader was looking at. Rows drag into folders, one or the
+  whole picked run; a plain click picks, shift takes the range, and a modified
+  click stays the browser's "open in a tab". On a phone there is no tree to
+  type into: the New tab opens a menu over itself, New file or New folder, and
+  the name is asked in a small dialog in the middle, the way a phone asks for a
+  new folder's name, with a line saying a name without an extension makes a
+  note. A create started from a list asks the same. Every place says New file,
+  the tree, the menus and the dialog, since one action makes a note or any
+  file; the editor calls a new note a note. The name field ignores a blur for a
+  moment after it appears: mantine's menu gives the focus back to its button a
+  tick after the field took it, and the field cancelled itself. The rows being
+  dragged are kept in state as well as in the drag's data, because a page
+  cannot read that data during `dragover`, when a folder says whether it takes
+  the drop.
+- A name typed for a file is a note unless it carries an extension of its own:
+  a title becomes its slug with `.md`, and `notes.txt` or `Main.java` is that
+  file, named as typed, case and all, since a slug lowercased the class java
+  names the file after. An extension is a dot and a word starting with a
+  letter, so the date or the version in a title is not one. A rename takes the
+  same rule: a note renamed to a bare title stays a note, and one renamed with
+  an extension becomes that file, which the `.md` added to every name had made
+  impossible. The slug turns Cyrillic into Latin with the same table
+  `store/upload.go` uses for attachment names, letter for letter, and no test
+  holds the two together: a page and the pictures beside it must not spell one
+  word two ways.
+- On a phone the controls sit at the bottom, under the thumb: a bar of tabs
+  (Notes, Search, Recent, New, Profile) and a round Edit button above it.
+  Profile opens the space's menu, the one the sidebar's foot opens: in the bar
+  on top it was on the root alone. Both stay put while the page scrolls, as an
+  app's tab bar does: put away on a scroll down, they read as the toolbar of a
+  browser. A page ends at the bar, a note or a file clear of the Edit button,
+  so a list that fits the screen does not scroll. Nine controls and the crumbs
+  once shared one row on top, and the crumbs got 25px, wrapped and fell over
+  the note as a column. A menu opens beside the control that opened it, the way
+  a phone's own menus do; drawn as a sheet from the bottom, every menu sat
+  apart from its button. The search and the history take the whole screen and
+  the outline is a sheet, each over the bar. The search keeps its field at the
+  bottom, over the keyboard, with the results above it: a field at the top of a
+  tall phone is out of the thumb's reach. The editor has no bar, and a site has
+  none. The search field is placed by the visible area of the screen, not by
+  CSS alone: a phone's keyboard covers the bottom of the page without making it
+  shorter, and a field fixed to the bottom sat under the keys.
 - The formatter is prettier itself, run inside the binary: `format`
   embeds one wasm module holding prettier and QuickJS, built by javy,
   and wazero executes it with no cgo. No port of prettier to Go exists,
@@ -494,20 +517,26 @@ vendor/                dependencies, checked in, `make deps` regenerates
   for the bar under them, and on iOS kept the hover that pauses a toast,
   which then never left. A desktop keeps the card at the top right.
   `Toasts` draws both, for the app and for a site.
-- A touch screen has one scale of sizes, set once in the theme: a menu
-  row and an icon button 44px, a labelled button and a field 40px, and a
-  choice of a few, a segmented control or a chip beside one, 36px.
-  Mantine's 26px menu rows put the theme and the space three to a
-  fingertip, and a choice drawn at the tap height stood twice as tall as
-  the chip beside it. On a touch screen an open menu or popover has a
-  clear ground under it that takes the tap closing it (`TapGuard`): the
-  menu's own outside tap closed it on touchstart, and the click went on
-  to the row underneath and opened the file there. The guard closes only
-  on a tap that started on it: a long press opens a menu while the finger
-  is down, and lifting that finger sent the guard a click. On a touch
-  screen a menu grows out of the corner nearest what opened it, the
-  corner taken from where it was placed after any flip. A phone shows no keys,
-  neither the list of shortcuts nor a key beside a menu row.
+- A touch screen has one scale of sizes, set once in the theme: a menu row and
+  an icon button 44px, a labelled button and a field 40px, and a choice of a
+  few, a segmented control or a chip beside one, 36px. Mantine's 26px menu rows
+  put the theme and the space three to a fingertip, and a choice drawn at the
+  tap height stood twice as tall as the chip beside it. On a touch screen an
+  open menu or popover has a clear ground under it that takes the tap closing
+  it (`TapGuard`): the menu's own outside tap closed it on touchstart, and the
+  click went on to the row underneath and opened the file there. The guard
+  closes only on a tap that started on it: a long press opens a menu while the
+  finger is down, and lifting that finger sent the guard a click. On a touch
+  screen a menu grows out of the corner nearest what opened it, the corner
+  taken from where it was placed after any flip. A phone shows no keys, neither
+  the list of shortcuts nor a key beside a menu row. The text of a field is
+  never under 16px on a touch screen, the sign-in form, the editor and the
+  hidden field a copy uses included: iOS zooms the page into a smaller field
+  when it takes the focus and never zooms back. `TapGuard` is in a portal, and
+  the mark a lifted row's menu opens from sits beside the scaled card and not
+  in it: inside a row, the rows after it painted over the guard and a press on
+  the guard pressed the row, and inside a scaled element a fixed one is placed
+  in that element, which shrank the guard to the card.
 - A touch screen answers a tap the way an app does. A pressed row or menu item
   darkens, a list row from edge to edge of the screen, and a tab, the way back
   and the round Edit button dim, as the bars of iOS do; the press shows 60ms
@@ -519,18 +548,19 @@ vendor/                dependencies, checked in, `make deps` regenerates
   nothing and opens no preview of a link, while a note, code and what a reader
   types still select. iOS draws `:active` only under a `touchstart` listener,
   so the document carries an empty one.
-- On a phone a screen opened slides in from the right and one gone back to
-  from the left, as an app moves its screens; a tab is switched to with no
-  move, and the way up moves back although it pushes an address. The move
-  starts when the page first shows the answer of its route, not on the
-  tap: a screen keeps the last answer while the next one loads, and a move
-  on the tap slid in the old screen and then swapped it. Only the page
-  moves, never the bars, and `main` clips what reaches past its edge. A
-  back the browser takes moves nothing outside an app from the home
-  screen: Safari draws the page gone back to under its own swipe, and a
-  move of ours after it shook the page. The move's start is also held
-  inline, because WebKit paints a page just put in once at rest before the
-  move takes it, and the page jumped back to where the move starts.
+- On a phone a screen opened slides in from the right and one gone back to from
+  the left, as an app moves its screens; a tab is switched to with no move, and
+  the way up moves back although it pushes an address. The move starts when the
+  page first shows the answer of its route, not on the tap: a screen keeps the
+  last answer while the next one loads, and a move on the tap slid in the old
+  screen and then swapped it. Only the page moves, never the bars, and `main`
+  clips what reaches past its edge. A back the browser takes moves nothing
+  outside an app from the home screen: Safari draws the page gone back to under
+  its own swipe, and a move of ours after it shook the page. The move's start
+  is also held inline, because WebKit paints a page just put in once at rest
+  before the move takes it, and the page jumped back to where the move starts.
+  `main` clips with `overflow-x: clip` and never `hidden`, which makes it a
+  scroll container, and every sticky bar inside it stopped sticking.
 - In an app opened from an iPhone's home screen a finger drags the page
   off from the left edge and goes back: in the history when the app has
   one, else to the folder above, as the way up does. A short or slow drag
@@ -565,11 +595,14 @@ vendor/                dependencies, checked in, `make deps` regenerates
   under it and under the focus; a touch screen has no hover, so there it
   always shows. Copy takes the text of the `pre` and nothing else, so
   the head is never inside it.
-- Every copy goes through `copyText` in `web/src/reader/clipboard.ts`,
-  never `navigator.clipboard` alone: a phone that opens the server by its
-  address on the network is on plain http, where the page has no
-  clipboard api, and Copy link failed there while it worked on
-  localhost.
+- Every copy goes through `copyText` in `web/src/reader/clipboard.ts`, never
+  `navigator.clipboard` alone: a phone that opens the server by its address on
+  the network is on plain http, where the page has no clipboard api, and Copy
+  link failed there while it worked on localhost. Without the clipboard api it
+  copies through a hidden `readonly` textarea and `execCommand`: `readonly`
+  keeps a phone's keyboard down, and the text is picked with
+  `setSelectionRange` as well as `select()`, because iOS ignores `select()`
+  there.
 - A panel that covers the page is mantine's `Drawer`, which owns the
   `inert` behind it, the focus it took and which single panel is up. The
   drawer and the outline sheet once each ran their own copy of that over
@@ -648,12 +681,16 @@ vendor/                dependencies, checked in, `make deps` regenerates
   effective mode is `global || space`, and that one value is what
   `/api/me` reports and what every write is refused on. A per-space
   `read_only: false` cannot lift the server-wide guard.
-- A remote space is a local space whose directory is a clone.
-  `history` gains a `Remote`, `main` clones before the canonical
-  validation phase, and nothing else changes shape. The startup order is
-  part of the design: open store, `Reconcile`, `Sync`, `indexAll`,
-  `Watch`. `store.Watch` takes its baseline when it is called, so a
-  fast-forward that lands after it produces no event at all.
+- A remote space is a local space whose directory is a clone. `history` gains a
+  `Remote`, `main` clones before the canonical validation phase, and nothing
+  else changes shape. The startup order is part of the design: open store,
+  `Reconcile`, `Sync`, `indexAll`, `Watch`. `store.Watch` takes its baseline
+  when it is called, so a fast-forward that lands after it produces no event at
+  all. The first clone lands in a staging folder inside the space's directory
+  and its entries are moved up one level: that directory is what an operator
+  mounts, its parent is often read-only, and a mount point can be neither
+  removed nor renamed over. The clone is full depth, because a shallow one
+  breaks the history log and the push.
 - `--ff-only` is the whole unattended conflict policy. scrawl never
   merges, never rebases and never resolves: a diverged space keeps
   serving, keeps committing locally, and says so loudly. The one way out
@@ -739,11 +776,15 @@ vendor/                dependencies, checked in, `make deps` regenerates
   rows, the search hits or the page response. A badge that lived on the
   tree could only be refreshed by refetching the tree, which is a full
   store walk per tick per open tab.
-- One alert, titled by precedence - `degraded > merge > fetch > push` -
-  and carrying every active fact with its own reason. At most two are
-  true at once, one from each family. `syncMessage` is the only thing
-  that writes these words, and the banner and the topbar control both
-  render it.
+- One alert, titled by precedence - `degraded > merge > fetch > push` - and
+  carrying every active fact with its own reason. At most two are true at once,
+  one from each family. `syncMessage` is the only thing that writes these
+  words, and the banner and the topbar control both render it. Its live region
+  is always on the page, empty or not, and polite: a region put in together
+  with its text is not reliably read out. A note's unsynced badge is an
+  `aria-hidden` icon with its meaning in hidden text beside it, because a
+  tooltip on an `<svg>` never opens on keyboard focus and an `aria-label` on an
+  element with no role is not reliably read.
 - A push the remote refuses for want of a credential gets its own words
   and no git reason. A public repository clones with no token and takes
   no push without one, and git says that as "could not read Username,
@@ -768,22 +809,26 @@ vendor/                dependencies, checked in, `make deps` regenerates
   refused at startup when what follows is not base64: the host answers a
   header it cannot parse with a bare `400`, half a minute into a clone,
   naming neither the header nor the reason.
-- A repository credential is resolved once, in `main`, before
-  `setupLog`, and reaches git only through `GIT_CONFIG_*` on the three
-  commands that talk to a remote. Never argv: `/proc/<pid>/cmdline` is
-  world readable and `gitError` quotes arguments. `history` never opens
-  a file and never reads a variable, because a second read could hand
-  git a rotated secret that was never registered for redaction. A
-  webhook secret is spelled the same way and read by the same helper,
-  and it never reaches `history` at all.
-- The webhook is an optional second trigger for the same `Sync`, and
-  `history` knows nothing about it. A verified POST is a trigger and
-  never a payload: no JSON is parsed, no event type is read, no branch
-  is filtered, which is also what makes a plain GitLab token usable at
-  all. It answers `202` and never runs git - `Sync` takes the history
-  lock, so doing it inline would block every save for the length of
-  somebody else's network - and deliveries coalesce through one channel
-  of capacity one.
+- A repository credential is resolved once, in `main`, before `setupLog`, and
+  reaches git only through `GIT_CONFIG_*` on the three commands that talk to a
+  remote. Never argv: `/proc/<pid>/cmdline` is world readable and `gitError`
+  quotes arguments. `history` never opens a file and never reads a variable,
+  because a second read could hand git a rotated secret that was never
+  registered for redaction. A webhook secret is spelled the same way and read
+  by the same helper, and it never reaches `history` at all. No secret is a
+  flag of scrawl either: there is no `--repo.token`, and `hash` reads the
+  password from stdin and warns when it comes as an argument, because our own
+  argv is in `/proc`, in `ps`, in the shell history and in `docker inspect`.
+- The webhook is an optional second trigger for the same `Sync`, and `history`
+  knows nothing about it. A verified POST is a trigger and never a payload: no
+  JSON is parsed, no event type is read, no branch is filtered, which is also
+  what makes a plain GitLab token usable at all. It answers `202` and never
+  runs git - `Sync` takes the history lock, so doing it inline would block
+  every save for the length of somebody else's network - and deliveries
+  coalesce through one channel of capacity one. A delivery body may be up to 25
+  MB, the limit GitHub documents: with a smaller cap a busy repository's
+  deliveries fail with a 413 the operator never sees. The body streams through
+  the cap into the hash, so the cap costs no memory.
 - A hook secret that was named and resolves to nothing stops startup.
   The minimum length is checked where the secret is resolved and nowhere
   else, because only there is an empty file still distinguishable from a
@@ -816,32 +861,36 @@ vendor/                dependencies, checked in, `make deps` regenerates
   mode. A `Bearer` API token authenticates instead of the cookie, gets
   no session and skips the cross-origin check; a `:ro` token is refused
   the same writes the server-wide read-only mode refuses.
-- Document history is git and optional: `--history=auto|on|off`, except
-  for a remote space, where it is always on and tracks every visible
-  file - one that stopped recording would also stop pushing, and the
-  editor opens far more types than the extension list keeps. The
-  repository has to be rooted exactly at the notes root; one that merely
-  sits inside another repository is refused, never adopted. Only the
-  paths an operation names are staged, never the worktree, because
-  ignore rules cannot express what `store` treats as visible: git will
-  not descend into an excluded directory, and a `.gitignore` among the
-  notes outranks anything scrawl writes. The store mutation and the
-  commit are one critical section, otherwise a second request's commit
-  picks up the first one's write and signs it with the wrong actor. A
-  version is read by its blob, because a path stops resolving against an
-  older revision once a rename sits in between. A failed commit is fatal
-  only for an API token, so an agent never gets a 200 for a change
-  history missed; a browser save survives it and the page says history
-  fell behind.
-- An adopted repository is not inert. Its config and its `.gitattributes`
-  each name a command git would run during an ordinary commit, so hooks
-  go to a `core.hooksPath` that can hold none, `core.fsmonitor` is
-  overridden empty, and the filter attribute is unset in
-  `.git/info/attributes`, where the last matching line wins. Nothing of
-  ours is created inside that repository beyond that file, and a symlink
-  standing where it belongs is removed rather than written through.
-  Failing to establish any of this stops startup: a repository that runs
-  its own command on every commit is not a degraded mode worth serving.
+- Document history is git and optional: `--history=auto|on|off`, except for a
+  remote space, where it is always on and tracks every visible file - one that
+  stopped recording would also stop pushing, and the editor opens far more
+  types than the extension list keeps. The repository has to be rooted exactly
+  at the notes root; one that merely sits inside another repository is refused,
+  never adopted. Only the paths an operation names are staged, never the
+  worktree, because ignore rules cannot express what `store` treats as visible:
+  git will not descend into an excluded directory, and a `.gitignore` among the
+  notes outranks anything scrawl writes. The store mutation and the commit are
+  one critical section, otherwise a second request's commit picks up the first
+  one's write and signs it with the wrong actor. A version is read by its blob,
+  because a path stops resolving against an older revision once a rename sits
+  in between. A failed commit is fatal only for an API token, so an agent never
+  gets a 200 for a change history missed; a browser save survives it and the
+  page says history fell behind. Paths reach git NUL-separated on stdin and
+  never in argv, and the tracked set is read as the whole index rather than
+  path by path, because a reconcile of a large corpus does not fit in argv.
+- An adopted repository is not inert. Its config and its `.gitattributes` each
+  name a command git would run during an ordinary commit, so hooks go to a
+  `core.hooksPath` that can hold none, `core.fsmonitor` is overridden empty,
+  and the filter attribute is unset in `.git/info/attributes`, where the last
+  matching line wins. Nothing of ours is created inside that repository beyond
+  that file, and a symlink standing where it belongs is removed rather than
+  written through. Failing to establish any of this stops startup: a repository
+  that runs its own command on every commit is not a degraded mode worth
+  serving. Diff and log run with `--no-ext-diff` and `--no-textconv`, since a
+  diff driver and a textconv filter are commands the repository names too.
+  Every git call drops each `GIT_*` variable of the host, because `GIT_DIR`,
+  `GIT_INDEX_FILE` or an author override would send a commit somewhere we never
+  looked, and `safe.directory` names the exact root, never `*`.
 - A version is compared as a reader sees it. `htmldiff` takes the HTML
   `render` made of both sides, lines up the top-level blocks by their
   visible text and marks the changed words inside a pair, so a reflowed
@@ -875,22 +924,23 @@ vendor/                dependencies, checked in, `make deps` regenerates
   app uses. KaTeX is inlined on `--math` with woff2 alone, a quarter of
   what katex ships; mermaid is not, a 5MB script, and a diagram stays
   code.
-- An exported note is that page. `/api/export/` renders it the way
-  `render` does, links left as written, and carries the space's
-  pictures inside as data URLs up to a budget: the file leaves the
-  server, and a relative picture would stay behind. A PDF is a print of
-  the note on screen, because no engine that lays out HTML fits in the
-  binary. Paper is always the light theme, since a browser drops the
-  page background. The export menu switches the theme for real and waits
-  for the formulas and for the diagrams to be drawn again; the browser's
-  own print only swaps the attributes, because `beforeprint` leaves no
-  time for a redraw. A printed page has no margin, which leaves the
-  browser no room for the address and the date it writes there; the
-  body's padding, repeated on every page, stands in for it. Safari
-  cannot repeat a block's padding and keeps the page margin, or every
-  page break would run to the edge of the paper, and so does a diff:
-  the size containment its columns are laid out by keeps it from being
-  split, so no padding would repeat on its pages either.
+- An exported note is that page. `/api/export/` renders it the way `render`
+  does, links left as written, and carries the space's pictures inside as data
+  URLs up to a budget: the file leaves the server, and a relative picture would
+  stay behind. A PDF is a print of the note on screen, because no engine that
+  lays out HTML fits in the binary. Paper is always the light theme, since a
+  browser drops the page background. The export menu switches the theme for
+  real and waits for the formulas and for the diagrams to be drawn again; the
+  browser's own print only swaps the attributes, because `beforeprint` leaves
+  no time for a redraw. A printed page has no margin, which leaves the browser
+  no room for the address and the date it writes there; the body's padding,
+  repeated on every page, stands in for it. Safari cannot repeat a block's
+  padding and keeps the page margin, or every page break would run to the edge
+  of the paper, and so does a diff: the size containment its columns are laid
+  out by keeps it from being split, so no padding would repeat on its pages
+  either. The page with no margin is set on every element of the body and not
+  on the body alone: on the body alone Firefox gave the margins back from the
+  third page.
 - A site is a space shown read-only, with no server, and it is the
   app's reader and not a second one. The reader is one set of components
   run from two entries: the app's, against the server, and a site's,
@@ -916,22 +966,24 @@ vendor/                dependencies, checked in, `make deps` regenerates
   twice, in the answer and as markup a reader without javascript reads
   together with the path and what its folder holds. Taking the note back
   out of that markup would parse sanitized HTML a second time.
-- From a host a site moves between notes the way the app does: the next
-  page is read and its answer shown, with no page load, so the tree, its
-  filter and its scroll stay where they were. The page is the one copy of
-  its answer, so nothing else is written for this. Back puts each note
-  where it was left, which the browser cannot do for a page it never
-  loaded, and a page that cannot be read is loaded instead. From disk a
-  page can fetch nothing and cannot put another file in the address bar,
-  so there every move to another note is a page load; only a fragment or
-  a query stays on the page either way. A page opened from disk can load
-  no module, so the reader is one classic script, the data are scripts
-  that hand themselves over, and mermaid and KaTeX are files of their own
-  that a page loads only when its note needs them. A folder is
-  `index.html`, its list, written for every folder, and its `index.md`
-  is `index.md.html`. A relative link to a folder points to the list,
-  because opened from disk a folder is the system's listing, and one to
-  `index.md` to the note's page.
+- From a host a site moves between notes the way the app does: the next page is
+  read and its answer shown, with no page load, so the tree, its filter and its
+  scroll stay where they were. The page is the one copy of its answer, so
+  nothing else is written for this. Back puts each note where it was left,
+  which the browser cannot do for a page it never loaded, and a page that
+  cannot be read is loaded instead. From disk a page can fetch nothing and
+  cannot put another file in the address bar, so there every move to another
+  note is a page load; only a fragment or a query stays on the page either way.
+  A page opened from disk can load no module, so the reader is one classic
+  script, the data are scripts that hand themselves over, and mermaid and KaTeX
+  are files of their own that a page loads only when its note needs them. A
+  folder is `index.html`, its list, written for every folder, and its
+  `index.md` is `index.md.html`. A relative link to a folder points to the
+  list, because opened from disk a folder is the system's listing, and one to
+  `index.md` to the note's page. Opened from disk, a page in Firefox has the
+  origin `null`, so a heading's link is built without it, and the script finds
+  the folder of the renderers from `document.currentScript`, which is set only
+  while the script runs, so it is read when the script loads.
 - A site has one look, and its only settings are the reader's theme and
   page width; nothing `site` copies is changed. The front page is the
   root's list, Home opens the root `index.md`, and the site takes its
@@ -951,13 +1003,14 @@ vendor/                dependencies, checked in, `make deps` regenerates
   `--exclude` hides. The site's tree leaves out a folder with no note
   in it, which the app's keeps to create a page in; the folder still has
   its page.
-- The picture viewer is a native modal `<dialog>` and not a mantine
-  `Modal`. The browser keeps the page behind it inert, closes it on
-  Escape and gives the focus back, and a click beside the picture lands
-  on the dialog itself and closes it. The full-screen `Modal` had no
-  backdrop to click and closed only on its cross. The dialog sits on the
-  body, so `DocumentHtml` closes it together with the note. A picture's
-  own page opens the same viewer.
+- The picture viewer is a native modal `<dialog>` and not a mantine `Modal`.
+  The browser keeps the page behind it inert, closes it on Escape and gives the
+  focus back, and a click beside the picture lands on the dialog itself and
+  closes it. The full-screen `Modal` had no backdrop to click and closed only
+  on its cross. The dialog sits on the body, so `DocumentHtml` closes it
+  together with the note. A picture's own page opens the same viewer. The
+  picture gives way to its caption and is not capped in `vh`: with mobile
+  Safari's bars out, the two stood taller than the dialog and were cut off.
 - History is a large dialog over the note at `/history/<path>`, so a link
   and Back still reach it: what the picked version changed on the left,
   the versions with the colored initial of their author and a tag on the

@@ -19,15 +19,11 @@ import { useReaderLayout } from './ReaderLayout';
 import { MenuKeys } from './ShortcutHelp';
 import { keysLabel, modKey, useKeyboardPlace } from './shortcuts';
 
-// wordsOf counts the words a reader sees in the rendered note, so markup and
-// addresses are not counted
 function wordsOf(html: string): number {
   const text = new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
   return text.split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
 }
 
-// NoteMenu is the note's `⋯`: how wide it is read, the find, the exports, its
-// versions, what can be done to the file, and a line about the note
 export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
   const navigate = useNavigate();
   const { canWrite, me } = useNav();

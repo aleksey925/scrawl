@@ -1,5 +1,3 @@
-/* a short wait shows nothing: a spinner that came up for a moment, between a
-   screen that went and the next one moving in, read as the page jerking */
 .waiting {
   animation: waiting-in 150ms ease-out 400ms both;
 }

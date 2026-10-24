@@ -15,15 +15,10 @@ export interface NoteExport {
   download: (format: ExportFormat) => void;
 }
 
-// useNoteExport saves the note on screen as a file: the source and a page of
-// its own come from the server, a PDF from the browser's print dialog. It
-// lives with the menu's trigger and not in the dropdown, which unmounts as the
-// menu closes and would cancel a print still waiting for its formulas.
 export function useNoteExport(path: string): NoteExport {
   const { setColorScheme } = useMantineColorScheme();
   const pendingPrint = useRef<AbortController | undefined>(undefined);
 
-  // the dialog would print whatever note is on screen once the wait is over
   useEffect(() => () => pendingPrint.current?.abort(), [path]);
 
   const print = (): void => {
@@ -46,7 +41,6 @@ export function useNoteExport(path: string): NoteExport {
   return { print, download };
 }
 
-// ExportItems are the exports among the items of a menu
 export function ExportItems({ print, download }: NoteExport): JSX.Element {
   return (
     <>

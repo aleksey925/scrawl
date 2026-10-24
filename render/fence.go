@@ -11,8 +11,6 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-// the open tags are left unterminated: every raw block carries its source range
-// and the renderer closes the tag after writing it
 const (
 	openMermaid      = `<pre class="mermaid"`
 	closeMermaid     = "</pre>\n"
@@ -20,10 +18,6 @@ const (
 	closeDisplayMath = "</div>\n"
 )
 
-// GitHub gives two fence languages a meaning of their own: "mermaid" is a
-// diagram and "math" is a display formula. Both reach the client as source
-// rather than as highlighted code, so they are lifted out of the fenced code
-// block here, before the highlighting extension ever sees them.
 var rawFenceTags = map[string][2]string{
 	"mermaid": {openMermaid, closeMermaid},
 	"math":    {openDisplayMath, closeDisplayMath},
@@ -31,15 +25,12 @@ var rawFenceTags = map[string][2]string{
 
 var kindRawBlock = ast.NewNodeKind("RawBlock")
 
-// rawBlock holds source that is handed to the frontend verbatim, wrapped in
-// markup it hydrates. Both the mermaid and math fences and the "$$" math block
-// produce one.
 type rawBlock struct {
 	ast.BaseBlock
 	open   string
 	close  string
 	span   srcSpan
-	closed bool // set by the "$$" block parser once it has seen the closer
+	closed bool
 }
 
 func (n *rawBlock) Kind() ast.NodeKind { return kindRawBlock }

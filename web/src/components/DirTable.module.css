@@ -1,5 +1,3 @@
-/* the table of a folder: name, size and the time it changed, rows split by
-   faint lines and no line between the columns */
 .wrap {
   --col-name: 530px;
   --col-other: 150px;
@@ -24,8 +22,6 @@
   white-space: nowrap;
 }
 
-/* a header is Notion's: gray text of the regular weight under a filled icon,
-   so the head of the table reads apart from what is in it */
 .table th {
   color: var(--scrawl-text-secondary);
   font-weight: 400;
@@ -57,9 +53,6 @@
   }
 }
 
-/* the columns keep widths of their own and an empty one at the end takes
-   what they leave; on a narrow page the name gives way first and ellipsizes */
-/* cqw and not %: a table column takes a percentage inside clamp() as auto */
 .colName {
   width: clamp(160px, 100cqw - 2 * var(--col-other), var(--col-name));
 }
@@ -102,7 +95,6 @@
   color: var(--scrawl-text-faint);
 }
 
-/* the tag that marks a folder's own note */
 .tag {
   flex: none;
   margin-inline-start: 4px;
@@ -115,8 +107,6 @@
   line-height: 18px;
 }
 
-/* a new entry is typed into a row of the table, where it will be, framed by the
-   focus ring a field has; both of its lines go inside, a row has no room out */
 .draft td {
   --ring-y:
     inset 0 1px 0 var(--scrawl-focus-ring), inset 0 -1px 0 var(--scrawl-focus-ring),
@@ -152,8 +142,6 @@
   font-weight: 500;
 }
 
-/* a phone's list: a row a finger can hit, a name over the line that says what
-   the entry is, and a chevron on a folder, which opens the next list */
 .list {
   display: flex;
   flex-direction: column;
@@ -222,9 +210,6 @@
     transition: var(--scrawl-press-in);
   }
 
-  /* a finger resting on a row shrinks it a little, its pressed band too, the
-     sign that holding on lifts it for its menu; a tap ends before it starts,
-     because a row that shrank under every tap shook on the way to a page */
   .listRow {
     transition: transform 150ms ease-out;
   }
@@ -235,7 +220,6 @@
   }
 }
 
-/* the lifted card stands where the row was, so the row itself steps aside */
 .listRow[data-lifted='true'] > * {
   visibility: hidden;
 }

@@ -19,8 +19,6 @@ export interface MissingNoteProps {
   page: MissingDocumentResponse;
 }
 
-// MissingNote is a note that does not exist yet: its name as a faint title and
-// the ways on from here. Enter takes the first one, which creates it.
 export function MissingNote({ path, page }: MissingNoteProps): JSX.Element {
   const navigate = useNavigate();
   const { search } = usePlatform();
@@ -54,8 +52,6 @@ export function MissingNote({ path, page }: MissingNoteProps): JSX.Element {
       </PageTitle>
       <p className={classes.lead}>
         This note does not exist yet.
-        {/* a deletion that failed to push leaves the note gone here and
-            present on the remote, and this is the screen that says so */}
         <SyncBadge path={path} />
       </p>
       <p className={classes.hint}>{page.can_create ? 'Press Enter to create it, or pick another way:' : 'Where to go from here:'}</p>

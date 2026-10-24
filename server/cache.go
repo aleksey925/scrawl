@@ -7,31 +7,16 @@ import (
 	"github.com/aleksey925/scrawl/render"
 )
 
-// pageCache is a bounded LRU of rendered documents, shared by every space.
-//
-// The key is the space plus the content path plus the revision of the source,
-// so a stale entry can never be served: a changed file hashes to a different
-// revision and simply misses. The space is part of it because a content path
-// is relative to its own root, so two spaces name the same document. The
-// watcher still drops entries by path, otherwise a deleted or renamed document
-// would hold its HTML until it was evicted.
-//
-// One cache rather than one per space, so the byte bound an operator reasons
-// about stays one number instead of being divided by however many spaces the
-// deployment happens to have.
-//
-// Both bounds are honored at once, and either can be disabled with a zero.
 type pageCache struct {
 	mu         sync.Mutex
 	maxEntries int
 	maxBytes   int64
 
 	bytes  int64
-	order  *list.List // *pageEntry, most recently used at the front
+	order  *list.List
 	byPath map[pageKey]map[string]*list.Element
 }
 
-// pageKey names one document of one space.
 type pageKey struct {
 	space string
 	path  string
@@ -53,7 +38,6 @@ func newPageCache(maxEntries int, maxBytes int64) *pageCache {
 	}
 }
 
-// get returns the rendered document for a revision of a path.
 func (c *pageCache) get(space, path, rev string) (render.Result, bool) {
 	if c == nil {
 		return render.Result{}, false
@@ -69,8 +53,6 @@ func (c *pageCache) get(space, path, rev string) (render.Result, bool) {
 	return el.Value.(*pageEntry).res, true
 }
 
-// put stores a rendered document, evicting the least recently used entries
-// until both bounds hold again.
 func (c *pageCache) put(space, path, rev string, res render.Result) {
 	if c == nil {
 		return
@@ -101,7 +83,6 @@ func (c *pageCache) put(space, path, rev string, res render.Result) {
 	}
 }
 
-// invalidate forgets every revision of a path of one space.
 func (c *pageCache) invalidate(space, path string) {
 	if c == nil {
 		return
@@ -130,7 +111,6 @@ func (c *pageCache) overflows() bool {
 	return c.maxBytes > 0 && c.bytes > c.maxBytes
 }
 
-// drop removes one element, called with the lock held.
 func (c *pageCache) drop(el *list.Element) {
 	entry := el.Value.(*pageEntry)
 	c.order.Remove(el)
@@ -143,7 +123,6 @@ func (c *pageCache) drop(el *list.Element) {
 	}
 }
 
-// resultSize estimates the memory one rendered document holds.
 func resultSize(res render.Result) int64 {
 	size := int64(len(res.HTML)) + int64(len(res.Title))
 	for _, h := range res.TOC {

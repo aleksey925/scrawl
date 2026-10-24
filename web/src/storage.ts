@@ -1,5 +1,3 @@
-// reading window.localStorage throws outright in a browser set to block site
-// data, so every access goes through here and a failure means "no storage"
 function pick(kind: 'local' | 'session'): Storage | undefined {
   try {
     return kind === 'local' ? window.localStorage : window.sessionStorage;
@@ -35,7 +33,6 @@ export function writeJson(store: Storage | undefined, key: string, value: unknow
   try {
     store.setItem(key, JSON.stringify(value));
   } catch {
-    // storage full or disabled, the value simply is not kept
   }
 }
 
@@ -57,7 +54,6 @@ export function writeText(store: Storage | undefined, key: string, value: string
   try {
     store.setItem(key, value);
   } catch {
-    // nothing to do, the choice is not remembered
   }
 }
 
@@ -68,7 +64,6 @@ export function removeKey(store: Storage | undefined, key: string): void {
   try {
     store.removeItem(key);
   } catch {
-    // nothing to clean up
   }
 }
 

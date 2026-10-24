@@ -7,15 +7,11 @@ const {
 } = require('../support/helpers');
 const text = require('../support/text');
 
-// a one pixel png, small enough to inline and real enough to pass the sniffing
-// the store does on an upload
 const PNG_BASE64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 const FOLDER = 'e2e-upload';
 
-// sendFile builds a File in the page and hands it to the editor the way a
-// browser would, either through a paste or through a drop
 async function sendFile(page, kind, name, type = 'image/png') {
     await page.locator('[data-testid=editor-source] .cm-content').evaluate(
         async (el, [event, base64, fileName, mime]) => {
@@ -74,8 +70,6 @@ test.describe.serial('upload', () => {
         await sendFile(page, 'paste', 'notes.txt', 'text/plain');
 
         await expect(page.locator('[data-testid=toast][data-kind="error"]')).toBeVisible();
-        // the placeholder the upload put in is taken back out, so a save now
-        // would write exactly what was there before
         await expect.poll(() => sourceText(page)).toBe('body\n');
         expect(fs.existsSync(fixtureFile(`${FOLDER}/rejected/notes.txt`))).toBe(false);
         await shot(page, 'upload-rejected');

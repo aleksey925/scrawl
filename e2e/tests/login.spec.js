@@ -31,8 +31,6 @@ test.describe('login', () => {
         const target = routes.doc(docs.doc.path);
         await page.goto(target);
 
-        // the app is behind the same middleware as everything else, so an
-        // anonymous visitor is handed the sign-in form and not the app shell
         await expect(page).toHaveURL(`${MAIN.baseURL}/login?from=${encodeURIComponent(target)}`);
         await shot(page, 'login-redirected');
 
@@ -49,8 +47,6 @@ test.describe('login', () => {
         await shot(page, 'login-user-menu');
         await page.getByTestId('space-menu-signout').click();
 
-        // signing out is a full page load to the server's form, the one login
-        // screen there is: it answers at the root and works without javascript
         await expect(page).toHaveURL(new RegExp(`^${MAIN.baseURL}/login\\?from=`));
         await expect(page.locator('form.login-box')).toBeVisible();
 
@@ -63,8 +59,6 @@ test.describe('login', () => {
         await expect(page.getByTestId('dir')).toBeVisible();
     });
 
-    // the page loads no bundle: its colors come from the themes.css the build
-    // writes beside one, and its toggle walks auto and then every theme
     test('the theme toggle walks the themes and paints the page in each', async ({page}) => {
         // arrange
         await page.emulateMedia({colorScheme: 'light'});

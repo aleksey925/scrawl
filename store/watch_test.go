@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// waitEvent drains the channel until the wanted path shows up and returns
-// everything seen on the way, so a test can also assert what did not arrive.
 func waitEvent(t *testing.T, events <-chan Event, want string) (Op, []Event) {
 	t.Helper()
 
@@ -90,7 +88,6 @@ func TestStoreWatch(t *testing.T) {
 	})
 
 	t.Run("an atomic save is reported", func(t *testing.T) {
-		// arrange: no rescan, so only the inotify path can deliver this
 		s := newStore(t, notesFiles(), func(c *Config) {
 			c.Debounce = 20 * time.Millisecond
 			c.Rescan = -1
@@ -109,8 +106,6 @@ func TestStoreWatch(t *testing.T) {
 	})
 
 	t.Run("a folder copied in reports its content", func(t *testing.T) {
-		// arrange: the files exist before the directory appears in the root,
-		// which is what a copy over SMB looks like
 		s := newStore(t, notesFiles(), func(c *Config) {
 			c.Debounce = 20 * time.Millisecond
 			c.Rescan = -1
@@ -185,8 +180,6 @@ func TestStoreWatchers(t *testing.T) {
 	}
 }
 
-// stubWatcher stands in for a watcher that gives up, which is what the real
-// fsnotify one does when the kernel runs out of inotify watches.
 type stubWatcher struct {
 	name  string
 	emit  Event

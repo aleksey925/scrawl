@@ -11,8 +11,6 @@ const FOLDER = 'e2e-security';
 const EVIL = `${FOLDER}/evil.html`;
 const BIG = `${FOLDER}/huge.txt`;
 
-// a page written into the corpus by an attacker: if /raw/ ever serves it as
-// html from this origin it runs with the reader's session
 const EVIL_HTML = '<html><body><script>document.title = "pwned"; ' +
     'window.name = "pwned";</script>pwned</body></html>\n';
 
@@ -25,7 +23,6 @@ test.describe('security', () => {
         fs.rmSync(fixtureFile(FOLDER), {recursive: true, force: true});
     });
 
-    // a page is text to read: as text/plain under the sandbox nothing in it runs
     test('a document named evil.html is served as inert text', async ({page}) => {
         writeFixture(EVIL, EVIL_HTML);
 
@@ -48,7 +45,6 @@ test.describe('security', () => {
                 try {
                     title = frame.contentDocument && frame.contentDocument.title;
                 } catch (e) {
-                    // an opaque origin, which is exactly what the sandbox is for
                     title = null;
                 }
                 frame.remove();

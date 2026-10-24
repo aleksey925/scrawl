@@ -12,8 +12,6 @@ import { useShownChrome } from './PageChrome';
 import classes from './PhoneTopBar.module.css';
 import { useSwipeBack } from './useSwipeBack';
 
-// titleGone says whether the page's own title has scrolled under the bar. The
-// title is the first heading of the page, a note's leading one included.
 function titleGone(): boolean {
   const heading = document.querySelector('.mantine-AppShell-main h1');
   if (heading === null) {
@@ -44,9 +42,6 @@ export interface PhoneTopBarProps {
   actionsRef: (element: HTMLElement | null) => void;
 }
 
-// PhoneTopBar is the bar on top of a phone: the way to the folder above, or the
-// app and the space on the root, the page's title once its own has scrolled
-// away, and the page's menu
 export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.Element {
   const { me } = useNav();
   const chrome = useShownChrome();
@@ -54,12 +49,9 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const atRoot = chrome.title === '';
   const parent = chrome.crumbs[chrome.crumbs.length - 1] ?? { name: space, url: '/' };
   const location = useLocation();
-  // the editor's own actions are the whole bar: Cancel at one end, Save at the other
   const editing = isEditPath(location.pathname);
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
-  // the router numbers the entries of the history it made; 0 is the page the app
-  // was opened on, before which there is nothing of ours to go back to
   const inHistory = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
   useSwipeBack(
     editing || (atRoot && !inHistory)

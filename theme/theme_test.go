@@ -22,8 +22,6 @@ func TestAll(t *testing.T) {
 	assert.True(t, slices.IsSortedFunc(got, compare))
 }
 
-// the frontend reads a palette as a fixed set of tokens, so a theme that left
-// one out would paint that part of the page in the theme before it
 func TestEveryThemeHasTheSamePalette(t *testing.T) {
 	// arrange
 	want := slices.Sorted(maps.Keys(AutoTheme(Light).Palette))
@@ -95,8 +93,6 @@ func TestScopes(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
-// themeJSON is a theme file that passes every check; drop names a block color,
-// a shadow or a code color to leave out
 func themeJSON(name, scheme, bg, drop string) string {
 	blocks := make([]string, 0, len(BlockNames))
 	for _, block := range BlockNames {

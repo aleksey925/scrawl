@@ -37,7 +37,6 @@ export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
   );
 }
 
-// FolderList is a folder's page: its name and the table of what it holds
 function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Element {
   const { canWrite, me } = useNav();
   const actions = useOptionalFileActions();
@@ -45,12 +44,9 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
   const phone = useBelow(layoutBreakpoints.phone);
   const space = spaceLabel(me);
   usePageChrome(chromeOf(dir.breadcrumbs, path === '' ? '' : dir.title, true));
-  // a name row belongs to the folder it was opened in
   useEffect(() => setDraft(undefined), [path]);
 
   const writable = canWrite && actions !== undefined;
-  // a phone names a new entry in the dialog the file actions open, having no
-  // room for a name row
   const startDraft = (kind: EntryKind): void => {
     if (phone && actions !== undefined) {
       (kind === 'file' ? actions.createPage : actions.createFolder)(path);
@@ -155,8 +151,6 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
   );
 }
 
-// FolderMenu is the `⋯` of a folder's page: what to make in it, and what to do
-// to it
 function FolderMenu({ path, actions }: { path: string; actions: FileActions }): JSX.Element {
   return (
     <PopupMenu position="bottom-end" width={layout.menuWidth} withinPortal>

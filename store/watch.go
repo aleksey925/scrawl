@@ -21,29 +21,15 @@ const (
 	inotifyBuffer = 4096
 )
 
-// WatchMode picks the change source behind Watch.
 type WatchMode string
 
 const (
-	// WatchAuto watches with inotify plus a periodic rescan, and degrades to
-	// polling when the kernel runs out of watches. It is the default.
 	WatchAuto WatchMode = "auto"
-	// WatchPoll only rescans. Pick it for notes on a network share,
-	// where inotify never reports another client's writes, or on a host whose
-	// inotify budget is already spent.
 	WatchPoll WatchMode = "poll"
 )
 
-// Op is the kind of change reported by Watch. One event can carry several
-// flags, because a debounced batch merges everything that happened to a path.
-//
-// Treat OpCreate and OpWrite the same. An atomic save replaces the inode, so
-// every save from the editor and every save over SMB arrives as a create, and
-// a consumer that only listens for OpWrite sees nothing at all.
 type Op uint8
 
-// The change kinds Watch reports. A bare chmod is dropped: on Linux it also
-// fires on unlink and never means the content changed.
 const (
 	OpCreate Op = 1 << iota
 	OpWrite
@@ -51,10 +37,8 @@ const (
 	OpRename
 )
 
-// Has reports whether o contains other.
 func (o Op) Has(other Op) bool { return o&other != 0 }
 
-// String implements fmt.Stringer.
 func (o Op) String() string {
 	names := make([]string, 0, 4)
 	for _, pair := range []struct {
@@ -71,30 +55,16 @@ func (o Op) String() string {
 	return strings.Join(names, "|")
 }
 
-// Event reports a change under the root. Path has the same shape as every
-// other path in the API: relative to the root, slash-separated.
 type Event struct {
 	Path string
 	Op   Op
 }
 
-// Watcher is the change source behind Store.Watch. Run reports changes into
-// out until ctx is canceled and then returns true. It returns false when it
-// gave up for a reason another watcher can survive - the kernel running out of
-// inotify watches is the one that happens for real - and Store.Watch then
-// hands over to the next watcher in the chain.
 type Watcher interface {
 	Run(ctx context.Context, out chan<- Event) bool
 	Name() string
 }
 
-// Watch reports changes under the root until ctx is canceled, then closes the
-// channel. Events are debounced by Config.Debounce and a rescan every
-// Config.Rescan catches whatever inotify missed.
-//
-// The watches and the baseline snapshot are in place before Watch returns, so
-// a change made right after the call cannot slip through the gap between the
-// call and the goroutine starting.
 func (s *Store) Watch(ctx context.Context) <-chan Event {
 	out := make(chan Event, eventBuffer)
 	chain := s.watchers()
@@ -105,8 +75,6 @@ func (s *Store) Watch(ctx context.Context) <-chan Event {
 	return out
 }
 
-// watchers builds the chain for the configured mode. Both watchers share one
-// tracker, so the baseline survives a handover from inotify to polling.
 func (s *Store) watchers() []Watcher {
 	tr := &tracker{store: s, pending: map[string]Op{}}
 	tr.seen = tr.snapshot()
@@ -116,7 +84,6 @@ func (s *Store) watchers() []Watcher {
 	return []Watcher{newFsWatcher(tr), &pollWatcher{tracker: tr}}
 }
 
-// runWatchers runs the chain until one of them finishes on its own terms.
 func runWatchers(ctx context.Context, out chan<- Event, chain ...Watcher) {
 	for _, w := range chain {
 		log.Printf("[DEBUG] change source: %s watcher", w.Name())
@@ -126,15 +93,12 @@ func runWatchers(ctx context.Context, out chan<- Event, chain ...Watcher) {
 	}
 }
 
-// tracker is the machinery both watchers share: it turns paths into store
-// events, merges them into a batch and hands the batch to the consumer.
 type tracker struct {
 	store   *Store
 	pending map[string]Op
 	seen    map[string]fingerprint
 }
 
-// fingerprint is what a rescan compares to spot a change without inotify.
 type fingerprint struct {
 	size  int64
 	mtime int64
@@ -146,8 +110,6 @@ func (t *tracker) mark(rel string, op Op) {
 	t.store.invalidate()
 }
 
-// rel maps an absolute path to a store path, dropping whatever the rest of the
-// app cannot see anyway.
 func (t *tracker) rel(name string) (string, bool) {
 	rel, err := filepath.Rel(t.store.dir, name)
 	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
@@ -160,10 +122,6 @@ func (t *tracker) rel(name string) (string, bool) {
 	return cleaned, true
 }
 
-// markTree marks everything inside a directory that appeared as a whole. This
-// is not an optimisation: when a folder is copied in, its files are already
-// there by the time the create event for the folder arrives, so watching the
-// new directory finds nothing and only this walk reports the content.
 func (t *tracker) markTree(dir string) {
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -195,15 +153,11 @@ func (t *tracker) flush(ctx context.Context, out chan<- Event) {
 	clear(t.pending)
 }
 
-// rescan diffs a fresh snapshot against the previous one and marks whatever
-// moved. It reports whether anything did.
 func (t *tracker) rescan() bool {
 	current := t.snapshot()
 	changed := false
 
 	for p, fp := range current {
-		// the mtime of a directory moves whenever an entry inside it appears,
-		// which the entry's own event already covers
 		switch old, ok := t.seen[p]; {
 		case !ok:
 			t.mark(p, OpCreate)
@@ -255,18 +209,14 @@ func (t *tracker) snapshot() map[string]fingerprint {
 	return res
 }
 
-// pollWatcher only compares snapshots. It is right everywhere, including on a
-// network share, and merely slower than inotify.
 type pollWatcher struct{ *tracker }
 
-// Name implements Watcher.
 func (w *pollWatcher) Name() string { return "poll" }
 
-// Run implements Watcher.
 func (w *pollWatcher) Run(ctx context.Context, out chan<- Event) bool {
 	interval := w.store.cfg.Rescan
 	if interval <= 0 {
-		interval = defaultRescan // polling with no interval would report nothing at all
+		interval = defaultRescan
 	}
 
 	ticker := time.NewTicker(interval)
@@ -284,23 +234,15 @@ func (w *pollWatcher) Run(ctx context.Context, out chan<- Event) bool {
 	}
 }
 
-// fsWatcher reports changes through inotify, with the rescan still running as
-// a second opinion.
 type fsWatcher struct {
 	*tracker
 	fsw       *fsnotify.Watcher
-	exhausted bool // the kernel ran out of inotify watches
+	exhausted bool
 }
 
-// newFsWatcher registers the watches right away, so nothing is missed between
-// Watch returning and its goroutine reaching the event loop. A watcher that
-// could not start has no fsnotify handle and gives up on the first Run.
 func newFsWatcher(tr *tracker) *fsWatcher {
 	w := &fsWatcher{tracker: tr}
 
-	// a buffered watcher gives the kernel room during a bulk change (an rsync,
-	// a Synology Drive sync), so the inotify queue does not overflow and drop
-	// events silently
 	fsw, err := fsnotify.NewBufferedWatcher(inotifyBuffer)
 	if err != nil {
 		log.Printf("[WARN] inotify is not available: %v", err)
@@ -311,10 +253,8 @@ func newFsWatcher(tr *tracker) *fsWatcher {
 	return w
 }
 
-// Name implements Watcher.
 func (w *fsWatcher) Name() string { return "fsnotify" }
 
-// Run implements Watcher.
 func (w *fsWatcher) Run(ctx context.Context, out chan<- Event) bool {
 	if w.fsw == nil {
 		return false
@@ -364,7 +304,7 @@ func (w *fsWatcher) loop(ctx context.Context, out chan<- Event) bool {
 			w.flush(ctx, out)
 		case <-rescan:
 			changed := w.rescan()
-			w.addTree(w.store.dir) // pick up directories inotify never told us about
+			w.addTree(w.store.dir)
 			if changed {
 				w.flush(ctx, out)
 			}
@@ -375,9 +315,6 @@ func (w *fsWatcher) loop(ctx context.Context, out chan<- Event) bool {
 	}
 }
 
-// handle turns one raw event into a pending change and reports whether the
-// debounce timer has to be restarted, so a stream of noise cannot hold a batch
-// back forever.
 func (w *fsWatcher) handle(ev fsnotify.Event) bool {
 	if ev.Op == fsnotify.Chmod {
 		return false
@@ -387,8 +324,6 @@ func (w *fsWatcher) handle(ev fsnotify.Event) bool {
 		return false
 	}
 
-	// a new directory needs its own watch, and a copied-in folder already holds
-	// its files by the time this arrives, so walk it instead of only adding it
 	if ev.Has(fsnotify.Create) {
 		if fi, err := os.Stat(ev.Name); err == nil && fi.IsDir() {
 			w.addTree(ev.Name)
@@ -401,8 +336,6 @@ func (w *fsWatcher) handle(ev fsnotify.Event) bool {
 	return true
 }
 
-// addTree watches dir and every directory below it. inotify is not recursive,
-// so this runs again for every directory that shows up later.
 func (w *fsWatcher) addTree(dir string) {
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || !d.IsDir() {
@@ -415,9 +348,6 @@ func (w *fsWatcher) addTree(dir string) {
 		}
 		if addErr := w.fsw.Add(p); addErr != nil {
 			if errors.Is(addErr, syscall.ENOSPC) {
-				// DSM pins fs.inotify.max_user_watches to 8192 for the whole
-				// host and resets it on every boot, so a big tree really does
-				// run out. Polling is slower but still right.
 				log.Printf("[WARN] out of inotify watches after %d directories, falling back to polling; "+
 					"raise fs.inotify.max_user_watches to keep instant updates", len(w.fsw.WatchList()))
 				w.exhausted = true

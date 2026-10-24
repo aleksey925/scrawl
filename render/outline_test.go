@@ -63,7 +63,6 @@ func TestOutline(t *testing.T) {
 }
 
 func TestOutlineIgnoresRawHTMLInHeadings(t *testing.T) {
-	// a manual anchor right above a setext heading is swallowed into it
 	res, err := New(Options{}).Render([]byte("<a name='Общее'></a>\nЗаголовок\n=========\n"), "a/b.md")
 
 	require.NoError(t, err)

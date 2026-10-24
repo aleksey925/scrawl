@@ -1,12 +1,3 @@
-// the documents of examples/data the specs drive, named by the role they play
-//
-// Every key is a role, not a file: a spec asks for "the document with an
-// outline" and not for a path. Adding a spec that needs something new means
-// adding the role here, not hard coding another path in the spec.
-
-// heading.href is the fragment as the document itself writes it, which is what
-// the in-page anchor test clicks; heading.id is the slug the renderer gives the
-// heading
 const docs = {
     home: {title: 'Test Notes'},
     doc: {

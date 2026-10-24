@@ -10,7 +10,6 @@ function toneOf(data: NotificationData): 'ok' | 'warn' | 'error' {
   return data.color === 'green' ? 'ok' : data.color === 'red' ? 'error' : 'warn';
 }
 
-// a tap on the pill puts it away, and so does a flick up, which it follows
 function Pill({ data }: { data: NotificationData }): JSX.Element {
   const tone = toneOf(data);
   const Icon = tone === 'ok' ? IconCheck : IconAlertTriangle;
@@ -55,8 +54,6 @@ function Pill({ data }: { data: NotificationData }): JSX.Element {
   );
 }
 
-// Toasts is where every toast is drawn: on a desktop mantine's card at the top
-// right, on a phone the pill an app drops from the top for a word or two
 export function Toasts(): JSX.Element {
   const phone = useBelow(layoutBreakpoints.phone);
   if (!phone) {

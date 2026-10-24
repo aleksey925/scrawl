@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLinkifyBareURL is GitHub's own behavior, each row checked against
-// api.github.com/markdown in "markdown" mode.
 func TestLinkifyBareURL(t *testing.T) {
 	cases := []struct {
 		name   string

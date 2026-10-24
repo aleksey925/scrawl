@@ -1,9 +1,6 @@
 import type { Mermaid } from '../reader/diagrams';
 import type { Katex } from '../reader/typeset';
 
-// the renderers are files beside this script, which is the one thing a page
-// opened from disk can load: no module, no fetch. The script is only current
-// while it runs, so where it sits is taken now.
 const base = document.currentScript instanceof HTMLScriptElement ? document.currentScript.src : window.location.href;
 
 const attached = new Map<string, Promise<void>>();

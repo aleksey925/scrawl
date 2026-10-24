@@ -5,7 +5,6 @@ import { pageName } from './naming';
 export interface FilteredTree {
   visible: ReadonlySet<string>;
   forcedOpen: ReadonlySet<string>;
-  // every node whose own name matches, in document order
   matches: readonly NavNode[];
 }
 

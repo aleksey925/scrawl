@@ -11,13 +11,8 @@ import (
 	"github.com/alecthomas/chroma/v2/lexers"
 )
 
-// PlainLanguage names a text file chroma has no lexer for.
 const PlainLanguage = "Text"
 
-// HighlightFile colors a text file the way a fence in a note is colored, and
-// names its language. The file comes out as one pre with one element per line
-// and no line numbers in the text: the page draws them, so a copy and a
-// selection hold exactly the source.
 func (r *Renderer) HighlightFile(name string, data []byte) (template.HTML, string, error) {
 	lexer := lexers.Match(name)
 	if lexer == nil {
@@ -36,9 +31,6 @@ func (r *Renderer) HighlightFile(name string, data []byte) (template.HTML, strin
 	return template.HTML(clean), lexer.Config().Name, nil //nolint:gosec // sanitized by bluemonday above
 }
 
-// PlainFile is a text file escaped into the markup HighlightFile writes, one
-// element per line, with no colors: for a file too large to highlight, or one
-// whose highlighting ran out of time.
 func PlainFile(data []byte) template.HTML {
 	var out strings.Builder
 	out.WriteString(`<pre class="chroma"><code>`)

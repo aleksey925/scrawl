@@ -5,8 +5,6 @@ import { DocumentView } from '../components/DocumentView';
 import { documentUrl } from '../paths';
 import { HistoryDialog } from '../shell/HistoryDialog';
 
-// the history keeps its own address, so a link and Back reach it, and shows
-// over the note it belongs to
 export function Component(): JSX.Element {
   const params = useParams();
   const path = params['*'] ?? '';

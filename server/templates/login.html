@@ -1,8 +1,3 @@
-{{/*
-The one page the server still renders itself. It carries its own stylesheet and
-its own theme script rather than the app's bundle, because it has to work before
-any of that loads and with JavaScript off: a plain POST form.
-*/}}
 <!DOCTYPE html>
 <html lang="en"{{with .Theme.ID}} data-scrawl-theme="{{.}}"{{end}}>
 <head>
@@ -16,10 +11,8 @@ any of that loads and with JavaScript off: a plain POST form.
     <link rel="icon" href="{{.Favicon}}" type="image/svg+xml">
     {{range .Theme.TouchIcons}}<link rel="apple-touch-icon" href="{{.Href}}"{{with .Media}} media="{{.}}"{{end}}>
     {{end}}
-    {{/* the custom properties of every theme, which `make ui` writes beside the bundle */}}
     <link rel="stylesheet" href="{{.AppThemes}}">
     <link rel="stylesheet" href="/static/{{.Version}}/login/login.css">
-    {{/* render blocking on purpose: it repairs the theme before the first paint */}}
     <script src="/static/{{.Version}}/login/login.js"></script>
 </head>
 <body>

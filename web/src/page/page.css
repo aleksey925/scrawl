@@ -1,6 +1,3 @@
-/* The pages `scrawl render` and `scrawl diff` write, with the note or the diff
-   in the column the app puts them in. */
-
 *,
 *::before,
 *::after {

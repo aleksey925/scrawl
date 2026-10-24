@@ -8,14 +8,10 @@ const {
 } = require('../support/helpers');
 const text = require('../support/text');
 
-// scratch keeps every test on its own document, so a failure cannot poison the
-// next one and the corpus files stay as they were copied
 function scratch(name) {
     return `e2e-scratch/${name}.md`;
 }
 
-// openTallDocument writes a note several screens high and opens the editor on
-// it, which is what the scroll specs need before they can send a wheel
 async function openTallDocument(page, name) {
     const docPath = scratch(name);
     const filler = Array
@@ -28,8 +24,6 @@ async function openTallDocument(page, name) {
     return docPath;
 }
 
-// wheelOverSource sends the deltas a trackpad sends, over the source pane, and
-// answers how far it asked the pane to travel
 async function wheelOverSource(page, {steps = 20, delta = 60} = {}) {
     const box = await page.getByTestId('editor-source').boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -40,8 +34,6 @@ async function wheelOverSource(page, {steps = 20, delta = 60} = {}) {
     return steps * delta;
 }
 
-// sourceLayout says how the source pane lays out a note of one short line and
-// one long line: by height, because a wrapped line is the taller of the two
 function sourceLayout(page) {
     return page.getByTestId('editor-source').evaluate((root) => {
         const heights = Array.from(root.querySelectorAll('.cm-line'), (line) => line.offsetHeight);
@@ -115,8 +107,6 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    // on the instance that does not format: prettier drops such a line by
-    // design, and this is about the editor changing nothing on its own
     test('trailing whitespace survives a save', async ({page}) => {
         const docPath = scratch('whitespace');
         const body = '- item\n   \n- next\n';
@@ -146,7 +136,6 @@ test.describe('editing', () => {
         await page.getByTestId('modal-cancel').click();
         await expect(page).toHaveURL(MAIN.url.edit(docPath));
 
-        // the draft is debounced into localStorage and offered on the next load
         await page.waitForTimeout(1000);
         await page.goto(routes.edit(docPath));
         await expect(page.getByTestId('editor-draft')).toContainText(text.editor.draft);
@@ -166,8 +155,6 @@ test.describe('editing', () => {
         await expect.poll(() => sourceText(page)).toBe('kept\n');
 
         await setSource(page, 'a draft nobody wants\n');
-        // a reload is not a router navigation, so it leaves without asking and
-        // the debounced draft is what is left of the buffer
         await page.waitForTimeout(1000);
         await page.goto(routes.edit(docPath));
 
@@ -412,8 +399,6 @@ test.describe('editing', () => {
             .evaluate((el) => el.scrollTop);
         await expect.poll(sourceScroll).toBeGreaterThan(100);
 
-        // the preview arrives after the editor, so it is the pane that says
-        // whether the position was held rather than applied once and lost
         const preview = page.getByTestId('editor-preview');
         await expect(preview.locator('h2')).toHaveCount(1);
         const headingOffset = () => preview.evaluate((pane) => {
@@ -429,10 +414,6 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    // the two panes used to answer each other's corrections: a scroll event says
-    // an element moved and not who moved it, so each pane kept putting the other
-    // back a little off where it had just been. The page shook under a finger
-    // that was already scrolling, and a third of the gesture was eaten.
     test('a scroll in one pane does not come back as a shake in both', async ({page}) => {
         const docPath = await openTallDocument(page, 'scroll-sync');
         const tops = () => page.evaluate(() => ({
@@ -444,21 +425,15 @@ test.describe('editing', () => {
         await page.waitForTimeout(400);
 
         const settled = await tops();
-        // the wheel was over the source, so the source keeps what it was given
         expect(settled.source).toBeGreaterThan(sent * 0.9);
-        // and the preview came along
         expect(settled.preview).toBeGreaterThan(0);
 
-        // nothing moves once the wheel stops
         await page.waitForTimeout(500);
         expect(await tops()).toEqual(settled);
 
         removeFixture(docPath);
     });
 
-    // the position used to cross as a source line, so the pane that follows
-    // could only land where a line did: it stood still for a few frames and
-    // then hopped a paragraph's worth at once
     test('the pane that follows moves with the scroll instead of hopping', async ({page}) => {
         const docPath = await openTallDocument(page, 'scroll-smooth');
 

@@ -8,11 +8,8 @@ import (
 	"github.com/aleksey925/scrawl/store"
 )
 
-// errRenderTimeout is returned when a render outran its deadline. It is the
-// server's own error and not a store one, but it travels the same path.
 var errRenderTimeout = errors.New("render timed out")
 
-// statusOf maps a store error onto the status the API contract promises.
 func statusOf(err error) int {
 	switch {
 	case err == nil:
@@ -39,10 +36,6 @@ func statusOf(err error) int {
 	return http.StatusInternalServerError
 }
 
-// errMessage is the text the client gets. It is derived from the sentinel and
-// never from err.Error(): store errors quote the path they failed on and a
-// wrapped os error quotes the filesystem path, neither of which belongs in a
-// response.
 func errMessage(err error) string {
 	switch {
 	case errors.Is(err, errRenderTimeout):
@@ -73,8 +66,6 @@ func errMessage(err error) string {
 	return "internal error"
 }
 
-// statusMessage titles the error page for a status raised by the server itself
-// rather than by the store.
 func statusMessage(status int) string {
 	switch status {
 	case http.StatusBadRequest:
@@ -93,8 +84,5 @@ func statusMessage(status int) string {
 	return "Something went wrong"
 }
 
-// permissionMessage names the cause a bare "forbidden" hides. On a NAS the
-// container almost always runs as a uid that does not own the mounted folder,
-// and that is the one failure the owner has to be told about in full.
 const permissionMessage = "permission denied by the filesystem, the notes folder must be " +
 	"readable and writable by the user the server runs as"

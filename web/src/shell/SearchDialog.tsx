@@ -25,13 +25,10 @@ const resultLimit = 30;
 
 const defaultSettings: SearchSettings = { mode: 'fuzzy', matchCase: false, word: false, regex: false, titles: false };
 
-// Case and Whole word are the toggles of Exact; Regex turns Fuzzy off
 function togglesOn(settings: SearchSettings): boolean {
   return settings.mode === 'exact' || settings.regex;
 }
 
-// withToggle flips one toggle by the key Alt is held with. The key is read by
-// its code: on a Mac Option+C types ç, and the letter is no use
 function withToggle(settings: SearchSettings, code: string): SearchSettings | undefined {
   switch (code) {
     case 'KeyC':
@@ -48,16 +45,12 @@ function withToggle(settings: SearchSettings, code: string): SearchSettings | un
 }
 
 interface Answer {
-  // query and settings are what the answer was asked with
   query?: string;
   settings?: SearchSettings;
   response?: SearchResponse;
   error?: string;
 }
 
-// SearchProvider holds the search of the space and opens it: on Cmd+K
-// anywhere in the app, and for the sidebar row and the phone's icon through
-// the control it provides
 export function SearchProvider({ children }: { children: ReactNode }): JSX.Element {
   const [opened, setOpened] = useState(false);
   const [initial, setInitial] = useState('');
@@ -100,7 +93,6 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
   const [answer, setAnswer] = useState<Answer>({});
   const [active, setActive] = useState<string | undefined>(undefined);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  // openPending is an Enter pressed before the answer to what was typed came
   const [openPending, setOpenPending] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -348,8 +340,6 @@ function Toggle({ testId, label, on, disabled = false, onClick, children }: Togg
   );
 }
 
-// Recent is what the dialog shows before anything is typed: the notes opened
-// last in this browser
 function Recent({ notes, onOpen }: { notes: readonly RecentNote[]; onOpen: () => void }): JSX.Element {
   if (notes.length === 0) {
     return (

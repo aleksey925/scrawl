@@ -36,10 +36,6 @@ function appUrl(path: string, isDir: boolean): string {
   return new URL(`${base}${route}`, window.location.origin).href;
 }
 
-// draftPath is what a typed name becomes. A title is a note: its slug, by the
-// store's rule so a page and the image dropped into it romanize the same word
-// the same way, with .md added. A name with an extension of its own is a file
-// named as typed: a slug would lowercase Main.java, which java will not compile.
 function draftPath(draft: TreeDraft, name: string): string {
   if (draft.kind === 'file' && hasOwnExtension(name) && !isMarkdown(name.trim())) {
     const typed = name
@@ -56,8 +52,6 @@ function draftPath(draft: TreeDraft, name: string): string {
   return joinPath(draft.parent, draft.kind === 'file' && !isMarkdown(slug) ? `${slug}.md` : slug);
 }
 
-// movedTo is where a path went when it, or a folder above it, moved from one
-// path to another, and undefined when the move left it where it was
 function movedTo(path: string, from: string, to: string): string | undefined {
   if (path === from) {
     return to;
@@ -66,7 +60,6 @@ function movedTo(path: string, from: string, to: string): string | undefined {
 }
 
 export function FileActionsProvider({ children }: { children: ReactNode }): JSX.Element {
-  // a draft is typed into the tree, so the tree has to be on screen for it
   const { revealNav: revealTree } = useReaderLayout();
   const navigate = useNavigate();
   const { currentPath, refreshNav, openFolder, setQuery } = useNav();
@@ -74,7 +67,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const reportMutation = useMutationState();
   const [renaming, setRenaming] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState<TreeDraft | undefined>(undefined);
-  // a phone has no tree to type a name into, so it asks in a dialog instead
   const phone = useBelow(layoutBreakpoints.phone);
   const [naming, setNaming] = useState<TreeDraft | undefined>(undefined);
 
@@ -116,8 +108,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
               }
               refreshNav();
             } catch (error) {
-              // the folder turned out to hold something after all: a file the
-              // app does not list, or one that arrived while the dialog was up
               if (isDir && !withContents && error instanceof ApiError && error.status === 409) {
                 confirmRemove(path, isDir, true);
                 return;
@@ -142,7 +132,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         try {
           holdsEntries = (await api.dir(path)).entries.length > 0;
         } catch {
-          // the delete itself answers when the folder could not be listed
         }
         confirmRemove(path, isDir, holdsEntries);
       })();
@@ -156,8 +145,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         setNaming({ kind, parent });
         return;
       }
-      // the row is typed into where it will be, so the folder has to be open
-      // and a filter hiding it has to go
       setQuery('');
       openFolder(parent);
       setDraft({ kind, parent });
@@ -168,8 +155,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const cancelDraft = useCallback(() => setDraft(undefined), []);
 
-  // createEntry is the one way a file or a folder is made, from the tree's name
-  // field and from a folder list's name row alike
   const createEntry = useCallback(
     async (draft: TreeDraft, name: string): Promise<boolean> => {
       const path = draftPath(draft, name);
@@ -190,8 +175,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       }
       refreshNav();
       if (isFile && res.edit_url !== undefined) {
-        // straight into the editor, because an empty note is not a thing
-        // anybody wanted, it is the first half of writing one
         await navigate(res.edit_url);
         return true;
       }
@@ -202,8 +185,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       }
       reportMutation(res, 'Folder created');
       openFolder(res.path);
-      // onto the new folder, the way a new file opens: what comes next is put
-      // into it, and left on the old page the next file landed beside it
       await navigate(directoryUrl(res.path));
       return true;
     },
@@ -239,12 +220,8 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         }
         if (moved.length > 0) {
           refreshNav();
-          // a drop the reader cannot see landed nowhere as far as they are
-          // concerned, so the folder it went into opens
           openFolder(folder);
           reportMutation(undefined, moved.length === 1 ? 'Moved' : `Moved ${moved.length} items`);
-          // the page on screen moved with the rest, or inside a folder that did,
-          // and its old address is a 404 the moment the tree refreshes
           const here = moved.map((pair) => movedTo(currentPath, pair.from, pair.to)).find((path) => path !== undefined);
           if (here !== undefined) {
             await navigate(onFolder ? directoryUrl(here) : documentUrl(here));

@@ -8,12 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMathInlineDelimiters is GitHub's own behavior, each row checked against
-// api.github.com/markdown in "gfm" mode.
 func TestMathInlineDelimiters(t *testing.T) {
 	tests := []struct {
 		name, src string
-		want      string // "" means no math
+		want      string
 	}{
 		{name: "plain", src: "$x+1$", want: "x+1"},
 		{name: "digits only", src: "$100$", want: "100"},

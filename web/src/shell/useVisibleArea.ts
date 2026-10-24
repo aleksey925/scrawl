@@ -10,9 +10,6 @@ function areaOf(): VisibleArea {
   return view === null ? { height: window.innerHeight, top: 0 } : { height: view.height, top: view.offsetTop };
 }
 
-// useVisibleArea is the part of the screen the keyboard leaves free. A phone's
-// keyboard covers the bottom of the page without making it any shorter, so a
-// field kept at the bottom would sit under the keys.
 export function useVisibleArea(active: boolean): VisibleArea | undefined {
   const [area, setArea] = useState<VisibleArea | undefined>(undefined);
 

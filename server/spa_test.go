@@ -23,8 +23,6 @@ import (
 	"github.com/aleksey925/scrawl/view"
 )
 
-// jsonValue round-trips a value through JSON, so an expectation can be built
-// from the very helper the handler used instead of spelled out again.
 func jsonValue(t *testing.T, v any) any {
 	t.Helper()
 	data, err := json.Marshal(v)

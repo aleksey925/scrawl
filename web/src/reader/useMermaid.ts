@@ -7,7 +7,6 @@ import { drawDiagrams } from './diagrams';
 
 export function useMermaid(rootRef: RefObject<HTMLDivElement | null>, html: string): void {
   const colorScheme = useComputedColorScheme('light');
-  // two themes can share a scheme, and the diagram is painted with the tokens
   const choice = useThemeChoice();
   const { loadMermaid } = usePlatform();
 

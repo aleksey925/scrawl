@@ -13,9 +13,6 @@ import { useKeyboardPlace } from './shortcuts';
 import { SpaceButton } from './SpaceButton';
 import { ThemePicker } from './ThemePicker';
 
-// SiteMenu is the foot of a site's sidebar: a site has no spaces and nobody
-// signs in to it, so its menu holds the theme, the page width and the keys. On
-// a phone it is the `⋯` of the top bar and holds the outline too.
 export function SiteMenu({ dots = false }: { dots?: boolean }): JSX.Element {
   const { me } = useNav();
   const { openShortcuts, openOutline } = useReaderLayout();

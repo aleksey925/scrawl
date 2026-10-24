@@ -18,9 +18,6 @@ export interface Formatted {
 
 let loading: Promise<Formatter> | undefined;
 
-// The plugins are the ones `make formatter` puts in the server's copy, which
-// are the ones `prettier --write note.md` loads: a note formatted here must
-// come out the same from the API and from the command line.
 function load(): Promise<Formatter> {
   if (loading !== undefined) {
     return loading;
@@ -43,7 +40,6 @@ function load(): Promise<Formatter> {
     plugins: plugins as Plugin[],
   }));
   loading = started;
-  // a chunk that failed to load would otherwise fail every later attempt too
   started.catch(() => {
     if (loading === started) {
       loading = undefined;
@@ -70,9 +66,6 @@ export async function formatMarkdown(text: string, cursor: number): Promise<Form
   return { text: res.formatted, cursor: clamp(res.cursorOffset, res.formatted.length) };
 }
 
-// replaceText swaps only the span that differs, so one undo takes the
-// formatting back and the caret is not thrown to the end of the document.
-// Without a cursor the caret stays where codemirror maps it through the change.
 export function replaceText(view: EditorView, next: string, cursor?: number): void {
   const prev = view.state.doc.toString();
   if (prev === next) {

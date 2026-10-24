@@ -2,7 +2,6 @@ package htmldiff
 
 import "sort"
 
-// opKind is what one stretch of an edit script does.
 type opKind int
 
 const (
@@ -12,20 +11,13 @@ const (
 	opInsert
 )
 
-// opcode maps a[i1:i2] onto b[j1:j2].
 type opcode struct {
 	kind           opKind
 	i1, i2, j1, j2 int
 }
 
-// match is a run of k equal elements at a[i] and b[j].
 type match struct{ i, j, k int }
 
-// opcodes compares two sequences the way Python's difflib.SequenceMatcher does
-// with autojunk off: the longest common run first, then the same on each side
-// of it. Not a minimal edit script like Myers, and that is the point: a reader
-// sees the long untouched stretches kept whole, which is what makes a prose
-// diff readable.
 func opcodes(a, b []string) []opcode {
 	m := newMatcher(a, b)
 	blocks := m.matchingBlocks()
@@ -56,10 +48,8 @@ func opcodes(a, b []string) []opcode {
 }
 
 type matcher struct {
-	a, b []string
-	b2j  map[string][]int
-	// the run lengths of the previous and the current row of a, indexed by
-	// j+1, with the indexes written so far so they can be cleared cheaply
+	a, b              []string
+	b2j               map[string][]int
 	prev, cur         []int
 	touched, touched2 []int
 }
@@ -72,8 +62,6 @@ func newMatcher(a, b []string) *matcher {
 	return &matcher{a: a, b: b, b2j: b2j, prev: make([]int, len(b)+1), cur: make([]int, len(b)+1)}
 }
 
-// longest finds the longest run of equal elements in a[alo:ahi] and b[blo:bhi],
-// the earliest one in a and then in b when several are as long.
 func (m *matcher) longest(alo, ahi, blo, bhi int) match {
 	best := match{i: alo, j: blo}
 	for i := alo; i < ahi; i++ {
@@ -104,8 +92,6 @@ func (m *matcher) longest(alo, ahi, blo, bhi int) match {
 	return best
 }
 
-// matchingBlocks lists every common run in order, adjacent runs merged, closed
-// by a zero-length sentinel at the ends of both sequences.
 func (m *matcher) matchingBlocks() []match {
 	type span struct{ alo, ahi, blo, bhi int }
 	queue := []span{{0, len(m.a), 0, len(m.b)}}

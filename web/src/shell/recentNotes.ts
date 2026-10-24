@@ -4,7 +4,6 @@ import { changeSignal } from '../changeSignal';
 import { usePlatform } from '../platform';
 import { localStore, readJson, writeJson } from '../storage';
 
-// RecentNote is a note opened on this device
 export interface RecentNote {
   path: string;
   title: string;
@@ -46,9 +45,6 @@ export interface RecentNotes {
   clear: () => void;
 }
 
-// useRecentNotes is the notes opened on this device, newest first, kept per
-// space in the browser: one reader's convenience, which a private window may
-// refuse to keep
 export function useRecentNotes(): RecentNotes {
   const { storageScope } = usePlatform();
   const notes = useSyncExternalStore(changes.subscribe, () => read(storageScope));

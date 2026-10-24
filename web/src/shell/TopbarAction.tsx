@@ -9,13 +9,9 @@ export interface TopbarActionProps {
   testId: string;
   label: string;
   to: string;
-  // icon replaces the word, with the label as its tooltip, for an action the
-  // bar names by a picture the way Notion does History
   icon?: Icon;
 }
 
-// TopbarAction is a page action in the topbar: a quiet word that leads to a
-// route, or its icon named by the label
 export function TopbarAction({ testId, label, icon: Icon, to }: TopbarActionProps): JSX.Element {
   const renderRoot = (props: Record<string, unknown>): ReactNode => <Link to={to} {...props} />;
 

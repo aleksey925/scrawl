@@ -1,7 +1,3 @@
-// Command pack writes the files a build with the gzassets tag embeds. Each
-// source, a path inside one package, is copied into that package's gzassets/
-// directory, compressed where that makes it smaller. It runs from the root of
-// the repository.
 package main
 
 import (
@@ -14,14 +10,10 @@ import (
 	"github.com/aleksey925/scrawl/gzassets"
 )
 
-// sources are what the packages embed and the gzassets build compresses.
 var sources = []string{"server/assets", "page/assets", "format/prettier.wasm"}
 
-// outDir is where in its package the gzassets build embeds a source from.
 const outDir = "gzassets"
 
-// minSaving is the share a compressed copy must save to be kept. A picture
-// or a font is compressed already, and is stored as it is.
 const minSaving = 0.1
 
 func main() {
@@ -31,8 +23,6 @@ func main() {
 	}
 }
 
-// pack writes every source below dir into its package's outDir, removing
-// whatever an earlier run left there.
 func pack(dir string, srcs []string) error {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
@@ -64,8 +54,6 @@ func pack(dir string, srcs []string) error {
 	return nil
 }
 
-// packEntry copies one file of the walk. What go:embed of a directory skips,
-// a name starting with a dot or an underscore, is skipped here too.
 func packEntry(root *os.Root, pkg, name string, entry fs.DirEntry) error {
 	if strings.HasPrefix(entry.Name(), ".") || strings.HasPrefix(entry.Name(), "_") {
 		if entry.IsDir() {

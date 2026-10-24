@@ -1,5 +1,3 @@
-/* the topbar belongs to the page's column: the page's ground, the path at its
-   left and the page's actions at its right */
 .topbar {
   display: flex;
   align-items: center;

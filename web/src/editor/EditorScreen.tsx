@@ -86,13 +86,8 @@ const saveStateText: Record<SaveState, string> = {
   saved: 'Saved',
 };
 
-// the server's text names that carry a dot: `.mod` and `.sum` are no
-// extensions of text, so a stamp before them would leave the copy unopenable
 const dottedTextNames: ReadonlySet<string> = new Set(['go.mod', 'go.sum']);
 
-// conflictCopyPath is where a copy of a refused save goes: beside the file,
-// with its extension kept, so a copy of a text file is not a note. A file that
-// is text by its whole name, a Makefile, is kept whole and its copy is `.txt`.
 function conflictCopyPath(path: string, stamp: string): string {
   const name = basenameOf(path);
   const dot = name.lastIndexOf('.');
@@ -117,7 +112,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const fileName = basenameOf(path);
   const formattable = !readOnly && kind === 'markdown';
   const formatOnSave = props.formatOnSave && formattable;
-  // prettier ends every line with \n, so a note it formats keeps no other break
   const lineBreak = formatOnSave ? '\n' : lineBreakOf(initialContent);
   const editorText = useMemo(() => toEditorText(initialContent), [initialContent]);
   const navigate = useNavigate();
@@ -166,22 +160,16 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     setView(created);
   }, []);
 
-  // a pane that was put away leaves its view in the ref, already destroyed
   const liveView = useCallback((): EditorView | undefined => {
     const current = viewRef.current;
     return current?.dom.isConnected === true ? current : undefined;
   }, []);
 
-  // the editor and not the state: a change dispatched from a promise is in
-  // the editor at once and in the state only after the next render
   const bufferText = useCallback(
     (): string => liveView()?.state.doc.toString() ?? contentRef.current,
     [liveView],
   );
 
-  // putFormatted shows what prettier made of `sent` and says whether it did.
-  // The answer took a while, and what was typed meanwhile is not in it:
-  // putting it in the editor then would drop those keys.
   const putFormatted = useCallback(
     (sent: string, formatted: string, cursor?: number): boolean => {
       if (bufferText() !== sent) {
@@ -211,8 +199,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     });
   }, [formatBuffer]);
 
-  // prettier is a chunk of its own, fetched here so that the first save does
-  // not wait for it
   useEffect(() => {
     if (formatOnSave) {
       warmFormatter();
@@ -263,9 +249,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   const panes = useMemo(createPaneSync, []);
 
-  // the html arrives after the editor, so the pane waits for it. It is placed
-  // once and never again: every keystroke renders the preview afresh, and a
-  // second placing would drag the writer back to where they came in
   useEffect(() => {
     const pane = previewRef.current;
     if (pane === null || openedAt === undefined || previewPlaced.current || preview.html === '') {
@@ -274,7 +257,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     previewPlaced.current = true;
     return holdPosition(() => {
       const source = liveView();
-      // beside the source, where the source would move it, or the first scroll jumps
       const top = mode === 'split' && source !== undefined
         ? panes.paneTop(source, pane)
         : paneTopForAnchor(pane, openedAt);
@@ -284,8 +266,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     }, pane);
   }, [openedAt, preview.html, mode, liveView, panes]);
 
-  // a position nobody moved goes back as it came: each side picks the block
-  // nearest its own top, and a round trip with no scroll in it crept every time
   const rememberReadingPosition = useCallback((): ReadingAnchor | undefined => {
     const source = liveView();
     const pane = previewRef.current;
@@ -321,12 +301,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     current.scrollDOM.scrollTop = panes.sourceTop(current, pane);
   }, [panes]);
 
-  // Only the pane the reader is working in moves the other one. A scroll event
-  // says an element moved and not who moved it, so without an owner the two
-  // panes answer each other's corrections forever: each one lands a little off
-  // where the other put it, and the page shakes under a finger that is already
-  // scrolling. Timing cannot settle this - the echo arrives a frame later, on
-  // the far side of any flag cleared in a rendering callback.
   useEffect(() => {
     const pane = previewRef.current;
     if (view === undefined || mode !== 'split' || pane === null) {
@@ -356,8 +330,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     };
   }, [view, mode, syncFromSource, syncFromPreview, preview.html]);
 
-  // the shell answers a 401 by navigating to the login page, which would
-  // unmount this editor and take the unsaved buffer with it
   useEffect(() => installUnauthorizedHandler('screen', () => draftRef.current.flush()), []);
 
   useEffect(() => {
@@ -396,8 +368,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     });
   }, [blocker]);
 
-  // `shown` is whether the buffer holds what was stored, asked of the caller
-  // and not of the state: a buffer replaced a line ago is not in it yet
   const markSaved = useCallback((stored: string, nextRev: string, shown: boolean): void => {
     setSaved(stored);
     setRev(nextRev);
@@ -411,10 +381,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     const copyPath = conflictCopyPath(path, stamp);
     const sent = contentRef.current;
     try {
-      // a conflict copy is a save like any other and its push can fail like any
-      // other, so the response goes to the hook rather than being discarded
-      // before the navigation. The toast and the refresh both survive it:
-      // showToast is module level and NavProvider sits above the router.
       reportMutation(
         await api.saveFile(copyPath, { content: withLineBreak(sent, lineBreak), rev: '' }),
         'Saved as a copy',
@@ -430,8 +396,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   const save = useCallback(
     async (withRev?: string): Promise<void> => {
-      // a second click would send the same revision again and come back as a
-      // conflict for a save that in fact went through
       if (savingRef.current || readOnly) {
         return;
       }
@@ -440,12 +404,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       rememberReadingPosition();
       let sent = bufferText();
       try {
-        // an upload still in flight has its placeholder sitting in the text,
-        // and saving now writes that to disk as the document
         await uploads.wait();
         sent = bufferText();
-        // prettier here is the fast path and not the only one: when it cannot
-        // run, the note goes out unmarked and the server formats it
         let formatted = false;
         if (formatOnSave) {
           try {
@@ -479,15 +439,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             showToast('error', { message: errorText(error) });
             return;
           }
-          // a response lost on the way back leaves the write done and this
-          // editor a revision behind, so the retry collides with its own text
           const theirs = toEditorText(current.content);
           if (theirs === sent) {
             markSaved(sent, current.rev, bufferText() === sent);
             showToast('ok', { message: 'Saved' });
-            // the response that carried the state never arrived, so there is
-            // nothing to hand the hook: this is the one successful write with
-            // no body of its own
             refreshMe();
             return;
           }
@@ -528,8 +483,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   );
 
   useEffect(() => {
-    // on the document rather than the editor: with the caret in the preview
-    // pane this would otherwise be the browser's own save dialog
     const onKey = (event: KeyboardEvent): void => {
       if (!modChord(event, 's')) {
         return;
@@ -546,8 +499,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       return;
     }
     const onKey = (event: KeyboardEvent): void => {
-      // the code and not the key: with option held a mac reports the letter
-      // the layout types there, which for this one is "Ï"
       if (!event.shiftKey || !event.altKey || event.metaKey || event.ctrlKey || event.code !== 'KeyF') {
         return;
       }
@@ -790,7 +741,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               name={fileName}
               value={content}
               readOnly={readOnly}
-              // on a phone an autofocus opens the keyboard over half the document
               autoFocus={!touch}
               wrap={lineWrap.wrap}
               onChange={setContent}

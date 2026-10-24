@@ -258,7 +258,6 @@ func TestGenTokenEntryAcceptsThePrintedToken(t *testing.T) {
 	assert.Equal(t, "bot", rec.Body.String())
 }
 
-// splitGenToken reads the two labeled lines back: the token, then the entry.
 func splitGenToken(t *testing.T, out string) (token, entry string) {
 	t.Helper()
 	lines := strings.Split(out, "\n")
@@ -460,9 +459,6 @@ func TestNewHistory(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, hist.Close()) })
 		assert.True(t, hist.Enabled())
-		// the service canonicalizes its root, so the comparison has to start
-		// from the same place: on macOS a temp directory lives under /var,
-		// which is a symlink to /private/var
 		resolved, err := filepath.EvalSymlinks(root)
 		require.NoError(t, err)
 		assert.Equal(t, resolved, hist.Root())
@@ -533,15 +529,12 @@ func requireGit(t *testing.T) {
 	}
 }
 
-// gitChild is a notes directory that sits inside somebody else's repository.
 func gitChild(t *testing.T) string {
 	t.Helper()
 	requireGit(t)
 
 	parent := t.TempDir()
 	cmd := exec.CommandContext(t.Context(), "git", "init", "--quiet", parent)
-	// the same environment the service gives its own git calls: a host without
-	// a global or system config is one git refuses to run in otherwise
 	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null", "LC_ALL=C")
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "git init: %s", out)
@@ -644,8 +637,6 @@ func TestVersionInfo(t *testing.T) {
 func TestRunSmoke(t *testing.T) {
 	// arrange
 	addr := fmt.Sprintf("127.0.0.1:%d", freePort(t))
-	// examples/data lives inside this repository, so history would initialize a
-	// nested one right in the source tree
 	opts, err := parseOpts([]string{
 		"--space.dir=./examples/data", "--space.name=notes", "--listen=" + addr, "--auth.disabled", "--history=off", "--dbg",
 	})
@@ -697,7 +688,6 @@ func TestRunValidationFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "no such file")
 }
 
-// spacesFrom builds the space list run takes, the way main does.
 func spacesFrom(t *testing.T, opts *options) []spaceConfig {
 	t.Helper()
 	cfgs, err := loadConfig(opts)

@@ -1,6 +1,3 @@
-// The sign-in page's own theme toggle. It is a separate file rather than an
-// inline block because script-src is 'self' with no nonce, and it is render
-// blocking so the stored choice is on the root element before the first paint.
 (function () {
     var ATTR = 'data-scrawl-theme';
     var root = document.documentElement;
@@ -37,8 +34,6 @@
         button.setAttribute('data-icon', theme ? theme.scheme : 'auto');
     }
 
-    // the head ships metas for the theme the server rendered, which is the wrong
-    // bar colour once the toggle or the stored cookie picked another one
     function syncBarColor(choice) {
         var theme = find(choice) ||
             find(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -55,8 +50,6 @@
         document.head.appendChild(meta);
     }
 
-    // the home screen icon has the ground of the page's theme, so a phone takes
-    // the dark one for a dark theme; auto keeps one per scheme behind the system
     function syncTouchIcon(choice) {
         var links = document.querySelectorAll('link[rel="apple-touch-icon"]');
         if (links.length === 0) {
@@ -85,7 +78,6 @@
             apply(stored[1]);
         }
     } catch (e) {
-        // cookies disabled, keep whatever the server rendered
     }
 
     document.addEventListener('DOMContentLoaded', function () {

@@ -30,26 +30,14 @@ import { filterTree, type FilteredTree } from './treeFilter';
 import { useLongPress } from './useLongPress';
 
 const treeIconSize = 18;
-// the box an entry's icon sits in, which for a folder is the button that
-// opens and closes it
 const iconBox = 22;
 const indentStep = 14;
-// the room before a top-level row's icon, inside the row's own corners
 const rowStart = 6;
 
-// focusSettleMs is how long the draft row waits before it believes a blur.
-// Measured against mantine's menu, which returns focus to its trigger when it
-// closes; anything shorter and the row cancels itself as it appears.
 const focusSettleMs = 150;
 
-// springOpenMs is how long a drag has to rest on a closed folder before it
-// opens. Long enough that crossing one on the way somewhere else does nothing,
-// short enough that aiming at it reads as holding it.
 const springOpenMs = 600;
 
-// TreeUi is what the rows share and the tree owns: which rows are picked, which
-// one is being dragged over, and the order the rows are in on screen, which is
-// the only thing a shift-click range can be measured against.
 interface TreeUi {
   selected: ReadonlySet<string>;
   dropTarget: string | undefined;
@@ -96,9 +84,6 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   }
 
   const open = query !== '' ? filtered.forcedOpen.has(node.path) : isOpen(node.path);
-  // the route decides this and not the answer the server sent with the tree:
-  // the click has already happened, and a highlight that waits for a round trip
-  // is a click that did nothing for as long as the round trip took
   const current = node.path === currentPath;
   const picked = ui.selected.has(node.path);
   const over = ui.dropTarget === node.path;
@@ -121,8 +106,6 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
         onDragOver={(event) => ui.overFolder(folderFor(node.path, node.is_dir), event)}
         onDragLeave={() => ui.leaveFolder(folderFor(node.path, node.is_dir))}
         onDrop={(event) => ui.dropOn(folderFor(node.path, node.is_dir), event)}
-        // the row's menu is its context menu too, and a site, which has no
-        // menu to offer, leaves the browser's own in place
         {...(RowMenu === undefined
           ? {}
           : {
@@ -171,8 +154,6 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
           draggable={false}
           aria-current={current ? 'page' : undefined}
           className={treeClasses.label}
-          // a folder's label opens its page unfolded, and on that page folds
-          // and unfolds it; a filter holds open what matched, so there it is a link
           onClick={(event: MouseEvent) => {
             ui.pick(node.path, event);
             if (!node.is_dir || query !== '' || event.defaultPrevented || event.metaKey || event.ctrlKey) {
@@ -191,8 +172,6 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
           </Highlight>
         </Anchor>
 
-        {/* outside the link, so the link's accessible name stays the note's
-            name and the badge reads beside it */}
         <SyncBadge path={node.path} />
 
         {RowMenu !== undefined && (
@@ -239,8 +218,6 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   );
 }
 
-// IconBox holds the icon of a row that is not a folder's button, in a box of
-// the same width, so every icon of one depth stands in one column
 function IconBox({ children }: { children?: ReactNode }): JSX.Element {
   return (
     <Box
@@ -282,17 +259,11 @@ function EmptyRow({ depth }: { depth: number }): JSX.Element {
   );
 }
 
-// DraftRow is the new entry before it exists. Enter creates it, Escape drops
-// it, and leaving the field does too: an input the reader walked away from is
-// not a file they asked for.
 function DraftRow({ depth }: { depth: number }): JSX.Element {
   const { draft, submitDraft, cancelDraft } = useFileActions();
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  // a menu item is one of the ways this row is opened, and mantine's menu hands
-  // focus back to the button it closed under - a tick after this row mounted
-  // and took it. Until the dust settles a blur says nothing about the reader.
   const settled = useRef(false);
   const isFile = draft?.kind === 'file';
 
@@ -315,8 +286,6 @@ function DraftRow({ depth }: { depth: number }): JSX.Element {
     void submitDraft(name).then((created) => {
       setBusy(false);
       if (!created) {
-        // the name stays on screen, because retyping it is the one thing the
-        // reader should not have to do after "that already exists"
         return;
       }
       setName('');
@@ -366,9 +335,6 @@ function DraftRow({ depth }: { depth: number }): JSX.Element {
   );
 }
 
-// flatten is the order the rows are in on screen, which is what a shift-click
-// range means. A closed folder hides its children from it, because a range a
-// reader cannot see is a range they did not choose.
 function flatten(nodes: readonly NavNode[], visible: (node: NavNode) => boolean, into: string[]): string[] {
   for (const entry of nodes) {
     into.push(entry.path);
@@ -379,8 +345,6 @@ function flatten(nodes: readonly NavNode[], visible: (node: NavNode) => boolean,
   return into;
 }
 
-// the routes that show the root's list; every other route outside a path,
-// search or recent among them, has an empty content path too
 const rootListRoutes = new Set(['/', '/doc', '/doc/']);
 
 function inFolder(folder: string, space: string): string {
@@ -401,8 +365,6 @@ function nodeAt(nodes: readonly NavNode[], path: string): NavNode | undefined {
 }
 
 export interface SidebarNavProps {
-  // foot is the button at the bottom, which opens the menu of the spaces, the
-  // theme and the account
   foot?: ReactNode;
   onHide?: () => void;
 }
@@ -414,20 +376,14 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const actions = useOptionalFileActions();
   const openSearch = useSearchControl()?.open;
   const keyboard = useKeyboardPlace();
-  // a reader with nowhere to write offers no write, whatever the space allows
   const canWrite = mayWrite && actions !== undefined;
   const viewportRef = useRef<HTMLDivElement>(null);
   const spaceName = spaceLabel(me);
 
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  // the pick follows the page: a row picked before a navigation would still be
-  // where the next new entry lands, though the page has moved on from it
   useEffect(() => setSelected(new Set([currentPath])), [currentPath]);
   const [dropTarget, setDropTarget] = useState<string | undefined>(undefined);
-  // what is being dragged cannot be read back during dragover, which is when
-  // the answer is needed, so it is kept here as well as in the transfer
   const dragged = useRef<readonly string[]>([]);
-  // the folder a drag is hovering over and the timer that will open it
   const spring = useRef<{ folder: string; timer: number } | undefined>(undefined);
 
   const trimmed = query.trim().toLowerCase();
@@ -438,8 +394,6 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
     [tree, trimmed, isOpen],
   );
 
-  // the panel starts at the top after a navigation, which on a corpus taller
-  // than it leaves the page just opened somewhere off screen
   useEffect(() => {
     const viewport = viewportRef.current;
     const row = viewport?.querySelector<HTMLElement>('[data-testid="tree-row"][data-current="true"]');
@@ -456,8 +410,6 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
 
   const pick = useCallback(
     (path: string, event: MouseEvent) => {
-      // a modified click belongs to the browser: it opens the note in a tab of
-      // its own, and taking it over would be worse than any selection is worth
       if (event.metaKey || event.ctrlKey) {
         return;
       }
@@ -493,8 +445,6 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
         event.preventDefault();
         return;
       }
-      // dragging one of several picked rows takes the whole set, dragging any
-      // other row is a fresh selection of one
       const paths = selected.has(path) && selected.size > 1 ? [...selected] : [path];
       if (paths.length === 1) {
         setSelected(new Set(paths));
@@ -512,8 +462,6 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
       spring.current = undefined;
     }
   }, []);
-  // the sidebar can be put away in the middle of a drag, and the timer would
-  // still open a folder
   useEffect(() => stopSpring, [stopSpring]);
 
   const endDrag = useCallback(() => {
@@ -528,14 +476,10 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
         stopSpring();
         return;
       }
-      // the default is "no drop here", so allowing one is an explicit refusal
-      // to let the browser handle the event
       event.preventDefault();
       event.stopPropagation();
       event.dataTransfer.dropEffect = 'move';
       setDropTarget(folder);
-      // holding over a closed folder opens it, which is the only way to reach a
-      // folder deeper in with a row already in hand
       if (folder === '') {
         stopSpring();
       } else if (spring.current?.folder !== folder) {
@@ -579,8 +523,6 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
     [selected, dropTarget, canWrite, pick, startDrag, endDrag, overFolder, leaveFolder, dropOn],
   );
 
-  // where a new entry lands when the reader used the buttons rather than a row:
-  // the row they picked if they picked one, otherwise the page they are on
   const at = selected.size === 1 ? ([...selected][0] ?? currentPath) : currentPath;
   const here = folderFor(at, nodeAt(tree, at)?.is_dir ?? at === '');
   const draftAtRoot = actions?.draft !== undefined && actions.draft.parent === '';
@@ -593,8 +535,6 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
       if (trimmed === '') {
         return;
       }
-      // a folder whose child matched is on screen too and comes first in
-      // document order, so the query is matched again rather than trusted
       const first = filtered.matches[0];
       if (first !== undefined) {
         void navigate(first.url);
@@ -654,8 +594,6 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
                 </ActionIcon>
               </Menu.Target>
               <Menu.Dropdown>
-                {/* where it lands is the row that is picked, and the label says
-                    so for the times the tree is scrolled away from it */}
                 <Menu.Label data-testid="sidebar-new-where">{inFolder(here, spaceName)}</Menu.Label>
                 <Menu.Item
                   data-testid="sidebar-new-page"
@@ -701,8 +639,6 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
         </Link>
       </div>
 
-      {/* the label is the root folder: it opens the root's list and takes a
-          drop, so dragging a note out of a folder needs no row to aim at */}
       <div
         data-testid="sidebar-section"
         className={sidebarClasses.section}
@@ -727,8 +663,6 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
           rightSectionPointerEvents="all"
           rightSection={
             query === '' ? null : (
-              // a touch keyboard has no Escape, so on a tablet this is the
-              // only way out of a query
               <ActionIcon
                 data-testid="sidebar-filter-clear"
                 variant="subtle"

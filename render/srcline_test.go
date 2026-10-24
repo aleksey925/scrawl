@@ -12,14 +12,10 @@ import (
 
 var reSourceRange = regexp.MustCompile(` ` + srcStartAttr + `="\d+" ` + srcEndAttr + `="\d+"`)
 
-// withoutSourceRanges strips the source range out of a fragment, for the
-// assertions that are about the shape of the output rather than the mapping.
 func withoutSourceRanges(fragment string) string {
 	return reSourceRange.ReplaceAllString(fragment, "")
 }
 
-// sourceRanges lists every element carrying a source range, in document order,
-// as "element:start-end".
 func sourceRanges(t *testing.T, fragment string) []string {
 	t.Helper()
 	var out []string

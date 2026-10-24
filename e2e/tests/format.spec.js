@@ -10,8 +10,6 @@ const text = require('../support/text');
 
 const FOLDER = 'e2e-format';
 
-// what a hand writes and what `prettier --write` makes of it: the list marker,
-// the blank lines, the table and the code inside the fence all change
 const rough = [
     '#  Заголовок',
     '',
@@ -60,7 +58,6 @@ test.describe('formatting', () => {
 
         // assert
         await expect(editorStatus(page)).toHaveText(text.status.saved);
-        // formatted in the browser, so the server is told not to do it again
         expect((await sending).postDataJSON()).toMatchObject({content: formatted, formatted: true});
         expect(readFixture(docPath)).toBe(formatted);
         await expect.poll(() => sourceText(page)).toBe(formatted);

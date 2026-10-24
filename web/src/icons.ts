@@ -1,6 +1,3 @@
-// The app's icons, the one place that says which drawing each one is. They are
-// Phosphor's regular weight, the open set closest to the icons Notion draws:
-// round ends and joins, a light even line, and room inside each shape.
 import { IconBase, type Icon, type IconWeight } from '@phosphor-icons/react';
 import { createElement, forwardRef } from 'react';
 
@@ -67,9 +64,6 @@ export {
   XIcon as IconX,
 } from '@phosphor-icons/react';
 
-// a new note is drawn here and not taken from Phosphor: its NotePencil has a
-// square with sharp inner corners, and the compose icon of Notion's and Apple's
-// apps is a rounded square with a slim pencil, in the same line as the rest
 const composeDrawing = createElement(
   'g',
   { fill: 'none', stroke: 'currentColor', strokeWidth: 16, strokeLinecap: 'round', strokeLinejoin: 'round' },

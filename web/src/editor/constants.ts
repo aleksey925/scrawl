@@ -2,7 +2,6 @@ export const previewDelayMs = 400;
 export const draftDelayMs = 800;
 export const draftMaxAgeMs = 30 * 24 * 3600 * 1000;
 
-// where down the usable viewport the line a reader is actually looking at sits
 export const readingFraction = 0.25;
 
 export const splitMin = 0.2;

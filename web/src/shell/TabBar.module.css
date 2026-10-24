@@ -1,5 +1,3 @@
-/* the bar of tabs at the bottom of a phone, over the page and under every
-   dialog and sheet, which cover it the way they cover the page */
 .bar {
   position: fixed;
   inset: auto 0 0;
@@ -36,9 +34,6 @@
 .tab[data-current='true'] {
   color: var(--scrawl-text);
 }
-
-/* a tab dims under the finger, as the bars of iOS do, rather than taking a
-   ground */
 
 .tab:active {
   opacity: 0.4;

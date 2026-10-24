@@ -33,8 +33,6 @@ import classes from './HistoryDialog.module.css';
 import { useNav } from './NavContext';
 import { useMutationState } from './useMutationState';
 
-// whoOf is the name a version shows: an API token's name without its prefix,
-// and a change made outside the app said in words
 function whoOf(actor: string): string {
   if (actor === '') {
     return 'unknown';
@@ -45,8 +43,6 @@ function whoOf(actor: string): string {
   return actor.replace(/^token:/, '');
 }
 
-// tagOf is the word beside a version: how it was made, when that was not in
-// the app, and otherwise what it did to the note
 function tagOf(entry: HistoryEntry): { label: string; color: BlockName } {
   if (entry.actor.startsWith('token:')) {
     return { label: 'API', color: 'purple' };
@@ -66,8 +62,6 @@ function tagOf(entry: HistoryEntry): { label: string; color: BlockName } {
   }
 }
 
-// sameAsNow is a version holding the text the note has now, which the server
-// tells apart from a deletion by the blob a deletion lacks
 function sameAsNow(entry: HistoryEntry): boolean {
   return !entry.restorable && entry.blob !== '';
 }
@@ -98,19 +92,13 @@ const diffLayouts: readonly [DiffLayout, ...DiffLayout[]] = ['split', 'unified']
 
 const dialogSizes = ['normal', 'expanded'] as const;
 
-// the room an expanded history leaves around it, so it still reads as a dialog
-// over the note and the overlay a click closes it on stays in reach
 const expandedGap = 16;
 
-// mantine writes the transition of its fade inline, which outranks the
-// stylesheet, so a change of size only animates as part of that transition
 const dialogTransition: MantineTransition = {
   ...MANTINE_TRANSITIONS['fade-down'],
   transitionProperty: 'opacity, transform, flex-basis, height',
 };
 
-// useStoredChoice is a choice of the view kept for the next version and the
-// next visit, the first of the values until one is picked
 function useStoredChoice<T extends string>(key: string, values: readonly [T, ...T[]]): [T, (next: string) => void] {
   const [value, setValue] = useState<T>(() => {
     const stored = readText(localStore(), key);
@@ -129,7 +117,6 @@ function useStoredChoice<T extends string>(key: string, values: readonly [T, ...
 
 interface VersionDiffProps {
   state: AsyncState<HistoryVersionResponse | undefined>;
-  // the version picked, which the answer on hand may not be yet
   rev: string;
   mode: DiffMode;
   layout: DiffLayout;
@@ -223,13 +210,9 @@ function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Ele
 export interface HistoryDialogProps {
   path: string;
   onClose: () => void;
-  // onNoteChanged lets the note behind the dialog read its text again, after a
-  // restore or after a conflict showed it had changed
   onNoteChanged: () => void;
 }
 
-// HistoryDialog is the history of a note over the note itself: what the picked
-// version changed on the left, every version on the right, Restore below them
 export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogProps): JSX.Element {
   const { canWrite } = useNav();
   const reportMutation = useMutationState();
@@ -246,8 +229,6 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
 
   const history = useApi((signal) => api.history(path, { signal }), [path, token]);
 
-  // the revision on disk a restore is checked against, empty for a note that
-  // was deleted. Only a reader who may write ever needs it.
   const disk = useApi<string | undefined>(
     (signal) => (canWrite ? diskRev(path, signal) : Promise.resolve(undefined)),
     [path, canWrite, token],
@@ -269,8 +250,6 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
   const rev = disk.data;
 
   async function runRestore(entry: HistoryEntry, base: string): Promise<void> {
-    // a second restore carries the revision this page was built from, which the
-    // first one has already moved past
     if (restoring) {
       return;
     }
@@ -392,8 +371,6 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
             )}
             <CloseButton data-testid="history-close" aria-label="Close the history" onClick={onClose} />
           </div>
-          {/* the dialog takes the focus here and not on its close button, which would
-              stand ringed the moment it opens */}
           <div className={classes.list} tabIndex={-1} data-autofocus>
             <AsyncContent state={history} testId="history">
               {(data) =>

@@ -21,8 +21,6 @@ async function signOut(): Promise<void> {
   goToLogin();
 }
 
-// SpaceMenu is the foot of the sidebar: the space's button, with the space's
-// menu opening above it
 export function SpaceMenu(): JSX.Element {
   const { me } = useNav();
   const name = spaceLabel(me);
@@ -37,9 +35,6 @@ export function SpaceMenu(): JSX.Element {
   );
 }
 
-// SpaceMenuDropdown is everything about the space and the reader: the account,
-// the spaces to switch to, the theme, the keys and signing out. A switch is a
-// full page load, which boots the shell again under the space's own basename.
 export function SpaceMenuDropdown(): JSX.Element {
   const { me } = useNav();
   const { openShortcuts } = useReaderLayout();

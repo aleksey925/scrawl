@@ -9,13 +9,8 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-// footnoteBacklinkGlyph is the character GitHub puts on a back reference.
 const footnoteBacklinkGlyph = "↩"
 
-// footnoteRenderer replaces goldmark's own footnote output. goldmark emits
-// "fn:1"/"fnref:1" ids, a <div class="footnotes"> wrapper and role attributes;
-// the frontend contract asks for "fn-1"/"fnref-1", a <section> and the classes
-// below, so all four footnote nodes are rendered here instead.
 type footnoteRenderer struct{}
 
 func (r *footnoteRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
@@ -88,8 +83,6 @@ func (r *footnoteRenderer) renderList(
 	return ast.WalkContinue, nil
 }
 
-// footnoteRefID is the id of one reference. The second and later references to
-// the same footnote get a suffix, so each back reference has its own target.
 func footnoteRefID(index, refIndex int) string {
 	id := "fnref-" + strconv.Itoa(index)
 	if refIndex > 0 {

@@ -14,11 +14,7 @@ import { ScreenReady } from './screenMotion';
 
 export interface AsyncContentProps<T> {
   state: AsyncState<T>;
-  // the screen this is standing in for, so its waiting and failed states are
-  // reachable under that screen's own name
   testId?: string;
-  // page draws the waiting and the failure on a page of their own, for a
-  // screen whose answer is the whole page
   page?: boolean;
   children: (data: T) => ReactNode;
 }
@@ -30,7 +26,6 @@ export function AsyncContent<T>({ state, testId, page = false, children }: Async
     if (elsewhere !== undefined) {
       return <Navigate to={elsewhere.url} replace />;
     }
-    // a failed page hands in no chrome, and the last page's names another page
     return framed(
       <>
         {page && <RouteChrome />}

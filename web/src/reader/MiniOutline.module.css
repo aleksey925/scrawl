@@ -1,5 +1,3 @@
-/* the outline floats at the right edge of the page's column, in the middle of
-   its height: a dash a heading, the list itself on hover or focus */
 .outline {
   position: fixed;
   inset-inline-end: 14px;

@@ -24,58 +24,36 @@ const (
 	defaultRawPrefix  = "/raw/"
 )
 
-// Heading is one entry of the table of contents.
 type Heading struct {
 	Level int    `json:"level"`
 	Text  string `json:"text"`
 	ID    string `json:"id"`
 }
 
-// Result is a rendered document.
 type Result struct {
-	HTML  template.HTML
-	Title string
-	TOC   []Heading
-	// Diagrams is whether the HTML holds a mermaid diagram to draw.
+	HTML     template.HTML
+	Title    string
+	TOC      []Heading
 	Diagrams bool
-	// Math is whether the HTML holds a formula to typeset.
-	Math bool
+	Math     bool
 }
 
-// Options configures a Renderer.
 type Options struct {
-	// LinkExists reports whether a content path exists. Optional; when set,
-	// links to missing files are marked with the "broken" class.
 	LinkExists func(contentPath string) bool
-	// PagePrefix is the route prefix for markdown documents, "/doc/" by default.
 	PagePrefix string
-	// RawPrefix is the route prefix for every other file, "/raw/" by default.
-	RawPrefix string
-	// Relative keeps a relative link as it was written instead of mapping it
-	// onto the app routes, for HTML read outside the app. PagePrefix and
-	// RawPrefix do not apply then.
-	Relative bool
-	// PageExt replaces the ".md" of a relative link to a document when
-	// Relative is set, so a page rendered to "a.html" links to "b.html".
-	PageExt string
-	// FolderPage is the file a folder is shown by when Relative is set, as
-	// "index.html": a relative link to a folder points there, because a folder
-	// opened from disk is the system's listing.
+	RawPrefix  string
+	Relative   bool
+	PageExt    string
 	FolderPage string
-	// IndexPage is the file a folder's index.md is written to when Relative is
-	// set, as "index.md.html": the folder's own page is its list.
-	IndexPage string
+	IndexPage  string
 }
 
-// Renderer turns markdown into sanitized HTML. It is safe for concurrent use:
-// all per-document state lives in the parser.Context.
 type Renderer struct {
 	md     goldmark.Markdown
 	policy *bluemonday.Policy
 	links  *linkTransformer
 }
 
-// New builds a renderer. One instance serves every request.
 func New(opts Options) *Renderer {
 	if opts.PagePrefix == "" {
 		opts.PagePrefix = defaultPagePrefix
@@ -92,28 +70,18 @@ func New(opts Options) *Renderer {
 		indexPage:  opts.IndexPage,
 		exists:     opts.LinkExists,
 	}
-	// goldmark's indented code block parser is kept on purpose: without it
-	// goldmark drops any top-level 4-space-indented line, silently.
 	md := goldmark.New(
 		goldmark.WithExtensions(
-			// not extension.GFM: the default table renderer emits
-			// style="text-align:...", which the sanitizer strips
 			extension.NewTable(
 				extension.WithTableCellAlignMethod(extension.TableCellAlignAttribute),
 			),
 			extension.Strikethrough,
 			extension.TaskList,
-			// GitHub links a bare URL too
 			extension.NewLinkify(
 				extension.WithLinkifyURLRegexp(linkifyURLRegexp),
 				extension.WithLinkifyWWWRegexp(linkifyWWWRegexp),
 			),
-			// the shape of the footnote output is not goldmark's: see
-			// footnote.go, which re-renders all four of its nodes
 			extension.Footnote,
-			// GitHub replaces a shortcode with the unicode character; the
-			// parser only fires on a name it knows, so ":" in prose and in
-			// code is left alone
 			emoji.New(emoji.WithRenderingMethod(emoji.Unicode)),
 			highlighting.NewHighlighting(
 				highlighting.WithCustomStyle(markupStyle),
@@ -134,9 +102,7 @@ func New(opts Options) *Renderer {
 			),
 		),
 		goldmark.WithRendererOptions(
-			html.WithUnsafe(), // <a name>, <details>; bluemonday cleans up after
-			// a lower number wins, so these override the extensions that
-			// registered the same node kinds at 500
+			html.WithUnsafe(),
 			renderer.WithNodeRenderers(
 				util.Prioritized(&tableWrapRenderer{}, 100),
 				util.Prioritized(&indentedCodeRenderer{}, 100),
@@ -152,8 +118,6 @@ func New(opts Options) *Renderer {
 	return &Renderer{md: md, policy: newPolicy(), links: links}
 }
 
-// Render converts one document. docPath is the content path of the source,
-// used to resolve relative links and as the title fallback.
 func (r *Renderer) Render(src []byte, docPath string) (Result, error) {
 	doc := preprocess(src)
 	root, pctx := r.parse(doc, docPath)
@@ -174,8 +138,6 @@ func (r *Renderer) Render(src []byte, docPath string) (Result, error) {
 	}, nil
 }
 
-// RenderInline converts a document without extracting the outline. It is the
-// editor preview path, and produces byte-identical HTML to Render.
 func (r *Renderer) RenderInline(src []byte, docPath string) (template.HTML, error) {
 	doc := preprocess(src)
 	root, pctx := r.parse(doc, docPath)
@@ -203,7 +165,6 @@ func (r *Renderer) finish(root ast.Node, source []byte, pctx parser.Context) (te
 	return template.HTML(clean), nil //nolint:gosec // sanitized by bluemonday above
 }
 
-// contentDir is the directory of a content path, "" for the root.
 func contentDir(docPath string) string {
 	dir := path.Dir(strings.TrimPrefix(path.Clean("/"+docPath), "/"))
 	if dir == "." || dir == "/" {
@@ -212,7 +173,6 @@ func contentDir(docPath string) string {
 	return dir
 }
 
-// titleFromPath is the fallback title: the file name without its extension.
 func titleFromPath(docPath string) string {
 	name := path.Base(strings.TrimSuffix(docPath, "/"))
 	if name == "." || name == "/" || name == "" {

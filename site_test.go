@@ -21,7 +21,6 @@ import (
 	"github.com/aleksey925/scrawl/view"
 )
 
-// writeTree creates files under dir, keyed by slash-separated paths.
 func writeTree(t *testing.T, dir string, files map[string]string) {
 	t.Helper()
 	for name, content := range files {
@@ -31,7 +30,6 @@ func writeTree(t *testing.T, dir string, files map[string]string) {
 	}
 }
 
-// listTree is every file under dir, as sorted slash-separated relative paths.
 func listTree(t *testing.T, dir string) []string {
 	t.Helper()
 	res := []string{}
@@ -57,7 +55,6 @@ func readSite(t *testing.T, dir, name string) string {
 
 var pageData = regexp.MustCompile(`<script type="application/json" data-scrawl="page">(.*?)</script>`)
 
-// readPageData is the JSON a page carries, decoded the way the reader decodes it
 func readPageData(t *testing.T, dir, name string) map[string]any {
 	t.Helper()
 	match := pageData.FindStringSubmatch(readSite(t, dir, name))
@@ -67,7 +64,6 @@ func readPageData(t *testing.T, dir, name string) map[string]any {
 	return res
 }
 
-// jsonOf is a value as the reader sees it once it went through JSON
 func jsonOf(t *testing.T, value any) any {
 	t.Helper()
 	data, err := json.Marshal(value)
@@ -85,7 +81,6 @@ func openNotes(t *testing.T, dir string) *store.Store {
 	return st
 }
 
-// siteAssetFiles are the files of scrawl/ every site has
 var siteAssetFiles = []string{
 	"scrawl/boot.js", "scrawl/chroma.css", "scrawl/favicon.svg", "scrawl/site.css", "scrawl/site.js", "scrawl/tree.js",
 }

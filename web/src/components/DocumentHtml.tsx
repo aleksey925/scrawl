@@ -23,10 +23,7 @@ import '../reader/markdown.css';
 
 export interface DocumentHtmlProps {
   html: string;
-  // with the headings given, the outline fills the shell's toc slot with the
-  // scrollspy one: only this component holds the elements it follows
   toc?: Heading[];
-  // true while the reading anchor is placing this arrival
   placed?: RefObject<boolean>;
 }
 
@@ -44,7 +41,6 @@ export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Elem
       closeViewer.current = openViewer(imagesOf(root), image);
     }
   }, []);
-  // the viewer is a dialog on the body, so it outlives a note it is not closed with
   useEffect(
     () => () => {
       closeViewer.current?.();
@@ -66,9 +62,6 @@ export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Elem
         </PageToc>
       )}
 
-      {/* the one place in the app that injects html. What arrives here was
-          rendered and sanitized on the server by the bluemonday policy in
-          render/policy.go. */}
       <div
         ref={rootRef}
         data-testid="doc"
@@ -82,8 +75,6 @@ export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Elem
   );
 }
 
-// selectedText is the selection inside the note, when it is a piece of one
-// line worth finding
 function selectedText(root: HTMLElement): string | undefined {
   const selection = window.getSelection();
   if (selection === null || selection.rangeCount === 0 || !root.contains(selection.anchorNode)) {
@@ -93,8 +84,6 @@ function selectedText(root: HTMLElement): string | undefined {
   return text === '' || text.includes('\n') ? undefined : text;
 }
 
-// useFindShortcut takes Cmd+F while the note is on screen and offers the same
-// opening to the note's menu. A second Cmd+F in the bar is the browser's.
 function useFindShortcut(rootRef: RefObject<HTMLDivElement | null>, open: (text?: string) => void): void {
   const { register } = useFindControl();
 

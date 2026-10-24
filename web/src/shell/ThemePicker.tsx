@@ -12,8 +12,6 @@ const options = [
   ...themes.map((entry) => ({ value: entry.id, icon: entry.scheme === 'dark' ? IconMoon : IconSun, label: entry.name })),
 ];
 
-// ThemePicker is the theme row of a menu: every theme is one press away, where
-// a single item had to be pressed through the others to reach the one wanted
 export function ThemePicker(): JSX.Element {
   const { setColorScheme } = useMantineColorScheme();
   const choice = useThemeChoice();

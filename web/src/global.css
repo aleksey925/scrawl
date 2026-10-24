@@ -1,4 +1,3 @@
-/* the width a note is read at, which the reader picks in the note's menu */
 :root {
   --scrawl-note-width: var(--scrawl-note-width-normal);
 }
@@ -7,23 +6,15 @@
   --scrawl-note-width: var(--scrawl-note-width-wide);
 }
 
-/* the room the bar of tabs takes at the bottom of a phone, which the bar sets
-   while it is on screen */
 :root {
   --scrawl-tabbar-space: 0px;
 }
 
-/* a tap answers the way it does in an app: what is pressed darkens a moment
-   after the finger lands, so a finger that only starts a scroll leaves no
-   flash, and fades back when it lifts */
 :root {
   --scrawl-press-in: background-color 0s 60ms, opacity 0s 60ms;
   --scrawl-press-out: background-color 150ms ease-out, opacity 150ms ease-out;
 }
 
-/* on a touch screen the chrome is not text: a long press on a name neither
-   selects it nor opens the browser's preview of the link. A note, code and
-   what a reader types still select. */
 @media (hover: none) {
   body {
     -webkit-touch-callout: none;

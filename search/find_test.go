@@ -12,7 +12,6 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// findIndex is an index over the notes given by path
 func findIndex(t *testing.T, notes map[string]string) *Index {
 	t.Helper()
 	ix := New()
@@ -30,7 +29,6 @@ func paths(found Found) []string {
 	return res
 }
 
-// hits are the matched pieces of every line of a result
 func hits(r Result) []string {
 	res := []string{}
 	for _, matched := range r.Lines {
@@ -438,7 +436,6 @@ func TestFindStopsAtTheDeadline(t *testing.T) {
 	assert.True(t, got.Truncated)
 }
 
-// cancelAfter is a context that ends at its calls-th look at Err
 type cancelAfter struct {
 	context.Context
 	calls int

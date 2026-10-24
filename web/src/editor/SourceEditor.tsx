@@ -11,15 +11,12 @@ import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { codeLanguageOf } from './codeLanguages';
 import classes from './Editor.module.css';
 
-// the colors are the theme's properties, so one style serves every theme
 const highlighting = syntaxHighlighting(
   HighlightStyle.define([
     { tag: tags.heading, fontWeight: 'var(--scrawl-strong-weight)', color: 'var(--scrawl-text)' },
     { tag: tags.strong, fontWeight: 'var(--scrawl-strong-weight)' },
     { tag: tags.emphasis, fontStyle: 'italic' },
     { tag: tags.strikethrough, textDecoration: 'line-through' },
-    // a later rule wins on a range two tags share, so the marks and the address
-    // inside a link come after the link
     { tag: tags.link, color: 'var(--scrawl-accent)' },
     { tag: [tags.processingInstruction, tags.contentSeparator, tags.labelName], color: 'var(--scrawl-text-tertiary)' },
     { tag: [tags.url, tags.meta], color: 'var(--scrawl-text-tertiary)' },
@@ -35,8 +32,6 @@ const highlighting = syntaxHighlighting(
   ]),
 );
 
-// the editor's own surface: the page's ground, no box and no gutter fill, a
-// caret and a selection in the theme's colors
 function surface(dark: boolean): Extension {
   return EditorView.theme(
     {
@@ -59,13 +54,10 @@ export interface DroppedFiles {
   at: number | undefined;
 }
 
-// EditorKind is what the buffer holds: a note, written in markdown, or a text file
-// of any other kind, which is only text
 export type EditorKind = 'markdown' | 'text';
 
 export interface SourceEditorProps {
   kind: EditorKind;
-  // name picks the colors of a text file, by its extension
   name: string;
   value: string;
   readOnly: boolean;
@@ -73,13 +65,9 @@ export interface SourceEditorProps {
   wrap: boolean;
   onChange: (value: string) => void;
   onCreate: (view: EditorView) => void;
-  // onFiles takes a picture dropped or pasted in; a text file has nowhere to
-  // show one, so it takes none
   onFiles?: (dropped: DroppedFiles) => void;
 }
 
-// useCodeLanguage loads the colors of a text file's language, when codemirror
-// knows one by the file's name; a file it does not know stays plain
 function useCodeLanguage(kind: EditorKind, name: string): Extension | undefined {
   const [language, setLanguage] = useState<Extension | undefined>(undefined);
   useEffect(() => {
@@ -130,9 +118,6 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
           if (files.length === 0 || handlers.current.readOnly || take === undefined) {
             return false;
           }
-          // Word and Excel put a screenshot on the clipboard beside the text,
-          // and uploading that picture instead of pasting the text is never
-          // what was meant
           if (Array.from(data?.types ?? []).includes('text/plain')) {
             return false;
           }
@@ -155,8 +140,6 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
           if (files.length === 0) {
             return false;
           }
-          // a file dropped where it cannot go would otherwise be opened by the
-          // browser in place of the editor and its unsaved text
           event.preventDefault();
           const take = handlers.current.onFiles;
           if (take !== undefined && !handlers.current.readOnly) {

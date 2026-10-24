@@ -166,7 +166,7 @@ func (ix *Index) fuzzy(q Query, limit int) Found {
 		slots[k] = s
 	}
 
-	top := ix.top(parsed, slots, limit)
+	top := ix.top(parsed, slots, limit, q.TitlesOnly)
 	res := Found{Results: make([]Result, 0, len(top))}
 	for _, cand := range top {
 		res.Results = append(res.Results, cand.doc.fuzzyResult(parsed.terms, cand, q.TitlesOnly))

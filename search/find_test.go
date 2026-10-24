@@ -279,6 +279,21 @@ func TestFindTitlesOnly(t *testing.T) {
 	}
 }
 
+func TestFindTitlesOnlyMatchesAPhraseInTheTitle(t *testing.T) {
+	// arrange
+	ix := findIndex(t, map[string]string{
+		"foo bar.md": "unrelated text\n",
+		"bar foo.md": "the body says foo bar\n",
+	})
+
+	// act
+	got, err := ix.Find(context.Background(), Query{Text: `"foo bar"`, Mode: ModeFuzzy, TitlesOnly: true}, 10)
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, []string{"foo bar.md"}, paths(got))
+}
+
 func TestFindTitlesOnlyCountsTheTitleMatches(t *testing.T) {
 	// arrange
 	ix := findIndex(t, map[string]string{

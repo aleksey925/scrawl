@@ -52,6 +52,7 @@ import { uploadAccept } from './constants';
 import { confirmLeave, openConflict, openSessionExpired } from './dialogs';
 import { formatMarkdown, replaceText, warmFormatter } from './format';
 import classes from './Editor.module.css';
+import { lineBreakOf, toEditorText, withLineBreak } from './lineBreaks';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { createPaneSync } from './paneSync';
 import { useDraft } from './useDraft';
@@ -116,13 +117,16 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const fileName = basenameOf(path);
   const formattable = !readOnly && kind === 'markdown';
   const formatOnSave = props.formatOnSave && formattable;
+  // prettier ends every line with \n, so a note it formats keeps no other break
+  const lineBreak = formatOnSave ? '\n' : lineBreakOf(initialContent);
+  const editorText = useMemo(() => toEditorText(initialContent), [initialContent]);
   const navigate = useNavigate();
   const { refreshMe } = useNav();
   const reportMutation = useMutationState();
   const location = useLocation();
 
-  const [content, setContent] = useState(initialContent);
-  const [saved, setSaved] = useState(initialContent);
+  const [content, setContent] = useState(editorText);
+  const [saved, setSaved] = useState(editorText);
   const [rev, setRev] = useState(initialRev);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<EditorView | undefined>(undefined);
@@ -152,7 +156,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   const preview = usePreview(content, path, mode !== 'source');
   const uploads = useUploads(path, useCallback(() => viewRef.current, []));
-  const draft = useDraft({ path, rev, content, dirty, savedContent: initialContent });
+  const draft = useDraft({ path, rev, content, dirty, savedContent: editorText });
 
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -411,7 +415,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       // other, so the response goes to the hook rather than being discarded
       // before the navigation. The toast and the refresh both survive it:
       // showToast is module level and NavProvider sits above the router.
-      reportMutation(await api.saveFile(copyPath, { content: sent, rev: '' }), 'Saved as a copy');
+      reportMutation(
+        await api.saveFile(copyPath, { content: withLineBreak(sent, lineBreak), rev: '' }),
+        'Saved as a copy',
+      );
       setSaved(sent);
       draftRef.current.clear();
       leavingRef.current = true;
@@ -419,7 +426,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     } catch (error: unknown) {
       showToast('error', { message: errorText(error) });
     }
-  }, [navigate, path, reportMutation]);
+  }, [lineBreak, navigate, path, reportMutation]);
 
   const save = useCallback(
     async (withRev?: string): Promise<void> => {
@@ -450,13 +457,13 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         }
         draftRef.current.flush();
         const res = await api.saveFile(path, {
-          content: sent,
+          content: withLineBreak(sent, lineBreak),
           rev: withRev ?? revRef.current,
           formatted,
         });
-        const shown =
-          res.content === undefined ? bufferText() === sent : putFormatted(sent, res.content);
-        markSaved(res.content ?? sent, res.rev, shown);
+        const stored = res.content === undefined ? undefined : toEditorText(res.content);
+        const shown = stored === undefined ? bufferText() === sent : putFormatted(sent, stored);
+        markSaved(stored ?? sent, res.rev, shown);
         if (res.format_failed === true) {
           showToast('warn', {
             title: 'Saved without formatting',
@@ -474,7 +481,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           }
           // a response lost on the way back leaves the write done and this
           // editor a revision behind, so the retry collides with its own text
-          if (current.content === sent) {
+          const theirs = toEditorText(current.content);
+          if (theirs === sent) {
             markSaved(sent, current.rev, bufferText() === sent);
             showToast('ok', { message: 'Saved' });
             // the response that carried the state never arrived, so there is
@@ -485,7 +493,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           }
           openConflict({
             mine: sent,
-            theirs: current.content,
+            theirs,
             onOverwrite: () => void save(current.rev),
             onCopy: () => void saveCopy(),
           });
@@ -506,6 +514,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       bufferText,
       formatBuffer,
       formatOnSave,
+      lineBreak,
       markSaved,
       path,
       putFormatted,

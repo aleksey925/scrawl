@@ -352,8 +352,9 @@ type scored struct {
 }
 
 // top scores every document that holds all the query terms and keeps the best
-// limit of them that also hold the quoted phrases
-func (ix *Index) top(q parsedQuery, slots []slot, limit int) []topDoc {
+// limit of them that also hold the quoted phrases, in the title alone when
+// titlesOnly is set
+func (ix *Index) top(q parsedQuery, slots []slot, limit int, titlesOnly bool) []topDoc {
 	n := float64(len(ix.docs))
 	avg := math.Max(float64(ix.length)/n, 1)
 	idf := inverseFreq(slots, n)
@@ -387,7 +388,10 @@ func (ix *Index) top(q parsedQuery, slots []slot, limit int) []topDoc {
 			break
 		}
 		collect(slots, cand.doc.id, match, boost)
-		if !matchesPhrases(cand.doc.plain, q, match) {
+		if titlesOnly && !titleMatchesPhrases(cand.doc.title, q) {
+			continue
+		}
+		if !titlesOnly && !matchesPhrases(cand.doc.plain, q, match) {
 			continue
 		}
 		top = append(top, topDoc{scored: cand, match: slices.Clone(match)})
@@ -403,7 +407,7 @@ type topDoc struct {
 }
 
 func (ix *Index) rank(q parsedQuery, slots []slot, limit int) []Hit {
-	top := ix.top(q, slots, limit)
+	top := ix.top(q, slots, limit, false)
 	hits := make([]Hit, 0, len(top))
 	for _, cand := range top {
 		snippet, line := cand.doc.snippet(q.terms, cand.match)
@@ -576,6 +580,21 @@ func matchesPhrases(plain string, q parsedQuery, match []*posting) bool {
 		}
 		found := slices.ContainsFunc(match[k].offs, func(off int32) bool {
 			return phraseAt(plain, phrase, int(off))
+		})
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+// titleMatchesPhrases reports whether the title holds every quoted phrase
+func titleMatchesPhrases(title string, q parsedQuery) bool {
+	text := normalize(title)
+	words := tokenize(text)
+	for _, phrase := range q.phrases {
+		found := slices.ContainsFunc(words, func(tok token) bool {
+			return tok.term == phrase[0] && phraseAt(text, phrase, tok.off)
 		})
 		if !found {
 			return false

@@ -287,6 +287,37 @@ test.describe('editing', () => {
             await shot(page, 'editing-plain-text');
         });
 
+        test('a file with CRLF line breaks is saved with them and is clean after the save', async ({page}) => {
+            // arrange
+            const filePath = `${TEXT_DIR}/windows.txt`;
+            const written = 'one\r\ntwo\r\n';
+            writeFixture(filePath, written);
+            await page.goto(routes.edit(filePath));
+            await expect.poll(() => sourceText(page)).toBe('one\ntwo\n');
+
+            // act
+            await save(page);
+
+            // assert
+            await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'false');
+            await expect.poll(() => readFixture(filePath)).toBe(written);
+        });
+
+        test('an edit to a file with CRLF line breaks keeps them', async ({page}) => {
+            // arrange
+            const filePath = `${TEXT_DIR}/windows-edited.txt`;
+            writeFixture(filePath, 'one\r\ntwo\r\n');
+            await page.goto(routes.edit(filePath));
+            await expect.poll(() => sourceText(page)).toBe('one\ntwo\n');
+
+            // act
+            await setSource(page, 'one\ntwo\nthree\n');
+            await save(page);
+
+            // assert
+            await expect.poll(() => readFixture(filePath)).toBe('one\r\ntwo\r\nthree\r\n');
+        });
+
         test('a file of a known language is named and colored as code', async ({page}) => {
             // arrange
             const filePath = `${TEXT_DIR}/colored.py`;

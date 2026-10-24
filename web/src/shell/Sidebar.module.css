@@ -138,6 +138,12 @@
   font-weight: var(--scrawl-current-weight);
 }
 
+.navKeys {
+  margin-inline-start: auto;
+  color: var(--scrawl-text-tertiary);
+  font-size: var(--mantine-font-size-xs);
+}
+
 .homeRow {
   background: var(--scrawl-selected);
   color: var(--scrawl-text);

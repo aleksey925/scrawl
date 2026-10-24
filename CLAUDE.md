@@ -89,9 +89,10 @@ vendor/                dependencies, checked in, `make deps` regenerates
   it, and a new entry at the right, the sidebar's one way to make one:
   New file or New folder, in the row that is picked, else in the folder
   of the page on screen, and the menu names that folder. Search and Home
-  are the two rows under it, and Home is always filled with the current
-  row's gray, on the home page or not. The label over the tree is the space's name
-  and the root folder: it opens the root's list and takes a drop. The
+  are the two rows under it. Search shows its key, `⌘K`, at its end
+  where there is a keyboard, and Home is always filled with the current
+  row's gray, on the home page or not. The label over the tree is the
+  space's name and the root folder: it opens the root's list and takes a drop. The
   foot is the space's button under a line across the sidebar, as wide as
   it: the app's logo, the space's name and a chevron at the right edge,
   and it opens one menu upward: the account, the spaces with a check on

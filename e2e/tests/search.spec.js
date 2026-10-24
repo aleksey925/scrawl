@@ -370,6 +370,32 @@ test.describe('find in the note', () => {
         await expect(page.getByTestId('find-hit')).toHaveText(['foo ', 'bar']);
     });
 
+    test('a find worker that is gone reloads the note, and the find counts after it', async ({page}) => {
+        // arrange
+        let asked = 0;
+        await page.route('**/assets/findWorker.js', async (route) => {
+            asked += 1;
+            if (asked === 1) {
+                await route.fulfill({status: 404, body: 'gone'});
+                return;
+            }
+            await route.continue();
+        });
+        await openFind(page);
+        const reloaded = page.waitForEvent('load');
+
+        // act
+        await page.keyboard.type('foo');
+
+        // assert
+        await reloaded;
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await openFind(page);
+        await page.keyboard.type('foo');
+        await expect(page.getByTestId('doc-find-count')).toHaveAttribute('data-total', '3');
+        expect(asked).toBe(2);
+    });
+
     test('a bad pattern says so and an empty match counts nothing', async ({page}) => {
         // arrange
         const counter = page.getByTestId('doc-find-count');

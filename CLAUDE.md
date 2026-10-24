@@ -271,8 +271,10 @@ vendor/                dependencies, checked in, `make deps` regenerates
   server takes at startup and vite's relative base passes on to every
   chunk a page imports later. The server answers that digest only, and
   lets a browser keep the files a year. A page left open across an
-  upgrade finds its next chunk gone and loads again, at the address it
-  was going to. A chunk made of a package's index is named after the
+  upgrade finds its next chunk, or the find's worker, gone and loads
+  again, at the address it was going to, unless leaving would ask about
+  unsaved changes: a reload that prompt refused left every chunk
+  waiting for a page that never came. A chunk made of a package's index is named after the
   package: rolldown names it after the file, and the index of every
   codemirror language came out as `dist`, `dist2` and on in the order met,
   so one language more renamed the rest.

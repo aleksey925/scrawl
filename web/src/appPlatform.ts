@@ -3,7 +3,7 @@ import { mountBase } from './mount';
 import type { Platform } from './platform';
 import { FindTimeout, type FindMatch, type FindPattern } from './reader/findMatches';
 import { internalTarget } from './reader/links';
-import { loadChunk } from './staleBundle';
+import { loadChunk, reloadForStaleBundle } from './staleBundle';
 
 // findDeadlineMs is how long a find of a note may run before its worker is
 // stopped: a regular expression can run for minutes and freeze the tab
@@ -30,9 +30,14 @@ function runFind(texts: string[], pattern: FindPattern, signal: AbortSignal): Pr
       stop();
       resolve(event.data);
     });
-    worker.addEventListener('error', (event) => {
+    worker.addEventListener('error', (event: Event) => {
       stop();
-      reject(new Error(event.message));
+      // a worker that never loaded gets a plain event and not an ErrorEvent,
+      // and after an upgrade its file is gone like any chunk of the release
+      if (!(event instanceof ErrorEvent) && reloadForStaleBundle()) {
+        return;
+      }
+      reject(new Error(event instanceof ErrorEvent ? event.message : 'the find worker did not load'));
     });
     worker.postMessage({ texts, pattern });
   });

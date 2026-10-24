@@ -12,6 +12,7 @@ const lightTheme = require('../../theme/themes/light.json');
 const MISSING = docs.missing;
 const COLLIDE = 'e2e-collisions.md';
 const MATH = 'e2e-pages-math.md';
+const GUARDED = 'e2e-pages-guarded.md';
 const TOKENS = 'e2e-pages-tokens.md';
 
 const ROUTES = [
@@ -110,6 +111,35 @@ test.describe('pages', () => {
         await expect(page.getByTestId('app-error-message')).toBeVisible();
         await expect(page).toHaveURL(MAIN.url.edit(docs.doc.path));
         await stays(() => loads, 1, 500);
+    });
+
+    // a reload the browser's leave prompt refuses leaves the page waiting on a
+    // chunk that never comes
+    test('a chunk that is gone under unsaved changes shows its error and brings up no leave prompt', async ({page}) => {
+        // arrange
+        writeFixture(GUARDED, 'kept\n');
+        try {
+            await page.route('**/assets/DocumentPage.js', (route) => route.fulfill({status: 404, body: 'gone'}));
+            await page.goto(routes.edit(GUARDED));
+            await expect(page.getByTestId('editor-source')).toBeVisible();
+            await setSource(page, 'typed but not saved\n');
+            await expect(page.getByTestId('editor-status')).toHaveAttribute('data-dirty', 'true');
+            const prompts = [];
+            page.on('dialog', (dialog) => {
+                prompts.push(dialog.type());
+                void dialog.dismiss();
+            });
+
+            // act
+            await page.getByTestId('editor-cancel').click();
+            await page.getByTestId('modal-confirm').click();
+
+            // assert
+            await expect(page.getByTestId('app-error-message')).toBeVisible();
+            expect(prompts).toEqual([]);
+        } finally {
+            removeFixture(GUARDED);
+        }
     });
 
     test('a chunk a note asks for that is gone reloads the note', async ({page}) => {

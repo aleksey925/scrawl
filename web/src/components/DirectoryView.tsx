@@ -76,42 +76,46 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
           <FolderMenu path={path} actions={actions} />
         </PageActions>
       )}
-      <PageTitle testId="dir-title">{path === '' ? space : dir.title}</PageTitle>
+      <div className={classes.head}>
+        <PageTitle testId="dir-title">{path === '' ? space : dir.title}</PageTitle>
+        {writable && !phone && (
+          <PopupMenu position="bottom-end" width={layout.menuWidthNarrow} withinPortal>
+            <Menu.Target>
+              <Button
+                data-testid="dir-new"
+                className={classes.new}
+                rightSection={<IconChevronDown size={layout.iconSizeSmall} />}
+              >
+                New
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item
+                data-testid="dir-new-file"
+                leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
+                onClick={() => startDraft('file')}
+              >
+                New file
+              </Menu.Item>
+              <Menu.Item
+                data-testid="dir-new-folder"
+                leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
+                onClick={() => startDraft('dir')}
+              >
+                New folder
+              </Menu.Item>
+            </Menu.Dropdown>
+          </PopupMenu>
+        )}
+      </div>
       <div className={classes.bar}>
         <div className={classes.tab}>
           <IconTable size={layout.iconSizeSmall} />
           Files
         </div>
-        <div className={classes.tools}>
-          <span data-testid="dir-count" className={classes.count}>
-            {countOf(dir.entries.length, 'item')}
-          </span>
-          {writable && !phone && (
-            <PopupMenu position="bottom-end" width={layout.menuWidthNarrow} withinPortal>
-              <Menu.Target>
-                <Button data-testid="dir-new" size="xs" rightSection={<IconChevronDown size={layout.iconSizeTiny} />}>
-                  New
-                </Button>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Item
-                  data-testid="dir-new-file"
-                  leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-                  onClick={() => startDraft('file')}
-                >
-                  New file
-                </Menu.Item>
-                <Menu.Item
-                  data-testid="dir-new-folder"
-                  leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-                  onClick={() => startDraft('dir')}
-                >
-                  New folder
-                </Menu.Item>
-              </Menu.Dropdown>
-            </PopupMenu>
-          )}
-        </div>
+        <span data-testid="dir-count" className={classes.count}>
+          {countOf(dir.entries.length, 'item')}
+        </span>
       </div>
       {(dir.entries.length > 0 || draft !== undefined) && (
         <DirTable

@@ -1,5 +1,24 @@
-/* a folder is a Notion database: a bar with its one view and the count over
-   the table */
+/* a folder is a Notion database: its title with New at the right, as Notion
+   puts New page, then a bar with its one view and the count over the table */
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.head > h1 {
+  min-width: 0;
+}
+
+.new {
+  --button-height: 32px;
+  --button-padding-x: 12px;
+  --button-fz: 15px;
+  flex: none;
+  font-weight: 600;
+}
+
 .bar {
   display: flex;
   align-items: flex-end;
@@ -25,15 +44,9 @@
   color: var(--scrawl-icon-secondary);
 }
 
-.tools {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding-bottom: 4px;
-}
-
 .count {
   margin-inline-end: 4px;
+  padding-bottom: 8px;
   color: var(--scrawl-text-tertiary);
   font-size: 13px;
   font-variant-numeric: tabular-nums;

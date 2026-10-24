@@ -152,7 +152,9 @@ vendor/                dependencies, checked in, `make deps` regenerates
   position from, is the bottom of the topbar. History is among the actions only
   where the space records versions. A folder is always its list, the root
   included: a Notion database of Name, Size and Modified led by a `..`
-  row, and a click anywhere on a row opens it. Its `index.md` is a row
+  row, and a click anywhere on a row opens it. New, a file or a folder,
+  is a large main button at the right of the folder's title, where
+  Notion puts New page. Its `index.md` is a row
   like any other, in its place by name, with a "Folder page" tag, and no
   readme is shown under the list; Home in the sidebar opens the root
   `index.md`, or the root's list when there is none. A folder holding two

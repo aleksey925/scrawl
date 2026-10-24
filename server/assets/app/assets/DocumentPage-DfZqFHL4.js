@@ -1,0 +1,1 @@
+import{Kt as e,W as t,Z as n,lt as r}from"./PageChrome-agd5hnKa.js";import{t as i}from"./DirectoryView-BoH5PcUs.js";import{t as a}from"./DocumentView-CR2gh9pO.js";var o=e();function s(){let e=r()[`*`]??``;return t(e)?(0,o.jsx)(i,{path:n(e)}):(0,o.jsx)(a,{path:e})}export{s as Component};

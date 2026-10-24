@@ -154,7 +154,13 @@ vendor/                dependencies, checked in, `make deps` regenerates
   included: a Notion database of Name, Size and Modified led by a `..`
   row, and a click anywhere on a row opens it. New, a file or a folder,
   is a large main button at the right of the folder's title, where
-  Notion puts New page. Its `index.md` is a row
+  Notion puts New page. The table is Notion's too: its one view a gray
+  pill with no line under it, no line between the columns, which read as
+  a spreadsheet, and columns of their own width in Notion's proportions,
+  the name about twice each of the others, with an empty one at the end
+  taking the rest and the row lines running across it, so a date is not
+  a screen away from its name. On a narrow page the name gives way. Its
+  `index.md` is a row
   like any other, in its place by name, with a "Folder page" tag, and no
   readme is shown under the list; Home in the sidebar opens the root
   `index.md`, or the root's list when there is none. A folder holding two

@@ -1,13 +1,17 @@
-/* the table of a folder: name, size and the time it changed, split by faint
-   lines */
+/* the table of a folder: name, size and the time it changed, rows split by
+   faint lines and no line between the columns */
 .wrap {
+  --col-name: 320px;
+  --col-other: 150px;
   overflow-x: auto;
+  container-type: inline-size;
 }
 
 .table {
   width: 100%;
   min-width: 460px;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: var(--mantine-font-size-sm);
 }
 
@@ -18,11 +22,6 @@
   border-bottom: 1px solid var(--scrawl-border-light);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.table th + th,
-.table td + td {
-  border-left: 1px solid var(--scrawl-border-light);
 }
 
 .table th {
@@ -63,10 +62,25 @@
   }
 }
 
-/* the name takes what the other columns leave */
+/* the columns keep widths of their own in Notion's proportions, the name
+   about twice each of the others, and an empty one at the end takes what
+   they leave; on a narrow page the name gives way first and ellipsizes */
+/* cqw and not %: a table column takes a percentage inside clamp() as auto */
+.colName {
+  width: clamp(160px, 100cqw - 2 * var(--col-other), var(--col-name));
+}
+
+.colSize,
+.colDate {
+  width: var(--col-other);
+}
+
 .name {
-  width: 100%;
-  max-width: 0;
+  overflow: hidden;
+}
+
+.table .fill {
+  padding: 0;
 }
 
 .name > span {
@@ -91,14 +105,7 @@
 }
 
 .table .size {
-  width: 120px;
-  min-width: 120px;
   text-align: end;
-}
-
-.table .date {
-  width: 200px;
-  min-width: 200px;
 }
 
 .dim {

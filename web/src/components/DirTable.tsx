@@ -90,6 +90,7 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
       <td className={classes.date} title={absoluteTime(entry.mod_time)}>
         {shortTime(entry.mod_time)}
       </td>
+      <td className={classes.fill} />
     </tr>
   );
 
@@ -108,6 +109,12 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
   return (
     <div data-testid="dir-table" className={classes.wrap}>
       <table className={classes.table}>
+        <colgroup>
+          <col className={classes.colName} />
+          <col className={classes.colSize} />
+          <col className={classes.colDate} />
+          <col />
+        </colgroup>
         <thead>
           <tr>
             <th>
@@ -130,6 +137,7 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
                 Modified
               </span>
             </th>
+            <th className={classes.fill} aria-hidden />
           </tr>
         </thead>
         <tbody>
@@ -149,6 +157,7 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
               </td>
               <td className={classes.size} />
               <td className={classes.date} />
+              <td className={classes.fill} />
             </tr>
           )}
           {folders.map(row)}
@@ -344,6 +353,7 @@ function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
       </td>
       <td className={classes.size} />
       <td className={classes.date} />
+      <td className={classes.fill} />
     </tr>
   );
 }

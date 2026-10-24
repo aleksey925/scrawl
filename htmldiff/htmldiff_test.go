@@ -149,6 +149,69 @@ func TestDiff(t *testing.T) {
 			}},
 		},
 		{
+			name: "line of code removed",
+			old:  "<pre><code>one\nlost\nthree\n</code></pre>",
+			cur:  "<pre><code>one\nthree\n</code></pre>",
+			want: []Row{{
+				Kind:   Changed,
+				Old:    &Side{HTML: "<pre><code>one\n<del class=\"diff-del\">lost</del>\nthree\n</code></pre>"},
+				New:    &Side{HTML: "<pre><code>one\nthree\n</code></pre>"},
+				Inline: &Side{HTML: "<pre><code>one<del class=\"diff-del\">\nlost</del>\nthree\n</code></pre>"},
+			}},
+		},
+		{
+			name: "first line of code removed",
+			old:  "<pre><code>lost\none\ntwo\n</code></pre>",
+			cur:  "<pre><code>one\ntwo\n</code></pre>",
+			want: []Row{{
+				Kind:   Changed,
+				Old:    &Side{HTML: "<pre><code><del class=\"diff-del\">lost</del>\none\ntwo\n</code></pre>"},
+				New:    &Side{HTML: "<pre><code>one\ntwo\n</code></pre>"},
+				Inline: &Side{HTML: "<pre><code><del class=\"diff-del\">lost\n</del>one\ntwo\n</code></pre>"},
+			}},
+		},
+		{
+			name: "end of a line of code removed",
+			old:  "<pre><code>foo bar\nbaz\n</code></pre>",
+			cur:  "<pre><code>foo\nbaz\n</code></pre>",
+			want: []Row{{
+				Kind:   Changed,
+				Old:    &Side{HTML: "<pre><code>foo<del class=\"diff-del\"> bar</del>\nbaz\n</code></pre>"},
+				New:    &Side{HTML: "<pre><code>foo\nbaz\n</code></pre>"},
+				Inline: &Side{HTML: "<pre><code>foo<del class=\"diff-del\"> bar</del>\nbaz\n</code></pre>"},
+			}},
+		},
+		{
+			name: "lines of code replaced",
+			old:  "<pre><code>a\nb\nc\nd\n</code></pre>",
+			cur:  "<pre><code>a\nx\nd\n</code></pre>",
+			want: []Row{{
+				Kind:   Changed,
+				Old:    &Side{HTML: "<pre><code>a\n<del class=\"diff-del\">b\nc</del>\nd\n</code></pre>"},
+				New:    &Side{HTML: "<pre><code>a\n<ins class=\"diff-ins\">x</ins>\nd\n</code></pre>"},
+				Inline: &Side{HTML: "<pre><code>a<del class=\"diff-del\">\nb\nc</del>\n<ins class=\"diff-ins\">x</ins>\nd\n</code></pre>"},
+			}},
+		},
+		{
+			name: "highlighted line of code removed",
+			old: `<pre><code><span class="line"><span class="n">one</span>` + "\n" +
+				`</span><span class="line"><span class="n">lost</span> <span class="o">=</span> <span class="mi">1</span>` + "\n" +
+				`</span><span class="line"><span class="n">three</span>` + "\n</span></code></pre>",
+			cur: `<pre><code><span class="line"><span class="n">one</span>` + "\n" +
+				`</span><span class="line"><span class="n">three</span>` + "\n</span></code></pre>",
+			want: []Row{{
+				Kind: Changed,
+				Old: &Side{HTML: `<pre><code><span class="line"><span class="n">one</span>` + "\n" +
+					`</span><span class="line"><span class="n"><del class="diff-del">lost</del></span><del class="diff-del"> </del>` +
+					`<span class="o"><del class="diff-del">=</del></span><del class="diff-del"> </del><span class="mi"><del class="diff-del">1</del></span>` + "\n" +
+					`</span><span class="line"><span class="n">three</span>` + "\n</span></code></pre>"},
+				New: &Side{HTML: `<pre><code><span class="line"><span class="n">one</span>` + "\n" +
+					`</span><span class="line"><span class="n">three</span>` + "\n</span></code></pre>"},
+				Inline: &Side{HTML: `<pre><code><span class="line"><span class="n">one<del class="diff-del">` + "\nlost = 1</del></span>\n" +
+					`</span><span class="line"><span class="n">three</span>` + "\n</span></code></pre>"},
+			}},
+		},
+		{
 			name: "whitespace outside code",
 			old:  "<p>one\ntwo</p>",
 			cur:  "<p>one two</p>",
@@ -370,7 +433,7 @@ func TestPutBackIntoBlockWithNoWords(t *testing.T) {
 	root := &html.Node{Type: html.ElementNode, Data: "p", DataAtom: atom.P}
 
 	// act
-	putBack(tokensOf(root), root, 0, "gone")
+	putBack(tokensOf(root), root, place{words: "gone", sep: " "})
 
 	// assert
 	got, err := renderNode(root)

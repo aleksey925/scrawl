@@ -1,6 +1,7 @@
 package htmldiff
 
 import (
+	"cmp"
 	"regexp"
 	"slices"
 	"strings"
@@ -29,12 +30,14 @@ var (
 )
 
 // token is a word of a text node, or an element whose target is part of the
-// text the way elementMarker puts it.
+// text the way elementMarker puts it. In code, gap is the text between it and
+// the token before it, which can only be line breaks there.
 type token struct {
 	text       string
 	node       *html.Node
 	start, end int
 	element    bool
+	gap        string
 }
 
 // markWords marks the words a pair of blocks does not share, in place on the
@@ -77,6 +80,14 @@ func appendRange(dst []int, from, to int) []int {
 
 func tokensOf(root *html.Node) []token {
 	res := []token{}
+	var gap strings.Builder
+	add := func(tok token, inPre bool) {
+		if inPre {
+			tok.gap = gap.String()
+		}
+		gap.Reset()
+		res = append(res, tok)
+	}
 	var walk func(node *html.Node, inPre bool)
 	walk = func(node *html.Node, inPre bool) {
 		switch node.Type {
@@ -85,8 +96,16 @@ func tokensOf(root *html.Node) []token {
 			if inPre {
 				re = reCodeWord
 			}
+			pos := 0
 			for _, loc := range re.FindAllStringIndex(node.Data, -1) {
-				res = append(res, token{text: node.Data[loc[0]:loc[1]], node: node, start: loc[0], end: loc[1]})
+				if inPre {
+					gap.WriteString(node.Data[pos:loc[0]])
+				}
+				add(token{text: node.Data[loc[0]:loc[1]], node: node, start: loc[0], end: loc[1]}, inPre)
+				pos = loc[1]
+			}
+			if inPre {
+				gap.WriteString(node.Data[pos:])
 			}
 			return
 		case html.ElementNode:
@@ -94,7 +113,7 @@ func tokensOf(root *html.Node) []token {
 				return
 			}
 			if marker := elementMarker(node); marker != "" {
-				res = append(res, token{text: marker, node: node, element: true})
+				add(token{text: marker, node: node, element: true}, inPre)
 			}
 			inPre = inPre || node.DataAtom == atom.Pre
 		default:
@@ -189,25 +208,21 @@ func inlineWords(right block, ta []token, ops []opcode) string {
 	tb := tokensOf(curNode)
 
 	var inss []int
-	lost := map[int]string{}
-	var at []int
+	var places []place
 	for _, edit := range ops {
 		if edit.kind == opReplace || edit.kind == opInsert {
 			inss = appendRange(inss, edit.j1, edit.j2)
 		}
 		if edit.kind == opReplace || edit.kind == opDelete {
-			if words := spoken(ta[edit.i1:edit.i2]); words != "" {
-				if _, seen := lost[edit.j1]; !seen {
-					at = append(at, edit.j1)
-				}
-				lost[edit.j1] += words
+			if p, ok := lostPlace(ta, edit, len(tb)); ok {
+				places = append(places, p)
 			}
 		}
 	}
 	// from the end backwards, so a split never moves a place not yet used
-	slices.Sort(at)
-	for k := len(at) - 1; k >= 0; k-- {
-		putBack(tb, curNode, at[k], lost[at[k]])
+	slices.SortStableFunc(places, func(a, b place) int { return cmp.Compare(b.order(), a.order()) })
+	for _, p := range places {
+		putBack(tb, curNode, p)
 	}
 	applyMarks(tb, inss, atom.Ins, InsClass)
 
@@ -247,61 +262,116 @@ func spoken(tokens []token) string {
 	return sb.String()
 }
 
-// putBack puts the lost words in front of the token at, or after the last one
-// when at is past the end, as a struck mark and a space, and keeps the tokens
-// pointing at the text they were read from
-func putBack(tokens []token, root *html.Node, at int, words string) {
+// place is where words a block lost go back into the new block: in front of
+// the token at, or right after it, kept apart from it by sep
+type place struct {
+	at    int
+	after bool
+	words string
+	sep   string
+}
+
+func (p place) order() int {
+	if p.after {
+		return 2*p.at + 1
+	}
+	return 2 * p.at
+}
+
+// lostPlace is where the words an edit took out of the old block go back. A
+// space keeps them apart from the new words, except in code, where a space and
+// a line break are part of the text: there the words take the breaks around
+// them along, and stand at the end of a line when a break followed them.
+func lostPlace(ta []token, edit opcode, curLen int) (place, bool) {
+	lost := ta[edit.i1:edit.i2]
+	if !slices.ContainsFunc(lost, func(tok token) bool { return !tok.element }) {
+		return place{}, false
+	}
+	if !insidePre(lost[0].node) {
+		if edit.j1 < curLen || curLen == 0 {
+			return place{at: edit.j1, words: spoken(lost), sep: " "}, true
+		}
+		return place{at: curLen - 1, after: true, words: spoken(lost), sep: " "}, true
+	}
+	endsLine := edit.i2 == len(ta) || strings.ContainsAny(ta[edit.i2].gap, "\n\r")
+	if edit.j1 > 0 && (endsLine || edit.j1 == curLen) {
+		return place{at: edit.j1 - 1, after: true, words: codeText(lost, true)}, true
+	}
+	words := codeText(lost, false)
+	if edit.i2 < len(ta) {
+		words += ta[edit.i2].gap
+	}
+	return place{at: edit.j1, words: words}, true
+}
+
+// codeText is the source of a run of code tokens with the line breaks between
+// them, and the breaks before the first one when leading
+func codeText(tokens []token, leading bool) string {
+	var sb strings.Builder
+	for i, tok := range tokens {
+		if i > 0 || leading {
+			sb.WriteString(tok.gap)
+		}
+		if !tok.element {
+			sb.WriteString(tok.text)
+		}
+	}
+	return sb.String()
+}
+
+// putBack puts lost words back as a struck mark at their place, and keeps the
+// tokens pointing at the text they were read from
+func putBack(tokens []token, root *html.Node, p place) {
 	mark := &html.Node{
 		Type: html.ElementNode, Data: atom.Del.String(), DataAtom: atom.Del,
 		Attr: []html.Attribute{{Key: "class", Val: DelClass}},
 	}
-	mark.AppendChild(&html.Node{Type: html.TextNode, Data: words})
-	// a space keeps the lost words apart from the new ones, except in code,
-	// where a space is part of the text
-	gap := " "
-	if len(tokens) > 0 && insidePre(tokens[min(at, len(tokens)-1)].node) {
-		gap = ""
-	}
-	space := func() *html.Node { return &html.Node{Type: html.TextNode, Data: gap} }
-
+	mark.AppendChild(&html.Node{Type: html.TextNode, Data: p.words})
 	if len(tokens) == 0 {
 		root.AppendChild(mark)
 		return
 	}
-	if at >= len(tokens) {
-		last := tokens[len(tokens)-1]
-		if !last.element {
-			if rest := splitText(tokens, last.node, last.end); rest != nil {
-				rest.Parent.InsertBefore(space(), rest)
-				rest.Parent.InsertBefore(mark, rest)
-				return
+	added := []*html.Node{mark}
+	if p.sep != "" {
+		sep := &html.Node{Type: html.TextNode, Data: p.sep}
+		if p.after {
+			added = []*html.Node{sep, mark}
+		} else {
+			added = append(added, sep)
+		}
+	}
+
+	parent, ref := placeOf(tokens, root, p)
+	for _, node := range added {
+		parent.InsertBefore(node, ref)
+	}
+}
+
+// placeOf is the node to insert in front of for a place, and its parent; a nil
+// node appends
+func placeOf(tokens []token, root *html.Node, p place) (parent, ref *html.Node) {
+	tok := tokens[p.at]
+	if p.after {
+		if !tok.element {
+			if rest := splitText(tokens, tok.node, tok.end); rest != nil {
+				return rest.Parent, rest
 			}
 		}
-		if last.node.Parent == nil {
-			root.AppendChild(space())
-			root.AppendChild(mark)
-			return
+		if tok.node.Parent == nil {
+			return root, nil
 		}
-		sep := space()
-		insertAfter(last.node, sep)
-		insertAfter(sep, mark)
-		return
+		return tok.node.Parent, tok.node.NextSibling
 	}
-	tok := tokens[at]
-	before := tok.node
+	ref = tok.node
 	if !tok.element {
 		if rest := splitText(tokens, tok.node, tok.start); rest != nil {
-			before = rest
+			ref = rest
 		}
 	}
-	if before.Parent == nil {
-		first := root.FirstChild
-		root.InsertBefore(mark, first)
-		root.InsertBefore(space(), first)
-		return
+	if ref.Parent == nil {
+		return root, root.FirstChild
 	}
-	before.Parent.InsertBefore(mark, before)
-	before.Parent.InsertBefore(space(), before)
+	return ref.Parent, ref
 }
 
 // splitText cuts a text node at offset and returns the node holding the rest,

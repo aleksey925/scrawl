@@ -1,7 +1,7 @@
 /* the table of a folder: name, size and the time it changed, rows split by
    faint lines and no line between the columns */
 .wrap {
-  --col-name: 320px;
+  --col-name: 530px;
   --col-other: 150px;
   overflow-x: auto;
   container-type: inline-size;
@@ -57,9 +57,8 @@
   }
 }
 
-/* the columns keep widths of their own in Notion's proportions, the name
-   about twice each of the others, and an empty one at the end takes what
-   they leave; on a narrow page the name gives way first and ellipsizes */
+/* the columns keep widths of their own and an empty one at the end takes
+   what they leave; on a narrow page the name gives way first and ellipsizes */
 /* cqw and not %: a table column takes a percentage inside clamp() as auto */
 .colName {
   width: clamp(160px, 100cqw - 2 * var(--col-other), var(--col-name));
@@ -97,10 +96,6 @@
   font-weight: 500;
   text-decoration: none;
   text-overflow: ellipsis;
-}
-
-.table .size {
-  text-align: end;
 }
 
 .dim {

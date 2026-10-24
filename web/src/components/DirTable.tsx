@@ -86,8 +86,8 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
           <RowTags entry={entry} />
         </span>
       </td>
-      <td className={classes.size}>{entry.is_dir ? <span className={classes.dim}>-</span> : fileSize(entry.size)}</td>
-      <td className={classes.date} title={absoluteTime(entry.mod_time)}>
+      <td>{entry.is_dir ? <span className={classes.dim}>-</span> : fileSize(entry.size)}</td>
+      <td title={absoluteTime(entry.mod_time)}>
         {shortTime(entry.mod_time)}
       </td>
       <td className={classes.fill} />
@@ -123,13 +123,13 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
                 Name
               </span>
             </th>
-            <th className={classes.size}>
+            <th>
               <span>
                 <IconHash size={layout.iconSizeColumn} weight="bold" aria-hidden />
                 Size
               </span>
             </th>
-            <th className={classes.date}>
+            <th>
               <span>
                 <IconClock size={layout.iconSizeColumn} weight="fill" aria-hidden />
                 Modified
@@ -153,8 +153,8 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
                   </Link>
                 </span>
               </td>
-              <td className={classes.size} />
-              <td className={classes.date} />
+              <td />
+              <td />
               <td className={classes.fill} />
             </tr>
           )}
@@ -349,8 +349,8 @@ function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
           />
         </span>
       </td>
-      <td className={classes.size} />
-      <td className={classes.date} />
+      <td />
+      <td />
       <td className={classes.fill} />
     </tr>
   );

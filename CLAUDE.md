@@ -156,10 +156,12 @@ vendor/                dependencies, checked in, `make deps` regenerates
   is a large main button at the right of the folder's title, where
   Notion puts New page. The table is Notion's too: its one view a gray
   pill with no line under it, no line between the columns, which read as
-  a spreadsheet, and columns of their own width in Notion's proportions,
-  the name about twice each of the others, with an empty one at the end
+  a spreadsheet, and columns of their own width, the name 530px and the
+  others 150px, as a file name carries its extension, with an empty one at the end
   taking the rest and the row lines running across it, so a date is not
-  a screen away from its name. On a narrow page the name gives way. A
+  a screen away from its name. Every column starts at its left edge, the
+  size too: a size against its right edge stood against the date and the
+  two read as one column. On a narrow page the name gives way. A
   column's header is gray text of the regular weight with a filled icon,
   as Notion heads one; 500 beside the system's own smoothing read bold, and an empty folder keeps the header with its empty
   state under it, one plain New file button. Its

@@ -44,7 +44,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
   const [draft, setDraft] = useState<EntryKind | undefined>(undefined);
   const phone = useBelow(layoutBreakpoints.phone);
   const space = me?.space.label ?? me?.site_title ?? dir.title;
-  usePageChrome(chromeOf(dir.breadcrumbs, path === '' ? '' : dir.title));
+  usePageChrome(chromeOf(dir.breadcrumbs, path === '' ? '' : dir.title, true));
   // a name row belongs to the folder it was opened in
   useEffect(() => setDraft(undefined), [path]);
 

@@ -22,9 +22,8 @@ import { useMe } from './useMe';
 const extensions: ReaderExtensions = { DocumentExtras, FileView, RowMenu };
 
 const chrome: ReaderChrome = {
-  sidebarFoot: <SpaceMenu placement="top" />,
+  sidebarFoot: <SpaceMenu />,
   topbarEnd: <SyncControl />,
-  phoneHome: <SpaceMenu placement="bottom" />,
   phoneBottom: <TabBar />,
 };
 

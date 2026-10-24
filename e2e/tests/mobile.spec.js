@@ -49,11 +49,10 @@ async function openedMenu(page, testId) {
         .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
 }
 
-// tapSpaceMenu opens the menu of the space, which on a phone heads the root
-// list in the top bar
+// tapSpaceMenu opens the menu of the space, which on a phone is the last tab
 async function tapSpaceMenu(page) {
     await page.goto(routes.home());
-    await page.getByTestId('space-menu').tap();
+    await page.getByTestId('tab-profile').tap();
     await openedMenu(page, 'space-menu-dropdown');
 }
 
@@ -94,13 +93,13 @@ test.describe('mobile', () => {
 
     // every control a thumb needs sits at the bottom of a phone: the tabs, and
     // on a note the round Edit button above them
-    test('the tab bar sits at the bottom with Notes, Search, Recent and New', async ({page}) => {
+    test('the tab bar sits at the bottom with Notes, Search, Recent, New and Profile', async ({page}) => {
         // act
         await page.goto(routes.doc(DOC));
 
         // assert
         const bar = page.getByTestId('tab-bar');
-        await expect(bar.locator('button')).toHaveText(['Notes', 'Search', 'Recent', 'New']);
+        await expect(bar.locator('button')).toHaveText(['Notes', 'Search', 'Recent', 'New', 'Profile']);
         const box = await bar.boundingBox();
         expect(Math.round(box.y + box.height)).toBe(page.viewportSize().height);
         await expect(page.getByTestId('sidebar')).toHaveCount(0);
@@ -548,15 +547,15 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-note-menu-open');
     });
 
-    test('the space button opens the space menu under it', async ({page}) => {
+    test('the Profile tab opens the space menu over it', async ({page}) => {
         // act
         await tapSpaceMenu(page);
 
         // assert
-        const button = await boxOf(page, 'space-menu');
+        const tab = await boxOf(page, 'tab-profile');
         const menu = await boxOf(page, 'space-menu-dropdown');
-        expect(menu.top).toBeGreaterThanOrEqual(button.bottom);
-        expect(menu.left).toBeLessThan(page.viewportSize().width / 2);
+        expect(menu.bottom).toBeLessThanOrEqual(tab.top);
+        expect(menu.right).toBeGreaterThan(page.viewportSize().width / 2);
         await expect(page.getByTestId('space-menu-shortcuts')).toHaveCount(0);
     });
 
@@ -964,7 +963,38 @@ test.describe('mobile', () => {
 
         // assert
         await expect(page).toHaveURL(atHome());
-        await expect(page.getByTestId('space-menu')).toBeVisible();
+        await expect(page.getByTestId('topbar-up')).toHaveCount(0);
+    });
+
+    // the root's bar once took a row of its own and the other screens' not, and
+    // the page jumped on the way from the root to a folder
+    test('the root, a folder and a note start their title on one line, which the bar does not repeat', async ({page}) => {
+        // arrange
+        const screens = [routes.home(), routes.dir(docs.folder.path), routes.doc(DOC)];
+        const heading = page.locator('.mantine-AppShell-main h1').first();
+        const tops = [];
+        const shown = [];
+
+        // act
+        for (const url of screens) {
+            await page.goto(url);
+            await expect(heading).toBeVisible();
+            tops.push(Math.round((await heading.boundingBox()).y));
+            shown.push(await page.getByTestId('topbar-title').getAttribute('data-shown'));
+        }
+
+        // assert
+        expect(tops).toEqual([tops[0], tops[0], tops[0]]);
+        expect(shown).toEqual(['false', 'false', 'false']);
+    });
+
+    test('the root names the space in the bar, beside the logo', async ({page}) => {
+        // act
+        await page.goto(routes.home());
+
+        // assert
+        await expect(page.getByTestId('topbar-home')).toHaveText(await page.getByTestId('dir-title').textContent());
+        await expect(page.getByTestId('topbar-home').locator('svg')).toBeVisible();
     });
 
     test('Copy link copies on a plain http address, where the page has no clipboard api', async ({page}) => {

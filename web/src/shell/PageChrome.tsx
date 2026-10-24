@@ -39,7 +39,7 @@ function usePageChromeValue(): PageChrome | undefined {
 
 // chromeOf turns the breadcrumbs of an answer into the page's chrome: the
 // server's first crumb is the space and its last the page itself
-export function chromeOf(breadcrumbs: readonly Crumb[], title: string, ownTitle = false): PageChrome {
+export function chromeOf(breadcrumbs: readonly Crumb[], title: string, ownTitle: boolean): PageChrome {
   return { crumbs: breadcrumbs.slice(1, -1), title, ownTitle };
 }
 

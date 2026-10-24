@@ -48,9 +48,6 @@ export function useReaderLayout(): ReaderLayoutState {
 export interface ReaderChrome {
   sidebarFoot?: ReactNode;
   topbarEnd?: ReactNode;
-  // phoneHome is the left of the phone's bar at the root, where there is no
-  // folder above to go back to
-  phoneHome?: ReactNode;
   // phoneMenu is a menu at the right of the phone's bar after the page's own
   phoneMenu?: ReactNode;
   // phoneBottom is what sits under the thumb on a phone, the app's tab bar
@@ -164,7 +161,7 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
               >
                 <AppShell.Header data-print="hide">
                   {phone ? (
-                    <PhoneTopBar home={chrome?.phoneHome} end={chrome?.topbarEnd} menu={chrome?.phoneMenu} actionsRef={setActionsSlot} />
+                    <PhoneTopBar end={chrome?.topbarEnd} menu={chrome?.phoneMenu} actionsRef={setActionsSlot} />
                   ) : (
                     <Topbar start={start} end={chrome?.topbarEnd} actionsRef={setActionsSlot} />
                   )}

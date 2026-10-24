@@ -24,7 +24,7 @@
   .page[data-variant='wide'],
   :global(:root[data-page-width='full']) .page {
     grid-template-columns: var(--mantine-spacing-lg) minmax(0, 1fr) var(--mantine-spacing-lg);
-    padding-top: 28px;
+    padding-top: 8px;
   }
 
   /* a phone page ends at the tab bar, and a note or a file a little higher, clear

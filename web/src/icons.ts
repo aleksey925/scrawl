@@ -62,6 +62,7 @@ export {
   TextHIcon as IconHeading,
   TextItalicIcon as IconItalic,
   TrashIcon as IconTrash,
+  UserCircleIcon as IconUserCircle,
   WarningIcon as IconAlertTriangle,
   XIcon as IconX,
 } from '@phosphor-icons/react';

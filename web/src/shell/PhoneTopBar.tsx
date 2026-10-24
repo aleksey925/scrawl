@@ -1,6 +1,7 @@
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
+import logo from '../../../server/assets/logo.svg?raw';
 import { planMotion } from '../components/screenMotion';
 import { IconChevronLeft } from '../icons';
 import { isEditPath } from '../paths';
@@ -38,25 +39,24 @@ function useScrolled(watchTitle: boolean): { scrolled: boolean; showTitle: boole
 }
 
 export interface PhoneTopBarProps {
-  // home stands at the left on the root, where there is no folder to go back to
-  home?: ReactNode;
   end?: ReactNode;
   menu?: ReactNode;
   actionsRef: (element: HTMLElement | null) => void;
 }
 
-// PhoneTopBar is the bar on top of a phone: the way to the folder above, the
-// page's title once its own has scrolled away, and the page's menu
-export function PhoneTopBar({ home, end, menu, actionsRef }: PhoneTopBarProps): JSX.Element {
+// PhoneTopBar is the bar on top of a phone: the way to the folder above, or the
+// app and the space on the root, the page's title once its own has scrolled
+// away, and the page's menu
+export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.Element {
   const { me } = useNav();
   const chrome = useShownChrome();
   const space = spaceLabel(me);
   const atRoot = chrome.title === '';
   const parent = chrome.crumbs[chrome.crumbs.length - 1] ?? { name: space, url: '/' };
-  const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const location = useLocation();
   // the editor's own actions are the whole bar: Cancel at one end, Save at the other
   const editing = isEditPath(location.pathname);
+  const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
   // the router numbers the entries of the history it made; 0 is the page the app
   // was opened on, before which there is nothing of ours to go back to
@@ -86,7 +86,10 @@ export function PhoneTopBar({ home, end, menu, actionsRef }: PhoneTopBarProps): 
     <div data-testid="topbar" data-scrolled={scrolled ? 'true' : 'false'} className={classes.bar}>
       <div className={classes.start}>
         {atRoot ? (
-          (home ?? <span className={classes.home}>{space}</span>)
+          <span data-testid="topbar-home" className={classes.home}>
+            <span aria-hidden className={classes.logo} dangerouslySetInnerHTML={{ __html: logo }} />
+            <span className={classes.homeName}>{space}</span>
+          </span>
         ) : (
           <Link
             data-testid="topbar-up"

@@ -246,7 +246,8 @@ A few rules:
   stops startup with an error.
 
 `/` redirects to the first space, and the space's button at the foot of
-the sidebar opens a menu that switches to another one. Everything else
+the sidebar, or the Profile tab on a phone, opens a menu that switches to
+another one. Everything else
 is shared: one login, one
 session, one set of API tokens, and a search that searches the space you
 are in.

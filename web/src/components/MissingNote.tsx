@@ -26,7 +26,7 @@ export function MissingNote({ path, page }: MissingNoteProps): JSX.Element {
   const { search } = usePlatform();
   const name = pageName(basenameOf(path), false);
   const folder = parentOf(path);
-  usePageChrome(chromeOf(page.breadcrumbs, name));
+  usePageChrome(chromeOf(page.breadcrumbs, name, true));
 
   useEffect(() => {
     if (!page.can_create) {

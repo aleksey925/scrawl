@@ -25,7 +25,7 @@ import { PageActions } from './ShellSlots';
 export function FileView({ file }: { file: FilePageResponse }): JSX.Element {
   const { physicalUrl } = usePlatform();
   const raw = physicalUrl(file.raw_url);
-  usePageChrome(chromeOf(file.breadcrumbs, file.name));
+  usePageChrome(chromeOf(file.breadcrumbs, file.name, true));
 
   return (
     <>

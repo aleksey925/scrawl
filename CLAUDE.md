@@ -173,10 +173,13 @@ vendor/                dependencies, checked in, `make deps` regenerates
   both would be written to one file. A note that does not exist yet is a
   page too, its name as a faint title and the ways on from there, the
   first of them, create it, on Enter. On a phone the bar on top holds
-  `‹` with the folder above (on the root the space's button), the title
-  once the page's own has scrolled under the bar, at once on a page that
-  has none of its own, and the page's `⋯`. A folder there is a list and
-  not a table: a name over one line of what it is, and no `..` row.
+  `‹` with the folder above, the title once the page's own has scrolled
+  under the bar, at once on a page that has none of its own, and the
+  page's `⋯`. The root has no way up, and the app's logo and the space's
+  name stand there instead. Every screen has the bar as a row of its own
+  and its title on one line under it: a root drawn another way made the
+  page jump on the way to a folder. A folder there is a list and not a
+  table: a name over one line of what it is, and no `..` row.
 - A global shortcut gives way to an editor. It does nothing when the
   event was already handled or was pressed inside an element that owns
   the app's shortcuts (`data-owns-shortcuts`), because a keymap may
@@ -322,7 +325,9 @@ vendor/                dependencies, checked in, `make deps` regenerates
   bare title stays a note, and one renamed with an extension becomes
   that file, which the `.md` added to every name had made impossible.
 - On a phone the controls sit at the bottom, under the thumb: a bar of
-  tabs (Notes, Search, Recent, New) and a round Edit button above it.
+  tabs (Notes, Search, Recent, New, Profile) and a round Edit button
+  above it. Profile opens the space's menu, the one the sidebar's foot
+  opens: in the bar on top it was on the root alone.
   Both stay put while the page scrolls, as an app's tab bar does: put
   away on a scroll down, they read as the toolbar of a browser. A page
   ends at the bar, a note or a file clear of the Edit button, so a list

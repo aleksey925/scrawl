@@ -4,7 +4,16 @@ import { useLocation, useNavigate } from 'react-router';
 
 import { PopupMenu } from '../components/PopupMenu';
 import { planMotion } from '../components/screenMotion';
-import { IconClock, IconFilePlus, IconFolder, IconFolderPlus, IconPlus, IconSearch, type Icon } from '../icons';
+import {
+  IconClock,
+  IconFilePlus,
+  IconFolder,
+  IconFolderPlus,
+  IconPlus,
+  IconSearch,
+  IconUserCircle,
+  type Icon,
+} from '../icons';
 import { isDirectoryPath, isEditPath, recentUrl } from '../paths';
 import { layout } from '../theme';
 
@@ -12,9 +21,10 @@ import { useFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
 import { folderFor } from './naming';
 import { useSearchControl } from './searchOpener';
+import { SpaceMenuDropdown, spaceMenuWidth } from './SpaceMenu';
 import classes from './TabBar.module.css';
 
-type TabName = 'notes' | 'search' | 'recent' | 'new';
+type TabName = 'notes' | 'search' | 'recent' | 'new' | 'profile';
 
 // the rest is what a mantine Menu.Target hands its button: a ref, the click
 // that opens it and the aria state of the menu
@@ -42,9 +52,9 @@ function Tab({ name, label, icon: TabIcon, current, ...rest }: TabProps): JSX.El
 }
 
 // TabBar is what a phone has instead of a sidebar, under the thumb: the notes
-// of the space folder by folder, the search, the notes opened last, and a new
-// note or folder where the reader is, picked in a menu over the tab. The
-// editor is left out, it needs the screen for the text and the keyboard.
+// of the space folder by folder, the search, the notes opened last, a new note
+// or folder where the reader is, picked in a menu over the tab, and the space's
+// menu. The editor is left out, it needs the screen for the text and the keyboard.
 export function TabBar(): JSX.Element | null {
   const location = useLocation();
   const navigate = useNavigate();
@@ -96,6 +106,12 @@ export function TabBar(): JSX.Element | null {
           </Menu.Dropdown>
         </PopupMenu>
       )}
+      <PopupMenu position="top-end" offset={4} width={spaceMenuWidth} withinPortal>
+        <Menu.Target>
+          <Tab name="profile" label="Profile" icon={IconUserCircle} current={false} />
+        </Menu.Target>
+        <SpaceMenuDropdown />
+      </PopupMenu>
     </nav>
   );
 }

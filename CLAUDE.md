@@ -383,16 +383,15 @@ vendor/                dependencies, checked in, `make deps` regenerates
 - The page is white and the sidebar a flush gray panel with a thin line
   on its edge, warm in the dark theme and cool in the light one, where
   the sidebar's icons are the accent and its text black, and the current
-  row is a clear gray with its name in the regular weight, as Finder
-  draws them; a gray as faint as Notion's read as nothing picked there,
-  and with the clear gray a bold name was one mark too many. Borders are only on
+  row is gray with its name in the regular weight, as Finder draws them;
+  a bold name beside the gray was one mark too many. Borders are only on
   tables, menus and dialogs, and a
   row is filled only under the pointer or when it is the current one: a
   list of entries, results or versions is rows split by hairlines. A row
-  of the sidebar under the pointer takes the current row's gray, as the
-  dark theme's two nearly equal grays always had it, and a picked row
-  keeps its tint; a lighter hover read as another color and faded the
-  current row a reader pointed at. A
+  of the sidebar under the pointer takes the current row's gray, and the
+  current row under it, Home included, lays that gray twice, as Notion
+  does; a lighter hover read as another color and faded the current row
+  a reader pointed at. A picked row keeps its tint. A
   control has one shape, and the theme
   is the one place that says so. A control is Notion's: 28px (36px when
   it runs the width of its column) with 6px corners and a 500 weight,

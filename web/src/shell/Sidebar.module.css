@@ -147,6 +147,10 @@
   .navRow:hover {
     background: var(--scrawl-selected);
   }
+
+  .navRow:is([data-current='true'], .homeRow):hover {
+    background-image: linear-gradient(var(--scrawl-selected), var(--scrawl-selected));
+  }
 }
 
 /* the space's name over the tree, which is the root folder: it opens the

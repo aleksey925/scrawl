@@ -29,11 +29,15 @@
   outline-offset: -1px;
 }
 
-/* a row under the pointer takes the current row's gray, and a picked row
-   keeps its tint: a lighter hover faded the current row a reader pointed at */
+/* a row under the pointer takes the current row's gray, the current row lays
+   it twice and a picked row keeps its tint */
 @media (hover: hover) {
   .row:not([data-selected='true']):hover {
     background: var(--scrawl-selected);
+  }
+
+  .row[data-current='true']:hover {
+    background-image: linear-gradient(var(--scrawl-selected), var(--scrawl-selected));
   }
 }
 

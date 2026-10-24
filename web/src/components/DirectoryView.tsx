@@ -83,6 +83,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
             <Menu.Target>
               <Button
                 data-testid="dir-new"
+                size="lg"
                 className={classes.new}
                 rightSection={<IconChevronDown size={layout.iconSizeSmall} />}
               >

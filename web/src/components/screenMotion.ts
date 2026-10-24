@@ -31,13 +31,13 @@ const leaveHoldMs = 3000;
 const screenEasing = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 export const springEasing = 'cubic-bezier(0.2, 0.9, 0.3, 1.15)';
 // swipeEndMs is how long a swiped page takes to leave or to settle back
-export const swipeEndMs = 200;
+const swipeEndMs = 200;
 // a released page is never sent off faster than this, however fast the flick
 const minReleaseMs = 120;
 // the steepest start of the release curve, as a multiple of its average speed
 const maxReleaseSlope = 4;
 
-export interface Release {
+interface Release {
   duration: number;
   easing: string;
 }

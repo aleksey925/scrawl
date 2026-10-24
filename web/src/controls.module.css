@@ -55,6 +55,15 @@
   font-weight: 500;
 }
 
+/* the large main button, as Notion draws New page at the right of a title;
+   mantine writes the size's font inline, so the size is set here directly */
+.button[data-size='lg'] {
+  --button-height-lg: 32px;
+  --button-padding-x-lg: 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
 .button[data-variant='default'] {
   --button-bg: transparent;
   --button-bd: 1px solid var(--scrawl-border);

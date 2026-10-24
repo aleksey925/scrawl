@@ -17,7 +17,7 @@ import { layout, layoutBreakpoints, useBelow } from '../theme';
 import classes from './DirTable.module.css';
 import { EntryIcon } from './EntryIcon';
 import { LiftedRow } from './LiftedRow';
-import press from './PressRow.module.css';
+import pressClasses from './PressRow.module.css';
 import { absoluteTime, countOf, fileSize, shortDate, shortTime } from './formats';
 
 export interface DirTableProps {
@@ -266,7 +266,7 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
         data-dir={entry.is_dir ? 'true' : 'false'}
         data-holding={holding ? 'true' : 'false'}
         data-lifted={lifted === undefined ? 'false' : 'true'}
-        className={`${classes.listRow} ${press.row}`}
+        className={`${classes.listRow} ${pressClasses.row}`}
         {...(RowMenu === undefined
           ? {}
           : {

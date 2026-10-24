@@ -21,8 +21,6 @@ async function signOut(): Promise<void> {
   goToLogin();
 }
 
-export const spaceMenuWidth = 280;
-
 // SpaceMenu is the foot of the sidebar: the space's button, with the space's
 // menu opening above it
 export function SpaceMenu(): JSX.Element {
@@ -30,7 +28,7 @@ export function SpaceMenu(): JSX.Element {
   const name = spaceLabel(me);
 
   return (
-    <PopupMenu position="top-start" width={spaceMenuWidth} withinPortal>
+    <PopupMenu position="top-start" width={layout.menuWidthWide} withinPortal>
       <Menu.Target>
         <SpaceButton name={name} aria-label={`${name}: spaces, theme and account`} />
       </Menu.Target>

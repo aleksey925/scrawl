@@ -12,11 +12,7 @@
 }
 
 .new {
-  --button-height: 32px;
-  --button-padding-x: 12px;
-  --button-fz: 15px;
   flex: none;
-  font-weight: 600;
 }
 
 .bar {

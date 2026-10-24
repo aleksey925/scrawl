@@ -23,7 +23,7 @@ export function SiteMenu({ dots = false }: { dots?: boolean }): JSX.Element {
   const name = me?.site_title ?? 'Notes';
 
   return (
-    <PopupMenu position={dots ? 'bottom-start' : 'top-start'} width={280} withinPortal closeOnItemClick>
+    <PopupMenu position={dots ? 'bottom-start' : 'top-start'} width={layout.menuWidthWide} withinPortal closeOnItemClick>
       <Menu.Target>
         {dots ? (
           <ActionIcon data-testid="site-menu" variant="subtle" color="gray" size="lg" aria-label="Theme and outline">

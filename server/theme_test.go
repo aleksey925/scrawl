@@ -180,7 +180,7 @@ func TestTouchIconsArePublic(t *testing.T) {
 func TestSignInPageLoadsTheThemes(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{withAuth: true})
-	href := ts.appShell.base() + "themes.css"
+	href := ts.appShell.base() + appThemes
 
 	// act
 	_, page := ts.do(t, request{path: "/login"})

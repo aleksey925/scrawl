@@ -407,6 +407,7 @@ func TestStaticServesEveryBuiltChunk(t *testing.T) {
 // tells one release from another: a page from an older one gets nothing and
 // reloads, and the current one may be kept by the browser for good
 func TestAppBundleIsServedForItsOwnVersionOnly(t *testing.T) {
+	// arrange
 	ts := newTestServer(t, testOpts{})
 
 	tests := []struct {
@@ -2016,9 +2017,9 @@ func TestLoginTemplateExecutes(t *testing.T) {
 		name string
 		data LoginPage
 	}{
-		{name: "plain", data: LoginPage{SiteTitle: "Test Notes", Version: "v1", AppThemes: appBase("abc") + "themes.css",
+		{name: "plain", data: LoginPage{SiteTitle: "Test Notes", Version: "v1", AppThemes: appBase("abc") + appThemes,
 			Theme: themeOf(themedRequest(""), "v1"), Themes: themeOptions}},
-		{name: "refused", data: LoginPage{SiteTitle: "Test Notes", Version: "v1", AppThemes: appBase("abc") + "themes.css",
+		{name: "refused", data: LoginPage{SiteTitle: "Test Notes", Version: "v1", AppThemes: appBase("abc") + appThemes,
 			Theme: themeOf(themedRequest("dark"), "v1"), Themes: themeOptions,
 			Error: "Wrong user name or password", From: "/doc/guide.md"}},
 	}

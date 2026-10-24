@@ -200,6 +200,17 @@ function rgb(hex) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+// stays reads a value again and again for ms and fails the first time it is
+// not the expected one, which is how a test says something does not happen
+async function stays(read, expected, ms) {
+    const until = Date.now() + ms;
+    do {
+        expect(await read()).toEqual(expected);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    } while (Date.now() < until);
+    expect(await read()).toEqual(expected);
+}
+
 module.exports = {
     HISTORY,
     MAIN,
@@ -226,6 +237,7 @@ module.exports = {
     showOutline,
     signIn,
     sourceText,
+    stays,
     submitCredentials,
     user,
     writeFixture,

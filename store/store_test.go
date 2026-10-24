@@ -433,12 +433,13 @@ func TestStoreList(t *testing.T) {
 
 func TestStoreCount(t *testing.T) {
 	tests := []struct {
-		name string
-		dir  string
-		err  error
+		name       string
+		dir        string
+		hasEntries bool
+		err        error
 	}{
-		{name: "root", dir: ""},
-		{name: "folder", dir: "notes"},
+		{name: "root", dir: "", hasEntries: true},
+		{name: "folder", dir: "notes", hasEntries: true},
 		{name: "missing directory", dir: "nope", err: ErrNotFound},
 		{name: "ignored directory", dir: ".git", err: ErrNotFound},
 	}
@@ -455,9 +456,7 @@ func TestStoreCount(t *testing.T) {
 			// assert
 			require.ErrorIs(t, err, tc.err)
 			assert.Equal(t, len(entries), got)
-			if tc.err == nil {
-				assert.NotZero(t, got)
-			}
+			assert.Equal(t, tc.hasEntries, got > 0)
 		})
 	}
 }

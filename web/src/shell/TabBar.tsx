@@ -21,7 +21,7 @@ import { useFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
 import { folderFor } from './naming';
 import { useSearchControl } from './searchOpener';
-import { SpaceMenuDropdown, spaceMenuWidth } from './SpaceMenu';
+import { SpaceMenuDropdown } from './SpaceMenu';
 import classes from './TabBar.module.css';
 
 type TabName = 'notes' | 'search' | 'recent' | 'new' | 'profile';
@@ -106,7 +106,7 @@ export function TabBar(): JSX.Element | null {
           </Menu.Dropdown>
         </PopupMenu>
       )}
-      <PopupMenu position="top-end" offset={4} width={spaceMenuWidth} withinPortal>
+      <PopupMenu position="top-end" offset={4} width={layout.menuWidthWide} withinPortal>
         <Menu.Target>
           <Tab name="profile" label="Profile" icon={IconUserCircle} current={false} />
         </Menu.Target>

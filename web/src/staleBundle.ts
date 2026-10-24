@@ -3,7 +3,7 @@ import { readJson, sessionStore, writeJson } from './storage';
 const reloadedAtKey = 'scrawl-stale-bundle-reload';
 
 // a chunk that keeps failing within this time is shown as the error it is
-const reloadInterval = 60_000;
+const reloadIntervalMs = 60_000;
 
 let reloading = false;
 
@@ -25,7 +25,7 @@ export function reloadOnStaleBundle(pending: () => string | undefined): void {
       return;
     }
     const last = readJson<number>(store, reloadedAtKey) ?? lastReload;
-    if (Date.now() - last < reloadInterval) {
+    if (Date.now() - last < reloadIntervalMs) {
       return;
     }
     lastReload = Date.now();

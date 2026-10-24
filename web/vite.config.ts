@@ -37,11 +37,8 @@ function bypass(req: IncomingMessage): string | undefined {
   return isNavigation(req) ? '/index.html' : undefined;
 }
 
-// chunkFile names a chunk with no hash. One made of a package's index is named
-// after the package: rolldown names it after the file, and the index of every
-// codemirror language came out as dist, dist2, ... in the order met, so one
-// language more renamed the rest. go:embed skips "_"-prefixed entries, and
-// lodash-es modules such as _baseUniq name chunks mermaid loads lazily.
+// chunkFile names a chunk with no hash, a package's index after the package and
+// never with a leading "_" or ".", which go:embed skips
 function chunkFile(chunk: { name: string; facadeModuleId: string | null; moduleIds: string[] }): string {
   const first = chunk.facadeModuleId ?? chunk.moduleIds[0] ?? '';
   const pkg = /.*node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(first)?.[1];
@@ -64,8 +61,7 @@ export default defineConfig(({ command }) => ({
   plugins: [react(), themeStylesheet('themes.css'), woff2Only()],
 
   // relative, so every chunk is imported from the address the page started
-  // with: the server puts the bundle's digest there, and the names carry no
-  // hash, which would rename a dozen files in git for one changed line
+  // with, where the server puts the bundle's digest
   base: command === 'build' ? './' : '/',
 
   build: {

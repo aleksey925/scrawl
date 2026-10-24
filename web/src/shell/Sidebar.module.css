@@ -112,9 +112,12 @@
   color: var(--scrawl-sidebar-icon);
 }
 
-.navRow[data-current='true'] {
+.navRow:is([data-current='true'], .homeRow) {
   background: var(--scrawl-selected);
   color: var(--scrawl-text);
+}
+
+.navRow[data-current='true'] {
   font-weight: var(--scrawl-current-weight);
 }
 
@@ -122,11 +125,6 @@
   margin-inline-start: auto;
   color: var(--scrawl-text-tertiary);
   font-size: var(--mantine-font-size-xs);
-}
-
-.homeRow {
-  background: var(--scrawl-selected);
-  color: var(--scrawl-text);
 }
 
 @media (hover: hover) {

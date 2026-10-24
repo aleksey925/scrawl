@@ -5,19 +5,23 @@ import { mountBase } from './mount';
 import { loadChunk } from './staleBundle';
 import { AppLayout } from './shell/AppLayout';
 
+function lazyPage<T>(load: () => Promise<T>): () => Promise<T> {
+  return () => loadChunk(load());
+}
+
 const routes: RouteObject[] = [
   {
     path: '/',
     Component: AppLayout,
     ErrorBoundary: RouteError,
     children: [
-      { index: true, lazy: () => loadChunk(import('./pages/HomePage')) },
-      { path: 'doc/*', lazy: () => loadChunk(import('./pages/DocumentPage')) },
-      { path: 'edit/*', lazy: () => loadChunk(import('./pages/EditPage')) },
-      { path: 'search', lazy: () => loadChunk(import('./pages/SearchPage')) },
-      { path: 'recent', lazy: () => loadChunk(import('./pages/RecentPage')) },
-      { path: 'history/*', lazy: () => loadChunk(import('./pages/HistoryPage')) },
-      { path: '*', lazy: () => loadChunk(import('./pages/NotFoundPage')) },
+      { index: true, lazy: lazyPage(() => import('./pages/HomePage')) },
+      { path: 'doc/*', lazy: lazyPage(() => import('./pages/DocumentPage')) },
+      { path: 'edit/*', lazy: lazyPage(() => import('./pages/EditPage')) },
+      { path: 'search', lazy: lazyPage(() => import('./pages/SearchPage')) },
+      { path: 'recent', lazy: lazyPage(() => import('./pages/RecentPage')) },
+      { path: 'history/*', lazy: lazyPage(() => import('./pages/HistoryPage')) },
+      { path: '*', lazy: lazyPage(() => import('./pages/NotFoundPage')) },
     ],
   },
 ];

@@ -3,7 +3,7 @@ const {expect, test} = require('../support/test');
 const docs = require('../support/docs');
 const {
     MAIN, chooseTheme, openSpaceMenu, readFixture, removeFixture, rgb, routes, save, setSource, shot, signIn,
-    writeFixture,
+    stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const darkTheme = require('../../theme/themes/dark.json');
@@ -109,32 +109,33 @@ test.describe('pages', () => {
         // assert
         await expect(page.getByTestId('app-error-message')).toBeVisible();
         await expect(page).toHaveURL(MAIN.url.edit(docs.doc.path));
-        await page.waitForTimeout(500);
-        expect(loads).toBe(1);
+        await stays(() => loads, 1, 500);
     });
 
     test('a chunk a note asks for that is gone reloads the note', async ({page}) => {
         // arrange
         writeFixture(MATH, '# Math\n\n$$\n\\frac{a}{b}\n$$\n');
-        let asked = 0;
-        await page.route('**/assets/katex.js', async (route) => {
-            asked += 1;
-            if (asked === 1) {
-                await route.fulfill({status: 404, body: 'gone'});
-                return;
-            }
-            await route.continue();
-        });
+        try {
+            let asked = 0;
+            await page.route('**/assets/katex.js', async (route) => {
+                asked += 1;
+                if (asked === 1) {
+                    await route.fulfill({status: 404, body: 'gone'});
+                    return;
+                }
+                await route.continue();
+            });
 
-        // act
-        await page.goto(routes.doc(MATH));
+            // act
+            await page.goto(routes.doc(MATH));
 
-        // assert
-        await expect.poll(() => asked).toBe(2);
-        await expect(page.getByTestId('doc').locator('.katex')).toBeVisible();
-        await expect(page).toHaveURL(MAIN.url.doc(MATH));
-        expect(asked).toBe(2);
-        removeFixture(MATH);
+            // assert
+            await expect.poll(() => asked).toBe(2);
+            await expect(page.getByTestId('doc').locator('.katex')).toBeVisible();
+            await expect(page).toHaveURL(MAIN.url.doc(MATH));
+        } finally {
+            removeFixture(MATH);
+        }
     });
 
     test('a folder\'s table keeps its columns, and on a narrow page the name gives way', async ({page}) => {
@@ -142,19 +143,23 @@ test.describe('pages', () => {
         await page.goto(routes.dir(docs.folder.path));
         const head = page.getByTestId('dir-table').locator('th');
         await expect(head).toHaveCount(4);
-        const widths = () => head.evaluateAll((cells) => cells.map((cell) => Math.round(cell.getBoundingClientRect().width)));
+        const widths = () => head.evaluateAll((cells) => cells.map((th) => Math.round(th.getBoundingClientRect().width)));
+        const [nameWidth, otherWidth] = await page.getByTestId('dir-table').evaluate((el) => {
+            const style = getComputedStyle(el);
+            return ['--col-name', '--col-other'].map((prop) => parseFloat(style.getPropertyValue(prop)));
+        });
         const table = await page.getByTestId('dir-table').boundingBox();
 
         // act & assert
         const [name, size, date, rest] = await widths();
-        expect([name, size, date]).toEqual([530, 150, 150]);
-        expect(Math.abs(rest - (table.width - 830))).toBeLessThanOrEqual(1);
+        expect([name, size, date]).toEqual([nameWidth, otherWidth, otherWidth]);
+        expect(Math.abs(rest - (table.width - nameWidth - 2 * otherWidth))).toBeLessThanOrEqual(1);
         const sizeCell = page.locator('[data-testid=dir-row][data-dir=false] td').nth(1);
         await expect(sizeCell).toHaveCSS('text-align', 'start');
 
         await page.setViewportSize({width: 900, height: 900});
-        await expect.poll(async () => (await widths())[0]).toBeLessThan(530);
-        expect((await widths()).slice(1, 3)).toEqual([150, 150]);
+        await expect.poll(async () => (await widths())[0]).toBeLessThan(nameWidth);
+        expect((await widths()).slice(1, 3)).toEqual([otherWidth, otherWidth]);
     });
 
     test('the space button stands at the foot of the sidebar and its menu opens upward', async ({page}) => {
@@ -344,7 +349,7 @@ test.describe('pages', () => {
     });
 });
 
-for (const [scheme, file] of [['light', lightTheme], ['dark', darkTheme]]) {
+for (const [scheme, theme] of [['light', lightTheme], ['dark', darkTheme]]) {
     test.describe(`the ${scheme} theme`, () => {
         test.use({colorScheme: scheme});
 
@@ -363,15 +368,15 @@ for (const [scheme, file] of [['light', lightTheme], ['dark', darkTheme]]) {
 
             // assert
             const link = page.getByTestId('doc').locator('p a');
-            const linkColor = file.palette.link === 'currentColor'
+            const linkColor = theme.palette.link === 'currentColor'
                 ? await link.evaluate((el) => getComputedStyle(el.parentElement).color)
-                : rgb(file.palette.link);
+                : rgb(theme.palette.link);
             await expect(link).toHaveCSS('color', linkColor);
             const current = page.locator(`[data-testid=tree-row][data-path="${TOKENS}"]`);
             await expect(current).toHaveAttribute('data-current', 'true');
-            await expect(current).toHaveCSS('font-weight', file.currentWeight);
-            await expect(page.getByTestId('sidebar-home')).toHaveCSS('background-color', rgb(file.palette.selected));
-            await expect(page.locator('body')).toHaveCSS('-webkit-font-smoothing', file.fontSmoothing);
+            await expect(current).toHaveCSS('font-weight', theme.currentWeight);
+            await expect(page.getByTestId('sidebar-home')).toHaveCSS('background-color', rgb(theme.palette.selected));
+            await expect(page.locator('body')).toHaveCSS('-webkit-font-smoothing', theme.fontSmoothing);
         });
 
         test('fills the menu row under the pointer', async ({page}) => {
@@ -384,8 +389,8 @@ for (const [scheme, file] of [['light', lightTheme], ['dark', darkTheme]]) {
             await row.hover();
 
             // assert
-            await expect(row).toHaveCSS('background-color', rgb(file.palette.menuHighlight));
-            await expect(row).toHaveCSS('color', rgb(file.palette.menuHighlightText));
+            await expect(row).toHaveCSS('background-color', rgb(theme.palette.menuHighlight));
+            await expect(row).toHaveCSS('color', rgb(theme.palette.menuHighlightText));
         });
     });
 }

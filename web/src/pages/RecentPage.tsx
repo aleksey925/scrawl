@@ -5,7 +5,7 @@ import { Link } from 'react-router';
 import { EmptyState } from '../components/EmptyState';
 import { Page, PageTitle } from '../components/Page';
 import { PopupMenu } from '../components/PopupMenu';
-import press from '../components/PressRow.module.css';
+import pressClasses from '../components/PressRow.module.css';
 import { IconClock, IconDots, IconFileText, IconTrash } from '../icons';
 import { documentUrl } from '../paths';
 import { usePageChrome } from '../shell/PageChrome';
@@ -55,7 +55,7 @@ export function Component(): JSX.Element {
               data-testid="recent-item"
               data-path={recent.path}
               to={documentUrl(recent.path)}
-              className={`${classes.row} ${press.row}`}
+              className={`${classes.row} ${pressClasses.row}`}
             >
               <IconFileText size={layout.iconSize} aria-hidden className={classes.icon} />
               <span className={classes.text}>

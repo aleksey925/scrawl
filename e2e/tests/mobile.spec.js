@@ -6,7 +6,7 @@ const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
     HISTORY, MAIN, MULTI, atHome, expectNoHorizontalScroll, fixtureFile, inStep, routes, save, setSource, shot,
-    signIn, sourceText, writeFixture,
+    signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -186,13 +186,12 @@ test.describe('mobile', () => {
         await cdp.send('Input.dispatchTouchEvent', {
             type: 'touchStart', touchPoints: [{x: box.x + 80, y: box.y + box.height / 2}],
         });
-        // past the 150ms the shrink waits for, short of the long press at 500ms
-        await page.waitForTimeout(400);
 
         // assert
-        const scale = await folder.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
+        const scale = () => folder.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
+        // short of the long press at 500ms, which lifts the row instead
+        await expect.poll(scale, {timeout: 450, intervals: [50]}).toBeLessThan(1);
         await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
-        expect(scale).toBeLessThan(1);
     });
 
     test('a finger that only taps a row does not shrink it', async ({page}) => {
@@ -271,8 +270,7 @@ test.describe('mobile', () => {
         // act & assert
         await page.goBack();
         await expect(folder).toBeVisible();
-        await page.waitForTimeout(300);
-        expect(await moves()).toEqual(['translateX(28%)']);
+        await stays(moves, ['translateX(28%)'], 300);
 
         await asStandalone(page);
         await page.goto(routes.home());
@@ -667,8 +665,7 @@ test.describe('mobile', () => {
             await page.getByTestId('tap-guard').dispatchEvent('click');
 
             // assert
-            await page.waitForTimeout(400);
-            await expect(opener).toHaveAttribute('data-opened', 'true');
+            await stays(() => opener.getAttribute('data-opened'), 'true', 400);
             await expect(menu).toBeVisible();
         });
 
@@ -792,8 +789,8 @@ test.describe('mobile', () => {
         test('a tap on a row below an open menu only closes the menu', async ({page}) => {
             // arrange
             const files = ['first', 'second', 'third', 'fourth'].map((name) => `${FOLDER}/below-${name}.md`);
-            for (const file of files) {
-                writeFixture(file, '# Below\n');
+            for (const path of files) {
+                writeFixture(path, '# Below\n');
             }
             await page.goto(MAIN.url.dir(FOLDER));
             await rowOf(page, files[0]).getByTestId('tree-row-menu').tap();

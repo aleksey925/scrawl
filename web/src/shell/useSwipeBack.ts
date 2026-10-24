@@ -61,9 +61,7 @@ function screen(): HTMLElement | null {
   return document.querySelector<HTMLElement>('[data-screen]');
 }
 
-// the page a finger drags is a layer of its own: WebKit paints a 2D transform
-// set from script again on every move, which a long note cannot keep up with
-function release(element: HTMLElement): void {
+function clearDrag(element: HTMLElement): void {
   element.style.transform = '';
   element.style.willChange = '';
 }
@@ -71,7 +69,7 @@ function release(element: HTMLElement): void {
 // settle puts the page back from where the finger left it, at speed px/ms
 // toward the left edge
 function settle(element: HTMLElement, from: number, speed: number): void {
-  release(element);
+  clearDrag(element);
   element.animate([{ transform: `translateX(${from}px)` }, { transform: 'none' }], releaseMotion(from, speed));
 }
 
@@ -122,11 +120,12 @@ export function useSwipeBack(goBack: (() => void) | null): void {
       const dy = Math.abs(touch.clientY - track.y);
       if (!track.across) {
         // not dx, which is clamped: a move back toward the edge is no swipe either
-        if (Math.hypot(moved, dy) >= decidePx && dy > moved) {
+        const decided = Math.hypot(moved, dy) >= decidePx;
+        if (decided && dy > moved) {
           track = undefined;
           return;
         }
-        track.across = Math.hypot(moved, dy) >= decidePx;
+        track.across = decided;
       }
       // every move until the direction is known too: a move let through starts
       // the page's own scroll, which then shifts the page up and down under the drag
@@ -140,6 +139,8 @@ export function useSwipeBack(goBack: (() => void) | null): void {
         if (dx < startPx) {
           return;
         }
+        // the page a finger drags is a layer of its own: WebKit paints a 2D transform
+        // set from script again on every move, which a long note cannot keep up with
         element.style.willChange = 'transform';
         track.element = element;
       }
@@ -163,7 +164,7 @@ export function useSwipeBack(goBack: (() => void) | null): void {
         settle(element, ended.dx, -speed);
         return;
       }
-      release(element);
+      clearDrag(element);
       const from = entryKey();
       void leaveScreen(element, ended.dx, speed).then((gone) => {
         // a tab tapped while the page was leaving moved the history on, and its

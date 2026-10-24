@@ -11,8 +11,8 @@ import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
 import { PopupMenu } from '../components/PopupMenu';
 import {
-  IconChevronDown, IconChevronRight, IconFile, IconFilePlus, IconFileText, IconFolder, IconFolderOpen,
-  IconFolderPlus, IconHome, IconPlus, IconCompose, IconSearch, IconSidebar, IconX,
+  IconChevronDown, IconChevronRight, IconCompose, IconFile, IconFilePlus, IconFileText, IconFolder, IconFolderOpen,
+  IconFolderPlus, IconHome, IconPlus, IconSearch, IconSidebar, IconX,
 } from '../icons';
 import { editUrl } from '../paths';
 import { layout } from '../theme';

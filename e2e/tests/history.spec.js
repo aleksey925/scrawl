@@ -228,23 +228,25 @@ test.describe.serial('history', () => {
         const versions = page.getByTestId('version');
         await expect(versions).toHaveCount(3);
         await expect(page.getByTestId('rendered-diff')).toContainText('Waits third');
-        const slow = (url, wanted) => new URL(url).pathname.includes('/api/history/') && new URL(url).searchParams.has('rev') === wanted;
+        const historyRead = (url, rev) => url.pathname.includes('/api/history/') && url.searchParams.has('rev') === rev;
+        const versionRead = (url) => historyRead(url, true);
+        const listRead = (url) => historyRead(url, false);
         const held = async (route) => {
             await new Promise((resolve) => setTimeout(resolve, 1500));
             await route.continue().catch(() => undefined);
         };
-        await page.route((url) => slow(url.href, true), held);
+        await page.route(versionRead, held);
 
         // act & assert
         await versions.nth(2).click();
         await expect(page.getByTestId('history-detail-loading')).toBeVisible();
         await expect(page.getByTestId('rendered-diff')).toHaveCount(0);
         await expect(page.getByTestId('rendered-diff')).toContainText('Waits first');
-        await page.unroute((url) => slow(url.href, true));
+        await page.unroute(versionRead, held);
 
         await versions.nth(1).click();
         await expect(page.getByTestId('rendered-diff')).toContainText('Waits second');
-        await page.route((url) => slow(url.href, false), held);
+        await page.route(listRead, held);
         await page.getByTestId('version-restore').click();
         await page.getByTestId('modal-confirm').click();
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.restored);

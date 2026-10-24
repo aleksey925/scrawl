@@ -23,6 +23,10 @@ const appDir = "app"
 // the bundle without the index that names its entry.
 const appManifest = appDir + "/manifest.json"
 
+// appThemes is the stylesheet of the themes vite writes beside the bundle,
+// which the sign-in page links.
+const appThemes = "themes.css"
+
 // appCacheControl lets a browser keep a file of the bundle for a year without
 // asking again: its address changes whenever its content may have.
 const appCacheControl = "max-age=31536000, immutable"
@@ -157,9 +161,9 @@ func newAppShell(files gzassets.Files) (*appShell, error) {
 func shellCSS(chunks map[string]manifestChunk, entry manifestChunk) []string {
 	css := slices.Clone(entry.CSS)
 	seen := map[string]bool{}
-	var walk func(names []string)
-	walk = func(names []string) {
-		for _, name := range names {
+	var walk func(imports []string)
+	walk = func(imports []string) {
+		for _, name := range imports {
 			chunk, ok := chunks[name]
 			if !ok || seen[name] {
 				continue

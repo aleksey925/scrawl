@@ -247,6 +247,7 @@ func (d *document) fuzzyResult(terms []queryTerm, cand topDoc, titlesOnly bool) 
 		Find:       FindQuery{Text: d.matchedWords(marks), Word: true, Regex: true},
 	}
 	if titlesOnly {
+		res.MatchCount = hitCount(res.TitleSpans)
 		return res
 	}
 	res.MatchCount = len(marks)
@@ -445,6 +446,7 @@ func (ix *Index) scan(ctx context.Context, q Query, re *regexp.Regexp, limit int
 		result := Result{Path: doc.path, Title: doc.title, TitleSpans: spansOf(title, titleMarks), Find: find}
 		if q.TitlesOnly {
 			if len(titleMarks) > 0 {
+				result.MatchCount = hitCount(result.TitleSpans)
 				result.Snippet = doc.firstSnippet(ctx, re, q.Word)
 				res.Results = append(res.Results, result)
 			}
@@ -568,4 +570,14 @@ func isWordChar(r rune) bool {
 
 func hasHit(spans []Span) bool {
 	return slices.ContainsFunc(spans, func(s Span) bool { return s.Hit })
+}
+
+func hitCount(spans []Span) int {
+	res := 0
+	for _, piece := range spans {
+		if piece.Hit {
+			res++
+		}
+	}
+	return res
 }

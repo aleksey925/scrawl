@@ -275,6 +275,67 @@ func TestFindTitlesOnly(t *testing.T) {
 		assert.Equal(t, []string{"a.md"}, paths(found))
 		assert.Empty(t, found.Results[0].Lines)
 		assert.Equal(t, []Span{{Text: "Vacuum", Hit: true}}, found.Results[0].TitleSpans)
+		assert.Equal(t, 1, found.Results[0].MatchCount)
+	}
+}
+
+func TestFindTitlesOnlyCountsTheTitleMatches(t *testing.T) {
+	// arrange
+	ix := findIndex(t, map[string]string{
+		"a.md": "# Vacuum\n\nvacuum vacuum vacuum\n",
+		"b.md": "# Vacuum and vacuum\n\nbody\n",
+	})
+	tests := []struct {
+		name  string
+		query Query
+	}{
+		{name: "fuzzy", query: Query{Text: "vacuum", Mode: ModeFuzzy, TitlesOnly: true}},
+		{name: "exact", query: Query{Text: "vacuum", Mode: ModeExact, TitlesOnly: true}},
+		{name: "regex", query: Query{Text: "vac+uum", Regex: true, TitlesOnly: true}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// act
+			got, err := ix.Find(context.Background(), tt.query, 10)
+
+			// assert
+			require.NoError(t, err)
+			counts := map[string]int{}
+			lines := []Line{}
+			for _, row := range got.Results {
+				counts[row.Path] = row.MatchCount
+				lines = append(lines, row.Lines...)
+			}
+			assert.Equal(t, map[string]int{"a.md": 1, "b.md": 2}, counts)
+			assert.Empty(t, lines)
+		})
+	}
+}
+
+func TestFindTitlesOnlyRanksExactAndRegexByTheTitleMatches(t *testing.T) {
+	// arrange
+	ix := findIndex(t, map[string]string{
+		"a.md": "# Vacuum\n\nvacuum vacuum vacuum\n",
+		"b.md": "# Vacuum and vacuum\n\nbody\n",
+	})
+	tests := []struct {
+		name  string
+		query Query
+	}{
+		{name: "exact", query: Query{Text: "vacuum", Mode: ModeExact, TitlesOnly: true}},
+		{name: "regex", query: Query{Text: "vac+uum", Regex: true, TitlesOnly: true}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// act
+			got, err := ix.Find(context.Background(), tt.query, 10)
+
+			// assert
+			require.NoError(t, err)
+			assert.Equal(t, []string{"b.md", "a.md"}, paths(got))
+		})
 	}
 }
 

@@ -366,6 +366,37 @@ func TestCloseDuringACall(t *testing.T) {
 	require.ErrorContains(t, after, "the echo is closed")
 }
 
+func TestCloseStopsADetachedRun(t *testing.T) {
+	// arrange
+	pool := newEchoPool(t, Options{Detach: true})
+	before, err := pool.Ask(context.Background(), echoRequest{Text: "warm"})
+	require.NoError(t, err)
+	running := make(chan error, 1)
+	go func() {
+		_, runErr := pool.Ask(context.Background(), echoRequest{Text: "endless", Sleep: time.Hour})
+		running <- runErr
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	// act
+	pool.Close()
+
+	// assert
+	assert.True(t, gone(before.PID)(), "the worker is killed before Close returns")
+	require.ErrorContains(t, <-running, "the echo is closed")
+}
+
+func TestAskDetachedReportsARunKilledAtTheLimit(t *testing.T) {
+	// arrange
+	pool := newEchoPool(t, Options{Detach: true, Limit: 50 * time.Millisecond})
+
+	// act
+	_, err := pool.Ask(context.Background(), echoRequest{Text: "late", Sleep: time.Minute})
+
+	// assert
+	require.ErrorIs(t, err, ErrOverLimit)
+}
+
 func TestAskAfterClose(t *testing.T) {
 	// arrange
 	pool := newEchoPool(t, Options{})

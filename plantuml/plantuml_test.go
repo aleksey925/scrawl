@@ -194,6 +194,26 @@ func TestSVGKeepsADiagramStillDrawnWhenTheBudgetRanOut(t *testing.T) {
 	assert.Contains(t, svg, "over budget")
 }
 
+func TestSVGKeepsADiagramKilledAtTheLimit(t *testing.T) {
+	// arrange
+	r := newRenderer(1, time.Millisecond)
+	t.Cleanup(r.Close)
+	source := "@startuml\nA -> B : endless\n@enduml"
+	_, err := r.svg(context.Background(), source)
+	r.pool.Close()
+
+	// act
+	_, again := r.svg(context.Background(), source)
+
+	// assert
+	want := &diagramError{Message: tooSlow}
+	var diagramErr *diagramError
+	require.ErrorAs(t, err, &diagramErr)
+	assert.Equal(t, want, diagramErr)
+	require.ErrorAs(t, again, &diagramErr, "the next call answers from the cache and asks no worker of the closed pool")
+	assert.Equal(t, want, diagramErr)
+}
+
 func TestSVGJoinsADrawingWhoseClientLeft(t *testing.T) {
 	// arrange
 	r := New(1)
@@ -257,22 +277,23 @@ func TestSVGWaitsForTheSameDiagramBeingDrawn(t *testing.T) {
 	source := "A -> B : shared"
 	first := drawInBackground(context.Background(), r, source)
 	require.Eventually(t, func() bool { return drawingNow(r) == 1 }, 5*time.Second, time.Millisecond)
-	time.Sleep(50 * time.Millisecond)
-	r.pool.Close()
 	gone, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	// act
 	_, goneErr := r.svg(gone, source)
-	second, err := r.svg(context.Background(), source)
+	second := drawInBackground(context.Background(), r, source)
+	time.Sleep(50 * time.Millisecond)
+	registered := drawingNow(r)
 
 	// assert
 	require.ErrorIs(t, goneErr, context.Canceled)
 	assert.ErrorContains(t, goneErr, "wait for the diagram to be drawn")
-	require.NoError(t, err, "the second call takes the first one's answer and asks no worker of the closed pool")
-	leader := <-first
+	assert.Equal(t, 1, registered, "the second call joins the first one's drawing instead of starting its own")
+	leader, follower := <-first, <-second
 	require.NoError(t, leader.err)
-	assert.Equal(t, leader.svg, second)
+	require.NoError(t, follower.err)
+	assert.Equal(t, leader.svg, follower.svg)
 }
 
 func TestSVGDrawsItselfWhenTheCallItWaitedForLeftWaiting(t *testing.T) {

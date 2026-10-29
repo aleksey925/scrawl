@@ -20,6 +20,8 @@ type Options struct {
 	Detach  bool
 }
 
+var ErrOverLimit = fmt.Errorf("ran past its time limit: %w", context.DeadlineExceeded)
+
 type WaitError struct {
 	Name string
 	Err  error
@@ -38,16 +40,21 @@ type Retiring interface {
 }
 
 type Pool[Req, Res any] struct {
-	opts Options
-	free chan *worker
-	done chan struct{}
+	opts  Options
+	free  chan *worker
+	done  chan struct{}
+	ended error
+	runs  sync.WaitGroup
 
 	mu     sync.Mutex
 	closed bool
 }
 
 func New[Req, Res any](opts Options) *Pool[Req, Res] {
-	p := &Pool[Req, Res]{opts: opts, free: make(chan *worker, opts.Workers), done: make(chan struct{})}
+	p := &Pool[Req, Res]{
+		opts: opts, free: make(chan *worker, opts.Workers),
+		done: make(chan struct{}), ended: fmt.Errorf("the %s is closed", opts.Name),
+	}
 	for range opts.Workers {
 		p.free <- &worker{}
 	}
@@ -73,11 +80,14 @@ func (p *Pool[Req, Res]) Ask(ctx context.Context, req Req) (Res, error) {
 	}
 	defer p.put(wrk)
 	if p.opts.Detach {
-		ctx = context.WithoutCancel(ctx)
+		var cancel context.CancelCauseFunc
+		ctx, cancel = context.WithCancelCause(context.WithoutCancel(ctx))
+		defer cancel(nil)
+		go p.stopOnClose(ctx, cancel)
 	}
 	if p.opts.Limit > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, p.opts.Limit)
+		ctx, cancel = context.WithTimeoutCause(ctx, p.opts.Limit, ErrOverLimit)
 		defer cancel()
 	}
 	if wrk.cmd == nil {
@@ -110,7 +120,15 @@ func (p *Pool[Req, Res]) Ask(ctx context.Context, req Req) (Res, error) {
 	case <-ctx.Done():
 		wrk.stop()
 		<-done
-		return zero, fmt.Errorf("%s: %w", p.opts.Name, ctx.Err())
+		return zero, fmt.Errorf("%s: %w", p.opts.Name, context.Cause(ctx))
+	}
+}
+
+func (p *Pool[Req, Res]) stopOnClose(run context.Context, cancel context.CancelCauseFunc) {
+	select {
+	case <-p.done:
+		cancel(p.ended)
+	case <-run.Done():
 	}
 }
 
@@ -120,18 +138,34 @@ func (p *Pool[Req, Res]) take(ctx context.Context) (*worker, error) {
 	}
 	select {
 	case wrk := <-p.free:
-		wrk.claim()
-		return wrk, nil
+		return p.lend(wrk)
 	case <-p.done:
-		return nil, fmt.Errorf("the %s is closed", p.opts.Name)
+		return nil, p.ended
 	case <-ctx.Done():
 		return nil, &WaitError{Name: p.opts.Name, Err: ctx.Err()}
 	}
 }
 
+func (p *Pool[Req, Res]) lend(wrk *worker) (*worker, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		wrk.stop()
+		return nil, p.ended
+	}
+	if p.opts.Detach {
+		p.runs.Add(1)
+	}
+	wrk.claim()
+	return wrk, nil
+}
+
 func (p *Pool[Req, Res]) put(wrk *worker) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.opts.Detach {
+		defer p.runs.Done()
+	}
 	if p.closed {
 		wrk.stop()
 		return
@@ -141,6 +175,11 @@ func (p *Pool[Req, Res]) put(wrk *worker) {
 }
 
 func (p *Pool[Req, Res]) Close() {
+	p.stopFree()
+	p.runs.Wait()
+}
+
+func (p *Pool[Req, Res]) stopFree() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.closed {

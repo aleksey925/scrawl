@@ -115,8 +115,13 @@ Spaces, routes, settings and the guards on every request.
   the first's answer, and that includes a drawing whose own client has left. If
   the first gave up waiting for the worker, the second draws it itself.
 - A drawn diagram, or the engine's refusal, is kept by its source, so the next
-  export of the note costs nothing. A diagram killed at the limit is not kept,
-  and the next export tries again.
+  export of the note costs nothing. A diagram killed at the limit is kept the
+  same way, as an error that says it did not finish in time. Otherwise each
+  export of the note would hold the only worker for two minutes again, and
+  every other export would wait behind it.
+- When scrawl stops, the pool kills a worker still drawing and waits until it
+  is gone, so no worker outlives scrawl. The drawing runs under the pool's own
+  context for this, not under the context of its client.
 - An engine that crashes, as one does on a recursion deeper than its stack
   ([quirks](../quirks.md#mermaid-plantuml-and-katex)), cannot draw again. The
   worker answers that the engine failed on this diagram and exits, and the

@@ -32,6 +32,8 @@ const (
 
 var errTooLarge = errors.New("diagram is too large to render")
 
+const tooSlow = "the server's PlantUML engine did not finish this diagram in time"
+
 var startLine = regexp.MustCompile(`(?m)^\s*@start`)
 
 type request struct {
@@ -77,9 +79,13 @@ type drawing struct {
 }
 
 func New(workers int) *Renderer {
+	return newRenderer(workers, diagramTimeout)
+}
+
+func newRenderer(workers int, limit time.Duration) *Renderer {
 	return &Renderer{
 		pool: workerpool.New[request, response](workerpool.Options{
-			Name: workerName, Env: workerEnv, Workers: workers, Limit: diagramTimeout, Idle: idleTimeout, Detach: true,
+			Name: workerName, Env: workerEnv, Workers: workers, Limit: limit, Idle: idleTimeout, Detach: true,
 		}),
 		cache:   newCache(cacheEntries, cacheBytes),
 		drawing: map[[sha256.Size]byte]*drawing{},
@@ -139,6 +145,9 @@ func waitFailed(err error) error {
 
 func (r *Renderer) drawOnce(ctx context.Context, key [sha256.Size]byte, diagram string, own *drawing) {
 	own.res, own.err = r.pool.Ask(ctx, request{Source: diagram})
+	if errors.Is(own.err, workerpool.ErrOverLimit) {
+		own.res, own.err = response{Error: tooSlow}, nil
+	}
 	var waiting *workerpool.WaitError
 	own.abandoned = errors.As(own.err, &waiting)
 	if own.err == nil {

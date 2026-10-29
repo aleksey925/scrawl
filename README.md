@@ -520,9 +520,9 @@ scrawl draws the diagram itself and puts it in as a picture. A simple
 diagram takes a fraction of a second there, a C4 one 5 to 10 seconds,
 and a large library takes a few hundred megabytes of memory for a
 moment. An export gives all its diagrams three quarters of
-`--timeout.write` together, and a diagram left when that runs out stays
-code, so the page still arrives. A link in such a picture cannot be
-clicked.
+`--timeout.write` together, counted from the start of the export, and a
+diagram left when that runs out stays code, so the page still arrives. A
+link in such a picture cannot be clicked.
 Relative links between pages, in-page anchors and images from sibling
 folders all keep working, and headings get anchors that handle Cyrillic.
 Pasted images land in a folder next to the document and named after it,

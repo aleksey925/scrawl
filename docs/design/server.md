@@ -97,14 +97,15 @@ Spaces, routes, settings and the guards on every request.
 - A diagram has 20 seconds, counted from the moment the worker takes it, so
   waiting for the worker behind another export does not use them up. Past them
   the process is killed. An export gives all its diagrams three quarters of the
-  write timeout together, or 45 seconds when there is none: the diagrams left
-  when it runs out stay code, with the note that they could not be rendered, so
-  the page reaches the client before the server cuts the connection. A client
-  that goes away stops the diagrams not started yet, even one waiting for the
-  worker; the one being drawn is finished and kept, as killing it would make
-  the next export start a worker again. Two exports that need the same diagram
-  at once draw it once: the second waits for the first's answer. If the first
-  gave up waiting for the worker, the second draws it itself.
+  write timeout together, or 45 seconds when there is none, counted from the
+  start of the request, as the write timeout is: the diagrams left when it runs
+  out stay code, with the note that they could not be rendered, so the page
+  reaches the client before the server cuts the connection. A client that goes
+  away stops the diagrams not started yet, even one waiting for the worker; the
+  one being drawn is finished and kept, as killing it would make the next
+  export start a worker again. Two exports that need the same diagram at once
+  draw it once: the second waits for the first's answer. If the first gave up
+  waiting for the worker, the second draws it itself.
 - A drawn diagram, or the engine's refusal, is kept by its source, so the next
   export of the note costs nothing. A timeout is not kept, and the next export
   tries again.

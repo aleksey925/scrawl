@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"golang.org/x/net/html"
 
@@ -29,6 +30,7 @@ const maxEmbeddedImages = 32 << 20
 var exportRenderer = render.New(render.Options{Relative: true})
 
 func (m *mount) apiExport(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
 	p, ok := contentPath(r, "path")
 	if !ok || !isMarkdown(p) {
 		jsonError(w, http.StatusBadRequest, "only a note can be exported")
@@ -60,7 +62,7 @@ func (m *mount) apiExport(w http.ResponseWriter, r *http.Request) {
 		failJSON(w, r, err)
 		return
 	}
-	if data, err = m.exportPage(r.Context(), p, data); err != nil {
+	if data, err = m.exportPage(r.Context(), started, p, data); err != nil {
 		failJSON(w, r, err)
 		return
 	}
@@ -78,7 +80,7 @@ func setExportHeaders(w http.ResponseWriter, contentType, name string) {
 	h.Set("Cache-Control", pageCacheControl)
 }
 
-func (m *mount) exportPage(ctx context.Context, docPath string, src []byte) ([]byte, error) {
+func (m *mount) exportPage(ctx context.Context, started time.Time, docPath string, src []byte) ([]byte, error) {
 	res, err := renderWithDeadline(docPath, src, maxRenderBytes, renderTimeout, func() (render.Result, error) {
 		return exportRenderer.Render(src, docPath)
 	})
@@ -87,7 +89,7 @@ func (m *mount) exportPage(ctx context.Context, docPath string, src []byte) ([]b
 	}
 	fragment := string(res.HTML)
 	if res.PlantUML {
-		fragment = m.drawDiagrams(ctx, fragment)
+		fragment = m.drawDiagrams(ctx, started, fragment)
 	}
 	pics := newPictures(m.spc.Store, path.Dir(docPath), maxEmbeddedImages)
 	var buf bytes.Buffer

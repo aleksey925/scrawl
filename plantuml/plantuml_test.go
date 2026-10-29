@@ -302,6 +302,27 @@ func TestSVGFinishesADrawingAfterItsClientLeaves(t *testing.T) {
 	assert.Equal(t, leftRes.svg, again)
 }
 
+func TestSVGTakesADrawingCachedWhileItWaitedToRegister(t *testing.T) {
+	// arrange
+	r := New(1)
+	t.Cleanup(r.Close)
+	source := "@startuml\nA -> B : finished elsewhere\n@enduml"
+	want := response{SVG: "<svg>finished elsewhere</svg>"}
+	r.pool.Close()
+	r.mu.Lock()
+	waiting := drawInBackground(context.Background(), r, source)
+	time.Sleep(50 * time.Millisecond)
+	r.cache.put(sha256.Sum256([]byte(source)), want)
+
+	// act
+	r.mu.Unlock()
+
+	// assert
+	got := <-waiting
+	require.NoError(t, got.err, "the call asks no worker of the closed pool")
+	assert.Equal(t, want.SVG, got.svg)
+}
+
 func TestTheBrowserTheServerAndTheLibraryAreOnePlantUML(t *testing.T) {
 	// arrange
 	raw, err := os.ReadFile("../web/package.json")

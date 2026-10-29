@@ -104,10 +104,11 @@ func (r *Renderer) svg(ctx context.Context, source string) (string, error) {
 func (r *Renderer) draw(ctx context.Context, diagram string) (response, error) {
 	key := sha256.Sum256([]byte(diagram))
 	for {
+		r.mu.Lock()
 		if res, ok := r.cache.get(key); ok {
+			r.mu.Unlock()
 			return res, nil
 		}
-		r.mu.Lock()
 		other, busy := r.drawing[key]
 		if !busy {
 			own := &drawing{done: make(chan struct{})}

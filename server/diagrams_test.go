@@ -74,6 +74,24 @@ func TestExportGivesTheDiagramsABudget(t *testing.T) {
 	assert.LessOrEqual(t, diagramRenderer.deadlines[0], ts.diagramBudget())
 }
 
+func TestDrawDiagramsCountsTheBudgetFromTheStartOfTheRequest(t *testing.T) {
+	// arrange
+	diagramRenderer := &fakeDiagramRenderer{}
+	m := &mount{
+		Web: &Web{Config: Config{WriteTimeout: 10 * time.Second}, DiagramRenderer: diagramRenderer},
+		spc: &Space{Name: "notes"},
+	}
+	spent := 3 * time.Second
+
+	// act
+	m.drawDiagrams(context.Background(), time.Now().Add(-spent), render.OpenPlantUML+"A -&gt; B</pre>")
+
+	// assert
+	require.Len(t, diagramRenderer.deadlines, 1)
+	assert.Greater(t, diagramRenderer.deadlines[0], time.Duration(0))
+	assert.LessOrEqual(t, diagramRenderer.deadlines[0], m.diagramBudget()-spent)
+}
+
 func TestDiagramBudget(t *testing.T) {
 	tests := []struct {
 		name  string

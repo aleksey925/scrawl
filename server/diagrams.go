@@ -30,8 +30,8 @@ func (wb *Web) diagramBudget() time.Duration {
 	return wb.WriteTimeout * diagramBudgetPercent / 100
 }
 
-func (m *mount) drawDiagrams(ctx context.Context, fragment string) string {
-	ctx, cancel := context.WithTimeout(ctx, m.diagramBudget())
+func (m *mount) drawDiagrams(ctx context.Context, started time.Time, fragment string) string {
+	ctx, cancel := context.WithDeadline(ctx, started.Add(m.diagramBudget()))
 	defer cancel()
 	drawn, err := m.DiagramRenderer.Inline(ctx, fragment)
 	if err != nil {

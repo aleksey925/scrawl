@@ -145,6 +145,9 @@ words; the fact itself is written here.
   (11690px). It is checked after the layout and bounds no work, so it is off.
 - PlantUML's dark mode paints `#1B1B1B` behind a Graphviz diagram and nothing
   behind a sequence one; that default backdrop is removed.
+- PlantUML's dark mode makes its text light and leaves the colors a diagram
+  sets itself as they are, so a `box #EEF` came out light text on a light fill.
+  `#name` at the start of a class member is a visibility, not a color.
 - PlantUML's headless build refuses a source without `@startuml`, which the
   browser's takes, so the server adds the lines and counts an error's line
   back.

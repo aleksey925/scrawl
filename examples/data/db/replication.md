@@ -1,10 +1,10 @@
-# Репликация
+# Replication
 
-Реплика повторяет за основным сервером его журнал записи и отстаёт от
-него на время доставки. Читать с реплики можно, рассчитывать на свежесть
-данных - нет.
+A replica replays the primary server's write-ahead log and lags behind
+it by the delivery time. You can read from a replica, but you cannot
+count on the data being fresh.
 
-## Отставание
+## Lag
 
-Отставание измеряют не в байтах журнала, а в секундах: байты ничего не
-говорят о том, как долго клиент будет видеть старую версию строки.
+Lag is measured not in bytes of the log but in seconds: bytes say
+nothing about how long a client will keep seeing an old row version.

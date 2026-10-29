@@ -41,6 +41,7 @@
     "menuHighlightMuted": "#7d7a75",
     "overlay": "#0f0f0fb3",
     "codeBg": "#ffffff08",
+    "diagramPaper": "#f7f6f3",
     "link": "currentColor",
     "linkLine": "#ffffff40",
     "placeholder": "#ffffff2e",

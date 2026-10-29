@@ -1,6 +1,7 @@
 const {expect, test} = require('../support/test');
 
-const {chooseTheme, openSpaceMenu, removeFixture, routes, shot, signIn, writeFixture} = require('../support/helpers');
+const {chooseTheme, openSpaceMenu, removeFixture, rgb, routes, shot, signIn, writeFixture} = require('../support/helpers');
+const darkTheme = require('../../theme/themes/dark.json');
 
 const NOTE = 'e2e-plantuml.md';
 
@@ -187,6 +188,30 @@ test.describe('plantuml', () => {
         await expect(drawn(page).locator(':scope > rect')).toHaveCount(0);
         expect(await drawn(page).evaluate((svg) => svg.style.backgroundColor)).toBe('');
         await shot(page, 'plantuml-dark');
+
+        await openSpaceMenu(page);
+        await chooseTheme(page, 'auto');
+    });
+
+    test('in the dark theme a diagram with colors of its own is drawn light on a card, a plain one dark', async ({page}) => {
+        // arrange
+        const colored = '```plantuml\n@startuml\nbox "Сервер" #EFE\nparticipant API\nend box\nКлиент -> API : цветной\n@enduml\n```';
+        writeFixture(NOTE, note(colored, SEQUENCE));
+        await page.goto(routes.doc(NOTE));
+        await openSpaceMenu(page);
+        await chooseTheme(page, 'dark');
+        await page.keyboard.press('Escape');
+
+        // act
+        await expect(drawn(page)).toHaveCount(2);
+        const textFill = (svg) => svg.evaluate((root) => root.querySelector('text').getAttribute('fill'));
+
+        // assert
+        await expect(drawn(page).first()).toHaveClass(/md-diagram-paper/);
+        await expect(drawn(page).nth(1)).not.toHaveClass(/md-diagram-paper/);
+        expect(await drawn(page).first().evaluate((svg) => getComputedStyle(svg).backgroundColor)).toBe(rgb(darkTheme.palette.diagramPaper));
+        expect(await textFill(drawn(page).first())).not.toBe(await textFill(drawn(page).nth(1)));
+        await shot(page, 'plantuml-dark-paper');
 
         await openSpaceMenu(page);
         await chooseTheme(page, 'auto');

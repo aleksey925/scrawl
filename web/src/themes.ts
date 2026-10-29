@@ -30,6 +30,7 @@ export interface Palette {
   menuHighlightMuted: string;
   overlay: string;
   codeBg: string;
+  diagramPaper: string;
   link: string;
   linkLine: string;
   placeholder: string;

@@ -1,21 +1,21 @@
-# Очистка (vacuum)
+# Vacuum
 
-Обновление строки не меняет её на месте: база пишет новую версию, а
-старая остаётся лежать в странице, пока её кто-то ещё может увидеть.
-Очистка - это фоновый процесс, который такие мёртвые версии убирает.
+Updating a row does not change it in place: the database writes a new
+version, and the old one stays in the page while anyone can still see
+it. Vacuum is a background process that removes such dead versions.
 
-## Что она делает
+## What it does
 
-- освобождает место внутри страниц таблицы
-- вычищает ссылки на мёртвые строки из деревьев, поэтому индексы после
-  неё занимают меньше места
-- обновляет статистику, по которой планировщик считает стоимость
+- frees space inside the table's pages
+- removes links to dead rows from the trees, so indexes take less space
+  after it
+- updates the statistics the planner uses to estimate cost
 
-## Когда её не хватает
+## When it falls behind
 
-Если запись идёт быстрее, чем очистка успевает убирать, таблица
-раздувается, а вместе с ней раздуваются и индексы. Симптом простой:
-размер на диске растёт, а количество строк - нет.
+If writes come faster than vacuum can clean up, the table bloats, and
+the indexes bloat along with it. The symptom is simple: the size on disk
+grows, but the number of rows does not.
 
-Подробнее про то, как устроены сами индексы, написано в заметке про
-[хранение данных](storage.md).
+How indexes themselves work is covered in the note on
+[data storage](storage.md).

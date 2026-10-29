@@ -794,6 +794,13 @@
   margin-inline: auto;
 }
 
+.markdown-document .md-diagram-view svg.md-diagram-paper {
+  box-sizing: content-box;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--scrawl-diagram-paper);
+}
+
 .markdown-document .md-diagram-view p {
   margin: 0;
   padding: 0;

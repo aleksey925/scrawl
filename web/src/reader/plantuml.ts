@@ -13,6 +13,28 @@ const engineDarkBackground = '#1B1B1B';
 
 const fragmentRef = /url\(\s*#([^)\s]+)\s*\)/g;
 
+const colorLiteral = '#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3}|[A-Za-z]{3,})\\b';
+
+const ownColorLines = [
+  /^!theme\b/,
+  /^!include\w*\s*</,
+  /^skinparam\s+\S*colou?r/i,
+  /^<style>/,
+  /<back:/,
+  /\bis colored\b/,
+  new RegExp(`[\\s[<:]${colorLiteral}`),
+  new RegExp(`^${colorLiteral}:`),
+];
+
+function hasOwnColors(source: string): boolean {
+  return source.split('\n').some((line) => {
+    const trimmed = line.trim();
+    return ownColorLines.some((rule) => rule.test(trimmed));
+  });
+}
+
+const paperClass = 'md-diagram-paper';
+
 const libraryFile = /^[a-z0-9][a-z0-9._-]*\.js$/;
 
 let libraryBase: string | undefined;
@@ -103,9 +125,12 @@ function dropDarkBackground(svg: SVGSVGElement): void {
 }
 
 async function render(id: string, source: string, dark: boolean): Promise<SVGSVGElement> {
-  const svg = sanitize(await draw(source, dark));
+  const onPaper = dark && hasOwnColors(source);
+  const svg = sanitize(await draw(source, dark && !onPaper));
   scopeIds(svg, id);
-  if (dark) {
+  if (onPaper) {
+    svg.classList.add(paperClass);
+  } else if (dark) {
     dropDarkBackground(svg);
   }
   return svg;

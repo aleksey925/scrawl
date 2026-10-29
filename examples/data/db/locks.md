@@ -1,11 +1,11 @@
-# Блокировки
+# Locks
 
-Блокировка защищает строку или таблицу от одновременного изменения. Она
-берётся автоматически, а отпускается в конце транзакции, поэтому длинная
-транзакция - это всегда длинная блокировка.
+A lock protects a row or a table from being changed at the same time. It
+is taken automatically and released at the end of the transaction, so a
+long transaction is always a long lock.
 
-## Взаимные блокировки
+## Deadlocks
 
-Две транзакции, которые берут одни и те же строки в разном порядке,
-рано или поздно встанут друг напротив друга. База разорвёт круг сама,
-сняв одну из них с ошибкой.
+Two transactions that take the same rows in a different order will
+sooner or later end up facing each other. The database breaks the circle
+itself by aborting one of them with an error.

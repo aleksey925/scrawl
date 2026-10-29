@@ -501,7 +501,10 @@ Bob --> Alice : ok
 ````
 
 The browser draws it, so scrawl needs no PlantUML server and no Java.
-The first note with such a diagram loads a 1.7MB renderer, once.
+The first note with such a diagram loads a 1.7MB renderer, once. In the
+dark theme a diagram is drawn dark, unless it sets colors of its own:
+then it keeps them and sits on a light card. More examples are in
+`examples/data/showcase/plantuml/`.
 PlantUML's whole standard library comes with scrawl: C4, AWS, Azure,
 Kubernetes, the icon sets, the themes and emoji. A library is loaded
 only when a diagram includes it, once:

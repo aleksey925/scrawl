@@ -423,6 +423,7 @@
   --scrawl-menu-highlight-muted: #ffffffb3;
   --scrawl-overlay: #0000004d;
   --scrawl-code-bg: #f5f5f7;
+  --scrawl-diagram-paper: #ffffff;
   --scrawl-link: #0066cc;
   --scrawl-link-line: #0066cc40;
   --scrawl-placeholder: #3c3c4366;
@@ -662,6 +663,7 @@
   --scrawl-menu-highlight-muted: #7d7a75;
   --scrawl-overlay: #0f0f0fb3;
   --scrawl-code-bg: #ffffff08;
+  --scrawl-diagram-paper: #f7f6f3;
   --scrawl-link: currentColor;
   --scrawl-link-line: #ffffff40;
   --scrawl-placeholder: #ffffff2e;
@@ -900,6 +902,7 @@
   --scrawl-menu-highlight-muted: #ffffffb3;
   --scrawl-overlay: #0000004d;
   --scrawl-code-bg: #f5f5f7;
+  --scrawl-diagram-paper: #ffffff;
   --scrawl-link: #0066cc;
   --scrawl-link-line: #0066cc40;
   --scrawl-placeholder: #3c3c4366;
@@ -1137,6 +1140,7 @@
   --scrawl-menu-highlight-muted: #7d7a75;
   --scrawl-overlay: #0f0f0fb3;
   --scrawl-code-bg: #ffffff08;
+  --scrawl-diagram-paper: #f7f6f3;
   --scrawl-link: currentColor;
   --scrawl-link-line: #ffffff40;
   --scrawl-placeholder: #ffffff2e;

@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/go-pkgz/lgr"
 	"github.com/jessevdk/go-flags"
 
 	"github.com/aleksey925/scrawl/format"
@@ -202,7 +201,7 @@ func runCommand(args []string, in io.Reader, out, errOut io.Writer) int {
 
 	code := 0
 	tools := map[string]func() error{
-		renderCommand: func() error { return runRender(&cmds.Render, in, out) },
+		renderCommand: func() error { return runRender(&cmds.Render, in, out, errOut) },
 		siteCommand:   func() error { return runSite(&cmds.Site, out) },
 		diffCommand: func() (runErr error) {
 			code, runErr = runDiff(&cmds.Diff, out)
@@ -320,7 +319,7 @@ type noteJSON struct {
 	Frontmatter string           `json:"frontmatter,omitempty"`
 }
 
-func runRender(opts *renderOptions, in io.Reader, out io.Writer) error {
+func runRender(opts *renderOptions, in io.Reader, out, errOut io.Writer) error {
 	name, src, err := readInput(opts.Args.File, in)
 	if err != nil {
 		return err
@@ -331,7 +330,7 @@ func runRender(opts *renderOptions, in io.Reader, out io.Writer) error {
 	}
 	html := string(res.HTML)
 	if res.PlantUML {
-		html = drawPlantUML(html)
+		html = drawPlantUML(html, errOut)
 	}
 
 	var buf bytes.Buffer
@@ -351,12 +350,12 @@ func runRender(opts *renderOptions, in io.Reader, out io.Writer) error {
 	return writeOutput(opts.Output, buf.Bytes(), out)
 }
 
-func drawPlantUML(fragment string) string {
+func drawPlantUML(fragment string, errOut io.Writer) string {
 	renderer := plantuml.New(1)
 	defer renderer.Close()
 	drawn, err := renderer.Inline(context.Background(), fragment)
 	if err != nil {
-		log.Printf("[WARN] %v", err)
+		_, _ = fmt.Fprintf(errOut, "a plantuml diagram is left as code: %v\n", err)
 	}
 	return drawn
 }

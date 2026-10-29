@@ -301,6 +301,48 @@ func TestRunRender(t *testing.T) {
 		assert.Contains(t, out, `<pre class="mermaid"`)
 	})
 
+	t.Run("a diagram with a mistake stays code with the reason under it", func(t *testing.T) {
+		// arrange
+		note := "# UML\n\n```plantuml\nAlice -> :\nfoo bar\n```\n"
+
+		// act
+		code, out, errOut := runCLI(t, note, "render", "-f", "fragment")
+
+		// assert
+		assert.Equal(t, 0, code, errOut)
+		assert.Empty(t, errOut)
+		assert.Contains(t, out, `<pre class="plantuml"`)
+		assert.Contains(t, out, `<p class="md-diagram-error">line 2: `)
+	})
+
+	t.Run("a diagram that cannot be drawn is told on the error output, and json stays json", func(t *testing.T) {
+		// arrange
+		note := "# UML\n\n```plantuml\n" + strings.Repeat("A -> B\n", 40000) + "```\n"
+
+		// act
+		code, out, errOut := runCLI(t, note, "render", "-f", "json")
+
+		// assert
+		assert.Equal(t, 0, code, errOut)
+		assert.Contains(t, errOut, "a plantuml diagram is left as code: ")
+		var got noteJSON
+		require.NoError(t, json.Unmarshal([]byte(out), &got))
+		assert.Contains(t, got.HTML, `<p class="md-diagram-error">the diagram could not be rendered</p>`)
+	})
+
+	t.Run("a page carries a drawn diagram", func(t *testing.T) {
+		// arrange
+		note := "# UML\n\n```puml\nAlice -> Bob : on a page\n```\n"
+
+		// act
+		code, out, errOut := runCLI(t, note, "render")
+
+		// assert
+		assert.Equal(t, 0, code, errOut)
+		assert.Contains(t, out, "<html")
+		assert.Contains(t, out, `<img alt="PlantUML diagram" src="data:image/svg+xml;base64,`)
+	})
+
 	t.Run("a missing file is an error", func(t *testing.T) {
 		// act
 		code, _, errOut := runCLI(t, "", "render", filepath.Join(t.TempDir(), "missing.md"))

@@ -517,8 +517,12 @@ Rel(reader, notes, "reads")
 
 Where no browser draws, in an exported page and in `scrawl render`,
 scrawl draws the diagram itself and puts it in as a picture. A simple
-diagram takes a fraction of a second there, a C4 one a few seconds.
-
+diagram takes a fraction of a second there, a C4 one 5 to 10 seconds,
+and a large library takes a few hundred megabytes of memory for a
+moment. An export gives all its diagrams three quarters of
+`--timeout.write` together, and a diagram left when that runs out stays
+code, so the page still arrives. A link in such a picture cannot be
+clicked.
 Relative links between pages, in-page anchors and images from sibling
 folders all keep working, and headings get anchors that handle Cyrillic.
 Pasted images land in a folder next to the document and named after it,
@@ -763,7 +767,7 @@ as the app does; opened from disk, every note is a page load.
 Search, editing, history and sync need the server and are not on a site.
 The diagram renderers, some 5MB each, the formula renderer and the
 PlantUML libraries the notes include are written only when a note needs
-them. There is nothing to configure: the front page is
+them; one library can add up to 23MB. There is nothing to configure: the front page is
 the list of what the root holds, and Home opens `index.md` at the root of
 the notes. A folder's `index.md` is written as `index.md.html`, beside the
 folder's list.
@@ -786,8 +790,9 @@ make deps
 ```
 
 `make deps` sets up the whole working checkout: the go modules, the
-node modules of the interface and of the browser suite, and the
-Chromium the suite drives. Run it again after pulling a change to any
+node modules of the interface, of the two engines built into wasm
+(`format/js/` and `plantuml/js/`) and of the browser suite, and the
+Chromium and Firefox the suite drives. Run it again after pulling a change to any
 lockfile; a Playwright bump wants a new browser, and without it every
 browser test fails with "Executable doesn't exist".
 
@@ -795,6 +800,8 @@ browser test fails with "Executable doesn't exist".
 make ui         build the interface into server/assets/app/ and page/assets/,
                 and draw the favicon and the PNG icons from the logo
 make formatter  build prettier into format/prettier.wasm
+make plantuml   build PlantUML into plantuml/engine.wasm and fetch its
+                library into plantuml/library/; needs the network
 make build      build the binary into dist/, with the assets compressed
 make run        run ./examples/data as the "notes" space, no authentication
 make test       tests
@@ -815,8 +822,9 @@ bundle belongs in the same commit: CI rebuilds it and fails if what is
 checked in is stale.
 
 `make build`, the docker image and the release binaries store these
-files gzip-compressed, which makes the binary about 26 MB instead of
-about 40 MB. `go install` builds without that step and embeds the files
-as they are.
+files gzip-compressed, which makes the binary about 60 MB instead of
+about 90 MB. `go install` builds without that step and embeds the files
+as they are; PlantUML's library is committed compressed, so it is the
+same in both.
 
 Browser tests live in [e2e/](e2e/), see [e2e/README.md](e2e/README.md).

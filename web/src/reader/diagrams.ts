@@ -1,5 +1,6 @@
 import type { MermaidConfig } from 'mermaid';
 
+import type { Platform } from '../platform';
 import { track } from './pending';
 import { preserveScroll } from './scroll';
 
@@ -7,10 +8,7 @@ export type Mermaid = typeof import('mermaid').default;
 
 export type PlantUML = typeof import('./plantuml').plantUML;
 
-export interface DiagramLoaders {
-  mermaid: () => Promise<Mermaid>;
-  plantUML: () => Promise<PlantUML>;
-}
+type DiagramLoaders = Pick<Platform, 'loadMermaid' | 'loadPlantUML'>;
 
 type Draw = (id: string, source: string) => Promise<SVGElement>;
 
@@ -173,7 +171,7 @@ const mermaidKind: Kind = {
   name: 'mermaid',
   selector: 'pre.mermaid',
   prepare: async (loaders, dark) => {
-    const mermaid = await loaders.mermaid();
+    const mermaid = await loaders.loadMermaid();
     const { config, text } = mermaidConfig(dark);
     mermaid.initialize(config);
     return async (id, source) => {
@@ -194,7 +192,7 @@ const plantUMLKind: Kind = {
   name: 'plantuml',
   selector: 'pre.plantuml',
   prepare: async (loaders, dark) => {
-    const plantUML = await loaders.plantUML();
+    const plantUML = await loaders.loadPlantUML();
     return (id, source) => plantUML.render(id, source, dark);
   },
 };

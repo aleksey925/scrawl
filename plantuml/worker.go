@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"runtime/debug"
-	"time"
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
@@ -16,21 +15,19 @@ import (
 	"github.com/tetratelabs/wazero/sys"
 
 	"github.com/aleksey925/scrawl/gzassets"
+	"github.com/aleksey925/scrawl/workerpool"
 )
 
 const engineFile = "engine.wasm"
 
 const (
-	memoryPages  = 16384
-	recycleBytes = 256 << 20
-	idleTimeout  = 2 * time.Minute
+	memoryPages = 16384
+	retireBytes = 256 << 20
 )
 
 type engineMessage struct {
-	Need  string `json:"need,omitempty"`
-	SVG   string `json:"svg,omitempty"`
-	Error string `json:"error,omitempty"`
-	Line  int    `json:"line,omitempty"`
+	Need string `json:"need,omitempty"`
+	response
 }
 
 type libraryReply struct {
@@ -39,17 +36,12 @@ type libraryReply struct {
 }
 
 func RunWorkerIfAsked() {
-	if os.Getenv(WorkerEnv) == "" {
-		return
-	}
-	if err := serve(os.Stdin, os.Stdout); err != nil {
-		fmt.Fprintf(os.Stderr, "plantuml worker: %v\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
+	workerpool.RunIfAsked(workerEnv, "plantuml worker", func(in io.Reader, out io.Writer) error {
+		return serve(in, out, retireBytes)
+	})
 }
 
-func serve(in io.Reader, out io.Writer) error {
+func serve(in io.Reader, out io.Writer, retireAt uint32) error {
 	wasm, err := gzassets.Sub(engineFiles, engineDir).ReadFile(engineFile)
 	if err != nil {
 		return fmt.Errorf("read the engine: %w", err)
@@ -65,83 +57,40 @@ func serve(in io.Reader, out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("compile the engine: %w", err)
 	}
+	eng, err := startEngine(ctx, runtime, module)
+	if err != nil {
+		return err
+	}
+	defer eng.stop()
 
-	requests, readErr := readRequests(in)
-	answers := json.NewEncoder(out)
-	running := &engineSlot{start: func() (*engine, error) { return startEngine(ctx, runtime, module) }}
-	defer running.retire()
-	idle := time.NewTimer(idleTimeout)
-	defer idle.Stop()
+	requests, answers := json.NewDecoder(in), newEncoder(out)
 	for {
-		select {
-		case req, ok := <-requests:
-			if !ok {
-				if err = <-readErr; errors.Is(err, io.EOF) {
-					return nil
-				}
-				return fmt.Errorf("read a request: %w", err)
+		var req request
+		if err = requests.Decode(&req); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
 			}
-			eng, startErr := running.get()
-			if startErr != nil {
-				return startErr
-			}
-			res, renderErr := eng.render(req)
-			if renderErr != nil {
-				return renderErr
-			}
-			if err = answers.Encode(res); err != nil {
-				return fmt.Errorf("write an answer: %w", err)
-			}
-			if eng.memory() > recycleBytes {
-				running.retire()
-			}
-			idle.Reset(idleTimeout)
-		case <-idle.C:
-			running.retire()
+			return fmt.Errorf("read a request: %w", err)
 		}
+		res, renderErr := eng.render(req)
+		if renderErr != nil {
+			return renderErr
+		}
+		res.Retire = eng.memory() > retireAt
+		if err = answers.Encode(res); err != nil {
+			return fmt.Errorf("write an answer: %w", err)
+		}
+		if res.Retire {
+			return nil
+		}
+		debug.FreeOSMemory()
 	}
 }
 
-func readRequests(in io.Reader) (<-chan request, <-chan error) {
-	requests, failed := make(chan request), make(chan error, 1)
-	go func() {
-		defer close(requests)
-		dec := json.NewDecoder(in)
-		for {
-			var req request
-			if err := dec.Decode(&req); err != nil {
-				failed <- err
-				return
-			}
-			requests <- req
-		}
-	}()
-	return requests, failed
-}
-
-type engineSlot struct {
-	start   func() (*engine, error)
-	running *engine
-}
-
-func (s *engineSlot) get() (*engine, error) {
-	if s.running == nil {
-		eng, err := s.start()
-		if err != nil {
-			return nil, err
-		}
-		s.running = eng
-	}
-	return s.running, nil
-}
-
-func (s *engineSlot) retire() {
-	if s.running == nil {
-		return
-	}
-	s.running.stop()
-	s.running = nil
-	debug.FreeOSMemory()
+func newEncoder(w io.Writer) *json.Encoder {
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	return enc
 }
 
 type engine struct {
@@ -164,7 +113,7 @@ func startEngine(ctx context.Context, runtime wazero.Runtime, module wazero.Comp
 	e := &engine{
 		instance: instance,
 		in:       engineIn,
-		enc:      json.NewEncoder(engineIn),
+		enc:      newEncoder(engineIn),
 		dec:      json.NewDecoder(engineOut),
 		exited:   make(chan struct{}),
 	}
@@ -189,27 +138,23 @@ func (e *engine) render(req request) (response, error) {
 	if err := e.enc.Encode(req); err != nil {
 		return response{}, fmt.Errorf("hand the diagram to the engine: %w", err)
 	}
-	return answer(e.dec, e.enc)
+	for {
+		var msg engineMessage
+		if err := e.dec.Decode(&msg); err != nil {
+			return response{}, fmt.Errorf("read what the engine answered: %w", err)
+		}
+		if msg.Need == "" {
+			return msg.response, nil
+		}
+		if err := e.enc.Encode(libraryFor(msg.Need)); err != nil {
+			return response{}, fmt.Errorf("hand %s to the engine: %w", msg.Need, err)
+		}
+	}
 }
 
 func (e *engine) stop() {
 	_ = e.in.Close()
 	<-e.exited
-}
-
-func answer(engine *json.Decoder, toEngine *json.Encoder) (response, error) {
-	for {
-		var msg engineMessage
-		if err := engine.Decode(&msg); err != nil {
-			return response{}, fmt.Errorf("read what the engine answered: %w", err)
-		}
-		if msg.Need == "" {
-			return response{SVG: msg.SVG, Error: msg.Error, Line: msg.Line}, nil
-		}
-		if err := toEngine.Encode(libraryFor(msg.Need)); err != nil {
-			return response{}, fmt.Errorf("hand %s to the engine: %w", msg.Need, err)
-		}
-	}
 }
 
 func libraryFor(name string) libraryReply {

@@ -24,8 +24,9 @@ Prettier inside the binary and in the browser.
   `workerpool`, which PlantUML's engine on the server runs in as well
   ([ADR 6](../adr/0006-prettier-in-worker-processes.md)). A process can be
   killed, so the deadline of a call is a real one and the next call gets a
-  fresh worker. `main` asks `format.RunWorkerIfAsked` before anything else,
-  because a worker must not parse flags or open a store.
+  fresh worker. `main` asks `format.RunWorkerIfAsked` and
+  `plantuml.RunWorkerIfAsked` before anything else, because a worker must not
+  parse flags or open a store.
 - A note the formatter gave up on is stored as it was written, because the save
   is what the writer asked for, and the answer says so in `format_failed`. A
   write that formats is detached from its client: formatting takes seconds, and

@@ -8,46 +8,63 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 )
 
+type Options struct {
+	Name    string
+	Env     string
+	Workers int
+	Limit   time.Duration
+	Idle    time.Duration
+}
+
+type Retiring interface {
+	Retiring() bool
+}
+
 type Pool[Req, Res any] struct {
-	name string
-	env  string
-	free chan struct{}
+	opts Options
+	idle chan *worker
+	done chan struct{}
 
 	mu     sync.Mutex
-	idle   []*worker
 	closed bool
 }
 
-func New[Req, Res any](name, env string, workers int) *Pool[Req, Res] {
-	p := &Pool[Req, Res]{name: name, env: env, free: make(chan struct{}, workers)}
-	for range workers {
-		p.free <- struct{}{}
-		p.idle = append(p.idle, &worker{})
+func New[Req, Res any](opts Options) *Pool[Req, Res] {
+	p := &Pool[Req, Res]{opts: opts, idle: make(chan *worker, opts.Workers), done: make(chan struct{})}
+	for range opts.Workers {
+		p.idle <- &worker{}
 	}
 	return p
 }
 
+func RunIfAsked(env, name string, serve func(in io.Reader, out io.Writer) error) {
+	if os.Getenv(env) == "" {
+		return
+	}
+	if err := serve(os.Stdin, os.Stdout); err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", name, err)
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
 func (p *Pool[Req, Res]) Ask(ctx context.Context, req Req) (Res, error) {
 	var zero Res
-	select {
-	case <-p.free:
-	case <-ctx.Done():
-		return zero, fmt.Errorf("wait for a %s: %w", p.name, ctx.Err())
-	}
-	wrk, err := p.take()
+	wrk, err := p.take(ctx)
 	if err != nil {
-		p.free <- struct{}{}
 		return zero, err
 	}
-	defer func() {
-		p.put(wrk)
-		p.free <- struct{}{}
-	}()
-
+	defer p.put(wrk)
+	if p.opts.Limit > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, p.opts.Limit)
+		defer cancel()
+	}
 	if wrk.cmd == nil {
-		if startErr := wrk.start(p.name, p.env); startErr != nil {
+		if startErr := wrk.start(p.opts.Name, p.opts.Env); startErr != nil {
 			return zero, startErr
 		}
 	}
@@ -59,7 +76,7 @@ func (p *Pool[Req, Res]) Ask(ctx context.Context, req Req) (Res, error) {
 	done := make(chan outcome, 1)
 	go func() {
 		var res Res
-		askErr := wrk.ask(p.name, req, &res)
+		askErr := wrk.ask(p.opts.Name, req, &res)
 		done <- outcome{res: res, err: askErr}
 	}()
 
@@ -69,23 +86,30 @@ func (p *Pool[Req, Res]) Ask(ctx context.Context, req Req) (Res, error) {
 			wrk.stop()
 			return zero, out.err
 		}
+		if last, ok := any(out.res).(Retiring); ok && last.Retiring() {
+			wrk.stop()
+		}
 		return out.res, nil
 	case <-ctx.Done():
 		wrk.stop()
 		<-done
-		return zero, fmt.Errorf("%s: %w", p.name, ctx.Err())
+		return zero, fmt.Errorf("%s: %w", p.opts.Name, ctx.Err())
 	}
 }
 
-func (p *Pool[Req, Res]) take() (*worker, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.closed {
-		return nil, fmt.Errorf("the %s is closed", p.name)
+func (p *Pool[Req, Res]) take(ctx context.Context) (*worker, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("wait for a %s: %w", p.opts.Name, err)
 	}
-	wrk := p.idle[len(p.idle)-1]
-	p.idle = p.idle[:len(p.idle)-1]
-	return wrk, nil
+	select {
+	case wrk := <-p.idle:
+		wrk.claim()
+		return wrk, nil
+	case <-p.done:
+		return nil, fmt.Errorf("the %s is closed", p.opts.Name)
+	case <-ctx.Done():
+		return nil, fmt.Errorf("wait for a %s: %w", p.opts.Name, ctx.Err())
+	}
 }
 
 func (p *Pool[Req, Res]) put(wrk *worker) {
@@ -95,24 +119,66 @@ func (p *Pool[Req, Res]) put(wrk *worker) {
 		wrk.stop()
 		return
 	}
-	p.idle = append(p.idle, wrk)
+	wrk.release(p.opts.Idle)
+	p.idle <- wrk
 }
 
 func (p *Pool[Req, Res]) Close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.closed = true
-	for _, wrk := range p.idle {
-		wrk.stop()
+	if p.closed {
+		return
 	}
-	p.idle = nil
+	p.closed = true
+	close(p.done)
+	for {
+		select {
+		case wrk := <-p.idle:
+			wrk.stop()
+		default:
+			return
+		}
+	}
 }
 
 type worker struct {
+	mu    sync.Mutex
+	busy  bool
+	freed time.Time
+	timer *time.Timer
+
 	cmd   *exec.Cmd
 	stdin io.WriteCloser
 	enc   *json.Encoder
 	dec   *json.Decoder
+}
+
+func (w *worker) claim() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.busy = true
+}
+
+func (w *worker) release(idle time.Duration) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.busy, w.freed = false, time.Now()
+	if idle <= 0 || w.cmd == nil {
+		return
+	}
+	if w.timer == nil {
+		w.timer = time.AfterFunc(idle, func() { w.stopIdle(idle) })
+		return
+	}
+	w.timer.Reset(idle)
+}
+
+func (w *worker) stopIdle(idle time.Duration) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if !w.busy && time.Since(w.freed) >= idle {
+		w.stopLocked()
+	}
 }
 
 func (w *worker) start(name, env string) error {
@@ -151,6 +217,12 @@ func (w *worker) ask(name string, req, res any) error {
 }
 
 func (w *worker) stop() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.stopLocked()
+}
+
+func (w *worker) stopLocked() {
 	if w.cmd == nil {
 		return
 	}

@@ -154,12 +154,19 @@ words; the fact itself is written here.
 - In javy's QuickJS a promise settles only once the script yields to the event
   loop, `console` has no `info`, and `setTimeout` does not exist. The engine
   needs all three.
+- On the server a diagram with an emoji crashes the engine with "out of bounds
+  memory access" deep in a recursion, likely PlantUML's sprite parser reading
+  the emoji's SVG with more stack than javy's QuickJS has. The diagram stays
+  code; the browser draws it.
 - esbuild's syntax minification writes labels QuickJS refuses ("break/continue
   label not found"), so the server's engine is minified in names and space
   only.
 - A wazero memory that grows by copying leaves the old one as garbage, and a
   WebAssembly memory never shrinks: a worker with tupadr3 loaded held 800MB.
-  The capacity is reserved once, and the engine is let go instead.
+  The capacity is reserved once, and a worker whose engine grew too large
+  exits. A second engine in the same process took the worker from 115MB to
+  1.1GB: Go clears the reserved 1GB when it reuses it, which touches every
+  page. [Server](design/server.md#plantuml)
 - KaTeX's stylesheet says `font-display: block`, so formulas are typeset only
   after its faces load, or they paint blank and the page moves.
 - KaTeX empties the node before it builds, so on an error the source is put

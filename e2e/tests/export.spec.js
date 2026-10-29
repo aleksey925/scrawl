@@ -8,6 +8,7 @@ const NOTE = 'e2e-export.md';
 const OTHER = 'e2e-export-other.md';
 const SOURCE = '# Export\n\nA picture:\n\n![logo](images/logo.png)\n';
 const DIAGRAM = '# Export\n\n```mermaid\nflowchart TD\n  A --> B\n```\n';
+const PLANTUML = '# Export\n\n```plantuml\nAlice -> Bob : exported\n```\n';
 
 async function download(page, format) {
     await page.getByTestId('note-menu').click();
@@ -67,6 +68,21 @@ test.describe('export', () => {
         expect(file.name).toBe('e2e-export.html');
         expect(file.body).toContain('<title>Export</title>');
         expect(file.body).toMatch(/<img src="data:image\/png;base64,[A-Za-z0-9+/=]+" alt="logo">/);
+    });
+
+    test('a plantuml diagram of an exported page is a picture drawn by the server', async ({page}) => {
+        // arrange
+        writeFixture(NOTE, PLANTUML);
+        await page.goto(routes.doc(NOTE));
+
+        // act
+        const file = await download(page, 'html');
+
+        // assert
+        const svg = file.body.match(/<img alt="PlantUML diagram" src="data:image\/svg\+xml;base64,([A-Za-z0-9+/=]+)">/);
+        expect(svg).not.toBeNull();
+        expect(Buffer.from(svg[1], 'base64').toString('utf8')).toContain('exported');
+        expect(file.body).not.toContain('<pre class="plantuml"');
     });
 
     test('the picked theme of an exported page slides into place', async ({page}, testInfo) => {

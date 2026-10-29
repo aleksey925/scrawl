@@ -101,6 +101,56 @@ test.describe('plantuml', () => {
         await shot(page, 'plantuml-c4');
     });
 
+    test('a note with no plantuml loads no engine, and a plain diagram loads no library', async ({page}) => {
+        // arrange
+        const loaded = [];
+        page.on('request', (request) => {
+            const path = new URL(request.url()).pathname;
+            if (path.includes('/plantuml/') || path.endsWith('/plantuml.js')) {
+                loaded.push(path.split('/').pop());
+            }
+        });
+        writeFixture(NOTE, '# No diagram\n\nJust text.\n');
+        await page.goto(routes.doc(NOTE));
+        await expect(page.getByTestId('doc').locator('h1')).toHaveText('No diagram');
+        const withoutDiagrams = [...loaded];
+        writeFixture(NOTE, note(SEQUENCE));
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(drawn(page)).toHaveCount(1);
+        expect(withoutDiagrams).toEqual([]);
+        expect(loaded).toEqual(['plantuml.js']);
+    });
+
+    test('graphviz starts only for a diagram laid out by it', async ({page}) => {
+        // arrange
+        await page.addInitScript(() => {
+            window.wasmStarts = 0;
+            const instantiate = WebAssembly.instantiate;
+            WebAssembly.instantiate = (...args) => {
+                window.wasmStarts += 1;
+                return instantiate.apply(WebAssembly, args);
+            };
+        });
+        writeFixture(NOTE, note(SEQUENCE));
+        await page.goto(routes.doc(NOTE));
+        await expect(drawn(page)).toHaveCount(1);
+        const forSequence = await page.evaluate(() => window.wasmStarts);
+        writeFixture(NOTE, note(CLASSES));
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(drawn(page)).toHaveCount(1);
+        await expect(drawn(page).locator('g.entity')).toHaveCount(2);
+        expect(forSequence).toBe(0);
+        expect(await page.evaluate(() => window.wasmStarts)).toBe(1);
+    });
+
     test('an include of a library that does not exist shows plantuml\'s error, and a link to a script is not kept', async ({page}) => {
         // arrange
         writeFixture(NOTE, note(

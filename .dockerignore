@@ -5,7 +5,7 @@
 .agentbox
 dist
 var
-node_modules
+**/node_modules
 e2e
 # the frontend source is not part of the image build: the bundle it produces is
 # committed under server/assets/ and is what //go:embed picks up

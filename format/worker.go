@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 
 	"github.com/aleksey925/scrawl/gzassets"
+	"github.com/aleksey925/scrawl/workerpool"
 )
 
 const wasmFile = "prettier.wasm"
@@ -20,14 +20,7 @@ const wasmFile = "prettier.wasm"
 const memoryPages = 4096
 
 func RunWorkerIfAsked() {
-	if os.Getenv(WorkerEnv) == "" {
-		return
-	}
-	if err := serve(os.Stdin, os.Stdout); err != nil {
-		fmt.Fprintf(os.Stderr, "format worker: %v\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
+	workerpool.RunIfAsked(WorkerEnv, "format worker", serve)
 }
 
 func serve(in io.Reader, out io.Writer) error {

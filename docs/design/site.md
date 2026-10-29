@@ -36,13 +36,18 @@ A space written out as static pages that run the app's reader.
   and KaTeX are files of their own that a page loads only when its note needs
   them. Of PlantUML's library a site gets the files its notes include, with
   what those include in turn, in `scrawl/plantuml/`: a whole library is up to
-  23MB. A folder is `index.html`, its list, written for every folder, and its
-  `index.md` is `index.md.html`. A relative link to a folder points to the
-  list, because opened from disk a folder is the system's listing, and one to
-  `index.md` to the note's page. Opened from disk, a page in Firefox has the
-  origin `null`, so a heading's link is built without it, and the script finds
-  the folder of the renderers from `document.currentScript`, which is set only
-  while the script runs, so it is read when the script loads.
+  23MB. The scan reads the whole note, not only its diagrams, so an include
+  quoted in another block ships its library too: a file missing breaks a
+  diagram, one too many only takes space. Any library brings OpenIconic, 12KB,
+  as a library can build an icon while it runs, as C4 does from
+  `$sprite="&person"`. A folder is `index.html`, its list, written for every
+  folder, and its `index.md` is `index.md.html`. A relative link to a folder
+  points to the list, because opened from disk a folder is the system's
+  listing, and one to `index.md` to the note's page. Opened from disk, a page
+  in Firefox has the origin `null`, so a heading's link is built without it,
+  and the script finds the folder of the renderers from
+  `document.currentScript`, which is set only while the script runs, so it is
+  read when the script loads.
 - A site has one look, and its only settings are the reader's theme and page
   width; nothing `site` copies is changed. The front page is the root's list,
   Home opens the root `index.md`, and the site takes its title from that note.

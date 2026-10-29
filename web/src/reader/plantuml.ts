@@ -33,14 +33,17 @@ function useLibraries(base: string): void {
   libraryBase = base;
 }
 
-const layoutReady: Promise<void> = viz.instance().then(
-  (instance) => {
-    hooks.PLANTUML_VIZ = { instance: async () => instance };
+let layout: Promise<unknown> | undefined;
+
+hooks.PLANTUML_VIZ = {
+  instance: () => {
+    layout ??= viz.instance().catch((error: unknown) => {
+      hooks.PLANTUML_VIZ = {};
+      throw error;
+    });
+    return layout;
   },
-  () => {
-    hooks.PLANTUML_VIZ = {};
-  },
-);
+};
 
 function draw(source: string, dark: boolean): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -100,7 +103,6 @@ function dropDarkBackground(svg: SVGSVGElement): void {
 }
 
 async function render(id: string, source: string, dark: boolean): Promise<SVGSVGElement> {
-  await layoutReady;
   const svg = sanitize(await draw(source, dark));
   scopeIds(svg, id);
   if (dark) {

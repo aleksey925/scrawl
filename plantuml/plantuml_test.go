@@ -1,22 +1,36 @@
 package plantuml
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"image/png"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aleksey925/scrawl/workerpool"
 )
 
+const retireEveryTimeEnv = "SCRAWL_PLANTUML_TEST_RETIRE"
+
 func TestMain(m *testing.M) {
+	if os.Getenv(retireEveryTimeEnv) != "" {
+		workerpool.RunIfAsked(workerEnv, "plantuml worker", func(in io.Reader, out io.Writer) error {
+			return serve(in, out, 0)
+		})
+	}
 	RunWorkerIfAsked()
 	os.Exit(m.Run())
 }
@@ -32,15 +46,15 @@ func TestSVG(t *testing.T) {
 		{name: "a sequence", source: "@startuml\nАлиса -> Боб : привет\n@enduml", want: "Алиса"},
 		{name: "a class diagram laid out by smetana", source: "@startuml\nclass Car\ninterface Engine\nCar *-- Engine\n@enduml", want: "Engine"},
 		{name: "no @startuml", source: "Alice -> Bob : no start", want: "no start"},
+		{name: "a mind map", source: "@startmindmap\n* root\n** branch\n@endmindmap", want: "branch"},
 		{name: "a c4 diagram from the library", source: "@startuml\n!include <C4/C4_Container>\nPerson(u, \"Reader\")\n@enduml", want: "Reader"},
 		{name: "an alias of a library", source: "@startuml\n!include <material/common>\n!include <material/folder_move>\nMA_FOLDER_MOVE(Red, 1, dir, rectangle, \"Home\")\n@enduml", want: "Home"},
 		{name: "a theme", source: "@startuml\n!theme cerulean\nA -> B : themed\n@enduml", want: "themed"},
-		{name: "an icon", source: "@startuml\nA -> B : <&heart> loved\n@enduml", want: "loved"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// act
-			svg, err := shared.SVG(context.Background(), tc.source)
+			svg, err := shared.svg(context.Background(), tc.source)
 
 			// assert
 			require.NoError(t, err)
@@ -50,28 +64,43 @@ func TestSVG(t *testing.T) {
 	}
 }
 
-func TestSVGDrawsASpriteAsAPicture(t *testing.T) {
+func TestSVGDrawsAnIcon(t *testing.T) {
 	// act
-	svg, err := shared.SVG(context.Background(), "@startuml\n!include <C4/C4_Context>\nPerson(u, \"Reader\")\n@enduml")
+	svg, err := shared.svg(context.Background(), "@startuml\nA -> B : <&heart> loved\n@enduml")
 
 	// assert
 	require.NoError(t, err)
-	assert.Regexp(t, `<image [^>]*href="data:image/png;base64,iVBORw0KGgo`, svg)
+	assert.Regexp(t, `<path d="[^"]+" fill="#000"/><text [^>]*>loved</text>`, svg)
 }
 
-func TestSVGAfterALibraryTooLargeToKeep(t *testing.T) {
+func TestSVGDrawsASpriteAsAPicture(t *testing.T) {
+	// act
+	svg, err := shared.svg(context.Background(), "@startuml\n!include <C4/C4_Context>\nPerson(u, \"Reader\")\n@enduml")
+
+	// assert
+	require.NoError(t, err)
+	sprite := regexp.MustCompile(`<image width="(\d+)" height="(\d+)" [^>]*href="data:image/png;base64,([^"]+)"`).FindStringSubmatch(svg)
+	require.Len(t, sprite, 4)
+	raw, err := base64.StdEncoding.DecodeString(sprite[3])
+	require.NoError(t, err)
+	picture, err := png.DecodeConfig(bytes.NewReader(raw))
+	require.NoError(t, err)
+	assert.Equal(t, []string{sprite[1], sprite[2]}, []string{strconv.Itoa(picture.Width), strconv.Itoa(picture.Height)})
+}
+
+func TestSVGAfterTheWorkerRetired(t *testing.T) {
 	// arrange
+	t.Setenv(retireEveryTimeEnv, "1")
 	r := New(1)
 	t.Cleanup(r.Close)
-	large := "@startuml\n!include <tupadr3/common>\n!include <tupadr3/font-awesome-5/accusoft>\nFA5_ACCUSOFT(x, \"icon\")\n@enduml"
-	_, err := r.SVG(context.Background(), large)
+	_, err := r.svg(context.Background(), "@startuml\nA -> B : before\n@enduml")
 	require.NoError(t, err)
 
 	// act
-	svg, err := r.SVG(context.Background(), "@startuml\nA -> B : after\n@enduml")
+	svg, err := r.svg(context.Background(), "@startuml\nA -> B : after\n@enduml")
 
 	// assert
-	require.NoError(t, err, "the engine that let the library go is started again for the next diagram")
+	require.NoError(t, err, "a worker that retired after its answer is started again for the next diagram")
 	assert.Contains(t, svg, "after")
 }
 
@@ -82,16 +111,18 @@ func TestSVGOfABrokenDiagram(t *testing.T) {
 		line   int
 	}{
 		{name: "a syntax error", source: "@startuml\nAlice -> Bob\nfoo bar baz\n@enduml", line: 3},
+		{name: "a syntax error with no @startuml", source: "Alice -> Bob\nfoo bar baz", line: 2},
+		{name: "an empty diagram", source: "", line: 0},
 		{name: "a library that does not exist", source: "@startuml\n!include <nosuchlib/x>\nA -> B\n@enduml", line: 2},
 		{name: "a library name that climbs out", source: "@startuml\n!include <../../x/y>\nA -> B\n@enduml", line: 2},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// act
-			_, err := shared.SVG(context.Background(), tc.source)
+			_, err := shared.svg(context.Background(), tc.source)
 
 			// assert
-			var diagramErr *DiagramError
+			var diagramErr *diagramError
 			require.ErrorAs(t, err, &diagramErr)
 			assert.Equal(t, tc.line, diagramErr.Line)
 			assert.NotEmpty(t, diagramErr.Message)
@@ -99,12 +130,25 @@ func TestSVGOfABrokenDiagram(t *testing.T) {
 	}
 }
 
-func TestSVGRefusesASourceAboveTheCap(t *testing.T) {
+func TestSVGTakesASourceAtTheCap(t *testing.T) {
+	// arrange
+	diagram := "A -> B : at the cap\n'"
+	source := diagram + strings.Repeat("x", maxSource-len(diagram))
+
 	// act
-	_, err := shared.SVG(context.Background(), strings.Repeat("A -> B\n", MaxSource/7+1))
+	svg, err := shared.svg(context.Background(), source)
 
 	// assert
-	require.ErrorIs(t, err, ErrTooLarge)
+	require.NoError(t, err)
+	assert.Contains(t, svg, "at the cap")
+}
+
+func TestSVGRefusesASourceAboveTheCap(t *testing.T) {
+	// act
+	_, err := shared.svg(context.Background(), strings.Repeat("x", maxSource+1))
+
+	// assert
+	require.ErrorIs(t, err, errTooLarge)
 }
 
 func TestSVGKillsARunThatOutlivesItsDeadline(t *testing.T) {
@@ -115,8 +159,8 @@ func TestSVGKillsARunThatOutlivesItsDeadline(t *testing.T) {
 	defer cancel()
 
 	// act
-	_, err := r.SVG(ctx, "@startuml\nA -> B : late\n@enduml")
-	svg, afterErr := r.SVG(context.Background(), "@startuml\nA -> B : next\n@enduml")
+	_, err := r.svg(ctx, "@startuml\nA -> B : late\n@enduml")
+	svg, afterErr := r.svg(context.Background(), "@startuml\nA -> B : next\n@enduml")
 
 	// assert
 	require.ErrorIs(t, err, context.DeadlineExceeded)
@@ -128,12 +172,12 @@ func TestSVGIsCached(t *testing.T) {
 	// arrange
 	r := New(1)
 	source := "@startuml\nA -> B : once\n@enduml"
-	first, err := r.SVG(context.Background(), source)
+	first, err := r.svg(context.Background(), source)
 	require.NoError(t, err)
 	r.Close()
 
 	// act
-	again, err := r.SVG(context.Background(), source)
+	again, err := r.svg(context.Background(), source)
 
 	// assert
 	require.NoError(t, err, "a closed renderer answers what it has drawn")
@@ -156,7 +200,7 @@ func TestTheBrowserTheServerAndTheLibraryAreOnePlantUML(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &lock))
 
 	// act
-	svg, err := shared.SVG(context.Background(), "@startuml\nversion\n@enduml")
+	svg, err := shared.svg(context.Background(), "@startuml\nversion\n@enduml")
 
 	// assert
 	require.NoError(t, err)
@@ -164,10 +208,178 @@ func TestTheBrowserTheServerAndTheLibraryAreOnePlantUML(t *testing.T) {
 	assert.Contains(t, svg, lock.Commit[:7])
 }
 
+func readAnswers(t *testing.T, out *bytes.Buffer) []response {
+	t.Helper()
+	answers := []response{}
+	dec := json.NewDecoder(out)
+	for dec.More() {
+		var res response
+		require.NoError(t, dec.Decode(&res))
+		answers = append(answers, res)
+	}
+	return answers
+}
+
+func TestServe(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      string
+		answers []string
+		err     string
+	}{
+		{name: "the end of the input", in: "", answers: []string{}},
+		{name: "a diagram, then the end", in: `{"source":"@startuml\nA -> B : served\n@enduml"}`, answers: []string{"served"}},
+		{name: "a request that is not json", in: "nope", answers: []string{}, err: "read a request"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			var out bytes.Buffer
+
+			// act
+			err := serve(strings.NewReader(tc.in), &out, retireBytes)
+
+			// assert
+			if tc.err != "" {
+				require.ErrorContains(t, err, tc.err)
+			} else {
+				require.NoError(t, err)
+			}
+			answers := readAnswers(t, &out)
+			require.Len(t, answers, len(tc.answers))
+			for i, res := range answers {
+				assert.Contains(t, res.SVG, tc.answers[i])
+				assert.False(t, res.Retire)
+			}
+		})
+	}
+}
+
+func TestServeRetiresAfterAnAnswerAboveTheMark(t *testing.T) {
+	// arrange
+	in := `{"source":"@startuml\nA -> B : first\n@enduml"}` + "\n" + `{"source":"@startuml\nA -> B : second\n@enduml"}` + "\n"
+	var out bytes.Buffer
+
+	// act
+	err := serve(strings.NewReader(in), &out, 0)
+
+	// assert
+	require.NoError(t, err)
+	answers := readAnswers(t, &out)
+	require.Len(t, answers, 1, "the worker stops after the answer that retires it")
+	assert.True(t, answers[0].Retire)
+	assert.Contains(t, answers[0].SVG, "first")
+}
+
+func TestEngineRenderHandsOverTheLibrariesItAsksFor(t *testing.T) {
+	// arrange
+	var toEngine bytes.Buffer
+	eng := &engine{
+		enc: newEncoder(&toEngine),
+		dec: json.NewDecoder(strings.NewReader(`{"need":"openiconic.js"}{"need":"nosuch.min.js"}{"svg":"<svg/>"}`)),
+	}
+
+	// act
+	res, err := eng.render(request{Source: "A -> B"})
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, response{SVG: "<svg/>"}, res)
+	sent := json.NewDecoder(&toEngine)
+	var req request
+	require.NoError(t, sent.Decode(&req))
+	var found, missing libraryReply
+	require.NoError(t, sent.Decode(&found))
+	require.NoError(t, sent.Decode(&missing))
+	code, err := LibraryFile("openiconic.js")
+	require.NoError(t, err)
+	assert.Equal(t, libraryReply{Code: string(code)}, found)
+	assert.Contains(t, missing.Error, "nosuch.min.js")
+	assert.NotContains(t, toEngine.String(), `<`, "library code goes as it is, not escaped for html")
+}
+
+func TestEngineRenderWhenTheEngineDies(t *testing.T) {
+	// arrange
+	eng := &engine{
+		enc: newEncoder(io.Discard),
+		dec: json.NewDecoder(strings.NewReader(`{"need":"themes.js"}`)),
+	}
+
+	// act
+	_, err := eng.render(request{Source: "A -> B"})
+
+	// assert
+	require.ErrorContains(t, err, "read what the engine answered")
+}
+
+func TestCache(t *testing.T) {
+	key := func(name string) [sha256.Size]byte { return sha256.Sum256([]byte(name)) }
+	sized := func(n int) response { return response{SVG: strings.Repeat("s", n)} }
+	tests := []struct {
+		name       string
+		maxEntries int
+		maxBytes   int
+		puts       []string
+		sizes      map[string]int
+		want       []string
+		bytes      int
+	}{
+		{name: "the oldest goes past the count", maxEntries: 2, maxBytes: 100, puts: []string{"a", "b", "c"}, want: []string{"b", "c"}, bytes: 2},
+		{name: "the oldest goes past the bytes", maxEntries: 10, maxBytes: 10, puts: []string{"a", "b"}, sizes: map[string]int{"a": 6, "b": 6}, want: []string{"b"}, bytes: 6},
+		{name: "an entry larger than the cache is not kept", maxEntries: 10, maxBytes: 10, puts: []string{"a", "big"}, sizes: map[string]int{"big": 11}, want: []string{"a"}, bytes: 1},
+		{name: "a put again keeps an entry once", maxEntries: 2, maxBytes: 100, puts: []string{"a", "b", "a", "c"}, want: []string{"a", "c"}, bytes: 2},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			c := newCache(tc.maxEntries, tc.maxBytes)
+			size := func(name string) int {
+				if n, ok := tc.sizes[name]; ok {
+					return n
+				}
+				return 1
+			}
+
+			// act
+			for _, name := range tc.puts {
+				c.put(key(name), sized(size(name)))
+			}
+
+			// assert
+			kept := []string{}
+			for _, name := range []string{"a", "b", "c", "big"} {
+				if res, ok := c.get(key(name)); ok {
+					assert.Equal(t, sized(size(name)), res)
+					kept = append(kept, name)
+				}
+			}
+			assert.Equal(t, tc.want, kept)
+			assert.Equal(t, tc.bytes, c.bytes)
+		})
+	}
+}
+
+func TestCacheKeepsAnEntryThatIsRead(t *testing.T) {
+	// arrange
+	c := newCache(2, 100)
+	first, second, third := sha256.Sum256([]byte("a")), sha256.Sum256([]byte("b")), sha256.Sum256([]byte("c"))
+	c.put(first, response{SVG: "a"})
+	c.put(second, response{SVG: "b"})
+
+	// act
+	_, _ = c.get(first)
+	c.put(third, response{SVG: "c"})
+
+	// assert
+	_, keptFirst := c.get(first)
+	_, keptSecond := c.get(second)
+	assert.Equal(t, []bool{true, false}, []bool{keptFirst, keptSecond})
+}
+
 func TestInline(t *testing.T) {
 	// arrange
 	fragment := "<h1>A</h1>\n" +
-		`<pre class="plantuml" data-source-start="3">A -&gt; B : drawn` + "\n</pre>\n" +
+		`<pre class="plantuml" data-source-start="3">A -&gt; B : drawn &amp; &#34;quoted&#34;` + "\n</pre>\n" +
 		"<pre><code>A -&gt; B</code></pre>\n" +
 		`<pre class="plantuml" title="a &amp; b">A -&gt; :` + "\nfoo bar\n</pre>\n"
 
@@ -180,7 +392,7 @@ func TestInline(t *testing.T) {
 	require.Len(t, img, 2)
 	svg, err := base64.StdEncoding.DecodeString(img[1])
 	require.NoError(t, err)
-	assert.Contains(t, string(svg), "drawn")
+	assert.Contains(t, string(svg), `drawn &amp; "quoted"`)
 	assert.Contains(t, out, "<h1>A</h1>\n")
 	assert.Contains(t, out, "<pre><code>A -&gt; B</code></pre>")
 	assert.Contains(t, out, `<div class="md-diagram"><pre class="plantuml" title="a &amp; b">A -&gt; :`+"\nfoo bar\n</pre>"+
@@ -188,16 +400,38 @@ func TestInline(t *testing.T) {
 	assert.Equal(t, 1, strings.Count(out, "<img"))
 }
 
-func TestInlineKeepsAnUnclosedBlock(t *testing.T) {
+func TestInlineLeavesADiagramAsCodeWhenTheRendererFails(t *testing.T) {
 	// arrange
-	fragment := `<p>x</p><pre class="plantuml">A -&gt; B`
+	r := New(1)
+	r.Close()
+	block := `<pre class="plantuml">A -&gt; B : never drawn` + "\n</pre>"
 
 	// act
-	out, err := shared.Inline(context.Background(), fragment)
+	out, err := r.Inline(context.Background(), "<p>x</p>"+block)
 
 	// assert
+	require.ErrorContains(t, err, "plantuml: the plantuml renderer is closed")
+	assert.Equal(t, `<p>x</p><div class="md-diagram">`+block+
+		`<p class="md-diagram-error">the diagram could not be rendered</p></div>`, out)
+}
+
+func TestInlineAfterTheContextIsDone(t *testing.T) {
+	// arrange
+	r := New(1)
+	t.Cleanup(r.Close)
+	_, err := r.svg(context.Background(), "A -> B : drawn before")
 	require.NoError(t, err)
-	assert.Equal(t, fragment, out)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	late := `<pre class="plantuml">A -&gt; B : too late` + "\n</pre>"
+
+	// act
+	out, err := r.Inline(ctx, `<pre class="plantuml">A -&gt; B : drawn before</pre>`+late)
+
+	// assert
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 1, strings.Count(out, "<img"), "a diagram drawn before is taken from the cache")
+	assert.Contains(t, out, late+`<p class="md-diagram-error">the diagram could not be rendered</p>`)
 }
 
 func TestLibraries(t *testing.T) {
@@ -217,6 +451,15 @@ func TestLibraries(t *testing.T) {
 			src:  "!theme cerulean\nA -> B : <&heart> <:smile:>\n",
 			want: []string{"emoji.js", "openiconic.js", "themes.js"},
 		},
+		{name: "a colored icon", src: "A -> B : <#red&heart>\n", want: []string{"openiconic.js"}},
+		{name: "a colored emoji", src: "A -> B : <#red:smile:>\n", want: []string{"emoji.js"}},
+		{name: "a scaled emoji", src: "A -> B : <:smile:*2>\n", want: []string{"emoji.js"}},
+		{name: "a theme that is not at the start of a line", src: "A -> B : !theme x\n", want: []string{}},
+		{
+			name: "an include quoted in a block that is not plantuml ships the library too",
+			src:  "```text\n!include <awslib/x>\n```\n",
+			want: []string{"awslib.min.js"},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -235,12 +478,13 @@ func TestWithDependencies(t *testing.T) {
 		names []string
 		want  []string
 	}{
-		{name: "an alias brings the version it links", names: []string{"material.min.js"}, want: []string{"material.min.js", "material2.1.19.min.js"}},
+		{name: "an alias brings the version it links, and a library the icons it may draw", names: []string{"material.min.js"}, want: []string{"material.min.js", "material2.1.19.min.js", "openiconic.js"}},
 		{
 			name:  "a library brings what it includes, and one that does not exist is left out",
 			names: []string{"nosuchlib.min.js", "c4.min.js"},
-			want:  []string{"c4.min.js", "office.min.js", "themes.js"},
+			want:  []string{"c4.min.js", "office.min.js", "openiconic.js", "themes.js"},
 		},
+		{name: "themes alone bring no icons", names: []string{"themes.js"}, want: []string{"themes.js"}},
 		{name: "nothing", names: nil, want: []string{}},
 	}
 	for _, tc := range tests {

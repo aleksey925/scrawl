@@ -74,9 +74,10 @@ the link names.
 - Content paths are relative to the space's root, slash-separated, without a
   leading slash, and `.md` is the only document extension, everywhere.
   [storage](docs/design/storage.md#access)
-- All rendered HTML is sanitized by the bluemonday policy in `render`, every
-  render is bounded by a size cap and a deadline, `/raw/` never serves an
-  executable document, and `script-src` is `'self'` with nothing inline, plus
+- All rendered HTML is sanitized by the bluemonday policy in `render`, and a
+  PlantUML diagram drawn in the browser by DOMPurify as well, every render is
+  bounded by a size cap and a deadline, `/raw/` never serves an executable
+  document, and `script-src` is `'self'` with nothing inline, plus
   `'wasm-unsafe-eval'` for the Graphviz of PlantUML.
   [server](docs/design/server.md#guards)
 - Write endpoints require auth and CSRF and are refused in read-only mode. A

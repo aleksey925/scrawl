@@ -26,15 +26,18 @@ How the react app in `web/` is built, shipped and wired.
   the package: rolldown names it after the file, and the index of every
   codemirror language came out as `dist`, `dist2` and on in the order met, so
   one language more renamed the rest.
-- A release embeds the bundle, the pages' assets and the formatter
-  gzip-compressed, under the `gzassets` build tag: `make build`, the image and
-  goreleaser run `go run ./gzassets/pack` first, which writes the copies into
-  each package's `gzassets/`, kept out of git
+- A release embeds the bundle, the pages' assets, the formatter and the
+  server's PlantUML engine gzip-compressed, under the `gzassets` build tag:
+  `make build`, the image and goreleaser run `go run ./gzassets/pack` first,
+  which writes the copies into each package's `gzassets/`, kept out of git
   ([ADR 3](../adr/0003-gzip-assets-out-of-git.md)). A build without the tag
   embeds the committed files as they are, so `go install` and a fresh clone
   keep building. A file stored compressed is read through `gzassets` and goes
   out as stored to a client that accepts gzip, so the server spends nothing
   compressing it.
+- PlantUML's library is the one exception: `plantuml/library/` is committed
+  compressed and read the same way in every build
+  ([server](server.md#plantuml)).
 
 ## App
 

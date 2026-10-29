@@ -28,7 +28,7 @@ type Formatter struct {
 }
 
 func New(workers int) *Formatter {
-	return &Formatter{pool: workerpool.New[request, response]("formatter", WorkerEnv, workers)}
+	return &Formatter{pool: workerpool.New[request, response](workerpool.Options{Name: "formatter", Env: WorkerEnv, Workers: workers})}
 }
 
 func (f *Formatter) Markdown(ctx context.Context, text string) (string, error) {

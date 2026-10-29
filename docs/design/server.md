@@ -61,6 +61,10 @@ Spaces, routes, settings and the guards on every request.
 - All rendered HTML is sanitized. Raw HTML in markdown is allowed, but only
   through the bluemonday policy in `render`, which starts from `NewPolicy`
   because a policy can only ever be widened afterwards.
+- A PlantUML diagram drawn in the browser is SVG the engine built from the
+  note, after bluemonday ran on the server, so the browser sanitizes it again:
+  DOMPurify with its SVG profile, `<style>` refused, handing back a DOM
+  fragment, so the markup is not parsed a second time on its way to the page.
 - `/raw/` never serves an executable document. The content type comes from an
   allowlist keyed on the extension, or on the whole name for the few text files
   that have none (`Makefile`, `Dockerfile`, `go.mod`), anything outside it is a
@@ -84,17 +88,49 @@ Spaces, routes, settings and the guards on every request.
   ([ADR 18](../adr/0018-plantuml-on-the-server-and-its-library.md)). There a
   diagram is an `<img>` of an SVG data URL, which runs no script and loads
   nothing, so it is not sanitized; it is drawn in the light theme, as paper is.
-  A diagram the engine refuses keeps its code, with the reason under it.
-- The engine runs in one worker process, started on the first diagram, with a
-  deadline per diagram after which the process is killed. A drawn diagram is
-  kept by its source, so the next export of the note costs nothing. The worker
-  lets its engine go once the engine's memory passes 256MB and after two idle
-  minutes: a large library takes hundreds of megabytes, and a WebAssembly
-  memory never shrinks.
+  A link in it cannot be clicked, which is the price of the `<img>`. A diagram
+  the engine refuses keeps its code, with the reason under it.
+- The engine runs in worker processes, copies of this binary started with
+  `SCRAWL_PLANTUML_WORKER` set, which `main` hands to
+  `plantuml.RunWorkerIfAsked` before anything else, as it does for the
+  formatter. There is one worker, started on the first diagram.
+- A diagram has 20 seconds, counted from the moment the worker takes it, so
+  waiting for the worker behind another export does not use them up. Past them
+  the process is killed. An export gives all its diagrams three quarters of the
+  write timeout together, or 45 seconds when there is none: the diagrams left
+  when it runs out stay code, with the note that they could not be rendered, so
+  the page reaches the client before the server cuts the connection. A client
+  that goes away stops the diagrams not started yet; the one being drawn is
+  finished and kept, as killing it would make the next export start a worker
+  again.
+- A drawn diagram, or the engine's refusal, is kept by its source, so the next
+  export of the note costs nothing. A timeout is not kept, and the next export
+  tries again.
+- A large library takes hundreds of megabytes, and a WebAssembly memory never
+  shrinks. So the worker exits after the answer that leaves its engine's memory
+  above 256MB, saying so in that answer, and the pool stops a worker idle for
+  two minutes. A new engine in the same process would hold 1.1GB instead of
+  115MB ([quirks](../quirks.md#mermaid-plantuml-and-katex)). After each answer
+  the worker gives the memory Go freed back to the system.
+- `plantuml/engine.wasm` and `plantuml/library/` are committed, and
+  `make plantuml` builds both again, which needs the network. javy does not
+  build the same bytes twice, so nothing compares the wasm with its source;
+  `TestTheBrowserTheServerAndTheLibraryAreOnePlantUML` checks that the server's
+  engine is the version the browser has, and the library the commit it names.
+  An upgrade bumps `@plantuml/core` in `web/package.json`, `@plantuml/mcp-js`
+  in `plantuml/js/package.json`, and by hand the commit and the 36 sha256 sums
+  in `plantuml/js/library.json`, then runs `make ui` and `make plantuml`.
+- The library is committed compressed, unlike every other embedded file
+  ([ADR 3](../adr/0003-gzip-assets-out-of-git.md)): raw it is some 100MB, which
+  would sit in a `go install` binary, and it changes only with an upgrade.
 - The library is served under `/static/<version>/plantuml/<file>`, as stored,
   compressed. Only the plain name of a file in it answers, so an include cannot
   name a path out of it, and the browser asks for nothing else: its loader
-  takes a plain name only.
+  takes a plain name only. The `<version>` there is the bundle's digest, since
+  the address is relative to the chunk of the engine. The route ignores it and
+  lets a browser keep the file a year, which is safe while a change of the
+  library always comes with a change of the bundle: the test above ties the
+  library to the engine's version, and a new engine is a new bundle.
 
 ## Lifecycle
 

@@ -20,6 +20,19 @@ type Options struct {
 	Detach  bool
 }
 
+type WaitError struct {
+	Name string
+	Err  error
+}
+
+func (e *WaitError) Error() string {
+	return fmt.Sprintf("wait for a %s: %v", e.Name, e.Err)
+}
+
+func (e *WaitError) Unwrap() error {
+	return e.Err
+}
+
 type Retiring interface {
 	Retiring() bool
 }
@@ -60,9 +73,7 @@ func (p *Pool[Req, Res]) Ask(ctx context.Context, req Req) (Res, error) {
 	}
 	defer p.put(wrk)
 	if p.opts.Detach {
-		var cancel context.CancelFunc
-		ctx, cancel = detached(ctx)
-		defer cancel()
+		ctx = context.WithoutCancel(ctx)
 	}
 	if p.opts.Limit > 0 {
 		var cancel context.CancelFunc
@@ -105,7 +116,7 @@ func (p *Pool[Req, Res]) Ask(ctx context.Context, req Req) (Res, error) {
 
 func (p *Pool[Req, Res]) take(ctx context.Context) (*worker, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("wait for a %s: %w", p.opts.Name, err)
+		return nil, &WaitError{Name: p.opts.Name, Err: err}
 	}
 	select {
 	case wrk := <-p.free:
@@ -114,7 +125,7 @@ func (p *Pool[Req, Res]) take(ctx context.Context) (*worker, error) {
 	case <-p.done:
 		return nil, fmt.Errorf("the %s is closed", p.opts.Name)
 	case <-ctx.Done():
-		return nil, fmt.Errorf("wait for a %s: %w", p.opts.Name, ctx.Err())
+		return nil, &WaitError{Name: p.opts.Name, Err: ctx.Err()}
 	}
 }
 
@@ -236,12 +247,4 @@ func (w *worker) stopLocked() {
 	_ = w.cmd.Process.Kill()
 	_ = w.cmd.Wait()
 	w.cmd = nil
-}
-
-func detached(ctx context.Context) (context.Context, context.CancelFunc) {
-	run := context.WithoutCancel(ctx)
-	if deadline, ok := ctx.Deadline(); ok {
-		return context.WithDeadline(run, deadline)
-	}
-	return run, func() {}
 }

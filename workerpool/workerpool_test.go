@@ -124,17 +124,52 @@ func TestAskDetachedFinishesARunItsCallerLeft(t *testing.T) {
 	assert.Equal(t, echoResponse{Text: "KEPT", PID: before.PID}, res)
 }
 
-func TestAskDetachedKeepsTheDeadline(t *testing.T) {
+func TestAskDetachedFinishesARunPastItsCallersDeadline(t *testing.T) {
 	// arrange
 	pool := newEchoPool(t, Options{Detach: true})
+	before, err := pool.Ask(context.Background(), echoRequest{Text: "warm"})
+	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
 	// act
-	_, err := pool.Ask(ctx, echoRequest{Text: "late", Sleep: time.Minute})
+	res, err := pool.Ask(ctx, echoRequest{Text: "kept", Sleep: 200 * time.Millisecond})
 
 	// assert
-	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.NoError(t, err)
+	assert.Equal(t, echoResponse{Text: "KEPT", PID: before.PID}, res)
+}
+
+func TestAskDetachedKillsARunThatOutlivesTheLimit(t *testing.T) {
+	// arrange
+	pool := newEchoPool(t, Options{Detach: true, Limit: 50 * time.Millisecond})
+	before, err := pool.Ask(context.Background(), echoRequest{Text: "warm"})
+	require.NoError(t, err)
+
+	// act
+	_, lateErr := pool.Ask(context.Background(), echoRequest{Text: "late", Sleep: time.Minute})
+	next, nextErr := pool.Ask(context.Background(), echoRequest{Text: "next"})
+
+	// assert
+	require.ErrorIs(t, lateErr, context.DeadlineExceeded)
+	require.NoError(t, nextErr)
+	assert.NotEqual(t, before.PID, next.PID, "the worker that outlived the limit is replaced")
+}
+
+func TestAskReportsAWaitItGaveUpOn(t *testing.T) {
+	// arrange
+	pool := newEchoPool(t, Options{})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// act
+	_, err := pool.Ask(ctx, echoRequest{Text: "never sent"})
+
+	// assert
+	var waiting *WaitError
+	require.ErrorAs(t, err, &waiting)
+	assert.Equal(t, "echo", waiting.Name)
+	assert.ErrorIs(t, waiting, context.Canceled)
 }
 
 func TestAskDetachedStopsWaitingWhenItsCallerLeaves(t *testing.T) {

@@ -174,21 +174,44 @@ func TestSVGRefusesASourceAboveTheCap(t *testing.T) {
 	require.ErrorIs(t, err, errTooLarge)
 }
 
-func TestSVGKillsARunThatOutlivesItsDeadline(t *testing.T) {
+func TestSVGKeepsADiagramStillDrawnWhenTheBudgetRanOut(t *testing.T) {
 	// arrange
 	r := New(1)
 	t.Cleanup(r.Close)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	source := "@startuml\nA -> B : over budget\n@enduml"
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
 	// act
-	_, err := r.svg(ctx, "@startuml\nA -> B : late\n@enduml")
-	svg, afterErr := r.svg(context.Background(), "@startuml\nA -> B : next\n@enduml")
+	_, err := r.svg(ctx, source)
 
 	// assert
 	require.ErrorIs(t, err, context.DeadlineExceeded)
-	require.NoError(t, afterErr, "the one worker has to be back for the next diagram")
-	assert.Contains(t, svg, "next")
+	require.Eventually(t, func() bool { return drawingNow(r) == 0 }, time.Minute, 10*time.Millisecond)
+	r.pool.Close()
+	svg, afterErr := r.svg(context.Background(), source)
+	require.NoError(t, afterErr, "the drawing is finished and kept, the next export takes it from the cache")
+	assert.Contains(t, svg, "over budget")
+}
+
+func TestSVGJoinsADrawingWhoseClientLeft(t *testing.T) {
+	// arrange
+	r := New(1)
+	t.Cleanup(r.Close)
+	source := "@startuml\nA -> B : one drawing\n@enduml"
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_, err := r.svg(ctx, source)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Equal(t, 1, drawingNow(r), "the drawing goes on without the client that asked for it")
+
+	// act
+	svg, err := r.svg(context.Background(), source)
+
+	// assert
+	require.NoError(t, err, "the next export waits for that drawing instead of starting another")
+	assert.Contains(t, svg, "one drawing")
+	assert.Equal(t, 0, drawingNow(r))
 }
 
 func TestSVGIsCached(t *testing.T) {
@@ -245,7 +268,7 @@ func TestSVGWaitsForTheSameDiagramBeingDrawn(t *testing.T) {
 
 	// assert
 	require.ErrorIs(t, goneErr, context.Canceled)
-	assert.ErrorContains(t, goneErr, "wait for the same diagram")
+	assert.ErrorContains(t, goneErr, "wait for the diagram to be drawn")
 	require.NoError(t, err, "the second call takes the first one's answer and asks no worker of the closed pool")
 	leader := <-first
 	require.NoError(t, leader.err)
@@ -271,7 +294,7 @@ func TestSVGDrawsItselfWhenTheCallItWaitedForLeftWaiting(t *testing.T) {
 	// assert
 	leftRes := <-left
 	require.ErrorIs(t, leftRes.err, context.Canceled)
-	assert.ErrorContains(t, leftRes.err, "wait for a "+workerName, "a call stops waiting for the worker when its client leaves")
+	assert.ErrorContains(t, leftRes.err, "wait for the diagram to be drawn", "a call stops waiting when its client leaves")
 	stayedRes := <-stayed
 	require.NoError(t, stayedRes.err)
 	assert.Contains(t, stayedRes.svg, "wanted")
@@ -295,11 +318,12 @@ func TestSVGFinishesADrawingAfterItsClientLeaves(t *testing.T) {
 
 	// assert
 	leftRes := <-left
-	require.NoError(t, leftRes.err)
-	r.Close()
+	require.ErrorIs(t, leftRes.err, context.Canceled)
+	require.Eventually(t, func() bool { return drawingNow(r) == 0 }, time.Minute, 10*time.Millisecond)
+	r.pool.Close()
 	again, err := r.svg(context.Background(), source)
 	require.NoError(t, err, "the drawing is kept")
-	assert.Equal(t, leftRes.svg, again)
+	assert.Contains(t, again, "finished")
 }
 
 func TestSVGTakesADrawingCachedWhileItWaitedToRegister(t *testing.T) {

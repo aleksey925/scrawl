@@ -21,7 +21,7 @@ const (
 const maxSource = 256 << 10
 
 const (
-	diagramTimeout = 20 * time.Second
+	diagramTimeout = 2 * time.Minute
 	idleTimeout    = 2 * time.Minute
 )
 
@@ -109,28 +109,38 @@ func (r *Renderer) draw(ctx context.Context, diagram string) (response, error) {
 			r.mu.Unlock()
 			return res, nil
 		}
-		other, busy := r.drawing[key]
-		if !busy {
-			own := &drawing{done: make(chan struct{})}
-			r.drawing[key] = own
+		if err := ctx.Err(); err != nil {
 			r.mu.Unlock()
-			return r.drawOnce(ctx, key, diagram, own)
+			return response{}, waitFailed(err)
 		}
-		r.mu.Unlock()
+		run, busy := r.drawing[key]
+		if !busy {
+			run = &drawing{done: make(chan struct{})}
+			r.drawing[key] = run
+			r.mu.Unlock()
+			go r.drawOnce(ctx, key, diagram, run)
+		} else {
+			r.mu.Unlock()
+		}
 		select {
-		case <-other.done:
-			if !other.abandoned {
-				return other.res, other.err
+		case <-run.done:
+			if !run.abandoned {
+				return run.res, run.err
 			}
 		case <-ctx.Done():
-			return response{}, fmt.Errorf("wait for the same diagram: %w", ctx.Err())
+			return response{}, waitFailed(ctx.Err())
 		}
 	}
 }
 
-func (r *Renderer) drawOnce(ctx context.Context, key [sha256.Size]byte, diagram string, own *drawing) (response, error) {
+func waitFailed(err error) error {
+	return fmt.Errorf("wait for the diagram to be drawn: %w", err)
+}
+
+func (r *Renderer) drawOnce(ctx context.Context, key [sha256.Size]byte, diagram string, own *drawing) {
 	own.res, own.err = r.pool.Ask(ctx, request{Source: diagram})
-	own.abandoned = own.err != nil && ctx.Err() != nil
+	var waiting *workerpool.WaitError
+	own.abandoned = errors.As(own.err, &waiting)
 	if own.err == nil {
 		r.cache.put(key, own.res)
 	}
@@ -138,7 +148,6 @@ func (r *Renderer) drawOnce(ctx context.Context, key [sha256.Size]byte, diagram 
 	delete(r.drawing, key)
 	r.mu.Unlock()
 	close(own.done)
-	return own.res, own.err
 }
 
 func withStart(source string) (string, int) {

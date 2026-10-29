@@ -94,21 +94,29 @@ Spaces, routes, settings and the guards on every request.
   `SCRAWL_PLANTUML_WORKER` set, which `main` hands to
   `plantuml.RunWorkerIfAsked` before anything else, as it does for the
   formatter. There is one worker, started on the first diagram.
-- A diagram has 20 seconds, counted from the moment the worker takes it, so
+- A diagram has two minutes, counted from the moment the worker takes it, so
   waiting for the worker behind another export does not use them up. Past them
-  the process is killed. An export gives all its diagrams three quarters of the
-  write timeout together, or 45 seconds when there is none, counted from the
-  start of the request, as the write timeout is: the diagrams left when it runs
-  out stay code, with the note that they could not be rendered, so the page
-  reaches the client before the server cuts the connection. A client that goes
-  away stops the diagrams not started yet, even one waiting for the worker; the
-  one being drawn is finished and kept, as killing it would make the next
-  export start a worker again. Two exports that need the same diagram at once
-  draw it once: the second waits for the first's answer. If the first gave up
-  waiting for the worker, the second draws it itself.
+  the process is killed. That limit is only there to stop an engine that never
+  finishes, so it is far above the slowest diagram we know: a C4 one takes 5 to
+  10 seconds, the first one in a fresh worker about twice that, and a slow host
+  several times more. What a client waits for is bounded by the export budget,
+  not by this limit. `scrawl render` has no budget, so there a diagram that
+  never finishes is waited for until the limit.
+- An export gives all its diagrams three quarters of the write timeout
+  together, or 45 seconds when there is none, counted from the start of the
+  request, as the write timeout is: the diagrams left when it runs out stay
+  code, with the note that they could not be rendered, so the page reaches the
+  client before the server cuts the connection. The one being drawn when the
+  budget runs out keeps drawing and is kept, so the next export of the note has
+  it at once; otherwise a diagram slower than one budget would be code in every
+  export and a killed worker would start cold again. A client that goes away
+  stops the diagrams not started yet, even one waiting for the worker. Two
+  exports that need the same diagram at once draw it once: the second waits for
+  the first's answer, and that includes a drawing whose own client has left. If
+  the first gave up waiting for the worker, the second draws it itself.
 - A drawn diagram, or the engine's refusal, is kept by its source, so the next
-  export of the note costs nothing. A timeout is not kept, and the next export
-  tries again.
+  export of the note costs nothing. A diagram killed at the limit is not kept,
+  and the next export tries again.
 - An engine that crashes, as one does on a recursion deeper than its stack
   ([quirks](../quirks.md#mermaid-plantuml-and-katex)), cannot draw again. The
   worker answers that the engine failed on this diagram and exits, and the

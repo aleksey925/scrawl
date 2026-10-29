@@ -12,46 +12,64 @@ Server --> Browser : 200 OK
 ```
 
 Large: saving a note with formatting, history and a push to the remote.
+It is wider than the page, so it scrolls sideways, and its boxes have
+colors of their own, so in the dark theme it sits on a light card.
 
 ```plantuml
 @startuml
 autonumber
 actor Author
-participant Editor
-participant Server
-collections Index
+box "Browser" #EEF
+  participant Editor
+  participant Prettier as P1
+end box
+box "Server" #EFE
+  participant API
+  participant Store
+  participant History
+  participant Sync
+end box
 database Git
+collections Index
 
 Author -> Editor : Ctrl+S
 activate Editor
-Editor -> Editor : Prettier
-Editor -> Server : PUT /api/file\nIf-Match: rev
-activate Server
+Editor -> P1 : format
+P1 --> Editor : text
+Editor -> API : PUT /api/file/notes.md\nIf-Match: rev
+activate API
+API -> Store : write atomically
 alt revision matches
-  Server -> Server : write atomically
-  Server -> Index : update
-  Server -> Git : add + commit
-  Git --> Server : sha
+  Store --> API : new revision
+  API -> Index : update
+  API -> History : record a commit
+  activate History
+  History -> Git : add + commit
+  Git --> History : sha
+  deactivate History
   group background push
-    loop while there is something to push
-      Server -> Git : push
-      alt the remote is ahead
-        Git --> Server : rejected
-        Server -> Git : fetch, merge --ff-only
+    API ->> Sync : mark changes
+    loop every 2 seconds, while there is something to push
+      Sync -> Git : push --ff-only
+      alt the remote branch moved ahead
+        Git --> Sync : rejected
+        Sync -> Git : fetch + merge --ff-only
       else accepted
-        Git --> Server : ok
+        Git --> Sync : ok
       end
     end
   end
-  Server --> Editor : 200 OK, rev
+  API --> Editor : 200 OK, rev
 else revision is stale
-  Server --> Editor : 409 Conflict
+  Store --> API : conflict
+  API --> Editor : 409 Conflict
   note right of Editor
-    The file changed
+    The editor shows
+    that the file changed
     somewhere else
   end note
 end
-deactivate Server
+deactivate API
 Editor --> Author : "Saved"
 deactivate Editor
 @enduml

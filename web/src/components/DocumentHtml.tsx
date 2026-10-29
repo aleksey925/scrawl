@@ -10,7 +10,7 @@ import { useDocumentControls } from '../reader/useDocumentControls';
 import { useFindOnPage } from '../reader/useFindOnPage';
 import { useFragment } from '../reader/useFragment';
 import { useKatex } from '../reader/useKatex';
-import { useMermaid } from '../reader/useMermaid';
+import { useDiagrams } from '../reader/useDiagrams';
 import { useOutline } from '../reader/useOutline';
 import { openViewer } from '../reader/viewer';
 import { PageToc } from '../shell/ShellSlots';
@@ -51,7 +51,7 @@ export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Elem
 
   useDocumentControls(rootRef, html, openPicture);
   useKatex(rootRef, html);
-  useMermaid(rootRef, html);
+  useDiagrams(rootRef, html);
   useFragment(rootRef, html, placed);
 
   return (

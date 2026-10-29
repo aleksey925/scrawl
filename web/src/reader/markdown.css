@@ -762,7 +762,7 @@
   }
 }
 
-.markdown-document pre.mermaid {
+.markdown-document :is(pre.mermaid, pre.plantuml) {
   color: var(--scrawl-text-secondary);
 }
 
@@ -770,7 +770,7 @@
   margin: 0 0 16px;
 }
 
-.markdown-document .md-diagram > pre.mermaid {
+.markdown-document .md-diagram > :is(pre.mermaid, pre.plantuml) {
   margin: 0;
 }
 
@@ -778,7 +778,7 @@
   display: none;
 }
 
-.markdown-document .md-diagram[data-state='done'] > pre.mermaid {
+.markdown-document .md-diagram[data-state='done'] > :is(pre.mermaid, pre.plantuml) {
   display: none;
 }
 

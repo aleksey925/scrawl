@@ -69,7 +69,10 @@ Spaces, routes, settings and the guards on every request.
 - Rendering is superlinear on some inputs, so every render is bounded by a size
   cap and a deadline, and the whole server by a small throttle.
 - `script-src` is `'self'` with nothing inline, and that is the line that stops
-  a script. Styles are `'self' 'unsafe-inline'`, the way github.com has them
+  a script. It also has `'wasm-unsafe-eval'`, which compiles WebAssembly and
+  runs no script: Graphviz lays out PlantUML that way
+  ([ADR 17](../adr/0017-plantuml-in-the-browser.md)). Styles are
+  `'self' 'unsafe-inline'`, the way github.com has them
   ([ADR 7](../adr/0007-inline-styles-allowed.md)). A note cannot carry a style
   either way: the bluemonday policy refuses the element and the attribute
   whatever the header allows.

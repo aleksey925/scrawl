@@ -13,14 +13,17 @@ import (
 
 const (
 	openMermaid      = `<pre class="mermaid"`
-	closeMermaid     = "</pre>\n"
+	openPlantUML     = `<pre class="plantuml"`
+	closePre         = "</pre>\n"
 	openDisplayMath  = `<div class="math math-display"`
 	closeDisplayMath = "</div>\n"
 )
 
 var rawFenceTags = map[string][2]string{
-	"mermaid": {openMermaid, closeMermaid},
-	"math":    {openDisplayMath, closeDisplayMath},
+	"mermaid":  {openMermaid, closePre},
+	"plantuml": {openPlantUML, closePre},
+	"puml":     {openPlantUML, closePre},
+	"math":     {openDisplayMath, closeDisplayMath},
 }
 
 var kindRawBlock = ast.NewNodeKind("RawBlock")

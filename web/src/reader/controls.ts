@@ -70,7 +70,7 @@ export function injectCopyButtons(root: HTMLElement): Teardown {
   const { tag, untag } = tagged();
   for (const block of root.querySelectorAll<HTMLElement>('.code-block')) {
     const code = block.querySelector('pre');
-    if (code === null || code.classList.contains('mermaid')) {
+    if (code === null || code.matches('.mermaid, .plantuml')) {
       continue;
     }
     if (block.querySelector(`.${codeHeadClass}`) !== null) {

@@ -62,7 +62,7 @@ const (
 
 const contentSecurityPolicy = "default-src 'none'; base-uri 'none'; form-action 'self'; " +
 	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; manifest-src 'self'; " +
-	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; script-src 'self'"
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; script-src 'self' 'wasm-unsafe-eval'"
 
 var gzipContentTypes = []string{
 	"text/html", "text/css", "text/plain", "text/xml", "text/javascript",

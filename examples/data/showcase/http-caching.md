@@ -217,6 +217,24 @@ flowchart TD
     C -- нет --> V[Условный запрос] --> S
 ```
 
+Условный запрос по шагам, на PlantUML:
+
+```plantuml
+@startuml
+participant Браузер
+participant Кэш
+participant Сервер
+Браузер -> Кэш : GET /app.js
+Кэш -> Сервер : GET /app.js\nIf-None-Match: "v42"
+alt не изменился
+  Сервер --> Кэш : 304 Not Modified
+else изменился
+  Сервер --> Кэш : 200 OK, ETag: "v43"
+end
+Кэш --> Браузер : 200 OK
+@enduml
+```
+
 Доля попаданий в кэш за период:
 
 $$

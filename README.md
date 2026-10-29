@@ -473,7 +473,7 @@ nobody can reset a read-only space from the page.
 
 Pages take GitHub's markdown and show it in a Notion-like style: tables,
 task lists, footnotes, alerts as callouts, emoji shortcodes, math,
-mermaid diagrams, `<details>` sections as toggles and syntax
+mermaid and PlantUML diagrams, `<details>` sections as toggles and syntax
 highlighting, in both the light and the dark theme. A task is ticked in
 the editor, not on the page.
 
@@ -489,6 +489,21 @@ graph LR; A --> B;
 
 [^1]: The footnote text.
 ````
+
+A PlantUML diagram goes into a `plantuml` or `puml` block, with or
+without `@startuml`:
+
+````
+```plantuml
+Alice -> Bob : hello
+Bob --> Alice : ok
+```
+````
+
+The browser draws it, so scrawl needs no PlantUML server and no Java.
+The first note with such a diagram loads a 1.7MB renderer, once. The
+standard library (`!include <C4/...>`) and emoji are not included: such
+an include shows PlantUML's error.
 
 Relative links between pages, in-page anchors and images from sibling
 folders all keep working, and headings get anchors that handle Cyrillic.
@@ -718,21 +733,21 @@ changed, and an error exits with 2.
 put into your own page and `-f json` for a program. A relative link is
 kept as written; `--link-ext .html` turns `a.md` into `a.html` for a site
 built of rendered notes. Formulas stay TeX unless `--math` puts KaTeX
-into the page, which makes it some 600KB larger. Mermaid diagrams stay
-code.
+into the page, which makes it some 600KB larger. Mermaid and PlantUML
+diagrams stay code.
 
 `site` writes the notes as a static site, for any static host under any
 path, or to open straight from disk. A page of the site is the app's
 reader with nothing to write: the tree of notes with its filter, folder
 lists on a phone, the outline with the section being read marked, a sheet
 for it on a phone, the path to the note, a list for every folder, a copy
-button on every code block, a viewer for the pictures, mermaid diagrams,
-formulas, and the theme and page width, kept from page to page.
+button on every code block, a viewer for the pictures, mermaid and
+PlantUML diagrams, formulas, and the theme and page width, kept from page to page.
 From a host the site moves between notes without loading the page again,
 as the app does; opened from disk, every note is a page load.
 Search, editing, history and sync need the server and are not on a site.
-The diagram renderer, some 5MB, and the formula renderer are written only
-when a note needs them. There is nothing to configure: the front page is
+The diagram renderers, some 5MB each, and the formula renderer are
+written only when a note needs them. There is nothing to configure: the front page is
 the list of what the root holds, and Home opens `index.md` at the root of
 the notes. A folder's `index.md` is written as `index.md.html`, beside the
 folder's list.

@@ -212,6 +212,7 @@
       "_src.js",
       "_chunk-O7XYJQB3.js",
       "_channel.js",
+      "_purify.es.js",
       "_chunk-ZIGJFQKS.js",
       "_chunk-5VM5RSS4.js",
       "_chunk-J5ZVWO5B.js",
@@ -300,7 +301,8 @@
     "imports": [
       "_preload-helper.js",
       "_chunk-Y2CYZVJY.js",
-      "_src.js"
+      "_src.js",
+      "_purify.es.js"
     ],
     "dynamicImports": [
       "node_modules/katex/dist/katex.mjs"
@@ -498,6 +500,10 @@
     "file": "assets/preload-helper.js",
     "name": "preload-helper"
   },
+  "_purify.es.js": {
+    "file": "assets/purify.es.js",
+    "name": "purify.es"
+  },
   "_rolldown-runtime.js": {
     "file": "assets/rolldown-runtime.js",
     "name": "rolldown-runtime"
@@ -532,6 +538,7 @@
     ],
     "dynamicImports": [
       "node_modules/mermaid/dist/mermaid.core.mjs",
+      "src/reader/plantuml.ts",
       "node_modules/katex/dist/katex.mjs",
       "src/pages/HomePage.tsx",
       "src/pages/DocumentPage.tsx",
@@ -1621,6 +1628,7 @@
       "_chunk-Y2CYZVJY.js",
       "_src.js",
       "_chunk-O7XYJQB3.js",
+      "_purify.es.js",
       "_chunk-ZIGJFQKS.js",
       "_chunk-742MDFTN.js",
       "_chunk-MBY4JIJT.js",
@@ -1697,6 +1705,7 @@
       "_src.js",
       "_chunk-O7XYJQB3.js",
       "_channel.js",
+      "_purify.es.js",
       "_chunk-ZIGJFQKS.js",
       "_chunk-742MDFTN.js",
       "_chunk-MBY4JIJT.js",
@@ -2123,6 +2132,7 @@
       "_chunk-Y2CYZVJY.js",
       "_src.js",
       "_chunk-O7XYJQB3.js",
+      "_purify.es.js",
       "_chunk-ZIGJFQKS.js",
       "_chunk-742MDFTN.js",
       "_chunk-MBY4JIJT.js",
@@ -2282,6 +2292,7 @@
       "_chunk-Y2CYZVJY.js",
       "_src.js",
       "_chunk-O7XYJQB3.js",
+      "_purify.es.js",
       "_chunk-ZIGJFQKS.js",
       "_chunk-742MDFTN.js",
       "_chunk-MBY4JIJT.js",
@@ -2620,6 +2631,16 @@
       "_NavContext.js",
       "_AsyncContent.js",
       "index.html"
+    ]
+  },
+  "src/reader/plantuml.ts": {
+    "file": "assets/plantuml.js",
+    "name": "plantuml",
+    "src": "src/reader/plantuml.ts",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime.js",
+      "_purify.es.js"
     ]
   }
 }

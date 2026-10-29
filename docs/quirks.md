@@ -118,7 +118,7 @@ words; the fact itself is written here.
 - Rolldown names a chunk after its file, so the index of every codemirror
   language came out as `dist`, `dist2` and on. [Frontend](design/frontend.md)
 
-## Mermaid and KaTeX
+## Mermaid, PlantUML and KaTeX
 
 - Mermaid takes no nonce and measures its labels in a scratch svg under a
   `<style>` of its own. [ADR 7](adr/0007-inline-styles-allowed.md)
@@ -127,6 +127,24 @@ words; the fact itself is written here.
   that element on the body, where it is removed.
 - Mermaid mixes colors as if they were opaque, so it gets opaque colors only,
   and `useMaxWidth` is off, because it is the one width mermaid writes inline.
+- PlantUML with Viz loaded but its wasm refused draws every Graphviz diagram as
+  a crash picture. It falls back to Smetana only when `PLANTUML_VIZ` has no
+  `instance`, so a failed start sets it to an empty object: left unset, a
+  global `Viz` would answer.
+- Viz is a UMD: in a bundle it lands on the module's exports, not on
+  `globalThis`, and the engine finds it only through `PLANTUML_VIZ`.
+- PlantUML takes a syntax error for a diagram: `renderToString` hands over a
+  picture of the source with the line marked. `onError` is for the engine
+  failing.
+- With nothing set, PlantUML loads `!include <lib>`, emoji and themes as
+  `<script>` tags relative to the page. A loader that refuses every file is
+  installed, and the themes and the icons are bundled.
+- PlantUML writes the same ids into every diagram (`part1`, `msg1`), some twice
+  in one, so each diagram's ids get a prefix of its own.
+- PlantUML's `maxSvgSize`, 8192 by default, failed a sequence of 400 messages
+  (11690px). It is checked after the layout and bounds no work, so it is off.
+- PlantUML's dark mode paints `#1B1B1B` behind a Graphviz diagram and nothing
+  behind a sequence one; that default backdrop is removed.
 - KaTeX's stylesheet says `font-display: block`, so formulas are typeset only
   after its faces load, or they paint blank and the page moves.
 - KaTeX empties the node before it builds, so on an error the source is put

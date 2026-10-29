@@ -15,8 +15,8 @@ The markdown tools beside `serve`, the pages they write, and the export.
   mantine's own resolver at build time, so the page has the same custom
   properties with no mantine and no copied value. The theme follows the system
   until a button picks one, under the attribute the app uses. KaTeX is inlined
-  on `--math` with woff2 alone, a quarter of what katex ships; mermaid is not,
-  a 5MB script, and a diagram stays code.
+  on `--math` with woff2 alone, a quarter of what katex ships; mermaid and
+  PlantUML are not, 5MB scripts each, and a diagram stays code.
 - An exported note is that page. `/api/export/` renders it the way `render`
   does, links left as written, and carries the space's pictures inside as data
   URLs up to a budget: the file leaves the server, and a relative picture would

@@ -155,10 +155,10 @@ func checkSiteDirs(written map[string]string) error {
 }
 
 type siteBuilder struct {
-	st             *store.Store
-	dst            *os.Root
-	renderer       *render.Renderer
-	diagrams, math bool
+	st                      *store.Store
+	dst                     *os.Root
+	renderer                *render.Renderer
+	mermaid, plantUML, math bool
 }
 
 func (b *siteBuilder) writeSite(plan sitePlan) error {
@@ -196,8 +196,11 @@ func (b *siteBuilder) writeAssets() error {
 	assets := page.SiteAssets()
 	assets[siteChroma] = string(render.ChromaCSS())
 	assets[siteFavicon] = string(server.Favicon())
-	if b.diagrams {
+	if b.mermaid {
 		assets[page.DiagramsFile] = page.Diagrams()
+	}
+	if b.plantUML {
+		assets[page.PlantUMLFile] = page.PlantUML()
 	}
 	if b.math {
 		maps.Copy(assets, page.Math())
@@ -219,7 +222,8 @@ func (b *siteBuilder) render(notePath string) (render.Result, []byte, store.File
 	if err != nil {
 		return render.Result{}, nil, store.FileInfo{}, fmt.Errorf("render %s: %w", notePath, err)
 	}
-	b.diagrams = b.diagrams || res.Diagrams
+	b.mermaid = b.mermaid || res.Mermaid
+	b.plantUML = b.plantUML || res.PlantUML
 	b.math = b.math || res.Math
 	return res, src, fi, nil
 }

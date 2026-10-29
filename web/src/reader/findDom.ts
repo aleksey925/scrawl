@@ -1,7 +1,7 @@
 import { anchorClass, codeHeadClass } from './controls';
 import type { FindMatch } from './findMatches';
 
-const skipSelector = `script, style, svg, .katex, .math, .mermaid, .${anchorClass}, .${codeHeadClass}`;
+const skipSelector = `script, style, svg, .katex, .math, .mermaid, .plantuml, .${anchorClass}, .${codeHeadClass}`;
 
 const blockSelector = 'p, h1, h2, h3, h4, h5, h6, li, td, th, dt, dd, summary, figcaption, .line, pre';
 

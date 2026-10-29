@@ -5,7 +5,23 @@ import { preserveScroll } from './scroll';
 
 export type Mermaid = typeof import('mermaid').default;
 
+export type PlantUML = typeof import('./plantuml').plantUML;
+
+export interface DiagramLoaders {
+  mermaid: () => Promise<Mermaid>;
+  plantUML: () => Promise<PlantUML>;
+}
+
+type Draw = (id: string, source: string) => Promise<SVGElement>;
+
+interface Kind {
+  name: string;
+  selector: string;
+  prepare: (loaders: DiagramLoaders, dark: boolean) => Promise<Draw>;
+}
+
 interface Diagram {
+  kind: Kind;
   box: HTMLElement;
   view: HTMLElement;
   source: string;
@@ -13,7 +29,7 @@ interface Diagram {
 
 interface Drawn {
   item: Diagram;
-  svg?: string;
+  svg?: SVGElement;
   error?: string;
 }
 
@@ -21,11 +37,11 @@ const errorLimit = 200;
 
 let pass = 0;
 
-function wrap(pre: HTMLElement): Diagram {
+function wrap(pre: HTMLElement, kind: Kind): Diagram {
   const parent = pre.parentElement;
   const existing = parent?.querySelector<HTMLElement>(':scope > .md-diagram-view');
   if (parent !== null && parent !== undefined && parent.classList.contains('md-diagram') && existing != null) {
-    return { box: parent, view: existing, source: pre.textContent ?? '' };
+    return { kind, box: parent, view: existing, source: pre.textContent ?? '' };
   }
 
   const box = document.createElement('div');
@@ -37,7 +53,7 @@ function wrap(pre: HTMLElement): Diagram {
   view.className = 'md-diagram-view';
   box.append(view);
 
-  return { box, view, source: pre.textContent ?? '' };
+  return { kind, box, view, source: pre.textContent ?? '' };
 }
 
 function clearError(item: Diagram): void {
@@ -67,25 +83,23 @@ function repairActors(svg: SVGElement, text: string): void {
   svg.append(style);
 }
 
-function place(result: Drawn, text: string): void {
+function parseSvg(svg: string): SVGElement {
+  const parsed = new DOMParser().parseFromString(svg, 'image/svg+xml');
+  if (parsed.querySelector('parsererror') !== null) {
+    throw new Error('mermaid returned invalid svg');
+  }
+  return document.importNode(parsed.documentElement, true) as unknown as SVGElement;
+}
+
+function place(result: Drawn): void {
   const { item, svg, error } = result;
   if (svg === undefined) {
     fail(item, error ?? 'the diagram could not be rendered');
     return;
   }
-  try {
-    const parsed = new DOMParser().parseFromString(svg, 'image/svg+xml');
-    if (parsed.querySelector('parsererror') !== null) {
-      throw new Error('mermaid returned invalid svg');
-    }
-    const element = document.importNode(parsed.documentElement, true) as unknown as SVGElement;
-    repairActors(element, text);
-    item.view.replaceChildren(element);
-    item.box.dataset.state = 'done';
-    clearError(item);
-  } catch (error) {
-    fail(item, firstLine(error));
-  }
+  item.view.replaceChildren(svg);
+  item.box.dataset.state = 'done';
+  clearError(item);
 }
 
 function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
@@ -155,52 +169,105 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
   };
 }
 
-export const diagramSelector = 'pre.mermaid';
+const mermaidKind: Kind = {
+  name: 'mermaid',
+  selector: 'pre.mermaid',
+  prepare: async (loaders, dark) => {
+    const mermaid = await loaders.mermaid();
+    const { config, text } = mermaidConfig(dark);
+    mermaid.initialize(config);
+    return async (id, source) => {
+      try {
+        const { svg } = await mermaid.render(id, source);
+        const element = parseSvg(svg);
+        repairActors(element, text);
+        return element;
+      } catch (error) {
+        document.querySelector(`body > [id="d${id}"]`)?.remove();
+        throw error;
+      }
+    };
+  },
+};
 
-export function drawDiagrams(root: HTMLElement, load: () => Promise<Mermaid>, dark: boolean): () => void {
-  const blocks = Array.from(root.querySelectorAll<HTMLElement>(diagramSelector));
-  if (blocks.length === 0) {
+const plantUMLKind: Kind = {
+  name: 'plantuml',
+  selector: 'pre.plantuml',
+  prepare: async (loaders, dark) => {
+    const plantUML = await loaders.plantUML();
+    return (id, source) => plantUML.render(id, source, dark);
+  },
+};
+
+const kinds = [mermaidKind, plantUMLKind];
+
+const diagramSelector = kinds.map((kind) => kind.selector).join(', ');
+
+function kindOf(pre: HTMLElement): Kind | undefined {
+  return kinds.find((kind) => pre.matches(kind.selector));
+}
+
+async function prepareAll(items: Diagram[], loaders: DiagramLoaders, dark: boolean): Promise<Map<Kind, Draw>> {
+  const used = Array.from(new Set(items.map((item) => item.kind)));
+  const prepared = await Promise.all(
+    used.map(async (kind) => {
+      try {
+        return [kind, await kind.prepare(loaders, dark)] as const;
+      } catch {
+        return [kind, undefined] as const;
+      }
+    }),
+  );
+  const draws = new Map<Kind, Draw>();
+  for (const [kind, draw] of prepared) {
+    if (draw !== undefined) {
+      draws.set(kind, draw);
+    }
+  }
+  return draws;
+}
+
+export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: boolean): () => void {
+  const items: Diagram[] = [];
+  for (const pre of root.querySelectorAll<HTMLElement>(diagramSelector)) {
+    const kind = kindOf(pre);
+    if (kind !== undefined) {
+      items.push(wrap(pre, kind));
+    }
+  }
+  if (items.length === 0) {
     return () => {};
   }
-  const items = blocks.map(wrap);
 
   let cancelled = false;
   const run = (async () => {
-    let mermaid: Mermaid;
-    try {
-      mermaid = await load();
-    } catch {
-      for (const item of items) {
-        fail(item, 'Could not load the diagram renderer.');
-      }
-      return;
-    }
+    const draws = await prepareAll(items, loaders, dark);
     if (cancelled) {
       return;
     }
 
     pass += 1;
-    const { config, text } = mermaidConfig(dark);
-    mermaid.initialize(config);
-
+    const thisPass = pass;
     const drawn: Drawn[] = [];
     for (const [index, item] of items.entries()) {
-      const id = `md-mermaid-${pass}-${index}`;
+      const draw = draws.get(item.kind);
+      if (draw === undefined) {
+        drawn.push({ item, error: 'Could not load the diagram renderer.' });
+        continue;
+      }
       try {
-        const { svg } = await mermaid.render(id, item.source);
-        drawn.push({ item, svg });
+        drawn.push({ item, svg: await draw(`md-${item.kind.name}-${thisPass}-${index}`, item.source) });
       } catch (error) {
-        document.querySelector(`body > [id="d${id}"]`)?.remove();
         drawn.push({ item, error: firstLine(error) });
       }
-    }
-    if (cancelled) {
-      return;
+      if (cancelled) {
+        return;
+      }
     }
 
     preserveScroll(root, () => {
       for (const result of drawn) {
-        place(result, text);
+        place(result);
       }
     });
   })();

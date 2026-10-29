@@ -89,6 +89,7 @@ const (
 	SiteScriptFile = "site.js"
 	SiteStyleFile  = "site.css"
 	DiagramsFile   = "diagrams.js"
+	PlantUMLFile   = "plantuml.js"
 	MathScriptFile = "math.js"
 	MathStyleFile  = "math.css"
 )
@@ -102,6 +103,8 @@ func SiteAssets() map[string]string {
 }
 
 func Diagrams() string { return asset(DiagramsFile) }
+
+func PlantUML() string { return asset(PlantUMLFile) }
 
 func Math() map[string]string {
 	return map[string]string{MathScriptFile: asset(MathScriptFile), MathStyleFile: asset(MathStyleFile)}

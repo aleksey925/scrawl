@@ -1,5 +1,5 @@
 import type { DirListing, NavNode, PageResponse } from '../api/types';
-import type { Mermaid } from '../reader/diagrams';
+import type { Mermaid, PlantUML } from '../reader/diagrams';
 import type { Katex } from '../reader/typeset';
 
 export interface SitePage {
@@ -17,6 +17,7 @@ declare global {
   interface Window {
     scrawlSite?: SiteData;
     scrawlMermaid?: Mermaid;
+    scrawlPlantUML?: PlantUML;
     scrawlKatex?: Katex;
   }
 }

@@ -34,7 +34,8 @@ type Result struct {
 	HTML     template.HTML
 	Title    string
 	TOC      []Heading
-	Diagrams bool
+	Mermaid  bool
+	PlantUML bool
 	Math     bool
 }
 
@@ -133,7 +134,8 @@ func (r *Renderer) Render(src []byte, docPath string) (Result, error) {
 		HTML:     out,
 		Title:    title,
 		TOC:      toc,
-		Diagrams: strings.Contains(string(out), openMermaid),
+		Mermaid:  strings.Contains(string(out), openMermaid),
+		PlantUML: strings.Contains(string(out), openPlantUML),
 		Math:     mathClass.MatchString(string(out)),
 	}, nil
 }

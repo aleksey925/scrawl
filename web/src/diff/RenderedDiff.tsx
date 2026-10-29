@@ -3,7 +3,7 @@ import { useRef, type JSX } from 'react';
 import type { DiffKind, DiffRow, DiffSide } from '../api/types';
 import { countOf } from '../components/formats';
 import { useKatex } from '../reader/useKatex';
-import { useMermaid } from '../reader/useMermaid';
+import { useDiagrams } from '../reader/useDiagrams';
 
 import { foldRows, isChange } from './fold';
 
@@ -81,7 +81,7 @@ export function RenderedDiff({ rows, layout, oldLabel, newLabel, version }: Rend
   const rootRef = useRef<HTMLDivElement>(null);
   const drawn = `${version}:${layout}`;
   useKatex(rootRef, drawn);
-  useMermaid(rootRef, drawn);
+  useDiagrams(rootRef, drawn);
   const Row = layout === 'split' ? SplitRow : UnifiedRow;
 
   return (

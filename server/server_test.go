@@ -1997,7 +1997,7 @@ func TestInlineStylesNeverReachScriptSrc(t *testing.T) {
 	// assert
 	directives := strings.Split(resp.header.Get("Content-Security-Policy"), "; ")
 	assert.Contains(t, directives, "style-src 'self' 'unsafe-inline'")
-	assert.Contains(t, directives, "script-src 'self'")
+	assert.Contains(t, directives, "script-src 'self' 'wasm-unsafe-eval'")
 	for _, directive := range directives {
 		assert.NotRegexp(t, `^(style|script)-src-(elem|attr) `, directive)
 	}

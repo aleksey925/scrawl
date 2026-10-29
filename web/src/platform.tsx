@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 
 import type { ScrawlApi } from './api/client';
-import type { Mermaid } from './reader/diagrams';
+import type { Mermaid, PlantUML } from './reader/diagrams';
 import type { FindMatch, FindPattern } from './reader/findMatches';
 import type { InternalTarget } from './reader/links';
 import type { Katex } from './reader/typeset';
@@ -11,6 +11,7 @@ export interface Platform {
   physicalUrl: (url: string) => string;
   internalTarget: (link: HTMLAnchorElement) => InternalTarget | undefined;
   loadMermaid: () => Promise<Mermaid>;
+  loadPlantUML: () => Promise<PlantUML>;
   loadKatex: () => Promise<Katex>;
   storageScope: string;
   search: boolean;

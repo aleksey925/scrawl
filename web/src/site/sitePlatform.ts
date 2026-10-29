@@ -6,7 +6,7 @@ import type { MeState } from '../shell/useMe';
 import type { SiteData } from './data';
 import { fileOf } from './files';
 import { siteLinks } from './links';
-import { loadKatex, loadMermaid } from './loaders';
+import { loadKatex, loadMermaid, loadPlantUML } from './loaders';
 import type { PageStore } from './pages';
 import { staticSource } from './staticSource';
 
@@ -16,6 +16,7 @@ export function sitePlatform(root: URL, store: PageStore, site: SiteData): Platf
     physicalUrl: (url) => new URL(fileOf(url), root).href,
     internalTarget: siteLinks(root, site.tree),
     loadMermaid,
+    loadPlantUML,
     loadKatex,
     storageScope: root.pathname,
     search: false,

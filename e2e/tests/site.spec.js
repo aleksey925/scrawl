@@ -34,6 +34,7 @@ const NOTES = {
     'pics/one.png': PIXEL,
     'pics/two.png': PIXEL,
     'math.md': '# Math\n\nA formula: $x^2 + 1$.\n',
+    'plantuml.md': '# PlantUML\n\n```plantuml\nAlice -> Bob : hi\n```\n\n```puml\nclass Car\ninterface Engine\nCar *-- Engine\n```\n',
     'odd/100%.md': '# Percent\n',
     'odd/a%20b.md': '# Escaped\n',
     'odd/what? #1.md': '# Question\n',
@@ -360,6 +361,17 @@ for (const [target, at] of Object.entries(TARGETS)) {
 
             // assert
             await expect(page.locator('.md-diagram[data-state="done"] svg')).toBeVisible({timeout: 20_000});
+        });
+
+        test('a plantuml diagram is drawn by its renderer beside the pages, with graphviz', async ({page}) => {
+            // act
+            await page.goto(at('plantuml.html'));
+
+            // assert
+            const drawn = page.locator('.md-diagram[data-state="done"] .md-diagram-view > svg');
+            await expect(drawn).toHaveCount(2, {timeout: 20_000});
+            await expect(drawn.first()).toContainText('Alice');
+            await expect(drawn.nth(1).locator('g.entity')).toHaveCount(2);
         });
 
         test('a formula is typeset by the renderer beside the pages', async ({page}) => {
@@ -774,6 +786,26 @@ test('a page Back brings out of the cache takes the page width picked since', as
     await openSpaceMenu(page);
     await expect(page.getByTestId('page-width')).toHaveAttribute('data-width', 'wide');
     await browser.close();
+});
+
+test('a host that refuses WebAssembly gets plantuml laid out by smetana, not a crash', async ({page}) => {
+    // arrange
+    const messages = [];
+    page.on('console', (message) => messages.push(message.text()));
+    await page.route('**/*', async (route) => {
+        const response = await route.fetch();
+        await route.fulfill({response, headers: {...response.headers(), 'content-security-policy': "script-src 'self'"}});
+    });
+
+    // act
+    await page.goto(TARGETS.host('plantuml.html'));
+
+    // assert
+    const drawn = page.locator('.md-diagram[data-state="done"] .md-diagram-view > svg');
+    await expect(drawn).toHaveCount(2, {timeout: 20_000});
+    await expect(drawn.nth(1).locator('g.entity')).toHaveCount(2);
+    await expect(drawn.nth(1)).not.toContainText('An error has occurred');
+    expect(messages.some((text) => text.includes('Smetana'))).toBe(true);
 });
 
 test('a missing address of a host gets the page that says so', async ({page}) => {

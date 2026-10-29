@@ -77,13 +77,13 @@ func (ts *testServer) resolve(p string) string {
 }
 
 type testOpts struct {
-	readOnly      bool
-	spaceReadOnly bool
-	formatOnSave  bool
-	formatErr     error
-	withAuth      bool
-	history       History
-	diagrams      Diagrams
+	readOnly        bool
+	spaceReadOnly   bool
+	formatOnSave    bool
+	formatErr       error
+	withAuth        bool
+	history         History
+	diagramRenderer DiagramRenderer
 
 	second string
 
@@ -138,10 +138,13 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 			MaxUpload:    64 << 10,
 			AuthDisabled: !opts.withAuth,
 		},
-		Spaces:    spaces,
-		Auth:      svc,
-		Formatter: &fakeFormatter{err: opts.formatErr},
-		Diagrams:  opts.diagrams,
+		Spaces:          spaces,
+		Auth:            svc,
+		Formatter:       &fakeFormatter{err: opts.formatErr},
+		DiagramRenderer: opts.diagramRenderer,
+	}
+	if res.DiagramRenderer == nil {
+		res.DiagramRenderer = keptDiagrams{}
 	}
 
 	router, err := res.router()

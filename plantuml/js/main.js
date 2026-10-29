@@ -8,7 +8,7 @@ const chunkSize = 1 << 20;
 let rest = new Uint8Array(0);
 
 function readMessage() {
-  const chunks = [rest];
+  const received = [rest];
   let size = rest.length;
   let at = rest.indexOf(newline);
   while (at < 0) {
@@ -21,12 +21,12 @@ function readMessage() {
     if (found >= 0) {
       at = size + found;
     }
-    chunks.push(chunk.subarray(0, read));
+    received.push(chunk.subarray(0, read));
     size += read;
   }
   const bytes = new Uint8Array(size);
   let offset = 0;
-  for (const chunk of chunks) {
+  for (const chunk of received) {
     bytes.set(chunk, offset);
     offset += chunk.length;
   }
@@ -38,10 +38,10 @@ function writeMessage(message) {
   Javy.IO.writeSync(1, encoder.encode(JSON.stringify(message) + "\n"));
 }
 
-function quiet() {}
+function noop() {}
 
 for (const level of ["log", "info", "warn", "debug", "error"]) {
-  console[level] = quiet;
+  console[level] = noop;
 }
 
 globalThis.setTimeout = (callback, delay) => {
@@ -50,7 +50,7 @@ globalThis.setTimeout = (callback, delay) => {
   }
   return 0;
 };
-globalThis.clearTimeout = quiet;
+globalThis.clearTimeout = noop;
 
 globalThis.PLANTUML_VIZ = {};
 

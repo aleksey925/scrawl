@@ -81,7 +81,7 @@ function repairActors(svg: SVGElement, text: string): void {
   svg.append(style);
 }
 
-function parseSvg(svg: string): SVGElement {
+function parseMermaidSvg(svg: string): SVGElement {
   const parsed = new DOMParser().parseFromString(svg, 'image/svg+xml');
   if (parsed.querySelector('parsererror') !== null) {
     throw new Error('mermaid returned invalid svg');
@@ -177,7 +177,7 @@ const mermaidKind: Kind = {
     return async (id, source) => {
       try {
         const { svg } = await mermaid.render(id, source);
-        const element = parseSvg(svg);
+        const element = parseMermaidSvg(svg);
         repairActors(element, text);
         return element;
       } catch (error) {
@@ -197,16 +197,16 @@ const plantUMLKind: Kind = {
   },
 };
 
-const kinds = [mermaidKind, plantUMLKind];
+const diagramKinds = [mermaidKind, plantUMLKind];
 
-const diagramSelector = kinds.map((kind) => kind.selector).join(', ');
+const diagramSelector = diagramKinds.map((kind) => kind.selector).join(', ');
 
 function kindOf(pre: HTMLElement): Kind | undefined {
-  return kinds.find((kind) => pre.matches(kind.selector));
+  return diagramKinds.find((kind) => pre.matches(kind.selector));
 }
 
-async function prepareAll(items: Diagram[], loaders: DiagramLoaders, dark: boolean): Promise<Map<Kind, Draw>> {
-  const used = Array.from(new Set(items.map((item) => item.kind)));
+async function prepareAll(diagrams: Diagram[], loaders: DiagramLoaders, dark: boolean): Promise<Map<Kind, Draw>> {
+  const used = Array.from(new Set(diagrams.map((item) => item.kind)));
   const prepared = await Promise.all(
     used.map(async (kind) => {
       try {

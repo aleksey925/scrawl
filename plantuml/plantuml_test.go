@@ -19,17 +19,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/aleksey925/scrawl/workerpool"
 )
 
 const retireEveryTimeEnv = "SCRAWL_PLANTUML_TEST_RETIRE"
 
 func TestMain(m *testing.M) {
 	if os.Getenv(retireEveryTimeEnv) != "" {
-		workerpool.RunIfAsked(workerEnv, "plantuml worker", func(in io.Reader, out io.Writer) error {
-			return serve(in, out, 0)
-		})
+		runWorkerIfAsked(0)
 	}
 	RunWorkerIfAsked()
 	os.Exit(m.Run())
@@ -71,6 +67,33 @@ func TestSVGDrawsAnIcon(t *testing.T) {
 	// assert
 	require.NoError(t, err)
 	assert.Regexp(t, `<path d="[^"]+" fill="#000"/><text [^>]*>loved</text>`, svg)
+}
+
+func TestSVGDrawsAnEmojiWithALongPath(t *testing.T) {
+	// act
+	svg, err := shared.svg(context.Background(), "@startuml\nA -> B : <:smile:> smiled\n@enduml")
+
+	// assert
+	require.NoError(t, err)
+	assert.Regexp(t, `<path d="[^"]+" fill="#FFCC4D"/>(<path [^>]+>)+<text [^>]*>smiled</text>`, svg)
+}
+
+func TestSVGOfADiagramThatCrashesTheEngine(t *testing.T) {
+	// arrange
+	r := New(1)
+	t.Cleanup(r.Close)
+	crashing := "@startuml\nA -> B : " + strings.Repeat("word ", 2000) + "\n@enduml"
+
+	// act
+	_, err := r.svg(context.Background(), crashing)
+
+	// assert
+	var diagramErr *diagramError
+	require.ErrorAs(t, err, &diagramErr)
+	assert.Equal(t, &diagramError{Message: engineFailed}, diagramErr)
+	svg, err := r.svg(context.Background(), "@startuml\nA -> B : next\n@enduml")
+	require.NoError(t, err, "the worker whose engine crashed is replaced for the next diagram")
+	assert.Contains(t, svg, "next")
 }
 
 func TestSVGDrawsASpriteAsAPicture(t *testing.T) {
@@ -291,7 +314,7 @@ func TestEngineRenderHandsOverTheLibrariesItAsksFor(t *testing.T) {
 	var found, missing libraryReply
 	require.NoError(t, sent.Decode(&found))
 	require.NoError(t, sent.Decode(&missing))
-	code, err := LibraryFile("openiconic.js")
+	code, err := libraryFile("openiconic.js")
 	require.NoError(t, err)
 	assert.Equal(t, libraryReply{Code: string(code)}, found)
 	assert.Contains(t, missing.Error, "nosuch.min.js")
@@ -410,7 +433,7 @@ func TestInlineLeavesADiagramAsCodeWhenTheRendererFails(t *testing.T) {
 	out, err := r.Inline(context.Background(), "<p>x</p>"+block)
 
 	// assert
-	require.ErrorContains(t, err, "plantuml: the plantuml renderer is closed")
+	require.ErrorContains(t, err, "a plantuml diagram is left as code: the "+workerName+" is closed")
 	assert.Equal(t, `<p>x</p><div class="md-diagram">`+block+
 		`<p class="md-diagram-error">the diagram could not be rendered</p></div>`, out)
 }
@@ -489,12 +512,20 @@ func TestWithDependencies(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			want := make([]Library, 0, len(tc.want))
+			for _, file := range tc.want {
+				code, err := libraryFile(file)
+				require.NoError(t, err)
+				want = append(want, Library{Name: file, Code: code})
+			}
+
 			// act
 			got, err := WithDependencies(tc.names)
 
 			// assert
 			require.NoError(t, err)
-			assert.Equal(t, tc.want, got)
+			assert.Equal(t, want, got)
 		})
 	}
 }
@@ -503,10 +534,10 @@ func TestLibraryFileRefusesANameOutsideTheLibrary(t *testing.T) {
 	for _, name := range []string{"../plantuml.go", "c4.min.js/../x", ".hidden.js", "C4.min.js", "c4"} {
 		t.Run(name, func(t *testing.T) {
 			// act
-			_, err := LibraryFile(name)
+			_, err := libraryFile(name)
 
 			// assert
-			require.ErrorIs(t, err, ErrNoLibrary)
+			require.ErrorIs(t, err, errNoLibrary)
 		})
 	}
 }

@@ -8,9 +8,11 @@ import (
 	"html"
 	"regexp"
 	"strings"
+
+	"github.com/aleksey925/scrawl/render"
 )
 
-var diagramBlock = regexp.MustCompile(`(?s)<pre class="plantuml"[^>]*>(.*?)</pre>`)
+var diagramBlock = regexp.MustCompile(`(?s)` + regexp.QuoteMeta(render.OpenPlantUML) + `[^>]*>(.*?)</pre>`)
 
 func (r *Renderer) Inline(ctx context.Context, fragment string) (string, error) {
 	var out strings.Builder
@@ -26,16 +28,20 @@ func (r *Renderer) Inline(ctx context.Context, fragment string) (string, error) 
 		last = loc[1]
 	}
 	out.WriteString(fragment[last:])
-	return out.String(), errors.Join(failures...)
+	if len(failures) > 0 {
+		return out.String(), fmt.Errorf("a plantuml diagram is left as code: %w", errors.Join(failures...))
+	}
+	return out.String(), nil
 }
 
 func (r *Renderer) figure(ctx context.Context, block, source string) (string, error) {
 	svg, err := r.svg(ctx, source)
 	if err != nil {
-		message, failure := err.Error(), error(nil)
+		message := err.Error()
+		var failure error
 		var diagramErr *diagramError
 		if !errors.As(err, &diagramErr) {
-			message, failure = "the diagram could not be rendered", fmt.Errorf("plantuml: %w", err)
+			message, failure = "the diagram could not be rendered", err
 		}
 		note := `<p class="md-diagram-error">` + html.EscapeString(message) + `</p>`
 		return `<div class="md-diagram">` + block + note + `</div>`, failure

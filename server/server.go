@@ -88,10 +88,10 @@ type Config struct {
 
 type Web struct {
 	Config
-	Spaces    []*Space
-	Auth      *auth.Service
-	Formatter Formatter
-	Diagrams  Diagrams
+	Spaces          []*Space
+	Auth            *auth.Service
+	Formatter       Formatter
+	DiagramRenderer DiagramRenderer
 
 	byName    map[string]*Space
 	templates *template.Template
@@ -193,7 +193,7 @@ func (wb *Web) router() (http.Handler, error) {
 		HandleFunc("GET /static/{version}/{path...}", wb.staticHandler(assets))
 	router.HandleFunc("GET /static/{version}/"+appDir+"/{path...}", wb.appAssetHandler(assets))
 	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
-		HandleFunc("GET /static/{version}/plantuml/{file}", plantumlLibraryHandler)
+		HandleFunc("GET /static/{version}/"+plantumlDir+"/{file}", plantumlLibraryHandler)
 
 	router.HandleFunc("GET /manifest.webmanifest", wb.manifestHandler)
 

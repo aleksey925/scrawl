@@ -220,16 +220,12 @@ func (b *siteBuilder) writeAssets() error {
 }
 
 func (b *siteBuilder) addLibraries(assets map[string]string) error {
-	names, err := plantuml.WithDependencies(b.libraries)
+	libs, err := plantuml.WithDependencies(b.libraries)
 	if err != nil {
 		return fmt.Errorf("plantuml libraries: %w", err)
 	}
-	for _, name := range names {
-		code, err := plantuml.LibraryFile(name)
-		if err != nil {
-			return fmt.Errorf("plantuml libraries: %w", err)
-		}
-		assets[path.Join(sitePlantUMLDir, name)] = string(code)
+	for _, lib := range libs {
+		assets[path.Join(sitePlantUMLDir, lib.Name)] = string(lib.Code)
 	}
 	return nil
 }

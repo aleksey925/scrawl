@@ -351,11 +351,11 @@ func runRender(opts *renderOptions, in io.Reader, out, errOut io.Writer) error {
 }
 
 func drawPlantUML(fragment string, errOut io.Writer) string {
-	renderer := plantuml.New(1)
-	defer renderer.Close()
-	drawn, err := renderer.Inline(context.Background(), fragment)
+	diagramRenderer := plantuml.New(1)
+	defer diagramRenderer.Close()
+	drawn, err := diagramRenderer.Inline(context.Background(), fragment)
 	if err != nil {
-		_, _ = fmt.Fprintf(errOut, "a plantuml diagram is left as code: %v\n", err)
+		_, _ = fmt.Fprintln(errOut, err)
 	}
 	return drawn
 }

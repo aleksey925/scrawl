@@ -29,7 +29,7 @@ hooks.PLANTUML_STDLIB_LOADER = (file, ok, fail) => {
   document.head.append(script);
 };
 
-function useLibraries(base: string): void {
+function setLibraryBase(base: string): void {
   libraryBase = base;
 }
 
@@ -111,4 +111,4 @@ async function render(id: string, source: string, dark: boolean): Promise<SVGSVG
   return svg;
 }
 
-export const plantUML = { render, useLibraries };
+export const plantUML = { render, setLibraryBase };

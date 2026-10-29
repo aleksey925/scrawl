@@ -12,7 +12,7 @@ import (
 	"github.com/aleksey925/scrawl/gzassets"
 )
 
-var ErrNoLibrary = errors.New("no such plantuml library")
+var errNoLibrary = errors.New("no such plantuml library")
 
 var library = gzassets.Sub(libraryFiles, "library")
 
@@ -38,15 +38,24 @@ var extraLibraries = []struct {
 	{pattern: regexp.MustCompile(`<(?:#\w+)?:[\w+-]+:`), file: emojiFile},
 }
 
-func LibraryFile(name string) ([]byte, error) {
-	if !libraryName.MatchString(name) || !library.Has(name) {
-		return nil, fmt.Errorf("%s: %w", name, ErrNoLibrary)
+type Library struct {
+	Name string
+	Code []byte
+}
+
+func inLibrary(name string) bool {
+	return libraryName.MatchString(name) && library.Has(name)
+}
+
+func libraryFile(name string) ([]byte, error) {
+	if !inLibrary(name) {
+		return nil, fmt.Errorf("%s: %w", name, errNoLibrary)
 	}
 	return library.ReadFile(name)
 }
 
 func ServeLibrary(w http.ResponseWriter, r *http.Request, name string) {
-	if !libraryName.MatchString(name) || !library.Has(name) {
+	if !inLibrary(name) {
 		http.NotFound(w, r)
 		return
 	}
@@ -58,9 +67,9 @@ func bundleOf(lib string) string {
 }
 
 func Libraries(src []byte) []string {
-	matches := includedLib.FindAllSubmatch(src, -1)
-	res := make([]string, 0, len(matches)+len(extraLibraries))
-	for _, match := range matches {
+	includes := includedLib.FindAllSubmatch(src, -1)
+	res := make([]string, 0, len(includes)+len(extraLibraries))
+	for _, match := range includes {
 		res = append(res, bundleOf(string(match[1])))
 	}
 	for _, extra := range extraLibraries {
@@ -72,23 +81,23 @@ func Libraries(src []byte) []string {
 	return slices.Compact(res)
 }
 
-func WithDependencies(names []string) ([]string, error) {
-	seen := map[string]bool{}
+func WithDependencies(names []string) ([]Library, error) {
+	seen := map[string][]byte{}
 	queue := slices.Clone(names)
 	for len(queue) > 0 {
 		name := queue[0]
 		queue = queue[1:]
-		if seen[name] {
+		if _, ok := seen[name]; ok {
 			continue
 		}
-		code, err := LibraryFile(name)
-		if errors.Is(err, ErrNoLibrary) {
+		code, err := libraryFile(name)
+		if errors.Is(err, errNoLibrary) {
 			continue
 		}
 		if err != nil {
 			return nil, err
 		}
-		seen[name] = true
+		seen[name] = code
 		for _, match := range includedLib.FindAllSubmatch(code, -1) {
 			queue = append(queue, bundleOf(string(match[1])))
 		}
@@ -102,10 +111,10 @@ func WithDependencies(names []string) ([]string, error) {
 			queue = append(queue, iconsFile)
 		}
 	}
-	res := make([]string, 0, len(seen))
-	for name := range seen {
-		res = append(res, name)
+	res := make([]Library, 0, len(seen))
+	for name, code := range seen {
+		res = append(res, Library{Name: name, Code: code})
 	}
-	slices.Sort(res)
+	slices.SortFunc(res, func(a, b Library) int { return strings.Compare(a.Name, b.Name) })
 	return res, nil
 }

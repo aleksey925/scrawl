@@ -2,6 +2,12 @@ import { zlibSync } from "fflate";
 
 const scrawlRgbOnly = 1;
 
+const scrawlPngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+const scrawlFieldSize = 4;
+const scrawlHeaderSize = 13;
+const scrawlBitDepth = 8;
+const scrawlColorTypeRgba = 6;
+
 const scrawlCrcTable = (() => {
   const table = new Int32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -14,23 +20,25 @@ const scrawlCrcTable = (() => {
   return table;
 })();
 
-function scrawlCrc(bytes) {
+function scrawlCrc(data) {
   let c = -1;
-  for (const byte of bytes) {
+  for (const byte of data) {
     c = scrawlCrcTable[(c ^ byte) & 255] ^ (c >>> 8);
   }
   return (c ^ -1) >>> 0;
 }
 
 function scrawlChunk(type, data) {
-  const out = new Uint8Array(12 + data.length);
+  const dataAt = 2 * scrawlFieldSize;
+  const crcAt = dataAt + data.length;
+  const out = new Uint8Array(crcAt + scrawlFieldSize);
   const view = new DataView(out.buffer);
   view.setUint32(0, data.length);
-  for (let i = 0; i < 4; i++) {
-    out[4 + i] = type.charCodeAt(i);
+  for (let i = 0; i < scrawlFieldSize; i++) {
+    out[scrawlFieldSize + i] = type.charCodeAt(i);
   }
-  out.set(data, 8);
-  view.setUint32(8 + data.length, scrawlCrc(out.subarray(4, 8 + data.length)));
+  out.set(data, dataAt);
+  view.setUint32(crcAt, scrawlCrc(out.subarray(scrawlFieldSize, crcAt)));
   return out;
 }
 
@@ -47,21 +55,21 @@ function scrawlPng(width, height, argb, opaque) {
       rows[at++] = opaque ? 255 : (pixel >>> 24) & 255;
     }
   }
-  const header = new Uint8Array(13);
+  const header = new Uint8Array(scrawlHeaderSize);
   const view = new DataView(header.buffer);
   view.setUint32(0, width);
-  view.setUint32(4, height);
-  header[8] = 8;
-  header[9] = 6;
-  const parts = [
-    new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+  view.setUint32(scrawlFieldSize, height);
+  header[2 * scrawlFieldSize] = scrawlBitDepth;
+  header[2 * scrawlFieldSize + 1] = scrawlColorTypeRgba;
+  const pieces = [
+    new Uint8Array(scrawlPngSignature),
     scrawlChunk("IHDR", header),
     scrawlChunk("IDAT", zlibSync(rows, { level: 9 })),
     scrawlChunk("IEND", new Uint8Array(0)),
   ];
-  const png = new Uint8Array(parts.reduce((size, part) => size + part.length, 0));
+  const png = new Uint8Array(pieces.reduce((size, part) => size + part.length, 0));
   let offset = 0;
-  for (const part of parts) {
+  for (const part of pieces) {
     png.set(part, offset);
     offset += part.length;
   }

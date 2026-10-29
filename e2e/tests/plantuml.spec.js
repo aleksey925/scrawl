@@ -162,7 +162,7 @@ test.describe('plantuml', () => {
         await page.goto(routes.doc(NOTE));
         await expect(drawn(page)).toHaveCount(2);
         const links = await drawn(page).nth(1).locator('a').evaluateAll(
-            (nodes) => nodes.map((node) => node.getAttribute('href') ?? node.getAttribute('xlink:href') ?? ''));
+            (anchors) => anchors.map((node) => node.getAttribute('href') ?? node.getAttribute('xlink:href') ?? ''));
 
         // assert
         await expect(drawn(page).first()).toContainText('nosuchlib');

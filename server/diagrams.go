@@ -15,7 +15,7 @@ const (
 	diagramBudgetNoDeadline = 45 * time.Second
 )
 
-type Diagrams interface {
+type DiagramRenderer interface {
 	Inline(ctx context.Context, fragment string) (string, error)
 }
 
@@ -31,14 +31,11 @@ func (wb *Web) diagramBudget() time.Duration {
 }
 
 func (m *mount) drawDiagrams(ctx context.Context, fragment string) string {
-	if m.Diagrams == nil {
-		return fragment
-	}
 	ctx, cancel := context.WithTimeout(ctx, m.diagramBudget())
 	defer cancel()
-	drawn, err := m.Diagrams.Inline(ctx, fragment)
+	drawn, err := m.DiagramRenderer.Inline(ctx, fragment)
 	if err != nil {
-		log.Printf("[WARN] %s: a plantuml diagram is left as code: %v", m.spc.Name, err)
+		log.Printf("[WARN] %s: %v", m.spc.Name, err)
 	}
 	return drawn
 }

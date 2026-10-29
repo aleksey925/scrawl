@@ -106,6 +106,11 @@ Spaces, routes, settings and the guards on every request.
 - A drawn diagram, or the engine's refusal, is kept by its source, so the next
   export of the note costs nothing. A timeout is not kept, and the next export
   tries again.
+- An engine that crashes, as one does on a recursion deeper than its stack
+  ([quirks](../quirks.md#mermaid-plantuml-and-katex)), cannot draw again. The
+  worker answers that the engine failed on this diagram and exits, and the
+  answer is kept like a refusal: the same source crashes the same way, and
+  keeping it saves a new worker on each export. The browser still draws it.
 - A large library takes hundreds of megabytes, and a WebAssembly memory never
   shrinks. So the worker exits after the answer that leaves its engine's memory
   above 256MB, saying so in that answer, and the pool stops a worker idle for

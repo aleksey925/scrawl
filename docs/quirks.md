@@ -154,10 +154,17 @@ words; the fact itself is written here.
 - In javy's QuickJS a promise settles only once the script yields to the event
   loop, `console` has no `info`, and `setTimeout` does not exist. The engine
   needs all three.
-- On the server a diagram with an emoji crashes the engine with "out of bounds
-  memory access" deep in a recursion, likely PlantUML's sprite parser reading
-  the emoji's SVG with more stack than javy's QuickJS has. The diagram stays
-  code; the browser draws it.
+- The `setTimeout` the server's engine is given runs a callback with no delay
+  and drops one with a delay. That is safe: the engine's only delayed timer is
+  its 60 second give-up while a library loads, and the server's loader answers
+  before it returns.
+- javy's QuickJS checks no stack depth in WebAssembly, and its stack is 1MB. A
+  deeper recursion ends the engine with "out of bounds memory access", where V8
+  throws a `RangeError`. PlantUML's regular expressions recurse once per
+  character a repeated group matches, so a long text runs out: the SVG path of
+  an emoji such as `<:smile:>`, or a label of some 3000 characters.
+  `make plantuml` makes the engine read an emoji's shapes with a JavaScript
+  regular expression; for the rest see [Server](design/server.md#plantuml).
 - esbuild's syntax minification writes labels QuickJS refuses ("break/continue
   label not found"), so the server's engine is minified in names and space
   only.

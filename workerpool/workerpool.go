@@ -25,7 +25,7 @@ type Retiring interface {
 
 type Pool[Req, Res any] struct {
 	opts Options
-	idle chan *worker
+	free chan *worker
 	done chan struct{}
 
 	mu     sync.Mutex
@@ -33,9 +33,9 @@ type Pool[Req, Res any] struct {
 }
 
 func New[Req, Res any](opts Options) *Pool[Req, Res] {
-	p := &Pool[Req, Res]{opts: opts, idle: make(chan *worker, opts.Workers), done: make(chan struct{})}
+	p := &Pool[Req, Res]{opts: opts, free: make(chan *worker, opts.Workers), done: make(chan struct{})}
 	for range opts.Workers {
-		p.idle <- &worker{}
+		p.free <- &worker{}
 	}
 	return p
 }
@@ -86,7 +86,7 @@ func (p *Pool[Req, Res]) Ask(ctx context.Context, req Req) (Res, error) {
 			wrk.stop()
 			return zero, out.err
 		}
-		if last, ok := any(out.res).(Retiring); ok && last.Retiring() {
+		if retiring, ok := any(out.res).(Retiring); ok && retiring.Retiring() {
 			wrk.stop()
 		}
 		return out.res, nil
@@ -102,7 +102,7 @@ func (p *Pool[Req, Res]) take(ctx context.Context) (*worker, error) {
 		return nil, fmt.Errorf("wait for a %s: %w", p.opts.Name, err)
 	}
 	select {
-	case wrk := <-p.idle:
+	case wrk := <-p.free:
 		wrk.claim()
 		return wrk, nil
 	case <-p.done:
@@ -120,7 +120,7 @@ func (p *Pool[Req, Res]) put(wrk *worker) {
 		return
 	}
 	wrk.release(p.opts.Idle)
-	p.idle <- wrk
+	p.free <- wrk
 }
 
 func (p *Pool[Req, Res]) Close() {
@@ -133,7 +133,7 @@ func (p *Pool[Req, Res]) Close() {
 	close(p.done)
 	for {
 		select {
-		case wrk := <-p.idle:
+		case wrk := <-p.free:
 			wrk.stop()
 		default:
 			return

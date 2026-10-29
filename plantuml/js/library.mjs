@@ -28,9 +28,9 @@ await mkdir(outDir, { recursive: true });
 for (const stale of await readdir(outDir)) {
   await rm(join(outDir, stale));
 }
-const names = Object.keys(lock.files);
-const bodies = await Promise.all(names.map((name) => fetchChecked(name, lock.files[name])));
-for (const [index, name] of names.entries()) {
+const files = Object.keys(lock.files);
+const bodies = await Promise.all(files.map((name) => fetchChecked(name, lock.files[name])));
+for (const [index, name] of files.entries()) {
   await writeFile(join(outDir, `${name}.gz`), gzipSync(bodies[index], { level: 9 }));
 }
-console.log(`${names.length} files of plantuml ${lock.commit.slice(0, 7)} in ${outDir}`);
+console.log(`${files.length} files of plantuml ${lock.commit.slice(0, 7)} in ${outDir}`);

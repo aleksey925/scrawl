@@ -8,19 +8,32 @@ if (outFile === undefined) {
 }
 
 const anchor = "nspkd_AbstractUGraphic_registerDriver($ug, $rt_cls(nspks_UImageSvg), new nspkds_DriverImageSvgSvg);";
+const registration = "nspkd_AbstractUGraphic_registerDriver($ug, $rt_cls(nspks_UImage), scrawlImageDriver);";
+const svgParserAnchors = [
+  "nspsp_SvgNanoParser_getData = $this => {",
+  "ju_AbstractCollection_isEmpty($this.$data24)",
+  "jur_Pattern_matcher(nspsp_SvgNanoParser_P_TEXT_OR_DRAW, $this.$svg2)",
+];
 
-const imageDriver = await readFile(new URL("image-driver.js", import.meta.url), "utf8");
+const patches = await Promise.all(
+  ["image-driver.js", "svg-parser.js"].map((file) => readFile(new URL(file, import.meta.url), "utf8")),
+);
+
+function requireOnce(source, text) {
+  if (source.split(text).length !== 2) {
+    throw new Error(`the engine no longer has "${text}" once`);
+  }
+}
 
 const patchEngine = {
-  name: "scrawl-plantuml-image-driver",
+  name: "scrawl-plantuml-engine",
   setup(bundle) {
     bundle.onLoad({ filter: /@plantuml[\\/]mcp-js[\\/]engine\.js$/ }, async (args) => {
       const source = await readFile(args.path, "utf8");
-      if (source.split(anchor).length !== 2) {
-        throw new Error(`the engine no longer registers its svg image driver as "${anchor}"`);
+      for (const text of [anchor, ...svgParserAnchors]) {
+        requireOnce(source, text);
       }
-      const registration = "nspkd_AbstractUGraphic_registerDriver($ug, $rt_cls(nspks_UImage), scrawlImageDriver);";
-      return { contents: `${source.replace(anchor, `${anchor}\n${registration}`)}\n${imageDriver}`, loader: "js" };
+      return { contents: [source.replace(anchor, `${anchor}\n${registration}`), ...patches].join("\n"), loader: "js" };
     });
   },
 };

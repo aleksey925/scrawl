@@ -10,17 +10,25 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aleksey925/scrawl/render"
 )
 
 const drawnMark = `<img alt="drawn">`
 
-type fakeDiagrams struct {
+type fakeDiagramRenderer struct {
 	fragments []string
 	deadlines []time.Duration
 	err       error
 }
 
-func (f *fakeDiagrams) Inline(ctx context.Context, fragment string) (string, error) {
+type keptDiagrams struct{}
+
+func (keptDiagrams) Inline(_ context.Context, fragment string) (string, error) {
+	return fragment, nil
+}
+
+func (f *fakeDiagramRenderer) Inline(ctx context.Context, fragment string) (string, error) {
 	f.fragments = append(f.fragments, fragment)
 	if deadline, ok := ctx.Deadline(); ok {
 		f.deadlines = append(f.deadlines, time.Until(deadline))
@@ -28,15 +36,15 @@ func (f *fakeDiagrams) Inline(ctx context.Context, fragment string) (string, err
 	if f.err != nil {
 		return fragment, f.err
 	}
-	start := strings.Index(fragment, `<pre class="plantuml"`)
+	start := strings.Index(fragment, render.OpenPlantUML)
 	end := strings.Index(fragment, "</pre>")
 	return fragment[:start] + drawnMark + fragment[end+len("</pre>"):], nil
 }
 
 func TestExportDrawsPlantUML(t *testing.T) {
 	// arrange
-	diagrams := &fakeDiagrams{}
-	ts := newTestServer(t, testOpts{diagrams: diagrams})
+	diagramRenderer := &fakeDiagramRenderer{}
+	ts := newTestServer(t, testOpts{diagramRenderer: diagramRenderer})
 	writeNote(t, ts.root, "uml.md", "# UML\n\n```plantuml\nA -> B\n```\n")
 
 	// act
@@ -46,14 +54,14 @@ func TestExportDrawsPlantUML(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.status)
 	assert.Contains(t, body, drawnMark)
 	assert.NotContains(t, body, `<pre class="plantuml"`)
-	require.Len(t, diagrams.fragments, 1)
-	assert.Contains(t, diagrams.fragments[0], "A -&gt; B")
+	require.Len(t, diagramRenderer.fragments, 1)
+	assert.Contains(t, diagramRenderer.fragments[0], "A -&gt; B")
 }
 
 func TestExportGivesTheDiagramsABudget(t *testing.T) {
 	// arrange
-	diagrams := &fakeDiagrams{}
-	ts := newTestServer(t, testOpts{diagrams: diagrams})
+	diagramRenderer := &fakeDiagramRenderer{}
+	ts := newTestServer(t, testOpts{diagramRenderer: diagramRenderer})
 	writeNote(t, ts.root, "uml.md", "# UML\n\n```plantuml\nA -> B\n```\n")
 
 	// act
@@ -61,9 +69,9 @@ func TestExportGivesTheDiagramsABudget(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
-	require.Len(t, diagrams.deadlines, 1)
-	assert.Greater(t, diagrams.deadlines[0], time.Duration(0))
-	assert.LessOrEqual(t, diagrams.deadlines[0], ts.diagramBudget())
+	require.Len(t, diagramRenderer.deadlines, 1)
+	assert.Greater(t, diagramRenderer.deadlines[0], time.Duration(0))
+	assert.LessOrEqual(t, diagramRenderer.deadlines[0], ts.diagramBudget())
 }
 
 func TestDiagramBudget(t *testing.T) {
@@ -87,35 +95,24 @@ func TestDiagramBudget(t *testing.T) {
 	}
 }
 
-func TestExportKeepsTheDiagramsAsCode(t *testing.T) {
-	tests := []struct {
-		name     string
-		diagrams Diagrams
-	}{
-		{name: "with no renderer", diagrams: nil},
-		{name: "when the renderer fails", diagrams: &fakeDiagrams{err: errors.New("the renderer is gone")}},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			// arrange
-			ts := newTestServer(t, testOpts{diagrams: tc.diagrams})
-			writeNote(t, ts.root, "uml.md", "# UML\n\n```plantuml\nA -> B\n```\n")
+func TestExportKeepsTheDiagramsAsCodeWhenTheRendererFails(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{diagramRenderer: &fakeDiagramRenderer{err: errors.New("the renderer is gone")}})
+	writeNote(t, ts.root, "uml.md", "# UML\n\n```plantuml\nA -> B\n```\n")
 
-			// act
-			resp, body := ts.do(t, request{path: "/api/export/uml.md?format=html"})
+	// act
+	resp, body := ts.do(t, request{path: "/api/export/uml.md?format=html"})
 
-			// assert
-			assert.Equal(t, http.StatusOK, resp.status)
-			assert.Contains(t, body, `<pre class="plantuml"`)
-			assert.Contains(t, body, "A -&gt; B")
-		})
-	}
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Contains(t, body, `<pre class="plantuml"`)
+	assert.Contains(t, body, "A -&gt; B")
 }
 
 func TestExportOfANoteWithNoPlantUMLDrawsNothing(t *testing.T) {
 	// arrange
-	diagrams := &fakeDiagrams{}
-	ts := newTestServer(t, testOpts{diagrams: diagrams})
+	diagramRenderer := &fakeDiagramRenderer{}
+	ts := newTestServer(t, testOpts{diagramRenderer: diagramRenderer})
 	writeNote(t, ts.root, "plain.md", "# Plain\n\n```mermaid\ngraph TD;\n```\n")
 
 	// act
@@ -123,7 +120,7 @@ func TestExportOfANoteWithNoPlantUMLDrawsNothing(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
-	assert.Empty(t, diagrams.fragments)
+	assert.Empty(t, diagramRenderer.fragments)
 }
 
 func TestPlantUMLLibraries(t *testing.T) {

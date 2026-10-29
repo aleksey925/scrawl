@@ -12,6 +12,8 @@ const MaxSize = 256 << 10
 
 const WorkerEnv = "SCRAWL_FORMAT_WORKER"
 
+const workerName = "format worker"
+
 var ErrTooLarge = errors.New("note is too large to format")
 
 type request struct {
@@ -28,7 +30,7 @@ type Formatter struct {
 }
 
 func New(workers int) *Formatter {
-	return &Formatter{pool: workerpool.New[request, response](workerpool.Options{Name: "formatter", Env: WorkerEnv, Workers: workers})}
+	return &Formatter{pool: workerpool.New[request, response](workerpool.Options{Name: workerName, Env: WorkerEnv, Workers: workers})}
 }
 
 func (f *Formatter) Markdown(ctx context.Context, text string) (string, error) {

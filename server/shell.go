@@ -14,7 +14,10 @@ import (
 	"github.com/aleksey925/scrawl/store"
 )
 
-const appDir = "app"
+const (
+	appDir      = "app"
+	plantumlDir = "plantuml"
+)
 
 const appManifest = appDir + "/manifest.json"
 

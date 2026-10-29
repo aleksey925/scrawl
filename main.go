@@ -205,8 +205,8 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 
 	formatter := format.New(formatWorkers)
 	defer formatter.Close()
-	diagrams := plantuml.New(plantumlWorkers)
-	defer diagrams.Close()
+	diagramRenderer := plantuml.New(plantumlWorkers)
+	defer diagramRenderer.Close()
 
 	srv := &server.Web{
 		Config: server.Config{
@@ -224,10 +224,10 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 			IdleTimeout:       opts.Timeouts.Idle,
 			ShutdownTimeout:   opts.Timeouts.Shutdown,
 		},
-		Spaces:    spaces,
-		Auth:      authSvc,
-		Formatter: formatter,
-		Diagrams:  diagrams,
+		Spaces:          spaces,
+		Auth:            authSvc,
+		Formatter:       formatter,
+		DiagramRenderer: diagramRenderer,
 	}
 
 	workers, stopWorkers := context.WithCancel(ctx)

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"runtime/debug"
+	"strings"
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
@@ -19,6 +20,8 @@ import (
 )
 
 const engineFile = "engine.wasm"
+
+const engineFailed = "the server's PlantUML engine failed on this diagram"
 
 const (
 	memoryPages = 16384
@@ -36,8 +39,12 @@ type libraryReply struct {
 }
 
 func RunWorkerIfAsked() {
-	workerpool.RunIfAsked(workerEnv, "plantuml worker", func(in io.Reader, out io.Writer) error {
-		return serve(in, out, retireBytes)
+	runWorkerIfAsked(retireBytes)
+}
+
+func runWorkerIfAsked(retireAt uint32) {
+	workerpool.RunIfAsked(workerEnv, workerName, func(in io.Reader, out io.Writer) error {
+		return serve(in, out, retireAt)
 	})
 }
 
@@ -74,9 +81,12 @@ func serve(in io.Reader, out io.Writer, retireAt uint32) error {
 		}
 		res, renderErr := eng.render(req)
 		if renderErr != nil {
-			return renderErr
+			cause, _, _ := strings.Cut(renderErr.Error(), "\n")
+			fmt.Fprintf(os.Stderr, "%s: %s\n", workerName, cause)
+			res = response{Error: engineFailed, Retire: true}
+		} else {
+			res.Retire = eng.memory() > retireAt
 		}
-		res.Retire = eng.memory() > retireAt
 		if err = answers.Encode(res); err != nil {
 			return fmt.Errorf("write an answer: %w", err)
 		}
@@ -158,7 +168,7 @@ func (e *engine) stop() {
 }
 
 func libraryFor(name string) libraryReply {
-	code, err := LibraryFile(name)
+	code, err := libraryFile(name)
 	if err != nil {
 		return libraryReply{Error: err.Error()}
 	}

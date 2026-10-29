@@ -46,7 +46,7 @@ export const appPlatform: Platform = {
   loadMermaid: async () => (await loadChunk(import('mermaid'))).default,
   loadPlantUML: async () => {
     const { plantUML } = await loadChunk(import('./reader/plantuml'));
-    plantUML.useLibraries(new URL(/* @vite-ignore */ '../../plantuml/', import.meta.url).href);
+    plantUML.setLibraryBase(new URL(/* @vite-ignore */ '../../plantuml/', import.meta.url).href);
     return plantUML;
   },
   loadKatex: async () => {

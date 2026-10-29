@@ -13,7 +13,7 @@ import (
 
 const (
 	openMermaid      = `<pre class="mermaid"`
-	openPlantUML     = `<pre class="plantuml"`
+	OpenPlantUML     = `<pre class="plantuml"`
 	closePre         = "</pre>\n"
 	openDisplayMath  = `<div class="math math-display"`
 	closeDisplayMath = "</div>\n"
@@ -21,8 +21,8 @@ const (
 
 var rawFenceTags = map[string][2]string{
 	"mermaid":  {openMermaid, closePre},
-	"plantuml": {openPlantUML, closePre},
-	"puml":     {openPlantUML, closePre},
+	"plantuml": {OpenPlantUML, closePre},
+	"puml":     {OpenPlantUML, closePre},
 	"math":     {openDisplayMath, closeDisplayMath},
 }
 

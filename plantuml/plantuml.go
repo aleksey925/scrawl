@@ -13,7 +13,10 @@ import (
 	"github.com/aleksey925/scrawl/workerpool"
 )
 
-const workerEnv = "SCRAWL_PLANTUML_WORKER"
+const (
+	workerEnv  = "SCRAWL_PLANTUML_WORKER"
+	workerName = "plantuml worker"
+)
 
 const maxSource = 256 << 10
 
@@ -66,7 +69,7 @@ type Renderer struct {
 func New(workers int) *Renderer {
 	return &Renderer{
 		pool: workerpool.New[request, response](workerpool.Options{
-			Name: "plantuml renderer", Env: workerEnv, Workers: workers, Limit: diagramTimeout, Idle: idleTimeout,
+			Name: workerName, Env: workerEnv, Workers: workers, Limit: diagramTimeout, Idle: idleTimeout,
 		}),
 		cache: newCache(cacheEntries, cacheBytes),
 	}
@@ -94,7 +97,7 @@ func (r *Renderer) svg(ctx context.Context, source string) (string, error) {
 
 func (r *Renderer) ask(ctx context.Context, diagram string) (response, error) {
 	if err := ctx.Err(); err != nil {
-		return response{}, err
+		return response{}, fmt.Errorf("wait for a %s: %w", workerName, err)
 	}
 	run := context.WithoutCancel(ctx)
 	if deadline, ok := ctx.Deadline(); ok {

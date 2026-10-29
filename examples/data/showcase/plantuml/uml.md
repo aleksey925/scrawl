@@ -12,8 +12,9 @@ Server --> Browser : 200 OK
 ```
 
 Large: saving a note with formatting, history and a push to the remote.
-It is wider than the page, so it scrolls sideways, and its boxes have
-colors of their own, so in the dark theme it sits on a light card.
+It is wider than the page, so the page shows it smaller; open it to zoom
+in. Its boxes have colors of their own, so in the dark theme it sits on
+a light card.
 
 ```plantuml
 @startuml

@@ -15,6 +15,7 @@ const ANCHOR_SOURCE = 'e2e-anchor-source.md';
 const OUTLINE = 'e2e-outline.md';
 const EMPHASIS = 'e2e-emphasis.md';
 const DIAGRAM = 'e2e-diagram.md';
+const DIAGRAM_VIEWER = 'e2e-diagram-viewer.md';
 const LOOK = 'e2e-look.md';
 
 function anchorDocument() {
@@ -363,6 +364,78 @@ test.describe('reading', () => {
         // assert
         await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
         await expect(page.getByTestId('doc-image').first()).toBeFocused();
+    });
+
+    test('the viewer zooms a picture with its buttons', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.illustrated.doc));
+        await page.getByTestId('doc-image').first().click();
+        const percent = page.getByTestId('doc-lightbox-zoom');
+        await expect(percent).toHaveText(/^\d+%$/);
+        const fitted = await percent.textContent();
+
+        // act & assert
+        await expect(page.getByTestId('doc-lightbox-fit')).toBeDisabled();
+        await page.getByTestId('doc-lightbox-zoom-in').click();
+        await expect(percent).not.toHaveText(fitted);
+        await expect(page.getByTestId('doc-lightbox-image')).toHaveAttribute('data-zoomed', 'true');
+        await page.getByTestId('doc-lightbox-fit').click();
+        await expect(percent).toHaveText(fitted);
+        await expect(page.getByTestId('doc-lightbox-image')).toHaveAttribute('data-zoomed', 'false');
+    });
+
+    test('a diagram wider than the note is shown at its width and opens in the viewer at the size of the screen', async ({page}) => {
+        // arrange
+        const nodes = Array.from({length: 14}, (_, i) => `N${i}[Step number ${i}]`).join(' --> ');
+        writeFixture(DIAGRAM_VIEWER, `# Wide\n\n\`\`\`mermaid\nflowchart LR\n  ${nodes}\n\`\`\`\n`);
+        await page.goto(routes.doc(DIAGRAM_VIEWER));
+        const frame = page.getByTestId('diagram-frame');
+        await expect(frame).toBeVisible();
+        const width = (locator) => locator.evaluate((el) => el.getBoundingClientRect().width);
+
+        // act
+        await frame.getByTestId('diagram-open').click();
+
+        // assert
+        expect(await width(frame)).toBeLessThanOrEqual(await width(page.getByTestId('doc')) + 1);
+        await expect(page.getByTestId('doc-lightbox-diagram')).toBeVisible();
+        const fitted = Number.parseInt(await page.getByTestId('doc-lightbox-zoom').textContent(), 10);
+        expect(fitted).toBeLessThan(100);
+        expect(await width(page.getByTestId('doc-lightbox-diagram'))).toBeLessThanOrEqual(page.viewportSize().width);
+        await shot(page, 'reading-diagram-viewer');
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+
+        removeFixture(DIAGRAM_VIEWER);
+    });
+
+    test('the viewer zooms a diagram with its keys and steps to the next one', async ({page}) => {
+        // arrange
+        const nodes = Array.from({length: 10}, (_, i) => `N${i}[Step ${i}]`).join(' --> ');
+        writeFixture(DIAGRAM_VIEWER, `# Two\n\n\`\`\`mermaid\nflowchart LR\n  ${nodes}\n\`\`\`\n\n\`\`\`plantuml\nA -> B : second\n\`\`\`\n`);
+        await page.goto(routes.doc(DIAGRAM_VIEWER));
+        await expect(page.getByTestId('diagram-frame')).toHaveCount(2);
+        await page.getByTestId('diagram-frame').first().click();
+        const percent = page.getByTestId('doc-lightbox-zoom');
+        await expect(percent).toHaveText(/^\d+%$/);
+        const fitted = await percent.textContent();
+
+        // act & assert
+        await page.keyboard.press('1');
+        await expect(percent).toHaveText('100%');
+        await page.keyboard.press('+');
+        await expect(percent).toHaveText('150%');
+        await page.keyboard.press('-');
+        await expect(percent).toHaveText('100%');
+        await page.keyboard.press('0');
+        await expect(percent).toHaveText(fitted);
+        await expect(page.getByTestId('doc-lightbox-count')).toHaveText('1 / 2');
+        await page.keyboard.press('ArrowRight');
+        await expect(page.getByTestId('doc-lightbox-count')).toHaveText('2 / 2');
+        await expect(page.getByTestId('doc-lightbox-diagram')).toContainText('second');
+        await expect(percent).toHaveText('100%');
+
+        removeFixture(DIAGRAM_VIEWER);
     });
 
     test('the copy button copies a code block', async ({page}) => {

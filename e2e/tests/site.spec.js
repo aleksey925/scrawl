@@ -368,7 +368,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await page.goto(at('plantuml.html'));
 
             // assert
-            const drawn = page.locator('.md-diagram[data-state="done"] .md-diagram-view > svg');
+            const drawn = page.locator('.md-diagram[data-state="done"] .md-diagram-frame > svg');
             await expect(drawn).toHaveCount(3, {timeout: 20_000});
             await expect(drawn.first()).toContainText('Alice');
             await expect(drawn.nth(1).locator('g.entity')).toHaveCount(2);
@@ -803,7 +803,7 @@ test('a host that refuses WebAssembly gets plantuml laid out by smetana, not a c
     await page.goto(TARGETS.host('plantuml.html'));
 
     // assert
-    const drawn = page.locator('.md-diagram[data-state="done"] .md-diagram-view > svg');
+    const drawn = page.locator('.md-diagram[data-state="done"] .md-diagram-frame > svg');
     await expect(drawn).toHaveCount(3, {timeout: 20_000});
     await expect(drawn.nth(1).locator('g.entity')).toHaveCount(2);
     await expect(drawn.nth(1)).not.toContainText('An error has occurred');

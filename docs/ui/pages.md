@@ -91,13 +91,25 @@ opens over them.
   Safari's bars out, the two stood taller than the dialog and were cut off.
 - The viewer zooms. A click on the picture zooms to its full size at that point
   and a second click fits it back, the wheel and a trackpad pinch zoom around
-  the pointer, `+`, `-` and `0` zoom from the keyboard. On a touch screen two
+  the pointer, `+`, `-`, `0` and `1` zoom from the keyboard. A bar at the
+  bottom zooms out and in, fits back, and shows the zoom against the picture's
+  own size; a click on that number shows the actual size. On a touch screen two
   fingers pinch and a double tap toggles, and a single tap on the picture does
   nothing, so the first tap of a double tap does not close it. A zoomed picture
   is dragged by one finger or the mouse and never leaves a gap at an edge. A
   swipe steps to the next picture only when it is not zoomed, and a step fits
   the next one. The dialog takes `touch-action: none`, or the browser zooms the
   page under it instead.
+- A diagram, mermaid or PlantUML, is never wider than the note: a wider one is
+  drawn smaller, and opens in the same viewer, which steps through the note's
+  diagrams. A click or a tap on it opens it, and with a pointer an Open button
+  shows in its corner on hover; a touch screen has no hover, and there the tap
+  is the way in, as for a picture. A link inside a diagram stays a link. The
+  viewer fits the diagram to the screen on a sheet of the page's color, or on
+  the card of a diagram with colors of its own: its lines are drawn for the
+  page, and on the dark backdrop alone a light page's diagram disappeared. A
+  diagram is vector, so it zooms to twice its own size even when that is more
+  than eight times the fitted one.
 - History is a large dialog over the note at `/history/<path>`, so a link and
   Back still reach it: what the picked version changed on the left, the
   versions with the colored initial of their author and a tag on the right,

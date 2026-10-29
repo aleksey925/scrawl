@@ -1,8 +1,10 @@
 import type { MermaidConfig } from 'mermaid';
 
 import type { Platform } from '../platform';
+import { isPlainClick } from './links';
 import { track } from './pending';
 import { preserveScroll } from './scroll';
+import { openDiagramViewer } from './viewer';
 
 export type Mermaid = typeof import('mermaid').default;
 
@@ -34,6 +36,8 @@ interface Drawn {
 const errorLimit = 200;
 
 let pass = 0;
+
+const frameClass = 'md-diagram-frame';
 
 function wrap(pre: HTMLElement, kind: Kind): Diagram {
   const parent = pre.parentElement;
@@ -89,13 +93,26 @@ function parseMermaidSvg(svg: string): SVGElement {
   return document.importNode(parsed.documentElement, true) as unknown as SVGElement;
 }
 
+function openButton(): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'md-diagram-open';
+  button.dataset.testid = 'diagram-open';
+  button.setAttribute('aria-label', 'Open the diagram');
+  return button;
+}
+
 function place(result: Drawn): void {
   const { item, svg, error } = result;
   if (svg === undefined) {
     fail(item, error ?? 'the diagram could not be rendered');
     return;
   }
-  item.view.replaceChildren(svg);
+  const frame = document.createElement('div');
+  frame.className = frameClass;
+  frame.dataset.testid = 'diagram-frame';
+  frame.append(svg, openButton());
+  item.view.replaceChildren(frame);
   item.box.dataset.state = 'done';
   clearError(item);
 }
@@ -237,6 +254,20 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
     return () => {};
   }
 
+  let closeViewer: (() => void) | null = null;
+  const openOnClick = (event: MouseEvent): void => {
+    const target = event.target instanceof Element ? event.target : null;
+    const frame = target?.closest(`.${frameClass}`);
+    const svg = frame?.querySelector(':scope > svg');
+    if (!isPlainClick(event) || target?.closest('a') != null || !(svg instanceof SVGSVGElement)) {
+      return;
+    }
+    event.preventDefault();
+    const shown = Array.from(root.querySelectorAll<SVGSVGElement>(`.${frameClass} > svg`));
+    closeViewer = openDiagramViewer(shown, svg);
+  };
+  root.addEventListener('click', openOnClick);
+
   let cancelled = false;
   const run = (async () => {
     const draws = await prepareAll(items, loaders, dark);
@@ -273,5 +304,7 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
 
   return () => {
     cancelled = true;
+    root.removeEventListener('click', openOnClick);
+    closeViewer?.();
   };
 }

@@ -13,7 +13,7 @@ function note(...blocks) {
 }
 
 function drawn(page) {
-    return page.getByTestId('doc').locator('.md-diagram[data-state="done"] .md-diagram-view > svg');
+    return page.getByTestId('doc').locator('.md-diagram[data-state="done"] .md-diagram-frame > svg');
 }
 
 function watchConsole(page) {
@@ -209,7 +209,7 @@ test.describe('plantuml', () => {
         // assert
         await expect(drawn(page).first()).toHaveClass(/md-diagram-paper/);
         await expect(drawn(page).nth(1)).not.toHaveClass(/md-diagram-paper/);
-        expect(await drawn(page).first().evaluate((svg) => getComputedStyle(svg).backgroundColor)).toBe(rgb(darkTheme.palette.diagramPaper));
+        expect(await drawn(page).first().evaluate((svg) => getComputedStyle(svg.parentElement).backgroundColor)).toBe(rgb(darkTheme.palette.diagramPaper));
         expect(await textFill(drawn(page).first())).not.toBe(await textFill(drawn(page).nth(1)));
         await shot(page, 'plantuml-dark-paper');
 

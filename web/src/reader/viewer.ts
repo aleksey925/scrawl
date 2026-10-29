@@ -4,6 +4,7 @@ const swipeMin = 40;
 const tapSlop = 8;
 const doubleTapMs = 300;
 const maxScale = 8;
+const ceilingOverActual = 2;
 const keyStep = 1.5;
 const wheelStep = 0.002;
 const pinchWheelStep = 0.01;
@@ -13,14 +14,38 @@ const chevronLeft = 'M15 6l-6 6l6 6';
 const chevronRight = 'M9 6l6 6l-6 6';
 const cross = 'M18 6l-12 12M6 6l12 12';
 
+const zoomInIcon =
+  'M152,112a8,8,0,0,1-8,8H120v24a8,8,0,0,1-16,0V120H80a8,8,0,0,1,0-16h24V80a8,8,0,0,1,16,0v24h24A8,8,0,0,1,152,112Zm77.66,117.66a8,8,0,0,1-11.32,0l-50.06-50.07a88.11,88.11,0,1,1,11.31-11.31l50.07,50.06A8,8,0,0,1,229.66,229.66ZM112,184a72,72,0,1,0-72-72A72.08,72.08,0,0,0,112,184Z';
+const zoomOutIcon =
+  'M152,112a8,8,0,0,1-8,8H80a8,8,0,0,1,0-16h64A8,8,0,0,1,152,112Zm77.66,117.66a8,8,0,0,1-11.32,0l-50.06-50.07a88.11,88.11,0,1,1,11.31-11.31l50.07,50.06A8,8,0,0,1,229.66,229.66ZM112,184a72,72,0,1,0-72-72A72.08,72.08,0,0,0,112,184Z';
+const fitIcon =
+  'M152,96V48a8,8,0,0,1,16,0V88h40a8,8,0,0,1,0,16H160A8,8,0,0,1,152,96ZM96,152H48a8,8,0,0,0,0,16H88v40a8,8,0,0,0,16,0V160A8,8,0,0,0,96,152Zm112,0H160a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V168h40a8,8,0,0,0,0-16ZM96,40a8,8,0,0,0-8,8V88H48a8,8,0,0,0,0,16H96a8,8,0,0,0,8-8V48A8,8,0,0,0,96,40Z';
+
+const paperClass = 'md-diagram-paper';
+
 type Point = { x: number; y: number };
+
+type Size = { width: number; height: number };
+
+type ViewerItem = { kind: 'image'; image: HTMLImageElement } | { kind: 'diagram'; svg: SVGSVGElement };
+
+interface Stage {
+  element: HTMLElement;
+  natural: () => Size;
+  shown: () => number;
+  fit: () => void;
+  caption: string;
+}
 
 interface Zoom {
   scale: () => number;
   zoomTo: (next: number, at: Point, glide: boolean) => void;
   panBy: (dx: number, dy: number) => void;
   toggle: (at: Point) => void;
+  actual: (at: Point) => void;
   reset: () => void;
+  percent: () => number;
+  ceiling: () => number;
 }
 
 function icon(path: string): SVGSVGElement {
@@ -33,13 +58,20 @@ function icon(path: string): SVGSVGElement {
   return svg;
 }
 
-function button(className: string, label: string, testid: string, path: string): HTMLButtonElement {
+function phosphor(path: string): SVGSVGElement {
+  const svg = icon(path);
+  svg.setAttribute('viewBox', '0 0 256 256');
+  svg.classList.add('md-viewer-glyph');
+  return svg;
+}
+
+function button(className: string, label: string, testid: string, glyph: SVGSVGElement): HTMLButtonElement {
   const element = document.createElement('button');
   element.type = 'button';
   element.className = className;
   element.dataset.testid = testid;
   element.setAttribute('aria-label', label);
-  element.append(icon(path));
+  element.append(glyph);
   return element;
 }
 
@@ -66,27 +98,36 @@ function clampShift(value: number, size: number, centre: number, room: number): 
   return Math.min(size / 2 - centre, Math.max(room - centre - size / 2, value));
 }
 
-function zoomOf(picture: HTMLImageElement, frame: HTMLElement): Zoom {
+function zoomOf(stage: Stage, frame: HTMLElement, changed: () => void): Zoom {
+  const content = stage.element;
+  content.dataset.zoomed = 'false';
   let scale = 1;
   let shift: Point = { x: 0, y: 0 };
 
+  const actualScale = (): number => {
+    const shown = stage.shown();
+    const natural = stage.natural().width;
+    return shown === 0 || natural === 0 ? 1 : Math.max(1, natural / shown);
+  };
+  const ceiling = (): number => Math.max(maxScale, actualScale() * ceilingOverActual);
   const fittedCentre = (): Point => {
-    const rect = picture.getBoundingClientRect();
+    const rect = content.getBoundingClientRect();
     return { x: rect.left + rect.width / 2 - shift.x, y: rect.top + rect.height / 2 - shift.y };
   };
   const render = (centre: Point, glide: boolean): void => {
     const room = frame.getBoundingClientRect();
     shift = {
-      x: clampShift(shift.x, picture.offsetWidth * scale, centre.x - room.left, room.width),
-      y: clampShift(shift.y, picture.offsetHeight * scale, centre.y - room.top, room.height),
+      x: clampShift(shift.x, content.offsetWidth * scale, centre.x - room.left, room.width),
+      y: clampShift(shift.y, content.offsetHeight * scale, centre.y - room.top, room.height),
     };
-    picture.classList.toggle('md-viewer-glide', glide);
-    picture.style.transform = scale === 1 ? '' : `translate(${shift.x}px, ${shift.y}px) scale(${scale})`;
-    picture.dataset.zoomed = String(scale > 1);
+    content.classList.toggle('md-viewer-glide', glide);
+    content.style.transform = scale === 1 ? '' : `translate(${shift.x}px, ${shift.y}px) scale(${scale})`;
+    content.dataset.zoomed = String(scale > 1);
+    changed();
   };
   const zoomTo = (next: number, at: Point, glide: boolean): void => {
     const centre = fittedCentre();
-    const target = Math.min(maxScale, Math.max(1, next));
+    const target = Math.min(ceiling(), Math.max(1, next));
     shift = {
       x: at.x - centre.x - ((at.x - centre.x - shift.x) * target) / scale,
       y: at.y - centre.y - ((at.y - centre.y - shift.y) * target) / scale,
@@ -104,62 +145,169 @@ function zoomOf(picture: HTMLImageElement, frame: HTMLElement): Zoom {
       render(centre, false);
     },
     toggle: (at) => {
-      const full = picture.offsetWidth === 0 ? 2 : Math.max(2, picture.naturalWidth / picture.offsetWidth);
-      zoomTo(scale > 1 ? 1 : full, at, true);
+      zoomTo(scale > 1 ? 1 : Math.max(2, actualScale()), at, true);
+    },
+    actual: (at) => {
+      zoomTo(actualScale(), at, true);
     },
     reset: () => {
       scale = 1;
       shift = { x: 0, y: 0 };
-      picture.classList.remove('md-viewer-glide');
-      picture.style.transform = '';
-      picture.dataset.zoomed = 'false';
+      content.classList.remove('md-viewer-glide');
+      content.style.transform = '';
+      content.dataset.zoomed = 'false';
+      changed();
     },
+    percent: () => {
+      const natural = stage.natural().width;
+      return natural === 0 ? 100 : Math.round((scale * stage.shown() * 100) / natural);
+    },
+    ceiling,
   };
 }
 
-export function openViewer(images: readonly HTMLImageElement[], start: HTMLImageElement): () => void {
-  let at = Math.max(0, images.indexOf(start));
-
-  const dialog = document.createElement('dialog');
-  dialog.className = 'md-viewer';
-  dialog.dataset.testid = 'doc-lightbox';
-  dialog.setAttribute('aria-label', 'Image viewer');
-
+function imageStage(image: HTMLImageElement): Stage {
   const picture = document.createElement('img');
   picture.className = 'md-viewer-image';
   picture.dataset.testid = 'doc-lightbox-image';
   picture.draggable = false;
+  picture.src = sourceOf(image);
+  picture.alt = image.alt;
+  return {
+    element: picture,
+    natural: () => ({ width: picture.naturalWidth, height: picture.naturalHeight }),
+    shown: () => picture.offsetWidth,
+    fit: () => {},
+    caption: imageCaption(image),
+  };
+}
+
+function lengthOf(svg: SVGSVGElement, name: 'width' | 'height'): number {
+  const given = Number.parseFloat(svg.getAttribute(name) ?? '');
+  if (Number.isFinite(given) && given > 0) {
+    return given;
+  }
+  const box = svg.viewBox.baseVal;
+  return box === null ? 0 : box[name];
+}
+
+function contentBox(element: HTMLElement): Size {
+  const style = getComputedStyle(element);
+  const across = Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight);
+  const down = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
+  return { width: element.clientWidth - across, height: element.clientHeight - down };
+}
+
+function diagramStage(svg: SVGSVGElement, room: HTMLElement): Stage {
+  const natural = { width: lengthOf(svg, 'width'), height: lengthOf(svg, 'height') };
+  const sheet = document.createElement('div');
+  sheet.className = 'md-viewer-image md-viewer-sheet';
+  sheet.dataset.testid = 'doc-lightbox-diagram';
+  sheet.dataset.paper = String(svg.classList.contains(paperClass));
+  const drawing = svg.cloneNode(true) as SVGSVGElement;
+  drawing.classList.remove(paperClass);
+  drawing.style.removeProperty('max-width');
+  sheet.append(drawing);
+  return {
+    element: sheet,
+    natural: () => natural,
+    shown: () => lengthOf(drawing, 'width'),
+    fit: () => {
+      const space = contentBox(room);
+      const gutter = contentBox(sheet);
+      const across = sheet.offsetWidth - gutter.width;
+      const down = sheet.offsetHeight - gutter.height;
+      const ratio =
+        natural.width === 0 || natural.height === 0
+          ? 1
+          : Math.min(1, (space.width - across) / natural.width, (space.height - down) / natural.height);
+      const width = Math.max(1, Math.floor(natural.width * ratio));
+      const height = Math.max(1, Math.floor(natural.height * ratio));
+      drawing.setAttribute('width', String(width));
+      drawing.setAttribute('height', String(height));
+      drawing.style.width = `${width}px`;
+      drawing.style.height = `${height}px`;
+    },
+    caption: '',
+  };
+}
+
+function openItems(items: readonly ViewerItem[], start: number, label: string): () => void {
+  let at = Math.min(Math.max(0, start), items.length - 1);
+
+  const dialog = document.createElement('dialog');
+  dialog.className = 'md-viewer';
+  dialog.dataset.testid = 'doc-lightbox';
+  dialog.setAttribute('aria-label', label);
+
   const caption = document.createElement('p');
   caption.className = 'md-viewer-caption';
   caption.dataset.testid = 'doc-lightbox-caption';
   const count = document.createElement('p');
   count.className = 'md-viewer-count';
   count.dataset.testid = 'doc-lightbox-count';
-  const close = button('md-viewer-close', 'Close the image', 'doc-lightbox-close', cross);
-  const previous = button('md-viewer-step md-viewer-previous', 'Previous image', 'doc-lightbox-previous', chevronLeft);
-  const next = button('md-viewer-step md-viewer-next', 'Next image', 'doc-lightbox-next', chevronRight);
+  const close = button('md-viewer-close', 'Close the viewer', 'doc-lightbox-close', icon(cross));
+  const previous = button('md-viewer-step md-viewer-previous', 'Previous', 'doc-lightbox-previous', icon(chevronLeft));
+  const next = button('md-viewer-step md-viewer-next', 'Next', 'doc-lightbox-next', icon(chevronRight));
 
-  const several = images.length > 1;
-  dialog.append(picture, caption, close);
+  const tools = document.createElement('div');
+  tools.className = 'md-viewer-tools';
+  const zoomOut = button('md-viewer-tool', 'Zoom out', 'doc-lightbox-zoom-out', phosphor(zoomOutIcon));
+  const percent = document.createElement('button');
+  percent.type = 'button';
+  percent.className = 'md-viewer-tool md-viewer-percent';
+  percent.dataset.testid = 'doc-lightbox-zoom';
+  percent.setAttribute('aria-label', 'Actual size');
+  const zoomIn = button('md-viewer-tool', 'Zoom in', 'doc-lightbox-zoom-in', phosphor(zoomInIcon));
+  const fit = button('md-viewer-tool', 'Fit to the screen', 'doc-lightbox-fit', phosphor(fitIcon));
+  tools.append(zoomOut, percent, zoomIn, fit);
+
+  const several = items.length > 1;
+  dialog.append(caption, tools, close);
   if (several) {
     dialog.append(previous, next, count);
   }
 
-  const zoom = zoomOf(picture, dialog);
-  const show = (): void => {
-    const image = images[at];
-    if (image === undefined) {
+  let stage: Stage | null = null;
+  let zoom: Zoom | null = null;
+  const centre = (): Point => ({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+  const refresh = (): void => {
+    if (zoom === null) {
       return;
     }
-    zoom.reset();
-    picture.src = sourceOf(image);
-    picture.alt = image.alt;
-    caption.textContent = imageCaption(image);
-    count.textContent = `${at + 1} / ${images.length}`;
+    const scale = zoom.scale();
+    percent.textContent = `${zoom.percent()}%`;
+    zoomOut.disabled = scale <= 1;
+    fit.disabled = scale <= 1;
+    zoomIn.disabled = scale >= zoom.ceiling();
+  };
+  const show = (): void => {
+    const item = items[at];
+    if (item === undefined) {
+      return;
+    }
+    const built = item.kind === 'image' ? imageStage(item.image) : diagramStage(item.svg, dialog);
+    if (stage === null) {
+      dialog.prepend(built.element);
+    } else {
+      stage.element.replaceWith(built.element);
+    }
+    stage = built;
+    zoom = zoomOf(built, dialog, refresh);
+    caption.textContent = built.caption;
+    caption.hidden = built.caption === '';
+    count.textContent = `${at + 1} / ${items.length}`;
+    built.fit();
+    built.element.addEventListener('load', refresh);
+    refresh();
   };
   const step = (delta: number): void => {
-    at = (at + delta + images.length) % images.length;
+    at = (at + delta + items.length) % items.length;
     show();
+  };
+  const onResize = (): void => {
+    stage?.fit();
+    zoom?.reset();
   };
 
   const pointers = new Map<number, Point>();
@@ -176,7 +324,7 @@ export function openViewer(images: readonly HTMLImageElement[], start: HTMLImage
   });
   dialog.addEventListener('pointermove', (event) => {
     const last = pointers.get(event.pointerId);
-    if (last === undefined) {
+    if (last === undefined || zoom === null) {
       return;
     }
     const now = pointOf(event);
@@ -208,7 +356,7 @@ export function openViewer(images: readonly HTMLImageElement[], start: HTMLImage
   dialog.addEventListener('pointercancel', release);
   dialog.addEventListener('pointerup', (event) => {
     release(event);
-    if (pointers.size > 0 || gesture.pinched || zoom.scale() > 1 || !several) {
+    if (pointers.size > 0 || gesture.pinched || zoom === null || zoom.scale() > 1 || !several) {
       return;
     }
     const moved = event.clientX - gesture.from.x;
@@ -218,7 +366,10 @@ export function openViewer(images: readonly HTMLImageElement[], start: HTMLImage
     step(moved < 0 ? 1 : -1);
   });
 
-  const tapPicture = (point: Point): void => {
+  const tapStage = (point: Point): void => {
+    if (zoom === null) {
+      return;
+    }
     if (!gesture.touch) {
       zoom.toggle(point);
       return;
@@ -233,18 +384,29 @@ export function openViewer(images: readonly HTMLImageElement[], start: HTMLImage
   };
 
   dialog.addEventListener('click', (event) => {
-    const target = event.target instanceof Element ? event.target.closest('button') : null;
-    if (target === previous) {
+    const target = event.target instanceof Element ? event.target : null;
+    const pressed = target?.closest('button') ?? null;
+    if (pressed === previous) {
       step(-1);
-    } else if (target === next) {
+    } else if (pressed === next) {
       step(1);
-    } else if (target === close) {
+    } else if (pressed === close) {
       dialog.close();
+    } else if (pressed === zoomIn) {
+      zoom?.zoomTo(zoom.scale() * keyStep, centre(), true);
+    } else if (pressed === zoomOut) {
+      zoom?.zoomTo(zoom.scale() / keyStep, centre(), true);
+    } else if (pressed === percent) {
+      zoom?.actual(centre());
+    } else if (pressed === fit) {
+      zoom?.zoomTo(1, centre(), true);
+    } else if (pressed !== null || target?.closest('a') != null) {
+      return;
     } else if (gesture.pinched || gesture.travel > tapSlop) {
       return;
-    } else if (event.target === picture) {
-      tapPicture(pointOf(event));
-    } else {
+    } else if (target !== null && stage !== null && stage.element.contains(target)) {
+      tapStage(pointOf(event));
+    } else if (target === null || !tools.contains(target)) {
       dialog.close();
     }
   });
@@ -252,6 +414,9 @@ export function openViewer(images: readonly HTMLImageElement[], start: HTMLImage
     'wheel',
     (event) => {
       event.preventDefault();
+      if (zoom === null) {
+        return;
+      }
       const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * wheelLine : event.deltaY;
       const rate = event.ctrlKey ? pinchWheelStep : wheelStep;
       zoom.zoomTo(zoom.scale() * Math.exp(-delta * rate), pointOf(event), false);
@@ -259,36 +424,53 @@ export function openViewer(images: readonly HTMLImageElement[], start: HTMLImage
     { passive: false },
   );
   dialog.addEventListener('keydown', (event) => {
-    const centre = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     if (several && event.key === 'ArrowRight') {
       step(1);
     }
     if (several && event.key === 'ArrowLeft') {
       step(-1);
     }
+    if (zoom === null) {
+      return;
+    }
     if (event.key === '+' || event.key === '=') {
-      zoom.zoomTo(zoom.scale() * keyStep, centre, true);
+      zoom.zoomTo(zoom.scale() * keyStep, centre(), true);
     }
     if (event.key === '-') {
-      zoom.zoomTo(zoom.scale() / keyStep, centre, true);
+      zoom.zoomTo(zoom.scale() / keyStep, centre(), true);
     }
     if (event.key === '0') {
-      zoom.zoomTo(1, centre, true);
+      zoom.zoomTo(1, centre(), true);
+    }
+    if (event.key === '1') {
+      zoom.actual(centre());
     }
   });
 
   const scroll = document.documentElement.style.overflow;
   dialog.addEventListener('close', () => {
+    window.removeEventListener('resize', onResize);
     document.documentElement.style.overflow = scroll;
     dialog.remove();
   });
 
-  show();
   document.body.append(dialog);
   document.documentElement.style.overflow = 'hidden';
   dialog.showModal();
+  show();
+  window.addEventListener('resize', onResize);
   close.focus();
   return () => {
     dialog.close();
   };
+}
+
+export function openViewer(images: readonly HTMLImageElement[], start: HTMLImageElement): () => void {
+  const items = images.map((image): ViewerItem => ({ kind: 'image', image }));
+  return openItems(items, images.indexOf(start), 'Image viewer');
+}
+
+export function openDiagramViewer(diagrams: readonly SVGSVGElement[], start: SVGSVGElement): () => void {
+  const items = diagrams.map((svg): ViewerItem => ({ kind: 'diagram', svg }));
+  return openItems(items, diagrams.indexOf(start), 'Diagram viewer');
 }

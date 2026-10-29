@@ -78,7 +78,7 @@ end note
 
 ## Very wide
 
-It scrolls sideways.
+The page shows it smaller; open it to see it at full size.
 
 ```plantuml
 @startuml

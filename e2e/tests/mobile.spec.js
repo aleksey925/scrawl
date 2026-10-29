@@ -5,7 +5,8 @@ const fs = require('fs');
 const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
-    HISTORY, MAIN, MULTI, atHome, expectNoHorizontalScroll, fixtureFile, inStep, routes, save, setSource, shot,
+    HISTORY, MAIN, MULTI, atHome, expectNoHorizontalScroll, fixtureFile, inStep, removeFixture, routes, save, setSource,
+    shot,
     signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -1517,6 +1518,31 @@ test.describe('mobile', () => {
         await page.touchscreen.tap(centre.x, centre.y);
         await page.touchscreen.tap(centre.x, centre.y);
         await expect(picture).toHaveAttribute('data-zoomed', 'false');
+    });
+
+    test('a tap on a diagram opens it in the viewer, where a double tap zooms it', async ({page}) => {
+        // arrange
+        const note = 'e2e-mobile-diagram.md';
+        writeFixture(note, '# Diagram\n\n```plantuml\nAlice -> Bob : hello\nBob --> Alice : ok\n```\n');
+        await page.goto(routes.doc(note));
+        const frame = page.getByTestId('diagram-frame');
+        await expect(frame).toBeVisible();
+        await expect(frame.getByTestId('diagram-open')).toBeHidden();
+
+        // act
+        await frame.tap();
+
+        // assert
+        const diagram = page.getByTestId('doc-lightbox-diagram');
+        await expect(diagram).toBeVisible();
+        const box = await diagram.boundingBox();
+        const centre = {x: box.x + box.width / 2, y: box.y + box.height / 2};
+        await page.touchscreen.tap(centre.x, centre.y);
+        await page.touchscreen.tap(centre.x, centre.y);
+        await expect(diagram).toHaveAttribute('data-zoomed', 'true');
+        await shot(page, 'mobile-diagram-viewer');
+
+        removeFixture(note);
     });
 
     test('the notes can be installed as an app', async ({page}) => {

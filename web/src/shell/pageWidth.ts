@@ -12,7 +12,7 @@ const defaultWidth: PageWidth = 'normal';
 
 export const pageWidthAttribute = 'data-page-width';
 
-export function isPageWidth(value: string): value is PageWidth {
+function isPageWidth(value: string): value is PageWidth {
   return (pageWidths as readonly string[]).includes(value);
 }
 

@@ -69,6 +69,28 @@ test.describe('export', () => {
         expect(file.body).toMatch(/<img src="data:image\/png;base64,[A-Za-z0-9+/=]+" alt="logo">/);
     });
 
+    test('the picked theme of an exported page slides into place', async ({page}, testInfo) => {
+        // arrange
+        writeFixture(NOTE, SOURCE);
+        await page.goto(routes.doc(NOTE));
+        const file = await download(page, 'html');
+        const saved = testInfo.outputPath(file.name);
+        fs.writeFileSync(saved, file.body);
+        await page.goto(`file://${saved}`);
+        const group = page.locator('.page-theme');
+
+        // act
+        const moving = await group.evaluate(async (root) => {
+            root.querySelector('button[data-theme="dark"]').click();
+            await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+            return root.getAnimations({subtree: true}).map((motion) => motion.transitionProperty);
+        });
+
+        // assert
+        expect(moving).toContain('transform');
+        await expect(group.locator('button[data-theme="dark"]')).toHaveAttribute('aria-pressed', 'true');
+    });
+
     test('a print leaves the chrome off the paper', async ({page}) => {
         // arrange
         writeFixture(NOTE, SOURCE);

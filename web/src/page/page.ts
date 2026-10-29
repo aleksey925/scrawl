@@ -30,10 +30,22 @@ function stored(): string {
   return persistence.read() ?? autoChoice;
 }
 
+function placeIndicator(group: HTMLElement): void {
+  const pressed = group.querySelector<HTMLElement>('button[aria-pressed="true"]');
+  if (pressed === null) {
+    return;
+  }
+  group.style.setProperty('--page-theme-left', `${pressed.offsetLeft}px`);
+  group.style.setProperty('--page-theme-width', `${pressed.offsetWidth}px`);
+}
+
 function apply(choice: string): void {
   applyThemeAttribute(choice);
   for (const button of document.querySelectorAll<HTMLButtonElement>('.page-theme button')) {
     button.setAttribute('aria-pressed', String(button.dataset['theme'] === choice));
+  }
+  for (const group of document.querySelectorAll<HTMLElement>('.page-theme')) {
+    placeIndicator(group);
   }
 }
 
@@ -86,6 +98,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const note = document.querySelector<HTMLElement>('article.markdown-document');
   if (note !== null) {
     prepareNote(note);
+  }
+  for (const group of document.querySelectorAll<HTMLElement>('.page-theme')) {
+    void group.offsetWidth;
+    group.dataset['placed'] = '';
+    new ResizeObserver(() => placeIndicator(group)).observe(group);
   }
   for (const button of document.querySelectorAll<HTMLButtonElement>('.page-theme button')) {
     button.addEventListener('click', () => {

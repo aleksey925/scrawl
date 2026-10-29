@@ -50,7 +50,12 @@ Colors, controls and type: how a note and the chrome are drawn.
   open one closest to it. The new entry in the sidebar's head is drawn there in
   Phosphor's line, a rounded square with a slim pencil as Notion's and Apple's
   apps draw it, because Phosphor's has sharp corners. A choice of a few is a
-  tray of the hover tint with the picked one raised on the popover ground.
+  tray of the hover tint with the picked one raised on the popover ground,
+  which slides to a new pick in 200ms. In the app it is always `Segmented`, the
+  theme's included: its indicator keeps its own transition while mantine turns
+  them all off for a new theme
+  ([quirks](../quirks.md#react-mantine-and-the-editor)). The theme buttons of a
+  page of the command line slide the same way.
 - The dark scheme is Notion's dark: a `#191919` page, a `#202020` sidebar and
   `#f0efed` text. Bold there is 700 instead of 600. Near-white letters on a
   near-black page glow and look heavy already, so bold, italic and headings in

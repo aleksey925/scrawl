@@ -190,6 +190,21 @@
   box-shadow: var(--scrawl-shadow-small);
 }
 
+.segmentIndicator[data-initialized] {
+  transition:
+    transform var(--transition-duration) ease,
+    width var(--transition-duration) ease,
+    height var(--transition-duration) ease !important;
+}
+
+.segmentOption {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
 .segment {
   color: var(--scrawl-text-secondary);
   font-weight: 500;

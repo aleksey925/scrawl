@@ -4,7 +4,6 @@ import {
   Alert,
   Button,
   Group,
-  SegmentedControl,
   Tabs,
   Text,
 } from '@mantine/core';
@@ -16,6 +15,7 @@ import { api, installUnauthorizedHandler } from '../api/client';
 import { ApiError, type ApiConflict } from '../api/errors';
 import { errorText } from '../api/useApi';
 import { countOf } from '../components/formats';
+import { Segmented, type SegmentedOption } from '../components/Segmented';
 import {
   IconBraces,
   IconColumns,
@@ -70,11 +70,11 @@ export interface EditorScreenProps {
   formatOnSave: boolean;
 }
 
-const modeOptions = [
+const modeOptions: SegmentedOption<LayoutMode>[] = [
   { value: 'source', icon: IconBraces, label: 'Source' },
   { value: 'split', icon: IconColumns, label: 'Split' },
   { value: 'preview', icon: IconEye, label: 'Preview' },
-] as const;
+];
 
 type SaveState = 'saving' | 'uploading' | 'dirty' | 'new' | 'saved';
 
@@ -578,23 +578,15 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           {saveState === 'new' && kind === 'text' ? 'New file' : saveStateText[saveState]}
         </Text>
         {wide && kind === 'markdown' && (
-          <SegmentedControl
+          <Segmented
             data-testid="editor-layout-mode"
             data-mode={chosen}
             size="xs"
             value={chosen}
-            onChange={(value) => choose(value as LayoutMode)}
+            onChange={choose}
             aria-label="Editor layout"
-            classNames={{ root: classes.modes }}
-            data={modeOptions.map(({ value, icon: Icon, label }) => ({
-              value,
-              label: (
-                <span className={classes.mode}>
-                  <Icon size={layout.iconSizeSmall} />
-                  {label}
-                </span>
-              ),
-            }))}
+            classNames={{ root: classes.modes, label: classes.mode }}
+            options={modeOptions}
           />
         )}
         <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" className={classes.cancel} onClick={cancel}>

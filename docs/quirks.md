@@ -90,6 +90,9 @@ words; the fact itself is written here.
   [Themes](design/themes.md)
 - Mantine writes a modal's transition inline, which outranks the stylesheet.
   [Pages](ui/pages.md)
+- Mantine's `setColorScheme` turns every transition off for a moment with
+  `* { transition: none !important }`, so the theme picker's indicator jumped
+  while every other choice slid. [Look](ui/look.md)
 - A hidden mantine rail is only moved out of sight, and its rows still answer
   the tab key. [Sidebar](ui/sidebar.md)
 - A mantine menu's outside tap closes it on `touchstart`, and the click goes on

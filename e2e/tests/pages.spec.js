@@ -344,6 +344,25 @@ test.describe('pages', () => {
         await chooseTheme(page, 'auto');
         await expect(root).not.toHaveAttribute('data-scrawl-theme');
     });
+
+    test('the picked theme slides into place like every other choice', async ({page}) => {
+        // arrange
+        await openSpaceMenu(page);
+        const picker = page.getByTestId('space-menu-theme');
+
+        // act
+        const moving = await picker.evaluate(async (root) => {
+            const dark = [...root.querySelectorAll('label')].find((label) => label.textContent === 'Dark');
+            dark.click();
+            await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+            const indicator = root.querySelector('.mantine-SegmentedControl-indicator');
+            return indicator.getAnimations().map((motion) => motion.transitionProperty);
+        });
+
+        // assert
+        expect(moving).toContain('transform');
+        await expect(picker).toHaveAttribute('data-theme', 'dark');
+    });
 });
 
 for (const [scheme, theme] of [['light', lightTheme], ['dark', darkTheme]]) {

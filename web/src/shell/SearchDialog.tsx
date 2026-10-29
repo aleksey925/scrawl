@@ -1,4 +1,4 @@
-import { Modal, SegmentedControl } from '@mantine/core';
+import { Modal } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import {
   useCallback, useEffect, useMemo, useRef, useState,
@@ -7,8 +7,9 @@ import {
 import { Link, useNavigate } from 'react-router';
 
 import { api, searchTextOf } from '../api/client';
-import type { SearchResponse, SearchSettings } from '../api/types';
+import type { SearchMode, SearchResponse, SearchSettings } from '../api/types';
 import { errorText } from '../api/useApi';
+import { Segmented, type SegmentedOption } from '../components/Segmented';
 import { IconFileText, IconSearch } from '../icons';
 import { documentUrl } from '../paths';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
@@ -22,6 +23,11 @@ import { useVisibleArea } from './useVisibleArea';
 
 const debounceMs = 200;
 const resultLimit = 30;
+
+const modeOptions: SegmentedOption<SearchMode>[] = [
+  { value: 'fuzzy', label: 'Fuzzy' },
+  { value: 'exact', label: 'Exact' },
+];
 
 const defaultSettings: SearchSettings = { mode: 'fuzzy', matchCase: false, word: false, regex: false, titles: false };
 
@@ -238,17 +244,14 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
         </div>
 
         <div className={classes.options}>
-          <SegmentedControl
+          <Segmented
             data-testid="search-mode"
             data-mode={settings.mode}
             size="xs"
             value={settings.mode}
             disabled={settings.regex}
-            onChange={(value) => setSettings({ ...settings, mode: value === 'exact' ? 'exact' : 'fuzzy' })}
-            data={[
-              { value: 'fuzzy', label: 'Fuzzy' },
-              { value: 'exact', label: 'Exact' },
-            ]}
+            onChange={(mode) => setSettings({ ...settings, mode })}
+            options={modeOptions}
           />
           <button
             type="button"

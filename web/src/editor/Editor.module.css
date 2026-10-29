@@ -104,10 +104,7 @@
 }
 
 .mode {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding-inline: 4px;
+  padding-inline: 10px;
 }
 
 .source {

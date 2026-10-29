@@ -7,7 +7,6 @@ import {
   Loader,
   MANTINE_TRANSITIONS,
   Modal,
-  SegmentedControl,
   Stack,
   Text,
   type MantineTransition,
@@ -21,6 +20,7 @@ import type { HistoryEntry, HistoryVersionResponse } from '../api/types';
 import { errorText, useApi, type AsyncState } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
 import { absoluteTime, versionTime } from '../components/formats';
+import { Segmented, type SegmentedOption } from '../components/Segmented';
 import { RenderedDiff, type DiffLayout } from '../diff/RenderedDiff';
 import { IconMaximize, IconMinimize } from '../icons';
 import { localStore, readText, writeText } from '../storage';
@@ -88,7 +88,17 @@ type DiffMode = 'rendered' | 'source';
 
 const diffModes: readonly [DiffMode, ...DiffMode[]] = ['rendered', 'source'];
 
+const diffModeOptions: SegmentedOption<DiffMode>[] = [
+  { value: 'rendered', label: 'Rendered' },
+  { value: 'source', label: 'Source' },
+];
+
 const diffLayouts: readonly [DiffLayout, ...DiffLayout[]] = ['split', 'unified'];
+
+const diffLayoutOptions: SegmentedOption<DiffLayout>[] = [
+  { value: 'split', label: 'Split' },
+  { value: 'unified', label: 'Unified' },
+];
 
 const dialogSizes = ['normal', 'expanded'] as const;
 
@@ -99,18 +109,14 @@ const dialogTransition: MantineTransition = {
   transitionProperty: 'opacity, transform, flex-basis, height',
 };
 
-function useStoredChoice<T extends string>(key: string, values: readonly [T, ...T[]]): [T, (next: string) => void] {
+function useStoredChoice<T extends string>(key: string, values: readonly [T, ...T[]]): [T, (next: T) => void] {
   const [value, setValue] = useState<T>(() => {
     const stored = readText(localStore(), key);
     return values.find((entry) => entry === stored) ?? values[0];
   });
-  function choose(next: string): void {
-    const picked = values.find((entry) => entry === next);
-    if (picked === undefined) {
-      return;
-    }
-    writeText(localStore(), key, picked);
-    setValue(picked);
+  function choose(next: T): void {
+    writeText(localStore(), key, next);
+    setValue(next);
   }
   return [value, choose];
 }
@@ -312,31 +318,25 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
         <section data-testid="history-version" className={classes.version}>
           <div className={classes.bar}>
             {detail.data?.changes !== undefined && (
-              <SegmentedControl
+              <Segmented
                 data-testid="history-diff-view"
                 className={classes.toggle}
                 size="xs"
                 value={mode}
                 onChange={setMode}
                 aria-label="Show the change"
-                data={[
-                  { value: 'rendered', label: 'Rendered' },
-                  { value: 'source', label: 'Source' },
-                ]}
+                options={diffModeOptions}
               />
             )}
             {detail.data?.changes !== undefined && mode === 'rendered' && (
-              <SegmentedControl
+              <Segmented
                 data-testid="history-diff-layout"
                 className={classes.toggle}
                 size="xs"
                 value={diffLayout}
                 onChange={setDiffLayout}
                 aria-label="Lay out the change"
-                data={[
-                  { value: 'split', label: 'Split' },
-                  { value: 'unified', label: 'Unified' },
-                ]}
+                options={diffLayoutOptions}
               />
             )}
             <span data-testid="history-when" className={classes.when}>

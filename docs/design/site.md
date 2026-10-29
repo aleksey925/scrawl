@@ -38,8 +38,13 @@ A space written out as static pages that run the app's reader.
   what those include in turn, in `scrawl/plantuml/`: a whole library is up to
   23MB. The scan reads the whole note, not only its diagrams, so an include
   quoted in another block ships its library too: a file missing breaks a
-  diagram, one too many only takes space. Any library brings OpenIconic, 12KB,
-  as a library can build an icon while it runs, as C4 does from
+  diagram, one too many only takes space. An include can name its library
+  through a variable, as in `!include <$lib/C4>`; the scan then takes every
+  value the note gives that variable in a line like `!$lib = "C4"`, with
+  `!global`, `!local` or `?=` too. A name built any other way, by a function or
+  from other variables, is not followed, and its diagram draws on a site only
+  if another include ships the same library. Any library brings OpenIconic,
+  12KB, as a library can build an icon while it runs, as C4 does from
   `$sprite="&person"`. A folder is `index.html`, its list, written for every
   folder, and its `index.md` is `index.md.html`. A relative link to a folder
   points to the list, because opened from disk a folder is the system's

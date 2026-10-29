@@ -108,6 +108,58 @@ func TestAskKillsAWorkerThatOutlivesTheDeadline(t *testing.T) {
 	assert.NotEqual(t, before.PID, next.PID, "the worker that missed the deadline is replaced")
 }
 
+func TestAskDetachedFinishesARunItsCallerLeft(t *testing.T) {
+	// arrange
+	pool := newEchoPool(t, Options{Detach: true})
+	before, err := pool.Ask(context.Background(), echoRequest{Text: "warm"})
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(50*time.Millisecond, cancel)
+
+	// act
+	res, err := pool.Ask(ctx, echoRequest{Text: "kept", Sleep: 200 * time.Millisecond})
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, echoResponse{Text: "KEPT", PID: before.PID}, res)
+}
+
+func TestAskDetachedKeepsTheDeadline(t *testing.T) {
+	// arrange
+	pool := newEchoPool(t, Options{Detach: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	// act
+	_, err := pool.Ask(ctx, echoRequest{Text: "late", Sleep: time.Minute})
+
+	// assert
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
+func TestAskDetachedStopsWaitingWhenItsCallerLeaves(t *testing.T) {
+	// arrange
+	pool := newEchoPool(t, Options{Detach: true})
+	busy := make(chan echoResponse, 1)
+	go func() {
+		res, _ := pool.Ask(context.Background(), echoRequest{Text: "busy", Sleep: 500 * time.Millisecond})
+		busy <- res
+	}()
+	time.Sleep(100 * time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(50*time.Millisecond, cancel)
+
+	// act
+	_, err := pool.Ask(ctx, echoRequest{Crash: true})
+	next, nextErr := pool.Ask(context.Background(), echoRequest{Text: "next"})
+
+	// assert
+	require.ErrorIs(t, err, context.Canceled)
+	assert.ErrorContains(t, err, "wait for a echo")
+	require.NoError(t, nextErr)
+	assert.Equal(t, (<-busy).PID, next.PID, "the request that stopped waiting never reached the worker")
+}
+
 func TestAskKillsAWorkerThatOutlivesTheLimit(t *testing.T) {
 	// arrange
 	pool := newEchoPool(t, Options{Limit: 50 * time.Millisecond})

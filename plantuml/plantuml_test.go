@@ -207,6 +207,101 @@ func TestSVGIsCached(t *testing.T) {
 	assert.Equal(t, first, again)
 }
 
+func drawingNow(r *Renderer) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.drawing)
+}
+
+type drawn struct {
+	svg string
+	err error
+}
+
+func drawInBackground(ctx context.Context, r *Renderer, source string) <-chan drawn {
+	out := make(chan drawn, 1)
+	go func() {
+		svg, err := r.svg(ctx, source)
+		out <- drawn{svg: svg, err: err}
+	}()
+	return out
+}
+
+func TestSVGWaitsForTheSameDiagramBeingDrawn(t *testing.T) {
+	// arrange
+	r := New(1)
+	t.Cleanup(r.Close)
+	source := "A -> B : shared"
+	first := drawInBackground(context.Background(), r, source)
+	require.Eventually(t, func() bool { return drawingNow(r) == 1 }, 5*time.Second, time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
+	r.pool.Close()
+	gone, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// act
+	_, goneErr := r.svg(gone, source)
+	second, err := r.svg(context.Background(), source)
+
+	// assert
+	require.ErrorIs(t, goneErr, context.Canceled)
+	assert.ErrorContains(t, goneErr, "wait for the same diagram")
+	require.NoError(t, err, "the second call takes the first one's answer and asks no worker of the closed pool")
+	leader := <-first
+	require.NoError(t, leader.err)
+	assert.Equal(t, leader.svg, second)
+}
+
+func TestSVGDrawsItselfWhenTheCallItWaitedForLeftWaiting(t *testing.T) {
+	// arrange
+	r := New(1)
+	t.Cleanup(r.Close)
+	busy := drawInBackground(context.Background(), r, "A -> B : busy")
+	require.Eventually(t, func() bool { return drawingNow(r) == 1 }, 5*time.Second, time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	left := drawInBackground(ctx, r, "A -> B : wanted")
+	require.Eventually(t, func() bool { return drawingNow(r) == 2 }, 5*time.Second, time.Millisecond)
+	stayed := drawInBackground(context.Background(), r, "A -> B : wanted")
+	time.Sleep(50 * time.Millisecond)
+
+	// act
+	cancel()
+
+	// assert
+	leftRes := <-left
+	require.ErrorIs(t, leftRes.err, context.Canceled)
+	assert.ErrorContains(t, leftRes.err, "wait for a "+workerName, "a call stops waiting for the worker when its client leaves")
+	stayedRes := <-stayed
+	require.NoError(t, stayedRes.err)
+	assert.Contains(t, stayedRes.svg, "wanted")
+	busyRes := <-busy
+	require.NoError(t, busyRes.err)
+	assert.Contains(t, busyRes.svg, "busy")
+}
+
+func TestSVGFinishesADrawingAfterItsClientLeaves(t *testing.T) {
+	// arrange
+	r := New(1)
+	t.Cleanup(r.Close)
+	ctx, cancel := context.WithCancel(context.Background())
+	source := "A -> B : finished"
+	left := drawInBackground(ctx, r, source)
+	require.Eventually(t, func() bool { return drawingNow(r) == 1 }, 5*time.Second, time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
+
+	// act
+	cancel()
+
+	// assert
+	leftRes := <-left
+	require.NoError(t, leftRes.err)
+	r.Close()
+	again, err := r.svg(context.Background(), source)
+	require.NoError(t, err, "the drawing is kept")
+	assert.Equal(t, leftRes.svg, again)
+}
+
 func TestTheBrowserTheServerAndTheLibraryAreOnePlantUML(t *testing.T) {
 	// arrange
 	raw, err := os.ReadFile("../web/package.json")
@@ -478,6 +573,19 @@ func TestLibraries(t *testing.T) {
 		{name: "a colored emoji", src: "A -> B : <#red:smile:>\n", want: []string{"emoji.js"}},
 		{name: "a scaled emoji", src: "A -> B : <:smile:*2>\n", want: []string{"emoji.js"}},
 		{name: "a theme that is not at the start of a line", src: "A -> B : !theme x\n", want: []string{}},
+		{
+			name: "a library named by a variable",
+			src:  "!$lib=\"C4\"\n!include <$lib/C4_Container>\n",
+			want: []string{"c4.min.js"},
+		},
+		{
+			name: "a whole path in a variable, set in either branch",
+			src: "!if %true()\n  !global $file ?= 'awslib/x'\n!else\n  !$file = \"K8S/y\"\n!endif\n" +
+				"!include <$file>\n",
+			want: []string{"awslib.min.js", "k8s.min.js"},
+		},
+		{name: "a variable that is never set", src: "!include <$lib/C4>\n", want: []string{}},
+		{name: "a variable set but not included", src: "!$lib = \"C4\"\n", want: []string{}},
 		{
 			name: "an include quoted in a block that is not plantuml ships the library too",
 			src:  "```text\n!include <awslib/x>\n```\n",

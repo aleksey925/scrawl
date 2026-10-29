@@ -64,14 +64,25 @@ func (e *diagramError) Error() string {
 type Renderer struct {
 	pool  *workerpool.Pool[request, response]
 	cache *cache
+
+	mu      sync.Mutex
+	drawing map[[sha256.Size]byte]*drawing
+}
+
+type drawing struct {
+	done      chan struct{}
+	res       response
+	err       error
+	abandoned bool
 }
 
 func New(workers int) *Renderer {
 	return &Renderer{
 		pool: workerpool.New[request, response](workerpool.Options{
-			Name: workerName, Env: workerEnv, Workers: workers, Limit: diagramTimeout, Idle: idleTimeout,
+			Name: workerName, Env: workerEnv, Workers: workers, Limit: diagramTimeout, Idle: idleTimeout, Detach: true,
 		}),
-		cache: newCache(cacheEntries, cacheBytes),
+		cache:   newCache(cacheEntries, cacheBytes),
+		drawing: map[[sha256.Size]byte]*drawing{},
 	}
 }
 
@@ -80,14 +91,9 @@ func (r *Renderer) svg(ctx context.Context, source string) (string, error) {
 		return "", fmt.Errorf("render %d bytes: %w", len(source), errTooLarge)
 	}
 	diagram, added := withStart(source)
-	key := sha256.Sum256([]byte(diagram))
-	res, ok := r.cache.get(key)
-	if !ok {
-		var err error
-		if res, err = r.ask(ctx, diagram); err != nil {
-			return "", err
-		}
-		r.cache.put(key, res)
+	res, err := r.draw(ctx, diagram)
+	if err != nil {
+		return "", err
 	}
 	if res.Error != "" {
 		return "", &diagramError{Line: max(res.Line-added, 0), Message: res.Error}
@@ -95,17 +101,43 @@ func (r *Renderer) svg(ctx context.Context, source string) (string, error) {
 	return res.SVG, nil
 }
 
-func (r *Renderer) ask(ctx context.Context, diagram string) (response, error) {
-	if err := ctx.Err(); err != nil {
-		return response{}, fmt.Errorf("wait for a %s: %w", workerName, err)
+func (r *Renderer) draw(ctx context.Context, diagram string) (response, error) {
+	key := sha256.Sum256([]byte(diagram))
+	for {
+		if res, ok := r.cache.get(key); ok {
+			return res, nil
+		}
+		r.mu.Lock()
+		other, busy := r.drawing[key]
+		if !busy {
+			own := &drawing{done: make(chan struct{})}
+			r.drawing[key] = own
+			r.mu.Unlock()
+			return r.drawOnce(ctx, key, diagram, own)
+		}
+		r.mu.Unlock()
+		select {
+		case <-other.done:
+			if !other.abandoned {
+				return other.res, other.err
+			}
+		case <-ctx.Done():
+			return response{}, fmt.Errorf("wait for the same diagram: %w", ctx.Err())
+		}
 	}
-	run := context.WithoutCancel(ctx)
-	if deadline, ok := ctx.Deadline(); ok {
-		var cancel context.CancelFunc
-		run, cancel = context.WithDeadline(run, deadline)
-		defer cancel()
+}
+
+func (r *Renderer) drawOnce(ctx context.Context, key [sha256.Size]byte, diagram string, own *drawing) (response, error) {
+	own.res, own.err = r.pool.Ask(ctx, request{Source: diagram})
+	own.abandoned = own.err != nil && ctx.Err() != nil
+	if own.err == nil {
+		r.cache.put(key, own.res)
 	}
-	return r.pool.Ask(run, request{Source: diagram})
+	r.mu.Lock()
+	delete(r.drawing, key)
+	r.mu.Unlock()
+	close(own.done)
+	return own.res, own.err
 }
 
 func withStart(source string) (string, int) {

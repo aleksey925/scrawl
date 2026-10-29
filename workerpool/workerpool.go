@@ -17,6 +17,7 @@ type Options struct {
 	Workers int
 	Limit   time.Duration
 	Idle    time.Duration
+	Detach  bool
 }
 
 type Retiring interface {
@@ -58,6 +59,11 @@ func (p *Pool[Req, Res]) Ask(ctx context.Context, req Req) (Res, error) {
 		return zero, err
 	}
 	defer p.put(wrk)
+	if p.opts.Detach {
+		var cancel context.CancelFunc
+		ctx, cancel = detached(ctx)
+		defer cancel()
+	}
 	if p.opts.Limit > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, p.opts.Limit)
@@ -230,4 +236,12 @@ func (w *worker) stopLocked() {
 	_ = w.cmd.Process.Kill()
 	_ = w.cmd.Wait()
 	w.cmd = nil
+}
+
+func detached(ctx context.Context) (context.Context, context.CancelFunc) {
+	run := context.WithoutCancel(ctx)
+	if deadline, ok := ctx.Deadline(); ok {
+		return context.WithDeadline(run, deadline)
+	}
+	return run, func() {}
 }

@@ -26,6 +26,8 @@ const (
 var (
 	libraryName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*\.js$`)
 	includedLib = regexp.MustCompile(`!(?:include\w*|import)\s*<([A-Za-z0-9][A-Za-z0-9._-]*)/`)
+	includedVar = regexp.MustCompile(`!(?:include\w*|import)\s*<\$(\w+)[/>]`)
+	assignedVar = regexp.MustCompile(`(?m)^\s*!(?:(?:global|local)\s+)?\$(\w+)\s*\??=\s*["']([A-Za-z0-9][A-Za-z0-9._-]*)`)
 	linkedLib   = regexp.MustCompile(`link:"([A-Za-z0-9][A-Za-z0-9._-]*)"`)
 )
 
@@ -72,6 +74,7 @@ func Libraries(src []byte) []string {
 	for _, match := range includes {
 		res = append(res, bundleOf(string(match[1])))
 	}
+	res = append(res, librariesOfVariables(src)...)
 	for _, extra := range extraLibraries {
 		if extra.pattern.Match(src) {
 			res = append(res, extra.file)
@@ -79,6 +82,23 @@ func Libraries(src []byte) []string {
 	}
 	slices.Sort(res)
 	return slices.Compact(res)
+}
+
+func librariesOfVariables(src []byte) []string {
+	included := includedVar.FindAllSubmatch(src, -1)
+	if len(included) == 0 {
+		return nil
+	}
+	values := map[string][]string{}
+	for _, match := range assignedVar.FindAllSubmatch(src, -1) {
+		variable := string(match[1])
+		values[variable] = append(values[variable], bundleOf(string(match[2])))
+	}
+	var res []string
+	for _, match := range included {
+		res = append(res, values[string(match[1])]...)
+	}
+	return res
 }
 
 func WithDependencies(names []string) ([]Library, error) {

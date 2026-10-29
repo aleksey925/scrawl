@@ -83,6 +83,7 @@ type testOpts struct {
 	formatErr     error
 	withAuth      bool
 	history       History
+	diagrams      Diagrams
 
 	second string
 
@@ -140,6 +141,7 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 		Spaces:    spaces,
 		Auth:      svc,
 		Formatter: &fakeFormatter{err: opts.formatErr},
+		Diagrams:  opts.diagrams,
 	}
 
 	router, err := res.router()

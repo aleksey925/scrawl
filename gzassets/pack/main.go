@@ -10,7 +10,7 @@ import (
 	"github.com/aleksey925/scrawl/gzassets"
 )
 
-var sources = []string{"server/assets", "page/assets", "format/prettier.wasm"}
+var sources = []string{"server/assets", "page/assets", "format/prettier.wasm", "plantuml/engine.wasm"}
 
 const outDir = "gzassets"
 

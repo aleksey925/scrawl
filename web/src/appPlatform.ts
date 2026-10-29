@@ -44,7 +44,11 @@ export const appPlatform: Platform = {
   physicalUrl: (url) => mountBase() + url,
   internalTarget,
   loadMermaid: async () => (await loadChunk(import('mermaid'))).default,
-  loadPlantUML: async () => (await loadChunk(import('./reader/plantuml'))).plantUML,
+  loadPlantUML: async () => {
+    const { plantUML } = await loadChunk(import('./reader/plantuml'));
+    plantUML.useLibraries(new URL(/* @vite-ignore */ '../../plantuml/', import.meta.url).href);
+    return plantUML;
+  },
   loadKatex: async () => {
     const [module] = await loadChunk(Promise.all([import('katex'), import('katex/dist/katex.min.css')]));
     return module.default;

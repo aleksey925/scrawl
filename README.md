@@ -501,9 +501,23 @@ Bob --> Alice : ok
 ````
 
 The browser draws it, so scrawl needs no PlantUML server and no Java.
-The first note with such a diagram loads a 1.7MB renderer, once. The
-standard library (`!include <C4/...>`) and emoji are not included: such
-an include shows PlantUML's error.
+The first note with such a diagram loads a 1.7MB renderer, once.
+PlantUML's whole standard library comes with scrawl: C4, AWS, Azure,
+Kubernetes, the icon sets, the themes and emoji. A library is loaded
+only when a diagram includes it, once:
+
+````
+```plantuml
+!include <C4/C4_Container>
+Person(reader, "Reader")
+System(notes, "Notes")
+Rel(reader, notes, "reads")
+```
+````
+
+Where no browser draws, in an exported page and in `scrawl render`,
+scrawl draws the diagram itself and puts it in as a picture. A simple
+diagram takes a fraction of a second there, a C4 one a few seconds.
 
 Relative links between pages, in-page anchors and images from sibling
 folders all keep working, and headings get anchors that handle Cyrillic.
@@ -691,8 +705,8 @@ All three say something different, so a client can tell whether asking
 for a wider token would help.
 
 The Export button has an endpoint too. `format=md` answers with the note
-as it is stored, `format=html` with the page; both come as a file to
-save:
+as it is stored, `format=html` with the page, its PlantUML diagrams
+drawn; both come as a file to save:
 
 ```
 curl -sOJH "Authorization: Bearer $TOKEN" 'http://localhost:7272/s/notes/api/export/python/notes.md?format=html'
@@ -733,8 +747,9 @@ changed, and an error exits with 2.
 put into your own page and `-f json` for a program. A relative link is
 kept as written; `--link-ext .html` turns `a.md` into `a.html` for a site
 built of rendered notes. Formulas stay TeX unless `--math` puts KaTeX
-into the page, which makes it some 600KB larger. Mermaid and PlantUML
-diagrams stay code.
+into the page, which makes it some 600KB larger. Mermaid diagrams stay
+code, and PlantUML diagrams are drawn into `render`'s output as
+pictures; `diff` keeps them as code.
 
 `site` writes the notes as a static site, for any static host under any
 path, or to open straight from disk. A page of the site is the app's
@@ -746,8 +761,9 @@ PlantUML diagrams, formulas, and the theme and page width, kept from page to pag
 From a host the site moves between notes without loading the page again,
 as the app does; opened from disk, every note is a page load.
 Search, editing, history and sync need the server and are not on a site.
-The diagram renderers, some 5MB each, and the formula renderer are
-written only when a note needs them. There is nothing to configure: the front page is
+The diagram renderers, some 5MB each, the formula renderer and the
+PlantUML libraries the notes include are written only when a note needs
+them. There is nothing to configure: the front page is
 the list of what the root holds, and Home opens `index.md` at the root of
 the notes. A folder's `index.md` is written as `index.md.html`, beside the
 folder's list.

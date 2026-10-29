@@ -77,6 +77,25 @@ Spaces, routes, settings and the guards on every request.
   either way: the bluemonday policy refuses the element and the attribute
   whatever the header allows.
 
+## PlantUML
+
+- The browser draws every diagram it shows, and the server only those no
+  browser will: an exported note and a page of `scrawl render`
+  ([ADR 18](../adr/0018-plantuml-on-the-server-and-its-library.md)). There a
+  diagram is an `<img>` of an SVG data URL, which runs no script and loads
+  nothing, so it is not sanitized; it is drawn in the light theme, as paper is.
+  A diagram the engine refuses keeps its code, with the reason under it.
+- The engine runs in one worker process, started on the first diagram, with a
+  deadline per diagram after which the process is killed. A drawn diagram is
+  kept by its source, so the next export of the note costs nothing. The worker
+  lets its engine go once the engine's memory passes 256MB and after two idle
+  minutes: a large library takes hundreds of megabytes, and a WebAssembly
+  memory never shrinks.
+- The library is served under `/static/<version>/plantuml/<file>`, as stored,
+  compressed. Only the plain name of a file in it answers, so an include cannot
+  name a path out of it, and the browser asks for nothing else: its loader
+  takes a plain name only.
+
 ## Lifecycle
 
 - Every background goroutine runs under a worker context canceled the moment

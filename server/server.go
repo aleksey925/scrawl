@@ -91,6 +91,7 @@ type Web struct {
 	Spaces    []*Space
 	Auth      *auth.Service
 	Formatter Formatter
+	Diagrams  Diagrams
 
 	byName    map[string]*Space
 	templates *template.Template
@@ -191,6 +192,8 @@ func (wb *Web) router() (http.Handler, error) {
 	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
 		HandleFunc("GET /static/{version}/{path...}", wb.staticHandler(assets))
 	router.HandleFunc("GET /static/{version}/"+appDir+"/{path...}", wb.appAssetHandler(assets))
+	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
+		HandleFunc("GET /static/{version}/plantuml/{file}", plantumlLibraryHandler)
 
 	router.HandleFunc("GET /manifest.webmanifest", wb.manifestHandler)
 

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/aleksey925/scrawl/page"
+	"github.com/aleksey925/scrawl/plantuml"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/server"
 	"github.com/aleksey925/scrawl/store"
@@ -20,17 +21,18 @@ import (
 )
 
 const (
-	siteAssets    = "scrawl"
-	sitePage      = ".html"
-	siteFolder    = "index.html"
-	siteIndexPage = "index.md.html"
-	siteNotFound  = "404.html"
-	siteTreeFile  = "tree.js"
-	siteChroma    = "chroma.css"
-	siteFavicon   = "favicon.svg"
-	siteTitle     = "Notes"
-	siteDirMode   = fs.FileMode(0o755)
-	siteFileMode  = fs.FileMode(0o644)
+	siteAssets      = "scrawl"
+	sitePage        = ".html"
+	siteFolder      = "index.html"
+	siteIndexPage   = "index.md.html"
+	siteNotFound    = "404.html"
+	siteTreeFile    = "tree.js"
+	siteChroma      = "chroma.css"
+	siteFavicon     = "favicon.svg"
+	sitePlantUMLDir = "plantuml"
+	siteTitle       = "Notes"
+	siteDirMode     = fs.FileMode(0o755)
+	siteFileMode    = fs.FileMode(0o644)
 )
 
 var activeExtensions = []string{".htm", ".html", ".js", ".mjs", ".svg", ".xht", ".xhtml", ".xml", ".xsl"}
@@ -159,6 +161,7 @@ type siteBuilder struct {
 	dst                     *os.Root
 	renderer                *render.Renderer
 	mermaid, plantUML, math bool
+	libraries               []string
 }
 
 func (b *siteBuilder) writeSite(plan sitePlan) error {
@@ -201,6 +204,9 @@ func (b *siteBuilder) writeAssets() error {
 	}
 	if b.plantUML {
 		assets[page.PlantUMLFile] = page.PlantUML()
+		if err := b.addLibraries(assets); err != nil {
+			return err
+		}
 	}
 	if b.math {
 		maps.Copy(assets, page.Math())
@@ -209,6 +215,21 @@ func (b *siteBuilder) writeAssets() error {
 		if err := b.write(path.Join(siteAssets, name), []byte(content)); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (b *siteBuilder) addLibraries(assets map[string]string) error {
+	names, err := plantuml.WithDependencies(b.libraries)
+	if err != nil {
+		return fmt.Errorf("plantuml libraries: %w", err)
+	}
+	for _, name := range names {
+		code, err := plantuml.LibraryFile(name)
+		if err != nil {
+			return fmt.Errorf("plantuml libraries: %w", err)
+		}
+		assets[path.Join(sitePlantUMLDir, name)] = string(code)
 	}
 	return nil
 }
@@ -224,6 +245,9 @@ func (b *siteBuilder) render(notePath string) (render.Result, []byte, store.File
 	}
 	b.mermaid = b.mermaid || res.Mermaid
 	b.plantUML = b.plantUML || res.PlantUML
+	if res.PlantUML {
+		b.libraries = append(b.libraries, plantuml.Libraries(src)...)
+	}
 	b.math = b.math || res.Math
 	return res, src, fi, nil
 }

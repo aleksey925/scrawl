@@ -13,10 +13,12 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/go-pkgz/lgr"
 	"github.com/jessevdk/go-flags"
 
 	"github.com/aleksey925/scrawl/format"
 	"github.com/aleksey925/scrawl/page"
+	"github.com/aleksey925/scrawl/plantuml"
 	"github.com/aleksey925/scrawl/render"
 )
 
@@ -327,22 +329,36 @@ func runRender(opts *renderOptions, in io.Reader, out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("render %s: %w", name, err)
 	}
+	html := string(res.HTML)
+	if res.PlantUML {
+		html = drawPlantUML(html)
+	}
 
 	var buf bytes.Buffer
 	switch opts.Format {
 	case outputJSON:
 		err = writeJSONTo(&buf, noteJSON{
-			Title: res.Title, HTML: string(res.HTML), TOC: res.TOC, Frontmatter: render.Frontmatter(src),
+			Title: res.Title, HTML: html, TOC: res.TOC, Frontmatter: render.Frontmatter(src),
 		})
 	case outputFragment:
-		buf.WriteString(string(res.HTML))
+		buf.WriteString(html)
 	default:
-		err = page.WriteNote(&buf, page.Note{Title: res.Title, HTML: string(res.HTML)}, opts.pageOptions())
+		err = page.WriteNote(&buf, page.Note{Title: res.Title, HTML: html}, opts.pageOptions())
 	}
 	if err != nil {
 		return err
 	}
 	return writeOutput(opts.Output, buf.Bytes(), out)
+}
+
+func drawPlantUML(fragment string) string {
+	renderer := plantuml.New(1)
+	defer renderer.Close()
+	drawn, err := renderer.Inline(context.Background(), fragment)
+	if err != nil {
+		log.Printf("[WARN] %v", err)
+	}
+	return drawn
 }
 
 func readInput(file string, in io.Reader) (string, []byte, error) {

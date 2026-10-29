@@ -76,12 +76,35 @@ test.describe('plantuml', () => {
         await expect(drawn(page)).toContainText('Syntax Error?');
     });
 
-    test('a library include fetches nothing and a link to a script is not kept', async ({page}) => {
+    test('a library is loaded from the server when a diagram includes it, and only then', async ({page}) => {
         // arrange
-        const requested = [];
-        page.on('request', (request) => requested.push(request.url()));
+        const libraries = [];
+        page.on('request', (request) => {
+            if (new URL(request.url()).pathname.includes('/plantuml/')) {
+                libraries.push(new URL(request.url()).pathname.split('/').pop());
+            }
+        });
         writeFixture(NOTE, note(
-            '```plantuml\n@startuml\n!include <C4/C4_Context>\nA -> B\n@enduml\n```',
+            SEQUENCE,
+            '```plantuml\n@startuml\n!include <C4/C4_Context>\nPerson(reader, "Reader")\nSystem(notes, "Scrawl")\nRel(reader, notes, "reads")\n@enduml\n```',
+        ));
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(drawn(page)).toHaveCount(2);
+        await expect(drawn(page).nth(1)).toContainText('Reader');
+        await expect(drawn(page).nth(1).locator('image')).not.toHaveCount(0);
+        expect(libraries).toContain('c4.min.js');
+        expect(libraries.every((name) => /^[a-z0-9.-]+\.js$/.test(name))).toBe(true);
+        await shot(page, 'plantuml-c4');
+    });
+
+    test('an include of a library that does not exist shows plantuml\'s error, and a link to a script is not kept', async ({page}) => {
+        // arrange
+        writeFixture(NOTE, note(
+            '```plantuml\n@startuml\n!include <nosuchlib/x>\nA -> B\n@enduml\n```',
             '```plantuml\n@startuml\nA -> B : [[javascript:alert(1) bad]]\nA -> B : [[https://example.com/x good]]\n@enduml\n```',
         ));
 
@@ -92,7 +115,7 @@ test.describe('plantuml', () => {
             (nodes) => nodes.map((node) => node.getAttribute('href') ?? node.getAttribute('xlink:href') ?? ''));
 
         // assert
-        expect(requested.filter((url) => url.endsWith('.min.js'))).toEqual([]);
+        await expect(drawn(page).first()).toContainText('nosuchlib');
         expect(links.filter((href) => href.startsWith('javascript'))).toEqual([]);
         expect(links).toContain('https://example.com/x');
     });

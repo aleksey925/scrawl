@@ -41,6 +41,7 @@ function proxy(): Record<string, ProxyOptions> {
   for (const path of sharedPaths) {
     res[path] = { target: backend, changeOrigin: false, bypass };
   }
+  res['/plantuml'] = { target: backend, changeOrigin: false, rewrite: (path) => `/static/dev${path}` };
   return res;
 }
 

@@ -34,7 +34,7 @@ const NOTES = {
     'pics/one.png': PIXEL,
     'pics/two.png': PIXEL,
     'math.md': '# Math\n\nA formula: $x^2 + 1$.\n',
-    'plantuml.md': '# PlantUML\n\n```plantuml\nAlice -> Bob : hi\n```\n\n```puml\nclass Car\ninterface Engine\nCar *-- Engine\n```\n',
+    'plantuml.md': '# PlantUML\n\n```plantuml\nAlice -> Bob : hi\n```\n\n```puml\nclass Car\ninterface Engine\nCar *-- Engine\n```\n\n```plantuml\n!include <C4/C4_Context>\nPerson(reader, "Reader")\n```\n',
     'odd/100%.md': '# Percent\n',
     'odd/a%20b.md': '# Escaped\n',
     'odd/what? #1.md': '# Question\n',
@@ -363,15 +363,17 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await expect(page.locator('.md-diagram[data-state="done"] svg')).toBeVisible({timeout: 20_000});
         });
 
-        test('a plantuml diagram is drawn by its renderer beside the pages, with graphviz', async ({page}) => {
+        test('a plantuml diagram is drawn by its renderer beside the pages, with graphviz and the library', async ({page}) => {
             // act
             await page.goto(at('plantuml.html'));
 
             // assert
             const drawn = page.locator('.md-diagram[data-state="done"] .md-diagram-view > svg');
-            await expect(drawn).toHaveCount(2, {timeout: 20_000});
+            await expect(drawn).toHaveCount(3, {timeout: 20_000});
             await expect(drawn.first()).toContainText('Alice');
             await expect(drawn.nth(1).locator('g.entity')).toHaveCount(2);
+            await expect(drawn.nth(2)).toContainText('Reader');
+            await expect(drawn.nth(2).locator('image')).not.toHaveCount(0);
         });
 
         test('a formula is typeset by the renderer beside the pages', async ({page}) => {
@@ -802,7 +804,7 @@ test('a host that refuses WebAssembly gets plantuml laid out by smetana, not a c
 
     // assert
     const drawn = page.locator('.md-diagram[data-state="done"] .md-diagram-view > svg');
-    await expect(drawn).toHaveCount(2, {timeout: 20_000});
+    await expect(drawn).toHaveCount(3, {timeout: 20_000});
     await expect(drawn.nth(1).locator('g.entity')).toHaveCount(2);
     await expect(drawn.nth(1)).not.toContainText('An error has occurred');
     expect(messages.some((text) => text.includes('Smetana'))).toBe(true);

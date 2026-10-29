@@ -137,14 +137,29 @@ words; the fact itself is written here.
   picture of the source with the line marked. `onError` is for the engine
   failing.
 - With nothing set, PlantUML loads `!include <lib>`, emoji and themes as
-  `<script>` tags relative to the page. A loader that refuses every file is
-  installed, and the themes and the icons are bundled.
+  `<script>` tags relative to the page. Its loader is replaced by one that
+  takes a plain file name of the library and nothing else.
 - PlantUML writes the same ids into every diagram (`part1`, `msg1`), some twice
   in one, so each diagram's ids get a prefix of its own.
 - PlantUML's `maxSvgSize`, 8192 by default, failed a sequence of 400 messages
   (11690px). It is checked after the layout and bounds no work, so it is off.
 - PlantUML's dark mode paints `#1B1B1B` behind a Graphviz diagram and nothing
   behind a sequence one; that default backdrop is removed.
+- PlantUML's headless build refuses a source without `@startuml`, which the
+  browser's takes, so the server adds the lines and counts an error's line
+  back.
+- The headless build registers no SVG driver for a raster image, and a sprite
+  is one: without the driver `make plantuml` adds, every C4 person and cloud
+  icon failed with `UnsupportedOperationException`.
+- In javy's QuickJS a promise settles only once the script yields to the event
+  loop, `console` has no `info`, and `setTimeout` does not exist. The engine
+  needs all three.
+- esbuild's syntax minification writes labels QuickJS refuses ("break/continue
+  label not found"), so the server's engine is minified in names and space
+  only.
+- A wazero memory that grows by copying leaves the old one as garbage, and a
+  WebAssembly memory never shrinks: a worker with tupadr3 loaded held 800MB.
+  The capacity is reserved once, and the engine is let go instead.
 - KaTeX's stylesheet says `font-display: block`, so formulas are typeset only
   after its faces load, or they paint blank and the page moves.
 - KaTeX empties the node before it builds, so on an error the source is put

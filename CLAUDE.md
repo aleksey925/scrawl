@@ -22,6 +22,9 @@ auth/                  users, sessions, middleware, CSRF, rate limit
 history/               git-backed document history: record, log, restore
 htmldiff/              two rendered notes compared block by block, word by word
 format/                prettier in a wasm module, run by wazero
+plantuml/              PlantUML on the server in a wasm module, and its
+                       standard library, compressed
+workerpool/            the worker processes prettier and PlantUML run in
 gzassets/              embedded files a release stores gzip-compressed, and the
                        tool that compresses them
 server/                HTTP server, handlers, page cache, the webhook endpoint
@@ -139,6 +142,8 @@ Before changing a part, read its doc:
   [themes](docs/design/themes.md)
 - prettier, its workers, formatting on save:
   [formatter](docs/design/formatter.md)
+- PlantUML drawn by the server, its worker, the library and its route:
+  [server](docs/design/server.md#plantuml)
 - the editor opening where the reader was, the split panes:
   [editor position](docs/design/editor-position.md)
 - the index, the search modes, the find bar: [search](docs/design/search.md)
@@ -175,13 +180,15 @@ Before changing a part, read its doc:
 
 Toolchain versions come from `mise.toml`, go dependencies are vendored:
 `mise install && make deps`. `make deps` is the whole working checkout - go
-modules, the node modules of `web/` and `e2e/`, and the browser the suite
-drives.
+modules, the node modules of `web/`, `format/js/`, `plantuml/js/` and `e2e/`,
+and the browsers the suite drives.
 
 ```
 make ui         build the frontend into server/assets/app/ and page/assets/,
                 draw the favicon and the PNG icons, then commit all of it
 make formatter  build prettier into format/prettier.wasm, then commit it
+make plantuml   build PlantUML into plantuml/engine.wasm and fetch its library
+                into plantuml/library/, then commit both
 make build      build the binary into dist/, with the assets compressed
 make test       tests
 make test-gzassets  tests of the build with the assets compressed

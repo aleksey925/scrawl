@@ -34,7 +34,9 @@ A space written out as static pages that run the app's reader.
   A page opened from disk can load no module, so the reader is one classic
   script, the data are scripts that hand themselves over, and mermaid, PlantUML
   and KaTeX are files of their own that a page loads only when its note needs
-  them. A folder is `index.html`, its list, written for every folder, and its
+  them. Of PlantUML's library a site gets the files its notes include, with
+  what those include in turn, in `scrawl/plantuml/`: a whole library is up to
+  23MB. A folder is `index.html`, its list, written for every folder, and its
   `index.md` is `index.md.html`. A relative link to a folder points to the
   list, because opened from disk a folder is the system's listing, and one to
   `index.md` to the note's page. Opened from disk, a page in Firefox has the

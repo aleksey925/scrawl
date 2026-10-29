@@ -1,0 +1,149 @@
+{
+  "commit": "18d0aae311a4f1eb3723bb4b0ad939185e22f166",
+  "files": {
+    "adaml.min.js": {
+      "path": "src/main/teavm/stdlib/adaml.min.js",
+      "sha256": "2eea767c31c06d1e0c3137d71581e7c66bf2b0d3fd07d7b4d02ba221b8be73a5"
+    },
+    "archimate.min.js": {
+      "path": "src/main/teavm/stdlib/archimate.min.js",
+      "sha256": "5a06d2cc43cecff2b720cd6cbc08d60a6259211316f779c9f666c8c5988dfd85"
+    },
+    "awslib.min.js": {
+      "path": "src/main/teavm/stdlib/awslib.min.js",
+      "sha256": "b6184dae90807c6863a7b527fcc2bcc2e4dbf9b62e6161dd81a625ce0b78c14e"
+    },
+    "awslib10.min.js": {
+      "path": "src/main/teavm/stdlib/awslib10.min.js",
+      "sha256": "019f09186ae77196d81b47a7ab94c1f2b9b9e841f75d6051e69c48d1ea14c7af"
+    },
+    "awslib14.min.js": {
+      "path": "src/main/teavm/stdlib/awslib14.min.js",
+      "sha256": "b6391f87a7efb7f59a92c1ec07d2cc7e85de190e1bfd2155967e4afbbf7525c7"
+    },
+    "awslib20.min.js": {
+      "path": "src/main/teavm/stdlib/awslib20.min.js",
+      "sha256": "1ecae17a7fa4059c7984bbc665e581225288e6c0591e6a8e07519643f2385f41"
+    },
+    "azure.min.js": {
+      "path": "src/main/teavm/stdlib/azure.min.js",
+      "sha256": "aa1ffc61501675159dedd678f03fb0a4a4bfa1802b7dd31be3194543ef8acffd"
+    },
+    "bootstrap.min.js": {
+      "path": "src/main/teavm/stdlib/bootstrap.min.js",
+      "sha256": "66649652b2973a66973df95d41fd34478ba889c690237484aae03f588dbf0ad0"
+    },
+    "bootstrap1.12.1.min.js": {
+      "path": "src/main/teavm/stdlib/bootstrap1.12.1.min.js",
+      "sha256": "965334ce144b8ff7501d0b559fb8950537bb4e3d6fb81fcf0cff3f139d7413e2"
+    },
+    "bootstrap1.13.1.min.js": {
+      "path": "src/main/teavm/stdlib/bootstrap1.13.1.min.js",
+      "sha256": "3f5b0f7a952ede940cd541e157ae90acc7706561a4e80e3ad4551b1f5ed2aace"
+    },
+    "c4.min.js": {
+      "path": "src/main/teavm/stdlib/c4.min.js",
+      "sha256": "6074a5b15fcd6dade1f0f1bd4426f2da7ff9006fb8ac762502df7351f4260b7c"
+    },
+    "classy-c4.min.js": {
+      "path": "src/main/teavm/stdlib/classy-c4.min.js",
+      "sha256": "58fc0c02dd66557baa0545a2cc6ce1bae6c667221e77dee327051ebc9ac30b53"
+    },
+    "classy.min.js": {
+      "path": "src/main/teavm/stdlib/classy.min.js",
+      "sha256": "734cdc4c516ec78cbb895565037d3eebdf869d90c401b430d41ad0b4a2b1f38f"
+    },
+    "cloudinsight.min.js": {
+      "path": "src/main/teavm/stdlib/cloudinsight.min.js",
+      "sha256": "b14f6a633d7131473af3baecb572a9231775c348876b58ec44391239e451e3ff"
+    },
+    "cloudogu.min.js": {
+      "path": "src/main/teavm/stdlib/cloudogu.min.js",
+      "sha256": "cc3b2b3640fd122616f0826e1ea01bc40b2d0050fe174849b8ef2a98646eb74b"
+    },
+    "domainstory.min.js": {
+      "path": "src/main/teavm/stdlib/domainstory.min.js",
+      "sha256": "87bd5b5c166510e1dfcf157c28c68f7d1ec90b77cde81d45e76586c54f91c864"
+    },
+    "edgy.min.js": {
+      "path": "src/main/teavm/stdlib/edgy.min.js",
+      "sha256": "3c786356059a37d04a354bf6e451c94c5b1db3374a1531a33c174a007ef237c3"
+    },
+    "eip.min.js": {
+      "path": "src/main/teavm/stdlib/eip.min.js",
+      "sha256": "1b075a46c425c3f83e4aa6c9e980cae117c0a4f772db0599498a4be7540a1774"
+    },
+    "elastic.min.js": {
+      "path": "src/main/teavm/stdlib/elastic.min.js",
+      "sha256": "18567b88fd7b9856cc98d4112fc0b270f2e8d47a2e56291c3cfe32729c140499"
+    },
+    "emoji.js": {
+      "path": "src/main/teavm/generated/emoji.js",
+      "sha256": "29bc1feaf94d1570cf64621954e62c96537d740f9933a65bf69871ef306e5f24"
+    },
+    "gcp.min.js": {
+      "path": "src/main/teavm/stdlib/gcp.min.js",
+      "sha256": "3aa51fb5954bb23df1336d13b7bf24155c02dfee19833c5fcc795b6d3e4d3373"
+    },
+    "ibm.min.js": {
+      "path": "src/main/teavm/stdlib/ibm.min.js",
+      "sha256": "90099c682e3d428b0af799787f99b2b928c19bfcf5a3719d36ab09dd550f7f51"
+    },
+    "k8s.min.js": {
+      "path": "src/main/teavm/stdlib/k8s.min.js",
+      "sha256": "ae7f34bd12855986701d0190f2d1cb9a82c71f82ccc3bf855e013c5074dfe891"
+    },
+    "kubernetes.min.js": {
+      "path": "src/main/teavm/stdlib/kubernetes.min.js",
+      "sha256": "5f901a02b3398d2a6987af32df106c97ecc6ce449b8ce78940076b2f4c2839b5"
+    },
+    "logos.min.js": {
+      "path": "src/main/teavm/stdlib/logos.min.js",
+      "sha256": "f421b702769a7eba61eacb90e821ec1a4729756eb6865d3a0a009f5c0cd9526f"
+    },
+    "material.min.js": {
+      "path": "src/main/teavm/stdlib/material.min.js",
+      "sha256": "1aaf3af0e4c5d9c2c4fd1e487d4707dde5f3d709531907fbd792b1b93051a8b5"
+    },
+    "material2.1.19.min.js": {
+      "path": "src/main/teavm/stdlib/material2.1.19.min.js",
+      "sha256": "d476a9d269642c1e9eeb8494f6fb9b7e04611d5cdcf7424681ad2beab04838e5"
+    },
+    "material2.min.js": {
+      "path": "src/main/teavm/stdlib/material2.min.js",
+      "sha256": "9fad39687c9a23cffa5ad5ad0b11fb0ed7f03dd97e2ce4f8836abc2f7b7b7bd4"
+    },
+    "material7.4.47.min.js": {
+      "path": "src/main/teavm/stdlib/material7.4.47.min.js",
+      "sha256": "5e20c3f08bde99d040fb7fe86ab179b34da2d8e001e9134d2bcbbdcd8513d228"
+    },
+    "material7.min.js": {
+      "path": "src/main/teavm/stdlib/material7.min.js",
+      "sha256": "7f537722af787a914f247fed79bb5a522e1508bf13589b0f55f9fc29483d8b4b"
+    },
+    "office.min.js": {
+      "path": "src/main/teavm/stdlib/office.min.js",
+      "sha256": "1a29d4355f53bbd73b2fa1378f922a1a8ca88dcd5d022166851cd5682ba85458"
+    },
+    "openiconic.js": {
+      "path": "src/main/teavm/generated/openiconic.js",
+      "sha256": "f0ba6c6ce4431e73a7e98ff35f374ed49a26572bb433f30b5c0848b890ded313"
+    },
+    "osa.min.js": {
+      "path": "src/main/teavm/stdlib/osa.min.js",
+      "sha256": "4f320e60e55cf01fe244f44d736824e2014b7371473a0af925559cfaca5059c0"
+    },
+    "osa2.min.js": {
+      "path": "src/main/teavm/stdlib/osa2.min.js",
+      "sha256": "e01336fcc1e8c30b5540e820f10a3cb4caf8f95a983ff6585d86bcefe3c272f4"
+    },
+    "themes.js": {
+      "path": "src/main/teavm/generated/themes.js",
+      "sha256": "4df9039fe1f38bce984c7ed2b48bde6f385181a21112d8c4bacb9e9ffc99bc26"
+    },
+    "tupadr3.min.js": {
+      "path": "src/main/teavm/stdlib/tupadr3.min.js",
+      "sha256": "38533c680fc8bd6fc7c90690f570f358f9c0f23a00d682cbe038e68d2df9abb7"
+    }
+  }
+}

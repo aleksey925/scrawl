@@ -309,6 +309,12 @@ func TestRunSite(t *testing.T) {
 				want:  withAssets("404.html", "a.html", "index.html", "scrawl/"+page.PlantUMLFile),
 			},
 			{
+				name:  "a plantuml diagram that includes a library",
+				notes: map[string]string{"a.md": "# A\n\n```plantuml\n!include <C4/C4_Context>\nPerson(u, \"U\")\n```\n"},
+				want: withAssets("404.html", "a.html", "index.html", "scrawl/"+page.PlantUMLFile,
+					"scrawl/plantuml/c4.min.js", "scrawl/plantuml/office.min.js", "scrawl/plantuml/themes.js"),
+			},
+			{
 				name: "both kinds of diagram in two notes",
 				notes: map[string]string{
 					"a.md": "# A\n\n```mermaid\ngraph TD;\n```\n",

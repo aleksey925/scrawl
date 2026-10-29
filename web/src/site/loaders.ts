@@ -46,7 +46,9 @@ export async function loadMermaid(): Promise<Mermaid> {
 
 export async function loadPlantUML(): Promise<PlantUML> {
   await attach('plantuml.js', script);
-  return loaded(window.scrawlPlantUML, 'plantuml.js');
+  const plantUML = loaded(window.scrawlPlantUML, 'plantuml.js');
+  plantUML.useLibraries(new URL('plantuml/', base).href);
+  return plantUML;
 }
 
 export async function loadKatex(): Promise<Katex> {

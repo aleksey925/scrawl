@@ -20,7 +20,8 @@ Prettier inside the binary and in the browser.
   are not writes of ours and stay as they came: a commit made to format what
   the remote sent would be a reason to diverge.
 - Prettier runs in worker processes, copies of this binary started with
-  `SCRAWL_FORMAT_WORKER` set, and never inside the server
+  `SCRAWL_FORMAT_WORKER` set, and never inside the server. The pool is
+  `workerpool`, which PlantUML's engine on the server runs in as well
   ([ADR 6](../adr/0006-prettier-in-worker-processes.md)). A process can be
   killed, so the deadline of a call is a real one and the next call gets a
   fresh worker. `main` asks `format.RunWorkerIfAsked` before anything else,

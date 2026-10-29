@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -59,7 +60,7 @@ func (m *mount) apiExport(w http.ResponseWriter, r *http.Request) {
 		failJSON(w, r, err)
 		return
 	}
-	if data, err = m.exportPage(p, data); err != nil {
+	if data, err = m.exportPage(r.Context(), p, data); err != nil {
 		failJSON(w, r, err)
 		return
 	}
@@ -77,16 +78,20 @@ func setExportHeaders(w http.ResponseWriter, contentType, name string) {
 	h.Set("Cache-Control", pageCacheControl)
 }
 
-func (m *mount) exportPage(docPath string, src []byte) ([]byte, error) {
+func (m *mount) exportPage(ctx context.Context, docPath string, src []byte) ([]byte, error) {
 	res, err := renderWithDeadline(docPath, src, maxRenderBytes, renderTimeout, func() (render.Result, error) {
 		return exportRenderer.Render(src, docPath)
 	})
 	if err != nil {
 		return nil, err
 	}
+	fragment := string(res.HTML)
+	if res.PlantUML {
+		fragment = m.drawDiagrams(ctx, fragment)
+	}
 	pics := newPictures(m.spc.Store, path.Dir(docPath), maxEmbeddedImages)
 	var buf bytes.Buffer
-	note := page.Note{Title: res.Title, HTML: pics.embed(string(res.HTML))}
+	note := page.Note{Title: res.Title, HTML: pics.embed(fragment)}
 	if err := page.WriteNote(&buf, note, page.Options{Math: res.Math}); err != nil {
 		return nil, err
 	}

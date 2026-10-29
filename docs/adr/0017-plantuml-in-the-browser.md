@@ -1,7 +1,8 @@
 # 17. PlantUML is drawn in the browser, with Graphviz in wasm
 
-Status: accepted. Where it applies: [server](../design/server.md#guards),
-[site](../design/site.md).
+Status: accepted; the standard library and emoji are in
+[ADR 18](0018-plantuml-on-the-server-and-its-library.md). Where it applies:
+[server](../design/server.md#guards), [site](../design/site.md).
 
 ## Context
 

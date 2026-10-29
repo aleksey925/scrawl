@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -15,10 +17,12 @@ import (
 
 	"github.com/aleksey925/scrawl/format"
 	"github.com/aleksey925/scrawl/page"
+	"github.com/aleksey925/scrawl/plantuml"
 )
 
 func TestMain(m *testing.M) {
 	format.RunWorkerIfAsked()
+	plantuml.RunWorkerIfAsked()
 	os.Exit(m.Run())
 }
 
@@ -277,6 +281,24 @@ func TestRunRender(t *testing.T) {
 		assert.Contains(t, string(written), "<title>Заголовок</title>")
 		assert.Contains(t, string(written), `<span class="math math-inline">`)
 		assert.Contains(t, string(written), "katex")
+	})
+
+	t.Run("a plantuml diagram is drawn as a picture, and a mermaid one stays code", func(t *testing.T) {
+		// arrange
+		note := "# UML\n\n```plantuml\nAlice -> Bob : drawn here\n```\n\n```mermaid\ngraph TD;\n```\n"
+
+		// act
+		code, out, errOut := runCLI(t, note, "render", "-f", "fragment")
+
+		// assert
+		assert.Equal(t, 0, code, errOut)
+		img := regexp.MustCompile(`<img alt="PlantUML diagram" src="data:image/svg\+xml;base64,([^"]+)">`).FindStringSubmatch(out)
+		require.Len(t, img, 2)
+		svg, err := base64.StdEncoding.DecodeString(img[1])
+		require.NoError(t, err)
+		assert.Contains(t, string(svg), "drawn here")
+		assert.NotContains(t, out, `<pre class="plantuml"`)
+		assert.Contains(t, out, `<pre class="mermaid"`)
 	})
 
 	t.Run("a missing file is an error", func(t *testing.T) {

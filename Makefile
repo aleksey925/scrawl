@@ -9,7 +9,7 @@ BIN_PATH = $(DIST_DIR)/$(BINARY)
 DOCKER_ARGS=--build-arg VERSION=$(VERSION)
 DOCKER_IMAGE = ghcr.io/aleksey925/scrawl
 
-.PHONY: deps ui formatter gzassets build snapshot run e2e test test-gzassets race cover lint img
+.PHONY: deps ui formatter plantuml gzassets build snapshot run e2e test test-gzassets race cover lint img
 
 img:
 	@DOCKER_BUILDKIT=1 docker build $(DOCKER_ARGS) -t $(DOCKER_IMAGE):$(VERSION) .
@@ -19,6 +19,7 @@ deps:
 	@go mod vendor
 	@cd web && npm i --no-audit --no-fund
 	@cd format/js && npm i --no-audit --no-fund
+	@cd plantuml/js && npm i --no-audit --no-fund
 	@cd e2e && npm i --no-audit --no-fund && npx playwright install chromium firefox
 
 ui:
@@ -35,6 +36,15 @@ formatter:
 	@cat $(PRETTIER)/standalone.js $(PRETTIER_PLUGINS:%=$(PRETTIER)/plugins/%.js) format/js/main.js > format/js/bundle.js
 	@javy build -J event-loop=y -J javy-stream-io=y -J text-encoding=y -o format/prettier.wasm format/js/bundle.js
 	@rm format/js/bundle.js
+
+# the PlantUML engine of the server in QuickJS, and the libraries an include
+# loads, both from the PlantUML commit the browser's engine was built from.
+plantuml:
+	@cd plantuml/js && npm i --no-audit --no-fund
+	@cd plantuml/js && node build.mjs bundle.js
+	@javy build -J event-loop=y -J javy-stream-io=y -J text-encoding=y -o plantuml/engine.wasm plantuml/js/bundle.js
+	@rm plantuml/js/bundle.js
+	@cd plantuml/js && node library.mjs ../library
 
 # the assets above compressed, for a binary that embeds them that way. They
 # are not committed: a build without the gzassets tag embeds the files as they

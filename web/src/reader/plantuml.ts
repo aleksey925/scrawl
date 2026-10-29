@@ -1,5 +1,3 @@
-import '@plantuml/core/themes.js';
-import '@plantuml/core/openiconic.js';
 import { renderToString } from '@plantuml/core';
 import viz from '@plantuml/core/viz-global.js';
 import DOMPurify from 'dompurify';
@@ -15,9 +13,25 @@ const engineDarkBackground = '#1B1B1B';
 
 const fragmentRef = /url\(\s*#([^)\s]+)\s*\)/g;
 
-hooks.PLANTUML_STDLIB_LOADER = (file, _ok, fail) => {
-  fail(`${file} is not bundled with scrawl`);
+const libraryFile = /^[a-z0-9][a-z0-9._-]*\.js$/;
+
+let libraryBase: string | undefined;
+
+hooks.PLANTUML_STDLIB_LOADER = (file, ok, fail) => {
+  if (libraryBase === undefined || !libraryFile.test(file)) {
+    fail(`${file} is not a plantuml library`);
+    return;
+  }
+  const script = document.createElement('script');
+  script.src = new URL(file, libraryBase).href;
+  script.addEventListener('load', () => ok());
+  script.addEventListener('error', () => fail(`${file} did not load`));
+  document.head.append(script);
 };
+
+function useLibraries(base: string): void {
+  libraryBase = base;
+}
 
 const layoutReady: Promise<void> = viz.instance().then(
   (instance) => {
@@ -95,4 +109,4 @@ async function render(id: string, source: string, dark: boolean): Promise<SVGSVG
   return svg;
 }
 
-export const plantUML = { render };
+export const plantUML = { render, useLibraries };

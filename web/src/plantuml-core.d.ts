@@ -16,7 +16,3 @@ declare module '@plantuml/core/viz-global.js' {
   const viz: { instance: () => Promise<unknown> };
   export default viz;
 }
-
-declare module '@plantuml/core/themes.js';
-
-declare module '@plantuml/core/openiconic.js';

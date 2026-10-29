@@ -235,6 +235,19 @@ end
 @enduml
 ```
 
+Где стоят кэши, в нотации C4 из стандартной библиотеки PlantUML:
+
+```plantuml
+!include <C4/C4_Container>
+Person(reader, "Читатель")
+System_Boundary(edge, "Край сети") {
+  Container(cdn, "CDN", "Varnish", "общий кэш")
+}
+Container(app, "Приложение", "Go", "отдаёт ETag")
+Rel(reader, cdn, "GET")
+Rel(cdn, app, "If-None-Match")
+```
+
 Доля попаданий в кэш за период:
 
 $$

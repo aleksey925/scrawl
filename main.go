@@ -23,6 +23,7 @@ import (
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/format"
 	"github.com/aleksey925/scrawl/history"
+	"github.com/aleksey925/scrawl/plantuml"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/server"
 	"github.com/aleksey925/scrawl/store"
@@ -38,6 +39,8 @@ const (
 )
 
 const formatWorkers = 2
+
+const plantumlWorkers = 1
 
 const (
 	formatOn  = "on"
@@ -127,6 +130,7 @@ func (b *byteSize) UnmarshalFlag(value string) error {
 
 func main() {
 	format.RunWorkerIfAsked()
+	plantuml.RunWorkerIfAsked()
 	os.Exit(runCommand(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
 }
 
@@ -201,6 +205,8 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 
 	formatter := format.New(formatWorkers)
 	defer formatter.Close()
+	diagrams := plantuml.New(plantumlWorkers)
+	defer diagrams.Close()
 
 	srv := &server.Web{
 		Config: server.Config{
@@ -221,6 +227,7 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 		Spaces:    spaces,
 		Auth:      authSvc,
 		Formatter: formatter,
+		Diagrams:  diagrams,
 	}
 
 	workers, stopWorkers := context.WithCancel(ctx)

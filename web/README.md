@@ -33,6 +33,11 @@ browser navigation to an app route is answered with Vite's `index.html`
 and everything else on them still reaches the server, so deep links work
 in both directions.
 
+`/plantuml` is proxied to `/static/dev/plantuml`. A built app asks for
+PlantUML's library next to its bundle, `../../plantuml/` from
+`/static/<digest>/app/assets/`, and from the source the dev server
+serves that comes out as `/plantuml/`.
+
 The bypass is decided on the path and not on the `Accept` header alone.
 A space owns its whole subtree now, so `/s/<name>/api`, `/s/<name>/raw`
 and `/s/<name>/hook` always proxy: an attachment opened as a top-level

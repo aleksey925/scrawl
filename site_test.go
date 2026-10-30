@@ -315,6 +315,12 @@ func TestRunSite(t *testing.T) {
 					"scrawl/plantuml/c4.min.js", "scrawl/plantuml/openiconic.js", "scrawl/plantuml/themes.js"),
 			},
 			{
+				name:  "a plantuml block in raw html whose include is entity-encoded",
+				notes: map[string]string{"a.md": "# A\n\n<pre class=\"plantuml\">!include &lt;C4/C4_Context&gt;\nPerson(u, \"U\")\n</pre>\n"},
+				want: withAssets("404.html", "a.html", "index.html", "scrawl/"+page.PlantUMLFile,
+					"scrawl/plantuml/c4.min.js", "scrawl/plantuml/openiconic.js", "scrawl/plantuml/themes.js"),
+			},
+			{
 				name: "both kinds of diagram in two notes",
 				notes: map[string]string{
 					"a.md": "# A\n\n```mermaid\ngraph TD;\n```\n",

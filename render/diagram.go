@@ -1,6 +1,7 @@
 package render
 
 import (
+	"html"
 	"regexp"
 	"slices"
 	"strings"
@@ -21,6 +22,10 @@ type DiagramBlock struct {
 	Start  int
 	End    int
 	Source string
+}
+
+func (b DiagramBlock) Text() string {
+	return html.UnescapeString(b.Source)
 }
 
 func DiagramBlocks(fragment, class string) []DiagramBlock {

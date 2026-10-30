@@ -51,3 +51,14 @@ func TestDiagramBlocks(t *testing.T) {
 		})
 	}
 }
+
+func TestDiagramBlockText(t *testing.T) {
+	// arrange
+	block := DiagramBlock{Source: "!include &lt;C4/C4_Context&gt;\nA -&gt; B : &quot;x&quot; &amp; &#39;y&#39;"}
+
+	// act
+	text := block.Text()
+
+	// assert
+	assert.Equal(t, "!include <C4/C4_Context>\nA -> B : \"x\" & 'y'", text)
+}

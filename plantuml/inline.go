@@ -25,7 +25,7 @@ func (r *Renderer) inline(ctx context.Context, fragment string, room int) (strin
 	last := 0
 	for _, block := range render.DiagramBlocks(fragment, render.PlantUMLClass) {
 		out.WriteString(fragment[last:block.Start])
-		drawn, size, err := r.figure(ctx, html.UnescapeString(block.Source), room)
+		drawn, size, err := r.figure(ctx, block.Text(), room)
 		if err == nil {
 			room -= size
 		} else {

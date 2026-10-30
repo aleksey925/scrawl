@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"io/fs"
 	"maps"
@@ -241,10 +242,18 @@ func (b *siteBuilder) render(notePath string) (render.Result, []byte, store.File
 	b.mermaid = b.mermaid || res.Mermaid
 	b.plantUML = b.plantUML || res.PlantUML
 	if res.PlantUML {
-		b.plantUMLLibraries = append(b.plantUMLLibraries, plantuml.Libraries(src)...)
+		b.plantUMLLibraries = append(b.plantUMLLibraries, plantuml.Libraries(plantUMLText(src, res.HTML))...)
 	}
 	b.math = b.math || res.Math
 	return res, src, fi, nil
+}
+
+func plantUMLText(src []byte, fragment template.HTML) []byte {
+	text := slices.Clone(src)
+	for _, block := range render.DiagramBlocks(string(fragment), render.PlantUMLClass) {
+		text = append(append(text, '\n'), block.Text()...)
+	}
+	return text
 }
 
 func (b *siteBuilder) writeNote(notePath string) error {

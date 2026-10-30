@@ -409,7 +409,7 @@ test.describe('reading', () => {
         removeFixture(DIAGRAM_VIEWER);
     });
 
-    test('the viewer zooms a diagram with its keys and steps to the next one', async ({page}) => {
+    test('the viewer zooms a diagram with its keys and shows that diagram alone', async ({page}) => {
         // arrange
         const nodes = Array.from({length: 10}, (_, i) => `N${i}[Step ${i}]`).join(' --> ');
         writeFixture(DIAGRAM_VIEWER, `# Two\n\n\`\`\`mermaid\nflowchart LR\n  ${nodes}\n\`\`\`\n\n\`\`\`plantuml\nA -> B : second\n\`\`\`\n`);
@@ -429,11 +429,10 @@ test.describe('reading', () => {
         await expect(percent).toHaveText('100%');
         await page.keyboard.press('0');
         await expect(percent).toHaveText(fitted);
-        await expect(page.getByTestId('doc-lightbox-count')).toHaveText('1 / 2');
+        await expect(page.getByTestId('doc-lightbox-count')).toHaveCount(0);
+        await expect(page.getByTestId('doc-lightbox-next')).toHaveCount(0);
         await page.keyboard.press('ArrowRight');
-        await expect(page.getByTestId('doc-lightbox-count')).toHaveText('2 / 2');
-        await expect(page.getByTestId('doc-lightbox-diagram')).toContainText('second');
-        await expect(percent).toHaveText('100%');
+        await expect(page.getByTestId('doc-lightbox-diagram')).not.toContainText('second');
 
         removeFixture(DIAGRAM_VIEWER);
     });

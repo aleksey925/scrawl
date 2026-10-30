@@ -263,8 +263,7 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
       return;
     }
     event.preventDefault();
-    const shown = Array.from(root.querySelectorAll<SVGSVGElement>(`.${frameClass} > svg`));
-    closeViewer = openDiagramViewer(shown, svg);
+    closeViewer = openDiagramViewer(svg);
   };
   root.addEventListener('click', openOnClick);
 

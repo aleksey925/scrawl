@@ -101,15 +101,16 @@ opens over them.
   the next one. The dialog takes `touch-action: none`, or the browser zooms the
   page under it instead.
 - A diagram, mermaid or PlantUML, is never wider than the note: a wider one is
-  drawn smaller, and opens in the same viewer, which steps through the note's
-  diagrams. A click or a tap on it opens it, and with a pointer an Open button
-  shows in its corner on hover; a touch screen has no hover, and there the tap
-  is the way in, as for a picture. A link inside a diagram stays a link. The
-  viewer fits the diagram to the screen on a sheet of the page's color, or on
-  the card of a diagram with colors of its own: its lines are drawn for the
-  page, and on the dark backdrop alone a light page's diagram disappeared. A
-  diagram is vector, so it zooms to twice its own size even when that is more
-  than eight times the fitted one.
+  drawn smaller, and opens in the same viewer, alone: it does not step to the
+  note's other diagrams, as each stands in its own place in the text, and a
+  step took the reader away from it. A click or a tap on it opens it, and with
+  a pointer an Open button shows in its corner on hover; a touch screen has no
+  hover, and there the tap is the way in, as for a picture. A link inside a
+  diagram stays a link. The viewer fits the diagram to the screen on a sheet of
+  the page's color, or on the card of a diagram with colors of its own: its
+  lines are drawn for the page, and on the dark backdrop alone a light page's
+  diagram disappeared. A diagram is vector, so it zooms to twice its own size
+  even when that is more than eight times the fitted one.
 - History is a large dialog over the note at `/history/<path>`, so a link and
   Back still reach it: what the picked version changed on the left, the
   versions with the colored initial of their author and a tag on the right,

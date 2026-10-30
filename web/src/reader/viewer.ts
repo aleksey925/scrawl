@@ -470,7 +470,6 @@ export function openViewer(images: readonly HTMLImageElement[], start: HTMLImage
   return openItems(items, images.indexOf(start), 'Image viewer');
 }
 
-export function openDiagramViewer(diagrams: readonly SVGSVGElement[], start: SVGSVGElement): () => void {
-  const items = diagrams.map((svg): ViewerItem => ({ kind: 'diagram', svg }));
-  return openItems(items, diagrams.indexOf(start), 'Diagram viewer');
+export function openDiagramViewer(svg: SVGSVGElement): () => void {
+  return openItems([{ kind: 'diagram', svg }], 0, 'Diagram viewer');
 }

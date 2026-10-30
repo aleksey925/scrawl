@@ -43,7 +43,7 @@ const groups: readonly ShortcutGroup[] = [
       { keys: [altKey, 'R'], what: 'Regular expression' },
       { keys: ['E'], what: 'Edit the note', needs: 'editing' },
       { keys: ['↵'], what: 'Create a note that does not exist yet', needs: 'editing' },
-      { keys: ['←', '→'], what: 'Step through the pictures or diagrams in the viewer' },
+      { keys: ['←', '→'], what: 'Step through the pictures in the viewer' },
       { keys: ['+', '-'], what: 'Zoom in or out in the viewer' },
       { keys: ['0'], what: 'Fit the picture or diagram to the screen' },
       { keys: ['1'], what: 'Show it at its actual size' },

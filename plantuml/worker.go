@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime/debug"
 	"strings"
+	"sync/atomic"
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
@@ -132,28 +133,41 @@ func newEncoder(w io.Writer) *json.Encoder {
 }
 
 type engine struct {
+	out    *engineOutput
+	in     *io.PipeWriter
+	enc    *json.Encoder
+	dec    *json.Decoder
+	exited chan struct{}
+}
+
+type engineOutput struct {
+	w        io.Writer
 	instance api.Module
-	in       *io.PipeWriter
-	enc      *json.Encoder
-	dec      *json.Decoder
-	exited   chan struct{}
+	size     atomic.Uint32
+}
+
+func (o *engineOutput) Write(p []byte) (int, error) {
+	o.size.Store(o.instance.Memory().Size())
+	return o.w.Write(p)
 }
 
 func startEngine(ctx context.Context, runtime wazero.Runtime, module wazero.CompiledModule) (*engine, error) {
 	toEngine, engineIn := io.Pipe()
 	engineOut, fromEngine := io.Pipe()
+	out := &engineOutput{w: fromEngine}
 	cfg := wazero.NewModuleConfig().WithName("").WithStartFunctions().
-		WithStdin(toEngine).WithStdout(fromEngine).WithStderr(os.Stderr)
+		WithStdin(toEngine).WithStdout(out).WithStderr(os.Stderr)
 	instance, err := runtime.InstantiateModule(ctx, module, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("start the engine: %w", err)
 	}
+	out.instance = instance
 	e := &engine{
-		instance: instance,
-		in:       engineIn,
-		enc:      newEncoder(engineIn),
-		dec:      json.NewDecoder(engineOut),
-		exited:   make(chan struct{}),
+		out:    out,
+		in:     engineIn,
+		enc:    newEncoder(engineIn),
+		dec:    json.NewDecoder(engineOut),
+		exited: make(chan struct{}),
 	}
 	go func() {
 		defer close(e.exited)
@@ -169,7 +183,7 @@ func startEngine(ctx context.Context, runtime wazero.Runtime, module wazero.Comp
 }
 
 func (e *engine) memory() uint32 {
-	return e.instance.Memory().Size()
+	return e.out.size.Load()
 }
 
 func (e *engine) render(req request) (response, error) {

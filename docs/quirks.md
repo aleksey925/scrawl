@@ -186,6 +186,10 @@ words; the fact itself is written here.
   exits. A second engine in the same process took the worker from 115MB to
   1.1GB: Go clears the reserved 1GB when it reuses it, which touches every
   page. [Server](design/server.md#plantuml)
+- A wazero memory is safe to read only on the goroutine that runs its module:
+  read from another one while the engine grows it, its size is a data race. So
+  the worker takes the size when the engine writes its answer, on the engine's
+  own goroutine.
 - KaTeX's stylesheet says `font-display: block`, so formulas are typeset only
   after its faces load, or they paint blank and the page moves.
 - KaTeX empties the node before it builds, so on an error the source is put

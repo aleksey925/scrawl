@@ -70,6 +70,16 @@ func (p *heldPool) askCount() int {
 	return p.asks
 }
 
+type answeringPool struct {
+	res response
+}
+
+func (p answeringPool) Ask(context.Context, request) (response, error) {
+	return p.res, nil
+}
+
+func (answeringPool) Close() {}
+
 func TestSVG(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -464,7 +474,7 @@ func TestServe(t *testing.T) {
 			var out bytes.Buffer
 
 			// act
-			err := serve(strings.NewReader(tc.in), &out, retireBytes, maxSVG)
+			err := serve(strings.NewReader(tc.in), &out, retireBytes, workerCaps)
 
 			// assert
 			if tc.err != "" {
@@ -488,7 +498,7 @@ func TestServeRetiresAfterAnAnswerAboveTheMark(t *testing.T) {
 	var out bytes.Buffer
 
 	// act
-	err := serve(strings.NewReader(in), &out, 0, maxSVG)
+	err := serve(strings.NewReader(in), &out, 0, workerCaps)
 
 	// assert
 	require.NoError(t, err)
@@ -504,11 +514,52 @@ func TestServeRefusesADrawnDiagramAboveTheCap(t *testing.T) {
 	var out bytes.Buffer
 
 	// act
-	err := serve(strings.NewReader(in), &out, retireBytes, 1)
+	err := serve(strings.NewReader(in), &out, retireBytes, caps{svg: 1, errorText: maxErrorText})
 
 	// assert
 	require.NoError(t, err)
 	assert.Equal(t, []response{{Error: svgTooLarge}, {Error: svgTooLarge}}, readAnswers(t, &out))
+}
+
+func TestServeCutsALongError(t *testing.T) {
+	// arrange
+	message := strings.Repeat("x", 2*maxErrorText)
+	source := "@startuml\n!assert %false() : \"" + message + "\"\n@enduml"
+	req, err := json.Marshal(request{Source: source})
+	require.NoError(t, err)
+	var out bytes.Buffer
+
+	// act
+	err = serve(bytes.NewReader(req), &out, retireBytes, workerCaps)
+
+	// assert
+	require.NoError(t, err)
+	answers := readAnswers(t, &out)
+	require.Len(t, answers, 1)
+	want := "Assertion error : " + message
+	assert.Equal(t, want[:maxErrorText]+cutMark, answers[0].Error)
+}
+
+func TestCut(t *testing.T) {
+	tests := []struct {
+		name  string
+		text  string
+		limit int
+		want  string
+	}{
+		{name: "a text at the limit", text: "abc", limit: 3, want: "abc"},
+		{name: "a text above the limit", text: "abcd", limit: 3, want: "abc" + cutMark},
+		{name: "a letter split by the limit", text: "abЖ", limit: 3, want: "ab" + cutMark},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			got := cut(tc.text, tc.limit)
+
+			// assert
+			assert.Equal(t, tc.want, got)
+		})
+	}
 }
 
 func TestEngineRenderHandsOverTheLibrariesItAsksFor(t *testing.T) {
@@ -707,6 +758,22 @@ func TestInlineKeepsADiagramAsCodePastTheRoomForPictures(t *testing.T) {
 	assert.Equal(t, 1, strings.Count(out, "<img"))
 	assert.True(t, strings.HasSuffix(out, `<div class="md-diagram">`+block+
 		`<p class="md-diagram-error">`+html.EscapeString(tooLargeTogether)+`</p></div>`))
+}
+
+func TestInlineCountsAnErrorAgainstTheRoomForPictures(t *testing.T) {
+	// arrange
+	refusal := response{Error: "a refusal <long> enough"}
+	r := newRenderer(answeringPool{res: refusal})
+	block := `<pre class="plantuml">A -&gt; B</pre>`
+	room := len(html.EscapeString(refusal.Error))
+
+	// act
+	out, err := r.inline(context.Background(), block+block, room)
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, `<div class="md-diagram">`+block+`<p class="md-diagram-error">`+html.EscapeString(refusal.Error)+`</p></div>`+
+		`<div class="md-diagram">`+block+`<p class="md-diagram-error">`+html.EscapeString(tooLargeTogether)+`</p></div>`, out)
 }
 
 func TestLibraries(t *testing.T) {

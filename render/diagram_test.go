@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDiagramBlocks(t *testing.T) {
@@ -53,12 +54,42 @@ func TestDiagramBlocks(t *testing.T) {
 }
 
 func TestDiagramBlockText(t *testing.T) {
+	tests := []struct {
+		name   string
+		source string
+		want   string
+	}{
+		{
+			name:   "entities",
+			source: "!include &lt;C4/C4_Context&gt;\nA -&gt; B : &quot;x&quot; &amp; &#39;y&#39;",
+			want:   "!include <C4/C4_Context>\nA -> B : \"x\" & 'y'",
+		},
+		{
+			name:   "child markup",
+			source: `<code class="x">A -&gt; B : <b>bold</b></code>` + "\n<span>&lt;b&gt;</span>",
+			want:   "A -> B : bold\n<b>",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			text := DiagramBlock{Source: tc.source}.Text()
+
+			// assert
+			assert.Equal(t, tc.want, text)
+		})
+	}
+}
+
+func TestDiagramBlockTextOfARawBlockWithCode(t *testing.T) {
 	// arrange
-	block := DiagramBlock{Source: "!include &lt;C4/C4_Context&gt;\nA -&gt; B : &quot;x&quot; &amp; &#39;y&#39;"}
+	res, err := New(Options{}).Render([]byte("<pre class=\"plantuml\"><code>Alice -&gt; Bob</code></pre>\n"), "a.md")
+	require.NoError(t, err)
 
 	// act
-	text := block.Text()
+	blocks := DiagramBlocks(string(res.HTML), PlantUMLClass)
 
 	// assert
-	assert.Equal(t, "!include <C4/C4_Context>\nA -> B : \"x\" & 'y'", text)
+	require.Len(t, blocks, 1)
+	assert.Equal(t, "Alice -> Bob", blocks[0].Text())
 }

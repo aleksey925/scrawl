@@ -300,11 +300,17 @@ test.describe('plantuml', () => {
             'title Issue #7\nA -> B',
             'A -> B : "see #abc"',
             'skinparam participant {\n  FontSize 14\n}\nA -> B',
+            'A -> B : <size:18>big</size>',
+            'A -> B : <font size=18>big</font>',
+            'A -> B : the color: navy',
         ];
         const colored = [
             'class Car #pink',
             'A -[#red]-> B',
             'A -> B : <color:#red>hot</color>',
+            'A -> B : <color:navy>calm</color>',
+            'A -> B : <color navy>calm</color>',
+            'A -> B : <font color=navy>calm</font>',
             '#lightblue:read;',
             'participant "Bob: api" as B #EFE\nA -> B',
             'skinparam {\n  BackgroundColor White\n}\nA -> B',

@@ -95,6 +95,9 @@ Spaces, routes, settings and the guards on every request.
   blocks, a fence's and those in the note's own HTML. `render.DiagramBlocks`
   finds them, and a mermaid block the same way. A class that only starts with
   the name, such as `plantuml-source`, is not a diagram.
+- The engine gets the text of the block as the browser reads it: the tags
+  inside it, such as a `<code>`, are dropped and entities such as `&lt;` are
+  decoded.
 - The engine runs in worker processes, copies of this binary started with
   `SCRAWL_PLANTUML_WORKER` set, which `main` hands to
   `plantuml.RunWorkerIfAsked` before anything else, as it does for the
@@ -106,11 +109,15 @@ Spaces, routes, settings and the guards on every request.
   again into the page. The worker answers that it is too large instead, and
   that answer is kept like a refusal: the diagram stays code, with the reason
   under it.
+- An error of the engine is cut to 1KB by the worker: a short source can make
+  the engine repeat a long text in its error, as `!assert` does.
 - The pictures of one page take up to 32MB of base64 together. A note can name
   the same diagram thousands of times, and each copy after the first comes from
   the cache at no cost, so without this bound a 2MB note could grow into
   gigabytes of HTML. A diagram that does not fit stays code, with the reason
-  under it, and a smaller one after it can still fit.
+  under it, and a smaller one after it can still fit. The reason written under
+  a diagram that stays code counts toward the 32MB too; when it does not fit,
+  the reason is that the diagrams are too large to embed together.
 - A diagram has two minutes, counted from the moment the worker takes it, so
   waiting for the worker behind another export does not use them up. Past them
   the process is killed. That limit is only there to stop an engine that never

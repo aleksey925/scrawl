@@ -67,12 +67,13 @@ opens over them.
   the text of the `pre` and nothing else, so the head is never inside it.
 - A PlantUML diagram takes PlantUML's own dark mode in a dark theme, unless it
   sets colors of its own: a color on an element, a `skinparam` color, also one
-  inside a `skinparam` block, a `<style>`, a `<back:>`, a `!theme` or a library
-  from `!include <...>`. Such a diagram is drawn as its author made it, light,
-  on a card of the theme's `diagramPaper`. PlantUML's dark mode turns only its
-  own colors dark, so its light text landed on the author's light fills and
-  could not be read. A `#` in a label, a quoted text or a title, as in
-  `closes #123`, is not a color.
+  inside a `skinparam` block, a `<style>`, a `<back:>`, a text color in
+  `<color:navy>` or `<font color=navy>`, a `!theme` or a library from
+  `!include <...>`. Such a diagram is drawn as its author made it, light, on a
+  card of the theme's `diagramPaper`. PlantUML's dark mode turns only its own
+  colors dark, so its light text landed on the author's light fills and could
+  not be read. A `#` in a label, a quoted text or a title, as in `closes #123`,
+  is not a color.
 - Nothing selected is shown as nothing. An empty note, an empty folder and an
   empty preview each say what they are through `EmptyState`, a gray title as
   Notion has it, with the next step as a button, and an open folder with no
@@ -98,12 +99,14 @@ opens over them.
   or down on a trackpad zoomed instead. `+`, `-`, `0` and `1` zoom from the
   keyboard. A bar at the bottom zooms out and in, fits back, and shows the zoom
   against the picture's own size; a click on that number shows the actual size.
-  On a touch screen two fingers pinch and a double tap toggles, and a single
-  tap on the picture does nothing, so the first tap of a double tap does not
-  close it. A zoomed picture is dragged by one finger or the mouse and never
-  leaves a gap at an edge. A swipe steps to the next picture only when it is
-  not zoomed, and a step fits the next one. The dialog takes
-  `touch-action: none`, or the browser zooms the page under it instead.
+  The size is read in fractions of a pixel: in whole pixels a narrow, tall
+  picture was a few percent off. On a touch screen two fingers pinch and a
+  double tap toggles, and a single tap on the picture does nothing, so the
+  first tap of a double tap does not close it. A zoomed picture is dragged by
+  one finger or the mouse and never leaves a gap at an edge. A swipe steps to
+  the next picture only when it is not zoomed, and a step fits the next one.
+  The dialog takes `touch-action: none`, or the browser zooms the page under it
+  instead.
 - A diagram, mermaid or PlantUML, is never wider than the note: a wider one is
   drawn smaller, and opens in the same viewer, alone: it does not step to the
   note's other diagrams, as each stands in its own place in the text, and a

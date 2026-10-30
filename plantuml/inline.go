@@ -26,11 +26,10 @@ func (r *Renderer) inline(ctx context.Context, fragment string, room int) (strin
 	for _, block := range render.DiagramBlocks(fragment, render.PlantUMLClass) {
 		out.WriteString(fragment[last:block.Start])
 		drawn, size, err := r.figure(ctx, block.Text(), room)
-		if err == nil {
-			room -= size
-		} else {
-			drawn, err = keptAsCode(fragment[block.Start:block.End], err)
+		if err != nil {
+			drawn, size, err = keptAsCode(fragment[block.Start:block.End], err, room)
 		}
+		room -= size
 		if err != nil {
 			failures = append(failures, err)
 		}
@@ -58,13 +57,18 @@ func (r *Renderer) figure(ctx context.Context, source string, room int) (string,
 		`<img alt="PlantUML diagram" src="` + src + `"></div></div>`, size, nil
 }
 
-func keptAsCode(block string, err error) (string, error) {
+func keptAsCode(block string, err error, room int) (string, int, error) {
 	message := err.Error()
 	var failure error
 	var diagramErr *diagramError
 	if !errors.As(err, &diagramErr) {
 		message, failure = "the diagram could not be rendered", err
 	}
-	note := `<p class="md-diagram-error">` + html.EscapeString(message) + `</p>`
-	return `<div class="md-diagram">` + block + note + `</div>`, failure
+	reason := html.EscapeString(message)
+	size := len(reason)
+	if size > room {
+		reason, size = html.EscapeString(tooLargeTogether), 0
+	}
+	note := `<p class="md-diagram-error">` + reason + `</p>`
+	return `<div class="md-diagram">` + block + note + `</div>`, size, failure
 }

@@ -175,6 +175,18 @@ function zoomOf(stage: Stage, frame: HTMLElement, changed: () => void): Zoom {
   };
 }
 
+function layoutBox(element: HTMLElement): Size {
+  const style = getComputedStyle(element);
+  return { width: Number.parseFloat(style.width) || 0, height: Number.parseFloat(style.height) || 0 };
+}
+
+function containedWidth(natural: Size, box: Size): number {
+  if (natural.width === 0 || natural.height === 0) {
+    return box.width;
+  }
+  return natural.width * Math.min(box.width / natural.width, box.height / natural.height);
+}
+
 function imageStage(image: HTMLImageElement, loaded: () => void): Stage {
   const picture = document.createElement('img');
   picture.className = 'md-viewer-image';
@@ -186,7 +198,11 @@ function imageStage(image: HTMLImageElement, loaded: () => void): Stage {
   return {
     element: picture,
     natural: () => ({ width: picture.naturalWidth, height: picture.naturalHeight }),
-    shown: () => picture.offsetWidth,
+    shown: () =>
+      containedWidth(
+        { width: picture.naturalWidth, height: picture.naturalHeight },
+        layoutBox(picture),
+      ),
     fit: () => {},
     caption: imageCaption(image),
   };

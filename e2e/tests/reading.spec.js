@@ -1,3 +1,5 @@
+const zlib = require('node:zlib');
+
 const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
@@ -17,6 +19,34 @@ const EMPHASIS = 'e2e-emphasis.md';
 const DIAGRAM = 'e2e-diagram.md';
 const DIAGRAM_VIEWER = 'e2e-diagram-viewer.md';
 const LOOK = 'e2e-look.md';
+const TALL = 'e2e-tall.md';
+const TALL_PICTURE = 'e2e-tall.png';
+
+function pngChunk(type, data) {
+    const head = Buffer.alloc(4);
+    head.writeUInt32BE(data.length);
+    const named = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(zlib.crc32(named));
+    return Buffer.concat([head, named, crc]);
+}
+
+function grayPng(width, height) {
+    const header = Buffer.alloc(13);
+    header.writeUInt32BE(width, 0);
+    header.writeUInt32BE(height, 4);
+    header[8] = 8;
+    const rows = Buffer.alloc((width + 1) * height, 128);
+    for (let row = 0; row < height; row++) {
+        rows[row * (width + 1)] = 0;
+    }
+    return Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        pngChunk('IHDR', header),
+        pngChunk('IDAT', zlib.deflateSync(rows)),
+        pngChunk('IEND', Buffer.alloc(0)),
+    ]);
+}
 
 function anchorDocument() {
     const filler = Array.from(
@@ -32,6 +62,8 @@ test.describe('reading', () => {
 
     test.afterEach(() => {
         removeFixture(DIAGRAM_VIEWER);
+        removeFixture(TALL);
+        removeFixture(TALL_PICTURE);
     });
 
     test('the root page lists the root folder, its index a row tagged as the folder page', async ({page}) => {
@@ -368,6 +400,31 @@ test.describe('reading', () => {
         // assert
         await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
         await expect(page.getByTestId('doc-image').first()).toBeFocused();
+    });
+
+    test('the viewer counts the zoom of a narrow, tall picture in fractions of a pixel', async ({page}) => {
+        // arrange
+        const natural = {width: 120, height: 3000};
+        writeFixture(TALL_PICTURE, grayPng(natural.width, natural.height));
+        writeFixture(TALL, `# Tall\n\n![tall](${TALL_PICTURE})\n`);
+        await page.goto(routes.doc(TALL));
+        await page.getByTestId('doc-image').first().click();
+        const picture = page.getByTestId('doc-lightbox-image');
+        const percent = page.getByTestId('doc-lightbox-zoom');
+        await expect.poll(() => picture.evaluate((el) => el.complete && el.naturalHeight)).toBe(natural.height);
+        await expect(percent).toHaveText(/^\d+%$/);
+        const drawnHeight = () => picture.evaluate((el) => el.getBoundingClientRect().height);
+        const fitted = Number.parseInt(await percent.textContent(), 10);
+        const fittedHeight = await picture.evaluate((el) => Number.parseFloat(getComputedStyle(el).height));
+
+        // act
+        await page.keyboard.press('1');
+
+        // assert
+        expect(fitted).toBeLessThan(100);
+        expect(Math.abs(fitted - (fittedHeight * 100) / natural.height)).toBeLessThanOrEqual(1);
+        await expect(percent).toHaveText('100%');
+        await expect.poll(async () => Math.abs(await drawnHeight() - natural.height)).toBeLessThanOrEqual(3);
     });
 
     test('the viewer zooms a picture with its buttons', async ({page}) => {

@@ -21,6 +21,8 @@ const ownColorLines = [
   /^skinparam\s+\S*colou?r/i,
   /^<style>/,
   /<back:/,
+  /<color[\s:]/,
+  /<font\b[^>]*\scolor\s*=/,
   /\bis colored\b/,
   new RegExp(`[[<]${colorLiteral}`),
   new RegExp(`<\\w+:${colorLiteral}`),

@@ -29,6 +29,18 @@ const (
 )
 
 const (
+	maxErrorText = 1 << 10
+	cutMark      = "..."
+)
+
+type caps struct {
+	svg       int
+	errorText int
+}
+
+var workerCaps = caps{svg: maxSVG, errorText: maxErrorText}
+
+const (
 	memoryPages = 16384
 	retireBytes = 256 << 20
 )
@@ -49,11 +61,11 @@ func RunWorkerIfAsked() {
 
 func runWorkerIfAsked(retireAt uint32) {
 	workerpool.RunIfAsked(workerEnv, workerName, func(in io.Reader, out io.Writer) error {
-		return serve(in, out, retireAt, maxSVG)
+		return serve(in, out, retireAt, workerCaps)
 	})
 }
 
-func serve(in io.Reader, out io.Writer, retireAt uint32, svgCap int) error {
+func serve(in io.Reader, out io.Writer, retireAt uint32, limits caps) error {
 	wasm, err := gzassets.Sub(engineFiles, engineDir).ReadFile(engineFile)
 	if err != nil {
 		return fmt.Errorf("read the engine: %w", err)
@@ -90,9 +102,10 @@ func serve(in io.Reader, out io.Writer, retireAt uint32, svgCap int) error {
 			fmt.Fprintf(os.Stderr, "%s: %s\n", workerName, cause)
 			res = response{Error: engineFailed, Retire: true}
 		} else {
-			if len(res.SVG) > svgCap {
+			if len(res.SVG) > limits.svg {
 				res = response{Error: svgTooLarge}
 			}
+			res.Error = cut(res.Error, limits.errorText)
 			res.Retire = eng.memory() > retireAt
 		}
 		if err = answers.Encode(res); err != nil {
@@ -103,6 +116,13 @@ func serve(in io.Reader, out io.Writer, retireAt uint32, svgCap int) error {
 		}
 		debug.FreeOSMemory()
 	}
+}
+
+func cut(text string, limit int) string {
+	if len(text) <= limit {
+		return text
+	}
+	return strings.ToValidUTF8(text[:limit], "") + cutMark
 }
 
 func newEncoder(w io.Writer) *json.Encoder {

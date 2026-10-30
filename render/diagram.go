@@ -25,7 +25,7 @@ type DiagramBlock struct {
 }
 
 func (b DiagramBlock) Text() string {
-	return html.UnescapeString(b.Source)
+	return html.UnescapeString(reHTMLTag.ReplaceAllString(b.Source, ""))
 }
 
 func DiagramBlocks(fragment, class string) []DiagramBlock {

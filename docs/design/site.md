@@ -39,10 +39,10 @@ A space written out as static pages that run the app's reader.
   17MB. The scan reads the whole note, not only its diagrams, so an include
   quoted in another block ships its library too: a file missing breaks a
   diagram, one too many only takes space. It also reads the text of each
-  diagram as the browser hands it to the engine, with entities such as `&lt;`
-  decoded, so a diagram written as raw HTML, as in
-  `<pre class="plantuml">!include &lt;C4/C4_Context&gt;`, ships its library
-  too. An include can name its library through a variable, as in
+  diagram as the browser hands it to the engine, its text without the tags
+  inside it and with entities such as `&lt;` decoded, so a diagram written as
+  raw HTML, as in `<pre class="plantuml">!include &lt;C4/C4_Context&gt;`, ships
+  its library too. An include can name its library through a variable, as in
   `!include <$lib/C4>`; the scan then takes every value the note gives that
   variable in a line like `!$lib = "C4"`, with `!global`, `!local` or `?=` too.
   A name built any other way, by a function or from other variables, is not

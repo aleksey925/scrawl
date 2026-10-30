@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"html"
 	"image/png"
 	"io"
 	"net/http"
@@ -675,6 +676,39 @@ func TestInlineAfterTheContextIsDone(t *testing.T) {
 	assert.Contains(t, out, late+`<p class="md-diagram-error">the diagram could not be rendered</p>`)
 }
 
+func TestInlineFindsADiagramByItsClass(t *testing.T) {
+	// arrange
+	other := `<pre class="plantuml-source">A -&gt; B : not a diagram</pre>`
+
+	// act
+	out, err := shared.Inline(context.Background(), `<pre id="a" class="note plantuml">A -&gt; B : drawn</pre>`+other)
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, 1, strings.Count(out, "<img"))
+	assert.True(t, strings.HasSuffix(out, other), "a pre whose class only starts with plantuml stays as it is")
+}
+
+func TestInlineKeepsADiagramAsCodePastTheRoomForPictures(t *testing.T) {
+	// arrange
+	pool := newHeldPool()
+	close(pool.release)
+	r := newRenderer(pool)
+	source := "A -> B : drawn once"
+	diagram, _ := withStart(source)
+	room := base64.StdEncoding.EncodedLen(len("<svg>" + diagram + "</svg>"))
+	block := `<pre class="plantuml">` + html.EscapeString(source) + `</pre>`
+
+	// act
+	out, err := r.inline(context.Background(), block+block, room)
+
+	// assert
+	require.NoError(t, err, "a note whose diagrams take too much room is not a failure of the renderer")
+	assert.Equal(t, 1, strings.Count(out, "<img"))
+	assert.True(t, strings.HasSuffix(out, `<div class="md-diagram">`+block+
+		`<p class="md-diagram-error">`+html.EscapeString(tooLargeTogether)+`</p></div>`))
+}
+
 func TestLibraries(t *testing.T) {
 	tests := []struct {
 		name string
@@ -833,7 +867,7 @@ func TestInlineDrawsEveryExample(t *testing.T) {
 			// assert
 			require.NoError(t, err)
 			assert.NotContains(t, out, "md-diagram-error")
-			assert.Equal(t, strings.Count(string(res.HTML), render.OpenPlantUML), strings.Count(out, "<img"))
+			assert.Equal(t, len(render.DiagramBlocks(string(res.HTML), render.PlantUMLClass)), strings.Count(out, "<img"))
 		})
 	}
 }

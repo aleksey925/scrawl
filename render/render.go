@@ -134,8 +134,8 @@ func (r *Renderer) Render(src []byte, docPath string) (Result, error) {
 		HTML:     out,
 		Title:    title,
 		TOC:      toc,
-		Mermaid:  strings.Contains(string(out), openMermaid),
-		PlantUML: strings.Contains(string(out), OpenPlantUML),
+		Mermaid:  hasDiagram(string(out), mermaidClass),
+		PlantUML: hasDiagram(string(out), PlantUMLClass),
 		Math:     mathClass.MatchString(string(out)),
 	}, nil
 }

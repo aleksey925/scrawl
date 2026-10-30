@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	openMermaid      = `<pre class="mermaid"`
-	OpenPlantUML     = `<pre class="plantuml"`
+	openMermaid      = `<pre class="` + mermaidClass + `"`
+	OpenPlantUML     = `<pre class="` + PlantUMLClass + `"`
 	closePre         = "</pre>\n"
 	openDisplayMath  = `<div class="math math-display"`
 	closeDisplayMath = "</div>\n"

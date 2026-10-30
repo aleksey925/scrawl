@@ -49,6 +49,16 @@ func TestRenderReportsDiagrams(t *testing.T) {
 			want: diagrams{mermaid: true, plantUML: true},
 		},
 		{name: "code that names them", src: "```go\n// mermaid plantuml\n```\n", want: diagrams{}},
+		{
+			name: "raw html with the class among others",
+			src:  "<pre id=\"a\" class=\"mermaid\">graph TD;</pre>\n\n<pre class=\"note plantuml\">A -> B</pre>\n",
+			want: diagrams{mermaid: true, plantUML: true},
+		},
+		{
+			name: "raw html with a class that only starts with the name",
+			src:  "<pre class=\"mermaid-source\">x</pre>\n\n<pre class=\"plantuml-source\">A -> B</pre>\n",
+			want: diagrams{},
+		},
 		{name: "no fence at all", src: "# A\n\ntext\n", want: diagrams{}},
 	}
 	r := New(Options{})

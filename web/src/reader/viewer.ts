@@ -248,8 +248,8 @@ function diagramStage(svg: SVGSVGElement, room: HTMLElement): Stage {
         natural.width === 0 || natural.height === 0
           ? 1
           : Math.min(1, (space.width - across) / natural.width, (space.height - down) / natural.height);
-      const width = Math.max(1, Math.floor(natural.width * ratio));
-      const height = Math.max(1, Math.floor(natural.height * ratio));
+      const width = Math.max(1, natural.width * ratio);
+      const height = Math.max(1, natural.height * ratio);
       drawing.setAttribute('width', String(width));
       drawing.setAttribute('height', String(height));
       drawing.style.width = `${width}px`;

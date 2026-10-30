@@ -493,6 +493,32 @@ test.describe('reading', () => {
         await expect.poll(async () => Math.abs(await actual() - natural)).toBeLessThanOrEqual(1);
     });
 
+    test('the viewer keeps the shape of a very wide, low diagram, so its actual size is its own width', async ({page}) => {
+        // arrange
+        const nodes = Array.from({length: 80}, (_, i) => `N${i}`).join(' --> ');
+        writeFixture(DIAGRAM_VIEWER, `# Long\n\n\`\`\`mermaid\nflowchart LR\n  ${nodes}\n\`\`\`\n`);
+        await page.goto(routes.doc(DIAGRAM_VIEWER));
+        const frame = page.getByTestId('diagram-frame');
+        const box = await frame.locator(':scope > svg')
+            .evaluate((el) => ({width: el.viewBox.baseVal.width, height: el.viewBox.baseVal.height}));
+        await frame.click();
+        const percent = page.getByTestId('doc-lightbox-zoom');
+        await expect(percent).toHaveText(/^\d+%$/);
+        const drawing = page.getByTestId('doc-lightbox-diagram').locator('svg');
+        const scaleOf = () => drawing.evaluate((el) => el.getScreenCTM().a);
+        const fitted = Number.parseInt(await percent.textContent(), 10);
+        const fittedScale = await scaleOf();
+
+        // act
+        await page.keyboard.press('1');
+
+        // assert
+        expect(box.width / box.height).toBeGreaterThan(80);
+        expect(Math.abs(fitted - fittedScale * 100)).toBeLessThanOrEqual(1);
+        await expect(percent).toHaveText('100%');
+        await expect.poll(async () => Math.abs(await scaleOf() - 1)).toBeLessThanOrEqual(0.01);
+    });
+
     test('the viewer\'s copy of a diagram shares no id with the note', async ({page}) => {
         // arrange
         writeFixture(DIAGRAM_VIEWER, '# Ids\n\n```mermaid\nflowchart LR\n  A --> B\n```\n');

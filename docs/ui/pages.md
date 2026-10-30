@@ -99,14 +99,15 @@ opens over them.
   or down on a trackpad zoomed instead. `+`, `-`, `0` and `1` zoom from the
   keyboard. A bar at the bottom zooms out and in, fits back, and shows the zoom
   against the picture's own size; a click on that number shows the actual size.
-  The size is read in fractions of a pixel: in whole pixels a narrow, tall
-  picture was a few percent off. On a touch screen two fingers pinch and a
-  double tap toggles, and a single tap on the picture does nothing, so the
-  first tap of a double tap does not close it. A zoomed picture is dragged by
-  one finger or the mouse and never leaves a gap at an edge. A swipe steps to
-  the next picture only when it is not zoomed, and a step fits the next one.
-  The dialog takes `touch-action: none`, or the browser zooms the page under it
-  instead.
+  The size is read, and a diagram fitted, in fractions of a pixel: in whole
+  pixels a narrow, tall picture was a few percent off, and a very wide, low
+  diagram lost its shape, so its actual size was wrong. On a touch screen two
+  fingers pinch and a double tap toggles, and a single tap on the picture does
+  nothing, so the first tap of a double tap does not close it. A zoomed picture
+  is dragged by one finger or the mouse and never leaves a gap at an edge. A
+  swipe steps to the next picture only when it is not zoomed, and a step fits
+  the next one. The dialog takes `touch-action: none`, or the browser zooms the
+  page under it instead.
 - A diagram, mermaid or PlantUML, is never wider than the note: a wider one is
   drawn smaller, and opens in the same viewer, alone: it does not step to the
   note's other diagrams, as each stands in its own place in the text, and a

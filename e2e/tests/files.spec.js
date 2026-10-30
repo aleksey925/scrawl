@@ -569,7 +569,7 @@ test.describe('file pages', () => {
         await expect(page.getByTestId('doc-lightbox')).toBeVisible();
     });
 
-    test('the wheel and the keys zoom the picture, and Escape still closes the viewer', async ({page}) => {
+    test('the wheel with Ctrl and the keys zoom the picture, the wheel alone moves it, and Escape closes', async ({page}) => {
         // arrange
         await page.goto(routes.doc(`${PAGES}/big.svg`));
         await page.getByTestId('file-preview').click();
@@ -581,8 +581,16 @@ test.describe('file pages', () => {
 
         // act
         await page.mouse.wheel(0, -300);
+        await expect(picture).toHaveAttribute('data-zoomed', 'false');
+        await page.keyboard.down('Control');
+        await page.mouse.wheel(0, -300);
+        await page.keyboard.up('Control');
 
         // assert
+        await expect(picture).toHaveAttribute('data-zoomed', 'true');
+        const zoomed = await picture.boundingBox();
+        await page.mouse.wheel(0, 200);
+        await expect.poll(async () => (await picture.boundingBox()).y).toBeLessThan(zoomed.y);
         await expect(picture).toHaveAttribute('data-zoomed', 'true');
         await page.keyboard.press('0');
         await expect(picture).toHaveAttribute('data-zoomed', 'false');

@@ -90,16 +90,18 @@ opens over them.
   picture gives way to its caption and is not capped in `vh`: with mobile
   Safari's bars out, the two stood taller than the dialog and were cut off.
 - The viewer zooms. A click on the picture zooms to its full size at that point
-  and a second click fits it back, the wheel and a trackpad pinch zoom around
-  the pointer, `+`, `-`, `0` and `1` zoom from the keyboard. A bar at the
-  bottom zooms out and in, fits back, and shows the zoom against the picture's
-  own size; a click on that number shows the actual size. On a touch screen two
-  fingers pinch and a double tap toggles, and a single tap on the picture does
-  nothing, so the first tap of a double tap does not close it. A zoomed picture
-  is dragged by one finger or the mouse and never leaves a gap at an edge. A
-  swipe steps to the next picture only when it is not zoomed, and a step fits
-  the next one. The dialog takes `touch-action: none`, or the browser zooms the
-  page under it instead.
+  and a second click fits it back. A trackpad pinch, and the wheel with Ctrl or
+  Cmd, zoom around the pointer; the wheel alone and a two-finger swipe move a
+  zoomed picture, as they scroll a page: when the swipe zoomed, every move up
+  or down on a trackpad zoomed instead. `+`, `-`, `0` and `1` zoom from the
+  keyboard. A bar at the bottom zooms out and in, fits back, and shows the zoom
+  against the picture's own size; a click on that number shows the actual size.
+  On a touch screen two fingers pinch and a double tap toggles, and a single
+  tap on the picture does nothing, so the first tap of a double tap does not
+  close it. A zoomed picture is dragged by one finger or the mouse and never
+  leaves a gap at an edge. A swipe steps to the next picture only when it is
+  not zoomed, and a step fits the next one. The dialog takes
+  `touch-action: none`, or the browser zooms the page under it instead.
 - A diagram, mermaid or PlantUML, is never wider than the note: a wider one is
   drawn smaller, and opens in the same viewer, alone: it does not step to the
   note's other diagrams, as each stands in its own place in the text, and a

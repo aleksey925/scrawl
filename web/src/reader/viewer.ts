@@ -6,8 +6,8 @@ const doubleTapMs = 300;
 const maxScale = 8;
 const ceilingOverActual = 2;
 const keyStep = 1.5;
-const wheelStep = 0.002;
 const pinchWheelStep = 0.01;
+const wheelStepMax = 50;
 const wheelLine = 16;
 
 const chevronLeft = 'M15 6l-6 6l6 6';
@@ -24,6 +24,12 @@ const fitIcon =
 const paperClass = 'md-diagram-paper';
 
 type Point = { x: number; y: number };
+
+interface PinchGesture extends UIEvent {
+  scale: number;
+  clientX: number;
+  clientY: number;
+}
 
 type Size = { width: number; height: number };
 
@@ -417,12 +423,34 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
       if (zoom === null) {
         return;
       }
-      const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * wheelLine : event.deltaY;
-      const rate = event.ctrlKey ? pinchWheelStep : wheelStep;
-      zoom.zoomTo(zoom.scale() * Math.exp(-delta * rate), pointOf(event), false);
+      const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? wheelLine : 1;
+      if (event.ctrlKey || event.metaKey) {
+        const delta = Math.max(-wheelStepMax, Math.min(wheelStepMax, event.deltaY * unit));
+        zoom.zoomTo(zoom.scale() * Math.exp(-delta * pinchWheelStep), pointOf(event), false);
+        return;
+      }
+      const across = event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX;
+      const down = event.shiftKey && event.deltaX === 0 ? 0 : event.deltaY;
+      zoom.panBy(-across * unit, -down * unit);
     },
     { passive: false },
   );
+  let pinchFrom = 1;
+  dialog.addEventListener('gesturestart', (event) => {
+    event.preventDefault();
+    pinchFrom = zoom?.scale() ?? 1;
+  });
+  dialog.addEventListener('gesturechange', (event) => {
+    event.preventDefault();
+    if (zoom === null || pointers.size > 0) {
+      return;
+    }
+    const pinch = event as PinchGesture;
+    zoom.zoomTo(pinchFrom * pinch.scale, { x: pinch.clientX, y: pinch.clientY }, false);
+  });
+  dialog.addEventListener('gestureend', (event) => {
+    event.preventDefault();
+  });
   dialog.addEventListener('keydown', (event) => {
     if (several && event.key === 'ArrowRight') {
       step(1);

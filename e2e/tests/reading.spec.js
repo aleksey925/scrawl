@@ -437,6 +437,44 @@ test.describe('reading', () => {
         removeFixture(DIAGRAM_VIEWER);
     });
 
+    test('in the viewer the wheel moves a zoomed diagram, and a pinch zooms it', async ({page}) => {
+        // arrange
+        const nodes = Array.from({length: 10}, (_, i) => `N${i}[Step ${i}]`).join(' --> ');
+        writeFixture(DIAGRAM_VIEWER, `# Pinch\n\n\`\`\`mermaid\nflowchart LR\n  ${nodes}\n\`\`\`\n`);
+        await page.goto(routes.doc(DIAGRAM_VIEWER));
+        await page.getByTestId('diagram-frame').click();
+        const diagram = page.getByTestId('doc-lightbox-diagram');
+        const percent = page.getByTestId('doc-lightbox-zoom');
+        await expect(percent).toHaveText(/^\d+%$/);
+        const level = async () => Number.parseInt(await percent.textContent(), 10);
+        const fitted = await level();
+        const send = (type, fields) => page.getByTestId('doc-lightbox').evaluate((dialog, [name, init]) => {
+            const event = name === 'wheel'
+                ? new WheelEvent('wheel', {bubbles: true, cancelable: true, clientX: innerWidth / 2, clientY: innerHeight / 2, ...init})
+                : Object.assign(new Event(name, {bubbles: true, cancelable: true}), {clientX: innerWidth / 2, clientY: innerHeight / 2, ...init});
+            dialog.dispatchEvent(event);
+        }, [type, fields]);
+
+        // act & assert
+        await send('wheel', {deltaY: 120});
+        expect(await level()).toBe(fitted);
+        await send('wheel', {deltaY: -40, ctrlKey: true});
+        await expect.poll(level).toBeGreaterThan(fitted);
+        await page.keyboard.press('0');
+        await send('gesturestart', {scale: 1});
+        await send('gesturechange', {scale: 2});
+        await expect.poll(level).toBe(fitted * 2);
+        const before = await diagram.boundingBox();
+        await send('wheel', {deltaX: 30});
+        const after = await diagram.boundingBox();
+        expect(after.x).toBeLessThan(before.x);
+        await send('wheel', {shiftKey: true, deltaY: 40});
+        expect((await diagram.boundingBox()).x).toBeLessThan(after.x);
+        expect(await level()).toBe(fitted * 2);
+
+        removeFixture(DIAGRAM_VIEWER);
+    });
+
     test('the copy button copies a code block', async ({page}) => {
         await page.goto(routes.doc(DOC.path));
         const block = page.getByTestId('doc-code').first();

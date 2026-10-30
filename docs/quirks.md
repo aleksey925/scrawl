@@ -145,6 +145,10 @@ words; the fact itself is written here.
   (11690px). It is checked after the layout and bounds no work, so it is off.
 - PlantUML's dark mode paints `#1B1B1B` behind a Graphviz diagram and nothing
   behind a sequence one; that default backdrop is removed.
+- A trackpad pinch reaches Chromium and Firefox as a wheel event with `ctrlKey`
+  set, and Safari on a Mac as its own `gesturestart` and `gesturechange`, with
+  no wheel at all. iOS Safari sends those as well as the touch pointers, so the
+  viewer reads them only while no pointer is down.
 - PlantUML's dark mode makes its text light and leaves the colors a diagram
   sets itself as they are, so a `box #EEF` came out light text on a light fill.
   `#name` at the start of a class member is a visibility, not a color.

@@ -113,6 +113,14 @@ opens over them.
   lines are drawn for the page, and on the dark backdrop alone a light page's
   diagram disappeared. A diagram is vector, so it zooms to twice its own size
   even when that is more than eight times the fitted one.
+- A diagram not drawn yet hides its source, which only flashed before the
+  picture. A card with a moving shine and a diagram icon stands in its place
+  from the first frame: an empty place read as a page that broke. The card is
+  the height of the source, between 120px and 320px. Each diagram replaces its
+  card as soon as it is drawn, and a mermaid one does not wait for PlantUML's
+  engine to load, nor PlantUML for mermaid's. A diagram that could not be drawn
+  shows its source again under the error, and one drawn again for a new theme
+  keeps the old picture until the new one is ready.
 - History is a large dialog over the note at `/history/<path>`, so a link and
   Back still reach it: what the picked version changed on the left, the
   versions with the colored initial of their author and a tag on the right,

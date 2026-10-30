@@ -48,6 +48,7 @@ function wrap(pre: HTMLElement, kind: Kind): Diagram {
 
   const box = document.createElement('div');
   box.className = 'md-diagram';
+  box.dataset.state = 'drawing';
   pre.parentNode?.insertBefore(box, pre);
   box.append(pre);
 
@@ -222,24 +223,23 @@ function kindOf(pre: HTMLElement): Kind | undefined {
   return diagramKinds.find((kind) => pre.matches(kind.selector));
 }
 
-async function prepareAll(diagrams: Diagram[], loaders: DiagramLoaders, dark: boolean): Promise<Map<Kind, Draw>> {
-  const used = Array.from(new Set(diagrams.map((item) => item.kind)));
-  const prepared = await Promise.all(
-    used.map(async (kind) => {
-      try {
-        return [kind, await kind.prepare(loaders, dark)] as const;
-      } catch {
-        return [kind, undefined] as const;
-      }
-    }),
-  );
-  const draws = new Map<Kind, Draw>();
-  for (const [kind, draw] of prepared) {
-    if (draw !== undefined) {
-      draws.set(kind, draw);
-    }
+async function prepare(kind: Kind, loaders: DiagramLoaders, dark: boolean): Promise<Draw | undefined> {
+  try {
+    return await kind.prepare(loaders, dark);
+  } catch {
+    return undefined;
   }
-  return draws;
+}
+
+async function drawOne(draw: Draw | undefined, item: Diagram, id: string): Promise<Drawn> {
+  if (draw === undefined) {
+    return { item, error: 'Could not load the diagram renderer.' };
+  }
+  try {
+    return { item, svg: await draw(id, item.source) };
+  } catch (error) {
+    return { item, error: firstLine(error) };
+  }
 }
 
 export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: boolean): () => void {
@@ -268,38 +268,26 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
   root.addEventListener('click', openOnClick);
 
   let cancelled = false;
-  const run = (async () => {
-    const draws = await prepareAll(items, loaders, dark);
-    if (cancelled) {
-      return;
-    }
-
-    pass += 1;
-    const thisPass = pass;
-    const drawn: Drawn[] = [];
+  pass += 1;
+  const thisPass = pass;
+  const drawKind = async (kind: Kind): Promise<void> => {
+    const draw = await prepare(kind, loaders, dark);
     for (const [index, item] of items.entries()) {
-      const draw = draws.get(item.kind);
-      if (draw === undefined) {
-        drawn.push({ item, error: 'Could not load the diagram renderer.' });
-        continue;
-      }
-      try {
-        drawn.push({ item, svg: await draw(`md-${item.kind.name}-${thisPass}-${index}`, item.source) });
-      } catch (error) {
-        drawn.push({ item, error: firstLine(error) });
-      }
       if (cancelled) {
         return;
       }
-    }
-
-    preserveScroll(root, () => {
-      for (const result of drawn) {
-        place(result);
+      if (item.kind !== kind) {
+        continue;
       }
-    });
-  })();
-  track(run);
+      const result = await drawOne(draw, item, `md-${kind.name}-${thisPass}-${index}`);
+      if (cancelled) {
+        return;
+      }
+      preserveScroll(root, () => place(result));
+    }
+  };
+  const kinds = Array.from(new Set(items.map((item) => item.kind)));
+  track(Promise.all(kinds.map(drawKind)));
 
   return () => {
     cancelled = true;

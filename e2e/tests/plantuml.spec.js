@@ -65,6 +65,96 @@ test.describe('plantuml', () => {
         expect(first.filter((id) => second.includes(id))).toEqual([]);
     });
 
+    test('a diagram still drawing shows a placeholder instead of its source', async ({page}) => {
+        // arrange
+        writeFixture(NOTE, note(SEQUENCE));
+        let release = () => {};
+        const held = new Promise((resolve) => {
+            release = resolve;
+        });
+        await page.route('**/assets/plantuml.js', async (route) => {
+            await held;
+            await route.continue();
+        });
+        const box = page.getByTestId('doc').locator('.md-diagram');
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(box).toHaveAttribute('data-state', 'drawing');
+        await expect(box.locator('pre.plantuml')).toBeHidden();
+        expect(await box.evaluate((node) => getComputedStyle(node, '::before').opacity)).toBe('1');
+        await shot(page, 'plantuml-drawing');
+        release();
+        await expect(drawn(page)).toHaveCount(1);
+        expect(await box.evaluate((node) => getComputedStyle(node, '::before').content)).toBe('none');
+    });
+
+    test('a diagram shows as soon as it is drawn, before the next one is', async ({page}) => {
+        // arrange
+        writeFixture(NOTE, note(
+            SEQUENCE,
+            '```plantuml\n@startuml\n!include <C4/C4_Context>\nPerson(reader, "Reader")\n@enduml\n```',
+        ));
+        let release = () => {};
+        const held = new Promise((resolve) => {
+            release = resolve;
+        });
+        await page.route('**/plantuml/c4.min.js', async (route) => {
+            await held;
+            await route.continue();
+        });
+        const boxes = page.getByTestId('doc').locator('.md-diagram');
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(boxes.first()).toHaveAttribute('data-state', 'done');
+        await expect(boxes.nth(1)).toHaveAttribute('data-state', 'drawing');
+        release();
+        await expect(drawn(page)).toHaveCount(2);
+    });
+
+    test('a mermaid diagram does not wait for the plantuml engine', async ({page}) => {
+        // arrange
+        writeFixture(NOTE, note(SEQUENCE, '```mermaid\nflowchart LR\n  A --> B\n```'));
+        let release = () => {};
+        const held = new Promise((resolve) => {
+            release = resolve;
+        });
+        await page.route('**/assets/plantuml.js', async (route) => {
+            await held;
+            await route.continue();
+        });
+        const boxes = page.getByTestId('doc').locator('.md-diagram');
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(boxes.nth(1)).toHaveAttribute('data-state', 'done');
+        await expect(boxes.first()).toHaveAttribute('data-state', 'drawing');
+        release();
+        await expect(boxes.first()).toHaveAttribute('data-state', 'done');
+    });
+
+    test('a diagram whose renderer does not load shows its source again', async ({page}) => {
+        // arrange
+        writeFixture(NOTE, note(SEQUENCE));
+        await page.route('**/assets/plantuml.js', (route) => route.abort());
+        const box = page.getByTestId('doc').locator('.md-diagram');
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(box.locator('.md-diagram-error')).toHaveText('Could not load the diagram renderer.');
+        await expect(box.locator('pre.plantuml')).toBeVisible();
+        await expect(box).not.toHaveAttribute('data-state');
+    });
+
     test('a syntax error shows plantuml\'s own picture of the line', async ({page}) => {
         // arrange
         writeFixture(NOTE, note('```plantuml\n@startuml\nAlice -> :\nfoo bar baz\n@enduml\n```'));

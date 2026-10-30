@@ -36,7 +36,7 @@ A space written out as static pages that run the app's reader.
   and KaTeX are files of their own that a page loads only when its note needs
   them. Of PlantUML's library a site gets the files its notes include, with
   what those include in turn, in `scrawl/plantuml/`: a whole library is up to
-  20MB. The scan reads the whole note, not only its diagrams, so an include
+  17MB. The scan reads the whole note, not only its diagrams, so an include
   quoted in another block ships its library too: a file missing breaks a
   diagram, one too many only takes space. An include can name its library
   through a variable, as in `!include <$lib/C4>`; the scan then takes every

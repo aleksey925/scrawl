@@ -139,10 +139,10 @@ Spaces, routes, settings and the guards on every request.
   `TestTheBrowserTheServerAndTheLibraryAreOnePlantUML` checks that the server's
   engine is the version the browser has, and the library the commit it names.
   An upgrade bumps `@plantuml/core` in `web/package.json`, `@plantuml/mcp-js`
-  in `plantuml/js/package.json`, and by hand the commit and the 29 sha256 sums
+  in `plantuml/js/package.json`, and by hand the commit and the 23 sha256 sums
   in `plantuml/js/library.json`, then runs `make ui` and `make plantuml`. The
-  AWS, Azure, Elastic and IBM icon sets stay out of that file
-  ([ADR 19](../adr/0019-plantuml-library-without-cloud-icon-sets.md)).
+  icon sets [ADR 19](../adr/0019-plantuml-library-without-some-icon-sets.md)
+  names stay out of that file.
 - The library is committed compressed, unlike every other embedded file
   ([ADR 3](../adr/0003-gzip-assets-out-of-git.md)): raw it is some 60MB, which
   would sit in a `go install` binary, and it changes only with an upgrade.

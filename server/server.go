@@ -23,6 +23,7 @@ import (
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/gzassets"
+	"github.com/aleksey925/scrawl/plantuml"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
 	"github.com/aleksey925/scrawl/theme"
@@ -193,7 +194,7 @@ func (wb *Web) router() (http.Handler, error) {
 		HandleFunc("GET /static/{version}/{path...}", wb.staticHandler(assets))
 	router.HandleFunc("GET /static/{version}/"+appDir+"/{path...}", wb.appAssetHandler(assets))
 	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
-		HandleFunc("GET /static/{version}/"+plantumlDir+"/{file}", plantumlLibraryHandler)
+		HandleFunc("GET /static/{version}/"+plantuml.LibraryDir+"/{file}", plantUMLLibraryHandler)
 
 	router.HandleFunc("GET /manifest.webmanifest", wb.manifestHandler)
 

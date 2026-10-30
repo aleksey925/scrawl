@@ -3,6 +3,7 @@ import type { IncomingMessage } from 'node:http';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type ProxyOptions } from 'vite';
 
+import { plantUMLLibraryDir } from './src/plantumlLibrary.ts';
 import { woff2Only } from './vite.fonts.ts';
 import { themeStylesheet } from './vite.themes.ts';
 
@@ -41,7 +42,7 @@ function proxy(): Record<string, ProxyOptions> {
   for (const path of sharedPaths) {
     res[path] = { target: backend, changeOrigin: false, bypass };
   }
-  res['/plantuml'] = { target: backend, changeOrigin: false, rewrite: (path) => `/static/dev${path}` };
+  res[`/${plantUMLLibraryDir}`] = { target: backend, changeOrigin: false, rewrite: (path) => `/static/dev${path}` };
   return res;
 }
 

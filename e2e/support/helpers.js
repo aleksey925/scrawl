@@ -160,6 +160,18 @@ function rgb(hex) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+async function holdRoute(page, url) {
+    let release = () => {};
+    const held = new Promise((resolve) => {
+        release = resolve;
+    });
+    await page.route(url, async (route) => {
+        await held;
+        await route.continue();
+    });
+    return release;
+}
+
 async function stays(read, expected, ms) {
     const until = Date.now() + ms;
     do {
@@ -180,6 +192,7 @@ module.exports = {
     editorStatus,
     expectNoHorizontalScroll,
     fixtureFile,
+    holdRoute,
     inStep,
     jsonRequest,
     modifier,

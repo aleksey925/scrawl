@@ -25,12 +25,6 @@ type fakeDiagramRenderer struct {
 	err       error
 }
 
-type keptDiagrams struct{}
-
-func (keptDiagrams) Inline(_ context.Context, fragment string) (string, error) {
-	return fragment, nil
-}
-
 func (f *fakeDiagramRenderer) Inline(ctx context.Context, fragment string) (string, error) {
 	f.fragments = append(f.fragments, fragment)
 	if deadline, ok := ctx.Deadline(); ok {
@@ -42,6 +36,12 @@ func (f *fakeDiagramRenderer) Inline(ctx context.Context, fragment string) (stri
 	start := strings.Index(fragment, render.OpenPlantUML)
 	end := strings.Index(fragment, "</pre>")
 	return fragment[:start] + drawnMark + fragment[end+len("</pre>"):], nil
+}
+
+type keptDiagrams struct{}
+
+func (keptDiagrams) Inline(_ context.Context, fragment string) (string, error) {
+	return fragment, nil
 }
 
 func TestExportDrawsPlantUML(t *testing.T) {
@@ -87,7 +87,7 @@ func TestDrawDiagramsCountsTheBudgetFromTheStartOfTheRequest(t *testing.T) {
 	spent := 3 * time.Second
 
 	// act
-	m.drawDiagrams(context.Background(), time.Now().Add(-spent), render.OpenPlantUML+"A -&gt; B</pre>")
+	m.drawDiagrams(context.Background(), time.Now().Add(-spent), "uml.md", render.OpenPlantUML+"A -&gt; B</pre>")
 
 	// assert
 	require.Len(t, diagramRenderer.deadlines, 1)

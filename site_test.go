@@ -301,7 +301,7 @@ func TestRunSite(t *testing.T) {
 			{
 				name:  "a diagram",
 				notes: map[string]string{"a.md": "# A\n\n```mermaid\ngraph TD;\n```\n"},
-				want:  withAssets("404.html", "a.html", "index.html", "scrawl/"+page.DiagramsFile),
+				want:  withAssets("404.html", "a.html", "index.html", "scrawl/"+page.MermaidFile),
 			},
 			{
 				name:  "a plantuml diagram",
@@ -321,7 +321,7 @@ func TestRunSite(t *testing.T) {
 					"b.md": "# B\n\n```puml\nA -> B\n```\n",
 				},
 				want: withAssets("404.html", "a.html", "b.html", "index.html",
-					"scrawl/"+page.DiagramsFile, "scrawl/"+page.PlantUMLFile),
+					"scrawl/"+page.MermaidFile, "scrawl/"+page.PlantUMLFile),
 			},
 			{
 				name:  "a formula in a folder's readme",

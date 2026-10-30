@@ -1,7 +1,7 @@
 const {expect, test} = require('../support/test');
 
 const {
-    chooseTheme, modifier, openSpaceMenu, pressShortcut, removeFixture, rgb, routes, shot, signIn, writeFixture,
+    chooseTheme, holdRoute, modifier, openSpaceMenu, pressShortcut, removeFixture, rgb, routes, shot, signIn, writeFixture,
 } = require('../support/helpers');
 const darkTheme = require('../../theme/themes/dark.json');
 
@@ -54,15 +54,15 @@ test.describe('plantuml', () => {
     test('two diagrams of a note share no id', async ({page}) => {
         // arrange
         writeFixture(NOTE, note(SEQUENCE, SEQUENCE));
+        const ids = (svg) => svg.evaluate((root) => Array.from(root.querySelectorAll('[id]'), (node) => node.id));
 
         // act
         await page.goto(routes.doc(NOTE));
-        await expect(drawn(page)).toHaveCount(2);
-        const ids = (svg) => svg.evaluate((root) => Array.from(root.querySelectorAll('[id]'), (node) => node.id));
-        const first = await ids(drawn(page).first());
-        const second = await ids(drawn(page).nth(1));
 
         // assert
+        await expect(drawn(page)).toHaveCount(2);
+        const first = await ids(drawn(page).first());
+        const second = await ids(drawn(page).nth(1));
         expect(first.length).toBeGreaterThan(0);
         expect(first.filter((id) => second.includes(id))).toEqual([]);
     });
@@ -70,14 +70,7 @@ test.describe('plantuml', () => {
     test('a diagram still drawing shows a placeholder instead of its source', async ({page}) => {
         // arrange
         writeFixture(NOTE, note(SEQUENCE));
-        let release = () => {};
-        const held = new Promise((resolve) => {
-            release = resolve;
-        });
-        await page.route('**/assets/plantuml.js', async (route) => {
-            await held;
-            await route.continue();
-        });
+        const release = await holdRoute(page, '**/assets/plantuml.js');
         const box = page.getByTestId('doc').locator('.md-diagram');
 
         // act
@@ -104,14 +97,7 @@ test.describe('plantuml', () => {
             SEQUENCE,
             '```plantuml\n@startuml\n!include <C4/C4_Context>\nPerson(reader, "Reader")\n@enduml\n```',
         ));
-        let release = () => {};
-        const held = new Promise((resolve) => {
-            release = resolve;
-        });
-        await page.route('**/plantuml/c4.min.js', async (route) => {
-            await held;
-            await route.continue();
-        });
+        const release = await holdRoute(page, '**/plantuml/c4.min.js');
         const boxes = page.getByTestId('doc').locator('.md-diagram');
 
         // act
@@ -127,14 +113,7 @@ test.describe('plantuml', () => {
     test('a mermaid diagram does not wait for the plantuml engine', async ({page}) => {
         // arrange
         writeFixture(NOTE, note(SEQUENCE, '```mermaid\nflowchart LR\n  A --> B\n```'));
-        let release = () => {};
-        const held = new Promise((resolve) => {
-            release = resolve;
-        });
-        await page.route('**/assets/plantuml.js', async (route) => {
-            await held;
-            await route.continue();
-        });
+        const release = await holdRoute(page, '**/assets/plantuml.js');
         const boxes = page.getByTestId('doc').locator('.md-diagram');
 
         // act
@@ -157,7 +136,7 @@ test.describe('plantuml', () => {
         await page.goto(routes.doc(NOTE));
 
         // assert
-        await expect(box.locator('.md-diagram-error')).toHaveText('Could not load the diagram renderer.');
+        await expect(box.locator('.md-diagram-error')).toHaveText('the diagram renderer could not be loaded');
         await expect(box.locator('pre.plantuml')).toBeVisible();
         await expect(box).not.toHaveAttribute('data-state');
     });

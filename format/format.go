@@ -10,7 +10,7 @@ import (
 
 const MaxSize = 256 << 10
 
-const WorkerEnv = "SCRAWL_FORMAT_WORKER"
+const workerEnv = "SCRAWL_FORMAT_WORKER"
 
 const workerName = "format worker"
 
@@ -30,7 +30,7 @@ type Formatter struct {
 }
 
 func New(workers int) *Formatter {
-	return &Formatter{pool: workerpool.New[request, response](workerpool.Options{Name: workerName, Env: WorkerEnv, Workers: workers})}
+	return &Formatter{pool: workerpool.New[request, response](workerpool.Options{Name: workerName, Env: workerEnv, Workers: workers})}
 }
 
 func (f *Formatter) Markdown(ctx context.Context, text string) (string, error) {

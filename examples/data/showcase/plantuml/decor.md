@@ -69,7 +69,7 @@ note as N
 
   |= Mode |= Where |= Speed |
   | browser | app, site | instant |
-  | server | export, render | 0.1–10 s |
+  | server | export, render | 0.1-10 s |
 
   Docs: [[https://plantuml.com PlantUML]]
 end note

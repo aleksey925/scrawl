@@ -1,4 +1,5 @@
 import type { Mermaid, PlantUML } from '../reader/diagrams';
+import { plantUMLLibraryDir } from '../plantumlLibrary';
 import type { Katex } from '../reader/typeset';
 
 const base = document.currentScript instanceof HTMLScriptElement ? document.currentScript.src : window.location.href;
@@ -40,14 +41,14 @@ function loaded<T>(value: T | undefined, file: string): T {
 }
 
 export async function loadMermaid(): Promise<Mermaid> {
-  await attach('diagrams.js', script);
-  return loaded(window.scrawlMermaid, 'diagrams.js');
+  await attach('mermaid.js', script);
+  return loaded(window.scrawlMermaid, 'mermaid.js');
 }
 
 export async function loadPlantUML(): Promise<PlantUML> {
   await attach('plantuml.js', script);
   const plantUML = loaded(window.scrawlPlantUML, 'plantuml.js');
-  plantUML.setLibraryBase(new URL('plantuml/', base).href);
+  plantUML.setLibraryBase(new URL(`${plantUMLLibraryDir}/`, base).href);
   return plantUML;
 }
 

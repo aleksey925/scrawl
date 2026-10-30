@@ -74,8 +74,8 @@ type Renderer struct {
 	pool  asker
 	cache *cache
 
-	mu      sync.Mutex
-	drawing map[[sha256.Size]byte]*drawing
+	mu       sync.Mutex
+	inFlight map[[sha256.Size]byte]*drawing
 }
 
 type drawing struct {
@@ -97,9 +97,9 @@ func newPool(limit time.Duration) *workerpool.Pool[request, response] {
 
 func newRenderer(pool asker) *Renderer {
 	return &Renderer{
-		pool:    pool,
-		cache:   newCache(cacheEntries, cacheBytes),
-		drawing: map[[sha256.Size]byte]*drawing{},
+		pool:     pool,
+		cache:    newCache(cacheEntries, cacheBytes),
+		inFlight: map[[sha256.Size]byte]*drawing{},
 	}
 }
 
@@ -130,10 +130,10 @@ func (r *Renderer) draw(ctx context.Context, diagram string) (response, error) {
 			r.mu.Unlock()
 			return response{}, waitFailed(err)
 		}
-		run, busy := r.drawing[key]
+		run, busy := r.inFlight[key]
 		if !busy {
 			run = &drawing{done: make(chan struct{})}
-			r.drawing[key] = run
+			r.inFlight[key] = run
 			r.mu.Unlock()
 			go r.drawOnce(ctx, key, diagram, run)
 		} else {
@@ -154,20 +154,20 @@ func waitFailed(err error) error {
 	return fmt.Errorf("wait for the diagram to be drawn: %w", err)
 }
 
-func (r *Renderer) drawOnce(ctx context.Context, key [sha256.Size]byte, diagram string, own *drawing) {
-	own.res, own.err = r.pool.Ask(ctx, request{Source: diagram})
-	if errors.Is(own.err, workerpool.ErrOverLimit) {
-		own.res, own.err = response{Error: tooSlow}, nil
+func (r *Renderer) drawOnce(ctx context.Context, key [sha256.Size]byte, diagram string, run *drawing) {
+	run.res, run.err = r.pool.Ask(ctx, request{Source: diagram})
+	if errors.Is(run.err, workerpool.ErrOverLimit) {
+		run.res, run.err = response{Error: tooSlow}, nil
 	}
 	var waiting *workerpool.WaitError
-	own.abandoned = errors.As(own.err, &waiting)
+	run.abandoned = errors.As(run.err, &waiting)
 	r.mu.Lock()
-	if own.err == nil {
-		r.cache.put(key, own.res)
+	if run.err == nil {
+		r.cache.put(key, run.res)
 	}
-	delete(r.drawing, key)
+	delete(r.inFlight, key)
 	r.mu.Unlock()
-	close(own.done)
+	close(run.done)
 }
 
 func withStart(source string) (string, int) {

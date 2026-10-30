@@ -47,15 +47,19 @@ Colors, controls and type: how a note and the chrome are drawn.
   is under it, as a menu of macOS does. Icons are Phosphor's regular weight at
   20px, 16px in menus, and `web/src/icons.ts` is the one place that says which
   drawing each one is: Notion's own set cannot be taken, and Phosphor is the
-  open one closest to it. The new entry in the sidebar's head is drawn there in
-  Phosphor's line, a rounded square with a slim pencil as Notion's and Apple's
-  apps draw it, because Phosphor's has sharp corners. A choice of a few is a
-  tray of the hover tint with the picked one raised on the popover ground,
-  which slides to a new pick in 200ms. In the app it is always `Segmented`, the
-  theme's included: its indicator keeps its own transition while mantine turns
-  them all off for a new theme
-  ([quirks](../quirks.md#react-mantine-and-the-editor)). The theme buttons of a
-  page of the command line slide the same way.
+  open one closest to it. The note's own controls are the one exception: the
+  picture viewer in `web/src/reader/viewer.ts` and the buttons and marks of
+  `markdown.css` are plain DOM and CSS, and run on a page of the command line
+  too, which carries no React, so they write their few drawings themselves;
+  `icons.ts` would bring React and the icon set into that page. The new entry
+  in the sidebar's head is drawn in `icons.ts` in Phosphor's line, a rounded
+  square with a slim pencil as Notion's and Apple's apps draw it, because
+  Phosphor's has sharp corners. A choice of a few is a tray of the hover tint
+  with the picked one raised on the popover ground, which slides to a new pick
+  in 200ms. In the app it is always `Segmented`, the theme's included: its
+  indicator keeps its own transition while mantine turns them all off for a new
+  theme ([quirks](../quirks.md#react-mantine-and-the-editor)). The theme
+  buttons of a page of the command line slide the same way.
 - The dark scheme is Notion's dark: a `#191919` page, a `#202020` sidebar and
   `#f0efed` text. Bold there is 700 instead of 600. Near-white letters on a
   near-black page glow and look heavy already, so bold, italic and headings in

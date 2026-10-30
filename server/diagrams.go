@@ -19,7 +19,7 @@ type DiagramRenderer interface {
 	Inline(ctx context.Context, fragment string) (string, error)
 }
 
-func plantumlLibraryHandler(w http.ResponseWriter, r *http.Request) {
+func plantUMLLibraryHandler(w http.ResponseWriter, r *http.Request) {
 	plantuml.ServeLibrary(w, r, r.PathValue("file"))
 }
 
@@ -30,12 +30,12 @@ func (wb *Web) diagramBudget() time.Duration {
 	return wb.WriteTimeout * diagramBudgetPercent / 100
 }
 
-func (m *mount) drawDiagrams(ctx context.Context, started time.Time, fragment string) string {
+func (m *mount) drawDiagrams(ctx context.Context, started time.Time, docPath, fragment string) string {
 	ctx, cancel := context.WithDeadline(ctx, started.Add(m.diagramBudget()))
 	defer cancel()
 	drawn, err := m.DiagramRenderer.Inline(ctx, fragment)
 	if err != nil {
-		log.Printf("[WARN] %s: %v", m.spc.Name, err)
+		log.Printf("[WARN] %s: %s: %v", m.spc.Name, docPath, err)
 	}
 	return drawn
 }

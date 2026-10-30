@@ -20,7 +20,7 @@ const wasmFile = "prettier.wasm"
 const memoryPages = 4096
 
 func RunWorkerIfAsked() {
-	workerpool.RunIfAsked(WorkerEnv, workerName, serve)
+	workerpool.RunIfAsked(workerEnv, workerName, serve)
 }
 
 func serve(in io.Reader, out io.Writer) error {

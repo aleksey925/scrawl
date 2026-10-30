@@ -324,7 +324,7 @@ func TestRunRender(t *testing.T) {
 
 		// assert
 		assert.Equal(t, 0, code, errOut)
-		assert.Contains(t, errOut, "a plantuml diagram is left as code: ")
+		assert.Contains(t, errOut, "scrawl render: a plantuml diagram is left as code: ")
 		var got noteJSON
 		require.NoError(t, json.Unmarshal([]byte(out), &got))
 		assert.Contains(t, got.HTML, `<p class="md-diagram-error">the diagram could not be rendered</p>`)

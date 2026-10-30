@@ -240,7 +240,7 @@ async function prepare(kind: Kind, loaders: DiagramLoaders, dark: boolean): Prom
 
 async function drawOne(draw: Draw | undefined, item: Diagram, id: string): Promise<Drawn> {
   if (draw === undefined) {
-    return { item, error: 'Could not load the diagram renderer.' };
+    return { item, error: 'the diagram renderer could not be loaded' };
   }
   try {
     return { item, svg: await draw(id, item.source) };
@@ -250,14 +250,14 @@ async function drawOne(draw: Draw | undefined, item: Diagram, id: string): Promi
 }
 
 export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: boolean): () => void {
-  const items: Diagram[] = [];
+  const diagrams: Diagram[] = [];
   for (const pre of root.querySelectorAll<HTMLElement>(diagramSelector)) {
     const kind = kindOf(pre);
     if (kind !== undefined) {
-      items.push(wrap(pre, kind));
+      diagrams.push(wrap(pre, kind));
     }
   }
-  if (items.length === 0) {
+  if (diagrams.length === 0) {
     return () => {};
   }
 
@@ -279,7 +279,7 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
   const thisPass = pass;
   const drawKind = async (kind: Kind): Promise<void> => {
     const draw = await prepare(kind, loaders, dark);
-    for (const [index, item] of items.entries()) {
+    for (const [index, item] of diagrams.entries()) {
       if (cancelled) {
         return;
       }
@@ -293,7 +293,7 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
       preserveScroll(root, () => place(result));
     }
   };
-  const kinds = Array.from(new Set(items.map((item) => item.kind)));
+  const kinds = Array.from(new Set(diagrams.map((item) => item.kind)));
   track(Promise.all(kinds.map(drawKind)));
 
   return () => {

@@ -188,7 +188,7 @@ func runCommand(args []string, in io.Reader, out, errOut io.Writer) int {
 			_, _ = fmt.Fprint(out, helpFooter(name))
 			return 0
 		}
-		_, _ = fmt.Fprintln(errOut, err)
+		_, _ = fmt.Fprintf(errOut, "scrawl %s: %v\n", renderCommand, err)
 		return failureCode(name)
 	}
 	if cmds.Version {
@@ -355,7 +355,7 @@ func drawPlantUML(fragment string, errOut io.Writer) string {
 	defer diagramRenderer.Close()
 	drawn, err := diagramRenderer.Inline(context.Background(), fragment)
 	if err != nil {
-		_, _ = fmt.Fprintln(errOut, err)
+		_, _ = fmt.Fprintf(errOut, "scrawl %s: %v\n", renderCommand, err)
 	}
 	return drawn
 }

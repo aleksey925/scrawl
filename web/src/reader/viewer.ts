@@ -245,8 +245,8 @@ function diagramStage(svg: SVGSVGElement, room: HTMLElement): Stage {
 
 function openItems(items: readonly ViewerItem[], start: number, label: string): () => void {
   let at = Math.min(Math.max(0, start), items.length - 1);
-  const first = items[at];
-  if (first === undefined) {
+  const opened = items[at];
+  if (opened === undefined) {
     return () => {};
   }
 
@@ -293,7 +293,7 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
   };
   const stageOf = (item: ViewerItem): Stage =>
     item.kind === 'image' ? imageStage(item.image, refresh) : diagramStage(item.svg, dialog);
-  let stage = stageOf(first);
+  let stage = stageOf(opened);
   let zoom = zoomOf(stage, dialog, refresh);
   dialog.prepend(stage.element);
   const present = (): void => {
@@ -489,7 +489,7 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
 }
 
 export function openViewer(images: readonly HTMLImageElement[], start: HTMLImageElement): () => void {
-  const items = images.map((image): ViewerItem => ({ kind: 'image', image }));
+  const items = images.map((entry): ViewerItem => ({ kind: 'image', image: entry }));
   return openItems(items, images.indexOf(start), 'Image viewer');
 }
 

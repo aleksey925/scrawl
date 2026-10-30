@@ -296,7 +296,7 @@ func TestSVGIsCached(t *testing.T) {
 func drawingNow(r *Renderer) int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return len(r.drawing)
+	return len(r.inFlight)
 }
 
 type drawn struct {
@@ -713,7 +713,7 @@ func TestLibraries(t *testing.T) {
 	}
 }
 
-func TestWithDependencies(t *testing.T) {
+func TestLibraryCode(t *testing.T) {
 	tests := []struct {
 		name  string
 		names []string
@@ -739,7 +739,7 @@ func TestWithDependencies(t *testing.T) {
 			}
 
 			// act
-			got, err := WithDependencies(tc.names)
+			got, err := LibraryCode(tc.names)
 
 			// assert
 			require.NoError(t, err)
@@ -797,6 +797,7 @@ func TestServeLibrary(t *testing.T) {
 }
 
 func TestInlineDrawsEveryExample(t *testing.T) {
+	// arrange
 	notes, err := filepath.Glob("../examples/data/showcase/plantuml/*.md")
 	require.NoError(t, err)
 	require.NotEmpty(t, notes)

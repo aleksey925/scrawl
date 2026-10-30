@@ -40,12 +40,12 @@ type Retiring interface {
 }
 
 type Pool[Req, Res any] struct {
-	opts  Options
-	free  chan *worker
-	life  context.Context
-	end   context.CancelCauseFunc
-	ended error
-	runs  sync.WaitGroup
+	opts      Options
+	free      chan *worker
+	life      context.Context
+	end       context.CancelCauseFunc
+	errClosed error
+	runs      sync.WaitGroup
 
 	mu sync.Mutex
 }
@@ -54,7 +54,7 @@ func New[Req, Res any](opts Options) *Pool[Req, Res] {
 	life, end := context.WithCancelCause(context.Background())
 	p := &Pool[Req, Res]{
 		opts: opts, free: make(chan *worker, opts.Workers),
-		life: life, end: end, ended: fmt.Errorf("the %s is closed", opts.Name),
+		life: life, end: end, errClosed: fmt.Errorf("the %s is closed", opts.Name),
 	}
 	for range opts.Workers {
 		p.free <- &worker{}
@@ -84,7 +84,7 @@ func (p *Pool[Req, Res]) Ask(ctx context.Context, req Req) (Res, error) {
 		var stop context.CancelCauseFunc
 		ctx, stop = context.WithCancelCause(context.WithoutCancel(ctx))
 		defer stop(nil)
-		defer context.AfterFunc(p.life, func() { stop(p.ended) })() //nolint:contextcheck // a detached call ends with the pool, not its caller
+		defer context.AfterFunc(p.life, func() { stop(p.errClosed) })() //nolint:contextcheck // a detached call ends with the pool, not a caller
 	}
 	if p.opts.Limit > 0 {
 		var cancel context.CancelFunc
@@ -133,7 +133,7 @@ func (p *Pool[Req, Res]) take(ctx context.Context) (*worker, error) {
 	case wrk := <-p.free:
 		return p.lend(wrk)
 	case <-p.life.Done():
-		return nil, p.ended
+		return nil, p.errClosed
 	case <-ctx.Done():
 		return nil, &WaitError{Name: p.opts.Name, Err: ctx.Err()}
 	}
@@ -144,7 +144,7 @@ func (p *Pool[Req, Res]) lend(wrk *worker) (*worker, error) {
 	defer p.mu.Unlock()
 	if p.life.Err() != nil {
 		wrk.stop()
-		return nil, p.ended
+		return nil, p.errClosed
 	}
 	if p.opts.Detach {
 		p.runs.Add(1)
@@ -178,7 +178,7 @@ func (p *Pool[Req, Res]) stopFree() {
 	if p.life.Err() != nil {
 		return
 	}
-	p.end(p.ended)
+	p.end(p.errClosed)
 	for {
 		select {
 		case wrk := <-p.free:

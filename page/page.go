@@ -88,7 +88,7 @@ const (
 	SiteBootFile   = "boot.js"
 	SiteScriptFile = "site.js"
 	SiteStyleFile  = "site.css"
-	DiagramsFile   = "diagrams.js"
+	MermaidFile    = "mermaid.js"
 	PlantUMLFile   = "plantuml.js"
 	MathScriptFile = "math.js"
 	MathStyleFile  = "math.css"
@@ -102,7 +102,7 @@ func SiteAssets() map[string]string {
 	}
 }
 
-func Diagrams() string { return asset(DiagramsFile) }
+func Mermaid() string { return asset(MermaidFile) }
 
 func PlantUML() string { return asset(PlantUMLFile) }
 

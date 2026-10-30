@@ -12,6 +12,8 @@ import (
 	"github.com/aleksey925/scrawl/gzassets"
 )
 
+const LibraryDir = "plantuml"
+
 var errNoLibrary = errors.New("no such plantuml library")
 
 var library = gzassets.Sub(libraryFiles, "library")
@@ -96,7 +98,7 @@ func librariesOfVariables(src []byte) []string {
 	return res
 }
 
-func WithDependencies(names []string) (map[string][]byte, error) {
+func LibraryCode(names []string) (map[string][]byte, error) {
 	seen := map[string][]byte{}
 	queue := slices.Clone(names)
 	for len(queue) > 0 {

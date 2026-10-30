@@ -11,7 +11,7 @@ const entries = {
   math: 'src/page/math.ts',
   site: 'src/site/main.tsx',
   boot: 'src/site/boot.ts',
-  diagrams: 'src/site/diagrams.ts',
+  mermaid: 'src/site/mermaid.ts',
   plantuml: 'src/site/plantuml.ts',
 } as const;
 

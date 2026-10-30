@@ -89,7 +89,7 @@ func (m *mount) exportPage(ctx context.Context, started time.Time, docPath strin
 	}
 	fragment := string(res.HTML)
 	if res.PlantUML {
-		fragment = m.drawDiagrams(ctx, started, fragment)
+		fragment = m.drawDiagrams(ctx, started, docPath, fragment)
 	}
 	pics := newPictures(m.spc.Store, path.Dir(docPath), maxEmbeddedImages)
 	var buf bytes.Buffer

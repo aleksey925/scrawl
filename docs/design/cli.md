@@ -22,7 +22,7 @@ The markdown tools beside `serve`, the pages they write, and the export.
   ([server](server.md#plantuml)). A diagram the engine refuses stays code with
   the reason under it. One the engine could not draw at all stays code with the
   note that it could not be rendered, and `render` writes a line to stderr that
-  starts with `a plantuml diagram is left as code:`, but still writes the page
+  starts with `scrawl render: a plantuml diagram is left as code:`, but still writes the page
   and exits with 0. `diff` keeps a diagram as code, as a changed one carries
   the words of both versions.
 - An exported note is that page, its PlantUML diagrams drawn. `/api/export/`

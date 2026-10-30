@@ -3,6 +3,7 @@ import { mountBase } from './mount';
 import type { Platform } from './platform';
 import { FindTimeout, type FindMatch, type FindPattern } from './reader/findMatches';
 import { internalTarget } from './reader/links';
+import { plantUMLLibraryDir } from './plantumlLibrary';
 import { loadChunk, reloadForStaleBundle } from './staleBundle';
 
 const findDeadlineMs = 1000;
@@ -46,7 +47,7 @@ export const appPlatform: Platform = {
   loadMermaid: async () => (await loadChunk(import('mermaid'))).default,
   loadPlantUML: async () => {
     const { plantUML } = await loadChunk(import('./reader/plantuml'));
-    plantUML.setLibraryBase(new URL(/* @vite-ignore */ '../../plantuml/', import.meta.url).href);
+    plantUML.setLibraryBase(new URL(/* @vite-ignore */ `../../${plantUMLLibraryDir}/`, import.meta.url).href);
     return plantUML;
   },
   loadKatex: async () => {

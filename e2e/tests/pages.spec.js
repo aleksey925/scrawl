@@ -349,6 +349,7 @@ test.describe('pages', () => {
         // arrange
         await openSpaceMenu(page);
         const picker = page.getByTestId('space-menu-theme');
+        await expect(picker.locator('.mantine-SegmentedControl-indicator')).toHaveAttribute('data-initialized');
 
         // act
         const moving = await picker.evaluate(async (root) => {

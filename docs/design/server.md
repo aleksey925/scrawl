@@ -139,7 +139,7 @@ Spaces, routes, settings and the guards on every request.
   `TestTheBrowserTheServerAndTheLibraryAreOnePlantUML` checks that the server's
   engine is the version the browser has, and the library the commit it names.
   An upgrade bumps `@plantuml/core` in `web/package.json`, `@plantuml/mcp-js`
-  in `plantuml/js/package.json`, and by hand the commit and the 23 sha256 sums
+  in `plantuml/js/package.json`, and by hand the commit and the 20 sha256 sums
   in `plantuml/js/library.json`, then runs `make ui` and `make plantuml`. The
   icon sets [ADR 19](../adr/0019-plantuml-library-without-some-icon-sets.md)
   names stay out of that file.

@@ -15,12 +15,12 @@ icon is drawn twice, as a sprite and as a PNG, which gzip barely shrinks.
 
 - `plantuml/js/library.json` leaves out these sets, so `make plantuml` neither
   fetches nor commits them: `awslib`, `awslib10`, `awslib14`, `awslib20`,
-  `azure`, `cloudinsight`, `cloudogu`, `elastic`, `ibm`, `kubernetes`, `logos`,
-  `osa` and `tupadr3`. `k8s` and `osa2` stay.
+  `azure`, `cloudinsight`, `cloudogu`, `elastic`, `gcp`, `ibm`, `k8s`,
+  `kubernetes`, `logos`, `office`, `osa` and `tupadr3`. `osa2` stays.
 - A diagram that includes one of them fails to draw. The browser shows
   PlantUML's picture of the error, the server keeps the code with the error
-  under it. Another library that includes one, as an example of `gcp` does,
-  loads without it.
+  under it. Another library that includes one, as the examples of `c4` include
+  `office`, loads without it.
 
 ## Options turned down
 
@@ -34,4 +34,4 @@ icon is drawn twice, as a sprite and as a PNG, which gzip barely shrinks.
 
 ## Consequences
 
-- The library is 4.3MB compressed, and the binary some 36MB.
+- The library is 4.1MB compressed, and the binary some 36MB.

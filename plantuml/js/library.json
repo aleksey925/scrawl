@@ -49,14 +49,6 @@
       "path": "src/main/teavm/generated/emoji.js",
       "sha256": "29bc1feaf94d1570cf64621954e62c96537d740f9933a65bf69871ef306e5f24"
     },
-    "gcp.min.js": {
-      "path": "src/main/teavm/stdlib/gcp.min.js",
-      "sha256": "3aa51fb5954bb23df1336d13b7bf24155c02dfee19833c5fcc795b6d3e4d3373"
-    },
-    "k8s.min.js": {
-      "path": "src/main/teavm/stdlib/k8s.min.js",
-      "sha256": "ae7f34bd12855986701d0190f2d1cb9a82c71f82ccc3bf855e013c5074dfe891"
-    },
     "material.min.js": {
       "path": "src/main/teavm/stdlib/material.min.js",
       "sha256": "1aaf3af0e4c5d9c2c4fd1e487d4707dde5f3d709531907fbd792b1b93051a8b5"
@@ -76,10 +68,6 @@
     "material7.min.js": {
       "path": "src/main/teavm/stdlib/material7.min.js",
       "sha256": "7f537722af787a914f247fed79bb5a522e1508bf13589b0f55f9fc29483d8b4b"
-    },
-    "office.min.js": {
-      "path": "src/main/teavm/stdlib/office.min.js",
-      "sha256": "1a29d4355f53bbd73b2fa1378f922a1a8ca88dcd5d022166851cd5682ba85458"
     },
     "openiconic.js": {
       "path": "src/main/teavm/generated/openiconic.js",

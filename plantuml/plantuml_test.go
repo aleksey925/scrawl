@@ -679,7 +679,7 @@ func TestWithDependencies(t *testing.T) {
 		{
 			name:  "a library brings what it includes, and one that does not exist is left out",
 			names: []string{"nosuchlib.min.js", "c4.min.js"},
-			want:  []string{"c4.min.js", "office.min.js", "openiconic.js", "themes.js"},
+			want:  []string{"c4.min.js", "openiconic.js", "themes.js"},
 		},
 		{name: "themes alone bring no icons", names: []string{"themes.js"}, want: []string{"themes.js"}},
 		{name: "nothing", names: nil, want: []string{}},

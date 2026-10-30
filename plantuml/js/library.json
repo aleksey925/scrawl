@@ -9,26 +9,6 @@
       "path": "src/main/teavm/stdlib/archimate.min.js",
       "sha256": "5a06d2cc43cecff2b720cd6cbc08d60a6259211316f779c9f666c8c5988dfd85"
     },
-    "awslib.min.js": {
-      "path": "src/main/teavm/stdlib/awslib.min.js",
-      "sha256": "b6184dae90807c6863a7b527fcc2bcc2e4dbf9b62e6161dd81a625ce0b78c14e"
-    },
-    "awslib10.min.js": {
-      "path": "src/main/teavm/stdlib/awslib10.min.js",
-      "sha256": "019f09186ae77196d81b47a7ab94c1f2b9b9e841f75d6051e69c48d1ea14c7af"
-    },
-    "awslib14.min.js": {
-      "path": "src/main/teavm/stdlib/awslib14.min.js",
-      "sha256": "b6391f87a7efb7f59a92c1ec07d2cc7e85de190e1bfd2155967e4afbbf7525c7"
-    },
-    "awslib20.min.js": {
-      "path": "src/main/teavm/stdlib/awslib20.min.js",
-      "sha256": "1ecae17a7fa4059c7984bbc665e581225288e6c0591e6a8e07519643f2385f41"
-    },
-    "azure.min.js": {
-      "path": "src/main/teavm/stdlib/azure.min.js",
-      "sha256": "aa1ffc61501675159dedd678f03fb0a4a4bfa1802b7dd31be3194543ef8acffd"
-    },
     "bootstrap.min.js": {
       "path": "src/main/teavm/stdlib/bootstrap.min.js",
       "sha256": "66649652b2973a66973df95d41fd34478ba889c690237484aae03f588dbf0ad0"
@@ -73,10 +53,6 @@
       "path": "src/main/teavm/stdlib/eip.min.js",
       "sha256": "1b075a46c425c3f83e4aa6c9e980cae117c0a4f772db0599498a4be7540a1774"
     },
-    "elastic.min.js": {
-      "path": "src/main/teavm/stdlib/elastic.min.js",
-      "sha256": "18567b88fd7b9856cc98d4112fc0b270f2e8d47a2e56291c3cfe32729c140499"
-    },
     "emoji.js": {
       "path": "src/main/teavm/generated/emoji.js",
       "sha256": "29bc1feaf94d1570cf64621954e62c96537d740f9933a65bf69871ef306e5f24"
@@ -84,10 +60,6 @@
     "gcp.min.js": {
       "path": "src/main/teavm/stdlib/gcp.min.js",
       "sha256": "3aa51fb5954bb23df1336d13b7bf24155c02dfee19833c5fcc795b6d3e4d3373"
-    },
-    "ibm.min.js": {
-      "path": "src/main/teavm/stdlib/ibm.min.js",
-      "sha256": "90099c682e3d428b0af799787f99b2b928c19bfcf5a3719d36ab09dd550f7f51"
     },
     "k8s.min.js": {
       "path": "src/main/teavm/stdlib/k8s.min.js",

@@ -139,18 +139,20 @@ Spaces, routes, settings and the guards on every request.
   `TestTheBrowserTheServerAndTheLibraryAreOnePlantUML` checks that the server's
   engine is the version the browser has, and the library the commit it names.
   An upgrade bumps `@plantuml/core` in `web/package.json`, `@plantuml/mcp-js`
-  in `plantuml/js/package.json`, and by hand the commit and the 36 sha256 sums
-  in `plantuml/js/library.json`, then runs `make ui` and `make plantuml`.
+  in `plantuml/js/package.json`, and by hand the commit and the 29 sha256 sums
+  in `plantuml/js/library.json`, then runs `make ui` and `make plantuml`. The
+  AWS, Azure, Elastic and IBM icon sets stay out of that file
+  ([ADR 19](../adr/0019-plantuml-library-without-cloud-icon-sets.md)).
 - The library is committed compressed, unlike every other embedded file
-  ([ADR 3](../adr/0003-gzip-assets-out-of-git.md)): raw it is some 100MB, which
+  ([ADR 3](../adr/0003-gzip-assets-out-of-git.md)): raw it is some 60MB, which
   would sit in a `go install` binary, and it changes only with an upgrade.
 - The library is served under `/static/<version>/plantuml/<file>`, as stored,
   compressed. Only the plain name of a file in it answers, so an include cannot
   name a path out of it, and the browser asks for nothing else: its loader
   takes a plain name only. The `<version>` there is the bundle's digest, since
   the address is relative to the chunk of the engine. The route ignores it and
-  lets a browser keep the file a year, which is safe while a change of the
-  library always comes with a change of the bundle: the test above ties the
+  lets a browser keep the file a year, which is safe while a file of the
+  library changes only with a change of the bundle: the test above ties the
   library to the engine's version, and a new engine is a new bundle.
 
 ## Lifecycle

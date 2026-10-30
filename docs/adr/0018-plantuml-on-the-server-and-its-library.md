@@ -1,6 +1,8 @@
 # 18. PlantUML on the server runs in QuickJS, and its library ships in the binary
 
-Status: accepted. Where it applies: [server](../design/server.md#plantuml),
+Status: accepted; the AWS, Azure, Elastic and IBM icon sets are left out of the
+library by [ADR 19](0019-plantuml-library-without-cloud-icon-sets.md). Where it
+applies: [server](../design/server.md#plantuml),
 [command line](../design/cli.md), [site](../design/site.md).
 
 ## Context

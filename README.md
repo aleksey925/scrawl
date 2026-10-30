@@ -507,8 +507,9 @@ then it keeps them and sits on a light card. A diagram wider than the
 page is shown smaller; a click opens it, or a picture, full screen,
 where it zooms and moves. More examples are in
 `examples/data/showcase/plantuml/`.
-PlantUML's whole standard library comes with scrawl: C4, AWS, Azure,
-Kubernetes, the icon sets, the themes and emoji. A library is loaded
+PlantUML's standard library comes with scrawl: C4, Kubernetes, the
+icon sets, the themes and emoji. The AWS, Azure, Elastic and IBM icon
+sets are left out, to keep the binary small. A library is loaded
 only when a diagram includes it, once:
 
 ````

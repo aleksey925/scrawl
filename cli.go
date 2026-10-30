@@ -188,7 +188,7 @@ func runCommand(args []string, in io.Reader, out, errOut io.Writer) int {
 			_, _ = fmt.Fprint(out, helpFooter(name))
 			return 0
 		}
-		_, _ = fmt.Fprintf(errOut, "scrawl %s: %v\n", renderCommand, err)
+		_, _ = fmt.Fprintf(errOut, "%s: %v\n", commandLabel(name), err)
 		return failureCode(name)
 	}
 	if cmds.Version {
@@ -229,10 +229,17 @@ func runCommand(args []string, in io.Reader, out, errOut io.Writer) int {
 
 	setupLog(false)
 	if err = tool(); err != nil {
-		_, _ = fmt.Fprintf(errOut, "scrawl %s: %v\n", name, err)
+		_, _ = fmt.Fprintf(errOut, "%s: %v\n", commandLabel(name), err)
 		return failureCode(name)
 	}
 	return code
+}
+
+func commandLabel(name string) string {
+	if name == "" {
+		return "scrawl"
+	}
+	return "scrawl " + name
 }
 
 func failureCode(name string) int {

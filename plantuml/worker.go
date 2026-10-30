@@ -24,6 +24,11 @@ const engineFile = "engine.wasm"
 const engineFailed = "the server's PlantUML engine failed on this diagram"
 
 const (
+	maxSVG      = 8 << 20
+	svgTooLarge = "the drawn diagram is too large to keep"
+)
+
+const (
 	memoryPages = 16384
 	retireBytes = 256 << 20
 )
@@ -44,11 +49,11 @@ func RunWorkerIfAsked() {
 
 func runWorkerIfAsked(retireAt uint32) {
 	workerpool.RunIfAsked(workerEnv, workerName, func(in io.Reader, out io.Writer) error {
-		return serve(in, out, retireAt)
+		return serve(in, out, retireAt, maxSVG)
 	})
 }
 
-func serve(in io.Reader, out io.Writer, retireAt uint32) error {
+func serve(in io.Reader, out io.Writer, retireAt uint32, svgCap int) error {
 	wasm, err := gzassets.Sub(engineFiles, engineDir).ReadFile(engineFile)
 	if err != nil {
 		return fmt.Errorf("read the engine: %w", err)
@@ -85,6 +90,9 @@ func serve(in io.Reader, out io.Writer, retireAt uint32) error {
 			fmt.Fprintf(os.Stderr, "%s: %s\n", workerName, cause)
 			res = response{Error: engineFailed, Retire: true}
 		} else {
+			if len(res.SVG) > svgCap {
+				res = response{Error: svgTooLarge}
+			}
 			res.Retire = eng.memory() > retireAt
 		}
 		if err = answers.Encode(res); err != nil {

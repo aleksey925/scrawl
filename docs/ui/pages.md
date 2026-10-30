@@ -66,12 +66,13 @@ opens over them.
   the focus; a touch screen has no hover, so there it always shows. Copy takes
   the text of the `pre` and nothing else, so the head is never inside it.
 - A PlantUML diagram takes PlantUML's own dark mode in a dark theme, unless it
-  sets colors of its own: a color on an element, a `skinparam` color, a
-  `<style>`, a `<back:>`, a `!theme` or a library from `!include <...>`. Such a
-  diagram is drawn as its author made it, light, on a card of the theme's
-  `diagramPaper`. PlantUML's dark mode turns only its own colors dark, so its
-  light text landed on the author's light fills and could not be read. A `#` in
-  a label, a quoted text or a title, as in `closes #123`, is not a color.
+  sets colors of its own: a color on an element, a `skinparam` color, also one
+  inside a `skinparam` block, a `<style>`, a `<back:>`, a `!theme` or a library
+  from `!include <...>`. Such a diagram is drawn as its author made it, light,
+  on a card of the theme's `diagramPaper`. PlantUML's dark mode turns only its
+  own colors dark, so its light text landed on the author's light fills and
+  could not be read. A `#` in a label, a quoted text or a title, as in
+  `closes #123`, is not a color.
 - Nothing selected is shown as nothing. An empty note, an empty folder and an
   empty preview each say what they are through `EmptyState`, a gray title as
   Notion has it, with the next step as a button, and an open folder with no

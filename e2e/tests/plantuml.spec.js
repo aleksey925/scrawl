@@ -299,6 +299,7 @@ test.describe('plantuml', () => {
             ':read issue #42;',
             'title Issue #7\nA -> B',
             'A -> B : "see #abc"',
+            'skinparam participant {\n  FontSize 14\n}\nA -> B',
         ];
         const colored = [
             'class Car #pink',
@@ -306,6 +307,8 @@ test.describe('plantuml', () => {
             'A -> B : <color:#red>hot</color>',
             '#lightblue:read;',
             'participant "Bob: api" as B #EFE\nA -> B',
+            'skinparam {\n  BackgroundColor White\n}\nA -> B',
+            'skinparam participant {\n  FontSize 14\n  BackgroundColor White\n}\nA -> B',
         ];
         const fence = (source) => `\`\`\`plantuml\n${source}\n\`\`\``;
         writeFixture(NOTE, note(...[...plain, ...colored].map(fence)));

@@ -463,7 +463,7 @@ func TestServe(t *testing.T) {
 			var out bytes.Buffer
 
 			// act
-			err := serve(strings.NewReader(tc.in), &out, retireBytes)
+			err := serve(strings.NewReader(tc.in), &out, retireBytes, maxSVG)
 
 			// assert
 			if tc.err != "" {
@@ -487,7 +487,7 @@ func TestServeRetiresAfterAnAnswerAboveTheMark(t *testing.T) {
 	var out bytes.Buffer
 
 	// act
-	err := serve(strings.NewReader(in), &out, 0)
+	err := serve(strings.NewReader(in), &out, 0, maxSVG)
 
 	// assert
 	require.NoError(t, err)
@@ -495,6 +495,19 @@ func TestServeRetiresAfterAnAnswerAboveTheMark(t *testing.T) {
 	require.Len(t, answers, 1, "the worker stops after the answer that retires it")
 	assert.True(t, answers[0].Retire)
 	assert.Contains(t, answers[0].SVG, "first")
+}
+
+func TestServeRefusesADrawnDiagramAboveTheCap(t *testing.T) {
+	// arrange
+	in := `{"source":"@startuml\nA -> B : too large\n@enduml"}` + "\n" + `{"source":"@startuml\nA -> B : next\n@enduml"}` + "\n"
+	var out bytes.Buffer
+
+	// act
+	err := serve(strings.NewReader(in), &out, retireBytes, 1)
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, []response{{Error: svgTooLarge}, {Error: svgTooLarge}}, readAnswers(t, &out))
 }
 
 func TestEngineRenderHandsOverTheLibrariesItAsksFor(t *testing.T) {

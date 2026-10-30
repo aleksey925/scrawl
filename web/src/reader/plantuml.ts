@@ -27,6 +27,10 @@ const ownColorLines = [
   new RegExp(`^${colorLiteral}:`),
 ];
 
+const skinparamBlock = /^skinparam\b[^{}]*\{$/i;
+
+const colorKey = /^\S*colou?r/i;
+
 const elementColor = new RegExp(`\\s${colorLiteral}`);
 
 const textLine = /^(?:title|header|footer|caption|legend)\b/i;
@@ -39,10 +43,21 @@ function outsideLabels(line: string): string {
 }
 
 function hasOwnColors(source: string): boolean {
-  return source.split('\n').some((line) => {
+  let skinparamDepth = 0;
+  for (const line of source.split('\n')) {
     const trimmed = line.trim();
-    return ownColorLines.some((rule) => rule.test(trimmed)) || elementColor.test(outsideLabels(trimmed));
-  });
+    if (skinparamDepth > 0) {
+      if (colorKey.test(trimmed)) {
+        return true;
+      }
+      skinparamDepth += Number(trimmed.endsWith('{')) - Number(trimmed.startsWith('}'));
+    } else if (ownColorLines.some((rule) => rule.test(trimmed)) || elementColor.test(outsideLabels(trimmed))) {
+      return true;
+    } else if (skinparamBlock.test(trimmed)) {
+      skinparamDepth = 1;
+    }
+  }
+  return false;
 }
 
 const libraryFile = /^[a-z0-9][a-z0-9._-]*\.js$/;

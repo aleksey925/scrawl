@@ -167,6 +167,28 @@ func TestRunCommandUnknownFlag(t *testing.T) {
 	}
 }
 
+func TestRunCommandNamesTheCommandOfAParseError(t *testing.T) {
+	tests := []struct {
+		name   string
+		args   []string
+		prefix string
+	}{
+		{name: "serve", args: []string{serveCommand, "--no-such-flag"}, prefix: "scrawl serve: parse flags: "},
+		{name: "site", args: []string{siteCommand, "--no-such-flag"}, prefix: "scrawl site: parse flags: "},
+		{name: "diff", args: []string{diffCommand, "--no-such-flag"}, prefix: "scrawl diff: parse flags: "},
+		{name: "no command", args: []string{"nope"}, prefix: "scrawl: parse flags: "},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			_, _, errOut := runCLI(t, "", tc.args...)
+
+			// assert
+			assert.True(t, strings.HasPrefix(errOut, tc.prefix), errOut)
+		})
+	}
+}
+
 func TestRunCommandVersion(t *testing.T) {
 	// act
 	code, out, _ := runCLI(t, "", "--version")

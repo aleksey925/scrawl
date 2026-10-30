@@ -96,6 +96,11 @@ Spaces, routes, settings and the guards on every request.
   formatter. There is one worker, started on the first diagram.
 - A source over 256KB is not handed to the worker. It stays code, with the note
   that it could not be rendered.
+- A drawn diagram over 8MB is not handed back by the worker: a small source can
+  draw a huge picture, which the server would hold, copy into base64 and copy
+  again into the page. The worker answers that it is too large instead, and
+  that answer is kept like a refusal: the diagram stays code, with the reason
+  under it.
 - A diagram has two minutes, counted from the moment the worker takes it, so
   waiting for the worker behind another export does not use them up. Past them
   the process is killed. That limit is only there to stop an engine that never

@@ -13,6 +13,8 @@ disk are the only state.
   formatting
 - pages and folders made in the tree or in a folder's list, dragged between
   folders, renamed and deleted; paste images straight into the editor
+- mermaid and PlantUML diagrams, drawn in the browser with no Java and no
+  PlantUML server, and opened full screen on a click
 - export note as Markdown, HTML or PDF
 - a version history per page, in a large dialog over it: what changed, shown
   the way the page reads, side by side or in one column, with the changed words
@@ -488,9 +490,13 @@ diagram is drawn dark, unless it sets colors of its own: then it keeps them and
 sits on a light card. A diagram wider than the page is shown smaller; a click
 opens it, or a picture, full screen, where it zooms and moves. More examples
 are in `examples/data/showcase/plantuml/`. PlantUML's standard library comes
-with scrawl: C4, the icon sets, the themes and emoji. A few large icon sets,
-such as AWS, Azure and IBM, are left out to keep the binary small. A library is
-loaded only when a diagram includes it, once:
+with scrawl: C4, the icon sets, the themes and emoji. 16 large icon sets are
+left out to keep the binary small, among them the AWS, Azure, IBM, GCP,
+Kubernetes, Elastic and Office ones and tupadr3. A diagram that includes one of
+them shows PlantUML's error. The sets that stay are the files listed in
+`plantuml/js/library.json`, and the ones left out are named in
+[ADR 19](docs/adr/0019-plantuml-library-without-some-icon-sets.md). A library
+is loaded only when a diagram includes it, once:
 
 ````
 ```plantuml
@@ -744,7 +750,7 @@ notes without loading the page again, as the app does; opened from disk, every
 note is a page load. Search, editing, history and sync need the server and are
 not on a site. The diagram renderers, some 5MB each, the formula renderer and
 the PlantUML libraries the notes include are written only when a note needs
-them; one library can add up to 23MB. There is nothing to configure: the front
+them; one library can add up to 17MB. There is nothing to configure: the front
 page is the list of what the root holds, and Home opens `index.md` at the root
 of the notes. A folder's `index.md` is written as `index.md.html`, beside the
 folder's list. The scripts and the stylesheets are written once, into
@@ -797,7 +803,7 @@ network. Change anything under `web/` and the rebuilt bundle belongs in the
 same commit: CI rebuilds it and fails if what is checked in is stale.
 
 `make build`, the docker image and the release binaries store these files
-gzip-compressed, which makes the binary about 60 MB instead of about 90 MB.
+gzip-compressed, which makes the binary about 36 MB instead of about 60 MB.
 `go install` builds without that step and embeds the files as they are;
 PlantUML's library is committed compressed, so it is the same in both.
 

@@ -43,11 +43,13 @@ A space written out as static pages that run the app's reader.
   value the note gives that variable in a line like `!$lib = "C4"`, with
   `!global`, `!local` or `?=` too. A name built any other way, by a function or
   from other variables, is not followed, and its diagram draws on a site only
-  if another include ships the same library. Any library brings OpenIconic,
-  12KB, as a library can build an icon while it runs, as C4 does from
-  `$sprite="&person"`. A folder is `index.html`, its list, written for every
-  folder, and its `index.md` is `index.md.html`. A relative link to a folder
-  points to the list, because opened from disk a folder is the system's
+  if another include ships the same library. The scan also ships `themes.js`
+  for a `!theme` line, `openiconic.js` for an icon like `<&heart>` and
+  `emoji.js`, 1.8MB, for an emoji like `<:smile:>`. Any library brings
+  OpenIconic, 12KB, as a library can build an icon while it runs, as C4 does
+  from `$sprite="&person"`. A folder is `index.html`, its list, written for
+  every folder, and its `index.md` is `index.md.html`. A relative link to a
+  folder points to the list, because opened from disk a folder is the system's
   listing, and one to `index.md` to the note's page. Opened from disk, a page
   in Firefox has the origin `null`, so a heading's link is built without it,
   and the script finds the folder of the renderers from

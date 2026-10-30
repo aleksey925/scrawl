@@ -92,8 +92,8 @@ the link names.
   what reads no store. A router-relative URL and a physical one are never
   mixed. [server](docs/design/server.md#routes-and-urls)
 - Every background goroutine runs under the worker context, which is canceled,
-  not deferred, when `srv.Run` returns.
-  [server](docs/design/server.md#lifecycle)
+  not deferred, when `srv.Run` returns, apart from a PlantUML drawing, which
+  `Renderer.Close` stops. [server](docs/design/server.md#lifecycle)
 - No secret is a flag of scrawl, and a repository credential reaches git only
   through `GIT_CONFIG_*`, never argv. Every git call drops the host's `GIT_*`
   variables, and the commands an adopted repository names never run.
@@ -139,6 +139,8 @@ Before changing a part, read its doc:
 - the build, the bundle, gzassets, breakpoints, `useApi`, the route as the file
   on screen, ids of a note against the chrome, shortcuts, the clipboard,
   drawers: [frontend](docs/design/frontend.md)
+- how the browser draws mermaid and PlantUML, the lazy engines, a diagram's
+  ids, the viewer's copy: [frontend](docs/design/frontend.md#diagrams)
 - theme files, `data-scrawl-theme`, `--scrawl-*`, chroma styles:
   [themes](docs/design/themes.md)
 - prettier, its workers, formatting on save:

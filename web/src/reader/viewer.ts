@@ -1,3 +1,4 @@
+import { paperClass, scopeIds } from './diagramSvg';
 import { imageCaption } from './dom';
 
 const swipeMin = 40;
@@ -21,7 +22,9 @@ const zoomOutIcon =
 const fitIcon =
   'M152,96V48a8,8,0,0,1,16,0V88h40a8,8,0,0,1,0,16H160A8,8,0,0,1,152,96ZM96,152H48a8,8,0,0,0,0,16H88v40a8,8,0,0,0,16,0V160A8,8,0,0,0,96,152Zm112,0H160a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V168h40a8,8,0,0,0,0-16ZM96,40a8,8,0,0,0-8,8V88H48a8,8,0,0,0,0,16H96a8,8,0,0,0,8-8V48A8,8,0,0,0,96,40Z';
 
-const paperClass = 'md-diagram-paper';
+const viewerIds = 'md-viewer';
+
+const pixels = /^\s*(\d+(?:\.\d+)?)(?:px)?\s*$/;
 
 type Point = { x: number; y: number };
 
@@ -172,11 +175,12 @@ function zoomOf(stage: Stage, frame: HTMLElement, changed: () => void): Zoom {
   };
 }
 
-function imageStage(image: HTMLImageElement): Stage {
+function imageStage(image: HTMLImageElement, loaded: () => void): Stage {
   const picture = document.createElement('img');
   picture.className = 'md-viewer-image';
   picture.dataset.testid = 'doc-lightbox-image';
   picture.draggable = false;
+  picture.addEventListener('load', loaded);
   picture.src = sourceOf(image);
   picture.alt = image.alt;
   return {
@@ -189,8 +193,8 @@ function imageStage(image: HTMLImageElement): Stage {
 }
 
 function lengthOf(svg: SVGSVGElement, name: 'width' | 'height'): number {
-  const given = Number.parseFloat(svg.getAttribute(name) ?? '');
-  if (Number.isFinite(given) && given > 0) {
+  const given = Number(pixels.exec(svg.getAttribute(name) ?? '')?.[1]);
+  if (given > 0) {
     return given;
   }
   const box = svg.viewBox.baseVal;
@@ -211,6 +215,7 @@ function diagramStage(svg: SVGSVGElement, room: HTMLElement): Stage {
   sheet.dataset.testid = 'doc-lightbox-diagram';
   sheet.dataset.paper = String(svg.classList.contains(paperClass));
   const drawing = svg.cloneNode(true) as SVGSVGElement;
+  scopeIds(drawing, viewerIds);
   drawing.classList.remove(paperClass);
   drawing.style.removeProperty('max-width');
   sheet.append(drawing);
@@ -240,6 +245,10 @@ function diagramStage(svg: SVGSVGElement, room: HTMLElement): Stage {
 
 function openItems(items: readonly ViewerItem[], start: number, label: string): () => void {
   let at = Math.min(Math.max(0, start), items.length - 1);
+  const first = items[at];
+  if (first === undefined) {
+    return () => {};
+  }
 
   const dialog = document.createElement('dialog');
   dialog.className = 'md-viewer';
@@ -274,46 +283,41 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
     dialog.append(previous, next, count);
   }
 
-  let stage: Stage | null = null;
-  let zoom: Zoom | null = null;
   const centre = (): Point => ({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
   const refresh = (): void => {
-    if (zoom === null) {
-      return;
-    }
     const scale = zoom.scale();
     percent.textContent = `${zoom.percent()}%`;
     zoomOut.disabled = scale <= 1;
     fit.disabled = scale <= 1;
     zoomIn.disabled = scale >= zoom.ceiling();
   };
-  const show = (): void => {
-    const item = items[at];
-    if (item === undefined) {
-      return;
-    }
-    const built = item.kind === 'image' ? imageStage(item.image) : diagramStage(item.svg, dialog);
-    if (stage === null) {
-      dialog.prepend(built.element);
-    } else {
-      stage.element.replaceWith(built.element);
-    }
-    stage = built;
-    zoom = zoomOf(built, dialog, refresh);
-    caption.textContent = built.caption;
-    caption.hidden = built.caption === '';
+  const stageOf = (item: ViewerItem): Stage =>
+    item.kind === 'image' ? imageStage(item.image, refresh) : diagramStage(item.svg, dialog);
+  let stage = stageOf(first);
+  let zoom = zoomOf(stage, dialog, refresh);
+  dialog.prepend(stage.element);
+  const present = (): void => {
+    caption.textContent = stage.caption;
+    caption.hidden = stage.caption === '';
     count.textContent = `${at + 1} / ${items.length}`;
-    built.fit();
-    built.element.addEventListener('load', refresh);
+    stage.fit();
     refresh();
   };
   const step = (delta: number): void => {
     at = (at + delta + items.length) % items.length;
-    show();
+    const item = items[at];
+    if (item === undefined) {
+      return;
+    }
+    const built = stageOf(item);
+    stage.element.replaceWith(built.element);
+    stage = built;
+    zoom = zoomOf(built, dialog, refresh);
+    present();
   };
   const onResize = (): void => {
-    stage?.fit();
-    zoom?.reset();
+    stage.fit();
+    zoom.reset();
   };
 
   const pointers = new Map<number, Point>();
@@ -330,7 +334,7 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
   });
   dialog.addEventListener('pointermove', (event) => {
     const last = pointers.get(event.pointerId);
-    if (last === undefined || zoom === null) {
+    if (last === undefined) {
       return;
     }
     const now = pointOf(event);
@@ -362,7 +366,7 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
   dialog.addEventListener('pointercancel', release);
   dialog.addEventListener('pointerup', (event) => {
     release(event);
-    if (pointers.size > 0 || gesture.pinched || zoom === null || zoom.scale() > 1 || !several) {
+    if (pointers.size > 0 || gesture.pinched || zoom.scale() > 1 || !several) {
       return;
     }
     const moved = event.clientX - gesture.from.x;
@@ -373,9 +377,6 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
   });
 
   const tapStage = (point: Point): void => {
-    if (zoom === null) {
-      return;
-    }
     if (!gesture.touch) {
       zoom.toggle(point);
       return;
@@ -399,18 +400,18 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
     } else if (pressed === close) {
       dialog.close();
     } else if (pressed === zoomIn) {
-      zoom?.zoomTo(zoom.scale() * keyStep, centre(), true);
+      zoom.zoomTo(zoom.scale() * keyStep, centre(), true);
     } else if (pressed === zoomOut) {
-      zoom?.zoomTo(zoom.scale() / keyStep, centre(), true);
+      zoom.zoomTo(zoom.scale() / keyStep, centre(), true);
     } else if (pressed === percent) {
-      zoom?.actual(centre());
+      zoom.actual(centre());
     } else if (pressed === fit) {
-      zoom?.zoomTo(1, centre(), true);
+      zoom.zoomTo(1, centre(), true);
     } else if (pressed !== null || target?.closest('a') != null) {
       return;
     } else if (gesture.pinched || gesture.travel > tapSlop) {
       return;
-    } else if (target !== null && stage !== null && stage.element.contains(target)) {
+    } else if (target !== null && stage.element.contains(target)) {
       tapStage(pointOf(event));
     } else if (target === null || !tools.contains(target)) {
       dialog.close();
@@ -420,9 +421,6 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
     'wheel',
     (event) => {
       event.preventDefault();
-      if (zoom === null) {
-        return;
-      }
       const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? wheelLine : 1;
       if (event.ctrlKey || event.metaKey) {
         const delta = Math.max(-wheelStepMax, Math.min(wheelStepMax, event.deltaY * unit));
@@ -438,11 +436,11 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
   let pinchFrom = 1;
   dialog.addEventListener('gesturestart', (event) => {
     event.preventDefault();
-    pinchFrom = zoom?.scale() ?? 1;
+    pinchFrom = zoom.scale();
   });
   dialog.addEventListener('gesturechange', (event) => {
     event.preventDefault();
-    if (zoom === null || pointers.size > 0) {
+    if (pointers.size > 0) {
       return;
     }
     const pinch = event as PinchGesture;
@@ -457,9 +455,6 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
     }
     if (several && event.key === 'ArrowLeft') {
       step(-1);
-    }
-    if (zoom === null) {
-      return;
     }
     if (event.key === '+' || event.key === '=') {
       zoom.zoomTo(zoom.scale() * keyStep, centre(), true);
@@ -485,7 +480,7 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
   document.body.append(dialog);
   document.documentElement.style.overflow = 'hidden';
   dialog.showModal();
-  show();
+  present();
   window.addEventListener('resize', onResize);
   close.focus();
   return () => {

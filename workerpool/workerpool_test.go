@@ -69,6 +69,20 @@ func newEchoPool(t *testing.T, opts Options) *Pool[echoRequest, echoResponse] {
 	return pool
 }
 
+type answer struct {
+	res echoResponse
+	err error
+}
+
+func askInBackground(pool *Pool[echoRequest, echoResponse], req echoRequest) <-chan answer {
+	out := make(chan answer, 1)
+	go func() {
+		res, err := pool.Ask(context.Background(), req)
+		out <- answer{res: res, err: err}
+	}()
+	return out
+}
+
 func gone(pid int) func() bool {
 	return func() bool { return syscall.Kill(pid, 0) != nil }
 }
@@ -175,11 +189,7 @@ func TestAskReportsAWaitItGaveUpOn(t *testing.T) {
 func TestAskDetachedStopsWaitingWhenItsCallerLeaves(t *testing.T) {
 	// arrange
 	pool := newEchoPool(t, Options{Detach: true})
-	busy := make(chan echoResponse, 1)
-	go func() {
-		res, _ := pool.Ask(context.Background(), echoRequest{Text: "busy", Sleep: 500 * time.Millisecond})
-		busy <- res
-	}()
+	busy := askInBackground(pool, echoRequest{Text: "busy", Sleep: 500 * time.Millisecond})
 	time.Sleep(100 * time.Millisecond)
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(50*time.Millisecond, cancel)
@@ -192,18 +202,25 @@ func TestAskDetachedStopsWaitingWhenItsCallerLeaves(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 	assert.ErrorContains(t, err, "wait for a echo")
 	require.NoError(t, nextErr)
-	assert.Equal(t, (<-busy).PID, next.PID, "the request that stopped waiting never reached the worker")
+	busyRes := <-busy
+	require.NoError(t, busyRes.err)
+	assert.Equal(t, busyRes.res.PID, next.PID, "the request that stopped waiting never reached the worker")
 }
 
 func TestAskKillsAWorkerThatOutlivesTheLimit(t *testing.T) {
 	// arrange
 	pool := newEchoPool(t, Options{Limit: 50 * time.Millisecond})
+	before, err := pool.Ask(context.Background(), echoRequest{Text: "warm"})
+	require.NoError(t, err)
 
 	// act
-	_, err := pool.Ask(context.Background(), echoRequest{Text: "late", Sleep: time.Minute})
+	_, lateErr := pool.Ask(context.Background(), echoRequest{Text: "late", Sleep: time.Minute})
+	next, nextErr := pool.Ask(context.Background(), echoRequest{Text: "next"})
 
 	// assert
-	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorIs(t, lateErr, ErrOverLimit)
+	require.NoError(t, nextErr)
+	assert.NotEqual(t, before.PID, next.PID, "the worker that outlived the limit is replaced")
 }
 
 func TestAskCountsTheLimitFromTheMomentAWorkerIsFree(t *testing.T) {
@@ -228,11 +245,7 @@ func TestAskCountsTheLimitFromTheMomentAWorkerIsFree(t *testing.T) {
 func TestAskGivesUpWaitingForABusyWorker(t *testing.T) {
 	// arrange
 	pool := newEchoPool(t, Options{})
-	busy := make(chan echoResponse, 1)
-	go func() {
-		res, _ := pool.Ask(context.Background(), echoRequest{Text: "busy", Sleep: 500 * time.Millisecond})
-		busy <- res
-	}()
+	busy := askInBackground(pool, echoRequest{Text: "busy", Sleep: 500 * time.Millisecond})
 	time.Sleep(100 * time.Millisecond)
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
@@ -243,7 +256,29 @@ func TestAskGivesUpWaitingForABusyWorker(t *testing.T) {
 	// assert
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.ErrorContains(t, err, "wait for a echo")
-	assert.Equal(t, "BUSY", (<-busy).Text, "the waiting call does not disturb the running one")
+	busyRes := <-busy
+	require.NoError(t, busyRes.err)
+	assert.Equal(t, "BUSY", busyRes.res.Text, "the waiting call does not disturb the running one")
+}
+
+func TestAskRunsCallsAtOnceOnSeveralWorkers(t *testing.T) {
+	// arrange
+	pool := newEchoPool(t, Options{Workers: 2})
+	slow := askInBackground(pool, echoRequest{Text: "slow", Sleep: time.Second})
+	time.Sleep(100 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	// act
+	fast, err := pool.Ask(ctx, echoRequest{Text: "fast"})
+
+	// assert
+	require.NoError(t, err, "the second call takes the other worker instead of waiting for the first")
+	assert.Equal(t, "FAST", fast.Text)
+	assert.Empty(t, slow, "the first call is still running")
+	slowRes := <-slow
+	require.NoError(t, slowRes.err)
+	assert.NotEqual(t, slowRes.res.PID, fast.PID)
 }
 
 func TestAskDoesNotTakeAWorkerForADoneContext(t *testing.T) {
@@ -316,11 +351,9 @@ func TestAnIdleWorkerIsStopped(t *testing.T) {
 	first, err := pool.Ask(context.Background(), echoRequest{Text: "one"})
 	require.NoError(t, err)
 
-	// act
+	// act & assert
 	require.Eventually(t, gone(first.PID), 2*time.Second, 10*time.Millisecond)
 	next, err := pool.Ask(context.Background(), echoRequest{Text: "two"})
-
-	// assert
 	require.NoError(t, err)
 	assert.Equal(t, "TWO", next.Text)
 	assert.NotEqual(t, first.PID, next.PID)
@@ -343,15 +376,7 @@ func TestAWorkerInUseIsNotStoppedAsIdle(t *testing.T) {
 func TestCloseDuringACall(t *testing.T) {
 	// arrange
 	pool := newEchoPool(t, Options{})
-	type outcome struct {
-		res echoResponse
-		err error
-	}
-	running := make(chan outcome, 1)
-	go func() {
-		res, err := pool.Ask(context.Background(), echoRequest{Text: "running", Sleep: 300 * time.Millisecond})
-		running <- outcome{res: res, err: err}
-	}()
+	running := askInBackground(pool, echoRequest{Text: "running", Sleep: 300 * time.Millisecond})
 	time.Sleep(100 * time.Millisecond)
 
 	// act
@@ -364,6 +389,27 @@ func TestCloseDuringACall(t *testing.T) {
 	assert.Equal(t, "RUNNING", out.res.Text)
 	assert.Eventually(t, gone(out.res.PID), time.Second, 10*time.Millisecond, "its worker is stopped once it is back")
 	require.ErrorContains(t, after, "the echo is closed")
+}
+
+func TestCloseReleasesACallWaitingForABusyWorker(t *testing.T) {
+	// arrange
+	pool := newEchoPool(t, Options{})
+	busy := askInBackground(pool, echoRequest{Text: "busy", Sleep: 500 * time.Millisecond})
+	time.Sleep(100 * time.Millisecond)
+	waiting := askInBackground(pool, echoRequest{Text: "waiting"})
+	time.Sleep(50 * time.Millisecond)
+
+	// act
+	pool.Close()
+
+	// assert
+	select {
+	case res := <-waiting:
+		require.ErrorContains(t, res.err, "the echo is closed")
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "the waiting call still waits after Close")
+	}
+	require.NoError(t, (<-busy).err)
 }
 
 func TestCloseStopsADetachedRun(t *testing.T) {

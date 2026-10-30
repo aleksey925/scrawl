@@ -20,6 +20,8 @@ const (
 
 const maxSource = 256 << 10
 
+const workers = 1
+
 const (
 	diagramTimeout = 2 * time.Minute
 	idleTimeout    = 2 * time.Minute
@@ -63,8 +65,13 @@ func (e *diagramError) Error() string {
 	return e.Message
 }
 
+type asker interface {
+	Ask(ctx context.Context, req request) (response, error)
+	Close()
+}
+
 type Renderer struct {
-	pool  *workerpool.Pool[request, response]
+	pool  asker
 	cache *cache
 
 	mu      sync.Mutex
@@ -78,15 +85,19 @@ type drawing struct {
 	abandoned bool
 }
 
-func New(workers int) *Renderer {
-	return newRenderer(workers, diagramTimeout)
+func New() *Renderer {
+	return newRenderer(newPool(diagramTimeout))
 }
 
-func newRenderer(workers int, limit time.Duration) *Renderer {
+func newPool(limit time.Duration) *workerpool.Pool[request, response] {
+	return workerpool.New[request, response](workerpool.Options{
+		Name: workerName, Env: workerEnv, Workers: workers, Limit: limit, Idle: idleTimeout, Detach: true,
+	})
+}
+
+func newRenderer(pool asker) *Renderer {
 	return &Renderer{
-		pool: workerpool.New[request, response](workerpool.Options{
-			Name: workerName, Env: workerEnv, Workers: workers, Limit: limit, Idle: idleTimeout, Detach: true,
-		}),
+		pool:    pool,
 		cache:   newCache(cacheEntries, cacheBytes),
 		drawing: map[[sha256.Size]byte]*drawing{},
 	}
@@ -150,10 +161,10 @@ func (r *Renderer) drawOnce(ctx context.Context, key [sha256.Size]byte, diagram 
 	}
 	var waiting *workerpool.WaitError
 	own.abandoned = errors.As(own.err, &waiting)
+	r.mu.Lock()
 	if own.err == nil {
 		r.cache.put(key, own.res)
 	}
-	r.mu.Lock()
 	delete(r.drawing, key)
 	r.mu.Unlock()
 	close(own.done)
@@ -171,7 +182,6 @@ func (r *Renderer) Close() {
 }
 
 type cache struct {
-	mu         sync.Mutex
 	order      *list.List
 	entries    map[[sha256.Size]byte]*list.Element
 	maxEntries int
@@ -198,8 +208,6 @@ func sizeOf(res response) int {
 }
 
 func (c *cache) get(key [sha256.Size]byte) (response, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	el, ok := c.entries[key]
 	if !ok {
 		return response{}, false
@@ -212,8 +220,6 @@ func (c *cache) put(key [sha256.Size]byte, res response) {
 	if sizeOf(res) > c.maxBytes {
 		return
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	if el, ok := c.entries[key]; ok {
 		c.order.MoveToFront(el)
 		return

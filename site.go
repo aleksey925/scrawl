@@ -224,8 +224,8 @@ func (b *siteBuilder) addLibraries(assets map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("plantuml libraries: %w", err)
 	}
-	for _, lib := range libs {
-		assets[path.Join(sitePlantUMLDir, lib.Name)] = string(lib.Code)
+	for name, code := range libs {
+		assets[path.Join(sitePlantUMLDir, name)] = string(code)
 	}
 	return nil
 }

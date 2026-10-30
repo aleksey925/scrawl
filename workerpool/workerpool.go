@@ -42,18 +42,19 @@ type Retiring interface {
 type Pool[Req, Res any] struct {
 	opts  Options
 	free  chan *worker
-	done  chan struct{}
+	life  context.Context
+	end   context.CancelCauseFunc
 	ended error
 	runs  sync.WaitGroup
 
-	mu     sync.Mutex
-	closed bool
+	mu sync.Mutex
 }
 
 func New[Req, Res any](opts Options) *Pool[Req, Res] {
+	life, end := context.WithCancelCause(context.Background())
 	p := &Pool[Req, Res]{
 		opts: opts, free: make(chan *worker, opts.Workers),
-		done: make(chan struct{}), ended: fmt.Errorf("the %s is closed", opts.Name),
+		life: life, end: end, ended: fmt.Errorf("the %s is closed", opts.Name),
 	}
 	for range opts.Workers {
 		p.free <- &worker{}
@@ -80,10 +81,10 @@ func (p *Pool[Req, Res]) Ask(ctx context.Context, req Req) (Res, error) {
 	}
 	defer p.put(wrk)
 	if p.opts.Detach {
-		var cancel context.CancelCauseFunc
-		ctx, cancel = context.WithCancelCause(context.WithoutCancel(ctx))
-		defer cancel(nil)
-		go p.stopOnClose(ctx, cancel)
+		var stop context.CancelCauseFunc
+		ctx, stop = context.WithCancelCause(context.WithoutCancel(ctx))
+		defer stop(nil)
+		defer context.AfterFunc(p.life, func() { stop(p.ended) })() //nolint:contextcheck // a detached call ends with the pool, not its caller
 	}
 	if p.opts.Limit > 0 {
 		var cancel context.CancelFunc
@@ -124,14 +125,6 @@ func (p *Pool[Req, Res]) Ask(ctx context.Context, req Req) (Res, error) {
 	}
 }
 
-func (p *Pool[Req, Res]) stopOnClose(run context.Context, cancel context.CancelCauseFunc) {
-	select {
-	case <-p.done:
-		cancel(p.ended)
-	case <-run.Done():
-	}
-}
-
 func (p *Pool[Req, Res]) take(ctx context.Context) (*worker, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, &WaitError{Name: p.opts.Name, Err: err}
@@ -139,7 +132,7 @@ func (p *Pool[Req, Res]) take(ctx context.Context) (*worker, error) {
 	select {
 	case wrk := <-p.free:
 		return p.lend(wrk)
-	case <-p.done:
+	case <-p.life.Done():
 		return nil, p.ended
 	case <-ctx.Done():
 		return nil, &WaitError{Name: p.opts.Name, Err: ctx.Err()}
@@ -149,7 +142,7 @@ func (p *Pool[Req, Res]) take(ctx context.Context) (*worker, error) {
 func (p *Pool[Req, Res]) lend(wrk *worker) (*worker, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.closed {
+	if p.life.Err() != nil {
 		wrk.stop()
 		return nil, p.ended
 	}
@@ -166,7 +159,7 @@ func (p *Pool[Req, Res]) put(wrk *worker) {
 	if p.opts.Detach {
 		defer p.runs.Done()
 	}
-	if p.closed {
+	if p.life.Err() != nil {
 		wrk.stop()
 		return
 	}
@@ -182,11 +175,10 @@ func (p *Pool[Req, Res]) Close() {
 func (p *Pool[Req, Res]) stopFree() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.closed {
+	if p.life.Err() != nil {
 		return
 	}
-	p.closed = true
-	close(p.done)
+	p.end(p.ended)
 	for {
 		select {
 		case wrk := <-p.free:

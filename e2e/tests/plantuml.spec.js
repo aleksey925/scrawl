@@ -1,6 +1,8 @@
 const {expect, test} = require('../support/test');
 
-const {chooseTheme, openSpaceMenu, removeFixture, rgb, routes, shot, signIn, writeFixture} = require('../support/helpers');
+const {
+    chooseTheme, modifier, openSpaceMenu, pressShortcut, removeFixture, rgb, routes, shot, signIn, writeFixture,
+} = require('../support/helpers');
 const darkTheme = require('../../theme/themes/dark.json');
 
 const NOTE = 'e2e-plantuml.md';
@@ -84,7 +86,12 @@ test.describe('plantuml', () => {
         // assert
         await expect(box).toHaveAttribute('data-state', 'drawing');
         await expect(box.locator('pre.plantuml')).toBeHidden();
-        expect(await box.evaluate((node) => getComputedStyle(node, '::before').opacity)).toBe('1');
+        const placeholder = await box.evaluate((node) => {
+            const style = getComputedStyle(node, '::before');
+            return {content: style.content, background: style.backgroundImage};
+        });
+        expect(placeholder.content).not.toBe('none');
+        expect(placeholder.background).toContain('linear-gradient');
         await shot(page, 'plantuml-drawing');
         release();
         await expect(drawn(page)).toHaveCount(1);
@@ -216,6 +223,28 @@ test.describe('plantuml', () => {
         expect(loaded).toEqual(['plantuml.js']);
     });
 
+    test('a host that refuses wasm gets a class diagram laid out by smetana, and no crash', async ({page}) => {
+        // arrange
+        const messages = watchConsole(page);
+        await page.route((url) => url.pathname === routes.doc(NOTE), async (route) => {
+            const response = await route.fetch();
+            const headers = response.headers();
+            headers['content-security-policy'] = headers['content-security-policy'].replace(" 'wasm-unsafe-eval'", '');
+            await route.fulfill({response, headers});
+        });
+        writeFixture(NOTE, note(CLASSES));
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(drawn(page)).toHaveCount(1);
+        await expect(drawn(page).locator('g.entity')).toHaveCount(2);
+        await expect(drawn(page)).toContainText('Engine');
+        await expect(drawn(page)).not.toContainText(/error|exception/i);
+        expect(messages.some((text) => /WebAssembly|wasm/i.test(text))).toBe(true);
+    });
+
     test('graphviz starts only for a diagram laid out by it', async ({page}) => {
         // arrange
         await page.addInitScript(() => {
@@ -281,6 +310,75 @@ test.describe('plantuml', () => {
 
         await openSpaceMenu(page);
         await chooseTheme(page, 'auto');
+    });
+
+    test('in the dark theme a # is taken for a color only where plantuml reads one', async ({page}) => {
+        // arrange
+        const plain = [
+            'A -> B : closes #123',
+            'Alice->Bob: fixes #bug',
+            ':read issue #42;',
+            'title Issue #7\nA -> B',
+            'A -> B : "see #abc"',
+        ];
+        const colored = [
+            'class Car #pink',
+            'A -[#red]-> B',
+            'A -> B : <color:#red>hot</color>',
+            '#lightblue:read;',
+            'participant "Bob: api" as B #EFE\nA -> B',
+        ];
+        const fence = (source) => `\`\`\`plantuml\n${source}\n\`\`\``;
+        writeFixture(NOTE, note(...[...plain, ...colored].map(fence)));
+        await page.goto(routes.doc(NOTE));
+        await expect(drawn(page)).toHaveCount(plain.length + colored.length);
+
+        // act
+        await openSpaceMenu(page);
+        await chooseTheme(page, 'dark');
+        await page.keyboard.press('Escape');
+
+        // assert
+        await expect(drawn(page)).toHaveCount(plain.length + colored.length);
+        await expect.poll(() => drawn(page).evaluateAll((svgs) => svgs.map((svg) => svg.classList.contains('md-diagram-paper'))))
+            .toEqual([...plain.map(() => false), ...colored.map(() => true)]);
+
+        await openSpaceMenu(page);
+        await chooseTheme(page, 'auto');
+    });
+
+    test('a click on a link in a diagram follows it and does not open the viewer', async ({page}) => {
+        // arrange
+        await page.context().route('https://example.com/**', (route) => route.fulfill({contentType: 'text/html', body: 'away'}));
+        writeFixture(NOTE, note('```plantuml\nA -> B : [[https://example.com/away gone]]\n```'));
+        await page.goto(routes.doc(NOTE));
+        await expect(drawn(page)).toHaveCount(1);
+        const asked = page.context().waitForEvent('request', (request) => request.url() === 'https://example.com/away');
+
+        // act
+        await drawn(page).locator('a').first().click();
+
+        // assert
+        await asked;
+        await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+    });
+
+    test('the find bar skips a diagram\'s source, and its block has no copy button', async ({page}) => {
+        // arrange
+        await page.route('**/assets/plantuml.js', (route) => route.abort());
+        writeFixture(NOTE, '# PlantUML\n\nA quokka in the text.\n\n```plantuml\nquokka -> B : quokka\n```\n');
+        await page.goto(routes.doc(NOTE));
+        const box = page.getByTestId('doc').locator('.md-diagram');
+        await expect(box.locator('pre.plantuml')).toBeVisible();
+        await pressShortcut(page, `${await modifier(page)}+f`);
+        await expect(page.getByTestId('doc-find-input')).toBeFocused();
+
+        // act
+        await page.keyboard.type('quokka');
+
+        // assert
+        await expect(page.getByTestId('doc-find-count')).toHaveAttribute('data-total', '1');
+        await expect(box.getByTestId('code-copy')).toHaveCount(0);
     });
 
     test('in the dark theme a diagram with colors of its own is drawn light on a card, a plain one dark', async ({page}) => {

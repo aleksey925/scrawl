@@ -2,6 +2,8 @@ import { renderToString } from '@plantuml/core';
 import viz from '@plantuml/core/viz-global.js';
 import DOMPurify from 'dompurify';
 
+import { paperClass, scopeIds } from './diagramSvg';
+
 interface EngineHooks {
   PLANTUML_VIZ?: { instance?: () => Promise<unknown> };
   PLANTUML_STDLIB_LOADER?: (file: string, ok: () => void, fail: (message: string) => void) => void;
@@ -10,8 +12,6 @@ interface EngineHooks {
 const hooks = globalThis as typeof globalThis & EngineHooks;
 
 const engineDarkBackground = '#1B1B1B';
-
-const fragmentRef = /url\(\s*#([^)\s]+)\s*\)/g;
 
 const colorLiteral = '#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3}|[A-Za-z]{3,})\\b';
 
@@ -22,18 +22,28 @@ const ownColorLines = [
   /^<style>/,
   /<back:/,
   /\bis colored\b/,
-  new RegExp(`[\\s[<:]${colorLiteral}`),
+  new RegExp(`[[<]${colorLiteral}`),
+  new RegExp(`<\\w+:${colorLiteral}`),
   new RegExp(`^${colorLiteral}:`),
 ];
+
+const elementColor = new RegExp(`\\s${colorLiteral}`);
+
+const textLine = /^(?:title|header|footer|caption|legend)\b/i;
+
+function outsideLabels(line: string): string {
+  if (textLine.test(line)) {
+    return '';
+  }
+  return line.replace(/"[^"]*"/g, '""').split(':')[0] ?? '';
+}
 
 function hasOwnColors(source: string): boolean {
   return source.split('\n').some((line) => {
     const trimmed = line.trim();
-    return ownColorLines.some((rule) => rule.test(trimmed));
+    return ownColorLines.some((rule) => rule.test(trimmed)) || elementColor.test(outsideLabels(trimmed));
   });
 }
-
-const paperClass = 'md-diagram-paper';
 
 const libraryFile = /^[a-z0-9][a-z0-9._-]*\.js$/;
 
@@ -87,27 +97,6 @@ function sanitize(svg: string): SVGSVGElement {
     throw new Error('plantuml returned no svg');
   }
   return root;
-}
-
-function scopeIds(svg: SVGSVGElement, id: string): void {
-  const prefix = `${id}-`;
-  const owned = new Set<string>();
-  for (const node of svg.querySelectorAll('[id]')) {
-    owned.add(node.id);
-    node.id = prefix + node.id;
-  }
-  for (const node of svg.querySelectorAll('*')) {
-    for (const attr of Array.from(node.attributes)) {
-      if (attr.localName === 'href' && attr.value.startsWith('#') && owned.has(attr.value.slice(1))) {
-        attr.value = `#${prefix}${attr.value.slice(1)}`;
-      } else if (attr.value.includes('url(')) {
-        attr.value = attr.value.replace(fragmentRef, (whole, ref: string) =>
-          owned.has(ref) ? `url(#${prefix}${ref})` : whole,
-        );
-      }
-    }
-  }
-  svg.id = id;
 }
 
 function dropDarkBackground(svg: SVGSVGElement): void {

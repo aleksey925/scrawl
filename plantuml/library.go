@@ -40,11 +40,6 @@ var extraLibraries = []struct {
 	{pattern: regexp.MustCompile(`<(?:#\w+)?:[\w+-]+:`), file: emojiFile},
 }
 
-type Library struct {
-	Name string
-	Code []byte
-}
-
 func inLibrary(name string) bool {
 	return libraryName.MatchString(name) && library.Has(name)
 }
@@ -101,7 +96,7 @@ func librariesOfVariables(src []byte) []string {
 	return res
 }
 
-func WithDependencies(names []string) ([]Library, error) {
+func WithDependencies(names []string) (map[string][]byte, error) {
 	seen := map[string][]byte{}
 	queue := slices.Clone(names)
 	for len(queue) > 0 {
@@ -131,10 +126,5 @@ func WithDependencies(names []string) ([]Library, error) {
 			queue = append(queue, iconsFile)
 		}
 	}
-	res := make([]Library, 0, len(seen))
-	for name, code := range seen {
-		res = append(res, Library{Name: name, Code: code})
-	}
-	slices.SortFunc(res, func(a, b Library) int { return strings.Compare(a.Name, b.Name) })
-	return res, nil
+	return seen, nil
 }

@@ -27,11 +27,7 @@ interface Diagram {
   source: string;
 }
 
-interface Drawn {
-  item: Diagram;
-  svg?: SVGElement;
-  error?: string;
-}
+type Drawn = { item: Diagram; svg: SVGElement } | { item: Diagram; error: string };
 
 const errorLimit = 200;
 
@@ -94,6 +90,15 @@ function parseMermaidSvg(svg: string): SVGElement {
   return document.importNode(parsed.documentElement, true) as unknown as SVGElement;
 }
 
+function giveRealWidth(svg: SVGElement): void {
+  const width = Number.parseFloat(svg.style.maxWidth);
+  if (svg.getAttribute('width')?.endsWith('%') !== true || !(width > 0)) {
+    return;
+  }
+  svg.setAttribute('width', String(width));
+  svg.style.removeProperty('max-width');
+}
+
 function openButton(): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
@@ -104,11 +109,12 @@ function openButton(): HTMLButtonElement {
 }
 
 function place(result: Drawn): void {
-  const { item, svg, error } = result;
-  if (svg === undefined) {
-    fail(item, error ?? 'the diagram could not be rendered');
+  const { item } = result;
+  if ('error' in result) {
+    fail(item, result.error);
     return;
   }
+  const { svg } = result;
   const frame = document.createElement('div');
   frame.className = frameClass;
   frame.dataset.testid = 'diagram-frame';
@@ -196,6 +202,7 @@ const mermaidKind: Kind = {
       try {
         const { svg } = await mermaid.render(id, source);
         const element = parseMermaidSvg(svg);
+        giveRealWidth(element);
         repairActors(element, text);
         return element;
       } catch (error) {

@@ -351,7 +351,7 @@ func runRender(opts *renderOptions, in io.Reader, out, errOut io.Writer) error {
 }
 
 func drawPlantUML(fragment string, errOut io.Writer) string {
-	diagramRenderer := plantuml.New(1)
+	diagramRenderer := plantuml.New()
 	defer diagramRenderer.Close()
 	drawn, err := diagramRenderer.Inline(context.Background(), fragment)
 	if err != nil {

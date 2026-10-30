@@ -20,6 +20,7 @@ const SCRATCH = 'e2e-mobile/zametka.md';
 const EMPTY_FOLDER = 'e2e-mobile/pusto';
 const HISTORY_FOLDER = 'e2e-mobile-history';
 const HISTORY_DOC = `${HISTORY_FOLDER}/versions.md`;
+const DIAGRAM_NOTE = 'e2e-mobile-diagram.md';
 
 async function tooSmall(page, selector, min = MIN_TAP) {
     return page.evaluate(([sel, min]) => {
@@ -96,6 +97,7 @@ test.describe('mobile', () => {
     test.afterAll(() => {
         fs.rmSync(fixtureFile('e2e-mobile'), {recursive: true, force: true});
         fs.rmSync(fixtureFile(HISTORY_FOLDER, HISTORY), {recursive: true, force: true});
+        removeFixture(DIAGRAM_NOTE);
     });
 
     test('the tab bar sits at the bottom with Notes, Search, Recent, New and Profile', async ({page}) => {
@@ -1522,9 +1524,8 @@ test.describe('mobile', () => {
 
     test('a tap on a diagram opens it in the viewer, where a double tap zooms it', async ({page}) => {
         // arrange
-        const note = 'e2e-mobile-diagram.md';
-        writeFixture(note, '# Diagram\n\n```plantuml\nAlice -> Bob : hello\nBob --> Alice : ok\n```\n');
-        await page.goto(routes.doc(note));
+        writeFixture(DIAGRAM_NOTE, '# Diagram\n\n```plantuml\nAlice -> Bob : hello\nBob --> Alice : ok\n```\n');
+        await page.goto(routes.doc(DIAGRAM_NOTE));
         const frame = page.getByTestId('diagram-frame');
         await expect(frame).toBeVisible();
         await expect(frame.getByTestId('diagram-open')).toBeHidden();
@@ -1541,8 +1542,6 @@ test.describe('mobile', () => {
         await page.touchscreen.tap(centre.x, centre.y);
         await expect(diagram).toHaveAttribute('data-zoomed', 'true');
         await shot(page, 'mobile-diagram-viewer');
-
-        removeFixture(note);
     });
 
     test('the notes can be installed as an app', async ({page}) => {

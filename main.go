@@ -40,8 +40,6 @@ const (
 
 const formatWorkers = 2
 
-const plantumlWorkers = 1
-
 const (
 	formatOn  = "on"
 	formatOff = "off"
@@ -205,7 +203,7 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 
 	formatter := format.New(formatWorkers)
 	defer formatter.Close()
-	diagramRenderer := plantuml.New(plantumlWorkers)
+	diagramRenderer := plantuml.New()
 	defer diagramRenderer.Close()
 
 	srv := &server.Web{

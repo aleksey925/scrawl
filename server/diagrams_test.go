@@ -14,7 +14,10 @@ import (
 	"github.com/aleksey925/scrawl/render"
 )
 
-const drawnMark = `<img alt="drawn">`
+const (
+	drawnMark  = `<img alt="drawn">`
+	failedMark = `<p class="md-diagram-error">not drawn</p>`
+)
 
 type fakeDiagramRenderer struct {
 	fragments []string
@@ -34,7 +37,7 @@ func (f *fakeDiagramRenderer) Inline(ctx context.Context, fragment string) (stri
 		f.deadlines = append(f.deadlines, time.Until(deadline))
 	}
 	if f.err != nil {
-		return fragment, f.err
+		return strings.Replace(fragment, "</pre>", "</pre>"+failedMark, 1), f.err
 	}
 	start := strings.Index(fragment, render.OpenPlantUML)
 	end := strings.Index(fragment, "</pre>")
@@ -124,7 +127,7 @@ func TestExportKeepsTheDiagramsAsCodeWhenTheRendererFails(t *testing.T) {
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
 	assert.Contains(t, body, `<pre class="plantuml"`)
-	assert.Contains(t, body, "A -&gt; B")
+	assert.Contains(t, body, "</pre>"+failedMark, "the export carries what the renderer gave back with its error")
 }
 
 func TestExportOfANoteWithNoPlantUMLDrawsNothing(t *testing.T) {

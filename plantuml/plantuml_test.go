@@ -11,14 +11,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aleksey925/scrawl/render"
 )
 
 const retireEveryTimeEnv = "SCRAWL_PLANTUML_TEST_RETIRE"
@@ -28,10 +32,42 @@ func TestMain(m *testing.M) {
 		runWorkerIfAsked(0)
 	}
 	RunWorkerIfAsked()
-	os.Exit(m.Run())
+	shared = New()
+	code := m.Run()
+	shared.Close()
+	os.Exit(code)
 }
 
-var shared = New(1)
+var shared *Renderer
+
+type heldPool struct {
+	asked   chan string
+	release chan struct{}
+
+	mu   sync.Mutex
+	asks int
+}
+
+func newHeldPool() *heldPool {
+	return &heldPool{asked: make(chan string, 8), release: make(chan struct{})}
+}
+
+func (p *heldPool) Ask(_ context.Context, req request) (response, error) {
+	p.mu.Lock()
+	p.asks++
+	p.mu.Unlock()
+	p.asked <- req.Source
+	<-p.release
+	return response{SVG: "<svg>" + req.Source + "</svg>"}, nil
+}
+
+func (p *heldPool) Close() {}
+
+func (p *heldPool) askCount() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.asks
+}
 
 func TestSVG(t *testing.T) {
 	tests := []struct {
@@ -80,19 +116,19 @@ func TestSVGDrawsAnEmojiWithALongPath(t *testing.T) {
 
 func TestSVGOfADiagramThatCrashesTheEngine(t *testing.T) {
 	// arrange
-	r := New(1)
+	r := New()
 	t.Cleanup(r.Close)
 	crashing := "@startuml\nA -> B : " + strings.Repeat("word ", 2000) + "\n@enduml"
 
 	// act
 	_, err := r.svg(context.Background(), crashing)
+	svg, nextErr := r.svg(context.Background(), "@startuml\nA -> B : next\n@enduml")
 
 	// assert
 	var diagramErr *diagramError
 	require.ErrorAs(t, err, &diagramErr)
 	assert.Equal(t, &diagramError{Message: engineFailed}, diagramErr)
-	svg, err := r.svg(context.Background(), "@startuml\nA -> B : next\n@enduml")
-	require.NoError(t, err, "the worker whose engine crashed is replaced for the next diagram")
+	require.NoError(t, nextErr, "the worker whose engine crashed is replaced for the next diagram")
 	assert.Contains(t, svg, "next")
 }
 
@@ -114,7 +150,7 @@ func TestSVGDrawsASpriteAsAPicture(t *testing.T) {
 func TestSVGAfterTheWorkerRetired(t *testing.T) {
 	// arrange
 	t.Setenv(retireEveryTimeEnv, "1")
-	r := New(1)
+	r := New()
 	t.Cleanup(r.Close)
 	_, err := r.svg(context.Background(), "@startuml\nA -> B : before\n@enduml")
 	require.NoError(t, err)
@@ -176,27 +212,29 @@ func TestSVGRefusesASourceAboveTheCap(t *testing.T) {
 
 func TestSVGKeepsADiagramStillDrawnWhenTheBudgetRanOut(t *testing.T) {
 	// arrange
-	r := New(1)
-	t.Cleanup(r.Close)
+	pool := newHeldPool()
+	r := newRenderer(pool)
 	source := "@startuml\nA -> B : over budget\n@enduml"
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
+	late := drawInBackground(ctx, r, source)
+	<-pool.asked
+	require.ErrorIs(t, (<-late).err, context.DeadlineExceeded)
+	close(pool.release)
+	require.Eventually(t, func() bool { return drawingNow(r) == 0 }, 5*time.Second, time.Millisecond)
 
 	// act
-	_, err := r.svg(ctx, source)
+	svg, err := r.svg(context.Background(), source)
 
 	// assert
-	require.ErrorIs(t, err, context.DeadlineExceeded)
-	require.Eventually(t, func() bool { return drawingNow(r) == 0 }, time.Minute, 10*time.Millisecond)
-	r.pool.Close()
-	svg, afterErr := r.svg(context.Background(), source)
-	require.NoError(t, afterErr, "the drawing is finished and kept, the next export takes it from the cache")
-	assert.Contains(t, svg, "over budget")
+	require.NoError(t, err)
+	assert.Equal(t, "<svg>"+source+"</svg>", svg)
+	assert.Equal(t, 1, pool.askCount(), "the drawing is finished and kept, the next export takes it from the cache")
 }
 
 func TestSVGKeepsADiagramKilledAtTheLimit(t *testing.T) {
 	// arrange
-	r := newRenderer(1, time.Millisecond)
+	r := newRenderer(newPool(time.Millisecond))
 	t.Cleanup(r.Close)
 	source := "@startuml\nA -> B : endless\n@enduml"
 	_, err := r.svg(context.Background(), source)
@@ -216,27 +254,32 @@ func TestSVGKeepsADiagramKilledAtTheLimit(t *testing.T) {
 
 func TestSVGJoinsADrawingWhoseClientLeft(t *testing.T) {
 	// arrange
-	r := New(1)
-	t.Cleanup(r.Close)
+	pool := newHeldPool()
+	r := newRenderer(pool)
 	source := "@startuml\nA -> B : one drawing\n@enduml"
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	_, err := r.svg(ctx, source)
-	require.ErrorIs(t, err, context.DeadlineExceeded)
+	left := drawInBackground(ctx, r, source)
+	<-pool.asked
+	require.ErrorIs(t, (<-left).err, context.DeadlineExceeded)
 	require.Equal(t, 1, drawingNow(r), "the drawing goes on without the client that asked for it")
 
 	// act
-	svg, err := r.svg(context.Background(), source)
+	next := drawInBackground(context.Background(), r, source)
+	time.Sleep(50 * time.Millisecond)
+	close(pool.release)
+	got := <-next
 
 	// assert
-	require.NoError(t, err, "the next export waits for that drawing instead of starting another")
-	assert.Contains(t, svg, "one drawing")
+	require.NoError(t, got.err)
+	assert.Equal(t, "<svg>"+source+"</svg>", got.svg)
+	assert.Equal(t, 1, pool.askCount(), "the next export waits for that drawing instead of starting another")
 	assert.Equal(t, 0, drawingNow(r))
 }
 
 func TestSVGIsCached(t *testing.T) {
 	// arrange
-	r := New(1)
+	r := New()
 	source := "@startuml\nA -> B : once\n@enduml"
 	first, err := r.svg(context.Background(), source)
 	require.NoError(t, err)
@@ -272,11 +315,11 @@ func drawInBackground(ctx context.Context, r *Renderer, source string) <-chan dr
 
 func TestSVGWaitsForTheSameDiagramBeingDrawn(t *testing.T) {
 	// arrange
-	r := New(1)
-	t.Cleanup(r.Close)
+	pool := newHeldPool()
+	r := newRenderer(pool)
 	source := "A -> B : shared"
 	first := drawInBackground(context.Background(), r, source)
-	require.Eventually(t, func() bool { return drawingNow(r) == 1 }, 5*time.Second, time.Millisecond)
+	<-pool.asked
 	gone, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -284,21 +327,21 @@ func TestSVGWaitsForTheSameDiagramBeingDrawn(t *testing.T) {
 	_, goneErr := r.svg(gone, source)
 	second := drawInBackground(context.Background(), r, source)
 	time.Sleep(50 * time.Millisecond)
-	registered := drawingNow(r)
+	close(pool.release)
+	leader, follower := <-first, <-second
 
 	// assert
 	require.ErrorIs(t, goneErr, context.Canceled)
 	assert.ErrorContains(t, goneErr, "wait for the diagram to be drawn")
-	assert.Equal(t, 1, registered, "the second call joins the first one's drawing instead of starting its own")
-	leader, follower := <-first, <-second
 	require.NoError(t, leader.err)
 	require.NoError(t, follower.err)
 	assert.Equal(t, leader.svg, follower.svg)
+	assert.Equal(t, 1, pool.askCount(), "the second call joins the first one's drawing instead of starting its own")
 }
 
 func TestSVGDrawsItselfWhenTheCallItWaitedForLeftWaiting(t *testing.T) {
 	// arrange
-	r := New(1)
+	r := New()
 	t.Cleanup(r.Close)
 	busy := drawInBackground(context.Background(), r, "A -> B : busy")
 	require.Eventually(t, func() bool { return drawingNow(r) == 1 }, 5*time.Second, time.Millisecond)
@@ -326,30 +369,29 @@ func TestSVGDrawsItselfWhenTheCallItWaitedForLeftWaiting(t *testing.T) {
 
 func TestSVGFinishesADrawingAfterItsClientLeaves(t *testing.T) {
 	// arrange
-	r := New(1)
-	t.Cleanup(r.Close)
+	pool := newHeldPool()
+	r := newRenderer(pool)
 	ctx, cancel := context.WithCancel(context.Background())
 	source := "A -> B : finished"
 	left := drawInBackground(ctx, r, source)
-	require.Eventually(t, func() bool { return drawingNow(r) == 1 }, 5*time.Second, time.Millisecond)
-	time.Sleep(50 * time.Millisecond)
+	<-pool.asked
+	cancel()
+	require.ErrorIs(t, (<-left).err, context.Canceled)
+	close(pool.release)
+	require.Eventually(t, func() bool { return drawingNow(r) == 0 }, 5*time.Second, time.Millisecond)
 
 	// act
-	cancel()
+	again, err := r.svg(context.Background(), source)
 
 	// assert
-	leftRes := <-left
-	require.ErrorIs(t, leftRes.err, context.Canceled)
-	require.Eventually(t, func() bool { return drawingNow(r) == 0 }, time.Minute, 10*time.Millisecond)
-	r.pool.Close()
-	again, err := r.svg(context.Background(), source)
-	require.NoError(t, err, "the drawing is kept")
+	require.NoError(t, err)
 	assert.Contains(t, again, "finished")
+	assert.Equal(t, 1, pool.askCount(), "the drawing is kept")
 }
 
 func TestSVGTakesADrawingCachedWhileItWaitedToRegister(t *testing.T) {
 	// arrange
-	r := New(1)
+	r := New()
 	t.Cleanup(r.Close)
 	source := "@startuml\nA -> B : finished elsewhere\n@enduml"
 	want := response{SVG: "<svg>finished elsewhere</svg>"}
@@ -469,6 +511,9 @@ func TestEngineRenderHandsOverTheLibrariesItAsksFor(t *testing.T) {
 	// assert
 	require.NoError(t, err)
 	assert.Equal(t, response{SVG: "<svg/>"}, res)
+	raw := toEngine.String()
+	assert.Contains(t, raw, "<path", "library code goes as it is, not escaped for html")
+	assert.NotContains(t, raw, `\u003c`)
 	sent := json.NewDecoder(&toEngine)
 	var req request
 	require.NoError(t, sent.Decode(&req))
@@ -479,7 +524,6 @@ func TestEngineRenderHandsOverTheLibrariesItAsksFor(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, libraryReply{Code: string(code)}, found)
 	assert.Contains(t, missing.Error, "nosuch.min.js")
-	assert.NotContains(t, toEngine.String(), `<`, "library code goes as it is, not escaped for html")
 }
 
 func TestEngineRenderWhenTheEngineDies(t *testing.T) {
@@ -586,7 +630,7 @@ func TestInline(t *testing.T) {
 
 func TestInlineLeavesADiagramAsCodeWhenTheRendererFails(t *testing.T) {
 	// arrange
-	r := New(1)
+	r := New()
 	r.Close()
 	block := `<pre class="plantuml">A -&gt; B : never drawn` + "\n</pre>"
 
@@ -601,7 +645,7 @@ func TestInlineLeavesADiagramAsCodeWhenTheRendererFails(t *testing.T) {
 
 func TestInlineAfterTheContextIsDone(t *testing.T) {
 	// arrange
-	r := New(1)
+	r := New()
 	t.Cleanup(r.Close)
 	_, err := r.svg(context.Background(), "A -> B : drawn before")
 	require.NoError(t, err)
@@ -687,11 +731,11 @@ func TestWithDependencies(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// arrange
-			want := make([]Library, 0, len(tc.want))
+			want := make(map[string][]byte, len(tc.want))
 			for _, file := range tc.want {
 				code, err := libraryFile(file)
 				require.NoError(t, err)
-				want = append(want, Library{Name: file, Code: code})
+				want[file] = code
 			}
 
 			// act
@@ -748,6 +792,34 @@ func TestServeLibrary(t *testing.T) {
 			if !tc.gzipped {
 				assert.Contains(t, rec.Body.String(), "PLANTUML_STDLIB")
 			}
+		})
+	}
+}
+
+func TestInlineDrawsEveryExample(t *testing.T) {
+	notes, err := filepath.Glob("../examples/data/showcase/plantuml/*.md")
+	require.NoError(t, err)
+	require.NotEmpty(t, notes)
+	renderer := render.New(render.Options{})
+	for _, file := range notes {
+		t.Run(filepath.Base(file), func(t *testing.T) {
+			t.Parallel()
+
+			// arrange
+			r := New()
+			t.Cleanup(r.Close)
+			src, err := os.ReadFile(file)
+			require.NoError(t, err)
+			res, err := renderer.Render(src, filepath.Base(file))
+			require.NoError(t, err)
+
+			// act
+			out, err := r.Inline(context.Background(), string(res.HTML))
+
+			// assert
+			require.NoError(t, err)
+			assert.NotContains(t, out, "md-diagram-error")
+			assert.Equal(t, strings.Count(string(res.HTML), render.OpenPlantUML), strings.Count(out, "<img"))
 		})
 	}
 }

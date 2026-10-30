@@ -125,8 +125,13 @@ words; the fact itself is written here.
 - Mermaid finds its scratch element by id, so every pass renders under fresh
   ids, or the svg already on the page answers for it, and a failed parse leaves
   that element on the body, where it is removed.
-- Mermaid mixes colors as if they were opaque, so it gets opaque colors only,
-  and `useMaxWidth` is off, because it is the one width mermaid writes inline.
+- Mermaid mixes colors as if they were opaque, so it gets opaque colors only.
+- Mermaid's `useMaxWidth` writes `width="100%"` and the real width as an inline
+  `max-width`. It is set per diagram type, so a type the config does not name,
+  such as a mind map or a timeline, still comes with `100%`. Inside an
+  inline-block frame such an svg is drawn 300px wide in Chromium and Firefox,
+  so the reader puts the `max-width` number into `width` and drops the inline
+  style.
 - PlantUML with Viz loaded but its wasm refused draws every Graphviz diagram as
   a crash picture. It falls back to Smetana only when `PLANTUML_VIZ` has no
   `instance`, so a failed start sets it to an empty object: left unset, a

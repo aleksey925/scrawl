@@ -2640,6 +2640,7 @@
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime.js",
+      "index.html",
       "_purify.es.js"
     ]
   }

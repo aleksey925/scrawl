@@ -29,6 +29,7 @@ async function stubPrint(page) {
                 theme: root.getAttribute('data-scrawl-theme'),
                 scheme: root.getAttribute('data-mantine-color-scheme'),
                 diagram: document.querySelector('.md-diagram-view svg')?.id ?? null,
+                text: document.querySelector('.md-diagram-view svg text')?.getAttribute('fill') ?? null,
             });
             window.dispatchEvent(new Event('afterprint'));
         };
@@ -83,6 +84,24 @@ test.describe('export', () => {
         expect(svg).not.toBeNull();
         expect(Buffer.from(svg[1], 'base64').toString('utf8')).toContain('exported');
         expect(file.body).not.toContain('<pre class="plantuml"');
+    });
+
+    test('the plantuml picture of an exported page shows when the page is opened', async ({page}, testInfo) => {
+        // arrange
+        writeFixture(NOTE, PLANTUML);
+        await page.goto(routes.doc(NOTE));
+        const file = await download(page, 'html');
+        const saved = testInfo.outputPath(file.name);
+        fs.writeFileSync(saved, file.body);
+
+        // act
+        await page.goto(`file://${saved}`);
+
+        // assert
+        const picture = page.locator('.md-diagram[data-state="done"] .md-diagram-view img');
+        await expect(picture).toBeVisible();
+        expect(await picture.evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
+        expect((await picture.boundingBox()).height).toBeGreaterThan(0);
     });
 
     test('the picked theme of an exported page slides into place', async ({page}, testInfo) => {
@@ -255,6 +274,30 @@ test.describe('export to pdf on a dark screen', () => {
         await expect(page).toHaveTitle(title);
         await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
         await expect(page.locator('html')).not.toHaveAttribute('data-scrawl-theme', /.*/);
+    });
+
+    test('a print of a plantuml diagram waits for its engine and its light drawing', async ({page}) => {
+        // arrange
+        writeFixture(NOTE, PLANTUML);
+        await page.route('**/assets/plantuml.js', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 1_500));
+            await route.continue();
+        });
+        await page.goto(routes.doc(NOTE));
+        await expect(page.getByTestId('doc').locator('.md-diagram')).toHaveAttribute('data-state', 'drawing');
+        await stubPrint(page);
+
+        // act
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('doc-export-pdf').click();
+
+        // assert
+        await expect.poll(() => page.evaluate(() => window.printed.length)).toBe(1);
+        const [printed] = await page.evaluate(() => window.printed);
+        expect(printed).toMatchObject({theme: 'light', diagram: expect.stringMatching(/^md-plantuml-/), text: expect.any(String)});
+        await expect(page.getByTestId('doc').locator('.md-diagram[data-state="done"]')).toBeVisible();
+        const dark = await page.getByTestId('doc').locator('.md-diagram-view svg text').first().getAttribute('fill');
+        expect(printed.text, 'the paper gets the light drawing, not the dark one').not.toBe(dark);
     });
 
     test('a note left while its print waits is not printed', async ({page}) => {

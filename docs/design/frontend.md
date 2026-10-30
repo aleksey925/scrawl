@@ -78,3 +78,32 @@ How the react app in `web/` is built, shipped and wired.
   outline sheet once each ran their own copy of that over overlapping elements,
   so closing one lifted the other's `inert`, and a close that went around the
   teardown left the page taking no tap at all.
+
+## Diagrams
+
+- `web/src/reader/diagrams.ts` draws every `pre.mermaid` and `pre.plantuml` of
+  a note through one code path. Each kind is an engine: how to load it and how
+  to turn a source into an svg. The wrapping, the placeholder, the error note,
+  the scroll keeping and the redraw on a theme change are shared.
+- An engine is a lazy chunk, loaded through the platform's `loadMermaid` or
+  `loadPlantUML` only by a note that has a block of its kind. The kinds load
+  and draw side by side, so a mermaid diagram does not wait for PlantUML's
+  engine. Within a kind the blocks are drawn one at a time, since a drawing
+  holds the main thread and cannot be stopped. A canceled pass stops between
+  two blocks. Each diagram is put in as soon as it is drawn.
+- The whole pass goes to `track` in `pending.ts`, which a PDF waits for, so a
+  print has every diagram drawn.
+- Every pass draws under fresh ids, `md-<kind>-<pass>-<index>`. PlantUML's own
+  ids get that prefix too, and every `url(#...)` and `href="#..."` that points
+  at one follows (`scopeIds` in `diagramSvg.ts`): every PlantUML diagram
+  carries the same ids, and a heading of the note may be called that too.
+- The viewer shows a copy of the diagram. The copy gets ids of its own, with an
+  `md-viewer` prefix, and its `<style>` follows them, so the ids in the note
+  and the viewer's are never the same while it is open.
+- A mermaid svg with `width="100%"` gets the number of its `max-width` as its
+  width ([quirks](../quirks.md#mermaid-plantuml-and-katex)), so every diagram
+  has a real width, in the note and in the viewer.
+- PlantUML loads a library file as a script from an address relative to its own
+  chunk, `../../plantuml/` in the app and `plantuml/` beside the scripts of a
+  site, so the same chunk finds it under any path the app or the site is served
+  from.

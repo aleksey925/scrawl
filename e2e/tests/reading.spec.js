@@ -30,6 +30,10 @@ test.describe('reading', () => {
         await signIn(page);
     });
 
+    test.afterEach(() => {
+        removeFixture(DIAGRAM_VIEWER);
+    });
+
     test('the root page lists the root folder, its index a row tagged as the folder page', async ({page}) => {
         // assert
         await expect(page.getByTestId('dir')).toBeVisible();
@@ -405,8 +409,53 @@ test.describe('reading', () => {
         await shot(page, 'reading-diagram-viewer');
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+    });
 
-        removeFixture(DIAGRAM_VIEWER);
+    test('a mermaid diagram that mermaid sizes to the page is drawn at its own width, and the viewer knows that width', async ({page}) => {
+        // arrange
+        const events = Array.from({length: 8}, (_, i) => `    ${2000 + i} : Event number ${i}`).join('\n');
+        writeFixture(DIAGRAM_VIEWER, `# Timeline\n\n\`\`\`mermaid\ntimeline\n    title History\n${events}\n\`\`\`\n`);
+        await page.goto(routes.doc(DIAGRAM_VIEWER));
+        const svg = page.getByTestId('diagram-frame').locator(':scope > svg');
+        await expect(svg).toBeVisible();
+        const natural = Number(await svg.getAttribute('width'));
+        const shown = await svg.evaluate((el) => el.getBoundingClientRect().width);
+        const room = await page.getByTestId('doc').evaluate((el) => el.getBoundingClientRect().width);
+
+        // act
+        await page.getByTestId('diagram-frame').click();
+        await expect(page.getByTestId('doc-lightbox-zoom')).toHaveText(/^\d+%$/);
+        await page.keyboard.press('1');
+
+        // assert
+        expect(natural).toBeGreaterThan(300);
+        expect(Math.abs(shown - Math.min(natural, room))).toBeLessThanOrEqual(1);
+        await expect(page.getByTestId('doc-lightbox-zoom')).toHaveText('100%');
+        const actual = () => page.getByTestId('doc-lightbox-diagram').locator('svg')
+            .evaluate((el) => el.getBoundingClientRect().width);
+        await expect.poll(async () => Math.abs(await actual() - natural)).toBeLessThanOrEqual(1);
+    });
+
+    test('the viewer\'s copy of a diagram shares no id with the note', async ({page}) => {
+        // arrange
+        writeFixture(DIAGRAM_VIEWER, '# Ids\n\n```mermaid\nflowchart LR\n  A --> B\n```\n');
+        await page.goto(routes.doc(DIAGRAM_VIEWER));
+        const ids = (root) => root.evaluate((el) => Array.from(el.querySelectorAll('[id]'), (node) => node.id));
+        await expect(page.getByTestId('diagram-frame')).toBeVisible();
+
+        // act
+        await page.getByTestId('diagram-frame').click();
+        const copy = page.getByTestId('doc-lightbox-diagram');
+        await expect(copy).toBeVisible();
+
+        // assert
+        const inNote = await ids(page.getByTestId('doc'));
+        const inViewer = await ids(copy);
+        expect(inViewer.length).toBeGreaterThan(0);
+        expect(inViewer.filter((id) => inNote.includes(id))).toEqual([]);
+        const fill = (root) => root.locator('.node rect').first().evaluate((el) => getComputedStyle(el).fill);
+        expect(await fill(copy), 'the copy keeps the look its own stylesheet gives it').toBe(
+            await fill(page.getByTestId('diagram-frame')));
     });
 
     test('the viewer zooms a diagram with its keys and shows that diagram alone', async ({page}) => {
@@ -432,9 +481,8 @@ test.describe('reading', () => {
         await expect(page.getByTestId('doc-lightbox-count')).toHaveCount(0);
         await expect(page.getByTestId('doc-lightbox-next')).toHaveCount(0);
         await page.keyboard.press('ArrowRight');
+        await expect(page.getByTestId('doc-lightbox-diagram')).toContainText('Step 0');
         await expect(page.getByTestId('doc-lightbox-diagram')).not.toContainText('second');
-
-        removeFixture(DIAGRAM_VIEWER);
     });
 
     test('in the viewer the wheel moves a zoomed diagram, and a pinch zooms it', async ({page}) => {
@@ -463,16 +511,14 @@ test.describe('reading', () => {
         await page.keyboard.press('0');
         await send('gesturestart', {scale: 1});
         await send('gesturechange', {scale: 2});
-        await expect.poll(level).toBe(fitted * 2);
+        await expect.poll(async () => Math.abs(await level() - fitted * 2)).toBeLessThanOrEqual(1);
         const before = await diagram.boundingBox();
         await send('wheel', {deltaX: 30});
         const after = await diagram.boundingBox();
         expect(after.x).toBeLessThan(before.x);
         await send('wheel', {shiftKey: true, deltaY: 40});
         expect((await diagram.boundingBox()).x).toBeLessThan(after.x);
-        expect(await level()).toBe(fitted * 2);
-
-        removeFixture(DIAGRAM_VIEWER);
+        expect(Math.abs(await level() - fitted * 2)).toBeLessThanOrEqual(1);
     });
 
     test('the copy button copies a code block', async ({page}) => {

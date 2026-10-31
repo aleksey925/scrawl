@@ -52,9 +52,6 @@ func notesFiles() map[string]string {
 	}
 }
 
-// makeTree builds a notes tree in a temp directory and plants a secret
-// next to it, so a traversal that works is visible in the assertion. A key
-// ending with a slash makes an empty directory.
 func makeTree(t *testing.T, files map[string]string) string {
 	t.Helper()
 
@@ -318,8 +315,6 @@ func TestStoreSymlinks(t *testing.T) {
 			assert.False(t, errors.Is(readErr, fs.ErrNotExist), "the escape error is not ErrNotExist")
 		}
 
-		// a link that stays inside is followed by os.Root, which is why the
-		// store filters symlinks itself instead of relying on the escape check
 		data, err := raw.ReadFile("inside.md")
 		require.NoError(t, err)
 		assert.Equal(t, notesFiles()["guide.md"], string(data))
@@ -427,6 +422,36 @@ func TestStoreList(t *testing.T) {
 			entries, err := s.List(tc.dir)
 			require.ErrorIs(t, err, tc.err)
 			assert.Empty(t, entries)
+		})
+	}
+}
+
+func TestStoreCount(t *testing.T) {
+	tests := []struct {
+		name       string
+		dir        string
+		hasEntries bool
+		err        error
+	}{
+		{name: "root", dir: "", hasEntries: true},
+		{name: "folder", dir: "notes", hasEntries: true},
+		{name: "missing directory", dir: "nope", err: ErrNotFound},
+		{name: "ignored directory", dir: ".git", err: ErrNotFound},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			s := newStore(t, notesFiles())
+			entries, listErr := s.List(tc.dir)
+			require.ErrorIs(t, listErr, tc.err)
+
+			// act
+			got, err := s.Count(tc.dir)
+
+			// assert
+			require.ErrorIs(t, err, tc.err)
+			assert.Equal(t, len(entries), got)
+			assert.Equal(t, tc.hasEntries, got > 0)
 		})
 	}
 }
@@ -595,7 +620,6 @@ func TestStoreWrite(t *testing.T) {
 	})
 
 	t.Run("a failed write leaves no temp file", func(t *testing.T) {
-		// arrange: renaming a file over a directory that has entries always fails
 		s := newStore(t, notesFiles())
 
 		// act

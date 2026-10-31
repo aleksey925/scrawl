@@ -1,35 +1,147 @@
-/* The touch minimum lives here rather than on each control, so one added later
-   cannot quietly miss it. A coarse pointer is a finger; a mouse keeps the
-   compact sizes. */
-
-/* mantine draws the burger's lines at the left of its box, so once the touch
-   minimum widens the box they sit off centre, against the edge of the screen */
 .burger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-/* a row of a menu that is not an item keeps the edges the items have */
 .menuControl {
   padding: 0 var(--mantine-spacing-sm) var(--mantine-spacing-xs);
 }
 
-/* three words and their icons share a 240px menu, and mantine's 10px a side
-   left "Dark" cut off on a phone */
 .menuSegment {
   padding-inline: var(--mantine-spacing-xs);
 }
 
+.actionIcon {
+  --ai-radius: var(--mantine-radius-md);
+}
+
+.actionIcon[data-variant='subtle'] {
+  --ai-color: var(--scrawl-icon-secondary);
+  --ai-hover: var(--scrawl-hover);
+  --ai-hover-color: var(--scrawl-icon);
+}
+
+.actionIcon[data-variant='subtle']:active {
+  background: var(--scrawl-pressed);
+}
+
+.button:is(:not([data-variant]), [data-variant='filled']):is(:disabled, [data-disabled]) {
+  background: var(--scrawl-accent);
+  color: var(--scrawl-on-accent);
+  opacity: 0.4;
+}
+
+.button {
+  --button-height-xs: var(--scrawl-control-height);
+  --button-height-sm: var(--scrawl-control-height);
+  --button-height-md: var(--scrawl-control-height-large);
+  --button-padding-x-xs: 8px;
+  --button-padding-x-sm: 10px;
+  --button-radius: var(--mantine-radius-md);
+  font-weight: 500;
+}
+
+.button[data-size='lg'] {
+  --button-height-lg: 32px;
+  --button-padding-x-lg: 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.button[data-variant='default'] {
+  --button-bg: transparent;
+  --button-bd: 1px solid var(--scrawl-border);
+  --button-hover: var(--scrawl-hover);
+  --button-color: var(--scrawl-text);
+}
+
+.button[data-variant='subtle'] {
+  --button-color: var(--scrawl-text);
+  --button-hover: var(--scrawl-hover);
+}
+
+.button:is([data-variant='default'], [data-variant='subtle']):active {
+  background: var(--scrawl-pressed);
+}
+
+.input {
+  --input-height-sm: var(--scrawl-control-height);
+  --input-radius: var(--mantine-radius-md);
+}
+
+:global([data-mantine-color-scheme]) .input[data-variant='default'] {
+  --input-bg: var(--scrawl-hover);
+  --input-bd: var(--scrawl-border-translucent);
+}
+
+.input[data-variant='default'] .inputField {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--input-bd);
+}
+
+.input[data-variant='default'] .inputField:focus {
+  border-color: var(--scrawl-focus-ring-outer);
+  box-shadow:
+    inset 0 0 0 1px var(--scrawl-focus-ring),
+    0 0 0 1px var(--scrawl-focus-ring-outer);
+}
+
+.input .inputField::placeholder {
+  color: var(--scrawl-text-tertiary);
+}
+
+.menu {
+  max-width: calc(100vw - 16px);
+  border: 0;
+  background: var(--scrawl-menu);
+  box-shadow: var(--scrawl-shadow-medium);
+  backdrop-filter: blur(24px) saturate(1.6);
+}
+
+.menuItem {
+  min-height: var(--scrawl-control-height);
+  border-radius: var(--mantine-radius-md);
+  --menu-item-hover: var(--scrawl-menu-highlight);
+}
+
+@media (hover: hover) {
+  .menuItem:is(:hover, :focus, [data-menu-active]):not(:disabled, [data-disabled]) {
+    --scrawl-text-tertiary: var(--scrawl-menu-highlight-muted);
+    color: var(--menu-item-color, var(--scrawl-menu-highlight-text));
+  }
+}
+
+@media (hover: none) {
+  .menuItem {
+    --menu-item-hover: var(--scrawl-hover);
+    transition: var(--scrawl-press-out);
+  }
+
+  .menuItem:active {
+    background: var(--scrawl-pressed);
+    transition: var(--scrawl-press-in);
+  }
+}
+
+.menuLabel {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+  color: var(--scrawl-text-tertiary);
+}
+
 @media (pointer: coarse) {
-  /* an input below 16px makes iOS zoom the page on focus and never zoom back */
   .inputField {
     font-size: var(--scrawl-input-font-size);
   }
 
-  /* a field is as tall as the button beside it */
   .input {
-    --input-height-md: var(--scrawl-tap-target);
+    --input-height-sm: var(--scrawl-touch-control);
+    --input-height-md: var(--scrawl-touch-control);
+  }
+
+  .button {
+    min-height: var(--scrawl-touch-control);
   }
 
   .tapTarget {
@@ -37,10 +149,8 @@
     min-height: var(--scrawl-tap-target);
   }
 
-  /* a menu is a list of rows for a finger: mantine draws them 26px tall in
-     14px text, three to the width of a fingertip */
   .menu {
-    min-width: 220px;
+    min-width: var(--scrawl-menu-width);
   }
 
   .menuItem {
@@ -62,51 +172,54 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: var(--scrawl-tap-target);
-  }
-
-  /* a folder's icon sits against its name instead of in the middle of a 44px
-     box; the width it gives up is a strip reaching left into the indent */
-  .twisty {
-    min-width: 0;
-    overflow: visible;
-  }
-
-  .twisty::before {
-    content: '';
-    position: absolute;
-    inset-block: 0;
-    inset-inline-end: 0;
-    inset-inline-start: calc(100% - var(--scrawl-tap-target));
-  }
-
-  /* on the page the touch height is padding taken back by a margin, so the row
-     stays one line of text tall; a minimum height made it a 44px band */
-  .pageCrumbs a {
-    padding-block: calc((var(--scrawl-tap-target) - 1em) / 2);
-    margin-block: calc((1em - var(--scrawl-tap-target)) / 2);
+    min-height: calc(var(--scrawl-touch-choice) - 4px);
+    font-size: 13px;
   }
 }
 
-.button {
-  --button-height-xs: var(--scrawl-control-height-small);
-  --button-height-sm: var(--scrawl-control-height);
-  --button-padding-x-xs: 10px;
-  --button-padding-x-sm: 14px;
+.segmentRoot {
+  --sc-padding: 2px;
+  padding: 2px;
+  border-radius: var(--mantine-radius-md);
+  background: var(--scrawl-hover);
 }
 
-/* a field is a hole in the page and not a raised control: mantine fills it
-   with the button gray in the dark scheme, so a filter read as a third button */
-.input {
-  --input-height-sm: var(--scrawl-control-height);
+.segmentIndicator {
+  border-radius: var(--mantine-radius-sm);
+  background: var(--scrawl-popover);
+  box-shadow: var(--scrawl-shadow-small);
 }
 
-:global([data-mantine-color-scheme]) .input[data-variant='default'] {
-  --input-bg: var(--scrawl-bg);
-  --input-bd: var(--scrawl-border);
-  --input-bd-focus: var(--scrawl-accent-emphasis);
+.segmentIndicator[data-initialized] {
+  transition:
+    transform var(--transition-duration) ease,
+    width var(--transition-duration) ease,
+    height var(--transition-duration) ease !important;
 }
 
-.input[data-variant='default'] .inputField:focus {
-  box-shadow: inset 0 0 0 1px var(--input-bd);
+.segmentOption {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.segment {
+  color: var(--scrawl-text-secondary);
+  font-weight: 500;
+}
+
+.segment[data-active] {
+  color: var(--scrawl-text);
+}
+
+.overlay {
+  --overlay-bg: var(--scrawl-overlay) !important;
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .modalInner {
+    align-items: center;
+  }
 }

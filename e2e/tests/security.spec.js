@@ -11,8 +11,6 @@ const FOLDER = 'e2e-security';
 const EVIL = `${FOLDER}/evil.html`;
 const BIG = `${FOLDER}/huge.txt`;
 
-// a page written into the corpus by an attacker: if /raw/ ever serves it as
-// html from this origin it runs with the reader's session
 const EVIL_HTML = '<html><body><script>document.title = "pwned"; ' +
     'window.name = "pwned";</script>pwned</body></html>\n';
 
@@ -25,13 +23,12 @@ test.describe('security', () => {
         fs.rmSync(fixtureFile(FOLDER), {recursive: true, force: true});
     });
 
-    test('a document named evil.html is served as an inert download', async ({page}) => {
+    test('a document named evil.html is served as inert text', async ({page}) => {
         writeFixture(EVIL, EVIL_HTML);
 
         const res = await page.request.get(`${MAIN.baseURL}${routes.raw(EVIL)}`);
         expect(res.status()).toBe(200);
-        expect(res.headers()['content-type']).toBe('application/octet-stream');
-        expect(res.headers()['content-disposition']).toContain('attachment');
+        expect(res.headers()['content-type']).toBe('text/plain; charset=utf-8');
         expect(res.headers()['content-security-policy']).toContain('sandbox');
         expect(res.headers()['x-content-type-options']).toBe('nosniff');
     });
@@ -48,7 +45,6 @@ test.describe('security', () => {
                 try {
                     title = frame.contentDocument && frame.contentDocument.title;
                 } catch (e) {
-                    // an opaque origin, which is exactly what the sandbox is for
                     title = null;
                 }
                 frame.remove();

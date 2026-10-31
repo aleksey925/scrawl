@@ -7,8 +7,6 @@ interface BoundaryState {
   error?: unknown;
 }
 
-// SiteBoundary is what the app's router does with a screen that throws: the
-// router of a site is a plain one and catches nothing
 export class SiteBoundary extends Component<{ children: ReactNode }, BoundaryState> {
   override state: BoundaryState = {};
 

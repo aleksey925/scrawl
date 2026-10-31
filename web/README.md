@@ -1,8 +1,9 @@
 # scrawl web
 
-The React + Mantine single page app. It is built into
-`server/assets/app/`, which is committed to git and embedded by the Go
-server through the existing `//go:embed assets`.
+The React + Mantine single page app, and the reader the pages of the
+command line run. It is built into `server/assets/app/` and
+`page/assets/`, which are committed to git and embedded by the Go
+server and the `page` package with `//go:embed`.
 
 ## Develop
 
@@ -32,26 +33,30 @@ browser navigation to an app route is answered with Vite's `index.html`
 and everything else on them still reaches the server, so deep links work
 in both directions.
 
+`/plantuml` is proxied to `/static/dev/plantuml`. A built app asks for
+PlantUML's library next to its bundle, `../../plantuml/` from
+`/static/<digest>/app/assets/`, and from the source the dev server
+serves that comes out as `/plantuml/`.
+
 The bypass is decided on the path and not on the `Accept` header alone.
 A space owns its whole subtree now, so `/s/<name>/api`, `/s/<name>/raw`
 and `/s/<name>/hook` always proxy: an attachment opened as a top-level
 navigation carries `Accept: text/html` like any other, and deciding on
 the header would hand it `index.html` and never ask the raw handler.
 
-**The dev shell's base is a constant.** The Go shell hands the client
-its space prefix, and `web/index.html` hardcodes
-`data-base="/s/notes"` to match the `--space notes` that `make run`
-passes. Running the backend with another space name means editing that
-attribute too.
+**The dev shell's base is a constant.** The Go shell hands the client its space
+prefix, and `web/index.html` hardcodes `data-base="/s/notes"` to match the
+`--space.name=notes` that `make run` passes. Running the backend with another
+space name means editing that attribute too.
 
 ## Build
 
 ```
 cd web
-npm run build     # tsc --noEmit, then vite build
+npm run build     # tsc --noEmit, then vite build for the app and the pages
 ```
 
-Output goes to `server/assets/app/`:
+The app goes to `server/assets/app/`:
 
 ```
 server/assets/app/index.html
@@ -60,19 +65,38 @@ server/assets/app/assets/*.js
 server/assets/app/assets/*.css
 ```
 
+The pages of `render`, `diff` and `site` get their scripts and
+stylesheets in `page/assets/`, built by `vite.page.config.ts`, one
+classic script per entry, because a page opened from disk can load no
+module.
+
 The build output is committed. `node_modules/` is not.
 
-### Vite base path
+### Vite base path and file names
 
-`base` is `/static/spa/app/` for a build and `/` for the dev server.
+`base` is `./` for a build and `/` for the dev server, and the file
+names carry no hash: `assets/EditPage.js`, not `assets/EditPage-3f9a1c.js`.
+A rebuild changes in git only the files whose content changed.
 
-Assets are served under `/static/{version}/app/...` and the Go handler
-ignores the version segment on lookup, so any literal in that slot
-resolves to the same file. A relative base would not work, because
-`index.html` is served from arbitrary URLs (`/s/notes/doc/a/b.md`), and the
-version cannot be baked in at build time, so the segment is the fixed
-placeholder `spa`. Nothing is lost: Vite content-hashes every file
-name, which is what actually busts the cache.
+The server takes a digest of the embedded bundle at startup and serves the
+bundle under `/static/<digest>/app/`. The shell names the entry, its CSS
+and its preloads under that address, and a relative base makes every chunk
+a page imports later resolve against the module that imports it, so it
+carries the same digest. Vite's own `index.html` is not used.
+
+Only the current digest is answered, with a cache of a year. A page left
+open across an upgrade finds its next chunk gone: `vite:preloadError`
+fires and `src/staleBundle.ts` loads the page again, at the address the
+click was going to.
+
+A chunk made of a package's index is named after the package
+(`codemirror-lang-python.js`), not after the file (`dist2.js`). Names
+like `c4Diagram-YGBWAQC7.js` are mermaid's own file names and change only
+with its version.
+
+The pages are one vite build per entry, because rolldown splits chunks whenever
+a build has more than one input, and a script inlined into a page cannot load a
+chunk. A chunk name never starts with `_` or `.`, which `go:embed` skips.
 
 ### Manifest
 
@@ -117,16 +141,27 @@ color of a theme.
 - `name` is what the pickers show.
 - `scheme` is `light` or `dark`: what the browser draws for a form
   control, and the editor and diagram defaults.
-- `code` is the chroma style that highlights code, one of
-  `vendor/github.com/alecthomas/chroma/v2/styles/`.
+- `code` is six colors of code: `keyword`, `string`, `comment`,
+  `function`, `number` and `builtin`. `render` builds a chroma style
+  from them.
 - `strongWeight` is the weight of bold in a note.
-- `palette` is every token of `Palette` in `src/themes.ts`, under
-  Primer's names. A note reads it as `--gh-*`, the chrome as `--scrawl-*`.
+- `currentWeight` is the weight of the current row of the sidebar.
+- `fontSmoothing` is `auto` or `antialiased`: how a Mac draws the letters.
+- `palette` is every token of `Palette` in `src/themes.ts`, Notion's
+  color roles. The note and the chrome both read it as `--scrawl-<key>`.
+- `blocks` is Notion's nine block colors, a text and a ground each, as
+  `--scrawl-color-<name>` and `--scrawl-bg-<name>`.
+- `shadows` is `small`, `medium` and `large`, as
+  `--scrawl-shadow-<name>`.
 - `colors`, optional, replaces mantine's `accent`, `gray` or `dark`
   scale of `src/theme.ts`.
 
 `light` and `dark` have to exist: they are what Auto follows. The go
 tests and the build both refuse a theme with a token missing.
+
+In both entries the theme stylesheet is imported after mantine's own: it
+replaces their defaults at equal specificity, so the order of the imports
+decides.
 
 ## Two rules
 
@@ -135,7 +170,8 @@ tests and the build both refuse a theme with a token missing.
 `breakpointPx`, `minWidthQuery`, `maxWidthQuery`, `useAtLeast` and
 `useBelow`, and fed to PostCSS as `$mantine-breakpoint-*` by
 `postcss.config.cjs`. Which breakpoint a piece of layout belongs to is
-named in `layoutBreakpoints` (`sidebar`, `tocRail`, `compactTopbar`).
+named in `layoutBreakpoints` (`phone`, `sidebar`, `compactTopbar`,
+`splitPane` and others).
 
 No component may hardcode a pixel width or read `window.innerWidth`.
 The old frontend had CSS at 767/899/999/1199 and JS at 900/1000, they
@@ -148,13 +184,21 @@ heading called "Toasts" or "Lightbox" produces `id="toasts"`, which is
 exactly how the previous app lost its own elements.
 
 So app chrome is never looked up by a bare id. Overlays come from
-Mantine (`Drawer`, `Modal`, `Spotlight`), which own their own portals,
+Mantine (`Drawer`, `Modal`, `Menu`), which own their own portals,
 focus trap and `inert`; shell slots are reached through refs the shell
 holds (`src/shell/ShellSlots.tsx`) and filled with React portals. The
 one id in the app is the mount node, read once before any note exists.
 
-Note html is injected in exactly one component,
-`src/components/DocumentHtml.tsx`. It is safe because the server
-sanitized it with the bluemonday policy in `render/policy.go`, and
-keeping the injection in one place keeps that trust boundary to one
-file.
+Html from the server is injected in three components only:
+`src/components/DocumentHtml.tsx` for a note, `src/diff/RenderedDiff.tsx`
+for the two sides of a version and `src/shell/FileView.tsx` for a
+highlighted text file. It is safe because the server made it: a note and a
+diff side are sanitized with the bluemonday policy in `render/policy.go`,
+and a text file is highlighted by `render` from escaped source. Keeping the
+injection in these three places keeps that trust boundary small. The one
+other `dangerouslySetInnerHTML` is `src/shell/AppLogo.tsx`, which draws the
+logo, a file of the bundle and never input.
+
+## Browser and library quirks
+
+They are kept with the others in [`docs/quirks.md`](../docs/quirks.md).

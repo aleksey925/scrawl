@@ -1,8 +1,3 @@
-// The entry of format/prettier.wasm: one note in on stdin, the formatted note
-// out on stdout, both as JSON. `make formatter` puts prettier's standalone
-// build and its plugins in front of this file, which is where the two globals
-// come from.
-
 function readInput() {
   const chunks = [];
   let total = 0;

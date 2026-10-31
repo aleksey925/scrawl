@@ -201,8 +201,6 @@ func TestWordBoundaries(t *testing.T) {
 	})
 }
 
-// bareText strips the markup a snippet is allowed to carry, leaving the
-// document text itself.
 func bareText(snippet string) string {
 	return strings.NewReplacer("<mark>", "", "</mark>", "", ellipsis, "").Replace(snippet)
 }

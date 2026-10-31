@@ -1,58 +1,61 @@
-# Кэширование в HTTP
+# Caching in HTTP
 
-Витрина всех элементов разметки в одной заметке: по ней удобно проверять, как
-правки темы и стилей влияют на читаемость. Текст настоящий, чтобы глаз читал
-его, как обычную заметку, а не как список образцов. Назад к
-[оглавлению](../index.md).
+A showcase of every markup element in one note: it makes it easy to check how
+changes to the theme and styles affect readability. The text is real, so the
+eye reads it like a normal note and not like a list of samples. Back to the
+[contents](../index.md).
 
-## Коротко
+## In short
 
-Браузер хранит ответ у себя и **не ходит за ним повторно**, пока ответ
-_свежий_. Когда срок вышел, он спрашивает сервер, _изменилось ли что-то_, и
-получает либо новый ответ, либо короткое **«не изменилось»** - статус
-`304 Not Modified` без тела. Всё это задаёт один заголовок, `Cache-Control`, и
-пара заголовков проверки: `ETag` и `Last-Modified`.
+The browser keeps a response and **does not fetch it again** while the
+response is _fresh_. When the time runs out, it asks the server _whether
+anything changed_ and gets either a new response or a short
+**"not modified"** - status `304 Not Modified` with no body. All of this is
+set by one header, `Cache-Control`, and a pair of validation headers: `ETag`
+and `Last-Modified`.
 
-Самая частая ошибка - путать `no-cache` и `no-store`. _**Первый разрешает
-хранить ответ**_, но требует проверки перед каждым использованием, а второй
-запрещает хранить вообще. ~~Раньше рекомендовали `Pragma: no-cache`~~, но этот
-заголовок давно устарел и современные браузеры его не читают.
+The most common mistake is to mix up `no-cache` and `no-store`. _**The first
+allows storing the response**_ but requires a check before every use, while
+the second forbids storing it at all.
+~~People used to recommend `Pragma: no-cache`~~, but this header is long
+obsolete and modern browsers do not read it.
 
-Полезные сочетания клавиш: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>
-перезагружает страницу в обход кэша, а <kbd>F12</kbd> открывает вкладку
-**Network**, где видно, откуда пришёл ответ. Главное, что стоит запомнить,
-выделено: <mark>свежесть считает браузер, а не сервер</mark>.
+Useful shortcuts: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> reloads the
+page bypassing the cache, and <kbd>F12</kbd> opens the **Network** tab, where
+you can see where a response came from. The main thing to remember is
+highlighted: <mark>freshness is computed by the browser, not the server</mark>.
 
-Химия и математика тоже встречаются в заметках: H<sub>2</sub>O, 2<sup>10</sup>
-= 1024, а время жизни ответа считается как $t_{fresh} = max\text{-}age - age$.
-Подробности в [RFC 9111](https://www.rfc-editor.org/rfc/rfc9111) и в
-[заметке про shell](../notes/shell-cookbook.md); ссылка на
-[несуществующую страницу](missing-page.md) должна выглядеть сломанной. Голая
-ссылка тоже работает: https://developer.mozilla.org/docs/Web/HTTP/Caching.
+Chemistry and math show up in notes too: H<sub>2</sub>O, 2<sup>10</sup> =
+1024, and the lifetime of a response is computed as
+$t_{fresh} = max\text{-}age - age$. Details are in
+[RFC 9111](https://www.rfc-editor.org/rfc/rfc9111) and in the
+[note on the shell](../notes/shell-cookbook.md); a link to a
+[page that does not exist](missing-page.md) should look broken. A bare link
+works too: https://developer.mozilla.org/docs/Web/HTTP/Caching.
 
-## Директивы Cache-Control
+## Cache-Control directives
 
-| Директива    | Кто читает       | Что значит                                   |
-| ------------ | ---------------- | -------------------------------------------- |
-| `max-age=N`  | браузер и прокси | ответ свежий **N секунд**                    |
-| `s-maxage=N` | только прокси    | то же, но для общего кэша                    |
-| `no-cache`   | все              | хранить можно, использовать _после проверки_ |
-| `no-store`   | все              | не хранить **совсем**                        |
-| `private`    | все              | только в кэше браузера                       |
-| `immutable`  | браузер          | не проверять, пока ответ свежий              |
+| Directive    | Read by           | Meaning                                     |
+| ------------ | ----------------- | ------------------------------------------- |
+| `max-age=N`  | browser and proxy | the response is fresh for **N seconds**     |
+| `s-maxage=N` | proxies only      | the same, but for a shared cache            |
+| `no-cache`   | all               | may be stored, used _after validation_      |
+| `no-store`   | all               | not stored **at all**                       |
+| `private`    | all               | only in the browser cache                   |
+| `immutable`  | browser           | not revalidated while the response is fresh |
 
-### Выравнивание в таблице
+### Table alignment
 
-| Ресурс       | Размер, КБ | Хиты за день | Доля |
-| :----------- | ---------: | -----------: | :--: |
-| `app.js`     |        412 |       18 204 | 61 % |
-| `styles.css` |         38 |        9 877 | 33 % |
-| `logo.svg`   |          4 |        1 732 | 6 %  |
+| Resource     | Size, KB | Hits per day | Share |
+| :----------- | -------: | -----------: | :---: |
+| `app.js`     |      412 |       18,204 |  61%  |
+| `styles.css` |       38 |        9,877 |  33%  |
+| `logo.svg`   |        4 |        1,732 |  6%   |
 
-## Как сервер отдаёт заголовки
+## How the server sends headers
 
-Обработчик на Go ставит долгий срок для файлов с хэшем в имени и короткий для
-всего остального:
+A Go handler sets a long lifetime for files with a hash in the name and a
+short one for everything else:
 
 ```go
 func cacheHeaders(next http.Handler) http.Handler {
@@ -68,7 +71,7 @@ func cacheHeaders(next http.Handler) http.Handler {
 }
 ```
 
-То же самое на Python, с проверкой `ETag`:
+The same in Python, with an `ETag` check:
 
 ```python
 from hashlib import sha256
@@ -80,14 +83,15 @@ def respond(request, body: bytes) -> Response:
     return Response(body, headers={"ETag": tag, "Cache-Control": "no-cache"})
 ```
 
-Проверка из терминала, с очень длинной строкой, чтобы блок прокручивался вбок:
+A check from the terminal, with a very long line so the block scrolls
+sideways:
 
 ```bash
 curl -sI https://example.com/static/app.3f9a2c.js | grep -iE '^(cache-control|etag|age|last-modified):'
-curl -sI -H 'If-None-Match: "3f9a2c1b"' https://example.com/static/app.3f9a2c.js   # ждём 304 Not Modified
+curl -sI -H 'If-None-Match: "3f9a2c1b"' https://example.com/static/app.3f9a2c.js   # expect 304 Not Modified
 ```
 
-Настройка прокси и отчёт по хитам:
+The proxy config and a report on hits:
 
 ```yaml
 cache:
@@ -124,7 +128,7 @@ order by 1;
 + ETag: "3f9a2c1b"
 ```
 
-Блок без языка, как его пишут для вывода команды:
+A block with no language, the way command output is written:
 
 ```
 HTTP/2 304
@@ -133,102 +137,134 @@ etag: "3f9a2c1b"
 age: 0
 ```
 
-## Цитаты и предупреждения
+## Quotes and alerts
 
-> Есть только две трудные вещи в компьютерных науках: **инвалидация кэша** и
-> придумывание _названий_.
+> There are only two hard things in Computer Science: **cache invalidation**
+> and naming _things_.
 >
-> _Фил Карлтон_
+> _Phil Karlton_
 
-> Вложенная цитата бывает в переписке:
+> A nested quote happens in a conversation:
 >
-> > Почему пользователи видят старую версию после релиза?
+> > Why do users see the old version after a release?
 >
-> Потому что `index.html` отдавался с `max-age=86400`, и браузер не спрашивал
-> сервер целые сутки.
+> Because `index.html` was served with `max-age=86400`, and the browser did
+> not ask the server for a whole day.
 
 > [!NOTE]
-> Ответ с `Cache-Control: no-cache` **хранится**, он просто проверяется перед
-> каждым использованием.
+> A response with `Cache-Control: no-cache` **is stored**, it is just checked
+> before every use.
 
 > [!TIP]
-> Добавляйте хэш содержимого в имя файла (`app.3f9a2c.js`) и ставьте
-> `immutable`: такой файл никогда не устареет.
+> Put a hash of the content into the file name (`app.3f9a2c.js`) and set
+> `immutable`: such a file never goes stale.
 
 > [!IMPORTANT]
-> `s-maxage` перекрывает `max-age` только для **общих** кэшей, браузер его
-> игнорирует.
+> `s-maxage` overrides `max-age` only for **shared** caches, the browser
+> ignores it.
 
 > [!WARNING]
-> Ответ с заголовком `Set-Cookie` и директивой `public` может уйти в общий кэш
-> и достаться _другому пользователю_.
+> A response with a `Set-Cookie` header and the `public` directive can end up
+> in a shared cache and reach _another user_.
 
 > [!CAUTION]
-> Никогда не кэшируйте в общем кэше ответы с личными данными. Ставьте
-> `private` или `no-store`.
+> Never store responses with personal data in a shared cache. Set `private`
+> or `no-store`.
 
-## Списки
+## Lists
 
-Что проверить перед релизом:
+What to check before a release:
 
-- [x] у файлов с хэшем стоит `max-age=31536000, immutable`
-- [x] `index.html` отдаётся с `no-cache`
-- [ ] у ответов API есть `ETag`
-- [ ] ответы с `Set-Cookie` помечены как `private`
+- [x] files with a hash have `max-age=31536000, immutable`
+- [x] `index.html` is served with `no-cache`
+- [ ] API responses have an `ETag`
+- [ ] responses with `Set-Cookie` are marked `private`
 
-Порядок, в котором браузер решает, что делать с запросом:
+The order in which the browser decides what to do with a request:
 
-1. Найти ответ в кэше по **методу и адресу**.
-2. Проверить заголовок `Vary`: совпадают ли нужные заголовки запроса.
-3. Посчитать свежесть:
-   1. взять `max-age`, а если его нет, то `Expires`;
-   2. вычесть возраст ответа (`Age`);
-   3. если ничего не задано, применить _эвристику_ - обычно 10 % от времени с
+1. Find a response in the cache by **method and URL**.
+2. Check the `Vary` header: do the needed request headers match.
+3. Compute freshness:
+   1. take `max-age`, and if it is missing, `Expires`;
+   2. subtract the age of the response (`Age`);
+   3. if nothing is set, apply a _heuristic_ - usually 10% of the time since
       `Last-Modified`.
-4. Если ответ свежий, отдать его **без запроса** к серверу.
-5. Иначе отправить условный запрос с `If-None-Match` или `If-Modified-Since`.
+4. If the response is fresh, return it **without a request** to the server.
+5. Otherwise send a conditional request with `If-None-Match` or
+   `If-Modified-Since`.
 
-Где живёт кэш:
+Where the cache lives:
 
-- **Кэш браузера** - личный, на диске и в памяти.
-  - память: быстрый, до закрытия вкладки;
-  - диск: переживает перезапуск.
-- **Общий кэш** - прокси или CDN, один на многих пользователей.
-- **Service Worker** - код на странице, который решает _сам_.
+- **Browser cache** - private, on disk and in memory.
+  - memory: fast, lasts until the tab is closed;
+  - disk: survives a restart.
+- **Shared cache** - a proxy or a CDN, one for many users.
+- **Service Worker** - code on the page that decides _on its own_.
 
-Термины:
+Terms:
 
 <dl>
-  <dt>Свежесть</dt>
-  <dd>Время, в течение которого ответ можно использовать без проверки.</dd>
-  <dt>Валидатор</dt>
-  <dd>Значение, по которому сервер узнаёт версию: <code>ETag</code> или дата
-  <code>Last-Modified</code>.</dd>
+  <dt>Freshness</dt>
+  <dd>The time during which a response can be used without a check.</dd>
+  <dt>Validator</dt>
+  <dd>A value by which the server knows the version: <code>ETag</code> or the
+  <code>Last-Modified</code> date.</dd>
 </dl>
 
-## Схема и формула
+## Diagram and formula
 
 ```mermaid
 flowchart TD
-    A[Запрос] --> B{Есть в кэше?}
-    B -- нет --> S[Сервер]
-    B -- да --> C{Свежий?}
-    C -- да --> R[Ответ из кэша]
-    C -- нет --> V[Условный запрос] --> S
+    A[Request] --> B{In the cache?}
+    B -- no --> S[Server]
+    B -- yes --> C{Fresh?}
+    C -- yes --> R[Response from the cache]
+    C -- no --> V[Conditional request] --> S
 ```
 
-Доля попаданий в кэш за период:
+A conditional request step by step, in PlantUML:
+
+```plantuml
+@startuml
+participant Browser
+participant Cache
+participant Server
+Browser -> Cache : GET /app.js
+Cache -> Server : GET /app.js\nIf-None-Match: "v42"
+alt not modified
+  Server --> Cache : 304 Not Modified
+else modified
+  Server --> Cache : 200 OK, ETag: "v43"
+end
+Cache --> Browser : 200 OK
+@enduml
+```
+
+Where the caches sit, in C4 notation from the PlantUML standard library:
+
+```plantuml
+!include <C4/C4_Container>
+Person(reader, "Reader")
+System_Boundary(edge, "Network edge") {
+  Container(cdn, "CDN", "Varnish", "shared cache")
+}
+Container(app, "Application", "Go", "sends ETag")
+Rel(reader, cdn, "GET")
+Rel(cdn, app, "If-None-Match")
+```
+
+The cache hit ratio over a period:
 
 $$
 hit\ ratio = \frac{hits}{hits + misses} \times 100\%
 $$
 
-## Картинка и раскрывающийся блок
+## Image and collapsible block
 
-![Логотип из папки с картинками](../images/logo.png)
+![Logo from the images folder](../images/logo.png)
 
 <details>
-<summary>Полный ответ сервера с заголовками</summary>
+<summary>The full server response with headers</summary>
 
 ```
 HTTP/2 200
@@ -243,31 +279,31 @@ age: 5312
 
 ---
 
-## Заголовки всех уровней
+## Headings of every level
 
-### Третий уровень
+### Third level
 
-Обычный абзац под заголовком третьего уровня, чтобы видеть отступы.
+A plain paragraph under a third-level heading, to see the spacing.
 
-#### Четвёртый уровень
+#### Fourth level
 
-Абзац под четвёртым уровнем с **жирным** и _курсивом_.
+A paragraph under the fourth level with **bold** and _italic_.
 
-##### Пятый уровень
+##### Fifth level
 
-Абзац под пятым уровнем.
+A paragraph under the fifth level.
 
-###### Шестой уровень
+###### Sixth level
 
-Абзац под шестым уровнем, заголовок над ним приглушён.
+A paragraph under the sixth level, the heading above it is muted.
 
-## Сноски
+## Footnotes
 
-Эвристика в 10 % описана в стандарте[^heuristic], а директиву `immutable`
-первым поддержал Firefox[^immutable].
+The 10% heuristic is described in the standard[^heuristic], and Firefox was
+the first to support the `immutable` directive[^immutable].
 
 [^heuristic]:
-    RFC 9111, раздел 4.2.2: кэш может считать ответ свежим часть времени,
-    прошедшего с `Last-Modified`.
+    RFC 9111, section 4.2.2: a cache may treat a response as fresh for a part
+    of the time that has passed since `Last-Modified`.
 
-[^immutable]: Firefox 49, 2016 год.
+[^immutable]: Firefox 49, 2016.

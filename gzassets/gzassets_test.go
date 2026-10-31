@@ -145,6 +145,76 @@ func TestFiles_ServeFile(t *testing.T) {
 	}
 }
 
+func TestFiles_Has(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+		want bool
+	}{
+		{name: "a compressed file", file: "app.js", want: true},
+		{name: "a file stored as it is", file: "icon.png", want: true},
+		{name: "a missing file", file: "missing.js", want: false},
+		{name: "a directory", file: ".", want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			files := newFiles(t)
+
+			// act
+			got := files.Has(tc.file)
+
+			// assert
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestFiles_Digest(t *testing.T) {
+	tree := func(files map[string]string) Files {
+		fsys := fstest.MapFS{}
+		for name, data := range files {
+			fsys["root/"+name] = &fstest.MapFile{Data: []byte(data)}
+		}
+		return Sub(fsys, "root")
+	}
+	base := map[string]string{"app/a.js": "a", "app/b.css": "b", "other.txt": "outside"}
+	tests := []struct {
+		name     string
+		files    map[string]string
+		wantSame bool
+	}{
+		{name: "the same files give the same digest", files: base, wantSame: true},
+		{name: "a file outside the directory does not count", files: map[string]string{"app/a.js": "a", "app/b.css": "b"}, wantSame: true},
+		{name: "a changed file gives another digest", files: map[string]string{"app/a.js": "a2", "app/b.css": "b"}},
+		{name: "an added file gives another digest", files: map[string]string{"app/a.js": "a", "app/b.css": "b", "app/c.js": ""}},
+		{name: "a renamed file gives another digest", files: map[string]string{"app/a.js": "a", "app/c.css": "b"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			want, err := tree(base).Digest("app")
+			require.NoError(t, err)
+
+			// act
+			got, err := tree(tc.files).Digest("app")
+
+			// assert
+			require.NoError(t, err)
+			assert.Len(t, got, 12)
+			assert.Equal(t, tc.wantSame, got == want)
+		})
+	}
+}
+
+func TestFiles_Digest_MissingDirectory(t *testing.T) {
+	// act
+	_, err := newFiles(t).Digest("missing")
+
+	// assert
+	require.Error(t, err)
+}
+
 func TestAcceptsGzip(t *testing.T) {
 	tests := []struct {
 		header string

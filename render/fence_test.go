@@ -7,19 +7,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMermaidFence(t *testing.T) {
+func TestDiagramFences(t *testing.T) {
 	tests := []struct{ name, src, want string }{
 		{"diagram source is handed over verbatim", "```mermaid\ngraph TD;\n  A-->B;\n```\n",
 			"<pre class=\"mermaid\">graph TD;\n  A--&gt;B;\n</pre>\n"},
 		{"the language is matched case-insensitively", "```Mermaid\nx\n```\n", `<pre class="mermaid">`},
 		{"an info string after the language still counts", "```mermaid title=x\ny\n```\n", `<pre class="mermaid">`},
+		{"plantuml source is handed over verbatim", "```plantuml\n@startuml\nA -> B : <b>hi</b>\n@enduml\n```\n",
+			"<pre class=\"plantuml\">@startuml\nA -&gt; B : &lt;b&gt;hi&lt;/b&gt;\n@enduml\n</pre>\n"},
+		{"puml is plantuml too", "```puml\nA -> B\n```\n", `<pre class="plantuml">`},
+		{"plantuml is matched case-insensitively", "```PlantUML\nA -> B\n```\n", `<pre class="plantuml">`},
 		{"any other fence is highlighted as before", "```go\nfunc main() {}\n```\n",
 			`<div class="code-block" data-lang="go">`},
 	}
 	r := New(Options{})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// act
 			out, err := r.RenderInline([]byte(tt.src), "docs/x.md")
+
+			// assert
 			require.NoError(t, err)
 			assert.Contains(t, withoutSourceRanges(string(out)), tt.want)
 		})
@@ -27,14 +34,32 @@ func TestMermaidFence(t *testing.T) {
 }
 
 func TestRenderReportsDiagrams(t *testing.T) {
+	type diagrams struct{ mermaid, plantUML bool }
 	tests := []struct {
 		name string
 		src  string
-		want bool
+		want diagrams
 	}{
-		{name: "a mermaid fence", src: "# A\n\n```mermaid\ngraph TD;\n```\n", want: true},
-		{name: "code that names mermaid", src: "```go\n// mermaid\n```\n", want: false},
-		{name: "no fence at all", src: "# A\n\ntext\n", want: false},
+		{name: "a mermaid fence", src: "# A\n\n```mermaid\ngraph TD;\n```\n", want: diagrams{mermaid: true}},
+		{name: "a plantuml fence", src: "# A\n\n```plantuml\nA -> B\n```\n", want: diagrams{plantUML: true}},
+		{name: "a puml fence", src: "```puml\nA -> B\n```\n", want: diagrams{plantUML: true}},
+		{
+			name: "both kinds",
+			src:  "```mermaid\ngraph TD;\n```\n\n```plantuml\nA -> B\n```\n",
+			want: diagrams{mermaid: true, plantUML: true},
+		},
+		{name: "code that names them", src: "```go\n// mermaid plantuml\n```\n", want: diagrams{}},
+		{
+			name: "raw html with the class among others",
+			src:  "<pre id=\"a\" class=\"mermaid\">graph TD;</pre>\n\n<pre class=\"note plantuml\">A -> B</pre>\n",
+			want: diagrams{mermaid: true, plantUML: true},
+		},
+		{
+			name: "raw html with a class that only starts with the name",
+			src:  "<pre class=\"mermaid-source\">x</pre>\n\n<pre class=\"plantuml-source\">A -> B</pre>\n",
+			want: diagrams{},
+		},
+		{name: "no fence at all", src: "# A\n\ntext\n", want: diagrams{}},
 	}
 	r := New(Options{})
 	for _, tc := range tests {
@@ -44,19 +69,23 @@ func TestRenderReportsDiagrams(t *testing.T) {
 
 			// assert
 			require.NoError(t, err)
-			assert.Equal(t, tc.want, res.Diagrams)
+			assert.Equal(t, tc.want, diagrams{mermaid: res.Mermaid, plantUML: res.PlantUML})
 		})
 	}
 }
 
-func TestMermaidFenceIsNeverHighlighted(t *testing.T) {
-	// act
-	out, err := New(Options{}).RenderInline([]byte("```mermaid\ngraph TD; A-->B;\n```\n"), "docs/x.md")
+func TestDiagramFenceIsNeverHighlighted(t *testing.T) {
+	for _, lang := range []string{"mermaid", "plantuml", "puml"} {
+		t.Run(lang, func(t *testing.T) {
+			// act
+			out, err := New(Options{}).RenderInline([]byte("```"+lang+"\nA -> B;\n```\n"), "docs/x.md")
 
-	// assert
-	require.NoError(t, err)
-	assert.NotContains(t, string(out), "chroma")
-	assert.NotContains(t, string(out), "code-block")
+			// assert
+			require.NoError(t, err)
+			assert.NotContains(t, string(out), "chroma")
+			assert.NotContains(t, string(out), "code-block")
+		})
+	}
 }
 
 func TestEmojiShortcodes(t *testing.T) {

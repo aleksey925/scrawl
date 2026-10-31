@@ -1,7 +1,7 @@
 const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
-const {READONLY, jsonRequest, routes, shot, signIn} = require('../support/helpers');
+const {READONLY, jsonRequest, openSpaceMenu, routes, shot, signIn} = require('../support/helpers');
 const text = require('../support/text');
 
 const DOC = docs.doc.path;
@@ -15,13 +15,11 @@ test.describe('read-only mode', () => {
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.doc.title);
         await expect(page.getByTestId('sidebar-new')).toHaveCount(0);
 
-        // History reads, so it stays; Edit leads to a save the api refuses, and
-        // the ui does not offer what it cannot do
         await expect(page.getByTestId('doc-edit')).toHaveCount(0);
         await expect(page.getByTestId('doc-history')).toBeVisible();
 
-        await page.getByTestId('topbar-account').click();
-        await expect(page.getByTestId('topbar-account-readonly')).toBeVisible();
+        await openSpaceMenu(page);
+        await expect(page.getByTestId('space-menu-readonly')).toBeVisible();
         await shot(page, 'readonly-view');
     });
 
@@ -41,8 +39,6 @@ test.describe('read-only mode', () => {
     });
 
     test('the editor opens as a reader and cannot save', async ({page}) => {
-        // the legacy route answered 403 outright; the app serves the source with
-        // every way to write it taken off the screen
         await page.goto(READONLY.url.edit(DOC));
 
         await expect(page.getByTestId('editor-readonly')).toContainText(text.editor.readOnly);

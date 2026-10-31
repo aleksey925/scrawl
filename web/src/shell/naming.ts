@@ -7,13 +7,11 @@ export function parentOf(path: string): string {
   return at < 0 ? '' : path.slice(0, at);
 }
 
-// the last segment, which is what a path keeps when it moves to another folder
 export function basenameOf(path: string): string {
   const at = path.lastIndexOf('/');
   return at < 0 ? path : path.slice(at + 1);
 }
 
-// the folders that have to be open for a path to be on screen, the root included
 export function ancestorsOf(path: string): string[] {
   const res = [''];
   let at = '';
@@ -24,19 +22,19 @@ export function ancestorsOf(path: string): string[] {
   return res;
 }
 
-// the pathname react-router hands over has the space basename stripped off
-// already, so this reads the route words and nothing else.
-//
-// A directory is addressed with a trailing slash and the same folder is one
-// path in the tree, in the store and in the unsynced set, so it comes off here:
-// every caller compares this against one of those.
 export function contentPathOf(pathname: string): string {
   const match = /^\/(?:doc|edit|history)\/(.*)$/.exec(pathname);
   return match === null ? '' : decodeURIComponent(match[1] ?? '').replace(/\/+$/, '');
 }
 
-// folderFor is where a new entry lands when the reader did not point at one: the
-// folder they are looking at, or the folder holding the note they are reading.
 export function folderFor(path: string, isDir: boolean): string {
   return isDir ? path : parentOf(path);
+}
+
+export function pageName(name: string, isDir: boolean): string {
+  return isDir ? name : name.replace(/\.md$/i, '');
+}
+
+export function hasOwnExtension(name: string): boolean {
+  return /^[^.].*\.[a-z][a-z0-9]{0,15}$/i.test(basenameOf(name.trim()));
 }

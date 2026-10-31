@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"golang.org/x/net/html"
 
@@ -18,27 +20,17 @@ import (
 	"github.com/aleksey925/scrawl/store"
 )
 
-// the formats a note is exported in; a PDF is printed by the browser from the
-// page the reader is on, because no engine that lays out HTML fits in here
 const (
 	exportMarkdown = "md"
 	exportHTML     = "html"
 )
 
-// maxEmbeddedImages caps the bytes of pictures an exported page carries inside
-// it, counted as written, once for every place a picture is shown. A picture
-// past the cap keeps its relative address and shows only beside the note it
-// came from.
 const maxEmbeddedImages = 32 << 20
 
-// exportRenderer renders a note for a file that leaves the app, the way
-// `scrawl render` does: there is no route to map a link onto, so a relative
-// link stays as written.
 var exportRenderer = render.New(render.Options{Relative: true})
 
-// apiExport answers with one note as a file to save: the source as it is
-// stored, or a page that opens on its own with the note's pictures inside it.
 func (m *mount) apiExport(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
 	p, ok := contentPath(r, "path")
 	if !ok || !isMarkdown(p) {
 		jsonError(w, http.StatusBadRequest, "only a note can be exported")
@@ -65,13 +57,12 @@ func (m *mount) apiExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// exportPage refuses a note past what a render takes, so no more is read
 	data, err := io.ReadAll(io.LimitReader(f, maxRenderBytes+1))
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
-	if data, err = m.exportPage(p, data); err != nil {
+	if data, err = m.exportPage(r.Context(), started, p, data); err != nil {
 		failJSON(w, r, err)
 		return
 	}
@@ -85,32 +76,30 @@ func setExportHeaders(w http.ResponseWriter, contentType, name string) {
 	h := w.Header()
 	h.Set("Content-Type", contentType)
 	h.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
-	// the page carries its own script, which must never run on this origin
 	h.Set("Content-Security-Policy", rawContentSecurityPolicy)
 	h.Set("Cache-Control", pageCacheControl)
 }
 
-// exportPage renders a note into a page of its own, the one `scrawl render`
-// writes, with every picture of the space it shows embedded.
-func (m *mount) exportPage(docPath string, src []byte) ([]byte, error) {
+func (m *mount) exportPage(ctx context.Context, started time.Time, docPath string, src []byte) ([]byte, error) {
 	res, err := renderWithDeadline(docPath, src, maxRenderBytes, renderTimeout, func() (render.Result, error) {
 		return exportRenderer.Render(src, docPath)
 	})
 	if err != nil {
 		return nil, err
 	}
+	fragment := string(res.HTML)
+	if res.PlantUML {
+		fragment = m.drawDiagrams(ctx, started, docPath, fragment)
+	}
 	pics := newPictures(m.spc.Store, path.Dir(docPath), maxEmbeddedImages)
 	var buf bytes.Buffer
-	note := page.Note{Title: res.Title, HTML: pics.embed(string(res.HTML))}
+	note := page.Note{Title: res.Title, HTML: pics.embed(fragment)}
 	if err := page.WriteNote(&buf, note, page.Options{Math: res.Math}); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
-// pictures turns the relative addresses of a note's pictures into data URLs,
-// within a budget shared by the whole note. A picture read once is kept, and
-// every place it is shown again is charged again: each one is another copy.
 type pictures struct {
 	notes  *store.Store
 	dir    string
@@ -122,8 +111,6 @@ func newPictures(notes *store.Store, dir string, budget int64) *pictures {
 	return &pictures{notes: notes, dir: dir, budget: budget, done: map[string]string{}}
 }
 
-// embed rewrites the src of every img and the srcset of every source in a
-// fragment render made, and leaves every other byte as it came.
 func (p *pictures) embed(fragment string) string {
 	var out strings.Builder
 	z := html.NewTokenizer(strings.NewReader(fragment))
@@ -136,7 +123,6 @@ func (p *pictures) embed(fragment string) string {
 			out.Write(z.Raw())
 			continue
 		}
-		// Token lowercases the tag name in the buffer Raw points into
 		raw := bytes.Clone(z.Raw())
 		tok := z.Token()
 		if !p.rewrite(&tok) {
@@ -147,7 +133,6 @@ func (p *pictures) embed(fragment string) string {
 	}
 }
 
-// rewrite embeds the pictures one tag names and reports whether it changed it.
 func (p *pictures) rewrite(tok *html.Token) bool {
 	changed := false
 	for i, attr := range tok.Attr {
@@ -167,8 +152,6 @@ func (p *pictures) rewrite(tok *html.Token) bool {
 	return changed
 }
 
-// srcset embeds every candidate of a srcset. A data URL holds no whitespace,
-// so it stays one candidate: the browser reads a URL up to the next space.
 func (p *pictures) srcset(value string) string {
 	candidates := strings.Split(value, ",")
 	for i, candidate := range candidates {
@@ -182,9 +165,6 @@ func (p *pictures) srcset(value string) string {
 	return strings.Join(candidates, ", ")
 }
 
-// dataURL is the picture a relative address points at as a data URL, or the
-// address as it was when it names no picture of the space or the budget is
-// spent. An svg is embedded too: in an img it is a picture, never a document.
 func (p *pictures) dataURL(src string) string {
 	clean, fragment, ok := p.resolve(src)
 	if !ok {
@@ -209,15 +189,12 @@ func (p *pictures) dataURL(src string) string {
 	}
 	embedded := prefix + base64.StdEncoding.EncodeToString(data)
 	res := p.charge(src, embedded, fragment)
-	// kept only once charged, so a picture refused is never held in memory
 	if res != src {
 		p.done[clean] = embedded
 	}
 	return res
 }
 
-// resolve is the content path a relative address names and its fragment, which
-// picks the view of an svg that shows only a part of itself.
 func (p *pictures) resolve(src string) (clean, fragment string, ok bool) {
 	u, err := url.Parse(src)
 	if err != nil || u.Scheme != "" || u.Host != "" || u.Path == "" || strings.HasPrefix(u.Path, "/") {
@@ -233,8 +210,6 @@ func (p *pictures) resolve(src string) (clean, fragment string, ok bool) {
 	return clean, fragment, true
 }
 
-// read takes no more of a picture than the size the budget was checked
-// against, so one that grew since is refused rather than read whole.
 func (p *pictures) read(name string, size int64) ([]byte, bool) {
 	f, _, err := p.notes.Open(name)
 	if err != nil {
@@ -248,8 +223,6 @@ func (p *pictures) read(name string, size int64) ([]byte, bool) {
 	return data, true
 }
 
-// charge spends the budget on one more copy of a picture, and answers with the
-// address as it was when the copy does not fit, before the copy is made.
 func (p *pictures) charge(src, embedded, fragment string) string {
 	size := int64(len(embedded) + len(fragment))
 	if size > p.budget {

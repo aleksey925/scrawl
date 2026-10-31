@@ -17,7 +17,6 @@
 <body>
 <script type="application/json" data-scrawl="page">{{.Data}}</script>
 <div id="scrawl-app-root"></div>
-{{/* what a reader without javascript gets, and what the app draws again */}}
 <main data-scrawl-static>
 <nav aria-label="Path"><ol class="scrawl-static-crumbs">{{range .Crumbs}}<li>{{if .Href}}<a href="{{.Href}}">{{.Title}}</a>{{else}}{{.Title}}{{end}}</li>{{end}}</ol></nav>
 {{with .HTML}}<article class="markdown-document">

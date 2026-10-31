@@ -9,9 +9,13 @@ playwright's own "projects", which have nothing to do with scrawl's spaces.
 The suite drives the react app. The one page the server renders itself is
 the sign-in form.
 
-`site.spec.js` writes a site with `scrawl site` and reads it from disk and
-from a small static server under a path of its own. It runs no instance of
-the server and takes `test` from playwright directly.
+`site.spec.js` writes a site with `scrawl site` and reads it from disk and from
+a small static server under a path of its own. It runs no instance of the
+server and takes `test` from playwright directly. The test of Back launches a
+whole Chromium with the page cache on: playwright turns that cache off and its
+headless shell has none, so with the defaults the page was always loaded again.
+A page out of that cache fires no `load` event, so Back there waits only for
+`commit`.
 
 The suite starts the binary itself. Every other spec takes `test` from
 `support/test.js`, which brings up five instances for each Playwright
@@ -178,15 +182,41 @@ expected.
 
 ## Notes
 
-- The tests of one desktop file run in order in one worker, because they
-  share the trees of that worker and some lean on what the one before
-  wrote. The mobile profile is one file whose tests do not, so they spread
-  over every worker. A worker that replaces a crashed one starts its
-  servers again from a fresh copy.
-- Specs that write create their own scratch documents under an
-  `e2e-*` folder and remove them again, so the corpus copy stays as it
-  was copied. The ones that break a git origin restore it in an
-  `afterEach` and wait for the space to be in step again, so the next
-  spec never inherits a broken remote.
+- The tests of one desktop file run in order in one worker, because they share
+  the trees of that worker and some lean on what the one before wrote. The
+  mobile profile is one file whose tests do not, so they spread over every
+  worker. A worker that replaces a crashed one starts its servers again from a
+  fresh copy. Before it starts a server, the launcher stops any server left on
+  that port: a worker can die without its teardown, and a server left behind
+  answered the readiness probe in place of the new one, so every spec drove an
+  old tree. Git runs with the same cleaned environment the binary gives its own
+  children, so nothing set on the host changes how the origins are seeded.
+- Specs that write create their own scratch documents under an `e2e-*` folder
+  and remove them again, so the corpus copy stays as it was copied. The ones
+  that break a git origin restore it in an `afterEach` and wait for the space
+  to be in step again, so the next spec never inherits a broken remote. A
+  document a spec writes into a space with history gets a new name and new text
+  on every run: git follows a rename, so a new file with the bytes of a deleted
+  one is that old file again with all its versions, and a save of bytes the
+  file already holds commits nothing. A corpus note that cannot be deleted,
+  like the root `index.md`, gets a stamp in its text, and a note the webhook
+  must bring in gets a name of its own per run.
+- The mobile specs send a swipe as touch events made inside the page, not
+  through playwright's touchscreen: Chromium holds back a move the protocol
+  sends inside its slop, so a short first step never reached the page, and a
+  touch sent through the protocol never sets `:active` in a headless browser. A
+  tap that must land while the page is still moving, and the release of a
+  swipe, are sent at once: `tap` waits for the element and can land after the
+  move, and a slow runner stretched the release past the window its speed is
+  read over.
+- A wait waits for the thing itself and never for an event that has already
+  fired. After a navigation the helpers wait for the network to go quiet,
+  because `waitForLoadState('load')` answers for the page being left; a
+  shortcut is pressed only after the bundle has mounted, because a key pressed
+  before is lost; a phone's menu is measured only once it has finished growing.
+- The route tests load an address directly and do not click to it. The page
+  segment is spelled in the route table, the path builders and the pathname
+  reader, and a click goes through the builders, so it still works when one of
+  the three is out of step.
 - CI keeps the HTML report of a failed run as a build artifact. A test gets one retry there and none
   locally.

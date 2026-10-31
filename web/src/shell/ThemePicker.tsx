@@ -1,18 +1,17 @@
-import { Group, Menu, SegmentedControl, useMantineColorScheme } from '@mantine/core';
-import { IconDeviceDesktop, IconMoon, IconSun } from '@tabler/icons-react';
+import { Menu, useMantineColorScheme } from '@mantine/core';
 import type { JSX } from 'react';
 
+import { Segmented, type SegmentedOption } from '../components/Segmented';
 import controls from '../controls.module.css';
+import { IconDeviceDesktop, IconMoon, IconSun } from '../icons';
 import { setThemeChoice, useThemeChoice } from '../themeChoice';
-import { autoChoice, isThemeChoice, themes } from '../themes';
+import { autoChoice, themes } from '../themes';
 
-const options = [
+const options: SegmentedOption<string>[] = [
   { value: autoChoice, icon: IconDeviceDesktop, label: 'Auto' },
   ...themes.map((entry) => ({ value: entry.id, icon: entry.scheme === 'dark' ? IconMoon : IconSun, label: entry.name })),
 ];
 
-// ThemePicker is the theme row of a menu: every theme is one press away, where
-// a single item had to be pressed through the others to reach the one wanted
 export function ThemePicker(): JSX.Element {
   const { setColorScheme } = useMantineColorScheme();
   const choice = useThemeChoice();
@@ -21,28 +20,16 @@ export function ThemePicker(): JSX.Element {
     <>
       <Menu.Label>Theme</Menu.Label>
       <div className={controls.menuControl}>
-        <SegmentedControl
-          data-testid="topbar-theme"
+        <Segmented
+          data-testid="space-menu-theme"
           data-theme={choice}
           fullWidth
           size="sm"
           classNames={{ label: controls.menuSegment }}
           value={choice}
-          onChange={(value) => {
-            if (isThemeChoice(value)) {
-              setThemeChoice(value, setColorScheme);
-            }
-          }}
+          onChange={(value) => setThemeChoice(value, setColorScheme)}
           aria-label="Theme"
-          data={options.map(({ value, icon: Icon, label }) => ({
-            value,
-            label: (
-              <Group gap={6} wrap="nowrap" justify="center">
-                <Icon size={16} />
-                <span>{label}</span>
-              </Group>
-            ),
-          }))}
+          options={options}
         />
       </div>
     </>

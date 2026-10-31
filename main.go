@@ -23,16 +23,14 @@ import (
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/format"
 	"github.com/aleksey925/scrawl/history"
+	"github.com/aleksey925/scrawl/plantuml"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/server"
 	"github.com/aleksey925/scrawl/store"
 )
 
-// revision is set at build time with -ldflags "-X main.revision=..."
 var revision = "0.0.0"
 
-// the defaults of the single space, repeated from the option tags: a run tells
-// a value somebody set from one it was simply given by comparing against them
 const (
 	defaultSpaceDir   = "/spaces/notes"
 	defaultFormat     = formatOn
@@ -40,9 +38,6 @@ const (
 	defaultRepoPull   = 5 * time.Minute
 )
 
-// formatWorkers is how many notes prettier formats at once. A run takes a
-// whole core for as long as it lasts, and a worker that ran once stays
-// around holding some 70MB.
 const formatWorkers = 2
 
 const (
@@ -50,14 +45,10 @@ const (
 	formatOff = "off"
 )
 
-// spaceOptions is the single space of a run with no spaces file, mirroring the
-// name and dir keys of that file.
 type spaceOptions struct {
 	Name string `long:"name" env:"NAME" description:"name of the single space, the URL segment it is served under"`
 	Dir  string `long:"dir" env:"DIR" default:"/spaces/notes" description:"directory of the single space"`
 
-	// a choice and not a bool: go-flags refuses a default on a bool, and this
-	// one is on unless somebody turns it off
 	FormatOnSave string `long:"format-on-save" env:"FORMAT_ON_SAVE" default:"on" choice:"on" choice:"off" description:"format a note with prettier whenever it is saved"`
 }
 
@@ -78,10 +69,6 @@ type options struct {
 
 	History string `long:"history" env:"HISTORY" default:"auto" choice:"auto" choice:"on" choice:"off" description:"document history in git"`
 
-	// the single space's remote, mirroring the repo block of the spaces file
-	// field for field. There is deliberately no --repo-token: a flag value
-	// lands in /proc/<pid>/cmdline, which is world readable, so the credential
-	// comes from REPO_TOKEN and from nowhere else.
 	Repo struct {
 		URL    string        `long:"url" env:"URL" description:"clone this git remote into --space.dir and push what is edited back"`
 		Branch string        `long:"branch" env:"BRANCH" default:"main" description:"branch to track"`
@@ -109,10 +96,8 @@ type options struct {
 	Dbg bool `long:"dbg" env:"DEBUG" description:"debug mode"`
 }
 
-// byteSize is a size in bytes accepting a human suffix, i.e. "20M" or "512K".
 type byteSize int64
 
-// UnmarshalFlag implements the go-flags unmarshaler for byteSize.
 func (b *byteSize) UnmarshalFlag(value string) error {
 	digits := strings.TrimSuffix(strings.ToUpper(strings.TrimSpace(value)), "B")
 
@@ -143,14 +128,11 @@ func (b *byteSize) UnmarshalFlag(value string) error {
 
 func main() {
 	format.RunWorkerIfAsked()
+	plantuml.RunWorkerIfAsked()
 	os.Exit(runCommand(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
 }
 
-// runServe is the serve command: it runs until SIGINT or SIGTERM arrives, or
-// until the server fails.
 func runServe(opts *options) int {
-	// before setupLog, because a credential read afterwards would never be in
-	// the redaction list lgr.Secret was given
 	cfgs, cfgErr := loadConfig(opts)
 	setupLog(opts.Dbg, secretsOf(opts, cfgs)...)
 
@@ -170,7 +152,6 @@ func runServe(opts *options) int {
 	return 0
 }
 
-// parseOpts reads the options of the serve command.
 func parseOpts(args []string) (*options, error) {
 	cmds, _, err := parseCommands(append([]string{serveCommand}, args...))
 	if err != nil {
@@ -185,8 +166,6 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 		return err
 	}
 
-	// the spaces come first, because the public path list is derived from
-	// them and auth has to be told about it before it is built
 	running := make([]*runtimeSpace, 0, len(cfgs))
 	defer func() {
 		for _, rp := range running {
@@ -216,10 +195,7 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 		Disabled:     opts.Auth.Disabled,
 		TrustedProxy: opts.TrustedProxy,
 		Secure:       opts.Auth.Secure,
-		// a provider cannot sign in, so its one path per space is reachable
-		// without a session. Exact matches, never prefixes, and the credential
-		// is the signature the handler checks before it touches the space.
-		PublicPaths: hooks,
+		PublicPaths:  hooks,
 	})
 	if err != nil {
 		return fmt.Errorf("setup auth: %w", err)
@@ -227,6 +203,8 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 
 	formatter := format.New(formatWorkers)
 	defer formatter.Close()
+	diagramRenderer := plantuml.New()
+	defer diagramRenderer.Close()
 
 	srv := &server.Web{
 		Config: server.Config{
@@ -244,20 +222,12 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 			IdleTimeout:       opts.Timeouts.Idle,
 			ShutdownTimeout:   opts.Timeouts.Shutdown,
 		},
-		Spaces:    spaces,
-		Auth:      authSvc,
-		Formatter: formatter,
+		Spaces:          spaces,
+		Auth:            authSvc,
+		Formatter:       formatter,
+		DiagramRenderer: diagramRenderer,
 	}
 
-	// the workers start last, after every space has been reconciled and
-	// indexed: a watcher takes its baseline snapshot when it is called, so
-	// anything the worktree did before that produces no event, ever.
-	//
-	// They run under a context of their own, canceled the moment the server
-	// returns and not deferred: Web.Run returns as soon as ListenAndServe
-	// fails while ctx is still live, and a defer in this function would fire
-	// after the loop below that waits for them. A busy listen address would
-	// otherwise hang the process.
 	workers, stopWorkers := context.WithCancel(ctx)
 	done := startWorkers(workers, running, srv)
 	runErr := srv.Run(ctx)
@@ -272,9 +242,6 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 	return nil
 }
 
-// startWorkers runs the per-space background goroutines: one watcher each,
-// and one sync loop for every space that fetches on a ticker, answers a
-// webhook, or both.
 func startWorkers(ctx context.Context, running []*runtimeSpace, srv *server.Web) []<-chan struct{} {
 	done := make([]<-chan struct{}, 0, 2*len(running))
 	for _, rp := range running {
@@ -286,13 +253,8 @@ func startWorkers(ctx context.Context, running []*runtimeSpace, srv *server.Web)
 	return done
 }
 
-// syncFunc is what a sync loop runs, taken as a parameter so a test can watch
-// the coalescing without a git remote behind it.
 type syncFunc func(ctx context.Context, name string, hist *history.Service)
 
-// syncLoop is the one place a background Sync is started from, whichever switch
-// asked for it. A nil ticker channel blocks forever, which is exactly what
-// pull: 0 means, so the two switches need no branch beyond that one if.
 func syncLoop(ctx context.Context, rp *runtimeSpace, run syncFunc) <-chan struct{} {
 	name := rp.web.Name
 	done := make(chan struct{})
@@ -313,10 +275,6 @@ func syncLoop(ctx context.Context, rp *runtimeSpace, run syncFunc) <-chan struct
 			case <-tick:
 			case <-rp.trigger:
 			}
-			// select picks at random among ready cases, so a trigger queued at
-			// shutdown can win against a closed ctx.Done(). Sync then takes a
-			// plain mutex that knows nothing about the context, and the
-			// shutdown would wait on a save already running.
 			if ctx.Err() != nil {
 				return
 			}
@@ -326,40 +284,24 @@ func syncLoop(ctx context.Context, rp *runtimeSpace, run syncFunc) <-chan struct
 	return done
 }
 
-// the modes of --history.
 const (
 	historyAuto = "auto"
 	historyOn   = "on"
 	historyOff  = "off"
 )
 
-// the actors a commit is attributed to when no request is behind it.
 const (
 	historyActorStartup  = "scrawl"
 	historyActorExternal = "external"
 )
 
-// newHistory builds the history service for the configured mode. "auto" is best
-// effort: a host without git, or a notes directory that lies inside another
-// repository, leaves the app exactly as it was before the feature existed.
-// "on" is a promise the deployment made, so the same conditions stop the server
-// rather than serving without the audit trail somebody asked for.
 func newHistory(opts *options, cfg spaceConfig, notes *store.Store) (*history.Service, error) {
 	hcfg := history.Config{
-		Name:  cfg.Name,
-		Root:  notes.Dir(),
-		Files: historyFiles(notes),
-		// what the app would serve, which is the only definition of visible it
-		// has. history filters the unsynced set with it before capping, so a
-		// path the store hides is never a second way into the notes and never
-		// spends the cap either.
+		Name:    cfg.Name,
+		Root:    notes.Dir(),
+		Files:   historyFiles(notes),
 		Visible: notes.Visible,
 	}
-	// history is forced on for a remote, whatever --history says: a space
-	// that silently stopped recording would also silently stop pushing. It
-	// tracks every visible file too, because the editor opens far more types
-	// than local history keeps, and on a clone that gap is data loss rather
-	// than a hole in an audit trail.
 	remote := cfg.Remote != nil
 	if remote {
 		rm := remoteOf(opts, cfg)
@@ -389,8 +331,6 @@ func newHistory(opts *options, cfg spaceConfig, notes *store.Store) (*history.Se
 	return nil, nil
 }
 
-// historyFiles is what history asks for when it reconciles: every path the
-// store still shows, which is the only definition of visible the app has.
 func historyFiles(notes *store.Store) func() ([]string, error) {
 	return func() ([]string, error) {
 		files, err := notes.Files()
@@ -405,13 +345,6 @@ func historyFiles(notes *store.Store) func() ([]string, error) {
 	}
 }
 
-// reconcile records whatever on disk history has not seen. A failure is never
-// fatal: a server that cannot commit is still worth running, the service
-// reports itself degraded, and the next successful commit folds the gap in.
-//
-// A pull-only clone is asked rather than derived from the read-only mode: the
-// service refuses the call anyway, and asking keeps the watcher from timing and
-// logging a run that does nothing.
 func reconcile(ctx context.Context, name string, hist *history.Service, actor string) {
 	if !hist.Enabled() || hist.PullOnly() || ctx.Err() != nil {
 		return
@@ -425,10 +358,6 @@ func reconcile(ctx context.Context, name string, hist *history.Service, actor st
 		name, actor, time.Since(start).Round(time.Millisecond))
 }
 
-// syncRemote fetches, fast-forwards and pushes once, before the index is built
-// and long before the watcher starts. A failure is never fatal: the space
-// keeps serving what is on disk, and Unpublished and SyncError say what fell
-// behind.
 func syncRemote(ctx context.Context, name string, hist *history.Service) {
 	if !hist.Remote() || ctx.Err() != nil {
 		return
@@ -441,9 +370,6 @@ func syncRemote(ctx context.Context, name string, hist *history.Service) {
 	log.Printf("[DEBUG] %s: in step with the remote in %v", name, time.Since(start).Round(time.Millisecond))
 }
 
-// probeWritable says once, loudly, that a remote will refuse every push. It is
-// a warning and never a mode: a probe that flipped the space to read-only
-// would be a setting nobody configured, changing with the network.
 func probeWritable(ctx context.Context, name string, hist *history.Service) {
 	if !hist.Remote() || ctx.Err() != nil {
 		return
@@ -455,8 +381,6 @@ func probeWritable(ctx context.Context, name string, hist *history.Service) {
 	}
 }
 
-// pullEvery is how often a space fetches in the background. A local space
-// has no remote to fetch from, and 0 disables the ticker.
 func pullEvery(cfg spaceConfig) time.Duration {
 	if cfg.Remote == nil {
 		return 0
@@ -464,7 +388,6 @@ func pullEvery(cfg spaceConfig) time.Duration {
 	return cfg.Remote.Pull
 }
 
-// indexAll fills the search index from the notes directory.
 func indexAll(name string, notes *store.Store, index *search.Index) error {
 	start := time.Now()
 	docs := 0
@@ -482,16 +405,8 @@ func indexAll(name string, notes *store.Store, index *search.Index) error {
 	return nil
 }
 
-// historyDebounce is how long the watcher waits after the last change before it
-// records the batch. The store already merges a burst into one flush, but that
-// flush still arrives as one event per path, and each of them would otherwise
-// become a commit of its own.
 const historyDebounce = 2 * time.Second
 
-// watch keeps the search index and the rendered page cache in step with the
-// disk, and hands whatever changed outside the app to history. The returned
-// channel is closed once the goroutine is gone: store.Watch closes its channel
-// when ctx is canceled, so shutdown leaks nothing.
 func watch(ctx context.Context, rp *runtimeSpace, srv *server.Web) <-chan struct{} {
 	name := rp.web.Name
 	events := rp.notes.Watch(ctx)
@@ -517,8 +432,6 @@ func watch(ctx context.Context, rp *runtimeSpace, srv *server.Web) <-chan struct
 					batch.Reset(historyDebounce)
 				}
 			case <-batch.C:
-				// what the app itself wrote is committed already, so this
-				// mostly finds nothing; the edit made over SMB is the point
 				reconcile(ctx, name, rp.hist, historyActorExternal)
 			}
 		}
@@ -526,14 +439,10 @@ func watch(ctx context.Context, rp *runtimeSpace, srv *server.Web) <-chan struct
 	return done
 }
 
-// reindex brings the search index back in step with one path.
 func reindex(notes *store.Store, index *search.Index, p string) {
 	if !strings.EqualFold(path.Ext(p), ".md") {
 		return
 	}
-	// a create and a write mean the same thing here, and so does a rename: an
-	// atomic save replaces the inode, so the file that is there now is the only
-	// thing worth asking about
 	data, _, err := notes.Read(p)
 	if err != nil {
 		index.Delete(p)
@@ -542,8 +451,6 @@ func reindex(notes *store.Store, index *search.Index, p string) {
 	index.Set(p, data)
 }
 
-// ignoredSpaceSettings names every setting of the single space that was given
-// together with a spaces file, which replaces all of them.
 func ignoredSpaceSettings(opts *options) []string {
 	if opts.SpacesFile == "" {
 		return nil
@@ -572,10 +479,6 @@ func ignoredSpaceSettings(opts *options) []string {
 	return res
 }
 
-// validateStartup runs both phases of validation and returns the canonical root
-// of every space. The syntactic phase comes first and needs nothing on disk,
-// so a typo fails before a directory is created or a repository cloned; the
-// canonical one answers what only a resolved path can.
 func validateStartup(ctx context.Context, opts *options, cfgs []spaceConfig) ([]string, error) {
 	if ignored := ignoredSpaceSettings(opts); len(ignored) > 0 {
 		log.Printf("[WARN] SPACES_FILE is set, so these are ignored: %s", strings.Join(ignored, ", "))
@@ -586,9 +489,6 @@ func validateStartup(ctx context.Context, opts *options, cfgs []spaceConfig) ([]
 	if err := validateSpaces(ctx, cfgs); err != nil {
 		return nil, err
 	}
-	// only now, when every plainly written mistake has been refused: a clone
-	// made before that would sit in somebody else's notes and have to be found
-	// and deleted by hand
 	if err := ensureDirs(ctx, opts, cfgs); err != nil {
 		return nil, err
 	}
@@ -605,7 +505,6 @@ func validateStartup(ctx context.Context, opts *options, cfgs []spaceConfig) ([]
 	return roots, nil
 }
 
-// validateGlobal checks the options no space owns.
 func validateGlobal(opts *options) error {
 	if !opts.Auth.Disabled && len(opts.Auth.Users) == 0 && len(opts.Auth.Tokens) == 0 {
 		return errors.New("no users and no tokens configured, " +
@@ -614,10 +513,6 @@ func validateGlobal(opts *options) error {
 	return nil
 }
 
-// genHash turns a password into a bcrypt hash. No password, or "-", reads it
-// from in: a password given on the command line lands in ps, in the shell
-// history and, for the documented docker run recipe, in the container config
-// that docker inspect prints.
 func genHash(value string, in io.Reader) (string, error) {
 	password := value
 	if value == "" || value == "-" {
@@ -642,26 +537,17 @@ func genHash(value string, in io.Reader) (string, error) {
 	return hash, nil
 }
 
-// genToken makes an API token and the configuration entry that accepts it. The
-// token is printed once and never stored: the configuration holds its digest
-// only, so a leaked tokens list cannot be turned back into a credential.
 func genToken(name string) string {
 	token := auth.GenerateToken()
 	return "token, hand this to the client: " + token + "\n" +
 		"configuration entry for --auth.tokens: " + name + ":" + auth.TokenDigest(token)
 }
 
-// secretsOf collects values that must never reach the log. An entry with no
-// colon in it counts as a secret whole: a token carries no natural name, so
-// forgetting one is easy, and what is left is the credential itself.
 func secretsOf(opts *options, cfgs []spaceConfig) []string {
 	res := make([]string, 0, len(opts.Auth.Users)+len(opts.Auth.Tokens)+len(cfgs)+1)
 	if opts.Auth.Secret != "" {
 		res = append(res, opts.Auth.Secret)
 	}
-	// the resolved repository credentials, whatever they were read from: this
-	// is the second line of defense behind the structural redaction gitError
-	// does, and it is why the config is loaded before setupLog
 	for _, cfg := range cfgs {
 		if cfg.Remote == nil {
 			continue
@@ -684,8 +570,6 @@ func secretsOf(opts *options, cfgs []spaceConfig) []string {
 	return res
 }
 
-// versionInfo returns the revision injected via ldflags and falls back to go's
-// build info for `go install` builds.
 func versionInfo() string {
 	if revision != "0.0.0" {
 		return revision
@@ -697,8 +581,6 @@ func versionInfo() string {
 }
 
 func setupLog(dbg bool, secrets ...string) {
-	// no stack trace outside debug mode: an ordinary configuration error would
-	// otherwise print a dump that reads as a crash in Container Manager's log
 	logOpts := []lgr.Option{lgr.Msec, lgr.LevelBraces}
 	if dbg {
 		logOpts = []lgr.Option{lgr.Debug, lgr.CallerFile, lgr.CallerFunc, lgr.Msec,

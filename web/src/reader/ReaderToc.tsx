@@ -9,9 +9,6 @@ export interface ReaderTocProps {
   outline: Outline;
 }
 
-// scrollParent is the panel the outline sits in, which is the rail on a desktop
-// and the sheet on a phone. It is found rather than passed, because the outline
-// is rendered through a portal and does not know which one took it.
 function scrollParent(from: HTMLElement): HTMLElement | null {
   for (let at = from.parentElement; at !== null; at = at.parentElement) {
     if (at.scrollHeight > at.clientHeight && /auto|scroll/.test(getComputedStyle(at).overflowY)) {
@@ -21,9 +18,6 @@ function scrollParent(from: HTMLElement): HTMLElement | null {
   return null;
 }
 
-// useKeepInView follows the reader inside the outline. A long note has more
-// headings than the rail is tall, so the section being read walks off the
-// bottom and the marker moves somewhere nobody can see.
 function useKeepInView(activeId: string | null): (node: HTMLAnchorElement | null) => void {
   const active = useRef<HTMLAnchorElement | null>(null);
   const set = (node: HTMLAnchorElement | null): void => {
@@ -44,8 +38,6 @@ function useKeepInView(activeId: string | null): (node: HTMLAnchorElement | null
     if (box.top >= hostBox.top && box.bottom <= hostBox.bottom) {
       return;
     }
-    // centred rather than "just inside": the entries around it are the context
-    // that makes the position in the note readable
     host.scrollTo({
       top: host.scrollTop + box.top - hostBox.top - (host.clientHeight - box.height) / 2,
       behavior: 'smooth',
@@ -55,26 +47,20 @@ function useKeepInView(activeId: string | null): (node: HTMLAnchorElement | null
   return set;
 }
 
-// indentStep is how far one level of nesting moves a heading in. It is smaller
-// than a paragraph indent on purpose: the outline is read as a shape, and the
-// shape is lost once the deepest entries wrap.
-const indentStep = 10;
+const indentStep = 14;
 
 export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
-  // the same question the shell asks to decide where this is rendered: a rail
-  // beside the note, where a row is a line of text, or a sheet a thumb opens,
-  // where a row has to be something a thumb can hit
-  const rail = useAtLeast(layoutBreakpoints.tocRail);
-  // the shallowest heading the note actually uses is the left edge, so a note
-  // whose sections are all h2 does not sit indented for nothing
+  const floating = useAtLeast(layoutBreakpoints.miniOutline);
   const top = outline.entries.reduce((min, entry) => Math.min(min, entry.level), 6);
   const keepInView = useKeepInView(outline.activeId);
 
   return (
     <Stack data-testid="toc" gap={0}>
-      <Text size="sm" c="dimmed" fw={500} mb="sm">
-        On this page
-      </Text>
+      {floating && (
+        <Text size="xs" c="dimmed" fw={500} mb="xs" px={8}>
+          On this page
+        </Text>
+      )}
       <Stack gap={2}>
         {outline.entries.map((entry) => {
           const active = entry.id === outline.activeId;
@@ -91,24 +77,21 @@ export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
               data-level={entry.level}
               href={`#${encodeURIComponent(entry.id)}`}
               onClick={onClick}
-              size="sm"
-              c={active ? 'accent' : 'dimmed'}
+              size={floating ? '13px' : 'md'}
+              c={active ? 'accent' : floating ? 'dimmed' : 'var(--scrawl-text)'}
               fw={active ? 500 : 400}
               underline="never"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                minHeight: rail ? undefined : 'var(--scrawl-tap-target)',
-                paddingTop: rail ? 5 : 0,
-                paddingBottom: rail ? 5 : 0,
-                paddingLeft: indentStep + Math.max(0, entry.level - top) * indentStep,
-                paddingRight: indentStep,
+                minHeight: floating ? undefined : 'var(--scrawl-tap-target)',
+                paddingTop: floating ? 5 : 0,
+                paddingBottom: floating ? 5 : 0,
+                paddingLeft: 8 + Math.max(0, entry.level - top) * indentStep,
+                paddingRight: 8,
                 borderRadius: 'var(--mantine-radius-md)',
-                // the section being read is marked by its fill and colour, and
-                // the row keeps its size, so the outline never shifts under it
-                background: active ? 'var(--scrawl-accent-subtle)' : undefined,
-                lineHeight: 1.35,
-                transition: 'color 120ms ease, background-color 120ms ease',
+                lineHeight: 1.3,
+                transition: 'color 120ms ease',
               }}
             >
               {entry.text}

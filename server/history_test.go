@@ -19,36 +19,24 @@ import (
 	"github.com/aleksey925/scrawl/store"
 )
 
-// oid spells one of the object ids the handlers pass around. They compare them
-// and never read them, so a repeated pair is as good as a real digest.
 func oid(pair string) string { return strings.Repeat(pair, 20) }
 
-// fakeHistory stands in for the git-backed service: it keeps every operation
-// the handlers hand it, answers reads from the versions it was given, and can
-// be made to fail a commit on demand.
 type fakeHistory struct {
 	degraded bool
-	failWith error // what the commit answers once the mutation has already run
+	failWith error
 	entries  []history.Entry
-	blobs    map[string][]byte // content of every blob the entries name
-	// what came before a version, by its rev; one not listed had nothing
-	before  map[string]history.Change
-	diff    string
-	readErr error
+	blobs    map[string][]byte
+	before   map[string]history.Change
+	diff     string
+	readErr  error
 
-	// the publication state, which the commit state above never sets: a push
-	// that failed leaves history healthy and the remote behind
 	unpublished bool
 	pushFails   error
 	syncErr     string
 	unsynced    history.Unsynced
 	refused     bool
-	// syncReads counts the loads, which is what proves apiMe takes the whole
-	// state in one and never a getter at a time
-	syncReads int
+	syncReads   int
 
-	// the reset: what a check answers, what either call fails with, and every
-	// reset the handlers asked for
 	remote     bool
 	diverged   bool
 	divergence history.Divergence
@@ -98,8 +86,6 @@ func (f *fakeHistory) Record(_ context.Context, op history.Op, mutate func() ([]
 		}
 		return nil
 	}
-	// the push is the stage after the commit, and it fails on its own: the
-	// commit landed, so the commit state stays healthy
 	if f.pushFails != nil {
 		f.unpublished = true
 		if op.Strict {
@@ -113,8 +99,6 @@ func (f *fakeHistory) Log(context.Context, string, int) ([]history.Entry, error)
 	return f.entries, f.readErr
 }
 
-// Version resolves the pair the way the real service does: only a commit that
-// changed that very path recorded a version of it.
 func (f *fakeHistory) Version(_ context.Context, rev, p string) (string, error) {
 	if f.readErr != nil {
 		return "", f.readErr
@@ -127,8 +111,6 @@ func (f *fakeHistory) Version(_ context.Context, rev, p string) (string, error) 
 	return "", history.ErrNoVersion
 }
 
-// Change answers for the same pairs Version does, with the side before taken
-// from before.
 func (f *fakeHistory) Change(ctx context.Context, rev, p string) (history.Change, error) {
 	blob, err := f.Version(ctx, rev, p)
 	if err != nil {
@@ -191,16 +173,70 @@ func TestAPIHistoryList(t *testing.T) {
 		"path":     "index.md",
 		"degraded": true,
 		"entries": []any{map[string]any{
-			"rev":     entry.Rev,
-			"short":   entry.Short,
-			"blob":    entry.Blob,
-			"actor":   entry.Actor,
-			"message": entry.Message,
-			"path":    entry.Path,
-			"kind":    string(entry.Kind),
-			"at":      entry.At.Format(time.RFC3339),
+			"rev":        entry.Rev,
+			"short":      entry.Short,
+			"blob":       entry.Blob,
+			"actor":      entry.Actor,
+			"message":    entry.Message,
+			"path":       entry.Path,
+			"kind":       string(entry.Kind),
+			"at":         entry.At.Format(time.RFC3339),
+			"restorable": true,
 		}},
 	}, body)
+}
+
+func TestAPIHistoryRestorable(t *testing.T) {
+	now := []byte("# Now\n\ntext on disk\n")
+	tests := []struct {
+		name  string
+		entry history.Entry
+		write []byte
+		want  bool
+	}{
+		{name: "a deletion holds nothing to write back",
+			entry: history.Entry{Rev: oid("a1"), Path: "note.md", Kind: history.KindDeleted}, write: now},
+		{name: "the version the file is now changes nothing",
+			entry: history.Entry{Rev: oid("a1"), Blob: blobID(now, 40), Path: "note.md", Kind: history.KindModified}, write: now},
+		{name: "a sha-256 repository is compared in its own hash",
+			entry: history.Entry{Rev: oid("a1"), Blob: blobID(now, 64), Path: "note.md", Kind: history.KindModified}, write: now},
+		{name: "an older version with other content",
+			entry: history.Entry{Rev: oid("a1"), Blob: oid("b2"), Path: "note.md", Kind: history.KindModified},
+			write: now, want: true},
+		{name: "the last commit, after an edit on disk not committed yet",
+			entry: history.Entry{Rev: oid("a1"), Blob: blobID(now, 40), Path: "note.md", Kind: history.KindModified},
+			write: []byte("# Now\n\nedited since\n"), want: true},
+		{name: "any version with content of a file no longer on disk",
+			entry: history.Entry{Rev: oid("a1"), Blob: oid("b2"), Path: "note.md", Kind: history.KindModified}, want: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ts := newTestServer(t, testOpts{history: &fakeHistory{entries: []history.Entry{tc.entry}}})
+			if tc.write != nil {
+				require.NoError(t, os.WriteFile(filepath.Join(ts.root, "note.md"), tc.write, 0o600))
+			}
+
+			// act
+			resp, body := ts.json(t, request{path: "/api/history/note.md"})
+
+			// assert
+			require.Equal(t, http.StatusOK, resp.status)
+			listed, ok := body["entries"].([]any)
+			require.True(t, ok)
+			require.Len(t, listed, 1)
+			got, ok := listed[0].(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, tc.want, got["restorable"])
+		})
+	}
+}
+
+func TestBlobIDIsGits(t *testing.T) {
+	// act & assert
+	assert.Equal(t, "ce013625030ba8dba906f756967f9e9ca394464a", blobID([]byte("hello\n"), 40))
+	assert.Equal(t, "2cf8d83d9ee29543b34a87727421fdecb7e3f3a183d337639025de576db9ebb4", blobID([]byte("hello\n"), 64))
 }
 
 func TestAPIHistoryVersion(t *testing.T) {
@@ -256,6 +292,10 @@ func TestAPIHistoryVersion(t *testing.T) {
 			},
 			"new": map[string]any{
 				"html": `<h1>the <ins class="diff-ins">old</ins> one</h1>`, "start": float64(1), "end": float64(1),
+			},
+			"inline": map[string]any{
+				"html":  `<h1>the <del class="diff-del">first</del> <ins class="diff-ins">old</ins> one</h1>`,
+				"start": float64(1), "end": float64(1),
 			},
 		}}, body["changes"])
 	})
@@ -632,8 +672,6 @@ func TestAPIHistoryListsWhatTheRepositoryHolds(t *testing.T) {
 			require.True(t, isMap)
 			assert.Equal(t, entries[i].Message, got["message"])
 			assert.Equal(t, string(entries[i].Kind), got["kind"])
-			// a rename keeps the path the document had back then, because a
-			// blob is read from the pair and today's path would not resolve
 			assert.Equal(t, entries[i].Path, got["path"])
 			assert.Equal(t, entries[i].Blob, got["blob"])
 		}
@@ -792,10 +830,6 @@ func TestAWriteHistoryCouldNotRecord(t *testing.T) {
 	assert.Equal(t, true, browserBody["history_degraded"])
 }
 
-// TestAWriteTheRemoteMissed keeps the two failures apart. A push that did not
-// land is not a commit that did not land, and telling an agent the change was
-// "not recorded in history" when it was recorded and only not pushed would send
-// it looking in the wrong place.
 func TestAWriteTheRemoteMissed(t *testing.T) {
 	// arrange
 	fake := &fakeHistory{pushFails: errors.New("the remote refused")}
@@ -823,9 +857,6 @@ func TestAWriteTheRemoteMissed(t *testing.T) {
 		"the commit landed, so the commit state is healthy")
 }
 
-// TestEveryMutationCarriesTheState is the promise the shared shape makes: a
-// deletion that never left the container is the worst one to lose silently, so
-// it answers 200 with a body like every other mutation.
 func TestEveryMutationCarriesTheState(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{history: &fakeHistory{unpublished: true, degraded: true}})
@@ -898,7 +929,6 @@ func TestAPIMeReportsThePublicationState(t *testing.T) {
 	assert.Equal(t, map[string]any{
 		"paths": []any{"guide.md", "images/logo.png"}, "many": false,
 	}, space["unsynced"])
-	// a timer polls this now, so nothing may serve it from a cache
 	assert.Equal(t, "private, no-store", resp.header.Get("Cache-Control"))
 	assert.Equal(t, 1, fake.syncReads,
 		"one load, or an error could be paired with another attempt's paths")

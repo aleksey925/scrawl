@@ -1,0 +1,23 @@
+@media (hover: none) {
+  .row {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .row::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset-block: 0;
+    inset-inline: calc(-1 * var(--mantine-spacing-lg));
+    background: var(--scrawl-pressed);
+    opacity: 0;
+    pointer-events: none;
+    transition: var(--scrawl-press-out);
+  }
+
+  .row:active:not(:has(button:active))::before {
+    opacity: 1;
+    transition: var(--scrawl-press-in);
+  }
+}

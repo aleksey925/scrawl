@@ -1,85 +1,146 @@
-import { Group, Kbd, Modal, Stack, Text } from '@mantine/core';
-import { useEffect, useState, type JSX } from 'react';
+import { Menu, Modal } from '@mantine/core';
+import { useEffect, type JSX, type ReactNode } from 'react';
 
+import { IconKeyboard } from '../icons';
 import { usePlatform } from '../platform';
+import { layout } from '../theme';
 
-// Mantine resolves "mod" to command on apple hardware and to control everywhere
-// else; this only spells the same choice out for the reader
-const apple = /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent);
-const modKey = apple ? '⌘' : 'Ctrl';
-const altKey = apple ? '⌥' : 'Alt';
+import classes from './ShortcutHelp.module.css';
+import { altKey, modKey, plainShortcut } from './shortcuts';
+
+type Need = 'search' | 'editing';
 
 interface Shortcut {
   keys: readonly string[];
   what: string;
-  // needs is what the reader must offer for the keys to do anything
-  needs?: 'search' | 'editing';
+  needs?: Need;
 }
 
-// only what the app really answers to: the palette shortcuts on Spotlight, the
-// save in the editor, Escape on the find bar and the filter, the arrows in the
-// image viewer
-const shortcuts: readonly Shortcut[] = [
-  { keys: [modKey, 'K'], what: 'Open the search palette', needs: 'search' },
-  { keys: ['/'], what: 'Open the search palette', needs: 'search' },
-  { keys: ['?'], what: 'Show this list' },
-  { keys: [modKey, 'B'], what: 'Show or hide the file list' },
-  { keys: [modKey, 'S'], what: 'Save the document being edited', needs: 'editing' },
-  { keys: ['Shift', altKey, 'F'], what: 'Format the note being edited', needs: 'editing' },
-  { keys: ['Esc'], what: 'Close a panel, clear the filter or the highlighting' },
-  { keys: ['←', '→'], what: 'Step through the images in the viewer' },
+interface ShortcutGroup {
+  name: string;
+  needs?: Need;
+  rows: readonly Shortcut[];
+}
+
+const groups: readonly ShortcutGroup[] = [
+  {
+    name: 'General',
+    rows: [
+      { keys: [modKey, 'K'], what: 'Search the space', needs: 'search' },
+      { keys: [modKey, 'B'], what: 'Show or hide the sidebar' },
+      { keys: ['?'], what: 'Show this list' },
+      { keys: ['Esc'], what: 'Close a panel or clear the filter' },
+    ],
+  },
+  {
+    name: 'Note',
+    rows: [
+      { keys: [modKey, 'F'], what: 'Find in the note' },
+      { keys: ['↵'], what: 'Next match' },
+      { keys: ['Shift', '↵'], what: 'Previous match' },
+      { keys: [altKey, 'C'], what: 'Match case' },
+      { keys: [altKey, 'W'], what: 'Whole word' },
+      { keys: [altKey, 'R'], what: 'Regular expression' },
+      { keys: ['E'], what: 'Edit the note', needs: 'editing' },
+      { keys: ['↵'], what: 'Create a note that does not exist yet', needs: 'editing' },
+      { keys: ['←', '→'], what: 'Step through the pictures in the viewer' },
+      { keys: ['+', '-'], what: 'Zoom in or out in the viewer' },
+      { keys: ['0'], what: 'Fit the picture or diagram to the screen' },
+      { keys: ['1'], what: 'Show it at its actual size' },
+    ],
+  },
+  {
+    name: 'Search',
+    needs: 'search',
+    rows: [
+      { keys: ['↑', '↓'], what: 'Select a result' },
+      { keys: ['↵'], what: 'Open it' },
+      { keys: [altKey, 'F'], what: 'Fuzzy or exact' },
+      { keys: [altKey, 'C'], what: 'Match case' },
+      { keys: [altKey, 'W'], what: 'Whole word' },
+      { keys: [altKey, 'R'], what: 'Regular expression' },
+    ],
+  },
+  {
+    name: 'Editor',
+    needs: 'editing',
+    rows: [
+      { keys: [modKey, 'S'], what: 'Save' },
+      { keys: ['Shift', altKey, 'F'], what: 'Format the note' },
+    ],
+  },
 ];
 
-function typingInto(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
+export function MenuKeys({ children }: { children: ReactNode }): JSX.Element {
+  return <span className={classes.menuKeys}>{children}</span>;
+}
+
+export function ShortcutsMenuItem({ onClick }: { onClick: () => void }): JSX.Element {
   return (
-    target.isContentEditable ||
-    target.tagName === 'INPUT' ||
-    target.tagName === 'TEXTAREA' ||
-    target.tagName === 'SELECT'
+    <Menu.Item
+      data-testid="space-menu-shortcuts"
+      leftSection={<IconKeyboard size={layout.iconSizeSmall} />}
+      rightSection={<MenuKeys>?</MenuKeys>}
+      onClick={onClick}
+    >
+      Keyboard shortcuts
+    </Menu.Item>
   );
 }
 
-export function ShortcutHelp(): JSX.Element {
-  const [opened, setOpened] = useState(false);
+export interface ShortcutHelpProps {
+  opened: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+}
+
+export function ShortcutHelp({ opened, onOpen, onClose }: ShortcutHelpProps): JSX.Element {
   const platform = usePlatform();
-  const offered = shortcuts.filter((shortcut) => shortcut.needs === undefined || platform[shortcut.needs]);
+  const offers = (need: Need | undefined): boolean => need === undefined || platform[need];
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== '?' || event.metaKey || event.ctrlKey || event.altKey) {
         return;
       }
-      if (typingInto(event.target)) {
+      if (!plainShortcut(event)) {
         return;
       }
       event.preventDefault();
-      setOpened(true);
+      onOpen();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [onOpen]);
 
   return (
-    <Modal opened={opened} onClose={() => setOpened(false)} title="Keyboard shortcuts" size="md">
-      {/* the modal root is a zero height wrapper around the portal, so the name
-          goes on the list itself, which is what is actually on the screen */}
-      <Stack data-testid="shortcuts" gap="sm">
-        {offered.map((shortcut) => (
-          <Group key={shortcut.what + shortcut.keys.join()} justify="space-between" wrap="nowrap" gap="lg">
-            <Text size="sm">{shortcut.what}</Text>
-            <Group gap={4} wrap="nowrap" style={{ flex: 'none' }}>
-              {shortcut.keys.map((key) => (
-                <Kbd key={key} size="sm">
-                  {key}
-                </Kbd>
-              ))}
-            </Group>
-          </Group>
-        ))}
-      </Stack>
+    <Modal opened={opened} onClose={onClose} title="Keyboard shortcuts" size={560}>
+      <div data-testid="shortcuts" className={classes.groups}>
+        {groups
+          .filter((entry) => offers(entry.needs))
+          .map((entry) => (
+            <section key={entry.name} data-testid="shortcuts-group" data-group={entry.name} className={classes.group}>
+              <h3 className={classes.name}>{entry.name}</h3>
+              {entry.rows
+                .filter((shortcut) => offers(shortcut.needs))
+                .map((shortcut) => (
+                  <div key={shortcut.what + shortcut.keys.join()} className={classes.row}>
+                    <span>{shortcut.what}</span>
+                    <span className={classes.keys}>
+                      {shortcut.keys.map((name) => (
+                        <kbd key={name} className={classes.key}>
+                          {name}
+                        </kbd>
+                      ))}
+                    </span>
+                  </div>
+                ))}
+            </section>
+          ))}
+      </div>
+      <div className={classes.footer}>
+        Press <kbd className={classes.key}>?</kbd> anywhere outside a text field to open this list.
+      </div>
     </Modal>
   );
 }

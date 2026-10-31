@@ -1,81 +1,225 @@
-/* a folder is a table, the way a file manager and a repository show one:
-   name, size and when it changed, with a row up to the folder above */
+.wrap {
+  --col-name: 530px;
+  --col-other: 150px;
+  overflow-x: auto;
+  container-type: inline-size;
+}
+
 .table {
   width: 100%;
+  min-width: 460px;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: var(--mantine-font-size-sm);
 }
 
 .table th,
 .table td {
-  padding-inline: 0 var(--mantine-spacing-xl);
-}
-
-.table th:first-child,
-.table td:first-child {
-  padding-inline-start: var(--card-inset);
-}
-
-.table th:last-child,
-.table td:last-child {
-  padding-inline-end: var(--card-inset);
+  height: 34px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--scrawl-border-light);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .table th {
-  padding-block: var(--mantine-spacing-xs);
-  border-bottom: 1px solid var(--scrawl-border);
   color: var(--scrawl-text-secondary);
-  font-weight: 500;
+  font-weight: 400;
   text-align: start;
-  white-space: nowrap;
+}
+
+.table th > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.table th svg {
+  color: var(--scrawl-icon-secondary);
 }
 
 .table td {
-  height: 40px;
   color: var(--scrawl-text-secondary);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 
-.table tr + tr td {
-  border-top: 1px solid var(--scrawl-border);
+.row {
+  cursor: pointer;
+  transition: background-color 20ms ease-in;
 }
 
-/* the name takes what the other columns leave and is the one to wrap */
+@media (hover: hover) {
+  .row:hover {
+    background: var(--scrawl-row-hover);
+  }
+}
+
+.colName {
+  width: clamp(160px, 100cqw - 2 * var(--col-other), var(--col-name));
+}
+
+.colSize,
+.colDate {
+  width: var(--col-other);
+}
+
 .name {
-  width: 100%;
-  white-space: normal !important;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+}
+
+.table .fill {
+  padding: 0;
 }
 
 .name > span {
   display: flex;
   align-items: center;
-  gap: var(--mantine-spacing-sm);
+  gap: 6px;
+  min-width: 0;
 }
 
-.table .end {
-  text-align: end;
+.name svg {
+  flex: none;
+  color: var(--scrawl-icon-secondary);
 }
 
-@media (hover: hover) {
-  .table tbody tr:hover td {
-    background: var(--scrawl-bg-subtle);
+.link {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--scrawl-text);
+  font-weight: 500;
+  text-decoration: none;
+  text-overflow: ellipsis;
+}
+
+.dim {
+  color: var(--scrawl-text-faint);
+}
+
+.tag {
+  flex: none;
+  margin-inline-start: 4px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--scrawl-bg-blue);
+  color: var(--scrawl-color-blue);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+.draft td {
+  --ring-y:
+    inset 0 1px 0 var(--scrawl-focus-ring), inset 0 -1px 0 var(--scrawl-focus-ring),
+    inset 0 2px 0 var(--scrawl-focus-ring-outer), inset 0 -2px 0 var(--scrawl-focus-ring-outer);
+
+  background: var(--scrawl-bg);
+  box-shadow: var(--ring-y);
+}
+
+.draft td:first-child {
+  box-shadow:
+    inset 1px 0 0 var(--scrawl-focus-ring),
+    inset 2px 0 0 var(--scrawl-focus-ring-outer),
+    var(--ring-y);
+}
+
+.draft td:last-child {
+  box-shadow:
+    inset -1px 0 0 var(--scrawl-focus-ring),
+    inset -2px 0 0 var(--scrawl-focus-ring-outer),
+    var(--ring-y);
+}
+
+.draftInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--scrawl-text);
+  font: inherit;
+  font-weight: 500;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+}
+
+.listRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--scrawl-border-light);
+}
+
+.listLink {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 56px;
+  padding-block: 8px;
+  color: var(--scrawl-text);
+  text-decoration: none;
+}
+
+.listIcon,
+.listChevron {
+  flex: none;
+  color: var(--scrawl-icon-secondary);
+}
+
+.listText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.listName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.listLabel {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listMeta {
+  color: var(--scrawl-text-tertiary);
+  font-size: 13px;
+}
+
+@media (hover: none) {
+  .row {
+    transition: var(--scrawl-press-out);
+  }
+
+  .row:active {
+    background: var(--scrawl-pressed);
+    transition: var(--scrawl-press-in);
+  }
+
+  .listRow {
+    transition: transform 150ms ease-out;
+  }
+
+  .listRow[data-holding='true'] {
+    transform: scale(0.97);
+    transition: transform 350ms ease-out 150ms;
   }
 }
 
-/* the last row's fill keeps to the card's rounded corners */
-.table tbody tr:last-child td:first-child {
-  border-end-start-radius: calc(var(--mantine-radius-lg) - 1px);
-}
-
-.table tbody tr:last-child td:last-child {
-  border-end-end-radius: calc(var(--mantine-radius-lg) - 1px);
-}
-
-/* on a phone the size gives its room to the name */
-@mixin smaller-than $mantine-breakpoint-sm {
-  .size {
-    display: none;
-  }
+.listRow[data-lifted='true'] > * {
+  visibility: hidden;
 }

@@ -17,7 +17,6 @@ import (
 )
 
 const (
-	// CookieName is the session cookie scrawl sets.
 	CookieName = "scrawl_session"
 
 	tokenSep   = "|"
@@ -29,26 +28,17 @@ const (
 	secretFileMode = 0o600
 )
 
-// b64 is the encoding used for every binary field of a token: url safe so the
-// value survives a cookie unescaped, unpadded so it carries no "=".
 var b64 = base64.RawURLEncoding
 
-// unknownEpoch stands in for a user that is not configured, so verifying a
-// forged cookie runs the same HMAC as a real one.
 var unknownEpoch = []byte("scrawl/unknown-user")
 
-// token is a decoded session cookie.
 type token struct {
 	user   string
 	expiry time.Time
 }
 
-// sign builds a cookie value of "user|expiry|nonce|mac", every binary field
-// base64url encoded. The nonce makes two logins of the same user in the same
-// second produce different cookies.
 func (s *Service) sign(user string, expiry time.Time) string {
 	nonce := make([]byte, nonceLen)
-	// crypto/rand.Read never fails, it panics if the system source is broken
 	_, _ = rand.Read(nonce)
 
 	payload := b64.EncodeToString([]byte(user)) + tokenSep +
@@ -57,7 +47,6 @@ func (s *Service) sign(user string, expiry time.Time) string {
 	return payload + tokenSep + b64.EncodeToString(s.mac(payload, user))
 }
 
-// parse verifies the signature and the expiry of a cookie value.
 func (s *Service) parse(value string, now time.Time) (token, bool) {
 	cut := strings.LastIndex(value, tokenSep)
 	if cut < 0 {
@@ -90,14 +79,10 @@ func (s *Service) parse(value string, now time.Time) (token, bool) {
 	return token{user: string(name), expiry: expiry}, true
 }
 
-// mac signs the payload with the service secret mixed with the user's
-// credential epoch, so rotating a password invalidates that user's sessions
-// while leaving everybody else logged in.
 func (s *Service) mac(payload, user string) []byte {
 	epoch := sha256.Sum256(s.epochOf(user))
 	mac := hmac.New(sha256.New, s.secret)
 	mac.Write([]byte(payload))
-	// fixed length, so the payload and the epoch cannot run into each other
 	mac.Write(epoch[:])
 	return mac.Sum(nil)
 }
@@ -109,7 +94,6 @@ func (s *Service) epochOf(user string) []byte {
 	return unknownEpoch
 }
 
-// session reads and verifies the session cookie of a request.
 func (s *Service) session(r *http.Request) (token, bool) {
 	cookie, err := r.Cookie(CookieName)
 	if err != nil {
@@ -118,8 +102,6 @@ func (s *Service) session(r *http.Request) (token, bool) {
 	return s.parse(cookie.Value, s.now())
 }
 
-// SetCookie issues a session cookie for user and clears the client's failed
-// login record, which is what makes a successful login reset the limiter.
 func (s *Service) SetCookie(w http.ResponseWriter, r *http.Request, user string) error {
 	if s.disabled {
 		return nil
@@ -134,8 +116,6 @@ func (s *Service) SetCookie(w http.ResponseWriter, r *http.Request, user string)
 	return nil
 }
 
-// issue writes the cookie without touching the limiter, which is what the
-// sliding renewal in the middleware needs.
 func (s *Service) issue(w http.ResponseWriter, r *http.Request, user string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieName,
@@ -148,8 +128,6 @@ func (s *Service) issue(w http.ResponseWriter, r *http.Request, user string) {
 	})
 }
 
-// ClearCookie expires the session cookie. MaxAge below zero plus an epoch
-// Expires covers browsers that ignore one of the two.
 func (s *Service) ClearCookie(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieName,
@@ -163,16 +141,11 @@ func (s *Service) ClearCookie(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// loadSecret resolves the signing key: the configured one wins, otherwise the
-// key persisted in file is reused, otherwise a fresh one is generated and
-// persisted. It never fails; when nothing can be written it warns and keeps
-// the key in memory, which only costs everybody a re-login after a restart.
 func loadSecret(secret, file string) []byte {
 	if secret != "" {
 		if len(secret) < minSecretLen {
 			log.Printf("[WARN] the session secret is %d characters, use at least %d", len(secret), minSecretLen)
 		}
-		// hashing normalizes a passphrase of any length into a full size key
 		key := sha256.Sum256([]byte(secret))
 		return key[:]
 	}
@@ -196,7 +169,6 @@ func loadSecret(secret, file string) []byte {
 
 func randomSecret() []byte {
 	key := make([]byte, secretLen)
-	// crypto/rand.Read never fails, it panics if the system source is broken
 	_, _ = rand.Read(key)
 	return key
 }
@@ -218,8 +190,6 @@ func readSecretFile(path string) ([]byte, bool) {
 	return key, true
 }
 
-// writeSecretFile persists the key through a temp file in the same directory
-// plus a rename, so a crash cannot leave a half written secret behind.
 func writeSecretFile(path string, key []byte) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -229,7 +199,7 @@ func writeSecretFile(path string, key []byte) error {
 	if err != nil {
 		return fmt.Errorf("create a temp file in %s: %w", dir, err)
 	}
-	defer func() { _ = os.Remove(tmp.Name()) }() // a no-op once the rename below succeeded
+	defer func() { _ = os.Remove(tmp.Name()) }()
 
 	if err := fillSecretFile(tmp, hex.EncodeToString(key)+"\n"); err != nil {
 		return err

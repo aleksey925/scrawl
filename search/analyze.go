@@ -4,8 +4,6 @@ import (
 	"strings"
 )
 
-// field is the part of a document a term was found in. Ranking is entirely
-// driven by which field a term landed in, see fieldWeight.
 type field uint8
 
 const (
@@ -16,10 +14,6 @@ const (
 	numFields
 )
 
-// fieldWeight sets the ranking order. Every weight is more than bm25K1+1 times
-// the next one, and the per-field score saturates at weight*(bm25K1+1), so one
-// title hit always outranks any number of heading hits, a heading hit always
-// outranks body hits, and code can never outrank prose.
 var fieldWeight = [numFields]float64{
 	fieldTitle:   16,
 	fieldHeading: 5,
@@ -27,40 +21,27 @@ var fieldWeight = [numFields]float64{
 	fieldCode:    0.4,
 }
 
-// maxDocBytes caps how much of one document is indexed. Nothing useful is
-// found by full-text search past a quarter of a megabyte, and the cap bounds
-// what a single pathological file can cost.
 const maxDocBytes = 256 << 10
 
-// off32 narrows an offset into a document. Every offset the analyzer produces
-// is bounded by maxDocBytes, so the conversion cannot overflow.
 func off32(n int) int32 {
 	return int32(n) //nolint:gosec // bounded by maxDocBytes
 }
 
-// span is a byte range of the extracted plain text.
 type span struct {
 	start, end int32
 }
 
-// lineMark ties a byte offset of the plain text back to the line it came from
-// in the markdown source.
 type lineMark struct {
 	off  int32
 	line int32
 }
 
-// fieldToken is a term ready to be indexed. off is -1 for terms that only
-// carry weight and have no place in the plain text, such as a title taken from
-// the file name.
 type fieldToken struct {
 	term  string
 	field field
 	off   int32
 }
 
-// analyzed is the indexable view of one markdown document: the markup is gone,
-// but every offset still points into the text a snippet is built from.
 type analyzed struct {
 	title  string
 	plain  string
@@ -69,7 +50,6 @@ type analyzed struct {
 	tokens []fieldToken
 }
 
-// fence describes a code fence line.
 type fence struct {
 	char byte
 	n    int
@@ -86,8 +66,6 @@ type analyzer struct {
 	lastLine  int32
 }
 
-// analyze strips markdown noise from content and collects the terms to index.
-// Code fences stay searchable but are marked, so a snippet prefers prose.
 func analyze(docPath string, content []byte) analyzed {
 	a := &analyzer{codeStart: -1}
 	lines := strings.Split(cutBytes(normalize(string(content)), maxDocBytes), "\n")
@@ -99,7 +77,6 @@ func analyze(docPath string, content []byte) analyzed {
 	return a.res
 }
 
-// step handles one source line and returns how many lines it consumed.
 func (a *analyzer) step(lines []string, n int) int {
 	line := strings.TrimSuffix(lines[n], "\r")
 
@@ -117,8 +94,6 @@ func (a *analyzer) step(lines []string, n int) int {
 	return 1
 }
 
-// toggleFence opens or closes a code block and reports whether the line was a
-// fence marker rather than code content.
 func (a *analyzer) toggleFence(f fence) bool {
 	if !a.inCode {
 		a.inCode, a.open, a.codeStart = true, f, -1
@@ -138,9 +113,6 @@ func (a *analyzer) closeCode() {
 	a.inCode, a.codeStart = false, -1
 }
 
-// setext handles a heading underlined with = or -, the form 25 of the 27
-// corpus files use for their title. The underline is only a heading when the
-// line above it is a paragraph, otherwise --- is a thematic break.
 func (a *analyzer) setext(line, next string, n int) bool {
 	level := setextLevel(next)
 	if level == 0 {
@@ -174,9 +146,6 @@ func (a *analyzer) heading(text string, level, n int) {
 	}
 }
 
-// emit appends one cleaned line to the plain text and records its terms. A
-// block boundary gets a blank line, so a phrase search can tell a hard wrap
-// inside a paragraph from the end of a heading.
 func (a *analyzer) emit(text string, f field, n int) {
 	text = strings.TrimRight(text, " \t")
 	if isBlank(text) {
@@ -200,8 +169,6 @@ func (a *analyzer) emit(text string, f field, n int) {
 	a.out.WriteByte('\n')
 }
 
-// finish materializes the plain text and indexes the title, which outweighs
-// every other field and therefore gets its own terms.
 func (a *analyzer) finish(docPath string) {
 	a.res.plain = a.out.String()
 	if a.res.title == "" {
@@ -227,23 +194,16 @@ func isBlank(s string) bool {
 	return strings.TrimSpace(s) == ""
 }
 
-// link remembers where the text of a link ends and where the scanner has to
-// resume to skip the destination.
 type link struct {
 	closeAt, resumeAt int
 }
 
-// cleanInline drops inline markup from one line: HTML tags, link and image
-// destinations, code and emphasis markers. The text inside a link or an image
-// survives, the URL does not.
 func cleanInline(s string) string {
 	var b strings.Builder
 	b.Grow(len(s))
 
 	open := []link{}
 	for i := 0; i < len(s); {
-		// a skipped tag can jump over a label end, so pop on >= and never let
-		// the resume point move the scanner backwards into an endless loop
 		if n := len(open) - 1; n >= 0 && i >= open[n].closeAt {
 			i = max(i, open[n].resumeAt)
 			open = open[:n]
@@ -270,7 +230,6 @@ func cleanInline(s string) string {
 	return b.String()
 }
 
-// skipTag drops an HTML tag or an autolink, and keeps a lone < as text.
 func skipTag(b *strings.Builder, s string, i int) int {
 	rest := s[i+1:]
 	if rest == "" || (!isASCIILetter(rest[0]) && rest[0] != '/' && rest[0] != '!') {
@@ -285,8 +244,6 @@ func skipTag(b *strings.Builder, s string, i int) int {
 	return i + 1 + end + 1
 }
 
-// openLink records where the label of a link ends so the destination can be
-// skipped, and keeps a lone [ as text.
 func openLink(b *strings.Builder, s string, i int, open *[]link) int {
 	label := matchBracket(s, i, '[', ']')
 	if label < 0 {
@@ -309,7 +266,6 @@ func openLink(b *strings.Builder, s string, i int, open *[]link) int {
 	return i + 1
 }
 
-// matchBracket returns the offset of the bracket closing the one at i, or -1.
 func matchBracket(s string, i int, open, closing byte) int {
 	depth := 0
 	for j := i; j < len(s); j++ {
@@ -334,7 +290,6 @@ func isPunct(c byte) bool {
 	return c < 0x80 && !isASCIILetter(c) && (c < '0' || c > '9') && c > ' '
 }
 
-// fenceInfo reports whether the line opens or closes a fenced code block.
 func fenceInfo(line string) (fence, bool) {
 	s := strings.TrimLeft(line, " \t")
 	if s == "" || (s[0] != '`' && s[0] != '~') {
@@ -355,7 +310,6 @@ func fenceInfo(line string) (fence, bool) {
 	return fence{char: c, n: n, info: rest != ""}, true
 }
 
-// atxLevel returns the level of a "### heading" line, or 0.
 func atxLevel(line string) int {
 	s := strings.TrimLeft(line, " \t")
 	n := 0
@@ -371,7 +325,6 @@ func atxLevel(line string) int {
 	return n
 }
 
-// setextLevel returns 1 for an "===" underline, 2 for "---", or 0.
 func setextLevel(line string) int {
 	s := strings.TrimSpace(line)
 	if s == "" {
@@ -394,8 +347,6 @@ func isThematicBreak(line string) bool {
 	return strings.Trim(s, "-") == "" || strings.Trim(s, "*") == "" || strings.Trim(s, "_") == ""
 }
 
-// isTableRule matches the |---|:--:| row that separates a table header from
-// its body and carries no text.
 func isTableRule(line string) bool {
 	s := strings.TrimSpace(line)
 	if !strings.ContainsRune(s, '|') || !strings.ContainsRune(s, '-') {
@@ -408,7 +359,6 @@ func isListItem(line string) bool {
 	return stripListMarker(line) != strings.TrimLeft(line, " \t")
 }
 
-// stripQuote removes the leading blockquote markers of a line.
 func stripQuote(line string) string {
 	s := strings.TrimLeft(line, " \t")
 	for strings.HasPrefix(s, ">") {
@@ -417,7 +367,6 @@ func stripQuote(line string) string {
 	return s
 }
 
-// stripListMarker removes a leading bullet or ordered list marker.
 func stripListMarker(line string) string {
 	s := strings.TrimLeft(line, " \t")
 	if rest, ok := stripBullet(s); ok {

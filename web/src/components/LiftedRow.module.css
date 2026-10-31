@@ -1,0 +1,31 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  touch-action: none;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--scrawl-overlay);
+  opacity: 0.55;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.card {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: var(--scrawl-popover);
+  box-shadow: var(--scrawl-shadow-large);
+}
+
+.mark {
+  position: fixed;
+  width: 1px;
+  pointer-events: none;
+}

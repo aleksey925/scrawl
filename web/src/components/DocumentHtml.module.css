@@ -1,36 +1,3 @@
-/* the outline is a pane of the note's card, from its head to its bottom edge,
-   so it reads as a part of the card and not as a second column of text; the
-   pane takes back the card's padding on its side */
-.withToc {
-  display: flex;
-  align-items: stretch;
-  margin-block: calc(-1 * var(--mantine-spacing-2xl));
-  margin-inline-end: calc(-1 * var(--card-inset));
-}
-
 .text {
-  flex: 1 1 auto;
   min-width: 0;
-}
-
-.withToc > .text {
-  padding-block: var(--mantine-spacing-2xl);
-  padding-inline-end: var(--card-inset);
-}
-
-.pane {
-  flex: none;
-  width: var(--scrawl-toc-width);
-  border-inline-start: 1px solid var(--scrawl-border);
-  border-end-end-radius: calc(var(--mantine-radius-lg) - 1px);
-  background: var(--scrawl-bg-subtle);
-}
-
-/* the list stays on screen while the text scrolls past it */
-.toc {
-  position: sticky;
-  top: calc(var(--scrawl-topbar-height) + var(--scrawl-sticky-head));
-  max-height: calc(100dvh - var(--scrawl-topbar-height) - var(--scrawl-sticky-head));
-  overflow-y: auto;
-  padding: var(--mantine-spacing-lg);
 }

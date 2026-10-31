@@ -3,41 +3,39 @@ import {
   ActionIcon,
   Alert,
   Button,
-  Center,
   Group,
-  SegmentedControl,
   Tabs,
   Text,
-  VisuallyHidden,
 } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
-import {
-  IconColumns2,
-  IconDeviceFloppy,
-  IconEye,
-  IconFileText,
-  IconPhoto,
-  IconTextWrap,
-  IconTextWrapDisabled,
-  IconX,
-} from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useBlocker, useLocation, useNavigate } from 'react-router';
 
 import { api, installUnauthorizedHandler } from '../api/client';
 import { ApiError, type ApiConflict } from '../api/errors';
 import { errorText } from '../api/useApi';
+import { countOf } from '../components/formats';
+import { Segmented, type SegmentedOption } from '../components/Segmented';
+import {
+  IconBraces,
+  IconColumns,
+  IconEye,
+  IconPhoto,
+  IconTextWrap,
+  IconTextWrapDisabled,
+} from '../icons';
 import { documentUrl, editUrl, isMarkdown } from '../paths';
 import { holdPosition, interactionEvents } from '../reader/position';
 import { useNav } from '../shell/NavContext';
+import { basenameOf } from '../shell/naming';
 import { PageActions } from '../shell/ShellSlots';
-import { TopbarAction } from '../shell/TopbarAction';
+import { modChord } from '../shell/shortcuts';
 import { useMutationState } from '../shell/useMutationState';
 import { layout } from '../theme';
 import { showToast } from '../toast';
 
 import { PreviewPane } from './PreviewPane';
-import { SourceEditor, type DroppedFiles } from './SourceEditor';
+import { SourceEditor, type DroppedFiles, type EditorKind } from './SourceEditor';
 import { Splitter } from './Splitter';
 import { Toolbar } from './Toolbar';
 import {
@@ -49,10 +47,12 @@ import {
   type ReadingAnchor,
 } from './anchor';
 import { captureFromSource, holdAnchorAtTop } from './cmAnchor';
+import { codeLanguageOf } from './codeLanguages';
 import { uploadAccept } from './constants';
 import { confirmLeave, openConflict, openSessionExpired } from './dialogs';
 import { formatMarkdown, replaceText, warmFormatter } from './format';
 import classes from './Editor.module.css';
+import { lineBreakOf, toEditorText, withLineBreak } from './lineBreaks';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { createPaneSync } from './paneSync';
 import { useDraft } from './useDraft';
@@ -70,11 +70,11 @@ export interface EditorScreenProps {
   formatOnSave: boolean;
 }
 
-const modeOptions = [
-  { value: 'source', icon: IconFileText, label: 'Source only' },
-  { value: 'split', icon: IconColumns2, label: 'Split view' },
-  { value: 'preview', icon: IconEye, label: 'Preview only' },
-] as const;
+const modeOptions: SegmentedOption<LayoutMode>[] = [
+  { value: 'source', icon: IconBraces, label: 'Source' },
+  { value: 'split', icon: IconColumns, label: 'Split' },
+  { value: 'preview', icon: IconEye, label: 'Preview' },
+];
 
 type SaveState = 'saving' | 'uploading' | 'dirty' | 'new' | 'saved';
 
@@ -82,21 +82,45 @@ const saveStateText: Record<SaveState, string> = {
   saving: 'Saving',
   uploading: 'Waiting for the upload',
   dirty: 'Unsaved changes',
-  new: 'New page',
+  new: 'New note',
   saved: 'Saved',
 };
 
+const dottedTextNames: ReadonlySet<string> = new Set(['go.mod', 'go.sum']);
+
+function conflictCopyPath(path: string, stamp: string): string {
+  const name = basenameOf(path);
+  const dot = name.lastIndexOf('.');
+  if (dot <= 0 || dottedTextNames.has(name)) {
+    return `${path}.conflict-${stamp}.txt`;
+  }
+  const ext = name.slice(dot);
+  return `${path.slice(0, path.length - ext.length)}.conflict-${stamp}${ext}`;
+}
+
+function LineCount({ lines, className }: { lines: number; className: string | undefined }): JSX.Element {
+  return (
+    <Text data-testid="editor-lines" data-lines={lines} className={className}>
+      {countOf(lines, 'line')}
+    </Text>
+  );
+}
+
 export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const { path, initialContent, initialRev, isNew, readOnly } = props;
-  const formattable = !readOnly && isMarkdown(path);
+  const kind: EditorKind = isMarkdown(path) ? 'markdown' : 'text';
+  const fileName = basenameOf(path);
+  const formattable = !readOnly && kind === 'markdown';
   const formatOnSave = props.formatOnSave && formattable;
+  const lineBreak = formatOnSave ? '\n' : lineBreakOf(initialContent);
+  const editorText = useMemo(() => toEditorText(initialContent), [initialContent]);
   const navigate = useNavigate();
   const { refreshMe } = useNav();
   const reportMutation = useMutationState();
   const location = useLocation();
 
-  const [content, setContent] = useState(initialContent);
-  const [saved, setSaved] = useState(initialContent);
+  const [content, setContent] = useState(editorText);
+  const [saved, setSaved] = useState(editorText);
   const [rev, setRev] = useState(initialRev);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<EditorView | undefined>(undefined);
@@ -118,13 +142,15 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   contentRef.current = content;
   revRef.current = rev;
 
-  const { mode, chosen, choose, split, setSplit, wide } = useEditorLayout();
+  const layoutControl = useEditorLayout();
+  const { chosen, choose, split, setSplit, wide } = layoutControl;
+  const mode = kind === 'markdown' ? layoutControl.mode : 'source';
   const lineWrap = useLineWrap();
   const touch = useMediaQuery('(hover: none)', false, { getInitialValueInEffect: false }) ?? false;
 
   const preview = usePreview(content, path, mode !== 'source');
   const uploads = useUploads(path, useCallback(() => viewRef.current, []));
-  const draft = useDraft({ path, rev, content, dirty, savedContent: initialContent });
+  const draft = useDraft({ path, rev, content, dirty, savedContent: editorText });
 
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -134,22 +160,16 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     setView(created);
   }, []);
 
-  // a pane that was put away leaves its view in the ref, already destroyed
   const liveView = useCallback((): EditorView | undefined => {
     const current = viewRef.current;
     return current?.dom.isConnected === true ? current : undefined;
   }, []);
 
-  // the editor and not the state: a change dispatched from a promise is in
-  // the editor at once and in the state only after the next render
   const bufferText = useCallback(
     (): string => liveView()?.state.doc.toString() ?? contentRef.current,
     [liveView],
   );
 
-  // putFormatted shows what prettier made of `sent` and says whether it did.
-  // The answer took a while, and what was typed meanwhile is not in it:
-  // putting it in the editor then would drop those keys.
   const putFormatted = useCallback(
     (sent: string, formatted: string, cursor?: number): boolean => {
       if (bufferText() !== sent) {
@@ -179,8 +199,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     });
   }, [formatBuffer]);
 
-  // prettier is a chunk of its own, fetched here so that the first save does
-  // not wait for it
   useEffect(() => {
     if (formatOnSave) {
       warmFormatter();
@@ -231,9 +249,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   const panes = useMemo(createPaneSync, []);
 
-  // the html arrives after the editor, so the pane waits for it. It is placed
-  // once and never again: every keystroke renders the preview afresh, and a
-  // second placing would drag the writer back to where they came in
   useEffect(() => {
     const pane = previewRef.current;
     if (pane === null || openedAt === undefined || previewPlaced.current || preview.html === '') {
@@ -242,7 +257,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     previewPlaced.current = true;
     return holdPosition(() => {
       const source = liveView();
-      // beside the source, where the source would move it, or the first scroll jumps
       const top = mode === 'split' && source !== undefined
         ? panes.paneTop(source, pane)
         : paneTopForAnchor(pane, openedAt);
@@ -252,8 +266,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     }, pane);
   }, [openedAt, preview.html, mode, liveView, panes]);
 
-  // a position nobody moved goes back as it came: each side picks the block
-  // nearest its own top, and a round trip with no scroll in it crept every time
   const rememberReadingPosition = useCallback((): ReadingAnchor | undefined => {
     const source = liveView();
     const pane = previewRef.current;
@@ -289,12 +301,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     current.scrollDOM.scrollTop = panes.sourceTop(current, pane);
   }, [panes]);
 
-  // Only the pane the reader is working in moves the other one. A scroll event
-  // says an element moved and not who moved it, so without an owner the two
-  // panes answer each other's corrections forever: each one lands a little off
-  // where the other put it, and the page shakes under a finger that is already
-  // scrolling. Timing cannot settle this - the echo arrives a frame later, on
-  // the far side of any flag cleared in a rendering callback.
   useEffect(() => {
     const pane = previewRef.current;
     if (view === undefined || mode !== 'split' || pane === null) {
@@ -324,8 +330,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     };
   }, [view, mode, syncFromSource, syncFromPreview, preview.html]);
 
-  // the shell answers a 401 by navigating to the login page, which would
-  // unmount this editor and take the unsaved buffer with it
   useEffect(() => installUnauthorizedHandler('screen', () => draftRef.current.flush()), []);
 
   useEffect(() => {
@@ -364,8 +368,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     });
   }, [blocker]);
 
-  // `shown` is whether the buffer holds what was stored, asked of the caller
-  // and not of the state: a buffer replaced a line ago is not in it yet
   const markSaved = useCallback((stored: string, nextRev: string, shown: boolean): void => {
     setSaved(stored);
     setRev(nextRev);
@@ -376,14 +378,13 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   const saveCopy = useCallback(async (): Promise<void> => {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const copyPath = `${path.replace(/\.md$/, '')}.conflict-${stamp}.md`;
+    const copyPath = conflictCopyPath(path, stamp);
     const sent = contentRef.current;
     try {
-      // a conflict copy is a save like any other and its push can fail like any
-      // other, so the response goes to the hook rather than being discarded
-      // before the navigation. The toast and the refresh both survive it:
-      // showToast is module level and NavProvider sits above the router.
-      reportMutation(await api.saveFile(copyPath, { content: sent, rev: '' }), 'Saved as a copy');
+      reportMutation(
+        await api.saveFile(copyPath, { content: withLineBreak(sent, lineBreak), rev: '' }),
+        'Saved as a copy',
+      );
       setSaved(sent);
       draftRef.current.clear();
       leavingRef.current = true;
@@ -391,12 +392,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     } catch (error: unknown) {
       showToast('error', { message: errorText(error) });
     }
-  }, [navigate, path, reportMutation]);
+  }, [lineBreak, navigate, path, reportMutation]);
 
   const save = useCallback(
     async (withRev?: string): Promise<void> => {
-      // a second click would send the same revision again and come back as a
-      // conflict for a save that in fact went through
       if (savingRef.current || readOnly) {
         return;
       }
@@ -405,12 +404,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       rememberReadingPosition();
       let sent = bufferText();
       try {
-        // an upload still in flight has its placeholder sitting in the text,
-        // and saving now writes that to disk as the document
         await uploads.wait();
         sent = bufferText();
-        // prettier here is the fast path and not the only one: when it cannot
-        // run, the note goes out unmarked and the server formats it
         let formatted = false;
         if (formatOnSave) {
           try {
@@ -422,13 +417,13 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         }
         draftRef.current.flush();
         const res = await api.saveFile(path, {
-          content: sent,
+          content: withLineBreak(sent, lineBreak),
           rev: withRev ?? revRef.current,
           formatted,
         });
-        const shown =
-          res.content === undefined ? bufferText() === sent : putFormatted(sent, res.content);
-        markSaved(res.content ?? sent, res.rev, shown);
+        const stored = res.content === undefined ? undefined : toEditorText(res.content);
+        const shown = stored === undefined ? bufferText() === sent : putFormatted(sent, stored);
+        markSaved(stored ?? sent, res.rev, shown);
         if (res.format_failed === true) {
           showToast('warn', {
             title: 'Saved without formatting',
@@ -444,20 +439,16 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             showToast('error', { message: errorText(error) });
             return;
           }
-          // a response lost on the way back leaves the write done and this
-          // editor a revision behind, so the retry collides with its own text
-          if (current.content === sent) {
+          const theirs = toEditorText(current.content);
+          if (theirs === sent) {
             markSaved(sent, current.rev, bufferText() === sent);
             showToast('ok', { message: 'Saved' });
-            // the response that carried the state never arrived, so there is
-            // nothing to hand the hook: this is the one successful write with
-            // no body of its own
             refreshMe();
             return;
           }
           openConflict({
             mine: sent,
-            theirs: current.content,
+            theirs,
             onOverwrite: () => void save(current.rev),
             onCopy: () => void saveCopy(),
           });
@@ -478,6 +469,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       bufferText,
       formatBuffer,
       formatOnSave,
+      lineBreak,
       markSaved,
       path,
       putFormatted,
@@ -491,13 +483,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   );
 
   useEffect(() => {
-    // on the document rather than the editor: with the caret in the preview
-    // pane this would otherwise be the browser's own save dialog
     const onKey = (event: KeyboardEvent): void => {
-      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) {
-        return;
-      }
-      if (event.key.toLowerCase() !== 's') {
+      if (!modChord(event, 's')) {
         return;
       }
       event.preventDefault();
@@ -512,8 +499,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       return;
     }
     const onKey = (event: KeyboardEvent): void => {
-      // the code and not the key: with option held a mac reports the letter
-      // the layout types there, which for this one is "Ï"
       if (!event.shiftKey || !event.altKey || event.metaKey || event.ctrlKey || event.code !== 'KeyF') {
         return;
       }
@@ -580,95 +565,98 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const previewStyle = mode === 'split' ? { flex: '1 1 0' } : undefined;
 
   return (
-    <div data-testid="editor" className={classes.screen}>
+    <div data-testid="editor" data-mode={mode} data-kind={kind} className={classes.screen}>
       <PageActions>
-        {wide && (
-          <SegmentedControl
+        <Text
+          data-testid="editor-status"
+          data-dirty={dirty ? 'true' : 'false'}
+          data-state={saveState}
+          className={classes.status}
+          hidden={!wide}
+          aria-live="polite"
+        >
+          {saveState === 'new' && kind === 'text' ? 'New file' : saveStateText[saveState]}
+        </Text>
+        {wide && kind === 'markdown' && (
+          <Segmented
             data-testid="editor-layout-mode"
             data-mode={chosen}
-            size="sm"
+            size="xs"
             value={chosen}
-            onChange={(value) => choose(value as LayoutMode)}
+            onChange={choose}
             aria-label="Editor layout"
-            data={modeOptions.map(({ value, icon: Icon, label }) => ({
-              value,
-              label: (
-                <Center>
-                  <Icon size={16} />
-                  <VisuallyHidden>{label}</VisuallyHidden>
-                </Center>
-              ),
-            }))}
+            classNames={{ root: classes.modes, label: classes.mode }}
+            options={modeOptions}
           />
         )}
+        <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" className={classes.cancel} onClick={cancel}>
+          Cancel
+        </Button>
         {!readOnly && (
-          <Button
-            data-testid="editor-save"
-            size="sm"
-            loading={saving}
-            leftSection={<IconDeviceFloppy size={16} />}
-            onClick={() => void save()}
-          >
+          <Button data-testid="editor-save" size="sm" className={classes.save} loading={saving} onClick={() => void save()}>
             Save
           </Button>
         )}
-        <TopbarAction testId="editor-cancel" label="Cancel" icon={IconX} onClick={cancel} />
       </PageActions>
 
-      {readOnly && (
-        <Alert data-testid="editor-readonly" color="yellow" variant="light">
-          This server is read-only. You can read the source here, but it cannot be saved.
-        </Alert>
+      {(readOnly || draft.offered !== undefined) && (
+        <div className={classes.notices}>
+          {readOnly && (
+            <Alert data-testid="editor-readonly" color="yellow" variant="light">
+              This server is read-only. You can read the source here, but it cannot be saved.
+            </Alert>
+          )}
+
+          {draft.offered !== undefined && (
+            <Alert
+              data-testid="editor-draft"
+              data-stale={draft.stale ? 'true' : 'false'}
+              color="yellow"
+              variant="light"
+              title="An unsaved draft was found"
+            >
+              <Group justify="space-between" wrap="wrap" gap="sm">
+                <Text size="sm">
+                  {`Written ${new Date(draft.offered.at).toLocaleString()}`}
+                  {draft.stale ? ', against an older version of this page.' : '.'}
+                </Text>
+                <Group gap="xs">
+                  <Button
+                    data-testid="editor-draft-restore"
+                    size="xs"
+                    variant="default"
+                    onClick={() => {
+                      const current = viewRef.current;
+                      const text = draft.offered?.content ?? '';
+                      if (current !== undefined) {
+                        current.dispatch({
+                          changes: { from: 0, to: current.state.doc.length, insert: text },
+                        });
+                      } else {
+                        setContent(text);
+                      }
+                      draft.dismiss();
+                    }}
+                  >
+                    Restore
+                  </Button>
+                  <Button
+                    data-testid="editor-draft-discard"
+                    size="xs"
+                    variant="subtle"
+                    color="gray"
+                    onClick={draft.discard}
+                  >
+                    Discard
+                  </Button>
+                </Group>
+              </Group>
+            </Alert>
+          )}
+        </div>
       )}
 
-      {draft.offered !== undefined && (
-        <Alert
-          data-testid="editor-draft"
-          data-stale={draft.stale ? 'true' : 'false'}
-          color="yellow"
-          variant="light"
-          title="An unsaved draft was found"
-        >
-          <Group justify="space-between" wrap="wrap" gap="sm">
-            <Text size="sm">
-              {`Written ${new Date(draft.offered.at).toLocaleString()}`}
-              {draft.stale ? ', against an older version of this page.' : '.'}
-            </Text>
-            <Group gap="xs">
-              <Button
-                data-testid="editor-draft-restore"
-                size="xs"
-                variant="default"
-                onClick={() => {
-                  const current = viewRef.current;
-                  const text = draft.offered?.content ?? '';
-                  if (current !== undefined) {
-                    current.dispatch({
-                      changes: { from: 0, to: current.state.doc.length, insert: text },
-                    });
-                  } else {
-                    setContent(text);
-                  }
-                  draft.dismiss();
-                }}
-              >
-                Restore
-              </Button>
-              <Button
-                data-testid="editor-draft-discard"
-                size="xs"
-                variant="subtle"
-                color="gray"
-                onClick={draft.discard}
-              >
-                Discard
-              </Button>
-            </Group>
-          </Group>
-        </Alert>
-      )}
-
-      {!wide && (
+      {!wide && kind === 'markdown' && (
         <Tabs
           data-testid="editor-tabs"
           value={mode === 'preview' ? 'preview' : 'source'}
@@ -685,63 +673,84 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         </Tabs>
       )}
 
-      {showSource && (
-        <Group gap="xs" wrap="nowrap">
-          {!readOnly && (
-            <Toolbar
-              onAction={onAction}
-              onPickImage={() => fileRef.current?.click()}
-              onFormat={formattable ? format : undefined}
-            />
-          )}
-          <ActionIcon
-            data-testid="editor-wrap"
-            ml="auto"
-            size={layout.tapTarget}
-            variant={lineWrap.wrap ? 'light' : 'subtle'}
-            color="gray"
-            aria-label="Wrap long lines"
-            aria-pressed={lineWrap.wrap}
-            title="Wrap long lines"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={lineWrap.toggle}
-          >
-            {lineWrap.wrap ? <IconTextWrap size={18} /> : <IconTextWrapDisabled size={18} />}
-          </ActionIcon>
-          {uploads.pending > 0 && (
-            <ActionIcon
-              data-testid="editor-upload-pending"
-              data-pending={uploads.pending}
-              size={layout.tapTarget}
-              variant="subtle"
-              color="gray"
-              loading
-              aria-label="Uploading"
-            >
-              <IconPhoto size={18} />
-            </ActionIcon>
-          )}
-        </Group>
-      )}
-
       <div data-testid="editor-panes" data-mode={mode} className={classes.panes} ref={panesRef}>
         {showSource && (
           <div className={classes.pane} style={sourceStyle}>
+            <div className={classes.paneHead}>
+              <div className={classes.paneHeadInner}>
+                {mode === 'split' && <span className={classes.paneLabel}>Source</span>}
+                {kind === 'text' && (
+                  <span data-testid="editor-language" className={classes.paneLabel}>
+                    {codeLanguageOf(fileName)?.name ?? 'Plain text'}
+                  </span>
+                )}
+                {!readOnly && kind === 'markdown' && (
+                  <Toolbar
+                    onAction={onAction}
+                    onPickImage={() => fileRef.current?.click()}
+                    onFormat={formattable ? format : undefined}
+                  />
+                )}
+                <div className={classes.paneTools}>
+                  {uploads.pending > 0 && (
+                    <ActionIcon
+                      data-testid="editor-upload-pending"
+                      data-pending={uploads.pending}
+                      className={classes.tool}
+                      variant="subtle"
+                      color="gray"
+                      loading
+                      aria-label="Uploading"
+                    >
+                      <IconPhoto size={layout.iconSizeSmall} />
+                    </ActionIcon>
+                  )}
+                  {wide && (
+                    <LineCount lines={lines} className={classes.lines} />
+                  )}
+                  <ActionIcon
+                    data-testid="editor-wrap"
+                    className={classes.tool}
+                    variant="subtle"
+                    color="gray"
+                    aria-label="Wrap long lines"
+                    aria-pressed={lineWrap.wrap}
+                    title="Wrap long lines"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={lineWrap.toggle}
+                  >
+                    {lineWrap.wrap ? (
+                      <IconTextWrap size={layout.iconSizeSmall} />
+                    ) : (
+                      <IconTextWrapDisabled size={layout.iconSizeSmall} />
+                    )}
+                  </ActionIcon>
+                </div>
+              </div>
+            </div>
             <SourceEditor
+              kind={kind}
+              name={fileName}
               value={content}
               readOnly={readOnly}
-              // on a phone an autofocus opens the keyboard over half the document
               autoFocus={!touch}
               wrap={lineWrap.wrap}
               onChange={setContent}
               onCreate={onCreate}
-              onFiles={onFiles}
+              onFiles={kind === 'markdown' ? onFiles : undefined}
             />
           </div>
         )}
         {mode === 'split' && <Splitter onDrag={dragSplit} onNudge={nudgeSplit} />}
         {showPreview && (
           <div className={classes.pane} style={previewStyle}>
+            {mode === 'split' && (
+              <div className={classes.paneHead}>
+                <div className={classes.paneHeadInner}>
+                  <span className={classes.paneLabel}>Preview</span>
+                </div>
+              </div>
+            )}
             <PreviewPane
               html={preview.html}
               notice={preview.notice}
@@ -754,24 +763,9 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         )}
       </div>
 
-      <Group gap="xs" justify="space-between">
-        <Text data-testid="editor-lines" data-lines={lines} size="xs" c="dimmed">
-          {lines === 1 ? '1 line' : `${lines} lines`}
-        </Text>
-        <Text
-          data-testid="editor-status"
-          data-dirty={dirty ? 'true' : 'false'}
-          data-state={saveState}
-          size="xs"
-          c="dimmed"
-          aria-live="polite"
-        >
-          {saveStateText[saveState]}
-        </Text>
-        <Text data-testid="editor-path" size="xs" c="dimmed" truncate>
-          {path}
-        </Text>
-      </Group>
+      {!wide && (
+        <LineCount lines={lines} className={classes.footLines} />
+      )}
 
       <input
         ref={fileRef}

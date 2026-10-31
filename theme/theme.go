@@ -1,10 +1,3 @@
-// Package theme reads the color themes, one JSON file each in themes/. A theme
-// is everything that changes when the reader picks another one: the colors, the
-// highlighting of code and the weight of bold. The fonts, the spacing and the
-// shape of a control are the same in every theme and stay in the frontend.
-//
-// The frontend build reads the same files, so a theme is added by dropping a
-// file here and running `make ui`.
 package theme
 
 import (
@@ -20,56 +13,55 @@ import (
 	"strings"
 )
 
-// Attr is the attribute on the root element that names the theme the reader
-// picked. Absent, the system preference picks between the two Auto themes.
 const Attr = "data-scrawl-theme"
 
-// Auto is the choice that follows the system preference.
 const Auto = "auto"
 
-// Scheme is the base a theme is built on, light or dark. It decides what the
-// browser draws for a form control or a scrollbar, and which editor and
-// diagram defaults apply.
 type Scheme string
 
-// The two schemes. A theme whose id is a scheme's name is the one Auto picks
-// for it.
 const (
 	Light Scheme = "light"
 	Dark  Scheme = "dark"
 )
 
-// Theme is one file of themes/, named by its file name.
-type Theme struct {
-	ID     string `json:"-"`
-	Name   string `json:"name"`
-	Scheme Scheme `json:"scheme"`
-	// Code is the chroma style that highlights code
-	Code    string            `json:"code"`
-	Palette map[string]string `json:"palette"`
+var BlockNames = []string{"gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"}
+
+var ShadowNames = []string{"small", "medium", "large"}
+
+var CodeNames = []string{"keyword", "string", "comment", "function", "number", "builtin"}
+
+type BlockColor struct {
+	Text string `json:"text"`
+	Bg   string `json:"bg"`
 }
 
-// BarColor is the color of the browser bar and of the home screen splash, the
-// page's own ground.
+type Theme struct {
+	ID      string                `json:"-"`
+	Name    string                `json:"name"`
+	Scheme  Scheme                `json:"scheme"`
+	Code    map[string]string     `json:"code"`
+	Palette map[string]string     `json:"palette"`
+	Blocks  map[string]BlockColor `json:"blocks"`
+	Shadows map[string]string     `json:"shadows"`
+}
+
 func (t Theme) BarColor() string {
-	return t.Palette["bgDefault"]
+	return t.Palette["bg"]
 }
 
 //go:embed themes/*.json
 var files embed.FS
 
-// an id lands in a cookie, an attribute and a selector unquoted by anything
 var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+
+var codeColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 var all = mustLoad(files)
 
-// All lists the themes in the order a picker shows them: the light ones first,
-// the Auto one of each scheme ahead of the rest, the rest by name.
 func All() []Theme {
 	return slices.Clone(all)
 }
 
-// Lookup finds a theme by its id.
 func Lookup(id string) (Theme, bool) {
 	idx := slices.IndexFunc(all, func(t Theme) bool { return t.ID == id })
 	if idx < 0 {
@@ -78,23 +70,17 @@ func Lookup(id string) (Theme, bool) {
 	return all[idx], true
 }
 
-// AutoTheme is the theme Auto picks when the system prefers the scheme.
 func AutoTheme(scheme Scheme) Theme {
 	res, _ := Lookup(string(scheme))
 	return res
 }
 
-// Scope is where the rules of one theme apply in a stylesheet.
 type Scope struct {
-	Theme Theme
-	// Media is the condition the selector sits under, "" for none
+	Theme    Theme
 	Media    string
 	Selector string
 }
 
-// Scopes places every theme under its own value of Attr, and the two Auto
-// themes once more under a root with no Attr, each behind its system
-// preference. No two selectors match at once, so no rule needs to come last.
 func Scopes() []Scope {
 	res := make([]Scope, 0, len(all)+2)
 	for _, scheme := range []Scheme{Light, Dark} {
@@ -158,12 +144,32 @@ func loadOne(fsys fs.FS, name string) (Theme, error) {
 		return Theme{}, errors.New("no name")
 	case res.Scheme != Light && res.Scheme != Dark:
 		return Theme{}, fmt.Errorf("scheme %q is neither light nor dark", res.Scheme)
-	case res.Code == "":
-		return Theme{}, errors.New("no code style")
 	case res.BarColor() == "":
-		return Theme{}, errors.New("no bgDefault in the palette")
+		return Theme{}, errors.New("no bg in the palette")
+	}
+	if err := checkColors(res); err != nil {
+		return Theme{}, err
 	}
 	return res, nil
+}
+
+func checkColors(res Theme) error {
+	for _, name := range BlockNames {
+		if block := res.Blocks[name]; block.Text == "" || block.Bg == "" {
+			return fmt.Errorf("no %s block color", name)
+		}
+	}
+	for _, name := range ShadowNames {
+		if res.Shadows[name] == "" {
+			return fmt.Errorf("no %s shadow", name)
+		}
+	}
+	for _, name := range CodeNames {
+		if !codeColorPattern.MatchString(res.Code[name]) {
+			return fmt.Errorf("the %s code color %q is not #rrggbb", name, res.Code[name])
+		}
+	}
+	return nil
 }
 
 func compare(a, b Theme) int {

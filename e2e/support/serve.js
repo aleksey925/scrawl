@@ -1,7 +1,3 @@
-// launcher of the servers a worker drives: it makes a throwaway copy of the
-// corpus and runs the binary against it, so every worker starts from the same
-// tree no matter what the previous one wrote
-
 const fs = require('fs');
 const path = require('path');
 const {execFileSync, spawn} = require('child_process');
@@ -28,8 +24,6 @@ function prepareRoot(root) {
     makeWritable(root);
 }
 
-// git runs with the same sanitized environment the app gives its own children,
-// so nothing the host configured can steer the seeding
 function git(dir, ...args) {
     execFileSync('git', ['--no-pager', '-c', `safe.directory=${dir}`, ...args], {
         cwd: dir,
@@ -45,9 +39,6 @@ function writeSeed(dir, seed) {
     }
 }
 
-// prepareOrigin builds the bare repository a remote space clones from. It is
-// a directory on this machine, so the suite drives the remote mode with no
-// network at all.
 function prepareOrigin(origin, seed) {
     fs.rmSync(origin, {recursive: true, force: true});
     fs.mkdirSync(origin, {recursive: true});
@@ -64,15 +55,9 @@ function prepareOrigin(origin, seed) {
     fs.rmSync(work, {recursive: true, force: true});
 }
 
-// writeConfig declares every space of an instance that has more than one. The
-// first is the fixture copy the rest of the suite drives; the others are small
-// trees of their own, so a spec about the boundary between two spaces cannot
-// be fooled by a document both of them happen to hold.
 function writeConfig(inst) {
     const lines = ['spaces:', `  - name: ${inst.space}`, `    dir: ${inst.root}`];
     for (const extra of inst.extra) {
-        // a remote space's directory is left missing: scrawl clones into it,
-        // which is the path a deployment actually takes
         if (extra.origin) {
             prepareOrigin(extra.origin, extra.seed);
             fs.rmSync(extra.dir, {recursive: true, force: true});
@@ -86,7 +71,6 @@ function writeConfig(inst) {
                 `      pull: ${extra.pull}`);
         }
         if (extra.hookSecret) {
-            // outside every space root, the way the binary requires
             const file = path.join(workDir, `${extra.name}-hook.secret`);
             fs.writeFileSync(file, extra.hookSecret, 'utf8');
             lines.push(`      hook_secret_file: ${file}`);
@@ -110,8 +94,6 @@ function serveArgs(inst) {
     return args;
 }
 
-// a server left over from a run that was killed would answer the readiness
-// probe in place of the one about to start, and every spec would drive it
 async function refuseTakenPort(inst) {
     const taken = await fetch(`${inst.baseURL}/ping`).then(() => true, () => false);
     if (taken) throw new Error(`${inst.baseURL} is already taken, stop whatever listens there`);
@@ -136,8 +118,6 @@ async function waitReady(inst, child) {
     throw new Error(`${inst.name} was not ready in ${READY_TIMEOUT_MS}ms, see ${inst.log}`);
 }
 
-// start makes a fresh copy of the corpus for one instance, runs the binary
-// against it and resolves once it answers, with the function that stops it
 async function start(inst) {
     if (!fs.existsSync(binary)) {
         throw new Error(`${binary} not found, run "make build" first`);
@@ -159,8 +139,6 @@ async function start(inst) {
     });
     fs.closeSync(log);
 
-    // the worker can die without tearing its fixtures down, and a server it
-    // leaves behind holds the ports the worker that replaces it needs
     const reap = () => child.kill('SIGKILL');
     process.on('exit', reap);
 

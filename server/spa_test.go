@@ -2,6 +2,8 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
+	"html/template"
 	"maps"
 	"net/http"
 	"net/url"
@@ -11,16 +13,16 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aleksey925/scrawl/render"
+	"github.com/aleksey925/scrawl/store"
 	"github.com/aleksey925/scrawl/view"
 )
 
-// jsonValue round-trips a value through JSON, so an expectation can be built
-// from the very helper the handler used instead of spelled out again.
 func jsonValue(t *testing.T, v any) any {
 	t.Helper()
 	data, err := json.Marshal(v)
@@ -65,28 +67,30 @@ func TestAPIPage(t *testing.T) {
 		contains string
 	}{
 		{name: "document", path: "/api/page/guide.md", status: http.StatusOK,
-			fields: map[string]any{"kind": "document", "path": "guide.md", "doc_path": "guide.md",
+			fields: map[string]any{"kind": "document", "path": "guide.md",
 				"title": "Guide", "show_toc": true, "edit_url": "/edit/guide.md", "missing": false},
 			contains: "widgets and gadgets"},
 		{name: "nested document", path: "/api/page/docs/sub/deep.md", status: http.StatusOK,
-			fields: map[string]any{"kind": "document", "path": "docs/sub/deep.md",
-				"doc_path": "docs/sub/deep.md", "title": "Deep", "show_toc": false},
+			fields:   map[string]any{"kind": "document", "path": "docs/sub/deep.md", "title": "Deep", "show_toc": false},
 			contains: "nested body"},
 		{name: "cyrillic document", path: "/api/page/notes/cyrillic.md", status: http.StatusOK,
 			fields: map[string]any{"kind": "document", "title": "Заметки"}},
 		{name: "missing document", path: "/api/page/nope.md", status: http.StatusNotFound,
 			fields: map[string]any{"kind": "missing-document", "missing": true, "title": "nope.md",
-				"doc_path": "nope.md", "edit_url": "/edit/nope.md", "html": ""}},
+				"edit_url": "/edit/nope.md", "html": ""}},
 		{name: "missing attachment", path: "/api/page/nope.png", status: http.StatusNotFound,
 			fields: map[string]any{"error": "not found"}},
 		{name: "directory", path: "/api/page/docs", status: http.StatusConflict,
 			fields: map[string]any{"kind": "directory", "url": "/doc/docs/"}},
 		{name: "root", path: "/api/page/", status: http.StatusConflict,
 			fields: map[string]any{"kind": "directory", "url": "/"}},
-		{name: "attachment", path: "/api/page/snippet.py", status: http.StatusConflict,
-			fields: map[string]any{"kind": "attachment", "url": "/raw/snippet.py"}},
-		{name: "another markdown extension", path: "/api/page/long.markdown", status: http.StatusConflict,
-			fields: map[string]any{"kind": "attachment", "url": "/raw/long.markdown"}},
+		{name: "a text file", path: "/api/page/snippet.py", status: http.StatusOK,
+			fields: map[string]any{"kind": "file", "type": "text", "language": "Python", "lines": float64(1),
+				"raw_url": "/raw/snippet.py", "edit_url": "/edit/snippet.py"}},
+		{name: "a picture", path: "/api/page/images/logo.png", status: http.StatusOK,
+			fields: map[string]any{"kind": "file", "type": "image", "raw_url": "/raw/images/logo.png"}},
+		{name: "another markdown extension", path: "/api/page/long.markdown", status: http.StatusOK,
+			fields: map[string]any{"kind": "file", "type": "text"}},
 	}
 
 	for _, tc := range tests {
@@ -215,6 +219,87 @@ func TestAPIPageOffersCreatingAMissingDocument(t *testing.T) {
 	}
 }
 
+func TestAPIPageOfAFile(t *testing.T) {
+	big := strings.Repeat("a = 'a line of python'\n", maxHighlightBytes/22+1)
+	tests := []struct {
+		name, file string
+		data       []byte
+		wantType   string
+		wantLines  int
+		wantPlain  bool
+	}{
+		{name: "a script is highlighted and stays text", file: "x.py", data: []byte("<script>alert(1)</script>\nx = 1\n"),
+			wantType: view.FileText, wantLines: 2},
+		{name: "a last line with no newline", file: "x.py", data: []byte("x = 1\ny = 2"),
+			wantType: view.FileText, wantLines: 2},
+		{name: "an empty text file", file: "x.txt", data: []byte{}, wantType: view.FileText, wantPlain: true},
+		{name: "text that is not utf-8", file: "x.txt", data: []byte{0xff, 0xfe, 'a', '\n'}, wantType: view.FileOther},
+		{name: "text with a nul", file: "x.txt", data: []byte("a\x00b\n"), wantType: view.FileOther},
+		{name: "a log too large to show", file: "x.log", data: []byte(strings.Repeat("a log line\n", maxEditableFile/11+1)),
+			wantType: view.FileOther},
+		{name: "a script too large to color", file: "x.py", data: []byte(big), wantType: view.FileText,
+			wantLines: strings.Count(big, "\n"), wantPlain: true},
+		{name: "a picture, svg included", file: "x.svg", data: []byte(`<svg xmlns="http://www.w3.org/2000/svg"/>`),
+			wantType: view.FileImage},
+		{name: "an unknown binary", file: "x.bin", data: []byte{1, 2, 3}, wantType: view.FileOther},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ts := newTestServer(t, testOpts{})
+			require.NoError(t, os.WriteFile(filepath.Join(ts.root, tc.file), tc.data, 0o600))
+
+			// act
+			resp, body := ts.json(t, request{path: "/api/page/" + tc.file})
+
+			// assert
+			assert.Equal(t, http.StatusOK, resp.status)
+			assert.Equal(t, tc.wantType, body["type"])
+			if tc.wantType != view.FileText {
+				assert.Nil(t, body["html"])
+				return
+			}
+			html, _ := body["html"].(string)
+			assert.NotContains(t, html, "<script")
+			lines, _ := body["lines"].(float64)
+			assert.Equal(t, float64(tc.wantLines), lines)
+			assert.Equal(t, tc.wantLines, strings.Count(html, `<span class="line">`))
+			assert.Equal(t, tc.wantPlain, !strings.Contains(html, `<span class="cl"><span class=`))
+		})
+	}
+}
+
+func TestHighlightFileFallsBackToPlainText(t *testing.T) {
+	data := []byte("x = 1\n")
+	tests := []struct {
+		name    string
+		timeout time.Duration
+		color   func(string, []byte) (template.HTML, string, error)
+	}{
+		{name: "past the deadline", timeout: time.Millisecond,
+			color: func(string, []byte) (template.HTML, string, error) {
+				time.Sleep(200 * time.Millisecond)
+				return "colored", "Python", nil
+			}},
+		{name: "a failed highlight", timeout: time.Minute,
+			color: func(string, []byte) (template.HTML, string, error) {
+				return "", "", errors.New("no lexer")
+			}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			html, language := highlightFile("x.py", data, tc.timeout, tc.color)
+
+			// assert
+			assert.Equal(t, string(render.PlainFile(data)), html)
+			assert.Equal(t, render.PlainLanguage, language)
+		})
+	}
+}
+
 func TestAPIDir(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
@@ -226,22 +311,17 @@ func TestAPIDir(t *testing.T) {
 		contains string
 	}{
 		{name: "listing", path: "/api/dir/images", status: http.StatusOK,
-			fields: map[string]any{"kind": "directory", "path": "images", "title": "images",
-				"has_readme": false, "readme_html": ""}},
-		{name: "listing with a readme", path: "/api/dir/docs", status: http.StatusOK,
-			fields: map[string]any{"kind": "directory", "path": "docs", "title": "docs", "has_readme": true}},
-		{name: "root is served as its index", path: "/api/dir/", status: http.StatusOK,
-			fields: map[string]any{"kind": "document", "path": "", "doc_path": "index.md",
-				"title": "Home", "edit_url": "/edit/index.md", "missing": false},
-			contains: "Welcome, see the"},
-		{name: "directory with an index", path: "/api/dir/notes", status: http.StatusOK,
-			fields: map[string]any{"kind": "document", "path": "notes", "doc_path": "notes/index.md",
-				"title": "Notes", "edit_url": "/edit/notes/index.md", "show_toc": false},
-			contains: "the notes index"},
+			fields: map[string]any{"kind": "directory", "path": "images", "title": "images"}},
+		{name: "a readme is a row", path: "/api/dir/docs", status: http.StatusOK,
+			fields: map[string]any{"kind": "directory", "path": "docs", "title": "docs"}},
+		{name: "the root is its list", path: "/api/dir/", status: http.StatusOK,
+			fields: map[string]any{"kind": "directory", "path": "", "title": "Home"}},
+		{name: "a folder with an index is its list", path: "/api/dir/notes", status: http.StatusOK,
+			fields: map[string]any{"kind": "directory", "path": "notes", "title": "notes"}},
 		{name: "document", path: "/api/dir/guide.md", status: http.StatusConflict,
 			fields: map[string]any{"kind": "document", "url": "/doc/guide.md"}},
-		{name: "attachment", path: "/api/dir/snippet.py", status: http.StatusConflict,
-			fields: map[string]any{"kind": "attachment", "url": "/raw/snippet.py"}},
+		{name: "a file", path: "/api/dir/snippet.py", status: http.StatusConflict,
+			fields: map[string]any{"kind": "document", "url": "/doc/snippet.py"}},
 		{name: "missing", path: "/api/dir/nope", status: http.StatusNotFound,
 			fields: map[string]any{"error": "not found"}},
 	}
@@ -263,62 +343,41 @@ func TestAPIDir(t *testing.T) {
 	}
 }
 
-func TestAPIDirServesTheIndexUnderTheDirectoryPath(t *testing.T) {
-	// arrange
-	ts := newTestServer(t, testOpts{})
+func TestAPIDirTagsTheFolderPage(t *testing.T) {
+	tests := []struct {
+		name  string
+		files []string
+		want  []any
+	}{
+		{name: "an index in another case", files: []string{"INDEX.md", "page.md"}, want: []any{true, nil}},
+		{name: "two cases of the name", files: []string{"INDEX.md", "index.md"}, want: []any{nil, nil}},
+	}
 
-	// act
-	resp, body := ts.json(t, request{path: "/api/dir/notes"})
-	_, doc := ts.json(t, request{path: "/api/page/notes/index.md"})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ts := newTestServer(t, testOpts{})
+			for _, name := range tc.files {
+				writeNote(t, ts.root, "tagged/"+name, "# "+name+"\n")
+			}
+			if entries, err := os.ReadDir(filepath.Join(ts.root, "tagged")); err != nil || len(entries) != len(tc.files) {
+				t.Skip("the filesystem folds the case of a name, so it holds one of them")
+			}
 
-	// assert
-	assert.Equal(t, http.StatusOK, resp.status)
-	assert.Equal(t, "document", body["kind"])
-	assert.Equal(t, doc["html"], body["html"])
-	assert.Equal(t, doc["title"], body["title"])
-	assert.Equal(t, doc["rev"], body["rev"])
-	assert.Equal(t, "notes", body["path"])
-	assert.Equal(t, jsonValue(t, view.Breadcrumbs("notes")), body["breadcrumbs"])
-	assert.NotEqual(t, doc["breadcrumbs"], body["breadcrumbs"],
-		"the trail names the directory that was asked for, not the file it is served from")
-	assert.Equal(t, "notes/index.md", body["doc_path"],
-		"history is asked about the file, because a directory has no version of its own")
-	assert.Equal(t, "/edit/notes/index.md", body["edit_url"])
-}
+			// act
+			resp, body := ts.json(t, request{path: "/api/dir/tagged"})
 
-func TestAPIDirIndexGoesThroughThePageCache(t *testing.T) {
-	// arrange
-	ts := newTestServer(t, testOpts{})
-	ts.pages().put(testSpace, "notes/index.md", revOf(t, ts, "notes/index.md"),
-		render.Result{HTML: "<p>served from the cache</p>", Title: "Cached"})
-
-	// act
-	resp, body := ts.json(t, request{path: "/api/dir/notes"})
-
-	// assert
-	assert.Equal(t, http.StatusOK, resp.status)
-	assert.Equal(t, "<p>served from the cache</p>", body["html"])
-	assert.Equal(t, "Cached", body["title"])
-	assert.Equal(t, 1, ts.pages().len(), "the page route and this one share one entry")
-}
-
-func TestAPIDirIndexRevalidatesWithTheRevision(t *testing.T) {
-	// arrange
-	ts := newTestServer(t, testOpts{})
-
-	// act
-	first, _ := ts.json(t, request{path: "/api/dir/notes"})
-	etag := first.header.Get("ETag")
-	cached, cachedBody := ts.do(t, request{path: "/api/dir/notes",
-		headers: map[string]string{"If-None-Match": etag}})
-	listing, _ := ts.json(t, request{path: "/api/dir/images"})
-
-	// assert
-	assert.Equal(t, strconv.Quote(revOf(t, ts, "notes/index.md")), etag)
-	assert.Equal(t, pageCacheControl, first.header.Get("Cache-Control"))
-	assert.Equal(t, http.StatusNotModified, cached.status)
-	assert.Empty(t, cachedBody)
-	assert.Empty(t, listing.header.Get("ETag"), "a listing has no one revision to name")
+			// assert
+			assert.Equal(t, http.StatusOK, resp.status)
+			entries, ok := body["entries"].([]any)
+			require.True(t, ok)
+			got := []any{}
+			for _, row := range entries {
+				got = append(got, row.(map[string]any)["folder_page"])
+			}
+			assert.Equal(t, tc.want, got)
+		})
+	}
 }
 
 func TestAPIDirListsWhatTheDirectoryPageLists(t *testing.T) {
@@ -332,9 +391,8 @@ func TestAPIDirListsWhatTheDirectoryPageLists(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
-	assert.Equal(t, jsonValue(t, view.DirEntries(entries)), body["entries"])
-	assert.Contains(t, body["readme_html"], "the intro above the listing")
-	assert.Equal(t, true, body["has_readme"])
+	assert.Equal(t, jsonValue(t, view.DirEntries(entries, ts.Spaces[0].Store.Count, editable)), body["entries"])
+	assert.NotContains(t, body, "readme_html")
 }
 
 func TestAPINav(t *testing.T) {
@@ -680,4 +738,25 @@ func TestAPIMeReportsFormatOnSave(t *testing.T) {
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
 	assert.Equal(t, true, body["space"].(map[string]any)["format_on_save"])
+}
+
+func TestEditable(t *testing.T) {
+	tests := []struct {
+		name string
+		fi   store.FileInfo
+		want bool
+	}{
+		{name: "a note", fi: store.FileInfo{Path: "docs/a.md", Size: 10}, want: true},
+		{name: "a text file", fi: store.FileInfo{Path: "docs/log.txt", Size: 10}, want: true},
+		{name: "a picture", fi: store.FileInfo{Path: "docs/pic.png", Size: 10}, want: false},
+		{name: "a text file too large to load", fi: store.FileInfo{Path: "docs/big.txt", Size: maxEditableFile + 1}, want: false},
+		{name: "a known name with no extension", fi: store.FileInfo{Path: "tools/Makefile", Size: 10}, want: true},
+		{name: "a folder named like a note", fi: store.FileInfo{Path: "docs/sub.md", IsDir: true}, want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act & assert
+			assert.Equal(t, tc.want, editable(tc.fi))
+		})
+	}
 }

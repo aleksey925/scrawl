@@ -14,44 +14,14 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-// GitHub reads TeX out of four places: a "```math" fence, a "$$" block on its
-// own lines, "$...$" inline and "$`...`$" inline. Only the last three live
-// here; the fence is handled with mermaid in fence.go.
-//
-// The delimiter rules are what keeps a shell snippet written in prose from
-// turning into a formula, which matters because notes are full of "$HOME"
-// and "$1". Checked against api.github.com/markdown in "gfm" mode, an inline
-// expression needs all of:
-//
-//   - the opening "$" is not preceded by a letter or a digit, so "1$x$" is
-//     text;
-//   - the opening "$" is not followed by whitespace, so "$ x$" is text;
-//   - the closing "$" is not followed by a letter or a digit, which is what
-//     makes "costs $100 and $200 total" and "$100$200" stay text;
-//   - the content is not empty and does not cross a line break.
-//
-// Whitespace in front of the closing "$" is allowed, unlike in Pandoc.
-// GitHub tests the neighbors for an ASCII alphanumeric; this uses the Unicode
-// classes instead, because in Russian "$5$рублей" reads as prose for exactly
-// the same reason "$5$x" does in English.
-//
-// One deliberate difference: GitHub looks for math in the rendered HTML, so
-// "$a*b*c$" is not an expression there, the emphasis having already split the
-// text. Here the source is read directly and the author gets the expression
-// they wrote.
 var dollarDollar = []byte("$$")
 
 const (
-	openInlineMath  = `<span class="math math-inline">`
-	closeInlineMath = "</span>"
-	// openDisplayMathInline is a "$$...$$" pair found inside a paragraph. It
-	// carries the same class as the block form, so the frontend treats it the
-	// same way, but it is a span: a div inside a paragraph is not valid HTML.
+	openInlineMath        = `<span class="math math-inline">`
+	closeInlineMath       = "</span>"
 	openDisplayMathInline = `<span class="math math-display">`
 )
 
-// mathClass finds what the frontend typesets: an element of the class "math",
-// whether this renderer opened it or the HTML of the note did
 var mathClass = regexp.MustCompile(`class="(?:[^"]*\s)?math[\s"]`)
 
 var kindMathInline = ast.NewNodeKind("MathInline")
@@ -70,8 +40,6 @@ func (n *mathInline) Dump(source []byte, level int) {
 	ast.DumpHelper(n, source, level, map[string]string{"Value": string(n.segment.Value(source))}, nil)
 }
 
-// mathBlockParser reads a "$$" block. It cannot interrupt a paragraph, so a
-// stray "$$" in running text stays text.
 type mathBlockParser struct{}
 
 func (p *mathBlockParser) Trigger() []byte { return []byte{'$'} }
@@ -157,8 +125,6 @@ func (p *mathInlineParser) Parse(_ ast.Node, block text.Reader, _ parser.Context
 	return &mathInline{display: display, segment: text.NewSegment(start, start+len(content))}
 }
 
-// parseDollarBacktick reads the "$`...`$" form, which GitHub offers so an
-// expression can hold characters the plain form would choke on.
 func parseDollarBacktick(block text.Reader, line []byte, segment text.Segment) ast.Node {
 	ticks := 0
 	for 1+ticks < len(line) && line[1+ticks] == '`' {
@@ -174,8 +140,6 @@ func parseDollarBacktick(block text.Reader, line []byte, segment text.Segment) a
 	return &mathInline{segment: text.NewSegment(start, start+end)}
 }
 
-// closingDollar returns the offset of the first run of at least n unescaped
-// dollars, or -1 when the line holds none.
 func closingDollar(body []byte, n int) int {
 	for i := 0; i < len(body); i++ {
 		if body[i] != '$' || isEscaped(body, i) {

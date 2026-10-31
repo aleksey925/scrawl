@@ -1,0 +1,60 @@
+.groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px 28px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.name {
+  margin: 0 0 4px;
+  color: var(--scrawl-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 28px;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.keys {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+}
+
+.key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--scrawl-border);
+  border-radius: var(--mantine-radius-xs);
+  background: var(--scrawl-sidebar);
+  color: var(--scrawl-text-secondary);
+  font: 500 11px/1 var(--mantine-font-family);
+}
+
+.footer {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--scrawl-border-light);
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+}
+
+.menuKeys {
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+}

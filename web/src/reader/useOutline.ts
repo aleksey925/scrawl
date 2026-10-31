@@ -8,13 +8,10 @@ import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 import { decodeFragment, elementWithId } from './dom';
 import { findParam } from './useFindOnPage';
 
-// how much of the viewport counts as "being read": the band ends well above the
-// fold, so a heading is active while its section is under the reader's eyes
 const readingBand = 0.3;
 
 const atTop = 4;
 
-// a page scrolled to its end can stop a fraction of a pixel short of it
 const scrollSlack = 1;
 
 export interface OutlineEntry {
@@ -36,14 +33,10 @@ interface Page {
   headerHeight: number;
 }
 
-// a heading takes over once it is in the band and the one before it has gone
-// under the topbar, so the topmost heading in the band wins
 function activeIndex(tops: number[], page: Page): number {
   const band = Math.max(page.headerHeight, page.viewport * readingBand);
   let starts = tops.map((top, index) => Math.max(top - band, (tops[index - 1] ?? -Infinity) - page.headerHeight));
 
-  // the page ends before the last short sections reach the band, so their turns
-  // are squeezed into the last screen of scroll rather than all skipped
   const last = starts[starts.length - 1] ?? 0;
   if (last > page.maxScroll) {
     const tail = Math.max(0, page.maxScroll - (page.viewport - band));
@@ -60,19 +53,13 @@ function activeIndex(tops: number[], page: Page): number {
   return res;
 }
 
-// an object and not the bare id: a second jump to the same heading must start
-// a new watch, or the click that made it would count as the reader's input
 interface Pin {
   id: string;
 }
 
-// usePinned is the heading the reader jumped to, kept until they scroll on their
-// own: the page may end before that heading can reach the band
 function usePinned(rootRef: RefObject<HTMLDivElement | null>, html: string, entries: OutlineEntry[]): string | null {
   const location = useLocation();
   const [pin, setPin] = useState<Pin | null>(null);
-  // once per navigation: the same note fetched again must not pin the heading
-  // the reader has since scrolled away from
   const resolved = useRef<string | null>(null);
 
   useEffect(() => {
@@ -87,7 +74,6 @@ function usePinned(rootRef: RefObject<HTMLDivElement | null>, html: string, entr
     }
     const target = elementWithId(root, location.hash.slice(1));
     if (target === null) {
-      // the note the address names may not have arrived yet
       setPin(null);
       return;
     }
@@ -100,8 +86,6 @@ function usePinned(rootRef: RefObject<HTMLDivElement | null>, html: string, entr
     if (pin === null) {
       return undefined;
     }
-    // the jump, a typeset formula and the held arrival scroll too, so only a
-    // scroll after the reader's own input counts
     let touched = false;
     const touch = (): void => {
       touched = true;
@@ -134,10 +118,7 @@ export function useOutline(
   const navigate = useNavigate();
   const location = useLocation();
   const compact = !useAtLeast(layoutBreakpoints.compactTopbar);
-  // past the compact width the head of the note's card stays under the topbar
-  const headerHeight = compact
-    ? layout.topbarHeightCompact
-    : layout.topbarHeight + layout.railGutter + 1 + layout.cardHeadHeight;
+  const headerHeight = compact ? layout.topbarHeightCompact : layout.topbarHeight;
   const [spiedId, setSpiedId] = useState<string | null>(null);
 
   const entries = useMemo<OutlineEntry[]>(
@@ -162,8 +143,6 @@ export function useOutline(
     }
 
     const mark = (): void => {
-      // at the top of the page the first heading is usually still below the
-      // band, and on a short page the squeezed tail would start at the top
       if (window.scrollY < atTop) {
         setSpiedId(first.id);
         return;
@@ -185,8 +164,6 @@ export function useOutline(
       }
     };
 
-    // a diagram or a picture that arrives late moves every heading below it
-    // with no scroll at all
     const resized = new ResizeObserver(schedule);
     resized.observe(root);
     window.addEventListener('scroll', schedule, { passive: true });

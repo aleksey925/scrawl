@@ -42,7 +42,31 @@ func TestResolve(t *testing.T) {
 	tr := &linkTransformer{pagePrefix: defaultPagePrefix, rawPrefix: defaultRawPrefix}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tr.resolve(tt.dest, tt.dir))
+			assert.Equal(t, tt.want, tr.resolveEmbed(tt.dest, tt.dir))
+		})
+	}
+}
+
+func TestResolveLink(t *testing.T) {
+	tests := []struct {
+		name, dest, dir string
+		want            target
+	}{
+		{"a pdf opens its page", "a.pdf", "dir", target{dest: "/doc/dir/a.pdf", content: "dir/a.pdf", rewrote: true}},
+		{"a picture opens its page", "./img.png", "dir", target{dest: "/doc/dir/img.png", content: "dir/img.png", rewrote: true}},
+		{"a folder named with no slash", "notes", "", target{dest: "/doc/notes", content: "notes", rewrote: true}},
+		{"a note", "b.md", "dir", target{dest: "/doc/dir/b.md", content: "dir/b.md", rewrote: true}},
+		{"a folder", "sub/", "dir", target{dest: "/doc/dir/sub/", content: "dir/sub", rewrote: true}},
+		{"external", "https://ya.ru", "dir", target{dest: "https://ya.ru", external: true}},
+	}
+	tr := &linkTransformer{pagePrefix: defaultPagePrefix, rawPrefix: defaultRawPrefix}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// act
+			got := tr.resolveLink(tt.dest, tt.dir)
+
+			// assert
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -51,8 +75,8 @@ func TestResolveIsIdempotent(t *testing.T) {
 	tr := &linkTransformer{pagePrefix: defaultPagePrefix, rawPrefix: defaultRawPrefix}
 	for _, dest := range []string{"a/b.md", "./img.png", "https://ya.ru", "#Общее", "../c.md#раздел"} {
 		t.Run(dest, func(t *testing.T) {
-			once := tr.resolve(dest, "dir/sub")
-			assert.Equal(t, once.dest, tr.resolve(once.dest, "dir/sub").dest)
+			once := tr.resolveEmbed(dest, "dir/sub")
+			assert.Equal(t, once.dest, tr.resolveEmbed(once.dest, "dir/sub").dest)
 		})
 	}
 }
@@ -156,7 +180,7 @@ func TestRenderCustomPrefixes(t *testing.T) {
 
 func TestRenderRewritesRawHTMLLinks(t *testing.T) {
 	// arrange
-	src := "<div class=\"note\">\n\n<img src=\"./схема.png\">\n<a href=\"other.md\">текст</a>\n<a href=\"https://ya.ru\">внешняя</a>\n\n</div>\n"
+	src := "<div class=\"note\">\n\n<img src=\"./схема.png\">\n<a href=\"other.md\">текст</a>\n<a href=\"https://ya.ru\">внешняя</a>\n<a href=\"a.pdf\">файл</a>\n\n</div>\n"
 
 	// act
 	out, err := New(Options{}).RenderInline([]byte(src), "dir/doc.md")
@@ -167,6 +191,21 @@ func TestRenderRewritesRawHTMLLinks(t *testing.T) {
 	assert.Contains(t, string(out), `loading="lazy"`)
 	assert.Contains(t, string(out), `href="/doc/dir/other.md"`)
 	assert.Contains(t, string(out), `href="https://ya.ru"`)
+	assert.Contains(t, string(out), `href="/doc/dir/a.pdf"`)
+}
+
+func TestRenderSendsLinksToPagesAndPicturesToRaw(t *testing.T) {
+	// arrange
+	src := "[pdf](a.pdf) and ![pic](a.png) and [pic](a.png)\n"
+
+	// act
+	out, err := New(Options{}).RenderInline([]byte(src), "dir/doc.md")
+
+	// assert
+	require.NoError(t, err)
+	assert.Contains(t, string(out), `<a href="/doc/dir/a.pdf">pdf</a>`)
+	assert.Contains(t, string(out), `<img src="/raw/dir/a.png"`)
+	assert.Contains(t, string(out), `<a href="/doc/dir/a.png">pic</a>`)
 }
 
 func TestResolveRelative(t *testing.T) {
@@ -189,7 +228,7 @@ func TestResolveRelative(t *testing.T) {
 			tr := &linkTransformer{relative: true, pageExt: tt.ext}
 
 			// act
-			got := tr.resolve(tt.dest, "dir")
+			got := tr.resolveEmbed(tt.dest, "dir")
 
 			// assert
 			assert.Equal(t, tt.want, got)
@@ -207,9 +246,9 @@ func TestResolveRelativeFolderPage(t *testing.T) {
 		{"this folder", ".", target{dest: "./index.html", rewrote: true}},
 		{"the folder above", "..", target{dest: "../index.html", rewrote: true}},
 		{"the folder above a folder", "a/..", target{dest: "a/../index.html", rewrote: true}},
-		{"index of a folder", "a/index.md", target{dest: "a/index.html", rewrote: true}},
-		{"index in another case", "../a/INDEX.MD?x=1", target{dest: "../a/index.html?x=1", rewrote: true}},
-		{"index of this folder", "index.md", target{dest: "index.html", rewrote: true}},
+		{"index of a folder", "a/index.md", target{dest: "a/index.md.html", rewrote: true}},
+		{"index in another case", "../a/INDEX.MD?x=1", target{dest: "../a/index.md.html?x=1", rewrote: true}},
+		{"index of this folder", "index.md", target{dest: "index.md.html", rewrote: true}},
 		{"a note named like an index", "a/index.md.md", target{dest: "a/index.md.html", rewrote: true}},
 		{"other note", "a/b.md", target{dest: "a/b.html", rewrote: true}},
 		{"picture kept", "a/p.png", target{dest: "a/p.png"}},
@@ -217,10 +256,10 @@ func TestResolveRelativeFolderPage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// arrange
-			tr := &linkTransformer{relative: true, pageExt: ".html", folderPage: "index.html"}
+			tr := &linkTransformer{relative: true, pageExt: ".html", folderPage: "index.html", indexPage: "index.md.html"}
 
 			// act
-			got := tr.resolve(tt.dest, "dir")
+			got := tr.resolveEmbed(tt.dest, "dir")
 
 			// assert
 			assert.Equal(t, tt.want, got)
@@ -233,7 +272,7 @@ func TestRenderRelativeLinks(t *testing.T) {
 	r := New(Options{Relative: true, PageExt: ".html"})
 
 	// act
-	res, err := r.Render([]byte("[a](../a.md) ![p](img/p.png)\n\n<a href=\"b.md\">b</a>\n"), "dir/note.md")
+	res, err := r.Render([]byte("[a](../a.md) ![p](img/p.png) [f](a.pdf)\n\n<a href=\"b.md\">b</a>\n"), "dir/note.md")
 
 	// assert
 	require.NoError(t, err)
@@ -241,4 +280,5 @@ func TestRenderRelativeLinks(t *testing.T) {
 	assert.Contains(t, html, `href="../a.html"`)
 	assert.Contains(t, html, `src="img/p.png"`)
 	assert.Contains(t, html, `href="b.html"`)
+	assert.Contains(t, html, `href="a.pdf"`)
 }

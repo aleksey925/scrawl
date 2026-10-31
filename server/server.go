@@ -1,18 +1,18 @@
-// Package server implements the HTTP layer of scrawl: the http.Server
-// lifecycle, routing, the middleware stack and the embedded templates and
-// static assets.
 package server
 
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +23,7 @@ import (
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/gzassets"
+	"github.com/aleksey925/scrawl/plantuml"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
 	"github.com/aleksey925/scrawl/theme"
@@ -39,70 +40,45 @@ const (
 	rawCacheTTL            = 5 * time.Minute
 	defaultShutdownTimeout = 5 * time.Second
 
-	// maxJSONBody caps every JSON endpoint. The biggest legitimate payload is
-	// a whole document being saved, which is far below it.
 	maxJSONBody = 4 << 20
 
-	// maxPreviewBody caps /api/preview. It is an editor buffer and not a file,
-	// and rendering is superlinear in the input, so the preview gets much less
-	// room than a save.
 	maxPreviewBody = 512 << 10
 
-	// maxEditableFile caps what GET /api/file will read into memory and escape
-	// into a JSON string. A document past it is not editable in a textarea
-	// anyway, and reading it costs several times its size in RSS.
 	maxEditableFile = 2 << 20
 
-	// maxRenderBytes caps the source a page render is attempted on. Goldmark is
-	// quadratic on some inputs, so an unbounded document is a CPU sink.
 	maxRenderBytes = 2 << 20
 
-	// renderTimeout bounds how long a request waits for a render.
 	renderTimeout = 10 * time.Second
+
+	maxHighlightBytes = 256 << 10
 
 	pageCacheEntries = 256
 	pageCacheBytes   = 64 << 20
 
 	searchPageLimit = 50
 	searchAPILimit  = 20
+
+	searchTimeout = 2 * time.Second
 )
 
-// contentSecurityPolicy is strict where it matters: every script the app needs
-// is embedded and served from this origin, and nothing inline is ever rendered
-// into a script, so script-src stays 'self'. TestNoInlineScripts guards that.
-//
-// Inline styles are allowed, the way github.com allows them. Mantine, mermaid
-// and CodeMirror all insert style elements of their own, a nonce had to be
-// threaded into each, and mermaid takes none: its labels were measured without
-// their style. A note still cannot carry a style, because the bluemonday policy
-// in render refuses both the element and the attribute.
-//
-// Images are the one loose end: a document may embed a remote one, and the
-// stylesheet draws its icons from data: urls.
 const contentSecurityPolicy = "default-src 'none'; base-uri 'none'; form-action 'self'; " +
 	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; manifest-src 'self'; " +
-	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; script-src 'self'"
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; script-src 'self' 'wasm-unsafe-eval'"
 
-// gzipContentTypes lists what is worth compressing. rest.Gzip decides on the
-// content type of the response rather than on the extension of the request, so
-// a png, a woff2, a pdf or an unknown attachment - all of them already
-// compressed or opaque - go out untouched and only spend cpu here.
 var gzipContentTypes = []string{
 	"text/html", "text/css", "text/plain", "text/xml", "text/javascript",
 	"application/javascript", "application/json", "image/svg+xml",
 }
 
-// Config holds every knob the web layer needs. main maps its options onto it
-// field by field, no other package reads the command line.
 type Config struct {
-	ListenAddr   string // address to listen on, host:port
-	Title        string // site title shown in the UI
-	Version      string // build revision, also the static assets cache buster
-	ReadOnly     bool   // refuse every write endpoint
-	TrustedProxy bool   // trust X-Forwarded-For and X-Forwarded-Proto
-	MaxUpload    int64  // upload size cap in bytes
-	UploadDir    string // one shared directory for uploads, empty keeps them next to the document
-	AuthDisabled bool   // serve without authentication
+	ListenAddr   string
+	Title        string
+	Version      string
+	ReadOnly     bool
+	TrustedProxy bool
+	MaxUpload    int64
+	UploadDir    string
+	AuthDisabled bool
 
 	ReadHeaderTimeout time.Duration
 	ReadTimeout       time.Duration
@@ -111,14 +87,12 @@ type Config struct {
 	ShutdownTimeout   time.Duration
 }
 
-// Web is the http server of scrawl, built as a struct literal in main.
 type Web struct {
 	Config
-	Spaces []*Space
-	Auth   *auth.Service
-	// Formatter is one for the whole server and not one per space: it holds
-	// no notes, and its workers are what bounds the cpu formatting may take.
-	Formatter Formatter
+	Spaces          []*Space
+	Auth            *auth.Service
+	Formatter       Formatter
+	DiagramRenderer DiagramRenderer
 
 	byName    map[string]*Space
 	templates *template.Template
@@ -128,7 +102,6 @@ type Web struct {
 	cache     *pageCache
 }
 
-// Run starts the server and blocks until ctx is canceled or the server fails.
 func (wb *Web) Run(ctx context.Context) error {
 	if wb.ListenAddr == "" {
 		return errors.New("listen address cannot be empty")
@@ -172,8 +145,6 @@ func (wb *Web) shutdown(ctx context.Context, srv *http.Server) error {
 		timeout = defaultShutdownTimeout
 	}
 
-	// ctx is the one that triggered the shutdown and is already canceled, so
-	// strip its cancelation, otherwise the drain aborts before it starts
 	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 	defer cancel()
 
@@ -185,13 +156,8 @@ func (wb *Web) shutdown(ctx context.Context, srv *http.Server) error {
 	return nil
 }
 
-// Invalidate drops the rendered HTML cached for a content path of one space.
-// main calls it from that space's store watcher, so an edit made outside the
-// app shows up at once.
 func (wb *Web) Invalidate(space, contentPath string) { wb.pages().invalidate(space, contentPath) }
 
-// pages returns the render cache, building it on first use so that a watcher
-// event arriving before the first request has somewhere to go.
 func (wb *Web) pages() *pageCache {
 	wb.cacheOnce.Do(func() { wb.cache = newPageCache(pageCacheEntries, pageCacheBytes) })
 	return wb.cache
@@ -212,9 +178,6 @@ func (wb *Web) router() (http.Handler, error) {
 	router := routegroup.New(http.NewServeMux())
 	router.Use(rest.Trace, rest.Recoverer(lgr.Default()), securityHeaders)
 	router.Use(rest.Gzip(gzipContentTypes...))
-	// RealIP rewrites RemoteAddr from a header the client controls, which would
-	// hand every visitor a fresh bucket in the login rate limiter, so it is only
-	// installed when a proxy in front is known to overwrite that header
 	if wb.TrustedProxy {
 		router.Use(rest.RealIP)
 	}
@@ -225,38 +188,25 @@ func (wb *Web) router() (http.Handler, error) {
 	}
 	router.Use(wb.appInfo)
 
-	// rest.Ping is not used: it answers any path ending in /ping, before auth,
-	// so /s/anything/ping would be an unauthenticated route and a document
-	// really named ping would be unreachable
 	router.HandleFunc("GET /ping", pingHandler)
 
-	// the version segment is part of the URL only to bust the cache, lookup
-	// ignores it so that an old page keeps working after a redeploy
 	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
 		HandleFunc("GET /static/{version}/{path...}", wb.staticHandler(assets))
+	router.HandleFunc("GET /static/{version}/"+appDir+"/{path...}", wb.appAssetHandler(assets))
+	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
+		HandleFunc("GET /static/{version}/"+plantuml.LibraryDir+"/{file}", plantUMLLibraryHandler)
 
-	// at the root, because the scope a manifest can claim is its own directory
-	// and anywhere below /static/ would install an app that owns only that
 	router.HandleFunc("GET /manifest.webmanifest", wb.manifestHandler)
 
 	router.HandleFunc("GET /login", wb.loginPage)
 	router.HandleFunc("GET /api/spaces", wb.apiSpaces)
 
-	// a path that belongs to no space reaches this one, which means an
-	// unknown space name or a stray root path. It answers a plain 404 and not
-	// the app shell: there is no space, so there is no base it could honestly
-	// hand the client. Each mount registers a shell fallback of its own.
 	router.NotFoundHandler(plainNotFound)
 
-	// the root picks nothing and resolves nothing, it only says where a browser
-	// lands. 302 and not 308, because the first space is a deployment setting
-	// the operator changes by editing the configuration.
 	router.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, wb.Spaces[0].Prefix()+"/", http.StatusFound)
 	})
 
-	// everything that changes state, plus the login form itself, has to survive
-	// a cross-site POST: Go's CrossOriginProtection checks Sec-Fetch-Site
 	mutating := router.With(auth.CSRF())
 	mutating.HandleFunc("POST /login", wb.loginSubmit)
 	mutating.HandleFunc("POST /logout", wb.logout)
@@ -275,9 +225,6 @@ func (wb *Web) router() (http.Handler, error) {
 	return router, nil
 }
 
-// spaceRoutes registers everything one space owns under its own prefix.
-// The order matters: the two catch-alls come last, so Go's pattern matching
-// prefers any explicit route over them.
 func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	m := &mount{Web: wb, spc: spc}
 
@@ -286,6 +233,7 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	g.HandleFunc("GET /edit/{path...}", m.appHandler)
 	g.HandleFunc("GET /history/{path...}", m.appHandler)
 	g.HandleFunc("GET /search", m.appHandler)
+	g.HandleFunc("GET /recent", m.appHandler)
 	g.HandleFunc("GET /raw/{path...}", m.rawHandler)
 	g.HandleFunc("GET /api/tree", m.apiTree)
 	g.HandleFunc("GET /api/file/{path...}", m.apiFileGet)
@@ -297,11 +245,6 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	g.HandleFunc("GET /api/me", m.apiMe)
 	g.HandleFunc("GET /api/export/{path...}", m.apiExport)
 
-	// outside the mutating group, and a method per registration. A methodless
-	// pattern would conflict with the shell catch-all below: one narrows the
-	// method, the other the path, and ServeMux calls neither more specific and
-	// panics. Registering GET separately is also what keeps an anonymous caller
-	// from being handed the app shell on a path that is in the public list.
 	if spc.Webhook != nil {
 		g.HandleFunc("POST /hook", m.hookHandler)
 		g.HandleFunc("GET /hook", m.hookHandler)
@@ -318,18 +261,12 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	mutating.HandleFunc("POST /api/sync/check", m.apiSyncCheck)
 	mutating.HandleFunc("POST /api/sync/reset", m.apiSyncReset)
 
-	// NotFoundHandler is global whichever bundle registers it and knows no
-	// prefix, so it cannot boot the app for a path inside a space. These two
-	// are what does, and the API one keeps an unknown API path from being
-	// answered with HTML.
 	g.HandleFunc("GET /api/{path...}", func(w http.ResponseWriter, _ *http.Request) {
 		jsonError(w, http.StatusNotFound, "not found")
 	})
 	g.HandleFunc("GET /{path...}", m.notFoundHandler)
 }
 
-// staticHandler serves the embedded assets plus the highlighting stylesheet,
-// which render generates instead of shipping it as a file.
 func (wb *Web) staticHandler(files gzassets.Files) http.HandlerFunc {
 	chroma := render.ChromaCSS()
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -345,10 +282,6 @@ func (wb *Web) staticHandler(files gzassets.Files) http.HandlerFunc {
 	}
 }
 
-// manifestHandler answers the web app manifest, which is what lets a phone keep
-// the notes on its home screen and run them without browser chrome. It is built
-// here rather than embedded as a file: the name on the home screen is the
-// configured site title, and the icons carry the cache busting version segment.
 func (wb *Web) manifestHandler(w http.ResponseWriter, r *http.Request) {
 	type icon struct {
 		Src     string `json:"src"`
@@ -366,18 +299,16 @@ func (wb *Web) manifestHandler(w http.ResponseWriter, r *http.Request) {
 		BackgroundColor string `json:"background_color"`
 		Icons           []icon `json:"icons"`
 	}{
-		Name:      wb.Title,
-		ShortName: wb.Title,
-		StartURL:  "/",
-		Scope:     "/",
-		Display:   "standalone",
-		// the light bar color: a manifest carries one, and the metas in the
-		// document head are what actually follow the reader's theme
+		Name:            wb.Title,
+		ShortName:       wb.Title,
+		StartURL:        "/",
+		Scope:           "/",
+		Display:         "standalone",
 		ThemeColor:      theme.AutoTheme(theme.Light).BarColor(),
 		BackgroundColor: theme.AutoTheme(theme.Light).BarColor(),
 		Icons: []icon{
-			{Src: "/static/" + wb.Version + "/icons/icon-192.png", Sizes: "192x192", Type: "image/png", Purpose: "any"},
-			{Src: "/static/" + wb.Version + "/icons/icon-512.png", Sizes: "512x512", Type: "image/png", Purpose: "any"},
+			{Src: iconURL(wb.Version, "icons/icon-192.png"), Sizes: "192x192", Type: "image/png", Purpose: "any"},
+			{Src: iconURL(wb.Version, "icons/icon-512.png"), Sizes: "512x512", Type: "image/png", Purpose: "any"},
 		},
 	}
 
@@ -392,7 +323,6 @@ func (wb *Web) manifestHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// pingHandler answers the container healthcheck without a session.
 func pingHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	if _, err := w.Write([]byte("pong")); err != nil {
@@ -400,9 +330,6 @@ func pingHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-// appInfo names the running build, but only to a caller that already has a
-// session: the version is branch-sha-timestamp, which tells anybody who asks
-// exactly which commit is deployed.
 func (wb *Web) appInfo(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if wb.Auth == nil {
@@ -419,7 +346,6 @@ func (wb *Web) appInfo(next http.Handler) http.Handler {
 	})
 }
 
-// securityHeaders sets the response headers that do not depend on the route.
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
@@ -440,8 +366,6 @@ func (wb *Web) parseTemplates() error {
 	return nil
 }
 
-// renderPage executes a template into a buffer first, so a template failure
-// cannot leave half a page on the wire with a 200 already sent.
 func (wb *Web) renderPage(w http.ResponseWriter, status int, name string, data any) {
 	var buf bytes.Buffer
 	if err := wb.templates.ExecuteTemplate(&buf, name, data); err != nil {
@@ -456,9 +380,6 @@ func (wb *Web) renderPage(w http.ResponseWriter, status int, name string, data a
 	}
 }
 
-// logFailure records the failures nobody can diagnose from the response alone:
-// a bug behind a 500, and a permission denied, which is a deployment problem
-// the owner only ever sees in the container log.
 func logFailure(r *http.Request, status int, err error) {
 	if status != http.StatusInternalServerError && !errors.Is(err, store.ErrPermission) {
 		return
@@ -484,15 +405,12 @@ func jsonError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
 
-// failJSON maps a store error onto a JSON error response.
 func failJSON(w http.ResponseWriter, r *http.Request, err error) {
 	status := statusOf(err)
 	logFailure(r, status, err)
 	jsonError(w, status, errMessage(err))
 }
 
-// Favicon is the icon the app shows in a tab, which a site the command line
-// writes carries too.
 func Favicon() []byte {
 	data, err := assets.ReadFile("favicon.svg")
 	if err != nil {
@@ -500,3 +418,25 @@ func Favicon() []byte {
 	}
 	return data
 }
+
+var iconStamp = sync.OnceValue(func() string {
+	sum := sha256.Sum256(logoSVG())
+	return hex.EncodeToString(sum[:4])
+})
+
+var logoSVG = sync.OnceValue(func() []byte {
+	data, err := assets.ReadFile("logo.svg")
+	if err != nil {
+		panic("server: embedded logo: " + err.Error())
+	}
+	return data
+})
+
+func iconURL(version, name string) string {
+	return "/static/" + version + "/" + name + "?v=" + iconStamp()
+}
+
+var loginLogo = sync.OnceValue(func() template.HTML {
+	svg := strings.Replace(strings.TrimSpace(string(logoSVG())), "<svg ", `<svg class="login-logo" aria-hidden="true" `, 1)
+	return template.HTML(svg) //nolint:gosec // the logo is a file of the binary and never input
+})

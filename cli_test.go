@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -15,16 +17,15 @@ import (
 
 	"github.com/aleksey925/scrawl/format"
 	"github.com/aleksey925/scrawl/page"
+	"github.com/aleksey925/scrawl/plantuml"
 )
 
-// TestMain lets the format command start this test binary as its worker, the
-// way the real binary starts itself.
 func TestMain(m *testing.M) {
 	format.RunWorkerIfAsked()
+	plantuml.RunWorkerIfAsked()
 	os.Exit(m.Run())
 }
 
-// runCLI runs one command line and returns the exit code and both outputs.
 func runCLI(t *testing.T, stdin string, args ...string) (int, string, string) {
 	t.Helper()
 
@@ -144,6 +145,50 @@ func TestRunCommandWithoutACommand(t *testing.T) {
 		errOut)
 }
 
+func TestRunCommandUnknownFlag(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		want    int
+	}{
+		{name: "diff fails with 2, its 1 being a difference", command: diffCommand, want: 2},
+		{name: "any other command fails with 1", command: renderCommand, want: 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			code, out, errOut := runCLI(t, "", tc.command, "--no-such-flag")
+
+			// assert
+			assert.Equal(t, tc.want, code)
+			assert.Empty(t, out)
+			assert.Contains(t, errOut, "no-such-flag")
+		})
+	}
+}
+
+func TestRunCommandNamesTheCommandOfAParseError(t *testing.T) {
+	tests := []struct {
+		name   string
+		args   []string
+		prefix string
+	}{
+		{name: "serve", args: []string{serveCommand, "--no-such-flag"}, prefix: "scrawl serve: parse flags: "},
+		{name: "site", args: []string{siteCommand, "--no-such-flag"}, prefix: "scrawl site: parse flags: "},
+		{name: "diff", args: []string{diffCommand, "--no-such-flag"}, prefix: "scrawl diff: parse flags: "},
+		{name: "no command", args: []string{"nope"}, prefix: "scrawl: parse flags: "},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			_, _, errOut := runCLI(t, "", tc.args...)
+
+			// assert
+			assert.True(t, strings.HasPrefix(errOut, tc.prefix), errOut)
+		})
+	}
+}
+
 func TestRunCommandVersion(t *testing.T) {
 	// act
 	code, out, _ := runCLI(t, "", "--version")
@@ -258,6 +303,66 @@ func TestRunRender(t *testing.T) {
 		assert.Contains(t, string(written), "<title>Заголовок</title>")
 		assert.Contains(t, string(written), `<span class="math math-inline">`)
 		assert.Contains(t, string(written), "katex")
+	})
+
+	t.Run("a plantuml diagram is drawn as a picture, and a mermaid one stays code", func(t *testing.T) {
+		// arrange
+		note := "# UML\n\n```plantuml\nAlice -> Bob : drawn here\n```\n\n```mermaid\ngraph TD;\n```\n"
+
+		// act
+		code, out, errOut := runCLI(t, note, "render", "-f", "fragment")
+
+		// assert
+		assert.Equal(t, 0, code, errOut)
+		img := regexp.MustCompile(`<img alt="PlantUML diagram" src="data:image/svg\+xml;base64,([^"]+)">`).FindStringSubmatch(out)
+		require.Len(t, img, 2)
+		svg, err := base64.StdEncoding.DecodeString(img[1])
+		require.NoError(t, err)
+		assert.Contains(t, string(svg), "drawn here")
+		assert.NotContains(t, out, `<pre class="plantuml"`)
+		assert.Contains(t, out, `<pre class="mermaid"`)
+	})
+
+	t.Run("a diagram with a mistake stays code with the reason under it", func(t *testing.T) {
+		// arrange
+		note := "# UML\n\n```plantuml\nAlice -> :\nfoo bar\n```\n"
+
+		// act
+		code, out, errOut := runCLI(t, note, "render", "-f", "fragment")
+
+		// assert
+		assert.Equal(t, 0, code, errOut)
+		assert.Empty(t, errOut)
+		assert.Contains(t, out, `<pre class="plantuml"`)
+		assert.Contains(t, out, `<p class="md-diagram-error">line 2: `)
+	})
+
+	t.Run("a diagram that cannot be drawn is told on the error output, and json stays json", func(t *testing.T) {
+		// arrange
+		note := "# UML\n\n```plantuml\n" + strings.Repeat("A -> B\n", 40000) + "```\n"
+
+		// act
+		code, out, errOut := runCLI(t, note, "render", "-f", "json")
+
+		// assert
+		assert.Equal(t, 0, code, errOut)
+		assert.Contains(t, errOut, "scrawl render: a plantuml diagram is left as code: ")
+		var got noteJSON
+		require.NoError(t, json.Unmarshal([]byte(out), &got))
+		assert.Contains(t, got.HTML, `<p class="md-diagram-error">the diagram could not be rendered</p>`)
+	})
+
+	t.Run("a page carries a drawn diagram", func(t *testing.T) {
+		// arrange
+		note := "# UML\n\n```puml\nAlice -> Bob : on a page\n```\n"
+
+		// act
+		code, out, errOut := runCLI(t, note, "render")
+
+		// assert
+		assert.Equal(t, 0, code, errOut)
+		assert.Contains(t, out, "<html")
+		assert.Contains(t, out, `<img alt="PlantUML diagram" src="data:image/svg+xml;base64,`)
 	})
 
 	t.Run("a missing file is an error", func(t *testing.T) {

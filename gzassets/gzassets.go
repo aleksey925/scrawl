@@ -1,11 +1,10 @@
-// Package gzassets reads the files a package embeds, which a build with the
-// gzassets tag stores gzip-compressed. A file stored as name.gz is read as
-// name, so the code that reads a file does not know which build it is in.
 package gzassets
 
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -18,19 +17,14 @@ import (
 	"time"
 )
 
-// Ext is what a compressed file adds to the name of the file it holds.
 const Ext = ".gz"
 
 const varyEncoding = "Accept-Encoding"
 
-// Files is a tree of embedded files, each stored either as it is or
-// compressed under its name with Ext added.
 type Files struct {
 	fsys fs.FS
 }
 
-// Sub returns the files under dir of fsys. It panics when dir is not a valid
-// path, because dir is a constant naming where a package embeds its files.
 func Sub(fsys fs.FS, dir string) Files {
 	sub, err := fs.Sub(fsys, dir)
 	if err != nil {
@@ -39,8 +33,6 @@ func Sub(fsys fs.FS, dir string) Files {
 	return Files{fsys: sub}
 }
 
-// ReadFile returns the content of name, decompressed when it is stored
-// compressed.
 func (f Files) ReadFile(name string) ([]byte, error) {
 	packed, err := fs.ReadFile(f.fsys, name+Ext)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -52,8 +44,35 @@ func (f Files) ReadFile(name string) ([]byte, error) {
 	return decompress(packed)
 }
 
-// ServeFile answers with name. A file stored compressed goes out as it is
-// stored to a client that accepts gzip and decompressed to any other.
+func (f Files) Has(name string) bool {
+	for _, stored := range []string{name + Ext, name} {
+		if info, err := fs.Stat(f.fsys, stored); err == nil && !info.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
+func (f Files) Digest(dir string) (string, error) {
+	sum := sha256.New()
+	err := fs.WalkDir(f.fsys, dir, func(name string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		data, err := fs.ReadFile(f.fsys, name)
+		if err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(sum, "%s\x00%d\x00", name, len(data))
+		_, _ = sum.Write(data)
+		return nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("gzassets: %w", err)
+	}
+	return hex.EncodeToString(sum.Sum(nil)[:6]), nil
+}
+
 func (f Files) ServeFile(w http.ResponseWriter, r *http.Request, name string) {
 	packed, err := fs.ReadFile(f.fsys, name+Ext)
 	if err != nil {
@@ -73,8 +92,6 @@ func (f Files) ServeFile(w http.ResponseWriter, r *http.Request, name string) {
 	http.ServeContent(w, r, path.Base(name), time.Time{}, bytes.NewReader(body))
 }
 
-// Compress returns data compressed at the best level. The header holds no
-// name and no time, so the same data always gives the same bytes.
 func Compress(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	zw, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
@@ -90,7 +107,6 @@ func Compress(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// decompress returns the data Compress was given.
 func decompress(packed []byte) ([]byte, error) {
 	zr, err := gzip.NewReader(bytes.NewReader(packed))
 	if err != nil {
@@ -103,7 +119,6 @@ func decompress(packed []byte) ([]byte, error) {
 	return data, nil
 }
 
-// acceptsGzip reads an Accept-Encoding header, where "gzip;q=0" is a refusal.
 func acceptsGzip(header string) bool {
 	for field := range strings.SplitSeq(header, ",") {
 		coding, params, _ := strings.Cut(field, ";")

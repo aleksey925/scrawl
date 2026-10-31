@@ -86,10 +86,17 @@ func TestWriteDiff(t *testing.T) {
 			{Kind: htmldiff.Same, Old: &htmldiff.Side{HTML: "<p>near</p>"}, New: &htmldiff.Side{HTML: "<p>near</p>"}},
 			{Kind: htmldiff.Added, New: &htmldiff.Side{HTML: "<p>new</p>"}},
 			{Kind: htmldiff.Format, Old: &htmldiff.Side{HTML: "<p>a\nb</p>"}, New: &htmldiff.Side{HTML: "<p>a b</p>"}},
+			{Kind: htmldiff.Removed, Old: &htmldiff.Side{HTML: "<p>gone</p>"}},
+			{
+				Kind:   htmldiff.Changed,
+				Old:    &htmldiff.Side{HTML: `<p><del class="diff-del">old</del></p>`},
+				New:    &htmldiff.Side{HTML: `<p><ins class="diff-ins">new</ins></p>`},
+				Inline: &htmldiff.Side{HTML: `<p><del class="diff-del">old</del> <ins class="diff-ins">new</ins></p>`},
+			},
 		},
 	}
 
-	t.Run("a page draws the rows the way the app does", func(t *testing.T) {
+	t.Run("a report that names no layout puts the two versions side by side", func(t *testing.T) {
 		// arrange
 		var out strings.Builder
 
@@ -102,18 +109,47 @@ func TestWriteDiff(t *testing.T) {
 		assert.Contains(t, got, `<h1 class="page-title">v1 → v2</h1>`)
 		assert.NotContains(t, got, `<ul class="page-files">`)
 		assert.Contains(t, got, `<div class="page-moved">a.md → b.md</div>`)
-		assert.Contains(t, got, `<div class="diff-head"><div>v1</div><div>v2</div></div>`)
+		assert.Contains(t, got, `<div class="diff" data-layout="split">`+"\n"+
+			`<div class="diff-head"><div>v1</div><div>v2</div></div>`)
 		assert.Contains(t, got, `<details class="diff-fold"><summary>1 unchanged block</summary>`+"\n"+
-			`<div class="diff-row" data-kind="same"><div class="diff-cell diff-old markdown-document"><p>far</p></div>`)
+			`<div class="diff-row" data-kind="same"><div class="diff-cell diff-old markdown-document"><p>far</p></div>`+
+			`<div class="diff-cell diff-new markdown-document"><p>far</p></div></div>`)
 		assert.Contains(t, got, `<div class="diff-row" data-kind="added"><div class="diff-cell diff-old diff-empty"></div>`+
 			`<div class="diff-cell diff-new markdown-document"><p>new</p></div></div>`)
-		assert.Contains(t, got, `<span class="diff-badge" title="Only the markup changed">format</span>`)
+		assert.Contains(t, got, `<div class="diff-row" data-kind="format"><div class="diff-cell diff-old markdown-document">`+
+			"<p>a\nb</p></div>"+`<div class="diff-cell diff-new markdown-document"><p>a b</p></div>`+
+			`<span class="diff-tag" title="Only the markup changed">Format</span></div>`)
+		assert.NotContains(t, got, `<p class="diff-labels">`)
+		assert.NotContains(t, got, `<p class="diff-none">`)
+	})
+
+	t.Run("the unified layout shows the note once, each change tagged", func(t *testing.T) {
+		// arrange
+		var out strings.Builder
+
+		// act
+		err := WriteDiff(&out, Report{Title: "v1 → v2", Context: 1, Layout: Unified, Files: []File{file}}, Options{})
+
+		// assert
+		require.NoError(t, err)
+		got := out.String()
+		assert.Contains(t, got, `<div class="diff" data-layout="unified">`+"\n"+`<p class="diff-labels">v1 → v2</p>`)
+		assert.NotContains(t, got, `<div class="diff-head">`)
+		assert.Contains(t, got, `<details class="diff-fold"><summary>1 unchanged block</summary>`+"\n"+
+			`<div class="diff-row" data-kind="same"><div class="diff-cell markdown-document"><p>far</p></div></div>`)
+		assert.Contains(t, got, `<div class="diff-row" data-kind="added"><span class="diff-tag">Added</span>`+
+			`<div class="diff-cell markdown-document"><p>new</p></div></div>`)
+		assert.Contains(t, got, `<div class="diff-row" data-kind="format"><span class="diff-tag">Format</span>`)
+		assert.Contains(t, got, `<div class="diff-row" data-kind="removed"><span class="diff-tag">Removed</span>`+
+			`<div class="diff-cell markdown-document"><p>gone</p></div></div>`)
+		assert.Contains(t, got, `<div class="diff-row" data-kind="changed"><span class="diff-tag">Changed</span>`+
+			`<div class="diff-cell markdown-document"><p><del class="diff-del">old</del> <ins class="diff-ins">new</ins></p></div></div>`)
 		assert.NotContains(t, got, `<p class="diff-none">`)
 	})
 
 	t.Run("several files get a list, and a file with no change of text says so", func(t *testing.T) {
 		// arrange
-		quiet := File{Path: "c.md", Status: Modified, Rows: file.Rows[3:]}
+		quiet := File{Path: "c.md", Status: Modified, Rows: file.Rows[3:4]}
 		var out strings.Builder
 
 		// act
@@ -123,7 +159,7 @@ func TestWriteDiff(t *testing.T) {
 		require.NoError(t, err)
 		got := out.String()
 		assert.Contains(t, got, `<li><a href="#file-0"><span class="page-status" data-status="renamed">renamed</span>`+
-			`<span class="page-path">b.md</span><span class="page-counts"><b class="page-added">+1</b></span></a></li>`)
+			`<span class="page-path">b.md</span><span class="page-counts"><b class="page-added">+1</b><b class="page-removed">-1</b><b class="page-changed">~1</b></span></a></li>`)
 		assert.Contains(t, got, `<section class="page-file" id="file-1">`)
 		assert.Equal(t, 1, strings.Count(got, `<p class="diff-none">`))
 	})
@@ -330,4 +366,26 @@ func TestMath(t *testing.T) {
 
 	// assert
 	assert.Equal(t, map[string]string{MathScriptFile: asset("math.js"), MathStyleFile: asset("math.css")}, got)
+}
+
+func TestShownOf(t *testing.T) {
+	old, cur, inline := &htmldiff.Side{HTML: "<p>a</p>"}, &htmldiff.Side{HTML: "<p>b</p>"}, &htmldiff.Side{HTML: "<p>ab</p>"}
+	tests := []struct {
+		name string
+		row  htmldiff.Row
+		want []*htmldiff.Side
+	}{
+		{name: "a removed block as it was", row: htmldiff.Row{Kind: htmldiff.Removed, Old: old}, want: []*htmldiff.Side{old}},
+		{name: "a changed block in one", row: htmldiff.Row{Kind: htmldiff.Changed, Old: old, New: cur, Inline: inline},
+			want: []*htmldiff.Side{inline}},
+		{name: "a changed block too long to join", row: htmldiff.Row{Kind: htmldiff.Changed, Old: old, New: cur},
+			want: []*htmldiff.Side{old, cur}},
+		{name: "a block as it is now", row: htmldiff.Row{Kind: htmldiff.Format, Old: old, New: cur}, want: []*htmldiff.Side{cur}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act & assert
+			assert.Equal(t, tc.want, shownOf(tc.row))
+		})
+	}
 }

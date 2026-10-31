@@ -9,7 +9,7 @@ BIN_PATH = $(DIST_DIR)/$(BINARY)
 DOCKER_ARGS=--build-arg VERSION=$(VERSION)
 DOCKER_IMAGE = ghcr.io/aleksey925/scrawl
 
-.PHONY: deps ui formatter gzassets build snapshot run e2e test test-gzassets race cover lint img
+.PHONY: deps ui formatter plantuml gzassets build snapshot run e2e test test-gzassets race cover lint img
 
 img:
 	@DOCKER_BUILDKIT=1 docker build $(DOCKER_ARGS) -t $(DOCKER_IMAGE):$(VERSION) .
@@ -19,11 +19,9 @@ deps:
 	@go mod vendor
 	@cd web && npm i --no-audit --no-fund
 	@cd format/js && npm i --no-audit --no-fund
+	@cd plantuml/js && npm i --no-audit --no-fund
 	@cd e2e && npm i --no-audit --no-fund && npx playwright install chromium firefox
 
-# the bundle this writes into server/assets/app, and the stylesheet and scripts
-# of the command line pages in page/assets, are committed, so that go build,
-# go install and the docker image need neither node nor the network
 ui:
 	@cd web && npm i --no-audit --no-fund && npm run build
 
@@ -33,11 +31,22 @@ ui:
 PRETTIER = format/js/node_modules/prettier
 PRETTIER_PLUGINS = markdown yaml babel estree typescript postcss html graphql glimmer
 
+JAVY_FLAGS = -J event-loop=y -J javy-stream-io=y -J text-encoding=y
+
 formatter:
 	@cd format/js && npm i --no-audit --no-fund
 	@cat $(PRETTIER)/standalone.js $(PRETTIER_PLUGINS:%=$(PRETTIER)/plugins/%.js) format/js/main.js > format/js/bundle.js
-	@javy build -J event-loop=y -J javy-stream-io=y -J text-encoding=y -o format/prettier.wasm format/js/bundle.js
+	@javy build $(JAVY_FLAGS) -o format/prettier.wasm format/js/bundle.js
 	@rm format/js/bundle.js
+
+# the PlantUML engine of the server in QuickJS, and the libraries an include
+# loads, both from the PlantUML commit the browser's engine was built from.
+plantuml:
+	@cd plantuml/js && npm i --no-audit --no-fund
+	@cd plantuml/js && node build.mjs bundle.js
+	@javy build $(JAVY_FLAGS) -C source=omitted -o plantuml/engine.wasm plantuml/js/bundle.js
+	@rm plantuml/js/bundle.js
+	@cd plantuml/js && node library.mjs ../library
 
 # the assets above compressed, for a binary that embeds them that way. They
 # are not committed: a build without the gzassets tag embeds the files as they
@@ -52,7 +61,14 @@ snapshot:
 	@goreleaser release --snapshot --skip=publish --clean
 
 run:
-	@go run . serve --space.dir=./examples/data --space.name=notes --listen=:7272 --auth.disabled --history=off --dbg
+	go run . serve \
+    --space.dir=./examples/data \
+    --space.name=notes \
+    --listen=:7272 \
+    --history=off \
+    --auth.users=admin:admin \
+    --auth.tokens=bot:demo-token:ro \
+    --auth.secret-file=/tmp/scrawl-session.key
 
 e2e: build
 	@cd e2e && npx playwright test

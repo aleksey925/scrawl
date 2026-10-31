@@ -13,8 +13,6 @@ import (
 
 const hookSecret = "0123456789abcdef0123456789abcdef"
 
-// deliveries is what a provider sends, small enough to read in a test and
-// signed the way GitHub signs one.
 const hookBody = `{"ref":"refs/heads/main"}`
 
 func signBody(secret, body string) string {
@@ -125,8 +123,6 @@ func TestHookRefusesEverythingElse(t *testing.T) {
 	}
 }
 
-// the body is the one part an unauthenticated caller controls the size of, and
-// it is streamed rather than buffered, so the cost of a rejection is bounded
 func TestHookRefusesAnOversizedBody(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{hook: true})
@@ -151,8 +147,6 @@ func TestHookAnswersOneStatusForEveryOtherMethod(t *testing.T) {
 	}{
 		{name: "get", method: http.MethodGet},
 		{name: "head", method: http.MethodHead},
-		// this one never reaches the handler: ServeMux answers it, and the
-		// status matches what the handler would have said
 		{name: "put", method: http.MethodPut},
 	}
 
@@ -172,9 +166,6 @@ func TestHookAnswersOneStatusForEveryOtherMethod(t *testing.T) {
 	}
 }
 
-// a space that declared no secret has no hook route at all: the POST meets
-// ServeMux's own answer for a path only the GET catch-all claims, and a GET
-// meets the app's 404 shell like any other unknown path
 func TestASpaceWithoutAWebhookHasNoSuchRoute(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -192,9 +183,6 @@ func TestASpaceWithoutAWebhookHasNoSuchRoute(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, got.status)
 }
 
-// TestTheHookRouteDoesNotCollideWithTheShellCatchAll is the regression test for
-// the registration itself: a methodless /hook pattern and the catch-all narrow
-// different things, ServeMux calls neither more specific, and it panics.
 func TestTheHookRouteDoesNotCollideWithTheShellCatchAll(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{second: secondSpace})
@@ -208,9 +196,6 @@ func TestTheHookRouteDoesNotCollideWithTheShellCatchAll(t *testing.T) {
 	})
 }
 
-// TestTheHookIsReachableWithoutASession is the public-path exception end to
-// end: the provider cannot sign in, and everything else on the space still
-// needs a session.
 func TestTheHookIsReachableWithoutASession(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{hook: true, withAuth: true})

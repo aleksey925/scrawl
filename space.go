@@ -21,16 +21,8 @@ import (
 	"github.com/aleksey925/scrawl/store"
 )
 
-// spaceName is what a name may look like. It is a URL slug and nothing else:
-// the name is a path segment of every URL the deployment serves, so a space or
-// an uppercase letter in it would be escaped differently by every client that
-// builds one.
 var spaceName = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 
-// spaceConfig is one space as the configuration names it, before anything
-// on disk has been touched. Dir is always present: both consumers of a space
-// directory take an explicit root and derive nothing, so the configuration says
-// the same thing they do.
 type spaceConfig struct {
 	Name     string
 	Label    string
@@ -39,30 +31,18 @@ type spaceConfig struct {
 	Exclude  []string
 
 	FormatOnSave bool
-	// Remote says the directory is a managed clone. It is metadata on top of
-	// Dir and never an alternative to it: both consumers take an explicit root,
-	// and the operator has to see which volume must survive a restart.
-	Remote *remoteConfig
+	Remote       *remoteConfig
 }
 
-// remoteConfig is a space's git remote, with the credential already resolved
-// to the value git will be handed. Where it came from - a file, a named
-// variable, REPO_TOKEN - stops in this package.
 type remoteConfig struct {
-	URL    string
-	Branch string
-	Token  string
-	Pull   time.Duration
-	// HookSecret turns the webhook on. It is not a git credential and history
-	// never learns about it: the endpoint is the only thing that uses it.
-	HookSecret string
-	// HookSecretFile is kept only so the canonical phase can check where it
-	// lives, the way it checks the session key.
+	URL            string
+	Branch         string
+	Token          string
+	Pull           time.Duration
+	HookSecret     string
 	HookSecretFile string
 }
 
-// kind names where a space's notes come from, which is all /api/spaces says
-// about it.
 func (cfg spaceConfig) kind() string {
 	if cfg.Remote != nil {
 		return server.KindRemote
@@ -70,28 +50,15 @@ func (cfg spaceConfig) kind() string {
 	return server.KindLocal
 }
 
-// runtimeSpace is one space as main holds it: the concrete services it has
-// to close, watch and reconcile, around the server's view of the same thing.
 type runtimeSpace struct {
-	web   *server.Space
-	notes *store.Store
-	hist  *history.Service
-	index *search.Index
-	pull  time.Duration // background fetch interval, 0 for a local space
-	// trigger carries a webhook delivery to the sync loop. Capacity one, and
-	// never closed: a delivery arriving after shutdown is a dropped send and
-	// not a panic.
+	web     *server.Space
+	notes   *store.Store
+	hist    *history.Service
+	index   *search.Index
+	pull    time.Duration
 	trigger chan struct{}
 }
 
-// notify asks the sync loop to run. It never blocks, because it is called from
-// a request handler, and it never queues more than one run: twenty deliveries
-// in a second ask the same question, and twenty goroutines would each take the
-// history lock in turn and put every save behind the whole queue.
-//
-// One pending run is still kept, because a delivery that arrived while a Sync
-// was already in flight has to cause another one: that fetch may have started
-// before the push landed.
 func (rp *runtimeSpace) notify() {
 	select {
 	case rp.trigger <- struct{}{}:
@@ -99,7 +66,6 @@ func (rp *runtimeSpace) notify() {
 	}
 }
 
-// close releases what the space opened, in the reverse order it was opened.
 func (rp *runtimeSpace) close() {
 	if rp.hist != nil {
 		_ = rp.hist.Close()
@@ -109,9 +75,6 @@ func (rp *runtimeSpace) close() {
 	}
 }
 
-// validateSpaces checks everything answerable from the configuration text
-// alone. None of it needs a space directory to exist, so a typo fails before
-// a directory is created or a repository cloned.
 func validateSpaces(ctx context.Context, cfgs []spaceConfig) error {
 	if len(cfgs) == 0 {
 		return errors.New("no space configured")
@@ -135,10 +98,6 @@ func validateSpaces(ctx context.Context, cfgs []spaceConfig) error {
 			return err
 		}
 	}
-	// lexically, because nothing has been created yet: a remote whose directory
-	// sits inside another space's root would otherwise be cloned first and
-	// the configuration rejected afterwards, leaving a clone somebody has to
-	// find and delete by hand
 	dirs := make([]string, len(cfgs))
 	for i, cfg := range cfgs {
 		abs, err := filepath.Abs(cfg.Dir)
@@ -150,22 +109,14 @@ func validateSpaces(ctx context.Context, cfgs []spaceConfig) error {
 	return overlapping(cfgs, dirs)
 }
 
-// validateRemote checks a repo block before anything is cloned.
 func validateRemote(ctx context.Context, cfg spaceConfig) error {
 	rm := cfg.Remote
 	if rm == nil {
 		return nil
 	}
-	// a hook secret on a space that is not a remote is impossible rather than
-	// refused: the fields live inside the repo block, and a misspelled key is a
-	// startup error. So there is no "the hook fired for a local folder" case to
-	// answer anywhere below.
 	if rm.URL == "" {
 		return fmt.Errorf("space %q has a repo block with no url", cfg.Name)
 	}
-	// git clone writes the url into .git/config, so an inline password would be
-	// persisted in plain text inside the notes volume and printed by every
-	// later remote get-url check
 	if parsed, err := url.Parse(rm.URL); err == nil && parsed.User != nil {
 		return fmt.Errorf("the url of space %q carries credentials, name them with token_file or token_env instead",
 			cfg.Name)
@@ -173,17 +124,12 @@ func validateRemote(ctx context.Context, cfg spaceConfig) error {
 	if rm.Branch == "" {
 		return fmt.Errorf("space %q has a repo block with no branch", cfg.Name)
 	}
-	// the branch is interpolated into origin/<branch> and HEAD:refs/heads/
-	// <branch>, so a name git would read as something else has to be refused
-	// before the first fetch rather than after it
 	if err := checkBranchName(ctx, rm.Branch); err != nil {
 		return fmt.Errorf("the branch of space %q: %w", cfg.Name, err)
 	}
 	return nil
 }
 
-// logRemote names both refresh switches at startup, so the configuration of a
-// remote space is readable in the log rather than inferred from its silence.
 func logRemote(cfg spaceConfig, rp *runtimeSpace) {
 	if cfg.Remote == nil {
 		return
@@ -199,8 +145,6 @@ func logRemote(cfg spaceConfig, rp *runtimeSpace) {
 	log.Printf("[INFO] %s: remote %s, pull %s, webhook %s", cfg.Name, redactURL(cfg.Remote.URL), pull, hook)
 }
 
-// redactURL strips a userinfo a url may carry. Validation refuses one, so this
-// covers a url that reached the log some other way.
 func redactURL(raw string) string {
 	at := strings.LastIndex(raw, "@")
 	scheme := strings.Index(raw, "://")
@@ -210,12 +154,9 @@ func redactURL(raw string) string {
 	return raw[:scheme+3] + "***" + raw[at:]
 }
 
-// checkBranchName asks git itself, because the rules are git's.
 func checkBranchName(ctx context.Context, branch string) error {
 	git, err := exec.LookPath("git")
 	if err != nil {
-		// without git there is no remote mode at all, and history says so in
-		// its own words when the space is opened
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, branchCheckTimeout)
@@ -227,13 +168,8 @@ func checkBranchName(ctx context.Context, branch string) error {
 	return nil
 }
 
-// branchCheckTimeout bounds the one git call startup validation makes.
 const branchCheckTimeout = 5 * time.Second
 
-// ensureDirs makes every remote space's directory exist before the canonical
-// phase, which cannot resolve a path that is not there. A local space's
-// directory is never created: it is a volume the operator mounted, and one
-// scrawl made up would be an empty corpus nobody noticed.
 func ensureDirs(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 	for _, cfg := range cfgs {
 		if cfg.Remote == nil {
@@ -253,10 +189,6 @@ func ensureDirs(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 	return nil
 }
 
-// emptyDir reports whether a path holds nothing worth keeping, which is what a
-// first clone needs: missing, or there and empty. A clone that was interrupted
-// counts as empty: what it left is the staging directory and whatever it had
-// already moved out of it, all of it ours, and Clone clears the lot.
 func emptyDir(dir string) (bool, error) {
 	entries, err := os.ReadDir(dir)
 	switch {
@@ -273,10 +205,6 @@ func emptyDir(dir string) (bool, error) {
 	return len(entries) == 0, nil
 }
 
-// remoteOf turns a space's configuration into what history takes. PullOnly is
-// the effective read-only mode seen from the git side: a space that will
-// never push has nothing to gain from trying and everything to lose from
-// reporting itself unpublished for changes nobody made.
 func remoteOf(opts *options, cfg spaceConfig) history.Remote {
 	return history.Remote{
 		URL:       cfg.Remote.URL,
@@ -287,10 +215,6 @@ func remoteOf(opts *options, cfg spaceConfig) history.Remote {
 	}
 }
 
-// resolveRoots turns each configured directory into the canonical path the
-// store and history will use, and repeats the overlap check on those. Only the
-// canonical comparison catches two symlink spellings of one directory, and it
-// can only run once the directories are there.
 func resolveRoots(cfgs []spaceConfig) ([]string, error) {
 	res := make([]string, len(cfgs))
 	for i, cfg := range cfgs {
@@ -315,9 +239,6 @@ func resolveRoots(cfgs []spaceConfig) ([]string, error) {
 	return res, nil
 }
 
-// overlapping refuses two roots where one holds the other. Two overlapping
-// roots mean two watchers, two indexes and two repositories over the same
-// files, which history would refuse on its own with ErrInsideRepo.
 func overlapping(cfgs []spaceConfig, paths []string) error {
 	for i := range paths {
 		for j := i + 1; j < len(paths); j++ {
@@ -330,13 +251,10 @@ func overlapping(cfgs []spaceConfig, paths []string) error {
 	return nil
 }
 
-// contains reports whether outer is inner or holds it.
 func contains(outer, inner string) bool {
 	return outer == inner || strings.HasPrefix(inner, outer+string(filepath.Separator))
 }
 
-// canonical resolves symlinks the way history does, so two spellings of one
-// directory compare equal.
 func canonical(p string) (string, error) {
 	res, err := filepath.EvalSymlinks(p)
 	if err != nil {
@@ -345,15 +263,6 @@ func canonical(p string) (string, error) {
 	return res, nil
 }
 
-// newSpace opens everything one space needs, in the order the design fixes:
-// the store, history, the baseline reconcile, the first sync, then the index.
-//
-// The order is not an implementation detail. store.Watch installs its watches
-// and takes its baseline snapshot before it returns, so a fast-forward merge
-// that landed after it produces no event and the index would stay stale for the
-// life of the process. Reconcile runs before the fetch because it only commits
-// what is already on disk, which keeps a local change from being what the merge
-// trips over. Watching itself comes last, from run.
 func newSpace(ctx context.Context, opts *options, cfg spaceConfig, root string) (*runtimeSpace, error) {
 	readOnly := opts.ReadOnly || cfg.ReadOnly
 	notes, err := store.New(store.Config{
@@ -374,11 +283,6 @@ func newSpace(ctx context.Context, opts *options, cfg spaceConfig, root string) 
 		rp.close()
 		return nil, err
 	}
-	// before the first request: this is the baseline import of a directory
-	// history never saw, and the recovery for a crash between a write and its
-	// commit, and both have to be in place before anything can be restored. A
-	// pull-only clone is refused by the service itself, here and in the watcher
-	// alike, so the mode is not read a second time here.
 	reconcile(ctx, cfg.Name, rp.hist, historyActorStartup)
 	syncRemote(ctx, cfg.Name, rp.hist)
 	probeWritable(ctx, cfg.Name, rp.hist)
@@ -412,22 +316,6 @@ func newSpace(ctx context.Context, opts *options, cfg spaceConfig, root string) 
 	return rp, nil
 }
 
-// checkSecretFiles refuses a secret stored inside any of the notes
-// directories: it would show up in the tree, in the search index and in every
-// backup of the corpus, and rawHandler would serve it to anybody who can sign
-// in. It covers the session signing key and every webhook secret, because the
-// reason is the same for both.
-//
-// Every path is compared after its symlinks are followed, on both sides. A
-// path that is spelled one way and reached another is exactly how this check
-// is fooled: a secret file reached through a symlinked parent, a root reached
-// through a symlinked one, or the file itself being a link into the notes.
-//
-// The roots are resolved again even though resolveRoots already did. Comparing
-// a canonical path against a root that is not one is a check that silently
-// passes, and on macOS every path under /var is reached through a symlink, so
-// that is the ordinary case rather than a contrived one. A security check may
-// not depend on its caller having remembered.
 func checkSecretFiles(roots []string, opts *options, cfgs []spaceConfig) error {
 	named := map[string]string{}
 	if !opts.Auth.Disabled && opts.Auth.SecretFile != "" {
@@ -457,16 +345,6 @@ func checkSecretFiles(roots []string, opts *options, cfgs []spaceConfig) error {
 	return nil
 }
 
-// resolvedPath is the absolute path with its symlinks followed, as far up as
-// the path exists, with the segments that do not exist yet joined back on.
-//
-// Walking up matters and resolving only the parent is not enough:
-// EvalSymlinks fails on a path with any missing component, so a secret named
-// inside a directory nobody has made yet - /spaces/notes/secrets/hook, with no
-// secrets/ - would resolve nothing at all and compare unequal to every root.
-// auth creates the session key on first start, and an operator names a hook
-// secret before mounting it, so a path that is not there is the normal case
-// rather than the odd one.
 func resolvedPath(p string) (string, error) {
 	abs, err := filepath.Abs(p)
 	if err != nil {
@@ -479,8 +357,6 @@ func resolvedPath(p string) (string, error) {
 		}
 		parent := filepath.Dir(at)
 		if parent == at {
-			// the filesystem root itself did not resolve, which leaves nothing
-			// to follow and the lexical path as the honest answer
 			return abs, nil
 		}
 		missing = filepath.Join(filepath.Base(at), missing)
@@ -488,9 +364,6 @@ func resolvedPath(p string) (string, error) {
 	}
 }
 
-// warnUnwritable names the failure a NAS deployment hits first: the container
-// runs as a uid that does not own the mounted folder, reading works and every
-// save comes back as an error. One line at startup beats finding out later.
 func warnUnwritable(name string, notes *store.Store) {
 	if notes.ReadOnly() {
 		return

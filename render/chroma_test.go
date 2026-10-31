@@ -2,10 +2,12 @@ package render
 
 import (
 	"bytes"
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 
-	"github.com/alecthomas/chroma/v2/styles"
+	"github.com/alecthomas/chroma/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,27 +17,32 @@ import (
 func TestChromaCSS(t *testing.T) {
 	css := string(ChromaCSS())
 
-	// chroma falls back to its default style for a name it does not know, and
-	// nothing in the stylesheet would say so
-	t.Run("every theme names a style chroma has", func(t *testing.T) {
-		for _, entry := range theme.All() {
-			assert.Contains(t, styles.Names(), entry.Code, entry.ID)
-		}
+	t.Run("every code color names its tokens", func(t *testing.T) {
+		// assert
+		assert.ElementsMatch(t, theme.CodeNames, slices.Collect(maps.Keys(codeTokens)))
 	})
 
-	t.Run("every scope is painted by the style of its theme", func(t *testing.T) {
-		for _, scope := range theme.Scopes() {
-			var want bytes.Buffer
-			writeChromaRules(&want, styles.Get(scope.Theme.Code), scope.Selector)
-			assert.Contains(t, css, want.String(), scope.Selector)
-			if scope.Media != "" {
-				assert.Contains(t, css, "@media "+scope.Media+" {\n"+want.String())
+	t.Run("every code color of a theme is under its scope", func(t *testing.T) {
+		// assert
+		for _, scoped := range theme.Scopes() {
+			for _, name := range theme.CodeNames {
+				class := chroma.StandardTypes[codeTokens[name]]
+				assert.Contains(t, css, scoped.Selector+" .chroma ."+class+" { color: "+scoped.Theme.Code[name], scoped.Selector)
 			}
 		}
 	})
 
-	// a rule outside every guard paints whichever theme it belongs to onto the
-	// others, for every token they leave to the base color
+	t.Run("every scope is painted by the style of its theme", func(t *testing.T) {
+		for _, scoped := range theme.Scopes() {
+			var want bytes.Buffer
+			writeChromaRules(&want, codeStyle(scoped.Theme), scoped.Selector)
+			assert.Contains(t, css, want.String(), scoped.Selector)
+			if scoped.Media != "" {
+				assert.Contains(t, css, "@media "+scoped.Media+" {\n"+want.String())
+			}
+		}
+	})
+
 	t.Run("every selector is scoped", func(t *testing.T) {
 		for line := range strings.SplitSeq(css, "\n") {
 			if !strings.Contains(line, "{") || strings.HasPrefix(line, "@media") || strings.HasPrefix(line, "/*") {

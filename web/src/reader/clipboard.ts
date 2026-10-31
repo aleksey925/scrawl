@@ -5,17 +5,18 @@ export async function copyText(text: string): Promise<boolean> {
       return true;
     }
   } catch {
-    // fall through to the legacy path
   }
 
-  // a NAS on plain http has no navigator.clipboard, so keep execCommand alive
   const area = document.createElement('textarea');
   area.value = text;
   area.setAttribute('readonly', '');
   area.style.position = 'fixed';
+  area.style.top = '0';
   area.style.opacity = '0';
+  area.style.fontSize = '16px';
   document.body.appendChild(area);
   area.select();
+  area.setSelectionRange(0, text.length);
   let done = false;
   try {
     done = document.execCommand('copy');

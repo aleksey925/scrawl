@@ -1,0 +1,9 @@
+.waiting {
+  animation: waiting-in 150ms ease-out 400ms both;
+}
+
+@keyframes waiting-in {
+  from {
+    opacity: 0;
+  }
+}

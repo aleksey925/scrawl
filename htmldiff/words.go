@@ -1,6 +1,7 @@
 package htmldiff
 
 import (
+	"cmp"
 	"regexp"
 	"slices"
 	"strings"
@@ -9,56 +10,34 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
-// The classes the marks of a changed block carry. A note can write a <del>
-// and an <ins> of its own, so the class is what tells a mark from content.
 const (
 	DelClass = "diff-del"
 	InsClass = "diff-ins"
 )
 
-// maxTokens bounds the word diff of one pair of blocks. The matcher slows down
-// on long runs of repeated tokens, which is what a big code block is, so past
-// this the pair is shown as changed with no word marked.
 const maxTokens = 5000
 
 var (
-	// a word, its apostrophes included, or a single sign of anything else
-	reWord = regexp.MustCompile(`[\p{L}\p{N}\p{M}]+(?:['’][\p{L}\p{N}\p{M}]+)*|[^\p{L}\p{N}\p{M}\s]`)
-	// the same in a code block, where a changed indent is a change too
+	reWord     = regexp.MustCompile(`[\p{L}\p{N}\p{M}]+(?:['’][\p{L}\p{N}\p{M}]+)*|[^\p{L}\p{N}\p{M}\s]`)
 	reCodeWord = regexp.MustCompile(`[\p{L}\p{N}\p{M}]+(?:['’][\p{L}\p{N}\p{M}]+)*|[^\p{L}\p{N}\p{M}\s]|[ \t]+`)
 )
 
-// token is a word of a text node, or an element whose target is part of the
-// text the way elementMarker puts it.
 type token struct {
 	text       string
 	node       *html.Node
 	start, end int
 	element    bool
+	gap        string
 }
 
-// markWords marks the words a pair of blocks does not share, in place on the
-// parsed trees, and returns both rendered again.
-func markWords(left, right block) (string, string) {
-	ta, tb := tokensOf(left.node), tokensOf(right.node)
-	if len(ta) > maxTokens || len(tb) > maxTokens {
-		return left.html, right.html
-	}
-	texts := func(tokens []token) []string {
-		res := make([]string, len(tokens))
-		for i, tok := range tokens {
-			res[i] = tok.text
-		}
-		return res
-	}
-
+func markWords(left, right block, ta, tb []token, ops []opcode) (string, string) {
 	var dels, inss []int
-	for _, op := range opcodes(texts(ta), texts(tb)) {
-		if op.kind == opReplace || op.kind == opDelete {
-			dels = appendRange(dels, op.i1, op.i2)
+	for _, edit := range ops {
+		if edit.kind == opReplace || edit.kind == opDelete {
+			dels = appendRange(dels, edit.i1, edit.i2)
 		}
-		if op.kind == opReplace || op.kind == opInsert {
-			inss = appendRange(inss, op.j1, op.j2)
+		if edit.kind == opReplace || edit.kind == opInsert {
+			inss = appendRange(inss, edit.j1, edit.j2)
 		}
 	}
 	applyMarks(ta, dels, atom.Del, DelClass)
@@ -72,6 +51,14 @@ func markWords(left, right block) (string, string) {
 	return oldHTML, newHTML
 }
 
+func textsOf(tokens []token) []string {
+	res := make([]string, len(tokens))
+	for i, tok := range tokens {
+		res[i] = tok.text
+	}
+	return res
+}
+
 func appendRange(dst []int, from, to int) []int {
 	for i := from; i < to; i++ {
 		dst = append(dst, i)
@@ -81,6 +68,14 @@ func appendRange(dst []int, from, to int) []int {
 
 func tokensOf(root *html.Node) []token {
 	res := []token{}
+	var gap strings.Builder
+	add := func(tok token, inPre bool) {
+		if inPre {
+			tok.gap = gap.String()
+		}
+		gap.Reset()
+		res = append(res, tok)
+	}
 	var walk func(node *html.Node, inPre bool)
 	walk = func(node *html.Node, inPre bool) {
 		switch node.Type {
@@ -89,8 +84,16 @@ func tokensOf(root *html.Node) []token {
 			if inPre {
 				re = reCodeWord
 			}
+			pos := 0
 			for _, loc := range re.FindAllStringIndex(node.Data, -1) {
-				res = append(res, token{text: node.Data[loc[0]:loc[1]], node: node, start: loc[0], end: loc[1]})
+				if inPre {
+					gap.WriteString(node.Data[pos:loc[0]])
+				}
+				add(token{text: node.Data[loc[0]:loc[1]], node: node, start: loc[0], end: loc[1]}, inPre)
+				pos = loc[1]
+			}
+			if inPre {
+				gap.WriteString(node.Data[pos:])
 			}
 			return
 		case html.ElementNode:
@@ -98,7 +101,7 @@ func tokensOf(root *html.Node) []token {
 				return
 			}
 			if marker := elementMarker(node); marker != "" {
-				res = append(res, token{text: marker, node: node, element: true})
+				add(token{text: marker, node: node, element: true}, inPre)
 			}
 			inPre = inPre || node.DataAtom == atom.Pre
 		default:
@@ -111,8 +114,6 @@ func tokensOf(root *html.Node) []token {
 	return res
 }
 
-// run is a stretch of one text node to wrap in a mark: a run of changed words
-// next to each other is one mark, the spaces between them included.
 type run struct {
 	start, end int
 	last       int
@@ -178,4 +179,198 @@ func addClass(node *html.Node, class string) {
 		return
 	}
 	node.Attr = append(node.Attr, html.Attribute{Key: "class", Val: class})
+}
+
+func inlineWords(right block, ta []token, ops []opcode) string {
+	curNode := reparse(right)
+	if curNode == nil {
+		return ""
+	}
+	tb := tokensOf(curNode)
+
+	var inss []int
+	var places []place
+	for _, edit := range ops {
+		if edit.kind == opReplace || edit.kind == opInsert {
+			inss = appendRange(inss, edit.j1, edit.j2)
+		}
+		if edit.kind == opReplace || edit.kind == opDelete {
+			if p, ok := lostPlace(ta, edit, len(tb)); ok {
+				places = append(places, p)
+			}
+		}
+	}
+	slices.SortStableFunc(places, func(a, b place) int { return cmp.Compare(b.order(), a.order()) })
+	for _, p := range places {
+		putBack(tb, curNode, p)
+	}
+	applyMarks(tb, inss, atom.Ins, InsClass)
+
+	res, err := renderNode(curNode)
+	if err != nil {
+		return ""
+	}
+	return res
+}
+
+func reparse(blk block) *html.Node {
+	blocks, err := split(blk.html)
+	if err != nil || len(blocks) != 1 {
+		return nil
+	}
+	return blocks[0].node
+}
+
+func spoken(tokens []token) string {
+	var sb strings.Builder
+	for i, tok := range tokens {
+		if tok.element {
+			continue
+		}
+		if sb.Len() > 0 {
+			prev := tokens[i-1]
+			if prev.node != tok.node || prev.end < tok.start {
+				sb.WriteByte(' ')
+			}
+		}
+		sb.WriteString(tok.text)
+	}
+	return sb.String()
+}
+
+type place struct {
+	at    int
+	after bool
+	words string
+	sep   string
+}
+
+func (p place) order() int {
+	if p.after {
+		return 2*p.at + 1
+	}
+	return 2 * p.at
+}
+
+func lostPlace(ta []token, edit opcode, curLen int) (place, bool) {
+	lost := ta[edit.i1:edit.i2]
+	if !slices.ContainsFunc(lost, func(tok token) bool { return !tok.element }) {
+		return place{}, false
+	}
+	if !insidePre(lost[0].node) {
+		if edit.j1 < curLen || curLen == 0 {
+			return place{at: edit.j1, words: spoken(lost), sep: " "}, true
+		}
+		return place{at: curLen - 1, after: true, words: spoken(lost), sep: " "}, true
+	}
+	endsLine := edit.i2 == len(ta) || strings.ContainsAny(ta[edit.i2].gap, "\n\r")
+	if edit.j1 > 0 && (endsLine || edit.j1 == curLen) {
+		return place{at: edit.j1 - 1, after: true, words: codeText(lost, true)}, true
+	}
+	words := codeText(lost, false)
+	if edit.i2 < len(ta) {
+		words += ta[edit.i2].gap
+	}
+	return place{at: edit.j1, words: words}, true
+}
+
+func codeText(tokens []token, leading bool) string {
+	var sb strings.Builder
+	for i, tok := range tokens {
+		if i > 0 || leading {
+			sb.WriteString(tok.gap)
+		}
+		if !tok.element {
+			sb.WriteString(tok.text)
+		}
+	}
+	return sb.String()
+}
+
+func putBack(tokens []token, root *html.Node, p place) {
+	mark := &html.Node{
+		Type: html.ElementNode, Data: atom.Del.String(), DataAtom: atom.Del,
+		Attr: []html.Attribute{{Key: "class", Val: DelClass}},
+	}
+	mark.AppendChild(&html.Node{Type: html.TextNode, Data: p.words})
+	if len(tokens) == 0 {
+		root.AppendChild(mark)
+		return
+	}
+	added := []*html.Node{mark}
+	if p.sep != "" {
+		sep := &html.Node{Type: html.TextNode, Data: p.sep}
+		if p.after {
+			added = []*html.Node{sep, mark}
+		} else {
+			added = append(added, sep)
+		}
+	}
+
+	parent, ref := placeOf(tokens, root, p)
+	for _, node := range added {
+		parent.InsertBefore(node, ref)
+	}
+}
+
+func placeOf(tokens []token, root *html.Node, p place) (parent, ref *html.Node) {
+	tok := tokens[p.at]
+	if p.after {
+		if !tok.element {
+			if rest := splitText(tokens, tok.node, tok.end); rest != nil {
+				return rest.Parent, rest
+			}
+		}
+		if tok.node.Parent == nil {
+			return root, nil
+		}
+		return tok.node.Parent, tok.node.NextSibling
+	}
+	ref = tok.node
+	if !tok.element {
+		if rest := splitText(tokens, tok.node, tok.start); rest != nil {
+			ref = rest
+		}
+	}
+	if ref.Parent == nil {
+		return root, root.FirstChild
+	}
+	return ref.Parent, ref
+}
+
+func splitText(tokens []token, node *html.Node, offset int) *html.Node {
+	if offset >= len(node.Data) {
+		return nil
+	}
+	if offset == 0 {
+		return node
+	}
+	rest := &html.Node{Type: html.TextNode, Data: node.Data[offset:]}
+	node.Data = node.Data[:offset]
+	insertAfter(node, rest)
+	for i := range tokens {
+		if tokens[i].node == node && !tokens[i].element && tokens[i].start >= offset {
+			tokens[i].node = rest
+			tokens[i].start -= offset
+			tokens[i].end -= offset
+		}
+	}
+	return rest
+}
+
+func insertAfter(node, added *html.Node) {
+	if node.NextSibling == nil {
+		node.Parent.AppendChild(added)
+		return
+	}
+	node.Parent.InsertBefore(added, node.NextSibling)
+}
+
+func insidePre(node *html.Node) bool {
+	for n := node; n != nil; n = n.Parent {
+		if n.DataAtom == atom.Pre {
+			return true
+		}
+	}
+	return false
 }

@@ -1,0 +1,10 @@
+{
+  "name": "scrawl-plantuml",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@plantuml/mcp-js": "0.2.3",
+    "esbuild": "0.25.10",
+    "fflate": "0.8.2"
+  }
+}

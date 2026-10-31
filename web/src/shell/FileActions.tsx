@@ -4,21 +4,24 @@ import {
   useCallback, useMemo, useState,
   type FormEvent, type JSX, type ReactNode,
 } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import { api } from '../api/client';
 import { ApiError } from '../api/errors';
 import type { EntryKind, EntryPathResponse } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
-import { directoryUrl, documentUrl, editUrl, isMarkdown, slugPath } from '../paths';
+import { copyText } from '../reader/clipboard';
+import { directoryUrl, documentUrl, isDirectoryPath, isMarkdown, slugPath } from '../paths';
+import { layoutBreakpoints, useBelow } from '../theme';
 import { showToast } from '../toast';
 
 import { FileActionsContext, type FileActions, type TreeDraft } from './fileActionsContext';
 import { useReaderLayout } from './ReaderLayout';
 import { useNav } from './NavContext';
+import { NewEntryDialog } from './NewEntryDialog';
 import { useMutationState } from './useMutationState';
-import { basenameOf, joinPath } from './naming';
+import { basenameOf, hasOwnExtension, joinPath } from './naming';
 
 function conflictText(error: unknown, fallback: string): string {
   if (error instanceof ApiError && error.status === 409) {
@@ -33,10 +36,15 @@ function appUrl(path: string, isDir: boolean): string {
   return new URL(`${base}${route}`, window.location.origin).href;
 }
 
-// draftPath is what a typed name becomes. The slug rule is the store's, so a
-// page and the image dropped into it romanize the same word the same way, and
-// .md is added only when the name does not carry it already.
 function draftPath(draft: TreeDraft, name: string): string {
+  if (draft.kind === 'file' && hasOwnExtension(name) && !isMarkdown(name.trim())) {
+    const typed = name
+      .split('/')
+      .map((part) => part.trim())
+      .filter((part) => part !== '')
+      .join('/');
+    return joinPath(draft.parent, typed);
+  }
   const slug = slugPath(name);
   if (slug === '') {
     return '';
@@ -44,20 +52,28 @@ function draftPath(draft: TreeDraft, name: string): string {
   return joinPath(draft.parent, draft.kind === 'file' && !isMarkdown(slug) ? `${slug}.md` : slug);
 }
 
+function movedTo(path: string, from: string, to: string): string | undefined {
+  if (path === from) {
+    return to;
+  }
+  return path.startsWith(`${from}/`) ? `${to}${path.slice(from.length)}` : undefined;
+}
+
 export function FileActionsProvider({ children }: { children: ReactNode }): JSX.Element {
-  // a draft is typed into the tree, so the tree has to be on screen for it
   const { revealNav: revealTree } = useReaderLayout();
   const navigate = useNavigate();
   const { currentPath, refreshNav, openFolder, setQuery } = useNav();
+  const onFolder = isDirectoryPath(useLocation().pathname);
   const reportMutation = useMutationState();
-  const [renaming, setRenaming] = useState<{ path: string; isDir: boolean } | undefined>(undefined);
+  const [renaming, setRenaming] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState<TreeDraft | undefined>(undefined);
+  const phone = useBelow(layoutBreakpoints.phone);
+  const [naming, setNaming] = useState<TreeDraft | undefined>(undefined);
 
   const copyLink = useCallback(async (path: string, isDir: boolean): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(appUrl(path, isDir));
+    if (await copyText(appUrl(path, isDir))) {
       showToast('ok', { message: 'Link copied' });
-    } catch {
+    } else {
       showToast('error', { message: 'Could not copy the link' });
     }
   }, []);
@@ -65,7 +81,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const confirmRemove = useCallback(
     (path: string, isDir: boolean, withContents: boolean) => {
       modals.openConfirmModal({
-        title: withContents ? 'Delete folder and everything in it?' : isDir ? 'Delete folder?' : 'Delete page?',
+        title: withContents ? 'Delete folder and everything in it?' : isDir ? 'Delete folder?' : 'Delete file?',
         children: (
           <Text data-testid="modal" data-variant={withContents ? 'confirm-contents' : 'confirm'} size="sm">
             {withContents ? (
@@ -92,8 +108,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
               }
               refreshNav();
             } catch (error) {
-              // the folder turned out to hold something after all: a file the
-              // app does not list, or one that arrived while the dialog was up
               if (isDir && !withContents && error instanceof ApiError && error.status === 409) {
                 confirmRemove(path, isDir, true);
                 return;
@@ -116,11 +130,8 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       void (async () => {
         let holdsEntries = false;
         try {
-          const listing = await api.dir(path);
-          // a folder shown as a document is one that holds an index note
-          holdsEntries = listing.kind === 'document' || listing.entries.length > 0;
+          holdsEntries = (await api.dir(path)).entries.length > 0;
         } catch {
-          // the delete itself answers when the folder could not be listed
         }
         confirmRemove(path, isDir, holdsEntries);
       })();
@@ -130,27 +141,26 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const startDraft = useCallback(
     (kind: EntryKind, parent: string) => {
-      // the row is typed into where it will be, so the folder has to be open
-      // and a filter hiding it has to go
+      if (phone) {
+        setNaming({ kind, parent });
+        return;
+      }
       setQuery('');
       openFolder(parent);
       setDraft({ kind, parent });
       revealTree();
     },
-    [openFolder, revealTree, setQuery],
+    [openFolder, phone, revealTree, setQuery],
   );
 
   const cancelDraft = useCallback(() => setDraft(undefined), []);
 
-  const submitDraft = useCallback(
-    async (name: string): Promise<boolean> => {
-      if (draft === undefined) {
-        return false;
-      }
+  const createEntry = useCallback(
+    async (draft: TreeDraft, name: string): Promise<boolean> => {
       const path = draftPath(draft, name);
-      const page = draft.kind === 'file';
+      const isFile = draft.kind === 'file';
       if (path === '') {
-        showToast('error', { message: `${page ? 'A file' : 'A folder'} needs a letter or a digit in its name` });
+        showToast('error', { message: `${isFile ? 'A file' : 'A folder'} needs a letter or a digit in its name` });
         return false;
       }
       let res: EntryPathResponse;
@@ -159,52 +169,62 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       } catch (error) {
         showToast('error', {
           title: 'Nothing was created',
-          message: conflictText(error, page ? 'That file already exists' : 'That folder already exists'),
+          message: conflictText(error, isFile ? 'That file already exists' : 'That folder already exists'),
         });
         return false;
       }
-      setDraft(undefined);
       refreshNav();
-      if (page) {
-        // straight into the editor, because an empty note is not a thing
-        // anybody wanted, it is the first half of writing one
-        await navigate(editUrl(res.path));
+      if (isFile && res.edit_url !== undefined) {
+        await navigate(res.edit_url);
+        return true;
+      }
+      if (isFile) {
+        reportMutation(res, 'File created');
+        await navigate(documentUrl(res.path));
         return true;
       }
       reportMutation(res, 'Folder created');
       openFolder(res.path);
-      // onto the new folder, the way a new file opens: what comes next is put
-      // into it, and left on the old page the next file landed beside it
       await navigate(directoryUrl(res.path));
       return true;
     },
-    [draft, navigate, openFolder, refreshNav, reportMutation],
+    [navigate, openFolder, refreshNav, reportMutation],
+  );
+
+  const submitDraft = useCallback(
+    async (name: string): Promise<boolean> => {
+      if (draft === undefined) {
+        return false;
+      }
+      const created = await createEntry(draft, name);
+      if (created) {
+        setDraft(undefined);
+      }
+      return created;
+    },
+    [createEntry, draft],
   );
 
   const moveInto = useCallback(
     (paths: readonly string[], folder: string) => {
       void (async () => {
-        const moved: string[] = [];
+        const moved: { from: string; to: string }[] = [];
         let failure: unknown;
-        for (const path of paths) {
+        for (const from of paths) {
           try {
-            const res = await api.move(path, joinPath(folder, basenameOf(path)));
-            moved.push(res.path);
+            const res = await api.move(from, joinPath(folder, basenameOf(from)));
+            moved.push({ from, to: res.path });
           } catch (error) {
             failure = error;
           }
         }
         if (moved.length > 0) {
           refreshNav();
-          // a drop the reader cannot see landed nowhere as far as they are
-          // concerned, so the folder it went into opens
           openFolder(folder);
           reportMutation(undefined, moved.length === 1 ? 'Moved' : `Moved ${moved.length} items`);
-          // the page on screen moved with the rest, and its old address is a
-          // 404 the moment the tree refreshes
-          const here = moved.find((path) => path.endsWith(`/${basenameOf(currentPath)}`));
-          if (here !== undefined && paths.some((path) => path === currentPath)) {
-            await navigate(isMarkdown(here) ? documentUrl(here) : directoryUrl(here));
+          const here = moved.map((pair) => movedTo(currentPath, pair.from, pair.to)).find((path) => path !== undefined);
+          if (here !== undefined) {
+            await navigate(onFolder ? directoryUrl(here) : documentUrl(here));
           }
         }
         if (failure !== undefined) {
@@ -215,38 +235,41 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         }
       })();
     },
-    [currentPath, navigate, openFolder, refreshNav, reportMutation],
+    [currentPath, navigate, onFolder, openFolder, refreshNav, reportMutation],
   );
 
   const actions = useMemo<FileActions>(
     () => ({
       createPage: (folder) => startDraft('file', folder),
       createFolder: (folder) => startDraft('dir', folder),
-      rename: (path, isDir) => setRenaming({ path, isDir }),
+      rename: (path) => setRenaming(path),
       remove,
       copyLink: (path, isDir) => void copyLink(path, isDir),
       moveInto,
       draft,
       submitDraft,
       cancelDraft,
+      createEntry,
     }),
-    [cancelDraft, copyLink, draft, moveInto, remove, startDraft, submitDraft],
+    [cancelDraft, copyLink, createEntry, draft, moveInto, remove, startDraft, submitDraft],
   );
 
   return (
     <FileActionsContext.Provider value={actions}>
       {children}
 
+      {naming !== undefined && <NewEntryDialog draft={naming} onCreate={createEntry} onClose={() => setNaming(undefined)} />}
+
       {renaming !== undefined && (
         <RenameDialog
-          path={renaming.path}
+          path={renaming}
           onClose={() => setRenaming(undefined)}
           onRenamed={(res) => {
-            const was = renaming;
+            const here = movedTo(currentPath, renaming, res.path);
             setRenaming(undefined);
             reportMutation(res, 'Renamed');
-            if (currentPath === was.path) {
-              void navigate(was.isDir ? directoryUrl(res.path) : documentUrl(res.path));
+            if (here !== undefined) {
+              void navigate(onFolder ? directoryUrl(here) : documentUrl(here));
               return;
             }
             refreshNav();
@@ -275,9 +298,7 @@ function RenameDialog({ path, onClose, onRenamed }: RenameDialogProps): JSX.Elem
       setError('The new path has to hold a name.');
       return;
     }
-    // .md is what the tree, the search index and the page route all key on, so a rename
-    // that drops it leaves the page whole on disk and gone from the app
-    const to = isMarkdown(path) && !isMarkdown(typed) ? `${typed}.md` : typed;
+    const to = isMarkdown(path) && !hasOwnExtension(typed) ? `${typed}.md` : typed;
     if (to === path) {
       onClose();
       return;

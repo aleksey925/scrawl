@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// bareRemote makes an origin nothing has to reach the network for: a bare
-// repository in a temp directory, seeded with one commit on the branch.
 func bareRemote(t *testing.T) string {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
@@ -36,7 +34,6 @@ func bareRemote(t *testing.T) string {
 	return bare
 }
 
-// cloneOf makes a working clone of a bare origin, the way main does at startup.
 func cloneOf(t *testing.T, bare string) string {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "notes")
@@ -44,8 +41,6 @@ func cloneOf(t *testing.T, bare string) string {
 	return dir
 }
 
-// remoteService is a service over a clone, with the remote configured the way
-// main configures one for a space whose directory is a clone.
 func remoteService(t *testing.T, dir, bare string, tune ...func(*Remote)) *Service {
 	t.Helper()
 	rm := &Remote{URL: bare, Branch: initialBranch}
@@ -58,13 +53,11 @@ func remoteService(t *testing.T, dir, bare string, tune ...func(*Remote)) *Servi
 	})
 }
 
-// headOf reads the commit the remote's branch points at.
 func headOf(t *testing.T, bare string) string {
 	t.Helper()
 	return strings.TrimSpace(gitIn(t, bare, "rev-parse", initialBranch))
 }
 
-// localHead reads the commit the clone itself is on.
 func localHead(t *testing.T, dir string) string {
 	t.Helper()
 	return strings.TrimSpace(gitIn(t, dir, "rev-parse", "HEAD"))
@@ -97,10 +90,6 @@ func TestCloneRefusesAMissingBranch(t *testing.T) {
 	assert.Empty(t, dirNames(t, dir), "nothing is left to make the next start refuse")
 }
 
-// TestCloneNeedsNothingOfTheParent is the deployment this got wrong: dir is
-// what an operator mounts, so its parent belongs to the image and is read-only
-// in any hardened container - and a mount point can be neither removed nor
-// renamed over, which is what staging beside it needed.
 func TestCloneNeedsNothingOfTheParent(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root ignores the permissions this test is about")
@@ -121,8 +110,6 @@ func TestCloneNeedsNothingOfTheParent(t *testing.T) {
 	assert.FileExists(t, filepath.Join(dir, "index.md"))
 }
 
-// TestCloneClearsAnInterruptedOne covers the state a killed first clone leaves:
-// the staging directory, and whatever it had already moved out of it.
 func TestCloneClearsAnInterruptedOne(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -137,8 +124,6 @@ func TestCloneClearsAnInterruptedOne(t *testing.T) {
 	assert.Equal(t, []string{".git", "index.md"}, dirNames(t, dir))
 }
 
-// dirNames lists what a directory holds, sorted, which is what os.ReadDir
-// already answers.
 func dirNames(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
@@ -150,9 +135,6 @@ func dirNames(t *testing.T, dir string) []string {
 	return res
 }
 
-// TestNewRefusesAClonePointedElsewhere is why an existing clone is verified and
-// never repaired: re-cloning or repointing would throw away commits that were
-// never pushed.
 func TestNewRefusesAClonePointedElsewhere(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -213,9 +195,6 @@ func TestSyncFastForwardsAndPushes(t *testing.T) {
 	assert.Contains(t, gitIn(t, bare, "ls-tree", "--name-only", initialBranch), "local.md")
 }
 
-// TestSyncMergesWhatTheRemoteGained is the reason the startup order is fixed:
-// a fast forward that landed after the watcher started would produce no event
-// and the index would stay stale for the life of the process.
 func TestSyncMergesWhatTheRemoteGained(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -232,9 +211,6 @@ func TestSyncMergesWhatTheRemoteGained(t *testing.T) {
 	assert.Empty(t, svc.SyncError())
 }
 
-// TestAFailedPushSurvivesASaveThatStagesNothing is the trap the two states
-// exist for: commitLocked succeeds when nothing is staged and clears degraded,
-// which would report a healthy history while the remote was still behind.
 func TestAFailedPushSurvivesASaveThatStagesNothing(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -248,8 +224,6 @@ func TestAFailedPushSurvivesASaveThatStagesNothing(t *testing.T) {
 	breakRemote(t, dir)
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
 	unpublishedAfterPush := svc.Unpublished()
-	// a save that changes nothing git can see: the commit succeeds with an
-	// empty index and clears degraded
 	require.NoError(t, svc.Record(t.Context(), Op{Message: "touch", Paths: []string{"second.md"}},
 		func() ([]string, error) { return nil, nil }))
 
@@ -260,9 +234,6 @@ func TestAFailedPushSurvivesASaveThatStagesNothing(t *testing.T) {
 	assert.Contains(t, svc.SyncError(), "push:")
 }
 
-// TestUnpublishedIsMeasuredNotRemembered covers the fresh process: a clone left
-// ahead of origin by the previous run would report itself published until
-// somebody saved something, if the flag were only set by a failed push.
 func TestUnpublishedIsMeasuredNotRemembered(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -285,9 +256,6 @@ func TestUnpublishedIsMeasuredNotRemembered(t *testing.T) {
 	assert.Contains(t, gitIn(t, bare, "ls-tree", "--name-only", initialBranch), "local.md")
 }
 
-// TestADivergedBranchIsLoudAndNeverPushed is the whole conflict policy: no
-// merge, no rebase, no resolution. The fetch succeeds, the ff-only merge fails
-// and no push is attempted, so only a measurement can report the divergence.
 func TestADivergedBranchIsLoudAndNeverPushed(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -312,10 +280,6 @@ func TestADivergedBranchIsLoudAndNeverPushed(t *testing.T) {
 	assert.Equal(t, before, headOf(t, bare), "nothing was pushed over the divergence")
 }
 
-// TestAnIgnoredButVisibleFileStillReachesTheRemote is what git add -f closes.
-// Ignore rules win over an exact pathspec by design, so widening versioned
-// alone would leave a file the store shows, the app serves and the editor
-// writes unpushable, silently.
 func TestAnIgnoredButVisibleFileStillReachesTheRemote(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -333,10 +297,6 @@ func TestAnIgnoredButVisibleFileStillReachesTheRemote(t *testing.T) {
 	assert.False(t, svc.Unpublished())
 }
 
-// TestPullOnlyNeverWritesToGit is the read-only remote: nothing in the code
-// implies it, so it is written down. A public repository configured read-only
-// would otherwise keep committing and pushing into a remote it has no
-// credentials for, and report itself unpublished for changes nobody made.
 func TestPullOnlyNeverWritesToGit(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -356,11 +316,6 @@ func TestPullOnlyNeverWritesToGit(t *testing.T) {
 	assert.NotContains(t, gitIn(t, bare, "ls-tree", "--name-only", initialBranch), "local.md")
 }
 
-// TestPullOnlyNeverReconciles is the other half of the same rule, and it is the
-// half a watcher reaches: a file that appears on disk is served and indexed and
-// never committed. A commit here has no push to carry it anywhere, so it would
-// sit in this copy alone, report the space unpublished for a change no reader
-// made, and turn the next upstream push into a divergence ff-only refuses.
 func TestPullOnlyNeverReconciles(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -420,9 +375,6 @@ func TestANilServiceAnswersThePublicationState(t *testing.T) {
 	assert.NoError(t, svc.ProbeWritable(t.Context()))
 }
 
-// TestUnsyncedListsWhatTheRemoteIsMissing is the per-file half of the state:
-// which notes the remote does not have, measured in the same breath as the
-// count so that an error can never be paired with another attempt's paths.
 func TestUnsyncedListsWhatTheRemoteIsMissing(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -480,9 +432,6 @@ func TestAPushTheRemoteWillNotAuthorizeIsRefused(t *testing.T) {
 	}
 }
 
-// TestUnsyncedNamesOnlyThisSide is what the three-dot form buys. A two-dot diff
-// on a diverged branch would also list every path the remote changed, and those
-// files would wear a badge although nobody here touched them.
 func TestUnsyncedNamesOnlyThisSide(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -503,9 +452,6 @@ func TestUnsyncedNamesOnlyThisSide(t *testing.T) {
 	assert.Contains(t, state.Error, "merge:")
 }
 
-// TestUnsyncedFiltersBeforeItCaps is the ordering bug the filter placement
-// exists for: hidden paths must not spend the cap and suppress the one visible
-// note that really did change.
 func TestUnsyncedFiltersBeforeItCaps(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -531,9 +477,6 @@ func TestUnsyncedFiltersBeforeItCaps(t *testing.T) {
 	assert.False(t, state.Unsynced.Many)
 }
 
-// TestUnsyncedDropsTheListAboveTheCap is the correct form and not a
-// compromise: past the cap the reader's question is "the whole corpus", and a
-// partial list would read as "these files and no others".
 func TestUnsyncedDropsTheListAboveTheCap(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -554,8 +497,6 @@ func TestUnsyncedDropsTheListAboveTheCap(t *testing.T) {
 	assert.True(t, state.Unpublished)
 }
 
-// TestACleanSpaceMeasuresNoPaths keeps the second command off the healthy
-// path: the diff runs only when the count says this copy is ahead.
 func TestACleanSpaceMeasuresNoPaths(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -569,8 +510,6 @@ func TestACleanSpaceMeasuresNoPaths(t *testing.T) {
 	assert.Equal(t, SyncState{}, svc.SyncState())
 }
 
-// TestSyncStateIsOneLoad is what the snapshot is for: three getters read one
-// pointer, so an error can never be paired with another attempt's paths.
 func TestSyncStateIsOneLoad(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -616,8 +555,6 @@ func TestRedactURL(t *testing.T) {
 	}
 }
 
-// TestGitErrorRedactsTheCredential is structural rather than a log filter,
-// because SyncError puts this text on a page, which lgr.Secret never touches.
 func TestGitErrorRedactsTheCredential(t *testing.T) {
 	// arrange
 	err := &gitError{
@@ -636,9 +573,6 @@ func TestGitErrorRedactsTheCredential(t *testing.T) {
 	assert.Contains(t, message, redacted)
 }
 
-// TestTheTokenReachesOnlyTheNetworkCommands is why env takes a flag: scrawl's
-// own environment is inherited by every git call, so a token handed to all of
-// them would ride along on git log and git status too.
 func TestTheTokenReachesOnlyTheNetworkCommands(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -655,8 +589,6 @@ func TestTheTokenReachesOnlyTheNetworkCommands(t *testing.T) {
 	assert.Contains(t, network, "GIT_CONFIG_COUNT=1")
 }
 
-// pushFromElsewhere is a second writer: a clone of its own that commits and
-// pushes, which is what makes the branch move under the service.
 func pushFromElsewhere(t *testing.T, bare, name, content string) {
 	t.Helper()
 	other := filepath.Join(t.TempDir(), "other")
@@ -667,8 +599,6 @@ func pushFromElsewhere(t *testing.T, bare, name, content string) {
 	gitIn(t, other, "push", "--quiet", remoteName, initialBranch)
 }
 
-// breakRemote points origin at nothing, which is the offline remote every test
-// about a failed conversation needs and no network can provide.
 func breakRemote(t *testing.T, dir string) {
 	t.Helper()
 	gitIn(t, dir, "remote", "set-url", remoteName, filepath.Join(t.TempDir(), "gone.git"))
@@ -679,8 +609,6 @@ func fixRemote(t *testing.T, dir, bare string) {
 	gitIn(t, dir, "remote", "set-url", remoteName, bare)
 }
 
-// originAnswering is a git host that answers every request with one status,
-// which is all a push needs to be turned away at the door.
 func originAnswering(status int) func(t *testing.T) string {
 	return func(t *testing.T) string {
 		t.Helper()

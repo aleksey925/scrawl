@@ -1,27 +1,26 @@
 import { ActionIcon, Menu } from '@mantine/core';
-import {
-  IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconPlus, IconTrash,
-} from '@tabler/icons-react';
 import { useEffect, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 
-import { directoryUrl, documentUrl, editUrl } from '../paths';
+import { PopupMenu } from '../components/PopupMenu';
+import {
+  IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconPlus, IconTrash,
+} from '../icons';
+import { directoryUrl, documentUrl } from '../paths';
+import { layout } from '../theme';
 
 import { rowMenuIconSize, type RowMenuProps } from './extensions';
 import { useFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
 import { parentOf } from './naming';
-import treeClasses from './Tree.module.css';
 
 export function RowMenu({
-  path, isDir, name, touch, opened, onOpenedChange: setOpened,
+  path, isDir, name, touch, editUrl, opened, onOpenedChange: setOpened, target,
 }: RowMenuProps): JSX.Element {
   const navigate = useNavigate();
   const { canWrite } = useNav();
   const actions = useFileActions();
 
-  // the dropdown is anchored to a row inside a panel that scrolls on its own,
-  // so anything that moves the trigger has to take the menu with it
   useEffect(() => {
     if (!opened) {
       return;
@@ -39,21 +38,30 @@ export function RowMenu({
   const open = (): void => void navigate(isDir ? directoryUrl(path) : documentUrl(path));
 
   return (
-    <Menu opened={opened} onChange={setOpened} position="bottom-end" withinPortal shadow="md" width={200}>
+    <PopupMenu
+      opened={opened}
+      onChange={setOpened}
+      position="bottom-end"
+      offset={target === undefined ? undefined : 8}
+      withinPortal
+      shadow="md"
+      width={layout.menuWidthNarrow}
+    >
       <Menu.Target>
-        <ActionIcon
-          data-testid="tree-row-menu"
-          data-path={path}
-          data-opened={opened ? 'true' : 'false'}
-          className={treeClasses.menu}
-          variant="subtle"
-          color="gray"
-          size={touch ? 'lg' : 'sm'}
-          style={{ flex: 'none' }}
-          aria-label={`Actions for ${name}`}
-        >
-          <IconDots size={rowMenuIconSize} />
-        </ActionIcon>
+        {target ?? (
+          <ActionIcon
+            data-testid="tree-row-menu"
+            data-path={path}
+            data-opened={opened ? 'true' : 'false'}
+            variant="subtle"
+            color="gray"
+            size={touch ? 'lg' : 'sm'}
+            style={{ flex: 'none' }}
+            aria-label={`Actions for ${name}`}
+          >
+            <IconDots size={rowMenuIconSize} />
+          </ActionIcon>
+        )}
       </Menu.Target>
 
       <Menu.Dropdown data-testid="tree-row-menu-dropdown">
@@ -64,11 +72,11 @@ export function RowMenu({
         >
           Open
         </Menu.Item>
-        {!isDir && canWrite && (
+        {editUrl !== undefined && canWrite && (
           <Menu.Item
             data-testid="tree-row-menu-edit"
             leftSection={<IconEdit size={rowMenuIconSize} />}
-            onClick={() => void navigate(editUrl(path))}
+            onClick={() => void navigate(editUrl)}
           >
             Edit
           </Menu.Item>
@@ -95,12 +103,11 @@ export function RowMenu({
         )}
 
         <Menu.Divider />
-        {/* the root holds everything: it is not a folder anyone may rename or drop */}
         {canWrite && path !== '' && (
           <Menu.Item
             data-testid="tree-row-menu-rename"
             leftSection={<IconEdit size={rowMenuIconSize} />}
-            onClick={() => actions.rename(path, isDir)}
+            onClick={() => actions.rename(path)}
           >
             Rename
           </Menu.Item>
@@ -127,6 +134,6 @@ export function RowMenu({
           </>
         )}
       </Menu.Dropdown>
-    </Menu>
+    </PopupMenu>
   );
 }

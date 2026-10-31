@@ -27,8 +27,6 @@ function isDraft(value: unknown): value is Draft {
   return typeof candidate.content === 'string' && typeof candidate.rev === 'string';
 }
 
-// a draft nobody came back to finish is not worth keeping, and one whose page
-// has since moved on would otherwise sit in storage forever
 function prune(): void {
   const store = localStore();
   for (const key of keysWithPrefix(store, draftPrefix)) {
@@ -91,8 +89,6 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   }, [content, dirty, flush]);
 
   useEffect(() => {
-    // beforeunload does not fire when a phone backgrounds the tab and the
-    // system later reclaims it, pagehide does
     window.addEventListener('pagehide', flush);
     window.addEventListener('beforeunload', flush);
     return () => {

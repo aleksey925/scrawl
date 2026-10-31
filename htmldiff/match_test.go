@@ -18,7 +18,6 @@ func TestOpcodes(t *testing.T) {
 		{name: "insert only", b: "ab", want: []opcode{{kind: opInsert, i1: 0, i2: 0, j1: 0, j2: 2}}},
 		{name: "delete only", a: "ab", want: []opcode{{kind: opDelete, i1: 0, i2: 2, j1: 0, j2: 0}}},
 		{
-			// the example of the difflib documentation, opcode for opcode
 			name: "difflib example",
 			a:    "qabxcd",
 			b:    "abycdf",

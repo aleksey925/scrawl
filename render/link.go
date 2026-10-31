@@ -10,27 +10,23 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
-// docDirKey carries the directory of the document being rendered, so one
-// goldmark pipeline can serve every request concurrently.
 var docDirKey = parser.NewContextKey()
 
 const brokenClass = "broken"
 
-// linkTransformer maps relative destinations onto the app routes and marks
-// external and broken links.
 type linkTransformer struct {
 	pagePrefix string
 	rawPrefix  string
 	relative   bool
 	pageExt    string
 	folderPage string
+	indexPage  string
 	exists     func(contentPath string) bool
 }
 
-// target is the outcome of resolving one destination.
 type target struct {
 	dest     string
-	content  string // content path to check for existence, empty when n/a
+	content  string
 	external bool
 	broken   bool
 	rewrote  bool
@@ -44,11 +40,11 @@ func (t *linkTransformer) Transform(doc *ast.Document, _ text.Reader, pc parser.
 		}
 		switch node := n.(type) {
 		case *ast.Link:
-			tg := t.resolve(string(node.Destination), dir)
+			tg := t.resolveLink(string(node.Destination), dir)
 			node.Destination = []byte(tg.dest)
 			t.decorate(node, tg, false)
 		case *ast.Image:
-			tg := t.resolve(string(node.Destination), dir)
+			tg := t.resolveEmbed(string(node.Destination), dir)
 			node.Destination = []byte(tg.dest)
 			t.decorate(node, tg, true)
 		case *ast.AutoLink:
@@ -80,9 +76,15 @@ func setExternal(n ast.Node) {
 	n.SetAttributeString("rel", []byte("noopener noreferrer"))
 }
 
-// resolve maps one destination, relative to dir. It is idempotent: an
-// absolute URL, an app route and a bare fragment all pass through unchanged.
-func (t *linkTransformer) resolve(dest, dir string) target {
+func (t *linkTransformer) resolveEmbed(dest, dir string) target {
+	return t.route(dest, dir, true)
+}
+
+func (t *linkTransformer) resolveLink(dest, dir string) target {
+	return t.route(dest, dir, false)
+}
+
+func (t *linkTransformer) route(dest, dir string, embed bool) target {
 	u, passthrough, ok := parseLocal(dest)
 	if !ok {
 		return passthrough
@@ -93,21 +95,18 @@ func (t *linkTransformer) resolve(dest, dir string) target {
 
 	clean := path.Join(dir, u.Path)
 	if clean == ".." || strings.HasPrefix(clean, "../") {
-		// escapes the notes root, so there is nothing to point at
 		return target{dest: "#", broken: true}
 	}
 	if clean == "." {
 		clean = ""
 	}
 
-	// escape here rather than leaving it to goldmark: the same destination is
-	// reused by the raw HTML pass, which has no escaping of its own
 	escaped := (&url.URL{Path: clean}).EscapedPath()
 	route := t.rawPrefix + escaped
 	switch {
 	case strings.HasSuffix(u.Path, "/"):
 		route = t.pagePrefix + escaped + "/"
-	case isMarkdown(u.Path):
+	case isMarkdown(u.Path) || !embed:
 		route = t.pagePrefix + escaped
 	}
 	if u.RawQuery != "" {
@@ -119,10 +118,6 @@ func (t *linkTransformer) resolve(dest, dir string) target {
 	return target{dest: route, content: clean, rewrote: true}
 }
 
-// parseLocal splits off every destination that must survive untouched: a bare
-// fragment, an absolute URL, a non-http scheme and an app route that has
-// already been rewritten. ok is false when the caller should use the returned
-// target as is.
 func parseLocal(dest string) (u *url.URL, passthrough target, ok bool) {
 	if dest == "" || strings.HasPrefix(dest, "#") {
 		return nil, target{dest: dest}, false
@@ -135,8 +130,6 @@ func parseLocal(dest string) (u *url.URL, passthrough target, ok bool) {
 	case u.Scheme == "http" || u.Scheme == "https":
 		return nil, target{dest: dest, external: true}, false
 	case u.Scheme != "" || strings.HasPrefix(dest, "//"):
-		// mailto:, tel: and anything else stay as written; the sanitizer has
-		// the final say on which schemes survive
 		return nil, target{dest: dest}, false
 	case strings.HasPrefix(u.Path, "/"):
 		return nil, target{dest: dest}, false
@@ -144,22 +137,15 @@ func parseLocal(dest string) (u *url.URL, passthrough target, ok bool) {
 	return u, target{}, true
 }
 
-// isMarkdown reports whether a destination points at a document. Only ".md"
-// counts, because that is the one extension the store, the tree, the search
-// index and the editor treat as a document: rewriting anything else to /doc/
-// would send the reader to a page that cannot exist.
 func isMarkdown(p string) bool { return strings.EqualFold(path.Ext(p), ".md") }
 
-// keepRelative leaves a relative destination as written, swapping only the
-// extension of a document when one was asked for. The root is not checked:
-// outside the app there is no notes root for a link to escape.
 func (t *linkTransformer) keepRelative(u *url.URL, dest string) target {
 	swapped := *u
 	switch {
 	case t.folderPage != "" && isFolder(u.Path):
 		swapped.Path = strings.TrimSuffix(u.Path, "/") + "/" + t.folderPage
-	case t.folderPage != "" && strings.EqualFold(path.Base(u.Path), folderIndex):
-		swapped.Path = path.Join(path.Dir(u.Path), t.folderPage)
+	case t.indexPage != "" && strings.EqualFold(path.Base(u.Path), folderIndex):
+		swapped.Path = path.Join(path.Dir(u.Path), t.indexPage)
 	case t.pageExt != "" && isMarkdown(u.Path):
 		swapped.Path = strings.TrimSuffix(u.Path, path.Ext(u.Path)) + t.pageExt
 	default:
@@ -168,11 +154,8 @@ func (t *linkTransformer) keepRelative(u *url.URL, dest string) target {
 	return target{dest: swapped.String(), rewrote: true}
 }
 
-// folderIndex is the note a folder is shown as instead of its listing.
 const folderIndex = "index.md"
 
-// isFolder is a relative destination that names a folder: a trailing slash, or
-// the folder itself or its parent with none.
 func isFolder(p string) bool {
 	return strings.HasSuffix(p, "/") || p == "." || p == ".." || strings.HasSuffix(p, "/..") || strings.HasSuffix(p, "/.")
 }

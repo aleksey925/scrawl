@@ -7,44 +7,23 @@ import { useLocation } from 'react-router';
 import type { MeResponse, NavNode } from '../api/types';
 import { answerKeys, forgetResponses, useApi } from '../api/useApi';
 import { usePlatform } from '../platform';
+import { localStore, readJson, writeJson } from '../storage';
 
 import { contentPathOf } from './naming';
 import { syncMessage, type SyncMessage } from './syncMessage';
 import type { MeState } from './useMe';
 
-// one bucket per space: the set is read during the very first render, long
-// before /api/me has answered, so the key comes from the platform's scope and
-// not from the space name the server reports.
-//
-// v2 because the space's own row joined the tree: a set written before it
-// existed holds no entry for the root and would open on a collapsed space.
 function openKey(scope: string): string {
   return `scrawl.tree.open:v2:${scope}`;
 }
 
-// the space row starts open, because a tree whose only row is the space is
-// not a tree. Collapsing it is remembered like any other folder.
-const rootPath = '';
-
 function readOpen(storageKey: string): ReadonlySet<string> {
-  try {
-    const raw = localStorage.getItem(storageKey);
-    if (raw === null) {
-      return new Set([rootPath]);
-    }
-    const parsed: unknown = JSON.parse(raw);
-    return new Set(Array.isArray(parsed) ? parsed.filter((path): path is string => typeof path === 'string') : []);
-  } catch {
-    return new Set([rootPath]);
-  }
+  const parsed = readJson<unknown>(localStore(), storageKey);
+  return new Set(Array.isArray(parsed) ? parsed.filter((path): path is string => typeof path === 'string') : []);
 }
 
 function writeOpen(storageKey: string, open: ReadonlySet<string>): void {
-  try {
-    localStorage.setItem(storageKey, JSON.stringify([...open]));
-  } catch {
-    // private mode, the tree just will not remember which folders were open
-  }
+  writeJson(localStore(), storageKey, [...open]);
 }
 
 export interface NavState {
@@ -53,20 +32,12 @@ export interface NavState {
   loading: boolean;
   me: MeResponse | undefined;
   canWrite: boolean;
-  // currentPath is the route's content path, which is what the tree and the
-  // breadcrumbs want. currentDoc is the file on screen, which is not the same
-  // thing: a directory holding an index.md is served under the directory's own
-  // address, and the root is that case with an empty path.
   currentPath: string;
-  currentDoc: string;
-  // the space's own state, resolved once so the banner and the sync control
-  // render the same words
   sync: SyncMessage | undefined;
   isUnsynced: (path: string) => boolean;
-  // two refreshes, because they cost different things: the tree is a full walk
-  // of the store and drops every cached answer with it, me is one small read
   refreshNav: () => void;
   refreshMe: () => void;
+  changes: number;
   isOpen: (path: string) => boolean;
   toggleFolder: (path: string) => void;
   openFolder: (path: string) => void;
@@ -84,17 +55,20 @@ export function useNav(): NavState {
   return state;
 }
 
+export function spaceLabel(me: MeResponse | undefined): string {
+  return me?.space.label ?? me?.site_title ?? 'Notes';
+}
+
 function activeFolders(nodes: readonly NavNode[], into: Set<string>): void {
-  for (const node of nodes) {
-    if (node.is_dir && node.active) {
-      into.add(node.path);
+  for (const entry of nodes) {
+    if (entry.is_dir && entry.active) {
+      into.add(entry.path);
     }
-    activeFolders(node.children, into);
+    activeFolders(entry.children, into);
   }
 }
 
 export interface NavProviderProps {
-  // the space's state, kept fresh by whoever knows where it comes from
   status: MeState;
   children: ReactNode;
 }
@@ -111,9 +85,6 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
 
   const [open, setOpen] = useState<ReadonlySet<string>>(() => readOpen(storageKey));
   const [query, setQuery] = useState('');
-  // the file a document registered, empty while none is mounted
-  const [mountedDoc, setMountedDoc] = useState('');
-
   const tree = useMemo(() => nav.data?.tree ?? [], [nav.data]);
 
   useEffect(() => {
@@ -153,17 +124,12 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
 
   const isOpen = useCallback((path: string) => open.has(path), [open]);
   const refreshNav = useCallback(() => {
-    // the tree moved, so a directory listing or a rendered note may have too,
-    // and a screen painting from a cached one would be showing the old shape
     forgetResponses();
     setToken((seen) => seen + 1);
   }, []);
 
   const sync = useMemo(() => syncMessage(me), [me]);
 
-  // isUnsynced answers false for every path once the set was dropped above the
-  // cap, so the degraded form draws no badges by construction rather than by
-  // every surface remembering to check
   const unsynced = useMemo(() => {
     const paths = me?.space.unsynced;
     if (paths === undefined || paths.many) {
@@ -179,17 +145,13 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       error: nav.error,
       loading: nav.loading,
       me,
-      // a write the server would refuse is never offered: read-only mode and,
-      // where auth is on, a reader who has not signed in
       canWrite: me !== undefined && !me.read_only && (!me.auth_on || me.user !== ''),
       currentPath,
-      // no document mounted means /edit/ or /history/, whose routes do name
-      // the file
-      currentDoc: mountedDoc === '' ? currentPath : mountedDoc,
       sync,
       isUnsynced,
       refreshNav,
       refreshMe,
+      changes: token,
       isOpen,
       toggleFolder,
       openFolder,
@@ -197,38 +159,10 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       setQuery,
     }),
     [
-      tree, nav.error, nav.loading, me, currentPath, mountedDoc, sync, isUnsynced,
-      refreshNav, refreshMe, isOpen, toggleFolder, openFolder, query,
+      tree, nav.error, nav.loading, me, currentPath, sync, isUnsynced,
+      refreshNav, refreshMe, token, isOpen, toggleFolder, openFolder, query,
     ],
   );
 
-  return (
-    <NavContext.Provider value={value}>
-      <MountedDocContext.Provider value={setMountedDoc}>{children}</MountedDocContext.Provider>
-    </NavContext.Provider>
-  );
-}
-
-// MountedDocContext is how a document tells the shell which file it is. It is
-// separate from NavContext so that registering does not re-render everything
-// that reads the navigation state.
-const MountedDocContext = createContext<((path: string) => void) | undefined>(undefined);
-
-// useCurrentDoc registers the file being rendered. DocumentBody is the only
-// caller, and that covers every case: it is the one component that renders a
-// document, from the document route and from the directory route when the
-// folder has an index.
-//
-// It matters because the route path is not the file whenever a directory is
-// served as its index.md - the root above all, which is the page most readers
-// are looking at. A per-file signal keyed off the route would stay silent about
-// the very note on screen.
-export function useCurrentDoc(docPath: string): void {
-  const setMountedDoc = useContext(MountedDocContext);
-  useEffect(() => {
-    setMountedDoc?.(docPath);
-    // React runs the cleanup of the old document before the effect of the new
-    // one, so the value never points at the note the reader just left
-    return () => setMountedDoc?.('');
-  }, [docPath, setMountedDoc]);
+  return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
 }

@@ -31,9 +31,6 @@ func TestSanitizeNeutralisesMaliciousDocument(t *testing.T) {
 	}
 }
 
-// TestSanitizeNeutralisesMaliciousGFMDocument covers the markup the GFM
-// extensions add: every one of them carries author-written content into the
-// page, and none of it may become an element.
 func TestSanitizeNeutralisesMaliciousGFMDocument(t *testing.T) {
 	// arrange
 	src, err := os.ReadFile(filepath.Join("testdata", "md", "malicious-gfm.md"))
@@ -50,10 +47,6 @@ func TestSanitizeNeutralisesMaliciousGFMDocument(t *testing.T) {
 	assert.Equal(t, []string{"class", "data-source-end", "data-source-start", "href", "id"}, attrs)
 }
 
-// collectTags returns the sorted, deduplicated element and attribute names of a
-// fragment. Asserting on the whole set is the only way to see that author
-// content stayed content: a substring check cannot tell "<script" inside a text
-// node apart from a real element.
 func collectTags(t *testing.T, fragment string) (elements, attrs []string) {
 	t.Helper()
 	seenElements, seenAttrs := map[string]struct{}{}, map[string]struct{}{}
@@ -85,6 +78,7 @@ func TestSanitizeEscapesRawContentInsteadOfDroppingIt(t *testing.T) {
 		{"inline math", "$</span><b>x</b>$\n", `<span class="math math-inline">&lt;/span&gt;&lt;b&gt;x&lt;/b&gt;</span>`},
 		{"display math", "$$\n</div><b>x</b>\n$$\n", `<div class="math math-display">&lt;/div&gt;&lt;b&gt;x&lt;/b&gt;` + "\n</div>"},
 		{"mermaid", "```mermaid\n</pre><b>x</b>\n```\n", `<pre class="mermaid">&lt;/pre&gt;&lt;b&gt;x&lt;/b&gt;` + "\n</pre>"},
+		{"plantuml", "```plantuml\n</pre><script>x</script>\n```\n", `<pre class="plantuml">&lt;/pre&gt;&lt;script&gt;x&lt;/script&gt;` + "\n</pre>"},
 	}
 	r := New(Options{})
 	for _, tt := range tests {
@@ -140,6 +134,7 @@ func TestSanitizeKeeps(t *testing.T) {
 		{"inline math", "$x$\n", `<span class="math math-inline">x</span>`},
 		{"display math", "$$\nx\n$$\n", `<div class="math math-display">`},
 		{"mermaid", "```mermaid\nx\n```\n", `<pre class="mermaid">`},
+		{"plantuml", "```plantuml\nx\n```\n", `<pre class="plantuml">`},
 		{"theme image", "<picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"d.png\"><img src=\"l.png\"></picture>\n",
 			`<source media="(prefers-color-scheme: dark)" srcset="/raw/docs/d.png">`},
 	}

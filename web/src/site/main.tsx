@@ -1,15 +1,15 @@
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
-// after mantine's own sheet, whose defaults it replaces at equal specificity
 import 'virtual:theme-stylesheet.css';
+import '../global.css';
 import './site.css';
 
 import { MantineProvider } from '@mantine/core';
-import { Notifications } from '@mantine/notifications';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Route, Routes } from 'react-router';
 
+import { Toasts } from '../components/Toasts';
 import { mountNode } from '../mount';
 import { Component as DocumentPage } from '../pages/DocumentPage';
 import { Component as HomePage } from '../pages/HomePage';
@@ -17,10 +17,13 @@ import { Component as NotFoundPage } from '../pages/NotFoundPage';
 import { PlatformProvider } from '../platform';
 import { ReaderExtensionsProvider, type ReaderExtensions } from '../shell/extensions';
 import { NavProvider } from '../shell/NavContext';
-import { ReaderLayout } from '../shell/ReaderLayout';
+import { applyStoredPageWidth, keepPageWidthIn, sitePersistence } from '../shell/pageWidth';
+import { ReaderLayout, type ReaderChrome } from '../shell/ReaderLayout';
+import { SiteMenu } from '../shell/SiteMenu';
 import { theme } from '../theme';
 import { keepThemeIn, themeColorSchemeManager } from '../themeChoice';
 import { printInLight } from '../print';
+import { enablePressFeedback } from '../pressFeedback';
 import { pagePersistence } from '../themePersistence';
 
 import { readPage } from './data';
@@ -32,7 +35,10 @@ import { SiteRouter } from './SiteRouter';
 import { siteStatus, sitePlatform } from './sitePlatform';
 
 keepThemeIn(pagePersistence());
+keepPageWidthIn(sitePersistence());
+applyStoredPageWidth();
 printInLight();
+enablePressFeedback();
 
 const page = readPage();
 const site = window.scrawlSite ?? { title: 'Notes', tree: [] };
@@ -42,9 +48,8 @@ store.add({ page, title: document.title });
 const platform = sitePlatform(root, store, site);
 const status = siteStatus(site.title);
 const extensions: ReaderExtensions = { DocumentExtras: HistoryPlacement };
+const chrome: ReaderChrome = { sidebarFoot: <SiteMenu />, phoneMenu: <SiteMenu dots /> };
 
-// the copy kept for a reader without javascript goes before the app draws the
-// same note: its headings carry the same ids
 document.querySelector('[data-scrawl-static]')?.remove();
 
 createRoot(mountNode()).render(
@@ -55,12 +60,12 @@ createRoot(mountNode()).render(
       colorSchemeManager={themeColorSchemeManager()}
       defaultColorScheme="auto"
     >
-      <Notifications position="top-right" />
+      <Toasts />
       <PlatformProvider value={platform}>
         <SiteRouter route={page.route} root={root} store={store}>
           <NavProvider status={status}>
             <ReaderExtensionsProvider value={extensions}>
-              <ReaderLayout overlays={<PageRestore />}>
+              <ReaderLayout chrome={chrome} overlays={<PageRestore />}>
                 <SiteBoundary>
                   <Routes>
                     <Route index element={<HomePage />} />

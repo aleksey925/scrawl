@@ -12,18 +12,20 @@ small but covers every markdown feature the renderer has to handle.
 - [Deeply nested page](notes/deep/nested.md)
 - [Missing page](does-not-exist.md) - deliberately broken link
 
-## Витрина
+## Showcase
 
-- [Кэширование в HTTP](showcase/http-caching.md) - все элементы разметки на
-  одной странице, чтобы видеть, как правки стилей меняют читаемость
+- [HTTP caching](showcase/http-caching.md) - every markup element on one
+  page, to see how a style change affects reading
+- [PlantUML](showcase/plantuml/index.md) - diagrams of many types and
+  sizes, the standard library included
 
-## Базы данных
+## Databases
 
-Папка без своего индекса, четыре документа на русском языке:
+A folder with no index of its own and four notes:
 
-- [Хранение данных](db/storage.md) - длинная страница с оглавлением
-- [Очистка](db/vacuum.md)
-- [Репликация](db/replication.md)
-- [Блокировки](db/locks.md)
+- [Data storage](db/storage.md) - a long page with an outline
+- [Vacuum](db/vacuum.md)
+- [Replication](db/replication.md)
+- [Locks](db/locks.md)
 
 ![Logo](images/logo.png)

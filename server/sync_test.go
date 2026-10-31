@@ -32,9 +32,6 @@ func resetBody(fake *fakeHistory, pushBackup bool) *strings.Reader {
 		fake.divergence.Head, fake.divergence.Remote, pushBackup))
 }
 
-// TestWhoMayReset is the one rule both routes and /api/me share. It is not the
-// write guard: a read-only mirror needs the reset most, so the question is who
-// is calling - and with auth off nobody is, which leaves the write guard.
 func TestWhoMayReset(t *testing.T) {
 	tests := []struct {
 		name    string

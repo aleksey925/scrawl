@@ -2,9 +2,6 @@ import { createServer, type Plugin } from 'vite';
 
 const virtualId = 'virtual:theme-stylesheet.css';
 
-// render evaluates the theme with mantine's own resolver, which is what the app
-// used to do in the browser; doing it here gives the app, the sign-in page and
-// a page of the command line the same custom properties from one place
 async function render(): Promise<string> {
   const server = await createServer({
     configFile: false,
@@ -21,9 +18,6 @@ async function render(): Promise<string> {
   }
 }
 
-// themeStylesheet answers `import 'virtual:theme-stylesheet.css'`. With emit it
-// also writes the sheet beside the bundle under that fixed name, for the
-// sign-in page, which loads no bundle.
 export function themeStylesheet(emit?: string): Plugin {
   let css: Promise<string> | undefined;
   const source = (): Promise<string> => (css ??= render());

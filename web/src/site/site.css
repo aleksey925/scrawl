@@ -1,8 +1,6 @@
-/* the page as it reads with no javascript: the note, the path to it and what
-   the folder holds, in the column the app keeps it in */
 [data-scrawl-static] {
   box-sizing: border-box;
-  max-width: calc(var(--scrawl-content-measure) + 2 * 32px);
+  max-width: calc(var(--scrawl-note-width-normal) + 2 * 32px);
   margin: 0 auto;
   padding: 24px 32px;
 }
@@ -30,7 +28,7 @@
 
 .scrawl-static-crumbs li + li::before {
   content: ' / ';
-  color: var(--gh-fg-muted);
+  color: var(--scrawl-text-secondary);
 }
 
 .scrawl-static-list li {

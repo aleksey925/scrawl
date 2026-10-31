@@ -9,15 +9,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-// rewriteRawHTML patches href and src on hand-written HTML, which the AST
-// transformer never sees because goldmark keeps a raw HTML block as one
-// opaque blob. It works on tokens rather than on a parsed tree: re-serializing
-// a tree would silently restructure invalid-but-harmless markup such as an
-// <h3> inside a <p>.
-//
-// resolve is idempotent, so the links the AST pass already rewrote survive a
-// second visit untouched.
-func rewriteRawHTML(fragment []byte, resolve func(dest string) target) []byte {
+func rewriteRawHTML(fragment []byte, resolvers linkResolvers) []byte {
 	var out bytes.Buffer
 	out.Grow(len(fragment))
 	z := html.NewTokenizer(bytes.NewReader(fragment))
@@ -29,8 +21,6 @@ func rewriteRawHTML(fragment []byte, resolve func(dest string) target) []byte {
 			}
 			return out.Bytes()
 		}
-		// the tag name is read straight from the raw bytes: calling
-		// Tokenizer.TagName first would leave Token with nothing to parse
 		raw := z.Raw()
 		isTag := tt == html.StartTagToken || tt == html.SelfClosingTagToken
 		if !isTag || !isLinkTag(rawTagName(raw)) {
@@ -38,7 +28,7 @@ func rewriteRawHTML(fragment []byte, resolve func(dest string) target) []byte {
 			continue
 		}
 		tok := z.Token()
-		patchTag(&tok, resolve)
+		patchTag(&tok, resolvers)
 		out.WriteString(tok.String())
 	}
 }
@@ -49,7 +39,6 @@ func isLinkTag(name []byte) bool {
 		bytes.EqualFold(name, []byte("source"))
 }
 
-// rawTagName reads the element name out of a raw "<name ...>" token.
 func rawTagName(raw []byte) []byte {
 	if len(raw) < 2 || raw[0] != '<' {
 		return nil
@@ -61,14 +50,19 @@ func rawTagName(raw []byte) []byte {
 	return raw[1 : 1+end]
 }
 
-func patchTag(tok *html.Token, resolve func(dest string) target) {
+type linkResolvers struct {
+	link, embed func(dest string) target
+}
+
+func patchTag(tok *html.Token, resolvers linkResolvers) {
 	key := "href"
+	resolve := resolvers.link
 	isImage := tok.Data == "img"
 	switch {
 	case isImage:
-		key = "src"
+		key, resolve = "src", resolvers.embed
 	case tok.Data == "source":
-		key = "srcset"
+		key, resolve = "srcset", resolvers.embed
 	}
 	local := false
 	for i, attr := range tok.Attr {
@@ -89,8 +83,6 @@ func patchTag(tok *html.Token, resolve func(dest string) target) {
 	}
 }
 
-// rewriteSrcset maps every candidate of a <source srcset> onto the app routes.
-// The descriptor after the URL, "2x" or "640w", is carried through untouched.
 func rewriteSrcset(value string, resolve func(dest string) target) string {
 	out := make([]string, 0, 4)
 	for candidate := range strings.SplitSeq(value, ",") {

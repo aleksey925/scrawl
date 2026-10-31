@@ -1,37 +1,50 @@
 import type { MermaidConfig } from 'mermaid';
 
+import type { Platform } from '../platform';
+import { isPlainClick } from './links';
 import { track } from './pending';
 import { preserveScroll } from './scroll';
+import { openDiagramViewer } from './viewer';
 
 export type Mermaid = typeof import('mermaid').default;
 
+export type PlantUML = typeof import('./plantuml').plantUML;
+
+type DiagramLoaders = Pick<Platform, 'loadMermaid' | 'loadPlantUML'>;
+
+type Draw = (id: string, source: string) => Promise<SVGElement>;
+
+interface Kind {
+  name: string;
+  selector: string;
+  prepare: (loaders: DiagramLoaders, dark: boolean) => Promise<Draw>;
+}
+
 interface Diagram {
+  kind: Kind;
   box: HTMLElement;
   view: HTMLElement;
   source: string;
 }
 
-interface Drawn {
-  item: Diagram;
-  svg?: string;
-  error?: string;
-}
+type Drawn = { item: Diagram; svg: SVGElement } | { item: Diagram; error: string };
 
 const errorLimit = 200;
 
 let pass = 0;
 
-// wrap puts the fence in a box that can hold either the source or the svg, so
-// switching between them never loses what the author wrote
-function wrap(pre: HTMLElement): Diagram {
+const frameClass = 'md-diagram-frame';
+
+function wrap(pre: HTMLElement, kind: Kind): Diagram {
   const parent = pre.parentElement;
   const existing = parent?.querySelector<HTMLElement>(':scope > .md-diagram-view');
   if (parent !== null && parent !== undefined && parent.classList.contains('md-diagram') && existing != null) {
-    return { box: parent, view: existing, source: pre.textContent ?? '' };
+    return { kind, box: parent, view: existing, source: pre.textContent ?? '' };
   }
 
   const box = document.createElement('div');
   box.className = 'md-diagram';
+  box.dataset.state = 'drawing';
   pre.parentNode?.insertBefore(box, pre);
   box.append(pre);
 
@@ -39,7 +52,7 @@ function wrap(pre: HTMLElement): Diagram {
   view.className = 'md-diagram-view';
   box.append(view);
 
-  return { box, view, source: pre.textContent ?? '' };
+  return { kind, box, view, source: pre.textContent ?? '' };
 }
 
 function clearError(item: Diagram): void {
@@ -60,8 +73,6 @@ function firstLine(error: unknown): string {
   return (text.split('\n')[0] ?? '').slice(0, errorLimit);
 }
 
-// mermaid 11.15 had no rule for the label inside an actor box, so the text took
-// its fill from the box behind it. Scoped to the same id mermaid scopes its own.
 function repairActors(svg: SVGElement, text: string): void {
   if (svg.id === '') {
     return;
@@ -71,42 +82,62 @@ function repairActors(svg: SVGElement, text: string): void {
   svg.append(style);
 }
 
-function place(result: Drawn, text: string): void {
-  const { item, svg, error } = result;
-  if (svg === undefined) {
-    fail(item, error ?? 'the diagram could not be rendered');
-    return;
+function parseMermaidSvg(svg: string): SVGElement {
+  const parsed = new DOMParser().parseFromString(svg, 'image/svg+xml');
+  if (parsed.querySelector('parsererror') !== null) {
+    throw new Error('mermaid returned invalid svg');
   }
-  try {
-    const parsed = new DOMParser().parseFromString(svg, 'image/svg+xml');
-    if (parsed.querySelector('parsererror') !== null) {
-      throw new Error('mermaid returned invalid svg');
-    }
-    const element = document.importNode(parsed.documentElement, true) as unknown as SVGElement;
-    repairActors(element, text);
-    item.view.replaceChildren(element);
-    item.box.dataset.state = 'done';
-    clearError(item);
-  } catch (error) {
-    fail(item, firstLine(error));
-  }
+  return document.importNode(parsed.documentElement, true) as unknown as SVGElement;
 }
 
-// config paints mermaid with the app's own tokens, so a diagram belongs to the
-// page in either theme rather than bringing a palette of its own
+function giveRealWidth(svg: SVGElement): void {
+  const width = Number.parseFloat(svg.style.maxWidth);
+  if (svg.getAttribute('width')?.endsWith('%') !== true || !(width > 0)) {
+    return;
+  }
+  svg.setAttribute('width', String(width));
+  svg.style.removeProperty('max-width');
+}
+
+function openButton(): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'md-diagram-open';
+  button.dataset.testid = 'diagram-open';
+  button.setAttribute('aria-label', 'Open the diagram');
+  return button;
+}
+
+function place(result: Drawn): void {
+  const { item } = result;
+  if ('error' in result) {
+    fail(item, result.error);
+    return;
+  }
+  const { svg } = result;
+  const frame = document.createElement('div');
+  frame.className = frameClass;
+  frame.dataset.testid = 'diagram-frame';
+  frame.append(svg, openButton());
+  item.view.replaceChildren(frame);
+  item.box.dataset.state = 'done';
+  clearError(item);
+}
+
 function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
   const style = getComputedStyle(document.documentElement);
   const token = (name: string): string => style.getPropertyValue(name).trim();
 
   const bg = token('--scrawl-bg');
-  const inset = token('--scrawl-bg-inset');
-  const subtle = token('--scrawl-bg-subtle');
+  const inset = token('--scrawl-sidebar');
+  const subtle = token('--scrawl-bg-gray');
+  const note = token('--scrawl-bg-yellow');
   const text = token('--scrawl-text');
   const muted = token('--scrawl-text-secondary');
   const faint = token('--scrawl-text-tertiary');
   const border = token('--scrawl-border');
-  const strong = token('--scrawl-border-strong');
-  const warning = token('--scrawl-warning');
+  const strong = token('--scrawl-icon-tertiary');
+  const warning = token('--scrawl-color-orange');
 
   return {
     text,
@@ -115,8 +146,6 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
       securityLevel: 'strict',
       theme: 'base',
       fontFamily: token('--mantine-font-family'),
-      // the base theme derives what it is not given, and what it derives from
-      // near white surfaces comes out too pale to read
       themeVariables: {
         darkMode: dark,
         fontSize: '14px',
@@ -147,12 +176,10 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
         loopTextColor: text,
         activationBkgColor: subtle,
         activationBorderColor: strong,
-        noteBkgColor: subtle,
+        noteBkgColor: note,
         noteBorderColor: warning,
         noteTextColor: text,
       },
-      // useMaxWidth is the one width mermaid writes as an inline style on the
-      // live svg, and the view already holds the diagram to the column.
       flowchart: { htmlLabels: false, useMaxWidth: false },
       class: { htmlLabels: false, useMaxWidth: false },
       sequence: { useMaxWidth: false },
@@ -164,66 +191,114 @@ function mermaidConfig(dark: boolean): { config: MermaidConfig; text: string } {
   };
 }
 
-export const diagramSelector = 'pre.mermaid';
-
-// drawDiagrams replaces every mermaid fence under root with its diagram, painted
-// with the tokens of the theme on screen, and returns what cancels a pass that
-// has not finished. The source stays beside the drawing, so a second pass can
-// draw it again in another theme.
-export function drawDiagrams(root: HTMLElement, load: () => Promise<Mermaid>, dark: boolean): () => void {
-  const blocks = Array.from(root.querySelectorAll<HTMLElement>(diagramSelector));
-  if (blocks.length === 0) {
-    return () => {};
-  }
-  const items = blocks.map(wrap);
-
-  let cancelled = false;
-  const run = (async () => {
-    let mermaid: Mermaid;
-    try {
-      mermaid = await load();
-    } catch {
-      for (const item of items) {
-        fail(item, 'Could not load the diagram renderer.');
-      }
-      return;
-    }
-    if (cancelled) {
-      return;
-    }
-
-    pass += 1;
+const mermaidKind: Kind = {
+  name: 'mermaid',
+  selector: 'pre.mermaid',
+  prepare: async (loaders, dark) => {
+    const mermaid = await loaders.loadMermaid();
     const { config, text } = mermaidConfig(dark);
     mermaid.initialize(config);
-
-    const drawn: Drawn[] = [];
-    for (const [index, item] of items.entries()) {
-      // a fresh id every pass: mermaid looks its scratch element up by id, and
-      // the svg already on the page would answer for the previous one
-      const id = `md-mermaid-${pass}-${index}`;
+    return async (id, source) => {
       try {
-        const { svg } = await mermaid.render(id, item.source);
-        drawn.push({ item, svg });
+        const { svg } = await mermaid.render(id, source);
+        const element = parseMermaidSvg(svg);
+        giveRealWidth(element);
+        repairActors(element, text);
+        return element;
       } catch (error) {
-        // a parse failure leaves mermaid's scratch element on the body, where
-        // it is found by shape rather than by a bare id a note could carry
         document.querySelector(`body > [id="d${id}"]`)?.remove();
-        drawn.push({ item, error: firstLine(error) });
+        throw error;
       }
+    };
+  },
+};
+
+const plantUMLKind: Kind = {
+  name: 'plantuml',
+  selector: 'pre.plantuml',
+  prepare: async (loaders, dark) => {
+    const plantUML = await loaders.loadPlantUML();
+    return (id, source) => plantUML.render(id, source, dark);
+  },
+};
+
+const diagramKinds = [mermaidKind, plantUMLKind];
+
+const diagramSelector = diagramKinds.map((kind) => kind.selector).join(', ');
+
+function kindOf(pre: HTMLElement): Kind | undefined {
+  return diagramKinds.find((kind) => pre.matches(kind.selector));
+}
+
+async function prepare(kind: Kind, loaders: DiagramLoaders, dark: boolean): Promise<Draw | undefined> {
+  try {
+    return await kind.prepare(loaders, dark);
+  } catch {
+    return undefined;
+  }
+}
+
+async function drawOne(draw: Draw | undefined, item: Diagram, id: string): Promise<Drawn> {
+  if (draw === undefined) {
+    return { item, error: 'the diagram renderer could not be loaded' };
+  }
+  try {
+    return { item, svg: await draw(id, item.source) };
+  } catch (error) {
+    return { item, error: firstLine(error) };
+  }
+}
+
+export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: boolean): () => void {
+  const diagrams: Diagram[] = [];
+  for (const pre of root.querySelectorAll<HTMLElement>(diagramSelector)) {
+    const kind = kindOf(pre);
+    if (kind !== undefined) {
+      diagrams.push(wrap(pre, kind));
     }
-    if (cancelled) {
+  }
+  if (diagrams.length === 0) {
+    return () => {};
+  }
+
+  let closeViewer: (() => void) | null = null;
+  const openOnClick = (event: MouseEvent): void => {
+    const target = event.target instanceof Element ? event.target : null;
+    const frame = target?.closest(`.${frameClass}`);
+    const svg = frame?.querySelector(':scope > svg');
+    if (!isPlainClick(event) || target?.closest('a') != null || !(svg instanceof SVGSVGElement)) {
       return;
     }
+    event.preventDefault();
+    closeViewer = openDiagramViewer(svg);
+  };
+  root.addEventListener('click', openOnClick);
 
-    preserveScroll(root, () => {
-      for (const result of drawn) {
-        place(result, text);
+  let cancelled = false;
+  pass += 1;
+  const thisPass = pass;
+  const drawKind = async (kind: Kind): Promise<void> => {
+    const draw = await prepare(kind, loaders, dark);
+    for (const [index, item] of diagrams.entries()) {
+      if (cancelled) {
+        return;
       }
-    });
-  })();
-  track(run);
+      if (item.kind !== kind) {
+        continue;
+      }
+      const result = await drawOne(draw, item, `md-${kind.name}-${thisPass}-${index}`);
+      if (cancelled) {
+        return;
+      }
+      preserveScroll(root, () => place(result));
+    }
+  };
+  const kinds = Array.from(new Set(diagrams.map((item) => item.kind)));
+  track(Promise.all(kinds.map(drawKind)));
 
   return () => {
     cancelled = true;
+    root.removeEventListener('click', openOnClick);
+    closeViewer?.();
   };
 }

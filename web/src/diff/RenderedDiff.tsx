@@ -1,68 +1,101 @@
 import { useRef, type JSX } from 'react';
 
-import type { DiffRow, DiffSide } from '../api/types';
+import type { DiffKind, DiffRow, DiffSide } from '../api/types';
+import { countOf } from '../components/formats';
 import { useKatex } from '../reader/useKatex';
-import { useMermaid } from '../reader/useMermaid';
+import { useDiagrams } from '../reader/useDiagrams';
 
 import { foldRows, isChange } from './fold';
 
 import '../reader/markdown.css';
 import './diff.css';
 
+export type DiffLayout = 'split' | 'unified';
+
+const tags: Record<DiffKind, string | undefined> = {
+  same: undefined,
+  format: 'Format',
+  changed: 'Changed',
+  added: 'Added',
+  removed: 'Removed',
+};
+
+function shownOf(row: DiffRow): DiffSide[] {
+  const sides =
+    row.kind === 'removed'
+      ? [row.old]
+      : row.kind === 'changed'
+        ? row.inline !== undefined
+          ? [row.inline]
+          : [row.old, row.new]
+        : [row.new];
+  return sides.filter((shown): shown is DiffSide => shown !== undefined);
+}
+
+function Html({ side, className }: { side: DiffSide; className: string }): JSX.Element {
+  return <div className={`${className} markdown-document`} dangerouslySetInnerHTML={{ __html: side.html }} />;
+}
+
 function Cell({ side, which }: { side?: DiffSide; which: 'old' | 'new' }): JSX.Element {
   if (side === undefined) {
     return <div className={`diff-cell diff-${which} diff-empty`} />;
   }
-  // what arrives here was rendered and sanitized on the server by the policy in
-  // render/policy.go, and htmldiff only added its own del and ins marks to it
-  return (
-    <div
-      className={`diff-cell diff-${which} markdown-document`}
-      dangerouslySetInnerHTML={{ __html: side.html }}
-    />
-  );
+  return <Html side={side} className={`diff-cell diff-${which}`} />;
 }
 
-function Row({ row }: { row: DiffRow }): JSX.Element {
+function SplitRow({ row }: { row: DiffRow }): JSX.Element {
   return (
     <div className="diff-row" data-testid="diff-row" data-kind={row.kind}>
       <Cell side={row.old} which="old" />
       <Cell side={row.new} which="new" />
       {row.kind === 'format' && (
-        <span className="diff-badge" title="Only the markup changed">
-          format
+        <span className="diff-tag" title="Only the markup changed">
+          {tags.format}
         </span>
       )}
     </div>
   );
 }
 
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`;
+function UnifiedRow({ row }: { row: DiffRow }): JSX.Element {
+  const tag = tags[row.kind];
+  return (
+    <div className="diff-row" data-testid="diff-row" data-kind={row.kind}>
+      {tag !== undefined && <span className="diff-tag">{tag}</span>}
+      {shownOf(row).map((side, index) => (
+        <Html key={index} side={side} className="diff-cell" />
+      ))}
+    </div>
+  );
 }
 
 export interface RenderedDiffProps {
   rows: DiffRow[];
+  layout: DiffLayout;
   oldLabel: string;
   newLabel: string;
-  // names what is compared, so formulas and diagrams are typeset again when it
-  // changes and not on every render
   version: string;
 }
 
-// RenderedDiff shows two versions of a note as a reader sees them: block beside
-// block, changed words marked, unchanged stretches folded away
-export function RenderedDiff({ rows, oldLabel, newLabel, version }: RenderedDiffProps): JSX.Element {
+export function RenderedDiff({ rows, layout, oldLabel, newLabel, version }: RenderedDiffProps): JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null);
-  useKatex(rootRef, version);
-  useMermaid(rootRef, version);
+  const drawn = `${version}:${layout}`;
+  useKatex(rootRef, drawn);
+  useDiagrams(rootRef, drawn);
+  const Row = layout === 'split' ? SplitRow : UnifiedRow;
 
   return (
-    <div ref={rootRef} className="diff" data-testid="rendered-diff">
-      <div className="diff-head">
-        <div>{oldLabel}</div>
-        <div>{newLabel}</div>
-      </div>
+    <div ref={rootRef} className="diff" data-testid="rendered-diff" data-layout={layout}>
+      {layout === 'split' ? (
+        <div className="diff-head">
+          <div>{oldLabel}</div>
+          <div>{newLabel}</div>
+        </div>
+      ) : (
+        <p className="diff-labels">
+          {oldLabel} → {newLabel}
+        </p>
+      )}
       {!rows.some(isChange) && (
         <p className="diff-none" data-testid="rendered-diff-none">
           The text is the same, only the markup or the whitespace changed.
@@ -71,7 +104,7 @@ export function RenderedDiff({ rows, oldLabel, newLabel, version }: RenderedDiff
       {foldRows(rows).map((segment, index) =>
         segment.folded ? (
           <details key={index} className="diff-fold" data-testid="diff-fold">
-            <summary>{plural(segment.rows.length, 'unchanged block')}</summary>
+            <summary>{countOf(segment.rows.length, 'unchanged block')}</summary>
             {segment.rows.map((row, at) => (
               <Row key={at} row={row} />
             ))}

@@ -1,10 +1,15 @@
+const zlib = require('node:zlib');
+
 const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, chooseTheme, modifier, pressShortcut, removeFixture, routes, shot, signIn, writeFixture,
+    MAIN, chooseTheme, modifier, openSpaceMenu, pressShortcut, removeFixture, rgb, routes, shot, showOutline,
+    signIn, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
+const darkTheme = require('../../theme/themes/dark.json');
+const lightTheme = require('../../theme/themes/light.json');
 
 const DOC = docs.doc;
 const ANCHORS = 'e2e-anchors.md';
@@ -12,10 +17,37 @@ const ANCHOR_SOURCE = 'e2e-anchor-source.md';
 const OUTLINE = 'e2e-outline.md';
 const EMPHASIS = 'e2e-emphasis.md';
 const DIAGRAM = 'e2e-diagram.md';
+const DIAGRAM_VIEWER = 'e2e-diagram-viewer.md';
+const LOOK = 'e2e-look.md';
+const TALL = 'e2e-tall.md';
+const TALL_PICTURE = 'e2e-tall.png';
 
-// a page of its own for the anchor test: the fragment an author writes and the
-// slug the renderer makes have to be the same string for the jump to resolve,
-// and whether they are in the corpus is not this test's subject
+function pngChunk(type, data) {
+    const head = Buffer.alloc(4);
+    head.writeUInt32BE(data.length);
+    const named = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(zlib.crc32(named));
+    return Buffer.concat([head, named, crc]);
+}
+
+function grayPng(width, height) {
+    const header = Buffer.alloc(13);
+    header.writeUInt32BE(width, 0);
+    header.writeUInt32BE(height, 4);
+    header[8] = 8;
+    const rows = Buffer.alloc((width + 1) * height, 128);
+    for (let row = 0; row < height; row++) {
+        rows[row * (width + 1)] = 0;
+    }
+    return Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        pngChunk('IHDR', header),
+        pngChunk('IDAT', zlib.deflateSync(rows)),
+        pngChunk('IEND', Buffer.alloc(0)),
+    ]);
+}
+
 function anchorDocument() {
     const filler = Array.from(
         {length: 40},
@@ -28,11 +60,37 @@ test.describe('reading', () => {
         await signIn(page);
     });
 
-    test('the root page renders the index document', async ({page}) => {
-        await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.home.title);
-        await expect(page.getByTestId('doc').locator(
-            `a[href="${routes.contentHref(docs.linked.path)}"]`).first()).toBeVisible();
+    test.afterEach(() => {
+        removeFixture(DIAGRAM_VIEWER);
+        removeFixture(TALL);
+        removeFixture(TALL_PICTURE);
+    });
+
+    test('the root page lists the root folder, its index a row tagged as the folder page', async ({page}) => {
+        // assert
+        await expect(page.getByTestId('dir')).toBeVisible();
+        const index = page.locator('[data-testid=dir-row][data-path="index.md"]');
+        await expect(index.getByTestId('dir-folder-page')).toBeVisible();
+        await expect(page.getByTestId('dir-folder-page')).toHaveCount(1);
         await shot(page, 'reading-root');
+    });
+
+    test('Home opens the root index note', async ({page}) => {
+        // act
+        await page.getByTestId('sidebar-home').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc('index.md'));
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.home.title);
+        await expect(page.getByTestId('sidebar-home')).toHaveAttribute('data-current', 'true');
+    });
+
+    test('a click on a row of a folder opens it', async ({page}) => {
+        // act & assert
+        await page.locator(`[data-testid=dir-row][data-path="${DOC.folder}"]`).click({position: {x: 400, y: 10}});
+        await expect(page).toHaveURL(MAIN.url.dir(DOC.folder));
+        await page.locator(`[data-testid=dir-row][data-path="${DOC.path}"] td`).last().click();
+        await expect(page).toHaveURL(MAIN.url.doc(DOC.path));
     });
 
     test('a note whose name a url has to escape opens', async ({page}) => {
@@ -88,8 +146,11 @@ test.describe('reading', () => {
         await page.goto(routes.doc(DOC.path));
 
         // assert
-        await expect(page.getByTestId('doc-export')).toBeVisible();
+        await expect(page.getByTestId('note-menu')).toBeVisible();
         await expect(page.getByTestId('doc-history')).toHaveCount(0);
+        await page.getByTestId('note-menu').click();
+        await expect(page.getByTestId('doc-export-md')).toBeVisible();
+        await expect(page.getByTestId('note-menu-history')).toHaveCount(0);
     });
 
     test('a folder label opens the folder page and expands the row', async ({page}) => {
@@ -139,7 +200,6 @@ test.describe('reading', () => {
 
         await expect(page.locator(`[data-testid=tree-row][data-path="${docs.filter.path}"] mark`))
             .toHaveText(docs.filter.term);
-        // the folder holding the match is on screen too, and nothing else is
         const shown = () => page.getByTestId('tree-row').evaluateAll(
             (rows) => rows.map((row) => row.dataset.path));
         await expect.poll(shown).toContain(docs.filter.path);
@@ -151,6 +211,23 @@ test.describe('reading', () => {
         await expect.poll(async () => (await shown()).length).toBeGreaterThan(4);
     });
 
+    for (const theme of [lightTheme, darkTheme]) {
+        test(`a field in focus is drawn with the focus ring of the theme, ${theme.scheme}`, async ({page}) => {
+            // arrange
+            await page.emulateMedia({colorScheme: theme.scheme});
+            await page.goto(routes.home());
+            const filter = page.getByTestId('sidebar-filter');
+
+            // act
+            await filter.focus();
+
+            // assert
+            const [inner, outer] = [rgb(theme.palette.focusRing), rgb(theme.palette.focusRingOuter)];
+            await expect(filter).toHaveCSS('box-shadow', `${inner} 0px 0px 0px 1px inset, ${outer} 0px 0px 0px 1px`);
+            await shot(page, `reading-field-focus-${theme.scheme}`);
+        });
+    }
+
     test('a filter that matches nothing offers the full text search instead', async ({page}) => {
         await page.getByTestId('sidebar-filter').fill('zzzznotinthetreezzzz');
 
@@ -158,12 +235,21 @@ test.describe('reading', () => {
         await expect(page.getByTestId('tree-row')).toHaveCount(0);
     });
 
+    test('the page does not stretch past its ends beside the sidebar', async ({page}) => {
+        // act
+        await page.goto(routes.doc(DOC.path));
+
+        // assert
+        await expect(page.getByTestId('doc')).toBeVisible();
+        expect(await page.evaluate(() => getComputedStyle(document.documentElement).overscrollBehaviorY)).toBe('none');
+    });
+
     test('a deeply nested document renders', async ({page}) => {
         await page.goto(routes.doc(docs.deep.path));
 
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText(docs.deep.title);
         await expect(page.getByTestId('doc').locator('h2')).not.toHaveCount(0);
-        await expect(page.getByTestId('page-breadcrumbs').getByTestId('crumb')).toContainText(docs.deep.crumbs);
+        await expect(page.getByTestId('topbar-crumbs').getByTestId('crumb')).toContainText(docs.deep.crumbs);
         await expect(page.locator('[data-testid=crumb][data-current="true"]')).toHaveCount(1);
         await shot(page, 'reading-deep-document');
     });
@@ -176,7 +262,6 @@ test.describe('reading', () => {
 
         await page.getByTestId('doc').getByRole('link', {name: 'разделу'}).click();
 
-        // the scroll is animated, so wait for the heading to settle under the top bar
         await expect
             .poll(() => page.getByTestId('doc').locator('h2').first().evaluate(
                 (el) => el.getBoundingClientRect().top))
@@ -187,10 +272,6 @@ test.describe('reading', () => {
         removeFixture(ANCHORS);
     });
 
-    // the renderer lowercases a slug while an author writes the heading as it
-    // reads, so "[x](#Индексы)" has to find <h2 id="индексы">. The exact match
-    // is tried first, and only then the folded one, or a document holding both
-    // cases would resolve to whichever came first in the dom.
     test('an anchor written in another case than its slug still resolves', async ({page}) => {
         writeFixture(ANCHORS, anchorDocument().replace('(#раздел)', '(#Раздел)'));
         await page.goto(routes.doc(ANCHORS));
@@ -275,6 +356,7 @@ test.describe('reading', () => {
     });
 
     test('a relative link between documents navigates', async ({page}) => {
+        await page.getByTestId('sidebar-home').click();
         await page.getByTestId('doc').locator(
             `a[href="${routes.contentHref(docs.linked.path)}"]`).first().click();
 
@@ -320,6 +402,208 @@ test.describe('reading', () => {
         await expect(page.getByTestId('doc-image').first()).toBeFocused();
     });
 
+    test('the viewer counts the zoom of a narrow, tall picture in fractions of a pixel', async ({page}) => {
+        // arrange
+        const natural = {width: 120, height: 3000};
+        writeFixture(TALL_PICTURE, grayPng(natural.width, natural.height));
+        writeFixture(TALL, `# Tall\n\n![tall](${TALL_PICTURE})\n`);
+        await page.goto(routes.doc(TALL));
+        await page.getByTestId('doc-image').first().click();
+        const picture = page.getByTestId('doc-lightbox-image');
+        const percent = page.getByTestId('doc-lightbox-zoom');
+        await expect.poll(() => picture.evaluate((el) => el.complete && el.naturalHeight)).toBe(natural.height);
+        await expect(percent).toHaveText(/^\d+%$/);
+        const drawnHeight = () => picture.evaluate((el) => el.getBoundingClientRect().height);
+        const fitted = Number.parseInt(await percent.textContent(), 10);
+        const fittedHeight = await picture.evaluate((el) => Number.parseFloat(getComputedStyle(el).height));
+
+        // act
+        await page.keyboard.press('1');
+
+        // assert
+        expect(fitted).toBeLessThan(100);
+        expect(Math.abs(fitted - (fittedHeight * 100) / natural.height)).toBeLessThanOrEqual(1);
+        await expect(percent).toHaveText('100%');
+        await expect.poll(async () => Math.abs(await drawnHeight() - natural.height)).toBeLessThanOrEqual(3);
+    });
+
+    test('the viewer zooms a picture with its buttons', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.illustrated.doc));
+        await page.getByTestId('doc-image').first().click();
+        const percent = page.getByTestId('doc-lightbox-zoom');
+        await expect(percent).toHaveText(/^\d+%$/);
+        const fitted = await percent.textContent();
+
+        // act & assert
+        await expect(page.getByTestId('doc-lightbox-fit')).toBeDisabled();
+        await page.getByTestId('doc-lightbox-zoom-in').click();
+        await expect(percent).not.toHaveText(fitted);
+        await expect(page.getByTestId('doc-lightbox-image')).toHaveAttribute('data-zoomed', 'true');
+        await page.getByTestId('doc-lightbox-fit').click();
+        await expect(percent).toHaveText(fitted);
+        await expect(page.getByTestId('doc-lightbox-image')).toHaveAttribute('data-zoomed', 'false');
+    });
+
+    test('a diagram wider than the note is shown at its width and opens in the viewer at the size of the screen', async ({page}) => {
+        // arrange
+        const nodes = Array.from({length: 14}, (_, i) => `N${i}[Step number ${i}]`).join(' --> ');
+        writeFixture(DIAGRAM_VIEWER, `# Wide\n\n\`\`\`mermaid\nflowchart LR\n  ${nodes}\n\`\`\`\n`);
+        await page.goto(routes.doc(DIAGRAM_VIEWER));
+        const frame = page.getByTestId('diagram-frame');
+        await expect(frame).toBeVisible();
+        const width = (locator) => locator.evaluate((el) => el.getBoundingClientRect().width);
+
+        // act
+        await frame.getByTestId('diagram-open').click();
+
+        // assert
+        expect(await width(frame)).toBeLessThanOrEqual(await width(page.getByTestId('doc')) + 1);
+        await expect(page.getByTestId('doc-lightbox-diagram')).toBeVisible();
+        const fitted = Number.parseInt(await page.getByTestId('doc-lightbox-zoom').textContent(), 10);
+        expect(fitted).toBeLessThan(100);
+        expect(await width(page.getByTestId('doc-lightbox-diagram'))).toBeLessThanOrEqual(page.viewportSize().width);
+        await shot(page, 'reading-diagram-viewer');
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+    });
+
+    test('a mermaid diagram that mermaid sizes to the page is drawn at its own width, and the viewer knows that width', async ({page}) => {
+        // arrange
+        const events = Array.from({length: 8}, (_, i) => `    ${2000 + i} : Event number ${i}`).join('\n');
+        writeFixture(DIAGRAM_VIEWER, `# Timeline\n\n\`\`\`mermaid\ntimeline\n    title History\n${events}\n\`\`\`\n`);
+        await page.goto(routes.doc(DIAGRAM_VIEWER));
+        const svg = page.getByTestId('diagram-frame').locator(':scope > svg');
+        await expect(svg).toBeVisible();
+        const natural = Number(await svg.getAttribute('width'));
+        const shown = await svg.evaluate((el) => el.getBoundingClientRect().width);
+        const room = await page.getByTestId('doc').evaluate((el) => el.getBoundingClientRect().width);
+
+        // act
+        await page.getByTestId('diagram-frame').click();
+        await expect(page.getByTestId('doc-lightbox-zoom')).toHaveText(/^\d+%$/);
+        await page.keyboard.press('1');
+
+        // assert
+        expect(natural).toBeGreaterThan(300);
+        expect(Math.abs(shown - Math.min(natural, room))).toBeLessThanOrEqual(1);
+        await expect(page.getByTestId('doc-lightbox-zoom')).toHaveText('100%');
+        const actual = () => page.getByTestId('doc-lightbox-diagram').locator('svg')
+            .evaluate((el) => el.getBoundingClientRect().width);
+        await expect.poll(async () => Math.abs(await actual() - natural)).toBeLessThanOrEqual(1);
+    });
+
+    test('the viewer keeps the shape of a very wide, low diagram, so its actual size is its own width', async ({page}) => {
+        // arrange
+        const nodes = Array.from({length: 80}, (_, i) => `N${i}`).join(' --> ');
+        writeFixture(DIAGRAM_VIEWER, `# Long\n\n\`\`\`mermaid\nflowchart LR\n  ${nodes}\n\`\`\`\n`);
+        await page.goto(routes.doc(DIAGRAM_VIEWER));
+        const frame = page.getByTestId('diagram-frame');
+        const box = await frame.locator(':scope > svg')
+            .evaluate((el) => ({width: el.viewBox.baseVal.width, height: el.viewBox.baseVal.height}));
+        await frame.click();
+        const percent = page.getByTestId('doc-lightbox-zoom');
+        await expect(percent).toHaveText(/^\d+%$/);
+        const drawing = page.getByTestId('doc-lightbox-diagram').locator('svg');
+        const scaleOf = () => drawing.evaluate((el) => el.getScreenCTM().a);
+        const fitted = Number.parseInt(await percent.textContent(), 10);
+        const fittedScale = await scaleOf();
+
+        // act
+        await page.keyboard.press('1');
+
+        // assert
+        expect(box.width / box.height).toBeGreaterThan(80);
+        expect(Math.abs(fitted - fittedScale * 100)).toBeLessThanOrEqual(1);
+        await expect(percent).toHaveText('100%');
+        await expect.poll(async () => Math.abs(await scaleOf() - 1)).toBeLessThanOrEqual(0.01);
+    });
+
+    test('the viewer\'s copy of a diagram shares no id with the note', async ({page}) => {
+        // arrange
+        writeFixture(DIAGRAM_VIEWER, '# Ids\n\n```mermaid\nflowchart LR\n  A --> B\n```\n');
+        await page.goto(routes.doc(DIAGRAM_VIEWER));
+        const ids = (root) => root.evaluate((el) => Array.from(el.querySelectorAll('[id]'), (node) => node.id));
+        await expect(page.getByTestId('diagram-frame')).toBeVisible();
+
+        // act
+        await page.getByTestId('diagram-frame').click();
+        const copy = page.getByTestId('doc-lightbox-diagram');
+        await expect(copy).toBeVisible();
+
+        // assert
+        const inNote = await ids(page.getByTestId('doc'));
+        const inViewer = await ids(copy);
+        expect(inViewer.length).toBeGreaterThan(0);
+        expect(inViewer.filter((id) => inNote.includes(id))).toEqual([]);
+        const fill = (root) => root.locator('.node rect').first().evaluate((el) => getComputedStyle(el).fill);
+        expect(await fill(copy), 'the copy keeps the look its own stylesheet gives it').toBe(
+            await fill(page.getByTestId('diagram-frame')));
+    });
+
+    test('the viewer zooms a diagram with its keys and shows that diagram alone', async ({page}) => {
+        // arrange
+        const nodes = Array.from({length: 10}, (_, i) => `N${i}[Step ${i}]`).join(' --> ');
+        writeFixture(DIAGRAM_VIEWER, `# Two\n\n\`\`\`mermaid\nflowchart LR\n  ${nodes}\n\`\`\`\n\n\`\`\`plantuml\nA -> B : second\n\`\`\`\n`);
+        await page.goto(routes.doc(DIAGRAM_VIEWER));
+        await expect(page.getByTestId('diagram-frame')).toHaveCount(2);
+        await page.getByTestId('diagram-frame').first().click();
+        const percent = page.getByTestId('doc-lightbox-zoom');
+        await expect(percent).toHaveText(/^\d+%$/);
+        const fitted = await percent.textContent();
+
+        // act & assert
+        await page.keyboard.press('1');
+        await expect(percent).toHaveText('100%');
+        await page.keyboard.press('+');
+        await expect(percent).toHaveText('150%');
+        await page.keyboard.press('-');
+        await expect(percent).toHaveText('100%');
+        await page.keyboard.press('0');
+        await expect(percent).toHaveText(fitted);
+        await expect(page.getByTestId('doc-lightbox-count')).toHaveCount(0);
+        await expect(page.getByTestId('doc-lightbox-next')).toHaveCount(0);
+        await page.keyboard.press('ArrowRight');
+        await expect(page.getByTestId('doc-lightbox-diagram')).toContainText('Step 0');
+        await expect(page.getByTestId('doc-lightbox-diagram')).not.toContainText('second');
+    });
+
+    test('in the viewer the wheel moves a zoomed diagram, and a pinch zooms it', async ({page}) => {
+        // arrange
+        const nodes = Array.from({length: 10}, (_, i) => `N${i}[Step ${i}]`).join(' --> ');
+        writeFixture(DIAGRAM_VIEWER, `# Pinch\n\n\`\`\`mermaid\nflowchart LR\n  ${nodes}\n\`\`\`\n`);
+        await page.goto(routes.doc(DIAGRAM_VIEWER));
+        await page.getByTestId('diagram-frame').click();
+        const diagram = page.getByTestId('doc-lightbox-diagram');
+        const percent = page.getByTestId('doc-lightbox-zoom');
+        await expect(percent).toHaveText(/^\d+%$/);
+        const level = async () => Number.parseInt(await percent.textContent(), 10);
+        const fitted = await level();
+        const send = (type, fields) => page.getByTestId('doc-lightbox').evaluate((dialog, [name, init]) => {
+            const event = name === 'wheel'
+                ? new WheelEvent('wheel', {bubbles: true, cancelable: true, clientX: innerWidth / 2, clientY: innerHeight / 2, ...init})
+                : Object.assign(new Event(name, {bubbles: true, cancelable: true}), {clientX: innerWidth / 2, clientY: innerHeight / 2, ...init});
+            dialog.dispatchEvent(event);
+        }, [type, fields]);
+
+        // act & assert
+        await send('wheel', {deltaY: 120});
+        expect(await level()).toBe(fitted);
+        await send('wheel', {deltaY: -40, ctrlKey: true});
+        await expect.poll(level).toBeGreaterThan(fitted);
+        await page.keyboard.press('0');
+        await send('gesturestart', {scale: 1});
+        await send('gesturechange', {scale: 2});
+        await expect.poll(async () => Math.abs(await level() - fitted * 2)).toBeLessThanOrEqual(1);
+        const before = await diagram.boundingBox();
+        await send('wheel', {deltaX: 30});
+        const after = await diagram.boundingBox();
+        expect(after.x).toBeLessThan(before.x);
+        await send('wheel', {shiftKey: true, deltaY: 40});
+        expect((await diagram.boundingBox()).x).toBeLessThan(after.x);
+        expect(Math.abs(await level() - fitted * 2)).toBeLessThanOrEqual(1);
+    });
+
     test('the copy button copies a code block', async ({page}) => {
         await page.goto(routes.doc(DOC.path));
         const block = page.getByTestId('doc-code').first();
@@ -338,7 +622,7 @@ test.describe('reading', () => {
 
     test('the outline highlights the section being read', async ({page}) => {
         await page.goto(routes.doc(DOC.path));
-        await expect(page.getByTestId('toc')).toBeVisible();
+        await showOutline(page);
 
         await page.locator(`[data-testid=doc] h2#${DOC.heading.id}`).evaluate((el) => {
             window.scrollTo({top: el.getBoundingClientRect().top + window.scrollY - 100, behavior: 'instant'});
@@ -350,11 +634,6 @@ test.describe('reading', () => {
         await shot(page, 'reading-toc-active');
     });
 
-    // a section taller than the reading band leaves no heading in it at all,
-    // and a jump carries several past it between two frames. The marker used to
-    // stay where it was in both cases, so the outline stopped following the
-    // page for the rest of the note. The note is written here rather than
-    // looked for, because it has to be tall in a way no corpus promises.
     test('the outline follows into a section taller than the reading band', async ({page}) => {
         const filler = (word) => Array.from({length: 40}, () => `${word} `.repeat(12)).join('\n\n');
         writeFixture(
@@ -363,10 +642,8 @@ test.describe('reading', () => {
                 .join('\n\n'),
         );
         await page.goto(routes.doc(OUTLINE));
-        await expect(page.getByTestId('toc')).toBeVisible();
+        await showOutline(page);
 
-        // deep inside the second section, with its heading far above the window
-        // and the next one still far below it
         await page.evaluate(() => {
             const second = document.querySelectorAll('[data-testid=doc] h2')[1];
             window.scrollTo({top: second.getBoundingClientRect().top + window.scrollY + 900, behavior: 'instant'});
@@ -375,11 +652,9 @@ test.describe('reading', () => {
         const active = page.locator('[data-testid=toc-entry][data-active="true"]');
         await expect(active).toHaveText('Second');
 
-        // and the marker is somewhere the reader can see: an outline taller
-        // than the rail scrolls inside it
         const visible = await page.evaluate(() => {
             const entry = document.querySelector('[data-testid=toc-entry][data-active="true"]');
-            const rail = document.querySelector('[data-testid=toc-rail]');
+            const rail = document.querySelector('[data-testid=mini-outline-panel]');
             if (entry === null || rail === null) {
                 return null;
             }
@@ -387,13 +662,11 @@ test.describe('reading', () => {
             const host = rail.getBoundingClientRect();
             return box.top >= host.top - 1 && box.bottom <= host.bottom + 1;
         });
-        expect(visible, 'the marked entry is inside the rail').toBe(true);
+        expect(visible, 'the marked entry is inside the panel').toBe(true);
 
         removeFixture(OUTLINE);
     });
 
-    // the last sections of a note are shorter than the screen, so the page
-    // ends before their headings reach the reading line
     test('the outline reaches the short sections at the end of a note', async ({page}) => {
         // arrange
         const filler = Array.from({length: 40}, () => 'long '.repeat(12)).join('\n\n');
@@ -405,11 +678,13 @@ test.describe('reading', () => {
         const scrollTo = (top) => page.evaluate((y) => window.scrollTo({top: y, behavior: 'instant'}), top);
 
         // act & assert
+        await showOutline(page);
         await entry('Fifth').click();
         await expect(page).toHaveURL(/#fifth$/);
         await expect(active).toHaveText('Fifth');
 
         await page.reload();
+        await showOutline(page);
         await expect(active).toHaveText('Fifth');
 
         await page.mouse.wheel(0, -100000);
@@ -427,16 +702,66 @@ test.describe('reading', () => {
         removeFixture(OUTLINE);
     });
 
-    // "?" is a character somebody types, so the sheet must stay out of the way
-    // while a field has the keyboard
-    test('the shortcut cheat sheet opens', async ({page}) => {
+    test('? opens the shortcuts, grouped by where they work', async ({page}) => {
+        // act
         await page.keyboard.press('?');
+
+        // assert
+        await expect(page.getByTestId('shortcuts')).toBeVisible();
+        await expect(page.getByTestId('shortcuts-group')).toHaveText([
+            /^General/, /^Note/, /^Search/, /^Editor/,
+        ]);
+    });
+
+    test('the space menu opens the shortcuts', async ({page}) => {
+        // arrange
+        await openSpaceMenu(page);
+
+        // act
+        await page.getByTestId('space-menu-shortcuts').click();
+
+        // assert
         await expect(page.getByTestId('shortcuts')).toBeVisible();
     });
 
-    // the picker writes the theme attribute and reloads nothing, so a
-    // stylesheet keyed on anything else keeps the colours of the theme the page
-    // was loaded in: the punctuation of a fence went black on a dark note
+    test('E on a note opens the editor', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
+
+        // act
+        await page.keyboard.press('e');
+
+        // assert
+        await expect(page).toHaveURL(new RegExp(`${routes.edit(DOC.path)}$`));
+        await expect(page.getByTestId('editor-source')).toBeVisible();
+    });
+
+    test('the bar color and the home screen icon follow the theme picker', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC.path));
+        const icons = () => page.locator('link[rel="apple-touch-icon"]').evaluateAll(
+            (links) => links.map((el) => [el.getAttribute('href').replace(/^.*\/icons\/|\?.*$/g, ''), el.media]));
+        const bars = () => page.locator('meta[name="theme-color"]').evaluateAll(
+            (metas) => metas.map((el) => [el.content, el.media]));
+        await expect.poll(icons).toEqual([
+            ['apple-touch-icon.png', '(prefers-color-scheme: light)'],
+            ['apple-touch-icon-dark.png', '(prefers-color-scheme: dark)'],
+        ]);
+
+        // act
+        await openSpaceMenu(page);
+        await chooseTheme(page, 'dark');
+
+        // assert
+        await expect.poll(icons).toEqual([['apple-touch-icon-dark.png', '']]);
+        await expect.poll(bars).toEqual([[darkTheme.palette.bg, '']]);
+
+        await chooseTheme(page, 'light');
+        await expect.poll(icons).toEqual([['apple-touch-icon.png', '']]);
+        await expect.poll(bars).toEqual([[lightTheme.palette.bg, '']]);
+    });
+
     test('the code colours follow the theme picker, not the system', async ({page}) => {
         await page.goto(routes.doc(DOC.path));
         const contrast = () => page.locator('[data-testid=doc] .chroma .p').first().evaluate((el) => {
@@ -444,14 +769,12 @@ test.describe('reading', () => {
             return sum(getComputedStyle(el).color) - sum(getComputedStyle(document.body).backgroundColor);
         });
 
-        // dark text on a light page
         expect(await contrast()).toBeLessThan(0);
 
-        await page.getByTestId('topbar-account').click();
+        await openSpaceMenu(page);
         await chooseTheme(page, 'light');
         await chooseTheme(page, 'dark');
 
-        // light text on a dark one
         await expect.poll(contrast).toBeGreaterThan(0);
     });
 
@@ -461,7 +784,7 @@ test.describe('reading', () => {
         await page.goto(routes.doc(EMPHASIS));
         const weight = () => page.getByTestId('doc').locator('p strong').evaluate(
             (el) => Number(getComputedStyle(el).fontWeight));
-        await page.getByTestId('topbar-account').click();
+        await openSpaceMenu(page);
         await chooseTheme(page, 'light');
         const light = await weight();
 
@@ -478,7 +801,7 @@ test.describe('reading', () => {
         // arrange
         writeFixture(EMPHASIS, '# Emphasis\n\nPlain **bold** and *italic*.\n\n> Quoted **bold**.\n');
         await page.goto(routes.doc(EMPHASIS));
-        await page.getByTestId('topbar-account').click();
+        await openSpaceMenu(page);
         await chooseTheme(page, 'dark');
         const doc = page.getByTestId('doc');
         const brightness = (selector) => doc.locator(selector).first().evaluate((el) =>
@@ -491,7 +814,7 @@ test.describe('reading', () => {
 
         // assert
         expect(emphasis.map((value) => value - plain > 30)).toEqual([true, true, true]);
-        expect(quote[1]).toBe(quote[0]);
+        expect(quote[1] - quote[0]).toBeGreaterThan(30);
 
         removeFixture(EMPHASIS);
     });
@@ -515,26 +838,197 @@ test.describe('reading', () => {
         removeFixture(DIAGRAM);
     });
 
-    test('the file list hides on demand and stays hidden', async ({page}) => {
+    test('the sidebar hides on demand and stays hidden', async ({page}) => {
+        // arrange
         const burger = page.getByTestId('topbar-burger');
         const sidebar = page.getByTestId('sidebar');
         const left = () => page.getByTestId('doc').evaluate((el) => el.getBoundingClientRect().left);
-
         await page.goto(routes.doc(DOC.path));
         await expect(sidebar).toBeVisible();
+        await expect(burger).toHaveCount(0);
         const beside = await left();
 
-        await burger.click();
+        // act & assert
+        await sidebar.hover();
+        await page.getByTestId('sidebar-hide').click();
         await expect(sidebar).toHaveCount(0);
-        await expect(burger).toHaveAttribute('data-opened', 'false');
+        await expect(burger).toBeVisible();
         expect(await left()).toBeLessThan(beside);
         await shot(page, 'reading-sidebar-hidden');
 
         await page.reload();
         await expect(sidebar).toHaveCount(0);
+        await burger.click();
+        await expect(sidebar).toBeVisible();
+        await expect(burger).toHaveCount(0);
 
         await pressShortcut(page, `${await modifier(page)}+b`);
+        await expect(sidebar).toHaveCount(0);
+        await pressShortcut(page, `${await modifier(page)}+b`);
         await expect(sidebar).toBeVisible();
-        await expect(burger).toHaveAttribute('data-opened', 'true');
+    });
+
+    test('the sidebar is a flush 240px panel on its own ground', async ({page}) => {
+        // arrange
+        const sidebar = page.getByTestId('sidebar');
+
+        // act
+        await page.goto(routes.doc(DOC.path));
+
+        // assert
+        await expect(sidebar).toBeVisible();
+        expect(Math.round((await sidebar.boundingBox()).width)).toBe(240);
+        await expect(page.locator('.mantine-AppShell-navbar')).toHaveCSS('background-color', rgb(lightTheme.palette.sidebar));
+        await expect(page.getByTestId('note')).toHaveCSS('border-top-width', '0px');
+    });
+
+    test('a note is read at one width the reader picks, and the choice is kept', async ({page}) => {
+        // arrange
+        const doc = page.getByTestId('doc');
+        const width = async (locator) => Math.round((await locator.boundingBox()).width);
+        const pick = async (label) => {
+            await page.getByTestId('note-menu').click();
+            await page.getByTestId('page-width').getByText(label, {exact: true}).click();
+            await page.keyboard.press('Escape');
+        };
+        await page.goto(routes.doc(docs.linked.path));
+        await expect(doc.locator('table').first()).toBeVisible();
+
+        // act & assert
+        expect(await width(doc)).toBe(720);
+        expect(await width(doc.locator('table').first())).toBeLessThanOrEqual(720);
+
+        await pick('Wide');
+        await expect.poll(() => width(doc)).toBe(960);
+
+        await pick('Full');
+        const room = page.viewportSize().width - 240;
+        await expect.poll(() => width(doc)).toBe(room - 2 * 96);
+
+        await page.reload();
+        await expect.poll(() => width(doc)).toBe(room - 2 * 96);
+        await pick('Normal');
+        await expect.poll(() => width(doc)).toBe(720);
+    });
+
+    test('the topbar names the note by its title and a folder by its name', async ({page}) => {
+        // arrange
+        const crumbs = page.getByTestId('topbar-crumbs').getByTestId('crumb');
+
+        // act & assert
+        await page.goto(routes.doc(docs.deep.path));
+        await expect(crumbs).toContainText(docs.deep.crumbs);
+        await expect(crumbs.last()).toHaveText(docs.deep.title);
+
+        await page.goto(routes.dir(DOC.folder));
+        await expect(crumbs.last()).toHaveText(DOC.folder);
+    });
+
+    test('the sidebar shortcut works from the reader and from the source editor', async ({page}) => {
+        // arrange
+        const sidebar = page.getByTestId('sidebar');
+        const toggle = async () => pressShortcut(page, `${await modifier(page)}+b`);
+        await page.goto(routes.edit(DOC.path));
+        await page.locator('[data-testid=editor-source] .cm-content').click();
+
+        // act & assert
+        await toggle();
+        await expect(sidebar).toHaveCount(0);
+        await toggle();
+        await expect(sidebar).toBeVisible();
+    });
+
+    test('a note that does not exist offers to create it, and Enter does', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.missing));
+
+        // act & assert
+        await expect(page.getByTestId('doc-missing-title')).toHaveText(docs.missing.split('/').pop().replace(/\.md$/, ''));
+        await expect(page.getByTestId('doc-create')).toBeVisible();
+        await expect(page.getByTestId('doc-missing-folder')).toHaveAttribute('href', new RegExp(`/doc/${DOC.folder}/$`));
+        await page.keyboard.press('Enter');
+        await expect(page).toHaveURL(MAIN.url.edit(docs.missing));
+    });
+
+    test('a missing note kept while the next note loads still offers to create itself', async ({page}) => {
+        // arrange
+        let release;
+        const waiting = new Promise((resolve) => {
+            release = resolve;
+        });
+        await page.goto(routes.doc(docs.missing));
+        await expect(page.getByTestId('doc-missing-title')).toBeVisible();
+        const twisty = page.locator(`[data-testid=tree-row][data-path="${DOC.folder}"] [data-testid=tree-twisty]`);
+        if (await twisty.getAttribute('data-open') === 'false') {
+            await twisty.click();
+        }
+        await page.route(`**/api/page/${DOC.path}`, async (route) => {
+            await waiting;
+            await route.continue();
+        });
+        try {
+            // act
+            await page.locator(`[data-testid=tree-row][data-path="${DOC.path}"] [data-testid=tree-link]`).click();
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(DOC.path));
+            await expect(page.getByTestId('doc-create')).toHaveAttribute('href', new RegExp(`/edit/${docs.missing}$`));
+        } finally {
+            release();
+        }
+        await expect(page.getByTestId('doc-missing')).toHaveCount(0);
+    });
+
+    test('a note reads the way Notion shows a page', async ({page}) => {
+        // arrange
+        const source = 'fmt.Println("hi")';
+        writeFixture(LOOK, [
+            '# Look', '', 'Text with `code` and <mark>marked</mark> words.', '',
+            '> [!NOTE]', '> A note.', '', '- [ ] open task', '', '```go', source, '```', '',
+        ].join('\n'));
+        const doc = page.getByTestId('doc');
+        await page.goto(routes.doc(LOOK));
+
+        // act & assert
+        await expect(doc.locator('h1')).toHaveCSS('font-size', '40px');
+        await expect(doc.locator('.alert-note')).toHaveCSS('background-color', rgb(lightTheme.blocks.blue.bg));
+        await expect(doc.locator('p code')).toHaveCSS('color', rgb(lightTheme.palette.inlineCode));
+        await expect(doc.locator('mark')).toHaveCSS('background-color', rgb(lightTheme.blocks.yellow.bg));
+
+        await openSpaceMenu(page);
+        await chooseTheme(page, 'dark');
+        await page.keyboard.press('Escape');
+        await expect(doc.locator('mark')).toHaveCSS('background-color', rgb(darkTheme.blocks.yellow.bg));
+
+        const copy = doc.getByTestId('code-copy');
+        await copy.click();
+        await expect(copy).toHaveAttribute('data-done', 'true');
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${source}\n`);
+
+        removeFixture(LOOK);
+    });
+
+    test('a task box on the page takes no click and sends nothing', async ({page}) => {
+        // arrange
+        writeFixture(LOOK, '# Tasks\n\n- [ ] open task\n');
+        await page.goto(routes.doc(LOOK));
+        const box = page.getByTestId('doc').locator('input[type=checkbox]');
+        await expect(box).toBeVisible();
+        const sent = [];
+        page.on('request', (req) => {
+            if (req.method() !== 'GET') {
+                sent.push(req.url());
+            }
+        });
+
+        // act
+        await box.click({force: true});
+
+        // assert
+        await expect(box).not.toBeChecked();
+        await expect(box).toBeDisabled();
+        expect(sent).toEqual([]);
+
+        removeFixture(LOOK);
     });
 });

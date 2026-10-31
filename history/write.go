@@ -15,33 +15,13 @@ const (
 	reconcileMessage = "record changes made outside the app"
 )
 
-// Op describes the change a Record is about to make.
 type Op struct {
-	Actor   string // "alex", "token:ci", "external"
+	Actor   string
 	Message string
-	Paths   []string // exact store paths the mutation touches
-	Strict  bool     // a failed commit is an error for the caller
+	Paths   []string
+	Strict  bool
 }
 
-// Record runs the mutation and commits the paths it names, holding one lock
-// across both. The lock is the point: with the mutation outside it, a second
-// request's commit picks up the first request's write and signs it with the
-// wrong actor, and the audit trail says something that never happened.
-//
-// The mutation reports the paths it touched, because not every caller knows
-// them in advance: an upload learns the name only once the store has picked a
-// free one, and naming the directory instead would stage everything under it.
-// Paths known up front go in Op.Paths and are validated before the mutation
-// runs, so one the service could never record refuses the write rather than
-// quietly skipping the audit trail.
-//
-// A failed commit is fatal only when Op.Strict is set, which is what an API
-// client gets: an automated agent must not believe it changed a document that
-// history never recorded. Otherwise the save stands, the service reports
-// Degraded, and the paths are folded into the next successful commit.
-//
-// An error from the mutation is returned untouched, so the caller can still
-// match the store sentinels on it.
 func (s *Service) Record(ctx context.Context, op Op, mutate func() ([]string, error)) error {
 	if s == nil {
 		_, err := mutate()
@@ -72,10 +52,6 @@ func (s *Service) Record(ctx context.Context, op Op, mutate func() ([]string, er
 	return s.publishFailed(op, s.publishLocked(ctx, s.SyncState()))
 }
 
-// publishFailed decides who hears about a push that did not land. A strict
-// caller gets ErrNotPublished, which is its own sentinel: telling it the change
-// was "not recorded in history" would be wrong, because it was recorded and
-// only not pushed. A browser save stands and the banner says so instead.
 func (s *Service) publishFailed(op Op, err error) error {
 	if err == nil {
 		return nil
@@ -86,15 +62,6 @@ func (s *Service) publishFailed(op Op, err error) error {
 	return nil
 }
 
-// Reconcile stages every visible versionable path and commits whatever differs
-// from what history holds. It is the baseline import on an empty repository,
-// the recovery for a crash between a write and its commit, and how a change
-// made outside the app - over SMB, by another tool - reaches history at all.
-//
-// A pull-only clone does none of it. A commit there has no push to carry it
-// anywhere, so it would sit in this copy alone, report the space unpublished
-// for a change no reader made, and turn the next upstream push into a
-// divergence the ff-only merge refuses.
 func (s *Service) Reconcile(ctx context.Context, actor string) error {
 	if s == nil || s.PullOnly() {
 		return nil
@@ -110,15 +77,10 @@ func (s *Service) Reconcile(ctx context.Context, actor string) error {
 	if err != nil || !committed {
 		return err
 	}
-	// a push that did not land is reported by Unpublished and SyncError, and
-	// logged once by the stage that failed. It is not what Reconcile promises,
-	// which is that what is on disk has been committed.
 	_ = s.publishLocked(ctx, s.SyncState())
 	return nil
 }
 
-// reconcileLocked commits whatever on disk differs from what history holds and
-// reports whether there was anything to stage. Called with the lock held.
 func (s *Service) reconcileLocked(ctx context.Context, actor, msg string) (bool, error) {
 	paths, err := s.reconcilePaths(ctx)
 	if err != nil {
@@ -135,8 +97,6 @@ func (s *Service) reconcileLocked(ctx context.Context, actor, msg string) (bool,
 	return true, nil
 }
 
-// recordFailed remembers what was missed and decides whether the caller hears
-// about it. Called with the lock held.
 func (s *Service) recordFailed(op Op, paths []string, err error) error {
 	for _, p := range paths {
 		s.pending[p] = struct{}{}
@@ -149,8 +109,6 @@ func (s *Service) recordFailed(op Op, paths []string, err error) error {
 	return nil
 }
 
-// commitLocked stages the paths and commits them under the actor. Called with
-// the lock held.
 func (s *Service) commitLocked(ctx context.Context, actor, msg string, paths []string, timeout time.Duration) error {
 	candidates, err := s.stageable(ctx, paths, timeout)
 	if err != nil {
@@ -174,10 +132,6 @@ func (s *Service) commitLocked(ctx context.Context, actor, msg string, paths []s
 	return err
 }
 
-// stage records the exact paths, and only those. "-A" scoped by a pathspec is
-// what records a deletion; it is bare "-A" that would swallow the worktree.
-// The paths go in NUL-delimited on stdin, so neither argv limits nor quoting
-// have any say in what gets staged.
 func (s *Service) stage(ctx context.Context, paths []string, timeout time.Duration) error {
 	var stdin bytes.Buffer
 	for _, p := range paths {
@@ -186,20 +140,12 @@ func (s *Service) stage(ctx context.Context, paths []string, timeout time.Durati
 	}
 	args := []string{"add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"}
 	if s.cfg.TrackAll {
-		// the path list is exact and filtered before it ever reaches git, so
-		// the only thing -f overrides is the ignore rules this package
-		// documents as winning. Without it a visible file some .gitignore in
-		// the corpus happens to match can be created, served, edited and never
-		// pushed.
 		args = append(args, "-f")
 	}
 	_, err := s.run(ctx, command{args: args, stdin: stdin.Bytes(), timeout: timeout})
 	return err
 }
 
-// stageable drops what git would refuse. A pathspec that matches neither the
-// worktree nor the index is a fatal error for the whole call, and a delete of a
-// file history never held looks exactly like that.
 func (s *Service) stageable(ctx context.Context, paths []string, timeout time.Duration) ([]string, error) {
 	res, missing := make([]string, 0, len(paths)), make([]string, 0)
 	for _, p := range paths {
@@ -225,8 +171,6 @@ func (s *Service) stageable(ctx context.Context, paths []string, timeout time.Du
 	return slices.Compact(res), nil
 }
 
-// tracked reads the whole index. Asking about single paths instead would put
-// them in argv, and a reconcile of a large corpus does not fit there.
 func (s *Service) tracked(ctx context.Context, timeout time.Duration) (map[string]struct{}, error) {
 	out, err := s.run(ctx, command{args: []string{"ls-files", "-z"}, timeout: timeout, limit: maxListBytes})
 	if err != nil {
@@ -239,9 +183,6 @@ func (s *Service) tracked(ctx context.Context, timeout time.Duration) (map[strin
 	return res, nil
 }
 
-// recordPaths validates what an operation named and keeps the versionable ones.
-// It runs before the mutation, so a path the service could never record stops
-// the write instead of quietly skipping the audit trail.
 func (s *Service) recordPaths(paths []string) ([]string, error) {
 	res := make([]string, 0, len(paths))
 	for _, p := range paths {
@@ -257,10 +198,6 @@ func (s *Service) recordPaths(paths []string) ([]string, error) {
 	return slices.Compact(res), nil
 }
 
-// mutatedPaths keeps the versionable paths a mutation reported for itself. One
-// it cannot clean is dropped instead of failing the caller: the write has
-// already happened, so refusing now would report a change that did land, and
-// the next Reconcile stages the path anyway.
 func (s *Service) mutatedPaths(paths []string) []string {
 	res := make([]string, 0, len(paths))
 	for _, p := range paths {
@@ -276,8 +213,6 @@ func (s *Service) mutatedPaths(paths []string) []string {
 	return res
 }
 
-// reconcilePaths is everything worth staging: what the store still shows, plus
-// what history holds and the store no longer has. Called with the lock held.
 func (s *Service) reconcilePaths(ctx context.Context) ([]string, error) {
 	visible, err := s.cfg.Files()
 	if err != nil {
@@ -296,7 +231,6 @@ func (s *Service) reconcilePaths(ctx context.Context) ([]string, error) {
 	for _, p := range visible {
 		cleaned, cErr := cleanPath(p)
 		if cErr != nil {
-			// one odd entry must not stop the import of everything else
 			log.Printf("[WARN] %s: skipping %q: %v", s.tag(), p, cErr)
 			continue
 		}
@@ -310,9 +244,6 @@ func (s *Service) reconcilePaths(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 	for p := range tracked {
-		// a tracked path the store no longer shows is staged only when it is
-		// really gone: one that merely became invisible stays as history left
-		// it, rather than having its content recorded behind the store's back
 		if _, ok := seen[p]; !ok && !s.exists(p) {
 			add(p)
 		}
@@ -325,8 +256,6 @@ func (s *Service) reconcilePaths(ctx context.Context) ([]string, error) {
 	return res, nil
 }
 
-// withPending folds in the paths of an earlier failed commit. Called with the
-// lock held.
 func (s *Service) withPending(paths []string) []string {
 	if len(s.pending) == 0 {
 		return paths
@@ -339,7 +268,6 @@ func (s *Service) withPending(paths []string) []string {
 	return slices.Compact(res)
 }
 
-// merge joins two path sets into one sorted set without duplicates.
 func merge(known, touched []string) []string {
 	if len(touched) == 0 {
 		return known

@@ -1,104 +1,67 @@
-import { Anchor, Group, Stack, Text } from '@mantine/core';
-import { IconFileText } from '@tabler/icons-react';
-import type { JSX } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Text } from '@mantine/core';
+import { useState, type JSX } from 'react';
+import { useSearchParams } from 'react-router';
 
-import { api } from '../api/client';
+import { api, searchTextOf, settingsOfSearch } from '../api/client';
 import type { SearchResponse } from '../api/types';
 import { useApi } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
-import { PageCard } from '../components/PageCard';
-import rows from '../components/rows.module.css';
-import { documentUrl } from '../paths';
-import { PageContainer } from '../shell/PageContainer';
-import { Snippet } from '../shell/Snippet';
-import { SyncBadge } from '../shell/SyncBadge';
+import { countOf } from '../components/formats';
+import { Page, PageTitle } from '../components/Page';
+import { usePageChrome } from '../shell/PageChrome';
+import { hintOf, SearchResults } from '../shell/SearchResults';
 
 const nothing: SearchResponse = { hits: [], elapsed_ms: 0 };
+const pageLimit = 50;
+const noneExpanded: ReadonlySet<string> = new Set();
 
 export function Component(): JSX.Element {
   const [searchParams] = useSearchParams();
-  const query = searchParams.get('q') ?? '';
-  const wanted = query.trim();
+  const settings = settingsOfSearch(searchParams);
+  const wanted = searchTextOf(searchParams.get('q') ?? '', settings);
+  const empty = wanted.trim() === '';
+  const key = searchParams.toString();
+  const [opened, setOpened] = useState<{ key: string; paths: ReadonlySet<string> }>({ key, paths: noneExpanded });
+  const expanded = opened.key === key ? opened.paths : noneExpanded;
+  usePageChrome({ crumbs: [], title: 'Search', ownTitle: true });
 
   const state = useApi<SearchResponse>(
-    (signal) => (wanted === '' ? Promise.resolve(nothing) : api.search(wanted, undefined, { signal })),
-    [wanted],
+    (signal) => (empty ? Promise.resolve(nothing) : api.find(wanted, settings, pageLimit, { signal })),
+    [key],
   );
-  const found = wanted === '' ? undefined : state.data;
+  const found = empty ? undefined : state.data;
 
   return (
-    <PageContainer>
-      <PageCard
-        data-testid="search"
-        wide
-        header={
-          <>
-            <Text data-testid="search-title" size="sm" fw={500} c="var(--scrawl-text)" truncate>
-              {wanted === '' ? 'Search' : `Search: ${wanted}`}
-            </Text>
-            {found !== undefined && found.hits.length > 0 && (
-              <Text
-                data-testid="search-count"
-                data-total={found.hits.length}
-                size="sm"
-                c="dimmed"
-                style={{ flex: 'none' }}
-              >
-                {found.hits.length} {found.hits.length === 1 ? 'result' : 'results'} in {found.elapsed_ms} ms
+    <Page data-testid="search">
+      <PageTitle testId="search-title">{empty ? 'Search' : `Search: ${wanted}`}</PageTitle>
+      {found !== undefined && found.hits.length > 0 && (
+        <Text data-testid="search-count" data-total={found.hits.length} size="sm" c="dimmed" mb="md">
+          {countOf(found.hits.length, 'result')} in {found.elapsed_ms} ms ·{' '}
+          {hintOf(settings)}
+          {found.truncated === true ? ', stopped early' : ''}
+        </Text>
+      )}
+      {empty ? (
+        <Text data-testid="search-prompt" c="dimmed">
+          Type a query to search every note.
+        </Text>
+      ) : (
+        <AsyncContent state={state} testId="search">
+          {(results) =>
+            results.hits.length === 0 ? (
+              <Text data-testid="search-empty" c="dimmed">
+                No notes match that.
               </Text>
-            )}
-          </>
-        }
-      >
-        {wanted === '' ? (
-          <Text data-testid="search-prompt" c="dimmed" className={rows.row}>
-            Type a query to search every note.
-          </Text>
-        ) : (
-          <AsyncContent state={state} testId="search">
-            {(results) =>
-              results.hits.length === 0 ? (
-                <Text data-testid="search-empty" c="dimmed" className={rows.row}>
-                  No notes match that.
-                </Text>
-              ) : (
-                <div data-testid="search-results">
-                  {results.hits.map((hit) => (
-                    <div key={hit.path} data-testid="search-result" data-path={hit.path} className={rows.row}>
-                      <IconFileText size={18} className={rows.icon} aria-hidden />
-                      <Stack gap={2} className={rows.body}>
-                        <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-                          <Anchor
-                            data-testid="search-result-link"
-                            component={Link}
-                            // the query rides along so the reader lands with
-                            // the matches highlighted
-                            to={`${documentUrl(hit.path)}?q=${encodeURIComponent(wanted)}`}
-                            c="var(--scrawl-text)"
-                          >
-                            {hit.title === '' ? hit.path : hit.title}
-                          </Anchor>
-                          <SyncBadge path={hit.path} />
-                        </Group>
-                        <Text
-                          data-testid="search-result-path"
-                          size="xs"
-                          c="dimmed"
-                          style={{ overflowWrap: 'anywhere' }}
-                        >
-                          {hit.path}
-                        </Text>
-                        <Snippet snippet={hit.snippet} testId="search-result-snippet" />
-                      </Stack>
-                    </div>
-                  ))}
-                </div>
-              )
-            }
-          </AsyncContent>
-        )}
-      </PageCard>
-    </PageContainer>
+            ) : (
+              <SearchResults
+                hits={results.hits}
+                expanded={expanded}
+                onExpand={(path) => setOpened({ key, paths: new Set(expanded).add(path) })}
+              />
+            )
+          }
+        </AsyncContent>
+      )}
+    </Page>
   );
 }

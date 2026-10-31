@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"io/fs"
 	"maps"
@@ -13,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/aleksey925/scrawl/page"
+	"github.com/aleksey925/scrawl/plantuml"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/server"
 	"github.com/aleksey925/scrawl/store"
@@ -20,22 +22,19 @@ import (
 )
 
 const (
-	// siteAssets is where the scripts and the stylesheets every page links to
-	// are written. Not "_scrawl": GitHub Pages runs Jekyll, which drops it.
-	siteAssets   = "scrawl"
-	sitePage     = ".html"
-	siteFolder   = "index.html"
-	siteNotFound = "404.html"
-	siteTreeFile = "tree.js"
-	siteChroma   = "chroma.css"
-	siteFavicon  = "favicon.svg"
-	siteTitle    = "Notes"
-	siteDirMode  = fs.FileMode(0o755)
-	siteFileMode = fs.FileMode(0o644)
+	siteAssets    = "scrawl"
+	sitePage      = ".html"
+	siteFolder    = "index.html"
+	siteIndexPage = "index.md.html"
+	siteNotFound  = "404.html"
+	siteTreeFile  = "tree.js"
+	siteChroma    = "chroma.css"
+	siteFavicon   = "favicon.svg"
+	siteTitle     = "Notes"
+	siteDirMode   = fs.FileMode(0o755)
+	siteFileMode  = fs.FileMode(0o644)
 )
 
-// activeExtensions are the files a browser runs a script from when one is
-// opened directly. The app hands them out as downloads; a site copies them.
 var activeExtensions = []string{".htm", ".html", ".js", ".mjs", ".svg", ".xht", ".xhtml", ".xml", ".xsl"}
 
 type siteOptions struct {
@@ -46,9 +45,6 @@ type siteOptions struct {
 	} `positional-args:"yes" required:"yes"`
 }
 
-// runSite writes the app's reader as a static site: a page for every note and
-// every folder, each carrying the answer the server would give for it, and a
-// copy of every other file the app would serve, so the links keep working.
 func runSite(opts *siteOptions, out io.Writer) error {
 	st, err := store.New(store.Config{Root: opts.Args.Dir, Exclude: opts.Exclude, ReadOnly: true})
 	if err != nil {
@@ -69,7 +65,9 @@ func runSite(opts *siteOptions, out io.Writer) error {
 
 	b := siteBuilder{
 		st: st, dst: dst,
-		renderer: render.New(render.Options{Relative: true, PageExt: sitePage, FolderPage: siteFolder}),
+		renderer: render.New(render.Options{
+			Relative: true, PageExt: sitePage, FolderPage: siteFolder, IndexPage: siteIndexPage,
+		}),
 	}
 	if writeErr := b.writeSite(plan); writeErr != nil {
 		return writeErr
@@ -81,18 +79,11 @@ func runSite(opts *siteOptions, out io.Writer) error {
 	return writeText(out, fmt.Sprintf("%d pages and %d other files written to %s\n", pages, len(plan.files), opts.Output))
 }
 
-// sitePlan is what a site is made of, read from the notes before anything is
-// written, so a name two of them would share is refused with nothing on disk.
 type sitePlan struct {
-	root *store.Node
-	// folders are every folder, the root first, each written as its index page
-	folders []string
-	// notes are the notes with a page of their own, which a folder's index
-	// does not have: it is the folder's page
-	notes []string
-	// files are copied as they are
-	files []string
-	// notFound is whether 404.html is the site's to write
+	root     *store.Node
+	folders  []string
+	notes    []string
+	files    []string
 	notFound bool
 }
 
@@ -114,26 +105,21 @@ func planSite(st *store.Store) (sitePlan, error) {
 		return nil
 	}
 
-	var walk func(node *store.Node, index string) error
-	walk = func(node *store.Node, index string) error {
+	var walk func(node *store.Node) error
+	walk = func(node *store.Node) error {
 		if node.IsDir {
 			plan.folders = append(plan.folders, node.Path)
 			if err := claim(folderPageOf(node.Path), folderName(node.Path)); err != nil {
 				return err
 			}
-			own := indexOfFolder(node)
 			for _, child := range node.Children {
-				if err := walk(child, own); err != nil {
+				if err := walk(child); err != nil {
 					return err
 				}
 			}
 			return nil
 		}
 		switch {
-		case node.Path == index:
-			return nil
-		case isMarkdown(node.Path) && isFolderIndex(node.Path):
-			return claim(folderPageOf(folderOf(node.Path)), node.Path)
 		case isMarkdown(node.Path):
 			plan.notes = append(plan.notes, node.Path)
 			return claim(notePageOf(node.Path), node.Path)
@@ -142,22 +128,18 @@ func planSite(st *store.Store) (sitePlan, error) {
 			return claim(node.Path, node.Path)
 		}
 	}
-	if err := walk(root, ""); err != nil {
+	if err := walk(root); err != nil {
 		return sitePlan{}, err
 	}
 	if err := checkSiteDirs(written); err != nil {
 		return sitePlan{}, err
 	}
-	// the notes may hold a page for a missing address of their own, or a folder
-	// where it would go
 	plan.notFound = !slices.ContainsFunc(slices.Collect(maps.Keys(written)), func(name string) bool {
 		return name == siteNotFound || strings.HasPrefix(name, siteNotFound+"/")
 	})
 	return plan, nil
 }
 
-// checkSiteDirs refuses a file written where a folder of the site has to be,
-// as a.md and a folder named a.html would both want.
 func checkSiteDirs(written map[string]string) error {
 	names := make([]string, 0, len(written))
 	for name := range written {
@@ -175,11 +157,11 @@ func checkSiteDirs(written map[string]string) error {
 }
 
 type siteBuilder struct {
-	st       *store.Store
-	dst      *os.Root
-	renderer *render.Renderer
-	// diagrams and math are whether a page written so far needs the renderer
-	diagrams, math bool
+	st                      *store.Store
+	dst                     *os.Root
+	renderer                *render.Renderer
+	mermaid, plantUML, math bool
+	plantUMLLibraries       []string
 }
 
 func (b *siteBuilder) writeSite(plan sitePlan) error {
@@ -217,8 +199,14 @@ func (b *siteBuilder) writeAssets() error {
 	assets := page.SiteAssets()
 	assets[siteChroma] = string(render.ChromaCSS())
 	assets[siteFavicon] = string(server.Favicon())
-	if b.diagrams {
-		assets[page.DiagramsFile] = page.Diagrams()
+	if b.mermaid {
+		assets[page.MermaidFile] = page.Mermaid()
+	}
+	if b.plantUML {
+		assets[page.PlantUMLFile] = page.PlantUML()
+		if err := b.addLibraries(assets); err != nil {
+			return err
+		}
 	}
 	if b.math {
 		maps.Copy(assets, page.Math())
@@ -231,7 +219,17 @@ func (b *siteBuilder) writeAssets() error {
 	return nil
 }
 
-// render renders one note and notes what renderers the site has to carry.
+func (b *siteBuilder) addLibraries(assets map[string]string) error {
+	libs, err := plantuml.LibraryCode(b.plantUMLLibraries)
+	if err != nil {
+		return fmt.Errorf("plantuml libraries: %w", err)
+	}
+	for name, code := range libs {
+		assets[path.Join(plantuml.LibraryDir, name)] = string(code)
+	}
+	return nil
+}
+
 func (b *siteBuilder) render(notePath string) (render.Result, []byte, store.FileInfo, error) {
 	src, fi, err := b.st.Read(notePath)
 	if err != nil {
@@ -241,9 +239,21 @@ func (b *siteBuilder) render(notePath string) (render.Result, []byte, store.File
 	if err != nil {
 		return render.Result{}, nil, store.FileInfo{}, fmt.Errorf("render %s: %w", notePath, err)
 	}
-	b.diagrams = b.diagrams || res.Diagrams
+	b.mermaid = b.mermaid || res.Mermaid
+	b.plantUML = b.plantUML || res.PlantUML
+	if res.PlantUML {
+		b.plantUMLLibraries = append(b.plantUMLLibraries, plantuml.Libraries(plantUMLText(src, res.HTML))...)
+	}
 	b.math = b.math || res.Math
 	return res, src, fi, nil
+}
+
+func plantUMLText(src []byte, fragment template.HTML) []byte {
+	text := slices.Clone(src)
+	for _, block := range render.DiagramBlocks(string(fragment), render.PlantUMLClass) {
+		text = append(append(text, '\n'), block.Text()...)
+	}
+	return text
 }
 
 func (b *siteBuilder) writeNote(notePath string) error {
@@ -258,12 +268,10 @@ func (b *siteBuilder) writeNote(notePath string) error {
 		HTML:   string(res.HTML),
 	}, sitePageData{
 		Route:  view.ContentURL(notePath),
-		Answer: view.NewPage(notePath, notePath, res, store.Rev(src), fi.ModTime, false),
+		Answer: view.NewPage(notePath, res, store.Rev(src), fi.ModTime, false),
 	})
 }
 
-// writeFolder writes the page of a folder the way /api/dir/ answers for it: its
-// index.md under the folder's own path, or the listing with its readme.
 func (b *siteBuilder) writeFolder(dir string) error {
 	entries, err := b.st.List(dir)
 	if err != nil {
@@ -272,34 +280,10 @@ func (b *siteBuilder) writeFolder(dir string) error {
 	name := folderPageOf(dir)
 	up := siteUp(name)
 	sp := page.SitePage{Title: folderTitle(dir), Crumbs: siteCrumbs(dir, up), Entries: siteEntries(entries, dir)}
-	data := sitePageData{Route: view.DirURL(dir)}
-
-	if index := view.IndexOf(entries, view.IndexName); index != "" {
-		res, src, fi, renderErr := b.render(index)
-		if renderErr != nil {
-			return renderErr
-		}
-		sp.Title, sp.HTML = res.Title, string(res.HTML)
-		data.Answer = view.NewPage(dir, index, res, store.Rev(src), fi.ModTime, false)
-		return b.writePage(name, sp, data)
-	}
-
-	listing := view.NewDir(dir, entries)
-	if readme := view.IndexOf(entries, view.ReadmeName); readme != "" {
-		res, _, _, renderErr := b.render(readme)
-		if renderErr != nil {
-			return renderErr
-		}
-		listing.ReadmeHTML, listing.HasReadme = string(res.HTML), true
-		sp.HTML = listing.ReadmeHTML
-	}
-	data.Answer = listing
-	return b.writePage(name, sp, data)
+	answer := view.NewDir(dir, entries, b.st.Count, view.NotEditable)
+	return b.writePage(name, sp, sitePageData{Route: view.DirURL(dir), Answer: answer})
 }
 
-// sitePageData is the JSON a page carries: the route of the app it stands for,
-// the way back to the root, and the answer the server gives for that route.
-// web/src/site/data.ts reads it.
 type sitePageData struct {
 	Route  string `json:"route"`
 	Root   string `json:"root"`
@@ -321,8 +305,6 @@ func (b *siteBuilder) writePage(name string, sp page.SitePage, data sitePageData
 	return b.write(name, buf.Bytes())
 }
 
-// siteData is scrawl/tree.js, the one copy of the tree every page shares.
-// web/src/site/data.ts reads it.
 type siteData struct {
 	Title string         `json:"title"`
 	Tree  []view.NavNode `json:"tree"`
@@ -330,7 +312,7 @@ type siteData struct {
 
 func (b *siteBuilder) writeTree(root *store.Node) error {
 	title := siteTitle
-	if index := indexOfFolder(root); index != "" {
+	if index := view.IndexOfNode(root); index != "" {
 		res, _, _, err := b.render(index)
 		if err != nil {
 			return err
@@ -341,14 +323,9 @@ func (b *siteBuilder) writeTree(root *store.Node) error {
 	if err != nil {
 		return fmt.Errorf("write %s: %w", siteTreeFile, err)
 	}
-	// a page opened from disk can fetch nothing, so the tree is a script that
-	// hands itself over
 	return b.write(path.Join(siteAssets, siteTreeFile), append(append([]byte("self.scrawlSite = "), raw...), ";\n"...))
 }
 
-// withNotes is the tree less the folders that hold no note: in the app a folder
-// is where a note is made, and a site makes none, so an empty folder or one of
-// pictures would only stand in the way. It is still a page of the site.
 func withNotes(nodes []view.NavNode) []view.NavNode {
 	res := []view.NavNode{}
 	for _, node := range nodes {
@@ -396,8 +373,6 @@ func (b *siteBuilder) write(name string, data []byte) error {
 	return nil
 }
 
-// siteCrumbs is the path to a note or a folder as links of the page at up, for
-// a reader without javascript.
 func siteCrumbs(p, up string) []page.Link {
 	crumbs := view.Breadcrumbs(p)
 	res := make([]page.Link, 0, len(crumbs))
@@ -415,7 +390,6 @@ func siteCrumbs(p, up string) []page.Link {
 	return res
 }
 
-// siteEntries is what a folder holds as links of its own page.
 func siteEntries(entries []store.FileInfo, dir string) []page.Link {
 	res := make([]page.Link, 0, len(entries))
 	for _, ent := range entries {
@@ -423,8 +397,6 @@ func siteEntries(entries []store.FileInfo, dir string) []page.Link {
 		switch {
 		case ent.IsDir:
 			target = folderPageOf(ent.Path)
-		case isMarkdown(ent.Path) && isFolderIndex(ent.Path):
-			target = folderPageOf(dir)
 		case isMarkdown(ent.Path):
 			target = notePageOf(ent.Path)
 		}
@@ -434,7 +406,6 @@ func siteEntries(entries []store.FileInfo, dir string) []page.Link {
 	return res
 }
 
-// warnActive names the copied files a browser would run a script from.
 func warnActive(out io.Writer, files []string) error {
 	active := activeFiles(files)
 	if len(active) == 0 {
@@ -445,7 +416,6 @@ func warnActive(out io.Writer, files []string) error {
 		strings.Join(active, ", ")))
 }
 
-// activeFiles are the copied files a browser would run a script from.
 func activeFiles(files []string) []string {
 	res := []string{}
 	for _, name := range files {
@@ -456,8 +426,6 @@ func activeFiles(files []string) []string {
 	return res
 }
 
-// openSiteDir creates the directory of the site, or takes an empty one. A
-// directory with something in it is refused rather than written over.
 func openSiteDir(dir string) (*os.Root, error) {
 	if err := os.MkdirAll(dir, siteDirMode); err != nil {
 		return nil, fmt.Errorf("create %s: %w", dir, err)
@@ -476,22 +444,10 @@ func openSiteDir(dir string) (*os.Root, error) {
 	return root, nil
 }
 
-// indexOfFolder is the note a folder of the tree is shown as, "" for none: the
-// one /api/dir/ picks.
-func indexOfFolder(node *store.Node) string {
-	infos := make([]store.FileInfo, 0, len(node.Children))
-	for _, child := range node.Children {
-		infos = append(infos, child.FileInfo)
-	}
-	return view.IndexOf(infos, view.IndexName)
-}
-
 func isFolderIndex(notePath string) bool {
 	return strings.EqualFold(path.Base(notePath), view.IndexName)
 }
 
-// siteUp leads from a page of the site back to its root. At the root it is
-// "./", so a note named "a:b.md" is not read as the scheme "a:".
 func siteUp(name string) string {
 	if depth := strings.Count(name, "/"); depth > 0 {
 		return strings.Repeat("../", depth)
@@ -499,9 +455,10 @@ func siteUp(name string) string {
 	return "./"
 }
 
-// notePageOf and folderPageOf are the files of a site a note and a folder are
-// written to; web/src/site/files.ts maps a route of the app the same way.
 func notePageOf(notePath string) string {
+	if isFolderIndex(notePath) {
+		return folderPrefix(folderOf(notePath)) + siteIndexPage
+	}
 	return strings.TrimSuffix(notePath, path.Ext(notePath)) + sitePage
 }
 
@@ -509,7 +466,6 @@ func folderPageOf(dir string) string {
 	return folderPrefix(dir) + siteFolder
 }
 
-// folderOf is the folder a file is in, "" for the root
 func folderOf(p string) string {
 	if dir := path.Dir(p); dir != "." {
 		return dir

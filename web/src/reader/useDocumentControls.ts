@@ -36,8 +36,6 @@ export function useDocumentControls(
 
     const timers = new Set<number>();
 
-    // a bare fragment keeps the query on screen, a link that names the note
-    // brings its own
     const jump = (id: string, replace: boolean, search?: string): void => {
       elementWithId(root, id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       const { navigate: go, location: at } = latest.current;
@@ -92,8 +90,6 @@ export function useDocumentControls(
           return;
         }
         event.preventDefault();
-        // a link to a heading of this very note is a jump: no note arrives, so
-        // nothing else would land on the heading
         const to = parsePath(internal.to);
         if (to.pathname === latest.current.location.pathname && to.hash !== undefined && to.hash.length > 1) {
           jump(decodeFragment(to.hash.slice(1)), false, to.search ?? '');

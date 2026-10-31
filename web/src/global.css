@@ -1,0 +1,30 @@
+:root {
+  --scrawl-note-width: var(--scrawl-note-width-normal);
+}
+
+:root[data-page-width='wide'] {
+  --scrawl-note-width: var(--scrawl-note-width-wide);
+}
+
+:root {
+  --scrawl-tabbar-space: 0px;
+}
+
+:root {
+  --scrawl-press-in: background-color 0s 60ms, opacity 0s 60ms;
+  --scrawl-press-out: background-color 150ms ease-out, opacity 150ms ease-out;
+}
+
+@media (hover: none) {
+  body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  :is(.markdown-document, pre, code, input, textarea, [contenteditable='true']) {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}

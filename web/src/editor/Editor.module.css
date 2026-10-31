@@ -1,18 +1,23 @@
 .screen {
+  --editor-column: calc(var(--scrawl-note-width) + 120px);
+
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: calc(100dvh - var(--app-shell-header-offset, 0px) - 2 * var(--app-shell-padding, 0px));
+}
+
+.notices {
   display: flex;
   flex-direction: column;
   gap: var(--mantine-spacing-sm);
-  min-height: 0;
-  height: calc(100dvh - var(--app-shell-header-offset, 0px) - 2 * var(--app-shell-padding, 0px));
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg) 0;
 }
 
 .panes {
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
-  border: 1px solid var(--scrawl-border);
-  border-radius: var(--mantine-radius-md);
-  overflow: hidden;
   background: var(--scrawl-bg);
 }
 
@@ -28,14 +33,84 @@
   flex: 1 1 0;
 }
 
+.paneHead {
+  flex: none;
+  border-bottom: 1px solid var(--scrawl-border-light);
+}
+
+.paneHeadInner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 44px;
+  padding-inline: var(--mantine-spacing-lg);
+}
+
+.screen[data-mode='source'] .paneHeadInner {
+  max-width: var(--editor-column);
+  margin-inline: auto;
+}
+
+.paneLabel {
+  flex: none;
+  margin-inline-end: 8px;
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+}
+
+.paneTools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  margin-inline-start: auto;
+}
+
+.tool {
+  --ai-size: var(--scrawl-control-height);
+  flex: none;
+  color: var(--scrawl-icon-secondary);
+}
+
+.toolSeparator {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin-inline: 6px;
+  background: var(--scrawl-border);
+}
+
+.lines {
+  margin-inline-end: 6px;
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.footLines {
+  display: none;
+}
+
+.status {
+  margin-inline-end: 8px;
+  color: var(--scrawl-text-tertiary);
+  font-size: var(--mantine-font-size-sm);
+  white-space: nowrap;
+}
+
+.modes {
+  margin-inline-end: 4px;
+}
+
+.mode {
+  padding-inline: 10px;
+}
+
 .source {
   overflow: hidden;
 }
 
-/* react-codemirror wraps the editor in a theme div of its own, display:block
-   with no height. The percentage below then has nothing to resolve against, so
-   the editor grows to the height of the whole document and neither it nor the
-   page is left with anything to scroll. */
 .source > * {
   flex: 1 1 0;
   min-height: 0;
@@ -50,21 +125,55 @@
 }
 
 .source :global(.cm-scroller) {
+  padding: 28px var(--mantine-spacing-md) 30vh;
   font-family: var(--mantine-font-family-monospace);
-  /* below 16px iOS zooms the page on focus and never zooms back */
-  font-size: var(--scrawl-input-font-size);
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.7;
 }
 
-/* the stock dark theme paints One Dark's own grey under the text */
-.source :global(.cm-editor) {
-  background-color: var(--scrawl-bg);
+.screen[data-mode='source'] .source :global(.cm-scroller) {
+  padding-inline: max(var(--mantine-spacing-md), calc((100% - var(--editor-column)) / 2));
 }
 
 .source :global(.cm-gutters) {
-  background: var(--scrawl-bg-subtle);
-  border-right: 1px solid var(--scrawl-border);
-  color: var(--scrawl-text-tertiary);
+  padding-inline-end: 12px;
+}
+
+.source :global(.cm-lineNumbers .cm-gutterElement) {
+  min-width: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (pointer: coarse) {
+  .source :global(.cm-scroller) {
+    font-size: var(--scrawl-input-font-size);
+  }
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .source :global(.cm-gutters) {
+    display: none;
+  }
+
+  .source :global(.cm-scroller) {
+    padding: 16px var(--mantine-spacing-lg) 30vh;
+  }
+
+  .paneHeadInner {
+    padding-inline: 0;
+  }
+
+  .screen[data-kind='text'] .paneHeadInner {
+    padding-inline-start: var(--mantine-spacing-lg);
+  }
+
+  .footLines {
+    display: block;
+    padding: 6px var(--mantine-spacing-lg);
+    border-top: 1px solid var(--scrawl-border-light);
+    color: var(--scrawl-text-tertiary);
+    font-size: 12px;
+  }
 }
 
 .dropping {
@@ -75,12 +184,19 @@
 .preview {
   overflow-y: auto;
   overflow-x: hidden;
-  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
-  border-left: 1px solid var(--scrawl-border);
+  padding: 28px 32px 30vh;
 }
 
-.previewOnly {
-  border-left: 0;
+.previewOnly > * {
+  width: 100%;
+  max-width: var(--scrawl-note-width);
+  margin-inline: auto;
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .preview {
+    padding: 16px var(--mantine-spacing-lg) 30vh;
+  }
 }
 
 .splitter {
@@ -122,18 +238,17 @@
   }
 }
 
-/* a strip of buttons moves along one axis and stops at its ends. Left to the
-   defaults a finger dragged it sideways past the end and up and down with the
-   page behind it, so the bar wobbled under every touch. */
 .toolbarScroll {
+  display: flex;
   flex: 1 1 auto;
+  align-items: center;
+  gap: 2px;
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior: none;
   touch-action: pan-x;
   scrollbar-width: none;
-  /* with no scrollbar a cut-off row looks complete, so a hidden end fades */
   --toolbar-fade: 28px;
   --toolbar-fade-start: 0px;
   --toolbar-fade-end: 0px;
@@ -146,8 +261,6 @@
   );
 }
 
-/* the editor fills the window and nothing on it scrolls the page, so the page
-   has no rubber band to pull the whole screen by */
 :global(html):has(.screen) {
   overscroll-behavior: none;
 }
@@ -171,9 +284,25 @@
   word-break: break-word;
   font-family: var(--mantine-font-family-monospace);
   font-size: var(--mantine-font-size-xs);
-  background: var(--scrawl-bg-inset);
+  background: var(--scrawl-sidebar);
   border: 1px solid var(--scrawl-border);
   border-radius: var(--mantine-radius-sm);
   padding: var(--mantine-spacing-sm);
   margin: 0;
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .save {
+    min-height: 0;
+    height: var(--scrawl-touch-choice);
+    margin-inline-end: 12px;
+  }
+
+  .cancel {
+    color: var(--scrawl-text);
+  }
+}
+
+.tool[aria-pressed='true'] {
+  color: var(--scrawl-accent);
 }

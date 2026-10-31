@@ -1,22 +1,58 @@
-/* A rendered diff: rows of blocks, the version before on the left and the one
-   after on the right. The app and the page `scrawl diff` writes both load this
-   file, so the markup is the same in both and this is its only stylesheet. */
-
 .diff {
   container-type: inline-size;
   min-width: 0;
+}
+
+.diff-row {
+  position: relative;
+  min-width: 0;
+}
+
+.diff-cell {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.diff-tag {
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.diff-row[data-kind='changed'] > .diff-tag {
+  background: var(--scrawl-bg-orange);
+  color: var(--scrawl-color-orange);
+}
+
+.diff-row[data-kind='added'] > .diff-tag {
+  background: var(--scrawl-bg-green);
+  color: var(--scrawl-color-green);
+}
+
+.diff-row[data-kind='removed'] > .diff-tag {
+  background: var(--scrawl-bg-red);
+  color: var(--scrawl-color-red);
+}
+
+.diff-row[data-kind='format'] > .diff-tag {
+  background: var(--scrawl-bg-gray);
+  color: var(--scrawl-color-gray);
+}
+
+.diff[data-layout='split'] {
   overflow: hidden;
-  border: 1px solid var(--gh-border-default);
-  border-radius: 6px;
-  background: var(--gh-bg-default);
+  border: 1px solid var(--scrawl-border-light);
+  border-radius: 8px;
+  background: var(--scrawl-bg);
 }
 
 .diff-head {
   display: none;
-  border-bottom: 1px solid var(--gh-border-default);
-  background: var(--gh-bg-muted);
-  color: var(--gh-fg-muted);
-  font-family: var(--mantine-font-family-monospace);
+  border-bottom: 1px solid var(--scrawl-border-light);
+  background: var(--scrawl-sidebar);
+  color: var(--scrawl-text-tertiary);
   font-size: 12px;
 }
 
@@ -28,144 +64,216 @@
   white-space: nowrap;
 }
 
-.diff-row {
-  position: relative;
+.diff[data-layout='split'] .diff-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  border-bottom: 1px solid var(--gh-border-muted);
+  border-bottom: 1px solid var(--scrawl-border-light);
 }
 
-.diff-row:last-child,
-.diff-fold:last-child > .diff-row:last-child {
+.diff[data-layout='split'] .diff-row:last-child,
+.diff[data-layout='split'] .diff-fold:last-child > .diff-row:last-child {
   border-bottom: 0;
 }
 
-.diff-cell {
-  min-width: 0;
+.diff[data-layout='split'] .diff-cell {
   padding: 8px 16px;
-  overflow-x: auto;
 }
 
-/* one column: a block nothing changed in is shown once, and a missing side
-   not at all */
-.diff-row:is([data-kind='same'], [data-kind='format']) > .diff-old,
+.diff[data-layout='split'] .diff-row:is([data-kind='same'], [data-kind='format']) > .diff-old,
 .diff-empty {
   display: none;
 }
 
-.diff-row:is([data-kind='same'], [data-kind='format']) > .diff-cell {
+.diff[data-layout='split'] .diff-row:is([data-kind='same'], [data-kind='format']) > .diff-cell {
   opacity: 0.6;
 }
 
-.diff-row[data-kind='removed'] > .diff-old {
-  background: var(--gh-diff-deletion-line);
-  box-shadow: inset 3px 0 var(--gh-border-danger-emphasis);
+.diff[data-layout='split'] .diff-row[data-kind='removed'] > .diff-old {
+  background: var(--scrawl-diff-delete-line);
+  box-shadow: inset 3px 0 var(--scrawl-color-red);
 }
 
-.diff-row[data-kind='added'] > .diff-new {
-  background: var(--gh-diff-addition-line);
-  box-shadow: inset 3px 0 var(--gh-border-success-emphasis);
+.diff[data-layout='split'] .diff-row[data-kind='added'] > .diff-new {
+  background: var(--scrawl-diff-add-line);
+  box-shadow: inset 3px 0 var(--scrawl-color-green);
 }
 
-.diff-row[data-kind='changed'] > .diff-old {
-  box-shadow: inset 3px 0 var(--gh-border-danger-emphasis);
+.diff[data-layout='split'] .diff-row[data-kind='changed'] > .diff-old {
+  box-shadow: inset 3px 0 var(--scrawl-color-red);
 }
 
-.diff-row[data-kind='changed'] > .diff-new {
-  box-shadow: inset 3px 0 var(--gh-border-success-emphasis);
+.diff[data-layout='split'] .diff-row[data-kind='changed'] > .diff-new {
+  box-shadow: inset 3px 0 var(--scrawl-color-green);
 }
 
-.diff-row[data-kind='changed'] > .diff-old + .diff-new {
-  border-top: 1px dashed var(--gh-border-muted);
+.diff[data-layout='split'] .diff-row[data-kind='changed'] > .diff-old + .diff-new {
+  border-top: 1px dashed var(--scrawl-border-light);
 }
 
-.diff-badge {
+.diff[data-layout='split'] .diff-tag {
   position: absolute;
   top: 6px;
   right: 8px;
-  padding: 0 6px;
-  border: 1px dashed var(--gh-border-emphasis);
-  border-radius: 999px;
-  background: var(--gh-bg-default);
-  color: var(--gh-fg-muted);
-  font-size: 11px;
-  line-height: 16px;
+}
+
+.diff[data-layout='split'] .diff-row[data-kind='format'] > .diff-new {
+  padding-right: 72px;
 }
 
 @container (min-width: $mantine-breakpoint-xs) {
-  .diff-head,
-  .diff-row {
+  .diff[data-layout='split'] .diff-head,
+  .diff[data-layout='split'] .diff-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
-  .diff-head > div + div,
-  .diff-new {
-    border-left: 1px solid var(--gh-border-default);
+  .diff[data-layout='split'] .diff-head > div + div,
+  .diff[data-layout='split'] .diff-new {
+    border-left: 1px solid var(--scrawl-border-light);
   }
 
-  .diff-row:is([data-kind='same'], [data-kind='format']) > .diff-old,
+  .diff[data-layout='split'] .diff-row:is([data-kind='same'], [data-kind='format']) > .diff-old,
   .diff-empty {
     display: block;
   }
 
-  .diff-row[data-kind='changed'] > .diff-old + .diff-new {
+  .diff[data-layout='split'] .diff-row[data-kind='changed'] > .diff-old + .diff-new {
     border-top: 0;
   }
 
-  .diff-row[data-kind='format'] > .diff-new {
+  .diff[data-layout='split'] .diff-row[data-kind='format'] > .diff-new {
     border-left-style: dashed;
   }
 }
 
 .diff-empty {
   min-height: 1.5em;
-  background: repeating-linear-gradient(
-    135deg,
-    transparent 0 6px,
-    var(--gh-bg-muted) 6px 12px
-  );
+  background: repeating-linear-gradient(135deg, transparent 0 6px, var(--scrawl-sidebar) 6px 12px);
 }
 
-/* a reader sees the marks, not the strike of a note's own <del> */
+.diff[data-layout='split'] .diff-fold {
+  border-bottom: 1px solid var(--scrawl-border-light);
+}
+
+.diff[data-layout='split'] .diff-fold:last-child {
+  border-bottom: 0;
+}
+
+.diff[data-layout='split'] .diff-fold > summary {
+  padding: 4px 16px;
+  background: var(--scrawl-sidebar);
+}
+
+.diff[data-layout='split'] .diff-fold[open] > summary {
+  border-bottom: 1px solid var(--scrawl-border-light);
+}
+
+.diff[data-layout='split'] .diff-none {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--scrawl-border-light);
+}
+
+.diff-labels {
+  margin: 0 0 16px;
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+}
+
+.diff[data-layout='unified'] .diff-row {
+  margin-block: 2px;
+}
+
+.diff[data-layout='unified'] .diff-tag {
+  display: inline-block;
+  margin: 8px 0 2px;
+}
+
+.diff[data-layout='unified'] .diff-row:is([data-kind='added'], [data-kind='format']) > .diff-cell {
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.diff[data-layout='unified'] .diff-row[data-kind='added'] > .diff-cell {
+  box-shadow: inset 0 0 0 1px var(--scrawl-color-green);
+}
+
+.diff[data-layout='unified'] .diff-row[data-kind='format'] > .diff-cell {
+  background: var(--scrawl-code-bg);
+}
+
+.diff[data-layout='unified'] .diff-row[data-kind='removed'] > .diff-cell {
+  color: var(--scrawl-text-secondary);
+  text-decoration: line-through;
+  text-decoration-color: var(--scrawl-color-red);
+}
+
+.diff[data-layout='unified'] .diff-row[data-kind='changed'] > .diff-cell + .diff-cell {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--scrawl-border-light);
+}
+
+.diff[data-layout='unified'] .diff-fold > summary {
+  width: fit-content;
+  margin-block: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+@media (hover: hover) {
+  .diff[data-layout='unified'] .diff-fold > summary:hover {
+    background: var(--scrawl-hover);
+  }
+}
+
+.diff[data-layout='unified'] .diff-none {
+  margin: 0 0 12px;
+}
+
+@container (min-width: 560px) {
+  .diff[data-layout='unified'] > :is(.diff-row, .diff-fold, .diff-none) {
+    margin-inline-start: 96px;
+  }
+
+  .diff[data-layout='unified'] .diff-tag {
+    position: absolute;
+    top: 4px;
+    right: calc(100% + 14px);
+    margin: 0;
+  }
+
+  .diff[data-layout='unified'] .diff-row:is([data-kind='added'], [data-kind='format']) > .diff-tag {
+    top: 6px;
+  }
+}
+
 .diff del.diff-del {
   border-radius: 3px;
-  background: var(--gh-diff-deletion-word);
+  background: var(--scrawl-diff-delete-word);
   color: inherit;
   text-decoration: line-through;
-  text-decoration-color: var(--gh-fg-danger);
+  text-decoration-color: var(--scrawl-color-red);
 }
 
 .diff ins.diff-ins {
   border-radius: 3px;
-  background: var(--gh-diff-addition-word);
+  background: var(--scrawl-diff-add-word);
   color: inherit;
   text-decoration: none;
 }
 
-/* a link or a picture that only changed where it points */
 .diff :is(a, img).diff-del {
-  outline: 2px solid var(--gh-border-danger-emphasis);
+  outline: 2px solid var(--scrawl-color-red);
   outline-offset: 1px;
 }
 
 .diff :is(a, img).diff-ins {
-  outline: 2px solid var(--gh-border-success-emphasis);
+  outline: 2px solid var(--scrawl-color-green);
   outline-offset: 1px;
 }
 
-.diff-fold {
-  border-bottom: 1px solid var(--gh-border-muted);
-}
-
-.diff-fold:last-child {
-  border-bottom: 0;
-}
-
 .diff-fold > summary {
-  padding: 4px 16px;
-  background: var(--gh-bg-muted);
-  color: var(--gh-fg-muted);
+  color: var(--scrawl-text-tertiary);
   font-size: 12px;
   cursor: pointer;
   list-style: none;
@@ -179,16 +287,10 @@
   content: '⋯ ';
 }
 
-.diff-fold[open] > summary {
-  border-bottom: 1px solid var(--gh-border-muted);
-}
-
 .diff .markdown-document pre.frontmatter {
-  border: 1px dashed var(--gh-border-default);
+  border: 1px dashed var(--scrawl-border);
 }
 
 .diff-none {
-  margin: 0;
-  padding: 12px 16px;
-  color: var(--gh-fg-muted);
+  color: var(--scrawl-text-secondary);
 }

@@ -1,79 +1,141 @@
-import { ActionIcon, Affix, Group, Paper, Text } from '@mantine/core';
-import { IconChevronDown, IconChevronUp, IconX } from '@tabler/icons-react';
-import { useEffect, type JSX } from 'react';
+import { ActionIcon } from '@mantine/core';
+import { useEffect, useRef, type JSX, type KeyboardEvent, type ReactNode } from 'react';
 
+import { IconChevronDown, IconChevronUp, IconSearch, IconX } from '../icons';
+import { ownsShortcuts } from '../shell/shortcuts';
 import { layout } from '../theme';
 
-export interface FindBarProps {
-  position: number;
-  total: number;
-  onStep: (delta: number) => void;
-  onClose: () => void;
+import classes from './FindBar.module.css';
+import type { FindQuery } from './findMatches';
+import type { FindOnPage } from './useFindOnPage';
+
+function counterOf(find: FindOnPage): string {
+  switch (find.status) {
+    case 'found':
+      return `${find.position} of ${find.total}`;
+    case 'none':
+      return 'No results';
+    case 'bad':
+      return 'Bad pattern';
+    case 'slow':
+      return 'Pattern too slow';
+    default:
+      return '';
+  }
 }
 
-export function FindBar({ position, total, onStep, onClose }: FindBarProps): JSX.Element {
+type ToggleName = keyof Omit<FindQuery, 'text'>;
+
+const toggleKeys: Partial<Record<string, ToggleName>> = { KeyC: 'matchCase', KeyW: 'word', KeyR: 'regex' };
+
+export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
+  const input = useRef<HTMLInputElement>(null);
+  const { query, setQuery } = find;
+  const flip = (name: ToggleName): void => setQuery({ ...query, [name]: !query[name] });
+
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        onClose();
+    input.current?.focus();
+    input.current?.select();
+  }, [find.openings]);
+
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+    if (event.altKey) {
+      const name = toggleKeys[event.nativeEvent.code];
+      if (name !== undefined) {
+        event.preventDefault();
+        flip(name);
       }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      find.close();
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (find.status === 'idle') {
+        find.run();
+        return;
+      }
+      find.step(event.shiftKey ? -1 : 1);
+    }
+  };
 
   return (
-    <Affix
-      position={{ bottom: 'calc(var(--mantine-spacing-lg) + env(safe-area-inset-bottom))', left: '50%' }}
-      style={{ transform: 'translateX(-50%)' }}
+    <div data-testid="doc-find" className={classes.bar} role="search" data-print="hide" {...ownsShortcuts}>
+      <IconSearch size={layout.iconSizeSmall} className={classes.icon} />
+      <input
+        ref={input}
+        data-testid="doc-find-input"
+        className={classes.input}
+        value={query.text}
+        placeholder="Find in the note"
+        aria-label="Find in the note"
+        autoComplete="off"
+        spellCheck={false}
+        onChange={(event) => setQuery({ ...query, text: event.currentTarget.value })}
+        onKeyDown={onKeyDown}
+      />
+      <span
+        data-testid="doc-find-count"
+        data-status={find.status}
+        data-position={find.position}
+        data-total={find.total}
+        className={classes.count}
+        role="status"
+      >
+        {counterOf(find)}
+      </span>
+      <span className={classes.break} aria-hidden />
+      <Toggle testId="doc-find-case" label="Match case" on={query.matchCase}
+        onClick={() => flip('matchCase')}>
+        Aa
+      </Toggle>
+      <Toggle testId="doc-find-word" label="Whole word" on={query.word}
+        onClick={() => flip('word')}>
+        <u>ab</u>
+      </Toggle>
+      <Toggle testId="doc-find-regex" label="Regular expression" on={query.regex}
+        onClick={() => flip('regex')}>
+        .*
+      </Toggle>
+      <ActionIcon data-testid="doc-find-prev" className={classes.prev} variant="subtle" color="gray" aria-label="Previous match"
+        disabled={find.total === 0} onClick={() => find.step(-1)}>
+        <IconChevronUp size={layout.iconSizeSmall} />
+      </ActionIcon>
+      <ActionIcon data-testid="doc-find-next" className={classes.next} variant="subtle" color="gray" aria-label="Next match"
+        disabled={find.total === 0} onClick={() => find.step(1)}>
+        <IconChevronDown size={layout.iconSizeSmall} />
+      </ActionIcon>
+      <ActionIcon data-testid="doc-find-close" className={classes.close} variant="subtle" color="gray" aria-label="Close the find" onClick={find.close}>
+        <IconX size={layout.iconSizeSmall} />
+      </ActionIcon>
+    </div>
+  );
+}
+
+interface ToggleProps {
+  testId: string;
+  label: string;
+  on: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}
+
+function Toggle({ testId, label, on, onClick, children }: ToggleProps): JSX.Element {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      data-on={on ? 'true' : 'false'}
+      className={classes.toggle}
+      aria-label={label}
+      aria-pressed={on}
+      title={label}
+      onClick={onClick}
     >
-      <Paper data-testid="doc-find" withBorder shadow="lg" radius="xl" p={4} role="status">
-        <Group gap={4} wrap="nowrap" pl="sm">
-          <Text
-            data-testid="doc-find-count"
-            data-position={position}
-            data-total={total}
-            size="sm"
-            c="dimmed"
-            style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
-          >
-            {position} of {total}
-          </Text>
-          <ActionIcon
-            data-testid="doc-find-prev"
-            variant="subtle"
-            color="gray"
-            size={layout.tapTarget}
-            radius="xl"
-            aria-label="Previous match"
-            onClick={() => onStep(-1)}
-          >
-            <IconChevronUp size={18} />
-          </ActionIcon>
-          <ActionIcon
-            data-testid="doc-find-next"
-            variant="subtle"
-            color="gray"
-            size={layout.tapTarget}
-            radius="xl"
-            aria-label="Next match"
-            onClick={() => onStep(1)}
-          >
-            <IconChevronDown size={18} />
-          </ActionIcon>
-          <ActionIcon
-            data-testid="doc-find-close"
-            variant="subtle"
-            color="gray"
-            size={layout.tapTarget}
-            radius="xl"
-            aria-label="Clear highlighting"
-            onClick={onClose}
-          >
-            <IconX size={18} />
-          </ActionIcon>
-        </Group>
-      </Paper>
-    </Affix>
+      {children}
+    </button>
   );
 }

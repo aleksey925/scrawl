@@ -1,7 +1,5 @@
 export const headingSelector = 'h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]';
 
-// the renderer percent encodes a Cyrillic fragment, so a href and the id it
-// points at are not the same string
 export function decodeFragment(value: string): string {
   try {
     return decodeURIComponent(value);
@@ -10,8 +8,6 @@ export function decodeFragment(value: string): string {
   }
 }
 
-// lookups stay inside the document root: a note heading slugged like a piece of
-// app chrome must never answer for it
 export function elementWithId(root: HTMLElement, id: string): HTMLElement | null {
   const wanted = decodeFragment(id);
   const candidates = Array.from(root.querySelectorAll<HTMLElement>('[id]'));
@@ -20,8 +16,6 @@ export function elementWithId(root: HTMLElement, id: string): HTMLElement | null
       return candidate;
     }
   }
-  // the renderer lowercases a slug while an author writes the heading as it
-  // reads, so "#Раздел" still has to find <h2 id="раздел">
   const folded = wanted.toLowerCase();
   for (const candidate of candidates) {
     if (decodeFragment(candidate.id).toLowerCase() === folded) {

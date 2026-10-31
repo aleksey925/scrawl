@@ -1,0 +1,20 @@
+.button {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: calc(var(--scrawl-tabbar-space) + var(--mantine-spacing-lg));
+  z-index: 140;
+  display: grid;
+  place-items: center;
+  width: var(--scrawl-edit-button);
+  height: var(--scrawl-edit-button);
+  border-radius: 50%;
+  background: var(--scrawl-accent);
+  box-shadow: var(--scrawl-shadow-medium);
+  color: var(--scrawl-on-accent);
+  transition: var(--scrawl-press-out);
+}
+
+.button:active {
+  opacity: 0.7;
+  transition: var(--scrawl-press-in);
+}

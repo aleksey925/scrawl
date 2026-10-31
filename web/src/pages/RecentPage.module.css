@@ -1,0 +1,48 @@
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding-block: 8px;
+  border-bottom: 1px solid var(--scrawl-border-light);
+  color: var(--scrawl-text);
+  text-decoration: none;
+}
+
+.icon {
+  flex: none;
+  color: var(--scrawl-icon-secondary);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title,
+.path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title {
+  font-size: 16px;
+}
+
+.path {
+  color: var(--scrawl-text-tertiary);
+  font-size: 13px;
+}
+
+@media (hover: hover) {
+  .row:hover {
+    background: var(--scrawl-row-hover);
+  }
+}

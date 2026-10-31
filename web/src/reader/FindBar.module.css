@@ -1,0 +1,145 @@
+.bar {
+  position: fixed;
+  top: calc(var(--app-shell-header-offset, 0px) + 8px);
+  inset-inline-end: 16px;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: min(470px, calc(100vw - 32px));
+  height: 40px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--mantine-radius-lg);
+  background: var(--scrawl-popover);
+  box-shadow: var(--scrawl-shadow-medium);
+  color: var(--scrawl-icon-secondary);
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .bar {
+    inset-inline: 8px;
+    flex-wrap: wrap;
+    row-gap: 0;
+    width: auto;
+    height: auto;
+    padding: 2px 2px 2px 12px;
+  }
+
+  .icon {
+    order: 1;
+  }
+
+  .input {
+    order: 2;
+    flex: 1 1 auto;
+    height: 44px;
+  }
+
+  .count {
+    order: 3;
+  }
+
+  .close {
+    order: 4;
+  }
+
+  .bar .break {
+    display: block;
+    order: 5;
+    flex-basis: 100%;
+    height: 0;
+  }
+
+  .toggle {
+    order: 6;
+    height: 36px;
+    min-width: 40px;
+  }
+
+  .prev {
+    order: 7;
+    margin-inline-start: auto;
+  }
+
+  .next {
+    order: 8;
+  }
+}
+
+.input {
+  flex: 1 1 auto;
+  min-width: 60px;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--scrawl-text);
+  font: inherit;
+  font-size: var(--mantine-font-size-sm);
+}
+
+@media (pointer: coarse) {
+  .input {
+    font-size: var(--scrawl-input-font-size);
+  }
+}
+
+.count {
+  flex: none;
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.count[data-status='none'],
+.count[data-status='bad'],
+.count[data-status='slow'] {
+  color: var(--scrawl-color-red);
+}
+
+.toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--mantine-radius-md);
+  background: none;
+  color: var(--scrawl-icon-secondary);
+  font: 600 12px/1 var(--mantine-font-family-monospace);
+  cursor: pointer;
+}
+
+.toggle[data-on='true'] {
+  background: var(--scrawl-accent-tint);
+  color: var(--scrawl-accent);
+}
+
+@media (hover: hover) {
+  .toggle:not([data-on='true']):hover {
+    background: var(--scrawl-hover);
+  }
+}
+
+@media print {
+  .bar {
+    display: none;
+  }
+}
+
+.icon {
+  flex: none;
+}
+
+.break {
+  display: none;
+}
+
+.prev:disabled,
+.next:disabled {
+  background: transparent;
+  color: var(--scrawl-text-faint);
+}

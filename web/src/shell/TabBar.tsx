@@ -1,0 +1,111 @@
+import { Menu } from '@mantine/core';
+import type { ComponentPropsWithRef, JSX } from 'react';
+import { useLocation, useNavigate } from 'react-router';
+
+import { PopupMenu } from '../components/PopupMenu';
+import { planMotion } from '../components/screenMotion';
+import {
+  IconClock,
+  IconFilePlus,
+  IconFolder,
+  IconFolderPlus,
+  IconPlus,
+  IconSearch,
+  IconUserCircle,
+  type Icon,
+} from '../icons';
+import { isDirectoryPath, isEditPath, recentUrl } from '../paths';
+import { layout } from '../theme';
+
+import { useFileActions } from './fileActionsContext';
+import { useNav } from './NavContext';
+import { folderFor } from './naming';
+import { useSearchControl } from './searchOpener';
+import { SpaceMenuDropdown } from './SpaceMenu';
+import classes from './TabBar.module.css';
+
+type TabName = 'notes' | 'search' | 'recent' | 'new' | 'profile';
+
+interface TabProps extends Omit<ComponentPropsWithRef<'button'>, 'children'> {
+  name: TabName;
+  label: string;
+  icon: Icon;
+  current: boolean;
+}
+
+function Tab({ name, label, icon: TabIcon, current, ...rest }: TabProps): JSX.Element {
+  return (
+    <button
+      {...rest}
+      type="button"
+      data-testid={`tab-${name}`}
+      data-current={current ? 'true' : 'false'}
+      aria-current={current ? 'page' : undefined}
+      className={classes.tab}
+    >
+      <TabIcon size={layout.iconSizeLarge} />
+      <span className={classes.label}>{label}</span>
+    </button>
+  );
+}
+
+export function TabBar(): JSX.Element | null {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const search = useSearchControl();
+  const actions = useFileActions();
+  const { canWrite, currentPath } = useNav();
+
+  if (isEditPath(location.pathname)) {
+    return null;
+  }
+
+  const searching = search?.opened ?? false;
+  const here = folderFor(currentPath, currentPath === '' || isDirectoryPath(location.pathname));
+  const atRecent = location.pathname === recentUrl();
+  const atNotes = !searching && !atRecent;
+  const go = (url: string): void => {
+    search?.close();
+    planMotion(url, 'none');
+    void navigate(url);
+  };
+
+  return (
+    <nav data-testid="tab-bar" aria-label="Tabs" className={classes.bar} data-print="hide">
+      <Tab name="notes" label="Notes" icon={IconFolder} current={atNotes} onClick={() => go('/')} />
+      {search !== undefined && (
+        <Tab name="search" label="Search" icon={IconSearch} current={searching} onClick={() => search.open()} />
+      )}
+      <Tab name="recent" label="Recent" icon={IconClock} current={!searching && atRecent} onClick={() => go(recentUrl())} />
+      {canWrite && (
+        <PopupMenu position="top-end" offset={4} width={layout.menuWidth} withinPortal>
+          <Menu.Target>
+            <Tab name="new" label="New" icon={IconPlus} current={false} />
+          </Menu.Target>
+          <Menu.Dropdown data-testid="new-menu">
+            <Menu.Item
+              data-testid="new-menu-note"
+              leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
+              onClick={() => actions.createPage(here)}
+            >
+              New file
+            </Menu.Item>
+            <Menu.Item
+              data-testid="new-menu-folder"
+              leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
+              onClick={() => actions.createFolder(here)}
+            >
+              New folder
+            </Menu.Item>
+          </Menu.Dropdown>
+        </PopupMenu>
+      )}
+      <PopupMenu position="top-end" offset={4} width={layout.menuWidthWide} withinPortal>
+        <Menu.Target>
+          <Tab name="profile" label="Profile" icon={IconUserCircle} current={false} />
+        </Menu.Target>
+        <SpaceMenuDropdown />
+      </PopupMenu>
+    </nav>
+  );
+}

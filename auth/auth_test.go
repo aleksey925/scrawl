@@ -19,8 +19,6 @@ const (
 	testSecret   = "0123456789abcdef0123456789abcdef"
 )
 
-// testHash is a bcrypt hash of testPassword at the cheapest cost, so the suite
-// does not spend a hundred milliseconds per comparison.
 var testHash = mustHash(testPassword, bcrypt.MinCost)
 
 func mustHash(password string, cost int) string {
@@ -44,7 +42,6 @@ func newTestService(t *testing.T, cfg Config) *Service {
 	return svc
 }
 
-// withSession issues a session cookie for user and attaches it to r.
 func withSession(t *testing.T, svc *Service, r *http.Request, user string) *http.Request {
 	t.Helper()
 	rec := httptest.NewRecorder()
@@ -317,7 +314,6 @@ func TestServiceMiddlewareNeverCookiesTheTokenPath(t *testing.T) {
 	svc.now = func() time.Time { return issued }
 	req := withSession(t, svc, httptest.NewRequest(http.MethodGet, "/s/a.md", http.NoBody), "alice")
 	req.Header.Set("Authorization", "Bearer "+testAPIToken)
-	// past half the ttl, which is when the cookie path renews the session
 	svc.now = func() time.Time { return issued.Add(72 * time.Hour) }
 	rec := httptest.NewRecorder()
 
@@ -360,9 +356,6 @@ func TestServiceMiddlewarePublicPrefixes(t *testing.T) {
 	})
 }
 
-// TestServiceMiddlewarePublicPaths is the rule a webhook route depends on: an
-// exact match and nothing below it. A prefix entry would open the whole subtree,
-// which is why these are two lists and not one.
 func TestServiceMiddlewarePublicPaths(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -395,8 +388,6 @@ func TestServiceMiddlewarePublicPaths(t *testing.T) {
 	}
 }
 
-// the defaults are not replaced by a public path: the login form and the
-// manifest stay reachable beside a hook
 func TestServiceMiddlewarePublicPathsAddToTheDefaults(t *testing.T) {
 	// arrange
 	svc := newTestService(t, Config{PublicPaths: []string{"/s/notes/hook"}})
@@ -423,8 +414,6 @@ func TestServiceMiddlewareSlidingRenewal(t *testing.T) {
 		{name: "just below half the ttl", elapsed: 47*time.Hour + 59*time.Minute},
 		{name: "past half the ttl", elapsed: 49 * time.Hour, renewed: true},
 		{name: "close to the end", elapsed: 95 * time.Hour, renewed: true},
-		// a tab polling once a minute would otherwise keep an unattended
-		// session alive forever
 		{name: "a background request never renews", elapsed: 49 * time.Hour, background: true},
 	}
 

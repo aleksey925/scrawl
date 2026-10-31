@@ -1,38 +1,30 @@
-import { createContext, useContext, type ComponentType, type RefObject } from 'react';
+import { createContext, useContext, type ComponentType, type ReactElement, type RefObject } from 'react';
 
-import type { DocumentResponse } from '../api/types';
+import type { DocumentResponse, FilePageResponse } from '../api/types';
+import { layout } from '../theme';
 
-// the glyph a row menu draws, which the inset of a tree row lines up with
-export const rowMenuIconSize = 16;
+export const rowMenuIconSize = layout.iconSizeSmall;
 
 export interface RowMenuProps {
   path: string;
   isDir: boolean;
   name: string;
   touch: boolean;
-  // the row holds the state, because a right click or a long press anywhere
-  // on it opens the menu too
+  editUrl?: string;
   opened: boolean;
   onOpenedChange: (opened: boolean) => void;
-}
-
-export interface NoteActionsProps {
-  doc: DocumentResponse;
+  target?: ReactElement;
 }
 
 export interface DocumentExtrasProps {
   doc: DocumentResponse;
-  // true while the reading anchor is placing this arrival
   placed: RefObject<boolean>;
 }
 
-// ReaderExtensions are what an entry adds to the reader around a note and a
-// tree row. The reader imports none of them, so a site carries only its own.
 export interface ReaderExtensions {
   DocumentExtras?: ComponentType<DocumentExtrasProps>;
-  // the buttons in the head of a note's card
-  NoteActions?: ComponentType<NoteActionsProps>;
   RowMenu?: ComponentType<RowMenuProps>;
+  FileView?: ComponentType<{ file: FilePageResponse }>;
 }
 
 const none: ReaderExtensions = {};

@@ -30,9 +30,6 @@ export function useEditorLayout(): LayoutControl {
 
   const [chosen, setChosen] = useState<LayoutMode>(() => {
     const stored = readText(localStore(), modeKey);
-    // only an explicit choice is ever read back. The boot default is derived
-    // from the width, and storing that turns one edit on a phone into a desktop
-    // that quietly lost its split view.
     return isMode(stored) ? stored : wide ? 'split' : 'source';
   });
   const [split, setSplitState] = useState<number>(storedSplit);

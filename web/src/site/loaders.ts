@@ -1,9 +1,7 @@
-import type { Mermaid } from '../reader/diagrams';
+import type { Mermaid, PlantUML } from '../reader/diagrams';
+import { plantUMLLibraryDir } from '../plantumlLibrary';
 import type { Katex } from '../reader/typeset';
 
-// the renderers are files beside this script, which is the one thing a page
-// opened from disk can load: no module, no fetch. The script is only current
-// while it runs, so where it sits is taken now.
 const base = document.currentScript instanceof HTMLScriptElement ? document.currentScript.src : window.location.href;
 
 const attached = new Map<string, Promise<void>>();
@@ -43,8 +41,15 @@ function loaded<T>(value: T | undefined, file: string): T {
 }
 
 export async function loadMermaid(): Promise<Mermaid> {
-  await attach('diagrams.js', script);
-  return loaded(window.scrawlMermaid, 'diagrams.js');
+  await attach('mermaid.js', script);
+  return loaded(window.scrawlMermaid, 'mermaid.js');
+}
+
+export async function loadPlantUML(): Promise<PlantUML> {
+  await attach('plantuml.js', script);
+  const plantUML = loaded(window.scrawlPlantUML, 'plantuml.js');
+  plantUML.setLibraryBase(new URL(`${plantUMLLibraryDir}/`, base).href);
+  return plantUML;
 }
 
 export async function loadKatex(): Promise<Katex> {

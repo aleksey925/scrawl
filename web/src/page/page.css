@@ -1,6 +1,3 @@
-/* The pages `scrawl render` and `scrawl diff` write, with the note or the diff
-   in the column the app puts them in. */
-
 *,
 *::before,
 *::after {
@@ -9,17 +6,17 @@
 
 body {
   margin: 0;
-  background: var(--gh-bg-default);
-  color: var(--gh-fg-default);
+  background: var(--scrawl-bg);
+  color: var(--scrawl-text);
   font-family: var(--mantine-font-family);
   font-size: 1rem;
   line-height: 1.5;
 }
 
 .page {
-  max-width: var(--scrawl-content-measure);
+  max-width: calc(var(--scrawl-note-width-normal) + 2 * 32px);
   margin: 0 auto;
-  padding: 32px;
+  padding: 72px 32px 96px;
 }
 
 .page-wide {
@@ -45,35 +42,53 @@ body {
 .page-sub {
   width: 100%;
   margin: 0;
-  color: var(--gh-fg-muted);
+  color: var(--scrawl-text-secondary);
   font-size: 13px;
 }
 
 .page-theme {
+  position: relative;
   display: flex;
-  overflow: hidden;
-  border: 1px solid var(--gh-border-default);
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--scrawl-hover);
+}
+
+.page-theme::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: var(--page-theme-width, 0);
+  transform: translateX(var(--page-theme-left, 0));
   border-radius: 6px;
+  background: var(--scrawl-bg);
+  box-shadow: var(--scrawl-shadow-small);
+}
+
+.page-theme[data-placed]::before {
+  transition:
+    transform 200ms ease,
+    width 200ms ease;
 }
 
 .page-theme button {
-  padding: 4px 10px;
+  position: relative;
+  height: 24px;
+  padding: 0 8px;
   border: 0;
-  background: var(--gh-bg-default);
-  color: var(--gh-fg-muted);
+  border-radius: 6px;
+  background: none;
+  color: var(--scrawl-text-secondary);
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
 }
 
-.page-theme button + button {
-  border-left: 1px solid var(--gh-border-default);
-}
-
 .page-theme button[aria-pressed='true'] {
-  background: var(--gh-bg-muted);
-  color: var(--gh-fg-default);
-  font-weight: 600;
+  color: var(--scrawl-text);
 }
 
 .page-files {
@@ -88,7 +103,7 @@ body {
   gap: 8px;
   align-items: center;
   padding: 2px 0;
-  color: var(--gh-fg-default);
+  color: var(--scrawl-text);
   text-decoration: none;
 }
 
@@ -114,40 +129,40 @@ body {
 }
 
 .page-added {
-  color: var(--gh-fg-success);
+  color: var(--scrawl-color-green);
 }
 
 .page-removed {
-  color: var(--gh-fg-danger);
+  color: var(--scrawl-color-red);
 }
 
 .page-changed {
-  color: var(--gh-fg-attention);
+  color: var(--scrawl-color-yellow);
 }
 
 .page-status {
   flex: none;
   padding: 0 7px;
-  border: 1px solid var(--gh-border-default);
+  border: 1px solid var(--scrawl-border);
   border-radius: 999px;
-  color: var(--gh-fg-muted);
+  color: var(--scrawl-text-secondary);
   font-size: 11px;
   font-weight: 600;
 }
 
 .page-status[data-status='added'] {
-  border-color: var(--gh-border-success-emphasis);
-  color: var(--gh-fg-success);
+  border-color: var(--scrawl-color-green);
+  color: var(--scrawl-color-green);
 }
 
 .page-status[data-status='deleted'] {
-  border-color: var(--gh-border-danger-emphasis);
-  color: var(--gh-fg-danger);
+  border-color: var(--scrawl-color-red);
+  color: var(--scrawl-color-red);
 }
 
 .page-status:is([data-status='modified'], [data-status='renamed']) {
-  border-color: var(--gh-border-attention-emphasis);
-  color: var(--gh-fg-attention);
+  border-color: var(--scrawl-color-yellow);
+  color: var(--scrawl-color-yellow);
 }
 
 .page-file {
@@ -172,18 +187,18 @@ body {
 
 .page-moved {
   width: 100%;
-  color: var(--gh-fg-muted);
+  color: var(--scrawl-text-secondary);
   font-family: var(--mantine-font-family-monospace);
   font-size: 12px;
 }
 
 .page-empty {
-  color: var(--gh-fg-muted);
+  color: var(--scrawl-text-secondary);
 }
 
 @mixin smaller-than $mantine-breakpoint-sm {
   .page {
-    padding: 16px;
+    padding: 28px 16px 64px;
   }
 }
 

@@ -1,6 +1,3 @@
-// helpers shared by the specs: signing in, driving the editor, screenshots and
-// fixture file access
-
 const fs = require('fs');
 const path = require('path');
 const {expect} = require('@playwright/test');
@@ -15,8 +12,6 @@ const MULTI = instances.multi;
 
 let shotSeq = 0;
 
-// shot writes a full page screenshot under an ordered name per worker, so the
-// files read as a story of each worker when sorted
 async function shot(page, name) {
     fs.mkdirSync(shotsDir, {recursive: true});
     shotSeq += 1;
@@ -27,9 +22,6 @@ async function shot(page, name) {
     });
 }
 
-// signIn goes through the server rendered login form, which is what an
-// anonymous visitor of an app url is handed: the session cookie is the server's,
-// and the app's own login screen is behind the same middleware.
 async function signIn(page, {baseURL = MAIN.baseURL, from = routes.home()} = {}) {
     await page.goto(`${baseURL}/login?from=${encodeURIComponent(from)}`);
     await submitCredentials(page);
@@ -39,31 +31,20 @@ async function submitCredentials(page, {name = user, secret = password} = {}) {
     await page.fill('input[name="username"]', name);
     await page.fill('input[name="password"]', secret);
     await page.click('button[type="submit"]');
-    // waitForLoadState('load') would answer for the page being left, which the
-    // browser has already loaded, so wait for the network to go quiet instead
     await page.waitForLoadState('networkidle');
 }
 
-// modifier returns the key the app listens for, which follows navigator.platform
-// and so differs between the desktop and the mobile emulation profiles
 async function modifier(page) {
     const mac = await page.evaluate(
         () => /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent));
     return mac ? 'Meta' : 'Control';
 }
 
-// pressShortcut waits for the bundle to arrive before sending the key. The
-// handlers are attached once the app has mounted, and a key pressed before that
-// is simply lost, which on a busy machine is the difference between green and red.
 async function pressShortcut(page, key) {
     await page.waitForLoadState('networkidle');
     await page.keyboard.press(key);
 }
 
-// the editor is codemirror, not a textarea: there is no value to set, and
-// typing runs through the markdown keymap, which continues lists and indents
-// blocks. insertText goes in as one input event, so what arrives is byte for
-// byte what was asked for.
 async function setSource(page, text) {
     const content = page.locator('[data-testid=editor-source] .cm-content');
     await content.click();
@@ -71,9 +52,6 @@ async function setSource(page, text) {
     await page.keyboard.insertText(text);
 }
 
-// sourceText reads the buffer back out of the rendered lines. Codemirror only
-// renders what is on screen, so this answers for the scratch documents the specs
-// write and not for a long one.
 function sourceText(page) {
     return page.locator('[data-testid=editor-source]').evaluate((root) => Array
         .from(root.querySelectorAll('.cm-line'))
@@ -85,17 +63,12 @@ function editorStatus(page) {
     return page.locator('[data-testid=editor-status]');
 }
 
-// save clicks Save and waits for the write to land, which is the status leaving
-// the saving state rather than a fixed pause
 async function save(page) {
     await page.locator('[data-testid=editor-save]').click();
     await expect(editorStatus(page)).not.toHaveAttribute('data-state', 'saving');
     await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'false');
 }
 
-// atHome matches the notes home with and without its trailing slash: the server
-// redirects to the slashed form, and the client router drops it again when it
-// navigates there itself
 function atHome(inst = MAIN) {
     const home = `${inst.baseURL}${inst.routes.prefix()}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`^${home}/?$`);
@@ -120,8 +93,6 @@ function removeFixture(relative, inst = MAIN) {
     fs.rmSync(fixtureFile(relative, inst), {recursive: true, force: true});
 }
 
-// jsonRequest goes through the page so the browser attaches Sec-Fetch-Site,
-// which is what the cross origin protection on the write routes looks at
 async function jsonRequest(page, method, url, body) {
     return page.evaluate(async ([m, u, b]) => {
         const opts = {method: m, headers: {'Accept': 'application/json'}};
@@ -146,16 +117,22 @@ async function expectNoHorizontalScroll(page) {
 
 const THEME_LABELS = {auto: 'Auto', light: 'Light', dark: 'Dark'};
 
-// chooseTheme presses one theme in the picker of the menu that is open
+async function showOutline(page) {
+    await page.getByTestId('mini-outline').hover();
+    await expect(page.getByTestId('toc')).toBeVisible();
+}
+
+async function openSpaceMenu(page) {
+    await page.getByTestId('space-menu').or(page.getByTestId('site-menu')).filter({visible: true}).click();
+    await expect(page.getByTestId('space-menu-dropdown')).toBeVisible();
+}
+
 async function chooseTheme(page, theme) {
-    const picker = page.getByTestId('topbar-theme');
+    const picker = page.getByTestId('space-menu-theme');
     await picker.getByText(THEME_LABELS[theme], {exact: true}).click();
     await expect(picker).toHaveAttribute('data-theme', theme);
 }
 
-// inStep waits until a remote space is level with its origin, and gets it
-// there when the test before left it diverged: nothing but a reset ever does,
-// and without one a single failure takes every later test of that space down.
 async function inStep(page, space) {
     await expect.poll(async () => page.evaluate(async (api) => {
         const json = {accept: 'application/json', 'content-type': 'application/json'};
@@ -172,6 +149,38 @@ async function inStep(page, space) {
     }, space.api('')), {timeout: 30_000}).toBe('');
 }
 
+function rgb(hex) {
+    const [r, g, b] = [1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16));
+    if (hex.length === 7) {
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+    const byte = Number.parseInt(hex.slice(7, 9), 16);
+    const short = Math.round((byte / 255) * 100) / 100;
+    const alpha = Math.round(short * 255) === byte ? short : Math.round((byte / 255) * 1000) / 1000;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+async function holdRoute(page, url) {
+    let release = () => {};
+    const held = new Promise((resolve) => {
+        release = resolve;
+    });
+    await page.route(url, async (route) => {
+        await held;
+        await route.continue();
+    });
+    return release;
+}
+
+async function stays(read, expected, ms) {
+    const until = Date.now() + ms;
+    do {
+        expect(await read()).toEqual(expected);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    } while (Date.now() < until);
+    expect(await read()).toEqual(expected);
+}
+
 module.exports = {
     HISTORY,
     MAIN,
@@ -183,18 +192,23 @@ module.exports = {
     editorStatus,
     expectNoHorizontalScroll,
     fixtureFile,
+    holdRoute,
     inStep,
     jsonRequest,
     modifier,
+    openSpaceMenu,
     pressShortcut,
     readFixture,
     removeFixture,
+    rgb,
     routes,
     save,
     setSource,
     shot,
+    showOutline,
     signIn,
     sourceText,
+    stays,
     submitCredentials,
     user,
     writeFixture,

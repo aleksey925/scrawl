@@ -19,8 +19,6 @@ func TestFootnoteShape(t *testing.T) {
 		"</li>\n</ol>\n</section>\n", withoutSourceRanges(string(out)))
 }
 
-// TestFootnoteNumbersFollowFirstReference is GitHub's documented rule: the
-// position of a definition does not decide the number.
 func TestFootnoteNumbersFollowFirstReference(t *testing.T) {
 	// act
 	out, err := New(Options{}).RenderInline(
@@ -45,9 +43,6 @@ func TestFootnoteRepeatedReferenceGetsItsOwnBacklink(t *testing.T) {
 	assert.Contains(t, string(out), `<a href="#fnref-1-2" class="footnote-back">↩<sup>2</sup></a>`)
 }
 
-// TestFootnoteAnchorsCannotBeStolenByAHeading covers a document that names its
-// headings after the footnote anchors: the headings have to give way, or the
-// footnote links would jump to them instead.
 func TestFootnoteAnchorsCannotBeStolenByAHeading(t *testing.T) {
 	// act
 	res, err := New(Options{}).Render([]byte("# fn-1\n\n## fnref-1\n\nТекст[^1].\n\n[^1]: сноска\n"), "docs/x.md")

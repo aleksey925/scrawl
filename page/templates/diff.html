@@ -16,18 +16,22 @@
 
 {{define "files"}}{{range $i, $file := .Files}}<section class="page-file" id="file-{{$i}}">
 <header><span class="page-status" data-status="{{$file.Status}}">{{$file.Status}}</span><h2>{{$file.Path}}</h2>{{if $file.OldPath}}<div class="page-moved">{{$file.OldPath}} → {{$file.Path}}</div>{{end}}</header>
-{{template "rows" (rows $file $.Context)}}
+{{template "rows" (rows $file $.Context $.Layout)}}
 </section>
 {{end}}{{end}}
 
-{{define "rows"}}<div class="diff">
-<div class="diff-head"><div>{{.File.OldLabel}}</div><div>{{.File.NewLabel}}</div></div>
-{{if .File.Stats.Empty}}<p class="diff-none">The text is the same, only the markup or the whitespace changed.</p>
+{{define "rows"}}{{$split := .Split}}<div class="diff" data-layout="{{.Layout}}">
+{{if $split}}<div class="diff-head"><div>{{.File.OldLabel}}</div><div>{{.File.NewLabel}}</div></div>
+{{else}}<p class="diff-labels">{{.File.OldLabel}} → {{.File.NewLabel}}</p>
+{{end}}{{if .File.Stats.Empty}}<p class="diff-none">The text is the same, only the markup or the whitespace changed.</p>
 {{end}}{{range .Segments}}{{if .Folded}}<details class="diff-fold"><summary>{{plural (len .Rows) "unchanged block"}}</summary>
-{{range .Rows}}{{template "row" .}}{{end}}</details>
-{{else}}{{range .Rows}}{{template "row" .}}{{end}}{{end}}{{end}}</div>{{end}}
+{{range .Rows}}{{if $split}}{{template "split-row" .}}{{else}}{{template "unified-row" .}}{{end}}{{end}}</details>
+{{else}}{{range .Rows}}{{if $split}}{{template "split-row" .}}{{else}}{{template "unified-row" .}}{{end}}{{end}}{{end}}{{end}}</div>{{end}}
 
-{{define "row"}}<div class="diff-row" data-kind="{{.Kind}}">{{template "cell" (cell .Old "old")}}{{template "cell" (cell .New "new")}}{{if eq .Kind "format"}}<span class="diff-badge" title="Only the markup changed">format</span>{{end}}</div>
+{{define "unified-row"}}<div class="diff-row" data-kind="{{.Kind}}">{{with tag .Kind}}<span class="diff-tag">{{.}}</span>{{end}}{{range shown .}}<div class="diff-cell markdown-document">{{trust .HTML}}</div>{{end}}</div>
+{{end}}
+
+{{define "split-row"}}<div class="diff-row" data-kind="{{.Kind}}">{{template "cell" (cell .Old "old")}}{{template "cell" (cell .New "new")}}{{if eq .Kind "format"}}<span class="diff-tag" title="Only the markup changed">{{tag .Kind}}</span>{{end}}</div>
 {{end}}
 
 {{define "cell"}}{{if .Side}}<div class="diff-cell diff-{{.Which}} markdown-document">{{trust .Side.HTML}}</div>{{else}}<div class="diff-cell diff-{{.Which}} diff-empty"></div>{{end}}{{end}}

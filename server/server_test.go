@@ -11,6 +11,7 @@ import (
 	"image/png"
 	"io"
 	"io/fs"
+	"maps"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -20,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -31,58 +34,39 @@ import (
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
+	"github.com/aleksey925/scrawl/view"
 )
 
 const testUser = "bob"
 
 const testPassword = "s3cret"
 
-// the API tokens the test server accepts, one of each scope.
 const (
 	testToken     = "scrawl_test-read-write"
 	testReadToken = "scrawl_test-read-only"
 )
 
-// testSpace is the one space every test server serves. It is named rather
-// than empty on purpose: the prefix is non-empty in every run of the real
-// binary, so a URL built without it has to fail here too.
 const testSpace = "notes"
 
-// globalPaths are the routes that answer at the root instead of inside a
-// space. It is the server's own boundary - does this read a store - written
-// down once, so a test names the path it means and the helper decides which
-// tree that path lives in.
 var globalPaths = []string{
 	"/ping", "/static/", "/manifest.webmanifest",
 	"/login", "/logout", "/api/login", "/api/logout", "/api/spaces",
 }
 
-// testServer is a whole app over a temporary notes directory.
 type testServer struct {
 	*Web
-	url string
-	// root is the notes directory of the first space, secondRoot that of the
-	// second one when testOpts named it.
+	url        string
 	root       string
 	secondRoot string
-	// notified counts what reached the webhook's Notify, which is the only
-	// thing a verified delivery is supposed to do
-	notified int
+	notified   int
 }
 
-// second is the space testOpts.second asked for.
 func (ts *testServer) second() *Space { return ts.Spaces[1] }
 
-// prefix is where this server's only space answers.
 func (ts *testServer) prefix() string { return spacePrefix + testSpace }
 
-// mount is the space bound to the server, which is the receiver every
-// handler that reads a store hangs off.
 func (ts *testServer) mount() *mount { return &mount{Web: ts.Web, spc: ts.Spaces[0]} }
 
-// resolve turns a path a test names into the one the server answers. "/" is the
-// space's own root, not the server's: a test that means the redirect at the
-// server root asks for it literally.
 func (ts *testServer) resolve(p string) string {
 	for _, global := range globalPaths {
 		if p == global || strings.HasPrefix(p, global) || strings.HasPrefix(p, global+"?") {
@@ -93,22 +77,16 @@ func (ts *testServer) resolve(p string) string {
 }
 
 type testOpts struct {
-	readOnly      bool // the whole server
-	spaceReadOnly bool // this space alone
-	formatOnSave  bool
-	formatErr     error // what the formatter answers instead of a note
-	withAuth      bool
-	history       History
+	readOnly        bool
+	spaceReadOnly   bool
+	formatOnSave    bool
+	formatErr       error
+	withAuth        bool
+	history         History
+	diagramRenderer DiagramRenderer
 
-	// second names a space served beside the first one, over a root of its
-	// own. Empty leaves the server with one space, which is what most tests
-	// need; naming it is what a test of the boundary between two spaces asks
-	// for.
 	second string
 
-	// hook gives the first space a webhook, which is also what puts its path
-	// in the public list: the two have to be built in that order, because the
-	// list is derived from the spaces.
 	hook bool
 }
 
@@ -116,8 +94,6 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 	t.Helper()
 	root := testNotes(t)
 
-	// the spaces come first, the way main builds them: the public path list
-	// is derived from them, so auth cannot be built before they exist
 	spc := testSpaceAt(t, testSpace, root, opts.readOnly || opts.spaceReadOnly)
 	spc.ReadOnly = opts.spaceReadOnly
 	spc.FormatOnSave = opts.formatOnSave
@@ -162,9 +138,13 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 			MaxUpload:    64 << 10,
 			AuthDisabled: !opts.withAuth,
 		},
-		Spaces:    spaces,
-		Auth:      svc,
-		Formatter: &fakeFormatter{err: opts.formatErr},
+		Spaces:          spaces,
+		Auth:            svc,
+		Formatter:       &fakeFormatter{err: opts.formatErr},
+		DiagramRenderer: opts.diagramRenderer,
+	}
+	if res.DiagramRenderer == nil {
+		res.DiagramRenderer = keptDiagrams{}
 	}
 
 	router, err := res.router()
@@ -176,8 +156,6 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 	return res
 }
 
-// testSpaceAt builds one space over a directory, indexed and rendered the
-// way main builds one.
 func testSpaceAt(t *testing.T, name, root string, readOnly bool) *Space {
 	t.Helper()
 	notes, err := store.New(store.Config{Root: root, ReadOnly: readOnly, Rescan: -1})
@@ -199,9 +177,6 @@ func testSpaceAt(t *testing.T, name, root string, readOnly bool) *Space {
 	return spc
 }
 
-// testNotes writes a small notes tree covering every shape the handlers have
-// to tell apart: a root index, a directory with its own index, a directory with
-// only a readme, a non-markdown attachment and a Cyrillic document.
 func testNotes(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
@@ -234,9 +209,6 @@ func tinyPNG(t *testing.T) []byte {
 	return buf.Bytes()
 }
 
-// request is one call against the test server. path is resolved through
-// testServer.resolve unless literal is set, which is what a test asking about
-// a path outside every space needs.
 type request struct {
 	method  string
 	path    string
@@ -246,8 +218,6 @@ type request struct {
 	client  *http.Client
 }
 
-// response is the part of an answer the tests look at. do drains and closes
-// the body before it returns, so nothing here has to be released.
 type response struct {
 	status int
 	header http.Header
@@ -318,7 +288,6 @@ func noRedirectClient(t *testing.T) *http.Client {
 	}
 }
 
-// login signs in and returns a client carrying the session cookie.
 func (ts *testServer) login(t *testing.T) *http.Client {
 	t.Helper()
 	client := noRedirectClient(t)
@@ -346,10 +315,8 @@ func TestStaticAndPing(t *testing.T) {
 		contentType string
 	}{
 		{name: "ping", path: "/ping", status: http.StatusOK, body: "pong", contentType: "text/plain"},
-		// chroma is generated by render at runtime rather than built, so it is
-		// the one stylesheet vite cannot carry and the shell links it itself
 		{name: "generated chroma css", path: "/static/v1.2.3/css/chroma.css", status: http.StatusOK, contentType: "text/css"},
-		{name: "app manifest", path: "/static/v1.2.3/app/manifest.json", status: http.StatusOK},
+		{name: "app manifest", path: ts.appShell.base() + "manifest.json", status: http.StatusOK},
 		{name: "favicon", path: "/static/v1.2.3/favicon.svg", status: http.StatusOK, contentType: "image/svg+xml"},
 		{name: "missing asset", path: "/static/v1.2.3/css/nope.css", status: http.StatusNotFound},
 		{name: "empty asset path", path: "/static/v1.2.3/", status: http.StatusNotFound},
@@ -378,7 +345,6 @@ func TestStaticServesEveryBuiltChunk(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 	var paths []string
 	err := fs.WalkDir(os.DirFS("assets/app/assets"), ".", func(path string, entry fs.DirEntry, err error) error {
-		// a .DS_Store a mac leaves behind is no chunk, and go:embed skips it
 		if err == nil && !entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
 			paths = append(paths, path)
 		}
@@ -390,13 +356,55 @@ func TestStaticServesEveryBuiltChunk(t *testing.T) {
 	// act
 	var missing []string
 	for _, path := range paths {
-		if resp, _ := ts.do(t, request{path: "/static/v1.2.3/app/assets/" + path}); resp.status != http.StatusOK {
+		if resp, _ := ts.do(t, request{path: ts.appShell.base() + "assets/" + path}); resp.status != http.StatusOK {
 			missing = append(missing, path)
 		}
 	}
 
 	// assert
 	assert.Empty(t, missing)
+}
+
+func TestAppBundleIsServedForItsOwnVersionOnly(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	tests := []struct {
+		name         string
+		path         string
+		status       int
+		cacheControl string
+	}{
+		{name: "this version", path: ts.appShell.base() + "manifest.json", status: http.StatusOK, cacheControl: appCacheControl},
+		{name: "another version", path: appBase("0123456789ab") + "manifest.json", status: http.StatusNotFound, cacheControl: "no-store"},
+		{name: "the release version", path: appBase(ts.Version) + "manifest.json", status: http.StatusNotFound, cacheControl: "no-store"},
+		{name: "a missing file", path: ts.appShell.base() + "assets/missing.js", status: http.StatusNotFound, cacheControl: "no-store"},
+		{name: "the directory", path: ts.appShell.base(), status: http.StatusNotFound, cacheControl: "no-store"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			resp, _ := ts.do(t, request{path: tc.path})
+
+			// assert
+			assert.Equal(t, tc.status, resp.status)
+			assert.Equal(t, tc.cacheControl, resp.header.Get("Cache-Control"))
+		})
+	}
+}
+
+func TestAppBundleVersionIsTheDigestOfTheBundle(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	// act
+	want, err := assets.Digest(appDir)
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, want, ts.appShell.version)
+	assert.Equal(t, appBase(want), ts.appShell.base())
 }
 
 func TestTextResponsesAreCompressedAndBinaryOnesAreNot(t *testing.T) {
@@ -409,7 +417,7 @@ func TestTextResponsesAreCompressedAndBinaryOnesAreNot(t *testing.T) {
 	}{
 		{name: "app shell", path: "/", encoding: "gzip"},
 		{name: "generated chroma css", path: "/static/v1.2.3/css/chroma.css", encoding: "gzip"},
-		{name: "app manifest", path: "/static/v1.2.3/app/manifest.json", encoding: "gzip"},
+		{name: "app manifest", path: ts.appShell.base() + "manifest.json", encoding: "gzip"},
 		{name: "favicon", path: "/static/v1.2.3/favicon.svg", encoding: "gzip"},
 		{name: "json api", path: "/api/tree", encoding: "gzip"},
 		{name: "raw markdown", path: "/raw/index.md", encoding: "gzip"},
@@ -510,9 +518,6 @@ func TestSecurityHeaders(t *testing.T) {
 	assert.Contains(t, policy, "style-src 'self' 'unsafe-inline'")
 }
 
-// TestPageRoutesServeTheApp checks what the server still decides for itself now
-// that every page is the app: the status of a reading url, and the one path that
-// is not a page at all. What the app then draws is the browser suite's business.
 func TestPageRoutesServeTheApp(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
@@ -528,13 +533,8 @@ func TestPageRoutesServeTheApp(t *testing.T) {
 		{name: "editor", path: "/edit/guide.md", status: http.StatusOK},
 		{name: "history", path: "/history/guide.md", status: http.StatusOK},
 		{name: "search", path: "/search?q=widgets", status: http.StatusOK},
-		// a link to a note that is not there keeps answering 404: the status is
-		// all a crawler or a link checker reads, and neither runs the router
 		{name: "missing document", path: "/doc/nope.md", status: http.StatusNotFound},
-		// an attachment is not a page, so it goes to the route that serves files
-		// under a content type from an allowlist
-		{name: "attachment redirects to raw", path: "/doc/snippet.py", status: http.StatusFound,
-			location: "/raw/snippet.py"},
+		{name: "a file is a page", path: "/doc/snippet.py", status: http.StatusOK},
 		{name: "unknown route", path: "/nothing", status: http.StatusNotFound},
 	}
 
@@ -578,15 +578,14 @@ func TestOnlyDotMDIsADocument(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	view, _ := ts.do(t, request{path: "/doc/long.markdown"})
+	_, page := ts.json(t, request{path: "/api/page/long.markdown"})
 	_, linking := ts.json(t, request{path: "/api/page/links.md"})
 	_, found := ts.json(t, request{path: "/api/search?q=kumquat"})
 
 	// assert
-	assert.Equal(t, http.StatusFound, view.status)
-	assert.Equal(t, ts.prefix()+"/raw/long.markdown", view.header.Get("Location"))
-	assert.Contains(t, linking["html"], `href="`+ts.prefix()+`/raw/long.markdown"`,
-		"the renderer sends a .markdown link to the file route, not to a page")
+	assert.Equal(t, []any{view.KindFile, view.FileText}, []any{page["kind"], page["type"]},
+		"a .markdown file is a text file on a page, not a note")
+	assert.Contains(t, linking["html"], `href="`+ts.prefix()+`/doc/long.markdown"`)
 	assert.Empty(t, found["hits"])
 
 	paths := []string{}
@@ -663,6 +662,7 @@ func TestRawNeverServesAnExecutableDocument(t *testing.T) {
 		"evil.xhtml": []byte("<html xmlns=\"http://www.w3.org/1999/xhtml\"><body/></html>"),
 		"evil.xml":   []byte("<?xml version=\"1.0\"?><root/>"),
 		"noext":      []byte("<html><body>sniff me</body></html>"),
+		"song.mod":   []byte("M.K."),
 	}
 	for name, data := range payloads {
 		require.NoError(t, os.WriteFile(filepath.Join(ts.root, name), data, 0o600))
@@ -674,18 +674,17 @@ func TestRawNeverServesAnExecutableDocument(t *testing.T) {
 		contentType string
 		disposition string
 	}{
-		{name: "html", path: "/raw/evil.html", contentType: "application/octet-stream",
-			disposition: `attachment; filename=evil.html`},
-		{name: "javascript", path: "/raw/evil.js", contentType: "application/octet-stream",
-			disposition: `attachment; filename=evil.js`},
+		{name: "html is text", path: "/raw/evil.html", contentType: "text/plain; charset=utf-8"},
+		{name: "javascript is text", path: "/raw/evil.js", contentType: "text/plain; charset=utf-8"},
 		{name: "svg keeps its type but downloads", path: "/raw/evil.svg", contentType: "image/svg+xml",
 			disposition: `attachment; filename=evil.svg`},
 		{name: "xhtml", path: "/raw/evil.xhtml", contentType: "application/octet-stream",
 			disposition: `attachment; filename=evil.xhtml`},
-		{name: "xml", path: "/raw/evil.xml", contentType: "application/octet-stream",
-			disposition: `attachment; filename=evil.xml`},
+		{name: "xml is text", path: "/raw/evil.xml", contentType: "text/plain; charset=utf-8"},
 		{name: "no extension is never sniffed", path: "/raw/noext", contentType: "application/octet-stream",
 			disposition: `attachment; filename=noext`},
+		{name: "an extension text only has under a known name", path: "/raw/song.mod",
+			contentType: "application/octet-stream", disposition: `attachment; filename=song.mod`},
 	}
 
 	for _, tc := range tests {
@@ -706,6 +705,11 @@ func TestRawNeverServesAnExecutableDocument(t *testing.T) {
 func TestRawServesSafeTypesInline(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
+	files := map[string]string{"data.json": `{"a": 1}`, "app.vue": "<template/>\n", "go.mod": "module x\n", "tools/Makefile": "all:\n"}
+	for name, data := range files {
+		require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(ts.root, name)), 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(ts.root, name), []byte(data), 0o600))
+	}
 
 	tests := []struct {
 		name        string
@@ -715,6 +719,10 @@ func TestRawServesSafeTypesInline(t *testing.T) {
 		{name: "png", path: "/raw/images/logo.png", contentType: "image/png"},
 		{name: "markdown source", path: "/raw/guide.md", contentType: "text/plain; charset=utf-8"},
 		{name: "code snippet", path: "/raw/snippet.py", contentType: "text/plain; charset=utf-8"},
+		{name: "json is shown, not downloaded", path: "/raw/data.json", contentType: "text/plain; charset=utf-8"},
+		{name: "a component of a web framework", path: "/raw/app.vue", contentType: "text/plain; charset=utf-8"},
+		{name: "a known name with no extension", path: "/raw/tools/Makefile", contentType: "text/plain; charset=utf-8"},
+		{name: "a known name with an extension of its own", path: "/raw/go.mod", contentType: "text/plain; charset=utf-8"},
 	}
 
 	for _, tc := range tests {
@@ -828,9 +836,6 @@ func TestTreeMarksTheFolderBeingViewed(t *testing.T) {
 	assert.True(t, docs.Children[0].Active, "the current folder is also on its own path")
 }
 
-// TestNavMarksTheFolderBeingViewed keeps the flags the sidebar draws itself
-// from. A folder is the one case that has to carry both: it is the page being
-// read and an ancestor of nothing, and it once went unmarked entirely.
 func TestNavMarksTheFolderBeingViewed(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -882,6 +887,8 @@ func TestAPIFileGetRefusesLargeAndBinaryFiles(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 	huge := filepath.Join(ts.root, "huge.md")
 	require.NoError(t, os.WriteFile(huge, bytes.Repeat([]byte("a"), maxEditableFile+1), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(ts.root, "latin1.txt"), []byte("caf\xe9\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(ts.root, "nul.py"), []byte("x = 1\x00\n"), 0o600))
 
 	tests := []struct {
 		name   string
@@ -894,6 +901,10 @@ func TestAPIFileGetRefusesLargeAndBinaryFiles(t *testing.T) {
 		{name: "binary attachment", path: "/api/file/images/logo.png",
 			status: http.StatusUnsupportedMediaType, error: "not a text file, read it from /raw/"},
 		{name: "directory", path: "/api/file/notes", status: http.StatusBadRequest, error: "path is a directory"},
+		{name: "text name, bytes not in UTF-8", path: "/api/file/latin1.txt",
+			status: http.StatusUnsupportedMediaType, error: "not text, read it from /raw/"},
+		{name: "text name, bytes holding a NUL", path: "/api/file/nul.py",
+			status: http.StatusUnsupportedMediaType, error: "not text, read it from /raw/"},
 	}
 
 	for _, tc := range tests {
@@ -936,6 +947,40 @@ func TestAPIFileLifecycle(t *testing.T) {
 	removed, _ := ts.do(t, request{method: http.MethodDelete, path: "/api/file/new/renamed.md"})
 	assert.Equal(t, http.StatusOK, removed.status)
 	assert.False(t, ts.Spaces[0].Store.Exists("new/renamed.md"))
+}
+
+func TestAPIFileCreateNamesTheEditorOnlyForText(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		kind     string
+		editable bool
+	}{
+		{name: "note", path: "new/page.md", kind: "file", editable: true},
+		{name: "text file", path: "new/main.go", kind: "file", editable: true},
+		{name: "picture", path: "new/image.png", kind: "file"},
+		{name: "folder", path: "new/dir", kind: "dir"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ts := newTestServer(t, testOpts{})
+
+			// act
+			created, body := ts.json(t, request{
+				method: http.MethodPost, path: "/api/file/" + tc.path, body: jsonBody(t, map[string]string{"type": tc.kind}),
+			})
+
+			// assert
+			require.Equal(t, http.StatusCreated, created.status)
+			if tc.editable {
+				assert.Equal(t, view.EditURL(tc.path), body["edit_url"])
+			} else {
+				assert.NotContains(t, body, "edit_url")
+			}
+		})
+	}
 }
 
 func TestAPIFileDeleteRecursive(t *testing.T) {
@@ -1178,6 +1223,18 @@ func TestRenderWithDeadline(t *testing.T) {
 	}
 }
 
+func TestWithDeadlineTurnsAPanicIntoAnError(t *testing.T) {
+	// act
+	res, err := withDeadline("a.md", time.Minute, func() (string, error) {
+		var node *struct{ next *int }
+		return strconv.Itoa(*node.next), nil
+	})
+
+	// assert
+	require.ErrorContains(t, err, `render "a.md": panic: runtime error`)
+	assert.Empty(t, res)
+}
+
 func TestRenderTimeoutIsServedAsUnavailable(t *testing.T) {
 	// arrange & act
 	err := fmt.Errorf("render %q: %w", "a.md", errRenderTimeout)
@@ -1204,6 +1261,114 @@ func TestAPISearch(t *testing.T) {
 		"the hit carries the query on, so the page it opens can jump to the match")
 	assert.Contains(t, hit["snippet"], "<mark>widgets</mark>")
 	assert.NotNil(t, body["elapsed_ms"])
+	assert.Equal(t, []string{"path", "score", "snippet", "title", "url"}, slices.Sorted(maps.Keys(hit)),
+		"a request that names no mode is answered the way scripts know it")
+	assert.NotContains(t, body, "truncated")
+}
+
+func TestAPISearchModes(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	writeNote(t, ts.root, "tags.md", "# Tags\n\nSo 1 < 2 & Widgets.\n")
+	ts.mount().touch("tags.md")
+
+	// act
+	resp, body := ts.json(t, request{path: "/api/search?q=Widgets&mode=exact&case=1"})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, false, body["truncated"])
+	hits := body["hits"].([]any)
+	require.Len(t, hits, 1)
+	hit := hits[0].(map[string]any)
+	assert.Equal(t, "tags.md", hit["path"])
+	assert.Equal(t, "/doc/tags.md?case=1&q=Widgets", hit["url"])
+	assert.Contains(t, hit["snippet"], "1 &lt; 2 &amp; ", "the snippet stays escaped html")
+	assert.Contains(t, hit["snippet"], "<mark>Widgets</mark>")
+	assert.Equal(t, float64(1), hit["match_count"])
+	assert.Equal(t, []any{map[string]any{
+		"line": float64(3), "url": "/doc/tags.md?case=1&line=3&q=Widgets",
+		"spans": []any{
+			map[string]any{"text": "So 1 < 2 & ", "hit": false},
+			map[string]any{"text": "Widgets", "hit": true},
+			map[string]any{"text": ".", "hit": false},
+		},
+	}}, hit["lines"])
+}
+
+func TestAPISearchKeepsTheSpacesOfAnExactText(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	writeNote(t, ts.root, "tags.md", "# Tags\n\nSo Widgets and xWidgets.\n")
+	ts.mount().touch("tags.md")
+
+	// act
+	resp, body := ts.json(t, request{path: "/api/search?q=+Widgets&mode=exact&case=1"})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	hits := body["hits"].([]any)
+	require.Len(t, hits, 1)
+	hit := hits[0].(map[string]any)
+	assert.Equal(t, "/doc/tags.md?case=1&q=+Widgets", hit["url"])
+	assert.Equal(t, float64(1), hit["match_count"])
+}
+
+func TestAPISearchTitlesOnly(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	writeNote(t, ts.root, "gadgets.md", "# Widgets and gadgets\n\nNothing else.\n")
+	ts.mount().touch("gadgets.md")
+
+	// act
+	resp, body := ts.json(t, request{path: "/api/search?q=widgets&titles=1&case=0"})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	paths := []any{}
+	for _, hit := range body["hits"].([]any) {
+		paths = append(paths, hit.(map[string]any)["path"])
+	}
+	assert.Equal(t, []any{"gadgets.md"}, paths)
+}
+
+func TestAPISearchSaysWhenItStoppedEarly(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	writeNote(t, ts.root, "many.md", strings.Repeat("hit\n\n", 5001))
+	ts.mount().touch("many.md")
+
+	// act
+	resp, body := ts.json(t, request{path: "/api/search?q=hit&mode=exact"})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, true, body["truncated"])
+}
+
+func TestAPISearchRefusesABadQuery(t *testing.T) {
+	tests := []struct {
+		name, query, message string
+	}{
+		{name: "an unknown mode", query: "q=x&mode=near", message: "mode must be"},
+		{name: "a pattern RE2 refuses", query: "q=(&regex=1", message: "missing closing )"},
+		{name: "a pattern over 1KB", query: "q=" + strings.Repeat("a", search.MaxPattern+1) + "&mode=exact",
+			message: "longer than"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ts := newTestServer(t, testOpts{})
+
+			// act
+			resp, body := ts.json(t, request{path: "/api/search?" + tc.query})
+
+			// assert
+			assert.Equal(t, http.StatusBadRequest, resp.status)
+			assert.Contains(t, body["error"], tc.message)
+		})
+	}
 }
 
 func TestAPISearchEmptyQuery(t *testing.T) {
@@ -1361,10 +1526,6 @@ func TestReadOnlyRefusesEveryWrite(t *testing.T) {
 	}
 }
 
-// TestReadOnlyIsAnnouncedAndEnforced records where the refusal lives now. The
-// editor route used to answer 403 outright; it serves the app like every other
-// page, and what a reader is offered comes from /api/me while the api is what
-// actually refuses the write.
 func TestReadOnlyIsAnnouncedAndEnforced(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{readOnly: true})
@@ -1399,8 +1560,6 @@ func TestAuthGuardsEverythingButThePublicRoutes(t *testing.T) {
 		{name: "root redirects to login", path: "/", status: http.StatusFound},
 		{name: "api answers 401", path: "/api/tree", status: http.StatusUnauthorized},
 		{name: "login page is public", path: "/login", status: http.StatusOK},
-		// the sign-in page carries its own stylesheet, so it has to be readable
-		// by someone who has no session yet or the form arrives unstyled
 		{name: "assets are public", path: "/static/v1.2.3/login/login.css", status: http.StatusOK},
 		{name: "ping is public", path: "/ping", status: http.StatusOK},
 	}
@@ -1419,13 +1578,10 @@ func TestAuthGuardsEverythingButThePublicRoutes(t *testing.T) {
 	}
 }
 
-// bearer is everything an API client sends: no cookie, no CSRF hint, no form.
 func bearer(token string) map[string]string {
 	return map[string]string{"Authorization": "Bearer " + token}
 }
 
-// crossSite adds to headers what a forged write carries: the site hint the
-// browser sets by itself and the origin the form came from.
 func crossSite(headers map[string]string) map[string]string {
 	if headers == nil {
 		headers = map[string]string{}
@@ -1435,8 +1591,6 @@ func crossSite(headers map[string]string) map[string]string {
 	return headers
 }
 
-// files is every file under the notes root with its content, so a refused write
-// can be shown to have left the corpus alone.
 func (ts *testServer) files(t *testing.T) map[string]string {
 	t.Helper()
 	res := map[string]string{}
@@ -1630,7 +1784,6 @@ func TestLoginFlow(t *testing.T) {
 
 	// act
 	page, _ := ts.do(t, request{path: "/doc/guide.md", client: client})
-	// the page carries no user name any more, the app asks who it is serving
 	_, me := ts.json(t, request{path: "/api/me", client: client})
 	loginAgain, _ := ts.do(t, request{path: "/login", client: client})
 	out, _ := ts.do(t, request{method: http.MethodPost, path: "/logout", client: client})
@@ -1772,8 +1925,6 @@ func TestRenderCacheFillsOnTheFirstRequest(t *testing.T) {
 	require.Equal(t, 0, ts.pages().len())
 
 	// act
-	// the shell renders no markdown, so the cache is filled by the route that
-	// hands the document over
 	ts.do(t, request{path: "/api/page/guide.md"})
 	ts.do(t, request{path: "/api/page/guide.md"})
 
@@ -1790,9 +1941,6 @@ func revOf(t *testing.T, ts *testServer, contentPath string) string {
 	return store.Rev(data)
 }
 
-// TestLoginTemplateExecutes renders the one page the server still builds
-// itself, so a field the template needs and the handler does not fill shows up
-// here instead of in a browser. Every other page is the app now.
 func TestLoginTemplateExecutes(t *testing.T) {
 	wb := &Web{Config: Config{Title: "Test Notes", Version: "v1"}}
 	require.NoError(t, wb.parseTemplates())
@@ -1801,9 +1949,9 @@ func TestLoginTemplateExecutes(t *testing.T) {
 		name string
 		data LoginPage
 	}{
-		{name: "plain", data: LoginPage{SiteTitle: "Test Notes", Version: "v1",
+		{name: "plain", data: LoginPage{SiteTitle: "Test Notes", Version: "v1", AppThemes: appBase("abc") + appThemes,
 			Theme: themeOf(themedRequest(""), "v1"), Themes: themeOptions}},
-		{name: "refused", data: LoginPage{SiteTitle: "Test Notes", Version: "v1",
+		{name: "refused", data: LoginPage{SiteTitle: "Test Notes", Version: "v1", AppThemes: appBase("abc") + appThemes,
 			Theme: themeOf(themedRequest("dark"), "v1"), Themes: themeOptions,
 			Error: "Wrong user name or password", From: "/doc/guide.md"}},
 	}
@@ -1823,8 +1971,6 @@ func TestLoginTemplateExecutes(t *testing.T) {
 	}
 }
 
-// TestNoInlineScripts locks the assumption the content security policy rests
-// on: an inline block would be blocked by "script-src 'self'".
 func TestNoInlineScripts(t *testing.T) {
 	// arrange
 	names, err := fs.Glob(templateFiles, "templates/*.html")
@@ -1846,9 +1992,6 @@ func TestNoInlineScripts(t *testing.T) {
 	}
 }
 
-// TestInlineStylesNeverReachScriptSrc locks the one relaxation the policy
-// carries: inline styles are allowed and scripts are not. A -elem or -attr
-// directive would override the plain one for its half, so none may appear.
 func TestInlineStylesNeverReachScriptSrc(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -1859,14 +2002,12 @@ func TestInlineStylesNeverReachScriptSrc(t *testing.T) {
 	// assert
 	directives := strings.Split(resp.header.Get("Content-Security-Policy"), "; ")
 	assert.Contains(t, directives, "style-src 'self' 'unsafe-inline'")
-	assert.Contains(t, directives, "script-src 'self'")
+	assert.Contains(t, directives, "script-src 'self' 'wasm-unsafe-eval'")
 	for _, directive := range directives {
 		assert.NotRegexp(t, `^(style|script)-src-(elem|attr) `, directive)
 	}
 }
 
-// TestStoreErrorMapping locks the table the store package handed over: every
-// sentinel has one status and one message, and neither ever quotes a path.
 func TestStoreErrorMapping(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -2052,4 +2193,50 @@ func waitForPing(t *testing.T, addr string) int {
 	}
 	t.Fatalf("server never answered on %s: %v", addr, lastErr)
 	return 0
+}
+
+func TestTheLoginPageShowsTheLogoInline(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true})
+
+	// act
+	resp, body := ts.do(t, request{path: "/login"})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Contains(t, body, string(loginLogo()))
+	assert.Contains(t, string(loginLogo()), `<svg class="login-logo" aria-hidden="true" `)
+}
+
+func TestTheFaviconIsTheLogoInBothSchemes(t *testing.T) {
+	// arrange
+	logo, err := assets.ReadFile("logo.svg")
+	require.NoError(t, err)
+	shape := regexp.MustCompile(`<path d="[^"]+"`).FindString(string(logo))
+	require.NotEmpty(t, shape)
+
+	// act
+	favicon := string(Favicon())
+
+	// assert
+	assert.Contains(t, favicon, shape)
+	assert.Contains(t, favicon, "@media (prefers-color-scheme:dark)")
+}
+
+func TestTheIconsCarryTheDrawingOfTheLogo(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true})
+	require.Regexp(t, `^[0-9a-f]{8}$`, iconStamp())
+	stamp := "?v=" + iconStamp()
+
+	// act
+	_, login := ts.do(t, request{path: "/login"})
+	_, shell := ts.do(t, request{path: "/", client: ts.login(t)})
+	_, manifest := ts.do(t, request{path: "/manifest.webmanifest"})
+
+	// assert
+	favicon := `<link rel="icon" href="/static/` + ts.Version + `/favicon.svg` + stamp + `"`
+	assert.Contains(t, login, favicon)
+	assert.Contains(t, shell, favicon)
+	assert.Contains(t, manifest, "/icons/icon-512.png"+stamp)
 }

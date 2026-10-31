@@ -8,14 +8,10 @@ const {
 } = require('../support/helpers');
 const text = require('../support/text');
 
-// scratch keeps every test on its own document, so a failure cannot poison the
-// next one and the corpus files stay as they were copied
 function scratch(name) {
     return `e2e-scratch/${name}.md`;
 }
 
-// openTallDocument writes a note several screens high and opens the editor on
-// it, which is what the scroll specs need before they can send a wheel
 async function openTallDocument(page, name) {
     const docPath = scratch(name);
     const filler = Array
@@ -28,8 +24,6 @@ async function openTallDocument(page, name) {
     return docPath;
 }
 
-// wheelOverSource sends the deltas a trackpad sends, over the source pane, and
-// answers how far it asked the pane to travel
 async function wheelOverSource(page, {steps = 20, delta = 60} = {}) {
     const box = await page.getByTestId('editor-source').boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -40,8 +34,6 @@ async function wheelOverSource(page, {steps = 20, delta = 60} = {}) {
     return steps * delta;
 }
 
-// sourceLayout says how the source pane lays out a note of one short line and
-// one long line: by height, because a wrapped line is the taller of the two
 function sourceLayout(page) {
     return page.getByTestId('editor-source').evaluate((root) => {
         const heights = Array.from(root.querySelectorAll('.cm-line'), (line) => line.offsetHeight);
@@ -115,8 +107,6 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    // on the instance that does not format: prettier drops such a line by
-    // design, and this is about the editor changing nothing on its own
     test('trailing whitespace survives a save', async ({page}) => {
         const docPath = scratch('whitespace');
         const body = '- item\n   \n- next\n';
@@ -146,7 +136,6 @@ test.describe('editing', () => {
         await page.getByTestId('modal-cancel').click();
         await expect(page).toHaveURL(MAIN.url.edit(docPath));
 
-        // the draft is debounced into localStorage and offered on the next load
         await page.waitForTimeout(1000);
         await page.goto(routes.edit(docPath));
         await expect(page.getByTestId('editor-draft')).toContainText(text.editor.draft);
@@ -166,8 +155,6 @@ test.describe('editing', () => {
         await expect.poll(() => sourceText(page)).toBe('kept\n');
 
         await setSource(page, 'a draft nobody wants\n');
-        // a reload is not a router navigation, so it leaves without asking and
-        // the debounced draft is what is left of the buffer
         await page.waitForTimeout(1000);
         await page.goto(routes.edit(docPath));
 
@@ -203,6 +190,26 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('the topbar names the note the editor has open', async ({page}) => {
+        // arrange
+        const docPath = scratch('editor-crumbs');
+        writeFixture(docPath, '# Elsewhere\n');
+        await page.goto(routes.doc(docPath));
+        const crumbs = page.getByTestId('topbar-crumbs').getByTestId('crumb');
+        await expect(crumbs.last()).toHaveText('Elsewhere');
+
+        try {
+            // act
+            await page.getByTestId('doc-edit').click();
+            await expect.poll(() => sourceText(page)).toBe('# Elsewhere\n');
+
+            // assert
+            await expect(crumbs.last()).toHaveText('editor-crumbs');
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
     test('the conflict dialog can keep both versions as a copy', async ({page}) => {
         const docPath = scratch('conflict-copy');
         writeFixture(docPath, 'original\n');
@@ -217,6 +224,9 @@ test.describe('editing', () => {
         await page.getByTestId('editor-conflict-copy').click();
 
         await expect(page).toHaveURL(/\/edit\/e2e-scratch\/conflict-copy\.conflict-[\d-]+T[\d-]+\.md$/);
+        await expect.poll(() => sourceText(page), 'the copy opens with its own text').toBe('mine to keep\n');
+        await expect(page.getByTestId('topbar-crumbs').getByTestId('crumb').last())
+            .toHaveText(/^conflict-copy\.conflict-[\d-]+T[\d-]+$/);
         const copyPath = decodeURIComponent(
             new URL(page.url()).pathname.replace(`${routes.edit('')}`, ''));
         expect(readFixture(copyPath)).toBe('mine to keep\n');
@@ -225,6 +235,150 @@ test.describe('editing', () => {
 
         removeFixture(copyPath);
         removeFixture(docPath);
+    });
+
+    test.describe('a text file that is not a note', () => {
+        const TEXT_DIR = 'e2e-scratch/text';
+
+        test.afterEach(() => {
+            removeFixture(TEXT_DIR);
+        });
+
+        test('opens as plain text with no modes, no toolbar and no preview, and saves as written', async ({page}) => {
+            // arrange
+            const filePath = `${TEXT_DIR}/plain.txt`;
+            const written = '  * not a list\n# not a heading\n';
+            writeFixture(filePath, 'before\n');
+            const previews = [];
+            page.on('request', (request) => {
+                if (request.url().includes('/api/preview')) {
+                    previews.push(request.url());
+                }
+            });
+
+            // act
+            await page.goto(routes.edit(filePath));
+            await expect.poll(() => sourceText(page)).toBe('before\n');
+            await setSource(page, written);
+            await save(page);
+
+            // assert
+            const editor = page.getByTestId('editor');
+            await expect(editor).toHaveAttribute('data-kind', 'text');
+            await expect(page.getByTestId('editor-language')).toHaveText('Plain text');
+            await expect(page.getByTestId('editor-layout-mode')).toHaveCount(0);
+            await expect(page.getByTestId('editor-toolbar')).toHaveCount(0);
+            await expect(page.getByTestId('editor-preview')).toHaveCount(0);
+            await expect.poll(() => readFixture(filePath)).toBe(written);
+            expect(previews).toEqual([]);
+            await shot(page, 'editing-plain-text');
+        });
+
+        test('a file with CRLF line breaks is saved with them and is clean after the save', async ({page}) => {
+            // arrange
+            const filePath = `${TEXT_DIR}/windows.txt`;
+            const written = 'one\r\ntwo\r\n';
+            writeFixture(filePath, written);
+            await page.goto(routes.edit(filePath));
+            await expect.poll(() => sourceText(page)).toBe('one\ntwo\n');
+
+            // act
+            await save(page);
+
+            // assert
+            await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'false');
+            await expect.poll(() => readFixture(filePath)).toBe(written);
+        });
+
+        test('an edit to a file with CRLF line breaks keeps them', async ({page}) => {
+            // arrange
+            const filePath = `${TEXT_DIR}/windows-edited.txt`;
+            writeFixture(filePath, 'one\r\ntwo\r\n');
+            await page.goto(routes.edit(filePath));
+            await expect.poll(() => sourceText(page)).toBe('one\ntwo\n');
+
+            // act
+            await setSource(page, 'one\ntwo\nthree\n');
+            await save(page);
+
+            // assert
+            await expect.poll(() => readFixture(filePath)).toBe('one\r\ntwo\r\nthree\r\n');
+        });
+
+        test('a file of a known language is named and colored as code', async ({page}) => {
+            // arrange
+            const filePath = `${TEXT_DIR}/colored.py`;
+            writeFixture(filePath, 'def slugify(title):\n    return title\n');
+
+            // act
+            await page.goto(routes.edit(filePath));
+
+            // assert
+            await expect(page.getByTestId('editor-language')).toHaveText('Python');
+            await expect(page.getByTestId('editor-source').locator('.cm-line span').first()).toBeVisible();
+        });
+
+        for (const [file, language, body] of [
+            [`${TEXT_DIR}/tools/Makefile`, 'Makefile', 'all:\n\techo "built" # done\n'],
+            [`${TEXT_DIR}/Widget.svelte`, 'Svelte', '<script>let count = 0;</script>\n<button>{count}</button>\n'],
+            [`${TEXT_DIR}/main.rs`, 'Rust', 'fn main() {\n    println!("hi");\n}\n'],
+        ]) {
+            test(`${language} opens named and colored`, async ({page}) => {
+                // arrange
+                writeFixture(file, body);
+
+                // act
+                await page.goto(routes.edit(file));
+
+                // assert
+                await expect(page.getByTestId('editor')).toHaveAttribute('data-kind', 'text');
+                await expect(page.getByTestId('editor-language')).toHaveText(language);
+                await expect(page.getByTestId('editor-source').locator('.cm-line span').first()).toBeVisible();
+            });
+        }
+
+        test('a copy kept from a conflict keeps the file\'s own extension', async ({page}) => {
+            // arrange
+            const filePath = `${TEXT_DIR}/conflict-copy.txt`;
+            writeFixture(filePath, 'original\n');
+            await page.goto(routes.edit(filePath));
+            await expect.poll(() => sourceText(page)).toBe('original\n');
+            writeFixture(filePath, 'disk wins\n');
+            await setSource(page, 'mine to keep\n');
+            await page.getByTestId('editor-save').click();
+            await expect(page.locator('[data-testid=modal][data-variant="conflict"]')).toBeVisible();
+
+            // act
+            await page.getByTestId('editor-conflict-copy').click();
+
+            // assert
+            await expect(page).toHaveURL(/\/edit\/e2e-scratch\/text\/conflict-copy\.conflict-[\d-]+T[\d-]+\.txt$/);
+            const copyPath = decodeURIComponent(new URL(page.url()).pathname.replace(`${routes.edit('')}`, ''));
+            expect(readFixture(copyPath)).toBe('mine to keep\n');
+        });
+
+        for (const name of ['Makefile', 'go.mod']) {
+            test(`a copy kept from a conflict of ${name}, text by its whole name, opens in the editor`, async ({page}) => {
+                // arrange
+                const filePath = `${TEXT_DIR}/${name}`;
+                writeFixture(filePath, 'original\n');
+                await page.goto(routes.edit(filePath));
+                await expect.poll(() => sourceText(page)).toBe('original\n');
+                writeFixture(filePath, 'disk wins\n');
+                await setSource(page, 'mine to keep\n');
+                await page.getByTestId('editor-save').click();
+                await expect(page.locator('[data-testid=modal][data-variant="conflict"]')).toBeVisible();
+
+                // act
+                await page.getByTestId('editor-conflict-copy').click();
+
+                // assert
+                const escaped = name.replace('.', '\\.');
+                await expect(page).toHaveURL(new RegExp(`/edit/e2e-scratch/text/${escaped}\\.conflict-[\\d-]+T[\\d-]+\\.txt$`));
+                await expect(page.getByTestId('editor')).toHaveAttribute('data-kind', 'text');
+                await expect.poll(() => sourceText(page)).toBe('mine to keep\n');
+            });
+        }
     });
 
     test('the editor opens where the reader was, in both panes', async ({page}) => {
@@ -245,8 +399,6 @@ test.describe('editing', () => {
             .evaluate((el) => el.scrollTop);
         await expect.poll(sourceScroll).toBeGreaterThan(100);
 
-        // the preview arrives after the editor, so it is the pane that says
-        // whether the position was held rather than applied once and lost
         const preview = page.getByTestId('editor-preview');
         await expect(preview.locator('h2')).toHaveCount(1);
         const headingOffset = () => preview.evaluate((pane) => {
@@ -262,10 +414,6 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    // the two panes used to answer each other's corrections: a scroll event says
-    // an element moved and not who moved it, so each pane kept putting the other
-    // back a little off where it had just been. The page shook under a finger
-    // that was already scrolling, and a third of the gesture was eaten.
     test('a scroll in one pane does not come back as a shake in both', async ({page}) => {
         const docPath = await openTallDocument(page, 'scroll-sync');
         const tops = () => page.evaluate(() => ({
@@ -277,21 +425,15 @@ test.describe('editing', () => {
         await page.waitForTimeout(400);
 
         const settled = await tops();
-        // the wheel was over the source, so the source keeps what it was given
         expect(settled.source).toBeGreaterThan(sent * 0.9);
-        // and the preview came along
         expect(settled.preview).toBeGreaterThan(0);
 
-        // nothing moves once the wheel stops
         await page.waitForTimeout(500);
         expect(await tops()).toEqual(settled);
 
         removeFixture(docPath);
     });
 
-    // the position used to cross as a source line, so the pane that follows
-    // could only land where a line did: it stood still for a few frames and
-    // then hopped a paragraph's worth at once
     test('the pane that follows moves with the scroll instead of hopping', async ({page}) => {
         const docPath = await openTallDocument(page, 'scroll-smooth');
 

@@ -1,127 +1,207 @@
-import { Button, Stack, Text } from '@mantine/core';
-import { IconFilePlus, IconFolderOpen, IconFolderPlus } from '@tabler/icons-react';
-import type { JSX } from 'react';
+import { ActionIcon, Button, Menu } from '@mantine/core';
+import { useEffect, useState, type JSX } from 'react';
 
-import type { DirEntry } from '../api/types';
+import type { DirListing, EntryKind } from '../api/types';
 import { answerKeys, useApi } from '../api/useApi';
-import { isMarkdown } from '../paths';
+import {
+  IconChevronDown, IconDots, IconEdit, IconFilePlus, IconFolderOpen, IconFolderPlus, IconLink, IconPlus, IconTable, IconTrash,
+} from '../icons';
 import { usePlatform } from '../platform';
-import { useOptionalFileActions } from '../shell/fileActionsContext';
-import { useNav } from '../shell/NavContext';
-import { NoteCrumbs } from '../shell/PathCrumbs';
+import { useOptionalFileActions, type FileActions } from '../shell/fileActionsContext';
+import { spaceLabel, useNav } from '../shell/NavContext';
+import { chromeOf, usePageChrome } from '../shell/PageChrome';
+import { PageActions } from '../shell/ShellSlots';
+import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { AsyncContent } from './AsyncContent';
+import classes from './DirectoryView.module.css';
 import { DirTable } from './DirTable';
-import { DocumentBody } from './DocumentBody';
-import { DocumentHtml } from './DocumentHtml';
 import { EmptyState } from './EmptyState';
-import { NoteCard } from './NoteCard';
-import { PageCard } from './PageCard';
+import { countOf } from './formats';
+import { Page, PageTitle } from './Page';
+import { PopupMenu } from './PopupMenu';
 
 export interface DirectoryViewProps {
   path: string;
 }
 
 export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
-  const { canWrite } = useNav();
-  const actions = useOptionalFileActions();
   const { source } = usePlatform();
-  const state = useApi((signal) => source.dir(path, { signal }), [source, path], answerKeys.dir(path));
+  const { changes } = useNav();
+  const state = useApi((signal) => source.dir(path, { signal }), [source, path, changes], answerKeys.dir(path));
 
   return (
-    <AsyncContent state={state} testId="dir">
-      {(dir) =>
-        dir.kind === 'document' ? (
-          <DocumentBody doc={dir} />
-        ) : (
-          <Stack data-testid="dir" gap="xl">
-            {dir.entries.length === 0 ? (
-              <NoteCard header={<DirHead path={path} title={dir.title} entries={dir.entries} />}>
-                <EmptyState
-                  testId="dir-empty"
-                  icon={IconFolderOpen}
-                  title="This folder is empty"
-                  actions={
-                    canWrite && actions !== undefined && (
-                      <>
-                        <Button
-                          data-testid="dir-empty-new-page"
-                          leftSection={<IconFilePlus size={16} />}
-                          onClick={() => actions.createPage(path)}
-                        >
-                          New file
-                        </Button>
-                        <Button
-                          data-testid="dir-empty-new-folder"
-                          variant="default"
-                          leftSection={<IconFolderPlus size={16} />}
-                          onClick={() => actions.createFolder(path)}
-                        >
-                          New folder
-                        </Button>
-                      </>
-                    )
-                  }
-                >
-                  {canWrite ? 'Create the first file or folder in it.' : 'There are no files or folders in it.'}
-                </EmptyState>
-              </NoteCard>
-            ) : (
-              <PageCard
-                data-testid="dir-table"
-                wide
-                header={<DirHead path={path} title={dir.title} entries={dir.entries} />}
-              >
-                <DirTable path={path} entries={dir.entries} />
-              </PageCard>
-            )}
-            {dir.has_readme && (
-              <NoteCard>
-                <DocumentHtml html={dir.readme_html} />
-              </NoteCard>
-            )}
-          </Stack>
-        )
-      }
+    <AsyncContent state={state} testId="dir" page>
+      {(dir) => <FolderList path={dir.path} dir={dir} />}
     </AsyncContent>
   );
 }
 
-// DirHead is the head of a folder's card: the path to it, or at the root,
-// which has no path, the name of the space, and what the folder holds
-function DirHead({ path, title, entries }: { path: string; title: string; entries: readonly DirEntry[] }): JSX.Element {
+function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Element {
+  const { canWrite, me } = useNav();
+  const actions = useOptionalFileActions();
+  const [draft, setDraft] = useState<EntryKind | undefined>(undefined);
+  const phone = useBelow(layoutBreakpoints.phone);
+  const space = spaceLabel(me);
+  usePageChrome(chromeOf(dir.breadcrumbs, path === '' ? '' : dir.title, true));
+  useEffect(() => setDraft(undefined), [path]);
+
+  const writable = canWrite && actions !== undefined;
+  const startDraft = (kind: EntryKind): void => {
+    if (phone && actions !== undefined) {
+      (kind === 'file' ? actions.createPage : actions.createFolder)(path);
+      return;
+    }
+    setDraft(kind);
+  };
+  const submit = async (name: string): Promise<boolean> => {
+    if (actions === undefined || draft === undefined) {
+      return false;
+    }
+    const created = await actions.createEntry({ kind: draft, parent: path }, name);
+    if (created) {
+      setDraft(undefined);
+    }
+    return created;
+  };
+
   return (
-    <>
-      {path === '' ? (
-        <Text data-testid="dir-title" size="sm" fw={500} c="var(--scrawl-text)">
-          {title}
-        </Text>
-      ) : (
-        <NoteCrumbs />
+    <Page data-testid="dir" wide>
+      {writable && (
+        <PageActions>
+          <FolderMenu path={path} actions={actions} />
+        </PageActions>
       )}
-      {entries.length > 0 && (
-        <Text data-testid="dir-count" size="sm" c="dimmed" style={{ flex: 'none' }}>
-          {countOf(entries)}
-        </Text>
+      <div className={classes.head}>
+        <PageTitle testId="dir-title">{path === '' ? space : dir.title}</PageTitle>
+        {writable && !phone && (
+          <PopupMenu position="bottom-end" width={layout.menuWidthNarrow} withinPortal>
+            <Menu.Target>
+              <Button
+                data-testid="dir-new"
+                size="lg"
+                className={classes.new}
+                rightSection={<IconChevronDown size={layout.iconSizeSmall} />}
+              >
+                New
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item
+                data-testid="dir-new-file"
+                leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
+                onClick={() => startDraft('file')}
+              >
+                New file
+              </Menu.Item>
+              <Menu.Item
+                data-testid="dir-new-folder"
+                leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
+                onClick={() => startDraft('dir')}
+              >
+                New folder
+              </Menu.Item>
+            </Menu.Dropdown>
+          </PopupMenu>
+        )}
+      </div>
+      <div className={classes.bar}>
+        <div className={classes.tab}>
+          <IconTable size={layout.iconSizeSmall} />
+          Files
+        </div>
+        <span data-testid="dir-count" className={classes.count}>
+          {countOf(dir.entries.length, 'item')}
+        </span>
+      </div>
+      {(dir.entries.length > 0 || draft !== undefined || !phone) && (
+        <DirTable
+          path={path}
+          entries={dir.entries}
+          draft={draft}
+          onDraftSubmit={submit}
+          onDraftCancel={() => setDraft(undefined)}
+        />
       )}
-    </>
+      {draft === undefined && dir.entries.length > 0 && writable && !phone && (
+        <button type="button" data-testid="dir-add-row" className={classes.add} onClick={() => startDraft('file')}>
+          <IconPlus size={layout.iconSizeSmall} />
+          New file
+        </button>
+      )}
+      {draft === undefined && dir.entries.length === 0 && (
+        <div className={classes.empty}>
+          <EmptyState
+            testId="dir-empty"
+            icon={IconFolderOpen}
+            title="This folder is empty"
+            actions={
+              writable && (
+                <Button data-testid="dir-empty-new-file" variant="default" onClick={() => startDraft('file')}>
+                  New file
+                </Button>
+              )
+            }
+          >
+            {canWrite ? 'It holds no notes and no files yet.' : 'There are no files or folders in it.'}
+          </EmptyState>
+        </div>
+      )}
+    </Page>
   );
 }
 
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
-}
-
-// countOf says what a folder holds the way the tree sorts it: notes, folders,
-// and the files that are neither
-function countOf(entries: readonly DirEntry[]): string {
-  const folders = entries.filter((entry) => entry.is_dir).length;
-  const notes = entries.filter((entry) => !entry.is_dir && isMarkdown(entry.path)).length;
-  const files = entries.length - folders - notes;
-  const parts = [
-    notes > 0 ? plural(notes, 'note', 'notes') : '',
-    folders > 0 ? plural(folders, 'folder', 'folders') : '',
-    files > 0 ? plural(files, 'file', 'files') : '',
-  ];
-  return parts.filter((part) => part !== '').join(' · ');
+function FolderMenu({ path, actions }: { path: string; actions: FileActions }): JSX.Element {
+  return (
+    <PopupMenu position="bottom-end" width={layout.menuWidth} withinPortal>
+      <Menu.Target>
+        <ActionIcon data-testid="folder-menu" variant="subtle" color="gray" size="lg" aria-label="More actions">
+          <IconDots size={layout.iconSize} />
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown data-testid="folder-menu-dropdown">
+        <Menu.Item
+          data-testid="folder-menu-new-file"
+          leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
+          onClick={() => actions.createPage(path)}
+        >
+          New file
+        </Menu.Item>
+        <Menu.Item
+          data-testid="folder-menu-new-folder"
+          leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
+          onClick={() => actions.createFolder(path)}
+        >
+          New folder
+        </Menu.Item>
+        <Menu.Divider />
+        <Menu.Item
+          data-testid="folder-menu-copy-link"
+          leftSection={<IconLink size={layout.iconSizeSmall} />}
+          onClick={() => actions.copyLink(path, true)}
+        >
+          Copy link
+        </Menu.Item>
+        {path !== '' && (
+          <>
+            <Menu.Item
+              data-testid="folder-menu-rename"
+              leftSection={<IconEdit size={layout.iconSizeSmall} />}
+              onClick={() => actions.rename(path)}
+            >
+              Rename or move
+            </Menu.Item>
+            <Menu.Item
+              data-testid="folder-menu-delete"
+              color="red"
+              leftSection={<IconTrash size={layout.iconSizeSmall} />}
+              onClick={() => actions.remove(path, true)}
+            >
+              Delete
+            </Menu.Item>
+          </>
+        )}
+      </Menu.Dropdown>
+    </PopupMenu>
+  );
 }

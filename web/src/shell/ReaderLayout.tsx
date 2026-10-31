@@ -1,29 +1,31 @@
 import '../print.css';
 
-import { ActionIcon, AppShell, Burger, Drawer } from '@mantine/core';
-import { IconLayoutSidebar, IconLayoutSidebarFilled } from '@tabler/icons-react';
+import { ActionIcon, AppShell, Drawer } from '@mantine/core';
 import {
   createContext, Fragment, useCallback, useContext, useEffect, useMemo, useState,
   type ComponentType, type JSX, type ReactNode,
 } from 'react';
 import { useLocation } from 'react-router';
 
-import card from '../card.module.css';
-import { iconEdgeInset, layout, layoutBreakpoints, useAtLeast } from '../theme';
+import { IconMenu } from '../icons';
+import { FindControlProvider, type FindControl } from '../reader/findControl';
+import { layout, layoutBreakpoints, useAtLeast, useBelow } from '../theme';
 
+import { PageChromeProvider } from './PageChrome';
+import { PhoneTopBar } from './PhoneTopBar';
 import classes from './Shell.module.css';
 import { ShellSlotsProvider, type ShellSlots } from './ShellSlots';
 import { ShortcutHelp } from './ShortcutHelp';
+import { appShortcut, modChord } from './shortcuts';
 import { SidebarNav } from './SidebarNav';
-import { Topbar, type TopbarChrome } from './Topbar';
+import { Topbar } from './Topbar';
 import { useSidebarHidden } from './useSidebarHidden';
-import { useSwipeToClose } from './useSwipeToClose';
 
 export interface ReaderLayoutState {
-  // revealNav puts the tree on screen, as a rail or as the drawer
   revealNav: () => void;
-  // closePanels puts away the drawer and the outline sheet
   closePanels: () => void;
+  openShortcuts: () => void;
+  openOutline: (() => void) | undefined;
 }
 
 const ReaderLayoutContext = createContext<ReaderLayoutState | undefined>(undefined);
@@ -36,75 +38,53 @@ export function useReaderLayout(): ReaderLayoutState {
   return state;
 }
 
+export interface ReaderChrome {
+  sidebarFoot?: ReactNode;
+  topbarEnd?: ReactNode;
+  phoneMenu?: ReactNode;
+  phoneBottom?: ReactNode;
+}
+
 export interface ReaderLayoutProps {
-  // the app's own controls in the topbar
-  chrome?: TopbarChrome;
-  // providers that need the layout and have to hold the tree, which is what
-  // the app's file actions are
+  chrome?: ReaderChrome;
   providers?: ComponentType<{ children: ReactNode }>;
-  // above the page, the app's banner about the space
   banner?: ReactNode;
-  // beside the page, a panel the app opens over it
   overlays?: ReactNode;
   children: ReactNode;
 }
 
-// ReaderLayout is the shell of the reader: the topbar, the tree as a rail or a
-// drawer, the outline as a rail or a sheet, and the page between them. The app
-// and a site both run it, the app with its own controls in it.
 export function ReaderLayout({ chrome, providers, banner, overlays, children }: ReaderLayoutProps): JSX.Element {
   const location = useLocation();
   const Providers = providers ?? Fragment;
 
-  const [navOpened, setNavOpened] = useState(false);
   const [tocOpened, setTocOpened] = useState(false);
+  const [shortcutsOpened, setShortcutsOpened] = useState(false);
   const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null);
   const [tocSlot, setTocSlot] = useState<HTMLElement | null>(null);
   const [tocPresent, setTocPresent] = useState(false);
+  const [openFind, setOpenFind] = useState<(() => void) | undefined>(undefined);
+  const registerFind = useCallback((open: (() => void) | undefined) => setOpenFind(() => open), []);
+  const findControl = useMemo<FindControl>(() => ({ open: openFind, register: registerFind }), [openFind, registerFind]);
 
-  const wideSidebar = useAtLeast(layoutBreakpoints.sidebar);
-  const wideToc = useAtLeast(layoutBreakpoints.tocRail);
-  const wideTopbar = useAtLeast(layoutBreakpoints.compactTopbar);
-  const { hidden: navHidden, toggle: toggleSidebar } = useSidebarHidden();
+  const phone = useBelow(layoutBreakpoints.phone);
+  const miniOutline = useAtLeast(layoutBreakpoints.miniOutline);
+  const { hidden: navHidden, toggle: toggleNav } = useSidebarHidden();
 
-  const closeNav = useCallback(() => setNavOpened(false), []);
   const closeToc = useCallback(() => setTocOpened(false), []);
   const openToc = useCallback(() => setTocOpened(true), []);
+  const openShortcuts = useCallback(() => setShortcutsOpened(true), []);
 
-  // the drawer is a panel a navigation dismisses, the rail is a preference that
-  // outlives one, so the same control means two different things
-  const navVisible = wideSidebar ? !navHidden : navOpened;
-  const navLabel = navVisible ? 'Hide the file list' : 'Show the file list';
-  const toggleNav = useCallback(() => {
-    if (wideSidebar) {
-      toggleSidebar();
-      return;
-    }
-    setNavOpened((opened) => !opened);
-  }, [wideSidebar, toggleSidebar]);
   const revealNav = useCallback(() => {
-    if (!navVisible) {
+    if (!phone && navHidden) {
       toggleNav();
     }
-  }, [navVisible, toggleNav]);
+  }, [phone, navHidden, toggleNav]);
 
-  const closePanels = useCallback(() => {
-    closeNav();
-    closeToc();
-  }, [closeNav, closeToc]);
+  useEffect(() => closeToc(), [location.key, closeToc]);
 
-  // a fresh key per navigation, a replace that only moves the hash included;
-  // unlike the disclosure handlers it does not change on a plain re-render
-  useEffect(() => closePanels(), [location.key, closePanels]);
-
-  // on the document rather than on the burger: the key belongs to the app, and
-  // the caret is in the editor or the filter box most of the time it is wanted
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) {
-        return;
-      }
-      if (event.key.toLowerCase() !== 'b') {
+      if (!modChord(event, 'b') || !appShortcut(event) || phone) {
         return;
       }
       event.preventDefault();
@@ -112,139 +92,89 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [toggleNav]);
+  }, [toggleNav, phone]);
 
-  const layoutState = useMemo<ReaderLayoutState>(() => ({ revealNav, closePanels }), [revealNav, closePanels]);
-
-  const slots = useMemo<ShellSlots>(
-    () => ({ actionsSlot, tocSlot, setTocPresent }),
-    [actionsSlot, tocSlot],
+  const outlineSheet = tocPresent && !miniOutline;
+  const layoutState = useMemo<ReaderLayoutState>(
+    () => ({ revealNav, closePanels: closeToc, openShortcuts, openOutline: outlineSheet ? openToc : undefined }),
+    [revealNav, closeToc, openShortcuts, outlineSheet, openToc],
   );
 
-  const swipeRef = useSwipeToClose(closeNav);
+  const slots = useMemo<ShellSlots>(() => ({ actionsSlot, tocSlot, setTocPresent }), [actionsSlot, tocSlot]);
+
+  const start = navHidden && (
+    <ActionIcon
+      data-testid="topbar-burger"
+      variant="subtle"
+      color="gray"
+      onClick={toggleNav}
+      aria-label="Show the sidebar"
+    >
+      <IconMenu size={layout.iconSize} />
+    </ActionIcon>
+  );
 
   return (
     <ReaderLayoutContext.Provider value={layoutState}>
       <Providers>
         <ShellSlotsProvider value={slots}>
-          <AppShell
-            header={{
-              height: {
-                base: layout.topbarHeightCompact,
-                [layoutBreakpoints.compactTopbar]: layout.topbarHeight,
-              },
-            }}
-            navbar={{
-              width: layout.sidebarWidth + layout.railGutter,
-              breakpoint: layoutBreakpoints.sidebar,
-              collapsed: { mobile: true, desktop: navHidden },
-            }}
-            // a phone keeps 16px, the line its text and its topbar icons share
-            padding={{ base: 'lg', [layoutBreakpoints.compactTopbar]: layout.railGutter }}
-            classNames={{ header: classes.header, navbar: classes.navbar, main: classes.main }}
-          >
-            <AppShell.Header>
-              <Topbar
-                burger={
-                  // the rail stays where it is put, so it takes the icon for a
-                  // panel and not the burger, which stands for a panel that
-                  // covers the page and is dismissed again
-                  wideSidebar ? (
-                    <ActionIcon
-                      data-testid="topbar-burger"
-                      data-opened={navVisible ? 'true' : 'false'}
-                      variant="subtle"
-                      color="gray"
-                      size="lg"
-                      onClick={toggleNav}
-                      aria-label={navLabel}
-                    >
-                      {navVisible ? (
-                        <IconLayoutSidebarFilled size={layout.topbarIconSize} />
-                      ) : (
-                        <IconLayoutSidebar size={layout.topbarIconSize} />
-                      )}
-                    </ActionIcon>
-                  ) : (
-                    <Burger
-                      data-testid="topbar-burger"
-                      data-opened={navVisible ? 'true' : 'false'}
-                      opened={navVisible}
-                      onClick={toggleNav}
-                      size="sm"
-                      aria-label={navLabel}
-                    />
-                  )
-                }
-                chrome={chrome}
-                actionsRef={setActionsSlot}
-                tocAvailable={tocPresent && !wideToc}
-                onOpenToc={openToc}
-              />
-            </AppShell.Header>
-
-            {/* a collapsed rail is only moved out of sight, and the rows left
-                in it would still answer the tab key */}
-            <AppShell.Navbar>
-              {wideSidebar && !navHidden && (
-                <div className={`${card.card} ${classes.treeCard}`}>
-                  <SidebarNav />
-                </div>
-              )}
-            </AppShell.Navbar>
-
-            <AppShell.Main style={{ minWidth: 0 }}>
-              {banner}
-              {children}
-            </AppShell.Main>
-          </AppShell>
-
-          {/* Mantine owns the overlay, the focus trap and the inert page behind it */}
-          {!wideSidebar && (
-            <Drawer
-              data-testid="sidebar-drawer"
-              opened={navOpened}
-              onClose={closeNav}
-              // a phone is too narrow to share with the page it covers anyway:
-              // at the rail's width every second name was cut off
-              size={wideTopbar ? layout.sidebarWidth : '100%'}
-              title="Navigation"
-              padding="lg"
-              styles={{
-                header: { paddingInlineEnd: iconEdgeInset(layout.topbarIconSize) },
-                body: { paddingInline: 0 },
-              }}
-            >
-              <div
-                ref={swipeRef}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  height: '100%',
-                  minHeight: 0,
-                  touchAction: 'pan-y',
+          <PageChromeProvider>
+            <FindControlProvider value={findControl}>
+              <AppShell
+                layout="alt"
+                header={{
+                  height: {
+                    base: layout.topbarHeightCompact,
+                    [layoutBreakpoints.compactTopbar]: layout.topbarHeight,
+                  },
                 }}
+                navbar={{
+                  width: layout.sidebarWidth,
+                  breakpoint: layoutBreakpoints.sidebar,
+                  collapsed: { mobile: true, desktop: navHidden },
+                }}
+                padding={0}
+                classNames={{ header: classes.header, navbar: classes.navbar, main: classes.main }}
               >
-                <SidebarNav />
-              </div>
-            </Drawer>
-          )}
+                <AppShell.Header data-print="hide">
+                  {phone ? (
+                    <PhoneTopBar end={chrome?.topbarEnd} menu={chrome?.phoneMenu} actionsRef={setActionsSlot} />
+                  ) : (
+                    <Topbar start={start} end={chrome?.topbarEnd} actionsRef={setActionsSlot} />
+                  )}
+                </AppShell.Header>
 
-          {!wideToc && (
-            <Drawer
-              data-testid="toc-drawer"
-              opened={tocOpened}
-              onClose={closeToc}
-              position="bottom"
-              size="60%"
-              padding="md"
-            >
-              <div ref={setTocSlot} />
-            </Drawer>
-          )}
+                <AppShell.Navbar data-print="hide">
+                  {!phone && !navHidden && <SidebarNav foot={chrome?.sidebarFoot} onHide={toggleNav} />}
+                </AppShell.Navbar>
 
-          {overlays}
-          <ShortcutHelp />
+                <AppShell.Main style={{ minWidth: 0 }}>
+                  <div className={classes.banner}>{banner}</div>
+                  {children}
+                </AppShell.Main>
+              </AppShell>
+
+              {phone && chrome?.phoneBottom}
+
+              {!miniOutline && (
+                <Drawer
+                  data-testid="toc-drawer"
+                  opened={tocOpened}
+                  onClose={closeToc}
+                  position="bottom"
+                  size="auto"
+                  padding="md"
+                  title="Outline"
+                  classNames={{ content: classes.sheet, header: classes.sheetHead, title: classes.sheetTitle }}
+                >
+                  <div ref={setTocSlot} />
+                </Drawer>
+              )}
+
+              {overlays}
+              <ShortcutHelp opened={shortcutsOpened} onOpen={openShortcuts} onClose={() => setShortcutsOpened(false)} />
+            </FindControlProvider>
+          </PageChromeProvider>
         </ShellSlotsProvider>
       </Providers>
     </ReaderLayoutContext.Provider>

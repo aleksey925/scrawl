@@ -29,10 +29,6 @@ export class ApiError extends Error {
   }
 }
 
-// a 409 that names a url is the server handing the path over to another view,
-// not a failure: the caller goes there. An attachment is the one kind whose
-// url is a server route rather than one of the app's, so the caller is told
-// which of the two it got.
 export interface Handoff {
   kind: HandoffKind;
   url: string;

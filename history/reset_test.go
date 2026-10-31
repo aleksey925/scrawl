@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// diverge leaves the service with a commit the remote lacks and the remote
-// with a commit the service lacks, and lets a sync find that out.
 func diverge(t *testing.T, svc *Service, bare string, mine map[string]string) {
 	t.Helper()
 	breakRemote(t, svc.Root())
@@ -30,8 +28,6 @@ func keysOf(files map[string]string) []string {
 	return res
 }
 
-// rewriteOrigin is a force-push: the branch gets a new history that holds the
-// same notes plus one more, which is what a rebase upstream looks like.
 func rewriteOrigin(t *testing.T, bare, name, content string) {
 	t.Helper()
 	other := filepath.Join(t.TempDir(), "rewriter")
@@ -49,9 +45,6 @@ func backups(t *testing.T, dir string) []string {
 	return strings.Fields(gitIn(t, dir, "for-each-ref", "--format=%(refname:short)", "refs/heads/"+backupPrefix))
 }
 
-// TestAFailedMergeIsNotADivergence is why Diverged is measured: the stage word
-// is the same, and offering a reset for a file in the way would be offering to
-// throw a healthy copy away.
 func TestAFailedMergeIsNotADivergence(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -70,9 +63,6 @@ func TestAFailedMergeIsNotADivergence(t *testing.T) {
 	assert.False(t, state.Diverged)
 }
 
-// TestASaveKeepsTheDivergenceOnScreen covers the push a save used to try: the
-// remote refuses it every time, and its error replaced the divergence until the
-// next fetch.
 func TestASaveKeepsTheDivergenceOnScreen(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -378,8 +368,6 @@ func TestResetToRemote(t *testing.T) {
 		require.ErrorIs(t, err, ErrNotDiverged)
 	})
 
-	// git replaces an ignored file without a word, and the store serves files a
-	// .gitignore among the notes names
 	t.Run("refuses to write over an ignored file git does not track", func(t *testing.T) {
 		// arrange
 		bare := bareRemote(t)

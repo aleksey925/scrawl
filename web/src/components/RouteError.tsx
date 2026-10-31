@@ -1,8 +1,10 @@
-import { Alert, Anchor, Stack, Title } from '@mantine/core';
+import { Alert, Anchor } from '@mantine/core';
 import type { JSX } from 'react';
 import { Link, isRouteErrorResponse, useRouteError } from 'react-router';
 
 import { errorText } from '../api/useApi';
+
+import { Page, PageTitle } from './Page';
 
 export function RouteError(): JSX.Element {
   const error = useRouteError();
@@ -13,18 +15,16 @@ export function RouteError(): JSX.Element {
   return <ErrorView message={message} />;
 }
 
-// ErrorView is a screen that broke, for the router that caught it and for the
-// boundary a site has instead
 export function ErrorView({ message }: { message: string }): JSX.Element {
   return (
-    <Stack data-testid="app-error" p="xl" gap="md">
-      <Title order={2}>This page broke</Title>
-      <Alert data-testid="app-error-message" color="red">
+    <Page data-testid="app-error">
+      <PageTitle>This page broke</PageTitle>
+      <Alert data-testid="app-error-message" color="red" mb="md">
         {message}
       </Alert>
       <Anchor component={Link} to="/">
         Back to all notes
       </Anchor>
-    </Stack>
+    </Page>
   );
 }

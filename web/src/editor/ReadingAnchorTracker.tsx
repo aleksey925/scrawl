@@ -14,15 +14,11 @@ import {
 export interface ReadingAnchorTrackerProps {
   path: string;
   rev: string;
-  // set while this arrival is placed by an anchor, so a fragment in the address yields
   placed: RefObject<boolean>;
 }
 
 const editRoute = /(?:^|\/)edit\//;
 
-// Mounted beside a rendered note, this carries the reading position across the
-// step into the editor and back. It renders a marker rather than taking an id,
-// because a note heading slugged like the chrome would answer that lookup.
 export function ReadingAnchorTracker({ path, rev, placed }: ReadingAnchorTrackerProps): JSX.Element {
   const marker = useRef<HTMLSpanElement>(null);
   const location = useLocation();
@@ -33,12 +29,8 @@ export function ReadingAnchorTracker({ path, rev, placed }: ReadingAnchorTracker
     const fromState = isReadingAnchor(location.state) && location.state.path === path
       ? location.state
       : undefined;
-    // a position fresh from the editor beats a fragment; one replayed by a
-    // reload does not, the fragment got into the address after it
     const anchor = fromState ?? recallAnchor('view', path, location.hash === '');
     placed.current = anchor !== undefined;
-    // the scroll the anchor left the page at; while it stands, the reader has
-    // not moved and the anchor goes back to the editor as it came
     let placedAt: number | undefined;
     const release = anchor === undefined
       ? undefined

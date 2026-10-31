@@ -12,22 +12,15 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// maxPasswordLen is bcrypt's key limit: longer keys are silently truncated by
-// the algorithm and rejected outright by bcrypt.GenerateFromPassword.
 const maxPasswordLen = 72
 
-// bcryptPrefixes are the hash identifiers golang.org/x/crypto/bcrypt accepts.
 var bcryptPrefixes = []string{"$2a$", "$2b$", "$2y$"}
 
-// credential is one configured user's secret. Exactly one field is set.
 type credential struct {
-	hash  []byte // bcrypt hash
-	plain []byte // plain password, tolerated but warned about
+	hash  []byte
+	plain []byte
 }
 
-// epoch returns the bytes a session is pinned to. Rotating a user's password
-// changes them, and every cookie signed under the old secret stops verifying:
-// that is the only revocation a stateless session can offer.
 func (c credential) epoch() []byte {
 	if c.hash != nil {
 		return c.hash
@@ -35,7 +28,6 @@ func (c credential) epoch() []byte {
 	return c.plain
 }
 
-// HashPassword returns a bcrypt hash suitable for the users configuration.
 func HashPassword(password string) (string, error) {
 	if password == "" {
 		return "", errors.New("password must not be empty")
@@ -50,9 +42,6 @@ func HashPassword(password string) (string, error) {
 	return string(hash), nil
 }
 
-// Check verifies a login. Every outcome costs one bcrypt comparison: an
-// unknown user and a plain password both burn one against a throwaway hash, so
-// the response time does not tell an attacker which user names exist.
 func (s *Service) Check(user, password string) bool {
 	cred, known := s.users[user]
 	if known && cred.hash != nil {
@@ -62,10 +51,6 @@ func (s *Service) Check(user, password string) bool {
 	return known && subtle.ConstantTimeCompare(cred.plain, []byte(password)) == 1
 }
 
-// parseUsers reads "alice:$2a$10$...,bob:secret". Entries are separated by
-// commas, semicolons or newlines; only the first colon of an entry splits it,
-// because a password may contain colons and a bcrypt hash is full of $ . / and
-// base64 characters. Blank entries and # comments are skipped.
 func parseUsers(spec string) (map[string]credential, error) {
 	res := map[string]credential{}
 	for _, entry := range strings.FieldsFunc(spec, isUserSeparator) {
@@ -120,8 +105,6 @@ func isBcryptHash(secret string) bool {
 	})
 }
 
-// plainUsers returns the names configured with a plain password, sorted so the
-// startup warnings come out in a stable order.
 func plainUsers(users map[string]credential) []string {
 	res := make([]string, 0, len(users))
 	for name, cred := range users {
@@ -133,10 +116,6 @@ func plainUsers(users map[string]credential) []string {
 	return res
 }
 
-// dummyHash builds the throwaway hash Check compares against when no real
-// bcrypt comparison would happen. It matches the highest cost in use, so the
-// timing-equalized path is as expensive as the real one, and it is generated
-// lazily so a service that never checks a password never pays for it.
 func dummyHash(users map[string]credential) func() []byte {
 	cost := bcrypt.DefaultCost
 	for _, cred := range users {
@@ -158,6 +137,4 @@ func dummyHash(users map[string]credential) func() []byte {
 	})
 }
 
-// maxDummyCost caps the work the equalizing comparison does: past it a single
-// login would take seconds and the timing leak is the smaller problem.
 const maxDummyCost = 14

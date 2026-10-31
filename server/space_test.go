@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// secondSpace is the space testOpts.second adds beside the first one, over
-// a root of its own.
 const secondSpace = "team"
 
 func TestRootRedirectsToTheFirstSpace(t *testing.T) {
@@ -47,10 +45,6 @@ func TestEachSpaceServesOnlyItsOwnFiles(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, back.status)
 }
 
-// TestRenderedLinksCarryTheSpacePrefix is what the split between a
-// router-relative URL and a physical one is for: a href inside a note is
-// fetched by the browser directly, so it has to name the space, while the
-// edit_url beside it goes to a router that prepends the very same prefix.
 func TestRenderedLinksCarryTheSpacePrefix(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{second: secondSpace})
@@ -117,10 +111,6 @@ func TestAPISpacesListsWhatTheSwitcherCanGoTo(t *testing.T) {
 	]`, body)
 }
 
-// TestFallbacksAreDecidedPerMount is what the global NotFoundHandler cannot do:
-// it is set on the root bundle whichever group registers it and knows no
-// prefix, so it can neither boot the app for a path inside a space nor answer
-// JSON for an API path.
 func TestFallbacksAreDecidedPerMount(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
@@ -218,9 +208,6 @@ func TestRouterRefusesAServerWithoutSpaces(t *testing.T) {
 	}
 }
 
-// TestSpaceAPIGetsAJSONUnauthorized covers the one thing auth had to learn: a
-// client that omits Accept and calls a space's API with no session is told so
-// in JSON rather than redirected to an HTML form.
 func TestSpaceAPIGetsAJSONUnauthorized(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{withAuth: true})
@@ -251,8 +238,6 @@ func TestOneTokenReachesEverySpace(t *testing.T) {
 	assert.Equal(t, http.StatusOK, second.status)
 }
 
-// TestGlobalPathsAreOutsideEverySpace keeps the helper the tests lean on from
-// drifting away from the boundary the router draws.
 func TestGlobalPathsAreOutsideEverySpace(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})

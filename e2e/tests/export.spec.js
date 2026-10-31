@@ -8,9 +8,10 @@ const NOTE = 'e2e-export.md';
 const OTHER = 'e2e-export-other.md';
 const SOURCE = '# Export\n\nA picture:\n\n![logo](images/logo.png)\n';
 const DIAGRAM = '# Export\n\n```mermaid\nflowchart TD\n  A --> B\n```\n';
+const PLANTUML = '# Export\n\n```plantuml\nAlice -> Bob : exported\n```\n';
 
 async function download(page, format) {
-    await page.getByTestId('doc-export').click();
+    await page.getByTestId('note-menu').click();
     const [file] = await Promise.all([
         page.waitForEvent('download'),
         page.getByTestId(`doc-export-${format}`).click(),
@@ -18,8 +19,6 @@ async function download(page, format) {
     return {name: file.suggestedFilename(), body: fs.readFileSync(await file.path(), 'utf8')};
 }
 
-// print is the browser's dialog, which a test cannot drive: the stub records
-// the page as the dialog would have printed it, then closes it
 async function stubPrint(page) {
     await page.evaluate(() => {
         window.printed = [];
@@ -30,6 +29,7 @@ async function stubPrint(page) {
                 theme: root.getAttribute('data-scrawl-theme'),
                 scheme: root.getAttribute('data-mantine-color-scheme'),
                 diagram: document.querySelector('.md-diagram-view svg')?.id ?? null,
+                text: document.querySelector('.md-diagram-view svg text')?.getAttribute('fill') ?? null,
             });
             window.dispatchEvent(new Event('afterprint'));
         };
@@ -71,19 +71,75 @@ test.describe('export', () => {
         expect(file.body).toMatch(/<img src="data:image\/png;base64,[A-Za-z0-9+/=]+" alt="logo">/);
     });
 
+    test('a plantuml diagram of an exported page is a picture drawn by the server', async ({page}) => {
+        // arrange
+        writeFixture(NOTE, PLANTUML);
+        await page.goto(routes.doc(NOTE));
+
+        // act
+        const file = await download(page, 'html');
+
+        // assert
+        const svg = file.body.match(/<img alt="PlantUML diagram" src="data:image\/svg\+xml;base64,([A-Za-z0-9+/=]+)">/);
+        expect(svg).not.toBeNull();
+        expect(Buffer.from(svg[1], 'base64').toString('utf8')).toContain('exported');
+        expect(file.body).not.toContain('<pre class="plantuml"');
+    });
+
+    test('the plantuml picture of an exported page shows when the page is opened', async ({page}, testInfo) => {
+        // arrange
+        writeFixture(NOTE, PLANTUML);
+        await page.goto(routes.doc(NOTE));
+        const file = await download(page, 'html');
+        const saved = testInfo.outputPath(file.name);
+        fs.writeFileSync(saved, file.body);
+
+        // act
+        await page.goto(`file://${saved}`);
+
+        // assert
+        const picture = page.locator('.md-diagram[data-state="done"] .md-diagram-view img');
+        await expect(picture).toBeVisible();
+        expect(await picture.evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
+        expect((await picture.boundingBox()).height).toBeGreaterThan(0);
+    });
+
+    test('the picked theme of an exported page slides into place', async ({page}, testInfo) => {
+        // arrange
+        writeFixture(NOTE, SOURCE);
+        await page.goto(routes.doc(NOTE));
+        const file = await download(page, 'html');
+        const saved = testInfo.outputPath(file.name);
+        fs.writeFileSync(saved, file.body);
+        await page.goto(`file://${saved}`);
+        const group = page.locator('.page-theme');
+
+        // act
+        const moving = await group.evaluate(async (root) => {
+            root.querySelector('button[data-theme="dark"]').click();
+            await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+            return root.getAnimations({subtree: true}).map((motion) => motion.transitionProperty);
+        });
+
+        // assert
+        expect(moving).toContain('transform');
+        await expect(group.locator('button[data-theme="dark"]')).toHaveAttribute('aria-pressed', 'true');
+    });
+
     test('a print leaves the chrome off the paper', async ({page}) => {
         // arrange
         writeFixture(NOTE, SOURCE);
         await page.goto(routes.doc(NOTE));
-        await expect(page.getByTestId('doc-export')).toBeVisible();
+        await expect(page.getByTestId('note-menu')).toBeVisible();
 
         // act
         await page.emulateMedia({media: 'print'});
 
         // assert
         await expect(page.getByTestId('doc').locator('h1')).toBeVisible();
-        await expect(page.getByTestId('doc-export')).toBeHidden();
-        await expect(page.getByTestId('topbar-burger')).toBeHidden();
+        await expect(page.getByTestId('note-menu')).toBeHidden();
+        await expect(page.getByTestId('sidebar')).toBeHidden();
+        await expect(page.getByTestId('topbar-crumbs')).toBeHidden();
     });
 
     test('a print leaves the browser no room for the address and the date', async ({page}) => {
@@ -148,8 +204,6 @@ test.describe('export to pdf of wide content', () => {
             const width = element.closest('.markdown-document').getBoundingClientRect().width;
             return Math.max(element.scrollWidth, element.getBoundingClientRect().width) - width;
         });
-        // scrollWidth is a whole number of pixels and the column is not, so a
-        // fit can read as a fraction of a pixel over
         expect(await overflow('table')).toBeLessThan(1);
         expect(await overflow('.md-diagram-view svg')).toBeLessThan(1);
     });
@@ -167,7 +221,7 @@ test.describe('export to pdf of a formula', () => {
     test('a print started before katex arrives waits for the formula', async ({page}) => {
         // arrange
         writeFixture(NOTE, '# Export\n\n$$\n\\frac{a}{b}\n$$\n');
-        await page.route(/\/katex-[^/]*\.js$/, async (route) => {
+        await page.route('**/assets/katex.js', async (route) => {
             await new Promise((resolve) => setTimeout(resolve, 1_500));
             await route.continue();
         });
@@ -179,7 +233,7 @@ test.describe('export to pdf of a formula', () => {
         });
 
         // act
-        await page.getByTestId('doc-export').click();
+        await page.getByTestId('note-menu').click();
         await page.getByTestId('doc-export-pdf').click();
 
         // assert
@@ -209,7 +263,7 @@ test.describe('export to pdf on a dark screen', () => {
         const drawn = await page.getByTestId('doc').locator('.md-diagram-view svg').getAttribute('id');
 
         // act
-        await page.getByTestId('doc-export').click();
+        await page.getByTestId('note-menu').click();
         await page.getByTestId('doc-export-pdf').click();
 
         // assert
@@ -222,18 +276,41 @@ test.describe('export to pdf on a dark screen', () => {
         await expect(page.locator('html')).not.toHaveAttribute('data-scrawl-theme', /.*/);
     });
 
+    test('a print of a plantuml diagram waits for its engine and its light drawing', async ({page}) => {
+        // arrange
+        writeFixture(NOTE, PLANTUML);
+        await page.route('**/assets/plantuml.js', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 1_500));
+            await route.continue();
+        });
+        await page.goto(routes.doc(NOTE));
+        await expect(page.getByTestId('doc').locator('.md-diagram')).toHaveAttribute('data-state', 'drawing');
+        await stubPrint(page);
+
+        // act
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('doc-export-pdf').click();
+
+        // assert
+        await expect.poll(() => page.evaluate(() => window.printed.length)).toBe(1);
+        const [printed] = await page.evaluate(() => window.printed);
+        expect(printed).toMatchObject({theme: 'light', diagram: expect.stringMatching(/^md-plantuml-/), text: expect.any(String)});
+        await expect(page.getByTestId('doc').locator('.md-diagram[data-state="done"]')).toBeVisible();
+        const dark = await page.getByTestId('doc').locator('.md-diagram-view svg text').first().getAttribute('fill');
+        expect(printed.text, 'the paper gets the light drawing, not the dark one').not.toBe(dark);
+    });
+
     test('a note left while its print waits is not printed', async ({page}) => {
         // arrange
         writeFixture(NOTE, `# Export\n\n[next](${OTHER})\n\n![slow](images/slow.png)\n`);
         writeFixture(OTHER, '# Other\n');
-        // a picture that never arrives keeps the print waiting for it
         await page.route('**/raw/images/slow.png', () => {});
         await page.goto(routes.doc(NOTE));
         await stubPrint(page);
         const title = await page.title();
 
         // act
-        await page.getByTestId('doc-export').click();
+        await page.getByTestId('note-menu').click();
         await page.getByTestId('doc-export-pdf').click();
         await page.getByTestId('doc').getByRole('link', {name: 'next'}).click();
 
@@ -241,7 +318,6 @@ test.describe('export to pdf on a dark screen', () => {
         await expect(page.getByTestId('doc').locator('h1')).toHaveText('Other');
         await expect(page).toHaveTitle(title);
         await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
-        // past the longest wait of a print
         await page.waitForTimeout(6_000);
         expect(await page.evaluate(() => window.printed)).toEqual([]);
     });

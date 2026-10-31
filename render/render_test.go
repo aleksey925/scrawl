@@ -38,7 +38,6 @@ func TestRenderGolden(t *testing.T) {
 	}
 }
 
-// format lays a Result out as one diffable text block.
 func format(res Result) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "title: %s\ntoc:\n", res.Title)

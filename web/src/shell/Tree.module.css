@@ -1,34 +1,98 @@
-/* the rows of an open folder hang off a line under its chevron, so the depth
-   of a row reads at a glance and not by measuring its indent */
-.children {
+.row {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: var(--scrawl-row-height);
+  border-radius: var(--mantine-radius-md);
+  color: var(--scrawl-sidebar-text);
+  transition: background-color 20ms ease-in;
 }
 
-.children::before {
-  content: '';
-  position: absolute;
-  inset-block: 0;
-  left: var(--tree-guide-x);
-  width: 1px;
-  background: var(--scrawl-border);
-  pointer-events: none;
+.row[data-current='true'] {
+  background: var(--scrawl-selected);
+  color: var(--scrawl-text);
+  font-weight: var(--scrawl-current-weight);
 }
 
-/* the menu shows under the pointer, the keyboard's focus or open, not after a
-   click left the focus on the chevron; with no pointer it always shows */
+.row[data-selected='true']:not([data-current='true']) {
+  background: var(--scrawl-accent-tint);
+}
+
+.row[data-drop='true'] {
+  background: var(--scrawl-accent-tint);
+  outline: 1px solid var(--scrawl-accent);
+  outline-offset: -1px;
+}
+
 @media (hover: hover) {
-  .row .menu:not([data-opened='true']) {
+  .row:not([data-selected='true']):hover {
+    background: var(--scrawl-selected);
+  }
+
+  .row[data-current='true']:hover {
+    background-image: linear-gradient(var(--scrawl-selected), var(--scrawl-selected));
+  }
+}
+
+.icon {
+  flex: none;
+  color: var(--scrawl-sidebar-icon);
+}
+
+.icon .chevron {
+  display: none;
+}
+
+@media (hover: hover) {
+  .row[data-dir='true']:hover .icon .glyph {
+    display: none;
+  }
+
+  .row[data-dir='true']:hover .icon .chevron {
+    display: block;
+  }
+}
+
+.label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: inherit;
+  font-weight: inherit;
+}
+
+.tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+@media (hover: hover) {
+  .row:not(:hover, :focus-within, [data-menu='true']) .tools {
     opacity: 0;
   }
+}
 
-  .row:hover .menu,
-  .row:has(:focus-visible) .menu {
-    opacity: 1;
+@media (hover: none) {
+  .add {
+    display: none;
   }
 }
 
-/* a long press is the row's menu, and iOS would also preview the link under
-   the finger and pick a word of its name */
+.row.draft,
+.row.draft:hover {
+  background: var(--scrawl-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--scrawl-focus-ring),
+    inset 0 0 0 2px var(--scrawl-focus-ring-outer);
+}
+
+.none {
+  color: var(--scrawl-text-tertiary);
+  font-size: 13px;
+}
+
 @media (pointer: coarse) {
   .pressable {
     -webkit-touch-callout: none;

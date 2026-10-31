@@ -15,6 +15,7 @@ import {
   pictureOf,
   prepareImages,
   sectionLink,
+  wrapTables,
 } from '../reader/controls';
 import { imagesOf } from '../reader/dom';
 import { isPlainClick } from '../reader/links';
@@ -29,27 +30,38 @@ function stored(): string {
   return persistence.read() ?? autoChoice;
 }
 
+function placeIndicator(group: HTMLElement): void {
+  const pressed = group.querySelector<HTMLElement>('button[aria-pressed="true"]');
+  if (pressed === null) {
+    return;
+  }
+  group.style.setProperty('--page-theme-left', `${pressed.offsetLeft}px`);
+  group.style.setProperty('--page-theme-width', `${pressed.offsetWidth}px`);
+}
+
 function apply(choice: string): void {
   applyThemeAttribute(choice);
   for (const button of document.querySelectorAll<HTMLButtonElement>('.page-theme button')) {
     button.setAttribute('aria-pressed', String(button.dataset['theme'] === choice));
+  }
+  for (const group of document.querySelectorAll<HTMLElement>('.page-theme')) {
+    placeIndicator(group);
   }
 }
 
 apply(stored());
 printInLight();
 
-// Back shows the page the way it was left, with the theme it had then
 window.addEventListener('pageshow', (event) => {
   if (event.persisted) {
     apply(stored());
   }
 });
 
-// the reading controls the app puts on a note
 function prepareNote(note: HTMLElement): void {
   injectHeadingAnchors(note);
   injectCopyButtons(note);
+  wrapTables(note);
   prepareImages(note);
   const timers = new Set<number>();
   note.addEventListener('click', (event) => {
@@ -62,7 +74,6 @@ function prepareNote(note: HTMLElement): void {
       void copyCode(button, timers);
       return;
     }
-    // the browser follows the anchor to its heading, the link is copied beside
     const anchor = event.target.closest(`.${anchorClass}`);
     if (anchor instanceof HTMLElement) {
       void copyText(sectionLink(anchor.dataset['headingId'] ?? ''));
@@ -87,6 +98,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const note = document.querySelector<HTMLElement>('article.markdown-document');
   if (note !== null) {
     prepareNote(note);
+  }
+  for (const group of document.querySelectorAll<HTMLElement>('.page-theme')) {
+    void group.offsetWidth;
+    group.dataset['placed'] = '';
+    new ResizeObserver(() => placeIndicator(group)).observe(group);
   }
   for (const button of document.querySelectorAll<HTMLButtonElement>('.page-theme button')) {
     button.addEventListener('click', () => {

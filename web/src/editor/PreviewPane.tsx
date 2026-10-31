@@ -1,9 +1,9 @@
 import { Alert, Box } from '@mantine/core';
-import { IconEyeOff } from '@tabler/icons-react';
 import type { JSX, RefObject } from 'react';
 
 import { DocumentHtml } from '../components/DocumentHtml';
 import { EmptyState } from '../components/EmptyState';
+import { IconEyeOff } from '../icons';
 
 import classes from './Editor.module.css';
 
@@ -13,7 +13,6 @@ export interface PreviewPaneProps {
   busy: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   alone: boolean;
-  // the source has no text, which an html still on its way cannot say
   empty: boolean;
 }
 

@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// the formatter starts this very binary as its worker
 func TestMain(m *testing.M) {
 	RunWorkerIfAsked()
 	os.Exit(m.Run())
@@ -81,7 +80,6 @@ func TestMarkdownKillsARunThatOutlivesItsDeadline(t *testing.T) {
 	// arrange
 	fmtr := New(1)
 	t.Cleanup(fmtr.Close)
-	// prettier is quadratic on this: 8KB of it runs for half a minute
 	quadratic := strings.Repeat("[", 8<<10) + "\n"
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
@@ -99,8 +97,6 @@ func TestMarkdownKillsARunThatOutlivesItsDeadline(t *testing.T) {
 	assert.Equal(t, "- one\n", after)
 }
 
-// the editor formats in the browser and the server formats everything else,
-// so the two copies of prettier have to be the same one
 func TestTheBrowserAndTheServerRunTheSamePrettier(t *testing.T) {
 	// arrange
 	version := func(file string) string {

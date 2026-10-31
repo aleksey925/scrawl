@@ -1,6 +1,3 @@
-// the test every spec runs: it brings up the servers of its worker before the
-// first test and points baseURL at the normal one among them
-
 const base = require('@playwright/test');
 
 const {instances} = require('./env');

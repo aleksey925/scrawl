@@ -9,9 +9,7 @@ export interface Heading {
   id: string;
 }
 
-// the server answers a path it cannot serve with a 409 that names where the
-// content actually lives, so the client follows the url instead of failing
-export type HandoffKind = 'document' | 'directory' | 'attachment';
+export type HandoffKind = 'document' | 'directory';
 
 export interface HandoffBody {
   error?: string;
@@ -23,18 +21,12 @@ export interface ApiErrorBody {
   error: string;
   kind?: HandoffKind;
   url?: string;
-  // a write that collided answers 412 or 409 with the file as it stands on
-  // disk, so the caller settles it without reading the file back
   current_rev?: string;
   current_content?: string;
 }
 
 export interface DocumentFields {
   path: string;
-  // the file this was rendered from. It differs from path when a directory is
-  // served as its index.md, and it is what history is asked about: the
-  // directory has no version of its own.
-  doc_path: string;
   title: string;
   html: string;
   toc: Heading[];
@@ -55,7 +47,23 @@ export interface MissingDocumentResponse extends DocumentFields {
   kind: 'missing-document';
 }
 
-export type PageResponse = DocumentResponse | MissingDocumentResponse;
+export interface FilePageResponse {
+  path: string;
+  kind: 'file';
+  name: string;
+  type: 'image' | 'text' | 'other';
+  size: number;
+  mod_time: string;
+  breadcrumbs: Crumb[];
+  raw_url: string;
+  rev?: string;
+  edit_url?: string;
+  language?: string;
+  lines?: number;
+  html?: string;
+}
+
+export type PageResponse = DocumentResponse | MissingDocumentResponse | FilePageResponse;
 
 export interface DirEntry {
   name: string;
@@ -64,6 +72,9 @@ export interface DirEntry {
   is_dir: boolean;
   size: number;
   mod_time: string;
+  folder_page?: boolean;
+  items?: number;
+  edit_url?: string;
 }
 
 export interface DirListing {
@@ -71,14 +82,8 @@ export interface DirListing {
   kind: 'directory';
   title: string;
   entries: DirEntry[];
-  readme_html: string;
-  has_readme: boolean;
   breadcrumbs: Crumb[];
 }
-
-// a directory holding an index.md is served as that document under the
-// directory's own path, so one route answers in two shapes
-export type DirResponse = DirListing | DocumentResponse;
 
 export interface NavNode {
   name: string;
@@ -87,6 +92,7 @@ export interface NavNode {
   is_dir: boolean;
   active: boolean;
   current: boolean;
+  folder_page?: boolean;
   children: NavNode[];
 }
 
@@ -95,8 +101,6 @@ export interface NavResponse {
   breadcrumbs: Crumb[];
 }
 
-// /api/tree answers api token clients and carries its own shape; the sidebar
-// is built from /api/nav
 export interface TreeNode {
   name: string;
   path: string;
@@ -111,8 +115,6 @@ export interface TreeResponse {
 export interface MeResponse {
   user: string;
   auth_on: boolean;
-  // the effective mode of the space on screen: the server-wide guard or the
-  // space's own, whichever refuses first
   read_only: boolean;
   history_on: boolean;
   history_degraded: boolean;
@@ -121,7 +123,6 @@ export interface MeResponse {
   space: SpaceState;
 }
 
-// SpaceState is the space the app runs under and what is true of it now.
 export interface SpaceState {
   name: string;
   label: string;
@@ -130,23 +131,14 @@ export interface SpaceState {
   format_on_save: boolean;
   degraded: boolean;
   unpublished: boolean;
-  // already redacted by the server, so it is safe to render
   sync_error: string;
   unsynced: Unsynced;
-  // measured by the server, never read off sync_error: a merge fails for other
-  // reasons too, and only this offers a reset
   diverged: boolean;
-  // whether this reader is one the reset routes accept
   can_reset: boolean;
-  // the remote turned the push away for want of a credential that may write,
-  // which no retry fixes
   push_refused: boolean;
 }
 
-// Divergence is what a reset to the remote version would lose. clean can be
-// false with nothing in lost: the paths are hidden, or the check did not finish.
 export interface Divergence {
-  // sent back with the reset untouched, so it acts on this state or not at all
   head: string;
   remote: string;
   clean: boolean;
@@ -161,15 +153,10 @@ export interface ResetRequest {
 }
 
 export interface ResetResponse {
-  // the branch that keeps what this copy held, empty when nothing was lost
   backup: string;
   backup_pushed: boolean;
 }
 
-// Unsynced is which notes the remote is missing. It rides on /api/me and on
-// nothing else, so one poll refreshes every badge in the app; paths is empty
-// and many is true above the server's cap, where a per-file badge stops
-// answering the reader's question.
 export interface Unsynced {
   paths: string[];
   many: boolean;
@@ -177,8 +164,6 @@ export interface Unsynced {
 
 export type SpaceKind = 'local' | 'remote';
 
-// SpaceEntry is one row of the switcher: configured facts only, so the list
-// is the same for every reader and needs no refresh.
 export interface SpaceEntry {
   name: string;
   label: string;
@@ -198,14 +183,9 @@ export interface FileResponse {
 export interface SaveFileRequest {
   content: string;
   rev: string;
-  // the editor ran prettier over content itself, so the server does not
   formatted?: boolean;
 }
 
-// MutationState is what every change that reached the disk says about where
-// else it got to. Two failures with two fixes: history_degraded is a commit
-// that failed, so the change is on disk and not in git; unpublished is a commit
-// the remote does not have.
 export interface MutationState {
   history_degraded?: boolean;
   unpublished?: boolean;
@@ -214,20 +194,29 @@ export interface MutationState {
 export interface SaveFileResponse extends MutationState {
   rev: string;
   mod_time: string;
-  // only when the server formatted the note into something else than was sent
   content?: string;
-  // prettier gave up on the note, which was stored as it was written
   format_failed?: boolean;
 }
 
 
 export type EntryKind = 'file' | 'dir';
 
-// the formats the server exports a note in; a PDF is printed in the browser
 export type ExportFormat = 'md' | 'html';
 
 export interface EntryPathResponse extends MutationState {
   path: string;
+  edit_url?: string;
+}
+
+export interface SearchSpan {
+  text: string;
+  hit: boolean;
+}
+
+export interface SearchLine {
+  line: number;
+  url: string;
+  spans: SearchSpan[];
 }
 
 export interface SearchHit {
@@ -236,11 +225,26 @@ export interface SearchHit {
   snippet: string;
   score: number;
   url: string;
+  title_spans?: SearchSpan[];
+  match_count?: number;
+  line_count?: number;
+  lines?: SearchLine[];
 }
 
 export interface SearchResponse {
   hits: SearchHit[];
   elapsed_ms: number;
+  truncated?: boolean;
+}
+
+export type SearchMode = 'fuzzy' | 'exact';
+
+export interface SearchSettings {
+  mode: SearchMode;
+  matchCase: boolean;
+  word: boolean;
+  regex: boolean;
+  titles: boolean;
 }
 
 export interface HistoryEntry {
@@ -252,17 +256,15 @@ export interface HistoryEntry {
   path: string;
   kind: string;
   at: string;
+  restorable: boolean;
 }
 
 export interface HistoryResponse {
   path: string;
-  // a commit the server could not record leaves this list behind the document
   degraded: boolean;
   entries: HistoryEntry[];
 }
 
-// one block of a rendered diff as htmldiff answers it: the html with the changed
-// words marked, and the source lines it was rendered from
 export interface DiffSide {
   html: string;
   start?: number;
@@ -275,22 +277,17 @@ export interface DiffRow {
   kind: DiffKind;
   old?: DiffSide;
   new?: DiffSide;
+  inline?: DiffSide;
 }
 
 export interface HistoryVersionResponse {
   path: string;
   rev: string;
   diff: string;
-  // absent when either side could not be rendered, too large or too slow
   changes?: DiffRow[];
-  // absent for a deletion, which recorded none, and for a version too large to
-  // escape into a json string
   content?: string;
 }
 
-// Version is the commit that recorded the content and From the path the
-// document had at it, which is not today's once a rename sits between them. Rev
-// is the revision on disk the page was built from.
 export interface RestoreRequest {
   rev: string;
   version: string;

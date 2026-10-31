@@ -4,6 +4,7 @@ import {
   Button,
   CloseButton,
   createTheme,
+  Drawer,
   Input,
   Menu,
   Modal,
@@ -15,7 +16,7 @@ import { useMediaQuery } from '@mantine/hooks';
 
 import breakpointValues from './breakpoints.json';
 import controls from './controls.module.css';
-import { tokenVariables, type Palette, type ThemeColorName, type ThemeDefinition } from './themes';
+import { tokenVariables, type BlockColors, type ThemeColorName, type ThemeDefinition } from './themes';
 
 export type BreakpointName = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -52,131 +53,78 @@ export function useBelow(name: BreakpointName): boolean {
 }
 
 export const layoutBreakpoints = {
-  sidebar: 'md',
-  tocRail: 'lg',
+  phone: 'sm',
+  sidebar: 'sm',
+  miniOutline: 'sm',
   compactTopbar: 'sm',
-  // two panes side by side, or one above the other
-  splitPane: 'md',
-  // the editor's splitter, or a tab per pane
   editorSplit: 'md',
 } as const satisfies Record<string, BreakpointName>;
 
 export const layout = {
-  sidebarWidth: 264,
-  tocWidth: 256,
-  // the gap between a rail card and the edge of the screen or the page
-  railGutter: 8,
-  contentMeasure: 740,
-  // the room a note card keeps around the text, on a desktop and on a phone
-  notePadding: 32,
-  topbarHeight: 60,
+  sidebarWidth: 240,
+  noteWidth: 720,
+  noteWidthWide: 960,
+  pageMarginMin: 48,
+  pageMarginMax: 96,
+  topbarHeight: 45,
   topbarHeightCompact: 48,
-  // the head of a card, which holds the path and the note's actions
-  cardHeadHeight: 46,
-  topbarIconSize: 18,
-  // a button and a field beside it, at their usual size
-  controlHeight: 36,
-  controlHeightSmall: 30,
+  rowHeight: 30,
+  iconSize: 20,
+  iconSizeLarge: 22,
+  iconSizeSmall: 16,
+  iconSizeTool: 18,
+  iconSizeColumn: 15,
+  iconSizeTiny: 14,
+  controlHeight: 28,
+  controlHeightLarge: 36,
   tapTarget: 44,
-  // the switcher names the space and then gets out of the way of the page
-  // actions, which are what a phone topbar must never push off the row
-  spaceSwitcherWidth: 280,
-  spaceSwitcherWidthCompact: 130,
+  touchControl: 40,
+  touchChoice: 36,
+  menuWidth: 220,
+  menuWidthNarrow: 200,
+  menuWidthWide: 280,
+  tabBarHeight: 56,
+  editButtonSize: 54,
   inputFontSize: 16,
 } as const;
 
-// iconEdgeInset is the padding that puts the glyph of an icon button, not its
-// 44px box, on the phone's 16px edge, where the text of the page starts
-export function iconEdgeInset(glyphSize: number): string {
-  return `calc(var(--mantine-spacing-lg) - (var(--scrawl-tap-target) - ${glyphSize}px) / 2)`;
-}
-
-export interface ScrawlTokens {
-  bg: string;
-  ground: string;
-  bgSubtle: string;
-  bgInset: string;
-  text: string;
-  textSecondary: string;
-  textTertiary: string;
-  border: string;
-  borderStrong: string;
-  accent: string;
-  accentEmphasis: string;
-  accentEmphasisHover: string;
-  accentSubtle: string;
-  accentBorder: string;
-  control: string;
-  controlHover: string;
-  danger: string;
-  success: string;
-  warning: string;
-}
-
-function scrawlTokens(palette: Palette): ScrawlTokens {
-  return {
-    bg: palette.bgDefault,
-    ground: palette.bgInset,
-    bgSubtle: palette.bgMuted,
-    bgInset: palette.bgInset,
-    text: palette.fgDefault,
-    textSecondary: palette.fgMuted,
-    textTertiary: palette.fgMuted,
-    border: palette.borderDefault,
-    borderStrong: palette.borderEmphasis,
-    accent: palette.fgAccent,
-    accentEmphasis: palette.bgAccentEmphasis,
-    accentEmphasisHover: palette.bgAccentEmphasisHover,
-    accentSubtle: palette.bgAccentMuted,
-    accentBorder: palette.borderAccentMuted,
-    control: palette.controlRest,
-    controlHover: palette.controlHover,
-    danger: palette.fgDanger,
-    success: palette.fgSuccess,
-    warning: palette.fgAttention,
-  };
-}
-
-// Primer's blue scale; the filled shades are set from the palette below
 const accentShades: MantineColorsTuple = [
-  '#ddf4ff',
-  '#b6e3ff',
-  '#80ccff',
-  '#54aeff',
-  '#218bff',
-  '#0969da',
-  '#0550ae',
-  '#033d8b',
-  '#0a3069',
-  '#002155',
+  '#e5f2fc',
+  '#cce4f8',
+  '#9ccbf2',
+  '#69b0ec',
+  '#3f99e6',
+  '#2383e2',
+  '#1a74cc',
+  '#105fad',
+  '#0b4b8a',
+  '#063766',
 ];
 
-// Primer's neutrals in the order mantine reads them: gray from light to dark
-// for the light scheme, dark from text to the deepest surface for the dark one
 const grayShades: MantineColorsTuple = [
-  '#f6f8fa',
-  '#eff2f5',
-  '#e6eaef',
-  '#dae0e7',
-  '#d1d9e0',
-  '#c8d1da',
-  '#818b98',
-  '#59636e',
-  '#393f46',
-  '#25292e',
+  '#f9f8f7',
+  '#f7f6f3',
+  '#f0efed',
+  '#e6e5e3',
+  '#d3d1cb',
+  '#bcbab6',
+  '#a19e99',
+  '#7d7a75',
+  '#5f5e5b',
+  '#2c2c2b',
 ];
 
 const darkShades: MantineColorsTuple = [
-  '#d1d7e0',
-  '#b7bdc8',
-  '#9198a1',
-  '#656c76',
-  '#3d444d',
-  '#262c36',
-  '#212830',
-  '#1a2129',
-  '#121821',
-  '#0d1117',
+  '#f0efed',
+  '#c9c6c0',
+  '#ada9a3',
+  '#7d7a75',
+  '#5f5e59',
+  '#383836',
+  '#252525',
+  '#202020',
+  '#191919',
+  '#141414',
 ];
 
 const defaultColors: Record<ThemeColorName, MantineColorsTuple> = {
@@ -185,56 +133,78 @@ const defaultColors: Record<ThemeColorName, MantineColorsTuple> = {
   dark: darkShades,
 };
 
-// GitHub's own stacks. github.com names "Mona Sans VF" first but ships no face
-// for it, so what a reader sees there is the system font that follows
 const sans =
-  '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"';
-const mono = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+  'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"';
+const mono = '"SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
 
-function mantineVariables(tokens: ScrawlTokens): Record<string, string> {
+function mantineVariables(def: ThemeDefinition): Record<string, string> {
+  const { palette, blocks } = def;
   return {
-    '--mantine-color-body': tokens.bg,
-    '--mantine-color-text': tokens.text,
-    '--mantine-color-dimmed': tokens.textSecondary,
-    '--mantine-color-error': tokens.danger,
-    '--mantine-color-anchor': tokens.accent,
-    '--mantine-color-default': tokens.control,
-    '--mantine-color-default-color': tokens.text,
-    '--mantine-color-default-border': tokens.border,
-    '--mantine-color-default-hover': tokens.controlHover,
-    '--mantine-color-placeholder': tokens.textSecondary,
-    '--mantine-color-accent-filled': tokens.accentEmphasis,
-    '--mantine-color-accent-filled-hover': tokens.accentEmphasisHover,
-    '--mantine-color-accent-light': tokens.accentSubtle,
-    '--mantine-color-accent-light-hover': tokens.accentSubtle,
-    '--mantine-color-accent-light-color': tokens.accent,
-    '--mantine-color-accent-outline': tokens.accentBorder,
-    '--mantine-color-accent-outline-hover': tokens.accentSubtle,
+    '--mantine-color-body': palette.bg,
+    '--mantine-color-text': palette.text,
+    '--mantine-color-dimmed': palette.textSecondary,
+    '--mantine-color-error': blocks.red.text,
+    '--mantine-color-anchor': palette.accent,
+    '--mantine-color-default': palette.bg,
+    '--mantine-color-default-color': palette.text,
+    '--mantine-color-default-border': palette.border,
+    '--mantine-color-default-hover': palette.hover,
+    '--mantine-color-placeholder': palette.textTertiary,
+    '--mantine-color-accent-filled': palette.accent,
+    '--mantine-color-accent-filled-hover': palette.accentStrong,
+    '--mantine-color-accent-light': palette.accentTint,
+    '--mantine-color-accent-light-hover': palette.accentTint,
+    '--mantine-color-accent-light-color': palette.accent,
+    '--mantine-color-accent-outline': palette.accent,
+    '--mantine-color-accent-outline-hover': palette.accentTint,
+    '--mantine-color-red-filled': blocks.red.text,
+    '--mantine-color-red-light': blocks.red.bg,
+    '--mantine-color-red-light-color': blocks.red.text,
+    '--mantine-color-red-text': blocks.red.text,
+    '--mantine-color-orange-light': blocks.orange.bg,
+    '--mantine-color-orange-light-color': blocks.orange.text,
   };
 }
 
 export const layoutVariables: Record<string, string> = {
   '--scrawl-sidebar-width': `${layout.sidebarWidth}px`,
-  '--scrawl-toc-width': `${layout.tocWidth}px`,
-  '--scrawl-rail-gutter': `${layout.railGutter}px`,
-  '--scrawl-content-measure': `${layout.contentMeasure}px`,
-  '--scrawl-note-padding': `${layout.notePadding}px`,
+  '--scrawl-note-width-normal': `${layout.noteWidth}px`,
+  '--scrawl-note-width-wide': `${layout.noteWidthWide}px`,
+  '--scrawl-page-margin-min': `${layout.pageMarginMin}px`,
+  '--scrawl-page-margin-max': `${layout.pageMarginMax}px`,
   '--scrawl-topbar-height': `${layout.topbarHeight}px`,
-  '--scrawl-card-head': `${layout.cardHeadHeight}px`,
+  '--scrawl-row-height': `${layout.rowHeight}px`,
   '--scrawl-tap-target': `${layout.tapTarget}px`,
+  '--scrawl-touch-control': `${layout.touchControl}px`,
+  '--scrawl-touch-choice': `${layout.touchChoice}px`,
   '--scrawl-control-height': `${layout.controlHeight}px`,
-  '--scrawl-control-height-small': `${layout.controlHeightSmall}px`,
+  '--scrawl-control-height-large': `${layout.controlHeightLarge}px`,
   '--scrawl-input-font-size': `${layout.inputFontSize}px`,
+  '--scrawl-menu-width': `${layout.menuWidth}px`,
+  '--scrawl-tabbar-height': `${layout.tabBarHeight}px`,
+  '--scrawl-edit-button': `${layout.editButtonSize}px`,
 };
 
-// themeVariables is what a theme sets on top of mantine's own variables
+function blockVariables(blocks: BlockColors): Record<string, string> {
+  const res: Record<string, string> = {};
+  for (const [name, color] of Object.entries(blocks)) {
+    res[`--scrawl-color-${name}`] = color.text;
+    res[`--scrawl-bg-${name}`] = color.bg;
+  }
+  return res;
+}
+
 export function themeVariables(def: ThemeDefinition): Record<string, string> {
-  const tokens = scrawlTokens(def.palette);
   return {
-    ...tokenVariables('scrawl', tokens),
-    ...tokenVariables('gh', def.palette),
-    ...mantineVariables(tokens),
+    ...tokenVariables('scrawl', def.palette),
+    ...blockVariables(def.blocks),
+    ...tokenVariables('scrawl-shadow', def.shadows),
+    ...tokenVariables('scrawl-code', def.code),
+    ...mantineVariables(def),
     '--scrawl-strong-weight': def.strongWeight,
+    '--scrawl-current-weight': def.currentWeight,
+    '--mantine-webkit-font-smoothing': def.fontSmoothing,
+    '--mantine-moz-font-smoothing': def.fontSmoothing === 'antialiased' ? 'grayscale' : 'auto',
   };
 }
 
@@ -249,26 +219,25 @@ export const theme: MantineThemeOverride = createTheme({
     fontFamily: sans,
     fontWeight: '600',
     sizes: {
-      h1: { fontSize: '2.375rem', lineHeight: '1.2' },
+      h1: { fontSize: '1.875rem', lineHeight: '1.3' },
       h2: { fontSize: '1.5rem', lineHeight: '1.3' },
-      h3: { fontSize: '1.1875rem', lineHeight: '1.3' },
-      h4: { fontSize: '1.0625rem', lineHeight: '1.3' },
-      h5: { fontSize: '0.9375rem', lineHeight: '1.3' },
+      h3: { fontSize: '1.25rem', lineHeight: '1.3' },
+      h4: { fontSize: '1rem', lineHeight: '1.3' },
+      h5: { fontSize: '0.875rem', lineHeight: '1.3' },
       h6: { fontSize: '0.875rem', lineHeight: '1.3' },
     },
   },
   fontSizes: {
     xs: '0.75rem',
     sm: '0.875rem',
-    md: '0.9375rem',
-    lg: '1.0625rem',
-    xl: '1.1875rem',
+    md: '1rem',
+    lg: '1.125rem',
+    xl: '1.25rem',
   },
-  // Primer sets a control in 500; mantine reads this one token and ships 600
   fontWeights: { medium: '500' },
-  lineHeights: { xs: '1.2', sm: '1.3', md: '1.45', lg: '1.55', xl: '1.65' },
+  lineHeights: { xs: '1.2', sm: '1.3', md: '1.5', lg: '1.55', xl: '1.65' },
 
-  radius: { xs: '4px', sm: '6px', md: '8px', lg: '12px', xl: '999px' },
+  radius: { xs: '3px', sm: '4px', md: '6px', lg: '10px', xl: '12px' },
   defaultRadius: 'md',
 
   spacing: {
@@ -287,11 +256,11 @@ export const theme: MantineThemeOverride = createTheme({
   breakpoints,
 
   shadows: {
-    xs: '0 1px 2px rgba(0, 0, 0, .04)',
-    sm: '0 1px 3px rgba(0, 0, 0, .06), 0 1px 2px rgba(0, 0, 0, .04)',
-    md: '0 4px 12px rgba(0, 0, 0, .08), 0 1px 3px rgba(0, 0, 0, .05)',
-    lg: '0 12px 32px rgba(0, 0, 0, .12), 0 2px 8px rgba(0, 0, 0, .06)',
-    xl: '0 12px 32px rgba(0, 0, 0, .12), 0 2px 8px rgba(0, 0, 0, .06)',
+    xs: 'var(--scrawl-shadow-small)',
+    sm: 'var(--scrawl-shadow-small)',
+    md: 'var(--scrawl-shadow-medium)',
+    lg: 'var(--scrawl-shadow-large)',
+    xl: 'var(--scrawl-shadow-large)',
   },
 
   cursorType: 'pointer',
@@ -299,24 +268,29 @@ export const theme: MantineThemeOverride = createTheme({
   respectReducedMotion: true,
 
   components: {
-    ActionIcon: ActionIcon.extend({ classNames: { root: controls.tapTarget } }),
+    ActionIcon: ActionIcon.extend({ classNames: { root: `${controls.tapTarget} ${controls.actionIcon}` } }),
     Burger: Burger.extend({ classNames: { root: `${controls.tapTarget} ${controls.burger}` } }),
-    Button: Button.extend({ classNames: { root: `${controls.tapTarget} ${controls.button}` } }),
+    Button: Button.extend({ classNames: { root: controls.button } }),
     CloseButton: CloseButton.extend({ classNames: { root: controls.tapTarget } }),
     Input: Input.extend({ classNames: { wrapper: controls.input, input: controls.inputField } }),
-    // a surface floating over the page takes the radius of a card
     Menu: Menu.extend({
-      defaultProps: { radius: 'lg' },
+      defaultProps: { radius: 'lg', shadow: 'md' },
       classNames: { dropdown: controls.menu, item: controls.menuItem, label: controls.menuLabel },
     }),
-    Modal: Modal.extend({ defaultProps: { radius: 'lg' } }),
-    SegmentedControl: SegmentedControl.extend({ classNames: { label: controls.segment } }),
+    Modal: Modal.extend({
+      defaultProps: { radius: 'xl', shadow: 'lg' },
+      classNames: { overlay: controls.overlay, inner: controls.modalInner },
+    }),
+    Drawer: Drawer.extend({ classNames: { overlay: controls.overlay } }),
+    SegmentedControl: SegmentedControl.extend({
+      defaultProps: { withItemsBorders: false, radius: 'md' },
+      classNames: { root: controls.segmentRoot, indicator: controls.segmentIndicator, label: controls.segment },
+    }),
   },
 
   other: { layout, layoutBreakpoints, breakpointPx },
 });
 
-// themeOverride is the mantine theme with the shade scales a theme replaces
 export function themeOverride(def: ThemeDefinition): MantineThemeOverride {
   return { ...theme, colors: { ...defaultColors, ...def.colors } };
 }

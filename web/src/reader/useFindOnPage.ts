@@ -1,150 +1,212 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 
-// katex and mermaid own their subtrees: a mark spliced into one corrupts the
-// rendering, and .math is source that typesetting detaches marks from, leaving
-// the bar counting hits that no longer exist
-const skipSelector = 'script, style, svg, .katex, .math, .mermaid, .md-anchor, .md-copy';
+import { usePlatform } from '../platform';
 
-const hitClass = 'md-find';
-
-const minTermLength = 2;
-
-// the terms come from the ?q= a search result carried over. Quotes only group a
-// phrase for the index, so they are dropped before matching text on the page.
-function queryTerms(query: string): string[] {
-  return query
-    .replace(/["']/g, ' ')
-    .split(/\s+/)
-    .filter((term) => term.length >= minTermLength);
-}
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function markMatches(root: HTMLElement, terms: string[]): HTMLElement[] {
-  const pattern = new RegExp(`(${terms.map(escapeRegExp).join('|')})`, 'gi');
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode: (node) => {
-      const parent = node.parentElement;
-      return (node.nodeValue ?? '').trim() !== '' && parent !== null && parent.closest(skipSelector) === null
-        ? NodeFilter.FILTER_ACCEPT
-        : NodeFilter.FILTER_REJECT;
-    },
-  });
-
-  const texts: Node[] = [];
-  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-    texts.push(node);
-  }
-
-  const hits: HTMLElement[] = [];
-  for (const node of texts) {
-    const value = node.nodeValue ?? '';
-    pattern.lastIndex = 0;
-    if (!pattern.test(value)) {
-      continue;
-    }
-    pattern.lastIndex = 0;
-    const parts = document.createDocumentFragment();
-    let last = 0;
-    for (let found = pattern.exec(value); found !== null; found = pattern.exec(value)) {
-      parts.append(document.createTextNode(value.slice(last, found.index)));
-      const mark = document.createElement('mark');
-      mark.className = hitClass;
-      mark.dataset.testid = 'find-hit';
-      mark.dataset.active = 'false';
-      mark.textContent = found[0];
-      parts.append(mark);
-      hits.push(mark);
-      last = found.index + found[0].length;
-    }
-    parts.append(document.createTextNode(value.slice(last)));
-    node.parentNode?.replaceChild(parts, node);
-  }
-  return hits;
-}
+import { blocksOf, markMatches, matchAtLine, reveal, unmark } from './findDom';
+import { FindTimeout, patternOf, togglesOf, type FindPattern, type FindQuery } from './findMatches';
 
 export const findParam = 'q';
+const findParams = [findParam, 'case', 'word', 'regex', 'line'] as const;
+
+const typingDelayMs = 150;
+
+export type FindStatus = 'idle' | 'found' | 'none' | 'bad' | 'slow';
 
 export interface FindOnPage {
+  opened: boolean;
+  openings: number;
+  query: FindQuery;
+  status: FindStatus;
   position: number;
   total: number;
+  open: (text?: string) => void;
+  setQuery: (query: FindQuery) => void;
+  run: () => void;
   step: (delta: number) => void;
   close: () => void;
 }
 
-export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: string): FindOnPage | null {
+const emptyQuery: FindQuery = { text: '', matchCase: false, word: false, regex: false };
+
+function queryOf(params: URLSearchParams): FindQuery | undefined {
+  const text = params.get(findParam);
+  if (text === null || text === '') {
+    return undefined;
+  }
+  return { text, ...togglesOf(params) };
+}
+
+export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: string): FindOnPage {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const query = searchParams.get(findParam) ?? '';
+  const { runFind, boundedFind } = usePlatform();
 
-  const hits = useRef<HTMLElement[]>([]);
-  const [index, setIndex] = useState<number | null>(null);
+  const [opened, setOpened] = useState(false);
+  const [openings, setOpenings] = useState(0);
+  const [query, setQueryState] = useState<FindQuery>(emptyQuery);
+  const [armed, setArmed] = useState(true);
+  const [status, setStatus] = useState<FindStatus>('idle');
+  const [index, setIndex] = useState(0);
   const [total, setTotal] = useState(0);
+  const groups = useRef<HTMLElement[][]>([]);
+  const line = useRef<number | undefined>(undefined);
 
-  const show = useCallback((at: number, behavior: ScrollBehavior): void => {
-    const found = hits.current;
+  const fromUrl = queryOf(searchParams);
+  const address = `${location.pathname}?${searchParams.toString()}`;
+  const readFor = useRef<{ address: string; html: string; again: boolean } | undefined>(undefined);
+  useEffect(() => {
+    const last = readFor.current;
+    const fresh = last === undefined || last.address !== address;
+    if (!fresh && !(last.again && last.html !== html)) {
+      return;
+    }
+    readFor.current = { address, html, again: fresh };
+    if (fromUrl === undefined) {
+      if (fresh) {
+        line.current = undefined;
+        setOpened(false);
+        setQueryState(emptyQuery);
+      }
+      return;
+    }
+    const wanted = Number(searchParams.get('line'));
+    line.current = Number.isInteger(wanted) && wanted > 0 ? wanted : undefined;
+    setQueryState(fromUrl);
+    setArmed(boundedFind || !fromUrl.regex);
+    setOpened(true);
+  }, [address, html]);
+
+  const show = useCallback((at: number, scroll: boolean): void => {
+    const found = groups.current;
     if (found.length === 0) {
       return;
     }
-    const next = (at + found.length) % found.length;
-    found.forEach((mark, position) => {
-      mark.dataset.active = position === next ? 'true' : 'false';
+    const next = ((at % found.length) + found.length) % found.length;
+    found.forEach((group, position) => {
+      for (const mark of group) {
+        mark.dataset.active = position === next ? 'true' : 'false';
+      }
     });
-    found[next]?.scrollIntoView({ block: 'center', behavior });
+    const first = found[next]?.[0];
+    if (first !== undefined && scroll) {
+      reveal(first);
+      first.scrollIntoView({ block: 'center', behavior: 'instant' });
+    }
     setIndex(next);
   }, []);
 
   useEffect(() => {
     const root = rootRef.current;
-    const terms = queryTerms(query);
-    if (root === null || terms.length === 0) {
-      hits.current = [];
+    if (root === null || !opened || !armed || query.text === '') {
+      setStatus('idle');
       setTotal(0);
-      setIndex(null);
       return undefined;
     }
 
-    const found = markMatches(root, terms);
-    hits.current = found;
-    setTotal(found.length);
-    if (found.length === 0) {
-      setIndex(null);
-      return undefined;
-    }
-    // instant on arrival: the reader asked to be taken there, and animating the
-    // whole page down to the match only delays it
-    show(0, 'instant');
+    let stale = false;
+    let marked: HTMLElement[][] = [];
+    const replaced = new AbortController();
+    const timer = window.setTimeout(() => {
+      let pattern: FindPattern;
+      try {
+        pattern = patternOf(query);
+      } catch {
+        setStatus('bad');
+        setTotal(0);
+        if (line.current !== undefined) {
+          matchAtLine(root, [], line.current).block?.scrollIntoView({ block: 'center', behavior: 'instant' });
+          line.current = undefined;
+        }
+        return;
+      }
+      const blocks = blocksOf(root);
+      runFind(
+        blocks.map((entry) => entry.text),
+        pattern,
+        replaced.signal,
+      ).then(
+        (matches) => {
+          if (stale) {
+            return;
+          }
+          marked = markMatches(blocks, matches);
+          groups.current = marked;
+          setTotal(marked.length);
+          if (marked.length === 0) {
+            setStatus('none');
+            const at = line.current === undefined ? undefined : matchAtLine(root, marked, line.current);
+            at?.block?.scrollIntoView({ block: 'center', behavior: 'instant' });
+            line.current = undefined;
+            return;
+          }
+          setStatus('found');
+          let first = 0;
+          let scroll = true;
+          if (line.current !== undefined) {
+            const at = matchAtLine(root, marked, line.current);
+            if (at.match !== undefined) {
+              first = at.match;
+            } else if (at.block !== undefined) {
+              at.block.scrollIntoView({ block: 'center', behavior: 'instant' });
+              scroll = false;
+            }
+            line.current = undefined;
+          }
+          show(first, scroll);
+        },
+        (error: unknown) => {
+          if (!stale) {
+            setStatus(error instanceof FindTimeout ? 'slow' : 'bad');
+            setTotal(0);
+          }
+        },
+      );
+    }, typingDelayMs);
 
     return () => {
-      for (const mark of found) {
-        const parent = mark.parentNode;
-        if (parent === null) {
-          continue;
-        }
-        parent.replaceChild(document.createTextNode(mark.textContent ?? ''), mark);
-        parent.normalize();
-      }
-      hits.current = [];
+      stale = true;
+      window.clearTimeout(timer);
+      replaced.abort();
+      unmark(marked);
+      groups.current = [];
     };
-  }, [rootRef, html, query, show]);
+  }, [rootRef, html, opened, armed, query, runFind, show]);
 
-  // the query leaves the url with the highlighting, so a reload does not light
-  // the page up again
+  const open = useCallback((text?: string) => {
+    setOpened(true);
+    setOpenings((count) => count + 1);
+    setArmed(true);
+    if (text !== undefined && text !== '') {
+      setQueryState((prev) => ({ ...prev, text }));
+    }
+  }, []);
+
+  const setQuery = useCallback((next: FindQuery) => {
+    setArmed(true);
+    setQueryState(next);
+  }, []);
+
   const close = useCallback((): void => {
-    void navigate({ pathname: location.pathname, hash: location.hash }, { replace: true });
-  }, [navigate, location.pathname, location.hash]);
+    setOpened(false);
+    setQueryState(emptyQuery);
+    if (findParams.some((name) => searchParams.has(name))) {
+      void navigate({ pathname: location.pathname, hash: location.hash }, { replace: true });
+    }
+  }, [navigate, location.pathname, location.hash, searchParams]);
 
-  if (total === 0 || index === null) {
-    return null;
-  }
   return {
-    position: index + 1,
+    opened,
+    openings,
+    query,
+    status,
+    position: total === 0 ? 0 : index + 1,
     total,
-    step: (delta: number) => show(index + delta, 'smooth'),
+    open,
+    setQuery,
+    run: () => setArmed(true),
+    step: (delta: number) => show(index + delta, true),
     close,
   };
 }

@@ -37,8 +37,6 @@ export function Splitter({ onDrag, onNudge }: SplitterProps): JSX.Element {
         }
       }}
       onPointerUp={stop}
-      // the browser can claim the gesture, and then no pointerup ever arrives
-      // and the splitter stays stuck to the pointer
       onPointerCancel={stop}
       onLostPointerCapture={() => {
         dragging.current = false;

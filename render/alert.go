@@ -12,24 +12,8 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-// GitHub turns a blockquote whose very first line is one of five markers into
-// an alert, replacing the blockquote rather than nesting inside it. Every rule
-// below was checked against api.github.com/markdown in "gfm" mode:
-//
-//   - the marker line carries nothing but the marker, trailing spaces aside,
-//     so "> [!NOTE] text" is an ordinary blockquote and the trailing text is
-//     never a custom title;
-//   - the marker is matched case-insensitively;
-//   - the marker has to be the first line, so a marker on a later line is
-//     ordinary text;
-//   - an unknown marker such as "[!FOO]" is ordinary text;
-//   - a marker with no body stays a blockquote: an alert needs content;
-//   - the blockquote has to be top level. GitHub documents that "alerts cannot
-//     be nested within other elements", and neither "> > [!NOTE]" nor a
-//     blockquote inside a list item becomes one.
 var reAlertMarker = regexp.MustCompile(`^\[!([A-Za-z]{1,16})\]$`)
 
-// alertTitles maps a marker onto GitHub's own wording for the title.
 var alertTitles = map[string]string{
 	"note":      "Note",
 	"tip":       "Tip",
@@ -42,9 +26,9 @@ var kindAlert = ast.NewNodeKind("Alert")
 
 type alert struct {
 	ast.BaseBlock
-	kind  string // lowercase marker, always a key of alertTitles
+	kind  string
 	title string
-	start int // offset of the marker line, which the body no longer holds
+	start int
 }
 
 func (n *alert) Kind() ast.NodeKind { return kindAlert }
@@ -68,8 +52,6 @@ func (t *alertTransformer) Transform(doc *ast.Document, reader text.Reader, _ pa
 	}
 }
 
-// convertAlert replaces a blockquote with an alert node when its first line is
-// a known marker. The marker line is dropped from the body.
 func convertAlert(doc *ast.Document, quote *ast.Blockquote, source []byte) {
 	para, ok := quote.FirstChild().(*ast.Paragraph)
 	if !ok || para.Lines().Len() == 0 {
@@ -85,8 +67,6 @@ func convertAlert(doc *ast.Document, quote *ast.Blockquote, source []byte) {
 	if !known {
 		return
 	}
-	// the marker alone is not an alert, so the blockquote has to hold
-	// something else: more lines in the opening paragraph, or another block
 	if para.Lines().Len() == 1 && quote.ChildCount() == 1 {
 		return
 	}
@@ -100,11 +80,6 @@ func convertAlert(doc *ast.Document, quote *ast.Blockquote, source []byte) {
 	}
 }
 
-// dropFirstLine removes the marker line from the paragraph that opens the
-// alert. Everything up to and including the first line break belongs to that
-// line, a hard one included: trailing spaces on the marker line are allowed and
-// turn the break into a hard one. With no break at all the marker was the whole
-// paragraph and the paragraph goes away with it.
 func dropFirstLine(para *ast.Paragraph) {
 	for child := para.FirstChild(); child != nil; child = para.FirstChild() {
 		para.RemoveChild(para, child)

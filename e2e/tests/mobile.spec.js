@@ -5,11 +5,11 @@ const fs = require('fs');
 const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
-    HISTORY, MAIN, MULTI, atHome, expectNoHorizontalScroll, fixtureFile, inStep, removeFixture, routes, save, setSource,
-    shot,
-    signIn, sourceText, stays, writeFixture,
+    HISTORY, MAIN, MULTI, atHome, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep, removeFixture, rgb,
+    routes, save, setSource, shot, signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
+const lightTheme = require('../../theme/themes/light.json');
 
 const MIN_TAP = 44;
 const BUTTON_HEIGHT = 40;
@@ -1176,11 +1176,29 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-code-copy');
     });
 
-    test('a heading carries no link icon on a phone', async ({page}) => {
+    test('a heading shows its link mark after the text without a hover, muted and on its baseline', async ({page}) => {
+        // arrange
         await page.goto(routes.doc(DOC));
-        await expect(page.getByTestId('doc').locator('h1').first()).toBeVisible();
+        const doc = page.getByTestId('doc');
+        const anchor = doc.locator('h1').first().getByTestId('doc-heading-anchor');
 
-        await expect(page.getByTestId('doc-heading-anchor').first()).toBeHidden();
+        // act
+        const title = await headingAnchorGeometry(doc.locator('h1').first());
+        const section = await headingAnchorGeometry(doc.locator('h2').first());
+        const colors = await doc.getByTestId('doc-heading-anchor')
+            .evaluateAll((elements) => elements.map((el) => getComputedStyle(el).color));
+
+        // assert
+        await expect(anchor).toBeVisible();
+        await expect(anchor).toHaveCSS('opacity', '1');
+        expect(colors).toEqual(Array(colors.length).fill(rgb(lightTheme.palette.textTertiary)));
+        for (const geometry of [title, section]) {
+            expect(geometry.markLeft).toBeGreaterThan(geometry.lastRight);
+            expect(Math.abs(geometry.markBottom - geometry.lastBottom)).toBeLessThanOrEqual(0.5);
+            expect(Math.round(Math.min(geometry.tapWidth, geometry.tapHeight))).toBeGreaterThanOrEqual(MIN_TAP);
+        }
+        expect(title.markFont).toBeGreaterThan(section.markFont);
+        await shot(page, 'mobile-heading-anchor');
     });
 
     test('the preview in the editor fits the screen', async ({page}) => {

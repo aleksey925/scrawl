@@ -111,6 +111,23 @@ body {
     0 0 0 1px var(--scrawl-focus-ring-outer);
 }
 
+.input:autofill {
+  box-shadow:
+    inset 0 0 0 1px var(--scrawl-border-translucent),
+    inset 0 0 0 100vmax var(--scrawl-hover),
+    inset 0 0 0 100vmax var(--scrawl-bg);
+  -webkit-text-fill-color: var(--scrawl-text);
+  transition: background-color 0s 100000s;
+}
+
+.input:autofill:focus {
+  box-shadow:
+    inset 0 0 0 1px var(--scrawl-focus-ring),
+    0 0 0 1px var(--scrawl-focus-ring-outer),
+    inset 0 0 0 100vmax var(--scrawl-hover),
+    inset 0 0 0 100vmax var(--scrawl-bg);
+}
+
 .btn {
   height: 36px;
   margin-top: 6px;

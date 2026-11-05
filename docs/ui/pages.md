@@ -60,6 +60,25 @@ opens over them.
 - A task box on the page is disabled, as GitHub shows a file and unlike Notion.
   A task is ticked in the editor and saved like any change, because a click on
   the page would be a write, and every tick a commit and a push.
+- A heading's link mark is a `#` after its text, as Docusaurus has it, and
+  copies the full address of its section and says so in a toast. It is text of
+  the heading's own font and size, weight 400, 0.18em after the last letter. At
+  300 beside the bold text it looked smaller than the letters. It sits 0.03em
+  under the baseline: round letters go a little below it and the `#` does not,
+  so on the baseline itself it looked raised. An icon of its own size never sat
+  right beside the letters: centered on the capitals it hung at the top, and on
+  the lowercase letters it still read as a mark apart from the text. The `#` is
+  drawn by CSS and is not in the heading's text, so it is not copied with it
+  and the find bar does not match it. It is kept with the last word: alone on a
+  new line it read as a stray mark. It is in the tertiary text color, and in
+  the text color under the pointer: in the secondary color, near the heading's
+  own, it read as part of the last word. With a pointer it shows when the
+  heading is hovered or holds the focus; a touch screen has no hover, so there
+  it always shows, a phone included, with a tap area of the full tap size. At
+  the left of the heading it hung outside the text with nothing to say what it
+  did, and a phone had no room for it.
+- A quote's bar starts where the text of the note does, 2px in, like a rule. At
+  the page's edge it stuck out of the text's line.
 - A block of code has a head row inside its box, the language at the left and
   Copy at the right, above the code and never a layer over it: a layer covered
   the end of a long first line. With a pointer Copy shows under it and under

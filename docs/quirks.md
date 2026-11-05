@@ -40,6 +40,10 @@ words; the fact itself is written here.
 - A plain http page that is not localhost has no clipboard api.
   [Frontend](design/frontend.md)
 - A page cannot read a drag's data during `dragover`. [Entries](ui/entries.md)
+- A field the browser filled in, a saved password say, gets the browser's own
+  background with `!important`: yellow in Safari, blue in Chromium. Only an
+  inset shadow over it and a long delay on `background-color` keep the field's
+  own color. [Look](ui/look.md)
 - A scroll event says an element moved, never who moved it, and the echo of a
   programmatic scroll arrives a frame later.
   [Editor position](design/editor-position.md)
@@ -47,6 +51,10 @@ words; the fact itself is written here.
   bar inside it stops sticking; `clip` does not. [Phone](ui/phone.md)
 - A fixed element inside a scaled element is placed in that element.
   [Touch](ui/touch.md)
+- A word joiner (U+2060) keeps a letter with the next letter, but Chromium and
+  WebKit still break a line between it and an inline box, an icon say, unless
+  the joiner and the box share a `white-space: nowrap` element.
+  [Pages](ui/pages.md)
 - A table that scrolls by itself is only as wide as its text.
   [Look](ui/look.md)
 - A table column reads a percentage inside `clamp()` as `auto`, so the name

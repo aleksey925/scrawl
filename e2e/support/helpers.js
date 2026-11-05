@@ -160,6 +160,38 @@ function rgb(hex) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function headingAnchorGeometry(heading) {
+    return heading.evaluate((el) => {
+        const anchor = el.querySelector('[data-testid=doc-heading-anchor]');
+        const text = [...el.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).pop();
+        const range = document.createRange();
+        range.setStart(text, text.length - 1);
+        range.setEnd(text, text.length);
+        const last = range.getBoundingClientRect();
+        const style = getComputedStyle(anchor);
+        const mark = getComputedStyle(anchor, '::before');
+        const box = anchor.getBoundingClientRect();
+        return {
+            font: Number.parseFloat(getComputedStyle(el).fontSize),
+            fontFamily: getComputedStyle(el).fontFamily,
+            lineCount: Math.round(el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight)),
+            lastRight: last.right,
+            lastTop: last.top,
+            lastBottom: last.bottom,
+            markLeft: box.left + Number.parseFloat(style.paddingLeft),
+            markTop: box.top + Number.parseFloat(style.paddingTop),
+            markBottom: box.bottom - Number.parseFloat(style.paddingBottom),
+            markText: mark.content,
+            markFont: Number.parseFloat(mark.fontSize),
+            markFontFamily: mark.fontFamily,
+            markWeight: mark.fontWeight,
+            markDrop: Number.parseFloat(mark.top),
+            tapWidth: box.width,
+            tapHeight: box.height,
+        };
+    });
+}
+
 async function holdRoute(page, url) {
     let release = () => {};
     const held = new Promise((resolve) => {
@@ -192,6 +224,7 @@ module.exports = {
     editorStatus,
     expectNoHorizontalScroll,
     fixtureFile,
+    headingAnchorGeometry,
     holdRoute,
     inStep,
     jsonRequest,

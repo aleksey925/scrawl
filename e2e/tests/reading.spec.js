@@ -4,8 +4,8 @@ const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, chooseTheme, modifier, openSpaceMenu, pressShortcut, removeFixture, rgb, routes, shot, showOutline,
-    signIn, writeFixture,
+    MAIN, chooseTheme, headingAnchorGeometry, modifier, openSpaceMenu, pressShortcut, removeFixture, rgb, routes, shot,
+    showOutline, signIn, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const darkTheme = require('../../theme/themes/dark.json');
@@ -21,6 +21,14 @@ const DIAGRAM_VIEWER = 'e2e-diagram-viewer.md';
 const LOOK = 'e2e-look.md';
 const TALL = 'e2e-tall.md';
 const TALL_PICTURE = 'e2e-tall.png';
+const HEADINGS = 'e2e-headings.md';
+const HEADINGS_SOURCE = [
+    '# Deeply nested page',
+    '## Pages and heaps',
+    '### Инфинитив (нач. форма)',
+    '#### Fourth level heading',
+    '## A long heading about pages, heaps, indexes and the planner that wraps onto a second line',
+].join('\n\ntext\n\n');
 
 function pngChunk(type, data) {
     const head = Buffer.alloc(4);
@@ -620,6 +628,126 @@ test.describe('reading', () => {
         await shot(page, 'reading-code-copy');
     });
 
+    test('a heading\'s link mark is a regular # of its own font, just under the baseline of its last line', async ({page}) => {
+        // arrange
+        writeFixture(HEADINGS, HEADINGS_SOURCE);
+        await page.goto(routes.doc(HEADINGS));
+        const found = page.getByTestId('doc').locator('h1, h2, h3, h4');
+        await expect(found).toHaveCount(5);
+
+        // act
+        const measured = [];
+        for (const heading of await found.all()) {
+            measured.push(await headingAnchorGeometry(heading));
+        }
+
+        // assert
+        expect(measured.map((geometry) => geometry.lineCount)).toEqual([1, 1, 1, 1, 2]);
+        for (const geometry of measured) {
+            const gap = (geometry.markLeft - geometry.lastRight) / geometry.font;
+            expect(geometry.markText).toBe('"\u2060#"');
+            expect(geometry.markFont).toBe(geometry.font);
+            expect(geometry.markFontFamily).toBe(geometry.fontFamily);
+            expect(geometry.markWeight).toBe('400');
+            expect(geometry.markDrop).toBeCloseTo(0.03 * geometry.font, 1);
+            expect(Math.abs(geometry.markTop - geometry.lastTop)).toBeLessThanOrEqual(0.5);
+            expect(Math.abs(geometry.markBottom - geometry.lastBottom)).toBeLessThanOrEqual(0.5);
+            expect(gap).toBeGreaterThanOrEqual(0.15);
+            expect(gap).toBeLessThanOrEqual(0.2);
+        }
+        await expect(found.first().getByTestId('doc-heading-anchor'))
+            .toHaveAttribute('aria-label', 'Link to section: Deeply nested page');
+
+        removeFixture(HEADINGS);
+    });
+
+    test('a heading\'s link mark never goes to a new line alone', async ({page}) => {
+        // arrange
+        writeFixture(HEADINGS, HEADINGS_SOURCE);
+        await page.goto(routes.doc(HEADINGS));
+        const found = page.getByTestId('doc').locator('h1, h2, h3, h4');
+        await expect(found).toHaveCount(5);
+
+        // act
+        const alone = await found.evaluateAll((elements) => elements.flatMap((el) => {
+            const anchor = el.querySelector('[data-testid=doc-heading-anchor]');
+            const text = [...el.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).pop();
+            const widths = [];
+            for (let width = Math.round(el.getBoundingClientRect().width); width >= 240; width -= 1) {
+                el.style.width = `${width}px`;
+                const range = document.createRange();
+                range.setStart(text, text.length - 1);
+                range.setEnd(text, text.length);
+                const last = range.getBoundingClientRect();
+                const box = anchor.getBoundingClientRect();
+                const middle = (box.top + box.bottom) / 2;
+                if (middle < last.top || middle > last.bottom) {
+                    widths.push(`${el.textContent} at ${width}px`);
+                }
+            }
+            el.style.width = '';
+            return widths;
+        }));
+
+        // assert
+        expect(alone).toEqual([]);
+
+        removeFixture(HEADINGS);
+    });
+
+    test('a heading\'s link mark shows under the pointer or the focus, muted until pointed at', async ({page}) => {
+        // arrange
+        writeFixture(HEADINGS, HEADINGS_SOURCE);
+        await page.goto(routes.doc(HEADINGS));
+        const heading = page.getByTestId('doc').locator('h2').first();
+        const anchor = heading.getByTestId('doc-heading-anchor');
+        const anchors = page.getByTestId('doc-heading-anchor');
+        const colors = () => anchors.evaluateAll((elements) => elements.map((el) => getComputedStyle(el).color));
+        await expect(anchors).toHaveCount(5);
+        await expect(anchor).toHaveCSS('opacity', '0');
+        expect(await colors()).toEqual(Array(5).fill(rgb(lightTheme.palette.textTertiary)));
+
+        // act & assert
+        await heading.hover({position: {x: 4, y: 4}});
+        await expect(anchor).toHaveCSS('opacity', '1');
+        await expect(anchor).toHaveCSS('color', rgb(lightTheme.palette.textTertiary));
+        await anchor.hover();
+        await expect(anchor).toHaveCSS('color', rgb(lightTheme.palette.text));
+        await page.mouse.move(0, 0);
+        await expect(anchor).toHaveCSS('opacity', '0');
+        await anchor.focus();
+        await expect(anchor).toHaveCSS('opacity', '1');
+        await openSpaceMenu(page);
+        await chooseTheme(page, 'dark');
+        await page.keyboard.press('Escape');
+        await heading.hover({position: {x: 4, y: 4}});
+        await expect(anchor).toHaveCSS('color', rgb(darkTheme.palette.textTertiary));
+        expect(await colors()).toEqual(Array(5).fill(rgb(darkTheme.palette.textTertiary)));
+        await anchor.hover();
+        await expect(anchor).toHaveCSS('color', rgb(darkTheme.palette.text));
+
+        removeFixture(HEADINGS);
+    });
+
+    test('a heading\'s link mark copies the full address of its section', async ({page}) => {
+        // arrange
+        writeFixture(HEADINGS, HEADINGS_SOURCE);
+        await page.goto(routes.doc(HEADINGS));
+        const heading = page.getByTestId('doc').locator('h2').first();
+        const id = await heading.getAttribute('id');
+        await heading.hover();
+
+        // act
+        await heading.getByTestId('doc-heading-anchor').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.linkCopied);
+        expect(await page.evaluate(() => navigator.clipboard.readText()))
+            .toBe(new URL(`${routes.doc(HEADINGS)}#${id}`, page.url()).href);
+
+        removeFixture(HEADINGS);
+    });
+
     test('the outline highlights the section being read', async ({page}) => {
         await page.goto(routes.doc(DOC.path));
         await showOutline(page);
@@ -815,6 +943,26 @@ test.describe('reading', () => {
         // assert
         expect(emphasis.map((value) => value - plain > 30)).toEqual([true, true, true]);
         expect(quote[1] - quote[0]).toBeGreaterThan(30);
+
+        removeFixture(EMPHASIS);
+    });
+
+    test('a quote bar starts on the left edge of the text', async ({page}) => {
+        // arrange
+        writeFixture(EMPHASIS, '# Quote\n\nPlain text.\n\n> Quoted text.\n');
+        await page.goto(routes.doc(EMPHASIS));
+        const doc = page.getByTestId('doc');
+
+        // act
+        const text = await doc.locator('p').first().evaluate((el) => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            return range.getBoundingClientRect().left;
+        });
+        const quote = await doc.locator('blockquote').boundingBox();
+
+        // assert
+        expect(Math.abs(quote.x - text)).toBeLessThanOrEqual(0.5);
 
         removeFixture(EMPHASIS);
     });

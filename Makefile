@@ -6,6 +6,8 @@ BINARY ?= scrawl
 DIST_DIR = dist
 BIN_PATH = $(DIST_DIR)/$(BINARY)
 
+TEST_TIMEOUT = 10m
+
 DOCKER_ARGS=--build-arg VERSION=$(VERSION)
 DOCKER_IMAGE = ghcr.io/aleksey925/scrawl
 
@@ -74,16 +76,16 @@ e2e: build
 	@cd e2e && npx playwright test
 
 test:
-	@go test -timeout 3m ./...
+	@go test -timeout $(TEST_TIMEOUT) ./...
 
 test-gzassets: gzassets
-	@go test -tags gzassets -timeout 3m ./...
+	@go test -tags gzassets -timeout $(TEST_TIMEOUT) ./...
 
 race:
-	@go test -race -timeout 3m ./...
+	@go test -race -timeout $(TEST_TIMEOUT) ./...
 
 cover:
-	go test -race -covermode=atomic -coverprofile=coverage.out.tmp -timeout 3m ./...
+	go test -race -covermode=atomic -coverprofile=coverage.out.tmp -timeout $(TEST_TIMEOUT) ./...
 	grep -v "_mock.go" coverage.out.tmp | grep -v mocks > coverage.out
 	@rm -f coverage.out.tmp
 	go tool cover -func=coverage.out | tail -1

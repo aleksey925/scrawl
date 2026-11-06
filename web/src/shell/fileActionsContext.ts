@@ -11,6 +11,11 @@ export interface FileActions {
   createPage: (folder: string) => void;
   createFolder: (folder: string) => void;
   rename: (path: string) => void;
+  renameInTree: (path: string) => void;
+  treeRename: string | undefined;
+  submitRename: (path: string, name: string) => Promise<boolean>;
+  cancelTreeRename: () => void;
+  moveTo: (path: string, isDir: boolean) => void;
   remove: (path: string, isDir: boolean) => void;
   copyLink: (path: string, isDir: boolean) => void;
   moveInto: (paths: readonly string[], folder: string) => void;

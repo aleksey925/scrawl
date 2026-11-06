@@ -1,0 +1,26 @@
+.place[data-current='true'] {
+  color: var(--scrawl-text-tertiary);
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .place[data-current='true']:hover {
+    background: none;
+  }
+}
+
+.target {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.target code {
+  color: var(--scrawl-text-secondary);
+  font: 12px var(--mantine-font-family-monospace);
+}
+
+.taken {
+  color: var(--scrawl-color-red);
+}

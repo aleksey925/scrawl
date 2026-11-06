@@ -6,7 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import { absoluteTime, fileSize, shortTime } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
 import { PopupMenu } from '../components/PopupMenu';
-import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconTrash } from '../icons';
+import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconMoveTo, IconTrash } from '../icons';
 import { usePlatform } from '../platform';
 import { useDocumentControls } from '../reader/useDocumentControls';
 import { openViewer } from '../reader/viewer';
@@ -179,6 +179,13 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
                 onClick={() => actions.rename(file.path)}
               >
                 Rename
+              </Menu.Item>
+              <Menu.Item
+                data-testid="file-menu-move"
+                leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
+                onClick={() => actions.moveTo(file.path, false)}
+              >
+                Move to
               </Menu.Item>
               <Menu.Divider />
               <Menu.Item

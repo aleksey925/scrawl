@@ -11,8 +11,9 @@ disk are the only state.
 - every file in a folder opens: a picture as a preview, a text file as
   highlighted code, and edits as plain text, without the note's preview and
   formatting
-- pages and folders made in the tree or in a folder's list, dragged between
-  folders, renamed and deleted; paste images straight into the editor
+- pages and folders made in the tree or in a folder's list, renamed, moved with
+  Move to or dragged between folders, and deleted; paste images straight into
+  the editor
 - mermaid and PlantUML diagrams, drawn in the browser with no Java and no
   PlantUML server, and opened full screen on a click
 - export note as Markdown, HTML or PDF

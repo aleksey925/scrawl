@@ -722,6 +722,50 @@ test.describe('mobile', () => {
             await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
         });
 
+        test('Rename asks only the name in a small dialog', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/rename-me.md`;
+            writeFixture(file, '# Rename me\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await page.getByTestId('tree-row-menu-rename').tap();
+            await expect(page.getByTestId('rename-name')).toHaveValue('rename-me');
+            await shot(page, 'mobile-rename');
+
+            // act
+            await page.getByTestId('rename-name').fill('renamed-here');
+            await page.getByTestId('rename-submit').tap();
+
+            // assert
+            await expect(rowOf(page, `${FOLDER}/renamed-here.md`)).toHaveCount(1);
+            expect([file, `${FOLDER}/renamed-here.md`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
+        });
+
+        test('Move to fills the screen and moves the file into the folder tapped', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/move-me.md`;
+            const into = `${FOLDER}/into`;
+            writeFixture(file, '# Move me\n');
+            fs.mkdirSync(fixtureFile(into), {recursive: true});
+            await page.goto(MAIN.url.dir(FOLDER));
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await page.getByTestId('tree-row-menu-move').tap();
+            const dialog = await page.getByTestId('move-dialog').boundingBox();
+            expect(Math.round(dialog.width)).toBe(page.viewportSize().width);
+            await shot(page, 'mobile-move');
+
+            // act
+            await page.getByTestId('move-input').fill('into');
+            await page.locator(`[data-testid=move-place][data-path="${into}"]`).tap();
+
+            // assert
+            await expect(page.getByTestId('move-dialog')).toHaveCount(0);
+            await expect.poll(() => fs.existsSync(fixtureFile(`${into}/move-me.md`))).toBe(true);
+            expect(fs.existsSync(fixtureFile(file))).toBe(false);
+        });
+
         test('offers Edit for a note and not for a picture the editor cannot open', async ({page}) => {
             // arrange
             const note = `${FOLDER}/editable.md`;

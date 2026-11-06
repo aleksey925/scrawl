@@ -1,8 +1,8 @@
-import { Button, Code, Modal, Group, Stack, Text, TextInput } from '@mantine/core';
+import { Code, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
   useCallback, useMemo, useState,
-  type FormEvent, type JSX, type ReactNode,
+  type JSX, type ReactNode,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
@@ -17,11 +17,18 @@ import { layoutBreakpoints, useBelow } from '../theme';
 import { showToast } from '../toast';
 
 import { FileActionsContext, type FileActions, type TreeDraft } from './fileActionsContext';
+import { MoveDialog } from './MoveDialog';
 import { useReaderLayout } from './ReaderLayout';
-import { useNav } from './NavContext';
+import { spaceLabel, useNav } from './NavContext';
 import { NewEntryDialog } from './NewEntryDialog';
+import { RenameDialog } from './RenameDialog';
 import { useMutationState } from './useMutationState';
-import { basenameOf, hasOwnExtension, joinPath } from './naming';
+import { basenameOf, hasOwnExtension, joinPath, renamedPath } from './naming';
+
+interface MovedEntry {
+  path: string;
+  isDir: boolean;
+}
 
 function conflictText(error: unknown, fallback: string): string {
   if (error instanceof ApiError && error.status === 409) {
@@ -62,10 +69,12 @@ function movedTo(path: string, from: string, to: string): string | undefined {
 export function FileActionsProvider({ children }: { children: ReactNode }): JSX.Element {
   const { revealNav: revealTree } = useReaderLayout();
   const navigate = useNavigate();
-  const { currentPath, refreshNav, openFolder, setQuery } = useNav();
+  const { tree, me, currentPath, refreshNav, openFolder, setQuery } = useNav();
   const onFolder = isDirectoryPath(useLocation().pathname);
   const reportMutation = useMutationState();
   const [renaming, setRenaming] = useState<string | undefined>(undefined);
+  const [treeRename, setTreeRename] = useState<string | undefined>(undefined);
+  const [moving, setMoving] = useState<MovedEntry | undefined>(undefined);
   const [draft, setDraft] = useState<TreeDraft | undefined>(undefined);
   const phone = useBelow(layoutBreakpoints.phone);
   const [naming, setNaming] = useState<TreeDraft | undefined>(undefined);
@@ -238,11 +247,61 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
     [currentPath, navigate, onFolder, openFolder, refreshNav, reportMutation],
   );
 
+  const submitRename = useCallback(
+    async (path: string, name: string): Promise<boolean> => {
+      if (name.includes('/')) {
+        showToast('error', { title: 'Nothing was renamed', message: 'A name cannot hold a slash, use Move to instead' });
+        return false;
+      }
+      const to = renamedPath(path, name);
+      if (to === path) {
+        return true;
+      }
+      let res: EntryPathResponse;
+      try {
+        res = await api.move(path, to);
+      } catch (error) {
+        showToast('error', {
+          title: 'Nothing was renamed',
+          message: conflictText(error, 'Something of that name is already there'),
+        });
+        return false;
+      }
+      reportMutation(res, 'Renamed');
+      const here = movedTo(currentPath, path, res.path);
+      if (here !== undefined) {
+        await navigate(onFolder ? directoryUrl(here) : documentUrl(here));
+        return true;
+      }
+      refreshNav();
+      return true;
+    },
+    [currentPath, navigate, onFolder, refreshNav, reportMutation],
+  );
+
+  const renameInTree = useCallback(
+    (path: string) => {
+      if (phone) {
+        setRenaming(path);
+        return;
+      }
+      setQuery('');
+      setTreeRename(path);
+      revealTree();
+    },
+    [phone, revealTree, setQuery],
+  );
+
   const actions = useMemo<FileActions>(
     () => ({
       createPage: (folder) => startDraft('file', folder),
       createFolder: (folder) => startDraft('dir', folder),
       rename: (path) => setRenaming(path),
+      renameInTree,
+      treeRename,
+      submitRename,
+      cancelTreeRename: () => setTreeRename(undefined),
+      moveTo: (path, isDir) => setMoving({ path, isDir }),
       remove,
       copyLink: (path, isDir) => void copyLink(path, isDir),
       moveInto,
@@ -251,7 +310,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       cancelDraft,
       createEntry,
     }),
-    [cancelDraft, copyLink, createEntry, draft, moveInto, remove, startDraft, submitDraft],
+    [cancelDraft, copyLink, createEntry, draft, moveInto, remove, renameInTree, startDraft, submitDraft, submitRename, treeRename],
   );
 
   return (
@@ -261,91 +320,22 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       {naming !== undefined && <NewEntryDialog draft={naming} onCreate={createEntry} onClose={() => setNaming(undefined)} />}
 
       {renaming !== undefined && (
-        <RenameDialog
-          path={renaming}
-          onClose={() => setRenaming(undefined)}
-          onRenamed={(res) => {
-            const here = movedTo(currentPath, renaming, res.path);
-            setRenaming(undefined);
-            reportMutation(res, 'Renamed');
-            if (here !== undefined) {
-              void navigate(onFolder ? directoryUrl(here) : documentUrl(here));
-              return;
-            }
-            refreshNav();
+        <RenameDialog path={renaming} onRename={submitRename} onClose={() => setRenaming(undefined)} />
+      )}
+
+      {moving !== undefined && (
+        <MoveDialog
+          path={moving.path}
+          isDir={moving.isDir}
+          tree={tree}
+          spaceName={spaceLabel(me)}
+          onMove={(folder) => {
+            setMoving(undefined);
+            moveInto([moving.path], folder);
           }}
+          onClose={() => setMoving(undefined)}
         />
       )}
     </FileActionsContext.Provider>
-  );
-}
-
-interface RenameDialogProps {
-  path: string;
-  onClose: () => void;
-  onRenamed: (res: EntryPathResponse) => void;
-}
-
-function RenameDialog({ path, onClose, onRenamed }: RenameDialogProps): JSX.Element {
-  const [value, setValue] = useState(path);
-  const [error, setError] = useState<string | undefined>(undefined);
-  const [busy, setBusy] = useState(false);
-
-  function submit(event: FormEvent): void {
-    event.preventDefault();
-    const typed = value.trim();
-    if (typed === '') {
-      setError('The new path has to hold a name.');
-      return;
-    }
-    const to = isMarkdown(path) && !hasOwnExtension(typed) ? `${typed}.md` : typed;
-    if (to === path) {
-      onClose();
-      return;
-    }
-    setBusy(true);
-    setError(undefined);
-    void (async () => {
-      try {
-        onRenamed(await api.move(path, to));
-      } catch (failure) {
-        setBusy(false);
-        setError(conflictText(failure, 'The target already exists'));
-      }
-    })();
-  }
-
-  return (
-    <Modal data-testid="modal" data-variant="rename" opened onClose={onClose} title="Rename or move" size="md">
-      <form onSubmit={submit}>
-        <Stack gap="md">
-          <Text size="sm" c="dimmed">
-            Links in other documents are not rewritten, so check them afterwards.
-          </Text>
-          <TextInput
-            data-testid="modal-path-input"
-            data-autofocus
-            label="New path"
-            value={value}
-            error={error}
-            autoComplete="off"
-            spellCheck={false}
-            styles={{ input: { fontFamily: 'var(--mantine-font-family-monospace)' } }}
-            onChange={(event) => {
-              setValue(event.currentTarget.value);
-              setError(undefined);
-            }}
-          />
-          <Group justify="flex-end" gap="sm">
-            <Button data-testid="modal-cancel" variant="default" onClick={onClose} disabled={busy}>
-              Cancel
-            </Button>
-            <Button data-testid="modal-submit" type="submit" loading={busy}>
-              Rename
-            </Button>
-          </Group>
-        </Stack>
-      </form>
-    </Modal>
   );
 }

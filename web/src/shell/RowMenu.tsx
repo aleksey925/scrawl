@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 
 import { PopupMenu } from '../components/PopupMenu';
 import {
-  IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconPlus, IconTrash,
+  IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconMoveTo, IconPlus, IconTrash,
 } from '../icons';
 import { directoryUrl, documentUrl } from '../paths';
 import { layout } from '../theme';
@@ -104,13 +104,22 @@ export function RowMenu({
 
         <Menu.Divider />
         {canWrite && path !== '' && (
-          <Menu.Item
-            data-testid="tree-row-menu-rename"
-            leftSection={<IconEdit size={rowMenuIconSize} />}
-            onClick={() => actions.rename(path)}
-          >
-            Rename
-          </Menu.Item>
+          <>
+            <Menu.Item
+              data-testid="tree-row-menu-rename"
+              leftSection={<IconEdit size={rowMenuIconSize} />}
+              onClick={() => (touch ? actions.rename(path) : actions.renameInTree(path))}
+            >
+              Rename
+            </Menu.Item>
+            <Menu.Item
+              data-testid="tree-row-menu-move"
+              leftSection={<IconMoveTo size={rowMenuIconSize} />}
+              onClick={() => actions.moveTo(path, isDir)}
+            >
+              Move to
+            </Menu.Item>
+          </>
         )}
         <Menu.Item
           data-testid="tree-row-menu-copy-link"

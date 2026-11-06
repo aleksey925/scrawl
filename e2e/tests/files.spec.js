@@ -21,6 +21,8 @@ const BLANK_PAGE = 'e2e-blank-page.md';
 const FULL_FOLDER = 'e2e-fm-full';
 const JUNK_FOLDER = 'e2e-fm-junk';
 const LISTED_FOLDER = 'e2e-fm-listed';
+const MOVED = 'e2e-fm-moved.md';
+const INNER = `${FOLDER}/inner`;
 
 test.describe.serial('file management', () => {
     test.beforeEach(async ({page}) => {
@@ -129,14 +131,14 @@ test.describe.serial('file management', () => {
         const rename = async (from, to) => {
             await page.locator(`[data-testid=tree-row][data-path="${from}"] [data-testid=tree-row-menu]`).click();
             await page.getByTestId('tree-row-menu-rename').click();
-            await page.getByTestId('modal-path-input').fill(to);
-            await page.getByTestId('modal-submit').click();
-            await expect(page.locator('.mantine-Modal-title')).toHaveCount(0);
+            await page.getByTestId('tree-rename-input').fill(to);
+            await page.getByTestId('tree-rename-input').press('Enter');
+            await expect(page.getByTestId('tree-rename')).toHaveCount(0);
         };
 
         // act
-        await rename(note, `${FOLDER}/bare title`);
-        await rename(`${FOLDER}/bare title.md`, `${FOLDER}/to-text.txt`);
+        await rename(note, 'bare title');
+        await rename(`${FOLDER}/bare title.md`, 'to-text.txt');
 
         // assert
         await expect.poll(() => fs.existsSync(fixtureFile(`${FOLDER}/to-text.txt`))).toBe(true);
@@ -194,25 +196,66 @@ test.describe.serial('file management', () => {
         expect(fs.existsSync(fixtureFile(PAGE))).toBe(true);
     });
 
-    test('renames a page from the tree menu', async ({page}) => {
+    test('renames a page in place in the tree, asking only its name', async ({page}) => {
+        // arrange
         await page.goto(routes.doc(PAGE));
         await page.locator(`[data-testid=tree-row][data-path="${PAGE}"] [data-testid=tree-row-menu]`).click();
-        const menu = page.getByTestId('tree-row-menu-dropdown');
-        await expect(menu).toBeVisible();
+        await expect(page.getByTestId('tree-row-menu-dropdown')).toBeVisible();
         await shot(page, 'files-row-menu');
         await page.getByTestId('tree-row-menu-rename').click();
+        const input = page.getByTestId('tree-rename-input');
+        await expect(input).toHaveValue('testovaya-stranitsa');
+        await expect(input).toBeFocused();
+        await shot(page, 'files-rename-in-place');
 
-        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.rename);
-        await expect(page.getByTestId('modal-path-input')).toHaveValue(PAGE);
-        await page.getByTestId('modal-path-input').fill(RENAMED);
-        await page.getByTestId('modal-submit').click();
+        // act
+        await input.fill('pereimenovannaya');
+        await input.press('Enter');
 
+        // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.renamed);
         await expect(page).toHaveURL(MAIN.url.doc(RENAMED));
         expect(fs.existsSync(fixtureFile(PAGE))).toBe(false);
         expect(fs.existsSync(fixtureFile(RENAMED))).toBe(true);
         await expect(page.locator(`[data-testid=tree-row][data-path="${RENAMED}"]`)).toHaveCount(1);
+        await expect(page.locator('.mantine-Modal-title')).toHaveCount(0);
         await shot(page, 'files-renamed');
+    });
+
+    test('a rename with a slash in the name moves nothing', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(RENAMED));
+        await page.locator(`[data-testid=tree-row][data-path="${RENAMED}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-rename').click();
+
+        // act
+        await page.getByTestId('tree-rename-input').fill(`${OTHER}/pereimenovannaya`);
+        await page.getByTestId('tree-rename-input').press('Enter');
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.renameSlash);
+        await expect(page.getByTestId('tree-rename-input')).toHaveValue(`${OTHER}/pereimenovannaya`);
+        expect(fs.existsSync(fixtureFile(RENAMED))).toBe(true);
+    });
+
+    test('renames a note from its own menu in a dialog that asks only the name', async ({page}) => {
+        // arrange
+        const note = `${FOLDER}/from-menu.md`;
+        writeFixture(note, '# From the menu\n');
+        await page.goto(MAIN.url.doc(note));
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('note-menu-rename').click();
+        await expect(page.getByTestId('rename-name')).toHaveValue('from-menu');
+        await shot(page, 'files-rename-dialog');
+
+        // act
+        await page.getByTestId('rename-name').fill('menu-renamed');
+        await page.getByTestId('rename-submit').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(`${FOLDER}/menu-renamed.md`));
+        await expect(page.getByTestId('rename')).toHaveCount(0);
+        expect([note, `${FOLDER}/menu-renamed.md`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
     });
 
     test('moves a page into another folder by dragging its row', async ({page}) => {
@@ -256,6 +299,76 @@ test.describe.serial('file management', () => {
             await expect.poll(() => fs.existsSync(fixtureFile(`${FOLDER}/${name}`))).toBe(true);
             expect(fs.existsSync(fixtureFile(`${OTHER}/${name}`))).toBe(false);
         }
+    });
+
+    test('moves a note into the folder picked in Move to, showing where it lands', async ({page}) => {
+        // arrange
+        writeFixture(`${FOLDER}/${MOVED}`, '# Moved\n');
+        await page.goto(MAIN.url.doc(`${FOLDER}/${MOVED}`));
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('note-menu-move').click();
+        await expect(page.locator(`[data-testid=move-place][data-path="${FOLDER}"]`)).toHaveAttribute('data-current', 'true');
+        await shot(page, 'files-move-dialog');
+
+        // act
+        await page.getByTestId('move-input').fill(OTHER);
+        await expect(page.getByTestId('move-preview')).toHaveText(`Moves to ${OTHER}/${MOVED}`);
+        await shot(page, 'files-move-search');
+        await page.getByTestId('move-input').press('Enter');
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.moved);
+        await expect(page).toHaveURL(MAIN.url.doc(`${OTHER}/${MOVED}`));
+        await expect(page.getByTestId('move-dialog')).toHaveCount(0);
+        expect([`${FOLDER}/${MOVED}`, `${OTHER}/${MOVED}`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
+    });
+
+    test('Move to says a folder already holds that name and moves nothing there', async ({page}) => {
+        // arrange
+        writeFixture(`${FOLDER}/${MOVED}`, '# Moved again\n');
+        await page.goto(MAIN.url.dir(FOLDER));
+        await page.locator(`[data-testid=tree-row][data-path="${FOLDER}/${MOVED}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-move').click();
+
+        // act
+        await page.locator(`[data-testid=move-place][data-path="${OTHER}"]`).click();
+
+        // assert
+        await expect(page.getByTestId('move-taken')).toHaveText(`${OTHER} already holds ${MOVED}`);
+        await expect(page.getByTestId('move-dialog')).toBeVisible();
+        expect(fs.readFileSync(fixtureFile(`${FOLDER}/${MOVED}`), 'utf8')).toBe('# Moved again\n');
+    });
+
+    test('Move to leaves out the folder itself and every folder inside it', async ({page}) => {
+        // arrange
+        fs.mkdirSync(fixtureFile(INNER), {recursive: true});
+        await page.goto(MAIN.url.dir(OTHER));
+
+        // act
+        await page.locator(`[data-testid=tree-row][data-path="${FOLDER}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-move').click();
+
+        // assert
+        await expect(page.locator('[data-testid=move-place][data-path=""]')).toHaveAttribute('data-current', 'true');
+        await expect(page.locator(`[data-testid=move-place][data-path="${OTHER}"]`)).toHaveCount(1);
+        await expect(page.locator(`[data-testid=move-place][data-path="${FOLDER}"], [data-testid=move-place][data-path="${INNER}"]`))
+            .toHaveCount(0);
+    });
+
+    test('moves a folder with Move to and follows it when it is on screen', async ({page}) => {
+        // arrange
+        await page.goto(MAIN.url.dir(INNER));
+        await page.getByTestId('folder-menu').click();
+        await page.getByTestId('folder-menu-move').click();
+
+        // act
+        await page.getByTestId('move-input').fill(OTHER);
+        await page.locator(`[data-testid=move-place][data-path="${OTHER}"]`).click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.dir(`${OTHER}/inner`));
+        await expect.poll(() => fs.existsSync(fixtureFile(`${OTHER}/inner`))).toBe(true);
+        expect(fs.existsSync(fixtureFile(INNER))).toBe(false);
     });
 
     test('deletes a page and drops it from the tree', async ({page}) => {

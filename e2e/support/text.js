@@ -8,7 +8,6 @@ module.exports = {
     },
 
     modal: {
-        rename: 'Rename or move',
         deleteFile: 'Delete file?',
         deleteFolder: 'Delete folder?',
         deleteFolderContents: 'Delete folder and everything in it?',
@@ -34,6 +33,7 @@ module.exports = {
 
     pageExists: 'That file already exists',
     folderExists: 'That folder already exists',
+    renameSlash: 'A name cannot hold a slash, use Move to instead',
 
     doc: {
         missing: 'This note does not exist yet.',

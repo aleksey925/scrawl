@@ -1,3 +1,5 @@
+import { isMarkdown } from '../paths';
+
 export function joinPath(folder: string, name: string): string {
   return folder === '' ? name : `${folder.replace(/\/+$/, '')}/${name}`;
 }
@@ -37,4 +39,10 @@ export function pageName(name: string, isDir: boolean): string {
 
 export function hasOwnExtension(name: string): boolean {
   return /^[^.].*\.[a-z][a-z0-9]{0,15}$/i.test(basenameOf(name.trim()));
+}
+
+export function renamedPath(path: string, name: string): string {
+  const typed = name.trim();
+  const named = isMarkdown(path) && !hasOwnExtension(typed) ? `${typed}.md` : typed;
+  return joinPath(parentOf(path), named);
 }

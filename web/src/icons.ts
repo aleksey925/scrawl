@@ -4,6 +4,7 @@ import { createElement, forwardRef } from 'react';
 export type { Icon } from '@phosphor-icons/react';
 
 export {
+  ArrowBendUpRightIcon as IconMoveTo,
   ArrowUDownLeftIcon as IconTextWrap,
   ArrowUpIcon as IconArrowUp,
   ArrowsHorizontalIcon as IconTextWrapDisabled,

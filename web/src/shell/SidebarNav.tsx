@@ -91,119 +91,123 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
 
   return (
     <Box style={{ minWidth: 0 }}>
-      <div
-        data-testid="tree-row"
-        className={RowMenu === undefined ? treeClasses.row : `${treeClasses.row} ${treeClasses.pressable}`}
-        data-current={current ? 'true' : 'false'}
-        data-selected={picked ? 'true' : 'false'}
-        data-drop={over ? 'true' : 'false'}
-        data-dir={node.is_dir ? 'true' : 'false'}
-        data-menu={menuOpened ? 'true' : 'false'}
-        data-path={node.path}
-        draggable={ui.canWrite}
-        onDragStart={(event) => ui.startDrag(node.path, event)}
-        onDragEnd={ui.endDrag}
-        onDragOver={(event) => ui.overFolder(folderFor(node.path, node.is_dir), event)}
-        onDragLeave={() => ui.leaveFolder(folderFor(node.path, node.is_dir))}
-        onDrop={(event) => ui.dropOn(folderFor(node.path, node.is_dir), event)}
-        {...(RowMenu === undefined
-          ? {}
-          : {
-              ...longPress,
-              onContextMenu: (event: MouseEvent) => {
-                event.preventDefault();
-                openMenu();
-              },
-            })}
-        style={rowInsets(depth)}
-      >
-        {node.is_dir ? (
-          <ActionIcon
-            data-testid="tree-twisty"
-            data-open={open ? 'true' : 'false'}
-            variant="subtle"
-            color="gray"
-            size={iconBox}
-            className={treeClasses.icon}
-            aria-label={`${open ? 'Collapse' : 'Expand'} ${node.name}`}
-            aria-expanded={open}
-            onClick={() => toggleFolder(node.path)}
-          >
-            {open ? (
-              <IconFolderOpen size={treeIconSize} className={treeClasses.glyph} />
-            ) : (
-              <IconFolder size={treeIconSize} className={treeClasses.glyph} />
-            )}
-            {open ? (
-              <IconChevronDown size={treeIconSize} className={treeClasses.chevron} />
-            ) : (
-              <IconChevronRight size={treeIconSize} className={treeClasses.chevron} />
-            )}
-          </ActionIcon>
-        ) : (
-          <IconBox>
-            <IconFileText size={treeIconSize} />
-          </IconBox>
-        )}
-
-        <Anchor
-          data-testid="tree-link"
-          component={Link}
-          to={node.url}
-          underline="never"
-          draggable={false}
-          aria-current={current ? 'page' : undefined}
-          className={treeClasses.label}
-          onClick={(event: MouseEvent) => {
-            ui.pick(node.path, event);
-            if (!node.is_dir || query !== '' || event.defaultPrevented || event.metaKey || event.ctrlKey) {
-              return;
-            }
-            if (current) {
-              event.preventDefault();
-              toggleFolder(node.path);
-              return;
-            }
-            openFolder(node.path);
-          }}
+      {actions?.treeRename === node.path ? (
+        <RenameRow node={node} depth={depth} />
+      ) : (
+        <div
+          data-testid="tree-row"
+          className={RowMenu === undefined ? treeClasses.row : `${treeClasses.row} ${treeClasses.pressable}`}
+          data-current={current ? 'true' : 'false'}
+          data-selected={picked ? 'true' : 'false'}
+          data-drop={over ? 'true' : 'false'}
+          data-dir={node.is_dir ? 'true' : 'false'}
+          data-menu={menuOpened ? 'true' : 'false'}
+          data-path={node.path}
+          draggable={ui.canWrite}
+          onDragStart={(event) => ui.startDrag(node.path, event)}
+          onDragEnd={ui.endDrag}
+          onDragOver={(event) => ui.overFolder(folderFor(node.path, node.is_dir), event)}
+          onDragLeave={() => ui.leaveFolder(folderFor(node.path, node.is_dir))}
+          onDrop={(event) => ui.dropOn(folderFor(node.path, node.is_dir), event)}
+          {...(RowMenu === undefined
+            ? {}
+            : {
+                ...longPress,
+                onContextMenu: (event: MouseEvent) => {
+                  event.preventDefault();
+                  openMenu();
+                },
+              })}
+          style={rowInsets(depth)}
         >
-          <Highlight size="sm" truncate highlight={query === '' ? [] : query} fw="inherit" style={{ minWidth: 0 }}>
-            {pageName(node.name, node.is_dir)}
-          </Highlight>
-        </Anchor>
+          {node.is_dir ? (
+            <ActionIcon
+              data-testid="tree-twisty"
+              data-open={open ? 'true' : 'false'}
+              variant="subtle"
+              color="gray"
+              size={iconBox}
+              className={treeClasses.icon}
+              aria-label={`${open ? 'Collapse' : 'Expand'} ${node.name}`}
+              aria-expanded={open}
+              onClick={() => toggleFolder(node.path)}
+            >
+              {open ? (
+                <IconFolderOpen size={treeIconSize} className={treeClasses.glyph} />
+              ) : (
+                <IconFolder size={treeIconSize} className={treeClasses.glyph} />
+              )}
+              {open ? (
+                <IconChevronDown size={treeIconSize} className={treeClasses.chevron} />
+              ) : (
+                <IconChevronRight size={treeIconSize} className={treeClasses.chevron} />
+              )}
+            </ActionIcon>
+          ) : (
+            <IconBox>
+              <IconFileText size={treeIconSize} />
+            </IconBox>
+          )}
 
-        <SyncBadge path={node.path} />
+          <Anchor
+            data-testid="tree-link"
+            component={Link}
+            to={node.url}
+            underline="never"
+            draggable={false}
+            aria-current={current ? 'page' : undefined}
+            className={treeClasses.label}
+            onClick={(event: MouseEvent) => {
+              ui.pick(node.path, event);
+              if (!node.is_dir || query !== '' || event.defaultPrevented || event.metaKey || event.ctrlKey) {
+                return;
+              }
+              if (current) {
+                event.preventDefault();
+                toggleFolder(node.path);
+                return;
+              }
+              openFolder(node.path);
+            }}
+          >
+            <Highlight size="sm" truncate highlight={query === '' ? [] : query} fw="inherit" style={{ minWidth: 0 }}>
+              {pageName(node.name, node.is_dir)}
+            </Highlight>
+          </Anchor>
 
-        {RowMenu !== undefined && (
-          <div className={treeClasses.tools}>
-            <RowMenu
-              path={node.path}
-              isDir={node.is_dir}
-              name={node.name}
-              touch={false}
-              editUrl={node.is_dir ? undefined : editUrl(node.path)}
-              opened={menuOpened}
-              onOpenedChange={setMenuOpened}
-            />
-            {node.is_dir && canWrite && actions !== undefined && (
-              <ActionIcon
-                data-testid="tree-row-add"
-                variant="subtle"
-                color="gray"
-                size="sm"
-                className={treeClasses.add}
-                aria-label={`New file in ${node.name}`}
-                onClick={() => {
-                  openFolder(node.path);
-                  actions.createPage(node.path);
-                }}
-              >
-                <IconPlus size={rowMenuIconSize} />
-              </ActionIcon>
-            )}
-          </div>
-        )}
-      </div>
+          <SyncBadge path={node.path} />
+
+          {RowMenu !== undefined && (
+            <div className={treeClasses.tools}>
+              <RowMenu
+                path={node.path}
+                isDir={node.is_dir}
+                name={node.name}
+                touch={false}
+                editUrl={node.is_dir ? undefined : editUrl(node.path)}
+                opened={menuOpened}
+                onOpenedChange={setMenuOpened}
+              />
+              {node.is_dir && canWrite && actions !== undefined && (
+                <ActionIcon
+                  data-testid="tree-row-add"
+                  variant="subtle"
+                  color="gray"
+                  size="sm"
+                  className={treeClasses.add}
+                  aria-label={`New file in ${node.name}`}
+                  onClick={() => {
+                    openFolder(node.path);
+                    actions.createPage(node.path);
+                  }}
+                >
+                  <IconPlus size={rowMenuIconSize} />
+                </ActionIcon>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {node.is_dir && open && (
         <div data-testid="tree-children">
@@ -259,13 +263,23 @@ function EmptyRow({ depth }: { depth: number }): JSX.Element {
   );
 }
 
-function DraftRow({ depth }: { depth: number }): JSX.Element {
-  const { draft, submitDraft, cancelDraft } = useFileActions();
-  const [name, setName] = useState('');
+interface NameRowProps {
+  depth: number;
+  testId: string;
+  isFile: boolean;
+  icon: ReactNode;
+  initial: string;
+  placeholder?: string;
+  label: string;
+  onSubmit: (name: string) => Promise<boolean>;
+  onCancel: () => void;
+}
+
+function NameRow({ depth, testId, isFile, icon, initial, placeholder, label, onSubmit, onCancel }: NameRowProps): JSX.Element {
+  const [name, setName] = useState(initial);
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const settled = useRef(false);
-  const isFile = draft?.kind === 'file';
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -279,41 +293,36 @@ function DraftRow({ depth }: { depth: number }): JSX.Element {
 
   const commit = (): void => {
     if (busy || name.trim() === '') {
-      cancelDraft();
+      onCancel();
       return;
     }
     setBusy(true);
-    void submitDraft(name).then((created) => {
-      setBusy(false);
-      if (!created) {
-        return;
-      }
-      setName('');
-    });
+    void onSubmit(name).then(() => setBusy(false));
   };
 
   return (
     <Group
       gap={6}
       wrap="nowrap"
-      data-testid="tree-draft"
+      data-testid={testId}
       data-entry={isFile ? 'file' : 'dir'}
       className={`${treeClasses.row} ${treeClasses.draft}`}
       style={rowInsets(depth)}
     >
-      <IconBox>{isFile ? <IconFile size={treeIconSize} /> : <IconFolder size={treeIconSize} />}</IconBox>
+      <IconBox>{icon}</IconBox>
       <TextInput
-        data-testid="tree-draft-input"
+        data-testid={`${testId}-input`}
         ref={inputRef}
         autoFocus
         value={name}
         disabled={busy}
         variant="unstyled"
         size="sm"
-        placeholder={isFile ? 'File name' : 'Folder name'}
-        aria-label={isFile ? 'Name of the new file' : 'Name of the new folder'}
+        placeholder={placeholder}
+        aria-label={label}
         autoComplete="off"
         spellCheck={false}
+        onFocus={(event) => event.currentTarget.select()}
         onChange={(event) => setName(event.currentTarget.value)}
         onBlur={() => settled.current && commit()}
         onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
@@ -325,13 +334,53 @@ function DraftRow({ depth }: { depth: number }): JSX.Element {
           }
           if (event.key === 'Escape') {
             event.preventDefault();
-            cancelDraft();
+            onCancel();
           }
         }}
         styles={{ input: { height: 'auto', minHeight: 24 } }}
         style={{ flex: '1 1 auto', minWidth: 0 }}
       />
     </Group>
+  );
+}
+
+function DraftRow({ depth }: { depth: number }): JSX.Element {
+  const { draft, submitDraft, cancelDraft } = useFileActions();
+  const isFile = draft?.kind === 'file';
+  return (
+    <NameRow
+      depth={depth}
+      testId="tree-draft"
+      isFile={isFile}
+      icon={isFile ? <IconFile size={treeIconSize} /> : <IconFolder size={treeIconSize} />}
+      initial=""
+      placeholder={isFile ? 'File name' : 'Folder name'}
+      label={isFile ? 'Name of the new file' : 'Name of the new folder'}
+      onSubmit={submitDraft}
+      onCancel={cancelDraft}
+    />
+  );
+}
+
+function RenameRow({ node, depth }: { node: NavNode; depth: number }): JSX.Element {
+  const { submitRename, cancelTreeRename } = useFileActions();
+  return (
+    <NameRow
+      depth={depth}
+      testId="tree-rename"
+      isFile={!node.is_dir}
+      icon={node.is_dir ? <IconFolder size={treeIconSize} /> : <IconFileText size={treeIconSize} />}
+      initial={pageName(node.name, node.is_dir)}
+      label={`New name of ${node.name}`}
+      onSubmit={async (name) => {
+        const renamed = await submitRename(node.path, name);
+        if (renamed) {
+          cancelTreeRename();
+        }
+        return renamed;
+      }}
+      onCancel={cancelTreeRename}
+    />
   );
 }
 

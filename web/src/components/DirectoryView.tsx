@@ -4,7 +4,7 @@ import { useEffect, useState, type JSX } from 'react';
 import type { DirListing, EntryKind } from '../api/types';
 import { answerKeys, useApi } from '../api/useApi';
 import {
-  IconChevronDown, IconDots, IconEdit, IconFilePlus, IconFolderOpen, IconFolderPlus, IconLink, IconPlus, IconTable, IconTrash,
+  IconChevronDown, IconDots, IconEdit, IconFilePlus, IconFolderOpen, IconFolderPlus, IconLink, IconMoveTo, IconPlus, IconTable, IconTrash,
 } from '../icons';
 import { usePlatform } from '../platform';
 import { useOptionalFileActions, type FileActions } from '../shell/fileActionsContext';
@@ -189,7 +189,14 @@ function FolderMenu({ path, actions }: { path: string; actions: FileActions }): 
               leftSection={<IconEdit size={layout.iconSizeSmall} />}
               onClick={() => actions.rename(path)}
             >
-              Rename or move
+              Rename
+            </Menu.Item>
+            <Menu.Item
+              data-testid="folder-menu-move"
+              leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
+              onClick={() => actions.moveTo(path, true)}
+            >
+              Move to
             </Menu.Item>
             <Menu.Item
               data-testid="folder-menu-delete"

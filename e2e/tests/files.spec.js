@@ -28,6 +28,9 @@ const INNER = `${FOLDER}/inner`;
 const NEST = 'e2e-fm-nest';
 const UNDELETED = 'e2e-fm-undeleted';
 const NESTED_NOTE = `${NEST}/a/note.md`;
+const CONTEXT_FOLDER = 'e2e-fm-context';
+const CONTEXT_NOTE = `${CONTEXT_FOLDER}/note.md`;
+const CONTEXT_ROOT_FOLDER = 'e2e-fm-context-root';
 
 function shownPlaces(page, prefix) {
     return page.locator('[data-testid=move-place]')
@@ -40,7 +43,7 @@ test.describe.serial('file management', () => {
     });
 
     test.afterAll(() => {
-        for (const folder of [FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER, LISTED_FOLDER, NEST, UNDELETED]) {
+        for (const folder of [FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER, LISTED_FOLDER, NEST, UNDELETED, CONTEXT_FOLDER, CONTEXT_ROOT_FOLDER]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
         for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE, TYPED_FILE, TYPED_PICTURE, DATED_PAGE]) {
@@ -604,6 +607,74 @@ test.describe.serial('file management', () => {
         await expect(page.getByTestId('tree-draft-input')).toBeFocused();
         await expect(page.getByTestId('dir-draft')).toHaveCount(0);
         await page.getByTestId('tree-draft-input').press('Escape');
+    });
+
+    test('a right click on a row of a folder list opens its menu at the pointer, and Rename asks in a dialog', async ({page}) => {
+        // arrange
+        writeFixture(CONTEXT_NOTE, '# Note\n');
+        await page.goto(routes.dir(CONTEXT_FOLDER));
+        const row = page.locator(`[data-testid=dir-row][data-path="${CONTEXT_NOTE}"]`);
+        const box = await row.boundingBox();
+        const at = {x: box.x + box.width / 2, y: box.y + box.height / 2};
+
+        // act
+        await page.mouse.click(at.x, at.y, {button: 'right'});
+
+        // assert
+        const menu = page.getByTestId('tree-row-menu-dropdown');
+        await expect(menu).toBeVisible();
+        await expect(row).toHaveAttribute('data-menu', 'true');
+        await expect(page).toHaveURL(MAIN.url.dir(CONTEXT_FOLDER));
+        const placed = await menu.boundingBox();
+        expect(Math.round(placed.x)).toBe(Math.round(at.x));
+        expect(placed.y).toBeGreaterThan(at.y);
+        await shot(page, 'files-list-row-menu');
+
+        await page.getByTestId('tree-row-menu-rename').click();
+        await expect(page.getByTestId('rename-name')).toBeVisible();
+        await expect(page.getByTestId('tree-rename')).toHaveCount(0);
+        await page.getByTestId('rename-cancel').click();
+    });
+
+    test('a right click on the free space of a folder list offers to create there', async ({page}) => {
+        // arrange
+        writeFixture(CONTEXT_NOTE, '# Note\n');
+        await page.goto(routes.dir(CONTEXT_FOLDER));
+        await expect(page.locator(`[data-testid=dir-row][data-path="${CONTEXT_NOTE}"]`)).toBeVisible();
+        const viewport = page.viewportSize();
+
+        // act
+        await page.mouse.click(viewport.width / 2, viewport.height - 20, {button: 'right'});
+
+        // assert
+        await expect(page.getByTestId('dir-context-menu')).toBeVisible();
+        await expect(page.getByTestId('tree-row-menu-dropdown')).toHaveCount(0);
+        await page.getByTestId('dir-context-menu-new-folder').click();
+        await expect(page.getByTestId('dir-draft')).toHaveAttribute('data-entry', 'dir');
+        await page.getByTestId('dir-draft-input').fill('made');
+        await page.getByTestId('dir-draft-input').press('Enter');
+        await expect.poll(() => fs.existsSync(fixtureFile(`${CONTEXT_FOLDER}/made`))).toBe(true);
+    });
+
+    test('a right click on the free space of the tree offers to create in the root', async ({page}) => {
+        // arrange
+        writeFixture(CONTEXT_NOTE, '# Note\n');
+        await page.goto(routes.dir(CONTEXT_FOLDER));
+        await expect(page.locator(`[data-testid=tree-row][data-path="${CONTEXT_NOTE}"]`)).toBeVisible();
+        const tree = await page.getByTestId('tree-root').boundingBox();
+
+        // act
+        await page.mouse.click(tree.x + tree.width / 2, tree.y + tree.height - 10, {button: 'right'});
+
+        // assert
+        await expect(page.getByTestId('tree-context-menu')).toBeVisible();
+        await expect(page.getByTestId('tree-row-menu-dropdown')).toHaveCount(0);
+        await page.getByTestId('tree-context-menu-new-folder').click();
+        await expect(page.getByTestId('tree-draft')).toHaveAttribute('data-entry', 'dir');
+        await page.getByTestId('tree-draft-input').fill(CONTEXT_ROOT_FOLDER);
+        await page.getByTestId('tree-draft-input').press('Enter');
+        await expect.poll(() => fs.existsSync(fixtureFile(CONTEXT_ROOT_FOLDER))).toBe(true);
+        expect(fs.existsSync(fixtureFile(`${CONTEXT_FOLDER}/${CONTEXT_ROOT_FOLDER}`))).toBe(false);
     });
 
     test('deletes a folder with everything in it and leaves the page that was inside', async ({page}) => {

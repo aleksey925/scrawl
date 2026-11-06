@@ -1,6 +1,7 @@
 import { createContext, useContext, type ComponentType, type ReactElement, type RefObject } from 'react';
 
 import type { DocumentResponse, FilePageResponse } from '../api/types';
+import type { Point } from '../components/pointerMenu';
 import { layout } from '../theme';
 
 export const rowMenuIconSize = layout.iconSizeSmall;
@@ -10,10 +11,12 @@ export interface RowMenuProps {
   isDir: boolean;
   name: string;
   touch: boolean;
+  inTree?: boolean;
   editUrl?: string;
   opened: boolean;
   onOpenedChange: (opened: boolean) => void;
   target?: ReactElement;
+  at?: Point;
 }
 
 export interface DocumentExtrasProps {

@@ -47,6 +47,10 @@
   transition: background-color 20ms ease-in;
 }
 
+.row[data-menu='true'] {
+  background: var(--scrawl-row-hover);
+}
+
 @media (hover: hover) {
   .row:hover {
     background: var(--scrawl-row-hover);

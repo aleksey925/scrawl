@@ -9,6 +9,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 
 import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
+import { NewEntryMenu, usePointerMenu } from '../components/pointerMenu';
 import { PopupMenu } from '../components/PopupMenu';
 import {
   IconChevronDown, IconChevronRight, IconCompose, IconFile, IconFilePlus, IconFileText, IconFolder, IconFolderOpen,
@@ -184,6 +185,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
                 isDir={node.is_dir}
                 name={node.name}
                 touch={false}
+                inTree
                 editUrl={node.is_dir ? undefined : editUrl(node.path)}
                 opened={menuOpened}
                 onOpenedChange={setMenuOpened}
@@ -428,6 +430,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const canWrite = mayWrite && actions !== undefined;
   const viewportRef = useRef<HTMLDivElement>(null);
   const spaceName = spaceLabel(me);
+  const contextMenu = usePointerMenu();
 
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   useEffect(() => setSelected(new Set([currentPath])), [currentPath]);
@@ -736,6 +739,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
             data-testid="tree-root"
             data-drop={dropTarget === '' ? 'true' : 'false'}
             {...rootDrop}
+            onContextMenu={canWrite ? contextMenu.onContextMenu : undefined}
             style={{ minWidth: 0 }}
           >
             {error !== undefined ? (
@@ -762,6 +766,13 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
           </Stack>
         </ScrollArea>
       </TreeUiContext.Provider>
+      {actions !== undefined && (
+        <NewEntryMenu
+          menu={contextMenu}
+          testId="tree-context-menu"
+          onCreate={(kind) => (kind === 'file' ? actions.createPage : actions.createFolder)('')}
+        />
+      )}
 
       {foot !== undefined && <div className={sidebarClasses.foot}>{foot}</div>}
     </div>

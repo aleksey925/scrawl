@@ -19,6 +19,7 @@ import { DirTable } from './DirTable';
 import { EmptyState } from './EmptyState';
 import { countOf } from './formats';
 import { Page, PageTitle } from './Page';
+import { NewEntryMenu, usePointerMenu } from './pointerMenu';
 import { PopupMenu } from './PopupMenu';
 
 export interface DirectoryViewProps {
@@ -41,6 +42,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
   const { canWrite, me } = useNav();
   const actions = useOptionalFileActions();
   const [draft, setDraft] = useState<EntryKind | undefined>(undefined);
+  const contextMenu = usePointerMenu();
   const phone = useBelow(layoutBreakpoints.phone);
   const space = spaceLabel(me);
   usePageChrome(chromeOf(dir.breadcrumbs, path === '' ? '' : dir.title, true));
@@ -66,12 +68,18 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
   };
 
   return (
-    <Page data-testid="dir" wide>
+    <Page
+      data-testid="dir"
+      wide
+      className={classes.page}
+      onContextMenu={writable && !phone ? contextMenu.onContextMenu : undefined}
+    >
       {writable && (
         <PageActions>
           <FolderMenu path={path} actions={actions} />
         </PageActions>
       )}
+      <NewEntryMenu menu={contextMenu} testId="dir-context-menu" onCreate={startDraft} />
       <div className={classes.head}>
         <PageTitle testId="dir-title">{path === '' ? space : dir.title}</PageTitle>
         {writable && !phone && (

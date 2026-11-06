@@ -28,32 +28,37 @@ opens over them.
   its position from, is the bottom of the topbar. History is among the actions
   only where the space records versions. A folder is always its list, the root
   included: a Notion database of Name, Size and Modified led by a `..` row, and
-  a click anywhere on a row opens it. New, a file or a folder, is a large main
-  button at the right of the folder's title, where Notion puts New page. The
-  table is Notion's too: its one view a gray pill with no line under it, no
-  line between the columns, which read as a spreadsheet, and columns of their
-  own width, the name 530px and the others 150px, as a file name carries its
-  extension, with an empty one at the end taking the rest and the row lines
-  running across it, so a date is not a screen away from its name. Every column
-  starts at its left edge, the size too: a size against its right edge stood
-  against the date and the two read as one column. On a narrow page the name
-  gives way. A column's header is gray text of the regular weight with a filled
-  icon, as Notion heads one; 500 beside the system's own smoothing read bold,
-  and an empty folder keeps the header with its empty state under it, one plain
-  New file button. Its `index.md` is a row like any other, in its place by
-  name, with a "Folder page" tag, and no readme is shown under the list; Home
-  in the sidebar opens the root `index.md`, or the root's list when there is
-  none. A folder holding two cases of `index.md` has no folder page, and a site
-  refuses it, because both would be written to one file. A note that does not
-  exist yet is a page too, its name as a faint title and the ways on from
-  there, the first of them, create it, on Enter. On a phone the bar on top
-  holds `‹` with the folder above, the title once the page's own has scrolled
-  under the bar, at once on a page that has none of its own, and the page's
-  `⋯`. The root has no way up, and the app's logo and the space's name stand
-  there instead. Every screen has the bar as a row of its own and its title on
-  one line under it: a root drawn another way made the page jump on the way to
-  a folder. A folder there is a list and not a table: a name over one line of
-  what it is, and no `..` row.
+  a click anywhere on a row opens it. A right click on a row opens the menu the
+  tree row has, at the pointer as a desktop has it, and on the free space of
+  the page a menu of New file and New folder, which name the entry in a row of
+  the table; a link, a button and selected text keep the browser's own menu, so
+  text is still copied from there. The free space is the page, which grows to
+  the bottom of the window. A row keeps the hover gray while its menu is up.
+  New, a file or a folder, is a large main button at the right of the folder's
+  title, where Notion puts New page. The table is Notion's too: its one view a
+  gray pill with no line under it, no line between the columns, which read as a
+  spreadsheet, and columns of their own width, the name 530px and the others
+  150px, as a file name carries its extension, with an empty one at the end
+  taking the rest and the row lines running across it, so a date is not a
+  screen away from its name. Every column starts at its left edge, the size
+  too: a size against its right edge stood against the date and the two read as
+  one column. On a narrow page the name gives way. A column's header is gray
+  text of the regular weight with a filled icon, as Notion heads one; 500
+  beside the system's own smoothing read bold, and an empty folder keeps the
+  header with its empty state under it, one plain New file button. Its
+  `index.md` is a row like any other, in its place by name, with a "Folder
+  page" tag, and no readme is shown under the list; Home in the sidebar opens
+  the root `index.md`, or the root's list when there is none. A folder holding
+  two cases of `index.md` has no folder page, and a site refuses it, because
+  both would be written to one file. A note that does not exist yet is a page
+  too, its name as a faint title and the ways on from there, the first of them,
+  create it, on Enter. On a phone the bar on top holds `‹` with the folder
+  above, the title once the page's own has scrolled under the bar, at once on a
+  page that has none of its own, and the page's `⋯`. The root has no way up,
+  and the app's logo and the space's name stand there instead. Every screen has
+  the bar as a row of its own and its title on one line under it: a root drawn
+  another way made the page jump on the way to a folder. A folder there is a
+  list and not a table: a name over one line of what it is, and no `..` row.
 
 ## Note
 

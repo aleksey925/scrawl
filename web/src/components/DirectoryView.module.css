@@ -69,3 +69,13 @@
     background: var(--scrawl-row-hover);
   }
 }
+
+:global(.mantine-AppShell-main):has(> .page) {
+  display: flex;
+  flex-direction: column;
+}
+
+.page {
+  flex-grow: 1;
+  align-content: start;
+}

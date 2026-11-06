@@ -17,6 +17,7 @@ import { layout, layoutBreakpoints, useBelow } from '../theme';
 import classes from './DirTable.module.css';
 import { EntryIcon } from './EntryIcon';
 import { LiftedRow } from './LiftedRow';
+import { pointOf, type Point } from './pointerMenu';
 import pressClasses from './PressRow.module.css';
 import { absoluteTime, countOf, fileSize, shortDate, shortTime } from './formats';
 
@@ -37,6 +38,9 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
   const filePages = useReaderExtensions().FileView !== undefined;
   const navigate = useNavigate();
   const phone = useBelow(layoutBreakpoints.phone);
+  const { RowMenu } = useReaderExtensions();
+  const [menu, setMenu] = useState<{ entry: DirEntry; at: Point } | undefined>(undefined);
+  const [menuOpened, setMenuOpened] = useState(false);
   const folders = entries.filter((listed) => listed.is_dir);
   const files = entries.filter((listed) => !listed.is_dir);
   const draftRow =
@@ -59,8 +63,18 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
       data-testid="dir-row"
       data-path={entry.path}
       data-dir={entry.is_dir ? 'true' : 'false'}
+      data-menu={menuOpened && menu?.entry.path === entry.path ? 'true' : 'false'}
       className={classes.row}
       onClick={(event) => opensRow(event) && open(entry)}
+      onContextMenu={
+        RowMenu === undefined
+          ? undefined
+          : (event) => {
+              event.preventDefault();
+              setMenu({ entry, at: pointOf(event) });
+              setMenuOpened(true);
+            }
+      }
     >
       <td className={classes.name}>
         <span>
@@ -157,6 +171,19 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
           {draft === 'file' && draftRow}
         </tbody>
       </table>
+      {RowMenu !== undefined && menu !== undefined && (
+        <RowMenu
+          key={`${menu.at.x}:${menu.at.y}`}
+          path={menu.entry.path}
+          isDir={menu.entry.is_dir}
+          name={menu.entry.name}
+          touch={false}
+          editUrl={menu.entry.edit_url}
+          opened={menuOpened}
+          onOpenedChange={setMenuOpened}
+          at={menu.at}
+        />
+      )}
     </div>
   );
 }

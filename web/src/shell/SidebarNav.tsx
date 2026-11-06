@@ -730,7 +730,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
       <TreeUiContext.Provider value={ui}>
         <ScrollArea type="hover" viewportRef={viewportRef} style={{ flex: '1 1 auto', minWidth: 0 }}>
           <Stack
-            gap={1}
+            gap={0}
             pb="md"
             mih="100%"
             data-testid="tree-root"

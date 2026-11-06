@@ -5,6 +5,7 @@
   gap: 6px;
   min-width: 0;
   min-height: var(--scrawl-row-height);
+  margin-block-end: 1px;
   border-radius: var(--mantine-radius-md);
   color: var(--scrawl-sidebar-text);
   transition: background-color 20ms ease-in;

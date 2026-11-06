@@ -15,7 +15,7 @@ export interface FileActions {
   treeRename: string | undefined;
   submitRename: (path: string, name: string) => Promise<boolean>;
   cancelTreeRename: () => void;
-  moveTo: (path: string, isDir: boolean) => void;
+  moveTo: (path: string, isDir: boolean, from: Element) => void;
   remove: (path: string, isDir: boolean) => void;
   copyLink: (path: string, isDir: boolean) => void;
   moveInto: (paths: readonly string[], folder: string) => void;

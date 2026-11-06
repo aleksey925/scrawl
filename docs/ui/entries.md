@@ -38,14 +38,20 @@ Creating, naming, moving and deleting files and folders.
   the file away. From the sidebar the row's name turns into a field in place,
   Enter or a click away keeps it and Escape drops it; from a page's menu, a
   folder's list and a phone it is a small dialog with one field. Move to opens
-  a palette with a search field over the folders of the space, the space itself
-  first: empty, it shows them all as a tree, and typed, the folders whose name
-  matches, each with the folder it sits in. The folder the entry is in now is
-  shown but not picked, a folder being moved leaves itself and everything
-  inside it out of the list, and the foot shows the path the entry will get, or
-  that the folder already holds that name, which is then not moved to. Arrows
-  pick, Enter or a click moves, through the same path a drag takes, and the
-  page follows an entry that was on screen.
+  a popover where the menu it was picked from was, on the side of the screen
+  the menu sat on, as Notion does; a dialog in the middle of the screen took
+  the eye away from the row or the page being moved. On a phone it fills the
+  screen. It holds a search field over the folders of the space, the space
+  itself first: empty, it shows them as a tree with every folder folded, the
+  one the entry is in too, a chevron or the right and left arrows unfold and
+  fold a folder, and typed, the folders whose name matches, each with the
+  folder it sits in. The whole tree open was a long list to scroll through in a
+  real space. The folder the entry is in now is marked Current and cannot be
+  picked, a folder being moved leaves itself and everything inside it out of
+  the list, and the foot shows the path the entry will get, or that the folder
+  already holds that name, which is then not moved to. Up and down pick, Enter
+  or a click on the row moves, through the same path a drag takes, and the page
+  follows an entry that was on screen.
 - A folder with things in it is deleted only on a second word. The API refuses
   it without `recursive=true`, so an agent that named the wrong path does not
   lose a tree to one request, and the page asks "and everything in it?" in the

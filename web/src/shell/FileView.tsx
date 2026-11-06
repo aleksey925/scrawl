@@ -183,7 +183,7 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
               <Menu.Item
                 data-testid="file-menu-move"
                 leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
-                onClick={() => actions.moveTo(file.path, false)}
+                onClick={(event) => actions.moveTo(file.path, false, event.currentTarget)}
               >
                 Move to
               </Menu.Item>

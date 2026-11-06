@@ -1,8 +1,10 @@
-import { Highlight, Modal } from '@mantine/core';
+import { Highlight, Modal, Popover, Portal } from '@mantine/core';
 import { useEffect, useMemo, useRef, useState, type JSX, type KeyboardEvent } from 'react';
 
 import type { NavNode } from '../api/types';
-import { IconFolder, IconHome, IconSearch } from '../icons';
+import { TapGuard, useTouchScreen } from '../components/TapGuard';
+import controls from '../controls.module.css';
+import { IconChevronDown, IconChevronRight, IconFolder, IconHome, IconSearch } from '../icons';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import classes from './Search.module.css';
@@ -15,53 +17,126 @@ interface Place {
   name: string;
   depth: number;
   holds: ReadonlySet<string>;
+  folders: number;
 }
 
 const indentStep = 16;
-const rowStart = 10;
+const rowStart = 6;
+const popoverWidth = 320;
 
 function namesOf(nodes: readonly NavNode[]): ReadonlySet<string> {
   return new Set(nodes.map((node) => node.name));
 }
 
-function collectPlaces(nodes: readonly NavNode[], depth: number, moved: string, into: Place[]): void {
-  for (const node of nodes) {
-    if (!node.is_dir || node.path === moved || node.path.startsWith(`${moved}/`)) {
-      continue;
+function foldersOf(nodes: readonly NavNode[], moved: string): NavNode[] {
+  return nodes.filter((node) => node.is_dir && node.path !== moved && !node.path.startsWith(`${moved}/`));
+}
+
+function collectPlaces(
+  nodes: readonly NavNode[], depth: number, moved: string, isOpen: (path: string) => boolean, into: Place[],
+): void {
+  for (const node of foldersOf(nodes, moved)) {
+    const inner = foldersOf(node.children, moved);
+    into.push({ path: node.path, name: node.name, depth, holds: namesOf(node.children), folders: inner.length });
+    if (isOpen(node.path)) {
+      collectPlaces(inner, depth + 1, moved, isOpen, into);
     }
-    into.push({ path: node.path, name: node.name, depth, holds: namesOf(node.children) });
-    collectPlaces(node.children, depth + 1, moved, into);
   }
 }
 
-function placesOf(tree: readonly NavNode[], spaceName: string, moved: string): Place[] {
-  const res: Place[] = [{ path: '', name: spaceName, depth: 0, holds: namesOf(tree) }];
-  collectPlaces(tree, 1, moved, res);
+function placesOf(tree: readonly NavNode[], spaceName: string, moved: string, isOpen: (path: string) => boolean): Place[] {
+  const res: Place[] = [{ path: '', name: spaceName, depth: 0, holds: namesOf(tree), folders: 0 }];
+  collectPlaces(tree, 0, moved, isOpen, res);
   return res;
 }
 
 export interface MoveDialogProps {
   path: string;
   isDir: boolean;
+  anchor: DOMRect;
   tree: readonly NavNode[];
   spaceName: string;
   onMove: (folder: string) => void;
   onClose: () => void;
 }
 
-export function MoveDialog({ path, isDir, tree, spaceName, onMove, onClose }: MoveDialogProps): JSX.Element {
+export function MoveDialog(props: MoveDialogProps): JSX.Element {
   const phone = useBelow(layoutBreakpoints.phone);
-  const area = useVisibleArea(phone);
+  return phone ? <MoveScreen {...props} /> : <MovePopover {...props} />;
+}
+
+function MoveScreen(props: MoveDialogProps): JSX.Element {
+  const area = useVisibleArea(true);
+  return (
+    <Modal opened onClose={props.onClose} fullScreen withCloseButton={false} padding={0} trapFocus>
+      <div
+        data-testid="move-dialog"
+        className={classes.dialog}
+        style={{
+          maxHeight: 'none',
+          height: area === undefined ? '100dvh' : area.height,
+          transform: `translateY(${area?.top ?? 0}px)`,
+        }}
+      >
+        <MovePicker {...props} phone />
+      </div>
+    </Modal>
+  );
+}
+
+function MovePopover(props: MoveDialogProps): JSX.Element {
+  const { anchor, onClose } = props;
+  const touch = useTouchScreen();
+  return (
+    <Portal>
+      <Popover
+        opened
+        onDismiss={onClose}
+        position={anchor.left + anchor.width / 2 > window.innerWidth / 2 ? 'bottom-end' : 'bottom-start'}
+        offset={-anchor.height}
+        width={popoverWidth}
+        middlewares={{ flip: true, shift: { padding: 8 } }}
+        floatingStrategy="fixed"
+        withinPortal={false}
+        closeOnClickOutside={!touch}
+        trapFocus
+        radius="lg"
+        shadow="md"
+        classNames={{ dropdown: controls.menu }}
+      >
+        <Popover.Target>
+          <span
+            className={moveClasses.anchor}
+            style={{ left: anchor.left, top: anchor.top, width: anchor.width, height: anchor.height }}
+          />
+        </Popover.Target>
+        <Popover.Dropdown p={0}>
+          <div data-testid="move-dialog" className={moveClasses.popover}>
+            <MovePicker {...props} phone={false} />
+          </div>
+        </Popover.Dropdown>
+      </Popover>
+      <TapGuard active onClose={onClose} />
+    </Portal>
+  );
+}
+
+function MovePicker({
+  path, isDir, tree, spaceName, onMove, onClose, phone,
+}: MoveDialogProps & { phone: boolean }): JSX.Element {
   const [text, setText] = useState('');
   const bodyRef = useRef<HTMLDivElement>(null);
   const name = basenameOf(path);
   const here = parentOf(path);
   const query = text.trim().toLowerCase();
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
 
-  const places = useMemo(() => placesOf(tree, spaceName, path), [tree, spaceName, path]);
   const shown = useMemo(
-    () => (query === '' ? places : places.filter((place) => place.name.toLowerCase().includes(query))),
-    [places, query],
+    () =>
+      query === ''
+        ? placesOf(tree, spaceName, path, (folder) => open.has(folder))
+        : placesOf(tree, spaceName, path, () => true).filter((place) => place.name.toLowerCase().includes(query)),
+    [tree, spaceName, path, open, query],
   );
   const choices = useMemo(() => shown.filter((place) => place.path !== here), [shown, here]);
   const [active, setActive] = useState<string | undefined>(undefined);
@@ -79,12 +154,32 @@ export function MoveDialog({ path, isDir, tree, spaceName, onMove, onClose }: Mo
     }
   };
 
+  const fold = (folder: string, opened: boolean): void => {
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (opened) {
+        next.add(folder);
+      } else {
+        next.delete(folder);
+      }
+      return next;
+    });
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       const at = picked === undefined ? -1 : choices.indexOf(picked);
       const step = event.key === 'ArrowDown' ? 1 : -1;
       setActive(choices[Math.min(Math.max(at + step, 0), choices.length - 1)]?.path);
+      return;
+    }
+    if ((event.key === 'ArrowRight' || event.key === 'ArrowLeft') && query === '' && picked !== undefined) {
+      const opening = event.key === 'ArrowRight';
+      if (picked.folders > 0 && open.has(picked.path) !== opening) {
+        event.preventDefault();
+        fold(picked.path, opening);
+      }
       return;
     }
     if (event.key === 'Enter') {
@@ -96,99 +191,105 @@ export function MoveDialog({ path, isDir, tree, spaceName, onMove, onClose }: Mo
   const title = pageName(name, isDir);
 
   return (
-    <Modal
-      opened
-      onClose={onClose}
-      size={460}
-      yOffset="10vh"
-      fullScreen={phone}
-      withCloseButton={false}
-      padding={0}
-      trapFocus
-    >
-      <div
-        data-testid="move-dialog"
-        className={classes.dialog}
-        style={
-          phone
-            ? { maxHeight: 'none', height: area === undefined ? '100dvh' : area.height, transform: `translateY(${area?.top ?? 0}px)` }
-            : undefined
-        }
-      >
-        <div className={classes.inputRow}>
-          <div className={classes.field}>
-            <IconSearch size={layout.iconSize} />
-            <input
-              data-testid="move-input"
-              className={classes.input}
-              value={text}
-              autoFocus
-              placeholder={`Move ${title} to…`}
-              aria-label={`Move ${title} to a folder`}
-              autoComplete="off"
-              spellCheck={false}
-              onChange={(event) => setText(event.currentTarget.value)}
-              onKeyDown={onKeyDown}
-            />
-          </div>
-          {phone && (
-            <button type="button" data-testid="move-close" className={classes.cancel} onClick={onClose}>
-              Cancel
-            </button>
-          )}
+    <>
+      <div className={phone ? classes.inputRow : moveClasses.search}>
+        <div className={phone ? classes.field : moveClasses.searchBox}>
+          <IconSearch size={phone ? layout.iconSize : layout.iconSizeSmall} />
+          <input
+            data-testid="move-input"
+            className={phone ? classes.input : moveClasses.input}
+            value={text}
+            autoFocus
+            placeholder={`Move ${title} to…`}
+            aria-label={`Move ${title} to a folder`}
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(event) => setText(event.currentTarget.value)}
+            onKeyDown={onKeyDown}
+          />
         </div>
-
-        <div ref={bodyRef} className={classes.body} role="listbox" aria-label="Folders">
-          {shown.length === 0 && (
-            <div data-testid="move-empty" className={classes.empty}>
-              No folder matches that.
-            </div>
-          )}
-          {shown.map((place) => {
-            const current = place.path === here;
-            return (
-              <button
-                key={place.path}
-                type="button"
-                role="option"
-                data-testid="move-place"
-                data-path={place.path}
-                data-current={current ? 'true' : 'false'}
-                data-active={place === picked ? 'true' : 'false'}
-                aria-selected={place === picked}
-                aria-disabled={current}
-                className={`${classes.head} ${moveClasses.place}`}
-                style={query === '' ? { paddingLeft: rowStart + place.depth * indentStep } : undefined}
-                onMouseMove={() => !current && setActive(place.path)}
-                onClick={() => choose(place)}
-              >
-                {place.path === '' ? <IconHome size={layout.iconSizeSmall} /> : <IconFolder size={layout.iconSizeSmall} />}
-                <Highlight component="span" className={classes.title} highlight={query === '' ? [] : query} fw="inherit" size="sm">
-                  {place.name}
-                </Highlight>
-                {query !== '' && place.path !== '' && (
-                  <span className={classes.path}>{parentOf(place.path) === '' ? spaceName : parentOf(place.path)}</span>
-                )}
-                {current && <span className={classes.count}>Current</span>}
-              </button>
-            );
-          })}
-        </div>
-
-        <div data-testid="move-preview" className={classes.footer}>
-          {picked === undefined ? (
-            <span>Pick a folder to move {title} into</span>
-          ) : picked.holds.has(name) ? (
-            <span data-testid="move-taken" className={moveClasses.taken}>
-              {picked.name} already holds {name}
-            </span>
-          ) : (
-            <span className={moveClasses.target}>
-              Moves to <code>{joinPath(picked.path, name)}</code>
-            </span>
-          )}
-        </div>
+        {phone && (
+          <button type="button" data-testid="move-close" className={classes.cancel} onClick={onClose}>
+            Cancel
+          </button>
+        )}
       </div>
-    </Modal>
+
+      <div
+        ref={bodyRef}
+        className={`${classes.body} ${moveClasses.body}`}
+        role="listbox"
+        aria-label="Folders"
+      >
+        {shown.length === 0 && (
+          <div data-testid="move-empty" className={classes.empty}>
+            No folder matches that.
+          </div>
+        )}
+        {shown.map((place) => {
+          const current = place.path === here;
+          const opened = open.has(place.path);
+          return (
+            <div
+              key={place.path}
+              role="option"
+              data-testid="move-place"
+              data-path={place.path}
+              data-current={current ? 'true' : 'false'}
+              data-active={place === picked ? 'true' : 'false'}
+              data-open={opened ? 'true' : 'false'}
+              aria-selected={place === picked}
+              aria-disabled={current}
+              className={`${classes.head} ${moveClasses.place}`}
+              style={query === '' ? { paddingLeft: rowStart + place.depth * indentStep } : undefined}
+              onMouseMove={() => !current && setActive(place.path)}
+              onClick={() => choose(place)}
+            >
+              {query === '' &&
+                (place.folders > 0 ? (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    data-testid="move-twisty"
+                    className={moveClasses.twisty}
+                    aria-label={`${opened ? 'Collapse' : 'Expand'} ${place.name}`}
+                    aria-expanded={opened}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      fold(place.path, !opened);
+                    }}
+                  >
+                    {opened ? <IconChevronDown size={layout.iconSizeTiny} /> : <IconChevronRight size={layout.iconSizeTiny} />}
+                  </button>
+                ) : (
+                  <span className={moveClasses.twisty} />
+                ))}
+              {place.path === '' ? <IconHome size={layout.iconSizeSmall} /> : <IconFolder size={layout.iconSizeSmall} />}
+              <Highlight component="span" className={classes.title} highlight={query === '' ? [] : query} fw="inherit" size="sm">
+                {place.name}
+              </Highlight>
+              {query !== '' && place.path !== '' && (
+                <span className={classes.path}>{parentOf(place.path) === '' ? spaceName : parentOf(place.path)}</span>
+              )}
+              {current && <span className={classes.count}>Current</span>}
+            </div>
+          );
+        })}
+      </div>
+
+      <div data-testid="move-preview" className={classes.footer}>
+        {picked === undefined ? (
+          <span>Pick a folder to move {title} into</span>
+        ) : picked.holds.has(name) ? (
+          <span data-testid="move-taken" className={moveClasses.taken}>
+            {picked.name} already holds {name}
+          </span>
+        ) : (
+          <span className={moveClasses.target}>
+            Moves to <code>{joinPath(picked.path, name)}</code>
+          </span>
+        )}
+      </div>
+    </>
   );
 }

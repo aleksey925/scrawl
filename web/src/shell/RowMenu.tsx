@@ -115,7 +115,7 @@ export function RowMenu({
             <Menu.Item
               data-testid="tree-row-menu-move"
               leftSection={<IconMoveTo size={rowMenuIconSize} />}
-              onClick={() => actions.moveTo(path, isDir)}
+              onClick={(event) => actions.moveTo(path, isDir, event.currentTarget)}
             >
               Move to
             </Menu.Item>

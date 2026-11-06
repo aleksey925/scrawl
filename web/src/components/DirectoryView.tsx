@@ -194,7 +194,7 @@ function FolderMenu({ path, actions }: { path: string; actions: FileActions }): 
             <Menu.Item
               data-testid="folder-menu-move"
               leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
-              onClick={() => actions.moveTo(path, true)}
+              onClick={(event) => actions.moveTo(path, true, event.currentTarget)}
             >
               Move to
             </Menu.Item>

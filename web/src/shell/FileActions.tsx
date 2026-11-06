@@ -28,6 +28,7 @@ import { basenameOf, hasOwnExtension, joinPath, renamedPath } from './naming';
 interface MovedEntry {
   path: string;
   isDir: boolean;
+  anchor: DOMRect;
 }
 
 function conflictText(error: unknown, fallback: string): string {
@@ -301,7 +302,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       treeRename,
       submitRename,
       cancelTreeRename: () => setTreeRename(undefined),
-      moveTo: (path, isDir) => setMoving({ path, isDir }),
+      moveTo: (path, isDir, from) => setMoving({ path, isDir, anchor: (from.closest('[role="menu"]') ?? from).getBoundingClientRect() }),
       remove,
       copyLink: (path, isDir) => void copyLink(path, isDir),
       moveInto,
@@ -327,6 +328,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         <MoveDialog
           path={moving.path}
           isDir={moving.isDir}
+          anchor={moving.anchor}
           tree={tree}
           spaceName={spaceLabel(me)}
           onMove={(folder) => {

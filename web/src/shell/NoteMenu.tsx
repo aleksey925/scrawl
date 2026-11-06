@@ -97,7 +97,7 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
             <Menu.Item
               data-testid="note-menu-move"
               leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
-              onClick={() => actions.moveTo(path, false)}
+              onClick={(event) => actions.moveTo(path, false, event.currentTarget)}
             >
               Move to
             </Menu.Item>

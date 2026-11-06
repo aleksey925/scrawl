@@ -23,6 +23,13 @@ const JUNK_FOLDER = 'e2e-fm-junk';
 const LISTED_FOLDER = 'e2e-fm-listed';
 const MOVED = 'e2e-fm-moved.md';
 const INNER = `${FOLDER}/inner`;
+const NEST = 'e2e-fm-nest';
+const NESTED_NOTE = `${NEST}/a/note.md`;
+
+function shownPlaces(page, prefix) {
+    return page.locator('[data-testid=move-place]')
+        .evaluateAll((rows, start) => rows.map((row) => row.dataset.path).filter((path) => path.startsWith(start)), prefix);
+}
 
 test.describe.serial('file management', () => {
     test.beforeEach(async ({page}) => {
@@ -30,7 +37,7 @@ test.describe.serial('file management', () => {
     });
 
     test.afterAll(() => {
-        for (const folder of [FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER, LISTED_FOLDER]) {
+        for (const folder of [FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER, LISTED_FOLDER, NEST]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
         for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE, TYPED_FILE, TYPED_PICTURE, DATED_PAGE]) {
@@ -353,6 +360,68 @@ test.describe.serial('file management', () => {
         await expect(page.locator(`[data-testid=move-place][data-path="${OTHER}"]`)).toHaveCount(1);
         await expect(page.locator(`[data-testid=move-place][data-path="${FOLDER}"], [data-testid=move-place][data-path="${INNER}"]`))
             .toHaveCount(0);
+    });
+
+    test('Move to shows every folder folded, the one the entry is in too', async ({page}) => {
+        // arrange
+        writeFixture(NESTED_NOTE, '# Nested\n');
+        for (const folder of [`${NEST}/a/b`, `${NEST}/c/d`]) {
+            fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        }
+        await page.goto(MAIN.url.doc(NESTED_NOTE));
+
+        // act
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('note-menu-move').click();
+
+        // assert
+        await expect.poll(() => shownPlaces(page, NEST)).toEqual([NEST]);
+        await shot(page, 'files-move-folded');
+    });
+
+    test('a chevron in Move to unfolds a folder and moves nothing', async ({page}) => {
+        // arrange
+        await page.goto(MAIN.url.doc(NESTED_NOTE));
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('note-menu-move').click();
+
+        // act
+        await page.locator(`[data-testid=move-place][data-path="${NEST}"] [data-testid=move-twisty]`).click();
+
+        // assert
+        await expect.poll(() => shownPlaces(page, NEST))
+            .toEqual([NEST, `${NEST}/a`, `${NEST}/c`]);
+        await expect(page.getByTestId('move-dialog')).toBeVisible();
+        expect(fs.existsSync(fixtureFile(NESTED_NOTE))).toBe(true);
+    });
+
+    test('the right and left arrows unfold and fold the picked folder in Move to', async ({page}) => {
+        // arrange
+        await page.goto(MAIN.url.doc(NESTED_NOTE));
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('note-menu-move').click();
+        await page.locator(`[data-testid=move-place][data-path="${NEST}"]`).hover();
+        const input = page.getByTestId('move-input');
+
+        // act & assert
+        await input.press('ArrowRight');
+        await expect(page.locator(`[data-testid=move-place][data-path="${NEST}/a"]`)).toHaveCount(1);
+        await input.press('ArrowLeft');
+        await expect(page.locator(`[data-testid=move-place][data-path="${NEST}/a"]`)).toHaveCount(0);
+    });
+
+    test('Move to opens in place of the menu it was picked from, and Escape closes it', async ({page}) => {
+        // arrange
+        await page.goto(MAIN.url.doc(NESTED_NOTE));
+        await page.getByTestId('note-menu').click();
+        const menu = await page.getByTestId('note-menu-dropdown').boundingBox();
+        const edges = (box) => ({right: Math.round(box.x + box.width), top: Math.round(box.y)});
+
+        // act & assert
+        await page.getByTestId('note-menu-move').click();
+        await expect.poll(async () => edges(await page.getByTestId('move-dialog').boundingBox())).toEqual(edges(menu));
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('move-dialog')).toHaveCount(0);
     });
 
     test('moves a folder with Move to and follows it when it is on screen', async ({page}) => {

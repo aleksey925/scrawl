@@ -56,6 +56,10 @@ docker run -d \
 [examples/docker-compose.yml](examples/docker-compose.yml) is a fuller
 deployment example.
 
+At start scrawl prints the links to open it. Inside Docker the `network` ones
+carry the container's own addresses, which another machine cannot open: from
+there use the address of the host and the port `-p` publishes.
+
 You can also install it with [mise](https://mise.jdx.dev). This command
 installs the latest [release](https://github.com/aleksey925/scrawl/releases):
 
@@ -550,6 +554,12 @@ in one folder instead.
   and you are shown both versions
 - nothing outside the folder of a space is reachable and symbolic links are
   ignored
+- a deleted file or folder waits 5 minutes in a `.scrawl-trash/` folder at the
+  root of the notes folder, so Undo can put it back. While it waits,
+  `git status`, Syncthing and a backup of the notes folder see that folder too,
+  and a restart of scrawl empties it. A folder of another disk mounted inside
+  the notes folder cannot be deleted, since a move to the trash cannot cross
+  disks
 
 ## API
 
@@ -691,8 +701,10 @@ it with everything in it; without it the answer is
 `409 {"error":"directory is not empty"}`.
 
 A deleted file or folder is kept for 5 minutes, and `POST /api/trash/restore`
-with the `trash_id` of the delete puts it back where it was. After that the
-answer is `404`, and `409` if something else is at that path now.
+with the `trash_id` of the delete puts it back where it was. The answer is
+`409` when something else is at that path now, and the entry stays in the
+trash. After 5 minutes, or after a restart of scrawl, which empties the trash,
+the answer is `404`.
 
 A token ending in `:ro` reads everything and writes nothing: every write is
 `403 {"error":"read-only token, writing is disabled"}`. `READ_ONLY` on the

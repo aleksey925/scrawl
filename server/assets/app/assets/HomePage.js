@@ -1,1 +1,1 @@
-import{Yt as e}from"./PageChrome.js";import{t}from"./DirectoryView.js";var n=e();function r(){return(0,n.jsx)(t,{path:``})}export{r as Component};
+import{Xt as e}from"./PageChrome.js";import{t}from"./DirectoryView.js";var n=e();function r(){return(0,n.jsx)(t,{path:``})}export{r as Component};

@@ -1021,6 +1021,27 @@ func TestAPITrashRestore(t *testing.T) {
 		assert.Equal(t, [][]string{files, files}, fake.reported)
 	})
 
+	t.Run("a deleted file comes back with what it held", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{})
+		original, _, err := ts.Spaces[0].Store.Read("guide.md")
+		require.NoError(t, err)
+		_, deleted := ts.json(t, request{method: http.MethodDelete, path: "/api/file/guide.md"})
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]any{"id": deleted["trash_id"]}),
+		})
+
+		// assert
+		require.Equal(t, http.StatusOK, resp.status, body)
+		assert.Equal(t, "guide.md", body["path"])
+		data, _, err := ts.Spaces[0].Store.Read("guide.md")
+		require.NoError(t, err)
+		assert.Equal(t, original, data)
+		assert.NotEmpty(t, ts.Spaces[0].Index.Search("gadgets", 5))
+	})
+
 	t.Run("an id the trash does not hold is not found", func(t *testing.T) {
 		// arrange
 		ts := newTestServer(t, testOpts{})
@@ -1032,6 +1053,48 @@ func TestAPITrashRestore(t *testing.T) {
 
 		// assert
 		assert.Equal(t, http.StatusNotFound, resp.status, body)
+	})
+
+	t.Run("an id of another space is not found here", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{second: secondSpace})
+		require.NoError(t, os.WriteFile(filepath.Join(ts.secondRoot, "team.md"), []byte("# Team\n"), 0o600))
+		_, deleted := ts.json(t, request{
+			method: http.MethodDelete, path: ts.second().Prefix() + "/api/file/team.md", literal: true,
+		})
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]any{"id": deleted["trash_id"]}),
+		})
+
+		// assert
+		assert.Equal(t, http.StatusNotFound, resp.status, body)
+		assert.False(t, ts.Spaces[0].Store.Exists("team.md"))
+		assert.False(t, ts.second().Store.Exists("team.md"))
+	})
+
+	t.Run("a body without an id or not JSON is refused", func(t *testing.T) {
+		tests := []struct {
+			name   string
+			body   io.Reader
+			status int
+		}{
+			{name: "no id", body: strings.NewReader("{}"), status: http.StatusNotFound},
+			{name: "not json", body: strings.NewReader("{oops"), status: http.StatusBadRequest},
+		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				// arrange
+				ts := newTestServer(t, testOpts{})
+
+				// act
+				resp, body := ts.json(t, request{method: http.MethodPost, path: "/api/trash/restore", body: tc.body})
+
+				// assert
+				assert.Equal(t, tc.status, resp.status, body)
+			})
+		}
 	})
 
 	t.Run("something put at the place since is kept", func(t *testing.T) {

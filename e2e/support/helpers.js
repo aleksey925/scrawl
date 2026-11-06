@@ -204,6 +204,17 @@ async function holdRoute(page, url) {
     return release;
 }
 
+async function rightClickPrevented(page, target, options = {}) {
+    await page.evaluate(() => {
+        window.e2eMenuPrevented = undefined;
+        window.addEventListener('contextmenu', (event) => {
+            window.e2eMenuPrevented = event.defaultPrevented;
+        }, {once: true});
+    });
+    await target.click({...options, button: 'right'});
+    return page.evaluate(() => window.e2eMenuPrevented);
+}
+
 async function stays(read, expected, ms) {
     const until = Date.now() + ms;
     do {
@@ -234,6 +245,7 @@ module.exports = {
     readFixture,
     removeFixture,
     rgb,
+    rightClickPrevented,
     routes,
     save,
     setSource,

@@ -39,13 +39,24 @@ How the notes on disk are read, written and watched.
   `os.Root`, so it is as quick as a move and needs no second filesystem. A dot
   name keeps the trash out of the tree, the search, the watcher and history,
   which stages only the paths an operation names.
-- The store keeps an entry for `TrashKeep`, 5 minutes, and a worker sweeps it
+- The store keeps an entry for `trashKeep`, 5 minutes, and a worker sweeps it
   every minute; a new store empties what a past run left, because the ids that
   named it lived in memory. Undo is the only way back, it shows for 6 seconds,
   and a longer keep would only hold deleted files on disk that nobody can
   reach. [ADR 20](../adr/0020-delete-to-a-trash-with-undo.md)
 - `Recover` puts nothing over an entry that took the place in the meantime and
   makes the folders above it again when they went.
+- A rename cannot cross two filesystems, so an entry on another filesystem
+  mounted inside the space, a bind mount in Docker for one, cannot be deleted:
+  the rename fails with `EXDEV` and the delete answers an error. The entry
+  stays where it was.
+- The trash is a real folder at the root of the notes while it holds something,
+  so `git status`, Syncthing and a backup of the folder see `.scrawl-trash/`
+  for up to 5 minutes. History never stages it
+  ([history](history.md#recording)).
+- A sweep takes the expired ids under the write lock and erases their folders
+  after it, so a large folder going for good does not hold up the writes of the
+  space.
 
 ## Watching
 

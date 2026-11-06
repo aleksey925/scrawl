@@ -78,6 +78,33 @@ func TestStoreDiscard(t *testing.T) {
 	})
 }
 
+func TestStoreTrashed(t *testing.T) {
+	t.Run("names the path an id took", func(t *testing.T) {
+		// arrange
+		s := newStore(t, notesFiles())
+		id, err := s.Discard("notes/deep/nested.md", false)
+		require.NoError(t, err)
+
+		// act
+		p, ok := s.Trashed(id)
+
+		// assert
+		assert.True(t, ok)
+		assert.Equal(t, "notes/deep/nested.md", p)
+	})
+
+	t.Run("knows no id it never gave", func(t *testing.T) {
+		// arrange
+		s := newStore(t, notesFiles())
+
+		// act
+		_, ok := s.Trashed("NOPE")
+
+		// assert
+		assert.False(t, ok)
+	})
+}
+
 func TestStoreRecover(t *testing.T) {
 	t.Run("a file comes back where it was", func(t *testing.T) {
 		// arrange
@@ -86,11 +113,10 @@ func TestStoreRecover(t *testing.T) {
 		require.NoError(t, err)
 
 		// act
-		p, err := s.Recover(id)
+		err = s.Recover(id)
 
 		// assert
 		require.NoError(t, err)
-		assert.Equal(t, "guide.md", p)
 		body, err := os.ReadFile(filepath.Join(s.Dir(), "guide.md"))
 		require.NoError(t, err)
 		assert.Equal(t, notesFiles()["guide.md"], string(body))
@@ -106,12 +132,14 @@ func TestStoreRecover(t *testing.T) {
 		require.NoError(t, err)
 
 		// act
-		_, err = s.Recover(first)
+		err = s.Recover(first)
 
 		// assert
 		require.NoError(t, err)
 		assert.NoDirExists(t, filepath.Join(s.Dir(), trashDir, first))
-		assert.FileExists(t, filepath.Join(s.Dir(), trashDir, second, "snippet.py"))
+		require.NoError(t, s.Recover(second))
+		assert.FileExists(t, filepath.Join(s.Dir(), "snippet.py"))
+		assert.NoDirExists(t, filepath.Join(s.Dir(), trashDir))
 	})
 
 	t.Run("a folder comes back with its hidden files", func(t *testing.T) {
@@ -121,7 +149,7 @@ func TestStoreRecover(t *testing.T) {
 		require.NoError(t, err)
 
 		// act
-		_, err = s.Recover(id)
+		err = s.Recover(id)
 
 		// assert
 		require.NoError(t, err)
@@ -137,11 +165,11 @@ func TestStoreRecover(t *testing.T) {
 		require.NoError(t, os.RemoveAll(filepath.Join(s.Dir(), "notes", "deep")))
 
 		// act
-		p, err := s.Recover(id)
+		err = s.Recover(id)
 
 		// assert
 		require.NoError(t, err)
-		assert.FileExists(t, filepath.Join(s.Dir(), filepath.FromSlash(p)))
+		assert.FileExists(t, filepath.Join(s.Dir(), "notes", "deep", "nested.md"))
 	})
 
 	t.Run("something now at the place is not overwritten, and the trash keeps the entry", func(t *testing.T) {
@@ -149,17 +177,43 @@ func TestStoreRecover(t *testing.T) {
 		s := newStore(t, notesFiles())
 		id, err := s.Discard("guide.md", false)
 		require.NoError(t, err)
-		require.NoError(t, os.WriteFile(filepath.Join(s.Dir(), "guide.md"), []byte("# new\n"), 0o644))
+		blocker := filepath.Join(s.Dir(), "guide.md")
+		require.NoError(t, os.WriteFile(blocker, []byte("# new\n"), 0o644))
 
 		// act
-		_, err = s.Recover(id)
+		err = s.Recover(id)
 
 		// assert
 		require.ErrorIs(t, err, ErrExists)
-		body, err := os.ReadFile(filepath.Join(s.Dir(), "guide.md"))
+		body, err := os.ReadFile(blocker)
 		require.NoError(t, err)
 		assert.Equal(t, "# new\n", string(body))
-		assert.FileExists(t, filepath.Join(s.Dir(), trashDir, id, "guide.md"))
+		require.NoError(t, os.Remove(blocker))
+		require.NoError(t, s.Recover(id))
+		body, err = os.ReadFile(blocker)
+		require.NoError(t, err)
+		assert.Equal(t, notesFiles()["guide.md"], string(body))
+	})
+
+	t.Run("a symlink inside comes back and what it points at is untouched", func(t *testing.T) {
+		// arrange
+		s := newStore(t, notesFiles())
+		secret := filepath.Join(filepath.Dir(s.Dir()), secretName)
+		require.NoError(t, os.Symlink(secret, filepath.Join(s.Dir(), "notes", "link")))
+		id, err := s.Discard("notes", true)
+		require.NoError(t, err)
+
+		// act
+		err = s.Recover(id)
+
+		// assert
+		require.NoError(t, err)
+		target, err := os.Readlink(filepath.Join(s.Dir(), "notes", "link"))
+		require.NoError(t, err)
+		assert.Equal(t, secret, target)
+		body, err := os.ReadFile(secret)
+		require.NoError(t, err)
+		assert.Equal(t, secretBody, string(body))
 	})
 
 	t.Run("an id the trash does not hold", func(t *testing.T) {
@@ -167,7 +221,7 @@ func TestStoreRecover(t *testing.T) {
 		s := newStore(t, notesFiles())
 
 		// act
-		_, err := s.Recover("../guide.md")
+		err := s.Recover("../guide.md")
 
 		// assert
 		require.ErrorIs(t, err, ErrNotFound)
@@ -182,11 +236,10 @@ func TestStoreSweepTrash(t *testing.T) {
 		require.NoError(t, err)
 
 		// act
-		s.SweepTrash(time.Now().Add(TrashKeep / 2))
+		s.SweepTrash(time.Now().Add(trashKeep / 2))
 
 		// assert
-		_, err = s.Recover(id)
-		require.NoError(t, err)
+		require.NoError(t, s.Recover(id))
 	})
 
 	t.Run("an entry kept long enough is gone for good", func(t *testing.T) {
@@ -196,23 +249,87 @@ func TestStoreSweepTrash(t *testing.T) {
 		require.NoError(t, err)
 
 		// act
-		s.SweepTrash(time.Now().Add(TrashKeep))
+		s.SweepTrash(time.Now().Add(trashKeep))
 
 		// assert
-		_, err = s.Recover(id)
-		require.ErrorIs(t, err, ErrNotFound)
+		require.ErrorIs(t, s.Recover(id), ErrNotFound)
 		assert.NoDirExists(t, filepath.Join(s.Dir(), trashDir))
+	})
+
+	t.Run("only the old entry goes when a young one is beside it", func(t *testing.T) {
+		// arrange
+		s := newStore(t, notesFiles())
+		old, err := s.Discard("guide.md", false)
+		require.NoError(t, err)
+		young, err := s.Discard("snippet.py", false)
+		require.NoError(t, err)
+		s.trash[old] = trashed{path: "guide.md", at: time.Now().Add(-trashKeep)}
+
+		// act
+		s.SweepTrash(time.Now())
+
+		// assert
+		require.ErrorIs(t, s.Recover(old), ErrNotFound)
+		assert.NoDirExists(t, filepath.Join(s.Dir(), trashDir, old))
+		require.NoError(t, s.Recover(young))
+		assert.FileExists(t, filepath.Join(s.Dir(), "snippet.py"))
+	})
+
+	t.Run("a symlink inside goes and what it points at stays", func(t *testing.T) {
+		// arrange
+		s := newStore(t, notesFiles())
+		secret := filepath.Join(filepath.Dir(s.Dir()), secretName)
+		require.NoError(t, os.Symlink(secret, filepath.Join(s.Dir(), "notes", "link")))
+		_, err := s.Discard("notes", true)
+		require.NoError(t, err)
+
+		// act
+		s.SweepTrash(time.Now().Add(trashKeep))
+
+		// assert
+		assert.NoDirExists(t, filepath.Join(s.Dir(), trashDir))
+		body, err := os.ReadFile(secret)
+		require.NoError(t, err)
+		assert.Equal(t, secretBody, string(body))
+	})
+
+	t.Run("a read-only store sweeps nothing", func(t *testing.T) {
+		// arrange
+		files := notesFiles()
+		files[trashDir+"/KEPT/old.md"] = "# old\n"
+		s := newStore(t, files, func(cfg *Config) { cfg.ReadOnly = true })
+		s.trash["KEPT"] = trashed{path: "old.md", at: time.Now().Add(-trashKeep)}
+
+		// act
+		s.SweepTrash(time.Now())
+
+		// assert
+		assert.FileExists(t, filepath.Join(s.Dir(), trashDir, "KEPT", "old.md"))
 	})
 }
 
 func TestStoreEmptiesTheTrashOfAPastRun(t *testing.T) {
-	// arrange
-	files := notesFiles()
-	files[trashDir+"/LEFT/old.md"] = "# old\n"
+	t.Run("a writable store empties it", func(t *testing.T) {
+		// arrange
+		files := notesFiles()
+		files[trashDir+"/LEFT/old.md"] = "# old\n"
 
-	// act
-	s := newStore(t, files)
+		// act
+		s := newStore(t, files)
 
-	// assert
-	assert.NoDirExists(t, filepath.Join(s.Dir(), trashDir))
+		// assert
+		assert.NoDirExists(t, filepath.Join(s.Dir(), trashDir))
+	})
+
+	t.Run("a read-only store keeps it", func(t *testing.T) {
+		// arrange
+		files := notesFiles()
+		files[trashDir+"/LEFT/old.md"] = "# old\n"
+
+		// act
+		s := newStore(t, files, func(cfg *Config) { cfg.ReadOnly = true })
+
+		// assert
+		assert.FileExists(t, filepath.Join(s.Dir(), trashDir, "LEFT", "old.md"))
+	})
 }

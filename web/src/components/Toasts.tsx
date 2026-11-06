@@ -1,23 +1,25 @@
 import { Notifications, notifications, type NotificationData } from '@mantine/notifications';
-import { useRef, useState, type JSX, type PointerEvent } from 'react';
+import { useRef, useState, type JSX, type MouseEvent, type PointerEvent } from 'react';
 
 import { IconAlertTriangle, IconCheck } from '../icons';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
+import type { ToastKind } from '../toast';
 
 import classes from './Toasts.module.css';
 
 const desktopWidth = 480;
 
-function toneOf(data: NotificationData): 'ok' | 'warn' | 'error' {
-  return data.color === 'green' ? 'ok' : data.color === 'red' ? 'error' : 'warn';
-}
-
-function onButton(event: PointerEvent<HTMLDivElement>): boolean {
+function onButton(event: MouseEvent<HTMLDivElement> | PointerEvent<HTMLDivElement>): boolean {
   return event.target instanceof Element && event.target.closest('button') !== null;
 }
 
+function selectsText(): boolean {
+  const selection = window.getSelection();
+  return selection !== null && !selection.isCollapsed;
+}
+
 function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX.Element {
-  const tone = toneOf(data);
+  const tone = data['data-kind'] as ToastKind;
   const Icon = tone === 'ok' ? IconCheck : IconAlertTriangle;
   const startY = useRef<number | undefined>(undefined);
   const [pulled, setPulled] = useState(0);
@@ -33,6 +35,11 @@ function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX
       data-testid="toast-pill"
       className={phone ? `${classes.toast} ${classes.pill}` : classes.toast}
       style={pulled < 0 ? { transform: `translateY(${pulled}px)`, transition: 'none' } : undefined}
+      onClick={(event: MouseEvent<HTMLDivElement>) => {
+        if (!phone && !onButton(event) && !selectsText()) {
+          dismiss();
+        }
+      }}
       onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
         if (!phone || onButton(event)) {
           return;
@@ -68,26 +75,14 @@ function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX
 
 export function Toasts(): JSX.Element {
   const phone = useBelow(layoutBreakpoints.phone);
-  if (!phone) {
-    return (
-      <Notifications
-        position="bottom-center"
-        containerWidth={desktopWidth}
-        allowDragDismiss={false}
-        classNames={{ root: classes.root }}
-        renderNotification={(data) => <Toast data={data} phone={false} />}
-      />
-    );
-  }
   return (
     <Notifications
-      position="top-center"
-      autoClose={2500}
-      transitionDuration={350}
+      position={phone ? 'top-center' : 'bottom-center'}
+      containerWidth={phone ? '100%' : desktopWidth}
+      {...(phone ? { autoClose: 2500, transitionDuration: 350 } : {})}
       allowDragDismiss={false}
-      containerWidth="100%"
       classNames={{ root: classes.root }}
-      renderNotification={(data) => <Toast data={data} phone />}
+      renderNotification={(data) => <Toast data={data} phone={phone} />}
     />
   );
 }

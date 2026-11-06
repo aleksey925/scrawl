@@ -12,6 +12,7 @@ export interface RowMenuProps {
   name: string;
   touch: boolean;
   inTree?: boolean;
+  withCreate?: boolean;
   editUrl?: string;
   opened: boolean;
   onOpenedChange: (opened: boolean) => void;

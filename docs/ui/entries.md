@@ -49,9 +49,11 @@ Creating, naming, moving and deleting files and folders.
   real space. The folder the entry is in now is marked Current and cannot be
   picked, a folder being moved leaves itself and everything inside it out of
   the list, and the foot shows the path the entry will get, or that the folder
-  already holds that name, which is then not moved to. Up and down pick, Enter
-  or a click on the row moves, through the same path a drag takes, and the page
-  follows an entry that was on screen.
+  already holds that name, which is then not moved to. That check knows only
+  the names the tree shows: a symlink or a file an exclude glob hides, under
+  the same name, is found only by the server, and the toast of the failed move
+  says so. Up and down pick, Enter or a click on the row moves, through the
+  same path a drag takes, and the page follows an entry that was on screen.
 - The toast of a move, by Move to or a drag, carries Undo for 6 seconds, which
   moves the entries back the same way and takes the page back with them. The
   move is made at once and Undo is a second move, as Notion and Finder do it,
@@ -71,8 +73,9 @@ Creating, naming, moving and deleting files and folders.
   page back to it if it was open, as Notion does. A dialog before every delete
   was a click more each time, while Undo is there for the one time it is wrong.
   The server keeps what was deleted for a few minutes
-  ([storage](../design/storage.md#the-trash)). The API still refuses a folder
-  that is not empty without `recursive=true`, so an agent that named the wrong
-  path does not lose a tree to one request; the page always sends it. The
-  removal takes the files the store hides too: a folder that kept its
+  ([storage](../design/storage.md#the-trash),
+  [ADR 20](../adr/0020-delete-to-a-trash-with-undo.md)). The API still refuses
+  a folder that is not empty without `recursive=true`, so an agent that named
+  the wrong path does not lose a tree to one request; the page always sends it.
+  The removal takes the files the store hides too: a folder that kept its
   `.DS_Store` looked empty and never went.

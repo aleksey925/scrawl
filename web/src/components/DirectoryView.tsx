@@ -42,7 +42,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
   const { canWrite, me } = useNav();
   const actions = useOptionalFileActions();
   const [draft, setDraft] = useState<EntryKind | undefined>(undefined);
-  const contextMenu = usePointerMenu();
+  const contextMenu = usePointerMenu<string>();
   const phone = useBelow(layoutBreakpoints.phone);
   const space = spaceLabel(me);
   usePageChrome(chromeOf(dir.breadcrumbs, path === '' ? '' : dir.title, true));
@@ -51,7 +51,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
   const writable = canWrite && actions !== undefined;
   const startDraft = (kind: EntryKind): void => {
     if (phone && actions !== undefined) {
-      (kind === 'file' ? actions.createPage : actions.createFolder)(path);
+      actions.createDraft(kind, path);
       return;
     }
     setDraft(kind);
@@ -71,15 +71,16 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
     <Page
       data-testid="dir"
       wide
+      data-fill
       className={classes.page}
-      onContextMenu={writable && !phone ? contextMenu.onContextMenu : undefined}
+      onContextMenu={writable && !phone ? (event) => contextMenu.onFreeSpace(event, path) : undefined}
     >
       {writable && (
         <PageActions>
           <FolderMenu path={path} actions={actions} />
         </PageActions>
       )}
-      <NewEntryMenu menu={contextMenu} testId="dir-context-menu" onCreate={startDraft} />
+      <NewEntryMenu menu={contextMenu} testId="dir-context-menu" onCreate={(kind) => startDraft(kind)} />
       <div className={classes.head}>
         <PageTitle testId="dir-title">{path === '' ? space : dir.title}</PageTitle>
         {writable && !phone && (
@@ -171,14 +172,14 @@ function FolderMenu({ path, actions }: { path: string; actions: FileActions }): 
         <Menu.Item
           data-testid="folder-menu-new-file"
           leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-          onClick={() => actions.createPage(path)}
+          onClick={() => actions.createDraft('file', path)}
         >
           New file
         </Menu.Item>
         <Menu.Item
           data-testid="folder-menu-new-folder"
           leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-          onClick={() => actions.createFolder(path)}
+          onClick={() => actions.createDraft('dir', path)}
         >
           New folder
         </Menu.Item>

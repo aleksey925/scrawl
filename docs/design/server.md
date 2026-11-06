@@ -194,4 +194,7 @@ Spaces, routes, settings and the guards on every request.
   port.
 - `Web.Run` binds the port before it serves and then logs the links to open:
   the address it bound, or, bound to every interface, `localhost` and each IPv4
-  address of the machine apart from loopback and link-local.
+  address of the machine apart from loopback and link-local. In a container
+  these are the container's own addresses, which no other machine can open, and
+  the server cannot learn the host's address or the port it publishes, so the
+  links stay as they are and the README says so.

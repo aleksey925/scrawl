@@ -299,7 +299,7 @@ func (m *mount) apiTrashRestore(w http.ResponseWriter, r *http.Request) {
 
 	var restored []string
 	err := m.record(r, history.Op{Message: "restore " + p, Paths: []string{p}}, func() ([]string, error) {
-		if _, recoverErr := m.spc.Store.Recover(req.ID); recoverErr != nil {
+		if recoverErr := m.spc.Store.Recover(req.ID); recoverErr != nil {
 			return nil, recoverErr
 		}
 		restored = m.filesUnder(p)

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -740,21 +741,86 @@ func TestEveryMutationIsRecorded(t *testing.T) {
 		{method: http.MethodPost, path: "/api/upload/images", body: upload,
 			headers: map[string]string{"Content-Type": contentType}},
 	}
+	var trashID any
 	for _, call := range calls {
 		resp, body := ts.json(t, call)
 		require.Less(t, resp.status, http.StatusMultipleChoices, "%s %s: %v", call.method, call.path, body)
+		if id, ok := body["trash_id"]; ok {
+			trashID = id
+		}
 	}
+	restored, restoredBody := ts.json(t, request{
+		method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]any{"id": trashID}),
+	})
 
 	// assert
+	require.Equal(t, http.StatusOK, restored.status, restoredBody)
 	assert.Equal(t, []string{
 		"save fresh.md", "create folder", "create new.md", "delete new.md",
-		"move fresh.md to moved.md", "upload an attachment",
+		"move fresh.md to moved.md", "upload an attachment", "restore new.md",
 	}, fake.messages())
 	assert.Equal(t, [][]string{
-		{"fresh.md"}, nil, {"new.md"}, {"new.md"}, {"fresh.md", "moved.md"}, nil,
+		{"fresh.md"}, nil, {"new.md"}, {"new.md"}, {"fresh.md", "moved.md"}, nil, {"new.md"},
 	}, fake.given())
-	assert.Equal(t, [][]string{nil, nil, nil, nil, nil, {"images/shot.png"}}, fake.reported,
-		"only the upload learns its path from the store")
+	assert.Equal(t, [][]string{nil, nil, nil, nil, nil, {"images/shot.png"}, {}}, fake.reported,
+		"only the upload learns its path from the store, and a restored file has nothing under it")
+}
+
+func gitTracked(t *testing.T, dir string) []string {
+	t.Helper()
+	cmd := exec.CommandContext(t.Context(), "git", "-c", "safe.directory="+dir, "ls-files")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null", "LC_ALL=C")
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git ls-files: %s", out)
+	return strings.Fields(string(out))
+}
+
+func TestADeleteAndItsUndoAreTwoCommitsAndTheTrashIsNeverTracked(t *testing.T) {
+	// arrange
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	ts := newTestServer(t, testOpts{})
+	notes := ts.Spaces[0].Store
+	hist, err := history.New(history.Config{
+		Name: testSpace, Root: notes.Dir(), Visible: notes.Visible,
+		Files: func() ([]string, error) {
+			files, filesErr := notes.Files()
+			res := make([]string, 0, len(files))
+			for _, fi := range files {
+				res = append(res, fi.Path)
+			}
+			return res, filesErr
+		},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, hist.Close()) })
+	require.NoError(t, hist.Reconcile(t.Context(), "startup"))
+	ts.Spaces[0].History = hist
+
+	// act
+	deleted, deletedBody := ts.json(t, request{method: http.MethodDelete, path: "/api/file/guide.md"})
+	require.Equal(t, http.StatusOK, deleted.status, deletedBody)
+	duringTrash := gitTracked(t, ts.root)
+	restored, restoredBody := ts.json(t, request{
+		method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]any{"id": deletedBody["trash_id"]}),
+	})
+
+	// assert
+	require.Equal(t, http.StatusOK, restored.status, restoredBody)
+	assert.NotContains(t, duringTrash, "guide.md")
+	for _, tracked := range append(duringTrash, gitTracked(t, ts.root)...) {
+		assert.NotContains(t, tracked, ".scrawl-trash")
+	}
+	assert.Contains(t, gitTracked(t, ts.root), "guide.md")
+	entries, err := hist.Log(t.Context(), "guide.md", 0)
+	require.NoError(t, err)
+	messages := make([]string, 0, len(entries))
+	for _, logged := range entries {
+		messages = append(messages, logged.Message)
+	}
+	assert.Equal(t, []string{"restore guide.md", "delete guide.md", "import the existing notes"}, messages)
 }
 
 func TestMoveRecordsTheDocumentsUnderADirectory(t *testing.T) {
@@ -860,6 +926,8 @@ func TestAWriteTheRemoteMissed(t *testing.T) {
 func TestEveryMutationCarriesTheState(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{history: &fakeHistory{unpublished: true, degraded: true}})
+	trashID, err := ts.Spaces[0].Store.Discard("index.md", false)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name    string
@@ -891,6 +959,13 @@ func TestEveryMutationCarriesTheState(t *testing.T) {
 			name:    "delete",
 			request: request{method: http.MethodDelete, path: "/api/file/docs/moved.md"},
 			status:  http.StatusOK,
+		},
+		{
+			name: "restore", status: http.StatusOK,
+			request: request{
+				method: http.MethodPost, path: "/api/trash/restore",
+				body: jsonBody(t, trashRestoreRequest{ID: trashID}),
+			},
 		},
 	}
 

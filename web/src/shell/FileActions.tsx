@@ -21,7 +21,7 @@ import { spaceLabel, useNav } from './NavContext';
 import { NewEntryDialog } from './NewEntryDialog';
 import { RenameDialog } from './RenameDialog';
 import { useMutationState } from './useMutationState';
-import { basenameOf, hasOwnExtension, joinPath, pageName, parentOf, renamedPath } from './naming';
+import { ancestorsOf, basenameOf, hasOwnExtension, joinPath, pageName, parentOf, renamedPath } from './naming';
 
 interface MovedEntry {
   path: string;
@@ -34,22 +34,9 @@ interface Relocation {
   to: string;
 }
 
-interface MoveWords {
-  back: boolean;
-  partly: string;
-  none: string;
-}
-
-const forwardWords: MoveWords = {
-  back: false,
-  partly: 'Some of it did not move',
-  none: 'Nothing was moved',
-};
-
-const backWords: MoveWords = {
-  back: true,
-  partly: 'Some of it did not move back',
-  none: 'Nothing was moved back',
+const failedMoveWords = {
+  forward: { partly: 'Some of it did not move', none: 'Nothing was moved' },
+  back: { partly: 'Some of it did not move back', none: 'Nothing was moved back' },
 };
 
 function quoted(path: string, isDir: boolean, spaceName: string): string {
@@ -130,11 +117,12 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const { revealNav: revealTree } = useReaderLayout();
   const navigate = useNavigate();
   const { tree, me, currentPath, refreshNav, openFolder, setQuery } = useNav();
-  const onFolder = isDirectoryPath(useLocation().pathname);
+  const location = useLocation();
+  const onFolder = isDirectoryPath(location.pathname);
   const reportMutation = useMutationState();
   const space = spaceLabel(me);
-  const shown = useRef({ path: currentPath, onFolder });
-  shown.current = { path: currentPath, onFolder };
+  const shown = useRef({ path: currentPath, onFolder, route: location.pathname + location.search });
+  shown.current = { path: currentPath, onFolder, route: location.pathname + location.search };
   const [renaming, setRenaming] = useState<string | undefined>(undefined);
   const [treeRename, setTreeRename] = useState<string | undefined>(undefined);
   const [moving, setMoving] = useState<MovedEntry | undefined>(undefined);
@@ -151,7 +139,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   }, [space]);
 
   const restore = useCallback(
-    (id: string, path: string, isDir: boolean, back: { path: string; onFolder: boolean } | undefined) => {
+    (id: string, path: string, isDir: boolean, back: string | undefined) => {
       void (async () => {
         try {
           reportMutation(await api.restoreDeleted(id), `Restored ${quoted(path, isDir, space)}`);
@@ -164,7 +152,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         }
         refreshNav();
         if (back !== undefined) {
-          await navigate(back.onFolder ? directoryUrl(back.path) : documentUrl(back.path));
+          await navigate(back);
         }
       })();
     },
@@ -174,7 +162,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const remove = useCallback(
     (path: string, isDir: boolean) => {
       void (async () => {
-        const back = currentPath === path || currentPath.startsWith(`${path}/`) ? { ...shown.current } : undefined;
+        const back = currentPath === path || currentPath.startsWith(`${path}/`) ? shown.current.route : undefined;
         let res: DeleteResponse;
         try {
           res = await api.deleteEntry(path);
@@ -195,18 +183,25 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
     [currentPath, navigate, refreshNav, reportMutation, restore, space],
   );
 
-  const startDraft = useCallback(
+  const showInTree = useCallback(
+    (folder: string) => {
+      setQuery('');
+      ancestorsOf(folder).slice(1).forEach(openFolder);
+      revealTree();
+    },
+    [openFolder, revealTree, setQuery],
+  );
+
+  const createDraft = useCallback(
     (kind: EntryKind, parent: string) => {
       if (phone) {
         setNaming({ kind, parent });
         return;
       }
-      setQuery('');
-      openFolder(parent);
+      showInTree(parent);
       setDraft({ kind, parent });
-      revealTree();
     },
-    [openFolder, phone, revealTree, setQuery],
+    [phone, showInTree],
   );
 
   const cancelDraft = useCallback(() => setDraft(undefined), []);
@@ -263,16 +258,17 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const moveInto = useCallback(
     (paths: readonly string[], folder: string) => {
-      const run = async (pairs: readonly Relocation[], words: MoveWords, undoable: boolean): Promise<void> => {
+      const run = async (pairs: readonly Relocation[], back: boolean): Promise<void> => {
         const { done, failure } = await relocateAll(pairs);
+        const words = back ? failedMoveWords.back : failedMoveWords.forward;
         if (done.length > 0) {
           refreshNav();
           new Set(done.map((pair) => parentOf(pair.to))).forEach(openFolder);
-          const back = done.map((pair) => ({ from: pair.to, to: pair.from })).reverse();
+          const undo = done.map((pair) => ({ from: pair.to, to: pair.from })).reverse();
           reportMutation(
             undefined,
-            movedMessage(done, words.back, space, (folder) => void navigate(directoryUrl(folder))),
-            undoable ? { label: 'Undo', onClick: () => void run(back, backWords, false) } : undefined,
+            movedMessage(done, back, space, (folder) => void navigate(directoryUrl(folder))),
+            back ? undefined : { label: 'Undo', onClick: () => void run(undo, true) },
           );
           const here = done.map((pair) => movedTo(shown.current.path, pair.from, pair.to)).find((path) => path !== undefined);
           if (here !== undefined) {
@@ -286,7 +282,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
           });
         }
       };
-      void run(paths.map((from) => ({ from, to: joinPath(folder, basenameOf(from)) })), forwardWords, true);
+      void run(paths.map((from) => ({ from, to: joinPath(folder, basenameOf(from)) })), false);
     },
     [navigate, openFolder, refreshNav, reportMutation, space],
   );
@@ -329,17 +325,15 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         setRenaming(path);
         return;
       }
-      setQuery('');
+      showInTree(parentOf(path));
       setTreeRename(path);
-      revealTree();
     },
-    [phone, revealTree, setQuery],
+    [phone, showInTree],
   );
 
   const actions = useMemo<FileActions>(
     () => ({
-      createPage: (folder) => startDraft('file', folder),
-      createFolder: (folder) => startDraft('dir', folder),
+      createDraft,
       rename: (path) => setRenaming(path),
       renameInTree,
       treeRename,
@@ -354,7 +348,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       cancelDraft,
       createEntry,
     }),
-    [cancelDraft, copyLink, createEntry, draft, moveInto, remove, renameInTree, startDraft, submitDraft, submitRename, treeRename],
+    [cancelDraft, copyLink, createDraft, createEntry, draft, moveInto, remove, renameInTree, submitDraft, submitRename, treeRename],
   );
 
   return (

@@ -17,7 +17,7 @@ interface Place {
   name: string;
   depth: number;
   holds: ReadonlySet<string>;
-  folders: number;
+  foldable: boolean;
 }
 
 const indentStep = 16;
@@ -37,7 +37,7 @@ function collectPlaces(
 ): void {
   for (const node of foldersOf(nodes, moved)) {
     const inner = foldersOf(node.children, moved);
-    into.push({ path: node.path, name: node.name, depth, holds: namesOf(node.children), folders: inner.length });
+    into.push({ path: node.path, name: node.name, depth, holds: namesOf(node.children), foldable: inner.length > 0 });
     if (isOpen(node.path)) {
       collectPlaces(inner, depth + 1, moved, isOpen, into);
     }
@@ -45,7 +45,7 @@ function collectPlaces(
 }
 
 function placesOf(tree: readonly NavNode[], spaceName: string, moved: string, isOpen: (path: string) => boolean): Place[] {
-  const res: Place[] = [{ path: '', name: spaceName, depth: 0, holds: namesOf(tree), folders: 0 }];
+  const res: Place[] = [{ path: '', name: spaceName, depth: 0, holds: namesOf(tree), foldable: false }];
   collectPlaces(tree, 0, moved, isOpen, res);
   return res;
 }
@@ -176,7 +176,7 @@ function MovePicker({
     }
     if ((event.key === 'ArrowRight' || event.key === 'ArrowLeft') && query === '' && picked !== undefined) {
       const opening = event.key === 'ArrowRight';
-      if (picked.folders > 0 && open.has(picked.path) !== opening) {
+      if (picked.foldable && open.has(picked.path) !== opening) {
         event.preventDefault();
         fold(picked.path, opening);
       }
@@ -246,7 +246,7 @@ function MovePicker({
               onClick={() => choose(place)}
             >
               {query === '' &&
-                (place.folders > 0 ? (
+                (place.foldable ? (
                   <button
                     type="button"
                     tabIndex={-1}

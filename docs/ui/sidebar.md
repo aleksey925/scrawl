@@ -29,31 +29,35 @@ The tree, its head and its foot.
   check on this one, the theme and the shortcuts, then sign out. A site's foot
   is its title, with a menu of the theme, the page width and the shortcuts.
 - A folder's icon opens and closes it. The rows of an open folder are indented
-  14px and there is no guide line; under the pointer the folder's icon turns
-  into a chevron, the sign of what a click on it does. The label opens the
-  folder's page, unfolded, and only on that page folds and unfolds it too:
-  folding on the way there took a second click to see what the folder holds,
-  and arriving unfolded it again anyway. A row's `⋯`, and a folder's `+`, show
-  under the pointer, under the keyboard's focus and while the menu is open; a
-  touch screen has no hover, so there the `⋯` always shows and the `+` never.
-  The same menu is the row's context menu: a right click opens it, and on a
+  14px and there is no guide line. Every row, a nested one too, keeps 1px under
+  it, so two gray rows next to each other, the current one and a picked one, do
+  not run into one block; a gap on the tree's stack spaced only the top-level
+  rows. Under the pointer the folder's icon turns into a chevron, the sign of
+  what a click on it does. The label opens the folder's page, unfolded, and
+  only on that page folds and unfolds it too: folding on the way there took a
+  second click to see what the folder holds, and arriving unfolded it again
+  anyway. A row's `⋯`, and a folder's `+`, show under the pointer, under the
+  keyboard's focus and while the menu is open; a touch screen has no hover, so
+  there the `⋯` always shows and the `+` never. The same menu is the row's
+  context menu: a right click opens it at the `⋯`, not at the pointer, and on a
   tablet a long press, timed by the row because iOS sends no `contextmenu` for
   one. A right click on the free space of the tree, under the rows, opens a
   menu of New file and New folder, made in the root, as the space under the
-  rows stands for it. A site has no menu to offer and leaves the browser's own.
-  A phone has no tree, so a row of a folder's list carries the same menu: a `⋯`
-  beside the row, which a link cannot hold, and a long press anywhere on it.
-  They feel the way iOS has them: the `⋯` leaves the row as it is, and a
-  resting finger shrinks the row a little, then lifts a copy of it as a card
-  over the dimmed and blurred page, with the menu growing out of the card and
-  hanging from the row's right edge, inside the page's gutter, where a right
-  thumb reaches it, as iOS's own lists hang it; tied to the card's start it
-  stood against the left edge. Closing the menu sets the row back down. A row
-  lit gray while its menu was up read as a web page. React hands a press inside
-  a menu's portal up to the row it belongs to, so a long press only times a
-  press that started inside the row itself. The menu offers Edit only where the
-  answer gives an edit address: the server writes one on a listing row the
-  editor opens, a text name within the size it loads, so a picture's row offers
-  none, and a site's rows never carry one. A folder's list asks for its answer
-  again after every write the tree is refreshed for: it kept showing a file
-  deleted from the tree beside it.
+  rows stands for it; on the "No notes inside" line of an open empty folder
+  they are made in that folder. A site has no menu to offer and leaves the
+  browser's own. A phone has no tree, so a row of a folder's list carries the
+  same menu: a `⋯` beside the row, which a link cannot hold, and a long press
+  anywhere on it. They feel the way iOS has them: the `⋯` leaves the row as it
+  is, and a resting finger shrinks the row a little, then lifts a copy of it as
+  a card over the dimmed and blurred page, with the menu growing out of the
+  card and hanging from the row's right edge, inside the page's gutter, where a
+  right thumb reaches it, as iOS's own lists hang it; tied to the card's start
+  it stood against the left edge. Closing the menu sets the row back down. A
+  row lit gray while its menu was up read as a web page. React hands a press
+  inside a menu's portal up to the row it belongs to, so a long press only
+  times a press that started inside the row itself. The menu offers Edit only
+  where the answer gives an edit address: the server writes one on a listing
+  row the editor opens, a text name within the size it loads, so a picture's
+  row offers none, and a site's rows never carry one. A folder's list asks for
+  its answer again after every write the tree is refreshed for: it kept showing
+  a file deleted from the tree beside it.

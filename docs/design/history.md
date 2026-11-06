@@ -21,6 +21,12 @@ Git-backed versions of the notes, and how two versions are compared.
   page says history fell behind. Paths reach git NUL-separated on stdin and
   never in argv, and the tracked set is read as the whole index rather than
   path by path, because a reconcile of a large corpus does not fit in argv.
+- A delete is a commit of the paths it names, and the trash it leaves at the
+  root, `.scrawl-trash/`, is never staged, so git never tracks it. For the few
+  minutes it is kept, `git status` in the notes folder lists it as untracked;
+  scrawl adds no ignore rule for it, as nothing of its own goes into a
+  repository beyond `.git/info/attributes`. An Undo is a second commit that
+  adds the paths back. [storage](storage.md#the-trash)
 - An adopted repository is not inert. Its config and its `.gitattributes` each
   name a command git would run during an ordinary commit, so hooks go to a
   `core.hooksPath` that can hold none, `core.fsmonitor` is overridden empty,

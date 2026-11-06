@@ -100,8 +100,10 @@ the link names.
   [remote sync](docs/design/remote-sync.md#credentials),
   [history](docs/design/history.md#recording)
 - scrawl never merges, rebases or resolves a conflict, and nothing destructive
-  runs without a person confirming it.
-  [remote sync](docs/design/remote-sync.md#conflicts-and-reset)
+  runs without a person confirming it. A delete is the one exception: it asks
+  nothing and goes to a trash for a few minutes, with Undo in its toast.
+  [remote sync](docs/design/remote-sync.md#conflicts-and-reset),
+  [ADR 20](docs/adr/0020-delete-to-a-trash-with-undo.md)
 - The built frontend is committed: a change in `web/` is followed by `make ui`
   and a commit of what it wrote. Nothing is fetched from a CDN.
   [frontend](docs/design/frontend.md#build-and-release)

@@ -1092,7 +1092,7 @@ func TestStoreReadOnly(t *testing.T) {
 		{name: "write", call: func() error { _, err := s.Write("guide.md", []byte("x"), ""); return err }},
 		{name: "create", call: func() error { _, err := s.Create("new.md", false); return err }},
 		{name: "discard", call: func() error { _, err := s.Discard("guide.md", false); return err }},
-		{name: "recover", call: func() error { _, err := s.Recover("any"); return err }},
+		{name: "recover", call: func() error { return s.Recover("any") }},
 		{name: "move", call: func() error { return s.Move("guide.md", "other.md") }},
 		{
 			name: "upload",

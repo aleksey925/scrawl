@@ -8,6 +8,15 @@
   background: var(--scrawl-bg);
 }
 
+.main:has(> [data-fill]) {
+  display: flex;
+  flex-direction: column;
+}
+
+.main > [data-fill] {
+  flex-grow: 1;
+}
+
 @mixin larger-than $mantine-breakpoint-sm {
   :global(html) {
     overscroll-behavior-y: none;

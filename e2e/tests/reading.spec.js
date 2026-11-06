@@ -72,6 +72,7 @@ test.describe('reading', () => {
         removeFixture(DIAGRAM_VIEWER);
         removeFixture(TALL);
         removeFixture(TALL_PICTURE);
+        removeFixture(HEADINGS);
     });
 
     test('the root page lists the root folder, its index a row tagged as the folder page', async ({page}) => {
@@ -657,8 +658,6 @@ test.describe('reading', () => {
         }
         await expect(found.first().getByTestId('doc-heading-anchor'))
             .toHaveAttribute('aria-label', 'Link to section: Deeply nested page');
-
-        removeFixture(HEADINGS);
     });
 
     test('a heading\'s link mark never goes to a new line alone', async ({page}) => {
@@ -691,8 +690,6 @@ test.describe('reading', () => {
 
         // assert
         expect(alone).toEqual([]);
-
-        removeFixture(HEADINGS);
     });
 
     test('a heading\'s link mark shows under the pointer or the focus, muted until pointed at', async ({page}) => {
@@ -725,8 +722,6 @@ test.describe('reading', () => {
         expect(await colors()).toEqual(Array(5).fill(rgb(darkTheme.palette.textTertiary)));
         await anchor.hover();
         await expect(anchor).toHaveCSS('color', rgb(darkTheme.palette.text));
-
-        removeFixture(HEADINGS);
     });
 
     test('a heading\'s link mark copies the full address of its section', async ({page}) => {
@@ -744,8 +739,6 @@ test.describe('reading', () => {
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.linkCopied);
         expect(await page.evaluate(() => navigator.clipboard.readText()))
             .toBe(new URL(`${routes.doc(HEADINGS)}#${id}`, page.url()).href);
-
-        removeFixture(HEADINGS);
     });
 
     test('the outline highlights the section being read', async ({page}) => {

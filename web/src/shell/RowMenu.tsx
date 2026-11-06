@@ -2,7 +2,7 @@ import { ActionIcon, Menu } from '@mantine/core';
 import type { JSX } from 'react';
 import { useNavigate } from 'react-router';
 
-import { pointerAnchor, pointerPlacement, useCloseOnScroll } from '../components/pointerMenu';
+import { PointerAnchor, pointerPlacement, useCloseOnScroll } from '../components/pointerMenu';
 import { PopupMenu } from '../components/PopupMenu';
 import {
   IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconMoveTo, IconPlus, IconTrash,
@@ -16,7 +16,7 @@ import { useNav } from './NavContext';
 import { parentOf } from './naming';
 
 export function RowMenu({
-  path, isDir, name, touch, inTree = false, editUrl, opened, onOpenedChange: setOpened, target, at,
+  path, isDir, name, touch, inTree = false, withCreate = true, editUrl, opened, onOpenedChange: setOpened, target, at,
 }: RowMenuProps): JSX.Element {
   const navigate = useNavigate();
   const { canWrite } = useNav();
@@ -38,7 +38,7 @@ export function RowMenu({
       width={layout.menuWidthNarrow}
     >
       <Menu.Target>
-        {at !== undefined ? pointerAnchor(at) : target ?? (
+        {at !== undefined ? <PointerAnchor at={at} /> : target ?? (
           <ActionIcon
             data-testid="tree-row-menu"
             data-path={path}
@@ -72,20 +72,20 @@ export function RowMenu({
           </Menu.Item>
         )}
 
-        {canWrite && (
+        {canWrite && withCreate && (
           <>
             <Menu.Divider />
             <Menu.Item
               data-testid="tree-row-menu-new-page"
               leftSection={<IconPlus size={rowMenuIconSize} />}
-              onClick={() => actions.createPage(folder)}
+              onClick={() => actions.createDraft('file', folder)}
             >
               New file
             </Menu.Item>
             <Menu.Item
               data-testid="tree-row-menu-new-folder"
               leftSection={<IconFolderPlus size={rowMenuIconSize} />}
-              onClick={() => actions.createFolder(folder)}
+              onClick={() => actions.createDraft('dir', folder)}
             >
               New folder
             </Menu.Item>

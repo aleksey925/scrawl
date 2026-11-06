@@ -12,7 +12,7 @@ import (
 const (
 	trashDir = ".scrawl-trash"
 
-	TrashKeep = 5 * time.Minute
+	trashKeep = 5 * time.Minute
 )
 
 type trashed struct {
@@ -70,9 +70,9 @@ func (s *Store) Trashed(id string) (string, bool) {
 	return displayPath(item.path), ok
 }
 
-func (s *Store) Recover(id string) (string, error) {
+func (s *Store) Recover(id string) error {
 	if s.cfg.ReadOnly {
-		return "", fmt.Errorf("recover %q: %w", id, ErrReadOnly)
+		return fmt.Errorf("recover %q: %w", id, ErrReadOnly)
 	}
 
 	s.writeMu.Lock()
@@ -80,42 +80,53 @@ func (s *Store) Recover(id string) (string, error) {
 
 	item, ok := s.trash[id]
 	if !ok {
-		return "", fmt.Errorf("recover %q: %w", id, ErrNotFound)
+		return fmt.Errorf("recover %q: %w", id, ErrNotFound)
 	}
 	p := displayPath(item.path)
 	if _, err := s.root.Lstat(item.path); err == nil {
-		return "", fmt.Errorf("recover %q: %w", p, ErrExists)
+		return fmt.Errorf("recover %q: %w", p, ErrExists)
 	}
 	if err := s.mkParent(item.path); err != nil {
-		return "", osError("recover", p, err)
+		return osError("recover", p, err)
 	}
 	if err := s.root.Rename(path.Join(trashDir, id, path.Base(item.path)), item.path); err != nil {
-		return "", osError("recover", p, err)
+		return osError("recover", p, err)
 	}
 	delete(s.trash, id)
-	if len(s.trash) == 0 {
-		s.emptyTrash()
-	} else {
-		s.dropSlot(id)
-	}
+	s.dropSlot(id)
+	s.emptyUnusedTrash()
 	s.invalidate()
-	return p, nil
+	return nil
 }
 
 func (s *Store) SweepTrash(now time.Time) {
 	if s.cfg.ReadOnly {
 		return
 	}
+	for _, id := range s.takeExpired(now) {
+		s.dropSlot(id)
+	}
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
+	s.emptyUnusedTrash()
+}
 
+func (s *Store) takeExpired(now time.Time) []string {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
+	var expired []string
 	for id, item := range s.trash {
-		if now.Sub(item.at) >= TrashKeep {
+		if now.Sub(item.at) >= trashKeep {
 			delete(s.trash, id)
-			s.dropSlot(id)
+			expired = append(expired, id)
 		}
 	}
+	return expired
+}
+
+func (s *Store) emptyUnusedTrash() {
 	if len(s.trash) == 0 {
 		s.emptyTrash()
 	}

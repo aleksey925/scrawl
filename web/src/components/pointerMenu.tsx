@@ -15,7 +15,7 @@ export interface Point {
 
 export const pointerPlacement: { position: FloatingPosition; offset: number } = { position: 'bottom-start', offset: 2 };
 
-export function pointOf(event: MouseEvent): Point {
+function pointOf(event: MouseEvent): Point {
   return { x: event.clientX, y: event.clientY };
 }
 
@@ -23,7 +23,7 @@ interface PointerAnchorProps extends ComponentPropsWithRef<'span'> {
   at: Point;
 }
 
-function PointerAnchor({ at, ...rest }: PointerAnchorProps): ReactPortal {
+export function PointerAnchor({ at, ...rest }: PointerAnchorProps): ReactPortal {
   return createPortal(
     <span
       {...rest}
@@ -32,10 +32,6 @@ function PointerAnchor({ at, ...rest }: PointerAnchorProps): ReactPortal {
     />,
     document.body,
   );
-}
-
-export function pointerAnchor(at: Point): JSX.Element {
-  return <PointerAnchor at={at} />;
 }
 
 export function useCloseOnScroll(opened: boolean, setOpened: (opened: boolean) => void): void {
@@ -64,36 +60,41 @@ function opensOwnMenu(event: MouseEvent): boolean {
   return selection === null || selection.isCollapsed;
 }
 
-export interface PointerMenu {
+export interface PointerMenu<T> {
   at: Point | undefined;
+  target: T | undefined;
   opened: boolean;
   setOpened: (opened: boolean) => void;
-  onContextMenu: (event: MouseEvent) => void;
+  open: (event: MouseEvent, target: T) => void;
+  onFreeSpace: (event: MouseEvent, target: T) => void;
 }
 
-export function usePointerMenu(): PointerMenu {
-  const [at, setAt] = useState<Point | undefined>(undefined);
+export function usePointerMenu<T>(): PointerMenu<T> {
+  const [place, setPlace] = useState<{ at: Point; target: T } | undefined>(undefined);
   const [opened, setOpened] = useState(false);
-  const onContextMenu = (event: MouseEvent): void => {
+  const open = (event: MouseEvent, target: T): void => {
+    event.preventDefault();
+    setPlace({ at: pointOf(event), target });
+    setOpened(true);
+  };
+  const onFreeSpace = (event: MouseEvent, target: T): void => {
     if (opensOwnMenu(event)) {
-      event.preventDefault();
-      setAt(pointOf(event));
-      setOpened(true);
+      open(event, target);
     }
   };
-  return { at, opened, setOpened, onContextMenu };
+  return { at: place?.at, target: place?.target, opened, setOpened, open, onFreeSpace };
 }
 
 export interface NewEntryMenuProps {
-  menu: PointerMenu;
+  menu: PointerMenu<string>;
   testId: string;
-  onCreate: (kind: EntryKind) => void;
+  onCreate: (kind: EntryKind, folder: string) => void;
 }
 
 export function NewEntryMenu({ menu, testId, onCreate }: NewEntryMenuProps): JSX.Element | null {
-  const { at, opened, setOpened } = menu;
+  const { at, target: folder, opened, setOpened } = menu;
   useCloseOnScroll(opened, setOpened);
-  if (at === undefined) {
+  if (at === undefined || folder === undefined) {
     return null;
   }
   return (
@@ -106,19 +107,21 @@ export function NewEntryMenu({ menu, testId, onCreate }: NewEntryMenuProps): JSX
       shadow="md"
       width={layout.menuWidthNarrow}
     >
-      <Menu.Target>{pointerAnchor(at)}</Menu.Target>
+      <Menu.Target>
+        <PointerAnchor at={at} />
+      </Menu.Target>
       <Menu.Dropdown data-testid={testId}>
         <Menu.Item
           data-testid={`${testId}-new-file`}
           leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-          onClick={() => onCreate('file')}
+          onClick={() => onCreate('file', folder)}
         >
           New file
         </Menu.Item>
         <Menu.Item
           data-testid={`${testId}-new-folder`}
           leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-          onClick={() => onCreate('dir')}
+          onClick={() => onCreate('dir', folder)}
         >
           New folder
         </Menu.Item>

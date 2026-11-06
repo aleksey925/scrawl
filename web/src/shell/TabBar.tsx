@@ -86,14 +86,14 @@ export function TabBar(): JSX.Element | null {
             <Menu.Item
               data-testid="new-menu-note"
               leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-              onClick={() => actions.createPage(here)}
+              onClick={() => actions.createDraft('file', here)}
             >
               New file
             </Menu.Item>
             <Menu.Item
               data-testid="new-menu-folder"
               leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-              onClick={() => actions.createFolder(here)}
+              onClick={() => actions.createDraft('dir', here)}
             >
               New folder
             </Menu.Item>

@@ -200,7 +200,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
                   aria-label={`New file in ${node.name}`}
                   onClick={() => {
                     openFolder(node.path);
-                    actions.createPage(node.path);
+                    actions.createDraft('file', node.path);
                   }}
                 >
                   <IconPlus size={rowMenuIconSize} />
@@ -214,7 +214,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
       {node.is_dir && open && (
         <div data-testid="tree-children">
           {drafting && <DraftRow depth={depth + 1} />}
-          {!drafting && node.children.length === 0 && <EmptyRow depth={depth + 1} />}
+          {!drafting && node.children.length === 0 && <EmptyRow depth={depth + 1} folder={node.path} />}
           {node.children.length > 0 && (
             <TreeRows nodes={node.children} depth={depth + 1} filtered={filtered} query={query} />
           )}
@@ -250,10 +250,15 @@ function TreeRows({ nodes, depth, filtered, query }: RowsProps): JSX.Element {
   );
 }
 
-function EmptyRow({ depth }: { depth: number }): JSX.Element {
+function emptyFolderAt(target: EventTarget): string {
+  return target instanceof Element ? (target.closest('[data-empty-folder]')?.getAttribute('data-empty-folder') ?? '') : '';
+}
+
+function EmptyRow({ depth, folder }: { depth: number; folder: string }): JSX.Element {
   return (
     <div
       data-testid="tree-empty"
+      data-empty-folder={folder}
       className={`${treeClasses.row} ${treeClasses.none}`}
       style={rowInsets(depth)}
     >
@@ -294,7 +299,10 @@ function NameRow({ depth, testId, isFile, icon, initial, placeholder, label, onS
   }, []);
 
   const commit = (): void => {
-    if (busy || name.trim() === '') {
+    if (busy) {
+      return;
+    }
+    if (name.trim() === '') {
       onCancel();
       return;
     }
@@ -430,7 +438,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const canWrite = mayWrite && actions !== undefined;
   const viewportRef = useRef<HTMLDivElement>(null);
   const spaceName = spaceLabel(me);
-  const contextMenu = usePointerMenu();
+  const contextMenu = usePointerMenu<string>();
 
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   useEffect(() => setSelected(new Set([currentPath])), [currentPath]);
@@ -650,14 +658,14 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
                 <Menu.Item
                   data-testid="sidebar-new-page"
                   leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-                  onClick={() => actions.createPage(here)}
+                  onClick={() => actions.createDraft('file', here)}
                 >
                   New file
                 </Menu.Item>
                 <Menu.Item
                   data-testid="sidebar-new-folder"
                   leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-                  onClick={() => actions.createFolder(here)}
+                  onClick={() => actions.createDraft('dir', here)}
                 >
                   New folder
                 </Menu.Item>
@@ -739,7 +747,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
             data-testid="tree-root"
             data-drop={dropTarget === '' ? 'true' : 'false'}
             {...rootDrop}
-            onContextMenu={canWrite ? contextMenu.onContextMenu : undefined}
+            onContextMenu={canWrite ? (event) => contextMenu.onFreeSpace(event, emptyFolderAt(event.target)) : undefined}
             style={{ minWidth: 0 }}
           >
             {error !== undefined ? (
@@ -759,7 +767,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
             ) : (
               <>
                 {draftAtRoot && <DraftRow depth={0} />}
-                {!draftAtRoot && tree.length === 0 && <EmptyRow depth={0} />}
+                {!draftAtRoot && tree.length === 0 && <EmptyRow depth={0} folder="" />}
                 <TreeRows nodes={tree} depth={0} filtered={filtered} query={trimmed} />
               </>
             )}
@@ -770,7 +778,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
         <NewEntryMenu
           menu={contextMenu}
           testId="tree-context-menu"
-          onCreate={(kind) => (kind === 'file' ? actions.createPage : actions.createFolder)('')}
+          onCreate={actions.createDraft}
         />
       )}
 

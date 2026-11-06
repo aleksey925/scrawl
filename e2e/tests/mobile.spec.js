@@ -751,8 +751,8 @@ test.describe('mobile', () => {
             await rowOf(page, file).getByTestId('tree-row-menu').tap();
             await openedMenu(page, 'tree-row-menu-dropdown');
             await page.getByTestId('tree-row-menu-move').tap();
-            const dialog = await page.getByTestId('move-dialog').boundingBox();
-            expect(Math.round(dialog.width)).toBe(page.viewportSize().width);
+            await expect.poll(async () => Math.round((await page.getByTestId('move-dialog').boundingBox()).width))
+                .toBe(page.viewportSize().width);
             await shot(page, 'mobile-move');
 
             // act
@@ -763,6 +763,48 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('move-dialog')).toHaveCount(0);
             await expect.poll(() => fs.existsSync(fixtureFile(`${into}/move-me.md`))).toBe(true);
             expect(fs.existsSync(fixtureFile(file))).toBe(false);
+        });
+
+        test('Cancel in Move to closes it and moves nothing', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/stay-put.md`;
+            writeFixture(file, '# Stay put\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await page.getByTestId('tree-row-menu-move').tap();
+            await expect(page.getByTestId('move-dialog')).toBeVisible();
+
+            // act
+            await page.getByTestId('move-close').tap();
+
+            // assert
+            await expect(page.getByTestId('move-dialog')).toHaveCount(0);
+            await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+            expect(fs.existsSync(fixtureFile(file))).toBe(true);
+        });
+
+        test('a tap on the folder in the toast of a move opens it and leaves the toast with its Undo', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/follow-me.md`;
+            const into = `${FOLDER}/into`;
+            writeFixture(file, '# Follow me\n');
+            fs.mkdirSync(fixtureFile(into), {recursive: true});
+            await page.goto(MAIN.url.dir(FOLDER));
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await page.getByTestId('tree-row-menu-move').tap();
+            await page.getByTestId('move-input').fill('into');
+            await page.locator(`[data-testid=move-place][data-path="${into}"]`).tap();
+            await expect(page.getByTestId('toast-link')).toBeVisible();
+
+            // act
+            await page.getByTestId('toast-link').tap();
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.dir(into));
+            await expect(rowOf(page, `${into}/follow-me.md`)).toHaveCount(1);
+            await expect(page.getByTestId('toast-action')).toBeVisible();
         });
 
         test('a tap on Undo in the toast puts the moved file back', async ({page}) => {
@@ -1422,6 +1464,19 @@ test.describe('mobile', () => {
         await page.getByTestId('rename-cancel').tap();
     });
 
+    test('a context menu on the free space of a folder list opens no menu of the app on a phone', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(docs.folder.path));
+        await expect(page.getByTestId('dir-table')).toBeVisible();
+
+        // act
+        await page.getByTestId('dir').dispatchEvent('contextmenu');
+
+        // assert
+        await expect(page.getByTestId('dir-context-menu')).toHaveCount(0);
+        await expect(page.getByTestId('dir-draft')).toHaveCount(0);
+    });
+
     test.describe('a toast', () => {
         async function copied(page) {
             await page.goto(routes.home());
@@ -1440,6 +1495,23 @@ test.describe('mobile', () => {
             // assert
             await expect(page.getByTestId('folder-menu-dropdown')).toBeVisible();
             await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 5000});
+        });
+
+        test('with Undo stays past the 2.5 seconds of one without', async ({page}) => {
+            // arrange
+            const file = 'e2e-mobile/toast-undo.md';
+            writeFixture(file, '# Toast undo\n');
+            await page.goto(MAIN.url.dir('e2e-mobile'));
+            await page.locator(`[data-testid=dir-row][data-path="${file}"]`).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+
+            // act
+            await page.getByTestId('tree-row-menu-delete').tap();
+
+            // assert
+            await expect(page.getByTestId('toast-action')).toBeVisible();
+            await stays(() => page.getByTestId('toast').count(), 1, 4000);
+            await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 4000});
         });
 
         test('goes at a tap on it', async ({page}) => {

@@ -8,8 +8,7 @@ export interface TreeDraft {
 }
 
 export interface FileActions {
-  createPage: (folder: string) => void;
-  createFolder: (folder: string) => void;
+  createDraft: (kind: EntryKind, folder: string) => void;
   rename: (path: string) => void;
   renameInTree: (path: string) => void;
   treeRename: string | undefined;

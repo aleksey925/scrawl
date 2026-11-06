@@ -22,8 +22,11 @@ const FULL_FOLDER = 'e2e-fm-full';
 const JUNK_FOLDER = 'e2e-fm-junk';
 const LISTED_FOLDER = 'e2e-fm-listed';
 const MOVED = 'e2e-fm-moved.md';
+const UNDONE = 'e2e-fm-undone.md';
+const LINKED = 'e2e-fm-linked.md';
 const INNER = `${FOLDER}/inner`;
 const NEST = 'e2e-fm-nest';
+const UNDELETED = 'e2e-fm-undeleted';
 const NESTED_NOTE = `${NEST}/a/note.md`;
 
 function shownPlaces(page, prefix) {
@@ -37,7 +40,7 @@ test.describe.serial('file management', () => {
     });
 
     test.afterAll(() => {
-        for (const folder of [FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER, LISTED_FOLDER, NEST]) {
+        for (const folder of [FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER, LISTED_FOLDER, NEST, UNDELETED]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
         for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE, TYPED_FILE, TYPED_PICTURE, DATED_PAGE]) {
@@ -186,23 +189,6 @@ test.describe.serial('file management', () => {
         await expect(page.getByTestId('tree-draft')).toHaveCount(0);
     });
 
-    test('asks before deleting a folder that is not empty, and Cancel keeps it', async ({page}) => {
-        // arrange
-        await page.goto(routes.doc(PAGE));
-
-        // act
-        await page.locator(`[data-testid=tree-row][data-path="${FOLDER}"] [data-testid=tree-row-menu]`).click();
-        await page.getByTestId('tree-row-menu-delete').click();
-
-        // assert
-        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deleteFolderContents);
-        await expect(page.locator('[data-testid=modal][data-variant="confirm-contents"]')).toContainText(FOLDER);
-        await shot(page, 'files-folder-not-empty');
-        await page.getByTestId('modal-cancel').click();
-        await expect(page.locator('.mantine-Modal-title')).toHaveCount(0);
-        expect(fs.existsSync(fixtureFile(PAGE))).toBe(true);
-    });
-
     test('renames a page in place in the tree, asking only its name', async ({page}) => {
         // arrange
         await page.goto(routes.doc(PAGE));
@@ -324,10 +310,48 @@ test.describe.serial('file management', () => {
         await page.getByTestId('move-input').press('Enter');
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.moved);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]'))
+            .toContainText(`Moved "${MOVED.replace(/\.md$/, '')}" to "${OTHER}"`);
         await expect(page).toHaveURL(MAIN.url.doc(`${OTHER}/${MOVED}`));
         await expect(page.getByTestId('move-dialog')).toHaveCount(0);
         expect([`${FOLDER}/${MOVED}`, `${OTHER}/${MOVED}`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
+    });
+
+    test('Undo in the toast after a move puts the note back and follows it', async ({page}) => {
+        // arrange
+        writeFixture(`${FOLDER}/${UNDONE}`, '# Undone\n');
+        await page.goto(MAIN.url.doc(`${FOLDER}/${UNDONE}`));
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('note-menu-move').click();
+        await page.getByTestId('move-input').fill(OTHER);
+        await page.getByTestId('move-input').press('Enter');
+        await expect(page).toHaveURL(MAIN.url.doc(`${OTHER}/${UNDONE}`));
+        await shot(page, 'files-move-undo');
+
+        // act
+        await page.getByTestId('toast-action').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')
+            .filter({hasText: `Moved "${UNDONE.replace(/\.md$/, '')}" back to "${FOLDER}"`})).toHaveCount(1);
+        await expect(page).toHaveURL(MAIN.url.doc(`${FOLDER}/${UNDONE}`));
+        expect([`${FOLDER}/${UNDONE}`, `${OTHER}/${UNDONE}`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([true, false]);
+    });
+
+    test('the folder named in the toast of a move opens that folder', async ({page}) => {
+        // arrange
+        writeFixture(`${FOLDER}/${LINKED}`, '# Linked\n');
+        await page.goto(MAIN.url.dir(FOLDER));
+        await page.locator(`[data-testid=tree-row][data-path="${FOLDER}/${LINKED}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-move').click();
+        await page.locator(`[data-testid=move-place][data-path="${OTHER}"]`).click();
+
+        // act
+        await page.getByTestId('toast-link').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.dir(OTHER));
+        await expect(page.locator(`[data-testid=dir-row][data-path="${OTHER}/${LINKED}"]`)).toHaveCount(1);
     });
 
     test('Move to says a folder already holds that name and moves nothing there', async ({page}) => {
@@ -440,16 +464,14 @@ test.describe.serial('file management', () => {
         expect(fs.existsSync(fixtureFile(INNER))).toBe(false);
     });
 
-    test('deletes a page and drops it from the tree', async ({page}) => {
+    test('deletes a page at once, names it in the toast and drops it from the tree', async ({page}) => {
         await page.goto(routes.doc(RENAMED));
         await page.locator(`[data-testid=tree-row][data-path="${RENAMED}"] [data-testid=tree-row-menu]`).click();
         await page.getByTestId('tree-row-menu-delete').click();
 
-        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deleteFile);
-        await shot(page, 'files-delete-confirm');
-        await page.getByTestId('modal-confirm').click();
-
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.deleted);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]'))
+            .toContainText(`Deleted "${RENAMED.split('/').pop().replace(/\.md$/, '')}"`);
+        await expect(page.locator('.mantine-Modal-title')).toHaveCount(0);
         await expect(page).toHaveURL(atHome());
         await expect.poll(() => fs.existsSync(fixtureFile(RENAMED))).toBe(false);
         await expect(page.locator(`[data-testid=tree-row][data-path="${RENAMED}"]`)).toHaveCount(0);
@@ -467,7 +489,6 @@ test.describe.serial('file management', () => {
         // act
         await page.locator(`[data-testid=tree-row][data-path="${file}"] [data-testid=tree-row-menu]`).click();
         await page.getByTestId('tree-row-menu-delete').click();
-        await page.getByTestId('modal-confirm').click();
 
         // assert
         await expect(listed).toHaveCount(0);
@@ -596,8 +617,6 @@ test.describe.serial('file management', () => {
         // act
         await page.locator(`[data-testid=tree-row][data-path="${FULL_FOLDER}"] [data-testid=tree-row-menu]`).click();
         await page.getByTestId('tree-row-menu-delete').click();
-        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deleteFolderContents);
-        await page.getByTestId('modal-confirm').click();
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.deleted);
@@ -606,7 +625,7 @@ test.describe.serial('file management', () => {
         await expect(page.locator(`[data-testid=tree-row][data-path="${FULL_FOLDER}"]`)).toHaveCount(0);
     });
 
-    test('asks again when a folder that looks empty holds a file the app does not list', async ({page}) => {
+    test('deletes a folder that holds only a file the app does not list', async ({page}) => {
         // arrange
         fs.mkdirSync(fixtureFile(JUNK_FOLDER), {recursive: true});
         fs.writeFileSync(fixtureFile(`${JUNK_FOLDER}/.DS_Store`), 'junk', 'utf8');
@@ -615,14 +634,32 @@ test.describe.serial('file management', () => {
         // act
         await page.locator(`[data-testid=tree-row][data-path="${JUNK_FOLDER}"] [data-testid=tree-row-menu]`).click();
         await page.getByTestId('tree-row-menu-delete').click();
-        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deleteFolder);
-        await page.getByTestId('modal-confirm').click();
-        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.deleteFolderContents);
-        await page.getByTestId('modal-confirm').click();
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.deleted);
         expect(fs.existsSync(fixtureFile(JUNK_FOLDER))).toBe(false);
+    });
+
+    test('Undo after a delete brings the folder back with what the app does not list, and the page that was open', async ({page}) => {
+        // arrange
+        const inner = `${UNDELETED}/note.md`;
+        writeFixture(inner, '# Back\n');
+        fs.writeFileSync(fixtureFile(`${UNDELETED}/.DS_Store`), 'junk', 'utf8');
+        await page.goto(routes.doc(inner));
+        await page.locator(`[data-testid=tree-row][data-path="${UNDELETED}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-delete').click();
+        await expect(page).toHaveURL(atHome());
+        await shot(page, 'files-delete-undo');
+
+        // act
+        await page.getByTestId('toast-action').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: `Restored "${UNDELETED}"`}))
+            .toHaveCount(1);
+        await expect(page).toHaveURL(MAIN.url.doc(inner));
+        expect([inner, `${UNDELETED}/.DS_Store`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([true, true]);
+        await expect(page.locator(`[data-testid=tree-row][data-path="${UNDELETED}"]`)).toHaveCount(1);
     });
 });
 

@@ -188,7 +188,10 @@ Spaces, routes, settings and the guards on every request.
 
 - Every background goroutine runs under a worker context canceled the moment
   `srv.Run` returns, apart from a PlantUML drawing ([PlantUML](#plantuml)), and
-  that cancel is called rather than deferred. `Web.Run` returns as soon as
-  `ListenAndServe` fails while its context is still live, so a wait on a
+  that cancel is called rather than deferred. `Web.Run` returns as soon as the
+  listen or `Serve` fails while its context is still live, so a wait on a
   goroutine that only exits with that context would hang the process on a busy
   port.
+- `Web.Run` binds the port before it serves and then logs the links to open:
+  the address it bound, or, bound to every interface, `localhost` and each IPv4
+  address of the machine apart from loopback and link-local.

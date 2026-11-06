@@ -1000,6 +1000,60 @@ func TestAPIFileDeleteRecursive(t *testing.T) {
 	assert.Equal(t, [][]string{{"docs/README.md", "docs/page.md", "docs/sub/deep.md"}}, fake.reported)
 }
 
+func TestAPITrashRestore(t *testing.T) {
+	t.Run("a deleted folder comes back, indexed and recorded", func(t *testing.T) {
+		// arrange
+		fake := &fakeHistory{}
+		ts := newTestServer(t, testOpts{history: fake})
+		_, deleted := ts.json(t, request{method: http.MethodDelete, path: "/api/file/docs?recursive=true"})
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]any{"id": deleted["trash_id"]}),
+		})
+
+		// assert
+		require.Equal(t, http.StatusOK, resp.status, body)
+		assert.Equal(t, "docs", body["path"])
+		assert.True(t, ts.Spaces[0].Store.Exists("docs/sub/deep.md"))
+		assert.NotEmpty(t, ts.Spaces[0].Index.Search("nested", 5))
+		files := []string{"docs/README.md", "docs/page.md", "docs/sub/deep.md"}
+		assert.Equal(t, [][]string{files, files}, fake.reported)
+	})
+
+	t.Run("an id the trash does not hold is not found", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{})
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]string{"id": "../guide.md"}),
+		})
+
+		// assert
+		assert.Equal(t, http.StatusNotFound, resp.status, body)
+	})
+
+	t.Run("something put at the place since is kept", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{})
+		_, deleted := ts.json(t, request{method: http.MethodDelete, path: "/api/file/guide.md"})
+		_, err := ts.Spaces[0].Store.Create("guide.md", false)
+		require.NoError(t, err)
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]any{"id": deleted["trash_id"]}),
+		})
+
+		// assert
+		assert.Equal(t, http.StatusConflict, resp.status, body)
+		data, _, err := ts.Spaces[0].Store.Read("guide.md")
+		require.NoError(t, err)
+		assert.Empty(t, data)
+	})
+}
+
 func TestAPIFileSaveConflict(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -1504,6 +1558,7 @@ func TestReadOnlyRefusesEveryWrite(t *testing.T) {
 		{name: "save", method: http.MethodPut, path: "/api/file/guide.md", body: map[string]string{"content": "x"}},
 		{name: "create", method: http.MethodPost, path: "/api/file/other.md", body: map[string]string{"type": "file"}},
 		{name: "delete", method: http.MethodDelete, path: "/api/file/guide.md"},
+		{name: "restore deleted", method: http.MethodPost, path: "/api/trash/restore", body: map[string]string{"id": "any"}},
 		{name: "move", method: http.MethodPost, path: "/api/move", body: map[string]string{"from": "guide.md", "to": "x.md"}},
 		{name: "upload", method: http.MethodPost, path: "/api/upload/notes"},
 	}
@@ -1713,6 +1768,7 @@ func TestReadOnlyTokenRefusesEveryWrite(t *testing.T) {
 		{name: "save", method: http.MethodPut, path: "/api/file/guide.md", body: map[string]string{"content": "x"}},
 		{name: "create", method: http.MethodPost, path: "/api/file/other.md", body: map[string]string{"type": "file"}},
 		{name: "delete", method: http.MethodDelete, path: "/api/file/guide.md"},
+		{name: "restore deleted", method: http.MethodPost, path: "/api/trash/restore", body: map[string]string{"id": "any"}},
 		{name: "move", method: http.MethodPost, path: "/api/move", body: map[string]string{"from": "guide.md", "to": "x.md"}},
 		{name: "upload", method: http.MethodPost, path: "/api/upload/notes"},
 	}
@@ -1865,6 +1921,7 @@ func TestCSRFBlocksCrossSiteWrites(t *testing.T) {
 		{name: "save", method: http.MethodPut, path: "/api/file/guide.md"},
 		{name: "create", method: http.MethodPost, path: "/api/file/other.md"},
 		{name: "delete", method: http.MethodDelete, path: "/api/file/guide.md"},
+		{name: "restore deleted", method: http.MethodPost, path: "/api/trash/restore"},
 		{name: "move", method: http.MethodPost, path: "/api/move"},
 		{name: "login", method: http.MethodPost, path: "/login"},
 	}
@@ -2164,7 +2221,7 @@ func TestWebRunBusyPort(t *testing.T) {
 
 	// assert
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "server failed")
+	assert.Contains(t, err.Error(), "listen on "+ln.Addr().String())
 }
 
 func freePort(t *testing.T) int {

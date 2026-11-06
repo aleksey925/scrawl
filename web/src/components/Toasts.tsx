@@ -6,11 +6,17 @@ import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import classes from './Toasts.module.css';
 
+const desktopWidth = 480;
+
 function toneOf(data: NotificationData): 'ok' | 'warn' | 'error' {
   return data.color === 'green' ? 'ok' : data.color === 'red' ? 'error' : 'warn';
 }
 
-function Pill({ data }: { data: NotificationData }): JSX.Element {
+function onButton(event: PointerEvent<HTMLDivElement>): boolean {
+  return event.target instanceof Element && event.target.closest('button') !== null;
+}
+
+function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX.Element {
   const tone = toneOf(data);
   const Icon = tone === 'ok' ? IconCheck : IconAlertTriangle;
   const startY = useRef<number | undefined>(undefined);
@@ -25,9 +31,12 @@ function Pill({ data }: { data: NotificationData }): JSX.Element {
   return (
     <div
       data-testid="toast-pill"
-      className={classes.pill}
+      className={phone ? `${classes.toast} ${classes.pill}` : classes.toast}
       style={pulled < 0 ? { transform: `translateY(${pulled}px)`, transition: 'none' } : undefined}
       onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
+        if (!phone || onButton(event)) {
+          return;
+        }
         startY.current = event.clientY;
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
@@ -37,6 +46,9 @@ function Pill({ data }: { data: NotificationData }): JSX.Element {
         }
       }}
       onPointerUp={() => {
+        if (startY.current === undefined) {
+          return;
+        }
         startY.current = undefined;
         dismiss();
       }}
@@ -46,7 +58,7 @@ function Pill({ data }: { data: NotificationData }): JSX.Element {
       }}
     >
       <Icon size={layout.iconSizeSmall} weight="bold" className={classes.icon} data-tone={tone} aria-hidden />
-      <div>
+      <div className={classes.body}>
         {data.title !== undefined && <div className={classes.title}>{data.title}</div>}
         <div className={classes.message}>{data.message}</div>
       </div>
@@ -57,7 +69,15 @@ function Pill({ data }: { data: NotificationData }): JSX.Element {
 export function Toasts(): JSX.Element {
   const phone = useBelow(layoutBreakpoints.phone);
   if (!phone) {
-    return <Notifications position="top-right" />;
+    return (
+      <Notifications
+        position="bottom-center"
+        containerWidth={desktopWidth}
+        allowDragDismiss={false}
+        classNames={{ root: classes.root }}
+        renderNotification={(data) => <Toast data={data} phone={false} />}
+      />
+    );
   }
   return (
     <Notifications
@@ -67,7 +87,7 @@ export function Toasts(): JSX.Element {
       allowDragDismiss={false}
       containerWidth="100%"
       classNames={{ root: classes.root }}
-      renderNotification={(data) => <Pill data={data} />}
+      renderNotification={(data) => <Toast data={data} phone />}
     />
   );
 }

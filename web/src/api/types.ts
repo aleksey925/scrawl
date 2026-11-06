@@ -208,6 +208,10 @@ export interface EntryPathResponse extends MutationState {
   edit_url?: string;
 }
 
+export interface DeleteResponse extends EntryPathResponse {
+  trash_id: string;
+}
+
 export interface SearchSpan {
   text: string;
   hit: boolean;

@@ -203,6 +203,25 @@ test.describe('pages', () => {
         await expect(page.getByTestId('sidebar-search-keys')).toHaveText(/K$/);
     });
 
+    test('a toast stands at the foot of the window in the middle, with no close button', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(docs.folder.path));
+
+        // act
+        await page.getByTestId('folder-menu').click();
+        await page.getByTestId('folder-menu-copy-link').click();
+
+        // assert
+        const toast = page.getByTestId('toast-pill');
+        await expect.poll(async () => {
+            const box = await toast.boundingBox();
+            const view = page.viewportSize();
+            const gap = view.height - box.y - box.height;
+            return {centered: Math.abs(box.x + box.width / 2 - view.width / 2) < 2, atFoot: gap > 0 && gap < 60};
+        }).toEqual({centered: true, atFoot: true});
+        await expect(page.locator('.mantine-Notification-closeButton')).toHaveCount(0);
+    });
+
     test('a directory without an index lists its entries', async ({page}) => {
         await page.goto(routes.dir(docs.folder.path));
 

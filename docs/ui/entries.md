@@ -52,10 +52,27 @@ Creating, naming, moving and deleting files and folders.
   already holds that name, which is then not moved to. Up and down pick, Enter
   or a click on the row moves, through the same path a drag takes, and the page
   follows an entry that was on screen.
-- A folder with things in it is deleted only on a second word. The API refuses
-  it without `recursive=true`, so an agent that named the wrong path does not
-  lose a tree to one request, and the page asks "and everything in it?" in the
-  one dialog instead of failing after the reader had confirmed. The removal
-  takes the files the store hides too: a folder that kept its `.DS_Store`
-  looked empty and never went. That case is not listed, so the refusal of a
-  plain delete is what raises the question.
+- The toast of a move, by Move to or a drag, carries Undo for 6 seconds, which
+  moves the entries back the same way and takes the page back with them. The
+  move is made at once and Undo is a second move, as Notion and Finder do it,
+  not held until the toast is gone: the entry is at its new place for a reload,
+  another device and the API from the first moment, and a tab closed while the
+  toast was up loses nothing. In a git space the history keeps both moves.
+- The toast of a create, a rename, a move, a delete and a copied link names the
+  entry, by its title as the tree shows it, and the folder it went to:
+  `Moved "guide" to "db"`, `Renamed "a" to "b"`. A bare Moved or Deleted did
+  not say what had moved or gone, and an Undo beside it did not say what it
+  would undo. The space itself is named by its name. The folder in the toast of
+  a move is a link that opens it, drawn as underlined text and not as a button,
+  so it does not look like Undo beside it; a slip onto it only opens a folder,
+  and the toast stays with its Undo.
+- Delete asks nothing: the entry goes at once, a folder with everything in it,
+  and the toast carries Undo, which puts it back where it was and takes the
+  page back to it if it was open, as Notion does. A dialog before every delete
+  was a click more each time, while Undo is there for the one time it is wrong.
+  The server keeps what was deleted for a few minutes
+  ([storage](../design/storage.md#the-trash)). The API still refuses a folder
+  that is not empty without `recursive=true`, so an agent that named the wrong
+  path does not lose a tree to one request; the page always sends it. The
+  removal takes the files the store hides too: a folder that kept its
+  `.DS_Store` looked empty and never went.

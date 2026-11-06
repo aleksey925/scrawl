@@ -31,6 +31,22 @@ How the notes on disk are read, written and watched.
   (`python/notes.md` -> `python/notes/`), which is what the corpus looks like.
   `--upload-dir` replaces that with one shared directory.
 
+## The trash
+
+- A delete moves the entry into `.scrawl-trash/<id>/` at the root of the space,
+  and `Recover` moves it back, so Undo in the toast of a delete has something
+  to bring back, folders and pictures included. It is a rename in the same
+  `os.Root`, so it is as quick as a move and needs no second filesystem. A dot
+  name keeps the trash out of the tree, the search, the watcher and history,
+  which stages only the paths an operation names.
+- The store keeps an entry for `TrashKeep`, 5 minutes, and a worker sweeps it
+  every minute; a new store empties what a past run left, because the ids that
+  named it lived in memory. Undo is the only way back, it shows for 6 seconds,
+  and a longer keep would only hold deleted files on disk that nobody can
+  reach. [ADR 20](../adr/0020-delete-to-a-trash-with-undo.md)
+- `Recover` puts nothing over an entry that took the place in the meantime and
+  makes the folders above it again when they went.
+
 ## Watching
 
 - A change on disk comes from the watcher as a create as often as a write,

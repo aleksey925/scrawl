@@ -605,6 +605,7 @@ test.describe('site from a host moves between notes without a page load', () => 
         await page.goto(at('docs/guide.html'));
         await row(page, 'docs/long.md').getByTestId('tree-link').click();
         await expect(page.getByTestId('doc').locator('h1')).toHaveText('Long');
+        await page.mouse.wheel(0, 1);
         await page.evaluate(() => window.scrollTo({top: 1800, behavior: 'instant'}));
         const left = await scrollY(page);
         await page.goBack();

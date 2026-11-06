@@ -8,9 +8,6 @@ module.exports = {
     },
 
     modal: {
-        deleteFile: 'Delete file?',
-        deleteFolder: 'Delete folder?',
-        deleteFolderContents: 'Delete folder and everything in it?',
         leave: 'Leave without saving?',
         conflict: 'This file changed on disk',
         restore: 'Restore this version?',
@@ -21,14 +18,14 @@ module.exports = {
     toast: {
         saved: 'Saved',
         restored: 'Restored',
-        folderCreated: 'Folder created',
+        folderCreated: 'Created folder',
         moved: 'Moved',
         movedMany: 'Moved 2 items',
         renamed: 'Renamed',
         deleted: 'Deleted',
         notDeleted: 'Nothing was deleted',
         imageUploaded: 'Image uploaded',
-        linkCopied: 'Link copied',
+        linkCopied: 'Copied the link',
     },
 
     pageExists: 'That file already exists',

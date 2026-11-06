@@ -47,6 +47,10 @@ type createRequest struct {
 	Type string `json:"type"`
 }
 
+type trashRestoreRequest struct {
+	ID string `json:"id"`
+}
+
 type moveRequest struct {
 	From string `json:"from"`
 	To   string `json:"to"`
@@ -262,18 +266,50 @@ func (m *mount) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 	recursive := r.URL.Query().Get("recursive") == "true"
 
 	var removed []string
+	var trashID string
 	err := m.record(r, history.Op{Message: "delete " + p, Paths: []string{p}}, func() ([]string, error) {
-		if !recursive {
-			return nil, m.spc.Store.Remove(p)
+		if recursive {
+			removed = m.filesUnder(p)
 		}
-		removed = m.filesUnder(p)
-		return removed, m.spc.Store.RemoveAll(p)
+		var discardErr error
+		trashID, discardErr = m.spc.Store.Discard(p, recursive)
+		return removed, discardErr
 	})
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
 	m.touch(append(removed, p)...)
+	writeJSON(w, http.StatusOK, m.withHistory(map[string]any{"path": p, "trash_id": trashID}))
+}
+
+func (m *mount) apiTrashRestore(w http.ResponseWriter, r *http.Request) {
+	if m.refuseReadOnly(w, r) {
+		return
+	}
+	var req trashRestoreRequest
+	if !decodeJSON(w, r, &req, maxJSONBody) {
+		return
+	}
+	p, ok := m.spc.Store.Trashed(req.ID)
+	if !ok {
+		jsonError(w, http.StatusNotFound, "nothing to restore, the trash keeps an entry only for a few minutes")
+		return
+	}
+
+	var restored []string
+	err := m.record(r, history.Op{Message: "restore " + p, Paths: []string{p}}, func() ([]string, error) {
+		if _, recoverErr := m.spc.Store.Recover(req.ID); recoverErr != nil {
+			return nil, recoverErr
+		}
+		restored = m.filesUnder(p)
+		return restored, nil
+	})
+	if err != nil {
+		failJSON(w, r, err)
+		return
+	}
+	m.touch(append(restored, p)...)
 	writeJSON(w, http.StatusOK, m.withHistory(map[string]any{"path": p}))
 }
 

@@ -579,7 +579,8 @@ func TestStoreWrite(t *testing.T) {
 		s := newStore(t, notesFiles())
 		data, _, err := s.Read("guide.md")
 		require.NoError(t, err)
-		require.NoError(t, s.Remove("guide.md"))
+		_, err = s.Discard("guide.md", false)
+		require.NoError(t, err)
 
 		_, err = s.Write("guide.md", []byte("x"), Rev(data))
 		require.ErrorIs(t, err, ErrConflict)
@@ -706,111 +707,6 @@ func TestStoreCreate(t *testing.T) {
 			require.ErrorIs(t, err, tc.err)
 		})
 	}
-}
-
-func TestStoreRemove(t *testing.T) {
-	tests := []struct {
-		name string
-		path string
-		err  error
-	}{
-		{name: "file", path: "guide.md"},
-		{name: "empty directory", path: "empty"},
-		{name: "non-empty directory", path: "notes", err: ErrNotEmpty},
-		{name: "missing", path: "nope.md", err: ErrNotFound},
-		{name: "ignored", path: ".git/config", err: ErrNotFound},
-		{name: "the root itself", path: "", err: ErrForbidden},
-		{name: "outside the root", path: "../" + secretName, err: ErrForbidden},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			files := notesFiles()
-			files["empty/"] = ""
-			s := newStore(t, files)
-
-			// act
-			err := s.Remove(tc.path)
-
-			// assert
-			if tc.err != nil {
-				require.ErrorIs(t, err, tc.err)
-				return
-			}
-			require.NoError(t, err)
-			assert.False(t, s.Exists(tc.path))
-		})
-	}
-
-	t.Run("the secret next to the root survives", func(t *testing.T) {
-		s := newStore(t, notesFiles())
-		require.Error(t, s.Remove("../"+secretName))
-		assert.FileExists(t, filepath.Join(filepath.Dir(s.Dir()), secretName))
-	})
-}
-
-func TestStoreRemoveAll(t *testing.T) {
-	tests := []struct {
-		name string
-		path string
-		err  error
-	}{
-		{name: "file", path: "guide.md"},
-		{name: "empty directory", path: "empty"},
-		{name: "directory with files, a hidden one among them", path: "notes"},
-		{name: "missing", path: "nope.md", err: ErrNotFound},
-		{name: "ignored", path: ".git", err: ErrNotFound},
-		{name: "the root itself", path: "", err: ErrForbidden},
-		{name: "outside the root", path: "../" + secretName, err: ErrForbidden},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			// arrange
-			files := notesFiles()
-			files["empty/"] = ""
-			s := newStore(t, files)
-
-			// act
-			err := s.RemoveAll(tc.path)
-
-			// assert
-			if tc.err != nil {
-				require.ErrorIs(t, err, tc.err)
-				assert.FileExists(t, filepath.Join(s.Dir(), ".git", "config"))
-				assert.FileExists(t, filepath.Join(filepath.Dir(s.Dir()), secretName))
-				return
-			}
-			require.NoError(t, err)
-			assert.NoFileExists(t, filepath.Join(s.Dir(), filepath.FromSlash(tc.path)))
-			assert.NoDirExists(t, filepath.Join(s.Dir(), filepath.FromSlash(tc.path)))
-		})
-	}
-
-	t.Run("a symlink inside goes and what it points at stays", func(t *testing.T) {
-		// arrange
-		s := newStore(t, notesFiles())
-		secret := filepath.Join(filepath.Dir(s.Dir()), secretName)
-		require.NoError(t, os.Symlink(secret, filepath.Join(s.Dir(), "notes", "link")))
-
-		// act
-		err := s.RemoveAll("notes")
-
-		// assert
-		require.NoError(t, err)
-		assert.NoDirExists(t, filepath.Join(s.Dir(), "notes"))
-		assert.FileExists(t, secret)
-	})
-
-	t.Run("a read-only store keeps the directory", func(t *testing.T) {
-		// arrange
-		s := newStore(t, notesFiles(), func(cfg *Config) { cfg.ReadOnly = true })
-
-		// act
-		err := s.RemoveAll("notes")
-
-		// assert
-		require.ErrorIs(t, err, ErrReadOnly)
-		assert.DirExists(t, filepath.Join(s.Dir(), "notes"))
-	})
 }
 
 func TestStoreMove(t *testing.T) {
@@ -1195,7 +1091,8 @@ func TestStoreReadOnly(t *testing.T) {
 	}{
 		{name: "write", call: func() error { _, err := s.Write("guide.md", []byte("x"), ""); return err }},
 		{name: "create", call: func() error { _, err := s.Create("new.md", false); return err }},
-		{name: "remove", call: func() error { return s.Remove("guide.md") }},
+		{name: "discard", call: func() error { _, err := s.Discard("guide.md", false); return err }},
+		{name: "recover", call: func() error { _, err := s.Recover("any"); return err }},
 		{name: "move", call: func() error { return s.Move("guide.md", "other.md") }},
 		{
 			name: "upload",

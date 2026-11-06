@@ -674,7 +674,6 @@ test.describe('mobile', () => {
             await shot(page, 'mobile-row-menu');
             await page.getByTestId('tree-row-menu-delete').tap();
             await expect(page.getByTestId('row-lift')).toHaveCount(0);
-            await page.getByTestId('modal-confirm').tap();
             await expect(rowOf(page, file)).toHaveCount(0);
             expect(fs.existsSync(fixtureFile(file))).toBe(false);
         });
@@ -764,6 +763,29 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('move-dialog')).toHaveCount(0);
             await expect.poll(() => fs.existsSync(fixtureFile(`${into}/move-me.md`))).toBe(true);
             expect(fs.existsSync(fixtureFile(file))).toBe(false);
+        });
+
+        test('a tap on Undo in the toast puts the moved file back', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/undo-me.md`;
+            const into = `${FOLDER}/into`;
+            writeFixture(file, '# Undo me\n');
+            fs.mkdirSync(fixtureFile(into), {recursive: true});
+            await page.goto(MAIN.url.dir(FOLDER));
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await page.getByTestId('tree-row-menu-move').tap();
+            await page.getByTestId('move-input').fill('into');
+            await page.locator(`[data-testid=move-place][data-path="${into}"]`).tap();
+            await expect.poll(() => fs.existsSync(fixtureFile(`${into}/undo-me.md`))).toBe(true);
+            await shot(page, 'mobile-move-undo');
+
+            // act
+            await page.getByTestId('toast-action').tap();
+
+            // assert
+            await expect.poll(() => fs.existsSync(fixtureFile(file))).toBe(true);
+            expect(fs.existsSync(fixtureFile(`${into}/undo-me.md`))).toBe(false);
         });
 
         test('offers Edit for a note and not for a picture the editor cannot open', async ({page}) => {
@@ -1349,7 +1371,8 @@ test.describe('mobile', () => {
         await page.goto(routes.home());
 
         // assert
-        await expect(page.getByTestId('topbar-home')).toHaveText(await page.getByTestId('dir-title').textContent());
+        await expect(page.getByTestId('dir-title')).toHaveText(MAIN.space);
+        await expect(page.getByTestId('topbar-home')).toHaveText(MAIN.space);
         await expect(page.getByTestId('topbar-home').locator('svg')).toBeVisible();
     });
 
@@ -1387,7 +1410,7 @@ test.describe('mobile', () => {
         await page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`).getByTestId('tree-row-menu').tap();
 
         // act
-        await page.getByTestId('tree-row-menu-delete').tap();
+        await page.getByTestId('tree-row-menu-rename').tap();
 
         // assert
         const dialog = page.locator('.mantine-Modal-content');
@@ -1396,7 +1419,7 @@ test.describe('mobile', () => {
             const box = await dialog.boundingBox();
             return Math.abs(box.y - (page.viewportSize().height - box.y - box.height));
         }).toBeLessThan(2);
-        await page.getByTestId('modal-cancel').tap();
+        await page.getByTestId('rename-cancel').tap();
     });
 
     test.describe('a toast', () => {

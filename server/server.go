@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -121,11 +122,14 @@ func (wb *Web) Run(ctx context.Context) error {
 		IdleTimeout:       wb.IdleTimeout,
 	}
 
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", wb.ListenAddr)
+	if err != nil {
+		return fmt.Errorf("listen on %s: %w", wb.ListenAddr, err)
+	}
+	logOpenLinks(ln.Addr())
+
 	serverErrors := make(chan error, 1)
-	go func() {
-		log.Printf("[INFO] starting server on %s", wb.ListenAddr)
-		serverErrors <- srv.ListenAndServe()
-	}()
+	go func() { serverErrors <- srv.Serve(ln) }()
 
 	select {
 	case err := <-serverErrors:
@@ -254,6 +258,7 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	mutating.HandleFunc("PUT /api/file/{path...}", m.apiFileSave)
 	mutating.HandleFunc("POST /api/file/{path...}", m.apiFileCreate)
 	mutating.HandleFunc("DELETE /api/file/{path...}", m.apiFileDelete)
+	mutating.HandleFunc("POST /api/trash/restore", m.apiTrashRestore)
 	mutating.HandleFunc("POST /api/move", m.apiMove)
 	mutating.HandleFunc("POST /api/upload/{dir...}", m.apiUpload)
 	mutating.HandleFunc("POST /api/preview", m.apiPreview)

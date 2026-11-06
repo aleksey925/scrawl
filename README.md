@@ -12,8 +12,8 @@ disk are the only state.
   highlighted code, and edits as plain text, without the note's preview and
   formatting
 - pages and folders made in the tree or in a folder's list, renamed, moved with
-  Move to or dragged between folders, and deleted; paste images straight into
-  the editor
+  Move to or dragged between folders, and deleted, with Undo in the toast of a
+  move or a delete; paste images straight into the editor
 - mermaid and PlantUML diagrams, drawn in the browser with no Java and no
   PlantUML server, and opened full screen on a click
 - export note as Markdown, HTML or PDF
@@ -677,8 +677,9 @@ The rest of the write endpoints take no revision:
 | request                                 | body                            | answer                    |
 | --------------------------------------- | ------------------------------- | ------------------------- |
 | `POST /api/file/<path>`                 | `{"type":"file"}` or `"dir"`    | `201 {"path":...}`        |
-| `DELETE /api/file/<path>`               |                                 | `200 {"path":...}`        |
-| `DELETE /api/file/<dir>?recursive=true` |                                 | `200 {"path":...}`        |
+| `DELETE /api/file/<path>`               |                                 | `200 {"path","trash_id"}` |
+| `DELETE /api/file/<dir>?recursive=true` |                                 | `200 {"path","trash_id"}` |
+| `POST /api/trash/restore`               | `{"id":"<trash_id>"}`           | `200 {"path":...}`        |
 | `POST /api/move`                        | `{"from":"a.md","to":"b/a.md"}` | `200 {"path":...}`        |
 | `POST /api/upload/<dir>?doc=<path>`     | multipart `file`                | `201 {"path","markdown"}` |
 
@@ -688,6 +689,10 @@ Each is under `/s/<space>/`, and each carries `history_degraded` and
 A folder that is not empty is deleted only with `recursive=true`, which removes
 it with everything in it; without it the answer is
 `409 {"error":"directory is not empty"}`.
+
+A deleted file or folder is kept for 5 minutes, and `POST /api/trash/restore`
+with the `trash_id` of the delete puts it back where it was. After that the
+answer is `404`, and `409` if something else is at that path now.
 
 A token ending in `:ro` reads everything and writes nothing: every write is
 `403 {"error":"read-only token, writing is disabled"}`. `READ_ONLY` on the

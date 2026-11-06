@@ -9,6 +9,15 @@ import { anchorClass, copyClass, copyCode, injectControls, pictureKeyed, picture
 import { decodeFragment, elementWithId } from './dom';
 import { isPlainClick } from './links';
 
+function sectionTitle(anchor: HTMLElement): string {
+  const heading = anchor.closest('h1, h2, h3, h4, h5, h6')?.cloneNode(true);
+  if (!(heading instanceof HTMLElement)) {
+    return '';
+  }
+  heading.querySelectorAll('[data-heading-id]').forEach((mark) => mark.remove());
+  return heading.textContent.trim();
+}
+
 export function useDocumentControls(
   rootRef: RefObject<HTMLDivElement | null>,
   html: string,
@@ -47,7 +56,7 @@ export function useDocumentControls(
       jump(id, true);
       const copied = await copyText(sectionLink(id));
       showToast(copied ? 'ok' : 'error', {
-        message: copied ? 'Link copied' : 'Could not copy the link',
+        message: copied ? `Copied the link to "${sectionTitle(anchor)}"` : 'Could not copy the link',
       });
     };
 

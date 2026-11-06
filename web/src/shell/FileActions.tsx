@@ -1,20 +1,18 @@
-import { Code, Text } from '@mantine/core';
-import { modals } from '@mantine/modals';
 import {
-  useCallback, useMemo, useState,
+  useCallback, useMemo, useRef, useState,
   type JSX, type ReactNode,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
 import { api } from '../api/client';
 import { ApiError } from '../api/errors';
-import type { EntryKind, EntryPathResponse } from '../api/types';
+import type { DeleteResponse, EntryKind, EntryPathResponse } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
 import { copyText } from '../reader/clipboard';
 import { directoryUrl, documentUrl, isDirectoryPath, isMarkdown, slugPath } from '../paths';
 import { layoutBreakpoints, useBelow } from '../theme';
-import { showToast } from '../toast';
+import { showToast, ToastLink } from '../toast';
 
 import { FileActionsContext, type FileActions, type TreeDraft } from './fileActionsContext';
 import { MoveDialog } from './MoveDialog';
@@ -23,12 +21,73 @@ import { spaceLabel, useNav } from './NavContext';
 import { NewEntryDialog } from './NewEntryDialog';
 import { RenameDialog } from './RenameDialog';
 import { useMutationState } from './useMutationState';
-import { basenameOf, hasOwnExtension, joinPath, renamedPath } from './naming';
+import { basenameOf, hasOwnExtension, joinPath, pageName, parentOf, renamedPath } from './naming';
 
 interface MovedEntry {
   path: string;
   isDir: boolean;
   anchor: DOMRect;
+}
+
+interface Relocation {
+  from: string;
+  to: string;
+}
+
+interface MoveWords {
+  back: boolean;
+  partly: string;
+  none: string;
+}
+
+const forwardWords: MoveWords = {
+  back: false,
+  partly: 'Some of it did not move',
+  none: 'Nothing was moved',
+};
+
+const backWords: MoveWords = {
+  back: true,
+  partly: 'Some of it did not move back',
+  none: 'Nothing was moved back',
+};
+
+function quoted(path: string, isDir: boolean, spaceName: string): string {
+  return `"${path === '' ? spaceName : pageName(basenameOf(path), isDir)}"`;
+}
+
+function movedMessage(
+  done: readonly Relocation[], back: boolean, spaceName: string, visit: (folder: string) => void,
+): ReactNode {
+  const [first] = done;
+  const what = done.length === 1 && first !== undefined ? quoted(first.to, false, spaceName) : `${done.length} items`;
+  const [folder, ...others] = new Set(done.map((pair) => parentOf(pair.to)));
+  return (
+    <>
+      Moved {what}
+      {back ? ' back' : ''}
+      {folder !== undefined && others.length === 0 && (
+        <>
+          {' to '}
+          <ToastLink onClick={() => visit(folder)}>{quoted(folder, true, spaceName)}</ToastLink>
+        </>
+      )}
+    </>
+  );
+}
+
+async function relocateAll(pairs: readonly Relocation[]): Promise<{ done: Relocation[]; failure: unknown }> {
+  const done: Relocation[] = [];
+  let failure: unknown;
+  for (const pair of pairs) {
+    try {
+      const res = await api.move(pair.from, pair.to);
+      done.push({ from: pair.from, to: res.path });
+    } catch (error) {
+      failure = error;
+    }
+  }
+  return { done, failure };
 }
 
 function conflictText(error: unknown, fallback: string): string {
@@ -73,6 +132,9 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const { tree, me, currentPath, refreshNav, openFolder, setQuery } = useNav();
   const onFolder = isDirectoryPath(useLocation().pathname);
   const reportMutation = useMutationState();
+  const space = spaceLabel(me);
+  const shown = useRef({ path: currentPath, onFolder });
+  shown.current = { path: currentPath, onFolder };
   const [renaming, setRenaming] = useState<string | undefined>(undefined);
   const [treeRename, setTreeRename] = useState<string | undefined>(undefined);
   const [moving, setMoving] = useState<MovedEntry | undefined>(undefined);
@@ -82,71 +144,55 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const copyLink = useCallback(async (path: string, isDir: boolean): Promise<void> => {
     if (await copyText(appUrl(path, isDir))) {
-      showToast('ok', { message: 'Link copied' });
+      showToast('ok', { message: `Copied the link to ${quoted(path, isDir, space)}` });
     } else {
       showToast('error', { message: 'Could not copy the link' });
     }
-  }, []);
+  }, [space]);
 
-  const confirmRemove = useCallback(
-    (path: string, isDir: boolean, withContents: boolean) => {
-      modals.openConfirmModal({
-        title: withContents ? 'Delete folder and everything in it?' : isDir ? 'Delete folder?' : 'Delete file?',
-        children: (
-          <Text data-testid="modal" data-variant={withContents ? 'confirm-contents' : 'confirm'} size="sm">
-            {withContents ? (
-              <>
-                <Code>{path}</Code> is not empty. The folder and every file in it will be removed.
-              </>
-            ) : (
-              <>
-                <Code>{path}</Code> will be removed.
-              </>
-            )}{' '}
-            This cannot be undone from the browser.
-          </Text>
-        ),
-        labels: { confirm: withContents ? 'Delete everything' : 'Delete', cancel: 'Cancel' },
-        confirmProps: { color: 'red', 'data-testid': 'modal-confirm' },
-        cancelProps: { 'data-testid': 'modal-cancel' },
-        onConfirm: () => {
-          void (async () => {
-            try {
-              reportMutation(await api.deleteEntry(path, withContents), 'Deleted');
-              if (currentPath === path || currentPath.startsWith(`${path}/`)) {
-                await navigate('/');
-              }
-              refreshNav();
-            } catch (error) {
-              if (isDir && !withContents && error instanceof ApiError && error.status === 409) {
-                confirmRemove(path, isDir, true);
-                return;
-              }
-              showToast('error', { title: 'Nothing was deleted', message: errorText(error) });
-            }
-          })();
-        },
-      });
+  const restore = useCallback(
+    (id: string, path: string, isDir: boolean, back: { path: string; onFolder: boolean } | undefined) => {
+      void (async () => {
+        try {
+          reportMutation(await api.restoreDeleted(id), `Restored ${quoted(path, isDir, space)}`);
+        } catch (error) {
+          showToast('error', {
+            title: 'Nothing was restored',
+            message: conflictText(error, 'Something of that name is there now'),
+          });
+          return;
+        }
+        refreshNav();
+        if (back !== undefined) {
+          await navigate(back.onFolder ? directoryUrl(back.path) : documentUrl(back.path));
+        }
+      })();
     },
-    [currentPath, navigate, refreshNav, reportMutation],
+    [navigate, refreshNav, reportMutation, space],
   );
 
   const remove = useCallback(
     (path: string, isDir: boolean) => {
-      if (!isDir) {
-        confirmRemove(path, isDir, false);
-        return;
-      }
       void (async () => {
-        let holdsEntries = false;
+        const back = currentPath === path || currentPath.startsWith(`${path}/`) ? { ...shown.current } : undefined;
+        let res: DeleteResponse;
         try {
-          holdsEntries = (await api.dir(path)).entries.length > 0;
-        } catch {
+          res = await api.deleteEntry(path);
+        } catch (error) {
+          showToast('error', { title: 'Nothing was deleted', message: errorText(error) });
+          return;
         }
-        confirmRemove(path, isDir, holdsEntries);
+        reportMutation(res, `Deleted ${quoted(path, isDir, space)}`, {
+          label: 'Undo',
+          onClick: () => restore(res.trash_id, path, isDir, back),
+        });
+        if (back !== undefined) {
+          await navigate('/');
+        }
+        refreshNav();
       })();
     },
-    [confirmRemove],
+    [currentPath, navigate, refreshNav, reportMutation, restore, space],
   );
 
   const startDraft = useCallback(
@@ -189,16 +235,16 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         return true;
       }
       if (isFile) {
-        reportMutation(res, 'File created');
+        reportMutation(res, `Created ${quoted(res.path, false, space)}`);
         await navigate(documentUrl(res.path));
         return true;
       }
-      reportMutation(res, 'Folder created');
+      reportMutation(res, `Created folder ${quoted(res.path, true, space)}`);
       openFolder(res.path);
       await navigate(directoryUrl(res.path));
       return true;
     },
-    [navigate, openFolder, refreshNav, reportMutation],
+    [navigate, openFolder, refreshNav, reportMutation, space],
   );
 
   const submitDraft = useCallback(
@@ -217,35 +263,32 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const moveInto = useCallback(
     (paths: readonly string[], folder: string) => {
-      void (async () => {
-        const moved: { from: string; to: string }[] = [];
-        let failure: unknown;
-        for (const from of paths) {
-          try {
-            const res = await api.move(from, joinPath(folder, basenameOf(from)));
-            moved.push({ from, to: res.path });
-          } catch (error) {
-            failure = error;
-          }
-        }
-        if (moved.length > 0) {
+      const run = async (pairs: readonly Relocation[], words: MoveWords, undoable: boolean): Promise<void> => {
+        const { done, failure } = await relocateAll(pairs);
+        if (done.length > 0) {
           refreshNav();
-          openFolder(folder);
-          reportMutation(undefined, moved.length === 1 ? 'Moved' : `Moved ${moved.length} items`);
-          const here = moved.map((pair) => movedTo(currentPath, pair.from, pair.to)).find((path) => path !== undefined);
+          new Set(done.map((pair) => parentOf(pair.to))).forEach(openFolder);
+          const back = done.map((pair) => ({ from: pair.to, to: pair.from })).reverse();
+          reportMutation(
+            undefined,
+            movedMessage(done, words.back, space, (folder) => void navigate(directoryUrl(folder))),
+            undoable ? { label: 'Undo', onClick: () => void run(back, backWords, false) } : undefined,
+          );
+          const here = done.map((pair) => movedTo(shown.current.path, pair.from, pair.to)).find((path) => path !== undefined);
           if (here !== undefined) {
-            await navigate(onFolder ? directoryUrl(here) : documentUrl(here));
+            await navigate(shown.current.onFolder ? directoryUrl(here) : documentUrl(here));
           }
         }
         if (failure !== undefined) {
           showToast('error', {
-            title: moved.length > 0 ? 'Some of it did not move' : 'Nothing was moved',
+            title: done.length > 0 ? words.partly : words.none,
             message: conflictText(failure, 'Something of that name is already there'),
           });
         }
-      })();
+      };
+      void run(paths.map((from) => ({ from, to: joinPath(folder, basenameOf(from)) })), forwardWords, true);
     },
-    [currentPath, navigate, onFolder, openFolder, refreshNav, reportMutation],
+    [navigate, openFolder, refreshNav, reportMutation, space],
   );
 
   const submitRename = useCallback(
@@ -268,7 +311,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         });
         return false;
       }
-      reportMutation(res, 'Renamed');
+      reportMutation(res, `Renamed ${quoted(path, false, space)} to ${quoted(res.path, false, space)}`);
       const here = movedTo(currentPath, path, res.path);
       if (here !== undefined) {
         await navigate(onFolder ? directoryUrl(here) : documentUrl(here));
@@ -277,7 +320,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       refreshNav();
       return true;
     },
-    [currentPath, navigate, onFolder, refreshNav, reportMutation],
+    [currentPath, navigate, onFolder, refreshNav, reportMutation, space],
   );
 
   const renameInTree = useCallback(
@@ -330,7 +373,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
           isDir={moving.isDir}
           anchor={moving.anchor}
           tree={tree}
-          spaceName={spaceLabel(me)}
+          spaceName={space}
           onMove={(folder) => {
             setMoving(undefined);
             moveInto([moving.path], folder);

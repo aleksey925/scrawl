@@ -132,7 +132,7 @@ One kind of knowledge per place:
 
 Before changing a part, read its doc:
 
-- `store`, `os.Root`, atomic writes, the watcher, uploads, paths:
+- `store`, `os.Root`, atomic writes, the watcher, uploads, paths, the trash:
   [storage](docs/design/storage.md)
 - spaces, settings, routes, the two kinds of URL, guards, CSP, `/raw/`, a
   file's page, background goroutines: [server](docs/design/server.md)

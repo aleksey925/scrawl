@@ -55,6 +55,7 @@ type Store struct {
 	root *os.Root
 
 	writeMu sync.Mutex
+	trash   map[string]trashed
 
 	treeMu    sync.Mutex
 	tree      *Node
@@ -87,8 +88,11 @@ func New(cfg Config) (*Store, error) {
 		return nil, fmt.Errorf("open root %q: %w", dir, err)
 	}
 
-	s := &Store{cfg: withDefaults(cfg), dir: dir, root: root}
+	s := &Store{cfg: withDefaults(cfg), dir: dir, root: root, trash: map[string]trashed{}}
 	s.sweepTemp()
+	if !s.cfg.ReadOnly {
+		s.emptyTrash()
+	}
 	return s, nil
 }
 
@@ -351,39 +355,6 @@ func (s *Store) create(cleaned string, isDir bool) error {
 		return err
 	}
 	return f.Close()
-}
-
-func (s *Store) Remove(p string) error {
-	return s.remove(p, s.root.Remove)
-}
-
-func (s *Store) RemoveAll(p string) error {
-	return s.remove(p, s.root.RemoveAll)
-}
-
-func (s *Store) remove(p string, del func(name string) error) error {
-	if s.cfg.ReadOnly {
-		return fmt.Errorf("remove %q: %w", p, ErrReadOnly)
-	}
-	cleaned, err := s.checkPath(p)
-	if err != nil {
-		return err
-	}
-	if cleaned == "." {
-		return fmt.Errorf("remove %q: %w", p, ErrForbidden)
-	}
-
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
-
-	if _, err := s.root.Lstat(cleaned); err != nil {
-		return osError("remove", p, err)
-	}
-	if err := del(cleaned); err != nil {
-		return osError("remove", p, err)
-	}
-	s.invalidate()
-	return nil
 }
 
 func (s *Store) Move(from, to string) error {

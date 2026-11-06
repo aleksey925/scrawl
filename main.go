@@ -243,13 +243,35 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 }
 
 func startWorkers(ctx context.Context, running []*runtimeSpace, srv *server.Web) []<-chan struct{} {
-	done := make([]<-chan struct{}, 0, 2*len(running))
+	done := make([]<-chan struct{}, 0, 3*len(running))
 	for _, rp := range running {
-		done = append(done, watch(ctx, rp, srv))
+		done = append(done, watch(ctx, rp, srv), sweepTrash(ctx, rp.notes))
 		if rp.pull > 0 || rp.web.Webhook != nil {
 			done = append(done, syncLoop(ctx, rp, syncRemote))
 		}
 	}
+	return done
+}
+
+const trashSweep = time.Minute
+
+func sweepTrash(ctx context.Context, notes *store.Store) <-chan struct{} {
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(trashSweep)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case now := <-ticker.C:
+				notes.SweepTrash(now)
+			}
+		}
+	}()
 	return done
 }
 

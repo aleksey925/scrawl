@@ -41,7 +41,7 @@ function surface(dark: boolean): Extension {
       '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
         backgroundColor: 'var(--scrawl-accent-tint)',
       },
-      '.cm-gutters': { backgroundColor: 'transparent', border: 'none', color: 'var(--scrawl-text-faint)' },
+      '.cm-gutters': { backgroundColor: 'var(--scrawl-bg)', border: 'none', color: 'var(--scrawl-text-faint)' },
       '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--scrawl-text-tertiary)' },
       '.cm-placeholder': { color: 'var(--scrawl-placeholder)' },
     },

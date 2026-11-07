@@ -135,8 +135,22 @@
   padding-inline: max(var(--mantine-spacing-md), calc((100% - var(--editor-column)) / 2));
 }
 
+.screen[data-mode='source'][data-wrap='false'] .source :global(.cm-editor) {
+  max-width: calc(var(--editor-column) + 2 * var(--mantine-spacing-md));
+  margin-inline: auto;
+}
+
 .source :global(.cm-gutters) {
   padding-inline-end: 12px;
+}
+
+.source :global(.cm-gutters)::before {
+  position: absolute;
+  inset-block: 0;
+  right: 100%;
+  width: 100vw;
+  background: inherit;
+  content: '';
 }
 
 .source :global(.cm-lineNumbers .cm-gutterElement) {

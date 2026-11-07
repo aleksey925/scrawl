@@ -481,6 +481,37 @@ test.describe('editing', () => {
         await expect.poll(() => sourceLayout(page)).toEqual({longLineWrapped: false, scrollsSideways: true});
     });
 
+    test('with wrapping off a long line scrolls inside the source column and slides under the line numbers', async ({page}) => {
+        // arrange
+        const docPath = scratch('no-wrap-column');
+        writeFixture(docPath, `короткая\n\n${'длинная строка без переноса '.repeat(40)}\n`);
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await page.getByTestId('editor-wrap').click();
+        await expect.poll(() => sourceLayout(page)).toEqual({longLineWrapped: false, scrollsSideways: true});
+
+        // act
+        await page.locator('[data-testid=editor-source] .cm-scroller').evaluate((scroller) => {
+            scroller.scrollLeft = 400;
+        });
+
+        // assert
+        const seen = await page.getByTestId('editor-source').evaluate((root) => {
+            const gutters = root.querySelector('.cm-gutters');
+            const box = gutters.getBoundingClientRect();
+            const number = Array.from(root.querySelectorAll('.cm-lineNumbers .cm-gutterElement'))
+                .find((element) => element.textContent === '3').getBoundingClientRect();
+            const hit = document.elementFromPoint(box.x - 4, number.y + number.height / 2);
+            return {
+                narrowerThanPane: root.querySelector('.cm-editor').offsetWidth < root.offsetWidth,
+                numbersOpaque: getComputedStyle(gutters).backgroundColor !== 'rgba(0, 0, 0, 0)',
+                textLeftOfNumbers: hit !== null && hit.closest('.cm-content') !== null,
+            };
+        });
+        expect(seen).toEqual({narrowerThanPane: true, numbersOpaque: true, textLeftOfNumbers: false});
+        removeFixture(docPath);
+    });
+
     test.afterAll(() => {
         fs.rmSync(fixtureFile('e2e-scratch'), {recursive: true, force: true});
     });

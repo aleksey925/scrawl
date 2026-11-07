@@ -2,7 +2,7 @@ import { EditorSelection, type EditorState, type Line, type Text } from '@codemi
 import type { EditorView } from '@codemirror/view';
 
 import { clamp } from './anchor';
-import { type BlockNode, inMathOrFrontmatter, placeAfterCursorBlock, treeOf } from './blocks';
+import { type BlockNode, placeAfterCursorBlock, treeOf } from './blocks';
 
 export type TableEdit =
   | 'rowAbove'
@@ -104,9 +104,8 @@ function blankLine(doc: Text, number: number): boolean {
 
 function tableAt(state: EditorState, pos: number): BlockNode | undefined {
   const line = state.doc.lineAt(pos);
-  const tree = treeOf(state);
   let table: BlockNode | undefined;
-  tree.iterate({
+  treeOf(state).iterate({
     from: line.from,
     to: line.to,
     enter: (node) => {
@@ -120,9 +119,6 @@ function tableAt(state: EditorState, pos: number): BlockNode | undefined {
       return false;
     },
   });
-  if (table === undefined || inMathOrFrontmatter(state, tree, state.doc.lineAt(table.from))) {
-    return undefined;
-  }
   return table;
 }
 

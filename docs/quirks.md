@@ -133,7 +133,12 @@ words; the fact itself is written here.
   [Editor](ui/editor.md)
 - The markdown parser of codemirror knows no `$$` math block and no front
   matter, so a `$$` line, two lines of a table and a closing `$$` are to it a
-  paragraph and a table whose last row is the `$$`. [Editor](ui/editor.md)
+  paragraph and a table whose last row is the `$$`. It ends a `<textarea>`
+  block at a blank line, and goldmark at `</textarea>` or the end of the file,
+  as it does `<pre>`. [Editor](ui/editor.md)
+- A block parser added to `@lezer/markdown` can tell that the quote or list
+  item it is in has ended only from `line.depth` falling below `cx.depth`, and
+  the types of the package leave `line.depth` out. [Editor](ui/editor.md)
 - In codemirror the height of a line not drawn yet is an estimate, hundreds of
   pixels off in a wrapped note. [Editor position](design/editor-position.md)
 - A phone that puts a tab away and later drops it fires no `beforeunload`, so a

@@ -1,10 +1,9 @@
-import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { EditorState, type Line } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import type { Heading } from '../api/types';
 
-import { frontmatterEnd, placeAfterCursorBlock, treeOf, type TextChange, type Tree } from './blocks';
+import { placeAfterCursorBlock, treeOf, type TextChange, type Tree } from './blocks';
 import { codeNodes } from './cmAnchor';
 
 interface TextRange {
@@ -40,13 +39,12 @@ function isMarker(line: Line, marker: string): boolean {
 }
 
 function markerLines(state: EditorState, tree: Tree): Line[] {
-  const bodyAfter = frontmatterEnd(state.doc);
   const res: Line[] = [];
   tree.iterate({
     enter: (node) => {
       if (node.name === 'CommentBlock') {
         const line = state.doc.lineAt(node.from);
-        if (line.number > bodyAfter && (isMarker(line, tocStart) || isMarker(line, tocStop))) {
+        if (isMarker(line, tocStart) || isMarker(line, tocStop)) {
           res.push(line);
         }
       }
@@ -88,7 +86,6 @@ export function writeTocInText(text: string, cursor: number, block: string): str
   const state = EditorState.create({
     doc: text,
     selection: { anchor: Math.min(cursor, text.length) },
-    extensions: markdown({ base: markdownLanguage }),
   });
   return state.update({ changes: placeToc(state, block) }).state.doc.toString();
 }

@@ -30,13 +30,19 @@ The editor screen.
 - The contents button puts a list of the headings up to level 4, all but the
   title, nested by level, as links to them, after the block the cursor is in,
   between `<!-- toc -->` and `<!-- tocstop -->`. The block is the top-level one
-  in the editor's syntax tree: a paragraph, a list, a table, an HTML block, a
-  quote or a code block, so the list never splits one. A `$$` math block runs
-  to its closing `$$` as the server reads it, blank lines and all. A code or
-  math block with no closing fence runs to the end of the file, so the fence
-  that closes it goes in before the list, and so does the end of an HTML block
-  that ends at a mark, such as `-->` of a comment or `</pre>`, when the file
-  ends before it. With the cursor in the front matter the list goes after it,
+  as the server reads the note: a paragraph, a list, a table, an HTML block, a
+  quote, a code block or a `$$` math block, so the list never splits one. For
+  this the note is parsed with the block rules of the server, not taken from
+  the editor's syntax tree: codemirror's markdown parser with a `$$` math block
+  added, which runs to its closing `$$`, blank lines and all, or to the end of
+  the quote or list item it is in, a `<textarea>` block that runs to its end
+  tag as `<pre>` does, and the front matter left out
+  ([quirks](../quirks.md#react-mantine-and-the-editor)). A code or math block
+  with no closing fence runs to the end of the file, so the fence that closes
+  it goes in before the list, and so does the end of an HTML block that ends at
+  a mark, such as `-->` of a comment or `</textarea>`, when the file ends
+  before it. As the block runs to the end of the file, closing it changes
+  nothing after it. With the cursor in the front matter the list goes after it,
   and with the cursor on a blank line between two blocks it goes there. The
   title is the first heading of level 1 wherever it stands, the one the page
   takes its title from. A second press finds that block and writes a fresh list
@@ -103,9 +109,9 @@ The editor screen.
   to, or those of the delimiter row when it goes under the header, as the
   header's own can start a list item. The cells come from splitting each line
   on a `|` with no `\` right before it, as the server reads them, so `\\|` is
-  text as well, and the table itself from the editor's syntax tree, which reads
-  `\\|` another way ([quirks](../quirks.md#react-mantine-and-the-editor)). That
-  tree also sees a table in table-shaped lines of a `$$` math block or the
-  front matter, which the server reads as math and data
-  ([quirks](../quirks.md#react-mantine-and-the-editor)), so a table that starts
-  there is no table and the menu shows the grid.
+  text as well, and the table itself from the parse with the server's block
+  rules that places the contents list, which reads `\\|` another way
+  ([quirks](../quirks.md#react-mantine-and-the-editor)). So table-shaped lines
+  in a `$$` math block, at the top level or in a quote or a list item, in a
+  `<textarea>` or in the front matter are no table, as the server reads them as
+  math, text and data, and the menu shows the grid there.

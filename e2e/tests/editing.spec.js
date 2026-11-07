@@ -1039,11 +1039,12 @@ test.describe('editing', () => {
             ['math block', '$$', '$$'],
             ['HTML comment', '<!--', '-->'],
             ['pre block', '<pre>', '</pre>'],
+            ['textarea', '<textarea>', '</textarea>'],
         ];
         for (const [block, open, close] of openBlocks) {
             test(`a table inserted in a ${block} that runs to the end of the file closes the block first`, async ({page}) => {
                 // arrange
-                const docPath = scratch(`table-in-open-${block.replace(' ', '-')}`);
+                const docPath = scratch(`table-in-open-${block.replaceAll(' ', '-')}`);
                 writeFixture(docPath, `Text\n\n${open}\nx\n`);
                 await page.goto(routes.edit(docPath));
                 await putCursor(page, 3, 'End');
@@ -1061,14 +1062,36 @@ test.describe('editing', () => {
             });
         }
 
+        test('a table inserted in a textarea with a blank line goes after all of it, as the server reads it to its end', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-in-textarea');
+            writeFixture(docPath, '<textarea>\na\n\nb\n');
+            await page.goto(routes.edit(docPath));
+            await putCursor(page, 1, 'End');
+            await page.getByTestId('editor-toolbar-table').click();
+
+            // act
+            await page.getByTestId('editor-table-grid').locator('[data-column="1"][data-row="2"]').click();
+
+            // assert
+            await expect.poll(() => sourceText(page)).toBe([
+                '<textarea>', 'a', '', 'b', '</textarea>', '', '|     |', '| --- |', '|     |', '',
+            ].join('\n'));
+            await expect(page.locator('[data-testid=editor-preview] table')).toHaveCount(1);
+            await expect(page.locator('[data-testid=editor-preview] p')).toHaveCount(0);
+            removeFixture(docPath);
+        });
+
         const notTables = [
             ['math block', ['$$', '| a |', '| - |', '$$']],
+            ['math block in a quote', ['> $$', '> | a |', '> | - |', '> $$']],
+            ['math block in a list item', ['- $$', '  | a |', '  | - |', '  $$']],
             ['front matter', ['---', '| a |', '| - |', '', '...']],
         ];
         for (const [block, lines] of notTables) {
             test(`table text in a ${block} is no table: the menu offers the grid and the table goes after the block`, async ({page}) => {
                 // arrange
-                const docPath = scratch(`table-text-in-${block.replace(' ', '-')}`);
+                const docPath = scratch(`table-text-in-${block.replaceAll(' ', '-')}`);
                 writeFixture(docPath, [...lines, '', 'Text', ''].join('\n'));
                 await page.goto(routes.edit(docPath));
                 await putCursor(page, 1, 'End');

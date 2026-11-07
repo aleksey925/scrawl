@@ -1,11 +1,12 @@
-import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import type { EditorState, Line, Text } from '@codemirror/state';
-
-import { parseBudgetMs } from './constants';
-
-export type Tree = ReturnType<typeof syntaxTree>;
-
-export type BlockNode = Tree['topNode'];
+import {
+  type BlockContext,
+  type Element,
+  GFM,
+  type Line as BlockLine,
+  type MarkdownConfig,
+  parser as commonmark,
+} from '@lezer/markdown';
 
 export interface TextChange {
   from: number;
@@ -23,11 +24,6 @@ interface InsertSpot {
   closer: string | undefined;
 }
 
-interface MathBlock {
-  close: number;
-  closed: boolean;
-}
-
 interface HtmlEnd {
   open: RegExp;
   end: RegExp;
@@ -37,20 +33,102 @@ interface HtmlEnd {
 const frontmatterStart = '---';
 const frontmatterStops: ReadonlySet<string> = new Set(['---', '...']);
 const mathFence = '$$';
+const mathBlock = 'MathBlock';
+const mathMark = 'MathMark';
+const rawHtmlOpen = /^<(script|pre|style|textarea)(?:\s|\/?>|$)/i;
+const rawHtmlEnd = /<\/(?:script|pre|style|textarea)>/i;
 const htmlBlocks: ReadonlySet<string> = new Set(['HTMLBlock', 'CommentBlock', 'ProcessingInstructionBlock']);
 const htmlEnds: readonly HtmlEnd[] = [
-  { open: /^<(script|pre|style)(?:\s|>|$)/i, end: /<\/(?:script|pre|style)>/i, closer: '</$1>' },
+  { open: rawHtmlOpen, end: rawHtmlEnd, closer: '</$1>' },
   { open: /^<!--/, end: /-->/, closer: '-->' },
   { open: /^<\?/, end: /\?>/, closer: '?>' },
   { open: /^<![A-Z]/, end: />/, closer: '>' },
   { open: /^<!\[CDATA\[/, end: /\]\]>/, closer: ']]>' },
 ];
 
-export function treeOf(state: EditorState): Tree {
-  return ensureSyntaxTree(state, state.doc.length, parseBudgetMs) ?? syntaxTree(state);
+function inContainer(cx: BlockContext, line: BlockLine): boolean {
+  return (line as BlockLine & { depth: number }).depth >= cx.depth;
 }
 
-export function frontmatterEnd(doc: Text): number {
+function lineRest(line: BlockLine): string {
+  return line.text.slice(line.pos);
+}
+
+function mathOpener(rest: string): string | undefined {
+  const tail = rest.slice(mathFence.length).trimEnd();
+  if (!rest.startsWith(mathFence) || (tail !== '' && (tail.length < mathFence.length || !tail.endsWith(mathFence)))) {
+    return undefined;
+  }
+  return tail;
+}
+
+function parseMath(cx: BlockContext, line: BlockLine): boolean {
+  const tail = mathOpener(lineRest(line));
+  if (tail === undefined) {
+    return false;
+  }
+  const from = cx.lineStart + line.pos;
+  const marks: Element[] = [cx.elt(mathMark, from, from + mathFence.length)];
+  if (tail !== '') {
+    const to = from + mathFence.length + tail.length;
+    marks.push(cx.elt(mathMark, to - mathFence.length, to));
+    cx.nextLine();
+  } else {
+    while (cx.nextLine() && inContainer(cx, line)) {
+      marks.push(...line.markers);
+      if (lineRest(line).trimEnd() === mathFence) {
+        const at = cx.lineStart + line.pos;
+        marks.push(cx.elt(mathMark, at, at + mathFence.length));
+        cx.nextLine();
+        break;
+      }
+    }
+  }
+  cx.addElement(cx.elt(mathBlock, from, cx.prevLineEnd(), marks));
+  return true;
+}
+
+function parseRawHtml(cx: BlockContext, line: BlockLine): boolean {
+  if (!rawHtmlOpen.test(lineRest(line))) {
+    return false;
+  }
+  const from = cx.lineStart + line.pos;
+  const marks: Element[] = [];
+  let ended = true;
+  while (!rawHtmlEnd.test(line.text) && cx.nextLine()) {
+    if (!inContainer(cx, line)) {
+      ended = false;
+      break;
+    }
+    marks.push(...line.markers);
+  }
+  if (ended) {
+    cx.nextLine();
+  }
+  cx.addElement(cx.elt('HTMLBlock', from, cx.prevLineEnd(), marks));
+  return true;
+}
+
+const serverBlocks: MarkdownConfig = {
+  defineNodes: [{ name: mathBlock, block: true }, mathMark],
+  parseBlock: [
+    { name: mathBlock, after: 'FencedCode', parse: parseMath },
+    {
+      name: 'RawHTMLBlock',
+      before: 'HTMLBlock',
+      parse: parseRawHtml,
+      endLeaf: (_cx, line) => rawHtmlOpen.test(lineRest(line)),
+    },
+  ],
+};
+
+const serverParser = commonmark.configure([GFM, serverBlocks]);
+
+export type Tree = ReturnType<typeof serverParser.parse>;
+
+export type BlockNode = Tree['topNode'];
+
+function frontmatterEnd(doc: Text): number {
   const bare = (number: number): string => doc.line(number).text.replace(/[ \t\r]+$/, '');
   if (bare(1) !== frontmatterStart) {
     return 0;
@@ -61,6 +139,13 @@ export function frontmatterEnd(doc: Text): number {
     }
   }
   return 0;
+}
+
+export function treeOf(state: EditorState): Tree {
+  const { doc } = state;
+  const bodyAfter = frontmatterEnd(doc);
+  const bodyFrom = bodyAfter === 0 ? 0 : doc.line(bodyAfter).to;
+  return serverParser.parse(doc.sliceString(0, bodyFrom).replace(/[^\n]/g, ' ') + doc.sliceString(bodyFrom));
 }
 
 function topBlock(tree: Tree, line: Line): BlockNode | undefined {
@@ -94,40 +179,10 @@ function closerOf(doc: Text, node: BlockNode): string | undefined {
   if (node.name === 'FencedCode') {
     return fenceCloser(doc, node);
   }
-  return htmlBlocks.has(node.name) ? htmlCloser(doc, node) : undefined;
-}
-
-function isMathFence(line: Line): boolean {
-  return line.text.trim() === mathFence;
-}
-
-function mathAround(doc: Text, tree: Tree, line: Line, bodyAfter: number): MathBlock | undefined {
-  let after = bodyAfter;
-  for (let node = tree.topNode.firstChild; node !== null; node = node.nextSibling) {
-    const open = doc.lineAt(node.from);
-    if (open.number > line.number) {
-      return undefined;
-    }
-    if (node.name !== 'Paragraph' || open.number <= after || !isMathFence(open)) {
-      continue;
-    }
-    let close = open.number + 1;
-    while (close < doc.lines && !isMathFence(doc.line(close))) {
-      close++;
-    }
-    const closed = close <= doc.lines && isMathFence(doc.line(close));
-    close = Math.min(close, doc.lines);
-    if (line.number <= close) {
-      return { close, closed };
-    }
-    after = close;
+  if (node.name === mathBlock) {
+    return node.getChildren(mathMark).length === 1 ? mathFence : undefined;
   }
-  return undefined;
-}
-
-export function inMathOrFrontmatter(state: EditorState, tree: Tree, line: Line): boolean {
-  const bodyAfter = frontmatterEnd(state.doc);
-  return line.number <= bodyAfter || mathAround(state.doc, tree, line, bodyAfter) !== undefined;
+  return htmlBlocks.has(node.name) ? htmlCloser(doc, node) : undefined;
 }
 
 function insertSpot(state: EditorState, tree: Tree): InsertSpot {
@@ -137,14 +192,9 @@ function insertSpot(state: EditorState, tree: Tree): InsertSpot {
   if (cursor.number <= bodyAfter) {
     return { line: doc.line(bodyAfter), closer: undefined };
   }
-  const math = mathAround(doc, tree, cursor, bodyAfter);
-  const inner = doc.line(math?.close ?? cursor.number);
-  if (math !== undefined && !math.closed) {
-    return { line: inner, closer: mathFence };
-  }
-  const block = topBlock(tree, inner);
+  const block = topBlock(tree, cursor);
   if (block === undefined) {
-    return { line: inner, closer: undefined };
+    return { line: cursor, closer: undefined };
   }
   return { line: doc.lineAt(block.to), closer: closerOf(doc, block) };
 }

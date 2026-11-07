@@ -183,7 +183,7 @@ function pathAfterMove(path: string, from: string, to: string): string | undefin
 export function FileActionsProvider({ children }: { children: ReactNode }): JSX.Element {
   const { revealNav: revealTree } = useReaderLayout();
   const navigate = useNavigate();
-  const { tree, me, currentPath, refreshNav, openFolder, setQuery } = useNav();
+  const { tree, me, currentPath, refreshNav, refreshMe, openFolder, setQuery } = useNav();
   const location = useLocation();
   const onFolder = isDirectoryPath(location.pathname);
   const reportMutation = useMutationState();
@@ -216,10 +216,19 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
     }
   }, [space]);
 
-  const restore = useCallback(
-    async (id: string, path: string, isDir: boolean, back: string | undefined): Promise<boolean> => {
+  const settle = useCallback(() => {
+    refreshMe();
+    refreshNav();
+  }, [refreshMe, refreshNav]);
+
+  const undoDelete = useCallback(
+    async (deleting: Promise<DeleteResponse | undefined>, path: string, isDir: boolean, back: string | undefined): Promise<boolean> => {
+      const deleted = await deleting;
+      if (deleted === undefined) {
+        return true;
+      }
       try {
-        reportMutation(await api.restoreTrashed(id), `Restored ${quoted(path, isDir, space)}`);
+        reportMutation(await api.restoreTrashed(deleted.trash_id), `Restored ${quoted(path, isDir, space)}`);
       } catch (error) {
         showToast('error', {
           title: 'Nothing was restored',
@@ -238,28 +247,29 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const remove = useCallback(
     (path: string, isDir: boolean) => {
-      void (async () => {
-        const { path: here, route } = shown.current;
-        const back = here === path || here.startsWith(`${path}/`) ? route : undefined;
-        let res: DeleteResponse;
-        try {
-          res = await api.deleteEntry(path);
-        } catch (error) {
+      const { path: here, route } = shown.current;
+      const back = here === path || here.startsWith(`${path}/`) ? route : undefined;
+      const deleting = api.deleteEntry(path).then(
+        (res) => {
+          settle();
+          return res;
+        },
+        (error: unknown) => {
           showToast('error', { title: 'Nothing was deleted', message: errorText(error) });
-          return;
-        }
-        touch([path]);
-        reportMutation(res, `Deleted ${quoted(path, isDir, space)}`, {
-          label: 'Undo',
-          onClick: () => restore(res.trash_id, path, isDir, back),
-        });
-        if (back !== undefined) {
-          await navigate('/');
-        }
-        refreshNav();
-      })();
+          settle();
+          return undefined;
+        },
+      );
+      touch([path]);
+      showToast('ok', {
+        message: `Deleted ${quoted(path, isDir, space)}`,
+        action: { label: 'Undo', onClick: () => undoDelete(deleting, path, isDir, back) },
+      });
+      if (back !== undefined) {
+        void navigate('/');
+      }
     },
-    [navigate, refreshNav, reportMutation, restore, space, touch],
+    [navigate, settle, space, touch, undoDelete],
   );
 
   const showInTree = useCallback(

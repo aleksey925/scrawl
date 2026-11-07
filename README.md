@@ -314,14 +314,15 @@ not hide it from any of these.
 For ssh there is no setting: an ssh remote uses the agent and the `~/.ssh` you
 mount into the container, like every other tool on the box.
 
-**Pulling and pushing.** A save is committed and pushed straight away. In
-between, `pull` says how often to fetch from the remote; `0` turns that off,
-but scrawl still fetches once at startup. A fetch is followed by a fast-forward
-and nothing else: scrawl never merges, never rebases and never resolves
-conflicts. If the branch has diverged, the space keeps serving, saves keep
-landing on disk and in local commits, and a banner says so on every screen
-together with a button that resets this copy to the remote version - see
-[below](#when-a-space-has-diverged).
+**Pulling and pushing.** A change you make is committed at once and pushed a
+few seconds later, so you never wait for the network, and a few quick changes
+go out as one push. In between, `pull` says how often to fetch from the remote;
+`0` turns that off, but scrawl still fetches once at startup. A fetch is
+followed by a fast-forward and nothing else: scrawl never merges, never rebases
+and never resolves conflicts. If the branch has diverged, the space keeps
+serving, saves keep landing on disk and in local commits, and a banner says so
+on every screen together with a button that resets this copy to the remote
+version - see [below](#when-a-space-has-diverged).
 
 **Two things are worth knowing.** History is always on for a space that is a
 git repository, whatever `HISTORY` says: one that stopped recording would also
@@ -675,9 +676,11 @@ the note is stored untouched.
 
 The last two fields are on every write, and they are two different failures.
 `history_degraded` says the change is on disk and not in git. `unpublished`
-says it is in git and not on the remote. A browser save gets them as a warning
-and keeps going; a token gets a `500` instead, because an agent must never be
-told a change landed somewhere it did not:
+says it is in git and not on the remote. A write from the page is pushed a few
+seconds after its answer, so its `unpublished` is the state before that push; a
+browser save gets them as a warning and keeps going; a token gets a `500`
+instead, because an agent must never be told a change landed somewhere it did
+not:
 
 - `500 {"error":"the change was written but not recorded in history"}`
 - `500 {"error":"the change was written and recorded, but not pushed to the remote"}`

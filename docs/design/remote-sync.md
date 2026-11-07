@@ -71,6 +71,26 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   is shown in the dialog and not in a toast, because it names the backup branch
   and a toast is gone in seconds.
 
+## Pushing
+
+- A write from the page is committed in its request and pushed after the
+  answer. The push went over the network inside the request, so a delete, a
+  save or an Undo made the person wait a second or more for a step they never
+  see. One push loop per space runs under the worker context: a write marks a
+  push due and returns, and the loop pushes 3 seconds after the mark, under the
+  history lock, with the state it finds then. The wait lets an Undo or a second
+  action right after land before the push holds the lock, and sends a run of
+  writes as one push. A write that comes while a push runs marks the next one.
+  A write with an API token still pushes in its request, because a script is
+  told whether its change reached the remote. Without the loop, in the tests
+  and before the server starts, a write pushes in its request too.
+- The answer to a write carries the state from before its own push, so a
+  routine write gets no "not pushed" warning. `/api/me` says `pushing` while a
+  push is due or running, and the page asks again every 2 seconds until it is
+  not, so a push that fails reaches the control and the banner in seconds and
+  not at the next minute's poll. A push that never ran because the server
+  stopped is not lost: the commit stays, and the startup sync pushes it.
+
 ## Sync state
 
 - Two states, not one. `degraded` is a commit that failed, so a change is on

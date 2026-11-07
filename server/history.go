@@ -27,6 +27,7 @@ type History interface {
 	Enabled() bool
 	Degraded() bool
 	Unpublished() bool
+	Pushing() bool
 	SyncError() string
 	SyncState() history.SyncState
 	Remote() bool

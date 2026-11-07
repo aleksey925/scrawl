@@ -49,7 +49,7 @@ func (s *Service) Record(ctx context.Context, op Op, mutate func() ([]string, er
 	}
 	clear(s.pending)
 	s.degraded.Store(false)
-	return s.publishFailed(op, s.publishLocked(ctx, s.SyncState()))
+	return s.publishFailed(op, s.publishAfterCommit(ctx, op))
 }
 
 func (s *Service) publishFailed(op Op, err error) error {

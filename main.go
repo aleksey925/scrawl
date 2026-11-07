@@ -243,13 +243,23 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 }
 
 func startWorkers(ctx context.Context, running []*runtimeSpace, srv *server.Web) []<-chan struct{} {
-	done := make([]<-chan struct{}, 0, 3*len(running))
+	done := make([]<-chan struct{}, 0, 4*len(running))
 	for _, rp := range running {
-		done = append(done, watch(ctx, rp, srv), sweepTrash(ctx, rp.notes))
+		done = append(done, watch(ctx, rp, srv), sweepTrash(ctx, rp.notes), pushLoop(ctx, rp.hist))
 		if rp.pull > 0 || rp.web.Webhook != nil {
 			done = append(done, syncLoop(ctx, rp, syncRemote))
 		}
 	}
+	return done
+}
+
+func pushLoop(ctx context.Context, hist *history.Service) <-chan struct{} {
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		hist.PushLoop(ctx)
+	}()
 	return done
 }
 

@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import type { MeResponse } from '../api/types';
 
 const meRefreshMs = 60_000;
+const pushPollMs = 2_000;
 
 export interface MeState {
   me: MeResponse | undefined;
@@ -59,6 +60,15 @@ export function useMe(): MeState {
       inFlight.current?.abort();
     };
   }, [load]);
+
+  const pushing = me?.space.pushing === true;
+  useEffect(() => {
+    if (!pushing) {
+      return undefined;
+    }
+    const timer = window.setTimeout(() => load(true), pushPollMs);
+    return () => window.clearTimeout(timer);
+  }, [pushing, me, load]);
 
   return { me, refreshMe };
 }

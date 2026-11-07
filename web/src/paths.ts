@@ -8,13 +8,22 @@ const translit: Record<string, string> = {
   ю: 'yu', я: 'ya',
 };
 
+function latinOf(letter: string): string {
+  const lower = letter.toLowerCase();
+  const latin = translit[lower];
+  if (latin === undefined) {
+    return letter;
+  }
+  return letter === lower ? latin : latin.charAt(0).toUpperCase() + latin.slice(1);
+}
+
 export function slugify(title: string): string {
   let out = '';
-  for (const letter of title.toLowerCase()) {
-    out += translit[letter] ?? letter;
+  for (const letter of title) {
+    out += latinOf(letter);
   }
   return out
-    .replace(/[^a-z0-9.-]+/g, '-')
+    .replace(/[^A-Za-z0-9.-]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 }

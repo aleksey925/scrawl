@@ -1,6 +1,7 @@
 package history
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -621,4 +623,87 @@ func originAnswering(status int) func(t *testing.T) string {
 		t.Cleanup(srv.Close)
 		return srv.URL + "/notes.git"
 	}
+}
+
+func TestABrowserWriteIsPushedByTheLoopAfterTheRecordReturns(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	before := headOf(t, bare)
+	svc.background.Store(true)
+	svc.pushDelay = 10 * time.Millisecond
+	writeFile(t, dir, "local.md", "# Local\n")
+
+	// act
+	require.NoError(t, svc.Record(t.Context(), Op{Message: "save", Paths: []string{"local.md"}},
+		func() ([]string, error) { return nil, nil }))
+	headAfterRecord := headOf(t, bare)
+	queued := len(svc.pushes)
+	pushingAfterRecord := svc.Pushing()
+	ctx, cancel := context.WithCancel(t.Context())
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		svc.PushLoop(ctx)
+	}()
+
+	// assert
+	assert.Equal(t, before, headAfterRecord, "the record committed and left the push to the loop")
+	assert.Equal(t, 1, queued)
+	assert.True(t, pushingAfterRecord)
+	require.Eventually(t, func() bool { return !svc.Pushing() }, 10*time.Second, 20*time.Millisecond)
+	cancel()
+	<-stopped
+	assert.False(t, svc.Unpublished())
+	assert.Equal(t, localHead(t, dir), headOf(t, bare))
+}
+
+func TestABurstOfBrowserWritesQueuesOnePush(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	svc.background.Store(true)
+
+	// act
+	for _, name := range []string{"a.md", "b.md", "c.md"} {
+		writeFile(t, dir, name, "# "+name+"\n")
+		require.NoError(t, svc.Record(t.Context(), Op{Message: "save " + name, Paths: []string{name}},
+			func() ([]string, error) { return nil, nil }))
+	}
+
+	// assert
+	assert.Len(t, svc.pushes, 1)
+}
+
+func TestATokenWritePushesInsideTheRecordEvenWithTheLoopRunning(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	svc.background.Store(true)
+	writeFile(t, dir, "local.md", "# Local\n")
+
+	// act
+	err := svc.Record(t.Context(), Op{Message: "save", Paths: []string{"local.md"}, Strict: true},
+		func() ([]string, error) { return nil, nil })
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, localHead(t, dir), headOf(t, bare))
+	assert.Empty(t, svc.pushes)
+}
+
+func TestThePushLoopDoesNothingForAPullOnlySpace(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare, func(rm *Remote) { rm.PullOnly = true })
+
+	// act
+	svc.PushLoop(t.Context())
+
+	// assert
+	assert.False(t, svc.background.Load())
 }

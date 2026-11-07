@@ -48,7 +48,6 @@ test.describe('sync state', () => {
         await setSource(page, '# Sync\n\nstuck in the container.\n');
         await save(page);
 
-        await expect(page.getByTestId('toast')).toHaveAttribute('data-kind', 'warn');
         await expect(control(page)).toBeVisible();
         await expect(control(page)).toHaveAttribute('data-here', 'true');
         const alert = page.getByTestId('space-alert');

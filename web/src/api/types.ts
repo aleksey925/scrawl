@@ -136,6 +136,7 @@ export interface SpaceState {
   diverged: boolean;
   can_reset: boolean;
   push_refused: boolean;
+  pushing: boolean;
 }
 
 export interface Divergence {

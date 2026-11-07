@@ -195,6 +195,48 @@ func (s *Service) publishLocked(ctx context.Context, next SyncState) error {
 	return nil
 }
 
+func (s *Service) publishAfterCommit(ctx context.Context, op Op) error {
+	if op.Strict || !s.background.Load() {
+		return s.publishLocked(ctx, s.SyncState())
+	}
+	s.pushing.Store(true)
+	select {
+	case s.pushes <- struct{}{}:
+	default:
+	}
+	return nil
+}
+
+func (s *Service) Pushing() bool { return s != nil && s.pushing.Load() }
+
+func (s *Service) PushLoop(ctx context.Context) {
+	if s == nil || s.cfg.Remote == nil || s.cfg.Remote.PullOnly {
+		return
+	}
+	s.background.Store(true)
+	defer s.background.Store(false)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.pushes:
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(s.pushDelay):
+		}
+		s.mu.Lock()
+		select {
+		case <-s.pushes:
+		default:
+		}
+		_ = s.publishLocked(ctx, s.SyncState())
+		s.pushing.Store(false)
+		s.mu.Unlock()
+	}
+}
+
 var refusalSigns = []string{
 	"could not read Username for",
 	"could not read Password for",

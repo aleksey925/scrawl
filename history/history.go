@@ -19,6 +19,7 @@ import (
 const (
 	defaultTimeout     = 10 * time.Second
 	defaultInitTimeout = 5 * time.Minute
+	pushDelay          = 3 * time.Second
 	defaultLogLimit    = 100
 
 	initialBranch = "main"
@@ -67,6 +68,11 @@ type Service struct {
 	degraded atomic.Bool
 
 	sync atomic.Pointer[SyncState]
+
+	pushes     chan struct{}
+	pushDelay  time.Duration
+	background atomic.Bool
+	pushing    atomic.Bool
 }
 
 func New(cfg Config) (*Service, error) {
@@ -90,12 +96,14 @@ func New(cfg Config) (*Service, error) {
 	}
 
 	s := &Service{
-		cfg:     cfg,
-		root:    root,
-		git:     gitPath,
-		exts:    extensionSet(cfg.Extensions),
-		files:   files,
-		pending: map[string]struct{}{},
+		cfg:       cfg,
+		root:      root,
+		git:       gitPath,
+		exts:      extensionSet(cfg.Extensions),
+		files:     files,
+		pending:   map[string]struct{}{},
+		pushes:    make(chan struct{}, 1),
+		pushDelay: pushDelay,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), s.initTimeout())
 	defer cancel()

@@ -104,6 +104,13 @@ the link names.
   nothing and goes to a trash for a few minutes, with Undo in its toast.
   [remote sync](docs/design/remote-sync.md#conflicts-and-reset),
   [ADR 20](docs/adr/0020-delete-to-a-trash-with-undo.md)
+- A person never waits on git or the network for an action they made. The
+  screen shows a result it can predict at once - a delete has its toast and
+  leaves the page before the server answers - and a write from the page is
+  committed in its request and pushed after the answer; a write with an API
+  token still pushes in its request.
+  [remote sync](docs/design/remote-sync.md#pushing),
+  [entries](docs/ui/entries.md)
 - The built frontend is committed: a change in `web/` is followed by `make ui`
   and a commit of what it wrote. Nothing is fetched from a CDN.
   [frontend](docs/design/frontend.md#build-and-release)
@@ -154,7 +161,8 @@ Before changing a part, read its doc:
 - the index, the search modes, the find bar: [search](docs/design/search.md)
 - git history, an adopted repository, restore, comparing versions:
   [history](docs/design/history.md)
-- a clone, `--ff-only`, diverged, reset, sync state, credentials, the webhook:
+- a clone, `--ff-only`, diverged, reset, the push after the answer, sync state,
+  credentials, the webhook:
   [remote sync](docs/design/remote-sync.md)
 - `render`, `diff`, the pages of the command line, export and PDF:
   [command line](docs/design/cli.md)

@@ -3,20 +3,20 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    DIALOG_TITLE, MAIN, atHome, fixtureFile, removeFixture, rightClickPrevented, routes, save, setSource, shot,
+    DIALOG_TITLE, MAIN, atHome, fixtureFile, holdRoute, removeFixture, rightClickPrevented, routes, save, setSource, shot,
     signIn, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
 const FOLDER = 'e2e-fm';
 const OTHER = 'e2e-fm-other';
-const PAGE = `${FOLDER}/testovaya-stranitsa.md`;
+const PAGE = `${FOLDER}/Testovaya-stranitsa.md`;
 const RENAMED = `${FOLDER}/pereimenovannaya.md`;
 const DRAGGED = ['e2e-drag-one.md', 'e2e-drag-two.md'];
 const ROOT_PAGE = 'e2e-root-page.md';
 const TYPED_FILE = 'E2eTyped.java';
 const TYPED_PICTURE = 'e2e-typed.png';
-const DATED_PAGE = 'e2e-meeting-2024.10.21.md';
+const DATED_PAGE = 'E2E-Meeting-2024.10.21.md';
 const BLANK_FOLDER = 'e2e-fm-blank';
 const HOLLOW = 'e2e-fm-hollow';
 const BLANK_PAGE = 'e2e-blank-page.md';
@@ -238,7 +238,7 @@ test.describe.serial('file management', () => {
         await shot(page, 'files-row-menu');
         await page.getByTestId('tree-row-menu-rename').click();
         const input = page.getByTestId('tree-rename-input');
-        await expect(input).toHaveValue('testovaya-stranitsa');
+        await expect(input).toHaveValue('Testovaya-stranitsa');
         await expect(input).toBeFocused();
         await shot(page, 'files-rename-in-place');
 
@@ -804,6 +804,46 @@ test.describe.serial('file management', () => {
         await expect.poll(() => fs.existsSync(fixtureFile(RENAMED))).toBe(false);
         await expect(page.locator(`[data-testid=tree-row][data-path="${RENAMED}"]`)).toHaveCount(0);
         await shot(page, 'files-deleted');
+    });
+
+    test('a delete shows its toast and leaves the page before the server answers', async ({page}) => {
+        // arrange
+        const note = `${FOLDER}/slow-delete.md`;
+        writeFixture(note, '# Slow delete\n');
+        await page.goto(routes.doc(note));
+        const release = await holdRoute(page, `**${routes.api(`/file/${note}`)}**`);
+        await page.locator(`[data-testid=tree-row][data-path="${note}"] [data-testid=tree-row-menu]`).click();
+
+        // act
+        await page.getByTestId('tree-row-menu-delete').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText('Deleted "slow-delete"');
+        await expect(page).toHaveURL(atHome());
+        expect(fs.existsSync(fixtureFile(note))).toBe(true);
+        release();
+        await expect.poll(() => fs.existsSync(fixtureFile(note))).toBe(false);
+        await expect(page.locator(`[data-testid=tree-row][data-path="${note}"]`)).toHaveCount(0);
+    });
+
+    test('a new note and a new folder keep the capital letters typed', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(FOLDER));
+
+        // act
+        await page.locator(`[data-testid=tree-row][data-path="${FOLDER}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-new-folder').click();
+        await page.getByTestId('tree-draft-input').fill('Docs');
+        await page.getByTestId('tree-draft-input').press('Enter');
+        await expect.poll(() => fs.existsSync(fixtureFile(`${FOLDER}/Docs`))).toBe(true);
+        await page.locator(`[data-testid=tree-row][data-path="${FOLDER}/Docs"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-new-page').click();
+        await page.getByTestId('tree-draft-input').fill('Мой План Q3');
+        await page.getByTestId('tree-draft-input').press('Enter');
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.edit(`${FOLDER}/Docs/Moy-Plan-Q3.md`));
+        expect(fs.existsSync(fixtureFile(`${FOLDER}/Docs/Moy-Plan-Q3.md`))).toBe(true);
     });
 
     test('a folder on screen drops a page deleted from the tree', async ({page}) => {

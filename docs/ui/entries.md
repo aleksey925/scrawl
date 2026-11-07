@@ -23,17 +23,21 @@ Creating, naming, moving and deleting files and folders.
   the drop.
 - A name typed for a file is a note unless it carries an extension of its own:
   a title becomes its slug with `.md`, and `notes.txt` or `Main.java` is that
-  file, named as typed, case and all, since a slug lowercased the class java
-  names the file after. An extension is a dot and a word starting with a
-  letter, so the date or the version in a title is not one. A rename takes the
-  same rule: a note renamed to a bare title stays a note, and one renamed with
-  an extension becomes that file, which the `.md` added to every name had made
+  file, named as typed. A slug, of a note or a folder, keeps the case typed, so
+  `My Plan` is `My-Plan.md`: a space usually lives on a file system that tells
+  the cases apart, and a name lowercased behind the person's back was not the
+  name they typed. An extension is a dot and a word starting with a letter, so
+  the date or the version in a title is not one. A rename takes the same rule:
+  a note renamed to a bare title stays a note, and one renamed with an
+  extension becomes that file, which the `.md` added to every name had made
   impossible. A name left as it was renames nothing, so a click away from the
   field of `guide.en.md` does not read `en` as an extension and drop the `.md`,
   and one of `guide .md` does not lose its space to the trim of a typed name.
   The slug turns Cyrillic into Latin with the same table `store/upload.go` uses
-  for attachment names, letter for letter, and no test holds the two together:
-  a page and the pictures beside it must not spell one word two ways.
+  for attachment names, letter for letter, a capital into a capital (`Ж` is
+  `Zh`), and no test holds the two together: a page and the pictures beside it
+  must not spell one word two ways, apart from the case, which the name of an
+  attachment drops.
 - Rename and Move to are two actions, as in Notion. A rename asks only the
   name, a note's without `.md`, and refuses a slash: one field for the whole
   path made every rename a possible move, and a slip in the folder part sent
@@ -91,10 +95,14 @@ Creating, naming, moving and deleting files and folders.
   and the toast carries Undo, which puts it back where it was and takes the
   page back to it if it was open, as Notion does. A dialog before every delete
   was a click more each time, while Undo is there for the one time it is wrong.
-  An Undo that fails, of a delete or a move, leaves its toast with its 6
-  seconds started again, so it can be tried once more; the toast goes when Undo
-  works. A move Undo tried again moves back only what did not go back the first
-  time. The server keeps what was deleted for a few minutes
+  The toast and the move off a deleted page come at once, before the server
+  answers, and the row leaves the tree when it does; a delete the server
+  refuses says so in a toast of its own. Undo waits for the server: shown done
+  and then refused, it would read as two answers to one tap. An Undo that
+  fails, of a delete or a move, leaves its toast with its 6 seconds started
+  again, so it can be tried once more; the toast goes when Undo works. A move
+  Undo tried again moves back only what did not go back the first time. The
+  server keeps what was deleted for a few minutes
   ([storage](../design/storage.md#the-trash),
   [ADR 20](../adr/0020-delete-to-a-trash-with-undo.md)). The API still refuses
   a folder that is not empty without `recursive=true`, so an agent that named

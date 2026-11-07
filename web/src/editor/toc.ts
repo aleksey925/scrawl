@@ -21,7 +21,7 @@ const tocStart = '<!-- toc -->';
 const tocStop = '<!-- tocstop -->';
 
 function label(text: string): string {
-  return text.replace(/[\\[\]<>*_`&~$:^]/g, (mark) => `\\${mark}`);
+  return text.replace(/[\r\n]+/g, ' ').replace(/[\\[\]<>*_`&~$:^]/g, (mark) => `\\${mark}`);
 }
 
 export function tocBlock(headings: readonly Heading[]): string | undefined {

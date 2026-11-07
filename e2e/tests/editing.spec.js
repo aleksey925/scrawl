@@ -644,7 +644,8 @@ test.describe('editing', () => {
         const docPath = scratch('toc-levels');
         const marked = '## Marks \\[x\\] \\_u\\_ \\*s\\* \\<c\\> \\&copy; \\~t\\~ \\$5\\$ \\:smile\\:';
         const caret = '## \\^n';
-        writeFixture(docPath, `${marked}\n\nText.\n\n#### Deep\n\n##### Five\n\n# Second\n\n## Under\n\n${caret}\n\n[^n]: Note.\n`);
+        const broken = '## A&#10;- B';
+        writeFixture(docPath, `${marked}\n\nText.\n\n#### Deep\n\n##### Five\n\n# Second\n\n## Under\n\n${caret}\n\n${broken}\n\n[^n]: Note.\n`);
         await page.goto(routes.edit(docPath));
         await page.locator('[data-testid=editor-source] .cm-line').nth(2).click();
         await page.keyboard.press('End');
@@ -656,14 +657,14 @@ test.describe('editing', () => {
         // assert
         await expect.poll(masked).toBe([
             marked, '', 'Text.', '', '<!-- toc -->', '',
-            `- [${marked.slice(3)}](#)`, '  - [Deep](#)', '- [Under](#)', `- [${caret.slice(3)}](#)`,
-            '', '<!-- tocstop -->', '', '#### Deep', '', '##### Five', '', '# Second', '', '## Under', '', caret, '', '[^n]: Note.', '',
+            `- [${marked.slice(3)}](#)`, '  - [Deep](#)', '- [Under](#)', `- [${caret.slice(3)}](#)`, '- [A - B](#)',
+            '', '<!-- tocstop -->', '', '#### Deep', '', '##### Five', '', '# Second', '', '## Under', '', caret, '', broken, '', '[^n]: Note.', '',
         ].join('\n'));
         const preview = page.getByTestId('editor-preview');
-        await expect(preview.locator('li > a[href^="#"]')).toHaveCount(4);
+        await expect(preview.locator('li > a[href^="#"]')).toHaveCount(5);
         const pairs = await preview.locator('li > a[href^="#"]').evaluateAll((anchors) => anchors.map((anchor) => [
             anchor.textContent,
-            document.getElementById(decodeURIComponent(anchor.getAttribute('href').slice(1)))?.textContent.trim(),
+            document.getElementById(decodeURIComponent(anchor.getAttribute('href').slice(1)))?.textContent.trim().replace(/\s+/g, ' '),
         ]));
         expect(pairs.map(([label]) => label)).toEqual(pairs.map(([, heading]) => heading));
         removeFixture(docPath);

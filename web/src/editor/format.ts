@@ -4,6 +4,8 @@ import type { Plugin } from 'prettier';
 
 import { loadChunk } from '../staleBundle';
 
+import { keepAlertMarkers } from './alertMarkers';
+
 type FormatWithCursor = (typeof import('prettier/standalone'))['formatWithCursor'];
 
 interface Formatter {
@@ -27,6 +29,7 @@ function load(): Promise<Formatter> {
   const started = loadChunk(
     Promise.all([
       import('prettier/standalone'),
+      import('prettier/doc'),
       import('prettier/plugins/markdown'),
       import('prettier/plugins/yaml'),
       import('prettier/plugins/babel'),
@@ -37,9 +40,9 @@ function load(): Promise<Formatter> {
       import('prettier/plugins/graphql'),
       import('prettier/plugins/glimmer'),
     ]),
-  ).then(([prettier, ...plugins]) => ({
+  ).then(([prettier, doc, markdown, ...plugins]) => ({
     formatWithCursor: prettier.formatWithCursor,
-    plugins: plugins as Plugin[],
+    plugins: [markdown, ...plugins, keepAlertMarkers(markdown, doc.builders.hardline)] as Plugin[],
   }));
   loading = started;
   started.catch(() => {

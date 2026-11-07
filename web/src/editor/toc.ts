@@ -23,6 +23,7 @@ const tocStart = '<!-- toc -->';
 const tocStop = '<!-- tocstop -->';
 const frontmatterStart = '---';
 const frontmatterStops: ReadonlySet<string> = new Set(['---', '...']);
+const mathFence = '$$';
 
 function label(text: string): string {
   return text.replace(/[\r\n]+/g, ' ').replace(/[\\[\]<>*_`&~$:^]/g, (mark) => `\\${mark}`);
@@ -96,22 +97,43 @@ function oldBlock(state: EditorState, tree: Tree): TextRange | undefined {
   return { from: start.from, to: start.to };
 }
 
-function codeEndAround(tree: Tree, line: Line): number | undefined {
-  let end: number | undefined;
-  tree.iterate({
-    from: line.from,
-    to: line.to,
-    enter: (node) => {
-      if (end !== undefined) {
-        return false;
-      }
-      if (codeNodes.has(node.name) && node.from <= line.to && node.to >= line.from) {
-        end = node.to;
-      }
-      return end === undefined;
-    },
-  });
-  return end;
+function topBlockEnd(tree: Tree, line: Line): number | undefined {
+  for (let node = tree.topNode.firstChild; node !== null; node = node.nextSibling) {
+    if (node.from > line.to) {
+      return undefined;
+    }
+    if (node.to >= line.from) {
+      return node.to;
+    }
+  }
+  return undefined;
+}
+
+function isMathFence(line: Line): boolean {
+  return line.text.trim() === mathFence;
+}
+
+function mathCloseAround(doc: Text, tree: Tree, line: Line, bodyAfter: number): number | undefined {
+  let after = bodyAfter;
+  for (let node = tree.topNode.firstChild; node !== null; node = node.nextSibling) {
+    const open = doc.lineAt(node.from);
+    if (open.number > line.number) {
+      return undefined;
+    }
+    if (node.name !== 'Paragraph' || open.number <= after || !isMathFence(open)) {
+      continue;
+    }
+    let close = open.number + 1;
+    while (close < doc.lines && !isMathFence(doc.line(close))) {
+      close++;
+    }
+    close = Math.min(close, doc.lines);
+    if (line.number <= close) {
+      return close;
+    }
+    after = close;
+  }
+  return undefined;
 }
 
 function insertLine(state: EditorState, tree: Tree): Line {
@@ -121,8 +143,9 @@ function insertLine(state: EditorState, tree: Tree): Line {
   if (cursor.number <= bodyAfter) {
     return doc.line(bodyAfter);
   }
-  const codeEnd = codeEndAround(tree, cursor);
-  return codeEnd === undefined ? cursor : doc.lineAt(codeEnd);
+  const inner = doc.line(mathCloseAround(doc, tree, cursor, bodyAfter) ?? cursor.number);
+  const blockEnd = topBlockEnd(tree, inner);
+  return blockEnd === undefined ? inner : doc.lineAt(blockEnd);
 }
 
 function leadOf(doc: Text, line: Line): string {

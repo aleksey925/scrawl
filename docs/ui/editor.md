@@ -28,20 +28,24 @@ The editor screen.
   ruby, a makefile as shell). No new grammar is a dependency of ours, so a name
   with nothing close (terraform, graphql, zig) stays plain.
 - The contents button puts a list of the headings up to level 4, all but the
-  title, nested by level, as links to them, after the line the cursor is on, or
-  after the front matter or the code block that line is in, between
-  `<!-- toc -->` and `<!-- tocstop -->`. The title is the first heading of
-  level 1 wherever it stands, the one the page takes its title from. A second
-  press finds that block and writes a fresh list in its place. A `<!-- toc -->`
-  with no `<!-- tocstop -->` after it, before the next start, is filled in
-  where it stands, and a stop pairs only with the nearest start before it, so
-  no text between two stray markers is lost. A marker is a comment on a line of
-  its own; one inside a code block or the front matter is text and not a
-  marker. The editor finds both in the syntax tree it colors the text with. The
-  list comes from the server: `POST /api/preview` answers with `toc`, the
-  headings of the text with their ids and without the title, next to `html`. So
-  a link opens its heading even where two headings share a name, and the
-  levels, the title and the ids stay the server's; a copy of them in the
+  title, nested by level, as links to them, after the block the cursor is in,
+  between `<!-- toc -->` and `<!-- tocstop -->`. The block is the top-level one
+  in the editor's syntax tree: a paragraph, a list, a table, an HTML block, a
+  quote or a code block, so the list never splits one. A `$$` math block runs
+  to its closing `$$` as the server reads it, blank lines and all. With the
+  cursor in the front matter the list goes after it, and with the cursor on a
+  blank line between two blocks it goes there. The title is the first heading
+  of level 1 wherever it stands, the one the page takes its title from. A
+  second press finds that block and writes a fresh list in its place. A
+  `<!-- toc -->` with no `<!-- tocstop -->` after it, before the next start, is
+  filled in where it stands, and a stop pairs only with the nearest start
+  before it, so no text between two stray markers is lost. A marker is a
+  comment on a line of its own; one inside a code block or the front matter is
+  text and not a marker. The editor finds both in the syntax tree it colors the
+  text with. The list comes from the server: `POST /api/preview` answers with
+  `toc`, the headings of the text with their ids and without the title, next to
+  `html`. So a link opens its heading even where two headings share a name, and
+  the levels, the title and the ids stay the server's; a copy of them in the
   browser would drift from it. A heading the render gives no id, one whose slug
   is longer than 129 characters or starts with `-`, has nothing to link to and
   is left out. An entry reads as its heading does on the page, an emoji as its
@@ -50,7 +54,7 @@ The editor screen.
   it is sent again, three sends at most, and then a toast asks to press the
   button again. A new press drops the answer to the one before it. If the
   source closes before the answer comes, as on a switch to Preview, the list
-  still goes into the text, after the line the cursor was last on. A note with
+  still goes into the text, after the block the cursor was last in. A note with
   no heading under its title gets a toast and no change. The markers are
   comments, which the page never shows.
 - The editor toolbar is a strip that moves sideways only and stops at its ends,

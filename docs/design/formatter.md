@@ -13,8 +13,14 @@ Prettier inside the binary and in the browser.
 - Prose is wrapped at 79 columns, `proseWrap: always` with `printWidth: 79`, in
   both copies: a note reads the same in any editor and a diff shows the lines a
   change touched, not a paragraph on one line. Short lines of one paragraph are
-  joined up to the width, which markdown renders the same. A word, a link or
-  code is never split, so such a line stays longer
+  joined up to the width, which markdown mostly renders the same. The one line
+  break that counts is the one after the marker of an alert, `> [!NOTE]`:
+  GitHub and `render` take the marker only alone on its line, and joined it is
+  a plain quote. So each copy adds a small prettier plugin, in
+  `format/js/main.js` and `web/src/editor/alertMarkers.ts`, that keeps that
+  break in the first paragraph of a top-level quote whose first line is a
+  marker of the five kinds. A marker already joined to its text is left joined.
+  A word, a link or code is never split, so such a line stays longer
   ([ADR 21](../adr/0021-notes-wrapped-at-79-columns.md)).
 - Two copies of prettier, and each write goes through exactly one
   ([ADR 5](../adr/0005-format-in-browser-first.md)). The editor formats in the

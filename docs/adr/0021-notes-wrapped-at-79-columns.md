@@ -13,7 +13,8 @@ note read badly in a terminal or another editor.
 
 Both copies of prettier run with `proseWrap: always` and `printWidth: 79`. A
 paragraph is wrapped at 79 columns on every save, and short lines of one
-paragraph are joined up to the width.
+paragraph are joined up to the width, apart from the line of an alert's marker,
+`> [!NOTE]`, which must stay alone on its line to be an alert.
 
 ## Options turned down
 
@@ -29,3 +30,6 @@ paragraph are joined up to the width.
 - A note saved before the change is rewrapped on its next save, and that save
   shows in the history as a large change.
 - A word, a link or code is never split, so such a line stays longer than 79.
+- Prettier joins an alert's marker to its text, which turns the alert into a
+  plain quote, so both copies carry a small plugin that keeps the marker on its
+  own line.

@@ -2346,6 +2346,12 @@
       "node_modules/mermaid/dist/chunks/mermaid.core/pegDiagram-GJSIUBJH.mjs"
     ]
   },
+  "node_modules/prettier/doc.mjs": {
+    "file": "assets/doc.js",
+    "name": "doc",
+    "src": "node_modules/prettier/doc.mjs",
+    "isDynamicEntry": true
+  },
   "node_modules/prettier/plugins/babel.mjs": {
     "file": "assets/babel.js",
     "name": "babel",
@@ -2552,6 +2558,7 @@
       "node_modules/@codemirror/lang-vue/dist/index.js",
       "node_modules/@codemirror/lang-angular/dist/index.js",
       "node_modules/prettier/standalone.mjs",
+      "node_modules/prettier/doc.mjs",
       "node_modules/prettier/plugins/markdown.mjs",
       "node_modules/prettier/plugins/yaml.mjs",
       "node_modules/prettier/plugins/babel.mjs",

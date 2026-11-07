@@ -650,6 +650,46 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('the contents button with the cursor in a table puts the list after the table', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-in-table');
+        const table = '| a | b |\n| - | - |\n| 1 | 2 |\n| 3 | 4 |\n';
+        writeFixture(docPath, `# T\n\n${table}\n## A\n`);
+        await page.goto(routes.edit(docPath));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(4).click();
+        await page.keyboard.press('End');
+        const filled = `# T\n\n${table}\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n`;
+
+        // act & assert
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+        await expect(page.getByTestId('editor-preview').locator('tbody tr')).toHaveCount(2);
+        removeFixture(docPath);
+    });
+
+    test('the contents button with the cursor in a math block with a blank line puts the list after the block', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-in-math');
+        const math = '$$\nx = 1\n\ny = 2\n$$\n';
+        writeFixture(docPath, `# T\n\n${math}\n## A\n`);
+        await page.goto(routes.edit(docPath));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(3).click();
+        await page.keyboard.press('End');
+        const filled = `# T\n\n${math}\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n`;
+
+        // act & assert
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+        await expect(page.getByTestId('editor-preview').locator('li > a[href="#a"]')).toHaveText('A');
+        removeFixture(docPath);
+    });
+
     test('the contents button goes under the last line of a note with no line break at its end', async ({page}) => {
         // arrange
         const docPath = scratch('toc-last-line');

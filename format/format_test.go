@@ -71,6 +71,23 @@ func TestMarkdown(t *testing.T) {
 			text: longLines,
 			want: longLines,
 		},
+		{
+			name: "the marker of an alert stays on its own line",
+			text: "> [!NOTE]\n> Some text of the alert.\n",
+			want: "> [!NOTE]\n> Some text of the alert.\n",
+		},
+		{
+			name: "the body of an alert is wrapped under its marker",
+			text: "> [!warning] \n> A long body of the alert that is much longer than seventy nine columns, so it\n> is\n> wrapped.\n" +
+				"\n> [!TIP]\n> **Bold** first.\n",
+			want: "> [!warning]\n> A long body of the alert that is much longer than seventy nine columns, so it\n> is wrapped.\n" +
+				"\n> [!TIP]\n> **Bold** first.\n",
+		},
+		{
+			name: "a marker joined to its text, an unknown marker and an alert in a list are joined as any quote",
+			text: "> [!NOTE] Joined.\n\n> [!OTHER]\n> text\n\n- > [!TIP]\n  > text\n",
+			want: "> [!NOTE] Joined.\n\n> [!OTHER] text\n\n- > [!TIP] text\n",
+		},
 		{name: "an empty note", text: "", want: ""},
 	}
 

@@ -602,6 +602,23 @@ test.describe.serial('file management', () => {
         expect(fs.existsSync(fixtureFile(NESTED_NOTE))).toBe(true);
     });
 
+    test('a chevron in Move to keeps the focus in the search field, so the arrows go on working', async ({page}) => {
+        // arrange
+        makeNest();
+        await page.goto(MAIN.url.doc(NESTED_NOTE));
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('note-menu-move').click();
+        await page.locator(`[data-testid=move-place][data-path="${NEST}"] [data-testid=move-twisty]`).click();
+        await expect.poll(() => shownPlaces(page, NEST)).toEqual([NEST, `${NEST}/a`, `${NEST}/c`]);
+
+        // act
+        await page.keyboard.press('ArrowLeft');
+
+        // assert
+        await expect(page.getByTestId('move-input')).toBeFocused();
+        await expect.poll(() => shownPlaces(page, NEST)).toEqual([NEST]);
+    });
+
     test('the right and left arrows unfold and fold the picked folder in Move to', async ({page}) => {
         // arrange
         makeNest();
@@ -1288,6 +1305,58 @@ test.describe.serial('file management', () => {
         await expect(moveToast).toHaveCount(0);
         expect([note, moved].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
         expect(fs.readFileSync(fixtureFile(moved), 'utf8')).toBe('# Replacement\n');
+    });
+
+    test('Undo after dragging two rows stops before a row deleted and replaced while it runs', async ({page}) => {
+        // arrange
+        const names = ['first.md', 'second.md'];
+        const pair = `${UNDO_FOLDER}/held`;
+        const into = `${UNDO_FOLDER}/held-drop`;
+        for (const name of names) {
+            writeFixture(`${pair}/${name}`, '# Dragged\n');
+        }
+        fs.mkdirSync(fixtureFile(into), {recursive: true});
+        await page.goto(routes.dir(pair));
+        const rows = names.map((name) => `[data-testid=tree-row][data-path="${pair}/${name}"]`);
+        await page.locator(`${rows[0]} [data-testid=tree-link]`).click();
+        await page.locator(`${rows[1]} [data-testid=tree-link]`).click({modifiers: ['Shift']});
+        await page.locator(rows[1]).dragTo(page.locator(`[data-testid=tree-row][data-path="${into}"]`));
+        const moveToast = page.locator('[data-testid=toast]').filter({hasText: text.toast.movedMany});
+        await expect(moveToast).toHaveCount(1);
+        const replaced = `${into}/${names[0]}`;
+        let release = () => {};
+        const held = new Promise((resolve) => {
+            release = resolve;
+        });
+        let reach = () => {};
+        const reached = new Promise((resolve) => {
+            reach = resolve;
+        });
+        await page.route('**/api/move', async (route) => {
+            if (route.request().postDataJSON().from === `${into}/${names[1]}`) {
+                reach();
+                await held;
+            }
+            await route.continue();
+        });
+
+        // act
+        await moveToast.getByTestId('toast-action').click();
+        await reached;
+        await page.locator(`[data-testid=tree-row][data-path="${replaced}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-delete').click();
+        await expect.poll(() => fs.existsSync(fixtureFile(replaced))).toBe(false);
+        writeFixture(replaced, '# Replacement\n');
+        release();
+
+        // assert
+        const failed = page.locator('[data-testid=toast][data-kind="error"]');
+        await expect(failed).toContainText('Some of it did not move back');
+        await expect(failed).toContainText('It was renamed, moved or deleted since');
+        await expect.poll(() => fs.existsSync(fixtureFile(`${pair}/${names[1]}`))).toBe(true);
+        expect([`${pair}/${names[0]}`, replaced].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
+        expect(fs.readFileSync(fixtureFile(replaced), 'utf8')).toBe('# Replacement\n');
+        await page.unroute('**/api/move');
     });
 
     test('the toast of a move names a folder whose name ends in .md by its whole name', async ({page}) => {

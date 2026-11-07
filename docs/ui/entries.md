@@ -46,18 +46,19 @@ Creating, naming, moving and deleting files and folders.
   screen. It holds a search field over the folders of the space, the space
   itself first: empty, it shows them as a tree with every folder folded, the
   one the entry is in too, a chevron or the right and left arrows unfold and
-  fold a folder, and typed, the folders whose name matches, each with the
-  folder it sits in. The whole tree open was a long list to scroll through in a
-  real space. The folder the entry is in now is marked Current and cannot be
-  picked, a folder being moved leaves itself and everything inside it out of
-  the list, and the foot shows the path the entry will get, or that the folder
-  already holds that name, which is then not moved to. That check knows only
-  the names the tree shows: a symlink or a file an exclude glob hides, under
-  the same name, is found only by the server, and the toast of the failed move
-  says so. Up and down pick, Enter or a click on the row moves, through the
-  same path a drag takes, and the page follows an entry that was on screen. The
-  arrows stop on the Current folder too, so the right arrow unfolds it to reach
-  the folders inside, but Enter there moves nothing.
+  fold a folder, a click on the chevron leaving the focus in the search field
+  for the arrows and Enter, and typed, the folders whose name matches, each
+  with the folder it sits in. The whole tree open was a long list to scroll
+  through in a real space. The folder the entry is in now is marked Current and
+  cannot be picked, a folder being moved leaves itself and everything inside it
+  out of the list, and the foot shows the path the entry will get, or that the
+  folder already holds that name, which is then not moved to. That check knows
+  only the names the tree shows: a symlink or a file an exclude glob hides,
+  under the same name, is found only by the server, and the toast of the failed
+  move says so. Up and down pick, Enter or a click on the row moves, through
+  the same path a drag takes, and the page follows an entry that was on screen.
+  The arrows stop on the Current folder too, so the right arrow unfolds it to
+  reach the folders inside, but Enter there moves nothing.
 - The toast of a move, by Move to or a drag, carries Undo for 6 seconds, which
   moves the entries back the same way and takes the page back with them. The
   move is made at once and Undo is a second move, as Notion and Finder do it,
@@ -68,8 +69,10 @@ Creating, naming, moving and deleting files and folders.
   other change does, and keeps its Undo. Once a moved entry, or a folder above
   it, is renamed, moved or deleted in the same tab, or something is created at
   its new place, its Undo moves nothing and says the entry changed since: Undo
-  knows an entry only by its path, and the one there now may be another. A
-  change made in another tab or on disk is not seen.
+  knows an entry only by its path, and the one there now may be another. An
+  Undo already running asks again before each entry, so a change made while it
+  waits stops it before the rest. A change made in another tab or on disk is
+  not seen. Undo is forgotten once its toast closes.
 - The toast of a create, a rename, a move, a delete and a copied link names the
   entry, by its title as the tree shows it, and the folder it went to:
   `Moved "guide" to "db"`, `Renamed "a" to "b"`. A bare Moved or Deleted did

@@ -243,6 +243,7 @@ function MovePicker({
                     className={moveClasses.twisty}
                     aria-label={`${opened ? 'Collapse' : 'Expand'} ${place.name}`}
                     aria-expanded={opened}
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={(event) => {
                       event.stopPropagation();
                       fold(place.path, !opened);

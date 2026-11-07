@@ -10,6 +10,7 @@ export type ToastKind = 'ok' | 'error' | 'warn';
 export interface ToastAction {
   label: string;
   onClick: () => Promise<boolean>;
+  onClose?: () => void;
 }
 
 export interface ToastOptions {
@@ -74,6 +75,7 @@ export function showToast(kind: ToastKind, options: ToastOptions): void {
         </span>
       ),
     autoClose: action === undefined ? undefined : actionToastMs,
+    onClose: action?.onClose,
     'data-testid': 'toast',
     'data-kind': kind,
   };

@@ -43,6 +43,8 @@ interface UndoMark {
   targets: string[];
 }
 
+const changedSinceText = 'It was renamed, moved or deleted since';
+
 const failedMoveWords = {
   forward: { partly: 'Some of it did not move', none: 'Nothing was moved' },
   back: { partly: 'Some of it did not move back', none: 'Nothing was moved back' },
@@ -76,12 +78,18 @@ interface Relocated {
   done: Relocation[];
   left: Relocation[];
   failure: unknown;
+  changed: boolean;
   state: MutationState;
 }
 
-async function relocateAll(pairs: readonly Relocation[]): Promise<Relocated> {
-  const res: Relocated = { done: [], left: [], failure: undefined, state: {} };
+async function relocateAll(pairs: readonly Relocation[], valid: () => boolean): Promise<Relocated> {
+  const res: Relocated = { done: [], left: [], failure: undefined, changed: false, state: {} };
   for (const pair of pairs) {
+    if (!valid()) {
+      res.left.push(pair);
+      res.changed = true;
+      continue;
+    }
     try {
       const moved = await api.move(pair.from, pair.to);
       res.done.push({ ...pair, to: moved.path });
@@ -299,25 +307,38 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         let undo = done.map((pair) => ({ ...pair, from: pair.to, to: pair.from })).reverse();
         const mark: UndoMark = { targets: undo.map((pair) => pair.from) };
         undoable.current.add(mark);
+        let running = false;
+        let closed = false;
         return {
           label: 'Undo',
           onClick: async () => {
             if (!undoable.current.has(mark)) {
-              showToast('error', { title: failedMoveWords.back.none, message: 'It was renamed, moved or deleted since' });
+              showToast('error', { title: failedMoveWords.back.none, message: changedSinceText });
               return true;
             }
+            running = true;
             undo = await run(undo, mark);
+            running = false;
             mark.targets = undo.map((pair) => pair.from);
-            if (undo.length === 0) {
+            if (undo.length === 0 || closed) {
               undoable.current.delete(mark);
             }
             return undo.length === 0;
+          },
+          onClose: () => {
+            closed = true;
+            if (!running) {
+              undoable.current.delete(mark);
+            }
           },
         };
       };
       const run = async (pairs: readonly Relocation[], undone?: UndoMark): Promise<Relocation[]> => {
         const back = undone !== undefined;
-        const { done, left, failure, state } = await relocateAll(pairs);
+        const { done, left, failure, changed, state } = await relocateAll(
+          pairs,
+          () => undone === undefined || undoable.current.has(undone),
+        );
         const words = back ? failedMoveWords.back : failedMoveWords.forward;
         if (done.length > 0) {
           touch(done.flatMap((pair) => [pair.from, pair.to]), undone);
@@ -333,10 +354,10 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
             await navigate(shown.current.onFolder ? directoryUrl(here) : documentUrl(here));
           }
         }
-        if (failure !== undefined) {
+        if (changed || failure !== undefined) {
           showToast('error', {
             title: done.length > 0 ? words.partly : words.none,
-            message: conflictText(failure, 'Something of that name is already there'),
+            message: changed ? changedSinceText : conflictText(failure, 'Something of that name is already there'),
           });
         }
         return left;

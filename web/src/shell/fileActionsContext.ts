@@ -9,12 +9,12 @@ export interface TreeDraft {
 
 export interface FileActions {
   createDraft: (kind: EntryKind, folder: string) => void;
-  rename: (path: string) => void;
-  renameInTree: (path: string) => void;
-  treeRename: string | undefined;
-  submitRename: (path: string, name: string) => Promise<boolean>;
+  rename: (path: string, isDir: boolean) => void;
+  startTreeRename: (path: string, isDir: boolean) => void;
+  treeRenaming: string | undefined;
+  submitRename: (path: string, isDir: boolean, name: string) => Promise<boolean>;
   cancelTreeRename: () => void;
-  moveTo: (path: string, isDir: boolean, from: Element) => void;
+  moveTo: (path: string, isDir: boolean, anchor: DOMRect) => void;
   remove: (path: string, isDir: boolean) => void;
   copyLink: (path: string, isDir: boolean) => void;
   moveInto: (paths: readonly string[], folder: string) => void;

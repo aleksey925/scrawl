@@ -92,7 +92,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
 
   return (
     <Box style={{ minWidth: 0 }}>
-      {actions?.treeRename === node.path ? (
+      {actions?.treeRenaming === node.path ? (
         <RenameRow node={node} depth={depth} />
       ) : (
         <div
@@ -383,7 +383,7 @@ function RenameRow({ node, depth }: { node: NavNode; depth: number }): JSX.Eleme
       initial={pageName(node.name, node.is_dir)}
       label={`New name of ${node.name}`}
       onSubmit={async (name) => {
-        const renamed = await submitRename(node.path, name);
+        const renamed = await submitRename(node.path, node.is_dir, name);
         if (renamed) {
           cancelTreeRename();
         }

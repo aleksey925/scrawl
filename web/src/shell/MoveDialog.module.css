@@ -47,11 +47,6 @@
   }
 }
 
-.anchor {
-  position: fixed;
-  pointer-events: none;
-}
-
 .popover {
   display: flex;
   flex-direction: column;

@@ -2,8 +2,10 @@ import { ActionIcon, Menu } from '@mantine/core';
 import type { JSX } from 'react';
 import { useNavigate } from 'react-router';
 
-import { PointerAnchor, pointerPlacement, useCloseOnScroll } from '../components/pointerMenu';
-import { PopupMenu } from '../components/PopupMenu';
+import {
+  FixedAnchor, pointerPlacement, rectAt, useCloseOnScroll, type MenuPlacement,
+} from '../components/pointerMenu';
+import { menuRectOf, PopupMenu } from '../components/PopupMenu';
 import {
   IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconMoveTo, IconPlus, IconTrash,
 } from '../icons';
@@ -15,6 +17,9 @@ import { useFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
 import { parentOf } from './naming';
 
+const buttonPlacement: MenuPlacement = { position: 'bottom-end' };
+const targetPlacement: MenuPlacement = { position: 'bottom-end', offset: 8 };
+
 export function RowMenu({
   path, isDir, name, touch, inTree = false, withCreate = true, editUrl, opened, onOpenedChange: setOpened, target, at,
 }: RowMenuProps): JSX.Element {
@@ -25,8 +30,7 @@ export function RowMenu({
 
   const folder = isDir ? path : parentOf(path);
   const open = (): void => void navigate(isDir ? directoryUrl(path) : documentUrl(path));
-  const placement =
-    at === undefined ? { position: 'bottom-end' as const, offset: target === undefined ? undefined : 8 } : pointerPlacement;
+  const placement = at !== undefined ? pointerPlacement : target === undefined ? buttonPlacement : targetPlacement;
 
   return (
     <PopupMenu
@@ -38,7 +42,7 @@ export function RowMenu({
       width={layout.menuWidthNarrow}
     >
       <Menu.Target>
-        {at !== undefined ? <PointerAnchor at={at} /> : target ?? (
+        {at !== undefined ? <FixedAnchor rect={rectAt(at)} /> : target ?? (
           <ActionIcon
             data-testid="tree-row-menu"
             data-path={path}
@@ -98,14 +102,14 @@ export function RowMenu({
             <Menu.Item
               data-testid="tree-row-menu-rename"
               leftSection={<IconEdit size={rowMenuIconSize} />}
-              onClick={() => (inTree ? actions.renameInTree(path) : actions.rename(path))}
+              onClick={() => (inTree ? actions.startTreeRename(path, isDir) : actions.rename(path, isDir))}
             >
               Rename
             </Menu.Item>
             <Menu.Item
               data-testid="tree-row-menu-move"
               leftSection={<IconMoveTo size={rowMenuIconSize} />}
-              onClick={(event) => actions.moveTo(path, isDir, event.currentTarget)}
+              onClick={(event) => actions.moveTo(path, isDir, menuRectOf(event.currentTarget))}
             >
               Move to
             </Menu.Item>

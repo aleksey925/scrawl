@@ -1482,7 +1482,7 @@ test.describe('mobile', () => {
             await page.goto(routes.home());
             await page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`).getByTestId('tree-row-menu').tap();
             await page.getByTestId('tree-row-menu-copy-link').tap();
-            await expect(page.getByTestId('toast-pill')).toBeVisible();
+            await expect(page.getByTestId('toast-box')).toBeVisible();
         }
 
         test('leaves the bar beside it to take a tap, and goes on its own after one', async ({page}) => {
@@ -1519,7 +1519,7 @@ test.describe('mobile', () => {
             await copied(page);
 
             // act
-            await page.getByTestId('toast-pill').tap();
+            await page.getByTestId('toast-box').tap();
 
             // assert
             await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 1500});
@@ -1528,7 +1528,7 @@ test.describe('mobile', () => {
         test('goes at a flick up', async ({page}) => {
             // arrange
             await copied(page);
-            const box = await page.getByTestId('toast-pill').boundingBox();
+            const box = await page.getByTestId('toast-box').boundingBox();
             const x = box.x + box.width / 2;
             const cdp = await page.context().newCDPSession(page);
 

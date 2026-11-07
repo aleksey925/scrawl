@@ -926,7 +926,7 @@ func TestAWriteTheRemoteMissed(t *testing.T) {
 func TestEveryMutationCarriesTheState(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{history: &fakeHistory{unpublished: true, degraded: true}})
-	trashID, err := ts.Spaces[0].Store.Discard("index.md", false)
+	trashID, err := ts.Spaces[0].Store.Trash("index.md", false)
 	require.NoError(t, err)
 
 	tests := []struct {

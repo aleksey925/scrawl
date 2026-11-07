@@ -2,7 +2,7 @@ import { notifications } from '@mantine/notifications';
 import type { JSX, ReactNode } from 'react';
 
 import type { MutationState } from './api/types';
-import classes from './components/Toasts.module.css';
+import classes from './toast.module.css';
 
 export type ToastKind = 'ok' | 'error' | 'warn';
 
@@ -17,14 +17,11 @@ export interface ToastOptions {
   action?: ToastAction;
 }
 
-const toastColors: Record<ToastKind, string> = { ok: 'green', error: 'red', warn: 'yellow' };
-
 const actionToastMs = 6000;
 
 export function showToast(kind: ToastKind, options: ToastOptions): void {
   const { action } = options;
   const id = notifications.show({
-    color: toastColors[kind],
     title: options.title,
     message:
       action === undefined ? (

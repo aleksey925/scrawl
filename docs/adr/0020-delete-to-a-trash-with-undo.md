@@ -12,8 +12,8 @@ erased a file at once, so an Undo had nothing to bring back.
 
 ## Decision
 
-- `store.Discard` moves the entry into `.scrawl-trash/<id>/` at the root of the
-  space, `store.Recover` moves it back, and the delete endpoint answers with
+- `store.Trash` moves the entry into `.scrawl-trash/<id>/` at the root of the
+  space, `store.Restore` moves it back, and the delete endpoint answers with
   the `trash_id` that `POST /api/trash/restore` takes.
 - An entry is kept for 5 minutes, then swept. Undo is the only way back, and it
   shows for 6 seconds.

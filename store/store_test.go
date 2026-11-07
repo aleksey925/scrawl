@@ -579,7 +579,7 @@ func TestStoreWrite(t *testing.T) {
 		s := newStore(t, notesFiles())
 		data, _, err := s.Read("guide.md")
 		require.NoError(t, err)
-		_, err = s.Discard("guide.md", false)
+		_, err = s.Trash("guide.md", false)
 		require.NoError(t, err)
 
 		_, err = s.Write("guide.md", []byte("x"), Rev(data))
@@ -1091,8 +1091,8 @@ func TestStoreReadOnly(t *testing.T) {
 	}{
 		{name: "write", call: func() error { _, err := s.Write("guide.md", []byte("x"), ""); return err }},
 		{name: "create", call: func() error { _, err := s.Create("new.md", false); return err }},
-		{name: "discard", call: func() error { _, err := s.Discard("guide.md", false); return err }},
-		{name: "recover", call: func() error { return s.Recover("any") }},
+		{name: "trash", call: func() error { _, err := s.Trash("guide.md", false); return err }},
+		{name: "restore", call: func() error { return s.Restore("any") }},
 		{name: "move", call: func() error { return s.Move("guide.md", "other.md") }},
 		{
 			name: "upload",

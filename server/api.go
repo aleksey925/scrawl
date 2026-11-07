@@ -271,9 +271,9 @@ func (m *mount) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 		if recursive {
 			removed = m.filesUnder(p)
 		}
-		var discardErr error
-		trashID, discardErr = m.spc.Store.Discard(p, recursive)
-		return removed, discardErr
+		var trashErr error
+		trashID, trashErr = m.spc.Store.Trash(p, recursive)
+		return removed, trashErr
 	})
 	if err != nil {
 		failJSON(w, r, err)
@@ -293,14 +293,14 @@ func (m *mount) apiTrashRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	p, ok := m.spc.Store.Trashed(req.ID)
 	if !ok {
-		jsonError(w, http.StatusNotFound, "nothing to restore, the trash keeps an entry only for a few minutes")
+		jsonError(w, http.StatusNotFound, "nothing to restore, the trash no longer holds it")
 		return
 	}
 
 	var restored []string
 	err := m.record(r, history.Op{Message: "restore " + p, Paths: []string{p}}, func() ([]string, error) {
-		if recoverErr := m.spc.Store.Recover(req.ID); recoverErr != nil {
-			return nil, recoverErr
+		if restoreErr := m.spc.Store.Restore(req.ID); restoreErr != nil {
+			return nil, restoreErr
 		}
 		restored = m.filesUnder(p)
 		return restored, nil

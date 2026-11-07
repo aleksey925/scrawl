@@ -5,7 +5,7 @@ import type { FilePageResponse } from '../api/types';
 import { EmptyState } from '../components/EmptyState';
 import { absoluteTime, fileSize, shortTime } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
-import { PopupMenu } from '../components/PopupMenu';
+import { menuRectOf, PopupMenu } from '../components/PopupMenu';
 import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconMoveTo, IconTrash } from '../icons';
 import { usePlatform } from '../platform';
 import { useDocumentControls } from '../reader/useDocumentControls';
@@ -176,14 +176,14 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
               <Menu.Item
                 data-testid="file-menu-rename"
                 leftSection={<IconEdit size={layout.iconSizeSmall} />}
-                onClick={() => actions.rename(file.path)}
+                onClick={() => actions.rename(file.path, false)}
               >
                 Rename
               </Menu.Item>
               <Menu.Item
                 data-testid="file-menu-move"
                 leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
-                onClick={(event) => actions.moveTo(file.path, false, event.currentTarget)}
+                onClick={(event) => actions.moveTo(file.path, false, menuRectOf(event.currentTarget))}
               >
                 Move to
               </Menu.Item>

@@ -35,10 +35,10 @@ function opensRow(event: MouseEvent): boolean {
 
 export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }: DirTableProps): JSX.Element {
   const { physicalUrl } = usePlatform();
-  const filePages = useReaderExtensions().FileView !== undefined;
+  const { FileView, RowMenu } = useReaderExtensions();
+  const filePages = FileView !== undefined;
   const navigate = useNavigate();
   const phone = useBelow(layoutBreakpoints.phone);
-  const { RowMenu } = useReaderExtensions();
   const menu = usePointerMenu<DirEntry>();
   const folders = entries.filter((listed) => listed.is_dir);
   const files = entries.filter((listed) => !listed.is_dir);

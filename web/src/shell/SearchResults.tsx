@@ -5,6 +5,7 @@ import type { SearchHit, SearchSettings, SearchSpan } from '../api/types';
 import { IconFileText } from '../icons';
 import { layout } from '../theme';
 
+import picker from './Picker.module.css';
 import classes from './Search.module.css';
 import { SyncBadge } from './SyncBadge';
 
@@ -70,21 +71,21 @@ export function SearchResults({ hits, active, expanded, onExpand, onOpen }: Sear
               data-path={row.path}
               data-active={active === row.path ? 'true' : 'false'}
               to={row.url}
-              className={classes.head}
+              className={picker.head}
               onClick={onOpen}
             >
               <IconFileText size={layout.iconSizeSmall} />
-              <span data-testid="search-result-title" className={classes.title}>
+              <span data-testid="search-result-title" className={picker.title}>
                 {row.title_spans === undefined || row.title_spans.length === 0 ? (
                   row.title === '' ? row.path : row.title
                 ) : (
                   <Spans spans={row.title_spans} />
                 )}
               </span>
-              <span className={classes.path}>{row.path}</span>
+              <span className={picker.path}>{row.path}</span>
               <SyncBadge path={row.path} />
               {row.match_count !== undefined && row.match_count > 0 && (
-                <span className={classes.count}>
+                <span className={picker.count}>
                   {row.match_count} {row.match_count === 1 ? 'match' : 'matches'}
                 </span>
               )}

@@ -13,23 +13,36 @@ export interface Point {
   y: number;
 }
 
-export const pointerPlacement: { position: FloatingPosition; offset: number } = { position: 'bottom-start', offset: 2 };
+export interface MenuPlacement {
+  position: FloatingPosition;
+  offset?: number;
+}
+
+export const pointerPlacement: MenuPlacement = { position: 'bottom-start', offset: 2 };
 
 function pointOf(event: MouseEvent): Point {
   return { x: event.clientX, y: event.clientY };
 }
 
-interface PointerAnchorProps extends ComponentPropsWithRef<'span'> {
-  at: Point;
+export interface AnchorRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
-export function PointerAnchor({ at, ...rest }: PointerAnchorProps): ReactPortal {
+export function rectAt(at: Point): AnchorRect {
+  return { left: at.x, top: at.y, width: 0, height: 0 };
+}
+
+interface FixedAnchorProps extends ComponentPropsWithRef<'span'> {
+  rect: AnchorRect;
+}
+
+export function FixedAnchor({ rect, ...rest }: FixedAnchorProps): ReactPortal {
+  const { left, top, width, height } = rect;
   return createPortal(
-    <span
-      {...rest}
-      aria-hidden
-      style={{ position: 'fixed', left: at.x, top: at.y, width: 0, height: 0, pointerEvents: 'none' }}
-    />,
+    <span {...rest} aria-hidden style={{ position: 'fixed', left, top, width, height, pointerEvents: 'none' }} />,
     document.body,
   );
 }
@@ -108,7 +121,7 @@ export function NewEntryMenu({ menu, testId, onCreate }: NewEntryMenuProps): JSX
       width={layout.menuWidthNarrow}
     >
       <Menu.Target>
-        <PointerAnchor at={at} />
+        <FixedAnchor rect={rectAt(at)} />
       </Menu.Target>
       <Menu.Dropdown data-testid={testId}>
         <Menu.Item

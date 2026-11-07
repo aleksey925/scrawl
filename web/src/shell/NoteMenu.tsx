@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 
 import type { DocumentResponse } from '../api/types';
 import { absoluteTime } from '../components/formats';
-import { PopupMenu } from '../components/PopupMenu';
+import { menuRectOf, PopupMenu } from '../components/PopupMenu';
 import {
   IconDots, IconEdit, IconHistory, IconLink, IconListSearch, IconMoveTo, IconSearch, IconTrash,
 } from '../icons';
@@ -90,14 +90,14 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
             <Menu.Item
               data-testid="note-menu-rename"
               leftSection={<IconEdit size={layout.iconSizeSmall} />}
-              onClick={() => actions.rename(path)}
+              onClick={() => actions.rename(path, false)}
             >
               Rename
             </Menu.Item>
             <Menu.Item
               data-testid="note-menu-move"
               leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
-              onClick={(event) => actions.moveTo(path, false, event.currentTarget)}
+              onClick={(event) => actions.moveTo(path, false, menuRectOf(event.currentTarget))}
             >
               Move to
             </Menu.Item>

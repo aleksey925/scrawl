@@ -23,9 +23,12 @@ import { RenameDialog } from './RenameDialog';
 import { useMutationState } from './useMutationState';
 import { ancestorsOf, basenameOf, hasOwnExtension, joinPath, pageName, parentOf, renamedPath } from './naming';
 
-interface MovedEntry {
+interface Entry {
   path: string;
   isDir: boolean;
+}
+
+interface MovedEntry extends Entry {
   anchor: DOMRect;
 }
 
@@ -106,7 +109,7 @@ function draftPath(draft: TreeDraft, name: string): string {
   return joinPath(draft.parent, draft.kind === 'file' && !isMarkdown(slug) ? `${slug}.md` : slug);
 }
 
-function movedTo(path: string, from: string, to: string): string | undefined {
+function pathAfterMove(path: string, from: string, to: string): string | undefined {
   if (path === from) {
     return to;
   }
@@ -123,8 +126,8 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const space = spaceLabel(me);
   const shown = useRef({ path: currentPath, onFolder, route: location.pathname + location.search });
   shown.current = { path: currentPath, onFolder, route: location.pathname + location.search };
-  const [renaming, setRenaming] = useState<string | undefined>(undefined);
-  const [treeRename, setTreeRename] = useState<string | undefined>(undefined);
+  const [renaming, setRenaming] = useState<Entry | undefined>(undefined);
+  const [treeRenaming, setTreeRenaming] = useState<string | undefined>(undefined);
   const [moving, setMoving] = useState<MovedEntry | undefined>(undefined);
   const [draft, setDraft] = useState<TreeDraft | undefined>(undefined);
   const phone = useBelow(layoutBreakpoints.phone);
@@ -142,7 +145,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
     (id: string, path: string, isDir: boolean, back: string | undefined) => {
       void (async () => {
         try {
-          reportMutation(await api.restoreDeleted(id), `Restored ${quoted(path, isDir, space)}`);
+          reportMutation(await api.restoreTrashed(id), `Restored ${quoted(path, isDir, space)}`);
         } catch (error) {
           showToast('error', {
             title: 'Nothing was restored',
@@ -162,7 +165,8 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const remove = useCallback(
     (path: string, isDir: boolean) => {
       void (async () => {
-        const back = currentPath === path || currentPath.startsWith(`${path}/`) ? shown.current.route : undefined;
+        const { path: here, route } = shown.current;
+        const back = here === path || here.startsWith(`${path}/`) ? route : undefined;
         let res: DeleteResponse;
         try {
           res = await api.deleteEntry(path);
@@ -180,7 +184,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         refreshNav();
       })();
     },
-    [currentPath, navigate, refreshNav, reportMutation, restore, space],
+    [navigate, refreshNav, reportMutation, restore, space],
   );
 
   const showInTree = useCallback(
@@ -270,7 +274,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
             movedMessage(done, back, space, (folder) => void navigate(directoryUrl(folder))),
             back ? undefined : { label: 'Undo', onClick: () => void run(undo, true) },
           );
-          const here = done.map((pair) => movedTo(shown.current.path, pair.from, pair.to)).find((path) => path !== undefined);
+          const here = done.map((pair) => pathAfterMove(shown.current.path, pair.from, pair.to)).find((path) => path !== undefined);
           if (here !== undefined) {
             await navigate(shown.current.onFolder ? directoryUrl(here) : documentUrl(here));
           }
@@ -288,7 +292,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   );
 
   const submitRename = useCallback(
-    async (path: string, name: string): Promise<boolean> => {
+    async (path: string, isDir: boolean, name: string): Promise<boolean> => {
       if (name.includes('/')) {
         showToast('error', { title: 'Nothing was renamed', message: 'A name cannot hold a slash, use Move to instead' });
         return false;
@@ -307,26 +311,26 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         });
         return false;
       }
-      reportMutation(res, `Renamed ${quoted(path, false, space)} to ${quoted(res.path, false, space)}`);
-      const here = movedTo(currentPath, path, res.path);
+      reportMutation(res, `Renamed ${quoted(path, isDir, space)} to ${quoted(res.path, isDir, space)}`);
+      const here = pathAfterMove(shown.current.path, path, res.path);
       if (here !== undefined) {
-        await navigate(onFolder ? directoryUrl(here) : documentUrl(here));
+        await navigate(shown.current.onFolder ? directoryUrl(here) : documentUrl(here));
         return true;
       }
       refreshNav();
       return true;
     },
-    [currentPath, navigate, onFolder, refreshNav, reportMutation, space],
+    [navigate, refreshNav, reportMutation, space],
   );
 
-  const renameInTree = useCallback(
-    (path: string) => {
+  const startTreeRename = useCallback(
+    (path: string, isDir: boolean) => {
       if (phone) {
-        setRenaming(path);
+        setRenaming({ path, isDir });
         return;
       }
       showInTree(parentOf(path));
-      setTreeRename(path);
+      setTreeRenaming(path);
     },
     [phone, showInTree],
   );
@@ -334,12 +338,12 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const actions = useMemo<FileActions>(
     () => ({
       createDraft,
-      rename: (path) => setRenaming(path),
-      renameInTree,
-      treeRename,
+      rename: (path, isDir) => setRenaming({ path, isDir }),
+      startTreeRename,
+      treeRenaming,
       submitRename,
-      cancelTreeRename: () => setTreeRename(undefined),
-      moveTo: (path, isDir, from) => setMoving({ path, isDir, anchor: (from.closest('[role="menu"]') ?? from).getBoundingClientRect() }),
+      cancelTreeRename: () => setTreeRenaming(undefined),
+      moveTo: (path, isDir, anchor) => setMoving({ path, isDir, anchor }),
       remove,
       copyLink: (path, isDir) => void copyLink(path, isDir),
       moveInto,
@@ -348,7 +352,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       cancelDraft,
       createEntry,
     }),
-    [cancelDraft, copyLink, createDraft, createEntry, draft, moveInto, remove, renameInTree, submitDraft, submitRename, treeRename],
+    [cancelDraft, copyLink, createDraft, createEntry, draft, moveInto, remove, startTreeRename, submitDraft, submitRename, treeRenaming],
   );
 
   return (
@@ -358,7 +362,11 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       {naming !== undefined && <NewEntryDialog draft={naming} onCreate={createEntry} onClose={() => setNaming(undefined)} />}
 
       {renaming !== undefined && (
-        <RenameDialog path={renaming} onRename={submitRename} onClose={() => setRenaming(undefined)} />
+        <RenameDialog
+          path={renaming.path}
+          onRename={(name) => submitRename(renaming.path, renaming.isDir, name)}
+          onClose={() => setRenaming(undefined)}
+        />
       )}
 
       {moving !== undefined && (

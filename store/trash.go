@@ -20,7 +20,7 @@ type trashed struct {
 	at   time.Time
 }
 
-func (s *Store) Discard(p string, recursive bool) (string, error) {
+func (s *Store) Trash(p string, recursive bool) (string, error) {
 	if s.cfg.ReadOnly {
 		return "", fmt.Errorf("remove %q: %w", p, ErrReadOnly)
 	}
@@ -70,9 +70,9 @@ func (s *Store) Trashed(id string) (string, bool) {
 	return displayPath(item.path), ok
 }
 
-func (s *Store) Recover(id string) error {
+func (s *Store) Restore(id string) error {
 	if s.cfg.ReadOnly {
-		return fmt.Errorf("recover %q: %w", id, ErrReadOnly)
+		return fmt.Errorf("restore %q: %w", id, ErrReadOnly)
 	}
 
 	s.writeMu.Lock()
@@ -80,17 +80,17 @@ func (s *Store) Recover(id string) error {
 
 	item, ok := s.trash[id]
 	if !ok {
-		return fmt.Errorf("recover %q: %w", id, ErrNotFound)
+		return fmt.Errorf("restore %q: %w", id, ErrNotFound)
 	}
 	p := displayPath(item.path)
 	if _, err := s.root.Lstat(item.path); err == nil {
-		return fmt.Errorf("recover %q: %w", p, ErrExists)
+		return fmt.Errorf("restore %q: %w", p, ErrExists)
 	}
 	if err := s.mkParent(item.path); err != nil {
-		return osError("recover", p, err)
+		return osError("restore", p, err)
 	}
 	if err := s.root.Rename(path.Join(trashDir, id, path.Base(item.path)), item.path); err != nil {
-		return osError("recover", p, err)
+		return osError("restore", p, err)
 	}
 	delete(s.trash, id)
 	s.dropSlot(id)

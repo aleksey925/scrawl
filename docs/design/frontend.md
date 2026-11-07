@@ -80,13 +80,14 @@ How the react app in `web/` is built, shipped and wired.
   teardown left the page taking no tap at all.
 - A right click on a row of a folder's list, and on the free space of a
   folder's page and of the tree, opens its menu at the pointer, through
-  `usePointerMenu` and `PointerAnchor` in `web/src/components/pointerMenu.tsx`.
-  A row of the tree opens its menu at its `⋯` button instead, which sits at the
-  row's end. The anchor is a fixed point rendered into `document.body`: while a
-  screen slides in, the page has a `transform`, which makes `fixed` relative to
-  it. A row that opens its own menu calls `preventDefault`, and the menu of the
-  free space around it opens only for an event no one handled yet, never over a
-  link, a button, a field or selected text.
+  `usePointerMenu` and `FixedAnchor` in `web/src/components/pointerMenu.tsx`. A
+  row of the tree opens its menu at its `⋯` button instead, which sits at the
+  row's end. The anchor is a fixed box rendered into `document.body`, a point
+  here and the menu's box for Move to: while a screen slides in, the page has a
+  `transform`, which makes `fixed` relative to it. A row that opens its own
+  menu calls `preventDefault`, and the menu of the free space around it opens
+  only for an event no one handled yet, never over a link, a button, a field or
+  selected text.
 
 ## Diagrams
 

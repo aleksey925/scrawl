@@ -5,7 +5,7 @@ import { basenameOf, pageName } from './naming';
 
 export interface RenameDialogProps {
   path: string;
-  onRename: (path: string, name: string) => Promise<boolean>;
+  onRename: (name: string) => Promise<boolean>;
   onClose: () => void;
 }
 
@@ -19,7 +19,7 @@ export function RenameDialog({ path, onRename, onClose }: RenameDialogProps): JS
       return;
     }
     setBusy(true);
-    void onRename(path, name).then((renamed) => {
+    void onRename(name).then((renamed) => {
       setBusy(false);
       if (renamed) {
         onClose();

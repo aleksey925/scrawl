@@ -212,7 +212,7 @@ test.describe('pages', () => {
         await page.getByTestId('folder-menu-copy-link').click();
 
         // assert
-        const toast = page.getByTestId('toast-pill');
+        const toast = page.getByTestId('toast-box');
         await expect.poll(async () => {
             const box = await toast.boundingBox();
             const view = page.viewportSize();
@@ -234,7 +234,7 @@ test.describe('pages', () => {
             await page.goto(routes.dir(docs.folder.path));
             await page.getByTestId('folder-menu').click();
             await page.getByTestId('folder-menu-copy-link').click();
-            await expect(page.getByTestId('toast-pill')).toBeVisible();
+            await expect(page.getByTestId('toast-box')).toBeVisible();
             await page.mouse.move(0, 0);
         }
 
@@ -270,7 +270,7 @@ test.describe('pages', () => {
             await copied(page);
 
             // act
-            await page.getByTestId('toast-pill').hover();
+            await page.getByTestId('toast-box').hover();
 
             // assert
             await stays(toasts(page), 1, 5000);
@@ -283,7 +283,7 @@ test.describe('pages', () => {
             await deleted(page);
 
             // act
-            await page.getByTestId('toast-pill').click({position: {x: 20, y: 10}});
+            await page.getByTestId('toast-box').click({position: {x: 20, y: 10}});
 
             // assert
             await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 1500});

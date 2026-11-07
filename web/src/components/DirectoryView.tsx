@@ -20,7 +20,7 @@ import { EmptyState } from './EmptyState';
 import { countOf } from './formats';
 import { Page, PageTitle } from './Page';
 import { NewEntryMenu, usePointerMenu } from './pointerMenu';
-import { PopupMenu } from './PopupMenu';
+import { menuRectOf, PopupMenu } from './PopupMenu';
 
 export interface DirectoryViewProps {
   path: string;
@@ -196,14 +196,14 @@ function FolderMenu({ path, actions }: { path: string; actions: FileActions }): 
             <Menu.Item
               data-testid="folder-menu-rename"
               leftSection={<IconEdit size={layout.iconSizeSmall} />}
-              onClick={() => actions.rename(path)}
+              onClick={() => actions.rename(path, true)}
             >
               Rename
             </Menu.Item>
             <Menu.Item
               data-testid="folder-menu-move"
               leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
-              onClick={(event) => actions.moveTo(path, true, event.currentTarget)}
+              onClick={(event) => actions.moveTo(path, true, menuRectOf(event.currentTarget))}
             >
               Move to
             </Menu.Item>

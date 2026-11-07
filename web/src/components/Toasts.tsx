@@ -8,6 +8,8 @@ import type { ToastKind } from '../toast';
 import classes from './Toasts.module.css';
 
 const desktopWidth = 480;
+const phoneToastMs = 2500;
+const phoneTransitionMs = 350;
 
 function onButton(event: MouseEvent<HTMLDivElement> | PointerEvent<HTMLDivElement>): boolean {
   return event.target instanceof Element && event.target.closest('button') !== null;
@@ -32,7 +34,7 @@ function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX
 
   return (
     <div
-      data-testid="toast-pill"
+      data-testid="toast-box"
       className={phone ? `${classes.toast} ${classes.pill}` : classes.toast}
       style={pulled < 0 ? { transform: `translateY(${pulled}px)`, transition: 'none' } : undefined}
       onClick={(event: MouseEvent<HTMLDivElement>) => {
@@ -79,7 +81,7 @@ export function Toasts(): JSX.Element {
     <Notifications
       position={phone ? 'top-center' : 'bottom-center'}
       containerWidth={phone ? '100%' : desktopWidth}
-      {...(phone ? { autoClose: 2500, transitionDuration: 350 } : {})}
+      {...(phone ? { autoClose: phoneToastMs, transitionDuration: phoneTransitionMs } : {})}
       allowDragDismiss={false}
       classNames={{ root: classes.root }}
       renderNotification={(data) => <Toast data={data} phone={phone} />}

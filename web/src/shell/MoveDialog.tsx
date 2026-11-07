@@ -2,15 +2,16 @@ import { Highlight, Modal, Popover, Portal } from '@mantine/core';
 import { useEffect, useMemo, useRef, useState, type JSX, type KeyboardEvent } from 'react';
 
 import type { NavNode } from '../api/types';
+import { FixedAnchor } from '../components/pointerMenu';
 import { TapGuard, useTouchScreen } from '../components/TapGuard';
 import controls from '../controls.module.css';
 import { IconChevronDown, IconChevronRight, IconFolder, IconHome, IconSearch } from '../icons';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
-import classes from './Search.module.css';
 import moveClasses from './MoveDialog.module.css';
+import picker from './Picker.module.css';
 import { basenameOf, joinPath, pageName, parentOf } from './naming';
-import { useVisibleArea } from './useVisibleArea';
+import { useFullScreenStyle } from './useVisibleArea';
 
 interface Place {
   path: string;
@@ -66,18 +67,10 @@ export function MoveDialog(props: MoveDialogProps): JSX.Element {
 }
 
 function MoveScreen(props: MoveDialogProps): JSX.Element {
-  const area = useVisibleArea(true);
+  const screenStyle = useFullScreenStyle(true);
   return (
     <Modal opened onClose={props.onClose} fullScreen withCloseButton={false} padding={0} trapFocus>
-      <div
-        data-testid="move-dialog"
-        className={classes.dialog}
-        style={{
-          maxHeight: 'none',
-          height: area === undefined ? '100dvh' : area.height,
-          transform: `translateY(${area?.top ?? 0}px)`,
-        }}
-      >
+      <div data-testid="move-dialog" className={picker.dialog} style={screenStyle}>
         <MovePicker {...props} phone />
       </div>
     </Modal>
@@ -105,10 +98,7 @@ function MovePopover(props: MoveDialogProps): JSX.Element {
         classNames={{ dropdown: controls.menu }}
       >
         <Popover.Target>
-          <span
-            className={moveClasses.anchor}
-            style={{ left: anchor.left, top: anchor.top, width: anchor.width, height: anchor.height }}
-          />
+          <FixedAnchor rect={anchor} />
         </Popover.Target>
         <Popover.Dropdown p={0}>
           <div data-testid="move-dialog" className={moveClasses.popover}>
@@ -192,12 +182,12 @@ function MovePicker({
 
   return (
     <>
-      <div className={phone ? classes.inputRow : moveClasses.search}>
-        <div className={phone ? classes.field : moveClasses.searchBox}>
+      <div className={phone ? picker.inputRow : moveClasses.search}>
+        <div className={phone ? picker.field : moveClasses.searchBox}>
           <IconSearch size={phone ? layout.iconSize : layout.iconSizeSmall} />
           <input
             data-testid="move-input"
-            className={phone ? classes.input : moveClasses.input}
+            className={phone ? picker.input : moveClasses.input}
             value={text}
             autoFocus
             placeholder={`Move ${title} to…`}
@@ -209,7 +199,7 @@ function MovePicker({
           />
         </div>
         {phone && (
-          <button type="button" data-testid="move-close" className={classes.cancel} onClick={onClose}>
+          <button type="button" data-testid="move-close" className={picker.cancel} onClick={onClose}>
             Cancel
           </button>
         )}
@@ -217,12 +207,12 @@ function MovePicker({
 
       <div
         ref={bodyRef}
-        className={`${classes.body} ${moveClasses.body}`}
+        className={`${picker.body} ${moveClasses.body}`}
         role="listbox"
         aria-label="Folders"
       >
         {shown.length === 0 && (
-          <div data-testid="move-empty" className={classes.empty}>
+          <div data-testid="move-empty" className={picker.empty}>
             No folder matches that.
           </div>
         )}
@@ -240,7 +230,7 @@ function MovePicker({
               data-open={opened ? 'true' : 'false'}
               aria-selected={place === picked}
               aria-disabled={current}
-              className={`${classes.head} ${moveClasses.place}`}
+              className={`${picker.head} ${moveClasses.place}`}
               style={query === '' ? { paddingLeft: rowStart + place.depth * indentStep } : undefined}
               onMouseMove={() => !current && setActive(place.path)}
               onClick={() => choose(place)}
@@ -265,19 +255,19 @@ function MovePicker({
                   <span className={moveClasses.twisty} />
                 ))}
               {place.path === '' ? <IconHome size={layout.iconSizeSmall} /> : <IconFolder size={layout.iconSizeSmall} />}
-              <Highlight component="span" className={classes.title} highlight={query === '' ? [] : query} fw="inherit" size="sm">
+              <Highlight component="span" className={picker.title} highlight={query === '' ? [] : query} fw="inherit" size="sm">
                 {place.name}
               </Highlight>
               {query !== '' && place.path !== '' && (
-                <span className={classes.path}>{parentOf(place.path) === '' ? spaceName : parentOf(place.path)}</span>
+                <span className={picker.path}>{parentOf(place.path) === '' ? spaceName : parentOf(place.path)}</span>
               )}
-              {current && <span className={classes.count}>Current</span>}
+              {current && <span className={picker.count}>Current</span>}
             </div>
           );
         })}
       </div>
 
-      <div data-testid="move-preview" className={classes.footer}>
+      <div data-testid="move-preview" className={picker.footer}>
         {picked === undefined ? (
           <span>Pick a folder to move {title} into</span>
         ) : picked.holds.has(name) ? (

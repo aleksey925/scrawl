@@ -59,3 +59,7 @@ export function PopupMenu({
     </>
   );
 }
+
+export function menuRectOf(item: Element): DOMRect {
+  return (item.closest('[role="menu"]') ?? item).getBoundingClientRect();
+}

@@ -186,7 +186,7 @@ export interface ScrawlApi {
   saveFile(path: string, body: SaveFileRequest, options?: RequestOptions): Promise<SaveFileResponse>;
   createEntry(path: string, kind: EntryKind, options?: RequestOptions): Promise<EntryPathResponse>;
   deleteEntry(path: string, options?: RequestOptions): Promise<DeleteResponse>;
-  restoreDeleted(id: string, options?: RequestOptions): Promise<EntryPathResponse>;
+  restoreTrashed(id: string, options?: RequestOptions): Promise<EntryPathResponse>;
   move(from: string, to: string, options?: RequestOptions): Promise<EntryPathResponse>;
   find(query: string, settings: SearchSettings, limit?: number, options?: RequestOptions): Promise<SearchResponse>;
   history(path: string, options?: RequestOptions): Promise<HistoryResponse>;
@@ -238,7 +238,7 @@ export const api: ScrawlApi = {
       options,
     ),
 
-  restoreDeleted: (id, options) =>
+  restoreTrashed: (id, options) =>
     call<EntryPathResponse>('POST', spaceUrl('/api/trash/restore'), { ...options, body: { id } }),
 
   move: (from, to, options) =>

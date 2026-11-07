@@ -6,6 +6,11 @@ import (
 	"strconv"
 )
 
+const (
+	localLink   = "local"
+	networkLink = "network"
+)
+
 type openLink struct {
 	label string
 	url   string
@@ -33,7 +38,7 @@ func openLinks(addr net.Addr, ifaceAddrs []net.Addr) []openLink {
 		return []openLink{{label: linkLabel(tcp.IP), url: httpURL(tcp.IP.String(), port)}}
 	}
 
-	links := []openLink{{label: "local", url: httpURL("localhost", port)}}
+	links := []openLink{{label: localLink, url: httpURL("localhost", port)}}
 	for _, entry := range ifaceAddrs {
 		ipNet, ok := entry.(*net.IPNet)
 		if !ok {
@@ -43,16 +48,16 @@ func openLinks(addr net.Addr, ifaceAddrs []net.Addr) []openLink {
 		if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
 			continue
 		}
-		links = append(links, openLink{label: "network", url: httpURL(ip.String(), port)})
+		links = append(links, openLink{label: networkLink, url: httpURL(ip.String(), port)})
 	}
 	return links
 }
 
 func linkLabel(ip net.IP) string {
 	if ip.IsLoopback() {
-		return "local"
+		return localLink
 	}
-	return "network"
+	return networkLink
 }
 
 func httpURL(host, port string) string {

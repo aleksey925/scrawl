@@ -41,6 +41,7 @@ export interface NavState {
   isOpen: (path: string) => boolean;
   toggleFolder: (path: string) => void;
   openFolder: (path: string) => void;
+  closeFolder: (path: string) => void;
   query: string;
   setQuery: (query: string) => void;
 }
@@ -122,6 +123,18 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
     });
   }, [storageKey]);
 
+  const closeFolder = useCallback((path: string) => {
+    setOpen((prev) => {
+      if (!prev.has(path)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.delete(path);
+      writeOpen(storageKey, next);
+      return next;
+    });
+  }, [storageKey]);
+
   const isOpen = useCallback((path: string) => open.has(path), [open]);
   const refreshNav = useCallback(() => {
     forgetResponses();
@@ -155,12 +168,13 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       isOpen,
       toggleFolder,
       openFolder,
+      closeFolder,
       query,
       setQuery,
     }),
     [
       tree, nav.error, nav.loading, me, currentPath, sync, isUnsynced,
-      refreshNav, refreshMe, token, isOpen, toggleFolder, openFolder, query,
+      refreshNav, refreshMe, token, isOpen, toggleFolder, openFolder, closeFolder, query,
     ],
   );
 

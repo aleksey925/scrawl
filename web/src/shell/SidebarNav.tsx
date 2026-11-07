@@ -71,7 +71,7 @@ interface RowsProps {
 type TreeRowProps = Omit<RowsProps, 'nodes'> & { node: NavNode };
 
 function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | null {
-  const { isOpen, openFolder, toggleFolder, currentPath, canWrite } = useNav();
+  const { isOpen, openFolder, closeFolder, toggleFolder, currentPath, canWrite } = useNav();
   const actions = useOptionalFileActions();
   const draft = actions?.draft;
   const { RowMenu } = useReaderExtensions();
@@ -84,16 +84,19 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   useEffect(() => {
     if (wasEmpty.current && !empty) {
       openFolder(node.path);
+    } else if (!wasEmpty.current && empty) {
+      closeFolder(node.path);
     }
     wasEmpty.current = empty;
-  }, [empty, node.path, openFolder]);
+  }, [empty, node.path, openFolder, closeFolder]);
 
   if (query !== '' && !filtered.visible.has(node.path)) {
     return null;
   }
 
   const drafting = draft !== undefined && draft.parent === node.path;
-  const open = empty ? drafting : query !== '' ? filtered.forcedOpen.has(node.path) : isOpen(node.path);
+  const unfolded = query !== '' ? filtered.forcedOpen.has(node.path) : isOpen(node.path);
+  const open = empty ? drafting : unfolded;
   const current = node.path === currentPath;
   const picked = ui.selected.has(node.path);
   const over = ui.dropTarget === node.path;
@@ -153,9 +156,23 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
                 <IconChevronRight size={treeIconSize} className={treeClasses.chevron} />
               )}
             </ActionIcon>
+          ) : empty ? (
+            <ActionIcon
+              data-testid="tree-empty-folder"
+              data-open={unfolded || drafting ? 'true' : 'false'}
+              variant="subtle"
+              color="gray"
+              size={iconBox}
+              className={treeClasses.icon}
+              aria-label={`${unfolded ? 'Close' : 'Open'} ${node.name}`}
+              aria-pressed={unfolded}
+              onClick={() => toggleFolder(node.path)}
+            >
+              {unfolded || drafting ? <IconFolderOpen size={treeIconSize} /> : <IconFolder size={treeIconSize} />}
+            </ActionIcon>
           ) : (
             <IconBox>
-              {empty ? <IconFolder size={treeIconSize} /> : <IconFileText size={treeIconSize} />}
+              <IconFileText size={treeIconSize} />
             </IconBox>
           )}
 
@@ -169,7 +186,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
             className={treeClasses.label}
             onClick={(event: MouseEvent) => {
               ui.pick(node.path, event);
-              if (!node.is_dir || empty || query !== '' || event.defaultPrevented || event.metaKey || event.ctrlKey) {
+              if (!node.is_dir || query !== '' || event.defaultPrevented || event.metaKey || event.ctrlKey) {
                 return;
               }
               if (current) {

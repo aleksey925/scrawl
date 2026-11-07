@@ -849,7 +849,7 @@ test.describe.serial('file management', () => {
         await expect(page.locator(`[data-testid=tree-row][data-path="${BLANK_FOLDER}/first.md"]`)).toBeVisible();
     });
 
-    test('an empty folder in the tree has no arrow, stays shut on a click and lines up with the rows beside it', async ({page}) => {
+    test('an empty folder in the tree has no arrow, unfolds nothing on a click and lines up with the rows beside it', async ({page}) => {
         // arrange
         fs.mkdirSync(fixtureFile(`${HOLLOW}/empty`), {recursive: true});
         writeFixture(`${HOLLOW}/full/note.md`, '# Note\n');
@@ -865,6 +865,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(page).toHaveURL(MAIN.url.dir(`${HOLLOW}/empty`));
+        await expect(empty.getByTestId('tree-empty-folder')).toHaveAttribute('data-open', 'true');
         await expect(empty).toHaveAttribute('data-empty', 'true');
         await expect(empty.getByTestId('tree-twisty')).toHaveCount(0);
         await expect(empty.locator('[aria-expanded]:not([data-testid=tree-row-menu])')).toHaveCount(0);
@@ -903,6 +904,7 @@ test.describe.serial('file management', () => {
         await expect.poll(() => fs.existsSync(fixtureFile(first))).toBe(false);
         await expect(row).toHaveAttribute('data-empty', 'true');
         await expect(row.getByTestId('tree-twisty')).toHaveCount(0);
+        await expect(row.getByTestId('tree-empty-folder')).toHaveAttribute('data-open', 'false');
         await expect(children).toHaveCount(0);
     });
 
@@ -950,6 +952,36 @@ test.describe.serial('file management', () => {
         await expect(row).toHaveAttribute('data-empty', 'false');
         await expect(row.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
         await expect(page.locator(`[data-testid=tree-row][data-path="${folder}/note.md"]`)).toBeVisible();
+    });
+
+    test('a click on an empty folder shows it open and the next click shows it closed, with nothing unfolding', async ({page}) => {
+        // arrange
+        const folder = `${HOLLOW}/flip`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.dir(HOLLOW));
+        const row = page.locator(`[data-testid=tree-row][data-path="${folder}"]`);
+        const icon = row.getByTestId('tree-empty-folder');
+        const children = row.locator('xpath=following-sibling::*[@data-testid="tree-children"]');
+        await expect(icon).toHaveAttribute('data-open', 'false');
+        const shut = await icon.innerHTML();
+
+        // act & assert
+        await icon.click();
+        await expect(icon).toHaveAttribute('data-open', 'true');
+        expect(await icon.innerHTML()).not.toBe(shut);
+        await expect(children).toHaveCount(0);
+        await expect(page).toHaveURL(MAIN.url.dir(HOLLOW));
+
+        await icon.click();
+        await expect(icon).toHaveAttribute('data-open', 'false');
+        expect(await icon.innerHTML()).toBe(shut);
+
+        await row.getByTestId('tree-link').click();
+        await expect(page).toHaveURL(MAIN.url.dir(folder));
+        await expect(icon).toHaveAttribute('data-open', 'true');
+        await row.getByTestId('tree-link').click();
+        await expect(icon).toHaveAttribute('data-open', 'false');
+        await expect(children).toHaveCount(0);
     });
 
     test('an empty folder keeps its closed folder icon under the pointer, with no chevron', async ({page}) => {

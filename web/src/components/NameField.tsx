@@ -16,6 +16,7 @@ interface FieldState {
   busy: boolean;
   done: boolean;
   failed: string | undefined;
+  failedAtTap: string | undefined;
 }
 
 export interface NameFieldProps {
@@ -60,7 +61,7 @@ export function NameField({
   const inputRef = useRef<HTMLInputElement>(null);
   const placed = useRef(false);
   const refocus = useRef(false);
-  const state = useRef<FieldState>({ busy: false, done: false, failed: undefined });
+  const state = useRef<FieldState>({ busy: false, done: false, failed: undefined, failedAtTap: undefined });
 
   const cancel = (): void => {
     if (state.current.done) {
@@ -108,7 +109,8 @@ export function NameField({
   };
 
   const leaveOrClose = (): void => {
-    if (name === state.current.failed) {
+    const now = state.current;
+    if (name === now.failed && name === now.failedAtTap) {
       cancel();
       return;
     }
@@ -118,6 +120,14 @@ export function NameField({
   const leaveRef = useRef(leaveOrClose);
   leaveRef.current = leaveOrClose;
   useOutsideTap(boxRef, leave);
+
+  useEffect(() => {
+    const onPointerDown = (): void => {
+      state.current.failedAtTap = state.current.failed;
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, []);
 
   useEffect(() => {
     if (!busy && refocus.current) {

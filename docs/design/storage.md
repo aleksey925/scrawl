@@ -48,12 +48,17 @@ How the notes on disk are read, written and watched.
   makes the folders above it again when they went. It checks the path again as
   any write does, so a folder above that became a symlink or a hidden name
   since the delete answers not found and the entry stays in the trash.
-- `Restore` and `Move` look for an entry at the new place and then rename, both
-  under the write lock, which keeps out every write of scrawl. An editor or a
-  sync tool that makes a file at that place between the two steps loses it to
-  the rename. A rename that refuses to replace needs `renameat2` on Linux and
-  `renameatx_np` on macOS, on a descriptor `os.Root` does not give out, so the
-  window stays, a few system calls wide.
+- `Restore` and `Move` never put an entry over another one, even when an editor
+  or a sync tool makes a file at the new place just before the rename. They
+  open the folder of the old place and the folder of the new place through
+  `os.Root` and rename between the two descriptors with a rename that refuses
+  to replace: `renameat2` with `RENAME_NOREPLACE` on Linux, `renameatx_np` with
+  `RENAME_EXCL` on macOS. The names passed are single names, so the rename
+  stays inside the root and follows no symlink at either end. An entry found at
+  the new place answers "already exists", as the check before the rename does.
+- A filesystem that does not know such a rename (it answers `EINVAL` or
+  `ENOTSUP`) and other systems get a plain rename after that check, so there a
+  file made at the new place between the two steps is lost to the rename.
 - A rename cannot cross two filesystems, so an entry on another filesystem
   mounted inside the space, a bind mount in Docker for one, cannot be deleted:
   the rename fails with `EXDEV` and the delete answers an error. The entry

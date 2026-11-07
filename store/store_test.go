@@ -752,6 +752,75 @@ func TestStoreMove(t *testing.T) {
 	}
 }
 
+func TestStoreRenameNoReplace(t *testing.T) {
+	t.Run("an entry moves to a free place in another folder", func(t *testing.T) {
+		// arrange
+		s := newStore(t, notesFiles())
+
+		// act
+		err := s.renameNoReplace("guide.md", "notes/deep/guide.md")
+
+		// assert
+		require.NoError(t, err)
+		assert.NoFileExists(t, filepath.Join(s.Dir(), "guide.md"))
+		body, err := os.ReadFile(filepath.Join(s.Dir(), "notes", "deep", "guide.md"))
+		require.NoError(t, err)
+		assert.Equal(t, notesFiles()["guide.md"], string(body))
+	})
+
+	t.Run("a file at the place is not overwritten", func(t *testing.T) {
+		// arrange
+		s := newStore(t, notesFiles())
+
+		// act
+		err := s.renameNoReplace("guide.md", "notes/index.md")
+
+		// assert
+		require.ErrorIs(t, err, fs.ErrExist)
+		target, err := os.ReadFile(filepath.Join(s.Dir(), "notes", "index.md"))
+		require.NoError(t, err)
+		assert.Equal(t, notesFiles()["notes/index.md"], string(target))
+		source, err := os.ReadFile(filepath.Join(s.Dir(), "guide.md"))
+		require.NoError(t, err)
+		assert.Equal(t, notesFiles()["guide.md"], string(source))
+	})
+
+	t.Run("an empty folder at the place is not replaced by a folder", func(t *testing.T) {
+		// arrange
+		s := newStore(t, notesFiles())
+		require.NoError(t, os.Mkdir(filepath.Join(s.Dir(), "archive"), 0o755))
+
+		// act
+		err := s.renameNoReplace("notes", "archive")
+
+		// assert
+		require.ErrorIs(t, err, fs.ErrExist)
+		assert.FileExists(t, filepath.Join(s.Dir(), "notes", "deep", "nested.md"))
+		entries, err := os.ReadDir(filepath.Join(s.Dir(), "archive"))
+		require.NoError(t, err)
+		assert.Empty(t, entries)
+	})
+
+	t.Run("a symlink at the place is kept and not followed", func(t *testing.T) {
+		// arrange
+		s := newStore(t, notesFiles())
+		link := filepath.Join(s.Dir(), "link.md")
+		require.NoError(t, os.Symlink("index.md", link))
+
+		// act
+		err := s.renameNoReplace("guide.md", "link.md")
+
+		// assert
+		require.ErrorIs(t, err, fs.ErrExist)
+		dest, err := os.Readlink(link)
+		require.NoError(t, err)
+		assert.Equal(t, "index.md", dest)
+		body, err := os.ReadFile(filepath.Join(s.Dir(), "index.md"))
+		require.NoError(t, err)
+		assert.Equal(t, notesFiles()["index.md"], string(body))
+	})
+}
+
 func TestStoreWalk(t *testing.T) {
 	s := newStore(t, notesFiles())
 

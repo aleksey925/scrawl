@@ -1307,6 +1307,34 @@ test.describe.serial('file management', () => {
         expect(fs.readFileSync(fixtureFile(moved), 'utf8')).toBe('# Replacement\n');
     });
 
+    test('Undo after a move moves nothing back once another note took its new place outside this tab', async ({page}) => {
+        // arrange
+        const note = `${UNDO_FOLDER}/swapped.md`;
+        const into = `${UNDO_FOLDER}/into-swapped`;
+        const moved = `${into}/swapped.md`;
+        writeFixture(note, '# Moved\n');
+        fs.mkdirSync(fixtureFile(into), {recursive: true});
+        await openMoveFromNoteMenu(page, note);
+        await page.getByTestId('move-input').fill('into-swapped');
+        const recorded = page.waitForResponse((res) => res.url().endsWith(`/api/dir/${into}`));
+        await page.locator(`[data-testid=move-place][data-path="${into}"]`).click();
+        await expect(page).toHaveURL(MAIN.url.doc(moved));
+        await recorded;
+        fs.rmSync(fixtureFile(moved));
+        writeFixture(moved, '# Another note\n');
+        const moveToast = page.locator('[data-testid=toast]').filter({hasText: 'Moved "swapped" to'});
+
+        // act
+        await moveToast.getByTestId('toast-action').click();
+
+        // assert
+        const failed = page.locator('[data-testid=toast][data-kind="error"]');
+        await expect(failed).toContainText('Nothing was moved back');
+        await expect(failed).toContainText('It was renamed, moved or deleted since');
+        expect([note, moved].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
+        expect(fs.readFileSync(fixtureFile(moved), 'utf8')).toBe('# Another note\n');
+    });
+
     test('Undo after dragging two rows stops before a row deleted and replaced while it runs', async ({page}) => {
         // arrange
         const names = ['first.md', 'second.md'];

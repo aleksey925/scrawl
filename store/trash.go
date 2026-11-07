@@ -92,7 +92,7 @@ func (s *Store) Restore(id string) error {
 	if err := s.mkParent(item.path); err != nil {
 		return osError("restore", p, err)
 	}
-	if err := s.root.Rename(path.Join(trashDir, id, path.Base(item.path)), item.path); err != nil {
+	if err := s.renameNoReplace(path.Join(trashDir, id, path.Base(item.path)), item.path); err != nil {
 		return osError("restore", p, err)
 	}
 	delete(s.trash, id)

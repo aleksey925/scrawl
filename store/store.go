@@ -385,7 +385,10 @@ func (s *Store) Move(from, to string) error {
 	if err := s.mkParent(dst); err != nil {
 		return osError("move", to, err)
 	}
-	if err := s.root.Rename(src, dst); err != nil {
+	if err := s.renameNoReplace(src, dst); err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return fmt.Errorf("move %q: %w", to, ErrExists)
+		}
 		return osError("move", from, err)
 	}
 	s.invalidate()

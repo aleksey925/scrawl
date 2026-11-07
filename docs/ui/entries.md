@@ -72,7 +72,13 @@ Creating, naming, moving and deleting files and folders.
   knows an entry only by its path, and the one there now may be another. An
   Undo already running asks again before each entry, so a change made while it
   waits stops it before the rest. A change made in another tab or on disk is
-  not seen. Undo is forgotten once its toast closes.
+  found too: right after the move the app reads the size and the time of each
+  moved file from the list of its new folder, and before each entry Undo reads
+  them again. When they differ, the file there now is another one or was edited
+  since, and Undo stops the same way. A folder is checked only for being a
+  folder, because its time changes with every change inside it, so another
+  folder put at its place outside the tab is not found. When a read fails, Undo
+  goes on without this check. Undo is forgotten once its toast closes.
 - The toast of a create, a rename, a move, a delete and a copied link names the
   entry, by its title as the tree shows it, and the folder it went to:
   `Moved "guide" to "db"`, `Renamed "a" to "b"`. A bare Moved or Deleted did

@@ -10,6 +10,11 @@ Prettier inside the binary and in the browser.
   formats and not a diff in CI. The version is the one `mise.toml` pins and the
   plugins are the ones the command line loads, so a note saved here does not
   come back changed from `prettier --write`.
+- Prose is wrapped at 79 columns, `proseWrap: always` with `printWidth: 79`, in
+  both copies: a note reads the same in any editor and a diff shows the lines a
+  change touched, not a paragraph on one line. Short lines of one paragraph are
+  joined up to the width, which markdown renders the same. A word, a link or
+  code is never split, so such a line stays longer.
 - Two copies of prettier, and each write goes through exactly one
   ([ADR 5](../adr/0005-format-in-browser-first.md)). The editor formats in the
   browser, on the button and before a save, and says so with `formatted` in the

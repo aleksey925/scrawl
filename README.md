@@ -531,10 +531,12 @@ in one folder instead.
 - a save writes a temporary file and renames it into place, so a crash cannot
   leave half a document behind
 - a save formats the note with [prettier](https://prettier.io) first, with its
-  default options, so every note ends up looking the way `prettier --write`
-  leaves it. That holds for the editor, for a write through the API and for a
-  version restored from the history alike. `SPACE_FORMAT_ON_SAVE=off`, or
-  `format_on_save: false` on one space in the file, turns that off
+  default options except that text is wrapped at 79 characters, so every note
+  ends up looking the way
+  `prettier --write --prose-wrap always --print-width 79` leaves it. That holds
+  for the editor, for a write through the API and for a version restored from
+  the history alike. `SPACE_FORMAT_ON_SAVE=off`, or `format_on_save: false` on
+  one space in the file, turns that off
 - the wand button in the toolbar, or `Shift+Alt+F`, formats the note without
   saving it, whatever that setting says
 - a text file that is not a note, such as `config.yml` or a `Makefile`, opens
@@ -543,7 +545,8 @@ in one folder instead.
   leaves it as you wrote it. The editor opens text files up to 2MB
 - only notes saved through scrawl are formatted. A file changed on disk or
   pulled from the remote stays as it is, so to format what is already there run
-  `prettier --write "**/*.md"` in the folder once
+  `prettier --write --prose-wrap always --print-width 79 "**/*.md"` in the
+  folder once
 - the editor formats in the browser, which is instant. Any other write is
   formatted by the server, which is slower: a usual note takes a fraction of a
   second, a very long one a few seconds. There a note above 256KB, or one

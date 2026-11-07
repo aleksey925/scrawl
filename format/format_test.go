@@ -48,6 +48,19 @@ func TestMarkdown(t *testing.T) {
 			text: "# Title\n\n- one\n- two\n",
 			want: "# Title\n\n- one\n- two\n",
 		},
+		{
+			name: "prose is wrapped at 79 columns, short lines are joined and a long link stays whole",
+			text: "Один абзац, в котором много слов, и он намного длиннее семидесяти девяти символов, поэтому форматтер его переносит.\n" +
+				"А эта короткая строка\nсливается с соседней.\n\n" +
+				"- пункт списка, который тоже достаточно длинный, чтобы не поместиться в одну строку шириной 79\n\n" +
+				"https://example.com/a/very/long/link/that/cannot/be/broken/anywhere/at/all/because/it/is/one/word\n",
+			want: "Один абзац, в котором много слов, и он намного длиннее семидесяти девяти\n" +
+				"символов, поэтому форматтер его переносит. А эта короткая строка сливается с\n" +
+				"соседней.\n\n" +
+				"- пункт списка, который тоже достаточно длинный, чтобы не поместиться в одну\n" +
+				"  строку шириной 79\n\n" +
+				"https://example.com/a/very/long/link/that/cannot/be/broken/anywhere/at/all/because/it/is/one/word\n",
+		},
 		{name: "an empty note", text: "", want: ""},
 	}
 

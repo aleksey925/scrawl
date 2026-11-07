@@ -16,6 +16,8 @@ export interface Formatted {
   cursor: number;
 }
 
+const noteLineWidth = 79;
+
 let loading: Promise<Formatter> | undefined;
 
 function load(): Promise<Formatter> {
@@ -60,6 +62,8 @@ export async function formatMarkdown(text: string, cursor: number): Promise<Form
   const { formatWithCursor, plugins } = await load();
   const res = await formatWithCursor(text, {
     parser: 'markdown',
+    proseWrap: 'always',
+    printWidth: noteLineWidth,
     plugins,
     cursorOffset: clamp(cursor, text.length),
   });

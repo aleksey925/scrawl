@@ -77,8 +77,8 @@ test.describe.serial('history', () => {
     test('a version is compared as a reader sees it, markup apart from words', async ({page}) => {
         const {docPath, stamp} = freshDoc('compared');
         await page.goto(HISTORY.url.edit(docPath));
-        await saveInEditor(page, `# Заметка ${stamp}\n\nОдна длинная строка,\nперенесённая вручную.\n\nБыстрая лиса.\n`);
-        await saveInEditor(page, `# Заметка ${stamp}\n\nОдна длинная строка, перенесённая вручную.\n\nМедленная лиса.\n`);
+        await saveInEditor(page, `# Заметка ${stamp}\n\nОдна строка с **важным** словом.\n\nБыстрая лиса.\n`);
+        await saveInEditor(page, `# Заметка ${stamp}\n\nОдна строка с важным словом.\n\nМедленная лиса.\n`);
 
         await page.goto(HISTORY.url.history(docPath));
         const diff = page.getByTestId('rendered-diff');

@@ -23,10 +23,17 @@ function writeOutput(output) {
   Javy.IO.writeSync(1, new TextEncoder().encode(JSON.stringify(output)));
 }
 
+const noteLineWidth = 79;
+
 const input = JSON.parse(readInput());
 
 prettier
-  .format(input.text, { parser: "markdown", plugins: Object.values(prettierPlugins) })
+  .format(input.text, {
+    parser: "markdown",
+    proseWrap: "always",
+    printWidth: noteLineWidth,
+    plugins: Object.values(prettierPlugins),
+  })
   .then(
     (text) => writeOutput({ text }),
     (err) => writeOutput({ error: String((err && err.message) || err) }),

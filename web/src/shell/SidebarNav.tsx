@@ -130,11 +130,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
               })}
           style={rowInsets(depth)}
         >
-          {empty ? (
-            <IconBox>
-              <IconFolder size={treeIconSize} />
-            </IconBox>
-          ) : node.is_dir ? (
+          {node.is_dir && !empty ? (
             <ActionIcon
               data-testid="tree-twisty"
               data-open={open ? 'true' : 'false'}
@@ -159,7 +155,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
             </ActionIcon>
           ) : (
             <IconBox>
-              <IconFileText size={treeIconSize} />
+              {empty ? <IconFolder size={treeIconSize} /> : <IconFileText size={treeIconSize} />}
             </IconBox>
           )}
 
@@ -236,7 +232,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   );
 }
 
-function IconBox({ children }: { children?: ReactNode }): JSX.Element {
+function IconBox({ children }: { children: ReactNode }): JSX.Element {
   return (
     <Box
       w={iconBox}

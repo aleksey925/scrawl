@@ -1238,6 +1238,48 @@ test.describe('mobile', () => {
         }
     });
 
+    test('the leave dialog shares its row between its two buttons in equal parts', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n');
+        await page.goto(routes.edit(SCRATCH));
+        await setSource(page, '# Заметка\n\nправка\n');
+
+        // act
+        await page.getByTestId('editor-cancel').tap();
+
+        // assert
+        await expect(page.getByTestId('modal-confirm')).toBeVisible();
+        const boxes = await Promise.all(['modal-cancel', 'modal-confirm'].map((id) => page.getByTestId(id).boundingBox()));
+        expect(Math.round(boxes[0].width)).toBe(Math.round(boxes[1].width));
+        expect(Math.round(boxes[0].y)).toBe(Math.round(boxes[1].y));
+        expect(boxes.every((box) => box.height >= BUTTON_HEIGHT)).toBe(true);
+        await page.getByTestId('modal-cancel').tap();
+    });
+
+    test('the conflict dialog stacks its three buttons across the dialog', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, 'original\n');
+        await page.goto(routes.edit(SCRATCH));
+        await expect.poll(() => sourceText(page)).toBe('original\n');
+        writeFixture(SCRATCH, 'written by someone else\n');
+        await setSource(page, 'my version\n');
+
+        // act
+        await page.getByTestId('editor-save').tap();
+
+        // assert
+        await expect(page.getByTestId('editor-conflict-overwrite')).toBeVisible();
+        const boxes = await Promise.all(['editor-conflict-cancel', 'editor-conflict-copy', 'editor-conflict-overwrite']
+            .map(async (id) => {
+                const box = await page.getByTestId(id).boundingBox();
+                return {x: Math.round(box.x), width: Math.round(box.width), y: Math.round(box.y), tall: box.height >= BUTTON_HEIGHT};
+            }));
+        expect(boxes.map(({x, width, tall}) => ({x, width, tall}))).toEqual(Array(3).fill({x: boxes[0].x, width: boxes[0].width, tall: true}));
+        expect(boxes[0].y).toBeLessThan(boxes[1].y);
+        expect(boxes[1].y).toBeLessThan(boxes[2].y);
+        await page.getByTestId('editor-conflict-cancel').tap();
+    });
+
     test('no page scrolls horizontally', async ({page}) => {
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
         const pages = [

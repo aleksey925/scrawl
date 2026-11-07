@@ -55,7 +55,7 @@ import classes from './Editor.module.css';
 import { lineBreakOf, toEditorText, withLineBreak } from './lineBreaks';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { createPaneSync } from './paneSync';
-import { headingsOf, placeToc, tocBlock } from './toc';
+import { headingsInHtml, tocBlock, writeToc } from './toc';
 import { useDraft } from './useDraft';
 import { useEditorLayout, type LayoutMode } from './useLayoutMode';
 import { useLineWrap } from './useLineWrap';
@@ -201,24 +201,30 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   }, [formatBuffer]);
 
   const insertToc = useCallback((): void => {
-    api.preview({ content: bufferText(), path }).then(
-      (res) => {
-        const block = tocBlock(headingsOf(res.html));
-        if (block === undefined) {
-          showToast('warn', { title: 'No headings to list', message: 'The contents lists the headings under the title.' });
-          return;
-        }
-        const current = liveView();
-        if (current === undefined) {
-          return;
-        }
-        const { doc, selection } = current.state;
-        current.dispatch({ changes: placeToc(doc.toString(), selection.main.head, block), scrollIntoView: true });
-      },
-      (error: unknown) => {
-        showToast('error', { title: 'Could not build the contents', message: errorText(error) });
-      },
-    );
+    const build = (): void => {
+      const sent = bufferText();
+      api.preview({ content: sent, path }).then(
+        (res) => {
+          if (bufferText() !== sent) {
+            build();
+            return;
+          }
+          const block = tocBlock(headingsInHtml(res.html));
+          if (block === undefined) {
+            showToast('warn', { title: 'No headings to list', message: 'The contents lists the headings under the title.' });
+            return;
+          }
+          const current = liveView();
+          if (current !== undefined) {
+            writeToc(current, block);
+          }
+        },
+        (error: unknown) => {
+          showToast('error', { title: 'Could not build the contents', message: errorText(error) });
+        },
+      );
+    };
+    build();
   }, [bufferText, liveView, path]);
 
   useEffect(() => {

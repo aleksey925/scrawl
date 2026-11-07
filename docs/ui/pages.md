@@ -105,7 +105,8 @@ opens over them.
   empty preview each say what they are through `EmptyState`, a gray title as
   Notion has it, with the next step as a button. A blank screen read as a page
   that failed to load. In the tree an empty folder has no arrow and no line of
-  its own, see [sidebar](sidebar.md).
+  its own, and an empty space shows no rows under its name, see
+  [sidebar](sidebar.md).
 
 ## Over the page
 

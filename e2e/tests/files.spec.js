@@ -931,6 +931,80 @@ test.describe.serial('file management', () => {
         await expect(page.locator(`[data-testid=tree-row][data-path="${folder}/dragged.md"]`)).toBeVisible();
     });
 
+    test('an empty folder on screen opens when a note is written into it from outside the page', async ({page}) => {
+        // arrange
+        const folder = `${HOLLOW}/outside`;
+        const sibling = `${HOLLOW}/outside-sibling.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        writeFixture(sibling, '# Sibling\n');
+        await page.goto(routes.dir(HOLLOW));
+        const row = page.locator(`[data-testid=tree-row][data-path="${folder}"]`);
+        await expect(row).toHaveAttribute('data-empty', 'true');
+
+        // act
+        writeFixture(`${folder}/note.md`, '# Note\n');
+        await page.locator(`[data-testid=tree-row][data-path="${sibling}"]`).getByTestId('tree-link').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(sibling));
+        await expect(row).toHaveAttribute('data-empty', 'false');
+        await expect(row.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+        await expect(page.locator(`[data-testid=tree-row][data-path="${folder}/note.md"]`)).toBeVisible();
+    });
+
+    test('an empty folder keeps its closed folder icon under the pointer, with no chevron', async ({page}) => {
+        // arrange
+        const folder = `${HOLLOW}/hovered`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.dir(HOLLOW));
+        const row = page.locator(`[data-testid=tree-row][data-path="${folder}"]`);
+        const icon = row.getByTestId('tree-link').locator('xpath=preceding-sibling::*').locator('svg');
+        await expect(icon).toHaveCount(1);
+        const resting = await icon.innerHTML();
+
+        // act
+        await row.hover();
+
+        // assert
+        await expect(icon).toHaveCount(1);
+        await expect(icon).toBeVisible();
+        expect(await icon.innerHTML()).toBe(resting);
+        await expect(row.getByTestId('tree-twisty')).toHaveCount(0);
+    });
+
+    test('a folder that holds only a picture counts as empty in the tree', async ({page}) => {
+        // arrange
+        const folder = `${HOLLOW}/pictures`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        fs.writeFileSync(fixtureFile(`${folder}/picture.png`), 'not really a picture');
+
+        // act
+        await page.goto(routes.dir(HOLLOW));
+
+        // assert
+        const row = page.locator(`[data-testid=tree-row][data-path="${folder}"]`);
+        await expect(row).toHaveAttribute('data-empty', 'true');
+        await expect(row.getByTestId('tree-twisty')).toHaveCount(0);
+        await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-children"]')).toHaveCount(0);
+    });
+
+    test('an empty folder the filter finds has no arrow and nothing under it', async ({page}) => {
+        // arrange
+        const folder = `${HOLLOW}/zzfilteredempty`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.dir(HOLLOW));
+
+        // act
+        await page.getByTestId('sidebar-filter').fill('zzfilteredempty');
+
+        // assert
+        const row = page.locator(`[data-testid=tree-row][data-path="${folder}"]`);
+        await expect(row).toBeVisible();
+        await expect(row).toHaveAttribute('data-empty', 'true');
+        await expect(row.getByTestId('tree-twisty')).toHaveCount(0);
+        await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-children"]')).toHaveCount(0);
+    });
+
     test('New in a folder list names the entry in a row of the table', async ({page}) => {
         // arrange
         await page.goto(routes.dir(BLANK_FOLDER));
@@ -1146,7 +1220,6 @@ test.describe.serial('file management', () => {
         await expect.poll(() => fs.existsSync(fixtureFile(CONTEXT_ROOT_FOLDER))).toBe(true);
         expect(fs.existsSync(fixtureFile(`${CONTEXT_FOLDER}/${CONTEXT_ROOT_FOLDER}`))).toBe(false);
     });
-
 
     test('deletes a folder with everything in it and leaves the page that was inside', async ({page}) => {
         // arrange

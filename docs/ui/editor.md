@@ -8,8 +8,8 @@ The editor screen.
   set back: the words in the text color, a heading and bold by weight, the
   marks around them faint, a link in the accent. Long lines wrap; the wrap
   button turns that off and keeps the choice. Then a long line scrolls sideways
-  inside the column, and in Source the editor box is the column itself: left
-  the width of the screen, a line ran from one edge of the screen to the other.
+  inside the column, and in Source the editor box is the column itself. When
+  the box was as wide as the screen, a long line ran across the whole screen.
   The line numbers have the page's ground and so does the strip left of them,
   so a line scrolled sideways slides under them; on a transparent ground the
   text ran over the numbers. The topbar holds the state of the save, the layout
@@ -30,12 +30,19 @@ The editor screen.
 - The contents button puts a list of the headings up to level 4, all but the
   title (a first heading of level 1), nested by level, as links to them, after
   the line the cursor is on, between `<!-- toc -->` and `<!-- tocstop -->`. A
-  second press finds that block and writes a fresh list in its place. The
-  headings and their ids come from the server's render of the text, the one the
-  preview shows, so a link opens its heading even where two headings share a
-  name or a heading sets its own id; a copy of the slug in the browser would
-  drift from the server's. A note with no heading under its title gets a toast
-  and no change. The markers are comments, which the page never shows.
+  second press finds that block and writes a fresh list in its place. A
+  `<!-- toc -->` with no `<!-- tocstop -->` after it, before the next start, is
+  filled in where it stands, and a stop pairs only with the nearest start
+  before it, so no text between two stray markers is lost. Markers inside a
+  fenced code block are text and not markers. The headings and their ids come
+  from the server's render of the text, the one the preview shows, so a link
+  opens its heading even where two headings share a name; a copy of the slug in
+  the browser would drift from the server's. A heading the render gives no id,
+  one whose slug is longer than 129 characters or starts with `-`, has nothing
+  to link to and is left out. The list is built from the text sent to the
+  server: if the text changed before the answer came, it is sent again. A note
+  with no heading under its title gets a toast and no change. The markers are
+  comments, which the page never shows.
 - The editor toolbar is a strip that moves sideways only and stops at its ends,
   and the editor screen takes the page's rubber band away. Left to the defaults
   the strip followed a finger up and down with the page behind it. It has no

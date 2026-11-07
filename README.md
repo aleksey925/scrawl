@@ -539,10 +539,10 @@ in one folder instead.
   one space in the file, turns that off
 - the wand button in the toolbar, or `Shift+Alt+F`, formats the note without
   saving it, whatever that setting says
-- the contents button in the toolbar puts a table of contents of the note at
-  the cursor: a list of links to its headings between `<!-- toc -->` and
-  `<!-- tocstop -->`. Press it again after adding headings to bring the list up
-  to date
+- the contents button in the toolbar puts a table of contents of the note under
+  the line the cursor is on: a list of links to its headings between
+  `<!-- toc -->` and `<!-- tocstop -->`. Press it again after adding headings
+  to bring the list up to date
 - a text file that is not a note, such as `config.yml` or a `Makefile`, opens
   in the same editor as plain source, colored by its language, with Save,
   Cancel and line wrap. It has no preview, toolbar or formatting, and a save
@@ -551,6 +551,9 @@ in one folder instead.
   pulled from the remote stays as it is, so to format what is already there run
   `prettier --write --prose-wrap always --print-width 79 "**/*.md"` in the
   folder once
+- a note whose text is not wrapped at 79 characters, such as one saved by an
+  older scrawl, gets its paragraphs rewrapped on its next save, so that save
+  shows in the history as a large change even if you edited one word
 - the editor formats in the browser, which is instant. Any other write is
   formatted by the server, which is slower: a usual note takes a fraction of a
   second, a very long one a few seconds. There a note above 256KB, or one

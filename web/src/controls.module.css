@@ -43,12 +43,12 @@
 }
 
 .dialogActions .button {
-  --button-height-sm: var(--scrawl-dialog-button);
+  --button-height-sm: var(--scrawl-button-height);
   --button-padding-x-sm: 12px;
 }
 
 .button[data-size='lg'] {
-  --button-height-lg: 32px;
+  --button-height-lg: var(--scrawl-button-height);
   --button-padding-x-lg: 12px;
   font-size: 15px;
   font-weight: 600;
@@ -229,6 +229,16 @@
   }
 
   .dialogActions > * {
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .dialogActions:has(> :nth-child(3)) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dialogActions:has(> :nth-child(3)) > * {
+    flex: none;
   }
 }

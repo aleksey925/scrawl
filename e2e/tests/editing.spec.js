@@ -3,7 +3,7 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    MAIN, SHARED, editorStatus, fixtureFile, modifier, readFixture, removeFixture, routes, save,
+    MAIN, SHARED, editorStatus, fixtureFile, holdRoute, modifier, readFixture, removeFixture, routes, save,
     setSource, shot, signIn, sourceText, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -32,6 +32,20 @@ async function wheelOverSource(page, {steps = 20, delta = 60} = {}) {
         await page.waitForTimeout(16);
     }
     return steps * delta;
+}
+
+function dialogButtons(page, ids) {
+    return page.evaluate((testIds) => {
+        const found = testIds.map((id) => document.querySelector(`[data-testid="${id}"]`));
+        const body = found[0].closest('.mantine-Modal-body');
+        const boxes = found.map((button) => button.getBoundingClientRect());
+        return {
+            heights: boxes.map((box) => Math.round(box.height)),
+            tops: boxes.map((box) => Math.round(box.top)),
+            end: Math.round(boxes.at(-1).right),
+            bodyEnd: Math.round(body.getBoundingClientRect().right - parseFloat(getComputedStyle(body).paddingRight)),
+        };
+    }, ids);
 }
 
 function sourceLayout(page) {
@@ -499,11 +513,14 @@ test.describe('editing', () => {
             '## Первый раздел', '',
         ].join('\n'));
 
-        await page.locator('[data-testid=editor-source] .cm-content').press('ControlOrMeta+End');
-        await page.keyboard.insertText('\n## Третий\n');
+        await setSource(page, `${await sourceText(page)}\n## Третий\n`);
         await page.getByTestId('editor-toolbar-toc').click();
-        await expect.poll(block).toContain('- [Первый раздел](#)\n- [Третий](#)\n\n<!-- tocstop -->');
-        expect((await sourceText(page)).match(/<!-- toc -->/g)).toHaveLength(1);
+        await expect.poll(block).toBe([
+            '# Заметка', '', 'Вступление.', '', '<!-- toc -->', '',
+            '- [Первый раздел](#)', '  - [Подробности](#)', '- [Второй код](#)', '- [Первый раздел](#)', '- [Третий](#)',
+            '', '<!-- tocstop -->', '', '## Первый раздел', '', '### Подробности', '', '## Второй `код`', '',
+            '## Первый раздел', '', '## Третий', '',
+        ].join('\n'));
 
         await save(page);
         await page.goto(routes.doc(docPath));
@@ -530,6 +547,177 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('the contents button fills in a start marker that has no stop, and keeps the text around it', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-lone-start');
+        writeFixture(docPath, '# T\n\nIntro.\n\n<!-- toc -->\n\nMore text.\n\n## A\n\n## B\n');
+        await page.goto(routes.edit(docPath));
+        const filled = [
+            '# T', '', 'Intro.', '', '<!-- toc -->', '', '- [A](#a)', '- [B](#b)', '', '<!-- tocstop -->', '',
+            'More text.', '', '## A', '', '## B', '',
+        ].join('\n');
+
+        // act & assert
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+        removeFixture(docPath);
+    });
+
+    test('the contents button leaves a stop marker that comes before any start alone', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-stop-first');
+        writeFixture(docPath, '# T\n\n<!-- tocstop -->\n\nKeep me.\n\n<!-- toc -->\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        const filled = [
+            '# T', '', '<!-- tocstop -->', '', 'Keep me.', '', '<!-- toc -->', '', '- [A](#a)', '', '<!-- tocstop -->', '',
+            '## A', '',
+        ].join('\n');
+
+        // act & assert
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+        removeFixture(docPath);
+    });
+
+    test('the contents button reads markers inside a fenced code block as text', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-fenced');
+        const example = ['```md', '<!-- toc -->', 'example', '<!-- tocstop -->', '```'];
+        writeFixture(docPath, ['# T', '', ...example, '', 'Text.', '', '## A', ''].join('\n'));
+        await page.goto(routes.edit(docPath));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(0).click();
+        await page.keyboard.press('End');
+        const filled = [
+            '# T', '', '<!-- toc -->', '', '- [A](#a)', '', '<!-- tocstop -->', '', ...example, '', 'Text.', '', '## A', '',
+        ].join('\n');
+
+        // act & assert
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+        removeFixture(docPath);
+    });
+
+    test('the contents button goes under the last line of a note with no line break at its end', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-last-line');
+        writeFixture(docPath, '# T\n\n## A');
+        await page.goto(routes.edit(docPath));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(2).click();
+        await page.keyboard.press('End');
+
+        // act
+        await page.getByTestId('editor-toolbar-toc').click();
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe('# T\n\n## A\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n');
+        removeFixture(docPath);
+    });
+
+    test('the contents button on a title right above a heading sets the list apart by blank lines', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-title-line');
+        writeFixture(docPath, '# T\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(0).click();
+        await page.keyboard.press('End');
+
+        // act
+        await page.getByTestId('editor-toolbar-toc').click();
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe('# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n');
+        removeFixture(docPath);
+    });
+
+    test('the contents button on an empty note says there is nothing to list', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-empty');
+        writeFixture(docPath, '');
+        await page.goto(routes.edit(docPath));
+
+        // act
+        await page.getByTestId('editor-toolbar-toc').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText('No headings to list');
+        await expect(page.locator('[data-testid=editor-source] .cm-placeholder')).toBeVisible();
+        removeFixture(docPath);
+    });
+
+    test('the contents lists every heading of a note with no title down to level 4, nested by level, with marks kept as text', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-levels');
+        const marked = '## Marks \\[x\\] \\_u\\_ \\*s\\* \\<c\\> \\&copy; \\~t\\~ \\$5\\$';
+        writeFixture(docPath, `${marked}\n\nText.\n\n#### Deep\n\n##### Five\n\n# Second\n\n## Under\n`);
+        await page.goto(routes.edit(docPath));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(2).click();
+        await page.keyboard.press('End');
+        const masked = async () => (await sourceText(page)).replace(/\(#[^)]*\)/g, '(#)');
+
+        // act
+        await page.getByTestId('editor-toolbar-toc').click();
+
+        // assert
+        await expect.poll(masked).toBe([
+            marked, '', 'Text.', '', '<!-- toc -->', '',
+            `- [${marked.slice(3)}](#)`, '  - [Deep](#)', '- [Second](#)', '  - [Under](#)',
+            '', '<!-- tocstop -->', '', '#### Deep', '', '##### Five', '', '# Second', '', '## Under', '',
+        ].join('\n'));
+        const preview = page.getByTestId('editor-preview');
+        await expect(preview.locator('li > a[href^="#"]')).toHaveCount(4);
+        const pairs = await preview.locator('li > a[href^="#"]').evaluateAll((anchors) => anchors.map((anchor) => [
+            anchor.textContent,
+            document.getElementById(decodeURIComponent(anchor.getAttribute('href').slice(1)))?.textContent.trim(),
+        ]));
+        expect(pairs.map(([label]) => label)).toEqual(pairs.map(([, heading]) => heading));
+        removeFixture(docPath);
+    });
+
+    test('the contents button says so when the preview fails, and changes nothing', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-failed');
+        writeFixture(docPath, '# T\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('# T\n\n## A\n');
+        await page.route('**/api/preview', (route) => route.fulfill({status: 500, body: 'broken'}));
+
+        // act
+        await page.getByTestId('editor-toolbar-toc').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText('Could not build the contents');
+        expect(await sourceText(page)).toBe('# T\n\n## A\n');
+        removeFixture(docPath);
+    });
+
+    test('the contents is built again from the text when it changed while the server answered', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-stale');
+        writeFixture(docPath, '# T\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('# T\n\n## A\n');
+        const release = await holdRoute(page, '**/api/preview');
+
+        // act
+        await page.getByTestId('editor-toolbar-toc').click();
+        await setSource(page, '# T\n\n## A\n\n## B\n');
+        release();
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe(
+            '# T\n\n## A\n\n## B\n\n<!-- toc -->\n\n- [A](#a)\n- [B](#b)\n\n<!-- tocstop -->\n');
+        removeFixture(docPath);
+    });
+
     test('the leave dialog has the buttons every dialog has: one height, side by side at its end', async ({page}) => {
         // arrange
         const docPath = scratch('leave-buttons');
@@ -552,7 +740,40 @@ test.describe('editing', () => {
         expect([...rename, ...leave].map((box) => Math.round(box.height))).toEqual([32, 32, 32, 32]);
         expect(leave[0].x + leave[0].width).toBeLessThan(leave[1].x);
         expect(Math.round(leave[0].y)).toBe(Math.round(leave[1].y));
+        const row = await dialogButtons(page, ['modal-cancel', 'modal-confirm']);
+        expect(row.end).toBe(row.bodyEnd);
         await page.getByTestId('modal-cancel').click();
+        removeFixture(docPath);
+    });
+
+    test('the conflict and the session dialogs of the editor set their buttons in one row of 32px at their end', async ({page}) => {
+        // arrange
+        const docPath = scratch('dialog-buttons');
+        writeFixture(docPath, 'original\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('original\n');
+        writeFixture(docPath, 'written by someone else\n');
+        await setSource(page, 'my version\n');
+        const conflictIds = ['editor-conflict-cancel', 'editor-conflict-copy', 'editor-conflict-overwrite'];
+        const sessionIds = ['editor-session-dismiss', 'editor-session-signin'];
+
+        // act
+        await page.getByTestId('editor-save').click();
+        await expect(page.getByTestId('editor-conflict-overwrite')).toBeVisible();
+        const conflict = await dialogButtons(page, conflictIds);
+        await page.getByTestId('editor-conflict-cancel').click();
+        await page.route('**/api/file/**', (route) => (route.request().method() === 'PUT'
+            ? route.fulfill({status: 401, contentType: 'application/json', body: '{"error":"unauthorized"}'})
+            : route.continue()));
+        await page.getByTestId('editor-save').click();
+        await expect(page.getByTestId('editor-session-signin')).toBeVisible();
+        const session = await dialogButtons(page, sessionIds);
+
+        // assert
+        const top = (row) => row.tops[0];
+        expect(conflict).toEqual({heights: [32, 32, 32], tops: Array(3).fill(top(conflict)), end: conflict.bodyEnd, bodyEnd: conflict.bodyEnd});
+        expect(session).toEqual({heights: [32, 32], tops: Array(2).fill(top(session)), end: session.bodyEnd, bodyEnd: session.bodyEnd});
+        await page.getByTestId('editor-session-dismiss').click();
         removeFixture(docPath);
     });
 

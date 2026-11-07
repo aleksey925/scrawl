@@ -14,7 +14,8 @@ Prettier inside the binary and in the browser.
   both copies: a note reads the same in any editor and a diff shows the lines a
   change touched, not a paragraph on one line. Short lines of one paragraph are
   joined up to the width, which markdown renders the same. A word, a link or
-  code is never split, so such a line stays longer.
+  code is never split, so such a line stays longer
+  ([ADR 21](../adr/0021-notes-wrapped-at-79-columns.md)).
 - Two copies of prettier, and each write goes through exactly one
   ([ADR 5](../adr/0005-format-in-browser-first.md)). The editor formats in the
   browser, on the button and before a save, and says so with `formatted` in the

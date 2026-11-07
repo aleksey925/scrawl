@@ -18,6 +18,11 @@ func TestMain(m *testing.M) {
 }
 
 func TestMarkdown(t *testing.T) {
+	const longLines = "## Заголовок, который намного длиннее семидесяти девяти символов и остаётся одной строкой\n\n" +
+		"| a   | b                                                                                   |\n" +
+		"| --- | ----------------------------------------------------------------------------------- |\n" +
+		"| 1   | ячейка таблицы, которая намного длиннее семидесяти девяти символов и не переносится |\n\n" +
+		"```\nстрока кода, которая намного длиннее семидесяти девяти символов и остаётся как есть\n```\n"
 	tests := []struct {
 		name string
 		text string
@@ -60,6 +65,11 @@ func TestMarkdown(t *testing.T) {
 				"- пункт списка, который тоже достаточно длинный, чтобы не поместиться в одну\n" +
 				"  строку шириной 79\n\n" +
 				"https://example.com/a/very/long/link/that/cannot/be/broken/anywhere/at/all/because/it/is/one/word\n",
+		},
+		{
+			name: "a heading, a table row and a code line longer than 79 columns stay one line",
+			text: longLines,
+			want: longLines,
 		},
 		{name: "an empty note", text: "", want: ""},
 	}

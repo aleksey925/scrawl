@@ -28,14 +28,15 @@ The editor screen.
   ruby, a makefile as shell). No new grammar is a dependency of ours, so a name
   with nothing close (terraform, graphql, zig) stays plain.
 - The contents button puts a list of the headings up to level 4, all but the
-  title, nested by level, as links to them, after the line the cursor is on,
-  between `<!-- toc -->` and `<!-- tocstop -->`. The title is the first heading
-  of level 1 wherever it stands, the one the page takes its title from. A
-  second press finds that block and writes a fresh list in its place. A
-  `<!-- toc -->` with no `<!-- tocstop -->` after it, before the next start, is
-  filled in where it stands, and a stop pairs only with the nearest start
-  before it, so no text between two stray markers is lost. A marker is a
-  comment on a line of its own; one inside a code block is text and not a
+  title, nested by level, as links to them, after the line the cursor is on, or
+  after the front matter or the code block that line is in, between
+  `<!-- toc -->` and `<!-- tocstop -->`. The title is the first heading of
+  level 1 wherever it stands, the one the page takes its title from. A second
+  press finds that block and writes a fresh list in its place. A `<!-- toc -->`
+  with no `<!-- tocstop -->` after it, before the next start, is filled in
+  where it stands, and a stop pairs only with the nearest start before it, so
+  no text between two stray markers is lost. A marker is a comment on a line of
+  its own; one inside a code block or the front matter is text and not a
   marker. The editor finds both in the syntax tree it colors the text with. The
   list comes from the server: `POST /api/preview` answers with `toc`, the
   headings of the text with their ids and without the title, next to `html`. So

@@ -8,6 +8,8 @@ import type { Heading } from '../api/types';
 import { codeNodes } from './cmAnchor';
 import { tocParseBudgetMs } from './constants';
 
+type Tree = ReturnType<typeof syntaxTree>;
+
 interface TextRange {
   from: number;
   to: number;
@@ -19,6 +21,8 @@ interface TocChange extends TextRange {
 
 const tocStart = '<!-- toc -->';
 const tocStop = '<!-- tocstop -->';
+const frontmatterStart = '---';
+const frontmatterStops: ReadonlySet<string> = new Set(['---', '...']);
 
 function label(text: string): string {
   return text.replace(/[\r\n]+/g, ' ').replace(/[\\[\]<>*_`&~$:^]/g, (mark) => `\\${mark}`);
@@ -40,18 +44,35 @@ export function tocBlock(headings: readonly Heading[]): string | undefined {
   return `${tocStart}\n\n${lines.join('\n')}\n\n${tocStop}`;
 }
 
+function treeOf(state: EditorState): Tree {
+  return ensureSyntaxTree(state, state.doc.length, tocParseBudgetMs) ?? syntaxTree(state);
+}
+
+function frontmatterEnd(doc: Text): number {
+  const bare = (number: number): string => doc.line(number).text.replace(/[ \t\r]+$/, '');
+  if (bare(1) !== frontmatterStart) {
+    return 0;
+  }
+  for (let number = 2; number <= doc.lines; number++) {
+    if (frontmatterStops.has(bare(number))) {
+      return number;
+    }
+  }
+  return 0;
+}
+
 function isMarker(line: Line, marker: string): boolean {
   return line.text.trim() === marker;
 }
 
-function markerLines(state: EditorState): Line[] {
-  const tree = ensureSyntaxTree(state, state.doc.length, tocParseBudgetMs) ?? syntaxTree(state);
+function markerLines(state: EditorState, tree: Tree): Line[] {
+  const bodyAfter = frontmatterEnd(state.doc);
   const res: Line[] = [];
   tree.iterate({
     enter: (node) => {
       if (node.name === 'CommentBlock') {
         const line = state.doc.lineAt(node.from);
-        if (isMarker(line, tocStart) || isMarker(line, tocStop)) {
+        if (line.number > bodyAfter && (isMarker(line, tocStart) || isMarker(line, tocStop))) {
           res.push(line);
         }
       }
@@ -61,8 +82,8 @@ function markerLines(state: EditorState): Line[] {
   return res;
 }
 
-function oldBlock(state: EditorState): TextRange | undefined {
-  const markers = markerLines(state);
+function oldBlock(state: EditorState, tree: Tree): TextRange | undefined {
+  const markers = markerLines(state, tree);
   const startAt = markers.findIndex((line) => isMarker(line, tocStart));
   const start = markers[startAt];
   if (start === undefined) {
@@ -73,6 +94,35 @@ function oldBlock(state: EditorState): TextRange | undefined {
     return { from: start.from, to: next.to };
   }
   return { from: start.from, to: start.to };
+}
+
+function codeEndAround(tree: Tree, line: Line): number | undefined {
+  let end: number | undefined;
+  tree.iterate({
+    from: line.from,
+    to: line.to,
+    enter: (node) => {
+      if (end !== undefined) {
+        return false;
+      }
+      if (codeNodes.has(node.name) && node.from <= line.to && node.to >= line.from) {
+        end = node.to;
+      }
+      return end === undefined;
+    },
+  });
+  return end;
+}
+
+function insertLine(state: EditorState, tree: Tree): Line {
+  const { doc } = state;
+  const cursor = doc.lineAt(state.selection.main.head);
+  const bodyAfter = frontmatterEnd(doc);
+  if (cursor.number <= bodyAfter) {
+    return doc.line(bodyAfter);
+  }
+  const codeEnd = codeEndAround(tree, cursor);
+  return codeEnd === undefined ? cursor : doc.lineAt(codeEnd);
 }
 
 function leadOf(doc: Text, line: Line): string {
@@ -93,12 +143,13 @@ function trailOf(doc: Text, line: Line): string {
 }
 
 function placeToc(state: EditorState, block: string): TocChange {
-  const old = oldBlock(state);
+  const tree = treeOf(state);
+  const old = oldBlock(state, tree);
   if (old !== undefined) {
     return { ...old, insert: block };
   }
   const { doc } = state;
-  const line = doc.lineAt(state.selection.main.head);
+  const line = insertLine(state, tree);
   return { from: line.to, to: line.to, insert: `${leadOf(doc, line)}${block}${trailOf(doc, line)}` };
 }
 

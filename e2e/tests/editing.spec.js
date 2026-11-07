@@ -592,6 +592,64 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('the contents button with the cursor in the front matter puts the list after it', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-front-matter');
+        const note = '---\ntitle: x\n---\n\n# T\n\n## A\n';
+        writeFixture(docPath, note);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe(note);
+        const filled = '---\ntitle: x\n---\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n# T\n\n## A\n';
+
+        // act & assert
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+
+        await save(page);
+        await page.goto(routes.doc(docPath));
+        await expect(page.locator('.markdown-document li > a[href="#a"]')).toHaveText('A');
+        removeFixture(docPath);
+    });
+
+    test('the contents button reads markers inside the front matter as text', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-front-matter-markers');
+        const front = ['---', '', '<!-- toc -->', '', '- [A](#a)', '', '<!-- tocstop -->', 'title: x', '---'];
+        const note = [...front, '', '## A', ''].join('\n');
+        writeFixture(docPath, note);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe(note);
+
+        // act
+        await page.getByTestId('editor-toolbar-toc').click();
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe(
+            [...front, '', '<!-- toc -->', '', '- [A](#a)', '', '<!-- tocstop -->', '', '## A', ''].join('\n'));
+        removeFixture(docPath);
+    });
+
+    test('the contents button with the cursor in a fenced code block puts the list after the block', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-in-code');
+        writeFixture(docPath, '# T\n\n```\ncode\n```\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(3).click();
+        await page.keyboard.press('End');
+        const filled = '# T\n\n```\ncode\n```\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n';
+
+        // act & assert
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+        removeFixture(docPath);
+    });
+
     test('the contents button goes under the last line of a note with no line break at its end', async ({page}) => {
         // arrange
         const docPath = scratch('toc-last-line');

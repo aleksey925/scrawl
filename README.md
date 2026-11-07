@@ -316,13 +316,16 @@ mount into the container, like every other tool on the box.
 
 **Pulling and pushing.** A change you make is committed at once and pushed a
 few seconds later, so you never wait for the network, and a few quick changes
-go out as one push. In between, `pull` says how often to fetch from the remote;
-`0` turns that off, but scrawl still fetches once at startup. A fetch is
-followed by a fast-forward and nothing else: scrawl never merges, never rebases
-and never resolves conflicts. If the branch has diverged, the space keeps
-serving, saves keep landing on disk and in local commits, and a banner says so
-on every screen together with a button that resets this copy to the remote
-version - see [below](#when-a-space-has-diverged).
+go out as one push. If a push fails, scrawl tries again about a minute later,
+and keeps trying until it goes through, even with `pull: 0` and after a
+restart. It stops trying when the branch has diverged or the remote refuses the
+token, since only a person can fix those. In between, `pull` says how often to
+fetch from the remote; `0` turns that off, but scrawl still fetches once at
+startup. A fetch is followed by a fast-forward and nothing else: scrawl never
+merges, never rebases and never resolves conflicts. If the branch has diverged,
+the space keeps serving, saves keep landing on disk and in local commits, and a
+banner says so on every screen together with a button that resets this copy to
+the remote version - see [below](#when-a-space-has-diverged).
 
 **Two things are worth knowing.** History is always on for a space that is a
 git repository, whatever `HISTORY` says: one that stopped recording would also
@@ -389,20 +392,33 @@ Nothing about this blocks you. The save landed, the note is on disk, the
 history entry exists - the only thing that did not happen is the push, and
 editing carries on exactly as before.
 
-An orange "Not synced" control appears in the top bar and stays there. It says
-whether the note you are looking at is affected, and clicking it lists the
-affected notes. A banner above the page says the same in full, with the exact
-git error. On a phone the control is an orange cloud icon in the bar on top.
+A remote space always has a sync control at the right of the top bar, so you
+can see at a glance where your changes are:
+
+- a gray spinner - your changes are on their way;
+- a gray cloud with a check - all changes are sent;
+- an orange crossed cloud, with "Not sent, will retry" or "Not synced" - scrawl
+  could not send or fetch, and tries again on its own;
+- an orange warning sign, with "Diverged" or "Access refused" - scrawl cannot
+  go on until you act.
+
+Clicking the control says whether the note you are looking at is affected and
+lists the affected notes. When something is wrong, a banner above the page says
+the same in full, with the exact git error. On a phone the control is the icon
+alone, and its words are in the popup.
 
 The messages are:
 
-- **Changes are not reaching the remote.** The push failed. The next save tries
-  again.
+- **Changes have not reached the remote yet.** The push failed. scrawl tries
+  again in about a minute, and every save tries too.
 - **The remote does not take changes from this space.** The push was refused:
   the space has no token, or its token may not write there. A public repository
   is the usual case - it clones without a token and takes no push without one.
   No retry fixes it: give the space a token with write access, or set
   `read_only`.
+- **The remote refuses this space.** The fetch was refused: the token may not
+  read the remote. Give the space a token that may read it, and write to it
+  unless the space is read-only.
 - **The remote cannot be reached.** The fetch failed. This copy may be behind,
   and if you saved anything it has not gone out either.
 - **This space has diverged from the remote.** Both sides hold commits the
@@ -420,8 +436,9 @@ When many notes are added at once, the message can say "many files are
 affected" until the push goes through. Past a couple of hundred files the
 per-note markers stop and the message says so.
 
-The page refreshes this on its own, about once a minute and only while the tab
-is in front of you, so a push that starts working again clears the warning
+The page refreshes this on its own while the tab is in front of you: every few
+seconds while changes are on their way or waiting for a retry, about once a
+minute otherwise. So a push that starts working again clears the warning
 without a reload. A background refresh does not extend your session: a tab left
 open would otherwise keep one alive forever.
 
@@ -685,9 +702,10 @@ not:
 - `500 {"error":"the change was written but not recorded in history"}`
 - `500 {"error":"the change was written and recorded, but not pushed to the remote"}`
 
-Both fix themselves: the next commit also records what was missed, and every
-push and every fetch tries again. The `500` of a delete still carries the
-`trash_id`, so the deleted entry can be put back.
+Both fix themselves: the next commit also records what was missed, and a push
+that failed is tried again about a minute later, as is every push and fetch.
+The `500` of a delete still carries the `trash_id`, so the deleted entry can be
+put back.
 
 Two answers mean the file on disk is not what the client assumed. Both carry
 `current_rev` and `current_content`, so a retry needs no second request:

@@ -74,6 +74,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
     return (
       <div data-testid="topbar" data-editing="true" className={classes.bar}>
         <div data-testid="topbar-actions" className={classes.editActions} ref={actionsRef} />
+        <div className={classes.editEnd}>{end}</div>
       </div>
     );
   }
@@ -116,7 +117,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
       <div className={classes.end}>
         {end}
         <div data-testid="topbar-actions" className={classes.actions} ref={actionsRef} />
-        {menu}
+        <div className={classes.menu}>{menu}</div>
       </div>
     </div>
   );

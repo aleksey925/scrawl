@@ -13,8 +13,9 @@ The editor screen.
   The line numbers have the page's ground and so does the strip left of them,
   so a line scrolled sideways slides under them; on a transparent ground the
   text ran over the numbers. The topbar holds the state of the save, the layout
-  as Source, Split or Preview, Cancel and Save; on a phone Cancel and Save are
-  the two ends of the bar.
+  as Source, Split or Preview, Cancel and Save, and then the sync control; on a
+  phone Cancel and Save are the two ends of the bar and the sync control stands
+  between them, in the middle, so a change on its way shows right after a save.
 - A text file that is not a note is edited as text alone: the source, colored
   by its language, with Save, Cancel and the wrap, and no modes, toolbar,
   preview, formatter or picture upload, none of which means anything for it. It

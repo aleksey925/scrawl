@@ -266,6 +266,37 @@ async function titleRoom(locator) {
     });
 }
 
+async function mockMe(page, space, top = {}) {
+    let current = {...space};
+    let hits = 0;
+    let failing = false;
+    let failed = 0;
+    await page.route(/\/api\/me$/, async (route) => {
+        hits += 1;
+        if (failing) {
+            failing = false;
+            failed += 1;
+            await route.abort();
+            return;
+        }
+        const res = await route.fetch();
+        const body = await res.json();
+        Object.assign(body, top);
+        Object.assign(body.space, current);
+        await route.fulfill({response: res, json: body});
+    });
+    return {
+        set: (patch) => {
+            current = {...current, ...patch};
+        },
+        hits: () => hits,
+        failNext: () => {
+            failing = true;
+        },
+        failed: () => failed,
+    };
+}
+
 module.exports = {
     DIALOG_TITLE,
     HISTORY,
@@ -284,6 +315,7 @@ module.exports = {
     holdRoute,
     inStep,
     jsonRequest,
+    mockMe,
     modifier,
     nameOf,
     openSpaceMenu,

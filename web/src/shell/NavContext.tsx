@@ -10,7 +10,7 @@ import { usePlatform } from '../platform';
 import { localStore, readJson, writeJson } from '../storage';
 
 import { contentPathOf } from './naming';
-import { syncMessage, type SyncMessage } from './syncMessage';
+import { syncMessage, syncStatus, type SyncMessage, type SyncStatus } from './syncMessage';
 import type { MeState } from './useMe';
 
 function openKey(scope: string): string {
@@ -34,6 +34,7 @@ export interface NavState {
   canWrite: boolean;
   currentPath: string;
   sync: SyncMessage | undefined;
+  indicator: SyncStatus | undefined;
   isUnsynced: (path: string) => boolean;
   refreshNav: () => void;
   refreshMe: () => void;
@@ -193,6 +194,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
   }, []);
 
   const sync = useMemo(() => syncMessage(me), [me]);
+  const indicator = useMemo(() => syncStatus(me), [me]);
 
   const unsynced = useMemo(() => {
     const paths = me?.space.unsynced;
@@ -212,6 +214,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       canWrite: me !== undefined && !me.read_only && (!me.auth_on || me.user !== ''),
       currentPath,
       sync,
+      indicator,
       isUnsynced,
       refreshNav,
       refreshMe,
@@ -223,7 +226,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       setQuery,
     }),
     [
-      tree, nav.error, nav.loading, me, currentPath, sync, isUnsynced,
+      tree, nav.error, nav.loading, me, currentPath, sync, indicator, isUnsynced,
       refreshNav, refreshMe, token, isOpen, toggleFolder, openFolder, query,
     ],
   );

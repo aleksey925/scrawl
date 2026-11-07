@@ -138,6 +138,8 @@ func (s *Service) syncLocked(ctx context.Context) error {
 		network: true,
 		timeout: s.initTimeout(),
 	}); err != nil {
+		s.measure(ctx, &next)
+		next.Refused = next.Refused || refused(err)
 		return s.syncFailed(next, "fetch", err)
 	}
 
@@ -215,26 +217,49 @@ func (s *Service) PushLoop(ctx context.Context) {
 	}
 	s.background.Store(true)
 	defer s.background.Store(false)
+	retry := time.NewTicker(s.retryEvery)
+	defer retry.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-retry.C:
+			s.retryIfDue(ctx)
 		case <-s.pushes:
+			if !s.pushAfterDelay(ctx) {
+				return
+			}
 		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(s.pushDelay):
-		}
-		s.mu.Lock()
-		select {
-		case <-s.pushes:
-		default:
-		}
-		_ = s.publishLocked(ctx, s.SyncState())
-		s.pushing.Store(false)
-		s.mu.Unlock()
+		retry.Reset(s.retryEvery)
 	}
+}
+
+func (s *Service) pushAfterDelay(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	case <-time.After(s.pushDelay):
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	select {
+	case <-s.pushes:
+	default:
+	}
+	_ = s.publishLocked(ctx, s.SyncState())
+	s.pushing.Store(false)
+	return true
+}
+
+func (s *Service) retryIfDue(ctx context.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.SyncState().Retrying {
+		return
+	}
+	was := s.pushing.Swap(true)
+	defer s.pushing.Store(was)
+	_ = s.syncLocked(ctx)
 }
 
 var refusalSigns = []string{
@@ -314,7 +339,10 @@ func (s *Service) syncFailed(next SyncState, stage string, err error) error {
 	return fmt.Errorf("history: sync %s: %w", stage, err)
 }
 
-func (s *Service) publish(next SyncState) { s.sync.Store(&next) }
+func (s *Service) publish(next SyncState) {
+	next.Retrying = !s.PullOnly() && next.Unpublished && next.Error != "" && !next.Diverged && !next.Refused
+	s.sync.Store(&next)
+}
 
 func (s *Service) SyncState() SyncState {
 	if s == nil {
@@ -358,6 +386,7 @@ type SyncState struct {
 	Unsynced    Unsynced
 	Diverged    bool
 	Refused     bool
+	Retrying    bool
 }
 
 func redactURL(raw string) string {

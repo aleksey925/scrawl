@@ -5,6 +5,7 @@ import type { MeResponse } from '../api/types';
 
 const meRefreshMs = 60_000;
 const pushPollMs = 2_000;
+const retryPollMs = 5_000;
 
 export interface MeState {
   me: MeResponse | undefined;
@@ -13,6 +14,7 @@ export interface MeState {
 
 export function useMe(): MeState {
   const [me, setMe] = useState<MeResponse | undefined>(undefined);
+  const [answers, setAnswers] = useState(0);
 
   const generation = useRef(0);
   const inFlight = useRef<AbortController | undefined>(undefined);
@@ -32,6 +34,11 @@ export function useMe(): MeState {
         }
       })
       .catch(() => {
+      })
+      .finally(() => {
+        if (generation.current === mine) {
+          setAnswers((seen) => seen + 1);
+        }
       });
   }, []);
 
@@ -39,13 +46,6 @@ export function useMe(): MeState {
 
   useEffect(() => {
     load(false);
-
-    const tick = (): void => {
-      if (!document.hidden) {
-        load(true);
-      }
-    };
-    const timer = window.setInterval(tick, meRefreshMs);
 
     const onVisible = (): void => {
       if (!document.hidden) {
@@ -55,20 +55,30 @@ export function useMe(): MeState {
     document.addEventListener('visibilitychange', onVisible);
 
     return () => {
-      window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
       inFlight.current?.abort();
     };
   }, [load]);
 
-  const pushing = me?.space.pushing === true;
+  const wait = pollAfter(me);
   useEffect(() => {
-    if (!pushing) {
-      return undefined;
-    }
-    const timer = window.setTimeout(() => load(true), pushPollMs);
+    const timer = window.setTimeout(() => {
+      if (!document.hidden) {
+        load(true);
+      }
+    }, wait);
     return () => window.clearTimeout(timer);
-  }, [pushing, me, load]);
+  }, [wait, answers, load]);
 
   return { me, refreshMe };
+}
+
+function pollAfter(me: MeResponse | undefined): number {
+  if (me?.space.pushing === true) {
+    return pushPollMs;
+  }
+  if (me?.space.retrying === true) {
+    return retryPollMs;
+  }
+  return meRefreshMs;
 }

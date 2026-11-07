@@ -1,60 +1,90 @@
-import { ActionIcon, Anchor, Button, Code, List, Popover, Stack, Text } from '@mantine/core';
+import { ActionIcon, Anchor, Button, Code, List, Loader, Popover, Stack, Text } from '@mantine/core';
+import { useReducedMotion } from '@mantine/hooks';
 import { useState, type JSX } from 'react';
 import { Link } from 'react-router';
 
 import { TapGuard, useTouchScreen } from '../components/TapGuard';
-import { IconCloudOff } from '../icons';
+import { IconAlertTriangle, IconCloudCheck, IconCloudOff, IconCloudUp } from '../icons';
 import { documentUrl } from '../paths';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { useNav } from './NavContext';
 import { ResetAction } from './ResetDialog';
+import type { SyncState, SyncStatus } from './syncMessage';
 
 const thisNote = 'This note has not reached the remote';
 
+const calmText: Partial<Record<SyncState, string>> = {
+  sending: 'Sending changes to the remote.',
+  sent: 'All changes sent. Everything saved here is on the remote too.',
+};
+
 interface SyncSummary {
+  status: SyncStatus;
   here: boolean;
   label: string;
 }
 
 function useSyncSummary(): SyncSummary | undefined {
-  const { sync, isUnsynced, currentPath } = useNav();
-  if (sync === undefined) {
+  const { indicator, isUnsynced, currentPath } = useNav();
+  if (indicator === undefined) {
     return undefined;
   }
   const here = isUnsynced(currentPath);
-  return { here, label: here ? thisNote : sync.title };
+  return { status: indicator, here, label: here ? `${indicator.name}. ${thisNote}` : indicator.name };
 }
 
-function SyncDetails({ onLeave }: { onLeave: () => void }): JSX.Element | null {
-  const { sync, me } = useNav();
-  const summary = useSyncSummary();
-  if (sync === undefined || summary === undefined) {
-    return null;
+function quiet(state: SyncState): boolean {
+  return state === 'sending' || state === 'sent';
+}
+
+function SyncIcon({ state, size }: { state: SyncState; size: number }): JSX.Element {
+  const reduceMotion = useReducedMotion();
+  switch (state) {
+    case 'sending':
+      return reduceMotion ? (
+        <IconCloudUp size={size} aria-hidden />
+      ) : (
+        <Loader data-testid="sync-spinner" size={size - 4} color="var(--scrawl-text-secondary)" aria-hidden />
+      );
+    case 'sent':
+      return <IconCloudCheck size={size} aria-hidden />;
+    case 'blocked':
+      return <IconAlertTriangle size={size} aria-hidden />;
+    default:
+      return <IconCloudOff size={size} aria-hidden />;
   }
+}
+
+function SyncDetails({ summary, onLeave }: { summary: SyncSummary; onLeave: () => void }): JSX.Element {
+  const { sync, me } = useNav();
+  const { state, name } = summary.status;
+  const calm = calmText[state];
   const paths = me?.space.unsynced.paths ?? [];
 
   return (
     <Stack data-testid="sync-details" gap="xs">
       <Text size="sm" fw={500}>
-        {sync.title}
+        {name}
       </Text>
+      {calm !== undefined && <Text size="sm">{calm}</Text>}
       {summary.here && (
         <Text data-testid="sync-popover-here" size="sm">
           {thisNote}.
         </Text>
       )}
-      {sync.facts.map((entry) => (
-        <Stack key={entry.kind} gap={4}>
-          <Text size="sm">{entry.body}</Text>
-          {entry.reason !== '' && (
-            <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-              {entry.reason}
-            </Code>
-          )}
-        </Stack>
-      ))}
-      <ResetAction onOpen={onLeave} />
+      {calm === undefined &&
+        sync?.facts.map((entry) => (
+          <Stack key={entry.kind} gap={4}>
+            <Text size="sm">{entry.body}</Text>
+            {entry.reason !== '' && (
+              <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                {entry.reason}
+              </Code>
+            )}
+          </Stack>
+        ))}
+      {calm === undefined && <ResetAction onOpen={onLeave} />}
       {paths.length > 0 && (
         <List data-testid="sync-popover-paths" size="sm" spacing={4} withPadding>
           {paths.map((unsynced) => (
@@ -79,6 +109,16 @@ export function SyncControl(): JSX.Element | null {
   if (summary === undefined) {
     return null;
   }
+  const { state, name } = summary.status;
+  const color = quiet(state) ? 'var(--scrawl-text-secondary)' : 'var(--scrawl-color-orange)';
+  const shared = {
+    'data-testid': 'sync-control',
+    'data-here': summary.here ? 'true' : 'false',
+    'data-state': state,
+    'aria-label': summary.label,
+    style: { color },
+    onClick: () => setOpened((open) => !open),
+  };
 
   return (
     <>
@@ -92,37 +132,25 @@ export function SyncControl(): JSX.Element | null {
         closeOnClickOutside={!touch}
       >
         <Popover.Target>
-          {wide ? (
+          {wide && !quiet(state) ? (
             <Button
-              data-testid="sync-control"
-              data-here={summary.here ? 'true' : 'false'}
+              {...shared}
               variant="subtle"
               color="orange"
               px="xs"
-              aria-label={summary.label}
-              leftSection={<IconCloudOff size={layout.iconSizeSmall} />}
-              style={{ color: 'var(--scrawl-color-orange)' }}
-              onClick={() => setOpened((open) => !open)}
+              leftSection={<SyncIcon state={state} size={layout.iconSizeSmall} />}
             >
-              Not synced
+              {name}
             </Button>
           ) : (
-            <ActionIcon
-              data-testid="sync-control"
-              data-here={summary.here ? 'true' : 'false'}
-              variant="subtle"
-              size="lg"
-              aria-label={summary.label}
-              style={{ color: 'var(--scrawl-color-orange)' }}
-              onClick={() => setOpened((open) => !open)}
-            >
-              <IconCloudOff size={layout.iconSize} />
+            <ActionIcon {...shared} variant="subtle" color="gray" size="lg">
+              <SyncIcon state={state} size={wide ? layout.iconSizeSmall : layout.iconSize} />
             </ActionIcon>
           )}
         </Popover.Target>
 
         <Popover.Dropdown data-testid="sync-popover">
-          <SyncDetails onLeave={() => setOpened(false)} />
+          <SyncDetails summary={summary} onLeave={() => setOpened(false)} />
         </Popover.Dropdown>
       </Popover>
       <TapGuard active={opened} onClose={() => setOpened(false)} />

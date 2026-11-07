@@ -161,8 +161,8 @@ Before changing a part, read its doc:
 - the index, the search modes, the find bar: [search](docs/design/search.md)
 - git history, an adopted repository, restore, comparing versions:
   [history](docs/design/history.md)
-- a clone, `--ff-only`, diverged, reset, the push after the answer, sync state,
-  credentials, the webhook:
+- a clone, `--ff-only`, diverged, reset, the push after the answer and its
+  retry, sync state and the sync control, credentials, the webhook:
   [remote sync](docs/design/remote-sync.md)
 - `render`, `diff`, the pages of the command line, export and PDF:
   [command line](docs/design/cli.md)

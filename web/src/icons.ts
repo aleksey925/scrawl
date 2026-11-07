@@ -18,6 +18,7 @@ export {
   ClockCounterClockwiseIcon as IconHistory,
   ClockIcon as IconClock,
   CloudArrowUpIcon as IconCloudUp,
+  CloudCheckIcon as IconCloudCheck,
   CloudSlashIcon as IconCloudOff,
   CodeBlockIcon as IconBraces,
   CodeIcon as IconCode,

@@ -6,7 +6,7 @@ const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
     DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
-    nameOf, recordMoves, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
+    mockMe, nameOf, recordMoves, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const lightTheme = require('../../theme/themes/light.json');
@@ -2217,6 +2217,7 @@ test.describe('mobile sync state', () => {
     });
 
     test.afterEach(async ({page}) => {
+        await page.unrouteAll({behavior: 'ignoreErrors'});
         restoreOrigin(wiki.origin);
         fs.rmSync(`${wiki.dir}/${SYNC_DOC}`, {force: true});
         fs.rmSync(`${wiki.dir}/${SYNC_FOLDER}`, {recursive: true, force: true});
@@ -2238,6 +2239,8 @@ test.describe('mobile sync state', () => {
         await page.goto(WIKI.doc(SYNC_DOC));
 
         // assert
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'not-sent');
+        await expect(page.getByTestId('sync-control')).toHaveText('');
         await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
         await expect(page.getByTestId('space-alert')).toBeVisible();
         await expect(page.getByTestId('sidebar')).toHaveCount(0);
@@ -2275,5 +2278,98 @@ test.describe('mobile sync state', () => {
         const offenders = await tooSmall(page, '[data-testid=topbar] button, [data-testid=topbar] a');
         await shot(page, 'mobile-sync-tap-targets');
         expect(offenders, 'elements smaller than the touch minimum').toEqual([]);
+    });
+
+    test('the control stands between Cancel and Save in the editor', async ({page}) => {
+        // arrange
+        await mockMe(page, {pushing: true});
+
+        // act
+        await page.goto(WIKI.edit(SYNC_DOC));
+
+        // assert
+        const cancel = await page.getByTestId('editor-cancel').boundingBox();
+        const sync = await page.getByTestId('sync-control').boundingBox();
+        const saveButton = await page.getByTestId('editor-save').boundingBox();
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'sending');
+        await expect(page.getByTestId('sync-control')).toBeInViewport({ratio: 1});
+        await expect(page.getByTestId('editor-cancel')).toBeInViewport({ratio: 1});
+        await expect(page.getByTestId('editor-save')).toBeInViewport({ratio: 1});
+        expect(cancel.x + cancel.width).toBeLessThanOrEqual(sync.x);
+        expect(sync.x + sync.width).toBeLessThanOrEqual(saveButton.x);
+        await shot(page, 'mobile-sync-editor');
+    });
+
+    test('a rename of the page keeps the control in the bar', async ({page}) => {
+        // arrange
+        await mockMe(page, {pushing: true});
+        await page.goto(WIKI.doc(SYNC_DOC));
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'sending');
+
+        // act
+        await page.getByTestId('note-menu').tap();
+        await openedMenu(page, 'note-menu-dropdown');
+        await page.getByTestId('note-menu-rename').tap();
+
+        // assert
+        await expect(page.getByTestId('page-rename-input')).toBeFocused();
+        await expect(page.getByTestId('sync-control')).toBeInViewport({ratio: 1});
+        const field = await page.getByTestId('page-rename-field').boundingBox();
+        const sync = await page.getByTestId('sync-control').boundingBox();
+        expect(field.x + field.width).toBeLessThanOrEqual(sync.x);
+        await expectNoHorizontalScroll(page);
+    });
+
+    test('a diverged space shows its sign and keeps the word in the popover', async ({page}) => {
+        // arrange
+        await mockMe(page, {unpublished: true, diverged: true, sync_error: 'merge: the branch has diverged from origin/main'});
+        await page.goto(WIKI.doc(SYNC_DOC));
+        const sync = page.getByTestId('sync-control');
+
+        // act
+        await expect(sync).toHaveAttribute('data-state', 'blocked');
+        await sync.tap();
+
+        // assert
+        await expect(sync).toHaveText('');
+        await expect(sync).toHaveAttribute('aria-label', 'Diverged');
+        await expect(page.getByTestId('sync-details')).toContainText('Diverged');
+        await expect(page.getByTestId('sync-details').getByTestId('sync-reset')).toBeVisible();
+        await shot(page, 'mobile-sync-diverged');
+    });
+
+    test('a narrow phone with a long title still fits the control', async ({page}) => {
+        // arrange
+        await page.setViewportSize({width: 320, height: 640});
+        fs.writeFileSync(`${wiki.dir}/${SYNC_DOC}`, `# ${'A rather long title for a narrow phone '.repeat(3)}\n\n${'text\n\n'.repeat(80)}`, 'utf8');
+        await mockMe(page, {unpublished: true, retrying: true, sync_error: 'push: the remote is down'});
+
+        // act
+        await page.goto(WIKI.doc(SYNC_DOC));
+        await page.mouse.wheel(0, 2000);
+
+        // assert
+        await expect(page.getByTestId('topbar-title')).toHaveAttribute('data-shown', 'true');
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'not-sent');
+        await expect(page.getByTestId('sync-control')).toBeInViewport({ratio: 1});
+        await expect(page.getByTestId('note-menu')).toBeInViewport({ratio: 1});
+        await expectNoHorizontalScroll(page);
+        const offenders = await tooSmall(page, '[data-testid=topbar] button, [data-testid=topbar] a');
+        expect(offenders, 'elements smaller than the touch minimum').toEqual([]);
+        await shot(page, 'mobile-sync-narrow');
+    });
+
+    test('a change on its way does not spin under reduced motion', async ({page}) => {
+        // arrange
+        await page.emulateMedia({reducedMotion: 'reduce'});
+        await mockMe(page, {pushing: true});
+
+        // act
+        await page.goto(WIKI.doc(SYNC_DOC));
+
+        // assert
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'sending');
+        await expect(page.getByTestId('sync-spinner')).toHaveCount(0);
+        await expect(page.getByTestId('sync-control').locator('svg')).toBeVisible();
     });
 });

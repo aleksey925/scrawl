@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -706,4 +707,236 @@ func TestThePushLoopDoesNothingForAPullOnlySpace(t *testing.T) {
 
 	// assert
 	assert.False(t, svc.background.Load())
+}
+
+func runPushLoop(t *testing.T, svc *Service) func() {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		svc.PushLoop(ctx)
+	}()
+	return func() {
+		cancel()
+		<-stopped
+	}
+}
+
+func failedPush(t *testing.T, dir string, svc *Service) {
+	t.Helper()
+	writeFile(t, dir, "mine.md", "# Mine\n")
+	breakRemote(t, dir)
+	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	require.True(t, svc.SyncState().Retrying)
+}
+
+func stalledOrigin(t *testing.T) (string, <-chan struct{}, func()) {
+	t.Helper()
+	hit := make(chan struct{}, 1)
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case hit <- struct{}{}:
+		default:
+		}
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+	var once sync.Once
+	stop := func() { once.Do(func() { close(release) }) }
+	t.Cleanup(stop)
+	return srv.URL + "/notes.git", hit, stop
+}
+
+func TestThePushLoopRetriesAFailedPushOnItsOwn(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	svc.retryEvery = 10 * time.Millisecond
+	failedPush(t, dir, svc)
+	fixRemote(t, dir, bare)
+
+	// act
+	stop := runPushLoop(t, svc)
+	require.Eventually(t, func() bool { return svc.SyncError() == "" }, 10*time.Second, 20*time.Millisecond)
+	stop()
+
+	// assert
+	assert.Equal(t, localHead(t, dir), headOf(t, bare))
+	assert.Equal(t, SyncState{}, svc.SyncState())
+	assert.False(t, svc.Pushing())
+}
+
+func TestARestartOfflineStillRetries(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	failedPush(t, dir, remoteService(t, dir, bare))
+	fixRemote(t, dir, bare)
+	away := bare + ".away"
+	require.NoError(t, os.Rename(bare, away))
+	svc := remoteService(t, dir, bare)
+	svc.retryEvery = 10 * time.Millisecond
+
+	// act
+	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	require.Error(t, svc.Sync(t.Context()))
+	offline := svc.SyncState()
+	require.NoError(t, os.Rename(away, bare))
+	stop := runPushLoop(t, svc)
+	require.Eventually(t, func() bool { return svc.SyncError() == "" }, 10*time.Second, 20*time.Millisecond)
+	stop()
+
+	// assert
+	assert.True(t, offline.Unpublished)
+	assert.True(t, offline.Retrying)
+	assert.Equal(t, localHead(t, dir), headOf(t, bare))
+}
+
+func TestARefusedFetchStopsTheRetry(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	svc.retryEvery = 10 * time.Millisecond
+	failedPush(t, dir, svc)
+	gitIn(t, dir, "remote", "set-url", remoteName, originAnswering(http.StatusUnauthorized)(t))
+
+	// act
+	stop := runPushLoop(t, svc)
+	require.Eventually(t, func() bool { return svc.SyncState().Refused }, 10*time.Second, 20*time.Millisecond)
+	stop()
+	state := svc.SyncState()
+
+	// assert
+	assert.True(t, strings.HasPrefix(state.Error, "fetch:"), state.Error)
+	assert.True(t, state.Unpublished)
+	assert.False(t, state.Retrying)
+}
+
+func TestThePushLoopDoesNotRetryADivergedSpace(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	diverge(t, svc, bare, map[string]string{"mine.md": "# Mine\n"})
+	pushFromElsewhere(t, bare, "later.md", "# Later\n")
+	tracking := strings.TrimSpace(gitIn(t, dir, "rev-parse", remoteName+"/"+initialBranch))
+	remoteHead := headOf(t, bare)
+	svc.retryEvery = 5 * time.Millisecond
+
+	// act
+	stop := runPushLoop(t, svc)
+	time.Sleep(200 * time.Millisecond)
+	stop()
+
+	// assert
+	assert.Equal(t, tracking, strings.TrimSpace(gitIn(t, dir, "rev-parse", remoteName+"/"+initialBranch)))
+	assert.Equal(t, remoteHead, headOf(t, bare))
+	assert.True(t, svc.SyncState().Diverged)
+	assert.False(t, svc.SyncState().Retrying)
+}
+
+func TestRetryingFollowsTheState(t *testing.T) {
+	tests := []struct {
+		name     string
+		pullOnly bool
+		state    SyncState
+		expected bool
+	}{
+		{name: "a failed push with commits waiting", state: SyncState{Unpublished: true, Error: "push: down"}, expected: true},
+		{name: "an error with nothing waiting", state: SyncState{Error: "push: down"}},
+		{name: "a diverged branch", state: SyncState{Unpublished: true, Error: "merge: diverged", Diverged: true}},
+		{name: "a refused credential", state: SyncState{Unpublished: true, Error: "push: refused", Refused: true}},
+		{name: "commits waiting and no error", state: SyncState{Unpublished: true}},
+		{name: "a pull-only space", pullOnly: true, state: SyncState{Unpublished: true, Error: "fetch: down"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			bare := bareRemote(t)
+			dir := cloneOf(t, bare)
+			svc := remoteService(t, dir, bare, func(rm *Remote) { rm.PullOnly = tc.pullOnly })
+
+			// act
+			svc.publish(tc.state)
+
+			// assert
+			assert.Equal(t, tc.expected, svc.SyncState().Retrying)
+		})
+	}
+}
+
+func TestARunningRetryIsPushing(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	svc.retryEvery = 10 * time.Millisecond
+	failedPush(t, dir, svc)
+	origin, hit, release := stalledOrigin(t)
+	gitIn(t, dir, "remote", "set-url", remoteName, origin)
+
+	// act
+	stop := runPushLoop(t, svc)
+	<-hit
+	during := svc.Pushing()
+	release()
+	stop()
+
+	// assert
+	assert.True(t, during)
+	assert.False(t, svc.Pushing())
+}
+
+func TestARetryKeepsTheMarkOfAWrite(t *testing.T) {
+	for _, marked := range []bool{true, false} {
+		t.Run(fmt.Sprintf("marked %v", marked), func(t *testing.T) {
+			// arrange
+			bare := bareRemote(t)
+			dir := cloneOf(t, bare)
+			svc := remoteService(t, dir, bare)
+			failedPush(t, dir, svc)
+			svc.pushing.Store(marked)
+
+			// act
+			svc.retryIfDue(t.Context())
+
+			// assert
+			assert.Equal(t, marked, svc.Pushing())
+			assert.True(t, svc.SyncState().Retrying)
+		})
+	}
+}
+
+func TestACanceledRetryPutsPushingBack(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	svc.retryEvery = 10 * time.Millisecond
+	failedPush(t, dir, svc)
+	origin, hit, release := stalledOrigin(t)
+	gitIn(t, dir, "remote", "set-url", remoteName, origin)
+	ctx, cancel := context.WithCancel(t.Context())
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		svc.PushLoop(ctx)
+	}()
+
+	// act
+	<-hit
+	cancel()
+	release()
+	<-stopped
+
+	// assert
+	assert.False(t, svc.Pushing())
 }

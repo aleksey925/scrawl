@@ -511,7 +511,7 @@ func TestAPIMeWithAuthDisabled(t *testing.T) {
 			"read_only": false, "format_on_save": false,
 			"degraded": false, "unpublished": false, "sync_error": "",
 			"unsynced": map[string]any{"paths": []any{}, "many": false},
-			"diverged": false, "can_reset": false, "push_refused": false, "pushing": false,
+			"diverged": false, "can_reset": false, "push_refused": false, "retrying": false, "pushing": false,
 		},
 	}, body)
 }

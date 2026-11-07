@@ -36,6 +36,7 @@ type fakeHistory struct {
 	syncErr     string
 	unsynced    history.Unsynced
 	refused     bool
+	retrying    bool
 	syncReads   int
 
 	remote     bool
@@ -57,7 +58,7 @@ func (f *fakeHistory) SyncError() string { return f.syncErr }
 
 func (f *fakeHistory) SyncState() history.SyncState {
 	f.syncReads++
-	return history.SyncState{Unpublished: f.unpublished, Error: f.syncErr, Unsynced: f.unsynced, Diverged: f.diverged, Refused: f.refused}
+	return history.SyncState{Unpublished: f.unpublished, Error: f.syncErr, Unsynced: f.unsynced, Diverged: f.diverged, Refused: f.refused, Retrying: f.retrying}
 }
 
 func (f *fakeHistory) Remote() bool { return f.remote }
@@ -1081,4 +1082,19 @@ func TestAStoreFailureIsNeverReadAsAHistoryOne(t *testing.T) {
 	assert.Equal(t, http.StatusPreconditionFailed, resp.status)
 	assert.Equal(t, "conflict", body["error"])
 	assert.Empty(t, fake.ops, "a mutation that failed is never recorded")
+}
+
+func TestAPIMeSaysARetryIsDue(t *testing.T) {
+	// arrange
+	fake := &fakeHistory{unpublished: true, syncErr: "push: the remote is down", retrying: true}
+	ts := newTestServer(t, testOpts{history: fake})
+
+	// act
+	_, body := ts.json(t, request{path: "/api/me"})
+
+	// assert
+	space, ok := body["space"].(map[string]any)
+	require.True(t, ok, body)
+	assert.Equal(t, true, space["retrying"])
+	assert.Equal(t, false, space["pushing"])
 }

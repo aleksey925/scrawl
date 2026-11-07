@@ -35,7 +35,11 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   left in the way - and offering a reset there would be offering to throw a
   healthy copy away. A diverged copy does not try the push a save would make:
   the remote refuses it every time, and its error replaced the divergence on
-  screen until the next fetch.
+  screen until the next fetch. Nor does the retry of a failed push run there. A
+  fetch that fails later keeps `diverged`, and the page reads the flag alone,
+  so the divergence and its reset stay on screen with the fetch's reason after
+  it: before, they went until a fetch worked, which is when "diverged" and "not
+  sent" were mixed up most.
 - What a reset loses is answered by a trial merge (`merge-tree`), not by a
   commit count ([ADR 10](../adr/0010-reset-loss-by-trial-merge.md)). A conflict
   means "something is lost" by itself, whatever the merged tree shows: a file
@@ -86,10 +90,41 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   and before the server starts, a write pushes in its request too.
 - The answer to a write carries the state from before its own push, so a
   routine write gets no "not pushed" warning. `/api/me` says `pushing` while a
-  push is due or running, and the page asks again every 2 seconds until it is
-  not, so a push that fails reaches the control and the banner in seconds and
-  not at the next minute's poll. A push that never ran because the server
-  stopped is not lost: the commit stays, and the startup sync pushes it.
+  push is due or running, or a retry is running, and the page asks on one timer
+  set again after every answer, good or failed: every 2 seconds while
+  `pushing`, every 5 while `retrying`, every 60 otherwise, and only from a
+  visible tab. So a push that fails reaches the control and the banner in
+  seconds and not at the next minute's poll, and one failed poll cannot stop
+  the fast ones, which a second timer armed by a new answer did. The pull loop,
+  a webhook and `Reconcile` do not set `pushing`: they are no change of the
+  person's, and a periodic pull would spin the control every few minutes. A
+  push that never ran because the server stopped is not lost: the commit stays,
+  the startup sync pushes it, and when that fails too the retry carries on.
+- A push that failed is tried again by the same loop, about a minute after its
+  last attempt, until it goes through, with no write needed: with `pull: 0` and
+  no more saves the commit stayed in this copy for days. The loop has a ticker
+  that reads `retrying` from the snapshot, and every path that pushes or syncs
+  ends in `publish`, which computes it, so a failure anywhere is caught without
+  a signal from each place. A timer armed by each failure would need that
+  signal from all of them. `retrying` is true when this copy has commits the
+  remote lacks, the last attempt failed, and a retry can help: not on a
+  diverged branch, which the remote refuses every time and a person must reset,
+  not when the remote refused the token, which is read once at startup so the
+  answer cannot change, and never in a pull-only space. A retry is a whole
+  `Sync`, fetch then fast-forward then push, not a push alone: when the push
+  failed because the remote moved, only a fetch shows the divergence, and a
+  push alone would fail the same way every minute. A failed fetch measures the
+  count from the tracking branch on disk and reads a refusal the way a push
+  does, so a copy restarted offline still knows what it owes and starts
+  retrying. The minute is fixed and not a backoff: there is one client and one
+  remote, and "tries again in about a minute" is the schedule a person is told.
+  It counts from the end of the loop's own last attempt, so a hung fetch is not
+  followed by another at once; the pull loop, a webhook and a token write still
+  try on their own. A retry sets `pushing` for its time and then puts back the
+  value it found, which keeps the mark of a write made before it. The retry has
+  no deadline of its own over the whole sync: the context that ends it kills
+  git with `SIGKILL`, and a fast-forward killed half-way can leave
+  `.git/index.lock`, which then fails every commit.
 
 ## Sync state
 
@@ -99,6 +134,17 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   commit stages nothing, and would tell a strict caller the change was not
   recorded when it was recorded and only not pushed. `unpublished` is
   **measured**, never remembered, and never the gate on the push.
+- `syncStatus` derives the state of the sync control from `/api/me` apart from
+  the warning, the first that holds: blocked (diverged or refused), sending
+  (`pushing`), not sent (`unpublished`), a warning (any other sync message:
+  history not recorded, a fetch failed with nothing waiting) and sent (a
+  writable remote space with none of these). Blocked comes before sending,
+  because a write on a diverged space marks a push that never goes, and a
+  spinner would say it does. History not recorded is "Not synced" and not "Not
+  sent": it does not say whether a change reached the remote. The control has
+  no live region of its own: the banner's already reads out a warning, and
+  "Sending" and "Sent" after each save would be noise next to the editor's
+  "Saved".
 - The remote state reaches the client only through `/api/me`, and `apiMe` reads
   it with one `SyncState()` and never a getter at a time: a `Sync` finishing
   between two calls would pair an error from one attempt with the paths of

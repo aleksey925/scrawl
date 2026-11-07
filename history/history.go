@@ -20,6 +20,7 @@ const (
 	defaultTimeout     = 10 * time.Second
 	defaultInitTimeout = 5 * time.Minute
 	pushDelay          = 3 * time.Second
+	retryEvery         = time.Minute
 	defaultLogLimit    = 100
 
 	initialBranch = "main"
@@ -71,6 +72,7 @@ type Service struct {
 
 	pushes     chan struct{}
 	pushDelay  time.Duration
+	retryEvery time.Duration
 	background atomic.Bool
 	pushing    atomic.Bool
 }
@@ -96,14 +98,15 @@ func New(cfg Config) (*Service, error) {
 	}
 
 	s := &Service{
-		cfg:       cfg,
-		root:      root,
-		git:       gitPath,
-		exts:      extensionSet(cfg.Extensions),
-		files:     files,
-		pending:   map[string]struct{}{},
-		pushes:    make(chan struct{}, 1),
-		pushDelay: pushDelay,
+		cfg:        cfg,
+		root:       root,
+		git:        gitPath,
+		exts:       extensionSet(cfg.Extensions),
+		files:      files,
+		pending:    map[string]struct{}{},
+		pushes:     make(chan struct{}, 1),
+		pushDelay:  pushDelay,
+		retryEvery: retryEvery,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), s.initTimeout())
 	defer cancel()

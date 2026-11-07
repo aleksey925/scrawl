@@ -60,6 +60,7 @@ export {
   TextHIcon as IconHeading,
   TextItalicIcon as IconItalic,
   TrashIcon as IconTrash,
+  TreeViewIcon as IconToc,
   UserCircleIcon as IconUserCircle,
   WarningIcon as IconAlertTriangle,
   XIcon as IconX,

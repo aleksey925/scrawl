@@ -539,6 +539,10 @@ in one folder instead.
   one space in the file, turns that off
 - the wand button in the toolbar, or `Shift+Alt+F`, formats the note without
   saving it, whatever that setting says
+- the contents button in the toolbar puts a table of contents of the note at
+  the cursor: a list of links to its headings between `<!-- toc -->` and
+  `<!-- tocstop -->`. Press it again after adding headings to bring the list up
+  to date
 - a text file that is not a note, such as `config.yml` or a `Makefile`, opens
   in the same editor as plain source, colored by its language, with Save,
   Cancel and line wrap. It has no preview, toolbar or formatting, and a save

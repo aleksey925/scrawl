@@ -13,6 +13,7 @@ import {
   IconMinus,
   IconPhoto,
   IconQuote,
+  IconToc,
   IconWand,
 } from '../icons';
 import { layout } from '../theme';
@@ -46,6 +47,7 @@ const groups: readonly (readonly ToolItem[])[] = [
 export interface ToolbarProps {
   onAction: (action: MarkdownAction) => void;
   onPickImage: () => void;
+  onToc: () => void;
   onFormat: (() => void) | undefined;
 }
 
@@ -98,7 +100,7 @@ function ToolButton({ testId, label, onClick, children }: { testId: string; labe
   );
 }
 
-export function Toolbar({ onAction, onPickImage, onFormat }: ToolbarProps): JSX.Element {
+export function Toolbar({ onAction, onPickImage, onToc, onFormat }: ToolbarProps): JSX.Element {
   const [stripRef, hidden] = useHiddenEnds();
 
   return (
@@ -124,6 +126,9 @@ export function Toolbar({ onAction, onPickImage, onFormat }: ToolbarProps): JSX.
       <span className={classes.toolSeparator} aria-hidden />
       <ToolButton testId="editor-toolbar-image" label="Upload image" onClick={onPickImage}>
         <IconPhoto size={layout.iconSizeTool} />
+      </ToolButton>
+      <ToolButton testId="editor-toolbar-toc" label="Insert table of contents" onClick={onToc}>
+        <IconToc size={layout.iconSizeTool} />
       </ToolButton>
       {onFormat !== undefined && (
         <ToolButton testId="editor-toolbar-format" label="Format with prettier" onClick={onFormat}>

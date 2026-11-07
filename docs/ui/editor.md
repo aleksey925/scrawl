@@ -27,6 +27,15 @@ The editor screen.
   `web/src/editor/codeLanguages.ts` (a svelte component as html, elixir as
   ruby, a makefile as shell). No new grammar is a dependency of ours, so a name
   with nothing close (terraform, graphql, zig) stays plain.
+- The contents button puts a list of the headings up to level 4, all but the
+  title (a first heading of level 1), nested by level, as links to them, after
+  the line the cursor is on, between `<!-- toc -->` and `<!-- tocstop -->`. A
+  second press finds that block and writes a fresh list in its place. The
+  headings and their ids come from the server's render of the text, the one the
+  preview shows, so a link opens its heading even where two headings share a
+  name or a heading sets its own id; a copy of the slug in the browser would
+  drift from the server's. A note with no heading under its title gets a toast
+  and no change. The markers are comments, which the page never shows.
 - The editor toolbar is a strip that moves sideways only and stops at its ends,
   and the editor screen takes the page's rubber band away. Left to the defaults
   the strip followed a finger up and down with the page behind it. It has no

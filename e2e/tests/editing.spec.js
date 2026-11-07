@@ -481,6 +481,55 @@ test.describe('editing', () => {
         await expect.poll(() => sourceLayout(page)).toEqual({longLineWrapped: false, scrollsSideways: true});
     });
 
+    test('the contents button lists the headings under the title as links that open them, and a second press brings it up to date', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc');
+        writeFixture(docPath, '# Заметка\n\nВступление.\n\n## Первый раздел\n\n### Подробности\n\n## Второй `код`\n\n## Первый раздел\n');
+        await page.goto(routes.edit(docPath));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(2).click();
+        await page.keyboard.press('End');
+        const block = async () => (await sourceText(page)).replace(/\(#[^)]*\)/g, '(#)');
+
+        // act & assert
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(block).toBe([
+            '# Заметка', '', 'Вступление.', '', '<!-- toc -->', '',
+            '- [Первый раздел](#)', '  - [Подробности](#)', '- [Второй код](#)', '- [Первый раздел](#)',
+            '', '<!-- tocstop -->', '', '## Первый раздел', '', '### Подробности', '', '## Второй `код`', '',
+            '## Первый раздел', '',
+        ].join('\n'));
+
+        await page.locator('[data-testid=editor-source] .cm-content').press('ControlOrMeta+End');
+        await page.keyboard.insertText('\n## Третий\n');
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(block).toContain('- [Первый раздел](#)\n- [Третий](#)\n\n<!-- tocstop -->');
+        expect((await sourceText(page)).match(/<!-- toc -->/g)).toHaveLength(1);
+
+        await save(page);
+        await page.goto(routes.doc(docPath));
+        const links = await page.locator('.markdown-document li > a[href^="#"]').evaluateAll((anchors) => anchors.map(
+            (anchor) => [anchor.textContent, document.getElementById(decodeURIComponent(anchor.getAttribute('href').slice(1)))?.textContent.trim(), anchor.getAttribute('href')]));
+        expect(links.map(([text]) => text)).toEqual(['Первый раздел', 'Подробности', 'Второй код', 'Первый раздел', 'Третий']);
+        expect(links.every(([text, target]) => typeof target === 'string' && target.startsWith(text))).toBe(true);
+        expect(new Set(links.map(([, , href]) => href)).size).toBe(links.length);
+        removeFixture(docPath);
+    });
+
+    test('the contents button says so when the note has no headings under its title, and changes nothing', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-none');
+        writeFixture(docPath, '# Заметка\n\nТолько текст.\n');
+        await page.goto(routes.edit(docPath));
+
+        // act
+        await page.getByTestId('editor-toolbar-toc').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText('No headings to list');
+        expect(await sourceText(page)).toBe('# Заметка\n\nТолько текст.\n');
+        removeFixture(docPath);
+    });
+
     test('with wrapping off a long line scrolls inside the source column and slides under the line numbers', async ({page}) => {
         // arrange
         const docPath = scratch('no-wrap-column');

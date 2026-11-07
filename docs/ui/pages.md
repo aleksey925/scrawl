@@ -103,10 +103,9 @@ opens over them.
   is not a color.
 - Nothing selected is shown as nothing. An empty note, an empty folder and an
   empty preview each say what they are through `EmptyState`, a gray title as
-  Notion has it, with the next step as a button, and an open folder with no
-  notes says so in the tree. A blank screen read as a page that failed to load.
-  The tree row says "No notes inside" and not "Empty", because the tree lists
-  only markdown and a folder of pictures is not empty.
+  Notion has it, with the next step as a button. A blank screen read as a page
+  that failed to load. In the tree an empty folder has no arrow and no line of
+  its own, see [sidebar](sidebar.md).
 
 ## Over the page
 

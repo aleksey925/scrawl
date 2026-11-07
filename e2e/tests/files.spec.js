@@ -18,6 +18,7 @@ const TYPED_FILE = 'E2eTyped.java';
 const TYPED_PICTURE = 'e2e-typed.png';
 const DATED_PAGE = 'e2e-meeting-2024.10.21.md';
 const BLANK_FOLDER = 'e2e-fm-blank';
+const HOLLOW = 'e2e-fm-hollow';
 const BLANK_PAGE = 'e2e-blank-page.md';
 const FULL_FOLDER = 'e2e-fm-full';
 const JUNK_FOLDER = 'e2e-fm-junk';
@@ -77,7 +78,7 @@ test.describe.serial('file management', () => {
     test.afterAll(() => {
         for (const folder of [
             FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER, LISTED_FOLDER, NEST, UNDELETED, CONTEXT_FOLDER,
-            CONTEXT_ROOT_FOLDER, RENAME_FOLDER, UNDO_FOLDER, KEYS_FOLDER, GAP_FOLDER,
+            CONTEXT_ROOT_FOLDER, RENAME_FOLDER, UNDO_FOLDER, KEYS_FOLDER, GAP_FOLDER, HOLLOW,
         ]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
@@ -821,7 +822,7 @@ test.describe.serial('file management', () => {
         await expect(page.getByTestId('editor-lines')).toHaveText('1 line');
     });
 
-    test('an empty folder says so on its page and in the tree, and a file starts from there', async ({page}) => {
+    test('an empty folder says so on its page, has no arrow in the tree, and opens there with its first file', async ({page}) => {
         // arrange
         fs.mkdirSync(fixtureFile(BLANK_FOLDER), {recursive: true});
 
@@ -830,7 +831,9 @@ test.describe.serial('file management', () => {
 
         // assert
         const row = page.locator(`[data-testid=tree-row][data-path="${BLANK_FOLDER}"]`);
-        await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-children"]').getByTestId('tree-empty')).toHaveText(text.dir.noNotes);
+        await expect(row).toHaveAttribute('data-empty', 'true');
+        await expect(row.getByTestId('tree-twisty')).toHaveCount(0);
+        await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-children"]')).toHaveCount(0);
         await shot(page, 'files-empty-folder');
         await expect(page.getByTestId('dir-table').locator('th').first()).toBeVisible();
         await expect(page.getByTestId('dir-empty-new-folder')).toHaveCount(0);
@@ -841,6 +844,91 @@ test.describe.serial('file management', () => {
         await page.getByTestId('dir-draft-input').fill('first');
         await page.getByTestId('dir-draft-input').press('Enter');
         await expect(page).toHaveURL(new RegExp(`${routes.edit(`${BLANK_FOLDER}/first.md`)}$`));
+        await expect(row).toHaveAttribute('data-empty', 'false');
+        await expect(row.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+        await expect(page.locator(`[data-testid=tree-row][data-path="${BLANK_FOLDER}/first.md"]`)).toBeVisible();
+    });
+
+    test('an empty folder in the tree has no arrow, stays shut on a click and lines up with the rows beside it', async ({page}) => {
+        // arrange
+        fs.mkdirSync(fixtureFile(`${HOLLOW}/empty`), {recursive: true});
+        writeFixture(`${HOLLOW}/full/note.md`, '# Note\n');
+        writeFixture(`${HOLLOW}/note.md`, '# Note\n');
+        await page.goto(routes.dir(HOLLOW));
+        const empty = page.locator(`[data-testid=tree-row][data-path="${HOLLOW}/empty"]`);
+        const full = page.locator(`[data-testid=tree-row][data-path="${HOLLOW}/full"]`);
+        const note = page.locator(`[data-testid=tree-row][data-path="${HOLLOW}/note.md"]`);
+        await expect(empty).toBeVisible();
+
+        // act
+        await empty.getByTestId('tree-link').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.dir(`${HOLLOW}/empty`));
+        await expect(empty).toHaveAttribute('data-empty', 'true');
+        await expect(empty.getByTestId('tree-twisty')).toHaveCount(0);
+        await expect(empty.locator('[aria-expanded]:not([data-testid=tree-row-menu])')).toHaveCount(0);
+        await expect(full.getByTestId('tree-twisty')).toHaveAttribute('aria-expanded', /^(true|false)$/);
+        await expect(empty.locator('xpath=following-sibling::*[@data-testid="tree-children"]')).toHaveCount(0);
+        const starts = await Promise.all([empty, full, note].map(async (row) => {
+            const icon = await row.locator('svg').first().boundingBox();
+            const label = await row.getByTestId('tree-link').boundingBox();
+            return [Math.round(icon.x), Math.round(label.x)];
+        }));
+        expect(starts).toEqual([starts[1], starts[1], starts[1]]);
+        await shot(page, 'files-empty-folder-tree');
+    });
+
+    test('an empty folder opens with its first note from + and shuts when its last note goes', async ({page}) => {
+        // arrange
+        const folder = `${HOLLOW}/plus`;
+        const first = `${folder}/first.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.dir(HOLLOW));
+        const row = page.locator(`[data-testid=tree-row][data-path="${folder}"]`);
+        const children = row.locator('xpath=following-sibling::*[@data-testid="tree-children"]');
+
+        // act & assert
+        await row.hover();
+        await row.getByTestId('tree-row-add').click();
+        await expect(children.getByTestId('tree-draft')).toBeVisible();
+        await page.getByTestId('tree-draft-input').fill('first');
+        await page.getByTestId('tree-draft-input').press('Enter');
+        await expect(page).toHaveURL(MAIN.url.edit(first));
+        await expect(row.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+        await expect(children.locator(`[data-testid=tree-row][data-path="${first}"]`)).toBeVisible();
+
+        await page.locator(`[data-testid=tree-row][data-path="${first}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-delete').click();
+        await expect.poll(() => fs.existsSync(fixtureFile(first))).toBe(false);
+        await expect(row).toHaveAttribute('data-empty', 'true');
+        await expect(row.getByTestId('tree-twisty')).toHaveCount(0);
+        await expect(children).toHaveCount(0);
+    });
+
+    test('a file dragged onto an empty folder lights it up, lands in it and opens it', async ({page}) => {
+        // arrange
+        const folder = `${HOLLOW}/target`;
+        const dragged = `${HOLLOW}/dragged.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        writeFixture(dragged, '# Dragged\n');
+        await page.goto(routes.dir(HOLLOW));
+        const row = page.locator(`[data-testid=tree-row][data-path="${folder}"]`);
+        await expect(row).toHaveAttribute('data-empty', 'true');
+        const from = await page.locator(`[data-testid=tree-row][data-path="${dragged}"]`).boundingBox();
+        const to = await row.boundingBox();
+
+        // act
+        await page.mouse.move(from.x + 60, from.y + from.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(to.x + 60, to.y + to.height / 2, {steps: 10});
+
+        // assert
+        await expect(row).toHaveAttribute('data-drop', 'true');
+        await page.mouse.up();
+        await expect.poll(() => fs.existsSync(fixtureFile(`${folder}/dragged.md`))).toBe(true);
+        await expect(row.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+        await expect(page.locator(`[data-testid=tree-row][data-path="${folder}/dragged.md"]`)).toBeVisible();
     });
 
     test('New in a folder list names the entry in a row of the table', async ({page}) => {
@@ -1059,26 +1147,6 @@ test.describe.serial('file management', () => {
         expect(fs.existsSync(fixtureFile(`${CONTEXT_FOLDER}/${CONTEXT_ROOT_FOLDER}`))).toBe(false);
     });
 
-    test('a right click on the line of an open empty folder in the tree creates in that folder', async ({page}) => {
-        // arrange
-        const empty = `${CONTEXT_FOLDER}/hollow`;
-        fs.mkdirSync(fixtureFile(empty), {recursive: true});
-        await page.goto(routes.dir(empty));
-        const line = page.locator(`[data-testid=tree-row][data-path="${empty}"]`)
-            .locator('xpath=following-sibling::*[@data-testid="tree-children"]').getByTestId('tree-empty');
-        await expect(line).toBeVisible();
-
-        // act
-        await line.click({button: 'right'});
-
-        // assert
-        await expect(page.getByTestId('tree-context-menu')).toBeVisible();
-        await page.getByTestId('tree-context-menu-new-folder').click();
-        await page.getByTestId('tree-draft-input').fill('inside-hollow');
-        await page.getByTestId('tree-draft-input').press('Enter');
-        await expect.poll(() => fs.existsSync(fixtureFile(`${empty}/inside-hollow`))).toBe(true);
-        expect(fs.existsSync(fixtureFile('inside-hollow'))).toBe(false);
-    });
 
     test('deletes a folder with everything in it and leaves the page that was inside', async ({page}) => {
         // arrange

@@ -42,7 +42,6 @@ module.exports = {
 
     dir: {
         empty: 'This folder is empty',
-        noNotes: 'No notes inside',
     },
 
     search: {

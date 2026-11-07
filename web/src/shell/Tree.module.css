@@ -89,11 +89,6 @@
     inset 0 0 0 2px var(--scrawl-focus-ring-outer);
 }
 
-.none {
-  color: var(--scrawl-text-tertiary);
-  font-size: 13px;
-}
-
 @media (pointer: coarse) {
   .pressable {
     -webkit-touch-callout: none;

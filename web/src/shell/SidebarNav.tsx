@@ -79,16 +79,24 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   const [menuOpened, setMenuOpened] = useState(false);
   const openMenu = useCallback(() => setMenuOpened(true), []);
   const longPress = useLongPress(openMenu);
+  const empty = node.is_dir && node.children.length === 0;
+  const wasEmpty = useRef(empty);
+  useEffect(() => {
+    if (wasEmpty.current && !empty) {
+      openFolder(node.path);
+    }
+    wasEmpty.current = empty;
+  }, [empty, node.path, openFolder]);
 
   if (query !== '' && !filtered.visible.has(node.path)) {
     return null;
   }
 
-  const open = query !== '' ? filtered.forcedOpen.has(node.path) : isOpen(node.path);
+  const drafting = draft !== undefined && draft.parent === node.path;
+  const open = empty ? drafting : query !== '' ? filtered.forcedOpen.has(node.path) : isOpen(node.path);
   const current = node.path === currentPath;
   const picked = ui.selected.has(node.path);
   const over = ui.dropTarget === node.path;
-  const drafting = draft !== undefined && draft.parent === node.path;
 
   return (
     <Box style={{ minWidth: 0 }}>
@@ -102,6 +110,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
           data-selected={picked ? 'true' : 'false'}
           data-drop={over ? 'true' : 'false'}
           data-dir={node.is_dir ? 'true' : 'false'}
+          data-empty={empty ? 'true' : 'false'}
           data-menu={menuOpened ? 'true' : 'false'}
           data-path={node.path}
           draggable={ui.canWrite}
@@ -121,7 +130,11 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
               })}
           style={rowInsets(depth)}
         >
-          {node.is_dir ? (
+          {empty ? (
+            <IconBox>
+              <IconFolder size={treeIconSize} />
+            </IconBox>
+          ) : node.is_dir ? (
             <ActionIcon
               data-testid="tree-twisty"
               data-open={open ? 'true' : 'false'}
@@ -160,7 +173,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
             className={treeClasses.label}
             onClick={(event: MouseEvent) => {
               ui.pick(node.path, event);
-              if (!node.is_dir || query !== '' || event.defaultPrevented || event.metaKey || event.ctrlKey) {
+              if (!node.is_dir || empty || query !== '' || event.defaultPrevented || event.metaKey || event.ctrlKey) {
                 return;
               }
               if (current) {
@@ -214,8 +227,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
       {node.is_dir && open && (
         <div data-testid="tree-children">
           {drafting && <DraftRow depth={depth + 1} />}
-          {!drafting && node.children.length === 0 && <EmptyRow depth={depth + 1} folder={node.path} />}
-          {node.children.length > 0 && (
+          {!empty && (
             <TreeRows nodes={node.children} depth={depth + 1} filtered={filtered} query={query} />
           )}
         </div>
@@ -247,26 +259,6 @@ function TreeRows({ nodes, depth, filtered, query }: RowsProps): JSX.Element {
         <TreeRow key={child.path} node={child} depth={depth} filtered={filtered} query={query} />
       ))}
     </>
-  );
-}
-
-function emptyFolderAt(target: EventTarget): string {
-  return target instanceof Element ? (target.closest('[data-empty-folder]')?.getAttribute('data-empty-folder') ?? '') : '';
-}
-
-function EmptyRow({ depth, folder }: { depth: number; folder: string }): JSX.Element {
-  return (
-    <div
-      data-testid="tree-empty"
-      data-empty-folder={folder}
-      className={`${treeClasses.row} ${treeClasses.none}`}
-      style={rowInsets(depth)}
-    >
-      <IconBox />
-      <Text span inherit>
-        No notes inside
-      </Text>
-    </div>
   );
 }
 
@@ -734,7 +726,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
             data-testid="tree-root"
             data-drop={dropTarget === '' ? 'true' : 'false'}
             {...rootDrop}
-            onContextMenu={canWrite ? (event) => contextMenu.onFreeSpace(event, emptyFolderAt(event.target)) : undefined}
+            onContextMenu={canWrite ? (event) => contextMenu.onFreeSpace(event, '') : undefined}
             style={{ minWidth: 0 }}
           >
             {error !== undefined ? (
@@ -754,7 +746,6 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
             ) : (
               <>
                 {draftAtRoot && <DraftRow depth={0} />}
-                {!draftAtRoot && tree.length === 0 && <EmptyRow depth={0} folder="" />}
                 <TreeRows nodes={tree} depth={0} filtered={filtered} query={trimmed} />
               </>
             )}

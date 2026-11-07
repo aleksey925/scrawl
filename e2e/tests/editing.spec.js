@@ -642,8 +642,9 @@ test.describe('editing', () => {
     test('the contents lists the headings down to level 4, nested by level, with marks kept as text, but the title, the first of level 1 wherever it stands', async ({page}) => {
         // arrange
         const docPath = scratch('toc-levels');
-        const marked = '## Marks \\[x\\] \\_u\\_ \\*s\\* \\<c\\> \\&copy; \\~t\\~ \\$5\\$';
-        writeFixture(docPath, `${marked}\n\nText.\n\n#### Deep\n\n##### Five\n\n# Second\n\n## Under\n`);
+        const marked = '## Marks \\[x\\] \\_u\\_ \\*s\\* \\<c\\> \\&copy; \\~t\\~ \\$5\\$ \\:smile\\:';
+        const caret = '## \\^n';
+        writeFixture(docPath, `${marked}\n\nText.\n\n#### Deep\n\n##### Five\n\n# Second\n\n## Under\n\n${caret}\n\n[^n]: Note.\n`);
         await page.goto(routes.edit(docPath));
         await page.locator('[data-testid=editor-source] .cm-line').nth(2).click();
         await page.keyboard.press('End');
@@ -655,11 +656,11 @@ test.describe('editing', () => {
         // assert
         await expect.poll(masked).toBe([
             marked, '', 'Text.', '', '<!-- toc -->', '',
-            `- [${marked.slice(3)}](#)`, '  - [Deep](#)', '- [Under](#)',
-            '', '<!-- tocstop -->', '', '#### Deep', '', '##### Five', '', '# Second', '', '## Under', '',
+            `- [${marked.slice(3)}](#)`, '  - [Deep](#)', '- [Under](#)', `- [${caret.slice(3)}](#)`,
+            '', '<!-- tocstop -->', '', '#### Deep', '', '##### Five', '', '# Second', '', '## Under', '', caret, '', '[^n]: Note.', '',
         ].join('\n'));
         const preview = page.getByTestId('editor-preview');
-        await expect(preview.locator('li > a[href^="#"]')).toHaveCount(3);
+        await expect(preview.locator('li > a[href^="#"]')).toHaveCount(4);
         const pairs = await preview.locator('li > a[href^="#"]').evaluateAll((anchors) => anchors.map((anchor) => [
             anchor.textContent,
             document.getElementById(decodeURIComponent(anchor.getAttribute('href').slice(1)))?.textContent.trim(),

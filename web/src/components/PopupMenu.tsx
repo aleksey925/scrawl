@@ -68,7 +68,6 @@ export function PopupMenu({
 }
 
 export interface FieldMenuItemProps extends MenuItemProps {
-  'data-testid': string;
   onClick: () => void;
 }
 

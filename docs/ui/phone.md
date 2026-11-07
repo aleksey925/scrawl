@@ -86,7 +86,9 @@ How the app works on a phone.
   goes on at the finger's speed, and a finger drawn back toward the edge as it
   lifts keeps the page. The swipe saves a rename field before it goes back,
   since it blurs nothing, and the field would have gone without saving. The
-  back button, Android's back gesture and the swipe of a Safari tab change the
-  page without the app's swipe, and a field left open then is dropped. A screen
-  still loading shows its spinner only after 400ms: one that came up the moment
-  the swiped page was gone read as the page jerking.
+  field is gone before the server answers, so a save that fails after a swipe,
+  or after a tap on a link, shows its error toast and the name typed is lost.
+  The back button, Android's back gesture and the swipe of a Safari tab change
+  the page without the app's swipe, and a field left open then is dropped. A
+  screen still loading shows its spinner only after 400ms: one that came up the
+  moment the swiped page was gone read as the page jerking.

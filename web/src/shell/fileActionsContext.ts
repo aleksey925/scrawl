@@ -21,7 +21,6 @@ export interface FileActions {
   renaming: Renaming | undefined;
   startRename: (path: string, isDir: boolean, place: RenamePlace) => void;
   endRename: (id: number) => void;
-  commitRename: () => void;
   renameCommit: MutableRefObject<(() => void) | undefined>;
   submitRename: (path: string, isDir: boolean, name: string) => Promise<boolean>;
   moveTo: (path: string, anchor: DOMRect) => void;

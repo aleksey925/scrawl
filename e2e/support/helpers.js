@@ -193,6 +193,20 @@ function headingAnchorGeometry(heading) {
     });
 }
 
+function nameOf(path) {
+    return path.split('/').pop();
+}
+
+function recordMoves(page) {
+    const sent = [];
+    page.on('request', (request) => {
+        if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/api/move')) {
+            sent.push(request.postDataJSON());
+        }
+    });
+    return sent;
+}
+
 async function holdRoute(page, url) {
     let release = () => {};
     const held = new Promise((resolve) => {
@@ -269,9 +283,11 @@ module.exports = {
     inStep,
     jsonRequest,
     modifier,
+    nameOf,
     openSpaceMenu,
     pressShortcut,
     readFixture,
+    recordMoves,
     removeFixture,
     rgb,
     rightClickPrevented,

@@ -34,7 +34,7 @@ export function TopbarCrumbs(): JSX.Element {
   const location = useLocation();
   const current = contentPathOf(location.pathname);
   const isDir = isDirectoryPath(location.pathname);
-  const commitRename = useOptionalFileActions()?.commitRename;
+  const renameCommit = useOptionalFileActions()?.renameCommit;
   const renaming = useRenamingHere('page', current);
   const icon = (
     <EntryIcon name={current} isDir={isDir} size={layout.iconSizeSmall} className={classes.crumbIcon} />
@@ -73,6 +73,7 @@ export function TopbarCrumbs(): JSX.Element {
             returnFocus={false}
             closeOnClickOutside={false}
             closeOnEscape={false}
+            transitionProps={{ duration: 0 }}
             withRoles={false}
             radius="lg"
             shadow="md"
@@ -90,7 +91,9 @@ export function TopbarCrumbs(): JSX.Element {
               )}
             </Popover.Dropdown>
           </Popover>
-          {commitRename !== undefined && <TapGuard active={renaming !== undefined} onClose={commitRename} />}
+          {renameCommit !== undefined && (
+            <TapGuard active={renaming !== undefined} onClose={() => renameCommit.current?.()} />
+          )}
         </span>
       )}
     </nav>

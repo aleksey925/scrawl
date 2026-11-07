@@ -10,29 +10,40 @@ import { layout } from '../theme';
 import classes from './NameField.module.css';
 import { useTouchScreen } from './TapGuard';
 
+const imeKeyCode = 229;
+
+interface FieldState {
+  name: string;
+  busy: boolean;
+  done: boolean;
+  failed: string | undefined;
+}
+
 export interface NameFieldProps {
   initial: string;
-  isDir: boolean;
+  isDir?: boolean;
   label: string;
   testId: string;
   placeholder?: string;
   icon?: ReactNode;
   className?: string;
-  keepOnBlur?: boolean;
+  keepOnLeave?: boolean;
   commitRef?: MutableRefObject<(() => void) | undefined>;
   onSubmit: (name: string) => Promise<boolean>;
   onCancel: () => void;
 }
 
 export function NameField({
-  initial, isDir, label, testId, placeholder, icon, className, keepOnBlur = false, commitRef, onSubmit, onCancel,
+  initial, isDir = false, label, testId, placeholder, icon, className, keepOnLeave = false, commitRef, onSubmit, onCancel,
 }: NameFieldProps): JSX.Element {
   const touch = useTouchScreen();
   const [name, setName] = useState(initial);
   const [busy, setBusy] = useState(false);
   const boxRef = useRef<HTMLSpanElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const placed = useRef(false);
-  const state = useRef({ name, busy: false, done: false });
+  const refocus = useRef(false);
+  const state = useRef<FieldState>({ name, busy: false, done: false, failed: undefined });
   state.current.name = name;
 
   const cancel = (): void => {
@@ -52,23 +63,42 @@ export function NameField({
       cancel();
       return;
     }
+    const sent = now.name;
+    const focused = document.activeElement === inputRef.current;
     now.busy = true;
     setBusy(true);
-    void onSubmit(now.name).then((saved) => {
+    void onSubmit(sent).then((saved) => {
       now.busy = false;
       now.done = saved;
+      now.failed = saved ? undefined : sent;
+      refocus.current = !saved && focused;
       setBusy(false);
     });
   };
 
-  const latest = useRef({ commit, cancel });
-  latest.current = { commit, cancel };
+  const leave = (): void => {
+    const now = state.current;
+    if ((keepOnLeave && now.name.trim() !== '') || now.name === now.failed) {
+      return;
+    }
+    commit();
+  };
+
+  const latest = useRef(leave);
+  latest.current = leave;
+
+  useEffect(() => {
+    if (!busy && refocus.current) {
+      refocus.current = false;
+      inputRef.current?.focus();
+    }
+  }, [busy]);
 
   useEffect(() => {
     if (commitRef === undefined) {
       return undefined;
     }
-    const own = (): void => latest.current.commit();
+    const own = (): void => latest.current();
     commitRef.current = own;
     return () => {
       if (commitRef.current === own) {
@@ -83,7 +113,7 @@ export function NameField({
     }
     const onClick = (event: MouseEvent): void => {
       if (!(event.target instanceof Node && boxRef.current?.contains(event.target) === true)) {
-        latest.current.commit();
+        latest.current();
       }
     };
     document.addEventListener('click', onClick, true);
@@ -106,6 +136,7 @@ export function NameField({
     >
       {icon}
       <input
+        ref={inputRef}
         data-testid={`${testId}-input`}
         className={classes.input}
         autoFocus
@@ -125,14 +156,11 @@ export function NameField({
           }
         }}
         onChange={(event) => setName(event.currentTarget.value)}
-        onBlur={() => {
-          if (!keepOnBlur || state.current.name.trim() === '') {
-            commit();
-          }
-        }}
+        onBlur={leave}
         onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
           event.stopPropagation();
-          if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+          const composing = event.nativeEvent.isComposing || event.nativeEvent.keyCode === imeKeyCode;
+          if (event.key === 'Enter' && !composing) {
             event.preventDefault();
             commit();
             return;
@@ -146,6 +174,7 @@ export function NameField({
       {touch && (
         <button
           type="button"
+          tabIndex={-1}
           data-testid={`${testId}-cancel`}
           className={classes.cancel}
           aria-label="Cancel"

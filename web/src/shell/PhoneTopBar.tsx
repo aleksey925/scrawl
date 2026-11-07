@@ -56,13 +56,13 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
   const inHistory = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
-  const commitRename = useOptionalFileActions()?.commitRename;
+  const renameCommit = useOptionalFileActions()?.renameCommit;
   const renaming = useRenamingHere('page', contentPathOf(location.pathname));
   useSwipeBack(
     editing || (atRoot && !inHistory)
       ? null
       : () => {
-          commitRename?.();
+          renameCommit?.current?.();
           if (inHistory) {
             void navigate(-1);
             return;

@@ -4,8 +4,8 @@ const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    DIALOG_TITLE, MAIN, chooseTheme, headingAnchorGeometry, modifier, openSpaceMenu, pressShortcut, removeFixture, rgb,
-    routes, shot, showOutline, signIn, titleRoom, writeFixture,
+    DIALOG_TITLE, MAIN, chooseTheme, headingAnchorGeometry, modifier, nameOf, openSpaceMenu, pressShortcut, removeFixture,
+    rgb, routes, shot, showOutline, signIn, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const darkTheme = require('../../theme/themes/dark.json');
@@ -1068,7 +1068,7 @@ test.describe('reading', () => {
         // act & assert
         await page.goto(routes.doc(docs.deep.path));
         await expect(crumbs).toContainText(docs.deep.crumbs);
-        await expect(crumbs.last()).toHaveText(docs.deep.path.split('/').pop());
+        await expect(crumbs.last()).toHaveText(nameOf(docs.deep.path));
 
         await page.goto(routes.dir(DOC.folder));
         await expect(crumbs.last()).toHaveText(DOC.folder);
@@ -1093,11 +1093,36 @@ test.describe('reading', () => {
         await page.goto(routes.doc(docs.missing));
 
         // act & assert
-        await expect(page.getByTestId('doc-missing-title')).toHaveText(docs.missing.split('/').pop());
+        await expect(page.getByTestId('doc-missing-title')).toHaveText(nameOf(docs.missing));
         await expect(page.getByTestId('doc-create')).toBeVisible();
         await expect(page.getByTestId('doc-missing-folder')).toHaveAttribute('href', new RegExp(`/doc/${DOC.folder}/$`));
         await page.keyboard.press('Enter');
         await expect(page).toHaveURL(MAIN.url.edit(docs.missing));
+    });
+
+    test('a note that does not exist is named by its file name in the path, and its search leaves the extension out', async ({page}) => {
+        // arrange
+        const name = nameOf(docs.missing);
+
+        // act
+        await page.goto(routes.doc(docs.missing));
+
+        // assert
+        await expect(page.getByTestId('topbar-crumbs').getByTestId('crumb').last()).toHaveText(name);
+        const search = new URL(await page.getByTestId('doc-missing-search').getAttribute('href'), MAIN.baseURL);
+        expect(search.searchParams.get('q')).toBe(name.replace(/\.md$/, ''));
+    });
+
+    test('the sidebar filter matches the whole name of a note, its extension too', async ({page}) => {
+        // arrange
+        const filter = page.getByTestId('sidebar-filter');
+        const name = nameOf(docs.filter.path);
+
+        // act
+        await filter.fill(name);
+
+        // assert
+        await expect(page.locator(`[data-testid=tree-row][data-path="${docs.filter.path}"] mark`)).toHaveText(name);
     });
 
     test('a missing note kept while the next note loads still offers to create itself', async ({page}) => {

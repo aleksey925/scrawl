@@ -191,13 +191,20 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const [renaming, setRenaming] = useState<Renaming | undefined>(undefined);
   const renameSessions = useRef(0);
   const renameCommit = useRef<(() => void) | undefined>(undefined);
+  const followed = useRef<{ from: string; to: string } | undefined>(undefined);
   const [moving, setMoving] = useState<MovedEntry | undefined>(undefined);
   const [draft, setDraft] = useState<TreeDraft | undefined>(undefined);
   const phone = useBelow(layoutBreakpoints.phone);
   const [naming, setNaming] = useState<TreeDraft | undefined>(undefined);
   const undoable = useRef(new Set<UndoMark>());
 
-  useEffect(() => setRenaming(undefined), [location.pathname]);
+  useEffect(() => {
+    const follow = followed.current;
+    followed.current = undefined;
+    setRenaming((prev) =>
+      prev !== undefined && follow?.to === location.pathname && !replaces(follow.from, prev.path) ? prev : undefined,
+    );
+  }, [location.pathname]);
 
   const touch = useCallback((paths: readonly string[], keep?: UndoMark) => {
     for (const mark of undoable.current) {
@@ -447,7 +454,9 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       reportMutation(res, renamedMessage(path, res.path, isDir, space));
       const here = pathAfterMove(shown.current.path, path, res.path);
       if (here !== undefined) {
-        await navigate(shown.current.onFolder ? directoryUrl(here) : documentUrl(here));
+        const to = shown.current.onFolder ? directoryUrl(here) : documentUrl(here);
+        followed.current = { from: path, to };
+        await navigate(to);
         return true;
       }
       refreshNav();
@@ -468,7 +477,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   );
 
   const endRename = useCallback((id: number) => setRenaming((prev) => (prev?.id === id ? undefined : prev)), []);
-  const commitRename = useCallback(() => renameCommit.current?.(), []);
 
   const actions = useMemo<FileActions>(
     () => ({
@@ -476,7 +484,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       renaming,
       startRename,
       endRename,
-      commitRename,
       renameCommit,
       submitRename,
       moveTo: (path, anchor) => setMoving({ path, anchor }),
@@ -488,7 +495,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       cancelDraft,
       createEntry,
     }),
-    [cancelDraft, commitRename, copyLink, createDraft, createEntry, draft, endRename, moveInto, remove, renaming, startRename, submitDraft, submitRename],
+    [cancelDraft, copyLink, createDraft, createEntry, draft, endRename, moveInto, remove, renaming, startRename, submitDraft, submitRename],
   );
 
   return (

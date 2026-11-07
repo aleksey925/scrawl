@@ -157,14 +157,6 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
   );
 }
 
-function EntryGlyph({ entry, size, className }: { entry: DirEntry; size: number; className?: string }): JSX.Element {
-  return entry.is_dir ? (
-    <IconFolder size={size} aria-hidden className={className} />
-  ) : (
-    <EntryIcon name={entry.name} size={size} className={className} />
-  );
-}
-
 interface TableRowProps {
   entry: DirEntry;
   routed: boolean;
@@ -188,10 +180,20 @@ function TableRow({ entry, routed, href, menuOpen, onOpen, onMenu }: TableRowPro
 
   if (renaming !== undefined) {
     return (
-      <tr data-testid="dir-row" data-path={entry.path} data-dir={entry.is_dir ? 'true' : 'false'} className={classes.draft}>
+      <tr
+        data-testid="dir-row"
+        data-path={entry.path}
+        data-dir={entry.is_dir ? 'true' : 'false'}
+        className={classes.draft}
+        onContextMenu={(event) => {
+          if (!(event.target instanceof HTMLInputElement)) {
+            event.preventDefault();
+          }
+        }}
+      >
         <td className={classes.name}>
           <span>
-            <EntryGlyph entry={entry} size={layout.iconSizeSmall} />
+            <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSizeSmall} />
             <RenameField session={renaming} testId="dir-rename" className={classes.field} />
           </span>
         </td>
@@ -212,7 +214,7 @@ function TableRow({ entry, routed, href, menuOpen, onOpen, onMenu }: TableRowPro
     >
       <td className={classes.name}>
         <span>
-          <EntryGlyph entry={entry} size={layout.iconSizeSmall} />
+          <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSizeSmall} />
           {routed ? (
             <Link data-testid="dir-row-name" to={entry.url} className={classes.link}>
               {entry.is_dir ? `${entry.name}/` : entry.name}
@@ -273,7 +275,7 @@ function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming
   return (
     <div data-testid="dir-row" data-path={entry.path} data-dir={entry.is_dir ? 'true' : 'false'} className={classes.listRow}>
       <div className={classes.listLink}>
-        <EntryGlyph entry={entry} size={layout.iconSize} className={classes.listIcon} />
+        <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSize} className={classes.listIcon} />
         <RenameField session={session} testId="dir-rename" className={classes.listField} />
       </div>
     </div>
@@ -284,7 +286,7 @@ function PhoneLinkRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
   const meta = entry.is_dir ? countOf(entry.items ?? 0, 'item') : `${fileSize(entry.size)} · ${shortDate(entry.mod_time)}`;
   const body = (
     <>
-      <EntryGlyph entry={entry} size={layout.iconSize} className={classes.listIcon} />
+      <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSize} className={classes.listIcon} />
       <span className={classes.listText}>
         <span className={classes.listName}>
           <span data-testid="dir-row-name" className={classes.listLabel}>
@@ -386,12 +388,11 @@ function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
           {kind === 'file' ? <IconFileText size={layout.iconSizeSmall} aria-hidden /> : <IconFolder size={layout.iconSizeSmall} aria-hidden />}
           <NameField
             initial=""
-            isDir={kind === 'dir'}
             testId="dir-draft"
             className={classes.field}
             placeholder={kind === 'file' ? 'File name' : 'Folder name'}
             label={kind === 'file' ? 'Name of the new file' : 'Name of the new folder'}
-            keepOnBlur
+            keepOnLeave
             onSubmit={onSubmit}
             onCancel={onCancel}
           />

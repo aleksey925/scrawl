@@ -5,24 +5,27 @@ Creating, naming, moving and deleting files and folders.
 - An entry is made where the action was started: from the sidebar a name field
   appears in the tree, in the folder the action came from, and from a folder's
   list a name row appears in that table. Enter creates it, through the one
-  create path both share. A dialog asked for the folder the tree already knew
-  and then covered it, and a create started from a list jumped to the tree,
-  away from what the reader was looking at. Rows drag into folders, one or the
-  whole picked run; a plain click picks, shift takes the range, and a modified
-  click stays the browser's "open in a tab". On a phone there is no tree to
-  type into: the New tab opens a menu over itself, New file or New folder, and
-  the name is asked in a small dialog in the middle, the way a phone asks for a
-  new folder's name, with a line saying a name without an extension makes a
-  note. A create started from a list asks the same. Every place says New file,
-  the tree, the menus and the dialog, since one action makes a note or any
-  file; the editor calls a new note a note. A menu item that puts a field on
-  the page, New file, New folder or Rename, tells its menu not to give the
-  focus back to its button: mantine's menu does it a tick after the field took
-  the focus, and the field lost it. A timer that ignored the early blurs lost a
-  quick click outside and took the focus back from where it had gone. The rows
-  being dragged are kept in state as well as in the drag's data, because a page
-  cannot read that data during `dragover`, when a folder says whether it takes
-  the drop.
+  create path both share. A click or a tap outside the tree's field creates it
+  too, while the row of a list keeps a typed name and drops only an empty one,
+  so a click on another row of the list does not make an entry with half a
+  name; Escape, or the ✕ on a touch screen, drops either. A dialog asked for
+  the folder the tree already knew and then covered it, and a create started
+  from a list jumped to the tree, away from what the reader was looking at.
+  Rows drag into folders, one or the whole picked run; a plain click picks,
+  shift takes the range, and a modified click stays the browser's "open in a
+  tab". On a phone there is no tree to type into: the New tab opens a menu over
+  itself, New file or New folder, and the name is asked in a small dialog in
+  the middle, the way a phone asks for a new folder's name, with a line saying
+  a name without an extension makes a note. A create started from a list asks
+  the same. Every place says New file, the tree, the menus and the dialog,
+  since one action makes a note or any file; the editor calls a new note a
+  note. A menu item that puts a field on the page, New file, New folder or
+  Rename, tells its menu not to give the focus back to its button: mantine's
+  menu does it a tick after the field took the focus, and the field lost it. A
+  timer that ignored the early blurs lost a quick click outside and took the
+  focus back from where it had gone. The rows being dragged are kept in state
+  as well as in the drag's data, because a page cannot read that data during
+  `dragover`, when a folder says whether it takes the drop.
 - A name typed for a file is a note unless it carries an extension of its own:
   a title becomes its slug with `.md`, and `notes.txt` or `Main.java` is that
   file, named as typed. A slug, of a note or a folder, keeps the case typed, so
@@ -37,7 +40,7 @@ Creating, naming, moving and deleting files and folders.
   ([ADR 22](../adr/0022-names-show-their-extension.md)). A note renamed without
   `.md` is not a note any more: it leaves the tree, the page follows it to the
   view of a text file, and the toast says so. A name left as it was renames
-  nothing, so a click away from the field of `guide .md` does not lose its
+  nothing, so a click away from the field of `spaced.md ` does not lose its
   space to the trim. A name that starts with a dot is refused with a toast, as
   a slash is: the store hides such a name, and the server would answer only
   that nothing is found. The slug turns Cyrillic into Latin with the same table
@@ -59,29 +62,36 @@ Creating, naming, moving and deleting files and folders.
   last dot, or at the end of a folder's name, where a dot is part of the name.
   Enter, or Done on a phone's keyboard, saves, and so does a click or a tap
   outside the field; Escape drops it, and on a touch screen a ✕ inside the
-  field does. A failed save keeps the field with the name typed. Every rename
-  is a session of its own, and a save closes only its own field: a slow save
-  that answers after another rename has started leaves the new field open. A
-  page change closes any field, so a click on a link saves and goes. Move to
-  opens a popover where the menu it was picked from was, on the side of the
-  screen the menu sat on, as Notion does; a dialog in the middle of the screen
-  took the eye away from the row or the page being moved. On a phone it fills
-  the screen. It holds a search field over the folders of the space, the space
-  itself first: empty, it shows them as a tree with every folder folded, the
-  one the entry is in too, a chevron or the right and left arrows unfold and
-  fold a folder, a click on the chevron leaving the focus in the search field
-  for the arrows and Enter, and typed, the folders whose name matches, each
-  with the folder it sits in. The whole tree open was a long list to scroll
-  through in a real space. The folder the entry is in now is marked Current and
-  cannot be picked, a folder being moved leaves itself and everything inside it
-  out of the list, and the foot shows the path the entry will get, or that the
-  folder already holds that name, which is then not moved to. That check knows
-  only the names the tree shows: a symlink or a file an exclude glob hides,
-  under the same name, is found only by the server, and the toast of the failed
-  move says so. Up and down pick, Enter or a click on the row moves, through
-  the same path a drag takes, and the page follows an entry that was on screen.
-  The arrows stop on the Current folder too, so the right arrow unfolds it to
-  reach the folders inside, but Enter there moves nothing.
+  field does. A failed save keeps the field with the name typed, and a save
+  started with Enter gives the focus back to it. Leaving the field, by a blur,
+  a tap outside or the swipe back, does not send a name that has just failed
+  again: on a touch screen every later tap, the close of the error toast too,
+  sent it once more and showed the same error. Enter sends it again. An Enter
+  that ends the composition of an input method saves nothing
+  ([quirks](../quirks.md#browsers)). Every rename is a session of its own, and
+  a save closes only its own field: a slow save that answers after another
+  rename has started leaves the new field open, also when the page follows the
+  renamed entry to its new address. Any other page change closes the field, so
+  a click on a link saves and goes. Move to opens a popover where the menu it
+  was picked from was, on the side of the screen the menu sat on, as Notion
+  does; a dialog in the middle of the screen took the eye away from the row or
+  the page being moved. On a phone it fills the screen. It holds a search field
+  over the folders of the space, the space itself first: empty, it shows them
+  as a tree with every folder folded, the one the entry is in too, a chevron or
+  the right and left arrows unfold and fold a folder, a click on the chevron
+  leaving the focus in the search field for the arrows and Enter, and typed,
+  the folders whose name matches, each with the folder it sits in. The whole
+  tree open was a long list to scroll through in a real space. The folder the
+  entry is in now is marked Current and cannot be picked, a folder being moved
+  leaves itself and everything inside it out of the list, and the foot shows
+  the path the entry will get, or that the folder already holds that name,
+  which is then not moved to. That check knows only the names the tree shows: a
+  symlink or a file an exclude glob hides, under the same name, is found only
+  by the server, and the toast of the failed move says so. Up and down pick,
+  Enter or a click on the row moves, through the same path a drag takes, and
+  the page follows an entry that was on screen. The arrows stop on the Current
+  folder too, so the right arrow unfolds it to reach the folders inside, but
+  Enter there moves nothing.
 - The toast of a move, by Move to or a drag, carries Undo for 6 seconds, which
   moves the entries back the same way and takes the page back with them. The
   move is made at once and Undo is a second move, as Notion and Finder do it,

@@ -1,7 +1,8 @@
 # 22. Names show their extension, and a rename happens in place
 
 Status: accepted. Where it applies: [entries](../ui/entries.md),
-[sidebar](../ui/sidebar.md), [pages](../ui/pages.md).
+[sidebar](../ui/sidebar.md), [pages](../ui/pages.md), [phone](../ui/phone.md),
+[touch](../ui/touch.md), [site](../design/site.md).
 
 ## Context
 
@@ -24,7 +25,8 @@ into a field, everywhere else a modal dialog covered the page and the row.
   click or a tap outside saves, Escape cancels on a desktop, and a ✕ inside the
   field cancels on a touch screen.
 - Extensions are never hidden: every place shows a note as `guide.md`, with no
-  other color for the extension.
+  other color for the extension. A site shows it the same way, its tree and its
+  path too.
 - The field shows the whole name. Nothing is selected, and the cursor stands
   before the last dot, or at the end of a name without one.
 - A rename does not guess: the new name is what was typed, only the spaces
@@ -42,3 +44,6 @@ into a field, everywhere else a modal dialog covered the page and the row.
 - Rename a page's file in the tree: the tree can be hidden, and it takes the
   eye away from the page.
 - Rename by editing the page's `h1`: the title is content, not the file name.
+- Keep hiding `.md` in a site through a platform flag: a site runs the app's
+  reader ([ADR 15](0015-site-runs-the-app-reader.md)), and two rules for one
+  reader drift.

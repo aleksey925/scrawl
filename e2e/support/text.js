@@ -22,6 +22,7 @@ module.exports = {
         moved: 'Moved',
         movedMany: 'Moved 2 items',
         renamed: 'Renamed',
+        notNoteNow: 'It is not a note now, so the tree does not show it',
         deleted: 'Deleted',
         notDeleted: 'Nothing was deleted',
         imageUploaded: 'Image uploaded',
@@ -33,6 +34,8 @@ module.exports = {
     pageExists: 'That file already exists',
     folderExists: 'That folder already exists',
     renameSlash: 'A name cannot hold a slash, use Move to instead',
+    renameFailed: 'Nothing was renamed',
+    nameTaken: 'Something of that name is already there',
 
     doc: {
         missing: 'This note does not exist yet.',

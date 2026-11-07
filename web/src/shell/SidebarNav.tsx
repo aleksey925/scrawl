@@ -293,7 +293,6 @@ function DraftRow({ depth }: { depth: number }): JSX.Element {
       <IconBox>{isFile ? <IconFile size={treeIconSize} /> : <IconFolder size={treeIconSize} />}</IconBox>
       <NameField
         initial=""
-        isDir={!isFile}
         testId="tree-draft"
         className={treeClasses.field}
         placeholder={isFile ? 'File name' : 'Folder name'}

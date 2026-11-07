@@ -13,6 +13,9 @@ words; the fact itself is written here.
   never zooms back. [Touch](ui/touch.md)
 - `:active` is drawn only when the document has a `touchstart` listener.
   [Touch](ui/touch.md)
+- The keyboard opens only for a focus made while a tap is handled, so a field
+  that takes the focus a frame later shows focused with no keyboard. Not yet
+  checked on a real iPhone here. [Touch](ui/touch.md)
 - `select()` is ignored on the hidden `readonly` textarea a copy uses, so the
   text is also picked with `setSelectionRange`. [Frontend](design/frontend.md)
 - Safari draws the page gone back to under its own swipe back, and a tab of
@@ -37,12 +40,19 @@ words; the fact itself is written here.
 - The click a browser sends after a touch end lands on what is under the finger
   by then, so when the touch end closed a menu, the click goes to what the menu
   covered. [Editor](ui/editor.md)
+- A finger that only starts a scroll sends `pointerdown` too, so only the
+  `click` after it tells a tap. [Touch](ui/touch.md)
+- A tap on text that takes no focus may leave a field focused, with no blur.
+  Chromium blurs the field there; a real iPhone has not been checked here yet.
+  [Touch](ui/touch.md)
 
 ## Browsers
 
 - A plain http page that is not localhost has no clipboard api.
   [Frontend](design/frontend.md)
 - A page cannot read a drag's data during `dragover`. [Entries](ui/entries.md)
+- Safari sends the Enter that ends the composition of an input method with
+  `isComposing` false and `keyCode` 229. [Entries](ui/entries.md)
 - A field the browser filled in, a saved password say, gets the browser's own
   background with `!important`: yellow in Safari, blue in Chromium. Only an
   inset shadow over it and a long delay on `background-color` keep the field's

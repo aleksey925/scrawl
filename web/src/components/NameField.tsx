@@ -100,8 +100,16 @@ export function NameField({
     commit();
   };
 
-  const leaveRef = useRef(leave);
-  leaveRef.current = leave;
+  const leaveOrClose = (): void => {
+    if (name === state.current.failed) {
+      cancel();
+      return;
+    }
+    leave();
+  };
+
+  const leaveRef = useRef(leaveOrClose);
+  leaveRef.current = leaveOrClose;
   useOutsideTap(boxRef, leave);
 
   useEffect(() => {

@@ -710,6 +710,42 @@ test.describe('mobile', () => {
             expect([note, renamed].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([false, true]);
         });
 
+        test('after a failed save in the rename popover of a page a tap beside it closes the field and frees the page', async ({page}) => {
+            // arrange
+            const note = 'e2e-mobile/tablet/popover-fail.md';
+            const taken = 'e2e-mobile/tablet/popover-taken.md';
+            writeFixture(note, '# Popover fail\n');
+            writeFixture(taken, '# Taken\n');
+            await page.goto(MAIN.url.doc(note));
+            const input = page.getByTestId('page-rename-input');
+            const space = page.getByTestId('topbar-crumbs').getByTestId('crumb').first();
+            const moves = recordMoves(page);
+            const tapSpace = async () => {
+                const box = await space.boundingBox();
+                await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+            };
+            await page.getByTestId('note-menu').tap();
+            await openedMenu(page, 'note-menu-dropdown');
+            await page.getByTestId('note-menu-rename').tap();
+            await expect(input).toBeFocused();
+            await input.fill(nameOf(taken));
+            await tapSpace();
+            await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.nameTaken);
+            await expect(input).toHaveValue(nameOf(taken));
+
+            // act
+            await tapSpace();
+
+            // assert
+            await expect(page.getByTestId('page-rename')).toHaveCount(0);
+            await expect(page.getByTestId('tap-guard')).toHaveCount(0);
+            await expect(page).toHaveURL(MAIN.url.doc(note));
+            await tapSpace();
+            await expect(page).toHaveURL(atHome());
+            expect(moves).toEqual([{from: note, to: taken}]);
+            expect([note, taken].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([true, true]);
+        });
+
         test('a tap outside the new row of a folder list keeps a typed name, as a click does', async ({page}) => {
             // arrange
             const folder = 'e2e-mobile/tablet/draft';

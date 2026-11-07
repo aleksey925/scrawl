@@ -1,6 +1,6 @@
 import {
-  useCallback, useEffect, useRef, useState,
-  type JSX, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactElement, type ReactNode,
+  useCallback, useRef, useState,
+  type JSX, type MouseEvent, type PointerEvent, type ReactElement, type ReactNode,
 } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -9,6 +9,7 @@ import { IconArrowUp, IconChevronRight, IconClock, IconFile, IconFileText, IconF
 import { directoryUrl, isMarkdown } from '../paths';
 import { usePlatform } from '../platform';
 import { useReaderExtensions } from '../shell/extensions';
+import { useRenamingHere, type Renaming } from '../shell/fileActionsContext';
 import { parentOf } from '../shell/naming';
 import { SyncBadge } from '../shell/SyncBadge';
 import { useLongPress } from '../shell/useLongPress';
@@ -17,8 +18,10 @@ import { layout, layoutBreakpoints, useBelow } from '../theme';
 import classes from './DirTable.module.css';
 import { EntryIcon } from './EntryIcon';
 import { LiftedRow } from './LiftedRow';
+import { NameField } from './NameField';
 import { usePointerMenu } from './pointerMenu';
 import pressClasses from './PressRow.module.css';
+import { RenameField } from './RenameField';
 import { absoluteTime, countOf, fileSize, shortDate, shortTime } from './formats';
 
 export interface DirTableProps {
@@ -57,41 +60,15 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
   };
 
   const row = (entry: DirEntry): JSX.Element => (
-    <tr
+    <TableRow
       key={entry.path}
-      data-testid="dir-row"
-      data-path={entry.path}
-      data-dir={entry.is_dir ? 'true' : 'false'}
-      data-menu={menu.opened && menu.target?.path === entry.path ? 'true' : 'false'}
-      className={classes.row}
-      onClick={(event) => opensRow(event) && open(entry)}
-      onContextMenu={RowMenu === undefined ? undefined : (event) => menu.open(event, entry)}
-    >
-      <td className={classes.name}>
-        <span>
-          {entry.is_dir ? (
-            <IconFolder size={layout.iconSizeSmall} aria-hidden />
-          ) : (
-            <EntryIcon name={entry.name} size={layout.iconSizeSmall} />
-          )}
-          {routed(entry) ? (
-            <Link data-testid="dir-row-name" to={entry.url} className={classes.link}>
-              {entry.is_dir ? `${entry.name}/` : entry.name}
-            </Link>
-          ) : (
-            <a data-testid="dir-row-name" href={physicalUrl(entry.url)} className={classes.link}>
-              {entry.name}
-            </a>
-          )}
-          <RowTags entry={entry} />
-        </span>
-      </td>
-      <td>{entry.is_dir ? <span className={classes.dim}>-</span> : fileSize(entry.size)}</td>
-      <td title={absoluteTime(entry.mod_time)}>
-        {shortTime(entry.mod_time)}
-      </td>
-      <td className={classes.fill} />
-    </tr>
+      entry={entry}
+      routed={routed(entry)}
+      href={physicalUrl(entry.url)}
+      menuOpen={menu.opened && menu.target?.path === entry.path}
+      onOpen={() => open(entry)}
+      onMenu={RowMenu === undefined ? undefined : (event) => menu.open(event, entry)}
+    />
   );
 
   if (phone) {
@@ -180,6 +157,79 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
   );
 }
 
+function EntryGlyph({ entry, size, className }: { entry: DirEntry; size: number; className?: string }): JSX.Element {
+  return entry.is_dir ? (
+    <IconFolder size={size} aria-hidden className={className} />
+  ) : (
+    <EntryIcon name={entry.name} size={size} className={className} />
+  );
+}
+
+interface TableRowProps {
+  entry: DirEntry;
+  routed: boolean;
+  href: string;
+  menuOpen: boolean;
+  onOpen: () => void;
+  onMenu: ((event: MouseEvent) => void) | undefined;
+}
+
+function TableRow({ entry, routed, href, menuOpen, onOpen, onMenu }: TableRowProps): JSX.Element {
+  const renaming = useRenamingHere('list', entry.path);
+  const cells = (
+    <>
+      <td>{entry.is_dir ? <span className={classes.dim}>-</span> : fileSize(entry.size)}</td>
+      <td title={absoluteTime(entry.mod_time)}>
+        {shortTime(entry.mod_time)}
+      </td>
+      <td className={classes.fill} />
+    </>
+  );
+
+  if (renaming !== undefined) {
+    return (
+      <tr data-testid="dir-row" data-path={entry.path} data-dir={entry.is_dir ? 'true' : 'false'} className={classes.draft}>
+        <td className={classes.name}>
+          <span>
+            <EntryGlyph entry={entry} size={layout.iconSizeSmall} />
+            <RenameField session={renaming} testId="dir-rename" className={classes.field} />
+          </span>
+        </td>
+        {cells}
+      </tr>
+    );
+  }
+
+  return (
+    <tr
+      data-testid="dir-row"
+      data-path={entry.path}
+      data-dir={entry.is_dir ? 'true' : 'false'}
+      data-menu={menuOpen ? 'true' : 'false'}
+      className={classes.row}
+      onClick={(event) => opensRow(event) && onOpen()}
+      onContextMenu={onMenu}
+    >
+      <td className={classes.name}>
+        <span>
+          <EntryGlyph entry={entry} size={layout.iconSizeSmall} />
+          {routed ? (
+            <Link data-testid="dir-row-name" to={entry.url} className={classes.link}>
+              {entry.is_dir ? `${entry.name}/` : entry.name}
+            </Link>
+          ) : (
+            <a data-testid="dir-row-name" href={href} className={classes.link}>
+              {entry.name}
+            </a>
+          )}
+          <RowTags entry={entry} />
+        </span>
+      </td>
+      {cells}
+    </tr>
+  );
+}
+
 function RowTags({ entry }: { entry: DirEntry }): JSX.Element {
   return (
     <>
@@ -211,14 +261,30 @@ interface PhoneRowProps {
 }
 
 function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
+  const renaming = useRenamingHere('list', entry.path);
+  return renaming === undefined ? (
+    <PhoneLinkRow entry={entry} routed={routed} href={href} />
+  ) : (
+    <PhoneRenameRow entry={entry} session={renaming} />
+  );
+}
+
+function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming }): JSX.Element {
+  return (
+    <div data-testid="dir-row" data-path={entry.path} data-dir={entry.is_dir ? 'true' : 'false'} className={classes.listRow}>
+      <div className={classes.listLink}>
+        <EntryGlyph entry={entry} size={layout.iconSize} className={classes.listIcon} />
+        <RenameField session={session} testId="dir-rename" className={classes.listField} />
+      </div>
+    </div>
+  );
+}
+
+function PhoneLinkRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
   const meta = entry.is_dir ? countOf(entry.items ?? 0, 'item') : `${fileSize(entry.size)} · ${shortDate(entry.mod_time)}`;
   const body = (
     <>
-      {entry.is_dir ? (
-        <IconFolder size={layout.iconSize} aria-hidden className={classes.listIcon} />
-      ) : (
-        <EntryIcon name={entry.name} size={layout.iconSize} className={classes.listIcon} />
-      )}
+      <EntryGlyph entry={entry} size={layout.iconSize} className={classes.listIcon} />
       <span className={classes.listText}>
         <span className={classes.listName}>
           <span data-testid="dir-row-name" className={classes.listLabel}>
@@ -313,53 +379,21 @@ interface DraftRowProps {
 }
 
 function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
-  const [name, setName] = useState('');
-  const [busy, setBusy] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => inputRef.current?.focus(), []);
-
-  const commit = (): void => {
-    if (busy) {
-      return;
-    }
-    if (name.trim() === '') {
-      onCancel();
-      return;
-    }
-    setBusy(true);
-    void onSubmit(name).then(() => setBusy(false));
-  };
-
   return (
     <tr data-testid="dir-draft" data-entry={kind} className={classes.draft}>
       <td className={classes.name}>
         <span>
           {kind === 'file' ? <IconFileText size={layout.iconSizeSmall} aria-hidden /> : <IconFolder size={layout.iconSizeSmall} aria-hidden />}
-          <input
-            data-testid="dir-draft-input"
-            ref={inputRef}
-            className={classes.draftInput}
-            value={name}
-            disabled={busy}
+          <NameField
+            initial=""
+            isDir={kind === 'dir'}
+            testId="dir-draft"
+            className={classes.field}
             placeholder={kind === 'file' ? 'File name' : 'Folder name'}
-            aria-label={kind === 'file' ? 'Name of the new file' : 'Name of the new folder'}
-            autoComplete="off"
-            spellCheck={false}
-            onChange={(event) => setName(event.currentTarget.value)}
-            onBlur={() => name.trim() === '' && !busy && onCancel()}
-            onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-              event.stopPropagation();
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                commit();
-                return;
-              }
-              if (event.key === 'Escape') {
-                event.preventDefault();
-                onCancel();
-              }
-            }}
+            label={kind === 'file' ? 'Name of the new file' : 'Name of the new folder'}
+            keepOnBlur
+            onSubmit={onSubmit}
+            onCancel={onCancel}
           />
         </span>
       </td>

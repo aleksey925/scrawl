@@ -5,8 +5,11 @@ The tree, its head and its foot.
 - The sidebar tree lists every folder, empty ones included, and of the files
   only the markdown. A folder is where a page is created, renamed and deleted,
   so it has to be on the tree before it holds anything. Other files are rows of
-  the folder's list and open in the app. A note is named on the tree without
-  `.md`, the way Notion names a page.
+  the folder's list and open in the app. A note is named on the tree by its
+  file name, `.md` included, as the folder's list, the path, the toasts and
+  Move to name it: a hidden `.md` made a rename guess the extension back
+  ([ADR 22](../adr/0022-names-show-their-extension.md)). The filter matches
+  that name, so `md` matches every note.
 - The sidebar can be put away and the choice is kept. On a desktop it is a
   240px rail the full height of the screen that stays where it was put: the
   sidebar icon at the left of its head hides it, the menu icon the topbar shows

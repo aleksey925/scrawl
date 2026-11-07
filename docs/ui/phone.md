@@ -26,6 +26,15 @@ How the app works on a phone.
   A desktop keeps mantine's place near the top, where the search, a dialog too,
   belongs. One rule in the theme does it for every `Modal`, the confirms
   included.
+- A rename on a phone opens no dialog, as on a desktop: in a folder's list the
+  row's name turns into a field, and on an opened page the field takes the
+  place of the title in the bar on top, the way back and the actions gone from
+  the bar until it is done. The New file dialog stays, since a new entry has no
+  row yet. Done on the keyboard saves (`enterkeyhint="done"`), a tap outside
+  the field saves, and a ✕ at the end of the field cancels, as a phone has no
+  Escape. A rename started from a lifted row sets the card down at once and not
+  after its drop: the card's layer covers the screen and took the first tap
+  meant for the new field.
 - A toast on a phone is the pill an app drops from the top for a word or two:
   dark, centred under the status bar, as wide as its words, with a check or a
   warning sign and no close button, coming down and fading in and gone after
@@ -75,6 +84,9 @@ How the app works on a phone.
   drag; one that goes up or down is the scroll. The dragged page is a layer of
   its own, or WebKit paints a long note again on every move. Let go, the page
   goes on at the finger's speed, and a finger drawn back toward the edge as it
-  lifts keeps the page. A screen still loading shows its spinner only after
-  400ms: one that came up the moment the swiped page was gone read as the page
-  jerking.
+  lifts keeps the page. The swipe saves a rename field before it goes back,
+  since it blurs nothing, and the field would have gone without saving. The
+  back button, Android's back gesture and the swipe of a Safari tab change the
+  page without the app's swipe, and a field left open then is dropped. A screen
+  still loading shows its spinner only after 400ms: one that came up the moment
+  the swiped page was gone read as the page jerking.

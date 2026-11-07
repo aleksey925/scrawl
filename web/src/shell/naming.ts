@@ -1,5 +1,3 @@
-import { isMarkdown } from '../paths';
-
 export function joinPath(folder: string, name: string): string {
   return folder === '' ? name : `${folder.replace(/\/+$/, '')}/${name}`;
 }
@@ -33,20 +31,20 @@ export function folderFor(path: string, isDir: boolean): string {
   return isDir ? path : parentOf(path);
 }
 
-export function pageName(name: string, isDir: boolean): string {
-  return isDir ? name : name.replace(/\.md$/i, '');
-}
-
 export function hasOwnExtension(name: string): boolean {
   return /^[^.].*\.[a-z][a-z0-9]{0,15}$/i.test(basenameOf(name.trim()));
 }
 
 export function renamedPath(path: string, name: string): string {
+  const current = basenameOf(path);
   const typed = name.trim();
-  const initial = pageName(basenameOf(path), false);
-  if (name === initial || typed === initial) {
+  if (name === current || typed === current) {
     return path;
   }
-  const named = isMarkdown(path) && !hasOwnExtension(typed) ? `${typed}.md` : typed;
-  return joinPath(parentOf(path), named);
+  return joinPath(parentOf(path), typed);
+}
+
+export function caretOf(name: string, isDir: boolean): number {
+  const dot = name.lastIndexOf('.');
+  return isDir || dot <= 0 ? name.length : dot;
 }

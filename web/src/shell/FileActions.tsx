@@ -1,5 +1,5 @@
 import {
-  useCallback, useMemo, useRef, useState,
+  useCallback, useEffect, useMemo, useRef, useState,
   type JSX, type ReactNode,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router';
@@ -14,29 +14,22 @@ import { directoryUrl, documentUrl, isDirectoryPath, isMarkdown, slugPath } from
 import { layoutBreakpoints, useBelow } from '../theme';
 import { showToast, ToastLink, type ToastAction } from '../toast';
 
-import { FileActionsContext, type FileActions, type TreeDraft } from './fileActionsContext';
+import { FileActionsContext, type FileActions, type RenamePlace, type Renaming, type TreeDraft } from './fileActionsContext';
 import { MoveDialog } from './MoveDialog';
 import { useReaderLayout } from './ReaderLayout';
-import { nodeAt } from './treeFilter';
 import { spaceLabel, useNav } from './NavContext';
 import { NewEntryDialog } from './NewEntryDialog';
-import { RenameDialog } from './RenameDialog';
 import { useMutationState } from './useMutationState';
-import { ancestorsOf, basenameOf, hasOwnExtension, joinPath, pageName, parentOf, renamedPath } from './naming';
+import { ancestorsOf, basenameOf, hasOwnExtension, joinPath, parentOf, renamedPath } from './naming';
 
-interface Entry {
+interface MovedEntry {
   path: string;
-  isDir: boolean;
-}
-
-interface MovedEntry extends Entry {
   anchor: DOMRect;
 }
 
 interface Relocation {
   from: string;
   to: string;
-  isDir: boolean;
 }
 
 type Stamps = Map<string, string>;
@@ -53,15 +46,20 @@ const failedMoveWords = {
   back: { partly: 'Some of it did not move back', none: 'Nothing was moved back' },
 };
 
-function quoted(path: string, isDir: boolean, spaceName: string): string {
-  return `"${path === '' ? spaceName : pageName(basenameOf(path), isDir)}"`;
+function quoted(path: string, spaceName: string): string {
+  return `"${path === '' ? spaceName : basenameOf(path)}"`;
+}
+
+function renamedMessage(from: string, to: string, isDir: boolean, spaceName: string): string {
+  const message = `Renamed ${quoted(from, spaceName)} to ${quoted(to, spaceName)}`;
+  return !isDir && isMarkdown(from) && !isMarkdown(to) ? `${message}. It is not a note now, so the tree does not show it` : message;
 }
 
 function movedMessage(
   done: readonly Relocation[], back: boolean, spaceName: string, visit: (folder: string) => void,
 ): ReactNode {
   const [first] = done;
-  const what = done.length === 1 && first !== undefined ? quoted(first.to, first.isDir, spaceName) : `${done.length} items`;
+  const what = done.length === 1 && first !== undefined ? quoted(first.to, spaceName) : `${done.length} items`;
   const [folder, ...others] = new Set(done.map((pair) => parentOf(pair.to)));
   return (
     <>
@@ -70,7 +68,7 @@ function movedMessage(
       {folder !== undefined && others.length === 0 && (
         <>
           {' to '}
-          <ToastLink onClick={() => visit(folder)}>{quoted(folder, true, spaceName)}</ToastLink>
+          <ToastLink onClick={() => visit(folder)}>{quoted(folder, spaceName)}</ToastLink>
         </>
       )}
     </>
@@ -190,15 +188,16 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const space = spaceLabel(me);
   const shown = useRef({ path: currentPath, onFolder, route: location.pathname + location.search });
   shown.current = { path: currentPath, onFolder, route: location.pathname + location.search };
-  const [renaming, setRenaming] = useState<Entry | undefined>(undefined);
-  const [treeRenaming, setTreeRenaming] = useState<string | undefined>(undefined);
+  const [renaming, setRenaming] = useState<Renaming | undefined>(undefined);
+  const renameSessions = useRef(0);
+  const renameCommit = useRef<(() => void) | undefined>(undefined);
   const [moving, setMoving] = useState<MovedEntry | undefined>(undefined);
   const [draft, setDraft] = useState<TreeDraft | undefined>(undefined);
   const phone = useBelow(layoutBreakpoints.phone);
   const [naming, setNaming] = useState<TreeDraft | undefined>(undefined);
   const undoable = useRef(new Set<UndoMark>());
-  const treeNow = useRef(tree);
-  treeNow.current = tree;
+
+  useEffect(() => setRenaming(undefined), [location.pathname]);
 
   const touch = useCallback((paths: readonly string[], keep?: UndoMark) => {
     for (const mark of undoable.current) {
@@ -210,7 +209,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const copyLink = useCallback(async (path: string, isDir: boolean): Promise<void> => {
     if (await copyText(appUrl(path, isDir))) {
-      showToast('ok', { message: `Copied the link to ${quoted(path, isDir, space)}` });
+      showToast('ok', { message: `Copied the link to ${quoted(path, space)}` });
     } else {
       showToast('error', { message: 'Could not copy the link' });
     }
@@ -222,13 +221,13 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   }, [refreshMe, refreshNav]);
 
   const undoDelete = useCallback(
-    async (deleting: Promise<DeleteResponse | undefined>, path: string, isDir: boolean, back: string | undefined): Promise<boolean> => {
+    async (deleting: Promise<DeleteResponse | undefined>, path: string, back: string | undefined): Promise<boolean> => {
       const deleted = await deleting;
       if (deleted === undefined) {
         return true;
       }
       try {
-        reportMutation(await api.restoreTrashed(deleted.trash_id), `Restored ${quoted(path, isDir, space)}`);
+        reportMutation(await api.restoreTrashed(deleted.trash_id), `Restored ${quoted(path, space)}`);
       } catch (error) {
         showToast('error', {
           title: 'Nothing was restored',
@@ -246,7 +245,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   );
 
   const remove = useCallback(
-    (path: string, isDir: boolean) => {
+    (path: string) => {
       const { path: here, route } = shown.current;
       const back = here === path || here.startsWith(`${path}/`) ? route : undefined;
       const deleting = api.deleteEntry(path).then(
@@ -262,8 +261,8 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       );
       touch([path]);
       showToast('ok', {
-        message: `Deleted ${quoted(path, isDir, space)}`,
-        action: { label: 'Undo', onClick: () => undoDelete(deleting, path, isDir, back) },
+        message: `Deleted ${quoted(path, space)}`,
+        action: { label: 'Undo', onClick: () => undoDelete(deleting, path, back) },
       });
       if (back !== undefined) {
         void navigate('/');
@@ -320,11 +319,11 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         return true;
       }
       if (isFile) {
-        reportMutation(res, `Created ${quoted(res.path, false, space)}`);
+        reportMutation(res, `Created ${quoted(res.path, space)}`);
         await navigate(documentUrl(res.path));
         return true;
       }
-      reportMutation(res, `Created folder ${quoted(res.path, true, space)}`);
+      reportMutation(res, `Created folder ${quoted(res.path, space)}`);
       openFolder(res.path);
       await navigate(directoryUrl(res.path));
       return true;
@@ -414,7 +413,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         return left;
       };
       void run(
-        paths.map((from) => ({ from, to: joinPath(folder, basenameOf(from)), isDir: nodeAt(treeNow.current, from)?.is_dir === true })),
+        paths.map((from) => ({ from, to: joinPath(folder, basenameOf(from)) })),
       );
     },
     [navigate, openFolder, refreshNav, reportMutation, space, touch],
@@ -424,6 +423,10 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
     async (path: string, isDir: boolean, name: string): Promise<boolean> => {
       if (name.includes('/')) {
         showToast('error', { title: 'Nothing was renamed', message: 'A name cannot hold a slash, use Move to instead' });
+        return false;
+      }
+      if (name.trim().startsWith('.')) {
+        showToast('error', { title: 'Nothing was renamed', message: 'A name cannot start with a dot' });
         return false;
       }
       const to = renamedPath(path, name);
@@ -441,7 +444,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         return false;
       }
       touch([path, res.path]);
-      reportMutation(res, `Renamed ${quoted(path, isDir, space)} to ${quoted(res.path, isDir, space)}`);
+      reportMutation(res, renamedMessage(path, res.path, isDir, space));
       const here = pathAfterMove(shown.current.path, path, res.path);
       if (here !== undefined) {
         await navigate(shown.current.onFolder ? directoryUrl(here) : documentUrl(here));
@@ -453,27 +456,30 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
     [navigate, refreshNav, reportMutation, space, touch],
   );
 
-  const startTreeRename = useCallback(
-    (path: string, isDir: boolean) => {
-      if (phone) {
-        setRenaming({ path, isDir });
-        return;
+  const startRename = useCallback(
+    (path: string, isDir: boolean, place: RenamePlace) => {
+      if (place === 'tree') {
+        showInTree(parentOf(path));
       }
-      showInTree(parentOf(path));
-      setTreeRenaming(path);
+      renameSessions.current += 1;
+      setRenaming({ id: renameSessions.current, path, isDir, place });
     },
-    [phone, showInTree],
+    [showInTree],
   );
+
+  const endRename = useCallback((id: number) => setRenaming((prev) => (prev?.id === id ? undefined : prev)), []);
+  const commitRename = useCallback(() => renameCommit.current?.(), []);
 
   const actions = useMemo<FileActions>(
     () => ({
       createDraft,
-      rename: (path, isDir) => setRenaming({ path, isDir }),
-      startTreeRename,
-      treeRenaming,
+      renaming,
+      startRename,
+      endRename,
+      commitRename,
+      renameCommit,
       submitRename,
-      cancelTreeRename: () => setTreeRenaming(undefined),
-      moveTo: (path, isDir, anchor) => setMoving({ path, isDir, anchor }),
+      moveTo: (path, anchor) => setMoving({ path, anchor }),
       remove,
       copyLink: (path, isDir) => void copyLink(path, isDir),
       moveInto,
@@ -482,7 +488,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       cancelDraft,
       createEntry,
     }),
-    [cancelDraft, copyLink, createDraft, createEntry, draft, moveInto, remove, startTreeRename, submitDraft, submitRename, treeRenaming],
+    [cancelDraft, commitRename, copyLink, createDraft, createEntry, draft, endRename, moveInto, remove, renaming, startRename, submitDraft, submitRename],
   );
 
   return (
@@ -491,18 +497,9 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
       {naming !== undefined && <NewEntryDialog draft={naming} onCreate={createEntry} onClose={() => setNaming(undefined)} />}
 
-      {renaming !== undefined && (
-        <RenameDialog
-          path={renaming.path}
-          onRename={(name) => submitRename(renaming.path, renaming.isDir, name)}
-          onClose={() => setRenaming(undefined)}
-        />
-      )}
-
       {moving !== undefined && (
         <MoveDialog
           path={moving.path}
-          isDir={moving.isDir}
           anchor={moving.anchor}
           tree={tree}
           spaceName={space}

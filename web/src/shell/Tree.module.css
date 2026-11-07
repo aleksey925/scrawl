@@ -96,3 +96,8 @@
     user-select: none;
   }
 }
+
+.field {
+  min-height: 24px;
+  font-size: var(--mantine-font-size-sm);
+}

@@ -15,10 +15,12 @@ Creating, naming, moving and deleting files and folders.
   new folder's name, with a line saying a name without an extension makes a
   note. A create started from a list asks the same. Every place says New file,
   the tree, the menus and the dialog, since one action makes a note or any
-  file; the editor calls a new note a note. The name field ignores a blur for a
-  moment after it appears: mantine's menu gives the focus back to its button a
-  tick after the field took it, and the field cancelled itself. The rows being
-  dragged are kept in state as well as in the drag's data, because a page
+  file; the editor calls a new note a note. A menu item that puts a field on
+  the page, New file, New folder or Rename, tells its menu not to give the
+  focus back to its button: mantine's menu does it a tick after the field took
+  the focus, and the field lost it. A timer that ignored the early blurs lost a
+  quick click outside and took the focus back from where it had gone. The rows
+  being dragged are kept in state as well as in the drag's data, because a page
   cannot read that data during `dragover`, when a folder says whether it takes
   the drop.
 - A name typed for a file is a note unless it carries an extension of its own:
@@ -27,27 +29,44 @@ Creating, naming, moving and deleting files and folders.
   `My Plan` is `My-Plan.md`: a space usually lives on a file system that tells
   the cases apart, and a name lowercased behind the person's back was not the
   name they typed. An extension is a dot and a word starting with a letter, so
-  the date or the version in a title is not one. A rename takes the same rule:
-  a note renamed to a bare title stays a note, and one renamed with an
-  extension becomes that file, which the `.md` added to every name had made
-  impossible. A name left as it was renames nothing, so a click away from the
-  field of `guide.en.md` does not read `en` as an extension and drop the `.md`,
-  and one of `guide .md` does not lose its space to the trim of a typed name.
-  The slug turns Cyrillic into Latin with the same table `store/upload.go` uses
-  for attachment names, letter for letter, a capital into a capital (`Ж` is
-  `Zh`), and no test holds the two together: a page and the pictures beside it
-  must not spell one word two ways, apart from the case, which the name of an
-  attachment drops.
-- Rename and Move to are two actions, as in Notion. A rename asks only the
-  name, a note's without `.md`, and refuses a slash: one field for the whole
-  path made every rename a possible move, and a slip in the folder part sent
-  the file away. From the sidebar the row's name turns into a field in place,
-  Enter or a click away keeps it and Escape drops it; from a page's menu, a
-  folder's list and a phone it is a small dialog with one field. Move to opens
-  a popover where the menu it was picked from was, on the side of the screen
-  the menu sat on, as Notion does; a dialog in the middle of the screen took
-  the eye away from the row or the page being moved. On a phone it fills the
-  screen. It holds a search field over the folders of the space, the space
+  the date or the version in a title is not one. A name typed with `.md` is a
+  title too, so `My Notes.md` is `My-Notes.md`. A rename does not take this
+  rule: it starts from a file name, not a title, and the new name is what was
+  typed, only the spaces around it trimmed, so `guide.en.md` stays
+  `guide.en.md` and a bare `guide` is a file without an extension
+  ([ADR 22](../adr/0022-names-show-their-extension.md)). A note renamed without
+  `.md` is not a note any more: it leaves the tree, the page follows it to the
+  view of a text file, and the toast says so. A name left as it was renames
+  nothing, so a click away from the field of `guide .md` does not lose its
+  space to the trim. A name that starts with a dot is refused with a toast, as
+  a slash is: the store hides such a name, and the server would answer only
+  that nothing is found. The slug turns Cyrillic into Latin with the same table
+  `store/upload.go` uses for attachment names, letter for letter, a capital
+  into a capital (`Ж` is `Zh`), and no test holds the two together: a page and
+  the pictures beside it must not spell one word two ways, apart from the case,
+  which the name of an attachment drops.
+- Rename and Move to are two actions, as in Notion. A rename asks only the name
+  and refuses a slash: one field for the whole path made every rename a
+  possible move, and a slip in the folder part sent the file away. A rename
+  opens no dialog, the name turns into a field where it is shown: a modal
+  dialog covered the page and the row being renamed. In the tree and in a
+  folder's list the row's name is the field, and a list row takes no click and
+  no menu while it holds it, so a click in the field does not open the row. On
+  a page, a note, a file or a folder, the field opens in a popover under the
+  last crumb of the path, as Notion does, with no backdrop and no buttons; on a
+  phone it takes the place of the title in the bar on top. The field holds the
+  whole name with its extension, nothing selected and the cursor before the
+  last dot, or at the end of a folder's name, where a dot is part of the name.
+  Enter, or Done on a phone's keyboard, saves, and so does a click or a tap
+  outside the field; Escape drops it, and on a touch screen a ✕ inside the
+  field does. A failed save keeps the field with the name typed. Every rename
+  is a session of its own, and a save closes only its own field: a slow save
+  that answers after another rename has started leaves the new field open. A
+  page change closes any field, so a click on a link saves and goes. Move to
+  opens a popover where the menu it was picked from was, on the side of the
+  screen the menu sat on, as Notion does; a dialog in the middle of the screen
+  took the eye away from the row or the page being moved. On a phone it fills
+  the screen. It holds a search field over the folders of the space, the space
   itself first: empty, it shows them as a tree with every folder folded, the
   one the entry is in too, a chevron or the right and left arrows unfold and
   fold a folder, a click on the chevron leaving the focus in the search field
@@ -84,13 +103,13 @@ Creating, naming, moving and deleting files and folders.
   folder put at its place outside the tab is not found. When a read fails, Undo
   goes on without this check. Undo is forgotten once its toast closes.
 - The toast of a create, a rename, a move, a delete and a copied link names the
-  entry, by its title as the tree shows it, and the folder it went to:
-  `Moved "guide" to "db"`, `Renamed "a" to "b"`. A bare Moved or Deleted did
-  not say what had moved or gone, and an Undo beside it did not say what it
-  would undo. The space itself is named by its name. The folder in the toast of
-  a move is a link that opens it, drawn as underlined text and not as a button,
-  so it does not look like Undo beside it; a slip onto it only opens a folder,
-  and the toast stays with its Undo.
+  entry by its file name, as every place shows it, and the folder it went to:
+  `Moved "guide.md" to "db"`, `Renamed "a.md" to "b.md"`. A bare Moved or
+  Deleted did not say what had moved or gone, and an Undo beside it did not say
+  what it would undo. The space itself is named by its name. The folder in the
+  toast of a move is a link that opens it, drawn as underlined text and not as
+  a button, so it does not look like Undo beside it; a slip onto it only opens
+  a folder, and the toast stays with its Undo.
 - Delete asks nothing: the entry goes at once, a folder with everything in it,
   and the toast carries Undo, which puts it back where it was and takes the
   page back to it if it was open, as Notion does. A dialog before every delete

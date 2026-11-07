@@ -2,12 +2,13 @@ import { createContext, useContext, useEffect, useMemo, useState, type JSX, type
 import { useLocation } from 'react-router';
 
 import type { Crumb } from '../api/types';
-import { directoryUrl, isDirectoryPath } from '../paths';
+import { directoryUrl } from '../paths';
 
-import { ancestorsOf, basenameOf, contentPathOf, pageName } from './naming';
+import { ancestorsOf, basenameOf, contentPathOf } from './naming';
 
 export interface PageChrome {
   crumbs: readonly Crumb[];
+  name: string;
   title: string;
   ownTitle: boolean;
 }
@@ -29,23 +30,23 @@ function usePageChromeValue(): PageChrome | undefined {
   return useContext(PageChromeContext)?.chrome;
 }
 
-export function chromeOf(breadcrumbs: readonly Crumb[], title: string, ownTitle: boolean): PageChrome {
-  return { crumbs: breadcrumbs.slice(1, -1), title, ownTitle };
+export function chromeOf(breadcrumbs: readonly Crumb[], title: string, ownTitle: boolean, name = title): PageChrome {
+  return { crumbs: breadcrumbs.slice(1, -1), name, title, ownTitle };
 }
 
-export function usePageChrome({ crumbs, title, ownTitle }: PageChrome): void {
+export function usePageChrome({ crumbs, name, title, ownTitle }: PageChrome): void {
   const setChrome = useContext(PageChromeContext)?.setChrome;
   const crumbsKey = crumbs.map((step) => `${step.url}\n${step.name}`).join('\n');
   useEffect(() => {
-    setChrome?.({ crumbs, title, ownTitle });
-  }, [crumbsKey, title, ownTitle, setChrome]);
+    setChrome?.({ crumbs, name, title, ownTitle });
+  }, [crumbsKey, name, title, ownTitle, setChrome]);
 }
 
 function chromeFromRoute(pathname: string): PageChrome {
   const ancestors = ancestorsOf(contentPathOf(pathname));
   const crumbs = ancestors.slice(1, -1).map((folder) => ({ name: basenameOf(folder), url: directoryUrl(folder) }));
   const last = basenameOf(ancestors[ancestors.length - 1] ?? '');
-  return { crumbs, title: pageName(last, isDirectoryPath(pathname)), ownTitle: false };
+  return { crumbs, name: last, title: last, ownTitle: false };
 }
 
 export function RouteChrome(): null {

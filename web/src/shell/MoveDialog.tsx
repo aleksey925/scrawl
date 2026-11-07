@@ -10,7 +10,7 @@ import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import moveClasses from './MoveDialog.module.css';
 import picker from './Picker.module.css';
-import { basenameOf, joinPath, pageName, parentOf } from './naming';
+import { basenameOf, joinPath, parentOf } from './naming';
 import { useFullScreenStyle } from './useVisibleArea';
 
 interface Place {
@@ -23,7 +23,6 @@ interface Place {
 
 const indentStep = 16;
 const rowStart = 6;
-const popoverWidth = 320;
 
 function namesOf(nodes: readonly NavNode[]): ReadonlySet<string> {
   return new Set(nodes.map((node) => node.name));
@@ -53,7 +52,6 @@ function placesOf(tree: readonly NavNode[], spaceName: string, moved: string, is
 
 export interface MoveDialogProps {
   path: string;
-  isDir: boolean;
   anchor: DOMRect;
   tree: readonly NavNode[];
   spaceName: string;
@@ -87,7 +85,7 @@ function MovePopover(props: MoveDialogProps): JSX.Element {
         onDismiss={onClose}
         position={anchor.left + anchor.width / 2 > window.innerWidth / 2 ? 'bottom-end' : 'bottom-start'}
         offset={-anchor.height}
-        width={popoverWidth}
+        width={layout.popoverWidth}
         middlewares={{ flip: true, shift: { padding: 8 } }}
         floatingStrategy="fixed"
         withinPortal={false}
@@ -112,7 +110,7 @@ function MovePopover(props: MoveDialogProps): JSX.Element {
 }
 
 function MovePicker({
-  path, isDir, tree, spaceName, onMove, onClose, phone,
+  path, tree, spaceName, onMove, onClose, phone,
 }: MoveDialogProps & { phone: boolean }): JSX.Element {
   const [text, setText] = useState('');
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -177,8 +175,6 @@ function MovePicker({
     }
   };
 
-  const title = pageName(name, isDir);
-
   return (
     <>
       <div className={phone ? picker.inputRow : moveClasses.search}>
@@ -189,8 +185,8 @@ function MovePicker({
             className={phone ? picker.input : moveClasses.input}
             value={text}
             autoFocus
-            placeholder={`Move ${title} to…`}
-            aria-label={`Move ${title} to a folder`}
+            placeholder={`Move ${name} to…`}
+            aria-label={`Move ${name} to a folder`}
             autoComplete="off"
             spellCheck={false}
             onChange={(event) => setText(event.currentTarget.value)}
@@ -269,7 +265,7 @@ function MovePicker({
 
       <div data-testid="move-preview" className={picker.footer}>
         {picked === undefined || picked.path === here ? (
-          <span>Pick a folder to move {title} into</span>
+          <span>Pick a folder to move {name} into</span>
         ) : picked.holds.has(name) ? (
           <span data-testid="move-taken" className={moveClasses.taken}>
             {picked.name} already holds {name}

@@ -5,7 +5,7 @@ import type { FilePageResponse } from '../api/types';
 import { EmptyState } from '../components/EmptyState';
 import { absoluteTime, fileSize, shortTime } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
-import { menuRectOf, PopupMenu } from '../components/PopupMenu';
+import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
 import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconMoveTo, IconTrash } from '../icons';
 import { usePlatform } from '../platform';
 import { useDocumentControls } from '../reader/useDocumentControls';
@@ -173,17 +173,17 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
           </Menu.Item>
           {canWrite && (
             <>
-              <Menu.Item
+              <FieldMenuItem
                 data-testid="file-menu-rename"
                 leftSection={<IconEdit size={layout.iconSizeSmall} />}
-                onClick={() => actions.rename(file.path, false)}
+                onClick={() => actions.startRename(file.path, false, 'page')}
               >
                 Rename
-              </Menu.Item>
+              </FieldMenuItem>
               <Menu.Item
                 data-testid="file-menu-move"
                 leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
-                onClick={(event) => actions.moveTo(file.path, false, menuRectOf(event.currentTarget))}
+                onClick={(event) => actions.moveTo(file.path, menuRectOf(event.currentTarget))}
               >
                 Move to
               </Menu.Item>
@@ -192,7 +192,7 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
                 data-testid="file-menu-delete"
                 color="red"
                 leftSection={<IconTrash size={layout.iconSizeSmall} />}
-                onClick={() => actions.remove(file.path, false)}
+                onClick={() => actions.remove(file.path)}
               >
                 Delete
               </Menu.Item>

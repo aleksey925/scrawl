@@ -1061,14 +1061,14 @@ test.describe('reading', () => {
         await expect.poll(() => width(doc)).toBe(720);
     });
 
-    test('the topbar names the note by its title and a folder by its name', async ({page}) => {
+    test('the topbar names the note by its file name and a folder by its name', async ({page}) => {
         // arrange
         const crumbs = page.getByTestId('topbar-crumbs').getByTestId('crumb');
 
         // act & assert
         await page.goto(routes.doc(docs.deep.path));
         await expect(crumbs).toContainText(docs.deep.crumbs);
-        await expect(crumbs.last()).toHaveText(docs.deep.title);
+        await expect(crumbs.last()).toHaveText(docs.deep.path.split('/').pop());
 
         await page.goto(routes.dir(DOC.folder));
         await expect(crumbs.last()).toHaveText(DOC.folder);
@@ -1093,7 +1093,7 @@ test.describe('reading', () => {
         await page.goto(routes.doc(docs.missing));
 
         // act & assert
-        await expect(page.getByTestId('doc-missing-title')).toHaveText(docs.missing.split('/').pop().replace(/\.md$/, ''));
+        await expect(page.getByTestId('doc-missing-title')).toHaveText(docs.missing.split('/').pop());
         await expect(page.getByTestId('doc-create')).toBeVisible();
         await expect(page.getByTestId('doc-missing-folder')).toHaveAttribute('href', new RegExp(`/doc/${DOC.folder}/$`));
         await page.keyboard.press('Enter');

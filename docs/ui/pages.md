@@ -18,49 +18,57 @@ opens over them.
   has no reading line to keep short and long names need the room. The page's
   left edge moves between a note and a folder, and that is accepted.
 - The topbar heads the page's column: the path at its left, the space first and
-  the page's own title last, and the page's actions at its right. The path
-  comes from the page's own answer through one page chrome context, never from
-  the URL alone, because only the answer knows a note's title. The topbar stays
-  at the top while the note scrolls, and beside the sidebar the page has no
-  rubber band at its ends, which pulled the note away from the fixed sidebar; a
-  phone has no sidebar and keeps the rubber band its own apps end a scroll
-  with. The reader's top edge, where a heading lands and where the editor takes
-  its position from, is the bottom of the topbar. History is among the actions
-  only where the space records versions. A folder is always its list, the root
-  included: a Notion database of Name, Size and Modified led by a `..` row, and
-  a click anywhere on a row opens it. A right click on a row opens the menu the
-  tree row has, at the pointer as a desktop has it, over the row's name and its
-  selected text too, as a tree row does. It leaves out New file and New folder:
-  from a row they named the entry in the tree, away from the list. On the free
-  space of the page a right click opens a menu of New file and New folder,
-  which name the entry in a row of the table; there a link, a button and
-  selected text keep the browser's own menu, so text is still copied from
-  there. The free space is the page, which grows to the bottom of the window. A
-  row keeps the hover gray while its menu is up. New, a file or a folder, is a
-  large main button at the right of the folder's title, where Notion puts New
-  page. The table is Notion's too: its one view a gray pill with no line under
-  it, no line between the columns, which read as a spreadsheet, and columns of
-  their own width, the name 530px and the others 150px, as a file name carries
-  its extension, with an empty one at the end taking the rest and the row lines
-  running across it, so a date is not a screen away from its name. Every column
-  starts at its left edge, the size too: a size against its right edge stood
-  against the date and the two read as one column. On a narrow page the name
-  gives way. A column's header is gray text of the regular weight with a filled
-  icon, as Notion heads one; 500 beside the system's own smoothing read bold,
-  and an empty folder keeps the header with its empty state under it, one plain
-  New file button. Its `index.md` is a row like any other, in its place by
-  name, with a "Folder page" tag, and no readme is shown under the list; Home
-  in the sidebar opens the root `index.md`, or the root's list when there is
-  none. A folder holding two cases of `index.md` has no folder page, and a site
-  refuses it, because both would be written to one file. A note that does not
-  exist yet is a page too, its name as a faint title and the ways on from
-  there, the first of them, create it, on Enter. On a phone the bar on top
-  holds `‹` with the folder above, the title once the page's own has scrolled
-  under the bar, at once on a page that has none of its own, and the page's
-  `⋯`. The root has no way up, and the app's logo and the space's name stand
-  there instead. Every screen has the bar as a row of its own and its title on
-  one line under it: a root drawn another way made the page jump on the way to
-  a folder. A folder there is a list and not a table: a name over one line of
+  the page's file or folder name last, `notes / deep / nested.md`, and the
+  page's actions at its right. The last crumb is the name and not a note's
+  title, so the editor shows the same crumb as the reader, and a rename's
+  popover opens under the text it edits. The path comes from the page's own
+  answer through one page chrome context, never from the URL alone, which holds
+  no title for the phone's bar. The topbar stays at the top while the note
+  scrolls, and beside the sidebar the page has no rubber band at its ends,
+  which pulled the note away from the fixed sidebar; a phone has no sidebar and
+  keeps the rubber band its own apps end a scroll with. The reader's top edge,
+  where a heading lands and where the editor takes its position from, is the
+  bottom of the topbar. History is among the actions only where the space
+  records versions. A folder is always its list, the root included: a Notion
+  database of Name, Size and Modified led by a `..` row, and a click anywhere
+  on a row opens it. A right click on a row opens the menu the tree row has, at
+  the pointer as a desktop has it, over the row's name and its selected text
+  too, as a tree row does. It leaves out New file and New folder: from a row
+  they named the entry in the tree, away from the list. On the free space of
+  the page a right click opens a menu of New file and New folder, which name
+  the entry in a row of the table; there a link, a button and selected text
+  keep the browser's own menu, so text is still copied from there. The free
+  space is the page, which grows to the bottom of the window. A row keeps the
+  hover gray while its menu is up. A rename draws the field in the name cell of
+  the row, with the ring a new row has, and the row then takes no click, no
+  right click and no hover. New, a file or a folder, is a large main button at
+  the right of the folder's title, where Notion puts New page. The table is
+  Notion's too: its one view a gray pill with no line under it, no line between
+  the columns, which read as a spreadsheet, and columns of their own width, the
+  name 530px and the others 150px, as a file name carries its extension, with
+  an empty one at the end taking the rest and the row lines running across it,
+  so a date is not a screen away from its name. Every column starts at its left
+  edge, the size too: a size against its right edge stood against the date and
+  the two read as one column. On a narrow page the name gives way. A column's
+  header is gray text of the regular weight with a filled icon, as Notion heads
+  one; 500 beside the system's own smoothing read bold, and an empty folder
+  keeps the header with its empty state under it, one plain New file button.
+  Its `index.md` is a row like any other, in its place by name, with a "Folder
+  page" tag, and no readme is shown under the list; Home in the sidebar opens
+  the root `index.md`, or the root's list when there is none. A folder holding
+  two cases of `index.md` has no folder page, and a site refuses it, because
+  both would be written to one file. A note that does not exist yet is a page
+  too, its file name as a faint title and the ways on from there, the first of
+  them, create it, on Enter. On a phone the bar on top holds `‹` with the
+  folder above, the title once the page's own has scrolled under the bar, at
+  once on a page that has none of its own, and the page's `⋯`. The title there
+  stays the note's title, since it stands for the heading that scrolled under
+  the bar. A rename of the page puts its field in the title's place across the
+  whole bar, and the way back and the actions leave the bar until it is done.
+  The root has no way up, and the app's logo and the space's name stand there
+  instead. Every screen has the bar as a row of its own and its title on one
+  line under it: a root drawn another way made the page jump on the way to a
+  folder. A folder there is a list and not a table: a name over one line of
   what it is, and no `..` row.
 
 ## Note

@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type MutableRefObject } from 'react';
 
 import type { EntryKind } from '../api/types';
 
@@ -7,15 +7,25 @@ export interface TreeDraft {
   parent: string;
 }
 
+export type RenamePlace = 'tree' | 'list' | 'page';
+
+export interface Renaming {
+  id: number;
+  path: string;
+  isDir: boolean;
+  place: RenamePlace;
+}
+
 export interface FileActions {
   createDraft: (kind: EntryKind, folder: string) => void;
-  rename: (path: string, isDir: boolean) => void;
-  startTreeRename: (path: string, isDir: boolean) => void;
-  treeRenaming: string | undefined;
+  renaming: Renaming | undefined;
+  startRename: (path: string, isDir: boolean, place: RenamePlace) => void;
+  endRename: (id: number) => void;
+  commitRename: () => void;
+  renameCommit: MutableRefObject<(() => void) | undefined>;
   submitRename: (path: string, isDir: boolean, name: string) => Promise<boolean>;
-  cancelTreeRename: () => void;
-  moveTo: (path: string, isDir: boolean, anchor: DOMRect) => void;
-  remove: (path: string, isDir: boolean) => void;
+  moveTo: (path: string, anchor: DOMRect) => void;
+  remove: (path: string) => void;
   copyLink: (path: string, isDir: boolean) => void;
   moveInto: (paths: readonly string[], folder: string) => void;
   draft: TreeDraft | undefined;
@@ -36,4 +46,9 @@ export function useFileActions(): FileActions {
 
 export function useOptionalFileActions(): FileActions | undefined {
   return useContext(FileActionsContext);
+}
+
+export function useRenamingHere(place: RenamePlace, path: string): Renaming | undefined {
+  const renaming = useOptionalFileActions()?.renaming;
+  return renaming !== undefined && renaming.place === place && renaming.path === path ? renaming : undefined;
 }

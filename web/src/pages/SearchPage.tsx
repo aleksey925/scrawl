@@ -23,7 +23,7 @@ export function Component(): JSX.Element {
   const key = searchParams.toString();
   const [opened, setOpened] = useState<{ key: string; paths: ReadonlySet<string> }>({ key, paths: noneExpanded });
   const expanded = opened.key === key ? opened.paths : noneExpanded;
-  usePageChrome({ crumbs: [], title: 'Search', ownTitle: true });
+  usePageChrome({ crumbs: [], name: 'Search', title: 'Search', ownTitle: true });
 
   const state = useApi<SearchResponse>(
     (signal) => (empty ? Promise.resolve(nothing) : api.find(wanted, settings, pageLimit, { signal })),

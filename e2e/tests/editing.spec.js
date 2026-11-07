@@ -190,13 +190,13 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    test('the topbar names the note the editor has open', async ({page}) => {
+    test('the topbar names the note the editor has open by the same file name as the reader', async ({page}) => {
         // arrange
         const docPath = scratch('editor-crumbs');
         writeFixture(docPath, '# Elsewhere\n');
         await page.goto(routes.doc(docPath));
         const crumbs = page.getByTestId('topbar-crumbs').getByTestId('crumb');
-        await expect(crumbs.last()).toHaveText('Elsewhere');
+        await expect(crumbs.last()).toHaveText('editor-crumbs.md');
 
         try {
             // act
@@ -204,7 +204,7 @@ test.describe('editing', () => {
             await expect.poll(() => sourceText(page)).toBe('# Elsewhere\n');
 
             // assert
-            await expect(crumbs.last()).toHaveText('editor-crumbs');
+            await expect(crumbs.last()).toHaveText('editor-crumbs.md');
         } finally {
             removeFixture(docPath);
         }
@@ -226,7 +226,7 @@ test.describe('editing', () => {
         await expect(page).toHaveURL(/\/edit\/e2e-scratch\/conflict-copy\.conflict-[\d-]+T[\d-]+\.md$/);
         await expect.poll(() => sourceText(page), 'the copy opens with its own text').toBe('mine to keep\n');
         await expect(page.getByTestId('topbar-crumbs').getByTestId('crumb').last())
-            .toHaveText(/^conflict-copy\.conflict-[\d-]+T[\d-]+$/);
+            .toHaveText(/^conflict-copy\.conflict-[\d-]+T[\d-]+\.md$/);
         const copyPath = decodeURIComponent(
             new URL(page.url()).pathname.replace(`${routes.edit('')}`, ''));
         expect(readFixture(copyPath)).toBe('mine to keep\n');
@@ -829,12 +829,6 @@ test.describe('editing', () => {
         // arrange
         const docPath = scratch('leave-buttons');
         writeFixture(docPath, '# Заметка\n');
-        await page.goto(routes.doc(docPath));
-        await page.getByTestId('note-menu').click();
-        await page.getByTestId('note-menu-rename').click();
-        await expect(page.getByTestId('rename-submit')).toBeVisible();
-        const rename = await dialogButtons(page, ['rename-cancel', 'rename-submit']);
-        await page.getByTestId('rename-cancel').click();
         await page.goto(routes.edit(docPath));
         await page.locator('[data-testid=editor-source] .cm-content').click();
         await page.keyboard.type('x');
@@ -845,7 +839,7 @@ test.describe('editing', () => {
         // assert
         await expect(page.getByTestId('modal-confirm')).toBeVisible();
         const leave = await dialogButtons(page, ['modal-cancel', 'modal-confirm']);
-        expect([...rename.heights, ...leave.heights]).toEqual([32, 32, 32, 32]);
+        expect(leave.heights).toEqual([32, 32]);
         expect(leave.rights[0]).toBeLessThan(leave.lefts[1]);
         expect(leave.tops[0]).toBe(leave.tops[1]);
         expect(leave.end).toBe(leave.bodyEnd);

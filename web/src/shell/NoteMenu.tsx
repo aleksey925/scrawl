@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 
 import type { DocumentResponse } from '../api/types';
 import { absoluteTime } from '../components/formats';
-import { menuRectOf, PopupMenu } from '../components/PopupMenu';
+import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
 import {
   IconDots, IconEdit, IconHistory, IconLink, IconListSearch, IconMoveTo, IconSearch, IconTrash,
 } from '../icons';
@@ -87,17 +87,17 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
         </Menu.Item>
         {canWrite && (
           <>
-            <Menu.Item
+            <FieldMenuItem
               data-testid="note-menu-rename"
               leftSection={<IconEdit size={layout.iconSizeSmall} />}
-              onClick={() => actions.rename(path, false)}
+              onClick={() => actions.startRename(path, false, 'page')}
             >
               Rename
-            </Menu.Item>
+            </FieldMenuItem>
             <Menu.Item
               data-testid="note-menu-move"
               leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
-              onClick={(event) => actions.moveTo(path, false, menuRectOf(event.currentTarget))}
+              onClick={(event) => actions.moveTo(path, menuRectOf(event.currentTarget))}
             >
               Move to
             </Menu.Item>
@@ -106,7 +106,7 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
               data-testid="note-menu-delete"
               color="red"
               leftSection={<IconTrash size={layout.iconSizeSmall} />}
-              onClick={() => actions.remove(path, false)}
+              onClick={() => actions.remove(path)}
             >
               Delete
             </Menu.Item>

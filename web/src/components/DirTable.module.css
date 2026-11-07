@@ -134,15 +134,7 @@
     var(--ring-y);
 }
 
-.draftInput {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  outline: 0;
-  background: none;
-  color: var(--scrawl-text);
-  font: inherit;
+.field {
   font-weight: 500;
 }
 
@@ -197,6 +189,11 @@
   font-size: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.listField {
+  min-height: 40px;
+  font-size: 16px;
 }
 
 .listMeta {

@@ -290,7 +290,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
             // arrange
             await page.goto(at('docs/deep/inner.html'));
             const crumbs = page.getByTestId('topbar-crumbs').getByTestId('crumb');
-            await expect(crumbs).toHaveText(['Home', 'docs', 'deep', 'Inner']);
+            await expect(crumbs).toHaveText(['Home', 'docs', 'deep', 'inner.md']);
 
             // act
             await crumbs.filter({hasText: 'docs'}).click();

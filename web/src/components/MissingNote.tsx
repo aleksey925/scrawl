@@ -5,7 +5,7 @@ import type { MissingDocumentResponse } from '../api/types';
 import { IconFilePlus, IconFolder, IconSearch } from '../icons';
 import { directoryUrl, editUrl, searchUrl } from '../paths';
 import { usePlatform } from '../platform';
-import { basenameOf, pageName, parentOf } from '../shell/naming';
+import { basenameOf, parentOf } from '../shell/naming';
 import { chromeOf, usePageChrome } from '../shell/PageChrome';
 import { plainShortcut } from '../shell/shortcuts';
 import { SyncBadge } from '../shell/SyncBadge';
@@ -22,7 +22,7 @@ export interface MissingNoteProps {
 export function MissingNote({ path, page }: MissingNoteProps): JSX.Element {
   const navigate = useNavigate();
   const { search } = usePlatform();
-  const name = pageName(basenameOf(path), false);
+  const name = basenameOf(path);
   const folder = parentOf(path);
   usePageChrome(chromeOf(page.breadcrumbs, name, true));
 
@@ -67,7 +67,7 @@ export function MissingNote({ path, page }: MissingNoteProps): JSX.Element {
           <span>{folder === '' ? 'Open the notes of the space' : `Open the folder ${basenameOf(folder)}`}</span>
         </Link>
         {search && (
-          <Link data-testid="doc-missing-search" to={searchUrl(name)} className={classes.option}>
+          <Link data-testid="doc-missing-search" to={searchUrl(name.replace(/\.md$/i, ''))} className={classes.option}>
             <IconSearch size={layout.iconSize} />
             <span>Search for a similar note</span>
           </Link>

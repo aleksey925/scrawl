@@ -9,8 +9,10 @@ import { Link, useLocation, useNavigate } from 'react-router';
 
 import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
+import { NameField } from '../components/NameField';
 import { NewEntryMenu, usePointerMenu } from '../components/pointerMenu';
-import { PopupMenu } from '../components/PopupMenu';
+import { FieldMenuItem, PopupMenu } from '../components/PopupMenu';
+import { RenameField } from '../components/RenameField';
 import {
   IconChevronDown, IconChevronRight, IconCompose, IconFile, IconFilePlus, IconFileText, IconFolder, IconFolderOpen,
   IconFolderPlus, IconHome, IconPlus, IconSearch, IconSidebar, IconX,
@@ -19,9 +21,9 @@ import { editUrl } from '../paths';
 import { layout } from '../theme';
 
 import { rowMenuIconSize, useReaderExtensions } from './extensions';
-import { useFileActions, useOptionalFileActions } from './fileActionsContext';
+import { useFileActions, useOptionalFileActions, useRenamingHere, type Renaming } from './fileActionsContext';
 import { spaceLabel, useNav } from './NavContext';
-import { basenameOf, folderFor, pageName, parentOf } from './naming';
+import { basenameOf, folderFor, parentOf } from './naming';
 import { useSearchControl } from './searchOpener';
 import { keysLabel, modKey, useKeyboardPlace } from './shortcuts';
 import sidebarClasses from './Sidebar.module.css';
@@ -34,8 +36,6 @@ const treeIconSize = 18;
 const iconBox = 22;
 const indentStep = 14;
 const rowStart = 6;
-
-const focusSettleMs = 150;
 
 const springOpenMs = 600;
 
@@ -79,6 +79,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   const [menuOpened, setMenuOpened] = useState(false);
   const openMenu = useCallback(() => setMenuOpened(true), []);
   const longPress = useLongPress(openMenu);
+  const renaming = useRenamingHere('tree', node.path);
   const empty = node.is_dir && node.children.length === 0;
 
   if (query !== '' && !filtered.visible.has(node.path)) {
@@ -95,8 +96,8 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
 
   return (
     <Box style={{ minWidth: 0 }}>
-      {actions?.treeRenaming === node.path ? (
-        <RenameRow node={node} depth={depth} />
+      {renaming !== undefined ? (
+        <RenameRow session={renaming} depth={depth} />
       ) : (
         <div
           data-testid="tree-row"
@@ -155,7 +156,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
             }}
           >
             <Highlight size="sm" truncate highlight={query === '' ? [] : query} fw="inherit" style={{ minWidth: 0 }}>
-              {pageName(node.name, node.is_dir)}
+              {node.name}
             </Highlight>
           </Anchor>
 
@@ -266,42 +267,10 @@ interface NameRowProps {
   depth: number;
   testId: string;
   isFile: boolean;
-  icon: ReactNode;
-  initial: string;
-  placeholder?: string;
-  label: string;
-  onSubmit: (name: string) => Promise<boolean>;
-  onCancel: () => void;
+  children: ReactNode;
 }
 
-function NameRow({ depth, testId, isFile, icon, initial, placeholder, label, onSubmit, onCancel }: NameRowProps): JSX.Element {
-  const [name, setName] = useState(initial);
-  const [busy, setBusy] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const settled = useRef(false);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      settled.current = true;
-      if (document.activeElement !== inputRef.current) {
-        inputRef.current?.focus();
-      }
-    }, focusSettleMs);
-    return () => window.clearTimeout(id);
-  }, []);
-
-  const commit = (): void => {
-    if (busy) {
-      return;
-    }
-    if (name.trim() === '') {
-      onCancel();
-      return;
-    }
-    setBusy(true);
-    void onSubmit(name).then(() => setBusy(false));
-  };
-
+function NameRow({ depth, testId, isFile, children }: NameRowProps): JSX.Element {
   return (
     <Group
       gap={6}
@@ -311,37 +280,7 @@ function NameRow({ depth, testId, isFile, icon, initial, placeholder, label, onS
       className={`${treeClasses.row} ${treeClasses.draft}`}
       style={rowInsets(depth)}
     >
-      <IconBox>{icon}</IconBox>
-      <TextInput
-        data-testid={`${testId}-input`}
-        ref={inputRef}
-        autoFocus
-        value={name}
-        disabled={busy}
-        variant="unstyled"
-        size="sm"
-        placeholder={placeholder}
-        aria-label={label}
-        autoComplete="off"
-        spellCheck={false}
-        onFocus={(event) => event.currentTarget.select()}
-        onChange={(event) => setName(event.currentTarget.value)}
-        onBlur={() => settled.current && commit()}
-        onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-          event.stopPropagation();
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            commit();
-            return;
-          }
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            onCancel();
-          }
-        }}
-        styles={{ input: { height: 'auto', minHeight: 24 } }}
-        style={{ flex: '1 1 auto', minWidth: 0 }}
-      />
+      {children}
     </Group>
   );
 }
@@ -350,39 +289,28 @@ function DraftRow({ depth }: { depth: number }): JSX.Element {
   const { draft, submitDraft, cancelDraft } = useFileActions();
   const isFile = draft?.kind === 'file';
   return (
-    <NameRow
-      depth={depth}
-      testId="tree-draft"
-      isFile={isFile}
-      icon={isFile ? <IconFile size={treeIconSize} /> : <IconFolder size={treeIconSize} />}
-      initial=""
-      placeholder={isFile ? 'File name' : 'Folder name'}
-      label={isFile ? 'Name of the new file' : 'Name of the new folder'}
-      onSubmit={submitDraft}
-      onCancel={cancelDraft}
-    />
+    <NameRow depth={depth} testId="tree-draft" isFile={isFile}>
+      <IconBox>{isFile ? <IconFile size={treeIconSize} /> : <IconFolder size={treeIconSize} />}</IconBox>
+      <NameField
+        initial=""
+        isDir={!isFile}
+        testId="tree-draft"
+        className={treeClasses.field}
+        placeholder={isFile ? 'File name' : 'Folder name'}
+        label={isFile ? 'Name of the new file' : 'Name of the new folder'}
+        onSubmit={submitDraft}
+        onCancel={cancelDraft}
+      />
+    </NameRow>
   );
 }
 
-function RenameRow({ node, depth }: { node: NavNode; depth: number }): JSX.Element {
-  const { submitRename, cancelTreeRename } = useFileActions();
+function RenameRow({ session, depth }: { session: Renaming; depth: number }): JSX.Element {
   return (
-    <NameRow
-      depth={depth}
-      testId="tree-rename"
-      isFile={!node.is_dir}
-      icon={node.is_dir ? <IconFolder size={treeIconSize} /> : <IconFileText size={treeIconSize} />}
-      initial={pageName(node.name, node.is_dir)}
-      label={`New name of ${node.name}`}
-      onSubmit={async (name) => {
-        const renamed = await submitRename(node.path, node.is_dir, name);
-        if (renamed) {
-          cancelTreeRename();
-        }
-        return renamed;
-      }}
-      onCancel={cancelTreeRename}
-    />
+    <NameRow depth={depth} testId="tree-rename" isFile={!session.isDir}>
+      <IconBox>{session.isDir ? <IconFolder size={treeIconSize} /> : <IconFileText size={treeIconSize} />}</IconBox>
+      <RenameField session={session} testId="tree-rename" className={treeClasses.field} />
+    </NameRow>
   );
 }
 
@@ -634,20 +562,20 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
               </Menu.Target>
               <Menu.Dropdown>
                 <Menu.Label data-testid="sidebar-new-where">{inFolder(here, spaceName)}</Menu.Label>
-                <Menu.Item
+                <FieldMenuItem
                   data-testid="sidebar-new-page"
                   leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
                   onClick={() => actions.createDraft('file', here)}
                 >
                   New file
-                </Menu.Item>
-                <Menu.Item
+                </FieldMenuItem>
+                <FieldMenuItem
                   data-testid="sidebar-new-folder"
                   leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
                   onClick={() => actions.createDraft('dir', here)}
                 >
                   New folder
-                </Menu.Item>
+                </FieldMenuItem>
               </Menu.Dropdown>
             </PopupMenu>
           )}

@@ -3,8 +3,8 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    DIALOG_TITLE, MAIN, atHome, fixtureFile, holdRoute, removeFixture, rightClickPrevented, routes, save, setSource, shot,
-    signIn, titleRoom, writeFixture,
+    MAIN, atHome, fixtureFile, holdRoute, removeFixture, rightClickPrevented, routes, save, setSource, shot, signIn,
+    writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -17,6 +17,7 @@ const ROOT_PAGE = 'e2e-root-page.md';
 const TYPED_FILE = 'E2eTyped.java';
 const TYPED_PICTURE = 'e2e-typed.png';
 const DATED_PAGE = 'E2E-Meeting-2024.10.21.md';
+const SLUG_PAGE = 'E2E-My-Notes.md';
 const BLANK_FOLDER = 'e2e-fm-blank';
 const HOLLOW = 'e2e-fm-hollow';
 const BLANK_PAGE = 'e2e-blank-page.md';
@@ -39,10 +40,10 @@ const KEYS_FOLDER = 'e2e-fm-keys';
 const GAP_FOLDER = 'e2e-fm-gap';
 const ROOT_MOVED = 'e2e-fm-to-root.md';
 const DROPPED_TO_ROOT = 'e2e-fm-dropped-to-root.md';
-const NAME_FIELD_SETTLE = 300;
+const FOCUS_RETURN_WAIT = 150;
 
-function titleOf(path) {
-    return path.split('/').pop().replace(/\.md$/, '');
+function nameOf(path) {
+    return path.split('/').pop();
 }
 
 function makeNest() {
@@ -63,7 +64,22 @@ async function startTreeRename(page, path) {
     await page.locator(`[data-testid=tree-row][data-path="${path}"] [data-testid=tree-row-menu]`).click();
     await page.getByTestId('tree-row-menu-rename').click();
     await expect(page.getByTestId('tree-rename-input')).toBeFocused();
-    await page.waitForTimeout(NAME_FIELD_SETTLE);
+}
+
+async function startListRename(page, path) {
+    await page.locator(`[data-testid=dir-row][data-path="${path}"]`).click({button: 'right'});
+    await page.getByTestId('tree-row-menu-rename').click();
+    await expect(page.getByTestId('dir-rename-input')).toBeFocused();
+}
+
+async function startPageRename(page, menu) {
+    await page.getByTestId(menu).click();
+    await page.getByTestId(`${menu}-rename`).click();
+    await expect(page.getByTestId('page-rename-input')).toBeFocused();
+}
+
+function caretAt(input) {
+    return input.evaluate((field) => [field.selectionStart, field.selectionEnd]);
 }
 
 function shownPlaces(page, prefix) {
@@ -83,7 +99,7 @@ test.describe.serial('file management', () => {
         ]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
-        for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE, TYPED_FILE, TYPED_PICTURE, DATED_PAGE, ROOT_MOVED,
+        for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE, TYPED_FILE, TYPED_PICTURE, DATED_PAGE, SLUG_PAGE, ROOT_MOVED,
             DROPPED_TO_ROOT]) {
             fs.rmSync(fixtureFile(name), {force: true});
         }
@@ -174,27 +190,51 @@ test.describe.serial('file management', () => {
         expect(fs.existsSync(fixtureFile(DATED_PAGE))).toBe(true);
     });
 
-    test('a note renamed with an extension of its own becomes that file, and with a bare title stays a note', async ({page}) => {
+    test('a title typed with .md is a title too, and goes through the slug', async ({page}) => {
         // arrange
-        const note = `${FOLDER}/to-text.txt.md`;
-        writeFixture(note, 'text\n');
-        await page.goto(MAIN.url.dir(FOLDER));
-        const rename = async (from, to) => {
-            await page.locator(`[data-testid=tree-row][data-path="${from}"] [data-testid=tree-row-menu]`).click();
-            await page.getByTestId('tree-row-menu-rename').click();
-            await page.getByTestId('tree-rename-input').fill(to);
-            await page.getByTestId('tree-rename-input').press('Enter');
-            await expect(page.getByTestId('tree-rename')).toHaveCount(0);
-        };
+        await page.getByTestId('sidebar-new').click();
+        await page.getByTestId('sidebar-new-page').click();
 
         // act
-        await rename(note, 'bare title');
-        await rename(`${FOLDER}/bare title.md`, 'to-text.txt');
+        await page.getByTestId('tree-draft-input').fill('E2E My Notes.md');
+        await page.getByTestId('tree-draft-input').press('Enter');
 
         // assert
-        await expect.poll(() => fs.existsSync(fixtureFile(`${FOLDER}/to-text.txt`))).toBe(true);
-        expect([note, `${FOLDER}/bare title.md`, `${FOLDER}/to-text.txt.md`].filter((p) => fs.existsSync(fixtureFile(p))))
-            .toEqual([]);
+        await expect(page).toHaveURL(MAIN.url.edit(SLUG_PAGE));
+        expect(fs.existsSync(fixtureFile(SLUG_PAGE))).toBe(true);
+    });
+
+    test('a rename keeps the new name as typed, so a note renamed without .md leaves the tree and a file with it enters', async ({page}) => {
+        // arrange
+        const note = `${FOLDER}/to-bare.md`;
+        const plain = `${FOLDER}/y.txt`;
+        writeFixture(note, 'note\n');
+        writeFixture(plain, 'text\n');
+        await page.goto(MAIN.url.dir(FOLDER));
+
+        // act
+        await startTreeRename(page, note);
+        await page.getByTestId('tree-rename-input').fill('bare title');
+        await page.getByTestId('tree-rename-input').press('Enter');
+        await expect(page.getByTestId('tree-rename')).toHaveCount(0);
+        const left = page.locator('[data-testid=toast][data-kind="ok"]');
+        await expect(left).toContainText('Renamed "to-bare.md" to "bare title"');
+        await expect(left).toContainText('It is not a note now, so the tree does not show it');
+        await startListRename(page, `${FOLDER}/bare title`);
+        await page.getByTestId('dir-rename-input').fill('x.txt');
+        await page.getByTestId('dir-rename-input').press('Enter');
+        await expect(page.locator(`[data-testid=dir-row][data-path="${FOLDER}/x.txt"]`)).toHaveCount(1);
+        await startListRename(page, plain);
+        await page.getByTestId('dir-rename-input').fill('y.md');
+        await page.getByTestId('dir-rename-input').press('Enter');
+
+        // assert
+        await expect(page.locator(`[data-testid=tree-row][data-path="${FOLDER}/y.md"]`)).toHaveCount(1);
+        await expect(page.locator(`[data-testid=tree-row][data-path="${FOLDER}/x.txt"]`)).toHaveCount(0);
+        expect([note, `${FOLDER}/bare title`, `${FOLDER}/bare title.md`, `${FOLDER}/x.txt`, plain, `${FOLDER}/y.md`]
+            .map((path) => fs.existsSync(fixtureFile(path)))).toEqual([false, false, false, true, false, true]);
+        removeFixture(`${FOLDER}/x.txt`);
+        removeFixture(`${FOLDER}/y.md`);
     });
 
     test('creates a page inside the folder it was started from', async ({page}) => {
@@ -238,17 +278,17 @@ test.describe.serial('file management', () => {
         await shot(page, 'files-row-menu');
         await page.getByTestId('tree-row-menu-rename').click();
         const input = page.getByTestId('tree-rename-input');
-        await expect(input).toHaveValue('Testovaya-stranitsa');
+        await expect(input).toHaveValue(nameOf(PAGE));
         await expect(input).toBeFocused();
         await shot(page, 'files-rename-in-place');
 
         // act
-        await input.fill('pereimenovannaya');
+        await input.fill(nameOf(RENAMED));
         await input.press('Enter');
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]'))
-            .toContainText(`Renamed "${titleOf(PAGE)}" to "${titleOf(RENAMED)}"`);
+            .toContainText(`Renamed "${nameOf(PAGE)}" to "${nameOf(RENAMED)}"`);
         await expect(page).toHaveURL(MAIN.url.doc(RENAMED));
         expect(fs.existsSync(fixtureFile(PAGE))).toBe(false);
         expect(fs.existsSync(fixtureFile(RENAMED))).toBe(true);
@@ -267,13 +307,13 @@ test.describe.serial('file management', () => {
 
         // act & assert
         await startTreeRename(page, note);
-        await input.fill('blurred');
+        await input.fill(nameOf(blurred));
         await page.getByTestId('dir-title').click();
         await expect.poll(() => fs.existsSync(fixtureFile(blurred))).toBe(true);
         await expect(page.getByTestId('tree-rename')).toHaveCount(0);
 
         await startTreeRename(page, blurred);
-        await input.fill('dropped');
+        await input.fill('dropped.md');
         await input.press('Escape');
         await expect(page.getByTestId('tree-rename')).toHaveCount(0);
         expect([blurred, `${RENAME_FOLDER}/dropped.md`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([true, false]);
@@ -293,20 +333,20 @@ test.describe.serial('file management', () => {
         await expect(page.getByTestId('tree-rename')).toHaveCount(0);
 
         await startTreeRename(page, note);
-        await expect(input).toHaveValue(titleOf(note));
+        await expect(input).toHaveValue(nameOf(note));
         await input.press('Enter');
         await expect(page.getByTestId('tree-rename')).toHaveCount(0);
         await expect(page.getByTestId('toast')).toHaveCount(0);
         expect(fs.readdirSync(fixtureFile(RENAME_FOLDER)).filter((name) => name.startsWith('same'))).toEqual(['same.md']);
     });
 
-    test('a note with a dot in its name keeps its .md when the unchanged field loses focus', async ({page}) => {
+    test('a note with a dot in its name is left as it is when the unchanged field loses focus', async ({page}) => {
         // arrange
         const note = `${RENAME_FOLDER}/guide.en.md`;
         writeFixture(note, '# Guide\n');
         await page.goto(routes.dir(RENAME_FOLDER));
         await startTreeRename(page, note);
-        await expect(page.getByTestId('tree-rename-input')).toHaveValue('guide.en');
+        await expect(page.getByTestId('tree-rename-input')).toHaveValue('guide.en.md');
 
         // act
         await page.getByTestId('dir-title').click();
@@ -323,7 +363,7 @@ test.describe.serial('file management', () => {
         writeFixture(note, '# Spaced\n');
         await page.goto(routes.dir(RENAME_FOLDER));
         await startTreeRename(page, note);
-        await expect(page.getByTestId('tree-rename-input')).toHaveValue('spaced ');
+        await expect(page.getByTestId('tree-rename-input')).toHaveValue('spaced .md');
 
         // act
         await page.getByTestId('dir-title').click();
@@ -361,14 +401,14 @@ test.describe.serial('file management', () => {
         await startTreeRename(page, note);
 
         // act
-        await page.getByTestId('tree-rename-input').fill('taken');
+        await page.getByTestId('tree-rename-input').fill('taken.md');
         await page.getByTestId('tree-rename-input').press('Enter');
 
         // assert
         const failed = page.locator('[data-testid=toast][data-kind="error"]');
         await expect(failed).toContainText('Nothing was renamed');
         await expect(failed).toContainText('Something of that name is already there');
-        await expect(page.getByTestId('tree-rename-input')).toHaveValue('taken');
+        await expect(page.getByTestId('tree-rename-input')).toHaveValue('taken.md');
         expect(fs.readFileSync(fixtureFile(`${RENAME_FOLDER}/taken.md`), 'utf8')).toBe('# Taken\n');
         expect(fs.existsSync(fixtureFile(note))).toBe(true);
     });
@@ -387,7 +427,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(page.getByTestId('sidebar-filter')).toHaveValue('');
-        await expect(page.getByTestId('tree-rename-input')).toHaveValue('zzfilteredname');
+        await expect(page.getByTestId('tree-rename-input')).toHaveValue('zzfilteredname.md');
         await expect(page.getByTestId('tree-rename-input')).toBeFocused();
     });
 
@@ -398,49 +438,180 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-row-menu-rename').click();
 
         // act
-        await page.getByTestId('tree-rename-input').fill(`${OTHER}/pereimenovannaya`);
+        await page.getByTestId('tree-rename-input').fill(`${OTHER}/pereimenovannaya.md`);
         await page.getByTestId('tree-rename-input').press('Enter');
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.renameSlash);
-        await expect(page.getByTestId('tree-rename-input')).toHaveValue(`${OTHER}/pereimenovannaya`);
+        await expect(page.getByTestId('tree-rename-input')).toHaveValue(`${OTHER}/pereimenovannaya.md`);
         expect(fs.existsSync(fixtureFile(RENAMED))).toBe(true);
     });
 
-    test('the name field of Rename sits clear of the dialog title, so its whole focus ring shows', async ({page}) => {
+    test('a name that starts with a dot renames nothing', async ({page}) => {
         // arrange
-        const note = `${FOLDER}/ring-room.md`;
-        writeFixture(note, '# Ring room\n');
-        await page.goto(MAIN.url.doc(note));
+        const note = `${RENAME_FOLDER}/dotted.md`;
+        writeFixture(note, '# Dotted\n');
+        await page.goto(routes.dir(RENAME_FOLDER));
+        await startTreeRename(page, note);
 
         // act
-        await page.getByTestId('note-menu').click();
-        await page.getByTestId('note-menu-rename').click();
-        await expect(page.getByTestId('rename-name')).toBeFocused();
+        await page.getByTestId('tree-rename-input').fill('.dotted.md');
+        await page.getByTestId('tree-rename-input').press('Enter');
 
         // assert
-        expect(await titleRoom(page.getByTestId('rename-name'))).toEqual(DIALOG_TITLE);
-        removeFixture(note);
+        const failed = page.locator('[data-testid=toast][data-kind="error"]');
+        await expect(failed).toContainText('Nothing was renamed');
+        await expect(failed).toContainText('A name cannot start with a dot');
+        await expect(page.getByTestId('tree-rename-input')).toHaveValue('.dotted.md');
+        expect(fs.existsSync(fixtureFile(note))).toBe(true);
     });
 
-    test('renames a note from its own menu in a dialog that asks only the name', async ({page}) => {
+    test('the rename field starts with the whole name, the cursor before the extension and nothing selected', async ({page}) => {
         // arrange
-        const note = `${FOLDER}/from-menu.md`;
-        writeFixture(note, '# From the menu\n');
-        await page.goto(MAIN.url.doc(note));
-        await page.getByTestId('note-menu').click();
-        await page.getByTestId('note-menu-rename').click();
-        await expect(page.getByTestId('rename-name')).toHaveValue('from-menu');
-        await shot(page, 'files-rename-dialog');
+        const note = `${RENAME_FOLDER}/caret.md`;
+        const folder = `${RENAME_FOLDER}/v1.2`;
+        writeFixture(note, '# Caret\n');
+        writeFixture(`${folder}/inside.md`, '# Inside\n');
+        await page.goto(routes.dir(RENAME_FOLDER));
+        const input = page.getByTestId('tree-rename-input');
+        const end = nameOf(note).length - '.md'.length;
+
+        // act & assert
+        await expect(page.locator(`[data-testid=tree-row][data-path="${note}"] [data-testid=tree-link]`)).toHaveText(nameOf(note));
+        await startTreeRename(page, note);
+        await expect(input).toHaveValue(nameOf(note));
+        expect(await caretAt(input)).toEqual([end, end]);
+        await input.press('Escape');
+
+        await startTreeRename(page, folder);
+        await expect(input).toHaveValue(nameOf(folder));
+        expect(await caretAt(input)).toEqual([nameOf(folder).length, nameOf(folder).length]);
+        await input.press('Escape');
+    });
+
+    test('a click outside right after the field opens saves the name, and the focus stays where the click put it', async ({page}) => {
+        // arrange
+        const note = `${RENAME_FOLDER}/quick.md`;
+        const renamed = `${RENAME_FOLDER}/quick-done.md`;
+        writeFixture(note, '# Quick\n');
+        await page.goto(routes.dir(RENAME_FOLDER));
+        await page.locator(`[data-testid=tree-row][data-path="${note}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-rename').click();
+        await page.getByTestId('tree-rename-input').fill(nameOf(renamed));
 
         // act
-        await page.getByTestId('rename-name').fill('menu-renamed');
-        await page.getByTestId('rename-submit').click();
+        await page.getByTestId('sidebar-filter').click();
 
         // assert
-        await expect(page).toHaveURL(MAIN.url.doc(`${FOLDER}/menu-renamed.md`));
-        await expect(page.getByTestId('rename')).toHaveCount(0);
-        expect([note, `${FOLDER}/menu-renamed.md`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
+        await expect.poll(() => fs.existsSync(fixtureFile(renamed))).toBe(true);
+        await expect(page.getByTestId('tree-rename')).toHaveCount(0);
+        await page.waitForTimeout(FOCUS_RETURN_WAIT);
+        await expect(page.getByTestId('sidebar-filter')).toBeFocused();
+    });
+
+    test('a slow rename does not close a field opened after it', async ({page}) => {
+        // arrange
+        const first = `${RENAME_FOLDER}/slow-a.md`;
+        const second = `${RENAME_FOLDER}/slow-b.md`;
+        writeFixture(first, '# A\n');
+        writeFixture(second, '# B\n');
+        await page.goto(routes.dir(RENAME_FOLDER));
+        const release = await holdRoute(page, '**/api/move');
+        await startTreeRename(page, first);
+        await page.getByTestId('tree-rename-input').fill('slow-a-done.md');
+        await page.getByTestId('dir-title').click();
+        await startTreeRename(page, second);
+        await page.getByTestId('tree-rename-input').fill('slow-b-typed.md');
+
+        // act
+        release();
+
+        // assert
+        await expect.poll(() => fs.existsSync(fixtureFile(`${RENAME_FOLDER}/slow-a-done.md`))).toBe(true);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText('Renamed "slow-a.md"');
+        await expect(page.getByTestId('tree-rename-input')).toHaveValue('slow-b-typed.md');
+        await page.getByTestId('tree-rename-input').press('Escape');
+        expect(fs.existsSync(fixtureFile(second))).toBe(true);
+    });
+
+    test('renames a note from its own menu in a popover under the last crumb, and the menu does not take the focus back', async ({page}) => {
+        // arrange
+        const note = `${FOLDER}/from-menu.md`;
+        const renamed = `${FOLDER}/menu-renamed.md`;
+        writeFixture(note, '# From the menu\n');
+        await page.goto(MAIN.url.doc(note));
+        const crumb = page.locator('[data-testid=crumb][data-current="true"]');
+        await expect(crumb).toHaveText(nameOf(note));
+        await startPageRename(page, 'note-menu');
+        const input = page.getByTestId('page-rename-input');
+        await page.waitForTimeout(FOCUS_RETURN_WAIT);
+        await expect(input).toBeFocused();
+        await expect(input).toHaveValue(nameOf(note));
+        const under = await crumb.boundingBox();
+        const popover = await page.getByTestId('page-rename').boundingBox();
+        expect(popover.y).toBeGreaterThanOrEqual(under.y + under.height);
+        expect(Math.abs(popover.x - under.x)).toBeLessThan(8);
+        await expect(page.locator('.mantine-Overlay-root:visible, .mantine-Modal-content:visible')).toHaveCount(0);
+        await expect(page.getByTestId('page-rename').locator('button')).toHaveCount(0);
+        await shot(page, 'files-rename-popover');
+
+        // act
+        await input.fill(nameOf(renamed));
+        await input.press('Enter');
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(renamed));
+        await expect(page.getByTestId('page-rename')).toHaveCount(0);
+        await expect(crumb).toHaveText(nameOf(renamed));
+        expect([note, renamed].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([false, true]);
+    });
+
+    test('the rename popover of a page drops the name on Escape and saves it on a click on the page', async ({page}) => {
+        // arrange
+        const note = `${FOLDER}/popover-keys.md`;
+        const clicked = `${FOLDER}/popover-clicked.md`;
+        writeFixture(note, '# Popover keys\n\nSome text of the note.\n');
+        await page.goto(MAIN.url.doc(note));
+        const input = page.getByTestId('page-rename-input');
+
+        // act & assert
+        await startPageRename(page, 'note-menu');
+        await input.fill('dropped.md');
+        await input.press('Escape');
+        await expect(page.getByTestId('page-rename')).toHaveCount(0);
+        expect(fs.existsSync(fixtureFile(`${FOLDER}/dropped.md`))).toBe(false);
+
+        await startPageRename(page, 'note-menu');
+        await input.fill(nameOf(clicked));
+        await page.locator('[data-testid=note] p').click();
+        await expect(page).toHaveURL(MAIN.url.doc(clicked));
+        expect([note, clicked].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([false, true]);
+        removeFixture(clicked);
+    });
+
+    test('a file page and a folder page rename through the popover under the last crumb', async ({page}) => {
+        // arrange
+        const file = `${RENAME_FOLDER}/plain.txt`;
+        const folder = `${RENAME_FOLDER}/page-folder`;
+        writeFixture(file, 'plain\n');
+        writeFixture(`${folder}/inside.md`, '# Inside\n');
+        const input = page.getByTestId('page-rename-input');
+
+        // act & assert
+        await page.goto(MAIN.url.doc(file));
+        await startPageRename(page, 'file-menu');
+        await expect(input).toHaveValue(nameOf(file));
+        await input.fill('plain-renamed.txt');
+        await input.press('Enter');
+        await expect(page).toHaveURL(MAIN.url.doc(`${RENAME_FOLDER}/plain-renamed.txt`));
+
+        await page.goto(MAIN.url.dir(folder));
+        await startPageRename(page, 'folder-menu');
+        await expect(input).toHaveValue(nameOf(folder));
+        await input.fill('page-folder-renamed');
+        await input.press('Enter');
+        await expect(page).toHaveURL(MAIN.url.dir(`${RENAME_FOLDER}/page-folder-renamed`));
+        expect(fs.existsSync(fixtureFile(`${RENAME_FOLDER}/page-folder-renamed/inside.md`))).toBe(true);
     });
 
     test('moves a page into another folder by dragging its row', async ({page}) => {
@@ -504,7 +675,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]'))
-            .toContainText(`Moved "${MOVED.replace(/\.md$/, '')}" to "${OTHER}"`);
+            .toContainText(`Moved "${MOVED}" to "${OTHER}"`);
         await expect(page).toHaveURL(MAIN.url.doc(`${OTHER}/${MOVED}`));
         await expect(page.getByTestId('move-dialog')).toHaveCount(0);
         expect([`${FOLDER}/${MOVED}`, `${OTHER}/${MOVED}`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
@@ -527,7 +698,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')
-            .filter({hasText: `Moved "${UNDONE.replace(/\.md$/, '')}" back to "${FOLDER}"`})).toHaveCount(1);
+            .filter({hasText: `Moved "${UNDONE}" back to "${FOLDER}"`})).toHaveCount(1);
         await expect(page).toHaveURL(MAIN.url.doc(`${FOLDER}/${UNDONE}`));
         expect([`${FOLDER}/${UNDONE}`, `${OTHER}/${UNDONE}`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([true, false]);
     });
@@ -672,7 +843,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(current).toHaveAttribute('data-active', 'true');
-        await expect(page.getByTestId('move-preview')).toHaveText('Pick a folder to move note into');
+        await expect(page.getByTestId('move-preview')).toHaveText(`Pick a folder to move ${nameOf(NESTED_NOTE)} into`);
         await expect.poll(() => shownPlaces(page, NEST)).toEqual([NEST, `${NEST}/a`, `${NEST}/a/b`, `${NEST}/c`]);
         await expect(page.getByTestId('move-dialog')).toBeVisible();
         expect(fs.existsSync(fixtureFile(NESTED_NOTE))).toBe(true);
@@ -798,7 +969,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-row-menu-delete').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`Deleted "${titleOf(RENAMED)}"`);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`Deleted "${nameOf(RENAMED)}"`);
         await expect(page.locator('.mantine-Modal-title')).toHaveCount(0);
         await expect(page).toHaveURL(atHome());
         await expect.poll(() => fs.existsSync(fixtureFile(RENAMED))).toBe(false);
@@ -818,7 +989,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-row-menu-delete').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText('Deleted "slow-delete"');
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText('Deleted "slow-delete.md"');
         await expect(page).toHaveURL(atHome());
         expect(fs.existsSync(fixtureFile(note))).toBe(true);
         release();
@@ -1250,7 +1421,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-draft-input').press('Escape');
     });
 
-    test('a right click on a row of a folder list opens its menu at the pointer, and Rename asks in a dialog', async ({page}) => {
+    test('a right click on a row of a folder list opens its menu at the pointer, and Rename names the row in place', async ({page}) => {
         // arrange
         writeFixture(CONTEXT_NOTE, '# Note\n');
         await page.goto(routes.dir(CONTEXT_FOLDER));
@@ -1275,9 +1446,36 @@ test.describe.serial('file management', () => {
         await shot(page, 'files-list-row-menu');
 
         await page.getByTestId('tree-row-menu-rename').click();
-        await expect(page.getByTestId('rename-name')).toHaveValue(titleOf(CONTEXT_NOTE));
+        const input = page.getByTestId('dir-rename-input');
+        await expect(input).toHaveValue(nameOf(CONTEXT_NOTE));
+        await expect(input).toBeFocused();
         await expect(page.getByTestId('tree-rename')).toHaveCount(0);
-        await page.getByTestId('rename-cancel').click();
+        await shot(page, 'files-list-rename');
+        await input.click();
+        await expect(page).toHaveURL(MAIN.url.dir(CONTEXT_FOLDER));
+        await input.press('Escape');
+        await expect(page.getByTestId('dir-rename-field')).toHaveCount(0);
+        expect(fs.existsSync(fixtureFile(CONTEXT_NOTE))).toBe(true);
+    });
+
+    test('Enter in the name cell of a folder list renames the row', async ({page}) => {
+        // arrange
+        const note = `${CONTEXT_FOLDER}/listed.md`;
+        const renamed = `${CONTEXT_FOLDER}/listed-renamed.md`;
+        writeFixture(note, '# Listed\n');
+        await page.goto(routes.dir(CONTEXT_FOLDER));
+        await startListRename(page, note);
+
+        // act
+        await page.getByTestId('dir-rename-input').fill(nameOf(renamed));
+        await page.getByTestId('dir-rename-input').press('Enter');
+
+        // assert
+        await expect(page.locator(`[data-testid=dir-row][data-path="${renamed}"] [data-testid=dir-row-name]`)).toHaveText(nameOf(renamed));
+        await expect(page.getByTestId('dir-rename-field')).toHaveCount(0);
+        await expect(page).toHaveURL(MAIN.url.dir(CONTEXT_FOLDER));
+        expect([note, renamed].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([false, true]);
+        removeFixture(renamed);
     });
 
     test('a right click on a second row while the menu of the first is open moves the menu to it', async ({page}) => {
@@ -1300,8 +1498,8 @@ test.describe.serial('file management', () => {
         await expect(next).toHaveAttribute('data-menu', 'true');
         await expect(first).toHaveAttribute('data-menu', 'false');
         await page.getByTestId('tree-row-menu-rename').click();
-        await expect(page.getByTestId('rename-name')).toHaveValue(titleOf(second));
-        await page.getByTestId('rename-cancel').click();
+        await expect(page.getByTestId('dir-rename-input')).toHaveValue(nameOf(second));
+        await page.getByTestId('dir-rename-input').press('Escape');
     });
 
     test('a right click on the free space of a folder list offers to create there', async ({page}) => {
@@ -1527,7 +1725,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('toast-action').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: 'Restored "retried"'})).toHaveCount(1);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: 'Restored "retried.md"'})).toHaveCount(1);
         await expect(page.getByTestId('toast-action')).toHaveCount(0);
         expect(fs.readFileSync(fixtureFile(note), 'utf8')).toBe('# Retried\n');
     });
@@ -1572,9 +1770,9 @@ test.describe.serial('file management', () => {
         // act & assert
         await page.locator(`[data-testid=move-place][data-path="${into}"]`).click();
         const warned = page.locator('[data-testid=toast][data-kind="warn"]');
-        await expect(warned.filter({hasText: 'Moved "unpushed" to'})).toContainText('Not pushed to the remote');
+        await expect(warned.filter({hasText: 'Moved "unpushed.md" to'})).toContainText('Not pushed to the remote');
         await page.getByTestId('toast-action').click();
-        await expect(warned.filter({hasText: 'Moved "unpushed" back'})).toContainText('Not pushed to the remote');
+        await expect(warned.filter({hasText: 'Moved "unpushed.md" back'})).toContainText('Not pushed to the remote');
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toHaveCount(0);
         await page.unroute('**/api/move');
     });
@@ -1598,7 +1796,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('toast-action').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: 'Moved "moved-again" back'}))
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: 'Moved "moved-again.md" back'}))
             .toHaveCount(1);
         await expect(page.getByTestId('toast-action')).toHaveCount(0);
         await expect(page).toHaveURL(MAIN.url.doc(note));
@@ -1647,7 +1845,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-row-menu-delete').click();
         await expect.poll(() => fs.existsSync(fixtureFile(moved))).toBe(false);
         writeFixture(moved, '# Replacement\n');
-        const moveToast = page.locator('[data-testid=toast]').filter({hasText: 'Moved "replaced" to'});
+        const moveToast = page.locator('[data-testid=toast]').filter({hasText: 'Moved "replaced.md" to'});
 
         // act
         await moveToast.getByTestId('toast-action').click();
@@ -1676,7 +1874,7 @@ test.describe.serial('file management', () => {
         await recorded;
         fs.rmSync(fixtureFile(moved));
         writeFixture(moved, '# Another note\n');
-        const moveToast = page.locator('[data-testid=toast]').filter({hasText: 'Moved "swapped" to'});
+        const moveToast = page.locator('[data-testid=toast]').filter({hasText: 'Moved "swapped.md" to'});
 
         // act
         await moveToast.getByTestId('toast-action').click();

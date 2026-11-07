@@ -6,7 +6,7 @@ import type { EntryKind } from '../api/types';
 import { IconFilePlus, IconFolderPlus } from '../icons';
 import { layout } from '../theme';
 
-import { PopupMenu } from './PopupMenu';
+import { FieldMenuItem, PopupMenu } from './PopupMenu';
 
 export interface Point {
   x: number;
@@ -124,20 +124,20 @@ export function NewEntryMenu({ menu, testId, onCreate }: NewEntryMenuProps): JSX
         <FixedAnchor rect={rectAt(at)} />
       </Menu.Target>
       <Menu.Dropdown data-testid={testId}>
-        <Menu.Item
+        <FieldMenuItem
           data-testid={`${testId}-new-file`}
           leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
           onClick={() => onCreate('file', folder)}
         >
           New file
-        </Menu.Item>
-        <Menu.Item
+        </FieldMenuItem>
+        <FieldMenuItem
           data-testid={`${testId}-new-folder`}
           leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
           onClick={() => onCreate('dir', folder)}
         >
           New folder
-        </Menu.Item>
+        </FieldMenuItem>
       </Menu.Dropdown>
     </PopupMenu>
   );

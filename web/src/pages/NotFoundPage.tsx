@@ -6,7 +6,7 @@ import { Page, PageTitle } from '../components/Page';
 import { usePageChrome } from '../shell/PageChrome';
 
 export function Component(): JSX.Element {
-  usePageChrome({ crumbs: [], title: 'Nothing here', ownTitle: true });
+  usePageChrome({ crumbs: [], name: 'Nothing here', title: 'Nothing here', ownTitle: true });
   return (
     <Page data-testid="app-notfound">
       <PageTitle>Nothing here</PageTitle>

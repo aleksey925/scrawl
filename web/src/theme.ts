@@ -87,6 +87,7 @@ export const layout = {
   menuWidth: 220,
   menuWidthNarrow: 200,
   menuWidthWide: 280,
+  popoverWidth: 320,
   tabBarHeight: 56,
   editButtonSize: 54,
   inputFontSize: 16,

@@ -68,9 +68,9 @@ Colors, controls and type: how a note and the chrome are drawn.
   Three buttons on a phone stand one under another across the dialog, as iOS
   stacks them, so a long label is never cut short in a third of the row. No
   dialog sets a height of its own: the editor's gave its buttons the 44px of an
-  icon button on every screen, and they stood 16px taller than the 28px buttons
-  of Rename. A dialog or a drawer with a title keeps 4px between the title and
-  what comes first under it, the room of a focus ring outside a field or a
+  icon button on every screen, and they stood taller than the buttons of every
+  other dialog. A dialog or a drawer with a title keeps 4px between the title
+  and what comes first under it, the room of a focus ring outside a field or a
   button, so the ring of a field right under the title shows whole. The 4px are
   taken from the bottom padding and the least height of the title, so the title
   and the room together are as tall as a Mantine title alone, with a close

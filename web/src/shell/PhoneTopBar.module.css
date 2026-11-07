@@ -109,3 +109,24 @@
   justify-content: space-between;
   gap: 8px;
 }
+
+.bar[data-renaming='true'] .start,
+.bar[data-renaming='true'] .end {
+  display: none;
+}
+
+.bar[data-renaming='true'] .title {
+  display: flex;
+  flex: 1 1 auto;
+  max-width: none;
+  padding-inline: 12px;
+  font-weight: 400;
+  opacity: 1;
+}
+
+.rename {
+  height: 38px;
+  padding: 0 6px 0 10px;
+  border-radius: var(--mantine-radius-lg);
+  background: var(--scrawl-hover);
+}

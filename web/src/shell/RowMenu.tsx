@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 import {
   FixedAnchor, pointerPlacement, rectAt, useCloseOnScroll, type MenuPlacement,
 } from '../components/pointerMenu';
-import { menuRectOf, PopupMenu } from '../components/PopupMenu';
+import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
 import {
   IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconMoveTo, IconPlus, IconTrash,
 } from '../icons';
@@ -79,37 +79,37 @@ export function RowMenu({
         {canWrite && withCreate && (
           <>
             <Menu.Divider />
-            <Menu.Item
+            <FieldMenuItem
               data-testid="tree-row-menu-new-page"
               leftSection={<IconPlus size={rowMenuIconSize} />}
               onClick={() => actions.createDraft('file', folder)}
             >
               New file
-            </Menu.Item>
-            <Menu.Item
+            </FieldMenuItem>
+            <FieldMenuItem
               data-testid="tree-row-menu-new-folder"
               leftSection={<IconFolderPlus size={rowMenuIconSize} />}
               onClick={() => actions.createDraft('dir', folder)}
             >
               New folder
-            </Menu.Item>
+            </FieldMenuItem>
           </>
         )}
 
         <Menu.Divider />
         {canWrite && path !== '' && (
           <>
-            <Menu.Item
+            <FieldMenuItem
               data-testid="tree-row-menu-rename"
               leftSection={<IconEdit size={rowMenuIconSize} />}
-              onClick={() => (inTree ? actions.startTreeRename(path, isDir) : actions.rename(path, isDir))}
+              onClick={() => actions.startRename(path, isDir, inTree ? 'tree' : 'list')}
             >
               Rename
-            </Menu.Item>
+            </FieldMenuItem>
             <Menu.Item
               data-testid="tree-row-menu-move"
               leftSection={<IconMoveTo size={rowMenuIconSize} />}
-              onClick={(event) => actions.moveTo(path, isDir, menuRectOf(event.currentTarget))}
+              onClick={(event) => actions.moveTo(path, menuRectOf(event.currentTarget))}
             >
               Move to
             </Menu.Item>
@@ -130,7 +130,7 @@ export function RowMenu({
               data-testid="tree-row-menu-delete"
               color="red"
               leftSection={<IconTrash size={rowMenuIconSize} />}
-              onClick={() => actions.remove(path, isDir)}
+              onClick={() => actions.remove(path)}
             >
               Delete
             </Menu.Item>

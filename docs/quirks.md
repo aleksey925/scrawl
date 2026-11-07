@@ -95,7 +95,9 @@ words; the fact itself is written here.
 - React hands a press inside a portal up to the component the portal belongs
   to. [Sidebar](ui/sidebar.md)
 - When a menu item puts a field on the page, mantine's menu gives the focus
-  back to its button a tick after the field took it. [Entries](ui/entries.md)
+  back to its button a tick after the field took it, unless the menu is told
+  not to (`returnFocus`) in the same render that closes it.
+  [Entries](ui/entries.md)
 - Mantine's runtime css variables sit under its own attribute and outrank a
   theme's, so the app runs it with `withCssVariables={false}`.
   [Themes](design/themes.md)

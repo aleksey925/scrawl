@@ -394,6 +394,27 @@ test.describe('mobile', () => {
             await expect(page).toHaveURL(MAIN.url.doc(DOC));
         });
 
+        test('a swipe back saves the name typed in a rename field', async ({page}) => {
+            // arrange
+            const folder = 'e2e-mobile/swiped';
+            const note = `${folder}/swiped.md`;
+            const renamed = `${folder}/swiped-saved.md`;
+            writeFixture(note, '# Swiped\n');
+            await asStandalone(page);
+            await page.goto(MAIN.url.dir(folder));
+            await page.locator(`[data-testid=dir-row][data-path="${note}"]`).getByTestId('tree-row-menu').tap();
+            await page.getByTestId('tree-row-menu-rename').tap();
+            await page.getByTestId('dir-rename-input').fill(renamed.split('/').pop());
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.dir('e2e-mobile'));
+            await expect.poll(() => fs.existsSync(fixtureFile(renamed))).toBe(true);
+            expect(fs.existsSync(fixtureFile(note))).toBe(false);
+        });
+
         test('a drag from near the edge back toward it is let go like a scroll', async ({page}) => {
             // arrange
             await asStandalone(page);
@@ -721,24 +742,100 @@ test.describe('mobile', () => {
             await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
         });
 
-        test('Rename asks only the name in a small dialog', async ({page}) => {
-            // arrange
-            const file = `${FOLDER}/rename-me.md`;
-            writeFixture(file, '# Rename me\n');
-            await page.goto(MAIN.url.dir(FOLDER));
-            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+        async function startRowRename(page, path) {
+            await rowOf(page, path).getByTestId('tree-row-menu').tap();
             await openedMenu(page, 'tree-row-menu-dropdown');
             await page.getByTestId('tree-row-menu-rename').tap();
-            await expect(page.getByTestId('rename-name')).toHaveValue('rename-me');
+            await expect(page.getByTestId('dir-rename-input')).toBeFocused();
+        }
+
+        test('Rename turns the name of the row into a field, Done saves, a tap outside saves and the ✕ cancels', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/rename-me.md`;
+            const renamed = `${FOLDER}/renamed-here.md`;
+            const tapped = `${FOLDER}/tapped-out.md`;
+            writeFixture(file, '# Rename me\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            const input = page.getByTestId('dir-rename-input');
+
+            // act & assert
+            await startRowRename(page, file);
+            await expect(input).toHaveValue(file.split('/').pop());
+            await expect(input).toHaveAttribute('enterkeyhint', 'done');
+            expect(await input.evaluate((field) => getComputedStyle(field).fontSize)).toBe('16px');
+            await expect(page.getByTestId('dir-rename-cancel')).toBeVisible();
+            await expect(page.locator('.mantine-Modal-content')).toHaveCount(0);
             await shot(page, 'mobile-rename');
+            await input.fill('dropped.md');
+            await page.getByTestId('dir-rename-cancel').tap();
+            await expect(page.getByTestId('dir-rename-field')).toHaveCount(0);
+            expect(fs.existsSync(fixtureFile(`${FOLDER}/dropped.md`))).toBe(false);
+
+            await startRowRename(page, file);
+            await input.fill(renamed.split('/').pop());
+            await input.press('Enter');
+            await expect(rowOf(page, renamed)).toHaveCount(1);
+
+            await startRowRename(page, renamed);
+            await input.fill(tapped.split('/').pop());
+            await page.getByTestId('dir-title').tap();
+            await expect(rowOf(page, tapped)).toHaveCount(1);
+            await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+            expect([file, renamed, tapped].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([false, false, true]);
+        });
+
+        test('Rename from a lifted row sets the card down at once, and the first tap outside saves', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/lift-rename.md`;
+            const renamed = `${FOLDER}/lift-renamed.md`;
+            writeFixture(file, '# Lift rename\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            const box = await rowOf(page, file).boundingBox();
+            await longPress(page, box.x + 80, box.y + box.height / 2);
+            await openedMenu(page, 'tree-row-menu-dropdown');
 
             // act
-            await page.getByTestId('rename-name').fill('renamed-here');
-            await page.getByTestId('rename-submit').tap();
+            await page.getByTestId('tree-row-menu-rename').tap();
 
             // assert
-            await expect(rowOf(page, `${FOLDER}/renamed-here.md`)).toHaveCount(1);
-            expect([file, `${FOLDER}/renamed-here.md`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
+            expect(await page.getByTestId('row-lift').count()).toBe(0);
+            const input = page.getByTestId('dir-rename-input');
+            await expect(input).toBeFocused();
+            await input.fill(renamed.split('/').pop());
+            await page.getByTestId('dir-title').tap();
+            await expect.poll(() => fs.existsSync(fixtureFile(renamed))).toBe(true);
+            await expect(rowOf(page, renamed)).toHaveCount(1);
+        });
+
+        test('Rename from the menu of an opened note puts the field in the place of the bar\'s title', async ({page}) => {
+            // arrange
+            const note = `${FOLDER}/bar-rename.md`;
+            const renamed = `${FOLDER}/bar-renamed.md`;
+            writeFixture(note, '# Bar rename\n\nSome text.\n');
+            await page.goto(MAIN.url.doc(note));
+            const input = page.getByTestId('topbar-title').getByTestId('page-rename-input');
+            const start = async () => {
+                await page.getByTestId('note-menu').tap();
+                await openedMenu(page, 'note-menu-dropdown');
+                await page.getByTestId('note-menu-rename').tap();
+                await expect(input).toBeFocused();
+            };
+
+            // act & assert
+            await start();
+            await expect(input).toHaveValue(note.split('/').pop());
+            await expect(page.getByTestId('topbar')).toHaveAttribute('data-renaming', 'true');
+            await expect(page.getByTestId('topbar-up')).toBeHidden();
+            await shot(page, 'mobile-rename-bar');
+            await page.getByTestId('page-rename-cancel').tap();
+            await expect(input).toHaveCount(0);
+            await expect(page.getByTestId('topbar-up')).toBeVisible();
+
+            await start();
+            await input.fill(renamed.split('/').pop());
+            await input.press('Enter');
+            await expect(page).toHaveURL(MAIN.url.doc(renamed));
+            expect([note, renamed].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([false, true]);
         });
 
         test('Move to fills the screen and moves the file into the folder tapped', async ({page}) => {
@@ -1520,10 +1617,10 @@ test.describe('mobile', () => {
     test('a dialog stands in the middle of the screen', async ({page}) => {
         // arrange
         await page.goto(routes.home());
-        await page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`).getByTestId('tree-row-menu').tap();
+        await page.getByTestId('tab-new').tap();
 
         // act
-        await page.getByTestId('tree-row-menu-rename').tap();
+        await page.getByTestId('new-menu-note').tap();
 
         // assert
         const dialog = page.locator('.mantine-Modal-content');
@@ -1532,7 +1629,7 @@ test.describe('mobile', () => {
             const box = await dialog.boundingBox();
             return Math.abs(box.y - (page.viewportSize().height - box.y - box.height));
         }).toBeLessThan(2);
-        await page.getByTestId('rename-cancel').tap();
+        await page.getByTestId('new-entry-cancel').tap();
     });
 
     test('a context menu on the free space of a folder list opens no menu of the app on a phone', async ({page}) => {

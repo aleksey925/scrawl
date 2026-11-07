@@ -20,7 +20,7 @@ import { EmptyState } from './EmptyState';
 import { countOf } from './formats';
 import { Page, PageTitle } from './Page';
 import { NewEntryMenu, usePointerMenu } from './pointerMenu';
-import { menuRectOf, PopupMenu } from './PopupMenu';
+import { FieldMenuItem, menuRectOf, PopupMenu } from './PopupMenu';
 
 export interface DirectoryViewProps {
   path: string;
@@ -96,20 +96,20 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
               </Button>
             </Menu.Target>
             <Menu.Dropdown>
-              <Menu.Item
+              <FieldMenuItem
                 data-testid="dir-new-file"
                 leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
                 onClick={() => startDraft('file')}
               >
                 New file
-              </Menu.Item>
-              <Menu.Item
+              </FieldMenuItem>
+              <FieldMenuItem
                 data-testid="dir-new-folder"
                 leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
                 onClick={() => startDraft('dir')}
               >
                 New folder
-              </Menu.Item>
+              </FieldMenuItem>
             </Menu.Dropdown>
           </PopupMenu>
         )}
@@ -169,20 +169,20 @@ function FolderMenu({ path, actions }: { path: string; actions: FileActions }): 
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown data-testid="folder-menu-dropdown">
-        <Menu.Item
+        <FieldMenuItem
           data-testid="folder-menu-new-file"
           leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
           onClick={() => actions.createDraft('file', path)}
         >
           New file
-        </Menu.Item>
-        <Menu.Item
+        </FieldMenuItem>
+        <FieldMenuItem
           data-testid="folder-menu-new-folder"
           leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
           onClick={() => actions.createDraft('dir', path)}
         >
           New folder
-        </Menu.Item>
+        </FieldMenuItem>
         <Menu.Divider />
         <Menu.Item
           data-testid="folder-menu-copy-link"
@@ -193,17 +193,17 @@ function FolderMenu({ path, actions }: { path: string; actions: FileActions }): 
         </Menu.Item>
         {path !== '' && (
           <>
-            <Menu.Item
+            <FieldMenuItem
               data-testid="folder-menu-rename"
               leftSection={<IconEdit size={layout.iconSizeSmall} />}
-              onClick={() => actions.rename(path, true)}
+              onClick={() => actions.startRename(path, true, 'page')}
             >
               Rename
-            </Menu.Item>
+            </FieldMenuItem>
             <Menu.Item
               data-testid="folder-menu-move"
               leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
-              onClick={(event) => actions.moveTo(path, true, menuRectOf(event.currentTarget))}
+              onClick={(event) => actions.moveTo(path, menuRectOf(event.currentTarget))}
             >
               Move to
             </Menu.Item>
@@ -211,7 +211,7 @@ function FolderMenu({ path, actions }: { path: string; actions: FileActions }): 
               data-testid="folder-menu-delete"
               color="red"
               leftSection={<IconTrash size={layout.iconSizeSmall} />}
-              onClick={() => actions.remove(path, true)}
+              onClick={() => actions.remove(path)}
             >
               Delete
             </Menu.Item>

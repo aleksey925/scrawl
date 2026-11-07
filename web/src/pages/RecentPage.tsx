@@ -17,7 +17,7 @@ import classes from './RecentPage.module.css';
 
 export function Component(): JSX.Element {
   const { notes, clear } = useRecentNotes();
-  usePageChrome({ crumbs: [], title: 'Recent', ownTitle: true });
+  usePageChrome({ crumbs: [], name: 'Recent', title: 'Recent', ownTitle: true });
 
   return (
     <Page data-testid="recent">

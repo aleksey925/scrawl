@@ -1,5 +1,7 @@
-import { Button, Group, Modal, Text, TextInput } from '@mantine/core';
+import { Button, Modal, Text, TextInput } from '@mantine/core';
 import { useState, type FormEvent, type JSX } from 'react';
+
+import { DialogActions } from '../components/DialogActions';
 
 import { basenameOf, pageName } from './naming';
 
@@ -52,14 +54,14 @@ export function RenameDialog({ path, onRename, onClose }: RenameDialogProps): JS
         <Text size="sm" c="dimmed" mt={6}>
           Links in other notes are not rewritten
         </Text>
-        <Group grow gap="xs" mt="md">
+        <DialogActions mt="md">
           <Button data-testid="rename-cancel" variant="default" onClick={onClose}>
             Cancel
           </Button>
           <Button data-testid="rename-submit" type="submit" loading={busy} disabled={name.trim() === ''}>
             Rename
           </Button>
-        </Group>
+        </DialogActions>
       </form>
     </Modal>
   );

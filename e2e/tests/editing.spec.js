@@ -530,6 +530,32 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('the leave dialog has the buttons every dialog has: one height, side by side at its end', async ({page}) => {
+        // arrange
+        const docPath = scratch('leave-buttons');
+        writeFixture(docPath, '# Заметка\n');
+        const buttons = (ids) => Promise.all(ids.map((id) => page.getByTestId(id).boundingBox()));
+        await page.goto(routes.doc(docPath));
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('note-menu-rename').click();
+        const rename = await buttons(['rename-cancel', 'rename-submit']);
+        await page.getByTestId('rename-cancel').click();
+        await page.goto(routes.edit(docPath));
+        await page.locator('[data-testid=editor-source] .cm-content').click();
+        await page.keyboard.type('x');
+
+        // act
+        await page.getByTestId('editor-cancel').click();
+
+        // assert
+        const leave = await buttons(['modal-cancel', 'modal-confirm']);
+        expect([...rename, ...leave].map((box) => Math.round(box.height))).toEqual([32, 32, 32, 32]);
+        expect(leave[0].x + leave[0].width).toBeLessThan(leave[1].x);
+        expect(Math.round(leave[0].y)).toBe(Math.round(leave[1].y));
+        await page.getByTestId('modal-cancel').click();
+        removeFixture(docPath);
+    });
+
     test('with wrapping off a long line scrolls inside the source column and slides under the line numbers', async ({page}) => {
         // arrange
         const docPath = scratch('no-wrap-column');

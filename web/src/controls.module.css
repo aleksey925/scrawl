@@ -42,6 +42,11 @@
   font-weight: 500;
 }
 
+.dialogActions .button {
+  --button-height-sm: var(--scrawl-dialog-button);
+  --button-padding-x-sm: 12px;
+}
+
 .button[data-size='lg'] {
   --button-height-lg: 32px;
   --button-padding-x-lg: 12px;
@@ -221,5 +226,9 @@
 @mixin smaller-than $mantine-breakpoint-sm {
   .modalInner {
     align-items: center;
+  }
+
+  .dialogActions > * {
+    flex: 1 1 auto;
   }
 }

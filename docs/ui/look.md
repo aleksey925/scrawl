@@ -61,6 +61,13 @@ Colors, controls and type: how a note and the chrome are drawn.
   indicator keeps its own transition while mantine turns them all off for a new
   theme ([quirks](../quirks.md#react-mantine-and-the-editor)). The theme
   buttons of a page of the command line slide the same way.
+- A dialog ends in one row of buttons, `DialogActions`, which the confirms take
+  as their `groupProps`: on a desktop at the right, as wide as their words and
+  32px tall, as the prototype has them, and on a phone sharing the row as an
+  alert of iOS does, at the touch height every labelled button has. No dialog
+  sets a height of its own: the editor's gave its buttons the 44px of an icon
+  button on every screen, and they stood 16px taller than the 28px buttons of
+  Rename.
 - The dark scheme is Notion's dark: a `#191919` page, a `#202020` sidebar and
   `#f0efed` text. Bold there is 700 instead of 600. Near-white letters on a
   near-black page glow and look heavy already, so bold, italic and headings in

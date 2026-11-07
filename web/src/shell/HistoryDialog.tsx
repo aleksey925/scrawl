@@ -3,7 +3,6 @@ import {
   Button,
   Center,
   CloseButton,
-  Group,
   Loader,
   MANTINE_TRANSITIONS,
   Modal,
@@ -19,6 +18,7 @@ import { ApiError } from '../api/errors';
 import type { HistoryEntry, HistoryVersionResponse } from '../api/types';
 import { errorText, useApi, type AsyncState } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
+import { DialogActions, dialogActionsProps } from '../components/DialogActions';
 import { absoluteTime, versionTime } from '../components/formats';
 import { Segmented, type SegmentedOption } from '../components/Segmented';
 import { RenderedDiff, type DiffLayout } from '../diff/RenderedDiff';
@@ -291,6 +291,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
       labels: { confirm: 'Restore', cancel: 'Cancel' },
       confirmProps: { 'data-testid': 'modal-confirm' },
       cancelProps: { 'data-testid': 'modal-cancel' },
+      groupProps: dialogActionsProps,
       onConfirm: () => void runRestore(entry, rev),
     });
   }
@@ -430,7 +431,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
           <pre data-testid="history-conflict-current" className={classes.conflictText}>
             {conflict ?? ''}
           </pre>
-          <Group justify="flex-end" gap="sm">
+          <DialogActions>
             <Button data-testid="history-conflict-cancel" variant="default" onClick={() => setConflict(undefined)}>
               Cancel
             </Button>
@@ -444,7 +445,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
             >
               Reload
             </Button>
-          </Group>
+          </DialogActions>
         </Stack>
       </Modal>
     </>

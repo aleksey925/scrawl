@@ -1015,6 +1015,27 @@ test.describe('editing', () => {
             removeFixture(docPath);
         });
 
+        for (const [block, open, close] of [['code block', '```js', '```'], ['math block', '$$', '$$']]) {
+            test(`a table inserted in a ${block} that runs to the end of the file closes the block first`, async ({page}) => {
+                // arrange
+                const docPath = scratch(`table-in-open-${block.replace(' ', '-')}`);
+                writeFixture(docPath, `Text\n\n${open}\nx\n`);
+                await page.goto(routes.edit(docPath));
+                await putCursor(page, 3, 'End');
+                await page.getByTestId('editor-toolbar-table').click();
+
+                // act
+                await page.getByTestId('editor-table-grid').locator('[data-column="1"][data-row="2"]').click();
+
+                // assert
+                await expect.poll(() => sourceText(page)).toBe([
+                    'Text', '', open, 'x', close, '', '|     |', '| --- |', '|     |', '',
+                ].join('\n'));
+                await expect(page.locator('[data-testid=editor-preview] table')).toHaveCount(1);
+                removeFixture(docPath);
+            });
+        }
+
         test('the size grid has the focus when the menu opens, takes the arrow keys and Enter, and a table on a blank line takes its place', async ({page}) => {
             // arrange
             const docPath = scratch('table-keys');
@@ -1316,6 +1337,47 @@ test.describe('editing', () => {
                 removeFixture(docPath);
             });
         }
+
+        for (const [where, before, after, items] of [
+            ['a list item', '- | a |\n  | - |\n\n  more\n- next\n', '- more\n- next\n', 2],
+            ['a list item in a list item', '- - | a |\n    | - |\n\n  more\n', '- more\n', 1],
+            ['a list item in a quote', '> 1. | a |\n>    | - |\n>\n>    more\n', '> 1. more\n', 1],
+        ]) {
+            test(`deleting a table that starts ${where} gives its marker to what follows in the item`, async ({page}) => {
+                // arrange
+                const docPath = scratch(`table-delete-item-${where.replaceAll(' ', '-')}`);
+                writeFixture(docPath, before);
+                await page.goto(routes.edit(docPath));
+                await putCursor(page, 0, 'End');
+
+                // act
+                await tableEdit(page, 'deleteTable');
+
+                // assert
+                await expect.poll(() => sourceText(page)).toBe(after);
+                await expect(page.locator('[data-testid=editor-preview] li')).toHaveCount(items);
+                await expect(page.locator('[data-testid=editor-preview] li').first()).toHaveText('more');
+                removeFixture(docPath);
+            });
+        }
+
+        test('a pipe after two backslashes is escaped, as the server reads it', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-backslashes');
+            writeFixture(docPath, '| a | b |\n| - | - |\n| x \\\\| y | z |\n');
+            await page.goto(routes.edit(docPath));
+            await putCursor(page, 2, 'End');
+
+            // act
+            await tableEdit(page, 'columnRight');
+
+            // assert
+            await expect.poll(() => sourceText(page)).toBe([
+                '| a       | b   |     |', '| ------- | --- | --- |', '| x \\\\| y | z   |     |', '',
+            ].join('\n'));
+            await expect(page.locator('[data-testid=editor-preview] table tbody td')).toHaveText(['x \\| y', 'z', '']);
+            removeFixture(docPath);
+        });
     });
 
     test.afterAll(() => {

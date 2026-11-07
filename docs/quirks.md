@@ -126,6 +126,11 @@ words; the fact itself is written here.
 - react-codemirror wraps the editor in a div with `display: block` and no
   height, so the stylesheet makes that div a flex child, or the editor grows to
   the whole document and nothing scrolls.
+- The markdown parser of codemirror reads `\\|` in a table row as an escaped
+  `\` and a cell break, and goldmark, which renders the page, reads every `|`
+  right after a `\` as text. So a header with `\\|` in it has a cell more in
+  the editor, which then sees no table where the page shows one.
+  [Editor](ui/editor.md)
 - In codemirror the height of a line not drawn yet is an estimate, hundreds of
   pixels off in a wrapped note. [Editor position](design/editor-position.md)
 - A phone that puts a tab away and later drops it fires no `beforeunload`, so a

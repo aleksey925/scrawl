@@ -1,8 +1,8 @@
-import { EditorSelection, type EditorState, type Text } from '@codemirror/state';
+import { EditorSelection, type EditorState, type Line, type Text } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
 import { clamp } from './anchor';
-import { placeAfterCursorBlock, treeOf } from './blocks';
+import { type BlockNode, placeAfterCursorBlock, treeOf } from './blocks';
 
 export type TableEdit =
   | 'rowAbove'
@@ -36,6 +36,7 @@ interface TableSpot extends CellAt {
   to: number;
   prefixes: string[];
   table: Table;
+  itemEnd: number | undefined;
 }
 
 interface Rendered {
@@ -45,6 +46,7 @@ interface Rendered {
 
 const minCellWidth = 3;
 const delimiterLine = 1;
+const containerPrefix = /^[ \t>]*/;
 
 function splitRow(text: string): string[] {
   const trimmed = text.trim();
@@ -56,7 +58,7 @@ function splitRow(text: string): string[] {
     } else {
       cells[cells.length - 1] += char;
     }
-    escaped = !escaped && char === '\\';
+    escaped = char === '\\';
   }
   if (cells.length > 1 && cells.at(-1) === '') {
     cells.pop();
@@ -74,7 +76,7 @@ function columnAt(text: string, offset: number): number {
     if (char === '|' && !escaped) {
       pipes += 1;
     }
-    escaped = !escaped && char === '\\';
+    escaped = char === '\\';
   }
   return text.trimStart().startsWith('|') ? pipes - 1 : pipes;
 }
@@ -100,35 +102,51 @@ function blankLine(doc: Text, number: number): boolean {
   return number < 1 || number > doc.lines || doc.line(number).text.trim() === '';
 }
 
-function tableRowStarts(state: EditorState, pos: number): number[] | undefined {
+function tableAt(state: EditorState, pos: number): BlockNode | undefined {
   const line = state.doc.lineAt(pos);
-  const tree = treeOf(state);
-  let starts: number[] | undefined;
-  tree.iterate({
+  let table: BlockNode | undefined;
+  treeOf(state).iterate({
     from: line.from,
     to: line.to,
     enter: (node) => {
-      if (starts !== undefined) {
+      if (table !== undefined) {
         return false;
       }
       if (node.name !== 'Table') {
         return undefined;
       }
-      starts = [];
-      for (let child = node.node.firstChild; child !== null; child = child.nextSibling) {
-        if (child.name === 'TableHeader' || child.name === 'TableDelimiter' || child.name === 'TableRow') {
-          starts.push(child.from);
-        }
-      }
+      table = node.node;
       return false;
     },
   });
+  return table;
+}
+
+function rowStarts(table: BlockNode): number[] {
+  const starts: number[] = [];
+  for (let child = table.firstChild; child !== null; child = child.nextSibling) {
+    if (child.name === 'TableHeader' || child.name === 'TableDelimiter' || child.name === 'TableRow') {
+      starts.push(child.from);
+    }
+  }
   return starts;
 }
 
+function startedItemEnd(doc: Text, table: BlockNode): number | undefined {
+  const firstLine = doc.lineAt(table.from).number;
+  let end: number | undefined;
+  for (let node = table.parent; node !== null; node = node.parent) {
+    if (node.name === 'ListItem' && doc.lineAt(node.from).number === firstLine) {
+      end = node.to;
+    }
+  }
+  return end;
+}
+
 function tableSpot(state: EditorState, pos: number): TableSpot | undefined {
-  const starts = tableRowStarts(state, pos);
-  if (starts === undefined || starts.length <= delimiterLine) {
+  const node = tableAt(state, pos);
+  const starts = node === undefined ? [] : rowStarts(node);
+  if (node === undefined || starts.length <= delimiterLine) {
     return undefined;
   }
   const rowLines = starts.map((from) => state.doc.lineAt(from));
@@ -160,6 +178,7 @@ function tableSpot(state: EditorState, pos: number): TableSpot | undefined {
     },
     row: lineIndex <= delimiterLine ? 0 : lineIndex - delimiterLine,
     column: clamp(column, 0, width - 1),
+    itemEnd: startedItemEnd(state.doc, node),
   };
 }
 
@@ -294,8 +313,37 @@ export function tableEditsAtCursor(state: EditorState): ReadonlySet<TableEdit> |
   return spot === undefined ? undefined : editsOf(spot);
 }
 
+function nextContentLine(doc: Text, after: number): Line | undefined {
+  for (let number = after + 1; number <= doc.lines; number++) {
+    const line = doc.line(number);
+    if (line.text.replace(containerPrefix, '') !== '') {
+      return line;
+    }
+  }
+  return undefined;
+}
+
+function itemContentAfter(doc: Text, spot: TableSpot): Line | undefined {
+  if (spot.itemEnd === undefined) {
+    return undefined;
+  }
+  const next = nextContentLine(doc, doc.lineAt(spot.to).number);
+  return next !== undefined && next.from < spot.itemEnd ? next : undefined;
+}
+
 function deleteTable(view: EditorView, spot: TableSpot): void {
   const { doc } = view.state;
+  const next = itemContentAfter(doc, spot);
+  if (next !== undefined) {
+    const marker = spot.prefixes[0] ?? '';
+    const kept = Math.min(containerPrefix.exec(next.text)?.[0].length ?? 0, marker.length);
+    view.dispatch({
+      changes: { from: spot.from, to: next.from + kept, insert: marker.slice(0, kept) },
+      selection: EditorSelection.cursor(spot.from + kept),
+      scrollIntoView: true,
+    });
+    return;
+  }
   const first = doc.lineAt(spot.from).number;
   const end = doc.lineAt(spot.to).number;
   const last = end < doc.lines && blankLine(doc, end + 1) && blankLine(doc, first - 1) ? end + 1 : end;

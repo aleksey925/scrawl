@@ -5,6 +5,8 @@ import { parseBudgetMs } from './constants';
 
 export type Tree = ReturnType<typeof syntaxTree>;
 
+export type BlockNode = Tree['topNode'];
+
 export interface TextChange {
   from: number;
   to: number;
@@ -14,6 +16,16 @@ export interface TextChange {
 export interface PlacedBlock {
   change: TextChange;
   blockFrom: number;
+}
+
+interface InsertSpot {
+  line: Line;
+  closer: string | undefined;
+}
+
+interface MathBlock {
+  close: number;
+  closed: boolean;
 }
 
 const frontmatterStart = '---';
@@ -37,23 +49,32 @@ export function frontmatterEnd(doc: Text): number {
   return 0;
 }
 
-function topBlockEnd(tree: Tree, line: Line): number | undefined {
+function topBlock(tree: Tree, line: Line): BlockNode | undefined {
   for (let node = tree.topNode.firstChild; node !== null; node = node.nextSibling) {
     if (node.from > line.to) {
       return undefined;
     }
     if (node.to >= line.from) {
-      return node.to;
+      return node;
     }
   }
   return undefined;
+}
+
+function fenceCloser(doc: Text, node: BlockNode): string | undefined {
+  if (node.name !== 'FencedCode') {
+    return undefined;
+  }
+  const marks = node.getChildren('CodeMark');
+  const [open] = marks;
+  return marks.length === 1 && open !== undefined ? doc.sliceString(open.from, open.to) : undefined;
 }
 
 function isMathFence(line: Line): boolean {
   return line.text.trim() === mathFence;
 }
 
-function mathCloseAround(doc: Text, tree: Tree, line: Line, bodyAfter: number): number | undefined {
+function mathAround(doc: Text, tree: Tree, line: Line, bodyAfter: number): MathBlock | undefined {
   let after = bodyAfter;
   for (let node = tree.topNode.firstChild; node !== null; node = node.nextSibling) {
     const open = doc.lineAt(node.from);
@@ -67,28 +88,39 @@ function mathCloseAround(doc: Text, tree: Tree, line: Line, bodyAfter: number): 
     while (close < doc.lines && !isMathFence(doc.line(close))) {
       close++;
     }
+    const closed = close <= doc.lines && isMathFence(doc.line(close));
     close = Math.min(close, doc.lines);
     if (line.number <= close) {
-      return close;
+      return { close, closed };
     }
     after = close;
   }
   return undefined;
 }
 
-function insertLine(state: EditorState, tree: Tree): Line {
+function insertSpot(state: EditorState, tree: Tree): InsertSpot {
   const { doc } = state;
   const cursor = doc.lineAt(state.selection.main.head);
   const bodyAfter = frontmatterEnd(doc);
   if (cursor.number <= bodyAfter) {
-    return doc.line(bodyAfter);
+    return { line: doc.line(bodyAfter), closer: undefined };
   }
-  const inner = doc.line(mathCloseAround(doc, tree, cursor, bodyAfter) ?? cursor.number);
-  const blockEnd = topBlockEnd(tree, inner);
-  return blockEnd === undefined ? inner : doc.lineAt(blockEnd);
+  const math = mathAround(doc, tree, cursor, bodyAfter);
+  const inner = doc.line(math?.close ?? cursor.number);
+  if (math !== undefined && !math.closed) {
+    return { line: inner, closer: mathFence };
+  }
+  const block = topBlock(tree, inner);
+  if (block === undefined) {
+    return { line: inner, closer: undefined };
+  }
+  return { line: doc.lineAt(block.to), closer: fenceCloser(doc, block) };
 }
 
-function leadOf(doc: Text, line: Line): string {
+function leadOf(doc: Text, { line, closer }: InsertSpot): string {
+  if (closer !== undefined) {
+    return `${line.length > 0 ? '\n' : ''}${closer}\n\n`;
+  }
   if (line.length > 0) {
     return '\n\n';
   }
@@ -107,8 +139,9 @@ function trailOf(doc: Text, line: Line): string {
 
 export function placeAfterCursorBlock(state: EditorState, tree: Tree, block: string): PlacedBlock {
   const { doc } = state;
-  const line = insertLine(state, tree);
-  const lead = leadOf(doc, line);
+  const spot = insertSpot(state, tree);
+  const { line } = spot;
+  const lead = leadOf(doc, spot);
   return {
     change: { from: line.to, to: line.to, insert: `${lead}${block}${trailOf(doc, line)}` },
     blockFrom: line.to + lead.length,

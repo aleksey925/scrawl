@@ -37,6 +37,7 @@ import { showToast } from '../toast';
 import { PreviewPane } from './PreviewPane';
 import { SourceEditor, type DroppedFiles, type EditorKind } from './SourceEditor';
 import { Splitter } from './Splitter';
+import type { TableMenuProps } from './TableMenu';
 import { Toolbar } from './Toolbar';
 import {
   captureFromPane,
@@ -55,6 +56,7 @@ import classes from './Editor.module.css';
 import { lineBreakOf, toEditorText, withLineBreak } from './lineBreaks';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { createPaneSync } from './paneSync';
+import { insertTable, runTableEdit, tableEditsAtCursor } from './table';
 import { tocBlock, writeToc, writeTocInText } from './toc';
 import { useDraft } from './useDraft';
 import { useEditorLayout, type LayoutMode } from './useLayoutMode';
@@ -573,6 +575,25 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     }
   }, []);
 
+  const tableTools = useMemo<TableMenuProps>(
+    () => ({
+      editsAtCursor: () => (viewRef.current === undefined ? undefined : tableEditsAtCursor(viewRef.current.state)),
+      onEdit: (edit) => {
+        const current = viewRef.current;
+        if (current !== undefined) {
+          runTableEdit(current, edit);
+        }
+      },
+      onInsert: (size) => {
+        const current = viewRef.current;
+        if (current !== undefined) {
+          insertTable(current, size);
+        }
+      },
+    }),
+    [],
+  );
+
   const onFiles = useCallback(
     ({ files, at }: DroppedFiles): void => uploads.upload(files, at),
     [uploads],
@@ -747,6 +768,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
                     onAction={onAction}
                     onPickImage={() => fileRef.current?.click()}
                     onToc={insertToc}
+                    table={tableTools}
                     onFormat={formattable ? format : undefined}
                   />
                 )}

@@ -6,7 +6,7 @@ import { EditorView } from '@codemirror/view';
 import type { Heading } from '../api/types';
 
 import { codeNodes } from './cmAnchor';
-import { tocParseBudgetMs } from './constants';
+import { parseBudgetMs } from './constants';
 
 type Tree = ReturnType<typeof syntaxTree>;
 
@@ -46,7 +46,7 @@ export function tocBlock(headings: readonly Heading[]): string | undefined {
 }
 
 function treeOf(state: EditorState): Tree {
-  return ensureSyntaxTree(state, state.doc.length, tocParseBudgetMs) ?? syntaxTree(state);
+  return ensureSyntaxTree(state, state.doc.length, parseBudgetMs) ?? syntaxTree(state);
 }
 
 function frontmatterEnd(doc: Text): number {

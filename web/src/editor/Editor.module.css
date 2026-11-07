@@ -320,3 +320,44 @@
 .tool[aria-pressed='true'] {
   color: var(--scrawl-accent);
 }
+
+.tableGridBox {
+  padding: 6px 8px 2px;
+}
+
+.tableGrid {
+  display: grid;
+  gap: 3px;
+  padding: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+
+.tableGrid:focus-visible {
+  box-shadow:
+    0 0 0 1px var(--scrawl-focus-ring),
+    0 0 0 2px var(--scrawl-focus-ring-outer);
+}
+
+.tableCell {
+  aspect-ratio: 1;
+  border: 1px solid var(--scrawl-border);
+  border-radius: 3px;
+  background: var(--scrawl-bg);
+  transition: background-color 80ms, border-color 80ms;
+}
+
+.tableCell[data-active='true'] {
+  border-color: var(--scrawl-accent);
+  background: var(--scrawl-accent-tint);
+}
+
+.tableSize {
+  padding-block: 6px 2px;
+  color: var(--scrawl-text-tertiary);
+  font-size: var(--mantine-font-size-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}

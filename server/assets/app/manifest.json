@@ -28,6 +28,7 @@
       "_NavContext.js",
       "_AsyncContent.js",
       "_platform.js",
+      "_Table.es.js",
       "index.html",
       "_PressRow.module.js"
     ],
@@ -105,6 +106,15 @@
     "name": "PressRow.module",
     "css": [
       "assets/PressRow.css"
+    ]
+  },
+  "_Table.es.js": {
+    "file": "assets/Table.es.js",
+    "name": "Table.es",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_PageChrome.js",
+      "_platform.js"
     ]
   },
   "_arc.js": {
@@ -2436,6 +2446,7 @@
       "_AsyncContent.js",
       "_preload-helper.js",
       "_platform.js",
+      "_Table.es.js",
       "index.html",
       "_lezer-common.js",
       "_lezer-html.js",

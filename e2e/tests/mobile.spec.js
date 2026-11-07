@@ -1143,6 +1143,25 @@ test.describe('mobile', () => {
         await expectNoHorizontalScroll(page);
     });
 
+    test('a tap on the size grid inserts the table and leaves the cursor in its first cell', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
+        await page.goto(routes.edit(SCRATCH));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(2).tap();
+        await page.getByTestId('editor-toolbar-table').tap();
+        await openedMenu(page, 'editor-table-menu');
+
+        // act
+        await page.getByTestId('editor-table-grid').locator('[data-column="3"][data-row="2"]').tap();
+        await page.keyboard.type('A');
+
+        // assert
+        await expect(page.getByTestId('editor-table-menu')).toBeHidden();
+        await expect.poll(() => sourceText(page)).toBe([
+            '# Заметка', '', 'текст', '', '| A    |     |     |', '| --- | --- | --- |', '|     |     |     |', '',
+        ].join('\n'));
+    });
+
     test('a text file opens in the editor with no Text and Preview tabs', async ({page}) => {
         // arrange
         const filePath = 'e2e-mobile/plain.txt';

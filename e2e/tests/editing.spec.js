@@ -915,6 +915,182 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test.describe('the table menu', () => {
+        const edits = ['rowAbove', 'rowBelow', 'columnLeft', 'columnRight', 'deleteRow', 'deleteColumn', 'deleteTable'];
+
+        async function putCursor(page, line, key) {
+            await page.locator('[data-testid=editor-source] .cm-line').nth(line).click();
+            await page.keyboard.press(key);
+        }
+
+        async function tableEdit(page, edit) {
+            await page.getByTestId('editor-toolbar-table').click();
+            await page.getByTestId(`editor-table-${edit}`).click();
+        }
+
+        async function menuOffer(page) {
+            await page.getByTestId('editor-toolbar-table').click();
+            const dropdown = page.getByTestId('editor-table-menu');
+            await expect(dropdown).toBeVisible();
+            const res = {grid: await dropdown.getByTestId('editor-table-grid').count() > 0, shown: [], enabled: []};
+            for (const edit of edits) {
+                const item = dropdown.getByTestId(`editor-table-${edit}`);
+                if (await item.count() > 0) {
+                    res.shown.push(edit);
+                    if (await item.isEnabled()) {
+                        res.enabled.push(edit);
+                    }
+                }
+            }
+            await page.keyboard.press('Escape');
+            await expect(dropdown).toBeHidden();
+            return res;
+        }
+
+        test('inserts a table of the chosen size after the line of the cursor, with the cursor in its first cell', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-insert');
+            writeFixture(docPath, '# T\n\nIntro text\n');
+            await page.goto(routes.edit(docPath));
+            await putCursor(page, 2, 'End');
+
+            await page.getByTestId('editor-toolbar-table').click();
+            const grid = page.getByTestId('editor-table-grid');
+
+            // act
+            await grid.locator('[data-column="2"][data-row="3"]').hover();
+            await expect(page.getByTestId('editor-table-size')).toHaveText('2 × 3');
+            const lit = await grid.locator('[data-active=true]').evaluateAll(
+                (cells) => cells.map((cell) => `${cell.dataset.column}:${cell.dataset.row}`));
+            await grid.locator('[data-column="2"][data-row="3"]').click();
+            await page.keyboard.type('A');
+
+            // assert
+            expect(lit).toEqual(['1:1', '2:1', '1:2', '2:2', '1:3', '2:3']);
+            await expect(page.getByTestId('editor-table-menu')).toBeHidden();
+            await expect.poll(() => sourceText(page)).toBe([
+                '# T', '', 'Intro text', '', '| A    |     |', '| --- | --- |', '|     |     |', '|     |     |', '',
+            ].join('\n'));
+            await expect(page.locator('[data-testid=editor-preview] table th')).toHaveCount(2);
+            await expect(page.locator('[data-testid=editor-preview] table tbody tr')).toHaveCount(2);
+            removeFixture(docPath);
+        });
+
+        test('a table inserted on the line under another table stays apart from it', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-under-table');
+            writeFixture(docPath, '| a | b |\n| - | - |\n');
+            await page.goto(routes.edit(docPath));
+            await putCursor(page, 2, 'End');
+            await page.getByTestId('editor-toolbar-table').click();
+
+            // act
+            await page.getByTestId('editor-table-grid').locator('[data-column="1"][data-row="2"]').click();
+
+            // assert
+            await expect.poll(() => sourceText(page)).toBe([
+                '| a | b |', '| - | - |', '', '|     |', '| --- |', '|     |',
+            ].join('\n'));
+            await expect(page.locator('[data-testid=editor-preview] table')).toHaveCount(2);
+            removeFixture(docPath);
+        });
+
+        test('the size grid takes the arrow keys and Enter, and a table on a blank line takes its place', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-keys');
+            writeFixture(docPath, '# T\n\n\nText\n');
+            await page.goto(routes.edit(docPath));
+            await putCursor(page, 2, 'End');
+            await page.getByTestId('editor-toolbar-table').click();
+            await page.getByTestId('editor-table-grid').focus();
+
+            // act
+            for (const key of ['ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowDown']) {
+                await page.keyboard.press(key);
+            }
+            await expect(page.getByTestId('editor-table-size')).toHaveText('3 × 2');
+            await page.keyboard.press('Enter');
+
+            // assert
+            await expect.poll(() => sourceText(page)).toBe([
+                '# T', '', '|     |     |     |', '| --- | --- | --- |', '|     |     |     |', '', 'Text', '',
+            ].join('\n'));
+            removeFixture(docPath);
+        });
+
+        test('offers the grid outside a table and the edits inside it, with no row above or row delete on the header', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-offers');
+            writeFixture(docPath, 'Text\n\n| a | b |\n| - | - |\n| 1 | 2 |\n');
+            await page.goto(routes.edit(docPath));
+            const onHeader = ['rowBelow', 'columnLeft', 'columnRight', 'deleteColumn', 'deleteTable'];
+
+            // act & assert
+            await putCursor(page, 0, 'End');
+            expect(await menuOffer(page)).toEqual({grid: true, shown: [], enabled: []});
+
+            await putCursor(page, 2, 'Home');
+            expect(await menuOffer(page)).toEqual({grid: false, shown: edits, enabled: onHeader});
+
+            await putCursor(page, 3, 'End');
+            expect(await menuOffer(page)).toEqual({grid: false, shown: edits, enabled: onHeader});
+
+            await putCursor(page, 4, 'Home');
+            expect(await menuOffer(page)).toEqual({grid: false, shown: edits, enabled: edits});
+
+            await putCursor(page, 5, 'Home');
+            expect(await menuOffer(page)).toEqual({grid: true, shown: [], enabled: []});
+            removeFixture(docPath);
+        });
+
+        test('adds and deletes rows and columns where the cursor is, keeps the alignment and deletes the table', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-edit');
+            writeFixture(docPath, '# T\n\n| Name | Age |\n|:--|--:|\n| Ann | 30 |\n\nafter\n');
+            await page.goto(routes.edit(docPath));
+            const table = ['| Name | Age |', '| :--- | --: |', '| Ann  |  30 |'];
+            const note = (...rows) => ['# T', '', ...rows, '', 'after', ''].join('\n');
+            await putCursor(page, 4, 'End');
+
+            // act & assert
+            await tableEdit(page, 'rowAbove');
+            await expect.poll(() => sourceText(page)).toBe(note(table[0], table[1], '|      |     |', table[2]));
+
+            await tableEdit(page, 'columnRight');
+            await page.keyboard.type('z');
+            await expect.poll(() => sourceText(page)).toBe(note(
+                '| Name | Age |     |', '| :--- | --: | --- |', '|      |     | z    |', '| Ann  |  30 |     |',
+            ));
+
+            await tableEdit(page, 'deleteColumn');
+            await expect.poll(() => sourceText(page)).toBe(note(table[0], table[1], '|      |     |', table[2]));
+
+            await tableEdit(page, 'deleteRow');
+            await expect.poll(() => sourceText(page)).toBe(note(...table));
+
+            await tableEdit(page, 'deleteTable');
+            await expect.poll(() => sourceText(page)).toBe('# T\n\nafter\n');
+            removeFixture(docPath);
+        });
+
+        test('a new row of a table in a quote keeps the quote marker', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-quote');
+            writeFixture(docPath, '> | a | b |\n> | --- | --- |\n> | 1 | 2 |\n');
+            await page.goto(routes.edit(docPath));
+            await putCursor(page, 2, 'End');
+
+            // act
+            await tableEdit(page, 'rowBelow');
+
+            // assert
+            await expect.poll(() => sourceText(page)).toBe(
+                ['> | a   | b   |', '> | --- | --- |', '> | 1   | 2   |', '> |     |     |', ''].join('\n'),
+            );
+            removeFixture(docPath);
+        });
+    });
+
     test.afterAll(() => {
         fs.rmSync(fixtureFile('e2e-scratch'), {recursive: true, force: true});
     });

@@ -20,6 +20,7 @@ import { layout } from '../theme';
 
 import classes from './Editor.module.css';
 import type { MarkdownAction } from './markdownActions';
+import { TableMenu, type TableMenuProps } from './TableMenu';
 
 interface ToolItem {
   action: MarkdownAction;
@@ -48,6 +49,7 @@ export interface ToolbarProps {
   onAction: (action: MarkdownAction) => void;
   onPickImage: () => void;
   onToc: () => void;
+  table: TableMenuProps;
   onFormat: (() => void) | undefined;
 }
 
@@ -100,7 +102,7 @@ function ToolButton({ testId, label, onClick, children }: { testId: string; labe
   );
 }
 
-export function Toolbar({ onAction, onPickImage, onToc, onFormat }: ToolbarProps): JSX.Element {
+export function Toolbar({ onAction, onPickImage, onToc, table, onFormat }: ToolbarProps): JSX.Element {
   const [stripRef, hidden] = useHiddenEnds();
 
   return (
@@ -123,6 +125,7 @@ export function Toolbar({ onAction, onPickImage, onToc, onFormat }: ToolbarProps
           ))}
         </Fragment>
       ))}
+      <TableMenu {...table} />
       <span className={classes.toolSeparator} aria-hidden />
       <ToolButton testId="editor-toolbar-image" label="Upload image" onClick={onPickImage}>
         <IconPhoto size={layout.iconSizeTool} />

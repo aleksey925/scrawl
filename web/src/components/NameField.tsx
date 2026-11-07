@@ -100,6 +100,13 @@ export function NameField({
     commit();
   };
 
+  const leaveOnBlur = (): void => {
+    if (document.activeElement === inputRef.current && !document.hasFocus()) {
+      return;
+    }
+    leave();
+  };
+
   const leaveOrClose = (): void => {
     if (name === state.current.failed) {
       cancel();
@@ -171,7 +178,7 @@ export function NameField({
           }
         }}
         onChange={(event) => setName(event.currentTarget.value)}
-        onBlur={leave}
+        onBlur={leaveOnBlur}
         onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
           event.stopPropagation();
           const composing = event.nativeEvent.isComposing || event.nativeEvent.keyCode === imeKeyCode;

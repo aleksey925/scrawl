@@ -53,6 +53,11 @@ words; the fact itself is written here.
 - A page cannot read a drag's data during `dragover`. [Entries](ui/entries.md)
 - Safari sends the Enter that ends the composition of an input method with
   `isComposing` false and `keyCode` 229. [Entries](ui/entries.md)
+- When the window loses the focus, to another app or tab, the focused field
+  gets a blur, but `document.activeElement` is still that field and
+  `document.hasFocus()` is false; on return the field gets the focus back. A
+  blur inside the page leaves `activeElement` on the body. Checked in Chromium,
+  not yet in Safari or on a phone. [Entries](ui/entries.md)
 - A field the browser filled in, a saved password say, gets the browser's own
   background with `!important`: yellow in Safari, blue in Chromium. Only an
   inset shadow over it and a long delay on `background-color` keep the field's

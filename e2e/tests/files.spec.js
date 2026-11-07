@@ -683,6 +683,39 @@ test.describe.serial('file management', () => {
         removeFixture(clicked);
     });
 
+    test('a rename field keeps the name unsaved while the window is away, and saves it on Enter after', async ({playwright}) => {
+        // arrange
+        const note = `${FOLDER}/window-away.md`;
+        const renamed = `${FOLDER}/window-away-renamed.md`;
+        writeFixture(note, '# Window away\n');
+        const browser = await playwright.chromium.launch({channel: 'chromium'});
+        const context = await browser.newContext({viewport: {width: 1440, height: 900}});
+        const page = await context.newPage();
+        await signIn(page);
+        await page.goto(MAIN.url.doc(note));
+        await (await context.newCDPSession(page)).send('Emulation.setFocusEmulationEnabled', {enabled: false});
+        const input = page.getByTestId('page-rename-input');
+        const moves = recordMoves(page);
+        await startPageRename(page, 'note-menu');
+        await input.fill(nameOf(renamed));
+
+        // act
+        await (await context.newPage()).bringToFront();
+
+        // assert
+        await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(false);
+        await stays(() => moves, [], MOVE_WAIT_MS);
+        await page.bringToFront();
+        await expect(input).toBeFocused();
+        await expect(input).toHaveValue(nameOf(renamed));
+        await input.press('Enter');
+        await expect(page).toHaveURL(MAIN.url.doc(renamed));
+        expect(moves).toEqual([{from: note, to: renamed}]);
+        expect([note, renamed].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([false, true]);
+        removeFixture(renamed);
+        await browser.close();
+    });
+
     test('a page rename to a name that is taken says so and keeps the popover with the name typed', async ({page}) => {
         // arrange
         const note = `${FOLDER}/popover-first.md`;

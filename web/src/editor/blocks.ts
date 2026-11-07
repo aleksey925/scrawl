@@ -1,11 +1,14 @@
 import type { EditorState, Line, Text } from '@codemirror/state';
 import {
+  Autolink,
   type BlockContext,
   type Element,
-  GFM,
   type Line as BlockLine,
   type MarkdownConfig,
   parser as commonmark,
+  Strikethrough,
+  Table,
+  TaskList,
 } from '@lezer/markdown';
 
 export interface TextChange {
@@ -35,6 +38,10 @@ const frontmatterStops: ReadonlySet<string> = new Set(['---', '...']);
 const mathFence = '$$';
 const mathBlock = 'MathBlock';
 const mathMark = 'MathMark';
+export const footnoteDefinition = 'FootnoteDefinition';
+const footnoteIndent = 4;
+const footnoteStart = /^\[\^((?:\\.|[^\\[\]])+)\]:/;
+const delimiterRow = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
 const rawHtmlOpen = /^<(script|pre|style|textarea)(?:\s|\/?>|$)/i;
 const rawHtmlEnd = /<\/(?:script|pre|style|textarea)>/i;
 const htmlBlocks: ReadonlySet<string> = new Set(['HTMLBlock', 'CommentBlock', 'ProcessingInstructionBlock']);
@@ -88,6 +95,44 @@ function parseMath(cx: BlockContext, line: BlockLine): boolean {
   return true;
 }
 
+function footnoteMark(line: BlockLine): number | undefined {
+  const mark = footnoteStart.exec(lineRest(line));
+  return mark === null || mark[1]?.trim() === '' ? undefined : mark[0].length;
+}
+
+function parseFootnote(cx: BlockContext, line: BlockLine): null | false {
+  const mark = footnoteMark(line);
+  if (mark === undefined) {
+    return false;
+  }
+  cx.startComposite(footnoteDefinition, line.pos, footnoteIndent);
+  line.moveBase(line.pos + mark);
+  return null;
+}
+
+function inFootnote(_cx: BlockContext, line: BlockLine, indent: number): boolean {
+  if (line.indent < line.baseIndent + indent && line.next > -1) {
+    return false;
+  }
+  line.moveBaseColumn(line.baseIndent + indent);
+  return true;
+}
+
+function isDelimiterRow(text: string): boolean {
+  return delimiterRow.test(text.trim());
+}
+
+const serverTable: MarkdownConfig = {
+  defineNodes: Table.defineNodes,
+  parseBlock: Table.parseBlock?.map((spec) => ({
+    ...spec,
+    endLeaf: (cx, line, leaf) =>
+      !isDelimiterRow(lineRest(line)) &&
+      !leaf.content.split('\n').slice(1).some(isDelimiterRow) &&
+      (spec.endLeaf?.(cx, line, leaf) ?? false),
+  })),
+};
+
 function parseRawHtml(cx: BlockContext, line: BlockLine): boolean {
   if (!rawHtmlOpen.test(lineRest(line))) {
     return false;
@@ -110,9 +155,15 @@ function parseRawHtml(cx: BlockContext, line: BlockLine): boolean {
 }
 
 const serverBlocks: MarkdownConfig = {
-  defineNodes: [{ name: mathBlock, block: true }, mathMark],
+  defineNodes: [{ name: mathBlock, block: true }, mathMark, { name: footnoteDefinition, block: true, composite: inFootnote }],
   parseBlock: [
     { name: mathBlock, after: 'FencedCode', parse: parseMath },
+    {
+      name: footnoteDefinition,
+      after: 'Blockquote',
+      parse: parseFootnote,
+      endLeaf: (_cx, line) => footnoteMark(line) !== undefined,
+    },
     {
       name: 'RawHTMLBlock',
       before: 'HTMLBlock',
@@ -122,7 +173,7 @@ const serverBlocks: MarkdownConfig = {
   ],
 };
 
-const serverParser = commonmark.configure([GFM, serverBlocks]);
+const serverParser = commonmark.configure([serverTable, TaskList, Strikethrough, Autolink, serverBlocks]);
 
 export type Tree = ReturnType<typeof serverParser.parse>;
 

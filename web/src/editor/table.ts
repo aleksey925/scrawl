@@ -2,7 +2,7 @@ import { EditorSelection, type EditorState, type Line, type Text } from '@codemi
 import type { EditorView } from '@codemirror/view';
 
 import { clamp } from './anchor';
-import { type BlockNode, placeAfterCursorBlock, treeOf } from './blocks';
+import { type BlockNode, footnoteDefinition, placeAfterCursorBlock, treeOf } from './blocks';
 
 export type TableEdit =
   | 'rowAbove'
@@ -50,21 +50,16 @@ const containerPrefix = /^[ \t>]*/;
 
 function splitRow(text: string): string[] {
   const trimmed = text.trim();
+  const inner = trimmed.slice(trimmed.startsWith('|') ? 1 : 0, trimmed.length > 1 && trimmed.endsWith('|') ? -1 : undefined);
   const cells = [''];
   let escaped = false;
-  for (const char of trimmed) {
+  for (const char of inner) {
     if (char === '|' && !escaped) {
       cells.push('');
     } else {
       cells[cells.length - 1] += char;
     }
     escaped = char === '\\';
-  }
-  if (cells.length > 1 && cells.at(-1) === '') {
-    cells.pop();
-  }
-  if (trimmed.startsWith('|')) {
-    cells.shift();
   }
   return cells.map((entry) => entry.trim());
 }
@@ -102,6 +97,17 @@ function blankLine(doc: Text, number: number): boolean {
   return number < 1 || number > doc.lines || doc.line(number).text.trim() === '';
 }
 
+function startedBlockEnd(doc: Text, table: BlockNode, name: string): number | undefined {
+  const firstLine = doc.lineAt(table.from).number;
+  let end: number | undefined;
+  for (let node = table.parent; node !== null; node = node.parent) {
+    if (node.name === name && doc.lineAt(node.from).number === firstLine) {
+      end = node.to;
+    }
+  }
+  return end;
+}
+
 function tableAt(state: EditorState, pos: number): BlockNode | undefined {
   const line = state.doc.lineAt(pos);
   let table: BlockNode | undefined;
@@ -119,6 +125,9 @@ function tableAt(state: EditorState, pos: number): BlockNode | undefined {
       return false;
     },
   });
+  if (table === undefined || startedBlockEnd(state.doc, table, footnoteDefinition) !== undefined) {
+    return undefined;
+  }
   return table;
 }
 
@@ -130,17 +139,6 @@ function rowStarts(table: BlockNode): number[] {
     }
   }
   return starts;
-}
-
-function startedItemEnd(doc: Text, table: BlockNode): number | undefined {
-  const firstLine = doc.lineAt(table.from).number;
-  let end: number | undefined;
-  for (let node = table.parent; node !== null; node = node.parent) {
-    if (node.name === 'ListItem' && doc.lineAt(node.from).number === firstLine) {
-      end = node.to;
-    }
-  }
-  return end;
 }
 
 function tableSpot(state: EditorState, pos: number): TableSpot | undefined {
@@ -178,7 +176,7 @@ function tableSpot(state: EditorState, pos: number): TableSpot | undefined {
     },
     row: lineIndex <= delimiterLine ? 0 : lineIndex - delimiterLine,
     column: clamp(column, 0, width - 1),
-    itemEnd: startedItemEnd(state.doc, node),
+    itemEnd: startedBlockEnd(state.doc, node, 'ListItem'),
   };
 }
 

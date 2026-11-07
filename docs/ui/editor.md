@@ -31,27 +31,28 @@ The editor screen.
   title, nested by level, as links to them, after the block the cursor is in,
   between `<!-- toc -->` and `<!-- tocstop -->`. The block is the top-level one
   as the server reads the note: a paragraph, a list, a table, an HTML block, a
-  quote, a code block or a `$$` math block, so the list never splits one. For
-  this the note is parsed with the block rules of the server, not taken from
-  the editor's syntax tree: codemirror's markdown parser with a `$$` math block
-  added, which runs to its closing `$$`, blank lines and all, or to the end of
-  the quote or list item it is in, a `<textarea>` block that runs to its end
-  tag as `<pre>` does, and the front matter left out
-  ([quirks](../quirks.md#react-mantine-and-the-editor)). A code or math block
-  with no closing fence runs to the end of the file, so the fence that closes
-  it goes in before the list, and so does the end of an HTML block that ends at
-  a mark, such as `-->` of a comment or `</textarea>`, when the file ends
-  before it. As the block runs to the end of the file, closing it changes
-  nothing after it. With the cursor in the front matter the list goes after it,
-  and with the cursor on a blank line between two blocks it goes there. The
-  title is the first heading of level 1 wherever it stands, the one the page
-  takes its title from. A second press finds that block and writes a fresh list
-  in its place. A `<!-- toc -->` with no `<!-- tocstop -->` after it, before
-  the next start, is filled in where it stands, and a stop pairs only with the
-  nearest start before it, so no text between two stray markers is lost. A
-  marker is a comment on a line of its own; one inside a code block or the
-  front matter is text and not a marker. The editor finds both in the syntax
-  tree it colors the text with. The list comes from the server:
+  quote, a code block, a `$$` math block or a footnote definition, so the list
+  never splits one. For this the note is parsed with the block rules of the
+  server, not taken from the editor's syntax tree: codemirror's markdown parser
+  with a `$$` math block added, which runs to its closing `$$`, blank lines and
+  all, or to the end of the quote or list item it is in, a `<textarea>` block
+  that runs to its end tag as `<pre>` does, a footnote definition that holds
+  the lines indented by 4 under it, blank lines between them too, and the front
+  matter left out ([quirks](../quirks.md#react-mantine-and-the-editor)). A code
+  or math block with no closing fence runs to the end of the file, so the fence
+  that closes it goes in before the list, and so does the end of an HTML block
+  that ends at a mark, such as `-->` of a comment or `</textarea>`, when the
+  file ends before it. As the block runs to the end of the file, closing it
+  changes nothing after it. With the cursor in the front matter the list goes
+  after it, and with the cursor on a blank line between two blocks it goes
+  there. The title is the first heading of level 1 wherever it stands, the one
+  the page takes its title from. A second press finds that block and writes a
+  fresh list in its place. A `<!-- toc -->` with no `<!-- tocstop -->` after
+  it, before the next start, is filled in where it stands, and a stop pairs
+  only with the nearest start before it, so no text between two stray markers
+  is lost. A marker is a comment on a line of its own; one inside a code block
+  or the front matter is text and not a marker. The editor finds both in the
+  syntax tree it colors the text with. The list comes from the server:
   `POST /api/preview` answers with `toc`, the headings of the text with their
   ids and without the title, next to `html`. So a link opens its heading even
   where two headings share a name, and the levels, the title and the ids stay
@@ -109,9 +110,25 @@ The editor screen.
   to, or those of the delimiter row when it goes under the header, as the
   header's own can start a list item. The cells come from splitting each line
   on a `|` with no `\` right before it, as the server reads them, so `\\|` is
-  text as well, and the table itself from the parse with the server's block
-  rules that places the contents list, which reads `\\|` another way
+  text as well, after the first and the last `|` of the line are dropped, even
+  one with a `\` before it, so `| x \|` is the cell `x \`. The table itself
+  comes from the parse with the server's block rules that places the contents
+  list, which reads `\\|` another way
   ([quirks](../quirks.md#react-mantine-and-the-editor)). So table-shaped lines
   in a `$$` math block, at the top level or in a quote or a list item, in a
   `<textarea>` or in the front matter are no table, as the server reads them as
-  math, text and data, and the menu shows the grid there.
+  math, text and data, and the menu shows the grid there. A footnote definition
+  ends a table as it does on the page, so `[^1]: text` right under a table is
+  no row of it. A table on the first line of a footnote definition offers no
+  edits, as deleting its lines would delete the definition. The server takes
+  the line before the first delimiter row of a paragraph as the header and the
+  rest of the paragraph as rows, and a table in the editor's parse only starts
+  on a paragraph's first line or on a line under text with no `|`, with as many
+  cells as the delimiter row under it. Where these differ the editor takes the
+  lines as no table: table-shaped lines under a delimiter row in the same
+  paragraph are rows of the table above them, and the menu shows the grid
+  there. So some tables of the page offer no edits: one whose header is the
+  first line of a paragraph with no `|`, one under a line of text with a `|` in
+  it, one whose header has fewer cells than the delimiter row, and one followed
+  right away by a line of only `-`, which the editor's parse reads as a
+  heading.

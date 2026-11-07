@@ -1082,6 +1082,26 @@ test.describe('editing', () => {
             removeFixture(docPath);
         });
 
+        test('a table inserted in a footnote definition goes after all of it, its indented lines too', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-in-footnote');
+            writeFixture(docPath, 'Reference[^n].\n\n[^n]: text\n\n    more\n');
+            await page.goto(routes.edit(docPath));
+            await putCursor(page, 2, 'End');
+            await page.getByTestId('editor-toolbar-table').click();
+
+            // act
+            await page.getByTestId('editor-table-grid').locator('[data-column="1"][data-row="2"]').click();
+
+            // assert
+            await expect.poll(() => sourceText(page)).toBe([
+                'Reference[^n].', '', '[^n]: text', '', '    more', '', '|     |', '| --- |', '|     |', '',
+            ].join('\n'));
+            await expect(page.locator('[data-testid=editor-preview] .footnotes li p')).toHaveCount(2);
+            await expect(page.locator('[data-testid=editor-preview] pre')).toHaveCount(0);
+            removeFixture(docPath);
+        });
+
         const notTables = [
             ['math block', ['$$', '| a |', '| - |', '$$']],
             ['math block in a quote', ['> $$', '> | a |', '> | - |', '> $$']],
@@ -1453,6 +1473,85 @@ test.describe('editing', () => {
             await expect(page.locator('[data-testid=editor-preview] table tbody td')).toHaveText(['x \\| y', 'z', '']);
             removeFixture(docPath);
         });
+
+        test('the last pipe of a row ends it even after a backslash, as the server reads it', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-trailing-escape');
+            writeFixture(docPath, '| a | b |\n| - | - |\n| x \\|\n');
+            await page.goto(routes.edit(docPath));
+            await putCursor(page, 2, 'End');
+
+            // act
+            await tableEdit(page, 'rowBelow');
+
+            // assert
+            await expect.poll(() => sourceText(page)).toBe([
+                '| a   | b   |', '| --- | --- |', '| x \\ |     |', '|     |     |', '',
+            ].join('\n'));
+            await expect(page.locator('[data-testid=editor-preview] table tbody td')).toHaveText(['x \\', '', '', '']);
+            removeFixture(docPath);
+        });
+
+        test('a footnote definition right under a table is no row of it, so edits and delete leave it as it is', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-footnote');
+            writeFixture(docPath, 'Reference[^n].\n\n| a |\n| - |\n[^n]: text\n');
+            await page.goto(routes.edit(docPath));
+            await putCursor(page, 3, 'End');
+
+            // act & assert
+            await tableEdit(page, 'rowBelow');
+            await expect.poll(() => sourceText(page)).toBe(
+                ['Reference[^n].', '', '| a   |', '| --- |', '|     |', '[^n]: text', ''].join('\n'),
+            );
+
+            await tableEdit(page, 'deleteTable');
+            await expect.poll(() => sourceText(page)).toBe('Reference[^n].\n\n[^n]: text\n');
+            await expect(page.locator('[data-testid=editor-preview] .footnotes li')).toContainText('text');
+            removeFixture(docPath);
+        });
+
+        test('a table on the first line of a footnote definition offers no edits, so a delete cannot take the definition', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-footnote-start');
+            writeFixture(docPath, 'Reference[^n].\n\n[^n]: | a |\n    | - |\n');
+            await page.goto(routes.edit(docPath));
+            await putCursor(page, 2, 'End');
+
+            // act
+            const offer = await menuOffer(page);
+
+            // assert
+            expect(offer).toEqual({grid: true, shown: [], enabled: []});
+            removeFixture(docPath);
+        });
+
+        for (const [shape, lines] of [
+            ['a delimiter row', ['Intro', '| - | - |', '| a |', '| - |']],
+            ['a delimiter row as its header', ['Intro', '| - |', '| - |']],
+        ]) {
+            test(`table lines in a paragraph after ${shape} are rows of the table the server starts above them`, async ({page}) => {
+                // arrange
+                const docPath = scratch(`table-in-paragraph-${shape.replaceAll(' ', '-')}`);
+                writeFixture(docPath, [...lines, ''].join('\n'));
+                await page.goto(routes.edit(docPath));
+                await putCursor(page, lines.length - 2, 'End');
+
+                // act
+                const offer = await menuOffer(page);
+                await page.getByTestId('editor-toolbar-table').click();
+                await page.getByTestId('editor-table-grid').locator('[data-column="1"][data-row="2"]').click();
+
+                // assert
+                expect(offer).toEqual({grid: true, shown: [], enabled: []});
+                await expect.poll(() => sourceText(page)).toBe([
+                    ...lines, '', '|     |', '| --- |', '|     |', '',
+                ].join('\n'));
+                await expect(page.locator('[data-testid=editor-preview] table')).toHaveCount(2);
+                await expect(page.locator('[data-testid=editor-preview] table th').first()).toHaveText(lines[0]);
+                removeFixture(docPath);
+            });
+        }
     });
 
     test.afterAll(() => {

@@ -131,6 +131,14 @@ words; the fact itself is written here.
   right after a `\` as text. So a header with `\\|` in it has a cell more in
   the editor, which then sees no table where the page shows one.
   [Editor](ui/editor.md)
+- The markdown parser of codemirror knows no footnote definition: it reads
+  `[^1]: text` as a link reference, and right under a table as a row of it,
+  where goldmark ends the table. Its table starts on the first line of a
+  paragraph when that line has a `|` and the delimiter row under it as many
+  cells, or on a line with a `|` under text with none, even when that text has
+  a delimiter row. goldmark takes the line before the first delimiter row of a
+  paragraph as the header, with fewer cells allowed, and the rest of the
+  paragraph as rows. [Editor](ui/editor.md)
 - The markdown parser of codemirror knows no `$$` math block and no front
   matter, so a `$$` line, two lines of a table and a closing `$$` are to it a
   paragraph and a table whose last row is the `$$`. It ends a `<textarea>`

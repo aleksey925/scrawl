@@ -31,7 +31,7 @@ func ContentsOf(toc []Heading) []Heading {
 	title := titleAt(toc)
 	res := make([]Heading, 0, len(toc))
 	for i, item := range toc {
-		if i != title && item.ID != "" {
+		if i != title && reSlugID.MatchString(item.ID) {
 			res = append(res, item)
 		}
 	}

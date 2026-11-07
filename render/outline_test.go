@@ -1,6 +1,7 @@
 package render
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -123,6 +124,23 @@ func TestContentsOf(t *testing.T) {
 
 	// assert
 	assert.Equal(t, []Heading{toc[0], toc[2], toc[4], toc[5]}, got)
+}
+
+func TestContentsOfLeavesOutTheIdsTheSanitizerDrops(t *testing.T) {
+	// arrange
+	r := New(Options{})
+	src := "# Title\n\n## -dash\n\n## " + strings.Repeat("a", 130) + "\n\n## " + strings.Repeat("b", 129) + "\n\n## Kept\n"
+	res, err := r.Render([]byte(src), "a.md")
+	require.NoError(t, err)
+
+	// act
+	got := ContentsOf(res.TOC)
+
+	// assert
+	assert.Equal(t, []Heading{res.TOC[3], res.TOC[4]}, got)
+	for _, entry := range got {
+		assert.Contains(t, string(res.HTML), `id="`+entry.ID+`"`)
+	}
 }
 
 func TestContentsOfNoHeadings(t *testing.T) {

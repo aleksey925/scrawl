@@ -97,7 +97,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   const drafting = draft !== undefined && draft.parent === node.path;
   const unfolded = query !== '' ? filtered.forcedOpen.has(node.path) : isOpen(node.path);
   const open = empty ? drafting : unfolded;
-  const folderOpen = unfolded || (empty && drafting);
+  const folderOpen = empty ? isOpen(node.path) || drafting : unfolded;
   const current = node.path === currentPath;
   const picked = ui.selected.has(node.path);
   const over = ui.dropTarget === node.path;

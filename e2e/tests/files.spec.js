@@ -908,6 +908,26 @@ test.describe.serial('file management', () => {
         await expect(children).toHaveCount(0);
     });
 
+    test('a folder on screen shuts when its last note goes from the tree', async ({page}) => {
+        // arrange
+        const folder = `${HOLLOW}/viewed`;
+        const last = `${folder}/last.md`;
+        writeFixture(last, '# Last\n');
+        await page.goto(routes.dir(folder));
+        const row = page.locator(`[data-testid=tree-row][data-path="${folder}"]`);
+        await expect(row.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+
+        // act
+        await page.locator(`[data-testid=tree-row][data-path="${last}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-delete').click();
+
+        // assert
+        await expect.poll(() => fs.existsSync(fixtureFile(last))).toBe(false);
+        await expect(row).toHaveAttribute('data-empty', 'true');
+        await expect(page).toHaveURL(MAIN.url.dir(folder));
+        await expect(row.getByTestId('tree-empty-folder')).toHaveAttribute('data-open', 'false');
+    });
+
     test('a file dragged onto an empty folder lights it up, lands in it and opens it', async ({page}) => {
         // arrange
         const folder = `${HOLLOW}/target`;
@@ -1057,6 +1077,22 @@ test.describe.serial('file management', () => {
         await expect(row).toHaveAttribute('data-empty', 'true');
         await expect(row.getByTestId('tree-twisty')).toHaveCount(0);
         await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-children"]')).toHaveCount(0);
+    });
+
+    test('an empty folder the filter finds shows it open and closed on clicks on its icon', async ({page}) => {
+        // arrange
+        const folder = `${HOLLOW}/zzfilteredflip`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.dir(HOLLOW));
+        await page.getByTestId('sidebar-filter').fill('zzfilteredflip');
+        const icon = page.locator(`[data-testid=tree-row][data-path="${folder}"]`).getByTestId('tree-empty-folder');
+        await expect(icon).toHaveAttribute('data-open', 'false');
+
+        // act & assert
+        await icon.click();
+        await expect(icon).toHaveAttribute('data-open', 'true');
+        await icon.click();
+        await expect(icon).toHaveAttribute('data-open', 'false');
     });
 
     test('New in a folder list names the entry in a row of the table', async ({page}) => {

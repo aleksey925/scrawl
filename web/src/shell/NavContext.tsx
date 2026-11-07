@@ -1,5 +1,5 @@
 import {
-  createContext, useCallback, useContext, useEffect, useMemo, useState,
+  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
   type JSX, type ReactNode,
 } from 'react';
 import { useLocation } from 'react-router';
@@ -88,18 +88,28 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
   const [query, setQuery] = useState('');
   const tree = useMemo(() => nav.data?.tree ?? [], [nav.data]);
 
+  const seenActive = useRef<{ page: string; folders: ReadonlySet<string> }>({ page: '', folders: new Set() });
   useEffect(() => {
+    if (nav.stale) {
+      return;
+    }
+    const active = new Set<string>();
+    activeFolders(tree, active);
+    const seen = seenActive.current.page === currentPath ? seenActive.current.folders : new Set<string>();
+    const arrived = [...active].filter((path) => !seen.has(path));
+    seenActive.current = { page: currentPath, folders: active };
+    if (arrived.length === 0) {
+      return;
+    }
     setOpen((prev) => {
-      const next = new Set(prev);
-      const before = next.size;
-      activeFolders(tree, next);
-      if (next.size === before) {
+      const next = new Set([...prev, ...arrived]);
+      if (next.size === prev.size) {
         return prev;
       }
       writeOpen(storageKey, next);
       return next;
     });
-  }, [tree, storageKey]);
+  }, [tree, nav.stale, currentPath, storageKey]);
 
   const toggleFolder = useCallback((path: string) => {
     setOpen((prev) => {

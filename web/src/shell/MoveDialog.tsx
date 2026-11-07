@@ -128,9 +128,8 @@ function MovePicker({
         : placesOf(tree, spaceName, path, () => true).filter((place) => place.name.toLowerCase().includes(query)),
     [tree, spaceName, path, open, query],
   );
-  const choices = useMemo(() => shown.filter((place) => place.path !== here), [shown, here]);
   const [active, setActive] = useState<string | undefined>(undefined);
-  const picked = choices.find((place) => place.path === active) ?? choices[0];
+  const picked = shown.find((place) => place.path === active) ?? shown.find((place) => place.path !== here);
 
   useEffect(() => setActive(undefined), [query]);
 
@@ -159,9 +158,9 @@ function MovePicker({
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
-      const at = picked === undefined ? -1 : choices.indexOf(picked);
+      const at = picked === undefined ? -1 : shown.indexOf(picked);
       const step = event.key === 'ArrowDown' ? 1 : -1;
-      setActive(choices[Math.min(Math.max(at + step, 0), choices.length - 1)]?.path);
+      setActive(shown[Math.min(Math.max(at + step, 0), shown.length - 1)]?.path);
       return;
     }
     if ((event.key === 'ArrowRight' || event.key === 'ArrowLeft') && query === '' && picked !== undefined) {
@@ -268,7 +267,7 @@ function MovePicker({
       </div>
 
       <div data-testid="move-preview" className={picker.footer}>
-        {picked === undefined ? (
+        {picked === undefined || picked.path === here ? (
           <span>Pick a folder to move {title} into</span>
         ) : picked.holds.has(name) ? (
           <span data-testid="move-taken" className={moveClasses.taken}>

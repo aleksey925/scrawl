@@ -6,7 +6,7 @@ import { useLocation, useNavigate } from 'react-router';
 
 import { api } from '../api/client';
 import { ApiError } from '../api/errors';
-import type { DeleteResponse, EntryKind, EntryPathResponse } from '../api/types';
+import type { DeleteResponse, EntryKind, EntryPathResponse, MutationState } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
 import { copyText } from '../reader/clipboard';
@@ -66,18 +66,29 @@ function movedMessage(
   );
 }
 
-async function relocateAll(pairs: readonly Relocation[]): Promise<{ done: Relocation[]; failure: unknown }> {
-  const done: Relocation[] = [];
-  let failure: unknown;
+interface Relocated {
+  done: Relocation[];
+  left: Relocation[];
+  failure: unknown;
+  state: MutationState;
+}
+
+async function relocateAll(pairs: readonly Relocation[]): Promise<Relocated> {
+  const res: Relocated = { done: [], left: [], failure: undefined, state: {} };
   for (const pair of pairs) {
     try {
-      const res = await api.move(pair.from, pair.to);
-      done.push({ from: pair.from, to: res.path });
+      const moved = await api.move(pair.from, pair.to);
+      res.done.push({ from: pair.from, to: moved.path });
+      res.state = {
+        unpublished: res.state.unpublished === true || moved.unpublished === true,
+        history_degraded: res.state.history_degraded === true || moved.history_degraded === true,
+      };
     } catch (error) {
-      failure = error;
+      res.left.push(pair);
+      res.failure = error;
     }
   }
-  return { done, failure };
+  return res;
 }
 
 function conflictText(error: unknown, fallback: string): string {
@@ -142,22 +153,21 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   }, [space]);
 
   const restore = useCallback(
-    (id: string, path: string, isDir: boolean, back: string | undefined) => {
-      void (async () => {
-        try {
-          reportMutation(await api.restoreTrashed(id), `Restored ${quoted(path, isDir, space)}`);
-        } catch (error) {
-          showToast('error', {
-            title: 'Nothing was restored',
-            message: conflictText(error, 'Something of that name is there now'),
-          });
-          return;
-        }
-        refreshNav();
-        if (back !== undefined) {
-          await navigate(back);
-        }
-      })();
+    async (id: string, path: string, isDir: boolean, back: string | undefined): Promise<boolean> => {
+      try {
+        reportMutation(await api.restoreTrashed(id), `Restored ${quoted(path, isDir, space)}`);
+      } catch (error) {
+        showToast('error', {
+          title: 'Nothing was restored',
+          message: conflictText(error, 'Something of that name is there now'),
+        });
+        return false;
+      }
+      refreshNav();
+      if (back !== undefined) {
+        await navigate(back);
+      }
+      return true;
     },
     [navigate, refreshNav, reportMutation, space],
   );
@@ -262,17 +272,25 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const moveInto = useCallback(
     (paths: readonly string[], folder: string) => {
-      const run = async (pairs: readonly Relocation[], back: boolean): Promise<void> => {
-        const { done, failure } = await relocateAll(pairs);
+      const run = async (pairs: readonly Relocation[], back: boolean): Promise<Relocation[]> => {
+        const { done, left, failure, state } = await relocateAll(pairs);
         const words = back ? failedMoveWords.back : failedMoveWords.forward;
         if (done.length > 0) {
           refreshNav();
           new Set(done.map((pair) => parentOf(pair.to))).forEach(openFolder);
-          const undo = done.map((pair) => ({ from: pair.to, to: pair.from })).reverse();
+          let undo = done.map((pair) => ({ from: pair.to, to: pair.from })).reverse();
           reportMutation(
-            undefined,
+            state,
             movedMessage(done, back, space, (folder) => void navigate(directoryUrl(folder))),
-            back ? undefined : { label: 'Undo', onClick: () => void run(undo, true) },
+            back
+              ? undefined
+              : {
+                  label: 'Undo',
+                  onClick: async () => {
+                    undo = await run(undo, true);
+                    return undo.length === 0;
+                  },
+                },
           );
           const here = done.map((pair) => pathAfterMove(shown.current.path, pair.from, pair.to)).find((path) => path !== undefined);
           if (here !== undefined) {
@@ -285,6 +303,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
             message: conflictText(failure, 'Something of that name is already there'),
           });
         }
+        return left;
       };
       void run(paths.map((from) => ({ from, to: joinPath(folder, basenameOf(from)) })), false);
     },

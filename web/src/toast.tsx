@@ -1,5 +1,6 @@
-import { notifications } from '@mantine/notifications';
-import type { JSX, ReactNode } from 'react';
+import { randomId } from '@mantine/hooks';
+import { notifications, type NotificationData } from '@mantine/notifications';
+import { useRef, type JSX, type ReactNode } from 'react';
 
 import type { MutationState } from './api/types';
 import classes from './toast.module.css';
@@ -8,7 +9,7 @@ export type ToastKind = 'ok' | 'error' | 'warn';
 
 export interface ToastAction {
   label: string;
-  onClick: () => void;
+  onClick: () => Promise<boolean>;
 }
 
 export interface ToastOptions {
@@ -19,9 +20,45 @@ export interface ToastOptions {
 
 const actionToastMs = 6000;
 
+interface ActionButtonProps {
+  action: ToastAction;
+  hold: (held: boolean) => void;
+  close: () => void;
+}
+
+function ActionButton({ action, hold, close }: ActionButtonProps): JSX.Element {
+  const busy = useRef(false);
+  return (
+    <button
+      type="button"
+      data-testid="toast-action"
+      className={classes.action}
+      onClick={() => {
+        if (busy.current) {
+          return;
+        }
+        busy.current = true;
+        hold(true);
+        void action.onClick().then((done) => {
+          busy.current = false;
+          if (done) {
+            close();
+          } else {
+            hold(false);
+          }
+        });
+      }}
+    >
+      {action.label}
+    </button>
+  );
+}
+
 export function showToast(kind: ToastKind, options: ToastOptions): void {
   const { action } = options;
-  const id = notifications.show({
+  const id = randomId('toast-');
+  const toast: NotificationData = {
+    id,
     title: options.title,
     message:
       action === undefined ? (
@@ -29,23 +66,18 @@ export function showToast(kind: ToastKind, options: ToastOptions): void {
       ) : (
         <span className={classes.withAction}>
           <span className={classes.text}>{options.message}</span>
-          <button
-            type="button"
-            data-testid="toast-action"
-            className={classes.action}
-            onClick={() => {
-              notifications.hide(id);
-              action.onClick();
-            }}
-          >
-            {action.label}
-          </button>
+          <ActionButton
+            action={action}
+            hold={(held) => notifications.update({ ...toast, autoClose: held ? false : actionToastMs })}
+            close={() => notifications.hide(id)}
+          />
         </span>
       ),
     autoClose: action === undefined ? undefined : actionToastMs,
     'data-testid': 'toast',
     'data-kind': kind,
-  });
+  };
+  notifications.show(toast);
 }
 
 export function ToastLink({ children, onClick }: { children: ReactNode; onClick: () => void }): JSX.Element {

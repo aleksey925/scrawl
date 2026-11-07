@@ -29,7 +29,8 @@ Creating, naming, moving and deleting files and folders.
   same rule: a note renamed to a bare title stays a note, and one renamed with
   an extension becomes that file, which the `.md` added to every name had made
   impossible. A name left as it was renames nothing, so a click away from the
-  field of `guide.en.md` does not read `en` as an extension and drop the `.md`.
+  field of `guide.en.md` does not read `en` as an extension and drop the `.md`,
+  and one of `guide .md` does not lose its space to the trim of a typed name.
   The slug turns Cyrillic into Latin with the same table `store/upload.go` uses
   for attachment names, letter for letter, and no test holds the two together:
   a page and the pictures beside it must not spell one word two ways.
@@ -54,13 +55,17 @@ Creating, naming, moving and deleting files and folders.
   the names the tree shows: a symlink or a file an exclude glob hides, under
   the same name, is found only by the server, and the toast of the failed move
   says so. Up and down pick, Enter or a click on the row moves, through the
-  same path a drag takes, and the page follows an entry that was on screen.
+  same path a drag takes, and the page follows an entry that was on screen. The
+  arrows stop on the Current folder too, so the right arrow unfolds it to reach
+  the folders inside, but Enter there moves nothing.
 - The toast of a move, by Move to or a drag, carries Undo for 6 seconds, which
   moves the entries back the same way and takes the page back with them. The
   move is made at once and Undo is a second move, as Notion and Finder do it,
   not held until the toast is gone: the entry is at its new place for a reload,
   another device and the API from the first moment, and a tab closed while the
-  toast was up loses nothing. In a git space the history keeps both moves.
+  toast was up loses nothing. In a git space the history keeps both moves. A
+  move that was not pushed or not recorded says so in a warning toast, as any
+  other change does, and keeps its Undo.
 - The toast of a create, a rename, a move, a delete and a copied link names the
   entry, by its title as the tree shows it, and the folder it went to:
   `Moved "guide" to "db"`, `Renamed "a" to "b"`. A bare Moved or Deleted did
@@ -73,7 +78,10 @@ Creating, naming, moving and deleting files and folders.
   and the toast carries Undo, which puts it back where it was and takes the
   page back to it if it was open, as Notion does. A dialog before every delete
   was a click more each time, while Undo is there for the one time it is wrong.
-  The server keeps what was deleted for a few minutes
+  An Undo that fails, of a delete or a move, leaves its toast with its 6
+  seconds started again, so it can be tried once more; the toast goes when Undo
+  works. A move Undo tried again moves back only what did not go back the first
+  time. The server keeps what was deleted for a few minutes
   ([storage](../design/storage.md#the-trash),
   [ADR 20](../adr/0020-delete-to-a-trash-with-undo.md)). The API still refuses
   a folder that is not empty without `recursive=true`, so an agent that named

@@ -314,6 +314,23 @@ test.describe.serial('file management', () => {
         expect(fs.readdirSync(fixtureFile(RENAME_FOLDER)).filter((name) => name.startsWith('guide'))).toEqual(['guide.en.md']);
     });
 
+    test('a note whose name ends in a space keeps it when the unchanged field loses focus', async ({page}) => {
+        // arrange
+        const note = `${RENAME_FOLDER}/spaced .md`;
+        writeFixture(note, '# Spaced\n');
+        await page.goto(routes.dir(RENAME_FOLDER));
+        await startTreeRename(page, note);
+        await expect(page.getByTestId('tree-rename-input')).toHaveValue('spaced ');
+
+        // act
+        await page.getByTestId('dir-title').click();
+
+        // assert
+        await expect(page.getByTestId('tree-rename')).toHaveCount(0);
+        await expect(page.getByTestId('toast')).toHaveCount(0);
+        expect(fs.readdirSync(fixtureFile(RENAME_FOLDER)).filter((name) => name.startsWith('spaced'))).toEqual(['spaced .md']);
+    });
+
     test('renames a folder in place in the tree', async ({page}) => {
         // arrange
         const folder = `${RENAME_FOLDER}/sub`;
@@ -599,6 +616,30 @@ test.describe.serial('file management', () => {
         await expect(page.locator(`[data-testid=move-place][data-path="${NEST}/a"]`)).toHaveCount(1);
         await input.press('ArrowLeft');
         await expect(page.locator(`[data-testid=move-place][data-path="${NEST}/a"]`)).toHaveCount(0);
+    });
+
+    test('the arrows in Move to reach the folder the entry is in and unfold it, and Enter there moves nothing', async ({page}) => {
+        // arrange
+        makeNest();
+        await page.goto(MAIN.url.doc(NESTED_NOTE));
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('note-menu-move').click();
+        await page.locator(`[data-testid=move-place][data-path="${NEST}"]`).hover();
+        const input = page.getByTestId('move-input');
+        await input.press('ArrowRight');
+        const current = page.locator(`[data-testid=move-place][data-path="${NEST}/a"]`);
+
+        // act
+        await input.press('ArrowDown');
+        await input.press('ArrowRight');
+        await input.press('Enter');
+
+        // assert
+        await expect(current).toHaveAttribute('data-active', 'true');
+        await expect(page.getByTestId('move-preview')).toHaveText('Pick a folder to move note into');
+        await expect.poll(() => shownPlaces(page, NEST)).toEqual([NEST, `${NEST}/a`, `${NEST}/a/b`, `${NEST}/c`]);
+        await expect(page.getByTestId('move-dialog')).toBeVisible();
+        expect(fs.existsSync(fixtureFile(NESTED_NOTE))).toBe(true);
     });
 
     test('Move to opens in place of the menu it was picked from, and Escape closes it', async ({page}) => {
@@ -1097,6 +1138,28 @@ test.describe.serial('file management', () => {
         expect(fs.readFileSync(fixtureFile(note), 'utf8')).toBe('# Written since\n');
     });
 
+    test('a failed Undo after a delete keeps its toast, and Undo again restores once the place is free', async ({page}) => {
+        // arrange
+        const note = `${UNDO_FOLDER}/retried.md`;
+        writeFixture(note, '# Retried\n');
+        await page.goto(routes.dir(UNDO_FOLDER));
+        await page.locator(`[data-testid=tree-row][data-path="${note}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-delete').click();
+        await expect.poll(() => fs.existsSync(fixtureFile(note))).toBe(false);
+        writeFixture(note, '# Written since\n');
+        await page.getByTestId('toast-action').click();
+        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText('Nothing was restored');
+
+        // act
+        fs.rmSync(fixtureFile(note));
+        await page.getByTestId('toast-action').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: 'Restored "retried"'})).toHaveCount(1);
+        await expect(page.getByTestId('toast-action')).toHaveCount(0);
+        expect(fs.readFileSync(fixtureFile(note), 'utf8')).toBe('# Retried\n');
+    });
+
     test('Undo after a move says nothing was moved back when something took the old place', async ({page}) => {
         // arrange
         const note = `${UNDO_FOLDER}/moved.md`;
@@ -1119,6 +1182,55 @@ test.describe.serial('file management', () => {
         await expect(page).toHaveURL(MAIN.url.doc(`${into}/moved.md`));
         expect([note, `${into}/moved.md`].map((p) => fs.readFileSync(fixtureFile(p), 'utf8')))
             .toEqual(['# Written since\n', '# Moved\n']);
+    });
+
+    test('a move and its Undo that were not pushed say so in a warning toast', async ({page}) => {
+        // arrange
+        const note = `${UNDO_FOLDER}/unpushed.md`;
+        const into = `${UNDO_FOLDER}/into-unpushed`;
+        writeFixture(note, '# Unpushed\n');
+        fs.mkdirSync(fixtureFile(into), {recursive: true});
+        await page.route('**/api/move', async (route) => {
+            const res = await route.fetch();
+            await route.fulfill({response: res, json: {...await res.json(), unpublished: true}});
+        });
+        await openMoveFromNoteMenu(page, note);
+        await page.getByTestId('move-input').fill('into-unpushed');
+
+        // act & assert
+        await page.locator(`[data-testid=move-place][data-path="${into}"]`).click();
+        const warned = page.locator('[data-testid=toast][data-kind="warn"]');
+        await expect(warned.filter({hasText: 'Moved "unpushed" to'})).toContainText('Not pushed to the remote');
+        await page.getByTestId('toast-action').click();
+        await expect(warned.filter({hasText: 'Moved "unpushed" back'})).toContainText('Not pushed to the remote');
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toHaveCount(0);
+        await page.unroute('**/api/move');
+    });
+
+    test('a failed Undo after a move keeps its toast, and Undo again moves it back once the place is free', async ({page}) => {
+        // arrange
+        const note = `${UNDO_FOLDER}/moved-again.md`;
+        const into = `${UNDO_FOLDER}/into-again`;
+        writeFixture(note, '# Moved\n');
+        fs.mkdirSync(fixtureFile(into), {recursive: true});
+        await openMoveFromNoteMenu(page, note);
+        await page.getByTestId('move-input').fill('into-again');
+        await page.locator(`[data-testid=move-place][data-path="${into}"]`).click();
+        await expect(page).toHaveURL(MAIN.url.doc(`${into}/moved-again.md`));
+        writeFixture(note, '# Written since\n');
+        await page.getByTestId('toast-action').click();
+        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText('Nothing was moved back');
+
+        // act
+        fs.rmSync(fixtureFile(note));
+        await page.getByTestId('toast-action').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: 'Moved "moved-again" back'}))
+            .toHaveCount(1);
+        await expect(page.getByTestId('toast-action')).toHaveCount(0);
+        await expect(page).toHaveURL(MAIN.url.doc(note));
+        expect([note, `${into}/moved-again.md`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([true, false]);
     });
 
     test('Undo after dragging two rows moves both back', async ({page}) => {

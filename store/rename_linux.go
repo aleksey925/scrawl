@@ -13,7 +13,7 @@ func renameExcl(fromDir *os.File, fromName string, toDir *os.File, toName string
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, unix.EINVAL), errors.Is(err, unix.ENOSYS):
+	case errors.Is(err, unix.EOPNOTSUPP), errors.Is(err, unix.EINVAL), errors.Is(err, unix.ENOSYS):
 		return fmt.Errorf("renameat2: %w: %w", errors.ErrUnsupported, err)
 	}
 	return &os.LinkError{Op: "renameat2", Old: fromName, New: toName, Err: err}

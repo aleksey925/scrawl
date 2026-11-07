@@ -107,7 +107,10 @@ export function NameField({
   useEffect(() => {
     if (!busy && refocus.current) {
       refocus.current = false;
-      inputRef.current?.focus();
+      const active = document.activeElement;
+      if (active === null || active === document.body || active === inputRef.current) {
+        inputRef.current?.focus();
+      }
     }
   }, [busy]);
 

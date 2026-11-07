@@ -59,11 +59,12 @@ Creating, naming, moving and deleting files and folders.
   Enter, or Done on a phone's keyboard, saves, and so does a click or a tap
   outside the field; Escape drops it, and on a touch screen a ✕ inside the
   field does. A failed save keeps the field with the name typed, and a save
-  started with Enter gives the focus back to it. Leaving the field, by a blur,
-  a tap outside or the swipe back, does not send a name that has just failed
-  again: on a touch screen every later tap, the close of the error toast too,
-  sent it once more and showed the same error. Enter sends it again. An Enter
-  that ends the composition of an input method saves nothing
+  started with Enter gives the focus back to it, unless the focus was put
+  elsewhere while the save was going. Leaving the field, by a blur, a tap
+  outside or the swipe back, does not send a name that has just failed again:
+  on a touch screen every later tap, the close of the error toast too, sent it
+  once more and showed the same error. Enter sends it again. An Enter that ends
+  the composition of an input method saves nothing
   ([quirks](../quirks.md#browsers)). Every rename is a session of its own, and
   a save closes only its own field: a slow save that answers after another
   rename has started leaves the new field open, also when the page follows the

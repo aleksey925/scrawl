@@ -445,6 +445,30 @@ test.describe.serial('file management', () => {
         expect(fs.existsSync(fixtureFile(note))).toBe(true);
     });
 
+    test('a failed save leaves the focus where the person put it while the save was going', async ({page}) => {
+        // arrange
+        const note = `${RENAME_FOLDER}/moved-away.md`;
+        const taken = `${RENAME_FOLDER}/moved-away-taken.md`;
+        writeFixture(note, '# Moved away\n');
+        writeFixture(taken, '# Taken\n');
+        await page.goto(routes.dir(RENAME_FOLDER));
+        const release = await holdRoute(page, '**/api/move');
+        await startTreeRename(page, note);
+        await page.getByTestId('tree-rename-input').fill(nameOf(taken));
+        await page.getByTestId('tree-rename-input').press('Enter');
+        await page.getByTestId('sidebar-filter').click();
+
+        // act
+        release();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.renameFailed);
+        await expect(page.getByTestId('tree-rename-input')).toHaveValue(nameOf(taken));
+        await page.waitForTimeout(FOCUS_RETURN_WAIT);
+        await expect(page.getByTestId('sidebar-filter')).toBeFocused();
+        expect(fs.existsSync(fixtureFile(note))).toBe(true);
+    });
+
     test('Rename from the tree while the filter hides the folder opens the folders above and shows the field', async ({page}) => {
         // arrange
         const note = `${RENAME_FOLDER}/deep/er/zzfilteredname.md`;

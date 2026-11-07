@@ -28,9 +28,23 @@ interface MathBlock {
   closed: boolean;
 }
 
+interface HtmlEnd {
+  open: RegExp;
+  end: RegExp;
+  closer: string;
+}
+
 const frontmatterStart = '---';
 const frontmatterStops: ReadonlySet<string> = new Set(['---', '...']);
 const mathFence = '$$';
+const htmlBlocks: ReadonlySet<string> = new Set(['HTMLBlock', 'CommentBlock', 'ProcessingInstructionBlock']);
+const htmlEnds: readonly HtmlEnd[] = [
+  { open: /^<(script|pre|style)(?:\s|>|$)/i, end: /<\/(?:script|pre|style)>/i, closer: '</$1>' },
+  { open: /^<!--/, end: /-->/, closer: '-->' },
+  { open: /^<\?/, end: /\?>/, closer: '?>' },
+  { open: /^<![A-Z]/, end: />/, closer: '>' },
+  { open: /^<!\[CDATA\[/, end: /\]\]>/, closer: ']]>' },
+];
 
 export function treeOf(state: EditorState): Tree {
   return ensureSyntaxTree(state, state.doc.length, parseBudgetMs) ?? syntaxTree(state);
@@ -62,12 +76,25 @@ function topBlock(tree: Tree, line: Line): BlockNode | undefined {
 }
 
 function fenceCloser(doc: Text, node: BlockNode): string | undefined {
-  if (node.name !== 'FencedCode') {
-    return undefined;
-  }
   const marks = node.getChildren('CodeMark');
   const [open] = marks;
   return marks.length === 1 && open !== undefined ? doc.sliceString(open.from, open.to) : undefined;
+}
+
+function htmlCloser(doc: Text, node: BlockNode): string | undefined {
+  const opener = doc.sliceString(node.from, doc.lineAt(node.from).to);
+  const style = htmlEnds.find(({ open }) => open.test(opener));
+  if (style === undefined || style.end.test(doc.sliceString(node.from, node.to))) {
+    return undefined;
+  }
+  return opener.match(style.open)?.[0].replace(style.open, style.closer);
+}
+
+function closerOf(doc: Text, node: BlockNode): string | undefined {
+  if (node.name === 'FencedCode') {
+    return fenceCloser(doc, node);
+  }
+  return htmlBlocks.has(node.name) ? htmlCloser(doc, node) : undefined;
 }
 
 function isMathFence(line: Line): boolean {
@@ -98,6 +125,11 @@ function mathAround(doc: Text, tree: Tree, line: Line, bodyAfter: number): MathB
   return undefined;
 }
 
+export function inMathOrFrontmatter(state: EditorState, tree: Tree, line: Line): boolean {
+  const bodyAfter = frontmatterEnd(state.doc);
+  return line.number <= bodyAfter || mathAround(state.doc, tree, line, bodyAfter) !== undefined;
+}
+
 function insertSpot(state: EditorState, tree: Tree): InsertSpot {
   const { doc } = state;
   const cursor = doc.lineAt(state.selection.main.head);
@@ -114,7 +146,7 @@ function insertSpot(state: EditorState, tree: Tree): InsertSpot {
   if (block === undefined) {
     return { line: inner, closer: undefined };
   }
-  return { line: doc.lineAt(block.to), closer: fenceCloser(doc, block) };
+  return { line: doc.lineAt(block.to), closer: closerOf(doc, block) };
 }
 
 function leadOf(doc: Text, { line, closer }: InsertSpot): string {

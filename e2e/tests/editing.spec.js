@@ -690,6 +690,25 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('the contents button with the cursor in a comment that runs to the end of the file closes the comment first', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-in-open-comment');
+        writeFixture(docPath, '# T\n\n## A\n\n<!--\nnote\n');
+        await page.goto(routes.edit(docPath));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(5).click();
+        await page.keyboard.press('End');
+        const filled = '# T\n\n## A\n\n<!--\nnote\n-->\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n';
+
+        // act & assert
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+
+        await page.getByTestId('editor-toolbar-toc').click();
+        await expect.poll(() => sourceText(page)).toBe(filled);
+        await expect(page.getByTestId('editor-preview').locator('li > a[href="#a"]')).toHaveText('A');
+        removeFixture(docPath);
+    });
+
     test('the contents button goes under the last line of a note with no line break at its end', async ({page}) => {
         // arrange
         const docPath = scratch('toc-last-line');
@@ -1015,7 +1034,13 @@ test.describe('editing', () => {
             removeFixture(docPath);
         });
 
-        for (const [block, open, close] of [['code block', '```js', '```'], ['math block', '$$', '$$']]) {
+        const openBlocks = [
+            ['code block', '```js', '```'],
+            ['math block', '$$', '$$'],
+            ['HTML comment', '<!--', '-->'],
+            ['pre block', '<pre>', '</pre>'],
+        ];
+        for (const [block, open, close] of openBlocks) {
             test(`a table inserted in a ${block} that runs to the end of the file closes the block first`, async ({page}) => {
                 // arrange
                 const docPath = scratch(`table-in-open-${block.replace(' ', '-')}`);
@@ -1030,6 +1055,33 @@ test.describe('editing', () => {
                 // assert
                 await expect.poll(() => sourceText(page)).toBe([
                     'Text', '', open, 'x', close, '', '|     |', '| --- |', '|     |', '',
+                ].join('\n'));
+                await expect(page.locator('[data-testid=editor-preview] table')).toHaveCount(1);
+                removeFixture(docPath);
+            });
+        }
+
+        const notTables = [
+            ['math block', ['$$', '| a |', '| - |', '$$']],
+            ['front matter', ['---', '| a |', '| - |', '', '...']],
+        ];
+        for (const [block, lines] of notTables) {
+            test(`table text in a ${block} is no table: the menu offers the grid and the table goes after the block`, async ({page}) => {
+                // arrange
+                const docPath = scratch(`table-text-in-${block.replace(' ', '-')}`);
+                writeFixture(docPath, [...lines, '', 'Text', ''].join('\n'));
+                await page.goto(routes.edit(docPath));
+                await putCursor(page, 1, 'End');
+
+                // act
+                const offer = await menuOffer(page);
+                await page.getByTestId('editor-toolbar-table').click();
+                await page.getByTestId('editor-table-grid').locator('[data-column="1"][data-row="2"]').click();
+
+                // assert
+                expect(offer).toEqual({grid: true, shown: [], enabled: []});
+                await expect.poll(() => sourceText(page)).toBe([
+                    ...lines, '', '|     |', '| --- |', '|     |', '', 'Text', '',
                 ].join('\n'));
                 await expect(page.locator('[data-testid=editor-preview] table')).toHaveCount(1);
                 removeFixture(docPath);

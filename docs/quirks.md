@@ -131,6 +131,9 @@ words; the fact itself is written here.
   right after a `\` as text. So a header with `\\|` in it has a cell more in
   the editor, which then sees no table where the page shows one.
   [Editor](ui/editor.md)
+- The markdown parser of codemirror knows no `$$` math block and no front
+  matter, so a `$$` line, two lines of a table and a closing `$$` are to it a
+  paragraph and a table whose last row is the `$$`. [Editor](ui/editor.md)
 - In codemirror the height of a line not drawn yet is an estimate, hundreds of
   pixels off in a wrapped note. [Editor position](design/editor-position.md)
 - A phone that puts a tab away and later drops it fires no `beforeunload`, so a

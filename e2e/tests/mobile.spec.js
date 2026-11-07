@@ -5,8 +5,8 @@ const fs = require('fs');
 const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
-    HISTORY, MAIN, MULTI, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
-    removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, writeFixture,
+    DIALOG_TITLE, HISTORY, MAIN, MULTI, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
+    removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const lightTheme = require('../../theme/themes/light.json');
@@ -1716,6 +1716,19 @@ test.describe('mobile', () => {
 
         await page.getByTestId('toc-entry').first().tap();
         await expect(page.getByTestId('toc-entry')).toHaveCount(0);
+    });
+
+    test('the outline sheet keeps the room of a focus ring under its title, and is as tall there as a dialog', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC));
+        await page.getByTestId('note-menu').tap();
+
+        // act
+        await page.getByTestId('note-menu-outline').tap();
+        await expect(page.getByTestId('toc-entry').first()).toBeVisible();
+
+        // assert
+        expect(await titleRoom(page.getByTestId('toc'))).toEqual(DIALOG_TITLE);
     });
 
     test('a sheet that closed leaves the page live behind it', async ({page}) => {

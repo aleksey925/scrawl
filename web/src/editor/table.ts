@@ -102,7 +102,7 @@ function blankLine(doc: Text, number: number): boolean {
 
 function tableRowStarts(state: EditorState, pos: number): number[] | undefined {
   const line = state.doc.lineAt(pos);
-  const tree = ensureSyntaxTree(state, line.to, parseBudgetMs) ?? syntaxTree(state);
+  const tree = ensureSyntaxTree(state, state.doc.length, parseBudgetMs) ?? syntaxTree(state);
   let starts: number[] | undefined;
   tree.iterate({
     from: line.from,
@@ -146,8 +146,8 @@ function tableSpot(state: EditorState, pos: number): TableSpot | undefined {
   const header = splitRow(headerText);
   const body = bodyTexts.map(splitRow);
   const width = Math.max(header.length, ...body.map((cells) => cells.length));
-  const offset = pos - cursorLine.from - (prefixes[lineIndex]?.length ?? 0);
-  const column = lineIndex === delimiterLine ? 0 : columnAt(texts[lineIndex] ?? '', offset);
+  const offset = Math.max(pos - cursorLine.from - (prefixes[lineIndex]?.length ?? 0), 0);
+  const column = columnAt(texts[lineIndex] ?? '', offset);
 
   return {
     from: first.from,
@@ -200,19 +200,19 @@ function renderTable(table: Table, prefixes: readonly string[], at: CellAt): Ren
   const widths = table.aligns.map((_, column) =>
     Math.max(minCellWidth, ...[table.header, ...table.body].map((cells) => textWidth(cells[column] ?? ''))),
   );
-  const line = (cells: readonly string[]): string => `| ${cells.join(' | ')} |`;
-  const rowLine = (cells: readonly string[]): string =>
-    line(cells.map((cell, column) => fitted(cell, widths[column] ?? minCellWidth, table.aligns[column] ?? 'none')));
-  const prefixOf = (index: number): string => prefixes[index] ?? prefixes.at(-1) ?? '';
-  const lines = [
-    rowLine(table.header),
-    line(table.aligns.map((align, column) => delimiterCell(widths[column] ?? minCellWidth, align))),
-    ...table.body.map(rowLine),
-  ].map((text, index) => prefixOf(index) + text);
+  const fittedRow = (cells: readonly string[]): string[] =>
+    cells.map((cell, column) => fitted(cell, widths[column] ?? minCellWidth, table.aligns[column] ?? 'none'));
+  const rows = [
+    fittedRow(table.header),
+    table.aligns.map((align, column) => delimiterCell(widths[column] ?? minCellWidth, align)),
+    ...table.body.map(fittedRow),
+  ];
+  const prefixOf = (index: number): string => prefixes[index] ?? '';
+  const lines = rows.map((cells, index) => `${prefixOf(index)}| ${cells.join(' | ')} |`);
 
   const lineIndex = lineOfRow(at.row);
   const lineStart = lines.slice(0, lineIndex).reduce((sum, text) => sum + text.length + 1, 0);
-  const cellStart = widths.slice(0, at.column).reduce((sum, width) => sum + width + 3, 2);
+  const cellStart = (rows[lineIndex] ?? []).slice(0, at.column).reduce((sum, cell) => sum + cell.length + 3, 2);
   return { text: lines.join('\n'), cursor: lineStart + prefixOf(lineIndex).length + cellStart };
 }
 
@@ -236,7 +236,7 @@ function edited(spot: TableSpot, edit: Exclude<TableEdit, 'deleteTable'>): Edite
     case 'rowAbove':
     case 'rowBelow': {
       const bodyIndex = edit === 'rowAbove' ? row - 1 : row;
-      const prefix = prefixes[lineOfRow(row)] ?? '';
+      const prefix = prefixes[Math.max(lineOfRow(row), delimiterLine)] ?? '';
       return {
         table: { ...table, body: insertedAt(table.body, bodyIndex, emptyRow(table.aligns.length)) },
         prefixes: insertedAt(prefixes, lineOfRow(bodyIndex + 1), prefix),
@@ -329,9 +329,7 @@ export function runTableEdit(view: EditorView, edit: TableEdit): void {
 export function insertTable(view: EditorView, { columns, rows }: TableSize): void {
   const { state } = view;
   const { doc } = state;
-  const head = state.selection.main.head;
-  const spot = tableSpot(state, head);
-  const line = doc.lineAt(spot === undefined ? head : spot.to);
+  const line = doc.lineAt(state.selection.main.head);
   const { text, cursor } = renderTable(
     {
       header: emptyRow(columns),
@@ -342,7 +340,7 @@ export function insertTable(view: EditorView, { columns, rows }: TableSize): voi
     { row: 0, column: 0 },
   );
 
-  const onBlank = spot === undefined && line.text.trim() === '';
+  const onBlank = line.text.trim() === '';
   const from = onBlank ? line.from : line.to;
   const before = onBlank ? (blankLine(doc, line.number - 1) ? '' : '\n') : '\n\n';
   const after = blankLine(doc, line.number + 1) ? '' : '\n';

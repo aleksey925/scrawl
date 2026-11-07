@@ -38,6 +38,7 @@ const UNDO_FOLDER = 'e2e-fm-undo';
 const KEYS_FOLDER = 'e2e-fm-keys';
 const GAP_FOLDER = 'e2e-fm-gap';
 const ROOT_MOVED = 'e2e-fm-to-root.md';
+const DROPPED_TO_ROOT = 'e2e-fm-dropped-to-root.md';
 const NAME_FIELD_SETTLE = 300;
 
 function titleOf(path) {
@@ -82,7 +83,8 @@ test.describe.serial('file management', () => {
         ]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
-        for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE, TYPED_FILE, TYPED_PICTURE, DATED_PAGE, ROOT_MOVED]) {
+        for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE, TYPED_FILE, TYPED_PICTURE, DATED_PAGE, ROOT_MOVED,
+            DROPPED_TO_ROOT]) {
             fs.rmSync(fixtureFile(name), {force: true});
         }
     });
@@ -1372,6 +1374,28 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(page.getByTestId('tree-context-menu')).toBeVisible();
+    });
+
+    test('a row dropped on the empty space under the last row of the tree moves into the root', async ({page}) => {
+        // arrange
+        const note = `${CONTEXT_FOLDER}/${DROPPED_TO_ROOT}`;
+        writeFixture(note, '# Dropped\n');
+        await page.setViewportSize({width: 1280, height: 2400});
+        await page.goto(routes.dir(CONTEXT_FOLDER));
+        const row = page.locator(`[data-testid=tree-row][data-path="${note}"]`);
+        await expect(row).toBeVisible();
+        const last = await page.getByTestId('tree-row').last().boundingBox();
+        const area = page.locator('[data-testid=sidebar] .mantine-ScrollArea-viewport');
+        const box = await area.boundingBox();
+        const below = box.height - 20;
+        expect(box.y + below).toBeGreaterThan(last.y + last.height + 40);
+
+        // act
+        await row.dragTo(area, {targetPosition: {x: box.width / 2, y: below}});
+
+        // assert
+        await expect.poll(() => fs.existsSync(fixtureFile(DROPPED_TO_ROOT))).toBe(true);
+        expect(fs.existsSync(fixtureFile(note))).toBe(false);
     });
 
     test('deletes a folder with everything in it and leaves the page that was inside', async ({page}) => {

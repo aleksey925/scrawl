@@ -220,7 +220,8 @@
 }
 
 .modalHeader {
-  min-height: calc(60px - var(--scrawl-focus-room));
+  min-height: calc(var(--scrawl-modal-header-height) - var(--scrawl-focus-room));
+  padding-bottom: calc(var(--mb-padding, var(--mantine-spacing-md)) - var(--scrawl-focus-room));
 }
 
 .modalBody:not(:only-child) {

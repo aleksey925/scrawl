@@ -9,6 +9,7 @@ const READONLY = instances.readonly;
 const SHARED = instances.shared;
 const HISTORY = instances.history;
 const MULTI = instances.multi;
+const DIALOG_TITLE = {room: 4, tall: 60};
 
 let shotSeq = 0;
 
@@ -241,7 +242,17 @@ async function stays(read, expected, ms) {
     expect(await read()).toEqual(expected);
 }
 
+async function titleRoom(locator) {
+    return locator.evaluate((element) => {
+        const content = element.closest('.mantine-Modal-content, .mantine-Drawer-content');
+        const header = content.querySelector('.mantine-Modal-header, .mantine-Drawer-header').getBoundingClientRect();
+        const top = element.getBoundingClientRect().top;
+        return {room: Math.round(top - header.bottom), tall: Math.round(top - header.top)};
+    });
+}
+
 module.exports = {
+    DIALOG_TITLE,
     HISTORY,
     MAIN,
     MULTI,
@@ -273,6 +284,7 @@ module.exports = {
     sourceText,
     stays,
     submitCredentials,
+    titleRoom,
     user,
     writeFixture,
 };

@@ -575,24 +575,15 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     }
   }, []);
 
-  const tableTools = useMemo<TableMenuProps>(
-    () => ({
-      editsAtCursor: () => (viewRef.current === undefined ? undefined : tableEditsAtCursor(viewRef.current.state)),
-      onEdit: (edit) => {
-        const current = viewRef.current;
-        if (current !== undefined) {
-          runTableEdit(current, edit);
-        }
-      },
-      onInsert: (size) => {
-        const current = viewRef.current;
-        if (current !== undefined) {
-          insertTable(current, size);
-        }
-      },
-    }),
-    [],
-  );
+  const tableTools = useMemo<TableMenuProps>(() => {
+    const inView = <T,>(run: (view: EditorView) => T): T | undefined =>
+      viewRef.current === undefined ? undefined : run(viewRef.current);
+    return {
+      editsAtCursor: () => inView((view) => tableEditsAtCursor(view.state)),
+      onEdit: (edit) => inView((view) => runTableEdit(view, edit)),
+      onInsert: (size) => inView((view) => insertTable(view, size)),
+    };
+  }, []);
 
   const onFiles = useCallback(
     ({ files, at }: DroppedFiles): void => uploads.upload(files, at),

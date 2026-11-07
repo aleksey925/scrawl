@@ -543,6 +543,9 @@ in one folder instead.
   the line the cursor is on: a list of links to its headings between
   `<!-- toc -->` and `<!-- tocstop -->`. Press it again after adding headings
   to bring the list up to date
+- the table button in the toolbar inserts a table of the size you pick on a
+  grid. With the cursor in a table it adds or deletes a row or a column there,
+  or deletes the table, and keeps the columns lined up
 - a text file that is not a note, such as `config.yml` or a `Makefile`, opens
   in the same editor as plain source, colored by its language, with Save,
   Cancel and line wrap. It has no preview, toolbar or formatting, and a save

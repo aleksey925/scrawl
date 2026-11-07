@@ -56,6 +56,7 @@ export function TableGrid({ onPick }: TableGridProps): JSX.Element {
     <div className={classes.tableGridBox}>
       <div
         data-testid="editor-table-grid"
+        data-autofocus
         className={classes.tableGrid}
         style={{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }}
         role="button"

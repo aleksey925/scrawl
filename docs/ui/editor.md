@@ -64,24 +64,31 @@ The editor screen.
 - The table button opens a menu that depends on where the cursor is. On any
   line of a table, the delimiter row included, it holds the edits of that
   table: add a row above or below or a column to the left or right of the cell
-  with the cursor, and delete that row, that column or the whole table.
-  Anywhere else it holds a grid of 8 by 8 cells that inserts a table, and
-  nothing else: an edit that cannot apply there was only noise, grayed out. The
-  grid lights the cells from its corner to the one under the pointer and names
-  the size under it, columns by rows, the header counted as a row; a click
-  inserts that size. On a touch screen a finger drags across the grid and the
-  table goes in when it lifts, so a tap inserts the cell tapped; the grid takes
-  the touch end itself, or the click a browser sends after it landed on the
-  editor under the closed menu and moved the cursor out of the new table. The
-  arrow keys move the lit corner and Enter inserts. The table goes after the
-  line of the cursor, or on it when it is blank, with a blank line on each
-  side, so it never joins the text or a table next to it; the cursor goes to
-  its first cell. In a table, the header has no row above it and cannot be
-  deleted, as a table cannot be without one, and the last column cannot be
-  deleted either; those items are grayed out. An edit writes the whole table
-  again with its columns padded to one width and the alignment of each kept,
-  the way prettier writes it, and a row shorter than the longest gets empty
-  cells, so no text is lost. A table in a quote or a list keeps the marks in
-  front of each line, and a new row takes those of the row it was added next
-  to. The cells come from splitting each line on a `|` with no `\` before it,
-  as GFM does, and the table itself from the editor's syntax tree.
+  with the cursor, and delete that row, that column or the whole table. On the
+  delimiter row the edits act on the header row and on the column under the
+  cursor. Delete table takes the blank line under the table too when there is
+  one on each side of it, so the text above and below keeps one blank line
+  between them. Anywhere else it holds a grid of 8 by 8 cells that inserts a
+  table, and nothing else: an edit that cannot apply there was only noise,
+  grayed out. The grid lights the cells from its corner to the one under the
+  pointer and names the size under it, columns by rows, the header counted as a
+  row; a click inserts that size. On a touch screen a finger drags across the
+  grid and the table goes in when it lifts, so a tap inserts the cell tapped;
+  the grid takes the touch end itself, as the click after it lands on what is
+  under the closed menu ([quirks](../quirks.md#phones-and-touch-screens)). The
+  grid has the focus when the menu opens, the arrow keys move the lit corner,
+  and Enter or Space inserts. The table goes after the line of the cursor, or
+  on it when it is blank, with a blank line on each side, so it never joins the
+  text or a table next to it; the cursor goes to its first cell. In a table,
+  the header has no row above it and cannot be deleted, as a table cannot be
+  without one, and the last column cannot be deleted either; those items are
+  grayed out. An edit writes the whole table again with its columns padded to
+  one width and the alignment of each kept, the way prettier writes it, though
+  a width here counts characters, so a column with wide letters, CJK or emoji,
+  is padded less than prettier pads it, and a row shorter than the longest gets
+  empty cells, so no text is lost. A table in a quote or a list keeps the marks
+  in front of each line, and a new row takes those of the row it was added next
+  to, or those of the delimiter row when it goes under the header, as the
+  header's own can start a list item. The cells come from splitting each line
+  on a `|` with no `\` before it, as GFM does, and the table itself from the
+  editor's syntax tree.

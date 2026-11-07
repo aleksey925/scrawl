@@ -4,8 +4,8 @@ const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, chooseTheme, headingAnchorGeometry, modifier, openSpaceMenu, pressShortcut, removeFixture, rgb, routes, shot,
-    showOutline, signIn, writeFixture,
+    DIALOG_TITLE, MAIN, chooseTheme, headingAnchorGeometry, modifier, openSpaceMenu, pressShortcut, removeFixture, rgb,
+    routes, shot, showOutline, signIn, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const darkTheme = require('../../theme/themes/dark.json');
@@ -832,6 +832,15 @@ test.describe('reading', () => {
         await expect(page.getByTestId('shortcuts-group')).toHaveText([
             /^General/, /^Note/, /^Search/, /^Editor/,
         ]);
+    });
+
+    test('the title of the shortcuts, with its close button and the room under it, is as tall as a title alone', async ({page}) => {
+        // act
+        await page.keyboard.press('?');
+        await expect(page.getByTestId('shortcuts')).toBeVisible();
+
+        // assert
+        expect(await titleRoom(page.getByTestId('shortcuts'))).toEqual(DIALOG_TITLE);
     });
 
     test('the space menu opens the shortcuts', async ({page}) => {

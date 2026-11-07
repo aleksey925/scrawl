@@ -54,6 +54,7 @@ export function TableMenu({ editsAtCursor, onEdit, onInsert }: TableMenuProps): 
       width={layout.menuWidth}
       withinPortal
       returnFocus={false}
+      withInitialFocusPlaceholder={edits !== undefined}
       opened={opened}
       onChange={setOpened}
       onOpen={() => setEdits(editsAtCursor())}

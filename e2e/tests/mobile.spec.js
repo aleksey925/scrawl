@@ -951,11 +951,7 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('new-entry-name')).toBeFocused();
 
         // assert
-        const room = await page.getByTestId('new-entry-name').evaluate((field) => {
-            const header = field.closest('.mantine-Modal-content').querySelector('.mantine-Modal-header');
-            return field.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
-        });
-        expect(room).toBeGreaterThanOrEqual(4);
+        expect(await titleRoom(page.getByTestId('new-entry-name'))).toEqual(DIALOG_TITLE);
     });
 
     test('New makes a note in the folder on screen and opens the editor', async ({page}) => {

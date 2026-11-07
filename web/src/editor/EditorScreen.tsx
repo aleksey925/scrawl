@@ -575,15 +575,27 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     }
   }, []);
 
-  const tableTools = useMemo<TableMenuProps>(() => {
-    const inView = <T,>(run: (view: EditorView) => T): T | undefined =>
-      viewRef.current === undefined ? undefined : run(viewRef.current);
-    return {
-      editsAtCursor: () => inView((view) => tableEditsAtCursor(view.state)),
-      onEdit: (edit) => inView((view) => runTableEdit(view, edit)),
-      onInsert: (size) => inView((view) => insertTable(view, size)),
-    };
-  }, []);
+  const tableMenu = useMemo<TableMenuProps>(
+    () => ({
+      editsAtCursor: () => {
+        const current = viewRef.current;
+        return current === undefined ? undefined : tableEditsAtCursor(current.state);
+      },
+      onEdit: (edit) => {
+        const current = viewRef.current;
+        if (current !== undefined) {
+          runTableEdit(current, edit);
+        }
+      },
+      onInsert: (size) => {
+        const current = viewRef.current;
+        if (current !== undefined) {
+          insertTable(current, size);
+        }
+      },
+    }),
+    [],
+  );
 
   const onFiles = useCallback(
     ({ files, at }: DroppedFiles): void => uploads.upload(files, at),
@@ -759,7 +771,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
                     onAction={onAction}
                     onPickImage={() => fileRef.current?.click()}
                     onToc={insertToc}
-                    table={tableTools}
+                    tableMenu={tableMenu}
                     onFormat={formattable ? format : undefined}
                   />
                 )}

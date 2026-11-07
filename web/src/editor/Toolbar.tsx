@@ -1,4 +1,3 @@
-import { ActionIcon } from '@mantine/core';
 import { Fragment, useEffect, useRef, useState, type ComponentType, type JSX, type RefObject } from 'react';
 
 import {
@@ -21,6 +20,7 @@ import { layout } from '../theme';
 import classes from './Editor.module.css';
 import type { MarkdownAction } from './markdownActions';
 import { TableMenu, type TableMenuProps } from './TableMenu';
+import { ToolButton } from './ToolButton';
 
 interface ToolItem {
   action: MarkdownAction;
@@ -49,7 +49,7 @@ export interface ToolbarProps {
   onAction: (action: MarkdownAction) => void;
   onPickImage: () => void;
   onToc: () => void;
-  table: TableMenuProps;
+  tableMenu: TableMenuProps;
   onFormat: (() => void) | undefined;
 }
 
@@ -85,24 +85,7 @@ function useHiddenEnds(): [RefObject<HTMLDivElement | null>, HiddenEnds] {
   return [ref, ends];
 }
 
-function ToolButton({ testId, label, onClick, children }: { testId: string; label: string; onClick: () => void; children: JSX.Element }): JSX.Element {
-  return (
-    <ActionIcon
-      data-testid={testId}
-      className={classes.tool}
-      variant="subtle"
-      color="gray"
-      aria-label={label}
-      title={label}
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={onClick}
-    >
-      {children}
-    </ActionIcon>
-  );
-}
-
-export function Toolbar({ onAction, onPickImage, onToc, table, onFormat }: ToolbarProps): JSX.Element {
+export function Toolbar({ onAction, onPickImage, onToc, tableMenu, onFormat }: ToolbarProps): JSX.Element {
   const [stripRef, hidden] = useHiddenEnds();
 
   return (
@@ -125,7 +108,7 @@ export function Toolbar({ onAction, onPickImage, onToc, table, onFormat }: Toolb
           ))}
         </Fragment>
       ))}
-      <TableMenu {...table} />
+      <TableMenu {...tableMenu} />
       <span className={classes.toolSeparator} aria-hidden />
       <ToolButton testId="editor-toolbar-image" label="Upload image" onClick={onPickImage}>
         <IconPhoto size={layout.iconSizeTool} />

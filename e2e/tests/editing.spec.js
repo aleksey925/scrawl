@@ -933,12 +933,12 @@ test.describe('editing', () => {
             const dropdown = page.getByTestId('editor-table-menu');
             await expect(dropdown).toBeVisible();
             const res = {grid: await dropdown.getByTestId('editor-table-grid').count() > 0, shown: [], enabled: []};
-            for (const edit of edits) {
-                const item = dropdown.getByTestId(`editor-table-${edit}`);
+            for (const name of edits) {
+                const item = dropdown.getByTestId(`editor-table-${name}`);
                 if (await item.count() > 0) {
-                    res.shown.push(edit);
+                    res.shown.push(name);
                     if (await item.isEnabled()) {
-                        res.enabled.push(edit);
+                        res.enabled.push(name);
                     }
                 }
             }
@@ -961,7 +961,7 @@ test.describe('editing', () => {
             await grid.locator('[data-column="2"][data-row="3"]').hover();
             await expect(page.getByTestId('editor-table-size')).toHaveText('2 × 3');
             const lit = await grid.locator('[data-active=true]').evaluateAll(
-                (cells) => cells.map((cell) => `${cell.dataset.column}:${cell.dataset.row}`));
+                (cells) => cells.map((box) => `${box.dataset.column}:${box.dataset.row}`));
             await grid.locator('[data-column="2"][data-row="3"]').click();
             await page.keyboard.type('A');
 
@@ -989,9 +989,29 @@ test.describe('editing', () => {
 
             // assert
             await expect.poll(() => sourceText(page)).toBe([
-                '| a | b |', '| - | - |', '', '|     |', '| --- |', '|     |',
+                '| a | b |', '| - | - |', '', '|     |', '| --- |', '|     |', '',
             ].join('\n'));
             await expect(page.locator('[data-testid=editor-preview] table')).toHaveCount(2);
+            removeFixture(docPath);
+        });
+
+        test('a table inserted with the cursor in a code block goes after the block, not into its code', async ({page}) => {
+            // arrange
+            const docPath = scratch('table-in-fence');
+            writeFixture(docPath, '# T\n\n```\ncode\n```\n\nText\n');
+            await page.goto(routes.edit(docPath));
+            await putCursor(page, 3, 'End');
+            await page.getByTestId('editor-toolbar-table').click();
+
+            // act
+            await page.getByTestId('editor-table-grid').locator('[data-column="1"][data-row="2"]').click();
+
+            // assert
+            await expect.poll(() => sourceText(page)).toBe([
+                '# T', '', '```', 'code', '```', '', '|     |', '| --- |', '|     |', '', 'Text', '',
+            ].join('\n'));
+            await expect(page.locator('[data-testid=editor-preview] pre code')).toHaveText('code');
+            await expect(page.locator('[data-testid=editor-preview] table')).toHaveCount(1);
             removeFixture(docPath);
         });
 

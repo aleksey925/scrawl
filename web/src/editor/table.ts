@@ -1,8 +1,8 @@
-import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { EditorSelection, type EditorState, type Text } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
-import { parseBudgetMs } from './constants';
+import { clamp } from './anchor';
+import { placeAfterCursorBlock, treeOf } from './blocks';
 
 export type TableEdit =
   | 'rowAbove'
@@ -102,7 +102,7 @@ function blankLine(doc: Text, number: number): boolean {
 
 function tableRowStarts(state: EditorState, pos: number): number[] | undefined {
   const line = state.doc.lineAt(pos);
-  const tree = ensureSyntaxTree(state, state.doc.length, parseBudgetMs) ?? syntaxTree(state);
+  const tree = treeOf(state);
   let starts: number[] | undefined;
   tree.iterate({
     from: line.from,
@@ -131,17 +131,17 @@ function tableSpot(state: EditorState, pos: number): TableSpot | undefined {
   if (starts === undefined || starts.length <= delimiterLine) {
     return undefined;
   }
-  const lines = starts.map((start) => state.doc.lineAt(start));
+  const rowLines = starts.map((from) => state.doc.lineAt(from));
   const cursorLine = state.doc.lineAt(pos);
-  const lineIndex = lines.findIndex((line) => line.number === cursorLine.number);
-  const first = lines[0];
-  const last = lines.at(-1);
+  const lineIndex = rowLines.findIndex((line) => line.number === cursorLine.number);
+  const first = rowLines[0];
+  const last = rowLines.at(-1);
   if (lineIndex < 0 || first === undefined || last === undefined) {
     return undefined;
   }
 
-  const prefixes = lines.map((line, index) => line.text.slice(0, (starts[index] ?? line.from) - line.from));
-  const texts = lines.map((line, index) => line.text.slice(prefixes[index]?.length ?? 0));
+  const prefixes = rowLines.map((line, index) => line.text.slice(0, (starts[index] ?? line.from) - line.from));
+  const texts = rowLines.map((line, index) => line.text.slice(prefixes[index]?.length ?? 0));
   const [headerText = '', delimiterText = '', ...bodyTexts] = texts;
   const header = splitRow(headerText);
   const body = bodyTexts.map(splitRow);
@@ -159,7 +159,7 @@ function tableSpot(state: EditorState, pos: number): TableSpot | undefined {
       body: body.map((cells) => padded(cells, width, '')),
     },
     row: lineIndex <= delimiterLine ? 0 : lineIndex - delimiterLine,
-    column: Math.min(Math.max(column, 0), width - 1),
+    column: clamp(column, 0, width - 1),
   };
 }
 
@@ -201,7 +201,7 @@ function renderTable(table: Table, prefixes: readonly string[], at: CellAt): Ren
     Math.max(minCellWidth, ...[table.header, ...table.body].map((cells) => textWidth(cells[column] ?? ''))),
   );
   const fittedRow = (cells: readonly string[]): string[] =>
-    cells.map((cell, column) => fitted(cell, widths[column] ?? minCellWidth, table.aligns[column] ?? 'none'));
+    cells.map((value, column) => fitted(value, widths[column] ?? minCellWidth, table.aligns[column] ?? 'none'));
   const rows = [
     fittedRow(table.header),
     table.aligns.map((align, column) => delimiterCell(widths[column] ?? minCellWidth, align)),
@@ -328,8 +328,6 @@ export function runTableEdit(view: EditorView, edit: TableEdit): void {
 
 export function insertTable(view: EditorView, { columns, rows }: TableSize): void {
   const { state } = view;
-  const { doc } = state;
-  const line = doc.lineAt(state.selection.main.head);
   const { text, cursor } = renderTable(
     {
       header: emptyRow(columns),
@@ -340,13 +338,10 @@ export function insertTable(view: EditorView, { columns, rows }: TableSize): voi
     { row: 0, column: 0 },
   );
 
-  const onBlank = line.text.trim() === '';
-  const from = onBlank ? line.from : line.to;
-  const before = onBlank ? (blankLine(doc, line.number - 1) ? '' : '\n') : '\n\n';
-  const after = blankLine(doc, line.number + 1) ? '' : '\n';
+  const { change, blockFrom } = placeAfterCursorBlock(state, treeOf(state), text);
   view.dispatch({
-    changes: { from, to: line.to, insert: before + text + after },
-    selection: EditorSelection.cursor(from + before.length + cursor),
+    changes: change,
+    selection: EditorSelection.cursor(blockFrom + cursor),
     scrollIntoView: true,
   });
   view.focus();

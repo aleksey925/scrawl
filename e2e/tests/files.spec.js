@@ -3,8 +3,8 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    MAIN, atHome, fixtureFile, removeFixture, rightClickPrevented, routes, save, setSource, shot, signIn,
-    writeFixture,
+    DIALOG_TITLE, MAIN, atHome, fixtureFile, removeFixture, rightClickPrevented, routes, save, setSource, shot,
+    signIn, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -419,11 +419,7 @@ test.describe.serial('file management', () => {
         await expect(page.getByTestId('rename-name')).toBeFocused();
 
         // assert
-        const room = await page.getByTestId('rename-name').evaluate((field) => {
-            const header = field.closest('.mantine-Modal-content').querySelector('.mantine-Modal-header');
-            return field.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
-        });
-        expect(room).toBeGreaterThanOrEqual(4);
+        expect(await titleRoom(page.getByTestId('rename-name'))).toEqual(DIALOG_TITLE);
         removeFixture(note);
     });
 

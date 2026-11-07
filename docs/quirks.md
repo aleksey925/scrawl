@@ -102,7 +102,9 @@ words; the fact itself is written here.
 - A mantine modal or drawer draws its title as a sticky header above the body,
   with its own ground, and the body has no top padding under a title, so the
   part of a focus ring outside the first field or button is painted over. The
-  header is at least 60px tall. [Look](ui/look.md)
+  header is at least 60px tall, and its padding is `--mb-padding`, which
+  mantine sets on the dialog from its `padding`, or `--mantine-spacing-md` when
+  that is not set. [Look](ui/look.md)
 - Mantine writes a modal's transition inline, which outranks the stylesheet.
   [Pages](ui/pages.md)
 - Mantine's `setColorScheme` turns every transition off for a moment with

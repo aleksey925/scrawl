@@ -1,4 +1,4 @@
-import { ActionIcon, Menu } from '@mantine/core';
+import { Menu } from '@mantine/core';
 import { Fragment, useState, type ComponentType, type JSX } from 'react';
 
 import { PopupMenu } from '../components/PopupMenu';
@@ -14,14 +14,15 @@ import {
 } from '../icons';
 import { layout } from '../theme';
 
-import classes from './Editor.module.css';
 import { TableGrid } from './TableGrid';
 import type { TableEdit, TableSize } from './table';
+import { ToolButton } from './ToolButton';
 
 interface EditItem {
   edit: TableEdit;
   label: string;
   Icon: ComponentType<{ size?: number }>;
+  color?: 'red';
 }
 
 const editGroups: readonly (readonly EditItem[])[] = [
@@ -32,9 +33,9 @@ const editGroups: readonly (readonly EditItem[])[] = [
     { edit: 'columnRight', label: 'Column right', Icon: IconColumnRight },
   ],
   [
-    { edit: 'deleteRow', label: 'Delete row', Icon: IconRows },
-    { edit: 'deleteColumn', label: 'Delete column', Icon: IconColumns },
-    { edit: 'deleteTable', label: 'Delete table', Icon: IconTrash },
+    { edit: 'deleteRow', label: 'Delete row', Icon: IconRows, color: 'red' },
+    { edit: 'deleteColumn', label: 'Delete column', Icon: IconColumns, color: 'red' },
+    { edit: 'deleteTable', label: 'Delete table', Icon: IconTrash, color: 'red' },
   ],
 ];
 
@@ -60,17 +61,9 @@ export function TableMenu({ editsAtCursor, onEdit, onInsert }: TableMenuProps): 
       onOpen={() => setEdits(editsAtCursor())}
     >
       <Menu.Target>
-        <ActionIcon
-          data-testid="editor-toolbar-table"
-          className={classes.tool}
-          variant="subtle"
-          color="gray"
-          aria-label="Table"
-          title="Table"
-          onMouseDown={(event) => event.preventDefault()}
-        >
+        <ToolButton testId="editor-toolbar-table" label="Table">
           <IconTable size={layout.iconSizeTool} />
-        </ActionIcon>
+        </ToolButton>
       </Menu.Target>
       <Menu.Dropdown data-testid="editor-table-menu">
         {edits === undefined ? (
@@ -84,10 +77,11 @@ export function TableMenu({ editsAtCursor, onEdit, onInsert }: TableMenuProps): 
           editGroups.map((items, index) => (
             <Fragment key={items[0]?.edit}>
               {index > 0 && <Menu.Divider />}
-              {items.map(({ edit, label, Icon }) => (
+              {items.map(({ edit, label, Icon, color }) => (
                 <Menu.Item
                   key={edit}
                   data-testid={`editor-table-${edit}`}
+                  color={color}
                   leftSection={<Icon size={layout.iconSizeSmall} />}
                   disabled={!edits.has(edit)}
                   onClick={() => onEdit(edit)}

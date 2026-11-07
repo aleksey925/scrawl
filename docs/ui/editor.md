@@ -77,18 +77,20 @@ The editor screen.
   the grid takes the touch end itself, as the click after it lands on what is
   under the closed menu ([quirks](../quirks.md#phones-and-touch-screens)). The
   grid has the focus when the menu opens, the arrow keys move the lit corner,
-  and Enter or Space inserts. The table goes after the line of the cursor, or
-  on it when it is blank, with a blank line on each side, so it never joins the
-  text or a table next to it; the cursor goes to its first cell. In a table,
-  the header has no row above it and cannot be deleted, as a table cannot be
-  without one, and the last column cannot be deleted either; those items are
-  grayed out. An edit writes the whole table again with its columns padded to
-  one width and the alignment of each kept, the way prettier writes it, though
-  a width here counts characters, so a column with wide letters, CJK or emoji,
-  is padded less than prettier pads it, and a row shorter than the longest gets
-  empty cells, so no text is lost. A table in a quote or a list keeps the marks
-  in front of each line, and a new row takes those of the row it was added next
-  to, or those of the delimiter row when it goes under the header, as the
-  header's own can start a list item. The cells come from splitting each line
-  on a `|` with no `\` before it, as GFM does, and the table itself from the
-  editor's syntax tree.
+  and Enter or Space inserts. The table goes where the contents list goes:
+  after the top-level block the cursor is in, or on the cursor's line when it
+  is a blank line between two blocks, with a blank line on each side, so it
+  never splits a code block, a paragraph, a list, a quote or the front matter,
+  and never joins the text or a table next to it; the cursor goes to its first
+  cell. In a table, the header has no row above it and cannot be deleted, as a
+  table cannot be without one, and the last column cannot be deleted either;
+  those items are grayed out. An edit writes the whole table again with its
+  columns padded to one width and the alignment of each kept, the way prettier
+  writes it, though a width here counts characters, so a column with wide
+  letters, CJK or emoji, is padded less than prettier pads it, and a row
+  shorter than the longest gets empty cells, so no text is lost. A table in a
+  quote or a list keeps the marks in front of each line, and a new row takes
+  those of the row it was added next to, or those of the delimiter row when it
+  goes under the header, as the header's own can start a list item. The cells
+  come from splitting each line on a `|` with no `\` before it, as GFM does,
+  and the table itself from the editor's syntax tree.

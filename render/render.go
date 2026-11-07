@@ -140,12 +140,6 @@ func (r *Renderer) Render(src []byte, docPath string) (Result, error) {
 	}, nil
 }
 
-func (r *Renderer) RenderInline(src []byte, docPath string) (template.HTML, error) {
-	doc := preprocess(src)
-	root, pctx := r.parse(doc, docPath)
-	return r.finish(root, doc.src, pctx)
-}
-
 func (r *Renderer) parse(doc document, docPath string) (ast.Node, parser.Context) {
 	pctx := parser.NewContext(parser.WithIDs(newSlugIDs()))
 	pctx.Set(docDirKey, contentDir(docPath))

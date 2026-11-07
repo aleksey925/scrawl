@@ -71,7 +71,7 @@ func TestHighlightUnknownLanguageFallsBack(t *testing.T) {
 	r := New(Options{})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out, err := r.RenderInline([]byte(tt.src), "x.md")
+			out, err := htmlOf(r, []byte(tt.src), "x.md")
 			require.NoError(t, err)
 			assert.Contains(t, string(out), `<div class="code-block"`)
 			if tt.wantLang == "" {

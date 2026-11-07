@@ -3,7 +3,7 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    MAIN, SHARED, editorStatus, fixtureFile, holdRoute, modifier, readFixture, removeFixture, routes, save,
+    MAIN, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, modifier, readFixture, removeFixture, routes, save,
     setSource, shot, signIn, sourceText, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -32,20 +32,6 @@ async function wheelOverSource(page, {steps = 20, delta = 60} = {}) {
         await page.waitForTimeout(16);
     }
     return steps * delta;
-}
-
-function dialogButtons(page, ids) {
-    return page.evaluate((testIds) => {
-        const found = testIds.map((id) => document.querySelector(`[data-testid="${id}"]`));
-        const body = found[0].closest('.mantine-Modal-body');
-        const boxes = found.map((button) => button.getBoundingClientRect());
-        return {
-            heights: boxes.map((box) => Math.round(box.height)),
-            tops: boxes.map((box) => Math.round(box.top)),
-            end: Math.round(boxes.at(-1).right),
-            bodyEnd: Math.round(body.getBoundingClientRect().right - parseFloat(getComputedStyle(body).paddingRight)),
-        };
-    }, ids);
 }
 
 function sourceLayout(page) {
@@ -542,7 +528,7 @@ test.describe('editing', () => {
         await page.getByTestId('editor-toolbar-toc').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText('No headings to list');
+        await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText(text.toast.noHeadings);
         expect(await sourceText(page)).toBe('# Заметка\n\nТолько текст.\n');
         removeFixture(docPath);
     });
@@ -648,12 +634,12 @@ test.describe('editing', () => {
         await page.getByTestId('editor-toolbar-toc').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText('No headings to list');
+        await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText(text.toast.noHeadings);
         await expect(page.locator('[data-testid=editor-source] .cm-placeholder')).toBeVisible();
         removeFixture(docPath);
     });
 
-    test('the contents lists every heading of a note with no title down to level 4, nested by level, with marks kept as text', async ({page}) => {
+    test('the contents lists the headings down to level 4, nested by level, with marks kept as text, but the title, the first of level 1 wherever it stands', async ({page}) => {
         // arrange
         const docPath = scratch('toc-levels');
         const marked = '## Marks \\[x\\] \\_u\\_ \\*s\\* \\<c\\> \\&copy; \\~t\\~ \\$5\\$';
@@ -669,11 +655,11 @@ test.describe('editing', () => {
         // assert
         await expect.poll(masked).toBe([
             marked, '', 'Text.', '', '<!-- toc -->', '',
-            `- [${marked.slice(3)}](#)`, '  - [Deep](#)', '- [Second](#)', '  - [Under](#)',
+            `- [${marked.slice(3)}](#)`, '  - [Deep](#)', '- [Under](#)',
             '', '<!-- tocstop -->', '', '#### Deep', '', '##### Five', '', '# Second', '', '## Under', '',
         ].join('\n'));
         const preview = page.getByTestId('editor-preview');
-        await expect(preview.locator('li > a[href^="#"]')).toHaveCount(4);
+        await expect(preview.locator('li > a[href^="#"]')).toHaveCount(3);
         const pairs = await preview.locator('li > a[href^="#"]').evaluateAll((anchors) => anchors.map((anchor) => [
             anchor.textContent,
             document.getElementById(decodeURIComponent(anchor.getAttribute('href').slice(1)))?.textContent.trim(),
@@ -694,7 +680,7 @@ test.describe('editing', () => {
         await page.getByTestId('editor-toolbar-toc').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText('Could not build the contents');
+        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.toast.contentsFailed);
         expect(await sourceText(page)).toBe('# T\n\n## A\n');
         removeFixture(docPath);
     });
@@ -722,11 +708,11 @@ test.describe('editing', () => {
         // arrange
         const docPath = scratch('leave-buttons');
         writeFixture(docPath, '# Заметка\n');
-        const buttons = (ids) => Promise.all(ids.map((id) => page.getByTestId(id).boundingBox()));
         await page.goto(routes.doc(docPath));
         await page.getByTestId('note-menu').click();
         await page.getByTestId('note-menu-rename').click();
-        const rename = await buttons(['rename-cancel', 'rename-submit']);
+        await expect(page.getByTestId('rename-submit')).toBeVisible();
+        const rename = await dialogButtons(page, ['rename-cancel', 'rename-submit']);
         await page.getByTestId('rename-cancel').click();
         await page.goto(routes.edit(docPath));
         await page.locator('[data-testid=editor-source] .cm-content').click();
@@ -736,12 +722,12 @@ test.describe('editing', () => {
         await page.getByTestId('editor-cancel').click();
 
         // assert
-        const leave = await buttons(['modal-cancel', 'modal-confirm']);
-        expect([...rename, ...leave].map((box) => Math.round(box.height))).toEqual([32, 32, 32, 32]);
-        expect(leave[0].x + leave[0].width).toBeLessThan(leave[1].x);
-        expect(Math.round(leave[0].y)).toBe(Math.round(leave[1].y));
-        const row = await dialogButtons(page, ['modal-cancel', 'modal-confirm']);
-        expect(row.end).toBe(row.bodyEnd);
+        await expect(page.getByTestId('modal-confirm')).toBeVisible();
+        const leave = await dialogButtons(page, ['modal-cancel', 'modal-confirm']);
+        expect([...rename.heights, ...leave.heights]).toEqual([32, 32, 32, 32]);
+        expect(leave.rights[0]).toBeLessThan(leave.lefts[1]);
+        expect(leave.tops[0]).toBe(leave.tops[1]);
+        expect(leave.end).toBe(leave.bodyEnd);
         await page.getByTestId('modal-cancel').click();
         removeFixture(docPath);
     });
@@ -770,9 +756,9 @@ test.describe('editing', () => {
         const session = await dialogButtons(page, sessionIds);
 
         // assert
-        const top = (row) => row.tops[0];
-        expect(conflict).toEqual({heights: [32, 32, 32], tops: Array(3).fill(top(conflict)), end: conflict.bodyEnd, bodyEnd: conflict.bodyEnd});
-        expect(session).toEqual({heights: [32, 32], tops: Array(2).fill(top(session)), end: session.bodyEnd, bodyEnd: session.bodyEnd});
+        const row = ({heights, tops, end}) => ({heights, tops, end});
+        expect(row(conflict)).toEqual({heights: [32, 32, 32], tops: Array(3).fill(conflict.tops[0]), end: conflict.bodyEnd});
+        expect(row(session)).toEqual({heights: [32, 32], tops: Array(2).fill(session.tops[0]), end: session.bodyEnd});
         await page.getByTestId('editor-session-dismiss').click();
         removeFixture(docPath);
     });

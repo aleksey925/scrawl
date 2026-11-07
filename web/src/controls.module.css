@@ -44,12 +44,12 @@
 
 .dialogActions .button {
   --button-height-sm: var(--scrawl-button-height);
-  --button-padding-x-sm: 12px;
+  --button-padding-x-sm: var(--scrawl-button-padding-x);
 }
 
 .button[data-size='lg'] {
   --button-height-lg: var(--scrawl-button-height);
-  --button-padding-x-lg: 12px;
+  --button-padding-x-lg: var(--scrawl-button-padding-x);
   font-size: 15px;
   font-weight: 600;
 }

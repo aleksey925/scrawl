@@ -43,7 +43,9 @@ The tree, its head and its foot.
   turns it into an open folder and the next one back into a closed one, and the
   name opens and closes it as it does any folder's, so a click shows it was
   taken; nothing unfolds under it. With no change of the icon a click on an
-  empty folder looked lost. Its `⋯`, its `+` and a drop on it work as on any
+  empty folder looked lost. To a screen reader that icon is a toggle button,
+  Open or Close and pressed while open, with no `aria-expanded`, as there is
+  nothing under it to expand. Its `⋯`, its `+` and a drop on it work as on any
   folder. A row of such a folder that is on screen unfolds by itself when
   something lands in it, from the tree, the page, a move or another tab, and
   closes again when its last entry leaves; one inside a closed folder stays

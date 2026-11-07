@@ -1,50 +1,34 @@
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
+import type { EditorState, Line, Text } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import type { Heading } from '../api/types';
 
-interface TocChange {
+import { codeNodes } from './cmAnchor';
+import { tocParseBudgetMs } from './constants';
+
+interface TextRange {
   from: number;
   to: number;
+}
+
+interface TocChange extends TextRange {
   insert: string;
 }
 
-interface Line {
-  text: string;
-  from: number;
-  to: number;
-}
-
-interface Fence {
-  mark: string;
-  length: number;
-}
-
 const tocStart = '<!-- toc -->';
-const tocEnd = '<!-- tocstop -->';
-
-const fenceOpen = /^[ \t]*(`{3,}|~{3,})(.*)$/;
-const fenceClose = /^[ \t]*(`{3,}|~{3,})[ \t]*$/;
-
-export function headingsInHtml(html: string): Heading[] {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return Array.from(doc.querySelectorAll<HTMLHeadingElement>('h1[id], h2[id], h3[id], h4[id]'), (heading) => ({
-    level: Number(heading.tagName.slice(1)),
-    text: (heading.textContent ?? '').replace(/\s+/g, ' ').trim(),
-    id: heading.id,
-  }));
-}
+const tocStop = '<!-- tocstop -->';
 
 function label(text: string): string {
   return text.replace(/[\\[\]<>*_`&~$]/g, (mark) => `\\${mark}`);
 }
 
 export function tocBlock(headings: readonly Heading[]): string | undefined {
-  const listed = headings[0]?.level === 1 ? headings.slice(1) : headings;
-  if (listed.length === 0) {
+  if (headings.length === 0) {
     return undefined;
   }
   const open: number[] = [];
-  const lines = listed.map((heading) => {
+  const lines = headings.map((heading) => {
     while (open.length > 0 && (open.at(-1) ?? 0) >= heading.level) {
       open.pop();
     }
@@ -52,88 +36,72 @@ export function tocBlock(headings: readonly Heading[]): string | undefined {
     open.push(heading.level);
     return `${'  '.repeat(depth)}- [${label(heading.text)}](#${heading.id})`;
   });
-  return `${tocStart}\n\n${lines.join('\n')}\n\n${tocEnd}`;
+  return `${tocStart}\n\n${lines.join('\n')}\n\n${tocStop}`;
 }
 
-function linesOf(doc: string): Line[] {
+function isMarker(line: Line, marker: string): boolean {
+  return line.text.trim() === marker;
+}
+
+function markerLines(state: EditorState): Line[] {
+  const tree = ensureSyntaxTree(state, state.doc.length, tocParseBudgetMs) ?? syntaxTree(state);
   const res: Line[] = [];
-  let from = 0;
-  for (const text of doc.split('\n')) {
-    res.push({ text, from, to: from + text.length });
-    from += text.length + 1;
-  }
-  return res;
-}
-
-function opensFence(text: string): Fence | undefined {
-  const match = fenceOpen.exec(text);
-  if (match === null) {
-    return undefined;
-  }
-  const [, run = '', info = ''] = match;
-  if (run.startsWith('`') && info.includes('`')) {
-    return undefined;
-  }
-  return { mark: run.charAt(0), length: run.length };
-}
-
-function closesFence(text: string, fence: Fence): boolean {
-  const run = fenceClose.exec(text)?.[1];
-  return run !== undefined && run.startsWith(fence.mark) && run.length >= fence.length;
-}
-
-function markerLines(doc: string): Line[] {
-  const res: Line[] = [];
-  let fence: Fence | undefined;
-  for (const line of linesOf(doc)) {
-    if (fence !== undefined) {
-      if (closesFence(line.text, fence)) {
-        fence = undefined;
+  tree.iterate({
+    enter: (node) => {
+      if (node.name === 'CommentBlock') {
+        const line = state.doc.lineAt(node.from);
+        if (isMarker(line, tocStart) || isMarker(line, tocStop)) {
+          res.push(line);
+        }
       }
-      continue;
-    }
-    fence = opensFence(line.text);
-    const trimmed = line.text.trim();
-    if (fence === undefined && (trimmed === tocStart || trimmed === tocEnd)) {
-      res.push(line);
-    }
-  }
+      return node.name !== 'CommentBlock' && !codeNodes.has(node.name);
+    },
+  });
   return res;
 }
 
-function oldBlock(doc: string): { from: number; to: number } | undefined {
-  const markers = markerLines(doc);
-  const startAt = markers.findIndex((line) => line.text.trim() === tocStart);
-  if (startAt === -1) {
-    return undefined;
-  }
+function oldBlock(state: EditorState): TextRange | undefined {
+  const markers = markerLines(state);
+  const startAt = markers.findIndex((line) => isMarker(line, tocStart));
   const start = markers[startAt];
-  const next = markers[startAt + 1];
   if (start === undefined) {
     return undefined;
   }
-  if (next !== undefined && next.text.trim() === tocEnd) {
+  const next = markers[startAt + 1];
+  if (next !== undefined && isMarker(next, tocStop)) {
     return { from: start.from, to: next.to };
   }
   return { from: start.from, to: start.to };
 }
 
-function placeToc(doc: string, cursor: number, block: string): TocChange {
-  const old = oldBlock(doc);
+function leadOf(doc: Text, line: Line): string {
+  if (line.length > 0) {
+    return '\n\n';
+  }
+  if (line.number === 1 || doc.line(line.number - 1).length === 0) {
+    return '';
+  }
+  return '\n';
+}
+
+function trailOf(doc: Text, line: Line): string {
+  if (line.number === doc.lines) {
+    return '\n';
+  }
+  return doc.line(line.number + 1).length === 0 ? '' : '\n';
+}
+
+function placeToc(state: EditorState, block: string): TocChange {
+  const old = oldBlock(state);
   if (old !== undefined) {
     return { ...old, insert: block };
   }
-  const lineEnd = doc.indexOf('\n', cursor);
-  const at = lineEnd === -1 ? doc.length : lineEnd;
-  const before = doc.slice(0, at);
-  const after = doc.slice(at);
-  const lead = before === '' || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
-  const trail = after === '' ? '\n' : after === '\n' || after.startsWith('\n\n') ? '' : '\n';
-  return { from: at, to: at, insert: `${lead}${block}${trail}` };
+  const { doc } = state;
+  const line = doc.lineAt(state.selection.main.head);
+  return { from: line.to, to: line.to, insert: `${leadOf(doc, line)}${block}${trailOf(doc, line)}` };
 }
 
 export function writeToc(view: EditorView, block: string): void {
-  const { doc, selection } = view.state;
-  const change = placeToc(doc.toString(), selection.main.head, block);
+  const change = placeToc(view.state, block);
   view.dispatch({ changes: change, effects: EditorView.scrollIntoView(change.from, { y: 'nearest' }) });
 }

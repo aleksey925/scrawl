@@ -549,8 +549,8 @@ in one folder instead.
   leaves it as you wrote it. The editor opens text files up to 2MB
 - only notes saved through scrawl are formatted. A file changed on disk or
   pulled from the remote stays as it is, so to format what is already there run
-  `prettier --write --prose-wrap always --print-width 79 "**/*.md"` in the
-  folder once
+  `scrawl format -w` on those notes once, for example
+  `scrawl format -w notes/*.md`. It formats them the way a save does
 - a note whose text is not wrapped at 79 characters, such as one saved by an
   older scrawl, gets its paragraphs rewrapped on its next save, so that save
   shows in the history as a large change even if you edited one word

@@ -97,6 +97,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   const drafting = draft !== undefined && draft.parent === node.path;
   const unfolded = query !== '' ? filtered.forcedOpen.has(node.path) : isOpen(node.path);
   const open = empty ? drafting : unfolded;
+  const folderOpen = unfolded || (empty && drafting);
   const current = node.path === currentPath;
   const picked = ui.selected.has(node.path);
   const over = ui.dropTarget === node.path;
@@ -133,43 +134,8 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
               })}
           style={rowInsets(depth)}
         >
-          {node.is_dir && !empty ? (
-            <ActionIcon
-              data-testid="tree-twisty"
-              data-open={open ? 'true' : 'false'}
-              variant="subtle"
-              color="gray"
-              size={iconBox}
-              className={treeClasses.icon}
-              aria-label={`${open ? 'Collapse' : 'Expand'} ${node.name}`}
-              aria-expanded={open}
-              onClick={() => toggleFolder(node.path)}
-            >
-              {open ? (
-                <IconFolderOpen size={treeIconSize} className={treeClasses.glyph} />
-              ) : (
-                <IconFolder size={treeIconSize} className={treeClasses.glyph} />
-              )}
-              {open ? (
-                <IconChevronDown size={treeIconSize} className={treeClasses.chevron} />
-              ) : (
-                <IconChevronRight size={treeIconSize} className={treeClasses.chevron} />
-              )}
-            </ActionIcon>
-          ) : empty ? (
-            <ActionIcon
-              data-testid="tree-empty-folder"
-              data-open={unfolded || drafting ? 'true' : 'false'}
-              variant="subtle"
-              color="gray"
-              size={iconBox}
-              className={treeClasses.icon}
-              aria-label={`${unfolded ? 'Close' : 'Open'} ${node.name}`}
-              aria-pressed={unfolded}
-              onClick={() => toggleFolder(node.path)}
-            >
-              {unfolded || drafting ? <IconFolderOpen size={treeIconSize} /> : <IconFolder size={treeIconSize} />}
-            </ActionIcon>
+          {node.is_dir ? (
+            <FolderIcon name={node.name} empty={empty} open={folderOpen} onToggle={() => toggleFolder(node.path)} />
           ) : (
             <IconBox>
               <IconFileText size={treeIconSize} />
@@ -246,6 +212,36 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
         </div>
       )}
     </Box>
+  );
+}
+
+interface FolderIconProps {
+  name: string;
+  empty: boolean;
+  open: boolean;
+  onToggle: () => void;
+}
+
+function FolderIcon({ name, empty, open, onToggle }: FolderIconProps): JSX.Element {
+  const Glyph = open ? IconFolderOpen : IconFolder;
+  const Chevron = open ? IconChevronDown : IconChevronRight;
+  const state = empty
+    ? { 'aria-label': `${open ? 'Close' : 'Open'} ${name}`, 'aria-pressed': open }
+    : { 'aria-label': `${open ? 'Collapse' : 'Expand'} ${name}`, 'aria-expanded': open };
+  return (
+    <ActionIcon
+      data-testid={empty ? 'tree-empty-folder' : 'tree-twisty'}
+      data-open={open ? 'true' : 'false'}
+      variant="subtle"
+      color="gray"
+      size={iconBox}
+      className={treeClasses.icon}
+      onClick={onToggle}
+      {...state}
+    >
+      <Glyph size={treeIconSize} className={empty ? undefined : treeClasses.glyph} />
+      {!empty && <Chevron size={treeIconSize} className={treeClasses.chevron} />}
+    </ActionIcon>
   );
 }
 

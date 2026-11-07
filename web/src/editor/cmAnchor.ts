@@ -55,7 +55,7 @@ export function captureFromSource(view: EditorView, path: string, rev: string): 
   };
 }
 
-const codeNodes = new Set(['FencedCode', 'CodeBlock']);
+export const codeNodes: ReadonlySet<string> = new Set(['FencedCode', 'CodeBlock']);
 
 const leafNodes = new Set([
   ...codeNodes,

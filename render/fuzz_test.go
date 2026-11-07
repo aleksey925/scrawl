@@ -35,7 +35,7 @@ func FuzzRender(f *testing.F) {
 		if err != nil {
 			t.Fatalf("render: %v", err)
 		}
-		if _, err := r.RenderInline([]byte(src), docPath); err != nil {
+		if _, err := htmlOf(r, []byte(src), docPath); err != nil {
 			t.Fatalf("render inline: %v", err)
 		}
 		for _, h := range res.TOC {

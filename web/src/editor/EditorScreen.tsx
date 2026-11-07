@@ -48,14 +48,14 @@ import {
 } from './anchor';
 import { captureFromSource, holdAnchorAtTop } from './cmAnchor';
 import { codeLanguageOf } from './codeLanguages';
-import { uploadAccept } from './constants';
+import { tocAttempts, uploadAccept } from './constants';
 import { confirmLeave, openConflict, openSessionExpired } from './dialogs';
 import { formatMarkdown, replaceText, warmFormatter } from './format';
 import classes from './Editor.module.css';
 import { lineBreakOf, toEditorText, withLineBreak } from './lineBreaks';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { createPaneSync } from './paneSync';
-import { headingsInHtml, tocBlock, writeToc } from './toc';
+import { tocBlock, writeToc } from './toc';
 import { useDraft } from './useDraft';
 import { useEditorLayout, type LayoutMode } from './useLayoutMode';
 import { useLineWrap } from './useLineWrap';
@@ -88,6 +88,8 @@ const saveStateText: Record<SaveState, string> = {
 };
 
 const dottedTextNames: ReadonlySet<string> = new Set(['go.mod', 'go.sum']);
+
+const tocFailed = 'Could not build the contents';
 
 function conflictCopyPath(path: string, stamp: string): string {
   const name = basenameOf(path);
@@ -200,16 +202,33 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     });
   }, [formatBuffer]);
 
+  const tocAbortRef = useRef<AbortController | undefined>(undefined);
+
+  useEffect(() => () => tocAbortRef.current?.abort(), []);
+
   const insertToc = useCallback((): void => {
-    const build = (): void => {
+    tocAbortRef.current?.abort();
+    const controller = new AbortController();
+    tocAbortRef.current = controller;
+    const build = (attempt: number): void => {
       const sent = bufferText();
-      api.preview({ content: sent, path }).then(
+      api.preview({ content: sent, path }, { signal: controller.signal }).then(
         (res) => {
-          if (bufferText() !== sent) {
-            build();
+          if (controller.signal.aborted) {
             return;
           }
-          const block = tocBlock(headingsInHtml(res.html));
+          if (bufferText() !== sent) {
+            if (attempt < tocAttempts) {
+              build(attempt + 1);
+              return;
+            }
+            showToast('error', {
+              title: tocFailed,
+              message: 'The note kept changing. Press the button again.',
+            });
+            return;
+          }
+          const block = tocBlock(res.toc);
           if (block === undefined) {
             showToast('warn', { title: 'No headings to list', message: 'The contents lists the headings under the title.' });
             return;
@@ -220,11 +239,14 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           }
         },
         (error: unknown) => {
-          showToast('error', { title: 'Could not build the contents', message: errorText(error) });
+          if (controller.signal.aborted) {
+            return;
+          }
+          showToast('error', { title: tocFailed, message: errorText(error) });
         },
       );
     };
-    build();
+    build(1);
   }, [bufferText, liveView, path]);
 
   useEffect(() => {

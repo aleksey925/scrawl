@@ -9,7 +9,7 @@ import (
 
 func TestFootnoteShape(t *testing.T) {
 	// act
-	out, err := New(Options{}).RenderInline([]byte("Текст[^a].\n\n[^a]: сноска\n"), "docs/x.md")
+	out, err := htmlOf(New(Options{}), []byte("Текст[^a].\n\n[^a]: сноска\n"), "docs/x.md")
 
 	// assert
 	require.NoError(t, err)
@@ -21,7 +21,7 @@ func TestFootnoteShape(t *testing.T) {
 
 func TestFootnoteNumbersFollowFirstReference(t *testing.T) {
 	// act
-	out, err := New(Options{}).RenderInline(
+	out, err := htmlOf(New(Options{}),
 		[]byte("Сначала[^b], потом[^a].\n\n[^a]: первая по определению\n[^b]: вторая по определению\n"),
 		"docs/x.md")
 
@@ -34,7 +34,7 @@ func TestFootnoteNumbersFollowFirstReference(t *testing.T) {
 
 func TestFootnoteRepeatedReferenceGetsItsOwnBacklink(t *testing.T) {
 	// act
-	out, err := New(Options{}).RenderInline([]byte("Раз[^1] и два[^1].\n\n[^1]: сноска\n"), "docs/x.md")
+	out, err := htmlOf(New(Options{}), []byte("Раз[^1] и два[^1].\n\n[^1]: сноска\n"), "docs/x.md")
 
 	// assert
 	require.NoError(t, err)

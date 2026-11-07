@@ -28,21 +28,26 @@ The editor screen.
   ruby, a makefile as shell). No new grammar is a dependency of ours, so a name
   with nothing close (terraform, graphql, zig) stays plain.
 - The contents button puts a list of the headings up to level 4, all but the
-  title (a first heading of level 1), nested by level, as links to them, after
-  the line the cursor is on, between `<!-- toc -->` and `<!-- tocstop -->`. A
+  title, nested by level, as links to them, after the line the cursor is on,
+  between `<!-- toc -->` and `<!-- tocstop -->`. The title is the first heading
+  of level 1 wherever it stands, the one the page takes its title from. A
   second press finds that block and writes a fresh list in its place. A
   `<!-- toc -->` with no `<!-- tocstop -->` after it, before the next start, is
   filled in where it stands, and a stop pairs only with the nearest start
-  before it, so no text between two stray markers is lost. Markers inside a
-  fenced code block are text and not markers. The headings and their ids come
-  from the server's render of the text, the one the preview shows, so a link
-  opens its heading even where two headings share a name; a copy of the slug in
-  the browser would drift from the server's. A heading the render gives no id,
-  one whose slug is longer than 129 characters or starts with `-`, has nothing
-  to link to and is left out. The list is built from the text sent to the
-  server: if the text changed before the answer came, it is sent again. A note
-  with no heading under its title gets a toast and no change. The markers are
-  comments, which the page never shows.
+  before it, so no text between two stray markers is lost. A marker is a
+  comment on a line of its own; one inside a code block is text and not a
+  marker. The editor finds both in the syntax tree it colors the text with. The
+  list comes from the server: `POST /api/preview` answers with `toc`, the
+  headings of the text with their ids and without the title, next to `html`. So
+  a link opens its heading even where two headings share a name, and the
+  levels, the title and the ids stay the server's; a copy of them in the
+  browser would drift from it. A heading the render gives no id, one whose slug
+  is longer than 129 characters or starts with `-`, has nothing to link to and
+  is left out. The list is built from the text sent to the server: if the text
+  changed before the answer came, it is sent again, three sends at most, and
+  then a toast asks to press the button again. A new press drops the answer to
+  the one before it. A note with no heading under its title gets a toast and no
+  change. The markers are comments, which the page never shows.
 - The editor toolbar is a strip that moves sideways only and stops at its ends,
   and the editor screen takes the page's rubber band away. Left to the defaults
   the strip followed a finger up and down with the page behind it. It has no

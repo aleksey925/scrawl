@@ -48,6 +48,11 @@ func TestOutline(t *testing.T) {
 			}},
 		},
 		{
+			name: "escapes and entities read as the page shows them",
+			src:  "## Цена \\[x\\] \\&copy; &copy; &#65; \\$5\n",
+			want: []Heading{{Level: 2, Text: "Цена [x] &copy; © A $5", ID: "цена-x-copy-copy-65-5"}},
+		},
+		{
 			name: "no headings",
 			src:  "просто текст\n",
 		},
@@ -100,4 +105,30 @@ func TestOutlineOf(t *testing.T) {
 
 	// assert
 	assert.Equal(t, []Heading{toc[1], toc[2], toc[4]}, got)
+}
+
+func TestContentsOf(t *testing.T) {
+	// arrange
+	toc := []Heading{
+		{Level: 2, Text: "Intro", ID: "intro"},
+		{Level: 1, Text: "Title", ID: "title"},
+		{Level: 2, Text: "Part", ID: "part"},
+		{Level: 3, Text: "No id", ID: ""},
+		{Level: 1, Text: "Second", ID: "second"},
+		{Level: 4, Text: "Detail", ID: "detail"},
+	}
+
+	// act
+	got := ContentsOf(toc)
+
+	// assert
+	assert.Equal(t, []Heading{toc[0], toc[2], toc[4], toc[5]}, got)
+}
+
+func TestContentsOfNoHeadings(t *testing.T) {
+	// act
+	got := ContentsOf(nil)
+
+	// assert
+	assert.Equal(t, []Heading{}, got)
 }

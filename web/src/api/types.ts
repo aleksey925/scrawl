@@ -311,6 +311,7 @@ export interface PreviewRequest {
 
 export interface PreviewResponse {
   html: string;
+  toc: Heading[];
 }
 
 export interface UploadResponse extends MutationState {

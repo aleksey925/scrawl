@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
 	"net/url"
 	"path"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/history"
+	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
 	"github.com/aleksey925/scrawl/view"
@@ -443,14 +443,14 @@ func (m *mount) apiPreview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	source := []byte(req.Content)
-	html, err := renderWithDeadline(docPath, source, maxPreviewBody, renderTimeout, func() (template.HTML, error) {
-		return m.spc.Renderer.RenderInline(source, docPath)
+	res, err := renderWithDeadline(docPath, source, maxPreviewBody, renderTimeout, func() (render.Result, error) {
+		return m.spc.Renderer.Render(source, docPath)
 	})
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"html": string(html)})
+	writeJSON(w, http.StatusOK, map[string]any{"html": string(res.HTML), "toc": render.ContentsOf(res.TOC)})
 }
 
 func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {

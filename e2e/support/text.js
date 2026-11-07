@@ -26,6 +26,8 @@ module.exports = {
         notDeleted: 'Nothing was deleted',
         imageUploaded: 'Image uploaded',
         linkCopied: 'Copied the link',
+        noHeadings: 'No headings to list',
+        contentsFailed: 'Could not build the contents',
     },
 
     pageExists: 'That file already exists',

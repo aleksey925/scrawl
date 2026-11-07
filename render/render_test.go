@@ -3,6 +3,7 @@ package render
 import (
 	"flag"
 	"fmt"
+	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
@@ -66,6 +67,7 @@ func TestRenderTitleFallback(t *testing.T) {
 		name, src, docPath, want string
 	}{
 		{"first h1 wins", "# Первый\n\n# Второй\n", "a/b.md", "Первый"},
+		{"the first h1 wins wherever it stands", "## Вступление\n# Заметка\n## Раздел\n", "a/b.md", "Заметка"},
 		{"setext h1", "Заголовок\n=========\n", "a/b.md", "Заголовок"},
 		{"h2 only falls back to the file name", "## Второй уровень\n", "a/дока.md", "дока"},
 		{"no headings", "просто текст\n", "notes/readme.md", "readme"},
@@ -82,20 +84,9 @@ func TestRenderTitleFallback(t *testing.T) {
 	}
 }
 
-func TestRenderInlineMatchesRender(t *testing.T) {
-	// arrange
-	src, err := os.ReadFile(filepath.Join("testdata", "md", "github-syntax.md"))
-	require.NoError(t, err)
-	r := New(Options{})
-
-	// act
-	full, err := r.Render(src, "docs/github-syntax.md")
-	require.NoError(t, err)
-	inline, err := r.RenderInline(src, "docs/github-syntax.md")
-
-	// assert
-	require.NoError(t, err)
-	assert.Equal(t, full.HTML, inline)
+func htmlOf(r *Renderer, src []byte, docPath string) (template.HTML, error) {
+	res, err := r.Render(src, docPath)
+	return res.HTML, err
 }
 
 func TestRendererConcurrent(t *testing.T) {

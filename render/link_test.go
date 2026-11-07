@@ -138,7 +138,7 @@ func TestRenderLinkAttributes(t *testing.T) {
 	r := New(Options{})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out, err := r.RenderInline([]byte(tt.src), "dir/doc.md")
+			out, err := htmlOf(r, []byte(tt.src), "dir/doc.md")
 			require.NoError(t, err)
 			for _, want := range tt.want {
 				assert.Contains(t, string(out), want)
@@ -155,7 +155,7 @@ func TestRenderBrokenLinks(t *testing.T) {
 	r := New(Options{LinkExists: func(p string) bool { return !strings.Contains(p, "missing") }})
 
 	// act
-	out, err := r.RenderInline([]byte("[a](missing.md) [b](real.md) ![c](missing.png)"), "dir/doc.md")
+	out, err := htmlOf(r, []byte("[a](missing.md) [b](real.md) ![c](missing.png)"), "dir/doc.md")
 
 	// assert
 	require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestRenderCustomPrefixes(t *testing.T) {
 	r := New(Options{PagePrefix: "/view/", RawPrefix: "/files/"})
 
 	// act
-	out, err := r.RenderInline([]byte("[a](x.md) ![b](y.png)"), "dir/doc.md")
+	out, err := htmlOf(r, []byte("[a](x.md) ![b](y.png)"), "dir/doc.md")
 
 	// assert
 	require.NoError(t, err)
@@ -183,7 +183,7 @@ func TestRenderRewritesRawHTMLLinks(t *testing.T) {
 	src := "<div class=\"note\">\n\n<img src=\"./схема.png\">\n<a href=\"other.md\">текст</a>\n<a href=\"https://ya.ru\">внешняя</a>\n<a href=\"a.pdf\">файл</a>\n\n</div>\n"
 
 	// act
-	out, err := New(Options{}).RenderInline([]byte(src), "dir/doc.md")
+	out, err := htmlOf(New(Options{}), []byte(src), "dir/doc.md")
 
 	// assert
 	require.NoError(t, err)
@@ -199,7 +199,7 @@ func TestRenderSendsLinksToPagesAndPicturesToRaw(t *testing.T) {
 	src := "[pdf](a.pdf) and ![pic](a.png) and [pic](a.png)\n"
 
 	// act
-	out, err := New(Options{}).RenderInline([]byte(src), "dir/doc.md")
+	out, err := htmlOf(New(Options{}), []byte(src), "dir/doc.md")
 
 	// assert
 	require.NoError(t, err)

@@ -5,8 +5,8 @@ const fs = require('fs');
 const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
-    HISTORY, MAIN, MULTI, atHome, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep, removeFixture, rgb,
-    routes, save, setSource, shot, signIn, sourceText, stays, writeFixture,
+    HISTORY, MAIN, MULTI, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
+    removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const lightTheme = require('../../theme/themes/light.json');
@@ -1249,10 +1249,10 @@ test.describe('mobile', () => {
 
         // assert
         await expect(page.getByTestId('modal-confirm')).toBeVisible();
-        const boxes = await Promise.all(['modal-cancel', 'modal-confirm'].map((id) => page.getByTestId(id).boundingBox()));
-        expect(Math.round(boxes[0].width)).toBe(Math.round(boxes[1].width));
-        expect(Math.round(boxes[0].y)).toBe(Math.round(boxes[1].y));
-        expect(boxes.every((box) => box.height >= BUTTON_HEIGHT)).toBe(true);
+        const row = await dialogButtons(page, ['modal-cancel', 'modal-confirm']);
+        expect(row.widths[0]).toBe(row.widths[1]);
+        expect(row.tops[0]).toBe(row.tops[1]);
+        expect(row.heights.every((height) => height >= BUTTON_HEIGHT)).toBe(true);
         await page.getByTestId('modal-cancel').tap();
     });
 
@@ -1269,14 +1269,11 @@ test.describe('mobile', () => {
 
         // assert
         await expect(page.getByTestId('editor-conflict-overwrite')).toBeVisible();
-        const boxes = await Promise.all(['editor-conflict-cancel', 'editor-conflict-copy', 'editor-conflict-overwrite']
-            .map(async (id) => {
-                const box = await page.getByTestId(id).boundingBox();
-                return {x: Math.round(box.x), width: Math.round(box.width), y: Math.round(box.y), tall: box.height >= BUTTON_HEIGHT};
-            }));
-        expect(boxes.map(({x, width, tall}) => ({x, width, tall}))).toEqual(Array(3).fill({x: boxes[0].x, width: boxes[0].width, tall: true}));
-        expect(boxes[0].y).toBeLessThan(boxes[1].y);
-        expect(boxes[1].y).toBeLessThan(boxes[2].y);
+        const row = await dialogButtons(page, ['editor-conflict-cancel', 'editor-conflict-copy', 'editor-conflict-overwrite']);
+        expect({lefts: row.lefts, widths: row.widths, tall: row.heights.map((height) => height >= BUTTON_HEIGHT)})
+            .toEqual({lefts: Array(3).fill(row.lefts[0]), widths: Array(3).fill(row.widths[0]), tall: Array(3).fill(true)});
+        expect(row.tops[0]).toBeLessThan(row.tops[1]);
+        expect(row.tops[1]).toBeLessThan(row.tops[2]);
         await page.getByTestId('editor-conflict-cancel').tap();
     });
 

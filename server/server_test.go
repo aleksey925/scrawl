@@ -1279,6 +1279,32 @@ func TestAPIPreviewMatchesTheViewPage(t *testing.T) {
 	assert.Equal(t, string(rendered.HTML), body["html"])
 }
 
+func TestAPIPreviewListsTheContentsWithoutTheTitle(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	source := "## Вступление\n\n# Заметка\n\n## Раздел\n\n### Подробности\n\n## Раздел\n"
+
+	// act
+	resp, body := ts.do(t, request{
+		method: http.MethodPost, path: "/api/preview",
+		headers: map[string]string{"Accept": "application/json"},
+		body:    jsonBody(t, map[string]string{"content": source, "path": "guide.md"}),
+	})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	var got struct {
+		TOC []render.Heading `json:"toc"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &got))
+	assert.Equal(t, []render.Heading{
+		{Level: 2, Text: "Вступление", ID: "вступление"},
+		{Level: 2, Text: "Раздел", ID: "раздел"},
+		{Level: 3, Text: "Подробности", ID: "подробности"},
+		{Level: 2, Text: "Раздел", ID: "раздел-1"},
+	}, got.TOC)
+}
+
 func TestPreviewBodyIsCappedBelowTheSaveBody(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})

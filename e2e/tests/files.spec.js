@@ -984,6 +984,28 @@ test.describe.serial('file management', () => {
         await expect(children).toHaveCount(0);
     });
 
+    test('the icon of an empty folder is a toggle that says the state it shows, with no aria-expanded', async ({page}) => {
+        // arrange
+        const name = 'toggled';
+        const folder = `${HOLLOW}/${name}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.dir(HOLLOW));
+        const icon = page.locator(`[data-testid=tree-row][data-path="${folder}"]`).getByTestId('tree-empty-folder');
+        const state = () => icon.evaluate((button) => ({
+            open: button.dataset.open,
+            pressed: button.getAttribute('aria-pressed'),
+            label: button.getAttribute('aria-label'),
+            expanded: button.getAttribute('aria-expanded'),
+        }));
+        await expect.poll(state).toEqual({open: 'false', pressed: 'false', label: `Open ${name}`, expanded: null});
+
+        // act
+        await icon.click();
+
+        // assert
+        await expect.poll(state).toEqual({open: 'true', pressed: 'true', label: `Close ${name}`, expanded: null});
+    });
+
     test('an empty folder keeps its closed folder icon under the pointer, with no chevron', async ({page}) => {
         // arrange
         const folder = `${HOLLOW}/hovered`;

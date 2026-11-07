@@ -204,6 +204,23 @@ async function holdRoute(page, url) {
     return release;
 }
 
+function dialogButtons(page, ids) {
+    return page.evaluate((testIds) => {
+        const found = testIds.map((id) => document.querySelector(`[data-testid="${id}"]`));
+        const body = found[0].closest('.mantine-Modal-body');
+        const boxes = found.map((button) => button.getBoundingClientRect());
+        return {
+            heights: boxes.map((box) => Math.round(box.height)),
+            widths: boxes.map((box) => Math.round(box.width)),
+            lefts: boxes.map((box) => Math.round(box.left)),
+            rights: boxes.map((box) => Math.round(box.right)),
+            tops: boxes.map((box) => Math.round(box.top)),
+            end: Math.round(boxes.at(-1).right),
+            bodyEnd: Math.round(body.getBoundingClientRect().right - parseFloat(getComputedStyle(body).paddingRight)),
+        };
+    }, ids);
+}
+
 async function rightClickPrevented(page, target, options = {}) {
     await page.evaluate(() => {
         window.e2eMenuPrevented = undefined;
@@ -232,6 +249,7 @@ module.exports = {
     SHARED,
     atHome,
     chooseTheme,
+    dialogButtons,
     editorStatus,
     expectNoHorizontalScroll,
     fixtureFile,

@@ -62,6 +62,11 @@ func TestOpenLinks(t *testing.T) {
 			want: []openLink{{label: "network", url: "http://[2001:db8::5]:7272"}},
 		},
 		{
+			name: "IPv6 link-local address with its zone",
+			addr: &net.TCPAddr{IP: net.ParseIP("fe80::1"), Port: 7272, Zone: "en0"},
+			want: []openLink{{label: "network", url: "http://[fe80::1%25en0]:7272"}},
+		},
+		{
 			name: "not TCP",
 			addr: &net.UnixAddr{Name: "/tmp/scrawl.sock", Net: "unix"},
 			want: nil,

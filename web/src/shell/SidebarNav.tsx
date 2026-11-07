@@ -27,7 +27,7 @@ import { keysLabel, modKey, useKeyboardPlace } from './shortcuts';
 import sidebarClasses from './Sidebar.module.css';
 import { SyncBadge } from './SyncBadge';
 import treeClasses from './Tree.module.css';
-import { filterTree, type FilteredTree } from './treeFilter';
+import { filterTree, nodeAt, type FilteredTree } from './treeFilter';
 import { useLongPress } from './useLongPress';
 
 const treeIconSize = 18;
@@ -408,19 +408,6 @@ const rootListRoutes = new Set(['/', '/doc', '/doc/']);
 
 function inFolder(folder: string, space: string): string {
   return `In ${folder === '' ? space : folder}`;
-}
-
-function nodeAt(nodes: readonly NavNode[], path: string): NavNode | undefined {
-  for (const entry of nodes) {
-    if (entry.path === path) {
-      return entry;
-    }
-    const found = nodeAt(entry.children, path);
-    if (found !== undefined) {
-      return found;
-    }
-  }
-  return undefined;
 }
 
 export interface SidebarNavProps {

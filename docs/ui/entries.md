@@ -65,7 +65,11 @@ Creating, naming, moving and deleting files and folders.
   another device and the API from the first moment, and a tab closed while the
   toast was up loses nothing. In a git space the history keeps both moves. A
   move that was not pushed or not recorded says so in a warning toast, as any
-  other change does, and keeps its Undo.
+  other change does, and keeps its Undo. Once a moved entry, or a folder above
+  it, is renamed, moved or deleted in the same tab, or something is created at
+  its new place, its Undo moves nothing and says the entry changed since: Undo
+  knows an entry only by its path, and the one there now may be another. A
+  change made in another tab or on disk is not seen.
 - The toast of a create, a rename, a move, a delete and a copied link names the
   entry, by its title as the tree shows it, and the folder it went to:
   `Moved "guide" to "db"`, `Renamed "a" to "b"`. A bare Moved or Deleted did

@@ -3,6 +3,7 @@ package server
 import (
 	"log"
 	"net"
+	"net/url"
 	"strconv"
 )
 
@@ -35,7 +36,7 @@ func openLinks(addr net.Addr, ifaceAddrs []net.Addr) []openLink {
 	port := strconv.Itoa(tcp.Port)
 
 	if !tcp.IP.IsUnspecified() {
-		return []openLink{{label: linkLabel(tcp.IP), url: httpURL(tcp.IP.String(), port)}}
+		return []openLink{{label: linkLabel(tcp.IP), url: httpURL(boundHost(tcp), port)}}
 	}
 
 	links := []openLink{{label: localLink, url: httpURL("localhost", port)}}
@@ -60,6 +61,13 @@ func linkLabel(ip net.IP) string {
 	return networkLink
 }
 
+func boundHost(tcp *net.TCPAddr) string {
+	if tcp.Zone == "" {
+		return tcp.IP.String()
+	}
+	return tcp.IP.String() + "%" + tcp.Zone
+}
+
 func httpURL(host, port string) string {
-	return "http://" + net.JoinHostPort(host, port)
+	return (&url.URL{Scheme: "http", Host: net.JoinHostPort(host, port)}).String()
 }

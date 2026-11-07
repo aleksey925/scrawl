@@ -42,3 +42,16 @@ export function filterTree(nodes: readonly NavNode[], query: string): FilteredTr
   }
   return { visible, forcedOpen, matches };
 }
+
+export function nodeAt(nodes: readonly NavNode[], path: string): NavNode | undefined {
+  for (const entry of nodes) {
+    if (entry.path === path) {
+      return entry;
+    }
+    const found = nodeAt(entry.children, path);
+    if (found !== undefined) {
+      return found;
+    }
+  }
+  return undefined;
+}

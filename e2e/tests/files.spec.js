@@ -976,6 +976,7 @@ test.describe.serial('file management', () => {
         // arrange
         writeFixture(CONTEXT_NOTE, '# Note\n');
         await page.goto(routes.dir(CONTEXT_FOLDER));
+        await expect(page.locator(`[data-testid=dir-row][data-path="${CONTEXT_NOTE}"]`)).toBeVisible();
         const viewport = page.viewportSize();
         await page.mouse.click(viewport.width / 2, viewport.height - 20, {button: 'right'});
 
@@ -1258,6 +1259,55 @@ test.describe.serial('file management', () => {
             await expect.poll(() => fs.existsSync(fixtureFile(`${pair}/${name}`))).toBe(true);
             expect(fs.existsSync(fixtureFile(`${into}/${name}`))).toBe(false);
         }
+    });
+
+    test('Undo after a move moves nothing back once the note was deleted and another took its new place', async ({page}) => {
+        // arrange
+        const note = `${UNDO_FOLDER}/replaced.md`;
+        const into = `${UNDO_FOLDER}/into-replaced`;
+        const moved = `${into}/replaced.md`;
+        writeFixture(note, '# Moved\n');
+        fs.mkdirSync(fixtureFile(into), {recursive: true});
+        await openMoveFromNoteMenu(page, note);
+        await page.getByTestId('move-input').fill('into-replaced');
+        await page.locator(`[data-testid=move-place][data-path="${into}"]`).click();
+        await expect(page).toHaveURL(MAIN.url.doc(moved));
+        await page.locator(`[data-testid=tree-row][data-path="${moved}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-delete').click();
+        await expect.poll(() => fs.existsSync(fixtureFile(moved))).toBe(false);
+        writeFixture(moved, '# Replacement\n');
+        const moveToast = page.locator('[data-testid=toast]').filter({hasText: 'Moved "replaced" to'});
+
+        // act
+        await moveToast.getByTestId('toast-action').click();
+
+        // assert
+        const failed = page.locator('[data-testid=toast][data-kind="error"]');
+        await expect(failed).toContainText('Nothing was moved back');
+        await expect(failed).toContainText('It was renamed, moved or deleted since');
+        await expect(moveToast).toHaveCount(0);
+        expect([note, moved].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
+        expect(fs.readFileSync(fixtureFile(moved), 'utf8')).toBe('# Replacement\n');
+    });
+
+    test('the toast of a move names a folder whose name ends in .md by its whole name', async ({page}) => {
+        // arrange
+        const folder = `${UNDO_FOLDER}/dotted.md`;
+        const into = `${UNDO_FOLDER}/into-dotted`;
+        writeFixture(`${folder}/note.md`, '# Inside\n');
+        fs.mkdirSync(fixtureFile(into), {recursive: true});
+        await page.goto(routes.dir(UNDO_FOLDER));
+        await page.locator(`[data-testid=tree-row][data-path="${folder}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-move').click();
+        await page.getByTestId('move-input').fill('into-dotted');
+
+        // act
+        await page.locator(`[data-testid=move-place][data-path="${into}"]`).click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]'))
+            .toContainText('Moved "dotted.md" to "into-dotted"');
+        await expect.poll(() => fs.existsSync(fixtureFile(`${into}/dotted.md/note.md`))).toBe(true);
     });
 
     test('every row of the tree keeps 1px under it, a nested one too', async ({page}) => {

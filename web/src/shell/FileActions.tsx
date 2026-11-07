@@ -41,6 +41,17 @@ interface UndoMark {
 
 const changedSinceText = 'It was renamed, moved or deleted since';
 
+const notRenamedTitle = 'Nothing was renamed';
+
+const takenText = 'Something of that name is already there';
+
+function nameProblem(name: string): string | undefined {
+  if (name.includes('/')) {
+    return 'A name cannot hold a slash, use Move to instead';
+  }
+  return name.trim().startsWith('.') ? 'A name cannot start with a dot' : undefined;
+}
+
 const failedMoveWords = {
   forward: { partly: 'Some of it did not move', none: 'Nothing was moved' },
   back: { partly: 'Some of it did not move back', none: 'Nothing was moved back' },
@@ -191,7 +202,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const [renaming, setRenaming] = useState<Renaming | undefined>(undefined);
   const renameSessions = useRef(0);
   const renameCommit = useRef<(() => void) | undefined>(undefined);
-  const followed = useRef<{ from: string; to: string } | undefined>(undefined);
+  const followed = useRef<{ path: string; url: string } | undefined>(undefined);
   const [moving, setMoving] = useState<MovedEntry | undefined>(undefined);
   const [draft, setDraft] = useState<TreeDraft | undefined>(undefined);
   const phone = useBelow(layoutBreakpoints.phone);
@@ -202,7 +213,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
     const follow = followed.current;
     followed.current = undefined;
     setRenaming((prev) =>
-      prev !== undefined && follow?.to === location.pathname && !replaces(follow.from, prev.path) ? prev : undefined,
+      prev !== undefined && follow?.url === location.pathname && !replaces(follow.path, prev.path) ? prev : undefined,
     );
   }, [location.pathname]);
 
@@ -414,7 +425,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         if (changed || failure !== undefined) {
           showToast('error', {
             title: done.length > 0 ? words.partly : words.none,
-            message: changed ? changedSinceText : conflictText(failure, 'Something of that name is already there'),
+            message: changed ? changedSinceText : conflictText(failure, takenText),
           });
         }
         return left;
@@ -428,12 +439,9 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const submitRename = useCallback(
     async (path: string, isDir: boolean, name: string): Promise<boolean> => {
-      if (name.includes('/')) {
-        showToast('error', { title: 'Nothing was renamed', message: 'A name cannot hold a slash, use Move to instead' });
-        return false;
-      }
-      if (name.trim().startsWith('.')) {
-        showToast('error', { title: 'Nothing was renamed', message: 'A name cannot start with a dot' });
+      const problem = nameProblem(name);
+      if (problem !== undefined) {
+        showToast('error', { title: notRenamedTitle, message: problem });
         return false;
       }
       const to = renamedPath(path, name);
@@ -444,19 +452,16 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       try {
         res = await api.move(path, to);
       } catch (error) {
-        showToast('error', {
-          title: 'Nothing was renamed',
-          message: conflictText(error, 'Something of that name is already there'),
-        });
+        showToast('error', { title: notRenamedTitle, message: conflictText(error, takenText) });
         return false;
       }
       touch([path, res.path]);
       reportMutation(res, renamedMessage(path, res.path, isDir, space));
       const here = pathAfterMove(shown.current.path, path, res.path);
       if (here !== undefined) {
-        const to = shown.current.onFolder ? directoryUrl(here) : documentUrl(here);
-        followed.current = { from: path, to };
-        await navigate(to);
+        const url = shown.current.onFolder ? directoryUrl(here) : documentUrl(here);
+        followed.current = { path, url };
+        await navigate(url);
         return true;
       }
       refreshNav();

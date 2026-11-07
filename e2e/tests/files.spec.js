@@ -3,7 +3,7 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    MAIN, atHome, fixtureFile, holdRoute, nameOf, recordMoves, removeFixture, rightClickPrevented, routes, save, setSource, shot,
+    MAIN, MOVE_WAIT_MS, atHome, fixtureFile, holdRoute, nameOf, recordMoves, removeFixture, rightClickPrevented, routes, save, setSource, shot,
     signIn, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -326,7 +326,7 @@ test.describe.serial('file management', () => {
         await input.fill('dropped.md');
         await input.press('Escape');
         await expect(page.getByTestId('tree-rename')).toHaveCount(0);
-        await stays(() => moves, [{from: note, to: blurred}], 300);
+        await stays(() => moves, [{from: note, to: blurred}], MOVE_WAIT_MS);
         expect([blurred, `${RENAME_FOLDER}/dropped.md`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([true, false]);
     });
 
@@ -492,8 +492,8 @@ test.describe.serial('file management', () => {
 
         // assert
         const failed = page.locator('[data-testid=toast][data-kind="error"]');
-        await expect(failed).toContainText('Nothing was renamed');
-        await expect(failed).toContainText('A name cannot start with a dot');
+        await expect(failed).toContainText(text.renameFailed);
+        await expect(failed).toContainText(text.renameDot);
         await expect(page.getByTestId('tree-rename-input')).toHaveValue('.dotted.md');
         expect(fs.existsSync(fixtureFile(note))).toBe(true);
     });
@@ -647,7 +647,7 @@ test.describe.serial('file management', () => {
         await input.fill('dropped.md');
         await input.press('Escape');
         await expect(page.getByTestId('page-rename')).toHaveCount(0);
-        await stays(() => moves, [], 300);
+        await stays(() => moves, [], MOVE_WAIT_MS);
         expect(fs.existsSync(fixtureFile(`${FOLDER}/dropped.md`))).toBe(false);
 
         await startPageRename(page, 'note-menu');
@@ -702,7 +702,7 @@ test.describe.serial('file management', () => {
         // assert
         await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
         await expect(page.getByTestId('page-rename')).toHaveCount(0);
-        await stays(() => moves, [], 300);
+        await stays(() => moves, [], MOVE_WAIT_MS);
         expect([note, `${FOLDER}/popover-gone.md`].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([true, false]);
         removeFixture(note);
     });
@@ -711,6 +711,8 @@ test.describe.serial('file management', () => {
         // arrange
         const file = `${RENAME_FOLDER}/plain.txt`;
         const folder = `${RENAME_FOLDER}/page-folder`;
+        const renamedFile = `${RENAME_FOLDER}/plain-renamed.txt`;
+        const renamedFolder = `${RENAME_FOLDER}/page-folder-renamed`;
         writeFixture(file, 'plain\n');
         writeFixture(`${folder}/inside.md`, '# Inside\n');
         const input = page.getByTestId('page-rename-input');
@@ -719,17 +721,17 @@ test.describe.serial('file management', () => {
         await page.goto(MAIN.url.doc(file));
         await startPageRename(page, 'file-menu');
         await expect(input).toHaveValue(nameOf(file));
-        await input.fill('plain-renamed.txt');
+        await input.fill(nameOf(renamedFile));
         await input.press('Enter');
-        await expect(page).toHaveURL(MAIN.url.doc(`${RENAME_FOLDER}/plain-renamed.txt`));
+        await expect(page).toHaveURL(MAIN.url.doc(renamedFile));
 
         await page.goto(MAIN.url.dir(folder));
         await startPageRename(page, 'folder-menu');
         await expect(input).toHaveValue(nameOf(folder));
-        await input.fill('page-folder-renamed');
+        await input.fill(nameOf(renamedFolder));
         await input.press('Enter');
-        await expect(page).toHaveURL(MAIN.url.dir(`${RENAME_FOLDER}/page-folder-renamed`));
-        expect(fs.existsSync(fixtureFile(`${RENAME_FOLDER}/page-folder-renamed/inside.md`))).toBe(true);
+        await expect(page).toHaveURL(MAIN.url.dir(renamedFolder));
+        expect(fs.existsSync(fixtureFile(`${renamedFolder}/inside.md`))).toBe(true);
     });
 
     test('moves a page into another folder by dragging its row', async ({page}) => {

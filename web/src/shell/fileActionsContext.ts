@@ -1,6 +1,9 @@
-import { createContext, useContext, type MutableRefObject } from 'react';
+import { createContext, useCallback, useContext, type MutableRefObject } from 'react';
+import { useLocation } from 'react-router';
 
 import type { EntryKind } from '../api/types';
+
+import { contentPathOf } from './naming';
 
 export interface TreeDraft {
   kind: EntryKind;
@@ -50,4 +53,12 @@ export function useOptionalFileActions(): FileActions | undefined {
 export function useRenamingHere(place: RenamePlace, path: string): Renaming | undefined {
   const renaming = useOptionalFileActions()?.renaming;
   return renaming !== undefined && renaming.place === place && renaming.path === path ? renaming : undefined;
+}
+
+export function usePageRenaming(): { renaming: Renaming | undefined; commit: () => void } {
+  const location = useLocation();
+  const renameCommit = useOptionalFileActions()?.renameCommit;
+  const renaming = useRenamingHere('page', contentPathOf(location.pathname));
+  const commit = useCallback(() => renameCommit?.current?.(), [renameCommit]);
+  return { renaming, commit };
 }

@@ -1,6 +1,6 @@
 import {
   useEffect, useRef, useState,
-  type FocusEvent, type JSX, type KeyboardEvent, type MutableRefObject, type ReactNode, type SyntheticEvent,
+  type FocusEvent, type JSX, type KeyboardEvent, type MutableRefObject, type ReactNode, type RefObject, type SyntheticEvent,
 } from 'react';
 
 import { IconX } from '../icons';
@@ -13,7 +13,6 @@ import { useTouchScreen } from './TapGuard';
 const imeKeyCode = 229;
 
 interface FieldState {
-  name: string;
   busy: boolean;
   done: boolean;
   failed: string | undefined;
@@ -33,6 +32,24 @@ export interface NameFieldProps {
   onCancel: () => void;
 }
 
+function useOutsideTap(boxRef: RefObject<HTMLElement | null>, onTap: () => void): void {
+  const touch = useTouchScreen();
+  const onTapRef = useRef(onTap);
+  onTapRef.current = onTap;
+  useEffect(() => {
+    if (!touch) {
+      return undefined;
+    }
+    const onClick = (event: MouseEvent): void => {
+      if (!(event.target instanceof Node && boxRef.current?.contains(event.target) === true)) {
+        onTapRef.current();
+      }
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [boxRef, touch]);
+}
+
 export function NameField({
   initial, isDir = false, label, testId, placeholder, icon, className, keepOnLeave = false, commitRef, onSubmit, onCancel,
 }: NameFieldProps): JSX.Element {
@@ -43,8 +60,7 @@ export function NameField({
   const inputRef = useRef<HTMLInputElement>(null);
   const placed = useRef(false);
   const refocus = useRef(false);
-  const state = useRef<FieldState>({ name, busy: false, done: false, failed: undefined });
-  state.current.name = name;
+  const state = useRef<FieldState>({ busy: false, done: false, failed: undefined });
 
   const cancel = (): void => {
     if (state.current.done) {
@@ -59,11 +75,11 @@ export function NameField({
     if (now.busy || now.done) {
       return;
     }
-    if (now.name.trim() === '') {
+    if (name.trim() === '') {
       cancel();
       return;
     }
-    const sent = now.name;
+    const sent = name;
     const focused = document.activeElement === inputRef.current;
     now.busy = true;
     setBusy(true);
@@ -78,14 +94,15 @@ export function NameField({
 
   const leave = (): void => {
     const now = state.current;
-    if ((keepOnLeave && now.name.trim() !== '') || now.name === now.failed) {
+    if ((keepOnLeave && name.trim() !== '') || name === now.failed) {
       return;
     }
     commit();
   };
 
-  const latest = useRef(leave);
-  latest.current = leave;
+  const leaveRef = useRef(leave);
+  leaveRef.current = leave;
+  useOutsideTap(boxRef, leave);
 
   useEffect(() => {
     if (!busy && refocus.current) {
@@ -98,7 +115,7 @@ export function NameField({
     if (commitRef === undefined) {
       return undefined;
     }
-    const own = (): void => latest.current();
+    const own = (): void => leaveRef.current();
     commitRef.current = own;
     return () => {
       if (commitRef.current === own) {
@@ -106,19 +123,6 @@ export function NameField({
       }
     };
   }, [commitRef]);
-
-  useEffect(() => {
-    if (!touch) {
-      return undefined;
-    }
-    const onClick = (event: MouseEvent): void => {
-      if (!(event.target instanceof Node && boxRef.current?.contains(event.target) === true)) {
-        latest.current();
-      }
-    };
-    document.addEventListener('click', onClick, true);
-    return () => document.removeEventListener('click', onClick, true);
-  }, [touch]);
 
   const keepFocus = (event: SyntheticEvent): void => {
     if (!(event.target instanceof HTMLInputElement)) {

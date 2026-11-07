@@ -8,9 +8,8 @@ import { isEditPath } from '../paths';
 import { layout } from '../theme';
 
 import { AppLogo } from './AppLogo';
-import { useOptionalFileActions, useRenamingHere } from './fileActionsContext';
+import { usePageRenaming } from './fileActionsContext';
 import { spaceLabel, useNav } from './NavContext';
-import { contentPathOf } from './naming';
 import { useShownChrome } from './PageChrome';
 import classes from './PhoneTopBar.module.css';
 import { useSwipeBack } from './useSwipeBack';
@@ -56,13 +55,12 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
   const inHistory = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
-  const renameCommit = useOptionalFileActions()?.renameCommit;
-  const renaming = useRenamingHere('page', contentPathOf(location.pathname));
+  const { renaming, commit } = usePageRenaming();
   useSwipeBack(
     editing || (atRoot && !inHistory)
       ? null
       : () => {
-          renameCommit?.current?.();
+          commit();
           if (inHistory) {
             void navigate(-1);
             return;
@@ -109,7 +107,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
 
       <div data-testid="topbar-title" data-shown={showTitle && !atRoot ? 'true' : 'false'} className={classes.title}>
         {renaming !== undefined ? (
-          <RenameField session={renaming} testId="page-rename" className={classes.rename} />
+          <RenameField session={renaming} testId="page-rename" className={classes.field} />
         ) : (
           !atRoot && chrome.title
         )}

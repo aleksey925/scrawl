@@ -34,6 +34,10 @@ export function chromeOf(breadcrumbs: readonly Crumb[], title: string, ownTitle:
   return { crumbs: breadcrumbs.slice(1, -1), name, title, ownTitle };
 }
 
+export function standaloneChrome(title: string): PageChrome {
+  return { crumbs: [], name: title, title, ownTitle: true };
+}
+
 export function usePageChrome({ crumbs, name, title, ownTitle }: PageChrome): void {
   const setChrome = useContext(PageChromeContext)?.setChrome;
   const crumbsKey = crumbs.map((step) => `${step.url}\n${step.name}`).join('\n');

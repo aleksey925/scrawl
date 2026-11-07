@@ -157,6 +157,10 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
   );
 }
 
+function rowAttributes(entry: DirEntry): { 'data-testid': string; 'data-path': string; 'data-dir': 'true' | 'false' } {
+  return { 'data-testid': 'dir-row', 'data-path': entry.path, 'data-dir': entry.is_dir ? 'true' : 'false' };
+}
+
 interface TableRowProps {
   entry: DirEntry;
   routed: boolean;
@@ -181,9 +185,7 @@ function TableRow({ entry, routed, href, menuOpen, onOpen, onMenu }: TableRowPro
   if (renaming !== undefined) {
     return (
       <tr
-        data-testid="dir-row"
-        data-path={entry.path}
-        data-dir={entry.is_dir ? 'true' : 'false'}
+        {...rowAttributes(entry)}
         className={classes.draft}
         onContextMenu={(event) => {
           if (!(event.target instanceof HTMLInputElement)) {
@@ -193,8 +195,12 @@ function TableRow({ entry, routed, href, menuOpen, onOpen, onMenu }: TableRowPro
       >
         <td className={classes.name}>
           <span>
-            <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSizeSmall} />
-            <RenameField session={renaming} testId="dir-rename" className={classes.field} />
+            <RenameField
+              session={renaming}
+              testId="dir-rename"
+              icon={<EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSizeSmall} />}
+              className={classes.field}
+            />
           </span>
         </td>
         {cells}
@@ -204,9 +210,7 @@ function TableRow({ entry, routed, href, menuOpen, onOpen, onMenu }: TableRowPro
 
   return (
     <tr
-      data-testid="dir-row"
-      data-path={entry.path}
-      data-dir={entry.is_dir ? 'true' : 'false'}
+      {...rowAttributes(entry)}
       data-menu={menuOpen ? 'true' : 'false'}
       className={classes.row}
       onClick={(event) => opensRow(event) && onOpen()}
@@ -273,10 +277,14 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
 
 function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming }): JSX.Element {
   return (
-    <div data-testid="dir-row" data-path={entry.path} data-dir={entry.is_dir ? 'true' : 'false'} className={classes.listRow}>
+    <div {...rowAttributes(entry)} className={classes.listRow}>
       <div className={classes.listLink}>
-        <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSize} className={classes.listIcon} />
-        <RenameField session={session} testId="dir-rename" className={classes.listField} />
+        <RenameField
+          session={session}
+          testId="dir-rename"
+          icon={<EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSize} className={classes.listIcon} />}
+          className={classes.listField}
+        />
       </div>
     </div>
   );
@@ -335,9 +343,7 @@ function PhoneLinkRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
     <>
       <div
         ref={rowRef}
-        data-testid="dir-row"
-        data-path={entry.path}
-        data-dir={entry.is_dir ? 'true' : 'false'}
+        {...rowAttributes(entry)}
         data-holding={holding ? 'true' : 'false'}
         data-lifted={lifted === undefined ? 'false' : 'true'}
         className={`${classes.listRow} ${pressClasses.row}`}
@@ -385,10 +391,12 @@ function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
     <tr data-testid="dir-draft" data-entry={kind} className={classes.draft}>
       <td className={classes.name}>
         <span>
-          {kind === 'file' ? <IconFileText size={layout.iconSizeSmall} aria-hidden /> : <IconFolder size={layout.iconSizeSmall} aria-hidden />}
           <NameField
             initial=""
             testId="dir-draft"
+            icon={
+              kind === 'file' ? <IconFileText size={layout.iconSizeSmall} aria-hidden /> : <IconFolder size={layout.iconSizeSmall} aria-hidden />
+            }
             className={classes.field}
             placeholder={kind === 'file' ? 'File name' : 'Folder name'}
             label={kind === 'file' ? 'Name of the new file' : 'Name of the new folder'}

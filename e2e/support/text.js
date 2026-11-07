@@ -34,6 +34,7 @@ module.exports = {
     pageExists: 'That file already exists',
     folderExists: 'That folder already exists',
     renameSlash: 'A name cannot hold a slash, use Move to instead',
+    renameDot: 'A name cannot start with a dot',
     renameFailed: 'Nothing was renamed',
     nameTaken: 'Something of that name is already there',
 

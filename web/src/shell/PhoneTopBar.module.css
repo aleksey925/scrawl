@@ -124,7 +124,7 @@
   opacity: 1;
 }
 
-.rename {
+.field {
   height: 38px;
   padding: 0 6px 0 10px;
   border-radius: var(--mantine-radius-lg);

@@ -8,7 +8,7 @@ import { useApi } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
 import { countOf } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
-import { usePageChrome } from '../shell/PageChrome';
+import { standaloneChrome, usePageChrome } from '../shell/PageChrome';
 import { hintOf, SearchResults } from '../shell/SearchResults';
 
 const nothing: SearchResponse = { hits: [], elapsed_ms: 0 };
@@ -23,7 +23,7 @@ export function Component(): JSX.Element {
   const key = searchParams.toString();
   const [opened, setOpened] = useState<{ key: string; paths: ReadonlySet<string> }>({ key, paths: noneExpanded });
   const expanded = opened.key === key ? opened.paths : noneExpanded;
-  usePageChrome({ crumbs: [], name: 'Search', title: 'Search', ownTitle: true });
+  usePageChrome(standaloneChrome('Search'));
 
   const state = useApi<SearchResponse>(
     (signal) => (empty ? Promise.resolve(nothing) : api.find(wanted, settings, pageLimit, { signal })),

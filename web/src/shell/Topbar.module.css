@@ -87,7 +87,7 @@
   color: var(--scrawl-icon-secondary);
 }
 
-.rename {
+.field {
   min-height: 36px;
   padding-inline: 10px;
   font-size: var(--mantine-font-size-sm);

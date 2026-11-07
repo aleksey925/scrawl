@@ -10,6 +10,7 @@ const SHARED = instances.shared;
 const HISTORY = instances.history;
 const MULTI = instances.multi;
 const DIALOG_TITLE = {room: 4, tall: 60};
+const MOVE_WAIT_MS = 300;
 
 let shotSeq = 0;
 
@@ -269,6 +270,7 @@ module.exports = {
     DIALOG_TITLE,
     HISTORY,
     MAIN,
+    MOVE_WAIT_MS,
     MULTI,
     READONLY,
     SHARED,

@@ -290,10 +290,10 @@ function DraftRow({ depth }: { depth: number }): JSX.Element {
   const isFile = draft?.kind === 'file';
   return (
     <NameRow depth={depth} testId="tree-draft" isFile={isFile}>
-      <IconBox>{isFile ? <IconFile size={treeIconSize} /> : <IconFolder size={treeIconSize} />}</IconBox>
       <NameField
         initial=""
         testId="tree-draft"
+        icon={<IconBox>{isFile ? <IconFile size={treeIconSize} /> : <IconFolder size={treeIconSize} />}</IconBox>}
         className={treeClasses.field}
         placeholder={isFile ? 'File name' : 'Folder name'}
         label={isFile ? 'Name of the new file' : 'Name of the new folder'}
@@ -307,8 +307,12 @@ function DraftRow({ depth }: { depth: number }): JSX.Element {
 function RenameRow({ session, depth }: { session: Renaming; depth: number }): JSX.Element {
   return (
     <NameRow depth={depth} testId="tree-rename" isFile={!session.isDir}>
-      <IconBox>{session.isDir ? <IconFolder size={treeIconSize} /> : <IconFileText size={treeIconSize} />}</IconBox>
-      <RenameField session={session} testId="tree-rename" className={treeClasses.field} />
+      <RenameField
+        session={session}
+        testId="tree-rename"
+        icon={<IconBox>{session.isDir ? <IconFolder size={treeIconSize} /> : <IconFileText size={treeIconSize} />}</IconBox>}
+        className={treeClasses.field}
+      />
     </NameRow>
   );
 }

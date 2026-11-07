@@ -3,7 +3,7 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    MAIN, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, modifier, readFixture, removeFixture, routes, save,
+    MAIN, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, modifier, nameOf, readFixture, removeFixture, routes, save,
     setSource, shot, signIn, sourceText, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -196,7 +196,7 @@ test.describe('editing', () => {
         writeFixture(docPath, '# Elsewhere\n');
         await page.goto(routes.doc(docPath));
         const crumbs = page.getByTestId('topbar-crumbs').getByTestId('crumb');
-        await expect(crumbs.last()).toHaveText('editor-crumbs.md');
+        await expect(crumbs.last()).toHaveText(nameOf(docPath));
 
         try {
             // act
@@ -204,7 +204,7 @@ test.describe('editing', () => {
             await expect.poll(() => sourceText(page)).toBe('# Elsewhere\n');
 
             // assert
-            await expect(crumbs.last()).toHaveText('editor-crumbs.md');
+            await expect(crumbs.last()).toHaveText(nameOf(docPath));
         } finally {
             removeFixture(docPath);
         }

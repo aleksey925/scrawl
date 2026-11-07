@@ -1,6 +1,7 @@
 import type { MantineColorScheme } from '@mantine/core';
 
 import type { ExportFormat } from '../api/types';
+import { withoutMarkdownExtension } from '../paths';
 import { onDarkScreen, paperTheme } from '../print';
 import { trackedDone } from '../reader/pending';
 import { previewThemeChoice, restoreThemeChoice } from '../themeChoice';
@@ -12,7 +13,7 @@ const blobLifetime = 60_000;
 const settleLimit = 5_000;
 
 function stemOf(path: string): string {
-  return basenameOf(path).replace(/\.md$/i, '');
+  return withoutMarkdownExtension(basenameOf(path));
 }
 
 export function exportName(path: string, format: ExportFormat): string {

@@ -19,13 +19,9 @@ Creating, naming, moving and deleting files and folders.
   a name without an extension makes a note. A create started from a list asks
   the same. Every place says New file, the tree, the menus and the dialog,
   since one action makes a note or any file; the editor calls a new note a
-  note. A menu item that puts a field on the page, New file, New folder or
-  Rename, tells its menu not to give the focus back to its button: mantine's
-  menu does it a tick after the field took the focus, and the field lost it. A
-  timer that ignored the early blurs lost a quick click outside and took the
-  focus back from where it had gone. The rows being dragged are kept in state
-  as well as in the drag's data, because a page cannot read that data during
-  `dragover`, when a folder says whether it takes the drop.
+  note. The rows being dragged are kept in state as well as in the drag's data,
+  because a page cannot read that data during `dragover`, when a folder says
+  whether it takes the drop.
 - A name typed for a file is a note unless it carries an extension of its own:
   a title becomes its slug with `.md`, and `notes.txt` or `Main.java` is that
   file, named as typed. A slug, of a note or a folder, keeps the case typed, so

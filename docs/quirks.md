@@ -107,7 +107,7 @@ words; the fact itself is written here.
 - When a menu item puts a field on the page, mantine's menu gives the focus
   back to its button a tick after the field took it, unless the menu is told
   not to (`returnFocus`) in the same render that closes it.
-  [Entries](ui/entries.md)
+  [Frontend](design/frontend.md)
 - Mantine's runtime css variables sit under its own attribute and outrank a
   theme's, so the app runs it with `withCssVariables={false}`.
   [Themes](design/themes.md)

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 
 import type { MissingDocumentResponse } from '../api/types';
 import { IconFilePlus, IconFolder, IconSearch } from '../icons';
-import { directoryUrl, editUrl, searchUrl } from '../paths';
+import { directoryUrl, editUrl, searchUrl, withoutMarkdownExtension } from '../paths';
 import { usePlatform } from '../platform';
 import { basenameOf, parentOf } from '../shell/naming';
 import { chromeOf, usePageChrome } from '../shell/PageChrome';
@@ -67,7 +67,7 @@ export function MissingNote({ path, page }: MissingNoteProps): JSX.Element {
           <span>{folder === '' ? 'Open the notes of the space' : `Open the folder ${basenameOf(folder)}`}</span>
         </Link>
         {search && (
-          <Link data-testid="doc-missing-search" to={searchUrl(name.replace(/\.md$/i, ''))} className={classes.option}>
+          <Link data-testid="doc-missing-search" to={searchUrl(withoutMarkdownExtension(name))} className={classes.option}>
             <IconSearch size={layout.iconSize} />
             <span>Search for a similar note</span>
           </Link>

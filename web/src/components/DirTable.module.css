@@ -192,6 +192,7 @@
 }
 
 .listField {
+  gap: 12px;
   min-height: 40px;
 }
 

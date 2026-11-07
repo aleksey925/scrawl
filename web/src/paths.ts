@@ -44,6 +44,10 @@ export function isMarkdown(path: string): boolean {
   return path.toLowerCase().endsWith('.md');
 }
 
+export function withoutMarkdownExtension(name: string): string {
+  return name.replace(/\.md$/i, '');
+}
+
 export function documentUrl(path: string): string {
   return `/doc/${encodeContentPath(path)}`;
 }

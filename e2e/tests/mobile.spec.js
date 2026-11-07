@@ -5,7 +5,7 @@ const fs = require('fs');
 const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
-    DIALOG_TITLE, HISTORY, MAIN, MULTI, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
+    DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
     nameOf, recordMoves, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -698,7 +698,7 @@ test.describe('mobile', () => {
             await page.getByTestId('page-rename-cancel').tap();
             await expect(page.getByTestId('page-rename')).toHaveCount(0);
             await expect(page.getByTestId('tap-guard')).toHaveCount(0);
-            await stays(() => moves, [], 300);
+            await stays(() => moves, [], MOVE_WAIT_MS);
 
             await start();
             await input.fill(nameOf(renamed));
@@ -835,7 +835,7 @@ test.describe('mobile', () => {
             await input.fill('dropped.md');
             await page.getByTestId('dir-rename-cancel').tap();
             await expect(page.getByTestId('dir-rename-field')).toHaveCount(0);
-            await stays(() => moves, [], 300);
+            await stays(() => moves, [], MOVE_WAIT_MS);
             expect(fs.existsSync(fixtureFile(`${FOLDER}/dropped.md`))).toBe(false);
 
             await startRowRename(page, file);
@@ -887,7 +887,7 @@ test.describe('mobile', () => {
             await page.getByTestId('dir-title').tap();
 
             // assert
-            await stays(() => moves, [{from: file, to: taken}], 300);
+            await stays(() => moves, [{from: file, to: taken}], MOVE_WAIT_MS);
             await expect(input).toHaveValue(nameOf(taken));
             await page.getByTestId('dir-rename-cancel').tap();
             await expect(page.getByTestId('dir-rename-field')).toHaveCount(0);
@@ -936,7 +936,7 @@ test.describe('mobile', () => {
             await page.getByTestId('page-rename-cancel').tap();
             await expect(input).toHaveCount(0);
             await expect(page.getByTestId('topbar-up')).toBeVisible();
-            await stays(() => moves, [], 300);
+            await stays(() => moves, [], MOVE_WAIT_MS);
 
             await startBarRename(page, 'note-menu');
             await input.fill(nameOf(renamed));

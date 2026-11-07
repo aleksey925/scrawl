@@ -39,7 +39,7 @@
   opacity: 0.4;
 }
 
-@media (hover: none), (pointer: coarse) {
+@media (pointer: coarse) {
   .input {
     font-size: var(--scrawl-input-font-size);
   }

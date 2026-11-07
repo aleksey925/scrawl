@@ -10,7 +10,7 @@ import { IconFolder } from '../icons';
 import { isDirectoryPath } from '../paths';
 import { layout } from '../theme';
 
-import { useOptionalFileActions, useRenamingHere } from './fileActionsContext';
+import { usePageRenaming } from './fileActionsContext';
 import { spaceLabel, useNav } from './NavContext';
 import { contentPathOf } from './naming';
 import { useShownChrome } from './PageChrome';
@@ -30,12 +30,11 @@ export function TopbarCrumbs(): JSX.Element {
   const { me } = useNav();
   const chrome = useShownChrome();
   const space = spaceLabel(me);
-  const atSpace = chrome.title === '';
+  const atSpace = chrome.name === '';
   const location = useLocation();
   const current = contentPathOf(location.pathname);
   const isDir = isDirectoryPath(location.pathname);
-  const renameCommit = useOptionalFileActions()?.renameCommit;
-  const renaming = useRenamingHere('page', current);
+  const { renaming, commit } = usePageRenaming();
   const icon = (
     <EntryIcon name={current} isDir={isDir} size={layout.iconSizeSmall} className={classes.crumbIcon} />
   );
@@ -87,13 +86,11 @@ export function TopbarCrumbs(): JSX.Element {
             </Popover.Target>
             <Popover.Dropdown data-testid="page-rename" p={0}>
               {renaming !== undefined && (
-                <RenameField session={renaming} testId="page-rename" icon={icon} className={classes.rename} />
+                <RenameField session={renaming} testId="page-rename" icon={icon} className={classes.field} />
               )}
             </Popover.Dropdown>
           </Popover>
-          {renameCommit !== undefined && (
-            <TapGuard active={renaming !== undefined} onClose={() => renameCommit.current?.()} />
-          )}
+          <TapGuard active={renaming !== undefined} onClose={commit} />
         </span>
       )}
     </nav>

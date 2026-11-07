@@ -1110,7 +1110,7 @@ test.describe('reading', () => {
         // assert
         await expect(page.getByTestId('topbar-crumbs').getByTestId('crumb').last()).toHaveText(name);
         const search = new URL(await page.getByTestId('doc-missing-search').getAttribute('href'), MAIN.baseURL);
-        expect(search.searchParams.get('q')).toBe(name.replace(/\.md$/, ''));
+        expect(search.searchParams.get('q')).toBe(name.replace(/\.md$/i, ''));
     });
 
     test('the sidebar filter matches the whole name of a note, its extension too', async ({page}) => {

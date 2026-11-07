@@ -61,6 +61,11 @@
   min-width: 0;
 }
 
+.title,
+.message {
+  overflow-wrap: anywhere;
+}
+
 .title {
   font-weight: 600;
 }

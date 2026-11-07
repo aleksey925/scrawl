@@ -670,7 +670,8 @@ told a change landed somewhere it did not:
 - `500 {"error":"the change was written and recorded, but not pushed to the remote"}`
 
 Both fix themselves: the next commit also records what was missed, and every
-push and every fetch tries again.
+push and every fetch tries again. The `500` of a delete still carries the
+`trash_id`, so the deleted entry can be put back.
 
 Two answers mean the file on disk is not what the client assumed. Both carry
 `current_rev` and `current_content`, so a retry needs no second request:

@@ -42,7 +42,9 @@ How the app works on a phone.
   bar and a close button stood at the top right, over Edit and the page's menu,
   and looked like a web page of years ago. The button of a toast is lettered in
   its own lighter blue, which the theme names, since the accent is too dark on
-  the toast's ground. `Toasts` draws both, for the app and for a site.
+  the toast's ground. A long name without spaces breaks inside the word, so it
+  never pushes the button out of the toast or off the screen. `Toasts` draws
+  both, for the app and for a site.
 - On a phone a screen opened slides in from the right and one gone back to from
   the left, as an app moves its screens; a tab is switched to with no move, and
   the way up moves back although it pushes an address. The move starts when the

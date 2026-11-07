@@ -216,6 +216,25 @@ func TestStoreRestore(t *testing.T) {
 		assert.Equal(t, secretBody, string(body))
 	})
 
+	t.Run("a folder above that became a symlink is not followed", func(t *testing.T) {
+		// arrange
+		s := newStore(t, notesFiles())
+		id, err := s.Trash("notes/index.md", false)
+		require.NoError(t, err)
+		require.NoError(t, os.RemoveAll(filepath.Join(s.Dir(), "notes")))
+		require.NoError(t, os.Mkdir(filepath.Join(s.Dir(), ".private"), 0o750))
+		require.NoError(t, os.Symlink(".private", filepath.Join(s.Dir(), "notes")))
+
+		// act
+		err = s.Restore(id)
+
+		// assert
+		require.ErrorIs(t, err, ErrNotFound)
+		assert.NoFileExists(t, filepath.Join(s.Dir(), ".private", "index.md"))
+		_, ok := s.Trashed(id)
+		assert.True(t, ok)
+	})
+
 	t.Run("an id the trash does not hold", func(t *testing.T) {
 		// arrange
 		s := newStore(t, notesFiles())

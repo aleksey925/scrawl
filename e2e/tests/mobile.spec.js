@@ -1514,6 +1514,26 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 4000});
         });
 
+        test('keeps Undo inside it and on screen for a long name without spaces', async ({page}) => {
+            // arrange
+            const file = `e2e-mobile/${'unbroken'.repeat(15)}.md`;
+            writeFixture(file, '# Unbroken\n');
+            await page.goto(MAIN.url.dir('e2e-mobile'));
+            await page.locator(`[data-testid=dir-row][data-path="${file}"]`).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+
+            // act
+            await page.getByTestId('tree-row-menu-delete').tap();
+
+            // assert
+            await expect(page.getByTestId('toast-action')).toBeVisible();
+            const box = await page.getByTestId('toast-box').boundingBox();
+            const action = await page.getByTestId('toast-action').boundingBox();
+            const width = page.viewportSize().width;
+            expect([box.x >= 0, box.x + box.width <= width, action.x >= box.x, action.x + action.width <= box.x + box.width])
+                .toEqual([true, true, true, true]);
+        });
+
         test('goes at a tap on it', async ({page}) => {
             // arrange
             await copied(page);

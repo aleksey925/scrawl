@@ -43,6 +43,9 @@ export function hasOwnExtension(name: string): boolean {
 
 export function renamedPath(path: string, name: string): string {
   const typed = name.trim();
+  if (typed === pageName(basenameOf(path), false)) {
+    return path;
+  }
   const named = isMarkdown(path) && !hasOwnExtension(typed) ? `${typed}.md` : typed;
   return joinPath(parentOf(path), named);
 }

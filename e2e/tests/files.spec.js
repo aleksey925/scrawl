@@ -297,6 +297,23 @@ test.describe.serial('file management', () => {
         expect(fs.readdirSync(fixtureFile(RENAME_FOLDER)).filter((name) => name.startsWith('same'))).toEqual(['same.md']);
     });
 
+    test('a note with a dot in its name keeps its .md when the unchanged field loses focus', async ({page}) => {
+        // arrange
+        const note = `${RENAME_FOLDER}/guide.en.md`;
+        writeFixture(note, '# Guide\n');
+        await page.goto(routes.dir(RENAME_FOLDER));
+        await startTreeRename(page, note);
+        await expect(page.getByTestId('tree-rename-input')).toHaveValue('guide.en');
+
+        // act
+        await page.getByTestId('dir-title').click();
+
+        // assert
+        await expect(page.getByTestId('tree-rename')).toHaveCount(0);
+        await expect(page.getByTestId('toast')).toHaveCount(0);
+        expect(fs.readdirSync(fixtureFile(RENAME_FOLDER)).filter((name) => name.startsWith('guide'))).toEqual(['guide.en.md']);
+    });
+
     test('renames a folder in place in the tree', async ({page}) => {
         // arrange
         const folder = `${RENAME_FOLDER}/sub`;

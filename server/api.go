@@ -275,6 +275,10 @@ func (m *mount) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 		trashID, trashErr = m.spc.Store.Trash(p, recursive)
 		return removed, trashErr
 	})
+	if err != nil && trashID != "" {
+		failJSONWith(w, r, err, map[string]any{"trash_id": trashID})
+		return
+	}
 	if err != nil {
 		failJSON(w, r, err)
 		return

@@ -28,7 +28,7 @@ export function showToast(kind: ToastKind, options: ToastOptions): void {
         options.message
       ) : (
         <span className={classes.withAction}>
-          <span>{options.message}</span>
+          <span className={classes.text}>{options.message}</span>
           <button
             type="button"
             data-testid="toast-action"

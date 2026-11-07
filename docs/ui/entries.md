@@ -28,10 +28,11 @@ Creating, naming, moving and deleting files and folders.
   letter, so the date or the version in a title is not one. A rename takes the
   same rule: a note renamed to a bare title stays a note, and one renamed with
   an extension becomes that file, which the `.md` added to every name had made
-  impossible. The slug turns Cyrillic into Latin with the same table
-  `store/upload.go` uses for attachment names, letter for letter, and no test
-  holds the two together: a page and the pictures beside it must not spell one
-  word two ways.
+  impossible. A name left as it was renames nothing, so a click away from the
+  field of `guide.en.md` does not read `en` as an extension and drop the `.md`.
+  The slug turns Cyrillic into Latin with the same table `store/upload.go` uses
+  for attachment names, letter for letter, and no test holds the two together:
+  a page and the pictures beside it must not spell one word two ways.
 - Rename and Move to are two actions, as in Notion. A rename asks only the
   name, a note's without `.md`, and refuses a slash: one field for the whole
   path made every rename a possible move, and a slip in the folder part sent

@@ -411,9 +411,14 @@ func jsonError(w http.ResponseWriter, status int, message string) {
 }
 
 func failJSON(w http.ResponseWriter, r *http.Request, err error) {
+	failJSONWith(w, r, err, map[string]any{})
+}
+
+func failJSONWith(w http.ResponseWriter, r *http.Request, err error, res map[string]any) {
 	status := statusOf(err)
 	logFailure(r, status, err)
-	jsonError(w, status, errMessage(err))
+	res["error"] = errMessage(err)
+	writeJSON(w, status, res)
 }
 
 func Favicon() []byte {

@@ -83,6 +83,9 @@ func (s *Store) Restore(id string) error {
 		return fmt.Errorf("restore %q: %w", id, ErrNotFound)
 	}
 	p := displayPath(item.path)
+	if _, err := s.checkPath(item.path); err != nil {
+		return err
+	}
 	if _, err := s.root.Lstat(item.path); err == nil {
 		return fmt.Errorf("restore %q: %w", p, ErrExists)
 	}

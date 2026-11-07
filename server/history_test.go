@@ -896,6 +896,28 @@ func TestAWriteHistoryCouldNotRecord(t *testing.T) {
 	assert.Equal(t, true, browserBody["history_degraded"])
 }
 
+func TestADeleteHistoryCouldNotRecordStillNamesItsTrash(t *testing.T) {
+	// arrange
+	fake := &fakeHistory{failWith: errors.New("the index is locked")}
+	ts := newTestServer(t, testOpts{withAuth: true, history: fake})
+	token := map[string]string{"Authorization": "Bearer " + testToken}
+
+	// act
+	deleted, deletedBody := ts.json(t, request{method: http.MethodDelete, path: "/api/file/index.md", headers: token})
+	restored, restoredBody := ts.json(t, request{
+		method: http.MethodPost, path: "/api/trash/restore", headers: token,
+		body: jsonBody(t, map[string]any{"id": deletedBody["trash_id"]}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusInternalServerError, deleted.status)
+	assert.Equal(t, "the change was written but not recorded in history", deletedBody["error"])
+	assert.NotEmpty(t, deletedBody["trash_id"])
+	assert.Equal(t, http.StatusInternalServerError, restored.status)
+	assert.Equal(t, "the change was written but not recorded in history", restoredBody["error"])
+	assert.FileExists(t, filepath.Join(ts.root, "index.md"), "the restore itself still happened")
+}
+
 func TestAWriteTheRemoteMissed(t *testing.T) {
 	// arrange
 	fake := &fakeHistory{pushFails: errors.New("the remote refused")}

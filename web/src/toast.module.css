@@ -4,6 +4,10 @@
   gap: 16px;
 }
 
+.text {
+  min-width: 0;
+}
+
 .action {
   flex: none;
   margin: -4px -8px -4px auto;

@@ -45,7 +45,9 @@ How the notes on disk are read, written and watched.
   and a longer keep would only hold deleted files on disk that nobody can
   reach. [ADR 20](../adr/0020-delete-to-a-trash-with-undo.md)
 - `Restore` puts nothing over an entry that took the place in the meantime and
-  makes the folders above it again when they went.
+  makes the folders above it again when they went. It checks the path again as
+  any write does, so a folder above that became a symlink or a hidden name
+  since the delete answers not found and the entry stays in the trash.
 - A rename cannot cross two filesystems, so an entry on another filesystem
   mounted inside the space, a bind mount in Docker for one, cannot be deleted:
   the rename fails with `EXDEV` and the delete answers an error. The entry

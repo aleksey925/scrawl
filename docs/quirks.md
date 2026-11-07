@@ -136,9 +136,11 @@ words; the fact itself is written here.
   where goldmark ends the table. Its table starts on the first line of a
   paragraph when that line has a `|` and the delimiter row under it as many
   cells, or on a line with a `|` under text with none, even when that text has
-  a delimiter row. goldmark takes the line before the first delimiter row of a
-  paragraph as the header, with fewer cells allowed, and the rest of the
-  paragraph as rows. [Editor](ui/editor.md)
+  a delimiter row. That rule skips text whose first line has a `|`, as a table
+  parser is then attached to it, so the editor's parse hands the rule the
+  paragraph with its parsers left out. goldmark takes the line before the first
+  delimiter row of a paragraph as the header, with fewer cells allowed, and the
+  rest of the paragraph as rows. [Editor](ui/editor.md)
 - The markdown parser of codemirror knows no `$$` math block and no front
   matter, so a `$$` line, two lines of a table and a closing `$$` are to it a
   paragraph and a table whose last row is the `$$`. It ends a `<textarea>`

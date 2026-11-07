@@ -1437,6 +1437,8 @@ test.describe('editing', () => {
             ['a list item', '- | a |\n  | - |\n\n  more\n- next\n', '- more\n- next\n', 2],
             ['a list item in a list item', '- - | a |\n    | - |\n\n  more\n', '- more\n', 1],
             ['a list item in a quote', '> 1. | a |\n>    | - |\n>\n>    more\n', '> 1. more\n', 1],
+            ['a list item with a tab before the text', '- | a |\n  | - |\n\n\tmore\n', '-   more\n', 1],
+            ['an ordered item with a tab before the text', '1. | a |\n   | - |\n\n\tmore\n', '1.  more\n', 1],
         ]) {
             test(`deleting a table that starts ${where} gives its marker to what follows in the item`, async ({page}) => {
                 // arrange
@@ -1552,6 +1554,28 @@ test.describe('editing', () => {
                 removeFixture(docPath);
             });
         }
+
+        test('a table right under a line of text with a pipe offers its edits and leaves that line as it was', async ({page}) => {
+            // arrange
+            const intro = 'Intro with | pipe';
+            const docPath = scratch('table-under-text-with-pipe');
+            writeFixture(docPath, `${intro}\n| a | b |\n| - | - |\n| 1 | 2 |\n`);
+            await page.goto(routes.edit(docPath));
+            await putCursor(page, 3, 'End');
+
+            // act
+            const offer = await menuOffer(page);
+            await tableEdit(page, 'rowBelow');
+
+            // assert
+            expect(offer).toEqual({grid: false, shown: edits, enabled: edits});
+            await expect.poll(() => sourceText(page)).toBe([
+                intro, '| a   | b   |', '| --- | --- |', '| 1   | 2   |', '|     |     |', '',
+            ].join('\n'));
+            await expect(page.locator('[data-testid=editor-preview] p').first()).toHaveText(intro);
+            await expect(page.locator('[data-testid=editor-preview] table tbody tr')).toHaveCount(2);
+            removeFixture(docPath);
+        });
     });
 
     test.afterAll(() => {

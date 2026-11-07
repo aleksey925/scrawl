@@ -47,6 +47,7 @@ interface Rendered {
 const minCellWidth = 3;
 const delimiterLine = 1;
 const containerPrefix = /^[ \t>]*/;
+const tabStop = 4;
 
 function splitRow(text: string): string[] {
   const trimmed = text.trim();
@@ -329,15 +330,45 @@ function itemContentAfter(doc: Text, spot: TableSpot): Line | undefined {
   return next !== undefined && next.from < spot.itemEnd ? next : undefined;
 }
 
+function indentAfter(width: number, char: string): number {
+  return char === '\t' ? width + tabStop - (width % tabStop) : width + 1;
+}
+
+function indentWidth(text: string): number {
+  return [...text].reduce(indentAfter, 0);
+}
+
+function charsWithin(text: string, width: number): number {
+  let reached = 0;
+  let count = 0;
+  for (const char of text) {
+    reached = indentAfter(reached, char);
+    if (reached > width) {
+      break;
+    }
+    count += char.length;
+  }
+  return count;
+}
+
+function charsCovering(text: string, width: number): number {
+  const within = charsWithin(text, width);
+  return indentWidth(text.slice(0, within)) < width ? within + 1 : within;
+}
+
 function deleteTable(view: EditorView, spot: TableSpot): void {
   const { doc } = view.state;
   const next = itemContentAfter(doc, spot);
   if (next !== undefined) {
     const marker = spot.prefixes[0] ?? '';
-    const kept = Math.min(containerPrefix.exec(next.text)?.[0].length ?? 0, marker.length);
+    const indent = containerPrefix.exec(next.text)?.[0] ?? '';
+    const keptWidth = Math.min(indentWidth(indent), indentWidth(marker));
+    const kept = marker.slice(0, charsWithin(marker, keptWidth));
+    const cut = charsCovering(indent, keptWidth);
+    const insert = kept + ' '.repeat(indentWidth(indent.slice(0, cut)) - indentWidth(kept));
     view.dispatch({
-      changes: { from: spot.from, to: next.from + kept, insert: marker.slice(0, kept) },
-      selection: EditorSelection.cursor(spot.from + kept),
+      changes: { from: spot.from, to: next.from + cut, insert },
+      selection: EditorSelection.cursor(spot.from + insert.length),
       scrollIntoView: true,
     });
     return;

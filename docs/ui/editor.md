@@ -80,7 +80,10 @@ The editor screen.
   one on each side of it, so the text above and below keeps one blank line
   between them. When the table starts a list item that holds more after it, the
   item's marker moves to the first line that follows in the item, so that text
-  stays in the item and the item stays where it was. Anywhere else it holds a
+  stays in the item and the item stays where it was. The marker takes the place
+  of as many columns of that line's indent as it is wide, with a tab counted to
+  the next multiple of 4, as the server counts it, so a tab before the text is
+  split into spaces and the text stays in the item. Anywhere else it holds a
   grid of 8 by 8 cells that inserts a table, and nothing else: an edit that
   cannot apply there was only noise, grayed out. The grid lights the cells from
   its corner to the one under the pointer and names the size under it, columns
@@ -123,12 +126,10 @@ The editor screen.
   edits, as deleting its lines would delete the definition. The server takes
   the line before the first delimiter row of a paragraph as the header and the
   rest of the paragraph as rows, and a table in the editor's parse only starts
-  on a paragraph's first line or on a line under text with no `|`, with as many
-  cells as the delimiter row under it. Where these differ the editor takes the
-  lines as no table: table-shaped lines under a delimiter row in the same
-  paragraph are rows of the table above them, and the menu shows the grid
-  there. So some tables of the page offer no edits: one whose header is the
-  first line of a paragraph with no `|`, one under a line of text with a `|` in
-  it, one whose header has fewer cells than the delimiter row, and one followed
-  right away by a line of only `-`, which the editor's parse reads as a
-  heading.
+  on a line with a `|` that has as many cells as the delimiter row under it.
+  Where these differ the editor takes the lines as no table: table-shaped lines
+  under a delimiter row in the same paragraph are rows of the table above them,
+  and the menu shows the grid there. So some tables of the page offer no edits:
+  one whose header is the first line of a paragraph with no `|`, one whose
+  header has fewer cells than the delimiter row, and one followed right away by
+  a line of only `-`, which the editor's parse reads as a heading.

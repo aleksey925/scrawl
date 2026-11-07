@@ -3,6 +3,7 @@ import {
   Autolink,
   type BlockContext,
   type Element,
+  type LeafBlock,
   type Line as BlockLine,
   type MarkdownConfig,
   parser as commonmark,
@@ -122,14 +123,19 @@ function isDelimiterRow(text: string): boolean {
   return delimiterRow.test(text.trim());
 }
 
+const tableLeaves = new WeakSet<LeafBlock>();
+
 const serverTable: MarkdownConfig = {
   defineNodes: Table.defineNodes,
   parseBlock: Table.parseBlock?.map((spec) => ({
     ...spec,
-    endLeaf: (cx, line, leaf) =>
-      !isDelimiterRow(lineRest(line)) &&
-      !leaf.content.split('\n').slice(1).some(isDelimiterRow) &&
-      (spec.endLeaf?.(cx, line, leaf) ?? false),
+    endLeaf: (cx, line, leaf) => {
+      if (isDelimiterRow(lineRest(line))) {
+        tableLeaves.add(leaf);
+        return false;
+      }
+      return !tableLeaves.has(leaf) && (spec.endLeaf?.(cx, line, { ...leaf, parsers: [] }) ?? false);
+    },
   })),
 };
 

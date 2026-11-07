@@ -405,6 +405,26 @@ test.describe.serial('file management', () => {
         expect(fs.existsSync(fixtureFile(RENAMED))).toBe(true);
     });
 
+    test('the name field of Rename sits clear of the dialog title, so its whole focus ring shows', async ({page}) => {
+        // arrange
+        const note = `${FOLDER}/ring-room.md`;
+        writeFixture(note, '# Ring room\n');
+        await page.goto(MAIN.url.doc(note));
+
+        // act
+        await page.getByTestId('note-menu').click();
+        await page.getByTestId('note-menu-rename').click();
+        await expect(page.getByTestId('rename-name')).toBeFocused();
+
+        // assert
+        const room = await page.getByTestId('rename-name').evaluate((field) => {
+            const header = field.closest('.mantine-Modal-content').querySelector('.mantine-Modal-header');
+            return field.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
+        });
+        expect(room).toBeGreaterThanOrEqual(4);
+        removeFixture(note);
+    });
+
     test('renames a note from its own menu in a dialog that asks only the name', async ({page}) => {
         // arrange
         const note = `${FOLDER}/from-menu.md`;

@@ -941,6 +941,23 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('recent-empty-title')).toHaveText('Nothing opened yet');
     });
 
+    test('the name field of New sits clear of the dialog title, so its whole focus ring shows', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+
+        // act
+        await page.getByTestId('tab-new').tap();
+        await page.getByTestId('new-menu-note').tap();
+        await expect(page.getByTestId('new-entry-name')).toBeFocused();
+
+        // assert
+        const room = await page.getByTestId('new-entry-name').evaluate((field) => {
+            const header = field.closest('.mantine-Modal-content').querySelector('.mantine-Modal-header');
+            return field.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
+        });
+        expect(room).toBeGreaterThanOrEqual(4);
+    });
+
     test('New makes a note in the folder on screen and opens the editor', async ({page}) => {
         // arrange
         fs.mkdirSync(fixtureFile(EMPTY_FOLDER), {recursive: true});

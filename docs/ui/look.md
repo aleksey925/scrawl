@@ -69,7 +69,10 @@ Colors, controls and type: how a note and the chrome are drawn.
   stacks them, so a long label is never cut short in a third of the row. No
   dialog sets a height of its own: the editor's gave its buttons the 44px of an
   icon button on every screen, and they stood 16px taller than the 28px buttons
-  of Rename.
+  of Rename. A dialog keeps 4px between its title and what comes first under
+  it, the room of a focus ring outside a field or a button, taken from the
+  title, so the ring of a field right under the title shows whole
+  ([quirks](../quirks.md#react-mantine-and-the-editor)).
 - The dark scheme is Notion's dark: a `#191919` page, a `#202020` sidebar and
   `#f0efed` text. Bold there is 700 instead of 600. Near-white letters on a
   near-black page glow and look heavy already, so bold, italic and headings in

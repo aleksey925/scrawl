@@ -96,6 +96,10 @@ words; the fact itself is written here.
 - Mantine's runtime css variables sit under its own attribute and outrank a
   theme's, so the app runs it with `withCssVariables={false}`.
   [Themes](design/themes.md)
+- A mantine modal or drawer draws its title as a sticky header above the body,
+  with its own ground, and the body has no top padding under a title, so the
+  part of a focus ring outside the first field or button is painted over. The
+  header is at least 60px tall. [Look](ui/look.md)
 - Mantine writes a modal's transition inline, which outranks the stylesheet.
   [Pages](ui/pages.md)
 - Mantine's `setColorScheme` turns every transition off for a moment with

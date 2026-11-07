@@ -80,6 +80,7 @@ export const layout = {
   buttonHeight: 32,
   buttonPaddingX: 12,
   tapTarget: 44,
+  focusRoom: 4,
   touchControl: 40,
   touchChoice: 36,
   menuWidth: 220,
@@ -177,6 +178,7 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-topbar-height': `${layout.topbarHeight}px`,
   '--scrawl-row-height': `${layout.rowHeight}px`,
   '--scrawl-tap-target': `${layout.tapTarget}px`,
+  '--scrawl-focus-room': `${layout.focusRoom}px`,
   '--scrawl-touch-control': `${layout.touchControl}px`,
   '--scrawl-touch-choice': `${layout.touchChoice}px`,
   '--scrawl-control-height': `${layout.controlHeight}px`,
@@ -283,9 +285,11 @@ export const theme: MantineThemeOverride = createTheme({
     }),
     Modal: Modal.extend({
       defaultProps: { radius: 'xl', shadow: 'lg' },
-      classNames: { overlay: controls.overlay, inner: controls.modalInner },
+      classNames: { overlay: controls.overlay, inner: controls.modalInner, header: controls.modalHeader, body: controls.modalBody },
     }),
-    Drawer: Drawer.extend({ classNames: { overlay: controls.overlay } }),
+    Drawer: Drawer.extend({
+      classNames: { overlay: controls.overlay, header: controls.modalHeader, body: controls.modalBody },
+    }),
     SegmentedControl: SegmentedControl.extend({
       defaultProps: { withItemsBorders: false, radius: 'md' },
       classNames: { root: controls.segmentRoot, indicator: controls.segmentIndicator, label: controls.segment },

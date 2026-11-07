@@ -219,6 +219,14 @@
   color: var(--scrawl-text);
 }
 
+.modalHeader {
+  min-height: calc(60px - var(--scrawl-focus-room));
+}
+
+.modalBody:not(:only-child) {
+  padding-top: var(--scrawl-focus-room);
+}
+
 .overlay {
   --overlay-bg: var(--scrawl-overlay) !important;
 }

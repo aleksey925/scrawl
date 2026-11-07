@@ -1,5 +1,6 @@
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
-import type { EditorState, Line, Text } from '@codemirror/state';
+import { EditorState, type Line, type Text } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import type { Heading } from '../api/types';
@@ -104,4 +105,13 @@ function placeToc(state: EditorState, block: string): TocChange {
 export function writeToc(view: EditorView, block: string): void {
   const change = placeToc(view.state, block);
   view.dispatch({ changes: change, effects: EditorView.scrollIntoView(change.from, { y: 'nearest' }) });
+}
+
+export function writeTocInText(text: string, cursor: number, block: string): string {
+  const state = EditorState.create({
+    doc: text,
+    selection: { anchor: Math.min(cursor, text.length) },
+    extensions: markdown({ base: markdownLanguage }),
+  });
+  return state.update({ changes: placeToc(state, block) }).state.doc.toString();
 }

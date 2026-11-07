@@ -55,7 +55,7 @@ import classes from './Editor.module.css';
 import { lineBreakOf, toEditorText, withLineBreak } from './lineBreaks';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { createPaneSync } from './paneSync';
-import { tocBlock, writeToc } from './toc';
+import { tocBlock, writeToc, writeTocInText } from './toc';
 import { useDraft } from './useDraft';
 import { useEditorLayout, type LayoutMode } from './useLayoutMode';
 import { useLineWrap } from './useLineWrap';
@@ -234,7 +234,9 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             return;
           }
           const current = liveView();
-          if (current !== undefined) {
+          if (current === undefined) {
+            setContent(writeTocInText(sent, viewRef.current?.state.selection.main.head ?? 0, block));
+          } else {
             writeToc(current, block);
           }
         },

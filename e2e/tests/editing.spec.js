@@ -704,6 +704,27 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('the contents still goes into the text when the source was closed for the preview before the server answered', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-preview');
+        writeFixture(docPath, '# T\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await expect.poll(() => sourceText(page)).toBe('# T\n\n## A\n');
+        const release = await holdRoute(page, '**/api/preview');
+
+        // act
+        await page.getByTestId('editor-toolbar-toc').click();
+        await page.getByTestId('editor-layout-mode').getByText('Preview').click();
+        release();
+
+        // assert
+        await expect(page.locator('[data-testid=editor-preview] li > a[href="#a"]')).toBeVisible();
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await expect.poll(() => sourceText(page)).toBe('# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n');
+        removeFixture(docPath);
+    });
+
     test('the leave dialog has the buttons every dialog has: one height, side by side at its end', async ({page}) => {
         // arrange
         const docPath = scratch('leave-buttons');

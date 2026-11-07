@@ -1,8 +1,9 @@
-import { EditorSelection, type EditorState, type Line, type Text } from '@codemirror/state';
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
+import { EditorSelection, type EditorState, type Text } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
 import { clamp } from './anchor';
-import { type BlockNode, footnoteDefinition, placeAfterCursorBlock, treeOf } from './blocks';
+import { parseBudgetMs } from './constants';
 
 export type TableEdit =
   | 'rowAbove'
@@ -36,7 +37,6 @@ interface TableSpot extends CellAt {
   to: number;
   prefixes: string[];
   table: Table;
-  itemEnd: number | undefined;
 }
 
 interface Rendered {
@@ -46,8 +46,6 @@ interface Rendered {
 
 const minCellWidth = 3;
 const delimiterLine = 1;
-const containerPrefix = /^[ \t>]*/;
-const tabStop = 4;
 
 function splitRow(text: string): string[] {
   const trimmed = text.trim();
@@ -98,54 +96,35 @@ function blankLine(doc: Text, number: number): boolean {
   return number < 1 || number > doc.lines || doc.line(number).text.trim() === '';
 }
 
-function startedBlockEnd(doc: Text, table: BlockNode, name: string): number | undefined {
-  const firstLine = doc.lineAt(table.from).number;
-  let end: number | undefined;
-  for (let node = table.parent; node !== null; node = node.parent) {
-    if (node.name === name && doc.lineAt(node.from).number === firstLine) {
-      end = node.to;
-    }
-  }
-  return end;
-}
-
-function tableAt(state: EditorState, pos: number): BlockNode | undefined {
+function tableRowStarts(state: EditorState, pos: number): number[] | undefined {
   const line = state.doc.lineAt(pos);
-  let table: BlockNode | undefined;
-  treeOf(state).iterate({
+  const tree = ensureSyntaxTree(state, state.doc.length, parseBudgetMs) ?? syntaxTree(state);
+  let starts: number[] | undefined;
+  tree.iterate({
     from: line.from,
     to: line.to,
     enter: (node) => {
-      if (table !== undefined) {
+      if (starts !== undefined) {
         return false;
       }
       if (node.name !== 'Table') {
         return undefined;
       }
-      table = node.node;
+      starts = [];
+      for (let child = node.node.firstChild; child !== null; child = child.nextSibling) {
+        if (child.name === 'TableHeader' || child.name === 'TableDelimiter' || child.name === 'TableRow') {
+          starts.push(child.from);
+        }
+      }
       return false;
     },
   });
-  if (table === undefined || startedBlockEnd(state.doc, table, footnoteDefinition) !== undefined) {
-    return undefined;
-  }
-  return table;
-}
-
-function rowStarts(table: BlockNode): number[] {
-  const starts: number[] = [];
-  for (let child = table.firstChild; child !== null; child = child.nextSibling) {
-    if (child.name === 'TableHeader' || child.name === 'TableDelimiter' || child.name === 'TableRow') {
-      starts.push(child.from);
-    }
-  }
   return starts;
 }
 
 function tableSpot(state: EditorState, pos: number): TableSpot | undefined {
-  const node = tableAt(state, pos);
-  const starts = node === undefined ? [] : rowStarts(node);
-  if (node === undefined || starts.length <= delimiterLine) {
+  const starts = tableRowStarts(state, pos);
+  if (starts === undefined || starts.length <= delimiterLine) {
     return undefined;
   }
   const rowLines = starts.map((from) => state.doc.lineAt(from));
@@ -177,7 +156,6 @@ function tableSpot(state: EditorState, pos: number): TableSpot | undefined {
     },
     row: lineIndex <= delimiterLine ? 0 : lineIndex - delimiterLine,
     column: clamp(column, 0, width - 1),
-    itemEnd: startedBlockEnd(state.doc, node, 'ListItem'),
   };
 }
 
@@ -312,67 +290,8 @@ export function tableEditsAtCursor(state: EditorState): ReadonlySet<TableEdit> |
   return spot === undefined ? undefined : editsOf(spot);
 }
 
-function nextContentLine(doc: Text, after: number): Line | undefined {
-  for (let number = after + 1; number <= doc.lines; number++) {
-    const line = doc.line(number);
-    if (line.text.replace(containerPrefix, '') !== '') {
-      return line;
-    }
-  }
-  return undefined;
-}
-
-function itemContentAfter(doc: Text, spot: TableSpot): Line | undefined {
-  if (spot.itemEnd === undefined) {
-    return undefined;
-  }
-  const next = nextContentLine(doc, doc.lineAt(spot.to).number);
-  return next !== undefined && next.from < spot.itemEnd ? next : undefined;
-}
-
-function indentAfter(width: number, char: string): number {
-  return char === '\t' ? width + tabStop - (width % tabStop) : width + 1;
-}
-
-function indentWidth(text: string): number {
-  return [...text].reduce(indentAfter, 0);
-}
-
-function charsWithin(text: string, width: number): number {
-  let reached = 0;
-  let count = 0;
-  for (const char of text) {
-    reached = indentAfter(reached, char);
-    if (reached > width) {
-      break;
-    }
-    count += char.length;
-  }
-  return count;
-}
-
-function charsCovering(text: string, width: number): number {
-  const within = charsWithin(text, width);
-  return indentWidth(text.slice(0, within)) < width ? within + 1 : within;
-}
-
 function deleteTable(view: EditorView, spot: TableSpot): void {
   const { doc } = view.state;
-  const next = itemContentAfter(doc, spot);
-  if (next !== undefined) {
-    const marker = spot.prefixes[0] ?? '';
-    const indent = containerPrefix.exec(next.text)?.[0] ?? '';
-    const keptWidth = Math.min(indentWidth(indent), indentWidth(marker));
-    const kept = marker.slice(0, charsWithin(marker, keptWidth));
-    const cut = charsCovering(indent, keptWidth);
-    const insert = kept + ' '.repeat(indentWidth(indent.slice(0, cut)) - indentWidth(kept));
-    view.dispatch({
-      changes: { from: spot.from, to: next.from + cut, insert },
-      selection: EditorSelection.cursor(spot.from + insert.length),
-      scrollIntoView: true,
-    });
-    return;
-  }
   const first = doc.lineAt(spot.from).number;
   const end = doc.lineAt(spot.to).number;
   const last = end < doc.lines && blankLine(doc, end + 1) && blankLine(doc, first - 1) ? end + 1 : end;
@@ -405,6 +324,8 @@ export function runTableEdit(view: EditorView, edit: TableEdit): void {
 
 export function insertTable(view: EditorView, { columns, rows }: TableSize): void {
   const { state } = view;
+  const { doc } = state;
+  const line = doc.lineAt(state.selection.main.head);
   const { text, cursor } = renderTable(
     {
       header: emptyRow(columns),
@@ -415,10 +336,13 @@ export function insertTable(view: EditorView, { columns, rows }: TableSize): voi
     { row: 0, column: 0 },
   );
 
-  const { change, blockFrom } = placeAfterCursorBlock(state, treeOf(state), text);
+  const onBlank = line.text.trim() === '';
+  const from = onBlank ? line.from : line.to;
+  const before = onBlank ? (blankLine(doc, line.number - 1) ? '' : '\n') : '\n\n';
+  const after = blankLine(doc, line.number + 1) ? '' : '\n';
   view.dispatch({
-    changes: change,
-    selection: EditorSelection.cursor(blockFrom + cursor),
+    changes: { from, to: line.to, insert: before + text + after },
+    selection: EditorSelection.cursor(from + before.length + cursor),
     scrollIntoView: true,
   });
   view.focus();

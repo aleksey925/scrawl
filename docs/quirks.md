@@ -126,29 +126,10 @@ words; the fact itself is written here.
 - react-codemirror wraps the editor in a div with `display: block` and no
   height, so the stylesheet makes that div a flex child, or the editor grows to
   the whole document and nothing scrolls.
-- The markdown parser of codemirror reads `\\|` in a table row as an escaped
-  `\` and a cell break, and goldmark, which renders the page, reads every `|`
-  right after a `\` as text. So a header with `\\|` in it has a cell more in
-  the editor, which then sees no table where the page shows one.
-  [Editor](ui/editor.md)
-- The markdown parser of codemirror knows no footnote definition: it reads
-  `[^1]: text` as a link reference, and right under a table as a row of it,
-  where goldmark ends the table. Its table starts on the first line of a
-  paragraph when that line has a `|` and the delimiter row under it as many
-  cells, or on a line with a `|` under text with none, even when that text has
-  a delimiter row. That rule skips text whose first line has a `|`, as a table
-  parser is then attached to it, so the editor's parse hands the rule the
-  paragraph with its parsers left out. goldmark takes the line before the first
-  delimiter row of a paragraph as the header, with fewer cells allowed, and the
-  rest of the paragraph as rows. [Editor](ui/editor.md)
-- The markdown parser of codemirror knows no `$$` math block and no front
-  matter, so a `$$` line, two lines of a table and a closing `$$` are to it a
-  paragraph and a table whose last row is the `$$`. It ends a `<textarea>`
-  block at a blank line, and goldmark at `</textarea>` or the end of the file,
-  as it does `<pre>`. [Editor](ui/editor.md)
-- A block parser added to `@lezer/markdown` can tell that the quote or list
-  item it is in has ended only from `line.depth` falling below `cx.depth`, and
-  the types of the package leave `line.depth` out. [Editor](ui/editor.md)
+- The markdown parser of codemirror, which the editor reads a note with, and
+  goldmark, which renders the page, read some rare markup differently: a `$$`
+  math block, front matter, a footnote definition, `\\|` in a table row, and
+  some lines where a table starts. [Editor](ui/editor.md)
 - In codemirror the height of a line not drawn yet is an estimate, hundreds of
   pixels off in a wrapped note. [Editor position](design/editor-position.md)
 - A phone that puts a tab away and later drops it fires no `beforeunload`, so a

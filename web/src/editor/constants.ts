@@ -1,4 +1,5 @@
 export const previewDelayMs = 400;
+export const parseBudgetMs = 500;
 export const tocAttempts = 3;
 export const draftDelayMs = 800;
 export const draftMaxAgeMs = 30 * 24 * 3600 * 1000;

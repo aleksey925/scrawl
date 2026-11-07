@@ -718,16 +718,20 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
       </div>
 
       <TreeUiContext.Provider value={ui}>
-        <ScrollArea type="hover" viewportRef={viewportRef} style={{ flex: '1 1 auto', minWidth: 0 }}>
+        <ScrollArea
+          type="hover"
+          viewportRef={viewportRef}
+          classNames={{ content: sidebarClasses.treeContent }}
+          style={{ flex: '1 1 auto', minWidth: 0 }}
+        >
           <Stack
             gap={0}
             pb="md"
-            mih="100%"
             data-testid="tree-root"
             data-drop={dropTarget === '' ? 'true' : 'false'}
             {...rootDrop}
             onContextMenu={canWrite ? (event) => contextMenu.onFreeSpace(event, '') : undefined}
-            style={{ minWidth: 0 }}
+            className={sidebarClasses.treeRoot}
           >
             {error !== undefined ? (
               <Text data-testid="sidebar-error" size="sm" c="dimmed" px="md">

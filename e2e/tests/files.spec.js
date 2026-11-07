@@ -1336,6 +1336,24 @@ test.describe.serial('file management', () => {
         expect(fs.existsSync(fixtureFile(`${CONTEXT_FOLDER}/${CONTEXT_ROOT_FOLDER}`))).toBe(false);
     });
 
+    test('a right click on the empty space under the last row of the tree opens its menu too', async ({page}) => {
+        // arrange
+        await page.setViewportSize({width: 1280, height: 2400});
+        await page.goto(routes.dir(CONTEXT_FOLDER));
+        const rows = page.getByTestId('tree-row');
+        await expect(rows.first()).toBeVisible();
+        const last = await rows.last().boundingBox();
+        const area = await page.locator('[data-testid=sidebar] .mantine-ScrollArea-viewport').boundingBox();
+        const below = area.y + area.height - 20;
+        expect(below).toBeGreaterThan(last.y + last.height + 40);
+
+        // act
+        await page.mouse.click(area.x + area.width / 2, below, {button: 'right'});
+
+        // assert
+        await expect(page.getByTestId('tree-context-menu')).toBeVisible();
+    });
+
     test('deletes a folder with everything in it and leaves the page that was inside', async ({page}) => {
         // arrange
         const inner = `${FULL_FOLDER}/sub/note.md`;

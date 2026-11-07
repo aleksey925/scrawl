@@ -171,3 +171,14 @@
 .filter :global(.mantine-Input-wrapper) :global(.mantine-Input-input):not(:focus) {
   box-shadow: none;
 }
+
+.treeContent {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.treeRoot {
+  flex: 1 0 auto;
+  min-width: 0;
+}

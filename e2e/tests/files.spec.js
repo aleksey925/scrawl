@@ -928,6 +928,31 @@ test.describe.serial('file management', () => {
         await expect(row.getByTestId('tree-empty-folder')).toHaveAttribute('data-open', 'false');
     });
 
+    test('a folder inside a closed folder shows closed once its last note goes from its page', async ({page}) => {
+        // arrange
+        const outer = `${HOLLOW}/outer`;
+        const folder = `${outer}/inner`;
+        const last = `${folder}/last.md`;
+        writeFixture(last, '# Last\n');
+        await page.goto(routes.dir(folder));
+        const outerRow = page.locator(`[data-testid=tree-row][data-path="${outer}"]`);
+        const row = page.locator(`[data-testid=tree-row][data-path="${folder}"]`);
+        await expect(row.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
+        await outerRow.getByTestId('tree-twisty').click();
+        await expect(row).toHaveCount(0);
+
+        // act
+        await page.locator(`[data-testid=dir-row][data-path="${last}"]`).click({button: 'right'});
+        await page.getByTestId('tree-row-menu-delete').click();
+        await expect.poll(() => fs.existsSync(fixtureFile(last))).toBe(false);
+        await expect(page.locator(`[data-testid=dir-row][data-path="${last}"]`)).toHaveCount(0);
+        await outerRow.getByTestId('tree-twisty').click();
+
+        // assert
+        await expect(row).toHaveAttribute('data-empty', 'true');
+        await expect(row.getByTestId('tree-empty-folder')).toHaveAttribute('data-open', 'false');
+    });
+
     test('a file dragged onto an empty folder lights it up, lands in it and opens it', async ({page}) => {
         // arrange
         const folder = `${HOLLOW}/target`;

@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	east "github.com/yuin/goldmark-emoji/ast"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/renderer/html"
 )
@@ -93,6 +94,10 @@ func headingText(n ast.Node, source []byte) string {
 			b.Write(v.Value)
 		case *ast.AutoLink:
 			b.Write(v.Label(source))
+		case *east.Emoji:
+			b.WriteString(emojiText(v))
+		case *mathInline:
+			b.Write(v.segment.Value(source))
 		case *ast.CodeSpan:
 			for ch := v.FirstChild(); ch != nil; ch = ch.NextSibling() {
 				if t, ok := ch.(*ast.Text); ok {
@@ -104,6 +109,13 @@ func headingText(n ast.Node, source []byte) string {
 		return ast.WalkContinue, nil
 	})
 	return strings.TrimSpace(b.String())
+}
+
+func emojiText(e *east.Emoji) string {
+	if e.Value.IsUnicode() {
+		return string(e.Value.Unicode)
+	}
+	return ":" + string(e.ShortName) + ":"
 }
 
 func unescapedText(value []byte) string {

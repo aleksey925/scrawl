@@ -71,7 +71,7 @@ interface RowsProps {
 type TreeRowProps = Omit<RowsProps, 'nodes'> & { node: NavNode };
 
 function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | null {
-  const { isOpen, openFolder, closeFolder, toggleFolder, currentPath, canWrite } = useNav();
+  const { isOpen, openFolder, toggleFolder, currentPath, canWrite } = useNav();
   const actions = useOptionalFileActions();
   const draft = actions?.draft;
   const { RowMenu } = useReaderExtensions();
@@ -80,15 +80,6 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   const openMenu = useCallback(() => setMenuOpened(true), []);
   const longPress = useLongPress(openMenu);
   const empty = node.is_dir && node.children.length === 0;
-  const wasEmpty = useRef(empty);
-  useEffect(() => {
-    if (wasEmpty.current && !empty) {
-      openFolder(node.path);
-    } else if (!wasEmpty.current && empty) {
-      closeFolder(node.path);
-    }
-    wasEmpty.current = empty;
-  }, [empty, node.path, openFolder, closeFolder]);
 
   if (query !== '' && !filtered.visible.has(node.path)) {
     return null;

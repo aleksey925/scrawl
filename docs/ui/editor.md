@@ -43,13 +43,14 @@ The editor screen.
   levels, the title and the ids stay the server's; a copy of them in the
   browser would drift from it. A heading the render gives no id, one whose slug
   is longer than 129 characters or starts with `-`, has nothing to link to and
-  is left out. The list is built from the text sent to the server: if the text
-  changed before the answer came, it is sent again, three sends at most, and
-  then a toast asks to press the button again. A new press drops the answer to
-  the one before it. If the source closes before the answer comes, as on a
-  switch to Preview, the list still goes into the text, after the line the
-  cursor was last on. A note with no heading under its title gets a toast and
-  no change. The markers are comments, which the page never shows.
+  is left out. An entry reads as its heading does on the page, an emoji as its
+  glyph and math as its TeX source. The list is built from the text sent to the
+  server: if the text changed before the answer came, it is sent again, three
+  sends at most, and then a toast asks to press the button again. A new press
+  drops the answer to the one before it. If the source closes before the answer
+  comes, as on a switch to Preview, the list still goes into the text, after
+  the line the cursor was last on. A note with no heading under its title gets
+  a toast and no change. The markers are comments, which the page never shows.
 - The editor toolbar is a strip that moves sideways only and stops at its ends,
   and the editor screen takes the page's rubber band away. Left to the defaults
   the strip followed a finger up and down with the page behind it. It has no

@@ -46,37 +46,40 @@ The tree, its head and its foot.
   empty folder looked lost. To a screen reader that icon is a toggle button,
   Open or Close and pressed while open, with no `aria-expanded`, as there is
   nothing under it to expand. Its `⋯`, its `+` and a drop on it work as on any
-  folder. A row of such a folder that is on screen unfolds by itself when
-  something lands in it, from the tree, the page, a move or another tab, and
-  closes again when its last entry leaves; one inside a closed folder stays
-  shut. The folders of the page on screen open once, when the page is opened: a
-  refresh of the tree after a write leaves them as they are, or the folder of
-  the page would open again the moment its last entry left. While a filter is
-  on, the name of any folder, an empty one too, only opens its page. A filter
-  shows an empty folder open or closed as its clicks left it. A line saying the
-  folder was empty only took a row to say what the missing arrow says, so an
-  empty space shows no rows under its name either, and a right click there
-  still offers New file and New folder. A row's `⋯`, and a folder's `+`, show
-  under the pointer, under the keyboard's focus and while the menu is open; a
-  touch screen has no hover, so there the `⋯` always shows and the `+` never.
-  The same menu is the row's context menu: a right click opens it at the `⋯`,
-  not at the pointer, and on a tablet a long press, timed by the row because
-  iOS sends no `contextmenu` for one. A right click on the free space of the
-  tree, under the rows, opens a menu of New file and New folder, made in the
-  root, as the space under the rows stands for it. A site has no menu to offer
-  and leaves the browser's own. A phone has no tree, so a row of a folder's
-  list carries the same menu: a `⋯` beside the row, which a link cannot hold,
-  and a long press anywhere on it. They feel the way iOS has them: the `⋯`
-  leaves the row as it is, and a resting finger shrinks the row a little, then
-  lifts a copy of it as a card over the dimmed and blurred page, with the menu
-  growing out of the card and hanging from the row's right edge, inside the
-  page's gutter, where a right thumb reaches it, as iOS's own lists hang it;
-  tied to the card's start it stood against the left edge. Closing the menu
-  sets the row back down. A row lit gray while its menu was up read as a web
-  page. React hands a press inside a menu's portal up to the row it belongs to,
-  so a long press only times a press that started inside the row itself. The
-  menu offers Edit only where the answer gives an edit address: the server
-  writes one on a listing row the editor opens, a text name within the size it
-  loads, so a picture's row offers none, and a site's rows never carry one. A
-  folder's list asks for its answer again after every write the tree is
-  refreshed for: it kept showing a file deleted from the tree beside it.
+  folder. Such a folder unfolds by itself when something lands in it, from the
+  tree, the page, a move or another tab, and closes again when its last entry
+  leaves. This holds inside a closed folder too: that folder stays shut, and
+  the one in it shows its new state once it is shown. The tree compares each
+  answer of the server with the one before it, by path; an answer from the
+  cache, which may be older, does not count. The folders of the page on screen
+  open once, when the page is opened: a refresh of the tree after a write
+  leaves them as they are, or the folder of the page would open again the
+  moment its last entry left. While a filter is on, the name of any folder, an
+  empty one too, only opens its page. A filter shows an empty folder open or
+  closed as its clicks left it. A line saying the folder was empty only took a
+  row to say what the missing arrow says, so an empty space shows no rows under
+  its name either, and a right click there still offers New file and New
+  folder. A row's `⋯`, and a folder's `+`, show under the pointer, under the
+  keyboard's focus and while the menu is open; a touch screen has no hover, so
+  there the `⋯` always shows and the `+` never. The same menu is the row's
+  context menu: a right click opens it at the `⋯`, not at the pointer, and on a
+  tablet a long press, timed by the row because iOS sends no `contextmenu` for
+  one. A right click on the free space of the tree, under the rows, opens a
+  menu of New file and New folder, made in the root, as the space under the
+  rows stands for it. A site has no menu to offer and leaves the browser's own.
+  A phone has no tree, so a row of a folder's list carries the same menu: a `⋯`
+  beside the row, which a link cannot hold, and a long press anywhere on it.
+  They feel the way iOS has them: the `⋯` leaves the row as it is, and a
+  resting finger shrinks the row a little, then lifts a copy of it as a card
+  over the dimmed and blurred page, with the menu growing out of the card and
+  hanging from the row's right edge, inside the page's gutter, where a right
+  thumb reaches it, as iOS's own lists hang it; tied to the card's start it
+  stood against the left edge. Closing the menu sets the row back down. A row
+  lit gray while its menu was up read as a web page. React hands a press inside
+  a menu's portal up to the row it belongs to, so a long press only times a
+  press that started inside the row itself. The menu offers Edit only where the
+  answer gives an edit address: the server writes one on a listing row the
+  editor opens, a text name within the size it loads, so a picture's row offers
+  none, and a site's rows never carry one. A folder's list asks for its answer
+  again after every write the tree is refreshed for: it kept showing a file
+  deleted from the tree beside it.

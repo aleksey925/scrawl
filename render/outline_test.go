@@ -54,6 +54,22 @@ func TestOutline(t *testing.T) {
 			want: []Heading{{Level: 2, Text: "Цена [x] &copy; © A $5", ID: "цена-x-copy-copy-65-5"}},
 		},
 		{
+			name: "an emoji reads as its glyph",
+			src:  "## :smile:\n\n## Итоги :tada:\n",
+			want: []Heading{
+				{Level: 2, Text: "😄", ID: "smile"},
+				{Level: 2, Text: "Итоги 🎉", ID: "итоги-tada"},
+			},
+		},
+		{
+			name: "inline math reads as its TeX source",
+			src:  "## $x$\n\n## Сумма $a+b$ и $$c^2$$\n",
+			want: []Heading{
+				{Level: 2, Text: "x", ID: "x"},
+				{Level: 2, Text: "Сумма a+b и c^2", ID: "сумма-ab-и-c2"},
+			},
+		},
+		{
 			name: "no headings",
 			src:  "просто текст\n",
 		},

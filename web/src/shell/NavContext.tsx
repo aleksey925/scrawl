@@ -41,7 +41,6 @@ export interface NavState {
   isOpen: (path: string) => boolean;
   toggleFolder: (path: string) => void;
   openFolder: (path: string) => void;
-  closeFolder: (path: string) => void;
   query: string;
   setQuery: (query: string) => void;
 }
@@ -67,6 +66,32 @@ function activeFolders(nodes: readonly NavNode[], into: Set<string>): void {
     }
     activeFolders(entry.children, into);
   }
+}
+
+function folderFill(nodes: readonly NavNode[], into: Map<string, boolean>): void {
+  for (const entry of nodes) {
+    if (entry.is_dir) {
+      into.set(entry.path, entry.children.length === 0);
+      folderFill(entry.children, into);
+    }
+  }
+}
+
+function fillChanges(before: ReadonlyMap<string, boolean>, after: ReadonlyMap<string, boolean>): {
+  filled: string[];
+  emptied: string[];
+} {
+  const filled: string[] = [];
+  const emptied: string[] = [];
+  for (const [path, empty] of after) {
+    const wasEmpty = before.get(path);
+    if (wasEmpty === true && !empty) {
+      filled.push(path);
+    } else if (wasEmpty === false && empty) {
+      emptied.push(path);
+    }
+  }
+  return { filled, emptied };
 }
 
 export interface NavProviderProps {
@@ -111,6 +136,34 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
     });
   }, [tree, nav.stale, currentPath, storageKey]);
 
+  const lastFill = useRef<ReadonlyMap<string, boolean> | undefined>(undefined);
+  useEffect(() => {
+    if (nav.stale || nav.loading || nav.data === undefined) {
+      return;
+    }
+    const fill = new Map<string, boolean>();
+    folderFill(tree, fill);
+    const before = lastFill.current;
+    lastFill.current = fill;
+    if (before === undefined) {
+      return;
+    }
+    const { filled, emptied } = fillChanges(before, fill);
+    if (filled.length === 0 && emptied.length === 0) {
+      return;
+    }
+    setOpen((prev) => {
+      if (filled.every((path) => prev.has(path)) && emptied.every((path) => !prev.has(path))) {
+        return prev;
+      }
+      const next = new Set(prev);
+      filled.forEach((path) => next.add(path));
+      emptied.forEach((path) => next.delete(path));
+      writeOpen(storageKey, next);
+      return next;
+    });
+  }, [tree, nav.stale, nav.loading, nav.data, storageKey]);
+
   const toggleFolder = useCallback((path: string) => {
     setOpen((prev) => {
       const next = new Set(prev);
@@ -128,18 +181,6 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
         return prev;
       }
       const next = new Set(prev).add(path);
-      writeOpen(storageKey, next);
-      return next;
-    });
-  }, [storageKey]);
-
-  const closeFolder = useCallback((path: string) => {
-    setOpen((prev) => {
-      if (!prev.has(path)) {
-        return prev;
-      }
-      const next = new Set(prev);
-      next.delete(path);
       writeOpen(storageKey, next);
       return next;
     });
@@ -178,13 +219,12 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       isOpen,
       toggleFolder,
       openFolder,
-      closeFolder,
       query,
       setQuery,
     }),
     [
       tree, nav.error, nav.loading, me, currentPath, sync, isUnsynced,
-      refreshNav, refreshMe, token, isOpen, toggleFolder, openFolder, closeFolder, query,
+      refreshNav, refreshMe, token, isOpen, toggleFolder, openFolder, query,
     ],
   );
 

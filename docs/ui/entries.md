@@ -12,12 +12,13 @@ Creating, naming, moving and deleting files and folders.
   the folder the tree already knew and then covered it, and a create started
   from a list jumped to the tree, away from what the reader was looking at.
   Rows drag into folders, one or the whole picked run; a plain click picks,
-  shift takes the range, and a modified click stays the browser's "open in a
-  tab". On a phone there is no tree to type into: the New tab opens a menu over
-  itself, New file or New folder, and the name is asked in a small dialog in
-  the middle, the way a phone asks for a new folder's name, with a line saying
-  a name without an extension makes a note. A create started from a list asks
-  the same. Every place says New file, the tree, the menus and the dialog,
+  shift takes the range from the row picked last, at first the current one, a
+  file's folder on its page, and a modified click stays the browser's "open in
+  a tab". On a phone there is no tree to type into: the New tab opens a menu
+  over itself, New file or New folder, and the name is asked in a small dialog
+  in the middle, the way a phone asks for a new folder's name, with a line
+  saying a name without an extension makes a note. A create started from a list
+  asks the same. Every place says New file, the tree, the menus and the dialog,
   since one action makes a note or any file; the editor calls a new note a
   note. The rows being dragged are kept in state as well as in the drag's data,
   because a page cannot read that data during `dragover`, when a folder says

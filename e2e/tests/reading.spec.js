@@ -1024,10 +1024,13 @@ test.describe('reading', () => {
         await page.goto(routes.doc(EMPHASIS));
         const doc = page.getByTestId('doc');
         const markerLeft = (el) => {
-            const style = getComputedStyle(el);
-            const context = document.createElement('canvas').getContext('2d');
-            context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-            return el.getBoundingClientRect().left - context.measureText('12. ').width;
+            const probe = document.createElement('span');
+            probe.textContent = '12. ';
+            Object.assign(probe.style, {position: 'absolute', whiteSpace: 'pre', fontVariantNumeric: 'tabular-nums'});
+            el.append(probe);
+            const width = probe.getBoundingClientRect().width;
+            probe.remove();
+            return el.getBoundingClientRect().left - width;
         };
 
         // act

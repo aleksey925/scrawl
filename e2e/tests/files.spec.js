@@ -2529,6 +2529,35 @@ test.describe('file pages', () => {
         await expect(page.locator(`[data-testid=tree-row][data-path="${PAGES}"] [data-testid=tree-link]`)).not.toHaveAttribute('aria-current');
     });
 
+    test('a note opened from a text file takes the current mark off its folder', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(`${PAGES}/code.py`));
+        await expect(page.locator(`[data-testid=tree-row][data-path="${PAGES}"]`)).toHaveAttribute('data-current', 'true');
+
+        // act
+        await page.locator(`[data-testid=tree-row][data-path="${PAGES}/links.md"] [data-testid=tree-link]`).click();
+
+        // assert
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveAttribute('data-path', `${PAGES}/links.md`);
+        await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveCount(1);
+    });
+
+    test('a shift click on a text file page picks the rows from its folder to the clicked one', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(`${PAGES}/code.py`));
+        const links = page.locator(`[data-testid=tree-row][data-path="${PAGES}/links.md"]`);
+        await expect(links).toBeVisible();
+
+        // act
+        await links.getByTestId('tree-link').click({modifiers: ['Shift']});
+
+        // assert
+        await expect(links).toHaveAttribute('data-selected', 'true');
+        expect(await page.locator('[data-testid=tree-row][data-selected="true"]').evaluateAll((rows) => rows.map((row) => row.dataset.path)))
+            .toEqual([PAGES, `${PAGES}/links.md`]);
+    });
+
     test('Download is a link to the bytes, and a file that cannot be shown offers it', async ({page}) => {
         // arrange
         await page.goto(routes.doc(`${PAGES}/blob.bin`));

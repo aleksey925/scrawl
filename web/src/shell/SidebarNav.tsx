@@ -351,8 +351,11 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const spaceName = spaceLabel(me);
   const contextMenu = usePointerMenu<string>();
 
+  const onFile = !isMarkdown(currentPath) && !isDirectoryPath(location.pathname);
+  const currentRow = onFile ? parentOf(currentPath) : currentPath;
+
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  useEffect(() => setSelected(new Set([currentPath])), [currentPath]);
+  useEffect(() => setSelected(new Set([currentRow])), [currentPath, currentRow]);
   const [dropTarget, setDropTarget] = useState<string | undefined>(undefined);
   const dragged = useRef<readonly string[]>([]);
   const spring = useRef<{ folder: string; timer: number } | undefined>(undefined);
@@ -488,9 +491,6 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
     },
     [actions, canDrop, endDrag],
   );
-
-  const onFile = !isMarkdown(currentPath) && !isDirectoryPath(location.pathname);
-  const currentRow = onFile ? parentOf(currentPath) : currentPath;
 
   const ui = useMemo<TreeUi>(
     () => ({ currentRow, selected, dropTarget, canWrite, pick, startDrag, endDrag, overFolder, leaveFolder, dropOn }),

@@ -32,17 +32,15 @@
 }
 
 .paneHead {
-  flex: none;
-  border-bottom: 1px solid var(--scrawl-border-light);
-}
-
-.paneHeadInner {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 8px;
+  box-sizing: content-box;
   min-width: 0;
   height: 44px;
   padding-inline: var(--mantine-spacing-lg);
+  border-bottom: 1px solid var(--scrawl-border-light);
 }
 
 .paneLabel {
@@ -157,11 +155,11 @@
     padding: 16px var(--mantine-spacing-lg) 30vh;
   }
 
-  .paneHeadInner {
+  .paneHead {
     padding-inline: 0;
   }
 
-  .screen[data-kind='text'] .paneHeadInner {
+  .screen[data-kind='text'] .paneHead {
     padding-inline-start: var(--mantine-spacing-lg);
   }
 

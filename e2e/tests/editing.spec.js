@@ -45,6 +45,18 @@ function sourceLayout(page) {
     });
 }
 
+function sourceRoom(page) {
+    return page.getByTestId('editor-source').evaluate((root) => {
+        const pane = root.parentElement.getBoundingClientRect();
+        const head = root.parentElement.querySelector('[data-testid=editor-toolbar]').parentElement;
+        return {
+            editorShort: Math.round(pane.width - root.querySelector('.cm-editor').getBoundingClientRect().width),
+            toolbarShort: Math.round(pane.width - head.getBoundingClientRect().width),
+            textStart: Math.round(root.querySelector('.cm-gutters').getBoundingClientRect().left - pane.left),
+        };
+    });
+}
+
 test.describe('editing', () => {
     test.beforeEach(async ({page}) => {
         await signIn(page);
@@ -878,25 +890,27 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    test('in Source the editor takes the whole pane', async ({page}) => {
+    test('in Source the source and its toolbar take the whole pane and the text starts where it does in Split', async ({page}) => {
         // arrange
         const docPath = scratch('source-width');
         writeFixture(docPath, 'короткая\n');
         await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-layout-mode').getByText('Split').click();
+        await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'split');
+        const split = await sourceRoom(page);
 
         // act
         await page.getByTestId('editor-layout-mode').getByText('Source').click();
 
         // assert
-        const panes = await page.getByTestId('editor-panes').evaluate((root) => root.offsetWidth);
-        await expect.poll(() => page.locator('[data-testid=editor-source] .cm-editor')
-            .evaluate((editor) => editor.offsetWidth)).toBe(panes);
+        await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'source');
+        await expect.poll(() => sourceRoom(page)).toEqual({editorShort: 0, toolbarShort: 0, textStart: split.textStart});
         removeFixture(docPath);
     });
 
     test('with wrapping off a long line scrolls inside the source and slides under the line numbers', async ({page}) => {
         // arrange
-        const docPath = scratch('no-wrap-column');
+        const docPath = scratch('no-wrap-source');
         writeFixture(docPath, `короткая\n\n${'длинная строка без переноса '.repeat(40)}\n`);
         await page.goto(routes.edit(docPath));
         await page.getByTestId('editor-layout-mode').getByText('Source').click();
@@ -916,11 +930,12 @@ test.describe('editing', () => {
                 .find((element) => element.textContent === '3').getBoundingClientRect();
             const hit = document.elementFromPoint(box.x - 4, number.y + number.height / 2);
             return {
+                editorFillsSource: root.querySelector('.cm-editor').offsetWidth === root.offsetWidth,
                 numbersOpaque: getComputedStyle(gutters).backgroundColor !== 'rgba(0, 0, 0, 0)',
                 textLeftOfNumbers: hit !== null && hit.closest('.cm-content') !== null,
             };
         });
-        expect(seen).toEqual({numbersOpaque: true, textLeftOfNumbers: false});
+        expect(seen).toEqual({editorFillsSource: true, numbersOpaque: true, textLeftOfNumbers: false});
         removeFixture(docPath);
     });
 

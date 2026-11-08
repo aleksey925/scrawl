@@ -757,57 +757,55 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         {showSource && (
           <div className={classes.pane} style={sourceStyle}>
             <div className={classes.paneHead}>
-              <div className={classes.paneHeadInner}>
-                {mode === 'split' && <span className={classes.paneLabel}>Source</span>}
-                {kind === 'text' && (
-                  <span data-testid="editor-language" className={classes.paneLabel}>
-                    {codeLanguageOf(fileName)?.name ?? 'Plain text'}
-                  </span>
-                )}
-                {!readOnly && kind === 'markdown' && (
-                  <Toolbar
-                    onAction={onAction}
-                    onPickImage={() => fileRef.current?.click()}
-                    onToc={insertToc}
-                    tableMenu={tableMenu}
-                    onFormat={formattable ? format : undefined}
-                  />
-                )}
-                <div className={classes.paneTools}>
-                  {uploads.pending > 0 && (
-                    <ActionIcon
-                      data-testid="editor-upload-pending"
-                      data-pending={uploads.pending}
-                      className={classes.tool}
-                      variant="subtle"
-                      color="gray"
-                      loading
-                      aria-label="Uploading"
-                    >
-                      <IconPhoto size={layout.iconSizeSmall} />
-                    </ActionIcon>
-                  )}
-                  {wide && (
-                    <LineCount lines={lines} className={classes.lines} />
-                  )}
+              {mode === 'split' && <span className={classes.paneLabel}>Source</span>}
+              {kind === 'text' && (
+                <span data-testid="editor-language" className={classes.paneLabel}>
+                  {codeLanguageOf(fileName)?.name ?? 'Plain text'}
+                </span>
+              )}
+              {!readOnly && kind === 'markdown' && (
+                <Toolbar
+                  onAction={onAction}
+                  onPickImage={() => fileRef.current?.click()}
+                  onToc={insertToc}
+                  tableMenu={tableMenu}
+                  onFormat={formattable ? format : undefined}
+                />
+              )}
+              <div className={classes.paneTools}>
+                {uploads.pending > 0 && (
                   <ActionIcon
-                    data-testid="editor-wrap"
+                    data-testid="editor-upload-pending"
+                    data-pending={uploads.pending}
                     className={classes.tool}
                     variant="subtle"
                     color="gray"
-                    aria-label="Wrap long lines"
-                    aria-pressed={lineWrap.wrap}
-                    title="Wrap long lines"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={lineWrap.toggle}
+                    loading
+                    aria-label="Uploading"
                   >
-                    {lineWrap.wrap ? (
-                      <IconTextWrap size={layout.iconSizeSmall} />
-                    ) : (
-                      <IconTextWrapDisabled size={layout.iconSizeSmall} />
-                    )}
+                    <IconPhoto size={layout.iconSizeSmall} />
                   </ActionIcon>
-                </div>
+                )}
+                {wide && (
+                  <LineCount lines={lines} className={classes.lines} />
+                )}
+                <ActionIcon
+                  data-testid="editor-wrap"
+                  className={classes.tool}
+                  variant="subtle"
+                  color="gray"
+                  aria-label="Wrap long lines"
+                  aria-pressed={lineWrap.wrap}
+                  title="Wrap long lines"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={lineWrap.toggle}
+                >
+                  {lineWrap.wrap ? (
+                    <IconTextWrap size={layout.iconSizeSmall} />
+                  ) : (
+                    <IconTextWrapDisabled size={layout.iconSizeSmall} />
+                  )}
+                </ActionIcon>
               </div>
             </div>
             <SourceEditor
@@ -828,9 +826,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           <div className={classes.pane} style={previewStyle}>
             {mode === 'split' && (
               <div className={classes.paneHead}>
-                <div className={classes.paneHeadInner}>
-                  <span className={classes.paneLabel}>Preview</span>
-                </div>
+                <span className={classes.paneLabel}>Preview</span>
               </div>
             )}
             <PreviewPane

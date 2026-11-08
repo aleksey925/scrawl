@@ -268,11 +268,11 @@ async function titleRoom(locator) {
 
 async function mockMe(page, space, top = {}) {
     let current = {...space};
-    let hits = 0;
+    const times = [];
     let failing = false;
     let failed = 0;
     await page.route(/\/api\/me$/, async (route) => {
-        hits += 1;
+        times.push(Date.now());
         if (failing) {
             failing = false;
             failed += 1;
@@ -289,7 +289,8 @@ async function mockMe(page, space, top = {}) {
         set: (patch) => {
             current = {...current, ...patch};
         },
-        hits: () => hits,
+        hits: () => times.length,
+        times: () => [...times],
         failNext: () => {
             failing = true;
         },

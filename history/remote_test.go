@@ -709,7 +709,7 @@ func TestThePushLoopDoesNothingForAPullOnlySpace(t *testing.T) {
 	assert.False(t, svc.background.Load())
 }
 
-func runPushLoop(t *testing.T, svc *Service) func() {
+func runPushLoop(t *testing.T, svc *Service, afterCancel ...func()) func() {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	stopped := make(chan struct{})
@@ -719,7 +719,19 @@ func runPushLoop(t *testing.T, svc *Service) func() {
 	}()
 	return func() {
 		cancel()
+		for _, then := range afterCancel {
+			then()
+		}
 		<-stopped
+	}
+}
+
+func waitForHit(t *testing.T, hit <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-hit:
+	case <-time.After(10 * time.Second):
+		require.FailNow(t, "the remote was never asked")
 	}
 }
 
@@ -788,14 +800,14 @@ func TestARestartOfflineStillRetries(t *testing.T) {
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
 	require.Error(t, svc.Sync(t.Context()))
 	offline := svc.SyncState()
+	require.True(t, offline.Unpublished)
+	require.True(t, offline.Retrying)
 	require.NoError(t, os.Rename(away, bare))
 	stop := runPushLoop(t, svc)
 	require.Eventually(t, func() bool { return svc.SyncError() == "" }, 10*time.Second, 20*time.Millisecond)
 	stop()
 
 	// assert
-	assert.True(t, offline.Unpublished)
-	assert.True(t, offline.Retrying)
 	assert.Equal(t, localHead(t, dir), headOf(t, bare))
 }
 
@@ -820,7 +832,97 @@ func TestARefusedFetchStopsTheRetry(t *testing.T) {
 	assert.False(t, state.Retrying)
 }
 
-func TestThePushLoopDoesNotRetryADivergedSpace(t *testing.T) {
+func TestAWorkingFetchClearsARefusal(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare, func(rm *Remote) { rm.PullOnly = true })
+	gitIn(t, dir, "remote", "set-url", remoteName, originAnswering(http.StatusUnauthorized)(t))
+	require.Error(t, svc.Sync(t.Context()))
+	require.True(t, svc.SyncState().Refused)
+	fixRemote(t, dir, bare)
+
+	// act
+	err := svc.Sync(t.Context())
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, SyncState{}, svc.SyncState())
+}
+
+func TestAWorkingFetchClearsARefusalWhenTheMergeFails(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	gitIn(t, dir, "remote", "set-url", remoteName, originAnswering(http.StatusUnauthorized)(t))
+	require.Error(t, svc.Sync(t.Context()))
+	require.True(t, svc.SyncState().Refused)
+	fixRemote(t, dir, bare)
+	pushFromElsewhere(t, bare, "later.md", "# Later\n")
+	writeFile(t, dir, "later.md", "# In the way\n")
+
+	// act
+	err := svc.Sync(t.Context())
+	state := svc.SyncState()
+
+	// assert
+	require.Error(t, err)
+	assert.True(t, strings.HasPrefix(state.Error, mergeStage+":"), state.Error)
+	assert.False(t, state.Diverged)
+	assert.False(t, state.Refused)
+}
+
+func TestAPushRefusalIsKeptWhenAFetchFailsForAnotherReason(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	writeFile(t, dir, "mine.md", "# Mine\n")
+	gitIn(t, dir, "remote", "set-url", remoteName, originAnswering(http.StatusForbidden)(t))
+	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	require.True(t, strings.HasPrefix(svc.SyncError(), "push:"), svc.SyncError())
+	require.True(t, svc.SyncState().Refused)
+	breakRemote(t, dir)
+
+	// act
+	err := svc.Sync(t.Context())
+	state := svc.SyncState()
+
+	// assert
+	require.Error(t, err)
+	assert.True(t, strings.HasPrefix(state.Error, "fetch:"), state.Error)
+	assert.True(t, state.Refused)
+	assert.False(t, state.Retrying)
+}
+
+func TestTheLoopRetriesAWriteWhosePushFailed(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	svc.pushDelay = 10 * time.Millisecond
+	svc.retryEvery = 10 * time.Millisecond
+	breakRemote(t, dir)
+	stop := runPushLoop(t, svc)
+	require.Eventually(t, svc.background.Load, 10*time.Second, 10*time.Millisecond)
+	writeFile(t, dir, "local.md", "# Local\n")
+
+	// act
+	require.NoError(t, svc.Record(t.Context(), Op{Message: "save", Paths: []string{"local.md"}},
+		func() ([]string, error) { return nil, nil }))
+	require.Eventually(t, func() bool { return svc.SyncState().Retrying }, 10*time.Second, 10*time.Millisecond)
+	fixRemote(t, dir, bare)
+	require.Eventually(t, func() bool { return svc.SyncError() == "" }, 10*time.Second, 20*time.Millisecond)
+	stop()
+
+	// assert
+	assert.Equal(t, localHead(t, dir), headOf(t, bare))
+	assert.Equal(t, SyncState{}, svc.SyncState())
+	assert.False(t, svc.Pushing())
+}
+
+func TestADivergedSpaceIsNotRetried(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
 	dir := cloneOf(t, bare)
@@ -829,12 +931,9 @@ func TestThePushLoopDoesNotRetryADivergedSpace(t *testing.T) {
 	pushFromElsewhere(t, bare, "later.md", "# Later\n")
 	tracking := strings.TrimSpace(gitIn(t, dir, "rev-parse", remoteName+"/"+initialBranch))
 	remoteHead := headOf(t, bare)
-	svc.retryEvery = 5 * time.Millisecond
 
 	// act
-	stop := runPushLoop(t, svc)
-	time.Sleep(200 * time.Millisecond)
-	stop()
+	svc.retryIfDue(t.Context())
 
 	// assert
 	assert.Equal(t, tracking, strings.TrimSpace(gitIn(t, dir, "rev-parse", remoteName+"/"+initialBranch)))
@@ -885,7 +984,7 @@ func TestARunningRetryIsPushing(t *testing.T) {
 
 	// act
 	stop := runPushLoop(t, svc)
-	<-hit
+	waitForHit(t, hit)
 	during := svc.Pushing()
 	release()
 	stop()
@@ -910,6 +1009,7 @@ func TestARetryKeepsTheMarkOfAWrite(t *testing.T) {
 
 			// assert
 			assert.Equal(t, marked, svc.Pushing())
+			assert.True(t, strings.HasPrefix(svc.SyncError(), "fetch:"), svc.SyncError())
 			assert.True(t, svc.SyncState().Retrying)
 		})
 	}
@@ -924,18 +1024,11 @@ func TestACanceledRetryPutsPushingBack(t *testing.T) {
 	failedPush(t, dir, svc)
 	origin, hit, release := stalledOrigin(t)
 	gitIn(t, dir, "remote", "set-url", remoteName, origin)
-	ctx, cancel := context.WithCancel(t.Context())
-	stopped := make(chan struct{})
-	go func() {
-		defer close(stopped)
-		svc.PushLoop(ctx)
-	}()
+	stop := runPushLoop(t, svc, release)
 
 	// act
-	<-hit
-	cancel()
-	release()
-	<-stopped
+	waitForHit(t, hit)
+	stop()
 
 	// assert
 	assert.False(t, svc.Pushing())

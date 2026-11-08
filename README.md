@@ -392,13 +392,17 @@ Nothing about this blocks you. The save landed, the note is on disk, the
 history entry exists - the only thing that did not happen is the push, and
 editing carries on exactly as before.
 
-A remote space always has a sync control at the right of the top bar, so you
-can see at a glance where your changes are:
+A writable remote space always has a sync control at the right of the top bar,
+so you can see at a glance where your changes are:
 
 - a gray spinner - your changes are on their way;
 - a gray cloud with a check - all changes are sent;
-- an orange crossed cloud, with "Not sent, will retry" or "Not synced" - scrawl
-  could not send or fetch, and tries again on its own;
+- an orange crossed cloud with "Not sent, will retry" - a change has not gone
+  out, and scrawl tries again on its own;
+- an orange crossed cloud with "Not sent" - a change has not gone out, and the
+  next save tries again;
+- an orange crossed cloud with "Not synced" - nothing waits to be sent, but the
+  remote cannot be reached or history did not record a change;
 - an orange warning sign, with "Diverged" or "Access refused" - scrawl cannot
   go on until you act.
 
@@ -419,8 +423,9 @@ The messages are:
 - **The remote refuses this space.** The fetch was refused: the token may not
   read the remote. Give the space a token that may read it, and write to it
   unless the space is read-only.
-- **The remote cannot be reached.** The fetch failed. This copy may be behind,
-  and if you saved anything it has not gone out either.
+- **The remote cannot be reached.** The fetch failed. This copy may be behind.
+  If you saved anything, it has not gone out either, and scrawl tries again in
+  about a minute.
 - **This space has diverged from the remote.** Both sides hold commits the
   other lacks: somebody pushed while this copy had commits of its own, or the
   branch was rebased or force-pushed. scrawl does not merge: nothing is sent or
@@ -703,9 +708,9 @@ not:
 - `500 {"error":"the change was written and recorded, but not pushed to the remote"}`
 
 Both fix themselves: the next commit also records what was missed, and a push
-that failed is tried again about a minute later, as is every push and fetch.
-The `500` of a delete still carries the `trash_id`, so the deleted entry can be
-put back.
+that failed is tried again about a minute later, and again after each failed
+try, until it goes through. The `500` of a delete still carries the `trash_id`,
+so the deleted entry can be put back.
 
 Two answers mean the file on disk is not what the client assumed. Both carry
 `current_rev` and `current_content`, so a retry needs no second request:

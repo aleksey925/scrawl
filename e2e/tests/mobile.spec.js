@@ -2288,13 +2288,13 @@ test.describe('mobile sync state', () => {
         await page.goto(WIKI.edit(SYNC_DOC));
 
         // assert
-        const cancel = await page.getByTestId('editor-cancel').boundingBox();
-        const sync = await page.getByTestId('sync-control').boundingBox();
-        const saveButton = await page.getByTestId('editor-save').boundingBox();
         await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'sending');
         await expect(page.getByTestId('sync-control')).toBeInViewport({ratio: 1});
         await expect(page.getByTestId('editor-cancel')).toBeInViewport({ratio: 1});
         await expect(page.getByTestId('editor-save')).toBeInViewport({ratio: 1});
+        const cancel = await page.getByTestId('editor-cancel').boundingBox();
+        const sync = await page.getByTestId('sync-control').boundingBox();
+        const saveButton = await page.getByTestId('editor-save').boundingBox();
         expect(cancel.x + cancel.width).toBeLessThanOrEqual(sync.x);
         expect(sync.x + sync.width).toBeLessThanOrEqual(saveButton.x);
         await shot(page, 'mobile-sync-editor');
@@ -2370,6 +2370,6 @@ test.describe('mobile sync state', () => {
         // assert
         await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'sending');
         await expect(page.getByTestId('sync-spinner')).toHaveCount(0);
-        await expect(page.getByTestId('sync-control').locator('svg')).toBeVisible();
+        await expect(page.getByTestId('sync-control').getByTestId('sync-still')).toBeVisible();
     });
 });

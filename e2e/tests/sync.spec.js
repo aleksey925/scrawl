@@ -200,17 +200,12 @@ test.describe('sync state', () => {
     });
 
     test('a refused push says what to do and not what git said', async ({page}) => {
-        await page.route(/\/api\/me$/, async (route) => {
-            const res = await route.fetch();
-            const body = await res.json();
-            Object.assign(body.space, {
-                unpublished: true,
-                push_refused: true,
-                retrying: false,
-                sync_error: 'push: git push origin HEAD:refs/heads/main: exit status 128: ' +
-                    "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
-            });
-            await route.fulfill({response: res, json: body});
+        await mockMe(page, {
+            unpublished: true,
+            push_refused: true,
+            retrying: false,
+            sync_error: 'push: git push origin HEAD:refs/heads/main: exit status 128: ' +
+                "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
         });
         await page.goto(WIKI.doc(DOC));
 
@@ -222,7 +217,6 @@ test.describe('sync state', () => {
         await expect(control(page)).toHaveText('Access refused');
         await expect(alert.getByTestId('space-alert-reason')).toHaveCount(0);
         await shot(page, 'sync-push-refused');
-        await page.unroute(/\/api\/me$/);
     });
 
     test('a poll that meets a 401 opens no dialog', async ({page}) => {
@@ -238,6 +232,7 @@ test.describe('sync state', () => {
 
         await expect(page.locator('[data-testid=modal][data-variant=session]')).toHaveCount(0);
     });
+
     test('a change on its way spins, then shows a quiet check', async ({page}) => {
         // arrange
         const me = await mockMe(page, {pushing: true});
@@ -260,7 +255,7 @@ test.describe('sync state', () => {
         await shot(page, 'sync-sent');
     });
 
-    test('a change waiting for its retry is asked about every few seconds', async ({page}) => {
+    test('a change waiting for its retry is asked about every five seconds', async ({page}) => {
         // arrange
         const me = await mockMe(page, {unpublished: true, retrying: true, sync_error: 'push: the remote is down'});
         await page.goto(WIKI.doc(DOC));
@@ -268,10 +263,13 @@ test.describe('sync state', () => {
         const waiting = me.hits();
 
         // act
-        await expect.poll(() => me.hits(), {timeout: 8_000}).toBeGreaterThan(waiting);
+        await expect.poll(() => me.hits(), {timeout: 15_000}).toBeGreaterThanOrEqual(waiting + 2);
         me.set({pushing: true});
 
         // assert
+        const [first, second] = me.times().slice(waiting, waiting + 2);
+        expect(second - first).toBeGreaterThan(4_000);
+        expect(second - first).toBeLessThan(7_000);
         await expect(control(page)).toHaveAttribute('data-state', 'sending', {timeout: 8_000});
         me.set({pushing: false, retrying: false, unpublished: false, sync_error: ''});
         await expect(control(page)).toHaveAttribute('data-state', 'sent');
@@ -291,6 +289,70 @@ test.describe('sync state', () => {
 
         // assert
         await expect(control(page)).toHaveAttribute('data-state', 'sent');
+    });
+
+    test('a hidden tab does not poll, and polls at once when shown again', async ({page}) => {
+        // arrange
+        await page.clock.install();
+        const me = await mockMe(page, {pushing: true});
+        await page.goto(WIKI.doc(DOC));
+        await expect(control(page)).toHaveAttribute('data-state', 'sending');
+        await setHidden(page, true);
+        await page.waitForTimeout(500);
+        const hidden = me.hits();
+
+        // act
+        await page.clock.runFor(pollMs);
+        await page.waitForTimeout(500);
+        const whileHidden = me.hits();
+        await setHidden(page, false);
+
+        // assert
+        expect(whileHidden).toBe(hidden);
+        await expect.poll(() => me.hits(), {timeout: 3_000}).toBeGreaterThan(hidden);
+    });
+
+    test('a failed push that waits for the next save says so', async ({page}) => {
+        // arrange
+        await mockMe(page, {unpublished: true, retrying: false, sync_error: 'push: the remote is down'});
+
+        // act
+        await page.goto(WIKI.doc(DOC));
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'not-sent');
+        await expect(control(page)).toHaveText('Not sent');
+        const alert = page.getByTestId('space-alert');
+        await expect(alert).toContainText('The next save tries again.');
+        await expect(alert).not.toContainText('about a minute');
+    });
+
+    test('a failed fetch with nothing waiting is a warning', async ({page}) => {
+        // arrange
+        await mockMe(page, {
+            unpublished: false,
+            sync_error: "fetch: git fetch --prune origin main: exit status 128: fatal: unable to access 'origin'",
+        });
+
+        // act
+        await page.goto(WIKI.doc(DOC));
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'warning');
+        await expect(control(page)).toHaveText('Not synced');
+        await expect(page.getByTestId('space-alert')).toHaveAttribute('data-kind', 'fetch');
+    });
+
+    test('a read-only remote space shows no sync control', async ({page}) => {
+        // arrange
+        await mockMe(page, {read_only: true});
+
+        // act
+        await page.goto(WIKI.doc(DOC));
+
+        // assert
+        await expect(page.getByText('starting point.')).toBeVisible();
+        await expect(control(page)).toHaveCount(0);
     });
 
     test('history that was not recorded is not called unsent', async ({page}) => {
@@ -358,6 +420,13 @@ test.describe('sync state', () => {
         await expect(control(page)).toHaveCount(0);
     });
 });
+
+async function setHidden(page, hidden) {
+    await page.evaluate((value) => {
+        Object.defineProperty(document, 'hidden', {configurable: true, get: () => value});
+        document.dispatchEvent(new Event('visibilitychange'));
+    }, hidden);
+}
 
 async function meState(page) {
     return page.evaluate(async (url) => {

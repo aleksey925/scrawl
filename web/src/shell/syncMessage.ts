@@ -46,13 +46,8 @@ function titleOf(kind: SyncKind, diverged: boolean, refused: boolean): string {
   if (kind === 'merge' && diverged) {
     return divergedTitle;
   }
-  if (kind === 'push' && refused) {
-    return refusedTitle;
-  }
-  if (kind === 'fetch' && refused) {
-    return refusedFetchTitle;
-  }
-  return titles[kind];
+  const refusal = refused ? refusals[kind] : undefined;
+  return refusal?.title ?? titles[kind];
 }
 
 function factsOf(me: MeResponse): SyncFact[] {
@@ -79,16 +74,12 @@ function factsOf(me: MeResponse): SyncFact[] {
     if (kind !== stage) {
       continue;
     }
-    if (kind === 'push' && space.push_refused) {
-      res.push({ kind, body: refusedBody + affected, reason: '' });
+    const refusal = space.push_refused ? refusals[kind] : undefined;
+    if (refusal !== undefined) {
+      res.push({ kind, body: refusal.body + affected, reason: refusal.withReason ? space.sync_error : '' });
       continue;
     }
-    if (kind === 'fetch' && space.push_refused) {
-      res.push({ kind, body: refusedFetchBody + affected, reason: space.sync_error });
-      continue;
-    }
-    const retry = space.retrying ? retrySentence : '';
-    res.push({ kind, body: bodyOf(kind, space) + retry + affected, reason: space.sync_error });
+    res.push({ kind, body: bodyOf(kind, space) + retryOf(kind, space.retrying) + affected, reason: space.sync_error });
   }
   return res;
 }
@@ -102,26 +93,40 @@ function divergedBody(canReset: boolean): string {
   return canReset ? what : `${what} You are not allowed to do that here.`;
 }
 
-const refusedTitle = 'The remote does not take changes from this space';
+interface Refusal {
+  title: string;
+  body: string;
+  withReason: boolean;
+}
 
-const refusedBody =
-  'This space has no token that may write to the remote, so changes stay in this copy. ' +
-  'Give the space a token with write access, or make it read-only.';
+const refusals: Partial<Record<SyncKind, Refusal>> = {
+  push: {
+    title: 'The remote does not take changes from this space',
+    body:
+      'This space has no token that may write to the remote, so changes stay in this copy. ' +
+      'Give the space a token with write access, or make it read-only.',
+    withReason: false,
+  },
+  fetch: {
+    title: 'The remote refuses this space',
+    body:
+      'The remote does not accept the token of this space, so nothing is sent or received. ' +
+      'Give the space a token that may read the remote, and write to it unless the space is read-only.',
+    withReason: true,
+  },
+};
 
-const refusedFetchTitle = 'The remote refuses this space';
-
-const refusedFetchBody =
-  'The remote does not accept the token of this space, so nothing is sent or received. ' +
-  'Give the space a token that may read the remote, and write to it unless the space is read-only.';
-
-const retrySentence = ' scrawl tries again in about a minute.';
+function retryOf(kind: SyncKind, retrying: boolean): string {
+  if (retrying) {
+    return ' scrawl tries again in about a minute.';
+  }
+  return kind === 'push' ? ' The next save tries again.' : '';
+}
 
 function bodyOf(kind: SyncKind, space: SpaceState): string {
   switch (kind) {
-    case 'push': {
-      const saved = 'The change is saved here and recorded in history, but it has not reached the remote yet.';
-      return space.retrying ? saved : `${saved} The next save tries again.`;
-    }
+    case 'push':
+      return 'The change is saved here and recorded in history, but it has not reached the remote yet.';
     case 'fetch':
       return space.unpublished
         ? 'This copy may be behind the remote, and what was changed here has not reached it either.'
@@ -153,14 +158,12 @@ function stageOf(syncError: string): SyncKind | undefined {
   return undefined;
 }
 
-export type SyncState = 'blocked' | 'sending' | 'not-sent' | 'warning' | 'sent';
-
 export interface SyncStatus {
-  state: SyncState;
+  state: 'blocked' | 'sending' | 'not-sent' | 'warning' | 'sent';
   name: string;
 }
 
-export function syncStatus(me: MeResponse | undefined): SyncStatus | undefined {
+export function syncStatusOf(me: MeResponse | undefined, sync: SyncMessage | undefined): SyncStatus | undefined {
   if (me === undefined) {
     return undefined;
   }
@@ -177,7 +180,7 @@ export function syncStatus(me: MeResponse | undefined): SyncStatus | undefined {
   if (space.unpublished) {
     return { state: 'not-sent', name: space.retrying ? 'Not sent, will retry' : 'Not sent' };
   }
-  if (syncMessage(me) !== undefined) {
+  if (sync !== undefined) {
     return { state: 'warning', name: 'Not synced' };
   }
   if (space.kind === 'remote' && !space.read_only) {

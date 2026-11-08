@@ -62,12 +62,12 @@ export function useMe(): MeState {
 
   const wait = pollAfter(me);
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    const timer = window.setInterval(() => {
       if (!document.hidden) {
         load(true);
       }
     }, wait);
-    return () => window.clearTimeout(timer);
+    return () => window.clearInterval(timer);
   }, [wait, answers, load]);
 
   return { me, refreshMe };

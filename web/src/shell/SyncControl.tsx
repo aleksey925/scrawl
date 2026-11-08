@@ -10,11 +10,11 @@ import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { useNav } from './NavContext';
 import { ResetAction } from './ResetDialog';
-import type { SyncState, SyncStatus } from './syncMessage';
+import type { SyncStatus } from './syncMessage';
 
 const thisNote = 'This note has not reached the remote';
 
-const calmText: Partial<Record<SyncState, string>> = {
+const calmText: Partial<Record<SyncStatus['state'], string>> = {
   sending: 'Sending changes to the remote.',
   sent: 'All changes sent. Everything saved here is on the remote too.',
 };
@@ -26,24 +26,20 @@ interface SyncSummary {
 }
 
 function useSyncSummary(): SyncSummary | undefined {
-  const { indicator, isUnsynced, currentPath } = useNav();
-  if (indicator === undefined) {
+  const { syncStatus, isUnsynced, currentPath } = useNav();
+  if (syncStatus === undefined) {
     return undefined;
   }
   const here = isUnsynced(currentPath);
-  return { status: indicator, here, label: here ? `${indicator.name}. ${thisNote}` : indicator.name };
+  return { status: syncStatus, here, label: here ? `${syncStatus.name}. ${thisNote}` : syncStatus.name };
 }
 
-function quiet(state: SyncState): boolean {
-  return state === 'sending' || state === 'sent';
-}
-
-function SyncIcon({ state, size }: { state: SyncState; size: number }): JSX.Element {
+function SyncIcon({ state, size }: { state: SyncStatus['state']; size: number }): JSX.Element {
   const reduceMotion = useReducedMotion();
   switch (state) {
     case 'sending':
       return reduceMotion ? (
-        <IconCloudUp size={size} aria-hidden />
+        <IconCloudUp data-testid="sync-still" size={size} aria-hidden />
       ) : (
         <Loader data-testid="sync-spinner" size={size - 4} color="var(--scrawl-text-secondary)" aria-hidden />
       );
@@ -84,7 +80,7 @@ function SyncDetails({ summary, onLeave }: { summary: SyncSummary; onLeave: () =
             )}
           </Stack>
         ))}
-      {calm === undefined && <ResetAction onOpen={onLeave} />}
+      <ResetAction onOpen={onLeave} />
       {paths.length > 0 && (
         <List data-testid="sync-popover-paths" size="sm" spacing={4} withPadding>
           {paths.map((unsynced) => (
@@ -110,7 +106,8 @@ export function SyncControl(): JSX.Element | null {
     return null;
   }
   const { state, name } = summary.status;
-  const color = quiet(state) ? 'var(--scrawl-text-secondary)' : 'var(--scrawl-color-orange)';
+  const calm = calmText[state] !== undefined;
+  const color = calm ? 'var(--scrawl-text-secondary)' : 'var(--scrawl-color-orange)';
   const shared = {
     'data-testid': 'sync-control',
     'data-here': summary.here ? 'true' : 'false',
@@ -132,7 +129,7 @@ export function SyncControl(): JSX.Element | null {
         closeOnClickOutside={!touch}
       >
         <Popover.Target>
-          {wide && !quiet(state) ? (
+          {wide && !calm ? (
             <Button
               {...shared}
               variant="subtle"

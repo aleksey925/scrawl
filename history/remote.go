@@ -142,6 +142,7 @@ func (s *Service) syncLocked(ctx context.Context) error {
 		next.Refused = next.Refused || refused(err)
 		return s.syncFailed(next, "fetch", err)
 	}
+	next.Refused = false
 
 	if _, err := s.run(ctx, command{
 		args:    []string{"merge", "--ff-only", tracking},

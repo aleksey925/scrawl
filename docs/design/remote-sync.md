@@ -90,16 +90,18 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   and before the server starts, a write pushes in its request too.
 - The answer to a write carries the state from before its own push, so a
   routine write gets no "not pushed" warning. `/api/me` says `pushing` while a
-  push is due or running, or a retry is running, and the page asks on one timer
-  set again after every answer, good or failed: every 2 seconds while
+  push is due or running, or a retry is running, and the page asks on one
+  interval set again after every answer, good or failed: every 2 seconds while
   `pushing`, every 5 while `retrying`, every 60 otherwise, and only from a
   visible tab. So a push that fails reaches the control and the banner in
   seconds and not at the next minute's poll, and one failed poll cannot stop
-  the fast ones, which a second timer armed by a new answer did. The pull loop,
-  a webhook and `Reconcile` do not set `pushing`: they are no change of the
-  person's, and a periodic pull would spin the control every few minutes. A
-  push that never ran because the server stopped is not lost: the commit stays,
-  the startup sync pushes it, and when that fails too the retry carries on.
+  the fast ones, which a second timer armed by a new answer did. A request that
+  never answers is dropped by the next tick, which a timer armed only by an
+  answer would wait on forever. The pull loop, a webhook and `Reconcile` do not
+  set `pushing`: they are no change of the person's, and a periodic pull would
+  spin the control every few minutes. A push that never ran because the server
+  stopped is not lost: the commit stays, the startup sync pushes it, and when
+  that fails too the retry carries on.
 - A push that failed is tried again by the same loop, about a minute after its
   last attempt, until it goes through, with no write needed: with `pull: 0` and
   no more saves the commit stayed in this copy for days. The loop has a ticker
@@ -116,15 +118,18 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   push alone would fail the same way every minute. A failed fetch measures the
   count from the tracking branch on disk and reads a refusal the way a push
   does, so a copy restarted offline still knows what it owes and starts
-  retrying. The minute is fixed and not a backoff: there is one client and one
-  remote, and "tries again in about a minute" is the schedule a person is told.
-  It counts from the end of the loop's own last attempt, so a hung fetch is not
-  followed by another at once; the pull loop, a webhook and a token write still
-  try on their own. A retry sets `pushing` for its time and then puts back the
-  value it found, which keeps the mark of a write made before it. The retry has
-  no deadline of its own over the whole sync: the context that ends it kills
-  git with `SIGKILL`, and a fast-forward killed half-way can leave
-  `.git/index.lock`, which then fails every commit.
+  retrying. A refusal is kept when a fetch fails for another reason, and a
+  fetch that works clears it: otherwise a pull-only space, which never pushes,
+  would say "Access refused" until a restart. A push reads it again from its
+  own answer. The minute is fixed and not a backoff: there is one client and
+  one remote, and "tries again in about a minute" is the schedule a person is
+  told. It counts from the end of the loop's own last attempt, so a hung fetch
+  is not followed by another at once; the pull loop, a webhook and a token
+  write still try on their own. A retry sets `pushing` for its time and then
+  puts back the value it found, which keeps the mark of a write made before it.
+  The retry has no deadline of its own over the whole sync: the context that
+  ends it kills git with `SIGKILL`, and a fast-forward killed half-way can
+  leave `.git/index.lock`, which then fails every commit.
 
 ## Sync state
 
@@ -134,17 +139,18 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   commit stages nothing, and would tell a strict caller the change was not
   recorded when it was recorded and only not pushed. `unpublished` is
   **measured**, never remembered, and never the gate on the push.
-- `syncStatus` derives the state of the sync control from `/api/me` apart from
-  the warning, the first that holds: blocked (diverged or refused), sending
+- `syncStatusOf` derives the state of the sync control from `/api/me` and the
+  sync message, the first that holds: blocked (diverged or refused), sending
   (`pushing`), not sent (`unpublished`), a warning (any other sync message:
   history not recorded, a fetch failed with nothing waiting) and sent (a
   writable remote space with none of these). Blocked comes before sending,
   because a write on a diverged space marks a push that never goes, and a
   spinner would say it does. History not recorded is "Not synced" and not "Not
-  sent": it does not say whether a change reached the remote. The control has
-  no live region of its own: the banner's already reads out a warning, and
-  "Sending" and "Sent" after each save would be noise next to the editor's
-  "Saved".
+  sent": it does not say whether a change reached the remote. The client reads
+  `retrying` and never derives it from the other fields, so the rule has one
+  home, in `publish`. The control has no live region of its own: the banner's
+  already reads out a warning, and "Sending" and "Sent" after each save would
+  be noise next to the editor's "Saved".
 - The remote state reaches the client only through `/api/me`, and `apiMe` reads
   it with one `SyncState()` and never a getter at a time: a `Sync` finishing
   between two calls would pair an error from one attempt with the paths of
@@ -166,19 +172,20 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   per open tab.
 - One alert, titled by precedence - `degraded > merge > fetch > push` - and
   carrying every active fact with its own reason. At most two are true at once,
-  one from each family. `syncMessage` is the only thing that writes these
-  words, and the banner and the topbar control both render it. Its live region
-  is always on the page, empty or not, and polite: a region put in together
-  with its text is not reliably read out. A note's unsynced badge is an
-  `aria-hidden` icon with its meaning in hidden text beside it, because a
-  tooltip on an `<svg>` never opens on keyboard focus and an `aria-label` on an
-  element with no role is not reliably read.
+  one from each family. `syncMessage` writes these words, and the banner and
+  the popover of the topbar control both render it. Its live region is always
+  on the page, empty or not, and polite: a region put in together with its text
+  is not reliably read out. A note's unsynced badge is an `aria-hidden` icon
+  with its meaning in hidden text beside it, because a tooltip on an `<svg>`
+  never opens on keyboard focus and an `aria-label` on an element with no role
+  is not reliably read.
 - A push the remote refuses for want of a credential gets its own words and no
   git reason. A public repository clones with no token and takes no push
   without one, and git says that as "could not read Username, terminal prompts
   disabled", which names neither the cause nor the fix. `history` is what
   recognizes it, because it pins `LC_ALL=C` and owns what git prints; the
-  client reads a flag and never the error text.
+  client reads a flag and never the error text. A fetch the remote refuses gets
+  its own words too, and keeps the git reason below them.
 - The client polls `me` quietly and in the background: quiet so a poll meeting
   an expired session opens no dialog nobody asked for, and background so `auth`
   skips the sliding renewal. That marker is set by the client and trusted,

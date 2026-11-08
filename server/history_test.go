@@ -37,6 +37,7 @@ type fakeHistory struct {
 	unsynced    history.Unsynced
 	refused     bool
 	retrying    bool
+	pushing     bool
 	syncReads   int
 
 	remote     bool
@@ -53,12 +54,11 @@ type fakeHistory struct {
 func (f *fakeHistory) Enabled() bool     { return true }
 func (f *fakeHistory) Degraded() bool    { return f.degraded }
 func (f *fakeHistory) Unpublished() bool { return f.unpublished }
-func (f *fakeHistory) Pushing() bool     { return false }
 func (f *fakeHistory) SyncError() string { return f.syncErr }
 
 func (f *fakeHistory) SyncState() history.SyncState {
 	f.syncReads++
-	return history.SyncState{Unpublished: f.unpublished, Error: f.syncErr, Unsynced: f.unsynced, Diverged: f.diverged, Refused: f.refused, Retrying: f.retrying}
+	return history.SyncState{Unpublished: f.unpublished, Error: f.syncErr, Unsynced: f.unsynced, Diverged: f.diverged, Refused: f.refused, Retrying: f.retrying, Pushing: f.pushing}
 }
 
 func (f *fakeHistory) Remote() bool { return f.remote }
@@ -1099,23 +1099,9 @@ func TestAPIMeSaysARetryIsDue(t *testing.T) {
 	assert.Equal(t, false, space["pushing"])
 }
 
-type pushEndingOnRead struct {
-	*fakeHistory
-	pushing bool
-}
-
-func (p *pushEndingOnRead) Pushing() bool { return p.pushing }
-
-func (p *pushEndingOnRead) SyncState() history.SyncState {
-	state := p.fakeHistory.SyncState()
-	p.unpublished, p.syncErr, p.retrying = true, "push: the remote is down", true
-	p.pushing = false
-	return state
-}
-
-func TestAPIMeNeverPairsAnOldStateWithAPushThatEnded(t *testing.T) {
+func TestAPIMeSaysAPushIsRunning(t *testing.T) {
 	// arrange
-	ts := newTestServer(t, testOpts{history: &pushEndingOnRead{fakeHistory: &fakeHistory{}, pushing: true}})
+	ts := newTestServer(t, testOpts{history: &fakeHistory{pushing: true}})
 
 	// act
 	_, body := ts.json(t, request{path: "/api/me"})
@@ -1123,5 +1109,5 @@ func TestAPIMeNeverPairsAnOldStateWithAPushThatEnded(t *testing.T) {
 	// assert
 	space, ok := body["space"].(map[string]any)
 	require.True(t, ok, body)
-	assert.Equal(t, true, space["pushing"], "a clean state read while the push ran must still say it runs")
+	assert.Equal(t, true, space["pushing"])
 }

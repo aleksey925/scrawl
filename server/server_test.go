@@ -2313,6 +2313,47 @@ func TestWebRunBusyPort(t *testing.T) {
 	assert.Contains(t, err.Error(), "listen on "+ln.Addr().String())
 }
 
+func TestShutdownCancelsRequestsThatOutliveIt(t *testing.T) {
+	// arrange
+	wb := &Web{Config: Config{ShutdownTimeout: 50 * time.Millisecond}}
+	started, canceled := make(chan struct{}), make(chan struct{})
+	srv, cancelRequests := wb.httpServer(t.Context(), http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-r.Context().Done()
+		close(canceled)
+	}))
+	t.Cleanup(cancelRequests)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	go func() { _ = srv.Serve(ln) }()
+	go func() {
+		req, rErr := http.NewRequestWithContext(t.Context(), http.MethodPost, "http://"+ln.Addr().String()+"/",
+			strings.NewReader("a body the handler never reads"))
+		if rErr != nil {
+			return
+		}
+		if resp, dErr := http.DefaultClient.Do(req); dErr == nil {
+			_ = resp.Body.Close()
+		}
+	}()
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		require.FailNow(t, "the request never reached the handler")
+	}
+
+	// act
+	err = wb.shutdown(t.Context(), srv, cancelRequests)
+
+	// assert
+	require.Error(t, err)
+	select {
+	case <-canceled:
+	case <-time.After(5 * time.Second):
+		require.FailNow(t, "the request outlived the shutdown")
+	}
+}
+
 func freePort(t *testing.T) int {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

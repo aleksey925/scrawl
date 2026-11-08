@@ -230,7 +230,6 @@ func (m *mount) apiNav(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {
-	pushing := m.history().Pushing()
 	sync := m.history().SyncState()
 	res := meResponse{
 		AuthOn:          !m.AuthDisabled,
@@ -252,7 +251,7 @@ func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {
 			Diverged:     sync.Diverged,
 			PushRefused:  sync.Refused,
 			Retrying:     sync.Retrying,
-			Pushing:      pushing,
+			Pushing:      sync.Pushing,
 			CanReset:     m.canReset(r),
 		},
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/cgi"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -191,9 +192,10 @@ func TestSyncFastForwardsAndPushes(t *testing.T) {
 
 	// act
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	require.NoError(t, svc.Sync(t.Context()))
 
 	// assert
-	assert.False(t, svc.Unpublished(), "the reconcile pushed what it committed")
+	assert.False(t, svc.Unpublished(), "the sync pushed what the reconcile committed")
 	assert.Empty(t, svc.SyncError())
 	assert.Contains(t, gitIn(t, bare, "ls-tree", "--name-only", initialBranch), "local.md")
 }
@@ -221,11 +223,13 @@ func TestAFailedPushSurvivesASaveThatStagesNothing(t *testing.T) {
 	svc := remoteService(t, dir, bare)
 	writeFile(t, dir, "local.md", "# Local\n")
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	require.NoError(t, svc.Sync(t.Context()))
 
 	// act
 	writeFile(t, dir, "second.md", "# Second\n")
 	breakRemote(t, dir)
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	require.Error(t, svc.pushNow(t.Context()))
 	unpublishedAfterPush := svc.Unpublished()
 	require.NoError(t, svc.Record(t.Context(), Op{Message: "touch", Paths: []string{"second.md"}},
 		func() ([]string, error) { return nil, nil }))
@@ -294,6 +298,7 @@ func TestAnIgnoredButVisibleFileStillReachesTheRemote(t *testing.T) {
 	// act
 	require.NoError(t, svc.Record(t.Context(), Op{Message: "save config.toml", Paths: []string{"config.toml"}},
 		func() ([]string, error) { return nil, nil }))
+	require.NoError(t, svc.pushNow(t.Context()))
 
 	// assert
 	assert.Contains(t, gitIn(t, bare, "ls-tree", "--name-only", initialBranch), "config.toml")
@@ -389,6 +394,7 @@ func TestUnsyncedListsWhatTheRemoteIsMissing(t *testing.T) {
 
 	// act
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	require.Error(t, svc.pushNow(t.Context()))
 	broken := svc.SyncState()
 	fixRemote(t, dir, bare)
 	require.NoError(t, svc.Sync(t.Context()))
@@ -426,6 +432,7 @@ func TestAPushTheRemoteWillNotAuthorizeIsRefused(t *testing.T) {
 
 			// act
 			require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+			require.Error(t, svc.pushNow(t.Context()))
 			state := svc.SyncState()
 
 			// assert
@@ -472,6 +479,7 @@ func TestUnsyncedFiltersBeforeItCaps(t *testing.T) {
 
 	// act
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	require.Error(t, svc.pushNow(t.Context()))
 
 	// assert
 	state := svc.SyncState()
@@ -492,6 +500,7 @@ func TestUnsyncedDropsTheListAboveTheCap(t *testing.T) {
 
 	// act
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	require.Error(t, svc.pushNow(t.Context()))
 
 	// assert
 	state := svc.SyncState()
@@ -521,6 +530,7 @@ func TestSyncStateIsOneLoad(t *testing.T) {
 	writeFile(t, dir, "mine.md", "# Mine\n")
 	breakRemote(t, dir)
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	require.Error(t, svc.pushNow(t.Context()))
 
 	// act
 	state := svc.SyncState()
@@ -632,7 +642,6 @@ func TestABrowserWriteIsPushedByTheLoopAfterTheRecordReturns(t *testing.T) {
 	dir := cloneOf(t, bare)
 	svc := remoteService(t, dir, bare)
 	before := headOf(t, bare)
-	svc.background.Store(true)
 	svc.pushDelay = 10 * time.Millisecond
 	writeFile(t, dir, "local.md", "# Local\n")
 
@@ -641,14 +650,14 @@ func TestABrowserWriteIsPushedByTheLoopAfterTheRecordReturns(t *testing.T) {
 		func() ([]string, error) { return nil, nil }))
 	headAfterRecord := headOf(t, bare)
 	queued := len(svc.pushes)
-	pushingAfterRecord := svc.Pushing()
+	pushingAfterRecord := svc.SyncState().Pushing
 	stop := runPushLoop(t, svc)
 
 	// assert
 	assert.Equal(t, before, headAfterRecord, "the record committed and left the push to the loop")
 	assert.Equal(t, 1, queued)
 	assert.True(t, pushingAfterRecord)
-	require.Eventually(t, func() bool { return !svc.Pushing() }, 10*time.Second, 20*time.Millisecond)
+	require.Eventually(t, func() bool { return !svc.SyncState().Pushing }, 10*time.Second, 20*time.Millisecond)
 	stop()
 	assert.False(t, svc.Unpublished())
 	assert.Equal(t, localHead(t, dir), headOf(t, bare))
@@ -659,7 +668,6 @@ func TestABurstOfBrowserWritesQueuesOnePush(t *testing.T) {
 	bare := bareRemote(t)
 	dir := cloneOf(t, bare)
 	svc := remoteService(t, dir, bare)
-	svc.background.Store(true)
 
 	// act
 	for _, name := range []string{"a.md", "b.md", "c.md"} {
@@ -672,12 +680,11 @@ func TestABurstOfBrowserWritesQueuesOnePush(t *testing.T) {
 	assert.Len(t, svc.pushes, 1)
 }
 
-func TestATokenWritePushesInsideTheRecordEvenWithTheLoopRunning(t *testing.T) {
+func TestATokenWritePushesInsideTheRecordAndLeavesTheMark(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
 	dir := cloneOf(t, bare)
 	svc := remoteService(t, dir, bare)
-	svc.background.Store(true)
 	writeFile(t, dir, "local.md", "# Local\n")
 
 	// act
@@ -687,7 +694,8 @@ func TestATokenWritePushesInsideTheRecordEvenWithTheLoopRunning(t *testing.T) {
 	// assert
 	require.NoError(t, err)
 	assert.Equal(t, localHead(t, dir), headOf(t, bare))
-	assert.Empty(t, svc.pushes)
+	assert.Len(t, svc.pushes, 1)
+	assert.True(t, svc.SyncState().Pushing)
 }
 
 func TestThePushLoopDoesNothingForAPullOnlySpace(t *testing.T) {
@@ -697,13 +705,21 @@ func TestThePushLoopDoesNothingForAPullOnlySpace(t *testing.T) {
 	svc := remoteService(t, dir, bare, func(rm *Remote) { rm.PullOnly = true })
 
 	// act
-	svc.PushLoop(t.Context())
+	returned := make(chan struct{})
+	go func() {
+		defer close(returned)
+		svc.PushLoop(t.Context())
+	}()
 
 	// assert
-	assert.False(t, svc.background.Load())
+	select {
+	case <-returned:
+	case <-time.After(5 * time.Second):
+		require.FailNow(t, "the loop kept running")
+	}
 }
 
-func runPushLoop(t *testing.T, svc *Service, afterCancel ...func()) func() {
+func runPushLoop(t *testing.T, svc *Service) func() {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	stopped := make(chan struct{})
@@ -713,9 +729,6 @@ func runPushLoop(t *testing.T, svc *Service, afterCancel ...func()) func() {
 	}()
 	return func() {
 		cancel()
-		for _, then := range afterCancel {
-			then()
-		}
 		<-stopped
 	}
 }
@@ -739,29 +752,89 @@ func failedPush(t *testing.T, dir string, svc *Service) {
 	writeFile(t, dir, "mine.md", "# Mine\n")
 	breakRemote(t, dir)
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	<-svc.pushes
+	require.Error(t, svc.pushNow(t.Context()))
 	require.True(t, svc.SyncState().Retrying)
 }
 
+type gate struct {
+	hit     chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func newGate() *gate {
+	return &gate{hit: make(chan struct{}, 1), release: make(chan struct{})}
+}
+
+func (g *gate) hold(r *http.Request) bool {
+	select {
+	case g.hit <- struct{}{}:
+	default:
+	}
+	select {
+	case <-g.release:
+		return true
+	case <-r.Context().Done():
+		return false
+	}
+}
+
+func (g *gate) open() { g.once.Do(func() { close(g.release) }) }
+
 func stalledOrigin(t *testing.T) (string, <-chan struct{}, func()) {
 	t.Helper()
-	hit := make(chan struct{}, 1)
-	release := make(chan struct{})
+	g := newGate()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case hit <- struct{}{}:
-		default:
-		}
-		select {
-		case <-release:
-		case <-r.Context().Done():
-		}
+		g.hold(r)
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	t.Cleanup(srv.Close)
-	var once sync.Once
-	stop := func() { once.Do(func() { close(release) }) }
-	t.Cleanup(stop)
-	return srv.URL + "/notes.git", hit, stop
+	t.Cleanup(g.open)
+	return srv.URL + "/notes.git", g.hit, g.open
+}
+
+func gatedOrigin(t *testing.T, bare, service string) (string, <-chan struct{}, func()) {
+	t.Helper()
+	backend := filepath.Join(strings.TrimSpace(gitIn(t, bare, "--exec-path")), "git-http-backend")
+	if _, err := os.Stat(backend); err != nil {
+		t.Skip("git-http-backend is not installed")
+	}
+	cgiBackend := &cgi.Handler{
+		Path: backend,
+		Env:  []string{"GIT_PROJECT_ROOT=" + filepath.Dir(bare), "GIT_HTTP_EXPORT_ALL=1", "REMOTE_USER=scrawl"},
+	}
+	g := newGate()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/"+service) && !g.hold(r) {
+			return
+		}
+		cgiBackend.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	t.Cleanup(g.open)
+	return srv.URL + "/" + filepath.Base(bare), g.hit, g.open
+}
+
+func saveAsync(ctx context.Context, svc *Service, name string, strict bool) <-chan error {
+	done := make(chan error, 1)
+	go func() {
+		done <- svc.Record(ctx, Op{Message: "save " + name, Paths: []string{name}, Strict: strict},
+			func() ([]string, error) { return nil, nil })
+	}()
+	return done
+}
+
+func within[T any](t *testing.T, limit time.Duration, ch <-chan T) T {
+	t.Helper()
+	select {
+	case res := <-ch:
+		return res
+	case <-time.After(limit):
+		require.FailNow(t, "no answer in time", "waited %v", limit)
+	}
+	var zero T
+	return zero
 }
 
 func TestThePushLoopRetriesAFailedPushOnItsOwn(t *testing.T) {
@@ -781,7 +854,6 @@ func TestThePushLoopRetriesAFailedPushOnItsOwn(t *testing.T) {
 	// assert
 	assert.Equal(t, localHead(t, dir), headOf(t, bare))
 	assert.Equal(t, SyncState{}, svc.SyncState())
-	assert.False(t, svc.Pushing())
 }
 
 func TestARestartOfflineStillRetries(t *testing.T) {
@@ -880,6 +952,7 @@ func TestAFetchThatFailsForAnotherReasonDropsAPushRefusal(t *testing.T) {
 	writeFile(t, dir, "mine.md", "# Mine\n")
 	gitIn(t, dir, "remote", "set-url", remoteName, originAnswering(http.StatusForbidden)(t))
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	require.Error(t, svc.pushNow(t.Context()))
 	require.True(t, strings.HasPrefix(svc.SyncError(), "push:"), svc.SyncError())
 	require.True(t, svc.SyncState().Refused)
 	breakRemote(t, dir)
@@ -904,7 +977,6 @@ func TestTheLoopRetriesAWriteWhosePushFailed(t *testing.T) {
 	svc.retryEvery = 10 * time.Millisecond
 	breakRemote(t, dir)
 	stop := runPushLoop(t, svc)
-	require.Eventually(t, svc.background.Load, 10*time.Second, 10*time.Millisecond)
 	writeFile(t, dir, "local.md", "# Local\n")
 
 	// act
@@ -918,7 +990,6 @@ func TestTheLoopRetriesAWriteWhosePushFailed(t *testing.T) {
 	// assert
 	assert.Equal(t, localHead(t, dir), headOf(t, bare))
 	assert.Equal(t, SyncState{}, svc.SyncState())
-	assert.False(t, svc.Pushing())
 }
 
 func TestADivergedSpaceIsNotRetried(t *testing.T) {
@@ -984,13 +1055,13 @@ func TestARunningRetryIsPushing(t *testing.T) {
 	// act
 	stop := runPushLoop(t, svc)
 	waitForHit(t, hit)
-	during := svc.Pushing()
+	during := svc.SyncState().Pushing
 	release()
 	stop()
 
 	// assert
 	assert.True(t, during)
-	assert.False(t, svc.Pushing())
+	assert.False(t, svc.SyncState().Pushing)
 }
 
 func TestARetryKeepsTheMarkOfAWrite(t *testing.T) {
@@ -1001,34 +1072,260 @@ func TestARetryKeepsTheMarkOfAWrite(t *testing.T) {
 			dir := cloneOf(t, bare)
 			svc := remoteService(t, dir, bare)
 			failedPush(t, dir, svc)
-			svc.pushing.Store(marked)
+			if marked {
+				svc.markPush()
+			}
 
 			// act
 			svc.retryIfDue(t.Context())
 
 			// assert
-			assert.Equal(t, marked, svc.Pushing())
+			assert.Equal(t, marked, svc.SyncState().Pushing)
 			assert.True(t, strings.HasPrefix(svc.SyncError(), "fetch:"), svc.SyncError())
 			assert.True(t, svc.SyncState().Retrying)
 		})
 	}
 }
 
-func TestACanceledRetryPutsPushingBack(t *testing.T) {
+func TestACanceledRetryEndsSending(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
 	dir := cloneOf(t, bare)
 	svc := remoteService(t, dir, bare)
 	svc.retryEvery = 10 * time.Millisecond
 	failedPush(t, dir, svc)
-	origin, hit, release := stalledOrigin(t)
+	origin, hit, _ := stalledOrigin(t)
 	gitIn(t, dir, "remote", "set-url", remoteName, origin)
-	stop := runPushLoop(t, svc, release)
+	stop := runPushLoop(t, svc)
 
 	// act
 	waitForHit(t, hit)
 	stop()
 
 	// assert
-	assert.False(t, svc.Pushing())
+	assert.False(t, svc.SyncState().Pushing)
+}
+
+const answerLimit = 5 * time.Second
+
+func TestARecordDoesNotWaitForAStalledFetch(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	origin, hit, release := stalledOrigin(t)
+	gitIn(t, dir, "remote", "set-url", remoteName, origin)
+	synced := make(chan error, 1)
+	go func() { synced <- svc.Sync(t.Context()) }()
+	waitForHit(t, hit)
+	before := localHead(t, dir)
+	writeFile(t, dir, "local.md", "# Local\n")
+
+	// act
+	err := within(t, answerLimit, saveAsync(t.Context(), svc, "local.md", false))
+
+	// assert
+	require.NoError(t, err)
+	assert.NotEqual(t, before, localHead(t, dir))
+	release()
+	assert.Error(t, within(t, answerLimit, synced))
+}
+
+func TestARecordDoesNotWaitForAStalledPush(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	origin, hit, release := gatedOrigin(t, bare, "git-receive-pack")
+	gitIn(t, dir, "remote", "set-url", remoteName, origin)
+	svc.pushDelay = 10 * time.Millisecond
+	stop := runPushLoop(t, svc)
+	writeFile(t, dir, "first.md", "# First\n")
+	require.NoError(t, within(t, answerLimit, saveAsync(t.Context(), svc, "first.md", false)))
+	waitForHit(t, hit)
+	writeFile(t, dir, "second.md", "# Second\n")
+
+	// act
+	err := within(t, answerLimit, saveAsync(t.Context(), svc, "second.md", false))
+
+	// assert
+	require.NoError(t, err)
+	release()
+	require.Eventually(t, func() bool { return !svc.SyncState().Pushing }, 10*time.Second, 20*time.Millisecond)
+	stop()
+	assert.Equal(t, localHead(t, dir), headOf(t, bare))
+	assert.Equal(t, SyncState{}, svc.SyncState())
+}
+
+func TestATokenWriteWaitsForItsPushWithoutTheHistoryLock(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	origin, hit, release := gatedOrigin(t, bare, "git-receive-pack")
+	gitIn(t, dir, "remote", "set-url", remoteName, origin)
+	writeFile(t, dir, "strict.md", "# Strict\n")
+	strict := saveAsync(t.Context(), svc, "strict.md", true)
+	waitForHit(t, hit)
+	writeFile(t, dir, "browser.md", "# Browser\n")
+
+	// act
+	browserErr := within(t, answerLimit, saveAsync(t.Context(), svc, "browser.md", false))
+	strictDoneEarly := len(strict) > 0
+	release()
+	strictErr := within(t, answerLimit, strict)
+
+	// assert
+	require.NoError(t, browserErr)
+	assert.False(t, strictDoneEarly, "the token write waits for its push")
+	require.NoError(t, strictErr)
+	onRemote := gitIn(t, bare, "ls-tree", "--name-only", initialBranch)
+	assert.Contains(t, onRemote, "strict.md")
+	assert.NotContains(t, onRemote, "browser.md", "the push sent the HEAD it started with")
+	assert.Len(t, svc.pushes, 1)
+	assert.True(t, svc.SyncState().Pushing)
+}
+
+func TestACanceledTokenWriteLeavesItsPushToTheLoop(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	origin, hit, release := gatedOrigin(t, bare, "git-receive-pack")
+	gitIn(t, dir, "remote", "set-url", remoteName, origin)
+	svc.pushDelay = 10 * time.Millisecond
+	stop := runPushLoop(t, svc)
+	ctx, cancel := context.WithCancel(t.Context())
+	writeFile(t, dir, "strict.md", "# Strict\n")
+	strict := saveAsync(ctx, svc, "strict.md", true)
+	waitForHit(t, hit)
+
+	// act
+	cancel()
+	err := within(t, gitWaitDelay+answerLimit, strict)
+	release()
+
+	// assert
+	require.ErrorIs(t, err, ErrNotPublished)
+	require.Eventually(t, func() bool { return !svc.SyncState().Pushing }, 10*time.Second, 20*time.Millisecond)
+	stop()
+	assert.Equal(t, localHead(t, dir), headOf(t, bare))
+}
+
+func TestAWriteDuringAPushStaysPushing(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	origin, hit, release := gatedOrigin(t, bare, "git-receive-pack")
+	gitIn(t, dir, "remote", "set-url", remoteName, origin)
+	svc.pushDelay = 0
+	writeFile(t, dir, "first.md", "# First\n")
+	require.NoError(t, within(t, answerLimit, saveAsync(t.Context(), svc, "first.md", false)))
+	pushed := make(chan bool, 1)
+	go func() { pushed <- svc.pushAfterDelay(t.Context()) }()
+	waitForHit(t, hit)
+	writeFile(t, dir, "second.md", "# Second\n")
+
+	// act
+	require.NoError(t, within(t, answerLimit, saveAsync(t.Context(), svc, "second.md", false)))
+	release()
+	ran := within(t, answerLimit, pushed)
+
+	// assert
+	assert.True(t, ran)
+	assert.True(t, svc.SyncState().Pushing)
+	assert.Len(t, svc.pushes, 1)
+}
+
+func TestAWriteDuringASyncReadsAsPushing(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	origin, hit, release := gatedOrigin(t, bare, "git-receive-pack")
+	gitIn(t, dir, "remote", "set-url", remoteName, origin)
+	writeFile(t, dir, "first.md", "# First\n")
+	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	synced := make(chan error, 1)
+	go func() { synced <- svc.Sync(t.Context()) }()
+	waitForHit(t, hit)
+	writeFile(t, dir, "second.md", "# Second\n")
+
+	// act
+	require.NoError(t, within(t, answerLimit, saveAsync(t.Context(), svc, "second.md", false)))
+	release()
+	err := within(t, answerLimit, synced)
+
+	// assert
+	require.NoError(t, err)
+	state := svc.SyncState()
+	assert.True(t, state.Unpublished)
+	assert.True(t, state.Pushing)
+}
+
+func TestAWaitingPushStopsWithItsContext(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	origin, hit, _ := gatedOrigin(t, bare, "git-receive-pack")
+	gitIn(t, dir, "remote", "set-url", remoteName, origin)
+	svc.pushDelay = 0
+	request, cancelRequest := context.WithCancel(t.Context())
+	writeFile(t, dir, "strict.md", "# Strict\n")
+	strict := saveAsync(request, svc, "strict.md", true)
+	waitForHit(t, hit)
+	workers, cancelWorkers := context.WithCancel(t.Context())
+	pushed := make(chan bool, 1)
+	go func() { pushed <- svc.pushAfterDelay(workers) }()
+
+	// act
+	cancelWorkers()
+	cancelRequest()
+
+	// assert
+	limit := gitWaitDelay + answerLimit
+	require.ErrorIs(t, within(t, limit, strict), ErrNotPublished)
+	assert.False(t, within(t, limit, pushed))
+}
+
+func TestTheWatcherLeavesThePushToTheLoop(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	before := headOf(t, bare)
+	writeFile(t, dir, "outside.md", "# Outside\n")
+
+	// act
+	require.NoError(t, svc.Reconcile(t.Context(), "external"))
+
+	// assert
+	assert.Equal(t, before, headOf(t, bare))
+	assert.NotEqual(t, before, localHead(t, dir))
+	assert.Len(t, svc.pushes, 1)
+	assert.False(t, svc.SyncState().Pushing)
+}
+
+func TestACanceledGitDoesNotWaitForItsHelper(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	origin, hit, _ := stalledOrigin(t)
+	gitIn(t, dir, "remote", "set-url", remoteName, origin)
+	ctx, cancel := context.WithCancel(t.Context())
+	fetched := make(chan error, 1)
+	go func() {
+		_, err := svc.run(ctx, command{args: []string{"fetch", remoteName, initialBranch}, network: true})
+		fetched <- err
+	}()
+	waitForHit(t, hit)
+
+	// act
+	cancel()
+
+	// assert
+	assert.Error(t, within(t, gitWaitDelay+answerLimit, fetched))
 }

@@ -228,6 +228,7 @@ func TestARemoteSpaceTracksEveryVisibleFile(t *testing.T) {
 
 	// act
 	reconcile(t.Context(), cfg.Name, hist, historyActorStartup)
+	syncRemote(t.Context(), cfg.Name, hist)
 
 	// assert
 	assert.Contains(t, strings.Split(runGitIn(t, bare, "ls-tree", "--name-only", "main"), "\n"), "config.toml")

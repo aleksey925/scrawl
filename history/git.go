@@ -61,6 +61,7 @@ func runGit(ctx context.Context, r gitRun) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, r.git, append(r.base, r.args...)...)
 	cmd.Dir = r.dir
 	cmd.Env = r.env
+	cmd.WaitDelay = gitWaitDelay
 	if len(r.stdin) > 0 {
 		cmd.Stdin = bytes.NewReader(r.stdin)
 	}

@@ -192,6 +192,14 @@ Spaces, routes, settings and the guards on every request.
   listen or `Serve` fails while its context is still live, so a wait on a
   goroutine that only exits with that context would hang the process on a busy
   port.
+- Requests run under a context of the server's own, set as the `BaseContext` of
+  the `http.Server`. When the graceful shutdown ends with requests still
+  running, `shutdown` cancels that context and then calls `srv.Close`, so a
+  request's git work, the push of a token write or a reset, is killed and
+  cannot hold the shutdown or the network lock the loops wait on. `srv.Close`
+  alone is not enough: `net/http` cancels a request's context on a closed
+  connection only after the handler read the body to its end.
+  [Quirks](../quirks.md#linux-go-and-wasm)
 - `Web.Run` binds the port before it serves and then logs the links to open:
   the address it bound, or, bound to every interface, `localhost` and each IPv4
   address of the machine apart from loopback and link-local. A bound IPv6

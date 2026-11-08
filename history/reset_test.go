@@ -13,7 +13,10 @@ import (
 func diverge(t *testing.T, svc *Service, bare string, mine map[string]string) {
 	t.Helper()
 	breakRemote(t, svc.Root())
-	require.NoError(t, record(t, svc, Op{Actor: "alex", Paths: keysOf(mine)}, mine))
+	for name, content := range mine {
+		writeFile(t, svc.Root(), name, content)
+	}
+	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
 	fixRemote(t, svc.Root(), bare)
 	pushFromElsewhere(t, bare, "theirs.md", "# Theirs\n")
 	require.Error(t, svc.Sync(t.Context()))
@@ -73,9 +76,11 @@ func TestASaveKeepsTheDivergenceOnScreen(t *testing.T) {
 
 	// act
 	err := record(t, svc, Op{Actor: "alex", Paths: []string{"more.md"}}, map[string]string{"more.md": "# More\n"})
+	pushErr := svc.pushNow(t.Context())
 
 	// assert
 	require.NoError(t, err)
+	require.Error(t, pushErr)
 	after := svc.SyncState()
 	assert.Equal(t, before.Error, after.Error)
 	assert.True(t, after.Diverged)
@@ -408,4 +413,55 @@ func TestResetToRemote(t *testing.T) {
 		require.ErrorIs(t, err, ErrResetRefused)
 		assert.Equal(t, was, localHead(t, dir))
 	})
+}
+
+func TestAResetRefusesASaveMadeDuringTheBackupPush(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	diverge(t, svc, bare, map[string]string{"mine.md": "# Mine\n"})
+	origin, hit, release := gatedOrigin(t, bare, "git-receive-pack")
+	gitIn(t, dir, "remote", "set-url", remoteName, origin)
+	checked, err := svc.CheckDivergence(t.Context())
+	require.NoError(t, err)
+	reset := make(chan error, 1)
+	go func() {
+		_, rErr := svc.ResetToRemote(t.Context(), ResetOp{Actor: "alex", Head: checked.Head, Remote: checked.Remote, PushBackup: true})
+		reset <- rErr
+	}()
+	waitForHit(t, hit)
+	writeFile(t, dir, "more.md", "# More\n")
+
+	// act
+	saveErr := within(t, answerLimit, saveAsync(t.Context(), svc, "more.md", false))
+	release()
+	resetErr := within(t, answerLimit, reset)
+
+	// assert
+	require.NoError(t, saveErr)
+	require.ErrorIs(t, resetErr, ErrStateChanged)
+	assert.Contains(t, gitIn(t, dir, "ls-tree", "--name-only", "HEAD"), "more.md")
+	assert.Len(t, backups(t, dir), 1)
+}
+
+func TestAResetSnapshotsTheDiskAndPushesTheBackup(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	diverge(t, svc, bare, map[string]string{"mine.md": "# Mine\n"})
+	draft := "# Mine\n\nedited over a share, never committed\n"
+	writeFile(t, dir, "mine.md", draft)
+	checked, err := svc.CheckDivergence(t.Context())
+	require.NoError(t, err)
+
+	// act
+	res, err := svc.ResetToRemote(t.Context(), ResetOp{Actor: "alex", Head: checked.Head, Remote: checked.Remote, PushBackup: true})
+
+	// assert
+	require.NoError(t, err)
+	assert.True(t, res.BackupPushed)
+	assert.Equal(t, headOf(t, bare), localHead(t, dir))
+	assert.Equal(t, draft, gitIn(t, bare, "show", res.Backup+":mine.md"))
 }

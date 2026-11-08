@@ -33,33 +33,35 @@ func (s *Service) Record(ctx context.Context, op Op, mutate func() ([]string, er
 	}
 	op.Message = message(op)
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	touched, mErr := mutate()
-	if mErr != nil {
-		return mErr
+	committed, err := s.recordLocal(ctx, op, paths, mutate)
+	if err != nil || !committed || !op.Strict {
+		return err
 	}
-	paths = merge(paths, s.mutatedPaths(touched))
-	if len(paths) == 0 && len(s.pending) == 0 {
-		return nil
-	}
-	if err = s.commitLocked(ctx, op.Actor, op.Message, s.withPending(paths), s.timeout()); err != nil {
-		return s.recordFailed(op, paths, err)
-	}
-	clear(s.pending)
-	s.degraded.Store(false)
-	return s.publishFailed(op, s.publishAfterCommit(ctx, op))
-}
-
-func (s *Service) publishFailed(op Op, err error) error {
-	if err == nil {
-		return nil
-	}
-	if op.Strict {
+	if err = s.pushNow(ctx); err != nil {
 		return fmt.Errorf("history: %w: %w", ErrNotPublished, err)
 	}
 	return nil
+}
+
+func (s *Service) recordLocal(ctx context.Context, op Op, paths []string, mutate func() ([]string, error)) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	touched, err := mutate()
+	if err != nil {
+		return false, err
+	}
+	paths = merge(paths, s.mutatedPaths(touched))
+	if len(paths) == 0 && len(s.pending) == 0 {
+		return false, nil
+	}
+	if err = s.commitLocked(ctx, op.Actor, op.Message, s.withPending(paths), s.timeout()); err != nil {
+		return false, s.recordFailed(op, paths, err)
+	}
+	clear(s.pending)
+	s.degraded.Store(false)
+	s.markPush()
+	return true, nil
 }
 
 func (s *Service) Reconcile(ctx context.Context, actor string) error {
@@ -74,11 +76,10 @@ func (s *Service) Reconcile(ctx context.Context, actor string) error {
 		msg = baselineMessage
 	}
 	committed, err := s.reconcileLocked(ctx, actor, msg)
-	if err != nil || !committed {
-		return err
+	if committed {
+		s.wakePush()
 	}
-	_ = s.publishLocked(ctx, s.SyncState())
-	return nil
+	return err
 }
 
 func (s *Service) reconcileLocked(ctx context.Context, actor, msg string) (bool, error) {

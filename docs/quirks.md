@@ -259,6 +259,15 @@ words; the fact itself is written here.
   into a clone. [Remote sync](design/remote-sync.md#credentials)
 - GitHub documents a webhook delivery body of up to 25 MB.
   [Remote sync](design/remote-sync.md#webhook)
+- A canceled git with an HTTP remote does not return until its remote helper
+  ends: the helper holds git's stderr, and `exec` waits for that pipe. On a
+  hung network the helper sits in its HTTP call. Checked with git 2.47.3: no
+  return in 90 seconds without `WaitDelay`, 2 seconds after the cancel with it.
+  [Remote sync](design/remote-sync.md#pushing)
+- A fetch or a push and a local commit can run at once: they write different
+  refs, each behind its own lock file, and git only adds objects. Checked with
+  git 2.47.3: 20 commits during a held push and a held fetch, no error, and
+  `git fsck` clean. [Remote sync](design/remote-sync.md#locks)
 
 ## Linux, Go and wasm
 
@@ -273,6 +282,9 @@ words; the fact itself is written here.
   [Remote sync](design/remote-sync.md#credentials)
 - `ServeMux` panics on a methodless pattern beside a catch-all that narrows
   another way. [Remote sync](design/remote-sync.md#webhook)
+- `net/http` cancels a request's context on a closed connection only after the
+  handler read the body to its end, because the background read starts then.
+  [Server](design/server.md#lifecycle)
 - wazero watches a context only when every branch of the compiled code checks
   it, which made a prettier run five times slower.
   [ADR 6](adr/0006-prettier-in-worker-processes.md)

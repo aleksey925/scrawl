@@ -21,6 +21,7 @@ const (
 	defaultInitTimeout = 5 * time.Minute
 	pushDelay          = 3 * time.Second
 	retryEvery         = time.Minute
+	gitWaitDelay       = 2 * time.Second
 	defaultLogLimit    = 100
 
 	initialBranch = "main"
@@ -64,17 +65,19 @@ type Service struct {
 	exts  map[string]struct{}
 	files *os.Root
 
+	netMu    sync.Mutex
 	mu       sync.Mutex
 	pending  map[string]struct{}
 	degraded atomic.Bool
 
-	sync atomic.Pointer[SyncState]
+	statusMu sync.Mutex
+	state    SyncState
+	due      bool
+	sending  bool
 
 	pushes     chan struct{}
 	pushDelay  time.Duration
 	retryEvery time.Duration
-	background atomic.Bool
-	pushing    atomic.Bool
 }
 
 func New(cfg Config) (*Service, error) {

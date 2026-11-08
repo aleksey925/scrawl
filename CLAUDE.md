@@ -107,10 +107,11 @@ the link names.
 - A person never waits on git or the network for an action they made. The
   screen shows a result it can predict at once - a delete has its toast and
   leaves the page before the server answers - and a write from the page is
-  committed in its request and pushed after the answer; a write with an API
-  token still pushes in its request.
+  committed in its request and pushed after the answer. No fetch or push holds
+  the lock a commit takes; a write with an API token still pushes in its
+  request, and waits for that push alone.
   [remote sync](docs/design/remote-sync.md#pushing),
-  [entries](docs/ui/entries.md)
+  [locks](docs/design/remote-sync.md#locks), [entries](docs/ui/entries.md)
 - The built frontend is committed: a change in `web/` is followed by `make ui`
   and a commit of what it wrote. Nothing is fetched from a CDN.
   [frontend](docs/design/frontend.md#build-and-release)

@@ -14,7 +14,8 @@ Git-backed versions of the notes, and how two versions are compared.
   git will not descend into an excluded directory, and a `.gitignore` among the
   notes outranks anything scrawl writes. The store mutation and the commit are
   one critical section, otherwise a second request's commit picks up the first
-  one's write and signs it with the wrong actor. A version is read by its blob,
+  one's write and signs it with the wrong actor. That section never holds a
+  network step ([locks](remote-sync.md#locks)). A version is read by its blob,
   because a path stops resolving against an older revision once a rename sits
   in between. A failed commit is fatal only for an API token, so an agent never
   gets a 200 for a change history missed; a browser save survives it and the

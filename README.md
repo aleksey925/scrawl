@@ -316,16 +316,18 @@ mount into the container, like every other tool on the box.
 
 **Pulling and pushing.** A change you make is committed at once and pushed a
 few seconds later, so you never wait for the network, and a few quick changes
-go out as one push. If a push fails, scrawl tries again about a minute later,
-and keeps trying until it goes through, even with `pull: 0` and after a
-restart. It stops trying when the branch has diverged or the remote refuses the
-token, since only a person can fix those. In between, `pull` says how often to
-fetch from the remote; `0` turns that off, but scrawl still fetches once at
-startup. A fetch is followed by a fast-forward and nothing else: scrawl never
-merges, never rebases and never resolves conflicts. If the branch has diverged,
-the space keeps serving, saves keep landing on disk and in local commits, and a
-banner says so on every screen together with a button that resets this copy to
-the remote version - see [below](#when-a-space-has-diverged).
+go out as one push. Even when the network hangs, saves go on: changes pile up
+as local commits and go out when the remote answers again. If a push fails,
+scrawl tries again about a minute later, and keeps trying until it goes
+through, even with `pull: 0` and after a restart. It stops trying when the
+branch has diverged or the remote refuses the token, since only a person can
+fix those. In between, `pull` says how often to fetch from the remote; `0`
+turns that off, but scrawl still fetches once at startup. A fetch is followed
+by a fast-forward and nothing else: scrawl never merges, never rebases and
+never resolves conflicts. If the branch has diverged, the space keeps serving,
+saves keep landing on disk and in local commits, and a banner says so on every
+screen together with a button that resets this copy to the remote version - see
+[below](#when-a-space-has-diverged).
 
 **Two things are worth knowing.** History is always on for a space that is a
 git repository, whatever `HISTORY` says: one that stopped recording would also
@@ -710,7 +712,8 @@ not:
 Both fix themselves: the next commit also records what was missed, and a push
 that failed is tried again about a minute later, and again after each failed
 try, until it goes through. The `500` of a delete still carries the `trash_id`,
-so the deleted entry can be put back.
+so the deleted entry can be put back. A token write waits for its own push, so
+it can wait for a fetch or a push already on its way first.
 
 Two answers mean the file on disk is not what the client assumed. Both carry
 `current_rev` and `current_content`, so a retry needs no second request:

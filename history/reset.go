@@ -52,10 +52,12 @@ func (s *Service) CheckDivergence(ctx context.Context) (Divergence, error) {
 	if s.cfg.Remote == nil {
 		return Divergence{}, fmt.Errorf("history: %w", ErrNotDiverged)
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	if err := s.lockNet(ctx); err != nil {
+		return Divergence{}, err
+	}
+	defer s.netMu.Unlock()
 
-	if err := s.divergedLocked(ctx); err != nil {
+	if err := s.divergedNet(ctx); err != nil {
 		return Divergence{}, err
 	}
 	head, remote, err := s.tips(ctx)
@@ -80,12 +82,20 @@ func (s *Service) ResetToRemote(ctx context.Context, op ResetOp) (ResetResult, e
 	if s.cfg.Remote == nil {
 		return ResetResult{}, fmt.Errorf("history: %w", ErrNotDiverged)
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if err := s.divergedLocked(ctx); err != nil {
+	if err := s.lockNet(ctx); err != nil {
 		return ResetResult{}, err
 	}
+	defer s.netMu.Unlock()
+
+	if err := s.divergedNet(ctx); err != nil {
+		return ResetResult{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.resetLocked(ctx, op)
+}
+
+func (s *Service) resetLocked(ctx context.Context, op ResetOp) (ResetResult, error) {
 	head, remote, err := s.tips(ctx)
 	if err != nil {
 		return ResetResult{}, fmt.Errorf("history: %w", err)
@@ -99,8 +109,13 @@ func (s *Service) ResetToRemote(ctx context.Context, op ResetOp) (ResetResult, e
 
 	res := ResetResult{}
 	if lost, mErr := s.trialMerge(ctx, head, remote); mErr != nil || !lost.clean() {
-		if res, err = s.backupLocked(ctx, head, op.PushBackup); err != nil {
+		if res, err = s.backupLocked(ctx, head); err != nil {
 			return res, err
+		}
+		if op.PushBackup && !s.PullOnly() {
+			if pErr := s.pushBackupUnlocked(ctx, head, &res); pErr != nil {
+				return res, pErr
+			}
 		}
 	}
 	if moveErr := s.moveLocked(ctx, head, remote); moveErr != nil {
@@ -108,14 +123,14 @@ func (s *Service) ResetToRemote(ctx context.Context, op ResetOp) (ResetResult, e
 	}
 
 	next := SyncState{}
-	s.measure(ctx, &next)
+	s.measureLocked(ctx, &next)
 	s.publish(next)
 	log.Printf("[INFO] %s: reset to %s by %s, was %s, backup %q", s.tag(), remote, sanitizeActor(op.Actor), head, res.Backup)
 	return res, nil
 }
 
-func (s *Service) divergedLocked(ctx context.Context) error {
-	err := s.syncLocked(ctx)
+func (s *Service) divergedNet(ctx context.Context) error {
+	err := s.syncNet(ctx)
 	state := s.SyncState()
 	switch {
 	case err == nil:
@@ -150,6 +165,10 @@ func (s *Service) snapshotLocked(ctx context.Context, actor, head string) (strin
 	if !committed {
 		return head, nil
 	}
+	return s.headCommit(ctx)
+}
+
+func (s *Service) headCommit(ctx context.Context) (string, error) {
 	out, err := s.run(ctx, command{args: []string{"rev-parse", "--verify", "HEAD^{commit}"}})
 	if err != nil {
 		return "", fmt.Errorf("history: %w", err)
@@ -191,24 +210,42 @@ func (s *Service) trialMerge(ctx context.Context, head, remote string) (lostPath
 	return res, nil
 }
 
-func (s *Service) backupLocked(ctx context.Context, head string, push bool) (ResetResult, error) {
+func (s *Service) backupLocked(ctx context.Context, head string) (ResetResult, error) {
 	res := ResetResult{Backup: backupPrefix + time.Now().UTC().Format(backupStamp) + "-" + head[:7]}
-	ref := "refs/heads/" + res.Backup
-	if _, err := s.run(ctx, command{args: []string{"update-ref", ref, head}}); err != nil {
+	if _, err := s.run(ctx, command{args: []string{"update-ref", "refs/heads/" + res.Backup, head}}); err != nil {
 		return ResetResult{}, fmt.Errorf("history: keep a backup: %w", err)
 	}
-	if !push || s.PullOnly() {
-		return res, nil
+	return res, nil
+}
+
+func (s *Service) pushBackupUnlocked(ctx context.Context, head string, res *ResetResult) error {
+	s.mu.Unlock()
+	err := s.pushBackup(ctx, res.Backup)
+	s.mu.Lock()
+	if err != nil {
+		return err
 	}
+	res.BackupPushed = true
+	now, err := s.headCommit(ctx)
+	if err != nil {
+		return err
+	}
+	if now != head {
+		return fmt.Errorf("history: %w", ErrStateChanged)
+	}
+	return nil
+}
+
+func (s *Service) pushBackup(ctx context.Context, backup string) error {
+	ref := "refs/heads/" + backup
 	if _, err := s.run(ctx, command{
 		args:    []string{"push", remoteName, ref + ":" + ref},
 		network: true,
 		timeout: s.initTimeout(),
 	}); err != nil {
-		return res, fmt.Errorf("history: push the backup %s: %w", res.Backup, err)
+		return fmt.Errorf("history: push the backup %s: %w", backup, err)
 	}
-	res.BackupPushed = true
-	return res, nil
+	return nil
 }
 
 func (s *Service) moveLocked(ctx context.Context, head, remote string) error {

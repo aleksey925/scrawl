@@ -113,14 +113,8 @@ func (wb *Web) Run(ctx context.Context) error {
 		return fmt.Errorf("make router: %w", err)
 	}
 
-	srv := &http.Server{
-		Addr:              wb.ListenAddr,
-		Handler:           router,
-		ReadHeaderTimeout: wb.ReadHeaderTimeout,
-		ReadTimeout:       wb.ReadTimeout,
-		WriteTimeout:      wb.WriteTimeout,
-		IdleTimeout:       wb.IdleTimeout,
-	}
+	srv, cancelRequests := wb.httpServer(ctx, router)
+	defer cancelRequests()
 
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", wb.ListenAddr)
 	if err != nil {
@@ -139,11 +133,24 @@ func (wb *Web) Run(ctx context.Context) error {
 		return fmt.Errorf("server failed: %w", err)
 	case <-ctx.Done():
 		log.Printf("[DEBUG] server shutdown initiated")
-		return wb.shutdown(ctx, srv)
+		return wb.shutdown(ctx, srv, cancelRequests)
 	}
 }
 
-func (wb *Web) shutdown(ctx context.Context, srv *http.Server) error {
+func (wb *Web) httpServer(ctx context.Context, handler http.Handler) (*http.Server, context.CancelFunc) {
+	requests, cancelRequests := context.WithCancel(context.WithoutCancel(ctx))
+	return &http.Server{
+		Addr:              wb.ListenAddr,
+		Handler:           handler,
+		ReadHeaderTimeout: wb.ReadHeaderTimeout,
+		ReadTimeout:       wb.ReadTimeout,
+		WriteTimeout:      wb.WriteTimeout,
+		IdleTimeout:       wb.IdleTimeout,
+		BaseContext:       func(net.Listener) context.Context { return requests },
+	}, cancelRequests
+}
+
+func (wb *Web) shutdown(ctx context.Context, srv *http.Server, cancelRequests context.CancelFunc) error {
 	timeout := wb.ShutdownTimeout
 	if timeout <= 0 {
 		timeout = defaultShutdownTimeout
@@ -153,6 +160,10 @@ func (wb *Web) shutdown(ctx context.Context, srv *http.Server) error {
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
+		cancelRequests()
+		if closeErr := srv.Close(); closeErr != nil {
+			log.Printf("[WARN] close the server: %v", closeErr)
+		}
 		return fmt.Errorf("graceful shutdown: %w", err)
 	}
 

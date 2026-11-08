@@ -16,8 +16,9 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   breaks the history log and the push.
 - The startup `Sync` and the check that the remote takes a push run before the
   server serves, one space after another. On a network that hangs instead of
-  failing, each can take the 5-minute timeout of a git command, so the app
-  starts late. This is accepted.
+  failing, the fetch and the push of `Sync` can each take their 5-minute
+  timeout, and the check its 10-second one, so the app starts late. This is
+  accepted.
 - A clone that cannot push does not commit either. The effective read-only mode
   of a remote space is `PullOnly`, and `history` is the one place that knows
   it: `Reconcile` refuses there, so the startup call and the watcher's are

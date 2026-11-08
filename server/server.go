@@ -139,6 +139,7 @@ func (wb *Web) Run(ctx context.Context) error {
 
 func (wb *Web) httpServer(ctx context.Context, handler http.Handler) (*http.Server, context.CancelFunc) {
 	requests, cancelRequests := context.WithCancel(context.WithoutCancel(ctx))
+	base := context.WithValue(requests, requestsKey{}, requests)
 	return &http.Server{
 		Addr:              wb.ListenAddr,
 		Handler:           handler,
@@ -146,8 +147,26 @@ func (wb *Web) httpServer(ctx context.Context, handler http.Handler) (*http.Serv
 		ReadTimeout:       wb.ReadTimeout,
 		WriteTimeout:      wb.WriteTimeout,
 		IdleTimeout:       wb.IdleTimeout,
-		BaseContext:       func(net.Listener) context.Context { return requests },
+		BaseContext:       func(net.Listener) context.Context { return base },
 	}, cancelRequests
+}
+
+type requestsKey struct{}
+
+type withoutClient struct {
+	context.Context
+	values context.Context
+}
+
+func (c withoutClient) Value(key any) any { return c.values.Value(key) }
+
+func detachFromClient(r *http.Request) *http.Request {
+	requests, ok := r.Context().Value(requestsKey{}).(context.Context)
+	if !ok {
+		requests = context.Background()
+	}
+	//nolint:contextcheck // the values are the request's, only the cancel is the server's
+	return r.WithContext(withoutClient{Context: requests, values: r.Context()})
 }
 
 func (wb *Web) shutdown(ctx context.Context, srv *http.Server, cancelRequests context.CancelFunc) error {

@@ -42,4 +42,5 @@ Prettier inside the binary and in the browser.
 - A note the formatter gave up on is stored as it was written, because the save
   is what the writer asked for, and the answer says so in `format_failed`. A
   write that formats is detached from its client: formatting takes seconds, and
-  a tab closed meanwhile would otherwise cancel the commit that follows it.
+  a tab closed meanwhile would otherwise cancel the commit that follows it. A
+  shutdown still cancels it. [Server](server.md#lifecycle)

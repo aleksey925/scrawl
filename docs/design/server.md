@@ -199,11 +199,14 @@ Spaces, routes, settings and the guards on every request.
   cannot hold the shutdown or the network lock the loops wait on. `srv.Close`
   alone is not enough: `net/http` cancels a request's context on a closed
   connection only after the handler read the body to its end.
-  [Quirks](../quirks.md#linux-go-and-wasm) The cancel kills a local git as
-  well, with `SIGKILL`: a save's commit or a reset's `reset --keep` cut there
-  can leave `.git/index.lock`, which then fails every commit until it is
-  removed, and a reset can stop part way, with its backup made and the branch
-  not moved. Sending `SIGTERM` first would let git clean up; it is not done.
+  [Quirks](../quirks.md#linux-go-and-wasm) A write that formats leaves the
+  client's cancel behind but keeps this one: `context.WithoutCancel` would drop
+  both, and the push of a token write would then hold the network lock until
+  its git timeout. The cancel kills a local git as well, with `SIGKILL`: a
+  save's commit or a reset's `reset --keep` cut there can leave
+  `.git/index.lock`, which then fails every commit until it is removed, and a
+  reset can stop part way, with its backup made and the branch not moved.
+  Sending `SIGTERM` first would let git clean up; it is not done.
 - `Web.Run` binds the port before it serves and then logs the links to open:
   the address it bound, or, bound to every interface, `localhost` and each IPv4
   address of the machine apart from loopback and link-local. A bound IPv6

@@ -2363,6 +2363,29 @@ func TestARequestOutlivesTheCancelOfTheRunContext(t *testing.T) {
 	require.NoError(t, waitFor(t, answered, "the client never heard back"))
 }
 
+func TestAFormattedWriteOutlivesItsClientButNotTheShutdown(t *testing.T) {
+	// arrange
+	m := &mount{Web: &Web{}, spc: &Space{FormatOnSave: true}}
+	kept := make(chan context.Context, 1)
+	srv, cancelRequests := m.httpServer(t.Context(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		kept <- m.keepThrough(r, "note.md").Context()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(cancelRequests)
+	answered := serveOneRequest(t, srv, http.NoBody)
+	ctx := waitFor(t, kept, "the request never reached the handler")
+	require.NoError(t, waitFor(t, answered, "the client never heard back"))
+
+	// act
+	afterTheClient := ctx.Err()
+	cancelRequests()
+
+	// assert
+	require.NoError(t, afterTheClient)
+	assert.ErrorIs(t, ctx.Err(), context.Canceled)
+	assert.Equal(t, srv, ctx.Value(http.ServerContextKey))
+}
+
 func serveOneRequest(t *testing.T, srv *http.Server, body io.Reader) <-chan error {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

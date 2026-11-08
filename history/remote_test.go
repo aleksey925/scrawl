@@ -704,6 +704,28 @@ func TestAWriteThatCommitsNothingMarksNoPush(t *testing.T) {
 	assert.False(t, svc.SyncState().Pushing)
 }
 
+func TestATokenWriteThatCommitsNothingStillChecksThePublish(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	breakRemote(t, dir)
+	writeFile(t, dir, "local.md", "# Local\n")
+	require.ErrorIs(t, waitFor(t, saveAsync(t.Context(), svc, "local.md", true), answerLimit), ErrNotPublished)
+	head := localHead(t, dir)
+
+	// act
+	unreachable := waitFor(t, saveAsync(t.Context(), svc, "local.md", true), answerLimit)
+	fixRemote(t, dir, bare)
+	published := waitFor(t, saveAsync(t.Context(), svc, "local.md", true), answerLimit)
+
+	// assert
+	require.ErrorIs(t, unreachable, ErrNotPublished)
+	require.NoError(t, published)
+	assert.Equal(t, head, localHead(t, dir))
+	assert.Equal(t, head, headOf(t, bare))
+}
+
 func TestATokenWritePushesInsideTheRecordAndLeavesTheMark(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)

@@ -33,8 +33,8 @@ func (s *Service) Record(ctx context.Context, op Op, mutate func() ([]string, er
 	}
 	op.Message = message(op)
 
-	committed, err := s.recordLocal(ctx, op, paths, mutate)
-	if err != nil || !committed || !op.Strict {
+	recorded, err := s.recordLocal(ctx, op, paths, mutate)
+	if err != nil || !recorded || !op.Strict {
 		return err
 	}
 	if err = s.pushNow(ctx); err != nil {
@@ -64,7 +64,7 @@ func (s *Service) recordLocal(ctx context.Context, op Op, paths []string, mutate
 	if committed {
 		s.markPush()
 	}
-	return committed, nil
+	return true, nil
 }
 
 func (s *Service) Reconcile(ctx context.Context, actor string) error {

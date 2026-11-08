@@ -150,14 +150,16 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   pushes it once it starts; a commit made after the loop ended stays, and the
   next startup's sync pushes it.
 - A write with an API token also pushes in its request, because a script is
-  told whether its change reached the remote. It waits for the network lock,
-  behind a fetch or a push already on its way, and never for the history lock,
-  so other writes commit meanwhile. Its push carries its commit, since it reads
-  `HEAD` after the commit. The loop still pushes after it, because its mark
-  stays: when its request ends before the push, or its measure fails on the
-  dead context, the commit is not stranded. When its own push went through, the
-  loop's finds nothing new, which costs one round trip and "Sending" for about
-  3 seconds.
+  told whether its change reached the remote. It pushes also when it commits
+  nothing and marks nothing: the same text may sit only in an earlier commit
+  whose push failed, and a push with nothing new is one cheap round trip. It
+  waits for the network lock, behind a fetch or a push already on its way, and
+  never for the history lock, so other writes commit meanwhile. Its push
+  carries its commit, since it reads `HEAD` after the commit. The loop still
+  pushes after it, because its mark stays: when its request ends before the
+  push, or its measure fails on the dead context, the commit is not stranded.
+  When its own push went through, the loop's finds nothing new, which costs one
+  round trip and "Sending" for about 3 seconds.
 - The watcher's `Reconcile` commits and marks a push like any other commit, so
   the control says "Sending" until the loop's push ends, and a measure in
   between never says "Not sent". It never pushes itself, so the watcher

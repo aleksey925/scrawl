@@ -452,7 +452,7 @@ test.describe.serial('file management', () => {
         writeFixture(note, '# Moved away\n');
         writeFixture(taken, '# Taken\n');
         await page.goto(routes.dir(RENAME_FOLDER));
-        const release = await holdRoute(page, '**/api/move');
+        const {release} = await holdRoute(page, '**/api/move');
         await startTreeRename(page, note);
         await page.getByTestId('tree-rename-input').fill(nameOf(taken));
         await page.getByTestId('tree-rename-input').press('Enter');
@@ -582,7 +582,7 @@ test.describe.serial('file management', () => {
         writeFixture(first, '# A\n');
         writeFixture(second, '# B\n');
         await page.goto(routes.dir(RENAME_FOLDER));
-        const release = await holdRoute(page, '**/api/move');
+        const {release} = await holdRoute(page, '**/api/move');
         await startTreeRename(page, first);
         await page.getByTestId('tree-rename-input').fill(nameOf(done));
         await page.getByTestId('dir-title').click();
@@ -609,7 +609,7 @@ test.describe.serial('file management', () => {
         writeFixture(first, '# A\n');
         writeFixture(second, '# B\n');
         await page.goto(MAIN.url.doc(first));
-        const release = await holdRoute(page, '**/api/move');
+        const {release} = await holdRoute(page, '**/api/move');
         await startPageRename(page, 'note-menu');
         await page.getByTestId('page-rename-input').fill(nameOf(done));
         await page.getByTestId('page-rename-input').press('Enter');
@@ -1159,7 +1159,7 @@ test.describe.serial('file management', () => {
         const note = `${FOLDER}/slow-delete.md`;
         writeFixture(note, '# Slow delete\n');
         await page.goto(routes.doc(note));
-        const release = await holdRoute(page, `**${routes.api(`/file/${note}`)}**`);
+        const {release} = await holdRoute(page, `**${routes.api(`/file/${note}`)}**`);
         await page.locator(`[data-testid=tree-row][data-path="${note}"] [data-testid=tree-row-menu]`).click();
 
         // act
@@ -1671,7 +1671,7 @@ test.describe.serial('file management', () => {
         expect(await rightClickPrevented(page, input)).toBe(false);
         await expect(page.locator('[data-testid=tree-row-menu-dropdown]:visible')).toHaveCount(0);
         await input.fill(nameOf(renamed));
-        const release = await holdRoute(page, '**/api/move');
+        const {release} = await holdRoute(page, '**/api/move');
         expect(await rightClickPrevented(page, row.locator('td').nth(1))).toBe(true);
         await expect(page.getByTestId('dir-rename-field')).toBeVisible();
         await expect(page.getByTestId('dir-context-menu')).toHaveCount(0);
@@ -2126,21 +2126,7 @@ test.describe.serial('file management', () => {
         const moveToast = page.locator('[data-testid=toast]').filter({hasText: text.toast.movedMany});
         await expect(moveToast).toHaveCount(1);
         const replaced = `${into}/${names[0]}`;
-        let release = () => {};
-        const held = new Promise((resolve) => {
-            release = resolve;
-        });
-        let reach = () => {};
-        const reached = new Promise((resolve) => {
-            reach = resolve;
-        });
-        await page.route('**/api/move', async (route) => {
-            if (route.request().postDataJSON().from === `${into}/${names[1]}`) {
-                reach();
-                await held;
-            }
-            await route.continue();
-        });
+        const {release, reached} = await holdRoute(page, '**/api/move', (request) => request.postDataJSON().from === `${into}/${names[1]}`);
 
         // act
         await moveToast.getByTestId('toast-action').click();
@@ -2175,21 +2161,7 @@ test.describe.serial('file management', () => {
         await page.locator(`${rows[0]} [data-testid=tree-link]`).click();
         await page.locator(`${rows[1]} [data-testid=tree-link]`).click({modifiers: ['Shift']});
         const replaced = `${into}/${names[0]}`;
-        let release = () => {};
-        const held = new Promise((resolve) => {
-            release = resolve;
-        });
-        let reach = () => {};
-        const reached = new Promise((resolve) => {
-            reach = resolve;
-        });
-        await page.route('**/api/move', async (route) => {
-            if (route.request().postDataJSON().from === `${pair}/${names[1]}`) {
-                reach();
-                await held;
-            }
-            await route.continue();
-        });
+        const {release, reached} = await holdRoute(page, '**/api/move', (request) => request.postDataJSON().from === `${pair}/${names[1]}`);
         await page.locator(rows[1]).dragTo(page.locator(`[data-testid=tree-row][data-path="${into}"]`));
         await reached;
         await page.locator(`[data-testid=tree-row][data-path="${into}"] [data-testid=tree-link]`).click();
@@ -2229,21 +2201,7 @@ test.describe.serial('file management', () => {
         await page.locator(`${rows[0]} [data-testid=tree-link]`).click();
         await page.locator(`${rows[1]} [data-testid=tree-link]`).click({modifiers: ['Shift']});
         const replaced = `${into}/${names[0]}`;
-        let release = () => {};
-        const held = new Promise((resolve) => {
-            release = resolve;
-        });
-        let reach = () => {};
-        const reached = new Promise((resolve) => {
-            reach = resolve;
-        });
-        await page.route('**/api/move', async (route) => {
-            if (route.request().postDataJSON().from === `${pair}/${names[1]}`) {
-                reach();
-                await held;
-            }
-            await route.continue();
-        });
+        const {release, reached} = await holdRoute(page, '**/api/move', (request) => request.postDataJSON().from === `${pair}/${names[1]}`);
         const recorded = page.waitForResponse((res) => res.url().endsWith(`/api/dir/${into}`));
         await page.locator(rows[1]).dragTo(page.locator(`[data-testid=tree-row][data-path="${into}"]`));
         await reached;
@@ -2262,9 +2220,69 @@ test.describe.serial('file management', () => {
         await expect(failed).toContainText('Some of it did not move back');
         await expect(failed).toContainText('It was renamed, moved or deleted since');
         await expect.poll(() => fs.existsSync(fixtureFile(`${pair}/${names[1]}`))).toBe(true);
-        expect([`${pair}/${names[0]}`, replaced].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
+        const places = [`${pair}/${names[0]}`, `${pair}/${names[1]}`, replaced, `${into}/${names[1]}`];
+        expect(places.map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true, true, false]);
         expect(fs.readFileSync(fixtureFile(replaced), 'utf8')).toBe('# Another note\n');
         await page.unroute('**/api/move');
+    });
+
+    test('Undo after dragging two rows of which one found its name taken moves back only the one that moved', async ({page}) => {
+        // arrange
+        const names = ['first.md', 'second.md'];
+        const pair = `${UNDO_FOLDER}/busy`;
+        const into = `${UNDO_FOLDER}/busy-drop`;
+        for (const name of names) {
+            writeFixture(`${pair}/${name}`, '# Dragged\n');
+        }
+        writeFixture(`${into}/${names[1]}`, '# Already there\n');
+        await page.goto(routes.dir(pair));
+        const rows = names.map((name) => `[data-testid=tree-row][data-path="${pair}/${name}"]`);
+        await page.locator(`${rows[0]} [data-testid=tree-link]`).click();
+        await page.locator(`${rows[1]} [data-testid=tree-link]`).click({modifiers: ['Shift']});
+        await page.locator(rows[1]).dragTo(page.locator(`[data-testid=tree-row][data-path="${into}"]`));
+        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText('Something of that name is already there');
+        const moveToast = page.locator('[data-testid=toast]').filter({hasText: `Moved "${names[0]}" to`});
+
+        // act
+        await moveToast.getByTestId('toast-action').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: `Moved "${names[0]}" back`})).toHaveCount(1);
+        const places = [...names.map((name) => `${pair}/${name}`), ...names.map((name) => `${into}/${name}`)];
+        expect(places.map((p) => fs.existsSync(fixtureFile(p)))).toEqual([true, true, false, true]);
+        expect(fs.readFileSync(fixtureFile(`${into}/${names[1]}`), 'utf8')).toBe('# Already there\n');
+    });
+
+    test('Undo after dragging two rows moves both back when reading the first one after its move failed', async ({page}) => {
+        // arrange
+        const names = ['first.md', 'second.md'];
+        const pair = `${UNDO_FOLDER}/blind`;
+        const into = `${UNDO_FOLDER}/blind-drop`;
+        for (const name of names) {
+            writeFixture(`${pair}/${name}`, '# Dragged\n');
+        }
+        fs.mkdirSync(fixtureFile(into), {recursive: true});
+        await page.goto(routes.dir(pair));
+        const rows = names.map((name) => `[data-testid=tree-row][data-path="${pair}/${name}"]`);
+        await page.locator(`${rows[0]} [data-testid=tree-link]`).click();
+        await page.locator(`${rows[1]} [data-testid=tree-link]`).click({modifiers: ['Shift']});
+        let aborted = false;
+        await page.route((url) => url.pathname.endsWith(`/api/dir/${into}`), async (route) => {
+            aborted = true;
+            await route.abort();
+        }, {times: 1});
+        await page.locator(rows[1]).dragTo(page.locator(`[data-testid=tree-row][data-path="${into}"]`));
+        const moveToast = page.locator('[data-testid=toast]').filter({hasText: text.toast.movedMany});
+        await expect(moveToast).toHaveCount(1);
+        expect(aborted).toBe(true);
+
+        // act
+        await moveToast.getByTestId('toast-action').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: 'Moved 2 items back'})).toHaveCount(1);
+        const places = [...names.map((name) => `${pair}/${name}`), ...names.map((name) => `${into}/${name}`)];
+        await expect.poll(() => places.map((p) => fs.existsSync(fixtureFile(p)))).toEqual([true, true, false, false]);
     });
 
     test('the toast of a move names a folder whose name ends in .md by its whole name', async ({page}) => {

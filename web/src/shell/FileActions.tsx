@@ -88,14 +88,15 @@ function stampOf(entry: DirEntry): string {
   return entry.is_dir ? 'dir' : `${entry.size}:${entry.mod_time}`;
 }
 
-async function stampsIn(folder: string): Promise<Map<string, string>> {
-  const listing = await api.dir(folder);
-  return new Map(listing.entries.map((entry) => [entry.path, stampOf(entry)]));
+async function stampAt(path: string): Promise<string | undefined> {
+  const listing = await api.dir(parentOf(path));
+  const found = listing.entries.find((row) => row.path === path);
+  return found === undefined ? undefined : stampOf(found);
 }
 
 async function recordedStamp(path: string): Promise<string | undefined> {
   try {
-    return (await stampsIn(parentOf(path))).get(path);
+    return await stampAt(path);
   } catch {
     return undefined;
   }
@@ -106,7 +107,7 @@ async function unchanged(path: string, was: string | undefined): Promise<boolean
     return true;
   }
   try {
-    return (await stampsIn(parentOf(path))).get(path) === was;
+    return (await stampAt(path)) === was;
   } catch {
     return true;
   }
@@ -400,33 +401,33 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       };
       const run = async (pairs: readonly Relocation[], undone?: UndoMark): Promise<Relocation[]> => {
         const back = undone !== undefined;
-        const mark: UndoMark | undefined = back ? undefined : { targets: [], stamps: new Map() };
-        if (mark !== undefined) {
+        const mark: UndoMark = undone ?? { targets: [], stamps: new Map() };
+        if (!back) {
           undoable.current.add(mark);
         }
         const { done, left, failure, changed, state } = await relocateAll(
           pairs,
-          async (pair) => undone === undefined || stillMarked(undone, pair),
-          mark === undefined ? undefined : (path) => {
+          async (pair) => !back || stillMarked(mark, pair),
+          back ? undefined : (path) => {
             mark.targets.push(path);
             mark.stamps.set(path, recordedStamp(path));
           },
         );
         const words = back ? failedMoveWords.back : failedMoveWords.forward;
         if (done.length > 0) {
-          touch(done.flatMap((pair) => [pair.from, pair.to]), undone ?? mark);
+          touch(done.flatMap((pair) => [pair.from, pair.to]), mark);
           refreshNav();
           new Set(done.map((pair) => parentOf(pair.to))).forEach(openFolder);
           reportMutation(
             state,
             movedMessage(done, back, space, (folder) => void navigate(directoryUrl(folder))),
-            mark === undefined ? undefined : undoOf(done, mark),
+            back ? undefined : undoOf(done, mark),
           );
           const here = done.map((pair) => pathAfterMove(shown.current.path, pair.from, pair.to)).find((path) => path !== undefined);
           if (here !== undefined) {
             await navigate(shown.current.onFolder ? directoryUrl(here) : documentUrl(here));
           }
-        } else if (mark !== undefined) {
+        } else if (!back) {
           undoable.current.delete(mark);
         }
         if (changed || failure !== undefined) {

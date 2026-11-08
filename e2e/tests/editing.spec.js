@@ -803,7 +803,7 @@ test.describe('editing', () => {
         writeFixture(docPath, '# T\n\n## A\n');
         await page.goto(routes.edit(docPath));
         await expect.poll(() => sourceText(page)).toBe('# T\n\n## A\n');
-        const release = await holdRoute(page, '**/api/preview');
+        const {release} = await holdRoute(page, '**/api/preview');
 
         // act
         await page.getByTestId('editor-toolbar-toc').click();
@@ -823,7 +823,7 @@ test.describe('editing', () => {
         await page.goto(routes.edit(docPath));
         await page.getByTestId('editor-layout-mode').getByText('Source').click();
         await expect.poll(() => sourceText(page)).toBe('# T\n\n## A\n');
-        const release = await holdRoute(page, '**/api/preview');
+        const {release} = await holdRoute(page, '**/api/preview');
 
         // act
         await page.getByTestId('editor-toolbar-toc').click();

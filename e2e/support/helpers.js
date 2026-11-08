@@ -208,16 +208,23 @@ function recordMoves(page) {
     return sent;
 }
 
-async function holdRoute(page, url) {
+async function holdRoute(page, url, matches = () => true) {
     let release = () => {};
     const held = new Promise((resolve) => {
         release = resolve;
     });
+    let reach = () => {};
+    const reached = new Promise((resolve) => {
+        reach = resolve;
+    });
     await page.route(url, async (route) => {
-        await held;
+        if (matches(route.request())) {
+            reach();
+            await held;
+        }
         await route.continue();
     });
-    return release;
+    return {release, reached};
 }
 
 function dialogButtons(page, ids) {

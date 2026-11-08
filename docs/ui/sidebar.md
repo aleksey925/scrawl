@@ -36,7 +36,8 @@ The tree, its head and its foot.
   it, so two gray rows next to each other, the current one and a picked one, do
   not run into one block; a gap on the tree's stack spaced only the top-level
   rows. A file that is not a note has no row, so while it is open its folder's
-  row is the current one; one at the root has no folder row and fills none.
+  row gets the gray fill of the current one, with no `aria-current`, as the
+  page is not the folder's; one at the root has no folder row and fills none.
   Under the pointer the folder's icon turns into a chevron, the sign of what a
   click on it does. The label opens the folder's page, unfolded, and only on
   that page folds and unfolds it too: folding on the way there took a second

@@ -371,6 +371,11 @@
   appearance: none;
 }
 
+.markdown-document ol > li > input[type='checkbox']:first-child,
+.markdown-document ol > li > p:first-child > input[type='checkbox']:first-child {
+  margin-left: -1.7em;
+}
+
 .markdown-document li > input[type='checkbox']:first-child:checked,
 .markdown-document li > p:first-child > input[type='checkbox']:first-child:checked {
   box-shadow: none;
@@ -570,6 +575,14 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.markdown-document :is(li, blockquote) > .table-wrap {
+  margin-inline: 0;
+}
+
+.markdown-document details > .table-wrap {
+  margin-left: 28px;
+}
+
 .markdown-document table {
   display: block;
   width: max-content;
@@ -702,7 +715,7 @@
 
 .markdown-document section.footnotes ol {
   margin-top: 12px;
-  padding-left: 16px;
+  padding-left: 2em;
 }
 
 .markdown-document section.footnotes li {

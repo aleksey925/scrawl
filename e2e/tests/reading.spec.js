@@ -70,6 +70,7 @@ test.describe('reading', () => {
 
     test.afterEach(() => {
         removeFixture(DIAGRAM_VIEWER);
+        removeFixture(EMPHASIS);
         removeFixture(TALL);
         removeFixture(TALL_PICTURE);
         removeFixture(HEADINGS);
@@ -923,8 +924,6 @@ test.describe('reading', () => {
 
         // assert
         await expect.poll(weight).toBeGreaterThan(light);
-
-        removeFixture(EMPHASIS);
     });
 
     test('emphasis is brighter than the text around it in the dark', async ({page}) => {
@@ -945,8 +944,6 @@ test.describe('reading', () => {
         // assert
         expect(emphasis.map((value) => value - plain > 30)).toEqual([true, true, true]);
         expect(quote[1] - quote[0]).toBeGreaterThan(30);
-
-        removeFixture(EMPHASIS);
     });
 
     test('a quote bar starts on the left edge of the text', async ({page}) => {
@@ -965,8 +962,6 @@ test.describe('reading', () => {
 
         // assert
         expect(Math.abs(quote.x - text)).toBeLessThanOrEqual(0.5);
-
-        removeFixture(EMPHASIS);
     });
 
     test('a table runs from the left edge of the text to the right one', async ({page}) => {
@@ -986,16 +981,54 @@ test.describe('reading', () => {
         // assert
         expect(Math.abs(table.x - text.left)).toBeLessThanOrEqual(0.5);
         expect(Math.abs(table.x + table.width - text.right)).toBeLessThanOrEqual(0.5);
-
-        removeFixture(EMPHASIS);
     });
 
-    test('a two-digit number of a list stays inside the left edge of the text', async ({page}) => {
+    test('a table in a list item, a quote or a details block runs from the left edge of the text to the right one', async ({page}) => {
         // arrange
-        const items = Array.from({length: 12}, (_, index) => `${index + 1}. Step`).join('\n');
-        writeFixture(EMPHASIS, `# List\n\nPlain text.\n\n${items}\n`);
+        const table = '| A | B |\n| - | - |\n| 1 | 2 |';
+        const indent = (prefix) => table.split('\n').map((line) => `${prefix}${line}`).join('\n');
+        const blocks = [
+            '# Tables',
+            `- Item text.\n\n${indent('  ')}\n\n- Second item.`,
+            `> Quote text.\n>\n${indent('> ')}`,
+            `<details open><summary>More</summary>\n\nDetails text.\n\n${table}\n\n</details>`,
+        ];
+        writeFixture(EMPHASIS, `${blocks.join('\n\n')}\n`);
+        await page.goto(routes.doc(EMPHASIS));
+        const tables = page.getByTestId('doc').locator('table');
+        await expect(tables).toHaveCount(3);
+
+        // act
+        const gaps = await tables.evaluateAll((found) => found.map((el) => {
+            const text = el.parentElement.previousElementSibling;
+            const style = getComputedStyle(text);
+            const line = text.getBoundingClientRect();
+            const box = el.getBoundingClientRect();
+            return {
+                left: Math.abs(Math.round(box.left - line.left - parseFloat(style.paddingLeft))),
+                right: Math.abs(Math.round(line.right - parseFloat(style.paddingRight) - box.right)),
+            };
+        }));
+
+        // assert
+        expect(gaps).toEqual([{left: 0, right: 0}, {left: 0, right: 0}, {left: 0, right: 0}]);
+    });
+
+    test('a two-digit number of a list or of a footnote stays inside the left edge of the text', async ({page}) => {
+        // arrange
+        const numbers = Array.from({length: 12}, (_, index) => index + 1);
+        const items = numbers.map((number) => `${number}. Step`).join('\n');
+        const refs = numbers.map((number) => `Note[^${number}].`).join(' ');
+        const notes = numbers.map((number) => `[^${number}]: Footnote.`).join('\n');
+        writeFixture(EMPHASIS, `# List\n\nPlain text. ${refs}\n\n${items}\n\n${notes}\n`);
         await page.goto(routes.doc(EMPHASIS));
         const doc = page.getByTestId('doc');
+        const markerLeft = (el) => {
+            const style = getComputedStyle(el);
+            const context = document.createElement('canvas').getContext('2d');
+            context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+            return el.getBoundingClientRect().left - context.measureText('12. ').width;
+        };
 
         // act
         const text = await doc.locator('p').first().evaluate((el) => {
@@ -1003,16 +1036,26 @@ test.describe('reading', () => {
             range.selectNodeContents(el);
             return range.getBoundingClientRect().left;
         });
-        const marker = await doc.locator('ol > li').last().evaluate((el) => {
-            const context = document.createElement('canvas').getContext('2d');
-            context.font = getComputedStyle(el).font;
-            return el.getBoundingClientRect().left - context.measureText('12. ').width;
-        });
+        const list = await doc.locator('ol').first().locator(':scope > li').last().evaluate(markerLeft);
+        const footnote = await doc.locator('section.footnotes li').last().evaluate(markerLeft);
 
         // assert
-        expect(marker).toBeGreaterThanOrEqual(text);
+        expect(list).toBeGreaterThanOrEqual(text);
+        expect(footnote).toBeGreaterThanOrEqual(text);
+    });
 
-        removeFixture(EMPHASIS);
+    test('a task box of a numbered list sits where one of a bulleted list does', async ({page}) => {
+        // arrange
+        writeFixture(EMPHASIS, '# Tasks\n\n- [ ] Bulleted\n\n1. [ ] Numbered\n');
+        await page.goto(routes.doc(EMPHASIS));
+        const boxes = page.getByTestId('doc').locator('input[type=checkbox]');
+        await expect(boxes).toHaveCount(2);
+
+        // act
+        const [bulleted, numbered] = await boxes.evaluateAll((found) => found.map((el) => el.getBoundingClientRect().left));
+
+        // assert
+        expect(Math.abs(numbered - bulleted)).toBeLessThanOrEqual(0.5);
     });
 
     test('a diagram label sits in the middle of its box', async ({page}) => {

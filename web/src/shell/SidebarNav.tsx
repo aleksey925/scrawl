@@ -489,7 +489,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
     [actions, canDrop, endDrag],
   );
 
-  const onFile = currentPath !== '' && !isMarkdown(currentPath) && !isDirectoryPath(location.pathname);
+  const onFile = !isMarkdown(currentPath) && !isDirectoryPath(location.pathname);
   const currentRow = onFile ? parentOf(currentPath) : currentPath;
 
   const ui = useMemo<TreeUi>(

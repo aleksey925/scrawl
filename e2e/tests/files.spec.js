@@ -2307,6 +2307,7 @@ test.describe.serial('file management', () => {
 });
 
 const PAGES = 'e2e-file-pages';
+const ROOT_CODE = 'e2e-file-pages-root.py';
 const PIXEL = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
     'base64',
@@ -2323,6 +2324,7 @@ test.describe('file pages', () => {
         writeFixture(`${PAGES}/wide.svg`, '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="10"></svg>\n');
         writeFixture(`${PAGES}/big.svg`, '<svg xmlns="http://www.w3.org/2000/svg" width="3000" height="2000"><rect width="3000" height="2000" fill="teal"/></svg>\n');
         writeFixture(`${PAGES}/code.py`, CODE);
+        writeFixture(ROOT_CODE, CODE);
         writeFixture(`${PAGES}/blob.bin`, Buffer.from([0, 1, 2, 3]));
         writeFixture(`${PAGES}/links.md`, '# Links\n\n[the code](code.py) and [the folder](../e2e-file-pages)\n');
     });
@@ -2333,6 +2335,7 @@ test.describe('file pages', () => {
 
     test.afterAll(() => {
         removeFixture(PAGES);
+        removeFixture(ROOT_CODE);
     });
 
     test('a picture row opens its page, and a click opens the viewer', async ({page}) => {
@@ -2479,24 +2482,50 @@ test.describe('file pages', () => {
         await shot(page, 'files-text-page');
     });
 
-    test('a text file runs the width of the room whatever the page width', async ({page}) => {
+    test('a text file and a folder list run the width of the room, a picture and another file the width of a note, whatever the page width', async ({page}) => {
         // arrange
-        const room = page.viewportSize().width - 240;
+        const room = page.viewportSize().width - 240 - 2 * 96;
+        const columns = {
+            text: [routes.doc(`${PAGES}/code.py`), page.getByTestId('file-title')],
+            picture: [routes.doc(`${PAGES}/pic.png`), page.getByTestId('file-title')],
+            other: [routes.doc(`${PAGES}/blob.bin`), page.getByTestId('file-title')],
+            folder: [routes.dir(PAGES), page.getByTestId('dir-title').locator('..')],
+        };
+        const widths = {};
+        await page.goto(routes.dir(PAGES));
 
         // act
-        await page.goto(routes.doc(`${PAGES}/code.py`));
+        for (const picked of ['normal', 'wide', 'full']) {
+            await page.evaluate((value) => localStorage.setItem('scrawl.page.width', value), picked);
+            for (const [kind, [url, column]] of Object.entries(columns)) {
+                await page.goto(url);
+                await expect(page.locator('html')).toHaveAttribute('data-page-width', picked);
+                widths[`${picked} ${kind}`] = Math.round((await column.boundingBox()).width);
+            }
+        }
 
         // assert
-        await expect(page.locator('html')).toHaveAttribute('data-page-width', 'normal');
-        expect(Math.round((await page.getByTestId('file-code').boundingBox()).width)).toBe(room - 2 * 96);
+        expect(widths).toEqual({
+            'normal text': room, 'normal picture': 720, 'normal other': 720, 'normal folder': room,
+            'wide text': room, 'wide picture': 960, 'wide other': 960, 'wide folder': room,
+            'full text': room, 'full picture': room, 'full other': room, 'full folder': room,
+        });
     });
 
-    test('the folder of an open text file is the current row of the tree', async ({page}) => {
+    test('the folder of an open picture or text file is the current row of the tree, and a file at the root marks none', async ({page}) => {
+        // arrange
+        const current = {};
+
         // act
-        await page.goto(routes.doc(`${PAGES}/code.py`));
+        for (const path of [`${PAGES}/code.py`, `${PAGES}/pic.png`, ROOT_CODE]) {
+            await page.goto(routes.doc(path));
+            await expect(page.locator(`[data-testid=tree-row][data-path="${PAGES}"]`)).toBeVisible();
+            current[path] = await page.locator('[data-testid=tree-row][data-current="true"]').evaluateAll((rows) => rows.map((row) => row.dataset.path));
+        }
 
         // assert
-        await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveAttribute('data-path', PAGES);
+        expect(current).toEqual({[`${PAGES}/code.py`]: [PAGES], [`${PAGES}/pic.png`]: [PAGES], [ROOT_CODE]: []});
+        await page.goto(routes.doc(`${PAGES}/code.py`));
         await expect(page.locator(`[data-testid=tree-row][data-path="${PAGES}"] [data-testid=tree-link]`)).not.toHaveAttribute('aria-current');
     });
 

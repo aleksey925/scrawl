@@ -3,7 +3,7 @@ import { useRef, type ComponentPropsWithoutRef, type JSX, type ReactNode } from 
 import classes from './Page.module.css';
 import { useScreenEnter } from './screenMotion';
 
-export type PageVariant = 'note' | 'list' | 'text';
+type PageVariant = 'note' | 'list' | 'text';
 
 export interface PageProps extends ComponentPropsWithoutRef<'div'> {
   variant?: PageVariant;

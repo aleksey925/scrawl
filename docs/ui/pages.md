@@ -18,7 +18,7 @@ opens over them.
   has no reading line to keep short and long names need the room. A text file
   that is not a note takes the same width, as its editor takes the whole room:
   code has long lines and no reading line either. The page's left edge moves
-  between a note and a folder, and that is accepted.
+  between a note and a folder or a text file, and that is accepted.
 - The topbar heads the page's column: the path at its left, the space first and
   the page's file or folder name last, `notes / deep / nested.md`, and the
   page's actions at its right. The last crumb is the name and not a note's
@@ -113,11 +113,14 @@ opens over them.
   the left of the heading it hung outside the text with nothing to say what it
   did, and a phone had no room for it.
 - A quote's bar starts where the text of the note does, 2px in, like a rule,
-  and so does a table's border. At the page's edge they stuck out of the text's
-  line.
-- A numbered list keeps 2em for its numbers, as GitHub has it, and a bulleted
-  one 1.7em. A number ends where its item's text starts, so `10.` reaches
-  further left than `9.`, and in 1.7em it stuck out of the text's line.
+  and so does a table's border, which also ends 2px before the right edge of
+  the text. At the page's edge they stuck out of the text's line. In a list
+  item, a quote or a details block a table lines up with the text around it.
+- A numbered list keeps 2em for its numbers, as GitHub has it, and so do the
+  footnotes; a bulleted list keeps 1.7em. A number ends where its item's text
+  starts, so `10.` reaches further left than `9.`, and in 1.7em it stuck out of
+  the text's line. A three-digit number still reaches past that line, as on
+  GitHub. A task box sits at the same place in both kinds of list.
 - A block of code has a head row inside its box, the language at the left and
   Copy at the right, above the code and never a layer over it: a layer covered
   the end of a long first line. With a pointer Copy shows under it and under

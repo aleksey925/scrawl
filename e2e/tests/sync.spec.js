@@ -291,6 +291,38 @@ test.describe('sync state', () => {
         await expect(control(page)).toHaveAttribute('data-state', 'sent');
     });
 
+    test('a poll slower than its wait still lands', async ({page}) => {
+        // arrange
+        const me = await mockMe(page, {pushing: true});
+        await page.goto(WIKI.doc(DOC));
+        await expect(control(page)).toHaveAttribute('data-state', 'sending');
+
+        // act
+        me.delay(3_000);
+        me.set({pushing: false});
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'sent', {timeout: 10_000});
+    });
+
+    test('a poll that never answers does not stop the polling', async ({page}) => {
+        // arrange
+        await page.clock.install();
+        const me = await mockMe(page, {pushing: true});
+        await page.goto(WIKI.doc(DOC));
+        await expect(control(page)).toHaveAttribute('data-state', 'sending');
+        me.hangNext();
+        await page.clock.runFor(2_000);
+        await expect.poll(() => me.hung()).toBe(1);
+        me.set({pushing: false});
+
+        // act
+        await page.clock.runFor(32_000);
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'sent');
+    });
+
     test('a hidden tab does not poll, and polls at once when shown again', async ({page}) => {
         // arrange
         await page.clock.install();

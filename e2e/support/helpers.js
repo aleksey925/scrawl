@@ -271,6 +271,9 @@ async function mockMe(page, space, top = {}) {
     const times = [];
     let failing = false;
     let failed = 0;
+    let hanging = false;
+    let hung = 0;
+    let delayMs = 0;
     await page.route(/\/api\/me$/, async (route) => {
         times.push(Date.now());
         if (failing) {
@@ -279,6 +282,12 @@ async function mockMe(page, space, top = {}) {
             await route.abort();
             return;
         }
+        if (hanging) {
+            hanging = false;
+            hung += 1;
+            return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
         const res = await route.fetch();
         const body = await res.json();
         Object.assign(body, top);
@@ -295,6 +304,13 @@ async function mockMe(page, space, top = {}) {
             failing = true;
         },
         failed: () => failed,
+        hangNext: () => {
+            hanging = true;
+        },
+        hung: () => hung,
+        delay: (ms) => {
+            delayMs = ms;
+        },
     };
 }
 

@@ -95,13 +95,14 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   `pushing`, every 5 while `retrying`, every 60 otherwise, and only from a
   visible tab. So a push that fails reaches the control and the banner in
   seconds and not at the next minute's poll, and one failed poll cannot stop
-  the fast ones, which a second timer armed by a new answer did. A request that
-  never answers is dropped by the next tick, which a timer armed only by an
-  answer would wait on forever. The pull loop, a webhook and `Reconcile` do not
-  set `pushing`: they are no change of the person's, and a periodic pull would
-  spin the control every few minutes. A push that never ran because the server
-  stopped is not lost: the commit stays, the startup sync pushes it, and when
-  that fails too the retry carries on.
+  the fast ones, which a second timer armed by a new answer did. A tick skips
+  while a request is still on its way, so an answer slower than the interval
+  still lands, and each request gives up after 30 seconds, so one that never
+  answers ends and the ticks go on. The pull loop, a webhook and `Reconcile` do
+  not set `pushing`: they are no change of the person's, and a periodic pull
+  would spin the control every few minutes. A push that never ran because the
+  server stopped is not lost: the commit stays, the startup sync pushes it, and
+  when that fails too the retry carries on.
 - A push that failed is tried again by the same loop, about a minute after its
   last attempt, until it goes through, with no write needed: with `pull: 0` and
   no more saves the commit stayed in this copy for days. The loop has a ticker
@@ -171,14 +172,15 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   only be refreshed by refetching the tree, which is a full store walk per tick
   per open tab.
 - One alert, titled by precedence - `degraded > merge > fetch > push` - and
-  carrying every active fact with its own reason. At most two are true at once,
-  one from each family. `syncMessage` writes these words, and the banner and
-  the popover of the topbar control both render it. Its live region is always
-  on the page, empty or not, and polite: a region put in together with its text
-  is not reliably read out. A note's unsynced badge is an `aria-hidden` icon
-  with its meaning in hidden text beside it, because a tooltip on an `<svg>`
-  never opens on keyboard focus and an `aria-label` on an element with no role
-  is not reliably read.
+  carrying every active fact with its own reason. Up to three are true at once:
+  `degraded`, a divergence kept from an earlier sync, and the stage the last
+  attempt failed at. `syncMessage` writes these words, and the banner and the
+  popover of the topbar control both render it. Its live region is always on
+  the page, empty or not, and polite: a region put in together with its text is
+  not reliably read out. A note's unsynced badge is an `aria-hidden` icon with
+  its meaning in hidden text beside it, because a tooltip on an `<svg>` never
+  opens on keyboard focus and an `aria-label` on an element with no role is not
+  reliably read.
 - A push the remote refuses for want of a credential gets its own words and no
   git reason. A public repository clones with no token and takes no push
   without one, and git says that as "could not read Username, terminal prompts

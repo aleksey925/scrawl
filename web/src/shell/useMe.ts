@@ -6,6 +6,7 @@ import type { MeResponse } from '../api/types';
 const meRefreshMs = 60_000;
 const pushPollMs = 2_000;
 const retryPollMs = 5_000;
+const meTimeoutMs = 30_000;
 
 export interface MeState {
   me: MeResponse | undefined;
@@ -25,6 +26,7 @@ export function useMe(): MeState {
     inFlight.current?.abort();
     const controller = new AbortController();
     inFlight.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), meTimeoutMs);
 
     api
       .me({ signal: controller.signal, background })
@@ -36,6 +38,10 @@ export function useMe(): MeState {
       .catch(() => {
       })
       .finally(() => {
+        window.clearTimeout(timeout);
+        if (inFlight.current === controller) {
+          inFlight.current = undefined;
+        }
         if (generation.current === mine) {
           setAnswers((seen) => seen + 1);
         }
@@ -63,7 +69,7 @@ export function useMe(): MeState {
   const wait = pollAfter(me);
   useEffect(() => {
     const timer = window.setInterval(() => {
-      if (!document.hidden) {
+      if (!document.hidden && inFlight.current === undefined) {
         load(true);
       }
     }, wait);

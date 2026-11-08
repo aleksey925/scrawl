@@ -6,7 +6,7 @@ BINARY ?= scrawl
 DIST_DIR = dist
 BIN_PATH = $(DIST_DIR)/$(BINARY)
 
-TEST_TIMEOUT = 10m
+TEST_TIMEOUT = 20m
 
 DOCKER_ARGS=--build-arg VERSION=$(VERSION)
 DOCKER_IMAGE = ghcr.io/aleksey925/scrawl

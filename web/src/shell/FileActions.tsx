@@ -94,7 +94,7 @@ async function stampAt(path: string): Promise<string | undefined> {
   return found === undefined ? undefined : stampOf(found);
 }
 
-async function recordedStamp(path: string): Promise<string | undefined> {
+async function stampOrUnknown(path: string): Promise<string | undefined> {
   try {
     return await stampAt(path);
   } catch {
@@ -410,7 +410,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
           async (pair) => !back || stillMarked(mark, pair),
           back ? undefined : (path) => {
             mark.targets.push(path);
-            mark.stamps.set(path, recordedStamp(path));
+            mark.stamps.set(path, stampOrUnknown(path));
           },
         );
         const words = back ? failedMoveWords.back : failedMoveWords.forward;

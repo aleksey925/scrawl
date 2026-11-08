@@ -16,6 +16,7 @@ const ANCHORS = 'e2e-anchors.md';
 const ANCHOR_SOURCE = 'e2e-anchor-source.md';
 const OUTLINE = 'e2e-outline.md';
 const EMPHASIS = 'e2e-emphasis.md';
+const LAYOUT = 'e2e-layout.md';
 const DIAGRAM = 'e2e-diagram.md';
 const DIAGRAM_VIEWER = 'e2e-diagram-viewer.md';
 const LOOK = 'e2e-look.md';
@@ -71,6 +72,7 @@ test.describe('reading', () => {
     test.afterEach(() => {
         removeFixture(DIAGRAM_VIEWER);
         removeFixture(EMPHASIS);
+        removeFixture(LAYOUT);
         removeFixture(TALL);
         removeFixture(TALL_PICTURE);
         removeFixture(HEADINGS);
@@ -966,8 +968,8 @@ test.describe('reading', () => {
 
     test('a table runs from the left edge of the text to the right one', async ({page}) => {
         // arrange
-        writeFixture(EMPHASIS, '# Table\n\nPlain text.\n\n| A | B |\n| - | - |\n| 1 | 2 |\n');
-        await page.goto(routes.doc(EMPHASIS));
+        writeFixture(LAYOUT, '# Table\n\nPlain text.\n\n| A | B |\n| - | - |\n| 1 | 2 |\n');
+        await page.goto(routes.doc(LAYOUT));
         const doc = page.getByTestId('doc');
 
         // act
@@ -993,8 +995,8 @@ test.describe('reading', () => {
             `> Quote text.\n>\n${indent('> ')}`,
             `<details open><summary>More</summary>\n\nDetails text.\n\n${table}\n\n</details>`,
         ];
-        writeFixture(EMPHASIS, `${blocks.join('\n\n')}\n`);
-        await page.goto(routes.doc(EMPHASIS));
+        writeFixture(LAYOUT, `${blocks.join('\n\n')}\n`);
+        await page.goto(routes.doc(LAYOUT));
         const tables = page.getByTestId('doc').locator('table');
         await expect(tables).toHaveCount(3);
 
@@ -1017,11 +1019,11 @@ test.describe('reading', () => {
     test('a two-digit number of a list or of a footnote stays inside the left edge of the text', async ({page}) => {
         // arrange
         const numbers = Array.from({length: 12}, (_, index) => index + 1);
-        const items = numbers.map((number) => `${number}. Step`).join('\n');
-        const refs = numbers.map((number) => `Note[^${number}].`).join(' ');
-        const notes = numbers.map((number) => `[^${number}]: Footnote.`).join('\n');
-        writeFixture(EMPHASIS, `# List\n\nPlain text. ${refs}\n\n${items}\n\n${notes}\n`);
-        await page.goto(routes.doc(EMPHASIS));
+        const items = numbers.map((n) => `${n}. Step`).join('\n');
+        const refs = numbers.map((n) => `Note[^${n}].`).join(' ');
+        const notes = numbers.map((n) => `[^${n}]: Footnote.`).join('\n');
+        writeFixture(LAYOUT, `# List\n\nPlain text. ${refs}\n\n${items}\n\n${notes}\n`);
+        await page.goto(routes.doc(LAYOUT));
         const doc = page.getByTestId('doc');
         const markerLeft = (el) => {
             const probe = document.createElement('span');
@@ -1049,8 +1051,8 @@ test.describe('reading', () => {
 
     test('a task box of a numbered list sits where one of a bulleted list does', async ({page}) => {
         // arrange
-        writeFixture(EMPHASIS, '# Tasks\n\n- [ ] Bulleted\n\n1. [ ] Numbered\n');
-        await page.goto(routes.doc(EMPHASIS));
+        writeFixture(LAYOUT, '# Tasks\n\n- [ ] Bulleted\n\n1. [ ] Numbered\n');
+        await page.goto(routes.doc(LAYOUT));
         const boxes = page.getByTestId('doc').locator('input[type=checkbox]');
         await expect(boxes).toHaveCount(2);
 

@@ -91,7 +91,8 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   const unfolded = query !== '' ? filtered.forcedOpen.has(node.path) : isOpen(node.path);
   const open = empty ? drafting : unfolded;
   const folderOpen = empty ? isOpen(node.path) || drafting : unfolded;
-  const current = node.path === currentPath;
+  const shown = node.path === currentPath;
+  const marked = node.path === ui.currentRow;
   const picked = ui.selected.has(node.path);
   const over = ui.dropTarget === node.path;
 
@@ -103,7 +104,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
         <div
           data-testid="tree-row"
           className={RowMenu === undefined ? treeClasses.row : `${treeClasses.row} ${treeClasses.pressable}`}
-          data-current={node.path === ui.currentRow ? 'true' : 'false'}
+          data-current={marked ? 'true' : 'false'}
           data-selected={picked ? 'true' : 'false'}
           data-drop={over ? 'true' : 'false'}
           data-dir={node.is_dir ? 'true' : 'false'}
@@ -141,14 +142,14 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
             to={node.url}
             underline="never"
             draggable={false}
-            aria-current={current ? 'page' : undefined}
+            aria-current={shown ? 'page' : undefined}
             className={treeClasses.label}
             onClick={(event: MouseEvent) => {
               ui.pick(node.path, event);
               if (!node.is_dir || query !== '' || event.defaultPrevented || event.metaKey || event.ctrlKey) {
                 return;
               }
-              if (current) {
+              if (shown) {
                 event.preventDefault();
                 toggleFolder(node.path);
                 return;

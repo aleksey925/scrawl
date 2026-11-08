@@ -2485,7 +2485,7 @@ test.describe('file pages', () => {
     test('a text file and a folder list run the width of the room, a picture and another file the width of a note, whatever the page width', async ({page}) => {
         // arrange
         const room = page.viewportSize().width - 240 - 2 * 96;
-        const columns = {
+        const targets = {
             text: [routes.doc(`${PAGES}/code.py`), page.getByTestId('file-title')],
             picture: [routes.doc(`${PAGES}/pic.png`), page.getByTestId('file-title')],
             other: [routes.doc(`${PAGES}/blob.bin`), page.getByTestId('file-title')],
@@ -2497,7 +2497,7 @@ test.describe('file pages', () => {
         // act
         for (const picked of ['normal', 'wide', 'full']) {
             await page.evaluate((value) => localStorage.setItem('scrawl.page.width', value), picked);
-            for (const [kind, [url, column]] of Object.entries(columns)) {
+            for (const [kind, [url, column]] of Object.entries(targets)) {
                 await page.goto(url);
                 await expect(page.locator('html')).toHaveAttribute('data-page-width', picked);
                 widths[`${picked} ${kind}`] = Math.round((await column.boundingBox()).width);
@@ -2514,19 +2514,20 @@ test.describe('file pages', () => {
 
     test('the folder of an open picture or text file is the current row of the tree, and a file at the root marks none', async ({page}) => {
         // arrange
-        const current = {};
+        const marked = {};
+        const shown = {};
 
         // act
         for (const path of [`${PAGES}/code.py`, `${PAGES}/pic.png`, ROOT_CODE]) {
             await page.goto(routes.doc(path));
             await expect(page.locator(`[data-testid=tree-row][data-path="${PAGES}"]`)).toBeVisible();
-            current[path] = await page.locator('[data-testid=tree-row][data-current="true"]').evaluateAll((rows) => rows.map((row) => row.dataset.path));
+            marked[path] = await page.locator('[data-testid=tree-row][data-current="true"]').evaluateAll((found) => found.map((el) => el.dataset.path));
+            shown[path] = await page.locator('[data-testid=tree-link][aria-current]').count();
         }
 
         // assert
-        expect(current).toEqual({[`${PAGES}/code.py`]: [PAGES], [`${PAGES}/pic.png`]: [PAGES], [ROOT_CODE]: []});
-        await page.goto(routes.doc(`${PAGES}/code.py`));
-        await expect(page.locator(`[data-testid=tree-row][data-path="${PAGES}"] [data-testid=tree-link]`)).not.toHaveAttribute('aria-current');
+        expect(marked).toEqual({[`${PAGES}/code.py`]: [PAGES], [`${PAGES}/pic.png`]: [PAGES], [ROOT_CODE]: []});
+        expect(shown).toEqual({[`${PAGES}/code.py`]: 0, [`${PAGES}/pic.png`]: 0, [ROOT_CODE]: 0});
     });
 
     test('a note opened from a text file takes the current mark off its folder', async ({page}) => {
@@ -2554,7 +2555,7 @@ test.describe('file pages', () => {
 
         // assert
         await expect(links).toHaveAttribute('data-selected', 'true');
-        expect(await page.locator('[data-testid=tree-row][data-selected="true"]').evaluateAll((rows) => rows.map((row) => row.dataset.path)))
+        expect(await page.locator('[data-testid=tree-row][data-selected="true"]').evaluateAll((found) => found.map((el) => el.dataset.path)))
             .toEqual([PAGES, `${PAGES}/links.md`]);
     });
 

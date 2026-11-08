@@ -1098,3 +1098,30 @@ func TestAPIMeSaysARetryIsDue(t *testing.T) {
 	assert.Equal(t, true, space["retrying"])
 	assert.Equal(t, false, space["pushing"])
 }
+
+type pushEndingOnRead struct {
+	*fakeHistory
+	pushing bool
+}
+
+func (p *pushEndingOnRead) Pushing() bool { return p.pushing }
+
+func (p *pushEndingOnRead) SyncState() history.SyncState {
+	state := p.fakeHistory.SyncState()
+	p.unpublished, p.syncErr, p.retrying = true, "push: the remote is down", true
+	p.pushing = false
+	return state
+}
+
+func TestAPIMeNeverPairsAnOldStateWithAPushThatEnded(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{history: &pushEndingOnRead{fakeHistory: &fakeHistory{}, pushing: true}})
+
+	// act
+	_, body := ts.json(t, request{path: "/api/me"})
+
+	// assert
+	space, ok := body["space"].(map[string]any)
+	require.True(t, ok, body)
+	assert.Equal(t, true, space["pushing"], "a clean state read while the push ran must still say it runs")
+}

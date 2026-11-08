@@ -98,11 +98,14 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   the fast ones, which a second timer armed by a new answer did. A tick skips
   while a request is still on its way, so an answer slower than the interval
   still lands, and each request gives up after 30 seconds, so one that never
-  answers ends and the ticks go on. The pull loop, a webhook and `Reconcile` do
-  not set `pushing`: they are no change of the person's, and a periodic pull
-  would spin the control every few minutes. A push that never ran because the
-  server stopped is not lost: the commit stays, the startup sync pushes it, and
-  when that fails too the retry carries on.
+  answers ends and the ticks go on. `/api/me` reads `pushing` before the state:
+  a push stores its result and only then clears `pushing`, so the other order
+  can pair the state from before a failed push with `pushing` off and show it
+  as sent. The pull loop, a webhook and `Reconcile` do not set `pushing`: they
+  are no change of the person's, and a periodic pull would spin the control
+  every few minutes. A push that never ran because the server stopped is not
+  lost: the commit stays, the startup sync pushes it, and when that fails too
+  the retry carries on.
 - A push that failed is tried again by the same loop, about a minute after its
   last attempt, until it goes through, with no write needed: with `pull: 0` and
   no more saves the commit stayed in this copy for days. The loop has a ticker

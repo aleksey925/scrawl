@@ -14,10 +14,7 @@ import type { SyncStatus } from './syncMessage';
 
 const thisNote = 'This note has not reached the remote';
 
-const calmText: Partial<Record<SyncStatus['state'], string>> = {
-  sending: 'Sending changes to the remote.',
-  sent: 'All changes sent. Everything saved here is on the remote too.',
-};
+const spinnerInset = 4;
 
 interface SyncSummary {
   status: SyncStatus;
@@ -41,7 +38,7 @@ function SyncIcon({ state, size }: { state: SyncStatus['state']; size: number })
       return reduceMotion ? (
         <IconCloudUp data-testid="sync-still" size={size} aria-hidden />
       ) : (
-        <Loader data-testid="sync-spinner" size={size - 4} color="var(--scrawl-text-secondary)" aria-hidden />
+        <Loader data-testid="sync-spinner" size={size - spinnerInset} color="var(--scrawl-text-secondary)" aria-hidden />
       );
     case 'sent':
       return <IconCloudCheck size={size} aria-hidden />;
@@ -54,8 +51,7 @@ function SyncIcon({ state, size }: { state: SyncStatus['state']; size: number })
 
 function SyncDetails({ summary, onLeave }: { summary: SyncSummary; onLeave: () => void }): JSX.Element {
   const { sync, me } = useNav();
-  const { state, name } = summary.status;
-  const calm = calmText[state];
+  const { name, detail } = summary.status;
   const paths = me?.space.unsynced.paths ?? [];
 
   return (
@@ -63,13 +59,13 @@ function SyncDetails({ summary, onLeave }: { summary: SyncSummary; onLeave: () =
       <Text size="sm" fw={500}>
         {name}
       </Text>
-      {calm !== undefined && <Text size="sm">{calm}</Text>}
+      {detail !== undefined && <Text size="sm">{detail}</Text>}
       {summary.here && (
         <Text data-testid="sync-popover-here" size="sm">
           {thisNote}.
         </Text>
       )}
-      {calm === undefined &&
+      {detail === undefined &&
         sync?.facts.map((entry) => (
           <Stack key={entry.kind} gap={4}>
             <Text size="sm">{entry.body}</Text>
@@ -106,7 +102,7 @@ export function SyncControl(): JSX.Element | null {
     return null;
   }
   const { state, name } = summary.status;
-  const calm = calmText[state] !== undefined;
+  const calm = summary.status.detail !== undefined;
   const color = calm ? 'var(--scrawl-text-secondary)' : 'var(--scrawl-color-orange)';
   const shared = {
     'data-testid': 'sync-control',

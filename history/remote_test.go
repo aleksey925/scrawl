@@ -642,20 +642,14 @@ func TestABrowserWriteIsPushedByTheLoopAfterTheRecordReturns(t *testing.T) {
 	headAfterRecord := headOf(t, bare)
 	queued := len(svc.pushes)
 	pushingAfterRecord := svc.Pushing()
-	ctx, cancel := context.WithCancel(t.Context())
-	stopped := make(chan struct{})
-	go func() {
-		defer close(stopped)
-		svc.PushLoop(ctx)
-	}()
+	stop := runPushLoop(t, svc)
 
 	// assert
 	assert.Equal(t, before, headAfterRecord, "the record committed and left the push to the loop")
 	assert.Equal(t, 1, queued)
 	assert.True(t, pushingAfterRecord)
 	require.Eventually(t, func() bool { return !svc.Pushing() }, 10*time.Second, 20*time.Millisecond)
-	cancel()
-	<-stopped
+	stop()
 	assert.False(t, svc.Unpublished())
 	assert.Equal(t, localHead(t, dir), headOf(t, bare))
 }
@@ -726,6 +720,11 @@ func runPushLoop(t *testing.T, svc *Service, afterCancel ...func()) func() {
 	}
 }
 
+func waitForSync(t *testing.T, svc *Service) {
+	t.Helper()
+	require.Eventually(t, func() bool { return svc.SyncError() == "" }, 10*time.Second, 20*time.Millisecond)
+}
+
 func waitForHit(t *testing.T, hit <-chan struct{}) {
 	t.Helper()
 	select {
@@ -776,7 +775,7 @@ func TestThePushLoopRetriesAFailedPushOnItsOwn(t *testing.T) {
 
 	// act
 	stop := runPushLoop(t, svc)
-	require.Eventually(t, func() bool { return svc.SyncError() == "" }, 10*time.Second, 20*time.Millisecond)
+	waitForSync(t, svc)
 	stop()
 
 	// assert
@@ -804,7 +803,7 @@ func TestARestartOfflineStillRetries(t *testing.T) {
 	require.True(t, offline.Retrying)
 	require.NoError(t, os.Rename(away, bare))
 	stop := runPushLoop(t, svc)
-	require.Eventually(t, func() bool { return svc.SyncError() == "" }, 10*time.Second, 20*time.Millisecond)
+	waitForSync(t, svc)
 	stop()
 
 	// assert
@@ -913,7 +912,7 @@ func TestTheLoopRetriesAWriteWhosePushFailed(t *testing.T) {
 		func() ([]string, error) { return nil, nil }))
 	require.Eventually(t, func() bool { return svc.SyncState().Retrying }, 10*time.Second, 10*time.Millisecond)
 	fixRemote(t, dir, bare)
-	require.Eventually(t, func() bool { return svc.SyncError() == "" }, 10*time.Second, 20*time.Millisecond)
+	waitForSync(t, svc)
 	stop()
 
 	// assert

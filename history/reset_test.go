@@ -179,7 +179,7 @@ func TestCheckDivergence(t *testing.T) {
 		// assert
 		require.Error(t, err)
 		require.NotErrorIs(t, err, ErrNotDiverged)
-		assert.Contains(t, svc.SyncError(), "fetch:")
+		assert.Contains(t, svc.SyncState().Error, "fetch:")
 	})
 
 	t.Run("answers that a space in step has nothing to reset", func(t *testing.T) {
@@ -436,9 +436,9 @@ func TestAResetRefusesASaveMadeDuringTheBackupPush(t *testing.T) {
 	writeFile(t, dir, "more.md", "# More\n")
 
 	// act
-	saveErr := within(t, answerLimit, saveAsync(t.Context(), svc, "more.md", false))
+	saveErr := waitFor(t, saveAsync(t.Context(), svc, "more.md", false), answerLimit)
 	release()
-	resetErr := within(t, answerLimit, reset)
+	resetErr := waitFor(t, reset, answerLimit)
 
 	// assert
 	require.NoError(t, saveErr)

@@ -18,6 +18,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	answerLimit   = 5 * time.Second
+	canceledLimit = gitWaitDelay + 2*time.Second
+)
+
 func bareRemote(t *testing.T) string {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
@@ -196,7 +201,7 @@ func TestSyncFastForwardsAndPushes(t *testing.T) {
 
 	// assert
 	assert.False(t, svc.Unpublished(), "the sync pushed what the reconcile committed")
-	assert.Empty(t, svc.SyncError())
+	assert.Empty(t, svc.SyncState().Error)
 	assert.Contains(t, gitIn(t, bare, "ls-tree", "--name-only", initialBranch), "local.md")
 }
 
@@ -213,7 +218,7 @@ func TestSyncMergesWhatTheRemoteGained(t *testing.T) {
 	// assert
 	assert.FileExists(t, filepath.Join(dir, "upstream.md"))
 	assert.False(t, svc.Unpublished())
-	assert.Empty(t, svc.SyncError())
+	assert.Empty(t, svc.SyncState().Error)
 }
 
 func TestAFailedPushSurvivesASaveThatStagesNothing(t *testing.T) {
@@ -238,7 +243,7 @@ func TestAFailedPushSurvivesASaveThatStagesNothing(t *testing.T) {
 	assert.True(t, unpublishedAfterPush)
 	assert.False(t, svc.Degraded(), "the commit landed, so the commit state is healthy")
 	assert.True(t, svc.Unpublished(), "the remote is still behind")
-	assert.Contains(t, svc.SyncError(), "push:")
+	assert.Contains(t, svc.SyncState().Error, "push:")
 }
 
 func TestUnpublishedIsMeasuredNotRemembered(t *testing.T) {
@@ -282,7 +287,7 @@ func TestADivergedBranchIsLoudAndNeverPushed(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "merge")
 	assert.True(t, svc.Unpublished())
-	assert.Contains(t, svc.SyncError(), "diverged")
+	assert.Contains(t, svc.SyncState().Error, "diverged")
 	assert.True(t, svc.SyncState().Diverged)
 	assert.Equal(t, before, headOf(t, bare), "nothing was pushed over the divergence")
 }
@@ -319,7 +324,7 @@ func TestPullOnlyNeverWritesToGit(t *testing.T) {
 
 	// assert
 	assert.FileExists(t, filepath.Join(dir, "upstream.md"), "a fast forward still lands")
-	assert.Empty(t, svc.SyncError(), "a pull-only run clears after the merge, with no push to wait for")
+	assert.Empty(t, svc.SyncState().Error, "a pull-only run clears after the merge, with no push to wait for")
 	assert.Equal(t, before, headOf(t, bare), "nothing was pushed")
 	assert.NotContains(t, gitIn(t, bare, "ls-tree", "--name-only", initialBranch), "local.md")
 }
@@ -340,7 +345,7 @@ func TestPullOnlyNeverReconciles(t *testing.T) {
 	assert.Equal(t, before, localHead(t, dir), "nothing was committed")
 	assert.NotContains(t, gitIn(t, dir, "ls-files"), "over-smb.md")
 	assert.False(t, svc.Unpublished(), "a clone that commits nothing is never ahead of its origin")
-	assert.Empty(t, svc.SyncError())
+	assert.Empty(t, svc.SyncState().Error)
 }
 
 func TestProbeWritable(t *testing.T) {
@@ -366,7 +371,7 @@ func TestALocalServiceHasNoPublicationState(t *testing.T) {
 	// act & assert
 	assert.False(t, svc.Remote())
 	assert.False(t, svc.Unpublished())
-	assert.Empty(t, svc.SyncError())
+	assert.Empty(t, svc.SyncState().Error)
 	assert.NoError(t, svc.Sync(t.Context()))
 	assert.NoError(t, svc.ProbeWritable(t.Context()))
 }
@@ -378,7 +383,7 @@ func TestANilServiceAnswersThePublicationState(t *testing.T) {
 	// act & assert
 	assert.False(t, svc.Remote())
 	assert.False(t, svc.Unpublished())
-	assert.Empty(t, svc.SyncError())
+	assert.Empty(t, svc.SyncState().Error)
 	assert.NoError(t, svc.Sync(t.Context()))
 	assert.NoError(t, svc.ProbeWritable(t.Context()))
 }
@@ -538,7 +543,7 @@ func TestSyncStateIsOneLoad(t *testing.T) {
 
 	// assert
 	assert.Equal(t, state.Unpublished, svc.Unpublished())
-	assert.Equal(t, state.Error, svc.SyncError())
+	assert.Equal(t, state.Error, svc.SyncState().Error)
 	assert.Equal(t, []string{"mine.md"}, state.Unsynced.Paths)
 }
 
@@ -701,7 +706,6 @@ func TestAWriteThatCommitsNothingMarksNoPush(t *testing.T) {
 
 func TestATokenWritePushesInsideTheRecordAndLeavesTheMark(t *testing.T) {
 	// arrange
-
 	bare := bareRemote(t)
 	dir := cloneOf(t, bare)
 	svc := remoteService(t, dir, bare)
@@ -732,11 +736,7 @@ func TestThePushLoopDoesNothingForAPullOnlySpace(t *testing.T) {
 	}()
 
 	// assert
-	select {
-	case <-returned:
-	case <-time.After(5 * time.Second):
-		require.FailNow(t, "the loop kept running")
-	}
+	waitFor(t, returned, answerLimit)
 }
 
 func runPushLoop(t *testing.T, svc *Service) func() {
@@ -749,22 +749,18 @@ func runPushLoop(t *testing.T, svc *Service) func() {
 	}()
 	return func() {
 		cancel()
-		within(t, answerLimit, stopped)
+		waitFor(t, stopped, answerLimit)
 	}
 }
 
 func waitForSync(t *testing.T, svc *Service) {
 	t.Helper()
-	require.Eventually(t, func() bool { return svc.SyncError() == "" }, 10*time.Second, 20*time.Millisecond)
+	require.Eventually(t, func() bool { return svc.SyncState().Error == "" }, 10*time.Second, 20*time.Millisecond)
 }
 
 func waitForHit(t *testing.T, hit <-chan struct{}) {
 	t.Helper()
-	select {
-	case <-hit:
-	case <-time.After(10 * time.Second):
-		require.FailNow(t, "the remote was never asked")
-	}
+	waitFor(t, hit, 10*time.Second)
 }
 
 func failedPush(t *testing.T, dir string, svc *Service) {
@@ -852,7 +848,7 @@ func saveAsync(ctx context.Context, svc *Service, name string, strict bool) <-ch
 	return done
 }
 
-func within[T any](t *testing.T, limit time.Duration, ch <-chan T) T {
+func waitFor[T any](t *testing.T, ch <-chan T, limit time.Duration) T {
 	t.Helper()
 	select {
 	case res := <-ch:
@@ -980,7 +976,7 @@ func TestAFetchThatFailsForAnotherReasonDropsAPushRefusal(t *testing.T) {
 	gitIn(t, dir, "remote", "set-url", remoteName, originAnswering(http.StatusForbidden)(t))
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
 	require.Error(t, svc.pushNow(t.Context()))
-	require.True(t, strings.HasPrefix(svc.SyncError(), "push:"), svc.SyncError())
+	require.True(t, strings.HasPrefix(svc.SyncState().Error, "push:"), svc.SyncState().Error)
 	require.True(t, svc.SyncState().Refused)
 	breakRemote(t, dir)
 
@@ -1108,7 +1104,7 @@ func TestARetryKeepsTheMarkOfAWrite(t *testing.T) {
 
 			// assert
 			assert.Equal(t, marked, svc.SyncState().Pushing)
-			assert.True(t, strings.HasPrefix(svc.SyncError(), "fetch:"), svc.SyncError())
+			assert.True(t, strings.HasPrefix(svc.SyncState().Error, "fetch:"), svc.SyncState().Error)
 			assert.True(t, svc.SyncState().Retrying)
 		})
 	}
@@ -1133,11 +1129,6 @@ func TestACanceledRetryEndsSending(t *testing.T) {
 	assert.False(t, svc.SyncState().Pushing)
 }
 
-const (
-	answerLimit   = 5 * time.Second
-	canceledLimit = gitWaitDelay + 2*time.Second
-)
-
 func TestARecordDoesNotWaitForAStalledFetch(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
@@ -1152,13 +1143,13 @@ func TestARecordDoesNotWaitForAStalledFetch(t *testing.T) {
 	writeFile(t, dir, "local.md", "# Local\n")
 
 	// act
-	err := within(t, answerLimit, saveAsync(t.Context(), svc, "local.md", false))
+	err := waitFor(t, saveAsync(t.Context(), svc, "local.md", false), answerLimit)
 
 	// assert
 	require.NoError(t, err)
 	assert.NotEqual(t, before, localHead(t, dir))
 	release()
-	assert.Error(t, within(t, answerLimit, synced))
+	assert.Error(t, waitFor(t, synced, answerLimit))
 }
 
 func TestARecordDoesNotWaitForAStalledPush(t *testing.T) {
@@ -1171,12 +1162,12 @@ func TestARecordDoesNotWaitForAStalledPush(t *testing.T) {
 	svc.pushDelay = 10 * time.Millisecond
 	stop := runPushLoop(t, svc)
 	writeFile(t, dir, "first.md", "# First\n")
-	require.NoError(t, within(t, answerLimit, saveAsync(t.Context(), svc, "first.md", false)))
+	require.NoError(t, waitFor(t, saveAsync(t.Context(), svc, "first.md", false), answerLimit))
 	waitForHit(t, hit)
 	writeFile(t, dir, "second.md", "# Second\n")
 
 	// act
-	err := within(t, answerLimit, saveAsync(t.Context(), svc, "second.md", false))
+	err := waitFor(t, saveAsync(t.Context(), svc, "second.md", false), answerLimit)
 
 	// assert
 	require.NoError(t, err)
@@ -1200,10 +1191,10 @@ func TestATokenWriteWaitsForItsPushWithoutTheHistoryLock(t *testing.T) {
 	writeFile(t, dir, "browser.md", "# Browser\n")
 
 	// act
-	browserErr := within(t, answerLimit, saveAsync(t.Context(), svc, "browser.md", false))
+	browserErr := waitFor(t, saveAsync(t.Context(), svc, "browser.md", false), answerLimit)
 	strictDoneEarly := len(strict) > 0
 	release()
-	strictErr := within(t, answerLimit, strict)
+	strictErr := waitFor(t, strict, answerLimit)
 
 	// assert
 	require.NoError(t, browserErr)
@@ -1232,7 +1223,7 @@ func TestACanceledTokenWriteLeavesItsPushToTheLoop(t *testing.T) {
 
 	// act
 	cancel()
-	err := within(t, canceledLimit, strict)
+	err := waitFor(t, strict, canceledLimit)
 	release()
 
 	// assert
@@ -1251,16 +1242,16 @@ func TestAWriteDuringAPushStaysPushing(t *testing.T) {
 	gitIn(t, dir, "remote", "set-url", remoteName, origin)
 	svc.pushDelay = 0
 	writeFile(t, dir, "first.md", "# First\n")
-	require.NoError(t, within(t, answerLimit, saveAsync(t.Context(), svc, "first.md", false)))
+	require.NoError(t, waitFor(t, saveAsync(t.Context(), svc, "first.md", false), answerLimit))
 	pushed := make(chan bool, 1)
 	go func() { pushed <- svc.pushAfterDelay(t.Context()) }()
 	waitForHit(t, hit)
 	writeFile(t, dir, "second.md", "# Second\n")
 
 	// act
-	require.NoError(t, within(t, answerLimit, saveAsync(t.Context(), svc, "second.md", false)))
+	require.NoError(t, waitFor(t, saveAsync(t.Context(), svc, "second.md", false), answerLimit))
 	release()
-	ran := within(t, answerLimit, pushed)
+	ran := waitFor(t, pushed, answerLimit)
 
 	// assert
 	assert.True(t, ran)
@@ -1284,9 +1275,9 @@ func TestAWriteDuringASyncReadsAsPushing(t *testing.T) {
 	writeFile(t, dir, "second.md", "# Second\n")
 
 	// act
-	require.NoError(t, within(t, answerLimit, saveAsync(t.Context(), svc, "second.md", false)))
+	require.NoError(t, waitFor(t, saveAsync(t.Context(), svc, "second.md", false), answerLimit))
 	release()
-	err := within(t, answerLimit, synced)
+	err := waitFor(t, synced, answerLimit)
 
 	// assert
 	require.NoError(t, err)
@@ -1306,7 +1297,7 @@ func TestACallerCanceledWhileWaitingForTheNetworkLockRunsNothing(t *testing.T) {
 
 	// act
 	svc.netMu.Unlock()
-	err := within(t, answerLimit, locked)
+	err := waitFor(t, locked, answerLimit)
 
 	// assert
 	require.ErrorIs(t, err, context.Canceled)
@@ -1350,5 +1341,5 @@ func TestACanceledGitDoesNotWaitForItsHelper(t *testing.T) {
 	cancel()
 
 	// assert
-	assert.Error(t, within(t, canceledLimit, fetched))
+	assert.Error(t, waitFor(t, fetched, canceledLimit))
 }

@@ -55,7 +55,7 @@ func (s *Service) CheckDivergence(ctx context.Context) (Divergence, error) {
 	if err := s.lockNet(ctx); err != nil {
 		return Divergence{}, err
 	}
-	defer s.netMu.Unlock()
+	defer s.unlockNet()
 
 	if err := s.divergedNet(ctx); err != nil {
 		return Divergence{}, err
@@ -85,62 +85,69 @@ func (s *Service) ResetToRemote(ctx context.Context, op ResetOp) (ResetResult, e
 	if err := s.lockNet(ctx); err != nil {
 		return ResetResult{}, err
 	}
-	defer s.netMu.Unlock()
+	defer s.unlockNet()
 
 	if err := s.divergedNet(ctx); err != nil {
 		return ResetResult{}, err
 	}
-	head, remote, res, err := s.prepareReset(ctx, op)
+	plan, err := s.prepareReset(ctx, op)
 	if err != nil {
-		return res, err
+		return plan.res, err
 	}
-	if res.Backup != "" && op.PushBackup && !s.PullOnly() {
-		if pErr := s.pushBackup(ctx, res.Backup); pErr != nil {
-			return res, pErr
+	if plan.res.Backup != "" && op.PushBackup && s.pushable() {
+		if pErr := s.pushBackupNet(ctx, plan.res.Backup); pErr != nil {
+			return plan.res, pErr
 		}
-
-		res.BackupPushed = true
+		plan.res.BackupPushed = true
 	}
-	return res, s.finishReset(ctx, op.Actor, head, remote, res.Backup)
+	return plan.res, s.finishReset(ctx, op.Actor, plan)
 }
 
-func (s *Service) prepareReset(ctx context.Context, op ResetOp) (head, remote string, res ResetResult, err error) {
+type resetPlan struct {
+	head   string
+	remote string
+	res    ResetResult
+}
+
+func (s *Service) prepareReset(ctx context.Context, op ResetOp) (resetPlan, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if head, remote, err = s.tips(ctx); err != nil {
-		return "", "", res, fmt.Errorf("history: %w", err)
+	head, remote, err := s.tips(ctx)
+	if err != nil {
+		return resetPlan{}, fmt.Errorf("history: %w", err)
 	}
 	if head != op.Head || remote != op.Remote {
-		return "", "", res, fmt.Errorf("history: %w", ErrStateChanged)
+		return resetPlan{}, fmt.Errorf("history: %w", ErrStateChanged)
 	}
 	if head, err = s.snapshotLocked(ctx, op.Actor, head); err != nil {
-		return "", "", res, err
+		return resetPlan{}, err
 	}
+	plan := resetPlan{head: head, remote: remote}
 	if lost, mErr := s.trialMerge(ctx, head, remote); mErr != nil || !lost.clean() {
-		res, err = s.backupLocked(ctx, head)
+		plan.res, err = s.backupLocked(ctx, head)
 	}
-	return head, remote, res, err
+	return plan, err
 }
 
-func (s *Service) finishReset(ctx context.Context, actor, head, remote, backup string) error {
+func (s *Service) finishReset(ctx context.Context, actor string, plan resetPlan) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now, err := s.headCommit(ctx)
 	if err != nil {
 		return err
 	}
-	if now != head {
-		log.Printf("[WARN] %s: the reset stopped, a save came in while it ran, backup %q", s.tag(), backup)
+	if now != plan.head {
+		log.Printf("[WARN] %s: the reset stopped, a save came in while it ran, backup %q", s.tag(), plan.res.Backup)
 		return fmt.Errorf("history: %w", ErrStateChanged)
 	}
-	if moveErr := s.moveLocked(ctx, head, remote); moveErr != nil {
+	if moveErr := s.moveLocked(ctx, plan.head, plan.remote); moveErr != nil {
 		return moveErr
 	}
 
 	next := SyncState{}
 	s.measureLocked(ctx, &next)
 	s.publish(next)
-	log.Printf("[INFO] %s: reset to %s by %s, was %s, backup %q", s.tag(), remote, sanitizeActor(actor), head, backup)
+	log.Printf("[INFO] %s: reset to %s by %s, was %s, backup %q", s.tag(), plan.remote, sanitizeActor(actor), plan.head, plan.res.Backup)
 	return nil
 }
 
@@ -233,7 +240,7 @@ func (s *Service) backupLocked(ctx context.Context, head string) (ResetResult, e
 	return res, nil
 }
 
-func (s *Service) pushBackup(ctx context.Context, backup string) error {
+func (s *Service) pushBackupNet(ctx context.Context, backup string) error {
 	ref := "refs/heads/" + backup
 	if _, err := s.run(ctx, command{
 		args:    []string{"push", remoteName, ref + ":" + ref},

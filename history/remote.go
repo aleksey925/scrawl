@@ -128,6 +128,8 @@ func (s *Service) lockNet(ctx context.Context) error {
 	return nil
 }
 
+func (s *Service) unlockNet() { s.netMu.Unlock() }
+
 func (s *Service) pushable() bool { return s.cfg.Remote != nil && !s.cfg.Remote.PullOnly }
 
 func (s *Service) Sync(ctx context.Context) error {
@@ -137,7 +139,7 @@ func (s *Service) Sync(ctx context.Context) error {
 	if err := s.lockNet(ctx); err != nil {
 		return err
 	}
-	defer s.netMu.Unlock()
+	defer s.unlockNet()
 	return s.syncNet(ctx)
 }
 
@@ -220,9 +222,7 @@ func (s *Service) markPush() {
 	if !s.pushable() {
 		return
 	}
-	s.statusMu.Lock()
-	s.due = true
-	s.statusMu.Unlock()
+	s.setFlag(&s.due, true)
 	select {
 	case s.pushes <- struct{}{}:
 	default:
@@ -236,13 +236,13 @@ func (s *Service) pushNow(ctx context.Context) error {
 	if err := s.lockNet(ctx); err != nil {
 		return err
 	}
-	defer s.netMu.Unlock()
+	defer s.unlockNet()
 	return s.pushNet(ctx, s.SyncState())
 }
 
-func (s *Service) setSending(on bool) {
+func (s *Service) setFlag(flag *bool, on bool) {
 	s.statusMu.Lock()
-	s.sending = on
+	*flag = on
 	s.statusMu.Unlock()
 }
 
@@ -276,15 +276,14 @@ func (s *Service) pushAfterDelay(ctx context.Context) bool {
 	if s.lockNet(ctx) != nil {
 		return false
 	}
-	defer s.netMu.Unlock()
+	defer s.unlockNet()
 	select {
 	case <-s.pushes:
 	default:
 	}
-	s.statusMu.Lock()
-	s.due, s.sending = false, true
-	s.statusMu.Unlock()
-	defer s.setSending(false)
+	s.setFlag(&s.sending, true)
+	s.setFlag(&s.due, false)
+	defer s.setFlag(&s.sending, false)
 	_ = s.pushNet(ctx, s.SyncState())
 	return true
 }
@@ -293,12 +292,12 @@ func (s *Service) retryIfDue(ctx context.Context) {
 	if s.lockNet(ctx) != nil {
 		return
 	}
-	defer s.netMu.Unlock()
+	defer s.unlockNet()
 	if !s.SyncState().Retrying {
 		return
 	}
-	s.setSending(true)
-	defer s.setSending(false)
+	s.setFlag(&s.sending, true)
+	defer s.setFlag(&s.sending, false)
 	_ = s.syncNet(ctx)
 }
 
@@ -404,8 +403,6 @@ func (s *Service) SyncState() SyncState {
 }
 
 func (s *Service) Unpublished() bool { return s.SyncState().Unpublished }
-
-func (s *Service) SyncError() string { return s.SyncState().Error }
 
 func (s *Service) Remote() bool { return s != nil && s.cfg.Remote != nil }
 

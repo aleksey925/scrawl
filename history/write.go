@@ -55,13 +55,16 @@ func (s *Service) recordLocal(ctx context.Context, op Op, paths []string, mutate
 	if len(paths) == 0 && len(s.pending) == 0 {
 		return false, nil
 	}
-	if err = s.commitLocked(ctx, op.Actor, op.Message, s.withPending(paths), s.timeout()); err != nil {
+	committed, err := s.commitLocked(ctx, op.Actor, op.Message, s.withPending(paths), s.timeout())
+	if err != nil {
 		return false, s.recordFailed(op, paths, err)
 	}
 	clear(s.pending)
 	s.degraded.Store(false)
-	s.markPush()
-	return true, nil
+	if committed {
+		s.markPush()
+	}
+	return committed, nil
 }
 
 func (s *Service) Reconcile(ctx context.Context, actor string) error {
@@ -77,7 +80,7 @@ func (s *Service) Reconcile(ctx context.Context, actor string) error {
 	}
 	committed, err := s.reconcileLocked(ctx, actor, msg)
 	if committed {
-		s.wakePush()
+		s.markPush()
 	}
 	return err
 }
@@ -90,12 +93,13 @@ func (s *Service) reconcileLocked(ctx context.Context, actor, msg string) (bool,
 	if len(paths) == 0 {
 		return false, nil
 	}
-	if err = s.commitLocked(ctx, actor, msg, paths, s.initTimeout()); err != nil {
+	committed, err := s.commitLocked(ctx, actor, msg, paths, s.initTimeout())
+	if err != nil {
 		return false, s.recordFailed(Op{Actor: actor, Message: msg, Strict: true}, paths, err)
 	}
 	clear(s.pending)
 	s.degraded.Store(false)
-	return true, nil
+	return committed, nil
 }
 
 func (s *Service) recordFailed(op Op, paths []string, err error) error {
@@ -110,27 +114,23 @@ func (s *Service) recordFailed(op Op, paths []string, err error) error {
 	return nil
 }
 
-func (s *Service) commitLocked(ctx context.Context, actor, msg string, paths []string, timeout time.Duration) error {
+func (s *Service) commitLocked(ctx context.Context, actor, msg string, paths []string, timeout time.Duration) (bool, error) {
 	candidates, err := s.stageable(ctx, paths, timeout)
-	if err != nil {
-		return err
-	}
-	if len(candidates) == 0 {
-		return nil
+	if err != nil || len(candidates) == 0 {
+		return false, err
 	}
 	if sErr := s.stage(ctx, candidates, timeout); sErr != nil {
-		return sErr
+		return false, sErr
 	}
 	dirty, err := s.staged(ctx, timeout)
-	if err != nil {
-		return err
-	}
-	if !dirty {
-		return nil
+	if err != nil || !dirty {
+		return false, err
 	}
 	args := []string{"commit", "--quiet", "--message", msg, "--author", ident(actor)}
-	_, err = s.run(ctx, command{args: args, timeout: timeout})
-	return err
+	if _, err = s.run(ctx, command{args: args, timeout: timeout}); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *Service) stage(ctx context.Context, paths []string, timeout time.Duration) error {

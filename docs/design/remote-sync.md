@@ -14,6 +14,10 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   mounts, its parent is often read-only, and a mount point can be neither
   removed nor renamed over. The clone is full depth, because a shallow one
   breaks the history log and the push.
+- The startup `Sync` and the check that the remote takes a push run before the
+  server serves, one space after another. On a network that hangs instead of
+  failing, each can take the 5-minute timeout of a git command, so the app
+  starts late. This is accepted.
 - A clone that cannot push does not commit either. The effective read-only mode
   of a remote space is `PullOnly`, and `history` is the one place that knows
   it: `Reconcile` refuses there, so the startup call and the watcher's are
@@ -57,14 +61,16 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   the index or the work tree, they write the tracking ref while a commit writes
   the branch ref, each behind its own lock file, and the object store only
   grows. Two fetches, or a fetch and a push, would meet on the tracking ref,
-  and a fast-forward or a reset next to a commit on the index, so those stay
-  apart. A push sends the `HEAD` it read at its start; a commit that lands
-  later waits for the next push, which its mark brings.
+  and a fast-forward or a reset next to a commit would meet on the index, so
+  those stay apart. A push sends the `HEAD` it read at its start; a commit that
+  lands later waits for the next push, which its mark brings.
   [Quirks](../quirks.md#git-and-git-hosts)
 - A save during a fetch can diverge the space: when the remote gained a commit
   and the save lands while the fetch runs, the fast-forward fails. Both sides
   really changed, which is the case the reset is for, and a save that lands
-  just before the fetch does the same.
+  just before the fetch does the same. The window grows with the time a fetch
+  takes, and a webhook makes it more likely, since it fetches right after the
+  remote moved. This is accepted.
 
 ## Conflicts and reset
 
@@ -93,14 +99,15 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   lock, and work on the two commit ids from then on. The reset takes the pair
   the check answered and refuses any other, the way a save takes a `rev`. An
   unlocked check would pair the ids of one state with the merge of another. The
-  reset holds the history lock for its local steps only - the tips, the commit
-  of what is on disk, the trial merge, the backup ref and `reset --keep` - and
-  lets go of it only around the push of a backup, so saves in other tabs do not
-  wait on the network. After that push it checks that `HEAD` is still the head
-  after its own snapshot commit, and refuses as "changed" when not: a save made
-  during the push is not in the backup, and the reset would drop it from every
-  branch. It compares with the head after the snapshot and not with the checked
-  one, so what it just committed from disk is not taken for a save.
+  reset takes the history lock twice and never across the network: once for the
+  tips, the commit of what is on disk, the trial merge and the backup ref, and
+  once for `reset --keep`, so saves in other tabs do not wait for the push of a
+  backup. The second time it first checks that `HEAD` is still the head after
+  its own snapshot commit, and refuses as "changed" when not: a save made in
+  between is not in the backup, and the reset would drop it from every branch.
+  It compares with the head after the snapshot and not with the checked one, so
+  what it just committed from disk is not taken for a save. The backup it made
+  stays, and the log names it, since the `412` does not.
 - The reset is `reset --keep` plus a check of our own, never `--hard`
   ([ADR 11](../adr/0011-reset-keep.md)): every path the remote adds is looked
   up on disk first, and one that is there and untracked refuses the reset. A
@@ -135,10 +142,13 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   marks a push due, and the loop pushes 3 seconds after the mark, under the
   network lock and not the history lock, with the state it finds then. The wait
   sends a run of writes, a delete and its Undo, as one push. A write that comes
-  while a push runs marks the next one. A write from the page never pushes in
+  while a push runs marks the next one, and a write that commits nothing, a
+  save of the same text, marks nothing. A write from the page never pushes in
   its request, also when no loop runs: the loop starts after startup and ends
-  at shutdown, and a save in those windows would wait on the network. Its
-  commit stays, and the startup sync pushes it.
+  at shutdown, and a save in those windows would wait on the network. A save
+  made before the loop runs leaves its token in the channel, and the loop
+  pushes it once it starts; a commit made after the loop ended stays, and the
+  next startup's sync pushes it.
 - A write with an API token also pushes in its request, because a script is
   told whether its change reached the remote. It waits for the network lock,
   behind a fetch or a push already on its way, and never for the history lock,
@@ -146,11 +156,13 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   `HEAD` after the commit. The loop still pushes after it, because its mark
   stays: when its request ends before the push, or its measure fails on the
   dead context, the commit is not stranded. When its own push went through, the
-  loop's finds nothing new, which costs one round trip and "Sending" for those
-  seconds.
-- The watcher's `Reconcile` commits, wakes the loop and sets no mark. It never
-  pushes itself, so the watcher goroutine never waits on the network and keeps
-  invalidating pages and reindexing while the remote hangs.
+  loop's finds nothing new, which costs one round trip and "Sending" for about
+  3 seconds.
+- The watcher's `Reconcile` commits and marks a push like any other commit, so
+  the control says "Sending" until the loop's push ends, and a measure in
+  between never says "Not sent". It never pushes itself, so the watcher
+  goroutine never waits on the network and keeps invalidating pages and
+  reindexing while the remote hangs.
 - The answer to a write carries the state from before its own push, so a
   routine write gets no "not pushed" warning. `/api/me` says `pushing` while a
   push is due or running, or a retry is running, and the page asks on one
@@ -162,11 +174,11 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   while a request is still on its way, so an answer slower than the interval
   still lands, and each request gives up after 30 seconds, so one that never
   answers ends and the ticks go on. `pushing` is read with the state as one
-  view, see [Sync state](#sync-state). The pull loop, a webhook and `Reconcile`
-  do not set `pushing`: they are no change of the person's, and a periodic pull
-  would spin the control every few minutes. A push that never ran because the
-  server stopped is not lost: the commit stays, the startup sync pushes it, and
-  when that fails too the retry carries on.
+  view, see [Sync state](#sync-state). The pull loop and a webhook do not set
+  `pushing`: they bring no commit of this copy, and a periodic pull would spin
+  the control every few minutes. A push that never ran because the server
+  stopped is not lost: the commit stays, the startup sync pushes it, and when
+  that fails too the retry carries on.
 - A push that failed is tried again by the same loop, about a minute after its
   last attempt, until it goes through, with no write needed: with `pull: 0` and
   no more saves the commit stayed in this copy for days. The loop has a ticker
@@ -193,13 +205,13 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   fetch is not followed by another at once; the pull loop, a webhook and a
   token write still try on their own.
 - `pushing` is two flags: `due`, set by the mark of a commit, and `sending`,
-  set while the loop's push or a retry runs. Both run under the network lock,
-  never at once, so one flag serves both. A retry never touches `due`, which
-  keeps the mark of a write made before it. The loop clears `due` when its push
-  starts, not when it ends, so a mark made during a push is never erased, and
-  its token brings the next push. The loop stores the result of its push before
-  it clears `sending`, so a poll never pairs "not pushing" with the state from
-  before the push.
+  set while the loop's push or a retry runs. The loop's push and a retry both
+  run under the network lock, so they never run at once, and one flag serves
+  both. A retry never touches `due`, which keeps the mark of a write made
+  before it. The loop clears `due` when its push starts, not when it ends, so a
+  mark made during a push is never erased, and its token brings the next push.
+  The loop stores the result of its push before it clears `sending`, so a poll
+  never pairs "not pushing" with the state from before the push.
 - The retry has no deadline of its own over the whole sync: the context that
   ends it kills git with `SIGKILL`, and a fast-forward killed half-way can
   leave `.git/index.lock`, which then fails every commit. Every git command has
@@ -207,7 +219,11 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   until its remote helper ends, which on a hung network may be never, and the
   lock it holds and the shutdown would wait with it. After the delay `exec`
   closes the pipes and returns; the helper ends on its own and holds no lock of
-  the repository. [Quirks](../quirks.md#git-and-git-hosts)
+  the repository. [Quirks](../quirks.md#git-and-git-hosts) In the Docker image
+  scrawl is PID 1 and never collects the exit status of a process it did not
+  start, so each such helper, like any git killed by a timeout, stays a zombie
+  entry after it ends. `docker run --init` or `init: true` in compose reaps
+  them.
 
 ## Sync state
 

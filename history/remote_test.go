@@ -394,8 +394,9 @@ func TestUnsyncedListsWhatTheRemoteIsMissing(t *testing.T) {
 
 	// act
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
-	require.Error(t, svc.pushNow(t.Context()))
+	pushAsTheLoop(t, svc)
 	broken := svc.SyncState()
+
 	fixRemote(t, dir, bare)
 	require.NoError(t, svc.Sync(t.Context()))
 	healed := svc.SyncState()
@@ -680,8 +681,27 @@ func TestABurstOfBrowserWritesQueuesOnePush(t *testing.T) {
 	assert.Len(t, svc.pushes, 1)
 }
 
+func TestAWriteThatCommitsNothingMarksNoPush(t *testing.T) {
+	// arrange
+	bare := bareRemote(t)
+	dir := cloneOf(t, bare)
+	svc := remoteService(t, dir, bare)
+	before := localHead(t, dir)
+
+	// act
+	require.NoError(t, svc.Record(t.Context(), Op{Message: "save", Paths: []string{"index.md"}},
+		func() ([]string, error) { return nil, nil }))
+	require.NoError(t, svc.Reconcile(t.Context(), "external"))
+
+	// assert
+	assert.Equal(t, before, localHead(t, dir))
+	assert.Empty(t, svc.pushes)
+	assert.False(t, svc.SyncState().Pushing)
+}
+
 func TestATokenWritePushesInsideTheRecordAndLeavesTheMark(t *testing.T) {
 	// arrange
+
 	bare := bareRemote(t)
 	dir := cloneOf(t, bare)
 	svc := remoteService(t, dir, bare)
@@ -729,7 +749,7 @@ func runPushLoop(t *testing.T, svc *Service) func() {
 	}()
 	return func() {
 		cancel()
-		<-stopped
+		within(t, answerLimit, stopped)
 	}
 }
 
@@ -752,9 +772,16 @@ func failedPush(t *testing.T, dir string, svc *Service) {
 	writeFile(t, dir, "mine.md", "# Mine\n")
 	breakRemote(t, dir)
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
-	<-svc.pushes
-	require.Error(t, svc.pushNow(t.Context()))
+	pushAsTheLoop(t, svc)
 	require.True(t, svc.SyncState().Retrying)
+}
+
+func pushAsTheLoop(t *testing.T, svc *Service) {
+	t.Helper()
+	delay := svc.pushDelay
+	svc.pushDelay = 0
+	require.True(t, svc.pushAfterDelay(t.Context()))
+	svc.pushDelay = delay
 }
 
 type gate struct {
@@ -1106,7 +1133,10 @@ func TestACanceledRetryEndsSending(t *testing.T) {
 	assert.False(t, svc.SyncState().Pushing)
 }
 
-const answerLimit = 5 * time.Second
+const (
+	answerLimit   = 5 * time.Second
+	canceledLimit = gitWaitDelay + 2*time.Second
+)
 
 func TestARecordDoesNotWaitForAStalledFetch(t *testing.T) {
 	// arrange
@@ -1202,7 +1232,7 @@ func TestACanceledTokenWriteLeavesItsPushToTheLoop(t *testing.T) {
 
 	// act
 	cancel()
-	err := within(t, gitWaitDelay+answerLimit, strict)
+	err := within(t, canceledLimit, strict)
 	release()
 
 	// assert
@@ -1246,7 +1276,8 @@ func TestAWriteDuringASyncReadsAsPushing(t *testing.T) {
 	origin, hit, release := gatedOrigin(t, bare, "git-receive-pack")
 	gitIn(t, dir, "remote", "set-url", remoteName, origin)
 	writeFile(t, dir, "first.md", "# First\n")
-	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	gitIn(t, dir, "add", "first.md")
+	gitIn(t, dir, "-c", "user.name=other", "-c", "user.email=other@x", "commit", "--quiet", "-m", "first")
 	synced := make(chan error, 1)
 	go func() { synced <- svc.Sync(t.Context()) }()
 	waitForHit(t, hit)
@@ -1264,30 +1295,22 @@ func TestAWriteDuringASyncReadsAsPushing(t *testing.T) {
 	assert.True(t, state.Pushing)
 }
 
-func TestAWaitingPushStopsWithItsContext(t *testing.T) {
+func TestACallerCanceledWhileWaitingForTheNetworkLockRunsNothing(t *testing.T) {
 	// arrange
-	bare := bareRemote(t)
-	dir := cloneOf(t, bare)
-	svc := remoteService(t, dir, bare)
-	origin, hit, _ := gatedOrigin(t, bare, "git-receive-pack")
-	gitIn(t, dir, "remote", "set-url", remoteName, origin)
-	svc.pushDelay = 0
-	request, cancelRequest := context.WithCancel(t.Context())
-	writeFile(t, dir, "strict.md", "# Strict\n")
-	strict := saveAsync(request, svc, "strict.md", true)
-	waitForHit(t, hit)
-	workers, cancelWorkers := context.WithCancel(t.Context())
-	pushed := make(chan bool, 1)
-	go func() { pushed <- svc.pushAfterDelay(workers) }()
+	svc := &Service{}
+	ctx, cancel := context.WithCancel(t.Context())
+	svc.netMu.Lock()
+	locked := make(chan error, 1)
+	go func() { locked <- svc.lockNet(ctx) }()
+	cancel()
 
 	// act
-	cancelWorkers()
-	cancelRequest()
+	svc.netMu.Unlock()
+	err := within(t, answerLimit, locked)
 
 	// assert
-	limit := gitWaitDelay + answerLimit
-	require.ErrorIs(t, within(t, limit, strict), ErrNotPublished)
-	assert.False(t, within(t, limit, pushed))
+	require.ErrorIs(t, err, context.Canceled)
+	assert.True(t, svc.netMu.TryLock(), "the refused caller let go of the lock")
 }
 
 func TestTheWatcherLeavesThePushToTheLoop(t *testing.T) {
@@ -1305,7 +1328,7 @@ func TestTheWatcherLeavesThePushToTheLoop(t *testing.T) {
 	assert.Equal(t, before, headOf(t, bare))
 	assert.NotEqual(t, before, localHead(t, dir))
 	assert.Len(t, svc.pushes, 1)
-	assert.False(t, svc.SyncState().Pushing)
+	assert.True(t, svc.SyncState().Pushing)
 }
 
 func TestACanceledGitDoesNotWaitForItsHelper(t *testing.T) {
@@ -1327,5 +1350,5 @@ func TestACanceledGitDoesNotWaitForItsHelper(t *testing.T) {
 	cancel()
 
 	// assert
-	assert.Error(t, within(t, gitWaitDelay+answerLimit, fetched))
+	assert.Error(t, within(t, canceledLimit, fetched))
 }

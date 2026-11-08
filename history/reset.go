@@ -90,43 +90,58 @@ func (s *Service) ResetToRemote(ctx context.Context, op ResetOp) (ResetResult, e
 	if err := s.divergedNet(ctx); err != nil {
 		return ResetResult{}, err
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.resetLocked(ctx, op)
+	head, remote, res, err := s.prepareReset(ctx, op)
+	if err != nil {
+		return res, err
+	}
+	if res.Backup != "" && op.PushBackup && !s.PullOnly() {
+		if pErr := s.pushBackup(ctx, res.Backup); pErr != nil {
+			return res, pErr
+		}
+
+		res.BackupPushed = true
+	}
+	return res, s.finishReset(ctx, op.Actor, head, remote, res.Backup)
 }
 
-func (s *Service) resetLocked(ctx context.Context, op ResetOp) (ResetResult, error) {
-	head, remote, err := s.tips(ctx)
-	if err != nil {
-		return ResetResult{}, fmt.Errorf("history: %w", err)
+func (s *Service) prepareReset(ctx context.Context, op ResetOp) (head, remote string, res ResetResult, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if head, remote, err = s.tips(ctx); err != nil {
+		return "", "", res, fmt.Errorf("history: %w", err)
 	}
 	if head != op.Head || remote != op.Remote {
-		return ResetResult{}, fmt.Errorf("history: %w", ErrStateChanged)
+		return "", "", res, fmt.Errorf("history: %w", ErrStateChanged)
 	}
 	if head, err = s.snapshotLocked(ctx, op.Actor, head); err != nil {
-		return ResetResult{}, err
+		return "", "", res, err
 	}
-
-	res := ResetResult{}
 	if lost, mErr := s.trialMerge(ctx, head, remote); mErr != nil || !lost.clean() {
-		if res, err = s.backupLocked(ctx, head); err != nil {
-			return res, err
-		}
-		if op.PushBackup && !s.PullOnly() {
-			if pErr := s.pushBackupUnlocked(ctx, head, &res); pErr != nil {
-				return res, pErr
-			}
-		}
+		res, err = s.backupLocked(ctx, head)
+	}
+	return head, remote, res, err
+}
+
+func (s *Service) finishReset(ctx context.Context, actor, head, remote, backup string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now, err := s.headCommit(ctx)
+	if err != nil {
+		return err
+	}
+	if now != head {
+		log.Printf("[WARN] %s: the reset stopped, a save came in while it ran, backup %q", s.tag(), backup)
+		return fmt.Errorf("history: %w", ErrStateChanged)
 	}
 	if moveErr := s.moveLocked(ctx, head, remote); moveErr != nil {
-		return res, moveErr
+		return moveErr
 	}
 
 	next := SyncState{}
 	s.measureLocked(ctx, &next)
 	s.publish(next)
-	log.Printf("[INFO] %s: reset to %s by %s, was %s, backup %q", s.tag(), remote, sanitizeActor(op.Actor), head, res.Backup)
-	return res, nil
+	log.Printf("[INFO] %s: reset to %s by %s, was %s, backup %q", s.tag(), remote, sanitizeActor(actor), head, backup)
+	return nil
 }
 
 func (s *Service) divergedNet(ctx context.Context) error {
@@ -216,24 +231,6 @@ func (s *Service) backupLocked(ctx context.Context, head string) (ResetResult, e
 		return ResetResult{}, fmt.Errorf("history: keep a backup: %w", err)
 	}
 	return res, nil
-}
-
-func (s *Service) pushBackupUnlocked(ctx context.Context, head string, res *ResetResult) error {
-	s.mu.Unlock()
-	err := s.pushBackup(ctx, res.Backup)
-	s.mu.Lock()
-	if err != nil {
-		return err
-	}
-	res.BackupPushed = true
-	now, err := s.headCommit(ctx)
-	if err != nil {
-		return err
-	}
-	if now != head {
-		return fmt.Errorf("history: %w", ErrStateChanged)
-	}
-	return nil
 }
 
 func (s *Service) pushBackup(ctx context.Context, backup string) error {

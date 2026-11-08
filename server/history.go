@@ -27,7 +27,6 @@ type History interface {
 	Enabled() bool
 	Degraded() bool
 	Unpublished() bool
-	SyncError() string
 	SyncState() history.SyncState
 	Remote() bool
 	CheckDivergence(ctx context.Context) (history.Divergence, error)

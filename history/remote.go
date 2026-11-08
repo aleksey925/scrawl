@@ -195,9 +195,6 @@ func (s *Service) notAncestor(ctx context.Context, older, newer string) bool {
 }
 
 func (s *Service) pushNet(ctx context.Context, next SyncState) error {
-	if !s.pushable() {
-		return nil
-	}
 	rm := s.cfg.Remote
 	if next.Diverged = next.Diverged && s.diverged(ctx, remoteName+"/"+rm.Branch); next.Diverged {
 		s.measure(ctx, &next)
@@ -226,13 +223,6 @@ func (s *Service) markPush() {
 	s.statusMu.Lock()
 	s.due = true
 	s.statusMu.Unlock()
-	s.wakePush()
-}
-
-func (s *Service) wakePush() {
-	if !s.pushable() {
-		return
-	}
 	select {
 	case s.pushes <- struct{}{}:
 	default:
@@ -397,7 +387,6 @@ func (s *Service) syncFailed(next SyncState, stage string, err error) error {
 
 func (s *Service) publish(next SyncState) {
 	next.Retrying = !s.PullOnly() && next.Unpublished && next.Error != "" && !next.Diverged && !next.Refused
-	next.Pushing = false
 	s.statusMu.Lock()
 	s.state = next
 	s.statusMu.Unlock()

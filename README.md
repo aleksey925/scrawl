@@ -712,8 +712,8 @@ not:
 Both fix themselves: the next commit also records what was missed, and a push
 that failed is tried again about a minute later, and again after each failed
 try, until it goes through. The `500` of a delete still carries the `trash_id`,
-so the deleted entry can be put back. A token write waits for its own push, so
-it can wait for a fetch or a push already on its way first.
+so the deleted entry can be put back. A token write waits for its own push, and
+also for a fetch or a push that is already on its way.
 
 Two answers mean the file on disk is not what the client assumed. Both carry
 `current_rev` and `current_content`, so a retry needs no second request:

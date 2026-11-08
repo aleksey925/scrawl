@@ -54,7 +54,6 @@ type fakeHistory struct {
 func (f *fakeHistory) Enabled() bool     { return true }
 func (f *fakeHistory) Degraded() bool    { return f.degraded }
 func (f *fakeHistory) Unpublished() bool { return f.unpublished }
-func (f *fakeHistory) SyncError() string { return f.syncErr }
 
 func (f *fakeHistory) SyncState() history.SyncState {
 	f.syncReads++

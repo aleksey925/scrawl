@@ -17,7 +17,9 @@ func diverge(t *testing.T, svc *Service, bare string, mine map[string]string) {
 		writeFile(t, svc.Root(), name, content)
 	}
 	require.NoError(t, svc.Reconcile(t.Context(), "alex"))
+	pushAsTheLoop(t, svc)
 	fixRemote(t, svc.Root(), bare)
+
 	pushFromElsewhere(t, bare, "theirs.md", "# Theirs\n")
 	require.Error(t, svc.Sync(t.Context()))
 	require.True(t, svc.SyncState().Diverged)

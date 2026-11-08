@@ -2323,35 +2323,74 @@ func TestShutdownCancelsRequestsThatOutliveIt(t *testing.T) {
 		close(canceled)
 	}))
 	t.Cleanup(cancelRequests)
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	go func() { _ = srv.Serve(ln) }()
-	go func() {
-		req, rErr := http.NewRequestWithContext(t.Context(), http.MethodPost, "http://"+ln.Addr().String()+"/",
-			strings.NewReader("a body the handler never reads"))
-		if rErr != nil {
-			return
-		}
-		if resp, dErr := http.DefaultClient.Do(req); dErr == nil {
-			_ = resp.Body.Close()
-		}
-	}()
-	select {
-	case <-started:
-	case <-time.After(5 * time.Second):
-		require.FailNow(t, "the request never reached the handler")
-	}
+	answered := serveOneRequest(t, srv, strings.NewReader("a body the handler never reads"))
+	waitFor(t, started, "the request never reached the handler")
 
 	// act
-	err = wb.shutdown(t.Context(), srv, cancelRequests)
+	err := wb.shutdown(t.Context(), srv, cancelRequests)
 
 	// assert
 	require.Error(t, err)
+	waitFor(t, canceled, "the request outlived the shutdown")
+	t.Logf("the client of the canceled request saw %v", waitFor(t, answered, "the client never heard back"))
+}
+
+func TestARequestOutlivesTheCancelOfTheRunContext(t *testing.T) {
+	// arrange
+	run, cancelRun := context.WithCancel(t.Context())
+	wb := &Web{Config: Config{ShutdownTimeout: 5 * time.Second}}
+	started, release := make(chan struct{}), make(chan struct{})
+	requestErr := make(chan error, 1)
+	srv, cancelRequests := wb.httpServer(run, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-release
+		requestErr <- r.Context().Err()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(cancelRequests)
+	answered := serveOneRequest(t, srv, http.NoBody)
+	waitFor(t, started, "the request never reached the handler")
+
+	// act
+	cancelRun()
+	shutdownErr := make(chan error, 1)
+	go func() { shutdownErr <- wb.shutdown(run, srv, cancelRequests) }()
+	close(release)
+
+	// assert
+	require.NoError(t, waitFor(t, requestErr, "the handler never went on"))
+	require.NoError(t, waitFor(t, shutdownErr, "the shutdown never ended"))
+	require.NoError(t, waitFor(t, answered, "the client never heard back"))
+}
+
+func serveOneRequest(t *testing.T, srv *http.Server, body io.Reader) <-chan error {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	go func() { _ = srv.Serve(ln) }()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "http://"+ln.Addr().String()+"/", body)
+	require.NoError(t, err)
+	answered := make(chan error, 1)
+	go func() {
+		resp, dErr := http.DefaultClient.Do(req)
+		if dErr == nil {
+			dErr = resp.Body.Close()
+		}
+		answered <- dErr
+	}()
+	return answered
+}
+
+func waitFor[T any](t *testing.T, ch <-chan T, failure string) T {
+	t.Helper()
 	select {
-	case <-canceled:
+	case res := <-ch:
+		return res
 	case <-time.After(5 * time.Second):
-		require.FailNow(t, "the request outlived the shutdown")
+		require.FailNow(t, failure)
 	}
+	var zero T
+	return zero
 }
 
 func freePort(t *testing.T) int {

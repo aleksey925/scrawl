@@ -109,7 +109,7 @@ the link names.
   leaves the page before the server answers - and a write from the page is
   committed in its request and pushed after the answer. No fetch or push holds
   the lock a commit takes; a write with an API token still pushes in its
-  request, and waits for that push alone.
+  request, and waits on the network lock, never on the history lock.
   [remote sync](docs/design/remote-sync.md#pushing),
   [locks](docs/design/remote-sync.md#locks), [entries](docs/ui/entries.md)
 - The built frontend is committed: a change in `web/` is followed by `make ui`

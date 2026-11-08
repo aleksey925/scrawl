@@ -1,6 +1,4 @@
 .screen {
-  --editor-column: calc(var(--scrawl-note-width) + 120px);
-
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -45,11 +43,6 @@
   min-width: 0;
   height: 44px;
   padding-inline: var(--mantine-spacing-lg);
-}
-
-.screen[data-mode='source'] .paneHeadInner {
-  max-width: var(--editor-column);
-  margin-inline: auto;
 }
 
 .paneLabel {
@@ -129,15 +122,6 @@
   font-family: var(--mantine-font-family-monospace);
   font-size: 14px;
   line-height: 1.7;
-}
-
-.screen[data-mode='source'] .source :global(.cm-scroller) {
-  padding-inline: max(var(--mantine-spacing-md), calc((100% - var(--editor-column)) / 2));
-}
-
-.screen[data-mode='source'][data-wrap='false'] .source :global(.cm-editor) {
-  max-width: calc(var(--editor-column) + 2 * var(--mantine-spacing-md));
-  margin-inline: auto;
 }
 
 .source :global(.cm-gutters) {

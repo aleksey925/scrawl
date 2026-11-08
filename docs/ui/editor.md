@@ -3,19 +3,20 @@
 The editor screen.
 
 - The editor is the page and not a box on it: a row of tools over the text,
-  split by thin lines into groups, and the source in a column the width of the
-  note with line numbers beside it. The source reads as text with its markup
+  split by thin lines into groups, and the source with line numbers beside it.
+  In Source the source and its toolbar take the whole width right of the
+  sidebar, as in Split they take the whole pane: a column the width of the note
+  left most of a wide screen empty. The source reads as text with its markup
   set back: the words in the text color, a heading and bold by weight, the
   marks around them faint, a link in the accent. Long lines wrap; the wrap
   button turns that off and keeps the choice. Then a long line scrolls sideways
-  inside the column, and in Source the editor box is the column itself. When
-  the box was as wide as the screen, a long line ran across the whole screen.
-  The line numbers have the page's ground and so does the strip left of them,
-  so a line scrolled sideways slides under them; on a transparent ground the
-  text ran over the numbers. The topbar holds the sync control, the state of
-  the save, the layout as Source, Split or Preview, Cancel and Save; on a phone
-  Cancel and Save are the two ends of the bar and the sync control stands
-  between them, in the middle, so a change on its way shows right after a save.
+  inside the source. The line numbers have the page's ground and so does the
+  strip left of them, so a line scrolled sideways slides under them; on a
+  transparent ground the text ran over the numbers. The topbar holds the sync
+  control, the state of the save, the layout as Source, Split or Preview,
+  Cancel and Save; on a phone Cancel and Save are the two ends of the bar and
+  the sync control stands between them, in the middle, so a change on its way
+  shows right after a save.
 - A text file that is not a note is edited as text alone: the source, colored
   by its language, with Save, Cancel and the wrap, and no modes, toolbar,
   preview, formatter or picture upload, none of which means anything for it. It

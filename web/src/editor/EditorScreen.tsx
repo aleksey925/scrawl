@@ -643,9 +643,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   return (
     <div
       data-testid="editor"
-      data-mode={mode}
       data-kind={kind}
-      data-wrap={lineWrap.wrap ? 'true' : 'false'}
       className={classes.screen}
     >
       <PageActions>

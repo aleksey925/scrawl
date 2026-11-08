@@ -29,7 +29,7 @@ export function FileView({ file }: { file: FilePageResponse }): JSX.Element {
       <PageActions>
         <FileActionsBar file={file} raw={raw} />
       </PageActions>
-      <Page data-testid="file" data-type={file.type}>
+      <Page data-testid="file" data-type={file.type} variant={file.type === 'text' ? 'text' : 'note'}>
         <PageTitle testId="file-title">{file.name}</PageTitle>
         {file.type === 'image' && <Picture key={raw} file={file} raw={raw} />}
         {file.type === 'text' && <TextLines file={file} />}

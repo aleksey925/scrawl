@@ -15,8 +15,10 @@ opens over them.
   text read as a second column of text. Below the width it needs it is a sheet
   the page's `⋯` opens. A folder's list always runs the width of the room
   beside the sidebar, less up to 96px a side, whatever the page width: a table
-  has no reading line to keep short and long names need the room. The page's
-  left edge moves between a note and a folder, and that is accepted.
+  has no reading line to keep short and long names need the room. A text file
+  that is not a note takes the same width, as its editor takes the whole room:
+  code has long lines and no reading line either. The page's left edge moves
+  between a note and a folder, and that is accepted.
 - The topbar heads the page's column: the path at its left, the space first and
   the page's file or folder name last, `notes / deep / nested.md`, and the
   page's actions at its right. The last crumb is the name and not a note's
@@ -110,8 +112,12 @@ opens over them.
   it always shows, a phone included, with a tap area of the full tap size. At
   the left of the heading it hung outside the text with nothing to say what it
   did, and a phone had no room for it.
-- A quote's bar starts where the text of the note does, 2px in, like a rule. At
-  the page's edge it stuck out of the text's line.
+- A quote's bar starts where the text of the note does, 2px in, like a rule,
+  and so does a table's border. At the page's edge they stuck out of the text's
+  line.
+- A numbered list keeps 2em for its numbers, as GitHub has it, and a bulleted
+  one 1.7em. A number ends where its item's text starts, so `10.` reaches
+  further left than `9.`, and in 1.7em it stuck out of the text's line.
 - A block of code has a head row inside its box, the language at the left and
   Copy at the right, above the code and never a layer over it: a layer covered
   the end of a long first line. With a pointer Copy shows under it and under

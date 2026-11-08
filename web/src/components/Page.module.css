@@ -10,14 +10,14 @@
   min-width: 0;
 }
 
-.page[data-variant='wide'],
+.page:is([data-variant='list'], [data-variant='text']),
 :global(:root[data-page-width='full']) .page {
   grid-template-columns: minmax(var(--scrawl-page-margin-min), var(--scrawl-page-margin-max)) minmax(0, 1fr) minmax(var(--scrawl-page-margin-min), var(--scrawl-page-margin-max));
 }
 
 @mixin smaller-than $mantine-breakpoint-sm {
   .page,
-  .page[data-variant='wide'],
+  .page:is([data-variant='list'], [data-variant='text']),
   :global(:root[data-page-width='full']) .page {
     grid-template-columns: var(--mantine-spacing-lg) minmax(0, 1fr) var(--mantine-spacing-lg);
     padding-top: 8px;
@@ -27,14 +27,14 @@
     padding-bottom: calc(var(--scrawl-tabbar-space) + var(--scrawl-edit-button) + 2 * var(--mantine-spacing-lg));
   }
 
-  .page[data-variant='wide'] {
+  .page[data-variant='list'] {
     padding-bottom: calc(var(--scrawl-tabbar-space) + var(--mantine-spacing-lg));
   }
 }
 
 @media print {
   .page,
-  .page[data-variant='wide'],
+  .page:is([data-variant='list'], [data-variant='text']),
   :global(:root[data-page-width='full']) .page {
     display: block;
     padding: 0;

@@ -17,7 +17,7 @@ import {
   IconChevronDown, IconChevronRight, IconCompose, IconFile, IconFilePlus, IconFileText, IconFolder, IconFolderOpen,
   IconFolderPlus, IconHome, IconPlus, IconSearch, IconSidebar, IconX,
 } from '../icons';
-import { editUrl } from '../paths';
+import { editUrl, isDirectoryPath, isMarkdown } from '../paths';
 import { layout } from '../theme';
 
 import { rowMenuIconSize, useReaderExtensions } from './extensions';
@@ -40,6 +40,7 @@ const rowStart = 6;
 const springOpenMs = 600;
 
 interface TreeUi {
+  currentRow: string;
   selected: ReadonlySet<string>;
   dropTarget: string | undefined;
   canWrite: boolean;
@@ -102,7 +103,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
         <div
           data-testid="tree-row"
           className={RowMenu === undefined ? treeClasses.row : `${treeClasses.row} ${treeClasses.pressable}`}
-          data-current={current ? 'true' : 'false'}
+          data-current={node.path === ui.currentRow ? 'true' : 'false'}
           data-selected={picked ? 'true' : 'false'}
           data-drop={over ? 'true' : 'false'}
           data-dir={node.is_dir ? 'true' : 'false'}
@@ -488,9 +489,12 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
     [actions, canDrop, endDrag],
   );
 
+  const onFile = currentPath !== '' && !isMarkdown(currentPath) && !isDirectoryPath(location.pathname);
+  const currentRow = onFile ? parentOf(currentPath) : currentPath;
+
   const ui = useMemo<TreeUi>(
-    () => ({ selected, dropTarget, canWrite, pick, startDrag, endDrag, overFolder, leaveFolder, dropOn }),
-    [selected, dropTarget, canWrite, pick, startDrag, endDrag, overFolder, leaveFolder, dropOn],
+    () => ({ currentRow, selected, dropTarget, canWrite, pick, startDrag, endDrag, overFolder, leaveFolder, dropOn }),
+    [currentRow, selected, dropTarget, canWrite, pick, startDrag, endDrag, overFolder, leaveFolder, dropOn],
   );
 
   const at = selected.size === 1 ? ([...selected][0] ?? currentPath) : currentPath;

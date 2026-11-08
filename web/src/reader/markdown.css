@@ -310,8 +310,12 @@
   margin-left: 26px;
 }
 
-.markdown-document :is(ul, ol) {
+.markdown-document ul {
   padding-left: 1.7em;
+}
+
+.markdown-document ol {
+  padding-left: 2em;
 }
 
 .markdown-document li {
@@ -561,7 +565,7 @@
 }
 
 .markdown-document .table-wrap {
-  margin: 6px 0 8px;
+  margin: 6px 2px 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }

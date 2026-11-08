@@ -969,6 +969,52 @@ test.describe('reading', () => {
         removeFixture(EMPHASIS);
     });
 
+    test('a table runs from the left edge of the text to the right one', async ({page}) => {
+        // arrange
+        writeFixture(EMPHASIS, '# Table\n\nPlain text.\n\n| A | B |\n| - | - |\n| 1 | 2 |\n');
+        await page.goto(routes.doc(EMPHASIS));
+        const doc = page.getByTestId('doc');
+
+        // act
+        const text = await doc.locator('p').first().evaluate((el) => {
+            const box = el.getBoundingClientRect();
+            const style = getComputedStyle(el);
+            return {left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight)};
+        });
+        const table = await doc.locator('table').boundingBox();
+
+        // assert
+        expect(Math.abs(table.x - text.left)).toBeLessThanOrEqual(0.5);
+        expect(Math.abs(table.x + table.width - text.right)).toBeLessThanOrEqual(0.5);
+
+        removeFixture(EMPHASIS);
+    });
+
+    test('a two-digit number of a list stays inside the left edge of the text', async ({page}) => {
+        // arrange
+        const items = Array.from({length: 12}, (_, index) => `${index + 1}. Step`).join('\n');
+        writeFixture(EMPHASIS, `# List\n\nPlain text.\n\n${items}\n`);
+        await page.goto(routes.doc(EMPHASIS));
+        const doc = page.getByTestId('doc');
+
+        // act
+        const text = await doc.locator('p').first().evaluate((el) => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            return range.getBoundingClientRect().left;
+        });
+        const marker = await doc.locator('ol > li').last().evaluate((el) => {
+            const context = document.createElement('canvas').getContext('2d');
+            context.font = getComputedStyle(el).font;
+            return el.getBoundingClientRect().left - context.measureText('12. ').width;
+        });
+
+        // assert
+        expect(marker).toBeGreaterThanOrEqual(text);
+
+        removeFixture(EMPHASIS);
+    });
+
     test('a diagram label sits in the middle of its box', async ({page}) => {
         // arrange
         writeFixture(DIAGRAM, '# Diagram\n\n```mermaid\nflowchart TD\n    A[Запрос] --> B[Сервер]\n```\n');

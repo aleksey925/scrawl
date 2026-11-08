@@ -2479,6 +2479,27 @@ test.describe('file pages', () => {
         await shot(page, 'files-text-page');
     });
 
+    test('a text file runs the width of the room whatever the page width', async ({page}) => {
+        // arrange
+        const room = page.viewportSize().width - 240;
+
+        // act
+        await page.goto(routes.doc(`${PAGES}/code.py`));
+
+        // assert
+        await expect(page.locator('html')).toHaveAttribute('data-page-width', 'normal');
+        expect(Math.round((await page.getByTestId('file-code').boundingBox()).width)).toBe(room - 2 * 96);
+    });
+
+    test('the folder of an open text file is the current row of the tree', async ({page}) => {
+        // act
+        await page.goto(routes.doc(`${PAGES}/code.py`));
+
+        // assert
+        await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveAttribute('data-path', PAGES);
+        await expect(page.locator(`[data-testid=tree-row][data-path="${PAGES}"] [data-testid=tree-link]`)).not.toHaveAttribute('aria-current');
+    });
+
     test('Download is a link to the bytes, and a file that cannot be shown offers it', async ({page}) => {
         // arrange
         await page.goto(routes.doc(`${PAGES}/blob.bin`));

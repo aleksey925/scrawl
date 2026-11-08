@@ -70,7 +70,7 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
   return (
     <Page
       data-testid="dir"
-      wide
+      variant="list"
       data-fill
       className={classes.page}
       onContextMenu={writable && !phone ? (event) => contextMenu.onFreeSpace(event, path) : undefined}

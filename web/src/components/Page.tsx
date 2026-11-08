@@ -3,12 +3,14 @@ import { useRef, type ComponentPropsWithoutRef, type JSX, type ReactNode } from 
 import classes from './Page.module.css';
 import { useScreenEnter } from './screenMotion';
 
+export type PageVariant = 'note' | 'list' | 'text';
+
 export interface PageProps extends ComponentPropsWithoutRef<'div'> {
-  wide?: boolean;
+  variant?: PageVariant;
   children: ReactNode;
 }
 
-export function Page({ wide = false, className, children, ...rest }: PageProps): JSX.Element {
+export function Page({ variant = 'note', className, children, ...rest }: PageProps): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   useScreenEnter(ref);
   return (
@@ -17,7 +19,7 @@ export function Page({ wide = false, className, children, ...rest }: PageProps):
       ref={ref}
       data-screen
       className={className === undefined ? classes.page : `${classes.page} ${className}`}
-      data-variant={wide ? 'wide' : 'note'}
+      data-variant={variant}
     >
       {children}
     </div>

@@ -119,18 +119,19 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   push alone would fail the same way every minute. A failed fetch measures the
   count from the tracking branch on disk and reads a refusal the way a push
   does, so a copy restarted offline still knows what it owes and starts
-  retrying. A refusal is kept when a fetch fails for another reason, and a
-  fetch that works clears it: otherwise a pull-only space, which never pushes,
-  would say "Access refused" until a restart. A push reads it again from its
-  own answer. The minute is fixed and not a backoff: there is one client and
-  one remote, and "tries again in about a minute" is the schedule a person is
-  told. It counts from the end of the loop's own last attempt, so a hung fetch
-  is not followed by another at once; the pull loop, a webhook and a token
-  write still try on their own. A retry sets `pushing` for its time and then
-  puts back the value it found, which keeps the mark of a write made before it.
-  The retry has no deadline of its own over the whole sync: the context that
-  ends it kills git with `SIGKILL`, and a fast-forward killed half-way can
-  leave `.git/index.lock`, which then fails every commit.
+  retrying. Every fetch sets the refusal from its own answer, as a push does.
+  If it kept an older one, a pull-only space, which never pushes, would say
+  "Access refused" until a restart, and an offline copy would blame the token
+  for a remote it cannot reach. A refusal found by a push is found again by the
+  next retry's push. The minute is fixed and not a backoff: there is one client
+  and one remote, and "tries again in about a minute" is the schedule a person
+  is told. It counts from the end of the loop's own last attempt, so a hung
+  fetch is not followed by another at once; the pull loop, a webhook and a
+  token write still try on their own. A retry sets `pushing` for its time and
+  then puts back the value it found, which keeps the mark of a write made
+  before it. The retry has no deadline of its own over the whole sync: the
+  context that ends it kills git with `SIGKILL`, and a fast-forward killed
+  half-way can leave `.git/index.lock`, which then fails every commit.
 
 ## Sync state
 

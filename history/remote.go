@@ -133,16 +133,16 @@ func (s *Service) syncLocked(ctx context.Context) error {
 	tracking := remoteName + "/" + rm.Branch
 	next := s.SyncState()
 
-	if _, err := s.run(ctx, command{
+	_, err := s.run(ctx, command{
 		args:    []string{"fetch", "--prune", remoteName, rm.Branch},
 		network: true,
 		timeout: s.initTimeout(),
-	}); err != nil {
+	})
+	next.Refused = refused(err)
+	if err != nil {
 		s.measure(ctx, &next)
-		next.Refused = next.Refused || refused(err)
 		return s.syncFailed(next, "fetch", err)
 	}
-	next.Refused = false
 
 	if _, err := s.run(ctx, command{
 		args:    []string{"merge", "--ff-only", tracking},

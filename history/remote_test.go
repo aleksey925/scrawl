@@ -872,7 +872,7 @@ func TestAWorkingFetchClearsARefusalWhenTheMergeFails(t *testing.T) {
 	assert.False(t, state.Refused)
 }
 
-func TestAPushRefusalIsKeptWhenAFetchFailsForAnotherReason(t *testing.T) {
+func TestAFetchThatFailsForAnotherReasonDropsAPushRefusal(t *testing.T) {
 	// arrange
 	bare := bareRemote(t)
 	dir := cloneOf(t, bare)
@@ -891,8 +891,8 @@ func TestAPushRefusalIsKeptWhenAFetchFailsForAnotherReason(t *testing.T) {
 	// assert
 	require.Error(t, err)
 	assert.True(t, strings.HasPrefix(state.Error, "fetch:"), state.Error)
-	assert.True(t, state.Refused)
-	assert.False(t, state.Retrying)
+	assert.False(t, state.Refused)
+	assert.True(t, state.Retrying)
 }
 
 func TestTheLoopRetriesAWriteWhosePushFailed(t *testing.T) {

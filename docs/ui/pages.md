@@ -29,9 +29,12 @@ opens over them.
   keeps the rubber band its own apps end a scroll with. The reader's top edge,
   where a heading lands and where the editor takes its position from, is the
   bottom of the topbar. History is among the actions only where the space
-  records versions. In a writable remote space the sync control is always last
-  at the right of the topbar, in the reader and the editor, and says where the
-  person's changes are: a gray spinner while they are on their way, a gray
+  records versions. In a writable remote space the sync control is always first
+  in the topbar's group at the right, in the reader and the editor, just before
+  the page's "Edited" date or the editor's save state, as on a phone and as
+  Google Docs keeps its saved cloud by the document: when the note last changed
+  and whether that change reached the remote read as one status. It says where
+  the person's changes are: a gray spinner while they are on their way, a gray
   cloud with a check once all is sent, an orange crossed cloud when something
   is not sent or not synced, and an orange warning sign when a person must act,
   because the space diverged or the remote refused its token. A read-only or

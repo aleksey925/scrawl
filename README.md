@@ -394,8 +394,8 @@ Nothing about this blocks you. The save landed, the note is on disk, the
 history entry exists - the only thing that did not happen is the push, and
 editing carries on exactly as before.
 
-A writable remote space always has a sync control at the right of the top bar,
-so you can see at a glance where your changes are:
+A writable remote space always has a sync control in the top bar, before the
+page actions, so you can see at a glance where your changes are:
 
 - a gray spinner - your changes are on their way;
 - a gray cloud with a check - all changes are sent;

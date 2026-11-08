@@ -15,9 +15,9 @@ export function Topbar({ start, end, actionsRef }: TopbarProps): JSX.Element {
       {start}
       <TopbarCrumbs />
 
-      <div data-testid="topbar-actions" className={classes.actions} ref={actionsRef} />
-
       {end}
+
+      <div data-testid="topbar-actions" className={classes.actions} ref={actionsRef} />
     </div>
   );
 }

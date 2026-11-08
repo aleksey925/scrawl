@@ -2,7 +2,7 @@ import { Menu } from '@mantine/core';
 import type { ComponentPropsWithRef, JSX } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
-import { PopupMenu } from '../components/PopupMenu';
+import { FieldMenuItem, PopupMenu } from '../components/PopupMenu';
 import { planMotion } from '../components/screenMotion';
 import {
   IconClock,
@@ -83,20 +83,20 @@ export function TabBar(): JSX.Element | null {
             <Tab name="new" label="New" icon={IconPlus} current={false} />
           </Menu.Target>
           <Menu.Dropdown data-testid="new-menu">
-            <Menu.Item
+            <FieldMenuItem
               data-testid="new-menu-note"
               leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
               onClick={() => actions.createDraft('file', here)}
             >
               New file
-            </Menu.Item>
-            <Menu.Item
+            </FieldMenuItem>
+            <FieldMenuItem
               data-testid="new-menu-folder"
               leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
               onClick={() => actions.createDraft('dir', here)}
             >
               New folder
-            </Menu.Item>
+            </FieldMenuItem>
           </Menu.Dropdown>
         </PopupMenu>
       )}

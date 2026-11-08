@@ -1248,6 +1248,27 @@ test.describe('mobile', () => {
         expect(await titleRoom(page.getByTestId('new-entry-name'))).toEqual(DIALOG_TITLE);
     });
 
+    test('the name field of New takes the focus inside the tap and keeps it, so a phone opens its keyboard', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+        await page.getByTestId('tab-new').tap();
+        await expect(page.getByTestId('new-menu-note')).toBeVisible();
+
+        // act
+        const seen = await page.evaluate(async () => {
+            const focused = [];
+            document.addEventListener('focusin', (event) => focused.push(event.target.dataset.testid));
+            document.querySelector('[data-testid=new-menu-note]').click();
+            await Promise.resolve();
+            const inTap = document.activeElement.dataset.testid;
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            return {inTap, focused};
+        });
+
+        // assert
+        expect(seen).toEqual({inTap: 'new-entry-name', focused: ['new-entry-name']});
+    });
+
     test('New makes a note in the folder on screen and opens the editor', async ({page}) => {
         // arrange
         fs.mkdirSync(fixtureFile(EMPTY_FOLDER), {recursive: true});

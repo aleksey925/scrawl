@@ -44,6 +44,7 @@ export function NewEntryDialog({ draft, onCreate, onClose }: NewEntryDialogProps
         <TextInput
           data-testid="new-entry-name"
           data-autofocus
+          autoFocus
           size="md"
           placeholder={isFile ? 'File name' : 'Folder name'}
           aria-label={isFile ? 'Name of the new file' : 'Name of the new folder'}

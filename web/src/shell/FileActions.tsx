@@ -32,11 +32,9 @@ interface Relocation {
   to: string;
 }
 
-type Stamps = Map<string, string>;
-
 interface UndoMark {
   targets: string[];
-  stamps: Promise<Stamps | undefined>;
+  stamps: Map<string, Promise<string | undefined>>;
 }
 
 const changedSinceText = 'It was renamed, moved or deleted since';
@@ -90,22 +88,20 @@ function stampOf(entry: DirEntry): string {
   return entry.is_dir ? 'dir' : `${entry.size}:${entry.mod_time}`;
 }
 
-async function stampsIn(folder: string): Promise<Stamps> {
+async function stampsIn(folder: string): Promise<Map<string, string>> {
   const listing = await api.dir(folder);
   return new Map(listing.entries.map((entry) => [entry.path, stampOf(entry)]));
 }
 
-async function stampsOf(paths: readonly string[]): Promise<Stamps | undefined> {
+async function recordedStamp(path: string): Promise<string | undefined> {
   try {
-    const listings = await Promise.all([...new Set(paths.map(parentOf))].map(stampsIn));
-    return new Map(listings.flatMap((stamps) => [...stamps]));
+    return (await stampsIn(parentOf(path))).get(path);
   } catch {
     return undefined;
   }
 }
 
-async function unchanged(path: string, recorded: Stamps | undefined): Promise<boolean> {
-  const was = recorded?.get(path);
+async function unchanged(path: string, was: string | undefined): Promise<boolean> {
   if (was === undefined) {
     return true;
   }
@@ -125,7 +121,7 @@ interface Relocated {
 }
 
 async function relocateAll(
-  pairs: readonly Relocation[], valid: (pair: Relocation) => Promise<boolean>,
+  pairs: readonly Relocation[], valid: (pair: Relocation) => Promise<boolean>, onMoved?: (path: string) => void,
 ): Promise<Relocated> {
   const res: Relocated = { done: [], left: [], failure: undefined, changed: false, state: {} };
   for (const pair of pairs) {
@@ -134,17 +130,20 @@ async function relocateAll(
       res.changed = true;
       continue;
     }
+    let moved: EntryPathResponse;
     try {
-      const moved = await api.move(pair.from, pair.to);
-      res.done.push({ ...pair, to: moved.path });
-      res.state = {
-        unpublished: res.state.unpublished === true || moved.unpublished === true,
-        history_degraded: res.state.history_degraded === true || moved.history_degraded === true,
-      };
+      moved = await api.move(pair.from, pair.to);
     } catch (error) {
       res.left.push(pair);
       res.failure = error;
+      continue;
     }
+    onMoved?.(moved.path);
+    res.done.push({ ...pair, to: moved.path });
+    res.state = {
+      unpublished: res.state.unpublished === true || moved.unpublished === true,
+      history_degraded: res.state.history_degraded === true || moved.history_degraded === true,
+    };
   }
   return res;
 }
@@ -366,15 +365,13 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const moveInto = useCallback(
     (paths: readonly string[], folder: string) => {
       const stillMarked = async (mark: UndoMark, pair: Relocation): Promise<boolean> => {
-        if (!(await unchanged(pair.from, await mark.stamps))) {
+        if (!(await unchanged(pair.from, await mark.stamps.get(pair.from)))) {
           undoable.current.delete(mark);
         }
         return undoable.current.has(mark);
       };
-      const undoOf = (done: readonly Relocation[]): ToastAction => {
+      const undoOf = (done: readonly Relocation[], mark: UndoMark): ToastAction => {
         let undo = done.map((pair) => ({ ...pair, from: pair.to, to: pair.from })).reverse();
-        const mark: UndoMark = { targets: undo.map((pair) => pair.from), stamps: stampsOf(done.map((pair) => pair.to)) };
-        undoable.current.add(mark);
         let running = false;
         let closed = false;
         return {
@@ -403,24 +400,34 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       };
       const run = async (pairs: readonly Relocation[], undone?: UndoMark): Promise<Relocation[]> => {
         const back = undone !== undefined;
+        const mark: UndoMark | undefined = back ? undefined : { targets: [], stamps: new Map() };
+        if (mark !== undefined) {
+          undoable.current.add(mark);
+        }
         const { done, left, failure, changed, state } = await relocateAll(
           pairs,
           async (pair) => undone === undefined || stillMarked(undone, pair),
+          mark === undefined ? undefined : (path) => {
+            mark.targets.push(path);
+            mark.stamps.set(path, recordedStamp(path));
+          },
         );
         const words = back ? failedMoveWords.back : failedMoveWords.forward;
         if (done.length > 0) {
-          touch(done.flatMap((pair) => [pair.from, pair.to]), undone);
+          touch(done.flatMap((pair) => [pair.from, pair.to]), undone ?? mark);
           refreshNav();
           new Set(done.map((pair) => parentOf(pair.to))).forEach(openFolder);
           reportMutation(
             state,
             movedMessage(done, back, space, (folder) => void navigate(directoryUrl(folder))),
-            back ? undefined : undoOf(done),
+            mark === undefined ? undefined : undoOf(done, mark),
           );
           const here = done.map((pair) => pathAfterMove(shown.current.path, pair.from, pair.to)).find((path) => path !== undefined);
           if (here !== undefined) {
             await navigate(shown.current.onFolder ? directoryUrl(here) : documentUrl(here));
           }
+        } else if (mark !== undefined) {
+          undoable.current.delete(mark);
         }
         if (changed || failure !== undefined) {
           showToast('error', {

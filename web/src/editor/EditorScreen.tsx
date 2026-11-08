@@ -641,11 +641,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const previewStyle = mode === 'split' ? { flex: '1 1 0' } : undefined;
 
   return (
-    <div
-      data-testid="editor"
-      data-kind={kind}
-      className={classes.screen}
-    >
+    <div data-testid="editor" data-kind={kind} className={classes.screen}>
       <PageActions>
         <Text
           data-testid="editor-status"

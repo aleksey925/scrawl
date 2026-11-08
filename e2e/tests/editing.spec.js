@@ -51,7 +51,7 @@ function sourceRoom(page) {
         const head = root.parentElement.querySelector('[data-testid=editor-toolbar]').parentElement;
         return {
             editorShort: Math.round(pane.width - root.querySelector('.cm-editor').getBoundingClientRect().width),
-            toolbarShort: Math.round(pane.width - head.getBoundingClientRect().width),
+            headStart: Math.round(head.firstElementChild.getBoundingClientRect().left - pane.left),
             textStart: Math.round(root.querySelector('.cm-gutters').getBoundingClientRect().left - pane.left),
         };
     });
@@ -890,7 +890,7 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    test('in Source the source and its toolbar take the whole pane and the text starts where it does in Split', async ({page}) => {
+    test('in Source the source takes the whole pane and its text and toolbar start where they do in Split', async ({page}) => {
         // arrange
         const docPath = scratch('source-width');
         writeFixture(docPath, 'короткая\n');
@@ -904,7 +904,7 @@ test.describe('editing', () => {
 
         // assert
         await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'source');
-        await expect.poll(() => sourceRoom(page)).toEqual({editorShort: 0, toolbarShort: 0, textStart: split.textStart});
+        await expect.poll(() => sourceRoom(page)).toEqual({editorShort: 0, headStart: split.headStart, textStart: split.textStart});
         removeFixture(docPath);
     });
 
@@ -930,12 +930,12 @@ test.describe('editing', () => {
                 .find((element) => element.textContent === '3').getBoundingClientRect();
             const hit = document.elementFromPoint(box.x - 4, number.y + number.height / 2);
             return {
-                editorFillsSource: root.querySelector('.cm-editor').offsetWidth === root.offsetWidth,
                 numbersOpaque: getComputedStyle(gutters).backgroundColor !== 'rgba(0, 0, 0, 0)',
                 textLeftOfNumbers: hit !== null && hit.closest('.cm-content') !== null,
             };
         });
-        expect(seen).toEqual({editorFillsSource: true, numbersOpaque: true, textLeftOfNumbers: false});
+        expect(seen).toEqual({numbersOpaque: true, textLeftOfNumbers: false});
+        expect((await sourceRoom(page)).editorShort).toBe(0);
         removeFixture(docPath);
     });
 

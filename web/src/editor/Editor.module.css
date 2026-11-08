@@ -37,7 +37,6 @@
   align-items: center;
   gap: 8px;
   box-sizing: content-box;
-  min-width: 0;
   height: 44px;
   padding-inline: var(--mantine-spacing-lg);
   border-bottom: 1px solid var(--scrawl-border-light);

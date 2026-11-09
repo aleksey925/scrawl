@@ -35,6 +35,12 @@ function holdSave(page) {
     return holdRoute(page, '**/api/file/**', (req) => req.method() === 'PUT');
 }
 
+function failSave(page, status) {
+    return page.route('**/api/file/**', (route) => (route.request().method() === 'PUT'
+        ? route.fulfill({status, json: {error: 'refused'}})
+        : route.continue()));
+}
+
 async function wheelOverSource(page, {steps = 20, delta = 60} = {}) {
     const box = await page.getByTestId('editor-source').boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -187,9 +193,7 @@ test.describe('editing', () => {
     test('Save writes the note and opens the reader', async ({page}) => {
         // arrange
         const docPath = scratch('save-leaves');
-        writeFixture(docPath, 'kept\n');
-        await page.goto(routes.edit(docPath));
-        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await editFromReader(page, docPath, 'kept\n');
         await setSource(page, 'written\n');
 
         // act
@@ -205,9 +209,7 @@ test.describe('editing', () => {
     test('Save with nothing changed opens the reader and writes nothing', async ({page}) => {
         // arrange
         const docPath = scratch('save-clean');
-        writeFixture(docPath, 'kept\n');
-        await page.goto(routes.edit(docPath));
-        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await editFromReader(page, docPath, 'kept\n');
         const writes = [];
         page.on('request', (req) => {
             if (req.method() === 'PUT') {
@@ -254,9 +256,7 @@ test.describe('editing', () => {
             const docPath = scratch(`save-fails-${failure.status}`);
             await editFromReader(page, docPath, 'kept\n');
             await setSource(page, 'my version\n');
-            await page.route('**/api/file/**', (route) => (route.request().method() === 'PUT'
-                ? route.fulfill({status: failure.status, json: {error: 'refused'}})
-                : route.continue()));
+            await failSave(page, failure.status);
 
             // act
             await page.getByTestId('editor-save').click();
@@ -1049,9 +1049,7 @@ test.describe('editing', () => {
         await expect(page.getByTestId('editor-conflict-overwrite')).toBeVisible();
         const conflict = await dialogButtons(page, conflictIds);
         await page.getByTestId('editor-conflict-cancel').click();
-        await page.route('**/api/file/**', (route) => (route.request().method() === 'PUT'
-            ? route.fulfill({status: 401, contentType: 'application/json', body: '{"error":"unauthorized"}'})
-            : route.continue()));
+        await failSave(page, 401);
         await page.getByTestId('editor-save').click();
         await expect(page.getByTestId('editor-session-signin')).toBeVisible();
         const session = await dialogButtons(page, sessionIds);

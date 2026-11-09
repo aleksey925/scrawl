@@ -206,6 +206,32 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('after Save the text cannot change while the reader loads', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-reader-loads');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'written\n');
+        const {release, reached} = await holdRoute(page, '**/assets/DocumentPage.js');
+        const source = page.locator('[data-testid=editor-source] .cm-content');
+
+        // act
+        await page.getByTestId('editor-save').click();
+        await reached;
+        await expect(source).toHaveAttribute('contenteditable', 'false');
+        await page.keyboard.type(' and more');
+        const shown = await sourceText(page);
+        release();
+
+        // assert
+        expect(shown).toBe('written\n');
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await expect(page.getByTestId('doc')).toContainText('written');
+        expect(readFixture(docPath)).toBe('written\n');
+        removeFixture(docPath);
+    });
+
     test('Save with nothing changed opens the reader and writes nothing', async ({page}) => {
         // arrange
         const docPath = scratch('save-clean');

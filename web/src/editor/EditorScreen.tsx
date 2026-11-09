@@ -132,6 +132,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const [saved, setSaved] = useState(editorText);
   const [rev, setRev] = useState(initialRev);
   const [saving, setSaving] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [view, setView] = useState<EditorView | undefined>(undefined);
 
   const dirty = content !== saved;
@@ -612,6 +613,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     }
     if (mountedRef.current) {
       leavingRef.current = true;
+      setLeaving(true);
       openReader();
     }
   }, [dirty, exists, openReader, save]);
@@ -858,7 +860,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               kind={kind}
               name={fileName}
               value={content}
-              readOnly={readOnly}
+              readOnly={readOnly || leaving}
               autoFocus={!touch}
               wrap={lineWrap.wrap}
               onChange={setContent}

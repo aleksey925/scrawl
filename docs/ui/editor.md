@@ -28,11 +28,13 @@ The editor screen.
   With nothing to save it only opens the reader, and a note not created yet is
   created. The editor stays when the save fails, when it meets a conflict,
   whatever the conflict dialog then does, and when the text changed while the
-  save ran. A person who went elsewhere while the save ran stays there. A save
-  midway that keeps the editor is `Ctrl`/`Cmd` + `S`. Cancel opens the reader
-  without saving and asks first when there are unsaved changes. A phone has no
-  shortcut, so a save there always leaves; the local draft keeps the text
-  between saves.
+  save ran. A person who went elsewhere while the save ran stays there. Once
+  the save is done and the reader is on its way, the text can no longer be
+  changed: the guard on leaving is asked only as the move starts, and the
+  reader may still be loading. A save midway that keeps the editor is
+  `Ctrl`/`Cmd` + `S`. Cancel opens the reader without saving and asks first
+  when there are unsaved changes. A phone has no shortcut, so a save there
+  always leaves; the local draft keeps the text between saves.
 - Changes shows the unsaved edits: the text in the editor against the text last
   saved, drawn as the history draws a version
   ([history](../design/history.md#comparing-versions)), side by side on a wide

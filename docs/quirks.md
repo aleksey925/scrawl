@@ -149,6 +149,9 @@ words; the fact itself is written here.
   some lines where a table starts. [Editor](ui/editor.md)
 - In codemirror the height of a line not drawn yet is an estimate, hundreds of
   pixels off in a wrapped note. [Editor position](design/editor-position.md)
+- React Router asks a blocker once, as a navigation starts, not while the code
+  of the next page loads, so a change made in that time passes the guard on
+  leaving. [Editor](ui/editor.md)
 - A phone that puts a tab away and later drops it fires no `beforeunload`, so a
   draft is also saved on `pagehide`.
 - A paste that carries `text/plain` is never taken as a picture: Word and Excel

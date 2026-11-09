@@ -1096,10 +1096,10 @@ test.describe('editing', () => {
             await page.getByTestId('editor-layout-mode').getByText('Changes').click();
             await expect(page.locator('[data-testid=diff-row][data-kind=changed] ins')).toHaveText('новый');
             await page.evaluate(() => {
-                window.changesLoaded = false;
+                window.changesLoaderShown = false;
                 new MutationObserver(() => {
                     if (document.querySelector('[data-testid=editor-changes-loading]') !== null) {
-                        window.changesLoaded = true;
+                        window.changesLoaderShown = true;
                     }
                 }).observe(document.body, {subtree: true, childList: true});
             });
@@ -1110,7 +1110,7 @@ test.describe('editing', () => {
             // assert
             await expect(page.getByTestId('editor-changes-none')).toBeVisible();
             expect(readFixture(docPath)).toBe('# Заметка\n\nновый текст\n');
-            expect(await page.evaluate(() => window.changesLoaded)).toBe(false);
+            expect(await page.evaluate(() => window.changesLoaderShown)).toBe(false);
             expect(sent).toEqual([{path: docPath, old: '# Заметка\n\nстарый текст\n', new: '#  Заметка\n\nновый текст\n'}]);
             removeFixture(docPath);
         });

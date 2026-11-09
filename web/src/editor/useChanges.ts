@@ -22,13 +22,15 @@ interface Compared {
 
 const tooLargeNotice = 'This document is too large to compare. Editing and saving still work.';
 
-export function useChanges(
-  saved: string,
-  content: string,
-  path: string,
-  enabled: boolean,
-  paused: boolean,
-): ChangesState {
+export interface UseChangesOptions {
+  saved: string;
+  content: string;
+  path: string;
+  enabled: boolean;
+  paused: boolean;
+}
+
+export function useChanges({ saved, content, path, enabled, paused }: UseChangesOptions): ChangesState {
   const [compared, setCompared] = useState<Compared | undefined>(undefined);
   const comparedRef = useRef(compared);
   comparedRef.current = compared;

@@ -18,11 +18,13 @@ The editor screen.
   Split, Preview or Changes, Cancel and Save; on a phone Cancel and Save are
   the two ends of the bar and the sync control stands between them, in the
   middle, so a change on its way shows right after a save. Below the `lg` width
-  the layout shows only its icons, each with its name on hover, because the
-  four names squeezed the note's name in the topbar to a few letters. Only this
-  switch names its icons on hover: the other icon switches show their names. On
-  a phone the layouts are the tabs Text, Preview and Changes, as Split has no
-  room there.
+  the layout shows only its icons, because the four names squeezed the note's
+  name in the topbar to a few letters. Each layout shows its name on hover at
+  every width, also where the name is on screen, as a title cannot follow the
+  width without a script. This is `compact` of `Segmented`, and only this
+  switch has it: the other icon switches always show their names. On a phone
+  the layouts are the tabs Text, Preview and Changes, as Split has no room
+  there.
 - Changes shows the unsaved edits: the text in the editor against the text last
   saved, drawn as the history draws a version
   ([history](../design/history.md#comparing-versions)), side by side on a wide

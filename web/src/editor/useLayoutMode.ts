@@ -18,8 +18,12 @@ export interface LayoutControl {
   wide: boolean;
 }
 
-function isStoredMode(value: string | undefined): value is StoredMode {
+function isStoredMode(value: string | null | undefined): value is StoredMode {
   return value === 'source' || value === 'split' || value === 'preview';
+}
+
+export function isLayoutMode(value: string | null): value is LayoutMode {
+  return isStoredMode(value) || value === 'changes';
 }
 
 function storedSplit(): number {

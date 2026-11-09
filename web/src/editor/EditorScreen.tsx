@@ -62,7 +62,7 @@ import { insertTable, runTableEdit, tableEditsAtCursor } from './table';
 import { tocBlock, writeToc, writeTocInText } from './toc';
 import { useChanges } from './useChanges';
 import { useDraft } from './useDraft';
-import { useEditorLayout, type LayoutMode } from './useLayoutMode';
+import { isLayoutMode, useEditorLayout, type LayoutMode } from './useLayoutMode';
 import { useLineWrap } from './useLineWrap';
 import { usePreview } from './usePreview';
 import { useUploads } from './useUploads';
@@ -147,6 +147,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const panesRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const arrivedWith = useRef(location.state);
+  const leftForChangesRef = useRef<ReadingAnchor | undefined>(undefined);
 
   contentRef.current = content;
   revRef.current = rev;
@@ -160,7 +161,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const showSource = mode === 'source' || mode === 'split';
   const showPreview = mode === 'preview' || mode === 'split';
   const preview = usePreview(content, path, showPreview);
-  const changes = useChanges(saved, content, path, mode === 'changes', saving);
+  const changes = useChanges({ saved, content, path, enabled: mode === 'changes', paused: saving });
   const uploads = useUploads(path, useCallback(() => viewRef.current, []));
   const draft = useDraft({ path, rev, content, dirty, savedContent: editorText });
 
@@ -326,8 +327,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       }
     }, pane);
   }, [openedAt, preview.html, mode, liveView, panes]);
-
-  const leftForChangesRef = useRef<ReadingAnchor | undefined>(undefined);
 
   const captureReadingPosition = useCallback((): ReadingAnchor | undefined => {
     const source = liveView();
@@ -687,7 +686,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             aria-label="Editor layout"
             classNames={{ root: classes.modes, label: classes.mode }}
             options={modeOptions}
-            titled
+            compact
           />
         )}
         <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" className={classes.cancel} onClick={cancel}>
@@ -761,7 +760,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         <Tabs
           data-testid="editor-tabs"
           value={mode}
-          onChange={(value) => chooseMode(value === 'preview' || value === 'changes' ? value : 'source')}
+          onChange={(value) => chooseMode(isLayoutMode(value) ? value : 'source')}
         >
           <Tabs.List grow>
             <Tabs.Tab data-testid="editor-tab-source" value="source" h={layout.tapTarget}>

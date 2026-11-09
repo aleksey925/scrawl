@@ -15,10 +15,10 @@ type SegmentedProps<T extends string> = Omit<SegmentedControlProps<T>, 'data' | 
   options: readonly SegmentedOption<T>[];
   value: T;
   onChange: (value: T) => void;
-  titled?: boolean;
+  compact?: boolean;
 };
 
-export function Segmented<T extends string>({ options, titled = false, ...rest }: SegmentedProps<T>): JSX.Element | null {
+export function Segmented<T extends string>({ options, compact = false, ...rest }: SegmentedProps<T>): JSX.Element | null {
   return (
     <SegmentedControl<T>
       {...rest}
@@ -28,9 +28,11 @@ export function Segmented<T extends string>({ options, titled = false, ...rest }
           OptionIcon === undefined ? (
             label
           ) : (
-            <span className={controls.segmentOption} title={titled ? label : undefined}>
+            <span className={controls.segmentOption} title={compact ? label : undefined}>
               <OptionIcon size={layout.iconSizeSmall} />
-              <span data-segment-text>{label}</span>
+              <span data-segment-text className={compact ? controls.segmentTextCompact : undefined}>
+                {label}
+              </span>
             </span>
           ),
       }))}

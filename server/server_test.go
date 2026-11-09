@@ -1412,7 +1412,6 @@ func TestAPICompareTakesTwoSidesAtTheCap(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
 	atCap := strings.Repeat("x", maxPreviewBody)
-	require.Len(t, atCap, maxPreviewBody)
 
 	// act
 	resp, body := ts.json(t, request{

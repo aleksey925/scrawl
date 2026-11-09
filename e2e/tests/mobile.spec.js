@@ -1471,10 +1471,12 @@ test.describe('mobile', () => {
 
         await page.getByTestId('editor-tab-source').tap();
         await expect(page.getByTestId('editor-source')).toBeVisible();
+        await expectNoHorizontalScroll(page);
 
         await page.getByTestId('editor-save').tap();
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.saved);
-        await expectNoHorizontalScroll(page);
+        await expect(page).toHaveURL(MAIN.url.doc(SCRATCH));
+        await expect(page.getByTestId('doc')).toContainText('новый текст');
     });
 
     test('a split kept on a wide screen opens on the Text tab of a phone', async ({page}) => {

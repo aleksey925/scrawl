@@ -17,19 +17,20 @@ The editor screen.
   topbar holds the sync control, the state of the save, the layout as Source,
   Split, Preview or Changes, Cancel and Save; on a phone Cancel and Save are
   the two ends of the bar and the sync control stands between them, in the
-  middle, so a change on its way shows right after a save. Below the `lg` width
-  the layout shows only its icons, because the four names squeezed the note's
-  name in the topbar to a few letters. Each layout shows its name on hover at
-  every width, also where the name is on screen, as a title cannot follow the
-  width without a script. This is `compact` of `Segmented`, and only this
-  switch has it: the other icon switches always show their names. On a phone
-  the layouts are the tabs Text, Preview and Changes, as Split has no room
-  there.
+  middle. Below the `lg` width the layout shows only its icons, because the
+  four names squeezed the note's name in the topbar to a few letters. Each
+  layout shows its name on hover at every width, also where the name is on
+  screen, as a title cannot follow the width without a script. This is
+  `compact` of `Segmented`, and only this switch has it: the other icon
+  switches always show their names. On a phone the layouts are the tabs Text,
+  Preview and Changes, as Split has no room there.
 - Save saves and opens the reader, as an edit is a trip from the page and back.
   With nothing to save it only opens the reader, and a note not created yet is
-  created. When the save fails or meets a conflict the editor stays. A save
-  midway that keeps the editor is `Mod+S`. Cancel opens the reader without
-  saving and asks first when there are unsaved changes. A phone has no
+  created. The editor stays when the save fails, when it meets a conflict,
+  whatever the conflict dialog then does, and when the text changed while the
+  save ran. A person who went elsewhere while the save ran stays there. A save
+  midway that keeps the editor is `Ctrl`/`Cmd` + `S`. Cancel opens the reader
+  without saving and asks first when there are unsaved changes. A phone has no
   shortcut, so a save there always leaves; the local draft keeps the text
   between saves.
 - Changes shows the unsaved edits: the text in the editor against the text last
@@ -39,11 +40,11 @@ The editor screen.
   With format on save, a save writes the formatted text, so Changes is not
   always what Save writes. With nothing changed it says so and asks the server
   nothing. Coming back to Changes with the same texts asks nothing again, but a
-  compare that failed is asked again. A save made in Changes moves what it
-  compares against, so the pane then says there are no changes; while the save
-  runs, the pane keeps the last diff and asks nothing for the formatted text.
-  Changes is never the layout the editor opens with: it is not kept as the
-  other three are, and the editor opens in the last of those.
+  compare that failed is asked again. A save with the shortcut made in Changes
+  moves what it compares against, so the pane then says there are no changes;
+  while the save runs, the pane keeps the last diff and asks nothing for the
+  formatted text. Changes is never the layout the editor opens with: it is not
+  kept as the other three are, and the editor opens in the last of those.
 - A text file that is not a note is edited as text alone: the source, colored
   by its language, with Save, Cancel and the wrap, and no modes, toolbar,
   preview, formatter or picture upload, none of which means anything for it. It

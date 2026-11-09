@@ -141,6 +141,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const revRef = useRef(rev);
   const savingRef = useRef(false);
   const leavingRef = useRef(false);
+  const mountedRef = useRef(true);
   const leaderRef = useRef<'source' | 'preview' | undefined>(undefined);
   const promptedRef = useRef(false);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -215,6 +216,13 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const tocAbortRef = useRef<AbortController | undefined>(undefined);
 
   useEffect(() => () => tocAbortRef.current?.abort(), []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const insertToc = useCallback((): void => {
     tocAbortRef.current?.abort();
@@ -597,13 +605,13 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   }, [navigate, path, rememberReadingPosition]);
 
   const saveAndLeave = useCallback(async (): Promise<void> => {
-    if (dirty || revRef.current === '') {
-      if (!(await save())) {
-        return;
-      }
-      leavingRef.current = true;
+    if ((dirty || revRef.current === '') && !(await save())) {
+      return;
     }
-    leave();
+    if (mountedRef.current) {
+      leavingRef.current = true;
+      leave();
+    }
   }, [dirty, leave, save]);
 
   const onAction = useCallback((action: MarkdownAction): void => {

@@ -67,6 +67,11 @@ Git-backed versions of the notes, and how two versions are compared.
   removed block is struck through. The patch stays beside them as the `Source`
   view, and a version too large or too slow to compare still answers with the
   patch alone.
+- The editor's Changes compares the text in the editor with the text last
+  saved, through `POST /api/compare`, which takes both and answers with the
+  rows. Both sides are rendered as the preview is, under its size cap each and
+  outside the page cache, since an unsaved text is never asked for again.
+  Unlike a version, a failure has no patch to fall back to and is an error.
 - The diff markup is written twice, by `web/src/diff/RenderedDiff.tsx` and by
   the templates of `page`, and `web/src/diff/diff.css` styles both. A change to
   one is a change to the other, folding included.

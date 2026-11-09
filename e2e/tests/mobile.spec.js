@@ -1463,6 +1463,12 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('editor-source')).toHaveCount(0);
         await shot(page, 'mobile-editor-preview');
 
+        await page.getByTestId('editor-tab-changes').tap();
+        await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'changes');
+        await expect(page.getByTestId('rendered-diff')).toHaveAttribute('data-layout', 'unified');
+        await expect(page.locator('[data-testid=diff-row][data-kind=changed] ins')).toHaveText('новый');
+        await shot(page, 'mobile-editor-changes');
+
         await page.getByTestId('editor-tab-source').tap();
         await expect(page.getByTestId('editor-source')).toBeVisible();
 
@@ -1716,7 +1722,7 @@ test.describe('mobile', () => {
         await page.goto(routes.edit(SCRATCH));
         await expect(page.getByTestId('editor-tabs')).toBeVisible();
 
-        expect(await tooSmall(page, '[data-testid=editor-tab-source], [data-testid=editor-tab-preview]'))
+        expect(await tooSmall(page, '[data-testid^=editor-tab-]'))
             .toEqual([]);
         expect(await tooSmall(page, '[data-testid=editor-toolbar] button')).toEqual([]);
     });

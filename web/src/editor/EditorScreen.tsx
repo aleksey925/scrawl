@@ -19,6 +19,7 @@ import { Segmented, type SegmentedOption } from '../components/Segmented';
 import {
   IconBraces,
   IconColumns,
+  IconDiff,
   IconEye,
   IconPhoto,
   IconTextWrap,
@@ -34,6 +35,7 @@ import { useMutationState } from '../shell/useMutationState';
 import { layout } from '../theme';
 import { showToast } from '../toast';
 
+import { ChangesPane } from './ChangesPane';
 import { PreviewPane } from './PreviewPane';
 import { SourceEditor, type DroppedFiles, type EditorKind } from './SourceEditor';
 import { Splitter } from './Splitter';
@@ -58,6 +60,7 @@ import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { createPaneSync } from './paneSync';
 import { insertTable, runTableEdit, tableEditsAtCursor } from './table';
 import { tocBlock, writeToc, writeTocInText } from './toc';
+import { useChanges } from './useChanges';
 import { useDraft } from './useDraft';
 import { useEditorLayout, type LayoutMode } from './useLayoutMode';
 import { useLineWrap } from './useLineWrap';
@@ -77,6 +80,7 @@ const modeOptions: SegmentedOption<LayoutMode>[] = [
   { value: 'source', icon: IconBraces, label: 'Source' },
   { value: 'split', icon: IconColumns, label: 'Split' },
   { value: 'preview', icon: IconEye, label: 'Preview' },
+  { value: 'changes', icon: IconDiff, label: 'Changes' },
 ];
 
 type SaveState = 'saving' | 'uploading' | 'dirty' | 'new' | 'saved';
@@ -153,7 +157,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const lineWrap = useLineWrap();
   const touch = useMediaQuery('(hover: none)', false, { getInitialValueInEffect: false }) ?? false;
 
-  const preview = usePreview(content, path, mode !== 'source');
+  const showSource = mode === 'source' || mode === 'split';
+  const showPreview = mode === 'preview' || mode === 'split';
+  const preview = usePreview(content, path, showPreview);
+  const changes = useChanges(saved, content, path, mode === 'changes');
   const uploads = useUploads(path, useCallback(() => viewRef.current, []));
   const draft = useDraft({ path, rev, content, dirty, savedContent: editorText });
 
@@ -320,22 +327,41 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     }, pane);
   }, [openedAt, preview.html, mode, liveView, panes]);
 
-  const rememberReadingPosition = useCallback((): ReadingAnchor | undefined => {
+  const leftForChangesRef = useRef<ReadingAnchor | undefined>(undefined);
+
+  const captureReadingPosition = useCallback((): ReadingAnchor | undefined => {
     const source = liveView();
     const pane = previewRef.current;
-    let anchor: ReadingAnchor | undefined;
     if (openedAt?.path === path && !readerMoved.current) {
-      anchor = { ...openedAt, rev: revRef.current };
-    } else if (pane !== null && (source === undefined || leaderRef.current === 'preview')) {
-      anchor = captureFromPane(pane, path, revRef.current);
-    } else if (source !== undefined) {
-      anchor = captureFromSource(source, path, revRef.current);
+      return { ...openedAt, rev: revRef.current };
     }
+    if (pane !== null && (source === undefined || leaderRef.current === 'preview')) {
+      return captureFromPane(pane, path, revRef.current);
+    }
+    if (source !== undefined) {
+      return captureFromSource(source, path, revRef.current);
+    }
+    const left = leftForChangesRef.current;
+    return left?.path === path ? { ...left, rev: revRef.current } : undefined;
+  }, [path, liveView, openedAt]);
+
+  const rememberReadingPosition = useCallback((): ReadingAnchor | undefined => {
+    const anchor = captureReadingPosition();
     if (anchor !== undefined) {
       rememberAnchor('view', anchor);
     }
     return anchor;
-  }, [path, liveView, openedAt]);
+  }, [captureReadingPosition]);
+
+  const chooseMode = useCallback(
+    (next: LayoutMode): void => {
+      if (next === 'changes' && mode !== 'changes') {
+        leftForChangesRef.current = captureReadingPosition();
+      }
+      choose(next);
+    },
+    [captureReadingPosition, choose, mode],
+  );
 
   const syncFromSource = useCallback((): void => {
     const current = viewRef.current;
@@ -635,8 +661,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           ? 'new'
           : 'saved';
 
-  const showSource = mode !== 'preview';
-  const showPreview = mode !== 'source';
   const sourceStyle = mode === 'split' ? { flex: `0 0 ${split * 100}%` } : undefined;
   const previewStyle = mode === 'split' ? { flex: '1 1 0' } : undefined;
 
@@ -659,7 +683,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             data-mode={chosen}
             size="xs"
             value={chosen}
-            onChange={choose}
+            onChange={chooseMode}
             aria-label="Editor layout"
             classNames={{ root: classes.modes, label: classes.mode }}
             options={modeOptions}
@@ -735,8 +759,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       {!wide && kind === 'markdown' && (
         <Tabs
           data-testid="editor-tabs"
-          value={mode === 'preview' ? 'preview' : 'source'}
-          onChange={(value) => choose(value === 'preview' ? 'preview' : 'source')}
+          value={mode}
+          onChange={(value) => chooseMode(value === 'preview' || value === 'changes' ? value : 'source')}
         >
           <Tabs.List grow>
             <Tabs.Tab data-testid="editor-tab-source" value="source" h={layout.tapTarget}>
@@ -744,6 +768,9 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             </Tabs.Tab>
             <Tabs.Tab data-testid="editor-tab-preview" value="preview" h={layout.tapTarget}>
               Preview
+            </Tabs.Tab>
+            <Tabs.Tab data-testid="editor-tab-changes" value="changes" h={layout.tapTarget}>
+              Changes
             </Tabs.Tab>
           </Tabs.List>
         </Tabs>
@@ -834,6 +861,9 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               empty={content.trim() === ''}
             />
           </div>
+        )}
+        {mode === 'changes' && (
+          <ChangesPane changes={changes} same={!dirty} layout={wide ? 'split' : 'unified'} />
         )}
       </div>
 

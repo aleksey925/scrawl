@@ -1305,6 +1305,80 @@ func TestAPIPreviewListsTheContentsWithoutTheTitle(t *testing.T) {
 	}, got.TOC)
 }
 
+func TestAPICompareMarksTheChangedWords(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	// act
+	resp, body := ts.json(t, request{
+		method: http.MethodPost, path: "/api/compare",
+		body: jsonBody(t, map[string]string{"path": "guide.md", "old": "# the first one\n", "new": "# the old one\n"}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, map[string]any{"changes": []any{map[string]any{
+		"kind": "changed",
+		"old": map[string]any{
+			"html": `<h1>the <del class="diff-del">first</del> one</h1>`, "start": float64(1), "end": float64(1),
+		},
+		"new": map[string]any{
+			"html": `<h1>the <ins class="diff-ins">old</ins> one</h1>`, "start": float64(1), "end": float64(1),
+		},
+		"inline": map[string]any{
+			"html":  `<h1>the <del class="diff-del">first</del> <ins class="diff-ins">old</ins> one</h1>`,
+			"start": float64(1), "end": float64(1),
+		},
+	}}}, body)
+}
+
+func TestAPICompareReadsAnEmptySideAsANewNote(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{readOnly: true})
+
+	// act
+	resp, body := ts.json(t, request{
+		method: http.MethodPost, path: "/api/compare",
+		body: jsonBody(t, map[string]string{"path": "new.md", "old": "", "new": "# born\n"}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, []any{map[string]any{
+		"kind": "added",
+		"new":  map[string]any{"html": "<h1>born</h1>", "start": float64(1), "end": float64(1)},
+	}}, body["changes"])
+}
+
+func TestAPICompareRefusals(t *testing.T) {
+	ts := newTestServer(t, testOpts{})
+	big := strings.Repeat("[x]: /y\n", maxPreviewBody/8+1)
+
+	tests := []struct {
+		name   string
+		body   map[string]string
+		status int
+	}{
+		{name: "a bad path", body: map[string]string{"path": "x\x00.md", "old": "", "new": "x"},
+			status: http.StatusBadRequest},
+		{name: "the saved side over the cap", body: map[string]string{"path": "guide.md", "old": big, "new": "x"},
+			status: http.StatusRequestEntityTooLarge},
+		{name: "the edited side over the cap", body: map[string]string{"path": "guide.md", "old": "x", "new": big},
+			status: http.StatusRequestEntityTooLarge},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			resp, body := ts.json(t, request{method: http.MethodPost, path: "/api/compare", body: jsonBody(t, tc.body)})
+
+			// assert
+			assert.Equal(t, tc.status, resp.status)
+			assert.NotEmpty(t, body["error"])
+		})
+	}
+}
+
 func TestPreviewBodyIsCappedBelowTheSaveBody(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})

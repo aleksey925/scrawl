@@ -108,6 +108,23 @@
       "assets/PressRow.css"
     ]
   },
+  "_RenderedDiff.css": {
+    "file": "assets/RenderedDiff.css",
+    "src": "_RenderedDiff.css"
+  },
+  "_RenderedDiff.js": {
+    "file": "assets/RenderedDiff.js",
+    "name": "RenderedDiff",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_PageChrome.js",
+      "_DocumentHtml.js",
+      "_NavContext.js"
+    ],
+    "css": [
+      "assets/RenderedDiff.css"
+    ]
+  },
   "_Table.es.js": {
     "file": "assets/Table.es.js",
     "name": "Table.es",
@@ -2450,7 +2467,8 @@
       "index.html",
       "_lezer-common.js",
       "_lezer-html.js",
-      "_codemirror-autocomplete.js"
+      "_codemirror-autocomplete.js",
+      "_RenderedDiff.js"
     ],
     "dynamicImports": [
       "node_modules/@codemirror/lang-sql/dist/index.js",
@@ -2592,12 +2610,12 @@
     "imports": [
       "_rolldown-runtime.js",
       "_PageChrome.js",
-      "_DocumentHtml.js",
       "_NavContext.js",
       "_AsyncContent.js",
       "_platform.js",
       "index.html",
-      "_DocumentView.js"
+      "_DocumentView.js",
+      "_RenderedDiff.js"
     ],
     "css": [
       "assets/HistoryPage.css"

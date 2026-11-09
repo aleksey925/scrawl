@@ -14,6 +14,7 @@ import (
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/history"
+	"github.com/aleksey925/scrawl/htmldiff"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
@@ -59,6 +60,12 @@ type moveRequest struct {
 type previewRequest struct {
 	Content string `json:"content"`
 	Path    string `json:"path"`
+}
+
+type compareRequest struct {
+	Path string `json:"path"`
+	Old  string `json:"old"`
+	New  string `json:"new"`
 }
 
 type searchHit struct {
@@ -451,6 +458,48 @@ func (m *mount) apiPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"html": string(res.HTML), "toc": render.ContentsOf(res.TOC)})
+}
+
+func (m *mount) apiCompare(w http.ResponseWriter, r *http.Request) {
+	var req compareRequest
+	if !decodeJSON(w, r, &req, maxCompareBody) {
+		return
+	}
+	docPath, ok := contentPathOf(req.Path)
+	if !ok {
+		jsonError(w, http.StatusBadRequest, "bad path")
+		return
+	}
+
+	oldDoc, err := m.previewSide(docPath, req.Old)
+	if err != nil {
+		failJSON(w, r, err)
+		return
+	}
+	newDoc, err := m.previewSide(docPath, req.New)
+	if err != nil {
+		failJSON(w, r, err)
+		return
+	}
+	changes, err := withDeadline(docPath, renderTimeout, func() ([]htmldiff.Row, error) {
+		return htmldiff.Diff(oldDoc, newDoc)
+	})
+	if err != nil {
+		failJSON(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"changes": changes})
+}
+
+func (m *mount) previewSide(docPath, content string) (htmldiff.Document, error) {
+	source := []byte(content)
+	res, err := renderWithDeadline(docPath, source, maxPreviewBody, renderTimeout, func() (render.Result, error) {
+		return m.spc.Renderer.Render(source, docPath)
+	})
+	if err != nil {
+		return htmldiff.Document{}, err
+	}
+	return htmldiff.Document{Frontmatter: render.Frontmatter(source), HTML: string(res.HTML)}, nil
 }
 
 func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {

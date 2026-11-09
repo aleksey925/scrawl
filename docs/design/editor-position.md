@@ -25,6 +25,9 @@ other.
   wrapped note. A line's top is read off its glyph and not its line box, since
   the glyph is what `scrollIntoView` lines up, and the space between the two
   crept on every round trip.
+- Changes shows neither the source nor the preview, so it has no position of
+  its own. The editor takes its position when it switches to Changes, and after
+  a Save or Cancel there the reader opens at that place.
 
 ## Split panes
 

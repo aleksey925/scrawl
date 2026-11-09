@@ -97,6 +97,17 @@
   padding-inline: 10px;
 }
 
+@mixin smaller-than $mantine-breakpoint-lg {
+  .mode [data-segment-text] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 .source {
   overflow: hidden;
 }
@@ -186,6 +197,17 @@
   width: 100%;
   max-width: var(--scrawl-note-width);
   margin-inline: auto;
+}
+
+.changes > * {
+  flex: none;
+  width: 100%;
+  max-width: var(--scrawl-note-width);
+  margin-inline: auto;
+}
+
+.changes[data-layout='split'] > * {
+  max-width: calc(var(--scrawl-note-width) * 2);
 }
 
 @mixin smaller-than $mantine-breakpoint-sm {

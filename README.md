@@ -571,6 +571,9 @@ in one folder instead.
 - the table button in the toolbar inserts a table of the size you pick on a
   grid. With the cursor in a table it adds or deletes a row or a column there,
   or deletes the table, and keeps the columns lined up
+- before you save, Changes in the editor shows your edits against the saved
+  note, with the changed words marked, the way the history shows a version. On
+  a phone it is the third tab next to Text and Preview
 - a text file that is not a note, such as `config.yml` or a `Makefile`, opens
   in the same editor as plain source, colored by its language, with Save,
   Cancel and line wrap. It has no preview, toolbar or formatting, and a save

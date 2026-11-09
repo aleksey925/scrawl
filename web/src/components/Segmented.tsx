@@ -27,9 +27,9 @@ export function Segmented<T extends string>({ options, ...rest }: SegmentedProps
           OptionIcon === undefined ? (
             label
           ) : (
-            <span className={controls.segmentOption}>
+            <span className={controls.segmentOption} title={label}>
               <OptionIcon size={layout.iconSizeSmall} />
-              {label}
+              <span data-segment-text>{label}</span>
             </span>
           ),
       }))}

@@ -44,6 +44,7 @@ const (
 	maxJSONBody = 4 << 20
 
 	maxPreviewBody = 512 << 10
+	maxCompareBody = 2 * maxPreviewBody
 
 	maxEditableFile = 2 << 20
 
@@ -292,6 +293,7 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	mutating.HandleFunc("POST /api/move", m.apiMove)
 	mutating.HandleFunc("POST /api/upload/{dir...}", m.apiUpload)
 	mutating.HandleFunc("POST /api/preview", m.apiPreview)
+	mutating.HandleFunc("POST /api/compare", m.apiCompare)
 	mutating.HandleFunc("POST /api/history/restore/{path...}", m.apiHistoryRestore)
 	mutating.HandleFunc("POST /api/sync/check", m.apiSyncCheck)
 	mutating.HandleFunc("POST /api/sync/reset", m.apiSyncReset)

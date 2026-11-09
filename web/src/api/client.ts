@@ -5,6 +5,8 @@ import { togglesOf } from '../reader/findMatches';
 import { ApiError } from './errors';
 import type {
   ApiErrorBody,
+  CompareRequest,
+  CompareResponse,
   DeleteResponse,
   DirListing,
   Divergence,
@@ -193,6 +195,7 @@ export interface ScrawlApi {
   historyVersion(path: string, rev: string, options?: RequestOptions): Promise<HistoryVersionResponse>;
   restoreVersion(path: string, body: RestoreRequest, options?: RequestOptions): Promise<RestoreOutcome>;
   preview(body: PreviewRequest, options?: RequestOptions): Promise<PreviewResponse>;
+  compare(body: CompareRequest, options?: RequestOptions): Promise<CompareResponse>;
   upload(dir: string, file: File, doc?: string, options?: RequestOptions): Promise<UploadResponse>;
   syncCheck(options?: RequestOptions): Promise<Divergence>;
   syncReset(body: ResetRequest, options?: RequestOptions): Promise<ResetResponse>;
@@ -265,6 +268,9 @@ export const api: ScrawlApi = {
 
   preview: (body, options) =>
     call<PreviewResponse>('POST', spaceUrl('/api/preview'), { ...options, body }),
+
+  compare: (body, options) =>
+    call<CompareResponse>('POST', spaceUrl('/api/compare'), { ...options, body }),
 
   upload: (dir, file, doc, options) => {
     const form = new FormData();

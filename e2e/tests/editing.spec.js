@@ -939,6 +939,55 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test.describe('the changes', () => {
+        test('show the unsaved edit against the saved note, and nothing once it is saved', async ({page}) => {
+            // arrange
+            const docPath = scratch('changes-save');
+            writeFixture(docPath, '# Заметка\n\nстарый текст\n');
+            await page.goto(routes.edit(docPath));
+            await expect.poll(() => sourceText(page)).toBe('# Заметка\n\nстарый текст\n');
+            await setSource(page, '# Заметка\n\nновый текст\n');
+
+            // act
+            await page.getByTestId('editor-layout-mode').getByText('Changes').click();
+
+            // assert
+            await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'changes');
+            await expect(page.getByTestId('editor-source')).toHaveCount(0);
+            await expect(page.getByTestId('editor-preview')).toHaveCount(0);
+            const diff = page.getByTestId('rendered-diff');
+            await expect(diff).toHaveAttribute('data-layout', 'split');
+            await expect(diff.locator('[data-testid=diff-row][data-kind=changed] ins')).toHaveText('новый');
+            await expect(diff.locator('[data-testid=diff-row][data-kind=changed] del')).toHaveText('старый');
+            await shot(page, 'editor-changes');
+
+            // act
+            await page.getByTestId('editor-save').click();
+
+            // assert
+            await expect(page.getByTestId('editor-changes-none')).toBeVisible();
+            expect(readFixture(docPath)).toBe('# Заметка\n\nновый текст\n');
+            removeFixture(docPath);
+        });
+
+        test('are not the layout the editor opens with next time', async ({page}) => {
+            // arrange
+            const docPath = scratch('changes-not-kept');
+            writeFixture(docPath, '# Заметка\n');
+            await page.goto(routes.edit(docPath));
+            await page.getByTestId('editor-layout-mode').getByText('Preview').click();
+            await page.getByTestId('editor-layout-mode').getByText('Changes').click();
+            await expect(page.getByTestId('editor-changes-none')).toBeVisible();
+
+            // act
+            await page.reload();
+
+            // assert
+            await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'preview');
+            removeFixture(docPath);
+        });
+    });
+
     test.describe('the table menu', () => {
         const edits = ['rowAbove', 'rowBelow', 'columnLeft', 'columnRight', 'deleteRow', 'deleteColumn', 'deleteTable'];
 

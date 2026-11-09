@@ -36,6 +36,7 @@ export {
   FolderIcon as IconFolder,
   FolderOpenIcon as IconFolderOpen,
   FolderPlusIcon as IconFolderPlus,
+  GitDiffIcon as IconDiff,
   HashIcon as IconHash,
   HouseIcon as IconHome,
   ImageIcon as IconPhoto,

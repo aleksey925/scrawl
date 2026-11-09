@@ -316,6 +316,16 @@ export interface PreviewResponse {
   toc: Heading[];
 }
 
+export interface CompareRequest {
+  path: string;
+  old: string;
+  new: string;
+}
+
+export interface CompareResponse {
+  changes: DiffRow[];
+}
+
 export interface UploadResponse extends MutationState {
   path: string;
   markdown: string;

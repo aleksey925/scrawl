@@ -10,12 +10,11 @@ import type { ChangesState } from './useChanges';
 
 export interface ChangesPaneProps {
   changes: ChangesState;
-  same: boolean;
   layout: DiffLayout;
 }
 
-function ChangesBody({ changes, same, layout }: ChangesPaneProps): JSX.Element {
-  if (same) {
+function ChangesBody({ changes, layout }: ChangesPaneProps): JSX.Element {
+  if (changes.same) {
     return (
       <EmptyState testId="editor-changes-none" icon={IconDiff} title="No changes">
         The note is the same as the saved one.
@@ -51,8 +50,7 @@ export function ChangesPane(props: ChangesPaneProps): JSX.Element {
   return (
     <Box
       data-testid="editor-changes"
-      data-layout={props.layout}
-      className={`${classes.pane} ${classes.grow} ${classes.preview} ${classes.changes}`}
+      className={`${classes.pane} ${classes.grow} ${classes.preview} ${classes.previewOnly} ${classes.changes}`}
     >
       <ChangesBody {...props} />
     </Box>

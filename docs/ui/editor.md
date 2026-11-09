@@ -18,17 +18,23 @@ The editor screen.
   Split, Preview or Changes, Cancel and Save; on a phone Cancel and Save are
   the two ends of the bar and the sync control stands between them, in the
   middle, so a change on its way shows right after a save. Below the `lg` width
-  the layout shows only its icons, each with its name on hover, or the four
-  names squeezed the note's name in the topbar to a few letters. On a phone the
-  layouts are the tabs Text, Preview and Changes, as Split has no room there.
-- Changes shows what Save would write: the text in the editor against the text
-  last saved, drawn as the history draws a version
+  the layout shows only its icons, each with its name on hover, because the
+  four names squeezed the note's name in the topbar to a few letters. Only this
+  switch names its icons on hover: the other icon switches show their names. On
+  a phone the layouts are the tabs Text, Preview and Changes, as Split has no
+  room there.
+- Changes shows the unsaved edits: the text in the editor against the text last
+  saved, drawn as the history draws a version
   ([history](../design/history.md#comparing-versions)), side by side on a wide
   screen and in one column on a phone. The sides are named Saved and Unsaved.
-  With nothing changed it says so and asks the server nothing. A save made in
-  Changes moves what it compares against, so the pane then says there are no
-  changes. Changes is never the layout the editor opens with: it is not kept as
-  the other three are, and the editor opens in the last of those.
+  With format on save, a save writes the formatted text, so Changes is not
+  always what Save writes. With nothing changed it says so and asks the server
+  nothing. Coming back to Changes with the same texts asks nothing again, but a
+  compare that failed is asked again. A save made in Changes moves what it
+  compares against, so the pane then says there are no changes; while the save
+  runs, the pane keeps the last diff and asks nothing for the formatted text.
+  Changes is never the layout the editor opens with: it is not kept as the
+  other three are, and the editor opens in the last of those.
 - A text file that is not a note is edited as text alone: the source, colored
   by its language, with Save, Cancel and the wrap, and no modes, toolbar,
   preview, formatter or picture upload, none of which means anything for it. It

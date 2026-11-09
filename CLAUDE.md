@@ -176,7 +176,8 @@ Before changing a part, read its doc:
   picture viewer, the history dialog: [pages](docs/ui/pages.md)
 - creating, naming, dragging and deleting files and folders:
   [entries](docs/ui/entries.md)
-- the editor screen and its toolbar, text files: [editor](docs/ui/editor.md)
+- the editor screen and its toolbar, the Changes layout, text files:
+  [editor](docs/ui/editor.md)
 - palettes, controls, the focus ring, menus, icons: [look](docs/ui/look.md)
 - the tab bar, dialogs, toasts, screen moves, swipe back:
   [phone](docs/ui/phone.md)

@@ -1477,6 +1477,20 @@ test.describe('mobile', () => {
         await expectNoHorizontalScroll(page);
     });
 
+    test('a split kept on a wide screen opens on the Text tab of a phone', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n');
+        await page.addInitScript(() => localStorage.setItem('scrawl.editor.mode', 'split'));
+
+        // act
+        await page.goto(routes.edit(SCRATCH));
+
+        // assert
+        await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'source');
+        await expect(page.getByTestId('editor-tab-source')).toHaveAttribute('aria-selected', 'true');
+        await expect(page.getByTestId('editor-source')).toBeVisible();
+    });
+
     test('a tap on the size grid inserts the table and leaves the cursor in its first cell', async ({page}) => {
         // arrange
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');

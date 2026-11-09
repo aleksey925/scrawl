@@ -14,7 +14,6 @@ import (
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/history"
-	"github.com/aleksey925/scrawl/htmldiff"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
@@ -449,10 +448,7 @@ func (m *mount) apiPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	source := []byte(req.Content)
-	res, err := renderWithDeadline(docPath, source, maxPreviewBody, renderTimeout, func() (render.Result, error) {
-		return m.spc.Renderer.Render(source, docPath)
-	})
+	res, err := m.renderPreview(docPath, []byte(req.Content))
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -471,19 +467,7 @@ func (m *mount) apiCompare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oldDoc, err := m.previewSide(docPath, req.Old)
-	if err != nil {
-		failJSON(w, r, err)
-		return
-	}
-	newDoc, err := m.previewSide(docPath, req.New)
-	if err != nil {
-		failJSON(w, r, err)
-		return
-	}
-	changes, err := withDeadline(docPath, renderTimeout, func() ([]htmldiff.Row, error) {
-		return htmldiff.Diff(oldDoc, newDoc)
-	})
+	changes, err := compareDocs(docPath, []byte(req.Old), docPath, []byte(req.New), m.renderPreview)
 	if err != nil {
 		failJSON(w, r, err)
 		return
@@ -491,15 +475,10 @@ func (m *mount) apiCompare(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"changes": changes})
 }
 
-func (m *mount) previewSide(docPath, content string) (htmldiff.Document, error) {
-	source := []byte(content)
-	res, err := renderWithDeadline(docPath, source, maxPreviewBody, renderTimeout, func() (render.Result, error) {
+func (m *mount) renderPreview(docPath string, source []byte) (render.Result, error) {
+	return renderWithDeadline(docPath, source, maxPreviewBody, renderTimeout, func() (render.Result, error) {
 		return m.spc.Renderer.Render(source, docPath)
 	})
-	if err != nil {
-		return htmldiff.Document{}, err
-	}
-	return htmldiff.Document{Frontmatter: render.Frontmatter(source), HTML: string(res.HTML)}, nil
 }
 
 func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {

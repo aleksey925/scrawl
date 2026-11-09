@@ -28,6 +28,10 @@ other.
 - Changes shows neither the source nor the preview, so it has no position of
   its own. The editor takes its position when it switches to Changes, and after
   a Save or Cancel there the reader opens at that place.
+- Preview and Changes do not keep the source, so going back to Source from them
+  draws it again at the place the editor opened with, or at the top, and not
+  where it was left. This is accepted: the place the editor opened with is the
+  one the reader came from.
 
 ## Split panes
 

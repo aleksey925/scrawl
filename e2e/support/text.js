@@ -79,6 +79,8 @@ module.exports = {
         draft: 'An unsaved draft was found',
         conflictMine: 'Your version',
         conflictTheirs: 'On disk',
+        changesTooLarge: 'This document is too large to compare. Editing and saving still work.',
+        changesFailed: 'Could not compare',
     },
 
     login: {

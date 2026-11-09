@@ -44,7 +44,7 @@ const (
 	maxJSONBody = 4 << 20
 
 	maxPreviewBody = 512 << 10
-	maxCompareBody = 2 * maxPreviewBody
+	maxCompareBody = 4 * maxPreviewBody
 
 	maxEditableFile = 2 << 20
 

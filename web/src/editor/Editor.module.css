@@ -201,12 +201,9 @@
 
 .changes > * {
   flex: none;
-  width: 100%;
-  max-width: var(--scrawl-note-width);
-  margin-inline: auto;
 }
 
-.changes[data-layout='split'] > * {
+.changes > [data-layout='split'] {
   max-width: calc(var(--scrawl-note-width) * 2);
 }
 

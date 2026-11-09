@@ -34,6 +34,16 @@ async function wheelOverSource(page, {steps = 20, delta = 60} = {}) {
     return steps * delta;
 }
 
+function watchCompares(page) {
+    const sent = [];
+    page.on('request', (req) => {
+        if (req.url().endsWith('/api/compare')) {
+            sent.push(req.postDataJSON());
+        }
+    });
+    return sent;
+}
+
 function sourceLayout(page) {
     return page.getByTestId('editor-source').evaluate((root) => {
         const heights = Array.from(root.querySelectorAll('.cm-line'), (line) => line.offsetHeight);
@@ -986,6 +996,187 @@ test.describe('editing', () => {
             await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'preview');
             removeFixture(docPath);
         });
+
+        test('ask the server nothing while the note is the same as the saved one', async ({page}) => {
+            // arrange
+            const docPath = scratch('changes-none');
+            writeFixture(docPath, '# Заметка\n');
+            await page.goto(routes.edit(docPath));
+            await expect.poll(() => sourceText(page)).toBe('# Заметка\n');
+            const sent = watchCompares(page);
+
+            // act
+            await page.getByTestId('editor-layout-mode').getByText('Changes').click();
+
+            // assert
+            await expect(page.getByTestId('editor-changes-none')).toBeVisible();
+            await page.waitForTimeout(300);
+            expect(sent).toEqual([]);
+            removeFixture(docPath);
+        });
+
+        test('keep the unsaved text in the source, and ask again only for a new text', async ({page}) => {
+            // arrange
+            const docPath = scratch('changes-back');
+            writeFixture(docPath, '# Заметка\n\nстарый текст\n');
+            await page.goto(routes.edit(docPath));
+            await expect.poll(() => sourceText(page)).toBe('# Заметка\n\nстарый текст\n');
+            await setSource(page, '# Заметка\n\nновый текст\n');
+            const sent = watchCompares(page);
+            const layoutMode = page.getByTestId('editor-layout-mode');
+            const added = page.locator('[data-testid=diff-row][data-kind=changed] ins');
+            await layoutMode.getByText('Changes').click();
+            await expect(added).toHaveText('новый');
+
+            // act
+            await layoutMode.getByText('Source').click();
+
+            // assert
+            await expect.poll(() => sourceText(page)).toBe('# Заметка\n\nновый текст\n');
+
+            // act
+            await layoutMode.getByText('Changes').click();
+
+            // assert
+            await expect(added).toHaveText('новый');
+            await page.waitForTimeout(300);
+            expect(sent).toEqual([{path: docPath, old: '# Заметка\n\nстарый текст\n', new: '# Заметка\n\nновый текст\n'}]);
+            removeFixture(docPath);
+        });
+
+        test('say when the note is too large or the server fails, and ask again on the next visit', async ({page}) => {
+            // arrange
+            const docPath = scratch('changes-notice');
+            writeFixture(docPath, '# Заметка\n\nстарый текст\n');
+            await page.goto(routes.edit(docPath));
+            await expect.poll(() => sourceText(page)).toBe('# Заметка\n\nстарый текст\n');
+            await setSource(page, '# Заметка\n\nновый текст\n');
+            const layoutMode = page.getByTestId('editor-layout-mode');
+            const notice = page.getByTestId('editor-changes-notice');
+            await page.route('**/api/compare', (route) => route.fulfill({status: 413, json: {error: 'request body is too large'}}));
+
+            // act
+            await layoutMode.getByText('Changes').click();
+
+            // assert
+            await expect(notice).toHaveText(text.editor.changesTooLarge);
+
+            // arrange
+            await page.unroute('**/api/compare');
+            await page.route('**/api/compare', (route) => route.fulfill({status: 500, json: {error: 'broken'}}));
+
+            // act
+            await layoutMode.getByText('Source').click();
+            await layoutMode.getByText('Changes').click();
+
+            // assert
+            await expect(notice).toContainText(text.editor.changesFailed);
+
+            // arrange
+            await page.unroute('**/api/compare');
+
+            // act
+            await layoutMode.getByText('Source').click();
+            await layoutMode.getByText('Changes').click();
+
+            // assert
+            await expect(page.locator('[data-testid=diff-row][data-kind=changed] ins')).toHaveText('новый');
+            await expect(notice).toHaveCount(0);
+            removeFixture(docPath);
+        });
+
+        test('keep the diff on screen through a save that formats the note, and ask nothing for the formatted text', async ({page}) => {
+            // arrange
+            const docPath = scratch('changes-format');
+            writeFixture(docPath, '# Заметка\n\nстарый текст\n');
+            await page.goto(routes.edit(docPath));
+            await expect.poll(() => sourceText(page)).toBe('# Заметка\n\nстарый текст\n');
+            await setSource(page, '#  Заметка\n\nновый текст\n');
+            const sent = watchCompares(page);
+            await page.getByTestId('editor-layout-mode').getByText('Changes').click();
+            await expect(page.locator('[data-testid=diff-row][data-kind=changed] ins')).toHaveText('новый');
+            await page.evaluate(() => {
+                window.changesLoaded = false;
+                new MutationObserver(() => {
+                    if (document.querySelector('[data-testid=editor-changes-loading]') !== null) {
+                        window.changesLoaded = true;
+                    }
+                }).observe(document.body, {subtree: true, childList: true});
+            });
+
+            // act
+            await page.getByTestId('editor-save').click();
+
+            // assert
+            await expect(page.getByTestId('editor-changes-none')).toBeVisible();
+            expect(readFixture(docPath)).toBe('# Заметка\n\nновый текст\n');
+            expect(await page.evaluate(() => window.changesLoaded)).toBe(false);
+            expect(sent).toEqual([{path: docPath, old: '# Заметка\n\nстарый текст\n', new: '#  Заметка\n\nновый текст\n'}]);
+            removeFixture(docPath);
+        });
+
+        for (const leave of ['cancel', 'save']) {
+            test(`keep the reading place, so ${leave === 'save' ? 'a Save, then ' : ''}Cancel opens the reader there`, async ({page}) => {
+                // arrange
+                const docPath = await openTallDocument(page, `changes-position-${leave}`);
+                const layoutMode = page.getByTestId('editor-layout-mode');
+                await layoutMode.getByText('Source').click();
+                await page.locator('[data-testid=editor-source] .cm-line').first().click();
+                await page.keyboard.press('End');
+                await page.keyboard.type(' x');
+                await wheelOverSource(page);
+                await page.waitForTimeout(400);
+                const topLine = await page.locator('[data-testid=editor-source] .cm-scroller').evaluate((scroller) => {
+                    const top = scroller.getBoundingClientRect().top;
+                    return Array.from(scroller.querySelectorAll('.cm-line'))
+                        .find((line) => line.getBoundingClientRect().bottom > top && line.textContent.trim().length > 1)
+                        .textContent;
+                });
+                await layoutMode.getByText('Changes').click();
+                await expect(page.getByTestId('rendered-diff')).toBeVisible();
+
+                // act
+                if (leave === 'save') {
+                    await page.getByTestId('editor-save').click();
+                    await expect(page.getByTestId('editor-changes-none')).toBeVisible();
+                    await page.getByTestId('editor-cancel').click();
+                } else {
+                    await page.getByTestId('editor-cancel').click();
+                    await page.getByTestId('modal-confirm').click();
+                }
+
+                // assert
+                const offset = () => page.locator('[data-testid=doc] p', {hasText: topLine}).evaluate(
+                    (el) => el.getBoundingClientRect().top);
+                await expect.poll(offset).toBeLessThan(250);
+                expect(await offset()).toBeGreaterThan(-250);
+                removeFixture(docPath);
+            });
+        }
+    });
+
+    test('the layout switch shows only its icons below the lg width, each named on hover', async ({page}) => {
+        // arrange
+        const docPath = scratch('layout-icons');
+        writeFixture(docPath, '# Заметка\n');
+        await page.setViewportSize({width: 1100, height: 900});
+        await page.goto(routes.edit(docPath));
+        const layoutMode = page.getByTestId('editor-layout-mode');
+        await expect(layoutMode).toBeVisible();
+        const options = () => layoutMode.locator('[data-segment-text]').evaluateAll((spans) => spans.map((span) => ({
+            title: span.parentElement.title,
+            shown: span.getBoundingClientRect().width > 1,
+        })));
+
+        // act & assert
+        expect(await options()).toEqual(['Source', 'Split', 'Preview', 'Changes'].map((title) => ({title, shown: false})));
+
+        // act
+        await page.setViewportSize({width: 1440, height: 900});
+
+        // assert
+        await expect.poll(options).toEqual(['Source', 'Split', 'Preview', 'Changes'].map((title) => ({title, shown: true})));
+        removeFixture(docPath);
     });
 
     test.describe('the table menu', () => {

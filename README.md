@@ -7,7 +7,8 @@ disk are the only state.
 - search of the whole space on `Ctrl`/`Cmd` + `K`: fuzzy, exact or by a regular
   expression, with the lines that matched; and find in the note on screen on
   `Ctrl`/`Cmd` + `F`
-- an editor with live preview, on desktop and on mobile
+- an editor with live preview and a view of your unsaved changes, on desktop
+  and on mobile
 - every file in a folder opens: a picture as a preview, a text file as
   highlighted code, and edits as plain text, without the note's preview and
   formatting

@@ -160,7 +160,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const showSource = mode === 'source' || mode === 'split';
   const showPreview = mode === 'preview' || mode === 'split';
   const preview = usePreview(content, path, showPreview);
-  const changes = useChanges(saved, content, path, mode === 'changes');
+  const changes = useChanges(saved, content, path, mode === 'changes', saving);
   const uploads = useUploads(path, useCallback(() => viewRef.current, []));
   const draft = useDraft({ path, rev, content, dirty, savedContent: editorText });
 
@@ -687,6 +687,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             aria-label="Editor layout"
             classNames={{ root: classes.modes, label: classes.mode }}
             options={modeOptions}
+            titled
           />
         )}
         <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" className={classes.cancel} onClick={cancel}>
@@ -863,7 +864,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           </div>
         )}
         {mode === 'changes' && (
-          <ChangesPane changes={changes} same={!dirty} layout={wide ? 'split' : 'unified'} />
+          <ChangesPane changes={changes} layout={wide ? 'split' : 'unified'} />
         )}
       </div>
 

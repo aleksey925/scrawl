@@ -1334,7 +1334,7 @@ func TestAPICompareMarksTheChangedWords(t *testing.T) {
 
 func TestAPICompareReadsAnEmptySideAsANewNote(t *testing.T) {
 	// arrange
-	ts := newTestServer(t, testOpts{readOnly: true})
+	ts := newTestServer(t, testOpts{})
 
 	// act
 	resp, body := ts.json(t, request{
@@ -1350,21 +1350,105 @@ func TestAPICompareReadsAnEmptySideAsANewNote(t *testing.T) {
 	}}, body["changes"])
 }
 
-func TestAPICompareRefusals(t *testing.T) {
+func TestAPICompareAnswersOnAReadOnlyServer(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{readOnly: true})
+
+	// act
+	resp, body := ts.json(t, request{
+		method: http.MethodPost, path: "/api/compare",
+		body: jsonBody(t, map[string]string{"path": "guide.md", "old": "# same\n", "new": "# same\n"}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, []any{map[string]any{
+		"kind": "same",
+		"old":  map[string]any{"html": "<h1>same</h1>", "start": float64(1), "end": float64(1)},
+		"new":  map[string]any{"html": "<h1>same</h1>", "start": float64(1), "end": float64(1)},
+	}}, body["changes"])
+}
+
+func TestAPICompareMarksAnEditOfTheFrontmatter(t *testing.T) {
+	// arrange
 	ts := newTestServer(t, testOpts{})
-	big := strings.Repeat("[x]: /y\n", maxPreviewBody/8+1)
+
+	// act
+	resp, body := ts.json(t, request{
+		method: http.MethodPost, path: "/api/compare",
+		body: jsonBody(t, map[string]string{
+			"path": "guide.md", "old": "---\ntitle: a\n---\n\nbody\n", "new": "---\ntitle: b\n---\n\nbody\n",
+		}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, []any{
+		map[string]any{
+			"kind": "changed",
+			"old": map[string]any{
+				"html":  "<pre class=\"frontmatter\"><code>---\ntitle: <del class=\"diff-del\">a</del>\n---</code></pre>",
+				"start": float64(1), "end": float64(3),
+			},
+			"new": map[string]any{
+				"html":  "<pre class=\"frontmatter\"><code>---\ntitle: <ins class=\"diff-ins\">b</ins>\n---</code></pre>",
+				"start": float64(1), "end": float64(3),
+			},
+			"inline": map[string]any{
+				"html": "<pre class=\"frontmatter\"><code>---\ntitle: <del class=\"diff-del\">a</del>" +
+					"<ins class=\"diff-ins\">b</ins>\n---</code></pre>",
+				"start": float64(1), "end": float64(3),
+			},
+		},
+		map[string]any{
+			"kind": "same",
+			"old":  map[string]any{"html": "<p>body</p>", "start": float64(5), "end": float64(5)},
+			"new":  map[string]any{"html": "<p>body</p>", "start": float64(5), "end": float64(5)},
+		},
+	}, body["changes"])
+}
+
+func TestAPICompareTakesTwoSidesAtTheCap(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	atCap := strings.Repeat("x", maxPreviewBody)
+	require.Len(t, atCap, maxPreviewBody)
+
+	// act
+	resp, body := ts.json(t, request{
+		method: http.MethodPost, path: "/api/compare",
+		body: jsonBody(t, map[string]string{"path": "guide.md", "old": atCap, "new": atCap}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, []any{map[string]any{
+		"kind": "same",
+		"old":  map[string]any{"html": "<p>" + atCap + "</p>", "start": float64(1), "end": float64(1)},
+		"new":  map[string]any{"html": "<p>" + atCap + "</p>", "start": float64(1), "end": float64(1)},
+	}}, body["changes"])
+}
+
+func TestAPICompareRefusals(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	overSide := strings.Repeat("[x]: /y\n", maxPreviewBody/8+1)
+	overBody := strings.Repeat("x", maxCompareBody)
 
 	tests := []struct {
 		name   string
 		body   map[string]string
 		status int
+		error  string
 	}{
 		{name: "a bad path", body: map[string]string{"path": "x\x00.md", "old": "", "new": "x"},
-			status: http.StatusBadRequest},
-		{name: "the saved side over the cap", body: map[string]string{"path": "guide.md", "old": big, "new": "x"},
-			status: http.StatusRequestEntityTooLarge},
-		{name: "the edited side over the cap", body: map[string]string{"path": "guide.md", "old": "x", "new": big},
-			status: http.StatusRequestEntityTooLarge},
+			status: http.StatusBadRequest, error: "bad path"},
+		{name: "the saved side over the cap", body: map[string]string{"path": "guide.md", "old": overSide, "new": "x"},
+			status: http.StatusRequestEntityTooLarge, error: errMessage(store.ErrTooLarge)},
+		{name: "the edited side over the cap", body: map[string]string{"path": "guide.md", "old": "x", "new": overSide},
+			status: http.StatusRequestEntityTooLarge, error: errMessage(store.ErrTooLarge)},
+		{name: "the body over its cap", body: map[string]string{"path": "guide.md", "old": "x", "new": overBody},
+			status: http.StatusRequestEntityTooLarge, error: "request body is too large"},
 	}
 
 	for _, tc := range tests {
@@ -1374,7 +1458,7 @@ func TestAPICompareRefusals(t *testing.T) {
 
 			// assert
 			assert.Equal(t, tc.status, resp.status)
-			assert.NotEmpty(t, body["error"])
+			assert.Equal(t, tc.error, body["error"])
 		})
 	}
 }

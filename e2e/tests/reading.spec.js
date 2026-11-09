@@ -335,7 +335,7 @@ test.describe('reading', () => {
         await page.mouse.wheel(0, -100000);
         await page.getByTestId('editor-source').locator('.cm-line').first().click();
         await page.keyboard.type('x');
-        await page.getByTestId('editor-save').click();
+        await page.keyboard.press('ControlOrMeta+s');
         await expect(page.getByRole('alert').filter({hasText: 'Saved'})).toBeVisible();
 
         // act

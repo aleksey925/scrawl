@@ -25,6 +25,13 @@ The editor screen.
   switch has it: the other icon switches always show their names. On a phone
   the layouts are the tabs Text, Preview and Changes, as Split has no room
   there.
+- Save saves and opens the reader, as an edit is a trip from the page and back.
+  With nothing to save it only opens the reader, and a note not created yet is
+  created. When the save fails or meets a conflict the editor stays. A save
+  midway that keeps the editor is `Mod+S`. Cancel opens the reader without
+  saving and asks first when there are unsaved changes. A phone has no
+  shortcut, so a save there always leaves; the local draft keeps the text
+  between saves.
 - Changes shows the unsaved edits: the text in the editor against the text last
   saved, drawn as the history draws a version
   ([history](../design/history.md#comparing-versions)), side by side on a wide

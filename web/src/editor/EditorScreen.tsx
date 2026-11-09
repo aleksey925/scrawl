@@ -474,9 +474,9 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   }, [lineBreak, navigate, path, reportMutation]);
 
   const save = useCallback(
-    async (withRev?: string): Promise<void> => {
+    async (withRev?: string): Promise<boolean> => {
       if (savingRef.current || readOnly) {
-        return;
+        return false;
       }
       savingRef.current = true;
       setSaving(true);
@@ -510,20 +510,22 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           });
         }
         reportMutation(res, 'Saved');
+        return shown;
       } catch (error: unknown) {
         if (error instanceof ApiError && (error.status === 412 || error.status === 409)) {
           const current: ApiConflict | undefined =
             error.conflict ?? (await api.file(path).catch(() => undefined));
           if (current === undefined) {
             showToast('error', { message: errorText(error) });
-            return;
+            return false;
           }
           const theirs = toEditorText(current.content);
           if (theirs === sent) {
-            markSaved(sent, current.rev, bufferText() === sent);
+            const shown = bufferText() === sent;
+            markSaved(sent, current.rev, shown);
             showToast('ok', { message: 'Saved' });
             refreshMe();
-            return;
+            return shown;
           }
           openConflict({
             mine: sent,
@@ -531,14 +533,15 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             onOverwrite: () => void save(current.rev),
             onCopy: () => void saveCopy(),
           });
-          return;
+          return false;
         }
         if (error instanceof ApiError && error.status === 401) {
           draftRef.current.flush();
           openSessionExpired();
-          return;
+          return false;
         }
         showToast('error', { message: errorText(error) });
+        return false;
       } finally {
         savingRef.current = false;
         setSaving(false);
@@ -588,10 +591,20 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     return () => document.removeEventListener('keydown', onKey);
   }, [format, formattable]);
 
-  const cancel = useCallback((): void => {
+  const leave = useCallback((): void => {
     const anchor = rememberReadingPosition();
     void navigate(documentUrl(path), { state: anchor });
   }, [navigate, path, rememberReadingPosition]);
+
+  const saveAndLeave = useCallback(async (): Promise<void> => {
+    if (dirty || revRef.current === '') {
+      if (!(await save())) {
+        return;
+      }
+      leavingRef.current = true;
+    }
+    leave();
+  }, [dirty, leave, save]);
 
   const onAction = useCallback((action: MarkdownAction): void => {
     const current = viewRef.current;
@@ -689,11 +702,11 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             compact
           />
         )}
-        <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" className={classes.cancel} onClick={cancel}>
+        <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" className={classes.cancel} onClick={leave}>
           Cancel
         </Button>
         {!readOnly && (
-          <Button data-testid="editor-save" size="sm" className={classes.save} loading={saving} onClick={() => void save()}>
+          <Button data-testid="editor-save" size="sm" className={classes.save} loading={saving} onClick={() => void saveAndLeave()}>
             Save
           </Button>
         )}

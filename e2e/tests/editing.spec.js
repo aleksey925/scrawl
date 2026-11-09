@@ -122,7 +122,7 @@ test.describe('editing', () => {
         await expect.poll(() => sourceText(page)).toBe('before\n');
 
         await setSource(page, 'after the shortcut\n');
-        await page.keyboard.press(`${await modifier(page)}+s`);
+        await page.keyboard.press('ControlOrMeta+s');
 
         await expect(editorStatus(page)).toHaveText(text.status.saved);
         await expect.poll(() => readFixture(docPath)).toBe('after the shortcut\n');
@@ -167,6 +167,84 @@ test.describe('editing', () => {
         await expect.poll(() => sourceText(page)).toBe('typed but not saved\n');
         await expect(page.getByTestId('editor-draft')).toHaveCount(0);
         expect(readFixture(docPath), 'nothing is written to disk without a save').toBe('kept\n');
+        removeFixture(docPath);
+    });
+
+    test('Save writes the note and opens the reader', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-leaves');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'written\n');
+
+        // act
+        await page.getByTestId('editor-save').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await expect(page.getByTestId('doc')).toContainText('written');
+        expect(readFixture(docPath)).toBe('written\n');
+        removeFixture(docPath);
+    });
+
+    test('Save with nothing changed opens the reader and writes nothing', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-clean');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        const writes = [];
+        page.on('request', (req) => {
+            if (req.method() === 'PUT') {
+                writes.push(req.url());
+            }
+        });
+
+        // act
+        await page.getByTestId('editor-save').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        expect(writes).toEqual([]);
+        removeFixture(docPath);
+    });
+
+    test('Save stays in the editor when the file changed on disk', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-conflict-stays');
+        writeFixture(docPath, 'original\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('original\n');
+        writeFixture(docPath, 'written by someone else\n');
+        await setSource(page, 'my version\n');
+
+        // act
+        await page.getByTestId('editor-save').click();
+
+        // assert
+        await expect(page.getByTestId('editor-conflict-overwrite')).toBeVisible();
+        await page.getByTestId('editor-conflict-cancel').click();
+        await expect(page).toHaveURL(MAIN.url.edit(docPath));
+        expect(readFixture(docPath)).toBe('written by someone else\n');
+        removeFixture(docPath);
+    });
+
+    test('the save shortcut writes the note and stays in the editor', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-shortcut');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'written\n');
+
+        // act
+        await page.keyboard.press('ControlOrMeta+s');
+
+        // assert
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'saved');
+        await expect(page).toHaveURL(MAIN.url.edit(docPath));
+        expect(readFixture(docPath)).toBe('written\n');
         removeFixture(docPath);
     });
 
@@ -972,7 +1050,7 @@ test.describe('editing', () => {
             await shot(page, 'editor-changes');
 
             // act
-            await page.getByTestId('editor-save').click();
+            await page.keyboard.press('ControlOrMeta+s');
 
             // assert
             await expect(page.getByTestId('editor-changes-none')).toBeVisible();
@@ -1105,7 +1183,7 @@ test.describe('editing', () => {
             });
 
             // act
-            await page.getByTestId('editor-save').click();
+            await page.keyboard.press('ControlOrMeta+s');
 
             // assert
             await expect(page.getByTestId('editor-changes-none')).toBeVisible();
@@ -1116,7 +1194,7 @@ test.describe('editing', () => {
         });
 
         for (const leave of ['cancel', 'save']) {
-            test(`keep the reading place, so ${leave === 'save' ? 'a Save, then ' : ''}Cancel opens the reader there`, async ({page}) => {
+            test(`keep the reading place, so ${leave === 'save' ? 'Save' : 'Cancel'} opens the reader there`, async ({page}) => {
                 // arrange
                 const docPath = await openTallDocument(page, `changes-position-${leave}`);
                 const layoutMode = page.getByTestId('editor-layout-mode');
@@ -1138,8 +1216,6 @@ test.describe('editing', () => {
                 // act
                 if (leave === 'save') {
                     await page.getByTestId('editor-save').click();
-                    await expect(page.getByTestId('editor-changes-none')).toBeVisible();
-                    await page.getByTestId('editor-cancel').click();
                 } else {
                     await page.getByTestId('editor-cancel').click();
                     await page.getByTestId('modal-confirm').click();

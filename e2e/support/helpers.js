@@ -66,7 +66,7 @@ function editorStatus(page) {
 }
 
 async function save(page) {
-    await page.locator('[data-testid=editor-save]').click();
+    await page.keyboard.press('ControlOrMeta+s');
     await expect(editorStatus(page)).not.toHaveAttribute('data-state', 'saving');
     await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'false');
 }

@@ -482,7 +482,8 @@ space from the page.
 - `Ctrl`/`Cmd` + `K` searches the space, `Ctrl`/`Cmd` + `F` finds in the note
   on screen
 - `Ctrl`/`Cmd` + `B` shows or hides the sidebar
-- `E` opens the note in the editor, `Ctrl`/`Cmd` + `S` saves it
+- `E` opens the note in the editor, `Ctrl`/`Cmd` + `S` saves it and keeps the
+  editor open
 - `?` shows the whole list
 
 ## Markdown
@@ -572,6 +573,9 @@ in one folder instead.
 - the table button in the toolbar inserts a table of the size you pick on a
   grid. With the cursor in a table it adds or deletes a row or a column there,
   or deletes the table, and keeps the columns lined up
+- Save in the editor saves the note and takes you back to it, and Cancel leaves
+  without saving, asking first if there are changes. To save and keep editing,
+  press `Ctrl`/`Cmd` + `S`
 - before you save, Changes in the editor shows your edits against the saved
   note, with the changed words marked, the way the history shows a version. On
   a phone it is the third tab next to Text and Preview

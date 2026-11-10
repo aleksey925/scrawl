@@ -40,7 +40,7 @@ func TestAPIVersions(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
-	assert.Equal(t, "private, no-cache", resp.header.Get("Cache-Control"))
+	assert.Equal(t, pageCacheControl, resp.header.Get("Cache-Control"))
 	assert.NotEmpty(t, resp.header.Get("ETag"))
 	assert.Equal(t, view.Versions(root, ts.Version), got)
 	assert.Equal(t, ts.Version, got.Release)

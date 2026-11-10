@@ -3,17 +3,17 @@ import type { JSX } from 'react';
 
 import { api } from '../api/client';
 import { useApi } from '../api/useApi';
-import { useOffline } from '../offline/connection';
-import { deleteOfflineData } from '../offline/register';
-import { storedSpaces } from '../offline/source';
 import { PopupMenu } from '../components/PopupMenu';
 import { IconCheck, IconEyeOff, IconLogin, IconLogout } from '../icons';
 import { goToLogin } from '../login';
+import { useOffline } from '../offline/connection';
+import { deleteOfflineData } from '../offline/register';
+import { storedSpaces } from '../offline/source';
 import { layout } from '../theme';
 
 import { spaceLabel, useNav } from './NavContext';
-import { useReaderLayout } from './ReaderLayout';
 import { OfflineAccessItem } from './OfflineAccess';
+import { useReaderLayout } from './ReaderLayout';
 import { ShortcutsMenuItem } from './ShortcutHelp';
 import { useKeyboardPlace } from './shortcuts';
 import { SpaceButton } from './SpaceButton';
@@ -103,7 +103,7 @@ export function SpaceMenuDropdown(): JSX.Element {
         </Menu.Item>
       )}
       <OfflineAccessItem />
-      {offline ? undefined : signedIn ? (
+      {!offline && (signedIn ? (
         <Menu.Item
           data-testid="space-menu-signout"
           leftSection={<IconLogout size={layout.iconSizeSmall} />}
@@ -119,7 +119,7 @@ export function SpaceMenuDropdown(): JSX.Element {
         >
           Sign in
         </Menu.Item>
-      )}
+      ))}
     </Menu.Dropdown>
   );
 }

@@ -18,7 +18,9 @@ export function OfflineMark(): JSX.Element | null {
     return null;
   }
   const updatedAt = state?.updatedAt ?? 0;
-  const notes = updatedAt > 0 ? ` Notes from ${copyTime(updatedAt)}, nothing can be changed.` : ' Nothing can be changed.';
+  const message = updatedAt > 0
+    ? `No network. Notes from ${copyTime(updatedAt)}, nothing can be changed.`
+    : 'No network. Nothing can be changed.';
   const shared = {
     'data-testid': 'offline-mark',
     'aria-label': 'Offline',
@@ -49,7 +51,7 @@ export function OfflineMark(): JSX.Element | null {
           )}
         </Popover.Target>
         <Popover.Dropdown data-testid="offline-popover">
-          <Text size="sm">No network.{notes}</Text>
+          <Text size="sm">{message}</Text>
         </Popover.Dropdown>
       </Popover>
       <TapGuard active={opened} onClose={() => setOpened(false)} />

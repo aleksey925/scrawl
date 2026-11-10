@@ -1,5 +1,6 @@
+import type { SpaceEntry } from '../api/types';
 import {
-  appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, answerUrl, fillAppMessage,
+  answerUrl, appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, fillAppMessage,
   type AppState, type ChannelMessage,
 } from '../offline/keys';
 
@@ -15,7 +16,7 @@ const config = self.scrawlOffline;
 
 const appCache = appCachePrefix + config.build;
 
-const deadlineMs = 3000;
+const deadlineMs = 3_000;
 
 const unavailable = new Set([502, 503, 504]);
 
@@ -159,7 +160,7 @@ async function startPage(): Promise<Response | undefined> {
   if (stored === undefined) {
     return undefined;
   }
-  const spaces = (await stored.json()) as { url: string }[];
+  const spaces = (await stored.json()) as SpaceEntry[];
   const first = spaces[0];
   return first === undefined ? undefined : Response.redirect(first.url, 302);
 }

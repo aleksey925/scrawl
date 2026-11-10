@@ -148,7 +148,7 @@ interface SpacePlan {
 type Outcome = 'stored' | 'gone' | 'failed';
 
 async function store(cache: Cache, wanted: readonly string[], signal: AbortSignal): Promise<Outcome> {
-  const answers: Response[] = [];
+  const answers: [string, Response][] = [];
   for (const url of wanted) {
     const response = await get(url, signal);
     if (response.status >= 400 && response.status < 500) {
@@ -157,13 +157,10 @@ async function store(cache: Cache, wanted: readonly string[], signal: AbortSigna
     if (response.status !== 200) {
       return 'failed';
     }
-    answers.push(response);
+    answers.push([url, response]);
   }
-  for (const [index, url] of wanted.entries()) {
-    const answer = answers[index];
-    if (answer !== undefined) {
-      await cache.put(url, answer);
-    }
+  for (const [url, answer] of answers) {
+    await cache.put(url, answer);
   }
   return 'stored';
 }
@@ -181,8 +178,8 @@ async function planSpace(cache: Cache, entry: SpaceEntry, signal: AbortSignal): 
     return plan;
   }
   plan.list = (await response.json()) as VersionList;
-  plan.etag = response.headers.get('ETag') ?? '';
-  plan.etag = plan.etag === '' ? record.etag : plan.etag;
+  const etag = response.headers.get('ETag');
+  plan.etag = etag === null || etag === '' ? record.etag : etag;
   const { fetch, drop } = diffVersions(plan.list, record.entries);
   plan.fetch = fetch;
   for (const path of drop) {

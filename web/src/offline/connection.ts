@@ -18,7 +18,7 @@ let online = navigator.onLine && !servedOffline();
 
 let probe: number | undefined;
 
-let serverBack: (() => void) | undefined;
+const serverBack = changeSignal();
 
 function tellWorker(): void {
   post({ type: 'connection', online });
@@ -42,7 +42,7 @@ async function ping(): Promise<void> {
   try {
     const response = await fetch('/ping', { cache: 'no-store', credentials: 'same-origin' });
     if (response.ok && !online) {
-      serverBack?.();
+      serverBack.notify();
     }
   } catch {
   }
@@ -92,13 +92,8 @@ export function onConnectionChange(listener: () => void): () => void {
   return changed.subscribe(listener);
 }
 
-export function onServerBack(handler: () => void): () => void {
-  serverBack = handler;
-  return () => {
-    if (serverBack === handler) {
-      serverBack = undefined;
-    }
-  };
+export function onServerBack(listener: () => void): () => void {
+  return serverBack.subscribe(listener);
 }
 
 export function wroteSomething(): void {

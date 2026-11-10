@@ -17,6 +17,7 @@ import (
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
+	"github.com/aleksey925/scrawl/view"
 )
 
 const maxLoginBody = 64 << 10
@@ -184,7 +185,7 @@ func rawContentType(name string) (contentType string, inline bool) {
 }
 
 func rawETag(fi store.FileInfo) string {
-	return fmt.Sprintf(`"%x-%x"`, fi.ModTime.UnixNano(), fi.Size)
+	return strconv.Quote(view.FileVersion(fi))
 }
 
 func (wb *Web) loginPage(w http.ResponseWriter, r *http.Request) {

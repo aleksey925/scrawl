@@ -325,13 +325,14 @@ func TestVersions(t *testing.T) {
 			{FileInfo: picture},
 		}},
 	}}
+	release := "1.6.0"
 
 	// act
-	got := Versions(root, "1.6.0")
+	got := Versions(root, release)
 
 	// assert
 	require.Len(t, got.Entries, 4)
-	assert.Equal(t, "1.6.0", got.Release)
+	assert.Equal(t, release, got.Release)
 	assert.Equal(t, []VersionEntry{
 		{Path: "", Kind: VersionDir, Version: got.Entries[0].Version},
 		{Path: "db", Kind: VersionDir, Version: got.Entries[1].Version},

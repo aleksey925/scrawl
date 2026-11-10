@@ -892,10 +892,11 @@ make img        build the image
 
 The interface is a react app in [web/](web/), see
 [web/README.md](web/README.md). What vite builds is committed under
-`server/assets/app/`, `server/assets/sw/` and `page/assets/` and embedded with `//go:embed`, which
-is what lets `go install` and the docker image work with neither node nor the
-network. Change anything under `web/` and the rebuilt bundle belongs in the
-same commit: CI rebuilds it and fails if what is checked in is stale.
+`server/assets/app/`, `server/assets/sw/` and `page/assets/` and embedded with
+`//go:embed`, which is what lets `go install` and the docker image work with
+neither node nor the network. Change anything under `web/` and the rebuilt
+bundle belongs in the same commit: CI rebuilds it and fails if what is checked
+in is stale.
 
 `make build`, the docker image and the release binaries store these files
 gzip-compressed, which makes the binary about 36 MB instead of about 60 MB.

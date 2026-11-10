@@ -320,9 +320,10 @@ func TestServiceSetSignInCookie(t *testing.T) {
 	// arrange
 	svc := newTestService(t, Config{Secure: SecureAlways})
 	rec := httptest.NewRecorder()
+	user := "алиса smith"
 
 	// act
-	svc.SetSignInCookie(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody), "алиса smith")
+	svc.SetSignInCookie(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody), user)
 
 	// assert
 	res := rec.Result()
@@ -330,7 +331,7 @@ func TestServiceSetSignInCookie(t *testing.T) {
 	require.Len(t, res.Cookies(), 1)
 	cookie := res.Cookies()[0]
 	assert.Equal(t, SignInCookieName, cookie.Name)
-	assert.Equal(t, url.QueryEscape("алиса smith"), cookie.Value)
+	assert.Equal(t, url.QueryEscape(user), cookie.Value)
 	assert.Equal(t, "/", cookie.Path)
 	assert.False(t, cookie.HttpOnly)
 	assert.True(t, cookie.Secure)

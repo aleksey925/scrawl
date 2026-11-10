@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -56,7 +57,7 @@ func (wb *Web) newOfflineApp() (*offlineApp, error) {
 	if err != nil {
 		return nil, fmt.Errorf("encode the worker config: %w", err)
 	}
-	res.script = append(append(append([]byte("self.scrawlOffline = "), config...), ";\n"...), worker...)
+	res.script = slices.Concat([]byte("self.scrawlOffline = "), config, []byte(";\n"), worker)
 	return res, nil
 }
 

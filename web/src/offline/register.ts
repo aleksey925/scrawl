@@ -4,10 +4,21 @@ import { copyNow, startCopy, stopCopy } from './copy';
 import { appCachePrefix, dataCache, fillAppMessage } from './keys';
 import { underCopyLock } from './lock';
 import { choiceChangedElsewhere, offlineSupported, offlineWanted, setOfflineChoice } from './preference';
-import { forgetStatus, refreshStatus, startStatus } from './status';
+import { appFailed, forgetStatus, refreshStatus, startStatus } from './status';
+
+let switching: Promise<void> = Promise.resolve();
+
+function afterSwitching(task: () => Promise<void>): Promise<void> {
+  const next = switching.then(task);
+  switching = next.catch(() => undefined);
+  return next;
+}
 
 async function registerWorker(): Promise<void> {
-  const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((error: unknown) => {
+    appFailed();
+    throw error;
+  });
   await registration.update().catch(() => undefined);
   if (offlineWanted()) {
     registration.active?.postMessage(fillAppMessage);
@@ -25,23 +36,27 @@ async function deleteEveryCache(): Promise<void> {
   );
 }
 
-export async function turnOfflineOn(): Promise<void> {
+export function turnOfflineOn(): Promise<void> {
   setOfflineChoice(true);
   void navigator.storage.persist?.();
   post({ type: 'choice' });
-  copyNow();
-  await registerWorker();
+  return afterSwitching(async () => {
+    copyNow();
+    await registerWorker();
+  });
 }
 
-export async function turnOfflineOff(): Promise<void> {
+export function turnOfflineOff(): Promise<void> {
   setOfflineChoice(false);
   post({ type: 'choice' });
-  stopCopy();
-  await underCopyLock(async () => {
-    await deleteEveryCache();
-    await unregisterWorkers();
+  return afterSwitching(async () => {
+    stopCopy();
+    await underCopyLock(async () => {
+      await deleteEveryCache();
+      await unregisterWorkers();
+    });
+    forgetStatus();
   });
-  forgetStatus();
 }
 
 export async function deleteOfflineData(): Promise<void> {
@@ -72,6 +87,6 @@ export function startOffline(): void {
     }
   });
   if (offlineWanted()) {
-    void registerWorker().catch(() => undefined);
+    void afterSwitching(registerWorker).catch(() => undefined);
   }
 }

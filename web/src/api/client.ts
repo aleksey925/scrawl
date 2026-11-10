@@ -1,7 +1,7 @@
 import { mountBase } from '../mount';
 import { encodeContentPath } from '../contentPath';
 import { connectionFailed, serverAnswered, wroteSomething } from '../offline/connection';
-import { answerUrl, networkDeadlineMs } from '../offline/keys';
+import { answerUrl, dataCache, networkDeadlineMs } from '../offline/keys';
 import { offlineWanted } from '../offline/preference';
 import { togglesOf } from '../reader/findMatches';
 
@@ -70,7 +70,7 @@ interface CallOptions extends RequestOptions {
   body?: unknown;
   form?: FormData;
   allowStatus?: readonly number[];
-  reader?: boolean;
+  stored?: string;
 }
 
 export const backgroundHeader = 'X-Scrawl-Background';
@@ -130,6 +130,27 @@ async function errorBody(response: Response): Promise<ApiErrorBody> {
   }
 }
 
+function watchStall(stored: string | undefined): () => void {
+  if (stored === undefined || !offlineWanted()) {
+    return () => undefined;
+  }
+  let waiting = true;
+  const timer = window.setTimeout(() => {
+    caches.match(stored, { cacheName: dataCache }).then(
+      (kept) => {
+        if (waiting && kept !== undefined) {
+          connectionFailed();
+        }
+      },
+      () => undefined,
+    );
+  }, networkDeadlineMs);
+  return () => {
+    waiting = false;
+    window.clearTimeout(timer);
+  };
+}
+
 async function send(method: string, url: string, options: CallOptions = {}): Promise<Response> {
   const headers: Record<string, string> = { accept: 'application/json' };
   if (options.background === true) {
@@ -143,9 +164,7 @@ async function send(method: string, url: string, options: CallOptions = {}): Pro
     body = JSON.stringify(options.body);
   }
 
-  const stalled = options.reader === true && offlineWanted()
-    ? window.setTimeout(connectionFailed, networkDeadlineMs)
-    : undefined;
+  const answered = watchStall(options.stored);
   let response: Response;
   try {
     response = await fetch(url, {
@@ -161,7 +180,7 @@ async function send(method: string, url: string, options: CallOptions = {}): Pro
     }
     throw error;
   } finally {
-    window.clearTimeout(stalled);
+    answered();
   }
   serverAnswered(response);
   if (method !== 'GET' && response.ok && !readingPost.test(url)) {
@@ -228,22 +247,24 @@ export interface ScrawlApi {
 
 export const api: ScrawlApi = {
   page: async (path, options) => {
-    const body = await call<PageResponse | ApiErrorBody>(
-      'GET',
-      answerUrl.page(mountBase(), path),
-      { ...options, allowStatus: [404], reader: true },
-    );
+    const url = answerUrl.page(mountBase(), path);
+    const body = await call<PageResponse | ApiErrorBody>('GET', url, { ...options, allowStatus: [404], stored: url });
     if (!isPage(body)) {
       throw new ApiError(404, body);
     }
     return body;
   },
 
-  dir: (path, options) =>
-    call<DirListing>('GET', answerUrl.dir(mountBase(), path), { ...options, reader: true }),
+  dir: (path, options) => {
+    const url = answerUrl.dir(mountBase(), path);
+    return call<DirListing>('GET', url, { ...options, stored: url });
+  },
 
   nav: (path, options) =>
-    call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path }), { ...options, reader: true }),
+    call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path }), {
+      ...options,
+      stored: answerUrl.nav(mountBase()),
+    }),
 
   me: (options) => call<MeResponse>('GET', spaceUrl('/api/me'), options),
 

@@ -25,6 +25,13 @@ copy", never "sync": sync is the git remote of a space
 - On again in the same page can bring back the worker Off unregistered, with no
   install ([quirks](../quirks.md#browsers)), so every registration asks the
   active worker to download the app again when its cache is gone.
+- The work of On and Off in a page runs one after the other, in the order of
+  the taps, so On tapped while Off still deletes the caches registers the
+  worker after Off has unregistered it. The registration at start waits in the
+  same line.
+- A registration that fails, at start or by the switch, shows
+  `Could not update` until the next one: the copy of the data alone does not
+  open the app with no network.
 
 ## Two caches, one writer each
 
@@ -168,14 +175,19 @@ the tap.
 
 - `web/src/offline/connection.ts` decides. The app goes offline on a network
   error in the api client's `send()`, on a 502, 503 or 504 there that is not
-  scrawl's own JSON answer (a render deadline is a JSON 503), on the `offline`
-  event, and at start when the page was served the offline shell.
-  `navigator.onLine` alone is not trusted. While the copy is on, a page, folder
-  or nav request of the reader with no headers in 3 seconds, the worker's wait,
-  takes it offline too: one bar of signal often keeps `onLine` true and a fetch
-  hangs for minutes. The request is not cut; the reader leaves it for the copy.
-  A note slow to render on a healthy server does the same, and comes back at
-  once: going offline probes `/ping` with no wait, and `/api/me` answers.
+  scrawl's own answer (a render deadline is a 503), on the `offline` event, and
+  at start when the page was served the offline shell. scrawl's own answer is
+  one with `App-Name: scrawl`, which the server sets on every answer to a
+  signed-in request, and auth off counts as signed in; a gateway's page has
+  none, even in JSON. `navigator.onLine` alone is not trusted. While the copy
+  is on, a page, folder or nav request of the reader with no headers in 3
+  seconds, the worker's wait, takes it offline too when the copy holds its
+  answer: one bar of signal often keeps `onLine` true and a fetch hangs for
+  minutes. The request is not cut; the reader leaves it for the copy. Without a
+  stored answer the request waits for the network, as in the worker, so a note
+  slow to render and not in the copy still opens. One in the copy goes offline
+  for a moment and comes back at once: going offline probes `/ping` with no
+  wait, and `/api/me` answers.
 - Offline it probes `/ping` every 15 seconds while visible and at once on the
   `online` event. `/ping` is public, so its answer proves only that the server
   is there; then the app asks `/api/me` in the foreground, and only an answer
@@ -201,9 +213,10 @@ the tap.
   starts, before any read of the copy, also where the switch is off but a copy
   is there, since an installed app and the browser share one: a name other than
   the owner deletes `scrawl-data` under the lock, writes the new owner and
-  tells the other tabs, which drop the user they hold. Then the app deletes the
-  cookie. So a new user who loses the network right after signing in never sees
-  the copy of the one before.
+  tells the other tabs, which stop their round and read the new state. The user
+  a tab holds stays until its next `/api/me`, which the new session answers.
+  Then the app deletes the cookie. So a new user who loses the network right
+  after signing in never sees the copy of the one before.
 - Sign out deletes `scrawl-data` under the lock and keeps the worker, the app
   cache and the choice: the app cache holds nothing of a user.
 - The sign-in page deletes nothing, so the copy of a person whose session

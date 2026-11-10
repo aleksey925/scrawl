@@ -74,7 +74,7 @@ export function connectionFailed(): void {
 }
 
 export function serverAnswered(response: Response): void {
-  const fromScrawl = response.headers.get('content-type')?.includes('application/json') === true;
+  const fromScrawl = response.headers.get('app-name') === 'scrawl';
   if (unavailable.has(response.status) && !fromScrawl) {
     setOnline(false);
   }

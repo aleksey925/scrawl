@@ -59,6 +59,9 @@ How the react app in `web/` is built, shipped and wired.
   control on every click, for the length of a round trip. What a click may not
   wait for is the highlight: the current row comes from the route and never
   from the answer.
+- `useApi` drops the answer of a run it has canceled, a success as well as an
+  error: a source may not watch the signal, the copy's reads do not, and a slow
+  answer of the note before would then land under the next one's address.
 - The file on screen is the route. A folder is always its list, so a note is
   shown under its own address only, and a per-file signal keys off the route.
 - Rendered notes never share an id namespace with app chrome. A heading becomes

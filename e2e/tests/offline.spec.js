@@ -369,6 +369,60 @@ test.describe('offline access', () => {
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
     });
 
+    test('a slow note that is not in the copy waits for the network', async ({page, context}) => {
+        // arrange
+        const slow = `${FOLDER}/slow.md`;
+        writeFixture(slow, '# Slow note\n');
+        await context.route(new RegExp(`/api/page/${slow}$`), async (route) => {
+            if (route.request().headers()['x-scrawl-offline-copy'] === '1') {
+                await route.fulfill({status: 404, contentType: 'application/json', body: '{"error":"not found"}'});
+                return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 4_000));
+            await route.continue();
+        });
+        await copyOn(page, routes.dir(FOLDER));
+
+        // act
+        await page.getByTestId('dir').getByRole('link', {name: 'slow'}).click();
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Slow note', {timeout: 15_000});
+        await expect(page.getByTestId('offline-mark')).toHaveCount(0);
+    });
+
+    test('offline a note left before its copy was read stays off the screen of the next one', async ({page, context}) => {
+        // arrange
+        const second = `${FOLDER}/second.md`;
+        writeFixture(second, '# Second note\n\n[everything](everything.md)\n');
+        await copyOn(page);
+        await page.addInitScript((slow) => {
+            window.slowReads = 0;
+            const match = CacheStorage.prototype.match;
+            CacheStorage.prototype.match = async function (request, options) {
+                const answer = await match.call(this, request, options);
+                if (String(request).endsWith(slow)) {
+                    window.slowReads += 1;
+                    await new Promise((resolve) => setTimeout(resolve, 1_500));
+                }
+                return answer;
+            };
+        }, `/api/page/${NOTE}`);
+        await context.setOffline(true);
+        await page.goto(routes.doc(second));
+        const title = page.getByTestId('doc').locator('h1').first();
+        await expect(title).toContainText('Second note');
+
+        // act
+        await page.getByTestId('doc').getByRole('link', {name: 'everything'}).click();
+        await expect.poll(() => page.evaluate(() => window.slowReads)).toBe(1);
+        await page.goBack();
+
+        // assert
+        await expect(title).toContainText('Second note');
+        await stays(() => title.textContent(), 'Second note', 2_500);
+    });
+
     test('online a changed file comes from the network, and the next round stores it', async ({page}) => {
         // arrange
         writeFixture(TEXT, 'the first version\n');
@@ -391,7 +445,9 @@ test.describe('offline access', () => {
         await copyOn(page);
         const answer = new RegExp(`/api/page/${NOTE}$`);
         await context.route(answer, (route) => route.fulfill({
-            status: 503, contentType: 'application/json', body: '{"error":"the note took too long to render"}',
+            status: 503,
+            headers: {'content-type': 'application/json', 'app-name': 'scrawl'},
+            body: '{"error":"the note took too long to render"}',
         }));
 
         // act & assert
@@ -400,7 +456,7 @@ test.describe('offline access', () => {
         await expect(page.getByTestId('offline-mark')).toHaveCount(0);
         await context.unroute(answer);
         await context.route(answer, (route) => route.fulfill({
-            status: 502, contentType: 'text/html', body: '<h1>Bad gateway</h1>',
+            status: 502, contentType: 'application/json', body: '{"message":"Bad gateway"}',
         }));
         await page.goto(routes.doc(NOTE));
         await expect(page.getByTestId('offline-mark')).toBeVisible();
@@ -654,6 +710,49 @@ test.describe('offline access', () => {
 
         // assert
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
+    });
+
+    test('on tapped while off still deletes the caches ends with the worker on', async ({page}) => {
+        // arrange
+        await copyOn(page);
+        await page.addInitScript(() => {
+            const remove = CacheStorage.prototype.delete;
+            CacheStorage.prototype.delete = async function (name) {
+                await new Promise((resolve) => setTimeout(resolve, 1_000));
+                return remove.call(this, name);
+            };
+        });
+        await page.reload();
+        await openSpaceMenu(page);
+        const row = page.getByTestId('space-menu-offline');
+        await row.click();
+        await expect(row).toHaveAttribute('data-on', 'false');
+
+        // act
+        await row.click();
+
+        // assert
+        await expect(row).toHaveAttribute('data-on', 'true');
+        await expect(status(page)).toContainText('updated at', {timeout: 60_000});
+        await expect.poll(() => workerState(page), {timeout: 60_000}).toBe('activated');
+        await stays(() => workerState(page), 'activated', 1_500);
+        await expect.poll(async () => (await cacheNames(page)).filter((name) => name.startsWith('scrawl-app-')))
+            .toHaveLength(1);
+    });
+
+    test('a worker that fails to register at start says so', async ({page}) => {
+        // arrange
+        await copyOn(page);
+        await page.addInitScript(() => {
+            ServiceWorkerContainer.prototype.register = () => Promise.reject(new TypeError('refused'));
+        });
+
+        // act
+        await page.reload();
+        await openSpaceMenu(page);
+
+        // assert
+        await expect(status(page)).toContainText('Could not update', {timeout: 30_000});
     });
 
     test('off in another tab waits for the round and leaves nothing behind', async ({page, context}) => {

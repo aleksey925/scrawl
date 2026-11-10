@@ -46,6 +46,10 @@ export function roundEnded(error: CopyError): void {
   update({ error });
 }
 
+export function appFailed(): void {
+  update({ app: 'failed' });
+}
+
 export function stateChanged(): void {
   post({ type: 'state' });
   void refreshStatus();

@@ -743,12 +743,14 @@ test.describe('offline access', () => {
         await expect.poll(() => workerState(page)).toBe('none');
     });
 
-    test('off then on in the same page downloads the app again', async ({page, context}) => {
+    test('off then on in the same page downloads the app again into a cache left empty', async ({page, context}) => {
         // arrange
         await copyOn(page);
+        const [appCache] = (await cacheNames(page)).filter((name) => name.startsWith('scrawl-app-'));
         await openSpaceMenu(page);
         await page.getByTestId('space-menu-offline').click();
         await expect.poll(() => cacheNames(page)).toEqual([]);
+        await page.evaluate((name) => caches.open(name), appCache);
         await page.evaluate(() => fetch(document.querySelector('script[src^="/static/"]').src));
 
         // act

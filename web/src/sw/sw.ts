@@ -62,7 +62,7 @@ self.addEventListener('message', (event) => {
   if (event.data === fillAppMessage) {
     event.waitUntil(
       (async () => {
-        if (!(await caches.has(appCache))) {
+        if ((await caches.match(config.shell, { cacheName: appCache })) === undefined) {
           await fillAppCache();
         }
       })(),

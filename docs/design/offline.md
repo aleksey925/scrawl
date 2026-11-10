@@ -24,7 +24,9 @@ copy", never "sync": sync is the git remote of a space
   cache just deleted.
 - On again in the same page can bring back the worker Off unregistered, with no
   install ([quirks](../quirks.md#browsers)), so every registration asks the
-  active worker to download the app again when its cache is gone.
+  active worker to download the app again when its cache has no shell. A cache
+  that only exists is not enough: `addAll` stores all or nothing, and a worker
+  stopped during the download leaves the cache there and empty.
 - The work of On and Off in a page runs one after the other, in the order of
   the taps, so On tapped while Off still deletes the caches registers the
   worker after Off has unregistered it. The registration at start waits in the
@@ -37,9 +39,9 @@ copy", never "sync": sync is the git remote of a space
 
 - `scrawl-app-<build>` holds the app: every file of the bundle, the PlantUML
   library, `chroma.css`, the icons and the offline shell. Only what `/static/`
-  gives to anyone. The worker writes it when it installs, and only then. It
-  reads it with `caches.match`, never `caches.open`: that makes an empty cache,
-  and a page Off left under the worker would then skip the download on again.
+  gives to anyone. The worker writes it when it installs and when a
+  registration finds it without the shell. It reads it with `caches.match`,
+  never `caches.open`: that makes an empty cache.
 - `scrawl-data` holds the user's data: the answers of every space
   (`/api/page/`, `/api/dir/`, `/api/nav?path=`, `/api/me`, `/raw/`),
   `/api/spaces`, and two kinds of record under keys no route answers:

@@ -168,13 +168,18 @@ and the `offline` event stop a round and take the app offline. The stall of the
 reader below takes the app offline but leaves the round going: on a slow link
 the round's own downloads are often what holds the reader up, and stopping the
 round would throw away the files in flight at every page opened during the
-first copy. A 401 stops it until `/api/me` answers again, and running out of
-space stops it with no new round until the app is opened again or the switch
-turns it on. A redirected answer, a captive portal, or any other surprise ends
-the round as failed. The tab of the round shows how it ended even when the
-state record could not be written, which is likely when the space ran out. The
-first round calls `navigator.storage.persist()`, and so does the switch, inside
-the tap.
+first copy. A request of the round with no headers in 30 seconds counts as a
+network error: a link that dies with no `offline` event leaves a fetch waiting
+for minutes, and the round, still holding the lock, would block the next one
+when the network is back. The deadline is longer than the 10 seconds a render
+may take on the server, and only the headers have it, so a large file that has
+started comes in whole. A 401 stops it until `/api/me` answers again, and
+running out of space stops it with no new round until the app is opened again
+or the switch turns it on. A redirected answer, a captive portal, or any other
+surprise ends the round as failed. The tab of the round shows how it ended even
+when the state record could not be written, which is likely when the space ran
+out. The first round calls `navigator.storage.persist()`, and so does the
+switch, inside the tap.
 
 ## Offline in the app
 

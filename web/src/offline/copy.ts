@@ -72,6 +72,8 @@ const minRoundGapMs = 20_000;
 
 const afterWriteMs = 2_000;
 
+const headersDeadlineMs = 30_000;
+
 class CopyStop extends Error {
   readonly reason: 'network' | 'unauthorized';
 
@@ -82,20 +84,29 @@ class CopyStop extends Error {
 }
 
 async function get(url: string, signal: AbortSignal, headers: Record<string, string> = {}): Promise<Response> {
+  let timer: number | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = window.setTimeout(() => reject(new CopyStop('network')), headersDeadlineMs);
+  });
   let response: Response;
   try {
-    response = await fetch(url, {
-      cache: 'no-store',
-      credentials: 'same-origin',
-      signal,
-      headers: { accept: 'application/json', [backgroundHeader]: '1', [copyHeader]: '1', ...headers },
-    });
+    response = await Promise.race([
+      fetch(url, {
+        cache: 'no-store',
+        credentials: 'same-origin',
+        signal,
+        headers: { accept: 'application/json', [backgroundHeader]: '1', [copyHeader]: '1', ...headers },
+      }),
+      late,
+    ]);
   } catch (error) {
-    if (error instanceof TypeError) {
+    if (error instanceof TypeError || error instanceof CopyStop) {
       connectionFailed();
       throw new CopyStop('network');
     }
     throw error;
+  } finally {
+    window.clearTimeout(timer);
   }
   if (response.status === 401) {
     throw new CopyStop('unauthorized');

@@ -397,6 +397,33 @@ test.describe('offline access', () => {
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
     });
 
+    test('a copy request with no answer stops the round and the next round stores the file', async ({page, context}) => {
+        // arrange
+        const stuck = `${FOLDER}/stuck.txt`;
+        await page.clock.install();
+        await copyOn(page, routes.dir(FOLDER));
+        writeFixture(stuck, 'stored after a dead link\n');
+        let held = false;
+        await context.route(new RegExp(`/raw/${stuck}$`), async (route) => {
+            if (!held && route.request().headers()['x-scrawl-offline-copy'] === '1') {
+                held = true;
+                return;
+            }
+            await route.continue();
+        });
+        const asked = copyRequests(page);
+        await page.reload();
+        await expect.poll(() => held).toBe(true);
+
+        // act
+        await page.clock.runFor(30_000);
+
+        // assert
+        await expect.poll(() => storedBody(page, routes.raw(stuck)), {timeout: 30_000}).toBe(readFixture(stuck));
+        expect(asked.filter((url) => url.endsWith(`/raw/${stuck}`)))
+            .toEqual([`/s/notes/raw/${stuck}`, `/s/notes/raw/${stuck}`]);
+    });
+
     test('a slow note that is not in the copy waits for the network', async ({page, context}) => {
         // arrange
         const slow = `${FOLDER}/slow.md`;

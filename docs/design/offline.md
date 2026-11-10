@@ -141,7 +141,8 @@ page), `cache: 'no-store'`, and carries the copy's header.
    proxy or a captive portal, fails the entry like a 5xx. `entries` is written
    every 2 seconds, so a round cut short goes on where it stopped. A 4xx drops
    the entry: the file is gone, refused or too big, and asking again would get
-   the same answer. A 5xx keeps the old copy, and the next round asks again.
+   the same answer. A 5xx, a 408 or a 429 keeps the old copy, and the next
+   round asks again.
 7. The nav and `me` of each changed space are stored.
 8. A space's `etag` is written only when every entry of its list succeeded:
    `entries` is the progress and `etag` the commit, so a round that failed

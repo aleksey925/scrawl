@@ -147,6 +147,8 @@ interface SpacePlan {
 
 type Outcome = 'stored' | 'gone' | 'failed';
 
+const retryLater = new Set([408, 429]);
+
 function isJson(response: Response): boolean {
   return response.headers.get('Content-Type')?.startsWith('application/json') === true;
 }
@@ -155,7 +157,7 @@ async function store(cache: Cache, json: readonly string[], signal: AbortSignal,
   const answers: [string, Response][] = [];
   for (const url of raw === undefined ? json : [...json, raw]) {
     const response = await get(url, signal);
-    if (response.status >= 400 && response.status < 500) {
+    if (response.status >= 400 && response.status < 500 && !retryLater.has(response.status)) {
       return 'gone';
     }
     if (response.status !== 200 || (url !== raw && !isJson(response))) {

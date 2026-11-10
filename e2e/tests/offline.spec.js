@@ -542,6 +542,24 @@ test.describe('offline access', () => {
         expect(JSON.parse(await storedBody(page, SPACE_RECORD)).etag).toBe('');
     });
 
+    for (const code of [408, 429]) {
+        test(`a ${code} keeps the stored answer and leaves no etag`, async ({page, context}) => {
+            // arrange
+            await copyOn(page);
+            const before = await storedBody(page, `/s/notes/api/page/${NOTE}`);
+            writeFixture(NOTE, `${EVERYTHING}\nchanged.\n`);
+            await context.route(new RegExp(`/api/page/${NOTE}$`), (route) => route.fulfill({status: code, body: 'later'}));
+
+            // act
+            await page.reload();
+            await expect.poll(async () => (await storedState(page)).error, {timeout: 30_000}).toBe('failed');
+
+            // assert
+            expect(await storedBody(page, `/s/notes/api/page/${NOTE}`)).toBe(before);
+            expect(JSON.parse(await storedBody(page, SPACE_RECORD)).etag).toBe('');
+        });
+    }
+
     test('entries named like the properties of an object are copied as any other', async ({page, context}) => {
         // arrange
         const names = ['constructor', 'toString', '__proto__'];

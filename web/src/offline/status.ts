@@ -5,7 +5,7 @@ import { fileSize } from '../components/formats';
 
 import { onMessage, post } from './channel';
 import type { AppState } from './keys';
-import { readState, type CopyState } from './records';
+import { readState, type CopyError, type CopyState } from './records';
 
 export interface CopyProgress {
   done: number;
@@ -16,6 +16,7 @@ export interface OfflineStatus {
   app?: AppState;
   progress?: CopyProgress;
   state?: CopyState;
+  error?: CopyError;
   usage?: number;
 }
 
@@ -41,13 +42,17 @@ export async function refreshStatus(): Promise<void> {
   update({ state, usage: estimate?.usage });
 }
 
+export function roundEnded(error: CopyError): void {
+  update({ error });
+}
+
 export function stateChanged(): void {
   post({ type: 'state' });
   void refreshStatus();
 }
 
 export function forgetStatus(): void {
-  update({ app: undefined, progress: undefined, state: undefined, usage: undefined });
+  update({ app: undefined, progress: undefined, state: undefined, error: undefined, usage: undefined });
 }
 
 export function startStatus(): void {
@@ -69,6 +74,7 @@ export function startStatus(): void {
         break;
       case 'state':
       case 'owner':
+        update({ error: undefined });
         void refreshStatus();
         break;
       default:
@@ -110,6 +116,7 @@ export function statusLine({ supported, wanted, online, status: current, now }: 
     return undefined;
   }
   const updatedAt = current.state?.updatedAt ?? 0;
+  const error = current.error ?? current.state?.error;
   const from = updatedAt > 0 ? `data from ${copyTime(updatedAt, now)}` : undefined;
   if (!online) {
     return from === undefined ? 'No network, nothing downloaded yet' : `No network, ${from}`;
@@ -120,10 +127,10 @@ export function statusLine({ supported, wanted, online, status: current, now }: 
   if (current.app === 'downloading') {
     return 'Downloading the app...';
   }
-  if (current.state?.error === 'quota' || current.app === 'quota') {
+  if (error === 'quota' || current.app === 'quota') {
     return from === undefined ? 'Not enough space on this device' : `Not enough space on this device, ${from}`;
   }
-  if (current.state?.error === 'failed' || current.app === 'failed') {
+  if (error === 'failed' || current.app === 'failed') {
     return from === undefined ? 'Could not update' : `Could not update, ${from}`;
   }
   if (updatedAt === 0) {

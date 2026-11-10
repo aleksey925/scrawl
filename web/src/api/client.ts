@@ -1,7 +1,8 @@
 import { mountBase } from '../mount';
 import { encodeContentPath } from '../contentPath';
 import { connectionFailed, serverAnswered, wroteSomething } from '../offline/connection';
-import { answerUrl } from '../offline/keys';
+import { answerUrl, networkDeadlineMs } from '../offline/keys';
+import { offlineWanted } from '../offline/preference';
 import { togglesOf } from '../reader/findMatches';
 
 import { ApiError } from './errors';
@@ -69,6 +70,7 @@ interface CallOptions extends RequestOptions {
   body?: unknown;
   form?: FormData;
   allowStatus?: readonly number[];
+  reader?: boolean;
 }
 
 export const backgroundHeader = 'X-Scrawl-Background';
@@ -141,6 +143,9 @@ async function send(method: string, url: string, options: CallOptions = {}): Pro
     body = JSON.stringify(options.body);
   }
 
+  const stalled = options.reader === true && offlineWanted()
+    ? window.setTimeout(connectionFailed, networkDeadlineMs)
+    : undefined;
   let response: Response;
   try {
     response = await fetch(url, {
@@ -155,6 +160,8 @@ async function send(method: string, url: string, options: CallOptions = {}): Pro
       connectionFailed();
     }
     throw error;
+  } finally {
+    window.clearTimeout(stalled);
   }
   serverAnswered(response);
   if (method !== 'GET' && response.ok && !readingPost.test(url)) {
@@ -224,7 +231,7 @@ export const api: ScrawlApi = {
     const body = await call<PageResponse | ApiErrorBody>(
       'GET',
       answerUrl.page(mountBase(), path),
-      { ...options, allowStatus: [404] },
+      { ...options, allowStatus: [404], reader: true },
     );
     if (!isPage(body)) {
       throw new ApiError(404, body);
@@ -233,9 +240,10 @@ export const api: ScrawlApi = {
   },
 
   dir: (path, options) =>
-    call<DirListing>('GET', answerUrl.dir(mountBase(), path), options),
+    call<DirListing>('GET', answerUrl.dir(mountBase(), path), { ...options, reader: true }),
 
-  nav: (path, options) => call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path }), options),
+  nav: (path, options) =>
+    call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path }), { ...options, reader: true }),
 
   me: (options) => call<MeResponse>('GET', spaceUrl('/api/me'), options),
 

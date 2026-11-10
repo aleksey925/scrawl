@@ -11,7 +11,7 @@ import {
   meEntry, navEntry, readSpace, readState, writeSpace, writeState,
   type CopyError, type SpaceRecord, type StoredEntry,
 } from './records';
-import { progressChanged, stateChanged } from './status';
+import { progressChanged, roundEnded, stateChanged } from './status';
 
 interface VersionEntry {
   path: string;
@@ -142,10 +142,11 @@ interface SpacePlan {
   fetch: CopyTask[];
   etag: string;
   complete: boolean;
+  refused: boolean;
   dirty: boolean;
 }
 
-type Outcome = 'stored' | 'gone' | 'failed';
+type Outcome = 'stored' | 'gone' | 'refused' | 'failed';
 
 const retryLater = new Set([408, 429]);
 
@@ -158,7 +159,7 @@ async function store(cache: Cache, json: readonly string[], signal: AbortSignal,
   for (const url of raw === undefined ? json : [...json, raw]) {
     const response = await get(url, signal);
     if (response.status >= 400 && response.status < 500 && !retryLater.has(response.status)) {
-      return 'gone';
+      return response.status === 403 ? 'refused' : 'gone';
     }
     if (response.status !== 200 || (url !== raw && !isJson(response))) {
       return 'failed';
@@ -174,7 +175,7 @@ async function store(cache: Cache, json: readonly string[], signal: AbortSignal,
 async function planSpace(cache: Cache, entry: SpaceEntry, signal: AbortSignal): Promise<SpacePlan> {
   const base = spaceBase(entry.name);
   const record = await readSpace(entry.name);
-  const plan: SpacePlan = { name: entry.name, base, record, fetch: [], etag: record.etag, complete: true, dirty: false };
+  const plan: SpacePlan = { name: entry.name, base, record, fetch: [], etag: record.etag, complete: true, refused: false, dirty: false };
   const response = await get(answerUrl.versions(base), signal, record.etag === '' ? {} : { 'If-None-Match': record.etag });
   if (response.status === 304) {
     return plan;
@@ -220,11 +221,12 @@ async function copyItem(cache: Cache, { plan, task }: CopyItem, signal: AbortSig
   const outcome = await store(cache, [json], signal, raw);
   if (outcome === 'stored') {
     plan.record.entries[entry.path] = { kind: entry.kind, version: entry.version, release: plan.list?.release ?? '' };
-  } else if (outcome === 'gone') {
+  } else if (outcome === 'failed') {
+    plan.complete = false;
+  } else {
     await dropUrls(cache, answerUrls(plan.base, entry.path, entry.kind));
     delete plan.record.entries[entry.path];
-  } else {
-    plan.complete = false;
+    plan.refused ||= outcome === 'refused';
   }
   plan.dirty = true;
 }
@@ -326,7 +328,7 @@ async function round(signal: AbortSignal): Promise<CopyError> {
   for (const plan of planned) {
     if (plan.list !== undefined) {
       await copySpaceAnswers(cache, plan, signal);
-      if (plan.complete) {
+      if (plan.complete && !plan.refused) {
         plan.record.etag = plan.etag;
       }
       await writeSpace(cache, plan.name, plan.record);
@@ -348,6 +350,7 @@ let running: AbortController | undefined;
 let soon: number | undefined;
 
 async function finishRound(error: CopyError): Promise<void> {
+  roundEnded(error);
   const state = await readState();
   if (state === undefined) {
     return;
@@ -370,7 +373,7 @@ async function stopRound(error: unknown): Promise<void> {
   if (quota) {
     quotaHit = true;
   }
-  await finishRound(quota ? 'quota' : 'failed');
+  await finishRound(quota ? 'quota' : 'failed').catch(() => undefined);
 }
 
 async function runRound(): Promise<void> {

@@ -141,8 +141,10 @@ page), `cache: 'no-store'`, and carries the copy's header.
    proxy or a captive portal, fails the entry like a 5xx. `entries` is written
    every 2 seconds, so a round cut short goes on where it stopped. A 4xx drops
    the entry: the file is gone, refused or too big, and asking again would get
-   the same answer. A 5xx, a 408 or a 429 keeps the old copy, and the next
-   round asks again.
+   the same answer. A 403 also leaves the space's `etag` unwritten with no
+   failure shown: read rights given back change neither mtime nor size, so only
+   a list asked in full finds the file again. A 5xx, a 408 or a 429 keeps the
+   old copy, and the next round asks again.
 7. The nav and `me` of each changed space are stored.
 8. A space's `etag` is written only when every entry of its list succeeded:
    `entries` is the progress and `etag` the commit, so a round that failed
@@ -157,8 +159,10 @@ every minute while it is visible. A network error stops a round and takes the
 app offline, a 401 stops it until `/api/me` answers again, and running out of
 space stops it with no new round until the app is opened again or the switch
 turns it on. A redirected answer, a captive portal, or any other surprise ends
-the round as failed. The first round calls `navigator.storage.persist()`, and
-so does the switch, inside the tap.
+the round as failed. The tab of the round shows how it ended even when the
+state record could not be written, which is likely when the space ran out. The
+first round calls `navigator.storage.persist()`, and so does the switch, inside
+the tap.
 
 ## Offline in the app
 
@@ -166,7 +170,12 @@ so does the switch, inside the tap.
   error in the api client's `send()`, on a 502, 503 or 504 there that is not
   scrawl's own JSON answer (a render deadline is a JSON 503), on the `offline`
   event, and at start when the page was served the offline shell.
-  `navigator.onLine` alone is not trusted.
+  `navigator.onLine` alone is not trusted. While the copy is on, a page, folder
+  or nav request of the reader with no headers in 3 seconds, the worker's wait,
+  takes it offline too: one bar of signal often keeps `onLine` true and a fetch
+  hangs for minutes. The request is not cut; the reader leaves it for the copy.
+  A note slow to render on a healthy server does the same, and comes back at
+  once: going offline probes `/ping` with no wait, and `/api/me` answers.
 - Offline it probes `/ping` every 15 seconds while visible and at once on the
   `online` event. `/ping` is public, so its answer proves only that the server
   is there; then the app asks `/api/me` in the foreground, and only an answer

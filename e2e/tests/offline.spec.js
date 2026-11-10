@@ -356,6 +356,19 @@ test.describe('offline access', () => {
         await expect(page.getByTestId('offline-mark')).toBeVisible();
     });
 
+    test('a stalled network in the middle of reading shows the next note from the copy', async ({page, context}) => {
+        // arrange
+        await copyOn(page, routes.dir(FOLDER));
+        await context.route(/\/s\/notes\/api\/|\/ping$/, () => {});
+
+        // act
+        await page.getByTestId('dir').getByRole('link', {name: 'everything'}).click();
+
+        // assert
+        await expect(page.getByTestId('offline-mark')).toBeVisible({timeout: 10_000});
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
+    });
+
     test('online a changed file comes from the network, and the next round stores it', async ({page}) => {
         // arrange
         writeFixture(TEXT, 'the first version\n');
@@ -481,9 +494,10 @@ test.describe('offline access', () => {
         expect(fetched.filter((url) => !url.startsWith('/s/notes/api/page/db/'))).toEqual([]);
     });
 
-    test('a file the server refuses is left out, and the round still ends', async ({page, context}) => {
+    test('a file the server refuses is left out, the round still ends, and it is asked for again', async ({page, context}) => {
         // arrange
-        await context.route(/\/api\/page\/db\/locks\.md$/, (route) => route.fulfill({status: 403, body: 'refused'}));
+        const refused = /\/api\/page\/db\/locks\.md$/;
+        await context.route(refused, (route) => route.fulfill({status: 403, body: 'refused'}));
         await page.goto(routes.home());
 
         // act
@@ -493,6 +507,11 @@ test.describe('offline access', () => {
         await expect(status(page)).toContainText('updated at', {timeout: 60_000});
         expect(await storedState(page)).toMatchObject({error: ''});
         expect(await storedUrls(page)).not.toContain('/s/notes/api/page/db/locks.md');
+        expect(JSON.parse(await storedBody(page, SPACE_RECORD)).etag).toBe('');
+        await context.unroute(refused);
+        await page.reload();
+        await expect.poll(() => storedUrls(page), {timeout: 30_000}).toContain('/s/notes/api/page/db/locks.md');
+        await expect.poll(async () => JSON.parse(await storedBody(page, SPACE_RECORD)).etag).not.toBe('');
     });
 
     test('a copy made by another release is not read', async ({page, context}) => {

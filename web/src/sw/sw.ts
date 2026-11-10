@@ -1,7 +1,7 @@
 import type { SpaceEntry } from '../api/types';
 import {
-  answerUrl, appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, fillAppMessage, signInCookie,
-  type AppState, type ChannelMessage,
+  answerUrl, appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, fillAppMessage, networkDeadlineMs,
+  signInCookie, type AppState, type ChannelMessage,
 } from '../offline/keys';
 
 interface OfflineConfig {
@@ -15,8 +15,6 @@ declare const self: ServiceWorkerGlobalScope & { scrawlOffline: OfflineConfig };
 const config = self.scrawlOffline;
 
 const appCache = appCachePrefix + config.build;
-
-const deadlineMs = 3_000;
 
 const unavailable = new Set([502, 503, 504]);
 
@@ -95,7 +93,7 @@ async function fromAppCache(request: Request): Promise<Response> {
 }
 
 function deadline(): Promise<undefined> {
-  return new Promise((resolve) => setTimeout(() => resolve(undefined), deadlineMs));
+  return new Promise((resolve) => setTimeout(() => resolve(undefined), networkDeadlineMs));
 }
 
 async function networkFirst(request: Request, stored: () => Promise<Response | undefined>): Promise<Response> {

@@ -12,6 +12,8 @@ export const signInCookie = 'scrawl_signin';
 
 export const fillAppMessage = 'fill-app-cache';
 
+export const networkDeadlineMs = 3_000;
+
 export const stateKey = '/__scrawl-offline/state';
 
 const spaceKeyPrefix = '/__scrawl-offline/space/';

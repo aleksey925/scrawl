@@ -202,3 +202,20 @@ opens over them.
   names a blob. The client read it off the blob and the row's place once, and
   the newest row stops being the current text the moment the file changes on
   disk.
+
+## With no network
+
+- With offline access on and no network, the topbar's group at the right starts
+  with a mark: the crossed wifi icon, with "Offline" beside it on a wide screen
+  and alone on a phone's bar on top. Its popover says
+  `No network. Notes from 14:30, nothing can be changed.`
+- The pages read the copy on the device. Every write control, history, search
+  and the sync control are gone, the tree's filter stays, and the note's menu
+  keeps only Export as PDF, which is a print. A note or a file the copy does
+  not hold says `This is not on this device`.
+- `/edit/`, `/history/` and `/search` opened with no network show
+  `Needs a network`, with a link back to the note. An editor that was open when
+  the network went stays open, so no typed text is lost; its save fails the way
+  it fails today.
+- The mark goes, and the controls come back, only once the server answered who
+  the person is. See [offline copy](../design/offline.md).

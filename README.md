@@ -30,6 +30,8 @@ disk are the only state.
   last and a round Edit button under the thumb
 - installs to a phone home screen and runs there without browser chrome; on an
   iPhone a swipe from the left edge of the screen then goes back
+- offline access: every note, picture and file of every space stays on the
+  device and opens with no network, read-only
 
 ## Try it
 
@@ -476,6 +478,29 @@ Anyone who can write can reset, and so can anyone signed in to a read-only
 space: a read-only mirror whose remote was rebased needs it most. A `:ro` token
 cannot reset. On a server with authentication off, nobody can reset a read-only
 space from the page.
+
+## Offline
+
+With offline access on, scrawl keeps a copy of every space you can open on the
+device: notes, pictures, files and the app itself. With no network the app
+opens from that copy and shows everything read-only; search and history need
+the server and are hidden.
+
+- An app installed to the home screen has it on by default. In a browser, turn
+  it on once with "Offline access" in the space menu (Profile on a phone).
+- The copy updates by itself: when the app opens, every minute while it is
+  open, and after your own changes. It downloads only the files that changed.
+  On an iPhone it updates only while the app is open.
+- Turning it off deletes the copy from the device at once. Signing out deletes
+  your notes from the device too. When another user signs in on the same
+  device, the copy of the previous user is deleted first.
+- It needs HTTPS, or `localhost`: browsers allow the parts it is built on only
+  there. On plain http the switch is greyed out with `Needs HTTPS`. Put scrawl
+  behind a reverse proxy with HTTPS, as described in
+  [Configuration](#configuration).
+- The first copy downloads every space whole, with no size limit, and the app
+  with all its diagram engines, some tens of megabytes. On mobile data that can
+  be a lot.
 
 ## Keyboard shortcuts
 

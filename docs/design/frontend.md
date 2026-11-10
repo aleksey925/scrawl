@@ -35,6 +35,12 @@ How the react app in `web/` is built, shipped and wired.
   keep building. A file stored compressed is read through `gzassets` and goes
   out as stored to a client that accepts gzip, so the server spends nothing
   compressing it.
+- The offline copy's worker is a classic script of its own, built from
+  `web/src/sw/` by `vite.sw.config.ts` into `server/assets/sw/sw.js` and
+  checked by `tsconfig.sw.json` with the worker's types. It imports only
+  `web/src/offline/keys.ts`, which touches no DOM. The worker keeps the app
+  version before its own, so a page left open on it still finds its next chunk
+  ([offline copy](offline.md#the-worker)).
 - PlantUML's library is the one exception: `plantuml/library/` is committed
   compressed and read the same way in every build
   ([server](server.md#plantuml)).
@@ -58,6 +64,13 @@ How the react app in `web/` is built, shipped and wired.
   an element id, so a note carrying "Toasts" took `id="toasts"` and every toast
   was appended invisibly inside it. Chrome is mantine components, portals and
   refs, never a bare id lookup.
+- Offline the app gives the reader `offlinePlatform`, its own platform with
+  `offlineSource`, which reads the copy, and no search or editing. Swapping the
+  platform runs `useApi` again, which keeps the last answer on screen while it
+  loads, so going offline or back does not blank the page
+  ([offline copy](offline.md#offline-in-the-app)). `mountBase()` takes the
+  space from the address when the shell's `data-base` is empty, which is the
+  offline shell; a page with no `data-base` at all, a site, has no base.
 - A global shortcut gives way to an editor. It does nothing when the event was
   already handled or was pressed inside an element that owns the app's
   shortcuts (`data-owns-shortcuts`), because a keymap may leave a key

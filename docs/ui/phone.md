@@ -5,20 +5,22 @@ How the app works on a phone.
 - On a phone the controls sit at the bottom, under the thumb: a bar of tabs
   (Notes, Search, Recent, New, Profile) and a round Edit button above it.
   Profile opens the space's menu, the one the sidebar's foot opens: in the bar
-  on top it was on the root alone. Both stay put while the page scrolls, as an
-  app's tab bar does: put away on a scroll down, they read as the toolbar of a
-  browser. A page ends at the bar, a note or a file clear of the Edit button,
-  so a list that fits the screen does not scroll. Nine controls and the crumbs
-  once shared one row on top, and the crumbs got 25px, wrapped and fell over
-  the note as a column. A menu opens beside the control that opened it, the way
-  a phone's own menus do; drawn as a sheet from the bottom, every menu sat
-  apart from its button. The search and the history take the whole screen and
-  the outline is a sheet, each over the bar. The search keeps its field at the
-  bottom, over the keyboard, with the results above it: a field at the top of a
-  tall phone is out of the thumb's reach. The editor has no bar, and a site has
-  none. The search field is placed by the visible area of the screen, not by
-  CSS alone: a phone's keyboard covers the bottom of the page without making it
-  shorter, and a field fixed to the bottom sat under the keys.
+  on top it was on the root alone. Its "Offline access" row is the same as in
+  the sidebar's menu, and with no network the tabs keep only Notes, Recent and
+  Profile. Both stay put while the page scrolls, as an app's tab bar does: put
+  away on a scroll down, they read as the toolbar of a browser. A page ends at
+  the bar, a note or a file clear of the Edit button, so a list that fits the
+  screen does not scroll. Nine controls and the crumbs once shared one row on
+  top, and the crumbs got 25px, wrapped and fell over the note as a column. A
+  menu opens beside the control that opened it, the way a phone's own menus do;
+  drawn as a sheet from the bottom, every menu sat apart from its button. The
+  search and the history take the whole screen and the outline is a sheet, each
+  over the bar. The search keeps its field at the bottom, over the keyboard,
+  with the results above it: a field at the top of a tall phone is out of the
+  thumb's reach. The editor has no bar, and a site has none. The search field
+  is placed by the visible area of the screen, not by CSS alone: a phone's
+  keyboard covers the bottom of the page without making it shorter, and a field
+  fixed to the bottom sat under the keys.
 - On a phone everything starts on a 16px line: the page text and the first and
   last icon of the bar on top.
 - On a phone a dialog stands in the middle of the screen, where the system's

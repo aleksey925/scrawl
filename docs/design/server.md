@@ -26,9 +26,10 @@ Spaces, routes, settings and the guards on every request.
 - Everything a space owns lives under `/s/<name>/`, including when there is
   exactly one: `/doc/`, `/edit/`, `/history/`, `/search`, `/recent`, `/api/`
   and `/raw/`. The root holds only what reads no store - `/ping`, `/static/`,
-  `/manifest.webmanifest`, `/login`, `/logout`, `/api/login`, `/api/logout`,
-  `/api/spaces` and the `/` redirect to the first space. Every new endpoint
-  answers one question, does it read a store, and lands on one side.
+  `/manifest.webmanifest`, `/sw.js`, `/login`, `/logout`, `/api/login`,
+  `/api/logout`, `/api/spaces` and the `/` redirect to the first space. Every
+  new endpoint answers one question, does it read a store, and lands on one
+  side.
 - Two kinds of URL, and they must never be mixed. A **router-relative** one
   goes to `<Link to>` or `navigate()`, which prepend the space's basename
   themselves, so it carries no prefix - every builder in `view` produces one,
@@ -51,6 +52,12 @@ Spaces, routes, settings and the guards on every request.
   file to its copy, so the file view is plugged into the reader and never
   imported by it. `File.RawURL` is the one physical url in JSON; the reading
   side mounts it.
+- The offline copy has three answers of its own ([offline copy](offline.md)):
+  `/sw.js`, the worker with its list of files, public and `no-cache`;
+  `/static/offline/<hash>.html`, the shell with no space, answered only for the
+  current hash and kept a year; and `/s/<name>/api/versions`, every entry of
+  the space with its version. Both shells carry the release in `data-version`
+  beside `data-base`.
 
 ## Guards
 
@@ -80,6 +87,11 @@ Spaces, routes, settings and the guards on every request.
   ([ADR 7](../adr/0007-inline-styles-allowed.md)). A note cannot carry a style
   either way: the bluemonday policy refuses the element and the attribute
   whatever the header allows.
+- `worker-src` is `'self'`. It changes nothing a browser does, since it falls
+  back to `script-src`, but it names the rule for the offline copy's worker.
+- A successful sign-in sets `scrawl_signin` beside the session cookie: the user
+  name, readable by the page, which the offline copy checks its owner against
+  ([offline copy](offline.md#users)).
 
 ## PlantUML
 

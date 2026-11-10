@@ -42,8 +42,10 @@ export function writeState(cache: Cache, state: CopyState): Promise<void> {
   return writeRecord(cache, stateKey, state);
 }
 
-export function readSpace(name: string): Promise<SpaceRecord | undefined> {
-  return readRecord<SpaceRecord>(spaceKey(name));
+export async function readSpace(name: string): Promise<SpaceRecord> {
+  const stored = await readRecord<SpaceRecord>(spaceKey(name));
+  const entries = Object.assign(Object.create(null) as Record<string, StoredEntry>, stored?.entries);
+  return { etag: stored?.etag ?? '', entries };
 }
 
 export function writeSpace(cache: Cache, name: string, record: SpaceRecord): Promise<void> {

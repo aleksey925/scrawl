@@ -167,7 +167,7 @@ async function store(cache: Cache, wanted: readonly string[], signal: AbortSigna
 
 async function planSpace(cache: Cache, entry: SpaceEntry, signal: AbortSignal): Promise<SpacePlan> {
   const base = spaceBase(entry.name);
-  const record = (await readSpace(entry.name)) ?? { etag: '', entries: {} };
+  const record = await readSpace(entry.name);
   const plan: SpacePlan = { name: entry.name, base, record, fetch: [], etag: record.etag, complete: true, dirty: false };
   const response = await get(answerUrl.versions(base), signal, record.etag === '' ? {} : { 'If-None-Match': record.etag });
   if (response.status === 304) {
@@ -180,6 +180,10 @@ async function planSpace(cache: Cache, entry: SpaceEntry, signal: AbortSignal): 
   plan.list = (await response.json()) as VersionList;
   const etag = response.headers.get('ETag');
   plan.etag = etag === null || etag === '' ? record.etag : etag;
+  if (record.etag !== '') {
+    record.etag = '';
+    await writeSpace(cache, entry.name, record);
+  }
   const { fetch, drop } = diffVersions(plan.list, record.entries);
   plan.fetch = fetch;
   for (const path of drop) {

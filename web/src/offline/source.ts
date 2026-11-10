@@ -21,7 +21,7 @@ function missing(): ApiError {
 
 async function storedEntry(key: string): Promise<StoredEntry | undefined> {
   await ownerChecked;
-  const entry = (await readSpace(spaceName()))?.entries[key];
+  const entry = (await readSpace(spaceName())).entries[key];
   return entry?.release === mountRelease() ? entry : undefined;
 }
 

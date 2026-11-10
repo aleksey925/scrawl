@@ -30,13 +30,16 @@ copy", never "sync": sync is the git remote of a space
 
 - `scrawl-app-<build>` holds the app: every file of the bundle, the PlantUML
   library, `chroma.css`, the icons and the offline shell. Only what `/static/`
-  gives to anyone. The worker writes it when it installs, and only then.
+  gives to anyone. The worker writes it when it installs, and only then. It
+  reads it with `caches.match`, never `caches.open`: that makes an empty cache,
+  and a page Off left under the worker would then skip the download on again.
 - `scrawl-data` holds the user's data: the answers of every space
   (`/api/page/`, `/api/dir/`, `/api/nav?path=`, `/api/me`, `/raw/`),
   `/api/spaces`, and two kinds of record under keys no route answers:
   `/__scrawl-offline/state` (`{owner, updatedAt, error}`) and
   `/__scrawl-offline/space/<name>` (`{etag, entries}`). The page writes it, the
-  worker only reads it.
+  worker only reads it. `entries` is read into an object with no prototype, so
+  an entry named `constructor` or `__proto__` is a key like any other.
 - Each stored answer is the whole response with its headers, so a `/raw/` file
   read offline keeps `default-src 'none'; sandbox`, `nosniff` and its
   `Content-Disposition`.
@@ -73,7 +76,9 @@ The fetch rules, GET only; what no rule names is not touched:
 2. `/static/` is answered from any app cache first, else the network;
 3. `/s/<name>/raw/` goes to the network first, and to the data cache on a
    network error, a 502, 503 or 504, or no answer in 3 seconds. A `Range`
-   request answered from the cache gets a 206 cut from the stored body;
+   request answered from the cache gets a 206 cut from the stored body. A
+   navigation from the sign-in page goes to the network only: no app has read
+   `scrawl_signin` yet, and the copy may still be the user's before;
 4. a navigation under `/s/<name>/` but `api/` goes to the network first, then
    to the offline shell. `/` answers a redirect to the first stored space.
    Whatever status the server gives goes to the page as it came: a redirect to
@@ -135,8 +140,11 @@ page), `cache: 'no-store'`, and carries the copy's header.
 7. The nav and `me` of each changed space are stored.
 8. A space's `etag` is written only when every entry of its list succeeded:
    `entries` is the progress and `etag` the commit, so a round that failed
-   somewhere gets the list again next time and fetches what is missing.
-   `updatedAt` is written when every space is done.
+   somewhere gets the list again next time and fetches what is missing. The
+   stored `etag` is cleared before the round changes anything of the space: the
+   list's ETag is a hash of its body, and a tree back to the committed one
+   would otherwise answer 304 over a copy half moved on. `updatedAt` is written
+   when every space is done.
 
 Rounds start when `/api/me` answers: on open, when the page becomes visible and
 every minute while it is visible. A network error stops a round and takes the

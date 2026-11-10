@@ -22,6 +22,8 @@ const unavailable = new Set([502, 503, 504]);
 
 const spaceRoute = /^\/s\/[^/]+\/(.*)$/;
 
+const signInPath = '/login';
+
 const channel = new BroadcastChannel(channelName);
 
 let offline = false;
@@ -84,8 +86,7 @@ self.addEventListener('activate', (event) => {
 async function fromAppCache(request: Request): Promise<Response> {
   const keys = (await caches.keys()).filter((name) => name.startsWith(appCachePrefix));
   for (const name of [appCache, ...keys.filter((entry) => entry !== appCache).reverse()]) {
-    const cache = await caches.open(name);
-    const stored = await cache.match(request, { ignoreVary: true });
+    const stored = await caches.match(request, { cacheName: name, ignoreVary: true });
     if (stored !== undefined) {
       return stored;
     }
@@ -155,6 +156,10 @@ async function storedRaw(request: Request, pathname: string): Promise<Response |
   return stored === undefined ? undefined : rangeAnswer(request, stored);
 }
 
+function fromSignIn(request: Request): boolean {
+  return request.referrer !== '' && new URL(request.referrer).pathname === signInPath;
+}
+
 async function startPage(): Promise<Response | undefined> {
   const stored = await caches.match(answerUrl.spaces, { cacheName: dataCache });
   if (stored === undefined) {
@@ -180,6 +185,9 @@ self.addEventListener('fetch', (event) => {
   }
   const rest = spaceRoute.exec(url.pathname)?.[1];
   if (rest?.startsWith('raw/') === true) {
+    if (request.mode === 'navigate' && fromSignIn(request)) {
+      return;
+    }
     event.respondWith(networkFirst(request, () => storedRaw(request, url.pathname)));
     return;
   }

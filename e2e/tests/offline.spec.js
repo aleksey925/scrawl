@@ -508,6 +508,44 @@ test.describe('offline access', () => {
         await expect(page.getByTestId('doc-error')).toContainText('This is not on this device');
     });
 
+    test('a round that failed somewhere leaves no etag, so the list is asked for in full again', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        writeFixture(`${FOLDER}/fresh.md`, '# Fresh note\n');
+        await context.route(new RegExp(`/api/dir/${FOLDER}$`), (route) => route.fulfill({status: 500, body: 'down'}));
+
+        // act
+        await page.reload();
+        await expect.poll(async () => (await storedState(page)).error, {timeout: 30_000}).toBe('failed');
+
+        // assert
+        const record = JSON.parse(await storedBody(page, SPACE_RECORD));
+        expect(record.etag).toBe('');
+        expect(Object.keys(record.entries)).toContain(`${FOLDER}/fresh.md`);
+    });
+
+    test('entries named like the properties of an object are copied as any other', async ({page, context}) => {
+        // arrange
+        const names = ['constructor', 'toString', '__proto__'];
+        await context.route(/\/s\/notes\/api\/versions$/, async (route) => {
+            const response = await route.fetch();
+            const list = await response.json();
+            list.entries.push(...names.map((name) => ({path: name, kind: 'dir', version: 'v1'})));
+            await route.fulfill({response, json: list});
+        });
+        await context.route(/\/s\/notes\/api\/dir\/(constructor|toString|__proto__)$/, (route) => route.fulfill({json: {}}));
+        await page.goto(routes.home());
+
+        // act
+        await turnOn(page);
+
+        // assert
+        await expect(status(page)).toContainText('updated at', {timeout: 60_000});
+        const record = JSON.parse(await storedBody(page, SPACE_RECORD));
+        expect(names.map((name) => Object.hasOwn(record.entries, name) && record.entries[name].kind))
+            .toEqual(names.map(() => 'dir'));
+    });
+
     test('a new release asks for every answer again but for no file', async ({page}) => {
         // arrange
         await copyOn(page);
@@ -545,6 +583,7 @@ test.describe('offline access', () => {
         await openSpaceMenu(page);
         await page.getByTestId('space-menu-offline').click();
         await expect.poll(() => cacheNames(page)).toEqual([]);
+        await page.evaluate(() => fetch(document.querySelector('script[src^="/static/"]').src));
 
         // act
         await page.getByTestId('space-menu-offline').click();
@@ -626,6 +665,22 @@ test.describe('offline access', () => {
         // assert
         expect(await storedState(page)).toEqual({...before, owner: user});
         expect(await storedUrls(page)).toContain(`/s/notes/api/page/${NOTE}`);
+    });
+
+    test('a file opened right after another user signs in never comes from the copy', async ({page, context}) => {
+        // arrange
+        writeFixture(TEXT, 'the copy of the first user\n');
+        await copyOn(page);
+        writeFixture(TEXT, 'the file on the server now\n');
+        await context.clearCookies({name: 'scrawl_session'});
+        await page.goto(`${routes.login()}?from=${encodeURIComponent(routes.raw(TEXT))}`);
+        await page.evaluate(() => new BroadcastChannel('scrawl-offline').postMessage({type: 'connection', online: false}));
+
+        // act
+        await submitCredentials(page, {name: otherUser});
+
+        // assert
+        await expect(page.locator('body')).toHaveText(readFixture(TEXT).trim());
     });
 
     test('two tabs make one round, and the second shows the first one\'s progress', async ({page, context}) => {

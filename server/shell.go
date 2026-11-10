@@ -78,7 +78,7 @@ const shellTemplate = `<!doctype html>
 {{end}}<script type="module" crossorigin src="{{.Entry}}"></script>
 </head>
 <body>
-<div id="scrawl-app-root" data-base="{{.Base}}"></div>
+<div id="scrawl-app-root" data-base="{{.Base}}" data-version="{{.Version}}"></div>
 </body>
 </html>
 `
@@ -190,28 +190,35 @@ func (m *mount) docHandler(w http.ResponseWriter, r *http.Request) {
 	m.serveShell(w, r, http.StatusOK)
 }
 
-func (m *mount) serveShell(w http.ResponseWriter, r *http.Request, status int) {
+func (wb *Web) renderShell(theme pageTheme, base string) ([]byte, error) {
 	data := shellData{
-		Title:   m.Title,
-		Theme:   themeOf(r, m.Version),
-		Version: m.Version,
-		Favicon: iconURL(m.Version, "favicon.svg"),
-		Base:    m.spc.Prefix(),
-		Entry:   m.appShell.entry,
-		CSS:     m.appShell.css,
-		Preload: m.appShell.preload,
+		Title:   wb.Title,
+		Theme:   theme,
+		Version: wb.Version,
+		Favicon: iconURL(wb.Version, "favicon.svg"),
+		Base:    base,
+		Entry:   wb.appShell.entry,
+		CSS:     wb.appShell.css,
+		Preload: wb.appShell.preload,
 	}
-
 	var buf bytes.Buffer
-	if err := m.appShell.tmpl.Execute(&buf, data); err != nil {
-		log.Printf("[ERROR] render app shell: %v", err)
+	if err := wb.appShell.tmpl.Execute(&buf, data); err != nil {
+		return nil, fmt.Errorf("render app shell: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (m *mount) serveShell(w http.ResponseWriter, r *http.Request, status int) {
+	body, err := m.renderShell(themeOf(r, m.Version), m.spc.Prefix())
+	if err != nil {
+		log.Printf("[ERROR] %v", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	if _, err := buf.WriteTo(w); err != nil {
+	if _, err := w.Write(body); err != nil {
 		log.Printf("[DEBUG] write app shell: %v", err)
 	}
 }

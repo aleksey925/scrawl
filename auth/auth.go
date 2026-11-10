@@ -20,7 +20,7 @@ const (
 	SecureNever  = "never"
 )
 
-var defaultPublicPrefixes = []string{"/login", "/api/login", "/manifest.webmanifest", "/static", "/ping"}
+var defaultPublicPrefixes = []string{"/login", "/api/login", "/manifest.webmanifest", "/static", "/ping", "/sw.js"}
 
 type Config struct {
 	Users        string

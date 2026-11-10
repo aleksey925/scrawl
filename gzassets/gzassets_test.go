@@ -215,6 +215,44 @@ func TestFiles_Digest_MissingDirectory(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestFiles_Names(t *testing.T) {
+	packed, err := Compress([]byte(script))
+	require.NoError(t, err)
+	files := Sub(fstest.MapFS{
+		"root/app/app.js" + Ext:           {Data: packed},
+		"root/app/assets/icon.png":        {Data: []byte("icon")},
+		"root/app/assets/twice.css":       {Data: []byte("plain")},
+		"root/app/assets/twice.css" + Ext: {Data: packed},
+		"root/other.txt":                  {Data: []byte("outside")},
+	}, "root")
+	tests := []struct {
+		name string
+		dir  string
+		want []string
+	}{
+		{name: "a directory", dir: "app", want: []string{"app.js", "assets/icon.png", "assets/twice.css"}},
+		{name: "the root", dir: ".", want: []string{"app/app.js", "app/assets/icon.png", "app/assets/twice.css", "other.txt"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			got, err := files.Names(tc.dir)
+
+			// assert
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestFiles_Names_MissingDirectory(t *testing.T) {
+	// act
+	_, err := newFiles(t).Names("missing")
+
+	// assert
+	require.Error(t, err)
+}
+
 func TestAcceptsGzip(t *testing.T) {
 	tests := []struct {
 		header string

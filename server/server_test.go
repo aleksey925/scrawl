@@ -515,6 +515,7 @@ func TestSecurityHeaders(t *testing.T) {
 	assert.Contains(t, policy, "default-src 'none'")
 	assert.Contains(t, policy, "connect-src 'self'")
 	assert.Contains(t, policy, "script-src 'self'")
+	assert.Contains(t, policy, "worker-src 'self'")
 	assert.Contains(t, policy, "style-src 'self' 'unsafe-inline'")
 }
 
@@ -2097,6 +2098,60 @@ func TestLoginFlow(t *testing.T) {
 	assert.Equal(t, http.StatusFound, loginAgain.status, "an authenticated visitor is sent away from the form")
 	assert.Equal(t, http.StatusSeeOther, out.status)
 	assert.Equal(t, http.StatusFound, afterLogout.status)
+}
+
+func TestSignInSetsTheSignInCookie(t *testing.T) {
+	form := func(password string) request {
+		return request{
+			method:  http.MethodPost,
+			path:    "/login",
+			body:    strings.NewReader(url.Values{"username": {testUser}, "password": {password}}.Encode()),
+			headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
+		}
+	}
+	apiLogin := func(password string) request {
+		return request{
+			method:  http.MethodPost,
+			path:    "/api/login",
+			body:    strings.NewReader(`{"username":"` + testUser + `","password":"` + password + `"}`),
+			headers: map[string]string{"Content-Type": "application/json"},
+		}
+	}
+	tests := []struct {
+		name string
+		req  request
+		want bool
+	}{
+		{name: "the form", req: form(testPassword), want: true},
+		{name: "the api", req: apiLogin(testPassword), want: true},
+		{name: "a failed form", req: form("wrong")},
+		{name: "a failed api call", req: apiLogin("wrong")},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ts := newTestServer(t, testOpts{withAuth: true})
+
+			// act
+			resp, _ := ts.do(t, tc.req)
+
+			// assert
+			cookies := map[string]*http.Cookie{}
+			for _, cookie := range (&http.Response{Header: resp.header}).Cookies() {
+				cookies[cookie.Name] = cookie
+			}
+			signIn, found := cookies[auth.SignInCookieName]
+			require.Equal(t, tc.want, found)
+			if !tc.want {
+				return
+			}
+			assert.Equal(t, testUser, signIn.Value)
+			assert.False(t, signIn.HttpOnly)
+			assert.Equal(t, cookies[auth.CookieName].Path, signIn.Path)
+			assert.Equal(t, cookies[auth.CookieName].SameSite, signIn.SameSite)
+			assert.Zero(t, signIn.MaxAge)
+		})
+	}
 }
 
 func TestLoginRedirectsBackToTheRequestedPage(t *testing.T) {

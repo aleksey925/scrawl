@@ -301,6 +301,7 @@ func (wb *Web) apiLogin(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusInternalServerError, "the session could not be started")
 		return
 	}
+	wb.Auth.SetSignInCookie(w, r, req.Username)
 	writeJSON(w, http.StatusOK, loginResponse{User: req.Username})
 }
 

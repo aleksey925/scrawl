@@ -874,6 +874,19 @@ func TestLibraryFileRefusesANameOutsideTheLibrary(t *testing.T) {
 	}
 }
 
+func TestLibraryFiles(t *testing.T) {
+	// act
+	got, err := LibraryFiles()
+
+	// assert
+	require.NoError(t, err)
+	assert.Contains(t, got, "c4.min.js")
+	assert.Contains(t, got, themesFile)
+	for _, name := range got {
+		assert.True(t, inLibrary(name), name)
+	}
+}
+
 func TestServeLibrary(t *testing.T) {
 	tests := []struct {
 		name     string

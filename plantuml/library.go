@@ -53,6 +53,10 @@ func libraryFile(name string) ([]byte, error) {
 	return library.ReadFile(name)
 }
 
+func LibraryFiles() ([]string, error) {
+	return library.Names(".")
+}
+
 func ServeLibrary(w http.ResponseWriter, r *http.Request, name string) {
 	if !inLibrary(name) {
 		http.NotFound(w, r)

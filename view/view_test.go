@@ -1,6 +1,7 @@
 package view
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -308,6 +309,93 @@ func TestFindURL(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// act & assert
 			assert.Equal(t, tc.want, FindURL("db/a.md", tc.find, tc.line))
+		})
+	}
+}
+
+func TestVersions(t *testing.T) {
+	// arrange
+	mod := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	note := store.FileInfo{Path: "db/notes.md", Name: "notes.md", Size: 1201, ModTime: mod}
+	picture := store.FileInfo{Path: "db/plan.png", Name: "plan.png", Size: 50207, ModTime: mod.Add(time.Second)}
+	root := &store.Node{FileInfo: store.FileInfo{IsDir: true, ModTime: mod}, Children: []*store.Node{
+		{FileInfo: store.FileInfo{Path: "db", Name: "db", IsDir: true, ModTime: mod}, Children: []*store.Node{
+			{FileInfo: note},
+			{FileInfo: picture},
+		}},
+	}}
+
+	// act
+	got := Versions(root, "1.6.0")
+
+	// assert
+	require.Len(t, got.Entries, 4)
+	assert.Equal(t, "1.6.0", got.Release)
+	assert.Equal(t, []VersionEntry{
+		{Path: "", Kind: VersionDir, Version: got.Entries[0].Version},
+		{Path: "db", Kind: VersionDir, Version: got.Entries[1].Version},
+		{Path: note.Path, Kind: VersionNote, Version: FileVersion(note), Size: note.Size},
+		{Path: picture.Path, Kind: VersionFile, Version: FileVersion(picture), Size: picture.Size},
+	}, got.Entries)
+	assert.Len(t, got.Entries[0].Version, 12)
+	assert.NotEqual(t, got.Entries[0].Version, got.Entries[1].Version)
+}
+
+func TestFileVersion(t *testing.T) {
+	// arrange
+	mod := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	fi := store.FileInfo{Path: "a.md", Size: 0x4b1, ModTime: mod}
+
+	// act
+	got := FileVersion(fi)
+
+	// assert
+	assert.Equal(t, fmt.Sprintf("%x-4b1", mod.UnixNano()), got)
+}
+
+func TestVersionsOfAFolder(t *testing.T) {
+	mod := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	tree := func(deep, sibling time.Time) *store.Node {
+		return &store.Node{FileInfo: store.FileInfo{IsDir: true, ModTime: mod}, Children: []*store.Node{
+			{FileInfo: store.FileInfo{Path: "a", Name: "a", IsDir: true, ModTime: mod}, Children: []*store.Node{
+				{FileInfo: store.FileInfo{Path: "a/b", Name: "b", IsDir: true, ModTime: mod}, Children: []*store.Node{
+					{FileInfo: store.FileInfo{Path: "a/b/deep.md", Name: "deep.md", Size: 3, ModTime: deep}},
+				}},
+			}},
+			{FileInfo: store.FileInfo{Path: "c", Name: "c", IsDir: true, ModTime: mod}, Children: []*store.Node{
+				{FileInfo: store.FileInfo{Path: "c/sibling.md", Name: "sibling.md", Size: 3, ModTime: sibling}},
+			}},
+		}}
+	}
+	versionOf := func(list VersionList, p string) string {
+		for _, entry := range list.Entries {
+			if entry.Path == p {
+				return entry.Version
+			}
+		}
+		return ""
+	}
+	tests := []struct {
+		name     string
+		deep     time.Time
+		sibling  time.Time
+		wantSame bool
+	}{
+		{name: "the same tree gives the same version", deep: mod, sibling: mod, wantSame: true},
+		{name: "a change two levels down gives another version", deep: mod.Add(time.Second), sibling: mod},
+		{name: "a change in a sibling folder keeps the version", deep: mod, sibling: mod.Add(time.Second), wantSame: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			want := versionOf(Versions(tree(mod, mod), ""), "a")
+
+			// act
+			got := versionOf(Versions(tree(tc.deep, tc.sibling), ""), "a")
+
+			// assert
+			assert.NotEmpty(t, got)
+			assert.Equal(t, tc.wantSame, got == want)
 		})
 	}
 }

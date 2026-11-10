@@ -73,6 +73,26 @@ func (f Files) Digest(dir string) (string, error) {
 	return hex.EncodeToString(sum.Sum(nil)[:6]), nil
 }
 
+func (f Files) Names(dir string) ([]string, error) {
+	var res []string
+	err := fs.WalkDir(f.fsys, dir, func(name string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		rel := name
+		if dir != "." {
+			rel = strings.TrimPrefix(name, dir+"/")
+		}
+		res = append(res, strings.TrimSuffix(rel, Ext))
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("gzassets: %w", err)
+	}
+	slices.Sort(res)
+	return slices.Compact(res), nil
+}
+
 func (f Files) ServeFile(w http.ResponseWriter, r *http.Request, name string) {
 	packed, err := fs.ReadFile(f.fsys, name+Ext)
 	if err != nil {

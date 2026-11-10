@@ -65,7 +65,7 @@ const (
 
 const contentSecurityPolicy = "default-src 'none'; base-uri 'none'; form-action 'self'; " +
 	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; manifest-src 'self'; " +
-	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; script-src 'self' 'wasm-unsafe-eval'"
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'"
 
 var gzipContentTypes = []string{
 	"text/html", "text/css", "text/plain", "text/xml", "text/javascript",
@@ -99,6 +99,7 @@ type Web struct {
 	byName    map[string]*Space
 	templates *template.Template
 	appShell  *appShell
+	offline   *offlineApp
 
 	cacheOnce sync.Once
 	cache     *pageCache
@@ -209,6 +210,9 @@ func (wb *Web) router() (http.Handler, error) {
 	if wb.appShell, err = newAppShell(assets); err != nil {
 		return nil, fmt.Errorf("build app shell: %w", err)
 	}
+	if wb.offline, err = wb.newOfflineApp(); err != nil {
+		return nil, fmt.Errorf("build the offline app: %w", err)
+	}
 
 	router := routegroup.New(http.NewServeMux())
 	router.Use(rest.Trace, rest.Recoverer(lgr.Default()), securityHeaders)
@@ -224,6 +228,8 @@ func (wb *Web) router() (http.Handler, error) {
 	router.Use(wb.appInfo)
 
 	router.HandleFunc("GET /ping", pingHandler)
+	router.HandleFunc("GET /sw.js", wb.workerHandler)
+	router.HandleFunc("GET "+offlineShellBase+"{file}", wb.offlineShellHandler)
 
 	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
 		HandleFunc("GET /static/{version}/{path...}", wb.staticHandler(assets))
@@ -277,6 +283,7 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	g.HandleFunc("GET /api/page/{path...}", m.apiPage)
 	g.HandleFunc("GET /api/dir/{path...}", m.apiDir)
 	g.HandleFunc("GET /api/nav", m.apiNav)
+	g.HandleFunc("GET /api/versions", m.apiVersions)
 	g.HandleFunc("GET /api/me", m.apiMe)
 	g.HandleFunc("GET /api/export/{path...}", m.apiExport)
 

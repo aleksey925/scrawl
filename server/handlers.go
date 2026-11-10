@@ -227,6 +227,7 @@ func (wb *Web) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		wb.loginForm(w, r, http.StatusInternalServerError, "The session could not be started", from)
 		return
 	}
+	wb.Auth.SetSignInCookie(w, r, r.PostFormValue("username"))
 	http.Redirect(w, r, from, http.StatusSeeOther)
 }
 

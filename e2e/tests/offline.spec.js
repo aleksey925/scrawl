@@ -1,14 +1,20 @@
+const fs = require('fs');
+
 const {expect, test} = require('../support/test');
 
-const {otherUser} = require('../support/env');
+const {otherUser, user} = require('../support/env');
 const {
-    MAIN, MULTI, holdRoute, openSpaceMenu, removeFixture, routes, shot, signIn, submitCredentials, writeFixture,
+    MAIN, MULTI, fixtureFile, holdRoute, openSpaceMenu, readFixture, removeFixture, routes, save, setSource, shot,
+    signIn, stays, submitCredentials, writeFixture,
 } = require('../support/helpers');
 
 const FOLDER = 'e2e-offline';
 const NOTE = `${FOLDER}/everything.md`;
 const PDF = `${FOLDER}/paper.pdf`;
+const ARCHIVE = `${FOLDER}/archive.bin`;
+const TEXT = `${FOLDER}/data.txt`;
 const PICTURE = 'images/logo.png';
+const ODD_NAME = 'odd $&+,:;=@ б.png';
 
 const EVERYTHING = [
     '# Offline note',
@@ -16,6 +22,8 @@ const EVERYTHING = [
     'only the copy has it.',
     '',
     '![logo](../images/logo.png)',
+    '',
+    `![odd](<./${ODD_NAME}>)`,
     '',
     '$$E = mc^2$$',
     '',
@@ -34,6 +42,8 @@ const EVERYTHING = [
 ].join('\n');
 
 const PAPER = '%PDF-1.4\n% a paper for the offline copy\n';
+
+const SPACE_RECORD = '/__scrawl-offline/space/notes';
 
 function status(page) {
     return page.getByTestId('space-menu-offline-status');
@@ -91,9 +101,72 @@ function storedUrls(page) {
     });
 }
 
+function storedBody(page, url) {
+    return page.evaluate(async (key) => {
+        const stored = await caches.match(key, {cacheName: 'scrawl-data'});
+        return stored === undefined ? undefined : stored.text();
+    }, url);
+}
+
+function storedReleases(page) {
+    return page.evaluate(async (key) => {
+        const stored = await caches.match(key, {cacheName: 'scrawl-data'});
+        const record = await stored.json();
+        return [...new Set(Object.values(record.entries).map((kept) => kept.release))];
+    }, SPACE_RECORD);
+}
+
+function storeAsRelease(page, release) {
+    return page.evaluate(async ([key, next]) => {
+        const cache = await caches.open('scrawl-data');
+        const record = await (await cache.match(key)).json();
+        for (const kept of Object.values(record.entries)) {
+            kept.release = next;
+        }
+        record.etag = '';
+        await cache.put(key, new Response(JSON.stringify(record), {headers: {'Content-Type': 'application/json'}}));
+    }, [SPACE_RECORD, release]);
+}
+
+function rawAnswers(page, urls) {
+    return page.evaluate((list) => Promise.all(list.map(async (url) => {
+        const answer = await fetch(url, {cache: 'no-store'});
+        return {
+            status: answer.status,
+            type: answer.headers.get('content-type'),
+            policy: answer.headers.get('content-security-policy'),
+            disposition: answer.headers.get('content-disposition'),
+            sniff: answer.headers.get('x-content-type-options'),
+            body: Array.from(new Uint8Array(await answer.arrayBuffer())),
+        };
+    })), urls);
+}
+
+function rangeAnswers(page, url, ranges) {
+    return page.evaluate(([address, list]) => Promise.all(list.map(async (range) => {
+        const answer = await fetch(address, {headers: {Range: range}});
+        return {
+            status: answer.status,
+            range: answer.headers.get('content-range'),
+            length: answer.headers.get('content-length'),
+            body: await answer.text(),
+        };
+    })), [url, ranges]);
+}
+
+async function pretendInstalled(page) {
+    await page.addInitScript(() => {
+        const original = window.matchMedia.bind(window);
+        window.matchMedia = (query) => (query === '(display-mode: standalone)'
+            ? {...original(query), matches: true, media: query}
+            : original(query));
+    });
+}
+
 test.describe('offline access', () => {
     test.beforeEach(async ({page}) => {
         writeFixture(NOTE, EVERYTHING);
+        fs.copyFileSync(fixtureFile(PICTURE), fixtureFile(`${FOLDER}/${ODD_NAME}`));
         await signIn(page);
     });
 
@@ -126,13 +199,13 @@ test.describe('offline access', () => {
         await expect.poll(() => workerState(page), {timeout: 60_000}).toBe('activated');
         const names = await cacheNames(page);
         expect(names).toContain('scrawl-data');
-        expect(names.filter((name) => name.startsWith('scrawl-app-'))).toHaveLength(1);
+        expect(names.filter((entry) => entry.startsWith('scrawl-app-'))).toHaveLength(1);
         expect(await storedUrls(page)).toEqual(expect.arrayContaining([
             `/s/notes/api/page/${NOTE}`, `/s/notes/raw/${PICTURE}`, `/s/notes/api/dir/${FOLDER}`, '/api/spaces',
         ]));
     });
 
-    test('a note never opened online is read offline with its picture and diagrams', async ({page, context}) => {
+    test('a note never opened online is read offline with its pictures and diagrams', async ({page, context}) => {
         // arrange
         await copyOn(page);
 
@@ -143,7 +216,8 @@ test.describe('offline access', () => {
         // assert
         const doc = page.getByTestId('doc');
         await expect(doc.locator('h1').first()).toContainText('Offline note');
-        await expect.poll(() => doc.locator('img').first().evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
+        await expect.poll(() => doc.locator('img').evaluateAll((pictures) => pictures.map((img) => img.naturalWidth > 0)))
+            .toEqual([true, true]);
         await expect(doc.locator('.katex').first()).toBeVisible();
         await expect(doc.locator('.md-diagram[data-state="done"] svg')).toHaveCount(2);
         await shot(page, 'offline-note');
@@ -154,10 +228,8 @@ test.describe('offline access', () => {
         await copyOn(page);
         await context.setOffline(true);
 
-        // act
+        // act & assert
         await page.goto(routes.dir(FOLDER));
-
-        // assert
         await expect(page.getByTestId('dir')).toContainText('everything.md');
         await expect(page.getByTestId('offline-mark')).toBeVisible();
         await expect(page.getByTestId('dir-new')).toHaveCount(0);
@@ -166,9 +238,15 @@ test.describe('offline access', () => {
         await expect(page.getByTestId('tree-row').filter({hasText: 'replication.md'})).toBeVisible();
         await page.goto(routes.doc(NOTE));
         await expect(page.getByTestId('doc-edit')).toHaveCount(0);
+        await page.getByTestId('note-menu').click();
+        await expect(page.getByTestId('doc-export-pdf')).toBeVisible();
+        await expect(page.getByTestId('doc-export-md')).toHaveCount(0);
+        await expect(page.getByTestId('doc-export-html')).toHaveCount(0);
+        await page.keyboard.press('Escape');
         await openSpaceMenu(page);
         await expect(status(page)).toContainText(/No network, data from \d\d:\d\d/);
         await expect(page.getByTestId('space-menu-signout')).toHaveCount(0);
+        await expect(page.getByTestId('space-menu-readonly')).toHaveCount(0);
         await shot(page, 'offline-menu');
     });
 
@@ -176,14 +254,33 @@ test.describe('offline access', () => {
         // arrange
         await copyOn(page);
         await context.setOffline(true);
+        const needs = page.getByTestId('app-needs-network');
+
+        // act & assert
+        await page.goto(routes.history(NOTE));
+        await expect(needs).toBeVisible();
+        await page.goto(routes.search('copy'));
+        await expect(needs).toBeVisible();
+        await page.goto(routes.edit(NOTE));
+        await expect(needs).toBeVisible();
+        await needs.getByRole('link').click();
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
+    });
+
+    test('an editor open when the network goes stays open', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await page.goto(routes.edit(NOTE));
+        await expect(page.getByTestId('editor-source')).toBeVisible();
 
         // act
-        await page.goto(routes.edit(NOTE));
+        await context.setOffline(true);
+        await page.evaluate(() => window.dispatchEvent(new Event('offline')));
 
         // assert
-        await expect(page.getByTestId('app-needs-network')).toBeVisible();
-        await page.getByTestId('app-needs-network').getByRole('link').click();
-        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
+        await expect(page.getByTestId('offline-mark')).toBeVisible();
+        await expect(page.getByTestId('editor-source')).toBeVisible();
+        await expect(page.getByTestId('app-needs-network')).toHaveCount(0);
     });
 
     test('a note not on the device says so', async ({page, context}) => {
@@ -201,27 +298,47 @@ test.describe('offline access', () => {
     test('offline a file keeps its own headers and a raw url gets the file, not the app', async ({page, context}) => {
         // arrange
         writeFixture(PDF, PAPER);
+        writeFixture(ARCHIVE, 'not a picture');
         await copyOn(page);
+        const urls = [routes.raw(PDF), routes.raw(ARCHIVE), routes.raw(PICTURE)];
+        const online = await rawAnswers(page, urls);
         await context.setOffline(true);
 
         // act
-        const fromWorker = await page.evaluate(async ([pdfUrl, pictureUrl]) => {
-            const answers = await Promise.all([fetch(pdfUrl), fetch(pictureUrl)]);
-            return Promise.all(answers.map(async (answer) => ({
-                status: answer.status,
-                type: answer.headers.get('content-type'),
-                policy: answer.headers.get('content-security-policy'),
-                body: (await answer.text()).slice(0, 8),
-            })));
-        }, [routes.raw(PDF), routes.raw(PICTURE)]);
+        const fromWorker = await rawAnswers(page, urls);
         await page.goto(MAIN.url.raw(PICTURE));
 
         // assert
-        expect(fromWorker).toEqual([
-            {status: 200, type: 'application/pdf', policy: "default-src 'none'; sandbox", body: '%PDF-1.4'},
-            {status: 200, type: 'image/png', policy: "default-src 'none'; sandbox", body: expect.any(String)},
+        expect(fromWorker).toEqual(online);
+        expect(online).toEqual([
+            expect.objectContaining({status: 200, type: 'application/pdf', disposition: null}),
+            expect.objectContaining({status: 200, disposition: 'attachment; filename=archive.bin'}),
+            expect.objectContaining({status: 200, type: 'image/png', disposition: null}),
         ]);
+        expect(online.map((answer) => [answer.policy, answer.sniff])).toEqual(urls.map(() => ["default-src 'none'; sandbox", 'nosniff']));
         await expect(page.locator('img')).toHaveCount(1);
+    });
+
+    test('offline a range of a file is cut from the copy', async ({page, context}) => {
+        // arrange
+        writeFixture(PDF, PAPER);
+        await copyOn(page);
+        await context.setOffline(true);
+        const size = PAPER.length;
+
+        // act
+        const got = await rangeAnswers(page, routes.raw(PDF), [
+            'bytes=0-3', 'bytes=-4', 'bytes=4-', `bytes=2-${size + 100}`, `bytes=${size}-`,
+        ]);
+
+        // assert
+        expect(got).toEqual([
+            {status: 206, range: `bytes 0-3/${size}`, length: '4', body: PAPER.slice(0, 4)},
+            {status: 206, range: `bytes ${size - 4}-${size - 1}/${size}`, length: '4', body: PAPER.slice(-4)},
+            {status: 206, range: `bytes 4-${size - 1}/${size}`, length: String(size - 4), body: PAPER.slice(4)},
+            {status: 206, range: `bytes 2-${size - 1}/${size}`, length: String(size - 2), body: PAPER.slice(2)},
+            {status: 416, range: `bytes */${size}`, length: null, body: ''},
+        ]);
     });
 
     test('a stalled network shows the note and its picture from the copy', async ({page, context}) => {
@@ -237,6 +354,44 @@ test.describe('offline access', () => {
         await expect(doc.locator('h1').first()).toContainText('Offline note', {timeout: 15_000});
         await expect.poll(() => doc.locator('img').first().evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
         await expect(page.getByTestId('offline-mark')).toBeVisible();
+    });
+
+    test('online a changed file comes from the network, and the next round stores it', async ({page}) => {
+        // arrange
+        writeFixture(TEXT, 'the first version\n');
+        await copyOn(page);
+        const url = routes.raw(TEXT);
+        const first = await page.evaluate((address) => fetch(address).then((answer) => answer.text()), url);
+        writeFixture(TEXT, 'the second version, a longer one\n');
+
+        // act & assert
+        const online = await page.evaluate(
+            (address) => fetch(address, {cache: 'no-store'}).then((answer) => answer.text()), url);
+        expect(online).toBe(readFixture(TEXT));
+        expect(await storedBody(page, url)).toBe(first);
+        await page.reload();
+        await expect.poll(() => storedBody(page, url), {timeout: 30_000}).toBe(readFixture(TEXT));
+    });
+
+    test('a gateway error takes the app offline, and scrawl\'s own 503 does not', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        const answer = new RegExp(`/api/page/${NOTE}$`);
+        await context.route(answer, (route) => route.fulfill({
+            status: 503, contentType: 'application/json', body: '{"error":"the note took too long to render"}',
+        }));
+
+        // act & assert
+        await page.goto(routes.doc(NOTE));
+        await expect(page.getByTestId('doc-error')).toBeVisible();
+        await expect(page.getByTestId('offline-mark')).toHaveCount(0);
+        await context.unroute(answer);
+        await context.route(answer, (route) => route.fulfill({
+            status: 502, contentType: 'text/html', body: '<h1>Bad gateway</h1>',
+        }));
+        await page.goto(routes.doc(NOTE));
+        await expect(page.getByTestId('offline-mark')).toBeVisible();
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
     });
 
     test('back online, writing comes back only once the account answers', async ({page, context}) => {
@@ -255,7 +410,11 @@ test.describe('offline access', () => {
         // assert
         await expect(page.getByTestId('doc-edit')).toHaveCount(0);
         await expect(page.getByTestId('offline-mark')).toBeVisible();
+
+        // act
         me.release();
+
+        // assert
         await expect(page.getByTestId('offline-mark')).toHaveCount(0);
         await expect(page.getByTestId('doc-edit')).toBeVisible();
     });
@@ -278,12 +437,30 @@ test.describe('offline access', () => {
             '/s/notes/api/dir/', `/s/notes/api/dir/${FOLDER}`, `/s/notes/api/page/${FOLDER}/fresh.md`,
         ]);
         expect(await storedUrls(page)).not.toContain(`/s/notes/api/page/${FOLDER}/gone.md`);
+
+        // act
         await context.setOffline(true);
         await page.goto(routes.doc(`${FOLDER}/fresh.md`));
+
+        // assert
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Fresh note');
     });
 
-    test('a round cut short goes on where it stopped', async ({page, context}) => {
+    test('a note written in the app reaches the copy soon', async ({page}) => {
+        // arrange
+        await copyOn(page);
+        await page.goto(routes.edit(NOTE));
+        await setSource(page, '# Written here\n\nsaved in the app.\n');
+
+        // act
+        await save(page);
+
+        // assert
+        await expect.poll(async () => (await storedBody(page, `/s/notes/api/page/${NOTE}`)) ?? '', {timeout: 10_000})
+            .toContain('Written here');
+    });
+
+    test('a round that failed somewhere asks next time only for what is missing', async ({page, context}) => {
         // arrange
         await context.route(/\/api\/page\/db\//, (route) => route.fulfill({status: 500, body: 'down'}));
         await page.goto(routes.home());
@@ -299,7 +476,52 @@ test.describe('offline access', () => {
 
         // assert
         expect(await storedUrls(page)).toContain('/s/notes/api/page/db/locks.md');
-        expect(asked.filter((url) => url.includes('/api/page/')).every((url) => url.includes('/api/page/db/'))).toBe(true);
+        const fetched = asked.filter((url) => /\/api\/(page|dir)\/|\/raw\//.test(url));
+        expect(fetched).toContain('/s/notes/api/page/db/locks.md');
+        expect(fetched.filter((url) => !url.startsWith('/s/notes/api/page/db/'))).toEqual([]);
+    });
+
+    test('a file the server refuses is left out, and the round still ends', async ({page, context}) => {
+        // arrange
+        await context.route(/\/api\/page\/db\/locks\.md$/, (route) => route.fulfill({status: 403, body: 'refused'}));
+        await page.goto(routes.home());
+
+        // act
+        await turnOn(page);
+
+        // assert
+        await expect(status(page)).toContainText('updated at', {timeout: 60_000});
+        expect(await storedState(page)).toMatchObject({error: ''});
+        expect(await storedUrls(page)).not.toContain('/s/notes/api/page/db/locks.md');
+    });
+
+    test('a copy made by another release is not read', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await context.setOffline(true);
+        await storeAsRelease(page, 'old');
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(page.getByTestId('doc-error')).toContainText('This is not on this device');
+    });
+
+    test('a new release asks for every answer again but for no file', async ({page}) => {
+        // arrange
+        await copyOn(page);
+        await storeAsRelease(page, 'old');
+        const asked = copyRequests(page);
+
+        // act
+        await page.reload();
+        await expect.poll(async () => (await storedReleases(page)).includes('old'), {timeout: 30_000}).toBe(false);
+
+        // assert
+        expect(asked).toContain(`/s/notes/api/page/${NOTE}`);
+        expect(asked.filter((url) => url.includes('/raw/'))).toEqual([]);
+        expect(await storedUrls(page)).toContain(`/s/notes/raw/${PICTURE}`);
     });
 
     test('off deletes the copy and the worker at once', async ({page}) => {
@@ -317,6 +539,62 @@ test.describe('offline access', () => {
         await expect.poll(() => workerState(page)).toBe('none');
     });
 
+    test('off then on in the same page downloads the app again', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await openSpaceMenu(page);
+        await page.getByTestId('space-menu-offline').click();
+        await expect.poll(() => cacheNames(page)).toEqual([]);
+
+        // act
+        await page.getByTestId('space-menu-offline').click();
+
+        // assert
+        await expect(status(page)).toContainText('updated at', {timeout: 60_000});
+        await expect.poll(async () => (await cacheNames(page)).filter((name) => name.startsWith('scrawl-app-')))
+            .toHaveLength(1);
+
+        // act
+        await context.setOffline(true);
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
+    });
+
+    test('off in another tab waits for the round and leaves nothing behind', async ({page, context}) => {
+        // arrange
+        const held = await holdRoute(context, /\/api\/page\/db\//);
+        await page.goto(routes.home());
+        await turnOn(page);
+        await held.reached;
+        const second = await context.newPage();
+        await second.goto(routes.home());
+        await openSpaceMenu(second);
+
+        // act
+        await second.getByTestId('space-menu-offline').click();
+
+        // assert
+        await expect(second.getByTestId('space-menu-offline')).toHaveAttribute('data-on', 'false');
+        await expect.poll(() => cacheNames(second)).toEqual([]);
+        held.release();
+        await stays(() => cacheNames(second), [], 1000);
+    });
+
+    test('an app that fails to download says so and keeps no part of it', async ({page, context}) => {
+        // arrange
+        await context.route(/\/static\/[^/]+\/plantuml\//, (route) => route.fulfill({status: 404, body: 'gone'}));
+        await page.goto(routes.home());
+
+        // act
+        await turnOn(page);
+
+        // assert
+        await expect(status(page)).toContainText('Could not update', {timeout: 60_000});
+        expect((await cacheNames(page)).filter((name) => name.startsWith('scrawl-app-'))).toEqual([]);
+    });
+
     test('sign out deletes the data and keeps the app', async ({page}) => {
         // arrange
         await copyOn(page);
@@ -329,7 +607,25 @@ test.describe('offline access', () => {
         // assert
         const names = await cacheNames(page);
         expect(names).not.toContain('scrawl-data');
-        expect(names.filter((name) => name.startsWith('scrawl-app-'))).toHaveLength(1);
+        expect(names.filter((entry) => entry.startsWith('scrawl-app-'))).toHaveLength(1);
+        expect(await workerState(page)).toBe('activated');
+        expect(await page.evaluate(() => localStorage.getItem('scrawl.offline'))).toBe('on');
+    });
+
+    test('the same user who signs in again keeps the copy', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        const before = await storedState(page);
+        await context.clearCookies({name: 'scrawl_session'});
+        await context.route(/\/api\/me$/, () => {});
+
+        // act
+        await signIn(page);
+        await expect.poll(() => page.evaluate(() => document.cookie.includes('scrawl_signin'))).toBe(false);
+
+        // assert
+        expect(await storedState(page)).toEqual({...before, owner: user});
+        expect(await storedUrls(page)).toContain(`/s/notes/api/page/${NOTE}`);
     });
 
     test('two tabs make one round, and the second shows the first one\'s progress', async ({page, context}) => {
@@ -345,24 +641,33 @@ test.describe('offline access', () => {
         await turnOn(page);
         await held.reached;
         const second = await context.newPage();
+        const answered = second.waitForResponse((response) => response.url().endsWith('/api/me'));
 
         // act
         await second.goto(routes.home());
+        await answered;
         await openSpaceMenu(second);
 
         // assert
         await expect(status(second)).toContainText(/Downloading\.\.\. \d+ of \d+/);
         expect(versions).toHaveLength(1);
+
+        // act
         held.release();
+
+        // assert
         await expect(status(second)).toContainText('updated at', {timeout: 60_000});
         expect(versions).toHaveLength(1);
     });
 });
 
 test.describe('offline access of every space', () => {
+    test.beforeEach(async ({page}) => {
+        await signIn(page, {baseURL: MULTI.baseURL, from: MULTI.url.home()});
+    });
+
     test('every space is copied and another one opens offline', async ({page, context}) => {
         // arrange
-        await signIn(page, {baseURL: MULTI.baseURL, from: MULTI.url.home()});
         await copyOn(page, MULTI.url.home());
         await context.setOffline(true);
         await page.goto(MULTI.url.home());
@@ -374,14 +679,50 @@ test.describe('offline access of every space', () => {
         // assert
         await expect(page).toHaveURL(MULTI.spaces.team.home());
         await expect(page.getByTestId('dir')).toContainText('team.md');
+
+        // act
         await page.goto(MULTI.spaces.team.doc('team.md'));
+
+        // assert
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Team wiki');
+    });
+
+    test('offline the start page opens the first stored space', async ({page, context}) => {
+        // arrange
+        await copyOn(page, MULTI.url.home());
+        const first = await page.evaluate(async () => {
+            const stored = await caches.match('/api/spaces', {cacheName: 'scrawl-data'});
+            return (await stored.json())[0].url;
+        });
+        await context.setOffline(true);
+
+        // act
+        await page.goto(`${MULTI.baseURL}/`);
+
+        // assert
+        await expect(page).toHaveURL(new URL(first, MULTI.baseURL).href);
+        await expect(page.getByTestId('dir')).toBeVisible();
     });
 
     test('another user who signs in never sees the copy of the one before', async ({page, context}) => {
         // arrange
-        await signIn(page, {baseURL: MULTI.baseURL, from: MULTI.url.home()});
         await copyOn(page, MULTI.url.home());
+        await context.clearCookies({name: 'scrawl_session'});
+        await context.route(/\/api\/me$/, () => {});
+
+        // act
+        await page.goto(`${MULTI.baseURL}/login?from=${encodeURIComponent(MULTI.url.home())}`);
+        await submitCredentials(page, {name: otherUser});
+
+        // assert
+        await expect.poll(() => storedState(page)).toMatchObject({owner: otherUser, updatedAt: 0});
+        expect(await storedUrls(page)).toEqual(['/__scrawl-offline/state']);
+    });
+
+    test('another user who signs in where it is off still drops the copy of the one before', async ({page, context}) => {
+        // arrange
+        await copyOn(page, MULTI.url.home());
+        await page.evaluate(() => localStorage.removeItem('scrawl.offline'));
         await context.clearCookies({name: 'scrawl_session'});
         await context.route(/\/api\/me$/, () => {});
 
@@ -398,12 +739,7 @@ test.describe('offline access of every space', () => {
 test.describe('offline access of an installed app', () => {
     test('an installed app copies with no tap', async ({page}) => {
         // arrange
-        await page.addInitScript(() => {
-            const original = window.matchMedia.bind(window);
-            window.matchMedia = (query) => (query === '(display-mode: standalone)'
-                ? {...original(query), matches: true, media: query}
-                : original(query));
-        });
+        await pretendInstalled(page);
         await signIn(page);
 
         // act
@@ -413,5 +749,22 @@ test.describe('offline access of an installed app', () => {
         await expect.poll(async () => (await storedState(page))?.updatedAt ?? 0, {timeout: 60_000}).toBeGreaterThan(0);
         await openSpaceMenu(page);
         await expect(page.getByTestId('space-menu-offline')).toHaveAttribute('data-on', 'true');
+    });
+
+    test('a choice to have it off wins over the installed default', async ({page}) => {
+        // arrange
+        await pretendInstalled(page);
+        await page.addInitScript(() => localStorage.setItem('scrawl.offline', 'off'));
+        await signIn(page);
+
+        // act
+        await page.goto(routes.home());
+        await page.waitForLoadState('networkidle');
+
+        // assert
+        await openSpaceMenu(page);
+        await expect(page.getByTestId('space-menu-offline')).toHaveAttribute('data-on', 'false');
+        expect(await workerState(page)).toBe('none');
+        expect(await cacheNames(page)).toEqual([]);
     });
 });

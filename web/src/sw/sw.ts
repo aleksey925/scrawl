@@ -1,5 +1,5 @@
 import {
-  appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, answerUrl,
+  appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, answerUrl, fillAppMessage,
   type AppState, type ChannelMessage,
 } from '../offline/keys';
 
@@ -40,22 +40,33 @@ function quotaError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'QuotaExceededError';
 }
 
+async function fillAppCache(): Promise<void> {
+  tell('downloading');
+  const cache = await caches.open(appCache);
+  try {
+    await cache.addAll(config.assets);
+  } catch (error) {
+    await caches.delete(appCache);
+    tell(quotaError(error) ? 'quota' : 'failed');
+    throw error;
+  }
+  tell('ready');
+}
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    (async () => {
-      tell('downloading');
-      const cache = await caches.open(appCache);
-      try {
-        await cache.addAll(config.assets);
-      } catch (error) {
-        await caches.delete(appCache);
-        tell(quotaError(error) ? 'quota' : 'failed');
-        throw error;
-      }
-      tell('ready');
-      await self.skipWaiting();
-    })(),
-  );
+  event.waitUntil(fillAppCache().then(() => self.skipWaiting()));
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data === fillAppMessage) {
+    event.waitUntil(
+      (async () => {
+        if (!(await caches.has(appCache))) {
+          await fillAppCache();
+        }
+      })(),
+    );
+  }
 });
 
 self.addEventListener('activate', (event) => {
@@ -81,22 +92,8 @@ async function fromAppCache(request: Request): Promise<Response> {
   return fetch(request);
 }
 
-type Timeout = { timeout: true };
-
-function withDeadline(answer: Promise<Response>): Promise<Response | Timeout> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => resolve({ timeout: true }), deadlineMs);
-    answer.then(
-      (response) => {
-        clearTimeout(timer);
-        resolve(response);
-      },
-      (error: unknown) => {
-        clearTimeout(timer);
-        reject(error instanceof Error ? error : new Error(String(error)));
-      },
-    );
-  });
+function deadline(): Promise<undefined> {
+  return new Promise((resolve) => setTimeout(() => resolve(undefined), deadlineMs));
 }
 
 async function networkFirst(request: Request, stored: () => Promise<Response | undefined>): Promise<Response> {
@@ -108,8 +105,8 @@ async function networkFirst(request: Request, stored: () => Promise<Response | u
     return kept;
   }
   try {
-    const answer = await withDeadline(fetch(request));
-    if ('timeout' in answer || unavailable.has(answer.status)) {
+    const answer = await Promise.race([fetch(request), deadline()]);
+    if (answer === undefined || unavailable.has(answer.status)) {
       return kept;
     }
     return answer;

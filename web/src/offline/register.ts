@@ -1,7 +1,7 @@
 import { onMessage, post } from './channel';
 import { startConnection } from './connection';
 import { copyNow, startCopy, stopCopy } from './copy';
-import { appCachePrefix, dataCache } from './keys';
+import { appCachePrefix, dataCache, fillAppMessage } from './keys';
 import { underCopyLock } from './lock';
 import { choiceChangedElsewhere, offlineSupported, offlineWanted, setOfflineChoice } from './preference';
 import { forgetStatus, refreshStatus, startStatus } from './status';
@@ -9,17 +9,19 @@ import { forgetStatus, refreshStatus, startStatus } from './status';
 async function registerWorker(): Promise<void> {
   const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
   await registration.update().catch(() => undefined);
+  if (offlineWanted()) {
+    registration.active?.postMessage(fillAppMessage);
+  }
 }
 
 async function unregisterWorkers(): Promise<void> {
-  const registrations = await navigator.serviceWorker.getRegistrations();
-  await Promise.all(registrations.map((registration) => registration.unregister()));
+  const registered = await navigator.serviceWorker.getRegistrations();
+  await Promise.all(registered.map((registration) => registration.unregister()));
 }
 
-async function deleteCaches(all: boolean): Promise<void> {
-  const names = await caches.keys();
+async function deleteEveryCache(): Promise<void> {
   await Promise.all(
-    names.filter((name) => name === dataCache || (all && name.startsWith(appCachePrefix))).map((name) => caches.delete(name)),
+    (await caches.keys()).filter((name) => name === dataCache || name.startsWith(appCachePrefix)).map((name) => caches.delete(name)),
   );
 }
 
@@ -36,7 +38,7 @@ export async function turnOfflineOff(): Promise<void> {
   post({ type: 'choice' });
   stopCopy();
   await underCopyLock(async () => {
-    await deleteCaches(true);
+    await deleteEveryCache();
     await unregisterWorkers();
   });
   forgetStatus();
@@ -47,7 +49,9 @@ export async function deleteOfflineData(): Promise<void> {
     return;
   }
   stopCopy();
-  await underCopyLock(() => deleteCaches(false));
+  await underCopyLock(async () => {
+    await caches.delete(dataCache);
+  });
   forgetStatus();
 }
 

@@ -3,6 +3,7 @@ package view
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -334,8 +335,8 @@ func TestVersions(t *testing.T) {
 	assert.Equal(t, []VersionEntry{
 		{Path: "", Kind: VersionDir, Version: got.Entries[0].Version},
 		{Path: "db", Kind: VersionDir, Version: got.Entries[1].Version},
-		{Path: note.Path, Kind: VersionNote, Version: FileVersion(note), Size: note.Size},
-		{Path: picture.Path, Kind: VersionFile, Version: FileVersion(picture), Size: picture.Size},
+		{Path: note.Path, Kind: VersionNote, Version: FileVersion(note)},
+		{Path: picture.Path, Kind: VersionFile, Version: FileVersion(picture)},
 	}, got.Entries)
 	assert.Len(t, got.Entries[0].Version, 12)
 	assert.NotEqual(t, got.Entries[0].Version, got.Entries[1].Version)
@@ -355,47 +356,71 @@ func TestFileVersion(t *testing.T) {
 
 func TestVersionsOfAFolder(t *testing.T) {
 	mod := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
-	tree := func(deep, sibling time.Time) *store.Node {
+	file := func(p string) *store.Node {
+		return &store.Node{FileInfo: store.FileInfo{Path: p, Name: path.Base(p), Size: 3, ModTime: mod}}
+	}
+	tree := func() *store.Node {
 		return &store.Node{FileInfo: store.FileInfo{IsDir: true, ModTime: mod}, Children: []*store.Node{
 			{FileInfo: store.FileInfo{Path: "a", Name: "a", IsDir: true, ModTime: mod}, Children: []*store.Node{
 				{FileInfo: store.FileInfo{Path: "a/b", Name: "b", IsDir: true, ModTime: mod}, Children: []*store.Node{
-					{FileInfo: store.FileInfo{Path: "a/b/deep.md", Name: "deep.md", Size: 3, ModTime: deep}},
+					file("a/b/deep.md"),
 				}},
 			}},
 			{FileInfo: store.FileInfo{Path: "c", Name: "c", IsDir: true, ModTime: mod}, Children: []*store.Node{
-				{FileInfo: store.FileInfo{Path: "c/sibling.md", Name: "sibling.md", Size: 3, ModTime: sibling}},
+				file("c/sibling.md"),
 			}},
 		}}
 	}
+	deepFolder := func(root *store.Node) *store.Node { return root.Children[0].Children[0] }
 	versionOf := func(list VersionList, p string) string {
-		for _, entry := range list.Entries {
-			if entry.Path == p {
-				return entry.Version
+		for _, row := range list.Entries {
+			if row.Path == p {
+				return row.Version
 			}
 		}
 		return ""
 	}
 	tests := []struct {
-		name     string
-		deep     time.Time
-		sibling  time.Time
-		wantSame bool
+		name         string
+		change       func(root *store.Node)
+		wantSame     bool
+		wantSameRoot bool
 	}{
-		{name: "the same tree gives the same version", deep: mod, sibling: mod, wantSame: true},
-		{name: "a change two levels down gives another version", deep: mod.Add(time.Second), sibling: mod},
-		{name: "a change in a sibling folder keeps the version", deep: mod, sibling: mod.Add(time.Second), wantSame: true},
+		{name: "the same tree gives the same version", change: func(*store.Node) {}, wantSame: true, wantSameRoot: true},
+		{name: "a change two levels down gives another version", change: func(root *store.Node) {
+			deepFolder(root).Children[0].ModTime = mod.Add(time.Second)
+		}},
+		{name: "a new size two levels down gives another version", change: func(root *store.Node) {
+			deepFolder(root).Children[0].Size = 4
+		}},
+		{name: "an added file gives another version", change: func(root *store.Node) {
+			deep := deepFolder(root)
+			deep.Children = append(deep.Children, file("a/b/added.md"))
+		}},
+		{name: "a removed file gives another version", change: func(root *store.Node) {
+			deepFolder(root).Children = nil
+		}},
+		{name: "a renamed file gives another version", change: func(root *store.Node) {
+			deepFolder(root).Children = []*store.Node{file("a/b/renamed.md")}
+		}},
+		{name: "a change in a sibling folder keeps the version", change: func(root *store.Node) {
+			root.Children[1].Children[0].ModTime = mod.Add(time.Second)
+		}, wantSame: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// arrange
-			want := versionOf(Versions(tree(mod, mod), ""), "a")
+			before := Versions(tree(), "")
+			changed := tree()
+			tc.change(changed)
 
 			// act
-			got := versionOf(Versions(tree(tc.deep, tc.sibling), ""), "a")
+			got := Versions(changed, "")
 
 			// assert
-			assert.NotEmpty(t, got)
-			assert.Equal(t, tc.wantSame, got == want)
+			assert.NotEmpty(t, versionOf(got, "a"))
+			assert.Equal(t, tc.wantSame, versionOf(got, "a") == versionOf(before, "a"))
+			assert.Equal(t, tc.wantSameRoot, versionOf(got, "") == versionOf(before, ""))
 		})
 	}
 }

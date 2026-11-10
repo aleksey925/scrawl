@@ -38,8 +38,9 @@ How the react app in `web/` is built, shipped and wired.
 - The offline copy's worker is a classic script of its own, built from
   `web/src/sw/` by `vite.sw.config.ts` into `server/assets/sw/sw.js` and
   checked by `tsconfig.sw.json` with the worker's types. It imports only
-  `web/src/offline/keys.ts`, which touches no DOM. The worker keeps the app
-  version before its own, so a page left open on it still finds its next chunk
+  `web/src/offline/keys.ts` and the `web/src/contentPath.ts` it uses, which
+  touch no DOM. The worker keeps the app version before its own, so a page left
+  open on it still finds its next chunk
   ([offline copy](offline.md#the-worker)).
 - PlantUML's library is the one exception: `plantuml/library/` is committed
   compressed and read the same way in every build

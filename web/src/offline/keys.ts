@@ -8,6 +8,8 @@ export const copyHeader = 'X-Scrawl-Offline-Copy';
 
 export const channelName = 'scrawl-offline';
 
+export const fillAppMessage = 'fill-app-cache';
+
 export const stateKey = '/__scrawl-offline/state';
 
 const spaceKeyPrefix = '/__scrawl-offline/space/';

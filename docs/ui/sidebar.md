@@ -91,11 +91,12 @@ The tree, its head and its foot.
   refreshed for: it kept showing a file deleted from the tree beside it.
 - "Offline access" is a row with a switch, above sign out, and one line in
   small text under it while it is on: `120 MB, updated at 14:30` (a date when
-  it was not today), `Downloading... 45 of 300`, `No network, data from 14:30`,
-  `Not enough space on this device, ...` or `Could not update, ...`. A tap
-  turns it on or off, and off deletes the copy at once with no question, as
-  everything is on the server. The size is what the browser holds for the site,
-  which is what off deletes. On a page that is not secure the row is greyed out
-  with `Needs HTTPS`. With no network the menu reads the spaces from the copy
-  and has no sign out: the switch is the way to delete the data then. See
-  [offline copy](../design/offline.md).
+  it was not today), `Downloading... 45 of 300`, `Downloading...` before the
+  first count, `Downloading the app...`, `No network, data from 14:30`,
+  `No network, nothing downloaded yet`, `Not enough space on this device, ...`
+  or `Could not update, ...`. A tap turns it on or off, and off deletes the
+  copy at once with no question, as everything is on the server. The size is
+  what the browser holds for the site, which is what off deletes. On a page
+  that is not secure the row is greyed out with `Needs HTTPS`. With no network
+  the menu reads the spaces from the copy and has no sign out: the switch is
+  the way to delete the data then. See [offline copy](../design/offline.md).

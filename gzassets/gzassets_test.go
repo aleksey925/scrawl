@@ -216,6 +216,7 @@ func TestFiles_Digest_MissingDirectory(t *testing.T) {
 }
 
 func TestFiles_Names(t *testing.T) {
+	// arrange
 	packed, err := Compress([]byte(script))
 	require.NoError(t, err)
 	files := Sub(fstest.MapFS{

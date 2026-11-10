@@ -93,7 +93,7 @@ export function SpaceMenuDropdown(): JSX.Element {
       {keyboard && <ShortcutsMenuItem onClick={openShortcuts} />}
       <Menu.Divider />
 
-      {me?.read_only === true && (
+      {!offline && me?.read_only === true && (
         <Menu.Item
           data-testid="space-menu-readonly"
           disabled

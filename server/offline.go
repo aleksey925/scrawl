@@ -42,7 +42,8 @@ func (wb *Web) newOfflineApp() (*offlineApp, error) {
 	sum := sha256.Sum256(shell)
 	res := &offlineApp{shell: shell, shellFile: hex.EncodeToString(sum[:6]) + ".html"}
 
-	list, err := wb.offlineAssets(offlineShellBase + res.shellFile)
+	shellURL := offlineShellBase + res.shellFile
+	list, err := wb.offlineAssets(shellURL)
 	if err != nil {
 		return nil, err
 	}
@@ -50,8 +51,8 @@ func (wb *Web) newOfflineApp() (*offlineApp, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", workerAsset, err)
 	}
-	build := sha256.Sum256([]byte(wb.Version + "\n" + strings.Join(list, "\n")))
-	config, err := json.Marshal(workerConfig{Build: hex.EncodeToString(build[:6]), Shell: list[len(list)-1], Assets: list})
+	build := sha256.Sum256([]byte(wb.Version + "\n" + strings.Join(list, "\n") + "\n" + string(worker)))
+	config, err := json.Marshal(workerConfig{Build: hex.EncodeToString(build[:6]), Shell: shellURL, Assets: list})
 	if err != nil {
 		return nil, fmt.Errorf("encode the worker config: %w", err)
 	}

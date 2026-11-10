@@ -22,6 +22,9 @@ copy", never "sync": sync is the git remote of a space
   it is on the server. It first tells the other tabs to stop their round and
   waits for the copy's lock, so a round in another tab cannot write into a
   cache just deleted.
+- On again in the same page can bring back the worker Off unregistered, with no
+  install ([quirks](../quirks.md#browsers)), so every registration asks the
+  active worker to download the app again when its cache is gone.
 
 ## Two caches, one writer each
 
@@ -52,9 +55,10 @@ The server puts one line before it,
 - `assets` lists every file under `/static/<digest>/app/` but vite's
   `manifest.json` and `index.html`, the whole PlantUML library under
   `/static/<digest>/plantuml/`, `chroma.css`, the favicon and the icons with
-  their stamp, and the offline shell. `build` is a hash of the release and that
-  list. So the bytes of `/sw.js` change when anything the app loads changes,
-  and the browser's own check of them installs the new version.
+  their stamp, and the offline shell. `build` is a hash of the release, that
+  list and the worker's own code. So the bytes of `/sw.js` change when anything
+  the app loads changes, and the browser's own check of them installs the new
+  version.
 - Install caches the whole list or nothing: one missing file fails it, and a
   server upgraded in the middle answers 404 for the old digest. Then it takes
   over at once.
@@ -110,19 +114,24 @@ page), `cache: 'no-store'`, and carries the copy's header.
    answered in this tab, and at most every 20 seconds, apart from a round soon
    after the person's own change and one on the way back online.
 2. It takes the Web Lock `scrawl-offline-copy` if it is free; a tab that does
-   not get it skips the round.
+   not get it skips the round. The tab holding it posts its progress on the
+   `scrawl-offline` channel, and a tab that opens asks for it there, so every
+   tab shows the same `Downloading...` line.
 3. When `state.owner` is not the user of that `/api/me`, `scrawl-data` is
    deleted first.
 4. It stores `/api/spaces`, and deletes a stored space not in it.
 5. For each space it asks the versions list with the stored `etag`. A 304 means
    every answer of that list is stored. Otherwise an entry is fetched when it
    is new, its version differs, or for its JSON answer its release differs; an
-   entry gone from the list is deleted.
+   entry gone from the list is deleted, and so are the answers of an entry
+   whose kind changed, a file that became a folder.
 6. The difference of all spaces is fetched four at a time. An entry is recorded
    only when all its answers came with a 200 and were stored, with the version
    from the list, not from the answer, so a file changed meanwhile is fetched
-   again. `entries` is written every 20 entries, so a round cut short goes on
-   where it stopped. A 404 drops the entry.
+   again. `entries` is written every 2 seconds, so a round cut short goes on
+   where it stopped. A 4xx drops the entry: the file is gone, refused or too
+   big, and asking again would get the same answer. A 5xx keeps the old copy,
+   and the next round asks again.
 7. The nav and `me` of each changed space are stored.
 8. A space's `etag` is written only when every entry of its list succeeded:
    `entries` is the progress and `etag` the commit, so a round that failed
@@ -132,8 +141,10 @@ page), `cache: 'no-store'`, and carries the copy's header.
 Rounds start when `/api/me` answers: on open, when the page becomes visible and
 every minute while it is visible. A network error stops a round and takes the
 app offline, a 401 stops it until `/api/me` answers again, and running out of
-space stops it with no new round until the app is opened again. The first round
-calls `navigator.storage.persist()`, and so does the switch, inside the tap.
+space stops it with no new round until the app is opened again or the switch
+turns it on. A redirected answer, a captive portal, or any other surprise ends
+the round as failed. The first round calls `navigator.storage.persist()`, and
+so does the switch, inside the tap.
 
 ## Offline in the app
 
@@ -144,8 +155,8 @@ calls `navigator.storage.persist()`, and so does the switch, inside the tap.
   `navigator.onLine` alone is not trusted.
 - Offline it probes `/ping` every 15 seconds while visible and at once on the
   `online` event. `/ping` is public, so its answer proves only that the server
-  is there; then the app asks `/api/me` in the foreground, and only that answer
-  makes it online again. A 401 there sends the person to sign in.
+  is there; then the app asks `/api/me` in the foreground, and only an answer
+  of `/api/me` makes it online again. A 401 there sends the person to sign in.
 - Offline the reader gets `offlinePlatform`: the app's platform with no search,
   no editing, and `offlineSource`, which reads `scrawl-data` directly and gives
   only answers whose release is the shell's `data-version`. The tree is the
@@ -153,8 +164,8 @@ calls `navigator.storage.persist()`, and so does the switch, inside the tap.
 - `NavProvider` gets the stored `me` with the space read-only, history off and
   the git sync fields empty, so every write control, history and the sync
   control go with no change to them. The search provider gives no control, the
-  space menu reads the stored spaces, export to a file is hidden (print stays),
-  and so is "Sign out".
+  space menu reads the stored spaces and leaves out its `Read-only mode` row,
+  export to a file is hidden (print stays), and so is "Sign out".
 - `/edit/`, `/history/` and `/search` opened offline show `Needs a network`. An
   editor already open stays open, so no typed text is lost.
 
@@ -164,11 +175,12 @@ calls `navigator.storage.persist()`, and so does the switch, inside the tap.
 - A successful sign-in, by the form or the api, also sets the cookie
   `scrawl_signin` with the user name: not `HttpOnly`, no max age, the path,
   `Secure` and `SameSite` of the session cookie. The app reads it when it
-  starts, before any read of the copy: a name other than the owner deletes
-  `scrawl-data` under the lock, writes the new owner and tells the other tabs,
-  which drop the user they hold. Then the app deletes the cookie. So a new user
-  who loses the network right after signing in never sees the copy of the one
-  before.
+  starts, before any read of the copy, also where the switch is off but a copy
+  is there, since an installed app and the browser share one: a name other than
+  the owner deletes `scrawl-data` under the lock, writes the new owner and
+  tells the other tabs, which drop the user they hold. Then the app deletes the
+  cookie. So a new user who loses the network right after signing in never sees
+  the copy of the one before.
 - Sign out deletes `scrawl-data` under the lock and keeps the worker, the app
   cache and the choice: the app cache holds nothing of a user.
 - The sign-in page deletes nothing, so the copy of a person whose session

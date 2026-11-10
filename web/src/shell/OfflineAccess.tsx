@@ -7,6 +7,7 @@ import { offlineSupported, useOfflineWanted } from '../offline/preference';
 import { turnOfflineOff, turnOfflineOn } from '../offline/register';
 import { refreshStatus, statusLine, useOfflineStatus } from '../offline/status';
 import { layout } from '../theme';
+import { showToast } from '../toast';
 
 import classes from './OfflineAccess.module.css';
 
@@ -16,6 +17,12 @@ export function OfflineAccessItem(): JSX.Element {
   const online = useConnected();
   const status = useOfflineStatus();
   const line = statusLine({ supported, wanted, online, status });
+
+  const toggle = (): void => {
+    (wanted ? turnOfflineOff() : turnOfflineOn()).catch(() => {
+      showToast('error', { message: wanted ? 'Could not turn offline access off' : 'Could not turn offline access on' });
+    });
+  };
 
   useEffect(() => {
     if (supported && wanted) {
@@ -35,7 +42,7 @@ export function OfflineAccessItem(): JSX.Element {
       rightSection={
         <Switch size="xs" checked={wanted} readOnly tabIndex={-1} aria-hidden style={{ pointerEvents: 'none' }} />
       }
-      onClick={() => void (wanted ? turnOfflineOff() : turnOfflineOn())}
+      onClick={toggle}
     >
       <Text size="sm">Offline access</Text>
       {line !== undefined && (

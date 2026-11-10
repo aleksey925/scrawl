@@ -211,11 +211,12 @@ opens over them.
   `No network. Notes from 14:30, nothing can be changed.`
 - The pages read the copy on the device. Every write control, history, search
   and the sync control are gone, the tree's filter stays, and the note's menu
-  keeps only Export as PDF, which is a print. A note or a file the copy does
-  not hold says `This is not on this device`.
+  loses Export as Markdown and as HTML; Export as PDF, which is a print, and
+  what reads only the page stay. A note or a file the copy does not hold says
+  `This is not on this device`.
 - `/edit/`, `/history/` and `/search` opened with no network show
-  `Needs a network`, with a link back to the note. An editor that was open when
-  the network went stays open, so no typed text is lost; its save fails the way
-  it fails today.
+  `Needs a network`, with a link back to the note, or to all notes from
+  `/search`. An editor that was open when the network went stays open, so no
+  typed text is lost; its save fails the way it fails today.
 - The mark goes, and the controls come back, only once the server answered who
   the person is. See [offline copy](../design/offline.md).

@@ -25,7 +25,6 @@ type VersionEntry struct {
 	Path    string `json:"path"`
 	Kind    string `json:"kind"`
 	Version string `json:"version"`
-	Size    int64  `json:"size,omitempty"`
 }
 
 func Versions(root *store.Node, release string) VersionList {
@@ -45,7 +44,7 @@ func addVersions(node *store.Node, into *[]VersionEntry) string {
 		if strings.EqualFold(path.Ext(node.Path), ".md") {
 			kind = VersionNote
 		}
-		*into = append(*into, VersionEntry{Path: node.Path, Kind: kind, Version: version, Size: node.Size})
+		*into = append(*into, VersionEntry{Path: node.Path, Kind: kind, Version: version})
 		return version
 	}
 	at := len(*into)

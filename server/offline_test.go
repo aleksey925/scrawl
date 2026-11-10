@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -124,6 +125,9 @@ func TestAPIVersionsNeedsASession(t *testing.T) {
 }
 
 func TestAPIVersionsFailsWhenTheTreeFails(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores the permissions this test is about")
+	}
 	// arrange
 	ts := newTestServer(t, testOpts{})
 	locked := filepath.Join(ts.root, "docs")
@@ -250,6 +254,22 @@ func TestWorkerScriptListsEveryFileTheAppLoads(t *testing.T) {
 	// assert
 	assert.ElementsMatch(t, want, got)
 	assert.Contains(t, got, appBase(ts.appShell.version)+appThemes)
+}
+
+func TestWorkerScriptListsEveryFileOfTheOfflineShell(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true})
+	_, body := ts.do(t, request{path: "/sw.js", literal: true})
+	found := regexp.MustCompile(`(?:src|href)="(/static/[^"]+)"`).FindAllStringSubmatch(string(ts.offline.shell), -1)
+	require.NotEmpty(t, found)
+
+	// act
+	got := workerConfigOf(t, body).Assets
+
+	// assert
+	for _, match := range found {
+		assert.Contains(t, got, match[1])
+	}
 }
 
 func TestWorkerScriptListsOnlyWhatTheServerAnswers(t *testing.T) {

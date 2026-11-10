@@ -873,8 +873,9 @@ bump wants a new browser, and without it every browser test fails with
 "Executable doesn't exist".
 
 ```
-make ui         build the interface into server/assets/app/ and page/assets/,
-                and draw the favicon and the PNG icons from the logo
+make ui         build the interface into server/assets/app/, server/assets/sw/
+                and page/assets/, and draw the favicon and the PNG icons
+                from the logo
 make formatter  build prettier into format/prettier.wasm
 make plantuml   build PlantUML into plantuml/engine.wasm and fetch its
                 library into plantuml/library/; needs the network
@@ -891,7 +892,7 @@ make img        build the image
 
 The interface is a react app in [web/](web/), see
 [web/README.md](web/README.md). What vite builds is committed under
-`server/assets/app/` and `page/assets/` and embedded with `//go:embed`, which
+`server/assets/app/`, `server/assets/sw/` and `page/assets/` and embedded with `//go:embed`, which
 is what lets `go install` and the docker image work with neither node nor the
 network. Change anything under `web/` and the rebuilt bundle belongs in the
 same commit: CI rebuilds it and fails if what is checked in is stale.

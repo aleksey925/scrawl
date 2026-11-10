@@ -87,6 +87,10 @@ words; the fact itself is written here.
   [Remote sync](design/remote-sync.md#sync-state)
 - On a Mac, Option+C types `ç`, so a shortcut with Alt is matched on `code`.
   [Frontend](design/frontend.md)
+- Chromium keeps an unregistered service worker while a page it controls is
+  open, and a `register()` of the same script from that page brings it back
+  with no install, so the caches deleted with it stay empty.
+  [Offline copy](design/offline.md#on-and-off)
 
 ## Firefox and Chromium from disk
 

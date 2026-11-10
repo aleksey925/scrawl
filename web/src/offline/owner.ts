@@ -35,12 +35,10 @@ async function checkOwner(): Promise<void> {
   if (user === undefined) {
     return;
   }
-  if (!offlineWanted()) {
-    dropSignInCookie();
-    return;
-  }
   try {
-    await underCopyLock(() => takeOwnership(user));
+    if (offlineWanted() || (await caches.has(dataCache))) {
+      await underCopyLock(() => takeOwnership(user));
+    }
   } finally {
     dropSignInCookie();
   }

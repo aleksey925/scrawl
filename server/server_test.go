@@ -2149,6 +2149,7 @@ func TestSignInSetsTheSignInCookie(t *testing.T) {
 			assert.False(t, signIn.HttpOnly)
 			assert.Equal(t, cookies[auth.CookieName].Path, signIn.Path)
 			assert.Equal(t, cookies[auth.CookieName].SameSite, signIn.SameSite)
+			assert.Equal(t, cookies[auth.CookieName].Secure, signIn.Secure)
 			assert.Zero(t, signIn.MaxAge)
 		})
 	}

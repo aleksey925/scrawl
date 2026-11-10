@@ -49,20 +49,28 @@ prefix, and `web/index.html` hardcodes `data-base="/s/notes"` to match the
 `--space.name=notes` that `make run` passes. Running the backend with another
 space name means editing that attribute too.
 
+**The dev shell has no release.** `web/index.html` carries no
+`data-version`, and the offline copy reads only the answers of the
+shell's release, so reading offline does not work against
+`npm run dev`. Try it against the binary.
+
 ## Build
 
 ```
 cd web
-npm run build     # tsc --noEmit, then vite build for the app and the pages
+npm run build     # tsc --noEmit for the app and the worker, then vite
+                  # build for the app, the worker and the pages
 ```
 
-The app goes to `server/assets/app/`:
+The app goes to `server/assets/app/`, and the service worker of the
+offline copy, built by `vite.sw.config.ts`, to `server/assets/sw/`:
 
 ```
 server/assets/app/index.html
 server/assets/app/manifest.json
 server/assets/app/assets/*.js
 server/assets/app/assets/*.css
+server/assets/sw/sw.js
 ```
 
 The pages of `render`, `diff` and `site` get their scripts and

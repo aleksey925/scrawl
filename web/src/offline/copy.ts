@@ -13,46 +13,43 @@ import {
 } from './records';
 import { progressChanged, stateChanged } from './status';
 
-export interface VersionEntry {
+interface VersionEntry {
   path: string;
   kind: 'dir' | 'note' | 'file';
   version: string;
-  size?: number;
 }
 
-export interface VersionList {
+interface VersionList {
   release: string;
   entries: VersionEntry[];
 }
 
-export interface CopyTask {
+interface CopyTask {
   entry: VersionEntry;
-  json: boolean;
   raw: boolean;
 }
 
-export interface CopyDiff {
+interface CopyDiff {
   fetch: CopyTask[];
   drop: string[];
 }
 
-export function diffVersions(list: VersionList, stored: Readonly<Record<string, StoredEntry>>): CopyDiff {
+function diffVersions(list: VersionList, stored: Readonly<Record<string, StoredEntry>>): CopyDiff {
   const listed = new Set<string>();
   const fetch: CopyTask[] = [];
-  for (const entry of list.entries) {
-    listed.add(entry.path);
-    const kept = stored[entry.path];
-    const changed = kept === undefined || kept.kind !== entry.kind || kept.version !== entry.version;
-    const json = changed || kept.release !== list.release;
-    if (json) {
-      fetch.push({ entry, json, raw: entry.kind === 'file' && changed });
+  for (const row of list.entries) {
+    listed.add(row.path);
+    const kept = stored[row.path];
+    const changed = kept === undefined || kept.kind !== row.kind || kept.version !== row.version;
+    if (changed || kept.release !== list.release) {
+      fetch.push({ entry: row, raw: row.kind === 'file' && changed });
     }
   }
   const drop = Object.keys(stored).filter((path) => path !== navEntry && path !== meEntry && !listed.has(path));
   return { fetch, drop };
 }
 
-export function answerUrls(base: string, path: string, kind: StoredEntry['kind']): string[] {
+function answerUrls(base: string, path: string, kind: StoredEntry['kind']): string[] {
   switch (kind) {
     case 'dir':
       return [answerUrl.dir(base, path)];
@@ -69,32 +66,19 @@ export function answerUrls(base: string, path: string, kind: StoredEntry['kind']
 
 const parallel = 4;
 
-const recordEvery = 20;
+const flushMs = 2_000;
 
 const minRoundGapMs = 20_000;
 
 const afterWriteMs = 2_000;
 
 class CopyStop extends Error {
-  readonly reason: 'network' | 'unauthorized' | 'quota' | 'aborted';
+  readonly reason: 'network' | 'unauthorized';
 
   constructor(reason: CopyStop['reason']) {
     super(`the offline copy stopped: ${reason}`);
     this.reason = reason;
   }
-}
-
-function stopOf(error: unknown): CopyStop {
-  if (error instanceof CopyStop) {
-    return error;
-  }
-  if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-    return new CopyStop('quota');
-  }
-  if (error instanceof DOMException && error.name === 'AbortError') {
-    return new CopyStop('aborted');
-  }
-  throw error;
 }
 
 async function get(url: string, signal: AbortSignal, headers: Record<string, string> = {}): Promise<Response> {
@@ -116,11 +100,14 @@ async function get(url: string, signal: AbortSignal, headers: Record<string, str
   if (response.status === 401) {
     throw new CopyStop('unauthorized');
   }
+  if (response.redirected) {
+    throw new Error(`the offline copy was sent to ${response.url}`);
+  }
   return response;
 }
 
 async function dropUrls(cache: Cache, urls: readonly string[]): Promise<void> {
-  await Promise.all(urls.map((url) => cache.delete(url)));
+  await Promise.all(urls.map((address) => cache.delete(address)));
 }
 
 async function dropSpace(cache: Cache, name: string): Promise<void> {
@@ -152,6 +139,7 @@ interface SpacePlan {
   base: string;
   record: SpaceRecord;
   list?: VersionList;
+  fetch: CopyTask[];
   etag: string;
   complete: boolean;
   dirty: boolean;
@@ -159,11 +147,11 @@ interface SpacePlan {
 
 type Outcome = 'stored' | 'gone' | 'failed';
 
-async function store(cache: Cache, urls: readonly string[], signal: AbortSignal): Promise<Outcome> {
+async function store(cache: Cache, wanted: readonly string[], signal: AbortSignal): Promise<Outcome> {
   const answers: Response[] = [];
-  for (const url of urls) {
+  for (const url of wanted) {
     const response = await get(url, signal);
-    if (response.status === 404) {
+    if (response.status >= 400 && response.status < 500) {
       return 'gone';
     }
     if (response.status !== 200) {
@@ -171,7 +159,7 @@ async function store(cache: Cache, urls: readonly string[], signal: AbortSignal)
     }
     answers.push(response);
   }
-  for (const [index, url] of urls.entries()) {
+  for (const [index, url] of wanted.entries()) {
     const answer = answers[index];
     if (answer !== undefined) {
       await cache.put(url, answer);
@@ -183,7 +171,7 @@ async function store(cache: Cache, urls: readonly string[], signal: AbortSignal)
 async function planSpace(cache: Cache, entry: SpaceEntry, signal: AbortSignal): Promise<SpacePlan> {
   const base = spaceBase(entry.name);
   const record = (await readSpace(entry.name)) ?? { etag: '', entries: {} };
-  const plan: SpacePlan = { name: entry.name, base, record, etag: record.etag, complete: true, dirty: false };
+  const plan: SpacePlan = { name: entry.name, base, record, fetch: [], etag: record.etag, complete: true, dirty: false };
   const response = await get(answerUrl.versions(base), signal, record.etag === '' ? {} : { 'If-None-Match': record.etag });
   if (response.status === 304) {
     return plan;
@@ -195,7 +183,8 @@ async function planSpace(cache: Cache, entry: SpaceEntry, signal: AbortSignal): 
   plan.list = (await response.json()) as VersionList;
   plan.etag = response.headers.get('ETag') ?? '';
   plan.etag = plan.etag === '' ? record.etag : plan.etag;
-  const { drop } = diffVersions(plan.list, record.entries);
+  const { fetch, drop } = diffVersions(plan.list, record.entries);
+  plan.fetch = fetch;
   for (const path of drop) {
     const kept = record.entries[path];
     if (kept !== undefined) {
@@ -207,19 +196,46 @@ async function planSpace(cache: Cache, entry: SpaceEntry, signal: AbortSignal): 
   return plan;
 }
 
-async function copyEntries(cache: Cache, plans: SpacePlan[], signal: AbortSignal): Promise<void> {
-  const work = plans.flatMap((plan) =>
-    plan.list === undefined ? [] : diffVersions(plan.list, plan.record.entries).fetch.map((task) => ({ plan, task })),
-  );
+interface CopyItem {
+  plan: SpacePlan;
+  task: CopyTask;
+}
+
+async function copyItem(cache: Cache, { plan, task }: CopyItem, signal: AbortSignal): Promise<void> {
+  const { entry } = task;
+  const kept = plan.record.entries[entry.path];
+  if (kept !== undefined && kept.kind !== entry.kind) {
+    await dropUrls(cache, answerUrls(plan.base, entry.path, kept.kind));
+    delete plan.record.entries[entry.path];
+  }
+  const urls = [entry.kind === 'dir' ? answerUrl.dir(plan.base, entry.path) : answerUrl.page(plan.base, entry.path)];
+  if (task.raw) {
+    urls.push(answerUrl.raw(plan.base, entry.path));
+  }
+  const outcome = await store(cache, urls, signal);
+  if (outcome === 'stored') {
+    plan.record.entries[entry.path] = { kind: entry.kind, version: entry.version, release: plan.list?.release ?? '' };
+  } else if (outcome === 'gone') {
+    await dropUrls(cache, answerUrls(plan.base, entry.path, entry.kind));
+    delete plan.record.entries[entry.path];
+  } else {
+    plan.complete = false;
+  }
+  plan.dirty = true;
+}
+
+async function copyEntries(cache: Cache, planned: SpacePlan[], signal: AbortSignal): Promise<void> {
+  const work: CopyItem[] = planned.flatMap((plan) => plan.fetch.map((task) => ({ plan, task })));
   let done = 0;
-  let unrecorded = 0;
+  let next = 0;
+  let flushedAt = Date.now();
+  let failure: { error: unknown } | undefined;
   const report = (): void => progressChanged({ done, total: work.length });
   report();
-  let next = 0;
 
   const flush = async (): Promise<void> => {
-    unrecorded = 0;
-    for (const plan of plans) {
+    flushedAt = Date.now();
+    for (const plan of planned) {
       if (plan.dirty) {
         plan.dirty = false;
         await writeSpace(cache, plan.name, plan.record);
@@ -228,43 +244,29 @@ async function copyEntries(cache: Cache, plans: SpacePlan[], signal: AbortSignal
   };
 
   const worker = async (): Promise<void> => {
-    while (next < work.length) {
+    while (next < work.length && failure === undefined) {
       const item = work[next];
       next += 1;
       if (item === undefined) {
         continue;
       }
-      const { plan, task } = item;
-      const urls: string[] = [];
-      if (task.json) {
-        urls.push(task.entry.kind === 'dir' ? answerUrl.dir(plan.base, task.entry.path) : answerUrl.page(plan.base, task.entry.path));
-      }
-      if (task.raw) {
-        urls.push(answerUrl.raw(plan.base, task.entry.path));
-      }
-      const outcome = await store(cache, urls, signal);
-      if (outcome === 'stored') {
-        plan.record.entries[task.entry.path] = { kind: task.entry.kind, version: task.entry.version, release: plan.list?.release ?? '' };
-      } else if (outcome === 'gone') {
-        await dropUrls(cache, answerUrls(plan.base, task.entry.path, task.entry.kind));
-        delete plan.record.entries[task.entry.path];
-      } else {
-        plan.complete = false;
-      }
-      plan.dirty = true;
-      done += 1;
-      unrecorded += 1;
-      report();
-      if (unrecorded >= recordEvery) {
-        await flush();
+      try {
+        await copyItem(cache, item, signal);
+        done += 1;
+        report();
+        if (Date.now() - flushedAt >= flushMs) {
+          await flush();
+        }
+      } catch (error) {
+        failure ??= { error };
       }
     }
   };
 
-  try {
-    await Promise.all(Array.from({ length: parallel }, worker));
-  } finally {
-    await flush();
+  await Promise.all(Array.from({ length: parallel }, worker));
+  await flush();
+  if (failure !== undefined) {
+    throw failure.error;
   }
 }
 
@@ -298,13 +300,13 @@ async function round(user: string, signal: AbortSignal): Promise<CopyError> {
     }
   }
 
-  const plans: SpacePlan[] = [];
+  const planned: SpacePlan[] = [];
   for (const entry of spaces) {
-    plans.push(await planSpace(cache, entry, signal));
+    planned.push(await planSpace(cache, entry, signal));
   }
-  await copyEntries(cache, plans, signal);
+  await copyEntries(cache, planned, signal);
 
-  for (const plan of plans) {
+  for (const plan of planned) {
     if (plan.list !== undefined) {
       await copySpaceAnswers(cache, plan, signal);
       if (plan.complete) {
@@ -313,7 +315,7 @@ async function round(user: string, signal: AbortSignal): Promise<CopyError> {
       await writeSpace(cache, plan.name, plan.record);
     }
   }
-  return plans.every((plan) => plan.complete) ? '' : 'failed';
+  return planned.every((plan) => plan.complete) ? '' : 'failed';
 }
 
 let user: string | undefined;
@@ -337,20 +339,30 @@ async function finishRound(error: CopyError): Promise<void> {
   await writeState(cache, { ...state, error, updatedAt: error === '' ? Date.now() : state.updatedAt });
 }
 
+async function stopRound(error: unknown): Promise<void> {
+  if (error instanceof CopyStop) {
+    if (error.reason === 'unauthorized') {
+      user = undefined;
+    }
+    return;
+  }
+  if (error instanceof TypeError || (error instanceof DOMException && error.name === 'AbortError')) {
+    return;
+  }
+  const quota = error instanceof DOMException && error.name === 'QuotaExceededError';
+  if (quota) {
+    quotaHit = true;
+  }
+  await finishRound(quota ? 'quota' : 'failed');
+}
+
 async function runRound(owner: string): Promise<void> {
   const controller = new AbortController();
   running = controller;
   try {
-    const error = await round(owner, controller.signal);
-    await finishRound(error);
+    await finishRound(await round(owner, controller.signal));
   } catch (error) {
-    const stop = stopOf(error);
-    if (stop.reason === 'unauthorized') {
-      user = undefined;
-    } else if (stop.reason === 'quota') {
-      quotaHit = true;
-      await finishRound('quota');
-    }
+    await stopRound(error);
   } finally {
     running = undefined;
     progressChanged(undefined);
@@ -380,6 +392,7 @@ export function meAnswered(me: MeResponse): void {
 }
 
 export function copyNow(): void {
+  quotaHit = false;
   startRound(true);
 }
 
@@ -401,7 +414,9 @@ export function startCopy(): void {
     soon = window.setTimeout(() => startRound(true), afterWriteMs);
   });
   onConnectionChange(() => {
-    if (!isOnline()) {
+    if (isOnline()) {
+      lastRound = 0;
+    } else {
       stopCopy();
     }
   });

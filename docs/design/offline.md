@@ -76,9 +76,11 @@ The fetch rules, GET only; what no rule names is not touched:
 2. `/static/` is answered from any app cache first, else the network;
 3. `/s/<name>/raw/` goes to the network first, and to the data cache on a
    network error, a 502, 503 or 504, or no answer in 3 seconds. A `Range`
-   request answered from the cache gets a 206 cut from the stored body. A
-   navigation from the sign-in page goes to the network only: no app has read
-   `scrawl_signin` yet, and the copy may still be the user's before;
+   request answered from the cache gets a 206 cut from the stored body. While
+   `scrawl_signin` is set, no app has read it yet and the copy may still be the
+   user's before, so the request goes to the network only. The worker reads the
+   cookie with `cookieStore`; a browser with no `cookieStore` gets the same
+   rule only for a navigation from the sign-in page;
 4. a navigation under `/s/<name>/` but `api/` goes to the network first, then
    to the offline shell. `/` answers a redirect to the first stored space.
    Whatever status the server gives goes to the page as it came: a redirect to
@@ -122,8 +124,10 @@ page), `cache: 'no-store'`, and carries the copy's header.
    not get it skips the round. The tab holding it posts its progress on the
    `scrawl-offline` channel, and a tab that opens asks for it there, so every
    tab shows the same `Downloading...` line.
-3. When `state.owner` is not the user of that `/api/me`, `scrawl-data` is
-   deleted first.
+3. It asks `/api/spaces`, then `/api/me` of the first space, itself, under the
+   lock: the user of the session is the owner, not the one the tab last heard
+   of, which an answer late from before a sign-in elsewhere could bring back.
+   When `state.owner` is another user, `scrawl-data` is deleted first.
 4. It stores `/api/spaces`, and deletes a stored space not in it.
 5. For each space it asks the versions list with the stored `etag`. A 304 means
    every answer of that list is stored. Otherwise an entry is fetched when it
@@ -133,10 +137,11 @@ page), `cache: 'no-store'`, and carries the copy's header.
 6. The difference of all spaces is fetched four at a time. An entry is recorded
    only when all its answers came with a 200 and were stored, with the version
    from the list, not from the answer, so a file changed meanwhile is fetched
-   again. `entries` is written every 2 seconds, so a round cut short goes on
-   where it stopped. A 4xx drops the entry: the file is gone, refused or too
-   big, and asking again would get the same answer. A 5xx keeps the old copy,
-   and the next round asks again.
+   again. A JSON answer without `Content-Type: application/json`, the page of a
+   proxy or a captive portal, fails the entry like a 5xx. `entries` is written
+   every 2 seconds, so a round cut short goes on where it stopped. A 4xx drops
+   the entry: the file is gone, refused or too big, and asking again would get
+   the same answer. A 5xx keeps the old copy, and the next round asks again.
 7. The nav and `me` of each changed space are stored.
 8. A space's `etag` is written only when every entry of its list succeeded:
    `entries` is the progress and `etag` the commit, so a round that failed

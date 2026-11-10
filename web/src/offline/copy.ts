@@ -147,14 +147,18 @@ interface SpacePlan {
 
 type Outcome = 'stored' | 'gone' | 'failed';
 
-async function store(cache: Cache, wanted: readonly string[], signal: AbortSignal): Promise<Outcome> {
+function isJson(response: Response): boolean {
+  return response.headers.get('Content-Type')?.startsWith('application/json') === true;
+}
+
+async function store(cache: Cache, json: readonly string[], signal: AbortSignal, raw?: string): Promise<Outcome> {
   const answers: [string, Response][] = [];
-  for (const url of wanted) {
+  for (const url of raw === undefined ? json : [...json, raw]) {
     const response = await get(url, signal);
     if (response.status >= 400 && response.status < 500) {
       return 'gone';
     }
-    if (response.status !== 200) {
+    if (response.status !== 200 || (url !== raw && !isJson(response))) {
       return 'failed';
     }
     answers.push([url, response]);
@@ -209,11 +213,9 @@ async function copyItem(cache: Cache, { plan, task }: CopyItem, signal: AbortSig
     await dropUrls(cache, answerUrls(plan.base, entry.path, kept.kind));
     delete plan.record.entries[entry.path];
   }
-  const urls = [entry.kind === 'dir' ? answerUrl.dir(plan.base, entry.path) : answerUrl.page(plan.base, entry.path)];
-  if (task.raw) {
-    urls.push(answerUrl.raw(plan.base, entry.path));
-  }
-  const outcome = await store(cache, urls, signal);
+  const json = entry.kind === 'dir' ? answerUrl.dir(plan.base, entry.path) : answerUrl.page(plan.base, entry.path);
+  const raw = task.raw ? answerUrl.raw(plan.base, entry.path) : undefined;
+  const outcome = await store(cache, [json], signal, raw);
   if (outcome === 'stored') {
     plan.record.entries[entry.path] = { kind: entry.kind, version: entry.version, release: plan.list?.release ?? '' };
   } else if (outcome === 'gone') {
@@ -283,15 +285,27 @@ async function copySpaceAnswers(cache: Cache, plan: SpacePlan, signal: AbortSign
   }
 }
 
-async function round(user: string, signal: AbortSignal): Promise<CopyError> {
-  await takeOwnership(user);
-  const cache = await caches.open(dataCache);
+async function sessionUser(spaces: readonly SpaceEntry[], signal: AbortSignal): Promise<string | undefined> {
+  const first = spaces[0];
+  if (first === undefined) {
+    return undefined;
+  }
+  const answer = await get(answerUrl.me(spaceBase(first.name)), signal);
+  return answer.status === 200 && isJson(answer) ? ((await answer.json()) as MeResponse).user : undefined;
+}
 
+async function round(signal: AbortSignal): Promise<CopyError> {
   const spacesAnswer = await get(answerUrl.spaces, signal);
-  if (spacesAnswer.status !== 200) {
+  if (spacesAnswer.status !== 200 || !isJson(spacesAnswer)) {
     return 'failed';
   }
   const spaces = (await spacesAnswer.clone().json()) as SpaceEntry[];
+  const owner = await sessionUser(spaces, signal);
+  if (owner === undefined) {
+    return 'failed';
+  }
+  await takeOwnership(owner);
+  const cache = await caches.open(dataCache);
   await cache.put(answerUrl.spaces, spacesAnswer);
 
   const names = new Set(spaces.map((entry) => entry.name));
@@ -319,7 +333,7 @@ async function round(user: string, signal: AbortSignal): Promise<CopyError> {
   return planned.every((plan) => plan.complete) ? '' : 'failed';
 }
 
-let user: string | undefined;
+let meSeen = false;
 
 let quotaHit = false;
 
@@ -343,7 +357,7 @@ async function finishRound(error: CopyError): Promise<void> {
 async function stopRound(error: unknown): Promise<void> {
   if (error instanceof CopyStop) {
     if (error.reason === 'unauthorized') {
-      user = undefined;
+      meSeen = false;
     }
     return;
   }
@@ -357,11 +371,11 @@ async function stopRound(error: unknown): Promise<void> {
   await finishRound(quota ? 'quota' : 'failed');
 }
 
-async function runRound(owner: string): Promise<void> {
+async function runRound(): Promise<void> {
   const controller = new AbortController();
   running = controller;
   try {
-    await finishRound(await round(owner, controller.signal));
+    await finishRound(await round(controller.signal));
   } catch (error) {
     await stopRound(error);
   } finally {
@@ -372,8 +386,7 @@ async function runRound(owner: string): Promise<void> {
 }
 
 function startRound(force: boolean): void {
-  const owner = user;
-  if (!offlineWanted() || !isOnline() || owner === undefined || quotaHit || running !== undefined) {
+  if (!offlineWanted() || !isOnline() || !meSeen || quotaHit || running !== undefined) {
     return;
   }
   if (!force && Date.now() - lastRound < minRoundGapMs) {
@@ -384,11 +397,11 @@ function startRound(force: boolean): void {
     persisted = true;
     void navigator.storage.persist?.();
   }
-  void ownerChecked.then(() => tryCopyLock(() => runRound(owner)));
+  void ownerChecked.then(() => tryCopyLock(runRound));
 }
 
-export function meAnswered(me: MeResponse): void {
-  user = me.user;
+export function meAnswered(): void {
+  meSeen = true;
   startRound(false);
 }
 
@@ -406,7 +419,7 @@ export function startCopy(): void {
     if (message.type === 'abort') {
       stopCopy();
     } else if (message.type === 'owner') {
-      user = undefined;
+      meSeen = false;
       stopCopy();
     }
   });

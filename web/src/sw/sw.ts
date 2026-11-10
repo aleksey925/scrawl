@@ -1,6 +1,6 @@
 import type { SpaceEntry } from '../api/types';
 import {
-  answerUrl, appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, fillAppMessage,
+  answerUrl, appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, fillAppMessage, signInCookie,
   type AppState, type ChannelMessage,
 } from '../offline/keys';
 
@@ -151,13 +151,23 @@ async function rangeAnswer(request: Request, stored: Response): Promise<Response
   return new Response(body.slice(range.start, range.end + 1), { status: 206, headers });
 }
 
-async function storedRaw(request: Request, pathname: string): Promise<Response | undefined> {
-  const stored = await caches.match(canonicalPath(pathname), { cacheName: dataCache, ignoreVary: true });
-  return stored === undefined ? undefined : rangeAnswer(request, stored);
+async function signInPending(request: Request): Promise<boolean> {
+  if (request.referrer !== '' && new URL(request.referrer).pathname === signInPath) {
+    return true;
+  }
+  if (!('cookieStore' in self)) {
+    return false;
+  }
+  const cookie = await self.cookieStore.get(signInCookie).catch(() => null);
+  return cookie?.value !== undefined;
 }
 
-function fromSignIn(request: Request): boolean {
-  return request.referrer !== '' && new URL(request.referrer).pathname === signInPath;
+async function storedRaw(request: Request, pathname: string): Promise<Response | undefined> {
+  if (await signInPending(request)) {
+    return undefined;
+  }
+  const stored = await caches.match(canonicalPath(pathname), { cacheName: dataCache, ignoreVary: true });
+  return stored === undefined ? undefined : rangeAnswer(request, stored);
 }
 
 async function startPage(): Promise<Response | undefined> {
@@ -185,9 +195,6 @@ self.addEventListener('fetch', (event) => {
   }
   const rest = spaceRoute.exec(url.pathname)?.[1];
   if (rest?.startsWith('raw/') === true) {
-    if (request.mode === 'navigate' && fromSignIn(request)) {
-      return;
-    }
     event.respondWith(networkFirst(request, () => storedRaw(request, url.pathname)));
     return;
   }

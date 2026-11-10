@@ -34,7 +34,7 @@ export function useMe(): MeState {
       .me({ signal: controller.signal, background })
       .then((res) => {
         confirmOnline();
-        meAnswered(res);
+        meAnswered();
         if (generation.current === mine) {
           setMe(res);
         }

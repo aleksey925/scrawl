@@ -1,10 +1,8 @@
 import { post } from './channel';
-import { dataCache } from './keys';
+import { dataCache, signInCookie } from './keys';
 import { underCopyLock } from './lock';
 import { offlineSupported, offlineWanted } from './preference';
 import { readState, writeState } from './records';
-
-const signInCookie = 'scrawl_signin';
 
 function signedInAs(): string | undefined {
   for (const part of document.cookie.split(';')) {

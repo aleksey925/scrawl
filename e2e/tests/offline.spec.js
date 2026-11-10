@@ -429,7 +429,7 @@ test.describe('offline access', () => {
 
         // act
         await page.reload();
-        await expect.poll(() => asked.filter((url) => url.includes('/api/me')).length, {timeout: 30_000}).toBe(1);
+        await expect.poll(() => asked.filter((url) => url.includes('/api/me')).length, {timeout: 30_000}).toBe(2);
         await expect.poll(async () => (await storedUrls(page)).includes(`/s/notes/api/page/${FOLDER}/fresh.md`)).toBe(true);
 
         // assert
@@ -522,6 +522,24 @@ test.describe('offline access', () => {
         const record = JSON.parse(await storedBody(page, SPACE_RECORD));
         expect(record.etag).toBe('');
         expect(Object.keys(record.entries)).toContain(`${FOLDER}/fresh.md`);
+    });
+
+    test('an answer that is not JSON keeps the stored one and leaves no etag', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        const before = await storedBody(page, `/s/notes/api/page/${NOTE}`);
+        writeFixture(NOTE, `${EVERYTHING}\nchanged.\n`);
+        await context.route(new RegExp(`/api/page/${NOTE}$`), (route) => route.fulfill({
+            status: 200, contentType: 'text/html', body: '<html>a portal</html>',
+        }));
+
+        // act
+        await page.reload();
+        await expect.poll(async () => (await storedState(page)).error, {timeout: 30_000}).toBe('failed');
+
+        // assert
+        expect(await storedBody(page, `/s/notes/api/page/${NOTE}`)).toBe(before);
+        expect(JSON.parse(await storedBody(page, SPACE_RECORD)).etag).toBe('');
     });
 
     test('entries named like the properties of an object are copied as any other', async ({page, context}) => {
@@ -681,6 +699,28 @@ test.describe('offline access', () => {
 
         // assert
         await expect(page.locator('body')).toHaveText(readFixture(TEXT).trim());
+
+        // act
+        await page.goto(routes.raw(TEXT));
+
+        // assert
+        await expect(page.locator('body')).toHaveText(readFixture(TEXT).trim());
+    });
+
+    test('a round copies for the user of the session, not the one the tab knew', async ({page, context}) => {
+        // arrange
+        writeFixture(TEXT, 'a file\n');
+        await copyOn(page);
+        await context.clearCookies({name: 'scrawl_session'});
+        const second = await context.newPage();
+        await second.goto(`${routes.login()}?from=${encodeURIComponent(routes.raw(TEXT))}`);
+        await submitCredentials(second, {name: otherUser});
+
+        // act
+        await page.evaluate(() => new BroadcastChannel('scrawl-offline').postMessage({type: 'choice'}));
+
+        // assert
+        await expect.poll(async () => (await storedState(page)).owner, {timeout: 30_000}).toBe(otherUser);
     });
 
     test('two tabs make one round, and the second shows the first one\'s progress', async ({page, context}) => {

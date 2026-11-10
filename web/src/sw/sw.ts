@@ -96,25 +96,6 @@ function deadline(): Promise<undefined> {
   return new Promise((resolve) => setTimeout(() => resolve(undefined), networkDeadlineMs));
 }
 
-async function networkFirst(request: Request, stored: () => Promise<Response | undefined>): Promise<Response> {
-  const kept = await stored();
-  if (kept === undefined) {
-    return fetch(request);
-  }
-  if (offline) {
-    return kept;
-  }
-  try {
-    const answer = await Promise.race([fetch(request), deadline()]);
-    if (answer === undefined || unavailable.has(answer.status)) {
-      return kept;
-    }
-    return answer;
-  } catch {
-    return kept;
-  }
-}
-
 function rangeOf(header: string, size: number): { start: number; end: number } | undefined {
   const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
   if (match === null) {
@@ -149,6 +130,25 @@ async function rangeAnswer(request: Request, stored: Response): Promise<Response
   return new Response(body.slice(range.start, range.end + 1), { status: 206, headers });
 }
 
+async function networkFirst(request: Request, stored: () => Promise<Response | undefined>): Promise<Response> {
+  const kept = await stored();
+  if (kept === undefined) {
+    return fetch(request);
+  }
+  if (offline) {
+    return rangeAnswer(request, kept);
+  }
+  try {
+    const answer = await Promise.race([fetch(request), deadline()]);
+    if (answer === undefined || unavailable.has(answer.status)) {
+      return rangeAnswer(request, kept);
+    }
+    return answer;
+  } catch {
+    return rangeAnswer(request, kept);
+  }
+}
+
 async function signInPending(request: Request): Promise<boolean> {
   if (request.referrer !== '' && new URL(request.referrer).pathname === signInPath) {
     return true;
@@ -164,8 +164,7 @@ async function storedRaw(request: Request, pathname: string): Promise<Response |
   if (await signInPending(request)) {
     return undefined;
   }
-  const stored = await caches.match(canonicalPath(pathname), { cacheName: dataCache, ignoreVary: true });
-  return stored === undefined ? undefined : rangeAnswer(request, stored);
+  return caches.match(canonicalPath(pathname), { cacheName: dataCache, ignoreVary: true });
 }
 
 async function startPage(): Promise<Response | undefined> {

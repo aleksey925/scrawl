@@ -369,6 +369,34 @@ test.describe('offline access', () => {
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
     });
 
+    test('a stalled note while the copy downloads leaves the round going', async ({page, context}) => {
+        // arrange
+        const late = `${FOLDER}/late.txt`;
+        await copyOn(page, routes.dir(FOLDER));
+        writeFixture(late, 'stored after a stall\n');
+        const download = await holdRoute(
+            context, new RegExp(`/raw/${late}$`), (request) => request.headers()['x-scrawl-offline-copy'] === '1');
+        await context.route(new RegExp(`/api/page/${NOTE}$`), async (route) => {
+            if (route.request().headers()['x-scrawl-offline-copy'] === '1') {
+                await route.continue();
+            }
+        });
+        await context.route(/\/ping$/, () => {});
+        const asked = copyRequests(page);
+        await page.reload();
+        await download.reached;
+
+        // act
+        await page.getByTestId('dir').getByRole('link', {name: 'everything'}).click();
+        await expect(page.getByTestId('offline-mark')).toBeVisible({timeout: 10_000});
+        download.release();
+
+        // assert
+        await expect.poll(() => storedBody(page, routes.raw(late)), {timeout: 30_000}).toBe(readFixture(late));
+        expect(asked.filter((url) => url.endsWith(`/raw/${late}`))).toEqual([`/s/notes/raw/${late}`]);
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
+    });
+
     test('a slow note that is not in the copy waits for the network', async ({page, context}) => {
         // arrange
         const slow = `${FOLDER}/slow.md`;

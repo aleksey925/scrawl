@@ -1,6 +1,6 @@
 import { mountBase } from '../mount';
 import { encodeContentPath } from '../contentPath';
-import { connectionFailed, serverAnswered, wroteSomething } from '../offline/connection';
+import { connectionFailed, connectionStalled, serverAnswered, wroteSomething } from '../offline/connection';
 import { answerUrl, dataCache, networkDeadlineMs } from '../offline/keys';
 import { offlineWanted } from '../offline/preference';
 import { togglesOf } from '../reader/findMatches';
@@ -139,7 +139,7 @@ function watchStall(stored: string | undefined): () => void {
     caches.match(stored, { cacheName: dataCache }).then(
       (kept) => {
         if (waiting && kept !== undefined) {
-          connectionFailed();
+          connectionStalled();
         }
       },
       () => undefined,

@@ -20,6 +20,8 @@ let probe: number | undefined;
 
 const serverBack = changeSignal();
 
+const lost = changeSignal();
+
 function tellWorker(): void {
   post({ type: 'connection', online });
 }
@@ -62,7 +64,7 @@ export function startConnection(): void {
   if (!offlineSupported()) {
     return;
   }
-  window.addEventListener('offline', () => setOnline(false));
+  window.addEventListener('offline', connectionFailed);
   window.addEventListener('online', () => void ping());
   onChoiceChange(watch);
   tellWorker();
@@ -71,12 +73,17 @@ export function startConnection(): void {
 
 export function connectionFailed(): void {
   setOnline(false);
+  lost.notify();
+}
+
+export function connectionStalled(): void {
+  setOnline(false);
 }
 
 export function serverAnswered(response: Response): void {
   const fromScrawl = response.headers.get('app-name') === 'scrawl';
   if (unavailable.has(response.status) && !fromScrawl) {
-    setOnline(false);
+    connectionFailed();
   }
 }
 
@@ -94,6 +101,10 @@ export function onConnectionChange(listener: () => void): () => void {
 
 export function onServerBack(listener: () => void): () => void {
   return serverBack.subscribe(listener);
+}
+
+export function onConnectionLost(listener: () => void): () => void {
+  return lost.subscribe(listener);
 }
 
 export function wroteSomething(): void {

@@ -83,7 +83,8 @@ The fetch rules, GET only; what no rule names is not touched:
 2. `/static/` is answered from any app cache first, else the network;
 3. `/s/<name>/raw/` goes to the network first, and to the data cache on a
    network error, a 502, 503 or 504, or no answer in 3 seconds. A `Range`
-   request answered from the cache gets a 206 cut from the stored body. While
+   request answered from the cache gets a 206 cut from the stored body, which
+   is read only then and never for a request the network answers. While
    `scrawl_signin` is set, no app has read it yet and the copy may still be the
    user's before, so the request goes to the network only. The worker reads the
    cookie with `cookieStore`; a browser with no `cookieStore` gets the same
@@ -162,8 +163,12 @@ page), `cache: 'no-store'`, and carries the copy's header.
    when every space is done.
 
 Rounds start when `/api/me` answers: on open, when the page becomes visible and
-every minute while it is visible. A network error stops a round and takes the
-app offline, a 401 stops it until `/api/me` answers again, and running out of
+every minute while it is visible. A network error, a gateway's 502, 503 or 504
+and the `offline` event stop a round and take the app offline. The stall of the
+reader below takes the app offline but leaves the round going: on a slow link
+the round's own downloads are often what holds the reader up, and stopping the
+round would throw away the files in flight at every page opened during the
+first copy. A 401 stops it until `/api/me` answers again, and running out of
 space stops it with no new round until the app is opened again or the switch
 turns it on. A redirected answer, a captive portal, or any other surprise ends
 the round as failed. The tab of the round shows how it ended even when the

@@ -2,7 +2,7 @@ import { backgroundHeader } from '../api/client';
 import type { MeResponse, SpaceEntry } from '../api/types';
 
 import { onMessage } from './channel';
-import { connectionFailed, isOnline, onConnectionChange, onWrite } from './connection';
+import { connectionFailed, isOnline, onConnectionChange, onConnectionLost, onWrite } from './connection';
 import { answerUrl, copyHeader, dataCache, spaceBase, spaceOfKey } from './keys';
 import { tryCopyLock } from './lock';
 import { ownerChecked, takeOwnership } from './owner';
@@ -435,8 +435,7 @@ export function startCopy(): void {
   onConnectionChange(() => {
     if (isOnline()) {
       lastRound = 0;
-    } else {
-      stopCopy();
     }
   });
+  onConnectionLost(stopCopy);
 }

@@ -8,7 +8,21 @@ export function mountNode(): HTMLElement {
   return node;
 }
 
+export function servedOffline(): boolean {
+  return document.getElementById(MOUNT_ID)?.dataset.base === '';
+}
+
 export function mountBase(): string {
-  const base = document.getElementById(MOUNT_ID)?.dataset.base ?? '';
+  const base = document.getElementById(MOUNT_ID)?.dataset.base;
+  if (base === undefined) {
+    return '';
+  }
+  if (base === '') {
+    return /^\/s\/[^/]+/.exec(window.location.pathname)?.[0] ?? '';
+  }
   return base === '/' ? '' : base.replace(/\/+$/, '');
+}
+
+export function mountRelease(): string {
+  return document.getElementById(MOUNT_ID)?.dataset.version ?? '';
 }

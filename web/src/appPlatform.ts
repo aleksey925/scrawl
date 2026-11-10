@@ -1,5 +1,6 @@
 import { api } from './api/client';
 import { mountBase } from './mount';
+import { offlineSource } from './offline/source';
 import type { Platform } from './platform';
 import { FindTimeout, type FindMatch, type FindPattern } from './reader/findMatches';
 import { internalTarget } from './reader/links';
@@ -59,4 +60,11 @@ export const appPlatform: Platform = {
   editing: true,
   runFind,
   boundedFind: true,
+};
+
+export const offlinePlatform: Platform = {
+  ...appPlatform,
+  source: offlineSource,
+  search: false,
+  editing: false,
 };

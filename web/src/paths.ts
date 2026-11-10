@@ -1,3 +1,4 @@
+import { encodeContentPath } from './contentPath';
 import { mountBase } from './mount';
 
 const translit: Record<string, string> = {
@@ -34,10 +35,6 @@ export function slugPath(name: string): string {
     .map(slugify)
     .filter((part) => part !== '')
     .join('/');
-}
-
-export function encodeContentPath(path: string): string {
-  return path.split('/').map(encodeURIComponent).join('/');
 }
 
 export function isMarkdown(path: string): boolean {

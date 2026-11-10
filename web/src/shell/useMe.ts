@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from '../api/client';
 import type { MeResponse } from '../api/types';
+import { confirmOnline, onServerBack } from '../offline/connection';
+import { meAnswered } from '../offline/copy';
 
 const meRefreshMs = 60_000;
 const pushPollMs = 2_000;
@@ -31,6 +33,8 @@ export function useMe(): MeState {
     api
       .me({ signal: controller.signal, background })
       .then((res) => {
+        confirmOnline();
+        meAnswered(res);
         if (generation.current === mine) {
           setMe(res);
         }
@@ -49,6 +53,8 @@ export function useMe(): MeState {
   }, []);
 
   const refreshMe = useCallback(() => load(false), [load]);
+
+  useEffect(() => onServerBack(refreshMe), [refreshMe]);
 
   useEffect(() => {
     load(false);

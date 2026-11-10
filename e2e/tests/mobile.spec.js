@@ -2416,3 +2416,37 @@ test.describe('mobile sync state', () => {
         await expect(page.getByTestId('sync-control').getByTestId('sync-still')).toBeVisible();
     });
 });
+
+test.describe('mobile offline access', () => {
+    const FOLDER = 'e2e-mobile-offline';
+    const NOTE = `${FOLDER}/carried.md`;
+
+    test.beforeEach(async ({page}) => {
+        writeFixture(NOTE, '# Carried note\n\nread on the metro.\n');
+        await signIn(page);
+    });
+
+    test.afterEach(() => {
+        removeFixture(FOLDER);
+    });
+
+    test('the row is under the Profile tab and the mark sits in the bar on top', async ({page, context}) => {
+        // arrange
+        await tapSpaceMenu(page);
+        const row = page.getByTestId('space-menu-offline');
+        await row.tap();
+        await expect(page.getByTestId('space-menu-offline-status')).toContainText('updated at', {timeout: 60_000});
+        await shot(page, 'mobile-offline-row');
+        await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.active?.state),
+            {timeout: 60_000}).toBe('activated');
+
+        // act
+        await context.setOffline(true);
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Carried note');
+        await expect(page.getByTestId('topbar').getByTestId('offline-mark')).toBeVisible();
+        await shot(page, 'mobile-offline-mark');
+    });
+});

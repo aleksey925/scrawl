@@ -37,8 +37,10 @@ worker's; worker `N` adds `10 * N` to each:
   four spaces, used by `spaces.spec.js` and `sync.spec.js`
 
 All five run with authentication on, user `e2e`, password
-`e2e-secret-pass`. Every instance passes `--history` explicitly: left to
-the default a machine without git would silently serve without versions.
+`e2e-secret-pass`, and a second user `e2e-other` with the same password,
+which `offline.spec.js` signs in to check that a copy never passes to the
+next user. Every instance passes `--history` explicitly: left to the
+default a machine without git would silently serve without versions.
 
 ### The multi-space instance
 

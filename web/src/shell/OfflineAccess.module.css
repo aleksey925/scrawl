@@ -1,0 +1,4 @@
+.status {
+  font-size: var(--mantine-font-size-xs);
+  opacity: 0.7;
+}

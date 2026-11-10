@@ -23,10 +23,11 @@ function entryOf(name: string | undefined): Entry {
 
 const appOnly = [
   /\/src\/editor\//,
+  /\/src\/(offline|sw)\//,
   /\/src\/api\/client\.ts$/,
   /\/src\/(App|appPlatform|findWorker|routes|main)\.tsx?$/,
   /\/src\/pages\/(EditPage|HistoryPage|SearchPage)\.tsx$/,
-  /\/src\/shell\/(AppLayout|DocumentExtras|EditButton|ExportMenu|FileActions|FileView|HistoryDialog|NewEntryDialog|NoteMenu|ResetDialog|RowMenu|SearchDialog|SearchResults|SpaceAlerts|SpaceMenu|SyncControl|TabBar|useMe|useMutationState)\.tsx?$/,
+  /\/src\/shell\/(AppLayout|DocumentExtras|EditButton|ExportMenu|FileActions|FileView|HistoryDialog|NeedsNetwork|NewEntryDialog|NoteMenu|OfflineAccess|OfflineMark|ResetDialog|RowMenu|SearchDialog|SearchResults|SpaceAlerts|SpaceMenu|SyncControl|TabBar|useMe|useMutationState)\.tsx?$/,
   /\/node_modules\/(@codemirror|@uiw|prettier|mermaid|katex|@plantuml|dompurify)\//,
 ];
 

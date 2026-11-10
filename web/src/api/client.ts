@@ -1,5 +1,7 @@
 import { mountBase } from '../mount';
-import { encodeContentPath } from '../paths';
+import { encodeContentPath } from '../contentPath';
+import { connectionFailed, serverAnswered, wroteSomething } from '../offline/connection';
+import { answerUrl } from '../offline/keys';
 import { togglesOf } from '../reader/findMatches';
 
 import { ApiError } from './errors';
@@ -69,7 +71,9 @@ interface CallOptions extends RequestOptions {
   allowStatus?: readonly number[];
 }
 
-const backgroundHeader = 'X-Scrawl-Background';
+export const backgroundHeader = 'X-Scrawl-Background';
+
+const readingPost = /\/api\/(preview|compare|sync\/check|login|logout)$/;
 
 function spaceUrl(path: string): string {
   return mountBase() + path;
@@ -137,13 +141,25 @@ async function send(method: string, url: string, options: CallOptions = {}): Pro
     body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(url, {
-    method,
-    headers,
-    body,
-    credentials: 'same-origin',
-    signal: options.signal ?? null,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers,
+      body,
+      credentials: 'same-origin',
+      signal: options.signal ?? null,
+    });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      connectionFailed();
+    }
+    throw error;
+  }
+  serverAnswered(response);
+  if (method !== 'GET' && response.ok && !readingPost.test(url)) {
+    wroteSomething();
+  }
 
   if (response.status === 401 && options.background !== true) {
     notifyUnauthorized();
@@ -207,7 +223,7 @@ export const api: ScrawlApi = {
   page: async (path, options) => {
     const body = await call<PageResponse | ApiErrorBody>(
       'GET',
-      spaceUrl(`/api/page/${encodeContentPath(path)}`),
+      answerUrl.page(mountBase(), path),
       { ...options, allowStatus: [404] },
     );
     if (!isPage(body)) {
@@ -217,7 +233,7 @@ export const api: ScrawlApi = {
   },
 
   dir: (path, options) =>
-    call<DirListing>('GET', spaceUrl(`/api/dir/${encodeContentPath(path)}`), options),
+    call<DirListing>('GET', answerUrl.dir(mountBase(), path), options),
 
   nav: (path, options) => call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path }), options),
 

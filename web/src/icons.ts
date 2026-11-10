@@ -17,6 +17,7 @@ export {
   CheckIcon as IconCheck,
   ClockCounterClockwiseIcon as IconHistory,
   ClockIcon as IconClock,
+  CloudArrowDownIcon as IconCloudDown,
   CloudArrowUpIcon as IconCloudUp,
   CloudCheckIcon as IconCloudCheck,
   CloudSlashIcon as IconCloudOff,
@@ -70,6 +71,7 @@ export {
   TreeViewIcon as IconToc,
   UserCircleIcon as IconUserCircle,
   WarningIcon as IconAlertTriangle,
+  WifiSlashIcon as IconWifiOff,
   XIcon as IconX,
 } from '@phosphor-icons/react';
 

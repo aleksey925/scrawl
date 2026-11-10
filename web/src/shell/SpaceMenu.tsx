@@ -3,6 +3,9 @@ import type { JSX } from 'react';
 
 import { api } from '../api/client';
 import { useApi } from '../api/useApi';
+import { useOffline } from '../offline/connection';
+import { deleteOfflineData } from '../offline/register';
+import { storedSpaces } from '../offline/source';
 import { PopupMenu } from '../components/PopupMenu';
 import { IconCheck, IconEyeOff, IconLogin, IconLogout } from '../icons';
 import { goToLogin } from '../login';
@@ -10,6 +13,7 @@ import { layout } from '../theme';
 
 import { spaceLabel, useNav } from './NavContext';
 import { useReaderLayout } from './ReaderLayout';
+import { OfflineAccessItem } from './OfflineAccess';
 import { ShortcutsMenuItem } from './ShortcutHelp';
 import { useKeyboardPlace } from './shortcuts';
 import { SpaceButton } from './SpaceButton';
@@ -18,6 +22,7 @@ import { ThemePicker } from './ThemePicker';
 
 async function signOut(): Promise<void> {
   await api.logout();
+  await deleteOfflineData().catch(() => undefined);
   goToLogin();
 }
 
@@ -39,7 +44,8 @@ export function SpaceMenuDropdown(): JSX.Element {
   const { me } = useNav();
   const { openShortcuts } = useReaderLayout();
   const keyboard = useKeyboardPlace();
-  const state = useApi((signal) => api.spaces({ signal }), []);
+  const offline = useOffline();
+  const state = useApi((signal) => (offline ? storedSpaces() : api.spaces({ signal })), [offline]);
   const spaces = state.data ?? [];
   const current = me?.space;
   const signedIn = me !== undefined && me.user !== '';
@@ -96,7 +102,8 @@ export function SpaceMenuDropdown(): JSX.Element {
           Read-only mode
         </Menu.Item>
       )}
-      {signedIn ? (
+      <OfflineAccessItem />
+      {offline ? undefined : signedIn ? (
         <Menu.Item
           data-testid="space-menu-signout"
           leftSection={<IconLogout size={layout.iconSizeSmall} />}

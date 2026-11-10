@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import type { ExportFormat } from '../api/types';
 import { errorText } from '../api/useApi';
 import { IconDownload } from '../icons';
+import { useOffline } from '../offline/connection';
 import { layout } from '../theme';
 import { showToast } from '../toast';
 
@@ -42,22 +43,27 @@ export function useNoteExport(path: string): NoteExport {
 }
 
 export function ExportItems({ print, download }: NoteExport): JSX.Element {
+  const offline = useOffline();
   return (
     <>
-      <Menu.Item
-        data-testid="doc-export-md"
-        leftSection={<IconDownload size={layout.iconSizeSmall} />}
-        onClick={() => download('md')}
-      >
-        Export as Markdown
-      </Menu.Item>
-      <Menu.Item
-        data-testid="doc-export-html"
-        leftSection={<IconDownload size={layout.iconSizeSmall} />}
-        onClick={() => download('html')}
-      >
-        Export as HTML
-      </Menu.Item>
+      {!offline && (
+        <>
+          <Menu.Item
+            data-testid="doc-export-md"
+            leftSection={<IconDownload size={layout.iconSizeSmall} />}
+            onClick={() => download('md')}
+          >
+            Export as Markdown
+          </Menu.Item>
+          <Menu.Item
+            data-testid="doc-export-html"
+            leftSection={<IconDownload size={layout.iconSizeSmall} />}
+            onClick={() => download('html')}
+          >
+            Export as HTML
+          </Menu.Item>
+        </>
+      )}
       <Menu.Item
         data-testid="doc-export-pdf"
         leftSection={<IconDownload size={layout.iconSizeSmall} />}

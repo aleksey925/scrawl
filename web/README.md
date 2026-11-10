@@ -26,7 +26,7 @@ The proxy is required, not a convenience: the server's CSRF check is
 `Sec-Fetch-Site` based, so a mutating request has to look same-origin.
 CORS cannot make that work.
 
-Proxied to `http://127.0.0.1:7272`: `/api`, `/raw`, `/static`,
+Proxied to `http://127.0.0.1:7272`: `/api`, `/raw`, `/static`, `/sw.js`,
 `/logout`, `/ping`, `/manifest.webmanifest`, plus `/s` and `/login`.
 The first group is the server's alone. `/s` and `/login` are shared: a
 browser navigation to an app route is answered with Vite's `index.html`

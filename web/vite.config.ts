@@ -9,7 +9,7 @@ import { themeStylesheet } from './vite.themes.ts';
 
 const backend = 'http://127.0.0.1:7272';
 
-const serverPaths = ['/api', '/raw', '/static', '/logout', '/ping', '/manifest.webmanifest'];
+const serverPaths = ['/api', '/raw', '/static', '/logout', '/ping', '/manifest.webmanifest', '/sw.js'];
 
 const sharedPaths = ['/s', '/login'];
 

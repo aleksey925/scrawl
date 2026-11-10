@@ -1,27 +1,41 @@
-.root[data-position='top-center'] {
-  top: calc(env(safe-area-inset-top, 0px) + 8px);
-}
-
 .root {
   pointer-events: none;
 }
 
-.pill {
+.root[data-position='top-center'] {
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+}
+
+.root[data-position='bottom-center'] {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.toast {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: fit-content;
-  max-width: calc(100vw - 2 * var(--mantine-spacing-lg));
+  max-width: 100%;
+  min-height: 40px;
   margin-inline: auto;
+  padding: 9px 16px 9px 14px;
+  border-radius: var(--mantine-radius-lg);
+  background: var(--scrawl-toast-bg);
+  box-shadow: var(--scrawl-shadow-large);
+  color: var(--scrawl-toast-text);
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.4;
+  pointer-events: auto;
+}
+
+.pill {
+  max-width: calc(100vw - 2 * var(--mantine-spacing-lg));
   padding: 10px 16px;
   border-radius: 22px;
-  background: var(--scrawl-toast-bg);
   box-shadow: var(--scrawl-shadow-medium);
-  color: var(--scrawl-toast-text);
   font-size: 15px;
   font-weight: 500;
   line-height: 1.35;
-  pointer-events: auto;
   touch-action: none;
   cursor: pointer;
   transition: transform 200ms ease-out;
@@ -41,6 +55,15 @@
 
 .icon[data-tone='error'] {
   color: var(--scrawl-color-red);
+}
+
+.body {
+  min-width: 0;
+}
+
+.title,
+.message {
+  overflow-wrap: anywhere;
 }
 
 .title {

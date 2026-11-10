@@ -27,25 +27,26 @@ Colors, controls and type: how a note and the chrome are drawn.
   keeps its tint. A control has one shape, and the theme is the one place that
   says so. A control is Notion's: 28px (36px when it runs the width of its
   column) with 6px corners and a 500 weight, transparent until hovered; a field
-  is filled with the hover tint and a faint line, and in focus has the theme's
-  focus ring and no halo: in the light theme one solid band of a light blue
-  three pixels wide, as macOS rings a field; the field's border takes the
-  band's color, or its tint shows through as a gap and the band reads as two
-  rings. In the dark one a lighter line and no color, the way Raycast and
-  Vercel draw it. A solid blue line on the dark ground glared, and Notion's own
-  dark fields disagree with each other on it. A row a name is typed into, in
-  the tree or a folder's list, is framed by the same ring. The accent is spent
-  the way Notion spends it, read off its own pages: the one main button, a
-  focused field in the light theme and a toggle that is on; the search field
-  has no ring, the back link and Cancel are plain text, and a main button that
-  cannot be pressed yet fades in its color. The light theme spends it the way
-  macOS does on two more things: a link in a note, which the dark theme draws
-  in the text's color, and the menu row under the pointer, filled with the
-  accent and lettered white, which in the dark is the hover tint. A tap latches
-  the hover, so a touch screen keeps the tint in both. A menu has 10px corners
-  and the theme's shadow, a dialog 12px; a translucent menu ground blurs what
-  is under it, as a menu of macOS does. Icons are Phosphor's regular weight at
-  20px, 16px in menus, and `web/src/icons.ts` is the one place that says which
+  is filled with the hover tint and a faint line, also when the browser filled
+  it in, whose own yellow read as a warning, and in focus has the theme's focus
+  ring and no halo: in the light theme one solid band of a light blue three
+  pixels wide, as macOS rings a field; the field's border takes the band's
+  color, or its tint shows through as a gap and the band reads as two rings. In
+  the dark one a lighter line and no color, the way Raycast and Vercel draw it.
+  A solid blue line on the dark ground glared, and Notion's own dark fields
+  disagree with each other on it. A row a name is typed into, in the tree or a
+  folder's list, is framed by the same ring. The accent is spent the way Notion
+  spends it, read off its own pages: the one main button, a focused field in
+  the light theme and a toggle that is on; the search field has no ring, the
+  back link and Cancel are plain text, and a main button that cannot be pressed
+  yet fades in its color. The light theme spends it the way macOS does on two
+  more things: a link in a note, which the dark theme draws in the text's
+  color, and the menu row under the pointer, filled with the accent and
+  lettered white, which in the dark is the hover tint. A tap latches the hover,
+  so a touch screen keeps the tint in both. A menu has 10px corners and the
+  theme's shadow, a dialog 12px; a translucent menu ground blurs what is under
+  it, as a menu of macOS does. Icons are Phosphor's regular weight at 20px,
+  16px in menus, and `web/src/icons.ts` is the one place that says which
   drawing each one is: Notion's own set cannot be taken, and Phosphor is the
   open one closest to it. The note's own controls are the one exception: the
   picture viewer in `web/src/reader/viewer.ts` and the buttons and marks of
@@ -60,6 +61,22 @@ Colors, controls and type: how a note and the chrome are drawn.
   indicator keeps its own transition while mantine turns them all off for a new
   theme ([quirks](../quirks.md#react-mantine-and-the-editor)). The theme
   buttons of a page of the command line slide the same way.
+- A dialog ends in one row of buttons, `DialogActions`, which the confirms take
+  as their `groupProps`: on a desktop at the right, as wide as their words and
+  32px tall, as the prototype has them, and on a phone sharing the row in equal
+  parts as an alert of iOS does, at the touch height every labelled button has.
+  Three buttons on a phone stand one under another across the dialog, as iOS
+  stacks them, so a long label is never cut short in a third of the row. No
+  dialog sets a height of its own: the editor's gave its buttons the 44px of an
+  icon button on every screen, and they stood taller than the buttons of every
+  other dialog. A dialog or a drawer with a title keeps 4px between the title
+  and what comes first under it, the room of a focus ring outside a field or a
+  button, so the ring of a field right under the title shows whole. The 4px are
+  taken from the bottom padding and the least height of the title, so the title
+  and the room together are as tall as a Mantine title alone, with a close
+  button or without. The Outline sheet sets the padding of its title itself, so
+  it leaves the bottom one at 0. One with no title gets no room, as nothing is
+  drawn over it ([quirks](../quirks.md#react-mantine-and-the-editor)).
 - The dark scheme is Notion's dark: a `#191919` page, a `#202020` sidebar and
   `#f0efed` text. Bold there is 700 instead of 600. Near-white letters on a
   near-black page glow and look heavy already, so bold, italic and headings in

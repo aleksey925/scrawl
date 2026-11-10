@@ -5,7 +5,9 @@ import { layoutBreakpoints, useAtLeast } from '../theme';
 
 import { modeKey, splitDefault, splitKey, splitMax, splitMin } from './constants';
 
-export type LayoutMode = 'source' | 'split' | 'preview';
+export type LayoutMode = 'source' | 'split' | 'preview' | 'changes';
+
+type StoredMode = Exclude<LayoutMode, 'changes'>;
 
 export interface LayoutControl {
   mode: LayoutMode;
@@ -16,8 +18,12 @@ export interface LayoutControl {
   wide: boolean;
 }
 
-function isMode(value: string | undefined): value is LayoutMode {
+function isStoredMode(value: string | null | undefined): value is StoredMode {
   return value === 'source' || value === 'split' || value === 'preview';
+}
+
+export function isLayoutMode(value: string | null): value is LayoutMode {
+  return isStoredMode(value) || value === 'changes';
 }
 
 function storedSplit(): number {
@@ -30,13 +36,15 @@ export function useEditorLayout(): LayoutControl {
 
   const [chosen, setChosen] = useState<LayoutMode>(() => {
     const stored = readText(localStore(), modeKey);
-    return isMode(stored) ? stored : wide ? 'split' : 'source';
+    return isStoredMode(stored) ? stored : wide ? 'split' : 'source';
   });
   const [split, setSplitState] = useState<number>(storedSplit);
 
   const choose = useCallback((next: LayoutMode): void => {
     setChosen(next);
-    writeText(localStore(), modeKey, next);
+    if (isStoredMode(next)) {
+      writeText(localStore(), modeKey, next);
+    }
   }, []);
 
   const setSplit = useCallback((fraction: number): void => {
@@ -45,7 +53,7 @@ export function useEditorLayout(): LayoutControl {
     writeText(localStore(), splitKey, String(clamped));
   }, []);
 
-  const mode: LayoutMode = wide ? chosen : chosen === 'preview' ? 'preview' : 'source';
+  const mode: LayoutMode = wide || chosen !== 'split' ? chosen : 'source';
 
   return { mode, chosen, choose, split, setSplit, wide };
 }

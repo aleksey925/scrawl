@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -35,6 +36,8 @@ type fakeHistory struct {
 	syncErr     string
 	unsynced    history.Unsynced
 	refused     bool
+	retrying    bool
+	pushing     bool
 	syncReads   int
 
 	remote     bool
@@ -51,11 +54,10 @@ type fakeHistory struct {
 func (f *fakeHistory) Enabled() bool     { return true }
 func (f *fakeHistory) Degraded() bool    { return f.degraded }
 func (f *fakeHistory) Unpublished() bool { return f.unpublished }
-func (f *fakeHistory) SyncError() string { return f.syncErr }
 
 func (f *fakeHistory) SyncState() history.SyncState {
 	f.syncReads++
-	return history.SyncState{Unpublished: f.unpublished, Error: f.syncErr, Unsynced: f.unsynced, Diverged: f.diverged, Refused: f.refused}
+	return history.SyncState{Unpublished: f.unpublished, Error: f.syncErr, Unsynced: f.unsynced, Diverged: f.diverged, Refused: f.refused, Retrying: f.retrying, Pushing: f.pushing}
 }
 
 func (f *fakeHistory) Remote() bool { return f.remote }
@@ -740,21 +742,86 @@ func TestEveryMutationIsRecorded(t *testing.T) {
 		{method: http.MethodPost, path: "/api/upload/images", body: upload,
 			headers: map[string]string{"Content-Type": contentType}},
 	}
+	var trashID any
 	for _, call := range calls {
 		resp, body := ts.json(t, call)
 		require.Less(t, resp.status, http.StatusMultipleChoices, "%s %s: %v", call.method, call.path, body)
+		if id, ok := body["trash_id"]; ok {
+			trashID = id
+		}
 	}
+	restored, restoredBody := ts.json(t, request{
+		method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]any{"id": trashID}),
+	})
 
 	// assert
+	require.Equal(t, http.StatusOK, restored.status, restoredBody)
 	assert.Equal(t, []string{
 		"save fresh.md", "create folder", "create new.md", "delete new.md",
-		"move fresh.md to moved.md", "upload an attachment",
+		"move fresh.md to moved.md", "upload an attachment", "restore new.md",
 	}, fake.messages())
 	assert.Equal(t, [][]string{
-		{"fresh.md"}, nil, {"new.md"}, {"new.md"}, {"fresh.md", "moved.md"}, nil,
+		{"fresh.md"}, nil, {"new.md"}, {"new.md"}, {"fresh.md", "moved.md"}, nil, {"new.md"},
 	}, fake.given())
-	assert.Equal(t, [][]string{nil, nil, nil, nil, nil, {"images/shot.png"}}, fake.reported,
-		"only the upload learns its path from the store")
+	assert.Equal(t, [][]string{nil, nil, nil, nil, nil, {"images/shot.png"}, {}}, fake.reported,
+		"only the upload learns its path from the store, and a restored file has nothing under it")
+}
+
+func gitTracked(t *testing.T, dir string) []string {
+	t.Helper()
+	cmd := exec.CommandContext(t.Context(), "git", "-c", "safe.directory="+dir, "ls-files")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null", "LC_ALL=C")
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git ls-files: %s", out)
+	return strings.Fields(string(out))
+}
+
+func TestADeleteAndItsUndoAreTwoCommitsAndTheTrashIsNeverTracked(t *testing.T) {
+	// arrange
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	ts := newTestServer(t, testOpts{})
+	notes := ts.Spaces[0].Store
+	hist, err := history.New(history.Config{
+		Name: testSpace, Root: notes.Dir(), Visible: notes.Visible,
+		Files: func() ([]string, error) {
+			files, filesErr := notes.Files()
+			res := make([]string, 0, len(files))
+			for _, fi := range files {
+				res = append(res, fi.Path)
+			}
+			return res, filesErr
+		},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, hist.Close()) })
+	require.NoError(t, hist.Reconcile(t.Context(), "startup"))
+	ts.Spaces[0].History = hist
+
+	// act
+	deleted, deletedBody := ts.json(t, request{method: http.MethodDelete, path: "/api/file/guide.md"})
+	require.Equal(t, http.StatusOK, deleted.status, deletedBody)
+	duringTrash := gitTracked(t, ts.root)
+	restored, restoredBody := ts.json(t, request{
+		method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]any{"id": deletedBody["trash_id"]}),
+	})
+
+	// assert
+	require.Equal(t, http.StatusOK, restored.status, restoredBody)
+	assert.NotContains(t, duringTrash, "guide.md")
+	for _, tracked := range append(duringTrash, gitTracked(t, ts.root)...) {
+		assert.NotContains(t, tracked, ".scrawl-trash")
+	}
+	assert.Contains(t, gitTracked(t, ts.root), "guide.md")
+	entries, err := hist.Log(t.Context(), "guide.md", 0)
+	require.NoError(t, err)
+	messages := make([]string, 0, len(entries))
+	for _, logged := range entries {
+		messages = append(messages, logged.Message)
+	}
+	assert.Equal(t, []string{"restore guide.md", "delete guide.md", "import the existing notes"}, messages)
 }
 
 func TestMoveRecordsTheDocumentsUnderADirectory(t *testing.T) {
@@ -830,6 +897,28 @@ func TestAWriteHistoryCouldNotRecord(t *testing.T) {
 	assert.Equal(t, true, browserBody["history_degraded"])
 }
 
+func TestADeleteHistoryCouldNotRecordStillNamesItsTrash(t *testing.T) {
+	// arrange
+	fake := &fakeHistory{failWith: errors.New("the index is locked")}
+	ts := newTestServer(t, testOpts{withAuth: true, history: fake})
+	token := map[string]string{"Authorization": "Bearer " + testToken}
+
+	// act
+	deleted, deletedBody := ts.json(t, request{method: http.MethodDelete, path: "/api/file/index.md", headers: token})
+	restored, restoredBody := ts.json(t, request{
+		method: http.MethodPost, path: "/api/trash/restore", headers: token,
+		body: jsonBody(t, map[string]any{"id": deletedBody["trash_id"]}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusInternalServerError, deleted.status)
+	assert.Equal(t, "the change was written but not recorded in history", deletedBody["error"])
+	assert.NotEmpty(t, deletedBody["trash_id"])
+	assert.Equal(t, http.StatusInternalServerError, restored.status)
+	assert.Equal(t, "the change was written but not recorded in history", restoredBody["error"])
+	assert.FileExists(t, filepath.Join(ts.root, "index.md"), "the restore itself still happened")
+}
+
 func TestAWriteTheRemoteMissed(t *testing.T) {
 	// arrange
 	fake := &fakeHistory{pushFails: errors.New("the remote refused")}
@@ -860,6 +949,8 @@ func TestAWriteTheRemoteMissed(t *testing.T) {
 func TestEveryMutationCarriesTheState(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{history: &fakeHistory{unpublished: true, degraded: true}})
+	trashID, err := ts.Spaces[0].Store.Trash("index.md", false)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name    string
@@ -891,6 +982,13 @@ func TestEveryMutationCarriesTheState(t *testing.T) {
 			name:    "delete",
 			request: request{method: http.MethodDelete, path: "/api/file/docs/moved.md"},
 			status:  http.StatusOK,
+		},
+		{
+			name: "restore", status: http.StatusOK,
+			request: request{
+				method: http.MethodPost, path: "/api/trash/restore",
+				body: jsonBody(t, trashRestoreRequest{ID: trashID}),
+			},
 		},
 	}
 
@@ -983,4 +1081,32 @@ func TestAStoreFailureIsNeverReadAsAHistoryOne(t *testing.T) {
 	assert.Equal(t, http.StatusPreconditionFailed, resp.status)
 	assert.Equal(t, "conflict", body["error"])
 	assert.Empty(t, fake.ops, "a mutation that failed is never recorded")
+}
+
+func TestAPIMeSaysARetryIsDue(t *testing.T) {
+	// arrange
+	fake := &fakeHistory{unpublished: true, syncErr: "push: the remote is down", retrying: true}
+	ts := newTestServer(t, testOpts{history: fake})
+
+	// act
+	_, body := ts.json(t, request{path: "/api/me"})
+
+	// assert
+	space, ok := body["space"].(map[string]any)
+	require.True(t, ok, body)
+	assert.Equal(t, true, space["retrying"])
+	assert.Equal(t, false, space["pushing"])
+}
+
+func TestAPIMeSaysAPushIsRunning(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{history: &fakeHistory{pushing: true}})
+
+	// act
+	_, body := ts.json(t, request{path: "/api/me"})
+
+	// assert
+	space, ok := body["space"].(map[string]any)
+	require.True(t, ok, body)
+	assert.Equal(t, true, space["pushing"])
 }

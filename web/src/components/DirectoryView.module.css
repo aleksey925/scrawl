@@ -69,3 +69,7 @@
     background: var(--scrawl-row-hover);
   }
 }
+
+.page {
+  align-content: start;
+}

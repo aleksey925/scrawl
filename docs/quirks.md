@@ -13,6 +13,9 @@ words; the fact itself is written here.
   never zooms back. [Touch](ui/touch.md)
 - `:active` is drawn only when the document has a `touchstart` listener.
   [Touch](ui/touch.md)
+- The keyboard opens only for a focus made while a tap is handled, so a field
+  that takes the focus a frame later shows focused with no keyboard. Not yet
+  checked on a real iPhone here. [Touch](ui/touch.md)
 - `select()` is ignored on the hidden `readonly` textarea a copy uses, so the
   text is also picked with `setSelectionRange`. [Frontend](design/frontend.md)
 - Safari draws the page gone back to under its own swipe back, and a tab of
@@ -34,12 +37,31 @@ words; the fact itself is written here.
   else. [Themes](design/themes.md)
 - A phone's keyboard covers the bottom of the page without making it shorter,
   so a field fixed to the bottom sits under the keys. [Phone](ui/phone.md)
+- The click a browser sends after a touch end lands on what is under the finger
+  by then, so when the touch end closed a menu, the click goes to what the menu
+  covered. [Editor](ui/editor.md)
+- A finger that only starts a scroll sends `pointerdown` too, so only the
+  `click` after it tells a tap. [Touch](ui/touch.md)
+- A tap on text that takes no focus may leave a field focused, with no blur.
+  Chromium blurs the field there; a real iPhone has not been checked here yet.
+  [Touch](ui/touch.md)
 
 ## Browsers
 
 - A plain http page that is not localhost has no clipboard api.
   [Frontend](design/frontend.md)
 - A page cannot read a drag's data during `dragover`. [Entries](ui/entries.md)
+- Safari sends the Enter that ends the composition of an input method with
+  `isComposing` false and `keyCode` 229. [Entries](ui/entries.md)
+- When the window loses the focus, to another app or tab, the focused field
+  gets a blur, but `document.activeElement` is still that field and
+  `document.hasFocus()` is false; on return the field gets the focus back. A
+  blur inside the page leaves `activeElement` on the body. Checked in Chromium,
+  not yet in Safari or on a phone. [Entries](ui/entries.md)
+- A field the browser filled in, a saved password say, gets the browser's own
+  background with `!important`: yellow in Safari, blue in Chromium. Only an
+  inset shadow over it and a long delay on `background-color` keep the field's
+  own color. [Look](ui/look.md)
 - A scroll event says an element moved, never who moved it, and the echo of a
   programmatic scroll arrives a frame later.
   [Editor position](design/editor-position.md)
@@ -47,6 +69,10 @@ words; the fact itself is written here.
   bar inside it stops sticking; `clip` does not. [Phone](ui/phone.md)
 - A fixed element inside a scaled element is placed in that element.
   [Touch](ui/touch.md)
+- A word joiner (U+2060) keeps a letter with the next letter, but Chromium and
+  WebKit still break a line between it and an inline box, an icon say, unless
+  the joiner and the box share a `white-space: nowrap` element.
+  [Pages](ui/pages.md)
 - A table that scrolls by itself is only as wide as its text.
   [Look](ui/look.md)
 - A table column reads a percentage inside `clamp()` as `auto`, so the name
@@ -84,10 +110,18 @@ words; the fact itself is written here.
 - React hands a press inside a portal up to the component the portal belongs
   to. [Sidebar](ui/sidebar.md)
 - When a menu item puts a field on the page, mantine's menu gives the focus
-  back to its button a tick after the field took it. [Entries](ui/entries.md)
+  back to its button a tick after the field took it, unless the menu is told
+  not to (`returnFocus`) in the same render that closes it.
+  [Frontend](design/frontend.md)
 - Mantine's runtime css variables sit under its own attribute and outrank a
   theme's, so the app runs it with `withCssVariables={false}`.
   [Themes](design/themes.md)
+- A mantine modal or drawer draws its title as a sticky header above the body,
+  with its own ground, and the body has no top padding under a title, so the
+  part of a focus ring outside the first field or button is painted over. The
+  header is at least 60px tall, and its padding is `--mb-padding`, which
+  mantine sets on the dialog from its `padding`, or `--mantine-spacing-md` when
+  that is not set. [Look](ui/look.md)
 - Mantine writes a modal's transition inline, which outranks the stylesheet.
   [Pages](ui/pages.md)
 - Mantine's `setColorScheme` turns every transition off for a moment with
@@ -109,8 +143,15 @@ words; the fact itself is written here.
 - react-codemirror wraps the editor in a div with `display: block` and no
   height, so the stylesheet makes that div a flex child, or the editor grows to
   the whole document and nothing scrolls.
+- The markdown parser of codemirror, which the editor reads a note with, and
+  goldmark, which renders the page, read some rare markup differently: a `$$`
+  math block, front matter, a footnote definition, `\\|` in a table row, and
+  some lines where a table starts. [Editor](ui/editor.md)
 - In codemirror the height of a line not drawn yet is an estimate, hundreds of
   pixels off in a wrapped note. [Editor position](design/editor-position.md)
+- React Router asks a blocker once, as a navigation starts, not while the code
+  of the next page loads, so a change made in that time passes the guard on
+  leaving. [Editor](ui/editor.md)
 - A phone that puts a tab away and later drops it fires no `beforeunload`, so a
   draft is also saved on `pagehide`.
 - A paste that carries `text/plain` is never taken as a picture: Word and Excel
@@ -221,6 +262,15 @@ words; the fact itself is written here.
   into a clone. [Remote sync](design/remote-sync.md#credentials)
 - GitHub documents a webhook delivery body of up to 25 MB.
   [Remote sync](design/remote-sync.md#webhook)
+- A canceled git with an HTTP remote does not return until its remote helper
+  ends: the helper holds git's stderr, and `exec` waits for that pipe. On a
+  hung network the helper sits in its HTTP call. Checked with git 2.47.3: no
+  return in 90 seconds without `WaitDelay`, 2 seconds after the cancel with it.
+  [Remote sync](design/remote-sync.md#pushing)
+- A fetch or a push and a local commit can run at once: they write different
+  refs, each behind its own lock file, and git only adds objects. Checked with
+  git 2.47.3: 20 commits during a held push and a held fetch, no error, and
+  `git fsck` clean. [Remote sync](design/remote-sync.md#locks)
 
 ## Linux, Go and wasm
 
@@ -235,6 +285,9 @@ words; the fact itself is written here.
   [Remote sync](design/remote-sync.md#credentials)
 - `ServeMux` panics on a methodless pattern beside a catch-all that narrows
   another way. [Remote sync](design/remote-sync.md#webhook)
+- `net/http` cancels a request's context on a closed connection only after the
+  handler read the body to its end, because the background read starts then.
+  [Server](design/server.md#lifecycle)
 - wazero watches a context only when every branch of the compiled code checks
   it, which made a prettier run five times slower.
   [ADR 6](adr/0006-prettier-in-worker-processes.md)

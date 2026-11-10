@@ -1,7 +1,7 @@
 const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
-const {READONLY, jsonRequest, openSpaceMenu, routes, shot, signIn} = require('../support/helpers');
+const {READONLY, jsonRequest, openSpaceMenu, rightClickPrevented, routes, shot, signIn} = require('../support/helpers');
 const text = require('../support/text');
 
 const DOC = docs.doc.path;
@@ -38,6 +38,26 @@ test.describe('read-only mode', () => {
         await shot(page, 'readonly-tree');
     });
 
+    test('a right click on a folder list or on the tree keeps the browser menu', async ({page}) => {
+        // arrange
+        await page.goto(READONLY.url.dir(docs.folder.path));
+        const row = page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`);
+        await expect(row).toBeVisible();
+        const list = await page.getByTestId('dir').boundingBox();
+        const tree = await page.getByTestId('tree-root').boundingBox();
+
+        // act
+        const onPage = await rightClickPrevented(page, page.getByTestId('dir'), {position: {x: list.width / 2, y: list.height - 20}});
+        const onTree = await rightClickPrevented(page, page.getByTestId('tree-root'), {position: {x: tree.width / 2, y: tree.height - 10}});
+        const onRow = await rightClickPrevented(page, row);
+
+        // assert
+        expect([onPage, onTree, onRow]).toEqual([false, false, true]);
+        await expect(page.getByTestId('tree-row-menu-rename')).toHaveCount(0);
+        await expect(page.getByTestId('dir-context-menu')).toHaveCount(0);
+        await expect(page.getByTestId('tree-context-menu')).toHaveCount(0);
+    });
+
     test('the editor opens as a reader and cannot save', async ({page}) => {
         await page.goto(READONLY.url.edit(DOC));
 
@@ -56,6 +76,7 @@ test.describe('read-only mode', () => {
             ['DELETE', routes.api(`/file/${DOC}`), undefined],
             ['POST', routes.api('/move'), {from: DOC, to: `${docs.doc.folder}/moved.md`}],
             ['POST', routes.api(`/upload/${docs.doc.folder}`), {}],
+            ['POST', routes.api('/trash/restore'), {id: 'any'}],
         ];
         for (const [method, url, body] of calls) {
             const res = await jsonRequest(page, method, url, body);

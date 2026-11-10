@@ -20,7 +20,7 @@ func (m *mount) keepThrough(r *http.Request, p string) *http.Request {
 	if !m.formats(p) {
 		return r
 	}
-	return r.WithContext(context.WithoutCancel(r.Context()))
+	return detachFromClient(r)
 }
 
 type saved struct {

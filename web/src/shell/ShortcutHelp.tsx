@@ -65,7 +65,7 @@ const groups: readonly ShortcutGroup[] = [
     name: 'Editor',
     needs: 'editing',
     rows: [
-      { keys: [modKey, 'S'], what: 'Save' },
+      { keys: [modKey, 'S'], what: 'Save and keep editing' },
       { keys: ['Shift', altKey, 'F'], what: 'Format the note' },
     ],
   },

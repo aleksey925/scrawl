@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const {breakOrigin, git, pushToOrigin, restoreOrigin} = require('../support/git');
-const {MULTI, editorStatus, inStep, save, setSource, shot, signIn} = require('../support/helpers');
+const {MULTI, editorStatus, inStep, mockMe, save, setSource, shot, signIn} = require('../support/helpers');
 
 const WIKI = MULTI.spaces.wiki;
 const wiki = MULTI.extra.find((extra) => extra.name === 'wiki');
@@ -33,6 +33,7 @@ test.describe('sync state', () => {
     });
 
     test.afterEach(async ({page}) => {
+        await page.unrouteAll({behavior: 'ignoreErrors'});
         restoreOrigin(wiki.origin);
         fs.rmSync(path.join(wiki.dir, DOC), {force: true});
         fs.rmSync(path.join(wiki.dir, FOLDER), {recursive: true, force: true});
@@ -48,11 +49,12 @@ test.describe('sync state', () => {
         await setSource(page, '# Sync\n\nstuck in the container.\n');
         await save(page);
 
-        await expect(page.getByTestId('toast')).toHaveAttribute('data-kind', 'warn');
-        await expect(control(page)).toBeVisible();
+        await expect(control(page)).toHaveAttribute('data-state', 'not-sent');
         await expect(control(page)).toHaveAttribute('data-here', 'true');
+        await expect(control(page)).toHaveText('Not sent, will retry');
         const alert = page.getByTestId('space-alert');
         await expect(alert).toBeVisible();
+        await expect(alert).toContainText('scrawl tries again in about a minute.');
         const kind = await alert.getAttribute('data-kind');
         expect(['push', 'fetch']).toContain(kind);
         await expect(alert.getByTestId('space-alert-reason')).toHaveText(new RegExp(`^${kind}: `));
@@ -76,7 +78,7 @@ test.describe('sync state', () => {
         await setSource(page, '# Sync\n\nsecond try.\n');
         await save(page);
 
-        await expect(control(page)).toHaveCount(0);
+        await expect(control(page)).toHaveAttribute('data-state', 'sent');
         await expect(page.getByTestId('space-alert')).toHaveCount(0);
     });
 
@@ -92,7 +94,7 @@ test.describe('sync state', () => {
         await expect.poll(async () => meState(page), {timeout: 20_000}).toMatchObject({sync_error: ''});
         await page.clock.runFor(pollMs);
 
-        await expect(control(page)).toHaveCount(0);
+        await expect(control(page)).toHaveAttribute('data-state', 'sent');
         await expect(page.getByTestId('space-alert')).toHaveCount(0);
     });
 
@@ -118,7 +120,7 @@ test.describe('sync state', () => {
 
         await page.goto(WIKI.doc('index.md'));
         await expect(control(page)).toHaveAttribute('data-here', 'true');
-        await expect(control(page)).toHaveAttribute('aria-label', 'This note has not reached the remote');
+        await expect(control(page)).toHaveAttribute('aria-label', 'Not sent, will retry. This note has not reached the remote');
         await shot(page, 'sync-root-index');
 
         await page.goto(WIKI.edit(FOLDER_DOC));
@@ -143,6 +145,9 @@ test.describe('sync state', () => {
 
         await page.goto(WIKI.doc(DOC));
         await expect(page.getByTestId('space-alert')).toHaveAttribute('data-kind', 'merge');
+        await expect(control(page)).toHaveAttribute('data-state', 'blocked');
+        await expect(control(page)).toHaveText('Diverged');
+        await expect(page.getByTestId('space-alert')).not.toContainText('tries again');
         await expect(page.getByTestId('space-alert')).not.toContainText('git ');
         await page.getByTestId('space-alert').getByTestId('sync-reset').click();
 
@@ -172,7 +177,7 @@ test.describe('sync state', () => {
 
         await dialog.getByTestId('reset-reload').click();
         await expect(page.getByTestId('space-alert')).toHaveCount(0);
-        await expect(control(page)).toHaveCount(0);
+        await expect(control(page)).toHaveAttribute('data-state', 'sent');
         await page.goto(WIKI.doc(THEIRS));
         await expect(page.getByText('written on the other side.')).toBeVisible();
     });
@@ -195,25 +200,23 @@ test.describe('sync state', () => {
     });
 
     test('a refused push says what to do and not what git said', async ({page}) => {
-        await page.route(/\/api\/me$/, async (route) => {
-            const res = await route.fetch();
-            const body = await res.json();
-            Object.assign(body.space, {
-                unpublished: true,
-                push_refused: true,
-                sync_error: 'push: git push origin HEAD:refs/heads/main: exit status 128: ' +
-                    "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
-            });
-            await route.fulfill({response: res, json: body});
+        await mockMe(page, {
+            unpublished: true,
+            push_refused: true,
+            retrying: false,
+            sync_error: 'push: git push origin HEAD:refs/heads/main: exit status 128: ' +
+                "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
         });
         await page.goto(WIKI.doc(DOC));
 
         const alert = page.getByTestId('space-alert');
         await expect(alert).toContainText('The remote does not take changes from this space');
         await expect(alert).toContainText('Give the space a token with write access, or make it read-only.');
+        await expect(alert).not.toContainText('tries again');
+        await expect(control(page)).toHaveAttribute('data-state', 'blocked');
+        await expect(control(page)).toHaveText('Access refused');
         await expect(alert.getByTestId('space-alert-reason')).toHaveCount(0);
         await shot(page, 'sync-push-refused');
-        await page.unroute(/\/api\/me$/);
     });
 
     test('a poll that meets a 401 opens no dialog', async ({page}) => {
@@ -229,7 +232,233 @@ test.describe('sync state', () => {
 
         await expect(page.locator('[data-testid=modal][data-variant=session]')).toHaveCount(0);
     });
+
+    test('a change on its way spins, then shows a quiet check', async ({page}) => {
+        // arrange
+        const me = await mockMe(page, {pushing: true});
+
+        // act
+        await page.goto(WIKI.doc(DOC));
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'sending');
+        await expect(control(page).getByTestId('sync-spinner')).toBeVisible();
+        await expect(control(page)).toHaveText('');
+        await expect(control(page)).toHaveAttribute('aria-label', 'Sending changes');
+        await shot(page, 'sync-sending');
+        me.set({pushing: false});
+        await expect(control(page)).toHaveAttribute('data-state', 'sent');
+        await expect(control(page)).toHaveText('');
+        await expect(control(page)).toHaveAttribute('aria-label', 'All changes sent');
+        await control(page).click();
+        await expect(page.getByTestId('sync-details')).toContainText('Everything saved here is on the remote too.');
+        await shot(page, 'sync-sent');
+    });
+
+    test('a change waiting for its retry is asked about every five seconds', async ({page}) => {
+        // arrange
+        const me = await mockMe(page, {unpublished: true, retrying: true, sync_error: 'push: the remote is down'});
+        await page.goto(WIKI.doc(DOC));
+        await expect(control(page)).toHaveAttribute('data-state', 'not-sent');
+        const waiting = me.hits();
+
+        // act
+        await expect.poll(() => me.hits(), {timeout: 15_000}).toBeGreaterThanOrEqual(waiting + 2);
+        me.set({pushing: true});
+
+        // assert
+        const [first, second] = me.times().slice(waiting, waiting + 2);
+        expect(second - first).toBeGreaterThan(4_000);
+        expect(second - first).toBeLessThan(7_000);
+        await expect(control(page)).toHaveAttribute('data-state', 'sending', {timeout: 8_000});
+        me.set({pushing: false, retrying: false, unpublished: false, sync_error: ''});
+        await expect(control(page)).toHaveAttribute('data-state', 'sent');
+        await expect(page.getByTestId('space-alert')).toHaveCount(0);
+    });
+
+    test('a poll that fails does not stop the polling', async ({page}) => {
+        // arrange
+        const me = await mockMe(page, {pushing: true});
+        await page.goto(WIKI.doc(DOC));
+        await expect(control(page)).toHaveAttribute('data-state', 'sending');
+
+        // act
+        me.failNext();
+        await expect.poll(() => me.failed(), {timeout: 8_000}).toBe(1);
+        me.set({pushing: false});
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'sent');
+    });
+
+    test('a poll slower than its wait still lands', async ({page}) => {
+        // arrange
+        const me = await mockMe(page, {pushing: true});
+        await page.goto(WIKI.doc(DOC));
+        await expect(control(page)).toHaveAttribute('data-state', 'sending');
+
+        // act
+        me.delay(3_000);
+        me.set({pushing: false});
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'sent', {timeout: 10_000});
+    });
+
+    test('a poll that never answers does not stop the polling', async ({page}) => {
+        // arrange
+        await page.clock.install();
+        const me = await mockMe(page, {pushing: true});
+        await page.goto(WIKI.doc(DOC));
+        await expect(control(page)).toHaveAttribute('data-state', 'sending');
+        me.hangNext();
+        await page.clock.runFor(2_000);
+        await expect.poll(() => me.hung()).toBe(1);
+        me.set({pushing: false});
+
+        // act
+        await page.clock.runFor(32_000);
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'sent');
+    });
+
+    test('a hidden tab does not poll, and polls at once when shown again', async ({page}) => {
+        // arrange
+        await page.clock.install();
+        const me = await mockMe(page, {pushing: true});
+        await page.goto(WIKI.doc(DOC));
+        await expect(control(page)).toHaveAttribute('data-state', 'sending');
+        await setHidden(page, true);
+        await page.waitForTimeout(500);
+        const hidden = me.hits();
+
+        // act
+        await page.clock.runFor(pollMs);
+        await page.waitForTimeout(500);
+        const whileHidden = me.hits();
+        await setHidden(page, false);
+
+        // assert
+        expect(whileHidden).toBe(hidden);
+        await expect.poll(() => me.hits(), {timeout: 3_000}).toBeGreaterThan(hidden);
+    });
+
+    test('a failed push that waits for the next save says so', async ({page}) => {
+        // arrange
+        await mockMe(page, {unpublished: true, retrying: false, sync_error: 'push: the remote is down'});
+
+        // act
+        await page.goto(WIKI.doc(DOC));
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'not-sent');
+        await expect(control(page)).toHaveText('Not sent');
+        const alert = page.getByTestId('space-alert');
+        await expect(alert).toContainText('The next save tries again.');
+        await expect(alert).not.toContainText('about a minute');
+    });
+
+    test('a failed fetch with nothing waiting is a warning', async ({page}) => {
+        // arrange
+        await mockMe(page, {
+            unpublished: false,
+            sync_error: "fetch: git fetch --prune origin main: exit status 128: fatal: unable to access 'origin'",
+        });
+
+        // act
+        await page.goto(WIKI.doc(DOC));
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'warning');
+        await expect(control(page)).toHaveText('Not synced');
+        await expect(page.getByTestId('space-alert')).toHaveAttribute('data-kind', 'fetch');
+    });
+
+    test('a read-only remote space shows no sync control', async ({page}) => {
+        // arrange
+        await mockMe(page, {read_only: true});
+
+        // act
+        await page.goto(WIKI.doc(DOC));
+
+        // assert
+        await expect(page.getByText('starting point.')).toBeVisible();
+        await expect(control(page)).toHaveCount(0);
+    });
+
+    test('history that was not recorded is not called unsent', async ({page}) => {
+        // arrange
+        await mockMe(page, {}, {history_degraded: true});
+
+        // act
+        await page.goto(WIKI.doc(DOC));
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'warning');
+        await expect(control(page)).toHaveText('Not synced');
+        await expect(page.getByTestId('space-alert')).toHaveAttribute('data-kind', 'degraded');
+    });
+
+    test('a diverged space whose fetch fails still says it diverged', async ({page}) => {
+        // arrange
+        await mockMe(page, {
+            unpublished: true,
+            diverged: true,
+            sync_error: "fetch: git fetch --prune origin main: exit status 128: fatal: unable to access 'origin'",
+        });
+
+        // act
+        await page.goto(WIKI.doc(DOC));
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'blocked');
+        await expect(control(page)).toHaveText('Diverged');
+        const alert = page.getByTestId('space-alert');
+        await expect(alert).toHaveAttribute('data-kind', 'merge');
+        await expect(alert).toContainText('This space has diverged from the remote');
+        await expect(alert.getByTestId('sync-reset')).toBeVisible();
+        await expect(alert.getByTestId('space-alert-reason')).toHaveText(/^fetch: /);
+        await expect(alert).not.toContainText('tries again');
+    });
+
+    test('a refused fetch asks for a token that may read the remote', async ({page}) => {
+        // arrange
+        await mockMe(page, {
+            unpublished: true,
+            push_refused: true,
+            sync_error: 'fetch: git fetch --prune origin main: exit status 128: ' +
+                "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
+        });
+
+        // act
+        await page.goto(WIKI.doc(DOC));
+
+        // assert
+        await expect(control(page)).toHaveAttribute('data-state', 'blocked');
+        await expect(control(page)).toHaveText('Access refused');
+        const alert = page.getByTestId('space-alert');
+        await expect(alert).toContainText('The remote refuses this space');
+        await expect(alert).toContainText('Give the space a token that may read the remote');
+        await expect(alert).not.toContainText('tries again');
+    });
+
+    test('a local space shows no sync control', async ({page}) => {
+        // act
+        await page.goto(MULTI.spaces.team.doc('team.md'));
+
+        // assert
+        await expect(page.getByText('only this space has it.')).toBeVisible();
+        await expect(control(page)).toHaveCount(0);
+    });
 });
+
+async function setHidden(page, hidden) {
+    await page.evaluate((value) => {
+        Object.defineProperty(document, 'hidden', {configurable: true, get: () => value});
+        document.dispatchEvent(new Event('visibilitychange'));
+    }, hidden);
+}
 
 async function meState(page) {
     return page.evaluate(async (url) => {

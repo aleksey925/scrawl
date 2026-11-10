@@ -36,7 +36,7 @@ func TestAlertRules(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// act
-			out, err := r.RenderInline([]byte(tt.src), "docs/x.md")
+			out, err := htmlOf(r, []byte(tt.src), "docs/x.md")
 
 			// assert
 			require.NoError(t, err)
@@ -51,7 +51,7 @@ func TestAlertRules(t *testing.T) {
 
 func TestAlertBodyKeepsEveryBlock(t *testing.T) {
 	// act
-	out, err := New(Options{}).RenderInline(
+	out, err := htmlOf(New(Options{}),
 		[]byte("> [!NOTE]\n>\n> первый\n>\n> - a\n> - b\n>\n> > цитата\n"), "docs/x.md")
 
 	// assert
@@ -64,7 +64,7 @@ func TestAlertBodyKeepsEveryBlock(t *testing.T) {
 
 func TestAlertTitleIsNotTakenFromTheDocument(t *testing.T) {
 	// act
-	out, err := New(Options{}).RenderInline([]byte("> [!NOTE\"onclick=\"x]\n> body\n"), "docs/x.md")
+	out, err := htmlOf(New(Options{}), []byte("> [!NOTE\"onclick=\"x]\n> body\n"), "docs/x.md")
 
 	// assert
 	require.NoError(t, err)

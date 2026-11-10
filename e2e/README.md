@@ -15,7 +15,10 @@ server and takes `test` from playwright directly. The test of Back launches a
 whole Chromium with the page cache on: playwright turns that cache off and its
 headless shell has none, so with the defaults the page was always loaded again.
 A page out of that cache fires no `load` event, so Back there waits only for
-`commit`.
+`commit`. The test of a rename field while the window is away launches a whole
+Chromium too and turns off playwright's focus emulation after the last `goto`,
+as a `goto` can turn it back on: with it, or in the headless shell, a page
+never loses the window's focus.
 
 The suite starts the binary itself. Every other spec takes `test` from
 `support/test.js`, which brings up five instances for each Playwright

@@ -19,6 +19,9 @@ import (
 const (
 	defaultTimeout     = 10 * time.Second
 	defaultInitTimeout = 5 * time.Minute
+	pushDelay          = 3 * time.Second
+	retryEvery         = time.Minute
+	gitWaitDelay       = 2 * time.Second
 	defaultLogLimit    = 100
 
 	initialBranch = "main"
@@ -62,11 +65,19 @@ type Service struct {
 	exts  map[string]struct{}
 	files *os.Root
 
+	netMu    sync.Mutex
 	mu       sync.Mutex
 	pending  map[string]struct{}
 	degraded atomic.Bool
 
-	sync atomic.Pointer[SyncState]
+	statusMu sync.Mutex
+	state    SyncState
+	due      bool
+	sending  bool
+
+	pushes     chan struct{}
+	pushDelay  time.Duration
+	retryEvery time.Duration
 }
 
 func New(cfg Config) (*Service, error) {
@@ -90,12 +101,15 @@ func New(cfg Config) (*Service, error) {
 	}
 
 	s := &Service{
-		cfg:     cfg,
-		root:    root,
-		git:     gitPath,
-		exts:    extensionSet(cfg.Extensions),
-		files:   files,
-		pending: map[string]struct{}{},
+		cfg:        cfg,
+		root:       root,
+		git:        gitPath,
+		exts:       extensionSet(cfg.Extensions),
+		files:      files,
+		pending:    map[string]struct{}{},
+		pushes:     make(chan struct{}, 1),
+		pushDelay:  pushDelay,
+		retryEvery: retryEvery,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), s.initTimeout())
 	defer cancel()

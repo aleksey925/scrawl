@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 
-export interface VisibleArea {
+interface VisibleArea {
   height: number;
   top: number;
 }
@@ -10,7 +10,7 @@ function areaOf(): VisibleArea {
   return view === null ? { height: window.innerHeight, top: 0 } : { height: view.height, top: view.offsetTop };
 }
 
-export function useVisibleArea(active: boolean): VisibleArea | undefined {
+function useVisibleArea(active: boolean): VisibleArea | undefined {
   const [area, setArea] = useState<VisibleArea | undefined>(undefined);
 
   useEffect(() => {
@@ -30,4 +30,16 @@ export function useVisibleArea(active: boolean): VisibleArea | undefined {
   }, [active]);
 
   return area;
+}
+
+export function useFullScreenStyle(active: boolean): CSSProperties | undefined {
+  const area = useVisibleArea(active);
+  if (!active) {
+    return undefined;
+  }
+  return {
+    maxHeight: 'none',
+    height: area === undefined ? '100dvh' : area.height,
+    transform: `translateY(${area?.top ?? 0}px)`,
+  };
 }

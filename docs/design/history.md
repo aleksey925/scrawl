@@ -14,13 +14,20 @@ Git-backed versions of the notes, and how two versions are compared.
   git will not descend into an excluded directory, and a `.gitignore` among the
   notes outranks anything scrawl writes. The store mutation and the commit are
   one critical section, otherwise a second request's commit picks up the first
-  one's write and signs it with the wrong actor. A version is read by its blob,
+  one's write and signs it with the wrong actor. That section never holds a
+  network step ([locks](remote-sync.md#locks)). A version is read by its blob,
   because a path stops resolving against an older revision once a rename sits
   in between. A failed commit is fatal only for an API token, so an agent never
   gets a 200 for a change history missed; a browser save survives it and the
   page says history fell behind. Paths reach git NUL-separated on stdin and
   never in argv, and the tracked set is read as the whole index rather than
   path by path, because a reconcile of a large corpus does not fit in argv.
+- A delete is a commit of the paths it names, and the trash it leaves at the
+  root, `.scrawl-trash/`, is never staged, so git never tracks it. For the few
+  minutes it is kept, `git status` in the notes folder lists it as untracked;
+  scrawl adds no ignore rule for it, as nothing of its own goes into a
+  repository beyond `.git/info/attributes`. An Undo is a second commit that
+  adds the paths back. [storage](storage.md#the-trash)
 - An adopted repository is not inert. Its config and its `.gitattributes` each
   name a command git would run during an ordinary commit, so hooks go to a
   `core.hooksPath` that can hold none, `core.fsmonitor` is overridden empty,
@@ -60,6 +67,11 @@ Git-backed versions of the notes, and how two versions are compared.
   removed block is struck through. The patch stays beside them as the `Source`
   view, and a version too large or too slow to compare still answers with the
   patch alone.
+- The editor's Changes compares the text in the editor with the text last
+  saved, through `POST /api/compare`, which takes both and answers with the
+  rows. Both sides are rendered as the preview is, under its size cap each and
+  outside the page cache, since an unsaved text is never asked for again.
+  Unlike a version, a failure has no patch to fall back to and is an error.
 - The diff markup is written twice, by `web/src/diff/RenderedDiff.tsx` and by
   the templates of `page`, and `web/src/diff/diff.css` styles both. A change to
   one is a change to the other, folding included.

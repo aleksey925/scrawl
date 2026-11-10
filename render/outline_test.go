@@ -1,6 +1,7 @@
 package render
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,6 +47,27 @@ func TestOutline(t *testing.T) {
 				Text:  "Отличие __getattr__ от чего-то и ссылки",
 				ID:    "отличие-__getattr__-от-чего-то-и-ссылкиxmd",
 			}},
+		},
+		{
+			name: "escapes and entities read as the page shows them",
+			src:  "## Цена \\[x\\] \\&copy; &copy; &#65; \\$5\n",
+			want: []Heading{{Level: 2, Text: "Цена [x] &copy; © A $5", ID: "цена-x-copy-copy-65-5"}},
+		},
+		{
+			name: "an emoji reads as its glyph",
+			src:  "## :smile:\n\n## Итоги :tada:\n",
+			want: []Heading{
+				{Level: 2, Text: "😄", ID: "smile"},
+				{Level: 2, Text: "Итоги 🎉", ID: "итоги-tada"},
+			},
+		},
+		{
+			name: "inline math reads as its TeX source",
+			src:  "## $x$\n\n## Сумма $a+b$ и $$c^2$$\n",
+			want: []Heading{
+				{Level: 2, Text: "x", ID: "x"},
+				{Level: 2, Text: "Сумма a+b и c^2", ID: "сумма-ab-и-c2"},
+			},
 		},
 		{
 			name: "no headings",
@@ -100,4 +122,47 @@ func TestOutlineOf(t *testing.T) {
 
 	// assert
 	assert.Equal(t, []Heading{toc[1], toc[2], toc[4]}, got)
+}
+
+func TestContentsOf(t *testing.T) {
+	// arrange
+	toc := []Heading{
+		{Level: 2, Text: "Intro", ID: "intro"},
+		{Level: 1, Text: "Title", ID: "title"},
+		{Level: 2, Text: "Part", ID: "part"},
+		{Level: 3, Text: "No id", ID: ""},
+		{Level: 1, Text: "Second", ID: "second"},
+		{Level: 4, Text: "Detail", ID: "detail"},
+	}
+
+	// act
+	got := ContentsOf(toc)
+
+	// assert
+	assert.Equal(t, []Heading{toc[0], toc[2], toc[4], toc[5]}, got)
+}
+
+func TestContentsOfLeavesOutTheIdsTheSanitizerDrops(t *testing.T) {
+	// arrange
+	r := New(Options{})
+	src := "# Title\n\n## -dash\n\n## " + strings.Repeat("a", 130) + "\n\n## " + strings.Repeat("b", 129) + "\n\n## Kept\n"
+	res, err := r.Render([]byte(src), "a.md")
+	require.NoError(t, err)
+
+	// act
+	got := ContentsOf(res.TOC)
+
+	// assert
+	assert.Equal(t, []Heading{res.TOC[3], res.TOC[4]}, got)
+	for _, entry := range got {
+		assert.Contains(t, string(res.HTML), `id="`+entry.ID+`"`)
+	}
+}
+
+func TestContentsOfNoHeadings(t *testing.T) {
+	// act
+	got := ContentsOf(nil)
+
+	// assert
+	assert.Equal(t, []Heading{}, got)
 }

@@ -18,7 +18,7 @@ func TestSanitizeNeutralisesMaliciousDocument(t *testing.T) {
 	require.NoError(t, err)
 
 	// act
-	out, err := New(Options{}).RenderInline(src, "docs/malicious.md")
+	out, err := htmlOf(New(Options{}), src, "docs/malicious.md")
 	require.NoError(t, err)
 
 	// assert
@@ -37,7 +37,7 @@ func TestSanitizeNeutralisesMaliciousGFMDocument(t *testing.T) {
 	require.NoError(t, err)
 
 	// act
-	out, err := New(Options{}).RenderInline(src, "docs/malicious-gfm.md")
+	out, err := htmlOf(New(Options{}), src, "docs/malicious-gfm.md")
 	require.NoError(t, err)
 
 	// assert
@@ -83,7 +83,7 @@ func TestSanitizeEscapesRawContentInsteadOfDroppingIt(t *testing.T) {
 	r := New(Options{})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out, err := r.RenderInline([]byte(tt.src), "x.md")
+			out, err := htmlOf(r, []byte(tt.src), "x.md")
 			require.NoError(t, err)
 			assert.Contains(t, withoutSourceRanges(string(out)), tt.want)
 		})
@@ -106,7 +106,7 @@ func TestSanitizeSourceElement(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// act
-			out, err := r.RenderInline([]byte(tt.src), "x.md")
+			out, err := htmlOf(r, []byte(tt.src), "x.md")
 
 			// assert
 			require.NoError(t, err)
@@ -141,7 +141,7 @@ func TestSanitizeKeeps(t *testing.T) {
 	r := New(Options{})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out, err := r.RenderInline([]byte(tt.src), "docs/x.md")
+			out, err := htmlOf(r, []byte(tt.src), "docs/x.md")
 			require.NoError(t, err)
 			assert.Contains(t, withoutSourceRanges(string(out)), tt.want)
 		})
@@ -164,7 +164,7 @@ func TestSanitizeIDAttribute(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// act
-			out, err := r.RenderInline([]byte(tc.src), "x.md")
+			out, err := htmlOf(r, []byte(tc.src), "x.md")
 
 			// assert
 			require.NoError(t, err)
@@ -175,7 +175,7 @@ func TestSanitizeIDAttribute(t *testing.T) {
 
 func TestSanitizeDropsGlobalAttributesANoteHasNoUseFor(t *testing.T) {
 	// act
-	out, err := New(Options{}).RenderInline([]byte(`<p title="tip" dir="rtl" lang="en">x</p>`), "x.md")
+	out, err := htmlOf(New(Options{}), []byte(`<p title="tip" dir="rtl" lang="en">x</p>`), "x.md")
 
 	// assert
 	require.NoError(t, err)
@@ -184,7 +184,7 @@ func TestSanitizeDropsGlobalAttributesANoteHasNoUseFor(t *testing.T) {
 
 func TestSanitizeStripsMarkdownAttribute(t *testing.T) {
 	// act
-	out, err := New(Options{}).RenderInline([]byte("<details markdown=\"span\">\n<summary>S</summary>\n\nx\n\n</details>\n"), "x.md")
+	out, err := htmlOf(New(Options{}), []byte("<details markdown=\"span\">\n<summary>S</summary>\n\nx\n\n</details>\n"), "x.md")
 
 	// assert
 	require.NoError(t, err)
@@ -200,7 +200,7 @@ func TestSanitizeDropsDataImageURLs(t *testing.T) {
 	r := New(Options{})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out, err := r.RenderInline([]byte(tt.src), "x.md")
+			out, err := htmlOf(r, []byte(tt.src), "x.md")
 			require.NoError(t, err)
 			assert.NotContains(t, string(out), "data:")
 		})
@@ -209,7 +209,7 @@ func TestSanitizeDropsDataImageURLs(t *testing.T) {
 
 func TestRenderInlineCodeWithAngleBrackets(t *testing.T) {
 	// act
-	out, err := New(Options{}).RenderInline([]byte("`docker logs --tail 100 <id>`\n"), "x.md")
+	out, err := htmlOf(New(Options{}), []byte("`docker logs --tail 100 <id>`\n"), "x.md")
 
 	// assert
 	require.NoError(t, err)
@@ -222,7 +222,7 @@ func TestRenderPreservesInvisibleCharacters(t *testing.T) {
 	require.NoError(t, err)
 
 	// act
-	out, err := New(Options{}).RenderInline(src, "docs/invisible-spaces.md")
+	out, err := htmlOf(New(Options{}), src, "docs/invisible-spaces.md")
 
 	// assert
 	require.NoError(t, err)

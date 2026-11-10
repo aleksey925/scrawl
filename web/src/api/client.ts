@@ -5,6 +5,9 @@ import { togglesOf } from '../reader/findMatches';
 import { ApiError } from './errors';
 import type {
   ApiErrorBody,
+  CompareRequest,
+  CompareResponse,
+  DeleteResponse,
   DirListing,
   Divergence,
   EntryKind,
@@ -184,13 +187,15 @@ export interface ScrawlApi {
   file(path: string, options?: RequestOptions): Promise<FileResponse>;
   saveFile(path: string, body: SaveFileRequest, options?: RequestOptions): Promise<SaveFileResponse>;
   createEntry(path: string, kind: EntryKind, options?: RequestOptions): Promise<EntryPathResponse>;
-  deleteEntry(path: string, withContents: boolean, options?: RequestOptions): Promise<EntryPathResponse>;
+  deleteEntry(path: string, options?: RequestOptions): Promise<DeleteResponse>;
+  restoreTrashed(id: string, options?: RequestOptions): Promise<EntryPathResponse>;
   move(from: string, to: string, options?: RequestOptions): Promise<EntryPathResponse>;
   find(query: string, settings: SearchSettings, limit?: number, options?: RequestOptions): Promise<SearchResponse>;
   history(path: string, options?: RequestOptions): Promise<HistoryResponse>;
   historyVersion(path: string, rev: string, options?: RequestOptions): Promise<HistoryVersionResponse>;
   restoreVersion(path: string, body: RestoreRequest, options?: RequestOptions): Promise<RestoreOutcome>;
   preview(body: PreviewRequest, options?: RequestOptions): Promise<PreviewResponse>;
+  compare(body: CompareRequest, options?: RequestOptions): Promise<CompareResponse>;
   upload(dir: string, file: File, doc?: string, options?: RequestOptions): Promise<UploadResponse>;
   syncCheck(options?: RequestOptions): Promise<Divergence>;
   syncReset(body: ResetRequest, options?: RequestOptions): Promise<ResetResponse>;
@@ -229,12 +234,15 @@ export const api: ScrawlApi = {
   createEntry: (path, kind, options) =>
     call<EntryPathResponse>('POST', fileUrl(path), { ...options, body: { type: kind } }),
 
-  deleteEntry: (path, withContents, options) =>
-    call<EntryPathResponse>(
+  deleteEntry: (path, options) =>
+    call<DeleteResponse>(
       'DELETE',
-      withQuery(fileUrl(path), { recursive: withContents ? 'true' : undefined }),
+      withQuery(fileUrl(path), { recursive: 'true' }),
       options,
     ),
+
+  restoreTrashed: (id, options) =>
+    call<EntryPathResponse>('POST', spaceUrl('/api/trash/restore'), { ...options, body: { id } }),
 
   move: (from, to, options) =>
     call<EntryPathResponse>('POST', spaceUrl('/api/move'), { ...options, body: { from, to } }),
@@ -260,6 +268,9 @@ export const api: ScrawlApi = {
 
   preview: (body, options) =>
     call<PreviewResponse>('POST', spaceUrl('/api/preview'), { ...options, body }),
+
+  compare: (body, options) =>
+    call<CompareResponse>('POST', spaceUrl('/api/compare'), { ...options, body }),
 
   upload: (dir, file, doc, options) => {
     const form = new FormData();

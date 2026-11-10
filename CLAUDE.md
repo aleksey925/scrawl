@@ -100,8 +100,18 @@ the link names.
   [remote sync](docs/design/remote-sync.md#credentials),
   [history](docs/design/history.md#recording)
 - scrawl never merges, rebases or resolves a conflict, and nothing destructive
-  runs without a person confirming it.
-  [remote sync](docs/design/remote-sync.md#conflicts-and-reset)
+  runs without a person confirming it. A delete is the one exception: it asks
+  nothing and goes to a trash for a few minutes, with Undo in its toast.
+  [remote sync](docs/design/remote-sync.md#conflicts-and-reset),
+  [ADR 20](docs/adr/0020-delete-to-a-trash-with-undo.md)
+- A person never waits on git or the network for an action they made. The
+  screen shows a result it can predict at once - a delete has its toast and
+  leaves the page before the server answers - and a write from the page is
+  committed in its request and pushed after the answer. No fetch or push holds
+  the lock a commit takes; a write with an API token still pushes in its
+  request, and waits on the network lock, never on the history lock.
+  [remote sync](docs/design/remote-sync.md#pushing),
+  [locks](docs/design/remote-sync.md#locks), [entries](docs/ui/entries.md)
 - The built frontend is committed: a change in `web/` is followed by `make ui`
   and a commit of what it wrote. Nothing is fetched from a CDN.
   [frontend](docs/design/frontend.md#build-and-release)
@@ -132,7 +142,7 @@ One kind of knowledge per place:
 
 Before changing a part, read its doc:
 
-- `store`, `os.Root`, atomic writes, the watcher, uploads, paths:
+- `store`, `os.Root`, atomic writes, the watcher, uploads, paths, the trash:
   [storage](docs/design/storage.md)
 - spaces, settings, routes, the two kinds of URL, guards, CSP, `/raw/`, a
   file's page, background goroutines: [server](docs/design/server.md)
@@ -152,7 +162,8 @@ Before changing a part, read its doc:
 - the index, the search modes, the find bar: [search](docs/design/search.md)
 - git history, an adopted repository, restore, comparing versions:
   [history](docs/design/history.md)
-- a clone, `--ff-only`, diverged, reset, sync state, credentials, the webhook:
+- a clone, `--ff-only`, diverged, reset, the push after the answer and its
+  retry, sync state and the sync control, credentials, the webhook:
   [remote sync](docs/design/remote-sync.md)
 - `render`, `diff`, the pages of the command line, export and PDF:
   [command line](docs/design/cli.md)
@@ -165,7 +176,8 @@ Before changing a part, read its doc:
   picture viewer, the history dialog: [pages](docs/ui/pages.md)
 - creating, naming, dragging and deleting files and folders:
   [entries](docs/ui/entries.md)
-- the editor screen and its toolbar, text files: [editor](docs/ui/editor.md)
+- the editor screen and its toolbar, the Changes layout, text files:
+  [editor](docs/ui/editor.md)
 - palettes, controls, the focus ring, menus, icons: [look](docs/ui/look.md)
 - the tab bar, dialogs, toasts, screen moves, swipe back:
   [phone](docs/ui/phone.md)

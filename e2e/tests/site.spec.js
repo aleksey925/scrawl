@@ -8,7 +8,7 @@ const {pathToFileURL} = require('node:url');
 const {expect, test} = require('@playwright/test');
 
 const {binary} = require('../support/env');
-const {openSpaceMenu, showOutline} = require('../support/helpers');
+const {openSpaceMenu, rightClickPrevented, showOutline} = require('../support/helpers');
 
 const PIXEL = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
@@ -249,6 +249,29 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await expect(page).toHaveURL(at('docs/guide.html'));
         });
 
+        test('a right click on a folder list, a row or the tree keeps the browser menu', async ({page}) => {
+            // arrange
+            await page.goto(at('docs/index.html'));
+            const listed = page.locator('[data-testid=dir-row][data-path="docs/guide.md"]');
+            await expect(listed).toBeVisible();
+            const list = await page.getByTestId('dir').boundingBox();
+            const tree = await page.getByTestId('tree-root').boundingBox();
+
+            // act
+            const prevented = [
+                await rightClickPrevented(page, listed),
+                await rightClickPrevented(page, row(page, 'docs')),
+                await rightClickPrevented(page, page.getByTestId('dir'), {position: {x: list.width / 2, y: list.height - 20}}),
+                await rightClickPrevented(page, page.getByTestId('tree-root'), {position: {x: tree.width / 2, y: tree.height - 10}}),
+            ];
+
+            // assert
+            expect(prevented).toEqual([false, false, false, false]);
+            await expect(page.getByTestId('tree-row-menu-dropdown')).toHaveCount(0);
+            await expect(page.getByTestId('dir-context-menu')).toHaveCount(0);
+            await expect(page.getByTestId('tree-context-menu')).toHaveCount(0);
+        });
+
         test('a note whose name a url has to escape opens from its folder', async ({page}) => {
             for (const [name, title] of [['100%.md', 'Percent'], ['a%20b.md', 'Escaped'], ['what? #1.md', 'Question']]) {
                 // arrange
@@ -267,7 +290,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
             // arrange
             await page.goto(at('docs/deep/inner.html'));
             const crumbs = page.getByTestId('topbar-crumbs').getByTestId('crumb');
-            await expect(crumbs).toHaveText(['Home', 'docs', 'deep', 'Inner']);
+            await expect(crumbs).toHaveText(['Home', 'docs', 'deep', 'inner.md']);
 
             // act
             await crumbs.filter({hasText: 'docs'}).click();
@@ -605,6 +628,7 @@ test.describe('site from a host moves between notes without a page load', () => 
         await page.goto(at('docs/guide.html'));
         await row(page, 'docs/long.md').getByTestId('tree-link').click();
         await expect(page.getByTestId('doc').locator('h1')).toHaveText('Long');
+        await page.mouse.wheel(0, 1);
         await page.evaluate(() => window.scrollTo({top: 1800, behavior: 'instant'}));
         const left = await scrollY(page);
         await page.goBack();

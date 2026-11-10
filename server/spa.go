@@ -53,6 +53,8 @@ type spaceState struct {
 	Unsynced     unsyncedPaths `json:"unsynced"`
 	Diverged     bool          `json:"diverged"`
 	PushRefused  bool          `json:"push_refused"`
+	Retrying     bool          `json:"retrying"`
+	Pushing      bool          `json:"pushing"`
 	CanReset     bool          `json:"can_reset"`
 }
 
@@ -248,6 +250,8 @@ func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {
 			Unsynced:     unsyncedOf(sync.Unsynced),
 			Diverged:     sync.Diverged,
 			PushRefused:  sync.Refused,
+			Retrying:     sync.Retrying,
+			Pushing:      sync.Pushing,
 			CanReset:     m.canReset(r),
 		},
 	}

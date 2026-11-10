@@ -27,7 +27,6 @@ type History interface {
 	Enabled() bool
 	Degraded() bool
 	Unpublished() bool
-	SyncError() string
 	SyncState() history.SyncState
 	Remote() bool
 	CheckDivergence(ctx context.Context) (history.Divergence, error)
@@ -134,7 +133,7 @@ func (m *mount) historyVersion(w http.ResponseWriter, r *http.Request, p, rev st
 	if after != nil && len(after) <= maxEditableFile {
 		res["content"] = string(after)
 	}
-	changes, err := m.compare(change.From, before, p, after)
+	changes, err := compareDocs(change.From, before, p, after, m.renderSaved)
 	if err != nil {
 		log.Printf("[WARN] compare %s at %s: %v", p, rev, err)
 	} else {
@@ -150,12 +149,14 @@ func (m *mount) blobContent(ctx context.Context, blob string) ([]byte, error) {
 	return m.history().Show(ctx, blob)
 }
 
-func (m *mount) compare(oldPath string, old []byte, curPath string, cur []byte) ([]htmldiff.Row, error) {
-	oldDoc, err := m.diffSide(oldPath, old)
+type sideRenderer func(docPath string, data []byte) (render.Result, error)
+
+func compareDocs(oldPath string, old []byte, curPath string, cur []byte, renderSide sideRenderer) ([]htmldiff.Row, error) {
+	oldDoc, err := diffSide(oldPath, old, renderSide)
 	if err != nil {
 		return nil, err
 	}
-	curDoc, err := m.diffSide(curPath, cur)
+	curDoc, err := diffSide(curPath, cur, renderSide)
 	if err != nil {
 		return nil, err
 	}
@@ -164,15 +165,19 @@ func (m *mount) compare(oldPath string, old []byte, curPath string, cur []byte) 
 	})
 }
 
-func (m *mount) diffSide(p string, data []byte) (htmldiff.Document, error) {
+func diffSide(p string, data []byte, renderSide sideRenderer) (htmldiff.Document, error) {
 	if data == nil {
 		return htmldiff.Document{}, nil
 	}
-	res, err := m.renderDoc(p, data, store.Rev(data))
+	res, err := renderSide(p, data)
 	if err != nil {
 		return htmldiff.Document{}, err
 	}
 	return htmldiff.Document{Frontmatter: render.Frontmatter(data), HTML: string(res.HTML)}, nil
+}
+
+func (m *mount) renderSaved(p string, data []byte) (render.Result, error) {
+	return m.renderDoc(p, data, store.Rev(data))
 }
 
 func (m *mount) versionContent(ctx context.Context, rev, p string) ([]byte, error) {

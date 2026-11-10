@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -43,6 +44,7 @@ const (
 	maxJSONBody = 4 << 20
 
 	maxPreviewBody = 512 << 10
+	maxCompareBody = 4 * maxPreviewBody
 
 	maxEditableFile = 2 << 20
 
@@ -112,20 +114,17 @@ func (wb *Web) Run(ctx context.Context) error {
 		return fmt.Errorf("make router: %w", err)
 	}
 
-	srv := &http.Server{
-		Addr:              wb.ListenAddr,
-		Handler:           router,
-		ReadHeaderTimeout: wb.ReadHeaderTimeout,
-		ReadTimeout:       wb.ReadTimeout,
-		WriteTimeout:      wb.WriteTimeout,
-		IdleTimeout:       wb.IdleTimeout,
+	srv, cancelRequests := wb.httpServer(ctx, router)
+	defer cancelRequests()
+
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", wb.ListenAddr)
+	if err != nil {
+		return fmt.Errorf("listen on %s: %w", wb.ListenAddr, err)
 	}
+	logOpenLinks(ln.Addr())
 
 	serverErrors := make(chan error, 1)
-	go func() {
-		log.Printf("[INFO] starting server on %s", wb.ListenAddr)
-		serverErrors <- srv.ListenAndServe()
-	}()
+	go func() { serverErrors <- srv.Serve(ln) }()
 
 	select {
 	case err := <-serverErrors:
@@ -135,11 +134,43 @@ func (wb *Web) Run(ctx context.Context) error {
 		return fmt.Errorf("server failed: %w", err)
 	case <-ctx.Done():
 		log.Printf("[DEBUG] server shutdown initiated")
-		return wb.shutdown(ctx, srv)
+		return wb.shutdown(ctx, srv, cancelRequests)
 	}
 }
 
-func (wb *Web) shutdown(ctx context.Context, srv *http.Server) error {
+func (wb *Web) httpServer(ctx context.Context, handler http.Handler) (*http.Server, context.CancelFunc) {
+	requests, cancelRequests := context.WithCancel(context.WithoutCancel(ctx))
+	base := context.WithValue(requests, requestsKey{}, requests)
+	return &http.Server{
+		Addr:              wb.ListenAddr,
+		Handler:           handler,
+		ReadHeaderTimeout: wb.ReadHeaderTimeout,
+		ReadTimeout:       wb.ReadTimeout,
+		WriteTimeout:      wb.WriteTimeout,
+		IdleTimeout:       wb.IdleTimeout,
+		BaseContext:       func(net.Listener) context.Context { return base },
+	}, cancelRequests
+}
+
+type requestsKey struct{}
+
+type withoutClient struct {
+	context.Context
+	values context.Context
+}
+
+func (c withoutClient) Value(key any) any { return c.values.Value(key) }
+
+func detachFromClient(r *http.Request) *http.Request {
+	requests, ok := r.Context().Value(requestsKey{}).(context.Context)
+	if !ok {
+		requests = context.Background()
+	}
+	//nolint:contextcheck // the values are the request's, only the cancel is the server's
+	return r.WithContext(withoutClient{Context: requests, values: r.Context()})
+}
+
+func (wb *Web) shutdown(ctx context.Context, srv *http.Server, cancelRequests context.CancelFunc) error {
 	timeout := wb.ShutdownTimeout
 	if timeout <= 0 {
 		timeout = defaultShutdownTimeout
@@ -149,6 +180,10 @@ func (wb *Web) shutdown(ctx context.Context, srv *http.Server) error {
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
+		cancelRequests()
+		if closeErr := srv.Close(); closeErr != nil {
+			log.Printf("[WARN] close the server: %v", closeErr)
+		}
 		return fmt.Errorf("graceful shutdown: %w", err)
 	}
 
@@ -254,9 +289,11 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	mutating.HandleFunc("PUT /api/file/{path...}", m.apiFileSave)
 	mutating.HandleFunc("POST /api/file/{path...}", m.apiFileCreate)
 	mutating.HandleFunc("DELETE /api/file/{path...}", m.apiFileDelete)
+	mutating.HandleFunc("POST /api/trash/restore", m.apiTrashRestore)
 	mutating.HandleFunc("POST /api/move", m.apiMove)
 	mutating.HandleFunc("POST /api/upload/{dir...}", m.apiUpload)
 	mutating.HandleFunc("POST /api/preview", m.apiPreview)
+	mutating.HandleFunc("POST /api/compare", m.apiCompare)
 	mutating.HandleFunc("POST /api/history/restore/{path...}", m.apiHistoryRestore)
 	mutating.HandleFunc("POST /api/sync/check", m.apiSyncCheck)
 	mutating.HandleFunc("POST /api/sync/reset", m.apiSyncReset)
@@ -406,9 +443,14 @@ func jsonError(w http.ResponseWriter, status int, message string) {
 }
 
 func failJSON(w http.ResponseWriter, r *http.Request, err error) {
+	failJSONWith(w, r, err, map[string]any{})
+}
+
+func failJSONWith(w http.ResponseWriter, r *http.Request, err error, res map[string]any) {
 	status := statusOf(err)
 	logFailure(r, status, err)
-	jsonError(w, status, errMessage(err))
+	res["error"] = errMessage(err)
+	writeJSON(w, status, res)
 }
 
 func Favicon() []byte {

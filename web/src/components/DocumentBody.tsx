@@ -24,7 +24,7 @@ const leadingHeading = /^\s*<h1[\s>]/;
 export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
   const { canWrite } = useNav();
   const { DocumentExtras } = useReaderExtensions();
-  usePageChrome(chromeOf(doc.breadcrumbs, doc.title, leadingHeading.test(doc.html)));
+  usePageChrome(chromeOf(doc.breadcrumbs, doc.title, leadingHeading.test(doc.html), basenameOf(doc.path)));
   const { remember } = useRecentNotes();
   useEffect(() => remember({ path: doc.path, title: doc.title }), [remember, doc.path, doc.title]);
   const placed = useRef(false);

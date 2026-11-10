@@ -1,5 +1,5 @@
 import {
-  createContext, useCallback, useContext, useEffect, useMemo, useState,
+  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
   type JSX, type ReactNode,
 } from 'react';
 import { useLocation } from 'react-router';
@@ -10,7 +10,7 @@ import { usePlatform } from '../platform';
 import { localStore, readJson, writeJson } from '../storage';
 
 import { contentPathOf } from './naming';
-import { syncMessage, type SyncMessage } from './syncMessage';
+import { syncMessage, syncStatusOf, type SyncMessage, type SyncStatus } from './syncMessage';
 import type { MeState } from './useMe';
 
 function openKey(scope: string): string {
@@ -34,6 +34,7 @@ export interface NavState {
   canWrite: boolean;
   currentPath: string;
   sync: SyncMessage | undefined;
+  syncStatus: SyncStatus | undefined;
   isUnsynced: (path: string) => boolean;
   refreshNav: () => void;
   refreshMe: () => void;
@@ -68,6 +69,32 @@ function activeFolders(nodes: readonly NavNode[], into: Set<string>): void {
   }
 }
 
+function folderFill(nodes: readonly NavNode[], into: Map<string, boolean>): void {
+  for (const entry of nodes) {
+    if (entry.is_dir) {
+      into.set(entry.path, entry.children.length === 0);
+      folderFill(entry.children, into);
+    }
+  }
+}
+
+function fillChanges(before: ReadonlyMap<string, boolean>, after: ReadonlyMap<string, boolean>): {
+  filled: string[];
+  emptied: string[];
+} {
+  const filled: string[] = [];
+  const emptied: string[] = [];
+  for (const [path, empty] of after) {
+    const wasEmpty = before.get(path);
+    if (wasEmpty === true && !empty) {
+      filled.push(path);
+    } else if (wasEmpty === false && empty) {
+      emptied.push(path);
+    }
+  }
+  return { filled, emptied };
+}
+
 export interface NavProviderProps {
   status: MeState;
   children: ReactNode;
@@ -87,18 +114,56 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
   const [query, setQuery] = useState('');
   const tree = useMemo(() => nav.data?.tree ?? [], [nav.data]);
 
+  const seenActive = useRef<{ page: string; folders: ReadonlySet<string> }>({ page: '', folders: new Set() });
   useEffect(() => {
+    if (nav.stale) {
+      return;
+    }
+    const active = new Set<string>();
+    activeFolders(tree, active);
+    const seen = seenActive.current.page === currentPath ? seenActive.current.folders : new Set<string>();
+    const arrived = [...active].filter((path) => !seen.has(path));
+    seenActive.current = { page: currentPath, folders: active };
+    if (arrived.length === 0) {
+      return;
+    }
     setOpen((prev) => {
-      const next = new Set(prev);
-      const before = next.size;
-      activeFolders(tree, next);
-      if (next.size === before) {
+      const next = new Set([...prev, ...arrived]);
+      if (next.size === prev.size) {
         return prev;
       }
       writeOpen(storageKey, next);
       return next;
     });
-  }, [tree, storageKey]);
+  }, [tree, nav.stale, currentPath, storageKey]);
+
+  const lastFill = useRef<ReadonlyMap<string, boolean> | undefined>(undefined);
+  useEffect(() => {
+    if (nav.stale || nav.loading || nav.data === undefined) {
+      return;
+    }
+    const fill = new Map<string, boolean>();
+    folderFill(tree, fill);
+    const before = lastFill.current;
+    lastFill.current = fill;
+    if (before === undefined) {
+      return;
+    }
+    const { filled, emptied } = fillChanges(before, fill);
+    if (filled.length === 0 && emptied.length === 0) {
+      return;
+    }
+    setOpen((prev) => {
+      if (filled.every((path) => prev.has(path)) && emptied.every((path) => !prev.has(path))) {
+        return prev;
+      }
+      const next = new Set(prev);
+      filled.forEach((path) => next.add(path));
+      emptied.forEach((path) => next.delete(path));
+      writeOpen(storageKey, next);
+      return next;
+    });
+  }, [tree, nav.stale, nav.loading, nav.data, storageKey]);
 
   const toggleFolder = useCallback((path: string) => {
     setOpen((prev) => {
@@ -129,6 +194,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
   }, []);
 
   const sync = useMemo(() => syncMessage(me), [me]);
+  const syncStatus = useMemo(() => syncStatusOf(me, sync), [me, sync]);
 
   const unsynced = useMemo(() => {
     const paths = me?.space.unsynced;
@@ -148,6 +214,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       canWrite: me !== undefined && !me.read_only && (!me.auth_on || me.user !== ''),
       currentPath,
       sync,
+      syncStatus,
       isUnsynced,
       refreshNav,
       refreshMe,
@@ -159,7 +226,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       setQuery,
     }),
     [
-      tree, nav.error, nav.loading, me, currentPath, sync, isUnsynced,
+      tree, nav.error, nav.loading, me, currentPath, sync, syncStatus, isUnsynced,
       refreshNav, refreshMe, token, isOpen, toggleFolder, openFolder, query,
     ],
   );

@@ -86,3 +86,9 @@
   flex: none;
   color: var(--scrawl-icon-secondary);
 }
+
+.field {
+  min-height: 36px;
+  padding-inline: 10px;
+  font-size: var(--mantine-font-size-sm);
+}

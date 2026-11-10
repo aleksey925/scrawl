@@ -47,6 +47,8 @@ export function siteStatus(title: string): MeState {
       diverged: false,
       can_reset: false,
       push_refused: false,
+      retrying: false,
+      pushing: false,
     },
   };
   return { me, refreshMe: () => {} };

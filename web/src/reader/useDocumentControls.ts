@@ -47,7 +47,7 @@ export function useDocumentControls(
       jump(id, true);
       const copied = await copyText(sectionLink(id));
       showToast(copied ? 'ok' : 'error', {
-        message: copied ? 'Link copied' : 'Could not copy the link',
+        message: copied ? `Copied the link to "${anchor.dataset.headingTitle ?? ''}"` : 'Could not copy the link',
       });
     };
 

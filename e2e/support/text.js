@@ -8,10 +8,6 @@ module.exports = {
     },
 
     modal: {
-        rename: 'Rename or move',
-        deleteFile: 'Delete file?',
-        deleteFolder: 'Delete folder?',
-        deleteFolderContents: 'Delete folder and everything in it?',
         leave: 'Leave without saving?',
         conflict: 'This file changed on disk',
         restore: 'Restore this version?',
@@ -22,18 +18,28 @@ module.exports = {
     toast: {
         saved: 'Saved',
         restored: 'Restored',
-        folderCreated: 'Folder created',
+        folderCreated: 'Created folder',
         moved: 'Moved',
         movedMany: 'Moved 2 items',
         renamed: 'Renamed',
+        notNoteNow: 'It is not a note now, so the tree does not show it',
         deleted: 'Deleted',
         notDeleted: 'Nothing was deleted',
+        notMovedBack: 'Nothing was moved back',
+        partlyMovedBack: 'Some of it did not move back',
+        changedSince: 'It was renamed, moved or deleted since',
         imageUploaded: 'Image uploaded',
-        linkCopied: 'Link copied',
+        linkCopied: 'Copied the link',
+        noHeadings: 'No headings to list',
+        contentsFailed: 'Could not build the contents',
     },
 
     pageExists: 'That file already exists',
     folderExists: 'That folder already exists',
+    renameSlash: 'A name cannot hold a slash, use Move to instead',
+    renameDot: 'A name cannot start with a dot',
+    renameFailed: 'Nothing was renamed',
+    nameTaken: 'Something of that name is already there',
 
     doc: {
         missing: 'This note does not exist yet.',
@@ -45,7 +51,6 @@ module.exports = {
 
     dir: {
         empty: 'This folder is empty',
-        noNotes: 'No notes inside',
     },
 
     search: {
@@ -74,6 +79,8 @@ module.exports = {
         draft: 'An unsaved draft was found',
         conflictMine: 'Your version',
         conflictTheirs: 'On disk',
+        changesTooLarge: 'This document is too large to compare. Editing and saving still work.',
+        changesFailed: 'Could not compare',
     },
 
     login: {

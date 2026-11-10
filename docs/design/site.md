@@ -6,7 +6,11 @@ A space written out as static pages that run the app's reader.
   and not a second one ([ADR 15](../adr/0015-site-runs-the-app-reader.md)). The
   reader is one set of components run from two entries: the app's, against the
   server, and a site's, against the answers `site` wrote into its pages. What a
-  reader can do without a server reaches a site by being in the reader.
+  reader can do without a server reaches a site by being in the reader. A site
+  names a note by its file name, `inner.md`, in its tree and its path, as the
+  app does ([ADR 22](../adr/0022-names-show-their-extension.md)). The markup
+  for a reader without javascript names the path and a folder's list by file
+  names too, and only its `<title>` is the note's title.
 - The reader asks the place it runs in for everything that differs: the
   answers, the physical urls, which link it routes, the two renderers and where
   a choice is kept. That is the platform, given by each entry. What only the

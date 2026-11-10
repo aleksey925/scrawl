@@ -186,7 +186,7 @@ func TestARemoteSpacePushesWhatTheAppSaves(t *testing.T) {
 	// assert
 	assert.Contains(t, runGitIn(t, bare, "ls-tree", "--name-only", "main"), "added.md")
 	assert.False(t, hist.Unpublished())
-	assert.Empty(t, hist.SyncError())
+	assert.Empty(t, hist.SyncState().Error)
 }
 
 func TestAReadOnlyRemoteSpaceRecordsNothing(t *testing.T) {
@@ -211,7 +211,7 @@ func TestAReadOnlyRemoteSpaceRecordsNothing(t *testing.T) {
 	assert.Equal(t, before, runGitIn(t, dir, "rev-parse", "HEAD"), "nothing was committed")
 	assert.NotContains(t, runGitIn(t, bare, "ls-tree", "--name-only", "main"), "over-smb.md")
 	assert.False(t, hist.Unpublished())
-	assert.Empty(t, hist.SyncError())
+	assert.Empty(t, hist.SyncState().Error)
 }
 
 func TestARemoteSpaceTracksEveryVisibleFile(t *testing.T) {
@@ -228,6 +228,7 @@ func TestARemoteSpaceTracksEveryVisibleFile(t *testing.T) {
 
 	// act
 	reconcile(t.Context(), cfg.Name, hist, historyActorStartup)
+	syncRemote(t.Context(), cfg.Name, hist)
 
 	// assert
 	assert.Contains(t, strings.Split(runGitIn(t, bare, "ls-tree", "--name-only", "main"), "\n"), "config.toml")

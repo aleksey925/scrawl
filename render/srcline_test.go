@@ -106,7 +106,7 @@ func TestSourceRanges(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// act
-			out, err := r.RenderInline([]byte(tt.src), "docs/x.md")
+			out, err := htmlOf(r, []byte(tt.src), "docs/x.md")
 
 			// assert
 			require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestSourceRangeInEditorPreview(t *testing.T) {
 	// act
 	full, err := r.Render(src, "docs/x.md")
 	require.NoError(t, err)
-	preview, err := r.RenderInline(src, "docs/x.md")
+	preview, err := htmlOf(r, src, "docs/x.md")
 
 	// assert
 	require.NoError(t, err)
@@ -154,7 +154,7 @@ func TestSourceRangeSanitizer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// act
-			out, err := r.RenderInline([]byte(tt.src), "docs/x.md")
+			out, err := htmlOf(r, []byte(tt.src), "docs/x.md")
 
 			// assert
 			require.NoError(t, err)

@@ -203,6 +203,94 @@ test.describe('pages', () => {
         await expect(page.getByTestId('sidebar-search-keys')).toHaveText(/K$/);
     });
 
+    test('a toast stands at the foot of the window in the middle, with no close button', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(docs.folder.path));
+
+        // act
+        await page.getByTestId('folder-menu').click();
+        await page.getByTestId('folder-menu-copy-link').click();
+
+        // assert
+        const toast = page.getByTestId('toast-box');
+        await expect.poll(async () => {
+            const box = await toast.boundingBox();
+            const view = page.viewportSize();
+            const gap = view.height - box.y - box.height;
+            return {centered: Math.abs(box.x + box.width / 2 - view.width / 2) < 2, atFoot: gap > 0 && gap < 60};
+        }).toEqual({centered: true, atFoot: true});
+        await expect(page.locator('.mantine-Notification-closeButton')).toHaveCount(0);
+    });
+
+    test.describe('a toast on a desktop', () => {
+        const TOAST_NOTE = 'e2e-pages-toast.md';
+        const toasts = (page) => () => page.getByTestId('toast').count();
+
+        test.afterEach(() => {
+            removeFixture(TOAST_NOTE);
+        });
+
+        async function copied(page) {
+            await page.goto(routes.dir(docs.folder.path));
+            await page.getByTestId('folder-menu').click();
+            await page.getByTestId('folder-menu-copy-link').click();
+            await expect(page.getByTestId('toast-box')).toBeVisible();
+            await page.mouse.move(0, 0);
+        }
+
+        async function deleted(page) {
+            writeFixture(TOAST_NOTE, '# Toast\n');
+            await page.goto(routes.home());
+            await page.locator(`[data-testid=tree-row][data-path="${TOAST_NOTE}"] [data-testid=tree-row-menu]`).click();
+            await page.getByTestId('tree-row-menu-delete').click();
+            await expect(page.getByTestId('toast-action')).toBeVisible();
+            await page.mouse.move(0, 0);
+        }
+
+        test('goes after 4 seconds', async ({page}) => {
+            // act
+            await copied(page);
+
+            // assert
+            await stays(toasts(page), 1, 3000);
+            await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 2500});
+        });
+
+        test('with Undo stays 6 seconds', async ({page}) => {
+            // act
+            await deleted(page);
+
+            // assert
+            await stays(toasts(page), 1, 5000);
+            await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 2500});
+        });
+
+        test('stays while the pointer is on it', async ({page}) => {
+            // arrange
+            await copied(page);
+
+            // act
+            await page.getByTestId('toast-box').hover();
+
+            // assert
+            await stays(toasts(page), 1, 5000);
+            await page.mouse.move(0, 0);
+            await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 5000});
+        });
+
+        test('goes at a click on it outside its buttons', async ({page}) => {
+            // arrange
+            await deleted(page);
+
+            // act
+            await page.getByTestId('toast-box').click({position: {x: 20, y: 10}});
+
+            // assert
+            await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 1500});
+            expect(() => readFixture(TOAST_NOTE)).toThrow();
+        });
+    });
+
     test('a directory without an index lists its entries', async ({page}) => {
         await page.goto(routes.dir(docs.folder.path));
 

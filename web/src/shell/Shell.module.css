@@ -8,6 +8,15 @@
   background: var(--scrawl-bg);
 }
 
+.main:has(> [data-fill]) {
+  display: flex;
+  flex-direction: column;
+}
+
+.main > [data-fill] {
+  flex-grow: 1;
+}
+
 @mixin larger-than $mantine-breakpoint-sm {
   :global(html) {
     overscroll-behavior-y: none;
@@ -35,8 +44,8 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.sheetHead {
-  padding-block: 12px 4px;
+.sheet .sheetHead {
+  padding-block: 12px 0;
 }
 
 .sheetTitle {

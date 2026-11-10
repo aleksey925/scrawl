@@ -1,59 +1,81 @@
-import { ActionIcon, Anchor, Button, Code, List, Popover, Stack, Text } from '@mantine/core';
+import { ActionIcon, Anchor, Button, Code, List, Loader, Popover, Stack, Text } from '@mantine/core';
+import { useReducedMotion } from '@mantine/hooks';
 import { useState, type JSX } from 'react';
 import { Link } from 'react-router';
 
 import { TapGuard, useTouchScreen } from '../components/TapGuard';
-import { IconCloudOff } from '../icons';
+import { IconAlertTriangle, IconCloudCheck, IconCloudOff, IconCloudUp } from '../icons';
 import { documentUrl } from '../paths';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { useNav } from './NavContext';
 import { ResetAction } from './ResetDialog';
+import type { SyncStatus } from './syncMessage';
 
 const thisNote = 'This note has not reached the remote';
 
+const spinnerInset = 4;
+
 interface SyncSummary {
+  status: SyncStatus;
   here: boolean;
   label: string;
 }
 
 function useSyncSummary(): SyncSummary | undefined {
-  const { sync, isUnsynced, currentPath } = useNav();
-  if (sync === undefined) {
+  const { syncStatus, isUnsynced, currentPath } = useNav();
+  if (syncStatus === undefined) {
     return undefined;
   }
   const here = isUnsynced(currentPath);
-  return { here, label: here ? thisNote : sync.title };
+  return { status: syncStatus, here, label: here ? `${syncStatus.name}. ${thisNote}` : syncStatus.name };
 }
 
-function SyncDetails({ onLeave }: { onLeave: () => void }): JSX.Element | null {
-  const { sync, me } = useNav();
-  const summary = useSyncSummary();
-  if (sync === undefined || summary === undefined) {
-    return null;
+function SyncIcon({ state, size }: { state: SyncStatus['state']; size: number }): JSX.Element {
+  const reduceMotion = useReducedMotion();
+  switch (state) {
+    case 'sending':
+      return reduceMotion ? (
+        <IconCloudUp data-testid="sync-still" size={size} aria-hidden />
+      ) : (
+        <Loader data-testid="sync-spinner" size={size - spinnerInset} color="var(--scrawl-text-secondary)" aria-hidden />
+      );
+    case 'sent':
+      return <IconCloudCheck size={size} aria-hidden />;
+    case 'blocked':
+      return <IconAlertTriangle size={size} aria-hidden />;
+    default:
+      return <IconCloudOff size={size} aria-hidden />;
   }
+}
+
+function SyncDetails({ summary, onLeave }: { summary: SyncSummary; onLeave: () => void }): JSX.Element {
+  const { sync, me } = useNav();
+  const { name, detail } = summary.status;
   const paths = me?.space.unsynced.paths ?? [];
 
   return (
     <Stack data-testid="sync-details" gap="xs">
       <Text size="sm" fw={500}>
-        {sync.title}
+        {name}
       </Text>
+      {detail !== undefined && <Text size="sm">{detail}</Text>}
       {summary.here && (
         <Text data-testid="sync-popover-here" size="sm">
           {thisNote}.
         </Text>
       )}
-      {sync.facts.map((entry) => (
-        <Stack key={entry.kind} gap={4}>
-          <Text size="sm">{entry.body}</Text>
-          {entry.reason !== '' && (
-            <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-              {entry.reason}
-            </Code>
-          )}
-        </Stack>
-      ))}
+      {detail === undefined &&
+        sync?.facts.map((entry) => (
+          <Stack key={entry.kind} gap={4}>
+            <Text size="sm">{entry.body}</Text>
+            {entry.reason !== '' && (
+              <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                {entry.reason}
+              </Code>
+            )}
+          </Stack>
+        ))}
       <ResetAction onOpen={onLeave} />
       {paths.length > 0 && (
         <List data-testid="sync-popover-paths" size="sm" spacing={4} withPadding>
@@ -79,6 +101,17 @@ export function SyncControl(): JSX.Element | null {
   if (summary === undefined) {
     return null;
   }
+  const { state, name } = summary.status;
+  const calm = summary.status.detail !== undefined;
+  const color = calm ? 'var(--scrawl-text-secondary)' : 'var(--scrawl-color-orange)';
+  const shared = {
+    'data-testid': 'sync-control',
+    'data-here': summary.here ? 'true' : 'false',
+    'data-state': state,
+    'aria-label': summary.label,
+    style: { color },
+    onClick: () => setOpened((open) => !open),
+  };
 
   return (
     <>
@@ -92,37 +125,25 @@ export function SyncControl(): JSX.Element | null {
         closeOnClickOutside={!touch}
       >
         <Popover.Target>
-          {wide ? (
+          {wide && !calm ? (
             <Button
-              data-testid="sync-control"
-              data-here={summary.here ? 'true' : 'false'}
+              {...shared}
               variant="subtle"
               color="orange"
               px="xs"
-              aria-label={summary.label}
-              leftSection={<IconCloudOff size={layout.iconSizeSmall} />}
-              style={{ color: 'var(--scrawl-color-orange)' }}
-              onClick={() => setOpened((open) => !open)}
+              leftSection={<SyncIcon state={state} size={layout.iconSizeSmall} />}
             >
-              Not synced
+              {name}
             </Button>
           ) : (
-            <ActionIcon
-              data-testid="sync-control"
-              data-here={summary.here ? 'true' : 'false'}
-              variant="subtle"
-              size="lg"
-              aria-label={summary.label}
-              style={{ color: 'var(--scrawl-color-orange)' }}
-              onClick={() => setOpened((open) => !open)}
-            >
-              <IconCloudOff size={layout.iconSize} />
+            <ActionIcon {...shared} variant="subtle" color="gray" size="lg">
+              <SyncIcon state={state} size={wide ? layout.iconSizeSmall : layout.iconSize} />
             </ActionIcon>
           )}
         </Popover.Target>
 
         <Popover.Dropdown data-testid="sync-popover">
-          <SyncDetails onLeave={() => setOpened(false)} />
+          <SyncDetails summary={summary} onLeave={() => setOpened(false)} />
         </Popover.Dropdown>
       </Popover>
       <TapGuard active={opened} onClose={() => setOpened(false)} />

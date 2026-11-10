@@ -1,10 +1,13 @@
 import { ActionIcon, Menu } from '@mantine/core';
-import { useEffect, type JSX } from 'react';
+import type { JSX } from 'react';
 import { useNavigate } from 'react-router';
 
-import { PopupMenu } from '../components/PopupMenu';
 import {
-  IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconPlus, IconTrash,
+  FixedAnchor, pointerPlacement, rectAt, useCloseOnScroll, type MenuPlacement,
+} from '../components/pointerMenu';
+import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
+import {
+  IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconMoveTo, IconPlus, IconTrash,
 } from '../icons';
 import { directoryUrl, documentUrl } from '../paths';
 import { layout } from '../theme';
@@ -14,41 +17,32 @@ import { useFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
 import { parentOf } from './naming';
 
+const buttonPlacement: MenuPlacement = { position: 'bottom-end' };
+const targetPlacement: MenuPlacement = { position: 'bottom-end', offset: 8 };
+
 export function RowMenu({
-  path, isDir, name, touch, editUrl, opened, onOpenedChange: setOpened, target,
+  path, isDir, name, touch, inTree = false, withCreate = true, editUrl, opened, onOpenedChange: setOpened, target, at,
 }: RowMenuProps): JSX.Element {
   const navigate = useNavigate();
   const { canWrite } = useNav();
   const actions = useFileActions();
-
-  useEffect(() => {
-    if (!opened) {
-      return;
-    }
-    const close = (): void => setOpened(false);
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
-    return () => {
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
-    };
-  }, [opened, setOpened]);
+  useCloseOnScroll(opened, setOpened);
 
   const folder = isDir ? path : parentOf(path);
   const open = (): void => void navigate(isDir ? directoryUrl(path) : documentUrl(path));
+  const placement = at !== undefined ? pointerPlacement : target === undefined ? buttonPlacement : targetPlacement;
 
   return (
     <PopupMenu
       opened={opened}
       onChange={setOpened}
-      position="bottom-end"
-      offset={target === undefined ? undefined : 8}
+      {...placement}
       withinPortal
       shadow="md"
       width={layout.menuWidthNarrow}
     >
       <Menu.Target>
-        {target ?? (
+        {at !== undefined ? <FixedAnchor rect={rectAt(at)} /> : target ?? (
           <ActionIcon
             data-testid="tree-row-menu"
             data-path={path}
@@ -82,35 +76,44 @@ export function RowMenu({
           </Menu.Item>
         )}
 
-        {canWrite && (
+        {canWrite && withCreate && (
           <>
             <Menu.Divider />
-            <Menu.Item
+            <FieldMenuItem
               data-testid="tree-row-menu-new-page"
               leftSection={<IconPlus size={rowMenuIconSize} />}
-              onClick={() => actions.createPage(folder)}
+              onClick={() => actions.createDraft('file', folder)}
             >
               New file
-            </Menu.Item>
-            <Menu.Item
+            </FieldMenuItem>
+            <FieldMenuItem
               data-testid="tree-row-menu-new-folder"
               leftSection={<IconFolderPlus size={rowMenuIconSize} />}
-              onClick={() => actions.createFolder(folder)}
+              onClick={() => actions.createDraft('dir', folder)}
             >
               New folder
-            </Menu.Item>
+            </FieldMenuItem>
           </>
         )}
 
         <Menu.Divider />
         {canWrite && path !== '' && (
-          <Menu.Item
-            data-testid="tree-row-menu-rename"
-            leftSection={<IconEdit size={rowMenuIconSize} />}
-            onClick={() => actions.rename(path)}
-          >
-            Rename
-          </Menu.Item>
+          <>
+            <FieldMenuItem
+              data-testid="tree-row-menu-rename"
+              leftSection={<IconEdit size={rowMenuIconSize} />}
+              onClick={() => actions.startRename(path, isDir, inTree ? 'tree' : 'list')}
+            >
+              Rename
+            </FieldMenuItem>
+            <Menu.Item
+              data-testid="tree-row-menu-move"
+              leftSection={<IconMoveTo size={rowMenuIconSize} />}
+              onClick={(event) => actions.moveTo(path, menuRectOf(event.currentTarget))}
+            >
+              Move to
+            </Menu.Item>
+          </>
         )}
         <Menu.Item
           data-testid="tree-row-menu-copy-link"
@@ -127,7 +130,7 @@ export function RowMenu({
               data-testid="tree-row-menu-delete"
               color="red"
               leftSection={<IconTrash size={rowMenuIconSize} />}
-              onClick={() => actions.remove(path, isDir)}
+              onClick={() => actions.remove(path)}
             >
               Delete
             </Menu.Item>

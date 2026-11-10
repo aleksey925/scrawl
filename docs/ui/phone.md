@@ -26,15 +26,37 @@ How the app works on a phone.
   A desktop keeps mantine's place near the top, where the search, a dialog too,
   belongs. One rule in the theme does it for every `Modal`, the confirms
   included.
+- A rename on a phone opens no dialog, as on a desktop: in a folder's list the
+  row's name turns into a field, and on an opened page the field takes the
+  place of the title in the bar on top, the way back and the actions gone from
+  the bar until it is done, and the sync control kept after it. The New file
+  dialog stays, since a new entry has no row yet. Its field takes the focus in
+  the render of the tap that opened it, with `autoFocus`, and not from the
+  dialog's focus trap, which does it a tick later, so the keyboard comes up
+  with it ([quirks](../quirks.md#ios-and-safari)). Done on the keyboard saves
+  (`enterkeyhint="done"`), a tap outside the field saves, and a ✕ at the end of
+  the field cancels, as a phone has no Escape. A rename started from a lifted
+  row sets the card down at once and not after its drop: the card's layer
+  covers the screen and took the first tap meant for the new field.
 - A toast on a phone is the pill an app drops from the top for a word or two:
   dark, centred under the status bar, as wide as its words, with a check or a
   warning sign and no close button, coming down and fading in and gone after
-  2.5 seconds, or at a tap on it or a flick up. Mantine's card slid in sideways
-  from the edge and read as a web page. Only the pill takes a touch: the
-  containers span the screen, took the taps meant for the bar under them, and
-  on iOS kept the hover that pauses a toast, which then never left. A desktop
-  keeps the card at the top right. `Toasts` draws both, for the app and for a
-  site.
+  2.5 seconds, 6 with a button, or at a tap on it or a flick up. Mantine's card
+  slid in sideways from the edge and read as a web page. Only the pill takes a
+  touch: the containers span the screen, took the taps meant for the bar under
+  them, and on iOS kept the hover that pauses a toast, which then never left. A
+  press on a button in the pill, the Undo or the folder of a move, is that
+  button's and does not dismiss it. A desktop shows the same dark toast with
+  10px corners at the bottom in the middle, as Notion does, gone after 4
+  seconds or 6 with a button, or at a click on it outside its buttons, and kept
+  while the pointer is on it; a click that ends a text selection in it leaves
+  it, so an error is still copied from it; mantine's white card with a colored
+  bar and a close button stood at the top right, over Edit and the page's menu,
+  and looked like a web page of years ago. The button of a toast is lettered in
+  its own lighter blue, which the theme names, since the accent is too dark on
+  the toast's ground. A long name without spaces breaks inside the word, so it
+  never pushes the button out of the toast or off the screen. `Toasts` draws
+  both, for the app and for a site.
 - On a phone a screen opened slides in from the right and one gone back to from
   the left, as an app moves its screens; a tab is switched to with no move, and
   the way up moves back although it pushes an address. The move starts when the
@@ -65,6 +87,11 @@ How the app works on a phone.
   drag; one that goes up or down is the scroll. The dragged page is a layer of
   its own, or WebKit paints a long note again on every move. Let go, the page
   goes on at the finger's speed, and a finger drawn back toward the edge as it
-  lifts keeps the page. A screen still loading shows its spinner only after
-  400ms: one that came up the moment the swiped page was gone read as the page
-  jerking.
+  lifts keeps the page. The swipe saves a rename field before it goes back,
+  since it blurs nothing, and the field would have gone without saving. The
+  field is gone before the server answers, so a save that fails after a swipe,
+  or after a tap on a link, shows its error toast and the name typed is lost.
+  The back button, Android's back gesture and the swipe of a Safari tab change
+  the page without the app's swipe, and a field left open then is dropped. A
+  screen still loading shows its spinner only after 400ms: one that came up the
+  moment the swiped page was gone read as the page jerking.

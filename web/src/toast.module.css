@@ -1,0 +1,53 @@
+.withAction {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.text {
+  min-width: 0;
+}
+
+.action {
+  flex: none;
+  margin: -4px -8px -4px auto;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--mantine-radius-md);
+  background: none;
+  color: var(--scrawl-toast-action);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .action:hover {
+    background: var(--scrawl-toast-hover);
+  }
+}
+
+@media (hover: none) {
+  .action:active {
+    background: var(--scrawl-toast-hover);
+  }
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .link:hover {
+    text-decoration-color: currentColor;
+  }
+}

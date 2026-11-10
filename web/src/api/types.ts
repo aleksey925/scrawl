@@ -136,6 +136,8 @@ export interface SpaceState {
   diverged: boolean;
   can_reset: boolean;
   push_refused: boolean;
+  retrying: boolean;
+  pushing: boolean;
 }
 
 export interface Divergence {
@@ -206,6 +208,10 @@ export type ExportFormat = 'md' | 'html';
 export interface EntryPathResponse extends MutationState {
   path: string;
   edit_url?: string;
+}
+
+export interface DeleteResponse extends EntryPathResponse {
+  trash_id: string;
 }
 
 export interface SearchSpan {
@@ -307,6 +313,17 @@ export interface PreviewRequest {
 
 export interface PreviewResponse {
   html: string;
+  toc: Heading[];
+}
+
+export interface CompareRequest {
+  path: string;
+  old: string;
+  new: string;
+}
+
+export interface CompareResponse {
+  changes: DiffRow[];
 }
 
 export interface UploadResponse extends MutationState {

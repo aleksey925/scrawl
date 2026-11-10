@@ -1,12 +1,14 @@
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
+import { RenameField } from '../components/RenameField';
 import { planMotion } from '../components/screenMotion';
 import { IconChevronLeft } from '../icons';
 import { isEditPath } from '../paths';
 import { layout } from '../theme';
 
 import { AppLogo } from './AppLogo';
+import { usePageRenaming } from './fileActionsContext';
 import { spaceLabel, useNav } from './NavContext';
 import { useShownChrome } from './PageChrome';
 import classes from './PhoneTopBar.module.css';
@@ -53,10 +55,12 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
   const inHistory = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
+  const { renaming, commit } = usePageRenaming();
   useSwipeBack(
     editing || (atRoot && !inHistory)
       ? null
       : () => {
+          commit();
           if (inHistory) {
             void navigate(-1);
             return;
@@ -70,12 +74,18 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
     return (
       <div data-testid="topbar" data-editing="true" className={classes.bar}>
         <div data-testid="topbar-actions" className={classes.editActions} ref={actionsRef} />
+        <div className={classes.editEnd}>{end}</div>
       </div>
     );
   }
 
   return (
-    <div data-testid="topbar" data-scrolled={scrolled ? 'true' : 'false'} className={classes.bar}>
+    <div
+      data-testid="topbar"
+      data-scrolled={scrolled ? 'true' : 'false'}
+      data-renaming={renaming === undefined ? 'false' : 'true'}
+      className={classes.bar}
+    >
       <div className={classes.start}>
         {atRoot ? (
           <span data-testid="topbar-home" className={classes.home}>
@@ -97,13 +107,17 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
       </div>
 
       <div data-testid="topbar-title" data-shown={showTitle && !atRoot ? 'true' : 'false'} className={classes.title}>
-        {atRoot ? '' : chrome.title}
+        {renaming !== undefined ? (
+          <RenameField session={renaming} testId="page-rename" className={classes.field} />
+        ) : (
+          !atRoot && chrome.title
+        )}
       </div>
 
       <div className={classes.end}>
         {end}
         <div data-testid="topbar-actions" className={classes.actions} ref={actionsRef} />
-        {menu}
+        <div className={classes.menu}>{menu}</div>
       </div>
     </div>
   );

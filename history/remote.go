@@ -119,46 +119,72 @@ func (s *Service) checkRemote(ctx context.Context) error {
 	return nil
 }
 
+func (s *Service) lockNet(ctx context.Context) error {
+	s.netMu.Lock()
+	if err := ctx.Err(); err != nil {
+		s.netMu.Unlock()
+		return err
+	}
+	return nil
+}
+
+func (s *Service) unlockNet() { s.netMu.Unlock() }
+
+func (s *Service) pushable() bool { return s.cfg.Remote != nil && !s.cfg.Remote.PullOnly }
+
 func (s *Service) Sync(ctx context.Context) error {
 	if s == nil || s.cfg.Remote == nil {
 		return nil
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.syncLocked(ctx)
+	if err := s.lockNet(ctx); err != nil {
+		return err
+	}
+	defer s.unlockNet()
+	return s.syncNet(ctx)
 }
 
-func (s *Service) syncLocked(ctx context.Context) error {
+func (s *Service) syncNet(ctx context.Context) error {
 	rm := s.cfg.Remote
-	tracking := remoteName + "/" + rm.Branch
 	next := s.SyncState()
 
-	if _, err := s.run(ctx, command{
+	_, err := s.run(ctx, command{
 		args:    []string{"fetch", "--prune", remoteName, rm.Branch},
 		network: true,
 		timeout: s.initTimeout(),
-	}); err != nil {
+	})
+	next.Refused = refused(err)
+	if err != nil {
+		s.measure(ctx, &next)
 		return s.syncFailed(next, "fetch", err)
 	}
 
-	if _, err := s.run(ctx, command{
-		args:    []string{"merge", "--ff-only", tracking},
-		timeout: s.initTimeout(),
-	}); err != nil {
-		s.measure(ctx, &next)
-		if next.Diverged = s.diverged(ctx, tracking); next.Diverged {
-			err = fmt.Errorf("the branch has diverged from %s", tracking)
-		}
+	if err = s.fastForward(ctx, &next); err != nil {
 		return s.syncFailed(next, mergeStage, err)
 	}
-
-	next.Diverged = false
 	if rm.PullOnly {
 		next.Error = ""
 		s.publish(next)
 		return nil
 	}
-	return s.publishLocked(ctx, next)
+	return s.pushNet(ctx, next)
+}
+
+func (s *Service) fastForward(ctx context.Context, next *SyncState) error {
+	tracking := remoteName + "/" + s.cfg.Remote.Branch
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, err := s.run(ctx, command{
+		args:    []string{"merge", "--ff-only", tracking},
+		timeout: s.initTimeout(),
+	}); err != nil {
+		s.measureLocked(ctx, next)
+		if next.Diverged = s.diverged(ctx, tracking); next.Diverged {
+			err = fmt.Errorf("the branch has diverged from %s", tracking)
+		}
+		return err
+	}
+	next.Diverged = false
+	return nil
 }
 
 func (s *Service) diverged(ctx context.Context, tracking string) bool {
@@ -170,11 +196,8 @@ func (s *Service) notAncestor(ctx context.Context, older, newer string) bool {
 	return errors.Is(err, errExitOne)
 }
 
-func (s *Service) publishLocked(ctx context.Context, next SyncState) error {
+func (s *Service) pushNet(ctx context.Context, next SyncState) error {
 	rm := s.cfg.Remote
-	if rm == nil || rm.PullOnly {
-		return nil
-	}
 	if next.Diverged = next.Diverged && s.diverged(ctx, remoteName+"/"+rm.Branch); next.Diverged {
 		s.measure(ctx, &next)
 		s.publish(next)
@@ -193,6 +216,89 @@ func (s *Service) publishLocked(ctx context.Context, next SyncState) error {
 	next.Error = ""
 	s.publish(next)
 	return nil
+}
+
+func (s *Service) markPush() {
+	if !s.pushable() {
+		return
+	}
+	s.setFlag(&s.due, true)
+	select {
+	case s.pushes <- struct{}{}:
+	default:
+	}
+}
+
+func (s *Service) pushNow(ctx context.Context) error {
+	if !s.pushable() {
+		return nil
+	}
+	if err := s.lockNet(ctx); err != nil {
+		return err
+	}
+	defer s.unlockNet()
+	return s.pushNet(ctx, s.SyncState())
+}
+
+func (s *Service) setFlag(flag *bool, on bool) {
+	s.statusMu.Lock()
+	*flag = on
+	s.statusMu.Unlock()
+}
+
+func (s *Service) PushLoop(ctx context.Context) {
+	if s == nil || !s.pushable() {
+		return
+	}
+	retry := time.NewTicker(s.retryEvery)
+	defer retry.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-retry.C:
+			s.retryIfDue(ctx)
+		case <-s.pushes:
+			if !s.pushAfterDelay(ctx) {
+				return
+			}
+		}
+		retry.Reset(s.retryEvery)
+	}
+}
+
+func (s *Service) pushAfterDelay(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	case <-time.After(s.pushDelay):
+	}
+	if s.lockNet(ctx) != nil {
+		return false
+	}
+	defer s.unlockNet()
+	select {
+	case <-s.pushes:
+	default:
+	}
+	s.setFlag(&s.sending, true)
+	s.setFlag(&s.due, false)
+	defer s.setFlag(&s.sending, false)
+	_ = s.pushNet(ctx, s.SyncState())
+	return true
+}
+
+func (s *Service) retryIfDue(ctx context.Context) {
+	if s.lockNet(ctx) != nil {
+		return
+	}
+	defer s.unlockNet()
+	if !s.SyncState().Retrying {
+		return
+	}
+	s.setFlag(&s.sending, true)
+	defer s.setFlag(&s.sending, false)
+	_ = s.syncNet(ctx)
 }
 
 var refusalSigns = []string{
@@ -216,6 +322,12 @@ func refused(err error) bool {
 }
 
 func (s *Service) measure(ctx context.Context, into *SyncState) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.measureLocked(ctx, into)
+}
+
+func (s *Service) measureLocked(ctx context.Context, into *SyncState) {
 	rm := s.cfg.Remote
 	out, err := s.run(ctx, command{
 		args: []string{"rev-list", "--count", remoteName + "/" + rm.Branch + "..HEAD"},
@@ -272,28 +384,32 @@ func (s *Service) syncFailed(next SyncState, stage string, err error) error {
 	return fmt.Errorf("history: sync %s: %w", stage, err)
 }
 
-func (s *Service) publish(next SyncState) { s.sync.Store(&next) }
+func (s *Service) publish(next SyncState) {
+	next.Retrying = !s.PullOnly() && next.Unpublished && next.Error != "" && !next.Diverged && !next.Refused
+	s.statusMu.Lock()
+	s.state = next
+	s.statusMu.Unlock()
+}
 
 func (s *Service) SyncState() SyncState {
 	if s == nil {
 		return SyncState{}
 	}
-	if state := s.sync.Load(); state != nil {
-		return *state
-	}
-	return SyncState{}
+	s.statusMu.Lock()
+	defer s.statusMu.Unlock()
+	res := s.state
+	res.Pushing = s.due || s.sending
+	return res
 }
 
 func (s *Service) Unpublished() bool { return s.SyncState().Unpublished }
-
-func (s *Service) SyncError() string { return s.SyncState().Error }
 
 func (s *Service) Remote() bool { return s != nil && s.cfg.Remote != nil }
 
 func (s *Service) PullOnly() bool { return s.Remote() && s.cfg.Remote.PullOnly }
 
 func (s *Service) ProbeWritable(ctx context.Context) error {
-	if s == nil || s.cfg.Remote == nil || s.cfg.Remote.PullOnly {
+	if s == nil || !s.pushable() {
 		return nil
 	}
 	_, err := s.run(ctx, command{
@@ -316,6 +432,8 @@ type SyncState struct {
 	Unsynced    Unsynced
 	Diverged    bool
 	Refused     bool
+	Retrying    bool
+	Pushing     bool
 }
 
 func redactURL(raw string) string {

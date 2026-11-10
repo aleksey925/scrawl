@@ -1,8 +1,8 @@
-import { Button, Group, SimpleGrid, Stack, Text } from '@mantine/core';
+import { Button, SimpleGrid, Stack, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 
+import { DialogActions, dialogActionsProps } from '../components/DialogActions';
 import { loginUrl } from '../login';
-import { layout } from '../theme';
 
 import classes from './Editor.module.css';
 
@@ -19,8 +19,9 @@ export function confirmLeave(): Promise<boolean> {
         </Text>
       ),
       labels: { confirm: 'Leave', cancel: 'Stay' },
-      confirmProps: { color: 'red', h: layout.tapTarget, 'data-testid': 'modal-confirm' },
-      cancelProps: { h: layout.tapTarget, 'data-testid': 'modal-cancel' },
+      confirmProps: { color: 'red', 'data-testid': 'modal-confirm' },
+      cancelProps: { 'data-testid': 'modal-cancel' },
+      groupProps: dialogActionsProps,
       onConfirm: () => resolve(true),
       onCancel: () => resolve(false),
       onClose: () => resolve(false),
@@ -63,11 +64,10 @@ export function openConflict({ mine, theirs, onOverwrite, onCopy }: ConflictOpti
             </pre>
           </Stack>
         </SimpleGrid>
-        <Group justify="flex-end">
+        <DialogActions>
           <Button
             data-testid="editor-conflict-cancel"
             variant="default"
-            h={layout.tapTarget}
             onClick={() => modals.close(conflictId)}
           >
             Cancel
@@ -75,7 +75,6 @@ export function openConflict({ mine, theirs, onOverwrite, onCopy }: ConflictOpti
           <Button
             data-testid="editor-conflict-copy"
             variant="default"
-            h={layout.tapTarget}
             onClick={() => {
               modals.close(conflictId);
               onCopy();
@@ -86,7 +85,6 @@ export function openConflict({ mine, theirs, onOverwrite, onCopy }: ConflictOpti
           <Button
             data-testid="editor-conflict-overwrite"
             color="red"
-            h={layout.tapTarget}
             onClick={() => {
               modals.close(conflictId);
               onOverwrite();
@@ -94,7 +92,7 @@ export function openConflict({ mine, theirs, onOverwrite, onCopy }: ConflictOpti
           >
             Overwrite
           </Button>
-        </Group>
+        </DialogActions>
       </Stack>
     ),
   });
@@ -110,18 +108,16 @@ export function openSessionExpired(): void {
           Nothing was saved. Your text is still here and kept as a local draft. Sign in again in the
           new tab, then come back and save.
         </Text>
-        <Group justify="flex-end">
+        <DialogActions>
           <Button
             data-testid="editor-session-dismiss"
             variant="default"
-            h={layout.tapTarget}
             onClick={() => modals.close(sessionId)}
           >
             Not now
           </Button>
           <Button
             data-testid="editor-session-signin"
-            h={layout.tapTarget}
             onClick={() => {
               window.open(loginUrl(), '_blank', 'noopener');
               modals.close(sessionId);
@@ -129,7 +125,7 @@ export function openSessionExpired(): void {
           >
             Sign in
           </Button>
-        </Group>
+        </DialogActions>
       </Stack>
     ),
   });

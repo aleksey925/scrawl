@@ -580,6 +580,26 @@ func TestWatchStopsWithTheContext(t *testing.T) {
 	}
 }
 
+func TestSweepTrashStopsWithTheContext(t *testing.T) {
+	// arrange
+	notes, err := store.New(store.Config{Root: t.TempDir()})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = notes.Close() })
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := sweepTrash(ctx, notes)
+
+	// act
+	cancel()
+
+	// assert
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the trash sweep outlived its context")
+	}
+}
+
 func TestWatchKeepsTheIndexInStep(t *testing.T) {
 	// arrange
 	root := t.TempDir()

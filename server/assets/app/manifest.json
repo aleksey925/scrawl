@@ -28,6 +28,7 @@
       "_NavContext.js",
       "_AsyncContent.js",
       "_platform.js",
+      "_Table.es.js",
       "index.html",
       "_PressRow.module.js"
     ],
@@ -105,6 +106,32 @@
     "name": "PressRow.module",
     "css": [
       "assets/PressRow.css"
+    ]
+  },
+  "_RenderedDiff.css": {
+    "file": "assets/RenderedDiff.css",
+    "src": "_RenderedDiff.css"
+  },
+  "_RenderedDiff.js": {
+    "file": "assets/RenderedDiff.js",
+    "name": "RenderedDiff",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_PageChrome.js",
+      "_DocumentHtml.js",
+      "_NavContext.js"
+    ],
+    "css": [
+      "assets/RenderedDiff.css"
+    ]
+  },
+  "_Table.es.js": {
+    "file": "assets/Table.es.js",
+    "name": "Table.es",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_PageChrome.js",
+      "_platform.js"
     ]
   },
   "_arc.js": {
@@ -2346,6 +2373,12 @@
       "node_modules/mermaid/dist/chunks/mermaid.core/pegDiagram-GJSIUBJH.mjs"
     ]
   },
+  "node_modules/prettier/doc.mjs": {
+    "file": "assets/doc.js",
+    "name": "doc",
+    "src": "node_modules/prettier/doc.mjs",
+    "isDynamicEntry": true
+  },
   "node_modules/prettier/plugins/babel.mjs": {
     "file": "assets/babel.js",
     "name": "babel",
@@ -2430,10 +2463,12 @@
       "_AsyncContent.js",
       "_preload-helper.js",
       "_platform.js",
+      "_Table.es.js",
       "index.html",
       "_lezer-common.js",
       "_lezer-html.js",
-      "_codemirror-autocomplete.js"
+      "_codemirror-autocomplete.js",
+      "_RenderedDiff.js"
     ],
     "dynamicImports": [
       "node_modules/@codemirror/lang-sql/dist/index.js",
@@ -2552,6 +2587,7 @@
       "node_modules/@codemirror/lang-vue/dist/index.js",
       "node_modules/@codemirror/lang-angular/dist/index.js",
       "node_modules/prettier/standalone.mjs",
+      "node_modules/prettier/doc.mjs",
       "node_modules/prettier/plugins/markdown.mjs",
       "node_modules/prettier/plugins/yaml.mjs",
       "node_modules/prettier/plugins/babel.mjs",
@@ -2574,12 +2610,12 @@
     "imports": [
       "_rolldown-runtime.js",
       "_PageChrome.js",
-      "_DocumentHtml.js",
       "_NavContext.js",
       "_AsyncContent.js",
       "_platform.js",
       "index.html",
-      "_DocumentView.js"
+      "_DocumentView.js",
+      "_RenderedDiff.js"
     ],
     "css": [
       "assets/HistoryPage.css"

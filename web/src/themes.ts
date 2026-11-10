@@ -44,6 +44,8 @@ export interface Palette {
   inlineCodeBg: string;
   toastBg: string;
   toastText: string;
+  toastAction: string;
+  toastHover: string;
   diffAddLine: string;
   diffAddWord: string;
   diffDeleteLine: string;

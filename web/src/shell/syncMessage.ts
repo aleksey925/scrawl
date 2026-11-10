@@ -1,4 +1,4 @@
-import type { MeResponse } from '../api/types';
+import type { MeResponse, SpaceState } from '../api/types';
 
 export interface SyncMessage {
   kind: SyncKind;
@@ -21,7 +21,7 @@ const titles: Record<SyncKind, string> = {
   degraded: 'Changes are not being recorded',
   merge: 'The remote version cannot be applied here',
   fetch: 'The remote cannot be reached',
-  push: 'Changes are not reaching the remote',
+  push: 'Changes have not reached the remote yet',
 };
 
 export function syncMessage(me: MeResponse | undefined): SyncMessage | undefined {
@@ -33,12 +33,12 @@ export function syncMessage(me: MeResponse | undefined): SyncMessage | undefined
   if (first === undefined) {
     return undefined;
   }
-  const diverged = me.space.diverged && facts.some((entry) => entry.kind === 'merge');
+  const { diverged, push_refused: refused, can_reset: canReset } = me.space;
   return {
     kind: first.kind,
-    title: titleOf(first.kind, diverged, me.space.push_refused),
+    title: titleOf(first.kind, diverged, refused),
     facts,
-    canReset: diverged && me.space.can_reset,
+    canReset: diverged && canReset,
   };
 }
 
@@ -46,10 +46,8 @@ function titleOf(kind: SyncKind, diverged: boolean, refused: boolean): string {
   if (kind === 'merge' && diverged) {
     return divergedTitle;
   }
-  if (kind === 'push' && refused) {
-    return refusedTitle;
-  }
-  return titles[kind];
+  const refusal = refused ? refusals[kind] : undefined;
+  return refusal?.title ?? titles[kind];
 }
 
 function factsOf(me: MeResponse): SyncFact[] {
@@ -69,18 +67,19 @@ function factsOf(me: MeResponse): SyncFact[] {
       }
       continue;
     }
-    if (kind !== stage) {
-      continue;
-    }
     if (kind === 'merge' && space.diverged) {
       res.push({ kind, body: divergedBody(space.can_reset) + affected, reason: '' });
       continue;
     }
-    if (kind === 'push' && space.push_refused) {
-      res.push({ kind, body: refusedBody + affected, reason: '' });
+    if (kind !== stage) {
       continue;
     }
-    res.push({ kind, body: bodyOf(kind, space.unpublished) + affected, reason: space.sync_error });
+    const refusal = space.push_refused ? refusals[kind] : undefined;
+    if (refusal !== undefined) {
+      res.push({ kind, body: refusal.body + affected, reason: refusal.withReason ? space.sync_error : '' });
+      continue;
+    }
+    res.push({ kind, body: bodyOf(kind, space) + retryOf(kind, space.retrying) + affected, reason: space.sync_error });
   }
   return res;
 }
@@ -94,21 +93,42 @@ function divergedBody(canReset: boolean): string {
   return canReset ? what : `${what} You are not allowed to do that here.`;
 }
 
-const refusedTitle = 'The remote does not take changes from this space';
+interface Refusal {
+  title: string;
+  body: string;
+  withReason: boolean;
+}
 
-const refusedBody =
-  'This space has no token that may write to the remote, so changes stay in this copy. ' +
-  'Give the space a token with write access, or make it read-only.';
+const refusals: Partial<Record<SyncKind, Refusal>> = {
+  push: {
+    title: 'The remote does not take changes from this space',
+    body:
+      'This space has no token that may write to the remote, so changes stay in this copy. ' +
+      'Give the space a token with write access, or make it read-only.',
+    withReason: false,
+  },
+  fetch: {
+    title: 'The remote refuses this space',
+    body:
+      'The remote does not accept the token of this space, so nothing is sent or received. ' +
+      'Give the space a token that may read the remote, and write to it unless the space is read-only.',
+    withReason: true,
+  },
+};
 
-function bodyOf(kind: SyncKind, unpublished: boolean): string {
+function retryOf(kind: SyncKind, retrying: boolean): string {
+  if (retrying) {
+    return ' scrawl tries again in about a minute.';
+  }
+  return kind === 'push' ? ' The next save tries again.' : '';
+}
+
+function bodyOf(kind: SyncKind, space: SpaceState): string {
   switch (kind) {
     case 'push':
-      return (
-        'The change is saved here and recorded in history, it has not reached the remote. ' +
-        'The next save tries again.'
-      );
+      return 'The change is saved here and recorded in history, but it has not reached the remote yet.';
     case 'fetch':
-      return unpublished
+      return space.unpublished
         ? 'This copy may be behind the remote, and what was changed here has not reached it either.'
         : 'This copy may be behind the remote.';
     case 'merge':
@@ -134,6 +154,42 @@ function stageOf(syncError: string): SyncKind | undefined {
     if (syncError.startsWith(`${kind}:`)) {
       return kind;
     }
+  }
+  return undefined;
+}
+
+export interface SyncStatus {
+  state: 'blocked' | 'sending' | 'not-sent' | 'warning' | 'sent';
+  name: string;
+  detail?: string;
+}
+
+export function syncStatusOf(me: MeResponse | undefined, sync: SyncMessage | undefined): SyncStatus | undefined {
+  if (me === undefined) {
+    return undefined;
+  }
+  const { space } = me;
+  if (space.diverged) {
+    return { state: 'blocked', name: 'Diverged' };
+  }
+  if (space.push_refused) {
+    return { state: 'blocked', name: 'Access refused' };
+  }
+  if (space.pushing) {
+    return { state: 'sending', name: 'Sending changes', detail: 'Sending changes to the remote.' };
+  }
+  if (space.unpublished) {
+    return { state: 'not-sent', name: space.retrying ? 'Not sent, will retry' : 'Not sent' };
+  }
+  if (sync !== undefined) {
+    return { state: 'warning', name: 'Not synced' };
+  }
+  if (space.kind === 'remote' && !space.read_only) {
+    return {
+      state: 'sent',
+      name: 'All changes sent',
+      detail: 'All changes sent. Everything saved here is on the remote too.',
+    };
   }
   return undefined;
 }

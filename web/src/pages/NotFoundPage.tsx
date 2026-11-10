@@ -3,10 +3,10 @@ import type { JSX } from 'react';
 import { Link } from 'react-router';
 
 import { Page, PageTitle } from '../components/Page';
-import { usePageChrome } from '../shell/PageChrome';
+import { standaloneChrome, usePageChrome } from '../shell/PageChrome';
 
 export function Component(): JSX.Element {
-  usePageChrome({ crumbs: [], title: 'Nothing here', ownTitle: true });
+  usePageChrome(standaloneChrome('Nothing here'));
   return (
     <Page data-testid="app-notfound">
       <PageTitle>Nothing here</PageTitle>

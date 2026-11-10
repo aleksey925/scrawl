@@ -5,8 +5,8 @@ import type { FilePageResponse } from '../api/types';
 import { EmptyState } from '../components/EmptyState';
 import { absoluteTime, fileSize, shortTime } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
-import { PopupMenu } from '../components/PopupMenu';
-import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconTrash } from '../icons';
+import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
+import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconMoveTo, IconTrash } from '../icons';
 import { usePlatform } from '../platform';
 import { useDocumentControls } from '../reader/useDocumentControls';
 import { openViewer } from '../reader/viewer';
@@ -29,7 +29,7 @@ export function FileView({ file }: { file: FilePageResponse }): JSX.Element {
       <PageActions>
         <FileActionsBar file={file} raw={raw} />
       </PageActions>
-      <Page data-testid="file" data-type={file.type}>
+      <Page data-testid="file" data-type={file.type} variant={file.type === 'text' ? 'text' : 'note'}>
         <PageTitle testId="file-title">{file.name}</PageTitle>
         {file.type === 'image' && <Picture key={raw} file={file} raw={raw} />}
         {file.type === 'text' && <TextLines file={file} />}
@@ -173,19 +173,26 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
           </Menu.Item>
           {canWrite && (
             <>
-              <Menu.Item
+              <FieldMenuItem
                 data-testid="file-menu-rename"
                 leftSection={<IconEdit size={layout.iconSizeSmall} />}
-                onClick={() => actions.rename(file.path)}
+                onClick={() => actions.startRename(file.path, false, 'page')}
               >
                 Rename
+              </FieldMenuItem>
+              <Menu.Item
+                data-testid="file-menu-move"
+                leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
+                onClick={(event) => actions.moveTo(file.path, menuRectOf(event.currentTarget))}
+              >
+                Move to
               </Menu.Item>
               <Menu.Divider />
               <Menu.Item
                 data-testid="file-menu-delete"
                 color="red"
                 leftSection={<IconTrash size={layout.iconSizeSmall} />}
-                onClick={() => actions.remove(file.path, false)}
+                onClick={() => actions.remove(file.path)}
               >
                 Delete
               </Menu.Item>

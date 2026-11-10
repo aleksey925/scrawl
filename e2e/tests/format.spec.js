@@ -10,6 +10,18 @@ const text = require('../support/text');
 
 const FOLDER = 'e2e-format';
 
+const longLines = [
+    '## Заголовок, который намного длиннее семидесяти девяти символов и остаётся одной строкой',
+    '',
+    '| a   | b                                                                                   |',
+    '| --- | ----------------------------------------------------------------------------------- |',
+    '| 1   | ячейка таблицы, которая намного длиннее семидесяти девяти символов и не переносится |',
+    '',
+    '```',
+    'строка кода, которая намного длиннее семидесяти девяти символов и остаётся как есть',
+    '```',
+];
+
 const rough = [
     '#  Заголовок',
     '',
@@ -24,6 +36,10 @@ const rough = [
     '```json',
     '{"a":1}',
     '```',
+    '',
+    'Один абзац, в котором много слов, и он намного длиннее семидесяти девяти символов, поэтому форматтер его переносит.',
+    '',
+    ...longLines,
     '',
 ].join('\n');
 
@@ -41,9 +57,50 @@ const formatted = [
     '{ "a": 1 }',
     '```',
     '',
+    'Один абзац, в котором много слов, и он намного длиннее семидесяти девяти',
+    'символов, поэтому форматтер его переносит.',
+    '',
+    ...longLines,
+    '',
 ].join('\n');
 
 test.describe('formatting', () => {
+    test('an alert keeps its marker on its own line in the browser and on the server', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/alerts.md`;
+        const alerts = [
+            '> [!NOTE]',
+            '> Some text of the alert.',
+            '',
+            '> [!WARNING]',
+            '> A long body of the alert that is much longer than seventy nine columns, so it',
+            '> is',
+            '> wrapped.',
+            '',
+        ].join('\n');
+        const wrapped = [
+            '> [!NOTE]',
+            '> Some text of the alert.',
+            '',
+            '> [!WARNING]',
+            '> A long body of the alert that is much longer than seventy nine columns, so it',
+            '> is wrapped.',
+            '',
+        ].join('\n');
+        writeFixture(docPath, alerts);
+        await signIn(page, {from: routes.edit(docPath)});
+        await expect.poll(() => sourceText(page)).toBe(alerts);
+
+        // act
+        await page.getByTestId('editor-toolbar-format').click();
+        const res = await jsonRequest(page, 'PUT', routes.api(`/file/${FOLDER}/alerts-api.md`), {content: alerts, rev: ''});
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe(wrapped);
+        expect(res.status).toBe(200);
+        expect(JSON.parse(res.body).content).toBe(wrapped);
+    });
+
     test('a save formats the note and the editor shows what was written', async ({page}) => {
         // arrange
         const docPath = `${FOLDER}/on-save.md`;
@@ -108,6 +165,24 @@ test.describe('formatting', () => {
         await expect.poll(() => sourceText(page)).toBe(formatted);
         await page.keyboard.press('ControlOrMeta+z');
         await expect.poll(() => sourceText(page)).toBe(rough);
+    });
+
+    test('the shortcut keeps the cursor in the text of an alert', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/alert-cursor.md`;
+        writeFixture(docPath, '#  Title\n\n> [!NOTE]\n> Some text\n> of the alert.\n');
+        await signIn(page, {from: routes.edit(docPath)});
+        await expect.poll(() => sourceText(page)).toBe('#  Title\n\n> [!NOTE]\n> Some text\n> of the alert.\n');
+        await page.locator('[data-testid=editor-source] .cm-line').nth(3).click();
+        await page.keyboard.press('End');
+
+        // act
+        await page.keyboard.press('Shift+Alt+KeyF');
+        await expect.poll(() => sourceText(page)).toBe('# Title\n\n> [!NOTE]\n> Some text of the alert.\n');
+        await page.keyboard.insertText('!');
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe('# Title\n\n> [!NOTE]\n> Some text! of the alert.\n');
     });
 
     test('a file that is not markdown is saved as written and offers no toolbar to format with', async ({page}) => {

@@ -9,24 +9,27 @@ import { Link, useLocation, useNavigate } from 'react-router';
 
 import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
-import { PopupMenu } from '../components/PopupMenu';
+import { NameField } from '../components/NameField';
+import { NewEntryMenu, usePointerMenu } from '../components/pointerMenu';
+import { FieldMenuItem, PopupMenu } from '../components/PopupMenu';
+import { RenameField } from '../components/RenameField';
 import {
   IconChevronDown, IconChevronRight, IconCompose, IconFile, IconFilePlus, IconFileText, IconFolder, IconFolderOpen,
   IconFolderPlus, IconHome, IconPlus, IconSearch, IconSidebar, IconX,
 } from '../icons';
-import { editUrl } from '../paths';
+import { editUrl, isDirectoryPath, isMarkdown } from '../paths';
 import { layout } from '../theme';
 
 import { rowMenuIconSize, useReaderExtensions } from './extensions';
-import { useFileActions, useOptionalFileActions } from './fileActionsContext';
+import { useFileActions, useOptionalFileActions, useRenamingHere, type Renaming } from './fileActionsContext';
 import { spaceLabel, useNav } from './NavContext';
-import { basenameOf, folderFor, pageName, parentOf } from './naming';
+import { basenameOf, folderFor, parentOf } from './naming';
 import { useSearchControl } from './searchOpener';
 import { keysLabel, modKey, useKeyboardPlace } from './shortcuts';
 import sidebarClasses from './Sidebar.module.css';
 import { SyncBadge } from './SyncBadge';
 import treeClasses from './Tree.module.css';
-import { filterTree, type FilteredTree } from './treeFilter';
+import { filterTree, nodeAt, type FilteredTree } from './treeFilter';
 import { useLongPress } from './useLongPress';
 
 const treeIconSize = 18;
@@ -34,11 +37,10 @@ const iconBox = 22;
 const indentStep = 14;
 const rowStart = 6;
 
-const focusSettleMs = 150;
-
 const springOpenMs = 600;
 
 interface TreeUi {
+  currentRow: string;
   selected: ReadonlySet<string>;
   dropTarget: string | undefined;
   canWrite: boolean;
@@ -78,138 +80,127 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   const [menuOpened, setMenuOpened] = useState(false);
   const openMenu = useCallback(() => setMenuOpened(true), []);
   const longPress = useLongPress(openMenu);
+  const renaming = useRenamingHere('tree', node.path);
+  const empty = node.is_dir && node.children.length === 0;
 
   if (query !== '' && !filtered.visible.has(node.path)) {
     return null;
   }
 
-  const open = query !== '' ? filtered.forcedOpen.has(node.path) : isOpen(node.path);
-  const current = node.path === currentPath;
+  const drafting = draft !== undefined && draft.parent === node.path;
+  const unfolded = query !== '' ? filtered.forcedOpen.has(node.path) : isOpen(node.path);
+  const open = empty ? drafting : unfolded;
+  const folderOpen = empty ? isOpen(node.path) || drafting : unfolded;
+  const shown = node.path === currentPath;
+  const marked = node.path === ui.currentRow;
   const picked = ui.selected.has(node.path);
   const over = ui.dropTarget === node.path;
-  const drafting = draft !== undefined && draft.parent === node.path;
 
   return (
     <Box style={{ minWidth: 0 }}>
-      <div
-        data-testid="tree-row"
-        className={RowMenu === undefined ? treeClasses.row : `${treeClasses.row} ${treeClasses.pressable}`}
-        data-current={current ? 'true' : 'false'}
-        data-selected={picked ? 'true' : 'false'}
-        data-drop={over ? 'true' : 'false'}
-        data-dir={node.is_dir ? 'true' : 'false'}
-        data-menu={menuOpened ? 'true' : 'false'}
-        data-path={node.path}
-        draggable={ui.canWrite}
-        onDragStart={(event) => ui.startDrag(node.path, event)}
-        onDragEnd={ui.endDrag}
-        onDragOver={(event) => ui.overFolder(folderFor(node.path, node.is_dir), event)}
-        onDragLeave={() => ui.leaveFolder(folderFor(node.path, node.is_dir))}
-        onDrop={(event) => ui.dropOn(folderFor(node.path, node.is_dir), event)}
-        {...(RowMenu === undefined
-          ? {}
-          : {
-              ...longPress,
-              onContextMenu: (event: MouseEvent) => {
-                event.preventDefault();
-                openMenu();
-              },
-            })}
-        style={rowInsets(depth)}
-      >
-        {node.is_dir ? (
-          <ActionIcon
-            data-testid="tree-twisty"
-            data-open={open ? 'true' : 'false'}
-            variant="subtle"
-            color="gray"
-            size={iconBox}
-            className={treeClasses.icon}
-            aria-label={`${open ? 'Collapse' : 'Expand'} ${node.name}`}
-            aria-expanded={open}
-            onClick={() => toggleFolder(node.path)}
-          >
-            {open ? (
-              <IconFolderOpen size={treeIconSize} className={treeClasses.glyph} />
-            ) : (
-              <IconFolder size={treeIconSize} className={treeClasses.glyph} />
-            )}
-            {open ? (
-              <IconChevronDown size={treeIconSize} className={treeClasses.chevron} />
-            ) : (
-              <IconChevronRight size={treeIconSize} className={treeClasses.chevron} />
-            )}
-          </ActionIcon>
-        ) : (
-          <IconBox>
-            <IconFileText size={treeIconSize} />
-          </IconBox>
-        )}
-
-        <Anchor
-          data-testid="tree-link"
-          component={Link}
-          to={node.url}
-          underline="never"
-          draggable={false}
-          aria-current={current ? 'page' : undefined}
-          className={treeClasses.label}
-          onClick={(event: MouseEvent) => {
-            ui.pick(node.path, event);
-            if (!node.is_dir || query !== '' || event.defaultPrevented || event.metaKey || event.ctrlKey) {
-              return;
-            }
-            if (current) {
-              event.preventDefault();
-              toggleFolder(node.path);
-              return;
-            }
-            openFolder(node.path);
-          }}
+      {renaming !== undefined ? (
+        <RenameRow session={renaming} depth={depth} />
+      ) : (
+        <div
+          data-testid="tree-row"
+          className={RowMenu === undefined ? treeClasses.row : `${treeClasses.row} ${treeClasses.pressable}`}
+          data-current={marked ? 'true' : 'false'}
+          data-selected={picked ? 'true' : 'false'}
+          data-drop={over ? 'true' : 'false'}
+          data-dir={node.is_dir ? 'true' : 'false'}
+          data-empty={empty ? 'true' : 'false'}
+          data-menu={menuOpened ? 'true' : 'false'}
+          data-path={node.path}
+          draggable={ui.canWrite}
+          onDragStart={(event) => ui.startDrag(node.path, event)}
+          onDragEnd={ui.endDrag}
+          onDragOver={(event) => ui.overFolder(folderFor(node.path, node.is_dir), event)}
+          onDragLeave={() => ui.leaveFolder(folderFor(node.path, node.is_dir))}
+          onDrop={(event) => ui.dropOn(folderFor(node.path, node.is_dir), event)}
+          {...(RowMenu === undefined
+            ? {}
+            : {
+                ...longPress,
+                onContextMenu: (event: MouseEvent) => {
+                  event.preventDefault();
+                  openMenu();
+                },
+              })}
+          style={rowInsets(depth)}
         >
-          <Highlight size="sm" truncate highlight={query === '' ? [] : query} fw="inherit" style={{ minWidth: 0 }}>
-            {pageName(node.name, node.is_dir)}
-          </Highlight>
-        </Anchor>
+          {node.is_dir ? (
+            <FolderIcon name={node.name} empty={empty} open={folderOpen} onToggle={() => toggleFolder(node.path)} />
+          ) : (
+            <IconBox>
+              <IconFileText size={treeIconSize} />
+            </IconBox>
+          )}
 
-        <SyncBadge path={node.path} />
+          <Anchor
+            data-testid="tree-link"
+            component={Link}
+            to={node.url}
+            underline="never"
+            draggable={false}
+            aria-current={shown ? 'page' : undefined}
+            className={treeClasses.label}
+            onClick={(event: MouseEvent) => {
+              ui.pick(node.path, event);
+              if (!node.is_dir || query !== '' || event.defaultPrevented || event.metaKey || event.ctrlKey) {
+                return;
+              }
+              if (shown) {
+                event.preventDefault();
+                toggleFolder(node.path);
+                return;
+              }
+              openFolder(node.path);
+            }}
+          >
+            <Highlight size="sm" truncate highlight={query === '' ? [] : query} fw="inherit" style={{ minWidth: 0 }}>
+              {node.name}
+            </Highlight>
+          </Anchor>
 
-        {RowMenu !== undefined && (
-          <div className={treeClasses.tools}>
-            <RowMenu
-              path={node.path}
-              isDir={node.is_dir}
-              name={node.name}
-              touch={false}
-              editUrl={node.is_dir ? undefined : editUrl(node.path)}
-              opened={menuOpened}
-              onOpenedChange={setMenuOpened}
-            />
-            {node.is_dir && canWrite && actions !== undefined && (
-              <ActionIcon
-                data-testid="tree-row-add"
-                variant="subtle"
-                color="gray"
-                size="sm"
-                className={treeClasses.add}
-                aria-label={`New file in ${node.name}`}
-                onClick={() => {
-                  openFolder(node.path);
-                  actions.createPage(node.path);
-                }}
-              >
-                <IconPlus size={rowMenuIconSize} />
-              </ActionIcon>
-            )}
-          </div>
-        )}
-      </div>
+          <SyncBadge path={node.path} />
+
+          {RowMenu !== undefined && (
+            <div className={treeClasses.tools}>
+              <RowMenu
+                path={node.path}
+                isDir={node.is_dir}
+                name={node.name}
+                touch={false}
+                inTree
+                editUrl={node.is_dir ? undefined : editUrl(node.path)}
+                opened={menuOpened}
+                onOpenedChange={setMenuOpened}
+              />
+              {node.is_dir && canWrite && actions !== undefined && (
+                <ActionIcon
+                  data-testid="tree-row-add"
+                  variant="subtle"
+                  color="gray"
+                  size="sm"
+                  className={treeClasses.add}
+                  aria-label={`New file in ${node.name}`}
+                  onClick={() => {
+                    openFolder(node.path);
+                    actions.createDraft('file', node.path);
+                  }}
+                >
+                  <IconPlus size={rowMenuIconSize} />
+                </ActionIcon>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {node.is_dir && open && (
         <div data-testid="tree-children">
           {drafting && <DraftRow depth={depth + 1} />}
-          {!drafting && node.children.length === 0 && <EmptyRow depth={depth + 1} />}
-          {node.children.length > 0 && (
+          {!empty && (
             <TreeRows nodes={node.children} depth={depth + 1} filtered={filtered} query={query} />
           )}
         </div>
@@ -218,7 +209,37 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   );
 }
 
-function IconBox({ children }: { children?: ReactNode }): JSX.Element {
+interface FolderIconProps {
+  name: string;
+  empty: boolean;
+  open: boolean;
+  onToggle: () => void;
+}
+
+function FolderIcon({ name, empty, open, onToggle }: FolderIconProps): JSX.Element {
+  const Glyph = open ? IconFolderOpen : IconFolder;
+  const Chevron = open ? IconChevronDown : IconChevronRight;
+  const state = empty
+    ? { 'aria-label': `${open ? 'Close' : 'Open'} ${name}`, 'aria-pressed': open }
+    : { 'aria-label': `${open ? 'Collapse' : 'Expand'} ${name}`, 'aria-expanded': open };
+  return (
+    <ActionIcon
+      data-testid={empty ? 'tree-empty-folder' : 'tree-twisty'}
+      data-open={open ? 'true' : 'false'}
+      variant="subtle"
+      color="gray"
+      size={iconBox}
+      className={treeClasses.icon}
+      onClick={onToggle}
+      {...state}
+    >
+      <Glyph size={treeIconSize} className={empty ? undefined : treeClasses.glyph} />
+      {!empty && <Chevron size={treeIconSize} className={treeClasses.chevron} />}
+    </ActionIcon>
+  );
+}
+
+function IconBox({ children }: { children: ReactNode }): JSX.Element {
   return (
     <Box
       w={iconBox}
@@ -244,94 +265,57 @@ function TreeRows({ nodes, depth, filtered, query }: RowsProps): JSX.Element {
   );
 }
 
-function EmptyRow({ depth }: { depth: number }): JSX.Element {
+interface NameRowProps {
+  depth: number;
+  testId: string;
+  isFile: boolean;
+  children: ReactNode;
+}
+
+function NameRow({ depth, testId, isFile, children }: NameRowProps): JSX.Element {
   return (
-    <div
-      data-testid="tree-empty"
-      className={`${treeClasses.row} ${treeClasses.none}`}
+    <Group
+      gap={6}
+      wrap="nowrap"
+      data-testid={testId}
+      data-entry={isFile ? 'file' : 'dir'}
+      className={`${treeClasses.row} ${treeClasses.draft}`}
       style={rowInsets(depth)}
     >
-      <IconBox />
-      <Text span inherit>
-        No notes inside
-      </Text>
-    </div>
+      {children}
+    </Group>
   );
 }
 
 function DraftRow({ depth }: { depth: number }): JSX.Element {
   const { draft, submitDraft, cancelDraft } = useFileActions();
-  const [name, setName] = useState('');
-  const [busy, setBusy] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const settled = useRef(false);
   const isFile = draft?.kind === 'file';
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      settled.current = true;
-      if (document.activeElement !== inputRef.current) {
-        inputRef.current?.focus();
-      }
-    }, focusSettleMs);
-    return () => window.clearTimeout(id);
-  }, []);
-
-  const commit = (): void => {
-    if (busy || name.trim() === '') {
-      cancelDraft();
-      return;
-    }
-    setBusy(true);
-    void submitDraft(name).then((created) => {
-      setBusy(false);
-      if (!created) {
-        return;
-      }
-      setName('');
-    });
-  };
-
   return (
-    <Group
-      gap={6}
-      wrap="nowrap"
-      data-testid="tree-draft"
-      data-entry={isFile ? 'file' : 'dir'}
-      className={`${treeClasses.row} ${treeClasses.draft}`}
-      style={rowInsets(depth)}
-    >
-      <IconBox>{isFile ? <IconFile size={treeIconSize} /> : <IconFolder size={treeIconSize} />}</IconBox>
-      <TextInput
-        data-testid="tree-draft-input"
-        ref={inputRef}
-        autoFocus
-        value={name}
-        disabled={busy}
-        variant="unstyled"
-        size="sm"
+    <NameRow depth={depth} testId="tree-draft" isFile={isFile}>
+      <NameField
+        initial=""
+        testId="tree-draft"
+        icon={<IconBox>{isFile ? <IconFile size={treeIconSize} /> : <IconFolder size={treeIconSize} />}</IconBox>}
+        className={treeClasses.field}
         placeholder={isFile ? 'File name' : 'Folder name'}
-        aria-label={isFile ? 'Name of the new file' : 'Name of the new folder'}
-        autoComplete="off"
-        spellCheck={false}
-        onChange={(event) => setName(event.currentTarget.value)}
-        onBlur={() => settled.current && commit()}
-        onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-          event.stopPropagation();
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            commit();
-            return;
-          }
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            cancelDraft();
-          }
-        }}
-        styles={{ input: { height: 'auto', minHeight: 24 } }}
-        style={{ flex: '1 1 auto', minWidth: 0 }}
+        label={isFile ? 'Name of the new file' : 'Name of the new folder'}
+        onSubmit={submitDraft}
+        onCancel={cancelDraft}
       />
-    </Group>
+    </NameRow>
+  );
+}
+
+function RenameRow({ session, depth }: { session: Renaming; depth: number }): JSX.Element {
+  return (
+    <NameRow depth={depth} testId="tree-rename" isFile={!session.isDir}>
+      <RenameField
+        session={session}
+        testId="tree-rename"
+        icon={<IconBox>{session.isDir ? <IconFolder size={treeIconSize} /> : <IconFileText size={treeIconSize} />}</IconBox>}
+        className={treeClasses.field}
+      />
+    </NameRow>
   );
 }
 
@@ -351,19 +335,6 @@ function inFolder(folder: string, space: string): string {
   return `In ${folder === '' ? space : folder}`;
 }
 
-function nodeAt(nodes: readonly NavNode[], path: string): NavNode | undefined {
-  for (const entry of nodes) {
-    if (entry.path === path) {
-      return entry;
-    }
-    const found = nodeAt(entry.children, path);
-    if (found !== undefined) {
-      return found;
-    }
-  }
-  return undefined;
-}
-
 export interface SidebarNavProps {
   foot?: ReactNode;
   onHide?: () => void;
@@ -379,9 +350,13 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const canWrite = mayWrite && actions !== undefined;
   const viewportRef = useRef<HTMLDivElement>(null);
   const spaceName = spaceLabel(me);
+  const contextMenu = usePointerMenu<string>();
+
+  const onFile = !isMarkdown(currentPath) && !isDirectoryPath(location.pathname);
+  const currentRow = onFile ? parentOf(currentPath) : currentPath;
 
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  useEffect(() => setSelected(new Set([currentPath])), [currentPath]);
+  useEffect(() => setSelected(new Set([currentRow])), [currentPath, currentRow]);
   const [dropTarget, setDropTarget] = useState<string | undefined>(undefined);
   const dragged = useRef<readonly string[]>([]);
   const spring = useRef<{ folder: string; timer: number } | undefined>(undefined);
@@ -519,8 +494,8 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   );
 
   const ui = useMemo<TreeUi>(
-    () => ({ selected, dropTarget, canWrite, pick, startDrag, endDrag, overFolder, leaveFolder, dropOn }),
-    [selected, dropTarget, canWrite, pick, startDrag, endDrag, overFolder, leaveFolder, dropOn],
+    () => ({ currentRow, selected, dropTarget, canWrite, pick, startDrag, endDrag, overFolder, leaveFolder, dropOn }),
+    [currentRow, selected, dropTarget, canWrite, pick, startDrag, endDrag, overFolder, leaveFolder, dropOn],
   );
 
   const at = selected.size === 1 ? ([...selected][0] ?? currentPath) : currentPath;
@@ -595,20 +570,20 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
               </Menu.Target>
               <Menu.Dropdown>
                 <Menu.Label data-testid="sidebar-new-where">{inFolder(here, spaceName)}</Menu.Label>
-                <Menu.Item
+                <FieldMenuItem
                   data-testid="sidebar-new-page"
                   leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-                  onClick={() => actions.createPage(here)}
+                  onClick={() => actions.createDraft('file', here)}
                 >
                   New file
-                </Menu.Item>
-                <Menu.Item
+                </FieldMenuItem>
+                <FieldMenuItem
                   data-testid="sidebar-new-folder"
                   leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-                  onClick={() => actions.createFolder(here)}
+                  onClick={() => actions.createDraft('dir', here)}
                 >
                   New folder
-                </Menu.Item>
+                </FieldMenuItem>
               </Menu.Dropdown>
             </PopupMenu>
           )}
@@ -679,15 +654,20 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
       </div>
 
       <TreeUiContext.Provider value={ui}>
-        <ScrollArea type="hover" viewportRef={viewportRef} style={{ flex: '1 1 auto', minWidth: 0 }}>
+        <ScrollArea
+          type="hover"
+          viewportRef={viewportRef}
+          classNames={{ content: sidebarClasses.treeContent }}
+          style={{ flex: '1 1 auto', minWidth: 0 }}
+        >
           <Stack
-            gap={1}
+            gap={0}
             pb="md"
-            mih="100%"
             data-testid="tree-root"
             data-drop={dropTarget === '' ? 'true' : 'false'}
             {...rootDrop}
-            style={{ minWidth: 0 }}
+            onContextMenu={canWrite ? (event) => contextMenu.onFreeSpace(event, '') : undefined}
+            className={sidebarClasses.treeRoot}
           >
             {error !== undefined ? (
               <Text data-testid="sidebar-error" size="sm" c="dimmed" px="md">
@@ -706,13 +686,19 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
             ) : (
               <>
                 {draftAtRoot && <DraftRow depth={0} />}
-                {!draftAtRoot && tree.length === 0 && <EmptyRow depth={0} />}
                 <TreeRows nodes={tree} depth={0} filtered={filtered} query={trimmed} />
               </>
             )}
           </Stack>
         </ScrollArea>
       </TreeUiContext.Provider>
+      {actions !== undefined && (
+        <NewEntryMenu
+          menu={contextMenu}
+          testId="tree-context-menu"
+          onCreate={actions.createDraft}
+        />
+      )}
 
       {foot !== undefined && <div className={sidebarClasses.foot}>{foot}</div>}
     </div>

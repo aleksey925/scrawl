@@ -8,6 +8,7 @@ import { api } from '../api/client';
 import { ApiError } from '../api/errors';
 import type { Divergence, ResetResponse } from '../api/types';
 import { errorText } from '../api/useApi';
+import { DialogActions } from '../components/DialogActions';
 import { mountBase } from '../mount';
 import { documentUrl, isMarkdown, rawUrl } from '../paths';
 
@@ -151,7 +152,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
               description="Turn it off if the remote was rewritten to remove something for good."
             />
           )}
-          <Group justify="flex-end" gap="sm">
+          <DialogActions>
             <Button data-testid="modal-cancel" variant="default" onClick={close} disabled={step.name === 'resetting'}>
               Cancel
             </Button>
@@ -163,7 +164,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
             >
               Reset
             </Button>
-          </Group>
+          </DialogActions>
         </Stack>
       )}
 
@@ -172,11 +173,11 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
           <Alert data-testid="reset-done" color="green" title="This space is on the remote version now">
             <BackupReport result={step.result} />
           </Alert>
-          <Group justify="flex-end">
+          <DialogActions>
             <Button data-testid="reset-reload" onClick={reload}>
               Reload the page
             </Button>
-          </Group>
+          </DialogActions>
         </Stack>
       )}
 
@@ -193,7 +194,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
               </Text>
             </Alert>
           )}
-          <Group justify="flex-end" gap="sm">
+          <DialogActions>
             <Button data-testid="modal-cancel" variant="default" onClick={close}>
               Close
             </Button>
@@ -202,7 +203,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
                 Check again
               </Button>
             )}
-          </Group>
+          </DialogActions>
         </Stack>
       )}
     </Modal>

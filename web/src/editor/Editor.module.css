@@ -1,6 +1,4 @@
 .screen {
-  --editor-column: calc(var(--scrawl-note-width) + 120px);
-
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -34,22 +32,14 @@
 }
 
 .paneHead {
-  flex: none;
-  border-bottom: 1px solid var(--scrawl-border-light);
-}
-
-.paneHeadInner {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 8px;
-  min-width: 0;
+  box-sizing: content-box;
   height: 44px;
   padding-inline: var(--mantine-spacing-lg);
-}
-
-.screen[data-mode='source'] .paneHeadInner {
-  max-width: var(--editor-column);
-  margin-inline: auto;
+  border-bottom: 1px solid var(--scrawl-border-light);
 }
 
 .paneLabel {
@@ -131,12 +121,17 @@
   line-height: 1.7;
 }
 
-.screen[data-mode='source'] .source :global(.cm-scroller) {
-  padding-inline: max(var(--mantine-spacing-md), calc((100% - var(--editor-column)) / 2));
-}
-
 .source :global(.cm-gutters) {
   padding-inline-end: 12px;
+}
+
+.source :global(.cm-gutters)::before {
+  position: absolute;
+  inset-block: 0;
+  right: 100%;
+  width: 100vw;
+  background: inherit;
+  content: '';
 }
 
 .source :global(.cm-lineNumbers .cm-gutterElement) {
@@ -159,11 +154,11 @@
     padding: 16px var(--mantine-spacing-lg) 30vh;
   }
 
-  .paneHeadInner {
+  .paneHead {
     padding-inline: 0;
   }
 
-  .screen[data-kind='text'] .paneHeadInner {
+  .screen[data-kind='text'] .paneHead {
     padding-inline-start: var(--mantine-spacing-lg);
   }
 
@@ -191,6 +186,14 @@
   width: 100%;
   max-width: var(--scrawl-note-width);
   margin-inline: auto;
+}
+
+.changes > * {
+  flex: none;
+}
+
+.changes > [data-layout='split'] {
+  max-width: calc(var(--scrawl-note-width) * 2);
 }
 
 @mixin smaller-than $mantine-breakpoint-sm {
@@ -305,4 +308,45 @@
 
 .tool[aria-pressed='true'] {
   color: var(--scrawl-accent);
+}
+
+.tableGridBox {
+  padding: 6px 8px 2px;
+}
+
+.tableGrid {
+  display: grid;
+  gap: 3px;
+  padding: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+
+.tableGrid:focus-visible {
+  box-shadow:
+    0 0 0 1px var(--scrawl-focus-ring),
+    0 0 0 2px var(--scrawl-focus-ring-outer);
+}
+
+.tableCell {
+  aspect-ratio: 1;
+  border: 1px solid var(--scrawl-border);
+  border-radius: 3px;
+  background: var(--scrawl-bg);
+  transition: background-color 80ms, border-color 80ms;
+}
+
+.tableCell[data-active='true'] {
+  border-color: var(--scrawl-accent);
+  background: var(--scrawl-accent-tint);
+}
+
+.tableSize {
+  padding-block: 6px 2px;
+  color: var(--scrawl-text-tertiary);
+  font-size: var(--mantine-font-size-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }

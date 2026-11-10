@@ -15,11 +15,12 @@ import { documentUrl } from '../paths';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { useRecentNotes, type RecentNote } from './recentNotes';
+import picker from './Picker.module.css';
 import classes from './Search.module.css';
 import { SearchControlProvider, type SearchControl } from './searchOpener';
 import { hintOf, SearchResults, targetsOf } from './SearchResults';
 import { altKey, appShortcut, keysLabel, modChord } from './shortcuts';
-import { useVisibleArea } from './useVisibleArea';
+import { useFullScreenStyle } from './useVisibleArea';
 
 const debounceMs = 200;
 const resultLimit = 30;
@@ -91,7 +92,7 @@ export function SearchProvider({ children }: { children: ReactNode }): JSX.Eleme
 function SearchDialog({ initial, onClose }: { initial: string; onClose: () => void }): JSX.Element {
   const navigate = useNavigate();
   const phone = useBelow(layoutBreakpoints.phone);
-  const area = useVisibleArea(phone);
+  const screenStyle = useFullScreenStyle(phone);
   const { notes: recent } = useRecentNotes();
   const [text, setText] = useState(initial);
   const [settings, setSettings] = useState<SearchSettings>(defaultSettings);
@@ -196,19 +197,15 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
     >
       <div
         data-testid="search-dialog"
-        className={classes.dialog}
-        style={
-          phone
-            ? { maxHeight: 'none', height: area === undefined ? '100dvh' : area.height, transform: `translateY(${area?.top ?? 0}px)` }
-            : undefined
-        }
+        className={picker.dialog}
+        style={screenStyle}
       >
-        <div className={classes.inputRow}>
-          <div className={classes.field}>
+        <div className={picker.inputRow}>
+          <div className={picker.field}>
             <IconSearch size={layout.iconSize} />
             <input
               data-testid="search-input"
-              className={classes.input}
+              className={picker.input}
               value={text}
               autoFocus
               placeholder="Search the space"
@@ -237,7 +234,7 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
             </div>
           </div>
           {phone && (
-            <button type="button" data-testid="search-close" className={classes.cancel} onClick={onClose}>
+            <button type="button" data-testid="search-close" className={picker.cancel} onClick={onClose}>
               Cancel
             </button>
           )}
@@ -268,7 +265,7 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
           </span>
         </div>
 
-        <div ref={bodyRef} className={classes.body}>
+        <div ref={bodyRef} className={picker.body}>
           {empty ? (
             <Recent notes={recent} onOpen={onClose} />
           ) : answer.error !== undefined ? (
@@ -276,7 +273,7 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
               {answer.error}
             </div>
           ) : answer.response !== undefined && hits.length === 0 ? (
-            <div data-testid="search-empty" className={classes.empty}>
+            <div data-testid="search-empty" className={picker.empty}>
               No notes match that.
             </div>
           ) : (
@@ -290,7 +287,7 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
           )}
         </div>
 
-        <div data-testid="search-footer" className={classes.footer}>
+        <div data-testid="search-footer" className={picker.footer}>
           {!phone && (
             <>
               <span>
@@ -346,7 +343,7 @@ function Toggle({ testId, label, on, disabled = false, onClick, children }: Togg
 function Recent({ notes, onOpen }: { notes: readonly RecentNote[]; onOpen: () => void }): JSX.Element {
   if (notes.length === 0) {
     return (
-      <div data-testid="search-recent-empty" className={classes.empty}>
+      <div data-testid="search-recent-empty" className={picker.empty}>
         Type to search every note in the space.
       </div>
     );
@@ -355,10 +352,10 @@ function Recent({ notes, onOpen }: { notes: readonly RecentNote[]; onOpen: () =>
     <div data-testid="search-recent">
       <div className={classes.group}>Recent</div>
       {notes.map((recent) => (
-        <Link key={recent.path} data-testid="search-recent-item" to={documentUrl(recent.path)} className={classes.head} onClick={onOpen}>
+        <Link key={recent.path} data-testid="search-recent-item" to={documentUrl(recent.path)} className={picker.head} onClick={onOpen}>
           <IconFileText size={layout.iconSizeSmall} />
-          <span className={classes.title}>{recent.title === '' ? recent.path : recent.title}</span>
-          <span className={classes.path}>{recent.path}</span>
+          <span className={picker.title}>{recent.title === '' ? recent.path : recent.title}</span>
+          <span className={picker.path}>{recent.path}</span>
         </Link>
       ))}
     </div>

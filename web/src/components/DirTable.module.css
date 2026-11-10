@@ -47,6 +47,10 @@
   transition: background-color 20ms ease-in;
 }
 
+.row[data-menu='true'] {
+  background: var(--scrawl-row-hover);
+}
+
 @media (hover: hover) {
   .row:hover {
     background: var(--scrawl-row-hover);
@@ -130,15 +134,7 @@
     var(--ring-y);
 }
 
-.draftInput {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  outline: 0;
-  background: none;
-  color: var(--scrawl-text);
-  font: inherit;
+.field {
   font-weight: 500;
 }
 
@@ -193,6 +189,11 @@
   font-size: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.listField {
+  gap: 12px;
+  min-height: 40px;
 }
 
 .listMeta {

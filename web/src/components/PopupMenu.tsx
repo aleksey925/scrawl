@@ -1,6 +1,6 @@
-import { Menu, type FloatingPosition, type MantineTransition, type MenuProps } from '@mantine/core';
+import { Menu, type FloatingPosition, type MantineTransition, type MenuItemProps, type MenuProps } from '@mantine/core';
 import { useUncontrolled } from '@mantine/hooks';
-import { useState, type JSX } from 'react';
+import { createContext, useContext, useState, type JSX } from 'react';
 
 import { springEasing } from './screenMotion';
 import { TapGuard, useTouchScreen } from './TapGuard';
@@ -24,6 +24,8 @@ function grow(position: FloatingPosition): MantineTransition {
   };
 }
 
+const KeepFocusContext = createContext<() => void>(() => undefined);
+
 export function PopupMenu({
   opened,
   defaultOpened,
@@ -35,9 +37,13 @@ export function PopupMenu({
   const [open, setOpen] = useUncontrolled({ value: opened, defaultValue: defaultOpened, finalValue: false, onChange });
   const touch = useTouchScreen();
   const [placed, setPlaced] = useState<FloatingPosition>(rest.position ?? 'bottom');
+  const [focusKept, setFocusKept] = useState(false);
+  if (open && focusKept) {
+    setFocusKept(false);
+  }
 
   return (
-    <>
+    <KeepFocusContext.Provider value={() => setFocusKept(true)}>
       <Menu
         floatingStrategy="fixed"
         transitionProps={
@@ -52,10 +58,32 @@ export function PopupMenu({
           onPositionChange?.(position);
         }}
         closeOnClickOutside={!touch}
+        returnFocus={!focusKept && (rest.returnFocus ?? true)}
       >
         {children}
       </Menu>
       <TapGuard active={open} onClose={() => setOpen(false)} />
-    </>
+    </KeepFocusContext.Provider>
   );
+}
+
+export interface FieldMenuItemProps extends MenuItemProps {
+  onClick: () => void;
+}
+
+export function FieldMenuItem({ onClick, ...rest }: FieldMenuItemProps): JSX.Element {
+  const keepFocus = useContext(KeepFocusContext);
+  return (
+    <Menu.Item
+      {...rest}
+      onClick={() => {
+        keepFocus();
+        onClick();
+      }}
+    />
+  );
+}
+
+export function menuRectOf(item: Element): DOMRect {
+  return (item.closest('[role="menu"]') ?? item).getBoundingClientRect();
 }

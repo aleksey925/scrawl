@@ -1,0 +1,46 @@
+.field {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--scrawl-text);
+  font: inherit;
+}
+
+.input::placeholder {
+  color: var(--scrawl-text-tertiary);
+}
+
+.cancel {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--scrawl-tap-target);
+  height: var(--scrawl-tap-target);
+  margin-inline-end: -8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--scrawl-icon-secondary);
+}
+
+.cancel:active {
+  opacity: 0.4;
+}
+
+@media (pointer: coarse) {
+  .input {
+    font-size: var(--scrawl-input-font-size);
+  }
+}

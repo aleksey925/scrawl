@@ -9,6 +9,8 @@ const READONLY = instances.readonly;
 const SHARED = instances.shared;
 const HISTORY = instances.history;
 const MULTI = instances.multi;
+const DIALOG_TITLE = {room: 4, tall: 60};
+const MOVE_WAIT_MS = 300;
 
 let shotSeq = 0;
 
@@ -64,7 +66,7 @@ function editorStatus(page) {
 }
 
 async function save(page) {
-    await page.locator('[data-testid=editor-save]').click();
+    await page.keyboard.press('ControlOrMeta+s');
     await expect(editorStatus(page)).not.toHaveAttribute('data-state', 'saving');
     await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'false');
 }
@@ -160,16 +162,97 @@ function rgb(hex) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-async function holdRoute(page, url) {
+function headingAnchorGeometry(heading) {
+    return heading.evaluate((el) => {
+        const anchor = el.querySelector('[data-testid=doc-heading-anchor]');
+        const text = [...el.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).pop();
+        const range = document.createRange();
+        range.setStart(text, text.length - 1);
+        range.setEnd(text, text.length);
+        const last = range.getBoundingClientRect();
+        const style = getComputedStyle(anchor);
+        const mark = getComputedStyle(anchor, '::before');
+        const box = anchor.getBoundingClientRect();
+        return {
+            font: Number.parseFloat(getComputedStyle(el).fontSize),
+            fontFamily: getComputedStyle(el).fontFamily,
+            lineCount: Math.round(el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight)),
+            lastRight: last.right,
+            lastTop: last.top,
+            lastBottom: last.bottom,
+            markLeft: box.left + Number.parseFloat(style.paddingLeft),
+            markTop: box.top + Number.parseFloat(style.paddingTop),
+            markBottom: box.bottom - Number.parseFloat(style.paddingBottom),
+            markText: mark.content,
+            markFont: Number.parseFloat(mark.fontSize),
+            markFontFamily: mark.fontFamily,
+            markWeight: mark.fontWeight,
+            markDrop: Number.parseFloat(mark.top),
+            tapWidth: box.width,
+            tapHeight: box.height,
+        };
+    });
+}
+
+function nameOf(path) {
+    return path.split('/').pop();
+}
+
+function recordMoves(page) {
+    const sent = [];
+    page.on('request', (request) => {
+        if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/api/move')) {
+            sent.push(request.postDataJSON());
+        }
+    });
+    return sent;
+}
+
+async function holdRoute(page, url, matches = () => true) {
     let release = () => {};
     const held = new Promise((resolve) => {
         release = resolve;
     });
+    let reach = () => {};
+    const reached = new Promise((resolve) => {
+        reach = resolve;
+    });
     await page.route(url, async (route) => {
-        await held;
+        if (matches(route.request())) {
+            reach();
+            await held;
+        }
         await route.continue();
     });
-    return release;
+    return {release, reached};
+}
+
+function dialogButtons(page, ids) {
+    return page.evaluate((testIds) => {
+        const found = testIds.map((id) => document.querySelector(`[data-testid="${id}"]`));
+        const body = found[0].closest('.mantine-Modal-body');
+        const boxes = found.map((button) => button.getBoundingClientRect());
+        return {
+            heights: boxes.map((box) => Math.round(box.height)),
+            widths: boxes.map((box) => Math.round(box.width)),
+            lefts: boxes.map((box) => Math.round(box.left)),
+            rights: boxes.map((box) => Math.round(box.right)),
+            tops: boxes.map((box) => Math.round(box.top)),
+            end: Math.round(boxes.at(-1).right),
+            bodyEnd: Math.round(body.getBoundingClientRect().right - parseFloat(getComputedStyle(body).paddingRight)),
+        };
+    }, ids);
+}
+
+async function rightClickPrevented(page, target, options = {}) {
+    await page.evaluate(() => {
+        window.e2eMenuPrevented = undefined;
+        window.addEventListener('contextmenu', (event) => {
+            window.e2eMenuPrevented = event.defaultPrevented;
+        }, {once: true});
+    });
+    await target.click({...options, button: 'right'});
+    return page.evaluate(() => window.e2eMenuPrevented);
 }
 
 async function stays(read, expected, ms) {
@@ -181,26 +264,91 @@ async function stays(read, expected, ms) {
     expect(await read()).toEqual(expected);
 }
 
+async function titleRoom(locator) {
+    return locator.evaluate((element) => {
+        const content = element.closest('.mantine-Modal-content, .mantine-Drawer-content');
+        const header = content.querySelector('.mantine-Modal-header, .mantine-Drawer-header').getBoundingClientRect();
+        const top = element.getBoundingClientRect().top;
+        return {room: Math.round(top - header.bottom), tall: Math.round(top - header.top)};
+    });
+}
+
+async function mockMe(page, space, top = {}) {
+    let current = {...space};
+    const times = [];
+    let failing = false;
+    let failed = 0;
+    let hanging = false;
+    let hung = 0;
+    let delayMs = 0;
+    await page.route(/\/api\/me$/, async (route) => {
+        times.push(Date.now());
+        if (failing) {
+            failing = false;
+            failed += 1;
+            await route.abort();
+            return;
+        }
+        if (hanging) {
+            hanging = false;
+            hung += 1;
+            return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        const res = await route.fetch();
+        const body = await res.json();
+        Object.assign(body, top);
+        Object.assign(body.space, current);
+        await route.fulfill({response: res, json: body});
+    });
+    return {
+        set: (patch) => {
+            current = {...current, ...patch};
+        },
+        hits: () => times.length,
+        times: () => [...times],
+        failNext: () => {
+            failing = true;
+        },
+        failed: () => failed,
+        hangNext: () => {
+            hanging = true;
+        },
+        hung: () => hung,
+        delay: (ms) => {
+            delayMs = ms;
+        },
+    };
+}
+
 module.exports = {
+    DIALOG_TITLE,
     HISTORY,
     MAIN,
+    MOVE_WAIT_MS,
     MULTI,
     READONLY,
     SHARED,
     atHome,
     chooseTheme,
+    dialogButtons,
     editorStatus,
     expectNoHorizontalScroll,
     fixtureFile,
+    headingAnchorGeometry,
     holdRoute,
     inStep,
     jsonRequest,
+    mockMe,
     modifier,
+    nameOf,
     openSpaceMenu,
     pressShortcut,
     readFixture,
+    recordMoves,
     removeFixture,
     rgb,
+    rightClickPrevented,
     routes,
     save,
     setSource,
@@ -210,6 +358,7 @@ module.exports = {
     sourceText,
     stays,
     submitCredentials,
+    titleRoom,
     user,
     writeFixture,
 };

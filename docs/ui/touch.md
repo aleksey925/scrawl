@@ -22,6 +22,21 @@ Sizes and feedback on a touch screen, phone or tablet.
   in it: inside a row, the rows after it painted over the guard and a press on
   the guard pressed the row, and inside a scaled element a fixed one is placed
   in that element, which shrank the guard to the card.
+- A name field, for a new entry or a rename, saves on a tap outside it, apart
+  from the new row of a folder's list, which keeps a typed name
+  ([entries](entries.md)). The field hears the tap as a `click` on the page and
+  not only as a blur, and not as a `pointerdown`
+  ([quirks](../quirks.md#phones-and-touch-screens)). The rename popover of a
+  page on a tablet has a `TapGuard` under it, whose tap saves the field and
+  opens nothing beneath; after a failed save its next tap closes the field, as
+  Escape does, or the guard held the page until the name changed. The tap whose
+  own save fails keeps the field, even when the name is refused at once, before
+  the server is asked. The popover shows with no transition, in the render of
+  the tap that asked for it, so the field takes the focus inside the tap
+  ([quirks](../quirks.md#ios-and-safari)). The ✕ that cancels the field keeps
+  the focus in it on its press, or the tap blurred the field and the blur saved
+  before the ✕ could cancel, and Tab skips it for the same reason; it shows on
+  every touch screen, a tablet without a keyboard having no Escape either.
 - A touch screen answers a tap the way an app does. A pressed row or menu item
   darkens, a list row from edge to edge of the screen, and a tab, the way back
   and the round Edit button dim, as the bars of iOS do; the press shows 60ms

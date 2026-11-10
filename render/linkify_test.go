@@ -116,7 +116,7 @@ func TestLinkifyBareURL(t *testing.T) {
 				tc.before, tc.href, tc.text, tc.after))
 
 			// act
-			got, err := r.RenderInline([]byte(tc.src), "docs/a.md")
+			got, err := htmlOf(r, []byte(tc.src), "docs/a.md")
 
 			// assert
 			require.NoError(t, err)

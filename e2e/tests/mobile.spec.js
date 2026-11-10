@@ -5,11 +5,11 @@ const fs = require('fs');
 const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
-    HISTORY, MAIN, MULTI, atHome, expectNoHorizontalScroll, fixtureFile, inStep, removeFixture, routes, save, setSource,
-    shot,
-    signIn, sourceText, stays, writeFixture,
+    DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
+    mockMe, nameOf, recordMoves, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
+const lightTheme = require('../../theme/themes/light.json');
 
 const MIN_TAP = 44;
 const BUTTON_HEIGHT = 40;
@@ -394,6 +394,27 @@ test.describe('mobile', () => {
             await expect(page).toHaveURL(MAIN.url.doc(DOC));
         });
 
+        test('a swipe back saves the name typed in a rename field', async ({page}) => {
+            // arrange
+            const folder = 'e2e-mobile/swiped';
+            const note = `${folder}/swiped.md`;
+            const renamed = `${folder}/swiped-saved.md`;
+            writeFixture(note, '# Swiped\n');
+            await asStandalone(page);
+            await page.goto(MAIN.url.dir(folder));
+            await page.locator(`[data-testid=dir-row][data-path="${note}"]`).getByTestId('tree-row-menu').tap();
+            await page.getByTestId('tree-row-menu-rename').tap();
+            await page.getByTestId('dir-rename-input').fill(nameOf(renamed));
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.dir('e2e-mobile'));
+            await expect.poll(() => fs.existsSync(fixtureFile(renamed))).toBe(true);
+            expect(fs.existsSync(fixtureFile(note))).toBe(false);
+        });
+
         test('a drag from near the edge back toward it is let go like a scroll', async ({page}) => {
             // arrange
             await asStandalone(page);
@@ -650,6 +671,134 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('tree-row-menu-dropdown')).toBeVisible();
             expect(await page.getByTestId('tap-guard').evaluate((el) => el.closest('[data-testid=tree-row]'))).toBeNull();
         });
+
+        test('the rename popover of a page keeps a tap in its field, cancels on its ✕ and saves on a tap beside it', async ({page}) => {
+            // arrange
+            const note = 'e2e-mobile/tablet/popover.md';
+            const renamed = 'e2e-mobile/tablet/popover-saved.md';
+            writeFixture(note, '# Popover\n\nSome text.\n');
+            await page.goto(MAIN.url.doc(note));
+            const input = page.getByTestId('page-rename-input');
+            const space = page.getByTestId('topbar-crumbs').getByTestId('crumb').first();
+            const moves = recordMoves(page);
+            const start = async () => {
+                await page.getByTestId('note-menu').tap();
+                await openedMenu(page, 'note-menu-dropdown');
+                await page.getByTestId('note-menu-rename').tap();
+                await expect(input).toBeFocused();
+            };
+
+            // act & assert
+            await start();
+            await expect(page.getByTestId('tap-guard')).toBeVisible();
+            await input.fill('popover-dropped.md');
+            await input.tap();
+            await expect(input).toBeFocused();
+            await expect(input).toHaveValue('popover-dropped.md');
+            await page.getByTestId('page-rename-cancel').tap();
+            await expect(page.getByTestId('page-rename')).toHaveCount(0);
+            await expect(page.getByTestId('tap-guard')).toHaveCount(0);
+            await stays(() => moves, [], MOVE_WAIT_MS);
+
+            await start();
+            await input.fill(nameOf(renamed));
+            const beneath = await space.boundingBox();
+            await page.touchscreen.tap(beneath.x + beneath.width / 2, beneath.y + beneath.height / 2);
+            await expect(page).toHaveURL(MAIN.url.doc(renamed));
+            await expect(page.getByTestId('page-rename')).toHaveCount(0);
+            expect(moves).toEqual([{from: note, to: renamed}]);
+            expect([note, renamed].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([false, true]);
+        });
+
+        test('after a failed save in the rename popover of a page a tap beside it closes the field and frees the page', async ({page}) => {
+            // arrange
+            const note = 'e2e-mobile/tablet/popover-fail.md';
+            const taken = 'e2e-mobile/tablet/popover-taken.md';
+            writeFixture(note, '# Popover fail\n');
+            writeFixture(taken, '# Taken\n');
+            await page.goto(MAIN.url.doc(note));
+            const input = page.getByTestId('page-rename-input');
+            const space = page.getByTestId('topbar-crumbs').getByTestId('crumb').first();
+            const moves = recordMoves(page);
+            const tapSpace = async () => {
+                const box = await space.boundingBox();
+                await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+            };
+            await page.getByTestId('note-menu').tap();
+            await openedMenu(page, 'note-menu-dropdown');
+            await page.getByTestId('note-menu-rename').tap();
+            await expect(input).toBeFocused();
+            await input.fill(nameOf(taken));
+            await tapSpace();
+            await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.nameTaken);
+            await expect(input).toHaveValue(nameOf(taken));
+
+            // act
+            await tapSpace();
+
+            // assert
+            await expect(page.getByTestId('page-rename')).toHaveCount(0);
+            await expect(page.getByTestId('tap-guard')).toHaveCount(0);
+            await expect(page).toHaveURL(MAIN.url.doc(note));
+            await tapSpace();
+            await expect(page).toHaveURL(atHome());
+            expect(moves).toEqual([{from: note, to: taken}]);
+            expect([note, taken].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([true, true]);
+        });
+
+        for (const [kind, typed, problem] of [['a dot', '.popover.md', text.renameDot], ['a slash', 'a/b.md', text.renameSlash]]) {
+            test(`a name with ${kind} refused in the rename popover of a page keeps the field on the tap that saved it`, async ({page}) => {
+                // arrange
+                const note = `e2e-mobile/tablet/refused-${kind.split(' ')[1]}.md`;
+                writeFixture(note, '# Refused\n');
+                await page.goto(MAIN.url.doc(note));
+                const input = page.getByTestId('page-rename-input');
+                const space = page.getByTestId('topbar-crumbs').getByTestId('crumb').first();
+                const moves = recordMoves(page);
+                const tapSpace = async () => {
+                    const box = await space.boundingBox();
+                    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+                };
+                await page.getByTestId('note-menu').tap();
+                await openedMenu(page, 'note-menu-dropdown');
+                await page.getByTestId('note-menu-rename').tap();
+                await expect(input).toBeFocused();
+                await input.fill(typed);
+
+                // act
+                await tapSpace();
+
+                // assert
+                await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(problem);
+                await stays(() => input.inputValue(), typed, MOVE_WAIT_MS);
+                await expect(page.getByTestId('tap-guard')).toBeVisible();
+                await tapSpace();
+                await expect(page.getByTestId('page-rename')).toHaveCount(0);
+                await expect(page.getByTestId('tap-guard')).toHaveCount(0);
+                await expect(page).toHaveURL(MAIN.url.doc(note));
+                expect(moves).toEqual([]);
+            });
+        }
+
+        test('a tap outside the new row of a folder list keeps a typed name, as a click does', async ({page}) => {
+            // arrange
+            const folder = 'e2e-mobile/tablet/draft';
+            writeFixture(`${folder}/inside.md`, '# Inside\n');
+            await page.goto(MAIN.url.dir(folder));
+            const draft = page.getByTestId('dir-draft');
+
+            // act & assert
+            await page.getByTestId('dir-new').tap();
+            await expect(page.getByTestId('dir-new-folder')).toBeVisible();
+            await page.getByTestId('dir-new-folder').tap();
+            await page.getByTestId('dir-draft-input').fill('kept');
+            await page.getByTestId('dir-title').tap();
+            await expect(draft).toBeVisible();
+            await expect(page.getByTestId('dir-draft-input')).toHaveValue('kept');
+            expect(fs.existsSync(fixtureFile(`${folder}/kept`))).toBe(false);
+            await page.getByTestId('dir-draft-cancel').tap();
+            await expect(draft).toHaveCount(0);
+        });
     });
 
     test.describe('the menu of a row in a folder', () => {
@@ -674,7 +823,6 @@ test.describe('mobile', () => {
             await shot(page, 'mobile-row-menu');
             await page.getByTestId('tree-row-menu-delete').tap();
             await expect(page.getByTestId('row-lift')).toHaveCount(0);
-            await page.getByTestId('modal-confirm').tap();
             await expect(rowOf(page, file)).toHaveCount(0);
             expect(fs.existsSync(fixtureFile(file))).toBe(false);
         });
@@ -720,6 +868,260 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('row-lift')).toHaveCount(0);
             await expect(rowOf(page, file)).toHaveAttribute('data-lifted', 'false');
             await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+        });
+
+        async function startRowRename(page, path) {
+            await rowOf(page, path).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await page.getByTestId('tree-row-menu-rename').tap();
+            await expect(page.getByTestId('dir-rename-input')).toBeFocused();
+        }
+
+        async function startBarRename(page, menu) {
+            await page.getByTestId(menu).tap();
+            await openedMenu(page, `${menu}-dropdown`);
+            await page.getByTestId(`${menu}-rename`).tap();
+            await expect(page.getByTestId('topbar-title').getByTestId('page-rename-input')).toBeFocused();
+        }
+
+        test('Rename turns the name of the row into a field, Done saves, a tap outside saves and the ✕ cancels', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/rename-me.md`;
+            const renamed = `${FOLDER}/renamed-here.md`;
+            const tapped = `${FOLDER}/tapped-out.md`;
+            writeFixture(file, '# Rename me\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            const input = page.getByTestId('dir-rename-input');
+            const moves = recordMoves(page);
+
+            // act & assert
+            await startRowRename(page, file);
+            await expect(input).toHaveValue(nameOf(file));
+            await expect(input).toHaveAttribute('enterkeyhint', 'done');
+            expect(await input.evaluate((field) => getComputedStyle(field).fontSize)).toBe('16px');
+            await expect(page.getByTestId('dir-rename-cancel')).toBeVisible();
+            await expect(page.locator('.mantine-Modal-content')).toHaveCount(0);
+            await shot(page, 'mobile-rename');
+            await input.fill('dropped.md');
+            await page.getByTestId('dir-rename-cancel').tap();
+            await expect(page.getByTestId('dir-rename-field')).toHaveCount(0);
+            await stays(() => moves, [], MOVE_WAIT_MS);
+            expect(fs.existsSync(fixtureFile(`${FOLDER}/dropped.md`))).toBe(false);
+
+            await startRowRename(page, file);
+            await input.fill(nameOf(renamed));
+            await input.press('Enter');
+            await expect(rowOf(page, renamed)).toHaveCount(1);
+
+            await startRowRename(page, renamed);
+            await input.fill(nameOf(tapped));
+            await page.getByTestId('dir-title').tap();
+            await expect(rowOf(page, tapped)).toHaveCount(1);
+            await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+            expect([file, renamed, tapped].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([false, false, true]);
+        });
+
+        test('a tap outside saves the field even when the field keeps the focus', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/kept-focus.md`;
+            const renamed = `${FOLDER}/kept-focus-saved.md`;
+            writeFixture(file, '# Kept focus\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            await startRowRename(page, file);
+            await page.getByTestId('dir-rename-input').fill(nameOf(renamed));
+
+            // act
+            await page.getByTestId('dir-title').dispatchEvent('click');
+
+            // assert
+            await expect.poll(() => fs.existsSync(fixtureFile(renamed))).toBe(true);
+            await expect(rowOf(page, renamed)).toHaveCount(1);
+            expect(fs.existsSync(fixtureFile(file))).toBe(false);
+        });
+
+        test('after a failed save a tap outside does not send the same name again', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/fail-once.md`;
+            const taken = `${FOLDER}/fail-taken.md`;
+            writeFixture(file, '# Fail once\n');
+            writeFixture(taken, '# Taken\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            const input = page.getByTestId('dir-rename-input');
+            const moves = recordMoves(page);
+            await startRowRename(page, file);
+            await input.fill(nameOf(taken));
+            await input.press('Enter');
+            await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.nameTaken);
+
+            // act
+            await page.getByTestId('dir-title').tap();
+
+            // assert
+            await stays(() => moves, [{from: file, to: taken}], MOVE_WAIT_MS);
+            await expect(input).toHaveValue(nameOf(taken));
+            await page.getByTestId('dir-rename-cancel').tap();
+            await expect(page.getByTestId('dir-rename-field')).toHaveCount(0);
+            expect([file, taken].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([true, true]);
+        });
+
+        test('Rename from a lifted row sets the card down at once, and the first tap outside saves', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/lift-rename.md`;
+            const renamed = `${FOLDER}/lift-renamed.md`;
+            writeFixture(file, '# Lift rename\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            const box = await rowOf(page, file).boundingBox();
+            await longPress(page, box.x + 80, box.y + box.height / 2);
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            const input = page.getByTestId('dir-rename-input');
+
+            // act & assert
+            await page.getByTestId('tree-row-menu-rename').tap();
+            expect(await page.getByTestId('row-lift').count()).toBe(0);
+            await expect(input).toBeFocused();
+            await input.fill(nameOf(renamed));
+            await page.getByTestId('dir-title').tap();
+            await expect.poll(() => fs.existsSync(fixtureFile(renamed))).toBe(true);
+            await expect(rowOf(page, renamed)).toHaveCount(1);
+        });
+
+        test('Rename from the menu of an opened note puts the field in the place of the bar\'s title', async ({page}) => {
+            // arrange
+            const note = `${FOLDER}/bar-rename.md`;
+            const renamed = `${FOLDER}/bar-renamed.md`;
+            writeFixture(note, '# Bar rename\n\nSome text.\n');
+            await page.goto(MAIN.url.doc(note));
+            const input = page.getByTestId('topbar-title').getByTestId('page-rename-input');
+            const moves = recordMoves(page);
+
+            // act & assert
+            await startBarRename(page, 'note-menu');
+            await expect(input).toHaveValue(nameOf(note));
+            await expect(page.getByTestId('topbar')).toHaveAttribute('data-renaming', 'true');
+            await expect(page.getByTestId('topbar-up')).toBeHidden();
+            await expect(page.getByTestId('topbar-actions')).toBeHidden();
+            await expect(page.getByTestId('note-menu')).toBeHidden();
+            await shot(page, 'mobile-rename-bar');
+            await input.fill('bar-dropped.md');
+            await page.getByTestId('page-rename-cancel').tap();
+            await expect(input).toHaveCount(0);
+            await expect(page.getByTestId('topbar-up')).toBeVisible();
+            await stays(() => moves, [], MOVE_WAIT_MS);
+
+            await startBarRename(page, 'note-menu');
+            await input.fill(nameOf(renamed));
+            await input.press('Enter');
+            await expect(page).toHaveURL(MAIN.url.doc(renamed));
+            expect([note, `${FOLDER}/bar-dropped.md`, renamed].map((path) => fs.existsSync(fixtureFile(path))))
+                .toEqual([false, false, true]);
+        });
+
+        test('Rename from the menu of a folder page puts the field in the place of the bar\'s title', async ({page}) => {
+            // arrange
+            const folder = `${FOLDER}/bar-folder`;
+            const renamed = `${FOLDER}/bar-folder-renamed`;
+            writeFixture(`${folder}/inside.md`, '# Inside\n');
+            await page.goto(MAIN.url.dir(folder));
+            const input = page.getByTestId('topbar-title').getByTestId('page-rename-input');
+
+            // act & assert
+            await startBarRename(page, 'folder-menu');
+            await expect(input).toHaveValue(nameOf(folder));
+            await expect(page.getByTestId('topbar-actions')).toBeHidden();
+            await expect(page.getByTestId('folder-menu')).toBeHidden();
+            await input.fill(nameOf(renamed));
+            await input.press('Enter');
+            await expect(page).toHaveURL(MAIN.url.dir(renamed));
+            expect(fs.existsSync(fixtureFile(`${renamed}/inside.md`))).toBe(true);
+        });
+
+        test('Move to fills the screen and moves the file into the folder tapped', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/move-me.md`;
+            const into = `${FOLDER}/into`;
+            writeFixture(file, '# Move me\n');
+            fs.mkdirSync(fixtureFile(into), {recursive: true});
+            await page.goto(MAIN.url.dir(FOLDER));
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await page.getByTestId('tree-row-menu-move').tap();
+            await expect.poll(async () => Math.round((await page.getByTestId('move-dialog').boundingBox()).width))
+                .toBe(page.viewportSize().width);
+            await shot(page, 'mobile-move');
+
+            // act
+            await page.getByTestId('move-input').fill('into');
+            await page.locator(`[data-testid=move-place][data-path="${into}"]`).tap();
+
+            // assert
+            await expect(page.getByTestId('move-dialog')).toHaveCount(0);
+            await expect.poll(() => fs.existsSync(fixtureFile(`${into}/move-me.md`))).toBe(true);
+            expect(fs.existsSync(fixtureFile(file))).toBe(false);
+        });
+
+        test('Cancel in Move to closes it and moves nothing', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/stay-put.md`;
+            writeFixture(file, '# Stay put\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await page.getByTestId('tree-row-menu-move').tap();
+            await expect(page.getByTestId('move-dialog')).toBeVisible();
+
+            // act
+            await page.getByTestId('move-close').tap();
+
+            // assert
+            await expect(page.getByTestId('move-dialog')).toHaveCount(0);
+            await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+            expect(fs.existsSync(fixtureFile(file))).toBe(true);
+        });
+
+        test('a tap on the folder in the toast of a move opens it and leaves the toast with its Undo', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/follow-me.md`;
+            const into = `${FOLDER}/into`;
+            writeFixture(file, '# Follow me\n');
+            fs.mkdirSync(fixtureFile(into), {recursive: true});
+            await page.goto(MAIN.url.dir(FOLDER));
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await page.getByTestId('tree-row-menu-move').tap();
+            await page.getByTestId('move-input').fill('into');
+            await page.locator(`[data-testid=move-place][data-path="${into}"]`).tap();
+            await expect(page.getByTestId('toast-link')).toBeVisible();
+
+            // act
+            await page.getByTestId('toast-link').tap();
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.dir(into));
+            await expect(rowOf(page, `${into}/follow-me.md`)).toHaveCount(1);
+            await expect(page.getByTestId('toast-action')).toBeVisible();
+        });
+
+        test('a tap on Undo in the toast puts the moved file back', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/undo-me.md`;
+            const into = `${FOLDER}/into`;
+            writeFixture(file, '# Undo me\n');
+            fs.mkdirSync(fixtureFile(into), {recursive: true});
+            await page.goto(MAIN.url.dir(FOLDER));
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await page.getByTestId('tree-row-menu-move').tap();
+            await page.getByTestId('move-input').fill('into');
+            await page.locator(`[data-testid=move-place][data-path="${into}"]`).tap();
+            await expect.poll(() => fs.existsSync(fixtureFile(`${into}/undo-me.md`))).toBe(true);
+            await shot(page, 'mobile-move-undo');
+
+            // act
+            await page.getByTestId('toast-action').tap();
+
+            // assert
+            await expect.poll(() => fs.existsSync(fixtureFile(file))).toBe(true);
+            expect(fs.existsSync(fixtureFile(`${into}/undo-me.md`))).toBe(false);
         });
 
         test('offers Edit for a note and not for a picture the editor cannot open', async ({page}) => {
@@ -831,6 +1233,40 @@ test.describe('mobile', () => {
         await page.getByTestId('recent-menu-clear').tap();
         await expect(page.getByTestId('recent-item')).toHaveCount(0);
         await expect(page.getByTestId('recent-empty-title')).toHaveText('Nothing opened yet');
+    });
+
+    test('the name field of New sits clear of the dialog title, so its whole focus ring shows', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+
+        // act
+        await page.getByTestId('tab-new').tap();
+        await page.getByTestId('new-menu-note').tap();
+        await expect(page.getByTestId('new-entry-name')).toBeFocused();
+
+        // assert
+        expect(await titleRoom(page.getByTestId('new-entry-name'))).toEqual(DIALOG_TITLE);
+    });
+
+    test('the name field of New takes the focus inside the tap and keeps it, so a phone opens its keyboard', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+        await page.getByTestId('tab-new').tap();
+        await expect(page.getByTestId('new-menu-note')).toBeVisible();
+
+        // act
+        const seen = await page.evaluate(async () => {
+            const focused = [];
+            document.addEventListener('focusin', (event) => focused.push(event.target.dataset.testid));
+            document.querySelector('[data-testid=new-menu-note]').click();
+            await Promise.resolve();
+            const inTap = document.activeElement.dataset.testid;
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            return {inTap, focused};
+        });
+
+        // assert
+        expect(seen).toEqual({inTap: 'new-entry-name', focused: ['new-entry-name']});
     });
 
     test('New makes a note in the folder on screen and opens the editor', async ({page}) => {
@@ -1027,12 +1463,53 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('editor-source')).toHaveCount(0);
         await shot(page, 'mobile-editor-preview');
 
+        await page.getByTestId('editor-tab-changes').tap();
+        await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'changes');
+        await expect(page.getByTestId('rendered-diff')).toHaveAttribute('data-layout', 'unified');
+        await expect(page.locator('[data-testid=diff-row][data-kind=changed] ins')).toHaveText('новый');
+        await shot(page, 'mobile-editor-changes');
+
         await page.getByTestId('editor-tab-source').tap();
         await expect(page.getByTestId('editor-source')).toBeVisible();
+        await expectNoHorizontalScroll(page);
 
         await page.getByTestId('editor-save').tap();
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.saved);
-        await expectNoHorizontalScroll(page);
+        await expect(page).toHaveURL(MAIN.url.doc(SCRATCH));
+        await expect(page.getByTestId('doc')).toContainText('новый текст');
+    });
+
+    test('a split kept on a wide screen opens on the Text tab of a phone', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n');
+        await page.addInitScript(() => localStorage.setItem('scrawl.editor.mode', 'split'));
+
+        // act
+        await page.goto(routes.edit(SCRATCH));
+
+        // assert
+        await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'source');
+        await expect(page.getByTestId('editor-tab-source')).toHaveAttribute('aria-selected', 'true');
+        await expect(page.getByTestId('editor-source')).toBeVisible();
+    });
+
+    test('a tap on the size grid inserts the table and leaves the cursor in its first cell', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
+        await page.goto(routes.edit(SCRATCH));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(2).tap();
+        await page.getByTestId('editor-toolbar-table').tap();
+        await openedMenu(page, 'editor-table-menu');
+
+        // act
+        await page.getByTestId('editor-table-grid').locator('[data-column="3"][data-row="2"]').tap();
+        await page.keyboard.type('A');
+
+        // assert
+        await expect(page.getByTestId('editor-table-menu')).toBeHidden();
+        await expect.poll(() => sourceText(page)).toBe([
+            '# Заметка', '', 'текст', '', '| A    |     |     |', '| --- | --- | --- |', '|     |     |     |', '',
+        ].join('\n'));
     });
 
     test('a text file opens in the editor with no Text and Preview tabs', async ({page}) => {
@@ -1130,6 +1607,45 @@ test.describe('mobile', () => {
         }
     });
 
+    test('the leave dialog shares its row between its two buttons in equal parts', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n');
+        await page.goto(routes.edit(SCRATCH));
+        await setSource(page, '# Заметка\n\nправка\n');
+
+        // act
+        await page.getByTestId('editor-cancel').tap();
+
+        // assert
+        await expect(page.getByTestId('modal-confirm')).toBeVisible();
+        const row = await dialogButtons(page, ['modal-cancel', 'modal-confirm']);
+        expect(row.widths[0]).toBe(row.widths[1]);
+        expect(row.tops[0]).toBe(row.tops[1]);
+        expect(row.heights.every((height) => height >= BUTTON_HEIGHT)).toBe(true);
+        await page.getByTestId('modal-cancel').tap();
+    });
+
+    test('the conflict dialog stacks its three buttons across the dialog', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, 'original\n');
+        await page.goto(routes.edit(SCRATCH));
+        await expect.poll(() => sourceText(page)).toBe('original\n');
+        writeFixture(SCRATCH, 'written by someone else\n');
+        await setSource(page, 'my version\n');
+
+        // act
+        await page.getByTestId('editor-save').tap();
+
+        // assert
+        await expect(page.getByTestId('editor-conflict-overwrite')).toBeVisible();
+        const row = await dialogButtons(page, ['editor-conflict-cancel', 'editor-conflict-copy', 'editor-conflict-overwrite']);
+        expect({lefts: row.lefts, widths: row.widths, tall: row.heights.map((height) => height >= BUTTON_HEIGHT)})
+            .toEqual({lefts: Array(3).fill(row.lefts[0]), widths: Array(3).fill(row.widths[0]), tall: Array(3).fill(true)});
+        expect(row.tops[0]).toBeLessThan(row.tops[1]);
+        expect(row.tops[1]).toBeLessThan(row.tops[2]);
+        await page.getByTestId('editor-conflict-cancel').tap();
+    });
+
     test('no page scrolls horizontally', async ({page}) => {
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
         const pages = [
@@ -1176,11 +1692,29 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-code-copy');
     });
 
-    test('a heading carries no link icon on a phone', async ({page}) => {
+    test('a heading shows its link mark after the text without a hover, muted and on its baseline', async ({page}) => {
+        // arrange
         await page.goto(routes.doc(DOC));
-        await expect(page.getByTestId('doc').locator('h1').first()).toBeVisible();
+        const doc = page.getByTestId('doc');
+        const anchor = doc.locator('h1').first().getByTestId('doc-heading-anchor');
 
-        await expect(page.getByTestId('doc-heading-anchor').first()).toBeHidden();
+        // act
+        const title = await headingAnchorGeometry(doc.locator('h1').first());
+        const section = await headingAnchorGeometry(doc.locator('h2').first());
+        const colors = await doc.getByTestId('doc-heading-anchor')
+            .evaluateAll((elements) => elements.map((el) => getComputedStyle(el).color));
+
+        // assert
+        await expect(anchor).toBeVisible();
+        await expect(anchor).toHaveCSS('opacity', '1');
+        expect(colors).toEqual(Array(colors.length).fill(rgb(lightTheme.palette.textTertiary)));
+        for (const geometry of [title, section]) {
+            expect(geometry.markLeft).toBeGreaterThan(geometry.lastRight);
+            expect(Math.abs(geometry.markBottom - geometry.lastBottom)).toBeLessThanOrEqual(0.5);
+            expect(Math.round(Math.min(geometry.tapWidth, geometry.tapHeight))).toBeGreaterThanOrEqual(MIN_TAP);
+        }
+        expect(title.markFont).toBeGreaterThan(section.markFont);
+        await shot(page, 'mobile-heading-anchor');
     });
 
     test('the preview in the editor fits the screen', async ({page}) => {
@@ -1204,7 +1738,7 @@ test.describe('mobile', () => {
         await page.goto(routes.edit(SCRATCH));
         await expect(page.getByTestId('editor-tabs')).toBeVisible();
 
-        expect(await tooSmall(page, '[data-testid=editor-tab-source], [data-testid=editor-tab-preview]'))
+        expect(await tooSmall(page, '[data-testid^=editor-tab-]'))
             .toEqual([]);
         expect(await tooSmall(page, '[data-testid=editor-toolbar] button')).toEqual([]);
     });
@@ -1287,7 +1821,8 @@ test.describe('mobile', () => {
         await page.goto(routes.home());
 
         // assert
-        await expect(page.getByTestId('topbar-home')).toHaveText(await page.getByTestId('dir-title').textContent());
+        await expect(page.getByTestId('dir-title')).toHaveText(MAIN.space);
+        await expect(page.getByTestId('topbar-home')).toHaveText(MAIN.space);
         await expect(page.getByTestId('topbar-home').locator('svg')).toBeVisible();
     });
 
@@ -1322,10 +1857,10 @@ test.describe('mobile', () => {
     test('a dialog stands in the middle of the screen', async ({page}) => {
         // arrange
         await page.goto(routes.home());
-        await page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`).getByTestId('tree-row-menu').tap();
+        await page.getByTestId('tab-new').tap();
 
         // act
-        await page.getByTestId('tree-row-menu-delete').tap();
+        await page.getByTestId('new-menu-note').tap();
 
         // assert
         const dialog = page.locator('.mantine-Modal-content');
@@ -1334,7 +1869,20 @@ test.describe('mobile', () => {
             const box = await dialog.boundingBox();
             return Math.abs(box.y - (page.viewportSize().height - box.y - box.height));
         }).toBeLessThan(2);
-        await page.getByTestId('modal-cancel').tap();
+        await page.getByTestId('new-entry-cancel').tap();
+    });
+
+    test('a context menu on the free space of a folder list opens no menu of the app on a phone', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(docs.folder.path));
+        await expect(page.getByTestId('dir-table')).toBeVisible();
+
+        // act
+        await page.getByTestId('dir').dispatchEvent('contextmenu');
+
+        // assert
+        await expect(page.getByTestId('dir-context-menu')).toHaveCount(0);
+        await expect(page.getByTestId('dir-draft')).toHaveCount(0);
     });
 
     test.describe('a toast', () => {
@@ -1342,7 +1890,7 @@ test.describe('mobile', () => {
             await page.goto(routes.home());
             await page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`).getByTestId('tree-row-menu').tap();
             await page.getByTestId('tree-row-menu-copy-link').tap();
-            await expect(page.getByTestId('toast-pill')).toBeVisible();
+            await expect(page.getByTestId('toast-box')).toBeVisible();
         }
 
         test('leaves the bar beside it to take a tap, and goes on its own after one', async ({page}) => {
@@ -1357,12 +1905,49 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 5000});
         });
 
+        test('with Undo stays past the 2.5 seconds of one without', async ({page}) => {
+            // arrange
+            const file = 'e2e-mobile/toast-undo.md';
+            writeFixture(file, '# Toast undo\n');
+            await page.goto(MAIN.url.dir('e2e-mobile'));
+            await page.locator(`[data-testid=dir-row][data-path="${file}"]`).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+
+            // act
+            await page.getByTestId('tree-row-menu-delete').tap();
+
+            // assert
+            await expect(page.getByTestId('toast-action')).toBeVisible();
+            await stays(() => page.getByTestId('toast').count(), 1, 4000);
+            await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 4000});
+        });
+
+        test('keeps Undo inside it and on screen for a long name without spaces', async ({page}) => {
+            // arrange
+            const file = `e2e-mobile/${'unbroken'.repeat(15)}.md`;
+            writeFixture(file, '# Unbroken\n');
+            await page.goto(MAIN.url.dir('e2e-mobile'));
+            await page.locator(`[data-testid=dir-row][data-path="${file}"]`).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+
+            // act
+            await page.getByTestId('tree-row-menu-delete').tap();
+
+            // assert
+            await expect(page.getByTestId('toast-action')).toBeVisible();
+            const box = await page.getByTestId('toast-box').boundingBox();
+            const action = await page.getByTestId('toast-action').boundingBox();
+            const width = page.viewportSize().width;
+            expect([box.x >= 0, box.x + box.width <= width, action.x >= box.x, action.x + action.width <= box.x + box.width])
+                .toEqual([true, true, true, true]);
+        });
+
         test('goes at a tap on it', async ({page}) => {
             // arrange
             await copied(page);
 
             // act
-            await page.getByTestId('toast-pill').tap();
+            await page.getByTestId('toast-box').tap();
 
             // assert
             await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 1500});
@@ -1371,7 +1956,7 @@ test.describe('mobile', () => {
         test('goes at a flick up', async ({page}) => {
             // arrange
             await copied(page);
-            const box = await page.getByTestId('toast-pill').boundingBox();
+            const box = await page.getByTestId('toast-box').boundingBox();
             const x = box.x + box.width / 2;
             const cdp = await page.context().newCDPSession(page);
 
@@ -1464,6 +2049,19 @@ test.describe('mobile', () => {
 
         await page.getByTestId('toc-entry').first().tap();
         await expect(page.getByTestId('toc-entry')).toHaveCount(0);
+    });
+
+    test('the outline sheet keeps the room of a focus ring under its title, and is as tall there as a dialog', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC));
+        await page.getByTestId('note-menu').tap();
+
+        // act
+        await page.getByTestId('note-menu-outline').tap();
+        await expect(page.getByTestId('toc-entry').first()).toBeVisible();
+
+        // assert
+        expect(await titleRoom(page.getByTestId('toc'))).toEqual(DIALOG_TITLE);
     });
 
     test('a sheet that closed leaves the page live behind it', async ({page}) => {
@@ -1662,6 +2260,7 @@ test.describe('mobile sync state', () => {
     });
 
     test.afterEach(async ({page}) => {
+        await page.unrouteAll({behavior: 'ignoreErrors'});
         restoreOrigin(wiki.origin);
         fs.rmSync(`${wiki.dir}/${SYNC_DOC}`, {force: true});
         fs.rmSync(`${wiki.dir}/${SYNC_FOLDER}`, {recursive: true, force: true});
@@ -1683,6 +2282,8 @@ test.describe('mobile sync state', () => {
         await page.goto(WIKI.doc(SYNC_DOC));
 
         // assert
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'not-sent');
+        await expect(page.getByTestId('sync-control')).toHaveText('');
         await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
         await expect(page.getByTestId('space-alert')).toBeVisible();
         await expect(page.getByTestId('sidebar')).toHaveCount(0);
@@ -1720,5 +2321,98 @@ test.describe('mobile sync state', () => {
         const offenders = await tooSmall(page, '[data-testid=topbar] button, [data-testid=topbar] a');
         await shot(page, 'mobile-sync-tap-targets');
         expect(offenders, 'elements smaller than the touch minimum').toEqual([]);
+    });
+
+    test('the control stands between Cancel and Save in the editor', async ({page}) => {
+        // arrange
+        await mockMe(page, {pushing: true});
+
+        // act
+        await page.goto(WIKI.edit(SYNC_DOC));
+
+        // assert
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'sending');
+        await expect(page.getByTestId('sync-control')).toBeInViewport({ratio: 1});
+        await expect(page.getByTestId('editor-cancel')).toBeInViewport({ratio: 1});
+        await expect(page.getByTestId('editor-save')).toBeInViewport({ratio: 1});
+        const cancel = await page.getByTestId('editor-cancel').boundingBox();
+        const sync = await page.getByTestId('sync-control').boundingBox();
+        const saveButton = await page.getByTestId('editor-save').boundingBox();
+        expect(cancel.x + cancel.width).toBeLessThanOrEqual(sync.x);
+        expect(sync.x + sync.width).toBeLessThanOrEqual(saveButton.x);
+        await shot(page, 'mobile-sync-editor');
+    });
+
+    test('a rename of the page keeps the control in the bar', async ({page}) => {
+        // arrange
+        await mockMe(page, {pushing: true});
+        await page.goto(WIKI.doc(SYNC_DOC));
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'sending');
+
+        // act
+        await page.getByTestId('note-menu').tap();
+        await openedMenu(page, 'note-menu-dropdown');
+        await page.getByTestId('note-menu-rename').tap();
+
+        // assert
+        await expect(page.getByTestId('page-rename-input')).toBeFocused();
+        await expect(page.getByTestId('sync-control')).toBeInViewport({ratio: 1});
+        const field = await page.getByTestId('page-rename-field').boundingBox();
+        const sync = await page.getByTestId('sync-control').boundingBox();
+        expect(field.x + field.width).toBeLessThanOrEqual(sync.x);
+        await expectNoHorizontalScroll(page);
+    });
+
+    test('a diverged space shows its sign and keeps the word in the popover', async ({page}) => {
+        // arrange
+        await mockMe(page, {unpublished: true, diverged: true, sync_error: 'merge: the branch has diverged from origin/main'});
+        await page.goto(WIKI.doc(SYNC_DOC));
+        const sync = page.getByTestId('sync-control');
+
+        // act
+        await expect(sync).toHaveAttribute('data-state', 'blocked');
+        await sync.tap();
+
+        // assert
+        await expect(sync).toHaveText('');
+        await expect(sync).toHaveAttribute('aria-label', 'Diverged');
+        await expect(page.getByTestId('sync-details')).toContainText('Diverged');
+        await expect(page.getByTestId('sync-details').getByTestId('sync-reset')).toBeVisible();
+        await shot(page, 'mobile-sync-diverged');
+    });
+
+    test('a narrow phone with a long title still fits the control', async ({page}) => {
+        // arrange
+        await page.setViewportSize({width: 320, height: 640});
+        fs.writeFileSync(`${wiki.dir}/${SYNC_DOC}`, `# ${'A rather long title for a narrow phone '.repeat(3)}\n\n${'text\n\n'.repeat(80)}`, 'utf8');
+        await mockMe(page, {unpublished: true, retrying: true, sync_error: 'push: the remote is down'});
+
+        // act
+        await page.goto(WIKI.doc(SYNC_DOC));
+        await page.mouse.wheel(0, 2000);
+
+        // assert
+        await expect(page.getByTestId('topbar-title')).toHaveAttribute('data-shown', 'true');
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'not-sent');
+        await expect(page.getByTestId('sync-control')).toBeInViewport({ratio: 1});
+        await expect(page.getByTestId('note-menu')).toBeInViewport({ratio: 1});
+        await expectNoHorizontalScroll(page);
+        const offenders = await tooSmall(page, '[data-testid=topbar] button, [data-testid=topbar] a');
+        expect(offenders, 'elements smaller than the touch minimum').toEqual([]);
+        await shot(page, 'mobile-sync-narrow');
+    });
+
+    test('a change on its way does not spin under reduced motion', async ({page}) => {
+        // arrange
+        await page.emulateMedia({reducedMotion: 'reduce'});
+        await mockMe(page, {pushing: true});
+
+        // act
+        await page.goto(WIKI.doc(SYNC_DOC));
+
+        // assert
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'sending');
+        await expect(page.getByTestId('sync-spinner')).toHaveCount(0);
+        await expect(page.getByTestId('sync-control').getByTestId('sync-still')).toBeVisible();
     });
 });

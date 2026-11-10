@@ -1,5 +1,7 @@
-import { Button, Group, Modal, Text, TextInput } from '@mantine/core';
+import { Button, Modal, Text, TextInput } from '@mantine/core';
 import { useState, type FormEvent, type JSX } from 'react';
+
+import { DialogActions } from '../components/DialogActions';
 
 import type { TreeDraft } from './fileActionsContext';
 
@@ -42,6 +44,7 @@ export function NewEntryDialog({ draft, onCreate, onClose }: NewEntryDialogProps
         <TextInput
           data-testid="new-entry-name"
           data-autofocus
+          autoFocus
           size="md"
           placeholder={isFile ? 'File name' : 'Folder name'}
           aria-label={isFile ? 'Name of the new file' : 'Name of the new folder'}
@@ -59,14 +62,14 @@ export function NewEntryDialog({ draft, onCreate, onClose }: NewEntryDialogProps
             In {draft.parent}
           </Text>
         )}
-        <Group grow gap="xs" mt="md">
+        <DialogActions mt="md">
           <Button data-testid="new-entry-cancel" variant="default" onClick={onClose}>
             Cancel
           </Button>
           <Button data-testid="new-entry-create" type="submit" loading={busy} disabled={name.trim() === ''}>
             Create
           </Button>
-        </Group>
+        </DialogActions>
       </form>
     </Modal>
   );

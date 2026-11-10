@@ -175,27 +175,22 @@
 }
 
 .markdown-document .md-anchor {
-  position: absolute;
-  top: calc((1lh - var(--scrawl-tap-target)) / 2);
-  left: -20px;
-  display: flex;
-  align-items: center;
-  width: var(--scrawl-tap-target);
-  height: var(--scrawl-tap-target);
-  color: var(--scrawl-text);
+  --md-anchor-pad-inline: calc((var(--scrawl-tap-target) - 0.5em) / 2);
+  --md-anchor-pad-block: max(0px, calc((var(--scrawl-tap-target) - 1em) / 2));
+
+  margin-inline: calc(0.18em - var(--md-anchor-pad-inline)) calc(-1 * var(--md-anchor-pad-inline));
+  padding: var(--md-anchor-pad-block) var(--md-anchor-pad-inline);
+  color: var(--scrawl-text-tertiary);
+  font-weight: 400;
   text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
 }
 
 .markdown-document .md-anchor::before {
-  content: '';
-  flex: none;
-  width: 16px;
-  height: 16px;
-  background-color: currentColor;
-  -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='black'><path d='M165.66,90.34a8,8,0,0,1,0,11.32l-64,64a8,8,0,0,1-11.32-11.32l64-64A8,8,0,0,1,165.66,90.34ZM215.6,40.4a56,56,0,0,0-79.2,0L106.34,70.45a8,8,0,0,0,11.32,11.32l30.06-30a40,40,0,0,1,56.57,56.56l-30.07,30.06a8,8,0,0,0,11.31,11.32L215.6,119.6a56,56,0,0,0,0-79.2ZM138.34,174.22l-30.06,30.06a40,40,0,1,1-56.56-56.57l30.05-30.05a8,8,0,0,0-11.32-11.32L40.4,136.4a56,56,0,0,0,79.2,79.2l30.06-30.07a8,8,0,0,0-11.32-11.31Z'/></svg>")
-    center / contain no-repeat;
-  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='black'><path d='M165.66,90.34a8,8,0,0,1,0,11.32l-64,64a8,8,0,0,1-11.32-11.32l64-64A8,8,0,0,1,165.66,90.34ZM215.6,40.4a56,56,0,0,0-79.2,0L106.34,70.45a8,8,0,0,0,11.32,11.32l30.06-30a40,40,0,0,1,56.57,56.56l-30.07,30.06a8,8,0,0,0,11.31,11.32L215.6,119.6a56,56,0,0,0,0-79.2ZM138.34,174.22l-30.06,30.06a40,40,0,1,1-56.56-56.57l30.05-30.05a8,8,0,0,0-11.32-11.32L40.4,136.4a56,56,0,0,0,79.2,79.2l30.06-30.07a8,8,0,0,0-11.32-11.31Z'/></svg>")
-    center / contain no-repeat;
+  position: relative;
+  top: 0.03em;
+  content: '\2060#';
 }
 
 .markdown-document .md-anchor:focus-visible {
@@ -205,21 +200,21 @@
 
 @media (hover: hover) {
   .markdown-document .md-anchor {
-    top: 0;
-    width: 20px;
-    height: 1lh;
+    --md-anchor-pad-inline: 4px;
+    --md-anchor-pad-block: 0px;
+
     opacity: 0;
+    transition:
+      opacity 150ms ease,
+      color 150ms ease;
   }
 
-  .markdown-document :is(h1, h2, h3, h4, h5, h6):hover > .md-anchor,
-  .markdown-document .md-anchor:focus-visible {
+  .markdown-document :is(h1, h2, h3, h4, h5, h6):is(:hover, :focus-within) > .md-anchor {
     opacity: 1;
   }
-}
 
-@mixin smaller-than $mantine-breakpoint-sm {
-  .markdown-document .md-anchor {
-    display: none;
+  .markdown-document .md-anchor:hover {
+    color: var(--scrawl-text);
   }
 }
 
@@ -233,7 +228,7 @@
 }
 
 .markdown-document blockquote {
-  margin: 4px 0;
+  margin: 4px 2px;
   padding: 3px 2px 3px 14px;
   border-left: 3px solid currentColor;
 }
@@ -315,8 +310,12 @@
   margin-left: 26px;
 }
 
-.markdown-document :is(ul, ol) {
+.markdown-document ul {
   padding-left: 1.7em;
+}
+
+.markdown-document ol {
+  padding-left: 2em;
 }
 
 .markdown-document li {
@@ -370,6 +369,11 @@
   opacity: 1;
   cursor: default;
   appearance: none;
+}
+
+.markdown-document ol > li > input[type='checkbox']:first-child,
+.markdown-document ol > li > p:first-child > input[type='checkbox']:first-child {
+  margin-left: -1.7em;
 }
 
 .markdown-document li > input[type='checkbox']:first-child:checked,
@@ -566,9 +570,17 @@
 }
 
 .markdown-document .table-wrap {
-  margin: 6px 0 8px;
+  margin: 6px 2px 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.markdown-document :is(li, blockquote) > .table-wrap {
+  margin-inline: 0;
+}
+
+.markdown-document details > .table-wrap {
+  margin-left: 28px;
 }
 
 .markdown-document table {
@@ -703,7 +715,6 @@
 
 .markdown-document section.footnotes ol {
   margin-top: 12px;
-  padding-left: 16px;
 }
 
 .markdown-document section.footnotes li {

@@ -58,7 +58,8 @@ export function injectHeadingAnchors(root: HTMLElement): Teardown {
     anchor.dataset.testid = 'doc-heading-anchor';
     anchor.setAttribute('href', `#${encodeURIComponent(heading.id)}`);
     anchor.dataset.headingId = heading.id;
-    anchor.setAttribute('aria-label', 'Copy a link to this section');
+    anchor.dataset.headingTitle = heading.textContent?.trim() ?? '';
+    anchor.setAttribute('aria-label', `Link to section: ${anchor.dataset.headingTitle}`);
     heading.append(anchor);
     added.push(anchor);
   }

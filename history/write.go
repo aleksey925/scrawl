@@ -33,33 +33,38 @@ func (s *Service) Record(ctx context.Context, op Op, mutate func() ([]string, er
 	}
 	op.Message = message(op)
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	touched, mErr := mutate()
-	if mErr != nil {
-		return mErr
+	recorded, err := s.recordLocal(ctx, op, paths, mutate)
+	if err != nil || !recorded || !op.Strict {
+		return err
 	}
-	paths = merge(paths, s.mutatedPaths(touched))
-	if len(paths) == 0 && len(s.pending) == 0 {
-		return nil
-	}
-	if err = s.commitLocked(ctx, op.Actor, op.Message, s.withPending(paths), s.timeout()); err != nil {
-		return s.recordFailed(op, paths, err)
-	}
-	clear(s.pending)
-	s.degraded.Store(false)
-	return s.publishFailed(op, s.publishLocked(ctx, s.SyncState()))
-}
-
-func (s *Service) publishFailed(op Op, err error) error {
-	if err == nil {
-		return nil
-	}
-	if op.Strict {
+	if err = s.pushNow(ctx); err != nil {
 		return fmt.Errorf("history: %w: %w", ErrNotPublished, err)
 	}
 	return nil
+}
+
+func (s *Service) recordLocal(ctx context.Context, op Op, paths []string, mutate func() ([]string, error)) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	touched, err := mutate()
+	if err != nil {
+		return false, err
+	}
+	paths = merge(paths, s.mutatedPaths(touched))
+	if len(paths) == 0 && len(s.pending) == 0 {
+		return false, nil
+	}
+	committed, err := s.commitLocked(ctx, op.Actor, op.Message, s.withPending(paths), s.timeout())
+	if err != nil {
+		return false, s.recordFailed(op, paths, err)
+	}
+	clear(s.pending)
+	s.degraded.Store(false)
+	if committed {
+		s.markPush()
+	}
+	return true, nil
 }
 
 func (s *Service) Reconcile(ctx context.Context, actor string) error {
@@ -74,11 +79,10 @@ func (s *Service) Reconcile(ctx context.Context, actor string) error {
 		msg = baselineMessage
 	}
 	committed, err := s.reconcileLocked(ctx, actor, msg)
-	if err != nil || !committed {
-		return err
+	if committed {
+		s.markPush()
 	}
-	_ = s.publishLocked(ctx, s.SyncState())
-	return nil
+	return err
 }
 
 func (s *Service) reconcileLocked(ctx context.Context, actor, msg string) (bool, error) {
@@ -89,12 +93,13 @@ func (s *Service) reconcileLocked(ctx context.Context, actor, msg string) (bool,
 	if len(paths) == 0 {
 		return false, nil
 	}
-	if err = s.commitLocked(ctx, actor, msg, paths, s.initTimeout()); err != nil {
+	committed, err := s.commitLocked(ctx, actor, msg, paths, s.initTimeout())
+	if err != nil {
 		return false, s.recordFailed(Op{Actor: actor, Message: msg, Strict: true}, paths, err)
 	}
 	clear(s.pending)
 	s.degraded.Store(false)
-	return true, nil
+	return committed, nil
 }
 
 func (s *Service) recordFailed(op Op, paths []string, err error) error {
@@ -109,27 +114,23 @@ func (s *Service) recordFailed(op Op, paths []string, err error) error {
 	return nil
 }
 
-func (s *Service) commitLocked(ctx context.Context, actor, msg string, paths []string, timeout time.Duration) error {
+func (s *Service) commitLocked(ctx context.Context, actor, msg string, paths []string, timeout time.Duration) (bool, error) {
 	candidates, err := s.stageable(ctx, paths, timeout)
-	if err != nil {
-		return err
-	}
-	if len(candidates) == 0 {
-		return nil
+	if err != nil || len(candidates) == 0 {
+		return false, err
 	}
 	if sErr := s.stage(ctx, candidates, timeout); sErr != nil {
-		return sErr
+		return false, sErr
 	}
 	dirty, err := s.staged(ctx, timeout)
-	if err != nil {
-		return err
-	}
-	if !dirty {
-		return nil
+	if err != nil || !dirty {
+		return false, err
 	}
 	args := []string{"commit", "--quiet", "--message", msg, "--author", ident(actor)}
-	_, err = s.run(ctx, command{args: args, timeout: timeout})
-	return err
+	if _, err = s.run(ctx, command{args: args, timeout: timeout}); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *Service) stage(ctx context.Context, paths []string, timeout time.Duration) error {

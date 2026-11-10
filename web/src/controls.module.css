@@ -42,9 +42,14 @@
   font-weight: 500;
 }
 
+.dialogActions .button {
+  --button-height-sm: var(--scrawl-button-height);
+  --button-padding-x-sm: var(--scrawl-button-padding-x);
+}
+
 .button[data-size='lg'] {
-  --button-height-lg: 32px;
-  --button-padding-x-lg: 12px;
+  --button-height-lg: var(--scrawl-button-height);
+  --button-padding-x-lg: var(--scrawl-button-padding-x);
   font-size: 15px;
   font-weight: 600;
 }
@@ -205,6 +210,17 @@
   white-space: nowrap;
 }
 
+@mixin smaller-than $mantine-breakpoint-lg {
+  .segmentTextCompact {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 .segment {
   color: var(--scrawl-text-secondary);
   font-weight: 500;
@@ -214,6 +230,15 @@
   color: var(--scrawl-text);
 }
 
+.modalHeader {
+  min-height: calc(var(--scrawl-modal-header-height) - var(--scrawl-focus-room));
+  padding-bottom: calc(var(--mb-padding, var(--mantine-spacing-md)) - var(--scrawl-focus-room));
+}
+
+.modalBody:not(:only-child) {
+  padding-top: var(--scrawl-focus-room);
+}
+
 .overlay {
   --overlay-bg: var(--scrawl-overlay) !important;
 }
@@ -221,5 +246,19 @@
 @mixin smaller-than $mantine-breakpoint-sm {
   .modalInner {
     align-items: center;
+  }
+
+  .dialogActions > * {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .dialogActions:has(> :nth-child(3)) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dialogActions:has(> :nth-child(3)) > * {
+    flex: none;
   }
 }

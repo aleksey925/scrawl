@@ -43,7 +43,7 @@ func TestMathInlineDelimiters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// act
-			out, err := r.RenderInline([]byte(tt.src+"\n"), "docs/x.md")
+			out, err := htmlOf(r, []byte(tt.src+"\n"), "docs/x.md")
 
 			// assert
 			require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestMathInlineDelimiters(t *testing.T) {
 
 func TestMathTwoExpressionsOnOneLine(t *testing.T) {
 	// act
-	out, err := New(Options{}).RenderInline([]byte("$a$ and $b$\n"), "docs/x.md")
+	out, err := htmlOf(New(Options{}), []byte("$a$ and $b$\n"), "docs/x.md")
 
 	// assert
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestMathDisplay(t *testing.T) {
 	r := New(Options{})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out, err := r.RenderInline([]byte(tt.src), "docs/x.md")
+			out, err := htmlOf(r, []byte(tt.src), "docs/x.md")
 			require.NoError(t, err)
 			assert.Contains(t, withoutSourceRanges(string(out)), tt.want)
 		})
@@ -93,7 +93,7 @@ func TestMathDollarsInCodeAreNeverTouched(t *testing.T) {
 	r := New(Options{})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out, err := r.RenderInline([]byte(tt.src), "docs/x.md")
+			out, err := htmlOf(r, []byte(tt.src), "docs/x.md")
 			require.NoError(t, err)
 			assert.NotContains(t, string(out), `class="math`, "output: %s", out)
 		})
@@ -102,7 +102,7 @@ func TestMathDollarsInCodeAreNeverTouched(t *testing.T) {
 
 func TestMathBlockDoesNotInterruptAParagraph(t *testing.T) {
 	// act
-	out, err := New(Options{}).RenderInline([]byte("строка текста\n$$\nx\n$$\n"), "docs/x.md")
+	out, err := htmlOf(New(Options{}), []byte("строка текста\n$$\nx\n$$\n"), "docs/x.md")
 
 	// assert
 	require.NoError(t, err)

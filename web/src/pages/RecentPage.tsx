@@ -8,7 +8,7 @@ import { PopupMenu } from '../components/PopupMenu';
 import pressClasses from '../components/PressRow.module.css';
 import { IconClock, IconDots, IconFileText, IconTrash } from '../icons';
 import { documentUrl } from '../paths';
-import { usePageChrome } from '../shell/PageChrome';
+import { standaloneChrome, usePageChrome } from '../shell/PageChrome';
 import { useRecentNotes } from '../shell/recentNotes';
 import { PageActions } from '../shell/ShellSlots';
 import { layout } from '../theme';
@@ -17,7 +17,7 @@ import classes from './RecentPage.module.css';
 
 export function Component(): JSX.Element {
   const { notes, clear } = useRecentNotes();
-  usePageChrome({ crumbs: [], title: 'Recent', ownTitle: true });
+  usePageChrome(standaloneChrome('Recent'));
 
   return (
     <Page data-testid="recent">

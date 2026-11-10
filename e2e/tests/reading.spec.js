@@ -4,8 +4,8 @@ const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, chooseTheme, modifier, openSpaceMenu, pressShortcut, removeFixture, rgb, routes, shot, showOutline,
-    signIn, writeFixture,
+    DIALOG_TITLE, MAIN, chooseTheme, headingAnchorGeometry, modifier, nameOf, openSpaceMenu, pressShortcut, removeFixture,
+    rgb, routes, shot, showOutline, signIn, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const darkTheme = require('../../theme/themes/dark.json');
@@ -16,11 +16,20 @@ const ANCHORS = 'e2e-anchors.md';
 const ANCHOR_SOURCE = 'e2e-anchor-source.md';
 const OUTLINE = 'e2e-outline.md';
 const EMPHASIS = 'e2e-emphasis.md';
+const LAYOUT = 'e2e-layout.md';
 const DIAGRAM = 'e2e-diagram.md';
 const DIAGRAM_VIEWER = 'e2e-diagram-viewer.md';
 const LOOK = 'e2e-look.md';
 const TALL = 'e2e-tall.md';
 const TALL_PICTURE = 'e2e-tall.png';
+const HEADINGS = 'e2e-headings.md';
+const HEADINGS_SOURCE = [
+    '# Deeply nested page',
+    '## Pages and heaps',
+    '### Инфинитив (нач. форма)',
+    '#### Fourth level heading',
+    '## A long heading about pages, heaps, indexes and the planner that wraps onto a second line',
+].join('\n\ntext\n\n');
 
 function pngChunk(type, data) {
     const head = Buffer.alloc(4);
@@ -62,8 +71,11 @@ test.describe('reading', () => {
 
     test.afterEach(() => {
         removeFixture(DIAGRAM_VIEWER);
+        removeFixture(EMPHASIS);
+        removeFixture(LAYOUT);
         removeFixture(TALL);
         removeFixture(TALL_PICTURE);
+        removeFixture(HEADINGS);
     });
 
     test('the root page lists the root folder, its index a row tagged as the folder page', async ({page}) => {
@@ -323,7 +335,7 @@ test.describe('reading', () => {
         await page.mouse.wheel(0, -100000);
         await page.getByTestId('editor-source').locator('.cm-line').first().click();
         await page.keyboard.type('x');
-        await page.getByTestId('editor-save').click();
+        await page.keyboard.press('ControlOrMeta+s');
         await expect(page.getByRole('alert').filter({hasText: 'Saved'})).toBeVisible();
 
         // act
@@ -620,6 +632,118 @@ test.describe('reading', () => {
         await shot(page, 'reading-code-copy');
     });
 
+    test('a heading\'s link mark is a regular # of its own font, just under the baseline of its last line', async ({page}) => {
+        // arrange
+        writeFixture(HEADINGS, HEADINGS_SOURCE);
+        await page.goto(routes.doc(HEADINGS));
+        const found = page.getByTestId('doc').locator('h1, h2, h3, h4');
+        await expect(found).toHaveCount(5);
+
+        // act
+        const measured = [];
+        for (const heading of await found.all()) {
+            measured.push(await headingAnchorGeometry(heading));
+        }
+
+        // assert
+        expect(measured.map((geometry) => geometry.lineCount)).toEqual([1, 1, 1, 1, 2]);
+        for (const geometry of measured) {
+            const gap = (geometry.markLeft - geometry.lastRight) / geometry.font;
+            expect(geometry.markText).toBe('"\u2060#"');
+            expect(geometry.markFont).toBe(geometry.font);
+            expect(geometry.markFontFamily).toBe(geometry.fontFamily);
+            expect(geometry.markWeight).toBe('400');
+            expect(geometry.markDrop).toBeCloseTo(0.03 * geometry.font, 1);
+            expect(Math.abs(geometry.markTop - geometry.lastTop)).toBeLessThanOrEqual(0.5);
+            expect(Math.abs(geometry.markBottom - geometry.lastBottom)).toBeLessThanOrEqual(0.5);
+            expect(gap).toBeGreaterThanOrEqual(0.15);
+            expect(gap).toBeLessThanOrEqual(0.2);
+        }
+        await expect(found.first().getByTestId('doc-heading-anchor'))
+            .toHaveAttribute('aria-label', 'Link to section: Deeply nested page');
+    });
+
+    test('a heading\'s link mark never goes to a new line alone', async ({page}) => {
+        // arrange
+        writeFixture(HEADINGS, HEADINGS_SOURCE);
+        await page.goto(routes.doc(HEADINGS));
+        const found = page.getByTestId('doc').locator('h1, h2, h3, h4');
+        await expect(found).toHaveCount(5);
+
+        // act
+        const alone = await found.evaluateAll((elements) => elements.flatMap((el) => {
+            const anchor = el.querySelector('[data-testid=doc-heading-anchor]');
+            const text = [...el.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).pop();
+            const widths = [];
+            for (let width = Math.round(el.getBoundingClientRect().width); width >= 240; width -= 1) {
+                el.style.width = `${width}px`;
+                const range = document.createRange();
+                range.setStart(text, text.length - 1);
+                range.setEnd(text, text.length);
+                const last = range.getBoundingClientRect();
+                const box = anchor.getBoundingClientRect();
+                const middle = (box.top + box.bottom) / 2;
+                if (middle < last.top || middle > last.bottom) {
+                    widths.push(`${el.textContent} at ${width}px`);
+                }
+            }
+            el.style.width = '';
+            return widths;
+        }));
+
+        // assert
+        expect(alone).toEqual([]);
+    });
+
+    test('a heading\'s link mark shows under the pointer or the focus, muted until pointed at', async ({page}) => {
+        // arrange
+        writeFixture(HEADINGS, HEADINGS_SOURCE);
+        await page.goto(routes.doc(HEADINGS));
+        const heading = page.getByTestId('doc').locator('h2').first();
+        const anchor = heading.getByTestId('doc-heading-anchor');
+        const anchors = page.getByTestId('doc-heading-anchor');
+        const colors = () => anchors.evaluateAll((elements) => elements.map((el) => getComputedStyle(el).color));
+        await expect(anchors).toHaveCount(5);
+        await expect(anchor).toHaveCSS('opacity', '0');
+        expect(await colors()).toEqual(Array(5).fill(rgb(lightTheme.palette.textTertiary)));
+
+        // act & assert
+        await heading.hover({position: {x: 4, y: 4}});
+        await expect(anchor).toHaveCSS('opacity', '1');
+        await expect(anchor).toHaveCSS('color', rgb(lightTheme.palette.textTertiary));
+        await anchor.hover();
+        await expect(anchor).toHaveCSS('color', rgb(lightTheme.palette.text));
+        await page.mouse.move(0, 0);
+        await expect(anchor).toHaveCSS('opacity', '0');
+        await anchor.focus();
+        await expect(anchor).toHaveCSS('opacity', '1');
+        await openSpaceMenu(page);
+        await chooseTheme(page, 'dark');
+        await page.keyboard.press('Escape');
+        await heading.hover({position: {x: 4, y: 4}});
+        await expect(anchor).toHaveCSS('color', rgb(darkTheme.palette.textTertiary));
+        expect(await colors()).toEqual(Array(5).fill(rgb(darkTheme.palette.textTertiary)));
+        await anchor.hover();
+        await expect(anchor).toHaveCSS('color', rgb(darkTheme.palette.text));
+    });
+
+    test('a heading\'s link mark copies the full address of its section', async ({page}) => {
+        // arrange
+        writeFixture(HEADINGS, HEADINGS_SOURCE);
+        await page.goto(routes.doc(HEADINGS));
+        const heading = page.getByTestId('doc').locator('h2').first();
+        const id = await heading.getAttribute('id');
+        await heading.hover();
+
+        // act
+        await heading.getByTestId('doc-heading-anchor').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.linkCopied);
+        expect(await page.evaluate(() => navigator.clipboard.readText()))
+            .toBe(new URL(`${routes.doc(HEADINGS)}#${id}`, page.url()).href);
+    });
+
     test('the outline highlights the section being read', async ({page}) => {
         await page.goto(routes.doc(DOC.path));
         await showOutline(page);
@@ -713,6 +837,15 @@ test.describe('reading', () => {
         ]);
     });
 
+    test('the title of the shortcuts, with its close button and the room under it, is as tall as a title alone', async ({page}) => {
+        // act
+        await page.keyboard.press('?');
+        await expect(page.getByTestId('shortcuts')).toBeVisible();
+
+        // assert
+        expect(await titleRoom(page.getByTestId('shortcuts'))).toEqual(DIALOG_TITLE);
+    });
+
     test('the space menu opens the shortcuts', async ({page}) => {
         // arrange
         await openSpaceMenu(page);
@@ -793,8 +926,6 @@ test.describe('reading', () => {
 
         // assert
         await expect.poll(weight).toBeGreaterThan(light);
-
-        removeFixture(EMPHASIS);
     });
 
     test('emphasis is brighter than the text around it in the dark', async ({page}) => {
@@ -815,8 +946,121 @@ test.describe('reading', () => {
         // assert
         expect(emphasis.map((value) => value - plain > 30)).toEqual([true, true, true]);
         expect(quote[1] - quote[0]).toBeGreaterThan(30);
+    });
 
-        removeFixture(EMPHASIS);
+    test('a quote bar starts on the left edge of the text', async ({page}) => {
+        // arrange
+        writeFixture(EMPHASIS, '# Quote\n\nPlain text.\n\n> Quoted text.\n');
+        await page.goto(routes.doc(EMPHASIS));
+        const doc = page.getByTestId('doc');
+
+        // act
+        const text = await doc.locator('p').first().evaluate((el) => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            return range.getBoundingClientRect().left;
+        });
+        const quote = await doc.locator('blockquote').boundingBox();
+
+        // assert
+        expect(Math.abs(quote.x - text)).toBeLessThanOrEqual(0.5);
+    });
+
+    test('a table runs from the left edge of the text to the right one', async ({page}) => {
+        // arrange
+        writeFixture(LAYOUT, '# Table\n\nPlain text.\n\n| A | B |\n| - | - |\n| 1 | 2 |\n');
+        await page.goto(routes.doc(LAYOUT));
+        const doc = page.getByTestId('doc');
+
+        // act
+        const text = await doc.locator('p').first().evaluate((el) => {
+            const box = el.getBoundingClientRect();
+            const style = getComputedStyle(el);
+            return {left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight)};
+        });
+        const table = await doc.locator('table').boundingBox();
+
+        // assert
+        expect(Math.abs(table.x - text.left)).toBeLessThanOrEqual(0.5);
+        expect(Math.abs(table.x + table.width - text.right)).toBeLessThanOrEqual(0.5);
+    });
+
+    test('a table in a list item, a quote or a details block runs from the left edge of the text to the right one', async ({page}) => {
+        // arrange
+        const table = '| A | B |\n| - | - |\n| 1 | 2 |';
+        const indent = (prefix) => table.split('\n').map((line) => `${prefix}${line}`).join('\n');
+        const blocks = [
+            '# Tables',
+            `- Item text.\n\n${indent('  ')}\n\n- Second item.`,
+            `> Quote text.\n>\n${indent('> ')}`,
+            `<details open><summary>More</summary>\n\nDetails text.\n\n${table}\n\n</details>`,
+        ];
+        writeFixture(LAYOUT, `${blocks.join('\n\n')}\n`);
+        await page.goto(routes.doc(LAYOUT));
+        const tables = page.getByTestId('doc').locator('table');
+        await expect(tables).toHaveCount(3);
+
+        // act
+        const gaps = await tables.evaluateAll((found) => found.map((el) => {
+            const text = el.parentElement.previousElementSibling;
+            const style = getComputedStyle(text);
+            const line = text.getBoundingClientRect();
+            const box = el.getBoundingClientRect();
+            return {
+                left: Math.abs(Math.round(box.left - line.left - parseFloat(style.paddingLeft))),
+                right: Math.abs(Math.round(line.right - parseFloat(style.paddingRight) - box.right)),
+            };
+        }));
+
+        // assert
+        expect(gaps).toEqual([{left: 0, right: 0}, {left: 0, right: 0}, {left: 0, right: 0}]);
+    });
+
+    test('a two-digit number of a list or of a footnote stays inside the left edge of the text', async ({page}) => {
+        // arrange
+        const numbers = Array.from({length: 12}, (_, index) => index + 1);
+        const items = numbers.map((n) => `${n}. Step`).join('\n');
+        const refs = numbers.map((n) => `Note[^${n}].`).join(' ');
+        const notes = numbers.map((n) => `[^${n}]: Footnote.`).join('\n');
+        writeFixture(LAYOUT, `# List\n\nPlain text. ${refs}\n\n${items}\n\n${notes}\n`);
+        await page.goto(routes.doc(LAYOUT));
+        const doc = page.getByTestId('doc');
+        const markerLeft = (el) => {
+            const probe = document.createElement('span');
+            probe.textContent = '12. ';
+            Object.assign(probe.style, {position: 'absolute', whiteSpace: 'pre', fontVariantNumeric: 'tabular-nums'});
+            el.append(probe);
+            const width = probe.getBoundingClientRect().width;
+            probe.remove();
+            return el.getBoundingClientRect().left - width;
+        };
+
+        // act
+        const text = await doc.locator('p').first().evaluate((el) => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            return range.getBoundingClientRect().left;
+        });
+        const list = await doc.locator('ol').first().locator(':scope > li').last().evaluate(markerLeft);
+        const footnote = await doc.locator('section.footnotes li').last().evaluate(markerLeft);
+
+        // assert
+        expect(list).toBeGreaterThanOrEqual(text);
+        expect(footnote).toBeGreaterThanOrEqual(text);
+    });
+
+    test('a task box of a numbered list sits where one of a bulleted list does', async ({page}) => {
+        // arrange
+        writeFixture(LAYOUT, '# Tasks\n\n- [ ] Bulleted\n\n1. [ ] Numbered\n');
+        await page.goto(routes.doc(LAYOUT));
+        const boxes = page.getByTestId('doc').locator('input[type=checkbox]');
+        await expect(boxes).toHaveCount(2);
+
+        // act
+        const [bulleted, numbered] = await boxes.evaluateAll((found) => found.map((el) => el.getBoundingClientRect().left));
+
+        // assert
+        expect(Math.abs(numbered - bulleted)).toBeLessThanOrEqual(0.5);
     });
 
     test('a diagram label sits in the middle of its box', async ({page}) => {
@@ -911,14 +1155,14 @@ test.describe('reading', () => {
         await expect.poll(() => width(doc)).toBe(720);
     });
 
-    test('the topbar names the note by its title and a folder by its name', async ({page}) => {
+    test('the topbar names the note by its file name and a folder by its name', async ({page}) => {
         // arrange
         const crumbs = page.getByTestId('topbar-crumbs').getByTestId('crumb');
 
         // act & assert
         await page.goto(routes.doc(docs.deep.path));
         await expect(crumbs).toContainText(docs.deep.crumbs);
-        await expect(crumbs.last()).toHaveText(docs.deep.title);
+        await expect(crumbs.last()).toHaveText(nameOf(docs.deep.path));
 
         await page.goto(routes.dir(DOC.folder));
         await expect(crumbs.last()).toHaveText(DOC.folder);
@@ -943,11 +1187,36 @@ test.describe('reading', () => {
         await page.goto(routes.doc(docs.missing));
 
         // act & assert
-        await expect(page.getByTestId('doc-missing-title')).toHaveText(docs.missing.split('/').pop().replace(/\.md$/, ''));
+        await expect(page.getByTestId('doc-missing-title')).toHaveText(nameOf(docs.missing));
         await expect(page.getByTestId('doc-create')).toBeVisible();
         await expect(page.getByTestId('doc-missing-folder')).toHaveAttribute('href', new RegExp(`/doc/${DOC.folder}/$`));
         await page.keyboard.press('Enter');
         await expect(page).toHaveURL(MAIN.url.edit(docs.missing));
+    });
+
+    test('a note that does not exist is named by its file name in the path, and its search leaves the extension out', async ({page}) => {
+        // arrange
+        const name = nameOf(docs.missing);
+
+        // act
+        await page.goto(routes.doc(docs.missing));
+
+        // assert
+        await expect(page.getByTestId('topbar-crumbs').getByTestId('crumb').last()).toHaveText(name);
+        const search = new URL(await page.getByTestId('doc-missing-search').getAttribute('href'), MAIN.baseURL);
+        expect(search.searchParams.get('q')).toBe(name.replace(/\.md$/i, ''));
+    });
+
+    test('the sidebar filter matches the whole name of a note, its extension too', async ({page}) => {
+        // arrange
+        const filter = page.getByTestId('sidebar-filter');
+        const name = nameOf(docs.filter.path);
+
+        // act
+        await filter.fill(name);
+
+        // assert
+        await expect(page.locator(`[data-testid=tree-row][data-path="${docs.filter.path}"] mark`)).toHaveText(name);
     });
 
     test('a missing note kept while the next note loads still offers to create itself', async ({page}) => {

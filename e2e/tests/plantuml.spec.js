@@ -70,7 +70,7 @@ test.describe('plantuml', () => {
     test('a diagram still drawing shows a placeholder instead of its source', async ({page}) => {
         // arrange
         writeFixture(NOTE, note(SEQUENCE));
-        const release = await holdRoute(page, '**/assets/plantuml.js');
+        const {release} = await holdRoute(page, '**/assets/plantuml.js');
         const box = page.getByTestId('doc').locator('.md-diagram');
 
         // act
@@ -97,7 +97,7 @@ test.describe('plantuml', () => {
             SEQUENCE,
             '```plantuml\n@startuml\n!include <C4/C4_Context>\nPerson(reader, "Reader")\n@enduml\n```',
         ));
-        const release = await holdRoute(page, '**/plantuml/c4.min.js');
+        const {release} = await holdRoute(page, '**/plantuml/c4.min.js');
         const boxes = page.getByTestId('doc').locator('.md-diagram');
 
         // act
@@ -113,7 +113,7 @@ test.describe('plantuml', () => {
     test('a mermaid diagram does not wait for the plantuml engine', async ({page}) => {
         // arrange
         writeFixture(NOTE, note(SEQUENCE, '```mermaid\nflowchart LR\n  A --> B\n```'));
-        const release = await holdRoute(page, '**/assets/plantuml.js');
+        const {release} = await holdRoute(page, '**/assets/plantuml.js');
         const boxes = page.getByTestId('doc').locator('.md-diagram');
 
         // act

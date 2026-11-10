@@ -31,6 +31,46 @@ How the notes on disk are read, written and watched.
   (`python/notes.md` -> `python/notes/`), which is what the corpus looks like.
   `--upload-dir` replaces that with one shared directory.
 
+## The trash
+
+- A delete moves the entry into `.scrawl-trash/<id>/` at the root of the space,
+  and `Restore` moves it back, so Undo in the toast of a delete has something
+  to bring back, folders and pictures included. It is a rename in the same
+  `os.Root`, so it is as quick as a move and needs no second filesystem. A dot
+  name keeps the trash out of the tree, the search, the watcher and history,
+  which stages only the paths an operation names.
+- The store keeps an entry for `trashKeep`, 5 minutes, and a worker sweeps it
+  every minute; a new store empties what a past run left, because the ids that
+  named it lived in memory. Undo is the only way back, it shows for 6 seconds,
+  and a longer keep would only hold deleted files on disk that nobody can
+  reach. [ADR 20](../adr/0020-delete-to-a-trash-with-undo.md)
+- `Restore` puts nothing over an entry that took the place in the meantime and
+  makes the folders above it again when they went. It checks the path again as
+  any write does, so a folder above that became a symlink or a hidden name
+  since the delete answers not found and the entry stays in the trash.
+- `Restore` and `Move` never put an entry over another one, even when an editor
+  or a sync tool makes a file at the new place just before the rename. They
+  open the folder of the old place and the folder of the new place through
+  `os.Root` and rename between the two descriptors with a rename that refuses
+  to replace: `renameat2` with `RENAME_NOREPLACE` on Linux, `renameatx_np` with
+  `RENAME_EXCL` on macOS. The names passed are single names, so the rename
+  stays inside the root and follows no symlink at either end. An entry found at
+  the new place answers "already exists", as the check before the rename does.
+- A filesystem that does not know such a rename (it answers `EINVAL` or
+  `ENOTSUP`) and other systems get a plain rename after that check, so there a
+  file made at the new place between the two steps is lost to the rename.
+- A rename cannot cross two filesystems, so an entry on another filesystem
+  mounted inside the space, a bind mount in Docker for one, cannot be deleted:
+  the rename fails with `EXDEV` and the delete answers an error. The entry
+  stays where it was.
+- The trash is a real folder at the root of the notes while it holds something,
+  so `git status`, Syncthing and a backup of the folder see `.scrawl-trash/`
+  for up to 5 minutes. History never stages it
+  ([history](history.md#recording)).
+- A sweep takes the expired ids under the write lock and erases their folders
+  after it, so a large folder going for good does not hold up the writes of the
+  space.
+
 ## Watching
 
 - A change on disk comes from the watcher as a create as often as a write,

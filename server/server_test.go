@@ -1000,6 +1000,123 @@ func TestAPIFileDeleteRecursive(t *testing.T) {
 	assert.Equal(t, [][]string{{"docs/README.md", "docs/page.md", "docs/sub/deep.md"}}, fake.reported)
 }
 
+func TestAPITrashRestore(t *testing.T) {
+	t.Run("a deleted folder comes back, indexed and recorded", func(t *testing.T) {
+		// arrange
+		fake := &fakeHistory{}
+		ts := newTestServer(t, testOpts{history: fake})
+		_, deleted := ts.json(t, request{method: http.MethodDelete, path: "/api/file/docs?recursive=true"})
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]any{"id": deleted["trash_id"]}),
+		})
+
+		// assert
+		require.Equal(t, http.StatusOK, resp.status, body)
+		assert.Equal(t, "docs", body["path"])
+		assert.True(t, ts.Spaces[0].Store.Exists("docs/sub/deep.md"))
+		assert.NotEmpty(t, ts.Spaces[0].Index.Search("nested", 5))
+		files := []string{"docs/README.md", "docs/page.md", "docs/sub/deep.md"}
+		assert.Equal(t, [][]string{files, files}, fake.reported)
+	})
+
+	t.Run("a deleted file comes back with what it held", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{})
+		original, _, err := ts.Spaces[0].Store.Read("guide.md")
+		require.NoError(t, err)
+		_, deleted := ts.json(t, request{method: http.MethodDelete, path: "/api/file/guide.md"})
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]any{"id": deleted["trash_id"]}),
+		})
+
+		// assert
+		require.Equal(t, http.StatusOK, resp.status, body)
+		assert.Equal(t, "guide.md", body["path"])
+		data, _, err := ts.Spaces[0].Store.Read("guide.md")
+		require.NoError(t, err)
+		assert.Equal(t, original, data)
+		assert.NotEmpty(t, ts.Spaces[0].Index.Search("gadgets", 5))
+	})
+
+	t.Run("an id the trash does not hold is not found", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{})
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]string{"id": "../guide.md"}),
+		})
+
+		// assert
+		assert.Equal(t, http.StatusNotFound, resp.status, body)
+	})
+
+	t.Run("an id of another space is not found here", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{second: secondSpace})
+		require.NoError(t, os.WriteFile(filepath.Join(ts.secondRoot, "team.md"), []byte("# Team\n"), 0o600))
+		_, deleted := ts.json(t, request{
+			method: http.MethodDelete, path: ts.second().Prefix() + "/api/file/team.md", literal: true,
+		})
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]any{"id": deleted["trash_id"]}),
+		})
+
+		// assert
+		assert.Equal(t, http.StatusNotFound, resp.status, body)
+		assert.False(t, ts.Spaces[0].Store.Exists("team.md"))
+		assert.False(t, ts.second().Store.Exists("team.md"))
+	})
+
+	t.Run("a body without an id or not JSON is refused", func(t *testing.T) {
+		tests := []struct {
+			name   string
+			body   io.Reader
+			status int
+		}{
+			{name: "no id", body: strings.NewReader("{}"), status: http.StatusNotFound},
+			{name: "not json", body: strings.NewReader("{oops"), status: http.StatusBadRequest},
+		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				// arrange
+				ts := newTestServer(t, testOpts{})
+
+				// act
+				resp, body := ts.json(t, request{method: http.MethodPost, path: "/api/trash/restore", body: tc.body})
+
+				// assert
+				assert.Equal(t, tc.status, resp.status, body)
+			})
+		}
+	})
+
+	t.Run("something put at the place since is kept", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{})
+		_, deleted := ts.json(t, request{method: http.MethodDelete, path: "/api/file/guide.md"})
+		_, err := ts.Spaces[0].Store.Create("guide.md", false)
+		require.NoError(t, err)
+
+		// act
+		resp, body := ts.json(t, request{
+			method: http.MethodPost, path: "/api/trash/restore", body: jsonBody(t, map[string]any{"id": deleted["trash_id"]}),
+		})
+
+		// assert
+		assert.Equal(t, http.StatusConflict, resp.status, body)
+		data, _, err := ts.Spaces[0].Store.Read("guide.md")
+		require.NoError(t, err)
+		assert.Empty(t, data)
+	})
+}
+
 func TestAPIFileSaveConflict(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
@@ -1160,6 +1277,189 @@ func TestAPIPreviewMatchesTheViewPage(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.status)
 	assert.Equal(t, string(rendered.HTML), body["html"])
+}
+
+func TestAPIPreviewListsTheContentsWithoutTheTitle(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	source := "## Вступление\n\n# Заметка\n\n## Раздел\n\n### Подробности\n\n## Раздел\n"
+
+	// act
+	resp, body := ts.do(t, request{
+		method: http.MethodPost, path: "/api/preview",
+		headers: map[string]string{"Accept": "application/json"},
+		body:    jsonBody(t, map[string]string{"content": source, "path": "guide.md"}),
+	})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	var got struct {
+		TOC []render.Heading `json:"toc"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &got))
+	assert.Equal(t, []render.Heading{
+		{Level: 2, Text: "Вступление", ID: "вступление"},
+		{Level: 2, Text: "Раздел", ID: "раздел"},
+		{Level: 3, Text: "Подробности", ID: "подробности"},
+		{Level: 2, Text: "Раздел", ID: "раздел-1"},
+	}, got.TOC)
+}
+
+func TestAPICompareMarksTheChangedWords(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	// act
+	resp, body := ts.json(t, request{
+		method: http.MethodPost, path: "/api/compare",
+		body: jsonBody(t, map[string]string{"path": "guide.md", "old": "# the first one\n", "new": "# the old one\n"}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, map[string]any{"changes": []any{map[string]any{
+		"kind": "changed",
+		"old": map[string]any{
+			"html": `<h1>the <del class="diff-del">first</del> one</h1>`, "start": float64(1), "end": float64(1),
+		},
+		"new": map[string]any{
+			"html": `<h1>the <ins class="diff-ins">old</ins> one</h1>`, "start": float64(1), "end": float64(1),
+		},
+		"inline": map[string]any{
+			"html":  `<h1>the <del class="diff-del">first</del> <ins class="diff-ins">old</ins> one</h1>`,
+			"start": float64(1), "end": float64(1),
+		},
+	}}}, body)
+}
+
+func TestAPICompareReadsAnEmptySideAsANewNote(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	// act
+	resp, body := ts.json(t, request{
+		method: http.MethodPost, path: "/api/compare",
+		body: jsonBody(t, map[string]string{"path": "new.md", "old": "", "new": "# born\n"}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, []any{map[string]any{
+		"kind": "added",
+		"new":  map[string]any{"html": "<h1>born</h1>", "start": float64(1), "end": float64(1)},
+	}}, body["changes"])
+}
+
+func TestAPICompareAnswersOnAReadOnlyServer(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{readOnly: true})
+
+	// act
+	resp, body := ts.json(t, request{
+		method: http.MethodPost, path: "/api/compare",
+		body: jsonBody(t, map[string]string{"path": "guide.md", "old": "# same\n", "new": "# same\n"}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, []any{map[string]any{
+		"kind": "same",
+		"old":  map[string]any{"html": "<h1>same</h1>", "start": float64(1), "end": float64(1)},
+		"new":  map[string]any{"html": "<h1>same</h1>", "start": float64(1), "end": float64(1)},
+	}}, body["changes"])
+}
+
+func TestAPICompareMarksAnEditOfTheFrontmatter(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+
+	// act
+	resp, body := ts.json(t, request{
+		method: http.MethodPost, path: "/api/compare",
+		body: jsonBody(t, map[string]string{
+			"path": "guide.md", "old": "---\ntitle: a\n---\n\nbody\n", "new": "---\ntitle: b\n---\n\nbody\n",
+		}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, []any{
+		map[string]any{
+			"kind": "changed",
+			"old": map[string]any{
+				"html":  "<pre class=\"frontmatter\"><code>---\ntitle: <del class=\"diff-del\">a</del>\n---</code></pre>",
+				"start": float64(1), "end": float64(3),
+			},
+			"new": map[string]any{
+				"html":  "<pre class=\"frontmatter\"><code>---\ntitle: <ins class=\"diff-ins\">b</ins>\n---</code></pre>",
+				"start": float64(1), "end": float64(3),
+			},
+			"inline": map[string]any{
+				"html": "<pre class=\"frontmatter\"><code>---\ntitle: <del class=\"diff-del\">a</del>" +
+					"<ins class=\"diff-ins\">b</ins>\n---</code></pre>",
+				"start": float64(1), "end": float64(3),
+			},
+		},
+		map[string]any{
+			"kind": "same",
+			"old":  map[string]any{"html": "<p>body</p>", "start": float64(5), "end": float64(5)},
+			"new":  map[string]any{"html": "<p>body</p>", "start": float64(5), "end": float64(5)},
+		},
+	}, body["changes"])
+}
+
+func TestAPICompareTakesTwoSidesAtTheCap(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	atCap := strings.Repeat("x", maxPreviewBody)
+
+	// act
+	resp, body := ts.json(t, request{
+		method: http.MethodPost, path: "/api/compare",
+		body: jsonBody(t, map[string]string{"path": "guide.md", "old": atCap, "new": atCap}),
+	})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, []any{map[string]any{
+		"kind": "same",
+		"old":  map[string]any{"html": "<p>" + atCap + "</p>", "start": float64(1), "end": float64(1)},
+		"new":  map[string]any{"html": "<p>" + atCap + "</p>", "start": float64(1), "end": float64(1)},
+	}}, body["changes"])
+}
+
+func TestAPICompareRefusals(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	overSide := strings.Repeat("[x]: /y\n", maxPreviewBody/8+1)
+	overBody := strings.Repeat("x", maxCompareBody)
+
+	tests := []struct {
+		name   string
+		body   map[string]string
+		status int
+		error  string
+	}{
+		{name: "a bad path", body: map[string]string{"path": "x\x00.md", "old": "", "new": "x"},
+			status: http.StatusBadRequest, error: "bad path"},
+		{name: "the saved side over the cap", body: map[string]string{"path": "guide.md", "old": overSide, "new": "x"},
+			status: http.StatusRequestEntityTooLarge, error: errMessage(store.ErrTooLarge)},
+		{name: "the edited side over the cap", body: map[string]string{"path": "guide.md", "old": "x", "new": overSide},
+			status: http.StatusRequestEntityTooLarge, error: errMessage(store.ErrTooLarge)},
+		{name: "the body over its cap", body: map[string]string{"path": "guide.md", "old": "x", "new": overBody},
+			status: http.StatusRequestEntityTooLarge, error: "request body is too large"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			resp, body := ts.json(t, request{method: http.MethodPost, path: "/api/compare", body: jsonBody(t, tc.body)})
+
+			// assert
+			assert.Equal(t, tc.status, resp.status)
+			assert.Equal(t, tc.error, body["error"])
+		})
+	}
 }
 
 func TestPreviewBodyIsCappedBelowTheSaveBody(t *testing.T) {
@@ -1504,6 +1804,7 @@ func TestReadOnlyRefusesEveryWrite(t *testing.T) {
 		{name: "save", method: http.MethodPut, path: "/api/file/guide.md", body: map[string]string{"content": "x"}},
 		{name: "create", method: http.MethodPost, path: "/api/file/other.md", body: map[string]string{"type": "file"}},
 		{name: "delete", method: http.MethodDelete, path: "/api/file/guide.md"},
+		{name: "restore deleted", method: http.MethodPost, path: "/api/trash/restore", body: map[string]string{"id": "any"}},
 		{name: "move", method: http.MethodPost, path: "/api/move", body: map[string]string{"from": "guide.md", "to": "x.md"}},
 		{name: "upload", method: http.MethodPost, path: "/api/upload/notes"},
 	}
@@ -1713,6 +2014,7 @@ func TestReadOnlyTokenRefusesEveryWrite(t *testing.T) {
 		{name: "save", method: http.MethodPut, path: "/api/file/guide.md", body: map[string]string{"content": "x"}},
 		{name: "create", method: http.MethodPost, path: "/api/file/other.md", body: map[string]string{"type": "file"}},
 		{name: "delete", method: http.MethodDelete, path: "/api/file/guide.md"},
+		{name: "restore deleted", method: http.MethodPost, path: "/api/trash/restore", body: map[string]string{"id": "any"}},
 		{name: "move", method: http.MethodPost, path: "/api/move", body: map[string]string{"from": "guide.md", "to": "x.md"}},
 		{name: "upload", method: http.MethodPost, path: "/api/upload/notes"},
 	}
@@ -1865,6 +2167,7 @@ func TestCSRFBlocksCrossSiteWrites(t *testing.T) {
 		{name: "save", method: http.MethodPut, path: "/api/file/guide.md"},
 		{name: "create", method: http.MethodPost, path: "/api/file/other.md"},
 		{name: "delete", method: http.MethodDelete, path: "/api/file/guide.md"},
+		{name: "restore deleted", method: http.MethodPost, path: "/api/trash/restore"},
 		{name: "move", method: http.MethodPost, path: "/api/move"},
 		{name: "login", method: http.MethodPost, path: "/login"},
 	}
@@ -2164,7 +2467,110 @@ func TestWebRunBusyPort(t *testing.T) {
 
 	// assert
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "server failed")
+	assert.Contains(t, err.Error(), "listen on "+ln.Addr().String())
+}
+
+func TestShutdownCancelsRequestsThatOutliveIt(t *testing.T) {
+	// arrange
+	wb := &Web{Config: Config{ShutdownTimeout: 50 * time.Millisecond}}
+	started, canceled := make(chan struct{}), make(chan struct{})
+	srv, cancelRequests := wb.httpServer(t.Context(), http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-r.Context().Done()
+		close(canceled)
+	}))
+	t.Cleanup(cancelRequests)
+	answered := serveOneRequest(t, srv, strings.NewReader("a body the handler never reads"))
+	waitFor(t, started, "the request never reached the handler")
+
+	// act
+	err := wb.shutdown(t.Context(), srv, cancelRequests)
+
+	// assert
+	require.Error(t, err)
+	waitFor(t, canceled, "the request outlived the shutdown")
+	t.Logf("the client of the canceled request saw %v", waitFor(t, answered, "the client never heard back"))
+}
+
+func TestARequestOutlivesTheCancelOfTheRunContext(t *testing.T) {
+	// arrange
+	run, cancelRun := context.WithCancel(t.Context())
+	wb := &Web{Config: Config{ShutdownTimeout: 5 * time.Second}}
+	started, release := make(chan struct{}), make(chan struct{})
+	requestErr := make(chan error, 1)
+	srv, cancelRequests := wb.httpServer(run, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-release
+		requestErr <- r.Context().Err()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(cancelRequests)
+	answered := serveOneRequest(t, srv, http.NoBody)
+	waitFor(t, started, "the request never reached the handler")
+
+	// act
+	cancelRun()
+	shutdownErr := make(chan error, 1)
+	go func() { shutdownErr <- wb.shutdown(run, srv, cancelRequests) }()
+	close(release)
+
+	// assert
+	require.NoError(t, waitFor(t, requestErr, "the handler never went on"))
+	require.NoError(t, waitFor(t, shutdownErr, "the shutdown never ended"))
+	require.NoError(t, waitFor(t, answered, "the client never heard back"))
+}
+
+func TestAFormattedWriteOutlivesItsClientButNotTheShutdown(t *testing.T) {
+	// arrange
+	m := &mount{Web: &Web{}, spc: &Space{FormatOnSave: true}}
+	kept := make(chan context.Context, 1)
+	srv, cancelRequests := m.httpServer(t.Context(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		kept <- m.keepThrough(r, "note.md").Context()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(cancelRequests)
+	answered := serveOneRequest(t, srv, http.NoBody)
+	ctx := waitFor(t, kept, "the request never reached the handler")
+	require.NoError(t, waitFor(t, answered, "the client never heard back"))
+
+	// act
+	afterTheClient := ctx.Err()
+	cancelRequests()
+
+	// assert
+	require.NoError(t, afterTheClient)
+	assert.ErrorIs(t, ctx.Err(), context.Canceled)
+	assert.Equal(t, srv, ctx.Value(http.ServerContextKey))
+}
+
+func serveOneRequest(t *testing.T, srv *http.Server, body io.Reader) <-chan error {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	go func() { _ = srv.Serve(ln) }()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "http://"+ln.Addr().String()+"/", body)
+	require.NoError(t, err)
+	answered := make(chan error, 1)
+	go func() {
+		resp, dErr := http.DefaultClient.Do(req)
+		if dErr == nil {
+			dErr = resp.Body.Close()
+		}
+		answered <- dErr
+	}()
+	return answered
+}
+
+func waitFor[T any](t *testing.T, ch <-chan T, failure string) T {
+	t.Helper()
+	select {
+	case res := <-ch:
+		return res
+	case <-time.After(5 * time.Second):
+		require.FailNow(t, failure)
+	}
+	var zero T
+	return zero
 }
 
 func freePort(t *testing.T) int {

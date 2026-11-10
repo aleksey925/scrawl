@@ -18,6 +18,11 @@ func TestMain(m *testing.M) {
 }
 
 func TestMarkdown(t *testing.T) {
+	const longLines = "## Заголовок, который намного длиннее семидесяти девяти символов и остаётся одной строкой\n\n" +
+		"| a   | b                                                                                   |\n" +
+		"| --- | ----------------------------------------------------------------------------------- |\n" +
+		"| 1   | ячейка таблицы, которая намного длиннее семидесяти девяти символов и не переносится |\n\n" +
+		"```\nстрока кода, которая намного длиннее семидесяти девяти символов и остаётся как есть\n```\n"
 	tests := []struct {
 		name string
 		text string
@@ -47,6 +52,41 @@ func TestMarkdown(t *testing.T) {
 			name: "a formatted note comes back as it was",
 			text: "# Title\n\n- one\n- two\n",
 			want: "# Title\n\n- one\n- two\n",
+		},
+		{
+			name: "prose is wrapped at 79 columns, short lines are joined and a long link stays whole",
+			text: "Один абзац, в котором много слов, и он намного длиннее семидесяти девяти символов, поэтому форматтер его переносит.\n" +
+				"А эта короткая строка\nсливается с соседней.\n\n" +
+				"- пункт списка, который тоже достаточно длинный, чтобы не поместиться в одну строку шириной 79\n\n" +
+				"https://example.com/a/very/long/link/that/cannot/be/broken/anywhere/at/all/because/it/is/one/word\n",
+			want: "Один абзац, в котором много слов, и он намного длиннее семидесяти девяти\n" +
+				"символов, поэтому форматтер его переносит. А эта короткая строка сливается с\n" +
+				"соседней.\n\n" +
+				"- пункт списка, который тоже достаточно длинный, чтобы не поместиться в одну\n" +
+				"  строку шириной 79\n\n" +
+				"https://example.com/a/very/long/link/that/cannot/be/broken/anywhere/at/all/because/it/is/one/word\n",
+		},
+		{
+			name: "a heading, a table row and a code line longer than 79 columns stay one line",
+			text: longLines,
+			want: longLines,
+		},
+		{
+			name: "the marker of an alert stays on its own line",
+			text: "> [!NOTE]\n> Some text of the alert.\n",
+			want: "> [!NOTE]\n> Some text of the alert.\n",
+		},
+		{
+			name: "the body of an alert is wrapped under its marker",
+			text: "> [!warning] \n> A long body of the alert that is much longer than seventy nine columns, so it\n> is\n> wrapped.\n" +
+				"\n> [!TIP]\n> **Bold** first.\n",
+			want: "> [!warning]\n> A long body of the alert that is much longer than seventy nine columns, so it\n> is wrapped.\n" +
+				"\n> [!TIP]\n> **Bold** first.\n",
+		},
+		{
+			name: "a marker joined to its text, an unknown marker and an alert in a list are joined as any quote",
+			text: "> [!NOTE] Joined.\n\n> [!OTHER]\n> text\n\n- > [!TIP]\n  > text\n",
+			want: "> [!NOTE] Joined.\n\n> [!OTHER] text\n\n- > [!TIP] text\n",
 		},
 		{name: "an empty note", text: "", want: ""},
 	}

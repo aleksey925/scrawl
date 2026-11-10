@@ -1,17 +1,33 @@
-import { createContext, useContext } from 'react';
+import { createContext, useCallback, useContext, type MutableRefObject } from 'react';
+import { useLocation } from 'react-router';
 
 import type { EntryKind } from '../api/types';
+
+import { contentPathOf } from './naming';
 
 export interface TreeDraft {
   kind: EntryKind;
   parent: string;
 }
 
+export type RenamePlace = 'tree' | 'list' | 'page';
+
+export interface Renaming {
+  id: number;
+  path: string;
+  isDir: boolean;
+  place: RenamePlace;
+}
+
 export interface FileActions {
-  createPage: (folder: string) => void;
-  createFolder: (folder: string) => void;
-  rename: (path: string) => void;
-  remove: (path: string, isDir: boolean) => void;
+  createDraft: (kind: EntryKind, folder: string) => void;
+  renaming: Renaming | undefined;
+  startRename: (path: string, isDir: boolean, place: RenamePlace) => void;
+  endRename: (id: number) => void;
+  renameCommit: MutableRefObject<(() => void) | undefined>;
+  submitRename: (path: string, isDir: boolean, name: string) => Promise<boolean>;
+  moveTo: (path: string, anchor: DOMRect) => void;
+  remove: (path: string) => void;
   copyLink: (path: string, isDir: boolean) => void;
   moveInto: (paths: readonly string[], folder: string) => void;
   draft: TreeDraft | undefined;
@@ -32,4 +48,17 @@ export function useFileActions(): FileActions {
 
 export function useOptionalFileActions(): FileActions | undefined {
   return useContext(FileActionsContext);
+}
+
+export function useRenamingHere(place: RenamePlace, path: string): Renaming | undefined {
+  const renaming = useOptionalFileActions()?.renaming;
+  return renaming !== undefined && renaming.place === place && renaming.path === path ? renaming : undefined;
+}
+
+export function usePageRenaming(): { renaming: Renaming | undefined; commit: () => void } {
+  const location = useLocation();
+  const renameCommit = useOptionalFileActions()?.renameCommit;
+  const renaming = useRenamingHere('page', contentPathOf(location.pathname));
+  const commit = useCallback(() => renameCommit?.current?.(), [renameCommit]);
+  return { renaming, commit };
 }

@@ -55,6 +55,8 @@
     "inlineCodeBg": "#e9e9ee",
     "toastBg": "#2c2c2e",
     "toastText": "#ffffff",
+    "toastAction": "#409cff",
+    "toastHover": "#ffffff1f",
     "diffAddLine": "#e7f6eb",
     "diffAddWord": "#248a3d40",
     "diffDeleteLine": "#ffebea",

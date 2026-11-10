@@ -7,12 +7,14 @@ disk are the only state.
 - search of the whole space on `Ctrl`/`Cmd` + `K`: fuzzy, exact or by a regular
   expression, with the lines that matched; and find in the note on screen on
   `Ctrl`/`Cmd` + `F`
-- an editor with live preview, on desktop and on mobile
+- an editor with live preview and a view of your unsaved changes, on desktop
+  and on mobile
 - every file in a folder opens: a picture as a preview, a text file as
   highlighted code, and edits as plain text, without the note's preview and
   formatting
-- pages and folders made in the tree or in a folder's list, dragged between
-  folders, renamed and deleted; paste images straight into the editor
+- pages and folders made in the tree or in a folder's list, renamed, moved with
+  Move to or dragged between folders, and deleted, with Undo in the toast of a
+  move or a delete; paste images straight into the editor
 - mermaid and PlantUML diagrams, drawn in the browser with no Java and no
   PlantUML server, and opened full screen on a click
 - export note as Markdown, HTML or PDF
@@ -54,6 +56,10 @@ docker run -d \
 
 [examples/docker-compose.yml](examples/docker-compose.yml) is a fuller
 deployment example.
+
+At start scrawl prints the links to open it. Inside Docker the `network` ones
+carry the container's own addresses, which another machine cannot open: from
+there use the address of the host and the port `-p` publishes.
 
 You can also install it with [mise](https://mise.jdx.dev). This command
 installs the latest [release](https://github.com/aleksey925/scrawl/releases):
@@ -309,13 +315,19 @@ not hide it from any of these.
 For ssh there is no setting: an ssh remote uses the agent and the `~/.ssh` you
 mount into the container, like every other tool on the box.
 
-**Pulling and pushing.** A save is committed and pushed straight away. In
-between, `pull` says how often to fetch from the remote; `0` turns that off,
-but scrawl still fetches once at startup. A fetch is followed by a fast-forward
-and nothing else: scrawl never merges, never rebases and never resolves
-conflicts. If the branch has diverged, the space keeps serving, saves keep
-landing on disk and in local commits, and a banner says so on every screen
-together with a button that resets this copy to the remote version - see
+**Pulling and pushing.** A change you make is committed at once and pushed a
+few seconds later, so you never wait for the network, and a few quick changes
+go out as one push. Even when the network hangs, saves go on: changes pile up
+as local commits and go out when the remote answers again. If a push fails,
+scrawl tries again about a minute later, and keeps trying until it goes
+through, even with `pull: 0` and after a restart. It stops trying when the
+branch has diverged or the remote refuses the token, since only a person can
+fix those. In between, `pull` says how often to fetch from the remote; `0`
+turns that off, but scrawl still fetches once at startup. A fetch is followed
+by a fast-forward and nothing else: scrawl never merges, never rebases and
+never resolves conflicts. If the branch has diverged, the space keeps serving,
+saves keep landing on disk and in local commits, and a banner says so on every
+screen together with a button that resets this copy to the remote version - see
 [below](#when-a-space-has-diverged).
 
 **Two things are worth knowing.** History is always on for a space that is a
@@ -383,22 +395,40 @@ Nothing about this blocks you. The save landed, the note is on disk, the
 history entry exists - the only thing that did not happen is the push, and
 editing carries on exactly as before.
 
-An orange "Not synced" control appears in the top bar and stays there. It says
-whether the note you are looking at is affected, and clicking it lists the
-affected notes. A banner above the page says the same in full, with the exact
-git error. On a phone the control is an orange cloud icon in the bar on top.
+A writable remote space always has a sync control in the top bar, before the
+page actions, so you can see at a glance where your changes are:
+
+- a gray spinner - your changes are on their way;
+- a gray cloud with a check - all changes are sent;
+- an orange crossed cloud with "Not sent, will retry" - a change has not gone
+  out, and scrawl tries again on its own;
+- an orange crossed cloud with "Not sent" - a change has not gone out, and the
+  next save tries again;
+- an orange crossed cloud with "Not synced" - nothing waits to be sent, but the
+  remote cannot be reached or history did not record a change;
+- an orange warning sign, with "Diverged" or "Access refused" - scrawl cannot
+  go on until you act.
+
+Clicking the control says whether the note you are looking at is affected and
+lists the affected notes. When something is wrong, a banner above the page says
+the same in full, with the exact git error. On a phone the control is the icon
+alone, and its words are in the popup.
 
 The messages are:
 
-- **Changes are not reaching the remote.** The push failed. The next save tries
-  again.
+- **Changes have not reached the remote yet.** The push failed. scrawl tries
+  again in about a minute, and every save tries too.
 - **The remote does not take changes from this space.** The push was refused:
   the space has no token, or its token may not write there. A public repository
   is the usual case - it clones without a token and takes no push without one.
   No retry fixes it: give the space a token with write access, or set
   `read_only`.
-- **The remote cannot be reached.** The fetch failed. This copy may be behind,
-  and if you saved anything it has not gone out either.
+- **The remote refuses this space.** The fetch was refused: the token may not
+  read the remote. Give the space a token that may read it, and write to it
+  unless the space is read-only.
+- **The remote cannot be reached.** The fetch failed. This copy may be behind.
+  If you saved anything, it has not gone out either, and scrawl tries again in
+  about a minute.
 - **This space has diverged from the remote.** Both sides hold commits the
   other lacks: somebody pushed while this copy had commits of its own, or the
   branch was rebased or force-pushed. scrawl does not merge: nothing is sent or
@@ -414,8 +444,9 @@ When many notes are added at once, the message can say "many files are
 affected" until the push goes through. Past a couple of hundred files the
 per-note markers stop and the message says so.
 
-The page refreshes this on its own, about once a minute and only while the tab
-is in front of you, so a push that starts working again clears the warning
+The page refreshes this on its own while the tab is in front of you: every few
+seconds while changes are on their way or waiting for a retry, about once a
+minute otherwise. So a push that starts working again clears the warning
 without a reload. A background refresh does not extend your session: a tab left
 open would otherwise keep one alive forever.
 
@@ -451,7 +482,8 @@ space from the page.
 - `Ctrl`/`Cmd` + `K` searches the space, `Ctrl`/`Cmd` + `F` finds in the note
   on screen
 - `Ctrl`/`Cmd` + `B` shows or hides the sidebar
-- `E` opens the note in the editor, `Ctrl`/`Cmd` + `S` saves it
+- `E` opens the note in the editor, `Ctrl`/`Cmd` + `S` saves it and keeps the
+  editor open
 - `?` shows the whole list
 
 ## Markdown
@@ -526,19 +558,38 @@ in one folder instead.
 - a save writes a temporary file and renames it into place, so a crash cannot
   leave half a document behind
 - a save formats the note with [prettier](https://prettier.io) first, with its
-  default options, so every note ends up looking the way `prettier --write`
-  leaves it. That holds for the editor, for a write through the API and for a
-  version restored from the history alike. `SPACE_FORMAT_ON_SAVE=off`, or
-  `format_on_save: false` on one space in the file, turns that off
+  default options except that text is wrapped at 79 characters, so every note
+  ends up looking the way
+  `prettier --write --prose-wrap always --print-width 79` leaves it. That holds
+  for the editor, for a write through the API and for a version restored from
+  the history alike. `SPACE_FORMAT_ON_SAVE=off`, or `format_on_save: false` on
+  one space in the file, turns that off
 - the wand button in the toolbar, or `Shift+Alt+F`, formats the note without
   saving it, whatever that setting says
+- the contents button in the toolbar puts a table of contents of the note under
+  the line the cursor is on: a list of links to its headings between
+  `<!-- toc -->` and `<!-- tocstop -->`. Press it again after adding headings
+  to bring the list up to date
+- the table button in the toolbar inserts a table of the size you pick on a
+  grid. With the cursor in a table it adds or deletes a row or a column there,
+  or deletes the table, and keeps the columns lined up
+- Save in the editor saves the note and takes you back to it, and Cancel leaves
+  without saving, asking first if there are changes. To save and keep editing,
+  press `Ctrl`/`Cmd` + `S`
+- before you save, Changes in the editor shows your edits against the saved
+  note, with the changed words marked, the way the history shows a version. On
+  a phone it is the third tab next to Text and Preview
 - a text file that is not a note, such as `config.yml` or a `Makefile`, opens
   in the same editor as plain source, colored by its language, with Save,
   Cancel and line wrap. It has no preview, toolbar or formatting, and a save
   leaves it as you wrote it. The editor opens text files up to 2MB
 - only notes saved through scrawl are formatted. A file changed on disk or
   pulled from the remote stays as it is, so to format what is already there run
-  `prettier --write "**/*.md"` in the folder once
+  `scrawl format -w` on those notes once, for example
+  `scrawl format -w notes/*.md`. It formats them the way a save does
+- a note whose text is not wrapped at 79 characters, such as one saved by an
+  older scrawl, gets its paragraphs rewrapped on its next save, so that save
+  shows in the history as a large change even if you edited one word
 - the editor formats in the browser, which is instant. Any other write is
   formatted by the server, which is slower: a usual note takes a fraction of a
   second, a very long one a few seconds. There a note above 256KB, or one
@@ -549,6 +600,12 @@ in one folder instead.
   and you are shown both versions
 - nothing outside the folder of a space is reachable and symbolic links are
   ignored
+- a deleted file or folder waits 5 minutes in a `.scrawl-trash/` folder at the
+  root of the notes folder, so Undo can put it back. While it waits,
+  `git status`, Syncthing and a backup of the notes folder see that folder too,
+  and a restart of scrawl empties it. A folder of another disk mounted inside
+  the notes folder cannot be deleted, since a move to the trash cannot cross
+  disks
 
 ## API
 
@@ -651,15 +708,20 @@ the note is stored untouched.
 
 The last two fields are on every write, and they are two different failures.
 `history_degraded` says the change is on disk and not in git. `unpublished`
-says it is in git and not on the remote. A browser save gets them as a warning
-and keeps going; a token gets a `500` instead, because an agent must never be
-told a change landed somewhere it did not:
+says it is in git and not on the remote. A write from the page is pushed a few
+seconds after its answer, so its `unpublished` is the state before that push; a
+browser save gets them as a warning and keeps going; a token gets a `500`
+instead, because an agent must never be told a change landed somewhere it did
+not:
 
 - `500 {"error":"the change was written but not recorded in history"}`
 - `500 {"error":"the change was written and recorded, but not pushed to the remote"}`
 
-Both fix themselves: the next commit also records what was missed, and every
-push and every fetch tries again.
+Both fix themselves: the next commit also records what was missed, and a push
+that failed is tried again about a minute later, and again after each failed
+try, until it goes through. The `500` of a delete still carries the `trash_id`,
+so the deleted entry can be put back. A token write waits for its own push, and
+also for a fetch or a push that is already on its way.
 
 Two answers mean the file on disk is not what the client assumed. Both carry
 `current_rev` and `current_content`, so a retry needs no second request:
@@ -676,8 +738,9 @@ The rest of the write endpoints take no revision:
 | request                                 | body                            | answer                    |
 | --------------------------------------- | ------------------------------- | ------------------------- |
 | `POST /api/file/<path>`                 | `{"type":"file"}` or `"dir"`    | `201 {"path":...}`        |
-| `DELETE /api/file/<path>`               |                                 | `200 {"path":...}`        |
-| `DELETE /api/file/<dir>?recursive=true` |                                 | `200 {"path":...}`        |
+| `DELETE /api/file/<path>`               |                                 | `200 {"path","trash_id"}` |
+| `DELETE /api/file/<dir>?recursive=true` |                                 | `200 {"path","trash_id"}` |
+| `POST /api/trash/restore`               | `{"id":"<trash_id>"}`           | `200 {"path":...}`        |
 | `POST /api/move`                        | `{"from":"a.md","to":"b/a.md"}` | `200 {"path":...}`        |
 | `POST /api/upload/<dir>?doc=<path>`     | multipart `file`                | `201 {"path","markdown"}` |
 
@@ -687,6 +750,12 @@ Each is under `/s/<space>/`, and each carries `history_degraded` and
 A folder that is not empty is deleted only with `recursive=true`, which removes
 it with everything in it; without it the answer is
 `409 {"error":"directory is not empty"}`.
+
+A deleted file or folder is kept for 5 minutes, and `POST /api/trash/restore`
+with the `trash_id` of the delete puts it back where it was. The answer is
+`409` when something else is at that path now, and the entry stays in the
+trash. After 5 minutes, or after a restart of scrawl, which empties the trash,
+the answer is `404`.
 
 A token ending in `:ro` reads everything and writes nothing: every write is
 `403 {"error":"read-only token, writing is disabled"}`. `READ_ONLY` on the

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
 	"net/url"
 	"path"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/history"
+	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
 	"github.com/aleksey925/scrawl/view"
@@ -47,6 +47,10 @@ type createRequest struct {
 	Type string `json:"type"`
 }
 
+type trashRestoreRequest struct {
+	ID string `json:"id"`
+}
+
 type moveRequest struct {
 	From string `json:"from"`
 	To   string `json:"to"`
@@ -55,6 +59,12 @@ type moveRequest struct {
 type previewRequest struct {
 	Content string `json:"content"`
 	Path    string `json:"path"`
+}
+
+type compareRequest struct {
+	Path string `json:"path"`
+	Old  string `json:"old"`
+	New  string `json:"new"`
 }
 
 type searchHit struct {
@@ -262,18 +272,54 @@ func (m *mount) apiFileDelete(w http.ResponseWriter, r *http.Request) {
 	recursive := r.URL.Query().Get("recursive") == "true"
 
 	var removed []string
+	var trashID string
 	err := m.record(r, history.Op{Message: "delete " + p, Paths: []string{p}}, func() ([]string, error) {
-		if !recursive {
-			return nil, m.spc.Store.Remove(p)
+		if recursive {
+			removed = m.filesUnder(p)
 		}
-		removed = m.filesUnder(p)
-		return removed, m.spc.Store.RemoveAll(p)
+		var trashErr error
+		trashID, trashErr = m.spc.Store.Trash(p, recursive)
+		return removed, trashErr
 	})
+	if err != nil && trashID != "" {
+		failJSONWith(w, r, err, map[string]any{"trash_id": trashID})
+		return
+	}
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
 	m.touch(append(removed, p)...)
+	writeJSON(w, http.StatusOK, m.withHistory(map[string]any{"path": p, "trash_id": trashID}))
+}
+
+func (m *mount) apiTrashRestore(w http.ResponseWriter, r *http.Request) {
+	if m.refuseReadOnly(w, r) {
+		return
+	}
+	var req trashRestoreRequest
+	if !decodeJSON(w, r, &req, maxJSONBody) {
+		return
+	}
+	p, ok := m.spc.Store.Trashed(req.ID)
+	if !ok {
+		jsonError(w, http.StatusNotFound, "nothing to restore, the trash no longer holds it")
+		return
+	}
+
+	var restored []string
+	err := m.record(r, history.Op{Message: "restore " + p, Paths: []string{p}}, func() ([]string, error) {
+		if restoreErr := m.spc.Store.Restore(req.ID); restoreErr != nil {
+			return nil, restoreErr
+		}
+		restored = m.filesUnder(p)
+		return restored, nil
+	})
+	if err != nil {
+		failJSON(w, r, err)
+		return
+	}
+	m.touch(append(restored, p)...)
 	writeJSON(w, http.StatusOK, m.withHistory(map[string]any{"path": p}))
 }
 
@@ -402,15 +448,37 @@ func (m *mount) apiPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	source := []byte(req.Content)
-	html, err := renderWithDeadline(docPath, source, maxPreviewBody, renderTimeout, func() (template.HTML, error) {
-		return m.spc.Renderer.RenderInline(source, docPath)
-	})
+	res, err := m.renderPreview(docPath, []byte(req.Content))
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"html": string(html)})
+	writeJSON(w, http.StatusOK, map[string]any{"html": string(res.HTML), "toc": render.ContentsOf(res.TOC)})
+}
+
+func (m *mount) apiCompare(w http.ResponseWriter, r *http.Request) {
+	var req compareRequest
+	if !decodeJSON(w, r, &req, maxCompareBody) {
+		return
+	}
+	docPath, ok := contentPathOf(req.Path)
+	if !ok {
+		jsonError(w, http.StatusBadRequest, "bad path")
+		return
+	}
+
+	changes, err := compareDocs(docPath, []byte(req.Old), docPath, []byte(req.New), m.renderPreview)
+	if err != nil {
+		failJSON(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"changes": changes})
+}
+
+func (m *mount) renderPreview(docPath string, source []byte) (render.Result, error) {
+	return renderWithDeadline(docPath, source, maxPreviewBody, renderTimeout, func() (render.Result, error) {
+		return m.spc.Renderer.Render(source, docPath)
+	})
 }
 
 func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {

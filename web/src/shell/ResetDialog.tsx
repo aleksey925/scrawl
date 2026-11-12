@@ -46,7 +46,7 @@ export function ResetAction({ onOpen }: { onOpen?: () => void }): JSX.Element | 
           open();
         }}
       >
-        Reset to the remote version…
+        Use remote version…
       </Button>
     </Group>
   );
@@ -120,7 +120,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
       onClose={close}
       closeOnClickOutside={step.name !== 'resetting'}
       withCloseButton={step.name !== 'resetting'}
-      title="Reset to the remote version"
+      title="Use remote version"
       size="md"
     >
       {step.name === 'checking' && (
@@ -162,7 +162,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
               loading={step.name === 'resetting'}
               onClick={() => reset(step.check)}
             >
-              Reset
+              Use remote version
             </Button>
           </DialogActions>
         </Stack>

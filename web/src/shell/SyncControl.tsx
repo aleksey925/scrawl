@@ -12,7 +12,7 @@ import { useNav } from './NavContext';
 import { ResetAction } from './ResetDialog';
 import type { SyncStatus } from './syncMessage';
 
-const thisNote = 'This note has not reached the remote';
+const thisNote = 'This note is not sent yet';
 
 const spinnerInset = 4;
 

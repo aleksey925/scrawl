@@ -2,7 +2,12 @@
 
 A web app for a folder of markdown files.
 
-scrawl lets you read and edit your notes from a browser, on a laptop or a phone. Point it at a folder or a git repository and it serves the notes there as they are: no database, no import, no format of its own. The files on disk are the only state, so you can keep editing them in any other editor, sync them with git or Syncthing, and stop using scrawl at any time without losing anything.
+scrawl lets you read and edit your notes from a browser, on a laptop or a
+phone. Point it at a folder or a git repository and it serves the notes there
+as they are: no database, no import, no format of its own. The files on disk
+are the only state, so you can keep editing them in any other editor, sync them
+with git or Syncthing, and stop using scrawl at any time without losing
+anything.
 
 It ships as one static binary or a Docker image.
 
@@ -10,30 +15,53 @@ It ships as one static binary or a Docker image.
 
 - **Search** across all notes: fuzzy, exact or by regular expression
 - **Editor** with live preview and a view of your unsaved changes
-- **Consistent formatting**: every save runs the note through prettier, so all notes keep one style and stay easy to read and diff as plain files in git
-- **Diagrams**: Mermaid and PlantUML, drawn in the browser with no Java and no PlantUML server
-- **History**: every page keeps its past versions, with a semantic diff between them that ignores reformatting and marks the words that changed
-- **Nothing gets lost**: unsaved text survives a closed tab, a save never overwrites someone else's change, and with history on every save is a git commit
-- **Git sync**: a space can be a git repository that scrawl clones, commits to and pushes back
+- **Consistent formatting**: every save runs the note through prettier, so all
+  notes keep one style and stay easy to read and diff as plain files in git
+- **Diagrams**: Mermaid and PlantUML, drawn in the browser with no Java and no
+  PlantUML server
+- **History**: every page keeps its past versions, with a semantic diff between
+  them that ignores reformatting and marks the words that changed
+- **Nothing gets lost**: unsaved text survives a closed tab, a save never
+  overwrites someone else's change, and with history on every save is a git
+  commit
+- **Git sync**: a space can be a git repository that scrawl clones, commits to
+  and pushes back
 - **Several spaces** served from one instance
-- **Works like a mobile app**: a phone layout built for touch, installable to the home screen
+- **Works like a mobile app**: a phone layout built for touch, installable to
+  the home screen
 - **Offline access**: every note stays on the device and opens without network
 - **Export** to Markdown, HTML or PDF
 - **JSON API** with token auth, for scripts and agents
-- **Static site**: turn the notes into a site for any static host, such as GitHub Pages, with the same reader as the app
+- **Static site**: turn the notes into a site for any static host, such as
+  GitHub Pages, with the same reader as the app
 - **Command line** to render, compare and format markdown, without the server
 
 ## Why scrawl
 
-scrawl was made to have the same notes on a laptop, a work computer and a phone, without paying for a sync service, without trusting a general-purpose cloud drive to sync on time, and without running extra infrastructure just to move text between devices.
+scrawl was made to have the same notes on a laptop, a work computer and a
+phone, without paying for a sync service, without trusting a general-purpose
+cloud drive to sync on time, and without running extra infrastructure just to
+move text between devices.
 
-So it keeps the notes in a git repository. Any git host will do, most of them give you a private repository for free, and every change you make is a commit: the notes are backed up and versioned by the same thing that syncs them. You open them in a browser, so there is nothing to install on each device.
+So it keeps the notes in a git repository. Any git host will do, most of them
+give you a private repository for free, and every change you make is a commit:
+the notes are backed up and versioned by the same thing that syncs them. You
+open them in a browser, so there is nothing to install on each device.
 
-**Compared to Obsidian.** Out of the box, Obsidian syncs between devices only through its paid Sync service. The free way is to research community plugins and pick one, and each comes at a cost: some need infrastructure of their own, such as a database server or a storage bucket, and the git plugin warns that it is very unstable on mobile. scrawl is one small binary: run it on any server, point it at a repository, and nothing else is needed.
+**Compared to Obsidian.** Out of the box, Obsidian syncs between devices only
+through its paid Sync service. The free way is to research community plugins
+and pick one, and each comes at a cost: some need infrastructure of their own,
+such as a database server or a storage bucket, and the git plugin warns that it
+is very unstable on mobile. scrawl is one small binary: run it on any server,
+point it at a repository, and nothing else is needed.
 
-**Compared to Notion.** The interface of scrawl takes a lot from Notion, but the notes stay yours: plain markdown files in a folder or a repository you control, readable by any editor, with nothing to export the day you leave.
+**Compared to Notion.** The interface of scrawl takes a lot from Notion, but
+the notes stay yours: plain markdown files in a folder or a repository you
+control, readable by any editor, with nothing to export the day you leave.
 
-**When something else fits better.** If you want to edit notes with no network at all, or a plugin for every need, Obsidian is the better tool. Offline, scrawl only reads.
+**When something else fits better.** If you want to edit notes with no network
+at all, or a plugin for every need, Obsidian is the better tool. Offline,
+scrawl only reads.
 
 ## Contents
 
@@ -86,9 +114,12 @@ Open http://localhost:7272 and press `Ctrl`/`Cmd` + `K` to search.
 
 This run leaves the folder exactly as it was:
 
-- `READ_ONLY=true` turns off editing. In normal use a save formats the note with prettier, which would rewrap the text of every note you save.
-- `HISTORY=off` keeps scrawl from creating a git repository in the folder. In normal use it keeps one there to record the history of every page.
-- `AUTH_DISABLED=true` skips the sign-in page, since this is only a look on your own machine.
+- `READ_ONLY=true` turns off editing. In normal use a save formats the note
+  with prettier, which would rewrap the text of every note you save.
+- `HISTORY=off` keeps scrawl from creating a git repository in the folder. In
+  normal use it keeps one there to record the history of every page.
+- `AUTH_DISABLED=true` skips the sign-in page, since this is only a look on
+  your own machine.
 - `--rm` removes the container once you stop it.
 
 ### Use a local folder
@@ -106,13 +137,21 @@ docker run -d --name scrawl --restart unless-stopped \
   ghcr.io/aleksey925/scrawl:latest
 ```
 
-Open http://localhost:7272, or the address of the machine from a phone, and sign in as `admin` / `admin`.
+Open http://localhost:7272, or the address of the machine from a phone, and
+sign in as `admin` / `admin`.
 
-- `AUTH_USERS` lists who can sign in, as `user:password`, comma separated. Pick your own password before others can reach the server, and put its hash there instead of the password itself: `scrawl hash` makes one.
-- `--user` runs scrawl as you, so it can write to your folder and the files it saves stay yours.
-- If the folder is not a git repository yet, scrawl makes it one and commits every change, which is where page history comes from. `HISTORY=off` turns this off.
-- A save formats the note with prettier, see [Formatting](#formatting). `SPACE_FORMAT_ON_SAVE=off` turns this off.
-- The `scrawl-data` volume keeps the sign-in key, so a restart does not sign you out.
+- `AUTH_USERS` lists who can sign in, as `user:password`, comma separated. Pick
+  your own password before others can reach the server, and put its hash there
+  instead of the password itself: `scrawl hash` makes one.
+- `--user` runs scrawl as you, so it can write to your folder and the files it
+  saves stay yours.
+- If the folder is not a git repository yet, scrawl makes it one and commits
+  every change, which is where page history comes from. `HISTORY=off` turns
+  this off.
+- A save formats the note with prettier, see [Formatting](#formatting).
+  `SPACE_FORMAT_ON_SAVE=off` turns this off.
+- The `scrawl-data` volume keeps the sign-in key, so a restart does not sign
+  you out.
 
 ### Use a git repository
 
@@ -130,9 +169,12 @@ docker run -d --name scrawl --restart unless-stopped \
   ghcr.io/aleksey925/scrawl:latest
 ```
 
-- `REPO_TOKEN` is a token of the git host with write access to the repository. Leave it out for an ssh remote.
-- The clone lives in the `scrawl-spaces` volume. Keep it: commits not pushed yet live there too.
-- Every change is pushed a few seconds after it is saved. Changes made on the remote are pulled every 5 minutes.
+- `REPO_TOKEN` is a token of the git host with write access to the repository.
+  Leave it out for an ssh remote.
+- The clone lives in the `scrawl-spaces` volume. Keep it: commits not pushed
+  yet live there too.
+- Every change is pushed a few seconds after it is saved. Changes made on the
+  remote are pulled every 5 minutes.
 
 ## Installation
 
@@ -142,7 +184,9 @@ docker run -d --name scrawl --restart unless-stopped \
 docker pull ghcr.io/aleksey925/scrawl:latest
 ```
 
-[Quick start](#quick-start) shows how to run it, and [examples/docker-compose.yml](examples/docker-compose.yml) is a fuller deployment.
+[Quick start](#quick-start) shows how to run it, and
+[examples/docker-compose.yml](examples/docker-compose.yml) is a fuller
+deployment.
 
 ### mise
 
@@ -150,7 +194,8 @@ docker pull ghcr.io/aleksey925/scrawl:latest
 mise use -g github:aleksey925/scrawl
 ```
 
-This installs the latest [release](https://github.com/aleksey925/scrawl/releases).
+This installs the latest
+[release](https://github.com/aleksey925/scrawl/releases).
 
 ### From source
 
@@ -160,7 +205,8 @@ go install github.com/aleksey925/scrawl@latest
 
 ### Running the binary
 
-Without Docker, every setting is a flag. The local folder from [Quick start](#use-a-local-folder):
+Without Docker, every setting is a flag. The local folder from
+[Quick start](#use-a-local-folder):
 
 ```
 scrawl serve --space.dir ~/notes --space.name notes --auth.users 'admin:admin'
@@ -170,31 +216,49 @@ All settings are described in [Configuration](#configuration).
 
 ## Markdown features
 
-Notes are [GitHub-flavored markdown](https://github.github.com/gfm/), so the syntax you already know from GitHub works as it is: tables, task lists, footnotes, alerts, math and the rest. On top of it, scrawl adds:
+Notes are [GitHub-flavored markdown](https://github.github.com/gfm/), so the
+syntax you already know from GitHub works as it is: tables, task lists,
+footnotes, alerts, math and the rest. On top of it, scrawl adds:
 
-- **Mermaid and PlantUML diagrams**, drawn right in the browser: no Java and no PlantUML server. PlantUML's standard library, C4 included, comes built in.
-- **Full screen view** for diagrams and pictures: a click opens one, where it zooms and pans.
+- **Mermaid and PlantUML diagrams**, drawn right in the browser: no Java and no
+  PlantUML server. PlantUML's standard library, C4 included, comes built in.
+- **Full screen view** for diagrams and pictures: a click opens one, where it
+  zooms and pans.
 - **Light and dark themes**, with diagrams drawn to match.
 
 ### Formatting
 
-Every save formats the note with [prettier](https://prettier.io), the way `prettier --write --prose-wrap always --print-width 79` does. Whoever wrote a note, and in whatever editor, all notes end up in one consistent style, and the lines are wrapped so that `git diff` and your git host show changes cleanly.
+Every save formats the note with [prettier](https://prettier.io), the way
+`prettier --write --prose-wrap always --print-width 79` does. Whoever wrote a
+note, and in whatever editor, all notes end up in one consistent style, and the
+lines are wrapped so that `git diff` and your git host show changes cleanly.
 
 - `Shift+Alt+F` in the editor formats the note without saving it.
-- A note changed outside scrawl stays as it is. `scrawl format -w notes/*.md` brings existing notes to the same style once.
-- `SPACE_FORMAT_ON_SAVE=off`, or `format_on_save: false` for one space, turns it off.
+- A note changed outside scrawl stays as it is. `scrawl format -w notes/*.md`
+  brings existing notes to the same style once.
+- `SPACE_FORMAT_ON_SAVE=off`, or `format_on_save: false` for one space, turns
+  it off.
 
 ## How your changes are kept
 
-- **While you type**, the text you have not saved yet is kept in the browser. If the tab closes or the phone unloads it, the next time you open the note scrawl offers to restore it, and warns if the note has changed since.
-- **When you save**, the note is written to a temporary file and renamed into place, so a crash never leaves half a note behind.
-- **If the note changed on disk** since you opened it, the save is refused and you see both versions, instead of one overwriting the other.
-- **Every save is a git commit** while history is on, which is the default: the notes folder is then a git repository, and any earlier version can be restored from the history. In a git space it is also pushed, and scrawl keeps retrying until the push goes through.
-- **A deleted file or folder** waits 5 minutes in a trash, and Undo in the toast puts it back.
+- **While you type**, the text you have not saved yet is kept in the browser.
+  If the tab closes or the phone unloads it, the next time you open the note
+  scrawl offers to restore it, and warns if the note has changed since.
+- **When you save**, the note is written to a temporary file and renamed into
+  place, so a crash never leaves half a note behind.
+- **If the note changed on disk** since you opened it, the save is refused and
+  you see both versions, instead of one overwriting the other.
+- **Every save is a git commit** while history is on, which is the default: the
+  notes folder is then a git repository, and any earlier version can be
+  restored from the history. In a git space it is also pushed, and scrawl keeps
+  retrying until the push goes through.
+- **A deleted file or folder** waits 5 minutes in a trash, and Undo in the
+  toast puts it back.
 
 ## Static site
 
-`scrawl site` turns a folder of notes into a static site that works on any static host, under any path, or opened straight from disk:
+`scrawl site` turns a folder of notes into a static site that works on any
+static host, under any path, or opened straight from disk:
 
 ```
 scrawl site -o site ~/notes
@@ -208,30 +272,47 @@ docker run --rm --user "$(id -u):$(id -g)" \
   ghcr.io/aleksey925/scrawl:latest site -o /site /notes
 ```
 
-A page of the site is the scrawl reader without editing: the tree of notes, the outline, diagrams, formulas, and the light and dark themes. Search, editing and history need the server, so a site has none of them. The front page lists the notes at the root, and `index.md` there becomes Home.
+A page of the site is the scrawl reader without editing: the tree of notes, the
+outline, diagrams, formulas, and the light and dark themes. Search, editing and
+history need the server, so a site has none of them. The front page lists the
+notes at the root, and `index.md` there becomes Home.
 
 ## Offline
 
-scrawl can keep a copy of every space on the device, so notes, pictures and files open with no network. Offline everything is read-only, and search and history are hidden, since they need the server.
+scrawl can keep a copy of every space on the device, so notes, pictures and
+files open with no network. Offline everything is read-only, and search and
+history are hidden, since they need the server.
 
-- An app installed to the home screen has it on by default. In a browser, turn it on with "Offline access" in the space menu, or under Profile on a phone.
-- It needs HTTPS, or `localhost`: browsers allow it nowhere else, and on plain http the switch is greyed out with `Needs HTTPS`.
-- The first copy downloads every space whole, plus the app with its diagram engines, some tens of megabytes. After that only changed files are downloaded.
+- An app installed to the home screen has it on by default. In a browser, turn
+  it on with "Offline access" in the space menu, or under Profile on a phone.
+- It needs HTTPS, or `localhost`: browsers allow it nowhere else, and on plain
+  http the switch is greyed out with `Needs HTTPS`.
+- The first copy downloads every space whole, plus the app with its diagram
+  engines, some tens of megabytes. After that only changed files are
+  downloaded.
 
 ## Configuration
 
-A **space** is what scrawl serves: one folder of notes, or a git repository cloned into one. Each space lives under `/s/<name>/`, as in `/s/notes/doc/python/redis.md`, and has its own tree, search and history.
+A **space** is what scrawl serves: one folder of notes, or a git repository
+cloned into one. Each space lives under `/s/<name>/`, as in
+`/s/notes/doc/python/redis.md`, and has its own tree, search and history.
 
 There are two kinds of settings:
 
-- **Server settings** describe the server itself. They are environment variables and they always apply.
-- **Space settings** describe what is served. For one space they are environment variables too. For several spaces they go into a yaml file, and then the space variables are ignored.
+- **Server settings** describe the server itself. They are environment
+  variables and they always apply.
+- **Space settings** describe what is served. For one space they are
+  environment variables too. For several spaces they go into a yaml file, and
+  then the space variables are ignored.
 
-Every variable is also a flag: `SITE_TITLE` is `--site-title`, `AUTH_USERS` is `--auth.users`. Run `scrawl serve --help` for the full list, including the HTTP timeouts.
+Every variable is also a flag: `SITE_TITLE` is `--site-title`, `AUTH_USERS` is
+`--auth.users`. Run `scrawl serve --help` for the full list, including the HTTP
+timeouts.
 
 ### Server settings
 
-These always apply, with a spaces file or without one. Only a way to sign in is required, everything else has a working default.
+These always apply, with a spaces file or without one. Only a way to sign in is
+required, everything else has a working default.
 
 | variable           | required              | default             | meaning                                                                                                                                                                                                                                 |
 | ------------------ | --------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -255,24 +336,38 @@ These always apply, with a spaces file or without one. Only a way to sign in is 
 | `TZ`               |                       | `UTC`               | timezone                                                                                                                                                                                                                                |
 | `DEBUG`            |                       | `false`             | debug logging                                                                                                                                                                                                                           |
 
-A plain password in `AUTH_USERS` works, and the server warns about it on startup. For anything reachable from outside, use a hash instead:
+A plain password in `AUTH_USERS` works, and the server warns about it on
+startup. For anything reachable from outside, use a hash instead:
 
 ```
 printf 'my-password' | docker run --rm -i ghcr.io/aleksey925/scrawl:latest hash
 ```
 
-Dot directories, `node_modules` and `__pycache__` are ignored, so notes kept in git do not expose `.git`.
+Dot directories, `node_modules` and `__pycache__` are ignored, so notes kept in
+git do not expose `.git`.
 
 If scrawl runs behind a reverse proxy (nginx, Caddy or any other), set:
 
-- `TRUSTED_PROXY=true` - scrawl then takes the user's address from the `X-Forwarded-For` header and the scheme from `X-Forwarded-Proto`, instead of from the connection. Without it, every request comes from the proxy's address, and the limit on wrong passwords counts all users together: 10 wrong passwords from anyone lock everyone out for 15 minutes. The proxy must set `X-Forwarded-For` itself, otherwise anyone can write a new address there for each try and guess passwords without a limit.
-- `AUTH_SECURE=always` - if the proxy serves HTTPS. scrawl then always sets the `Secure` flag on the sign-in cookie, and a browser will never send a cookie with this flag over plain http. This matters if the proxy still answers on plain http.
+- `TRUSTED_PROXY=true` - scrawl then takes the user's address from the
+  `X-Forwarded-For` header and the scheme from `X-Forwarded-Proto`, instead of
+  from the connection. Without it, every request comes from the proxy's
+  address, and the limit on wrong passwords counts all users together: 10 wrong
+  passwords from anyone lock everyone out for 15 minutes. The proxy must set
+  `X-Forwarded-For` itself, otherwise anyone can write a new address there for
+  each try and guess passwords without a limit.
+- `AUTH_SECURE=always` - if the proxy serves HTTPS. scrawl then always sets the
+  `Secure` flag on the sign-in cookie, and a browser will never send a cookie
+  with this flag over plain http. This matters if the proxy still answers on
+  plain http.
 
 ### One space
 
-With one space, all its settings can be environment variables, and no spaces file is needed.
+With one space, all its settings can be environment variables, and no spaces
+file is needed.
 
-**They are ignored when `SPACES_FILE` is set**, and the startup log warns about each one that was set anyway. The last column shows the same setting in the spaces file.
+**They are ignored when `SPACES_FILE` is set**, and the startup log warns about
+each one that was set anyway. The last column shows the same setting in the
+spaces file.
 
 | variable               | required | default         | meaning                                                   | in the file      |
 | ---------------------- | -------- | --------------- | --------------------------------------------------------- | ---------------- |
@@ -280,9 +375,15 @@ With one space, all its settings can be environment variables, and no spaces fil
 | `SPACE_DIR`            |          | `/spaces/notes` | directory to serve                                        | `dir`            |
 | `SPACE_FORMAT_ON_SAVE` |          | `on`            | `off` stops a save from formatting the note with prettier | `format_on_save` |
 
-In the container the app runs as uid 1001, and the folder has to be writable for it: otherwise the notes are read and every save fails. If the folder on the host belongs to another user, set `user:` to the uid and gid of its owner (`id <user>` prints them). The startup log warns when the folder is not writable.
+In the container the app runs as uid 1001, and the folder has to be writable
+for it: otherwise the notes are read and every save fails. If the folder on the
+host belongs to another user, set `user:` to the uid and gid of its owner
+(`id <user>` prints them). The startup log warns when the folder is not
+writable.
 
-That is all a plain folder needs. The rest is only for a space that is a git repository, see [A git repository as a space](#a-git-repository-as-a-space). Leave all of it out otherwise.
+That is all a plain folder needs. The rest is only for a space that is a git
+repository, see [A git repository as a space](#a-git-repository-as-a-space).
+Leave all of it out otherwise.
 
 | variable           | required | default | meaning                                                                                                                    | in the file                                       |
 | ------------------ | -------- | ------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
@@ -294,13 +395,15 @@ That is all a plain folder needs. The rest is only for a space that is a git rep
 
 ### Several spaces
 
-For more than one space, describe them in a yaml file and point `SPACES_FILE` at it.
+For more than one space, describe them in a yaml file and point `SPACES_FILE`
+at it.
 
 | variable      | required | default | meaning                                                                     |
 | ------------- | -------- | ------- | --------------------------------------------------------------------------- |
 | `SPACES_FILE` |          |         | path to the yaml file that lists spaces; set it only to serve more than one |
 
-The file holds space settings and nothing else. Server settings stay in the environment. Here is a file with every key there is:
+The file holds space settings and nothing else. Server settings stay in the
+environment. Here is a file with every key there is:
 
 ```yaml
 spaces:
@@ -340,7 +443,8 @@ spaces:
 | `repo.hook_secret_file` |                    |          | file holding the webhook secret; set it only to let the git host trigger a fetch                                               |
 | `repo.hook_secret_env`  |                    |          | variable holding that secret, instead of `hook_secret_file`                                                                    |
 
-Then start it with the file. Here `notes` is a folder on the host, and the clone of `team` lives in the `scrawl-spaces` volume:
+Then start it with the file. Here `notes` is a folder on the host, and the
+clone of `team` lives in the `scrawl-spaces` volume:
 
 ```
 docker run -d -p 7272:7272 \
@@ -353,39 +457,86 @@ docker run -d -p 7272:7272 \
 A few rules:
 
 - A misspelled key stops startup with an error.
-- `read_only` can only add a limit. With `READ_ONLY` set on the server, `read_only: false` on a space does not allow writes there.
+- `read_only` can only add a limit. With `READ_ONLY` set on the server,
+  `read_only: false` on a space does not allow writes there.
 - `exclude` adds globs to `EXCLUDE` and never removes any.
-- Setting both `token_file` and `token_env`, or both hook secret keys, stops startup with an error.
+- Setting both `token_file` and `token_env`, or both hook secret keys, stops
+  startup with an error.
 
-`/` redirects to the first space, and the space's button at the foot of the sidebar, or the Profile tab on a phone, opens a menu that switches to another one. Everything else is shared: one login, one session, one set of API tokens, and a search that searches the space you are in.
+`/` redirects to the first space, and the space's button at the foot of the
+sidebar, or the Profile tab on a phone, opens a menu that switches to another
+one. Everything else is shared: one login, one session, one set of API tokens,
+and a search that searches the space you are in.
 
-For full separation between spaces - separate users, separate processes - run one scrawl per folder behind a reverse proxy.
+For full separation between spaces - separate users, separate processes - run
+one scrawl per folder behind a reverse proxy.
 
 ## A git repository as a space
 
-A space may be a git repository rather than a plain folder. Give it the address of the repository and scrawl clones it, serves it, and pushes back what you edit. That repository, on the git host, is called the remote below. [Use a git repository](#use-a-git-repository) shows how to start one, and every key and variable is listed under [Configuration](#configuration). This section is about how such a space behaves.
+A space may be a git repository rather than a plain folder. Give it the address
+of the repository and scrawl clones it, serves it, and pushes back what you
+edit. That repository, on the git host, is called the remote below.
+[Use a git repository](#use-a-git-repository) shows how to start one, and every
+key and variable is listed under [Configuration](#configuration). This section
+is about how such a space behaves.
 
-**Keep the clone in a volume.** The clone lives in the space folder, together with every commit not pushed yet. If that folder is inside the container, a restart clones again and those commits are lost.
+**Keep the clone in a volume.** The clone lives in the space folder, together
+with every commit not pushed yet. If that folder is inside the container, a
+restart clones again and those commits are lost.
 
-Mount a named volume at `/spaces` and put every clone under it: `/spaces/team`, `/spaces/wiki`. `/spaces` already exists in the image and belongs to the user the app runs as, so the volume is writable from the first start. A volume mounted at a path the image does not have belongs to root, and the clone fails with `permission denied`.
+Mount a named volume at `/spaces` and put every clone under it: `/spaces/team`,
+`/spaces/wiki`. `/spaces` already exists in the image and belongs to the user
+the app runs as, so the volume is writable from the first start. A volume
+mounted at a path the image does not have belongs to root, and the clone fails
+with `permission denied`.
 
-**In the spaces file the token is not written directly.** `token_file` points at a file that holds it, `token_env` at an environment variable. With one space it is the `REPO_TOKEN` variable. A URL with a password in it is refused: `git clone` would save it in plain text in `.git/config`, inside the notes folder.
+**In the spaces file the token is not written directly.** `token_file` points
+at a file that holds it, `token_env` at an environment variable. With one space
+it is the `REPO_TOKEN` variable. A URL with a password in it is refused:
+`git clone` would save it in plain text in `.git/config`, inside the notes
+folder.
 
-**Use the token as the git host gave it** - `github_pat_...`, `glpat-...`. For most hosts that is enough. A value that starts with a scheme name is sent as the whole `Authorization` header instead: this is for a host that wants another kind of header, like Bitbucket Data Center, which takes `Bearer <token>`.
+**Use the token as the git host gave it** - `github_pat_...`, `glpat-...`. For
+most hosts that is enough. A value that starts with a scheme name is sent as
+the whole `Authorization` header instead: this is for a host that wants another
+kind of header, like Bitbucket Data Center, which takes `Bearer <token>`.
 
-A file is safer than a variable. The value of an environment variable stays visible in `docker inspect`, `docker compose config`, a systemd unit and the shell history. scrawl removes the variable once it has read it, but that does not hide it from any of these.
+A file is safer than a variable. The value of an environment variable stays
+visible in `docker inspect`, `docker compose config`, a systemd unit and the
+shell history. scrawl removes the variable once it has read it, but that does
+not hide it from any of these.
 
-For ssh there is no setting: an ssh remote uses the agent and the `~/.ssh` you mount into the container, like every other tool on the box.
+For ssh there is no setting: an ssh remote uses the agent and the `~/.ssh` you
+mount into the container, like every other tool on the box.
 
-**Pulling and pushing.** A change you make is committed at once and pushed a few seconds later, so you never wait for the network, and a few quick changes go out as one push. Even when the network hangs, saves go on: changes pile up as local commits and go out when the remote answers again. If a push fails, scrawl tries again about a minute later, and keeps trying until it goes through, even with `pull: 0` and after a restart. It stops trying when there is a conflict with the remote or the remote refuses the token, since only a person can fix those. In between, `pull` says how often to fetch from the remote; `0` turns that off, but scrawl still fetches once at startup. A fetch is followed by a fast-forward and nothing else: scrawl never merges and never rebases. If there is a conflict with the remote, the space keeps serving, saves keep landing on disk and in local commits, and a banner says so on every screen together with a button that resets this copy to the remote version - see [below](#when-there-is-a-conflict-with-the-remote).
+**Pulling and pushing.** A change you make is committed at once and pushed a
+few seconds later, so you never wait for the network, and a few quick changes
+go out as one push. Even when the network hangs, saves go on: changes pile up
+as local commits and go out when the remote answers again. If a push fails,
+scrawl tries again about a minute later, and keeps trying until it goes
+through, even with `pull: 0` and after a restart. It stops trying when there is
+a conflict with the remote or the remote refuses the token, since only a person
+can fix those. In between, `pull` says how often to fetch from the remote; `0`
+turns that off, but scrawl still fetches once at startup. A fetch is followed
+by a fast-forward and nothing else: scrawl never merges and never rebases. If
+there is a conflict with the remote, the space keeps serving, saves keep
+landing on disk and in local commits, and a banner says so on every screen
+together with a button that resets this copy to the remote version - see
+[below](#when-there-is-a-conflict-with-the-remote).
 
-**Two things are worth knowing.** History is always on for a space that is a git repository, whatever `HISTORY` says: one that stopped recording would also stop pushing. And git cannot represent an empty directory, so a folder you create reaches the remote with the first note you put in it.
+**Two things are worth knowing.** History is always on for a space that is a
+git repository, whatever `HISTORY` says: one that stopped recording would also
+stop pushing. And git cannot represent an empty directory, so a folder you
+create reaches the remote with the first note you put in it.
 
-A read-only space of this kind only fetches and fast-forwards. It never commits or pushes. A file changed in its folder some other way is served, but not recorded in git.
+A read-only space of this kind only fetches and fast-forwards. It never commits
+or pushes. A file changed in its folder some other way is served, but not
+recorded in git.
 
 ### A webhook instead of polling
 
-Give a space a hook secret and the git host can tell scrawl to fetch, instead of scrawl asking every few minutes.
+Give a space a hook secret and the git host can tell scrawl to fetch, instead
+of scrawl asking every few minutes.
 
 ```yaml
 spaces:
@@ -397,15 +548,22 @@ spaces:
       hook_secret_file: /run/secrets/gh-hook # or hook_secret_env: HOOK
 ```
 
-With one space it is the `REPO_HOOK_SECRET` variable. Generate the secret rather than typing one:
+With one space it is the `REPO_HOOK_SECRET` variable. Generate the secret
+rather than typing one:
 
 ```
 openssl rand -hex 32
 ```
 
-The secret must be at least 32 bytes. The webhook URL needs no sign-in, because a git host cannot sign in, so the secret is its only protection. If a secret is set but turns out empty - an empty file, a variable with no value - the server does not start: that is how a secret that failed to mount looks. To have no webhook, set no secret. Keep the file outside every space folder: anything inside is on the tree, in search and can be downloaded.
+The secret must be at least 32 bytes. The webhook URL needs no sign-in, because
+a git host cannot sign in, so the secret is its only protection. If a secret is
+set but turns out empty - an empty file, a variable with no value - the server
+does not start: that is how a secret that failed to mount looks. To have no
+webhook, set no secret. Keep the file outside every space folder: anything
+inside is on the tree, in search and can be downloaded.
 
-Paste this URL into the repository's webhook settings, with the content type the git host offers by default:
+Paste this URL into the repository's webhook settings, with the content type
+the git host offers by default:
 
 ```
 https://notes.example.com/s/team/hook
@@ -413,29 +571,46 @@ https://notes.example.com/s/team/hook
 
 Always use HTTPS for it: GitLab sends the secret itself in a header.
 
-GitHub, Gitea and Forgejo are verified by `X-Hub-Signature-256`, GitLab by `X-Gitlab-Token`. Nothing has to be configured for that: the header says which one the sender used. The old sha1 `X-Hub-Signature` is not accepted.
+GitHub, Gitea and Forgejo are verified by `X-Hub-Signature-256`, GitLab by
+`X-Gitlab-Token`. Nothing has to be configured for that: the header says which
+one the sender used. The old sha1 `X-Hub-Signature` is not accepted.
 
-**Keep a slow `pull` on.** With a webhook, `pull: 1h` is a good value: if a delivery gets lost, the clone catches up within an hour. Nothing notices a lost delivery, so with `pull: 0` the clone stays behind until the next delivery.
+**Keep a slow `pull` on.** With a webhook, `pull: 1h` is a good value: if a
+delivery gets lost, the clone catches up within an hour. Nothing notices a lost
+delivery, so with `pull: 0` the clone stays behind until the next delivery.
 
-scrawl does not read what a delivery says. Any delivery means "something may have changed" and starts one fetch, even for a push to a branch scrawl does not track. Many deliveries at once start at most two fetches.
+scrawl does not read what a delivery says. Any delivery means "something may
+have changed" and starts one fetch, even for a push to a branch scrawl does not
+track. Many deliveries at once start at most two fetches.
 
 ### When there is a conflict with the remote
 
-A conflict means this copy and the remote both have changes the other does not: somebody pushed while this copy had changes of its own, or the branch was rewritten on the remote. scrawl does not merge, so it stops syncing and shows a banner with one button, **Reset to the remote version**. Nothing is lost on the way:
+A conflict means this copy and the remote both have changes the other does not:
+somebody pushed while this copy had changes of its own, or the branch was
+rewritten on the remote. scrawl does not merge, so it stops syncing and shows a
+banner with one button, **Reset to the remote version**. Nothing is lost on the
+way:
 
-- before the reset it checks what would be lost, comparing content rather than commits, so after a rebase or a squash on the remote it often finds nothing;
-- if something would be lost, the copy goes to a branch named `scrawl-backup/<date>-<time>-<commit>`, together with anything not committed yet;
-- that branch is pushed to the remote by default, so you can open it on your git host and bring the changes back.
+- before the reset it checks what would be lost, comparing content rather than
+  commits, so after a rebase or a squash on the remote it often finds nothing;
+- if something would be lost, the copy goes to a branch named
+  `scrawl-backup/<date>-<time>-<commit>`, together with anything not committed
+  yet;
+- that branch is pushed to the remote by default, so you can open it on your
+  git host and bring the changes back.
 
 ## API
 
-Scripts and agents use the same JSON API the browser uses, with a token instead of a login. Generate one:
+Scripts and agents use the same JSON API the browser uses, with a token instead
+of a login. Generate one:
 
 ```
 scrawl token bot
 ```
 
-It prints the token to give the client and an entry for `AUTH_TOKENS`, which holds only its digest. Add `:ro` to the end of an entry for a token that can read and not write.
+It prints the token to give the client and an entry for `AUTH_TOKENS`, which
+holds only its digest. Add `:ro` to the end of an entry for a token that can
+read and not write.
 
 ```
 TOKEN=scrawl_...
@@ -445,9 +620,12 @@ curl -sH "Authorization: Bearer $TOKEN" 'http://localhost:7272/s/notes/api/searc
 curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/s/notes/api/file/python/notes.md
 ```
 
-Every endpoint that works with notes lives under its space, `/s/<space>/api/...`.
+Every endpoint that works with notes lives under its space,
+`/s/<space>/api/...`.
 
-To save a note, send back the `rev` it was read at. If somebody else wrote the file in between, the `rev` no longer matches and the save is refused instead of overwriting their change:
+To save a note, send back the `rev` it was read at. If somebody else wrote the
+file in between, the `rev` no longer matches and the save is refused instead of
+overwriting their change:
 
 ```
 BASE=http://localhost:7272/s/notes
@@ -457,12 +635,18 @@ curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/j
   $BASE/api/file/python/notes.md
 ```
 
-The reply carries the new `rev`, so a series of saves never has to read the file again. An empty `rev` means "create", and works only while the path is free. A note is formatted on save here too: when that changed the text, the reply also carries `content`, the note as it was stored.
+The reply carries the new `rev`, so a series of saves never has to read the
+file again. An empty `rev` means "create", and works only while the path is
+free. A note is formatted on save here too: when that changed the text, the
+reply also carries `content`, the note as it was stored.
 
-Two answers mean the file is not what the client expected. Both carry `current_rev` and `current_content`, so a retry needs no extra request:
+Two answers mean the file is not what the client expected. Both carry
+`current_rev` and `current_content`, so a retry needs no extra request:
 
-- `412` - somebody else wrote the file since it was read. Apply the change on top of `current_content` and send it with `current_rev`.
-- `409` - an empty `rev` was sent for a path that already exists. Send `current_rev` to overwrite it, or pick another path.
+- `412` - somebody else wrote the file since it was read. Apply the change on
+  top of `current_content` and send it with `current_rev`.
+- `409` - an empty `rev` was sent for a path that already exists. Send
+  `current_rev` to overwrite it, or pick another path.
 
 The other writes take no `rev`:
 
@@ -475,11 +659,17 @@ The other writes take no `rev`:
 | `POST /api/move`                        | `{"from":"a.md","to":"b/a.md"}` | `200 {"path":...}`        |
 | `POST /api/upload/<dir>?doc=<path>`     | multipart `file`                | `201 {"path","markdown"}` |
 
-A write made with a token waits until it is pushed to the remote. If it lands on disk but does not reach git or the remote, the answer is `500` with the reason, so an agent is never told a change landed where it did not. A `:ro` token, `READ_ONLY` on the server and `read_only` on a space each refuse writes with `403` and their own message.
+A write made with a token waits until it is pushed to the remote. If it lands
+on disk but does not reach git or the remote, the answer is `500` with the
+reason, so an agent is never told a change landed where it did not. A `:ro`
+token, `READ_ONLY` on the server and `read_only` on a space each refuse writes
+with `403` and their own message.
 
 ## Command line
 
-The server is one command of the binary, `scrawl serve`. The others use the same renderer, comparison and formatter on files you name, with no server and no configuration:
+The server is one command of the binary, `scrawl serve`. The others use the
+same renderer, comparison and formatter on files you name, with no server and
+no configuration:
 
 ```
 scrawl render note.md -o note.html        a page that opens on its own

@@ -24,8 +24,8 @@ repos:
       - id: prettier
         name: prettier
         language: system
-        entry: prettier --write
-        files: ^README\.md$
+        entry: prettier --write --prose-wrap always --print-width 79
+        files: ^(README|CLAUDE)\.md$|^docs/(?!plans/).*\.md$
 
       - id: gofmt
         name: gofmt

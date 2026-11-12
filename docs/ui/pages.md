@@ -39,38 +39,38 @@ opens over them.
   the person's changes are: a gray spinner while they are on their way, a gray
   cloud with a check once all is sent, an orange crossed cloud when something
   is not sent or not synced, and an orange warning sign when a person must act,
-  because the space diverged or the remote refused its token. A read-only or
-  local space shows the control only when something is wrong. The calm states
-  have no word, so a save does not make the bar jump, and the problem states
-  add one on a wide screen: Not sent, will retry, Not sent, Not synced,
-  Diverged, Access refused. "Sent" is the check that stays, with no toast and
-  no timer, the way Notion keeps a small quiet state in its bar. A click opens
-  the facts behind it. Under reduced motion the spinner is a still cloud with
-  an arrow. A folder is always its list, the root included: a Notion database
-  of Name, Size and Modified led by a `..` row, and a click anywhere on a row
-  opens it. A right click on a row opens the menu the tree row has, at the
-  pointer as a desktop has it, over the row's name and its selected text too,
-  as a tree row does. It leaves out New file and New folder: from a row they
-  named the entry in the tree, away from the list. On the free space of the
-  page a right click opens a menu of New file and New folder, which name the
-  entry in a row of the table; there a link, a button and selected text keep
-  the browser's own menu, so text is still copied from there. The free space is
-  the page, which grows to the bottom of the window. A row keeps the hover gray
-  while its menu is up. A rename draws the field in the name cell of the row,
-  with the ring a new row has, and the row then takes no click, no right click
-  and no hover. New, a file or a folder, is a large main button at the right of
-  the folder's title, where Notion puts New page. The table is Notion's too:
-  its one view a gray pill with no line under it, no line between the columns,
-  which read as a spreadsheet, and columns of their own width, the name 530px
-  and the others 150px, as a file name carries its extension, with an empty one
-  at the end taking the rest and the row lines running across it, so a date is
-  not a screen away from its name. Every column starts at its left edge, the
-  size too: a size against its right edge stood against the date and the two
-  read as one column. On a narrow page the name gives way. A column's header is
-  gray text of the regular weight with a filled icon, as Notion heads one; 500
-  beside the system's own smoothing read bold, and an empty folder keeps the
-  header with its empty state under it, one plain New file button. Its
-  `index.md` is a row like any other, in its place by name, with a "Folder
+  because of a conflict with the remote or the remote refused its token. A
+  read-only or local space shows the control only when something is wrong. The
+  calm states have no word, so a save does not make the bar jump, and the
+  problem states add one on a wide screen: Not sent, will retry, Not sent, Not
+  synced, Conflict, Access refused. "Sent" is the check that stays, with no
+  toast and no timer, the way Notion keeps a small quiet state in its bar. A
+  click opens the facts behind it. Under reduced motion the spinner is a still
+  cloud with an arrow. A folder is always its list, the root included: a Notion
+  database of Name, Size and Modified led by a `..` row, and a click anywhere
+  on a row opens it. A right click on a row opens the menu the tree row has, at
+  the pointer as a desktop has it, over the row's name and its selected text
+  too, as a tree row does. It leaves out New file and New folder: from a row
+  they named the entry in the tree, away from the list. On the free space of
+  the page a right click opens a menu of New file and New folder, which name
+  the entry in a row of the table; there a link, a button and selected text
+  keep the browser's own menu, so text is still copied from there. The free
+  space is the page, which grows to the bottom of the window. A row keeps the
+  hover gray while its menu is up. A rename draws the field in the name cell of
+  the row, with the ring a new row has, and the row then takes no click, no
+  right click and no hover. New, a file or a folder, is a large main button at
+  the right of the folder's title, where Notion puts New page. The table is
+  Notion's too: its one view a gray pill with no line under it, no line between
+  the columns, which read as a spreadsheet, and columns of their own width, the
+  name 530px and the others 150px, as a file name carries its extension, with
+  an empty one at the end taking the rest and the row lines running across it,
+  so a date is not a screen away from its name. Every column starts at its left
+  edge, the size too: a size against its right edge stood against the date and
+  the two read as one column. On a narrow page the name gives way. A column's
+  header is gray text of the regular weight with a filled icon, as Notion heads
+  one; 500 beside the system's own smoothing read bold, and an empty folder
+  keeps the header with its empty state under it, one plain New file button.
+  Its `index.md` is a row like any other, in its place by name, with a "Folder
   page" tag, and no readme is shown under the list; Home in the sidebar opens
   the root `index.md`, or the root's list when there is none. A folder holding
   two cases of `index.md` has no folder page, and a site refuses it, because

@@ -84,11 +84,11 @@ function factsOf(me: MeResponse): SyncFact[] {
   return res;
 }
 
-const divergedTitle = 'This space has diverged from the remote';
+const divergedTitle = 'This space has a conflict with the remote';
 
 function divergedBody(canReset: boolean): string {
   const what =
-    'This copy and the remote both changed, and scrawl does not merge the two. ' +
+    'This copy and the remote both have changes the other does not, and scrawl does not merge them. ' +
     'Nothing is sent or received until this copy is reset to the remote version.';
   return canReset ? what : `${what} You are not allowed to do that here.`;
 }
@@ -170,7 +170,7 @@ export function syncStatusOf(me: MeResponse | undefined, sync: SyncMessage | und
   }
   const { space } = me;
   if (space.diverged) {
-    return { state: 'blocked', name: 'Diverged' };
+    return { state: 'blocked', name: 'Conflict' };
   }
   if (space.push_refused) {
     return { state: 'blocked', name: 'Access refused' };

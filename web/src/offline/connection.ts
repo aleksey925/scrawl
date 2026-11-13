@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 
 import { changeSignal } from '../changeSignal';
 import { servedOffline } from '../mount';
-import { readText, removeKey, sessionStore, writeText } from '../storage';
+import { readJson, removeKey, sessionStore, writeJson } from '../storage';
 
 import { post } from './channel';
 import { fromScrawl, networkDeadlineMs, serverUnreachable } from './keys';
@@ -11,6 +11,8 @@ import { offlineSupported, offlineWanted, onChoiceChange, useOfflineWanted } fro
 const probeMs = 15_000;
 
 const signInTripKey = 'scrawl-sign-in-trip';
+
+const signInTripIntervalMs = 5 * 60_000;
 
 const changed = changeSignal();
 
@@ -125,12 +127,13 @@ export function answeredByGateway(response: Response): boolean {
   return !fromScrawl(response) && asksToSignIn(response);
 }
 
-export function firstSignInTrip(): boolean {
+export function signInTripDue(): boolean {
   const store = sessionStore();
-  if (readText(store, signInTripKey) !== undefined) {
+  const last = readJson<number>(store, signInTripKey);
+  if (last !== undefined && Date.now() - last < signInTripIntervalMs) {
     return false;
   }
-  writeText(store, signInTripKey, '1');
+  writeJson(store, signInTripKey, Date.now());
   return true;
 }
 

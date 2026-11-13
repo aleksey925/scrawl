@@ -912,6 +912,32 @@ test.describe('offline access', () => {
         expect(new URL(page.url()).pathname).toBe(routes.doc(NOTE));
     });
 
+    test('a gateway that still refuses the account sends to its sign-in again a few minutes later', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await context.route(/\/api\/me$|\/ping$/, (route) => route.fulfill({
+            status: 403, contentType: 'text/html', body: '<p>Forbidden</p>',
+        }));
+        const signIns = [];
+        page.on('request', (request) => {
+            if (request.isNavigationRequest() && new URL(request.url()).pathname === '/login') {
+                signIns.push(request.url());
+            }
+        });
+        await page.clock.install();
+        await page.goto(routes.doc(NOTE));
+        await expect.poll(() => signIns.length).toBe(1);
+        await page.waitForURL((url) => url.pathname === routes.doc(NOTE));
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
+        await expect(page.getByTestId('offline-mark')).toBeVisible();
+
+        // act
+        await page.clock.fastForward(5 * 60_000);
+
+        // assert
+        await expect.poll(() => signIns.length).toBe(2);
+    });
+
     test('offline, a gateway that asks to sign in opens its sign-in once the network is back', async ({page, context}) => {
         // arrange
         await copyOn(page);

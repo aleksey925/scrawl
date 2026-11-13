@@ -122,7 +122,11 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
       centered
       title={titleOf(step)}
       size={dialogWidth}
-      styles={{ title: { fontSize: 'var(--mantine-font-size-md)', fontWeight: 600 } }}
+      styles={{
+        header: { minHeight: 0, padding: '20px 20px 2px' },
+        title: { fontSize: 'var(--mantine-font-size-md)', fontWeight: 600 },
+        body: { padding: '4px 20px 20px' },
+      }}
     >
       {step.name === 'checking' && (
         <Group gap="sm">
@@ -134,7 +138,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
       )}
 
       {(step.name === 'ready' || step.name === 'resetting') && (
-        <Stack gap="md">
+        <Stack gap={12}>
           {step.name === 'ready' && step.note !== '' && (
             <Text data-testid="reset-moved" size="sm" c="dimmed">
               {step.note}
@@ -151,7 +155,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
               label="Push the backup branch to remote"
             />
           )}
-          <DialogActions>
+          <DialogActions mt={8}>
             <Button data-testid="modal-cancel" variant="default" onClick={close} disabled={step.name === 'resetting'}>
               Cancel
             </Button>
@@ -163,9 +167,9 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
       )}
 
       {step.name === 'done' && (
-        <Stack gap="md">
+        <Stack gap={12}>
           <BackupReport result={step.result} />
-          <DialogActions>
+          <DialogActions mt={8}>
             <Button data-testid="reset-reload" onClick={reload}>
               Reload the page
             </Button>
@@ -174,7 +178,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
       )}
 
       {step.name === 'failed' && (
-        <Stack gap="md">
+        <Stack gap={12}>
           {step.inStep ? (
             <Text data-testid="reset-in-step" size="sm" c="dimmed">
               The local copy already matches the remote repository.
@@ -184,7 +188,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
               {step.message}
             </Text>
           )}
-          <DialogActions>
+          <DialogActions mt={8}>
             <Button data-testid="modal-cancel" variant="default" onClick={close}>
               Close
             </Button>
@@ -239,7 +243,7 @@ function LossReport({ check }: { check: Divergence }): JSX.Element {
     );
   }
   return (
-    <Stack data-testid="reset-lost" gap="sm">
+    <Stack data-testid="reset-lost" gap={12}>
       <Text size="sm" c="dimmed">
         {outcome} These files are saved to a backup branch first:
       </Text>
@@ -261,7 +265,7 @@ function LossReport({ check }: { check: Divergence }): JSX.Element {
               href={href}
               target="_blank"
               rel="noreferrer"
-              size="sm"
+              fz={13}
               underline="hover"
               style={{ color: 'var(--scrawl-text)', overflowWrap: 'anywhere' }}
             >

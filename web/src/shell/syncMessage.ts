@@ -25,7 +25,7 @@ const precedence: SyncKind[] = ['degraded', 'merge', 'fetch', 'push'];
 const titles: Record<SyncKind, string> = {
   degraded: 'History is not recording',
   merge: 'Not synced',
-  fetch: 'Not synced',
+  fetch: 'No connection to the remote',
   push: 'Not sent to the remote yet',
 };
 
@@ -58,7 +58,6 @@ function titleOf(kind: SyncKind, diverged: boolean, refused: boolean): string {
 function factsOf(me: MeResponse): SyncFact[] {
   const { space } = me;
   const stage = stageOf(space.sync_error);
-  const affected = affectedSentence(me);
 
   const res: SyncFact[] = [];
   for (const kind of precedence) {
@@ -74,13 +73,14 @@ function factsOf(me: MeResponse): SyncFact[] {
       continue;
     }
     if (kind === 'merge' && space.diverged) {
-      res.push({ kind, body: divergedBody(space.can_reset), affected, reason: '' });
+      res.push({ kind, body: divergedBody(space.can_reset), affected: affectedSentence(me, true), reason: '' });
       continue;
     }
     if (kind !== stage) {
       continue;
     }
     const refusal = space.push_refused ? refusals[kind] : undefined;
+    const affected = affectedSentence(me, false);
     if (refusal !== undefined) {
       res.push({ kind, body: refusal.body, affected, reason: refusal.withReason ? space.sync_error : '' });
       continue;
@@ -93,9 +93,7 @@ function factsOf(me: MeResponse): SyncFact[] {
 const divergedTitle = 'Conflict with the remote repository';
 
 function divergedBody(canReset: boolean): string {
-  const what =
-    'scrawl keeps a local copy of the remote repository. They no longer match, and scrawl cannot sync them. ' +
-    'Sync is paused.';
+  const what = 'The local copy no longer matches the remote repository, so sync is paused.';
   return canReset ? what : `${what} Someone who can write to this space can fix it.`;
 }
 
@@ -142,13 +140,15 @@ function bodyOf(kind: SyncKind, space: SpaceState): string {
   }
 }
 
-function affectedSentence(me: MeResponse): string {
+function affectedSentence(me: MeResponse, conflict: boolean): string {
   const { unsynced } = me.space;
   if (unsynced.many) {
     return 'Too many files to list.';
   }
   if (unsynced.paths.length > 0) {
-    return 'To see the changes that were not synced, click the sync status at the top.';
+    return conflict
+      ? 'Click the sync status at the top to see the conflicting files.'
+      : 'To see the changes that were not synced, click the sync status at the top.';
   }
   return '';
 }
@@ -182,11 +182,12 @@ export function syncStatusOf(me: MeResponse | undefined, sync: SyncMessage | und
   if (space.pushing) {
     return { state: 'sending', name: 'Syncing…', detail: 'Sending changes to the remote.' };
   }
+  const name = stageOf(space.sync_error) === 'fetch' ? 'No connection' : 'Not synced';
   if (space.unpublished) {
-    return { state: 'not-sent', name: 'Not synced' };
+    return { state: 'not-sent', name };
   }
   if (sync !== undefined) {
-    return { state: 'warning', name: 'Not synced' };
+    return { state: 'warning', name };
   }
   if (space.kind === 'remote' && !space.read_only) {
     return {

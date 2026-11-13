@@ -51,12 +51,12 @@ test.describe('sync state', () => {
 
         await expect(control(page)).toHaveAttribute('data-state', 'not-sent');
         await expect(control(page)).toHaveAttribute('data-here', 'true');
-        await expect(control(page)).toHaveText('Not synced');
         const alert = page.getByTestId('space-alert');
         await expect(alert).toBeVisible();
         await expect(alert).toContainText('Retrying in a minute.');
         const kind = await alert.getAttribute('data-kind');
         expect(['push', 'fetch']).toContain(kind);
+        await expect(control(page)).toHaveText(kind === 'fetch' ? 'No connection' : 'Not synced');
         await expect(alert.getByTestId('space-alert-reason')).toHaveText(new RegExp(`^${kind}: `));
         await shot(page, 'sync-editor-warned');
 
@@ -371,8 +371,10 @@ test.describe('sync state', () => {
 
         // assert
         await expect(control(page)).toHaveAttribute('data-state', 'warning');
-        await expect(control(page)).toHaveText('Not synced');
-        await expect(page.getByTestId('space-alert')).toHaveAttribute('data-kind', 'fetch');
+        await expect(control(page)).toHaveText('No connection');
+        const alert = page.getByTestId('space-alert');
+        await expect(alert).toHaveAttribute('data-kind', 'fetch');
+        await expect(alert).toContainText('No connection to the remote');
     });
 
     test('a read-only remote space shows no sync control', async ({page}) => {

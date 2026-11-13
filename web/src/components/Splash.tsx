@@ -2,8 +2,10 @@ import type { JSX } from 'react';
 
 import logo from '../../../server/assets/logo.svg?raw';
 
-import classes from './Splash.module.css';
+import './Splash.css';
 
 export function Splash(): JSX.Element {
-  return <div aria-hidden className={classes.splash} dangerouslySetInnerHTML={{ __html: logo }} />;
+  return (
+    <div aria-hidden data-testid="app-splash" className="scrawl-splash" dangerouslySetInnerHTML={{ __html: logo }} />
+  );
 }

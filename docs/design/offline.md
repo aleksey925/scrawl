@@ -203,12 +203,14 @@ switch, inside the tap.
   worker, so a note slow to render and not in the copy still opens. One in the
   copy goes offline for a moment and comes back at once: going offline probes
   `/ping` with no wait, and `/api/me` answers.
-- A start from the offline shell is a check, not a failure: the app reads the
-  copy, but shows no `Offline` mark, and `/edit/`, `/history/` and `/search`
-  show nothing yet. A note, a folder or the tree the copy does not hold comes
-  from the network. The check ends online when `/api/me` answers, and offline
-  on a network error or after 3 seconds; the probe below starts only then, and
-  its first `/ping` waits 15 seconds, so a slow `/api/me` is not asked again.
+- A start from the offline shell while `navigator.onLine` is true is a check,
+  not a failure: the app reads the copy, but shows no `Offline` mark, and
+  `/edit/`, `/history/` and `/search` show nothing yet. The reader gets
+  `startingPlatform`, `offlinePlatform` whose source asks the network for a
+  note, a folder or the tree the copy does not hold. The check ends online when
+  `/api/me` answers, and offline on a network error or after 3 seconds; the
+  probe below starts only then, and its first `/ping` waits 15 seconds, so a
+  slow `/api/me` is not asked again.
 - Offline it probes `/ping` every 15 seconds while visible and at once on the
   `online` event. `/ping` is public, so its answer proves only that the server
   is there; then the app asks `/api/me` in the foreground, and only an answer
@@ -253,5 +255,8 @@ switch, inside the tap.
 - Pictures from other sites are not copied.
 - After an upgrade, the first start runs the bundle of the app cache against
   the new server; the worker the start installs serves the new one next time.
+  While that install fails, for lack of space, every start runs the old one.
 - A space removed from the server still opens from the copy, offline, since its
-  `/api/me` never answers; the space menu leads to the others.
+  `/api/me` answers 404; the space menu leads to the others.
+- The offline shell knows no theme, so with a picked theme other than the
+  system's the start screen shows the system's ground until the bundle runs.

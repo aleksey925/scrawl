@@ -171,16 +171,13 @@ async function storedRaw(request: Request, pathname: string): Promise<Response |
   return caches.match(canonicalPath(pathname), { cacheName: dataCache, ignoreVary: true });
 }
 
-async function storedShell(request: Request, space: string): Promise<Response | undefined> {
-  if (await signInPending(request)) {
-    return undefined;
-  }
-  const me = await caches.match(answerUrl.me(spaceBase(decoded(space))), { cacheName: dataCache });
-  return me === undefined ? undefined : caches.match(config.shell);
-}
-
 async function spaceShell(request: Request, space: string): Promise<Response> {
-  return (await storedShell(request, space)) ?? networkFirst(request, () => caches.match(config.shell));
+  const shell = await caches.match(config.shell);
+  const me = await caches.match(answerUrl.me(spaceBase(decoded(space))), { cacheName: dataCache });
+  if (shell !== undefined && me !== undefined && !(await signInPending(request))) {
+    return shell;
+  }
+  return networkFirst(request, () => Promise.resolve(shell));
 }
 
 async function startPage(): Promise<Response | undefined> {
@@ -194,8 +191,11 @@ async function startPage(): Promise<Response | undefined> {
 }
 
 async function firstPage(request: Request): Promise<Response> {
-  const stored = (await signInPending(request)) ? undefined : await startPage();
-  return stored ?? networkFirst(request, startPage);
+  const start = await startPage();
+  if (start !== undefined && !(await signInPending(request))) {
+    return start;
+  }
+  return networkFirst(request, () => Promise.resolve(start));
 }
 
 self.addEventListener('fetch', (event) => {

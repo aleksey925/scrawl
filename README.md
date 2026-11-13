@@ -287,6 +287,8 @@ history are hidden, since they need the server.
   it on with "Offline access" in the space menu, or under Profile on a phone.
 - It needs HTTPS, or `localhost`: browsers allow it nowhere else, and on plain
   http the switch is greyed out with `Needs HTTPS`.
+- When the app starts, it opens the copy at once and turns editing on when the
+  server answers, so a slow network does not keep the screen empty.
 - The first copy downloads every space whole, plus the app with its diagram
   engines, some tens of megabytes. After that only changed files are
   downloaded.

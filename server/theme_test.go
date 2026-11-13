@@ -24,9 +24,9 @@ func themedRequest(cookie string) *http.Request {
 func TestThemeOf(t *testing.T) {
 	light, dark := theme.AutoTheme(theme.Light), theme.AutoTheme(theme.Dark)
 	auto := pageTheme{
-		Colors: []schemeColor{
-			{Ground: light.BarColor(), Icon: light.Palette["icon"], Media: "(prefers-color-scheme: light)"},
-			{Ground: dark.BarColor(), Icon: dark.Palette["icon"], Media: "(prefers-color-scheme: dark)"},
+		BarColors: []barColor{
+			{Color: light.BarColor(), Media: "(prefers-color-scheme: light)"},
+			{Color: dark.BarColor(), Media: "(prefers-color-scheme: dark)"},
 		},
 		TouchIcons: []touchIcon{
 			{Href: "/static/v1/icons/apple-touch-icon.png?v=" + iconStamp(), Media: "(prefers-color-scheme: light)"},
@@ -44,12 +44,12 @@ func TestThemeOf(t *testing.T) {
 		{name: "garbage", cookie: "neon", expected: auto},
 		{name: "light", cookie: light.ID, expected: pageTheme{
 			ID: light.ID, Name: light.Name, Scheme: theme.Light,
-			Colors:     []schemeColor{{Ground: light.BarColor(), Icon: light.Palette["icon"]}},
+			BarColors:  []barColor{{Color: light.BarColor()}},
 			TouchIcons: []touchIcon{{Href: "/static/v1/icons/apple-touch-icon.png?v=" + iconStamp()}},
 		}},
 		{name: "dark", cookie: dark.ID, expected: pageTheme{
 			ID: dark.ID, Name: dark.Name, Scheme: theme.Dark,
-			Colors:     []schemeColor{{Ground: dark.BarColor(), Icon: dark.Palette["icon"]}},
+			BarColors:  []barColor{{Color: dark.BarColor()}},
 			TouchIcons: []touchIcon{{Href: "/static/v1/icons/apple-touch-icon-dark.png?v=" + iconStamp()}},
 		}},
 	}

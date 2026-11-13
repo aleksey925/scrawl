@@ -214,7 +214,8 @@ opens over them.
 - Until the app has drawn its first screen, the page shows the logo in the
   middle of the theme's ground. The server writes it into the shell, so it
   shows before the bundle runs, and the app keeps it while the first page's
-  chunk loads.
+  chunk loads. Opened from the offline copy, the page has the system's ground
+  until the bundle runs, since that shell knows no theme.
 - With offline access on, the app opens on the copy at once and turns writable
   when the server answers. See [offline copy](../design/offline.md).
 

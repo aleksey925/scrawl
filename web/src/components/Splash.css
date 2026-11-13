@@ -1,4 +1,4 @@
-.splash {
+.scrawl-splash {
   position: fixed;
   inset: 0;
   display: flex;
@@ -8,7 +8,7 @@
   color: var(--scrawl-icon);
 }
 
-.splash svg {
+.scrawl-splash svg {
   width: 64px;
   height: 64px;
 }

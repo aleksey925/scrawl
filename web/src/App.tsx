@@ -5,18 +5,22 @@ import { RouterProvider } from 'react-router';
 
 import { appPlatform, offlinePlatform, startingPlatform } from './appPlatform';
 import { Toasts } from './components/Toasts';
-import { useCheckingConnection, useOffline } from './offline/connection';
-import { PlatformProvider } from './platform';
+import { useConnection, type Connection } from './offline/connection';
+import { PlatformProvider, type Platform } from './platform';
 import { router } from './routes';
 import { theme } from './theme';
 import { themeColorSchemeManager } from './themeChoice';
 
 const colorSchemeManager = themeColorSchemeManager();
 
+const platforms: Record<Connection, Platform> = {
+  online: appPlatform,
+  checking: startingPlatform,
+  offline: offlinePlatform,
+};
+
 export function App(): JSX.Element {
-  const offline = useOffline();
-  const checking = useCheckingConnection();
-  const platform = offline ? (checking ? startingPlatform : offlinePlatform) : appPlatform;
+  const platform = platforms[useConnection()];
   return (
     <MantineProvider
       theme={theme}

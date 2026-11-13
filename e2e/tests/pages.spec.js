@@ -2,7 +2,7 @@ const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, chooseTheme, openSpaceMenu, readFixture, removeFixture, rgb, routes, save, setSource, shot, signIn,
+    MAIN, chooseTheme, holdRoute, openSpaceMenu, readFixture, removeFixture, rgb, routes, save, setSource, shot, signIn,
     stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -153,6 +153,25 @@ test.describe('pages', () => {
         } finally {
             removeFixture(MATH);
         }
+    });
+
+    test('the start screen stays while the first page loads', async ({page}) => {
+        // arrange
+        const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
+
+        // act
+        await page.goto(routes.doc(docs.doc.path), {waitUntil: 'commit'});
+        await chunk.reached;
+
+        // assert
+        await expect(page.getByTestId('app-splash')).toBeVisible();
+
+        // act
+        chunk.release();
+
+        // assert
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await expect(page.getByTestId('app-splash')).toHaveCount(0);
     });
 
     test('a folder\'s table keeps its columns, and on a narrow page the name gives way', async ({page}) => {

@@ -3,7 +3,7 @@ import { useRef, type JSX, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
 
 import { Page, PageTitle } from '../components/Page';
-import { useCheckingConnection, useOffline } from '../offline/connection';
+import { useConnection } from '../offline/connection';
 import { documentUrl } from '../paths';
 
 import { standaloneChrome, usePageChrome } from './PageChrome';
@@ -39,17 +39,16 @@ function NeedsNetwork({ note }: { note: string | undefined }): JSX.Element {
 
 export function NetworkGate({ children }: { children: ReactNode }): JSX.Element {
   const location = useLocation();
-  const offline = useOffline();
-  const checking = useCheckingConnection();
-  const entered = useRef({ key: location.key, offline, checking });
-  if (entered.current.key !== location.key || entered.current.checking) {
-    entered.current = { key: location.key, offline, checking };
+  const connection = useConnection();
+  const entered = useRef({ key: location.key, connection });
+  if (entered.current.key !== location.key || entered.current.connection === 'checking') {
+    entered.current = { key: location.key, connection };
   }
-  if (offline && networkRoute.test(location.pathname)) {
-    if (checking) {
+  if (networkRoute.test(location.pathname)) {
+    if (connection === 'checking') {
       return <></>;
     }
-    if (entered.current.offline) {
+    if (connection === 'offline' && entered.current.connection === 'offline') {
       return <NeedsNetwork note={noteOf(location.pathname)} />;
     }
   }

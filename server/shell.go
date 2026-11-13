@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"slices"
-	"strings"
 	"sync"
 
 	"github.com/aleksey925/scrawl/gzassets"
@@ -52,7 +51,6 @@ type shellData struct {
 	Theme   pageTheme
 	Version string
 	Favicon string
-	Splash  template.CSS
 	Logo    template.HTML
 	Base    string
 	Entry   string
@@ -66,9 +64,8 @@ const shellTemplate = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="color-scheme" content="light dark">
-{{range .Theme.Colors}}<meta name="theme-color" content="{{.Ground}}"{{with .Media}} media="{{.}}"{{end}}>
-{{end}}<style>{{.Splash}}</style>
-<title>{{.Title}}</title>
+{{range .Theme.BarColors}}<meta name="theme-color" content="{{.Color}}"{{with .Media}} media="{{.}}"{{end}}>
+{{end}}<title>{{.Title}}</title>
 <link rel="icon" href="{{.Favicon}}" type="image/svg+xml">
 {{range .Theme.TouchIcons}}<link rel="apple-touch-icon" href="{{.Href}}"{{with .Media}} media="{{.}}"{{end}}>
 {{end}}
@@ -89,23 +86,8 @@ const shellTemplate = `<!doctype html>
 `
 
 var splashLogo = sync.OnceValue(func() template.HTML {
-	svg := strings.Replace(strings.TrimSpace(string(logoSVG())), "<svg ", `<svg aria-hidden="true" `, 1)
-	return template.HTML(svg) //nolint:gosec // the logo is a file of the binary and never input
+	return inlineLogo(`aria-hidden="true"`)
 })
-
-func splashStyle(colors []schemeColor) template.CSS {
-	var b strings.Builder
-	b.WriteString(".scrawl-splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}")
-	b.WriteString(".scrawl-splash svg{width:64px;height:64px}")
-	for _, c := range colors {
-		rule := ".scrawl-splash{background:" + c.Ground + ";color:" + c.Icon + "}"
-		if c.Media != "" {
-			rule = "@media " + c.Media + "{" + rule + "}"
-		}
-		b.WriteString(rule)
-	}
-	return template.CSS(b.String()) //nolint:gosec // the colors come from the theme files of the binary
-}
 
 func newAppShell(files gzassets.Files) (*appShell, error) {
 	raw, err := files.ReadFile(appManifest)
@@ -220,7 +202,6 @@ func (wb *Web) renderShell(theme pageTheme, base string) ([]byte, error) {
 		Theme:   theme,
 		Version: wb.Version,
 		Favicon: iconURL(wb.Version, "favicon.svg"),
-		Splash:  splashStyle(theme.Colors),
 		Logo:    splashLogo(),
 		Base:    base,
 		Entry:   wb.appShell.entry,

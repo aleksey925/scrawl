@@ -3,19 +3,18 @@ import { useState, type JSX } from 'react';
 
 import { TapGuard, useTouchScreen } from '../components/TapGuard';
 import { IconWifiOff } from '../icons';
-import { useCheckingConnection, useOffline } from '../offline/connection';
+import { useConnection } from '../offline/connection';
 import { copyTime, useOfflineStatus } from '../offline/status';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 export function OfflineMark(): JSX.Element | null {
-  const offline = useOffline();
-  const checking = useCheckingConnection();
+  const offline = useConnection() === 'offline';
   const { state } = useOfflineStatus();
   const [opened, setOpened] = useState(false);
   const touch = useTouchScreen();
   const wide = useAtLeast(layoutBreakpoints.compactTopbar);
 
-  if (!offline || checking) {
+  if (!offline) {
     return null;
   }
   const updatedAt = state?.updatedAt ?? 0;

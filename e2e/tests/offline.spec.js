@@ -546,14 +546,14 @@ test.describe('offline access', () => {
     test('a note opens from the copy at once and turns writable when the account answers', async ({page, context}) => {
         // arrange
         await copyOn(page);
-        await context.route(/\/s\/notes\/doc\//, () => {});
         const me = await holdRoute(context, /\/api\/me$/);
 
         // act
-        await page.goto(routes.doc(NOTE), {waitUntil: 'commit'});
+        await page.goto(routes.doc(NOTE));
 
         // assert
-        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note', {timeout: 2_500});
+        await expect(page.locator('#scrawl-app-root')).toHaveAttribute('data-base', '');
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
         await me.reached;
         await expect(page.getByTestId('offline-mark')).toHaveCount(0);
         await expect(page.getByTestId('doc-edit')).toHaveCount(0);
@@ -564,6 +564,30 @@ test.describe('offline access', () => {
         // assert
         await expect(page.getByTestId('doc-edit')).toBeVisible();
         await expect(page.getByTestId('offline-mark')).toHaveCount(0);
+    });
+
+    test('a space whose account the copy does not hold opens from the network', async ({page}) => {
+        // arrange
+        await copyOn(page);
+        await page.evaluate((key) => caches.open('scrawl-data').then((cache) => cache.delete(key)), routes.api('/me'));
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(page.locator('#scrawl-app-root')).toHaveAttribute('data-base', routes.prefix());
+    });
+
+    test('a page opened while a sign-in is pending comes from the network', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await context.addCookies([{name: 'scrawl_signin', value: user, url: MAIN.baseURL}]);
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(page.locator('#scrawl-app-root')).toHaveAttribute('data-base', routes.prefix());
     });
 
     test('an account that does not answer at start shows offline and is not asked again', async ({page, context}) => {
@@ -582,7 +606,7 @@ test.describe('offline access', () => {
 
         // assert
         await expect(page.getByTestId('offline-mark')).toBeVisible({timeout: 10_000});
-        expect(asked).toHaveLength(1);
+        await stays(() => asked.length, 1, 2_000);
 
         // act
         me.release();
@@ -590,6 +614,20 @@ test.describe('offline access', () => {
         // assert
         await expect(page.getByTestId('offline-mark')).toHaveCount(0);
         await expect(page.getByTestId('doc-edit')).toBeVisible();
+    });
+
+    test('an account that fails at start shows offline at once', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await context.route(/\/api\/me$/, (route) => route.abort());
+        const pinged = page.waitForRequest(/\/ping$/, {timeout: 10_000});
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await pinged;
+        await expect(page.getByTestId('offline-mark')).toBeVisible();
     });
 
     test('at start a note not in the copy comes from the network', async ({page, context}) => {
@@ -607,7 +645,22 @@ test.describe('offline access', () => {
         await expect(page.getByTestId('doc-error')).toHaveCount(0);
     });
 
-    test('at start a page that needs the server waits for the account', async ({page, context}) => {
+    test('at start a folder not in the copy comes from the network', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        const fresh = `${FOLDER}/fresh/inside.md`;
+        writeFixture(fresh, '# Inside\n');
+        await holdRoute(context, /\/api\/me$/);
+
+        // act
+        await page.goto(routes.dir(`${FOLDER}/fresh`));
+
+        // assert
+        await expect(page.locator(`[data-testid=dir-row][data-path="${fresh}"]`)).toBeVisible();
+        await expect(page.getByTestId('doc-error')).toHaveCount(0);
+    });
+
+    test('at start a page that needs the server waits for the account and stays when the network goes', async ({page, context}) => {
         // arrange
         await copyOn(page);
         const me = await holdRoute(context, /\/api\/me$/);
@@ -619,6 +672,7 @@ test.describe('offline access', () => {
         // assert
         await expect(page.getByTestId('tree-row').first()).toBeVisible();
         await expect(page.getByTestId('app-needs-network')).toHaveCount(0);
+        await expect(page.getByTestId('editor-source')).toHaveCount(0);
 
         // act
         me.release();
@@ -626,15 +680,50 @@ test.describe('offline access', () => {
         // assert
         await expect(page.getByTestId('editor-source')).toBeVisible();
         await expect(page.getByTestId('app-needs-network')).toHaveCount(0);
+
+        // act
+        await context.setOffline(true);
+        await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+
+        // assert
+        await expect(page.getByTestId('offline-mark')).toBeVisible();
+        await expect(page.getByTestId('editor-source')).toBeVisible();
+        await expect(page.getByTestId('app-needs-network')).toHaveCount(0);
+    });
+
+    test('at start a page that needs the server says so when the account does not answer', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        const me = await holdRoute(context, /\/api\/me$/);
+
+        // act
+        await page.goto(routes.edit(NOTE));
+
+        // assert
+        await expect(page.getByTestId('app-needs-network')).toBeVisible({timeout: 10_000});
+        await expect(page.getByTestId('editor-source')).toHaveCount(0);
+
+        // act
+        me.release();
+
+        // assert
+        await expect(page.getByTestId('editor-source')).toBeVisible();
     });
 
     test('a session that ended opens the copy, then the sign-in page', async ({page, context}) => {
         // arrange
         await copyOn(page);
         await context.clearCookies({name: 'scrawl_session'});
+        const me = await holdRoute(context, /\/api\/me$/);
 
         // act
         await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
+
+        // act
+        me.release();
 
         // assert
         await page.waitForURL(/\/login/);

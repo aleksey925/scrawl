@@ -69,9 +69,11 @@ How the react app in `web/` is built, shipped and wired.
   was appended invisibly inside it. Chrome is mantine components, portals and
   refs, never a bare id lookup.
 - Offline the app gives the reader `offlinePlatform`, its own platform with
-  `offlineSource`, which reads the copy, and no search or editing. Swapping the
-  platform runs `useApi` again, which keeps the last answer on screen while it
-  loads, so going offline or back does not blank the page
+  `offlineSource`, which reads the copy, and no search or editing. While the
+  connection is checked at start it gives `startingPlatform`, the same with the
+  api client behind what the copy does not hold. Swapping the platform runs
+  `useApi` again, which keeps the last answer on screen while it loads, so
+  going offline or back does not blank the page
   ([offline copy](offline.md#offline-in-the-app)). `mountBase()` takes the
   space from the address when the shell's `data-base` is empty, which is the
   offline shell; a page with no `data-base` at all, a site, has no base.

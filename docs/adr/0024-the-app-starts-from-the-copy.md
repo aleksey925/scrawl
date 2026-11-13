@@ -21,9 +21,12 @@ again, with its own 3 seconds.
 - That start is a check, not offline: no `Offline` mark, and what the copy does
   not hold comes from the network. It ends offline on a network error or after
   3 seconds.
-- A navigation while `scrawl_signin` is set still goes to the network first.
+- A navigation while `scrawl_signin` is set, or of a space whose `me` the copy
+  does not hold, still goes to the network first.
 - The server draws the logo on the theme's ground inside the mount node, and
   the router's `HydrateFallback` draws the same, so the screen is never empty.
+  The offline shell knows no theme and draws the system's ground until the
+  bundle runs.
 
 ## Options turned down
 

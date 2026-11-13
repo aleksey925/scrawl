@@ -143,6 +143,13 @@ function isChecking(): boolean {
   return checking;
 }
 
-export function useCheckingConnection(): boolean {
-  return useSyncExternalStore(changed.subscribe, isChecking);
+export type Connection = 'online' | 'checking' | 'offline';
+
+export function useConnection(): Connection {
+  const offline = useOffline();
+  const starting = useSyncExternalStore(changed.subscribe, isChecking);
+  if (!offline) {
+    return 'online';
+  }
+  return starting ? 'checking' : 'offline';
 }

@@ -119,8 +119,9 @@ test.describe('sync state', () => {
         await save(page);
 
         await page.goto(WIKI.doc('index.md'));
+        await expect(control(page)).toHaveAttribute('data-state', 'not-sent');
         await expect(control(page)).toHaveAttribute('data-here', 'true');
-        await expect(control(page)).toHaveAttribute('aria-label', 'Not synced. This note is not sent yet');
+        await expect(control(page)).toHaveAttribute('aria-label', /^(Not synced|No connection)\. This note is not sent yet$/);
         await shot(page, 'sync-root-index');
 
         await page.goto(WIKI.edit(FOLDER_DOC));

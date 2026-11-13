@@ -10,7 +10,7 @@ import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { useNav } from './NavContext';
 import { ResetAction } from './ResetDialog';
-import type { SyncStatus } from './syncMessage';
+import { factText, type SyncStatus } from './syncMessage';
 
 const thisNote = 'This note is not sent yet';
 
@@ -68,7 +68,7 @@ function SyncDetails({ summary, onLeave }: { summary: SyncSummary; onLeave: () =
       {detail === undefined &&
         sync?.facts.map((entry) => (
           <Stack key={entry.kind} gap={4}>
-            <Text size="sm">{entry.body}</Text>
+            <Text size="sm">{factText(entry, paths.length > 0)}</Text>
             {entry.reason !== '' && (
               <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                 {entry.reason}
@@ -117,7 +117,6 @@ export function SyncControl(): JSX.Element | null {
     <>
       <Popover
         position="bottom-end"
-        width={320}
         withinPortal
         floatingStrategy="fixed"
         opened={opened}
@@ -142,7 +141,7 @@ export function SyncControl(): JSX.Element | null {
           )}
         </Popover.Target>
 
-        <Popover.Dropdown data-testid="sync-popover">
+        <Popover.Dropdown data-testid="sync-popover" maw={layout.popoverWidth}>
           <SyncDetails summary={summary} onLeave={() => setOpened(false)} />
         </Popover.Dropdown>
       </Popover>

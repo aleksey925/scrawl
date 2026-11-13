@@ -12,7 +12,12 @@ export type SyncKind = 'degraded' | 'merge' | 'fetch' | 'push';
 export interface SyncFact {
   kind: SyncKind;
   body: string;
+  affected: string;
   reason: string;
+}
+
+export function factText(entry: SyncFact, listed: boolean): string {
+  return listed || entry.affected === '' ? entry.body : `${entry.body} ${entry.affected}`;
 }
 
 const precedence: SyncKind[] = ['degraded', 'merge', 'fetch', 'push'];
@@ -62,13 +67,14 @@ function factsOf(me: MeResponse): SyncFact[] {
         res.push({
           kind,
           body: 'A change was saved but not recorded in history. The next save records it.',
+          affected: '',
           reason: '',
         });
       }
       continue;
     }
     if (kind === 'merge' && space.diverged) {
-      res.push({ kind, body: divergedBody(space.can_reset) + affected, reason: '' });
+      res.push({ kind, body: divergedBody(space.can_reset), affected, reason: '' });
       continue;
     }
     if (kind !== stage) {
@@ -76,10 +82,10 @@ function factsOf(me: MeResponse): SyncFact[] {
     }
     const refusal = space.push_refused ? refusals[kind] : undefined;
     if (refusal !== undefined) {
-      res.push({ kind, body: refusal.body + affected, reason: refusal.withReason ? space.sync_error : '' });
+      res.push({ kind, body: refusal.body, affected, reason: refusal.withReason ? space.sync_error : '' });
       continue;
     }
-    res.push({ kind, body: bodyOf(kind, space) + retryOf(kind, space.retrying) + affected, reason: space.sync_error });
+    res.push({ kind, body: bodyOf(kind, space) + retryOf(kind, space.retrying), affected, reason: space.sync_error });
   }
   return res;
 }
@@ -138,10 +144,10 @@ function bodyOf(kind: SyncKind, space: SpaceState): string {
 function affectedSentence(me: MeResponse): string {
   const { unsynced } = me.space;
   if (unsynced.many) {
-    return ' Too many files to list.';
+    return 'Too many files to list.';
   }
   if (unsynced.paths.length > 0) {
-    return ' The sync control lists the notes.';
+    return 'The sync control lists the notes.';
   }
   return '';
 }

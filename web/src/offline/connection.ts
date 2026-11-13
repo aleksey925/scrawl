@@ -9,8 +9,6 @@ import { offlineSupported, offlineWanted, onChoiceChange, useOfflineWanted } fro
 
 const probeMs = 15_000;
 
-const unavailable = new Set([502, 503, 504]);
-
 const changed = changeSignal();
 
 const wrote = changeSignal();
@@ -28,7 +26,9 @@ const serverBack = changeSignal();
 const lost = changeSignal();
 
 function tellWorker(): void {
-  post({ type: 'connection', online });
+  if (!checking) {
+    post({ type: 'connection', online });
+  }
 }
 
 function setOnline(next: boolean): void {
@@ -37,16 +37,15 @@ function setOnline(next: boolean): void {
   }
   checking = false;
   window.clearTimeout(checkDeadline);
-  if (next !== online) {
-    online = next;
-    tellWorker();
-  }
+  online = next;
+  tellWorker();
   changed.notify();
   watch();
 }
 
 function checkTimedOut(): void {
   checking = false;
+  tellWorker();
   changed.notify();
   startProbe();
 }
@@ -58,7 +57,7 @@ async function ping(): Promise<void> {
   tellWorker();
   try {
     const response = await fetch('/ping', { cache: 'no-store', credentials: 'same-origin', redirect: 'manual' });
-    if (!unavailable.has(response.status) && !online) {
+    if ((fromScrawl(response) || response.ok || asksToSignIn(response)) && !online) {
       serverBack.notify();
     }
   } catch {
@@ -109,14 +108,21 @@ function fromScrawl(response: Response): boolean {
   return response.headers.get('app-name') === 'scrawl';
 }
 
+function asksToSignIn(response: Response): boolean {
+  if (response.type === 'opaqueredirect' || response.status === 401 || response.status === 403) {
+    return true;
+  }
+  return response.ok && response.headers.get('content-type')?.includes('json') !== true;
+}
+
 export function serverAnswered(response: Response): void {
-  if (unavailable.has(response.status) && !fromScrawl(response)) {
+  if (response.status >= 500 && !fromScrawl(response)) {
     connectionFailed();
   }
 }
 
 export function answeredByGateway(response: Response): boolean {
-  return !fromScrawl(response) && !unavailable.has(response.status);
+  return !fromScrawl(response) && asksToSignIn(response);
 }
 
 export function confirmOnline(): void {
@@ -147,10 +153,6 @@ export function onWrite(listener: () => void): () => void {
   return wrote.subscribe(listener);
 }
 
-export function useConnected(): boolean {
-  return useSyncExternalStore(changed.subscribe, isOnline);
-}
-
 export type Connection = 'online' | 'checking' | 'offline';
 
 function currentConnection(): Connection {
@@ -164,4 +166,8 @@ export function useConnection(): Connection {
   const wanted = useOfflineWanted();
   const connection = useSyncExternalStore(changed.subscribe, currentConnection);
   return wanted ? connection : 'online';
+}
+
+export function useOffline(): boolean {
+  return useConnection() !== 'online';
 }

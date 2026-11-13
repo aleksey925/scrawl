@@ -24,12 +24,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/aleksey925/scrawl/render"
+	"github.com/aleksey925/scrawl/workerpool"
 )
 
 const retireEveryTimeEnv = "SCRAWL_PLANTUML_TEST_RETIRE"
 
 func TestMain(m *testing.M) {
-	if err := UseCompilationCache(filepath.Join(os.TempDir(), "scrawl-wasm-cache")); err != nil {
+	if err := workerpool.UseCompilationCache(); err != nil {
 		panic(err)
 	}
 	if os.Getenv(retireEveryTimeEnv) != "" {

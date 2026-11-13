@@ -49,7 +49,7 @@ test.describe('sync state', () => {
         await setSource(page, '# Sync\n\nstuck in the container.\n');
         await save(page);
 
-        await expect(control(page)).toHaveAttribute('data-state', 'not-sent');
+        await expect(control(page)).toHaveAttribute('data-state', 'warning');
         await expect(control(page)).toHaveAttribute('data-here', 'true');
         const alert = page.getByTestId('space-alert');
         await expect(alert).toBeVisible();
@@ -119,7 +119,7 @@ test.describe('sync state', () => {
         await save(page);
 
         await page.goto(WIKI.doc('index.md'));
-        await expect(control(page)).toHaveAttribute('data-state', 'not-sent');
+        await expect(control(page)).toHaveAttribute('data-state', 'warning');
         await expect(control(page)).toHaveAttribute('data-here', 'true');
         await expect(control(page)).toHaveAttribute('aria-label', /^(Not synced|No connection)\. This note is not sent yet$/);
         await shot(page, 'sync-root-index');
@@ -260,7 +260,7 @@ test.describe('sync state', () => {
         // arrange
         const me = await mockMe(page, {unpublished: true, retrying: true, sync_error: 'push: the remote is down'});
         await page.goto(WIKI.doc(DOC));
-        await expect(control(page)).toHaveAttribute('data-state', 'not-sent');
+        await expect(control(page)).toHaveAttribute('data-state', 'warning');
         const waiting = me.hits();
 
         // act
@@ -353,7 +353,7 @@ test.describe('sync state', () => {
         await page.goto(WIKI.doc(DOC));
 
         // assert
-        await expect(control(page)).toHaveAttribute('data-state', 'not-sent');
+        await expect(control(page)).toHaveAttribute('data-state', 'warning');
         await expect(control(page)).toHaveText('Not synced');
         const alert = page.getByTestId('space-alert');
         await expect(alert).toContainText('The next save will try again.');
@@ -446,6 +446,188 @@ test.describe('sync state', () => {
         await expect(alert).not.toContainText('Retrying');
     });
 
+    test('a change on its way to a note that is open shows that note in the calm tip', async ({page}) => {
+        // arrange
+        await mockMe(page, {pushing: true, unpublished: true, unsynced: {paths: [DOC], many: false}});
+        await page.goto(WIKI.doc(DOC));
+        await expect(control(page)).toHaveAttribute('data-state', 'sending');
+
+        // act
+        await control(page).click();
+
+        // assert
+        await expect(page.getByTestId('sync-popover').locator('[data-testid=status-tip] > div')).toHaveText([
+            'Syncing…', 'This note is not sent yet',
+        ]);
+    });
+
+    test('a conflict banner points at the sync status, whose popover lists the files', async ({page}) => {
+        // arrange
+        await mockMe(page, {unpublished: true, diverged: true, can_reset: true, unsynced: {paths: [DOC], many: false}});
+        await page.goto(WIKI.doc(DOC));
+
+        // act
+        await control(page).click();
+
+        // assert
+        await expect(page.getByTestId('space-alert')).toContainText(
+            'The local copy no longer matches the remote repository, so sync is paused. ' +
+            'Click the sync status at the top to see the conflicting files.',
+        );
+        const popover = page.getByTestId('sync-popover');
+        await expect(popover).toContainText('The local copy no longer matches the remote repository, so sync is paused.');
+        await expect(popover).not.toContainText('Click the sync status');
+        await expect(popover).toContainText('Conflicting files:');
+        await expect(popover.getByTestId('sync-popover-paths').getByRole('listitem')).toHaveText([DOC]);
+    });
+
+    test('a failed push banner points at the sync status, whose popover lists the files under no conflict', async ({page}) => {
+        // arrange
+        await mockMe(page, {
+            unpublished: true, retrying: false, sync_error: 'push: the remote is down', unsynced: {paths: [DOC], many: false},
+        });
+        await page.goto(WIKI.doc(DOC));
+
+        // act
+        await control(page).click();
+
+        // assert
+        await expect(page.getByTestId('space-alert')).toContainText(
+            'Saved here, but not sent yet. The next save will try again. ' +
+            'To see the changes that were not synced, click the sync status at the top.',
+        );
+        const popover = page.getByTestId('sync-popover');
+        await expect(popover).toContainText('Saved here, but not sent yet. The next save will try again.');
+        await expect(popover).not.toContainText('To see the changes');
+        await expect(popover).not.toContainText('Conflicting files:');
+        await expect(popover.getByTestId('sync-popover-paths').getByRole('listitem')).toHaveText([DOC]);
+    });
+
+    test('too many files to list says so in the banner and the popover', async ({page}) => {
+        // arrange
+        await mockMe(page, {
+            unpublished: true, retrying: false, sync_error: 'push: the remote is down', unsynced: {paths: [], many: true},
+        });
+        await page.goto(WIKI.doc(DOC));
+
+        // act
+        await control(page).click();
+
+        // assert
+        const said = 'Saved here, but not sent yet. The next save will try again. Too many files to list.';
+        await expect(page.getByTestId('space-alert')).toContainText(said);
+        await expect(page.getByTestId('sync-popover')).toContainText(said);
+        await expect(page.getByTestId('sync-popover-paths')).toHaveCount(0);
+    });
+
+    test('a conflict the person cannot reset says who can, and offers no reset', async ({page}) => {
+        // act
+        await mockMe(page, {unpublished: true, diverged: true, can_reset: false});
+        await page.goto(WIKI.doc(DOC));
+
+        // assert
+        const alert = page.getByTestId('space-alert');
+        await expect(alert).toContainText(
+            'The local copy no longer matches the remote repository, so sync is paused. ' +
+            'Someone who can write to this space can fix it.',
+        );
+        await expect(alert.getByTestId('sync-reset')).toHaveCount(0);
+    });
+
+    const resetLosses = [
+        {
+            name: 'too many files to list',
+            lost: {paths: [], many: true},
+            text: 'Too many conflicting files to list.',
+        },
+        {
+            name: 'files that could not be listed',
+            lost: {paths: [], many: false},
+            text: 'The conflicting files could not be listed, so treat every local change as conflicting.',
+        },
+    ];
+
+    for (const loss of resetLosses) {
+        test(`a replace with ${loss.name} keeps a backup it was told not to push`, async ({page}) => {
+            // arrange
+            const resets = await routeReset(page, {json: {backup: 'scrawl-backup/kept', backup_pushed: false}});
+            const dialog = await openReset(page, {json: divergence({lost: loss.lost})});
+            const box = dialog.getByTestId('reset-push-backup');
+            await expect(box).toBeChecked();
+
+            // act
+            await box.uncheck();
+            await dialog.getByTestId('modal-confirm').click();
+
+            // assert
+            await expect(dialog).toHaveAttribute('data-step', 'done');
+            expect(resets).toEqual([{head: 'local-head', remote: 'remote-head', push_backup: false}]);
+            await expect(page.locator('.mantine-Modal-title')).toHaveText('Local copy replaced');
+            await expect(dialog.getByTestId('reset-done')).toHaveText(
+                'The local version is saved to the branch scrawl-backup/kept. It was not pushed to remote.',
+            );
+        });
+
+        test(`a replace with ${loss.name} says so before it starts`, async ({page}) => {
+            // act
+            const dialog = await openReset(page, {json: divergence({lost: loss.lost})});
+
+            // assert
+            await expect(page.locator('.mantine-Modal-title')).toHaveText('Replace local copy?');
+            await expect(dialog.getByTestId('reset-lost')).toHaveText(
+                'After this, the local copy matches the remote repository and sync resumes. ' +
+                `${loss.text} The local version is saved to a backup branch first, so nothing is lost.`,
+            );
+        });
+    }
+
+    test('a clean replace offers no backup and makes none', async ({page}) => {
+        // arrange
+        const resets = await routeReset(page, {json: {backup: '', backup_pushed: false}});
+
+        // act
+        const dialog = await openReset(page, {json: divergence({clean: true})});
+
+        // assert
+        await expect(dialog.getByTestId('reset-clean')).toHaveText(
+            'After this, the local copy matches the remote repository and sync resumes. ' +
+            'All local changes are already in the remote repository, so nothing will be lost.',
+        );
+        await expect(dialog.getByTestId('reset-push-backup')).toHaveCount(0);
+
+        // act
+        await dialog.getByTestId('modal-confirm').click();
+
+        // assert
+        await expect(dialog).toHaveAttribute('data-step', 'done');
+        expect(resets).toEqual([{head: 'local-head', remote: 'remote-head', push_backup: false}]);
+        await expect(dialog.getByTestId('reset-done')).toHaveText('Nothing was lost, so no backup branch was made.');
+    });
+
+    test('a copy already in step has nothing to replace', async ({page}) => {
+        // act
+        const dialog = await openReset(page, {status: 409, headers: {'app-name': 'scrawl'}, json: {error: 'in step'}});
+
+        // assert
+        await expect(dialog).toHaveAttribute('data-step', 'failed');
+        await expect(page.locator('.mantine-Modal-title')).toHaveText('Nothing to replace');
+        await expect(dialog.getByTestId('reset-in-step')).toHaveText('The local copy already matches the remote repository.');
+        await expect(dialog.getByTestId('reset-retry')).toHaveCount(0);
+    });
+
+    test('a check that fails says why and can be tried again', async ({page}) => {
+        // act
+        const dialog = await openReset(page, {
+            status: 500, headers: {'app-name': 'scrawl'}, json: {error: 'the remote could not be read'},
+        });
+
+        // assert
+        await expect(dialog).toHaveAttribute('data-step', 'failed');
+        await expect(page.locator('.mantine-Modal-title')).toHaveText('The local copy was not replaced');
+        await expect(dialog.getByTestId('reset-failed')).toHaveText('the remote could not be read');
+        await expect(dialog.getByTestId('reset-retry')).toBeVisible();
+    });
+
     test('a local space shows no sync control', async ({page}) => {
         // act
         await page.goto(MULTI.spaces.team.doc('team.md'));
@@ -469,4 +651,34 @@ async function meState(page) {
         const body = await res.json();
         return body.space;
     }, WIKI.api('/me'));
+}
+
+function divergence(patch) {
+    return {
+        head: 'local-head',
+        remote: 'remote-head',
+        clean: false,
+        lost: {paths: [], many: false},
+        can_push_backup: true,
+        ...patch,
+    };
+}
+
+async function openReset(page, check) {
+    await mockMe(page, {unpublished: true, diverged: true, can_reset: true});
+    await page.route(/\/api\/sync\/check$/, (route) => route.fulfill(check));
+    await page.goto(WIKI.doc(DOC));
+    await page.getByTestId('space-alert').getByTestId('sync-reset').click();
+    const dialog = page.locator('[data-testid=modal][data-variant=reset]');
+    await expect(dialog).not.toHaveAttribute('data-step', 'checking');
+    return dialog;
+}
+
+async function routeReset(page, answer) {
+    const asked = [];
+    await page.route(/\/api\/sync\/reset$/, (route) => {
+        asked.push(route.request().postDataJSON());
+        return route.fulfill(answer);
+    });
+    return asked;
 }

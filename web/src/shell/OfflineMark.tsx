@@ -7,7 +7,7 @@ import { useConnection } from '../offline/connection';
 import { copyTime, useOfflineStatus } from '../offline/status';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
-import { StatusTip, statusTip } from './StatusTip';
+import { StatusTip, statusTipTarget } from './StatusTip';
 
 export function OfflineMark(): JSX.Element | null {
   const offline = useConnection() === 'offline';
@@ -23,7 +23,7 @@ export function OfflineMark(): JSX.Element | null {
   const shared = {
     'data-testid': 'offline-mark',
     'aria-label': 'Offline',
-    className: statusTip.target,
+    className: statusTipTarget,
     style: { color: 'var(--scrawl-text-secondary)' },
     onClick: () => setOpened((open) => !open),
   };
@@ -49,9 +49,11 @@ export function OfflineMark(): JSX.Element | null {
             </ActionIcon>
           )}
         </Popover.Target>
-        <Popover.Dropdown data-testid="offline-popover" className={statusTip.dropdown}>
-          <StatusTip title="No network" line={updatedAt > 0 ? `Last sync ${copyTime(updatedAt)}` : undefined} />
-        </Popover.Dropdown>
+        <StatusTip
+          testId="offline-popover"
+          title="No network"
+          line={updatedAt > 0 ? `Last sync ${copyTime(updatedAt)}` : undefined}
+        />
       </Popover>
       <TapGuard active={opened} onClose={() => setOpened(false)} />
     </>

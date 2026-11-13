@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import type { ExportFormat } from '../api/types';
 import { errorText } from '../api/useApi';
 import { IconDownload } from '../icons';
-import { useConnection } from '../offline/connection';
+import { useOffline } from '../offline/connection';
 import { layout } from '../theme';
 import { showToast } from '../toast';
 
@@ -43,7 +43,7 @@ export function useNoteExport(path: string): NoteExport {
 }
 
 export function ExportItems({ print, download }: NoteExport): JSX.Element {
-  const offline = useConnection() !== 'online';
+  const offline = useOffline();
   return (
     <>
       {!offline && (

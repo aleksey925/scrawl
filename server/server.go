@@ -485,12 +485,11 @@ func iconURL(version, name string) string {
 	return "/static/" + version + "/" + name + "?v=" + iconStamp()
 }
 
-func inlineLogo(attrs ...string) template.HTML {
-	tag := strings.Join(append([]string{"<svg"}, attrs...), " ")
-	svg := strings.Replace(strings.TrimSpace(string(logoSVG())), "<svg", tag, 1)
+func inlineLogo(attrs string) template.HTML {
+	svg := strings.Replace(strings.TrimSpace(string(logoSVG())), "<svg", "<svg"+attrs, 1)
 	return template.HTML(svg) //nolint:gosec // the logo is a file of the binary and never input
 }
 
 var loginLogo = sync.OnceValue(func() template.HTML {
-	return inlineLogo(`class="login-logo"`, `aria-hidden="true"`)
+	return inlineLogo(` class="login-logo" aria-hidden="true"`)
 })

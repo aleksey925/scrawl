@@ -171,17 +171,20 @@ async function storedRaw(request: Request, pathname: string): Promise<Response |
   return caches.match(canonicalPath(pathname), { cacheName: dataCache, ignoreVary: true });
 }
 
-async function storedAtOnce(request: Request, stored: Response | undefined, fallback = stored): Promise<Response> {
+async function storedAtOnce(request: Request, stored: Response | undefined): Promise<Response> {
   if (stored !== undefined && !(await signInPending(request))) {
     return stored;
   }
-  return networkFirst(request, () => Promise.resolve(fallback));
+  return networkFirst(request, () => Promise.resolve(stored));
 }
 
 async function spaceShell(request: Request, space: string): Promise<Response> {
   const shell = await caches.match(config.shell);
   const me = await caches.match(answerUrl.me(spaceBase(decoded(space))), { cacheName: dataCache });
-  return storedAtOnce(request, me === undefined ? undefined : shell, shell);
+  if (me === undefined) {
+    return networkFirst(request, () => Promise.resolve(shell));
+  }
+  return storedAtOnce(request, shell);
 }
 
 async function storedStartRedirect(): Promise<Response | undefined> {

@@ -154,6 +154,11 @@ function rangeAnswers(page, url, ranges) {
     })), [url, ranges]);
 }
 
+async function stopTheClock(page) {
+    await page.clock.install();
+    await page.clock.pauseAt(Date.now() + 1_000);
+}
+
 async function pretendInstalled(page) {
     await page.addInitScript(() => {
         const original = window.matchMedia.bind(window);
@@ -566,7 +571,9 @@ test.describe('offline access', () => {
     test('a note opens from the copy at once and turns writable when the account answers', async ({page, context}) => {
         // arrange
         await copyOn(page);
+        await stopTheClock(page);
         const me = await holdRoute(context, /\/api\/me$/);
+        const note = await holdRoute(context, new RegExp(`/api/page/${NOTE}$`));
 
         // act
         await page.goto(routes.doc(NOTE));
@@ -579,11 +586,37 @@ test.describe('offline access', () => {
         await expect(page.getByTestId('doc-edit')).toHaveCount(0);
 
         // act
+        note.release();
         me.release();
 
         // assert
         await expect(page.getByTestId('doc-edit')).toBeVisible();
         await expect(page.getByTestId('offline-mark')).toHaveCount(0);
+    });
+
+    test('a tab in its start check tells the other tabs nothing about the connection', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await page.evaluate(() => {
+            window.heard = [];
+            new BroadcastChannel('scrawl-offline').addEventListener('message', (event) => {
+                if (event.data.type === 'connection') {
+                    window.heard.push(event.data.online);
+                }
+            });
+        });
+        await stopTheClock(page);
+        const me = await holdRoute(context, /\/api\/me$/);
+        const other = await context.newPage();
+
+        // act
+        await other.goto(routes.doc(NOTE));
+        await me.reached;
+        await expect(other.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
+
+        // assert
+        expect(await page.evaluate(() => window.heard)).toEqual([]);
+        me.release();
     });
 
     test('a space whose account the copy does not hold opens from the network', async ({page}) => {
@@ -620,13 +653,21 @@ test.describe('offline access', () => {
             }
         });
         const me = await holdRoute(context, /\/api\/me$/);
+        await stopTheClock(page);
+        await page.goto(routes.doc(NOTE));
+        await me.reached;
 
         // act
-        await page.goto(routes.doc(NOTE));
+        await page.clock.runFor(3_000);
 
         // assert
-        await expect(page.getByTestId('offline-mark')).toBeVisible({timeout: 10_000});
-        await stays(() => asked.length, 1, 2_000);
+        await expect(page.getByTestId('offline-mark')).toBeVisible();
+
+        // act
+        await page.clock.runFor(14_000);
+
+        // assert
+        await stays(() => asked.length, 1, 500);
 
         // act
         me.release();
@@ -655,6 +696,7 @@ test.describe('offline access', () => {
         await copyOn(page);
         const fresh = `${FOLDER}/fresh.md`;
         writeFixture(fresh, '# Fresh note\n');
+        await stopTheClock(page);
         await holdRoute(context, /\/api\/me$/);
 
         // act
@@ -670,6 +712,7 @@ test.describe('offline access', () => {
         await copyOn(page);
         const fresh = `${FOLDER}/fresh/inside.md`;
         writeFixture(fresh, '# Inside\n');
+        await stopTheClock(page);
         await holdRoute(context, /\/api\/me$/);
 
         // act
@@ -683,6 +726,7 @@ test.describe('offline access', () => {
     test('at start a page that needs the server waits for the account and stays when the network goes', async ({page, context}) => {
         // arrange
         await copyOn(page);
+        await stopTheClock(page);
         const me = await holdRoute(context, /\/api\/me$/);
 
         // act
@@ -811,10 +855,106 @@ test.describe('offline access', () => {
 
         // act
         await context.setOffline(false);
-        await page.evaluate(() => window.dispatchEvent(new Event('online')));
+        await page.evaluate(() => window.dispatchEvent(new Event('online'))).catch((error) => {
+            if (!/context was destroyed/.test(error.message)) {
+                throw error;
+            }
+        });
 
         // assert
         await expect(page.getByTestId('gateway-sign-in')).toBeVisible();
+    });
+
+    for (const status of [521, 522, 530]) {
+        test(`a gateway whose server is down answers the account with ${status}: the app stays on the copy`, async ({page, context}) => {
+            // arrange
+            await copyOn(page);
+            await context.route(/\/api\/me$|\/ping$/, (route) => route.fulfill({
+                status, contentType: 'text/html', body: '<h1>Web server is down</h1>',
+            }));
+            const pinged = page.waitForResponse(/\/ping$/);
+
+            // act
+            await page.goto(routes.doc(NOTE));
+            await pinged;
+
+            // assert
+            await expect(page.getByTestId('offline-mark')).toBeVisible();
+            await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
+            await stays(() => new URL(page.url()).pathname, routes.doc(NOTE), 500);
+        });
+    }
+
+    test('scrawl\'s own error on the account opens no sign-in', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await context.route(/\/api\/me$/, (route) => route.fulfill({
+            status: 500, headers: {'app-name': 'scrawl'}, json: {error: 'something broke'},
+        }));
+        const answered = page.waitForResponse(/\/api\/me$/);
+
+        // act
+        await page.goto(routes.doc(NOTE));
+        await answered;
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note');
+        await stays(() => new URL(page.url()).pathname, routes.doc(NOTE), 500);
+    });
+
+    test('offline, a ping a gateway answers with 503 keeps the app offline', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await context.setOffline(true);
+        await page.goto(routes.doc(NOTE));
+        await expect(page.getByTestId('offline-mark')).toBeVisible();
+        await context.route(/\/ping$/, (route) => route.fulfill({status: 503, contentType: 'text/html', body: 'down'}));
+        const asked = [];
+        page.on('request', (request) => {
+            if (request.url().endsWith('/api/me')) {
+                asked.push(request.url());
+            }
+        });
+        const pinged = page.waitForResponse(/\/ping$/);
+
+        // act
+        await context.setOffline(false);
+        await page.evaluate(() => window.dispatchEvent(new Event('online')));
+        await pinged;
+
+        // assert
+        await stays(() => asked.length, 0, 500);
+        await expect(page.getByTestId('offline-mark')).toBeVisible();
+    });
+
+    test('while the account is checked at start, the menus hold back what needs the server', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await stopTheClock(page);
+        const me = await holdRoute(context, /\/api\/me$/);
+        await page.goto(routes.doc(NOTE));
+        await me.reached;
+
+        // act
+        await page.getByTestId('note-menu').click();
+        await page.clock.runFor(500);
+
+        // assert
+        await expect(page.getByTestId('doc-export-pdf')).toBeVisible();
+        await expect(page.getByTestId('doc-export-md')).toHaveCount(0);
+        await expect(page.getByTestId('doc-export-html')).toHaveCount(0);
+
+        // act
+        await page.keyboard.press('Escape');
+        await page.clock.runFor(500);
+        await page.getByTestId('space-menu').click();
+        await page.clock.runFor(500);
+
+        // assert
+        await expect(page.getByTestId('space-menu-space-item').first()).toBeVisible();
+        await expect(page.getByTestId('space-menu-signout')).toHaveCount(0);
+        await expect(status(page)).not.toContainText('No network');
+        me.release();
     });
 
     test('a written and a deleted note reach the copy, and only what changed is asked for', async ({page, context}) => {
@@ -1264,6 +1404,24 @@ test.describe('offline access of every space', () => {
         // assert
         await expect(page).toHaveURL(new URL(first, MULTI.baseURL).href);
         await expect(page.getByTestId('dir')).toBeVisible();
+    });
+
+    test('online the start page opens the first stored space at once', async ({page}) => {
+        // arrange
+        await copyOn(page, MULTI.url.home());
+        const last = await page.evaluate(async () => {
+            const cache = await caches.open('scrawl-data');
+            const stored = await cache.match('/api/spaces');
+            const spaces = (await stored.json()).reverse();
+            await cache.put('/api/spaces', new Response(JSON.stringify(spaces), {headers: stored.headers}));
+            return spaces[0].url;
+        });
+
+        // act
+        await page.goto(`${MULTI.baseURL}/`);
+
+        // assert
+        await expect(page).toHaveURL(new URL(last, MULTI.baseURL).href);
     });
 
     test('another user who signs in never sees the copy of the one before', async ({page, context}) => {

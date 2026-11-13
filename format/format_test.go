@@ -4,17 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aleksey925/scrawl/workerpool"
 )
 
 func TestMain(m *testing.M) {
-	if err := UseCompilationCache(filepath.Join(os.TempDir(), "scrawl-wasm-cache")); err != nil {
+	if err := workerpool.UseCompilationCache(); err != nil {
 		panic(err)
 	}
 	RunWorkerIfAsked()

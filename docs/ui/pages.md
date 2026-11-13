@@ -46,8 +46,9 @@ opens over them.
   Access refused. No connection is a failed fetch, so it is not mistaken for a
   change that was not sent. "Synced" is the check that stays, with no toast and
   no timer, the way Notion keeps a small quiet state in its bar. A click on a
-  calm state shows only its word, Syncing or Synced, in a small dark tip
-  centered under the button, as Notion draws one, and the offline mark shows
+  calm state shows its word, Syncing or Synced, in a small dark tip centered
+  under the button, as Notion draws one, with a gray line "This note is not
+  sent yet" under it when the open note is not sent, and the offline mark shows
   its tip the same way; the button stays gray while its tip is open. A click on
   a problem state opens the facts behind it, in a popover as wide as its text
   and no wider than 320px, so a short state is not a half-empty box. In a

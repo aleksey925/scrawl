@@ -40,19 +40,18 @@ function NeedsNetwork({ note }: { note: string | undefined }): JSX.Element {
 export function NetworkGate({ children }: { children: ReactNode }): JSX.Element | null {
   const location = useLocation();
   const connection = useConnection();
-  const entered = useRef({ key: location.key, connection });
-  if (
-    entered.current.key !== location.key ||
-    entered.current.connection === 'checking' ||
-    connection === 'online'
-  ) {
-    entered.current = { key: location.key, connection };
+  const page = useRef({ key: location.key, reachedServer: false });
+  if (page.current.key !== location.key) {
+    page.current = { key: location.key, reachedServer: false };
+  }
+  if (connection === 'online') {
+    page.current.reachedServer = true;
   }
   if (networkRoute.test(location.pathname)) {
     if (connection === 'checking') {
       return null;
     }
-    if (connection === 'offline' && entered.current.connection === 'offline') {
+    if (connection === 'offline' && !page.current.reachedServer) {
       return <NeedsNetwork note={noteOf(location.pathname)} />;
     }
   }

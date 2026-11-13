@@ -2,6 +2,9 @@
 
 A space whose directory is a git clone: pull, push, divergence and reset.
 
+`scripts/try-sync.sh` tries the sync states by hand on one machine, with a
+local remote; its head says how.
+
 ## Startup
 
 - A remote space is a local space whose directory is a clone. `history` gains a
@@ -114,11 +117,12 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   up on disk first, and one that is there and untracked refuses the reset. A
   writable space commits what is on disk before the backup is taken; a
   pull-only one never commits, so there the refusal is the whole protection.
-- A backup reaches the remote only when the reader ticks it, and before
-  anything is reset: a force-push can be how a secret was removed, and a backup
-  pushed by default would bring it back. A push that fails stops the reset,
-  because a backup promised on the remote and missing there is a reason not to
-  let go of the copy.
+- A backup reaches the remote before anything is reset, and its box is ticked
+  by default: a backup on the remote outlives this copy and can be opened on
+  the git host. The reader unticks it when a force-push was how a secret was
+  removed, since the backup would bring it back. A push that fails stops the
+  reset, because a backup promised on the remote and missing there is a reason
+  not to let go of the copy.
 - The reset is not behind the read-only guard. A read-only mirror whose
   upstream was rewritten needs it most, and no note anybody wrote here is
   changed. `canReset` asks who is calling instead: a session or a read-write
@@ -238,16 +242,16 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   **measured**, never remembered, and never the gate on the push.
 - `syncStatusOf` derives the state of the sync control from `/api/me` and the
   sync message, the first that holds: blocked (diverged or refused), sending
-  (`pushing`), not sent (`unpublished`), a warning (any other sync message:
-  history not recorded, a fetch failed with nothing waiting) and sent (a
-  writable remote space with none of these). Blocked comes before sending,
-  because a write on a diverged space marks a push that never goes, and a
-  spinner would say it does. Every state between sent and blocked is "Not
-  synced" on the bar, and the facts in its popover tell them apart. The client
-  reads `retrying` and never derives it from the other fields, so the rule has
-  one home, in `publish`. The control has no live region of its own: the
-  banner's already reads out a warning, and "Syncing" and "Synced" after each
-  save would be noise next to the editor's "Saved".
+  (`pushing`), a warning (`unpublished` or any other sync message: history not
+  recorded, a fetch failed with nothing waiting) and sent (a writable remote
+  space with none of these). Blocked comes before sending, because a write on a
+  diverged space marks a push that never goes, and a spinner would say it does.
+  The warning is "No connection" on the bar when a fetch failed and "Not
+  synced" otherwise, and the facts in its popover tell the cases apart. The
+  client reads `retrying` and never derives it from the other fields, so the
+  rule has one home, in `publish`. The control has no live region of its own:
+  the banner's already reads out a warning, and "Syncing" and "Synced" after
+  each save would be noise next to the editor's "Saved".
 - The remote state reaches the client only through `/api/me`, and `apiMe` reads
   it with one `SyncState()` and never a getter at a time: a `Sync` finishing
   between two calls would pair an error from one attempt with the paths of

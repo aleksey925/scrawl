@@ -9,7 +9,7 @@ import { documentUrl } from '../paths';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { useNav } from './NavContext';
-import { StatusTip, statusTip } from './StatusTip';
+import { StatusTip, statusTipTarget } from './StatusTip';
 import { factText, type SyncStatus } from './syncMessage';
 
 const thisNote = 'This note is not sent yet';
@@ -107,7 +107,7 @@ export function SyncControl(): JSX.Element | null {
     'data-here': summary.here ? 'true' : 'false',
     'data-state': state,
     'aria-label': summary.label,
-    className: statusTip.target,
+    className: statusTipTarget,
     style: { color },
     onClick: () => setOpened((open) => !open),
   };
@@ -141,9 +141,7 @@ export function SyncControl(): JSX.Element | null {
         </Popover.Target>
 
         {calm ? (
-          <Popover.Dropdown data-testid="sync-popover" className={statusTip.dropdown}>
-            <StatusTip title={name} line={summary.here ? thisNote : undefined} />
-          </Popover.Dropdown>
+          <StatusTip testId="sync-popover" title={name} line={summary.here ? thisNote : undefined} />
         ) : (
           <Popover.Dropdown data-testid="sync-popover" maw={layout.popoverWidth}>
             <SyncDetails summary={summary} onLeave={() => setOpened(false)} />

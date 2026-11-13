@@ -103,7 +103,9 @@ The fetch rules, GET only; what no rule names is not touched:
 The 3 seconds are for the headers, not the body, and apply only when the copy
 has the answer; without one the worker waits for the network. While a page has
 said on the `scrawl-offline` channel that the app is offline, rules 3 and 4
-read the cache first, with no wait.
+read the cache first, with no wait. A page in its start check says nothing
+there until the check ends: the worker is shared, and another tab that is
+online would get its files from the copy.
 
 ## The offline shell
 
@@ -169,10 +171,10 @@ page), `cache: 'no-store'`, and carries the copy's header.
    when every space is done.
 
 Rounds start when `/api/me` answers: on open, when the page becomes visible and
-every minute while it is visible. A network error, a gateway's 502, 503 or 504
-and the `offline` event stop a round and take the app offline. The stall of the
-reader below takes the app offline but leaves the round going: on a slow link
-the round's own downloads are often what holds the reader up, and stopping the
+every minute while it is visible. A network error, a gateway's 5xx and the
+`offline` event stop a round and take the app offline. The stall of the reader
+below takes the app offline but leaves the round going: on a slow link the
+round's own downloads are often what holds the reader up, and stopping the
 round would throw away the files in flight at every page opened during the
 first copy. A request of the round with no headers in 30 seconds counts as a
 network error: a link that dies with no `offline` event leaves a fetch waiting
@@ -190,19 +192,20 @@ switch, inside the tap.
 ## Offline in the app
 
 - `web/src/offline/connection.ts` decides. The app goes offline on a network
-  error in the api client's `send()`, on a 502, 503 or 504 there that is not
-  scrawl's own answer (a render deadline is a 503), and on the `offline` event.
-  scrawl's own answer is one with `App-Name: scrawl`, which the server sets on
-  every answer to a signed-in request, and auth off counts as signed in; a
-  gateway's page has none, even in JSON. `navigator.onLine` alone is not
-  trusted. While the copy is on, a page, folder or nav request of the reader
-  with no headers in 3 seconds, the worker's wait, takes it offline too when
-  the copy holds its answer: one bar of signal often keeps `onLine` true and a
-  fetch hangs for minutes. The request is not cut; the reader leaves it for the
-  copy. Without a stored answer the request waits for the network, as in the
-  worker, so a note slow to render and not in the copy still opens. One in the
-  copy goes offline for a moment and comes back at once: going offline probes
-  `/ping` with no wait, and `/api/me` answers.
+  error in the api client's `send()`, on any 5xx there that is not scrawl's own
+  answer (a render deadline is a 503; Cloudflare's 521 to 530 say the server is
+  down), and on the `offline` event. scrawl's own answer is one with
+  `App-Name: scrawl`, which the server sets on every answer to a signed-in
+  request, and auth off counts as signed in; a gateway's page has none, even in
+  JSON. `navigator.onLine` alone is not trusted. While the copy is on, a page,
+  folder or nav request of the reader with no headers in 3 seconds, the
+  worker's wait, takes it offline too when the copy holds its answer: one bar
+  of signal often keeps `onLine` true and a fetch hangs for minutes. The
+  request is not cut; the reader leaves it for the copy. Without a stored
+  answer the request waits for the network, as in the worker, so a note slow to
+  render and not in the copy still opens. One in the copy goes offline for a
+  moment and comes back at once: going offline probes `/ping` with no wait, and
+  `/api/me` answers.
 - A start from the offline shell while `navigator.onLine` is true is a check,
   not a failure: the app reads the copy, but shows no `Offline` mark, and
   `/edit/`, `/history/` and `/search` show nothing yet. The reader gets
@@ -217,19 +220,23 @@ switch, inside the tap.
   `online` event. `/ping` is public, so its answer proves only that the server
   is there; then the app asks `/api/me` in the foreground, and only an answer
   of `/api/me` makes it online again. A 401 there sends the person to sign in.
-  Any answer of `/ping` but a 502, 503 or 504 counts, a gateway's 401 or
-  redirect too, so the sign-in below is reached from offline as well.
+  An answer of `/ping` counts when it is scrawl's, a 2xx, a redirect, a 401 or
+  a 403, so the sign-in below is reached from offline as well; a gateway's 5xx
+  or another error does not. A captive portal on plain HTTP looks like a
+  gateway: the app goes to sign in, and the portal shows its page there.
 - A gateway with its own sign-in (Cloudflare Access, Authelia, oauth2-proxy)
   answers an ended session with a redirect, often to another site, a 401, a 403
   or its sign-in page. A fetch that follows a redirect to another site fails as
   a network error does, and the app would stay offline on the copy, never
   reaching the sign-in, since the worker serves the space's pages from the
   cache. So `/api/me` and `/ping` are asked with `redirect: 'manual'`, and an
-  answer of `/api/me` with no `App-Name: scrawl` that is not a 502, 503 or 504
-  counts as a 401: scrawl redirects neither, and its one answer there without
-  the header is the 401. The app goes to `/login?from=`, which the worker
-  leaves to the network, the gateway shows its sign-in there and then sends the
-  person back, and `/login` sends them on to `from`, with auth off too.
+  answer of `/api/me` with no `App-Name: scrawl` that is a redirect, a 401, a
+  403 or a 2xx that is not JSON counts as a 401: scrawl redirects neither, and
+  its one answer there without the header is the 401. Any other answer without
+  the header, a 5xx of a gateway whose server is down above all, is not a
+  sign-in. The app goes to `/login?from=`, which the worker leaves to the
+  network, the gateway shows its sign-in there and then sends the person back,
+  and `/login` sends them on to `from`, with auth off too.
 - Offline the reader gets `offlinePlatform`: the app's platform with no search,
   no editing, and `offlineSource`, which reads `scrawl-data` directly and gives
   only answers whose release is the shell's `data-version`. The tree is the

@@ -2,8 +2,8 @@ const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, chooseTheme, holdRoute, openSpaceMenu, readFixture, removeFixture, rgb, routes, save, setSource, shot, signIn,
-    stays, writeFixture,
+    MAIN, chooseTheme, holdRoute, mockMe, openSpaceMenu, readFixture, removeFixture, rgb, routes, save, setSource, shot,
+    signIn, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const darkTheme = require('../../theme/themes/dark.json');
@@ -172,6 +172,7 @@ test.describe('pages', () => {
         // assert
         await expect(page.getByTestId('doc')).toBeVisible();
         await expect(page.getByTestId('app-splash')).toHaveCount(0);
+        await expect(page.locator('.scrawl-splash')).toHaveCount(0);
     });
 
     test('a folder\'s table keeps its columns, and on a narrow page the name gives way', async ({page}) => {
@@ -515,6 +516,35 @@ for (const [scheme, theme] of [['light', lightTheme], ['dark', darkTheme]]) {
             // assert
             await expect(row).toHaveCSS('background-color', rgb(theme.palette.menuHighlight));
             await expect(row).toHaveCSS('color', rgb(theme.palette.menuHighlightText));
+        });
+
+        test('fills a row a name is typed into in a folder\'s list with the picked gray', async ({page}) => {
+            // arrange
+            await page.goto(routes.dir(docs.folder.path));
+
+            // act
+            await page.getByTestId('dir-new').click();
+            await page.getByTestId('dir-new-file').click();
+
+            // assert
+            await expect(page.getByTestId('dir-draft')).toHaveCSS('background-color', rgb(theme.palette.selected));
+        });
+
+        test('draws the status tip dark with its own tokens', async ({page}) => {
+            // arrange
+            await mockMe(page, {kind: 'remote', read_only: false, unsynced: {paths: [TOKENS], many: false}});
+            await page.goto(routes.doc(TOKENS));
+
+            // act
+            await page.getByTestId('sync-control').click();
+
+            // assert
+            const tip = page.getByTestId('sync-popover');
+            await expect(tip).toHaveCSS('background-color', rgb(theme.palette.tooltip));
+            await expect(tip).toHaveCSS('color', rgb(theme.palette.tooltipText));
+            await expect(tip.locator('[data-testid=status-tip] > div').last()).toHaveCSS(
+                'color', rgb(theme.palette.tooltipTextSecondary),
+            );
         });
     });
 }

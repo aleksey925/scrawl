@@ -44,6 +44,7 @@ web/icons.ts           the script that draws them, not the icon set of
                        the app, which is web/src/icons.ts
 e2e/                   playwright suite against a real binary
 examples/data/         sample notes: tests, `make run` and the browser suite
+scripts/               try-sync.sh, the sync states of a clone tried by hand
 vendor/                dependencies, checked in, `make deps` regenerates
 docs/design/           how each part works and the rules it keeps
 docs/ui/               how each screen looks and behaves
@@ -164,7 +165,8 @@ Before changing a part, read its doc:
   [editor position](docs/design/editor-position.md)
 - the index, the search modes, the find bar: [search](docs/design/search.md)
 - the offline copy, the service worker, `/api/versions`, the offline shell, the
-  sign-in cookie, the app with no network: [offline](docs/design/offline.md)
+  start from the copy and its check, the sign-in cookie, a gateway's sign-in,
+  the app with no network: [offline](docs/design/offline.md)
 - git history, an adopted repository, restore, comparing versions:
   [history](docs/design/history.md)
 - a clone, `--ff-only`, diverged, reset, the push after the answer and its
@@ -185,8 +187,8 @@ Before changing a part, read its doc:
 - the editor screen and its toolbar, the Changes layout, text files:
   [editor](docs/ui/editor.md)
 - palettes, controls, the focus ring, menus, icons: [look](docs/ui/look.md)
-- the tab bar, dialogs, toasts, screen moves, swipe back:
-  [phone](docs/ui/phone.md)
+- the tab bar, dialogs, toasts, screen moves, swipe back, the find bar above
+  the keyboard: [phone](docs/ui/phone.md)
 - tap sizes, `TapGuard`, the pressed state, a long press:
   [touch](docs/ui/touch.md)
 - why something is built the way it is: [`docs/adr/`](docs/adr/)

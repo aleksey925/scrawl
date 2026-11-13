@@ -16,10 +16,11 @@ The server's search and the note's find bar.
 - `Cmd+F` on a note opens the reader's own find bar, in the app and in a site.
   It matches each block's visible text as one string, the way the index
   flattens a note, so a phrase across bold is one match, and marks the text
-  nodes a match covers. A letter still being composed, a Greek one with its
-  accent say, is not searched until it is done, and Enter then does not step.
-  An empty match is skipped, and a closed `<details>` around the current match
-  is opened. The match runs in a worker the app ends after a second, because a
+  nodes a match covers. Text an input method is still composing is searched as
+  it is typed: Android's keyboard composes every word until a space. An Enter
+  or Esc that ends a composition neither steps nor closes the bar. An empty
+  match is skipped, and a closed `<details>` around the current match is
+  opened. The match runs in a worker the app ends after a second, because a
   regular expression in javascript cannot be stopped from inside; a site has no
   worker, so there a pattern that came in the address waits for Enter. A search
   result hands its query, its options and its line over in the url the server

@@ -2295,7 +2295,7 @@ test.describe('mobile sync state', () => {
         await page.goto(WIKI.doc(SYNC_DOC));
 
         // assert
-        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'not-sent');
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'warning');
         await expect(page.getByTestId('sync-control')).toHaveText('');
         await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
         await expect(page.getByTestId('space-alert')).toBeVisible();
@@ -2414,7 +2414,7 @@ test.describe('mobile sync state', () => {
 
         // assert
         await expect(page.getByTestId('topbar-title')).toHaveAttribute('data-shown', 'true');
-        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'not-sent');
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'warning');
         await expect(page.getByTestId('sync-control')).toBeInViewport({ratio: 1});
         await expect(page.getByTestId('note-menu')).toBeInViewport({ratio: 1});
         await expectNoHorizontalScroll(page);

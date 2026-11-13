@@ -108,15 +108,7 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
         aria-label="Find in the note"
         autoComplete="off"
         spellCheck={false}
-        onChange={(event) => {
-          const next = { ...query, text: event.currentTarget.value };
-          if ((event.nativeEvent as InputEvent).isComposing) {
-            find.compose(next);
-          } else {
-            setQuery(next);
-          }
-        }}
-        onCompositionEnd={(event) => setQuery({ ...query, text: event.currentTarget.value })}
+        onChange={(event) => setQuery({ ...query, text: event.currentTarget.value })}
         onKeyDown={onKeyDown}
       />
       <span

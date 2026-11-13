@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"maps"
 	"os"
 	"path/filepath"
@@ -19,11 +18,11 @@ import (
 	"github.com/aleksey925/scrawl/format"
 	"github.com/aleksey925/scrawl/page"
 	"github.com/aleksey925/scrawl/plantuml"
+	"github.com/aleksey925/scrawl/workerpool"
 )
 
 func TestMain(m *testing.M) {
-	cache := filepath.Join(os.TempDir(), "scrawl-wasm-cache")
-	if err := errors.Join(format.UseCompilationCache(cache), plantuml.UseCompilationCache(cache)); err != nil {
+	if err := workerpool.UseCompilationCache(); err != nil {
 		panic(err)
 	}
 	format.RunWorkerIfAsked()

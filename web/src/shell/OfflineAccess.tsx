@@ -2,7 +2,7 @@ import { Menu, Switch, Text } from '@mantine/core';
 import { useEffect, type JSX } from 'react';
 
 import { IconCloudDown } from '../icons';
-import { useConnected } from '../offline/connection';
+import { useConnection } from '../offline/connection';
 import { offlineSupported, useOfflineWanted } from '../offline/preference';
 import { turnOfflineOff, turnOfflineOn } from '../offline/register';
 import { refreshStatus, statusLine, useOfflineStatus } from '../offline/status';
@@ -14,7 +14,7 @@ import classes from './OfflineAccess.module.css';
 export function OfflineAccessItem(): JSX.Element {
   const supported = offlineSupported();
   const wanted = useOfflineWanted();
-  const online = useConnected();
+  const online = useConnection() !== 'offline';
   const status = useOfflineStatus();
   const line = statusLine({ supported, wanted, online, status });
 

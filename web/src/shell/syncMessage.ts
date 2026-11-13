@@ -163,7 +163,7 @@ function stageOf(syncError: string): SyncKind | undefined {
 }
 
 export interface SyncStatus {
-  state: 'blocked' | 'sending' | 'not-sent' | 'warning' | 'sent';
+  state: 'blocked' | 'sending' | 'warning' | 'sent';
   name: string;
 }
 
@@ -181,12 +181,8 @@ export function syncStatusOf(me: MeResponse | undefined, sync: SyncMessage | und
   if (space.pushing) {
     return { state: 'sending', name: 'Syncing…' };
   }
-  const name = stageOf(space.sync_error) === 'fetch' ? 'No connection' : 'Not synced';
-  if (space.unpublished) {
-    return { state: 'not-sent', name };
-  }
-  if (sync !== undefined) {
-    return { state: 'warning', name };
+  if (space.unpublished || sync !== undefined) {
+    return { state: 'warning', name: stageOf(space.sync_error) === 'fetch' ? 'No connection' : 'Not synced' };
   }
   if (space.kind === 'remote' && !space.read_only) {
     return { state: 'sent', name: 'Synced' };

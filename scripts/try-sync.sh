@@ -6,7 +6,7 @@
 #   scripts/try-sync.sh start
 #
 # It makes a fresh test remote in /tmp/scrawl-try, runs scrawl from this
-# checkout and keeps running. Open http://localhost:7272/s/notes/note.md
+# checkout and keeps running. Open http://localhost:7272/s/notes/doc/note.md
 # and click the cloud at the top right: Synced.
 #
 # Terminal 2, one command at a time:
@@ -23,7 +23,7 @@
 # scrawl needs no restart between steps: the script asks it to fetch through
 # the webhook. Run start again for a clean slate. Another port or folder:
 # TRY_PORT=7300 TRY_DIR=/tmp/other, the same for every command. start removes
-# only a folder it made itself, one that holds spaces.yml.
+# only a folder it made itself, one that holds the .try-sync mark.
 set -euo pipefail
 
 dir=${TRY_DIR:-/tmp/scrawl-try}
@@ -70,12 +70,13 @@ online() {
 }
 
 start() {
-    if [ -e "$dir" ] && [ ! -f "$dir/spaces.yml" ]; then
+    if [ -e "$dir" ] && [ ! -f "$dir/.try-sync" ]; then
         echo "$dir exists and is not a try-sync folder, so it is not removed" >&2
         exit 1
     fi
     rm -rf "$dir"
     mkdir -p "$dir"
+    touch "$dir/.try-sync"
     git init -q --bare -b main "$dir/origin.git"
     git clone -q "$dir/origin.git" "$dir/seed" 2>/dev/null
     printf '# Note\n\nThe first text.\n' >"$dir/seed/note.md"
@@ -92,7 +93,7 @@ spaces:
       branch: main
       hook_secret_env: TRY_SYNC_HOOK
 EOF
-    echo "open http://localhost:$port/s/notes/note.md"
+    echo "open http://localhost:$port/s/notes/doc/note.md"
     cd "$root"
     TRY_SYNC_HOOK=$secret SPACES_FILE="$dir/spaces.yml" AUTH_DISABLED=true \
         LISTEN="127.0.0.1:$port" AUTH_SECRET_FILE="$dir/session.key" exec go run . serve

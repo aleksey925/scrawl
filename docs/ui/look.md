@@ -62,6 +62,13 @@ Colors, controls and type: how a note and the chrome are drawn.
   indicator keeps its own transition while mantine turns them all off for a new
   theme ([quirks](../quirks.md#react-mantine-and-the-editor)). The theme
   buttons of a page of the command line slide the same way.
+- A status the topbar shows with no facts behind it, a calm sync state or the
+  offline mark, opens a small dark tip under its button rather than a popover:
+  `StatusTip`, Notion's tooltip: 6px by 10px of padding, the medium radius and
+  shadow, the state's word in the tip's text color and a second line, when
+  there is one, in its gray. Its colors are the theme's `tooltip`,
+  `tooltipText` and `tooltipTextSecondary`, dark in both themes, as Notion and
+  macOS draw a tooltip dark on a light page too.
 - A dialog ends in one row of buttons, `DialogActions`, which the confirms take
   as their `groupProps`: on a desktop at the right, as wide as their words and
   32px tall, as the prototype has them, and on a phone sharing the row in equal

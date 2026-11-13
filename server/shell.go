@@ -88,7 +88,7 @@ const shellTemplate = `<!doctype html>
 `
 
 var splashLogo = sync.OnceValue(func() template.HTML {
-	return inlineLogo()
+	return inlineLogo("")
 })
 
 func newAppShell(files gzassets.Files) (*appShell, error) {

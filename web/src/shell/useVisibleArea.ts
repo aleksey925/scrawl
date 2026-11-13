@@ -10,7 +10,7 @@ function areaOf(): VisibleArea {
   return view === null ? { height: window.innerHeight, top: 0 } : { height: view.height, top: view.offsetTop };
 }
 
-export function useVisibleArea(active: boolean): VisibleArea | undefined {
+function useVisibleArea(active: boolean): VisibleArea | undefined {
   const [area, setArea] = useState<VisibleArea | undefined>(undefined);
 
   useEffect(() => {

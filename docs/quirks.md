@@ -37,6 +37,10 @@ words; the fact itself is written here.
   else. [Themes](design/themes.md)
 - A phone's keyboard covers the bottom of the page without making it shorter,
   so a field fixed to the bottom sits under the keys. [Phone](ui/phone.md)
+- With the keyboard up, a scroll moves the visible area across the page, and an
+  element fixed to the page moves with it. React renders a state set in a
+  scroll listener after the frame is drawn, so the element is seen in the wrong
+  place for a frame. [Phone](ui/phone.md)
 - The click a browser sends after a touch end lands on what is under the finger
   by then, so when the touch end closed a menu, the click goes to what the menu
   covered. [Editor](ui/editor.md)

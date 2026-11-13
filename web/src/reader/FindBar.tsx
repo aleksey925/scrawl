@@ -3,7 +3,6 @@ import { useEffect, useRef, type JSX, type KeyboardEvent, type ReactNode } from 
 
 import { IconChevronDown, IconChevronUp, IconSearch, IconX } from '../icons';
 import { ownsShortcuts } from '../shell/shortcuts';
-import { useVisibleArea } from '../shell/useVisibleArea';
 import { layout } from '../theme';
 
 import classes from './FindBar.module.css';
@@ -32,10 +31,31 @@ const toggleKeys: Partial<Record<string, ToggleName>> = { KeyC: 'matchCase', Key
 const imeKeyCode = 229;
 
 export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
+  const bar = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const { query, setQuery } = find;
-  const visibleTop = useVisibleArea(true)?.top ?? 0;
   const flip = (name: ToggleName): void => setQuery({ ...query, [name]: !query[name] });
+
+  useEffect(() => {
+    const view = window.visualViewport;
+    if (view === null) {
+      return undefined;
+    }
+    const follow = (): void => {
+      if (bar.current !== null) {
+        bar.current.style.transform = view.offsetTop === 0 ? '' : `translateY(${view.offsetTop}px)`;
+      }
+    };
+    follow();
+    view.addEventListener('scroll', follow);
+    view.addEventListener('resize', follow);
+    window.addEventListener('scroll', follow);
+    return () => {
+      view.removeEventListener('scroll', follow);
+      view.removeEventListener('resize', follow);
+      window.removeEventListener('scroll', follow);
+    };
+  }, []);
 
   useEffect(() => {
     input.current?.focus();
@@ -71,9 +91,9 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
 
   return (
     <div
+      ref={bar}
       data-testid="doc-find"
       className={classes.bar}
-      style={visibleTop === 0 ? undefined : { transform: `translateY(${visibleTop}px)` }}
       role="search"
       data-print="hide"
       {...ownsShortcuts}

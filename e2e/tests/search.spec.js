@@ -423,7 +423,7 @@ test.describe('find in the note', () => {
         await expect(page.getByTestId('find-hit')).toBeVisible();
     });
 
-    test('the bar moves down with the visible area a phone keyboard pans', async ({page}) => {
+    test('the bar moves down with the visible area a phone keyboard pans, in the same event', async ({page}) => {
         // arrange
         await page.addInitScript(() => {
             const view = Object.assign(new EventTarget(), {offsetTop: 0, height: window.innerHeight});
@@ -437,13 +437,14 @@ test.describe('find in the note', () => {
         const pan = 300;
 
         // act
-        await page.evaluate((top) => {
+        const after = await page.evaluate((top) => {
             window.visualViewport.offsetTop = top;
             window.visualViewport.dispatchEvent(new Event('scroll'));
+            return document.querySelector('[data-testid="doc-find"]').getBoundingClientRect().y;
         }, pan);
 
         // assert
-        await expect.poll(async () => (await bar.boundingBox()).y).toBe(before + pan);
+        expect(after).toBe(before + pan);
     });
 
     test('a word still being composed is found only once it is committed', async ({page}) => {

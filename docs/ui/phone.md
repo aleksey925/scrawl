@@ -23,7 +23,9 @@ How the app works on a phone.
   fixed to the bottom sat under the keys. The find bar of a note follows the
   visible area too: with the keyboard up, the scroll to a match moved the
   visible area down the page, and the bar fixed to the top of the page was left
-  above the screen until the keyboard closed.
+  above the screen until the keyboard closed. The bar is moved in the scroll
+  event itself, not by a React render: a render came a frame late, and the bar
+  jumped on every step to a match.
 - On a phone everything starts on a 16px line: the page text and the first and
   last icon of the bar on top.
 - On a phone a dialog stands in the middle of the screen, where the system's

@@ -22,8 +22,8 @@
 #
 # scrawl needs no restart between steps: the script asks it to fetch through
 # the webhook. Run start again for a clean slate. Another port or folder:
-# TRY_PORT=7300 TRY_DIR=/tmp/other, the same for every command. start removes
-# only a folder it made itself, one that holds the .try-sync mark.
+# TRY_PORT=7300 TRY_DIR=/tmp/other, the same for every command. A command
+# changes only a folder start made, one that holds the .try-sync mark.
 set -euo pipefail
 
 dir=${TRY_DIR:-/tmp/scrawl-try}
@@ -34,6 +34,13 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 
 usage() {
     sed -n '2,/^set /s/^# \{0,1\}//p' "$0"
+}
+
+ours() {
+    if [ ! -f "$dir/.try-sync" ]; then
+        echo "$dir is not a try-sync folder, so it is not changed" >&2
+        exit 1
+    fi
 }
 
 commit() {
@@ -70,9 +77,8 @@ online() {
 }
 
 start() {
-    if [ -e "$dir" ] && [ ! -f "$dir/.try-sync" ]; then
-        echo "$dir exists and is not a try-sync folder, so it is not removed" >&2
-        exit 1
+    if [ -e "$dir" ]; then
+        ours
     fi
     rm -rf "$dir"
     mkdir -p "$dir"
@@ -102,6 +108,7 @@ EOF
 case "${1:-}" in
 start) start ;;
 offline)
+    ours
     if [ -d "$dir/origin.git" ]; then
         mv "$dir/origin.git" "$dir/origin.gone"
     fi
@@ -109,17 +116,20 @@ offline)
     echo "Not synced: the save stays here until the remote is back"
     ;;
 online)
+    ours
     online
     fetch
     echo "the remote is back: the saved change is sent"
     ;;
 remote)
+    ours
     online
     push_remote "Changed on the remote at $(date +%H:%M:%S)."
     fetch
     echo "the remote changed: reload the note to see the new text"
     ;;
 conflict)
+    ours
     online
     push_remote "Changed on the remote."
     save "Changed here."

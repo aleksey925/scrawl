@@ -1,7 +1,7 @@
 import { mountBase } from '../mount';
 import { encodeContentPath } from '../contentPath';
 import {
-  answeredByGateway, connectionFailed, connectionStalled, serverAnswered, wroteSomething,
+  answeredByGateway, connectionFailed, connectionStalled, firstSignInTrip, serverAnswered, wroteSomething,
 } from '../offline/connection';
 import { answerUrl, dataCache, networkDeadlineMs } from '../offline/keys';
 import { offlineWanted } from '../offline/preference';
@@ -58,9 +58,14 @@ export function installUnauthorizedHandler(
   };
 }
 
-function notifyUnauthorized(): void {
-  const handler = unauthorizedHandlers.get('screen') ?? unauthorizedHandlers.get('shell');
-  handler?.();
+function notifyUnauthorized(byGateway: boolean): void {
+  const screen = unauthorizedHandlers.get('screen');
+  const shell = unauthorizedHandlers.get('shell');
+  if (screen !== undefined) {
+    screen();
+  } else if (shell !== undefined && (!byGateway || firstSignInTrip())) {
+    shell();
+  }
 }
 
 export interface RequestOptions {
@@ -191,9 +196,9 @@ async function send(method: string, url: string, options: CallOptions = {}): Pro
     wroteSomething();
   }
 
-  const signIn = response.status === 401 || (options.gatewaySignIn === true && answeredByGateway(response));
-  if (signIn && options.background !== true) {
-    notifyUnauthorized();
+  const byGateway = options.gatewaySignIn === true && answeredByGateway(response);
+  if ((response.status === 401 || byGateway) && options.background !== true) {
+    notifyUnauthorized(byGateway);
   }
   const allowed = options.allowStatus?.includes(response.status) ?? false;
   if (!response.ok && !allowed) {

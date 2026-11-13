@@ -237,7 +237,11 @@ switch, inside the tap.
   the header, a 5xx of a gateway whose server is down above all, is not a
   sign-in. The app goes to `/login?from=`, which the worker leaves to the
   network, the gateway shows its sign-in there and then sends the person back,
-  and `/login` sends them on to `from`, with auth off too.
+  and `/login` sends them on to `from`, with auth off too. A tab goes there
+  from such an answer once, marked in `sessionStorage`, until `/api/me` answers
+  again: a gateway that refuses `/api/me` with a 403 even after its sign-in,
+  while `/login` gets through, would reload the app forever, and the copy stays
+  readable instead.
 - Offline the reader gets `offlinePlatform`: the app's platform with no search,
   no editing, and `offlineSource`, which reads `scrawl-data` directly and gives
   only answers whose release is the shell's `data-version`. The tree is the

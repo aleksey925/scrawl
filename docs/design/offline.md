@@ -217,6 +217,19 @@ switch, inside the tap.
   `online` event. `/ping` is public, so its answer proves only that the server
   is there; then the app asks `/api/me` in the foreground, and only an answer
   of `/api/me` makes it online again. A 401 there sends the person to sign in.
+  Any answer of `/ping` but a 502, 503 or 504 counts, a gateway's 401 or
+  redirect too, so the sign-in below is reached from offline as well.
+- A gateway with its own sign-in (Cloudflare Access, Authelia, oauth2-proxy)
+  answers an ended session with a redirect, often to another site, a 401, a 403
+  or its sign-in page. A fetch that follows a redirect to another site fails as
+  a network error does, and the app would stay offline on the copy, never
+  reaching the sign-in, since the worker serves the space's pages from the
+  cache. So `/api/me` and `/ping` are asked with `redirect: 'manual'`, and an
+  answer of `/api/me` with no `App-Name: scrawl` that is not a 502, 503 or 504
+  counts as a 401: scrawl redirects neither, and its one answer there without
+  the header is the 401. The app goes to `/login?from=`, which the worker
+  leaves to the network, the gateway shows its sign-in there and then sends the
+  person back, and `/login` sends them on to `from`, with auth off too.
 - Offline the reader gets `offlinePlatform`: the app's platform with no search,
   no editing, and `offlineSource`, which reads `scrawl-data` directly and gives
   only answers whose release is the shell's `data-version`. The tree is the
@@ -262,7 +275,3 @@ switch, inside the tap.
   `/api/me` answers 404; the space menu leads to the others.
 - The offline shell knows no theme, so with a picked theme other than the
   system's the start screen shows the system's ground until the bundle runs.
-- Behind a gateway with its own sign-in (Cloudflare Access, Authelia,
-  oauth2-proxy), an ended gateway session redirects `/api/me` and `/ping` to
-  another site, which a fetch cannot read, so the app stays offline on the copy
-  and never shows the gateway's sign-in. Off reaches it again.

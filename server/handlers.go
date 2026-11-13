@@ -190,7 +190,7 @@ func rawETag(fi store.FileInfo) string {
 
 func (wb *Web) loginPage(w http.ResponseWriter, r *http.Request) {
 	if wb.AuthDisabled || wb.Auth == nil {
-		http.Redirect(w, r, "/", http.StatusFound)
+		http.Redirect(w, r, auth.SafeRedirect(r.URL.Query().Get("from")), http.StatusFound)
 		return
 	}
 	if _, ok := wb.Auth.User(r); ok {

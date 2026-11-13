@@ -2206,10 +2206,15 @@ func TestLoginRedirectsWhenAuthIsDisabled(t *testing.T) {
 
 	// act
 	resp, _ := ts.do(t, request{path: "/login"})
+	back, _ := ts.do(t, request{path: "/login?from=" + url.QueryEscape("/s/notes/guide.md")})
+	outside, _ := ts.do(t, request{path: "/login?from=" + url.QueryEscape("https://example.com/")})
 
 	// assert
 	assert.Equal(t, http.StatusFound, resp.status)
 	assert.Equal(t, "/", resp.header.Get("Location"))
+	assert.Equal(t, http.StatusFound, back.status)
+	assert.Equal(t, "/s/notes/guide.md", back.header.Get("Location"))
+	assert.Equal(t, "/", outside.header.Get("Location"))
 }
 
 func TestCSRFBlocksCrossSiteWrites(t *testing.T) {

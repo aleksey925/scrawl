@@ -289,9 +289,6 @@ history are hidden, since they need the server.
   http the switch is greyed out with `Needs HTTPS`.
 - When the app starts, it opens the copy at once and turns editing on when the
   server answers, so a slow network does not keep the screen empty.
-- Behind a gateway with its own sign-in (Cloudflare Access, Authelia,
-  oauth2-proxy), the app stays offline when the gateway's session ends. Turn
-  "Offline access" off to get to the gateway's sign-in page.
 - The first copy downloads every space whole, plus the app with its diagram
   engines, some tens of megabytes. After that only changed files are
   downloaded.

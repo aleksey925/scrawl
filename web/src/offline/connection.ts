@@ -57,8 +57,8 @@ async function ping(): Promise<void> {
   }
   tellWorker();
   try {
-    const response = await fetch('/ping', { cache: 'no-store', credentials: 'same-origin' });
-    if (response.ok && !online) {
+    const response = await fetch('/ping', { cache: 'no-store', credentials: 'same-origin', redirect: 'manual' });
+    if (!unavailable.has(response.status) && !online) {
       serverBack.notify();
     }
   } catch {
@@ -105,11 +105,18 @@ export function connectionStalled(): void {
   setOnline(false);
 }
 
+function fromScrawl(response: Response): boolean {
+  return response.headers.get('app-name') === 'scrawl';
+}
+
 export function serverAnswered(response: Response): void {
-  const fromScrawl = response.headers.get('app-name') === 'scrawl';
-  if (unavailable.has(response.status) && !fromScrawl) {
+  if (unavailable.has(response.status) && !fromScrawl(response)) {
     connectionFailed();
   }
+}
+
+export function answeredByGateway(response: Response): boolean {
+  return !fromScrawl(response) && !unavailable.has(response.status);
 }
 
 export function confirmOnline(): void {

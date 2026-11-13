@@ -1,6 +1,8 @@
 import { mountBase } from '../mount';
 import { encodeContentPath } from '../contentPath';
-import { connectionFailed, connectionStalled, serverAnswered, wroteSomething } from '../offline/connection';
+import {
+  answeredByGateway, connectionFailed, connectionStalled, serverAnswered, wroteSomething,
+} from '../offline/connection';
 import { answerUrl, dataCache, networkDeadlineMs } from '../offline/keys';
 import { offlineWanted } from '../offline/preference';
 import { togglesOf } from '../reader/findMatches';
@@ -71,6 +73,7 @@ interface CallOptions extends RequestOptions {
   form?: FormData;
   allowStatus?: readonly number[];
   stored?: string;
+  account?: boolean;
 }
 
 export const backgroundHeader = 'X-Scrawl-Background';
@@ -172,6 +175,7 @@ async function send(method: string, url: string, options: CallOptions = {}): Pro
       headers,
       body,
       credentials: 'same-origin',
+      redirect: options.account === true ? 'manual' : 'follow',
       signal: options.signal ?? null,
     });
   } catch (error) {
@@ -187,7 +191,8 @@ async function send(method: string, url: string, options: CallOptions = {}): Pro
     wroteSomething();
   }
 
-  if (response.status === 401 && options.background !== true) {
+  const signIn = response.status === 401 || (options.account === true && answeredByGateway(response));
+  if (signIn && options.background !== true) {
     notifyUnauthorized();
   }
   const allowed = options.allowStatus?.includes(response.status) ?? false;
@@ -266,7 +271,7 @@ export const api: ScrawlApi = {
       stored: answerUrl.nav(mountBase()),
     }),
 
-  me: (options) => call<MeResponse>('GET', spaceUrl('/api/me'), options),
+  me: (options) => call<MeResponse>('GET', spaceUrl('/api/me'), { ...options, account: true }),
 
   spaces: (options) => call<SpaceEntry[]>('GET', globalUrl('/api/spaces'), options),
 

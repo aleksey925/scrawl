@@ -738,6 +738,65 @@ test.describe('offline access', () => {
         await page.waitForURL(/\/login/);
     });
 
+    const gatewayAnswers = [
+        {name: 'a redirect to another site', status: 302, headers: {location: 'https://gateway.invalid/sign-in'}},
+        {name: 'a 403', status: 403, headers: {'content-type': 'text/html'}, body: '<p>Forbidden</p>'},
+        {name: 'its sign-in page', status: 200, headers: {'content-type': 'text/html'}, body: '<form>Sign in</form>'},
+    ];
+
+    async function gatewayAsksToSignIn(context, answer) {
+        const asked = /\/api\/me$|\/ping$/;
+        const signInPage = /\/login\?/;
+        await context.route(asked, (route) => route.fulfill({status: answer.status, headers: answer.headers, body: answer.body}));
+        await context.route(signInPage, (route) => route.fulfill({
+            status: 200, contentType: 'text/html', body: '<h1 data-testid="gateway-sign-in">Gateway sign-in</h1>',
+        }));
+        return async () => {
+            await context.unroute(asked);
+            await context.unroute(signInPage);
+        };
+    }
+
+    for (const answer of gatewayAnswers) {
+        test(`a gateway that answers the account with ${answer.name} at start opens its sign-in, then the note`, async ({page, context}) => {
+            // arrange
+            await copyOn(page);
+            const signedIn = await gatewayAsksToSignIn(context, answer);
+
+            // act
+            await page.goto(routes.doc(NOTE));
+
+            // assert
+            await expect(page.getByTestId('gateway-sign-in')).toBeVisible();
+            expect(new URL(page.url()).searchParams.get('from')).toBe(routes.doc(NOTE));
+
+            // act
+            await signedIn();
+            await page.reload();
+
+            // assert
+            await page.waitForURL((url) => url.pathname === routes.doc(NOTE));
+            await expect(page.getByTestId('doc-edit')).toBeVisible();
+            await expect(page.getByTestId('offline-mark')).toHaveCount(0);
+        });
+    }
+
+    test('offline, a gateway that asks to sign in opens its sign-in once the network is back', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await context.setOffline(true);
+        await page.goto(routes.doc(NOTE));
+        await expect(page.getByTestId('offline-mark')).toBeVisible();
+        await gatewayAsksToSignIn(context, gatewayAnswers[0]);
+
+        // act
+        await context.setOffline(false);
+        await page.evaluate(() => window.dispatchEvent(new Event('online')));
+
+        // assert
+        await expect(page.getByTestId('gateway-sign-in')).toBeVisible();
+    });
+
     test('a written and a deleted note reach the copy, and only what changed is asked for', async ({page, context}) => {
         // arrange
         writeFixture(`${FOLDER}/gone.md`, '# Gone soon\n');

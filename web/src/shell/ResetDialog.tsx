@@ -1,4 +1,4 @@
-import { Alert, Anchor, Button, Checkbox, Code, Group, List, Loader, Modal, Stack, Text } from '@mantine/core';
+import { Anchor, Button, Checkbox, Code, Group, Loader, Modal, Stack, Text } from '@mantine/core';
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useState,
   type JSX, type ReactNode,
@@ -9,11 +9,11 @@ import { ApiError } from '../api/errors';
 import type { Divergence, ResetResponse } from '../api/types';
 import { errorText } from '../api/useApi';
 import { DialogActions } from '../components/DialogActions';
+import { IconFile, IconFileText } from '../icons';
 import { mountBase } from '../mount';
 import { documentUrl, isMarkdown, rawUrl } from '../paths';
 
 import { useNav } from './NavContext';
-import { conflictingFiles } from './syncMessage';
 
 const ResetContext = createContext<(() => void) | undefined>(undefined);
 
@@ -117,14 +117,19 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
       opened
       onClose={close}
       closeOnClickOutside={step.name !== 'resetting'}
-      withCloseButton={step.name !== 'resetting'}
-      title="Replace local copy"
-      size="md"
+      closeOnEscape={step.name !== 'resetting'}
+      withCloseButton={false}
+      centered
+      title={titleOf(step)}
+      size={dialogWidth}
+      styles={{ title: { fontSize: 'var(--mantine-font-size-md)', fontWeight: 600 } }}
     >
       {step.name === 'checking' && (
         <Group gap="sm">
-          <Loader size="sm" />
-          <Text size="sm">Checking for conflicting files…</Text>
+          <Loader size="xs" />
+          <Text size="sm" c="dimmed">
+            Checking for conflicting files…
+          </Text>
         </Group>
       )}
 
@@ -135,11 +140,11 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
               {step.note}
             </Text>
           )}
-          <Text size="sm">After this, the local copy matches the remote repository and sync resumes.</Text>
           <LossReport check={step.check} />
           {!step.check.clean && step.check.can_push_backup && (
             <Checkbox
               data-testid="reset-push-backup"
+              size="xs"
               checked={pushBackup}
               disabled={step.name === 'resetting'}
               onChange={(event) => setPushBackup(event.currentTarget.checked)}
@@ -150,12 +155,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
             <Button data-testid="modal-cancel" variant="default" onClick={close} disabled={step.name === 'resetting'}>
               Cancel
             </Button>
-            <Button
-              data-testid="modal-confirm"
-              color="yellow"
-              loading={step.name === 'resetting'}
-              onClick={() => reset(step.check)}
-            >
+            <Button data-testid="modal-confirm" loading={step.name === 'resetting'} onClick={() => reset(step.check)}>
               Replace
             </Button>
           </DialogActions>
@@ -164,9 +164,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
 
       {step.name === 'done' && (
         <Stack gap="md">
-          <Alert data-testid="reset-done" color="green" title="The local copy is replaced">
-            <BackupReport result={step.result} />
-          </Alert>
+          <BackupReport result={step.result} />
           <DialogActions>
             <Button data-testid="reset-reload" onClick={reload}>
               Reload the page
@@ -178,15 +176,13 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
       {step.name === 'failed' && (
         <Stack gap="md">
           {step.inStep ? (
-            <Alert data-testid="reset-in-step" color="green" title="Nothing to replace">
+            <Text data-testid="reset-in-step" size="sm" c="dimmed">
               The local copy already matches the remote repository.
-            </Alert>
+            </Text>
           ) : (
-            <Alert data-testid="reset-failed" color="red" title="The local copy was not replaced">
-              <Text size="sm" style={{ overflowWrap: 'anywhere' }}>
-                {step.message}
-              </Text>
-            </Alert>
+            <Text data-testid="reset-failed" size="sm" c="dimmed" style={{ overflowWrap: 'anywhere' }}>
+              {step.message}
+            </Text>
           )}
           <DialogActions>
             <Button data-testid="modal-cancel" variant="default" onClick={close}>
@@ -204,54 +200,90 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
   );
 }
 
-const backupSentence = 'The local version is saved to a backup branch, so nothing is lost.';
+const dialogWidth = 400;
+
+const fileIconSize = 14;
+
+function titleOf(step: Step): string {
+  switch (step.name) {
+    case 'done':
+      return 'Local copy replaced';
+    case 'failed':
+      return step.inStep ? 'Nothing to replace' : 'The local copy was not replaced';
+    default:
+      return 'Replace local copy?';
+  }
+}
+
+const outcome = 'After this, the local copy matches the remote repository and sync resumes.';
 
 function LossReport({ check }: { check: Divergence }): JSX.Element {
   const links = useMemo(() => check.lost.paths.map((lost) => ({ path: lost, href: noteHref(lost) })), [check.lost.paths]);
 
   if (check.clean) {
     return (
-      <Alert data-testid="reset-clean" color="green" title="Nothing will be lost">
-        All local changes are already in the remote repository.
-      </Alert>
+      <Text data-testid="reset-clean" size="sm" c="dimmed">
+        {outcome} All local changes are already in the remote repository, so nothing will be lost.
+      </Text>
+    );
+  }
+  if (links.length === 0) {
+    return (
+      <Text data-testid="reset-lost" size="sm" c="dimmed">
+        {outcome}{' '}
+        {check.lost.many
+          ? 'Too many conflicting files to list.'
+          : 'The conflicting files could not be listed, so treat every local change as conflicting.'}{' '}
+        The local version is saved to a backup branch first, so nothing is lost.
+      </Text>
     );
   }
   return (
-    <Alert data-testid="reset-lost" color="yellow">
-      <Stack gap="xs">
-        {links.length > 0 && (
-          <>
-            <Text size="sm">{conflictingFiles}</Text>
-            <List data-testid="reset-lost-paths" size="sm" spacing={4} withPadding>
-              {links.map(({ path, href }) => (
-                <List.Item key={path} style={{ overflowWrap: 'anywhere' }}>
-                  <Anchor href={href} target="_blank" rel="noreferrer" size="sm">
-                    {path}
-                  </Anchor>
-                </List.Item>
-              ))}
-            </List>
-          </>
-        )}
-        {links.length === 0 && (
-          <Text size="sm">
-            {check.lost.many
-              ? 'Too many conflicting files to list.'
-              : 'The conflicting files could not be listed, so treat every local change as conflicting.'}
-          </Text>
-        )}
-        <Text size="sm">{backupSentence}</Text>
+    <Stack data-testid="reset-lost" gap="sm">
+      <Text size="sm" c="dimmed">
+        {outcome} These files are saved to a backup branch first:
+      </Text>
+      <Stack
+        data-testid="reset-lost-paths"
+        gap={2}
+        py={6}
+        px="sm"
+        style={{ background: 'var(--scrawl-hover)', borderRadius: 'var(--mantine-radius-md)' }}
+      >
+        {links.map(({ path, href }) => (
+          <Group key={path} gap={8} wrap="nowrap" style={{ color: 'var(--scrawl-text-tertiary)' }}>
+            {isMarkdown(path) ? (
+              <IconFileText size={fileIconSize} aria-hidden style={{ flex: 'none' }} />
+            ) : (
+              <IconFile size={fileIconSize} aria-hidden style={{ flex: 'none' }} />
+            )}
+            <Anchor
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              size="sm"
+              underline="hover"
+              style={{ color: 'var(--scrawl-text)', overflowWrap: 'anywhere' }}
+            >
+              {path}
+            </Anchor>
+          </Group>
+        ))}
       </Stack>
-    </Alert>
+    </Stack>
   );
 }
 
 function BackupReport({ result }: { result: ResetResponse }): JSX.Element {
   if (result.backup === '') {
-    return <Text size="sm">Nothing was lost, so no backup branch was made.</Text>;
+    return (
+      <Text data-testid="reset-done" size="sm" c="dimmed">
+        Nothing was lost, so no backup branch was made.
+      </Text>
+    );
   }
   return (
-    <Text size="sm">
+    <Text data-testid="reset-done" size="sm" c="dimmed">
       The local version is saved to the branch <Code data-testid="reset-backup">{result.backup}</Code>
       {result.backup_pushed ? ' and pushed to remote.' : '. It was not pushed to remote.'}
     </Text>

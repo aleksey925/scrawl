@@ -16,8 +16,6 @@ export interface SyncFact {
   reason: string;
 }
 
-export const conflictingFiles = 'Conflicting files:';
-
 export function factText(entry: SyncFact, listed: boolean): string {
   return listed || entry.affected === '' ? entry.body : `${entry.body} ${entry.affected}`;
 }

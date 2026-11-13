@@ -4,7 +4,7 @@ import { Outlet } from 'react-router';
 import { installUnauthorizedHandler } from '../api/client';
 import type { MeResponse } from '../api/types';
 import { goToLogin } from '../login';
-import { useOffline } from '../offline/connection';
+import { useConnection } from '../offline/connection';
 import { offlineMe, storedMe } from '../offline/source';
 
 import { DocumentExtras } from './DocumentExtras';
@@ -54,7 +54,7 @@ export function AppLayout(): JSX.Element {
 }
 
 function AppProviders({ children }: { children: ReactNode }): JSX.Element {
-  const offline = useOffline();
+  const offline = useConnection() !== 'online';
   return (
     <ResetProvider>
       <FileActionsProvider>
@@ -85,7 +85,7 @@ function useStoredMe(wanted: boolean): MeResponse | undefined {
 
 function SpaceNavProvider({ children }: { children: ReactNode }): JSX.Element {
   const live = useMe();
-  const offline = useOffline();
+  const offline = useConnection() !== 'online';
   const stored = useStoredMe(offline && live.me === undefined);
   const status = useMemo<MeState>(() => {
     if (!offline) {

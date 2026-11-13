@@ -6,7 +6,7 @@ import { useApi } from '../api/useApi';
 import { PopupMenu } from '../components/PopupMenu';
 import { IconCheck, IconEyeOff, IconLogin, IconLogout } from '../icons';
 import { goToLogin } from '../login';
-import { useOffline } from '../offline/connection';
+import { useConnection } from '../offline/connection';
 import { deleteOfflineData } from '../offline/register';
 import { storedSpaces } from '../offline/source';
 import { layout } from '../theme';
@@ -44,7 +44,7 @@ export function SpaceMenuDropdown(): JSX.Element {
   const { me } = useNav();
   const { openShortcuts } = useReaderLayout();
   const keyboard = useKeyboardPlace();
-  const offline = useOffline();
+  const offline = useConnection() !== 'online';
   const state = useApi((signal) => (offline ? storedSpaces() : api.spaces({ signal })), [offline]);
   const spaces = state.data ?? [];
   const current = me?.space;

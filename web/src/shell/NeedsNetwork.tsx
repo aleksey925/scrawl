@@ -37,7 +37,7 @@ function NeedsNetwork({ note }: { note: string | undefined }): JSX.Element {
   );
 }
 
-export function NetworkGate({ children }: { children: ReactNode }): JSX.Element {
+export function NetworkGate({ children }: { children: ReactNode }): JSX.Element | null {
   const location = useLocation();
   const connection = useConnection();
   const entered = useRef({ key: location.key, connection });
@@ -46,7 +46,7 @@ export function NetworkGate({ children }: { children: ReactNode }): JSX.Element 
   }
   if (networkRoute.test(location.pathname)) {
     if (connection === 'checking') {
-      return <></>;
+      return null;
     }
     if (connection === 'offline' && entered.current.connection === 'offline') {
       return <NeedsNetwork note={noteOf(location.pathname)} />;

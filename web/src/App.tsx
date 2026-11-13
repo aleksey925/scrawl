@@ -3,7 +3,7 @@ import { ModalsProvider } from '@mantine/modals';
 import type { JSX } from 'react';
 import { RouterProvider } from 'react-router';
 
-import { appPlatform, offlinePlatform, startingPlatform } from './appPlatform';
+import { appPlatform, checkingPlatform, offlinePlatform } from './appPlatform';
 import { Toasts } from './components/Toasts';
 import { useConnection, type Connection } from './offline/connection';
 import { PlatformProvider, type Platform } from './platform';
@@ -15,7 +15,7 @@ const colorSchemeManager = themeColorSchemeManager();
 
 const platforms: Record<Connection, Platform> = {
   online: appPlatform,
-  checking: startingPlatform,
+  checking: checkingPlatform,
   offline: offlinePlatform,
 };
 

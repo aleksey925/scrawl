@@ -171,16 +171,20 @@ async function storedRaw(request: Request, pathname: string): Promise<Response |
   return caches.match(canonicalPath(pathname), { cacheName: dataCache, ignoreVary: true });
 }
 
+async function storedAtOnce(request: Request, stored: Response | undefined, fallback = stored): Promise<Response> {
+  if (stored !== undefined && !(await signInPending(request))) {
+    return stored;
+  }
+  return networkFirst(request, () => Promise.resolve(fallback));
+}
+
 async function spaceShell(request: Request, space: string): Promise<Response> {
   const shell = await caches.match(config.shell);
   const me = await caches.match(answerUrl.me(spaceBase(decoded(space))), { cacheName: dataCache });
-  if (shell !== undefined && me !== undefined && !(await signInPending(request))) {
-    return shell;
-  }
-  return networkFirst(request, () => Promise.resolve(shell));
+  return storedAtOnce(request, me === undefined ? undefined : shell, shell);
 }
 
-async function startPage(): Promise<Response | undefined> {
+async function storedStartRedirect(): Promise<Response | undefined> {
   const stored = await caches.match(answerUrl.spaces, { cacheName: dataCache });
   if (stored === undefined) {
     return undefined;
@@ -188,14 +192,6 @@ async function startPage(): Promise<Response | undefined> {
   const spaces = (await stored.json()) as SpaceEntry[];
   const first = spaces[0];
   return first === undefined ? undefined : Response.redirect(first.url, 302);
-}
-
-async function firstPage(request: Request): Promise<Response> {
-  const start = await startPage();
-  if (start !== undefined && !(await signInPending(request))) {
-    return start;
-  }
-  return networkFirst(request, () => Promise.resolve(start));
 }
 
 self.addEventListener('fetch', (event) => {
@@ -220,7 +216,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   if (url.pathname === '/') {
-    event.respondWith(firstPage(request));
+    event.respondWith(storedStartRedirect().then((start) => storedAtOnce(request, start)));
     return;
   }
   if (rest !== undefined && !rest.startsWith('api/')) {

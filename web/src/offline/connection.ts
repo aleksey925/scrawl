@@ -31,7 +31,7 @@ function tellWorker(): void {
   post({ type: 'connection', online });
 }
 
-function setOnline(next: boolean, pingNow = true): void {
+function setOnline(next: boolean): void {
   if (next === online && !checking) {
     return;
   }
@@ -42,7 +42,13 @@ function setOnline(next: boolean, pingNow = true): void {
     tellWorker();
   }
   changed.notify();
-  watch(pingNow);
+  watch();
+}
+
+function checkTimedOut(): void {
+  checking = false;
+  changed.notify();
+  startProbe();
 }
 
 async function ping(): Promise<void> {
@@ -59,15 +65,20 @@ async function ping(): Promise<void> {
   }
 }
 
-function watch(pingNow = true): void {
+function startProbe(): boolean {
+  if (online || checking || probe !== undefined || !offlineWanted()) {
+    return false;
+  }
+  probe = window.setInterval(() => void ping(), probeMs);
+  return true;
+}
+
+function watch(): void {
   if (online && probe !== undefined) {
     window.clearInterval(probe);
     probe = undefined;
-  } else if (!online && !checking && probe === undefined && offlineWanted()) {
-    probe = window.setInterval(() => void ping(), probeMs);
-    if (pingNow) {
-      void ping();
-    }
+  } else if (startProbe()) {
+    void ping();
   }
 }
 
@@ -77,10 +88,10 @@ export function startConnection(): void {
   }
   window.addEventListener('offline', connectionFailed);
   window.addEventListener('online', () => void ping());
-  onChoiceChange(() => watch());
+  onChoiceChange(watch);
   tellWorker();
   if (checking) {
-    checkDeadline = window.setTimeout(() => setOnline(false, false), networkDeadlineMs);
+    checkDeadline = window.setTimeout(checkTimedOut, networkDeadlineMs);
   }
   watch();
 }
@@ -129,27 +140,21 @@ export function onWrite(listener: () => void): () => void {
   return wrote.subscribe(listener);
 }
 
-export function useOffline(): boolean {
-  const wanted = useOfflineWanted();
-  const connected = useConnected();
-  return wanted && !connected;
-}
-
 export function useConnected(): boolean {
   return useSyncExternalStore(changed.subscribe, isOnline);
 }
 
-function isChecking(): boolean {
-  return checking;
-}
-
 export type Connection = 'online' | 'checking' | 'offline';
 
-export function useConnection(): Connection {
-  const offline = useOffline();
-  const starting = useSyncExternalStore(changed.subscribe, isChecking);
-  if (!offline) {
+function currentConnection(): Connection {
+  if (online) {
     return 'online';
   }
-  return starting ? 'checking' : 'offline';
+  return checking ? 'checking' : 'offline';
+}
+
+export function useConnection(): Connection {
+  const wanted = useOfflineWanted();
+  const connection = useSyncExternalStore(changed.subscribe, currentConnection);
+  return wanted ? connection : 'online';
 }

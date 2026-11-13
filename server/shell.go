@@ -80,13 +80,15 @@ const shellTemplate = `<!doctype html>
 {{end}}<script type="module" crossorigin src="{{.Entry}}"></script>
 </head>
 <body>
-<div id="scrawl-app-root" data-base="{{.Base}}" data-version="{{.Version}}"><div class="scrawl-splash">{{.Logo}}</div></div>
+<div id="scrawl-app-root" data-base="{{.Base}}" data-version="{{.Version}}">
+<div class="scrawl-splash" aria-hidden="true">{{.Logo}}</div>
+</div>
 </body>
 </html>
 `
 
 var splashLogo = sync.OnceValue(func() template.HTML {
-	return inlineLogo(`aria-hidden="true"`)
+	return inlineLogo()
 })
 
 func newAppShell(files gzassets.Files) (*appShell, error) {

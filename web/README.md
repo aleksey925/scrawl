@@ -139,7 +139,9 @@ React mounts.
 
 **Mount node.** The shell has to contain `<div id="scrawl-app-root">`.
 The server puts the start screen inside it, and React replaces it on
-its first render.
+its first render. The start screen is `<div class="scrawl-splash">`,
+styled by the global `src/components/Splash.css`. It is not a CSS
+module, because the server's shell uses the same class.
 
 ## Themes
 
@@ -205,9 +207,10 @@ for the two sides of a version and `src/shell/FileView.tsx` for a
 highlighted text file. It is safe because the server made it: a note and a
 diff side are sanitized with the bluemonday policy in `render/policy.go`,
 and a text file is highlighted by `render` from escaped source. Keeping the
-injection in these three places keeps that trust boundary small. The one
-other `dangerouslySetInnerHTML` is `src/shell/AppLogo.tsx`, which draws the
-logo, a file of the bundle and never input.
+injection in these three places keeps that trust boundary small. The two
+other `dangerouslySetInnerHTML` are `src/shell/AppLogo.tsx` and
+`src/components/Splash.tsx`, which draw the logo, a file of the bundle and
+never input.
 
 ## Browser and library quirks
 

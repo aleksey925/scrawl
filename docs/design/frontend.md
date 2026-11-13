@@ -70,7 +70,7 @@ How the react app in `web/` is built, shipped and wired.
   refs, never a bare id lookup.
 - Offline the app gives the reader `offlinePlatform`, its own platform with
   `offlineSource`, which reads the copy, and no search or editing. While the
-  connection is checked at start it gives `startingPlatform`, the same with the
+  connection is checked at start it gives `checkingPlatform`, the same with the
   api client behind what the copy does not hold. Swapping the platform runs
   `useApi` again, which keeps the last answer on screen while it loads, so
   going offline or back does not blank the page

@@ -82,7 +82,7 @@ function storedFirst<A extends unknown[], T>(
     });
 }
 
-export const startingPlatform: Platform = {
+export const checkingPlatform: Platform = {
   ...offlinePlatform,
   source: {
     page: storedFirst(offlineSource.page, api.page),

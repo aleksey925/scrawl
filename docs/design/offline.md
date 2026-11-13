@@ -206,7 +206,7 @@ switch, inside the tap.
 - A start from the offline shell while `navigator.onLine` is true is a check,
   not a failure: the app reads the copy, but shows no `Offline` mark, and
   `/edit/`, `/history/` and `/search` show nothing yet. The reader gets
-  `startingPlatform`, `offlinePlatform` whose source asks the network for a
+  `checkingPlatform`, `offlinePlatform` whose source asks the network for a
   note, a folder or the tree the copy does not hold. The check ends online when
   `/api/me` answers, and offline on a network error or after 3 seconds; the
   probe below starts only then, and its first `/ping` waits 15 seconds, so a

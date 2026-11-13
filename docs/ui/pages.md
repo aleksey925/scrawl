@@ -67,7 +67,7 @@ opens over them.
   selected text keep the browser's own menu, so text is still copied from
   there. The free space is the page, which grows to the bottom of the window. A
   row keeps the hover gray while its menu is up. A rename draws the field in
-  the name cell of the row, with the ring a new row has, and the row then takes
+  the name cell of the row, with the gray a new row has, and the row then takes
   no click, no right click and no hover. New, a file or a folder, is a large
   main button at the right of the folder's title, where Notion puts New page.
   The table is Notion's too: its one view a gray pill with no line under it, no

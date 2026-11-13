@@ -20,7 +20,10 @@ How the app works on a phone.
   thumb's reach. The editor has no bar, and a site has none. The search field
   is placed by the visible area of the screen, not by CSS alone: a phone's
   keyboard covers the bottom of the page without making it shorter, and a field
-  fixed to the bottom sat under the keys.
+  fixed to the bottom sat under the keys. The find bar of a note follows the
+  visible area too: with the keyboard up, the scroll to a match moved the
+  visible area down the page, and the bar fixed to the top of the page was left
+  above the screen until the keyboard closed.
 - On a phone everything starts on a 16px line: the page text and the first and
   last icon of the bar on top.
 - On a phone a dialog stands in the middle of the screen, where the system's

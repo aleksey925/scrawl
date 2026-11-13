@@ -22,6 +22,7 @@ export interface FindOnPage {
   total: number;
   open: (text?: string) => void;
   setQuery: (query: FindQuery) => void;
+  compose: (query: FindQuery) => void;
   run: () => void;
   step: (delta: number) => void;
   close: () => void;
@@ -188,6 +189,11 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
     setQueryState(next);
   }, []);
 
+  const compose = useCallback((next: FindQuery) => {
+    setArmed(false);
+    setQueryState(next);
+  }, []);
+
   const close = useCallback((): void => {
     setOpened(false);
     setQueryState(emptyQuery);
@@ -205,6 +211,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
     total,
     open,
     setQuery,
+    compose,
     run: () => setArmed(true),
     step: (delta: number) => show(index + delta, true),
     close,

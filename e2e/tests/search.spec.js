@@ -423,6 +423,47 @@ test.describe('find in the note', () => {
         await expect(page.getByTestId('find-hit')).toBeVisible();
     });
 
+    test('the bar moves down with the visible area a phone keyboard pans', async ({page}) => {
+        // arrange
+        await page.addInitScript(() => {
+            const view = Object.assign(new EventTarget(), {offsetTop: 0, height: window.innerHeight});
+            Object.defineProperty(window, 'visualViewport', {value: view, configurable: true});
+        });
+        await page.reload();
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await openFind(page);
+        const bar = page.getByTestId('doc-find');
+        const before = (await bar.boundingBox()).y;
+        const pan = 300;
+
+        // act
+        await page.evaluate((top) => {
+            window.visualViewport.offsetTop = top;
+            window.visualViewport.dispatchEvent(new Event('scroll'));
+        }, pan);
+
+        // assert
+        await expect.poll(async () => (await bar.boundingBox()).y).toBe(before + pan);
+    });
+
+    test('a word still being composed is found only once it is committed', async ({page}) => {
+        // arrange
+        const counter = page.getByTestId('doc-find-count');
+        const cdp = await page.context().newCDPSession(page);
+        await openFind(page);
+
+        // act
+        await cdp.send('Input.imeSetComposition', {text: 'foo', selectionStart: 3, selectionEnd: 3});
+        await page.waitForTimeout(500);
+        const composing = await counter.getAttribute('data-status');
+        await cdp.send('Input.insertText', {text: 'foo'});
+
+        // assert
+        expect(composing).toBe('idle');
+        await expect(page.getByTestId('doc-find-input')).toHaveValue('foo');
+        await expect(counter).toHaveAttribute('data-total', '3');
+    });
+
     test('Esc closes the bar and takes the marks and the query away', async ({page}) => {
         // arrange
         await page.goto(`${routes.doc(FIND)}?q=foo`);

@@ -3,6 +3,7 @@ import { useEffect, useRef, type JSX, type KeyboardEvent, type ReactNode } from 
 
 import { IconChevronDown, IconChevronUp, IconSearch, IconX } from '../icons';
 import { ownsShortcuts } from '../shell/shortcuts';
+import { useVisibleArea } from '../shell/useVisibleArea';
 import { layout } from '../theme';
 
 import classes from './FindBar.module.css';
@@ -28,9 +29,12 @@ type ToggleName = keyof Omit<FindQuery, 'text'>;
 
 const toggleKeys: Partial<Record<string, ToggleName>> = { KeyC: 'matchCase', KeyW: 'word', KeyR: 'regex' };
 
+const imeKeyCode = 229;
+
 export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
   const input = useRef<HTMLInputElement>(null);
   const { query, setQuery } = find;
+  const visibleTop = useVisibleArea(true)?.top ?? 0;
   const flip = (name: ToggleName): void => setQuery({ ...query, [name]: !query[name] });
 
   useEffect(() => {
@@ -39,6 +43,9 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
   }, [find.openings]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === imeKeyCode) {
+      return;
+    }
     if (event.altKey) {
       const name = toggleKeys[event.nativeEvent.code];
       if (name !== undefined) {
@@ -63,7 +70,14 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
   };
 
   return (
-    <div data-testid="doc-find" className={classes.bar} role="search" data-print="hide" {...ownsShortcuts}>
+    <div
+      data-testid="doc-find"
+      className={classes.bar}
+      style={visibleTop === 0 ? undefined : { transform: `translateY(${visibleTop}px)` }}
+      role="search"
+      data-print="hide"
+      {...ownsShortcuts}
+    >
       <IconSearch size={layout.iconSizeSmall} className={classes.icon} />
       <input
         ref={input}
@@ -74,7 +88,15 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
         aria-label="Find in the note"
         autoComplete="off"
         spellCheck={false}
-        onChange={(event) => setQuery({ ...query, text: event.currentTarget.value })}
+        onChange={(event) => {
+          const next = { ...query, text: event.currentTarget.value };
+          if ((event.nativeEvent as InputEvent).isComposing) {
+            find.compose(next);
+          } else {
+            setQuery(next);
+          }
+        }}
+        onCompositionEnd={(event) => setQuery({ ...query, text: event.currentTarget.value })}
         onKeyDown={onKeyDown}
       />
       <span

@@ -691,7 +691,7 @@ test.describe('offline access', () => {
         await expect(page.getByTestId('app-needs-network')).toHaveCount(0);
     });
 
-    test('at start a page that needs the server says so when the account does not answer', async ({page, context}) => {
+    test('at start a page that needs the server says so when the account does not answer, then stays once it opened', async ({page, context}) => {
         // arrange
         await copyOn(page);
         const me = await holdRoute(context, /\/api\/me$/);
@@ -708,6 +708,15 @@ test.describe('offline access', () => {
 
         // assert
         await expect(page.getByTestId('editor-source')).toBeVisible();
+
+        // act
+        await context.setOffline(true);
+        await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+
+        // assert
+        await expect(page.getByTestId('offline-mark')).toBeVisible();
+        await expect(page.getByTestId('editor-source')).toBeVisible();
+        await expect(page.getByTestId('app-needs-network')).toHaveCount(0);
     });
 
     test('a session that ended opens the copy, then the sign-in page', async ({page, context}) => {

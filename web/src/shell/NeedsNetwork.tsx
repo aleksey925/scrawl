@@ -41,7 +41,11 @@ export function NetworkGate({ children }: { children: ReactNode }): JSX.Element 
   const location = useLocation();
   const connection = useConnection();
   const entered = useRef({ key: location.key, connection });
-  if (entered.current.key !== location.key || entered.current.connection === 'checking') {
+  if (
+    entered.current.key !== location.key ||
+    entered.current.connection === 'checking' ||
+    connection === 'online'
+  ) {
     entered.current = { key: location.key, connection };
   }
   if (networkRoute.test(location.pathname)) {

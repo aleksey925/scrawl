@@ -236,12 +236,15 @@ switch, inside the tap.
   The app goes to `/login?from=`, which the worker leaves to the network, the
   gateway shows its sign-in there and then sends the person back, and `/login`
   sends them on to `from`, with auth off too. A tab goes there from such an
-  answer once, marked in `sessionStorage`, until `/api/me` answers again: a
-  gateway that refuses `/api/me` with a 403 even after its sign-in, while
-  `/login` gets through, would reload the app forever, and the copy stays
-  readable instead. scrawl's own 401 is not limited: its sign-in page cannot
-  loop, and a tab that came back from it with Back on the copy would otherwise
-  stay there with no way to sign in.
+  answer at most once in 5 minutes, the time of the last trip kept in
+  `sessionStorage` and cleared when `/api/me` answers: a gateway that refuses
+  `/api/me` with a 403 even after its sign-in, while `/login` gets through,
+  would reload the app forever, and the copy stays readable instead. A mark
+  with no end would leave a person who left the gateway's page without signing
+  in on the copy for as long as the tab lives, with no way to sign in, since
+  the space menu hides Sign in on the copy. scrawl's own 401 is not limited:
+  its sign-in page cannot loop, and a tab that came back from it with Back on
+  the copy would otherwise stay there with no way to sign in.
 - A 404 of `/api/me` while the app reads the copy means the server no longer
   has the space, renamed or removed, while the copy and its `/api/spaces` still
   do: `/` would keep sending the person there. The app asks `/api/spaces` and

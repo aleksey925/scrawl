@@ -101,7 +101,7 @@ scrawl only reads.
 Run this in a folder of markdown files:
 
 ```
-docker run --rm -p 127.0.0.1:7272:7272 \
+docker run --rm -p 7272:7272 \
   -v "$PWD":/spaces/notes \
   -e SPACE_NAME=notes \
   -e READ_ONLY=true \
@@ -119,8 +119,7 @@ This run leaves the folder exactly as it was:
 - `HISTORY=off` keeps scrawl from creating a git repository in the folder. In
   normal use it keeps one there to record the history of every page.
 - `AUTH_DISABLED=true` skips the sign-in page, since this is only a look on
-  your own machine. `127.0.0.1` in `-p` then keeps other machines on the
-  network out.
+  your own machine.
 - `--rm` removes the container once you stop it.
 
 ### Use a local folder

@@ -1,7 +1,7 @@
 import { mountBase } from '../mount';
 import { encodeContentPath } from '../contentPath';
 import {
-  answeredByGateway, connectionFailed, connectionStalled, firstSignInTrip, serverAnswered, wroteSomething,
+  answeredByGateway, connectionFailed, connectionStalled, serverAnswered, signInTripDue, wroteSomething,
 } from '../offline/connection';
 import { answerUrl, dataCache, networkDeadlineMs } from '../offline/keys';
 import { offlineWanted } from '../offline/preference';
@@ -63,7 +63,7 @@ function notifyUnauthorized(byGateway: boolean): void {
   const shell = unauthorizedHandlers.get('shell');
   if (screen !== undefined) {
     screen();
-  } else if (shell !== undefined && (!byGateway || firstSignInTrip())) {
+  } else if (shell !== undefined && (!byGateway || signInTripDue())) {
     shell();
   }
 }

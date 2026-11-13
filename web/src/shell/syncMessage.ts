@@ -16,6 +16,8 @@ export interface SyncFact {
   reason: string;
 }
 
+export const conflictingFiles = 'Conflicting files:';
+
 export function factText(entry: SyncFact, listed: boolean): string {
   return listed || entry.affected === '' ? entry.body : `${entry.body} ${entry.affected}`;
 }
@@ -90,12 +92,13 @@ function factsOf(me: MeResponse): SyncFact[] {
   return res;
 }
 
-const divergedTitle = 'Conflict with the remote';
+const divergedTitle = 'Conflict with the remote repository';
 
 function divergedBody(canReset: boolean): string {
   const what =
-    'This copy and the remote both have new changes. Sync is stopped until you use the remote version.';
-  return canReset ? what : `${what} You are not allowed to do that here.`;
+    'scrawl keeps a local copy of the remote repository. They no longer match, and scrawl cannot sync them. ' +
+    'Sync is paused.';
+  return canReset ? what : `${what} Someone who can write to this space can fix it.`;
 }
 
 interface Refusal {
@@ -147,7 +150,7 @@ function affectedSentence(me: MeResponse): string {
     return 'Too many files to list.';
   }
   if (unsynced.paths.length > 0) {
-    return 'The sync control lists the notes.';
+    return 'To see the changes that were not synced, click the sync status at the top.';
   }
   return '';
 }

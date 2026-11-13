@@ -2363,9 +2363,14 @@ test.describe('mobile sync state', () => {
         await expectNoHorizontalScroll(page);
     });
 
-    test('a diverged space shows its sign and keeps the word in the popover', async ({page}) => {
+    test('a diverged space shows its sign and names the conflicting files in the popover', async ({page}) => {
         // arrange
-        await mockMe(page, {unpublished: true, diverged: true, sync_error: 'merge: the branch has diverged from origin/main'});
+        await mockMe(page, {
+            unpublished: true,
+            diverged: true,
+            sync_error: 'merge: the branch has diverged from origin/main',
+            unsynced: {paths: [SYNC_DOC], many: false},
+        });
         await page.goto(WIKI.doc(SYNC_DOC));
         const sync = page.getByTestId('sync-control');
 
@@ -2375,9 +2380,12 @@ test.describe('mobile sync state', () => {
 
         // assert
         await expect(sync).toHaveText('');
-        await expect(sync).toHaveAttribute('aria-label', 'Diverged');
-        await expect(page.getByTestId('sync-details')).toContainText('Diverged');
-        await expect(page.getByTestId('sync-details').getByTestId('sync-reset')).toBeVisible();
+        await expect(sync).toHaveAttribute('aria-label', 'Conflict. This note is not sent yet');
+        const details = page.getByTestId('sync-details');
+        await expect(details).toContainText('Conflict');
+        await expect(details).toContainText('Conflicting files:');
+        await expect(details.getByTestId('sync-popover-paths')).toHaveText(SYNC_DOC);
+        await expect(details.getByTestId('sync-reset')).toHaveCount(0);
         await shot(page, 'mobile-sync-diverged');
     });
 

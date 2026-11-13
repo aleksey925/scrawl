@@ -588,7 +588,7 @@ track. Many deliveries at once start at most two fetches.
 A conflict means this copy and the remote both have changes the other does not:
 somebody pushed while this copy had changes of its own, or the branch was
 rewritten on the remote. scrawl does not merge, so it stops syncing and shows a
-banner with one button, **Use remote version**. Nothing is lost on the way:
+banner with one button, **Replace local copy**. Nothing is lost on the way:
 
 - before the reset it checks what would be lost, comparing content rather than
   commits, so after a rebase or a squash on the remote it often finds nothing;

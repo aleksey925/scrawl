@@ -51,10 +51,10 @@ test.describe('sync state', () => {
 
         await expect(control(page)).toHaveAttribute('data-state', 'not-sent');
         await expect(control(page)).toHaveAttribute('data-here', 'true');
-        await expect(control(page)).toHaveText('Not sent, will retry');
+        await expect(control(page)).toHaveText('Not synced');
         const alert = page.getByTestId('space-alert');
         await expect(alert).toBeVisible();
-        await expect(alert).toContainText('scrawl tries again in about a minute.');
+        await expect(alert).toContainText('Retrying in a minute.');
         const kind = await alert.getAttribute('data-kind');
         expect(['push', 'fetch']).toContain(kind);
         await expect(alert.getByTestId('space-alert-reason')).toHaveText(new RegExp(`^${kind}: `));
@@ -120,7 +120,7 @@ test.describe('sync state', () => {
 
         await page.goto(WIKI.doc('index.md'));
         await expect(control(page)).toHaveAttribute('data-here', 'true');
-        await expect(control(page)).toHaveAttribute('aria-label', 'Not sent, will retry. This note has not reached the remote');
+        await expect(control(page)).toHaveAttribute('aria-label', 'Not synced. This note is not sent yet');
         await shot(page, 'sync-root-index');
 
         await page.goto(WIKI.edit(FOLDER_DOC));
@@ -146,8 +146,8 @@ test.describe('sync state', () => {
         await page.goto(WIKI.doc(DOC));
         await expect(page.getByTestId('space-alert')).toHaveAttribute('data-kind', 'merge');
         await expect(control(page)).toHaveAttribute('data-state', 'blocked');
-        await expect(control(page)).toHaveText('Diverged');
-        await expect(page.getByTestId('space-alert')).not.toContainText('tries again');
+        await expect(control(page)).toHaveText('Conflict');
+        await expect(page.getByTestId('space-alert')).not.toContainText('Retrying');
         await expect(page.getByTestId('space-alert')).not.toContainText('git ');
         await page.getByTestId('space-alert').getByTestId('sync-reset').click();
 
@@ -210,9 +210,9 @@ test.describe('sync state', () => {
         await page.goto(WIKI.doc(DOC));
 
         const alert = page.getByTestId('space-alert');
-        await expect(alert).toContainText('The remote does not take changes from this space');
-        await expect(alert).toContainText('Give the space a token with write access, or make it read-only.');
-        await expect(alert).not.toContainText('tries again');
+        await expect(alert).toContainText('The remote refuses changes');
+        await expect(alert).toContainText('Use a token with write access, or make the space read-only.');
+        await expect(alert).not.toContainText('Retrying');
         await expect(control(page)).toHaveAttribute('data-state', 'blocked');
         await expect(control(page)).toHaveText('Access refused');
         await expect(alert.getByTestId('space-alert-reason')).toHaveCount(0);
@@ -244,14 +244,14 @@ test.describe('sync state', () => {
         await expect(control(page)).toHaveAttribute('data-state', 'sending');
         await expect(control(page).getByTestId('sync-spinner')).toBeVisible();
         await expect(control(page)).toHaveText('');
-        await expect(control(page)).toHaveAttribute('aria-label', 'Sending changes');
+        await expect(control(page)).toHaveAttribute('aria-label', 'Syncing…');
         await shot(page, 'sync-sending');
         me.set({pushing: false});
         await expect(control(page)).toHaveAttribute('data-state', 'sent');
         await expect(control(page)).toHaveText('');
-        await expect(control(page)).toHaveAttribute('aria-label', 'All changes sent');
+        await expect(control(page)).toHaveAttribute('aria-label', 'Synced');
         await control(page).click();
-        await expect(page.getByTestId('sync-details')).toContainText('Everything saved here is on the remote too.');
+        await expect(page.getByTestId('sync-details')).toContainText('Everything is on the remote.');
         await shot(page, 'sync-sent');
     });
 
@@ -353,10 +353,10 @@ test.describe('sync state', () => {
 
         // assert
         await expect(control(page)).toHaveAttribute('data-state', 'not-sent');
-        await expect(control(page)).toHaveText('Not sent');
+        await expect(control(page)).toHaveText('Not synced');
         const alert = page.getByTestId('space-alert');
-        await expect(alert).toContainText('The next save tries again.');
-        await expect(alert).not.toContainText('about a minute');
+        await expect(alert).toContainText('The next save will try again.');
+        await expect(alert).not.toContainText('in a minute');
     });
 
     test('a failed fetch with nothing waiting is a warning', async ({page}) => {
@@ -413,13 +413,13 @@ test.describe('sync state', () => {
 
         // assert
         await expect(control(page)).toHaveAttribute('data-state', 'blocked');
-        await expect(control(page)).toHaveText('Diverged');
+        await expect(control(page)).toHaveText('Conflict');
         const alert = page.getByTestId('space-alert');
         await expect(alert).toHaveAttribute('data-kind', 'merge');
-        await expect(alert).toContainText('This space has diverged from the remote');
+        await expect(alert).toContainText('Conflict with the remote repository');
         await expect(alert.getByTestId('sync-reset')).toBeVisible();
         await expect(alert.getByTestId('space-alert-reason')).toHaveText(/^fetch: /);
-        await expect(alert).not.toContainText('tries again');
+        await expect(alert).not.toContainText('Retrying');
     });
 
     test('a refused fetch asks for a token that may read the remote', async ({page}) => {
@@ -438,9 +438,9 @@ test.describe('sync state', () => {
         await expect(control(page)).toHaveAttribute('data-state', 'blocked');
         await expect(control(page)).toHaveText('Access refused');
         const alert = page.getByTestId('space-alert');
-        await expect(alert).toContainText('The remote refuses this space');
-        await expect(alert).toContainText('Give the space a token that may read the remote');
-        await expect(alert).not.toContainText('tries again');
+        await expect(alert).toContainText('The remote refuses the token');
+        await expect(alert).toContainText('Use a token that can read the remote');
+        await expect(alert).not.toContainText('Retrying');
     });
 
     test('a local space shows no sync control', async ({page}) => {

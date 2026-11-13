@@ -9,8 +9,7 @@ import { documentUrl } from '../paths';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { useNav } from './NavContext';
-import { ResetAction } from './ResetDialog';
-import { factText, type SyncStatus } from './syncMessage';
+import { conflictingFiles, factText, type SyncStatus } from './syncMessage';
 
 const thisNote = 'This note is not sent yet';
 
@@ -76,7 +75,7 @@ function SyncDetails({ summary, onLeave }: { summary: SyncSummary; onLeave: () =
             )}
           </Stack>
         ))}
-      <ResetAction onOpen={onLeave} />
+      {paths.length > 0 && me?.space.diverged === true && <Text size="sm">{conflictingFiles}</Text>}
       {paths.length > 0 && (
         <List data-testid="sync-popover-paths" size="sm" spacing={4} withPadding>
           {paths.map((unsynced) => (

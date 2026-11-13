@@ -262,3 +262,7 @@ switch, inside the tap.
   `/api/me` answers 404; the space menu leads to the others.
 - The offline shell knows no theme, so with a picked theme other than the
   system's the start screen shows the system's ground until the bundle runs.
+- Behind a gateway with its own sign-in (Cloudflare Access, Authelia,
+  oauth2-proxy), an ended gateway session redirects `/api/me` and `/ping` to
+  another site, which a fetch cannot read, so the app stays offline on the copy
+  and never shows the gateway's sign-in. Off reaches it again.

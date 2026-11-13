@@ -503,14 +503,27 @@ test.describe('mobile', () => {
                 await new Promise((resolve) => setTimeout(resolve, 1000));
                 await route.continue();
             });
+            await page.evaluate(() => {
+                window.loadingAtStart = new Promise((resolve) => {
+                    new MutationObserver((_, observer) => {
+                        const shown = document.querySelector('[data-testid="dir-loading"]');
+                        if (shown !== null) {
+                            observer.disconnect();
+                            const delays = shown.getAnimations().map((entry) => entry.effect.getTiming().delay);
+                            resolve({opacity: getComputedStyle(shown).opacity, delay: Math.max(0, ...delays)});
+                        }
+                    }).observe(document.body, {childList: true, subtree: true});
+                });
+            });
 
             // act
             await swipe(page, 300);
 
             // assert
+            const atStart = await page.evaluate(() => window.loadingAtStart);
+            expect(atStart.opacity).toBe('0');
+            expect(atStart.delay).toBeGreaterThan(0);
             const loading = page.getByTestId('dir-loading');
-            await expect(loading).toHaveCount(1);
-            expect(await loading.evaluate((el) => getComputedStyle(el).opacity)).toBe('0');
             await expect.poll(() => loading.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
         });
 

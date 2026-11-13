@@ -163,6 +163,8 @@ async function pretendInstalled(page) {
     });
 }
 
+test.describe.configure({mode: 'parallel'});
+
 test.describe('offline access', () => {
     test.beforeEach(async ({page}) => {
         writeFixture(NOTE, EVERYTHING);
@@ -1142,7 +1144,7 @@ test.describe('offline access', () => {
         await context.route(/\/api\/me$/, () => {});
 
         // act
-        await signIn(page);
+        await signIn(page, {idle: false});
         await expect.poll(() => page.evaluate(() => document.cookie.includes('scrawl_signin'))).toBe(false);
 
         // assert
@@ -1272,7 +1274,7 @@ test.describe('offline access of every space', () => {
 
         // act
         await page.goto(`${MULTI.baseURL}/login?from=${encodeURIComponent(MULTI.url.home())}`);
-        await submitCredentials(page, {name: otherUser});
+        await submitCredentials(page, {name: otherUser, idle: false});
 
         // assert
         await expect.poll(() => storedState(page)).toMatchObject({owner: otherUser, updatedAt: 0});
@@ -1288,7 +1290,7 @@ test.describe('offline access of every space', () => {
 
         // act
         await page.goto(`${MULTI.baseURL}/login?from=${encodeURIComponent(MULTI.url.home())}`);
-        await submitCredentials(page, {name: otherUser});
+        await submitCredentials(page, {name: otherUser, idle: false});
 
         // assert
         await expect.poll(() => storedState(page)).toMatchObject({owner: otherUser, updatedAt: 0});

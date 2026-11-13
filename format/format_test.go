@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +14,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	if err := UseCompilationCache(filepath.Join(os.TempDir(), "scrawl-wasm-cache")); err != nil {
+		panic(err)
+	}
 	RunWorkerIfAsked()
 	os.Exit(m.Run())
 }

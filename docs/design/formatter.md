@@ -39,6 +39,15 @@ Prettier inside the binary and in the browser.
   fresh worker. `main` asks `format.RunWorkerIfAsked` and
   `plantuml.RunWorkerIfAsked` before anything else, because a worker must not
   parse flags or open a store.
+- The tests of `format`, `plantuml` and the command line hand both packages a
+  compilation cache on disk, in the temp directory, with `UseCompilationCache`
+  before they ask for a worker, so every worker a test starts reads the
+  compiled module instead of compiling it again: under `-race` wazero compiles
+  PlantUML's engine in 3.4 seconds, not 0.3. The server has no such cache, as
+  its worker compiles the module once in its life. Of the tests of `plantuml`,
+  the ones that draw run in parallel, but each engine is a process of some
+  450MB under `-race`, so the tests that start their own renderer, or an engine
+  in the test process, stay in order and the drawings share one worker.
 - A note the formatter gave up on is stored as it was written, because the save
   is what the writer asked for, and the answer says so in `format_failed`. A
   write that formats is detached from its client: formatting takes seconds, and

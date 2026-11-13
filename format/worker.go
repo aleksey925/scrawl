@@ -19,6 +19,17 @@ const wasmFile = "prettier.wasm"
 
 const memoryPages = 4096
 
+var compilationCache wazero.CompilationCache
+
+func UseCompilationCache(dir string) error {
+	cache, err := wazero.NewCompilationCacheWithDir(dir)
+	if err != nil {
+		return fmt.Errorf("open the compilation cache: %w", err)
+	}
+	compilationCache = cache
+	return nil
+}
+
 func RunWorkerIfAsked() {
 	workerpool.RunIfAsked(workerEnv, workerName, serve)
 }
@@ -29,7 +40,11 @@ func serve(in io.Reader, out io.Writer) error {
 		return fmt.Errorf("read prettier: %w", err)
 	}
 	ctx := context.Background()
-	runtime := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().WithMemoryLimitPages(memoryPages))
+	cfg := wazero.NewRuntimeConfig().WithMemoryLimitPages(memoryPages)
+	if compilationCache != nil {
+		cfg = cfg.WithCompilationCache(compilationCache)
+	}
+	runtime := wazero.NewRuntimeWithConfig(ctx, cfg)
 	defer runtime.Close(ctx)
 	if _, err = wasi_snapshot_preview1.Instantiate(ctx, runtime); err != nil {
 		return fmt.Errorf("set up wasi: %w", err)

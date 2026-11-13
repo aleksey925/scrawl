@@ -235,6 +235,11 @@ words; the fact itself is written here.
   exits. A second engine in the same process took the worker from 115MB to
   1.1GB: Go clears the reserved 1GB when it reuses it, which touches every
   page. [Server](design/server.md#plantuml)
+- Under `-race` wazero compiles PlantUML's engine in 3.4 seconds, ten times
+  slower than without. [Formatter](design/formatter.md)
+- PlantUML's engine drew the Bootstrap icon set in 85 seconds as the first
+  diagram of a worker, and in 35 after a C4 diagram; a plain sequence first did
+  not make it faster. [Formatter](design/formatter.md)
 - A wazero memory is safe to read only on the goroutine that runs its module:
   read from another one while the engine grows it, its size is a data race. So
   the worker takes the size when the engine writes its answer, on the engine's

@@ -29,6 +29,9 @@ import (
 const retireEveryTimeEnv = "SCRAWL_PLANTUML_TEST_RETIRE"
 
 func TestMain(m *testing.M) {
+	if err := UseCompilationCache(filepath.Join(os.TempDir(), "scrawl-wasm-cache")); err != nil {
+		panic(err)
+	}
 	if os.Getenv(retireEveryTimeEnv) != "" {
 		runWorkerIfAsked(0)
 	}
@@ -81,6 +84,8 @@ func (p answeringPool) Ask(context.Context, request) (response, error) {
 func (answeringPool) Close() {}
 
 func TestSVG(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name   string
 		source string
@@ -96,6 +101,8 @@ func TestSVG(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			// act
 			svg, err := shared.svg(context.Background(), tc.source)
 
@@ -108,6 +115,8 @@ func TestSVG(t *testing.T) {
 }
 
 func TestSVGDrawsAnIcon(t *testing.T) {
+	t.Parallel()
+
 	// act
 	svg, err := shared.svg(context.Background(), "@startuml\nA -> B : <&heart> loved\n@enduml")
 
@@ -117,6 +126,8 @@ func TestSVGDrawsAnIcon(t *testing.T) {
 }
 
 func TestSVGDrawsAnEmojiWithALongPath(t *testing.T) {
+	t.Parallel()
+
 	// act
 	svg, err := shared.svg(context.Background(), "@startuml\nA -> B : <:smile:> smiled\n@enduml")
 
@@ -144,6 +155,8 @@ func TestSVGOfADiagramThatCrashesTheEngine(t *testing.T) {
 }
 
 func TestSVGDrawsASpriteAsAPicture(t *testing.T) {
+	t.Parallel()
+
 	// act
 	svg, err := shared.svg(context.Background(), "@startuml\n!include <C4/C4_Context>\nPerson(u, \"Reader\")\n@enduml")
 
@@ -175,6 +188,8 @@ func TestSVGAfterTheWorkerRetired(t *testing.T) {
 }
 
 func TestSVGOfABrokenDiagram(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name   string
 		source string
@@ -188,6 +203,8 @@ func TestSVGOfABrokenDiagram(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			// act
 			_, err := shared.svg(context.Background(), tc.source)
 
@@ -201,6 +218,8 @@ func TestSVGOfABrokenDiagram(t *testing.T) {
 }
 
 func TestSVGTakesASourceAtTheCap(t *testing.T) {
+	t.Parallel()
+
 	// arrange
 	diagram := "A -> B : at the cap\n'"
 	source := diagram + strings.Repeat("x", maxSource-len(diagram))
@@ -422,6 +441,8 @@ func TestSVGTakesADrawingCachedWhileItWaitedToRegister(t *testing.T) {
 }
 
 func TestTheBrowserTheServerAndTheLibraryAreOnePlantUML(t *testing.T) {
+	t.Parallel()
+
 	// arrange
 	raw, err := os.ReadFile("../web/package.json")
 	require.NoError(t, err)
@@ -670,6 +691,8 @@ func TestCacheKeepsAnEntryThatIsRead(t *testing.T) {
 }
 
 func TestInline(t *testing.T) {
+	t.Parallel()
+
 	// arrange
 	fragment := "<h1>A</h1>\n" +
 		`<pre class="plantuml" data-source-start="3">A -&gt; B : drawn &amp; &#34;quoted&#34;` + "\n</pre>\n" +
@@ -728,6 +751,8 @@ func TestInlineAfterTheContextIsDone(t *testing.T) {
 }
 
 func TestInlineFindsADiagramByItsClass(t *testing.T) {
+	t.Parallel()
+
 	// arrange
 	other := `<pre class="plantuml-source">A -&gt; B : not a diagram</pre>`
 
@@ -924,6 +949,8 @@ func TestServeLibrary(t *testing.T) {
 }
 
 func TestInlineDrawsEveryExample(t *testing.T) {
+	t.Parallel()
+
 	// arrange
 	notes, err := filepath.Glob("../examples/data/showcase/plantuml/*.md")
 	require.NoError(t, err)

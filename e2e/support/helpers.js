@@ -24,16 +24,20 @@ async function shot(page, name) {
     });
 }
 
-async function signIn(page, {baseURL = MAIN.baseURL, from = routes.home()} = {}) {
+async function signIn(page, {baseURL = MAIN.baseURL, from = routes.home(), idle = true} = {}) {
     await page.goto(`${baseURL}/login?from=${encodeURIComponent(from)}`);
-    await submitCredentials(page);
+    await submitCredentials(page, {idle});
 }
 
-async function submitCredentials(page, {name = user, secret = password} = {}) {
+async function submitCredentials(page, {name = user, secret = password, idle = true} = {}) {
     await page.fill('input[name="username"]', name);
     await page.fill('input[name="password"]', secret);
     await page.click('button[type="submit"]');
-    await page.waitForLoadState('networkidle');
+    if (idle) {
+        await page.waitForLoadState('networkidle');
+    } else {
+        await page.waitForURL((url) => url.pathname !== '/login');
+    }
 }
 
 async function modifier(page) {

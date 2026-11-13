@@ -190,7 +190,9 @@ expected.
 - The tests of one desktop file run in order in one worker, because they share
   the trees of that worker and some lean on what the one before wrote. The
   mobile profile is one file whose tests do not, so they spread over every
-  worker. A worker that replaces a crashed one starts its servers again from a
+  worker, and so do those of `offline.spec.js`, each of which writes its
+  own files and removes them: in order, that file alone took as long as
+  the rest of the suite. A worker that replaces a crashed one starts its servers again from a
   fresh copy. Before it starts a server, the launcher stops any server left on
   that port: a worker can die without its teardown, and a server left behind
   answered the readiness probe in place of the new one, so every spec drove an

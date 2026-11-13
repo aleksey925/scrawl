@@ -56,6 +56,17 @@ type libraryReply struct {
 	Error string `json:"error,omitempty"`
 }
 
+var compilationCache wazero.CompilationCache
+
+func UseCompilationCache(dir string) error {
+	cache, err := wazero.NewCompilationCacheWithDir(dir)
+	if err != nil {
+		return fmt.Errorf("open the compilation cache: %w", err)
+	}
+	compilationCache = cache
+	return nil
+}
+
 func RunWorkerIfAsked() {
 	runWorkerIfAsked(retireBytes)
 }
@@ -73,6 +84,9 @@ func serve(in io.Reader, out io.Writer, retireAt uint32, limits caps) error {
 	}
 	ctx := context.Background()
 	cfg := wazero.NewRuntimeConfig().WithMemoryLimitPages(memoryPages).WithMemoryCapacityFromMax(true)
+	if compilationCache != nil {
+		cfg = cfg.WithCompilationCache(compilationCache)
+	}
 	runtime := wazero.NewRuntimeWithConfig(ctx, cfg)
 	defer runtime.Close(ctx)
 	if _, err = wasi_snapshot_preview1.Instantiate(ctx, runtime); err != nil {

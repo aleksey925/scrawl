@@ -178,7 +178,8 @@ Before changing a part, read its doc:
   [sidebar](docs/ui/sidebar.md)
 - the page width, the outline, the topbar and a phone's bar on top, a folder's
   list, a note not created yet, empty states, task boxes, code blocks, the
-  picture viewer, the history dialog: [pages](docs/ui/pages.md)
+  picture viewer, the history dialog, the start screen:
+  [pages](docs/ui/pages.md)
 - creating, naming, dragging and deleting files and folders:
   [entries](docs/ui/entries.md)
 - the editor screen and its toolbar, the Changes layout, text files:

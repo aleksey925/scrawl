@@ -40,7 +40,7 @@ export const answerUrl = {
   spaces: '/api/spaces',
 };
 
-function decoded(segment: string): string {
+export function decoded(segment: string): string {
   try {
     return decodeURIComponent(segment);
   } catch {

@@ -1,7 +1,7 @@
 import type { SpaceEntry } from '../api/types';
 import {
-  answerUrl, appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, fillAppMessage, networkDeadlineMs,
-  signInCookie, type AppState, type ChannelMessage,
+  answerUrl, appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, decoded, fillAppMessage,
+  networkDeadlineMs, signInCookie, spaceBase, type AppState, type ChannelMessage,
 } from '../offline/keys';
 
 interface OfflineConfig {
@@ -18,7 +18,7 @@ const appCache = appCachePrefix + config.build;
 
 const unavailable = new Set([502, 503, 504]);
 
-const spaceRoute = /^\/s\/[^/]+\/(.*)$/;
+const spaceRoute = /^\/s\/([^/]+)\/(.*)$/;
 
 const signInPath = '/login';
 
@@ -82,8 +82,12 @@ self.addEventListener('activate', (event) => {
 });
 
 async function fromAppCache(request: Request): Promise<Response> {
-  const keys = (await caches.keys()).filter((name) => name.startsWith(appCachePrefix));
-  for (const name of [appCache, ...keys.filter((entry) => entry !== appCache).reverse()]) {
+  const current = await caches.match(request, { cacheName: appCache, ignoreVary: true });
+  if (current !== undefined) {
+    return current;
+  }
+  const keys = (await caches.keys()).filter((name) => name.startsWith(appCachePrefix) && name !== appCache);
+  for (const name of keys.reverse()) {
     const stored = await caches.match(request, { cacheName: name, ignoreVary: true });
     if (stored !== undefined) {
       return stored;
@@ -167,6 +171,18 @@ async function storedRaw(request: Request, pathname: string): Promise<Response |
   return caches.match(canonicalPath(pathname), { cacheName: dataCache, ignoreVary: true });
 }
 
+async function storedShell(request: Request, space: string): Promise<Response | undefined> {
+  if (await signInPending(request)) {
+    return undefined;
+  }
+  const me = await caches.match(answerUrl.me(spaceBase(decoded(space))), { cacheName: dataCache });
+  return me === undefined ? undefined : caches.match(config.shell);
+}
+
+async function spaceShell(request: Request, space: string): Promise<Response> {
+  return (await storedShell(request, space)) ?? networkFirst(request, () => caches.match(config.shell));
+}
+
 async function startPage(): Promise<Response | undefined> {
   const stored = await caches.match(answerUrl.spaces, { cacheName: dataCache });
   if (stored === undefined) {
@@ -175,6 +191,11 @@ async function startPage(): Promise<Response | undefined> {
   const spaces = (await stored.json()) as SpaceEntry[];
   const first = spaces[0];
   return first === undefined ? undefined : Response.redirect(first.url, 302);
+}
+
+async function firstPage(request: Request): Promise<Response> {
+  const stored = (await signInPending(request)) ? undefined : await startPage();
+  return stored ?? networkFirst(request, startPage);
 }
 
 self.addEventListener('fetch', (event) => {
@@ -190,7 +211,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(fromAppCache(request));
     return;
   }
-  const rest = spaceRoute.exec(url.pathname)?.[1];
+  const [, space = '', rest] = spaceRoute.exec(url.pathname) ?? [];
   if (rest?.startsWith('raw/') === true) {
     event.respondWith(networkFirst(request, () => storedRaw(request, url.pathname)));
     return;
@@ -199,10 +220,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   if (url.pathname === '/') {
-    event.respondWith(networkFirst(request, startPage));
+    event.respondWith(firstPage(request));
     return;
   }
   if (rest !== undefined && !rest.startsWith('api/')) {
-    event.respondWith(networkFirst(request, () => caches.match(config.shell)));
+    event.respondWith(spaceShell(request, space));
   }
 });

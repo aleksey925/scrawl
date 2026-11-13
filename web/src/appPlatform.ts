@@ -1,6 +1,6 @@
 import { api } from './api/client';
 import { mountBase } from './mount';
-import { offlineSource } from './offline/source';
+import { notStored, offlineSource } from './offline/source';
 import type { Platform } from './platform';
 import { FindTimeout, type FindMatch, type FindPattern } from './reader/findMatches';
 import { internalTarget } from './reader/links';
@@ -67,4 +67,26 @@ export const offlinePlatform: Platform = {
   source: offlineSource,
   search: false,
   editing: false,
+};
+
+function storedFirst<A extends unknown[], T>(
+  stored: (...args: A) => Promise<T>,
+  live: (...args: A) => Promise<T>,
+): (...args: A) => Promise<T> {
+  return (...args) =>
+    stored(...args).catch((error: unknown) => {
+      if (notStored(error)) {
+        return live(...args);
+      }
+      throw error;
+    });
+}
+
+export const startingPlatform: Platform = {
+  ...offlinePlatform,
+  source: {
+    page: storedFirst(offlineSource.page, api.page),
+    dir: storedFirst(offlineSource.dir, api.dir),
+    nav: storedFirst(offlineSource.nav, api.nav),
+  },
 };

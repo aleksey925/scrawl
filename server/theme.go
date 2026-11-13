@@ -9,9 +9,10 @@ import (
 
 const themeCookie = "theme"
 
-type barColor struct {
-	Color string
-	Media string
+type schemeColor struct {
+	Ground string
+	Icon   string
+	Media  string
 }
 
 type touchIcon struct {
@@ -23,7 +24,7 @@ type pageTheme struct {
 	ID         string
 	Name       string
 	Scheme     theme.Scheme
-	BarColors  []barColor
+	Colors     []schemeColor
 	TouchIcons []touchIcon
 }
 
@@ -34,7 +35,7 @@ func themeOf(r *http.Request, version string) pageTheme {
 				ID:         picked.ID,
 				Name:       picked.Name,
 				Scheme:     picked.Scheme,
-				BarColors:  []barColor{{Color: picked.BarColor()}},
+				Colors:     []schemeColor{colorsOf(picked, "")},
 				TouchIcons: []touchIcon{{Href: touchIconURL(version, picked.Scheme)}},
 			}
 		}
@@ -46,10 +47,14 @@ func autoTheme(version string) pageTheme {
 	res := pageTheme{}
 	for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
 		media := "(prefers-color-scheme: " + string(scheme) + ")"
-		res.BarColors = append(res.BarColors, barColor{Color: theme.AutoTheme(scheme).BarColor(), Media: media})
+		res.Colors = append(res.Colors, colorsOf(theme.AutoTheme(scheme), media))
 		res.TouchIcons = append(res.TouchIcons, touchIcon{Href: touchIconURL(version, scheme), Media: media})
 	}
 	return res
+}
+
+func colorsOf(picked theme.Theme, media string) schemeColor {
+	return schemeColor{Ground: picked.BarColor(), Icon: picked.Palette["icon"], Media: media}
 }
 
 func touchIconURL(version string, scheme theme.Scheme) string {

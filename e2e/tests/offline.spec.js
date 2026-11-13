@@ -543,6 +543,103 @@ test.describe('offline access', () => {
         await expect(page.getByTestId('doc-edit')).toBeVisible();
     });
 
+    test('a note opens from the copy at once and turns writable when the account answers', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await context.route(/\/s\/notes\/doc\//, () => {});
+        const me = await holdRoute(context, /\/api\/me$/);
+
+        // act
+        await page.goto(routes.doc(NOTE), {waitUntil: 'commit'});
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Offline note', {timeout: 2_500});
+        await me.reached;
+        await expect(page.getByTestId('offline-mark')).toHaveCount(0);
+        await expect(page.getByTestId('doc-edit')).toHaveCount(0);
+
+        // act
+        me.release();
+
+        // assert
+        await expect(page.getByTestId('doc-edit')).toBeVisible();
+        await expect(page.getByTestId('offline-mark')).toHaveCount(0);
+    });
+
+    test('an account that does not answer at start shows offline and is not asked again', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        const asked = [];
+        context.on('request', (request) => {
+            if (request.url().endsWith('/api/me')) {
+                asked.push(request.url());
+            }
+        });
+        const me = await holdRoute(context, /\/api\/me$/);
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(page.getByTestId('offline-mark')).toBeVisible({timeout: 10_000});
+        expect(asked).toHaveLength(1);
+
+        // act
+        me.release();
+
+        // assert
+        await expect(page.getByTestId('offline-mark')).toHaveCount(0);
+        await expect(page.getByTestId('doc-edit')).toBeVisible();
+    });
+
+    test('at start a note not in the copy comes from the network', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        const fresh = `${FOLDER}/fresh.md`;
+        writeFixture(fresh, '# Fresh note\n');
+        await holdRoute(context, /\/api\/me$/);
+
+        // act
+        await page.goto(routes.doc(fresh));
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Fresh note');
+        await expect(page.getByTestId('doc-error')).toHaveCount(0);
+    });
+
+    test('at start a page that needs the server waits for the account', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        const me = await holdRoute(context, /\/api\/me$/);
+
+        // act
+        await page.goto(routes.edit(NOTE));
+        await me.reached;
+
+        // assert
+        await expect(page.getByTestId('tree-row').first()).toBeVisible();
+        await expect(page.getByTestId('app-needs-network')).toHaveCount(0);
+
+        // act
+        me.release();
+
+        // assert
+        await expect(page.getByTestId('editor-source')).toBeVisible();
+        await expect(page.getByTestId('app-needs-network')).toHaveCount(0);
+    });
+
+    test('a session that ended opens the copy, then the sign-in page', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await context.clearCookies({name: 'scrawl_session'});
+
+        // act
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await page.waitForURL(/\/login/);
+    });
+
     test('a written and a deleted note reach the copy, and only what changed is asked for', async ({page, context}) => {
         // arrange
         writeFixture(`${FOLDER}/gone.md`, '# Gone soon\n');

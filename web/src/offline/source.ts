@@ -15,6 +15,10 @@ function spaceName(): string {
   return decodeURIComponent(mountBase().replace(/^\/s\//, ''));
 }
 
+export function notStored(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404 && error.message === notOnDevice;
+}
+
 function missing(): ApiError {
   return new ApiError(404, { error: notOnDevice });
 }

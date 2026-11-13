@@ -3,9 +3,9 @@ import { ModalsProvider } from '@mantine/modals';
 import type { JSX } from 'react';
 import { RouterProvider } from 'react-router';
 
-import { appPlatform, offlinePlatform } from './appPlatform';
+import { appPlatform, offlinePlatform, startingPlatform } from './appPlatform';
 import { Toasts } from './components/Toasts';
-import { useOffline } from './offline/connection';
+import { useCheckingConnection, useOffline } from './offline/connection';
 import { PlatformProvider } from './platform';
 import { router } from './routes';
 import { theme } from './theme';
@@ -15,6 +15,8 @@ const colorSchemeManager = themeColorSchemeManager();
 
 export function App(): JSX.Element {
   const offline = useOffline();
+  const checking = useCheckingConnection();
+  const platform = offline ? (checking ? startingPlatform : offlinePlatform) : appPlatform;
   return (
     <MantineProvider
       theme={theme}
@@ -24,7 +26,7 @@ export function App(): JSX.Element {
     >
       <ModalsProvider>
         <Toasts />
-        <PlatformProvider value={offline ? offlinePlatform : appPlatform}>
+        <PlatformProvider value={platform}>
           <RouterProvider router={router} />
         </PlatformProvider>
       </ModalsProvider>

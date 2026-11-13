@@ -179,7 +179,7 @@ func TestOfflineShell(t *testing.T) {
 	assert.Equal(t, string(ts.offline.shell), body)
 	assert.Equal(t, appCacheControl, resp.header.Get("Cache-Control"))
 	assert.Contains(t, resp.header.Get("Content-Type"), "text/html")
-	assert.Contains(t, body, `<div id="scrawl-app-root" data-base="" data-version="`+ts.Version+`"></div>`)
+	assert.Contains(t, body, `<div id="scrawl-app-root" data-base="" data-version="`+ts.Version+`"><div class="scrawl-splash">`)
 	assert.NotContains(t, body, "data-scrawl-theme")
 	assert.NotContains(t, body, testSpace)
 	assert.Contains(t, body, "<title>"+ts.Title+"</title>")

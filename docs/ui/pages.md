@@ -209,6 +209,15 @@ opens over them.
   the newest row stops being the current text the moment the file changes on
   disk.
 
+## Start
+
+- Until the app has drawn its first screen, the page shows the logo in the
+  middle of the theme's ground. The server writes it into the shell, so it
+  shows before the bundle runs, and the app keeps it while the first page's
+  chunk loads.
+- With offline access on, the app opens on the copy at once and turns writable
+  when the server answers. See [offline copy](../design/offline.md).
+
 ## With no network
 
 - With offline access on and no network, the topbar's group at the right starts

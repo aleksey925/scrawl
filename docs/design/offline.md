@@ -82,7 +82,8 @@ The fetch rules, GET only; what no rule names is not touched:
 
 1. a request of the copy itself (`X-Scrawl-Offline-Copy: 1`) goes to the
    network, so the copy never stores the worker's own old answer as a new one;
-2. `/static/` is answered from any app cache first, else the network;
+2. `/static/` is answered from the current app cache, then from an older one,
+   else the network;
 3. `/s/<name>/raw/` goes to the network first, and to the data cache on a
    network error, a 502, 503 or 504, or no answer in 3 seconds. A `Range`
    request answered from the cache gets a 206 cut from the stored body, which
@@ -91,10 +92,13 @@ The fetch rules, GET only; what no rule names is not touched:
    user's before, so the request goes to the network only. The worker reads the
    cookie with `cookieStore`; a browser with no `cookieStore` gets the same
    rule only for a navigation from the sign-in page;
-4. a navigation under `/s/<name>/` but `api/` goes to the network first, then
-   to the offline shell. `/` answers a redirect to the first stored space.
-   Whatever status the server gives goes to the page as it came: a redirect to
-   `/login` is never covered with old data.
+4. a navigation under `/s/<name>/` but `api/` gets the offline shell at once
+   when the copy holds the space's `me`, and the app starts on the copy. While
+   `scrawl_signin` is set, by the test of rule 3, or when the copy has no `me`
+   of the space, it goes to the network first, then to the offline shell. `/`
+   answers a redirect to the first stored space on the same terms. A session
+   that ended shows the copy until `/api/me` answers 401, then the sign-in
+   page. Why: [ADR 24](../adr/0024-the-app-starts-from-the-copy.md).
 
 The 3 seconds are for the headers, not the body, and apply only when the copy
 has the answer; without one the worker waits for the network. While a page has
@@ -187,19 +191,24 @@ switch, inside the tap.
 
 - `web/src/offline/connection.ts` decides. The app goes offline on a network
   error in the api client's `send()`, on a 502, 503 or 504 there that is not
-  scrawl's own answer (a render deadline is a 503), on the `offline` event, and
-  at start when the page was served the offline shell. scrawl's own answer is
-  one with `App-Name: scrawl`, which the server sets on every answer to a
-  signed-in request, and auth off counts as signed in; a gateway's page has
-  none, even in JSON. `navigator.onLine` alone is not trusted. While the copy
-  is on, a page, folder or nav request of the reader with no headers in 3
-  seconds, the worker's wait, takes it offline too when the copy holds its
-  answer: one bar of signal often keeps `onLine` true and a fetch hangs for
-  minutes. The request is not cut; the reader leaves it for the copy. Without a
-  stored answer the request waits for the network, as in the worker, so a note
-  slow to render and not in the copy still opens. One in the copy goes offline
-  for a moment and comes back at once: going offline probes `/ping` with no
-  wait, and `/api/me` answers.
+  scrawl's own answer (a render deadline is a 503), and on the `offline` event.
+  scrawl's own answer is one with `App-Name: scrawl`, which the server sets on
+  every answer to a signed-in request, and auth off counts as signed in; a
+  gateway's page has none, even in JSON. `navigator.onLine` alone is not
+  trusted. While the copy is on, a page, folder or nav request of the reader
+  with no headers in 3 seconds, the worker's wait, takes it offline too when
+  the copy holds its answer: one bar of signal often keeps `onLine` true and a
+  fetch hangs for minutes. The request is not cut; the reader leaves it for the
+  copy. Without a stored answer the request waits for the network, as in the
+  worker, so a note slow to render and not in the copy still opens. One in the
+  copy goes offline for a moment and comes back at once: going offline probes
+  `/ping` with no wait, and `/api/me` answers.
+- A start from the offline shell is a check, not a failure: the app reads the
+  copy, but shows no `Offline` mark, and `/edit/`, `/history/` and `/search`
+  show nothing yet. A note, a folder or the tree the copy does not hold comes
+  from the network. The check ends online when `/api/me` answers, and offline
+  on a network error or after 3 seconds; the probe below starts only then, and
+  its first `/ping` waits 15 seconds, so a slow `/api/me` is not asked again.
 - Offline it probes `/ping` every 15 seconds while visible and at once on the
   `online` event. `/ping` is public, so its answer proves only that the server
   is there; then the app asks `/api/me` in the foreground, and only an answer
@@ -242,3 +251,7 @@ switch, inside the tap.
 - After an upgrade a note whose answer is not fetched again yet shows
   `This is not on this device` until the first round of the new release ends.
 - Pictures from other sites are not copied.
+- After an upgrade, the first start runs the bundle of the app cache against
+  the new server; the worker the start installs serves the new one next time.
+- A space removed from the server still opens from the copy, offline, since its
+  `/api/me` never answers; the space menu leads to the others.

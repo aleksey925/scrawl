@@ -138,6 +138,8 @@ server the client sets the scheme from the cookie and the system before
 React mounts.
 
 **Mount node.** The shell has to contain `<div id="scrawl-app-root">`.
+The server puts the start screen inside it, and React replaces it on
+its first render.
 
 ## Themes
 

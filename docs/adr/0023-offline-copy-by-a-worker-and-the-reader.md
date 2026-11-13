@@ -1,6 +1,8 @@
 # 23. The offline copy is a service worker plus the reader's platform
 
-Status: accepted. Where it applies: [offline copy](../design/offline.md).
+Status: accepted, apart from the network-first navigation, replaced by
+[ADR 24](0024-the-app-starts-from-the-copy.md). Where it applies:
+[offline copy](../design/offline.md).
 
 ## Context
 

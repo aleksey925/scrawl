@@ -1,12 +1,15 @@
 package server
 
 import (
+	"html/template"
 	"net/http"
 	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aleksey925/scrawl/theme"
 )
 
 func TestAppShell(t *testing.T) {
@@ -42,7 +45,7 @@ func TestAppShell(t *testing.T) {
 			// assert
 			require.Equal(t, http.StatusOK, resp.status)
 			assert.Contains(t, resp.header.Get("Content-Type"), "text/html")
-			assert.Contains(t, body, `<div id="scrawl-app-root" data-base="`+ts.prefix()+`" data-version="`+ts.Version+`"></div>`)
+			assert.Contains(t, body, `<div id="scrawl-app-root" data-base="`+ts.prefix()+`" data-version="`+ts.Version+`"><div class="scrawl-splash">`+string(splashLogo())+`</div></div>`)
 			if tc.scheme == "" {
 				assert.NotContains(t, body, "data-mantine-color-scheme")
 				assert.NotContains(t, body, "data-scrawl-theme")
@@ -115,4 +118,29 @@ func TestShellCSSLinksTheImportedChunksAfterTheEntry(t *testing.T) {
 
 	// assert
 	assert.Equal(t, []string{"assets/index.css", "assets/chrome.css", "assets/deep.css"}, got)
+}
+
+func TestSplashTakesTheColorsOfTheTheme(t *testing.T) {
+	light, dark := theme.AutoTheme(theme.Light), theme.AutoTheme(theme.Dark)
+	layout := ".scrawl-splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}" +
+		".scrawl-splash svg{width:64px;height:64px}"
+
+	tests := []struct {
+		name     string
+		theme    pageTheme
+		expected template.CSS
+	}{
+		{name: "auto follows the system", theme: autoTheme("v1"), expected: template.CSS(layout +
+			"@media (prefers-color-scheme: light){.scrawl-splash{background:" + light.BarColor() + ";color:" + light.Palette["icon"] + "}}" +
+			"@media (prefers-color-scheme: dark){.scrawl-splash{background:" + dark.BarColor() + ";color:" + dark.Palette["icon"] + "}}")},
+		{name: "a picked theme has its own colors", theme: themeOf(themedRequest(dark.ID), "v1"), expected: template.CSS(layout +
+			".scrawl-splash{background:" + dark.BarColor() + ";color:" + dark.Palette["icon"] + "}")},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act & assert
+			assert.Equal(t, tc.expected, splashStyle(tc.theme.Colors))
+		})
+	}
 }

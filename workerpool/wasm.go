@@ -11,7 +11,11 @@ import (
 var compilationCache wazero.CompilationCache
 
 func UseCompilationCache() error {
-	cache, err := wazero.NewCompilationCacheWithDir(filepath.Join(os.TempDir(), "scrawl-wasm-cache"))
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		return fmt.Errorf("find the user cache directory: %w", err)
+	}
+	cache, err := wazero.NewCompilationCacheWithDir(filepath.Join(dir, "scrawl", "wasm"))
 	if err != nil {
 		return fmt.Errorf("open the compilation cache: %w", err)
 	}

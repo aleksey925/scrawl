@@ -9,11 +9,13 @@ import { ApiError } from '../api/errors';
 import type { Divergence, ResetResponse } from '../api/types';
 import { errorText } from '../api/useApi';
 import { DialogActions } from '../components/DialogActions';
-import { IconFile, IconFileText } from '../icons';
+import { EntryIcon } from '../components/EntryIcon';
 import { mountBase } from '../mount';
 import { documentUrl, isMarkdown, rawUrl } from '../paths';
+import { layout } from '../theme';
 
 import { useNav } from './NavContext';
+import classes from './ResetDialog.module.css';
 
 const ResetContext = createContext<(() => void) | undefined>(undefined);
 
@@ -122,11 +124,7 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
       centered
       title={titleOf(step)}
       size={dialogWidth}
-      styles={{
-        header: { minHeight: 0, padding: '20px 20px 2px' },
-        title: { fontSize: 'var(--mantine-font-size-md)', fontWeight: 600 },
-        body: { padding: '4px 20px 20px' },
-      }}
+      classNames={{ root: classes.dialog, header: classes.header, title: classes.title, body: classes.body }}
     >
       {step.name === 'checking' && (
         <Group gap="sm">
@@ -206,8 +204,6 @@ function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
 
 const dialogWidth = 400;
 
-const fileIconSize = 14;
-
 function titleOf(step: Step): string {
   switch (step.name) {
     case 'done':
@@ -247,28 +243,11 @@ function LossReport({ check }: { check: Divergence }): JSX.Element {
       <Text size="sm" c="dimmed">
         {outcome} These files are saved to a backup branch first:
       </Text>
-      <Stack
-        data-testid="reset-lost-paths"
-        gap={2}
-        py={6}
-        px="sm"
-        style={{ background: 'var(--scrawl-hover)', borderRadius: 'var(--mantine-radius-md)' }}
-      >
+      <Stack data-testid="reset-lost-paths" gap={2} py={6} px="sm" className={classes.files}>
         {links.map(({ path, href }) => (
-          <Group key={path} gap={8} wrap="nowrap" style={{ color: 'var(--scrawl-text-tertiary)' }}>
-            {isMarkdown(path) ? (
-              <IconFileText size={fileIconSize} aria-hidden style={{ flex: 'none' }} />
-            ) : (
-              <IconFile size={fileIconSize} aria-hidden style={{ flex: 'none' }} />
-            )}
-            <Anchor
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              fz={13}
-              underline="hover"
-              style={{ color: 'var(--scrawl-text)', overflowWrap: 'anywhere' }}
-            >
+          <Group key={path} gap={8} wrap="nowrap" className={classes.file}>
+            <EntryIcon name={path} size={layout.iconSizeTiny} className={classes.fileIcon} />
+            <Anchor href={href} target="_blank" rel="noreferrer" underline="hover" className={classes.link}>
               {path}
             </Anchor>
           </Group>

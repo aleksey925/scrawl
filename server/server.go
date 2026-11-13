@@ -486,10 +486,13 @@ func iconURL(version, name string) string {
 }
 
 func inlineLogo(attrs string) template.HTML {
-	svg := strings.Replace(strings.TrimSpace(string(logoSVG())), "<svg", "<svg"+attrs, 1)
+	svg := strings.TrimSpace(string(logoSVG()))
+	if attrs != "" {
+		svg = strings.Replace(svg, "<svg", "<svg "+attrs, 1)
+	}
 	return template.HTML(svg) //nolint:gosec // the logo is a file of the binary and never input
 }
 
 var loginLogo = sync.OnceValue(func() template.HTML {
-	return inlineLogo(` class="login-logo" aria-hidden="true"`)
+	return inlineLogo(`class="login-logo" aria-hidden="true"`)
 })

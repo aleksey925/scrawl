@@ -73,7 +73,7 @@ interface CallOptions extends RequestOptions {
   form?: FormData;
   allowStatus?: readonly number[];
   stored?: string;
-  account?: boolean;
+  gatewaySignIn?: boolean;
 }
 
 export const backgroundHeader = 'X-Scrawl-Background';
@@ -175,7 +175,7 @@ async function send(method: string, url: string, options: CallOptions = {}): Pro
       headers,
       body,
       credentials: 'same-origin',
-      redirect: options.account === true ? 'manual' : 'follow',
+      redirect: options.gatewaySignIn === true ? 'manual' : 'follow',
       signal: options.signal ?? null,
     });
   } catch (error) {
@@ -191,7 +191,7 @@ async function send(method: string, url: string, options: CallOptions = {}): Pro
     wroteSomething();
   }
 
-  const signIn = response.status === 401 || (options.account === true && answeredByGateway(response));
+  const signIn = response.status === 401 || (options.gatewaySignIn === true && answeredByGateway(response));
   if (signIn && options.background !== true) {
     notifyUnauthorized();
   }
@@ -271,7 +271,7 @@ export const api: ScrawlApi = {
       stored: answerUrl.nav(mountBase()),
     }),
 
-  me: (options) => call<MeResponse>('GET', spaceUrl('/api/me'), { ...options, account: true }),
+  me: (options) => call<MeResponse>('GET', spaceUrl('/api/me'), { ...options, gatewaySignIn: true }),
 
   spaces: (options) => call<SpaceEntry[]>('GET', globalUrl('/api/spaces'), options),
 

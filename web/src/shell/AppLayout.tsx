@@ -4,7 +4,7 @@ import { Outlet } from 'react-router';
 import { installUnauthorizedHandler } from '../api/client';
 import type { MeResponse } from '../api/types';
 import { goToLogin } from '../login';
-import { useOffline } from '../offline/connection';
+import { useReadingCopy } from '../offline/connection';
 import { offlineMe, storedMe } from '../offline/source';
 
 import { DocumentExtras } from './DocumentExtras';
@@ -54,11 +54,11 @@ export function AppLayout(): JSX.Element {
 }
 
 function AppProviders({ children }: { children: ReactNode }): JSX.Element {
-  const offline = useOffline();
+  const fromCopy = useReadingCopy();
   return (
     <ResetProvider>
       <FileActionsProvider>
-        <SearchProvider enabled={!offline}>{children}</SearchProvider>
+        <SearchProvider enabled={!fromCopy}>{children}</SearchProvider>
       </FileActionsProvider>
     </ResetProvider>
   );
@@ -85,14 +85,14 @@ function useStoredMe(wanted: boolean): MeResponse | undefined {
 
 function SpaceNavProvider({ children }: { children: ReactNode }): JSX.Element {
   const live = useMe();
-  const offline = useOffline();
-  const stored = useStoredMe(offline && live.me === undefined);
+  const fromCopy = useReadingCopy();
+  const stored = useStoredMe(fromCopy && live.me === undefined);
   const status = useMemo<MeState>(() => {
-    if (!offline) {
+    if (!fromCopy) {
       return live;
     }
     const me = live.me ?? stored;
     return { me: me === undefined ? undefined : offlineMe(me), refreshMe: live.refreshMe };
-  }, [offline, live, stored]);
+  }, [fromCopy, live, stored]);
   return <NavProvider status={status}>{children}</NavProvider>;
 }

@@ -14,6 +14,14 @@ export const fillAppMessage = 'fill-app-cache';
 
 export const networkDeadlineMs = 3_000;
 
+export function fromScrawl(response: Response): boolean {
+  return response.headers.get('app-name') === 'scrawl';
+}
+
+export function serverUnreachable(response: Response): boolean {
+  return response.status >= 500 && !fromScrawl(response);
+}
+
 export const stateKey = '/__scrawl-offline/state';
 
 const spaceKeyPrefix = '/__scrawl-offline/space/';

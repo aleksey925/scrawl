@@ -1,0 +1,32 @@
+.dialog .header {
+  min-height: 0;
+  padding: 20px 20px 2px;
+}
+
+.dialog .title {
+  font-size: var(--mantine-font-size-md);
+  font-weight: 600;
+}
+
+.dialog .body {
+  padding: 4px 20px 20px;
+}
+
+.files {
+  border-radius: var(--mantine-radius-md);
+  background: var(--scrawl-hover);
+}
+
+.file {
+  color: var(--scrawl-text-tertiary);
+}
+
+.fileIcon {
+  flex: none;
+}
+
+.files .link {
+  color: var(--scrawl-text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}

@@ -85,7 +85,8 @@ The fetch rules, GET only; what no rule names is not touched:
 2. `/static/` is answered from the current app cache, then from an older one,
    else the network;
 3. `/s/<name>/raw/` goes to the network first, and to the data cache on a
-   network error, a 502, 503 or 504, or no answer in 3 seconds. A `Range`
+   network error, a 5xx that is not scrawl's own answer (`serverUnreachable` in
+   `keys.ts`, the app's rule below), or no answer in 3 seconds. A `Range`
    request answered from the cache gets a 206 cut from the stored body, which
    is read only then and never for a request the network answers. While
    `scrawl_signin` is set, no app has read it yet and the copy may still be the

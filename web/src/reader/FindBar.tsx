@@ -2,7 +2,7 @@ import { ActionIcon } from '@mantine/core';
 import { useEffect, useRef, type JSX, type KeyboardEvent, type ReactNode } from 'react';
 
 import { IconChevronDown, IconChevronUp, IconSearch, IconX } from '../icons';
-import { ownsShortcuts } from '../shell/shortcuts';
+import { composing, ownsShortcuts } from '../shell/shortcuts';
 import { layout } from '../theme';
 
 import classes from './FindBar.module.css';
@@ -27,8 +27,6 @@ function counterOf(find: FindOnPage): string {
 type ToggleName = keyof Omit<FindQuery, 'text'>;
 
 const toggleKeys: Partial<Record<string, ToggleName>> = { KeyC: 'matchCase', KeyW: 'word', KeyR: 'regex' };
-
-const imeKeyCode = 229;
 
 export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
   const bar = useRef<HTMLDivElement>(null);
@@ -63,7 +61,7 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
   }, [find.openings]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
-    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === imeKeyCode) {
+    if (composing(event.nativeEvent)) {
       return;
     }
     if (event.altKey) {

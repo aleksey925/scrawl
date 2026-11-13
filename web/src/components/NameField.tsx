@@ -5,12 +5,11 @@ import {
 
 import { IconX } from '../icons';
 import { caretOf } from '../shell/naming';
+import { composing } from '../shell/shortcuts';
 import { layout } from '../theme';
 
 import classes from './NameField.module.css';
 import { useTouchScreen } from './TapGuard';
-
-const imeKeyCode = 229;
 
 interface FieldState {
   busy: boolean;
@@ -191,8 +190,7 @@ export function NameField({
         onBlur={leaveOnBlur}
         onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
           event.stopPropagation();
-          const composing = event.nativeEvent.isComposing || event.nativeEvent.keyCode === imeKeyCode;
-          if (event.key === 'Enter' && !composing) {
+          if (event.key === 'Enter' && !composing(event.nativeEvent)) {
             event.preventDefault();
             commit();
             return;

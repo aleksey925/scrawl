@@ -4,6 +4,11 @@ import logo from '../../../server/assets/logo.svg?raw';
 
 import classes from './AppLogo.module.css';
 
-export function AppLogo(): JSX.Element {
-  return <span aria-hidden className={classes.logo} dangerouslySetInnerHTML={{ __html: logo }} />;
+interface AppLogoProps {
+  className?: string;
+  testId?: string;
+}
+
+export function AppLogo({ className = classes.logo, testId }: AppLogoProps): JSX.Element {
+  return <span aria-hidden data-testid={testId} className={className} dangerouslySetInnerHTML={{ __html: logo }} />;
 }

@@ -6,7 +6,7 @@ import { useApi } from '../api/useApi';
 import { PopupMenu } from '../components/PopupMenu';
 import { IconCheck, IconEyeOff, IconLogin, IconLogout } from '../icons';
 import { goToLogin } from '../login';
-import { useOffline } from '../offline/connection';
+import { useReadingCopy } from '../offline/connection';
 import { deleteOfflineData } from '../offline/register';
 import { storedSpaces } from '../offline/source';
 import { layout } from '../theme';
@@ -44,8 +44,8 @@ export function SpaceMenuDropdown(): JSX.Element {
   const { me } = useNav();
   const { openShortcuts } = useReaderLayout();
   const keyboard = useKeyboardPlace();
-  const offline = useOffline();
-  const state = useApi((signal) => (offline ? storedSpaces() : api.spaces({ signal })), [offline]);
+  const fromCopy = useReadingCopy();
+  const state = useApi((signal) => (fromCopy ? storedSpaces() : api.spaces({ signal })), [fromCopy]);
   const spaces = state.data ?? [];
   const current = me?.space;
   const signedIn = me !== undefined && me.user !== '';
@@ -93,7 +93,7 @@ export function SpaceMenuDropdown(): JSX.Element {
       {keyboard && <ShortcutsMenuItem onClick={openShortcuts} />}
       <Menu.Divider />
 
-      {!offline && me?.read_only === true && (
+      {!fromCopy && me?.read_only === true && (
         <Menu.Item
           data-testid="space-menu-readonly"
           disabled
@@ -103,7 +103,7 @@ export function SpaceMenuDropdown(): JSX.Element {
         </Menu.Item>
       )}
       <OfflineAccessItem />
-      {!offline && (signedIn ? (
+      {!fromCopy && (signedIn ? (
         <Menu.Item
           data-testid="space-menu-signout"
           leftSection={<IconLogout size={layout.iconSizeSmall} />}

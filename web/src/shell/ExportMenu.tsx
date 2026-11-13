@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import type { ExportFormat } from '../api/types';
 import { errorText } from '../api/useApi';
 import { IconDownload } from '../icons';
-import { useOffline } from '../offline/connection';
+import { useReadingCopy } from '../offline/connection';
 import { layout } from '../theme';
 import { showToast } from '../toast';
 
@@ -43,10 +43,10 @@ export function useNoteExport(path: string): NoteExport {
 }
 
 export function ExportItems({ print, download }: NoteExport): JSX.Element {
-  const offline = useOffline();
+  const fromCopy = useReadingCopy();
   return (
     <>
-      {!offline && (
+      {!fromCopy && (
         <>
           <Menu.Item
             data-testid="doc-export-md"

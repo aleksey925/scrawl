@@ -1,7 +1,7 @@
 import type { SpaceEntry } from '../api/types';
 import {
   answerUrl, appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, decoded, fillAppMessage,
-  networkDeadlineMs, signInCookie, spaceBase, type AppState, type ChannelMessage,
+  networkDeadlineMs, serverUnreachable, signInCookie, spaceBase, type AppState, type ChannelMessage,
 } from '../offline/keys';
 
 interface OfflineConfig {
@@ -15,8 +15,6 @@ declare const self: ServiceWorkerGlobalScope & { scrawlOffline: OfflineConfig };
 const config = self.scrawlOffline;
 
 const appCache = appCachePrefix + config.build;
-
-const unavailable = new Set([502, 503, 504]);
 
 const spaceRoute = /^\/s\/([^/]+)\/(.*)$/;
 
@@ -144,7 +142,7 @@ async function networkFirst(request: Request, stored: () => Promise<Response | u
   }
   try {
     const answer = await Promise.race([fetch(request), deadline()]);
-    if (answer === undefined || unavailable.has(answer.status)) {
+    if (answer === undefined || serverUnreachable(answer)) {
       return rangeAnswer(request, kept);
     }
     return answer;

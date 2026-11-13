@@ -207,10 +207,9 @@ for the two sides of a version and `src/shell/FileView.tsx` for a
 highlighted text file. It is safe because the server made it: a note and a
 diff side are sanitized with the bluemonday policy in `render/policy.go`,
 and a text file is highlighted by `render` from escaped source. Keeping the
-injection in these three places keeps that trust boundary small. The two
-other `dangerouslySetInnerHTML` are `src/shell/AppLogo.tsx` and
-`src/components/Splash.tsx`, which draw the logo, a file of the bundle and
-never input.
+injection in these three places keeps that trust boundary small. The one
+other `dangerouslySetInnerHTML` is `src/shell/AppLogo.tsx`, which draws
+the logo, a file of the bundle and never input, for the start screen too.
 
 ## Browser and library quirks
 

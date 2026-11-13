@@ -4,7 +4,7 @@ import { changeSignal } from '../changeSignal';
 import { servedOffline } from '../mount';
 
 import { post } from './channel';
-import { networkDeadlineMs } from './keys';
+import { fromScrawl, networkDeadlineMs, serverUnreachable } from './keys';
 import { offlineSupported, offlineWanted, onChoiceChange, useOfflineWanted } from './preference';
 
 const probeMs = 15_000;
@@ -57,7 +57,7 @@ async function ping(): Promise<void> {
   tellWorker();
   try {
     const response = await fetch('/ping', { cache: 'no-store', credentials: 'same-origin', redirect: 'manual' });
-    if ((fromScrawl(response) || response.ok || asksToSignIn(response)) && !online) {
+    if ((fromScrawl(response) || response.ok || turnedAway(response)) && !online) {
       serverBack.notify();
     }
   } catch {
@@ -104,19 +104,16 @@ export function connectionStalled(): void {
   setOnline(false);
 }
 
-function fromScrawl(response: Response): boolean {
-  return response.headers.get('app-name') === 'scrawl';
+function turnedAway(response: Response): boolean {
+  return response.type === 'opaqueredirect' || response.status === 401 || response.status === 403;
 }
 
 function asksToSignIn(response: Response): boolean {
-  if (response.type === 'opaqueredirect' || response.status === 401 || response.status === 403) {
-    return true;
-  }
-  return response.ok && response.headers.get('content-type')?.includes('json') !== true;
+  return turnedAway(response) || (response.ok && response.headers.get('content-type')?.includes('json') !== true);
 }
 
 export function serverAnswered(response: Response): void {
-  if (response.status >= 500 && !fromScrawl(response)) {
+  if (serverUnreachable(response)) {
     connectionFailed();
   }
 }
@@ -168,6 +165,6 @@ export function useConnection(): Connection {
   return wanted ? connection : 'online';
 }
 
-export function useOffline(): boolean {
+export function useReadingCopy(): boolean {
   return useConnection() !== 'online';
 }

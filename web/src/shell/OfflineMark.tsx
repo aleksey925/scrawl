@@ -31,7 +31,7 @@ export function OfflineMark(): JSX.Element | null {
   return (
     <>
       <Popover
-        position="bottom-end"
+        position="bottom"
         withinPortal
         floatingStrategy="fixed"
         opened={opened}

@@ -235,6 +235,9 @@ test.describe('offline access', () => {
         // assert
         await expect(page.getByTestId('offline-popover')).toHaveText(/^No networkLast sync \d\d:\d\d$/);
         await expect(page.getByTestId('offline-mark')).toHaveAttribute('aria-expanded', 'true');
+        const middle = (box) => Math.round(box.x + box.width / 2);
+        const mark = await page.getByTestId('offline-mark').boundingBox();
+        await expect.poll(async () => middle(await page.getByTestId('offline-popover').boundingBox())).toBe(middle(mark));
         await shot(page, 'offline-mark');
     });
 

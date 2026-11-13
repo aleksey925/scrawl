@@ -115,7 +115,7 @@ export function SyncControl(): JSX.Element | null {
   return (
     <>
       <Popover
-        position="bottom-end"
+        position={calm ? 'bottom' : 'bottom-end'}
         withinPortal
         floatingStrategy="fixed"
         opened={opened}

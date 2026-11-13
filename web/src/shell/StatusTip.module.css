@@ -1,0 +1,19 @@
+.tip {
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--mantine-radius-md);
+  background: var(--scrawl-tooltip);
+  box-shadow: var(--scrawl-shadow-medium);
+  color: var(--scrawl-tooltip-text);
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.4;
+}
+
+.line {
+  color: var(--scrawl-tooltip-text-secondary);
+}
+
+.target[aria-expanded='true'] {
+  background: var(--scrawl-hover);
+}

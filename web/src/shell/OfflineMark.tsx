@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Popover, Text } from '@mantine/core';
+import { ActionIcon, Button, Popover } from '@mantine/core';
 import { useState, type JSX } from 'react';
 
 import { TapGuard, useTouchScreen } from '../components/TapGuard';
@@ -6,6 +6,8 @@ import { IconWifiOff } from '../icons';
 import { useConnection } from '../offline/connection';
 import { copyTime, useOfflineStatus } from '../offline/status';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
+
+import { StatusTip, statusTip } from './StatusTip';
 
 export function OfflineMark(): JSX.Element | null {
   const offline = useConnection() === 'offline';
@@ -18,12 +20,10 @@ export function OfflineMark(): JSX.Element | null {
     return null;
   }
   const updatedAt = state?.updatedAt ?? 0;
-  const message = updatedAt > 0
-    ? `No network. Notes from ${copyTime(updatedAt)}, nothing can be changed.`
-    : 'No network. Nothing can be changed.';
   const shared = {
     'data-testid': 'offline-mark',
     'aria-label': 'Offline',
+    className: statusTip.target,
     style: { color: 'var(--scrawl-text-secondary)' },
     onClick: () => setOpened((open) => !open),
   };
@@ -32,7 +32,6 @@ export function OfflineMark(): JSX.Element | null {
     <>
       <Popover
         position="bottom-end"
-        width={280}
         withinPortal
         floatingStrategy="fixed"
         opened={opened}
@@ -50,8 +49,8 @@ export function OfflineMark(): JSX.Element | null {
             </ActionIcon>
           )}
         </Popover.Target>
-        <Popover.Dropdown data-testid="offline-popover">
-          <Text size="sm">{message}</Text>
+        <Popover.Dropdown data-testid="offline-popover" className={statusTip.dropdown}>
+          <StatusTip title="No network" line={updatedAt > 0 ? `Last sync ${copyTime(updatedAt)}` : undefined} />
         </Popover.Dropdown>
       </Popover>
       <TapGuard active={opened} onClose={() => setOpened(false)} />

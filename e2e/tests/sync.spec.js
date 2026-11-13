@@ -251,7 +251,7 @@ test.describe('sync state', () => {
         await expect(control(page)).toHaveText('');
         await expect(control(page)).toHaveAttribute('aria-label', 'Synced');
         await control(page).click();
-        await expect(page.getByTestId('sync-details')).toContainText('Everything is on the remote.');
+        await expect(page.getByTestId('sync-popover')).toHaveText('Synced');
         await shot(page, 'sync-sent');
     });
 

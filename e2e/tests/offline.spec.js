@@ -223,6 +223,21 @@ test.describe('offline access', () => {
         await shot(page, 'offline-note');
     });
 
+    test('the offline mark says when the notes were last synced', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await context.setOffline(true);
+        await page.goto(routes.doc(NOTE));
+
+        // act
+        await page.getByTestId('offline-mark').click();
+
+        // assert
+        await expect(page.getByTestId('offline-popover')).toHaveText(/^No networkLast sync \d\d:\d\d$/);
+        await expect(page.getByTestId('offline-mark')).toHaveAttribute('aria-expanded', 'true');
+        await shot(page, 'offline-mark');
+    });
+
     test('offline the app reads, filters the tree and changes nothing', async ({page, context}) => {
         // arrange
         await copyOn(page);

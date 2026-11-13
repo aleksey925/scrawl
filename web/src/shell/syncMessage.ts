@@ -165,7 +165,6 @@ function stageOf(syncError: string): SyncKind | undefined {
 export interface SyncStatus {
   state: 'blocked' | 'sending' | 'not-sent' | 'warning' | 'sent';
   name: string;
-  detail?: string;
 }
 
 export function syncStatusOf(me: MeResponse | undefined, sync: SyncMessage | undefined): SyncStatus | undefined {
@@ -180,7 +179,7 @@ export function syncStatusOf(me: MeResponse | undefined, sync: SyncMessage | und
     return { state: 'blocked', name: 'Access refused' };
   }
   if (space.pushing) {
-    return { state: 'sending', name: 'Syncing…', detail: 'Sending changes to the remote.' };
+    return { state: 'sending', name: 'Syncing…' };
   }
   const name = stageOf(space.sync_error) === 'fetch' ? 'No connection' : 'Not synced';
   if (space.unpublished) {
@@ -190,11 +189,7 @@ export function syncStatusOf(me: MeResponse | undefined, sync: SyncMessage | und
     return { state: 'warning', name };
   }
   if (space.kind === 'remote' && !space.read_only) {
-    return {
-      state: 'sent',
-      name: 'Synced',
-      detail: 'Everything is on the remote.',
-    };
+    return { state: 'sent', name: 'Synced' };
   }
   return undefined;
 }

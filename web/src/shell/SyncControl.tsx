@@ -9,6 +9,7 @@ import { documentUrl } from '../paths';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { useNav } from './NavContext';
+import { StatusTip, statusTip } from './StatusTip';
 import { factText, type SyncStatus } from './syncMessage';
 
 const thisNote = 'This note is not sent yet';
@@ -50,7 +51,7 @@ function SyncIcon({ state, size }: { state: SyncStatus['state']; size: number })
 
 function SyncDetails({ summary, onLeave }: { summary: SyncSummary; onLeave: () => void }): JSX.Element {
   const { sync, me } = useNav();
-  const { name, detail } = summary.status;
+  const { name } = summary.status;
   const paths = me?.space.unsynced.paths ?? [];
 
   return (
@@ -58,23 +59,21 @@ function SyncDetails({ summary, onLeave }: { summary: SyncSummary; onLeave: () =
       <Text size="sm" fw={500}>
         {name}
       </Text>
-      {detail !== undefined && <Text size="sm">{detail}</Text>}
       {summary.here && (
         <Text data-testid="sync-popover-here" size="sm">
           {thisNote}.
         </Text>
       )}
-      {detail === undefined &&
-        sync?.facts.map((entry) => (
-          <Stack key={entry.kind} gap={4}>
-            <Text size="sm">{factText(entry, paths.length > 0)}</Text>
-            {entry.reason !== '' && (
-              <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                {entry.reason}
-              </Code>
-            )}
-          </Stack>
-        ))}
+      {sync?.facts.map((entry) => (
+        <Stack key={entry.kind} gap={4}>
+          <Text size="sm">{factText(entry, paths.length > 0)}</Text>
+          {entry.reason !== '' && (
+            <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+              {entry.reason}
+            </Code>
+          )}
+        </Stack>
+      ))}
       {paths.length > 0 && me?.space.diverged === true && <Text size="sm">Conflicting files:</Text>}
       {paths.length > 0 && (
         <List data-testid="sync-popover-paths" size="sm" spacing={4} withPadding>
@@ -101,13 +100,14 @@ export function SyncControl(): JSX.Element | null {
     return null;
   }
   const { state, name } = summary.status;
-  const calm = summary.status.detail !== undefined;
+  const calm = state === 'sent' || state === 'sending';
   const color = calm ? 'var(--scrawl-text-secondary)' : 'var(--scrawl-color-orange)';
   const shared = {
     'data-testid': 'sync-control',
     'data-here': summary.here ? 'true' : 'false',
     'data-state': state,
     'aria-label': summary.label,
+    className: statusTip.target,
     style: { color },
     onClick: () => setOpened((open) => !open),
   };
@@ -140,9 +140,15 @@ export function SyncControl(): JSX.Element | null {
           )}
         </Popover.Target>
 
-        <Popover.Dropdown data-testid="sync-popover" maw={layout.popoverWidth}>
-          <SyncDetails summary={summary} onLeave={() => setOpened(false)} />
-        </Popover.Dropdown>
+        {calm ? (
+          <Popover.Dropdown data-testid="sync-popover" className={statusTip.dropdown}>
+            <StatusTip title={name} line={summary.here ? thisNote : undefined} />
+          </Popover.Dropdown>
+        ) : (
+          <Popover.Dropdown data-testid="sync-popover" maw={layout.popoverWidth}>
+            <SyncDetails summary={summary} onLeave={() => setOpened(false)} />
+          </Popover.Dropdown>
+        )}
       </Popover>
       <TapGuard active={opened} onClose={() => setOpened(false)} />
     </>

@@ -287,7 +287,7 @@ history are hidden, since they need the server.
   it on with "Offline access" in the space menu, or under Profile on a phone.
 - It needs HTTPS, or `localhost`: browsers allow it nowhere else, and on plain
   http the switch is greyed out with `Needs HTTPS`.
-- The first copy downloads every space whole, plus the app. After that only 
+- The first copy downloads every space whole, plus the app. After that only
   changed files are downloaded.
 
 ## Configuration

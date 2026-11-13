@@ -196,17 +196,16 @@ switch, inside the tap.
   error in the api client's `send()`, on any 5xx there that is not scrawl's own
   answer (a render deadline is a 503; Cloudflare's 521 to 530 say the server is
   down), and on the `offline` event. scrawl's own answer is one with
-  `App-Name: scrawl`, which the server sets on every answer to a signed-in
-  request, and auth off counts as signed in; a gateway's page has none, even in
-  JSON. `navigator.onLine` alone is not trusted. While the copy is on, a page,
-  folder or nav request of the reader with no headers in 3 seconds, the
-  worker's wait, takes it offline too when the copy holds its answer: one bar
-  of signal often keeps `onLine` true and a fetch hangs for minutes. The
-  request is not cut; the reader leaves it for the copy. Without a stored
-  answer the request waits for the network, as in the worker, so a note slow to
-  render and not in the copy still opens. One in the copy goes offline for a
-  moment and comes back at once: going offline probes `/ping` with no wait, and
-  `/api/me` answers.
+  `App-Name: scrawl`, which the server sets on every answer, its 401 too; a
+  gateway's page has none, even in JSON. `navigator.onLine` alone is not
+  trusted. While the copy is on, a page, folder or nav request of the reader
+  with no headers in 3 seconds, the worker's wait, takes it offline too when
+  the copy holds its answer: one bar of signal often keeps `onLine` true and a
+  fetch hangs for minutes. The request is not cut; the reader leaves it for the
+  copy. Without a stored answer the request waits for the network, as in the
+  worker, so a note slow to render and not in the copy still opens. One in the
+  copy goes offline for a moment and comes back at once: going offline probes
+  `/ping` with no wait, and `/api/me` answers.
 - A start from the offline shell while `navigator.onLine` is true is a check,
   not a failure: the app reads the copy, but shows no `Offline` mark, and
   `/edit/`, `/history/` and `/search` show nothing yet. The reader gets
@@ -232,16 +231,22 @@ switch, inside the tap.
   reaching the sign-in, since the worker serves the space's pages from the
   cache. So `/api/me` and `/ping` are asked with `redirect: 'manual'`, and an
   answer of `/api/me` with no `App-Name: scrawl` that is a redirect, a 401, a
-  403 or a 2xx that is not JSON counts as a 401: scrawl redirects neither, and
-  its one answer there without the header is the 401. Any other answer without
-  the header, a 5xx of a gateway whose server is down above all, is not a
-  sign-in. The app goes to `/login?from=`, which the worker leaves to the
-  network, the gateway shows its sign-in there and then sends the person back,
-  and `/login` sends them on to `from`, with auth off too. A tab goes there
-  from such an answer once, marked in `sessionStorage`, until `/api/me` answers
-  again: a gateway that refuses `/api/me` with a 403 even after its sign-in,
-  while `/login` gets through, would reload the app forever, and the copy stays
-  readable instead.
+  403 or a 2xx that is not JSON counts as a 401. Any other answer without the
+  header, a 5xx of a gateway whose server is down above all, is not a sign-in.
+  The app goes to `/login?from=`, which the worker leaves to the network, the
+  gateway shows its sign-in there and then sends the person back, and `/login`
+  sends them on to `from`, with auth off too. A tab goes there from such an
+  answer once, marked in `sessionStorage`, until `/api/me` answers again: a
+  gateway that refuses `/api/me` with a 403 even after its sign-in, while
+  `/login` gets through, would reload the app forever, and the copy stays
+  readable instead. scrawl's own 401 is not limited: its sign-in page cannot
+  loop, and a tab that came back from it with Back on the copy would otherwise
+  stay there with no way to sign in.
+- A 404 of `/api/me` while the app reads the copy means the server no longer
+  has the space, renamed or removed, while the copy and its `/api/spaces` still
+  do: `/` would keep sending the person there. The app asks `/api/spaces` and
+  goes to the first other space; its `/api/me` answers, and the round there
+  deletes the gone space from the copy.
 - Offline the reader gets `offlinePlatform`: the app's platform with no search,
   no editing, and `offlineSource`, which reads `scrawl-data` directly and gives
   only answers whose release is the shell's `data-version`. The tree is the
@@ -280,10 +285,10 @@ switch, inside the tap.
 - After an upgrade a note whose answer is not fetched again yet shows
   `This is not on this device` until the first round of the new release ends.
 - Pictures from other sites are not copied.
-- After an upgrade, the first start runs the bundle of the app cache against
-  the new server; the worker the start installs serves the new one next time.
-  While that install fails, for lack of space, every start runs the old one.
-- A space removed from the server still opens from the copy, offline, since its
-  `/api/me` answers 404; the space menu leads to the others.
+- After an upgrade, a start from the copy runs the bundle of the app cache
+  against the new server until the worker the start installs takes over. Then,
+  once `/api/me` has named a release other than the shell's, the app reloads
+  onto the new bundle, at most once a minute and not over unsaved text. While
+  that install fails, for lack of space, every start runs the old one.
 - The offline shell knows no theme, so with a picked theme other than the
   system's the start screen shows the system's ground until the bundle runs.

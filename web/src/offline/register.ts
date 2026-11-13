@@ -1,3 +1,6 @@
+import { mountRelease, servedOffline } from '../mount';
+import { reloadForStaleBundle } from '../staleBundle';
+
 import { onMessage, post } from './channel';
 import { startConnection } from './connection';
 import { copyNow, startCopy, stopCopy } from './copy';
@@ -7,6 +10,23 @@ import { choiceChangedElsewhere, offlineSupported, offlineWanted, setOfflineChoi
 import { appFailed, forgetStatus, refreshStatus, startStatus } from './status';
 
 let switching: Promise<void> = Promise.resolve();
+
+let workerChanged = false;
+
+let releaseChanged = false;
+
+function reloadForNewRelease(): void {
+  if (workerChanged && releaseChanged) {
+    reloadForStaleBundle();
+  }
+}
+
+export function releaseAnswered(release: string): void {
+  if (servedOffline() && release !== mountRelease()) {
+    releaseChanged = true;
+    reloadForNewRelease();
+  }
+}
 
 function afterSwitching(task: () => Promise<void>): Promise<void> {
   const next = switching.then(task);
@@ -77,6 +97,10 @@ export function startOffline(): void {
   startConnection();
   startStatus();
   startCopy();
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    workerChanged = true;
+    reloadForNewRelease();
+  });
   onMessage((message) => {
     if (message.type === 'choice') {
       choiceChangedElsewhere();

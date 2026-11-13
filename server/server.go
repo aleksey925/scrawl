@@ -215,7 +215,7 @@ func (wb *Web) router() (http.Handler, error) {
 	}
 
 	router := routegroup.New(http.NewServeMux())
-	router.Use(rest.Trace, rest.Recoverer(lgr.Default()), securityHeaders)
+	router.Use(rest.Trace, rest.Recoverer(lgr.Default()), securityHeaders, appName)
 	router.Use(rest.Gzip(gzipContentTypes...))
 	if wb.TrustedProxy {
 		router.Use(rest.RealIP)
@@ -374,6 +374,13 @@ func pingHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
+func appName(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("App-Name", "scrawl")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (wb *Web) appInfo(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if wb.Auth == nil {
@@ -382,7 +389,6 @@ func (wb *Web) appInfo(next http.Handler) http.Handler {
 		}
 		if _, ok := wb.Auth.User(r); ok {
 			h := w.Header()
-			h.Set("App-Name", "scrawl")
 			h.Set("App-Version", wb.Version)
 			h.Set("Author", "aleksey925")
 		}

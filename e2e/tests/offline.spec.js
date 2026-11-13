@@ -802,6 +802,49 @@ test.describe('offline access', () => {
         await page.waitForURL(/\/login/);
     });
 
+    test('a session that ended sends the person to sign in again after Back', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await context.clearCookies({name: 'scrawl_session'});
+        const signIns = [];
+        page.on('request', (request) => {
+            if (request.isNavigationRequest() && new URL(request.url()).pathname === '/login') {
+                signIns.push(request.url());
+            }
+        });
+        await page.goto(routes.doc(NOTE));
+        await expect.poll(() => signIns.length).toBe(1);
+        await page.waitForURL(/\/login/);
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect.poll(() => signIns.length).toBe(2);
+        await page.waitForURL(/\/login/);
+    });
+
+    test('a release the server changed reloads the app once the new worker takes over', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await context.route(/\/api\/me$/, async (route) => {
+            const answer = await route.fetch();
+            await route.fulfill({response: answer, json: {...await answer.json(), version: 'next'}});
+        });
+        const answered = page.waitForResponse(/\/api\/me$/);
+        await page.goto(routes.doc(NOTE));
+        await answered;
+        await page.evaluate(() => {
+            window.scrawlBeforeReload = true;
+        });
+
+        // act
+        await page.evaluate(() => navigator.serviceWorker.dispatchEvent(new Event('controllerchange')));
+
+        // assert
+        await expect.poll(() => page.evaluate(() => window.scrawlBeforeReload === true).catch(() => true)).toBe(false);
+    });
+
     const gatewayAnswers = [
         {name: 'a redirect to another site', status: 302, headers: {location: 'https://gateway.invalid/sign-in'}},
         {name: 'a 403', status: 403, headers: {'content-type': 'text/html'}, body: '<p>Forbidden</p>'},
@@ -1446,6 +1489,28 @@ test.describe('offline access of every space', () => {
 
         // assert
         await expect(page).toHaveURL(new URL(last, MULTI.baseURL).href);
+    });
+
+    test('a first stored space the server no longer has leads to the first one it has', async ({page}) => {
+        // arrange
+        await copyOn(page, MULTI.url.home());
+        const first = await page.evaluate(async () => {
+            const cache = await caches.open('scrawl-data');
+            const stored = await cache.match('/api/spaces');
+            const spaces = await stored.json();
+            const me = await cache.match(new URL('api/me', new URL(spaces[0].url, location.href)).pathname);
+            await cache.put('/s/gone/api/me', me);
+            const gone = {...spaces[0], name: 'gone', label: 'Gone', url: '/s/gone/'};
+            await cache.put('/api/spaces', new Response(JSON.stringify([gone, ...spaces]), {headers: stored.headers}));
+            return spaces[0].url;
+        });
+
+        // act
+        await page.goto(`${MULTI.baseURL}/`);
+
+        // assert
+        await expect(page).toHaveURL(new URL(first, MULTI.baseURL).href);
+        await expect(page.getByTestId('dir')).toBeVisible();
     });
 
     test('another user who signs in never sees the copy of the one before', async ({page, context}) => {

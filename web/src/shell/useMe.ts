@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from '../api/client';
+import { ApiError } from '../api/errors';
 import type { MeResponse } from '../api/types';
-import { confirmOnline, onServerBack } from '../offline/connection';
+import { mountBase } from '../mount';
+import { confirmOnline, isOnline, onServerBack } from '../offline/connection';
 import { meAnswered } from '../offline/copy';
+import { releaseAnswered } from '../offline/register';
 
 const meRefreshMs = 60_000;
 const pushPollMs = 2_000;
@@ -13,6 +16,15 @@ const meTimeoutMs = 30_000;
 export interface MeState {
   me: MeResponse | undefined;
   refreshMe: () => void;
+}
+
+async function leaveGoneSpace(): Promise<void> {
+  const here = `${mountBase()}/`;
+  const spaces = await api.spaces().catch(() => []);
+  const other = spaces.find((entry) => entry.url !== here);
+  if (other !== undefined) {
+    window.location.replace(other.url);
+  }
 }
 
 export function useMe(): MeState {
@@ -35,11 +47,15 @@ export function useMe(): MeState {
       .then((res) => {
         confirmOnline();
         meAnswered();
+        releaseAnswered(res.version);
         if (generation.current === mine) {
           setMe(res);
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        if (error instanceof ApiError && error.status === 404 && !isOnline()) {
+          void leaveGoneSpace();
+        }
       })
       .finally(() => {
         window.clearTimeout(timeout);

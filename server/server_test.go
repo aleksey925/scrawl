@@ -482,6 +482,19 @@ func TestPingIsExactAndDoesNotShadowContent(t *testing.T) {
 	}
 }
 
+func TestAnAnswerToAStrangerNamesTheApp(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true})
+
+	// act
+	resp, _ := ts.do(t, request{path: "/api/me"})
+
+	// assert
+	assert.Equal(t, http.StatusUnauthorized, resp.status)
+	assert.Equal(t, "scrawl", resp.header.Get("App-Name"))
+	assert.Empty(t, resp.header.Get("App-Version"))
+}
+
 func TestBuildVersionIsNotShownToStrangers(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{withAuth: true})

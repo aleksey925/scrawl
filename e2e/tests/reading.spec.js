@@ -659,6 +659,26 @@ test.describe('reading', () => {
         await shot(page, 'reading-code-blocks');
     });
 
+    test('the indicator of a long line shows only while the code scrolls', async ({page}) => {
+        // arrange
+        writeFixture(CODE, `# Code\n\n\`\`\`\n${'x'.repeat(400)}\n\`\`\`\n`);
+        await page.goto(routes.doc(CODE));
+        const block = page.getByTestId('doc-code');
+        await expect(block).toHaveAttribute('data-scroll', 'start');
+        const bar = block.locator('.md-code-bar');
+        const opacity = () => bar.evaluate((node) => getComputedStyle(node).opacity);
+        const before = await opacity();
+
+        // act
+        await block.locator('pre').evaluate((node) => node.scrollBy({left: 100}));
+
+        // assert
+        expect(before).toBe('0');
+        await expect(bar).toHaveAttribute('data-shown', 'true');
+        await expect(bar).toHaveAttribute('data-shown', 'false');
+        await expect.poll(opacity).toBe('0');
+    });
+
     test('a heading\'s link mark is a regular # of its own font, just under the baseline of its last line', async ({page}) => {
         // arrange
         writeFixture(HEADINGS, HEADINGS_SOURCE);

@@ -11,6 +11,7 @@ const copyLabel = 'Copy';
 const copiedLabel = 'Copied';
 
 const copiedFor = 1500;
+const barShownFor = 800;
 
 type Teardown = () => void;
 
@@ -127,13 +128,23 @@ function trackScroll(block: HTMLElement, code: HTMLElement): Teardown {
     thumb.style.width = `${(clientWidth / scrollWidth) * 100}%`;
     thumb.style.transform = `translateX(${(scrollLeft / clientWidth) * 100}%)`;
   };
+  let hide = 0;
+  const scrolled = (): void => {
+    update();
+    bar.dataset.shown = 'true';
+    window.clearTimeout(hide);
+    hide = window.setTimeout(() => {
+      bar.dataset.shown = 'false';
+    }, barShownFor);
+  };
   const resized = new ResizeObserver(update);
   resized.observe(code);
-  code.addEventListener('scroll', update, { passive: true });
+  code.addEventListener('scroll', scrolled, { passive: true });
   update();
   return () => {
+    window.clearTimeout(hide);
     resized.disconnect();
-    code.removeEventListener('scroll', update);
+    code.removeEventListener('scroll', scrolled);
     bar.remove();
     delete block.dataset.scroll;
   };

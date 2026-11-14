@@ -491,7 +491,7 @@
 }
 
 .markdown-document .code-block[data-scroll]:not([data-scroll='none']) > :is(pre, pre.chroma) {
-  padding-bottom: 6px;
+  padding-bottom: 4px;
 }
 
 .markdown-document .code-block > pre::-webkit-scrollbar {
@@ -523,6 +523,13 @@
   overflow: hidden;
   border-radius: 2px;
   background-color: var(--scrawl-border-light);
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.md-code-bar[data-shown='true'] {
+  opacity: 1;
+  transition-duration: 100ms;
 }
 
 .md-code-bar > div {

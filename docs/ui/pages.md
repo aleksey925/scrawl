@@ -140,10 +140,10 @@ opens over them.
   after a copy. Copy takes the text of the `pre` and nothing else, so the head
   is never inside it.
 - A long line scrolls inside the box and never wraps. The browser's own
-  scrollbar is hidden: a thin bar under the code shows where the view is, and
-  the code fades out at an edge that has more behind it. A block that fits has
-  neither. The bar is drawn by the page, so a phone shows it too, where a
-  native scrollbar shows only while the code moves.
+  scrollbar is hidden: a thin bar under the code shows where the view is while
+  the code scrolls and fades out soon after, and the code fades out at an edge
+  that has more behind it. A block that fits has neither. The bar keeps its
+  room when hidden, so the code never jumps when it shows.
 - A PlantUML diagram takes PlantUML's own dark mode in a dark theme, unless it
   sets colors of its own: a color on an element, a `skinparam` color, also one
   inside a `skinparam` block, a `<style>`, a `<back:>`, a text color in

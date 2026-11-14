@@ -2,11 +2,11 @@ import {
   useCallback, useRef, useState,
   type JSX, type MouseEvent, type PointerEvent, type ReactElement, type ReactNode,
 } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 
 import type { DirEntry, EntryKind } from '../api/types';
 import { IconArrowUp, IconChevronRight, IconClock, IconFile, IconFileText, IconFolder, IconHash } from '../icons';
-import { directoryUrl, isHtmlApp, isMarkdown, runUrl } from '../paths';
+import { directoryUrl, isHtmlApp, isMarkdown, runState, runUrl } from '../paths';
 import { usePlatform } from '../platform';
 import { useReaderExtensions } from '../shell/extensions';
 import { useRenamingHere, type Renaming } from '../shell/fileActionsContext';
@@ -254,8 +254,9 @@ function RowTags({ entry }: { entry: DirEntry }): JSX.Element {
 }
 
 function RunLink({ path, className }: { path: string; className: string | undefined }): JSX.Element {
+  const location = useLocation();
   return (
-    <Link data-testid="dir-row-run" data-row-action to={runUrl(path)} className={className}>
+    <Link data-testid="dir-row-run" data-row-action to={runUrl(path)} state={runState(location)} className={className}>
       Run
     </Link>
   );

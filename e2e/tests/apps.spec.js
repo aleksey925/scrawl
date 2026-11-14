@@ -234,13 +234,15 @@ test.describe('html apps', () => {
         await expect(page).toHaveURL(PLAIN.run(COUNTER_FILE));
         await expect(appFrame(page).locator('#title')).toHaveText('Counter');
 
-        await page.goBack();
+        await page.getByTestId('run-back').click();
+        await expect(page).toHaveURL(`${PLAIN.prefix}/doc/${encodePath(COUNTER)}/`);
         await appRow.click({button: 'right'});
         await page.getByTestId('tree-row-menu-run').click();
         await expect(page).toHaveURL(PLAIN.run(COUNTER_FILE));
         await expect(appFrame(page).locator('#title')).toHaveText('Counter');
 
-        await page.goBack();
+        await page.getByTestId('run-back').click();
+        await expect(page).toHaveURL(`${PLAIN.prefix}/doc/${encodePath(COUNTER)}/`);
         await styleRow.click({button: 'right'});
         await expect(page.getByTestId('tree-row-menu-open')).toBeVisible();
         await expect(page.getByTestId('tree-row-menu-run')).toHaveCount(0);

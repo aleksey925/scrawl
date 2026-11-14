@@ -1,5 +1,6 @@
 import { ActionIcon, Button, Menu } from '@mantine/core';
 import { useEffect, useRef, useState, type JSX } from 'react';
+import { useLocation } from 'react-router';
 
 import type { FilePageResponse } from '../api/types';
 import { EmptyState } from '../components/EmptyState';
@@ -7,6 +8,7 @@ import { absoluteTime, fileSize, shortTime } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
 import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
 import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconMoveTo, IconPlay, IconTrash } from '../icons';
+import { runState } from '../paths';
 import { usePlatform } from '../platform';
 import { useDocumentControls } from '../reader/useDocumentControls';
 import { openViewer } from '../reader/viewer';
@@ -140,12 +142,13 @@ function TextLines({ file }: { file: FilePageResponse }): JSX.Element {
 
 function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }): JSX.Element {
   const { canWrite } = useNav();
+  const location = useLocation();
   const actions = useFileActions();
 
   return (
     <>
       {canWrite && file.edit_url !== undefined && <EditAction testId="file-edit" to={file.edit_url} />}
-      {file.run_url !== undefined && <TopbarAction testId="file-run" label="Run" icon={IconPlay} to={file.run_url} />}
+      {file.run_url !== undefined && <TopbarAction testId="file-run" label="Run" icon={IconPlay} to={file.run_url} state={runState(location)} />}
       <ActionIcon
         data-testid="file-download"
         component="a"

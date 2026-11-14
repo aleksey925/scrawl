@@ -10,7 +10,7 @@ import { goToLogin } from '../login';
 import { useConnection } from '../offline/connection';
 import { offlineSupported, offlineWanted } from '../offline/preference';
 import { mountedSpace, readRun, writeRun } from '../offline/records';
-import { documentUrl } from '../paths';
+import { runBack } from '../paths';
 import { basenameOf } from '../shell/naming';
 import { needsNetworkTitle, noNetworkText, ScreenMessage } from '../shell/NeedsNetwork';
 import { useMe } from '../shell/useMe';
@@ -61,10 +61,10 @@ async function offlineState(path: string): Promise<RunState> {
 export function Component(): JSX.Element {
   const location = useLocation();
   const path = useParams()['*'] ?? '';
-  return <RunScreen key={location.key} path={path} />;
+  return <RunScreen key={location.key} path={path} back={runBack(location.state, path)} />;
 }
 
-function RunScreen({ path }: { path: string }): JSX.Element {
+function RunScreen({ path, back }: { path: string; back: string }): JSX.Element {
   useEffect(() => installUnauthorizedHandler('shell', goToLogin), []);
   useMe();
   const connection = useConnection();
@@ -164,7 +164,7 @@ function RunScreen({ path }: { path: string }): JSX.Element {
           size="lg"
           aria-label="Back"
           title="Back"
-          renderRoot={(props: Record<string, unknown>): ReactNode => <Link to={documentUrl(path)} {...props} />}
+          renderRoot={(props: Record<string, unknown>): ReactNode => <Link to={back} {...props} />}
         >
           <IconChevronLeft size={layout.iconSize} />
         </ActionIcon>
@@ -196,9 +196,9 @@ function RunScreen({ path }: { path: string }): JSX.Element {
           allow={frameAllow}
         />
       )}
-      {state.kind === 'failed' && <RunMessage testId="run-error" path={path} message={state.message} />}
+      {state.kind === 'failed' && <RunMessage testId="run-error" back={back} message={state.message} />}
       {state.kind === 'offline' && (
-        <RunMessage testId="run-needs-network" path={path} title={needsNetworkTitle} message={state.message} />
+        <RunMessage testId="run-needs-network" back={back} title={needsNetworkTitle} message={state.message} />
       )}
     </div>
   );
@@ -206,15 +206,15 @@ function RunScreen({ path }: { path: string }): JSX.Element {
 
 interface RunMessageProps {
   testId: string;
-  path: string;
+  back: string;
   message: string;
   title?: string;
 }
 
-function RunMessage({ testId, path, message, title }: RunMessageProps): JSX.Element {
+function RunMessage({ testId, back, message, title }: RunMessageProps): JSX.Element {
   return (
     <div className={classes.message} data-testid={testId}>
-      <ScreenMessage title={title} message={message} to={documentUrl(path)} back="Back to the file" />
+      <ScreenMessage title={title} message={message} to={back} back="Back" />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { ActionIcon, Menu } from '@mantine/core';
 import type { JSX } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import {
   FixedAnchor, pointerPlacement, rectAt, useCloseOnScroll, type MenuPlacement,
@@ -9,7 +9,7 @@ import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
 import {
   IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconMoveTo, IconPlay, IconPlus, IconTrash,
 } from '../icons';
-import { directoryUrl, documentUrl, isHtmlApp, runUrl } from '../paths';
+import { directoryUrl, documentUrl, isHtmlApp, runState, runUrl } from '../paths';
 import { layout } from '../theme';
 
 import { rowMenuIconSize, type RowMenuProps } from './extensions';
@@ -24,6 +24,7 @@ export function RowMenu({
   path, isDir, name, touch, inTree = false, withCreate = true, editUrl, opened, onOpenedChange: setOpened, target, at,
 }: RowMenuProps): JSX.Element {
   const navigate = useNavigate();
+  const location = useLocation();
   const { canWrite } = useNav();
   const actions = useFileActions();
   useCloseOnScroll(opened, setOpened);
@@ -70,7 +71,7 @@ export function RowMenu({
           <Menu.Item
             data-testid="tree-row-menu-run"
             leftSection={<IconPlay size={rowMenuIconSize} />}
-            onClick={() => void navigate(runUrl(path))}
+            onClick={() => void navigate(runUrl(path), { state: runState(location) })}
           >
             Run
           </Menu.Item>

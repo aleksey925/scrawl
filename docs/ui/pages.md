@@ -229,22 +229,25 @@ opens over them.
 - In the list of a folder a `.html` or `.htm` file has a Run button in its row,
   an outlined RUN in capitals after the name, as Notion draws Open; on a phone
   it sits before the row's menu, its tap area the 44px of a tap. The menu of
-  such a row, in the list and in the tree, has Run after Open. Both open the
-  run screen. A site has neither, as it has no run screen.
+  such a row has Run after Open. Both open the run screen. A site has neither,
+  as it has no run screen.
 - Run opens the run screen, `/run/<path>`, outside the layout: no sidebar, no
   topbar, no tab bar and no banner, since the app wants the whole screen. One
-  bar on top holds Back, a link to the file's page, the file name with an
-  ellipsis, and Open in a new tab. The frame fills the rest with no border.
-  Back goes to the file's page and not back in the history: the frame's own
+  bar on top holds Back, the file name with an ellipsis, and Open in a new tab.
+  The frame fills the rest with no border. Back goes to the screen Run was
+  tapped on, the file's page or the folder's list, kept in the state of the run
+  screen's entry in the history; a run screen opened by its address goes back
+  to the file's page. Back never steps back in the history: the frame's own
   pages go into the tab's history, and a step back could land on an earlier
   page of the app.
 - Open in a new tab asks a new ticket in the tap and opens the app in a tab of
   its own; a blocked popup shows an error toast. With no network it opens the
   address of a kept app, and is disabled when the app is not kept.
-- An error of the ticket shows its text under the bar with a link back to the
-  file, the reason and the fix at an address with no `APPS_URL` included. A
-  failure after the ticket shows inside the frame: the browser's error page, or
-  the text of a refused cookie, which says to open the app in a new tab.
+- An error of the ticket shows its text under the bar with a link Back to where
+  Run was tapped, the reason and the fix at an address with no `APPS_URL`
+  included. A failure after the ticket shows inside the frame: the browser's
+  error page, or the text of a refused cookie, which says to open the app in a
+  new tab.
 - The frame stays when the network goes and comes back, so the app keeps its
   state and what was typed in it.
 - With no network and the copy on, a kept app opens in the frame. Else the

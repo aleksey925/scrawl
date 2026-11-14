@@ -69,6 +69,19 @@ export function runUrl(path: string): string {
   return `/run/${encodeContentPath(path)}`;
 }
 
+export interface RunState {
+  back: string;
+}
+
+export function runState(from: { pathname: string; search: string }): RunState {
+  return { back: `${from.pathname}${from.search}` };
+}
+
+export function runBack(state: unknown, path: string): string {
+  const back = (state as Partial<RunState> | null)?.back;
+  return typeof back === 'string' && back.startsWith('/') && !back.startsWith('//') ? back : documentUrl(path);
+}
+
 export function isEditPath(pathname: string): boolean {
   return pathname.startsWith('/edit/');
 }

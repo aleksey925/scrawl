@@ -129,7 +129,7 @@ func (ts *testServer) enter(ticketURL, fetchSite, fetchDest string) *httptest.Re
 	return ts.serve(r)
 }
 
-func (ts *testServer) appCookie(t *testing.T, file string) (string, *http.Cookie) {
+func (ts *testServer) appsCookie(t *testing.T, file string) (string, *http.Cookie) {
 	t.Helper()
 	ticket := ts.run(t, scrawlOrigin, file, false)
 	rec := ts.enter(ticket.URL, "cross-site", "iframe")
@@ -156,7 +156,7 @@ func appHost(file string) string {
 func TestAppsHostServesNoScrawlHandler(t *testing.T) {
 	// arrange
 	ts := newAppsServer(t, testOpts{withAuth: true})
-	host, cookie := ts.appCookie(t, otherFile)
+	host, cookie := ts.appsCookie(t, otherFile)
 	paths := []string{"/login", "/static/x.js", "/api/spaces", "/ping", "/sw.js", "/s/" + testSpace + "/"}
 
 	for _, target := range paths {
@@ -180,7 +180,7 @@ func TestAppsHostServesNoScrawlHandler(t *testing.T) {
 func TestAppsHostServesTheFilesOfAppsNamedAsScrawlRoutes(t *testing.T) {
 	// arrange
 	ts := newAppsServer(t, testOpts{withAuth: true})
-	host, cookie := ts.appCookie(t, counterFile)
+	host, cookie := ts.appsCookie(t, counterFile)
 	tests := []struct {
 		target string
 		file   string
@@ -487,7 +487,7 @@ func TestAppsMalformedIDAnswers404(t *testing.T) {
 func TestAppsFileList(t *testing.T) {
 	// arrange
 	ts := newAppsServer(t, testOpts{withAuth: true})
-	host, cookie := ts.appCookie(t, counterFile)
+	host, cookie := ts.appsCookie(t, counterFile)
 	entry := func(p, rel string) appsFileEntry {
 		fi, err := ts.Spaces[0].Store.Stat(p)
 		require.NoError(t, err)
@@ -518,7 +518,7 @@ func TestAppsFileList(t *testing.T) {
 func TestAppsFileListETagsAreTheETagsOfTheFiles(t *testing.T) {
 	// arrange
 	ts := newAppsServer(t, testOpts{withAuth: true})
-	host, cookie := ts.appCookie(t, counterFile)
+	host, cookie := ts.appsCookie(t, counterFile)
 	var res struct {
 		Files []appsFileEntry `json:"files"`
 	}
@@ -541,7 +541,7 @@ func TestAppsFileListETagsAreTheETagsOfTheFiles(t *testing.T) {
 func TestAppsFileListOfAFolderThatIsGone(t *testing.T) {
 	// arrange
 	ts := newAppsServer(t, testOpts{withAuth: true})
-	host, cookie := ts.appCookie(t, counterFile)
+	host, cookie := ts.appsCookie(t, counterFile)
 	require.NoError(t, os.RemoveAll(filepath.Join(ts.root, filepath.FromSlash(counterFolder))))
 
 	// act
@@ -555,7 +555,7 @@ func TestAppsFileListOfAFolderThatIsGone(t *testing.T) {
 func TestAppsFileListOfAnAppAtTheRoot(t *testing.T) {
 	// arrange
 	ts := newAppsServer(t, testOpts{withAuth: true})
-	host, cookie := ts.appCookie(t, "root.html")
+	host, cookie := ts.appsCookie(t, "root.html")
 	entry := func(p string) appsFileEntry {
 		fi, err := ts.Spaces[0].Store.Stat(p)
 		require.NoError(t, err)
@@ -586,7 +586,7 @@ func TestAppsFileListOfAnAppAtTheRoot(t *testing.T) {
 func TestAppsRefuseAnotherCookie(t *testing.T) {
 	// arrange
 	ts := newAppsServer(t, testOpts{withAuth: true})
-	_, other := ts.appCookie(t, otherFile)
+	_, other := ts.appsCookie(t, otherFile)
 	tests := []struct {
 		name   string
 		cookie *http.Cookie
@@ -615,7 +615,7 @@ func TestAppsRefuseAnotherCookie(t *testing.T) {
 func TestAppsFiles(t *testing.T) {
 	// arrange
 	ts := newAppsServer(t, testOpts{withAuth: true})
-	host, cookie := ts.appCookie(t, counterFile)
+	host, cookie := ts.appsCookie(t, counterFile)
 	tests := []struct {
 		target string
 		status int
@@ -666,7 +666,7 @@ func TestAppsFiles(t *testing.T) {
 func TestAppsFileRedirectsAFolderWithoutTheSlash(t *testing.T) {
 	// arrange
 	ts := newAppsServer(t, testOpts{withAuth: true})
-	host, cookie := ts.appCookie(t, counterFile)
+	host, cookie := ts.appsCookie(t, counterFile)
 
 	// act
 	rec := ts.serve(appGet(host, "/sub?x=1", cookie))
@@ -682,7 +682,7 @@ func TestAppsFileRedirectsAFolderWithAnEscapedName(t *testing.T) {
 	folder := filepath.Join(ts.root, filepath.FromSlash(counterFolder), "my dir é")
 	require.NoError(t, os.MkdirAll(folder, 0o750))
 	require.NoError(t, os.WriteFile(filepath.Join(folder, "index.html"), []byte("<p>dir</p>"), 0o600))
-	host, cookie := ts.appCookie(t, counterFile)
+	host, cookie := ts.appsCookie(t, counterFile)
 	target := "/" + url.PathEscape("my dir é")
 
 	// act
@@ -757,7 +757,7 @@ func TestUsedNoncesSweepsTheExpired(t *testing.T) {
 func TestAppsFileRangeAndETag(t *testing.T) {
 	// arrange
 	ts := newAppsServer(t, testOpts{withAuth: true})
-	host, cookie := ts.appCookie(t, counterFile)
+	host, cookie := ts.appsCookie(t, counterFile)
 	ranged := appGet(host, "/index.html", cookie)
 	ranged.Header.Set("Range", "bytes=0-2")
 	first := ts.serve(appGet(host, "/index.html", cookie))
@@ -777,7 +777,7 @@ func TestAppsFileRangeAndETag(t *testing.T) {
 func TestAppsHostAllowsOnlyGetAndHead(t *testing.T) {
 	// arrange
 	ts := newAppsServer(t, testOpts{withAuth: true})
-	host, cookie := ts.appCookie(t, counterFile)
+	host, cookie := ts.appsCookie(t, counterFile)
 	post := httptest.NewRequest(http.MethodPost, "http://"+host+"/index.html", http.NoBody)
 	post.AddCookie(cookie)
 	head := appGet(host, "/index.html", cookie)

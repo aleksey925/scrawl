@@ -1,16 +1,14 @@
 import { encodeContentPath } from '../contentPath';
-import { canonicalPath, fromScrawl, networkDeadlineMs, serverUnreachable } from '../offline/keys';
+import { canonicalPath, fromScrawl, networkDeadline, serverUnreachable } from '../offline/keys';
 import { rangeAnswer } from '../sw/range';
 
-import { htmlappCache, type WorkerMessage } from './protocol';
+import { htmlappCache, ownPrefix, type WorkerMessage } from './protocol';
 
 declare const self: ServiceWorkerGlobalScope;
 
-const ownPrefix = '/__scrawl/';
+const keptKey = `${ownPrefix}kept`;
 
-const keptKey = '/__scrawl/kept';
-
-const listUrl = '/__scrawl/files';
+const listUrl = `${ownPrefix}files`;
 
 const fetchesAtOnce = 4;
 
@@ -29,6 +27,11 @@ interface ListedFile {
 
 interface FileList {
   files: ListedFile[];
+}
+
+interface SettleOptions {
+  ranged?: boolean;
+  signal?: AbortSignal;
 }
 
 let changes: Promise<unknown> = Promise.resolve();
@@ -97,7 +100,7 @@ function purge(): Promise<boolean> {
   return change(() => caches.delete(htmlappCache));
 }
 
-async function settle(key: string, ranged: boolean, response: Response, signal?: AbortSignal): Promise<boolean> {
+async function settle(key: string, response: Response, { ranged = false, signal }: SettleOptions = {}): Promise<boolean> {
   if (response.status === 401 && fromScrawl(response)) {
     await purge();
     return true;
@@ -173,7 +176,7 @@ async function refreshFolder(controller: AbortController): Promise<void> {
   try {
     await eachAtOnce(await filesToFetch(cache, wanted), signal, async (key) => {
       const response = await fetch(key, { signal, cache: 'no-cache' }).catch(() => undefined);
-      if (response !== undefined && (await settle(key, false, response, signal))) {
+      if (response !== undefined && (await settle(key, response, { signal }))) {
         controller.abort();
       }
     });
@@ -202,10 +205,6 @@ async function startRefresh(parent: string, ready: () => void): Promise<void> {
   await next.catch(() => undefined).finally(() => pending.delete(controller));
 }
 
-function deadline(): Promise<undefined> {
-  return new Promise((resolve) => setTimeout(() => resolve(undefined), networkDeadlineMs));
-}
-
 async function fromCache(request: Request, stored: Response): Promise<Response> {
   const cache = await existing();
   const kept = cache === undefined ? undefined : await readKept(cache);
@@ -227,13 +226,13 @@ async function answer(event: FetchEvent, url: URL): Promise<Response> {
   const network = fetch(request);
   if (request.credentials !== 'omit') {
     const ranged = request.headers.has('range');
-    event.waitUntil(network.then((response) => settle(key, ranged, response.clone()), () => undefined));
+    event.waitUntil(network.then((response) => settle(key, response.clone(), { ranged }), () => undefined));
   }
   const stored = await caches.match(key, { cacheName: htmlappCache, ignoreVary: true });
   if (stored === undefined) {
     return network.catch(missing);
   }
-  const first = await Promise.race([network.catch(() => undefined), deadline()]);
+  const first = await Promise.race([network.catch(() => undefined), networkDeadline()]);
   if (first === undefined || serverUnreachable(first)) {
     return fromCache(request, stored);
   }

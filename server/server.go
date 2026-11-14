@@ -98,12 +98,12 @@ type Web struct {
 	Formatter       Formatter
 	DiagramRenderer DiagramRenderer
 
-	byName    map[string]*Space
-	templates *template.Template
-	appShell  *appShell
-	offline   *offlineApp
-	csp       string
-	appNonces *usedNonces
+	byName     map[string]*Space
+	templates  *template.Template
+	appShell   *appShell
+	offline    *offlineApp
+	csp        string
+	appsNonces *usedNonces
 
 	cacheOnce sync.Once
 	cache     *pageCache
@@ -203,6 +203,17 @@ func (wb *Web) pages() *pageCache {
 	return wb.cache
 }
 
+func (wb *Web) baseMiddlewares(headers func(http.Handler) http.Handler) []func(http.Handler) http.Handler {
+	res := []func(http.Handler) http.Handler{
+		rest.Trace, rest.Recoverer(lgr.Default()), headers, appName, rest.Gzip(gzipContentTypes...),
+	}
+	if wb.TrustedProxy {
+		res = append(res, rest.RealIP)
+	}
+	return append(res, rest.Throttle(throttleLimit),
+		logger.New(logger.Log(lgr.Default()), logger.Prefix("[DEBUG]")).Handler)
+}
+
 func (wb *Web) router() (http.Handler, error) {
 	if len(wb.Spaces) == 0 {
 		return nil, errors.New("no space configured")
@@ -220,13 +231,9 @@ func (wb *Web) router() (http.Handler, error) {
 	}
 
 	router := routegroup.New(http.NewServeMux())
-	router.Use(rest.Trace, rest.Recoverer(lgr.Default()), securityHeaders(wb.csp), appName)
-	router.Use(rest.Gzip(gzipContentTypes...))
-	if wb.TrustedProxy {
-		router.Use(rest.RealIP)
+	for _, mw := range wb.baseMiddlewares(securityHeaders(wb.csp)) {
+		router.Use(mw)
 	}
-	router.Use(rest.Throttle(throttleLimit))
-	router.Use(logger.New(logger.Log(lgr.Default()), logger.Prefix("[DEBUG]")).Handler)
 	if wb.Auth != nil {
 		router.Use(wb.Auth.Middleware)
 	}

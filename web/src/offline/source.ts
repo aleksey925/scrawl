@@ -7,13 +7,9 @@ import { markBranch } from '../reader/tree';
 
 import { answerUrl, dataCache } from './keys';
 import { ownerChecked } from './owner';
-import { meEntry, navEntry, readSpace, type StoredEntry } from './records';
+import { meEntry, mountedSpace, navEntry, readSpace, type StoredEntry } from './records';
 
 export const notOnDevice = 'This is not on this device';
-
-function spaceName(): string {
-  return decodeURIComponent(mountBase().replace(/^\/s\//, ''));
-}
 
 export function notStored(error: unknown): boolean {
   return error instanceof ApiError && error.status === 404 && error.message === notOnDevice;
@@ -25,7 +21,7 @@ function missing(): ApiError {
 
 async function storedEntry(key: string): Promise<StoredEntry | undefined> {
   await ownerChecked;
-  const entry = (await readSpace(spaceName())).entries[key];
+  const entry = (await readSpace(mountedSpace())).entries[key];
   return entry?.release === mountRelease() ? entry : undefined;
 }
 

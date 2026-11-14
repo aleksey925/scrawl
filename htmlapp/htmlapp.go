@@ -188,6 +188,15 @@ func Hostname(hostport string) string {
 	return strings.TrimSuffix(strings.ToLower(host), ".")
 }
 
+func SameHostname(origin, hostport string) bool {
+	u, err := url.Parse(origin)
+	return err == nil && u.Host != "" && Hostname(u.Host) == Hostname(hostport)
+}
+
+func ValidHostname(s string) bool {
+	return s != "" && labelChars(strings.ReplaceAll(s, ".", ""))
+}
+
 func ID(space, folder string) string {
 	sum := sha256.Sum256([]byte(space + "\x00" + folder))
 	return strings.ToLower(idEncoding.EncodeToString(sum[:]))[:idLen]

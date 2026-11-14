@@ -17,9 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-pkgz/lgr"
 	"github.com/go-pkgz/rest"
-	"github.com/go-pkgz/rest/logger"
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/htmlapp"
@@ -86,16 +84,8 @@ func (wb *Web) withApps(scrawl http.Handler) http.Handler {
 	if wb.Auth == nil {
 		return scrawl
 	}
-	wb.appNonces = newUsedNonces()
-	stack := []func(http.Handler) http.Handler{
-		rest.Trace, rest.Recoverer(lgr.Default()), appsHeaders, appName, rest.Gzip(gzipContentTypes...),
-	}
-	if wb.TrustedProxy {
-		stack = append(stack, rest.RealIP)
-	}
-	stack = append(stack, rest.Throttle(throttleLimit),
-		logger.New(logger.Log(lgr.Default()), logger.Prefix("[DEBUG]")).Handler)
-	apps := rest.Wrap(http.HandlerFunc(wb.appsHandler), stack...)
+	wb.appsNonces = newUsedNonces()
+	apps := rest.Wrap(http.HandlerFunc(wb.appsHandler), wb.baseMiddlewares(appsHeaders)...)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := wb.Apps.Match(r.Host); ok {
 			apps.ServeHTTP(w, r)
@@ -154,8 +144,8 @@ func (wb *Web) appsEnter(w http.ResponseWriter, r *http.Request) {
 	if ok && json.Unmarshal(raw, &ticket) != nil {
 		ok = false
 	}
-	if !ok || !sameHostname(ticket.App, r.Host) ||
-		!wb.appNonces.take(ticket.Nonce, time.Now().Add(ticketTTL), time.Now()) {
+	if !ok || !htmlapp.SameHostname(ticket.App, r.Host) ||
+		!wb.appsNonces.take(ticket.Nonce, time.Now().Add(ticketTTL), time.Now()) {
 		http.Error(w, appsExpired, http.StatusUnauthorized)
 		return
 	}
@@ -166,6 +156,7 @@ func (wb *Web) appsEnter(w http.ResponseWriter, r *http.Request) {
 
 	value, err := json.Marshal(htmlapp.Cookie{Space: ticket.Space, Folder: ticket.Folder, Parent: ticket.Parent})
 	if err != nil {
+		logFailure(r, http.StatusInternalServerError, err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -199,12 +190,7 @@ func (wb *Web) appsEnter(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func sameHostname(origin, host string) bool {
-	u, err := url.Parse(origin)
-	return err == nil && u.Host != "" && htmlapp.Hostname(u.Host) == htmlapp.Hostname(host)
-}
-
-func (wb *Web) appCookie(r *http.Request, id string) (*Space, htmlapp.Cookie, bool) {
+func (wb *Web) appsCookie(r *http.Request, id string) (*Space, htmlapp.Cookie, bool) {
 	cookie, err := r.Cookie(wb.Apps.CookieName())
 	if err != nil {
 		return nil, htmlapp.Cookie{}, false
@@ -219,7 +205,7 @@ func (wb *Web) appCookie(r *http.Request, id string) (*Space, htmlapp.Cookie, bo
 }
 
 func (wb *Web) appsFile(w http.ResponseWriter, r *http.Request, id string) {
-	spc, cookie, ok := wb.appCookie(r, id)
+	spc, cookie, ok := wb.appsCookie(r, id)
 	if !ok {
 		http.Error(w, appsNoCookie, http.StatusUnauthorized)
 		return
@@ -268,7 +254,7 @@ type appsFileEntry struct {
 }
 
 func (wb *Web) appsFileList(w http.ResponseWriter, r *http.Request, id string) {
-	spc, cookie, ok := wb.appCookie(r, id)
+	spc, cookie, ok := wb.appsCookie(r, id)
 	if !ok {
 		http.Error(w, appsNoCookie, http.StatusUnauthorized)
 		return
@@ -281,7 +267,7 @@ func (wb *Web) appsFileList(w http.ResponseWriter, r *http.Request, id string) {
 	}
 	files := []appsFileEntry{}
 	if folder := findFolder(root, cookie.Folder); folder != nil {
-		files = appWebFiles(folder, cookie.Folder, files)
+		files = appsWebFiles(folder, cookie.Folder, files)
 	}
 	w.Header().Set("Cache-Control", "no-cache")
 	writeJSON(w, http.StatusOK, map[string][]appsFileEntry{"files": files})
@@ -308,10 +294,10 @@ func findFolder(root *store.Node, folder string) *store.Node {
 	return node
 }
 
-func appWebFiles(node *store.Node, folder string, into []appsFileEntry) []appsFileEntry {
+func appsWebFiles(node *store.Node, folder string, into []appsFileEntry) []appsFileEntry {
 	for _, child := range node.Children {
 		if child.IsDir {
-			into = appWebFiles(child, folder, into)
+			into = appsWebFiles(child, folder, into)
 			continue
 		}
 		if _, ok := htmlapp.ContentType(child.Name); !ok {
@@ -366,8 +352,12 @@ func (m *mount) apiRun(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, htmlapp.ErrNotHere):
 		jsonError(w, http.StatusConflict, notHereMessage(r.Host))
 		return
-	case err != nil:
+	case errors.Is(err, htmlapp.ErrSameHost):
 		jsonError(w, http.StatusConflict, appsSameHost)
+		return
+	case err != nil:
+		logFailure(r, http.StatusInternalServerError, err)
+		jsonError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
@@ -384,6 +374,7 @@ func (m *mount) apiRun(w http.ResponseWriter, r *http.Request) {
 		Offline: req.Offline,
 	})
 	if err != nil {
+		logFailure(r, http.StatusInternalServerError, err)
 		jsonError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -414,23 +405,11 @@ func parentOrigin(r *http.Request) (string, bool) {
 			return "", false
 		}
 	}
-	if hostname := u.Hostname(); net.ParseIP(hostname) == nil && !hostnameChars(hostname) {
+	if hostname := u.Hostname(); net.ParseIP(hostname) == nil && !htmlapp.ValidHostname(hostname) {
 		return "", false
 	}
 	if !strings.EqualFold(u.Host, r.Host) {
 		return "", false
 	}
 	return u.Scheme + "://" + strings.ToLower(u.Host), true
-}
-
-func hostnameChars(s string) bool {
-	if s == "" {
-		return false
-	}
-	for _, c := range s {
-		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '.' && c != '-' {
-			return false
-		}
-	}
-	return true
 }

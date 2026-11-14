@@ -18,6 +18,10 @@ export const fillAppMessage = 'fill-app-cache';
 
 export const networkDeadlineMs = 3_000;
 
+export function networkDeadline(): Promise<undefined> {
+  return new Promise((resolve) => setTimeout(() => resolve(undefined), networkDeadlineMs));
+}
+
 export function fromScrawl(response: Response): boolean {
   return response.headers.get('app-name') === 'scrawl';
 }

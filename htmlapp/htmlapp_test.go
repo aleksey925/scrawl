@@ -190,6 +190,25 @@ func TestHostsCookieName(t *testing.T) {
 	assert.Equal(t, "scrawl_app", Hosts{}.CookieName())
 }
 
+func TestSameHostname(t *testing.T) {
+	// act & assert
+	assert.True(t, SameHostname("https://app-abc.example.com", "app-abc.example.com"))
+	assert.True(t, SameHostname("http://app-abc.localhost:7272", "APP-ABC.localhost.:7272"))
+	assert.False(t, SameHostname("https://app-abc.example.com", "app-xyz.example.com"))
+	assert.False(t, SameHostname("app-abc.example.com", "app-abc.example.com"))
+	assert.False(t, SameHostname("http://%zz", "app-abc.example.com"))
+}
+
+func TestValidHostname(t *testing.T) {
+	// act & assert
+	assert.True(t, ValidHostname("notes.example.com"))
+	assert.True(t, ValidHostname("scrawl-1.localhost"))
+	assert.False(t, ValidHostname(""))
+	assert.False(t, ValidHostname("Notes.example.com"))
+	assert.False(t, ValidHostname("notes_1.example.com"))
+	assert.False(t, ValidHostname("notes.example.com/"))
+}
+
 func TestID(t *testing.T) {
 	// act
 	id := ID("notes", "apps/counter")

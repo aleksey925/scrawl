@@ -1,4 +1,4 @@
-import { htmlappCache, workerScript, type WorkerMessage } from './protocol';
+import { enterMessage, htmlappCache, workerScript, type WorkerMessage } from './protocol';
 
 const waitMs = 3_000;
 
@@ -89,7 +89,7 @@ async function prepare(): Promise<boolean> {
 
 function tellParent(offline: boolean): void {
   if (window.parent !== window) {
-    window.parent.postMessage({ type: 'scrawl-htmlapp', offline }, parent);
+    window.parent.postMessage({ type: enterMessage, offline }, parent);
   }
 }
 

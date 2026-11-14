@@ -1,5 +1,9 @@
 export const htmlappCache = 'scrawl-htmlapp';
 
-export const workerScript = '/__scrawl/sw.js';
+export const ownPrefix = '/__scrawl/';
+
+export const workerScript = `${ownPrefix}sw.js`;
+
+export const enterMessage = 'scrawl-htmlapp';
 
 export type WorkerMessage = { type: 'refresh'; parent: string } | { type: 'off' };

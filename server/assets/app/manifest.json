@@ -7,11 +7,10 @@
     "file": "assets/AsyncContent.js",
     "name": "AsyncContent",
     "imports": [
-      "_Page.js",
+      "_PageChrome.js",
       "_NavContext.js",
       "_icons.js",
-      "_formats.js",
-      "_PageChrome.js"
+      "_formats.js"
     ],
     "css": [
       "assets/AsyncContent.css"
@@ -26,14 +25,13 @@
     "name": "DirectoryView",
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js",
+      "_PageChrome.js",
       "_NavContext.js",
       "_AsyncContent.js",
       "_icons.js",
       "_formats.js",
       "_Table.es.js",
       "_platform.js",
-      "_PageChrome.js",
       "index.html",
       "_PressRow.module.js"
     ],
@@ -50,7 +48,7 @@
     "name": "DocumentHtml",
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js",
+      "_PageChrome.js",
       "_icons.js",
       "_platform.js",
       "index.html"
@@ -68,13 +66,12 @@
     "name": "DocumentView",
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js",
+      "_PageChrome.js",
       "_DocumentHtml.js",
       "_NavContext.js",
       "_AsyncContent.js",
       "_icons.js",
       "_platform.js",
-      "_PageChrome.js",
       "index.html"
     ],
     "css": [
@@ -86,34 +83,25 @@
     "name": "NavContext",
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js",
+      "_PageChrome.js",
       "_icons.js",
       "_formats.js",
-      "_platform.js",
-      "_PageChrome.js"
+      "_platform.js"
     ]
   },
-  "_Page.css": {
-    "file": "assets/Page.css",
-    "src": "_Page.css"
-  },
-  "_Page.js": {
-    "file": "assets/Page.js",
-    "name": "Page",
-    "imports": [
-      "_rolldown-runtime.js",
-      "_preload-helper.js"
-    ],
-    "css": [
-      "assets/Page.css"
-    ]
+  "_PageChrome.css": {
+    "file": "assets/PageChrome.css",
+    "src": "_PageChrome.css"
   },
   "_PageChrome.js": {
     "file": "assets/PageChrome.js",
     "name": "PageChrome",
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js"
+      "_preload-helper.js"
+    ],
+    "css": [
+      "assets/PageChrome.css"
     ]
   },
   "_PressRow.css": {
@@ -136,7 +124,7 @@
     "name": "RenderedDiff",
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js",
+      "_PageChrome.js",
       "_DocumentHtml.js",
       "_formats.js"
     ],
@@ -149,7 +137,7 @@
     "name": "Table.es",
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js",
+      "_PageChrome.js",
       "_icons.js"
     ]
   },
@@ -458,7 +446,7 @@
     "name": "icons",
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js"
+      "_PageChrome.js"
     ]
   },
   "_init.js": {
@@ -555,7 +543,7 @@
     "name": "platform",
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js"
+      "_PageChrome.js"
     ]
   },
   "_preload-helper.js": {
@@ -593,14 +581,13 @@
     "isEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js",
+      "_PageChrome.js",
       "_NavContext.js",
       "_preload-helper.js",
       "_changeSignal.js",
       "_icons.js",
       "_formats.js",
-      "_platform.js",
-      "_PageChrome.js"
+      "_platform.js"
     ],
     "dynamicImports": [
       "node_modules/mermaid/dist/mermaid.core.mjs",
@@ -2485,7 +2472,7 @@
     "src": "src/pages/DocumentPage.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_Page.js",
+      "_PageChrome.js",
       "_DirectoryView.js",
       "_DocumentView.js"
     ]
@@ -2497,7 +2484,7 @@
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js",
+      "_PageChrome.js",
       "_DocumentHtml.js",
       "_NavContext.js",
       "_AsyncContent.js",
@@ -2505,7 +2492,6 @@
       "_icons.js",
       "_formats.js",
       "_Table.es.js",
-      "_PageChrome.js",
       "index.html",
       "_lezer-common.js",
       "_lezer-html.js",
@@ -2651,7 +2637,7 @@
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js",
+      "_PageChrome.js",
       "_NavContext.js",
       "_AsyncContent.js",
       "_icons.js",
@@ -2670,7 +2656,7 @@
     "src": "src/pages/HomePage.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_Page.js",
+      "_PageChrome.js",
       "_DirectoryView.js"
     ]
   },
@@ -2680,7 +2666,6 @@
     "src": "src/pages/NotFoundPage.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_Page.js",
       "_PageChrome.js",
       "index.html"
     ]
@@ -2691,9 +2676,8 @@
     "src": "src/pages/RecentPage.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_Page.js",
-      "_icons.js",
       "_PageChrome.js",
+      "_icons.js",
       "index.html",
       "_PressRow.module.js"
     ],
@@ -2708,7 +2692,7 @@
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js",
+      "_PageChrome.js",
       "_icons.js",
       "_formats.js",
       "index.html"
@@ -2724,11 +2708,10 @@
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "_Page.js",
+      "_PageChrome.js",
       "_NavContext.js",
       "_AsyncContent.js",
       "_formats.js",
-      "_PageChrome.js",
       "index.html"
     ]
   },

@@ -1,1 +1,1 @@
-import{B as e,Bt as t,N as n,nt as r}from"./Page.js";import{t as i}from"./DirectoryView.js";import{t as a}from"./DocumentView.js";var o=t();function s(){let t=r()[`*`]??``;return n(t)?(0,o.jsx)(i,{path:e(t)}):(0,o.jsx)(a,{path:t})}export{s as Component};
+import{J as e,_t as t,tn as n,tt as r}from"./PageChrome.js";import{t as i}from"./DirectoryView.js";import{t as a}from"./DocumentView.js";var o=n();function s(){let n=t()[`*`]??``;return e(n)?(0,o.jsx)(i,{path:r(n)}):(0,o.jsx)(a,{path:n})}export{s as Component};

@@ -1,7 +1,7 @@
 import type { SpaceEntry } from '../api/types';
 import {
   answerUrl, appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, decoded, fillAppMessage,
-  networkDeadlineMs, serverUnreachable, signInCookies, spaceBase, type AppState, type ChannelMessage,
+  networkDeadline, serverUnreachable, signInCookies, spaceBase, type AppState, type ChannelMessage,
 } from '../offline/keys';
 
 import { rangeAnswer } from './range';
@@ -96,10 +96,6 @@ async function fromAppCache(request: Request): Promise<Response> {
   return fetch(request);
 }
 
-function deadline(): Promise<undefined> {
-  return new Promise((resolve) => setTimeout(() => resolve(undefined), networkDeadlineMs));
-}
-
 async function networkFirst(request: Request, stored: () => Promise<Response | undefined>): Promise<Response> {
   const kept = await stored();
   if (kept === undefined) {
@@ -109,7 +105,7 @@ async function networkFirst(request: Request, stored: () => Promise<Response | u
     return rangeAnswer(request, kept);
   }
   try {
-    const answer = await Promise.race([fetch(request), deadline()]);
+    const answer = await Promise.race([fetch(request), networkDeadline()]);
     if (answer === undefined || serverUnreachable(answer)) {
       return rangeAnswer(request, kept);
     }

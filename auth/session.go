@@ -146,11 +146,11 @@ func (s *Service) issue(w http.ResponseWriter, r *http.Request, user string) {
 
 func (s *Service) SetSignInCookie(w http.ResponseWriter, r *http.Request, user string) {
 	secure := s.secureFor(r)
-	names := []string{SignInCookieName}
+	cookieNames := []string{SignInCookieName}
 	if secure {
-		names = []string{SecureSignInCookieName, SignInCookieName}
+		cookieNames = []string{SecureSignInCookieName, SignInCookieName}
 	}
-	for _, name := range names {
+	for _, name := range cookieNames {
 		http.SetCookie(w, &http.Cookie{
 			Name:     name,
 			Value:    url.QueryEscape(user),

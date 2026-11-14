@@ -1,18 +1,18 @@
-import { ActionIcon, Anchor, Text } from '@mantine/core';
+import { ActionIcon } from '@mantine/core';
 import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 
 import { api, installUnauthorizedHandler } from '../api/client';
 import { ApiError } from '../api/errors';
-import { PageTitle } from '../components/Page';
+import { enterMessage } from '../htmlapp/protocol';
 import { IconChevronLeft, IconOpenOutside } from '../icons';
 import { goToLogin } from '../login';
-import { mountBase } from '../mount';
 import { useConnection } from '../offline/connection';
-import { decoded } from '../offline/keys';
 import { offlineSupported, offlineWanted } from '../offline/preference';
-import { readRun, writeRun } from '../offline/records';
+import { mountedSpace, readRun, writeRun } from '../offline/records';
 import { documentUrl } from '../paths';
+import { basenameOf } from '../shell/naming';
+import { needsNetworkTitle, noNetworkText, ScreenMessage } from '../shell/NeedsNetwork';
 import { useMe } from '../shell/useMe';
 import { layout } from '../theme';
 import { showToast } from '../toast';
@@ -23,8 +23,6 @@ const frameSandbox =
   'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads';
 
 const frameAllow = 'clipboard-read; clipboard-write; fullscreen';
-
-const noNetworkText = 'There is no network, and this page needs the server.';
 
 interface RunFrame {
   src: string;
@@ -41,14 +39,6 @@ function keepsApps(): boolean {
   return offlineSupported() && offlineWanted();
 }
 
-function spaceName(): string {
-  return decoded(mountBase().replace(/^\/s\//, ''));
-}
-
-function nameOf(path: string): string {
-  return path.slice(path.lastIndexOf('/') + 1);
-}
-
 function messageOf(error: unknown): string {
   return error instanceof ApiError ? error.message : 'The app could not be started.';
 }
@@ -57,7 +47,7 @@ async function offlineState(path: string): Promise<RunState> {
   if (!keepsApps()) {
     return { kind: 'offline', message: noNetworkText };
   }
-  const record = await readRun(spaceName(), path).catch(() => undefined);
+  const record = await readRun(mountedSpace(), path).catch(() => undefined);
   if (record === undefined) {
     return { kind: 'offline', message: 'Run this app once with a network to use it offline.' };
   }
@@ -122,10 +112,10 @@ function RunScreen({ path }: { path: string }): JSX.Element {
         return;
       }
       const data = event.data as { type?: unknown; offline?: unknown } | null;
-      if (data?.type !== 'scrawl-htmlapp' || typeof data.offline !== 'boolean' || !keepsApps()) {
+      if (data?.type !== enterMessage || typeof data.offline !== 'boolean' || !keepsApps()) {
         return;
       }
-      void writeRun(spaceName(), path, { url: app, offline: data.offline }).catch(() => undefined);
+      void writeRun(mountedSpace(), path, { url: app, offline: data.offline }).catch(() => undefined);
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
@@ -157,7 +147,7 @@ function RunScreen({ path }: { path: string }): JSX.Element {
     );
   };
 
-  const name = nameOf(path);
+  const name = basenameOf(path);
   const outsideAvailable = connection !== 'offline' || app !== undefined;
 
   return (
@@ -204,7 +194,7 @@ function RunScreen({ path }: { path: string }): JSX.Element {
       )}
       {state.kind === 'failed' && <RunMessage testId="run-error" path={path} message={state.message} />}
       {state.kind === 'offline' && (
-        <RunMessage testId="run-needs-network" path={path} title="Needs a network" message={state.message} />
+        <RunMessage testId="run-needs-network" path={path} title={needsNetworkTitle} message={state.message} />
       )}
     </div>
   );
@@ -220,13 +210,7 @@ interface RunMessageProps {
 function RunMessage({ testId, path, message, title }: RunMessageProps): JSX.Element {
   return (
     <div className={classes.message} data-testid={testId}>
-      {title !== undefined && <PageTitle>{title}</PageTitle>}
-      <Text c="dimmed" mb="md">
-        {message}
-      </Text>
-      <Anchor component={Link} to={documentUrl(path)}>
-        Back to the file
-      </Anchor>
+      <ScreenMessage title={title} message={message} to={documentUrl(path)} back="Back to the file" />
     </div>
   );
 }

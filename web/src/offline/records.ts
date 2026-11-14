@@ -1,4 +1,6 @@
-import { dataCache, runKey, spaceKey, stateKey } from './keys';
+import { mountBase } from '../mount';
+
+import { dataCache, decoded, runKey, spaceKey, stateKey } from './keys';
 
 export type CopyError = '' | 'quota' | 'failed';
 
@@ -24,6 +26,10 @@ export interface SpaceRecord {
 export const navEntry = '/nav';
 
 export const meEntry = '/me';
+
+export function mountedSpace(): string {
+  return decoded(mountBase().replace(/^\/s\//, ''));
+}
 
 async function readRecord<T>(key: string): Promise<T | undefined> {
   const stored = await caches.match(key, { cacheName: dataCache });

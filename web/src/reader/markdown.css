@@ -465,9 +465,9 @@
 
 .markdown-document .code-block {
   margin: 6px 0;
-  padding-bottom: 2px;
+  padding: 5px;
   border: 1px solid var(--scrawl-border-light);
-  border-radius: 10px;
+  border-radius: 6px;
   background-color: var(--scrawl-code-bg);
 }
 
@@ -478,7 +478,7 @@
 
 .markdown-document .code-block > :is(pre, pre.chroma) {
   margin: 0;
-  padding: 16px;
+  padding: 11px;
   border-radius: 0;
   background-color: transparent;
   line-height: 1.7;
@@ -487,6 +487,11 @@
 
 .markdown-document .md-code-head + :is(pre, pre.chroma) {
   padding-top: 0;
+  padding-bottom: 7px;
+}
+
+.markdown-document .code-block[data-scroll]:not([data-scroll='none']) > :is(pre, pre.chroma) {
+  padding-bottom: 6px;
 }
 
 .markdown-document .code-block > pre::-webkit-scrollbar {
@@ -514,7 +519,7 @@
 
 .md-code-bar {
   height: 3px;
-  margin: 0 16px 10px;
+  margin: 0 12px 0 10px;
   overflow: hidden;
   border-radius: 2px;
   background-color: var(--scrawl-border-light);
@@ -540,6 +545,7 @@
   justify-content: space-between;
   gap: 8px;
   height: 42px;
+  margin: -5px -5px 0;
   padding: 2px 7px 0 16px;
   color: var(--scrawl-text-secondary);
   font-size: 12px;
@@ -1253,7 +1259,7 @@
   }
 
   .markdown-document .code-block[data-scroll] > :is(pre, pre.chroma) {
-    padding-top: 16px;
+    padding-top: 11px;
     -webkit-mask-image: none;
     mask-image: none;
   }

@@ -320,7 +320,8 @@ a folder of its own, not at the root of a space.
 
 **Does not work, and the fix:**
 
-- `APPS_URL` has no `{id}`, such as `https://apps.example.com`: scrawl does not
+- `APPS_URL` has no `{id}`, such as `https://apps.example.com`, or only `{id}`
+  in its first label, such as `https://{id}.example.com`: scrawl does not
   start, and its message shows the form to use, `https://app-{id}.example.com`.
 - `APPS_URL` is https and a password is set, but neither `TRUSTED_PROXY=true`
   nor `AUTH_SECURE=always` is: scrawl does not start, and its message names the

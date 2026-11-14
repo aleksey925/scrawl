@@ -306,6 +306,9 @@ func TestValidateGlobal(t *testing.T) {
 		{name: "apps url without id and auth off", noAuth: true, appsURL: "https://apps.example.com", errText: noID},
 		{name: "apps url with two ids", users: []string{"bob:pass"}, appsURL: "https://{id}-{id}.example.com",
 			errText: noID},
+		{name: "apps url with the id alone", users: []string{"bob:pass"}, appsURL: "https://{id}.example.com",
+			errText: "--apps.url (APPS_URL) must have more than {id} in its first label, such as https://app-{id}.example.com: " +
+				"with {id} alone, scrawl at a name such as personalwiki.example.com is taken for an app"},
 		{name: "apps url with a path", users: []string{"bob:pass"}, appsURL: "https://app-{id}.example.com/x",
 			errText: "--apps.url (APPS_URL) must have no path"},
 		{name: "https apps, auto without a trusted proxy", users: []string{"bob:pass"}, appsURL: httpsApps,

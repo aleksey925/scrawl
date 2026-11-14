@@ -20,8 +20,6 @@ func TestParse(t *testing.T) {
 			want: Hosts{scheme: "http", prefix: "app-", rest: "apps.home.lan", port: "7272"}},
 		{name: "upper case and a suffix", raw: "HTTPS://App-{id}-X.Example.COM",
 			want: Hosts{scheme: "https", prefix: "app-", suffix: "-x", rest: "example.com"}},
-		{name: "the id alone in its label", raw: "https://{id}.apps.example.com",
-			want: Hosts{scheme: "https", rest: "apps.example.com"}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -53,6 +51,9 @@ func TestParseRefuses(t *testing.T) {
 		{name: "a path", raw: "https://app-{id}.example.com/apps", want: "must have no path"},
 		{name: "no domain", raw: "https://app-{id}", want: "must have a domain after the label with {id}"},
 		{name: "a bad character", raw: "https://app_{id}.example.com", want: "may have only letters, digits and - beside {id}"},
+		{name: "the id alone in its label", raw: "https://{id}.example.com",
+			want: "must have more than {id} in its first label, such as https://app-{id}.example.com: " +
+				"with {id} alone, scrawl at a name such as personalwiki.example.com is taken for an app"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -71,8 +72,6 @@ func TestHostsMatch(t *testing.T) {
 	require.NoError(t, err)
 	withSuffix, err := Parse("https://app-{id}-x.example.com")
 	require.NoError(t, err)
-	idAlone, err := Parse("https://{id}.example.com")
-	require.NoError(t, err)
 	tests := []struct {
 		name   string
 		hosts  Hosts
@@ -84,9 +83,6 @@ func TestHostsMatch(t *testing.T) {
 		{name: "suffix malformed id", hosts: withSuffix, host: "app-nope-x.example.com", apps: true},
 		{name: "suffix missing", hosts: withSuffix, host: "app-" + id + ".example.com"},
 		{name: "shorter than prefix and suffix", hosts: withSuffix, host: "app-x.example.com"},
-		{name: "id alone", hosts: idAlone, host: id + ".example.com", wantID: id, apps: true},
-		{name: "id alone scrawl itself", hosts: idAlone, host: "notes.example.com"},
-		{name: "id alone the bare domain", hosts: idAlone, host: "example.com"},
 		{name: "per app", hosts: perApp, host: "app-" + id + ".example.com", wantID: id, apps: true},
 		{name: "per app with a port, case and a trailing dot", hosts: perApp,
 			host: "APP-" + id + ".Example.com.:8443", wantID: id, apps: true},
@@ -123,8 +119,6 @@ func TestHostsOrigin(t *testing.T) {
 	require.NoError(t, err)
 	withSuffix, err := Parse("https://app-{id}-x.example.com")
 	require.NoError(t, err)
-	idAlone, err := Parse("https://{id}.apps.example.com")
-	require.NoError(t, err)
 	tests := []struct {
 		name   string
 		hosts  Hosts
@@ -134,8 +128,6 @@ func TestHostsOrigin(t *testing.T) {
 	}{
 		{name: "per app with a suffix", hosts: withSuffix, parent: "https://notes.example.com",
 			want: "https://app-" + id + "-x.example.com"},
-		{name: "per app with the id alone", hosts: idAlone, parent: "https://notes.example.com",
-			want: "https://" + id + ".apps.example.com"},
 		{name: "per app", hosts: perApp, parent: "https://notes.example.com",
 			want: "https://app-" + id + ".example.com"},
 		{name: "per app with a port", hosts: withPort, parent: "http://192.168.1.5:7272",

@@ -33,11 +33,13 @@ file run this way; the code says `htmlapp`. Why it is built this way:
     host per app.
 - `htmlapp.Parse` checks it at start: `http` or `https`, no user, query,
   fragment or path, exactly one `{id}`, in the first label, with only
-  `[a-z0-9-]` beside it. A URL without `{id}` stops the start with a message
-  that shows the form. One host for all apps, each in a subfolder, is not
-  supported: apps on one host share one origin, so they share storage and read
-  each other's files, a link from the root leaves the app's folder, and offline
-  needs a scope and a cache per path.
+  `[a-z0-9-]` beside it. A URL without `{id}`, or with `{id}` alone in its
+  label, stops the start with a message that shows the form: with
+  `https://{id}.example.com`, scrawl at a name that has the shape of an id,
+  such as `personalwiki.example.com`, would be taken for an app. One host for
+  all apps, each in a subfolder, is not supported: apps on one host share one
+  origin, so they share storage and read each other's files, a link from the
+  root leaves the app's folder, and offline needs a scope and a cache per path.
 - Auth on, an `https` `APPS_URL`, and a session cookie that can never be
   `Secure` stop the start. scrawl serves no TLS, so the cookie is `Secure` only
   with `--auth.secure=always`, or `auto` with `--trusted-proxy`;
@@ -58,12 +60,9 @@ file run this way; the code says `htmlapp`. Why it is built this way:
   - a host per app: `<prefix><x><suffix>.<rest>` of the template;
   - the local mode: a first label `app-<x>` under `localhost` or `*.localhost`.
 - A matching host is an apps request: for the id `x` when `x` has the shape of
-  an id, else a 404 for every path. With `{id}` alone in its label, such as
-  `https://{id}.example.com`, a host whose `x` is not an id is scrawl's, so
-  scrawl at `notes.example.com` keeps working. Any other host is scrawl, as
-  before, a foreign subdomain too: scrawl does not know its own host, and
-  telling `notes.example.com` from `random.example.com` would need it as a
-  setting.
+  an id, else a 404 for every path. Any other host is scrawl, as before, a
+  foreign subdomain too: scrawl does not know its own host, and telling
+  `notes.example.com` from `random.example.com` would need it as a setting.
 - The apps stack is `rest.Trace`, `rest.Recoverer`, `appsHeaders`, `appName`,
   gzip, `rest.RealIP` with `--trusted-proxy`, its own throttle and the logger:
   no `Auth.Middleware`, no `appInfo`, no scrawl CSP. `rest.Throttle` counts per

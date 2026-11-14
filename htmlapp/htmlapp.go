@@ -83,6 +83,10 @@ func Parse(raw string) (Hosts, error) {
 	if !labelChars(prefix) || !labelChars(suffix) {
 		return Hosts{}, errors.New("may have only letters, digits and - beside {id}")
 	}
+	if prefix == "" && suffix == "" {
+		return Hosts{}, errors.New("must have more than {id} in its first label, such as https://app-{id}.example.com: " +
+			"with {id} alone, scrawl at a name such as personalwiki.example.com is taken for an app")
+	}
 	return Hosts{scheme: u.Scheme, prefix: prefix, suffix: suffix, rest: rest, port: u.Port()}, nil
 }
 
@@ -134,11 +138,7 @@ func (h Hosts) Match(hostport string) (id string, apps bool) {
 		!strings.HasPrefix(first, h.prefix) || !strings.HasSuffix(first, h.suffix) {
 		return "", false
 	}
-	id = validID(first[len(h.prefix) : len(first)-len(h.suffix)])
-	if id == "" && h.prefix == "" && h.suffix == "" {
-		return "", false
-	}
-	return id, true
+	return validID(first[len(h.prefix) : len(first)-len(h.suffix)]), true
 }
 
 func (h Hosts) Origin(id, parent string) (string, error) {

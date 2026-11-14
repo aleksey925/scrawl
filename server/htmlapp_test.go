@@ -701,6 +701,21 @@ func TestAppsFileRedirectsAFolderWithAnEscapedName(t *testing.T) {
 	assert.Equal(t, target+"/", rec.Header().Get("Location"))
 }
 
+func TestAppsFileRedirectsADoubleSlashFolderOnTheSameHost(t *testing.T) {
+	// arrange
+	ts := newAppsServer(t, testOpts{withAuth: true})
+	folder := filepath.Join(ts.root, filepath.FromSlash(counterFolder), "evil.com")
+	require.NoError(t, os.MkdirAll(folder, 0o750))
+	host, cookie := ts.appsCookie(t, counterFile)
+
+	// act
+	rec := ts.serve(appGet(host, "//evil.com?x=1", cookie))
+
+	// assert
+	assert.Equal(t, http.StatusMovedPermanently, rec.Code)
+	assert.Equal(t, "/evil.com/?x=1", rec.Header().Get("Location"))
+}
+
 func TestAppsEntryWithAnEscapedName(t *testing.T) {
 	// arrange
 	const name = "my app é.html"

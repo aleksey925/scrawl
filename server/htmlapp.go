@@ -222,10 +222,7 @@ func (wb *Web) appsFile(w http.ResponseWriter, r *http.Request, id string) {
 	if strings.HasSuffix(r.URL.Path, "/") {
 		target = path.Join(target, "index.html")
 	} else if fi, err := spc.Store.Stat(target); err == nil && fi.IsDir {
-		location := r.URL.EscapedPath() + "/"
-		if r.URL.RawQuery != "" {
-			location += "?" + r.URL.RawQuery
-		}
+		location := (&url.URL{Path: clean + "/", RawQuery: r.URL.RawQuery}).RequestURI()
 		http.Redirect(w, r, location, http.StatusMovedPermanently)
 		return
 	}

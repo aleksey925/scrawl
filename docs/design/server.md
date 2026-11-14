@@ -63,8 +63,9 @@ Spaces, routes, settings and the guards on every request.
   at `r.Host` before any middleware: a host of the apps, by `APPS_URL` or
   `app-<id>.localhost`, goes to a small stack of its own with none of scrawl's
   routes, only the app's files and `/__scrawl/enter`, `/__scrawl/enter.js`,
-  `/__scrawl/sw.js` and `/__scrawl/files`. An `APPS_URL` without `{id}` stops
-  the start. See [HTML apps](html-apps.md).
+  `/__scrawl/sw.js` and `/__scrawl/files`. An `APPS_URL` without `{id}`, or
+  with `{id}` alone in its label, stops the start. See
+  [HTML apps](html-apps.md).
 
 ## Guards
 

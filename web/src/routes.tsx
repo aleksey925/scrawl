@@ -2,6 +2,7 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 
 import { RouteError } from './components/RouteError';
 import { Splash } from './components/Splash';
+import { noteEntry } from './historyTrail';
 import { mountBase } from './mount';
 import { loadChunk } from './staleBundle';
 import { AppLayout } from './shell/AppLayout';
@@ -29,3 +30,6 @@ const routes: RouteObject[] = [
 ];
 
 export const router = createBrowserRouter(routes, { basename: mountBase() });
+
+noteEntry();
+router.subscribe(() => noteEntry());

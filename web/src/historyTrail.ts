@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { useLocation } from 'react-router';
+import { mountBase } from './mount';
 
 const trail = new Map<number, string>();
 
@@ -7,17 +6,10 @@ function entryIndex(): number {
   return (window.history.state as { idx?: number } | null)?.idx ?? 0;
 }
 
-function normalized(pathname: string): string {
-  return new URL(pathname, window.location.origin).pathname;
-}
-
-export function useHistoryTrail(): void {
-  const { key, pathname } = useLocation();
-  useEffect(() => {
-    trail.set(entryIndex(), normalized(pathname));
-  }, [key, pathname]);
+export function noteEntry(): void {
+  trail.set(entryIndex(), window.location.pathname);
 }
 
 export function cameFrom(pathname: string): boolean {
-  return trail.get(entryIndex() - 1) === normalized(pathname);
+  return trail.get(entryIndex() - 1) === new URL(mountBase() + pathname, window.location.origin).pathname;
 }

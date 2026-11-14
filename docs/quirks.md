@@ -160,6 +160,9 @@ words; the fact itself is written here.
 - React Router asks a blocker once, as a navigation starts, not while the code
   of the next page loads, so a change made in that time passes the guard on
   leaving. [Editor](ui/editor.md)
+- `router.state.location` of React Router holds the path with the basename,
+  `/s/<name>/doc/...`, while `useLocation` and every link of the app hold it
+  without. [Phone](ui/phone.md)
 - A phone that puts a tab away and later drops it fires no `beforeunload`, so a
   draft is also saved on `pagehide`.
 - A paste that carries `text/plain` is never taken as a picture: Word and Excel

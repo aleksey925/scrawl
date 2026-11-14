@@ -3,7 +3,6 @@ import { Outlet } from 'react-router';
 
 import { installUnauthorizedHandler } from '../api/client';
 import type { MeResponse } from '../api/types';
-import { useHistoryTrail } from '../historyTrail';
 import { goToLogin } from '../login';
 import { useReadingCopy } from '../offline/connection';
 import { offlineMe, storedMe } from '../offline/source';
@@ -40,7 +39,6 @@ const chrome: ReaderChrome = {
 
 export function AppLayout(): JSX.Element {
   useEffect(() => installUnauthorizedHandler('shell', goToLogin), []);
-  useHistoryTrail();
 
   return (
     <SpaceNavProvider>

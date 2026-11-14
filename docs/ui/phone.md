@@ -69,17 +69,20 @@ How the app works on a phone.
   the way up moves back. The way up goes back in the history when the page
   before is the folder above, and pushes the folder only when it is not: a
   pushed folder left the note behind it, and the back of the browser or of
-  Android opened the note again. The move starts when the page first shows the
-  answer of its route, not on the tap: a screen keeps the last answer while the
-  next one loads, and a move on the tap slid in the old screen and then swapped
-  it. Only the page moves, never the bars, and `main` clips what reaches past
-  its edge. A back the browser takes moves nothing outside an app from the home
-  screen: Safari draws the page gone back to under its own swipe, and a move of
-  ours after it shook the page. The move's start is also held inline, because
-  WebKit paints a page just put in once at rest before the move takes it, and
-  the page jumped back to where the move starts. `main` clips with
-  `overflow-x: clip` and never `hidden`, which makes it a scroll container, and
-  every sticky bar inside it stopped sticking.
+  Android opened the note again. A note an editor is left for slides in from
+  the left too. A screen moves once for its entry of the history, and the
+  editor, which is not such a screen, marks that one was left: going back to
+  the note's own entry, the note came up with no move. The move starts when the
+  page first shows the answer of its route, not on the tap: a screen keeps the
+  last answer while the next one loads, and a move on the tap slid in the old
+  screen and then swapped it. Only the page moves, never the bars, and `main`
+  clips what reaches past its edge. A back the browser takes moves nothing
+  outside an app from the home screen: Safari draws the page gone back to under
+  its own swipe, and a move of ours after it shook the page. The move's start
+  is also held inline, because WebKit paints a page just put in once at rest
+  before the move takes it, and the page jumped back to where the move starts.
+  `main` clips with `overflow-x: clip` and never `hidden`, which makes it a
+  scroll container, and every sticky bar inside it stopped sticking.
 - In an app opened from an iPhone's home screen a finger drags the page off
   from the left edge and goes to the folder above, the way up in the bar on top
   does, as an app's swipe goes where its back button says. Back in the history

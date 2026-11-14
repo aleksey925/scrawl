@@ -230,6 +230,33 @@ test.describe('mobile', () => {
             .toEqual(['', '']);
     });
 
+    test('the note an editor is left for slides in from the left', async ({page}) => {
+        // arrange
+        await page.addInitScript(() => {
+            window.moves = [];
+            const animate = Element.prototype.animate;
+            Element.prototype.animate = function (keyframes, options) {
+                if (Array.isArray(keyframes) && String(keyframes[0]?.transform).startsWith('translateX')) {
+                    window.moves.push(keyframes[0].transform);
+                }
+                return animate.call(this, keyframes, options);
+            };
+        });
+        const moves = () => page.evaluate(() => window.moves);
+        await page.goto(MAIN.url.dir(docs.doc.folder));
+        await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
+        await expect.poll(moves).toEqual(['translateX(28%)']);
+        await page.getByTestId('edit-button').tap();
+        await expect(page.getByTestId('editor')).toBeVisible();
+
+        // act
+        await page.getByTestId('editor-cancel').tap();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(DOC));
+        await expect.poll(moves).toEqual(['translateX(28%)', 'translateX(-28%)']);
+    });
+
     test('a back the browser takes moves nothing in a tab, and slides in from the left in an app', async ({page}) => {
         // arrange
         await page.addInitScript(() => {

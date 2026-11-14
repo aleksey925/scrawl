@@ -66,6 +66,13 @@ export function leaveScreen(element: HTMLElement, from: number, speed: number): 
 }
 
 let enteredFor: string | undefined;
+let offScreen = false;
+
+export function useOffScreen(): void {
+  useLayoutEffect(() => {
+    offScreen = true;
+  }, []);
+}
 
 const enterMs = 280;
 const offset = '28%';
@@ -92,11 +99,12 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
   const navigation = useNavigationType();
 
   useLayoutEffect(() => {
-    if (!ready || enteredFor === location.key) {
+    if (!ready || (enteredFor === location.key && !offScreen)) {
       return;
     }
     const first = enteredFor === undefined;
     enteredFor = location.key;
+    offScreen = false;
     leaving?.cancel();
     leaving = undefined;
     const motion = motionOf(location.pathname, navigation);

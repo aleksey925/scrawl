@@ -16,7 +16,7 @@ import { ApiError, type ApiConflict } from '../api/errors';
 import { errorText } from '../api/useApi';
 import { countOf } from '../components/formats';
 import { Segmented, type SegmentedOption } from '../components/Segmented';
-import { planMotion } from '../components/screenMotion';
+import { planMotion, useOffScreen } from '../components/screenMotion';
 import { cameFrom } from '../historyTrail';
 import {
   IconBraces,
@@ -226,6 +226,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       mountedRef.current = false;
     };
   }, []);
+  useOffScreen();
 
   const insertToc = useCallback((): void => {
     tocAbortRef.current?.abort();

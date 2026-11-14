@@ -66,39 +66,45 @@ How the app works on a phone.
   both, for the app and for a site.
 - On a phone a screen opened slides in from the right and one gone back to from
   the left, as an app moves its screens; a tab is switched to with no move, and
-  the way up moves back although it pushes an address. The move starts when the
-  page first shows the answer of its route, not on the tap: a screen keeps the
-  last answer while the next one loads, and a move on the tap slid in the old
-  screen and then swapped it. Only the page moves, never the bars, and `main`
-  clips what reaches past its edge. A back the browser takes moves nothing
-  outside an app from the home screen: Safari draws the page gone back to under
-  its own swipe, and a move of ours after it shook the page. The move's start
-  is also held inline, because WebKit paints a page just put in once at rest
-  before the move takes it, and the page jumped back to where the move starts.
-  `main` clips with `overflow-x: clip` and never `hidden`, which makes it a
-  scroll container, and every sticky bar inside it stopped sticking.
+  the way up moves back. The way up goes back in the history when the page
+  before is the folder above, and pushes the folder only when it is not: a
+  pushed folder left the note behind it, and the back of the browser or of
+  Android opened the note again. The move starts when the page first shows the
+  answer of its route, not on the tap: a screen keeps the last answer while the
+  next one loads, and a move on the tap slid in the old screen and then swapped
+  it. Only the page moves, never the bars, and `main` clips what reaches past
+  its edge. A back the browser takes moves nothing outside an app from the home
+  screen: Safari draws the page gone back to under its own swipe, and a move of
+  ours after it shook the page. The move's start is also held inline, because
+  WebKit paints a page just put in once at rest before the move takes it, and
+  the page jumped back to where the move starts. `main` clips with
+  `overflow-x: clip` and never `hidden`, which makes it a scroll container, and
+  every sticky bar inside it stopped sticking.
 - In an app opened from an iPhone's home screen a finger drags the page off
-  from the left edge and goes back: in the history when the app has one, else
-  to the folder above, as the way up does. A short or slow drag puts the page
-  back, and so does a second finger or a touch the system takes: a drag given
-  up any other way left the page shifted. Only there: a tab of Safari has its
-  own swipe back, and both went back once each, and Android's back gesture is
-  the system's. The swiped page stays off the edge until the next one enters,
-  and the way back follows only a leave that got there, from the entry of the
-  history the drag ended on: a tab tapped meanwhile won, and was then taken
-  back, whether its screen had come in or was still loading. The swipe never
-  starts under a dialog, a sheet or a menu, nor in the editor, and for a reader
-  who asked for less motion it moves nothing on its own. A touch at the edge
-  holds every move until its direction is known, since a move let through
-  starts the page's own scroll, which shook the page up and down under the
-  drag; one that goes up or down is the scroll. The dragged page is a layer of
-  its own, or WebKit paints a long note again on every move. Let go, the page
-  goes on at the finger's speed, and a finger drawn back toward the edge as it
-  lifts keeps the page. The swipe saves a rename field before it goes back,
-  since it blurs nothing, and the field would have gone without saving. The
-  field is gone before the server answers, so a save that fails after a swipe,
-  or after a tap on a link, shows its error toast and the name typed is lost.
-  The back button, Android's back gesture and the swipe of a Safari tab change
-  the page without the app's swipe, and a field left open then is dropped. A
-  screen still loading shows its spinner only after 400ms: one that came up the
-  moment the swiped page was gone read as the page jerking.
+  from the left edge and goes to the folder above, the way up in the bar on top
+  does, as an app's swipe goes where its back button says. Back in the history
+  it went to the page before, the Recent tab of a note opened from there, while
+  the bar said the folder. On the root there is no way up and no swipe. A short
+  or slow drag puts the page back, and so does a second finger or a touch the
+  system takes: a drag given up any other way left the page shifted. Only
+  there: a tab of Safari has its own swipe back, and both went back once each,
+  and Android's back gesture is the system's. The swiped page stays off the
+  edge until the next one enters, and the way back follows only a leave that
+  got there, from the entry of the history the drag ended on: a tab tapped
+  meanwhile won, and was then taken back, whether its screen had come in or was
+  still loading. The swipe never starts under a dialog, a sheet or a menu, nor
+  in the editor, and for a reader who asked for less motion it moves nothing on
+  its own. A touch at the edge holds every move until its direction is known,
+  since a move let through starts the page's own scroll, which shook the page
+  up and down under the drag; one that goes up or down is the scroll. The
+  dragged page is a layer of its own, or WebKit paints a long note again on
+  every move. Let go, the page goes on at the finger's speed, and a finger
+  drawn back toward the edge as it lifts keeps the page. The swipe saves a
+  rename field before it goes back, since it blurs nothing, and the field would
+  have gone without saving. The field is gone before the server answers, so a
+  save that fails after a swipe, or after a tap on a link, shows its error
+  toast and the name typed is lost. The back button, Android's back gesture and
+  the swipe of a Safari tab change the page without the app's swipe, and a
+  field left open then is dropped. A screen still loading shows its spinner
+  only after 400ms: one that came up the moment the swiped page was gone read
+  as the page jerking.

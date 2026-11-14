@@ -543,6 +543,25 @@ test.describe('mobile', () => {
             await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
         });
 
+        test('goes to the folder above and never back into the editor left', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.dir(docs.doc.folder));
+            await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await page.getByTestId('edit-button').tap();
+            await page.getByTestId('editor-cancel').tap();
+            await expect(page).toHaveURL(MAIN.url.doc(DOC));
+            await expect(page.getByTestId('doc')).toBeVisible();
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.dir(docs.doc.folder));
+            await expect(page.locator(`[data-testid=dir-row][data-path="${DOC}"]`)).toBeVisible();
+        });
+
         test('in a tab of the browser is left to the browser', async ({page}) => {
             // arrange
             await page.goto(folder());
@@ -1350,6 +1369,38 @@ test.describe('mobile', () => {
         // assert
         await expect(page.getByTestId('folder-menu-dropdown')).toHaveCount(0);
         await expect(page).toHaveURL(MAIN.url.dir(docs.folder.path));
+    });
+
+    test('a back from a note left in the editor goes to its folder and not into the editor', async ({page}) => {
+        // arrange
+        await page.goto(MAIN.url.dir(docs.doc.folder));
+        await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await page.getByTestId('edit-button').tap();
+        await page.getByTestId('editor-cancel').tap();
+        await expect(page.getByTestId('doc')).toBeVisible();
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.dir(docs.doc.folder));
+    });
+
+    test('the way up goes back to the folder a note was opened from and leaves the note out of the history', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+        await page.locator(`[data-testid=dir-row][data-path="${docs.doc.folder}"]`).tap();
+        await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
+        await expect(page.getByTestId('doc')).toBeVisible();
+
+        // act
+        await page.getByTestId('topbar-up').tap();
+        await expect(page).toHaveURL(MAIN.url.dir(docs.doc.folder));
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(atHome());
     });
 
     test('the Edit button opens the editor', async ({page}) => {

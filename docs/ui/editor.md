@@ -25,7 +25,10 @@ The editor screen.
   switches always show their names. On a phone the layouts are the tabs Text,
   Preview and Changes, as Split has no room there.
 - Save saves and opens the reader, as an edit is a trip from the page and back.
-  With nothing to save it only opens the reader, and a note not created yet is
+  The editor leaves no entry in the history: opened from the note's page, Save
+  and Cancel go back to it, and opened from elsewhere the reader takes the
+  editor's entry, so a back from the note never opens the editor again. With
+  nothing to save it only opens the reader, and a note not created yet is
   created. The editor stays when the save fails, when it meets a conflict,
   whatever the conflict dialog then does, and when the text changed while the
   save ran. A person who went elsewhere while the save ran stays there. Once

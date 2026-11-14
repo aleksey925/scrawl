@@ -1,5 +1,7 @@
+import { localStore, readJson, writeJson } from '../storage';
+
 import { post } from './channel';
-import { dataCache, secureSignInCookie, signInCookie, signInCookies } from './keys';
+import { dataCache, secureSignInCookie, signInCookie } from './keys';
 import { underCopyLock } from './lock';
 import { offlineSupported, offlineWanted } from './preference';
 import { readState, writeState } from './records';
@@ -14,14 +16,15 @@ function cookieValue(wanted: string): string | undefined {
   return undefined;
 }
 
+const secureSignInSeenKey = 'scrawl-secure-sign-in';
+
 function signedInAs(): string | undefined {
-  for (const name of signInCookies) {
-    const user = cookieValue(name);
-    if (user !== undefined) {
-      return user;
-    }
+  const secure = cookieValue(secureSignInCookie);
+  if (secure !== undefined) {
+    writeJson(localStore(), secureSignInSeenKey, true);
+    return secure;
   }
-  return undefined;
+  return readJson<boolean>(localStore(), secureSignInSeenKey) === true ? undefined : cookieValue(signInCookie);
 }
 
 function dropSignInCookies(): void {

@@ -1385,6 +1385,30 @@ test.describe('offline access', () => {
         expect(await storedUrls(page)).toContain(`/s/notes/api/page/${NOTE}`);
     });
 
+    test('a plain sign-in cookie left behind is not read once the secure one was seen', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await page.evaluate((name) => {
+            document.cookie = `__Host-scrawl_signin=${name}; Path=/; Secure`;
+        }, user);
+        expect(await page.evaluate(() => document.cookie.includes('__Host-scrawl_signin'))).toBe(true);
+        await page.reload();
+        await expect.poll(() => page.evaluate(() => localStorage.getItem('scrawl-secure-sign-in'))).toBe('true');
+        await expect.poll(() => page.evaluate(() => document.cookie.includes('__Host-scrawl_signin'))).toBe(false);
+        await context.addCookies([
+            {name: 'scrawl_signin', value: otherUser, domain: new URL(MAIN.baseURL).hostname, path: '/s'},
+        ]);
+
+        // act
+        await page.goto(routes.doc(NOTE));
+        await expect(page.getByTestId('doc')).toBeVisible();
+
+        // assert
+        await stays(async () => (await storedState(page)).owner, user, 1500);
+        expect(await storedUrls(page)).toContain(`/s/notes/api/page/${NOTE}`);
+        expect(await page.evaluate(() => document.cookie.includes('scrawl_signin'))).toBe(true);
+    });
+
     test('a file opened right after another user signs in never comes from the copy', async ({page, context}) => {
         // arrange
         writeFixture(TEXT, 'the copy of the first user\n');

@@ -134,7 +134,11 @@ func (h Hosts) Match(hostport string) (id string, apps bool) {
 		!strings.HasPrefix(first, h.prefix) || !strings.HasSuffix(first, h.suffix) {
 		return "", false
 	}
-	return validID(first[len(h.prefix) : len(first)-len(h.suffix)]), true
+	id = validID(first[len(h.prefix) : len(first)-len(h.suffix)])
+	if id == "" && h.prefix == "" && h.suffix == "" {
+		return "", false
+	}
+	return id, true
 }
 
 func (h Hosts) Origin(id, parent string) (string, error) {
@@ -147,7 +151,7 @@ func (h Hosts) Origin(id, parent string) (string, error) {
 	if h.Local() {
 		scheme, port = pu.Scheme, pu.Port()
 		switch {
-		case parentHost == "127.0.0.1" || parentHost == "::1":
+		case parentHost == "127.0.0.1":
 			host = localPrefix + id + "." + localDomain
 		case parentHost == localDomain || strings.HasSuffix(parentHost, "."+localDomain):
 			host = localPrefix + id + "." + parentHost

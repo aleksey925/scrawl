@@ -69,6 +69,10 @@ func TestHostsMatch(t *testing.T) {
 	id := ID("notes", "apps/counter")
 	perApp, err := Parse("https://app-{id}.example.com")
 	require.NoError(t, err)
+	withSuffix, err := Parse("https://app-{id}-x.example.com")
+	require.NoError(t, err)
+	idAlone, err := Parse("https://{id}.example.com")
+	require.NoError(t, err)
 	tests := []struct {
 		name   string
 		hosts  Hosts
@@ -76,6 +80,13 @@ func TestHostsMatch(t *testing.T) {
 		wantID string
 		apps   bool
 	}{
+		{name: "suffix", hosts: withSuffix, host: "app-" + id + "-x.example.com", wantID: id, apps: true},
+		{name: "suffix malformed id", hosts: withSuffix, host: "app-nope-x.example.com", apps: true},
+		{name: "suffix missing", hosts: withSuffix, host: "app-" + id + ".example.com"},
+		{name: "shorter than prefix and suffix", hosts: withSuffix, host: "app-x.example.com"},
+		{name: "id alone", hosts: idAlone, host: id + ".example.com", wantID: id, apps: true},
+		{name: "id alone scrawl itself", hosts: idAlone, host: "notes.example.com"},
+		{name: "id alone the bare domain", hosts: idAlone, host: "example.com"},
 		{name: "per app", hosts: perApp, host: "app-" + id + ".example.com", wantID: id, apps: true},
 		{name: "per app with a port, case and a trailing dot", hosts: perApp,
 			host: "APP-" + id + ".Example.com.:8443", wantID: id, apps: true},
@@ -110,6 +121,10 @@ func TestHostsOrigin(t *testing.T) {
 	require.NoError(t, err)
 	withPort, err := Parse("http://app-{id}.apps.home.lan:7272")
 	require.NoError(t, err)
+	withSuffix, err := Parse("https://app-{id}-x.example.com")
+	require.NoError(t, err)
+	idAlone, err := Parse("https://{id}.apps.example.com")
+	require.NoError(t, err)
 	tests := []struct {
 		name   string
 		hosts  Hosts
@@ -117,6 +132,10 @@ func TestHostsOrigin(t *testing.T) {
 		want   string
 		err    error
 	}{
+		{name: "per app with a suffix", hosts: withSuffix, parent: "https://notes.example.com",
+			want: "https://app-" + id + "-x.example.com"},
+		{name: "per app with the id alone", hosts: idAlone, parent: "https://notes.example.com",
+			want: "https://" + id + ".apps.example.com"},
 		{name: "per app", hosts: perApp, parent: "https://notes.example.com",
 			want: "https://app-" + id + ".example.com"},
 		{name: "per app with a port", hosts: withPort, parent: "http://192.168.1.5:7272",
@@ -125,8 +144,7 @@ func TestHostsOrigin(t *testing.T) {
 			err: ErrSameHost},
 		{name: "local at 127.0.0.1", hosts: Hosts{}, parent: "http://127.0.0.1:7272",
 			want: "http://app-" + id + ".localhost:7272"},
-		{name: "local at ::1", hosts: Hosts{}, parent: "http://[::1]:7272",
-			want: "http://app-" + id + ".localhost:7272"},
+		{name: "local at ::1", hosts: Hosts{}, parent: "http://[::1]:7272", err: ErrNotHere},
 		{name: "local at localhost", hosts: Hosts{}, parent: "http://localhost:7272",
 			want: "http://app-" + id + ".localhost:7272"},
 		{name: "local at a name under localhost", hosts: Hosts{}, parent: "https://scrawl.localhost",
@@ -147,22 +165,26 @@ func TestHostsOrigin(t *testing.T) {
 }
 
 func TestHostsFrameSources(t *testing.T) {
+	// arrange
 	perApp, err := Parse("https://app-{id}.example.com")
 	require.NoError(t, err)
 	withPort, err := Parse("http://app-{id}.apps.home.lan:7272")
 	require.NoError(t, err)
 
+	// act & assert
 	assert.Equal(t, "http://*.localhost:* https://*.localhost:*", Hosts{}.FrameSources())
 	assert.Equal(t, "https://*.example.com", perApp.FrameSources())
 	assert.Equal(t, "http://*.apps.home.lan:7272", withPort.FrameSources())
 }
 
 func TestHostsCookieName(t *testing.T) {
+	// arrange
 	secure, err := Parse("https://app-{id}.example.com")
 	require.NoError(t, err)
 	plain, err := Parse("http://app-{id}.example.com")
 	require.NoError(t, err)
 
+	// act & assert
 	assert.Equal(t, "__Host-scrawl_app", secure.CookieName())
 	assert.Equal(t, "scrawl_app", plain.CookieName())
 	assert.Equal(t, "scrawl_app", Hosts{}.CookieName())
@@ -181,11 +203,13 @@ func TestID(t *testing.T) {
 }
 
 func TestFolder(t *testing.T) {
+	// act & assert
 	assert.Empty(t, Folder("index.html"))
 	assert.Equal(t, "apps/counter", Folder("apps/counter/index.html"))
 }
 
 func TestRunnable(t *testing.T) {
+	// act & assert
 	assert.True(t, Runnable("a/index.html"))
 	assert.True(t, Runnable("a/INDEX.HTM"))
 	assert.False(t, Runnable("a/index.md"))

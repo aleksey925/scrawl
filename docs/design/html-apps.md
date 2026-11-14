@@ -58,12 +58,15 @@ file run this way; the code says `htmlapp`. Why it is built this way:
   - a host per app: `<prefix><x><suffix>.<rest>` of the template;
   - the local mode: a first label `app-<x>` under `localhost` or `*.localhost`.
 - A matching host is an apps request: for the id `x` when `x` has the shape of
-  an id, else a 404 for every path. Any other host is scrawl, as before, a
-  foreign subdomain too: scrawl does not know its own host, and telling
-  `notes.example.com` from `random.example.com` would need it as a setting.
-- The apps stack is `rest.Trace`, `rest.Recoverer`, `appsHeaders`, gzip,
-  `rest.RealIP` with `--trusted-proxy`, its own throttle and the logger: no
-  `Auth.Middleware`, no `appInfo`, no scrawl CSP. `rest.Throttle` counts per
+  an id, else a 404 for every path. With `{id}` alone in its label, such as
+  `https://{id}.example.com`, a host whose `x` is not an id is scrawl's, so
+  scrawl at `notes.example.com` keeps working. Any other host is scrawl, as
+  before, a foreign subdomain too: scrawl does not know its own host, and
+  telling `notes.example.com` from `random.example.com` would need it as a
+  setting.
+- The apps stack is `rest.Trace`, `rest.Recoverer`, `appsHeaders`, `appName`,
+  gzip, `rest.RealIP` with `--trusted-proxy`, its own throttle and the logger:
+  no `Auth.Middleware`, no `appInfo`, no scrawl CSP. `rest.Throttle` counts per
   call, so an app that loads fifty files at once holds no slot of the notes.
 - No handler of scrawl's host is mounted there. `/login`, `/static/`, `/api/`,
   `/sw.js`, `/ping` or `/s/<name>/` on an apps host is a path of the app, a
@@ -106,12 +109,15 @@ file run this way; the code says `htmlapp`. Why it is built this way:
 - The app cookie (`app-cookie`) lives as long as a session and holds the space,
   the folder and the parent origin. It is `__Host-scrawl_app` with an `https`
   `APPS_URL`, else `scrawl_app`: `Path=/`, `HttpOnly`, never `Domain`.
-  `SameSite` follows the `Sec-Fetch-Site` of the enter request, which says how
-  the scrawl page relates to this host: `cross-site` gets
-  `SameSite=None; Secure; Partitioned`, anything else `Lax`, `Secure` on https.
-  So the server needs no public suffix list, and a same-site deployment never
-  relies on third-party cookies. Sign-out does not end it; the TTL, a password
-  change or a removed user do.
+  `SameSite` follows the `Sec-Fetch-Site` and `Sec-Fetch-Dest` of the enter
+  request, which say how the scrawl page relates to this host: a `cross-site`
+  `iframe` gets `SameSite=None; Secure; Partitioned`, anything else `Lax`,
+  `Secure` on https. Open in a new tab is a `document`, a first party, so it
+  keeps `Lax`, which also works over plain http, where a browser refuses a
+  `Secure` cookie at a name other than `localhost`. So the server needs no
+  public suffix list, and a same-site deployment never relies on third-party
+  cookies. Sign-out does not end it; the TTL, a password change or a removed
+  user do.
 
 ## The ticket endpoint
 
@@ -149,7 +155,7 @@ with `no-store`:
   part and then moves the frame to the file with `location.replace`, so the
   used ticket stays out of the frame's history. A redirect would leave no
   moment to register a worker. `data-offline` is the ticket's, but always
-  `false` for a `cross-site` enter request ([offline](#offline)).
+  `false` for a `cross-site` enter request of a frame ([offline](#offline)).
 - `/__scrawl/enter.js` and `/__scrawl/sw.js` are built from `web/src/htmlapp/`,
   public, `text/javascript`, `no-cache`. Only `sw.js` carries
   `Service-Worker-Allowed: /`.
@@ -157,8 +163,7 @@ with `no-store`:
   for a file: every file of the folder and its subfolders with a type on the
   list below, from `Store.Tree()`, each with the ETag its own answer carries.
   Files under the folder's own `__scrawl/` are left out, since no request
-  reaches them. The answer has the ETag of its body and answers 304, as
-  `/api/versions` does. A folder gone is an empty list.
+  reaches them. A folder gone is an empty list.
 - Any other path is a file. No cookie, or the cookie of another app, is a 401
   as plain text with no `frame-ancestors`, so the person reads it in the frame:
   `Open this app from scrawl. If you just did, this browser did not keep the app's cookie inside the frame: open it in a new tab.`
@@ -205,19 +210,21 @@ With no `APPS_URL` the app host follows the address scrawl is opened at, with
 the scheme and the port of the page. Chrome and Firefox send every
 `*.localhost` name to the loopback themselves.
 
-- At `127.0.0.1` or `[::1]` the app is `app-<id>.localhost`. An IP is never a
-  cookie neighbor, so Run is safe with auth on. The frame is cross-site, so its
-  cookie is the partitioned one, and the frame's storage is apart from the
-  storage of the app in a tab of its own. This is the link scrawl logs at start
+- At `127.0.0.1` the app is `app-<id>.localhost`. An IP is never a cookie
+  neighbor, so Run is safe with auth on. The frame is cross-site, so its cookie
+  is the partitioned one, and the frame's storage is apart from the storage of
+  the app in a tab of its own. This is the link scrawl logs at start
   ([server](server.md#lifecycle)).
 - At `localhost` or `*.localhost` the app is `app-<id>.<page host>`. At
   `localhost` the frame is cross-site too; at `scrawl.localhost` it is
   same-site, as on a real domain. With auth on these are neighbors, which the
   warning at start names.
 - At any other address the run screen shows the 409: on this machine the
-  printed link, from another device https with `APPS_URL`. No code is added for
-  a browser that does not open `app-<id>.localhost`, nor for a LAN address on
-  http; such a frame shows the browser's error page.
+  printed link, from another device https with `APPS_URL`. `[::1]` is one of
+  them: a CSP source cannot name an IPv6 address, so `frame-ancestors` could
+  not let the app in its frame. No code is added for a browser that does not
+  open `app-<id>.localhost`, nor for a LAN address on http; such a frame shows
+  the browser's error page.
 
 ## Offline
 
@@ -232,9 +239,11 @@ the apps host keeps the files.
   `scrawl.localhost`. In a cross-site frame Chromium registers the worker but
   sends no cookie on its fetches, so every request of the worker got a 401
   ([quirks](../quirks.md#browsers)). The enter route therefore sends
-  `data-offline="false"` for a `cross-site` enter request: the local run at
-  `127.0.0.1` and at `localhost` works online and is never kept, and offline
-  its run screen says `This browser does not keep this app for offline use.`.
+  `data-offline="false"` for a `cross-site` enter request of a frame: the local
+  run at `127.0.0.1` and at `localhost` works online and is never kept in the
+  frame, and offline its run screen says
+  `This browser does not keep this app for offline use.`. Open in a new tab is
+  a first party there, so it keeps the app in that tab.
 - The worker is `/__scrawl/sw.js` with the scope `/`, so it sees every request
   of the app. A worker's scope is no wider than its script's folder without
   `Service-Worker-Allowed`, so that script alone gets the header; a file of the
@@ -247,9 +256,11 @@ the apps host keeps the files.
   within 3 seconds, a wait of the first run only. Without `offline` it posts
   `off` to scrawl's worker, unregisters it unless the app's own is there, and
   deletes the cache: Off reaches an app on its next run with a network. Then it
-  tells the parent `{type: 'scrawl-htmlapp', offline}`, true when a worker is
-  active at `/`, with the parent as the target, and moves on to the file.
-- The cache is `scrawl-htmlapp`, with a record `{etag, parent}` under
+  tells the parent `{type: 'scrawl-htmlapp', offline}`, with the parent as the
+  target, and moves on to the file. `offline` is false without `offline` in the
+  page, else true when the scope `/` has a worker, installing, waiting or
+  active: a first install longer than 3 seconds still counts.
+- The cache is `scrawl-htmlapp`, with a record `{parent}` under
   `/__scrawl/kept`. One key per file: the path with the query dropped, made
   canonical as `canonicalPath` of `keys.ts`, `index.html` added to a trailing
   `/`; a path of the list is escaped with `encodeContentPath` first, since
@@ -263,13 +274,12 @@ the apps host keeps the files.
   answer on a network error, a 5xx that is not scrawl's, or no headers in 3
   seconds; unlike `networkFirst` of the copy's worker, a late 401, 404 or new
   file still changes the cache.
-- `refresh` writes the parent into the record, asks the list with the stored
-  ETag, fetches what is missing or changed four at a time and deletes what left
-  the list. The ETag of the list is written only when every file was stored,
-  and cleared before the first stored file changes, as a round of the copy
-  does: a 304 then never keeps files of another list. There is no bound: when
-  the browser has no room the refresh stops with no message and the next run
-  goes on.
+- `refresh` writes the parent into the record, asks the list, fetches what is
+  missing or changed four at a time, by the ETag of each file, and deletes what
+  left the list. The list has no ETag of its own: comparing the ETags of the
+  stored files costs little, and a list version would need its own rules for a
+  refresh cut short. There is no bound: when the browser has no room the
+  refresh stops with no message and the next run goes on.
 - Every change of the cache runs in one promise chain, and a write goes only
   into a cache that exists, which only a refresh creates. Refreshes run one
   after another, each with its own `AbortController`. A purge, on scrawl's 401
@@ -285,10 +295,12 @@ the apps host keeps the files.
   `This file is not on this device. Open the app once with a network.`.
   `/__scrawl/` always goes to the network, and requests of other origins are
   not touched: files of a CDN are not kept.
-- scrawl's own 401 purges every stored file of the app and passes the 401 on;
-  scrawl's 404 deletes that key. The app's own data, `localStorage`, IndexedDB
-  and its cookies, is never touched: it belongs to the app and must outlive an
-  offline period. `Clear-Site-Data` cannot tell the two apart.
+- scrawl's own 401 purges every stored file of the app and passes the 401 on,
+  unless the request was sent with `credentials: 'omit'`: that one carried no
+  cookie, so its 401 says nothing of the session; scrawl's 404 deletes that
+  key. The app's own data, `localStorage`, IndexedDB and its cookies, is never
+  touched: it belongs to the app and must outlive an offline period.
+  `Clear-Site-Data` cannot tell the two apart.
 - Offline there is no cookie check, as for a note of the copy, so an app kept
   opens after its cookie ended until the first request that reaches the server.
   `frame-ancestors` and the cookie's expiry hold for answers from the network

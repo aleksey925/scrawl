@@ -19,7 +19,6 @@ const missingText = 'This file is not on this device. Open the app once with a n
 const parentShape = /^https?:\/\/[a-z0-9.:[\]-]+$/i;
 
 interface Kept {
-  etag: string;
   parent: string;
 }
 
@@ -66,27 +65,17 @@ async function writeKept(cache: Cache, kept: Kept): Promise<void> {
   await cache.put(keptKey, new Response(JSON.stringify(kept), { headers: { 'Content-Type': 'application/json' } }));
 }
 
-async function forgetListVersion(cache: Cache): Promise<void> {
-  const kept = await readKept(cache);
-  if (kept !== undefined && kept.etag !== '') {
-    await writeKept(cache, { ...kept, etag: '' });
-  }
-}
-
-function storeFile(key: string, response: Response, signal?: AbortSignal): Promise<boolean> {
+function storeFile(key: string, response: Response, signal?: AbortSignal): Promise<void> {
   return change(async () => {
     const cache = await existing();
     if (cache === undefined || signal?.aborted === true) {
-      return false;
+      return;
     }
     const etag = response.headers.get('ETag');
     const stored = await cache.match(key, { ignoreVary: true });
-    if (etag !== null && stored?.headers.get('ETag') === etag) {
-      return true;
+    if (etag === null || stored?.headers.get('ETag') !== etag) {
+      await cache.put(key, response);
     }
-    await forgetListVersion(cache);
-    await cache.put(key, response);
-    return true;
   });
 }
 
@@ -96,7 +85,6 @@ function dropFile(key: string): Promise<void> {
     if (cache === undefined || (await cache.match(key, { ignoreVary: true })) === undefined) {
       return;
     }
-    await forgetListVersion(cache);
     await cache.delete(key, { ignoreVary: true });
   });
 }
@@ -109,22 +97,17 @@ function purge(): Promise<boolean> {
   return change(() => caches.delete(htmlappCache));
 }
 
-type Settled = 'stored' | 'purged' | 'other';
-
-async function settle(key: string, request: Request | undefined, response: Response, signal?: AbortSignal): Promise<Settled> {
+async function settle(key: string, ranged: boolean, response: Response, signal?: AbortSignal): Promise<boolean> {
   if (response.status === 401 && fromScrawl(response)) {
     await purge();
-    return 'purged';
+    return true;
   }
   if (response.status === 404 && fromScrawl(response)) {
     await dropFile(key);
-    return 'other';
+  } else if (response.status === 200 && !ranged && !response.redirected && response.type === 'basic') {
+    await storeFile(key, response, signal);
   }
-  const ranged = request?.headers.has('range') === true;
-  if (response.status !== 200 || ranged || response.redirected || response.type !== 'basic') {
-    return 'other';
-  }
-  return (await storeFile(key, response, signal)) ? 'stored' : 'other';
+  return false;
 }
 
 async function eachAtOnce<T>(entries: readonly T[], signal: AbortSignal, task: (entry: T) => Promise<void>): Promise<void> {
@@ -142,9 +125,8 @@ async function eachAtOnce<T>(entries: readonly T[], signal: AbortSignal, task: (
   await Promise.all(Array.from({ length: Math.min(fetchesAtOnce, entries.length) }, lane));
 }
 
-async function fetchList(etag: string, signal: AbortSignal): Promise<{ list: FileList; etag: string } | undefined> {
-  const headers: Record<string, string> = etag === '' ? {} : { 'If-None-Match': etag };
-  const response = await fetch(listUrl, { headers, signal, cache: 'no-store' });
+async function fetchList(signal: AbortSignal): Promise<FileList | undefined> {
+  const response = await fetch(listUrl, { signal, cache: 'no-store' });
   if (response.status === 401 && fromScrawl(response)) {
     await purge();
     return undefined;
@@ -152,7 +134,7 @@ async function fetchList(etag: string, signal: AbortSignal): Promise<{ list: Fil
   if (response.status !== 200) {
     return undefined;
   }
-  return { list: (await response.json()) as FileList, etag: response.headers.get('ETag') ?? '' };
+  return (await response.json()) as FileList;
 }
 
 async function filesToFetch(cache: Cache, wanted: Map<string, ListedFile>): Promise<string[]> {
@@ -182,42 +164,23 @@ async function refreshFolder(controller: AbortController): Promise<void> {
   if (cache === undefined || kept === undefined || signal.aborted) {
     return;
   }
-  const fetched = await fetchList(kept.etag, signal);
-  if (fetched === undefined || signal.aborted) {
+  const list = await fetchList(signal);
+  if (list === undefined || signal.aborted) {
     return;
   }
-  const wanted = new Map(fetched.list.files.map((entry) => [listedKey(entry), entry]));
+  const wanted = new Map(list.files.map((entry) => [listedKey(entry), entry]));
   await dropGone(cache, wanted);
-  let complete = true;
   try {
     await eachAtOnce(await filesToFetch(cache, wanted), signal, async (key) => {
       const response = await fetch(key, { signal, cache: 'no-cache' }).catch(() => undefined);
-      if (response === undefined) {
-        complete = false;
-        return;
-      }
-      const outcome = await settle(key, undefined, response, signal);
-      if (outcome === 'purged') {
+      if (response !== undefined && (await settle(key, false, response, signal))) {
         controller.abort();
-      }
-      if (outcome !== 'stored') {
-        complete = false;
       }
     });
   } catch (error) {
     controller.abort();
     throw error;
   }
-  if (!complete || signal.aborted) {
-    return;
-  }
-  await change(async () => {
-    const current = await existing();
-    const record = current === undefined ? undefined : await readKept(current);
-    if (current !== undefined && record !== undefined && !signal.aborted) {
-      await writeKept(current, { ...record, etag: fetched.etag });
-    }
-  });
 }
 
 async function startRefresh(parent: string, ready: () => void): Promise<void> {
@@ -229,8 +192,7 @@ async function startRefresh(parent: string, ready: () => void): Promise<void> {
         return;
       }
       const cache = await caches.open(htmlappCache);
-      const kept = await readKept(cache);
-      await writeKept(cache, { etag: kept?.etag ?? '', parent });
+      await writeKept(cache, { parent });
     });
   } finally {
     ready();
@@ -263,7 +225,10 @@ async function answer(event: FetchEvent, url: URL): Promise<Response> {
   const { request } = event;
   const key = keyOf(url.pathname);
   const network = fetch(request);
-  event.waitUntil(network.then((response) => settle(key, request, response.clone()), () => undefined));
+  if (request.credentials !== 'omit') {
+    const ranged = request.headers.has('range');
+    event.waitUntil(network.then((response) => settle(key, ranged, response.clone()), () => undefined));
+  }
   const stored = await caches.match(key, { cacheName: htmlappCache, ignoreVary: true });
   if (stored === undefined) {
     return network.catch(missing);

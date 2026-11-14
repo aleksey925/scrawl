@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -38,6 +39,7 @@ var counterFiles = map[string]string{
 	"notes.md":          "# notes",
 	"run.sh":            "echo",
 	".secret.js":        "secret",
+	".hidden/a.js":      "hidden",
 	"node_modules/x.js": "excluded",
 	"sub/index.html":    "<p>sub</p>",
 	"sw.js":             "self.oninstall = null",
@@ -116,10 +118,13 @@ func (ts *testServer) run(t *testing.T, origin, file string, offline bool) runAn
 	return res
 }
 
-func (ts *testServer) enter(ticketURL, fetchSite string) *httptest.ResponseRecorder {
+func (ts *testServer) enter(ticketURL, fetchSite, fetchDest string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(http.MethodGet, ticketURL, http.NoBody)
 	if fetchSite != "" {
 		r.Header.Set("Sec-Fetch-Site", fetchSite)
+	}
+	if fetchDest != "" {
+		r.Header.Set("Sec-Fetch-Dest", fetchDest)
 	}
 	return ts.serve(r)
 }
@@ -127,7 +132,7 @@ func (ts *testServer) enter(ticketURL, fetchSite string) *httptest.ResponseRecor
 func (ts *testServer) appCookie(t *testing.T, file string) (string, *http.Cookie) {
 	t.Helper()
 	ticket := ts.run(t, scrawlOrigin, file, false)
-	rec := ts.enter(ticket.URL, "cross-site")
+	rec := ts.enter(ticket.URL, "cross-site", "iframe")
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	cookies := rec.Result().Cookies()
 	require.Len(t, cookies, 1)
@@ -209,14 +214,40 @@ func TestRunTicketRefuses(t *testing.T) {
 		status int
 		error  string
 	}{
-		{name: "no origin", file: counterFile, status: http.StatusForbidden,
+		{name: "no origin", file: counterFile, status: http.StatusForbidden, error: "cross-origin request blocked",
 			modify: func(r *http.Request) { r.Header.Del("Origin") }},
-		{name: "a foreign origin", file: counterFile, status: http.StatusForbidden,
+		{name: "a foreign origin", file: counterFile, status: http.StatusForbidden, error: "cross-origin request blocked",
 			modify: func(r *http.Request) { r.Header.Set("Origin", "http://evil.test") }},
 		{name: "an origin that differs from the host", file: counterFile, status: http.StatusForbidden,
+			error:  "cross-origin request blocked",
 			modify: func(r *http.Request) { r.Header.Set("Origin", "http://localhost:7272") }},
 		{name: "an origin with a path", file: counterFile, status: http.StatusForbidden,
+			error:  "cross-origin request blocked",
 			modify: func(r *http.Request) { r.Header.Set("Origin", scrawlOrigin+"/x") }},
+		{name: "a cross-site request", file: counterFile, status: http.StatusForbidden,
+			error:  "cross-origin request blocked",
+			modify: func(r *http.Request) { r.Header.Set("Sec-Fetch-Site", "cross-site") }},
+		{name: "no session", file: counterFile, status: http.StatusUnauthorized, error: "unauthorized",
+			modify: func(r *http.Request) { r.Header.Del("Cookie") }},
+		{name: "a body that is not json", file: counterFile, status: http.StatusBadRequest, error: "malformed json body",
+			modify: func(r *http.Request) {
+				r.Body = io.NopCloser(strings.NewReader("{"))
+				r.ContentLength = 1
+			}},
+		{name: "local at ::1", file: counterFile, status: http.StatusConflict,
+			error: "HTML apps do not run at this address. On this machine, open scrawl at http://127.0.0.1:7272, " +
+				"the link it prints at start. From a phone or another device, open scrawl over https with APPS_URL set.",
+			modify: func(r *http.Request) {
+				r.Host = "[::1]:7272"
+				r.Header.Set("Origin", "http://[::1]:7272")
+			}},
+		{name: "a lan address with no port", file: counterFile, status: http.StatusConflict,
+			error: "HTML apps do not run at this address. On this machine, open scrawl at http://127.0.0.1, " +
+				"the link it prints at start. From a phone or another device, open scrawl over https with APPS_URL set.",
+			modify: func(r *http.Request) {
+				r.Host = "192.168.1.5"
+				r.Header.Set("Origin", "http://192.168.1.5")
+			}},
 		{name: "a bearer token", file: counterFile, status: http.StatusForbidden, error: appsNeedBrowser,
 			modify: func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+testToken) }},
 		{name: "a folder", file: counterFolder, status: http.StatusBadRequest, error: appsNotAnApp},
@@ -272,8 +303,6 @@ func TestRunTicket(t *testing.T) {
 	}{
 		{name: "local at 127.0.0.1", opts: testOpts{withAuth: true}, origin: scrawlOrigin,
 			app: "http://app-" + counterID + ".localhost:7272"},
-		{name: "local at ::1", opts: testOpts{withAuth: true}, origin: "http://[::1]:7272",
-			app: "http://app-" + counterID + ".localhost:7272"},
 		{name: "local at localhost", opts: testOpts{withAuth: true}, origin: "http://localhost:7272",
 			app: "http://app-" + counterID + ".localhost:7272"},
 		{name: "local at a name under localhost", opts: testOpts{withAuth: true}, origin: "http://scrawl.localhost:7272",
@@ -309,16 +338,25 @@ func TestAppsEnter(t *testing.T) {
 	tests := []struct {
 		name      string
 		fetchSite string
+		fetchDest string
 		asked     bool
 		offline   bool
 		sameSite  http.SameSite
 		secure    bool
 		parted    bool
 	}{
-		{name: "same site", fetchSite: "same-site", asked: true, offline: true, sameSite: http.SameSiteLaxMode},
-		{name: "no fetch site", sameSite: http.SameSiteLaxMode},
-		{name: "cross site keeps nothing offline", fetchSite: "cross-site", asked: true,
+		{name: "same site", fetchSite: "same-site", fetchDest: "iframe", asked: true, offline: true,
+			sameSite: http.SameSiteLaxMode},
+		{name: "same origin", fetchSite: "same-origin", fetchDest: "iframe", asked: true, offline: true,
+			sameSite: http.SameSiteLaxMode},
+		{name: "typed in", fetchSite: "none", fetchDest: "document", asked: true, offline: true,
+			sameSite: http.SameSiteLaxMode},
+		{name: "no fetch site", asked: true, offline: true, sameSite: http.SameSiteLaxMode},
+		{name: "not asked", fetchSite: "same-site", fetchDest: "iframe", sameSite: http.SameSiteLaxMode},
+		{name: "a cross-site frame keeps nothing offline", fetchSite: "cross-site", fetchDest: "iframe", asked: true,
 			sameSite: http.SameSiteNoneMode, secure: true, parted: true},
+		{name: "a cross-site tab of its own", fetchSite: "cross-site", fetchDest: "document", asked: true,
+			offline: true, sameSite: http.SameSiteLaxMode},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -327,7 +365,7 @@ func TestAppsEnter(t *testing.T) {
 			ticket := ts.run(t, scrawlOrigin, counterFile, tc.asked)
 
 			// act
-			rec := ts.enter(ticket.URL, tc.fetchSite)
+			rec := ts.enter(ticket.URL, tc.fetchSite, tc.fetchDest)
 
 			// assert
 			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
@@ -360,7 +398,7 @@ func TestAppsEnterOverHTTPS(t *testing.T) {
 	ticket := ts.run(t, "https://notes.example.com", counterFile, false)
 
 	// act
-	rec := ts.enter(ticket.URL, "same-site")
+	rec := ts.enter(ticket.URL, "same-site", "iframe")
 
 	// assert
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
@@ -375,7 +413,7 @@ func TestAppsEnterRefuses(t *testing.T) {
 	// arrange
 	ts := newAppsServer(t, testOpts{withAuth: true})
 	used := ts.run(t, scrawlOrigin, counterFile, false)
-	require.Equal(t, http.StatusOK, ts.enter(used.URL, "").Code)
+	require.Equal(t, http.StatusOK, ts.enter(used.URL, "", "").Code)
 	elsewhere := ts.run(t, scrawlOrigin, counterFile, false)
 	payload, err := json.Marshal(htmlapp.Ticket{
 		Space: testSpace, Folder: counterFolder, File: "index.html", Parent: scrawlOrigin,
@@ -396,7 +434,7 @@ func TestAppsEnterRefuses(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// act
-			rec := ts.enter(tc.url, "")
+			rec := ts.enter(tc.url, "", "")
 
 			// assert
 			assert.Equal(t, http.StatusUnauthorized, rec.Code)
@@ -475,17 +513,43 @@ func TestAppsFileList(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &res))
 	assert.ElementsMatch(t, counter, res.Files)
+}
 
+func TestAppsFileListETagsAreTheETagsOfTheFiles(t *testing.T) {
+	// arrange
+	ts := newAppsServer(t, testOpts{withAuth: true})
+	host, cookie := ts.appCookie(t, counterFile)
+	var res struct {
+		Files []appsFileEntry `json:"files"`
+	}
+	require.NoError(t, json.Unmarshal(ts.serve(appGet(host, appsFiles, cookie)).Body.Bytes(), &res))
+	listed := map[string]string{}
 	for _, row := range res.Files {
-		file := ts.serve(appGet(host, "/"+row.Path, cookie))
-		assert.Equal(t, row.ETag, file.Header().Get("ETag"), row.Path)
+		listed[row.Path] = row.ETag
 	}
 
-	etag := rec.Header().Get("ETag")
-	require.NotEmpty(t, etag)
-	again := appGet(host, appsFiles, cookie)
-	again.Header.Set("If-None-Match", etag)
-	assert.Equal(t, http.StatusNotModified, ts.serve(again).Code)
+	// act
+	served := map[string]string{}
+	for _, row := range res.Files {
+		served[row.Path] = ts.serve(appGet(host, "/"+row.Path, cookie)).Header().Get("ETag")
+	}
+
+	// assert
+	assert.Equal(t, listed, served)
+}
+
+func TestAppsFileListOfAFolderThatIsGone(t *testing.T) {
+	// arrange
+	ts := newAppsServer(t, testOpts{withAuth: true})
+	host, cookie := ts.appCookie(t, counterFile)
+	require.NoError(t, os.RemoveAll(filepath.Join(ts.root, filepath.FromSlash(counterFolder))))
+
+	// act
+	rec := ts.serve(appGet(host, appsFiles, cookie))
+
+	// assert
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.JSONEq(t, `{"files":[]}`, rec.Body.String())
 }
 
 func TestAppsFileListOfAnAppAtTheRoot(t *testing.T) {
@@ -568,6 +632,7 @@ func TestAppsFiles(t *testing.T) {
 		{target: "/logo.svg", status: http.StatusOK, ct: "image/svg+xml", body: counterFiles["logo.svg"]},
 		{target: "/notes.md", status: http.StatusNotFound},
 		{target: "/.secret.js", status: http.StatusNotFound},
+		{target: "/.hidden/a.js", status: http.StatusNotFound},
 		{target: "/../../.git/config", status: http.StatusNotFound},
 		{target: "/../../secret.js", status: http.StatusNotFound},
 		{target: "/link.js", status: http.StatusNotFound},
@@ -609,6 +674,84 @@ func TestAppsFileRedirectsAFolderWithoutTheSlash(t *testing.T) {
 	// assert
 	assert.Equal(t, http.StatusMovedPermanently, rec.Code)
 	assert.Equal(t, "/sub/?x=1", rec.Header().Get("Location"))
+}
+
+func TestAppsFileRedirectsAFolderWithAnEscapedName(t *testing.T) {
+	// arrange
+	ts := newAppsServer(t, testOpts{withAuth: true})
+	folder := filepath.Join(ts.root, filepath.FromSlash(counterFolder), "my dir é")
+	require.NoError(t, os.MkdirAll(folder, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(folder, "index.html"), []byte("<p>dir</p>"), 0o600))
+	host, cookie := ts.appCookie(t, counterFile)
+	target := "/" + url.PathEscape("my dir é")
+
+	// act
+	rec := ts.serve(appGet(host, target, cookie))
+
+	// assert
+	assert.Equal(t, http.StatusMovedPermanently, rec.Code)
+	assert.Equal(t, target+"/", rec.Header().Get("Location"))
+}
+
+func TestAppsEntryWithAnEscapedName(t *testing.T) {
+	// arrange
+	const name = "my app é.html"
+	ts := newAppsServer(t, testOpts{withAuth: true})
+	require.NoError(t, os.WriteFile(filepath.Join(ts.root, filepath.FromSlash(counterFolder), name), []byte("<p>esc</p>"), 0o600))
+	ticket := ts.run(t, scrawlOrigin, counterFolder+"/"+url.PathEscape(name), false)
+
+	// act
+	rec := ts.enter(ticket.URL, "same-site", "iframe")
+
+	// assert
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Equal(t, "http://"+appHost(counterFile)+"/"+url.PathEscape(name), ticket.App)
+	assert.Contains(t, rec.Body.String(), `data-file="/`+url.PathEscape(name)+`"`)
+}
+
+func TestAppsOfARemovedSpace(t *testing.T) {
+	// arrange
+	ts := newAppsServer(t, testOpts{withAuth: true})
+	const gone = "gone"
+	host := "app-" + htmlapp.ID(gone, counterFolder) + ".localhost:7272"
+	ticket, err := json.Marshal(htmlapp.Ticket{
+		Space: gone, Folder: counterFolder, File: "index.html", Parent: scrawlOrigin, App: "http://" + host, Nonce: "n2",
+	})
+	require.NoError(t, err)
+	sealedTicket := ts.Auth.Seal(htmlapp.TicketPurpose, testUser, ticket, time.Now().Add(time.Minute))
+	value, err := json.Marshal(htmlapp.Cookie{Space: gone, Folder: counterFolder, Parent: scrawlOrigin})
+	require.NoError(t, err)
+	cookie := &http.Cookie{
+		Name:  "scrawl_app",
+		Value: ts.Auth.Seal(htmlapp.CookiePurpose, testUser, value, time.Now().Add(time.Minute)),
+	}
+
+	// act
+	entered := ts.enter("http://"+host+appsEnter+"?t="+url.QueryEscape(sealedTicket), "same-site", "iframe")
+	file := ts.serve(appGet(host, "/index.html", cookie))
+
+	// assert
+	assert.Equal(t, http.StatusNotFound, entered.Code)
+	assert.Empty(t, entered.Result().Cookies())
+	assert.Equal(t, http.StatusUnauthorized, file.Code)
+	assert.Equal(t, appsNoCookie+"\n", file.Body.String())
+}
+
+func TestUsedNoncesSweepsTheExpired(t *testing.T) {
+	// arrange
+	nonces := newUsedNonces()
+	now := time.Now()
+	require.True(t, nonces.take("old", now.Add(time.Second), now))
+	require.True(t, nonces.take("live", now.Add(time.Hour), now))
+
+	// act
+	fresh := nonces.take("new", now.Add(time.Hour), now.Add(time.Minute))
+	again := nonces.take("live", now.Add(time.Hour), now.Add(time.Minute))
+
+	// assert
+	assert.True(t, fresh)
+	assert.False(t, again)
+	assert.Equal(t, map[string]time.Time{"live": now.Add(time.Hour), "new": now.Add(time.Hour)}, nonces.taken)
 }
 
 func TestAppsFileRangeAndETag(t *testing.T) {
@@ -689,6 +832,7 @@ func TestScrawlHostRefusesAPostFromAnApp(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.JSONEq(t, `{"error":"cross-origin request blocked"}`, rec.Body.String())
 }
 
 func TestRunURLOnAFilePage(t *testing.T) {

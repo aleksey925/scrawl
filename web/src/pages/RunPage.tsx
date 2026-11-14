@@ -35,7 +35,7 @@ type RunState =
   | { kind: 'waiting' }
   | { kind: 'frame'; frame: RunFrame }
   | { kind: 'failed'; message: string }
-  | { kind: 'offline'; message: string; app?: string };
+  | { kind: 'offline'; message: string };
 
 function keepsApps(): boolean {
   return offlineSupported() && offlineWanted();
@@ -62,7 +62,7 @@ async function offlineState(path: string): Promise<RunState> {
     return { kind: 'offline', message: 'Run this app once with a network to use it offline.' };
   }
   if (!record.offline) {
-    return { kind: 'offline', message: 'This browser does not keep this app for offline use.', app: record.url };
+    return { kind: 'offline', message: 'This browser does not keep this app for offline use.' };
   }
   return { kind: 'frame', frame: { src: record.url, app: record.url } };
 }
@@ -98,7 +98,7 @@ function RunScreen({ path }: { path: string }): JSX.Element {
         (ticket) => settle({ kind: 'frame', frame: { src: ticket.url, app: ticket.app } }),
         (error: unknown) => {
           if (error instanceof TypeError) {
-            settle({ kind: 'offline', message: noNetworkText });
+            void offlineState(path).then(settle);
           } else if (!(error instanceof DOMException && error.name === 'AbortError')) {
             settle({ kind: 'failed', message: messageOf(error) });
           }
@@ -110,10 +110,10 @@ function RunScreen({ path }: { path: string }): JSX.Element {
     };
   }, [connection, framed, path]);
 
-  const app = state.kind === 'frame' ? state.frame.app : state.kind === 'offline' ? state.app : undefined;
+  const app = state.kind === 'frame' ? state.frame.app : undefined;
 
   useEffect(() => {
-    if (app === undefined || !framed) {
+    if (app === undefined) {
       return undefined;
     }
     const origin = new URL(app).origin;
@@ -129,7 +129,7 @@ function RunScreen({ path }: { path: string }): JSX.Element {
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [app, framed, path]);
+  }, [app, path]);
 
   const openOutside = (): void => {
     const tab = window.open('', '_blank');

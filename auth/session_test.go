@@ -399,14 +399,23 @@ func TestServiceSessionReadsOnlyTheNameOfItsMode(t *testing.T) {
 	secure.AddCookie(&http.Cookie{Name: CookieName, Value: value})
 	plain := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	plain.AddCookie(&http.Cookie{Name: SecureCookieName, Value: value})
+	secureOwn := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	secureOwn.Header.Set("X-Forwarded-Proto", "https")
+	secureOwn.AddCookie(&http.Cookie{Name: SecureCookieName, Value: value})
+	plainOwn := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	plainOwn.AddCookie(&http.Cookie{Name: CookieName, Value: value})
 
 	// act
 	_, secureOK := svc.session(secure)
 	_, plainOK := svc.session(plain)
+	_, secureOwnOK := svc.session(secureOwn)
+	_, plainOwnOK := svc.session(plainOwn)
 
 	// assert
 	assert.False(t, secureOK)
 	assert.False(t, plainOK)
+	assert.True(t, secureOwnOK)
+	assert.True(t, plainOwnOK)
 }
 
 func TestServiceSeal(t *testing.T) {
@@ -522,6 +531,43 @@ func TestServiceSeal(t *testing.T) {
 	})
 
 	t.Run("ttl", func(t *testing.T) {
-		assert.Equal(t, 3*time.Hour, newTestService(t, Config{TTL: 3 * time.Hour}).TTL())
+		// arrange
+		svc := newTestService(t, Config{TTL: 3 * time.Hour})
+
+		// act & assert
+		assert.Equal(t, 3*time.Hour, svc.TTL())
 	})
+}
+
+func TestServiceUnsealRefusesMalformed(t *testing.T) {
+	svc := newTestService(t, Config{})
+	user := b64.EncodeToString([]byte("alice"))
+	expiry := strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10)
+	payload := b64.EncodeToString([]byte(`{}`))
+	signed := func(body string) string {
+		return body + tokenSep + b64.EncodeToString(svc.sealMAC("app-ticket", body, "alice"))
+	}
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{name: "empty"},
+		{name: "too few parts", value: strings.Join([]string{user, expiry, payload}, tokenSep)},
+		{name: "too many parts", value: signed(strings.Join([]string{user, expiry, payload}, tokenSep)) + tokenSep + "x"},
+		{name: "a user that is not base64", value: signed(strings.Join([]string{"!", expiry, payload}, tokenSep))},
+		{name: "a mac that is not base64", value: strings.Join([]string{user, expiry, payload, "!"}, tokenSep)},
+		{name: "an expiry that is not a number", value: signed(strings.Join([]string{user, "soon", payload}, tokenSep))},
+		{name: "a payload that is not base64", value: signed(strings.Join([]string{user, expiry, "!"}, tokenSep))},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			gotUser, gotPayload, ok := svc.Unseal("app-ticket", tc.value)
+
+			// assert
+			assert.False(t, ok)
+			assert.Empty(t, gotUser)
+			assert.Nil(t, gotPayload)
+		})
+	}
 }

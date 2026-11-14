@@ -286,10 +286,15 @@ switch, inside the tap.
   the `__Host-` name when it is there, else the plain one, on any scheme: the
   server picks the name per request, and a page on https behind a proxy without
   `--trusted-proxy` gets the plain one. So a planted plain cookie never shadows
-  a real sign-in. The page deletes both names. The plain one is still set
-  beside it for a worker and a bundle from before, which know only that name:
-  without it a second person signing in while the old worker still answers
-  could get the copy of the one before.
+  a real sign-in. The page deletes both names. Once it saw the `__Host-` name,
+  the page keeps `scrawl-secure-sign-in` in `localStorage` and reads only that
+  name from then on: a plain one planted with `Domain=` outlives the delete,
+  which cannot name that domain, and would delete the copy at every start. The
+  worker still reads both: a planted one there only sends a page to the network
+  first. The server still sets the plain one beside the `__Host-` one for a
+  worker and a bundle from before, which know only that name: without it a
+  second person signing in while the old worker still answers could get the
+  copy of the one before.
 - An old bundle reads the first plain `scrawl_signin` it finds, so a planted
   one with a longer `Path` wins there. That needs an old bundle starting after
   a second person's sign-in, in a browser where an HTML app ran, in the short
@@ -327,8 +332,8 @@ needs.
   With the copy off the screen shows `Needs a network` as any other.
 - A frame, from a ticket or from the record, stays mounted when the network
   goes or comes back, so the app keeps its state and unsaved input, as
-  `NetworkGate` keeps an open editor. Open outside opens the record's `url`
-  with no network.
+  `NetworkGate` keeps an open editor. With no network Open outside opens the
+  record's `url` of a kept app, and is disabled for an app that is not kept.
 - Sign-out, a sign-in of another user and Off delete the records with the rest
   of `scrawl-data`. They cannot reach the apps hosts, another origin: the files
   and data of an app stay in the browser after sign-out, and an app's address

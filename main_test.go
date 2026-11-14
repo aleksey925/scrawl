@@ -19,6 +19,7 @@ import (
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/history"
+	"github.com/aleksey925/scrawl/htmlapp"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/server"
 	"github.com/aleksey925/scrawl/store"
@@ -333,7 +334,7 @@ func TestValidateGlobal(t *testing.T) {
 			opts.TrustedProxy = tc.trustedProxy
 
 			// act
-			err := validateGlobal(opts)
+			_, err := validateGlobal(opts)
 
 			// assert
 			if tc.errText != "" {
@@ -354,34 +355,25 @@ func TestAppsWarning(t *testing.T) {
 			"on neighbor names, or use https"
 	)
 	tests := []struct {
-		name         string
-		noAuth       bool
-		appsURL      string
-		secure       string
-		trustedProxy bool
-		want         string
+		name    string
+		noAuth  bool
+		appsURL string
+		want    string
 	}{
 		{name: "auth on, no apps url", want: local},
 		{name: "auth on, http apps url", appsURL: "http://app-{id}.home.lan", want: plain},
-		{name: "auth on, http apps url with a trusted proxy", appsURL: "http://app-{id}.home.lan",
-			trustedProxy: true, want: plain},
-		{name: "auth on, http apps url with always", appsURL: "http://app-{id}.home.lan", secure: "always",
-			want: plain},
-		{name: "auth on, https apps url", appsURL: "https://app-{id}.example.com", trustedProxy: true},
+		{name: "auth on, https apps url", appsURL: "https://app-{id}.example.com"},
 		{name: "auth off, no apps url", noAuth: true},
 		{name: "auth off, http apps url", noAuth: true, appsURL: "http://app-{id}.home.lan"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// arrange
-			opts := &options{}
-			opts.Auth.Disabled = tc.noAuth
-			opts.Auth.Secure = tc.secure
-			opts.Apps.URL = tc.appsURL
-			opts.TrustedProxy = tc.trustedProxy
+			apps, err := htmlapp.Parse(tc.appsURL)
+			require.NoError(t, err)
 
 			// act
-			got := appsWarning(opts)
+			got := appsWarning(tc.noAuth, apps)
 
 			// assert
 			assert.Equal(t, tc.want, got)

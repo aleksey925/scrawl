@@ -54,16 +54,23 @@ space name means editing that attribute too.
 shell's release, so reading offline does not work against
 `npm run dev`. Try it against the binary.
 
+**Run does not work against the dev server.** An app host is on the
+port of the page, `app-<id>.localhost:5173`, which the dev server does
+not proxy to the binary. Try HTML apps against the binary.
+
 ## Build
 
 ```
 cd web
-npm run build     # tsc --noEmit for the app and the worker, then vite
-                  # build for the app, the worker and the pages
+npm run build     # tsc --noEmit for the app and the workers, then vite
+                  # build for the app, the workers and the pages
 ```
 
-The app goes to `server/assets/app/`, and the service worker of the
-offline copy, built by `vite.sw.config.ts`, to `server/assets/sw/`:
+The app goes to `server/assets/app/`, the service worker of the offline
+copy, built by `vite.sw.config.ts`, to `server/assets/sw/`, and the enter
+page script and the worker of an HTML app's host, built by
+`vite.htmlapp.config.ts` (`npm run build:htmlapp`), to
+`server/assets/htmlapp/`:
 
 ```
 server/assets/app/index.html
@@ -71,6 +78,8 @@ server/assets/app/manifest.json
 server/assets/app/assets/*.js
 server/assets/app/assets/*.css
 server/assets/sw/sw.js
+server/assets/htmlapp/enter.js
+server/assets/htmlapp/sw.js
 ```
 
 The pages of `render`, `diff` and `site` get their scripts and

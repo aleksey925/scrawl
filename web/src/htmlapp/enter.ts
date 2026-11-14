@@ -23,9 +23,8 @@ function ownedByApp(registration: ServiceWorkerRegistration | undefined): boolea
   return registration !== undefined && workersOf(registration).some((worker) => scriptOf(worker) !== workerScript);
 }
 
-async function rootRegistration(): Promise<ServiceWorkerRegistration | undefined> {
-  const registration = await navigator.serviceWorker.getRegistration('/');
-  return registration?.scope === `${location.origin}/` ? registration : undefined;
+function rootRegistration(): Promise<ServiceWorkerRegistration | undefined> {
+  return navigator.serviceWorker.getRegistration('/');
 }
 
 function whenActive(registration: ServiceWorkerRegistration): Promise<ServiceWorker | null> {
@@ -78,22 +77,19 @@ async function prepare(): Promise<boolean> {
   if (!('serviceWorker' in navigator)) {
     return false;
   }
-  if (offlineFlag === 'true') {
-    await within(keep());
-  } else {
+  if (offlineFlag !== 'true') {
     await stop();
     await caches.delete(htmlappCache);
+    return false;
   }
-  return ((await rootRegistration())?.active ?? null) !== null;
+  await within(keep());
+  const registration = await rootRegistration();
+  return registration !== undefined && workersOf(registration).length > 0;
 }
 
 function tellParent(offline: boolean): void {
-  if (window.parent === window || parent === '') {
-    return;
-  }
-  try {
+  if (window.parent !== window) {
     window.parent.postMessage({ type: 'scrawl-htmlapp', offline }, parent);
-  } catch {
   }
 }
 

@@ -1,7 +1,7 @@
 const {expect, test} = require('../support/test');
 
 const {encodePath} = require('../support/env');
-const {SHARED, openSpaceMenu, removeFixture, shot, signIn, writeFixture} = require('../support/helpers');
+const {SHARED, openSpaceMenu, removeFixture, shot, signIn, stays, writeFixture} = require('../support/helpers');
 
 const ROOT = 'e2e-apps';
 const COUNTER = `${ROOT}/counter`;
@@ -233,15 +233,25 @@ test.describe('html apps', () => {
         expect(await frame.evaluate(() => window.scrawlMark)).toBe('kept');
     });
 
-    test('a cross-site frame is not kept offline', async ({page, context}) => {
+    test('a cross-site frame is not kept offline, a tab of its own is', async ({page, context}) => {
         await copyOn(page, PLAIN);
         const frame = await run(page, PLAIN, COUNTER_FILE, 'Counter');
         await expect(appFrame(page).locator('#note')).toHaveText('404');
         expect(await rootWorker(frame)).toBeNull();
 
+        const [tab] = await Promise.all([
+            context.waitForEvent('page'),
+            page.getByTestId('run-open-outside').click(),
+        ]);
+        await expect(tab.locator('#title')).toHaveText('Counter');
+        await expect.poll(async () => (await rootWorker(tab.mainFrame()))?.active).toBe('/__scrawl/sw.js');
+        await expect.poll(() => kept(tab.mainFrame(), '/page2.html'), {timeout: 20_000}).toBe(true);
+        await tab.close();
+
         await context.setOffline(true);
         await page.reload();
         await expect(page.getByTestId('run-needs-network')).toContainText(NOT_KEPT);
+        await expect(page.getByTestId('run-open-outside')).toBeDisabled();
         await context.setOffline(false);
     });
 
@@ -258,11 +268,17 @@ test.describe('html apps', () => {
         await appFrame(page).locator('#page2').click();
         await expect(appFrame(page).locator('#title')).toHaveText('Page two');
         await shot(page, 'apps-offline');
+        const [tab] = await Promise.all([
+            context.waitForEvent('page'),
+            page.getByTestId('run-open-outside').click(),
+        ]);
+        await expect(tab.locator('#title')).toHaveText('Counter');
+        await tab.close();
 
         await page.getByTestId('run-back').click();
         await expect(page).toHaveURL(SAME_SITE.doc(COUNTER_FILE));
         await page.getByTestId('file-run').click();
-        await expect(appFrame(page).locator('#count')).toHaveText(String(before + 2));
+        await expect(appFrame(page).locator('#count')).toHaveText(String(before + 3));
 
         await page.goto(SAME_SITE.run(OTHER_FILE));
         await expect(page.getByTestId('run-needs-network')).toContainText(NO_RECORD);
@@ -307,6 +323,10 @@ test.describe('html apps', () => {
         expect((await frameFetch(frame, '/page2.html?x=1')).text).toContain('Page two');
         expect((await frameFetch(frame, '/a%20.html')).text).toContain('space');
         expect((await frameFetch(frame, '/a%2520.html')).text).toContain('percent');
+        expect(await frame.evaluate(async () => {
+            const res = await fetch('/page2.html', {headers: {Range: 'bytes=0-8'}});
+            return {status: res.status, text: await res.text()};
+        })).toEqual({status: 206, text: '<!doctype'});
         await context.setOffline(false);
     });
 
@@ -330,13 +350,14 @@ test.describe('html apps', () => {
     test('a late 401 of scrawl purges the files', async ({page, context}) => {
         await copyOn(page, SAME_SITE);
         let frame = await keptFolder(page, SAME_SITE);
+        const before = Number(await appFrame(page).locator('#count').textContent());
         await context.route(/\/style\.css$/, async (route) => {
-            await new Promise((resolve) => setTimeout(resolve, 4000));
+            await new Promise((resolve) => setTimeout(resolve, 6000));
             await route.fulfill(scrawl401());
         });
         await frame.evaluate(() => location.reload());
         await page.waitForTimeout(3500);
-        await expect(appFrame(page).locator('#title')).toHaveText('Counter');
+        await expect(appFrame(page).locator('#count')).toHaveText(String(before + 1), {timeout: 1500});
         frame = await liveFrame(page);
         await expect.poll(() => hasAppCache(frame), {timeout: 10_000}).toBe(false);
         await context.unroute(/\/style\.css$/);
@@ -347,16 +368,20 @@ test.describe('html apps', () => {
         await keptFolder(page, SAME_SITE);
         writeFixture(`${COUNTER}/page2.html`, '<!doctype html><h1 id="title">Page two changed</h1>\n', SHARED);
         writeFixture(`${COUNTER}/style.css`, 'body { color: inherit; }\n', SHARED);
+        const held = {started: 0, answered: 0};
         await context.route(/\/page2\.html$/, async (route) => {
+            held.started += 1;
             await new Promise((resolve) => setTimeout(resolve, 2000));
-            await route.continue();
+            await route.continue().catch(() => undefined);
+            held.answered += 1;
         });
         await context.route(/\/style\.css$/, (route) => route.fulfill(scrawl401()));
         await openFile(page, SAME_SITE, COUNTER_FILE);
         await page.getByTestId('file-run').click();
         const frame = await liveFrame(page);
-        await page.waitForTimeout(4000);
-        expect(await hasAppCache(frame)).toBe(false);
+        await expect.poll(() => held.started).toBeGreaterThan(0);
+        await expect.poll(() => held.answered).toBe(held.started);
+        await stays(() => hasAppCache(frame), false, 1000);
         await context.unroute(/\/page2\.html$/);
         await context.unroute(/\/style\.css$/);
     });
@@ -366,22 +391,26 @@ test.describe('html apps', () => {
         await keptFolder(page, SAME_SITE);
         const second = await context.newPage();
         const secondFrame = await run(second, SAME_SITE, COUNTER_FILE, 'Counter');
+        await expect.poll(() => secondFrame.evaluate(() => navigator.serviceWorker.controller?.scriptURL ?? null))
+            .toMatch(/\/__scrawl\/sw\.js$/);
 
         await openFile(page, SAME_SITE, COUNTER_FILE);
         await setCopy(page, false);
         await run(page, SAME_SITE, COUNTER_FILE, 'Counter');
-        await frameFetch(secondFrame, '/page2.html');
-        await page.waitForTimeout(500);
-        expect(await hasAppCache(secondFrame)).toBe(false);
+        expect((await frameFetch(secondFrame, '/page2.html')).status).toBe(200);
+        await stays(() => hasAppCache(secondFrame), false, 1000);
         await second.close();
     });
 
     test('off wins over refreshes in the queue', async ({page, context}) => {
         await copyOn(page, SAME_SITE);
         await keptFolder(page, SAME_SITE);
+        const held = {started: 0, answered: 0};
         await context.route(/\/__scrawl\/files$/, async (route) => {
+            held.started += 1;
             await new Promise((resolve) => setTimeout(resolve, 2000));
-            await route.continue();
+            await route.continue().catch(() => undefined);
+            held.answered += 1;
         });
         const second = await context.newPage();
         await openFile(page, SAME_SITE, COUNTER_FILE);
@@ -389,13 +418,14 @@ test.describe('html apps', () => {
         await openFile(second, SAME_SITE, COUNTER_FILE);
         await second.getByTestId('file-run').click();
         await expect(appFrame(second).locator('#title')).toHaveText('Counter', {timeout: 20_000});
+        await expect.poll(() => held.started).toBeGreaterThan(0);
 
         const third = await context.newPage();
         await openFile(third, SAME_SITE, COUNTER_FILE);
         await setCopy(third, false);
         const frame = await run(third, SAME_SITE, COUNTER_FILE, 'Counter');
-        await third.waitForTimeout(5000);
-        expect(await hasAppCache(frame)).toBe(false);
+        await expect.poll(() => held.answered, {timeout: 10_000}).toBe(held.started);
+        await stays(() => hasAppCache(frame), false, 1000);
         await context.unroute(/\/__scrawl\/files$/);
         await second.close();
         await third.close();
@@ -445,5 +475,48 @@ test.describe('html apps', () => {
         await expect(appFrame(page).locator('#title')).toHaveText('Own worker');
         frame = await liveFrame(page);
         await expect.poll(async () => (await rootWorker(frame))?.active).toBe('/sw.js');
+    });
+
+    test('a proxy error gets the stored file', async ({page, context}) => {
+        // arrange
+        await copyOn(page, SAME_SITE);
+        const frame = await keptFolder(page, SAME_SITE);
+        await context.route(/app-.*\/page2\.html$/, (route) => route.fulfill({status: 502, body: 'bad gateway'}));
+
+        // act
+        const res = await frameFetch(frame, '/page2.html');
+
+        // assert
+        expect(res).toMatchObject({status: 200});
+        expect(res.text).toContain('Page two');
+        await context.unroute(/app-.*\/page2\.html$/);
+    });
+
+    test('a refresh with a parent of another shape is ignored', async ({page}) => {
+        // arrange
+        await copyOn(page, SAME_SITE);
+        const frame = await keptFolder(page, SAME_SITE);
+        const parentOf = async () => JSON.parse(await keptText(frame, '/__scrawl/kept')).parent;
+        expect(await parentOf()).toBe(SAME_SITE.base);
+
+        // act
+        await frame.evaluate(() => {
+            navigator.serviceWorker.controller.postMessage({type: 'refresh', parent: 'javascript:alert(1)'});
+        });
+
+        // assert
+        await stays(parentOf, SAME_SITE.base, 1000);
+    });
+
+    test('a run that fails shows why', async ({page}) => {
+        // arrange
+        await signIn(page, {baseURL: PLAIN.base, from: SHARED.routes.doc(COUNTER_FILE)});
+
+        // act
+        await page.goto(PLAIN.run(`${ROOT}/missing.html`));
+
+        // assert
+        await expect(page.getByTestId('run-error')).toContainText('not found');
+        await expect(page.getByTestId('run-frame')).toHaveCount(0);
     });
 });

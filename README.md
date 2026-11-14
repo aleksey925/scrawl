@@ -287,8 +287,9 @@ history are hidden, since they need the server.
 
 - An app installed to the home screen has it on by default. In a browser, turn
   it on with "Offline access" in the space menu, or under Profile on a phone.
-- It needs HTTPS, `localhost` or `127.0.0.1`: browsers allow it nowhere else,
-  and on plain http the switch is greyed out with `Needs HTTPS`.
+- It needs HTTPS, `localhost`, a name under it such as `scrawl.localhost`, or
+  `127.0.0.1`: browsers allow it nowhere else, and on plain http the switch is
+  greyed out with `Needs HTTPS`.
 - The first copy downloads every space whole, plus the app. After that only
   changed files are downloaded.
 
@@ -338,10 +339,11 @@ the address of this machine, and set `APPS_URL` to it, such as
 no wildcard.
 
 **A warning for http with a password.** Do not open scrawl and the apps on
-neighbor names, such as `notes.home.lan` and `app-{id}.home.lan`, or
-`localhost` and `app-{id}.localhost`: an app there can sign you out, or into
-another account. scrawl logs a warning about this at start. Use the printed
-`127.0.0.1` link, an IP next to a name, or https. With `TRUSTED_PROXY=true` and
+neighbor names, such as `notes.home.lan` and `app-{id}.home.lan`, `localhost`
+and `app-{id}.localhost`, or `scrawl.localhost` and
+`app-{id}.scrawl.localhost`: an app there can sign you out, or into another
+account. scrawl logs a warning about this at start. Use the printed `127.0.0.1`
+link, an IP next to a name, or https. With `TRUSTED_PROXY=true` and
 `APPS_URL=https://app-{id}.example.com`, do not also open scrawl at
 `http://notes.example.com`: the sign-in there is not protected, and scrawl does
 not warn about it.
@@ -362,9 +364,10 @@ keeps the data it saved in the browser.
 - The whole folder of the app is kept, not files from other sites such as a
   CDN.
 - It works where the frame is on the same site as scrawl: a domain with
-  `APPS_URL`, or locally `http://scrawl.localhost:7272`. At `127.0.0.1` and
-  `localhost` the app runs but is not kept, and with no network the run screen
-  says `This browser does not keep this app for offline use.`: there the
+  `APPS_URL`, or locally `http://scrawl.localhost:7272`, which with a password
+  is a neighbor name, see the warning above. At `127.0.0.1` and `localhost` the
+  app runs in the frame but is not kept there, and with no network the run
+  screen says `This browser does not keep this app for offline use.`: there the
   browser treats the frame as another site and gives scrawl's worker no cookie.
 - An app with a service worker of its own keeps its files its own way.
 
@@ -453,6 +456,11 @@ If scrawl runs behind a reverse proxy (nginx, Caddy or any other), set:
   `Secure` flag on the sign-in cookie, and a browser will never send a cookie
   with this flag over plain http. This matters if the proxy still answers on
   plain http.
+
+Over HTTPS the session cookie is named `__Host-scrawl_session`, which a site on
+a neighbor name cannot set. Versions without HTML apps named it
+`scrawl_session`, so after the update from one of them everyone signs in once
+more.
 
 The proxy must also pass on the `Host` header the browser sent, with nginx
 `proxy_set_header Host $host`. scrawl tells the hosts of HTML apps from its own

@@ -166,7 +166,7 @@ func parseOpts(args []string) (*options, error) {
 }
 
 func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
-	roots, err := validateStartup(ctx, opts, cfgs)
+	roots, apps, err := validateStartup(ctx, opts, cfgs)
 	if err != nil {
 		return err
 	}
@@ -204,11 +204,6 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 	})
 	if err != nil {
 		return fmt.Errorf("setup auth: %w", err)
-	}
-
-	apps, err := appsHosts(opts)
-	if err != nil {
-		return err
 	}
 
 	formatter := format.New(formatWorkers)
@@ -522,59 +517,52 @@ func ignoredSpaceSettings(opts *options) []string {
 	return res
 }
 
-func validateStartup(ctx context.Context, opts *options, cfgs []spaceConfig) ([]string, error) {
+func validateStartup(ctx context.Context, opts *options, cfgs []spaceConfig) ([]string, htmlapp.Hosts, error) {
 	if ignored := ignoredSpaceSettings(opts); len(ignored) > 0 {
 		log.Printf("[WARN] SPACES_FILE is set, so these are ignored: %s", strings.Join(ignored, ", "))
 	}
-	if err := validateGlobal(opts); err != nil {
-		return nil, err
+	apps, appsErr := validateGlobal(opts)
+	if appsErr != nil {
+		return nil, htmlapp.Hosts{}, appsErr
 	}
 	if err := validateSpaces(ctx, cfgs); err != nil {
-		return nil, err
+		return nil, htmlapp.Hosts{}, err
 	}
 	if err := ensureDirs(ctx, opts, cfgs); err != nil {
-		return nil, err
+		return nil, htmlapp.Hosts{}, err
 	}
 	roots, rootsErr := resolveRoots(cfgs)
 	if rootsErr != nil {
-		return nil, rootsErr
+		return nil, htmlapp.Hosts{}, rootsErr
 	}
 	if err := checkSecretFiles(roots, opts, cfgs); err != nil {
-		return nil, err
+		return nil, htmlapp.Hosts{}, err
 	}
 	if opts.Auth.Disabled {
 		log.Printf("[WARN] authentication is disabled, every visitor gets full access")
 	}
-	if warning := appsWarning(opts); warning != "" {
+	if warning := appsWarning(opts.Auth.Disabled, apps); warning != "" {
 		log.Printf("[WARN] %s", warning)
 	}
-	return roots, nil
+	return roots, apps, nil
 }
 
-func validateGlobal(opts *options) error {
+func validateGlobal(opts *options) (htmlapp.Hosts, error) {
 	if !opts.Auth.Disabled && len(opts.Auth.Users) == 0 && len(opts.Auth.Tokens) == 0 {
-		return errors.New("no users and no tokens configured, " +
+		return htmlapp.Hosts{}, errors.New("no users and no tokens configured, " +
 			"set --auth.users or --auth.tokens, or run with --auth.disabled")
 	}
-	hosts, err := appsHosts(opts)
+	apps, err := htmlapp.Parse(opts.Apps.URL)
 	if err != nil {
-		return err
+		return htmlapp.Hosts{}, fmt.Errorf("--apps.url (APPS_URL) %w", err)
 	}
-	if !opts.Auth.Disabled && hosts.Secure() && !secureCookiePossible(opts) {
-		return errors.New("--apps.url (APPS_URL) is https, but the session cookie is never Secure, " +
+	if !opts.Auth.Disabled && apps.Secure() && !secureCookiePossible(opts) {
+		return htmlapp.Hosts{}, errors.New("--apps.url (APPS_URL) is https, but the session cookie is never Secure, " +
 			"so an HTML app could change the sign-in: add --trusted-proxy (TRUSTED_PROXY=true) " +
 			"behind Cloudflare Tunnel or another proxy that sets X-Forwarded-Proto, " +
 			"or --auth.secure=always (AUTH_SECURE=always)")
 	}
-	return nil
-}
-
-func appsHosts(opts *options) (htmlapp.Hosts, error) {
-	hosts, err := htmlapp.Parse(opts.Apps.URL)
-	if err != nil {
-		return htmlapp.Hosts{}, fmt.Errorf("--apps.url (APPS_URL) %w", err)
-	}
-	return hosts, nil
+	return apps, nil
 }
 
 func secureCookiePossible(opts *options) bool {
@@ -587,12 +575,11 @@ func secureCookiePossible(opts *options) bool {
 	return opts.TrustedProxy
 }
 
-func appsWarning(opts *options) string {
-	hosts, err := appsHosts(opts)
-	if opts.Auth.Disabled || err != nil || hosts.Secure() {
+func appsWarning(authDisabled bool, apps htmlapp.Hosts) string {
+	if authDisabled || apps.Secure() {
 		return ""
 	}
-	if hosts.Local() {
+	if apps.Local() {
 		return "HTML apps run over http: at localhost an HTML app can sign you out or into another account, " +
 			"open scrawl at the 127.0.0.1 link printed at start"
 	}

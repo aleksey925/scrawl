@@ -2,9 +2,7 @@ package server
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -90,17 +88,14 @@ func (wb *Web) withApps(scrawl http.Handler) http.Handler {
 	}
 	wb.appNonces = newUsedNonces()
 	stack := []func(http.Handler) http.Handler{
-		rest.Trace, rest.Recoverer(lgr.Default()), appsHeaders, rest.Gzip(gzipContentTypes...),
+		rest.Trace, rest.Recoverer(lgr.Default()), appsHeaders, appName, rest.Gzip(gzipContentTypes...),
 	}
 	if wb.TrustedProxy {
 		stack = append(stack, rest.RealIP)
 	}
 	stack = append(stack, rest.Throttle(throttleLimit),
 		logger.New(logger.Log(lgr.Default()), logger.Prefix("[DEBUG]")).Handler)
-	var apps http.Handler = http.HandlerFunc(wb.appsHandler)
-	for i := len(stack) - 1; i >= 0; i-- {
-		apps = stack[i](apps)
-	}
+	apps := rest.Wrap(http.HandlerFunc(wb.appsHandler), stack...)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := wb.Apps.Match(r.Host); ok {
 			apps.ServeHTTP(w, r)
@@ -116,7 +111,6 @@ func appsHeaders(next http.Handler) http.Handler {
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("Cross-Origin-Resource-Policy", "same-origin")
-		h.Set("App-Name", "scrawl")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -185,7 +179,7 @@ func (wb *Web) appsEnter(w http.ResponseWriter, r *http.Request) {
 		Secure:   strings.HasPrefix(ticket.App, "https://"),
 		MaxAge:   int(ttl / time.Second),
 	}
-	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+	if r.Header.Get("Sec-Fetch-Site") == "cross-site" && r.Header.Get("Sec-Fetch-Dest") == "iframe" {
 		cookie.SameSite, cookie.Secure, cookie.Partitioned = http.SameSiteNoneMode, true, true
 		ticket.Offline = false
 	}
@@ -289,24 +283,8 @@ func (wb *Web) appsFileList(w http.ResponseWriter, r *http.Request, id string) {
 	if folder := findFolder(root, cookie.Folder); folder != nil {
 		files = appWebFiles(folder, cookie.Folder, files)
 	}
-	body, err := json.Marshal(map[string][]appsFileEntry{"files": files})
-	if err != nil {
-		http.Error(w, "the list of files could not be built", http.StatusInternalServerError)
-		return
-	}
-	sum := sha256.Sum256(body)
-	etag := strconv.Quote(hex.EncodeToString(sum[:8]))
-	h := w.Header()
-	h.Set("ETag", etag)
-	h.Set("Cache-Control", "no-cache")
-	if matchesETag(r.Header.Get("If-None-Match"), etag) {
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
-	h.Set("Content-Type", "application/json; charset=utf-8")
-	if _, err := w.Write(body); err != nil {
-		log.Printf("[DEBUG] write the list of an app: %v", err)
-	}
+	w.Header().Set("Cache-Control", "no-cache")
+	writeJSON(w, http.StatusOK, map[string][]appsFileEntry{"files": files})
 }
 
 func findFolder(root *store.Node, folder string) *store.Node {

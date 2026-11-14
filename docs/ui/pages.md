@@ -235,7 +235,7 @@ opens over them.
   page of the app.
 - Open in a new tab asks a new ticket in the tap and opens the app in a tab of
   its own; a blocked popup shows an error toast. With no network it opens the
-  app's address the run screen knows, and is disabled when it knows none.
+  address of a kept app, and is disabled when the app is not kept.
 - An error of the ticket shows its text under the bar with a link back to the
   file, the reason and the fix at an address with no `APPS_URL` included. A
   failure after the ticket shows inside the frame: the browser's error page, or

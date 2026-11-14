@@ -99,7 +99,9 @@ the link names.
   [remote sync](docs/design/remote-sync.md#conflicts-and-reset)
 - Everything a space owns lives under `/s/<name>/`, and the root holds only
   what reads no store. A router-relative URL and a physical one are never
-  mixed. [server](docs/design/server.md#routes-and-urls)
+  mixed. An apps host is the one exception: it serves one folder of a space at
+  its root. [server](docs/design/server.md#routes-and-urls),
+  [HTML apps](docs/design/html-apps.md)
 - Every background goroutine runs under the worker context, which is canceled,
   not deferred, when `srv.Run` returns, apart from a PlantUML drawing, which
   `Renderer.Close` stops. [server](docs/design/server.md#lifecycle)
@@ -216,9 +218,9 @@ modules, the node modules of `web/`, `format/js/`, `plantuml/js/` and `e2e/`,
 and the browsers the suite drives.
 
 ```
-make ui         build the frontend into server/assets/app/, server/assets/sw/
-                and page/assets/, draw the favicon and the PNG icons, then
-                commit all of it
+make ui         build the frontend into server/assets/app/, server/assets/sw/,
+                server/assets/htmlapp/ and page/assets/, draw the favicon and
+                the PNG icons, then commit all of it
 make formatter  build prettier into format/prettier.wasm, then commit it
 make plantuml   build PlantUML into plantuml/engine.wasm and fetch its library
                 into plantuml/library/, then commit both

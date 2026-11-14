@@ -31,6 +31,7 @@ import type {
   ResetResponse,
   RestoreRequest,
   RestoreResponse,
+  RunTicket,
   SaveFileRequest,
   SaveFileResponse,
   SearchResponse,
@@ -83,7 +84,7 @@ interface CallOptions extends RequestOptions {
 
 export const backgroundHeader = 'X-Scrawl-Background';
 
-const readingPost = /\/api\/(preview|compare|sync\/check|login|logout)$/;
+const readingPost = /\/api\/(preview|compare|sync\/check|login|logout|run\/.+)$/;
 
 function spaceUrl(path: string): string {
   return mountBase() + path;
@@ -252,6 +253,7 @@ export interface ScrawlApi {
   syncCheck(options?: RequestOptions): Promise<Divergence>;
   syncReset(body: ResetRequest, options?: RequestOptions): Promise<ResetResponse>;
   exportNote(path: string, format: ExportFormat, options?: RequestOptions): Promise<Blob>;
+  runTicket(path: string, offline: boolean, options?: RequestOptions): Promise<RunTicket>;
   logout(options?: RequestOptions): Promise<void>;
 }
 
@@ -343,6 +345,9 @@ export const api: ScrawlApi = {
     const url = withQuery(spaceUrl(`/api/export/${encodeContentPath(path)}`), { format });
     return (await send('GET', url, options)).blob();
   },
+
+  runTicket: (path, offline, options) =>
+    call<RunTicket>('POST', spaceUrl(`/api/run/${encodeContentPath(path)}`), { ...options, body: { offline } }),
 
   logout: (options) => call<void>('POST', globalUrl('/api/logout'), options),
 };

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 
 import { RenameField } from '../components/RenameField';
 import { planMotion } from '../components/screenMotion';
+import { cameFrom } from '../historyTrail';
 import { IconChevronLeft } from '../icons';
 import { isEditPath } from '../paths';
 import { layout } from '../theme';
@@ -54,19 +55,23 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const editing = isEditPath(location.pathname);
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
-  const inHistory = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
   const { renaming, commit } = usePageRenaming();
+  const goUp = (): boolean => {
+    planMotion(parent.url, 'back');
+    if (!cameFrom(parent.url)) {
+      return false;
+    }
+    void navigate(-1);
+    return true;
+  };
   useSwipeBack(
-    editing || (atRoot && !inHistory)
+    editing || atRoot
       ? null
       : () => {
           commit();
-          if (inHistory) {
-            void navigate(-1);
-            return;
+          if (!goUp()) {
+            void navigate(parent.url);
           }
-          planMotion(parent.url, 'back');
-          void navigate(parent.url);
         },
   );
 
@@ -96,7 +101,11 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
           <Link
             data-testid="topbar-up"
             to={parent.url}
-            onClick={() => planMotion(parent.url, 'back')}
+            onClick={(event) => {
+              if (goUp()) {
+                event.preventDefault();
+              }
+            }}
             className={classes.up}
             aria-label={`Back to ${parent.name}`}
           >

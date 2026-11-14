@@ -16,6 +16,8 @@ import { ApiError, type ApiConflict } from '../api/errors';
 import { errorText } from '../api/useApi';
 import { countOf } from '../components/formats';
 import { Segmented, type SegmentedOption } from '../components/Segmented';
+import { planMotion, useOffScreen } from '../components/screenMotion';
+import { cameFrom } from '../historyTrail';
 import {
   IconBraces,
   IconColumns,
@@ -224,6 +226,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       mountedRef.current = false;
     };
   }, []);
+  useOffScreen();
 
   const insertToc = useCallback((): void => {
     tocAbortRef.current?.abort();
@@ -601,8 +604,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   }, [format, formattable]);
 
   const openReader = useCallback((): void => {
-    const anchor = rememberReadingPosition();
-    void navigate(documentUrl(path), { state: anchor });
+    rememberReadingPosition();
+    const reader = documentUrl(path);
+    planMotion(reader, 'back');
+    void (cameFrom(reader) ? navigate(-1) : navigate(reader, { replace: true }));
   }, [navigate, path, rememberReadingPosition]);
 
   const exists = rev !== '';

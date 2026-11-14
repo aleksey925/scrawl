@@ -61,6 +61,27 @@ export function editUrl(path: string): string {
   return `/edit/${encodeContentPath(path)}`;
 }
 
+export function isHtmlApp(path: string): boolean {
+  return /\.html?$/i.test(path);
+}
+
+export function runUrl(path: string): string {
+  return `/run/${encodeContentPath(path)}`;
+}
+
+export interface RunState {
+  back: string;
+}
+
+export function runState(from: { pathname: string; search: string }): RunState {
+  return { back: `${from.pathname}${from.search}` };
+}
+
+export function runBack(state: unknown, path: string): string {
+  const back = (state as Partial<RunState> | null)?.back;
+  return typeof back === 'string' && back.startsWith('/') && !back.startsWith('//') ? back : documentUrl(path);
+}
+
 export function isEditPath(pathname: string): boolean {
   return pathname.startsWith('/edit/');
 }

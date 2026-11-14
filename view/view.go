@@ -81,6 +81,7 @@ type File struct {
 	RawURL      string    `json:"raw_url"`
 	Rev         string    `json:"rev,omitempty"`
 	EditURL     string    `json:"edit_url,omitempty"`
+	RunURL      string    `json:"run_url,omitempty"`
 	Language    string    `json:"language,omitempty"`
 	Lines       int       `json:"lines,omitempty"`
 	HTML        string    `json:"html,omitempty"`
@@ -306,6 +307,8 @@ func DirURL(p string) string {
 }
 
 func EditURL(p string) string { return "/edit/" + EncodePath(p) }
+
+func RunURL(p string) string { return "/run/" + EncodePath(p) }
 
 func EncodePath(p string) string {
 	segments := strings.Split(p, "/")

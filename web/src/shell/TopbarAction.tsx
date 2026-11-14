@@ -10,10 +10,11 @@ export interface TopbarActionProps {
   label: string;
   to: string;
   icon?: Icon;
+  state?: unknown;
 }
 
-export function TopbarAction({ testId, label, icon: Icon, to }: TopbarActionProps): JSX.Element {
-  const renderRoot = (props: Record<string, unknown>): ReactNode => <Link to={to} {...props} />;
+export function TopbarAction({ testId, label, icon: Icon, to, state }: TopbarActionProps): JSX.Element {
+  const renderRoot = (props: Record<string, unknown>): ReactNode => <Link to={to} state={state} {...props} />;
 
   if (Icon !== undefined) {
     return (

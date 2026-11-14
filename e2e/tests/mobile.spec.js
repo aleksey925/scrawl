@@ -115,6 +115,43 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-tab-bar');
     });
 
+    test('an html app runs under one bar with no tab bar', async ({page}) => {
+        // arrange
+        writeFixture('e2e-mobile/app/index.html', '<!doctype html><h1 id="title">Phone app</h1>\n');
+        await page.goto(routes.doc('e2e-mobile/app/index.html'));
+
+        // act
+        await page.getByTestId('file-run').tap();
+
+        // assert
+        await expect(page.frameLocator('[data-testid=run-frame]').locator('#title')).toHaveText('Phone app');
+        await expect(page.getByTestId('tab-bar')).toHaveCount(0);
+        const bar = await boxOf(page, 'run-bar');
+        const frame = await boxOf(page, 'run-frame');
+        expect(bar.top).toBe(0);
+        expect(frame.top).toBe(bar.bottom);
+        expect(frame.bottom).toBe(page.viewportSize().height);
+        expect(await tooSmall(page, '[data-testid=run-bar] a, [data-testid=run-bar] button')).toEqual([]);
+        await expect(page.getByTestId('run-bar')).toHaveCSS('position', 'fixed');
+        await shot(page, 'mobile-html-app');
+    });
+
+    test('an html file in a folder list has a Run button that starts it', async ({page}) => {
+        // arrange
+        writeFixture('e2e-mobile/app/index.html', '<!doctype html><h1 id="title">Phone app</h1>\n');
+        writeFixture('e2e-mobile/app/style.css', 'h1 { color: inherit; }\n');
+        await page.goto(routes.dir('e2e-mobile/app'));
+
+        // act & assert
+        const row = page.locator('[data-testid=dir-row][data-path="e2e-mobile/app/index.html"]');
+        await expect(row.getByTestId('dir-row-run')).toBeVisible();
+        await expect(page.locator('[data-testid=dir-row][data-path="e2e-mobile/app/style.css"]').getByTestId('dir-row-run'))
+            .toHaveCount(0);
+        await shot(page, 'mobile-html-app-run-button');
+        await row.getByTestId('dir-row-run').tap();
+        await expect(page.frameLocator('[data-testid=run-frame]').locator('#title')).toHaveText('Phone app');
+    });
+
     test('Notes opens the root list, a folder opens its list, and the back link goes up', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
@@ -228,6 +265,33 @@ test.describe('mobile', () => {
         expect(await moves()).toEqual(['translateX(28%)', 'translateX(-28%)']);
         await expect.poll(() => page.locator('[data-screen]').evaluate((el) => [el.style.transform, el.style.opacity]))
             .toEqual(['', '']);
+    });
+
+    test('the note an editor is left for slides in from the left', async ({page}) => {
+        // arrange
+        await page.addInitScript(() => {
+            window.moves = [];
+            const animate = Element.prototype.animate;
+            Element.prototype.animate = function (keyframes, options) {
+                if (Array.isArray(keyframes) && String(keyframes[0]?.transform).startsWith('translateX')) {
+                    window.moves.push(keyframes[0].transform);
+                }
+                return animate.call(this, keyframes, options);
+            };
+        });
+        const moves = () => page.evaluate(() => window.moves);
+        await page.goto(MAIN.url.dir(docs.doc.folder));
+        await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
+        await expect.poll(moves).toEqual(['translateX(28%)']);
+        await page.getByTestId('edit-button').tap();
+        await expect(page.getByTestId('editor')).toBeVisible();
+
+        // act
+        await page.getByTestId('editor-cancel').tap();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(DOC));
+        await expect.poll(moves).toEqual(['translateX(28%)', 'translateX(-28%)']);
     });
 
     test('a back the browser takes moves nothing in a tab, and slides in from the left in an app', async ({page}) => {
@@ -541,6 +605,25 @@ test.describe('mobile', () => {
             await swipe(page, 300);
             await expect(page).toHaveURL(atHome());
             await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
+        });
+
+        test('goes to the folder above and never back into the editor left', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.dir(docs.doc.folder));
+            await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await page.getByTestId('edit-button').tap();
+            await page.getByTestId('editor-cancel').tap();
+            await expect(page).toHaveURL(MAIN.url.doc(DOC));
+            await expect(page.getByTestId('doc')).toBeVisible();
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.dir(docs.doc.folder));
+            await expect(page.locator(`[data-testid=dir-row][data-path="${DOC}"]`)).toBeVisible();
         });
 
         test('in a tab of the browser is left to the browser', async ({page}) => {
@@ -1350,6 +1433,38 @@ test.describe('mobile', () => {
         // assert
         await expect(page.getByTestId('folder-menu-dropdown')).toHaveCount(0);
         await expect(page).toHaveURL(MAIN.url.dir(docs.folder.path));
+    });
+
+    test('a back from a note left in the editor goes to its folder and not into the editor', async ({page}) => {
+        // arrange
+        await page.goto(MAIN.url.dir(docs.doc.folder));
+        await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await page.getByTestId('edit-button').tap();
+        await page.getByTestId('editor-cancel').tap();
+        await expect(page.getByTestId('doc')).toBeVisible();
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.dir(docs.doc.folder));
+    });
+
+    test('the way up goes back to the folder a note was opened from and leaves the note out of the history', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+        await page.locator(`[data-testid=dir-row][data-path="${docs.doc.folder}"]`).tap();
+        await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
+        await expect(page.getByTestId('doc')).toBeVisible();
+
+        // act
+        await page.getByTestId('topbar-up').tap();
+        await expect(page).toHaveURL(MAIN.url.dir(docs.doc.folder));
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(atHome());
     });
 
     test('the Edit button opens the editor', async ({page}) => {

@@ -9,7 +9,8 @@
     "imports": [
       "_PageChrome.js",
       "_NavContext.js",
-      "_platform.js"
+      "_icons.js",
+      "_formats.js"
     ],
     "css": [
       "assets/AsyncContent.css"
@@ -27,8 +28,10 @@
       "_PageChrome.js",
       "_NavContext.js",
       "_AsyncContent.js",
-      "_platform.js",
+      "_icons.js",
+      "_formats.js",
       "_Table.es.js",
+      "_platform.js",
       "index.html",
       "_PressRow.module.js"
     ],
@@ -46,6 +49,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_PageChrome.js",
+      "_icons.js",
       "_platform.js",
       "index.html"
     ],
@@ -66,6 +70,7 @@
       "_DocumentHtml.js",
       "_NavContext.js",
       "_AsyncContent.js",
+      "_icons.js",
       "_platform.js",
       "index.html"
     ],
@@ -79,6 +84,8 @@
     "imports": [
       "_rolldown-runtime.js",
       "_PageChrome.js",
+      "_icons.js",
+      "_formats.js",
       "_platform.js"
     ]
   },
@@ -119,7 +126,7 @@
       "_rolldown-runtime.js",
       "_PageChrome.js",
       "_DocumentHtml.js",
-      "_NavContext.js"
+      "_formats.js"
     ],
     "css": [
       "assets/RenderedDiff.css"
@@ -131,7 +138,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_PageChrome.js",
-      "_platform.js"
+      "_icons.js"
     ]
   },
   "_arc.js": {
@@ -156,6 +163,10 @@
   "_baseUniq.js": {
     "file": "assets/baseUniq.js",
     "name": "_baseUniq"
+  },
+  "_changeSignal.js": {
+    "file": "assets/changeSignal.js",
+    "name": "changeSignal"
   },
   "_channel.js": {
     "file": "assets/channel.js",
@@ -419,11 +430,23 @@
     "file": "assets/defaultLocale.js",
     "name": "defaultLocale"
   },
+  "_formats.js": {
+    "file": "assets/formats.js",
+    "name": "formats"
+  },
   "_graphlib.js": {
     "file": "assets/graphlib.js",
     "name": "graphlib",
     "imports": [
       "_baseUniq.js"
+    ]
+  },
+  "_icons.js": {
+    "file": "assets/icons.js",
+    "name": "icons",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_PageChrome.js"
     ]
   },
   "_init.js": {
@@ -561,6 +584,9 @@
       "_PageChrome.js",
       "_NavContext.js",
       "_preload-helper.js",
+      "_changeSignal.js",
+      "_icons.js",
+      "_formats.js",
       "_platform.js"
     ],
     "dynamicImports": [
@@ -573,7 +599,8 @@
       "src/pages/SearchPage.tsx",
       "src/pages/RecentPage.tsx",
       "src/pages/HistoryPage.tsx",
-      "src/pages/NotFoundPage.tsx"
+      "src/pages/NotFoundPage.tsx",
+      "src/pages/RunPage.tsx"
     ],
     "css": [
       "assets/index.css"
@@ -2462,7 +2489,8 @@
       "_NavContext.js",
       "_AsyncContent.js",
       "_preload-helper.js",
-      "_platform.js",
+      "_icons.js",
+      "_formats.js",
       "_Table.es.js",
       "index.html",
       "_lezer-common.js",
@@ -2612,7 +2640,8 @@
       "_PageChrome.js",
       "_NavContext.js",
       "_AsyncContent.js",
-      "_platform.js",
+      "_icons.js",
+      "_formats.js",
       "index.html",
       "_DocumentView.js",
       "_RenderedDiff.js"
@@ -2648,12 +2677,28 @@
     "isDynamicEntry": true,
     "imports": [
       "_PageChrome.js",
-      "_platform.js",
+      "_icons.js",
       "index.html",
       "_PressRow.module.js"
     ],
     "css": [
       "assets/RecentPage.css"
+    ]
+  },
+  "src/pages/RunPage.tsx": {
+    "file": "assets/RunPage.js",
+    "name": "RunPage",
+    "src": "src/pages/RunPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime.js",
+      "_PageChrome.js",
+      "_icons.js",
+      "_formats.js",
+      "index.html"
+    ],
+    "css": [
+      "assets/RunPage.css"
     ]
   },
   "src/pages/SearchPage.tsx": {
@@ -2666,6 +2711,7 @@
       "_PageChrome.js",
       "_NavContext.js",
       "_AsyncContent.js",
+      "_formats.js",
       "index.html"
     ]
   },

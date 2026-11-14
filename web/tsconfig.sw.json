@@ -4,6 +4,6 @@
     "lib": ["ES2023", "WebWorker"],
     "types": []
   },
-  "include": ["src/sw", "src/offline/keys.ts", "src/contentPath.ts"],
+  "include": ["src/sw", "src/htmlapp/worker.ts", "src/htmlapp/protocol.ts", "src/offline/keys.ts", "src/contentPath.ts"],
   "exclude": []
 }

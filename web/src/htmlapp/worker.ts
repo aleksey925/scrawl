@@ -1,0 +1,275 @@
+import { encodeContentPath } from '../contentPath';
+import { canonicalPath, fromScrawl, networkDeadline, serverUnreachable } from '../offline/keys';
+import { rangeAnswer } from '../sw/range';
+
+import { htmlappCache, ownPrefix, type WorkerMessage } from './protocol';
+
+declare const self: ServiceWorkerGlobalScope;
+
+const keptKey = `${ownPrefix}kept`;
+
+const listUrl = `${ownPrefix}files`;
+
+const fetchesAtOnce = 4;
+
+const missingText = 'This file is not on this device. Open the app once with a network.';
+
+const parentShape = /^https?:\/\/[a-z0-9.:[\]-]+$/i;
+
+interface Kept {
+  parent: string;
+}
+
+interface ListedFile {
+  path: string;
+  etag: string;
+}
+
+interface FileList {
+  files: ListedFile[];
+}
+
+interface SettleOptions {
+  ranged?: boolean;
+  signal?: AbortSignal;
+}
+
+let changes: Promise<unknown> = Promise.resolve();
+
+let refreshes: Promise<unknown> = Promise.resolve();
+
+const pending = new Set<AbortController>();
+
+function change<T>(task: () => Promise<T>): Promise<T> {
+  const next = changes.then(task);
+  changes = next.catch(() => undefined);
+  return next;
+}
+
+async function existing(): Promise<Cache | undefined> {
+  return (await caches.has(htmlappCache)) ? caches.open(htmlappCache) : undefined;
+}
+
+function keyOf(pathname: string): string {
+  const path = canonicalPath(pathname);
+  return path.endsWith('/') ? `${path}index.html` : path;
+}
+
+function listedKey(entry: ListedFile): string {
+  return keyOf(`/${encodeContentPath(entry.path)}`);
+}
+
+async function readKept(cache: Cache): Promise<Kept | undefined> {
+  const stored = await cache.match(keptKey);
+  return stored === undefined ? undefined : ((await stored.json()) as Kept);
+}
+
+async function writeKept(cache: Cache, kept: Kept): Promise<void> {
+  await cache.put(keptKey, new Response(JSON.stringify(kept), { headers: { 'Content-Type': 'application/json' } }));
+}
+
+function storeFile(key: string, response: Response, signal?: AbortSignal): Promise<void> {
+  return change(async () => {
+    const cache = await existing();
+    if (cache === undefined || signal?.aborted === true) {
+      return;
+    }
+    const etag = response.headers.get('ETag');
+    const stored = await cache.match(key, { ignoreVary: true });
+    if (etag === null || stored?.headers.get('ETag') !== etag) {
+      await cache.put(key, response);
+    }
+  });
+}
+
+function dropFile(key: string): Promise<void> {
+  return change(async () => {
+    const cache = await existing();
+    if (cache === undefined || (await cache.match(key, { ignoreVary: true })) === undefined) {
+      return;
+    }
+    await cache.delete(key, { ignoreVary: true });
+  });
+}
+
+function purge(): Promise<boolean> {
+  for (const controller of pending) {
+    controller.abort();
+  }
+  pending.clear();
+  return change(() => caches.delete(htmlappCache));
+}
+
+async function settle(key: string, response: Response, { ranged = false, signal }: SettleOptions = {}): Promise<boolean> {
+  if (response.status === 401 && fromScrawl(response)) {
+    await purge();
+    return true;
+  }
+  if (response.status === 404 && fromScrawl(response)) {
+    await dropFile(key);
+  } else if (response.status === 200 && !ranged && !response.redirected && response.type === 'basic') {
+    await storeFile(key, response, signal);
+  }
+  return false;
+}
+
+async function eachAtOnce<T>(entries: readonly T[], signal: AbortSignal, task: (entry: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  const lane = async (): Promise<void> => {
+    while (!signal.aborted) {
+      const entry = entries[next];
+      if (entry === undefined) {
+        return;
+      }
+      next += 1;
+      await task(entry);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(fetchesAtOnce, entries.length) }, lane));
+}
+
+async function fetchList(signal: AbortSignal): Promise<FileList | undefined> {
+  const response = await fetch(listUrl, { signal, cache: 'no-store' });
+  if (response.status === 401 && fromScrawl(response)) {
+    await purge();
+    return undefined;
+  }
+  if (response.status !== 200) {
+    return undefined;
+  }
+  return (await response.json()) as FileList;
+}
+
+async function filesToFetch(cache: Cache, wanted: Map<string, ListedFile>): Promise<string[]> {
+  const res: string[] = [];
+  for (const [key, entry] of wanted) {
+    const stored = await cache.match(key, { ignoreVary: true });
+    if (stored?.headers.get('ETag') !== entry.etag) {
+      res.push(key);
+    }
+  }
+  return res;
+}
+
+async function dropGone(cache: Cache, wanted: Map<string, ListedFile>): Promise<void> {
+  for (const request of await cache.keys()) {
+    const { pathname } = new URL(request.url);
+    if (pathname !== keptKey && !wanted.has(pathname)) {
+      await dropFile(pathname);
+    }
+  }
+}
+
+async function refreshFolder(controller: AbortController): Promise<void> {
+  const { signal } = controller;
+  const cache = await existing();
+  const kept = cache === undefined ? undefined : await readKept(cache);
+  if (cache === undefined || kept === undefined || signal.aborted) {
+    return;
+  }
+  const list = await fetchList(signal);
+  if (list === undefined || signal.aborted) {
+    return;
+  }
+  const wanted = new Map(list.files.map((entry) => [listedKey(entry), entry]));
+  await dropGone(cache, wanted);
+  try {
+    await eachAtOnce(await filesToFetch(cache, wanted), signal, async (key) => {
+      const response = await fetch(key, { signal, cache: 'no-cache' }).catch(() => undefined);
+      if (response !== undefined && (await settle(key, response, { signal }))) {
+        controller.abort();
+      }
+    });
+  } catch (error) {
+    controller.abort();
+    throw error;
+  }
+}
+
+async function startRefresh(parent: string, ready: () => void): Promise<void> {
+  const controller = new AbortController();
+  pending.add(controller);
+  try {
+    await change(async () => {
+      if (controller.signal.aborted) {
+        return;
+      }
+      const cache = await caches.open(htmlappCache);
+      await writeKept(cache, { parent });
+    });
+  } finally {
+    ready();
+  }
+  const next = refreshes.then(() => refreshFolder(controller));
+  refreshes = next.catch(() => undefined);
+  await next.catch(() => undefined).finally(() => pending.delete(controller));
+}
+
+async function fromCache(request: Request, stored: Response): Promise<Response> {
+  const cache = await existing();
+  const kept = cache === undefined ? undefined : await readKept(cache);
+  const headers = new Headers(stored.headers);
+  if (kept !== undefined) {
+    headers.set('Content-Security-Policy', `frame-ancestors ${kept.parent}`);
+  }
+  const answer = new Response(stored.body, { status: stored.status, statusText: stored.statusText, headers });
+  return rangeAnswer(request, answer);
+}
+
+function missing(): Response {
+  return new Response(missingText, { status: 504, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+}
+
+async function keptFolderOrMissing(url: URL): Promise<Response> {
+  if (url.pathname.endsWith('/')) {
+    return missing();
+  }
+  const index = await caches.match(keyOf(`${url.pathname}/`), { cacheName: htmlappCache, ignoreVary: true });
+  return index === undefined ? missing() : Response.redirect(`${url.origin}${url.pathname}/${url.search}`, 301);
+}
+
+async function answer(event: FetchEvent, url: URL): Promise<Response> {
+  const { request } = event;
+  const key = keyOf(url.pathname);
+  const network = fetch(request);
+  if (request.credentials !== 'omit') {
+    const ranged = request.headers.has('range');
+    event.waitUntil(network.then((response) => settle(key, response.clone(), { ranged }), () => undefined));
+  }
+  const stored = await caches.match(key, { cacheName: htmlappCache, ignoreVary: true });
+  if (stored === undefined) {
+    return network.catch(() => keptFolderOrMissing(url));
+  }
+  const first = await Promise.race([network.catch(() => undefined), networkDeadline()]);
+  if (first === undefined || serverUnreachable(first)) {
+    return fromCache(request, stored);
+  }
+  return first;
+}
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('message', (event) => {
+  const message = event.data as WorkerMessage | null;
+  const reply = (): void => event.ports[0]?.postMessage('done');
+  if (message?.type === 'refresh' && typeof message.parent === 'string' && parentShape.test(message.parent)) {
+    event.waitUntil(startRefresh(message.parent, reply));
+  } else if (message?.type === 'off') {
+    event.waitUntil(purge().finally(reply));
+  }
+});
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith(ownPrefix)) {
+    return;
+  }
+  event.respondWith(answer(event, url));
+});

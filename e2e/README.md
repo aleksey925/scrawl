@@ -82,6 +82,11 @@ routes.login(); // /login, which is global
 absolute, for a spec that drives an instance other than the one
 playwright's `baseURL` points at.
 
+`apps.spec.js` is the one spec that builds urls itself: it opens the
+shared instance at `127.0.0.1` and again at `scrawl.localhost`, the same
+server under a name whose app frames are same-site, and writes the run
+screen url, `/s/<name>/run/<path>`, from the space prefix.
+
 `routes.contentHref()` is the href the renderer writes into note html.
 It carries the space prefix, because the browser would fetch it
 directly; the app recognises it and routes the click itself.

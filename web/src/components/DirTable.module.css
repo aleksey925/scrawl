@@ -111,6 +111,45 @@
   line-height: 18px;
 }
 
+.run,
+.listRun {
+  flex: none;
+  border: 1px solid var(--scrawl-border);
+  border-radius: 6px;
+  color: var(--scrawl-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.run {
+  margin-inline-start: auto;
+  padding: 0 8px;
+  line-height: 20px;
+}
+
+.listRun {
+  position: relative;
+  padding: 0 10px;
+  line-height: 28px;
+}
+
+.listRun::after {
+  position: absolute;
+  inset: calc((30px - var(--scrawl-tap-target)) / 2) -4px;
+  content: '';
+}
+
+@media (hover: hover) {
+  .run:hover,
+  .listRun:hover {
+    background: var(--scrawl-hover);
+    color: var(--scrawl-text);
+  }
+}
+
 .draft {
   background: var(--scrawl-selected);
 }

@@ -5,7 +5,6 @@ import { holdPosition } from '../reader/position';
 
 import {
   captureFromView,
-  isReadingAnchor,
   recallAnchor,
   rememberAnchor,
   restoreToView,
@@ -25,11 +24,7 @@ export function ReadingAnchorTracker({ path, rev, placed }: ReadingAnchorTracker
 
   useEffect(() => {
     const root = marker.current?.parentElement ?? document.body;
-
-    const fromState = isReadingAnchor(location.state) && location.state.path === path
-      ? location.state
-      : undefined;
-    const anchor = fromState ?? recallAnchor('view', path, location.hash === '');
+    const anchor = recallAnchor('view', path, location.hash === '');
     placed.current = anchor !== undefined;
     let placedAt: number | undefined;
     const release = anchor === undefined
@@ -61,7 +56,7 @@ export function ReadingAnchorTracker({ path, rev, placed }: ReadingAnchorTracker
       release?.();
       document.removeEventListener('click', onClick, true);
     };
-  }, [path, rev, placed, location.state, location.hash]);
+  }, [path, rev, placed, location.hash]);
 
   return <span ref={marker} hidden />;
 }

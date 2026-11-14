@@ -40,7 +40,7 @@ func (wb *Web) newOfflineApp() (*offlineApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256(shell)
+	sum := sha256.Sum256(slices.Concat(shell, []byte("\n"+wb.csp)))
 	res := &offlineApp{shell: shell, shellFile: hex.EncodeToString(sum[:6]) + ".html"}
 
 	shellURL := offlineShellBase + res.shellFile

@@ -206,6 +206,42 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('Save goes back to the reader the editor was opened from, and a back from there skips the editor', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-goes-back');
+        await page.goto(routes.dir('db'));
+        await editFromReader(page, docPath, 'kept\n');
+        await setSource(page, 'written\n');
+        await page.getByTestId('editor-save').click();
+        await expect(page.getByTestId('doc')).toContainText('written');
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.dir('db'));
+        removeFixture(docPath);
+    });
+
+    test('Cancel in an editor opened straight away puts the reader in its place in the history', async ({page}) => {
+        // arrange
+        const docPath = scratch('cancel-replaces');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.dir('db'));
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await page.getByTestId('editor-cancel').click();
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await expect(page.getByTestId('doc')).toContainText('kept');
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.dir('db'));
+        removeFixture(docPath);
+    });
+
     test('after Save the text cannot change while the reader loads', async ({page}) => {
         // arrange
         const docPath = scratch('save-reader-loads');

@@ -8,11 +8,19 @@ export const copyHeader = 'X-Scrawl-Offline-Copy';
 
 export const channelName = 'scrawl-offline';
 
+export const secureSignInCookie = '__Host-scrawl_signin';
+
 export const signInCookie = 'scrawl_signin';
+
+export const signInCookies = [secureSignInCookie, signInCookie] as const;
 
 export const fillAppMessage = 'fill-app-cache';
 
 export const networkDeadlineMs = 3_000;
+
+export function networkDeadline(): Promise<undefined> {
+  return new Promise((resolve) => setTimeout(() => resolve(undefined), networkDeadlineMs));
+}
 
 export function fromScrawl(response: Response): boolean {
   return response.headers.get('app-name') === 'scrawl';
@@ -32,6 +40,12 @@ export function spaceKey(name: string): string {
 
 export function spaceOfKey(pathname: string): string | undefined {
   return pathname.startsWith(spaceKeyPrefix) ? decodeURIComponent(pathname.slice(spaceKeyPrefix.length)) : undefined;
+}
+
+const runKeyPrefix = '/__scrawl-offline/run/';
+
+export function runKey(space: string, path: string): string {
+  return `${runKeyPrefix}${encodeURIComponent(space)}/${encodeContentPath(path)}`;
 }
 
 export function spaceBase(name: string): string {

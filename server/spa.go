@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/htmlapp"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
 	"github.com/aleksey925/scrawl/view"
@@ -157,31 +158,39 @@ func (m *mount) writeDoc(w http.ResponseWriter, r *http.Request, p string) {
 }
 
 func (m *mount) writeFile(w http.ResponseWriter, r *http.Request, fi store.FileInfo) {
-	contentType, _ := rawContentType(fi.Name)
-	switch {
-	case strings.HasPrefix(contentType, "image/"):
-		writeJSON(w, http.StatusOK, view.NewFile(fi, view.FileImage))
-		return
-	case !editable(fi):
-		writeJSON(w, http.StatusOK, view.NewFile(fi, view.FileOther))
-		return
-	}
-
-	data, read, err := m.spc.Store.Read(fi.Path)
+	res, err := m.fileView(fi)
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
+	if htmlapp.Runnable(res.Path) {
+		res.RunURL = view.RunURL(res.Path)
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (m *mount) fileView(fi store.FileInfo) (view.File, error) {
+	contentType, _ := rawContentType(fi.Name)
+	switch {
+	case strings.HasPrefix(contentType, "image/"):
+		return view.NewFile(fi, view.FileImage), nil
+	case !editable(fi):
+		return view.NewFile(fi, view.FileOther), nil
+	}
+
+	data, read, err := m.spc.Store.Read(fi.Path)
+	if err != nil {
+		return view.File{}, err
+	}
 	if !textContent(data) {
-		writeJSON(w, http.StatusOK, view.NewFile(read, view.FileOther))
-		return
+		return view.NewFile(read, view.FileOther), nil
 	}
 	res := view.NewFile(read, view.FileText)
 	res.Rev = store.Rev(data)
 	res.EditURL = view.EditURL(read.Path)
 	res.Lines = lineCount(data)
 	res.HTML, res.Language = m.highlight(read.Path, data)
-	writeJSON(w, http.StatusOK, res)
+	return res, nil
 }
 
 func (m *mount) highlight(p string, data []byte) (string, string) {

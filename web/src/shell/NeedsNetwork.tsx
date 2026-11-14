@@ -22,17 +22,41 @@ function noteOf(pathname: string): string | undefined {
   }
 }
 
+export const needsNetworkTitle = 'Needs a network';
+
+export const noNetworkText = 'There is no network, and this page needs the server.';
+
+interface ScreenMessageProps {
+  title?: string;
+  message: string;
+  to: string;
+  back: string;
+}
+
+export function ScreenMessage({ title, message, to, back }: ScreenMessageProps): JSX.Element {
+  return (
+    <>
+      {title !== undefined && <PageTitle>{title}</PageTitle>}
+      <Text c="dimmed" mb="md">
+        {message}
+      </Text>
+      <Anchor component={Link} to={to}>
+        {back}
+      </Anchor>
+    </>
+  );
+}
+
 function NeedsNetwork({ note }: { note: string | undefined }): JSX.Element {
-  usePageChrome(standaloneChrome('Needs a network'));
+  usePageChrome(standaloneChrome(needsNetworkTitle));
   return (
     <Page data-testid="app-needs-network">
-      <PageTitle>Needs a network</PageTitle>
-      <Text c="dimmed" mb="md">
-        There is no network, and this page needs the server.
-      </Text>
-      <Anchor component={Link} to={note === undefined ? '/' : documentUrl(note)}>
-        {note === undefined ? 'Back to all notes' : 'Back to the note'}
-      </Anchor>
+      <ScreenMessage
+        title={needsNetworkTitle}
+        message={noNetworkText}
+        to={note === undefined ? '/' : documentUrl(note)}
+        back={note === undefined ? 'Back to all notes' : 'Back to the note'}
+      />
     </Page>
   );
 }

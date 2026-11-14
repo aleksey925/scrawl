@@ -9,6 +9,10 @@ words; the fact itself is written here.
 
 - A long press sends no `contextmenu`, so a row times the press itself.
   [Sidebar](ui/sidebar.md)
+- Safari on an iPhone blurred the run screen's bar of an HTML app while the bar
+  sat in the page's flow; the topbar of the other screens, fixed to the top,
+  never showed it. The fixed bar is the fix; not yet checked on a real iPhone
+  here. [Phone](ui/phone.md)
 - A field whose text is under 16px zooms the page when it takes the focus and
   never zooms back. [Touch](ui/touch.md)
 - `:active` is drawn only when the document has a `touchstart` listener.
@@ -95,6 +99,27 @@ words; the fact itself is written here.
   open, and a `register()` of the same script from that page brings it back
   with no install, so the caches deleted with it stay empty.
   [Offline copy](design/offline.md#on-and-off)
+- HTML apps, checked in Chromium 153 only, the one Playwright drives; Firefox,
+  Safari on macOS and iOS, an iPhone home screen app and Cloudflare Tunnel are
+  not checked yet. [HTML apps](design/html-apps.md)
+  - A page at `127.0.0.1` opens `app-<id>.localhost` and
+    `app-<id>.scrawl.localhost`: Chromium sends every `*.localhost` name to the
+    loopback itself.
+  - A frame from `127.0.0.1` to `app-<id>.localhost` is cross-site. The cookie
+    `SameSite=None; Secure; Partitioned` the frame's page sets over plain http
+    is kept and sent on the frame's own requests, and the app's `localStorage`
+    keeps across a reload of the page around the frame.
+  - In that cross-site frame a service worker of the frame's origin, with
+    `Service-Worker-Allowed: /` and the scope `/`, registers and controls the
+    frame, but its own fetches carry no cookie of the origin, the partitioned
+    one: every request of the worker got a 401. In a same-site frame, from
+    `scrawl.localhost` to `app-<id>.scrawl.localhost`, its fetches carry the
+    `Lax` cookie. So scrawl keeps an app offline only in a same-site frame.
+    [HTML apps](design/html-apps.md#offline)
+  - A worker of the app that waits behind another one becomes active once the
+    last page of the app is closed, a frame included: a second run from the
+    same tab closes the frame first, so only a run in a second tab finds it
+    still waiting.
 
 ## Firefox and Chromium from disk
 
@@ -160,6 +185,9 @@ words; the fact itself is written here.
 - React Router asks a blocker once, as a navigation starts, not while the code
   of the next page loads, so a change made in that time passes the guard on
   leaving. [Editor](ui/editor.md)
+- `router.state.location` of React Router holds the path with the basename,
+  `/s/<name>/doc/...`, while `useLocation` and every link of the app hold it
+  without. [Phone](ui/phone.md)
 - A phone that puts a tab away and later drops it fires no `beforeunload`, so a
   draft is also saved on `pagehide`.
 - A paste that carries `text/plain` is never taken as a picture: Word and Excel

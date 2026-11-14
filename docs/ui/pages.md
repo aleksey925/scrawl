@@ -133,11 +133,17 @@ opens over them.
   starts, so `10.` reaches further left than `9.`, and in 1.7em it stuck out of
   the text's line. A three-digit number still reaches past that line, as on
   GitHub. A task box sits at the same place in both kinds of list.
-- A block of code has a head row inside its box, the language at the left and
-  Copy at the right, above the code and never a layer over it: a layer covered
-  the end of a long first line. With a pointer Copy shows under it and under
-  the focus; a touch screen has no hover, so there it always shows. Copy takes
-  the text of the `pre` and nothing else, so the head is never inside it.
+- A block of code has a head row inside its box, the language at the left as
+  the fence names it, or `text` with none, and Copy at the right, above the
+  code and never a layer over it: a layer covered the end of a long first line.
+  Copy is an icon that always shows, and turns to a green tick for a moment
+  after a copy. Copy takes the text of the `pre` and nothing else, so the head
+  is never inside it.
+- A long line scrolls inside the box and never wraps. The browser's own
+  scrollbar is hidden: a thin bar under the code shows where the view is while
+  the code scrolls and fades out soon after, and the code fades out at an edge
+  that has more behind it. A block that fits has neither. The bar keeps its
+  room when hidden, so the code never jumps when it shows.
 - A PlantUML diagram takes PlantUML's own dark mode in a dark theme, unless it
   sets colors of its own: a color on an element, a `skinparam` color, also one
   inside a `skinparam` block, a `<style>`, a `<back:>`, a text color in
@@ -214,6 +220,41 @@ opens over them.
   names a blob. The client read it off the blob and the row's place once, and
   the newest row stops being the current text the moment the file changes on
   disk.
+
+## An HTML app
+
+- The page of a `.html` or `.htm` file has Run among its actions, a play icon
+  after Edit and before Download, at any address: where Run cannot work the run
+  screen says why. See [HTML apps](../design/html-apps.md).
+- In the list of a folder a `.html` or `.htm` file has a Run button in its row,
+  an outlined RUN in capitals after the name, as Notion draws Open; on a phone
+  it sits before the row's menu, its tap area the 44px of a tap. The menu of
+  such a row has Run after Open. Both open the run screen. A site has neither,
+  as it has no run screen.
+- Run opens the run screen, `/run/<path>`, outside the layout: no sidebar, no
+  topbar, no tab bar and no banner, since the app wants the whole screen. One
+  bar on top holds Back, the file name with an ellipsis, and Open in a new tab.
+  The frame fills the rest with no border. Back goes to the screen Run was
+  tapped on, the file's page or the folder's list, kept in the state of the run
+  screen's entry in the history; a run screen opened by its address goes back
+  to the file's page. Back never steps back in the history: the frame's own
+  pages go into the tab's history, and a step back could land on an earlier
+  page of the app.
+- Open in a new tab asks a new ticket in the tap and opens the app in a tab of
+  its own; a blocked popup shows an error toast. With no network it opens the
+  address of a kept app, and is disabled when the app is not kept.
+- An error of the ticket shows its text under the bar with a link Back to where
+  Run was tapped, the reason and the fix at an address with no `APPS_URL`
+  included. A failure after the ticket shows inside the frame: the browser's
+  error page, or the text of a refused cookie, which says to open the app in a
+  new tab.
+- The frame stays when the network goes and comes back, so the app keeps its
+  state and what was typed in it.
+- With no network and the copy on, a kept app opens in the frame. Else the
+  screen shows `Needs a network` with one of
+  `This browser does not keep this app for offline use.`,
+  `Run this app once with a network to use it offline.`, or, with the copy off,
+  the text every page has.
 
 ## Start
 

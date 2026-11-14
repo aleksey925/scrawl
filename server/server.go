@@ -24,6 +24,7 @@ import (
 
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/gzassets"
+	"github.com/aleksey925/scrawl/htmlapp"
 	"github.com/aleksey925/scrawl/plantuml"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
@@ -81,6 +82,7 @@ type Config struct {
 	MaxUpload    int64
 	UploadDir    string
 	AuthDisabled bool
+	Apps         htmlapp.Hosts
 
 	ReadHeaderTimeout time.Duration
 	ReadTimeout       time.Duration
@@ -96,10 +98,12 @@ type Web struct {
 	Formatter       Formatter
 	DiagramRenderer DiagramRenderer
 
-	byName    map[string]*Space
-	templates *template.Template
-	appShell  *appShell
-	offline   *offlineApp
+	byName     map[string]*Space
+	templates  *template.Template
+	appShell   *appShell
+	offline    *offlineApp
+	csp        string
+	appsNonces *usedNonces
 
 	cacheOnce sync.Once
 	cache     *pageCache
@@ -199,6 +203,17 @@ func (wb *Web) pages() *pageCache {
 	return wb.cache
 }
 
+func (wb *Web) baseMiddlewares(headers func(http.Handler) http.Handler) []func(http.Handler) http.Handler {
+	res := []func(http.Handler) http.Handler{
+		rest.Trace, rest.Recoverer(lgr.Default()), headers, appName, rest.Gzip(gzipContentTypes...),
+	}
+	if wb.TrustedProxy {
+		res = append(res, rest.RealIP)
+	}
+	return append(res, rest.Throttle(throttleLimit),
+		logger.New(logger.Log(lgr.Default()), logger.Prefix("[DEBUG]")).Handler)
+}
+
 func (wb *Web) router() (http.Handler, error) {
 	if len(wb.Spaces) == 0 {
 		return nil, errors.New("no space configured")
@@ -206,6 +221,7 @@ func (wb *Web) router() (http.Handler, error) {
 	if err := wb.parseTemplates(); err != nil {
 		return nil, err
 	}
+	wb.csp = contentSecurityPolicy + "; frame-src " + wb.Apps.FrameSources()
 	var err error
 	if wb.appShell, err = newAppShell(assets); err != nil {
 		return nil, fmt.Errorf("build app shell: %w", err)
@@ -215,13 +231,9 @@ func (wb *Web) router() (http.Handler, error) {
 	}
 
 	router := routegroup.New(http.NewServeMux())
-	router.Use(rest.Trace, rest.Recoverer(lgr.Default()), securityHeaders, appName)
-	router.Use(rest.Gzip(gzipContentTypes...))
-	if wb.TrustedProxy {
-		router.Use(rest.RealIP)
+	for _, mw := range wb.baseMiddlewares(securityHeaders(wb.csp)) {
+		router.Use(mw)
 	}
-	router.Use(rest.Throttle(throttleLimit))
-	router.Use(logger.New(logger.Log(lgr.Default()), logger.Prefix("[DEBUG]")).Handler)
 	if wb.Auth != nil {
 		router.Use(wb.Auth.Middleware)
 	}
@@ -263,7 +275,7 @@ func (wb *Web) router() (http.Handler, error) {
 		wb.spaceRoutes(router.Mount(spc.Prefix()), spc)
 	}
 
-	return router, nil
+	return wb.withApps(router), nil
 }
 
 func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
@@ -275,6 +287,7 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	g.HandleFunc("GET /history/{path...}", m.appHandler)
 	g.HandleFunc("GET /search", m.appHandler)
 	g.HandleFunc("GET /recent", m.appHandler)
+	g.HandleFunc("GET /run/{path...}", m.appHandler)
 	g.HandleFunc("GET /raw/{path...}", m.rawHandler)
 	g.HandleFunc("GET /api/tree", m.apiTree)
 	g.HandleFunc("GET /api/file/{path...}", m.apiFileGet)
@@ -304,6 +317,9 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	mutating.HandleFunc("POST /api/history/restore/{path...}", m.apiHistoryRestore)
 	mutating.HandleFunc("POST /api/sync/check", m.apiSyncCheck)
 	mutating.HandleFunc("POST /api/sync/reset", m.apiSyncReset)
+	if wb.Auth != nil {
+		mutating.HandleFunc("POST /api/run/{path...}", m.apiRun)
+	}
 
 	g.HandleFunc("GET /api/{path...}", func(w http.ResponseWriter, _ *http.Request) {
 		jsonError(w, http.StatusNotFound, "not found")
@@ -396,15 +412,18 @@ func (wb *Web) appInfo(next http.Handler) http.Handler {
 	})
 }
 
-func securityHeaders(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h := w.Header()
-		h.Set("X-Content-Type-Options", "nosniff")
-		h.Set("Referrer-Policy", "same-origin")
-		h.Set("X-Frame-Options", "DENY")
-		h.Set("Content-Security-Policy", contentSecurityPolicy)
-		next.ServeHTTP(w, r)
-	})
+func securityHeaders(policy string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h := w.Header()
+			h.Set("X-Content-Type-Options", "nosniff")
+			h.Set("Referrer-Policy", "same-origin")
+			h.Set("X-Frame-Options", "DENY")
+			h.Set("Cross-Origin-Resource-Policy", "same-origin")
+			h.Set("Content-Security-Policy", policy)
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func (wb *Web) parseTemplates() error {

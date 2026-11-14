@@ -465,17 +465,81 @@
 
 .markdown-document .code-block {
   margin: 6px 0;
+  padding: 5px;
+  border: 1px solid var(--scrawl-border-light);
   border-radius: 6px;
   background-color: var(--scrawl-code-bg);
 }
 
+.markdown-document .code-block:has(> pre:focus-visible) {
+  outline: 2px solid var(--scrawl-accent);
+  outline-offset: -1px;
+}
+
 .markdown-document .code-block > :is(pre, pre.chroma) {
   margin: 0;
+  padding: 11px;
+  border-radius: 0;
   background-color: transparent;
+  line-height: 1.7;
+  scrollbar-width: none;
 }
 
 .markdown-document .md-code-head + :is(pre, pre.chroma) {
   padding-top: 0;
+  padding-bottom: 7px;
+}
+
+.markdown-document .code-block[data-scroll]:not([data-scroll='none']) > :is(pre, pre.chroma) {
+  padding-bottom: 4px;
+}
+
+.markdown-document .code-block > pre::-webkit-scrollbar {
+  display: none;
+}
+
+.markdown-document .code-block > pre:focus-visible {
+  outline: none;
+}
+
+.markdown-document .code-block[data-scroll='start'] > pre {
+  -webkit-mask-image: linear-gradient(to left, transparent, #000 40px);
+  mask-image: linear-gradient(to left, transparent, #000 40px);
+}
+
+.markdown-document .code-block[data-scroll='middle'] > pre {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+}
+
+.markdown-document .code-block[data-scroll='end'] > pre {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 40px);
+  mask-image: linear-gradient(to right, transparent, #000 40px);
+}
+
+.md-code-bar {
+  height: 3px;
+  margin: 0 12px 0 10px;
+  overflow: hidden;
+  border-radius: 2px;
+  background-color: var(--scrawl-border-light);
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.md-code-bar[data-shown='true'] {
+  opacity: 1;
+  transition-duration: 100ms;
+}
+
+.md-code-bar > div {
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--scrawl-text-faint);
+}
+
+.code-block[data-scroll='none'] > .md-code-bar {
+  display: none;
 }
 
 .markdown-document .chroma {
@@ -487,8 +551,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  height: 32px;
-  padding: 4px 6px 0 14px;
+  height: 42px;
+  margin: -5px -5px 0;
+  padding: 2px 7px 0 16px;
   color: var(--scrawl-text-secondary);
   font-size: 12px;
   line-height: 1;
@@ -499,23 +564,22 @@
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: 4px;
-  height: 24px;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   margin-inline-start: auto;
-  padding: 0 6px;
+  padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: 6px;
   background-color: transparent;
   color: var(--scrawl-text-secondary);
-  font: inherit;
-  font-size: 12px;
   cursor: pointer;
 }
 
 .md-copy::before {
   content: '';
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   background-color: currentColor;
   -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='black'><path d='M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z'/></svg>") center / contain no-repeat;
   mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='black'><path d='M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z'/></svg>") center / contain no-repeat;
@@ -540,17 +604,6 @@
 }
 
 @media (hover: hover) {
-  .md-copy {
-    opacity: 0;
-    transition: opacity 100ms ease;
-  }
-
-  .code-block:hover .md-copy,
-  .md-copy:focus-visible,
-  .md-copy[data-done='true'] {
-    opacity: 1;
-  }
-
   .md-copy:hover {
     background-color: var(--scrawl-hover);
   }
@@ -559,13 +612,12 @@
 @media (hover: none) {
   .md-code-head {
     height: var(--scrawl-tap-target);
-    padding-top: 0;
+    padding: 0 0 0 16px;
   }
 
   .md-copy {
+    width: var(--scrawl-tap-target);
     height: var(--scrawl-tap-target);
-    min-width: var(--scrawl-tap-target);
-    justify-content: center;
   }
 }
 
@@ -1208,8 +1260,15 @@
 
   .markdown-document .md-anchor,
   .markdown-document .md-code-head,
+  .markdown-document .md-code-bar,
   .markdown-document .md-diagram-open {
     display: none;
+  }
+
+  .markdown-document .code-block[data-scroll] > :is(pre, pre.chroma) {
+    padding-top: 11px;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 
   .markdown-document pre,

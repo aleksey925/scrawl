@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func issue(t *testing.T, svc *Service, user string) string {
@@ -317,24 +318,256 @@ func TestWriteSecretFile(t *testing.T) {
 }
 
 func TestServiceSetSignInCookie(t *testing.T) {
-	// arrange
-	svc := newTestService(t, Config{Secure: SecureAlways})
-	rec := httptest.NewRecorder()
 	user := "алиса smith"
+	tests := []struct {
+		name   string
+		secure string
+		names  []string
+	}{
+		{name: "secure request sets both names", secure: SecureAlways,
+			names: []string{SecureSignInCookieName, SignInCookieName}},
+		{name: "plain request sets the plain name", secure: SecureNever, names: []string{SignInCookieName}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			svc := newTestService(t, Config{Secure: tc.secure})
+			rec := httptest.NewRecorder()
+
+			// act
+			svc.SetSignInCookie(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody), user)
+
+			// assert
+			res := rec.Result()
+			defer res.Body.Close()
+			got := make([]string, 0, len(res.Cookies()))
+			for _, cookie := range res.Cookies() {
+				got = append(got, cookie.Name)
+				assert.Equal(t, url.QueryEscape(user), cookie.Value)
+				assert.Equal(t, "/", cookie.Path)
+				assert.False(t, cookie.HttpOnly)
+				assert.Equal(t, tc.secure == SecureAlways, cookie.Secure)
+				assert.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
+				assert.Zero(t, cookie.MaxAge)
+			}
+			assert.Equal(t, tc.names, got)
+		})
+	}
+}
+
+func TestServiceSessionCookieName(t *testing.T) {
+	tests := []struct {
+		name   string
+		secure string
+		want   string
+	}{
+		{name: "secure", secure: SecureAlways, want: SecureCookieName},
+		{name: "plain", secure: SecureNever, want: CookieName},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			svc := newTestService(t, Config{Secure: tc.secure})
+			issued := httptest.NewRecorder()
+			cleared := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+
+			// act
+			require.NoError(t, svc.SetCookie(issued, r, "alice"))
+			svc.ClearCookie(cleared, r)
+
+			// assert
+			issuedRes := issued.Result()
+			defer issuedRes.Body.Close()
+			clearedRes := cleared.Result()
+			defer clearedRes.Body.Close()
+			require.Len(t, issuedRes.Cookies(), 1)
+			require.Len(t, clearedRes.Cookies(), 1)
+			assert.Equal(t, tc.want, issuedRes.Cookies()[0].Name)
+			assert.Equal(t, tc.secure == SecureAlways, issuedRes.Cookies()[0].Secure)
+			assert.Equal(t, tc.want, clearedRes.Cookies()[0].Name)
+		})
+	}
+}
+
+func TestServiceSessionReadsOnlyTheNameOfItsMode(t *testing.T) {
+	// arrange
+	svc := newTestService(t, Config{TrustedProxy: true})
+	value := issue(t, svc, "alice")
+	secure := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	secure.Header.Set("X-Forwarded-Proto", "https")
+	secure.AddCookie(&http.Cookie{Name: CookieName, Value: value})
+	plain := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	plain.AddCookie(&http.Cookie{Name: SecureCookieName, Value: value})
+	secureOwn := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	secureOwn.Header.Set("X-Forwarded-Proto", "https")
+	secureOwn.AddCookie(&http.Cookie{Name: SecureCookieName, Value: value})
+	plainOwn := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	plainOwn.AddCookie(&http.Cookie{Name: CookieName, Value: value})
 
 	// act
-	svc.SetSignInCookie(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody), user)
+	_, secureOK := svc.session(secure)
+	_, plainOK := svc.session(plain)
+	_, secureOwnOK := svc.session(secureOwn)
+	_, plainOwnOK := svc.session(plainOwn)
 
 	// assert
-	res := rec.Result()
-	defer res.Body.Close()
-	require.Len(t, res.Cookies(), 1)
-	cookie := res.Cookies()[0]
-	assert.Equal(t, SignInCookieName, cookie.Name)
-	assert.Equal(t, url.QueryEscape(user), cookie.Value)
-	assert.Equal(t, "/", cookie.Path)
-	assert.False(t, cookie.HttpOnly)
-	assert.True(t, cookie.Secure)
-	assert.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
-	assert.Zero(t, cookie.MaxAge)
+	assert.False(t, secureOK)
+	assert.False(t, plainOK)
+	assert.True(t, secureOwnOK)
+	assert.True(t, plainOwnOK)
+}
+
+func TestServiceSeal(t *testing.T) {
+	expiry := time.Now().Add(time.Minute)
+	payload := []byte(`{"space":"notes"}`)
+
+	t.Run("round trip", func(t *testing.T) {
+		// arrange
+		svc := newTestService(t, Config{})
+
+		// act
+		user, got, ok := svc.Unseal("app-ticket", svc.Seal("app-ticket", "alice", payload, expiry))
+
+		// assert
+		require.True(t, ok)
+		assert.Equal(t, "alice", user)
+		assert.Equal(t, payload, got)
+	})
+
+	t.Run("a purpose cannot open another", func(t *testing.T) {
+		// arrange
+		svc := newTestService(t, Config{})
+
+		// act
+		_, _, ok := svc.Unseal("app-cookie", svc.Seal("app-ticket", "alice", payload, expiry))
+
+		// assert
+		assert.False(t, ok)
+	})
+
+	t.Run("a sealed value is never a session", func(t *testing.T) {
+		// arrange
+		svc := newTestService(t, Config{})
+
+		// act
+		_, ok := svc.parse(svc.Seal("session", "alice", payload, expiry), svc.now())
+
+		// assert
+		assert.False(t, ok)
+	})
+
+	t.Run("a session is never a sealed value", func(t *testing.T) {
+		// arrange
+		svc := newTestService(t, Config{})
+
+		// act
+		_, _, ok := svc.Unseal("app-cookie", issue(t, svc, "alice"))
+
+		// assert
+		assert.False(t, ok)
+	})
+
+	t.Run("expired", func(t *testing.T) {
+		// arrange
+		svc := newTestService(t, Config{})
+
+		// act
+		_, _, ok := svc.Unseal("app-ticket", svc.Seal("app-ticket", "alice", payload, time.Now().Add(-time.Second)))
+
+		// assert
+		assert.False(t, ok)
+	})
+
+	t.Run("a changed password ends it", func(t *testing.T) {
+		// arrange
+		before := newTestService(t, Config{Users: "alice:" + testHash})
+		after := newTestService(t, Config{Users: "alice:" + mustHash("another", bcrypt.MinCost)})
+
+		// act
+		_, _, ok := after.Unseal("app-cookie", before.Seal("app-cookie", "alice", payload, expiry))
+
+		// assert
+		assert.False(t, ok)
+	})
+
+	t.Run("a removed user ends it", func(t *testing.T) {
+		// arrange
+		before := newTestService(t, Config{Users: "alice:" + testHash + ",bob:" + testHash})
+		after := newTestService(t, Config{Users: "bob:" + testHash})
+
+		// act
+		_, _, ok := after.Unseal("app-cookie", before.Seal("app-cookie", "alice", payload, expiry))
+
+		// assert
+		assert.False(t, ok)
+	})
+
+	t.Run("a tampered payload", func(t *testing.T) {
+		// arrange
+		svc := newTestService(t, Config{})
+		parts := strings.Split(svc.Seal("app-cookie", "alice", payload, expiry), tokenSep)
+		parts[2] = b64.EncodeToString([]byte(`{"space":"other"}`))
+
+		// act
+		_, _, ok := svc.Unseal("app-cookie", strings.Join(parts, tokenSep))
+
+		// assert
+		assert.False(t, ok)
+	})
+
+	t.Run("auth disabled seals with a key of its own", func(t *testing.T) {
+		// arrange
+		svc := newTestService(t, Config{Disabled: true})
+
+		// act
+		user, got, ok := svc.Unseal("app-cookie", svc.Seal("app-cookie", "", payload, expiry))
+
+		// assert
+		require.True(t, ok)
+		assert.Empty(t, user)
+		assert.Equal(t, payload, got)
+		assert.Len(t, svc.secret, secretLen)
+	})
+
+	t.Run("ttl", func(t *testing.T) {
+		// arrange
+		svc := newTestService(t, Config{TTL: 3 * time.Hour})
+
+		// act & assert
+		assert.Equal(t, 3*time.Hour, svc.TTL())
+	})
+}
+
+func TestServiceUnsealRefusesMalformed(t *testing.T) {
+	svc := newTestService(t, Config{})
+	user := b64.EncodeToString([]byte("alice"))
+	expiry := strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10)
+	payload := b64.EncodeToString([]byte(`{}`))
+	signed := func(body string) string {
+		return body + tokenSep + b64.EncodeToString(svc.sealMAC("app-ticket", body, "alice"))
+	}
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{name: "empty"},
+		{name: "too few parts", value: strings.Join([]string{user, expiry, payload}, tokenSep)},
+		{name: "too many parts", value: signed(strings.Join([]string{user, expiry, payload}, tokenSep)) + tokenSep + "x"},
+		{name: "a user that is not base64", value: signed(strings.Join([]string{"!", expiry, payload}, tokenSep))},
+		{name: "a mac that is not base64", value: strings.Join([]string{user, expiry, payload, "!"}, tokenSep)},
+		{name: "an expiry that is not a number", value: signed(strings.Join([]string{user, "soon", payload}, tokenSep))},
+		{name: "a payload that is not base64", value: signed(strings.Join([]string{user, expiry, "!"}, tokenSep))},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			gotUser, gotPayload, ok := svc.Unseal("app-ticket", tc.value)
+
+			// assert
+			assert.False(t, ok)
+			assert.Empty(t, gotUser)
+			assert.Nil(t, gotPayload)
+		})
+	}
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/format"
 	"github.com/aleksey925/scrawl/history"
+	"github.com/aleksey925/scrawl/htmlapp"
 	"github.com/aleksey925/scrawl/plantuml"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/server"
@@ -84,6 +85,10 @@ type options struct {
 		Disabled   bool          `long:"disabled" env:"DISABLED" description:"serve without authentication"`
 		Secure     string        `long:"secure" env:"SECURE" default:"auto" choice:"auto" choice:"always" choice:"never" description:"Secure flag of the session cookie"`
 	} `group:"auth" namespace:"auth" env-namespace:"AUTH"`
+
+	Apps struct {
+		URL string `long:"url" env:"URL" description:"where HTML apps run, a URL with {id} in its first label such as https://app-{id}.example.com; empty runs them on *.localhost"`
+	} `group:"apps" namespace:"apps" env-namespace:"APPS"`
 
 	Timeouts struct {
 		ReadHeader time.Duration `long:"read-header" env:"READ_HEADER" default:"5s" description:"read header timeout"`
@@ -161,7 +166,7 @@ func parseOpts(args []string) (*options, error) {
 }
 
 func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
-	roots, err := validateStartup(ctx, opts, cfgs)
+	roots, apps, err := validateStartup(ctx, opts, cfgs)
 	if err != nil {
 		return err
 	}
@@ -216,6 +221,7 @@ func run(ctx context.Context, opts *options, cfgs []spaceConfig) error {
 			MaxUpload:         int64(opts.MaxUpload),
 			UploadDir:         strings.Trim(opts.UploadDir, "/"),
 			AuthDisabled:      opts.Auth.Disabled,
+			Apps:              apps,
 			ReadHeaderTimeout: opts.Timeouts.ReadHeader,
 			ReadTimeout:       opts.Timeouts.Read,
 			WriteTimeout:      opts.Timeouts.Write,
@@ -511,38 +517,75 @@ func ignoredSpaceSettings(opts *options) []string {
 	return res
 }
 
-func validateStartup(ctx context.Context, opts *options, cfgs []spaceConfig) ([]string, error) {
+func validateStartup(ctx context.Context, opts *options, cfgs []spaceConfig) ([]string, htmlapp.Hosts, error) {
 	if ignored := ignoredSpaceSettings(opts); len(ignored) > 0 {
 		log.Printf("[WARN] SPACES_FILE is set, so these are ignored: %s", strings.Join(ignored, ", "))
 	}
-	if err := validateGlobal(opts); err != nil {
-		return nil, err
+	apps, appsErr := validateGlobal(opts)
+	if appsErr != nil {
+		return nil, htmlapp.Hosts{}, appsErr
 	}
 	if err := validateSpaces(ctx, cfgs); err != nil {
-		return nil, err
+		return nil, htmlapp.Hosts{}, err
 	}
 	if err := ensureDirs(ctx, opts, cfgs); err != nil {
-		return nil, err
+		return nil, htmlapp.Hosts{}, err
 	}
 	roots, rootsErr := resolveRoots(cfgs)
 	if rootsErr != nil {
-		return nil, rootsErr
+		return nil, htmlapp.Hosts{}, rootsErr
 	}
 	if err := checkSecretFiles(roots, opts, cfgs); err != nil {
-		return nil, err
+		return nil, htmlapp.Hosts{}, err
 	}
 	if opts.Auth.Disabled {
 		log.Printf("[WARN] authentication is disabled, every visitor gets full access")
 	}
-	return roots, nil
+	if warning := appsWarning(opts.Auth.Disabled, apps); warning != "" {
+		log.Printf("[WARN] %s", warning)
+	}
+	return roots, apps, nil
 }
 
-func validateGlobal(opts *options) error {
+func validateGlobal(opts *options) (htmlapp.Hosts, error) {
 	if !opts.Auth.Disabled && len(opts.Auth.Users) == 0 && len(opts.Auth.Tokens) == 0 {
-		return errors.New("no users and no tokens configured, " +
+		return htmlapp.Hosts{}, errors.New("no users and no tokens configured, " +
 			"set --auth.users or --auth.tokens, or run with --auth.disabled")
 	}
-	return nil
+	apps, err := htmlapp.Parse(opts.Apps.URL)
+	if err != nil {
+		return htmlapp.Hosts{}, fmt.Errorf("--apps.url (APPS_URL) %w", err)
+	}
+	if !opts.Auth.Disabled && apps.Secure() && !secureCookiePossible(opts) {
+		return htmlapp.Hosts{}, errors.New("--apps.url (APPS_URL) is https, but the session cookie is never Secure, " +
+			"so an HTML app could change the sign-in: add --trusted-proxy (TRUSTED_PROXY=true) " +
+			"behind Cloudflare Tunnel or another proxy that sets X-Forwarded-Proto, " +
+			"or --auth.secure=always (AUTH_SECURE=always)")
+	}
+	return apps, nil
+}
+
+func secureCookiePossible(opts *options) bool {
+	switch opts.Auth.Secure {
+	case auth.SecureAlways:
+		return true
+	case auth.SecureNever:
+		return false
+	}
+	return opts.TrustedProxy
+}
+
+func appsWarning(authDisabled bool, apps htmlapp.Hosts) string {
+	if authDisabled || apps.Secure() {
+		return ""
+	}
+	if apps.Local() {
+		return "HTML apps run over http: at localhost an HTML app can sign you out or into another account, " +
+			"open scrawl at the 127.0.0.1 link printed at start"
+	}
+	return "--apps.url (APPS_URL) is http: an HTML app can sign you out or into another account " +
+		"when scrawl and the apps are on neighbor names, such as notes.home.lan and app-x.home.lan, " +
+		"so do not put them on neighbor names, or use https"
 }
 
 func genHash(value string, in io.Reader) (string, error) {

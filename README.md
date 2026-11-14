@@ -73,22 +73,24 @@ scrawl only reads.
   - [Docker](#docker)
   - [mise](#mise)
   - [From source](#from-source)
-  - [Running the binary](#running-the-binary)
+  - [Running binary](#running-binary)
 - [Markdown features](#markdown-features)
   - [Formatting](#formatting)
 - [How your changes are kept](#how-your-changes-are-kept)
 - [Static site](#static-site)
 - [Offline](#offline)
 - [HTML apps](#html-apps)
-  - [Offline apps](#offline-apps)
+  - [On your machine](#on-your-machine)
+  - [From phone or other device](#from-phone-or-other-device)
   - [Cloudflare Tunnel](#cloudflare-tunnel)
+  - [Offline apps](#offline-apps)
 - [Configuration](#configuration)
   - [Server settings](#server-settings)
   - [One space](#one-space)
   - [Several spaces](#several-spaces)
-- [A git repository as a space](#a-git-repository-as-a-space)
-  - [A webhook instead of polling](#a-webhook-instead-of-polling)
-  - [When there is a conflict with the remote](#when-there-is-a-conflict-with-the-remote)
+- [Git repository as space](#git-repository-as-space)
+  - [Webhook instead of polling](#webhook-instead-of-polling)
+  - [Conflict with remote](#conflict-with-remote)
 - [API](#api)
 - [Command line](#command-line)
 - [License](#license)
@@ -204,7 +206,7 @@ This installs the latest
 go install github.com/aleksey925/scrawl@latest
 ```
 
-### Running the binary
+### Running binary
 
 Without Docker, every setting is a flag. The local folder from
 [Quick start](#use-local-folder):
@@ -302,60 +304,89 @@ service worker, and the file is not changed. It can load the web files of its
 folder and anything on the internet. It cannot read your notes, act as you or
 call the API.
 
-Every app runs on a host of its own, `app-<id>.localhost` by default. All
-`.html` files of one folder are one app and share its data, so keep each app in
-a folder of its own, not at the root of a space.
+Every app runs on a host of its own. All `.html` files of one folder are one
+app and share its data, so keep each app in a folder of its own, not at the
+root of a space.
 
-**Works with nothing to set:**
+Where apps run depends on where scrawl is opened:
 
-- scrawl on your machine, opened in Chrome or Firefox at the link it prints at
-  start, `http://127.0.0.1:7272`, with or without a password. With
-  `AUTH_DISABLED=true`, `http://localhost:7272` works too.
+- [On your machine](#on-your-machine) - works with nothing to set.
+- [From phone or other device](#from-phone-or-other-device) - needs https, such
+  as through [Cloudflare Tunnel](#cloudflare-tunnel).
+- [With no network](#offline-apps) - needs Offline access on.
 
-**Works with a setting:**
+Some limits:
 
-- https behind Cloudflare Tunnel: `APPS_URL=https://app-{id}.example.com` and
-  `TRUSTED_PROXY=true`, see [Cloudflare Tunnel](#cloudflare-tunnel).
-- With no network: see [Offline apps](#offline-apps).
+- Right after Run the frame says `Open this app from scrawl`: the browser did
+  not keep the app's cookie inside the frame. "Open in a new tab" works.
+- A service worker of the app itself replaces scrawl's, and keeps serving the
+  files it stored after the app's cookie ended, as on any site.
+- A renamed or moved folder is a new app: the data the old one saved stays in
+  the browser under its old address.
+- Sign-out leaves the apps' files and data in the browser, as any site's.
 
-**Does not work, and the fix:**
+### On your machine
 
+Nothing to set. Open scrawl in Chrome or Firefox at the link it prints at
+start, `http://127.0.0.1:7272`, with or without a password. Run opens the app
+at `http://app-<id>.localhost:7272`.
+
+- `http://localhost:7272` works too, but with a password use `127.0.0.1`:
+  `localhost` and `app-<id>.localhost` are neighbor names, and an app there can
+  sign you out, or into another account. The same goes for `scrawl.localhost`.
+  scrawl logs a warning about this at start.
+- Safari on macOS likely cannot open `app-<id>.localhost`: the frame shows the
+  browser's error page. Use Chrome or Firefox.
+- At `127.0.0.1` and `localhost` the frame does not keep an app for use with no
+  network, see [Offline apps](#offline-apps).
+
+### From phone or other device
+
+Apps run here over https, such as through
+[Cloudflare Tunnel](#cloudflare-tunnel), with
+`APPS_URL=https://app-{id}.example.com` and `TRUSTED_PROXY=true`.
+
+- scrawl opened at an address of the network with no `APPS_URL`, such as
+  `http://192.168.1.5:7272`: Run says that HTML apps do not run at this
+  address.
 - `APPS_URL` has no `{id}`, such as `https://apps.example.com`, or only `{id}`
   in its first label, such as `https://{id}.example.com`: scrawl does not
   start, and its message shows the form to use, `https://app-{id}.example.com`.
 - `APPS_URL` is https and a password is set, but neither `TRUSTED_PROXY=true`
   nor `AUTH_SECURE=always` is: scrawl does not start, and its message names the
   setting to add, `TRUSTED_PROXY=true` behind Cloudflare.
-- scrawl opened from a phone or another device at an address of the network,
-  such as `http://192.168.1.5:7272`: Run says that HTML apps do not run at this
-  address. Use https through Cloudflare Tunnel, as above.
-- A browser that cannot open `app-<id>.localhost`, likely Safari on macOS: the
-  frame shows the browser's error page. Run apps locally in Chrome or Firefox.
-- Right after Run the frame says `Open this app from scrawl`: the browser did
-  not keep the app's cookie inside the frame. "Open in a new tab" works.
+- With `TRUSTED_PROXY=true` and `APPS_URL=https://app-{id}.example.com`, do not
+  also open scrawl at `http://notes.example.com`: the sign-in there is not
+  protected, and scrawl does not warn about it.
 
-**For advanced users:** set up a local DNS that answers any `app-...` name with
-the address of this machine, and set `APPS_URL` to it, such as
-`http://app-{id}.apps.home.lan:7272`. A hosts file is not enough, since it has
-no wildcard.
+**For advanced users:** to run apps on a home network without https, set up a
+local DNS that answers any `app-...` name with the address of this machine, and
+set `APPS_URL` to it, such as `http://app-{id}.apps.home.lan:7272`. A hosts
+file is not enough, since it has no wildcard. With a password, open scrawl at
+the IP of the machine, such as `http://192.168.1.5:7272`, not at a name such as
+`notes.home.lan`: it is a neighbor of the apps' names, and an app there can
+sign you out, or into another account. scrawl logs a warning about this at
+start.
 
-**A warning for http with a password.** Do not open scrawl and the apps on
-neighbor names, such as `notes.home.lan` and `app-{id}.home.lan`, `localhost`
-and `app-{id}.localhost`, or `scrawl.localhost` and
-`app-{id}.scrawl.localhost`: an app there can sign you out, or into another
-account. scrawl logs a warning about this at start. Use the printed `127.0.0.1`
-link, an IP next to a name, or https. With `TRUSTED_PROXY=true` and
-`APPS_URL=https://app-{id}.example.com`, do not also open scrawl at
-`http://notes.example.com`: the sign-in there is not protected, and scrawl does
-not warn about it.
+### Cloudflare Tunnel
 
-Some limits:
+To run apps behind Cloudflare Tunnel, with scrawl at `notes.example.com`:
 
-- A service worker of the app itself replaces scrawl's, and keeps serving the
-  files it stored after the app's cookie ended, as on any site.
-- A renamed or moved folder is a new app: the data the old one saved stays in
-  the browser under its old address.
-- Sign-out leaves the apps' files and data in the browser, as any site's.
+1. In Cloudflare, open `Protect & connect` -> `Networking` -> `Tunnels`, pick
+   the tunnel, open `Routing` and press `Add route`, choose
+   `Published application`: subdomain `*`, domain `example.com`, the same
+   service URL as scrawl. Cloudflare adds the DNS record `*.example.com`
+   itself.
+2. Set `APPS_URL=https://app-{id}.example.com` and `TRUSTED_PROXY=true`.
+
+The name around `{id}` can be any, such as `notes-app-{id}.example.com`, but it
+stays one level under the domain: the free certificate covers `*.example.com`
+and not `*.apps.example.com`. If DNS already has a `*.example.com` record, it
+must point to the same tunnel.
+
+If a gateway with its own sign-in, such as Cloudflare Access, guards scrawl,
+leave the `app-*` hosts out of it: its sign-in page cannot show inside the
+frame, and the apps check their own cookie.
 
 ### Offline apps
 
@@ -366,27 +397,12 @@ keeps the data it saved in the browser.
   CDN.
 - It works where the frame is on the same site as scrawl: a domain with
   `APPS_URL`, or locally `http://scrawl.localhost:7272`, which with a password
-  is a neighbor name, see the warning above. At `127.0.0.1` and `localhost` the
-  app runs in the frame but is not kept there, and with no network the run
-  screen says `This browser does not keep this app for offline use.`: there the
-  browser treats the frame as another site and gives scrawl's worker no cookie.
+  is a neighbor name, see [On your machine](#on-your-machine). At `127.0.0.1`
+  and `localhost` the app runs in the frame but is not kept there, and with no
+  network the run screen says
+  `This browser does not keep this app for offline use.`: there the browser
+  treats the frame as another site and gives scrawl's worker no cookie.
 - An app with a service worker of its own keeps its files its own way.
-
-### Cloudflare Tunnel
-
-To run apps behind Cloudflare Tunnel, with scrawl at `notes.example.com`:
-
-1. In the tunnel, add a public hostname `*.example.com` with the same service
-   as scrawl.
-2. In DNS, add by hand a proxied `CNAME` record `*` that points to
-   `<tunnel id>.cfargotunnel.com`.
-3. Set `APPS_URL=https://app-{id}.example.com` and `TRUSTED_PROXY=true`.
-
-Keep the apps one level under the domain, `app-{id}.example.com` and not
-`app-{id}.apps.example.com`: the free certificate covers `*.example.com` only.
-If a gateway with its own sign-in, such as Cloudflare Access, guards scrawl,
-leave the `app-*` hosts out of it: its sign-in page cannot show inside the
-frame, and the apps check their own cookie.
 
 ## Configuration
 
@@ -490,8 +506,8 @@ host belongs to another user, set `user:` to the uid and gid of its owner
 writable.
 
 That is all a plain folder needs. The rest is only for a space that is a git
-repository, see [A git repository as a space](#a-git-repository-as-a-space).
-Leave all of it out otherwise.
+repository, see [Git repository as space](#git-repository-as-space). Leave all
+of it out otherwise.
 
 | variable           | required | default | meaning                                                                                                                    | in the file                                       |
 | ------------------ | -------- | ------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
@@ -579,14 +595,14 @@ and a search that searches the space you are in.
 For full separation between spaces - separate users, separate processes - run
 one scrawl per folder behind a reverse proxy.
 
-## A git repository as a space
+## Git repository as space
 
 A space may be a git repository rather than a plain folder. Give it the address
 of the repository and scrawl clones it, serves it, and pushes back what you
 edit. That repository, on the git host, is called the remote below.
-[Use a git repository](#use-a-git-repository) shows how to start one, and every
-key and variable is listed under [Configuration](#configuration). This section
-is about how such a space behaves.
+[Use git repository](#use-git-repository) shows how to start one, and every key
+and variable is listed under [Configuration](#configuration). This section is
+about how such a space behaves.
 
 **Keep the clone in a volume.** The clone lives in the space folder, together
 with every commit not pushed yet. If that folder is inside the container, a
@@ -630,7 +646,7 @@ by a fast-forward and nothing else: scrawl never merges and never rebases. If
 there is a conflict with the remote, the space keeps serving, saves keep
 landing on disk and in local commits, and a banner says so on every screen
 together with a button that resets this copy to the remote version - see
-[below](#when-there-is-a-conflict-with-the-remote).
+[below](#conflict-with-remote).
 
 **Two things are worth knowing.** History is always on for a space that is a
 git repository, whatever `HISTORY` says: one that stopped recording would also
@@ -641,7 +657,7 @@ A read-only space of this kind only fetches and fast-forwards. It never commits
 or pushes. A file changed in its folder some other way is served, but not
 recorded in git.
 
-### A webhook instead of polling
+### Webhook instead of polling
 
 Give a space a hook secret and the git host can tell scrawl to fetch, instead
 of scrawl asking every few minutes.
@@ -691,7 +707,7 @@ scrawl does not read what a delivery says. Any delivery means "something may
 have changed" and starts one fetch, even for a push to a branch scrawl does not
 track. Many deliveries at once start at most two fetches.
 
-### When there is a conflict with the remote
+### Conflict with remote
 
 A conflict means this copy and the remote both have changes the other does not:
 somebody pushed while this copy had changes of its own, or the branch was

@@ -88,14 +88,15 @@ The fetch rules, GET only; what no rule names is not touched:
    network error, a 5xx that is not scrawl's own answer (`serverUnreachable` in
    `keys.ts`, the app's rule below), or no answer in 3 seconds. A `Range`
    request answered from the cache gets a 206 cut from the stored body, which
-   is read only then and never for a request the network answers. While
-   `scrawl_signin` is set, no app has read it yet and the copy may still be the
-   user's before, so the request goes to the network only. The worker reads the
-   cookie with `cookieStore`; a browser with no `cookieStore` gets the same
-   rule only for a navigation from the sign-in page;
+   is read only then and never for a request the network answers. While a
+   sign-in cookie, `scrawl_signin` or `__Host-scrawl_signin`, is set, no app
+   has read it yet and the copy may still be the user's before, so the request
+   goes to the network only. The worker reads the cookies with `cookieStore`; a
+   browser with no `cookieStore` gets the same rule only for a navigation from
+   the sign-in page;
 4. a navigation under `/s/<name>/` but `api/` gets the offline shell at once
    when the copy holds the space's `me`, and the app starts on the copy. While
-   `scrawl_signin` is set, by the test of rule 3, or when the copy has no `me`
+   a sign-in cookie is set, by the test of rule 3, or when the copy has no `me`
    of the space, it goes to the network first, then to the offline shell. `/`
    answers a redirect to the first stored space on the same terms. A session
    that ended shows the copy until `/api/me` answers 401, then the sign-in
@@ -112,9 +113,13 @@ online would get its files from the copy.
 
 `/static/offline/<hash>.html` is the app's shell with no space and no cookie:
 the auto theme, the site title and an empty `data-base`. `<hash>` is a hash of
-the body, so a new title, release or bundle is a new url, cached in the same
-install as the chunks it loads. `mountBase()` takes the space from the address
-when `data-base` is empty. Both shells carry `data-version`, the release.
+the body and of the page's CSP, so a new title, release, bundle or `APPS_URL`
+is a new url, cached in the same install as the chunks it loads. `mountBase()`
+takes the space from the address when `data-base` is empty. Both shells carry
+`data-version`, the release. The CSP is in the hash because the worker keeps
+the shell with its headers and the browser keeps its url a year: a new
+`frame-src` with the same body would otherwise come back with the old header
+from either cache.
 
 ## The versions list
 
@@ -275,10 +280,60 @@ switch, inside the tap.
   a tab holds stays until its next `/api/me`, which the new session answers.
   Then the app deletes the cookie. So a new user who loses the network right
   after signing in never sees the copy of the one before.
+- On a secure request the sign-in also sets `__Host-scrawl_signin`, the same
+  value, which no other host can set, so an HTML app on a sibling host cannot
+  plant it ([HTML apps](html-apps.md#the-threat)). The page and the worker read
+  the `__Host-` name when it is there, else the plain one, on any scheme: the
+  server picks the name per request, and a page on https behind a proxy without
+  `--trusted-proxy` gets the plain one. So a planted plain cookie never shadows
+  a real sign-in. The page deletes both names. The plain one is still set
+  beside it for a worker and a bundle from before, which know only that name:
+  without it a second person signing in while the old worker still answers
+  could get the copy of the one before.
+- An old bundle reads the first plain `scrawl_signin` it finds, so a planted
+  one with a longer `Path` wins there. That needs an old bundle starting after
+  a second person's sign-in, in a browser where an HTML app ran, in the short
+  time before the new worker takes over, or on a device where its install keeps
+  failing. This window is accepted; the plain name on a secure answer can go in
+  a later release.
 - Sign out deletes `scrawl-data` under the lock and keeps the worker, the app
   cache and the choice: the app cache holds nothing of a user.
 - The sign-in page deletes nothing, so the copy of a person whose session
   expired stays until someone signs in.
+
+## HTML apps
+
+An HTML app is kept offline by a worker of its own host, never by this copy
+([HTML apps](html-apps.md#offline)). The copy holds only what the run screen
+needs.
+
+- Rule 4 of the worker answers `/s/<name>/run/...` with the offline shell, as
+  any page, and a stored `/api/page/` keeps its `run_url`, so Run on a file's
+  page works offline. The run screen calls `useMe`, as `AppLayout` does: only
+  it ends the start check and brings the app back online.
+- With the copy on, the run screen asks its ticket with `offline: true`. When
+  the enter page in the frame posts `{type: 'scrawl-htmlapp', offline}` from
+  the frame's window and the app's origin, the run screen writes
+  `/__scrawl-offline/run/<space>/<path>` -> `{url, offline}` into
+  `scrawl-data`, `url` being the file on the apps host. One key per file, so
+  two tabs never overwrite each other's runs, and no lock: it names only a file
+  every user of the server may open.
+- With no network the run screen reads that record. `offline: true` frames
+  `url` with no ticket, and the worker of the app answers. `offline: false`
+  shows `Needs a network` and
+  `This browser does not keep this app for offline use.`, which is what a
+  cross-site frame, the local run at `127.0.0.1` and at `localhost`, always
+  gets. No record shows `Run this app once with a network to use it offline.`.
+  With the copy off the screen shows `Needs a network` as any other.
+- A frame, from a ticket or from the record, stays mounted when the network
+  goes or comes back, so the app keeps its state and unsaved input, as
+  `NetworkGate` keeps an open editor. Open outside opens the record's `url`
+  with no network.
+- Sign-out, a sign-in of another user and Off delete the records with the rest
+  of `scrawl-data`. They cannot reach the apps hosts, another origin: the files
+  and data of an app stay in the browser after sign-out, and an app's address
+  typed with no network still opens it. Off reaches an app's worker only on its
+  next run with a network, whose enter page removes it.
 
 ## Limits
 

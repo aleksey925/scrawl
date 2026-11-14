@@ -58,6 +58,7 @@ export interface FilePageResponse {
   raw_url: string;
   rev?: string;
   edit_url?: string;
+  run_url?: string;
   language?: string;
   lines?: number;
   html?: string;
@@ -309,6 +310,11 @@ export interface RestoreResponse extends MutationState {
 export interface PreviewRequest {
   content: string;
   path: string;
+}
+
+export interface RunTicket {
+  url: string;
+  app: string;
 }
 
 export interface PreviewResponse {

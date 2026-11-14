@@ -6,7 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import { absoluteTime, fileSize, shortTime } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
 import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
-import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconMoveTo, IconTrash } from '../icons';
+import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconMoveTo, IconPlay, IconTrash } from '../icons';
 import { usePlatform } from '../platform';
 import { useDocumentControls } from '../reader/useDocumentControls';
 import { openViewer } from '../reader/viewer';
@@ -18,6 +18,7 @@ import classes from './FileView.module.css';
 import { useNav } from './NavContext';
 import { chromeOf, usePageChrome } from './PageChrome';
 import { PageActions } from './ShellSlots';
+import { TopbarAction } from './TopbarAction';
 
 export function FileView({ file }: { file: FilePageResponse }): JSX.Element {
   const { physicalUrl } = usePlatform();
@@ -144,6 +145,7 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
   return (
     <>
       {canWrite && file.edit_url !== undefined && <EditAction testId="file-edit" to={file.edit_url} />}
+      {file.run_url !== undefined && <TopbarAction testId="file-run" label="Run" icon={IconPlay} to={file.run_url} />}
       <ActionIcon
         data-testid="file-download"
         component="a"

@@ -1,7 +1,8 @@
-# server/assets/app, server/assets/sw and page/assets are what `make ui`
-# emits. The whitespace hooks rewrite them, which both corrupts a minified
-# bundle and makes the CI staleness check fail on a tree nobody edited.
-exclude: ^(vendor|server/assets/app|server/assets/sw|page/assets)/
+# server/assets/app, server/assets/sw, server/assets/htmlapp and page/assets
+# are what `make ui` emits. The whitespace hooks rewrite them, which both
+# corrupts a minified bundle and makes the CI staleness check fail on a tree
+# nobody edited.
+exclude: ^(vendor|server/assets/app|server/assets/sw|server/assets/htmlapp|page/assets)/
 
 repos:
   - repo: builtin

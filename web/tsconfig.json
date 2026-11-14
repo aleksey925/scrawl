@@ -23,6 +23,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "vite.config.ts", "vite.sw.config.ts", "vite.fonts.ts", "vite.themes.ts", "icons.ts"],
-  "exclude": ["src/sw"]
+  "include": ["src", "vite.config.ts", "vite.sw.config.ts", "vite.htmlapp.config.ts", "vite.fonts.ts", "vite.themes.ts", "icons.ts"],
+  "exclude": ["src/sw", "src/htmlapp/worker.ts"]
 }

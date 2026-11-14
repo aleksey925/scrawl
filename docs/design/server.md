@@ -24,12 +24,12 @@ Spaces, routes, settings and the guards on every request.
 ## Routes and URLs
 
 - Everything a space owns lives under `/s/<name>/`, including when there is
-  exactly one: `/doc/`, `/edit/`, `/history/`, `/search`, `/recent`, `/api/`
-  and `/raw/`. The root holds only what reads no store - `/ping`, `/static/`,
-  `/manifest.webmanifest`, `/sw.js`, `/login`, `/logout`, `/api/login`,
-  `/api/logout`, `/api/spaces` and the `/` redirect to the first space. Every
-  new endpoint answers one question, does it read a store, and lands on one
-  side.
+  exactly one: `/doc/`, `/edit/`, `/history/`, `/search`, `/recent`, `/run/`,
+  `/api/` and `/raw/`. The root holds only what reads no store - `/ping`,
+  `/static/`, `/manifest.webmanifest`, `/sw.js`, `/login`, `/logout`,
+  `/api/login`, `/api/logout`, `/api/spaces` and the `/` redirect to the first
+  space. Every new endpoint answers one question, does it read a store, and
+  lands on one side.
 - Two kinds of URL, and they must never be mixed. A **router-relative** one
   goes to `<Link to>` or `navigate()`, which prepend the space's basename
   themselves, so it carries no prefix - every builder in `view` produces one,
@@ -58,6 +58,13 @@ Spaces, routes, settings and the guards on every request.
   current hash and kept a year; and `/s/<name>/api/versions`, every entry of
   the space with its version. Both shells carry the release in `data-version`
   beside `data-base`.
+- An HTML app has two routes in its space, `/run/<path>`, the run screen, and
+  `POST /api/run/<path>`, its ticket, and a host of its own. `router()` looks
+  at `r.Host` before any middleware: a host of the apps, by `APPS_URL` or
+  `app-<id>.localhost`, goes to a small stack of its own with none of scrawl's
+  routes, only the app's files and `/__scrawl/enter`, `/__scrawl/enter.js`,
+  `/__scrawl/sw.js` and `/__scrawl/files`. An `APPS_URL` without `{id}` stops
+  the start. See [HTML apps](html-apps.md).
 
 ## Guards
 
@@ -89,8 +96,16 @@ Spaces, routes, settings and the guards on every request.
   whatever the header allows.
 - `worker-src` is `'self'`. It changes nothing a browser does, since it falls
   back to `script-src`, but it names the rule for the offline copy's worker.
-- A successful sign-in sets `scrawl_signin` beside the session cookie: the user
-  name, readable by the page, which the offline copy checks its owner against
+- `frame-src` names the hosts of the HTML apps, on every page, and nothing
+  else: the policy is built once at start from `APPS_URL`. Every answer of the
+  scrawl host carries `Cross-Origin-Resource-Policy: same-origin`, so an HTML
+  app on a sibling host cannot embed `/raw/` with the person's cookie. On a
+  request `secureFor` calls secure the session cookie is
+  `__Host-scrawl_session`, which no other host can set, and only that name is
+  read there. Why: [HTML apps](html-apps.md#the-threat).
+- A successful sign-in sets `scrawl_signin` beside the session cookie, and on a
+  secure request `__Host-scrawl_signin` as well: the user name, readable by the
+  page, which the offline copy checks its owner against
   ([offline copy](offline.md#users)).
 
 ## PlantUML
@@ -220,10 +235,14 @@ Spaces, routes, settings and the guards on every request.
   reset can stop part way, with its backup made and the branch not moved.
   Sending `SIGTERM` first would let git clean up; it is not done.
 - `Web.Run` binds the port before it serves and then logs the links to open:
-  the address it bound, or, bound to every interface, `localhost` and each IPv4
-  address of the machine apart from loopback and link-local. A bound IPv6
-  address keeps its zone, written `%25` in the URL as RFC 6874 has it, since a
-  link-local address without it names no interface. In a container these are
-  the container's own addresses, which no other machine can open, and the
-  server cannot learn the host's address or the port it publishes, so the links
-  stay as they are and the README says so.
+  the address it bound, or, bound to every interface, `127.0.0.1` and each IPv4
+  address of the machine apart from loopback and link-local. The local link is
+  `127.0.0.1` and never `localhost` as well: an IP is never a cookie neighbor
+  of `app-<id>.localhost`, so an HTML app run from it cannot plant a cookie for
+  scrawl, and two local links would leave the person to pick
+  ([HTML apps](html-apps.md#the-local-mode)). A bound IPv6 address keeps its
+  zone, written `%25` in the URL as RFC 6874 has it, since a link-local address
+  without it names no interface. In a container these are the container's own
+  addresses, which no other machine can open, and the server cannot learn the
+  host's address or the port it publishes, so the links stay as they are and
+  the README says so.

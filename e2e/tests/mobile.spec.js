@@ -115,6 +115,26 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-tab-bar');
     });
 
+    test('an html app runs under one bar with no tab bar', async ({page}) => {
+        // arrange
+        writeFixture('e2e-mobile/app/index.html', '<!doctype html><h1 id="title">Phone app</h1>\n');
+        await page.goto(routes.doc('e2e-mobile/app/index.html'));
+
+        // act
+        await page.getByTestId('file-run').tap();
+
+        // assert
+        await expect(page.frameLocator('[data-testid=run-frame]').locator('#title')).toHaveText('Phone app');
+        await expect(page.getByTestId('tab-bar')).toHaveCount(0);
+        const bar = await boxOf(page, 'run-bar');
+        const frame = await boxOf(page, 'run-frame');
+        expect(bar.top).toBe(0);
+        expect(frame.top).toBe(bar.bottom);
+        expect(frame.bottom).toBe(page.viewportSize().height);
+        expect(await tooSmall(page, '[data-testid=run-bar] a, [data-testid=run-bar] button')).toEqual([]);
+        await shot(page, 'mobile-html-app');
+    });
+
     test('Notes opens the root list, a folder opens its list, and the back link goes up', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));

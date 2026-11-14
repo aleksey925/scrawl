@@ -1,4 +1,4 @@
-import { dataCache, spaceKey, stateKey } from './keys';
+import { dataCache, runKey, spaceKey, stateKey } from './keys';
 
 export type CopyError = '' | 'quota' | 'failed';
 
@@ -50,4 +50,17 @@ export async function readSpace(name: string): Promise<SpaceRecord> {
 
 export function writeSpace(cache: Cache, name: string, record: SpaceRecord): Promise<void> {
   return writeRecord(cache, spaceKey(name), record);
+}
+
+export interface RunRecord {
+  url: string;
+  offline: boolean;
+}
+
+export function readRun(space: string, path: string): Promise<RunRecord | undefined> {
+  return readRecord<RunRecord>(runKey(space, path));
+}
+
+export async function writeRun(space: string, path: string, record: RunRecord): Promise<void> {
+  await writeRecord(await caches.open(dataCache), runKey(space, path), record);
 }

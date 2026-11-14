@@ -111,3 +111,9 @@ How the app works on a phone.
   field left open then is dropped. A screen still loading shows its spinner
   only after 400ms: one that came up the moment the swiped page was gone read
   as the page jerking.
+- The run screen of an HTML app is one bar on top and the frame under it to the
+  bottom of the screen: no tab bar, no Edit button and no swipe back from the
+  edge, since the screen is outside the layout that owns them and a swipe over
+  the frame belongs to the app. The bar adds the safe areas of the status bar
+  and the sides, and its buttons are the 44px of a tap ([touch](touch.md)).
+  Back is the way out. See [pages](pages.md#an-html-app).

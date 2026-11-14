@@ -32,6 +32,8 @@ It ships as one static binary or a Docker image.
 - **Offline access**: every note stays on the device and opens without network
 - **Export** to Markdown, HTML or PDF
 - **JSON API** with token auth, for scripts and agents
+- **HTML apps**: run a `.html` file of your notes as a small app, with its own
+  storage, kept apart from your notes and your account
 - **Static site**: turn the notes into a site for any static host, such as
   GitHub Pages, with the same reader as the app
 - **Command line** to render, compare and format markdown, without the server
@@ -77,6 +79,9 @@ scrawl only reads.
 - [How your changes are kept](#how-your-changes-are-kept)
 - [Static site](#static-site)
 - [Offline](#offline)
+- [HTML apps](#html-apps)
+  - [Offline apps](#offline-apps)
+  - [Cloudflare Tunnel](#cloudflare-tunnel)
 - [Configuration](#configuration)
   - [Server settings](#server-settings)
   - [One space](#one-space)
@@ -106,7 +111,7 @@ docker run --rm -p 7272:7272 \
   ghcr.io/aleksey925/scrawl:latest
 ```
 
-Open http://localhost:7272 and press `Ctrl`/`Cmd` + `K` to search.
+Open http://127.0.0.1:7272 and press `Ctrl`/`Cmd` + `K` to search.
 
 This run leaves the folder exactly as it was:
 
@@ -133,7 +138,7 @@ docker run -d --name scrawl --restart unless-stopped \
   ghcr.io/aleksey925/scrawl:latest
 ```
 
-Open http://localhost:7272, or the address of the machine from a phone, and
+Open http://127.0.0.1:7272, or the address of the machine from a phone, and
 sign in as `admin` / `admin`.
 
 - `AUTH_USERS` lists who can sign in, as `user:password`, comma separated. Pick
@@ -282,10 +287,102 @@ history are hidden, since they need the server.
 
 - An app installed to the home screen has it on by default. In a browser, turn
   it on with "Offline access" in the space menu, or under Profile on a phone.
-- It needs HTTPS, or `localhost`: browsers allow it nowhere else, and on plain
-  http the switch is greyed out with `Needs HTTPS`.
+- It needs HTTPS, `localhost` or `127.0.0.1`: browsers allow it nowhere else,
+  and on plain http the switch is greyed out with `Needs HTTPS`.
 - The first copy downloads every space whole, plus the app. After that only
   changed files are downloaded.
+
+## HTML apps
+
+Any `.html` file of a space can run as a small app. Run on the file's page
+opens it in a frame under one bar, with Back and "Open in a new tab". The app
+works as on any site, with its own `localStorage`, IndexedDB, cookies and
+service worker, and the file is not changed. It can load the web files of its
+folder and anything on the internet. It cannot read your notes, act as you or
+call the API.
+
+Every app runs on a host of its own, `app-<id>.localhost` by default. All
+`.html` files of one folder are one app and share its data, so keep each app in
+a folder of its own, not at the root of a space.
+
+**Works with nothing to set:**
+
+- scrawl on your machine, opened in Chrome or Firefox at the link it prints at
+  start, `http://127.0.0.1:7272`, with or without a password. With
+  `AUTH_DISABLED=true`, `http://localhost:7272` works too.
+
+**Works with a setting:**
+
+- https behind Cloudflare Tunnel: `APPS_URL=https://app-{id}.example.com` and
+  `TRUSTED_PROXY=true`, see [Cloudflare Tunnel](#cloudflare-tunnel).
+- With no network: see [Offline apps](#offline-apps).
+
+**Does not work, and the fix:**
+
+- `APPS_URL` has no `{id}`, such as `https://apps.example.com`: scrawl does not
+  start, and its message shows the form to use, `https://app-{id}.example.com`.
+- `APPS_URL` is https and a password is set, but neither `TRUSTED_PROXY=true`
+  nor `AUTH_SECURE=always` is: scrawl does not start, and its message names the
+  setting to add, `TRUSTED_PROXY=true` behind Cloudflare.
+- scrawl opened from a phone or another device at an address of the network,
+  such as `http://192.168.1.5:7272`: Run says that HTML apps do not run at this
+  address. Use https through Cloudflare Tunnel, as above.
+- A browser that cannot open `app-<id>.localhost`, likely Safari on macOS: the
+  frame shows the browser's error page. Run apps locally in Chrome or Firefox.
+- Right after Run the frame says `Open this app from scrawl`: the browser did
+  not keep the app's cookie inside the frame. "Open in a new tab" works.
+
+**For advanced users:** set up a local DNS that answers any `app-...` name with
+the address of this machine, and set `APPS_URL` to it, such as
+`http://app-{id}.apps.home.lan:7272`. A hosts file is not enough, since it has
+no wildcard.
+
+**A warning for http with a password.** Do not open scrawl and the apps on
+neighbor names, such as `notes.home.lan` and `app-{id}.home.lan`, or
+`localhost` and `app-{id}.localhost`: an app there can sign you out, or into
+another account. scrawl logs a warning about this at start. Use the printed
+`127.0.0.1` link, an IP next to a name, or https. With `TRUSTED_PROXY=true` and
+`APPS_URL=https://app-{id}.example.com`, do not also open scrawl at
+`http://notes.example.com`: the sign-in there is not protected, and scrawl does
+not warn about it.
+
+Some limits:
+
+- A service worker of the app itself replaces scrawl's, and keeps serving the
+  files it stored after the app's cookie ended, as on any site.
+- A renamed or moved folder is a new app: the data the old one saved stays in
+  the browser under its old address.
+- Sign-out leaves the apps' files and data in the browser, as any site's.
+
+### Offline apps
+
+With Offline access on, an app opens with no network once it ran with one, and
+keeps the data it saved in the browser.
+
+- The whole folder of the app is kept, not files from other sites such as a
+  CDN.
+- It works where the frame is on the same site as scrawl: a domain with
+  `APPS_URL`, or locally `http://scrawl.localhost:7272`. At `127.0.0.1` and
+  `localhost` the app runs but is not kept, and with no network the run screen
+  says `This browser does not keep this app for offline use.`: there the
+  browser treats the frame as another site and gives scrawl's worker no cookie.
+- An app with a service worker of its own keeps its files its own way.
+
+### Cloudflare Tunnel
+
+To run apps behind Cloudflare Tunnel, with scrawl at `notes.example.com`:
+
+1. In the tunnel, add a public hostname `*.example.com` with the same service
+   as scrawl.
+2. In DNS, add by hand a proxied `CNAME` record `*` that points to
+   `<tunnel id>.cfargotunnel.com`.
+3. Set `APPS_URL=https://app-{id}.example.com` and `TRUSTED_PROXY=true`.
+
+Keep the apps one level under the domain, `app-{id}.example.com` and not
+`app-{id}.apps.example.com`: the free certificate covers `*.example.com` only.
+If a gateway with its own sign-in, such as Cloudflare Access, guards scrawl,
+leave the `app-*` hosts out of it: its sign-in page cannot show inside the
+frame, and the apps check their own cookie.
 
 ## Configuration
 
@@ -329,6 +426,7 @@ required, everything else has a working default.
 | `RESCAN`           |                       | `60s`               | how often every folder is reread to find changes; negative turns it off, except with `WATCH=poll`                                                                                                                                       |
 | `HISTORY`          |                       | `auto`              | keep a git history of changes; `on` fails without git, `off` never touches the notes; always on for a space that is a git repository                                                                                                    |
 | `TRUSTED_PROXY`    |                       | `false`             | trust `X-Forwarded-For` and `-Proto`; set it behind a reverse proxy                                                                                                                                                                     |
+| `APPS_URL`         |                       |                     | where HTML apps run: a URL with `{id}` in its first label, such as `https://app-{id}.example.com`, each app on a host of its own; empty runs them on `app-<id>.localhost`, see [HTML apps](#html-apps)                                  |
 | `TZ`               |                       | `UTC`               | timezone                                                                                                                                                                                                                                |
 | `DEBUG`            |                       | `false`             | debug logging                                                                                                                                                                                                                           |
 
@@ -355,6 +453,11 @@ If scrawl runs behind a reverse proxy (nginx, Caddy or any other), set:
   `Secure` flag on the sign-in cookie, and a browser will never send a cookie
   with this flag over plain http. This matters if the proxy still answers on
   plain http.
+
+The proxy must also pass on the `Host` header the browser sent, with nginx
+`proxy_set_header Host $host`. scrawl tells the hosts of HTML apps from its own
+by it, and Run compares it with the address of the page: with
+`Host: localhost:7272` from the proxy, Run answers 403 and no app opens.
 
 ### One space
 

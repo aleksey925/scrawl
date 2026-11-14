@@ -42,6 +42,14 @@ How the react app in `web/` is built, shipped and wired.
   touch no DOM. The worker keeps the app version before its own, so a page left
   open on it still finds its next chunk
   ([offline copy](offline.md#the-worker)).
+- The two scripts of an HTML app's host, the enter page's and its worker, are
+  built from `web/src/htmlapp/` by `vite.htmlapp.config.ts`, one IIFE file
+  each, into `server/assets/htmlapp/enter.js` and `sw.js`. The worker is
+  checked by `tsconfig.sw.json` with the worker's types and shares
+  `web/src/sw/range.ts`, the 206 cut from a stored body, with the copy's
+  worker. `appOnly` of `vite.page.config.ts` lists `src/htmlapp/` and
+  `pages/RunPage`, so a page of the command line or a site that imports them
+  fails its build ([HTML apps](html-apps.md#offline)).
 - PlantUML's library is the one exception: `plantuml/library/` is committed
   compressed and read the same way in every build
   ([server](server.md#plantuml)).

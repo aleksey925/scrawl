@@ -1,0 +1,232 @@
+import { ActionIcon, Anchor, Text } from '@mantine/core';
+import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
+import { Link, useLocation, useParams } from 'react-router';
+
+import { api, installUnauthorizedHandler } from '../api/client';
+import { ApiError } from '../api/errors';
+import { PageTitle } from '../components/Page';
+import { IconChevronLeft, IconOpenOutside } from '../icons';
+import { goToLogin } from '../login';
+import { mountBase } from '../mount';
+import { useConnection } from '../offline/connection';
+import { decoded } from '../offline/keys';
+import { offlineSupported, offlineWanted } from '../offline/preference';
+import { readRun, writeRun } from '../offline/records';
+import { documentUrl } from '../paths';
+import { useMe } from '../shell/useMe';
+import { layout } from '../theme';
+import { showToast } from '../toast';
+
+import classes from './RunPage.module.css';
+
+const frameSandbox =
+  'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads';
+
+const frameAllow = 'clipboard-read; clipboard-write; fullscreen';
+
+const noNetworkText = 'There is no network, and this page needs the server.';
+
+interface RunFrame {
+  src: string;
+  app: string;
+}
+
+type RunState =
+  | { kind: 'waiting' }
+  | { kind: 'frame'; frame: RunFrame }
+  | { kind: 'failed'; message: string }
+  | { kind: 'offline'; message: string; app?: string };
+
+function keepsApps(): boolean {
+  return offlineSupported() && offlineWanted();
+}
+
+function spaceName(): string {
+  return decoded(mountBase().replace(/^\/s\//, ''));
+}
+
+function nameOf(path: string): string {
+  return path.slice(path.lastIndexOf('/') + 1);
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof ApiError ? error.message : 'The app could not be started.';
+}
+
+async function offlineState(path: string): Promise<RunState> {
+  if (!keepsApps()) {
+    return { kind: 'offline', message: noNetworkText };
+  }
+  const record = await readRun(spaceName(), path).catch(() => undefined);
+  if (record === undefined) {
+    return { kind: 'offline', message: 'Run this app once with a network to use it offline.' };
+  }
+  if (!record.offline) {
+    return { kind: 'offline', message: 'This browser does not keep this app for offline use.', app: record.url };
+  }
+  return { kind: 'frame', frame: { src: record.url, app: record.url } };
+}
+
+export function Component(): JSX.Element {
+  const location = useLocation();
+  const path = useParams()['*'] ?? '';
+  return <RunScreen key={location.key} path={path} />;
+}
+
+function RunScreen({ path }: { path: string }): JSX.Element {
+  useEffect(() => installUnauthorizedHandler('shell', goToLogin), []);
+  useMe();
+  const connection = useConnection();
+  const [state, setState] = useState<RunState>({ kind: 'waiting' });
+  const framed = state.kind === 'frame';
+  const frameRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    if (framed || connection === 'checking') {
+      return undefined;
+    }
+    let current = true;
+    const settle = (next: RunState): void => {
+      if (current) {
+        setState(next);
+      }
+    };
+    if (connection === 'offline') {
+      void offlineState(path).then(settle);
+    } else {
+      api.runTicket(path, keepsApps()).then(
+        (ticket) => settle({ kind: 'frame', frame: { src: ticket.url, app: ticket.app } }),
+        (error: unknown) => {
+          if (error instanceof TypeError) {
+            settle({ kind: 'offline', message: noNetworkText });
+          } else if (!(error instanceof DOMException && error.name === 'AbortError')) {
+            settle({ kind: 'failed', message: messageOf(error) });
+          }
+        },
+      );
+    }
+    return () => {
+      current = false;
+    };
+  }, [connection, framed, path]);
+
+  const app = state.kind === 'frame' ? state.frame.app : state.kind === 'offline' ? state.app : undefined;
+
+  useEffect(() => {
+    if (app === undefined || !framed) {
+      return undefined;
+    }
+    const origin = new URL(app).origin;
+    const onMessage = (event: MessageEvent): void => {
+      if (event.source !== frameRef.current?.contentWindow || event.origin !== origin) {
+        return;
+      }
+      const data = event.data as { type?: unknown; offline?: unknown } | null;
+      if (data?.type !== 'scrawl-htmlapp' || typeof data.offline !== 'boolean' || !keepsApps()) {
+        return;
+      }
+      void writeRun(spaceName(), path, { url: app, offline: data.offline }).catch(() => undefined);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [app, framed, path]);
+
+  const openOutside = (): void => {
+    const tab = window.open('', '_blank');
+    if (tab === null) {
+      showToast('error', { title: 'The new tab was blocked', message: 'Allow pop-ups for this site to open the app in a new tab.' });
+      return;
+    }
+    tab.opener = null;
+    if (connection === 'offline') {
+      if (app === undefined) {
+        tab.close();
+        return;
+      }
+      tab.location.href = app;
+      return;
+    }
+    api.runTicket(path, keepsApps()).then(
+      (ticket) => {
+        tab.location.href = ticket.url;
+      },
+      (error: unknown) => {
+        tab.close();
+        showToast('error', { title: 'The app did not open', message: messageOf(error) });
+      },
+    );
+  };
+
+  const name = nameOf(path);
+  const outsideAvailable = connection !== 'offline' || app !== undefined;
+
+  return (
+    <div className={classes.screen} data-testid="run">
+      <header className={classes.bar} data-testid="run-bar">
+        <ActionIcon
+          data-testid="run-back"
+          variant="subtle"
+          color="gray"
+          size="lg"
+          aria-label="Back"
+          title="Back"
+          renderRoot={(props: Record<string, unknown>): ReactNode => <Link to={documentUrl(path)} {...props} />}
+        >
+          <IconChevronLeft size={layout.iconSize} />
+        </ActionIcon>
+        <span className={classes.name} data-testid="run-name" title={name}>
+          {name}
+        </span>
+        <ActionIcon
+          data-testid="run-open-outside"
+          variant="subtle"
+          color="gray"
+          size="lg"
+          aria-label="Open in a new tab"
+          title="Open in a new tab"
+          disabled={!outsideAvailable}
+          onClick={openOutside}
+        >
+          <IconOpenOutside size={layout.iconSize} />
+        </ActionIcon>
+      </header>
+      {state.kind === 'frame' && (
+        <iframe
+          ref={frameRef}
+          data-testid="run-frame"
+          className={classes.frame}
+          src={state.frame.src}
+          title={name}
+          referrerPolicy="no-referrer"
+          sandbox={frameSandbox}
+          allow={frameAllow}
+        />
+      )}
+      {state.kind === 'failed' && <RunMessage testId="run-error" path={path} message={state.message} />}
+      {state.kind === 'offline' && (
+        <RunMessage testId="run-needs-network" path={path} title="Needs a network" message={state.message} />
+      )}
+    </div>
+  );
+}
+
+interface RunMessageProps {
+  testId: string;
+  path: string;
+  message: string;
+  title?: string;
+}
+
+function RunMessage({ testId, path, message, title }: RunMessageProps): JSX.Element {
+  return (
+    <div className={classes.message} data-testid={testId}>
+      {title !== undefined && <PageTitle>{title}</PageTitle>}
+      <Text c="dimmed" mb="md">
+        {message}
+      </Text>
+      <Anchor component={Link} to={documentUrl(path)}>
+        Back to the file
+      </Anchor>
+    </div>
+  );
+}

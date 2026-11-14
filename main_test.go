@@ -44,6 +44,7 @@ func TestParseOptsDefaults(t *testing.T) {
 	assert.Equal(t, historyAuto, opts.History)
 	assert.Equal(t, "/data/session.key", opts.Auth.SecretFile)
 	assert.Equal(t, "auto", opts.Auth.Secure)
+	assert.Empty(t, opts.Apps.URL)
 }
 
 func TestParseOptsFlags(t *testing.T) {
@@ -55,7 +56,7 @@ func TestParseOptsFlags(t *testing.T) {
 		"--auth.users=bob:secret", "--auth.users=alice:$2a$10$hash",
 		"--auth.tokens=bot:sha256:abc", "--auth.tokens=reader:plain:ro",
 		"--auth.secret=cookie-key", "--auth.secret-file=/state/key", "--auth.secure=always",
-		"--auth.ttl=1h", "--dbg",
+		"--auth.ttl=1h", "--dbg", "--apps.url=https://app-{id}.example.com",
 	})
 
 	// assert
@@ -77,6 +78,7 @@ func TestParseOptsFlags(t *testing.T) {
 	assert.Equal(t, historyOff, opts.History)
 	assert.Equal(t, "/state/key", opts.Auth.SecretFile)
 	assert.Equal(t, "always", opts.Auth.Secure)
+	assert.Equal(t, "https://app-{id}.example.com", opts.Apps.URL)
 }
 
 func TestParseOptsEnv(t *testing.T) {
@@ -103,6 +105,7 @@ func TestParseOptsEnv(t *testing.T) {
 	t.Setenv("HISTORY", "on")
 	t.Setenv("TIMEOUT_SHUTDOWN", "9s")
 	t.Setenv("DEBUG", "true")
+	t.Setenv("APPS_URL", "http://app-{id}.apps.home.lan:7272")
 
 	// act
 	opts, err := parseOpts(nil)
@@ -129,6 +132,7 @@ func TestParseOptsEnv(t *testing.T) {
 	assert.Equal(t, "poll", opts.Watch)
 	assert.Equal(t, -time.Second, opts.Rescan)
 	assert.Equal(t, historyOn, opts.History)
+	assert.Equal(t, "http://app-{id}.apps.home.lan:7272", opts.Apps.URL)
 }
 
 func TestParseOptsInvalid(t *testing.T) {
@@ -274,17 +278,47 @@ func lastField(line string) string {
 }
 
 func TestValidateGlobal(t *testing.T) {
+	const (
+		noID = "--apps.url (APPS_URL) must have {id} in its first label, such as https://app-{id}.example.com: " +
+			"every HTML app runs on a host of its own"
+		neverSecure = "--apps.url (APPS_URL) is https, but the session cookie is never Secure, so an HTML app " +
+			"could change the sign-in: add --trusted-proxy (TRUSTED_PROXY=true) behind Cloudflare Tunnel or another " +
+			"proxy that sets X-Forwarded-Proto, or --auth.secure=always (AUTH_SECURE=always)"
+		httpsApps = "https://app-{id}.example.com"
+	)
 	tests := []struct {
-		name    string
-		users   []string
-		tokens  []string
-		noAuth  bool
-		errText string
+		name         string
+		users        []string
+		tokens       []string
+		noAuth       bool
+		appsURL      string
+		secure       string
+		trustedProxy bool
+		errText      string
 	}{
 		{name: "ok with users", users: []string{"bob:pass"}},
 		{name: "ok with tokens and no users", tokens: []string{"bot:sha256:abc"}},
 		{name: "ok with auth disabled", noAuth: true},
-		{name: "no users and no tokens", errText: "no users and no tokens configured"},
+		{name: "no users and no tokens",
+			errText: "no users and no tokens configured, set --auth.users or --auth.tokens, or run with --auth.disabled"},
+		{name: "apps url without id", users: []string{"bob:pass"}, appsURL: "https://apps.example.com", errText: noID},
+		{name: "apps url without id and auth off", noAuth: true, appsURL: "https://apps.example.com", errText: noID},
+		{name: "apps url with two ids", users: []string{"bob:pass"}, appsURL: "https://{id}-{id}.example.com",
+			errText: noID},
+		{name: "apps url with a path", users: []string{"bob:pass"}, appsURL: "https://app-{id}.example.com/x",
+			errText: "--apps.url (APPS_URL) must have no path"},
+		{name: "https apps, auto without a trusted proxy", users: []string{"bob:pass"}, appsURL: httpsApps,
+			secure: "auto", errText: neverSecure},
+		{name: "https apps, never", users: []string{"bob:pass"}, appsURL: httpsApps, secure: "never",
+			errText: neverSecure},
+		{name: "https apps, never with a trusted proxy", users: []string{"bob:pass"}, appsURL: httpsApps,
+			secure: "never", trustedProxy: true, errText: neverSecure},
+		{name: "https apps, auto with a trusted proxy", users: []string{"bob:pass"}, appsURL: httpsApps,
+			secure: "auto", trustedProxy: true},
+		{name: "https apps, always", users: []string{"bob:pass"}, appsURL: httpsApps, secure: "always"},
+		{name: "https apps, auth off", noAuth: true, appsURL: httpsApps, secure: "auto"},
+		{name: "http apps", users: []string{"bob:pass"}, appsURL: "http://app-{id}.example.com", secure: "auto"},
+		{name: "no apps url", users: []string{"bob:pass"}, secure: "never"},
 	}
 
 	for _, tc := range tests {
@@ -294,17 +328,63 @@ func TestValidateGlobal(t *testing.T) {
 			opts.Auth.Users = tc.users
 			opts.Auth.Tokens = tc.tokens
 			opts.Auth.Disabled = tc.noAuth
+			opts.Auth.Secure = tc.secure
+			opts.Apps.URL = tc.appsURL
+			opts.TrustedProxy = tc.trustedProxy
 
 			// act
 			err := validateGlobal(opts)
 
 			// assert
 			if tc.errText != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.errText)
+				require.EqualError(t, err, tc.errText)
 				return
 			}
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestAppsWarning(t *testing.T) {
+	const (
+		local = "HTML apps run over http: at localhost an HTML app can sign you out or into another account, " +
+			"open scrawl at the 127.0.0.1 link printed at start"
+		plain = "--apps.url (APPS_URL) is http: an HTML app can sign you out or into another account when scrawl " +
+			"and the apps are on neighbor names, such as notes.home.lan and app-x.home.lan, so do not put them " +
+			"on neighbor names, or use https"
+	)
+	tests := []struct {
+		name         string
+		noAuth       bool
+		appsURL      string
+		secure       string
+		trustedProxy bool
+		want         string
+	}{
+		{name: "auth on, no apps url", want: local},
+		{name: "auth on, http apps url", appsURL: "http://app-{id}.home.lan", want: plain},
+		{name: "auth on, http apps url with a trusted proxy", appsURL: "http://app-{id}.home.lan",
+			trustedProxy: true, want: plain},
+		{name: "auth on, http apps url with always", appsURL: "http://app-{id}.home.lan", secure: "always",
+			want: plain},
+		{name: "auth on, https apps url", appsURL: "https://app-{id}.example.com", trustedProxy: true},
+		{name: "auth off, no apps url", noAuth: true},
+		{name: "auth off, http apps url", noAuth: true, appsURL: "http://app-{id}.home.lan"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			opts := &options{}
+			opts.Auth.Disabled = tc.noAuth
+			opts.Auth.Secure = tc.secure
+			opts.Apps.URL = tc.appsURL
+			opts.TrustedProxy = tc.trustedProxy
+
+			// act
+			got := appsWarning(opts)
+
+			// assert
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }

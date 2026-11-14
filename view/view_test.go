@@ -28,6 +28,7 @@ func TestURLsEscapeAwkwardPaths(t *testing.T) {
 	}{
 		{name: "document", got: ContentURL(awkward), want: "/doc/" + escaped},
 		{name: "editor", got: EditURL(awkward), want: "/edit/" + escaped},
+		{name: "run", got: RunURL(awkward), want: "/run/" + escaped},
 		{name: "directory", got: DirURL("notes/что? да"), want: "/doc/notes/%D1%87%D1%82%D0%BE%3F%20%D0%B4%D0%B0/"},
 		{name: "search hit", got: SearchURL(awkward, "да"), want: "/doc/" + escaped + "?q=%D0%B4%D0%B0"},
 	}

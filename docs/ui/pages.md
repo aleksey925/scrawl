@@ -221,6 +221,33 @@ opens over them.
   the newest row stops being the current text the moment the file changes on
   disk.
 
+## An HTML app
+
+- The page of a `.html` or `.htm` file has Run among its actions, a play icon
+  after Edit and before Download, at any address: where Run cannot work the run
+  screen says why. See [HTML apps](../design/html-apps.md).
+- Run opens the run screen, `/run/<path>`, outside the layout: no sidebar, no
+  topbar, no tab bar and no banner, since the app wants the whole screen. One
+  bar on top holds Back, a link to the file's page, the file name with an
+  ellipsis, and Open in a new tab. The frame fills the rest with no border.
+  Back goes to the file's page and not back in the history: the frame's own
+  pages go into the tab's history, and a step back could land on an earlier
+  page of the app.
+- Open in a new tab asks a new ticket in the tap and opens the app in a tab of
+  its own; a blocked popup shows an error toast. With no network it opens the
+  app's address the run screen knows, and is disabled when it knows none.
+- An error of the ticket shows its text under the bar with a link back to the
+  file, the reason and the fix at an address with no `APPS_URL` included. A
+  failure after the ticket shows inside the frame: the browser's error page, or
+  the text of a refused cookie, which says to open the app in a new tab.
+- The frame stays when the network goes and comes back, so the app keeps its
+  state and what was typed in it.
+- With no network and the copy on, a kept app opens in the frame. Else the
+  screen shows `Needs a network` with one of
+  `This browser does not keep this app for offline use.`,
+  `Run this app once with a network to use it offline.`, or, with the copy off,
+  the text every page has.
+
 ## Start
 
 - Until the app has drawn its first screen, the page shows the logo in the

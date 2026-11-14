@@ -27,6 +27,12 @@ const routes: RouteObject[] = [
       { path: '*', lazy: lazyPage(() => import('./pages/NotFoundPage')) },
     ],
   },
+  {
+    path: '/run/*',
+    ErrorBoundary: RouteError,
+    HydrateFallback: Splash,
+    lazy: lazyPage(() => import('./pages/RunPage')),
+  },
 ];
 
 export const router = createBrowserRouter(routes, { basename: mountBase() });

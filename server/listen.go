@@ -39,7 +39,7 @@ func openLinks(addr net.Addr, ifaceAddrs []net.Addr) []openLink {
 		return []openLink{{label: linkLabel(tcp.IP), url: httpURL(boundHost(tcp), port)}}
 	}
 
-	links := []openLink{{label: localLink, url: httpURL("localhost", port)}}
+	links := []openLink{{label: localLink, url: httpURL("127.0.0.1", port)}}
 	for _, entry := range ifaceAddrs {
 		ipNet, ok := entry.(*net.IPNet)
 		if !ok {

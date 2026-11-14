@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/htmlapp"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
@@ -55,6 +56,7 @@ var globalPaths = []string{
 
 type testServer struct {
 	*Web
+	handler    http.Handler
 	url        string
 	root       string
 	secondRoot string
@@ -88,11 +90,18 @@ type testOpts struct {
 	second string
 
 	hook bool
+
+	apps         string
+	trustedProxy bool
+	prepare      func(root string)
 }
 
 func newTestServer(t *testing.T, opts testOpts) *testServer {
 	t.Helper()
 	root := testNotes(t)
+	if opts.prepare != nil {
+		opts.prepare(root)
+	}
 
 	spc := testSpaceAt(t, testSpace, root, opts.readOnly || opts.spaceReadOnly)
 	spc.ReadOnly = opts.spaceReadOnly
@@ -121,17 +130,22 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 		}
 	}
 	svc, err := auth.NewService(auth.Config{
-		Users:       users,
-		Tokens:      tokens,
-		Secret:      "test-signing-secret",
-		Disabled:    !opts.withAuth,
-		TTL:         time.Hour,
-		PublicPaths: public,
+		Users:        users,
+		Tokens:       tokens,
+		Secret:       "test-signing-secret",
+		Disabled:     !opts.withAuth,
+		TTL:          time.Hour,
+		PublicPaths:  public,
+		TrustedProxy: opts.trustedProxy,
 	})
+	require.NoError(t, err)
+	apps, err := htmlapp.Parse(opts.apps)
 	require.NoError(t, err)
 
 	res.Web = &Web{
 		Config: Config{
+			Apps:         apps,
+			TrustedProxy: opts.trustedProxy,
 			Title:        "Test Notes",
 			Version:      "v1.2.3",
 			ReadOnly:     opts.readOnly,
@@ -149,6 +163,7 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 
 	router, err := res.router()
 	require.NoError(t, err)
+	res.handler = router
 	ts := httptest.NewServer(router)
 	t.Cleanup(ts.Close)
 	res.url = ts.URL

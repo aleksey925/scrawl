@@ -95,6 +95,27 @@ words; the fact itself is written here.
   open, and a `register()` of the same script from that page brings it back
   with no install, so the caches deleted with it stay empty.
   [Offline copy](design/offline.md#on-and-off)
+- HTML apps, checked in Chromium 153 only, the one Playwright drives; Firefox,
+  Safari on macOS and iOS, an iPhone home screen app and Cloudflare Tunnel are
+  not checked yet. [HTML apps](design/html-apps.md)
+  - A page at `127.0.0.1` opens `app-<id>.localhost` and
+    `app-<id>.scrawl.localhost`: Chromium sends every `*.localhost` name to the
+    loopback itself.
+  - A frame from `127.0.0.1` to `app-<id>.localhost` is cross-site. The cookie
+    `SameSite=None; Secure; Partitioned` the frame's page sets over plain http
+    is kept and sent on the frame's own requests, and the app's `localStorage`
+    keeps across a reload of the page around the frame.
+  - In that cross-site frame a service worker of the frame's origin, with
+    `Service-Worker-Allowed: /` and the scope `/`, registers and controls the
+    frame, but its own fetches carry no cookie of the origin, the partitioned
+    one: every request of the worker got a 401. In a same-site frame, from
+    `scrawl.localhost` to `app-<id>.scrawl.localhost`, its fetches carry the
+    `Lax` cookie. So scrawl keeps an app offline only in a same-site frame.
+    [HTML apps](design/html-apps.md#offline)
+  - A worker of the app that waits behind another one becomes active once the
+    last page of the app is closed, a frame included: a second run from the
+    same tab closes the frame first, so only a run in a second tab finds it
+    still waiting.
 
 ## Firefox and Chromium from disk
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -167,7 +168,7 @@ func offlineAppOf(t *testing.T, title, version string) *offlineApp {
 func TestOfflineShell(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{withAuth: true})
-	sum := sha256.Sum256(ts.offline.shell)
+	sum := sha256.Sum256(slices.Concat(ts.offline.shell, []byte("\n"+ts.csp)))
 
 	// act
 	resp, body := ts.do(t, request{path: offlineShellBase + ts.offline.shellFile})

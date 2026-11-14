@@ -1,8 +1,10 @@
 import type { SpaceEntry } from '../api/types';
 import {
   answerUrl, appCachePrefix, canonicalPath, channelName, copyHeader, dataCache, decoded, fillAppMessage,
-  networkDeadlineMs, serverUnreachable, signInCookie, spaceBase, type AppState, type ChannelMessage,
+  networkDeadlineMs, serverUnreachable, signInCookies, spaceBase, type AppState, type ChannelMessage,
 } from '../offline/keys';
+
+import { rangeAnswer } from './range';
 
 interface OfflineConfig {
   build: string;
@@ -98,40 +100,6 @@ function deadline(): Promise<undefined> {
   return new Promise((resolve) => setTimeout(() => resolve(undefined), networkDeadlineMs));
 }
 
-function rangeOf(header: string, size: number): { start: number; end: number } | undefined {
-  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
-  if (match === null) {
-    return undefined;
-  }
-  const [, from = '', to = ''] = match;
-  if (from === '' && to === '') {
-    return undefined;
-  }
-  if (from === '') {
-    return { start: Math.max(size - Number(to), 0), end: size - 1 };
-  }
-  return { start: Number(from), end: to === '' ? size - 1 : Math.min(Number(to), size - 1) };
-}
-
-async function rangeAnswer(request: Request, stored: Response): Promise<Response> {
-  const header = request.headers.get('range');
-  if (header === null) {
-    return stored;
-  }
-  const body = await stored.blob();
-  const range = rangeOf(header, body.size);
-  if (range === undefined) {
-    return new Response(body, { status: stored.status, headers: stored.headers });
-  }
-  if (range.start >= body.size || range.start > range.end) {
-    return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${body.size}` } });
-  }
-  const headers = new Headers(stored.headers);
-  headers.set('Content-Range', `bytes ${range.start}-${range.end}/${body.size}`);
-  headers.set('Content-Length', String(range.end - range.start + 1));
-  return new Response(body.slice(range.start, range.end + 1), { status: 206, headers });
-}
-
 async function networkFirst(request: Request, stored: () => Promise<Response | undefined>): Promise<Response> {
   const kept = await stored();
   if (kept === undefined) {
@@ -158,8 +126,13 @@ async function signInPending(request: Request): Promise<boolean> {
   if (!('cookieStore' in self)) {
     return false;
   }
-  const cookie = await self.cookieStore.get(signInCookie).catch(() => null);
-  return cookie?.value !== undefined;
+  for (const name of signInCookies) {
+    const cookie = await self.cookieStore.get(name).catch(() => null);
+    if (cookie?.value !== undefined) {
+      return true;
+    }
+  }
+  return false;
 }
 
 async function storedRaw(request: Request, pathname: string): Promise<Response | undefined> {

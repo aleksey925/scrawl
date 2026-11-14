@@ -27,7 +27,7 @@ func TestOpenLinks(t *testing.T) {
 			name: "every interface over IPv6",
 			addr: &net.TCPAddr{IP: net.IPv6unspecified, Port: 7272},
 			want: []openLink{
-				{label: "local", url: "http://localhost:7272"},
+				{label: "local", url: "http://127.0.0.1:7272"},
 				{label: "network", url: "http://192.168.1.5:7272"},
 				{label: "network", url: "http://10.0.0.7:7272"},
 			},
@@ -36,7 +36,7 @@ func TestOpenLinks(t *testing.T) {
 			name: "every interface over IPv4",
 			addr: &net.TCPAddr{IP: net.IPv4zero, Port: 8080},
 			want: []openLink{
-				{label: "local", url: "http://localhost:8080"},
+				{label: "local", url: "http://127.0.0.1:8080"},
 				{label: "network", url: "http://192.168.1.5:8080"},
 				{label: "network", url: "http://10.0.0.7:8080"},
 			},
@@ -89,5 +89,5 @@ func TestOpenLinksWithNoInterfaceAddress(t *testing.T) {
 	got := openLinks(&net.TCPAddr{IP: net.IPv4zero, Port: 7272}, nil)
 
 	// assert
-	assert.Equal(t, []openLink{{label: "local", url: "http://localhost:7272"}}, got)
+	assert.Equal(t, []openLink{{label: "local", url: "http://127.0.0.1:7272"}}, got)
 }

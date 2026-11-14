@@ -1,20 +1,31 @@
 import { post } from './channel';
-import { dataCache, signInCookie } from './keys';
+import { dataCache, secureSignInCookie, signInCookie, signInCookies } from './keys';
 import { underCopyLock } from './lock';
 import { offlineSupported, offlineWanted } from './preference';
 import { readState, writeState } from './records';
 
-function signedInAs(): string | undefined {
+function cookieValue(wanted: string): string | undefined {
   for (const part of document.cookie.split(';')) {
     const [name, ...value] = part.trim().split('=');
-    if (name === signInCookie) {
+    if (name === wanted) {
       return decodeURIComponent(value.join('=').replace(/\+/g, ' '));
     }
   }
   return undefined;
 }
 
-function dropSignInCookie(): void {
+function signedInAs(): string | undefined {
+  for (const name of signInCookies) {
+    const user = cookieValue(name);
+    if (user !== undefined) {
+      return user;
+    }
+  }
+  return undefined;
+}
+
+function dropSignInCookies(): void {
+  document.cookie = `${secureSignInCookie}=; Path=/; Max-Age=0; Secure`;
   document.cookie = `${signInCookie}=; Path=/; Max-Age=0`;
 }
 
@@ -38,7 +49,7 @@ async function checkOwner(): Promise<void> {
       await underCopyLock(() => takeOwnership(user));
     }
   } finally {
-    dropSignInCookie();
+    dropSignInCookies();
   }
 }
 

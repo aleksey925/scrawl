@@ -18,9 +18,11 @@ import (
 )
 
 const (
-	CookieName = "scrawl_session"
+	CookieName       = "scrawl_session"
+	SecureCookieName = "__Host-scrawl_session"
 
-	SignInCookieName = "scrawl_signin"
+	SignInCookieName       = "scrawl_signin"
+	SecureSignInCookieName = "__Host-scrawl_signin"
 
 	tokenSep   = "|"
 	tokenParts = 3
@@ -83,10 +85,14 @@ func (s *Service) parse(value string, now time.Time) (token, bool) {
 }
 
 func (s *Service) mac(payload, user string) []byte {
-	epoch := sha256.Sum256(s.epochOf(user))
-	mac := hmac.New(sha256.New, s.secret)
+	return macWith(s.secret, payload, s.epochOf(user))
+}
+
+func macWith(key []byte, payload string, epoch []byte) []byte {
+	sum := sha256.Sum256(epoch)
+	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(payload))
-	mac.Write(epoch[:])
+	mac.Write(sum[:])
 	return mac.Sum(nil)
 }
 
@@ -97,8 +103,15 @@ func (s *Service) epochOf(user string) []byte {
 	return unknownEpoch
 }
 
+func (s *Service) sessionCookieName(r *http.Request) string {
+	if s.secureFor(r) {
+		return SecureCookieName
+	}
+	return CookieName
+}
+
 func (s *Service) session(r *http.Request) (token, bool) {
-	cookie, err := r.Cookie(CookieName)
+	cookie, err := r.Cookie(s.sessionCookieName(r))
 	if err != nil {
 		return token{}, false
 	}
@@ -121,7 +134,7 @@ func (s *Service) SetCookie(w http.ResponseWriter, r *http.Request, user string)
 
 func (s *Service) issue(w http.ResponseWriter, r *http.Request, user string) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     CookieName,
+		Name:     s.sessionCookieName(r),
 		Value:    s.sign(user, s.now().Add(s.ttl)),
 		Path:     "/",
 		HttpOnly: true,
@@ -132,18 +145,25 @@ func (s *Service) issue(w http.ResponseWriter, r *http.Request, user string) {
 }
 
 func (s *Service) SetSignInCookie(w http.ResponseWriter, r *http.Request, user string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     SignInCookieName,
-		Value:    url.QueryEscape(user),
-		Path:     "/",
-		Secure:   s.secureFor(r),
-		SameSite: http.SameSiteLaxMode,
-	})
+	secure := s.secureFor(r)
+	names := []string{SignInCookieName}
+	if secure {
+		names = []string{SecureSignInCookieName, SignInCookieName}
+	}
+	for _, name := range names {
+		http.SetCookie(w, &http.Cookie{
+			Name:     name,
+			Value:    url.QueryEscape(user),
+			Path:     "/",
+			Secure:   secure,
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
 }
 
 func (s *Service) ClearCookie(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     CookieName,
+		Name:     s.sessionCookieName(r),
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,

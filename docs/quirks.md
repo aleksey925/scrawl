@@ -9,6 +9,10 @@ words; the fact itself is written here.
 
 - A long press sends no `contextmenu`, so a row times the press itself.
   [Sidebar](ui/sidebar.md)
+- Safari on an iPhone blurred the run screen's bar of an HTML app while the bar
+  sat in the page's flow; the topbar of the other screens, fixed to the top,
+  never showed it. The fixed bar is the fix; not yet checked on a real iPhone
+  here. [Phone](ui/phone.md)
 - A field whose text is under 16px zooms the page when it takes the focus and
   never zooms back. [Touch](ui/touch.md)
 - `:active` is drawn only when the document has a `touchstart` listener.

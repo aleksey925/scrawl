@@ -219,6 +219,33 @@ test.describe('html apps', () => {
         await tab.close();
     });
 
+    test('a folder list runs an html file from its Run button and its menu', async ({page}) => {
+        // arrange
+        await signIn(page, {baseURL: PLAIN.base, from: SHARED.routes.dir(COUNTER)});
+        const appRow = page.locator(`[data-testid=dir-row][data-path="${COUNTER_FILE}"]`);
+        const styleRow = page.locator(`[data-testid=dir-row][data-path="${COUNTER}/style.css"]`);
+
+        // act & assert
+        await expect(appRow.getByTestId('dir-row-run')).toHaveText('Run');
+        await expect(appRow.getByTestId('dir-row-run')).toHaveCSS('text-transform', 'uppercase');
+        await expect(styleRow.getByTestId('dir-row-run')).toHaveCount(0);
+        await shot(page, 'apps-run-button');
+        await appRow.getByTestId('dir-row-run').click();
+        await expect(page).toHaveURL(PLAIN.run(COUNTER_FILE));
+        await expect(appFrame(page).locator('#title')).toHaveText('Counter');
+
+        await page.goBack();
+        await appRow.click({button: 'right'});
+        await page.getByTestId('tree-row-menu-run').click();
+        await expect(page).toHaveURL(PLAIN.run(COUNTER_FILE));
+        await expect(appFrame(page).locator('#title')).toHaveText('Counter');
+
+        await page.goBack();
+        await styleRow.click({button: 'right'});
+        await expect(page.getByTestId('tree-row-menu-open')).toBeVisible();
+        await expect(page.getByTestId('tree-row-menu-run')).toHaveCount(0);
+    });
+
     test('keeps the frame and its input through a lost network', async ({page, context}) => {
         // arrange
         await signIn(page, {baseURL: PLAIN.base, from: SHARED.routes.doc(COUNTER_FILE)});

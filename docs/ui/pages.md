@@ -226,6 +226,11 @@ opens over them.
 - The page of a `.html` or `.htm` file has Run among its actions, a play icon
   after Edit and before Download, at any address: where Run cannot work the run
   screen says why. See [HTML apps](../design/html-apps.md).
+- In the list of a folder a `.html` or `.htm` file has a Run button in its row,
+  an outlined RUN in capitals after the name, as Notion draws Open; on a phone
+  it sits before the row's menu, its tap area the 44px of a tap. The menu of
+  such a row, in the list and in the tree, has Run after Open. Both open the
+  run screen. A site has neither, as it has no run screen.
 - Run opens the run screen, `/run/<path>`, outside the layout: no sidebar, no
   topbar, no tab bar and no banner, since the app wants the whole screen. One
   bar on top holds Back, a link to the file's page, the file name with an

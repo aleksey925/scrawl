@@ -132,7 +132,24 @@ test.describe('mobile', () => {
         expect(frame.top).toBe(bar.bottom);
         expect(frame.bottom).toBe(page.viewportSize().height);
         expect(await tooSmall(page, '[data-testid=run-bar] a, [data-testid=run-bar] button')).toEqual([]);
+        await expect(page.getByTestId('run-bar')).toHaveCSS('position', 'fixed');
         await shot(page, 'mobile-html-app');
+    });
+
+    test('an html file in a folder list has a Run button that starts it', async ({page}) => {
+        // arrange
+        writeFixture('e2e-mobile/app/index.html', '<!doctype html><h1 id="title">Phone app</h1>\n');
+        writeFixture('e2e-mobile/app/style.css', 'h1 { color: inherit; }\n');
+        await page.goto(routes.dir('e2e-mobile/app'));
+
+        // act & assert
+        const row = page.locator('[data-testid=dir-row][data-path="e2e-mobile/app/index.html"]');
+        await expect(row.getByTestId('dir-row-run')).toBeVisible();
+        await expect(page.locator('[data-testid=dir-row][data-path="e2e-mobile/app/style.css"]').getByTestId('dir-row-run'))
+            .toHaveCount(0);
+        await shot(page, 'mobile-html-app-run-button');
+        await row.getByTestId('dir-row-run').tap();
+        await expect(page.frameLocator('[data-testid=run-frame]').locator('#title')).toHaveText('Phone app');
     });
 
     test('Notes opens the root list, a folder opens its list, and the back link goes up', async ({page}) => {

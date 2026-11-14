@@ -7,9 +7,9 @@ import {
 } from '../components/pointerMenu';
 import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
 import {
-  IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconMoveTo, IconPlus, IconTrash,
+  IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconMoveTo, IconPlay, IconPlus, IconTrash,
 } from '../icons';
-import { directoryUrl, documentUrl } from '../paths';
+import { directoryUrl, documentUrl, isHtmlApp, runUrl } from '../paths';
 import { layout } from '../theme';
 
 import { rowMenuIconSize, type RowMenuProps } from './extensions';
@@ -66,6 +66,15 @@ export function RowMenu({
         >
           Open
         </Menu.Item>
+        {!isDir && isHtmlApp(path) && (
+          <Menu.Item
+            data-testid="tree-row-menu-run"
+            leftSection={<IconPlay size={rowMenuIconSize} />}
+            onClick={() => void navigate(runUrl(path))}
+          >
+            Run
+          </Menu.Item>
+        )}
         {editUrl !== undefined && canWrite && (
           <Menu.Item
             data-testid="tree-row-menu-edit"

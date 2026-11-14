@@ -114,6 +114,8 @@ How the app works on a phone.
 - The run screen of an HTML app is one bar on top and the frame under it to the
   bottom of the screen: no tab bar, no Edit button and no swipe back from the
   edge, since the screen is outside the layout that owns them and a swipe over
-  the frame belongs to the app. The bar adds the safe areas of the status bar
-  and the sides, and its buttons are the 44px of a tap ([touch](touch.md)).
-  Back is the way out. See [pages](pages.md#an-html-app).
+  the frame belongs to the app. The bar is fixed to the top, as the topbar of
+  the other screens is, and adds the safe areas of the status bar and the
+  sides; in the flow of the page Safari blurred it
+  ([quirks](../quirks.md#ios-and-safari)). Its buttons are the 44px of a tap
+  ([touch](touch.md)). Back is the way out. See [pages](pages.md#an-html-app).

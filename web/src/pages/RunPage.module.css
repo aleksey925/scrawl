@@ -2,15 +2,18 @@
   display: flex;
   flex-direction: column;
   height: 100dvh;
+  padding-top: calc(var(--scrawl-topbar-height) + env(safe-area-inset-top, 0px));
   background: var(--scrawl-bg);
 }
 
 .bar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 1;
   display: flex;
-  flex: none;
   align-items: center;
   gap: 4px;
-  min-height: calc(var(--scrawl-topbar-height) + env(safe-area-inset-top, 0px));
+  height: calc(var(--scrawl-topbar-height) + env(safe-area-inset-top, 0px));
   padding-top: env(safe-area-inset-top, 0px);
   padding-inline: max(8px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-right, 0px));
   border-bottom: 1px solid var(--scrawl-border-light);

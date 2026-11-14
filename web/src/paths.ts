@@ -61,6 +61,14 @@ export function editUrl(path: string): string {
   return `/edit/${encodeContentPath(path)}`;
 }
 
+export function isHtmlApp(path: string): boolean {
+  return /\.html?$/i.test(path);
+}
+
+export function runUrl(path: string): string {
+  return `/run/${encodeContentPath(path)}`;
+}
+
 export function isEditPath(pathname: string): boolean {
   return pathname.startsWith('/edit/');
 }

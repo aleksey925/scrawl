@@ -111,29 +111,32 @@
   line-height: 18px;
 }
 
-.run,
-.listRun {
+.run {
   flex: none;
+  margin-inline-start: auto;
+  padding: 0 8px;
   border: 1px solid var(--scrawl-border);
   border-radius: 6px;
   color: var(--scrawl-text-secondary);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.06em;
+  line-height: 20px;
   text-decoration: none;
   text-transform: uppercase;
 }
 
-.run {
-  margin-inline-start: auto;
-  padding: 0 8px;
-  line-height: 20px;
-}
-
 .listRun {
   position: relative;
-  padding: 0 10px;
-  line-height: 28px;
+  flex: none;
+  padding: 0 14px;
+  border-radius: 15px;
+  background: var(--scrawl-hover);
+  color: var(--scrawl-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  line-height: 30px;
+  text-decoration: none;
 }
 
 .listRun::after {
@@ -143,8 +146,7 @@
 }
 
 @media (hover: hover) {
-  .run:hover,
-  .listRun:hover {
+  .run:hover {
     background: var(--scrawl-hover);
     color: var(--scrawl-text);
   }
@@ -177,27 +179,20 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
-  min-height: 56px;
+  min-height: 52px;
   padding-block: 8px;
   color: var(--scrawl-text);
   text-decoration: none;
 }
 
-.listIcon,
-.listChevron {
+.listIcon {
   flex: none;
   color: var(--scrawl-icon-secondary);
 }
 
-.listText {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-width: 0;
-}
-
 .listName {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -214,11 +209,6 @@
 .listField {
   gap: 12px;
   min-height: 40px;
-}
-
-.listMeta {
-  color: var(--scrawl-text-tertiary);
-  font-size: 13px;
 }
 
 @media (hover: none) {

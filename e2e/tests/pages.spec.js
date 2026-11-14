@@ -155,7 +155,7 @@ test.describe('pages', () => {
         }
     });
 
-    test('the start screen stays while the first page loads', async ({page}) => {
+    test('the page is empty while the first page loads', async ({page}) => {
         // arrange
         const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
 
@@ -164,15 +164,13 @@ test.describe('pages', () => {
         await chunk.reached;
 
         // assert
-        await expect(page.getByTestId('app-splash')).toBeVisible();
+        await expect(page.locator('#scrawl-app-root > :not(style)')).toHaveCount(0);
 
         // act
         chunk.release();
 
         // assert
         await expect(page.getByTestId('doc')).toBeVisible();
-        await expect(page.getByTestId('app-splash')).toHaveCount(0);
-        await expect(page.locator('.scrawl-splash')).toHaveCount(0);
     });
 
     test('a folder\'s table keeps its columns, and on a narrow page the name gives way', async ({page}) => {

@@ -144,7 +144,8 @@ test.describe('mobile', () => {
 
         // act & assert
         const row = page.locator('[data-testid=dir-row][data-path="e2e-mobile/app/index.html"]');
-        await expect(row.getByTestId('dir-row-run')).toBeVisible();
+        await expect(row.getByTestId('dir-row-run')).toHaveText('Run');
+        await expect(row.getByTestId('dir-row-run')).toHaveCSS('text-transform', 'none');
         await expect(page.locator('[data-testid=dir-row][data-path="e2e-mobile/app/style.css"]').getByTestId('dir-row-run'))
             .toHaveCount(0);
         await shot(page, 'mobile-html-app-run-button');
@@ -160,13 +161,12 @@ test.describe('mobile', () => {
         await page.getByTestId('tab-notes').tap();
         await expect(page).toHaveURL(atHome());
         const folder = page.locator(`[data-testid=dir-row][data-path="${docs.folder.path}"]`);
-        await expect(folder.getByTestId('dir-row-meta')).toHaveText(/^\d+ items?$/);
+        await expect(folder).toHaveText(docs.folder.name);
         await folder.tap();
         await expect(page).toHaveURL(MAIN.url.dir(docs.folder.path));
         await expect(page.getByTestId('dir-up')).toHaveCount(0);
         await expect(page.getByTestId('dir-new')).toHaveCount(0);
-        await expect(page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"] [data-testid=dir-row-meta]`))
-            .toHaveText(/ · /);
+        await expect(page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`)).toHaveText(docs.folder.entry.split('/').pop());
         await shot(page, 'mobile-folder-list');
 
         await page.getByTestId('topbar-up').tap();

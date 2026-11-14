@@ -99,8 +99,8 @@ opens over them.
   root has no way up, and the app's logo and the space's name stand there
   instead. Every screen has the bar as a row of its own and its title on one
   line under it: a root drawn another way made the page jump on the way to a
-  folder. A folder there is a list and not a table: a name over one line of
-  what it is, and no `..` row.
+  folder. A folder there is a list and not a table: a row is the icon and the
+  name on one line, with no size, date or count, no chevron, and no `..` row.
 
 ## Note
 
@@ -228,9 +228,9 @@ opens over them.
   screen says why. See [HTML apps](../design/html-apps.md).
 - In the list of a folder a `.html` or `.htm` file has a Run button in its row,
   an outlined RUN in capitals after the name, as Notion draws Open; on a phone
-  it sits before the row's menu, its tap area the 44px of a tap. The menu of
-  such a row has Run after Open. Both open the run screen. A site has neither,
-  as it has no run screen.
+  it is a filled pill, `Run` in plain case, before the row's menu, its tap area
+  the 44px of a tap. The menu of such a row has Run after Open. Both open the
+  run screen. A site has neither, as it has no run screen.
 - Run opens the run screen, `/run/<path>`, outside the layout: no sidebar, no
   topbar, no tab bar and no banner, since the app wants the whole screen. One
   bar on top holds Back, the file name with an ellipsis, and Open in a new tab.
@@ -258,11 +258,10 @@ opens over them.
 
 ## Start
 
-- Until the app has drawn its first screen, the page shows the logo in the
-  middle of the theme's ground. The server writes it into the shell, so it
-  shows before the bundle runs, and the app keeps it while the first page's
-  chunk loads. Opened from the offline copy, the page has the system's ground
-  until the bundle runs, since that shell knows no theme.
+- Until the app has drawn its first screen, the page is the theme's ground with
+  nothing on it, both before the bundle runs and while the first page's chunk
+  loads. Opened from the offline copy, the page has the system's ground until
+  the bundle runs, since that shell knows no theme.
 - With offline access on, the app opens on the copy at once and turns writable
   when the server answers. See [offline copy](../design/offline.md).
 

@@ -1,11 +1,14 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 
 import { RouteError } from './components/RouteError';
-import { Splash } from './components/Splash';
 import { noteEntry } from './historyTrail';
 import { mountBase } from './mount';
 import { loadChunk } from './staleBundle';
 import { AppLayout } from './shell/AppLayout';
+
+function Blank(): null {
+  return null;
+}
 
 function lazyPage<T>(load: () => Promise<T>): () => Promise<T> {
   return () => loadChunk(load());
@@ -16,7 +19,7 @@ const routes: RouteObject[] = [
     path: '/',
     Component: AppLayout,
     ErrorBoundary: RouteError,
-    HydrateFallback: Splash,
+    HydrateFallback: Blank,
     children: [
       { index: true, lazy: lazyPage(() => import('./pages/HomePage')) },
       { path: 'doc/*', lazy: lazyPage(() => import('./pages/DocumentPage')) },
@@ -30,7 +33,7 @@ const routes: RouteObject[] = [
   {
     path: '/run/*',
     ErrorBoundary: RouteError,
-    HydrateFallback: Splash,
+    HydrateFallback: Blank,
     lazy: lazyPage(() => import('./pages/RunPage')),
   },
 ];

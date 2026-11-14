@@ -5,7 +5,7 @@ import {
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import type { DirEntry, EntryKind } from '../api/types';
-import { IconArrowUp, IconChevronRight, IconClock, IconFile, IconFileText, IconFolder, IconHash } from '../icons';
+import { IconArrowUp, IconClock, IconFile, IconFileText, IconFolder, IconHash } from '../icons';
 import { directoryUrl, isHtmlApp, isMarkdown, runState, runUrl } from '../paths';
 import { usePlatform } from '../platform';
 import { useReaderExtensions } from '../shell/extensions';
@@ -22,7 +22,7 @@ import { NameField } from './NameField';
 import { usePointerMenu } from './pointerMenu';
 import pressClasses from './PressRow.module.css';
 import { RenameField } from './RenameField';
-import { absoluteTime, countOf, fileSize, shortDate, shortTime } from './formats';
+import { absoluteTime, fileSize, shortTime } from './formats';
 
 export interface DirTableProps {
   path: string;
@@ -305,22 +305,15 @@ function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming
 }
 
 function PhoneLinkRow({ entry, routed, runs, href }: PhoneRowProps): JSX.Element {
-  const meta = entry.is_dir ? countOf(entry.items ?? 0, 'item') : `${fileSize(entry.size)} · ${shortDate(entry.mod_time)}`;
   const body = (
     <>
       <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSize} className={classes.listIcon} />
-      <span className={classes.listText}>
-        <span className={classes.listName}>
-          <span data-testid="dir-row-name" className={classes.listLabel}>
-            {entry.name}
-          </span>
-          <RowTags entry={entry} />
+      <span className={classes.listName}>
+        <span data-testid="dir-row-name" className={classes.listLabel}>
+          {entry.name}
         </span>
-        <span data-testid="dir-row-meta" className={classes.listMeta}>
-          {meta}
-        </span>
+        <RowTags entry={entry} />
       </span>
-      {entry.is_dir && <IconChevronRight size={layout.iconSizeSmall} aria-hidden className={classes.listChevron} />}
     </>
   );
   const { RowMenu } = useReaderExtensions();

@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"slices"
-	"sync"
 
 	"github.com/aleksey925/scrawl/gzassets"
 	"github.com/aleksey925/scrawl/store"
@@ -51,7 +50,6 @@ type shellData struct {
 	Theme   pageTheme
 	Version string
 	Favicon string
-	Logo    template.HTML
 	Base    string
 	Entry   string
 	CSS     []string
@@ -80,16 +78,10 @@ const shellTemplate = `<!doctype html>
 {{end}}<script type="module" crossorigin src="{{.Entry}}"></script>
 </head>
 <body>
-<div id="scrawl-app-root" data-base="{{.Base}}" data-version="{{.Version}}">
-<div class="scrawl-splash" aria-hidden="true">{{.Logo}}</div>
-</div>
+<div id="scrawl-app-root" data-base="{{.Base}}" data-version="{{.Version}}"></div>
 </body>
 </html>
 `
-
-var splashLogo = sync.OnceValue(func() template.HTML {
-	return inlineLogo("")
-})
 
 func newAppShell(files gzassets.Files) (*appShell, error) {
 	raw, err := files.ReadFile(appManifest)
@@ -204,7 +196,6 @@ func (wb *Web) renderShell(theme pageTheme, base string) ([]byte, error) {
 		Theme:   theme,
 		Version: wb.Version,
 		Favicon: iconURL(wb.Version, "favicon.svg"),
-		Logo:    splashLogo(),
 		Base:    base,
 		Entry:   wb.appShell.entry,
 		CSS:     wb.appShell.css,

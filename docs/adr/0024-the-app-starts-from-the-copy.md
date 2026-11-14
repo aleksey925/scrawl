@@ -23,10 +23,10 @@ again, with its own 3 seconds.
   3 seconds.
 - A navigation while `scrawl_signin` is set, or of a space whose `me` the copy
   does not hold, still goes to the network first.
-- The server draws the logo on the theme's ground inside the mount node, and
-  the router's `HydrateFallback` draws the same, so the screen is never empty.
-  The offline shell knows no theme and draws the system's ground until the
-  bundle runs.
+- Until the first page is drawn, the screen is the theme's ground with nothing
+  on it: the server leaves the mount node empty, and the router's
+  `HydrateFallback` draws nothing. The offline shell knows no theme and draws
+  the system's ground until the bundle runs.
 
 ## Options turned down
 
@@ -34,6 +34,8 @@ again, with its own 3 seconds.
   still waits for the server before anything is drawn, the longest wait.
 - Navigation preload: it starts the request sooner but still waits for it.
 - `apple-touch-startup-image`: one picture per screen size and orientation.
+- The logo in the middle of the ground while the app loads: it showed on every
+  start, even a short one, as a splash screen the app does not need.
 - Starting offline with the mark shown: the mark would flash on every start.
 - Ending the check by cancelling `/api/me`: on a slow link the account would be
   asked again and again and never answer in time.

@@ -288,6 +288,10 @@ the apps host keeps the files.
   before it never lands after it, and a worker Off unregistered that still
   answers an open tab writes nothing. A generation number alone would not do: a
   worker stopped and started again forgets it.
+- Writes land in the order the answers end, not the order they were asked, so
+  an older answer of a file that ends last can replace a newer one. No order
+  per file is kept: online the page gets the network first, and the next run
+  with a network sees the ETag differ from the list and fetches the file again.
 - From the cache it answers with the stored headers but sets
   `frame-ancestors <parent>` from the record: a file unchanged since its first
   run is never fetched again, and a stored header would keep that run's parent.

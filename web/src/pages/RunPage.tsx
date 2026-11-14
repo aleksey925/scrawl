@@ -27,6 +27,7 @@ const frameAllow = 'clipboard-read; clipboard-write; fullscreen';
 interface RunFrame {
   src: string;
   app: string;
+  kept: boolean;
 }
 
 type RunState =
@@ -54,7 +55,7 @@ async function offlineState(path: string): Promise<RunState> {
   if (!record.offline) {
     return { kind: 'offline', message: 'This browser does not keep this app for offline use.' };
   }
-  return { kind: 'frame', frame: { src: record.url, app: record.url } };
+  return { kind: 'frame', frame: { src: record.url, app: record.url, kept: true } };
 }
 
 export function Component(): JSX.Element {
@@ -68,6 +69,7 @@ function RunScreen({ path }: { path: string }): JSX.Element {
   useMe();
   const connection = useConnection();
   const [state, setState] = useState<RunState>({ kind: 'waiting' });
+  const [enteredKept, setEnteredKept] = useState(false);
   const framed = state.kind === 'frame';
   const frameRef = useRef<HTMLIFrameElement>(null);
 
@@ -85,7 +87,7 @@ function RunScreen({ path }: { path: string }): JSX.Element {
       void offlineState(path).then(settle);
     } else {
       api.runTicket(path, keepsApps()).then(
-        (ticket) => settle({ kind: 'frame', frame: { src: ticket.url, app: ticket.app } }),
+        (ticket) => settle({ kind: 'frame', frame: { src: ticket.url, app: ticket.app, kept: false } }),
         (error: unknown) => {
           if (error instanceof TypeError) {
             void offlineState(path).then(settle);
@@ -101,6 +103,7 @@ function RunScreen({ path }: { path: string }): JSX.Element {
   }, [connection, framed, path]);
 
   const app = state.kind === 'frame' ? state.frame.app : undefined;
+  const kept = state.kind === 'frame' && (state.frame.kept || enteredKept);
 
   useEffect(() => {
     if (app === undefined) {
@@ -115,6 +118,7 @@ function RunScreen({ path }: { path: string }): JSX.Element {
       if (data?.type !== enterMessage || typeof data.offline !== 'boolean' || !keepsApps()) {
         return;
       }
+      setEnteredKept(data.offline);
       void writeRun(mountedSpace(), path, { url: app, offline: data.offline }).catch(() => undefined);
     };
     window.addEventListener('message', onMessage);
@@ -129,7 +133,7 @@ function RunScreen({ path }: { path: string }): JSX.Element {
     }
     tab.opener = null;
     if (connection === 'offline') {
-      if (app === undefined) {
+      if (!kept || app === undefined) {
         tab.close();
         return;
       }
@@ -148,7 +152,7 @@ function RunScreen({ path }: { path: string }): JSX.Element {
   };
 
   const name = basenameOf(path);
-  const outsideAvailable = connection !== 'offline' || app !== undefined;
+  const outsideAvailable = connection !== 'offline' || kept;
 
   return (
     <div className={classes.screen} data-testid="run">

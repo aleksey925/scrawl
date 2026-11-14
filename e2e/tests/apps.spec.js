@@ -259,6 +259,7 @@ test.describe('html apps', () => {
         await tab.close();
 
         await context.setOffline(true);
+        await expect(page.getByTestId('run-open-outside')).toBeDisabled();
         await page.reload();
         await expect(page.getByTestId('run-needs-network')).toContainText(NOT_KEPT);
         await expect(page.getByTestId('run-open-outside')).toBeDisabled();

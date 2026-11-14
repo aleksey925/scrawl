@@ -202,7 +202,7 @@ go install github.com/aleksey925/scrawl@latest
 ### Running the binary
 
 Without Docker, every setting is a flag. The local folder from
-[Quick start](#use-a-local-folder):
+[Quick start](#use-local-folder):
 
 ```
 scrawl serve --space.dir ~/notes --space.name notes --auth.users 'admin:admin'

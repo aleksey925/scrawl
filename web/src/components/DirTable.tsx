@@ -2,13 +2,13 @@ import {
   useCallback, useRef, useState,
   type JSX, type MouseEvent, type PointerEvent, type ReactElement, type ReactNode,
 } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 import type { DirEntry, EntryKind } from '../api/types';
 import { IconArrowUp, IconClock, IconFile, IconFileText, IconFolder, IconHash } from '../icons';
-import { directoryUrl, isHtmlApp, isMarkdown, runState, runUrl } from '../paths';
+import { directoryUrl, isHtmlApp, isMarkdown } from '../paths';
 import { usePlatform } from '../platform';
-import { useReaderExtensions } from '../shell/extensions';
+import { useReaderExtensions, type RunLinkProps } from '../shell/extensions';
 import { useRenamingHere, type Renaming } from '../shell/fileActionsContext';
 import { parentOf } from '../shell/naming';
 import { SyncBadge } from '../shell/SyncBadge';
@@ -38,7 +38,7 @@ function opensRow(event: MouseEvent): boolean {
 
 export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }: DirTableProps): JSX.Element {
   const { physicalUrl } = usePlatform();
-  const { FileView, RowMenu } = useReaderExtensions();
+  const { FileView, RowMenu, RunLink } = useReaderExtensions();
   const filePages = FileView !== undefined;
   const navigate = useNavigate();
   const phone = useBelow(layoutBreakpoints.phone);
@@ -51,7 +51,7 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
     );
 
   const routed = (entry: DirEntry): boolean => filePages || entry.is_dir || isMarkdown(entry.path);
-  const runs = (entry: DirEntry): boolean => filePages && !entry.is_dir && isHtmlApp(entry.path);
+  const runs = (entry: DirEntry): boolean => RunLink !== undefined && !entry.is_dir && isHtmlApp(entry.path);
   const open = (entry: DirEntry): void => {
     if (routed(entry)) {
       void navigate(entry.url);
@@ -232,7 +232,7 @@ function TableRow({ entry, routed, runs, href, menuOpen, onOpen, onMenu }: Table
             </a>
           )}
           <RowTags entry={entry} />
-          {runs && <RunLink path={entry.path} className={classes.run} />}
+          {runs && <RunEntry path={entry.path} className={classes.run} />}
         </span>
       </td>
       {cells}
@@ -253,13 +253,9 @@ function RowTags({ entry }: { entry: DirEntry }): JSX.Element {
   );
 }
 
-function RunLink({ path, className }: { path: string; className: string | undefined }): JSX.Element {
-  const location = useLocation();
-  return (
-    <Link data-testid="dir-row-run" data-row-action to={runUrl(path)} state={runState(location)} className={className}>
-      Run
-    </Link>
-  );
+function RunEntry({ path, className }: RunLinkProps): JSX.Element | null {
+  const { RunLink } = useReaderExtensions();
+  return RunLink === undefined ? null : <RunLink path={path} className={className} />;
 }
 
 function restingRect(element: HTMLElement): DOMRect {
@@ -372,7 +368,7 @@ function PhoneLinkRow({ entry, routed, runs, href }: PhoneRowProps): JSX.Element
             })}
       >
         {link}
-        {runs && <RunLink path={entry.path} className={classes.listRun} />}
+        {runs && <RunEntry path={entry.path} className={classes.listRun} />}
         {menu(menuOpened, setMenuOpened)}
       </div>
       {RowMenu !== undefined && lifted !== undefined && (

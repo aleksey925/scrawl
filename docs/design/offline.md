@@ -322,7 +322,8 @@ needs.
   `/__scrawl-offline/run/<space>/<path>` -> `{url, offline}` into
   `scrawl-data`, `url` being the file on the apps host. One key per file, so
   two tabs never overwrite each other's runs, and no lock: it names only a file
-  every user of the server may open.
+  every user of the server may open. In Safari Run opens a tab instead, and
+  writes the record itself ([HTML apps](html-apps.md#safari)).
 - With no network the run screen reads that record. `offline: true` frames
   `url` with no ticket, and the worker of the app answers. `offline: false`
   shows `Needs a network` and

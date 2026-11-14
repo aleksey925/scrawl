@@ -226,6 +226,27 @@ the scheme and the port of the page. Chrome and Firefox send every
   `app-<id>.localhost`, nor for a LAN address on http; such a frame shows the
   browser's error page.
 
+## Safari
+
+- WebKit keeps the `localStorage` of a frame whose origin is not the page's in
+  memory only, and an app's origin is never scrawl's, so in the frame the app's
+  data is gone when the browser closes ([quirks](../quirks.md#webkit)). A tab
+  of its own is a first party and keeps it.
+- So in Safari Run opens the app as Open in a new tab does, never the run
+  screen. `framesForgetStorage` tells it by the user agent: `AppleWebKit/` with
+  no `Chrome/`, `Chromium/` or `Android`, which is every browser of an iPhone
+  and Safari on a Mac. The Run of a file's page, of a row of a folder's list
+  and of the row's menu call `runInTab`, which opens the tab in the tap, as a
+  popup blocker wants, and then asks the ticket.
+- With the copy on, the tab keeps the app, as any tab of its own does, and
+  `runInTab` writes the record of the run itself with `offline: true`, since no
+  frame posts the enter message. With no network, or a ticket that fails on the
+  network, it opens the record's `url`; with no record, or the copy off, it
+  closes the tab and shows the run screen's text in a toast.
+- The run screen still answers at its address, with the frame. The Run of a
+  folder's list comes from the `RunLink` reader extension, so a site imports
+  none of this.
+
 ## Offline
 
 An app with no files, or with all its files in its folder, opens with no

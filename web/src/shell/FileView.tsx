@@ -1,5 +1,5 @@
 import { ActionIcon, Button, Menu } from '@mantine/core';
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX, type MouseEvent } from 'react';
 import { useLocation } from 'react-router';
 
 import type { FilePageResponse } from '../api/types';
@@ -19,6 +19,7 @@ import { useFileActions } from './fileActionsContext';
 import classes from './FileView.module.css';
 import { useNav } from './NavContext';
 import { chromeOf, usePageChrome } from './PageChrome';
+import { useRunInTab } from './runInTab';
 import { PageActions } from './ShellSlots';
 import { TopbarAction } from './TopbarAction';
 
@@ -144,11 +145,19 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
   const { canWrite } = useNav();
   const location = useLocation();
   const actions = useFileActions();
+  const runInTab = useRunInTab();
+  const runHere =
+    runInTab === undefined
+      ? undefined
+      : (event: MouseEvent<HTMLElement>): void => {
+          event.preventDefault();
+          runInTab(file.path);
+        };
 
   return (
     <>
       {canWrite && file.edit_url !== undefined && <EditAction testId="file-edit" to={file.edit_url} />}
-      {file.run_url !== undefined && <TopbarAction testId="file-run" label="Run" icon={IconPlay} to={file.run_url} state={runState(location)} />}
+      {file.run_url !== undefined && <TopbarAction testId="file-run" label="Run" icon={IconPlay} to={file.run_url} state={runState(location)} onClick={runHere} />}
       <ActionIcon
         data-testid="file-download"
         component="a"

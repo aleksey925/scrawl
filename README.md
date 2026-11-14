@@ -316,6 +316,10 @@ Where apps run depends on where scrawl is opened:
 
 Some limits:
 
+- In Safari, on a Mac and on an iPhone, Run opens the app in a new tab, not
+  inside scrawl. Inside a page of scrawl, Safari keeps the app's `localStorage`
+  only in memory, so everything the app saved there is lost once Safari closes.
+  In a tab of its own the app keeps its data as on any site.
 - Right after Run the frame says `Open this app from scrawl`: the browser did
   not keep the app's cookie inside the frame. "Open in a new tab" works.
 - A service worker of the app itself replaces scrawl's, and keeps serving the

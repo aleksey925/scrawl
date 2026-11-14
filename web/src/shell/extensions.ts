@@ -20,6 +20,11 @@ export interface RowMenuProps {
   at?: Point;
 }
 
+export interface RunLinkProps {
+  path: string;
+  className: string | undefined;
+}
+
 export interface DocumentExtrasProps {
   doc: DocumentResponse;
   placed: RefObject<boolean>;
@@ -29,6 +34,7 @@ export interface ReaderExtensions {
   DocumentExtras?: ComponentType<DocumentExtrasProps>;
   RowMenu?: ComponentType<RowMenuProps>;
   FileView?: ComponentType<{ file: FilePageResponse }>;
+  RunLink?: ComponentType<RunLinkProps>;
 }
 
 const none: ReaderExtensions = {};

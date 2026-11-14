@@ -16,6 +16,7 @@ import { rowMenuIconSize, type RowMenuProps } from './extensions';
 import { useFileActions } from './fileActionsContext';
 import { useNav } from './NavContext';
 import { parentOf } from './naming';
+import { useRunInTab } from './runInTab';
 
 const buttonPlacement: MenuPlacement = { position: 'bottom-end' };
 const targetPlacement: MenuPlacement = { position: 'bottom-end', offset: 8 };
@@ -27,10 +28,18 @@ export function RowMenu({
   const location = useLocation();
   const { canWrite } = useNav();
   const actions = useFileActions();
+  const runInTab = useRunInTab();
   useCloseOnScroll(opened, setOpened);
 
   const folder = isDir ? path : parentOf(path);
   const open = (): void => void navigate(isDir ? directoryUrl(path) : documentUrl(path));
+  const run = (): void => {
+    if (runInTab === undefined) {
+      void navigate(runUrl(path), { state: runState(location) });
+    } else {
+      runInTab(path);
+    }
+  };
   const placement = at !== undefined ? pointerPlacement : target === undefined ? buttonPlacement : targetPlacement;
 
   return (
@@ -71,7 +80,7 @@ export function RowMenu({
           <Menu.Item
             data-testid="tree-row-menu-run"
             leftSection={<IconPlay size={rowMenuIconSize} />}
-            onClick={() => void navigate(runUrl(path), { state: runState(location) })}
+            onClick={run}
           >
             Run
           </Menu.Item>

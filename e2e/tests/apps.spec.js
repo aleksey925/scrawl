@@ -14,6 +14,8 @@ const NO_RECORD = 'Run this app once with a network to use it offline.';
 const NOT_KEPT = 'This browser does not keep this app for offline use.';
 const MISSING = 'This file is not on this device. Open the app once with a network.';
 const APP_CACHE = 'scrawl-htmlapp';
+const SAFARI = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) '
+    + 'Version/18.0 Safari/605.1.15';
 
 function siteAt(base) {
     const prefix = `${base}${SHARED.routes.prefix()}`;
@@ -102,6 +104,13 @@ async function run(page, site, file, title) {
     await expect(page.getByTestId('run-frame')).toBeVisible();
     await expect(appFrame(page).locator('#title')).toHaveText(title);
     return liveFrame(page);
+}
+
+async function runInTab(context, button) {
+    const [tab] = await Promise.all([context.waitForEvent('page'), button.click()]);
+    await expect(tab.locator('#title')).toHaveText('Counter');
+    expect(new URL(tab.url()).hostname).toMatch(APP_HOST);
+    return tab;
 }
 
 async function setCopy(page, on) {
@@ -246,6 +255,56 @@ test.describe('html apps', () => {
         await styleRow.click({button: 'right'});
         await expect(page.getByTestId('tree-row-menu-open')).toBeVisible();
         await expect(page.getByTestId('tree-row-menu-run')).toHaveCount(0);
+    });
+
+    test.describe('in Safari', () => {
+        test.use({userAgent: SAFARI});
+
+        test('runs an html file in a tab of its own from every Run', async ({page, context}) => {
+            // arrange
+            await signIn(page, {baseURL: PLAIN.base, from: SHARED.routes.doc(COUNTER_FILE)});
+            const appRow = page.locator(`[data-testid=dir-row][data-path="${COUNTER_FILE}"]`);
+
+            // act & assert
+            await openFile(page, PLAIN, COUNTER_FILE);
+            const fromFile = await runInTab(context, page.getByTestId('file-run'));
+            await expect(page).toHaveURL(PLAIN.doc(COUNTER_FILE));
+            const first = Number(await fromFile.locator('#count').textContent());
+            await fromFile.close();
+
+            await page.goto(`${PLAIN.base}${SHARED.routes.dir(COUNTER)}`);
+            await page.waitForLoadState('networkidle');
+            const fromRow = await runInTab(context, appRow.getByTestId('dir-row-run'));
+            await expect(page).toHaveURL(`${PLAIN.prefix}/doc/${encodePath(COUNTER)}/`);
+            await expect(fromRow.locator('#count')).toHaveText(String(first + 1));
+            await fromRow.close();
+
+            await appRow.click({button: 'right'});
+            const fromMenu = await runInTab(context, page.getByTestId('tree-row-menu-run'));
+            await expect(fromMenu.locator('#count')).toHaveText(String(first + 2));
+            await fromMenu.close();
+            await expect(page.getByTestId('run-frame')).toHaveCount(0);
+        });
+
+        test('runs the kept app in a tab with no network', async ({page, context}) => {
+            // arrange
+            await copyOn(page, PLAIN);
+            await openFile(page, PLAIN, COUNTER_FILE);
+            const online = await runInTab(context, page.getByTestId('file-run'));
+            await expect.poll(() => kept(online.mainFrame(), '/page2.html'), {timeout: 20_000}).toBe(true);
+            const before = Number(await online.locator('#count').textContent());
+            await online.close();
+
+            // act
+            await context.setOffline(true);
+            await page.reload();
+            const offline = await runInTab(context, page.getByTestId('file-run'));
+
+            // assert
+            await expect(offline.locator('#count')).toHaveText(String(before + 1));
+            await offline.close();
+            await context.setOffline(false);
+        });
     });
 
     test('keeps the frame and its input through a lost network', async ({page, context}) => {

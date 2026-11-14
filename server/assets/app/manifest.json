@@ -2694,7 +2694,6 @@
       "_rolldown-runtime.js",
       "_PageChrome.js",
       "_icons.js",
-      "_formats.js",
       "index.html"
     ],
     "css": [

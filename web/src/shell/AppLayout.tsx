@@ -17,6 +17,7 @@ import { OfflineMark } from './OfflineMark';
 import { ReaderLayout, type ReaderChrome } from './ReaderLayout';
 import { ResetProvider } from './ResetDialog';
 import { RowMenu } from './RowMenu';
+import { RunLink } from './RunLink';
 import { SearchProvider } from './SearchDialog';
 import { SpaceAlerts } from './SpaceAlerts';
 import { SpaceMenu } from './SpaceMenu';
@@ -24,7 +25,7 @@ import { SyncControl } from './SyncControl';
 import { TabBar } from './TabBar';
 import { useMe, type MeState } from './useMe';
 
-const extensions: ReaderExtensions = { DocumentExtras, FileView, RowMenu };
+const extensions: ReaderExtensions = { DocumentExtras, FileView, RowMenu, RunLink };
 
 const chrome: ReaderChrome = {
   sidebarFoot: <SpaceMenu />,

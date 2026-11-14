@@ -21,6 +21,8 @@ const EMPTY_FOLDER = 'e2e-mobile/pusto';
 const HISTORY_FOLDER = 'e2e-mobile-history';
 const HISTORY_DOC = `${HISTORY_FOLDER}/versions.md`;
 const DIAGRAM_NOTE = 'e2e-mobile-diagram.md';
+const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) '
+    + 'Chrome/131.0.0.0 Mobile Safari/537.36';
 
 async function tooSmall(page, selector, min = MIN_TAP) {
     return page.evaluate(([sel, min]) => {
@@ -115,28 +117,32 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-tab-bar');
     });
 
-    test('an html app runs under one bar with no tab bar', async ({page}) => {
-        // arrange
-        writeFixture('e2e-mobile/app/index.html', '<!doctype html><h1 id="title">Phone app</h1>\n');
-        await page.goto(routes.doc('e2e-mobile/app/index.html'));
+    test.describe('on Android', () => {
+        test.use({userAgent: ANDROID});
 
-        // act
-        await page.getByTestId('file-run').tap();
+        test('an html app runs under one bar with no tab bar', async ({page}) => {
+            // arrange
+            writeFixture('e2e-mobile/app/index.html', '<!doctype html><h1 id="title">Phone app</h1>\n');
+            await page.goto(routes.doc('e2e-mobile/app/index.html'));
 
-        // assert
-        await expect(page.frameLocator('[data-testid=run-frame]').locator('#title')).toHaveText('Phone app');
-        await expect(page.getByTestId('tab-bar')).toHaveCount(0);
-        const bar = await boxOf(page, 'run-bar');
-        const frame = await boxOf(page, 'run-frame');
-        expect(bar.top).toBe(0);
-        expect(frame.top).toBe(bar.bottom);
-        expect(frame.bottom).toBe(page.viewportSize().height);
-        expect(await tooSmall(page, '[data-testid=run-bar] a, [data-testid=run-bar] button')).toEqual([]);
-        await expect(page.getByTestId('run-bar')).toHaveCSS('position', 'fixed');
-        await shot(page, 'mobile-html-app');
+            // act
+            await page.getByTestId('file-run').tap();
+
+            // assert
+            await expect(page.frameLocator('[data-testid=run-frame]').locator('#title')).toHaveText('Phone app');
+            await expect(page.getByTestId('tab-bar')).toHaveCount(0);
+            const bar = await boxOf(page, 'run-bar');
+            const frame = await boxOf(page, 'run-frame');
+            expect(bar.top).toBe(0);
+            expect(frame.top).toBe(bar.bottom);
+            expect(frame.bottom).toBe(page.viewportSize().height);
+            expect(await tooSmall(page, '[data-testid=run-bar] a, [data-testid=run-bar] button')).toEqual([]);
+            await expect(page.getByTestId('run-bar')).toHaveCSS('position', 'fixed');
+            await shot(page, 'mobile-html-app');
+        });
     });
 
-    test('an html file in a folder list has a Run button that starts it', async ({page}) => {
+    test('an html file in a folder list has a Run button that starts it in a tab on an iPhone', async ({page, context}) => {
         // arrange
         writeFixture('e2e-mobile/app/index.html', '<!doctype html><h1 id="title">Phone app</h1>\n');
         writeFixture('e2e-mobile/app/style.css', 'h1 { color: inherit; }\n');
@@ -149,8 +155,9 @@ test.describe('mobile', () => {
         await expect(page.locator('[data-testid=dir-row][data-path="e2e-mobile/app/style.css"]').getByTestId('dir-row-run'))
             .toHaveCount(0);
         await shot(page, 'mobile-html-app-run-button');
-        await row.getByTestId('dir-row-run').tap();
-        await expect(page.frameLocator('[data-testid=run-frame]').locator('#title')).toHaveText('Phone app');
+        const [tab] = await Promise.all([context.waitForEvent('page'), row.getByTestId('dir-row-run').tap()]);
+        await expect(tab.locator('#title')).toHaveText('Phone app');
+        await expect(page).toHaveURL(routes.dir('e2e-mobile/app'));
     });
 
     test('Notes opens the root list, a folder opens its list, and the back link goes up', async ({page}) => {

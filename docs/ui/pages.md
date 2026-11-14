@@ -240,6 +240,10 @@ opens over them.
   to the file's page. Back never steps back in the history: the frame's own
   pages go into the tab's history, and a step back could land on an earlier
   page of the app.
+- In Safari, on a Mac and on an iPhone, every Run opens the app as Open in a
+  new tab does, and the screen Run was tapped on stays under it; in an app from
+  the home screen the tab is a browser view over scrawl, whose close goes back.
+  See [HTML apps](../design/html-apps.md#safari).
 - Open in a new tab asks a new ticket in the tap and opens the app in a tab of
   its own; a blocked popup shows an error toast. With no network it opens the
   address of a kept app, and is disabled when the app is not kept.

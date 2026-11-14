@@ -3,19 +3,17 @@ import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 
 import { api, installUnauthorizedHandler } from '../api/client';
-import { ApiError } from '../api/errors';
 import { enterMessage } from '../htmlapp/protocol';
 import { IconChevronLeft, IconOpenOutside } from '../icons';
 import { goToLogin } from '../login';
 import { useConnection } from '../offline/connection';
-import { offlineSupported, offlineWanted } from '../offline/preference';
-import { mountedSpace, readRun, writeRun } from '../offline/records';
+import { mountedSpace, writeRun } from '../offline/records';
 import { runBack } from '../paths';
 import { basenameOf } from '../shell/naming';
-import { needsNetworkTitle, noNetworkText, ScreenMessage } from '../shell/NeedsNetwork';
+import { needsNetworkTitle, ScreenMessage } from '../shell/NeedsNetwork';
+import { enterInTab, keepsApps, keptApp, openBlankTab, runFailedText } from '../shell/runInTab';
 import { useMe } from '../shell/useMe';
 import { layout } from '../theme';
-import { showToast } from '../toast';
 
 import classes from './RunPage.module.css';
 
@@ -36,26 +34,12 @@ type RunState =
   | { kind: 'failed'; message: string }
   | { kind: 'offline'; message: string };
 
-function keepsApps(): boolean {
-  return offlineSupported() && offlineWanted();
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof ApiError ? error.message : 'The app could not be started.';
-}
-
 async function offlineState(path: string): Promise<RunState> {
-  if (!keepsApps()) {
-    return { kind: 'offline', message: noNetworkText };
+  const kept = await keptApp(path);
+  if (kept.kind === 'missing') {
+    return { kind: 'offline', message: kept.message };
   }
-  const record = await readRun(mountedSpace(), path).catch(() => undefined);
-  if (record === undefined) {
-    return { kind: 'offline', message: 'Run this app once with a network to use it offline.' };
-  }
-  if (!record.offline) {
-    return { kind: 'offline', message: 'This browser does not keep this app for offline use.' };
-  }
-  return { kind: 'frame', frame: { src: record.url, app: record.url, kept: true } };
+  return { kind: 'frame', frame: { src: kept.url, app: kept.url, kept: true } };
 }
 
 export function Component(): JSX.Element {
@@ -92,7 +76,7 @@ function RunScreen({ path, back }: { path: string; back: string }): JSX.Element 
           if (error instanceof TypeError) {
             void offlineState(path).then(settle);
           } else if (!(error instanceof DOMException && error.name === 'AbortError')) {
-            settle({ kind: 'failed', message: messageOf(error) });
+            settle({ kind: 'failed', message: runFailedText(error) });
           }
         },
       );
@@ -126,12 +110,10 @@ function RunScreen({ path, back }: { path: string; back: string }): JSX.Element 
   }, [app, path]);
 
   const openOutside = (): void => {
-    const tab = window.open('', '_blank');
+    const tab = openBlankTab();
     if (tab === null) {
-      showToast('error', { title: 'The new tab was blocked', message: 'Allow pop-ups for this site to open the app in a new tab.' });
       return;
     }
-    tab.opener = null;
     if (connection === 'offline') {
       if (!kept || app === undefined) {
         tab.close();
@@ -140,15 +122,7 @@ function RunScreen({ path, back }: { path: string; back: string }): JSX.Element 
       tab.location.href = app;
       return;
     }
-    api.runTicket(path, keepsApps()).then(
-      (ticket) => {
-        tab.location.href = ticket.url;
-      },
-      (error: unknown) => {
-        tab.close();
-        showToast('error', { title: 'The app did not open', message: messageOf(error) });
-      },
-    );
+    enterInTab(tab, path);
   };
 
   const name = basenameOf(path);

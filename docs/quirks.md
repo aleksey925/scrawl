@@ -30,6 +30,16 @@ words; the fact itself is written here.
 
 ## WebKit
 
+- The `localStorage` of a frame whose origin is not the page's lives in memory
+  only, even on a subdomain of the page's site: `canAccessResource` compares
+  origins, and `localStorageArea` then takes the transient namespace. On an
+  iPhone, in Safari and in an app from the home screen, an HTML app's choices
+  in the frame were there after Back and Run, and gone once the app was closed;
+  in Safari on a Mac they were gone after a reload of the page; in a tab of its
+  own they stayed. In an app from the home screen a tab of its own is a browser
+  view over the app, with reload and close.
+  [HTML apps](design/html-apps.md#safari)
+
 - A page just put in is painted once at rest before an animation takes it, so
   the start of a move is also held inline. [Phone](ui/phone.md)
 - A long note is painted again on every move of a drag unless the dragged page
@@ -99,9 +109,9 @@ words; the fact itself is written here.
   open, and a `register()` of the same script from that page brings it back
   with no install, so the caches deleted with it stay empty.
   [Offline copy](design/offline.md#on-and-off)
-- HTML apps, checked in Chromium 153 only, the one Playwright drives; Firefox,
-  Safari on macOS and iOS, an iPhone home screen app and Cloudflare Tunnel are
-  not checked yet. [HTML apps](design/html-apps.md)
+- HTML apps, checked in Chromium 153, the one Playwright drives; Firefox is not
+  checked yet, and Safari only for the storage of a frame, under WebKit above.
+  [HTML apps](design/html-apps.md)
   - A page at `127.0.0.1` opens `app-<id>.localhost` and
     `app-<id>.scrawl.localhost`: Chromium sends every `*.localhost` name to the
     loopback itself.

@@ -1,5 +1,5 @@
 import { ActionIcon, Button } from '@mantine/core';
-import type { JSX, ReactNode } from 'react';
+import type { JSX, MouseEvent, ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import type { Icon } from '../icons';
@@ -11,9 +11,10 @@ export interface TopbarActionProps {
   to: string;
   icon?: Icon;
   state?: unknown;
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
 }
 
-export function TopbarAction({ testId, label, icon: Icon, to, state }: TopbarActionProps): JSX.Element {
+export function TopbarAction({ testId, label, icon: Icon, to, state, onClick }: TopbarActionProps): JSX.Element {
   const renderRoot = (props: Record<string, unknown>): ReactNode => <Link to={to} state={state} {...props} />;
 
   if (Icon !== undefined) {
@@ -25,6 +26,7 @@ export function TopbarAction({ testId, label, icon: Icon, to, state }: TopbarAct
         size="lg"
         aria-label={label}
         title={label}
+        onClick={onClick}
         renderRoot={renderRoot}
       >
         <Icon size={layout.iconSize} />
@@ -32,7 +34,7 @@ export function TopbarAction({ testId, label, icon: Icon, to, state }: TopbarAct
     );
   }
   return (
-    <Button data-testid={testId} variant="subtle" color="gray" size="sm" renderRoot={renderRoot}>
+    <Button data-testid={testId} variant="subtle" color="gray" size="sm" onClick={onClick} renderRoot={renderRoot}>
       {label}
     </Button>
   );

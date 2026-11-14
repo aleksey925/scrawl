@@ -55,10 +55,6 @@ such as a database server or a storage bucket, and the git plugin warns that it
 is very unstable on mobile. scrawl is one small binary: run it on any server,
 point it at a repository, and nothing else is needed.
 
-**Compared to Notion.** The interface of scrawl takes a lot from Notion, but
-the notes stay yours: plain markdown files in a folder or a repository you
-control, readable by any editor, with nothing to export the day you leave.
-
 **When something else fits better.** If you want to edit notes with no network
 at all, or a plugin for every need, Obsidian is the better tool. Offline,
 scrawl only reads.
@@ -69,8 +65,8 @@ scrawl only reads.
 
 - [Quick start](#quick-start)
   - [Look at your notes](#look-at-your-notes)
-  - [Use a local folder](#use-a-local-folder)
-  - [Use a git repository](#use-a-git-repository)
+  - [Use local folder](#use-local-folder)
+  - [Use git repository](#use-git-repository)
 - [Installation](#installation)
   - [Docker](#docker)
   - [mise](#mise)
@@ -122,7 +118,7 @@ This run leaves the folder exactly as it was:
   your own machine.
 - `--rm` removes the container once you stop it.
 
-### Use a local folder
+### Use local folder
 
 To edit notes in a folder on your machine:
 
@@ -153,7 +149,7 @@ sign in as `admin` / `admin`.
 - The `scrawl-data` volume keeps the sign-in key, so a restart does not sign
   you out.
 
-### Use a git repository
+### Use git repository
 
 scrawl can clone a repository, commit what you edit and push it back:
 

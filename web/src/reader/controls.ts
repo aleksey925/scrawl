@@ -4,7 +4,9 @@ import { headingsOf, imagesOf } from './dom';
 export const anchorClass = 'md-anchor';
 export const copyClass = 'md-copy';
 export const codeHeadClass = 'md-code-head';
+const codeBarClass = 'md-code-bar';
 const tableWrapClass = 'table-wrap';
+const plainLanguage = 'text';
 const copyLabel = 'Copy';
 const copiedLabel = 'Copied';
 
@@ -13,7 +15,7 @@ const copiedFor = 1500;
 type Teardown = () => void;
 
 export function injectControls(root: HTMLElement): Teardown {
-  const teardowns = [injectHeadingAnchors(root), injectCopyButtons(root), wrapTables(root), prepareImages(root)];
+  const teardowns = [injectHeadingAnchors(root), injectCodeControls(root), wrapTables(root), prepareImages(root)];
   return () => {
     for (const teardown of teardowns) {
       teardown();
@@ -66,8 +68,8 @@ export function injectHeadingAnchors(root: HTMLElement): Teardown {
   return removing(added, untag);
 }
 
-export function injectCopyButtons(root: HTMLElement): Teardown {
-  const added: HTMLElement[] = [];
+export function injectCodeControls(root: HTMLElement): Teardown {
+  const teardowns: Teardown[] = [];
   const { tag, untag } = tagged();
   for (const block of root.querySelectorAll<HTMLElement>('.code-block')) {
     const code = block.querySelector('pre');
@@ -82,18 +84,59 @@ export function injectCopyButtons(root: HTMLElement): Teardown {
     head.className = codeHeadClass;
     const language = document.createElement('span');
     language.dataset.testid = 'code-language';
-    language.textContent = block.dataset.lang ?? '';
+    language.textContent = block.dataset.lang ?? plainLanguage;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = copyClass;
     button.dataset.testid = 'code-copy';
-    button.dataset.done = 'false';
-    button.textContent = copyLabel;
+    labelCopy(button, false);
     head.append(language, button);
     block.prepend(head);
-    added.push(head);
+    const stopTracking = trackScroll(block, code);
+    teardowns.push(() => {
+      head.remove();
+      stopTracking();
+    });
   }
-  return removing(added, untag);
+  return () => {
+    for (const teardown of teardowns) {
+      teardown();
+    }
+    untag();
+  };
+}
+
+function labelCopy(button: HTMLElement, done: boolean): void {
+  const label = done ? copiedLabel : copyLabel;
+  button.dataset.done = String(done);
+  button.setAttribute('aria-label', label);
+  button.title = label;
+}
+
+function trackScroll(block: HTMLElement, code: HTMLElement): Teardown {
+  const bar = document.createElement('div');
+  bar.className = codeBarClass;
+  bar.setAttribute('aria-hidden', 'true');
+  const thumb = document.createElement('div');
+  bar.append(thumb);
+  code.after(bar);
+  const update = (): void => {
+    const { scrollLeft, scrollWidth, clientWidth } = code;
+    const room = scrollWidth - clientWidth;
+    block.dataset.scroll = room < 1 ? 'none' : scrollLeft < 1 ? 'start' : scrollLeft > room - 1 ? 'end' : 'middle';
+    thumb.style.width = `${(clientWidth / scrollWidth) * 100}%`;
+    thumb.style.transform = `translateX(${(scrollLeft / clientWidth) * 100}%)`;
+  };
+  const resized = new ResizeObserver(update);
+  resized.observe(code);
+  code.addEventListener('scroll', update, { passive: true });
+  update();
+  return () => {
+    resized.disconnect();
+    code.removeEventListener('scroll', update);
+    bar.remove();
+    delete block.dataset.scroll;
+  };
 }
 
 export function wrapTables(root: HTMLElement): Teardown {
@@ -140,11 +183,9 @@ export async function copyCode(button: HTMLElement, timers: Set<number>): Promis
   if (!(await copyText(code?.textContent ?? ''))) {
     return false;
   }
-  button.dataset.done = 'true';
-  button.textContent = copiedLabel;
+  labelCopy(button, true);
   const timer = window.setTimeout(() => {
-    button.dataset.done = 'false';
-    button.textContent = copyLabel;
+    labelCopy(button, false);
     timers.delete(timer);
   }, copiedFor);
   timers.add(timer);

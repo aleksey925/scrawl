@@ -20,6 +20,7 @@ const LAYOUT = 'e2e-layout.md';
 const DIAGRAM = 'e2e-diagram.md';
 const DIAGRAM_VIEWER = 'e2e-diagram-viewer.md';
 const LOOK = 'e2e-look.md';
+const CODE = 'e2e-code.md';
 const TALL = 'e2e-tall.md';
 const TALL_PICTURE = 'e2e-tall.png';
 const HEADINGS = 'e2e-headings.md';
@@ -76,6 +77,7 @@ test.describe('reading', () => {
         removeFixture(TALL);
         removeFixture(TALL_PICTURE);
         removeFixture(HEADINGS);
+        removeFixture(CODE);
     });
 
     test('the root page lists the root folder, its index a row tagged as the folder page', async ({page}) => {
@@ -622,14 +624,39 @@ test.describe('reading', () => {
 
         const code = (await block.locator('pre').innerText()).trim();
         const copy = block.getByTestId('code-copy');
-        await expect(copy).toHaveText(text.code.copy);
+        await expect(copy).toHaveAttribute('aria-label', text.code.copy);
         await copy.click();
         await expect(copy).toHaveAttribute('data-done', 'true');
-        await expect(copy).toHaveText(text.code.copied);
+        await expect(copy).toHaveAttribute('aria-label', text.code.copied);
 
         const clipboard = await page.evaluate(() => navigator.clipboard.readText());
         expect(clipboard.trim()).toBe(code);
         await shot(page, 'reading-code-copy');
+    });
+
+    test('a code block with no language says text, and the indicator and the fade show only on a long line', async ({page}) => {
+        // arrange
+        const long = 'x'.repeat(400);
+        writeFixture(CODE, `# Code\n\n\`\`\`\n${long}\n\`\`\`\n\n\`\`\`js\nconst total = sum(items);\n\`\`\`\n`);
+        await page.goto(routes.doc(CODE));
+        const [wide, short] = [page.getByTestId('doc-code').first(), page.getByTestId('doc-code').last()];
+        await expect(wide).toHaveAttribute('data-scroll', 'start');
+        const pre = wide.locator('pre');
+        const fadeAtStart = await pre.evaluate((node) => getComputedStyle(node).maskImage);
+
+        // act
+        await pre.evaluate((node) => node.scrollTo({left: node.scrollWidth}));
+
+        // assert
+        await expect(wide.getByTestId('code-language')).toHaveText('text');
+        await expect(short.getByTestId('code-language')).toHaveText('js');
+        expect(fadeAtStart).toContain('linear-gradient');
+        await expect(wide).toHaveAttribute('data-scroll', 'end');
+        await expect(wide.locator('.md-code-bar')).toBeVisible();
+        await expect(short).toHaveAttribute('data-scroll', 'none');
+        await expect(short.locator('.md-code-bar')).toBeHidden();
+        expect(await short.locator('pre').evaluate((node) => getComputedStyle(node).maskImage)).toBe('none');
+        await shot(page, 'reading-code-blocks');
     });
 
     test('a heading\'s link mark is a regular # of its own font, just under the baseline of its last line', async ({page}) => {

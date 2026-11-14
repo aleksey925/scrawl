@@ -133,11 +133,17 @@ opens over them.
   starts, so `10.` reaches further left than `9.`, and in 1.7em it stuck out of
   the text's line. A three-digit number still reaches past that line, as on
   GitHub. A task box sits at the same place in both kinds of list.
-- A block of code has a head row inside its box, the language at the left and
-  Copy at the right, above the code and never a layer over it: a layer covered
-  the end of a long first line. With a pointer Copy shows under it and under
-  the focus; a touch screen has no hover, so there it always shows. Copy takes
-  the text of the `pre` and nothing else, so the head is never inside it.
+- A block of code has a head row inside its box, the language at the left as
+  the fence names it, or `text` with none, and Copy at the right, above the
+  code and never a layer over it: a layer covered the end of a long first line.
+  Copy is an icon that always shows, and turns to a green tick for a moment
+  after a copy. Copy takes the text of the `pre` and nothing else, so the head
+  is never inside it.
+- A long line scrolls inside the box and never wraps. The browser's own
+  scrollbar is hidden: a thin bar under the code shows where the view is, and
+  the code fades out at an edge that has more behind it. A block that fits has
+  neither. The bar is drawn by the page, so a phone shows it too, where a
+  native scrollbar shows only while the code moves.
 - A PlantUML diagram takes PlantUML's own dark mode in a dark theme, unless it
   sets colors of its own: a color on an element, a `skinparam` color, also one
   inside a `skinparam` block, a `<style>`, a `<back:>`, a text color in

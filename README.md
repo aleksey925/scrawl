@@ -81,7 +81,7 @@ scrawl only reads.
 - [Offline](#offline)
 - [HTML apps](#html-apps)
   - [On your machine](#on-your-machine)
-  - [From phone or other device](#from-phone-or-other-device)
+  - [On server](#on-server)
   - [Cloudflare Tunnel](#cloudflare-tunnel)
   - [Offline apps](#offline-apps)
 - [Configuration](#configuration)
@@ -311,8 +311,7 @@ root of a space.
 Where apps run depends on where scrawl is opened:
 
 - [On your machine](#on-your-machine) - works with nothing to set.
-- [From phone or other device](#from-phone-or-other-device) - needs https, such
-  as through [Cloudflare Tunnel](#cloudflare-tunnel).
+- [On server](#on-server) - behind a proxy with https.
 - [With no network](#offline-apps) - needs Offline access on.
 
 Some limits:
@@ -340,11 +339,21 @@ at `http://app-<id>.localhost:7272`.
 - At `127.0.0.1` and `localhost` the frame does not keep an app for use with no
   network, see [Offline apps](#offline-apps).
 
-### From phone or other device
+### On server
 
-Apps run here over https, such as through
-[Cloudflare Tunnel](#cloudflare-tunnel), with
-`APPS_URL=https://app-{id}.example.com` and `TRUSTED_PROXY=true`.
+On a server, apps run behind any proxy with https, such as nginx, Caddy or
+Cloudflare Tunnel. Each app gets a name of its own under your domain, so the
+proxy needs:
+
+1. A DNS record `*.example.com` that points to the proxy, and a certificate
+   that covers `*.example.com`.
+2. These names sent to scrawl, with the `Host` header the browser sent, see
+   [Server settings](#server-settings).
+
+Then set `APPS_URL=https://app-{id}.example.com` and `TRUSTED_PROXY=true`. With
+Cloudflare Tunnel, see [Cloudflare Tunnel](#cloudflare-tunnel).
+
+What can go wrong:
 
 - scrawl opened at an address of the network with no `APPS_URL`, such as
   `http://192.168.1.5:7272`: Run says that HTML apps do not run at this
@@ -354,7 +363,7 @@ Apps run here over https, such as through
   start, and its message shows the form to use, `https://app-{id}.example.com`.
 - `APPS_URL` is https and a password is set, but neither `TRUSTED_PROXY=true`
   nor `AUTH_SECURE=always` is: scrawl does not start, and its message names the
-  setting to add, `TRUSTED_PROXY=true` behind Cloudflare.
+  setting to add, `TRUSTED_PROXY=true` behind a proxy.
 - With `TRUSTED_PROXY=true` and `APPS_URL=https://app-{id}.example.com`, do not
   also open scrawl at `http://notes.example.com`: the sign-in there is not
   protected, and scrawl does not warn about it.

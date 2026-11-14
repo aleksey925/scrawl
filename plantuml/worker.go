@@ -72,7 +72,7 @@ func serve(in io.Reader, out io.Writer, retireAt uint32, limits caps) error {
 		return fmt.Errorf("read the engine: %w", err)
 	}
 	ctx := context.Background()
-	cfg := wazero.NewRuntimeConfig().WithMemoryLimitPages(memoryPages).WithMemoryCapacityFromMax(true)
+	cfg := workerpool.RuntimeConfig().WithMemoryLimitPages(memoryPages).WithMemoryCapacityFromMax(true)
 	runtime := wazero.NewRuntimeWithConfig(ctx, cfg)
 	defer runtime.Close(ctx)
 	if _, err = wasi_snapshot_preview1.Instantiate(ctx, runtime); err != nil {

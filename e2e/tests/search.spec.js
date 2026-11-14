@@ -423,6 +423,74 @@ test.describe('find in the note', () => {
         await expect(page.getByTestId('find-hit')).toBeVisible();
     });
 
+    for (const source of ['the visible area scrolls', 'the visible area resizes', 'the window scrolls']) {
+        test(`the bar follows the visible area a phone keyboard pans when ${source}, in the same event`, async ({page}) => {
+            // arrange
+            await page.addInitScript(() => {
+                const view = Object.assign(new EventTarget(), {offsetTop: 0, height: window.innerHeight});
+                Object.defineProperty(window, 'visualViewport', {value: view, configurable: true});
+            });
+            await page.reload();
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await openFind(page);
+            const bar = page.getByTestId('doc-find');
+            const before = (await bar.boundingBox()).y;
+            const pan = 300;
+            const moveTo = (top) => page.evaluate(({top, source}) => {
+                window.visualViewport.offsetTop = top;
+                const target = source === 'the window scrolls' ? window : window.visualViewport;
+                const kind = source === 'the visible area resizes' ? 'resize' : 'scroll';
+                target.dispatchEvent(new Event(kind));
+                const found = document.querySelector('[data-testid="doc-find"]');
+                return {y: found.getBoundingClientRect().y, transform: found.style.transform};
+            }, {top, source});
+
+            // act
+            const panned = await moveTo(pan);
+            const back = await moveTo(0);
+
+            // assert
+            expect(panned.y).toBe(before + pan);
+            expect(back).toEqual({y: before, transform: ''});
+        });
+    }
+
+    test('a word still being composed is found as it is typed', async ({page}) => {
+        // arrange
+        const counter = page.getByTestId('doc-find-count');
+        const cdp = await page.context().newCDPSession(page);
+        await openFind(page);
+
+        // act
+        await cdp.send('Input.imeSetComposition', {text: 'foo', selectionStart: 3, selectionEnd: 3});
+
+        // assert
+        await expect(page.getByTestId('doc-find-input')).toHaveValue('foo');
+        await expect(counter).toHaveAttribute('data-total', '3');
+    });
+
+    test('an Enter or Esc that ends a composition neither steps nor closes the bar', async ({page}) => {
+        // arrange
+        const counter = page.getByTestId('doc-find-count');
+        await openFind(page);
+        await page.keyboard.type('foo');
+        await expect(counter).toHaveAttribute('data-position', '1');
+
+        // act
+        await page.getByTestId('doc-find-input').evaluate((input) => {
+            for (const key of ['Enter', 'Escape']) {
+                for (const composing of [{isComposing: true}, {keyCode: 229}]) {
+                    input.dispatchEvent(new KeyboardEvent('keydown', {key, ...composing, bubbles: true, cancelable: true}));
+                }
+            }
+        });
+        await page.keyboard.press('Enter');
+
+        // assert
+        await expect(counter).toHaveAttribute('data-position', '2');
+        await expect(page.getByTestId('doc-find')).toBeVisible();
+    });
+
     test('Esc closes the bar and takes the marks and the query away', async ({page}) => {
         // arrange
         await page.goto(`${routes.doc(FIND)}?q=foo`);

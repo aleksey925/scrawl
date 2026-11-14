@@ -6,6 +6,7 @@ import { layout } from '../theme';
 
 import { useNav } from './NavContext';
 import { ResetAction } from './ResetDialog';
+import { factText } from './syncMessage';
 
 export function SpaceAlerts(): JSX.Element {
   const { sync } = useNav();
@@ -24,7 +25,7 @@ export function SpaceAlerts(): JSX.Element {
           <Stack gap="xs">
             {sync.facts.map((entry) => (
               <Stack key={entry.kind} gap={4}>
-                <Text size="sm">{entry.body}</Text>
+                <Text size="sm">{factText(entry, false)}</Text>
                 {entry.reason !== '' && (
                   <Code
                     data-testid="space-alert-reason"

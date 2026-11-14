@@ -8,6 +8,12 @@ export function keysLabel(...keys: readonly string[]): string {
   return keys.join(apple ? '' : '+');
 }
 
+const imeKeyCode = 229;
+
+export function composing(event: KeyboardEvent): boolean {
+  return event.isComposing || event.keyCode === imeKeyCode;
+}
+
 export function modChord(event: KeyboardEvent, key: string): boolean {
   return (event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === key;
 }

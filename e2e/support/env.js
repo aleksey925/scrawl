@@ -131,6 +131,7 @@ module.exports = {
     binary: process.env.SCRAWL_E2E_BINARY || path.join(repoRoot, 'dist', 'scrawl'),
     fixture,
     user: 'e2e',
+    otherUser: 'e2e-other',
     password: 'e2e-secret-pass',
     passwordHash: '$2a$10$2BAF2jSxMt9RHQ5LRTYvheiBey0jVUZPlp2qaEwp9XxecPk6IZSi.',
     shotsDir: process.env.SCRAWL_E2E_SHOTS || path.join(repoRoot, 'e2e', 'screenshots'),

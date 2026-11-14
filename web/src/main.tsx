@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './App';
 import { mountNode } from './mount';
+import { startOffline } from './offline/register';
 import { printInLight } from './print';
 import { enablePressFeedback } from './pressFeedback';
 import { router } from './routes';
@@ -23,6 +24,7 @@ applyStoredTheme();
 applyStoredPageWidth();
 enablePressFeedback();
 printInLight();
+startOffline();
 
 createRoot(mountNode()).render(
   <StrictMode>

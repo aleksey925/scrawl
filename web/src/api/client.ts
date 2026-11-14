@@ -1,5 +1,10 @@
 import { mountBase } from '../mount';
-import { encodeContentPath } from '../paths';
+import { encodeContentPath } from '../contentPath';
+import {
+  answeredByGateway, connectionFailed, connectionStalled, serverAnswered, signInTripDue, wroteSomething,
+} from '../offline/connection';
+import { answerUrl, dataCache, networkDeadlineMs } from '../offline/keys';
+import { offlineWanted } from '../offline/preference';
 import { togglesOf } from '../reader/findMatches';
 
 import { ApiError } from './errors';
@@ -53,9 +58,14 @@ export function installUnauthorizedHandler(
   };
 }
 
-function notifyUnauthorized(): void {
-  const handler = unauthorizedHandlers.get('screen') ?? unauthorizedHandlers.get('shell');
-  handler?.();
+function notifyUnauthorized(byGateway: boolean): void {
+  const screen = unauthorizedHandlers.get('screen');
+  const shell = unauthorizedHandlers.get('shell');
+  if (screen !== undefined) {
+    screen();
+  } else if (shell !== undefined && (!byGateway || signInTripDue())) {
+    shell();
+  }
 }
 
 export interface RequestOptions {
@@ -67,9 +77,13 @@ interface CallOptions extends RequestOptions {
   body?: unknown;
   form?: FormData;
   allowStatus?: readonly number[];
+  stored?: string;
+  gatewaySignIn?: boolean;
 }
 
-const backgroundHeader = 'X-Scrawl-Background';
+export const backgroundHeader = 'X-Scrawl-Background';
+
+const readingPost = /\/api\/(preview|compare|sync\/check|login|logout)$/;
 
 function spaceUrl(path: string): string {
   return mountBase() + path;
@@ -124,6 +138,27 @@ async function errorBody(response: Response): Promise<ApiErrorBody> {
   }
 }
 
+function watchStall(stored: string | undefined): () => void {
+  if (stored === undefined || !offlineWanted()) {
+    return () => undefined;
+  }
+  let waiting = true;
+  const timer = window.setTimeout(() => {
+    caches.match(stored, { cacheName: dataCache }).then(
+      (kept) => {
+        if (waiting && kept !== undefined) {
+          connectionStalled();
+        }
+      },
+      () => undefined,
+    );
+  }, networkDeadlineMs);
+  return () => {
+    waiting = false;
+    window.clearTimeout(timer);
+  };
+}
+
 async function send(method: string, url: string, options: CallOptions = {}): Promise<Response> {
   const headers: Record<string, string> = { accept: 'application/json' };
   if (options.background === true) {
@@ -137,16 +172,33 @@ async function send(method: string, url: string, options: CallOptions = {}): Pro
     body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(url, {
-    method,
-    headers,
-    body,
-    credentials: 'same-origin',
-    signal: options.signal ?? null,
-  });
+  const answered = watchStall(options.stored);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers,
+      body,
+      credentials: 'same-origin',
+      redirect: options.gatewaySignIn === true ? 'manual' : 'follow',
+      signal: options.signal ?? null,
+    });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      connectionFailed();
+    }
+    throw error;
+  } finally {
+    answered();
+  }
+  serverAnswered(response);
+  if (method !== 'GET' && response.ok && !readingPost.test(url)) {
+    wroteSomething();
+  }
 
-  if (response.status === 401 && options.background !== true) {
-    notifyUnauthorized();
+  const byGateway = options.gatewaySignIn === true && answeredByGateway(response);
+  if ((response.status === 401 || byGateway) && options.background !== true) {
+    notifyUnauthorized(byGateway);
   }
   const allowed = options.allowStatus?.includes(response.status) ?? false;
   if (!response.ok && !allowed) {
@@ -205,23 +257,26 @@ export interface ScrawlApi {
 
 export const api: ScrawlApi = {
   page: async (path, options) => {
-    const body = await call<PageResponse | ApiErrorBody>(
-      'GET',
-      spaceUrl(`/api/page/${encodeContentPath(path)}`),
-      { ...options, allowStatus: [404] },
-    );
+    const url = answerUrl.page(mountBase(), path);
+    const body = await call<PageResponse | ApiErrorBody>('GET', url, { ...options, allowStatus: [404], stored: url });
     if (!isPage(body)) {
       throw new ApiError(404, body);
     }
     return body;
   },
 
-  dir: (path, options) =>
-    call<DirListing>('GET', spaceUrl(`/api/dir/${encodeContentPath(path)}`), options),
+  dir: (path, options) => {
+    const url = answerUrl.dir(mountBase(), path);
+    return call<DirListing>('GET', url, { ...options, stored: url });
+  },
 
-  nav: (path, options) => call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path }), options),
+  nav: (path, options) =>
+    call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path }), {
+      ...options,
+      stored: answerUrl.nav(mountBase()),
+    }),
 
-  me: (options) => call<MeResponse>('GET', spaceUrl('/api/me'), options),
+  me: (options) => call<MeResponse>('GET', spaceUrl('/api/me'), { ...options, gatewaySignIn: true }),
 
   spaces: (options) => call<SpaceEntry[]>('GET', globalUrl('/api/spaces'), options),
 

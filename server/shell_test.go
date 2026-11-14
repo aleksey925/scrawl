@@ -42,7 +42,7 @@ func TestAppShell(t *testing.T) {
 			// assert
 			require.Equal(t, http.StatusOK, resp.status)
 			assert.Contains(t, resp.header.Get("Content-Type"), "text/html")
-			assert.Contains(t, body, `<div id="scrawl-app-root" data-base="`+ts.prefix()+`"></div>`)
+			assert.Contains(t, body, `<div id="scrawl-app-root" data-base="`+ts.prefix()+`" data-version="`+ts.Version+`">`+"\n"+`<div class="scrawl-splash" aria-hidden="true"><svg xmlns=`)
 			if tc.scheme == "" {
 				assert.NotContains(t, body, "data-mantine-color-scheme")
 				assert.NotContains(t, body, "data-scrawl-theme")

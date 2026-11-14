@@ -29,8 +29,9 @@ The tree, its head and its foot.
   list and takes a drop. The foot is the space's button under a line across the
   sidebar, as wide as it: the app's logo, the space's name and a chevron at the
   right edge, and it opens one menu upward: the account, the spaces with a
-  check on this one, the theme and the shortcuts, then sign out. A site's foot
-  is its title, with a menu of the theme, the page width and the shortcuts.
+  check on this one, the theme and the shortcuts, then "Offline access" and
+  sign out. A site's foot is its title, with a menu of the theme, the page
+  width and the shortcuts.
 - A folder's icon opens and closes it. The rows of an open folder are indented
   14px and there is no guide line. Every row, a nested one too, keeps 1px under
   it, so two gray rows next to each other, the current one and a picked one, do
@@ -88,3 +89,14 @@ The tree, its head and its foot.
   loads, so a picture's row offers none, and a site's rows never carry one. A
   folder's list asks for its answer again after every write the tree is
   refreshed for: it kept showing a file deleted from the tree beside it.
+- "Offline access" is a row with a switch, above sign out, and one line in
+  small text under it while it is on: `120 MB, updated at 14:30` (a date when
+  it was not today), `Downloading... 45 of 300`, `Downloading...` before the
+  first count, `Downloading the app...`, `No network, data from 14:30`,
+  `No network, nothing downloaded yet`, `Not enough space on this device, ...`
+  or `Could not update, ...`. A tap turns it on or off, and off deletes the
+  copy at once with no question, as everything is on the server. The size is
+  what the browser holds for the site, which is what off deletes. On a page
+  that is not secure the row is greyed out with `Needs HTTPS`. With no network
+  the menu reads the spaces from the copy and has no sign out: the switch is
+  the way to delete the data then. See [offline copy](../design/offline.md).

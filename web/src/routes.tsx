@@ -1,6 +1,7 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 
 import { RouteError } from './components/RouteError';
+import { Splash } from './components/Splash';
 import { mountBase } from './mount';
 import { loadChunk } from './staleBundle';
 import { AppLayout } from './shell/AppLayout';
@@ -14,6 +15,7 @@ const routes: RouteObject[] = [
     path: '/',
     Component: AppLayout,
     ErrorBoundary: RouteError,
+    HydrateFallback: Splash,
     children: [
       { index: true, lazy: lazyPage(() => import('./pages/HomePage')) },
       { path: 'doc/*', lazy: lazyPage(() => import('./pages/DocumentPage')) },

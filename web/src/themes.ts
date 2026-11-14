@@ -46,6 +46,9 @@ export interface Palette {
   toastText: string;
   toastAction: string;
   toastHover: string;
+  tooltip: string;
+  tooltipText: string;
+  tooltipTextSecondary: string;
   diffAddLine: string;
   diffAddWord: string;
   diffDeleteLine: string;

@@ -70,6 +70,9 @@ export function useApi<T>(
     );
     run(controller.signal).then(
       (data) => {
+        if (controller.signal.aborted) {
+          return;
+        }
         if (key !== undefined) {
           remember(key, data);
         }

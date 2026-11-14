@@ -29,7 +29,8 @@ func serve(in io.Reader, out io.Writer) error {
 		return fmt.Errorf("read prettier: %w", err)
 	}
 	ctx := context.Background()
-	runtime := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().WithMemoryLimitPages(memoryPages))
+	cfg := workerpool.RuntimeConfig().WithMemoryLimitPages(memoryPages)
+	runtime := wazero.NewRuntimeWithConfig(ctx, cfg)
 	defer runtime.Close(ctx)
 	if _, err = wasi_snapshot_preview1.Instantiate(ctx, runtime); err != nil {
 		return fmt.Errorf("set up wasi: %w", err)

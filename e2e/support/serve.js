@@ -3,7 +3,7 @@ const path = require('path');
 const {execFileSync, spawn} = require('child_process');
 const {once} = require('events');
 
-const {binary, fixture, passwordHash, user, workDir} = require('./env');
+const {binary, fixture, otherUser, passwordHash, user, workDir} = require('./env');
 
 const READY_TIMEOUT_MS = 120_000;
 const READY_POLL_MS = 100;
@@ -132,7 +132,7 @@ async function start(inst) {
     const child = spawn(binary, serveArgs(inst), {
         env: {
             ...process.env,
-            AUTH_USERS: `${user}:${passwordHash}`,
+            AUTH_USERS: `${user}:${passwordHash},${otherUser}:${passwordHash}`,
             AUTH_SECRET_FILE: inst.secretFile,
         },
         stdio: ['ignore', log, log],

@@ -236,6 +236,7 @@
   --scrawl-button-padding-x: 12px;
   --scrawl-input-font-size: 16px;
   --scrawl-menu-width: 220px;
+  --scrawl-popover-width: 320px;
   --scrawl-tabbar-height: 56px;
   --scrawl-edit-button: 54px;
 }
@@ -443,6 +444,9 @@
   --scrawl-toast-text: #ffffff;
   --scrawl-toast-action: #409cff;
   --scrawl-toast-hover: #ffffff1f;
+  --scrawl-tooltip: #2c2c2e;
+  --scrawl-tooltip-text: #ffffff;
+  --scrawl-tooltip-text-secondary: #aeaeb2;
   --scrawl-diff-add-line: #e7f6eb;
   --scrawl-diff-add-word: #248a3d40;
   --scrawl-diff-delete-line: #ffebea;
@@ -685,6 +689,9 @@
   --scrawl-toast-text: #f0efed;
   --scrawl-toast-action: #5aa7f0;
   --scrawl-toast-hover: #ffffff1a;
+  --scrawl-tooltip: #3a3a38;
+  --scrawl-tooltip-text: #f0efed;
+  --scrawl-tooltip-text-secondary: #9b9a97;
   --scrawl-diff-add-line: #263d30;
   --scrawl-diff-add-word: #5fa77e59;
   --scrawl-diff-delete-line: #502c29;
@@ -926,6 +933,9 @@
   --scrawl-toast-text: #ffffff;
   --scrawl-toast-action: #409cff;
   --scrawl-toast-hover: #ffffff1f;
+  --scrawl-tooltip: #2c2c2e;
+  --scrawl-tooltip-text: #ffffff;
+  --scrawl-tooltip-text-secondary: #aeaeb2;
   --scrawl-diff-add-line: #e7f6eb;
   --scrawl-diff-add-word: #248a3d40;
   --scrawl-diff-delete-line: #ffebea;
@@ -1166,6 +1176,9 @@
   --scrawl-toast-text: #f0efed;
   --scrawl-toast-action: #5aa7f0;
   --scrawl-toast-hover: #ffffff1a;
+  --scrawl-tooltip: #3a3a38;
+  --scrawl-tooltip-text: #f0efed;
+  --scrawl-tooltip-text-secondary: #9b9a97;
   --scrawl-diff-add-line: #263d30;
   --scrawl-diff-add-word: #5fa77e59;
   --scrawl-diff-delete-line: #502c29;

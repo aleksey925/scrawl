@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && npm run build:page && node icons.ts",
-    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && vite build && vite build -c vite.sw.config.ts && npm run build:page && node icons.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.sw.json",
     "preview": "vite preview",
     "build:page": "vite build -c vite.page.config.ts && for entry in math site boot mermaid plantuml; do SCRAWL_PAGE_ENTRY=$entry vite build -c vite.page.config.ts || exit 1; done"
   },

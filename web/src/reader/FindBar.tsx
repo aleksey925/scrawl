@@ -2,7 +2,7 @@ import { ActionIcon } from '@mantine/core';
 import { useEffect, useRef, type JSX, type KeyboardEvent, type ReactNode } from 'react';
 
 import { IconChevronDown, IconChevronUp, IconSearch, IconX } from '../icons';
-import { ownsShortcuts } from '../shell/shortcuts';
+import { composing, ownsShortcuts } from '../shell/shortcuts';
 import { layout } from '../theme';
 
 import classes from './FindBar.module.css';
@@ -29,9 +29,31 @@ type ToggleName = keyof Omit<FindQuery, 'text'>;
 const toggleKeys: Partial<Record<string, ToggleName>> = { KeyC: 'matchCase', KeyW: 'word', KeyR: 'regex' };
 
 export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
+  const bar = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const { query, setQuery } = find;
   const flip = (name: ToggleName): void => setQuery({ ...query, [name]: !query[name] });
+
+  useEffect(() => {
+    const view = window.visualViewport;
+    if (view === null) {
+      return undefined;
+    }
+    const follow = (): void => {
+      if (bar.current !== null) {
+        bar.current.style.transform = view.offsetTop === 0 ? '' : `translateY(${view.offsetTop}px)`;
+      }
+    };
+    follow();
+    view.addEventListener('scroll', follow);
+    view.addEventListener('resize', follow);
+    window.addEventListener('scroll', follow);
+    return () => {
+      view.removeEventListener('scroll', follow);
+      view.removeEventListener('resize', follow);
+      window.removeEventListener('scroll', follow);
+    };
+  }, []);
 
   useEffect(() => {
     input.current?.focus();
@@ -39,6 +61,9 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
   }, [find.openings]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+    if (composing(event.nativeEvent)) {
+      return;
+    }
     if (event.altKey) {
       const name = toggleKeys[event.nativeEvent.code];
       if (name !== undefined) {
@@ -63,7 +88,14 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
   };
 
   return (
-    <div data-testid="doc-find" className={classes.bar} role="search" data-print="hide" {...ownsShortcuts}>
+    <div
+      ref={bar}
+      data-testid="doc-find"
+      className={classes.bar}
+      role="search"
+      data-print="hide"
+      {...ownsShortcuts}
+    >
       <IconSearch size={layout.iconSizeSmall} className={classes.icon} />
       <input
         ref={input}

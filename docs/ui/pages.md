@@ -39,56 +39,68 @@ opens over them.
   the person's changes are: a gray spinner while they are on their way, a gray
   cloud with a check once all is sent, an orange crossed cloud when something
   is not sent or not synced, and an orange warning sign when a person must act,
-  because the space diverged or the remote refused its token. A read-only or
-  local space shows the control only when something is wrong. The calm states
-  have no word, so a save does not make the bar jump, and the problem states
-  add one on a wide screen: Not sent, will retry, Not sent, Not synced,
-  Diverged, Access refused. "Sent" is the check that stays, with no toast and
-  no timer, the way Notion keeps a small quiet state in its bar. A click opens
-  the facts behind it. Under reduced motion the spinner is a still cloud with
-  an arrow. A folder is always its list, the root included: a Notion database
-  of Name, Size and Modified led by a `..` row, and a click anywhere on a row
-  opens it. A right click on a row opens the menu the tree row has, at the
-  pointer as a desktop has it, over the row's name and its selected text too,
-  as a tree row does. It leaves out New file and New folder: from a row they
-  named the entry in the tree, away from the list. On the free space of the
-  page a right click opens a menu of New file and New folder, which name the
-  entry in a row of the table; there a link, a button and selected text keep
-  the browser's own menu, so text is still copied from there. The free space is
-  the page, which grows to the bottom of the window. A row keeps the hover gray
-  while its menu is up. A rename draws the field in the name cell of the row,
-  with the ring a new row has, and the row then takes no click, no right click
-  and no hover. New, a file or a folder, is a large main button at the right of
-  the folder's title, where Notion puts New page. The table is Notion's too:
-  its one view a gray pill with no line under it, no line between the columns,
-  which read as a spreadsheet, and columns of their own width, the name 530px
-  and the others 150px, as a file name carries its extension, with an empty one
-  at the end taking the rest and the row lines running across it, so a date is
-  not a screen away from its name. Every column starts at its left edge, the
-  size too: a size against its right edge stood against the date and the two
-  read as one column. On a narrow page the name gives way. A column's header is
-  gray text of the regular weight with a filled icon, as Notion heads one; 500
-  beside the system's own smoothing read bold, and an empty folder keeps the
-  header with its empty state under it, one plain New file button. Its
-  `index.md` is a row like any other, in its place by name, with a "Folder
-  page" tag, and no readme is shown under the list; Home in the sidebar opens
-  the root `index.md`, or the root's list when there is none. A folder holding
-  two cases of `index.md` has no folder page, and a site refuses it, because
-  both would be written to one file. A note that does not exist yet is a page
-  too, its file name as a faint title and the ways on from there, the first of
-  them, create it, on Enter. On a phone the bar on top holds `‹` with the
-  folder above, the title once the page's own has scrolled under the bar, at
-  once on a page that has none of its own, and the page's `⋯`. The title there
-  stays the note's title, since it stands for the heading that scrolled under
-  the bar. A rename of the page puts its field in the title's place across the
-  whole bar, and the way back and the actions leave the bar until it is done;
-  the sync control stays after the field. The sync control is the icon alone on
-  a phone, left of the page actions, with its words in its popover: a word next
-  to a title of half the bar did not fit. The root has no way up, and the app's
-  logo and the space's name stand there instead. Every screen has the bar as a
-  row of its own and its title on one line under it: a root drawn another way
-  made the page jump on the way to a folder. A folder there is a list and not a
-  table: a name over one line of what it is, and no `..` row.
+  because of a conflict with the remote or the remote refused its token. A
+  read-only or local space shows the control only when something is wrong. The
+  calm states have no word, so a save does not make the bar jump, and the
+  problem states add one on a wide screen: Not synced, No connection, Conflict,
+  Access refused. No connection is a failed fetch, so it is not mistaken for a
+  change that was not sent. "Synced" is the check that stays, with no toast and
+  no timer, the way Notion keeps a small quiet state in its bar. A click on a
+  calm state shows its word, Syncing or Synced, in a small dark tip centered
+  under the button, as Notion draws one, with a gray line "This note is not
+  sent yet" under it when the open note is not sent, and the offline mark shows
+  its tip the same way; the button stays gray while its tip is open. A click on
+  a problem state opens the facts behind it, in a popover as wide as its text
+  and no wider than 320px, so a short state is not a half-empty box. In a
+  conflict it lists the files under "Conflicting files:" and has no button:
+  Replace local copy is in the banner, which every screen shows. Its dialog is
+  the prototype's alert: a bold title ending in a question, gray text, the
+  files on a gray ground with their icons, no colored callout and no close
+  button, and a blue Replace, since nothing is lost. Under reduced motion the
+  spinner is a still cloud with an arrow. A folder is always its list, the root
+  included: a Notion database of Name, Size and Modified led by a `..` row, and
+  a click anywhere on a row opens it. A right click on a row opens the menu the
+  tree row has, at the pointer as a desktop has it, over the row's name and its
+  selected text too, as a tree row does. It leaves out New file and New folder:
+  from a row they named the entry in the tree, away from the list. On the free
+  space of the page a right click opens a menu of New file and New folder,
+  which name the entry in a row of the table; there a link, a button and
+  selected text keep the browser's own menu, so text is still copied from
+  there. The free space is the page, which grows to the bottom of the window. A
+  row keeps the hover gray while its menu is up. A rename draws the field in
+  the name cell of the row, with the gray a new row has, and the row then takes
+  no click, no right click and no hover. New, a file or a folder, is a large
+  main button at the right of the folder's title, where Notion puts New page.
+  The table is Notion's too: its one view a gray pill with no line under it, no
+  line between the columns, which read as a spreadsheet, and columns of their
+  own width, the name 530px and the others 150px, as a file name carries its
+  extension, with an empty one at the end taking the rest and the row lines
+  running across it, so a date is not a screen away from its name. Every column
+  starts at its left edge, the size too: a size against its right edge stood
+  against the date and the two read as one column. On a narrow page the name
+  gives way. A column's header is gray text of the regular weight with a filled
+  icon, as Notion heads one; 500 beside the system's own smoothing read bold,
+  and an empty folder keeps the header with its empty state under it, one plain
+  New file button. Its `index.md` is a row like any other, in its place by
+  name, with a "Folder page" tag, and no readme is shown under the list; Home
+  in the sidebar opens the root `index.md`, or the root's list when there is
+  none. A folder holding two cases of `index.md` has no folder page, and a site
+  refuses it, because both would be written to one file. A note that does not
+  exist yet is a page too, its file name as a faint title and the ways on from
+  there, the first of them, create it, on Enter. On a phone the bar on top
+  holds `‹` with the folder above, the title once the page's own has scrolled
+  under the bar, at once on a page that has none of its own, and the page's
+  `⋯`. The title there stays the note's title, since it stands for the heading
+  that scrolled under the bar. A rename of the page puts its field in the
+  title's place across the whole bar, and the way back and the actions leave
+  the bar until it is done; the sync control stays after the field. The sync
+  control is the icon alone on a phone, left of the page actions, with its
+  words in its popover: a word next to a title of half the bar did not fit. The
+  root has no way up, and the app's logo and the space's name stand there
+  instead. Every screen has the bar as a row of its own and its title on one
+  line under it: a root drawn another way made the page jump on the way to a
+  folder. A folder there is a list and not a table: a name over one line of
+  what it is, and no `..` row.
 
 ## Note
 
@@ -202,3 +214,31 @@ opens over them.
   names a blob. The client read it off the blob and the row's place once, and
   the newest row stops being the current text the moment the file changes on
   disk.
+
+## Start
+
+- Until the app has drawn its first screen, the page shows the logo in the
+  middle of the theme's ground. The server writes it into the shell, so it
+  shows before the bundle runs, and the app keeps it while the first page's
+  chunk loads. Opened from the offline copy, the page has the system's ground
+  until the bundle runs, since that shell knows no theme.
+- With offline access on, the app opens on the copy at once and turns writable
+  when the server answers. See [offline copy](../design/offline.md).
+
+## With no network
+
+- With offline access on and no network, the topbar's group at the right starts
+  with a mark: the crossed wifi icon, with "Offline" beside it on a wide screen
+  and alone on a phone's bar on top. A click shows `No network` and, under it
+  in gray, `Last sync 14:30`, the time of the copy on the device.
+- The pages read the copy on the device. Every write control, history, search
+  and the sync control are gone, the tree's filter stays, and the note's menu
+  loses Export as Markdown and as HTML; Export as PDF, which is a print, and
+  what reads only the page stay. A note or a file the copy does not hold says
+  `This is not on this device`.
+- `/edit/`, `/history/` and `/search` opened with no network show
+  `Needs a network`, with a link back to the note, or to all notes from
+  `/search`. An editor that was open when the network went stays open, so no
+  typed text is lost; its save fails the way it fails today.
+- The mark goes, and the controls come back, only once the server answered who
+  the person is. See [offline copy](../design/offline.md).

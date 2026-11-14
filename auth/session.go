@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,6 +19,8 @@ import (
 
 const (
 	CookieName = "scrawl_session"
+
+	SignInCookieName = "scrawl_signin"
 
 	tokenSep   = "|"
 	tokenParts = 3
@@ -125,6 +128,16 @@ func (s *Service) issue(w http.ResponseWriter, r *http.Request, user string) {
 		Secure:   s.secureFor(r),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(s.ttl / time.Second),
+	})
+}
+
+func (s *Service) SetSignInCookie(w http.ResponseWriter, r *http.Request, user string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     SignInCookieName,
+		Value:    url.QueryEscape(user),
+		Path:     "/",
+		Secure:   s.secureFor(r),
+		SameSite: http.SameSiteLaxMode,
 	})
 }
 

@@ -39,6 +39,10 @@ func themeOf(r *http.Request, version string) pageTheme {
 			}
 		}
 	}
+	return autoTheme(version)
+}
+
+func autoTheme(version string) pageTheme {
 	res := pageTheme{}
 	for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
 		media := "(prefers-color-scheme: " + string(scheme) + ")"

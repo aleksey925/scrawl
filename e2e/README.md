@@ -37,8 +37,10 @@ worker's; worker `N` adds `10 * N` to each:
   four spaces, used by `spaces.spec.js` and `sync.spec.js`
 
 All five run with authentication on, user `e2e`, password
-`e2e-secret-pass`. Every instance passes `--history` explicitly: left to
-the default a machine without git would silently serve without versions.
+`e2e-secret-pass`, and a second user `e2e-other` with the same password,
+which `offline.spec.js` signs in to check that a copy never passes to the
+next user. Every instance passes `--history` explicitly: left to the
+default a machine without git would silently serve without versions.
 
 ### The multi-space instance
 
@@ -188,12 +190,15 @@ expected.
 - The tests of one desktop file run in order in one worker, because they share
   the trees of that worker and some lean on what the one before wrote. The
   mobile profile is one file whose tests do not, so they spread over every
-  worker. A worker that replaces a crashed one starts its servers again from a
-  fresh copy. Before it starts a server, the launcher stops any server left on
-  that port: a worker can die without its teardown, and a server left behind
-  answered the readiness probe in place of the new one, so every spec drove an
-  old tree. Git runs with the same cleaned environment the binary gives its own
-  children, so nothing set on the host changes how the origins are seeded.
+  worker, and so do those of `offline.spec.js`, each of which writes its own
+  files and removes them: in order, that file alone took as long as the rest
+  of the suite. A worker that replaces a crashed one starts its servers again
+  from a fresh copy. Before it starts a server, the launcher stops any server
+  left on that port: a worker can die without its teardown, and a server left
+  behind answered the readiness probe in place of the new one, so every spec
+  drove an old tree. Git runs with the same cleaned environment the binary
+  gives its own children, so nothing set on the host changes how the origins
+  are seeded.
 - Specs that write create their own scratch documents under an `e2e-*` folder
   and remove them again, so the corpus copy stays as it was copied. The ones
   that break a git origin restore it in an `afterEach` and wait for the space

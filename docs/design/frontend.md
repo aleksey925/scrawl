@@ -35,6 +35,13 @@ How the react app in `web/` is built, shipped and wired.
   keep building. A file stored compressed is read through `gzassets` and goes
   out as stored to a client that accepts gzip, so the server spends nothing
   compressing it.
+- The offline copy's worker is a classic script of its own, built from
+  `web/src/sw/` by `vite.sw.config.ts` into `server/assets/sw/sw.js` and
+  checked by `tsconfig.sw.json` with the worker's types. It imports only
+  `web/src/offline/keys.ts` and the `web/src/contentPath.ts` it uses, which
+  touch no DOM. The worker keeps the app version before its own, so a page left
+  open on it still finds its next chunk
+  ([offline copy](offline.md#the-worker)).
 - PlantUML's library is the one exception: `plantuml/library/` is committed
   compressed and read the same way in every build
   ([server](server.md#plantuml)).
@@ -52,12 +59,24 @@ How the react app in `web/` is built, shipped and wired.
   control on every click, for the length of a round trip. What a click may not
   wait for is the highlight: the current row comes from the route and never
   from the answer.
+- `useApi` drops the answer of a run it has canceled, a success as well as an
+  error: a source may not watch the signal, the copy's reads do not, and a slow
+  answer of the note before would then land under the next one's address.
 - The file on screen is the route. A folder is always its list, so a note is
   shown under its own address only, and a per-file signal keys off the route.
 - Rendered notes never share an id namespace with app chrome. A heading becomes
   an element id, so a note carrying "Toasts" took `id="toasts"` and every toast
   was appended invisibly inside it. Chrome is mantine components, portals and
   refs, never a bare id lookup.
+- Offline the app gives the reader `offlinePlatform`, its own platform with
+  `offlineSource`, which reads the copy, and no search or editing. While the
+  connection is checked at start it gives `checkingPlatform`, the same with the
+  api client behind what the copy does not hold. Swapping the platform runs
+  `useApi` again, which keeps the last answer on screen while it loads, so
+  going offline or back does not blank the page
+  ([offline copy](offline.md#offline-in-the-app)). `mountBase()` takes the
+  space from the address when the shell's `data-base` is empty, which is the
+  offline shell; a page with no `data-base` at all, a site, has no base.
 - A global shortcut gives way to an editor. It does nothing when the event was
   already handled or was pressed inside an element that owns the app's
   shortcuts (`data-owns-shortcuts`), because a keymap may leave a key

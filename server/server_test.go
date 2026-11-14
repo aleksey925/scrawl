@@ -482,6 +482,19 @@ func TestPingIsExactAndDoesNotShadowContent(t *testing.T) {
 	}
 }
 
+func TestAnAnswerToAStrangerNamesTheApp(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{withAuth: true})
+
+	// act
+	resp, _ := ts.do(t, request{path: "/api/me"})
+
+	// assert
+	assert.Equal(t, http.StatusUnauthorized, resp.status)
+	assert.Equal(t, "scrawl", resp.header.Get("App-Name"))
+	assert.Empty(t, resp.header.Get("App-Version"))
+}
+
 func TestBuildVersionIsNotShownToStrangers(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{withAuth: true})
@@ -515,6 +528,7 @@ func TestSecurityHeaders(t *testing.T) {
 	assert.Contains(t, policy, "default-src 'none'")
 	assert.Contains(t, policy, "connect-src 'self'")
 	assert.Contains(t, policy, "script-src 'self'")
+	assert.Contains(t, policy, "worker-src 'self'")
 	assert.Contains(t, policy, "style-src 'self' 'unsafe-inline'")
 }
 
@@ -2099,6 +2113,61 @@ func TestLoginFlow(t *testing.T) {
 	assert.Equal(t, http.StatusFound, afterLogout.status)
 }
 
+func TestSignInSetsTheSignInCookie(t *testing.T) {
+	form := func(password string) request {
+		return request{
+			method:  http.MethodPost,
+			path:    "/login",
+			body:    strings.NewReader(url.Values{"username": {testUser}, "password": {password}}.Encode()),
+			headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
+		}
+	}
+	apiLogin := func(password string) request {
+		return request{
+			method:  http.MethodPost,
+			path:    "/api/login",
+			body:    strings.NewReader(`{"username":"` + testUser + `","password":"` + password + `"}`),
+			headers: map[string]string{"Content-Type": "application/json"},
+		}
+	}
+	tests := []struct {
+		name string
+		req  request
+		want bool
+	}{
+		{name: "the form", req: form(testPassword), want: true},
+		{name: "the api", req: apiLogin(testPassword), want: true},
+		{name: "a failed form", req: form("wrong")},
+		{name: "a failed api call", req: apiLogin("wrong")},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ts := newTestServer(t, testOpts{withAuth: true})
+
+			// act
+			resp, _ := ts.do(t, tc.req)
+
+			// assert
+			cookies := map[string]*http.Cookie{}
+			for _, cookie := range (&http.Response{Header: resp.header}).Cookies() {
+				cookies[cookie.Name] = cookie
+			}
+			signIn, found := cookies[auth.SignInCookieName]
+			require.Equal(t, tc.want, found)
+			if !tc.want {
+				return
+			}
+			assert.Equal(t, testUser, signIn.Value)
+			assert.False(t, signIn.HttpOnly)
+			assert.Equal(t, cookies[auth.CookieName].Path, signIn.Path)
+			assert.Equal(t, cookies[auth.CookieName].SameSite, signIn.SameSite)
+			assert.Equal(t, cookies[auth.CookieName].Secure, signIn.Secure)
+			assert.Zero(t, signIn.MaxAge)
+		})
+	}
+}
+
 func TestLoginRedirectsBackToTheRequestedPage(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{withAuth: true})
@@ -2150,10 +2219,15 @@ func TestLoginRedirectsWhenAuthIsDisabled(t *testing.T) {
 
 	// act
 	resp, _ := ts.do(t, request{path: "/login"})
+	back, _ := ts.do(t, request{path: "/login?from=" + url.QueryEscape("/s/notes/guide.md")})
+	outside, _ := ts.do(t, request{path: "/login?from=" + url.QueryEscape("https://example.com/")})
 
 	// assert
 	assert.Equal(t, http.StatusFound, resp.status)
 	assert.Equal(t, "/", resp.header.Get("Location"))
+	assert.Equal(t, http.StatusFound, back.status)
+	assert.Equal(t, "/s/notes/guide.md", back.header.Get("Location"))
+	assert.Equal(t, "/", outside.header.Get("Location"))
 }
 
 func TestCSRFBlocksCrossSiteWrites(t *testing.T) {

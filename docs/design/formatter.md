@@ -39,6 +39,23 @@ Prettier inside the binary and in the browser.
   fresh worker. `main` asks `format.RunWorkerIfAsked` and
   `plantuml.RunWorkerIfAsked` before anything else, because a worker must not
   parse flags or open a store.
+- The tests of `format`, `plantuml` and the command line open a compilation
+  cache on disk, in `scrawl/wasm` of the user's cache directory, not the shared
+  temp directory where another user could plant compiled code, with
+  `workerpool.UseCompilationCache` before they ask for a worker, so every
+  worker a test starts reads the compiled module instead of compiling it again:
+  under `-race` wazero compiles PlantUML's engine in 3.4 seconds, not 0.3. The
+  cache stays between runs, as that is where the time is saved; wazero keys it
+  by the module and its own version. The server has no such cache, as its
+  worker compiles the module once in its life, and the browser suite runs that
+  path. Of the tests of `plantuml`, the ones that draw run in parallel, but
+  each engine is a process of some 450MB under `-race`, so the tests that start
+  their own renderer, or an engine in the test process, stay in order and the
+  drawings share one worker. The one exception draws every example with a
+  renderer each, so the note of icon sets, which takes over half a minute to
+  draw ([quirks](../quirks.md#mermaid-plantuml-and-katex)), holds none of the
+  others up: six beside the shared worker, seven processes, as many as ran
+  before, some 3.4GB at the peak.
 - A note the formatter gave up on is stored as it was written, because the save
   is what the writer asked for, and the answer says so in `format_failed`. A
   write that formats is detached from its client: formatting takes seconds, and

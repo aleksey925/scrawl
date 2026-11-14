@@ -26,7 +26,7 @@ The proxy is required, not a convenience: the server's CSRF check is
 `Sec-Fetch-Site` based, so a mutating request has to look same-origin.
 CORS cannot make that work.
 
-Proxied to `http://127.0.0.1:7272`: `/api`, `/raw`, `/static`,
+Proxied to `http://127.0.0.1:7272`: `/api`, `/raw`, `/static`, `/sw.js`,
 `/logout`, `/ping`, `/manifest.webmanifest`, plus `/s` and `/login`.
 The first group is the server's alone. `/s` and `/login` are shared: a
 browser navigation to an app route is answered with Vite's `index.html`
@@ -49,20 +49,28 @@ prefix, and `web/index.html` hardcodes `data-base="/s/notes"` to match the
 `--space.name=notes` that `make run` passes. Running the backend with another
 space name means editing that attribute too.
 
+**The dev shell has no release.** `web/index.html` carries no
+`data-version`, and the offline copy reads only the answers of the
+shell's release, so reading offline does not work against
+`npm run dev`. Try it against the binary.
+
 ## Build
 
 ```
 cd web
-npm run build     # tsc --noEmit, then vite build for the app and the pages
+npm run build     # tsc --noEmit for the app and the worker, then vite
+                  # build for the app, the worker and the pages
 ```
 
-The app goes to `server/assets/app/`:
+The app goes to `server/assets/app/`, and the service worker of the
+offline copy, built by `vite.sw.config.ts`, to `server/assets/sw/`:
 
 ```
 server/assets/app/index.html
 server/assets/app/manifest.json
 server/assets/app/assets/*.js
 server/assets/app/assets/*.css
+server/assets/sw/sw.js
 ```
 
 The pages of `render`, `diff` and `site` get their scripts and
@@ -130,6 +138,10 @@ server the client sets the scheme from the cookie and the system before
 React mounts.
 
 **Mount node.** The shell has to contain `<div id="scrawl-app-root">`.
+The server puts the start screen inside it, and React replaces it on
+its first render. The start screen is `<div class="scrawl-splash">`,
+styled by the global `src/components/Splash.css`. It is not a CSS
+module, because the server's shell uses the same class.
 
 ## Themes
 
@@ -196,8 +208,8 @@ highlighted text file. It is safe because the server made it: a note and a
 diff side are sanitized with the bluemonday policy in `render/policy.go`,
 and a text file is highlighted by `render` from escaped source. Keeping the
 injection in these three places keeps that trust boundary small. The one
-other `dangerouslySetInnerHTML` is `src/shell/AppLogo.tsx`, which draws the
-logo, a file of the bundle and never input.
+other `dangerouslySetInnerHTML` is `src/shell/AppLogo.tsx`, which draws
+the logo, a file of the bundle and never input, for the start screen too.
 
 ## Browser and library quirks
 

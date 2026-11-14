@@ -6,9 +6,13 @@ import { useApi } from '../api/useApi';
 import { PopupMenu } from '../components/PopupMenu';
 import { IconCheck, IconEyeOff, IconLogin, IconLogout } from '../icons';
 import { goToLogin } from '../login';
+import { useReadingCopy } from '../offline/connection';
+import { deleteOfflineData } from '../offline/register';
+import { storedSpaces } from '../offline/source';
 import { layout } from '../theme';
 
 import { spaceLabel, useNav } from './NavContext';
+import { OfflineAccessItem } from './OfflineAccess';
 import { useReaderLayout } from './ReaderLayout';
 import { ShortcutsMenuItem } from './ShortcutHelp';
 import { useKeyboardPlace } from './shortcuts';
@@ -18,6 +22,7 @@ import { ThemePicker } from './ThemePicker';
 
 async function signOut(): Promise<void> {
   await api.logout();
+  await deleteOfflineData().catch(() => undefined);
   goToLogin();
 }
 
@@ -39,7 +44,8 @@ export function SpaceMenuDropdown(): JSX.Element {
   const { me } = useNav();
   const { openShortcuts } = useReaderLayout();
   const keyboard = useKeyboardPlace();
-  const state = useApi((signal) => api.spaces({ signal }), []);
+  const fromCopy = useReadingCopy();
+  const state = useApi((signal) => (fromCopy ? storedSpaces() : api.spaces({ signal })), [fromCopy]);
   const spaces = state.data ?? [];
   const current = me?.space;
   const signedIn = me !== undefined && me.user !== '';
@@ -87,7 +93,7 @@ export function SpaceMenuDropdown(): JSX.Element {
       {keyboard && <ShortcutsMenuItem onClick={openShortcuts} />}
       <Menu.Divider />
 
-      {me?.read_only === true && (
+      {!fromCopy && me?.read_only === true && (
         <Menu.Item
           data-testid="space-menu-readonly"
           disabled
@@ -96,7 +102,8 @@ export function SpaceMenuDropdown(): JSX.Element {
           Read-only mode
         </Menu.Item>
       )}
-      {signedIn ? (
+      <OfflineAccessItem />
+      {!fromCopy && (signedIn ? (
         <Menu.Item
           data-testid="space-menu-signout"
           leftSection={<IconLogout size={layout.iconSizeSmall} />}
@@ -112,7 +119,7 @@ export function SpaceMenuDropdown(): JSX.Element {
         >
           Sign in
         </Menu.Item>
-      )}
+      ))}
     </Menu.Dropdown>
   );
 }

@@ -65,7 +65,7 @@ const (
 
 const contentSecurityPolicy = "default-src 'none'; base-uri 'none'; form-action 'self'; " +
 	"frame-ancestors 'none'; connect-src 'self'; font-src 'self'; manifest-src 'self'; " +
-	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; script-src 'self' 'wasm-unsafe-eval'"
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'"
 
 var gzipContentTypes = []string{
 	"text/html", "text/css", "text/plain", "text/xml", "text/javascript",
@@ -99,6 +99,7 @@ type Web struct {
 	byName    map[string]*Space
 	templates *template.Template
 	appShell  *appShell
+	offline   *offlineApp
 
 	cacheOnce sync.Once
 	cache     *pageCache
@@ -209,9 +210,12 @@ func (wb *Web) router() (http.Handler, error) {
 	if wb.appShell, err = newAppShell(assets); err != nil {
 		return nil, fmt.Errorf("build app shell: %w", err)
 	}
+	if wb.offline, err = wb.newOfflineApp(); err != nil {
+		return nil, fmt.Errorf("build the offline app: %w", err)
+	}
 
 	router := routegroup.New(http.NewServeMux())
-	router.Use(rest.Trace, rest.Recoverer(lgr.Default()), securityHeaders)
+	router.Use(rest.Trace, rest.Recoverer(lgr.Default()), securityHeaders, appName)
 	router.Use(rest.Gzip(gzipContentTypes...))
 	if wb.TrustedProxy {
 		router.Use(rest.RealIP)
@@ -224,6 +228,8 @@ func (wb *Web) router() (http.Handler, error) {
 	router.Use(wb.appInfo)
 
 	router.HandleFunc("GET /ping", pingHandler)
+	router.HandleFunc("GET /sw.js", wb.workerHandler)
+	router.HandleFunc("GET "+offlineShellBase+"{file}", wb.offlineShellHandler)
 
 	router.With(rest.CacheControl(staticCacheTTL, wb.Version)).
 		HandleFunc("GET /static/{version}/{path...}", wb.staticHandler(assets))
@@ -277,6 +283,7 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	g.HandleFunc("GET /api/page/{path...}", m.apiPage)
 	g.HandleFunc("GET /api/dir/{path...}", m.apiDir)
 	g.HandleFunc("GET /api/nav", m.apiNav)
+	g.HandleFunc("GET /api/versions", m.apiVersions)
 	g.HandleFunc("GET /api/me", m.apiMe)
 	g.HandleFunc("GET /api/export/{path...}", m.apiExport)
 
@@ -367,6 +374,13 @@ func pingHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
+func appName(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("App-Name", "scrawl")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (wb *Web) appInfo(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if wb.Auth == nil {
@@ -375,7 +389,6 @@ func (wb *Web) appInfo(next http.Handler) http.Handler {
 		}
 		if _, ok := wb.Auth.User(r); ok {
 			h := w.Header()
-			h.Set("App-Name", "scrawl")
 			h.Set("App-Version", wb.Version)
 			h.Set("Author", "aleksey925")
 		}
@@ -478,7 +491,14 @@ func iconURL(version, name string) string {
 	return "/static/" + version + "/" + name + "?v=" + iconStamp()
 }
 
-var loginLogo = sync.OnceValue(func() template.HTML {
-	svg := strings.Replace(strings.TrimSpace(string(logoSVG())), "<svg ", `<svg class="login-logo" aria-hidden="true" `, 1)
+func inlineLogo(attrs string) template.HTML {
+	svg := strings.TrimSpace(string(logoSVG()))
+	if attrs != "" {
+		svg = strings.Replace(svg, "<svg", "<svg "+attrs, 1)
+	}
 	return template.HTML(svg) //nolint:gosec // the logo is a file of the binary and never input
+}
+
+var loginLogo = sync.OnceValue(func() template.HTML {
+	return inlineLogo(`class="login-logo" aria-hidden="true"`)
 })

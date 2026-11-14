@@ -18,6 +18,9 @@ A space written out as static pages that run the app's reader.
   plugged into the reader by the app and never imported by it, and the build of
   a site fails when the reader reaches any of it, so the reader cannot grow a
   dependency on the server unnoticed.
+- The reader runs from a third source too: the app's offline copy, which reads
+  the answers it stored on the device and marks the branch of the stored tree
+  with the same `markBranch` a site uses ([offline copy](offline.md)).
 - A site's answers are the server's. The JSON shapes and their builders live in
   `view`, which the handlers and `site` both call, so a page describes a note
   exactly as `/api/page/` would; HTTP caching, auth and the space's state stay

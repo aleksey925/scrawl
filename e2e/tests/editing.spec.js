@@ -1547,6 +1547,7 @@ test.describe('editing', () => {
             await page.goto(routes.edit(docPath));
             await putCursor(page, 0, 'End');
             await page.getByTestId('editor-toolbar-table').click();
+            await expect(page.getByTestId('editor-table-grid')).toBeFocused();
             const size = page.getByTestId('editor-table-size');
 
             // act & assert

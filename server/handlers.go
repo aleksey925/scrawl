@@ -17,6 +17,7 @@ import (
 	"github.com/aleksey925/scrawl/auth"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
+	"github.com/aleksey925/scrawl/view"
 )
 
 const maxLoginBody = 64 << 10
@@ -184,12 +185,12 @@ func rawContentType(name string) (contentType string, inline bool) {
 }
 
 func rawETag(fi store.FileInfo) string {
-	return fmt.Sprintf(`"%x-%x"`, fi.ModTime.UnixNano(), fi.Size)
+	return strconv.Quote(view.FileVersion(fi))
 }
 
 func (wb *Web) loginPage(w http.ResponseWriter, r *http.Request) {
 	if wb.AuthDisabled || wb.Auth == nil {
-		http.Redirect(w, r, "/", http.StatusFound)
+		http.Redirect(w, r, auth.SafeRedirect(r.URL.Query().Get("from")), http.StatusFound)
 		return
 	}
 	if _, ok := wb.Auth.User(r); ok {
@@ -227,6 +228,7 @@ func (wb *Web) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		wb.loginForm(w, r, http.StatusInternalServerError, "The session could not be started", from)
 		return
 	}
+	wb.Auth.SetSignInCookie(w, r, r.PostFormValue("username"))
 	http.Redirect(w, r, from, http.StatusSeeOther)
 }
 

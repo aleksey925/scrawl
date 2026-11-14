@@ -190,6 +190,7 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-button-padding-x': `${layout.buttonPaddingX}px`,
   '--scrawl-input-font-size': `${layout.inputFontSize}px`,
   '--scrawl-menu-width': `${layout.menuWidth}px`,
+  '--scrawl-popover-width': `${layout.popoverWidth}px`,
   '--scrawl-tabbar-height': `${layout.tabBarHeight}px`,
   '--scrawl-edit-button': `${layout.editButtonSize}px`,
 };

@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -313,4 +314,27 @@ func TestWriteSecretFile(t *testing.T) {
 	// assert
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "create directory")
+}
+
+func TestServiceSetSignInCookie(t *testing.T) {
+	// arrange
+	svc := newTestService(t, Config{Secure: SecureAlways})
+	rec := httptest.NewRecorder()
+	user := "алиса smith"
+
+	// act
+	svc.SetSignInCookie(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody), user)
+
+	// assert
+	res := rec.Result()
+	defer res.Body.Close()
+	require.Len(t, res.Cookies(), 1)
+	cookie := res.Cookies()[0]
+	assert.Equal(t, SignInCookieName, cookie.Name)
+	assert.Equal(t, url.QueryEscape(user), cookie.Value)
+	assert.Equal(t, "/", cookie.Path)
+	assert.False(t, cookie.HttpOnly)
+	assert.True(t, cookie.Secure)
+	assert.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
+	assert.Zero(t, cookie.MaxAge)
 }

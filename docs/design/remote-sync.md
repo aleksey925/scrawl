@@ -2,6 +2,9 @@
 
 A space whose directory is a git clone: pull, push, divergence and reset.
 
+`scripts/try-sync.sh` tries the sync states by hand on one machine, with a
+local remote; its head says how.
+
 ## Startup
 
 - A remote space is a local space whose directory is a clone. `history` gains a
@@ -53,7 +56,7 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   apart, so one that started earlier never stores its result over a newer one.
 - `measure` takes `mu`. A commit and its push mark are one `mu` section, so a
   measure never counts a commit whose mark is not made yet. Without that, the
-  control could say "Not sent" for one poll for a change that is about to be
+  control could say "Not synced" for one poll for a change that is about to be
   sent.
 - `lockNet` checks the context after it gets the lock, so a caller canceled
   while it waited runs no git and publishes nothing. The wait itself is bounded
@@ -114,11 +117,12 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   up on disk first, and one that is there and untracked refuses the reset. A
   writable space commits what is on disk before the backup is taken; a
   pull-only one never commits, so there the refusal is the whole protection.
-- A backup reaches the remote only when the reader ticks it, and before
-  anything is reset: a force-push can be how a secret was removed, and a backup
-  pushed by default would bring it back. A push that fails stops the reset,
-  because a backup promised on the remote and missing there is a reason not to
-  let go of the copy.
+- A backup reaches the remote before anything is reset, and its box is ticked
+  by default: a backup on the remote outlives this copy and can be opened on
+  the git host. The reader unticks it when a force-push was how a secret was
+  removed, since the backup would bring it back. A push that fails stops the
+  reset, because a backup promised on the remote and missing there is a reason
+  not to let go of the copy.
 - The reset is not behind the read-only guard. A read-only mirror whose
   upstream was rewritten needs it most, and no note anybody wrote here is
   changed. `canReset` asks who is calling instead: a session or a read-write
@@ -160,10 +164,10 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   pushes after it, because its mark stays: when its request ends before the
   push, or its measure fails on the dead context, the commit is not stranded.
   When its own push went through, the loop's finds nothing new, which costs one
-  round trip and "Sending" for about 3 seconds.
+  round trip and "Syncing" for about 3 seconds.
 - The watcher's `Reconcile` commits and marks a push like any other commit, so
-  the control says "Sending" until the loop's push ends, and a measure in
-  between never says "Not sent". It never pushes itself, so the watcher
+  the control says "Syncing" until the loop's push ends, and a measure in
+  between never says "Not synced". It never pushes itself, so the watcher
   goroutine never waits on the network and keeps invalidating pages and
   reindexing while the remote hangs.
 - The answer to a write carries the state from before its own push, so a
@@ -203,10 +207,10 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   "Access refused" until a restart, and an offline copy would blame the token
   for a remote it cannot reach. A refusal found by a push is found again by the
   next retry's push. The minute is fixed and not a backoff: there is one client
-  and one remote, and "tries again in about a minute" is the schedule a person
-  is told. It counts from the end of the loop's own last attempt, so a hung
-  fetch is not followed by another at once; the pull loop, a webhook and a
-  token write still try on their own.
+  and one remote, and "Retrying in a minute" is the schedule a person is told.
+  It counts from the end of the loop's own last attempt, so a hung fetch is not
+  followed by another at once; the pull loop, a webhook and a token write still
+  try on their own.
 - `pushing` is two flags: `due`, set by the mark of a commit, and `sending`,
   set while the loop's push or a retry runs. The loop's push and a retry both
   run under the network lock, so they never run at once, and one flag serves
@@ -238,16 +242,16 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   **measured**, never remembered, and never the gate on the push.
 - `syncStatusOf` derives the state of the sync control from `/api/me` and the
   sync message, the first that holds: blocked (diverged or refused), sending
-  (`pushing`), not sent (`unpublished`), a warning (any other sync message:
-  history not recorded, a fetch failed with nothing waiting) and sent (a
-  writable remote space with none of these). Blocked comes before sending,
-  because a write on a diverged space marks a push that never goes, and a
-  spinner would say it does. History not recorded is "Not synced" and not "Not
-  sent": it does not say whether a change reached the remote. The client reads
-  `retrying` and never derives it from the other fields, so the rule has one
-  home, in `publish`. The control has no live region of its own: the banner's
-  already reads out a warning, and "Sending" and "Sent" after each save would
-  be noise next to the editor's "Saved".
+  (`pushing`), a warning (`unpublished` or any other sync message: history not
+  recorded, a fetch failed with nothing waiting) and sent (a writable remote
+  space with none of these). Blocked comes before sending, because a write on a
+  diverged space marks a push that never goes, and a spinner would say it does.
+  The warning is "No connection" on the bar when a fetch failed and "Not
+  synced" otherwise, and the facts in its popover tell the cases apart. The
+  client reads `retrying` and never derives it from the other fields, so the
+  rule has one home, in `publish`. The control has no live region of its own:
+  the banner's already reads out a warning, and "Syncing" and "Synced" after
+  each save would be noise next to the editor's "Saved".
 - The remote state reaches the client only through `/api/me`, and `apiMe` reads
   it with one `SyncState()` and never a getter at a time: a `Sync` finishing
   between two calls would pair an error from one attempt with the paths of
@@ -257,7 +261,7 @@ A space whose directory is a git clone: pull, push, divergence and reset.
   flags sit behind the status lock, and `SyncState()` copies the snapshot and
   sets `pushing` in one section of it, so `/api/me` gets one view from one
   call. Two reads, in any order, can pair a "not pushing" from before a mark
-  with a snapshot measured after it, and say "Not sent" with a push due.
+  with a snapshot measured after it, and say "Not synced" with a push due.
 - The unsynced path set is measured in the same breath as the count, and only
   when the count says this copy is ahead. It is filtered by what the store
   would serve **before** it is capped - hidden paths must not spend the cap and

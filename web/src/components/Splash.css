@@ -1,0 +1,14 @@
+.scrawl-splash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--scrawl-bg);
+  color: var(--scrawl-icon);
+}
+
+.scrawl-splash svg {
+  width: 64px;
+  height: 64px;
+}

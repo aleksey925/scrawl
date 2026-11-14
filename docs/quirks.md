@@ -37,6 +37,10 @@ words; the fact itself is written here.
   else. [Themes](design/themes.md)
 - A phone's keyboard covers the bottom of the page without making it shorter,
   so a field fixed to the bottom sits under the keys. [Phone](ui/phone.md)
+- With the keyboard up, a scroll moves the visible area across the page, and an
+  element fixed to the page moves with it. React renders a state set in a
+  scroll listener after the frame is drawn, so the element is seen in the wrong
+  place for a frame. [Phone](ui/phone.md)
 - The click a browser sends after a touch end lands on what is under the finger
   by then, so when the touch end closed a menu, the click goes to what the menu
   covered. [Editor](ui/editor.md)
@@ -87,6 +91,10 @@ words; the fact itself is written here.
   [Remote sync](design/remote-sync.md#sync-state)
 - On a Mac, Option+C types `ç`, so a shortcut with Alt is matched on `code`.
   [Frontend](design/frontend.md)
+- Chromium keeps an unregistered service worker while a page it controls is
+  open, and a `register()` of the same script from that page brings it back
+  with no install, so the caches deleted with it stay empty.
+  [Offline copy](design/offline.md#on-and-off)
 
 ## Firefox and Chromium from disk
 
@@ -227,6 +235,11 @@ words; the fact itself is written here.
   exits. A second engine in the same process took the worker from 115MB to
   1.1GB: Go clears the reserved 1GB when it reuses it, which touches every
   page. [Server](design/server.md#plantuml)
+- Under `-race` wazero compiles PlantUML's engine in 3.4 seconds, ten times
+  slower than without. [Formatter](design/formatter.md)
+- PlantUML's engine drew the Bootstrap icon set in 85 seconds as the first
+  diagram of a worker, and in 35 after a C4 diagram; a plain sequence first did
+  not make it faster. [Formatter](design/formatter.md)
 - A wazero memory is safe to read only on the goroutine that runs its module:
   read from another one while the engine grows it, its size is a data race. So
   the worker takes the size when the engine writes its answer, on the engine's

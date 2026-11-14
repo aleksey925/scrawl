@@ -503,14 +503,27 @@ test.describe('mobile', () => {
                 await new Promise((resolve) => setTimeout(resolve, 1000));
                 await route.continue();
             });
+            await page.evaluate(() => {
+                window.loadingAtStart = new Promise((resolve) => {
+                    new MutationObserver((_, observer) => {
+                        const shown = document.querySelector('[data-testid="dir-loading"]');
+                        if (shown !== null) {
+                            observer.disconnect();
+                            const delays = shown.getAnimations().map((entry) => entry.effect.getTiming().delay);
+                            resolve({opacity: getComputedStyle(shown).opacity, delay: Math.max(0, ...delays)});
+                        }
+                    }).observe(document.body, {childList: true, subtree: true});
+                });
+            });
 
             // act
             await swipe(page, 300);
 
             // assert
+            const atStart = await page.evaluate(() => window.loadingAtStart);
+            expect(atStart.opacity).toBe('0');
+            expect(atStart.delay).toBeGreaterThan(0);
             const loading = page.getByTestId('dir-loading');
-            await expect(loading).toHaveCount(1);
-            expect(await loading.evaluate((el) => getComputedStyle(el).opacity)).toBe('0');
             await expect.poll(() => loading.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
         });
 
@@ -2282,7 +2295,7 @@ test.describe('mobile sync state', () => {
         await page.goto(WIKI.doc(SYNC_DOC));
 
         // assert
-        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'not-sent');
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'warning');
         await expect(page.getByTestId('sync-control')).toHaveText('');
         await expect(page.getByTestId('sync-control')).toHaveAttribute('data-here', 'true');
         await expect(page.getByTestId('space-alert')).toBeVisible();
@@ -2363,9 +2376,14 @@ test.describe('mobile sync state', () => {
         await expectNoHorizontalScroll(page);
     });
 
-    test('a diverged space shows its sign and keeps the word in the popover', async ({page}) => {
+    test('a diverged space shows its sign and names the conflicting files in the popover', async ({page}) => {
         // arrange
-        await mockMe(page, {unpublished: true, diverged: true, sync_error: 'merge: the branch has diverged from origin/main'});
+        await mockMe(page, {
+            unpublished: true,
+            diverged: true,
+            sync_error: 'merge: the branch has diverged from origin/main',
+            unsynced: {paths: [SYNC_DOC], many: false},
+        });
         await page.goto(WIKI.doc(SYNC_DOC));
         const sync = page.getByTestId('sync-control');
 
@@ -2375,9 +2393,12 @@ test.describe('mobile sync state', () => {
 
         // assert
         await expect(sync).toHaveText('');
-        await expect(sync).toHaveAttribute('aria-label', 'Diverged');
-        await expect(page.getByTestId('sync-details')).toContainText('Diverged');
-        await expect(page.getByTestId('sync-details').getByTestId('sync-reset')).toBeVisible();
+        await expect(sync).toHaveAttribute('aria-label', 'Conflict. This note is not sent yet');
+        const details = page.getByTestId('sync-details');
+        await expect(details).toContainText('Conflict');
+        await expect(details).toContainText('Conflicting files:');
+        await expect(details.getByTestId('sync-popover-paths')).toHaveText(SYNC_DOC);
+        await expect(details.getByTestId('sync-reset')).toHaveCount(0);
         await shot(page, 'mobile-sync-diverged');
     });
 
@@ -2393,7 +2414,7 @@ test.describe('mobile sync state', () => {
 
         // assert
         await expect(page.getByTestId('topbar-title')).toHaveAttribute('data-shown', 'true');
-        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'not-sent');
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'warning');
         await expect(page.getByTestId('sync-control')).toBeInViewport({ratio: 1});
         await expect(page.getByTestId('note-menu')).toBeInViewport({ratio: 1});
         await expectNoHorizontalScroll(page);
@@ -2414,5 +2435,39 @@ test.describe('mobile sync state', () => {
         await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'sending');
         await expect(page.getByTestId('sync-spinner')).toHaveCount(0);
         await expect(page.getByTestId('sync-control').getByTestId('sync-still')).toBeVisible();
+    });
+});
+
+test.describe('mobile offline access', () => {
+    const FOLDER = 'e2e-mobile-offline';
+    const NOTE = `${FOLDER}/carried.md`;
+
+    test.beforeEach(async ({page}) => {
+        writeFixture(NOTE, '# Carried note\n\nread on the metro.\n');
+        await signIn(page);
+    });
+
+    test.afterEach(() => {
+        removeFixture(FOLDER);
+    });
+
+    test('the row is under the Profile tab and the mark sits in the bar on top', async ({page, context}) => {
+        // arrange
+        await tapSpaceMenu(page);
+        const row = page.getByTestId('space-menu-offline');
+        await row.tap();
+        await expect(page.getByTestId('space-menu-offline-status')).toContainText('updated at', {timeout: 60_000});
+        await shot(page, 'mobile-offline-row');
+        await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.active?.state),
+            {timeout: 60_000}).toBe('activated');
+
+        // act
+        await context.setOffline(true);
+        await page.goto(routes.doc(NOTE));
+
+        // assert
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Carried note');
+        await expect(page.getByTestId('topbar').getByTestId('offline-mark')).toBeVisible();
+        await shot(page, 'mobile-offline-mark');
     });
 });

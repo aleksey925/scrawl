@@ -18,9 +18,13 @@ import (
 	"github.com/aleksey925/scrawl/format"
 	"github.com/aleksey925/scrawl/page"
 	"github.com/aleksey925/scrawl/plantuml"
+	"github.com/aleksey925/scrawl/workerpool"
 )
 
 func TestMain(m *testing.M) {
+	if err := workerpool.UseCompilationCache(); err != nil {
+		panic(err)
+	}
 	format.RunWorkerIfAsked()
 	plantuml.RunWorkerIfAsked()
 	os.Exit(m.Run())

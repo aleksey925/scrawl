@@ -10,9 +10,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aleksey925/scrawl/workerpool"
 )
 
 func TestMain(m *testing.M) {
+	if err := workerpool.UseCompilationCache(); err != nil {
+		panic(err)
+	}
 	RunWorkerIfAsked()
 	os.Exit(m.Run())
 }

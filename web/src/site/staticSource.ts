@@ -1,22 +1,10 @@
-import type { NavNode } from '../api/types';
 import { ApiError } from '../api/errors';
 import { answerKeys } from '../api/useApi';
 import type { Platform } from '../platform';
+import { markBranch } from '../reader/tree';
 
 import type { SiteData } from './data';
 import type { PageStore } from './pages';
-
-export function markBranch(nodes: readonly NavNode[], current: string): NavNode[] {
-  return nodes.map((node) => {
-    const here = node.path === current;
-    return {
-      ...node,
-      current: here,
-      active: node.is_dir && (here || current.startsWith(`${node.path}/`)),
-      children: markBranch(node.children, current),
-    };
-  });
-}
 
 function missing(): Promise<never> {
   return Promise.reject(new ApiError(404, { error: 'that page has not been read' }));

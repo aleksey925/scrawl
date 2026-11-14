@@ -58,7 +58,7 @@ interface Answer {
   error?: string;
 }
 
-export function SearchProvider({ children }: { children: ReactNode }): JSX.Element {
+export function SearchProvider({ enabled, children }: { enabled: boolean; children: ReactNode }): JSX.Element {
   const [opened, setOpened] = useState(false);
   const [initial, setInitial] = useState('');
 
@@ -70,6 +70,9 @@ export function SearchProvider({ children }: { children: ReactNode }): JSX.Eleme
   const control = useMemo<SearchControl>(() => ({ opened, open, close }), [opened, open, close]);
 
   useEffect(() => {
+    if (!enabled) {
+      return undefined;
+    }
     const onKeyDown = (event: KeyboardEvent): void => {
       if (!modChord(event, 'k') || !appShortcut(event)) {
         return;
@@ -79,12 +82,12 @@ export function SearchProvider({ children }: { children: ReactNode }): JSX.Eleme
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [open]);
+  }, [open, enabled]);
 
   return (
-    <SearchControlProvider value={control}>
+    <SearchControlProvider value={enabled ? control : undefined}>
       {children}
-      {opened && <SearchDialog initial={initial} onClose={close} />}
+      {enabled && opened && <SearchDialog initial={initial} onClose={close} />}
     </SearchControlProvider>
   );
 }

@@ -220,6 +220,14 @@ function missing(): Response {
   return new Response(missingText, { status: 504, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 }
 
+async function keptFolderOrMissing(url: URL): Promise<Response> {
+  if (url.pathname.endsWith('/')) {
+    return missing();
+  }
+  const index = await caches.match(keyOf(`${url.pathname}/`), { cacheName: htmlappCache, ignoreVary: true });
+  return index === undefined ? missing() : Response.redirect(`${url.origin}${url.pathname}/${url.search}`, 301);
+}
+
 async function answer(event: FetchEvent, url: URL): Promise<Response> {
   const { request } = event;
   const key = keyOf(url.pathname);
@@ -230,7 +238,7 @@ async function answer(event: FetchEvent, url: URL): Promise<Response> {
   }
   const stored = await caches.match(key, { cacheName: htmlappCache, ignoreVary: true });
   if (stored === undefined) {
-    return network.catch(missing);
+    return network.catch(() => keptFolderOrMissing(url));
   }
   const first = await Promise.race([network.catch(() => undefined), networkDeadline()]);
   if (first === undefined || serverUnreachable(first)) {

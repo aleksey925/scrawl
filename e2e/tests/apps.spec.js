@@ -322,10 +322,12 @@ test.describe('html apps', () => {
         // arrange
         writeFixture(`${COUNTER}/a .html`, '<!doctype html><h1 id="title">space</h1>\n', SHARED);
         writeFixture(`${COUNTER}/a%20.html`, '<!doctype html><h1 id="title">percent</h1>\n', SHARED);
+        writeFixture(`${COUNTER}/sub/index.html`, '<!doctype html><h1 id="title">sub</h1>\n', SHARED);
         await copyOn(page, SAME_SITE);
 
         // act & assert
         const frame = await keptFolder(page, SAME_SITE);
+        await expect.poll(() => kept(frame, '/sub/index.html')).toBe(true);
         await expect.poll(() => kept(frame, '/a%2520.html')).toBe(true);
         await expect.poll(() => kept(frame, '/a%20.html')).toBe(true);
         expect(await keptText(frame, '/index.html')).toContain('Counter');
@@ -338,6 +340,10 @@ test.describe('html apps', () => {
         expect((await frameFetch(frame, '/page2.html?x=1')).text).toContain('Page two');
         expect((await frameFetch(frame, '/a%20.html')).text).toContain('space');
         expect((await frameFetch(frame, '/a%2520.html')).text).toContain('percent');
+        for (const target of ['/sub', '/sub?v=2', '/sub/']) {
+            expect((await frameFetch(frame, target)).text, target).toContain('sub');
+        }
+        expect((await frameFetch(frame, '/gone')).status).toBe(504);
         expect(await frame.evaluate(async () => {
             const res = await fetch('/page2.html', {headers: {Range: 'bytes=0-8'}});
             return {status: res.status, text: await res.text()};

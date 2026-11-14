@@ -221,10 +221,11 @@ the scheme and the port of the page. Chrome and Firefox send every
   warning at start names.
 - At any other address the run screen shows the 409: on this machine the
   printed link, from another device https with `APPS_URL`. `[::1]` is one of
-  them: a CSP source cannot name an IPv6 address, so `frame-ancestors` could
-  not let the app in its frame. No code is added for a browser that does not
-  open `app-<id>.localhost`, nor for a LAN address on http; such a frame shows
-  the browser's error page.
+  them, and with `APPS_URL` set any IPv6 address gets the 409 as well: a CSP
+  source cannot name an IPv6 address, so `frame-ancestors` could not let the
+  app in its frame. No code is added for a browser that does not open
+  `app-<id>.localhost`, nor for a LAN address on http; such a frame shows the
+  browser's error page.
 
 ## Offline
 
@@ -290,8 +291,9 @@ the apps host keeps the files.
 - From the cache it answers with the stored headers but sets
   `frame-ancestors <parent>` from the record: a file unchanged since its first
   run is never fetched again, and a stored header would keep that run's parent.
-  A `Range` request gets a 206 from the stored body. A file never kept, with no
-  network, is a 504
+  A `Range` request gets a 206 from the stored body. With no network, a folder
+  without the slash whose `index.html` is kept is a 301 to the slash, as the
+  server answers it. A file never kept, with no network, is a 504
   `This file is not on this device. Open the app once with a network.`.
   `/__scrawl/` always goes to the network, and requests of other origins are
   not touched: files of a CDN are not kept.

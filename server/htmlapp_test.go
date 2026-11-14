@@ -241,6 +241,14 @@ func TestRunTicketRefuses(t *testing.T) {
 				r.Host = "[::1]:7272"
 				r.Header.Set("Origin", "http://[::1]:7272")
 			}},
+		{name: "a host per app at ::1", file: counterFile, status: http.StatusConflict,
+			opts: testOpts{apps: "https://app-{id}.example.com"},
+			error: "HTML apps do not run at this address. On this machine, open scrawl at http://127.0.0.1:7272, " +
+				"the link it prints at start. From a phone or another device, open scrawl over https with APPS_URL set.",
+			modify: func(r *http.Request) {
+				r.Host = "[::1]:7272"
+				r.Header.Set("Origin", "http://[::1]:7272")
+			}},
 		{name: "a lan address with no port", file: counterFile, status: http.StatusConflict,
 			error: "HTML apps do not run at this address. On this machine, open scrawl at http://127.0.0.1, " +
 				"the link it prints at start. From a phone or another device, open scrawl over https with APPS_URL set.",

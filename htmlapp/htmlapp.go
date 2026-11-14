@@ -147,6 +147,9 @@ func (h Hosts) Origin(id, parent string) (string, error) {
 		return "", ErrNotHere
 	}
 	parentHost := Hostname(pu.Host)
+	if strings.Contains(parentHost, ":") {
+		return "", ErrNotHere
+	}
 	scheme, host, port := h.scheme, h.prefix+id+h.suffix+"."+h.rest, h.port
 	if h.Local() {
 		scheme, port = pu.Scheme, pu.Port()

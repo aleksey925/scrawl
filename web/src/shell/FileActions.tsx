@@ -6,7 +6,7 @@ import { useLocation, useNavigate } from 'react-router';
 
 import { api } from '../api/client';
 import { ApiError } from '../api/errors';
-import type { DeleteResponse, DirEntry, EntryPathResponse, MutationState, NavNode } from '../api/types';
+import type { DeleteResponse, EntryPathResponse, NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
 import { copyText } from '../reader/clipboard';
@@ -20,21 +20,15 @@ import { useReaderLayout } from './ReaderLayout';
 import { spaceLabel, useAccount, useTree } from './NavContext';
 import { useMutationState } from './useMutationState';
 import { ancestorsOf, basenameOf, contentPathOf, folderFor, freeName, joinPath, nameProblem, parentOf, renamedPath } from './naming';
+import {
+  foldersOf, hereAfter, intoFolder, MoveUndo, pathAfterMove, replaces, restoreDeleted, startDelete, UndoMarks,
+  type Relocation,
+} from './relocation';
 import { plainShortcut } from './shortcuts';
 
 interface MovedEntry {
   path: string;
   anchor: DOMRect;
-}
-
-interface Relocation {
-  from: string;
-  to: string;
-}
-
-interface UndoMark {
-  targets: string[];
-  stamps: Map<string, Promise<string | undefined>>;
 }
 
 const changedSinceText = 'It was renamed, moved or deleted since';
@@ -62,7 +56,7 @@ function movedMessage(
 ): ReactNode {
   const [first] = done;
   const what = done.length === 1 && first !== undefined ? quoted(first.to, spaceName) : `${done.length} items`;
-  const [folder, ...others] = new Set(done.map((pair) => parentOf(pair.to)));
+  const [folder, ...others] = foldersOf(done);
   return (
     <>
       Moved {what}
@@ -75,71 +69,6 @@ function movedMessage(
       )}
     </>
   );
-}
-
-function stampOf(entry: DirEntry): string {
-  return entry.is_dir ? 'dir' : `${entry.size}:${entry.mod_time}`;
-}
-
-async function stampAt(path: string): Promise<string | undefined> {
-  const listing = await api.dir(parentOf(path));
-  const found = listing.entries.find((row) => row.path === path);
-  return found === undefined ? undefined : stampOf(found);
-}
-
-async function stampOrUnknown(path: string): Promise<string | undefined> {
-  try {
-    return await stampAt(path);
-  } catch {
-    return undefined;
-  }
-}
-
-async function unchanged(path: string, was: string | undefined): Promise<boolean> {
-  if (was === undefined) {
-    return true;
-  }
-  try {
-    return (await stampAt(path)) === was;
-  } catch {
-    return true;
-  }
-}
-
-interface Relocated {
-  done: Relocation[];
-  left: Relocation[];
-  failure: unknown;
-  changed: boolean;
-  state: MutationState;
-}
-
-async function relocateAll(
-  pairs: readonly Relocation[], valid: (pair: Relocation) => Promise<boolean>, onMoved?: (path: string) => void,
-): Promise<Relocated> {
-  const res: Relocated = { done: [], left: [], failure: undefined, changed: false, state: {} };
-  for (const pair of pairs) {
-    if (!(await valid(pair))) {
-      res.left.push(pair);
-      res.changed = true;
-      continue;
-    }
-    let moved: EntryPathResponse;
-    try {
-      moved = await api.move(pair.from, pair.to);
-    } catch (error) {
-      res.left.push(pair);
-      res.failure = error;
-      continue;
-    }
-    onMoved?.(moved.path);
-    res.done.push({ ...pair, to: moved.path });
-    res.state = {
-      unpublished: res.state.unpublished === true || moved.unpublished === true,
-      history_degraded: res.state.history_degraded === true || moved.history_degraded === true,
-    };
-  }
-  return res;
 }
 
 function conflictText(error: unknown, fallback: string): string {
@@ -163,17 +92,6 @@ function childrenOf(tree: readonly NavNode[], folder: string): readonly NavNode[
   return nodes;
 }
 
-function replaces(path: string, target: string): boolean {
-  return target === path || target.startsWith(`${path}/`);
-}
-
-function pathAfterMove(path: string, from: string, to: string): string | undefined {
-  if (path === from) {
-    return to;
-  }
-  return path.startsWith(`${from}/`) ? `${to}${path.slice(from.length)}` : undefined;
-}
-
 export function FileActionsProvider({ children }: { children: ReactNode }): JSX.Element {
   const { revealNav: revealTree } = useReaderLayout();
   const navigate = useNavigate();
@@ -192,7 +110,9 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const [moving, setMoving] = useState<MovedEntry | undefined>(undefined);
   const [draft, setDraft] = useState<FolderDraft | undefined>(undefined);
   const phone = useBelow(layoutBreakpoints.phone);
-  const undoable = useRef(new Set<UndoMark>());
+  const [marks] = useState(() => new UndoMarks());
+  const latestTree = useRef(tree);
+  latestTree.current = tree;
 
   useEffect(() => {
     const follow = followed.current;
@@ -201,14 +121,6 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       prev !== undefined && follow?.url === location.pathname && !replaces(follow.path, prev.path) ? prev : undefined,
     );
   }, [location.pathname]);
-
-  const touch = useCallback((paths: readonly string[], keep?: UndoMark) => {
-    for (const mark of undoable.current) {
-      if (mark !== keep && mark.targets.some((target) => paths.some((path) => replaces(path, target)))) {
-        undoable.current.delete(mark);
-      }
-    }
-  }, []);
 
   const copyLink = useCallback(async (path: string, isDir: boolean): Promise<void> => {
     if (await copyText(appUrl(path, isDir))) {
@@ -225,19 +137,18 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const undoDelete = useCallback(
     async (deleting: Promise<DeleteResponse | undefined>, path: string, back: string | undefined): Promise<boolean> => {
-      const deleted = await deleting;
-      if (deleted === undefined) {
+      const restored = await restoreDeleted(deleting);
+      if (restored.kind === 'gone') {
         return true;
       }
-      try {
-        reportMutation(await api.restoreTrashed(deleted.trash_id), `Restored ${quoted(path, space)}`);
-      } catch (error) {
+      if (restored.kind === 'failed') {
         showToast('error', {
           title: 'Nothing was restored',
-          message: conflictText(error, 'Something of that name is there now'),
+          message: conflictText(restored.failure, 'Something of that name is there now'),
         });
         return false;
       }
+      reportMutation(restored.state, `Restored ${quoted(path, space)}`);
       refreshNav();
       if (back !== undefined) {
         await navigate(back);
@@ -250,19 +161,11 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const remove = useCallback(
     (path: string) => {
       const { path: here, route } = shown.current;
-      const back = here === path || here.startsWith(`${path}/`) ? route : undefined;
-      const deleting = api.deleteEntry(path).then(
-        (res) => {
-          settle();
-          return res;
-        },
-        (error: unknown) => {
-          showToast('error', { title: 'Nothing was deleted', message: errorText(error) });
-          settle();
-          return undefined;
-        },
-      );
-      touch([path]);
+      const back = replaces(path, here) ? route : undefined;
+      const deleting = startDelete(path, settle, (error) => {
+        showToast('error', { title: 'Nothing was deleted', message: errorText(error) });
+      });
+      marks.touch([path]);
       showToast('ok', {
         message: `Deleted ${quoted(path, space)}`,
         action: { label: 'Undo', onClick: () => undoDelete(deleting, path, back) },
@@ -271,7 +174,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         void navigate('/');
       }
     },
-    [navigate, settle, space, touch, undoDelete],
+    [marks, navigate, settle, space, undoDelete],
   );
 
   const showInTree = useCallback(
@@ -285,13 +188,13 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const newNote = useCallback(
     (folder: string) => {
-      const taken = new Set(childrenOf(tree, folder).map((node) => basenameOf(node.path).toLowerCase()));
+      const taken = new Set(childrenOf(latestTree.current, folder).map((node) => basenameOf(node.path).toLowerCase()));
       if (!phone) {
         showInTree(folder);
       }
       void navigate(draftUrl(joinPath(folder, freeName('untitled.md', taken))));
     },
-    [navigate, phone, showInTree, tree],
+    [navigate, phone, showInTree],
   );
 
   const newFolder = useCallback(
@@ -334,14 +237,14 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         showToast('error', { title: 'Nothing was created', message: conflictText(error, 'That folder already exists') });
         return false;
       }
-      touch([res.path]);
+      marks.touch([res.path]);
       refreshNav();
       reportMutation(res, `Created folder ${quoted(res.path, space)}`);
       openFolder(res.path);
       await navigate(directoryUrl(res.path));
       return true;
     },
-    [navigate, openFolder, refreshNav, reportMutation, space, touch],
+    [marks, navigate, openFolder, refreshNav, reportMutation, space],
   );
 
   const submitDraft = useCallback(
@@ -379,70 +282,33 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const moveInto = useCallback(
     (paths: readonly string[], folder: string) => {
-      const stillMarked = async (mark: UndoMark, pair: Relocation): Promise<boolean> => {
-        if (!(await unchanged(pair.from, await mark.stamps.get(pair.from)))) {
-          undoable.current.delete(mark);
-        }
-        return undoable.current.has(mark);
-      };
-      const undoOf = (done: readonly Relocation[], mark: UndoMark): ToastAction => {
-        let undo = done.map((pair) => ({ ...pair, from: pair.to, to: pair.from })).reverse();
-        let running = false;
-        let closed = false;
-        return {
-          label: 'Undo',
-          onClick: async () => {
-            if (!undoable.current.has(mark)) {
-              showToast('error', { title: failedMoveWords.back.none, message: changedSinceText });
-              return true;
-            }
-            running = true;
-            undo = await run(undo, mark);
-            running = false;
-            mark.targets = undo.map((pair) => pair.from);
-            if (undo.length === 0 || closed) {
-              undoable.current.delete(mark);
-            }
-            return undo.length === 0;
-          },
-          onClose: () => {
-            closed = true;
-            if (!running) {
-              undoable.current.delete(mark);
-            }
-          },
-        };
-      };
-      const run = async (pairs: readonly Relocation[], undone?: UndoMark): Promise<Relocation[]> => {
-        const back = undone !== undefined;
-        const mark: UndoMark = undone ?? { targets: [], stamps: new Map() };
-        if (!back) {
-          undoable.current.add(mark);
-        }
-        const { done, left, failure, changed, state } = await relocateAll(
-          pairs,
-          async (pair) => !back || stillMarked(mark, pair),
-          back ? undefined : (path) => {
-            mark.targets.push(path);
-            mark.stamps.set(path, stampOrUnknown(path));
-          },
-        );
+      const undoAction = (undo: MoveUndo): ToastAction => ({
+        label: 'Undo',
+        onClick: async () => {
+          if (undo.stale) {
+            showToast('error', { title: failedMoveWords.back.none, message: changedSinceText });
+            return true;
+          }
+          return undo.run((pairs) => run(pairs, undo));
+        },
+        onClose: () => undo.close(),
+      });
+      const run = async (pairs: readonly Relocation[], undo?: MoveUndo): Promise<Relocation[]> => {
+        const back = undo !== undefined;
+        const { done, left, failure, changed, state, mark } = await marks.move(pairs, undo);
         const words = back ? failedMoveWords.back : failedMoveWords.forward;
         if (done.length > 0) {
-          touch(done.flatMap((pair) => [pair.from, pair.to]), mark);
           refreshNav();
-          new Set(done.map((pair) => parentOf(pair.to))).forEach(openFolder);
+          foldersOf(done).forEach(openFolder);
           reportMutation(
             state,
             movedMessage(done, back, space, (folder) => void navigate(directoryUrl(folder))),
-            back ? undefined : undoOf(done, mark),
+            back ? undefined : undoAction(new MoveUndo(marks, mark, done)),
           );
-          const here = done.map((pair) => pathAfterMove(shown.current.path, pair.from, pair.to)).find((path) => path !== undefined);
+          const here = hereAfter(shown.current.path, done);
           if (here !== undefined) {
             await navigate(shown.current.onFolder ? directoryUrl(here) : documentUrl(here));
           }
-        } else if (!back) {
-          undoable.current.delete(mark);
         }
         if (changed || failure !== undefined) {
           showToast('error', {
@@ -452,11 +318,9 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         }
         return left;
       };
-      void run(
-        paths.map((from) => ({ from, to: joinPath(folder, basenameOf(from)) })),
-      );
+      void run(intoFolder(paths, folder));
     },
-    [navigate, openFolder, refreshNav, reportMutation, space, touch],
+    [marks, navigate, openFolder, refreshNav, reportMutation, space],
   );
 
   const submitRename = useCallback(
@@ -477,7 +341,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         showToast('error', { title: notRenamedTitle, message: conflictText(error, takenText) });
         return false;
       }
-      touch([path, res.path]);
+      marks.touch([path, res.path]);
       reportMutation(res, renamedMessage(path, res.path, isDir, space));
       const here = pathAfterMove(shown.current.path, path, res.path);
       if (here !== undefined) {
@@ -489,7 +353,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       refreshNav();
       return true;
     },
-    [navigate, refreshNav, reportMutation, space, touch],
+    [marks, navigate, refreshNav, reportMutation, space],
   );
 
   const startRename = useCallback(

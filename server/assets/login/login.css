@@ -106,9 +106,8 @@ body {
 }
 
 .input:focus {
-  box-shadow:
-    inset 0 0 0 1px var(--scrawl-focus-ring),
-    0 0 0 1px var(--scrawl-focus-ring-outer);
+  background: var(--scrawl-popover);
+  box-shadow: var(--scrawl-shadow-medium);
 }
 
 .input:autofill {
@@ -122,10 +121,8 @@ body {
 
 .input:autofill:focus {
   box-shadow:
-    inset 0 0 0 1px var(--scrawl-focus-ring),
-    0 0 0 1px var(--scrawl-focus-ring-outer),
-    inset 0 0 0 100vmax var(--scrawl-hover),
-    inset 0 0 0 100vmax var(--scrawl-bg);
+    var(--scrawl-shadow-medium),
+    inset 0 0 0 100vmax var(--scrawl-popover);
 }
 
 .btn {

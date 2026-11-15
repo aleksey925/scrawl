@@ -189,7 +189,6 @@ function TableRow({ entry, routed, runs, href, menuOpen, onOpen, onMenu }: Table
     return (
       <tr
         {...rowAttributes(entry)}
-        className={classes.draft}
         onContextMenu={(event) => {
           if (!(event.target instanceof HTMLInputElement)) {
             event.preventDefault();
@@ -392,7 +391,7 @@ interface DraftRowProps {
 
 function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
   return (
-    <tr data-testid="dir-draft" data-entry={kind} className={classes.draft}>
+    <tr data-testid="dir-draft" data-entry={kind}>
       <td className={classes.name}>
         <span>
           <NameField

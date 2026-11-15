@@ -28,18 +28,17 @@ Colors, controls and type: how a note and the chrome are drawn.
   says so. A control is Notion's: 28px (36px when it runs the width of its
   column) with 6px corners and a 500 weight, transparent until hovered; a field
   is filled with the hover tint and a faint line, also when the browser filled
-  it in, whose own yellow read as a warning, and in focus has the theme's focus
-  ring and no halo: in the light theme one solid band of a light blue three
-  pixels wide, as macOS rings a field; the field's border takes the band's
-  color, or its tint shows through as a gap and the band reads as two rings. In
-  the dark one a lighter line and no color, the way Raycast and Vercel draw it.
-  A solid blue line on the dark ground glared, and Notion's own dark fields
-  disagree with each other on it. A row a name is typed into in the tree is
-  framed by the same ring; in a folder's list it is filled with the picked
-  row's gray instead, as a ring the width of the page glared. The accent is
-  spent the way Notion spends it, read off its own pages: the one main button,
-  a focused field in the light theme and a toggle that is on; the search field
-  has no ring, the back link and Cancel are plain text, and a main button that
+  it in, whose own yellow read as a warning, and in focus lifts the way the
+  find bar of a note sits: the ground of a popover and the medium shadow of the
+  theme, with no ring, in both themes. A blue ring on the gray sidebar read as
+  a field of another app, and the light theme ringed in blue what the dark one
+  drew as a lighter line, one state drawn two ways. A row a name is typed into,
+  in the tree, in a folder's list or in a phone's list, lifts the same way:
+  filled with the picked row's gray it read as a picked row, and ringed it
+  glared across the page. The keyboard's focus on a grid of the editor lifts
+  the same way too. The accent is spent the way Notion spends it, read off its
+  own pages: the one main button and a toggle that is on; the search field has
+  no ring, the back link and Cancel are plain text, and a main button that
   cannot be pressed yet fades in its color. The light theme spends it the way
   macOS does on two more things: a link in a note, which the dark theme draws
   in the text's color, and the menu row under the pointer, filled with the

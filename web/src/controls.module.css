@@ -86,10 +86,9 @@
 }
 
 .input[data-variant='default'] .inputField:focus {
-  border-color: var(--scrawl-focus-ring-outer);
-  box-shadow:
-    inset 0 0 0 1px var(--scrawl-focus-ring),
-    0 0 0 1px var(--scrawl-focus-ring-outer);
+  border-color: transparent;
+  background: var(--scrawl-popover);
+  box-shadow: var(--scrawl-shadow-medium);
 }
 
 .input .inputField::placeholder {

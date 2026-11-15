@@ -2,7 +2,7 @@ const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, atHome, openSpaceMenu, rgb, routes, shot, signIn, submitCredentials, user,
+    MAIN, atHome, mediumShadow, openSpaceMenu, rgb, routes, shot, signIn, submitCredentials, user,
 } = require('../support/helpers');
 const text = require('../support/text');
 const darkTheme = require('../../theme/themes/dark.json');
@@ -99,7 +99,7 @@ test.describe('login', () => {
     });
 
     for (const theme of [lightTheme, darkTheme]) {
-        test(`a field in focus is drawn with the focus ring of the theme, ${theme.scheme}`, async ({page}) => {
+        test(`a field in focus is lifted on the popover ground with no ring, ${theme.scheme}`, async ({page}) => {
             // arrange
             await page.emulateMedia({colorScheme: theme.scheme});
             await page.goto(`${MAIN.baseURL}/login`);
@@ -109,8 +109,8 @@ test.describe('login', () => {
             await field.focus();
 
             // assert
-            const [inner, outer] = [rgb(theme.palette.focusRing), rgb(theme.palette.focusRingOuter)];
-            await expect(field).toHaveCSS('box-shadow', `${inner} 0px 0px 0px 1px inset, ${outer} 0px 0px 0px 1px`);
+            await expect(field).toHaveCSS('box-shadow', await mediumShadow(page));
+            await expect(field).toHaveCSS('background-color', rgb(theme.palette.popover));
             await shot(page, `login-field-focus-${theme.scheme}`);
         });
     }

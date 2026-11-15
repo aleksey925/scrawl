@@ -152,11 +152,12 @@
   }
 }
 
-.draft {
-  background: var(--scrawl-selected);
-}
-
 .field {
+  margin-inline-start: -8px;
+  padding: 3px 8px;
+  border-radius: var(--mantine-radius-md);
+  background: var(--scrawl-popover);
+  box-shadow: var(--scrawl-shadow-medium);
   font-weight: 500;
 }
 
@@ -209,6 +210,11 @@
 .listField {
   gap: 12px;
   min-height: 40px;
+  margin-inline-start: -10px;
+  padding: 0 10px;
+  border-radius: var(--mantine-radius-md);
+  background: var(--scrawl-popover);
+  box-shadow: var(--scrawl-shadow-medium);
 }
 
 @media (hover: none) {

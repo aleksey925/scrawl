@@ -155,6 +155,17 @@ async function inStep(page, space) {
     }, space.api('')), {timeout: 30_000}).toBe('');
 }
 
+function mediumShadow(page) {
+    return page.evaluate(() => {
+        const probe = document.createElement('div');
+        probe.style.boxShadow = 'var(--scrawl-shadow-medium)';
+        document.body.append(probe);
+        const shadow = getComputedStyle(probe).boxShadow;
+        probe.remove();
+        return shadow;
+    });
+}
+
 function rgb(hex) {
     const [r, g, b] = [1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16));
     if (hex.length === 7) {
@@ -351,6 +362,7 @@ module.exports = {
     readFixture,
     recordMoves,
     removeFixture,
+    mediumShadow,
     rgb,
     rightClickPrevented,
     routes,

@@ -68,13 +68,13 @@ opens over them.
   selected text keep the browser's own menu, so text is still copied from
   there. The free space is the page, which grows to the bottom of the window. A
   row keeps the hover gray while its menu is up. A rename draws the field in
-  the name cell of the row, with the gray a new row has, and the row then takes
-  no click, no right click and no hover. New, a file or a folder, is a large
-  main button at the right of the folder's title, where Notion puts New page.
-  The table is Notion's too: its one view a gray pill with no line under it, no
-  line between the columns, which read as a spreadsheet, and columns of their
-  own width, the name 530px and the others 150px, as a file name carries its
-  extension, with an empty one at the end taking the rest and the row lines
+  the name cell of the row, lifted as a new row's field is, and the row then
+  takes no click, no right click and no hover. New, a file or a folder, is a
+  large main button at the right of the folder's title, where Notion puts New
+  page. The table is Notion's too: its one view a gray pill with no line under
+  it, no line between the columns, which read as a spreadsheet, and columns of
+  their own width, the name 530px and the others 150px, as a file name carries
+  its extension, with an empty one at the end taking the rest and the row lines
   running across it, so a date is not a screen away from its name. Every column
   starts at its left edge, the size too: a size against its right edge stood
   against the date and the two read as one column. On a narrow page the name

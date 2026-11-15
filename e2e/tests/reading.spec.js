@@ -4,7 +4,7 @@ const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    DIALOG_TITLE, MAIN, chooseTheme, headingAnchorGeometry, modifier, nameOf, openSpaceMenu, pressShortcut, removeFixture,
+    DIALOG_TITLE, MAIN, chooseTheme, headingAnchorGeometry, mediumShadow, modifier, nameOf, openSpaceMenu, pressShortcut, removeFixture,
     rgb, routes, shot, showOutline, signIn, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -226,7 +226,7 @@ test.describe('reading', () => {
     });
 
     for (const theme of [lightTheme, darkTheme]) {
-        test(`a field in focus is drawn with the focus ring of the theme, ${theme.scheme}`, async ({page}) => {
+        test(`a field in focus is lifted on the popover ground with no ring, ${theme.scheme}`, async ({page}) => {
             // arrange
             await page.emulateMedia({colorScheme: theme.scheme});
             await page.goto(routes.home());
@@ -236,8 +236,8 @@ test.describe('reading', () => {
             await filter.focus();
 
             // assert
-            const [inner, outer] = [rgb(theme.palette.focusRing), rgb(theme.palette.focusRingOuter)];
-            await expect(filter).toHaveCSS('box-shadow', `${inner} 0px 0px 0px 1px inset, ${outer} 0px 0px 0px 1px`);
+            await expect(filter).toHaveCSS('box-shadow', await mediumShadow(page));
+            await expect(filter).toHaveCSS('background-color', rgb(theme.palette.popover));
             await shot(page, `reading-field-focus-${theme.scheme}`);
         });
     }

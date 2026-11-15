@@ -37,8 +37,6 @@ export interface Palette {
   accent: string;
   accentStrong: string;
   accentTint: string;
-  focusRing: string;
-  focusRingOuter: string;
   onAccent: string;
   inlineCode: string;
   inlineCodeBg: string;

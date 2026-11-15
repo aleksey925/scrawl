@@ -325,9 +325,8 @@
 }
 
 .tableGrid:focus-visible {
-  box-shadow:
-    0 0 0 1px var(--scrawl-focus-ring),
-    0 0 0 2px var(--scrawl-focus-ring-outer);
+  background: var(--scrawl-popover);
+  box-shadow: var(--scrawl-shadow-medium);
 }
 
 .tableCell {

@@ -155,6 +155,76 @@ test.describe('pages', () => {
         }
     });
 
+    test('a dialog\'s chunk that is gone while the browser is idle reloads the page, and the dialog opens after', async ({page}) => {
+        // arrange
+        let asked = 0;
+        await page.route('**/assets/SearchDialog.js', async (route) => {
+            asked += 1;
+            if (asked === 1) {
+                await route.fulfill({status: 404, body: 'gone'});
+                return;
+            }
+            await route.continue();
+        });
+        await page.goto(routes.doc(docs.doc.path));
+        await expect.poll(() => asked).toBe(2);
+        await expect(page.getByTestId('doc')).toBeVisible();
+
+        // act
+        await page.keyboard.press('ControlOrMeta+k');
+
+        // assert
+        await expect(page.getByTestId('search-input')).toBeFocused();
+        await expect(page).toHaveURL(MAIN.url.doc(docs.doc.path));
+    });
+
+    test('Move to whose chunk is gone under unsaved changes says so and keeps the text', async ({page}) => {
+        // arrange
+        writeFixture(GUARDED, 'kept\n');
+        try {
+            let asked = 0;
+            await page.route('**/assets/MoveDialog.js', async (route) => {
+                asked += 1;
+                await route.fulfill({status: 404, body: 'gone'});
+            });
+            await page.goto(routes.edit(GUARDED));
+            await expect.poll(() => asked).toBe(2);
+            await expect(page.getByTestId('editor-source')).toBeVisible();
+            await setSource(page, 'typed but not saved\n');
+            await expect(page.getByTestId('editor-status')).toHaveAttribute('data-dirty', 'true');
+            const rowMenu = page.locator(`[data-testid=tree-row][data-path="${GUARDED}"] [data-testid=tree-row-menu]`);
+            await rowMenu.click();
+
+            // act
+            await page.getByTestId('tree-row-menu-move').click();
+
+            // assert
+            const failed = page.locator('[data-testid=toast][data-kind="error"]');
+            await expect(failed).toContainText('Move to did not open');
+            await expect(failed).toContainText('Its part of the app did not load. Load the page again to open it.');
+            await expect(page.getByTestId('move-dialog')).toHaveCount(0);
+            await expect(page.getByTestId('editor-status')).toHaveAttribute('data-dirty', 'true');
+            await expect(page).toHaveURL(MAIN.url.edit(GUARDED));
+        } finally {
+            removeFixture(GUARDED);
+        }
+    });
+
+    test('mantine\'s sizes follow the root font size, as in a browser set to a larger font', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.doc.path));
+        const button = page.getByTestId('sidebar-hide');
+        await expect(button).toBeVisible();
+        const height = async () => (await button.boundingBox()).height;
+        const before = await height();
+
+        // act
+        await page.addStyleTag({content: 'html { font-size: 20px; }'});
+
+        // assert
+        await expect.poll(async () => Math.round(await height())).toBe(Math.round(before * 1.25));
+    });
+
     test('the page is empty while the first page loads', async ({page}) => {
         // arrange
         const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
@@ -171,6 +241,16 @@ test.describe('pages', () => {
 
         // assert
         await expect(page.getByTestId('doc')).toBeVisible();
+    });
+
+    test('the icons of a folder\'s table head draw in their fill and bold weights', async ({page}) => {
+        // act
+        await page.goto(routes.dir(docs.folder.path));
+
+        // assert
+        const icons = page.getByTestId('dir-table').locator('th svg');
+        await expect(icons).toHaveCount(3);
+        expect(await icons.evaluateAll((drawn) => drawn.map((icon) => icon.childElementCount > 0))).toEqual([true, true, true]);
     });
 
     test('a folder\'s table keeps its columns, and on a narrow page the name gives way', async ({page}) => {

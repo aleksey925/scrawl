@@ -1,7 +1,7 @@
 import { api } from '../api/client';
-import type { DeleteResponse, DirEntry, EntryPathResponse, MutationState } from '../api/types';
+import type { DirEntry, EntryPathResponse, MutationState } from '../api/types';
 
-import { basenameOf, joinPath, parentOf } from './naming';
+import { parentOf } from './naming';
 
 export interface Relocation {
   from: string;
@@ -20,11 +20,6 @@ export interface Relocated {
   changed: boolean;
   state: MutationState;
 }
-
-export type Restored =
-  | { kind: 'gone' }
-  | { kind: 'restored'; state: EntryPathResponse }
-  | { kind: 'failed'; failure: unknown };
 
 function stampOf(entry: DirEntry): string {
   return entry.is_dir ? 'dir' : `${entry.size}:${entry.mod_time}`;
@@ -94,14 +89,6 @@ export function pathAfterMove(path: string, from: string, to: string): string | 
   return path.startsWith(`${from}/`) ? `${to}${path.slice(from.length)}` : undefined;
 }
 
-export function intoFolder(paths: readonly string[], folder: string): Relocation[] {
-  return paths.map((from) => ({ from, to: joinPath(folder, basenameOf(from)) }));
-}
-
-export function hereAfter(path: string, done: readonly Relocation[]): string | undefined {
-  return done.map((pair) => pathAfterMove(path, pair.from, pair.to)).find((moved) => moved !== undefined);
-}
-
 export function foldersOf(done: readonly Relocation[]): Set<string> {
   return new Set(done.map((pair) => parentOf(pair.to)));
 }
@@ -117,9 +104,9 @@ export class UndoMarks {
     }
   }
 
-  async move(pairs: readonly Relocation[], undo?: MoveUndo): Promise<Relocated & { mark: UndoMark }> {
-    const back = undo !== undefined;
-    const mark: UndoMark = undo?.mark ?? { targets: [], stamps: new Map() };
+  async move(pairs: readonly Relocation[], undone?: UndoMark): Promise<Relocated & { undo?: MoveUndo }> {
+    const back = undone !== undefined;
+    const mark: UndoMark = undone ?? { targets: [], stamps: new Map() };
     if (!back) {
       this.marks.add(mark);
     }
@@ -131,12 +118,14 @@ export class UndoMarks {
         mark.stamps.set(path, stampOrUnknown(path));
       },
     );
-    if (res.done.length > 0) {
-      this.touch(res.done.flatMap((pair) => [pair.from, pair.to]), mark);
-    } else if (!back) {
-      this.marks.delete(mark);
+    if (res.done.length === 0) {
+      if (!back) {
+        this.marks.delete(mark);
+      }
+      return res;
     }
-    return { ...res, mark };
+    this.touch(res.done.flatMap((pair) => [pair.from, pair.to]), mark);
+    return back ? res : { ...res, undo: new MoveUndo(this, mark, res.done) };
   }
 
   has(mark: UndoMark): boolean {
@@ -188,33 +177,5 @@ export class MoveUndo {
     if (!this.running) {
       this.marks.forget(this.mark);
     }
-  }
-}
-
-export function startDelete(
-  path: string, settled: () => void, failed: (error: unknown) => void,
-): Promise<DeleteResponse | undefined> {
-  return api.deleteEntry(path).then(
-    (res) => {
-      settled();
-      return res;
-    },
-    (error: unknown) => {
-      failed(error);
-      settled();
-      return undefined;
-    },
-  );
-}
-
-export async function restoreDeleted(deleting: Promise<DeleteResponse | undefined>): Promise<Restored> {
-  const deleted = await deleting;
-  if (deleted === undefined) {
-    return { kind: 'gone' };
-  }
-  try {
-    return { kind: 'restored', state: await api.restoreTrashed(deleted.trash_id) };
-  } catch (error) {
-    return { kind: 'failed', failure: error };
   }
 }

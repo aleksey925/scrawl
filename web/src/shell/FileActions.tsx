@@ -1,5 +1,5 @@
 import {
-  Suspense, useCallback, useEffect, useMemo, useRef, useState,
+  useCallback, useEffect, useMemo, useRef, useState,
   type JSX, type ReactNode,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router';
@@ -20,10 +20,7 @@ import { useReaderLayout } from './ReaderLayout';
 import { spaceLabel, useAccount, useTree } from './NavContext';
 import { useMutationState } from './useMutationState';
 import { ancestorsOf, basenameOf, contentPathOf, folderFor, freeName, joinPath, nameProblem, parentOf, renamedPath } from './naming';
-import {
-  foldersOf, hereAfter, intoFolder, MoveUndo, pathAfterMove, replaces, restoreDeleted, startDelete, UndoMarks,
-  type Relocation,
-} from './relocation';
+import { foldersOf, pathAfterMove, replaces, UndoMarks, type MoveUndo, type Relocation, type UndoMark } from './relocation';
 import { plainShortcut } from './shortcuts';
 
 interface MovedEntry {
@@ -137,18 +134,19 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const undoDelete = useCallback(
     async (deleting: Promise<DeleteResponse | undefined>, path: string, back: string | undefined): Promise<boolean> => {
-      const restored = await restoreDeleted(deleting);
-      if (restored.kind === 'gone') {
+      const deleted = await deleting;
+      if (deleted === undefined) {
         return true;
       }
-      if (restored.kind === 'failed') {
+      try {
+        reportMutation(await api.restoreTrashed(deleted.trash_id), `Restored ${quoted(path, space)}`);
+      } catch (error) {
         showToast('error', {
           title: 'Nothing was restored',
-          message: conflictText(restored.failure, 'Something of that name is there now'),
+          message: conflictText(error, 'Something of that name is there now'),
         });
         return false;
       }
-      reportMutation(restored.state, `Restored ${quoted(path, space)}`);
       refreshNav();
       if (back !== undefined) {
         await navigate(back);
@@ -162,9 +160,17 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
     (path: string) => {
       const { path: here, route } = shown.current;
       const back = replaces(path, here) ? route : undefined;
-      const deleting = startDelete(path, settle, (error) => {
-        showToast('error', { title: 'Nothing was deleted', message: errorText(error) });
-      });
+      const deleting = api.deleteEntry(path).then(
+        (res) => {
+          settle();
+          return res;
+        },
+        (error: unknown) => {
+          showToast('error', { title: 'Nothing was deleted', message: errorText(error) });
+          settle();
+          return undefined;
+        },
+      );
       marks.touch([path]);
       showToast('ok', {
         message: `Deleted ${quoted(path, space)}`,
@@ -289,13 +295,13 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
             showToast('error', { title: failedMoveWords.back.none, message: changedSinceText });
             return true;
           }
-          return undo.run((pairs) => run(pairs, undo));
+          return undo.run((pairs) => run(pairs, undo.mark));
         },
         onClose: () => undo.close(),
       });
-      const run = async (pairs: readonly Relocation[], undo?: MoveUndo): Promise<Relocation[]> => {
-        const back = undo !== undefined;
-        const { done, left, failure, changed, state, mark } = await marks.move(pairs, undo);
+      const run = async (pairs: readonly Relocation[], undone?: UndoMark): Promise<Relocation[]> => {
+        const back = undone !== undefined;
+        const { done, left, failure, changed, state, undo } = await marks.move(pairs, undone);
         const words = back ? failedMoveWords.back : failedMoveWords.forward;
         if (done.length > 0) {
           refreshNav();
@@ -303,9 +309,11 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
           reportMutation(
             state,
             movedMessage(done, back, space, (folder) => void navigate(directoryUrl(folder))),
-            back ? undefined : undoAction(new MoveUndo(marks, mark, done)),
+            undo === undefined ? undefined : undoAction(undo),
           );
-          const here = hereAfter(shown.current.path, done);
+          const here = done
+            .map((pair) => pathAfterMove(shown.current.path, pair.from, pair.to))
+            .find((moved) => moved !== undefined);
           if (here !== undefined) {
             await navigate(shown.current.onFolder ? directoryUrl(here) : documentUrl(here));
           }
@@ -318,7 +326,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         }
         return left;
       };
-      void run(intoFolder(paths, folder));
+      void run(paths.map((from) => ({ from, to: joinPath(folder, basenameOf(from)) })));
     },
     [marks, navigate, openFolder, refreshNav, reportMutation, space],
   );
@@ -395,19 +403,17 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       {children}
 
       {moving !== undefined && (
-        <Suspense fallback={null}>
-          <MoveDialog
-            path={moving.path}
-            anchor={moving.anchor}
-            tree={tree}
-            spaceName={space}
-            onMove={(folder) => {
-              setMoving(undefined);
-              moveInto([moving.path], folder);
-            }}
-            onClose={() => setMoving(undefined)}
-          />
-        </Suspense>
+        <MoveDialog
+          path={moving.path}
+          anchor={moving.anchor}
+          tree={tree}
+          spaceName={space}
+          onMove={(folder) => {
+            setMoving(undefined);
+            moveInto([moving.path], folder);
+          }}
+          onClose={() => setMoving(undefined)}
+        />
       )}
     </FileActionsContext.Provider>
   );

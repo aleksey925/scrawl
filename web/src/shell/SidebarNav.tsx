@@ -72,7 +72,6 @@ interface RowsProps {
 type TreeRowProps = Omit<RowsProps, 'nodes'> & { node: NavNode };
 
 function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | null {
-  const { canWrite } = useAccount();
   const { isOpen, openFolder, toggleFolder, currentPath } = useTree();
   const actions = useOptionalFileActions();
   const draft = actions?.draft;
@@ -179,7 +178,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
                 opened={menuOpened}
                 onOpenedChange={setMenuOpened}
               />
-              {node.is_dir && canWrite && actions !== undefined && (
+              {node.is_dir && ui.canWrite && actions !== undefined && (
                 <ActionIcon
                   data-testid="tree-row-add"
                   variant="subtle"

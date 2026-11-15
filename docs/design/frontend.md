@@ -20,12 +20,12 @@ How the react app in `web/` is built, shipped and wired.
   relative base passes on to every chunk a page imports later. The server
   answers that digest only, and lets a browser keep the files a year. A page
   left open across an upgrade finds its next chunk, or the find's worker, gone
-  and loads again, at the address it was going to, unless leaving would ask
-  about unsaved changes: a reload that prompt refused left every chunk waiting
-  for a page that never came. A chunk made of a package's index is named after
-  the package: rolldown names it after the file, and the index of every
-  codemirror language came out as `dist`, `dist2` and on in the order met, so
-  one language more renamed the rest.
+  and loads again, at the address it was going to or else at its own, unless
+  leaving would ask about unsaved changes: a reload that prompt refused left
+  every chunk waiting for a page that never came. A chunk made of a package's
+  index is named after the package: rolldown names it after the file, and the
+  index of every codemirror language came out as `dist`, `dist2` and on in the
+  order met, so one language more renamed the rest.
 - A release embeds the bundle, the pages' assets, the formatter and the
   server's PlantUML engine gzip-compressed, under the `gzassets` build tag:
   `make build`, the image and goreleaser run `go run ./gzassets/pack` first,
@@ -51,23 +51,41 @@ How the react app in `web/` is built, shipped and wired.
   `pages/RunPage`, so a page of the command line or a site that imports them
   fails its build ([HTML apps](html-apps.md#offline)).
 - The dialogs of Search, Move to and Replace local copy are chunks of their
-  own, in `web/src/shell/dialogChunks.ts`, and the app loads them when the
-  browser is idle after the page has loaded. The first load runs less, and a
-  dialog opened later finds its chunk already there. A load that fails then is
-  dropped: the dialog asks for its chunk again when it opens.
+  own, in `web/src/shell/dialogChunks.tsx`, and the app loads them when the
+  browser is idle after the page has loaded. The first load runs less. A dialog
+  whose chunk is there draws in the same render as the click that opened it,
+  with no `Suspense`: one that waited for its chunk let the keys typed after
+  Cmd+K go to the page, and on a phone its field took the focus outside the
+  tap, so no keyboard opened ([quirks](../quirks.md#ios-and-safari)). A chunk
+  that does not load, on idle or as the dialog opens, loads the page again as a
+  stale chunk does, when leaving may. When it may not, a dialog that was
+  opening closes with a toast that asks to load the page again: Chromium keeps
+  a failed import of a module for the life of the page
+  ([quirks](../quirks.md#browsers)), so asking again would fail the same way.
 - Mantine's styles come in one file per component, listed in
   `web/src/mantine.css`, which the app and a site import, in the order of
   mantine's own `styles.css`. The full file was 277 KB, most of it for
   components scrawl does not use. A component new to the app adds its file
   there, and the files of the components it is built from, or it shows
-  unstyled. `default-css-variables.css` is left out: the theme stylesheet
+  unstyled. The order matters: a component's file overrides the files of the
+  components it is built from with selectors of the same weight, so it comes
+  after them. `default-css-variables.css` is left out: the theme stylesheet
   writes every variable it has, from the same resolver.
+- Mantine's files per component write their sizes in px, where `styles.css`
+  writes `calc(Nrem * var(--mantine-scale))`, and a browser set to a larger
+  font then grew the text but not the buttons and fields around it.
+  `web/postcss.config.cjs` turns px into that form in the files under
+  `node_modules/@mantine/` only, with the preset's own `autoRem`, which gives
+  the declarations of `styles.css` back one for one. The app's own stylesheets
+  keep their px.
 - An icon carries only the weights the app draws, regular, bold and fill:
   `phosphorWeights` in `web/vite.icons.ts` cuts the other three from each
   icon's drawings as the bundle is built, which halved the icons. Another
-  weight draws an empty icon until it is added to `iconWeights`. The plugin
-  fails the build when an icon's file no longer has the six weights it expects,
-  so an upgrade of the package that changes their shape is noticed.
+  weight draws an empty icon until it is added to `iconWeights`. The dev server
+  does not run the plugin on the package it bundles ahead, so there every
+  weight draws, and a missing one shows only in a build. The plugin fails the
+  build when an icon's file no longer has the six weights it expects, so an
+  upgrade of the package that changes their shape is noticed.
 - PlantUML's library is the one exception: `plantuml/library/` is committed
   compressed and read the same way in every build
   ([server](server.md#plantuml)).
@@ -90,6 +108,13 @@ How the react app in `web/` is built, shipped and wired.
   answer of the note before would then land under the next one's address.
 - The file on screen is the route. A folder is always its list, so a note is
   shown under its own address only, and a per-file signal keys off the route.
+- A context that many components read carries one kind of value, so a change
+  draws only the components that read it. The account (`useAccount`) and the
+  tree (`useTree`) are apart: a folder opened or a filter typed draws no note
+  again, and a poll of the account draws no tree row. The page chrome's setters
+  are a context of their own, apart from the value, so a page that sets its
+  title is not drawn again by its own title. A value that comes back the same,
+  the account's answer or a scroll that moves nothing, keeps the object it had.
 - Rendered notes never share an id namespace with app chrome. A heading becomes
   an element id, so a note carrying "Toasts" took `id="toasts"` and every toast
   was appended invisibly inside it. Chrome is mantine components, portals and

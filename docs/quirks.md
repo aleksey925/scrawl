@@ -83,6 +83,9 @@ words; the fact itself is written here.
 - A scroll event says an element moved, never who moved it, and the echo of a
   programmatic scroll arrives a frame later.
   [Editor position](design/editor-position.md)
+- Chromium keeps a failed `import()` of a module for the life of the page:
+  importing it again fails at once and sends no request.
+  [Frontend](design/frontend.md)
 - `overflow-x: hidden` makes an element a scroll container, and every sticky
   bar inside it stops sticking; `clip` does not. [Phone](ui/phone.md)
 - A fixed element inside a scaled element is placed in that element.
@@ -183,6 +186,9 @@ words; the fact itself is written here.
 - `PopupMenu` uses `floatingStrategy="fixed"`: a menu placed in the page moved
   the page, because the focus it takes on opening scrolled to where it stood
   before it was placed.
+- react-codemirror sets the whole editor up again whenever `basicSetup`,
+  `extensions`, `theme`, `onChange` or `onUpdate` is a new object, so each of
+  them is made once, outside the render, or memoized.
 - react-codemirror wraps the editor in a div with `display: block` and no
   height, so the stylesheet makes that div a flex child, or the editor grows to
   the whole document and nothing scrolls.

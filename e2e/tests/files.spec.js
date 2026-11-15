@@ -38,6 +38,7 @@ const CONTEXT_NOTE = `${CONTEXT_FOLDER}/note.md`;
 const CONTEXT_ROOT_FOLDER = 'e2e-fm-context-root';
 const RENAME_FOLDER = 'e2e-fm-rename';
 const UNDO_FOLDER = 'e2e-fm-undo';
+const UNTITLED_FOLDER = 'e2e-fm-untitled';
 const KEYS_FOLDER = 'e2e-fm-keys';
 const GAP_FOLDER = 'e2e-fm-gap';
 const SPLIT_FOLDER = 'e2e-fm-split';
@@ -135,7 +136,7 @@ test.describe.serial('file management', () => {
     test.afterAll(() => {
         for (const folder of [
             FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER, LISTED_FOLDER, NEST, UNDELETED, CONTEXT_FOLDER,
-            CONTEXT_ROOT_FOLDER, RENAME_FOLDER, UNDO_FOLDER, KEYS_FOLDER, GAP_FOLDER, HOLLOW, SPLIT_FOLDER,
+            CONTEXT_ROOT_FOLDER, RENAME_FOLDER, UNDO_FOLDER, UNTITLED_FOLDER, KEYS_FOLDER, GAP_FOLDER, HOLLOW, SPLIT_FOLDER,
         ]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
@@ -377,6 +378,20 @@ test.describe.serial('file management', () => {
         await page.goto(routes.doc(PAGE));
         await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveAttribute('data-path', PAGE);
         await shot(page, 'files-page-created');
+    });
+
+    test('+ on a folder that already holds an untitled note starts the draft under the next free name', async ({page}) => {
+        // arrange
+        writeFixture(`${UNTITLED_FOLDER}/${text.create.untitled}`, '# Already here\n');
+        await page.goto(routes.dir(UNTITLED_FOLDER));
+        const row = page.locator(`[data-testid=tree-row][data-path="${UNTITLED_FOLDER}"]`);
+        await row.hover();
+
+        // act
+        await row.getByTestId('tree-row-add').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.draft(`${UNTITLED_FOLDER}/untitled-2.md`));
     });
 
     test('a draft whose heading names a note already there is saved under the next free name', async ({page}) => {
@@ -1298,6 +1313,30 @@ test.describe.serial('file management', () => {
         await expect(page.locator(`[data-testid=tree-row][data-path="${note}"]`)).toHaveCount(0);
     });
 
+    test('a delete the server refuses says nothing was deleted, and Undo after it only closes its toast', async ({page}) => {
+        // arrange
+        const note = `${FOLDER}/refused-delete.md`;
+        writeFixture(note, '# Refused delete\n');
+        await page.goto(routes.doc(note));
+        await page.route(`**${routes.api(`/file/${note}`)}**`, (route) => (route.request().method() === 'DELETE'
+            ? route.fulfill({status: 500, json: {error: 'the disk is full'}})
+            : route.continue()));
+        await page.locator(`[data-testid=tree-row][data-path="${note}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-delete').click();
+        const failed = page.locator('[data-testid=toast][data-kind="error"]');
+        await expect(failed).toContainText('Nothing was deleted');
+        await expect(failed).toContainText('the disk is full');
+
+        // act
+        await page.getByTestId('toast-action').click();
+
+        // assert
+        await expect(page.getByTestId('toast-action')).toHaveCount(0);
+        await expect(page.locator('[data-testid=toast]').filter({hasText: 'Restored'})).toHaveCount(0);
+        expect(fs.readFileSync(fixtureFile(note), 'utf8')).toBe('# Refused delete\n');
+        await expect(page.locator(`[data-testid=tree-row][data-path="${note}"]`)).toHaveCount(1);
+    });
+
     test('a new note and a new folder keep the capital letters typed', async ({page}) => {
         // arrange
         await page.goto(routes.dir(FOLDER));
@@ -2142,6 +2181,32 @@ test.describe.serial('file management', () => {
         await expect(page).toHaveURL(MAIN.url.doc(`${into}/moved.md`));
         expect([note, `${into}/moved.md`].map((p) => fs.readFileSync(fixtureFile(p), 'utf8')))
             .toEqual(['# Written since\n', '# Moved\n']);
+    });
+
+    test('Undo after a move moves nothing back once the moved note was renamed in this tab', async ({page}) => {
+        // arrange
+        const note = `${UNDO_FOLDER}/renamed-after.md`;
+        const into = `${UNDO_FOLDER}/into-renamed`;
+        const renamed = `${into}/renamed-later.md`;
+        writeFixture(note, '# Renamed after\n');
+        fs.mkdirSync(fixtureFile(into), {recursive: true});
+        await openMoveFromNoteMenu(page, note);
+        await page.getByTestId('move-input').fill('into-renamed');
+        await page.locator(`[data-testid=move-place][data-path="${into}"]`).click();
+        await expect(page).toHaveURL(MAIN.url.doc(`${into}/renamed-after.md`));
+        await startTreeRename(page, `${into}/renamed-after.md`);
+        await page.getByTestId('tree-rename-input').fill(nameOf(renamed));
+        await page.getByTestId('tree-rename-input').press('Enter');
+        await expect.poll(() => fs.existsSync(fixtureFile(renamed))).toBe(true);
+
+        // act
+        await page.getByTestId('toast-action').click();
+
+        // assert
+        const failed = page.locator('[data-testid=toast][data-kind="error"]');
+        await expect(failed).toContainText('Nothing was moved back');
+        await expect(failed).toContainText('It was renamed, moved or deleted since');
+        expect([note, renamed].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
     });
 
     test('a move and its Undo that were not pushed say so in a warning toast', async ({page}) => {

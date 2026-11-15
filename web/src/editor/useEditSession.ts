@@ -72,32 +72,31 @@ function conflictCopyPath(path: string, stamp: string): string {
   return `${path.slice(0, path.length - ext.length)}.conflict-${stamp}${ext}`;
 }
 
-export function useEditSession(options: UseEditSessionOptions): EditSession {
-  const {
-    path,
-    folder,
-    drafting,
-    readOnly,
-    formatOnSave,
-    lineBreak,
-    dirty,
-    exists,
-    contentRef,
-    revRef,
-    manualRef,
-    savedAsRef,
-    setSaved,
-    setRev,
-    setSaving,
-    setSavedAs,
-    liveView,
-    bufferText,
-    putFormatted,
-    formatBuffer,
-    uploads,
-    draftRef,
-    rememberReadingPosition,
-  } = options;
+export function useEditSession({
+  path,
+  folder,
+  drafting,
+  readOnly,
+  formatOnSave,
+  lineBreak,
+  dirty,
+  exists,
+  contentRef,
+  revRef,
+  manualRef,
+  savedAsRef,
+  setSaved,
+  setRev,
+  setSaving,
+  setSavedAs,
+  liveView,
+  bufferText,
+  putFormatted,
+  formatBuffer,
+  uploads,
+  draftRef,
+  rememberReadingPosition,
+}: UseEditSessionOptions): EditSession {
   const navigate = useNavigate();
   const { refreshMe } = useAccount();
   const reportMutation = useMutationState();

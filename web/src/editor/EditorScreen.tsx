@@ -251,7 +251,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     path,
     drafting,
     view,
-    viewRef,
     liveView,
     revRef,
     mode,

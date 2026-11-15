@@ -120,6 +120,32 @@ test.describe('formatting', () => {
         await expect.poll(() => sourceText(page)).toBe(formatted);
     });
 
+    test('a save the server could not format says it was saved without formatting', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/format-failed.md`;
+        writeFixture(docPath, 'начало\n');
+        await signIn(page, {from: routes.edit(docPath)});
+        await expect.poll(() => sourceText(page)).toBe('начало\n');
+        await page.route(`**${routes.api(`/file/${docPath}`)}`, async (route) => {
+            if (route.request().method() !== 'PUT') {
+                await route.continue();
+                return;
+            }
+            const response = await route.fetch();
+            await route.fulfill({response, json: {...(await response.json()), format_failed: true}});
+        });
+        await setSource(page, 'дальше\n');
+
+        // act
+        await save(page);
+
+        // assert
+        const warning = page.locator('[data-testid=toast][data-kind="warn"]');
+        await expect(warning).toContainText('Saved without formatting');
+        await expect(warning).toContainText('Prettier could not format this note, so it is stored as written.');
+        await expect(editorStatus(page)).toHaveText(text.status.saved);
+    });
+
     test('a write through the API is formatted with no editor in the way', async ({page}) => {
         // arrange
         const docPath = `${FOLDER}/api.md`;

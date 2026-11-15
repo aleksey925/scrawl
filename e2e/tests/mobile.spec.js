@@ -1561,6 +1561,22 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('topbar')).toHaveAttribute('data-scrolled', 'true');
     });
 
+    test('the bar hides the title again and drops its line once the note is scrolled back to the top', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.long.path));
+        const title = page.getByTestId('topbar-title');
+        await expect(title).toHaveText(docs.long.title);
+        await page.mouse.wheel(0, 400);
+        await expect(title).toHaveAttribute('data-shown', 'true');
+
+        // act
+        await page.evaluate(() => window.scrollTo(0, 0));
+
+        // assert
+        await expect(title).toHaveAttribute('data-shown', 'false');
+        await expect(page.getByTestId('topbar')).toHaveAttribute('data-scrolled', 'false');
+    });
+
     test('the editor is usable and the preview tab switches', async ({page}) => {
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
         await page.goto(routes.edit(SCRATCH));

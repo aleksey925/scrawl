@@ -1,6 +1,6 @@
 import { Button, Group } from '@mantine/core';
 import {
-  createContext, Suspense, useCallback, useContext, useState,
+  createContext, useCallback, useContext, useState,
   type JSX, type ReactNode,
 } from 'react';
 
@@ -18,9 +18,7 @@ export function ResetProvider({ children }: { children: ReactNode }): JSX.Elemen
     <ResetContext.Provider value={open}>
       {children}
       {opened && (
-        <Suspense fallback={null}>
-          <ResetDialog onClose={close} />
-        </Suspense>
+        <ResetDialog onClose={close} />
       )}
     </ResetContext.Provider>
   );

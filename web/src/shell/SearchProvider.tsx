@@ -1,5 +1,5 @@
 import {
-  Suspense, useCallback, useEffect, useMemo, useState,
+  useCallback, useEffect, useMemo, useState,
   type JSX, type ReactNode,
 } from 'react';
 
@@ -37,9 +37,7 @@ export function SearchProvider({ enabled, children }: { enabled: boolean; childr
     <SearchControlProvider value={enabled ? control : undefined}>
       {children}
       {enabled && opened && (
-        <Suspense fallback={null}>
-          <SearchDialog initial={initial} onClose={close} />
-        </Suspense>
+        <SearchDialog initial={initial} onClose={close} />
       )}
     </SearchControlProvider>
   );

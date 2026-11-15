@@ -104,7 +104,8 @@ carries the same digest. Vite's own `index.html` is not used.
 Only the current digest is answered, with a cache of a year. A page left
 open across an upgrade finds its next chunk gone: `vite:preloadError`
 fires and `src/staleBundle.ts` loads the page again, at the address the
-click was going to.
+click was going to, or at the one it is on when no click was going
+anywhere: a dialog's chunk, or one loaded while the browser was idle.
 
 A chunk made of a package's index is named after the package
 (`codemirror-lang-python.js`), not after the file (`dist2.js`). Names

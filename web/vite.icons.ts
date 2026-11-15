@@ -1,12 +1,12 @@
 import type { Plugin } from 'vite';
 
-export const iconWeights = ['regular', 'bold', 'fill'] as const;
+const iconWeights: readonly string[] = ['regular', 'bold', 'fill'];
 
 const allWeights = ['bold', 'duotone', 'fill', 'light', 'regular', 'thin'];
 
 const entryStart = /\n {2}\[\n {4}"(\w+)",\n/g;
 
-export function dropIconWeights(code: string, id: string): string {
+function dropIconWeights(code: string, id: string): string {
   const starts = [...code.matchAll(entryStart)];
   const found = starts.map((match) => match[1]);
   if (found.join(' ') !== allWeights.join(' ')) {
@@ -18,7 +18,7 @@ export function dropIconWeights(code: string, id: string): string {
     const next = starts[index + 1]?.index ?? end;
     return { weight: match[1] ?? '', text: code.slice(match.index, next).replace(/,$/, '') };
   });
-  const kept = entries.filter((entry) => (iconWeights as readonly string[]).includes(entry.weight));
+  const kept = entries.filter((entry) => iconWeights.includes(entry.weight));
   return `${head}${kept.map((entry) => entry.text).join(',')}${code.slice(end)}`;
 }
 

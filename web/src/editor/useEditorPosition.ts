@@ -20,7 +20,6 @@ export interface UseEditorPositionOptions {
   path: string;
   drafting: boolean;
   view: EditorView | undefined;
-  viewRef: RefObject<EditorView | undefined>;
   liveView: () => EditorView | undefined;
   revRef: RefObject<string>;
   mode: LayoutMode;
@@ -35,7 +34,7 @@ export interface EditorPosition {
 }
 
 export function useEditorPosition(options: UseEditorPositionOptions): EditorPosition {
-  const { path, drafting, view, viewRef, liveView, revRef, mode, previewHtml, choose } = options;
+  const { path, drafting, view, liveView, revRef, mode, previewHtml, choose } = options;
   const location = useLocation();
   const arrivedWith = useRef(location.state);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -140,30 +139,22 @@ export function useEditorPosition(options: UseEditorPositionOptions): EditorPosi
     [captureReadingPosition, choose, mode],
   );
 
-  const syncFromSource = useCallback((): void => {
-    const current = viewRef.current;
-    const pane = previewRef.current;
-    if (leaderRef.current !== 'source' || current === undefined || pane === null) {
-      return;
-    }
-    pane.scrollTop = panes.paneTop(current, pane);
-  }, [panes, viewRef]);
-
-  const syncFromPreview = useCallback((): void => {
-    const current = viewRef.current;
-    const pane = previewRef.current;
-    if (leaderRef.current !== 'preview' || current === undefined || pane === null) {
-      return;
-    }
-    current.scrollDOM.scrollTop = panes.sourceTop(current, pane);
-  }, [panes, viewRef]);
-
   useEffect(() => {
     const pane = previewRef.current;
     if (view === undefined || mode !== 'split' || pane === null) {
       return;
     }
     const scroller = view.scrollDOM;
+    const syncFromSource = (): void => {
+      if (leaderRef.current === 'source') {
+        pane.scrollTop = panes.paneTop(view, pane);
+      }
+    };
+    const syncFromPreview = (): void => {
+      if (leaderRef.current === 'preview') {
+        scroller.scrollTop = panes.sourceTop(view, pane);
+      }
+    };
     const takeSource = (): void => {
       leaderRef.current = 'source';
     };
@@ -185,7 +176,7 @@ export function useEditorPosition(options: UseEditorPositionOptions): EditorPosi
         pane.removeEventListener(name, takePreview, { capture: true });
       }
     };
-  }, [view, mode, syncFromSource, syncFromPreview, previewHtml]);
+  }, [view, mode, panes, previewHtml]);
 
   return { previewRef, rememberReadingPosition, chooseMode };
 }

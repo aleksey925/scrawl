@@ -5,7 +5,7 @@ import type { Extension } from '@codemirror/state';
 import { EditorView, placeholder } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { useComputedColorScheme } from '@mantine/core';
-import CodeMirror from '@uiw/react-codemirror';
+import CodeMirror, { type BasicSetupOptions } from '@uiw/react-codemirror';
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import { codeLanguageOf } from './codeLanguages';
@@ -31,6 +31,8 @@ const highlighting = syntaxHighlighting(
     { tag: [tags.typeName, tags.className, tags.standard(tags.name)], color: 'var(--scrawl-code-builtin)' },
   ]),
 );
+
+const setup: BasicSetupOptions = { lineNumbers: true, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: true };
 
 function surface(dark: boolean): Extension {
   return EditorView.theme(
@@ -168,7 +170,7 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
         autoFocus={autoFocus}
         onChange={onChange}
         onCreateEditor={onCreate}
-        basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: true }}
+        basicSetup={setup}
         aria-label={kind === 'markdown' ? 'Document source' : 'File text'}
       />
     </div>

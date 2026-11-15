@@ -19,13 +19,24 @@ function useVisibleArea(active: boolean): VisibleArea | undefined {
       return undefined;
     }
     const view = window.visualViewport;
-    const update = (): void => setArea(areaOf());
+    let frame = 0;
+    const update = (): void => {
+      frame = 0;
+      const next = areaOf();
+      setArea((prev) => (prev?.height === next.height && prev.top === next.top ? prev : next));
+    };
+    const schedule = (): void => {
+      if (frame === 0) {
+        frame = window.requestAnimationFrame(update);
+      }
+    };
     update();
-    view?.addEventListener('resize', update);
-    view?.addEventListener('scroll', update);
+    view?.addEventListener('resize', schedule);
+    view?.addEventListener('scroll', schedule);
     return () => {
-      view?.removeEventListener('resize', update);
-      view?.removeEventListener('scroll', update);
+      window.cancelAnimationFrame(frame);
+      view?.removeEventListener('resize', schedule);
+      view?.removeEventListener('scroll', schedule);
     };
   }, [active]);
 

@@ -29,12 +29,24 @@ function useScrolled(watchTitle: boolean): { scrolled: boolean; showTitle: boole
   const [state, setState] = useState({ scrolled: false, showTitle: !watchTitle });
 
   useEffect(() => {
+    let frame = 0;
     const update = (): void => {
-      setState({ scrolled: window.scrollY > 0, showTitle: !watchTitle || titleGone() });
+      frame = 0;
+      const scrolled = window.scrollY > 0;
+      const showTitle = !watchTitle || titleGone();
+      setState((prev) => (prev.scrolled === scrolled && prev.showTitle === showTitle ? prev : { scrolled, showTitle }));
+    };
+    const schedule = (): void => {
+      if (frame === 0) {
+        frame = window.requestAnimationFrame(update);
+      }
     };
     update();
-    window.addEventListener('scroll', update, { passive: true });
-    return () => window.removeEventListener('scroll', update);
+    window.addEventListener('scroll', schedule, { passive: true });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+    };
   }, [watchTitle, location.key]);
 
   return state;

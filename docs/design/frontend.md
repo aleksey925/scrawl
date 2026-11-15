@@ -56,8 +56,12 @@ How the react app in `web/` is built, shipped and wired.
   whose chunk is there draws in the same render as the click that opened it,
   with no `Suspense`: one that waited for its chunk let the keys typed after
   Cmd+K go to the page, and on a phone its field took the focus outside the
-  tap, so no keyboard opened ([quirks](../quirks.md#ios-and-safari)). A chunk
-  that does not load, on idle or as the dialog opens, loads the page again as a
+  tap, so no keyboard opened ([quirks](../quirks.md#ios-and-safari)). A dialog
+  opened before the idle load is done draws nothing until its chunk comes, and
+  has those two faults. That window, from the page's load until the browser is
+  idle and the chunks have come, is short and is left open: holding the keys
+  and the tap would take a second field drawn in the main bundle. A chunk that
+  does not load, on idle or as the dialog opens, loads the page again as a
   stale chunk does, when leaving may. When it may not, a dialog that was
   opening closes with a toast that asks to load the page again: Chromium keeps
   a failed import of a module for the life of the page

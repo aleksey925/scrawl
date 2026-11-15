@@ -544,7 +544,8 @@ at it.
 | `SPACES_FILE` |          |         | path to the yaml file that lists spaces; set it only to serve more than one |
 
 The file holds space settings and nothing else. Server settings stay in the
-environment. Here is a file with every key there is:
+environment. Here is a file with two spaces, a plain folder and a git
+repository:
 
 ```yaml
 spaces:
@@ -561,10 +562,8 @@ spaces:
     exclude: ["drafts/*"]
     repo:
       url: https://github.com/acme/wiki.git
-      branch: main
-      pull: 5m
-      token_file: /run/secrets/gh-token # or token_env: GH_TOKEN
-      hook_secret_file: /run/secrets/gh-hook # or hook_secret_env: GH_HOOK
+      token_file: /run/secrets/gh-token
+      hook_secret_file: /run/secrets/gh-hook
 ```
 
 | key                     | required           | default  | meaning                                                                                                                        |

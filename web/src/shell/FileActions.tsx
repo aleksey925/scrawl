@@ -1,5 +1,5 @@
 import {
-  useCallback, useEffect, useMemo, useRef, useState,
+  Suspense, useCallback, useEffect, useMemo, useRef, useState,
   type JSX, type ReactNode,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router';
@@ -14,8 +14,8 @@ import { directoryUrl, documentUrl, draftUrl, isDirectoryPath, isEditPath, isMar
 import { layoutBreakpoints, useBelow } from '../theme';
 import { showToast, ToastLink, type ToastAction } from '../toast';
 
+import { MoveDialog } from './dialogChunks';
 import { FileActionsContext, type FileActions, type FolderDraft, type RenamePlace, type Renaming } from './fileActionsContext';
-import { MoveDialog } from './MoveDialog';
 import { useReaderLayout } from './ReaderLayout';
 import { spaceLabel, useNav } from './NavContext';
 import { useMutationState } from './useMutationState';
@@ -530,17 +530,19 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       {children}
 
       {moving !== undefined && (
-        <MoveDialog
-          path={moving.path}
-          anchor={moving.anchor}
-          tree={tree}
-          spaceName={space}
-          onMove={(folder) => {
-            setMoving(undefined);
-            moveInto([moving.path], folder);
-          }}
-          onClose={() => setMoving(undefined)}
-        />
+        <Suspense fallback={null}>
+          <MoveDialog
+            path={moving.path}
+            anchor={moving.anchor}
+            tree={tree}
+            spaceName={space}
+            onMove={(folder) => {
+              setMoving(undefined);
+              moveInto([moving.path], folder);
+            }}
+            onClose={() => setMoving(undefined)}
+          />
+        </Suspense>
       )}
     </FileActionsContext.Provider>
   );

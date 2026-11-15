@@ -1,1 +1,0 @@
-import{i as e}from"./rolldown-runtime.js";import{Zn as t}from"./PageChrome.js";var n=e(t(),1),r=(0,n.createContext)(void 0),i=r.Provider;function a(){let e=(0,n.useContext)(r);if(e===void 0)throw Error(`the platform is only available inside the reader`);return e}export{a as n,i as t};

@@ -7,6 +7,7 @@ import { goToLogin } from '../login';
 import { useReadingCopy } from '../offline/connection';
 import { offlineMe, storedMe } from '../offline/source';
 
+import { preloadDialogs } from './dialogChunks';
 import { DocumentExtras } from './DocumentExtras';
 import { ReaderExtensionsProvider, type ReaderExtensions } from './extensions';
 import { FileActionsProvider } from './FileActions';
@@ -15,10 +16,10 @@ import { NavProvider } from './NavContext';
 import { NetworkGate } from './NeedsNetwork';
 import { OfflineMark } from './OfflineMark';
 import { ReaderLayout, type ReaderChrome } from './ReaderLayout';
-import { ResetProvider } from './ResetDialog';
+import { ResetProvider } from './ResetProvider';
 import { RowMenu } from './RowMenu';
 import { RunLink } from './RunLink';
-import { SearchProvider } from './SearchDialog';
+import { SearchProvider } from './SearchProvider';
 import { SpaceAlerts } from './SpaceAlerts';
 import { SpaceMenu } from './SpaceMenu';
 import { SyncControl } from './SyncControl';
@@ -40,6 +41,7 @@ const chrome: ReaderChrome = {
 
 export function AppLayout(): JSX.Element {
   useEffect(() => installUnauthorizedHandler('shell', goToLogin), []);
+  useEffect(preloadDialogs, []);
 
   return (
     <SpaceNavProvider>

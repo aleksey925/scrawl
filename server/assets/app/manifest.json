@@ -7,13 +7,19 @@
     "file": "assets/AsyncContent.js",
     "name": "AsyncContent",
     "imports": [
-      "_PageChrome.js",
-      "_NavContext.js",
-      "_icons.js",
-      "_formats.js"
+      "_naming.js",
+      "index.html"
     ],
     "css": [
       "assets/AsyncContent.css"
+    ]
+  },
+  "_DialogActions.js": {
+    "file": "assets/DialogActions.js",
+    "name": "DialogActions",
+    "imports": [
+      "_naming.js",
+      "index.html"
     ]
   },
   "_DirectoryView.css": {
@@ -25,12 +31,8 @@
     "name": "DirectoryView",
     "imports": [
       "_rolldown-runtime.js",
-      "_PageChrome.js",
-      "_NavContext.js",
+      "_naming.js",
       "_AsyncContent.js",
-      "_icons.js",
-      "_formats.js",
-      "_platform.js",
       "index.html",
       "_PressRow.module.js"
     ],
@@ -47,9 +49,8 @@
     "name": "DocumentHtml",
     "imports": [
       "_rolldown-runtime.js",
-      "_PageChrome.js",
-      "_icons.js",
-      "_platform.js",
+      "_naming.js",
+      "_Text.js",
       "index.html"
     ],
     "css": [
@@ -65,42 +66,25 @@
     "name": "DocumentView",
     "imports": [
       "_rolldown-runtime.js",
-      "_PageChrome.js",
+      "_naming.js",
       "_DocumentHtml.js",
-      "_NavContext.js",
       "_AsyncContent.js",
-      "_icons.js",
-      "_platform.js",
-      "index.html"
+      "index.html",
+      "_recentNotes.js"
     ],
     "css": [
       "assets/DocumentView.css"
     ]
   },
-  "_NavContext.js": {
-    "file": "assets/NavContext.js",
-    "name": "NavContext",
-    "imports": [
-      "_rolldown-runtime.js",
-      "_PageChrome.js",
-      "_icons.js",
-      "_formats.js",
-      "_platform.js"
-    ]
+  "_Picker.css": {
+    "file": "assets/Picker.css",
+    "src": "_Picker.css"
   },
-  "_PageChrome.css": {
-    "file": "assets/PageChrome.css",
-    "src": "_PageChrome.css"
-  },
-  "_PageChrome.js": {
-    "file": "assets/PageChrome.js",
-    "name": "PageChrome",
-    "imports": [
-      "_rolldown-runtime.js",
-      "_preload-helper.js"
-    ],
+  "_Picker.module.js": {
+    "file": "assets/Picker.module.js",
+    "name": "Picker.module",
     "css": [
-      "assets/PageChrome.css"
+      "assets/Picker.css"
     ]
   },
   "_PressRow.css": {
@@ -123,12 +107,35 @@
     "name": "RenderedDiff",
     "imports": [
       "_rolldown-runtime.js",
-      "_PageChrome.js",
+      "_naming.js",
       "_DocumentHtml.js",
-      "_formats.js"
+      "index.html"
     ],
     "css": [
       "assets/RenderedDiff.css"
+    ]
+  },
+  "_SearchResults.css": {
+    "file": "assets/SearchResults.css",
+    "src": "_SearchResults.css"
+  },
+  "_SearchResults.js": {
+    "file": "assets/SearchResults.js",
+    "name": "SearchResults",
+    "imports": [
+      "_naming.js",
+      "index.html",
+      "_Picker.module.js"
+    ],
+    "css": [
+      "assets/SearchResults.css"
+    ]
+  },
+  "_Text.js": {
+    "file": "assets/Text.js",
+    "name": "Text",
+    "imports": [
+      "_naming.js"
     ]
   },
   "_arc.js": {
@@ -176,7 +183,7 @@
     "file": "assets/chunk-3FUC2YCW.js",
     "name": "chunk-3FUC2YCW",
     "imports": [
-      "_preload-helper.js",
+      "index.html",
       "_chunk-Y2CYZVJY.js",
       "_src.js",
       "_chunk-O7XYJQB3.js",
@@ -327,7 +334,7 @@
     "file": "assets/chunk-O7XYJQB3.js",
     "name": "chunk-O7XYJQB3",
     "imports": [
-      "_preload-helper.js",
+      "index.html",
       "_chunk-Y2CYZVJY.js",
       "_src.js",
       "_purify.es.js"
@@ -420,23 +427,15 @@
     "file": "assets/defaultLocale.js",
     "name": "defaultLocale"
   },
-  "_formats.js": {
-    "file": "assets/formats.js",
-    "name": "formats"
+  "_get-auto-contrast-value.js": {
+    "file": "assets/get-auto-contrast-value.js",
+    "name": "get-auto-contrast-value"
   },
   "_graphlib.js": {
     "file": "assets/graphlib.js",
     "name": "graphlib",
     "imports": [
       "_baseUniq.js"
-    ]
-  },
-  "_icons.js": {
-    "file": "assets/icons.js",
-    "name": "icons",
-    "imports": [
-      "_rolldown-runtime.js",
-      "_PageChrome.js"
     ]
   },
   "_init.js": {
@@ -496,7 +495,7 @@
     "file": "assets/mermaid-parser.core.js",
     "name": "mermaid-parser.core",
     "imports": [
-      "_preload-helper.js",
+      "index.html",
       "_chunk-FOHPRMQF.js"
     ],
     "dynamicImports": [
@@ -517,6 +516,20 @@
       "node_modules/@mermaid-js/parser/dist/chunks/mermaid-parser.core/cynefin-OW5HDTMX.mjs"
     ]
   },
+  "_naming.css": {
+    "file": "assets/naming.css",
+    "src": "_naming.css"
+  },
+  "_naming.js": {
+    "file": "assets/naming.js",
+    "name": "naming",
+    "imports": [
+      "_rolldown-runtime.js"
+    ],
+    "css": [
+      "assets/naming.css"
+    ]
+  },
   "_ordinal.js": {
     "file": "assets/ordinal.js",
     "name": "ordinal",
@@ -528,21 +541,20 @@
     "file": "assets/path.js",
     "name": "path"
   },
-  "_platform.js": {
-    "file": "assets/platform.js",
-    "name": "platform",
-    "imports": [
-      "_rolldown-runtime.js",
-      "_PageChrome.js"
-    ]
-  },
-  "_preload-helper.js": {
-    "file": "assets/preload-helper.js",
-    "name": "preload-helper"
-  },
   "_purify.es.js": {
     "file": "assets/purify.es.js",
     "name": "purify.es"
+  },
+  "_recentNotes.js": {
+    "file": "assets/recentNotes.js",
+    "name": "recentNotes",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js",
+      "_changeSignal.js",
+      "_storage.js",
+      "index.html"
+    ]
   },
   "_rolldown-runtime.js": {
     "file": "assets/rolldown-runtime.js",
@@ -564,6 +576,26 @@
       "_chunk-Y2CYZVJY.js"
     ]
   },
+  "_storage.js": {
+    "file": "assets/storage.js",
+    "name": "storage"
+  },
+  "_use-debounced-value.js": {
+    "file": "assets/use-debounced-value.js",
+    "name": "use-debounced-value",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js"
+    ]
+  },
+  "_useVisibleArea.js": {
+    "file": "assets/useVisibleArea.js",
+    "name": "useVisibleArea",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js"
+    ]
+  },
   "index.html": {
     "file": "assets/index.js",
     "name": "index",
@@ -571,18 +603,18 @@
     "isEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "_PageChrome.js",
-      "_NavContext.js",
-      "_preload-helper.js",
+      "_naming.js",
+      "_Text.js",
       "_changeSignal.js",
-      "_icons.js",
-      "_formats.js",
-      "_platform.js"
+      "_storage.js"
     ],
     "dynamicImports": [
       "node_modules/mermaid/dist/mermaid.core.mjs",
       "src/reader/plantuml.ts",
       "node_modules/katex/dist/katex.mjs",
+      "src/shell/SearchDialog.tsx",
+      "src/shell/MoveDialog.tsx",
+      "src/shell/ResetDialog.tsx",
       "src/pages/HomePage.tsx",
       "src/pages/DocumentPage.tsx",
       "src/pages/EditPage.tsx",
@@ -2332,7 +2364,7 @@
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "_preload-helper.js",
+      "index.html",
       "_chunk-Y2CYZVJY.js",
       "_src.js",
       "_chunk-O7XYJQB3.js",
@@ -2462,7 +2494,7 @@
     "src": "src/pages/DocumentPage.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_PageChrome.js",
+      "_naming.js",
       "_DirectoryView.js",
       "_DocumentView.js"
     ]
@@ -2474,18 +2506,19 @@
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "_PageChrome.js",
+      "_naming.js",
+      "_use-debounced-value.js",
+      "_get-auto-contrast-value.js",
       "_DocumentHtml.js",
-      "_NavContext.js",
+      "_Text.js",
       "_AsyncContent.js",
-      "_preload-helper.js",
-      "_icons.js",
-      "_formats.js",
+      "_storage.js",
       "index.html",
       "_lezer-common.js",
       "_lezer-html.js",
       "_codemirror-autocomplete.js",
-      "_RenderedDiff.js"
+      "_RenderedDiff.js",
+      "_DialogActions.js"
     ],
     "dynamicImports": [
       "node_modules/@codemirror/lang-sql/dist/index.js",
@@ -2626,14 +2659,14 @@
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "_PageChrome.js",
-      "_NavContext.js",
+      "_naming.js",
+      "_Text.js",
       "_AsyncContent.js",
-      "_icons.js",
-      "_formats.js",
+      "_storage.js",
       "index.html",
       "_DocumentView.js",
-      "_RenderedDiff.js"
+      "_RenderedDiff.js",
+      "_DialogActions.js"
     ],
     "css": [
       "assets/HistoryPage.css"
@@ -2645,7 +2678,7 @@
     "src": "src/pages/HomePage.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_PageChrome.js",
+      "_naming.js",
       "_DirectoryView.js"
     ]
   },
@@ -2655,7 +2688,8 @@
     "src": "src/pages/NotFoundPage.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_PageChrome.js",
+      "_naming.js",
+      "_Text.js",
       "index.html"
     ]
   },
@@ -2665,10 +2699,10 @@
     "src": "src/pages/RecentPage.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_PageChrome.js",
-      "_icons.js",
+      "_naming.js",
       "index.html",
-      "_PressRow.module.js"
+      "_PressRow.module.js",
+      "_recentNotes.js"
     ],
     "css": [
       "assets/RecentPage.css"
@@ -2681,8 +2715,7 @@
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "_PageChrome.js",
-      "_icons.js",
+      "_naming.js",
       "index.html"
     ],
     "css": [
@@ -2696,11 +2729,11 @@
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "_PageChrome.js",
-      "_NavContext.js",
+      "_naming.js",
+      "_Text.js",
       "_AsyncContent.js",
-      "_formats.js",
-      "index.html"
+      "index.html",
+      "_SearchResults.js"
     ]
   },
   "src/reader/plantuml.ts": {
@@ -2712,6 +2745,55 @@
       "_rolldown-runtime.js",
       "index.html",
       "_purify.es.js"
+    ]
+  },
+  "src/shell/MoveDialog.tsx": {
+    "file": "assets/MoveDialog.js",
+    "name": "MoveDialog",
+    "src": "src/shell/MoveDialog.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js",
+      "index.html",
+      "_Picker.module.js",
+      "_useVisibleArea.js"
+    ],
+    "css": [
+      "assets/MoveDialog.css"
+    ]
+  },
+  "src/shell/ResetDialog.tsx": {
+    "file": "assets/ResetDialog.js",
+    "name": "ResetDialog",
+    "src": "src/shell/ResetDialog.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js",
+      "_get-auto-contrast-value.js",
+      "_Text.js",
+      "index.html",
+      "_DialogActions.js"
+    ],
+    "css": [
+      "assets/ResetDialog.css"
+    ]
+  },
+  "src/shell/SearchDialog.tsx": {
+    "file": "assets/SearchDialog.js",
+    "name": "SearchDialog",
+    "src": "src/shell/SearchDialog.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js",
+      "_use-debounced-value.js",
+      "index.html",
+      "_recentNotes.js",
+      "_Picker.module.js",
+      "_SearchResults.js",
+      "_useVisibleArea.js"
     ]
   }
 }

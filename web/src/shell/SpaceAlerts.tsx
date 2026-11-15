@@ -5,7 +5,7 @@ import { IconAlertTriangle } from '../icons';
 import { layout } from '../theme';
 
 import { useNav } from './NavContext';
-import { ResetAction } from './ResetDialog';
+import { ResetAction } from './ResetProvider';
 import { factText } from './syncMessage';
 
 export function SpaceAlerts(): JSX.Element {

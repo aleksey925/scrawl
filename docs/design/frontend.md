@@ -50,6 +50,11 @@ How the react app in `web/` is built, shipped and wired.
   worker. `appOnly` of `vite.page.config.ts` lists `src/htmlapp/` and
   `pages/RunPage`, so a page of the command line or a site that imports them
   fails its build ([HTML apps](html-apps.md#offline)).
+- The dialogs of Search, Move to and Replace local copy are chunks of their
+  own, in `web/src/shell/dialogChunks.ts`, and the app loads them when the
+  browser is idle after the page has loaded. The first load runs less, and a
+  dialog opened later finds its chunk already there. A load that fails then is
+  dropped: the dialog asks for its chunk again when it opens.
 - Mantine's styles come in one file per component, listed in
   `web/src/mantine.css`, which the app and a site import, in the order of
   mantine's own `styles.css`. The full file was 277 KB, most of it for

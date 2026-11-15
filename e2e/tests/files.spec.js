@@ -2,22 +2,23 @@ const {expect, test} = require('../support/test');
 
 const fs = require('fs');
 
+const docs = require('../support/docs');
 const {
-    MAIN, MOVE_WAIT_MS, atHome, fixtureFile, holdRoute, nameOf, recordMoves, removeFixture, rightClickPrevented, routes, save, setSource, shot,
-    signIn, stays, writeFixture,
+    MAIN, MOVE_WAIT_MS, atHome, fixtureFile, holdRoute, nameOf, pressShortcut, readFixture, recordMoves, removeFixture, rightClickPrevented,
+    routes, save, setSource, shot, signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
 const FOLDER = 'e2e-fm';
 const OTHER = 'e2e-fm-other';
-const PAGE = `${FOLDER}/Testovaya-stranitsa.md`;
+const PAGE = `${FOLDER}/testovaya-stranitsa.md`;
+const TAKEN_PAGE = `${FOLDER}/testovaya-stranitsa-2.md`;
 const RENAMED = `${FOLDER}/pereimenovannaya.md`;
 const DRAGGED = ['e2e-drag-one.md', 'e2e-drag-two.md'];
 const PAIRED = ['first.md', 'second.md'];
 const ROOT_PAGE = 'e2e-root-page.md';
-const TYPED_FILE = 'E2eTyped.java';
-const TYPED_PICTURE = 'e2e-typed.png';
-const DATED_PAGE = 'E2E-Meeting-2024.10.21.md';
+const TYPED_FILE = 'E2E-Todo.txt';
+const DATED_PAGE = 'e2e-meeting-2024.10.21.md';
 const SLUG_PAGE = 'E2E-My-Notes.md';
 const BLANK_FOLDER = 'e2e-fm-blank';
 const HOLLOW = 'e2e-fm-hollow';
@@ -39,6 +40,7 @@ const RENAME_FOLDER = 'e2e-fm-rename';
 const UNDO_FOLDER = 'e2e-fm-undo';
 const KEYS_FOLDER = 'e2e-fm-keys';
 const GAP_FOLDER = 'e2e-fm-gap';
+const SPLIT_FOLDER = 'e2e-fm-split';
 const ROOT_MOVED = 'e2e-fm-to-root.md';
 const DROPPED_TO_ROOT = 'e2e-fm-dropped-to-root.md';
 const FOCUS_RETURN_WAIT = 150;
@@ -94,6 +96,28 @@ async function startPageRename(page, menu) {
     await expect(page.getByTestId('page-rename-input')).toBeFocused();
 }
 
+function draftCrumb(page) {
+    return page.locator('[data-testid=crumb][data-draft="true"]');
+}
+
+async function nameDraft(page, name) {
+    await draftCrumb(page).click();
+    const input = page.getByTestId('draft-name-input');
+    await expect(input).toBeFocused();
+    await input.fill(name);
+    await input.press('Enter');
+    await expect(page.getByTestId('draft-name-field')).toHaveCount(0);
+}
+
+async function openTreeSpaceMenu(page) {
+    await page.getByTestId('tree-root').evaluate((root) => {
+        root.closest('.mantine-ScrollArea-viewport').scrollTop = root.scrollHeight;
+    });
+    const tree = await page.getByTestId('tree-root').boundingBox();
+    await page.mouse.click(tree.x + tree.width / 2, tree.y + tree.height - 10, {button: 'right'});
+    await expect(page.getByTestId('tree-context-menu')).toBeVisible();
+}
+
 function caretAt(input) {
     return input.evaluate((field) => [field.selectionStart, field.selectionEnd]);
 }
@@ -111,19 +135,22 @@ test.describe.serial('file management', () => {
     test.afterAll(() => {
         for (const folder of [
             FOLDER, OTHER, BLANK_FOLDER, FULL_FOLDER, JUNK_FOLDER, LISTED_FOLDER, NEST, UNDELETED, CONTEXT_FOLDER,
-            CONTEXT_ROOT_FOLDER, RENAME_FOLDER, UNDO_FOLDER, KEYS_FOLDER, GAP_FOLDER, HOLLOW,
+            CONTEXT_ROOT_FOLDER, RENAME_FOLDER, UNDO_FOLDER, KEYS_FOLDER, GAP_FOLDER, HOLLOW, SPLIT_FOLDER,
         ]) {
             fs.rmSync(fixtureFile(folder), {recursive: true, force: true});
         }
-        for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE, TYPED_FILE, TYPED_PICTURE, DATED_PAGE, SLUG_PAGE, ROOT_MOVED,
+        for (const name of [...DRAGGED, ROOT_PAGE, BLANK_PAGE, TYPED_FILE, DATED_PAGE, SLUG_PAGE, ROOT_MOVED,
             DROPPED_TO_ROOT]) {
             fs.rmSync(fixtureFile(name), {force: true});
         }
     });
 
     test('creates a folder where the tree stands, with no dialog in the way', async ({page}) => {
-        await page.getByTestId('sidebar-new').click();
-        await page.getByTestId('sidebar-new-folder').click();
+        // arrange
+        await openTreeSpaceMenu(page);
+
+        // act & assert
+        await page.getByTestId('tree-context-menu-new-folder').click();
         await expect(page.getByTestId('tree-draft')).toHaveAttribute('data-entry', 'dir');
         await expect(page.locator('[data-testid=modal][data-variant="create"]')).toHaveCount(0);
         await expect(page.getByTestId('tree-draft-input')).toBeFocused();
@@ -140,84 +167,125 @@ test.describe.serial('file management', () => {
         await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
         await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveAttribute('data-path', FOLDER);
         await expect(page.getByTestId('dir-empty-title')).toHaveText(text.dir.empty);
-        await page.getByTestId('sidebar-new').click();
-        await expect(page.getByTestId('sidebar-new-where')).toContainText(FOLDER);
-        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('sidebar-new')).toHaveAttribute('data-folder', FOLDER);
         await shot(page, 'files-folder-created');
     });
 
-    test('creates a file in the root from the sidebar', async ({page}) => {
+    test('the compose icon starts a note in the root, which the tree shows faint until Save writes it', async ({page}) => {
         // arrange
-        await page.getByTestId('sidebar-new').click();
-        await page.getByTestId('sidebar-new-page').click();
+        const compose = page.getByTestId('sidebar-new');
+        await expect(compose).toHaveAttribute('data-folder', '');
+        await expect(compose).toHaveAttribute('aria-label', text.create.note);
 
-        // act
-        await page.getByTestId('tree-draft-input').fill(ROOT_PAGE.replace('.md', ''));
-        await page.getByTestId('tree-draft-input').press('Enter');
+        // act & assert
+        await compose.click();
+        await expect(page).toHaveURL(MAIN.url.draft(text.create.untitled));
+        await expect.poll(() => sourceText(page)).toBe('# ');
+        await expect(draftCrumb(page)).toHaveText(text.create.untitled);
+        await page.keyboard.type('E2E Root Page');
+        await expect(draftCrumb(page)).toHaveText(ROOT_PAGE);
+        await expect(page.getByTestId('tree-ghost')).toHaveText(ROOT_PAGE);
+        expect(fs.existsSync(fixtureFile(ROOT_PAGE))).toBe(false);
+        await shot(page, 'files-root-draft');
 
-        // assert
-        await expect(page).toHaveURL(MAIN.url.edit(ROOT_PAGE));
-        expect(fs.existsSync(fixtureFile(ROOT_PAGE))).toBe(true);
+        await page.getByTestId('editor-save').click();
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`${text.toast.created} "${ROOT_PAGE}"`);
+        await expect(page).toHaveURL(MAIN.url.doc(ROOT_PAGE));
+        await expect(page.getByTestId('tree-ghost')).toHaveCount(0);
         await expect(page.locator(`[data-testid=tree-row][data-path="${ROOT_PAGE}"]`)).toHaveCount(1);
-        await shot(page, 'files-root-page');
+        expect(readFixture(ROOT_PAGE)).toBe('# E2E Root Page\n');
     });
 
-    test('a name with an extension of its own makes that file, named as typed', async ({page}) => {
+    test('a draft is named after its first line with text, in small letters', async ({page}) => {
         // arrange
         await page.getByTestId('sidebar-new').click();
-        await page.getByTestId('sidebar-new-page').click();
+        await expect(draftCrumb(page)).toHaveText(text.create.untitled);
+
+        // act & assert
+        await setSource(page, '\n\n# E2E Weekly Plan\n\nbody\n');
+        await expect(draftCrumb(page)).toHaveText('e2e-weekly-plan.md');
+        await expect(page.getByTestId('tree-ghost')).toHaveText('e2e-weekly-plan.md');
+        await setSource(page, '## Тестовая страница\n');
+        await expect(draftCrumb(page)).toHaveText('testovaya-stranitsa.md');
+        await setSource(page, 'Plain Words\n');
+        await expect(draftCrumb(page)).toHaveText('plain-words.md');
+        await setSource(page, '#');
+        await expect(draftCrumb(page)).toHaveText(text.create.untitled);
+        await expect(page).toHaveURL(MAIN.url.draft(text.create.untitled));
+    });
+
+    test('a name with an extension of its own makes that file, named as typed, in the text editor', async ({page}) => {
+        // arrange
+        await page.getByTestId('sidebar-new').click();
+        await expect(page.getByTestId('editor')).toHaveAttribute('data-kind', 'markdown');
 
         // act
-        await page.getByTestId('tree-draft-input').fill(TYPED_FILE);
-        await page.getByTestId('tree-draft-input').press('Enter');
+        await nameDraft(page, TYPED_FILE);
 
         // assert
-        await expect(page).toHaveURL(MAIN.url.edit(TYPED_FILE));
+        await expect(draftCrumb(page)).toHaveText(TYPED_FILE);
         await expect(page.getByTestId('editor')).toHaveAttribute('data-kind', 'text');
-        expect(fs.existsSync(fixtureFile(TYPED_FILE))).toBe(true);
+        await expect(page.getByTestId('editor-language')).toHaveText('Plain text');
+        await expect(page.getByTestId('editor-layout-mode')).toHaveCount(0);
+        await expect.poll(() => sourceText(page)).toBe('');
+        await setSource(page, 'buy milk\n');
+        await page.getByTestId('editor-save').click();
+        await expect(page).toHaveURL(MAIN.url.doc(TYPED_FILE));
+        expect(readFixture(TYPED_FILE)).toBe('buy milk\n');
         expect(fs.existsSync(fixtureFile(`${TYPED_FILE}.md`))).toBe(false);
-    });
-
-    test('a name the editor cannot open makes that file and opens its page', async ({page}) => {
-        // arrange
-        await page.getByTestId('sidebar-new').click();
-        await page.getByTestId('sidebar-new-page').click();
-
-        // act
-        await page.getByTestId('tree-draft-input').fill(TYPED_PICTURE);
-        await page.getByTestId('tree-draft-input').press('Enter');
-
-        // assert
-        await expect(page).toHaveURL(MAIN.url.doc(TYPED_PICTURE));
-        expect(fs.existsSync(fixtureFile(TYPED_PICTURE))).toBe(true);
     });
 
     test('a title with a date in it is still a note', async ({page}) => {
         // arrange
         await page.getByTestId('sidebar-new').click();
-        await page.getByTestId('sidebar-new-page').click();
+        await setSource(page, '# E2E Meeting 2024.10.21\n');
 
         // act
-        await page.getByTestId('tree-draft-input').fill('E2E Meeting 2024.10.21');
-        await page.getByTestId('tree-draft-input').press('Enter');
+        await page.getByTestId('editor-save').click();
 
         // assert
-        await expect(page).toHaveURL(MAIN.url.edit(DATED_PAGE));
+        await expect(page).toHaveURL(MAIN.url.doc(DATED_PAGE));
         expect(fs.existsSync(fixtureFile(DATED_PAGE))).toBe(true);
     });
 
-    test('a title typed with .md is a title too, and goes through the slug', async ({page}) => {
+    test('a name set in the crumb keeps its capitals and stops following the heading, and one typed with .md goes through the slug', async ({page}) => {
         // arrange
         await page.getByTestId('sidebar-new').click();
-        await page.getByTestId('sidebar-new-page').click();
 
         // act
-        await page.getByTestId('tree-draft-input').fill('E2E My Notes.md');
-        await page.getByTestId('tree-draft-input').press('Enter');
+        await nameDraft(page, 'E2E My Notes.md');
+        await setSource(page, '# Something else\n');
 
         // assert
-        await expect(page).toHaveURL(MAIN.url.edit(SLUG_PAGE));
-        expect(fs.existsSync(fixtureFile(SLUG_PAGE))).toBe(true);
+        await expect(draftCrumb(page)).toHaveText(SLUG_PAGE);
+        await expect(page.getByTestId('tree-ghost')).toHaveText(SLUG_PAGE);
+        await expect(page.getByTestId('editor')).toHaveAttribute('data-kind', 'markdown');
+        await page.getByTestId('editor-save').click();
+        await expect(page).toHaveURL(MAIN.url.doc(SLUG_PAGE));
+        expect(readFixture(SLUG_PAGE)).toBe('# Something else\n');
+    });
+
+    test('the name field of a draft refuses a slash and a leading dot and keeps the name typed', async ({page}) => {
+        // arrange
+        await page.getByTestId('sidebar-new').click();
+        await draftCrumb(page).click();
+        const input = page.getByTestId('draft-name-input');
+        const error = page.locator('[data-testid=toast][data-kind="error"]');
+
+        // act & assert
+        await input.fill('e2e/inside.md');
+        await input.press('Enter');
+        await expect(error).toContainText(text.renameSlash);
+        await expect(input).toHaveValue('e2e/inside.md');
+
+        await input.fill('.e2e-hidden');
+        await input.press('Enter');
+        await expect(error.filter({hasText: text.renameDot})).toHaveCount(1);
+        await expect(input).toHaveValue('.e2e-hidden');
+
+        await input.press('Escape');
+        await expect(page.getByTestId('draft-name-field')).toHaveCount(0);
+        await expect(draftCrumb(page)).toHaveText(text.create.untitled);
     });
 
     test('a rename keeps the new name as typed, so a note renamed without .md leaves the tree and a file with it enters', async ({page}) => {
@@ -262,37 +330,88 @@ test.describe.serial('file management', () => {
         removeFixture(made);
     });
 
-    test('creates a page inside the folder it was started from', async ({page}) => {
-        await page.locator(`[data-testid=tree-row][data-path="${FOLDER}"] [data-testid=tree-row-menu]`).click();
-        await page.getByTestId('tree-row-menu-new-page').click();
+    test('a draft left with nothing typed creates nothing and asks nothing', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(FOLDER));
+        const draft = MAIN.url.draft(`${FOLDER}/${text.create.untitled}`);
 
-        await expect(page.getByTestId('tree-draft')).toHaveAttribute('data-entry', 'file');
+        // act & assert
+        await page.getByTestId('dir-new').click();
+        await expect(page).toHaveURL(draft);
+        await expect.poll(() => sourceText(page)).toBe('# ');
+        await page.getByTestId('editor-cancel').click();
+        await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+
+        await page.getByTestId('dir-new').click();
+        await expect(page).toHaveURL(draft);
+        await page.locator(`[data-testid=tree-row][data-path="${docs.linked.path}"] [data-testid=tree-link]`).click();
+        await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
+        await expect(page.getByTestId('modal')).toHaveCount(0);
+        expect(fs.readdirSync(fixtureFile(FOLDER))).toEqual([]);
+    });
+
+    test('+ on a folder row starts a note there, and Ctrl+S writes it and goes on editing it under its name', async ({page}) => {
+        // arrange
+        const row = page.locator(`[data-testid=tree-row][data-path="${FOLDER}"]`);
+        const children = row.locator('xpath=following-sibling::*[@data-testid="tree-children"]');
+        await row.hover();
+        await expect(row.getByTestId('tree-row-add')).toHaveAttribute('aria-label', `New note in ${FOLDER}`);
+
+        // act
+        await row.getByTestId('tree-row-add').click();
+        await expect(page).toHaveURL(MAIN.url.draft(`${FOLDER}/${text.create.untitled}`));
+        await expect(children.getByTestId('tree-ghost')).toHaveText(text.create.untitled);
         await shot(page, 'files-new-page-draft');
-        await page.getByTestId('tree-draft-input').fill('Тестовая страница');
-        await page.getByTestId('tree-draft-input').press('Enter');
-
-        await expect(page).toHaveURL(MAIN.url.edit(PAGE));
-        expect(fs.existsSync(fixtureFile(PAGE))).toBe(true);
-
         await setSource(page, '# Тестовая страница\n');
         await save(page);
 
+        // assert
+        await expect(page).toHaveURL(MAIN.url.edit(PAGE));
+        expect(readFixture(PAGE)).toBe('# Тестовая страница\n');
+        await expect(draftCrumb(page)).toHaveCount(0);
+        await expect(page.getByTestId('tree-ghost')).toHaveCount(0);
+        await expect(children.locator(`[data-testid=tree-row][data-path="${PAGE}"]`)).toBeVisible();
+        await setSource(page, '# Тестовая страница\n\nmore\n');
+        await save(page);
+        expect(readFixture(PAGE)).toBe('# Тестовая страница\n\nmore\n');
         await page.goto(routes.doc(PAGE));
         await expect(page.locator('[data-testid=tree-row][data-current="true"]')).toHaveAttribute('data-path', PAGE);
         await shot(page, 'files-page-created');
     });
 
-    test('refuses to create a page that already exists and keeps the name typed', async ({page}) => {
-        await page.locator(`[data-testid=tree-row][data-path="${FOLDER}"] [data-testid=tree-row-menu]`).click();
-        await page.getByTestId('tree-row-menu-new-page').click();
-        await page.getByTestId('tree-draft-input').fill('Тестовая страница');
-        await page.getByTestId('tree-draft-input').press('Enter');
+    test('a draft whose heading names a note already there is saved under the next free name', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(FOLDER));
+        await page.getByTestId('dir-new').click();
+        await setSource(page, '# Тестовая страница\n');
+        await expect(draftCrumb(page)).toHaveText(nameOf(PAGE));
 
-        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.pageExists);
-        await expect(page.getByTestId('tree-draft-input')).toHaveValue('Тестовая страница');
-        await shot(page, 'files-duplicate-page');
-        await page.getByTestId('tree-draft-input').press('Escape');
-        await expect(page.getByTestId('tree-draft')).toHaveCount(0);
+        // act
+        await page.getByTestId('editor-save').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(TAKEN_PAGE));
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`${text.toast.created} "${nameOf(TAKEN_PAGE)}"`);
+        expect(readFixture(PAGE)).toBe('# Тестовая страница\n\nmore\n');
+        removeFixture(TAKEN_PAGE);
+    });
+
+    test('a name set by hand that is taken is refused at Save, and the draft stays', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(FOLDER));
+        await page.getByTestId('dir-new').click();
+        await setSource(page, '# Other words\n');
+        await nameDraft(page, nameOf(PAGE));
+
+        // act
+        await page.getByTestId('editor-save').click();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.nameTaken);
+        await expect(page).toHaveURL(MAIN.url.draft(`${FOLDER}/${text.create.untitled}`));
+        await expect(draftCrumb(page)).toHaveText(nameOf(PAGE));
+        expect(readFixture(PAGE)).toBe('# Тестовая страница\n\nmore\n');
+        expect(fs.readdirSync(fixtureFile(FOLDER))).toEqual([nameOf(PAGE)]);
     });
 
     test('renames a page in place in the tree, asking only its name', async ({page}) => {
@@ -780,14 +899,11 @@ test.describe.serial('file management', () => {
         removeFixture(note);
     });
 
-    test('a file page and a folder page rename through the popover under the last crumb', async ({page}) => {
+    test('a file page renames through the popover under the last crumb', async ({page}) => {
         // arrange
         const file = `${RENAME_FOLDER}/plain.txt`;
-        const folder = `${RENAME_FOLDER}/page-folder`;
         const renamedFile = `${RENAME_FOLDER}/plain-renamed.txt`;
-        const renamedFolder = `${RENAME_FOLDER}/page-folder-renamed`;
         writeFixture(file, 'plain\n');
-        writeFixture(`${folder}/inside.md`, '# Inside\n');
         const input = page.getByTestId('page-rename-input');
 
         // act & assert
@@ -797,14 +913,6 @@ test.describe.serial('file management', () => {
         await input.fill(nameOf(renamedFile));
         await input.press('Enter');
         await expect(page).toHaveURL(MAIN.url.doc(renamedFile));
-
-        await page.goto(MAIN.url.dir(folder));
-        await startPageRename(page, 'folder-menu');
-        await expect(input).toHaveValue(nameOf(folder));
-        await input.fill(nameOf(renamedFolder));
-        await input.press('Enter');
-        await expect(page).toHaveURL(MAIN.url.dir(renamedFolder));
-        expect(fs.existsSync(fixtureFile(`${renamedFolder}/inside.md`))).toBe(true);
     });
 
     test('moves a page into another folder by dragging its row', async ({page}) => {
@@ -1139,8 +1247,8 @@ test.describe.serial('file management', () => {
         fs.mkdirSync(fixtureFile(INNER), {recursive: true});
         fs.mkdirSync(fixtureFile(OTHER), {recursive: true});
         await page.goto(MAIN.url.dir(INNER));
-        await page.getByTestId('folder-menu').click();
-        await page.getByTestId('folder-menu-move').click();
+        await page.locator(`[data-testid=tree-row][data-path="${INNER}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-move').click();
 
         // act
         await page.getByTestId('move-input').fill(OTHER);
@@ -1195,18 +1303,17 @@ test.describe.serial('file management', () => {
         await page.goto(routes.dir(FOLDER));
 
         // act
-        await page.locator(`[data-testid=tree-row][data-path="${FOLDER}"] [data-testid=tree-row-menu]`).click();
-        await page.getByTestId('tree-row-menu-new-folder').click();
-        await page.getByTestId('tree-draft-input').fill('Docs');
-        await page.getByTestId('tree-draft-input').press('Enter');
-        await expect.poll(() => fs.existsSync(fixtureFile(`${FOLDER}/Docs`))).toBe(true);
-        await page.locator(`[data-testid=tree-row][data-path="${FOLDER}/Docs"] [data-testid=tree-row-menu]`).click();
-        await page.getByTestId('tree-row-menu-new-page').click();
-        await page.getByTestId('tree-draft-input').fill('Мой План Q3');
-        await page.getByTestId('tree-draft-input').press('Enter');
+        await page.getByTestId('dir-new-more').click();
+        await page.getByTestId('dir-new-folder').click();
+        await page.getByTestId('dir-draft-input').fill('Docs');
+        await page.getByTestId('dir-draft-input').press('Enter');
+        await expect(page).toHaveURL(MAIN.url.dir(`${FOLDER}/Docs`));
+        await page.getByTestId('dir-empty-new-note').click();
+        await nameDraft(page, 'Мой План Q3');
+        await page.getByTestId('editor-save').click();
 
         // assert
-        await expect(page).toHaveURL(MAIN.url.edit(`${FOLDER}/Docs/Moy-Plan-Q3.md`));
+        await expect(page).toHaveURL(MAIN.url.doc(`${FOLDER}/Docs/Moy-Plan-Q3.md`));
         expect(fs.existsSync(fixtureFile(`${FOLDER}/Docs/Moy-Plan-Q3.md`))).toBe(true);
     });
 
@@ -1244,7 +1351,7 @@ test.describe.serial('file management', () => {
         await expect(page.getByTestId('editor-lines')).toHaveText('1 line');
     });
 
-    test('an empty folder says so on its page, has no arrow in the tree, and opens there with its first file', async ({page}) => {
+    test('an empty folder says so on its page, has no arrow in the tree, and opens there with its first note', async ({page}) => {
         // arrange
         fs.mkdirSync(fixtureFile(BLANK_FOLDER), {recursive: true});
 
@@ -1253,19 +1360,29 @@ test.describe.serial('file management', () => {
 
         // assert
         const row = page.locator(`[data-testid=tree-row][data-path="${BLANK_FOLDER}"]`);
+        const children = row.locator('xpath=following-sibling::*[@data-testid="tree-children"]');
         await expect(row).toHaveAttribute('data-empty', 'true');
         await expect(row.getByTestId('tree-twisty')).toHaveCount(0);
-        await expect(row.locator('xpath=following-sibling::*[@data-testid="tree-children"]')).toHaveCount(0);
+        await expect(children).toHaveCount(0);
         await shot(page, 'files-empty-folder');
         await expect(page.getByTestId('dir-table').locator('th').first()).toBeVisible();
-        await expect(page.getByTestId('dir-empty-new-folder')).toHaveCount(0);
-        await page.getByTestId('dir-empty-new-file').click();
+        await expect(page.getByTestId('dir-empty-new-note')).toHaveText(text.create.note);
+        await expect(page.getByTestId('dir-empty-new-folder')).toHaveText(text.create.folder);
+
+        await page.getByTestId('dir-empty-new-folder').click();
         await expect(page.getByTestId('dir-draft-input')).toBeFocused();
+        await expect(page.getByTestId('dir-draft-input')).toHaveAttribute('placeholder', text.create.folderName);
         await expect(page.getByTestId('tree-draft')).toHaveCount(0);
         await expect(page.getByTestId('dir-empty')).toHaveCount(0);
-        await page.getByTestId('dir-draft-input').fill('first');
-        await page.getByTestId('dir-draft-input').press('Enter');
-        await expect(page).toHaveURL(new RegExp(`${routes.edit(`${BLANK_FOLDER}/first.md`)}$`));
+        await page.getByTestId('dir-draft-input').press('Escape');
+        await expect(page.getByTestId('dir-empty')).toBeVisible();
+
+        await page.getByTestId('dir-empty-new-note').click();
+        await expect(page).toHaveURL(MAIN.url.draft(`${BLANK_FOLDER}/${text.create.untitled}`));
+        await expect(children.getByTestId('tree-ghost')).toHaveText(text.create.untitled);
+        await setSource(page, '# First\n');
+        await page.getByTestId('editor-save').click();
+        await expect(page).toHaveURL(MAIN.url.doc(`${BLANK_FOLDER}/first.md`));
         await expect(row).toHaveAttribute('data-empty', 'false');
         await expect(row.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
         await expect(page.locator(`[data-testid=tree-row][data-path="${BLANK_FOLDER}/first.md"]`)).toBeVisible();
@@ -1314,10 +1431,10 @@ test.describe.serial('file management', () => {
         // act & assert
         await row.hover();
         await row.getByTestId('tree-row-add').click();
-        await expect(children.getByTestId('tree-draft')).toBeVisible();
-        await page.getByTestId('tree-draft-input').fill('first');
-        await page.getByTestId('tree-draft-input').press('Enter');
-        await expect(page).toHaveURL(MAIN.url.edit(first));
+        await expect(children.getByTestId('tree-ghost')).toBeVisible();
+        await setSource(page, '# First\n');
+        await page.getByTestId('editor-save').click();
+        await expect(page).toHaveURL(MAIN.url.doc(first));
         await expect(row.getByTestId('tree-twisty')).toHaveAttribute('data-open', 'true');
         await expect(children.locator(`[data-testid=tree-row][data-path="${first}"]`)).toBeVisible();
 
@@ -1542,29 +1659,33 @@ test.describe.serial('file management', () => {
         await expect(icon).toHaveAttribute('data-open', 'false');
     });
 
-    test('New in a folder list names the entry in a row of the table', async ({page}) => {
+    test('New in a folder list opens a draft there, and its arrow adds a folder row after the last folder', async ({page}) => {
         // arrange
-        await page.goto(routes.dir(BLANK_FOLDER));
+        for (const name of ['alpha', 'beta']) {
+            fs.mkdirSync(fixtureFile(`${SPLIT_FOLDER}/${name}`), {recursive: true});
+        }
+        writeFixture(`${SPLIT_FOLDER}/note.md`, '# Note\n');
+        await page.goto(routes.dir(SPLIT_FOLDER));
         const draft = page.getByTestId('dir-draft');
+        const listed = () => page.getByTestId('dir-table').locator('[data-testid=dir-row], [data-testid=dir-draft]')
+            .evaluateAll((rows) => rows.map((row) => row.dataset.path ?? row.dataset.testid));
 
         // act & assert
-        await page.getByTestId('dir-new').click();
+        await page.getByTestId('dir-new-more').click();
+        await expect(page.getByTestId('dir-new-menu').getByRole('menuitem')).toHaveText([text.create.folder]);
         await page.getByTestId('dir-new-folder').click();
         await expect(draft).toHaveAttribute('data-entry', 'dir');
+        await expect(page.getByTestId('dir-draft-input')).toBeFocused();
         await expect(page.getByTestId('tree-draft')).toHaveCount(0);
-        await expect(page.getByTestId('dir-add-row')).toHaveCount(0);
+        expect(await listed()).toEqual([`${SPLIT_FOLDER}/alpha`, `${SPLIT_FOLDER}/beta`, 'dir-draft', `${SPLIT_FOLDER}/note.md`]);
         await shot(page, 'files-list-draft');
 
         await page.getByTestId('dir-draft-input').press('Escape');
         await expect(draft).toHaveCount(0);
-        await expect(page.getByTestId('dir-add-row')).toBeVisible();
 
-        await page.getByTestId('dir-add-row').click();
-        await expect(draft).toHaveAttribute('data-entry', 'file');
-        await page.getByTestId('dir-draft-input').fill('second');
-        await page.getByTestId('dir-draft-input').press('Enter');
-        await expect(page).toHaveURL(new RegExp(`${routes.edit(`${BLANK_FOLDER}/second.md`)}$`));
-        expect(fs.existsSync(fixtureFile(`${BLANK_FOLDER}/second.md`))).toBe(true);
+        await expect(page.getByTestId('dir-new')).toHaveText('New');
+        await page.getByTestId('dir-new').click();
+        await expect(page).toHaveURL(MAIN.url.draft(`${SPLIT_FOLDER}/${text.create.untitled}`));
     });
 
     test('a folder list kept while the next one loads creates in the folder it shows', async ({page}) => {
@@ -1586,7 +1707,7 @@ test.describe.serial('file management', () => {
             await expect(page.getByTestId('dir-title')).toHaveText(held);
 
             // act
-            await page.getByTestId('dir-new').click();
+            await page.getByTestId('dir-new-more').click();
             await page.getByTestId('dir-new-folder').click();
             await page.getByTestId('dir-draft-input').fill('made');
             await page.getByTestId('dir-draft-input').press('Enter');
@@ -1600,20 +1721,41 @@ test.describe.serial('file management', () => {
         }
     });
 
-    test('the sidebar still names a new entry in the tree', async ({page}) => {
+    test('the compose icon and N open a draft in the folder of the page on screen', async ({page}) => {
+        // arrange
+        const inBlank = MAIN.url.draft(`${BLANK_FOLDER}/${text.create.untitled}`);
+        const compose = page.getByTestId('sidebar-new');
+
+        // act & assert
+        await page.goto(routes.dir(BLANK_FOLDER));
+        await expect(compose).toHaveAttribute('data-folder', BLANK_FOLDER);
+        await compose.click();
+        await expect(page).toHaveURL(inBlank);
+        await expect(page.getByTestId('dir-draft')).toHaveCount(0);
+
+        await page.goto(routes.doc(docs.doc.path));
+        await expect(compose).toHaveAttribute('data-folder', docs.doc.folder);
+        await pressShortcut(page, 'n');
+        await expect(page).toHaveURL(MAIN.url.draft(`${docs.doc.folder}/${text.create.untitled}`));
+
+        await page.goto(routes.dir(BLANK_FOLDER));
+        await pressShortcut(page, 'n');
+        await expect(page).toHaveURL(inBlank);
+    });
+
+    test('N typed into a field is a letter, and with a modifier it opens no draft', async ({page}) => {
         // arrange
         await page.goto(routes.dir(BLANK_FOLDER));
+        const filter = page.getByTestId('sidebar-filter');
 
         // act
-        await page.getByTestId('sidebar-new').click();
-        await page.getByTestId('sidebar-new-page').click();
+        await filter.press('n');
+        await filter.press('Escape');
+        await filter.blur();
+        await page.keyboard.press('Shift+N');
 
         // assert
-        await expect(page.getByTestId('tree-draft-input')).toBeFocused();
-        await page.waitForTimeout(FOCUS_RETURN_WAIT);
-        await expect(page.getByTestId('tree-draft-input')).toBeFocused();
-        await expect(page.getByTestId('dir-draft')).toHaveCount(0);
-        await page.getByTestId('tree-draft-input').press('Escape');
+        await expect(page).toHaveURL(MAIN.url.dir(BLANK_FOLDER));
     });
 
     test('a right click on a row of a folder list opens its menu at the pointer, and Rename names the row in place', async ({page}) => {
@@ -1632,8 +1774,6 @@ test.describe.serial('file management', () => {
         await expect(menu).toBeVisible();
         await expect(row).toHaveAttribute('data-menu', 'true');
         await expect(page.getByTestId('dir-context-menu')).toHaveCount(0);
-        await expect(page.getByTestId('tree-row-menu-new-page')).toHaveCount(0);
-        await expect(page.getByTestId('tree-row-menu-new-folder')).toHaveCount(0);
         await expect(page).toHaveURL(MAIN.url.dir(CONTEXT_FOLDER));
         const placed = await menu.boundingBox();
         expect(Math.round(placed.x)).toBe(Math.round(at.x));
@@ -1703,7 +1843,7 @@ test.describe.serial('file management', () => {
         const draft = page.getByTestId('dir-draft');
 
         // act & assert
-        await page.getByTestId('dir-new').click();
+        await page.getByTestId('dir-new-more').click();
         await page.getByTestId('dir-new-folder').click();
         await page.getByTestId('dir-draft-input').fill('kept');
         await page.getByTestId('dir-title').click();
@@ -1751,7 +1891,7 @@ test.describe.serial('file management', () => {
         await page.mouse.click(viewport.width / 2, viewport.height - 20, {button: 'right'});
 
         // assert
-        await expect(page.getByTestId('dir-context-menu')).toBeVisible();
+        await expect(page.getByTestId('dir-context-menu').getByRole('menuitem')).toHaveText([text.create.note, text.create.folder]);
         await expect(page.getByTestId('tree-row-menu-dropdown')).toHaveCount(0);
         await page.getByTestId('dir-context-menu-new-folder').click();
         await expect(page.getByTestId('dir-draft')).toHaveAttribute('data-entry', 'dir');
@@ -1760,7 +1900,7 @@ test.describe.serial('file management', () => {
         await expect.poll(() => fs.existsSync(fixtureFile(`${CONTEXT_FOLDER}/made`))).toBe(true);
     });
 
-    test('New file in the free space menu of a folder list names the file in a row of the table', async ({page}) => {
+    test('New note in the free space menu of a folder list opens a draft there', async ({page}) => {
         // arrange
         writeFixture(CONTEXT_NOTE, '# Note\n');
         await page.goto(routes.dir(CONTEXT_FOLDER));
@@ -1769,14 +1909,13 @@ test.describe.serial('file management', () => {
         await page.mouse.click(viewport.width / 2, viewport.height - 20, {button: 'right'});
 
         // act
-        await page.getByTestId('dir-context-menu-new-file').click();
+        await page.getByTestId('dir-context-menu-new-note').click();
 
         // assert
-        await expect(page.getByTestId('dir-draft')).toHaveAttribute('data-entry', 'file');
+        await expect(page).toHaveURL(MAIN.url.draft(`${CONTEXT_FOLDER}/${text.create.untitled}`));
+        await expect(draftCrumb(page)).toHaveText(text.create.untitled);
+        await expect(page.getByTestId('dir-draft')).toHaveCount(0);
         await expect(page.getByTestId('tree-draft')).toHaveCount(0);
-        await page.getByTestId('dir-draft-input').fill('made-file');
-        await page.getByTestId('dir-draft-input').press('Enter');
-        await expect(page).toHaveURL(new RegExp(`${routes.edit(`${CONTEXT_FOLDER}/made-file.md`)}$`));
     });
 
     test('a right click on a link, a button, a field or selected text of a folder list keeps the browser menu', async ({page}) => {
@@ -1792,13 +1931,13 @@ test.describe.serial('file management', () => {
         expect(await rightClickPrevented(page, page.getByTestId('dir-up').locator('a'))).toBe(false);
         await expect(appMenu).toHaveCount(0);
 
-        await page.getByTestId('dir-empty-new-file').click();
+        await page.getByTestId('dir-empty-new-folder').click();
         expect(await rightClickPrevented(page, page.getByTestId('dir-draft-input'))).toBe(false);
         await expect(appMenu).toHaveCount(0);
         await page.getByTestId('dir-draft-input').press('Escape');
 
         await page.goto(routes.dir(CONTEXT_FOLDER));
-        expect(await rightClickPrevented(page, page.getByTestId('dir-add-row'))).toBe(false);
+        expect(await rightClickPrevented(page, page.getByTestId('dir-new'))).toBe(false);
         await expect(appMenu).toHaveCount(0);
 
         await page.getByTestId('dir-title').selectText();
@@ -1820,7 +1959,7 @@ test.describe.serial('file management', () => {
         await page.mouse.click(tree.x + tree.width / 2, tree.y + tree.height - 10, {button: 'right'});
 
         // assert
-        await expect(page.getByTestId('tree-context-menu')).toBeVisible();
+        await expect(page.getByTestId('tree-context-menu').getByRole('menuitem')).toHaveText([text.create.note, text.create.folder]);
         await expect(page.getByTestId('tree-row-menu-dropdown')).toHaveCount(0);
         await page.getByTestId('tree-context-menu-new-folder').click();
         await expect(page.getByTestId('tree-draft')).toHaveAttribute('data-entry', 'dir');
@@ -1828,6 +1967,19 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-draft-input').press('Enter');
         await expect.poll(() => fs.existsSync(fixtureFile(CONTEXT_ROOT_FOLDER))).toBe(true);
         expect(fs.existsSync(fixtureFile(`${CONTEXT_FOLDER}/${CONTEXT_ROOT_FOLDER}`))).toBe(false);
+    });
+
+    test('New note in the free space menu of the tree opens a draft in the root', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(CONTEXT_FOLDER));
+        await openTreeSpaceMenu(page);
+
+        // act
+        await page.getByTestId('tree-context-menu-new-note').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.draft(text.create.untitled));
+        await expect(page.getByTestId('tree-root').getByTestId('tree-ghost')).toHaveText(text.create.untitled);
     });
 
     test('a right click on the empty space under the last row of the tree opens its menu too', async ({page}) => {

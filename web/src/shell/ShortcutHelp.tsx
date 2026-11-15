@@ -28,6 +28,7 @@ const groups: readonly ShortcutGroup[] = [
     rows: [
       { keys: [modKey, 'K'], what: 'Search the space', needs: 'search' },
       { keys: [modKey, 'B'], what: 'Show or hide the sidebar' },
+      { keys: ['N'], what: 'New note in the folder on screen', needs: 'editing' },
       { keys: ['?'], what: 'Show this list' },
       { keys: ['Esc'], what: 'Close a panel or clear the filter' },
     ],

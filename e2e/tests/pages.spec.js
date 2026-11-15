@@ -226,8 +226,8 @@ test.describe('pages', () => {
         await page.goto(routes.dir(docs.folder.path));
 
         // act
-        await page.getByTestId('folder-menu').click();
-        await page.getByTestId('folder-menu-copy-link').click();
+        await page.locator(`[data-testid=tree-row][data-path="${docs.folder.path}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-copy-link').click();
 
         // assert
         const toast = page.getByTestId('toast-box');
@@ -250,8 +250,8 @@ test.describe('pages', () => {
 
         async function copied(page) {
             await page.goto(routes.dir(docs.folder.path));
-            await page.getByTestId('folder-menu').click();
-            await page.getByTestId('folder-menu-copy-link').click();
+            await page.locator(`[data-testid=tree-row][data-path="${docs.folder.path}"] [data-testid=tree-row-menu]`).click();
+            await page.getByTestId('tree-row-menu-copy-link').click();
             await expect(page.getByTestId('toast-box')).toBeVisible();
             await page.mouse.move(0, 0);
         }
@@ -516,16 +516,16 @@ for (const [scheme, theme] of [['light', lightTheme], ['dark', darkTheme]]) {
             await expect(row).toHaveCSS('color', rgb(theme.palette.menuHighlightText));
         });
 
-        test('fills a row a name is typed into in a folder\'s list with the picked gray', async ({page}) => {
+        test('fills a row a name is typed into in a folder\'s list with the hover tint', async ({page}) => {
             // arrange
             await page.goto(routes.dir(docs.folder.path));
 
             // act
-            await page.getByTestId('dir-new').click();
-            await page.getByTestId('dir-new-file').click();
+            await page.getByTestId('dir-new-more').click();
+            await page.getByTestId('dir-new-folder').click();
 
             // assert
-            await expect(page.getByTestId('dir-draft')).toHaveCSS('background-color', rgb(theme.palette.selected));
+            await expect(page.getByTestId('dir-draft').locator('td').first()).toHaveCSS('background-color', rgb(theme.palette.hover));
         });
 
         test('draws the status tip dark with its own tokens', async ({page}) => {

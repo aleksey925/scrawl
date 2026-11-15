@@ -6,21 +6,21 @@ import { useLocation, useNavigate } from 'react-router';
 
 import { api } from '../api/client';
 import { ApiError } from '../api/errors';
-import type { DeleteResponse, DirEntry, EntryKind, EntryPathResponse, MutationState } from '../api/types';
+import type { DeleteResponse, DirEntry, EntryPathResponse, MutationState, NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
 import { mountBase } from '../mount';
 import { copyText } from '../reader/clipboard';
-import { directoryUrl, documentUrl, isDirectoryPath, isMarkdown, slugPath } from '../paths';
+import { directoryUrl, documentUrl, draftUrl, isDirectoryPath, isEditPath, isMarkdown, slugPath } from '../paths';
 import { layoutBreakpoints, useBelow } from '../theme';
 import { showToast, ToastLink, type ToastAction } from '../toast';
 
-import { FileActionsContext, type FileActions, type RenamePlace, type Renaming, type TreeDraft } from './fileActionsContext';
+import { FileActionsContext, type FileActions, type FolderDraft, type RenamePlace, type Renaming } from './fileActionsContext';
 import { MoveDialog } from './MoveDialog';
 import { useReaderLayout } from './ReaderLayout';
 import { spaceLabel, useNav } from './NavContext';
-import { NewEntryDialog } from './NewEntryDialog';
 import { useMutationState } from './useMutationState';
-import { ancestorsOf, basenameOf, hasOwnExtension, joinPath, parentOf, renamedPath } from './naming';
+import { ancestorsOf, basenameOf, contentPathOf, folderFor, freeName, joinPath, nameProblem, parentOf, renamedPath } from './naming';
+import { plainShortcut } from './shortcuts';
 
 interface MovedEntry {
   path: string;
@@ -42,13 +42,6 @@ const changedSinceText = 'It was renamed, moved or deleted since';
 const notRenamedTitle = 'Nothing was renamed';
 
 const takenText = 'Something of that name is already there';
-
-function nameProblem(name: string): string | undefined {
-  if (name.includes('/')) {
-    return 'A name cannot hold a slash, use Move to instead';
-  }
-  return name.trim().startsWith('.') ? 'A name cannot start with a dot' : undefined;
-}
 
 const failedMoveWords = {
   forward: { partly: 'Some of it did not move', none: 'Nothing was moved' },
@@ -162,20 +155,12 @@ function appUrl(path: string, isDir: boolean): string {
   return new URL(`${base}${route}`, window.location.origin).href;
 }
 
-function draftPath(draft: TreeDraft, name: string): string {
-  if (draft.kind === 'file' && hasOwnExtension(name) && !isMarkdown(name.trim())) {
-    const typed = name
-      .split('/')
-      .map((part) => part.trim())
-      .filter((part) => part !== '')
-      .join('/');
-    return joinPath(draft.parent, typed);
+function childrenOf(tree: readonly NavNode[], folder: string): readonly NavNode[] {
+  let nodes = tree;
+  for (const step of ancestorsOf(folder).slice(1)) {
+    nodes = nodes.find((node) => node.path === step)?.children ?? [];
   }
-  const slug = slugPath(name);
-  if (slug === '') {
-    return '';
-  }
-  return joinPath(draft.parent, draft.kind === 'file' && !isMarkdown(slug) ? `${slug}.md` : slug);
+  return nodes;
 }
 
 function replaces(path: string, target: string): boolean {
@@ -192,7 +177,7 @@ function pathAfterMove(path: string, from: string, to: string): string | undefin
 export function FileActionsProvider({ children }: { children: ReactNode }): JSX.Element {
   const { revealNav: revealTree } = useReaderLayout();
   const navigate = useNavigate();
-  const { tree, me, currentPath, refreshNav, refreshMe, openFolder, setQuery } = useNav();
+  const { tree, me, currentPath, canWrite, refreshNav, refreshMe, openFolder, setQuery } = useNav();
   const location = useLocation();
   const onFolder = isDirectoryPath(location.pathname);
   const reportMutation = useMutationState();
@@ -204,9 +189,8 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const renameCommit = useRef<(() => void) | undefined>(undefined);
   const followed = useRef<{ path: string; url: string } | undefined>(undefined);
   const [moving, setMoving] = useState<MovedEntry | undefined>(undefined);
-  const [draft, setDraft] = useState<TreeDraft | undefined>(undefined);
+  const [draft, setDraft] = useState<FolderDraft | undefined>(undefined);
   const phone = useBelow(layoutBreakpoints.phone);
-  const [naming, setNaming] = useState<TreeDraft | undefined>(undefined);
   const undoable = useRef(new Set<UndoMark>());
 
   useEffect(() => {
@@ -298,49 +282,59 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
     [openFolder, revealTree, setQuery],
   );
 
-  const createDraft = useCallback(
-    (kind: EntryKind, parent: string) => {
-      if (phone) {
-        setNaming({ kind, parent });
-        return;
+  const newNote = useCallback(
+    (folder: string) => {
+      const taken = new Set(childrenOf(tree, folder).map((node) => basenameOf(node.path).toLowerCase()));
+      if (!phone) {
+        showInTree(folder);
       }
-      showInTree(parent);
-      setDraft({ kind, parent });
+      void navigate(draftUrl(joinPath(folder, freeName('untitled.md', taken))));
     },
-    [phone, showInTree],
+    [navigate, phone, showInTree, tree],
+  );
+
+  const newFolder = useCallback(
+    (parent: string) => {
+      if (phone) {
+        const list = directoryUrl(parent);
+        if (!shown.current.onFolder || shown.current.path !== parent) {
+          void navigate(list);
+        }
+      } else {
+        showInTree(parent);
+      }
+      setDraft({ parent });
+    },
+    [navigate, phone, showInTree],
   );
 
   const cancelDraft = useCallback(() => setDraft(undefined), []);
 
-  const createEntry = useCallback(
-    async (draft: TreeDraft, name: string): Promise<boolean> => {
-      const path = draftPath(draft, name);
-      const isFile = draft.kind === 'file';
-      if (path === '') {
-        showToast('error', { message: `${isFile ? 'A file' : 'A folder'} needs a letter or a digit in its name` });
+  useEffect(() => {
+    if (!phone) {
+      return;
+    }
+    const here = contentPathOf(location.pathname);
+    const listed = isDirectoryPath(location.pathname) || here === '';
+    setDraft((prev) => (prev !== undefined && listed && prev.parent === here ? prev : undefined));
+  }, [location.pathname, phone]);
+
+  const createFolder = useCallback(
+    async (parent: string, name: string): Promise<boolean> => {
+      const slug = slugPath(name);
+      if (slug === '') {
+        showToast('error', { message: 'A folder needs a letter or a digit in its name' });
         return false;
       }
       let res: EntryPathResponse;
       try {
-        res = await api.createEntry(path, draft.kind);
+        res = await api.createEntry(joinPath(parent, slug), 'dir');
       } catch (error) {
-        showToast('error', {
-          title: 'Nothing was created',
-          message: conflictText(error, isFile ? 'That file already exists' : 'That folder already exists'),
-        });
+        showToast('error', { title: 'Nothing was created', message: conflictText(error, 'That folder already exists') });
         return false;
       }
       touch([res.path]);
       refreshNav();
-      if (isFile && res.edit_url !== undefined) {
-        await navigate(res.edit_url);
-        return true;
-      }
-      if (isFile) {
-        reportMutation(res, `Created ${quoted(res.path, space)}`);
-        await navigate(documentUrl(res.path));
-        return true;
-      }
       reportMutation(res, `Created folder ${quoted(res.path, space)}`);
       openFolder(res.path);
       await navigate(directoryUrl(res.path));
@@ -354,14 +348,33 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       if (draft === undefined) {
         return false;
       }
-      const created = await createEntry(draft, name);
+      const created = await createFolder(draft.parent, name);
       if (created) {
         setDraft(undefined);
       }
       return created;
     },
-    [createEntry, draft],
+    [createFolder, draft],
   );
+
+  useEffect(() => {
+    if (!canWrite) {
+      return undefined;
+    }
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key.toLowerCase() !== 'n' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+        return;
+      }
+      if (!plainShortcut(event) || isEditPath(shown.current.route)) {
+        return;
+      }
+      event.preventDefault();
+      const { path, onFolder: folderShown } = shown.current;
+      newNote(folderFor(path, path === '' || folderShown));
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [canWrite, newNote]);
 
   const moveInto = useCallback(
     (paths: readonly string[], folder: string) => {
@@ -493,7 +506,8 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const actions = useMemo<FileActions>(
     () => ({
-      createDraft,
+      newNote,
+      newFolder,
       renaming,
       startRename,
       endRename,
@@ -506,16 +520,14 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       draft,
       submitDraft,
       cancelDraft,
-      createEntry,
+      createFolder,
     }),
-    [cancelDraft, copyLink, createDraft, createEntry, draft, endRename, moveInto, remove, renaming, startRename, submitDraft, submitRename],
+    [cancelDraft, copyLink, createFolder, draft, endRename, moveInto, newFolder, newNote, remove, renaming, startRename, submitDraft, submitRename],
   );
 
   return (
     <FileActionsContext.Provider value={actions}>
       {children}
-
-      {naming !== undefined && <NewEntryDialog draft={naming} onCreate={createEntry} onClose={() => setNaming(undefined)} />}
 
       {moving !== undefined && (
         <MoveDialog

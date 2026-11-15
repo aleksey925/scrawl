@@ -9,6 +9,7 @@ import { isEditPath } from '../paths';
 import { layout } from '../theme';
 
 import { AppLogo } from './AppLogo';
+import { DraftNameField } from './DraftName';
 import { usePageRenaming } from './fileActionsContext';
 import { spaceLabel, useNav } from './NavContext';
 import { useShownChrome } from './PageChrome';
@@ -56,6 +57,9 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
   const { renaming, commit } = usePageRenaming();
+  const draft = chrome.draft;
+  const [naming, setNaming] = useState(false);
+  useEffect(() => setNaming(false), [location.pathname]);
   const goUp = (): boolean => {
     planMotion(parent.url, 'back');
     if (!cameFrom(parent.url)) {
@@ -76,10 +80,31 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   );
 
   if (editing) {
+    const namingDraft = naming && draft !== undefined;
     return (
-      <div data-testid="topbar" data-editing="true" className={classes.bar}>
+      <div data-testid="topbar" data-editing="true" data-renaming={namingDraft ? 'true' : 'false'} className={classes.bar}>
         <div data-testid="topbar-actions" className={classes.editActions} ref={actionsRef} />
-        <div className={classes.editEnd}>{end}</div>
+        {namingDraft ? (
+          <div className={classes.editName}>
+            <DraftNameField draft={draft} className={classes.field} onDone={() => setNaming(false)} />
+          </div>
+        ) : (
+          <div className={classes.editEnd}>
+            {draft === undefined ? (
+              end
+            ) : (
+              <button
+                type="button"
+                data-testid="topbar-draft-name"
+                className={classes.draftName}
+                aria-label={`Name the new note, now ${chrome.name}`}
+                onClick={() => setNaming(true)}
+              >
+                {chrome.name}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   }

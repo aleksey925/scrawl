@@ -1,5 +1,5 @@
-import { Popover } from '@mantine/core';
-import type { JSX } from 'react';
+import { Popover, UnstyledButton } from '@mantine/core';
+import { useEffect, useState, type JSX } from 'react';
 import { Link, useLocation } from 'react-router';
 
 import { EntryIcon } from '../components/EntryIcon';
@@ -10,6 +10,7 @@ import { IconFolder } from '../icons';
 import { isDirectoryPath } from '../paths';
 import { layout } from '../theme';
 
+import { DraftNameField } from './DraftName';
 import { usePageRenaming } from './fileActionsContext';
 import { spaceLabel, useNav } from './NavContext';
 import { contentPathOf } from './naming';
@@ -35,8 +36,12 @@ export function TopbarCrumbs(): JSX.Element {
   const current = contentPathOf(location.pathname);
   const isDir = isDirectoryPath(location.pathname);
   const { renaming, commit } = usePageRenaming();
+  const draft = chrome.draft;
+  const [naming, setNaming] = useState(false);
+  const editing = renaming !== undefined || (naming && draft !== undefined);
+  useEffect(() => setNaming(false), [location.pathname]);
   const icon = (
-    <EntryIcon name={current} isDir={isDir} size={layout.iconSizeSmall} className={classes.crumbIcon} />
+    <EntryIcon name={draft?.path ?? current} isDir={isDir} size={layout.iconSizeSmall} className={classes.crumbIcon} />
   );
 
   return (
@@ -63,7 +68,7 @@ export function TopbarCrumbs(): JSX.Element {
         <span className={`${classes.step} ${classes.last}`}>
           <Separator />
           <Popover
-            opened={renaming !== undefined}
+            opened={editing}
             position="bottom-start"
             offset={renameOffset}
             width={layout.popoverWidth}
@@ -79,14 +84,31 @@ export function TopbarCrumbs(): JSX.Element {
             classNames={{ dropdown: controls.menu }}
           >
             <Popover.Target>
-              <span data-testid="crumb" data-current="true" className={`${classes.crumb} ${classes.current}`}>
-                {icon}
-                <span className={classes.crumbText}>{chrome.name}</span>
-              </span>
+              {draft === undefined ? (
+                <span data-testid="crumb" data-current="true" className={`${classes.crumb} ${classes.current}`}>
+                  {icon}
+                  <span className={classes.crumbText}>{chrome.name}</span>
+                </span>
+              ) : (
+                <UnstyledButton
+                  data-testid="crumb"
+                  data-current="true"
+                  data-draft="true"
+                  className={`${classes.crumb} ${classes.draft}`}
+                  aria-label={`Name the new note, now ${chrome.name}`}
+                  onClick={() => setNaming(true)}
+                >
+                  {icon}
+                  <span className={classes.crumbText}>{chrome.name}</span>
+                </UnstyledButton>
+              )}
             </Popover.Target>
-            <Popover.Dropdown data-testid="page-rename" p={0}>
+            <Popover.Dropdown data-testid={renaming === undefined ? 'draft-name' : 'page-rename'} p={0}>
               {renaming !== undefined && (
                 <RenameField session={renaming} testId="page-rename" icon={icon} className={classes.field} />
+              )}
+              {renaming === undefined && naming && draft !== undefined && (
+                <DraftNameField draft={draft} icon={icon} className={classes.field} onDone={() => setNaming(false)} />
               )}
             </Popover.Dropdown>
           </Popover>

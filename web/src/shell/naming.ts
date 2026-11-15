@@ -1,3 +1,5 @@
+import { isMarkdown, slugify, slugPath, withoutMarkdownExtension } from '../paths';
+
 export function joinPath(folder: string, name: string): string {
   return folder === '' ? name : `${folder.replace(/\/+$/, '')}/${name}`;
 }
@@ -47,4 +49,43 @@ export function renamedPath(path: string, name: string): string {
 export function caretOf(name: string, isDir: boolean): number {
   const dot = name.lastIndexOf('.');
   return isDir || dot <= 0 ? name.length : dot;
+}
+
+export function nameProblem(name: string): string | undefined {
+  if (name.includes('/')) {
+    return 'A name cannot hold a slash, use Move to instead';
+  }
+  return name.trim().startsWith('.') ? 'A name cannot start with a dot' : undefined;
+}
+
+export function newFilePath(folder: string, name: string): string {
+  if (hasOwnExtension(name) && !isMarkdown(name.trim())) {
+    return joinPath(folder, name.trim());
+  }
+  const slug = slugPath(name);
+  if (slug === '') {
+    return '';
+  }
+  return joinPath(folder, isMarkdown(slug) ? slug : `${slug}.md`);
+}
+
+export function noteNameOf(text: string): string {
+  const line = text.split('\n').find((row) => row.trim() !== '') ?? '';
+  const slug = slugify(withoutMarkdownExtension(line.replace(/^\s*#+\s*/, '').trim())).toLowerCase();
+  return `${slug === '' ? 'untitled' : slug}.md`;
+}
+
+export function freeName(name: string, taken: ReadonlySet<string>): string {
+  if (!taken.has(name.toLowerCase())) {
+    return name;
+  }
+  const dot = name.lastIndexOf('.');
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : '';
+  for (let at = 2; ; at += 1) {
+    const next = `${stem}-${at}${ext}`;
+    if (!taken.has(next.toLowerCase())) {
+      return next;
+    }
+  }
 }

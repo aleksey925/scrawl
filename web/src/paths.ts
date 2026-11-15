@@ -61,6 +61,10 @@ export function editUrl(path: string): string {
   return `/edit/${encodeContentPath(path)}`;
 }
 
+export function draftUrl(path: string): string {
+  return `${editUrl(path)}?draft`;
+}
+
 export function isHtmlApp(path: string): boolean {
   return /\.html?$/i.test(path);
 }

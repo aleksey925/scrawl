@@ -78,22 +78,24 @@ export function TabBar(): JSX.Element | null {
       )}
       <Tab name="recent" label="Recent" icon={IconClock} current={!searching && atRecent} onClick={() => go(recentUrl())} />
       {canWrite && (
-        <PopupMenu position="top-end" offset={4} width={layout.menuWidth} withinPortal>
+        <PopupMenu position="top-end" offset={4} withinPortal>
           <Menu.Target>
             <Tab name="new" label="New" icon={IconPlus} current={false} />
           </Menu.Target>
-          <Menu.Dropdown data-testid="new-menu">
+          <Menu.Dropdown data-testid="new-menu" className={classes.newMenu}>
             <FieldMenuItem
               data-testid="new-menu-note"
-              leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-              onClick={() => actions.createDraft('file', here)}
+              className={classes.newItem}
+              rightSection={<IconFilePlus size={layout.iconSize} />}
+              onClick={() => actions.newNote(here)}
             >
-              New file
+              New note
             </FieldMenuItem>
             <FieldMenuItem
               data-testid="new-menu-folder"
-              leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-              onClick={() => actions.createDraft('dir', here)}
+              className={classes.newItem}
+              rightSection={<IconFolderPlus size={layout.iconSize} />}
+              onClick={() => actions.newFolder(here)}
             >
               New folder
             </FieldMenuItem>

@@ -44,3 +44,12 @@
   font-size: 11px;
   line-height: 1.2;
 }
+
+.newItem [data-position='right'] {
+  margin-inline-start: 28px;
+  color: var(--scrawl-icon);
+}
+
+:global(.mantine-Menu-dropdown).newMenu {
+  min-width: 0;
+}

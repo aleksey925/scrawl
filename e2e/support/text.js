@@ -18,6 +18,7 @@ module.exports = {
     toast: {
         saved: 'Saved',
         restored: 'Restored',
+        created: 'Created',
         folderCreated: 'Created folder',
         moved: 'Moved',
         movedMany: 'Moved 2 items',
@@ -34,7 +35,6 @@ module.exports = {
         contentsFailed: 'Could not build the contents',
     },
 
-    pageExists: 'That file already exists',
     folderExists: 'That folder already exists',
     renameSlash: 'A name cannot hold a slash, use Move to instead',
     renameDot: 'A name cannot start with a dot',
@@ -60,9 +60,15 @@ module.exports = {
         regexHint: 'Regular expression over the text as shown, line by line',
     },
 
+    create: {
+        note: 'New note',
+        folder: 'New folder',
+        folderName: 'Folder name',
+        untitled: 'untitled.md',
+        shortcut: 'New note in the folder on screen',
+    },
+
     sidebar: {
-        newPage: 'New file',
-        newFolder: 'New folder',
         nothingMatches: 'Nothing matches. Press Enter to search the text of every note.',
     },
 

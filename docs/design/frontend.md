@@ -115,15 +115,17 @@ How the react app in `web/` is built, shipped and wired.
   menu calls `preventDefault`, and the menu of the free space around it opens
   only for an event no one handled yet, never over a link, a button, a field or
   selected text.
-- A menu item that puts a name field on the page, New file, New folder or
-  Rename, is a `FieldMenuItem`, which tells its `PopupMenu` not to give the
-  focus back to its button, or the field would lose it
+- A menu item that puts a name field on the page, New folder or Rename, is a
+  `FieldMenuItem`, which tells its `PopupMenu` not to give the focus back to
+  its button, or the field would lose it
   ([quirks](../quirks.md#react-mantine-and-the-editor)). Every name field in
   place, in the tree, a folder's list or the bar on top, is `NameField`, in
-  `web/src/components/NameField.tsx`; only the phone's New file dialog has a
-  field of its own. A rename is one session held by `FileActionsProvider`: a
-  place asks `useRenamingHere` whether the session is its own and draws it with
-  `RenameField`.
+  `web/src/components/NameField.tsx`, the name of a note's draft too. A draft
+  is no rename: the editor owns its name and hands the crumb and the phone's
+  bar a `rename` through the page chrome (`useDraftChrome`), and the tree draws
+  the faint row from the same chrome. A rename is one session held by
+  `FileActionsProvider`: a place asks `useRenamingHere` whether the session is
+  its own and draws it with `RenameField`.
 
 ## Diagrams
 

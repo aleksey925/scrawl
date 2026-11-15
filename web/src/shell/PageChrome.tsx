@@ -6,11 +6,17 @@ import { directoryUrl } from '../paths';
 
 import { ancestorsOf, basenameOf, contentPathOf } from './naming';
 
+export interface DraftChrome {
+  path: string;
+  rename: (name: string) => boolean;
+}
+
 export interface PageChrome {
   crumbs: readonly Crumb[];
   name: string;
   title: string;
   ownTitle: boolean;
+  draft?: DraftChrome;
 }
 
 interface PageChromeState {
@@ -46,11 +52,26 @@ export function usePageChrome({ crumbs, name, title, ownTitle }: PageChrome): vo
   }, [crumbsKey, name, title, ownTitle, setChrome]);
 }
 
-function chromeFromRoute(pathname: string): PageChrome {
-  const ancestors = ancestorsOf(contentPathOf(pathname));
+function chromeOfPath(path: string): PageChrome {
+  const ancestors = ancestorsOf(path);
   const crumbs = ancestors.slice(1, -1).map((folder) => ({ name: basenameOf(folder), url: directoryUrl(folder) }));
   const last = basenameOf(ancestors[ancestors.length - 1] ?? '');
   return { crumbs, name: last, title: last, ownTitle: false };
+}
+
+function chromeFromRoute(pathname: string): PageChrome {
+  return chromeOfPath(contentPathOf(pathname));
+}
+
+export function useDraftChrome(draft: DraftChrome | undefined): void {
+  const setChrome = useContext(PageChromeContext)?.setChrome;
+  const path = draft?.path;
+  const rename = draft?.rename;
+  useEffect(() => {
+    if (path !== undefined && rename !== undefined) {
+      setChrome?.({ ...chromeOfPath(path), draft: { path, rename } });
+    }
+  }, [path, rename, setChrome]);
 }
 
 export function RouteChrome(): null {

@@ -34,7 +34,6 @@ test.describe('read-only mode', () => {
         await expect(page.getByTestId('tree-row-menu-copy-link')).toBeVisible();
         await expect(page.getByTestId('tree-row-menu-rename')).toHaveCount(0);
         await expect(page.getByTestId('tree-row-menu-delete')).toHaveCount(0);
-        await expect(page.getByTestId('tree-row-menu-new-page')).toHaveCount(0);
         await shot(page, 'readonly-tree');
     });
 

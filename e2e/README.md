@@ -71,6 +71,7 @@ of routes that read no store answer at the root. `routesFor(space)` in
 routes.doc("db/notes.md"); // /s/notes/doc/db/notes.md
 routes.dir("db"); // /s/notes/doc/db/
 routes.edit("db/notes.md"); // /s/notes/edit/db/notes.md
+routes.draft("db/untitled.md"); // /s/notes/edit/db/untitled.md?draft
 routes.search("индексы"); // /s/notes/search?q=...
 routes.api("/me"); // /s/notes/api/me
 routes.hook(); // /s/notes/hook

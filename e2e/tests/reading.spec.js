@@ -884,6 +884,14 @@ test.describe('reading', () => {
         ]);
     });
 
+    test('the shortcuts name N for a new note', async ({page}) => {
+        // act
+        await pressShortcut(page, '?');
+
+        // assert
+        await expect(page.getByTestId('shortcuts-group').filter({hasText: /^General/})).toContainText(text.create.shortcut);
+    });
+
     test('the title of the shortcuts, with its close button and the room under it, is as tall as a title alone', async ({page}) => {
         // act
         await page.keyboard.press('?');

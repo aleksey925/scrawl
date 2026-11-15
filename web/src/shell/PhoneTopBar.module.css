@@ -118,6 +118,29 @@
   transform: translateX(-50%);
 }
 
+.draftName {
+  max-width: 45vw;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--scrawl-text-tertiary);
+  font: inherit;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editName {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bar[data-editing='true'][data-renaming='true'] .editActions {
+  display: none;
+}
+
 .bar[data-renaming='true'] .start,
 .bar[data-renaming='true'] .actions,
 .bar[data-renaming='true'] .menu {

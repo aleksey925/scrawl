@@ -38,6 +38,16 @@ The editor screen.
   `Ctrl`/`Cmd` + `S`. Cancel opens the reader without saving and asks first
   when there are unsaved changes. A phone has no shortcut, so a save there
   always leaves; the local draft keeps the text between saves.
+- A note's draft ([entries](entries.md)) is the same editor with a name not
+  chosen yet: it opens with `# ` as both its text and its saved text, so a
+  draft left as it opened has nothing unsaved, and the state reads New note.
+  The kind of editor follows the name, so a draft named `todo.txt` drops the
+  modes, the toolbar and the preview at once. Its first save writes to the name
+  it has then and reports Created instead of Saved; Save opens the reader of
+  the new file, and `Cmd+S` replaces the address with the editor of the new
+  file and keeps the place in the text. Cancel goes back, as nothing of the
+  draft is a page to go back to. The name field is the draft's own and not a
+  rename: nothing on disk is moved.
 - Changes shows the unsaved edits: the text in the editor against the text last
   saved, drawn as the history draws a version
   ([history](../design/history.md#comparing-versions)), side by side on a wide

@@ -152,12 +152,11 @@
   }
 }
 
+.draft td {
+  background: var(--scrawl-hover);
+}
+
 .field {
-  margin-inline-start: -8px;
-  padding: 3px 8px;
-  border-radius: var(--mantine-radius-md);
-  background: var(--scrawl-popover);
-  box-shadow: var(--scrawl-shadow-medium);
   font-weight: 500;
 }
 

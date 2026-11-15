@@ -28,6 +28,7 @@ function routesFor(space) {
         doc: (contentPath) => inSpace(`/doc/${encodePath(contentPath)}`),
         dir: (contentPath) => (contentPath === '' ? inSpace('/') : inSpace(`/doc/${encodePath(contentPath)}/`)),
         edit: (contentPath) => inSpace(`/edit/${encodePath(contentPath)}`),
+        draft: (contentPath) => inSpace(`/edit/${encodePath(contentPath)}?draft`),
         history: (contentPath) => inSpace(`/history/${encodePath(contentPath)}`),
         search: (query) => inSpace(`/search?q=${encodeURIComponent(query)}`),
         recent: () => inSpace('/recent'),

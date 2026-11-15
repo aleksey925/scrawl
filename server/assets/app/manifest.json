@@ -30,7 +30,6 @@
       "_AsyncContent.js",
       "_icons.js",
       "_formats.js",
-      "_Table.es.js",
       "_platform.js",
       "index.html",
       "_PressRow.module.js"
@@ -130,15 +129,6 @@
     ],
     "css": [
       "assets/RenderedDiff.css"
-    ]
-  },
-  "_Table.es.js": {
-    "file": "assets/Table.es.js",
-    "name": "Table.es",
-    "imports": [
-      "_rolldown-runtime.js",
-      "_PageChrome.js",
-      "_icons.js"
     ]
   },
   "_arc.js": {
@@ -2491,7 +2481,6 @@
       "_preload-helper.js",
       "_icons.js",
       "_formats.js",
-      "_Table.es.js",
       "index.html",
       "_lezer-common.js",
       "_lezer-html.js",

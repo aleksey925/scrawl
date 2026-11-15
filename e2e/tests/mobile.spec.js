@@ -6,7 +6,7 @@ const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
     DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
-    mockMe, nameOf, recordMoves, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
+    mockMe, nameOf, readFixture, recordMoves, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const lightTheme = require('../../theme/themes/light.json');
@@ -891,7 +891,7 @@ test.describe('mobile', () => {
             const draft = page.getByTestId('dir-draft');
 
             // act & assert
-            await page.getByTestId('dir-new').tap();
+            await page.getByTestId('dir-new-more').tap();
             await expect(page.getByTestId('dir-new-folder')).toBeVisible();
             await page.getByTestId('dir-new-folder').tap();
             await page.getByTestId('dir-draft-input').fill('kept');
@@ -1119,25 +1119,6 @@ test.describe('mobile', () => {
                 .toEqual([false, false, true]);
         });
 
-        test('Rename from the menu of a folder page puts the field in the place of the bar\'s title', async ({page}) => {
-            // arrange
-            const folder = `${FOLDER}/bar-folder`;
-            const renamed = `${FOLDER}/bar-folder-renamed`;
-            writeFixture(`${folder}/inside.md`, '# Inside\n');
-            await page.goto(MAIN.url.dir(folder));
-            const input = page.getByTestId('topbar-title').getByTestId('page-rename-input');
-
-            // act & assert
-            await startBarRename(page, 'folder-menu');
-            await expect(input).toHaveValue(nameOf(folder));
-            await expect(page.getByTestId('topbar-actions')).toBeHidden();
-            await expect(page.getByTestId('folder-menu')).toBeHidden();
-            await input.fill(nameOf(renamed));
-            await input.press('Enter');
-            await expect(page).toHaveURL(MAIN.url.dir(renamed));
-            expect(fs.existsSync(fixtureFile(`${renamed}/inside.md`))).toBe(true);
-        });
-
         test('Move to fills the screen and moves the file into the folder tapped', async ({page}) => {
             // arrange
             const file = `${FOLDER}/move-me.md`;
@@ -1338,60 +1319,66 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('recent-empty-title')).toHaveText('Nothing opened yet');
     });
 
-    test('the name field of New sits clear of the dialog title, so its whole focus ring shows', async ({page}) => {
+    test('New offers a note and a folder, and New note opens a draft named in the bar', async ({page}) => {
         // arrange
-        await page.goto(routes.home());
-
-        // act
-        await page.getByTestId('tab-new').tap();
-        await page.getByTestId('new-menu-note').tap();
-        await expect(page.getByTestId('new-entry-name')).toBeFocused();
-
-        // assert
-        expect(await titleRoom(page.getByTestId('new-entry-name'))).toEqual(DIALOG_TITLE);
-    });
-
-    test('the name field of New takes the focus inside the tap and keeps it, so a phone opens its keyboard', async ({page}) => {
-        // arrange
-        await page.goto(routes.home());
-        await page.getByTestId('tab-new').tap();
-        await expect(page.getByTestId('new-menu-note')).toBeVisible();
-
-        // act
-        const seen = await page.evaluate(async () => {
-            const focused = [];
-            document.addEventListener('focusin', (event) => focused.push(event.target.dataset.testid));
-            document.querySelector('[data-testid=new-menu-note]').click();
-            await Promise.resolve();
-            const inTap = document.activeElement.dataset.testid;
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            return {inTap, focused};
-        });
-
-        // assert
-        expect(seen).toEqual({inTap: 'new-entry-name', focused: ['new-entry-name']});
-    });
-
-    test('New makes a note in the folder on screen and opens the editor', async ({page}) => {
-        // arrange
-        fs.mkdirSync(fixtureFile(EMPTY_FOLDER), {recursive: true});
-        await page.goto(routes.dir(EMPTY_FOLDER));
+        const folder = 'e2e-mobile/new-note';
+        const named = `${folder}/Phone-Plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.dir(folder));
         await expect(page.getByTestId('dir-empty')).toBeVisible();
+        const barName = page.getByTestId('topbar-draft-name');
+        const nameInput = page.getByTestId('topbar').getByTestId('draft-name-input');
 
-        // act
+        // act & assert
         await page.getByTestId('tab-new').tap();
-        await expect(page.getByTestId('new-menu-note')).toHaveText('New file');
+        await openedMenu(page, 'new-menu');
+        await expect(page.getByTestId('new-menu').getByRole('menuitem')).toHaveText([text.create.note, text.create.folder]);
         await page.getByTestId('new-menu-note').tap();
-        await expect(page.getByTestId('new-entry-name')).toBeFocused();
-        await expect(page.locator('.mantine-Modal-title')).toHaveText('New file');
-        await expect(page.getByTestId('new-entry-hint')).toHaveText('Without an extension it is a note');
-        await page.getByTestId('new-entry-name').fill('made on a phone');
-        await shot(page, 'mobile-new-entry');
-        await page.getByTestId('new-entry-create').tap();
+        await expect(page).toHaveURL(MAIN.url.draft(`${folder}/${text.create.untitled}`));
+        await expect(page.locator('[data-testid=editor-source] .cm-content')).toBeFocused();
+        await expect(barName).toHaveText(text.create.untitled);
+        await setSource(page, '# Made on a phone\n');
+        await expect(barName).toHaveText('made-on-a-phone.md');
+        await shot(page, 'mobile-new-draft');
 
-        // assert
-        await expect(page).toHaveURL(MAIN.url.edit(`${EMPTY_FOLDER}/made-on-a-phone.md`));
-        expect(fs.existsSync(fixtureFile(`${EMPTY_FOLDER}/made-on-a-phone.md`))).toBe(true);
+        await barName.tap();
+        await expect(nameInput).toBeFocused();
+        await nameInput.fill('Phone Plan');
+        await nameInput.press('Enter');
+        await expect(barName).toHaveText(nameOf(named));
+        await page.getByTestId('editor-save').tap();
+        await expect(page).toHaveURL(MAIN.url.doc(named));
+        expect(readFixture(named)).toBe('# Made on a phone\n');
+        removeFixture(folder);
+    });
+
+    test('New folder from the New tab shows a row after the folders of the list on screen, with a ✕ to drop it', async ({page}) => {
+        // arrange
+        const folder = 'e2e-mobile/new-folder';
+        fs.mkdirSync(fixtureFile(`${folder}/inner`), {recursive: true});
+        writeFixture(`${folder}/note.md`, '# Note\n');
+        await page.goto(routes.doc(`${folder}/note.md`));
+        const draft = page.getByTestId('dir-draft');
+        const listed = () => page.getByTestId('dir-table').locator('[data-testid=dir-row], [data-testid=dir-draft]')
+            .evaluateAll((rows) => rows.map((row) => row.dataset.path ?? row.dataset.testid));
+
+        // act & assert
+        await page.getByTestId('tab-new').tap();
+        await page.getByTestId('new-menu-folder').tap();
+        await expect(page).toHaveURL(MAIN.url.dir(folder));
+        await expect(draft).toHaveAttribute('data-entry', 'dir');
+        expect(await listed()).toEqual([`${folder}/inner`, 'dir-draft', `${folder}/note.md`]);
+        await shot(page, 'mobile-new-folder');
+        await page.getByTestId('dir-draft-cancel').tap();
+        await expect(draft).toHaveCount(0);
+
+        await page.getByTestId('tab-new').tap();
+        await page.getByTestId('new-menu-folder').tap();
+        await page.getByTestId('dir-draft-input').fill('made');
+        await page.getByTestId('dir-draft-input').press('Enter');
+        await expect(page).toHaveURL(MAIN.url.dir(`${folder}/made`));
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.folderCreated);
+        removeFixture(folder);
     });
 
     test('the note menu opens under its button, on the screen', async ({page}) => {
@@ -1430,15 +1417,15 @@ test.describe('mobile', () => {
         await page.goto(routes.dir(docs.folder.path));
         const row = page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`);
         await expect(row).toBeVisible();
-        await page.getByTestId('folder-menu').tap();
-        await openedMenu(page, 'folder-menu-dropdown');
+        await page.getByTestId('dir-row').first().getByTestId('tree-row-menu').tap();
+        await openedMenu(page, 'tree-row-menu-dropdown');
         const box = await row.boundingBox();
 
         // act
         await page.touchscreen.tap(box.x + 20, box.y + box.height / 2);
 
         // assert
-        await expect(page.getByTestId('folder-menu-dropdown')).toHaveCount(0);
+        await expect(page.getByTestId('tree-row-menu-dropdown')).toHaveCount(0);
         await expect(page).toHaveURL(MAIN.url.dir(docs.folder.path));
     });
 
@@ -1991,11 +1978,13 @@ test.describe('mobile', () => {
 
     test('a dialog stands in the middle of the screen', async ({page}) => {
         // arrange
-        await page.goto(routes.home());
-        await page.getByTestId('tab-new').tap();
+        const note = 'e2e-mobile/centered.md';
+        writeFixture(note, '# Centered\n');
+        await page.goto(routes.edit(note));
+        await setSource(page, '# Centered\n\nedit\n');
 
         // act
-        await page.getByTestId('new-menu-note').tap();
+        await page.getByTestId('editor-cancel').tap();
 
         // assert
         const dialog = page.locator('.mantine-Modal-content');
@@ -2004,7 +1993,8 @@ test.describe('mobile', () => {
             const box = await dialog.boundingBox();
             return Math.abs(box.y - (page.viewportSize().height - box.y - box.height));
         }).toBeLessThan(2);
-        await page.getByTestId('new-entry-cancel').tap();
+        await page.getByTestId('modal-cancel').tap();
+        removeFixture(note);
     });
 
     test('a context menu on the free space of a folder list opens no menu of the app on a phone', async ({page}) => {
@@ -2030,13 +2020,16 @@ test.describe('mobile', () => {
 
         test('leaves the bar beside it to take a tap, and goes on its own after one', async ({page}) => {
             // arrange
-            await copied(page);
+            await page.goto(routes.doc(DOC));
+            await page.getByTestId('note-menu').tap();
+            await page.getByTestId('note-menu-copy-link').tap();
+            await expect(page.getByTestId('toast-box')).toBeVisible();
 
             // act
-            await page.getByTestId('folder-menu').tap();
+            await page.getByTestId('note-menu').tap();
 
             // assert
-            await expect(page.getByTestId('folder-menu-dropdown')).toBeVisible();
+            await expect(page.getByTestId('note-menu-dropdown')).toBeVisible();
             await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 5000});
         });
 
@@ -2345,22 +2338,25 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('editor-toolbar-image')).toBeInViewport({ratio: 1});
     });
 
-    test('a file started from an empty folder is named in a dialog', async ({page}) => {
+    test('an empty folder offers a new note and a new folder, on buttons big enough to tap', async ({page}) => {
         // arrange
         fs.mkdirSync(fixtureFile(EMPTY_FOLDER), {recursive: true});
         await page.goto(routes.dir(EMPTY_FOLDER));
         await expect(page.getByTestId('dir-empty-title')).toHaveText(text.dir.empty);
         await shot(page, 'mobile-empty-folder');
+
+        // act & assert
         expect(await tooSmall(page, '[data-testid=dir-empty] button', BUTTON_HEIGHT)).toEqual([]);
+        await expect(page.getByTestId('dir-empty').getByRole('button')).toHaveText([text.create.note, text.create.folder]);
 
-        // act
-        await page.getByTestId('dir-empty-new-file').tap();
+        await page.getByTestId('dir-empty-new-folder').tap();
+        await expect(page.getByTestId('dir-draft-input')).toBeInViewport();
+        await page.getByTestId('dir-draft-cancel').tap();
+        await expect(page.getByTestId('dir-empty')).toBeVisible();
 
-        // assert
-        await expect(page.getByTestId('new-entry-name')).toBeInViewport();
-        await expect(page.getByTestId('new-entry-name')).toBeFocused();
-        expect(await tooSmall(page, '[data-testid=new-entry-cancel], [data-testid=new-entry-create]', BUTTON_HEIGHT))
-            .toEqual([]);
+        await page.getByTestId('dir-empty-new-note').tap();
+        await expect(page).toHaveURL(MAIN.url.draft(`${EMPTY_FOLDER}/${text.create.untitled}`));
+        await expect(page.getByTestId('topbar-draft-name')).toHaveText(text.create.untitled);
     });
 
     test('the search is usable with the phone turned sideways', async ({page}) => {

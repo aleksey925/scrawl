@@ -36,11 +36,16 @@ How the app works on a phone.
 - A rename on a phone opens no dialog, as on a desktop: in a folder's list the
   row's name turns into a field, and on an opened page the field takes the
   place of the title in the bar on top, the way back and the actions gone from
-  the bar until it is done, and the sync control kept after it. The New file
-  dialog stays, since a new entry has no row yet. Its field takes the focus in
-  the render of the tap that opened it, with `autoFocus`, and not from the
-  dialog's focus trap, which does it a tick later, so the keyboard comes up
-  with it ([quirks](../quirks.md#ios-and-safari)). Done on the keyboard saves
+  the bar until it is done, and the sync control kept after it. The New tab
+  opens a menu of New note and New folder, its labels at the left and its icons
+  at the right, as wide as its labels, the way iOS draws a menu: with its icons
+  at the left and the width of every other menu, its right half stood empty.
+  New note opens a note's draft, with its faint name in the editor's bar, which
+  a tap turns into the name field. New folder opens the list of the folder on
+  screen with a row after the last folder, the way a desktop puts it in the
+  table: a dialog in the middle of the screen covered the list the folder went
+  into. The page of a folder has no `⋯` of its own on a phone either, and its
+  actions are in the row of the list above. Done on the keyboard saves
   (`enterkeyhint="done"`), a tap outside the field saves, and a ✕ at the end of
   the field cancels, as a phone has no Escape. A rename started from a lifted
   row sets the card down at once and not after its drop: the card's layer

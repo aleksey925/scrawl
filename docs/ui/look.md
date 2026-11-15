@@ -32,35 +32,38 @@ Colors, controls and type: how a note and the chrome are drawn.
   find bar of a note sits: the ground of a popover and the medium shadow of the
   theme, with no ring, in both themes. A blue ring on the gray sidebar read as
   a field of another app, and the light theme ringed in blue what the dark one
-  drew as a lighter line, one state drawn two ways. A row a name is typed into,
-  in the tree, in a folder's list or in a phone's list, lifts the same way:
-  filled with the picked row's gray it read as a picked row, and ringed it
-  glared across the page. The keyboard's focus on a grid of the editor lifts
-  the same way too. The accent is spent the way Notion spends it, read off its
-  own pages: the one main button and a toggle that is on; the search field has
-  no ring, the back link and Cancel are plain text, and a main button that
-  cannot be pressed yet fades in its color. The light theme spends it the way
-  macOS does on two more things: a link in a note, which the dark theme draws
-  in the text's color, and the menu row under the pointer, filled with the
-  accent and lettered white, which in the dark is the hover tint. A tap latches
-  the hover, so a touch screen keeps the tint in both. A menu has 10px corners
-  and the theme's shadow, a dialog 12px; a translucent menu ground blurs what
-  is under it, as a menu of macOS does. Icons are Phosphor's regular weight at
-  20px, 16px in menus, and `web/src/icons.ts` is the one place that says which
-  drawing each one is: Notion's own set cannot be taken, and Phosphor is the
-  open one closest to it. The note's own controls are the one exception: the
-  picture viewer in `web/src/reader/viewer.ts` and the buttons and marks of
-  `markdown.css` are plain DOM and CSS, and run on a page of the command line
-  too, which carries no React, so they write their few drawings themselves;
-  `icons.ts` would bring React and the icon set into that page. The new entry
-  in the sidebar's head is drawn in `icons.ts` in Phosphor's line, a rounded
-  square with a slim pencil as Notion's and Apple's apps draw it, because
-  Phosphor's has sharp corners. A choice of a few is a tray of the hover tint
-  with the picked one raised on the popover ground, which slides to a new pick
-  in 200ms. In the app it is always `Segmented`, the theme's included: its
-  indicator keeps its own transition while mantine turns them all off for a new
-  theme ([quirks](../quirks.md#react-mantine-and-the-editor)). The theme
-  buttons of a page of the command line slide the same way.
+  drew as a lighter line, one state drawn two ways. A row a name is typed into
+  lifts the same way in the tree and in a phone's list, over the sidebar's gray
+  and the list's lines. In a folder's table it does not: the field is plain
+  text and the whole row takes the hover tint, as a lifted field with its
+  shadow stuck out of the row and broke the rhythm of the lines, and a ring
+  glared across the page. The tint is the hover's and not the picked row's
+  gray, which read as a picked row. The keyboard's focus on a grid of the
+  editor lifts the same way too. The accent is spent the way Notion spends it,
+  read off its own pages: the one main button and a toggle that is on; the
+  search field has no ring, the back link and Cancel are plain text, and a main
+  button that cannot be pressed yet fades in its color. The light theme spends
+  it the way macOS does on two more things: a link in a note, which the dark
+  theme draws in the text's color, and the menu row under the pointer, filled
+  with the accent and lettered white, which in the dark is the hover tint. A
+  tap latches the hover, so a touch screen keeps the tint in both. A menu has
+  10px corners and the theme's shadow, a dialog 12px; a translucent menu ground
+  blurs what is under it, as a menu of macOS does. Icons are Phosphor's regular
+  weight at 20px, 16px in menus, and `web/src/icons.ts` is the one place that
+  says which drawing each one is: Notion's own set cannot be taken, and
+  Phosphor is the open one closest to it. The note's own controls are the one
+  exception: the picture viewer in `web/src/reader/viewer.ts` and the buttons
+  and marks of `markdown.css` are plain DOM and CSS, and run on a page of the
+  command line too, which carries no React, so they write their few drawings
+  themselves; `icons.ts` would bring React and the icon set into that page. The
+  compose icon in the sidebar's head is drawn in `icons.ts` in Phosphor's line,
+  a rounded square with a slim pencil as Notion's and Apple's apps draw it,
+  because Phosphor's has sharp corners. A choice of a few is a tray of the
+  hover tint with the picked one raised on the popover ground, which slides to
+  a new pick in 200ms. In the app it is always `Segmented`, the theme's
+  included: its indicator keeps its own transition while mantine turns them all
+  off for a new theme ([quirks](../quirks.md#react-mantine-and-the-editor)).
+  The theme buttons of a page of the command line slide the same way.
 - A status the topbar shows with no facts behind it, a calm sync state or the
   offline mark, opens a small dark tip under its button rather than a popover:
   `StatusTip`, Notion's tooltip: 6px by 10px of padding, the medium radius and

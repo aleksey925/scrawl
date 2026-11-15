@@ -27,10 +27,12 @@ import {
   IconTextWrap,
   IconTextWrapDisabled,
 } from '../icons';
-import { documentUrl, editUrl, isMarkdown } from '../paths';
+import type { DirListing } from '../api/types';
+import { directoryUrl, documentUrl, editUrl, isMarkdown } from '../paths';
 import { holdPosition, interactionEvents } from '../reader/position';
 import { useNav } from '../shell/NavContext';
-import { basenameOf } from '../shell/naming';
+import { basenameOf, freeName, joinPath, nameProblem, newFilePath, noteNameOf, parentOf } from '../shell/naming';
+import { useDraftChrome } from '../shell/PageChrome';
 import { PageActions } from '../shell/ShellSlots';
 import { modChord } from '../shell/shortcuts';
 import { useMutationState } from '../shell/useMutationState';
@@ -74,9 +76,17 @@ export interface EditorScreenProps {
   initialContent: string;
   initialRev: string;
   isNew: boolean;
+  draft: boolean;
   readOnly: boolean;
   formatOnSave: boolean;
 }
+
+interface SaveResult {
+  shownStored: boolean;
+  savedTo?: string;
+}
+
+const draftOpening = '# ';
 
 const modeOptions: SegmentedOption<LayoutMode>[] = [
   { value: 'source', icon: IconBraces, label: 'Source' },
@@ -118,19 +128,29 @@ function LineCount({ lines, className }: { lines: number; className: string | un
 }
 
 export function EditorScreen(props: EditorScreenProps): JSX.Element {
-  const { path, initialContent, initialRev, isNew, readOnly } = props;
-  const kind: EditorKind = isMarkdown(path) ? 'markdown' : 'text';
-  const fileName = basenameOf(path);
+  const { path, initialContent, initialRev, isNew, readOnly, draft: drafting } = props;
+  const folder = parentOf(path);
+  const opening = drafting ? draftOpening : initialContent;
+  const editorText = useMemo(() => toEditorText(opening), [opening]);
+  const [content, setContent] = useState(editorText);
+  const [manual, setManual] = useState<string | undefined>(undefined);
+  const [savedAs, setSavedAs] = useState<string | undefined>(undefined);
+  const manualRef = useRef(manual);
+  const savedAsRef = useRef(savedAs);
+  manualRef.current = manual;
+  savedAsRef.current = savedAs;
+  const named = manual ?? joinPath(folder, noteNameOf(content));
+  const filePath = drafting ? (savedAs ?? named) : path;
+  const kind: EditorKind = isMarkdown(filePath) ? 'markdown' : 'text';
+  const fileName = basenameOf(filePath);
   const formattable = !readOnly && kind === 'markdown';
   const formatOnSave = props.formatOnSave && formattable;
-  const lineBreak = formatOnSave ? '\n' : lineBreakOf(initialContent);
-  const editorText = useMemo(() => toEditorText(initialContent), [initialContent]);
+  const lineBreak = formatOnSave ? '\n' : lineBreakOf(opening);
   const navigate = useNavigate();
   const { refreshMe } = useNav();
   const reportMutation = useMutationState();
   const location = useLocation();
 
-  const [content, setContent] = useState(editorText);
   const [saved, setSaved] = useState(editorText);
   const [rev, setRev] = useState(initialRev);
   const [saving, setSaving] = useState(false);
@@ -175,7 +195,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const onCreate = useCallback((created: EditorView): void => {
     viewRef.current = created;
     setView(created);
-  }, []);
+    if (drafting) {
+      created.dispatch({ selection: { anchor: created.state.doc.length } });
+    }
+  }, [drafting]);
 
   const liveView = useCallback((): EditorView | undefined => {
     const current = viewRef.current;
@@ -287,13 +310,16 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   useEffect(() => {
     previewPlaced.current = false;
     readerMoved.current = false;
+    if (drafting) {
+      return;
+    }
     const carried = arrivedWith.current;
     const anchor =
       isReadingAnchor(carried) && carried.path === path ? carried : recallAnchor('edit', path);
     if (anchor !== undefined) {
       setOpenedAt(anchor);
     }
-  }, [path]);
+  }, [drafting, path]);
 
   useEffect(() => {
     if (view === undefined || openedAt === undefined) {
@@ -485,8 +511,28 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     }
   }, [lineBreak, navigate, path, reportMutation]);
 
+  const draftTarget = useCallback(async (sent: string): Promise<string | undefined> => {
+    const chosen = manualRef.current;
+    let listing: DirListing;
+    try {
+      listing = await api.dir(folder);
+    } catch (error) {
+      showToast('error', { title: 'Nothing was saved', message: errorText(error) });
+      return undefined;
+    }
+    const taken = new Set(listing.entries.map((entry) => entry.name.toLowerCase()));
+    if (chosen === undefined) {
+      return joinPath(folder, freeName(noteNameOf(sent), taken));
+    }
+    if (taken.has(basenameOf(chosen).toLowerCase())) {
+      showToast('error', { title: 'Nothing was saved', message: 'Something of that name is already there' });
+      return undefined;
+    }
+    return chosen;
+  }, [folder]);
+
   const save = useCallback(
-    async (withRev?: string): Promise<{ shownStored: boolean }> => {
+    async (withRev?: string): Promise<SaveResult> => {
       if (savingRef.current || readOnly) {
         return { shownStored: false };
       }
@@ -494,6 +540,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       setSaving(true);
       rememberReadingPosition();
       let sent = bufferText();
+      const first = drafting && savedAsRef.current === undefined;
+      let dest = savedAsRef.current ?? path;
       try {
         await uploads.wait();
         sent = bufferText();
@@ -507,8 +555,15 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           }
         }
         draftRef.current.flush();
-        const res = await api.saveFile(path, {
-          content: withLineBreak(sent, lineBreak),
+        if (first) {
+          const target = await draftTarget(sent);
+          if (target === undefined) {
+            return { shownStored: false };
+          }
+          dest = target;
+        }
+        const res = await api.saveFile(dest, {
+          content: withLineBreak(first && sent === draftOpening ? '' : sent, lineBreak),
           rev: withRev ?? revRef.current,
           formatted,
         });
@@ -521,12 +576,18 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             message: 'Prettier could not format this note, so it is stored as written.',
           });
         }
+        if (first) {
+          savedAsRef.current = dest;
+          setSavedAs(dest);
+          reportMutation(res, `Created "${basenameOf(dest)}"`);
+          return { shownStored: shown, savedTo: dest };
+        }
         reportMutation(res, 'Saved');
         return { shownStored: shown };
       } catch (error: unknown) {
         if (error instanceof ApiError && (error.status === 412 || error.status === 409)) {
           const current: ApiConflict | undefined =
-            error.conflict ?? (await api.file(path).catch(() => undefined));
+            error.conflict ?? (await api.file(dest).catch(() => undefined));
           if (current === undefined) {
             showToast('error', { message: errorText(error) });
             return { shownStored: false };
@@ -561,6 +622,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     },
     [
       bufferText,
+      draftTarget,
+      drafting,
       formatBuffer,
       formatOnSave,
       lineBreak,
@@ -576,17 +639,31 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     ],
   );
 
+  const reopenAt = useCallback(
+    (target: string): void => {
+      const current = liveView();
+      const anchor = current === undefined ? undefined : captureFromSource(current, target, revRef.current);
+      leavingRef.current = true;
+      void navigate(editUrl(target), { replace: true, state: anchor });
+    },
+    [liveView, navigate],
+  );
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!modChord(event, 's')) {
         return;
       }
       event.preventDefault();
-      void save();
+      void save().then((res) => {
+        if (res.savedTo !== undefined && mountedRef.current) {
+          reopenAt(res.savedTo);
+        }
+      });
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [save]);
+  }, [reopenAt, save]);
 
   useEffect(() => {
     if (!formattable) {
@@ -603,25 +680,67 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     return () => document.removeEventListener('keydown', onKey);
   }, [format, formattable]);
 
-  const openReader = useCallback((): void => {
+  const openReader = useCallback((target?: string): void => {
     rememberReadingPosition();
-    const reader = documentUrl(path);
+    const reader = documentUrl(target ?? savedAsRef.current ?? path);
     planMotion(reader, 'back');
     void (cameFrom(reader) ? navigate(-1) : navigate(reader, { replace: true }));
   }, [navigate, path, rememberReadingPosition]);
 
+  const cancel = useCallback((): void => {
+    if (!drafting || savedAsRef.current !== undefined) {
+      openReader();
+      return;
+    }
+    const step = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    void (step > 0 ? navigate(-1) : navigate(directoryUrl(folder), { replace: true }));
+  }, [drafting, folder, navigate, openReader]);
+
   const exists = rev !== '';
 
   const saveAndLeave = useCallback(async (): Promise<void> => {
-    if ((dirty || !exists) && !(await save()).shownStored) {
+    const res: SaveResult = dirty || !exists ? await save() : { shownStored: true };
+    if (!res.shownStored) {
       return;
     }
     if (mountedRef.current) {
       leavingRef.current = true;
       setLeaving(true);
-      openReader();
+      openReader(res.savedTo);
     }
   }, [dirty, exists, openReader, save]);
+
+  const renameDraft = useCallback(
+    (typed: string): boolean => {
+      const problem = nameProblem(typed);
+      if (problem !== undefined) {
+        showToast('error', { title: 'Nothing was renamed', message: problem });
+        return false;
+      }
+      const next = newFilePath(folder, typed);
+      if (next === '') {
+        showToast('error', { message: 'A file needs a letter or a digit in its name' });
+        return false;
+      }
+      if (manualRef.current === undefined && next === joinPath(folder, noteNameOf(bufferText()))) {
+        return true;
+      }
+      if (!isMarkdown(next) && bufferText() === draftOpening) {
+        const current = liveView();
+        if (current === undefined) {
+          setContent('');
+        } else {
+          replaceText(current, '');
+        }
+        setSaved('');
+      }
+      setManual(next);
+      return true;
+    },
+    [bufferText, folder, liveView],
+  );
+
+  useDraftChrome(drafting && savedAs === undefined ? { path: named, rename: renameDraft } : undefined);
 
   const onAction = useCallback((action: MarkdownAction): void => {
     const current = viewRef.current;
@@ -719,7 +838,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             compact
           />
         )}
-        <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" className={classes.cancel} onClick={openReader}>
+        <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" className={classes.cancel} onClick={cancel}>
           Cancel
         </Button>
         {!readOnly && (
@@ -866,7 +985,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               name={fileName}
               value={content}
               readOnly={readOnly || leaving}
-              autoFocus={!touch}
+              autoFocus={!touch || drafting}
               wrap={lineWrap.wrap}
               onChange={setContent}
               onCreate={onCreate}

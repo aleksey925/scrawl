@@ -37,6 +37,12 @@
   }
 }
 
+.ghost,
+.ghost .icon {
+  color: var(--scrawl-text-tertiary);
+  font-style: italic;
+}
+
 .icon {
   flex: none;
   color: var(--scrawl-sidebar-icon);

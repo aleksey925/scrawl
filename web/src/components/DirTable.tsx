@@ -4,8 +4,8 @@ import {
 } from 'react';
 import { Link, useNavigate } from 'react-router';
 
-import type { DirEntry, EntryKind } from '../api/types';
-import { IconArrowUp, IconClock, IconFile, IconFileText, IconFolder, IconHash } from '../icons';
+import type { DirEntry } from '../api/types';
+import { IconArrowUp, IconClock, IconFile, IconFolder, IconHash } from '../icons';
 import { directoryUrl, isHtmlApp, isMarkdown } from '../paths';
 import { usePlatform } from '../platform';
 import { useReaderExtensions, type RunLinkProps } from '../shell/extensions';
@@ -27,7 +27,7 @@ import { absoluteTime, fileSize, shortTime } from './formats';
 export interface DirTableProps {
   path: string;
   entries: readonly DirEntry[];
-  draft?: EntryKind;
+  drafting?: boolean;
   onDraftSubmit?: (name: string) => Promise<boolean>;
   onDraftCancel?: () => void;
 }
@@ -36,7 +36,7 @@ function opensRow(event: MouseEvent): boolean {
   return !(event.target instanceof Element && event.target.closest('a') !== null);
 }
 
-export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }: DirTableProps): JSX.Element {
+export function DirTable({ path, entries, drafting = false, onDraftSubmit, onDraftCancel }: DirTableProps): JSX.Element {
   const { physicalUrl } = usePlatform();
   const { FileView, RowMenu, RunLink } = useReaderExtensions();
   const filePages = FileView !== undefined;
@@ -45,10 +45,7 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
   const menu = usePointerMenu<DirEntry>();
   const folders = entries.filter((listed) => listed.is_dir);
   const files = entries.filter((listed) => !listed.is_dir);
-  const draftRow =
-    draft === undefined || onDraftSubmit === undefined || onDraftCancel === undefined ? null : (
-      <DraftRow kind={draft} onSubmit={onDraftSubmit} onCancel={onDraftCancel} />
-    );
+  const draftable = drafting && onDraftSubmit !== undefined && onDraftCancel !== undefined;
 
   const routed = (entry: DirEntry): boolean => filePages || entry.is_dir || isMarkdown(entry.path);
   const runs = (entry: DirEntry): boolean => RunLink !== undefined && !entry.is_dir && isHtmlApp(entry.path);
@@ -76,7 +73,11 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
   if (phone) {
     return (
       <div data-testid="dir-table" data-variant="list" className={classes.list}>
-        {[...folders, ...files].map((entry) => (
+        {folders.map((entry) => (
+          <PhoneRow key={entry.path} entry={entry} routed={routed(entry)} runs={runs(entry)} href={physicalUrl(entry.url)} />
+        ))}
+        {draftable && <PhoneDraftRow onSubmit={onDraftSubmit} onCancel={onDraftCancel} />}
+        {files.map((entry) => (
           <PhoneRow key={entry.path} entry={entry} routed={routed(entry)} runs={runs(entry)} href={physicalUrl(entry.url)} />
         ))}
       </div>
@@ -136,9 +137,8 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
             </tr>
           )}
           {folders.map(row)}
-          {draft === 'dir' && draftRow}
+          {draftable && <DraftRow onSubmit={onDraftSubmit} onCancel={onDraftCancel} />}
           {files.map(row)}
-          {draft === 'file' && draftRow}
         </tbody>
       </table>
       {RowMenu !== undefined && menu.target !== undefined && menu.at !== undefined && (
@@ -148,7 +148,6 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
           isDir={menu.target.is_dir}
           name={menu.target.name}
           touch={false}
-          withCreate={false}
           editUrl={menu.target.edit_url}
           opened={menu.opened}
           onOpenedChange={menu.setOpened}
@@ -189,6 +188,7 @@ function TableRow({ entry, routed, runs, href, menuOpen, onOpen, onMenu }: Table
     return (
       <tr
         {...rowAttributes(entry)}
+        className={classes.draft}
         onContextMenu={(event) => {
           if (!(event.target instanceof HTMLInputElement)) {
             event.preventDefault();
@@ -384,25 +384,22 @@ function PhoneLinkRow({ entry, routed, runs, href }: PhoneRowProps): JSX.Element
 }
 
 interface DraftRowProps {
-  kind: EntryKind;
   onSubmit: (name: string) => Promise<boolean>;
   onCancel: () => void;
 }
 
-function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
+function DraftRow({ onSubmit, onCancel }: DraftRowProps): JSX.Element {
   return (
-    <tr data-testid="dir-draft" data-entry={kind}>
+    <tr data-testid="dir-draft" data-entry="dir" className={classes.draft}>
       <td className={classes.name}>
         <span>
           <NameField
             initial=""
             testId="dir-draft"
-            icon={
-              kind === 'file' ? <IconFileText size={layout.iconSizeSmall} aria-hidden /> : <IconFolder size={layout.iconSizeSmall} aria-hidden />
-            }
+            icon={<IconFolder size={layout.iconSizeSmall} aria-hidden />}
             className={classes.field}
-            placeholder={kind === 'file' ? 'File name' : 'Folder name'}
-            label={kind === 'file' ? 'Name of the new file' : 'Name of the new folder'}
+            placeholder="Folder name"
+            label="Name of the new folder"
             keepOnLeave
             onSubmit={onSubmit}
             onCancel={onCancel}
@@ -413,5 +410,25 @@ function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
       <td />
       <td className={classes.fill} />
     </tr>
+  );
+}
+
+function PhoneDraftRow({ onSubmit, onCancel }: DraftRowProps): JSX.Element {
+  return (
+    <div data-testid="dir-draft" data-entry="dir" className={classes.listRow}>
+      <div className={classes.listLink}>
+        <NameField
+          initial=""
+          testId="dir-draft"
+          icon={<IconFolder size={layout.iconSize} className={classes.listIcon} aria-hidden />}
+          className={classes.listField}
+          placeholder="Folder name"
+          label="Name of the new folder"
+          keepOnLeave
+          onSubmit={onSubmit}
+          onCancel={onCancel}
+        />
+      </div>
+    </div>
   );
 }

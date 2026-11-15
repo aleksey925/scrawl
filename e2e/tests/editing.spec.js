@@ -781,6 +781,60 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('a save brings the contents between its markers up to date, and empties it once no heading is left', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save');
+        writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n\n## B\n');
+        await page.goto(routes.edit(docPath));
+        const refreshed = '# T\n\n<!-- toc -->\n\n- [A](#a)\n  - [Deep](#deep)\n- [C](#c)\n\n<!-- tocstop -->\n\n## A\n\n### Deep\n\n## C\n';
+        const emptied = '# T\n\n<!-- toc -->\n\n<!-- tocstop -->\n\nText.\n';
+
+        // act & assert
+        await setSource(page, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n\n### Deep\n\n## C\n');
+        await save(page);
+        expect(readFixture(docPath)).toBe(refreshed);
+        expect(await sourceText(page)).toBe(refreshed);
+
+        await setSource(page, '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\nText.\n');
+        await save(page);
+        expect(readFixture(docPath)).toBe(emptied);
+        expect(await sourceText(page)).toBe(emptied);
+        removeFixture(docPath);
+    });
+
+    test('a save with no contents markers adds no contents', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-none');
+        writeFixture(docPath, '# T\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+
+        // act
+        await setSource(page, '# T\n\n## A\n\n## B\n');
+        await save(page);
+
+        // assert
+        expect(readFixture(docPath)).toBe('# T\n\n## A\n\n## B\n');
+        removeFixture(docPath);
+    });
+
+    test('a save whose contents could not be built stores the note as written and says so', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-failed');
+        writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await page.route('**/api/preview', (route) => route.fulfill({status: 500, body: 'broken'}));
+        const written = '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n\n## B\n';
+
+        // act
+        await setSource(page, written);
+        await save(page);
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText(text.toast.contentsNotUpdated);
+        expect(readFixture(docPath)).toBe(written);
+        removeFixture(docPath);
+    });
+
     test('the contents button fills in a start marker that has no stop, and keeps the text around it', async ({page}) => {
         // arrange
         const docPath = scratch('toc-lone-start');

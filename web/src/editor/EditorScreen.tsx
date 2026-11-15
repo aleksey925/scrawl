@@ -38,13 +38,13 @@ import { Splitter } from './Splitter';
 import type { TableMenuProps } from './TableMenu';
 import { Toolbar } from './Toolbar';
 import { codeLanguageOf } from './codeLanguages';
-import { draftOpening, tocAttempts, uploadAccept } from './constants';
+import { draftOpening, tocAttempts, tocRefreshMs, uploadAccept } from './constants';
 import { formatMarkdown, replaceText, warmFormatter } from './format';
 import classes from './Editor.module.css';
 import { lineBreakOf, toEditorText } from './lineBreaks';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { insertTable, runTableEdit, tableEditsAtCursor } from './table';
-import { tocBlock, writeToc, writeTocInText } from './toc';
+import { hasToc, refreshTocInText, tocBlock, writeToc, writeTocInText } from './toc';
 import { useChanges } from './useChanges';
 import { useDraft } from './useDraft';
 import { useEditorPosition } from './useEditorPosition';
@@ -168,6 +168,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       }
       const current = liveView();
       if (current === undefined) {
+        contentRef.current = formatted;
         setContent(formatted);
       } else {
         replaceText(current, formatted, cursor);
@@ -218,11 +219,11 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             });
             return;
           }
-          const block = tocBlock(res.toc);
-          if (block === undefined) {
+          if (res.toc.length === 0) {
             showToast('warn', { title: 'No headings to list', message: 'The contents lists the headings under the title.' });
             return;
           }
+          const block = tocBlock(res.toc);
           const current = liveView();
           if (current === undefined) {
             setContent(writeTocInText(sent, viewRef.current?.state.selection.main.head ?? 0, block));
@@ -240,6 +241,22 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     };
     build(1);
   }, [bufferText, liveView, path]);
+
+  const refreshToc = useCallback(async (): Promise<void> => {
+    const sent = bufferText();
+    if (kind !== 'markdown' || !hasToc(sent)) {
+      return;
+    }
+    try {
+      const res = await api.preview({ content: sent, path }, { signal: AbortSignal.timeout(tocRefreshMs) });
+      const refreshed = refreshTocInText(sent, tocBlock(res.toc));
+      if (refreshed !== sent) {
+        putFormatted(sent, refreshed);
+      }
+    } catch (error: unknown) {
+      showToast('warn', { title: 'The contents was not updated', message: errorText(error) });
+    }
+  }, [bufferText, kind, path, putFormatted]);
 
   useEffect(() => {
     if (formatOnSave) {
@@ -279,6 +296,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     bufferText,
     putFormatted,
     formatBuffer,
+    refreshToc,
     uploads,
     draftRef,
     rememberReadingPosition,

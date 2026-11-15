@@ -29,9 +29,9 @@ function label(text: string): string {
   return text.replace(/[\r\n]+/g, ' ').replace(/[\\[\]<>*_`&~$:^]/g, (mark) => `\\${mark}`);
 }
 
-export function tocBlock(headings: readonly Heading[]): string | undefined {
+export function tocBlock(headings: readonly Heading[]): string {
   if (headings.length === 0) {
-    return undefined;
+    return `${tocStart}\n\n${tocStop}`;
   }
   const open: number[] = [];
   const lines = headings.map((heading) => {
@@ -181,11 +181,29 @@ export function writeToc(view: EditorView, block: string): void {
   view.dispatch({ changes: change, effects: EditorView.scrollIntoView(change.from, { y: 'nearest' }) });
 }
 
-export function writeTocInText(text: string, cursor: number, block: string): string {
-  const state = EditorState.create({
+function textState(text: string, cursor: number): EditorState {
+  return EditorState.create({
     doc: text,
     selection: { anchor: Math.min(cursor, text.length) },
     extensions: markdown({ base: markdownLanguage }),
   });
+}
+
+export function writeTocInText(text: string, cursor: number, block: string): string {
+  const state = textState(text, cursor);
   return state.update({ changes: placeToc(state, block) }).state.doc.toString();
+}
+
+function blockIn(state: EditorState): TextRange | undefined {
+  return state.doc.toString().includes(tocStart) ? oldBlock(state, treeOf(state)) : undefined;
+}
+
+export function hasToc(text: string): boolean {
+  return blockIn(textState(text, 0)) !== undefined;
+}
+
+export function refreshTocInText(text: string, block: string): string {
+  const state = textState(text, 0);
+  const old = blockIn(state);
+  return old === undefined ? text : state.update({ changes: { ...old, insert: block } }).state.doc.toString();
 }

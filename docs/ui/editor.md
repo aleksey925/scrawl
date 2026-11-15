@@ -102,6 +102,18 @@ The editor screen.
   still goes into the text, after the block the cursor was last in. A note with
   no heading under its title gets a toast and no change. The markers are
   comments, which the page never shows.
+- A save brings the contents up to date by itself. When the note holds a block,
+  the editor asks `POST /api/preview` for the headings before it formats and
+  writes, and puts a fresh list in the first block, as a second press of the
+  button would. A note with no heading left keeps its markers with nothing
+  between them. A save never adds a block, and Save on a note with no change
+  still sends nothing. The text between the markers belongs to the editor, so
+  an edit made there by hand is gone after the next save. If the answer fails
+  or does not come in three seconds, the note is saved as written and a toast
+  says the contents was not updated. If the text changed before the answer
+  came, the save takes the text as it is, and the next save brings the list up
+  to date. Only the editor does this: a write with an API token or a restore
+  stores the text it was given, so the list has one source, the editor's.
 - The editor toolbar is a strip that moves sideways only and stops at its ends,
   and the editor screen takes the page's rubber band away. Left to the defaults
   the strip followed a finger up and down with the page behind it. It has no

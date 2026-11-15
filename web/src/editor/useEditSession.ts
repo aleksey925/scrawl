@@ -44,6 +44,7 @@ export interface UseEditSessionOptions {
   bufferText: () => string;
   putFormatted: (sent: string, formatted: string, cursor?: number) => boolean;
   formatBuffer: () => Promise<string>;
+  refreshToc: () => Promise<void>;
   uploads: UploadControl;
   draftRef: RefObject<DraftControl>;
   rememberReadingPosition: () => ReadingAnchor | undefined;
@@ -93,6 +94,7 @@ export function useEditSession({
   bufferText,
   putFormatted,
   formatBuffer,
+  refreshToc,
   uploads,
   draftRef,
   rememberReadingPosition,
@@ -211,6 +213,7 @@ export function useEditSession({
       let dest = savedAsRef.current ?? path;
       try {
         await uploads.wait();
+        await refreshToc();
         sent = bufferText();
         let formatted = false;
         if (formatOnSave) {
@@ -300,6 +303,7 @@ export function useEditSession({
       putFormatted,
       readOnly,
       refreshMe,
+      refreshToc,
       rememberReadingPosition,
       reportMutation,
       revRef,

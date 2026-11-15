@@ -33,8 +33,16 @@ export interface EditorPosition {
   chooseMode: (next: LayoutMode) => void;
 }
 
-export function useEditorPosition(options: UseEditorPositionOptions): EditorPosition {
-  const { path, drafting, view, liveView, revRef, mode, previewHtml, choose } = options;
+export function useEditorPosition({
+  path,
+  drafting,
+  view,
+  liveView,
+  revRef,
+  mode,
+  previewHtml,
+  choose,
+}: UseEditorPositionOptions): EditorPosition {
   const location = useLocation();
   const arrivedWith = useRef(location.state);
   const previewRef = useRef<HTMLDivElement>(null);

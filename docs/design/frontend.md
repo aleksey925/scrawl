@@ -77,7 +77,9 @@ How the react app in `web/` is built, shipped and wired.
   `web/postcss.config.cjs` turns px into that form in the files under
   `node_modules/@mantine/` only, with the preset's own `autoRem`, which gives
   the declarations of `styles.css` back one for one. The app's own stylesheets
-  keep their px.
+  keep their px. The config takes `autoRem` from the preset's `dist/auto-rem`,
+  a file outside the package's entry, so an upgrade of `postcss-preset-mantine`
+  checks that the file is still there and works the same.
 - An icon carries only the weights the app draws, regular, bold and fill:
   `phosphorWeights` in `web/vite.icons.ts` cuts the other three from each
   icon's drawings as the bundle is built, which halved the icons. Another

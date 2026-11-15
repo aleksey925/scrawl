@@ -1,7 +1,7 @@
 import { api } from '../api/client';
 import type { DirEntry, EntryPathResponse, MutationState } from '../api/types';
 
-import { parentOf } from './naming';
+import { parentOf, replaces } from './naming';
 
 export interface Relocation {
   from: string;
@@ -51,25 +51,25 @@ async function unchanged(path: string, was: string | undefined): Promise<boolean
 }
 
 async function relocateAll(
-  pairs: readonly Relocation[], valid: (pair: Relocation) => Promise<boolean>, onMoved?: (path: string) => void,
+  pairs: readonly Relocation[], valid: (step: Relocation) => Promise<boolean>, onMoved?: (path: string) => void,
 ): Promise<Relocated> {
   const res: Relocated = { done: [], left: [], failure: undefined, changed: false, state: {} };
-  for (const pair of pairs) {
-    if (!(await valid(pair))) {
-      res.left.push(pair);
+  for (const step of pairs) {
+    if (!(await valid(step))) {
+      res.left.push(step);
       res.changed = true;
       continue;
     }
     let moved: EntryPathResponse;
     try {
-      moved = await api.move(pair.from, pair.to);
+      moved = await api.move(step.from, step.to);
     } catch (error) {
-      res.left.push(pair);
+      res.left.push(step);
       res.failure = error;
       continue;
     }
     onMoved?.(moved.path);
-    res.done.push({ ...pair, to: moved.path });
+    res.done.push({ ...step, to: moved.path });
     res.state = {
       unpublished: res.state.unpublished === true || moved.unpublished === true,
       history_degraded: res.state.history_degraded === true || moved.history_degraded === true,
@@ -78,54 +78,42 @@ async function relocateAll(
   return res;
 }
 
-export function replaces(path: string, target: string): boolean {
-  return target === path || target.startsWith(`${path}/`);
-}
-
-export function pathAfterMove(path: string, from: string, to: string): string | undefined {
-  if (path === from) {
-    return to;
-  }
-  return path.startsWith(`${from}/`) ? `${to}${path.slice(from.length)}` : undefined;
-}
-
-export function foldersOf(done: readonly Relocation[]): Set<string> {
-  return new Set(done.map((pair) => parentOf(pair.to)));
+export function parentsOf(done: readonly Relocation[]): Set<string> {
+  return new Set(done.map((step) => parentOf(step.to)));
 }
 
 export class UndoMarks {
   private readonly marks = new Set<UndoMark>();
 
   touch(paths: readonly string[], keep?: UndoMark): void {
-    for (const mark of this.marks) {
-      if (mark !== keep && mark.targets.some((target) => paths.some((path) => replaces(path, target)))) {
-        this.marks.delete(mark);
+    for (const held of this.marks) {
+      if (held !== keep && held.targets.some((moved) => paths.some((touched) => replaces(touched, moved)))) {
+        this.marks.delete(held);
       }
     }
   }
 
-  async move(pairs: readonly Relocation[], undone?: UndoMark): Promise<Relocated & { undo?: MoveUndo }> {
-    const back = undone !== undefined;
-    const mark: UndoMark = undone ?? { targets: [], stamps: new Map() };
-    if (!back) {
-      this.marks.add(mark);
-    }
-    const res = await relocateAll(
-      pairs,
-      async (pair) => !back || this.stillMarked(mark, pair),
-      back ? undefined : (path) => {
-        mark.targets.push(path);
-        mark.stamps.set(path, stampOrUnknown(path));
-      },
-    );
+  async move(pairs: readonly Relocation[]): Promise<Relocated & { undo?: MoveUndo }> {
+    const mark: UndoMark = { targets: [], stamps: new Map() };
+    this.marks.add(mark);
+    const res = await relocateAll(pairs, async () => true, (path) => {
+      mark.targets.push(path);
+      mark.stamps.set(path, stampOrUnknown(path));
+    });
     if (res.done.length === 0) {
-      if (!back) {
-        this.marks.delete(mark);
-      }
+      this.marks.delete(mark);
       return res;
     }
-    this.touch(res.done.flatMap((pair) => [pair.from, pair.to]), mark);
-    return back ? res : { ...res, undo: new MoveUndo(this, mark, res.done) };
+    this.touch(res.done.flatMap((step) => [step.from, step.to]), mark);
+    return { ...res, undo: new MoveUndo(this, mark, res.done) };
+  }
+
+  async moveBack(pairs: readonly Relocation[], mark: UndoMark): Promise<Relocated> {
+    const res = await relocateAll(pairs, (step) => this.stillMarked(mark, step));
+    if (res.done.length > 0) {
+      this.touch(res.done.flatMap((step) => [step.from, step.to]), mark);
+    }
+    return res;
   }
 
   has(mark: UndoMark): boolean {
@@ -136,8 +124,8 @@ export class UndoMarks {
     this.marks.delete(mark);
   }
 
-  private async stillMarked(mark: UndoMark, pair: Relocation): Promise<boolean> {
-    if (!(await unchanged(pair.from, await mark.stamps.get(pair.from)))) {
+  private async stillMarked(mark: UndoMark, step: Relocation): Promise<boolean> {
+    if (!(await unchanged(step.from, await mark.stamps.get(step.from)))) {
       this.marks.delete(mark);
     }
     return this.marks.has(mark);
@@ -145,8 +133,8 @@ export class UndoMarks {
 }
 
 export class MoveUndo {
-  readonly mark: UndoMark;
   private readonly marks: UndoMarks;
+  private readonly mark: UndoMark;
   private pairs: Relocation[];
   private running = false;
   private closed = false;
@@ -154,18 +142,20 @@ export class MoveUndo {
   constructor(marks: UndoMarks, mark: UndoMark, done: readonly Relocation[]) {
     this.marks = marks;
     this.mark = mark;
-    this.pairs = done.map((pair) => ({ ...pair, from: pair.to, to: pair.from })).reverse();
+    this.pairs = done.map((step) => ({ ...step, from: step.to, to: step.from })).reverse();
   }
 
   get stale(): boolean {
     return !this.marks.has(this.mark);
   }
 
-  async run(moveBack: (pairs: readonly Relocation[]) => Promise<Relocation[]>): Promise<boolean> {
+  async run(report: (res: Relocated) => Promise<void>): Promise<boolean> {
     this.running = true;
-    this.pairs = await moveBack(this.pairs);
+    const res = await this.marks.moveBack(this.pairs, this.mark);
+    await report(res);
     this.running = false;
-    this.mark.targets = this.pairs.map((pair) => pair.from);
+    this.pairs = res.left;
+    this.mark.targets = this.pairs.map((step) => step.from);
     if (this.pairs.length === 0 || this.closed) {
       this.marks.forget(this.mark);
     }

@@ -78,8 +78,8 @@ function whenIdle(task: () => void): void {
 
 export function preloadDialogs(): void {
   whenIdle(() => {
-    for (const preload of preloads) {
-      void preload().catch(() => undefined);
+    for (const fetchDialog of preloads) {
+      void fetchDialog().catch(() => undefined);
     }
   });
 }

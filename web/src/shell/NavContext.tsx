@@ -40,7 +40,7 @@ export interface TreeState {
   error: unknown;
   loading: boolean;
   currentPath: string;
-  refreshNav: () => void;
+  refreshTree: () => void;
   changes: number;
   isOpen: (path: string) => boolean;
   toggleFolder: (path: string) => void;
@@ -201,7 +201,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
   }, [storageKey]);
 
   const isOpen = useCallback((path: string) => open.has(path), [open]);
-  const refreshNav = useCallback(() => {
+  const refreshTree = useCallback(() => {
     forgetResponses();
     setToken((seen) => seen + 1);
   }, []);
@@ -236,7 +236,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       error: nav.error,
       loading: nav.loading,
       currentPath,
-      refreshNav,
+      refreshTree,
       changes: token,
       isOpen,
       toggleFolder,
@@ -244,7 +244,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       query,
       setQuery,
     }),
-    [tree, nav.error, nav.loading, currentPath, refreshNav, token, isOpen, toggleFolder, openFolder, query],
+    [tree, nav.error, nav.loading, currentPath, refreshTree, token, isOpen, toggleFolder, openFolder, query],
   );
 
   return (

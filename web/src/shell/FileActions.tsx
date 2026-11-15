@@ -19,8 +19,10 @@ import { FileActionsContext, type FileActions, type FolderDraft, type RenamePlac
 import { useReaderLayout } from './ReaderLayout';
 import { spaceLabel, useAccount, useTree } from './NavContext';
 import { useMutationState } from './useMutationState';
-import { ancestorsOf, basenameOf, contentPathOf, folderFor, freeName, joinPath, nameProblem, parentOf, renamedPath } from './naming';
-import { foldersOf, pathAfterMove, replaces, UndoMarks, type MoveUndo, type Relocation, type UndoMark } from './relocation';
+import {
+  ancestorsOf, basenameOf, contentPathOf, folderFor, freeName, joinPath, nameProblem, parentOf, pathAfterMove, renamedPath, replaces,
+} from './naming';
+import { parentsOf, UndoMarks, type MoveUndo, type Relocated, type Relocation } from './relocation';
 import { plainShortcut } from './shortcuts';
 
 interface MovedEntry {
@@ -53,7 +55,7 @@ function movedMessage(
 ): ReactNode {
   const [first] = done;
   const what = done.length === 1 && first !== undefined ? quoted(first.to, spaceName) : `${done.length} items`;
-  const [folder, ...others] = foldersOf(done);
+  const [folder, ...others] = parentsOf(done);
   return (
     <>
       Moved {what}
@@ -93,7 +95,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const { revealNav: revealTree } = useReaderLayout();
   const navigate = useNavigate();
   const { me, canWrite, refreshMe } = useAccount();
-  const { tree, currentPath, refreshNav, openFolder, setQuery } = useTree();
+  const { tree, currentPath, refreshTree, openFolder, setQuery } = useTree();
   const location = useLocation();
   const onFolder = isDirectoryPath(location.pathname);
   const reportMutation = useMutationState();
@@ -129,8 +131,8 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const settle = useCallback(() => {
     refreshMe();
-    refreshNav();
-  }, [refreshMe, refreshNav]);
+    refreshTree();
+  }, [refreshMe, refreshTree]);
 
   const undoDelete = useCallback(
     async (deleting: Promise<DeleteResponse | undefined>, path: string, back: string | undefined): Promise<boolean> => {
@@ -147,13 +149,13 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         });
         return false;
       }
-      refreshNav();
+      refreshTree();
       if (back !== undefined) {
         await navigate(back);
       }
       return true;
     },
-    [navigate, refreshNav, reportMutation, space],
+    [navigate, refreshTree, reportMutation, space],
   );
 
   const remove = useCallback(
@@ -244,13 +246,13 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         return false;
       }
       marks.touch([res.path]);
-      refreshNav();
+      refreshTree();
       reportMutation(res, `Created folder ${quoted(res.path, space)}`);
       openFolder(res.path);
       await navigate(directoryUrl(res.path));
       return true;
     },
-    [marks, navigate, openFolder, refreshNav, reportMutation, space],
+    [marks, navigate, openFolder, refreshTree, reportMutation, space],
   );
 
   const submitDraft = useCallback(
@@ -288,31 +290,20 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
 
   const moveInto = useCallback(
     (paths: readonly string[], folder: string) => {
-      const undoAction = (undo: MoveUndo): ToastAction => ({
-        label: 'Undo',
-        onClick: async () => {
-          if (undo.stale) {
-            showToast('error', { title: failedMoveWords.back.none, message: changedSinceText });
-            return true;
-          }
-          return undo.run((pairs) => run(pairs, undo.mark));
-        },
-        onClose: () => undo.close(),
-      });
-      const run = async (pairs: readonly Relocation[], undone?: UndoMark): Promise<Relocation[]> => {
-        const back = undone !== undefined;
-        const { done, left, failure, changed, state, undo } = await marks.move(pairs, undone);
+      const report = async (
+        { done, failure, changed, state }: Relocated, back: boolean, action?: ToastAction,
+      ): Promise<void> => {
         const words = back ? failedMoveWords.back : failedMoveWords.forward;
         if (done.length > 0) {
-          refreshNav();
-          foldersOf(done).forEach(openFolder);
+          refreshTree();
+          parentsOf(done).forEach(openFolder);
           reportMutation(
             state,
             movedMessage(done, back, space, (folder) => void navigate(directoryUrl(folder))),
-            undo === undefined ? undefined : undoAction(undo),
+            action,
           );
           const here = done
-            .map((pair) => pathAfterMove(shown.current.path, pair.from, pair.to))
+            .map((step) => pathAfterMove(shown.current.path, step.from, step.to))
             .find((moved) => moved !== undefined);
           if (here !== undefined) {
             await navigate(shown.current.onFolder ? directoryUrl(here) : documentUrl(here));
@@ -324,11 +315,23 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
             message: changed ? changedSinceText : conflictText(failure, takenText),
           });
         }
-        return left;
       };
-      void run(paths.map((from) => ({ from, to: joinPath(folder, basenameOf(from)) })));
+      const undoAction = (undo: MoveUndo): ToastAction => ({
+        label: 'Undo',
+        onClick: async () => {
+          if (undo.stale) {
+            showToast('error', { title: failedMoveWords.back.none, message: changedSinceText });
+            return true;
+          }
+          return undo.run((res) => report(res, true));
+        },
+        onClose: () => undo.close(),
+      });
+      void marks
+        .move(paths.map((from) => ({ from, to: joinPath(folder, basenameOf(from)) })))
+        .then((res) => report(res, false, res.undo === undefined ? undefined : undoAction(res.undo)));
     },
-    [marks, navigate, openFolder, refreshNav, reportMutation, space],
+    [marks, navigate, openFolder, refreshTree, reportMutation, space],
   );
 
   const submitRename = useCallback(
@@ -358,10 +361,10 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         await navigate(url);
         return true;
       }
-      refreshNav();
+      refreshTree();
       return true;
     },
-    [marks, navigate, refreshNav, reportMutation, space],
+    [marks, navigate, refreshTree, reportMutation, space],
   );
 
   const startRename = useCallback(

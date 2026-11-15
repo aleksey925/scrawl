@@ -187,7 +187,7 @@ export function useEditSession({
       showToast('error', { title: 'Nothing was saved', message: errorText(error) });
       return undefined;
     }
-    const taken = new Set(listing.entries.map((entry) => entry.name.toLowerCase()));
+    const taken = new Set(listing.entries.map((row) => row.name.toLowerCase()));
     if (chosen === undefined) {
       return joinPath(folder, freeName(noteNameOf(sent), taken));
     }

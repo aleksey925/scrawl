@@ -89,3 +89,14 @@ export function freeName(name: string, taken: ReadonlySet<string>): string {
     }
   }
 }
+
+export function replaces(path: string, target: string): boolean {
+  return target === path || target.startsWith(`${path}/`);
+}
+
+export function pathAfterMove(path: string, from: string, to: string): string | undefined {
+  if (path === from) {
+    return to;
+  }
+  return path.startsWith(`${from}/`) ? `${to}${path.slice(from.length)}` : undefined;
+}

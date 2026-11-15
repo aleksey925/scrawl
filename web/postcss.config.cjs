@@ -18,7 +18,6 @@ const mantineRem = () => {
     },
   };
 };
-mantineRem.postcss = true;
 
 module.exports = {
   plugins: [mantineRem(), presetMantine(), simpleVars({ variables })],

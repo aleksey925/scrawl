@@ -50,6 +50,19 @@ How the react app in `web/` is built, shipped and wired.
   worker. `appOnly` of `vite.page.config.ts` lists `src/htmlapp/` and
   `pages/RunPage`, so a page of the command line or a site that imports them
   fails its build ([HTML apps](html-apps.md#offline)).
+- Mantine's styles come in one file per component, listed in
+  `web/src/mantine.css`, which the app and a site import, in the order of
+  mantine's own `styles.css`. The full file was 277 KB, most of it for
+  components scrawl does not use. A component new to the app adds its file
+  there, and the files of the components it is built from, or it shows
+  unstyled. `default-css-variables.css` is left out: the theme stylesheet
+  writes every variable it has, from the same resolver.
+- An icon carries only the weights the app draws, regular, bold and fill:
+  `phosphorWeights` in `web/vite.icons.ts` cuts the other three from each
+  icon's drawings as the bundle is built, which halved the icons. Another
+  weight draws an empty icon until it is added to `iconWeights`. The plugin
+  fails the build when an icon's file no longer has the six weights it expects,
+  so an upgrade of the package that changes their shape is noticed.
 - PlantUML's library is the one exception: `plantuml/library/` is committed
   compressed and read the same way in every build
   ([server](server.md#plantuml)).

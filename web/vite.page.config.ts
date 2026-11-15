@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
 import { woff2Only } from './vite.fonts.ts';
+import { phosphorWeights } from './vite.icons.ts';
 import { themeStylesheet } from './vite.themes.ts';
 
 const outDir = '../page/assets';
@@ -53,7 +54,7 @@ function siteFence(): Plugin {
 export default defineConfig(() => {
   const entry = entryOf(process.env['SCRAWL_PAGE_ENTRY']);
   return {
-    plugins: [react(), themeStylesheet(), woff2Only(), ...(entry === 'site' ? [siteFence()] : [])],
+    plugins: [react(), themeStylesheet(), woff2Only(), phosphorWeights(), ...(entry === 'site' ? [siteFence()] : [])],
     publicDir: false,
     build: {
       outDir,

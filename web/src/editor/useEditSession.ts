@@ -44,7 +44,7 @@ export interface UseEditSessionOptions {
   bufferText: () => string;
   putFormatted: (sent: string, formatted: string, cursor?: number) => boolean;
   formatBuffer: () => Promise<string>;
-  refreshToc: () => Promise<void>;
+  refreshToc: () => Promise<string | undefined>;
   uploads: UploadControl;
   draftRef: RefObject<DraftControl>;
   rememberReadingPosition: () => ReadingAnchor | undefined;
@@ -213,7 +213,7 @@ export function useEditSession({
       let dest = savedAsRef.current ?? path;
       try {
         await uploads.wait();
-        await refreshToc();
+        const tocFailure = await refreshToc();
         sent = bufferText();
         let formatted = false;
         if (formatOnSave) {
@@ -245,6 +245,9 @@ export function useEditSession({
             title: 'Saved without formatting',
             message: 'Prettier could not format this note, so it is stored as written.',
           });
+        }
+        if (tocFailure !== undefined) {
+          showToast('warn', { title: 'Could not update the contents', message: tocFailure });
         }
         if (first) {
           savedAsRef.current = dest;

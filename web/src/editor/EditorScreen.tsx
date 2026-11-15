@@ -44,7 +44,7 @@ import classes from './Editor.module.css';
 import { lineBreakOf, toEditorText } from './lineBreaks';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { insertTable, runTableEdit, tableEditsAtCursor } from './table';
-import { hasToc, refreshTocInText, tocBlock, writeToc, writeTocInText } from './toc';
+import { hasToc, tocBlock, writeToc, writeTocInText } from './toc';
 import { useChanges } from './useChanges';
 import { useDraft } from './useDraft';
 import { useEditorPosition } from './useEditorPosition';
@@ -82,6 +82,7 @@ const saveStateText: Record<SaveState, string> = {
 };
 
 const tocFailed = 'Could not build the contents';
+const tocNoAnswer = 'The server did not answer in three seconds.';
 
 function LineCount({ lines, className }: { lines: number; className: string | undefined }): JSX.Element {
   return (
@@ -242,19 +243,17 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     build(1);
   }, [bufferText, liveView, path]);
 
-  const refreshToc = useCallback(async (): Promise<void> => {
+  const refreshToc = useCallback(async (): Promise<string | undefined> => {
     const sent = bufferText();
     if (kind !== 'markdown' || !hasToc(sent)) {
-      return;
+      return undefined;
     }
     try {
       const res = await api.preview({ content: sent, path }, { signal: AbortSignal.timeout(tocRefreshMs) });
-      const refreshed = refreshTocInText(sent, tocBlock(res.toc));
-      if (refreshed !== sent) {
-        putFormatted(sent, refreshed);
-      }
+      putFormatted(sent, writeTocInText(sent, 0, tocBlock(res.toc)));
+      return undefined;
     } catch (error: unknown) {
-      showToast('warn', { title: 'The contents was not updated', message: errorText(error) });
+      return error instanceof DOMException && error.name === 'TimeoutError' ? tocNoAnswer : errorText(error);
     }
   }, [bufferText, kind, path, putFormatted]);
 

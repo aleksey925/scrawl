@@ -33,7 +33,8 @@ module.exports = {
         linkCopied: 'Copied the link',
         noHeadings: 'No headings to list',
         contentsFailed: 'Could not build the contents',
-        contentsNotUpdated: 'The contents was not updated',
+        contentsNotUpdated: 'Could not update the contents',
+        contentsNoAnswer: 'The server did not answer in three seconds',
     },
 
     folderExists: 'That folder already exists',

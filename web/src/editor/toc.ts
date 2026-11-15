@@ -194,16 +194,10 @@ export function writeTocInText(text: string, cursor: number, block: string): str
   return state.update({ changes: placeToc(state, block) }).state.doc.toString();
 }
 
-function blockIn(state: EditorState): TextRange | undefined {
-  return state.doc.toString().includes(tocStart) ? oldBlock(state, treeOf(state)) : undefined;
-}
-
 export function hasToc(text: string): boolean {
-  return blockIn(textState(text, 0)) !== undefined;
-}
-
-export function refreshTocInText(text: string, block: string): string {
+  if (!text.includes(tocStart)) {
+    return false;
+  }
   const state = textState(text, 0);
-  const old = blockIn(state);
-  return old === undefined ? text : state.update({ changes: { ...old, insert: block } }).state.doc.toString();
+  return oldBlock(state, treeOf(state)) !== undefined;
 }

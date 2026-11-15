@@ -24,7 +24,8 @@ Prettier inside the binary and in the browser.
   ([ADR 21](../adr/0021-notes-wrapped-at-79-columns.md)).
 - Two copies of prettier, and each write goes through exactly one
   ([ADR 5](../adr/0005-format-in-browser-first.md)). The editor formats in the
-  browser, on the button and before a save, and says so with `formatted` in the
+  browser, on the button and before a save, after the save brings the contents
+  up to date ([editor](../ui/editor.md)), and says so with `formatted` in the
   request. Every other writer - an API client, a restore, an editor whose
   prettier would not load - leaves that out and the server formats, in
   `formatOnSave`. A test holds the two versions together. It is on unless a

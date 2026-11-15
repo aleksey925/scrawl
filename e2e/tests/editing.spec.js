@@ -495,7 +495,7 @@ test.describe('editing', () => {
         test('opens as plain text with no modes, no toolbar and no preview, and saves as written', async ({page}) => {
             // arrange
             const filePath = `${TEXT_DIR}/plain.txt`;
-            const written = '  * not a list\n# not a heading\n';
+            const written = '  * not a list\n# not a heading\n<!-- toc -->\n';
             writeFixture(filePath, 'before\n');
             const previews = [];
             page.on('request', (request) => {
@@ -781,24 +781,114 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    test('a save brings the contents between its markers up to date, and empties it once no heading is left', async ({page}) => {
+    test('a save brings the contents between its markers up to date', async ({page}) => {
         // arrange
         const docPath = scratch('toc-on-save');
         writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n\n## B\n');
         await page.goto(routes.edit(docPath));
         const refreshed = '# T\n\n<!-- toc -->\n\n- [A](#a)\n  - [Deep](#deep)\n- [C](#c)\n\n<!-- tocstop -->\n\n## A\n\n### Deep\n\n## C\n';
-        const emptied = '# T\n\n<!-- toc -->\n\n<!-- tocstop -->\n\nText.\n';
 
-        // act & assert
+        // act
         await setSource(page, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n\n### Deep\n\n## C\n');
         await save(page);
+
+        // assert
         expect(readFixture(docPath)).toBe(refreshed);
         expect(await sourceText(page)).toBe(refreshed);
+        removeFixture(docPath);
+    });
 
+    test('a save empties the contents between its markers once no heading is left', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-empty');
+        writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        const emptied = '# T\n\n<!-- toc -->\n\n<!-- tocstop -->\n\nText.\n';
+
+        // act
         await setSource(page, '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\nText.\n');
         await save(page);
+
+        // assert
         expect(readFixture(docPath)).toBe(emptied);
         expect(await sourceText(page)).toBe(emptied);
+        removeFixture(docPath);
+    });
+
+    test('a save fills in a start marker that has no stop, as the contents button does', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-lone');
+        writeFixture(docPath, '# T\n');
+        await page.goto(routes.edit(docPath));
+        const filled = '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n';
+
+        // act
+        await setSource(page, '# T\n\n<!-- toc -->\n\n## A\n');
+        await save(page);
+
+        // assert
+        expect(readFixture(docPath)).toBe(filled);
+        expect(await sourceText(page)).toBe(filled);
+        removeFixture(docPath);
+    });
+
+    test('a save closes a start marker that has no stop even when no heading is there', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-lone-empty');
+        writeFixture(docPath, '# T\n');
+        await page.goto(routes.edit(docPath));
+        const closed = '# T\n\n<!-- toc -->\n\n<!-- tocstop -->\n\nText.\n';
+
+        // act
+        await setSource(page, '# T\n\n<!-- toc -->\n\nText.\n');
+        await save(page);
+
+        // assert
+        expect(readFixture(docPath)).toBe(closed);
+        expect(await sourceText(page)).toBe(closed);
+        removeFixture(docPath);
+    });
+
+    test('a save made in the preview brings the contents up to date', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-preview');
+        writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await setSource(page, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n\n## B\n');
+        await page.getByTestId('editor-layout-mode').getByText('Preview').click();
+        const refreshed = '# T\n\n<!-- toc -->\n\n- [A](#a)\n- [B](#b)\n\n<!-- tocstop -->\n\n## A\n\n## B\n';
+
+        // act
+        await save(page);
+
+        // assert
+        expect(readFixture(docPath)).toBe(refreshed);
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await expect.poll(() => sourceText(page)).toBe(refreshed);
+        removeFixture(docPath);
+    });
+
+    test('a save keeps the text typed while the contents was asked for, with the list it had', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-typed');
+        writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await setSource(page, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n\n## B\n');
+        const {release, reached} = await holdRoute(page, '**/api/preview');
+        const typed = '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n\n## B\n\n## C\n';
+
+        // act
+        await page.keyboard.press('ControlOrMeta+s');
+        await reached;
+        await setSource(page, typed);
+        release();
+
+        // assert
+        await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'false');
+        await expect.poll(() => readFixture(docPath)).toBe(typed);
+        expect(await sourceText(page)).toBe(typed);
         removeFixture(docPath);
     });
 
@@ -831,6 +921,29 @@ test.describe('editing', () => {
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText(text.toast.contentsNotUpdated);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.saved);
+        expect(readFixture(docPath)).toBe(written);
+        expect(await sourceText(page)).toBe(written);
+        removeFixture(docPath);
+    });
+
+    test('a save whose contents takes over three seconds stores the note as written and says so', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-slow');
+        writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await page.route('**/api/preview', () => {});
+        const written = '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n\n## B\n';
+
+        // act
+        await setSource(page, written);
+        await save(page);
+
+        // assert
+        const warn = page.locator('[data-testid=toast][data-kind="warn"]');
+        await expect(warn).toContainText(text.toast.contentsNotUpdated);
+        await expect(warn).toContainText(text.toast.contentsNoAnswer);
         expect(readFixture(docPath)).toBe(written);
         removeFixture(docPath);
     });

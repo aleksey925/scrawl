@@ -32,10 +32,10 @@ It ships as one static binary or a Docker image.
 - **Offline access**: every note stays on the device and opens without network
 - **Export** to Markdown, HTML or PDF
 - **JSON API** with token auth, for scripts and agents
-- **HTML apps**: run a `.html` file of your notes as a small app, with its own
-  storage, kept apart from your notes and your account
+- **Mini apps**: run a `.html` file of your notes as an app inside scrawl, with
+  its own storage, kept apart from your notes and your account
 - **Static site**: turn the notes into a site for any static host, such as
-  GitHub Pages, with the same reader as the app
+  GitHub Pages, with the same reader as scrawl
 - **Command line** to render, compare and format markdown, without the server
 
 ## Why scrawl
@@ -79,11 +79,11 @@ scrawl only reads.
 - [How your changes are kept](#how-your-changes-are-kept)
 - [Static site](#static-site)
 - [Offline](#offline)
-- [HTML apps](#html-apps)
+- [Mini apps](#mini-apps)
   - [On your machine](#on-your-machine)
   - [On server](#on-server)
   - [Cloudflare Tunnel](#cloudflare-tunnel)
-  - [Offline apps](#offline-apps)
+  - [With no network](#with-no-network)
 - [Configuration](#configuration)
   - [Server settings](#server-settings)
   - [One space](#one-space)
@@ -287,67 +287,71 @@ scrawl can keep a copy of every space on the device, so notes, pictures and
 files open with no network. Offline everything is read-only, and search and
 history are hidden, since they need the server.
 
-- An app installed to the home screen has it on by default. In a browser, turn
+- scrawl installed to the home screen has it on by default. In a browser, turn
   it on with "Offline access" in the space menu, or under Profile on a phone.
 - It needs HTTPS, `localhost`, a name under it such as `scrawl.localhost`, or
   `127.0.0.1`: browsers allow it nowhere else, and on plain http the switch is
   greyed out with `Needs HTTPS`.
-- The first copy downloads every space whole, plus the app. After that only
-  changed files are downloaded.
+- The first copy downloads every space whole, plus scrawl itself. After that
+  only changed files are downloaded.
 
-## HTML apps
+## Mini apps
 
-Any `.html` file of a space can run as a small app. Run on the file's page
-opens it in a frame under one bar, with Back and "Open in a new tab". The app
-works as on any site, with its own `localStorage`, IndexedDB, cookies and
-service worker, and the file is not changed. It can load the web files of its
-folder and anything on the internet. It cannot read your notes, act as you or
-call the API.
+A mini app is a `.html` file of your notes that runs inside scrawl. Run on the
+file's page opens it inside scrawl, under one bar with Back and "Open in a new
+tab". The app works as on any site, with its own `localStorage`, IndexedDB,
+cookies and service worker, and the file is not changed. It can load the web
+files of its folder and anything on the internet. It cannot read your notes,
+act as you or call the API.
 
-Every app runs on a host of its own. All `.html` files of one folder are one
-app and share its data, so keep each app in a folder of its own, not at the
-root of a space.
+Every mini app runs on a host of its own. All `.html` files of one folder are
+one mini app and share its data, so keep each mini app in a folder of its own,
+not at the root of a space.
 
-Where apps run depends on where scrawl is opened:
+Where mini apps run depends on where scrawl is opened:
 
 - [On your machine](#on-your-machine) - works with nothing to set.
 - [On server](#on-server) - behind a proxy with https.
-- [With no network](#offline-apps) - needs Offline access on.
+- [With no network](#with-no-network) - needs Offline access on.
 
 Some limits:
 
-- In Safari, on a Mac and on an iPhone, Run opens the app in a new tab, not
-  inside scrawl. Inside a page of scrawl, Safari keeps the app's `localStorage`
-  only in memory, so everything the app saved there is lost once Safari closes.
-  In a tab of its own the app keeps its data as on any site.
-- Right after Run the frame says `Open this app from scrawl`: the browser did
-  not keep the app's cookie inside the frame. "Open in a new tab" works.
-- A service worker of the app itself replaces scrawl's, and keeps serving the
-  files it stored after the app's cookie ended, as on any site.
-- A renamed or moved folder is a new app: the data the old one saved stays in
-  the browser under its old address.
-- Sign-out leaves the apps' files and data in the browser, as any site's.
+- In Safari, on a Mac and on an iPhone, Run opens the mini app in a new tab,
+  not inside scrawl. Inside scrawl, Safari keeps the app's `localStorage` only
+  in memory, so everything the app saved there is lost once Safari closes. In a
+  tab of its own the app keeps its data as on any site.
+- A mini app opens only from scrawl. If you open its address directly, you see
+  `Open this app from scrawl`. If you see this right after Run, your browser
+  blocks the app inside scrawl. This can happen when scrawl runs on your
+  computer and the browser has strict privacy settings. Press "Open in a new
+  tab" at the top: the app opens in a new tab and works there.
+- A service worker of the mini app itself replaces scrawl's, and keeps serving
+  the files it stored after the app's cookie ended, as on any site.
+- A renamed or moved folder is a new mini app: the data the old one saved stays
+  in the browser under its old address.
+- Sign-out leaves the files and data of mini apps in the browser, as any
+  site's.
 
 ### On your machine
 
 Nothing to set. Open scrawl in Chrome or Firefox at the link it prints at
-start, `http://127.0.0.1:7272`, with or without a password. Run opens the app
-at `http://app-<id>.localhost:7272`.
+start, `http://127.0.0.1:7272`, with or without a password. Run opens the mini
+app at `http://app-<id>.localhost:7272`.
 
 - `http://localhost:7272` works too, but with a password use `127.0.0.1`:
-  `localhost` and `app-<id>.localhost` are neighbor names, and an app there can
-  sign you out, or into another account. The same goes for `scrawl.localhost`.
-  scrawl logs a warning about this at start.
-- Safari on macOS likely cannot open `app-<id>.localhost`: the frame shows the
-  browser's error page. Use Chrome or Firefox.
-- At `127.0.0.1` and `localhost` the frame does not keep an app for use with no
-  network, see [Offline apps](#offline-apps).
+  `localhost` and `app-<id>.localhost` are neighbor names, and a mini app there
+  can sign you out, or into another account. The same goes for
+  `scrawl.localhost`. scrawl logs a warning about this at start.
+- Safari on macOS likely cannot open `app-<id>.localhost` and shows its error
+  page instead of the mini app. Use Chrome or Firefox.
+- At `127.0.0.1` and `localhost` a mini app inside scrawl is not kept for use
+  with no network, see [With no network](#with-no-network).
 
 ### On server
 
-On a server, apps run behind any proxy with https, such as nginx, Caddy or
-Cloudflare Tunnel. Each app gets a name of its own under your domain, so the
-proxy needs:
+On a server, mini apps run behind any proxy with https, such as nginx, Caddy or
+Cloudflare Tunnel. Each mini app gets a name of its own under your domain, so
+the proxy needs:
 
 1. A DNS record `*.example.com` that points to the proxy, and a certificate
    that covers `*.example.com`.
@@ -360,8 +364,7 @@ Cloudflare Tunnel, see [Cloudflare Tunnel](#cloudflare-tunnel).
 What can go wrong:
 
 - scrawl opened at an address of the network with no `APPS_URL`, such as
-  `http://192.168.1.5:7272`: Run says that HTML apps do not run at this
-  address.
+  `http://192.168.1.5:7272`: Run says `HTML apps do not run at this address`.
 - `APPS_URL` has no `{id}`, such as `https://apps.example.com`, or only `{id}`
   in its first label, such as `https://{id}.example.com`: scrawl does not
   start, and its message shows the form to use, `https://app-{id}.example.com`.
@@ -372,18 +375,18 @@ What can go wrong:
   also open scrawl at `http://notes.example.com`: the sign-in there is not
   protected, and scrawl does not warn about it.
 
-**For advanced users:** to run apps on a home network without https, set up a
-local DNS that answers any `app-...` name with the address of this machine, and
-set `APPS_URL` to it, such as `http://app-{id}.apps.home.lan:7272`. A hosts
-file is not enough, since it has no wildcard. With a password, open scrawl at
-the IP of the machine, such as `http://192.168.1.5:7272`, not at a name such as
-`notes.home.lan`: it is a neighbor of the apps' names, and an app there can
-sign you out, or into another account. scrawl logs a warning about this at
-start.
+**For advanced users:** to run mini apps on a home network without https, set
+up a local DNS that answers any `app-...` name with the address of this
+machine, and set `APPS_URL` to it, such as
+`http://app-{id}.apps.home.lan:7272`. A hosts file is not enough, since it has
+no wildcard. With a password, open scrawl at the IP of the machine, such as
+`http://192.168.1.5:7272`, not at a name such as `notes.home.lan`: it is a
+neighbor of the names of mini apps, and a mini app there can sign you out, or
+into another account. scrawl logs a warning about this at start.
 
 ### Cloudflare Tunnel
 
-To run apps behind Cloudflare Tunnel, with scrawl at `notes.example.com`:
+To run mini apps behind Cloudflare Tunnel, with scrawl at `notes.example.com`:
 
 1. In Cloudflare, open `Protect & connect` -> `Networking` -> `Tunnels`, pick
    the tunnel, open `Routing` and press `Add route`, choose
@@ -398,24 +401,25 @@ and not `*.apps.example.com`. If DNS already has a `*.example.com` record, it
 must point to the same tunnel.
 
 If a gateway with its own sign-in, such as Cloudflare Access, guards scrawl,
-leave the `app-*` hosts out of it: its sign-in page cannot show inside the
-frame, and the apps check their own cookie.
+leave the `app-*` hosts out of it: its sign-in page cannot show inside scrawl,
+and mini apps check their own cookie.
 
-### Offline apps
+### With no network
 
-With Offline access on, an app opens with no network once it ran with one, and
-keeps the data it saved in the browser.
+With Offline access on, a mini app opens with no network once it ran with one,
+and keeps the data it saved in the browser.
 
-- The whole folder of the app is kept, not files from other sites such as a
-  CDN.
-- It works where the frame is on the same site as scrawl: a domain with
-  `APPS_URL`, or locally `http://scrawl.localhost:7272`, which with a password
-  is a neighbor name, see [On your machine](#on-your-machine). At `127.0.0.1`
-  and `localhost` the app runs in the frame but is not kept there, and with no
-  network the run screen says
+- The whole folder of the mini app is kept, not files from other sites such as
+  a CDN.
+- Inside scrawl, it works where scrawl and the mini app are on one site: a
+  domain with `APPS_URL`, or locally `http://scrawl.localhost:7272`, which with
+  a password is a neighbor name, see [On your machine](#on-your-machine). At
+  `127.0.0.1` and `localhost` the mini app runs inside scrawl but is not kept
+  there, and with no network Run shows
   `This browser does not keep this app for offline use.`: there the browser
-  treats the frame as another site and gives scrawl's worker no cookie.
-- An app with a service worker of its own keeps its files its own way.
+  treats the mini app as another site and gives scrawl's worker no cookie. In a
+  new tab it is kept.
+- A mini app with a service worker of its own keeps its files its own way.
 
 ## Configuration
 
@@ -459,7 +463,7 @@ required, everything else has a working default.
 | `RESCAN`           |                       | `60s`               | how often every folder is reread to find changes; negative turns it off, except with `WATCH=poll`                                                                                                                                       |
 | `HISTORY`          |                       | `auto`              | keep a git history of changes; `on` fails without git, `off` never touches the notes; always on for a space that is a git repository                                                                                                    |
 | `TRUSTED_PROXY`    |                       | `false`             | trust `X-Forwarded-For` and `-Proto`; set it behind a reverse proxy                                                                                                                                                                     |
-| `APPS_URL`         |                       |                     | where HTML apps run: a URL with `{id}` in its first label, such as `https://app-{id}.example.com`, each app on a host of its own; empty runs them on `app-<id>.localhost`, see [HTML apps](#html-apps)                                  |
+| `APPS_URL`         |                       |                     | where mini apps run: a URL with `{id}` in its first label, such as `https://app-{id}.example.com`, each mini app on a host of its own; empty runs them on `app-<id>.localhost`, see [Mini apps](#mini-apps)                             |
 | `TZ`               |                       | `UTC`               | timezone                                                                                                                                                                                                                                |
 | `DEBUG`            |                       | `false`             | debug logging                                                                                                                                                                                                                           |
 
@@ -488,12 +492,12 @@ If scrawl runs behind a reverse proxy (nginx, Caddy or any other), set:
   plain http.
 
 Over HTTPS the session cookie is named `__Host-scrawl_session`, which a site on
-a neighbor name cannot set. Versions without HTML apps named it
+a neighbor name cannot set. Versions without mini apps named it
 `scrawl_session`, so after the update from one of them everyone signs in once
 more.
 
 The proxy must also pass on the `Host` header the browser sent, with nginx
-`proxy_set_header Host $host`. scrawl tells the hosts of HTML apps from its own
+`proxy_set_header Host $host`. scrawl tells the hosts of mini apps from its own
 by it, and Run compares it with the address of the page: with
 `Host: localhost:7272` from the proxy, Run answers 403 and no app opens.
 
@@ -512,8 +516,8 @@ spaces file.
 | `SPACE_DIR`            |          | `/spaces/notes` | directory to serve                                        | `dir`            |
 | `SPACE_FORMAT_ON_SAVE` |          | `on`            | `off` stops a save from formatting the note with prettier | `format_on_save` |
 
-In the container the app runs as uid 1001, and the folder has to be writable
-for it: otherwise the notes are read and every save fails. If the folder on the
+In the container scrawl runs as uid 1001, and the folder has to be writable for
+it: otherwise the notes are read and every save fails. If the folder on the
 host belongs to another user, set `user:` to the uid and gid of its owner
 (`id <user>` prints them). The startup log warns when the folder is not
 writable.
@@ -623,7 +627,7 @@ restart clones again and those commits are lost.
 
 Mount a named volume at `/spaces` and put every clone under it: `/spaces/team`,
 `/spaces/wiki`. `/spaces` already exists in the image and belongs to the user
-the app runs as, so the volume is writable from the first start. A volume
+scrawl runs as, so the volume is writable from the first start. A volume
 mounted at a path the image does not have belongs to root, and the clone fails
 with `permission denied`.
 
@@ -815,7 +819,7 @@ scrawl site -o site notes                 every note of a directory as a static 
 scrawl diff old.md new.md -o diff.html    two files side by side, the way they read
 scrawl diff                               HEAD against the working tree, in a git repository
 scrawl diff main...HEAD -- docs           a branch since it left main, under docs/ only
-scrawl format -w notes/*.md               prettier, the one a save in the app runs
+scrawl format -w notes/*.md               prettier, the one a save in scrawl runs
 scrawl stylesheet > scrawl.css            the stylesheet a fragment is drawn with
 scrawl hash                               a password hash for AUTH_USERS, read from stdin
 scrawl token bot                          an API token and its entry for AUTH_TOKENS

@@ -4,10 +4,10 @@ import type { MutationState } from '../api/types';
 import { forgetResponses } from '../api/useApi';
 import { showMutation, type ToastAction } from '../toast';
 
-import { useNav } from './NavContext';
+import { useAccount } from './NavContext';
 
 export function useMutationState(): (state: MutationState | undefined, message: ReactNode, action?: ToastAction) => void {
-  const { refreshMe } = useNav();
+  const { refreshMe } = useAccount();
   return useCallback(
     (state, message, action) => {
       forgetResponses();

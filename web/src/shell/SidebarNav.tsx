@@ -21,7 +21,7 @@ import { layout } from '../theme';
 
 import { rowMenuIconSize, useReaderExtensions } from './extensions';
 import { useFileActions, useOptionalFileActions, useRenamingHere, type Renaming } from './fileActionsContext';
-import { spaceLabel, useNav } from './NavContext';
+import { spaceLabel, useAccount, useTree } from './NavContext';
 import { basenameOf, folderFor, parentOf } from './naming';
 import { useShownChrome } from './PageChrome';
 import { useSearchControl } from './searchOpener';
@@ -72,7 +72,8 @@ interface RowsProps {
 type TreeRowProps = Omit<RowsProps, 'nodes'> & { node: NavNode };
 
 function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | null {
-  const { isOpen, openFolder, toggleFolder, currentPath, canWrite } = useNav();
+  const { canWrite } = useAccount();
+  const { isOpen, openFolder, toggleFolder, currentPath } = useTree();
   const actions = useOptionalFileActions();
   const draft = actions?.draft;
   const { RowMenu } = useReaderExtensions();
@@ -361,7 +362,8 @@ export interface SidebarNavProps {
 export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
-  const { tree, error, loading, canWrite: mayWrite, currentPath, query, setQuery, isOpen, openFolder, me } = useNav();
+  const { canWrite: mayWrite, me } = useAccount();
+  const { tree, error, loading, currentPath, query, setQuery, isOpen, openFolder } = useTree();
   const actions = useOptionalFileActions();
   const openSearch = useSearchControl()?.open;
   const keyboard = useKeyboardPlace();

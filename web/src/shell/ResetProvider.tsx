@@ -5,7 +5,7 @@ import {
 } from 'react';
 
 import { ResetDialog } from './dialogChunks';
-import { useNav } from './NavContext';
+import { useAccount } from './NavContext';
 
 const ResetContext = createContext<(() => void) | undefined>(undefined);
 
@@ -28,7 +28,7 @@ export function ResetProvider({ children }: { children: ReactNode }): JSX.Elemen
 
 export function ResetAction(): JSX.Element | null {
   const open = useContext(ResetContext);
-  const { sync } = useNav();
+  const { sync } = useAccount();
   if (open === undefined || sync?.canReset !== true) {
     return null;
   }

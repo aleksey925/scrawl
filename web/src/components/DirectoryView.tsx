@@ -6,7 +6,7 @@ import { answerKeys, useApi } from '../api/useApi';
 import { IconChevronDown, IconFolderOpen, IconFolderPlus } from '../icons';
 import { usePlatform } from '../platform';
 import { useOptionalFileActions } from '../shell/fileActionsContext';
-import { spaceLabel, useNav } from '../shell/NavContext';
+import { spaceLabel, useAccount, useTree } from '../shell/NavContext';
 import { chromeOf, usePageChrome } from '../shell/PageChrome';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
@@ -24,7 +24,7 @@ export interface DirectoryViewProps {
 
 export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
   const { source } = usePlatform();
-  const { changes } = useNav();
+  const { changes } = useTree();
   const state = useApi((signal) => source.dir(path, { signal }), [source, path, changes], answerKeys.dir(path));
 
   return (
@@ -35,7 +35,7 @@ export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
 }
 
 function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Element {
-  const { canWrite, me } = useNav();
+  const { canWrite, me } = useAccount();
   const actions = useOptionalFileActions();
   const [adding, setAdding] = useState(false);
   const contextMenu = usePointerMenu<string>();

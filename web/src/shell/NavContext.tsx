@@ -26,18 +26,21 @@ function writeOpen(storageKey: string, open: ReadonlySet<string>): void {
   writeJson(localStore(), storageKey, [...open]);
 }
 
-export interface NavState {
-  tree: readonly NavNode[];
-  error: unknown;
-  loading: boolean;
+export interface AccountState {
   me: MeResponse | undefined;
   canWrite: boolean;
-  currentPath: string;
   sync: SyncMessage | undefined;
   syncStatus: SyncStatus | undefined;
   isUnsynced: (path: string) => boolean;
-  refreshNav: () => void;
   refreshMe: () => void;
+}
+
+export interface TreeState {
+  tree: readonly NavNode[];
+  error: unknown;
+  loading: boolean;
+  currentPath: string;
+  refreshNav: () => void;
   changes: number;
   isOpen: (path: string) => boolean;
   toggleFolder: (path: string) => void;
@@ -46,12 +49,22 @@ export interface NavState {
   setQuery: (query: string) => void;
 }
 
-const NavContext = createContext<NavState | undefined>(undefined);
+const AccountContext = createContext<AccountState | undefined>(undefined);
 
-export function useNav(): NavState {
-  const state = useContext(NavContext);
+const TreeContext = createContext<TreeState | undefined>(undefined);
+
+export function useAccount(): AccountState {
+  const state = useContext(AccountContext);
   if (state === undefined) {
-    throw new Error('navigation state is only available inside the app shell');
+    throw new Error('the account is only available inside the app shell');
+  }
+  return state;
+}
+
+export function useTree(): TreeState {
+  const state = useContext(TreeContext);
+  if (state === undefined) {
+    throw new Error('the tree is only available inside the app shell');
   }
   return state;
 }
@@ -205,19 +218,25 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
   }, [me?.space.unsynced]);
   const isUnsynced = useCallback((path: string) => unsynced?.has(path) ?? false, [unsynced]);
 
-  const value = useMemo<NavState>(
+  const account = useMemo<AccountState>(
+    () => ({
+      me,
+      canWrite: me !== undefined && !me.read_only && (!me.auth_on || me.user !== ''),
+      sync,
+      syncStatus,
+      isUnsynced,
+      refreshMe,
+    }),
+    [me, sync, syncStatus, isUnsynced, refreshMe],
+  );
+
+  const treeState = useMemo<TreeState>(
     () => ({
       tree,
       error: nav.error,
       loading: nav.loading,
-      me,
-      canWrite: me !== undefined && !me.read_only && (!me.auth_on || me.user !== ''),
       currentPath,
-      sync,
-      syncStatus,
-      isUnsynced,
       refreshNav,
-      refreshMe,
       changes: token,
       isOpen,
       toggleFolder,
@@ -225,11 +244,12 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       query,
       setQuery,
     }),
-    [
-      tree, nav.error, nav.loading, me, currentPath, sync, syncStatus, isUnsynced,
-      refreshNav, refreshMe, token, isOpen, toggleFolder, openFolder, query,
-    ],
+    [tree, nav.error, nav.loading, currentPath, refreshNav, token, isOpen, toggleFolder, openFolder, query],
   );
 
-  return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
+  return (
+    <AccountContext.Provider value={account}>
+      <TreeContext.Provider value={treeState}>{children}</TreeContext.Provider>
+    </AccountContext.Provider>
+  );
 }

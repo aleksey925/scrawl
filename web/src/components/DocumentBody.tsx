@@ -5,7 +5,7 @@ import { Link } from 'react-router';
 import type { DocumentResponse } from '../api/types';
 import { IconFileText, IconPencil } from '../icons';
 import { useReaderExtensions } from '../shell/extensions';
-import { useNav } from '../shell/NavContext';
+import { useAccount } from '../shell/NavContext';
 import { basenameOf } from '../shell/naming';
 import { chromeOf, usePageChrome } from '../shell/PageChrome';
 import { useRecentNotes } from '../shell/recentNotes';
@@ -22,7 +22,7 @@ export interface DocumentBodyProps {
 const leadingHeading = /^\s*<h1[\s>]/;
 
 export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
-  const { canWrite } = useNav();
+  const { canWrite } = useAccount();
   const { DocumentExtras } = useReaderExtensions();
   usePageChrome(chromeOf(doc.breadcrumbs, doc.title, leadingHeading.test(doc.html), basenameOf(doc.path)));
   const { remember } = useRecentNotes();

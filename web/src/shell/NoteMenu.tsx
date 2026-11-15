@@ -14,7 +14,7 @@ import { layout } from '../theme';
 
 import { ExportItems, useNoteExport } from './ExportMenu';
 import { useFileActions } from './fileActionsContext';
-import { useNav } from './NavContext';
+import { useAccount } from './NavContext';
 import classes from './NoteMenu.module.css';
 import { PageWidthControl } from './PageWidthControl';
 import { useReaderLayout } from './ReaderLayout';
@@ -28,7 +28,7 @@ function wordsOf(html: string): number {
 
 export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
   const navigate = useNavigate();
-  const { canWrite, me } = useNav();
+  const { canWrite, me } = useAccount();
   const actions = useFileActions();
   const path = doc.path;
   const exporter = useNoteExport(path);

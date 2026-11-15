@@ -18,7 +18,7 @@ import { isDirectoryPath, isEditPath, recentUrl } from '../paths';
 import { layout } from '../theme';
 
 import { useFileActions } from './fileActionsContext';
-import { useNav } from './NavContext';
+import { useAccount, useTree } from './NavContext';
 import { folderFor } from './naming';
 import { useSearchControl } from './searchOpener';
 import { SpaceMenuDropdown } from './SpaceMenu';
@@ -54,7 +54,8 @@ export function TabBar(): JSX.Element | null {
   const navigate = useNavigate();
   const search = useSearchControl();
   const actions = useFileActions();
-  const { canWrite, currentPath } = useNav();
+  const { canWrite } = useAccount();
+  const { currentPath } = useTree();
 
   if (isEditPath(location.pathname)) {
     return null;

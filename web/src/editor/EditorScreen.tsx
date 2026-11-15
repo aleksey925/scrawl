@@ -30,7 +30,7 @@ import {
 import type { DirListing } from '../api/types';
 import { directoryUrl, documentUrl, editUrl, isMarkdown } from '../paths';
 import { holdPosition, interactionEvents } from '../reader/position';
-import { useNav } from '../shell/NavContext';
+import { useAccount } from '../shell/NavContext';
 import { basenameOf, freeName, joinPath, nameProblem, newFilePath, noteNameOf, parentOf } from '../shell/naming';
 import { useDraftChrome } from '../shell/PageChrome';
 import { PageActions } from '../shell/ShellSlots';
@@ -147,7 +147,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const formatOnSave = props.formatOnSave && formattable;
   const lineBreak = formatOnSave ? '\n' : lineBreakOf(opening);
   const navigate = useNavigate();
-  const { refreshMe } = useNav();
+  const { refreshMe } = useAccount();
   const reportMutation = useMutationState();
   const location = useLocation();
 

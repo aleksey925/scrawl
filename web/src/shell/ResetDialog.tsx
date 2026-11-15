@@ -11,7 +11,7 @@ import { mountBase } from '../mount';
 import { documentUrl, isMarkdown, rawUrl } from '../paths';
 import { layout } from '../theme';
 
-import { useNav } from './NavContext';
+import { useAccount } from './NavContext';
 import classes from './ResetDialog.module.css';
 
 type Step =
@@ -28,7 +28,7 @@ function isInStep(error: unknown): boolean {
 }
 
 export function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
-  const { refreshMe } = useNav();
+  const { refreshMe } = useAccount();
   const [step, setStep] = useState<Step>({ name: 'checking' });
   const [pushBackup, setPushBackup] = useState(true);
 

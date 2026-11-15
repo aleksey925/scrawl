@@ -17,7 +17,7 @@ import { layout } from '../theme';
 import { EditAction } from './EditButton';
 import { useFileActions } from './fileActionsContext';
 import classes from './FileView.module.css';
-import { useNav } from './NavContext';
+import { useAccount } from './NavContext';
 import { chromeOf, usePageChrome } from './PageChrome';
 import { useRunInTab } from './runInTab';
 import { PageActions } from './ShellSlots';
@@ -142,7 +142,7 @@ function TextLines({ file }: { file: FilePageResponse }): JSX.Element {
 }
 
 function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }): JSX.Element {
-  const { canWrite } = useNav();
+  const { canWrite } = useAccount();
   const location = useLocation();
   const actions = useFileActions();
   const runInTab = useRunInTab();

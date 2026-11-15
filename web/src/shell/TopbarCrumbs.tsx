@@ -12,7 +12,7 @@ import { layout } from '../theme';
 
 import { DraftNameField } from './DraftName';
 import { usePageRenaming } from './fileActionsContext';
-import { spaceLabel, useNav } from './NavContext';
+import { spaceLabel, useAccount } from './NavContext';
 import { contentPathOf } from './naming';
 import { useShownChrome } from './PageChrome';
 import classes from './Topbar.module.css';
@@ -28,7 +28,7 @@ function Separator(): JSX.Element {
 }
 
 export function TopbarCrumbs(): JSX.Element {
-  const { me } = useNav();
+  const { me } = useAccount();
   const chrome = useShownChrome();
   const space = spaceLabel(me);
   const atSpace = chrome.name === '';

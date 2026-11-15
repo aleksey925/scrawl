@@ -11,7 +11,7 @@ import { layout } from '../theme';
 import { AppLogo } from './AppLogo';
 import { DraftNameField } from './DraftName';
 import { usePageRenaming } from './fileActionsContext';
-import { spaceLabel, useNav } from './NavContext';
+import { spaceLabel, useAccount } from './NavContext';
 import { useShownChrome } from './PageChrome';
 import classes from './PhoneTopBar.module.css';
 import { useSwipeBack } from './useSwipeBack';
@@ -59,7 +59,7 @@ export interface PhoneTopBarProps {
 }
 
 export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.Element {
-  const { me } = useNav();
+  const { me } = useAccount();
   const chrome = useShownChrome();
   const space = spaceLabel(me);
   const atRoot = chrome.title === '';

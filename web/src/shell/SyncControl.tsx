@@ -8,7 +8,7 @@ import { IconAlertTriangle, IconCloudCheck, IconCloudOff, IconCloudUp } from '..
 import { documentUrl } from '../paths';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
-import { useNav } from './NavContext';
+import { useAccount, useTree } from './NavContext';
 import { StatusTip, statusTipTarget } from './StatusTip';
 import { factText, type SyncStatus } from './syncMessage';
 
@@ -23,7 +23,8 @@ interface SyncSummary {
 }
 
 function useSyncSummary(): SyncSummary | undefined {
-  const { syncStatus, isUnsynced, currentPath } = useNav();
+  const { syncStatus, isUnsynced } = useAccount();
+  const { currentPath } = useTree();
   if (syncStatus === undefined) {
     return undefined;
   }
@@ -50,7 +51,7 @@ function SyncIcon({ state, size }: { state: SyncStatus['state']; size: number })
 }
 
 function SyncDetails({ summary, onLeave }: { summary: SyncSummary; onLeave: () => void }): JSX.Element {
-  const { sync, me } = useNav();
+  const { sync, me } = useAccount();
   const { name } = summary.status;
   const paths = me?.space.unsynced.paths ?? [];
 

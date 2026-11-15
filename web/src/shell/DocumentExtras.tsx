@@ -10,7 +10,7 @@ import { layoutBreakpoints, useAtLeast } from '../theme';
 
 import type { DocumentExtrasProps } from './extensions';
 import { EditAction } from './EditButton';
-import { useNav } from './NavContext';
+import { useAccount } from './NavContext';
 import { NoteMenu } from './NoteMenu';
 import { PageActions } from './ShellSlots';
 import { plainShortcut } from './shortcuts';
@@ -30,7 +30,7 @@ export function DocumentExtras({ doc, placed }: DocumentExtrasProps): JSX.Elemen
 }
 
 function NoteActions({ doc }: { doc: DocumentExtrasProps['doc'] }): JSX.Element {
-  const { canWrite, me } = useNav();
+  const { canWrite, me } = useAccount();
   const wide = useAtLeast(layoutBreakpoints.compactTopbar);
   useEditShortcut(canWrite ? doc.edit_url : undefined);
 

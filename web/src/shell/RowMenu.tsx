@@ -14,7 +14,7 @@ import { layout } from '../theme';
 
 import { rowMenuIconSize, type RowMenuProps } from './extensions';
 import { useFileActions } from './fileActionsContext';
-import { useNav } from './NavContext';
+import { useAccount } from './NavContext';
 import { useRunInTab } from './runInTab';
 
 const buttonPlacement: MenuPlacement = { position: 'bottom-end' };
@@ -25,7 +25,7 @@ export function RowMenu({
 }: RowMenuProps): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
-  const { canWrite } = useNav();
+  const { canWrite } = useAccount();
   const actions = useFileActions();
   const runInTab = useRunInTab();
   useCloseOnScroll(opened, setOpened);

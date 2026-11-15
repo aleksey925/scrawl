@@ -17,7 +17,7 @@ import { showToast, ToastLink, type ToastAction } from '../toast';
 import { MoveDialog } from './dialogChunks';
 import { FileActionsContext, type FileActions, type FolderDraft, type RenamePlace, type Renaming } from './fileActionsContext';
 import { useReaderLayout } from './ReaderLayout';
-import { spaceLabel, useNav } from './NavContext';
+import { spaceLabel, useAccount, useTree } from './NavContext';
 import { useMutationState } from './useMutationState';
 import { ancestorsOf, basenameOf, contentPathOf, folderFor, freeName, joinPath, nameProblem, parentOf, renamedPath } from './naming';
 import { plainShortcut } from './shortcuts';
@@ -177,7 +177,8 @@ function pathAfterMove(path: string, from: string, to: string): string | undefin
 export function FileActionsProvider({ children }: { children: ReactNode }): JSX.Element {
   const { revealNav: revealTree } = useReaderLayout();
   const navigate = useNavigate();
-  const { tree, me, currentPath, canWrite, refreshNav, refreshMe, openFolder, setQuery } = useNav();
+  const { me, canWrite, refreshMe } = useAccount();
+  const { tree, currentPath, refreshNav, openFolder, setQuery } = useTree();
   const location = useLocation();
   const onFolder = isDirectoryPath(location.pathname);
   const reportMutation = useMutationState();

@@ -17,3 +17,5 @@ export const splitKey = 'scrawl.editor.split';
 export const wrapKey = 'scrawl.editor.wrap';
 
 export const uploadAccept = 'image/*,application/pdf';
+
+export const draftOpening = '# ';

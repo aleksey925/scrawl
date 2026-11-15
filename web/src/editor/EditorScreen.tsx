@@ -9,15 +9,12 @@ import {
 } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { useBlocker, useLocation, useNavigate } from 'react-router';
 
-import { api, installUnauthorizedHandler } from '../api/client';
-import { ApiError, type ApiConflict } from '../api/errors';
+import { api } from '../api/client';
 import { errorText } from '../api/useApi';
 import { countOf } from '../components/formats';
 import { Segmented, type SegmentedOption } from '../components/Segmented';
-import { planMotion, useOffScreen } from '../components/screenMotion';
-import { cameFrom } from '../historyTrail';
+import { useOffScreen } from '../components/screenMotion';
 import {
   IconBraces,
   IconColumns,
@@ -27,15 +24,10 @@ import {
   IconTextWrap,
   IconTextWrapDisabled,
 } from '../icons';
-import type { DirListing } from '../api/types';
-import { directoryUrl, documentUrl, editUrl, isMarkdown } from '../paths';
-import { holdPosition, interactionEvents } from '../reader/position';
-import { useAccount } from '../shell/NavContext';
-import { basenameOf, freeName, joinPath, nameProblem, newFilePath, noteNameOf, parentOf } from '../shell/naming';
+import { isMarkdown } from '../paths';
+import { basenameOf, joinPath, nameProblem, newFilePath, noteNameOf, parentOf } from '../shell/naming';
 import { useDraftChrome } from '../shell/PageChrome';
 import { PageActions } from '../shell/ShellSlots';
-import { modChord } from '../shell/shortcuts';
-import { useMutationState } from '../shell/useMutationState';
 import { layout } from '../theme';
 import { showToast } from '../toast';
 
@@ -45,27 +37,18 @@ import { SourceEditor, type DroppedFiles, type EditorKind } from './SourceEditor
 import { Splitter } from './Splitter';
 import type { TableMenuProps } from './TableMenu';
 import { Toolbar } from './Toolbar';
-import {
-  captureFromPane,
-  isReadingAnchor,
-  paneTopForAnchor,
-  rememberAnchor,
-  recallAnchor,
-  type ReadingAnchor,
-} from './anchor';
-import { captureFromSource, holdAnchorAtTop } from './cmAnchor';
 import { codeLanguageOf } from './codeLanguages';
-import { tocAttempts, uploadAccept } from './constants';
-import { confirmLeave, openConflict, openSessionExpired } from './dialogs';
+import { draftOpening, tocAttempts, uploadAccept } from './constants';
 import { formatMarkdown, replaceText, warmFormatter } from './format';
 import classes from './Editor.module.css';
-import { lineBreakOf, toEditorText, withLineBreak } from './lineBreaks';
+import { lineBreakOf, toEditorText } from './lineBreaks';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
-import { createPaneSync } from './paneSync';
 import { insertTable, runTableEdit, tableEditsAtCursor } from './table';
 import { tocBlock, writeToc, writeTocInText } from './toc';
 import { useChanges } from './useChanges';
 import { useDraft } from './useDraft';
+import { useEditorPosition } from './useEditorPosition';
+import { useEditSession } from './useEditSession';
 import { isLayoutMode, useEditorLayout, type LayoutMode } from './useLayoutMode';
 import { useLineWrap } from './useLineWrap';
 import { usePreview } from './usePreview';
@@ -80,13 +63,6 @@ export interface EditorScreenProps {
   readOnly: boolean;
   formatOnSave: boolean;
 }
-
-interface SaveResult {
-  shownStored: boolean;
-  savedTo?: string;
-}
-
-const draftOpening = '# ';
 
 const modeOptions: SegmentedOption<LayoutMode>[] = [
   { value: 'source', icon: IconBraces, label: 'Source' },
@@ -105,19 +81,7 @@ const saveStateText: Record<SaveState, string> = {
   saved: 'Saved',
 };
 
-const dottedTextNames: ReadonlySet<string> = new Set(['go.mod', 'go.sum']);
-
 const tocFailed = 'Could not build the contents';
-
-function conflictCopyPath(path: string, stamp: string): string {
-  const name = basenameOf(path);
-  const dot = name.lastIndexOf('.');
-  if (dot <= 0 || dottedTextNames.has(name)) {
-    return `${path}.conflict-${stamp}.txt`;
-  }
-  const ext = name.slice(dot);
-  return `${path.slice(0, path.length - ext.length)}.conflict-${stamp}${ext}`;
-}
 
 function LineCount({ lines, className }: { lines: number; className: string | undefined }): JSX.Element {
   return (
@@ -146,15 +110,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const formattable = !readOnly && kind === 'markdown';
   const formatOnSave = props.formatOnSave && formattable;
   const lineBreak = formatOnSave ? '\n' : lineBreakOf(opening);
-  const navigate = useNavigate();
-  const { refreshMe } = useAccount();
-  const reportMutation = useMutationState();
-  const location = useLocation();
 
   const [saved, setSaved] = useState(editorText);
   const [rev, setRev] = useState(initialRev);
   const [saving, setSaving] = useState(false);
-  const [leaving, setLeaving] = useState(false);
   const [view, setView] = useState<EditorView | undefined>(undefined);
 
   const dirty = content !== saved;
@@ -162,16 +121,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const viewRef = useRef<EditorView | undefined>(undefined);
   const contentRef = useRef(content);
   const revRef = useRef(rev);
-  const savingRef = useRef(false);
-  const leavingRef = useRef(false);
-  const mountedRef = useRef(true);
-  const leaderRef = useRef<'source' | 'preview' | undefined>(undefined);
-  const promptedRef = useRef(false);
-  const previewRef = useRef<HTMLDivElement>(null);
   const panesRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const arrivedWith = useRef(location.state);
-  const leftForChangesRef = useRef<ReadingAnchor | undefined>(undefined);
 
   contentRef.current = content;
   revRef.current = rev;
@@ -243,12 +194,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   useEffect(() => () => tocAbortRef.current?.abort(), []);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
   useOffScreen();
 
   const insertToc = useCallback((): void => {
@@ -302,368 +247,43 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     }
   }, [formatOnSave]);
 
-  const [openedAt, setOpenedAt] = useState<ReadingAnchor | undefined>(undefined);
+  const { previewRef, rememberReadingPosition, chooseMode } = useEditorPosition({
+    path,
+    drafting,
+    view,
+    viewRef,
+    liveView,
+    revRef,
+    mode,
+    previewHtml: preview.html,
+    choose,
+  });
 
-  const previewPlaced = useRef(false);
-  const readerMoved = useRef(false);
-
-  useEffect(() => {
-    previewPlaced.current = false;
-    readerMoved.current = false;
-    if (drafting) {
-      return;
-    }
-    const carried = arrivedWith.current;
-    const anchor =
-      isReadingAnchor(carried) && carried.path === path ? carried : recallAnchor('edit', path);
-    if (anchor !== undefined) {
-      setOpenedAt(anchor);
-    }
-  }, [drafting, path]);
-
-  useEffect(() => {
-    if (view === undefined || openedAt === undefined) {
-      return;
-    }
-    return holdAnchorAtTop(view, openedAt);
-  }, [view, openedAt]);
-
-  useEffect(() => {
-    const targets = [view?.dom, previewRef.current].filter((el): el is HTMLElement => el != null);
-    const moved = (): void => {
-      readerMoved.current = true;
-    };
-    for (const target of targets) {
-      for (const name of interactionEvents) {
-        target.addEventListener(name, moved, { passive: true, capture: true });
-      }
-    }
-    return () => {
-      for (const target of targets) {
-        for (const name of interactionEvents) {
-          target.removeEventListener(name, moved, { capture: true });
-        }
-      }
-    };
-  }, [view, mode]);
-
-  const panes = useMemo(createPaneSync, []);
-
-  useEffect(() => {
-    const pane = previewRef.current;
-    if (pane === null || openedAt === undefined || previewPlaced.current || preview.html === '') {
-      return;
-    }
-    previewPlaced.current = true;
-    return holdPosition(() => {
-      const source = liveView();
-      const top = mode === 'split' && source !== undefined
-        ? panes.paneTop(source, pane)
-        : paneTopForAnchor(pane, openedAt);
-      if (top !== undefined) {
-        pane.scrollTop = top;
-      }
-    }, pane);
-  }, [openedAt, preview.html, mode, liveView, panes]);
-
-  const captureReadingPosition = useCallback((): ReadingAnchor | undefined => {
-    const source = liveView();
-    const pane = previewRef.current;
-    if (openedAt?.path === path && !readerMoved.current) {
-      return { ...openedAt, rev: revRef.current };
-    }
-    if (pane !== null && (source === undefined || leaderRef.current === 'preview')) {
-      return captureFromPane(pane, path, revRef.current);
-    }
-    if (source !== undefined) {
-      return captureFromSource(source, path, revRef.current);
-    }
-    const left = leftForChangesRef.current;
-    return left?.path === path ? { ...left, rev: revRef.current } : undefined;
-  }, [path, liveView, openedAt]);
-
-  const rememberReadingPosition = useCallback((): ReadingAnchor | undefined => {
-    const anchor = captureReadingPosition();
-    if (anchor !== undefined) {
-      rememberAnchor('view', anchor);
-    }
-    return anchor;
-  }, [captureReadingPosition]);
-
-  const chooseMode = useCallback(
-    (next: LayoutMode): void => {
-      if (next === 'changes' && mode !== 'changes') {
-        leftForChangesRef.current = captureReadingPosition();
-      }
-      choose(next);
-    },
-    [captureReadingPosition, choose, mode],
-  );
-
-  const syncFromSource = useCallback((): void => {
-    const current = viewRef.current;
-    const pane = previewRef.current;
-    if (leaderRef.current !== 'source' || current === undefined || pane === null) {
-      return;
-    }
-    pane.scrollTop = panes.paneTop(current, pane);
-  }, [panes]);
-
-  const syncFromPreview = useCallback((): void => {
-    const current = viewRef.current;
-    const pane = previewRef.current;
-    if (leaderRef.current !== 'preview' || current === undefined || pane === null) {
-      return;
-    }
-    current.scrollDOM.scrollTop = panes.sourceTop(current, pane);
-  }, [panes]);
-
-  useEffect(() => {
-    const pane = previewRef.current;
-    if (view === undefined || mode !== 'split' || pane === null) {
-      return;
-    }
-    const scroller = view.scrollDOM;
-    const takeSource = (): void => {
-      leaderRef.current = 'source';
-    };
-    const takePreview = (): void => {
-      leaderRef.current = 'preview';
-    };
-
-    scroller.addEventListener('scroll', syncFromSource, { passive: true });
-    pane.addEventListener('scroll', syncFromPreview, { passive: true });
-    for (const name of interactionEvents) {
-      scroller.addEventListener(name, takeSource, { passive: true, capture: true });
-      pane.addEventListener(name, takePreview, { passive: true, capture: true });
-    }
-    return () => {
-      scroller.removeEventListener('scroll', syncFromSource);
-      pane.removeEventListener('scroll', syncFromPreview);
-      for (const name of interactionEvents) {
-        scroller.removeEventListener(name, takeSource, { capture: true });
-        pane.removeEventListener(name, takePreview, { capture: true });
-      }
-    };
-  }, [view, mode, syncFromSource, syncFromPreview, preview.html]);
-
-  useEffect(() => installUnauthorizedHandler('screen', () => draftRef.current.flush()), []);
-
-  useEffect(() => {
-    if (!dirty) {
-      return;
-    }
-    const warn = (event: BeforeUnloadEvent): void => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
-
-  const blocker = useBlocker(
-    useCallback(
-      ({ currentLocation, nextLocation }) =>
-        dirty && !leavingRef.current && currentLocation.pathname !== nextLocation.pathname,
-      [dirty],
-    ),
-  );
-
-  useEffect(() => {
-    if (blocker.state !== 'blocked' || promptedRef.current) {
-      return;
-    }
-    promptedRef.current = true;
-    void confirmLeave().then((leave) => {
-      promptedRef.current = false;
-      if (leave) {
-        draftRef.current.flush();
-        blocker.proceed();
-      } else {
-        blocker.reset();
-      }
-    });
-  }, [blocker]);
-
-  const markSaved = useCallback((stored: string, nextRev: string, shown: boolean): void => {
-    setSaved(stored);
-    setRev(nextRev);
-    if (shown) {
-      draftRef.current.clear();
-    }
-  }, []);
-
-  const saveCopy = useCallback(async (): Promise<void> => {
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const copyPath = conflictCopyPath(path, stamp);
-    const sent = contentRef.current;
-    try {
-      reportMutation(
-        await api.saveFile(copyPath, { content: withLineBreak(sent, lineBreak), rev: '' }),
-        'Saved as a copy',
-      );
-      setSaved(sent);
-      draftRef.current.clear();
-      leavingRef.current = true;
-      await navigate(editUrl(copyPath));
-    } catch (error: unknown) {
-      showToast('error', { message: errorText(error) });
-    }
-  }, [lineBreak, navigate, path, reportMutation]);
-
-  const draftTarget = useCallback(async (sent: string): Promise<string | undefined> => {
-    const chosen = manualRef.current;
-    let listing: DirListing;
-    try {
-      listing = await api.dir(folder);
-    } catch (error) {
-      showToast('error', { title: 'Nothing was saved', message: errorText(error) });
-      return undefined;
-    }
-    const taken = new Set(listing.entries.map((entry) => entry.name.toLowerCase()));
-    if (chosen === undefined) {
-      return joinPath(folder, freeName(noteNameOf(sent), taken));
-    }
-    if (taken.has(basenameOf(chosen).toLowerCase())) {
-      showToast('error', { title: 'Nothing was saved', message: 'Something of that name is already there' });
-      return undefined;
-    }
-    return chosen;
-  }, [folder]);
-
-  const save = useCallback(
-    async (withRev?: string): Promise<SaveResult> => {
-      if (savingRef.current || readOnly) {
-        return { shownStored: false };
-      }
-      savingRef.current = true;
-      setSaving(true);
-      rememberReadingPosition();
-      let sent = bufferText();
-      const first = drafting && savedAsRef.current === undefined;
-      let dest = savedAsRef.current ?? path;
-      try {
-        await uploads.wait();
-        sent = bufferText();
-        let formatted = false;
-        if (formatOnSave) {
-          try {
-            sent = await formatBuffer();
-            formatted = true;
-          } catch {
-            sent = bufferText();
-          }
-        }
-        draftRef.current.flush();
-        if (first) {
-          const target = await draftTarget(sent);
-          if (target === undefined) {
-            return { shownStored: false };
-          }
-          dest = target;
-        }
-        const res = await api.saveFile(dest, {
-          content: withLineBreak(first && sent === draftOpening ? '' : sent, lineBreak),
-          rev: withRev ?? revRef.current,
-          formatted,
-        });
-        const stored = res.content === undefined ? undefined : toEditorText(res.content);
-        const shown = stored === undefined ? bufferText() === sent : putFormatted(sent, stored);
-        markSaved(stored ?? sent, res.rev, shown);
-        if (res.format_failed === true) {
-          showToast('warn', {
-            title: 'Saved without formatting',
-            message: 'Prettier could not format this note, so it is stored as written.',
-          });
-        }
-        if (first) {
-          savedAsRef.current = dest;
-          setSavedAs(dest);
-          reportMutation(res, `Created "${basenameOf(dest)}"`);
-          return { shownStored: shown, savedTo: dest };
-        }
-        reportMutation(res, 'Saved');
-        return { shownStored: shown };
-      } catch (error: unknown) {
-        if (error instanceof ApiError && (error.status === 412 || error.status === 409)) {
-          const current: ApiConflict | undefined =
-            error.conflict ?? (await api.file(dest).catch(() => undefined));
-          if (current === undefined) {
-            showToast('error', { message: errorText(error) });
-            return { shownStored: false };
-          }
-          const theirs = toEditorText(current.content);
-          if (theirs === sent) {
-            const shown = bufferText() === sent;
-            markSaved(sent, current.rev, shown);
-            showToast('ok', { message: 'Saved' });
-            refreshMe();
-            return { shownStored: shown };
-          }
-          openConflict({
-            mine: sent,
-            theirs,
-            onOverwrite: () => void save(current.rev),
-            onCopy: () => void saveCopy(),
-          });
-          return { shownStored: false };
-        }
-        if (error instanceof ApiError && error.status === 401) {
-          draftRef.current.flush();
-          openSessionExpired();
-          return { shownStored: false };
-        }
-        showToast('error', { message: errorText(error) });
-        return { shownStored: false };
-      } finally {
-        savingRef.current = false;
-        setSaving(false);
-      }
-    },
-    [
-      bufferText,
-      draftTarget,
-      drafting,
-      formatBuffer,
-      formatOnSave,
-      lineBreak,
-      markSaved,
-      path,
-      putFormatted,
-      readOnly,
-      refreshMe,
-      rememberReadingPosition,
-      reportMutation,
-      saveCopy,
-      uploads,
-    ],
-  );
-
-  const reopenAt = useCallback(
-    (target: string): void => {
-      const current = liveView();
-      const anchor = current === undefined ? undefined : captureFromSource(current, target, revRef.current);
-      leavingRef.current = true;
-      void navigate(editUrl(target), { replace: true, state: anchor });
-    },
-    [liveView, navigate],
-  );
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (!modChord(event, 's')) {
-        return;
-      }
-      event.preventDefault();
-      void save().then((res) => {
-        if (res.savedTo !== undefined && mountedRef.current) {
-          reopenAt(res.savedTo);
-        }
-      });
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [reopenAt, save]);
+  const { leaving, cancel, saveAndLeave } = useEditSession({
+    path,
+    folder,
+    drafting,
+    readOnly,
+    formatOnSave,
+    lineBreak,
+    dirty,
+    exists: rev !== '',
+    contentRef,
+    revRef,
+    manualRef,
+    savedAsRef,
+    setSaved,
+    setRev,
+    setSaving,
+    setSavedAs,
+    liveView,
+    bufferText,
+    putFormatted,
+    formatBuffer,
+    uploads,
+    draftRef,
+    rememberReadingPosition,
+  });
 
   useEffect(() => {
     if (!formattable) {
@@ -679,36 +299,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [format, formattable]);
-
-  const openReader = useCallback((target?: string): void => {
-    rememberReadingPosition();
-    const reader = documentUrl(target ?? savedAsRef.current ?? path);
-    planMotion(reader, 'back');
-    void (cameFrom(reader) ? navigate(-1) : navigate(reader, { replace: true }));
-  }, [navigate, path, rememberReadingPosition]);
-
-  const cancel = useCallback((): void => {
-    if (!drafting || savedAsRef.current !== undefined) {
-      openReader();
-      return;
-    }
-    const step = (window.history.state as { idx?: number } | null)?.idx ?? 0;
-    void (step > 0 ? navigate(-1) : navigate(directoryUrl(folder), { replace: true }));
-  }, [drafting, folder, navigate, openReader]);
-
-  const exists = rev !== '';
-
-  const saveAndLeave = useCallback(async (): Promise<void> => {
-    const res: SaveResult = dirty || !exists ? await save() : { shownStored: true };
-    if (!res.shownStored) {
-      return;
-    }
-    if (mountedRef.current) {
-      leavingRef.current = true;
-      setLeaving(true);
-      openReader(res.savedTo);
-    }
-  }, [dirty, exists, openReader, save]);
 
   const renameDraft = useCallback(
     (typed: string): boolean => {

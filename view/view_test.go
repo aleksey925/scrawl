@@ -184,7 +184,7 @@ func TestDirEntries(t *testing.T) {
 
 	notes := func(fi store.FileInfo) bool { return strings.HasSuffix(fi.Name, ".md") }
 	count := func(dir string) (store.DirCount, error) {
-		return store.DirCount{Items: len(dir), AppIndex: dir == "docs/app"}, nil
+		return store.DirCount{Items: len(dir), HasAppIndex: dir == "docs/app"}, nil
 	}
 
 	// act
@@ -206,7 +206,7 @@ func TestDirEntriesOfAFolderThatCannotBeCounted(t *testing.T) {
 	// arrange
 	entries := []store.FileInfo{{Name: "gone", Path: "gone", IsDir: true}}
 	count := func(string) (store.DirCount, error) {
-		return store.DirCount{Items: 7, AppIndex: true}, store.ErrNotFound
+		return store.DirCount{Items: 7, HasAppIndex: true}, store.ErrNotFound
 	}
 
 	// act

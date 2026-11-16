@@ -294,9 +294,9 @@ test.describe('mobile', () => {
         writeFixture('e2e-mobile/runs/plain/note.md', '# Plain\n');
         await page.goto(routes.dir('e2e-mobile/runs'));
         const row = page.locator('[data-testid=dir-row][data-path="e2e-mobile/runs/app"]');
+        const plain = page.locator('[data-testid=dir-row][data-path="e2e-mobile/runs/plain"]');
 
         // act & assert
-        const plain = page.locator('[data-testid=dir-row][data-path="e2e-mobile/runs/plain"]');
         await expect(row.getByTestId('dir-row-run')).toHaveText('Run');
         await expect(plain).toBeVisible();
         await expect(plain.getByTestId('dir-row-run')).toHaveCount(0);
@@ -1694,15 +1694,15 @@ test.describe('mobile', () => {
         // arrange
         await page.goto(routes.doc(docs.long.path));
         await expect(page.getByTestId('doc')).toBeVisible();
-        const places = async () => Math.round((await page.getByTestId('tab-bar').boundingBox()).y);
-        const before = await places();
+        const barTop = async () => Math.round((await page.getByTestId('tab-bar').boundingBox()).y);
+        const before = await barTop();
 
         // act
         await page.mouse.wheel(0, 600);
         await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 
         // assert
-        expect(await places()).toEqual(before);
+        expect(await barTop()).toEqual(before);
     });
 
     test('the reader ends a scroll with the rubber band of an app, and the editor without', async ({page}) => {

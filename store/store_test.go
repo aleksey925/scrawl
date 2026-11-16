@@ -452,7 +452,7 @@ func TestStoreCount(t *testing.T) {
 			require.ErrorIs(t, err, tc.err)
 			assert.Equal(t, len(entries), got.Items)
 			assert.Equal(t, tc.hasEntries, got.Items > 0)
-			assert.False(t, got.AppIndex)
+			assert.False(t, got.HasAppIndex)
 		})
 	}
 }
@@ -466,7 +466,7 @@ func TestStoreCountAppIndex(t *testing.T) {
 		want    DirCount
 	}{
 		{name: "a plain file", files: map[string]string{"app/index.html": "<p>", "app/a.md": "# a"},
-			want: DirCount{Items: 2, AppIndex: true}},
+			want: DirCount{Items: 2, HasAppIndex: true}},
 		{name: "a folder named index.html", files: map[string]string{"app/index.html/": ""},
 			want: DirCount{Items: 1}},
 		{name: "a symlink", files: map[string]string{"app/page.html": "<p>"}, link: true,

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -393,6 +394,29 @@ func TestAPIDirListsWhatTheDirectoryPageLists(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.status)
 	assert.Equal(t, jsonValue(t, view.DirEntries(entries, ts.Spaces[0].Store.Count, editable)), body["entries"])
 	assert.NotContains(t, body, "readme_html")
+}
+
+func TestAPIDirNamesTheIndexOfAnAppFolder(t *testing.T) {
+	// arrange
+	ts := newAppsServer(t, testOpts{})
+
+	// act
+	resp, body := ts.do(t, request{path: "/api/dir/apps", headers: map[string]string{"Accept": "application/json"}})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	var listing struct {
+		Entries []struct {
+			Path    string `json:"path"`
+			RunPath string `json:"run_path"`
+		} `json:"entries"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &listing))
+	got := map[string]string{}
+	for _, ent := range listing.Entries {
+		got[ent.Path] = ent.RunPath
+	}
+	assert.Equal(t, map[string]string{counterFolder: counterFile, path.Dir(otherFile): otherFile, "apps/plain": ""}, got)
 }
 
 func TestAPINav(t *testing.T) {

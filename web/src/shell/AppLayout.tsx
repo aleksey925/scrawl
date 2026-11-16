@@ -7,7 +7,7 @@ import { goToLogin } from '../login';
 import { useReadingCopy } from '../offline/connection';
 import { offlineMe, storedMe } from '../offline/source';
 
-import { BarEditProvider } from './barEdit';
+import { BarEditProvider } from './BarEditProvider';
 import { preloadDialogs } from './dialogChunks';
 import { DocumentExtras } from './DocumentExtras';
 import { ReaderExtensionsProvider, type ReaderExtensions } from './extensions';

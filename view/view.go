@@ -173,9 +173,9 @@ func DirEntries(entries []store.FileInfo, count Count, editable Editable) []DirE
 		switch {
 		case ent.IsDir:
 			target = DirURL(ent.Path)
-			if n, err := count(ent.Path); err == nil {
-				items = n.Items
-				if n.AppIndex {
+			if counted, err := count(ent.Path); err == nil {
+				items = counted.Items
+				if counted.HasAppIndex {
 					run = path.Join(ent.Path, store.AppIndex)
 				}
 			}

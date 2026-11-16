@@ -188,8 +188,8 @@ func (s *Store) list(cleaned string) ([]FileInfo, error) {
 const AppIndex = "index.html"
 
 type DirCount struct {
-	Items    int
-	AppIndex bool
+	Items       int
+	HasAppIndex bool
 }
 
 func (s *Store) Count(dir string) (DirCount, error) {
@@ -208,7 +208,7 @@ func (s *Store) Count(dir string) (DirCount, error) {
 		}
 		res.Items++
 		if ent.Name() == AppIndex && ent.Type().IsRegular() {
-			res.AppIndex = true
+			res.HasAppIndex = true
 		}
 	}
 	return res, nil

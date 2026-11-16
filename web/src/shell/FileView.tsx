@@ -14,7 +14,7 @@ import { useDocumentControls } from '../reader/useDocumentControls';
 import { openViewer } from '../reader/viewer';
 import { layout } from '../theme';
 
-import { useOfferEdit } from './barEdit';
+import { useOfferEdit } from './BarEditProvider';
 import { EditAction } from './EditAction';
 import { useFileActions } from './fileActionsContext';
 import classes from './FileView.module.css';

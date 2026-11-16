@@ -36,7 +36,7 @@ function speedOf(samples: Sample[], now: number): number {
 function covered(): boolean {
   return (
     document.querySelector(
-      'dialog[open], .mantine-Modal-content, .mantine-Drawer-content, .mantine-Menu-dropdown, .mantine-Popover-dropdown, [role="menu"]',
+      'dialog[open], .mantine-Modal-content, .mantine-Drawer-content, .mantine-Popover-dropdown, [role="menu"]',
     ) !== null
   );
 }

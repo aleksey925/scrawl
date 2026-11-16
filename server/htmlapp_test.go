@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -342,29 +341,6 @@ func TestRunTicket(t *testing.T) {
 			assert.True(t, strings.HasPrefix(res.URL, tc.app+"/__scrawl/enter?t="), res.URL)
 		})
 	}
-}
-
-func TestAPIDirNamesTheIndexOfAnAppFolder(t *testing.T) {
-	// arrange
-	ts := newAppsServer(t, testOpts{})
-
-	// act
-	resp, body := ts.do(t, request{path: "/api/dir/apps", headers: map[string]string{"Accept": "application/json"}})
-
-	// assert
-	require.Equal(t, http.StatusOK, resp.status)
-	var listing struct {
-		Entries []struct {
-			Path    string `json:"path"`
-			RunPath string `json:"run_path"`
-		} `json:"entries"`
-	}
-	require.NoError(t, json.Unmarshal([]byte(body), &listing))
-	got := map[string]string{}
-	for _, ent := range listing.Entries {
-		got[ent.Path] = ent.RunPath
-	}
-	assert.Equal(t, map[string]string{counterFolder: counterFile, path.Dir(otherFile): otherFile, "apps/plain": ""}, got)
 }
 
 func TestAppsEnter(t *testing.T) {

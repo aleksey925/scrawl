@@ -75,6 +75,7 @@ export const layout = {
   iconSizeTool: 18,
   iconSizeColumn: 15,
   iconSizeTiny: 14,
+  iconSizeTile: 26,
   controlHeight: 28,
   controlHeightLarge: 36,
   buttonHeight: 32,
@@ -89,7 +90,6 @@ export const layout = {
   menuWidthWide: 280,
   popoverWidth: 320,
   tabBarHeight: 56,
-  iconSizeTile: 26,
   inputFontSize: 16,
 } as const;
 

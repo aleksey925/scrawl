@@ -9,7 +9,7 @@ import { historyUrl } from '../paths';
 import { layoutBreakpoints, useAtLeast } from '../theme';
 
 import type { DocumentExtrasProps } from './extensions';
-import { useOfferEdit } from './barEdit';
+import { useOfferEdit } from './BarEditProvider';
 import { EditAction } from './EditAction';
 import { useAccount } from './NavContext';
 import { NoteMenu } from './NoteMenu';

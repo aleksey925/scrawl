@@ -22,6 +22,8 @@ const frameSandbox =
 
 const frameAllow = 'clipboard-read; clipboard-write; fullscreen';
 
+const appIndex = 'index.html';
+
 interface RunFrame {
   src: string;
   app: string;
@@ -41,8 +43,6 @@ async function offlineState(path: string): Promise<RunState> {
   }
   return { kind: 'frame', frame: { src: kept.url, app: kept.url, kept: true } };
 }
-
-const appIndex = 'index.html';
 
 function runName(path: string): string {
   const folder = parentOf(path);

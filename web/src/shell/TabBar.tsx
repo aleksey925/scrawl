@@ -16,7 +16,7 @@ import {
 import { isDirectoryPath, isEditPath, recentUrl } from '../paths';
 import { layout } from '../theme';
 
-import { useBarEdit, type BarEdit } from './barEdit';
+import { useBarEdit, type BarEdit } from './BarEditProvider';
 import { useFileActions } from './fileActionsContext';
 import { useAccount, useTree } from './NavContext';
 import { folderFor } from './naming';
@@ -25,7 +25,7 @@ import { useSearchControl } from './searchOpener';
 import { SpaceMenuDropdown } from './SpaceMenu';
 import classes from './TabBar.module.css';
 
-type TabName = 'notes' | 'search' | 'recent' | 'new' | 'profile';
+type TabName = 'notes' | 'search' | 'recent' | 'new' | 'edit' | 'profile';
 
 interface TabProps extends Omit<ComponentPropsWithRef<'button'>, 'children'> {
   name: TabName;
@@ -35,35 +35,46 @@ interface TabProps extends Omit<ComponentPropsWithRef<'button'>, 'children'> {
   action?: boolean;
 }
 
-function Tab({ name, label, icon: TabIcon, current, action = false, ...rest }: TabProps): JSX.Element {
+function tabTestId(name: TabName): string {
+  return `tab-${name}`;
+}
+
+function tabClass(action: boolean): string | undefined {
+  return action ? `${classes.tab} ${classes.action}` : classes.tab;
+}
+
+function TabBody({ icon: TabIcon, label }: { icon: Icon; label: string }): JSX.Element {
+  return (
+    <>
+      <TabIcon size={layout.iconSizeLarge} />
+      <span className={classes.label}>{label}</span>
+    </>
+  );
+}
+
+function Tab({ name, label, icon, current, action = false, ...rest }: TabProps): JSX.Element {
   return (
     <button
       {...rest}
       type="button"
-      data-testid={`tab-${name}`}
+      data-testid={tabTestId(name)}
       data-current={current ? 'true' : 'false'}
       aria-current={current ? 'page' : undefined}
-      className={action ? `${classes.tab} ${classes.action}` : classes.tab}
+      className={tabClass(action)}
     >
-      <TabIcon size={layout.iconSizeLarge} />
-      <span className={classes.label}>{label}</span>
+      <TabBody icon={icon} label={label} />
     </button>
   );
 }
 
 function EditCell({ edit }: { edit: BarEdit }): JSX.Element {
-  const body = (
-    <>
-      <IconPencil size={layout.iconSizeLarge} />
-      <span className={classes.label}>Edit</span>
-    </>
-  );
+  const body = <TabBody icon={IconPencil} label="Edit" />;
   return edit.kind === 'edit' ? (
-    <Link data-testid="tab-edit" to={edit.to} className={`${classes.tab} ${classes.action}`}>
+    <Link data-testid={tabTestId('edit')} to={edit.to} className={tabClass(true)}>
       {body}
     </Link>
   ) : (
-    <a data-testid="tab-edit" role="link" aria-disabled="true" className={`${classes.tab} ${classes.action}`}>
+    <a data-testid={tabTestId('edit')} role="link" aria-disabled="true" className={tabClass(true)}>
       {body}
     </a>
   );

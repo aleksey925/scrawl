@@ -38,10 +38,10 @@ function tabTestId(name: TabName): string {
   return `tab-${name}`;
 }
 
-function TabBody({ icon: TabIcon, label }: { icon: Icon; label: string }): JSX.Element {
+function TabBody({ icon: TabIcon, label, current = false }: { icon: Icon; label: string; current?: boolean }): JSX.Element {
   return (
     <>
-      <TabIcon size={layout.iconSizeLarge} />
+      <TabIcon size={layout.iconSizeLarge} weight={current ? 'fill' : 'regular'} />
       <span className={classes.label}>{label}</span>
     </>
   );
@@ -57,7 +57,7 @@ function Tab({ name, label, icon, current, ...rest }: TabProps): JSX.Element {
       aria-current={current ? 'page' : undefined}
       className={classes.tab}
     >
-      <TabBody icon={icon} label={label} />
+      <TabBody icon={icon} label={label} current={current} />
     </button>
   );
 }

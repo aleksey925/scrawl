@@ -41,18 +41,19 @@ Colors, controls and type: how a note and the chrome are drawn.
   row. A phone draws that row from edge to edge ([phone](phone.md)). The
   keyboard's focus on a grid of the editor lifts the same way too. The accent
   is spent the way Notion spends it, read off its own pages: the one main
-  button and a toggle that is on; the search field has no ring, the back link
-  and Cancel are plain text, and a main button that cannot be pressed yet fades
-  in its color. The light theme spends it the way macOS does on two more
-  things: a link in a note, which the dark theme draws in the text's color, and
-  the menu row under the pointer, filled with the accent and lettered white,
-  which in the dark is the hover tint. A tap latches the hover, so a touch
-  screen keeps the tint in both. A menu has 10px corners and the theme's
-  shadow, a dialog 12px; a translucent menu ground blurs what is under it, as a
-  menu of macOS does. Icons are Phosphor's regular weight at 20px, 16px in
-  menus, and `web/src/icons.ts` is the one place that says which drawing each
-  one is: Notion's own set cannot be taken, and Phosphor is the open one
-  closest to it. A build keeps only the weights the app draws
+  button and a toggle that is on, and on a phone the current tab of the bar
+  ([ADR 29](../adr/0029-the-current-tab-is-the-accent.md)); the search field
+  has no ring, the back link and Cancel are plain text, and a main button that
+  cannot be pressed yet fades in its color. The light theme spends it the way
+  macOS does on two more things: a link in a note, which the dark theme draws
+  in the text's color, and the menu row under the pointer, filled with the
+  accent and lettered white, which in the dark is the hover tint. A tap latches
+  the hover, so a touch screen keeps the tint in both. A menu has 10px corners
+  and the theme's shadow, a dialog 12px; a translucent menu ground blurs what
+  is under it, as a menu of macOS does. Icons are Phosphor's regular weight at
+  20px, 16px in menus, and `web/src/icons.ts` is the one place that says which
+  drawing each one is: Notion's own set cannot be taken, and Phosphor is the
+  open one closest to it. A build keeps only the weights the app draws
   ([frontend](../design/frontend.md#build-and-release)). The note's own
   controls are the one exception: the picture viewer in
   `web/src/reader/viewer.ts` and the buttons and marks of `markdown.css` are

@@ -136,6 +136,39 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-tab-bar');
     });
 
+    test('the current tab is the accent with a filled icon and a bold label, the others gray', async ({page}) => {
+        // arrange
+        const look = (name) => page.getByTestId(`tab-${name}`).evaluate((el) => ({
+            color: getComputedStyle(el).color,
+            weight: getComputedStyle(el.querySelector('span')).fontWeight,
+            drawing: el.querySelector('svg').innerHTML,
+            ground: getComputedStyle(el).backgroundColor,
+        }));
+        const accent = rgb(lightTheme.palette.accent);
+        const gray = rgb(lightTheme.palette.textTertiary);
+        await page.goto(routes.home());
+        const plain = await look('notes');
+        await page.getByTestId('tab-recent').tap();
+        await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
+        const plainNotes = await look('notes');
+
+        // act
+        await page.getByTestId('tab-notes').tap();
+        await expect(page.getByTestId('tab-notes')).toHaveAttribute('data-current', 'true');
+
+        // assert
+        const notes = await look('notes');
+        expect([notes.color, notes.weight, notes.ground]).toEqual([accent, '600', NO_LINE]);
+        expect(notes.drawing).toBe(plain.drawing);
+        expect(notes.drawing).not.toBe(plainNotes.drawing);
+        expect([plainNotes.color, plainNotes.weight]).toEqual([gray, '400']);
+        for (const name of ['search', 'new', 'recent', 'profile']) {
+            const other = await look(name);
+            expect([name, other.color, other.weight]).toEqual([name, gray, '400']);
+        }
+        await shot(page, 'mobile-tab-current');
+    });
+
     test.describe('the action of the tab bar', () => {
         const cells = (page) => page.getByTestId('tab-bar').locator(':scope > :is(button, a)');
 

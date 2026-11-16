@@ -1,6 +1,8 @@
 # 28. Edit is in the phone's bar, and New opens tiles
 
-Status: accepted. Where it applies: [phone](../ui/phone.md).
+Status: accepted, apart from the current tab drawn dark, replaced by
+[ADR 29](0029-the-current-tab-is-the-accent.md). Where it applies:
+[phone](../ui/phone.md).
 
 ## Context
 

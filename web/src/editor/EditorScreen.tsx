@@ -1,4 +1,4 @@
-import type { EditorView } from '@codemirror/view';
+import { EditorView } from '@codemirror/view';
 import {
   ActionIcon,
   Alert,
@@ -162,6 +162,21 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const editing = useEditing(view, keyboardBarRef, keyboardTools);
   const typing = keyboardTools && (editing || tableOpen);
   useVisibleBottom(phoneBarRef, phoneModes);
+
+  useEffect(() => {
+    const visual = window.visualViewport;
+    if (!typing || view === undefined) {
+      return undefined;
+    }
+    const reveal = (): void => {
+      view.dispatch({ effects: EditorView.scrollIntoView(view.state.selection.main.head) });
+    };
+    reveal();
+    visual?.addEventListener('resize', reveal);
+    return () => {
+      visual?.removeEventListener('resize', reveal);
+    };
+  }, [typing, view]);
 
   const coveredBelow = useCallback((): number => {
     const bar = keyboardBarRef.current;

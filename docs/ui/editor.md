@@ -47,12 +47,13 @@ The editor screen.
   keeps it while open. The toolbar follows the bottom of the visible area, as
   the find bar does ([phone](phone.md)), keeps the home indicator's room under
   it while no keyboard is up, as with a hardware keyboard, and the text scrolls
-  the cursor out from under it. The line count and the head of the source are
-  not on a phone; an upload in progress shows in the state of the save. In a
-  read-only space the head of the source stays, with the wrap button, as the
-  toolbar that carries it on a phone is never shown there. A text file keeps
-  the head with its language and the wrap button, and its line count at the
-  bottom, as it has no layouts or toolbar.
+  the cursor out from under it when the keyboard opens and while typing. The
+  line count and the head of the source are not on a phone; an upload in
+  progress shows in the state of the save. In a read-only space the head of the
+  source stays, with the wrap button, as the toolbar that carries it on a phone
+  is never shown there. A text file keeps the head with its language and the
+  wrap button, and its line count at the bottom, as it has no layouts or
+  toolbar.
 - Save saves and opens the reader, as an edit is a trip from the page and back.
   The editor leaves no entry in the history: opened from the note's page, Save
   and Cancel go back to it, and opened from elsewhere the reader takes the

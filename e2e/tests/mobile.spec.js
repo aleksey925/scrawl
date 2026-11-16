@@ -2042,7 +2042,7 @@ test.describe('mobile', () => {
         });
     });
 
-    test('typing keeps the cursor out from under the toolbar over the keyboard', async ({page}) => {
+    test('the keyboard opening scrolls the cursor out from under the toolbar over it', async ({page}) => {
         // arrange
         await fakeVisibleArea(page);
         const filler = Array.from({length: 80}, (_, index) => `строка ${index}`).join('\n');
@@ -2051,16 +2051,14 @@ test.describe('mobile', () => {
         await expect(page.locator('[data-testid=editor-source] .cm-line').nth(20)).toBeVisible();
         await page.touchscreen.tap(100, 650);
         await expect(page.getByTestId('editor-keyboard-bar')).toBeVisible();
-        await moveVisibleArea(page, 0, 400);
         const cursorClear = () => page.evaluate(() => {
             const cursor = document.querySelector('[data-testid=editor-source] .cm-cursor-primary').getBoundingClientRect();
             const bar = document.querySelector('[data-testid=editor-keyboard-bar]').getBoundingClientRect();
             return Math.round(cursor.bottom) <= Math.round(bar.top) && cursor.top > 0;
         });
-        expect(await cursorClear()).toBe(false);
 
         // act
-        await page.keyboard.type('!');
+        await moveVisibleArea(page, 0, 400);
 
         // assert
         await expect.poll(cursorClear).toBe(true);

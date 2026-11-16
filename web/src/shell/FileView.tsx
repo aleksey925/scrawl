@@ -14,7 +14,8 @@ import { useDocumentControls } from '../reader/useDocumentControls';
 import { openViewer } from '../reader/viewer';
 import { layout } from '../theme';
 
-import { EditAction } from './EditButton';
+import { useOfferEdit } from './barEdit';
+import { EditAction } from './EditAction';
 import { useFileActions } from './fileActionsContext';
 import classes from './FileView.module.css';
 import { useAccount } from './NavContext';
@@ -27,6 +28,7 @@ export function FileView({ file }: { file: FilePageResponse }): JSX.Element {
   const { physicalUrl } = usePlatform();
   const raw = physicalUrl(file.raw_url);
   usePageChrome(chromeOf(file.breadcrumbs, file.name, true));
+  useOfferEdit(file.edit_url);
 
   return (
     <>

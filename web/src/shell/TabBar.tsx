@@ -1,14 +1,13 @@
 import { Menu } from '@mantine/core';
-import type { ComponentPropsWithRef, JSX } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useCallback, useRef, useState, type ComponentPropsWithRef, type JSX } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router';
 
-import { FieldMenuItem, PopupMenu } from '../components/PopupMenu';
+import { PopupMenu } from '../components/PopupMenu';
 import { planMotion } from '../components/screenMotion';
 import {
   IconClock,
-  IconFilePlus,
   IconFolder,
-  IconFolderPlus,
+  IconPencil,
   IconPlus,
   IconSearch,
   IconUserCircle,
@@ -17,9 +16,11 @@ import {
 import { isDirectoryPath, isEditPath, recentUrl } from '../paths';
 import { layout } from '../theme';
 
+import { useBarEdit, type BarEdit } from './barEdit';
 import { useFileActions } from './fileActionsContext';
 import { useAccount, useTree } from './NavContext';
 import { folderFor } from './naming';
+import { NewTiles } from './NewTiles';
 import { useSearchControl } from './searchOpener';
 import { SpaceMenuDropdown } from './SpaceMenu';
 import classes from './TabBar.module.css';
@@ -31,9 +32,10 @@ interface TabProps extends Omit<ComponentPropsWithRef<'button'>, 'children'> {
   label: string;
   icon: Icon;
   current: boolean;
+  action?: boolean;
 }
 
-function Tab({ name, label, icon: TabIcon, current, ...rest }: TabProps): JSX.Element {
+function Tab({ name, label, icon: TabIcon, current, action = false, ...rest }: TabProps): JSX.Element {
   return (
     <button
       {...rest}
@@ -41,7 +43,7 @@ function Tab({ name, label, icon: TabIcon, current, ...rest }: TabProps): JSX.El
       data-testid={`tab-${name}`}
       data-current={current ? 'true' : 'false'}
       aria-current={current ? 'page' : undefined}
-      className={classes.tab}
+      className={action ? `${classes.tab} ${classes.action}` : classes.tab}
     >
       <TabIcon size={layout.iconSizeLarge} />
       <span className={classes.label}>{label}</span>
@@ -49,13 +51,67 @@ function Tab({ name, label, icon: TabIcon, current, ...rest }: TabProps): JSX.El
   );
 }
 
+function EditCell({ edit }: { edit: BarEdit }): JSX.Element {
+  const body = (
+    <>
+      <IconPencil size={layout.iconSizeLarge} />
+      <span className={classes.label}>Edit</span>
+    </>
+  );
+  return edit.kind === 'edit' ? (
+    <Link data-testid="tab-edit" to={edit.to} className={`${classes.tab} ${classes.action}`}>
+      {body}
+    </Link>
+  ) : (
+    <a data-testid="tab-edit" role="link" aria-disabled="true" className={`${classes.tab} ${classes.action}`}>
+      {body}
+    </a>
+  );
+}
+
+function NewCell({ here }: { here: string }): JSX.Element {
+  const actions = useFileActions();
+  const [opened, setOpened] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => {
+    setOpened(false);
+    button.current?.focus({ preventScroll: true });
+  }, []);
+  const create = (make: (dir: string) => void): void => {
+    setOpened(false);
+    make(here);
+  };
+
+  return (
+    <>
+      <Tab
+        ref={button}
+        name="new"
+        label="New"
+        icon={IconPlus}
+        current={false}
+        action
+        aria-haspopup="menu"
+        aria-expanded={opened}
+        onClick={() => setOpened((was) => !was)}
+      />
+      <NewTiles
+        opened={opened}
+        onClose={close}
+        onFolder={() => create(actions.newFolder)}
+        onNote={() => create(actions.newNote)}
+      />
+    </>
+  );
+}
+
 export function TabBar(): JSX.Element | null {
   const location = useLocation();
   const navigate = useNavigate();
   const search = useSearchControl();
-  const actions = useFileActions();
   const { canWrite } = useAccount();
   const { currentPath } = useTree();
+  const edit = useBarEdit();
 
   if (isEditPath(location.pathname)) {
     return null;
@@ -77,32 +133,8 @@ export function TabBar(): JSX.Element | null {
       {search !== undefined && (
         <Tab name="search" label="Search" icon={IconSearch} current={searching} onClick={() => search.open()} />
       )}
+      {canWrite && (edit === undefined ? <NewCell here={here} /> : <EditCell edit={edit} />)}
       <Tab name="recent" label="Recent" icon={IconClock} current={!searching && atRecent} onClick={() => go(recentUrl())} />
-      {canWrite && (
-        <PopupMenu position="top-end" offset={4} withinPortal>
-          <Menu.Target>
-            <Tab name="new" label="New" icon={IconPlus} current={false} />
-          </Menu.Target>
-          <Menu.Dropdown data-testid="new-menu" className={classes.newMenu}>
-            <FieldMenuItem
-              data-testid="new-menu-note"
-              className={classes.newItem}
-              rightSection={<IconFilePlus size={layout.iconSize} />}
-              onClick={() => actions.newNote(here)}
-            >
-              New note
-            </FieldMenuItem>
-            <FieldMenuItem
-              data-testid="new-menu-folder"
-              className={classes.newItem}
-              rightSection={<IconFolderPlus size={layout.iconSize} />}
-              onClick={() => actions.newFolder(here)}
-            >
-              New folder
-            </FieldMenuItem>
-          </Menu.Dropdown>
-        </PopupMenu>
-      )}
       <PopupMenu position="top-end" offset={4} width={layout.menuWidthWide} withinPortal>
         <Menu.Target>
           <Tab name="profile" label="Profile" icon={IconUserCircle} current={false} />

@@ -120,19 +120,106 @@ test.describe('mobile', () => {
         removeFixture(DIAGRAM_NOTE);
     });
 
-    test('the tab bar sits at the bottom with Notes, Search, Recent, New and Profile', async ({page}) => {
+    test('the tab bar sits at the bottom with Notes, Search, Edit, Recent and Profile on a note', async ({page}) => {
         // act
         await page.goto(routes.doc(DOC));
 
         // assert
         const bar = page.getByTestId('tab-bar');
-        await expect(bar.locator('button')).toHaveText(['Notes', 'Search', 'Recent', 'New', 'Profile']);
+        await expect(bar.locator('button, a')).toHaveText(['Notes', 'Search', 'Edit', 'Recent', 'Profile']);
         const box = await bar.boundingBox();
         expect(Math.round(box.y + box.height)).toBe(page.viewportSize().height);
         await expect(page.getByTestId('sidebar')).toHaveCount(0);
         await expect(page.getByTestId('topbar-burger')).toHaveCount(0);
-        expect(await tooSmall(page, '[data-testid=tab-bar] button')).toEqual([]);
+        expect(await tooSmall(page, '[data-testid=tab-bar] :is(button, a)')).toEqual([]);
         await shot(page, 'mobile-tab-bar');
+    });
+
+    test.describe('the action of the tab bar', () => {
+        const cells = (page) => page.getByTestId('tab-bar').locator(':scope > :is(button, a)');
+
+        test('is Edit on a note, a disabled Edit on a picture and New in a list', async ({page}) => {
+            // arrange
+            const picture = 'e2e-mobile/action/picture.png';
+            writeFixture(picture, 'not really a png');
+            const edit = page.getByTestId('tab-edit');
+
+            // act & assert
+            await page.goto(routes.doc(DOC));
+            await expect(cells(page)).toHaveText(['Notes', 'Search', 'Edit', 'Recent', 'Profile']);
+            await expect(edit).toHaveAttribute('href', routes.edit(DOC));
+            await expect(edit).toHaveCSS('color', rgb(lightTheme.palette.text));
+            await expect(page.getByTestId('tab-recent')).toHaveCSS('color', rgb(lightTheme.palette.textTertiary));
+            await expect(page.getByTestId('tab-new')).toHaveCount(0);
+            await shot(page, 'mobile-tab-edit');
+
+            await page.goto(routes.doc(picture));
+            await expect(page.getByTestId('file')).toHaveAttribute('data-type', 'image');
+            await expect(cells(page)).toHaveText(['Notes', 'Search', 'Edit', 'Recent', 'Profile']);
+            await expect(edit).toHaveAttribute('aria-disabled', 'true');
+            await expect(edit).not.toHaveAttribute('href');
+            await expect(edit).toHaveCSS('color', rgb(lightTheme.palette.textFaint));
+            await edit.tap({force: true});
+            await expect(page).toHaveURL(routes.doc(picture));
+
+            await page.getByTestId('tab-notes').tap();
+            await expect(page).toHaveURL(atHome());
+            await expect(cells(page)).toHaveText(['Notes', 'Search', 'New', 'Recent', 'Profile']);
+            await expect(edit).toHaveCount(0);
+            const boxes = await cells(page).evaluateAll((items) => items.map((el) => Math.round(el.getBoundingClientRect().width)));
+            expect(new Set(boxes).size).toBe(1);
+            removeFixture('e2e-mobile/action');
+        });
+
+        test('is gone in a read-only space, and the four tabs share the width', async ({page}) => {
+            // arrange
+            await mockMe(page, {}, {read_only: true});
+
+            // act
+            await page.goto(routes.doc(DOC));
+
+            // assert
+            await expect(cells(page)).toHaveText(['Notes', 'Search', 'Recent', 'Profile']);
+            const width = page.viewportSize().width;
+            const boxes = await cells(page).evaluateAll((items) => items.map((el) => el.getBoundingClientRect().width));
+            expect(boxes.map((box) => Math.round(box * 4))).toEqual(Array(4).fill(width));
+        });
+
+        test('New opens two tiles over the bar, a tap on the scrim only closes them, and so does Escape', async ({page}) => {
+            // arrange
+            const folder = 'e2e-mobile/tiles';
+            writeFixture(`${folder}/under.md`, '# Under\n');
+            await page.goto(routes.dir(folder));
+            const tiles = page.getByTestId('new-menu');
+
+            // act & assert
+            await page.getByTestId('tab-new').tap();
+            await openedMenu(page, 'new-menu');
+            await expect(tiles.getByRole('menuitem')).toHaveText([text.create.folder, text.create.note]);
+            await expect(page.getByTestId('new-menu-folder')).toBeFocused();
+            const width = page.viewportSize().width;
+            const bar = await page.getByTestId('tab-bar').boundingBox();
+            const folderTile = await page.getByTestId('new-menu-folder').boundingBox();
+            const noteTile = await page.getByTestId('new-menu-note').boundingBox();
+            expect([folderTile.x, Math.round(noteTile.x + noteTile.width)]).toEqual([8, width - 8]);
+            expect([folderTile.height, noteTile.height]).toEqual([88, 88]);
+            expect(Math.round(folderTile.y + folderTile.height)).toBe(Math.round(bar.y) - 8);
+            await expect(page.getByTestId('new-menu-note')).toHaveCSS('font-size', '15px');
+            await expect(page.getByTestId('new-menu-note')).toHaveCSS('border-radius', '10px');
+            await shot(page, 'mobile-new-tiles');
+
+            const row = await page.locator(`[data-testid=dir-row][data-path="${folder}/under.md"]`).boundingBox();
+            await page.touchscreen.tap(row.x + 40, row.y + row.height / 2);
+            await expect(tiles).toHaveCount(0);
+            await expect(page).toHaveURL(routes.dir(folder));
+
+            await page.getByTestId('tab-new').tap();
+            await openedMenu(page, 'new-menu');
+            await page.keyboard.press('Escape');
+            await expect(tiles).toHaveCount(0);
+            await expect(page.getByTestId('tab-new')).toBeFocused();
+            removeFixture(folder);
+        });
     });
 
     test.describe('on Android', () => {
@@ -332,7 +419,7 @@ test.describe('mobile', () => {
         await page.goto(MAIN.url.dir(docs.doc.folder));
         await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
         await expect.poll(moves).toEqual(['translateX(28%)']);
-        await page.getByTestId('edit-button').tap();
+        await page.getByTestId('tab-edit').tap();
         await expect(page.getByTestId('editor')).toBeVisible();
 
         // act
@@ -662,7 +749,7 @@ test.describe('mobile', () => {
             await page.goto(MAIN.url.dir(docs.doc.folder));
             await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
             await expect(page.getByTestId('doc')).toBeVisible();
-            await page.getByTestId('edit-button').tap();
+            await page.getByTestId('tab-edit').tap();
             await page.getByTestId('editor-cancel').tap();
             await expect(page).toHaveURL(MAIN.url.doc(DOC));
             await expect(page.getByTestId('doc')).toBeVisible();
@@ -1394,7 +1481,7 @@ test.describe('mobile', () => {
         // act & assert
         await page.getByTestId('tab-new').tap();
         await openedMenu(page, 'new-menu');
-        await expect(page.getByTestId('new-menu').getByRole('menuitem')).toHaveText([text.create.note, text.create.folder]);
+        await expect(page.getByTestId('new-menu').getByRole('menuitem')).toHaveText([text.create.folder, text.create.note]);
         await page.getByTestId('new-menu-note').tap();
         await expect(page).toHaveURL(MAIN.url.draft(`${folder}/${text.create.untitled}`));
         await expect(page.locator('[data-testid=editor-source] .cm-content')).toBeFocused();
@@ -1414,12 +1501,12 @@ test.describe('mobile', () => {
         removeFixture(folder);
     });
 
-    test('New folder from the New tab shows a row after the folders of the list on screen, with a ✕ to drop it', async ({page}) => {
+    test('New folder from the New tiles shows a row after the folders of the list on screen, with a ✕ to drop it', async ({page}) => {
         // arrange
         const folder = 'e2e-mobile/new-folder';
         fs.mkdirSync(fixtureFile(`${folder}/inner`), {recursive: true});
         writeFixture(`${folder}/note.md`, '# Note\n');
-        await page.goto(routes.doc(`${folder}/note.md`));
+        await page.goto(routes.dir(folder));
         const draft = page.getByTestId('dir-draft');
         const listed = () => page.getByTestId('dir-table').locator('[data-testid=dir-row], [data-testid=dir-draft]')
             .evaluateAll((rows) => rows.map((row) => row.dataset.path ?? row.dataset.testid));
@@ -1516,7 +1603,7 @@ test.describe('mobile', () => {
         await page.goto(MAIN.url.dir(docs.doc.folder));
         await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
         await expect(page.getByTestId('doc')).toBeVisible();
-        await page.getByTestId('edit-button').tap();
+        await page.getByTestId('tab-edit').tap();
         await page.getByTestId('editor-cancel').tap();
         await expect(page.getByTestId('doc')).toBeVisible();
 
@@ -1543,27 +1630,24 @@ test.describe('mobile', () => {
         await expect(page).toHaveURL(atHome());
     });
 
-    test('the Edit button opens the editor', async ({page}) => {
+    test('Edit in the bar opens the editor', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
         await expect(page.getByTestId('doc-edit')).toHaveCount(0);
 
         // act
-        await page.getByTestId('edit-button').tap();
+        await page.getByTestId('tab-edit').tap();
 
         // assert
         await expect(page).toHaveURL(MAIN.url.edit(DOC));
         await expect(page.getByTestId('tab-bar')).toHaveCount(0);
     });
 
-    test('the tab bar and the Edit button stay where they are while the page scrolls', async ({page}) => {
+    test('the tab bar stays where it is while the page scrolls', async ({page}) => {
         // arrange
         await page.goto(routes.doc(docs.long.path));
         await expect(page.getByTestId('doc')).toBeVisible();
-        const places = async () => [
-            Math.round((await page.getByTestId('tab-bar').boundingBox()).y),
-            Math.round((await page.getByTestId('edit-button').boundingBox()).y),
-        ];
+        const places = async () => Math.round((await page.getByTestId('tab-bar').boundingBox()).y);
         const before = await places();
 
         // act
@@ -1775,7 +1859,7 @@ test.describe('mobile', () => {
         const before = await onPage();
 
         // act
-        await page.getByTestId('edit-button').dispatchEvent('click');
+        await page.getByTestId('tab-edit').dispatchEvent('click');
         const inEditor = () => page.locator('.cm-line', {hasText: '## Середина'}).evaluate((line) =>
             Math.round(line.getBoundingClientRect().top - line.closest('.cm-scroller').getBoundingClientRect().top));
 
@@ -1811,7 +1895,7 @@ test.describe('mobile', () => {
 
         for (let round = 0; round < 2; round++) {
             // act
-            await page.getByTestId('edit-button').dispatchEvent('click');
+            await page.getByTestId('tab-edit').dispatchEvent('click');
 
             // assert
             const lineHeight = await editorLine.evaluate((line) => line.getBoundingClientRect().height);

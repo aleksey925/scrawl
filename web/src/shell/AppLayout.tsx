@@ -7,6 +7,7 @@ import { goToLogin } from '../login';
 import { useReadingCopy } from '../offline/connection';
 import { offlineMe, storedMe } from '../offline/source';
 
+import { BarEditProvider } from './barEdit';
 import { preloadDialogs } from './dialogChunks';
 import { DocumentExtras } from './DocumentExtras';
 import { ReaderExtensionsProvider, type ReaderExtensions } from './extensions';
@@ -61,7 +62,9 @@ function AppProviders({ children }: { children: ReactNode }): JSX.Element {
   return (
     <ResetProvider>
       <FileActionsProvider>
-        <SearchProvider enabled={!fromCopy}>{children}</SearchProvider>
+        <SearchProvider enabled={!fromCopy}>
+          <BarEditProvider>{children}</BarEditProvider>
+        </SearchProvider>
       </FileActionsProvider>
     </ResetProvider>
   );

@@ -9,7 +9,8 @@ import { historyUrl } from '../paths';
 import { layoutBreakpoints, useAtLeast } from '../theme';
 
 import type { DocumentExtrasProps } from './extensions';
-import { EditAction } from './EditButton';
+import { useOfferEdit } from './barEdit';
+import { EditAction } from './EditAction';
 import { useAccount } from './NavContext';
 import { NoteMenu } from './NoteMenu';
 import { PageActions } from './ShellSlots';
@@ -18,6 +19,7 @@ import classes from './Topbar.module.css';
 import { TopbarAction } from './TopbarAction';
 
 export function DocumentExtras({ doc, placed }: DocumentExtrasProps): JSX.Element {
+  useOfferEdit(doc.edit_url);
   return (
     <>
       <PageActions>

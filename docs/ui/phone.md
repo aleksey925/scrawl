@@ -2,30 +2,36 @@
 
 How the app works on a phone.
 
-- On a phone the controls sit at the bottom, under the thumb: a bar of tabs
-  (Notes, Search, Recent, New, Profile) and a round Edit button above it.
-  Profile opens the space's menu, the one the sidebar's foot opens: in the bar
-  on top it was on the root alone. Its "Offline access" row is the same as in
-  the sidebar's menu, and with no network the tabs keep only Notes, Recent and
-  Profile. Both stay put while the page scrolls, as an app's tab bar does: put
-  away on a scroll down, they read as the toolbar of a browser. A page ends at
-  the bar, a note or a file clear of the Edit button, so a list that fits the
-  screen does not scroll. Nine controls and the crumbs once shared one row on
-  top, and the crumbs got 25px, wrapped and fell over the note as a column. A
-  menu opens beside the control that opened it, the way a phone's own menus do;
-  drawn as a sheet from the bottom, every menu sat apart from its button. The
-  search and the history take the whole screen and the outline is a sheet, each
-  over the bar. The search keeps its field at the bottom, over the keyboard,
-  with the results above it: a field at the top of a tall phone is out of the
-  thumb's reach. The editor has no bar, and a site has none. The search field
-  is placed by the visible area of the screen, not by CSS alone: a phone's
-  keyboard covers the bottom of the page without making it shorter, and a field
-  fixed to the bottom sat under the keys. The find bar of a note follows the
-  visible area too: with the keyboard up, the scroll to a match moved the
-  visible area down the page, and the bar fixed to the top of the page was left
-  above the screen until the keyboard closed. The bar is moved in the scroll
-  event itself, not by a React render: a render came a frame late, and the bar
-  jumped on every step to a match.
+- On a phone the controls sit at the bottom, under the thumb: a bar of five
+  cells: Notes, Search, the action, Recent, Profile. The action is Edit on a
+  note or a text file, a faint disabled Edit on any other file, so the cell
+  keeps its place from a note to a picture, and New on every other screen. It
+  is drawn darker than the tabs, as an action and not a place, and with no
+  right to write there is no cell and the four tabs share the width. A note has
+  no New: a note is made from a list. A round Edit button over the page covered
+  the text under it and was one more thing on the screen
+  ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)). Profile opens the
+  space's menu, the one the sidebar's foot opens: in the bar on top it was on
+  the root alone. Its "Offline access" row is the same as in the sidebar's
+  menu, and with no network the tabs keep only Notes, Recent and Profile. Both
+  stay put while the page scrolls, as an app's tab bar does: put away on a
+  scroll down, they read as the toolbar of a browser. A page ends at the bar,
+  so a list that fits the screen does not scroll. Nine controls and the crumbs
+  once shared one row on top, and the crumbs got 25px, wrapped and fell over
+  the note as a column. A menu opens beside the control that opened it, the way
+  a phone's own menus do; drawn as a sheet from the bottom, every menu sat
+  apart from its button. The search and the history take the whole screen and
+  the outline is a sheet, each over the bar. The search keeps its field at the
+  bottom, over the keyboard, with the results above it: a field at the top of a
+  tall phone is out of the thumb's reach. The editor has no bar, and a site has
+  none. The search field is placed by the visible area of the screen, not by
+  CSS alone: a phone's keyboard covers the bottom of the page without making it
+  shorter, and a field fixed to the bottom sat under the keys. The find bar of
+  a note follows the visible area too: with the keyboard up, the scroll to a
+  match moved the visible area down the page, and the bar fixed to the top of
+  the page was left above the screen until the keyboard closed. The bar is
+  moved in the scroll event itself, not by a React render: a render came a
+  frame late, and the bar jumped on every step to a match.
 - On a phone everything starts on a 16px line: the page text and the first and
   last icon of the bar on top.
 - On a phone a dialog stands in the middle of the screen, where the system's
@@ -36,12 +42,14 @@ How the app works on a phone.
 - A rename on a phone opens no dialog, as on a desktop: in a folder's list the
   row's name turns into a field, and on an opened page the field takes the
   place of the title in the bar on top, the way back and the actions gone from
-  the bar until it is done, and the sync control kept after it. The New tab
-  opens a menu of New note and New folder, its labels at the left and its icons
-  at the right, as wide as its labels, the way iOS draws a menu: with its icons
-  at the left and the width of every other menu, its right half stood empty.
-  New note opens a note's draft, with its faint name in the editor's bar, which
-  a tap turns into the name field. New folder opens the list of the folder on
+  the bar until it is done, and the sync control kept after it. New opens two
+  tiles over the bar, New folder at the left and New note at the right, under
+  the right thumb: from edge to edge with 8px to spare, 88px high, on the
+  ground and blur of a menu, an icon over its label. A light scrim covers the
+  page, a tap on it only closes, and so does Escape. Two items fit two big
+  tiles better than a card menu, which Profile keeps for its long list. New
+  note opens a note's draft, with its faint name in the editor's bar, which a
+  tap turns into the name field. New folder opens the list of the folder on
   screen with a row after the last folder, the way a desktop puts it in the
   table: a dialog in the middle of the screen covered the list the folder went
   into. That row, and a row of the list being renamed, is drawn on the gray of
@@ -120,10 +128,10 @@ How the app works on a phone.
   only after 400ms: one that came up the moment the swiped page was gone read
   as the page jerking.
 - The run screen of an HTML app is one bar on top and the frame under it to the
-  bottom of the screen: no tab bar, no Edit button and no swipe back from the
-  edge, since the screen is outside the layout that owns them and a swipe over
-  the frame belongs to the app. The bar is fixed to the top, as the topbar of
-  the other screens is, and adds the safe areas of the status bar and the
-  sides; in the flow of the page Safari blurred it
-  ([quirks](../quirks.md#ios-and-safari)). Its buttons are the 44px of a tap
-  ([touch](touch.md)). Back is the way out. See [pages](pages.md#an-html-app).
+  bottom of the screen: no tab bar and no swipe back from the edge, since the
+  screen is outside the layout that owns them and a swipe over the frame
+  belongs to the app. The bar is fixed to the top, as the topbar of the other
+  screens is, and adds the safe areas of the status bar and the sides; in the
+  flow of the page Safari blurred it ([quirks](../quirks.md#ios-and-safari)).
+  Its buttons are the 44px of a tap ([touch](touch.md)). Back is the way out.
+  See [pages](pages.md#an-html-app).

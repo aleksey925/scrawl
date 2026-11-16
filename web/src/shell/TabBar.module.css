@@ -26,16 +26,23 @@
   background: none;
   color: var(--scrawl-text-tertiary);
   font: inherit;
+  text-decoration: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: var(--scrawl-press-out);
 }
 
-.tab[data-current='true'] {
+.tab[data-current='true'],
+.action {
   color: var(--scrawl-text);
 }
 
-.tab:active {
+.action[aria-disabled='true'] {
+  color: var(--scrawl-text-faint);
+  cursor: default;
+}
+
+.tab:not([aria-disabled='true']):active {
   opacity: 0.4;
   transition: var(--scrawl-press-in);
 }
@@ -43,13 +50,4 @@
 .label {
   font-size: 11px;
   line-height: 1.2;
-}
-
-.newItem [data-position='right'] {
-  margin-inline-start: 28px;
-  color: var(--scrawl-icon);
-}
-
-:global(.mantine-Menu-dropdown).newMenu {
-  min-width: 0;
 }

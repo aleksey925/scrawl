@@ -237,14 +237,14 @@ note, and in whatever editor, all notes end up in one consistent style, and the
 lines are wrapped so that `git diff` and your git host show changes cleanly.
 
 - `Shift+Alt+F` in the editor formats the note without saving it.
-- The contents button in the editor puts a list of the headings between
-  `<!-- toc -->` and `<!-- tocstop -->`. Every save in the editor builds that
-  list again, so a change made by hand inside it is lost. A note saved through
-  the API keeps the list it was sent with.
 - A note changed outside scrawl stays as it is. `scrawl format -w notes/*.md`
   brings existing notes to the same style once.
 - `SPACE_FORMAT_ON_SAVE=off`, or `format_on_save: false` for one space, turns
   it off.
+- The contents button in the editor puts a list of the headings between
+  `<!-- toc -->` and `<!-- tocstop -->`. Every save in the editor builds that
+  list again, with formatting on or off, so a change made by hand inside it is
+  lost. A note saved through the API keeps the list it was sent with.
 
 ## How your changes are kept
 

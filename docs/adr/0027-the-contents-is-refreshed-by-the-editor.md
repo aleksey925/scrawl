@@ -18,6 +18,9 @@ editor, by a client with an API token, and by a restore from the history.
 - A save never adds a block where there is no start marker.
 - If the answer fails or takes more than three seconds, the note is saved as
   written and a toast says so.
+- The cost: the text between the markers belongs to the editor, so an edit made
+  there by hand is lost on the next save, and a save may wait up to three
+  seconds for the headings.
 - A write with an API token and a restore store the text they were given.
 
 ## Options turned down

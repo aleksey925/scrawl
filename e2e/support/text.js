@@ -34,7 +34,7 @@ module.exports = {
         noHeadings: 'No headings to list',
         contentsFailed: 'Could not build the contents',
         contentsNotUpdated: 'Could not update the contents',
-        contentsNoAnswer: 'The server did not answer in three seconds',
+        contentsNoAnswer: 'The server did not answer in 3 seconds',
     },
 
     folderExists: 'That folder already exists',

@@ -42,7 +42,7 @@ export interface UseEditSessionOptions {
   setSavedAs: Dispatch<SetStateAction<string | undefined>>;
   liveView: () => EditorView | undefined;
   bufferText: () => string;
-  putFormatted: (sent: string, formatted: string, cursor?: number) => boolean;
+  putIfUnchanged: (sent: string, text: string, cursor?: number) => boolean;
   formatBuffer: () => Promise<string>;
   refreshToc: () => Promise<string | undefined>;
   uploads: UploadControl;
@@ -92,7 +92,7 @@ export function useEditSession({
   setSavedAs,
   liveView,
   bufferText,
-  putFormatted,
+  putIfUnchanged,
   formatBuffer,
   refreshToc,
   uploads,
@@ -238,7 +238,7 @@ export function useEditSession({
           formatted,
         });
         const stored = res.content === undefined ? undefined : toEditorText(res.content);
-        const shown = stored === undefined ? bufferText() === sent : putFormatted(sent, stored);
+        const shown = stored === undefined ? bufferText() === sent : putIfUnchanged(sent, stored);
         markSaved(stored ?? sent, res.rev, shown);
         if (res.format_failed === true) {
           showToast('warn', {
@@ -303,7 +303,7 @@ export function useEditSession({
       lineBreak,
       markSaved,
       path,
-      putFormatted,
+      putIfUnchanged,
       readOnly,
       refreshMe,
       refreshToc,

@@ -44,7 +44,7 @@ import classes from './Editor.module.css';
 import { lineBreakOf, toEditorText } from './lineBreaks';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
 import { insertTable, runTableEdit, tableEditsAtCursor } from './table';
-import { hasToc, tocBlock, writeToc, writeTocInText } from './toc';
+import { tocBlock, tocRangeIn, writeToc, writeTocInText } from './toc';
 import { useChanges } from './useChanges';
 import { useDraft } from './useDraft';
 import { useEditorPosition } from './useEditorPosition';
@@ -82,7 +82,7 @@ const saveStateText: Record<SaveState, string> = {
 };
 
 const tocFailed = 'Could not build the contents';
-const tocNoAnswer = 'The server did not answer in three seconds.';
+const tocNoAnswer = `The server did not answer in ${tocRefreshMs / 1000} seconds.`;
 
 function LineCount({ lines, className }: { lines: number; className: string | undefined }): JSX.Element {
   return (
@@ -162,17 +162,17 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     [liveView],
   );
 
-  const putFormatted = useCallback(
-    (sent: string, formatted: string, cursor?: number): boolean => {
+  const putIfUnchanged = useCallback(
+    (sent: string, text: string, cursor?: number): boolean => {
       if (bufferText() !== sent) {
         return false;
       }
       const current = liveView();
       if (current === undefined) {
-        contentRef.current = formatted;
-        setContent(formatted);
+        contentRef.current = text;
+        setContent(text);
       } else {
-        replaceText(current, formatted, cursor);
+        replaceText(current, text, cursor);
       }
       return true;
     },
@@ -182,9 +182,9 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const formatBuffer = useCallback(async (): Promise<string> => {
     const sent = bufferText();
     const res = await formatMarkdown(sent, liveView()?.state.selection.main.head ?? 0);
-    putFormatted(sent, res.text, res.cursor);
+    putIfUnchanged(sent, res.text, res.cursor);
     return res.text;
-  }, [bufferText, liveView, putFormatted]);
+  }, [bufferText, liveView, putIfUnchanged]);
 
   const format = useCallback((): void => {
     formatBuffer().catch((error: unknown) => {
@@ -245,17 +245,18 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   const refreshToc = useCallback(async (): Promise<string | undefined> => {
     const sent = bufferText();
-    if (kind !== 'markdown' || !hasToc(sent)) {
+    const range = kind === 'markdown' ? tocRangeIn(sent) : undefined;
+    if (range === undefined) {
       return undefined;
     }
     try {
       const res = await api.preview({ content: sent, path }, { signal: AbortSignal.timeout(tocRefreshMs) });
-      putFormatted(sent, writeTocInText(sent, 0, tocBlock(res.toc)));
+      putIfUnchanged(sent, `${sent.slice(0, range.from)}${tocBlock(res.toc)}${sent.slice(range.to)}`);
       return undefined;
     } catch (error: unknown) {
       return error instanceof DOMException && error.name === 'TimeoutError' ? tocNoAnswer : errorText(error);
     }
-  }, [bufferText, kind, path, putFormatted]);
+  }, [bufferText, kind, path, putIfUnchanged]);
 
   useEffect(() => {
     if (formatOnSave) {
@@ -293,7 +294,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     setSavedAs,
     liveView,
     bufferText,
-    putFormatted,
+    putIfUnchanged,
     formatBuffer,
     refreshToc,
     uploads,

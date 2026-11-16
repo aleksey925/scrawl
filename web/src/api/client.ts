@@ -233,7 +233,7 @@ export type RestoreOutcome = { ok: true; state: MutationState } | { ok: false; c
 export interface ScrawlApi {
   page(path: string, options?: RequestOptions): Promise<PageResponse>;
   dir(path: string, options?: RequestOptions): Promise<DirListing>;
-  nav(path: string, options?: RequestOptions): Promise<NavResponse>;
+  nav(options?: RequestOptions): Promise<NavResponse>;
   me(options?: RequestOptions): Promise<MeResponse>;
   spaces(options?: RequestOptions): Promise<SpaceEntry[]>;
   tree(options?: RequestOptions): Promise<TreeResponse>;
@@ -272,8 +272,8 @@ export const api: ScrawlApi = {
     return call<DirListing>('GET', url, { ...options, stored: url });
   },
 
-  nav: (path, options) =>
-    call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path }), {
+  nav: (options) =>
+    call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path: '' }), {
       ...options,
       stored: answerUrl.nav(mountBase()),
     }),

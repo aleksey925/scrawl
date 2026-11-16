@@ -258,7 +258,7 @@ switch, inside the tap.
 - Offline the reader gets `offlinePlatform`: the app's platform with no search,
   no editing, and `offlineSource`, which reads `scrawl-data` directly and gives
   only answers whose release is the shell's `data-version`. The tree is the
-  stored one, its branch marked by `markBranch`, which the site uses too.
+  stored one, and `NavProvider` marks its branch, as it does for every source.
 - `NavProvider` gets the stored `me` with the space read-only, history off and
   the git sync fields empty, so every write control, history and the sync
   control go with no change to them. The search provider gives no control, the

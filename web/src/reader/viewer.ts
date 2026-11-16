@@ -6,6 +6,7 @@ const dismissMin = 100;
 const dismissFlick = 0.5;
 const dismissMs = 200;
 const tapSlop = 8;
+const flickWindowMs = 100;
 const doubleTapMs = 300;
 const maxScale = 8;
 const ceilingOverActual = 2;
@@ -385,6 +386,7 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
       gesture = { from: pointOf(event), travel: 0, pinched: false, touch: event.pointerType === 'touch' };
     } else {
       gesture.pinched = true;
+      endPull(false);
     }
   });
   dialog.addEventListener('pointermove', (event) => {
@@ -438,6 +440,9 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
   dialog.addEventListener('pointerup', (event) => {
     release(event);
     if (pull !== null) {
+      if (event.timeStamp - pull.at > flickWindowMs) {
+        pull = { ...pull, speed: 0 };
+      }
       endPull(true);
       return;
     }

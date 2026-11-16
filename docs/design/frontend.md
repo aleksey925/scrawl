@@ -125,12 +125,13 @@ How the react app in `web/` is built, shipped and wired.
 - `useApi` drops the answer of a run it has canceled, a success as well as an
   error: a source may not watch the signal, the copy's reads do not, and a slow
   answer of the note before would then land under the next one's address.
-- The tree is one answer for the whole space: the app asks `/api/nav` with no
-  path and marks the branch of the file on screen itself, with the `markBranch`
-  the site and the offline copy use. It asks again on every move, so a file
-  made elsewhere shows up, and the server answers with an `ETag` of the tree,
-  so an unchanged tree comes back as a 304 with no body. Asked per file, the
-  whole tree came again on every tap, though only its marks changed.
+- The tree is one answer for the whole space: the app asks `/api/nav` with an
+  empty `path`, and `NavProvider` marks the branch of the file on screen with
+  `markBranch`, for the server, the site and the offline copy alike. It asks
+  again on every move, so a file made elsewhere shows up, and the server
+  answers with an `ETag` of the tree, so an unchanged tree comes back as a 304
+  with no body. Asked per file, the whole tree came again on every tap, though
+  only its marks changed.
 - The file on screen is the route. A folder is always its list, so a note is
   shown under its own address only, and a per-file signal keys off the route.
 - A context that many components read carries one kind of value, so a change
@@ -138,13 +139,14 @@ How the react app in `web/` is built, shipped and wired.
   tree (`useTree`) are apart: a folder opened or a filter typed draws no note
   again, and a poll of the account draws no tree row. The filter of the tree is
   a third context, read by the sidebar alone, so a letter typed draws no
-  folder's list or bar, and the rows take the filter as a deferred value: the
-  field shows each key at once and the rows catch up. The page chrome's setters
-  are a context of their own, apart from the value, so a page that sets its
-  title is not drawn again by its own title. A page sets its chrome in a layout
-  effect, before the browser draws: set in an effect, the bar on top showed the
-  title of the page before for a frame. A value that comes back the same, the
-  account's answer or a scroll that moves nothing, keeps the object it had.
+  folder's list or bar, and the rows take the filter as a deferred value and
+  are memoized, so the field shows each key at once and the rows catch up. The
+  page chrome's setters are a context of their own, apart from the value, so a
+  page that sets its title is not drawn again by its own title. A page sets its
+  chrome in a layout effect, before the browser draws: set in an effect, the
+  bar on top showed the title of the page before for a frame. A value that
+  comes back the same, the account's answer or a scroll that moves nothing,
+  keeps the object it had.
 - Rendered notes never share an id namespace with app chrome. A heading becomes
   an element id, so a note carrying "Toasts" took `id="toasts"` and every toast
   was appended invisibly inside it. Chrome is mantine components, portals and

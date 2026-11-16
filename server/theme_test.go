@@ -161,7 +161,7 @@ func TestTouchIconFollowsTheTheme(t *testing.T) {
 func TestTouchIconsArePublic(t *testing.T) {
 	ts := newTestServer(t, testOpts{withAuth: true})
 
-	for _, name := range []string{"apple-touch-icon.png", "apple-touch-icon-dark.png"} {
+	for _, name := range []string{"apple-touch-icon.png", "apple-touch-icon-dark.png", "icon-512.png", "icon-maskable-512.png"} {
 		t.Run(name, func(t *testing.T) {
 			// act
 			icon, _ := ts.do(t, request{path: "/static/" + ts.Version + "/icons/" + name + "?v=" + iconStamp()})

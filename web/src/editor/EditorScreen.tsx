@@ -635,7 +635,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               onChange={setContent}
               onCreate={onCreate}
               onFiles={kind === 'markdown' ? onFiles : undefined}
-              outerScroll={touch && !wide && !lineWrap.wrap}
+              outerScroll={touch && mode !== 'split' && !lineWrap.wrap}
             />
           </div>
         )}

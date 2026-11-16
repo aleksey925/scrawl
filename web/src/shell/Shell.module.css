@@ -2,7 +2,7 @@
   border: 0;
   background: var(--scrawl-bg);
   transform: var(--scrawl-visible-shift, none);
-  transition: none;
+  transition-property: margin-inline-start, margin-inline-end;
 }
 
 .main {

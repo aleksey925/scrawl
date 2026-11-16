@@ -70,14 +70,76 @@ test.describe('pages', () => {
         // assert
         await expect(page.getByTestId('tree-row').first()).toBeVisible();
         await Promise.all([documentPage, editPage]);
+        const afterLoad = () => page.evaluate(() => {
+            const loaded = performance.getEntriesByType('navigation')[0].loadEventStart;
+            return performance.getEntriesByType('resource')
+                .filter((entry) => /\/assets\/(DocumentPage|EditPage)\.js$/.test(entry.name))
+                .map((entry) => entry.startTime >= loaded);
+        });
+        await expect.poll(afterLoad).toEqual([true, true]);
+    });
+
+    test('a reader with no right to write loads the page of a note on idle and not the editor', async ({page}) => {
+        // arrange
+        await mockMe(page, {}, {read_only: true});
+        const asked = [];
+        page.on('request', (request) => {
+            if (request.url().endsWith('/assets/EditPage.js')) {
+                asked.push(request.url());
+            }
+        });
+        const documentPage = page.waitForRequest((request) => request.url().endsWith('/assets/DocumentPage.js'));
+
+        // act
+        await page.goto(routes.home());
+
+        // assert
+        await documentPage;
+        await stays(() => asked, [], 500);
+    });
+
+    test('a move between notes asks for the same tree with the tag of the one it has', async ({page}) => {
+        // arrange
+        const asked = [];
+        page.on('response', async (response) => {
+            const url = new URL(response.url());
+            if (url.pathname.endsWith('/api/nav')) {
+                const sent = await response.request().headerValue('if-none-match');
+                asked.push({search: url.search, sent, tag: await response.headerValue('etag')});
+            }
+        });
+        await page.goto(routes.doc(docs.doc.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await expect.poll(() => asked.length).toBe(1);
+
+        // act
+        await page.locator(`[data-testid=tree-row][data-path="${docs.folder.entry}"] [data-testid=tree-link]`).click();
+
+        // assert
+        const current = page.locator(`[data-testid=tree-row][data-path="${docs.folder.entry}"]`);
+        await expect(current).toHaveAttribute('data-current', 'true');
+        await expect.poll(() => asked.length).toBe(2);
+        const [first, second] = asked;
+        expect(second).toEqual({search: '?path=', sent: first.tag, tag: first.tag});
+        expect(first.search).toBe('?path=');
     });
 
     test('a chunk that is gone reloads the page into the screen asked for', async ({page}) => {
         // arrange
         let asked = 0;
+        let click = () => {};
+        const clicked = new Promise((resolve) => {
+            click = resolve;
+        });
+        let reach = () => {};
+        const preloading = new Promise((resolve) => {
+            reach = resolve;
+        });
         await page.route('**/assets/EditPage.js', async (route) => {
             asked += 1;
             if (asked === 1) {
+                reach();
+                await clicked;
                 await route.fulfill({status: 404, body: 'gone'});
                 return;
             }
@@ -85,10 +147,12 @@ test.describe('pages', () => {
         });
         await page.goto(routes.doc(docs.doc.path));
         await expect(page.getByTestId('doc')).toBeVisible();
+        await preloading;
         const reloaded = page.waitForEvent('load');
 
         // act
         await page.getByTestId('doc-edit').click();
+        click();
 
         // assert
         await reloaded;

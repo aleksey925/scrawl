@@ -2,7 +2,7 @@ import {
   ActionIcon, Anchor, Box, Group, Highlight, ScrollArea, Skeleton, Stack, Text, TextInput, UnstyledButton,
 } from '@mantine/core';
 import {
-  createContext, useCallback, useContext, useDeferredValue, useEffect, useMemo, useRef, useState,
+  createContext, memo, useCallback, useContext, useDeferredValue, useEffect, useMemo, useRef, useState,
   type CSSProperties, type DragEvent, type JSX, type KeyboardEvent, type MouseEvent, type ReactNode,
 } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -71,7 +71,7 @@ interface RowsProps {
 
 type TreeRowProps = Omit<RowsProps, 'nodes'> & { node: NavNode };
 
-function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | null {
+const TreeRow = memo(function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | null {
   const { isOpen, openFolder, toggleFolder, currentPath } = useTree();
   const actions = useOptionalFileActions();
   const draft = actions?.draft;
@@ -210,7 +210,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
       )}
     </Box>
   );
-}
+});
 
 interface FolderIconProps {
   name: string;
@@ -533,7 +533,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
       if (typed === '') {
         return;
       }
-      const first = (typed === trimmed ? filtered : filterTree(tree, typed)).matches[0];
+      const first = filterTree(tree, typed).matches[0];
       if (first !== undefined) {
         void navigate(first.url);
       } else if (openSearch !== undefined) {

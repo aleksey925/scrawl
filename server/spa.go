@@ -244,6 +244,10 @@ func (m *mount) apiNav(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
+	writeTaggedJSON(w, r, body)
+}
+
+func writeTaggedJSON(w http.ResponseWriter, r *http.Request, body []byte) {
 	sum := sha256.Sum256(body)
 	etag := strconv.Quote(hex.EncodeToString(sum[:16]))
 	h := w.Header()
@@ -255,7 +259,7 @@ func (m *mount) apiNav(w http.ResponseWriter, r *http.Request) {
 	}
 	h.Set("Content-Type", "application/json; charset=utf-8")
 	if _, err := w.Write(body); err != nil {
-		log.Printf("[DEBUG] write the tree: %v", err)
+		log.Printf("[DEBUG] write %s: %v", r.URL.Path, err)
 	}
 }
 

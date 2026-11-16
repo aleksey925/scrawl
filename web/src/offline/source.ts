@@ -3,7 +3,6 @@ import type { DirListing, MeResponse, NavResponse, PageResponse, SpaceEntry } fr
 import { mountBase, mountRelease } from '../mount';
 import { directoryUrl } from '../paths';
 import type { Platform } from '../platform';
-import { markBranch } from '../reader/tree';
 
 import { answerUrl, dataCache } from './keys';
 import { ownerChecked } from './owner';
@@ -51,12 +50,11 @@ export const offlineSource: Platform['source'] = {
     }
     return storedAnswer<DirListing>(answerUrl.dir(mountBase(), path));
   },
-  nav: async (path) => {
+  nav: async () => {
     if ((await storedEntry(navEntry)) === undefined) {
       throw missing();
     }
-    const nav = await storedAnswer<NavResponse>(answerUrl.nav(mountBase()));
-    return { tree: markBranch(nav.tree, path), breadcrumbs: [] };
+    return storedAnswer<NavResponse>(answerUrl.nav(mountBase()));
   },
 };
 

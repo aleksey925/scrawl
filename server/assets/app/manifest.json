@@ -8,7 +8,6 @@
     "name": "AsyncContent",
     "imports": [
       "_naming.js",
-      "_errors.js",
       "index.html"
     ],
     "css": [
@@ -428,10 +427,6 @@
     "file": "assets/defaultLocale.js",
     "name": "defaultLocale"
   },
-  "_errors.js": {
-    "file": "assets/errors.js",
-    "name": "errors"
-  },
   "_graphlib.js": {
     "file": "assets/graphlib.js",
     "name": "graphlib",
@@ -607,8 +602,7 @@
       "_naming.js",
       "_Text.js",
       "_changeSignal.js",
-      "_storage.js",
-      "_errors.js"
+      "_storage.js"
     ],
     "dynamicImports": [
       "node_modules/mermaid/dist/mermaid.core.mjs",
@@ -2514,7 +2508,6 @@
       "_Text.js",
       "_AsyncContent.js",
       "_storage.js",
-      "_errors.js",
       "index.html",
       "_lezer-common.js",
       "_lezer-html.js",
@@ -2666,7 +2659,6 @@
       "_Text.js",
       "_AsyncContent.js",
       "_storage.js",
-      "_errors.js",
       "index.html",
       "_DocumentView.js",
       "_RenderedDiff.js",
@@ -2776,7 +2768,6 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "_Text.js",
-      "_errors.js",
       "index.html",
       "_DialogActions.js"
     ],

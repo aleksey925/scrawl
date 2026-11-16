@@ -138,7 +138,7 @@ func newAppShell(files gzassets.Files) (*appShell, error) {
 	}
 	shell.pages = map[string][]string{}
 	for route, page := range routePages {
-		for _, file := range pageModules(chunks, page, entry) {
+		for _, file := range pageModules(chunks, page) {
 			if href := base + file; !slices.Contains(shell.preload, href) {
 				shell.pages[route] = append(shell.pages[route], href)
 			}
@@ -147,13 +147,13 @@ func newAppShell(files gzassets.Files) (*appShell, error) {
 	return shell, nil
 }
 
-func pageModules(chunks map[string]manifestChunk, page string, entry manifestChunk) []string {
+func pageModules(chunks map[string]manifestChunk, page string) []string {
 	var res []string
 	seen := map[string]bool{}
 	var walk func(name string)
 	walk = func(name string) {
 		chunk, ok := chunks[name]
-		if !ok || seen[name] || chunk.IsEntry || chunk.File == entry.File {
+		if !ok || seen[name] || chunk.IsEntry {
 			return
 		}
 		seen[name] = true

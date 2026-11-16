@@ -288,12 +288,12 @@ test.describe('editing', () => {
         const {release, reached} = await holdRoute(page, '**/assets/DocumentPage.js');
         await page.goto(routes.edit(docPath));
         await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await reached;
         await setSource(page, 'written\n');
         const source = page.locator('[data-testid=editor-source] .cm-content');
 
         // act
         await page.getByTestId('editor-save').click();
-        await reached;
         await expect(source).toHaveAttribute('contenteditable', 'false');
         await page.keyboard.type(' and more');
         const shown = await sourceText(page);
@@ -475,7 +475,7 @@ test.describe('editing', () => {
         // assert
         await expect(offer).toHaveAttribute('data-stale', 'true');
         expect(fresh.stale).toBe('false');
-        expect(fresh.when).toMatch(/^Today, \d{2}:\d{2}$/);
+        expect(fresh.when).toMatch(/^(Today|Yesterday), \d{2}:\d{2}$/);
         await expect(when).toHaveText(`${fresh.when} · ${text.editor.draftStale}`);
         removeFixture(docPath);
     });

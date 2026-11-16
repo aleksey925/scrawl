@@ -128,13 +128,14 @@ func TestPageModulesWalkThePageAndItsImportsButNotTheEntry(t *testing.T) {
 	}
 
 	// act
-	got := pageModules(chunks, "src/pages/EditPage.tsx", chunks["index.html"])
+	got := pageModules(chunks, "src/pages/EditPage.tsx")
 
 	// assert
 	assert.Equal(t, []string{"assets/EditPage.js", "assets/codemirror.js", "assets/naming.js", "assets/lezer.js"}, got)
 }
 
 func TestAppShellPreloadsThePageOfItsRoute(t *testing.T) {
+	// arrange
 	ts := newTestServer(t, testOpts{})
 	base := appBase(ts.appShell.version)
 	preload := func(file string) string {
@@ -150,6 +151,9 @@ func TestAppShellPreloadsThePageOfItsRoute(t *testing.T) {
 		{name: "the root", path: "/", page: "assets/HomePage.js", notPage: "assets/EditPage.js"},
 		{name: "a note", path: "/doc/guide.md", page: "assets/DocumentPage.js", notPage: "assets/EditPage.js"},
 		{name: "the editor", path: "/edit/guide.md", page: "assets/EditPage.js", notPage: "assets/DocumentPage.js"},
+		{name: "the search", path: "/search", page: "assets/SearchPage.js", notPage: "assets/DocumentPage.js"},
+		{name: "the notes opened last", path: "/recent", page: "assets/RecentPage.js", notPage: "assets/EditPage.js"},
+		{name: "the history of a note", path: "/history/guide.md", page: "assets/HistoryPage.js", notPage: "assets/EditPage.js"},
 	}
 
 	for _, tc := range tests {

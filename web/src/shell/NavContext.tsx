@@ -126,7 +126,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
   const [token, setToken] = useState(0);
   const { source, storageScope } = usePlatform();
   const storageKey = openKey(storageScope);
-  const nav = useApi((signal) => source.nav('', { signal }), [source, currentPath, token], answerKeys.nav);
+  const nav = useApi((signal) => source.nav({ signal }), [source, currentPath, token], answerKeys.nav);
   const { me, refreshMe } = status;
 
   const [open, setOpen] = useState<ReadonlySet<string>>(() => readOpen(storageKey));

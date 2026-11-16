@@ -27,6 +27,10 @@ words; the fact itself is written here.
   [Phone](ui/phone.md)
 - With the bars of mobile Safari out, a picture capped in `vh` and its caption
   stood taller than the dialog. [Pages](ui/pages.md)
+- iOS locks no axis in a box that scrolls both ways, so a swipe up drifts
+  sideways with the finger. A box that scrolls one way inside a box that
+  scrolls the other gives each swipe to one of them. [Editor](ui/editor.md),
+  [History](design/history.md)
 
 ## WebKit
 
@@ -55,9 +59,6 @@ words; the fact itself is written here.
   element fixed to the page moves with it. React renders a state set in a
   scroll listener after the frame is drawn, so the element is seen in the wrong
   place for a frame. [Phone](ui/phone.md)
-- iOS locks no axis in a box that scrolls both ways, so a swipe up drifts
-  sideways with the finger. A box that scrolls one way inside a box that
-  scrolls the other gives each swipe to one of them. [Editor](ui/editor.md)
 - With the keyboard up, a scrolling box as tall as the page runs under the
   keys, and a drag in it moves either the box or the visible area across the
   page. [Editor](ui/editor.md)
@@ -72,6 +73,8 @@ words; the fact itself is written here.
 
 ## Browsers
 
+- Not every browser passes a dialog's custom properties on to its `::backdrop`;
+  where it does not, the backdrop reads none of them. [Pages](ui/pages.md)
 - A plain http page that is not localhost has no clipboard api.
   [Frontend](design/frontend.md)
 - A page cannot read a drag's data during `dragover`. [Entries](ui/entries.md)

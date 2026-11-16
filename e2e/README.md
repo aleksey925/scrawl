@@ -228,6 +228,10 @@ expected.
   because `waitForLoadState('load')` answers for the page being left; a
   shortcut is pressed only after the bundle has mounted, because a key pressed
   before is lost; a phone's menu is measured only once it has finished growing.
+- A spec that holds the chunk of a note's page or of the editor's sets the
+  hold before the first `goto`: the app loads both while the browser is idle,
+  and the browser keeps a module it has once loaded or failed to load, so a
+  hold set later catches nothing.
 - The route tests load an address directly and do not click to it. The page
   segment is spelled in the route table, the path builders and the pathname
   reader, and a click goes through the builders, so it still works when one of

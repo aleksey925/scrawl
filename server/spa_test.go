@@ -462,11 +462,28 @@ func TestAPINavAnswersNotModifiedForTheTreeTheBrowserHas(t *testing.T) {
 	again, body := ts.do(t, request{path: "/api/nav", headers: map[string]string{"If-None-Match": etag}})
 
 	// assert
+	assert.Equal(t, http.StatusOK, first.status)
 	assert.Equal(t, http.StatusNotModified, again.status)
 	assert.Empty(t, body)
 	assert.Equal(t, etag, again.header.Get("ETag"))
 	assert.Equal(t, pageCacheControl, first.header.Get("Cache-Control"))
 	assert.NotEqual(t, etag, elsewhere.header.Get("ETag"))
+}
+
+func TestAPINavAnswersAChangedTreeInFull(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	first, _ := ts.do(t, request{path: "/api/nav"})
+	_, err := ts.Spaces[0].Store.Create("added.md", false)
+	require.NoError(t, err)
+
+	// act
+	resp, body := ts.do(t, request{path: "/api/nav", headers: map[string]string{"If-None-Match": first.header.Get("ETag")}})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.NotEqual(t, first.header.Get("ETag"), resp.header.Get("ETag"))
+	assert.Contains(t, body, `"path":"added.md"`)
 }
 
 func TestAPINavMarksNothingWithoutACurrentPath(t *testing.T) {

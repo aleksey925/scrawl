@@ -1019,6 +1019,22 @@ test.describe('mobile', () => {
             await expect(menu).toBeVisible();
         });
 
+        test('with wrap off the editor scrolls in two boxes in Source and in one in Split', async ({page}) => {
+            // arrange
+            await page.addInitScript(() => localStorage.setItem('scrawl.editor.wrap', 'false'));
+            writeFixture(SCRATCH, '# Планшет\n\nстрока\n');
+            await page.goto(routes.edit(SCRATCH));
+            const pane = page.getByTestId('editor-source');
+            await page.getByTestId('editor-layout-mode').getByTitle('Split').tap();
+            await expect(pane).not.toHaveAttribute('data-scroll');
+
+            // act
+            await page.getByTestId('editor-layout-mode').getByTitle('Source').tap();
+
+            // assert
+            await expect(pane).toHaveAttribute('data-scroll', 'outer');
+        });
+
         test('the Search row of the sidebar shows no key on a touch screen', async ({page}) => {
             // act
             await page.goto(routes.home());
@@ -2061,6 +2077,48 @@ test.describe('mobile', () => {
         });
     });
 
+    test('a text file in the editor takes the visible area too', async ({page}) => {
+        // arrange
+        await fakeVisibleArea(page);
+        writeFixture('e2e-mobile/area.txt', 'строка\n');
+        await page.goto(routes.edit('e2e-mobile/area.txt'));
+        await expect(page.getByTestId('editor')).toHaveAttribute('data-kind', 'text');
+        const raisedTop = 120;
+        const raisedVisible = 400;
+
+        // act
+        await moveVisibleArea(page, raisedTop, raisedVisible);
+
+        // assert
+        const placed = await page.evaluate(() => ({
+            top: Math.round(document.querySelector('[data-testid=topbar]').getBoundingClientRect().top),
+            bottom: Math.round(document.querySelector('[data-testid=editor]').getBoundingClientRect().bottom),
+            keyboard: document.querySelector('[data-testid=editor]').dataset.keyboard,
+        }));
+        expect(placed).toEqual({top: raisedTop, bottom: raisedTop + raisedVisible, keyboard: 'true'});
+    });
+
+    test('leaving the editor takes the visible area off the page', async ({page}) => {
+        // arrange
+        await fakeVisibleArea(page);
+        writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
+        await page.goto(routes.edit(SCRATCH));
+        await expect(page.getByTestId('editor')).toHaveAttribute('data-keyboard', 'false');
+        await moveVisibleArea(page, 120, 400);
+        const visibleVars = () => page.evaluate(() => {
+            const root = document.documentElement.style;
+            return [root.getPropertyValue('--scrawl-visible-height'), root.getPropertyValue('--scrawl-visible-shift')];
+        });
+        await expect.poll(visibleVars).toEqual(['400px', 'translateY(120px)']);
+
+        // act
+        await page.getByTestId('editor-cancel').tap();
+
+        // assert
+        await expect(page.getByTestId('doc')).toBeVisible();
+        expect(await visibleVars()).toEqual(['', '']);
+    });
+
     test('a visible area growing while typing keeps the place the text was scrolled to', async ({page}) => {
         // arrange
         await fakeVisibleArea(page);
@@ -2111,7 +2169,8 @@ test.describe('mobile', () => {
         await page.goto(routes.edit(SCRATCH));
         await expect.poll(() => sourceText(page)).toBe('# Заметка\n\nтекст\n');
         await setSource(page, '# Заметка\n\nчерновик\n');
-        await page.waitForTimeout(1000);
+        await expect.poll(() => page.evaluate(() => Object.keys(localStorage)
+            .some((key) => key.startsWith('scrawl.draft.') && localStorage.getItem(key).includes('черновик')))).toBe(true);
         const width = page.viewportSize().width;
 
         // act
@@ -2334,6 +2393,22 @@ test.describe('mobile', () => {
             pane: {x: 'hidden', y: 'auto', down: true},
             scroller: {x: 'auto', y: 'hidden', across: true},
         });
+    });
+
+    test('with wrap off a tap below a short text puts the cursor in the editor', async ({page}) => {
+        // arrange
+        await page.addInitScript(() => localStorage.setItem('scrawl.editor.wrap', 'false'));
+        writeFixture(SCRATCH, '# Коротко\n\nодна строка\n');
+        await page.goto(routes.edit(SCRATCH));
+        const pane = page.getByTestId('editor-source');
+        await expect(pane).toHaveAttribute('data-scroll', 'outer');
+        const last = await pane.locator('.cm-line').last().boundingBox();
+
+        // act
+        await page.touchscreen.tap(last.x + 40, last.y + last.height + 80);
+
+        // assert
+        await expect(pane.locator('.cm-editor')).toHaveClass(/cm-focused/);
     });
 
     test('a line inside a code block survives the trip to the editor and back', async ({page}) => {
@@ -2899,16 +2974,34 @@ test.describe('mobile', () => {
 
     test('the fields that find something start in lower case with no autocorrect', async ({page}) => {
         // arrange
+        const traits = (testId) => page.getByTestId(testId)
+            .evaluate((el) => [el.getAttribute('autocapitalize'), el.getAttribute('autocorrect'), el.spellcheck, el.enterKeyHint]);
+        const found = {};
         await page.goto(routes.home());
 
         // act
         await page.getByTestId('tab-search').tap();
+        await expect(page.getByTestId('search-input')).toBeVisible();
+        found.search = await traits('search-input');
+        await page.goto(`${routes.doc(DOC)}?q=${docs.search.word}`);
+        await expect(page.getByTestId('doc-find-input')).toBeVisible();
+        found.find = await traits('doc-find-input');
+        await page.goto(MAIN.url.dir(docs.folder.path));
+        await page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`).getByTestId('tree-row-menu').tap();
+        await openedMenu(page, 'tree-row-menu-dropdown');
+        await page.getByTestId('tree-row-menu-move').tap();
+        await expect(page.getByTestId('move-input')).toBeVisible();
+        found.move = await traits('move-input');
+        await page.setViewportSize({width: 1280, height: 800});
+        await page.goto(routes.home());
+        await expect(page.getByTestId('sidebar-filter')).toBeVisible();
+        found.filter = await traits('sidebar-filter');
 
         // assert
-        const field = page.getByTestId('search-input');
-        await expect(field).toBeVisible();
-        expect(await field.evaluate((el) => [el.getAttribute('autocapitalize'), el.getAttribute('autocorrect'), el.spellcheck, el.enterKeyHint]))
-            .toEqual(['off', 'off', false, 'search']);
+        const lower = ['off', 'off', false];
+        expect(found).toEqual({
+            search: [...lower, 'search'], find: [...lower, 'search'], move: [...lower, 'go'], filter: [...lower, 'search'],
+        });
     });
 
     test('a picture pulled down far enough closes the viewer', async ({page}) => {
@@ -2944,6 +3037,91 @@ test.describe('mobile', () => {
         await expect(picture).toBeVisible();
         await expect.poll(() => picture.evaluate((el) => el.style.transform)).toBe('');
         await expect(page.getByTestId('doc-lightbox')).not.toHaveAttribute('data-pull');
+    });
+
+    test.describe('a picture pulled in the viewer', () => {
+        async function openPicture(page) {
+            await page.goto(routes.doc(docs.illustrated.doc));
+            await page.getByTestId('doc-image').first().tap();
+            const picture = page.getByTestId('doc-lightbox-image');
+            await expect(picture).toBeVisible();
+            const box = await picture.boundingBox();
+            return {picture, centre: {x: box.x + box.width / 2, y: box.y + box.height / 2}};
+        }
+
+        async function pullBy(cdp, from, dy, steps) {
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [from]});
+            for (let index = 1; index <= steps; index += 1) {
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: from.x, y: from.y + (dy * index) / steps}]});
+            }
+            return {x: from.x, y: from.y + dy};
+        }
+
+        test('up far enough closes the viewer', async ({page}) => {
+            // arrange
+            const {centre} = await openPicture(page);
+
+            // act
+            await touchDrag(page, centre, {x: centre.x, y: centre.y - 220});
+
+            // assert
+            await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+        });
+
+        test('by a short fast flick closes the viewer', async ({page}) => {
+            // arrange
+            const {centre} = await openPicture(page);
+
+            // act
+            await touchDrag(page, centre, {x: centre.x, y: centre.y + 60}, {steps: 3});
+
+            // assert
+            await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+        });
+
+        test('fast, then held still and let go, comes back and the viewer stays', async ({page}) => {
+            // arrange
+            const {picture, centre} = await openPicture(page);
+            const cdp = await page.context().newCDPSession(page);
+            await pullBy(cdp, centre, 60, 3);
+            await page.waitForTimeout(300);
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+
+            // assert
+            await expect.poll(() => picture.evaluate((el) => el.style.transform)).toBe('');
+            await stays(() => page.getByTestId('doc-lightbox').count(), 1, 400);
+        });
+
+        test('and canceled by the browser comes back and the viewer stays', async ({page}) => {
+            // arrange
+            const {picture, centre} = await openPicture(page);
+            const cdp = await page.context().newCDPSession(page);
+            await pullBy(cdp, centre, 150, 10);
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
+
+            // assert
+            await expect.poll(() => picture.evaluate((el) => el.style.transform)).toBe('');
+            await stays(() => page.getByTestId('doc-lightbox').count(), 1, 400);
+        });
+
+        test('with a second finger landing stops and the viewer stays when both let go', async ({page}) => {
+            // arrange
+            const {centre} = await openPicture(page);
+            const cdp = await page.context().newCDPSession(page);
+            const pulled = await pullBy(cdp, centre, 150, 10);
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [pulled, {x: pulled.x + 60, y: pulled.y}]});
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+
+            // assert
+            await expect(page.getByTestId('doc-lightbox')).not.toHaveAttribute('data-pull');
+            await stays(() => page.getByTestId('doc-lightbox').count(), 1, 400);
+        });
     });
 
     test('a double tap zooms the picture in the viewer and another fits it back', async ({page}) => {

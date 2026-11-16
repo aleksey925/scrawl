@@ -67,8 +67,8 @@ Git-backed versions of the notes, and how two versions are compared.
   removed block is struck through. The patch stays beside them as the `Source`
   view, which on a touch screen goes down in its box and sideways in the patch
   inside it, for the reason the editor with wrap off does
-  ([editor](../ui/editor.md)), and a version too large or too slow to compare
-  still answers with the patch alone.
+  ([quirks](../quirks.md#ios-and-safari)), and a version too large or too slow
+  to compare still answers with the patch alone.
 - The editor's Changes compares the text in the editor with the text last
   saved, through `POST /api/compare`, which takes both and answers with the
   rows. Both sides are rendered as the preview is, under its size cap each and

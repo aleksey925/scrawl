@@ -202,6 +202,32 @@ test.describe('formatting', () => {
         expect({beforeFence, afterFence: [...codeChunks].sort()}).toEqual({beforeFence: [], afterFence: ['babel.js', 'typescript.js']});
     });
 
+    test('a fence with no language loads no code plugins, and a tilde fence that names one does', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/plain-fence.md`;
+        writeFixture(docPath, '#  Заголовок\n\n```\nplain\n```\n');
+        const codeChunks = [];
+        page.on('request', (request) => {
+            const name = new URL(request.url()).pathname.split('/').pop();
+            if (name === 'babel.js' || name === 'typescript.js') {
+                codeChunks.push(name);
+            }
+        });
+        await signIn(page, {from: routes.edit(docPath)});
+        await expect.poll(() => sourceText(page)).toBe('#  Заголовок\n\n```\nplain\n```\n');
+        await page.getByTestId('editor-toolbar-format').click();
+        await expect.poll(() => sourceText(page)).toBe('# Заголовок\n\n```\nplain\n```\n');
+        const plainFence = [...codeChunks];
+
+        // act
+        await setSource(page, '~~~ts\nconst a={b:1}\n~~~\n');
+        await page.getByTestId('editor-toolbar-format').click();
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe('```ts\nconst a = { b: 1 };\n```\n');
+        expect({plainFence, tildeFence: [...codeChunks].sort()}).toEqual({plainFence: [], tildeFence: ['babel.js', 'typescript.js']});
+    });
+
     test('the shortcut formats the buffer and one undo takes it back', async ({page}) => {
         // arrange
         const docPath = `${FOLDER}/shortcut.md`;

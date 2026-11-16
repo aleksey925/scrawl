@@ -117,11 +117,12 @@ opens over them.
 - A picture of the space in a note carries its width and height, read by the
   server from the head of the file through `store`, so the page keeps its room
   before the picture comes and the text under it does not jump. That is PNG,
-  JPEG and GIF; an SVG or a WebP has no size read, and the text still moves
-  when it loads. The size is part of the rendered note, kept as long as the
-  note is, so a picture replaced by one of another size keeps the old room
-  until the note changes, as the mark of a broken link does. A page of the
-  command line and a site read no sizes.
+  JPEG, with the sides swapped when its EXIF turns it a quarter, and GIF; an
+  SVG or a WebP has no size read, and the text still moves when it loads. The
+  size is part of the rendered note, kept as long as the note is, so a picture
+  replaced by one of another size keeps the old room until the note changes, as
+  the mark of a broken link does. A page of the command line and a site read no
+  sizes.
 - A task box on the page is disabled, as GitHub shows a file and unlike Notion.
   A task is ticked in the editor and saved like any change, because a click on
   the page would be a write, and every tick a commit and a push.
@@ -206,10 +207,11 @@ opens over them.
   the next one. A picture not zoomed is pulled up or down by one finger, as a
   phone's photos are: it follows the finger, the dark ground fades and the
   tools hide. Let go past 100px or with a flick, it leaves the screen that way
-  and the viewer closes; otherwise it slides back. The ground fades only where
-  the browser passes the dialog's custom properties on to its `::backdrop`. The
-  dialog takes `touch-action: none`, or the browser zooms the page under it
-  instead.
+  and the viewer closes; otherwise it slides back. A flick counts only while
+  the finger still moves as it lets go, and a second finger stops the pull and
+  pinches. The ground fades only where the `::backdrop` reads the dialog's
+  custom properties ([quirks](../quirks.md#browsers)). The dialog takes
+  `touch-action: none`, or the browser zooms the page under it instead.
 - A diagram, mermaid or PlantUML, is never wider than the note: a wider one is
   drawn smaller, and opens in the same viewer, alone: it does not step to the
   note's other diagrams, as each stands in its own place in the text, and a

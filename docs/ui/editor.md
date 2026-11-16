@@ -44,11 +44,16 @@ The editor screen.
   text's color, with the wrap button at its end, and a button outside the
   scroll that puts the keyboard away. The strip switches on the focus of the
   text and does not guess where the keyboard is; the table menu of the toolbar
-  keeps it while open. The toolbar follows the bottom of the visible area, as
-  the find bar does ([phone](phone.md)), keeps the home indicator's room under
-  it while no keyboard is up, as with a hardware keyboard, and the text scrolls
-  the cursor out from under it when the keyboard opens and while typing. The
-  line count and the head of the source are not on a phone; an upload in
+  keeps it while open. The editor on a phone is as tall as the visible area and
+  follows it, the bar on top included, so the toolbar is at the bottom of what
+  is seen, over the keyboard ([phone](phone.md)). An editor as tall as the page
+  ran under the keyboard: its last lines could not be reached, and a drag moved
+  either the text or the whole page, which then stuck with the start of the
+  note above the screen. The toolbar keeps the home indicator's room under it
+  while no keyboard is up, as with a hardware keyboard. The text scrolls the
+  cursor into sight when the keyboard opens and when the visible area gets
+  shorter, and not when it gets taller, so a scroll away from the cursor stays.
+  The line count and the head of the source are not on a phone; an upload in
   progress shows in the state of the save. In a read-only space the head of the
   source stays, with the wrap button, as the toolbar that carries it on a phone
   is never shown there. A text file keeps the head with its language and the

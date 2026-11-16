@@ -29,7 +29,7 @@ import { isMarkdown } from '../paths';
 import { basenameOf, joinPath, nameProblem, newFilePath, noteNameOf, parentOf } from '../shell/naming';
 import { useDraftChrome } from '../shell/PageChrome';
 import { PageActions } from '../shell/ShellSlots';
-import { useVisibleBottom } from '../shell/useVisibleArea';
+import { useVisibleScreen } from '../shell/useVisibleArea';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 import { showToast } from '../toast';
 
@@ -155,37 +155,36 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   const phone = useBelow(layoutBreakpoints.phone);
   const phoneModes = phone && kind === 'markdown';
-  const phoneBarRef = useRef<HTMLDivElement>(null);
+  const screenRef = useRef<HTMLDivElement>(null);
   const keyboardBarRef = useRef<HTMLDivElement>(null);
   const [tableOpen, setTableOpen] = useState(false);
   const keyboardTools = phoneModes && !readOnly && mode === 'source';
   const editing = useEditing(view, keyboardBarRef, keyboardTools);
   const typing = keyboardTools && (editing || tableOpen);
-  useVisibleBottom(phoneBarRef, phoneModes);
+  useVisibleScreen(screenRef, phone);
 
   useEffect(() => {
     const visual = window.visualViewport;
     if (!typing || view === undefined) {
       return undefined;
     }
+    let height = visual?.height ?? 0;
     const reveal = (): void => {
       view.dispatch({ effects: EditorView.scrollIntoView(view.state.selection.main.head) });
     };
+    const shrink = (): void => {
+      const next = visual?.height ?? 0;
+      if (next < height) {
+        reveal();
+      }
+      height = next;
+    };
     reveal();
-    visual?.addEventListener('resize', reveal);
+    visual?.addEventListener('resize', shrink);
     return () => {
-      visual?.removeEventListener('resize', reveal);
+      visual?.removeEventListener('resize', shrink);
     };
   }, [typing, view]);
-
-  const coveredBelow = useCallback((): number => {
-    const bar = keyboardBarRef.current;
-    const scroller = viewRef.current?.scrollDOM;
-    if (bar === null || scroller === undefined) {
-      return 0;
-    }
-    return Math.max(0, scroller.getBoundingClientRect().bottom - bar.getBoundingClientRect().top);
-  }, []);
 
   const hideKeyboard = useCallback((): void => {
     const active = document.activeElement;
@@ -517,7 +516,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const previewStyle = mode === 'split' ? { flex: '1 1 0' } : undefined;
 
   return (
-    <div data-testid="editor" data-kind={kind} data-fill="screen" className={classes.screen}>
+    <div ref={screenRef} data-testid="editor" data-kind={kind} data-fill="screen" className={classes.screen}>
       <PageActions>
         {!phone ? (
           <>
@@ -665,7 +664,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               onChange={setContent}
               onCreate={onCreate}
               onFiles={kind === 'markdown' ? onFiles : undefined}
-              coveredBelow={coveredBelow}
             />
           </div>
         )}
@@ -697,8 +695,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       )}
 
       {phoneModes && (
-        <div className={classes.phoneDock}>
-          <div ref={phoneBarRef} data-testid="editor-strip" data-typing={typing ? 'true' : 'false'} className={classes.phoneBar}>
+          <div data-testid="editor-strip" data-typing={typing ? 'true' : 'false'} className={classes.phoneBar}>
             {typing ? (
               <div ref={keyboardBarRef} data-testid="editor-keyboard-bar" className={classes.keyboardBar}>
                 {toolbar}
@@ -725,7 +722,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               />
             )}
           </div>
-        </div>
       )}
 
       <input

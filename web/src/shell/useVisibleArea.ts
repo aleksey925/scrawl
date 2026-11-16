@@ -47,33 +47,28 @@ export function useFullScreenStyle(active: boolean): CSSProperties | undefined {
   };
 }
 
-export function useVisibleBottom(bar: RefObject<HTMLElement | null>, active: boolean): void {
+export function useVisibleScreen(screen: RefObject<HTMLElement | null>, active: boolean): void {
   useLayoutEffect(() => {
     const view = window.visualViewport;
-    const element = bar.current;
+    const element = screen.current;
     if (!active || view === null || element === null) {
       return undefined;
     }
+    const root = document.documentElement.style;
     const follow = (): void => {
-      const bottom = view.offsetTop + view.height;
-      element.dataset.keyboard = window.innerHeight - bottom > 1 ? 'true' : 'false';
-      element.style.transform = `translateY(${bottom - element.offsetHeight}px)`;
+      root.setProperty('--scrawl-visible-height', `${view.height}px`);
+      root.setProperty('--scrawl-visible-shift', `translateY(${view.offsetTop}px)`);
+      element.dataset.keyboard = window.innerHeight - view.offsetTop - view.height > 1 ? 'true' : 'false';
     };
-    element.style.inset = '0 0 auto';
     follow();
-    const observer = new ResizeObserver(follow);
-    observer.observe(element);
     view.addEventListener('resize', follow);
     view.addEventListener('scroll', follow);
-    window.addEventListener('scroll', follow);
     return () => {
-      observer.disconnect();
       view.removeEventListener('resize', follow);
       view.removeEventListener('scroll', follow);
-      window.removeEventListener('scroll', follow);
-      element.style.inset = '';
-      element.style.transform = '';
+      root.removeProperty('--scrawl-visible-height');
+      root.removeProperty('--scrawl-visible-shift');
       delete element.dataset.keyboard;
     };
-  }, [bar, active]);
+  }, [screen, active]);
 }

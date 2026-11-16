@@ -55,6 +55,9 @@ words; the fact itself is written here.
   element fixed to the page moves with it. React renders a state set in a
   scroll listener after the frame is drawn, so the element is seen in the wrong
   place for a frame. [Phone](ui/phone.md)
+- With the keyboard up, a scrolling box as tall as the page runs under the
+  keys, and a drag in it moves either the box or the visible area across the
+  page. [Editor](ui/editor.md)
 - The click a browser sends after a touch end lands on what is under the finger
   by then, so when the touch end closed a menu, the click goes to what the menu
   covered. [Editor](ui/editor.md)

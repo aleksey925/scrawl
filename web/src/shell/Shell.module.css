@@ -1,6 +1,8 @@
 .header {
   border: 0;
   background: var(--scrawl-bg);
+  transform: var(--scrawl-visible-shift, none);
+  transition: none;
 }
 
 .main {
@@ -18,7 +20,9 @@
 }
 
 .main:has(> [data-fill='screen']) {
-  height: 100dvh;
+  min-height: 0;
+  height: var(--scrawl-visible-height, 100dvh);
+  transform: var(--scrawl-visible-shift, none);
 }
 
 @mixin larger-than $mantine-breakpoint-sm {

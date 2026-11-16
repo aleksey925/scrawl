@@ -2011,22 +2011,28 @@ test.describe('mobile', () => {
         await expect(keyboardBar).toHaveCount(0);
     });
 
-    test('the toolbar over the keyboard follows the bottom of the visible area, and knows the keyboard is up', async ({page}) => {
+    test('the editor takes the visible area, with the toolbar at its bottom, and knows the keyboard is up', async ({page}) => {
         // arrange
         await fakeVisibleArea(page);
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
         await page.goto(routes.edit(SCRATCH));
         await page.locator('[data-testid=editor-source] .cm-line').nth(2).tap();
         await expect(page.getByTestId('editor-keyboard-bar')).toBeVisible();
-        const strip = page.getByTestId('editor-strip');
         const height = page.viewportSize().height;
         const placeAt = async (top, visible) => {
             await moveVisibleArea(page, top, visible);
-            return strip.evaluate((el) => ({
-                bottom: Math.round(el.getBoundingClientRect().bottom),
-                height: Math.round(el.getBoundingClientRect().height),
-                keyboard: el.dataset.keyboard,
-            }));
+            return page.evaluate(() => {
+                const boxOfId = (testId) => document.querySelector(`[data-testid="${testId}"]`).getBoundingClientRect();
+                const strip = boxOfId('editor-strip');
+                const source = boxOfId('editor-source');
+                return {
+                    top: Math.round(boxOfId('topbar').top),
+                    sourceOverStrip: Math.round(source.bottom) <= Math.round(strip.top),
+                    bottom: Math.round(strip.bottom),
+                    height: Math.round(strip.height),
+                    keyboard: document.querySelector('[data-testid=editor]').dataset.keyboard,
+                };
+            });
         };
         const raisedTop = 120;
         const raisedVisible = 400;
@@ -2037,9 +2043,31 @@ test.describe('mobile', () => {
 
         // assert
         expect({raised, lowered}).toEqual({
-            raised: {bottom: raisedTop + raisedVisible, height: 50, keyboard: 'true'},
-            lowered: {bottom: height, height: 50, keyboard: 'false'},
+            raised: {top: raisedTop, sourceOverStrip: true, bottom: raisedTop + raisedVisible, height: 50, keyboard: 'true'},
+            lowered: {top: 0, sourceOverStrip: true, bottom: height, height: 50, keyboard: 'false'},
         });
+    });
+
+    test('a visible area growing while typing keeps the place the text was scrolled to', async ({page}) => {
+        // arrange
+        await fakeVisibleArea(page);
+        const filler = Array.from({length: 80}, (_, index) => `строка ${index}`).join('\n');
+        writeFixture(SCRATCH, `# Заметка\n\n${filler}\n`);
+        await page.goto(routes.edit(SCRATCH));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(20).tap();
+        await expect(page.getByTestId('editor-keyboard-bar')).toBeVisible();
+        await moveVisibleArea(page, 0, 400);
+        const scroller = page.locator('[data-testid=editor-source] .cm-scroller');
+        await scroller.evaluate((el) => { el.scrollTop = 0; });
+
+        // act
+        await moveVisibleArea(page, 0, 420);
+
+        // assert
+        const scrolled = await scroller.evaluate((el) => new Promise((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve(el.scrollTop)));
+        }));
+        expect(scrolled).toBe(0);
     });
 
     test('the keyboard opening scrolls the cursor out from under the toolbar over it', async ({page}) => {

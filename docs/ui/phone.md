@@ -39,8 +39,9 @@ How the app works on a phone.
   and the bar fixed to the top of the page was left above the screen until the
   keyboard closed. The bar is moved in the scroll event itself, not by a React
   render: a render came a frame late, and the bar jumped on every step to a
-  match. The toolbar of the editor over the keyboard is moved the same way, to
-  the bottom of the visible area.
+  match. The editor of a note is placed the same way: the whole screen, its bar
+  on top included, takes the visible area, so its toolbar is over the keyboard
+  and no text is under it.
 - On a phone everything starts on a 16px line: the page text and the first and
   last icon of the bar on top.
 - On a phone a dialog stands in the middle of the screen, where the system's

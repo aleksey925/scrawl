@@ -34,7 +34,8 @@ from the thumb, and the toolbar was away from the keyboard the person typed on.
   unsaved. With the focus in the text it is the formatting toolbar over the
   keyboard, 44px tools in the text's color, and a button that puts the keyboard
   away. The strip switches on the focus, not on a guess of the keyboard's
-  height, and the toolbar follows the bottom of the visible area.
+  height, and the editor takes the visible area, so the toolbar is at its
+  bottom and no text is under the keyboard.
 
 ## Options turned down
 

@@ -85,7 +85,8 @@ module.exports = {
 
     editor: {
         readOnly: 'This server is read-only. You can read the source here, but it cannot be saved.',
-        draft: 'An unsaved draft was found',
+        draft: 'Unsaved draft',
+        draftStale: 'file changed',
         conflictMine: 'Your version',
         conflictTheirs: 'On disk',
         changesTooLarge: 'This document is too large to compare. Editing and saving still work.',

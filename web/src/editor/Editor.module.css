@@ -4,6 +4,95 @@
   min-height: 0;
 }
 
+.draftOffer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 var(--mantine-spacing-sm) 0 var(--mantine-spacing-lg);
+  background: var(--scrawl-code-bg);
+  box-shadow: inset 0 -1px var(--scrawl-border-light);
+}
+
+.draftText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.draftTitle {
+  color: var(--scrawl-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.draftWhen {
+  color: var(--scrawl-text-secondary);
+  font-size: 13px;
+}
+
+.draftOffer[data-stale='true'] .draftWhen {
+  color: var(--scrawl-color-orange);
+}
+
+.draftButton {
+  flex: none;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--mantine-radius-sm);
+  background: none;
+  color: var(--scrawl-text-secondary);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: var(--scrawl-press-out);
+}
+
+.draftRestore {
+  color: var(--scrawl-accent);
+  font-weight: 600;
+}
+
+.draftButton:active {
+  opacity: 0.4;
+  transition: var(--scrawl-press-in);
+}
+
+@media (hover: hover) {
+  .draftButton:hover {
+    background: var(--scrawl-hover);
+  }
+}
+
+@media (hover: none) {
+  .draftButton {
+    min-height: var(--scrawl-tap-target);
+  }
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .draftOffer {
+    min-height: 56px;
+    padding-inline-end: var(--mantine-spacing-xs);
+  }
+
+  .draftText {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .draftButton {
+    font-size: 15px;
+  }
+}
+
 .notices {
   display: flex;
   flex-direction: column;
@@ -347,7 +436,8 @@
 }
 
 .unsavedMark,
-.changesMark {
+.changesMark,
+.draftMark {
   display: inline-block;
   width: 7px;
   height: 7px;

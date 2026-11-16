@@ -2092,6 +2092,33 @@ test.describe('mobile', () => {
         await expect.poll(cursorClear).toBe(true);
     });
 
+    test('a draft offer is a row under the bar with Restore in the accent and buttons big enough to tap', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
+        await page.goto(routes.edit(SCRATCH));
+        await expect.poll(() => sourceText(page)).toBe('# Заметка\n\nтекст\n');
+        await setSource(page, '# Заметка\n\nчерновик\n');
+        await page.waitForTimeout(1000);
+        const width = page.viewportSize().width;
+
+        // act
+        await page.goto(routes.edit(SCRATCH));
+
+        // assert
+        await expect(page.getByTestId('editor-draft')).toContainText(text.editor.draft);
+        const barBottom = await page.locator('.mantine-AppShell-header').evaluate((el) => Math.round(el.getBoundingClientRect().bottom));
+        const offer = await boxOf(page, 'editor-draft');
+        const restore = await boxOf(page, 'editor-draft-restore');
+        const discard = await boxOf(page, 'editor-draft-discard');
+        expect({
+            top: offer.top, left: offer.left, right: offer.right,
+            restoreTall: restore.bottom - restore.top >= MIN_TAP, discardTall: discard.bottom - discard.top >= MIN_TAP,
+        }).toEqual({top: barBottom, left: 0, right: width, restoreTall: true, discardTall: true});
+        await expect(page.getByTestId('editor-draft-restore')).toHaveCSS('color', rgb(lightTheme.palette.accent));
+        await expect(page.getByTestId('editor-draft-discard')).toHaveCSS('color', rgb(lightTheme.palette.textSecondary));
+        await shot(page, 'mobile-editor-draft');
+    });
+
     test('an upload in progress shows in the state of the save', async ({page}) => {
         // arrange
         const folder = 'e2e-mobile/upload';

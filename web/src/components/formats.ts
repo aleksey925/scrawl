@@ -23,13 +23,13 @@ export function countOf(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
-export function shortTime(at: string): string {
+export function shortTime(at: string | number): string {
   return new Date(at).toLocaleString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 }
 
 const dayMs = 86_400_000;
 
-export function versionTime(at: string, now: Date = new Date()): string {
+export function versionTime(at: string | number, now: Date = new Date()): string {
   const when = new Date(at);
   const time = when.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   const day = (date: Date): number => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();

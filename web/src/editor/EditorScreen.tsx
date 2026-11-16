@@ -3,7 +3,6 @@ import {
   ActionIcon,
   Alert,
   Button,
-  Group,
   Text,
 } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
@@ -41,6 +40,7 @@ import type { TableMenuProps } from './TableMenu';
 import { Toolbar } from './Toolbar';
 import { ToolButton } from './ToolButton';
 import { codeLanguageOf } from './codeLanguages';
+import { DraftOffer } from './DraftOffer';
 import { draftOpening, tocAttempts, tocRefreshMs, uploadAccept } from './constants';
 import { formatMarkdown, replaceText, warmFormatter } from './format';
 import classes from './Editor.module.css';
@@ -564,60 +564,31 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         )}
       </PageActions>
 
-      {(readOnly || draft.offered !== undefined) && (
-        <div className={classes.notices}>
-          {readOnly && (
-            <Alert data-testid="editor-readonly" color="yellow" variant="light">
-              This server is read-only. You can read the source here, but it cannot be saved.
-            </Alert>
-          )}
+      {draft.offered !== undefined && (
+        <DraftOffer
+          at={draft.offered.at}
+          stale={draft.stale}
+          onRestore={() => {
+            const current = viewRef.current;
+            const text = draft.offered?.content ?? '';
+            if (current !== undefined) {
+              current.dispatch({
+                changes: { from: 0, to: current.state.doc.length, insert: text },
+              });
+            } else {
+              setContent(text);
+            }
+            draft.dismiss();
+          }}
+          onDiscard={draft.discard}
+        />
+      )}
 
-          {draft.offered !== undefined && (
-            <Alert
-              data-testid="editor-draft"
-              data-stale={draft.stale ? 'true' : 'false'}
-              color="yellow"
-              variant="light"
-              title="An unsaved draft was found"
-            >
-              <Group justify="space-between" wrap="wrap" gap="sm">
-                <Text size="sm">
-                  {`Written ${new Date(draft.offered.at).toLocaleString()}`}
-                  {draft.stale ? ', against an older version of this page.' : '.'}
-                </Text>
-                <Group gap="xs">
-                  <Button
-                    data-testid="editor-draft-restore"
-                    size="xs"
-                    variant="default"
-                    onClick={() => {
-                      const current = viewRef.current;
-                      const text = draft.offered?.content ?? '';
-                      if (current !== undefined) {
-                        current.dispatch({
-                          changes: { from: 0, to: current.state.doc.length, insert: text },
-                        });
-                      } else {
-                        setContent(text);
-                      }
-                      draft.dismiss();
-                    }}
-                  >
-                    Restore
-                  </Button>
-                  <Button
-                    data-testid="editor-draft-discard"
-                    size="xs"
-                    variant="subtle"
-                    color="gray"
-                    onClick={draft.discard}
-                  >
-                    Discard
-                  </Button>
-                </Group>
-              </Group>
-            </Alert>
-          )}
+      {readOnly && (
+        <div className={classes.notices}>
+          <Alert data-testid="editor-readonly" color="yellow" variant="light">
+            This server is read-only. You can read the source here, but it cannot be saved.
+          </Alert>
         </div>
       )}
 

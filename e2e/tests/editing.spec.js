@@ -454,6 +454,32 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('a draft offer names the time it was written, and says when the file changed since', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-stale');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'a draft against the old text\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        await page.goto(routes.edit(docPath));
+        const offer = page.getByTestId('editor-draft');
+        const when = page.getByTestId('editor-draft-when');
+        await expect(offer).toContainText(text.editor.draft);
+        const fresh = {stale: await offer.getAttribute('data-stale'), when: await when.textContent()};
+        writeFixture(docPath, 'changed on disk\n');
+
+        // act
+        await page.goto(routes.edit(docPath));
+
+        // assert
+        await expect(offer).toHaveAttribute('data-stale', 'true');
+        expect(fresh.stale).toBe('false');
+        expect(fresh.when).toMatch(/^Today, \d{2}:\d{2}$/);
+        await expect(when).toHaveText(`${fresh.when} · ${text.editor.draftStale}`);
+        removeFixture(docPath);
+    });
+
     test('a file changed behind the browser raises the conflict dialog and overwrite wins', async ({page}) => {
         const docPath = scratch('conflict-overwrite');
         writeFixture(docPath, 'original\n');

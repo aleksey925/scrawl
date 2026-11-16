@@ -80,6 +80,18 @@ The editor screen.
   that, or when the storage refused the copy, as a private window or a full
   storage does, it is Unsaved changes. "Draft saved" read as saved to the
   server. On a phone an orange dot stands before both unsaved states.
+- A draft left in the browser from an earlier visit is offered in a row right
+  under the topbar, across the whole screen
+  ([ADR 31](../adr/0031-the-draft-offer-is-a-row.md)): the orange dot of the
+  unsaved state, Unsaved draft, the time it was written as the history writes a
+  version, then Discard in the secondary color and Restore in the accent, as
+  Save is on a phone. A draft written against another version of the file adds
+  "file changed" to the time, and the time turns orange. On a phone the name
+  and the time are two lines and the buttons are 44px tall. Restore puts the
+  draft's text in the editor, Discard drops the draft, and either takes the row
+  away. The row is plain and not a yellow box: a draft found is an offer, not a
+  fault. The empty room over the sync banner is left out on the editor screen,
+  so the row meets the topbar.
 - A note's draft ([entries](entries.md)) is the same editor with a name not
   chosen yet: it opens with `# ` as both its text and its saved text, so a
   draft left as it opened has nothing unsaved, and the state reads New note.

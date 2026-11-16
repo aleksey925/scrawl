@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
 
 interface VisibleArea {
   height: number;
@@ -45,4 +45,32 @@ export function useFullScreenStyle(active: boolean): CSSProperties | undefined {
     height: area === undefined ? '100dvh' : area.height,
     transform: `translateY(${area?.top ?? 0}px)`,
   };
+}
+
+export function useVisibleBottom(bar: RefObject<HTMLElement | null>, active: boolean): void {
+  useLayoutEffect(() => {
+    const view = window.visualViewport;
+    const element = bar.current;
+    if (!active || view === null || element === null) {
+      return undefined;
+    }
+    const follow = (): void => {
+      element.style.transform = `translateY(${view.offsetTop + view.height - element.offsetHeight}px)`;
+    };
+    element.style.inset = '0 0 auto';
+    follow();
+    const observer = new ResizeObserver(follow);
+    observer.observe(element);
+    view.addEventListener('resize', follow);
+    view.addEventListener('scroll', follow);
+    window.addEventListener('scroll', follow);
+    return () => {
+      observer.disconnect();
+      view.removeEventListener('resize', follow);
+      view.removeEventListener('scroll', follow);
+      window.removeEventListener('scroll', follow);
+      element.style.inset = '';
+      element.style.transform = '';
+    };
+  }, [bar, active]);
 }

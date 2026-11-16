@@ -13,6 +13,7 @@ export interface Draft {
 export interface DraftControl {
   offered: Draft | undefined;
   stale: boolean;
+  stored: boolean;
   dismiss: () => void;
   discard: () => void;
   flush: () => void;
@@ -51,6 +52,7 @@ export function useDraft(options: UseDraftOptions): DraftControl {
 
   const [offered, setOffered] = useState<Draft | undefined>(undefined);
   const [stale, setStale] = useState(false);
+  const [written, setWritten] = useState<Draft & { key: string } | undefined>(undefined);
 
   const latest = useRef({ rev, content, dirty, key });
   latest.current = { rev, content, dirty, key };
@@ -60,11 +62,13 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     if (!now.dirty) {
       return;
     }
-    writeJson(localStore(), now.key, { rev: now.rev, content: now.content, at: Date.now() });
+    const draft: Draft = { rev: now.rev, content: now.content, at: Date.now() };
+    setWritten(writeJson(localStore(), now.key, draft) ? { ...draft, key: now.key } : undefined);
   }, []);
 
   const clear = useCallback((): void => {
     removeKey(localStore(), latest.current.key);
+    setWritten(undefined);
   }, []);
 
   useEffect(() => {
@@ -100,8 +104,11 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   const dismiss = useCallback((): void => setOffered(undefined), []);
   const discard = useCallback((): void => {
     removeKey(localStore(), latest.current.key);
+    setWritten(undefined);
     setOffered(undefined);
   }, []);
 
-  return { offered, stale, dismiss, discard, flush, clear };
+  const stored = written?.key === key && written.rev === rev && written.content === content;
+
+  return { offered, stale, stored, dismiss, discard, flush, clear };
 }

@@ -26,13 +26,15 @@ export function readJson<T>(store: Storage | undefined, key: string): T | undefi
   }
 }
 
-export function writeJson(store: Storage | undefined, key: string, value: unknown): void {
+export function writeJson(store: Storage | undefined, key: string, value: unknown): boolean {
   if (store === undefined) {
-    return;
+    return false;
   }
   try {
     store.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
+    return false;
   }
 }
 

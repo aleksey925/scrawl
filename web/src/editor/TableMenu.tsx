@@ -43,10 +43,15 @@ export interface TableMenuProps {
   editsAtCursor: () => ReadonlySet<TableEdit> | undefined;
   onEdit: (edit: TableEdit) => void;
   onInsert: (size: TableSize) => void;
+  onOpenedChange?: (opened: boolean) => void;
 }
 
-export function TableMenu({ editsAtCursor, onEdit, onInsert }: TableMenuProps): JSX.Element {
-  const [opened, setOpened] = useState(false);
+export function TableMenu({ editsAtCursor, onEdit, onInsert, onOpenedChange }: TableMenuProps): JSX.Element {
+  const [opened, setShown] = useState(false);
+  const setOpened = (next: boolean): void => {
+    setShown(next);
+    onOpenedChange?.(next);
+  };
   const [edits, setEdits] = useState<ReadonlySet<TableEdit> | undefined>(undefined);
 
   return (

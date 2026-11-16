@@ -427,10 +427,6 @@
     "file": "assets/defaultLocale.js",
     "name": "defaultLocale"
   },
-  "_get-auto-contrast-value.js": {
-    "file": "assets/get-auto-contrast-value.js",
-    "name": "get-auto-contrast-value"
-  },
   "_graphlib.js": {
     "file": "assets/graphlib.js",
     "name": "graphlib",
@@ -2508,7 +2504,6 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "_use-debounced-value.js",
-      "_get-auto-contrast-value.js",
       "_DocumentHtml.js",
       "_Text.js",
       "_AsyncContent.js",
@@ -2517,6 +2512,7 @@
       "_lezer-common.js",
       "_lezer-html.js",
       "_codemirror-autocomplete.js",
+      "_useVisibleArea.js",
       "_RenderedDiff.js",
       "_DialogActions.js"
     ],
@@ -2756,8 +2752,8 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "index.html",
-      "_Picker.module.js",
-      "_useVisibleArea.js"
+      "_useVisibleArea.js",
+      "_Picker.module.js"
     ],
     "css": [
       "assets/MoveDialog.css"
@@ -2771,7 +2767,6 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_get-auto-contrast-value.js",
       "_Text.js",
       "index.html",
       "_DialogActions.js"
@@ -2791,9 +2786,9 @@
       "_use-debounced-value.js",
       "index.html",
       "_recentNotes.js",
+      "_useVisibleArea.js",
       "_Picker.module.js",
-      "_SearchResults.js",
-      "_useVisibleArea.js"
+      "_SearchResults.js"
     ]
   }
 }

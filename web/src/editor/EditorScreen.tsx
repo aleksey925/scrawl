@@ -4,11 +4,10 @@ import {
   Alert,
   Button,
   Group,
-  Tabs,
   Text,
 } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type RefObject } from 'react';
 
 import { api } from '../api/client';
 import { errorText } from '../api/useApi';
@@ -17,9 +16,11 @@ import { Segmented, type SegmentedOption } from '../components/Segmented';
 import { useOffScreen } from '../components/screenMotion';
 import {
   IconBraces,
+  IconChevronLeft,
   IconColumns,
   IconDiff,
   IconEye,
+  IconKeyboard,
   IconPhoto,
   IconTextWrap,
   IconTextWrapDisabled,
@@ -28,6 +29,7 @@ import { isMarkdown } from '../paths';
 import { basenameOf, joinPath, nameProblem, newFilePath, noteNameOf, parentOf } from '../shell/naming';
 import { useDraftChrome } from '../shell/PageChrome';
 import { PageActions } from '../shell/ShellSlots';
+import { useVisibleBottom } from '../shell/useVisibleArea';
 import { layout } from '../theme';
 import { showToast } from '../toast';
 
@@ -37,6 +39,7 @@ import { SourceEditor, type DroppedFiles, type EditorKind } from './SourceEditor
 import { Splitter } from './Splitter';
 import type { TableMenuProps } from './TableMenu';
 import { Toolbar } from './Toolbar';
+import { ToolButton } from './ToolButton';
 import { codeLanguageOf } from './codeLanguages';
 import { draftOpening, tocAttempts, tocRefreshMs, uploadAccept } from './constants';
 import { formatMarkdown, replaceText, warmFormatter } from './format';
@@ -49,7 +52,7 @@ import { useChanges } from './useChanges';
 import { useDraft } from './useDraft';
 import { useEditorPosition } from './useEditorPosition';
 import { useEditSession } from './useEditSession';
-import { isLayoutMode, useEditorLayout, type LayoutMode } from './useLayoutMode';
+import { useEditorLayout, type LayoutMode } from './useLayoutMode';
 import { useLineWrap } from './useLineWrap';
 import { usePreview } from './usePreview';
 import { useUploads } from './useUploads';
@@ -71,18 +74,50 @@ const modeOptions: SegmentedOption<LayoutMode>[] = [
   { value: 'changes', icon: IconDiff, label: 'Changes' },
 ];
 
-type SaveState = 'saving' | 'uploading' | 'dirty' | 'new' | 'saved';
+type SaveState = 'saving' | 'uploading' | 'dirty' | 'drafted' | 'new' | 'saved';
 
 const saveStateText: Record<SaveState, string> = {
   saving: 'Saving',
   uploading: 'Waiting for the upload',
   dirty: 'Unsaved changes',
+  drafted: 'Draft on device',
   new: 'New note',
   saved: 'Saved',
 };
 
+type PhoneMode = Exclude<LayoutMode, 'split'>;
+
 const tocFailed = 'Could not build the contents';
 const tocNoAnswer = `The server did not answer in ${tocRefreshMs / 1000} seconds.`;
+
+function useEditing(view: EditorView | undefined, bar: RefObject<HTMLElement | null>, enabled: boolean): boolean {
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!enabled || view === undefined) {
+      setEditing(false);
+      return undefined;
+    }
+    let timer = 0;
+    const check = (): void => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const active = document.activeElement;
+        setEditing(view.hasFocus || (active !== null && bar.current?.contains(active) === true));
+      });
+    };
+    check();
+    document.addEventListener('focusin', check);
+    document.addEventListener('focusout', check);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('focusin', check);
+      document.removeEventListener('focusout', check);
+    };
+  }, [view, bar, enabled]);
+
+  return editing;
+}
 
 function LineCount({ lines, className }: { lines: number; className: string | undefined }): JSX.Element {
   return (
@@ -143,6 +178,23 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   const draftRef = useRef(draft);
   draftRef.current = draft;
+
+  const phoneModes = !wide && kind === 'markdown';
+  const phoneBarRef = useRef<HTMLDivElement>(null);
+  const keyboardBarRef = useRef<HTMLDivElement>(null);
+  const [tableOpen, setTableOpen] = useState(false);
+  const editing = useEditing(view, keyboardBarRef, phoneModes && !readOnly && mode === 'source');
+  const typing = phoneModes && !readOnly && mode === 'source' && (editing || tableOpen);
+  useVisibleBottom(phoneBarRef, phoneModes);
+
+  const coveredBelow = useCallback((): number => {
+    const bar = keyboardBarRef.current;
+    const scroller = viewRef.current?.scrollDOM;
+    if (bar === null || scroller === undefined) {
+      return 0;
+    }
+    return Math.max(0, scroller.getBoundingClientRect().bottom - bar.getBoundingClientRect().top);
+  }, []);
 
   const onCreate = useCallback((created: EditorView): void => {
     viewRef.current = created;
@@ -374,6 +426,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           insertTable(current, size);
         }
       },
+      onOpenedChange: setTableOpen,
     }),
     [],
   );
@@ -411,47 +464,109 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     : uploads.pending > 0
       ? 'uploading'
       : dirty
-        ? 'dirty'
+        ? draft.stored
+          ? 'drafted'
+          : 'dirty'
         : isNew
           ? 'new'
           : 'saved';
+
+  const statusText = saveState === 'new' && kind === 'text' ? 'New file' : saveStateText[saveState];
+  const unsaved = saveState === 'dirty' || saveState === 'drafted';
+  const savable = dirty || rev === '';
+  const phoneOptions: SegmentedOption<PhoneMode>[] = [
+    { value: 'source', label: 'Text', testId: 'editor-tab-source' },
+    { value: 'preview', label: 'Preview', testId: 'editor-tab-preview' },
+    {
+      value: 'changes',
+      label: 'Changes',
+      testId: 'editor-tab-changes',
+      mark: dirty ? <span data-testid="editor-changes-mark" className={classes.changesMark} /> : undefined,
+    },
+  ];
+  const wrapButton = (size: number): JSX.Element => (
+    <ToolButton testId="editor-wrap" label="Wrap long lines" aria-pressed={lineWrap.wrap} onClick={lineWrap.toggle}>
+      {lineWrap.wrap ? <IconTextWrap size={size} /> : <IconTextWrapDisabled size={size} />}
+    </ToolButton>
+  );
+  const toolbar = !readOnly && kind === 'markdown' && (
+    <Toolbar
+      onAction={onAction}
+      onPickImage={() => fileRef.current?.click()}
+      onToc={insertToc}
+      tableMenu={tableMenu}
+      onFormat={formattable ? format : undefined}
+    >
+      {phoneModes ? wrapButton(layout.iconSizeTool) : undefined}
+    </Toolbar>
+  );
 
   const sourceStyle = mode === 'split' ? { flex: `0 0 ${split * 100}%` } : undefined;
   const previewStyle = mode === 'split' ? { flex: '1 1 0' } : undefined;
 
   return (
-    <div data-testid="editor" data-kind={kind} className={classes.screen}>
+    <div data-testid="editor" data-kind={kind} data-fill className={classes.screen}>
       <PageActions>
-        <Text
-          data-testid="editor-status"
-          data-dirty={dirty ? 'true' : 'false'}
-          data-state={saveState}
-          className={classes.status}
-          hidden={!wide}
-          aria-live="polite"
-        >
-          {saveState === 'new' && kind === 'text' ? 'New file' : saveStateText[saveState]}
-        </Text>
-        {wide && kind === 'markdown' && (
-          <Segmented
-            data-testid="editor-layout-mode"
-            data-mode={chosen}
-            size="xs"
-            value={chosen}
-            onChange={chooseMode}
-            aria-label="Editor layout"
-            classNames={{ root: classes.modes, label: classes.mode }}
-            options={modeOptions}
-            compact
-          />
-        )}
-        <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" className={classes.cancel} onClick={cancel}>
-          Cancel
-        </Button>
-        {!readOnly && (
-          <Button data-testid="editor-save" size="sm" className={classes.save} loading={saving} onClick={() => void saveAndLeave()}>
-            Save
-          </Button>
+        {wide ? (
+          <>
+            <Text
+              data-testid="editor-status"
+              data-dirty={dirty ? 'true' : 'false'}
+              data-state={saveState}
+              className={classes.status}
+              aria-live="polite"
+            >
+              {statusText}
+            </Text>
+            {kind === 'markdown' && (
+              <Segmented
+                data-testid="editor-layout-mode"
+                data-mode={chosen}
+                size="xs"
+                value={chosen}
+                onChange={chooseMode}
+                aria-label="Editor layout"
+                classNames={{ root: classes.modes, label: classes.mode }}
+                options={modeOptions}
+                compact
+              />
+            )}
+            <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" onClick={cancel}>
+              Cancel
+            </Button>
+            {!readOnly && (
+              <Button data-testid="editor-save" size="sm" loading={saving} onClick={() => void saveAndLeave()}>
+                Save
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <button type="button" data-testid="editor-cancel" className={classes.back} aria-label="Back" onClick={cancel}>
+              <IconChevronLeft size={layout.iconSizeLarge} />
+            </button>
+            <span
+              data-testid="editor-status"
+              data-dirty={dirty ? 'true' : 'false'}
+              data-state={saveState}
+              className={classes.phoneStatus}
+              aria-live="polite"
+            >
+              {unsaved && <span className={classes.unsavedMark} aria-hidden />}
+              {statusText}
+            </span>
+            {!readOnly && (
+              <button
+                type="button"
+                data-testid="editor-save"
+                className={classes.phoneSave}
+                disabled={!savable || saving || leaving}
+                onClick={() => void saveAndLeave()}
+              >
+                Save
+              </button>
+            )}
+          </>
         )}
       </PageActions>
 
@@ -512,29 +627,11 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         </div>
       )}
 
-      {!wide && kind === 'markdown' && (
-        <Tabs
-          data-testid="editor-tabs"
-          value={mode}
-          onChange={(value) => chooseMode(isLayoutMode(value) ? value : 'source')}
-        >
-          <Tabs.List grow>
-            <Tabs.Tab data-testid="editor-tab-source" value="source" h={layout.tapTarget}>
-              Text
-            </Tabs.Tab>
-            <Tabs.Tab data-testid="editor-tab-preview" value="preview" h={layout.tapTarget}>
-              Preview
-            </Tabs.Tab>
-            <Tabs.Tab data-testid="editor-tab-changes" value="changes" h={layout.tapTarget}>
-              Changes
-            </Tabs.Tab>
-          </Tabs.List>
-        </Tabs>
-      )}
 
       <div data-testid="editor-panes" data-mode={mode} className={classes.panes} ref={panesRef}>
         {showSource && (
           <div className={classes.pane} style={sourceStyle}>
+            {!phoneModes && (
             <div className={classes.paneHead}>
               {mode === 'split' && <span className={classes.paneLabel}>Source</span>}
               {kind === 'text' && (
@@ -542,15 +639,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
                   {codeLanguageOf(fileName)?.name ?? 'Plain text'}
                 </span>
               )}
-              {!readOnly && kind === 'markdown' && (
-                <Toolbar
-                  onAction={onAction}
-                  onPickImage={() => fileRef.current?.click()}
-                  onToc={insertToc}
-                  tableMenu={tableMenu}
-                  onFormat={formattable ? format : undefined}
-                />
-              )}
+              {toolbar}
               <div className={classes.paneTools}>
                 {uploads.pending > 0 && (
                   <ActionIcon
@@ -568,25 +657,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
                 {wide && (
                   <LineCount lines={lines} className={classes.lines} />
                 )}
-                <ActionIcon
-                  data-testid="editor-wrap"
-                  className={classes.tool}
-                  variant="subtle"
-                  color="gray"
-                  aria-label="Wrap long lines"
-                  aria-pressed={lineWrap.wrap}
-                  title="Wrap long lines"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={lineWrap.toggle}
-                >
-                  {lineWrap.wrap ? (
-                    <IconTextWrap size={layout.iconSizeSmall} />
-                  ) : (
-                    <IconTextWrapDisabled size={layout.iconSizeSmall} />
-                  )}
-                </ActionIcon>
+                {wrapButton(layout.iconSizeSmall)}
               </div>
             </div>
+            )}
             <SourceEditor
               kind={kind}
               name={fileName}
@@ -597,6 +671,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               onChange={setContent}
               onCreate={onCreate}
               onFiles={kind === 'markdown' ? onFiles : undefined}
+              coveredBelow={typing ? coveredBelow : undefined}
             />
           </div>
         )}
@@ -623,8 +698,40 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         )}
       </div>
 
-      {!wide && (
+      {!wide && kind === 'text' && (
         <LineCount lines={lines} className={classes.footLines} />
+      )}
+
+      {phoneModes && (
+        <div className={classes.phoneDock}>
+          <div ref={phoneBarRef} data-typing={typing ? 'true' : 'false'} className={classes.phoneBar}>
+            {typing ? (
+              <div ref={keyboardBarRef} data-testid="editor-keyboard-bar" className={classes.keyboardBar}>
+                {toolbar}
+                <div className={classes.keyboardEnd}>
+                  <ToolButton
+                    testId="editor-hide-keyboard"
+                    label="Hide the keyboard"
+                    onClick={() => liveView()?.contentDOM.blur()}
+                  >
+                    <IconKeyboard size={layout.iconSizeTool} />
+                  </ToolButton>
+                </div>
+              </div>
+            ) : (
+              <Segmented<PhoneMode>
+                data-testid="editor-tabs"
+                data-mode={mode}
+                fullWidth
+                value={mode === 'split' ? 'source' : mode}
+                onChange={chooseMode}
+                aria-label="Editor layout"
+                classNames={{ label: classes.phoneMode }}
+                options={phoneOptions}
+              />
+            )}
+          </div>
+        </div>
       )}
 
       <input

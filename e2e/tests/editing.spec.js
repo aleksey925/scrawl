@@ -4,7 +4,7 @@ const fs = require('fs');
 
 const {
     MAIN, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, readFixture, removeFixture, routes, save,
-    setSource, shot, signIn, sourceText, writeFixture,
+    setSource, shot, signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -99,7 +99,7 @@ test.describe('editing', () => {
 
         await setSource(page, '# Заголовок\n\nновый текст\n');
         await expect(page.getByTestId('editor-preview')).toContainText('новый текст');
-        await expect(editorStatus(page)).toHaveText(text.status.dirty);
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
         await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'true');
         await shot(page, 'editing-preview');
 
@@ -110,6 +110,42 @@ test.describe('editing', () => {
         await page.reload();
         await expect.poll(() => sourceText(page)).toBe('# Заголовок\n\nновый текст\n');
         await shot(page, 'editing-saved');
+        removeFixture(docPath);
+    });
+
+    test('the state reads Unsaved changes until the draft is on the device, and stays so when it cannot be stored', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-state');
+        writeFixture(docPath, '# Заголовок\n');
+        await page.addInitScript(() => {
+            window.refuseDrafts = false;
+            const setItem = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (key, value) {
+                if (window.refuseDrafts && key.startsWith('scrawl.draft.')) {
+                    throw new DOMException('full', 'QuotaExceededError');
+                }
+                return setItem.call(this, key, value);
+            };
+        });
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('# Заголовок\n');
+
+        // act & assert
+        await page.clock.install();
+        await setSource(page, '# Заголовок\n\nпервый\n');
+        await expect(editorStatus(page)).toHaveText(text.status.dirty);
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'dirty');
+        await page.clock.runFor(1000);
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'drafted');
+
+        await setSource(page, '# Заголовок\n\nвторой\n');
+        await expect(editorStatus(page)).toHaveText(text.status.dirty);
+        await page.evaluate(() => {
+            window.refuseDrafts = true;
+        });
+        await page.clock.runFor(1000);
+        await stays(() => editorStatus(page).textContent(), text.status.dirty, 500);
         removeFixture(docPath);
     });
 

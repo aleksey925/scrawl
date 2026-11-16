@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type ComponentType, type JSX, type RefObject } from 'react';
+import { Fragment, useEffect, useRef, useState, type ComponentType, type JSX, type ReactNode, type RefObject } from 'react';
 
 import {
   IconBold,
@@ -51,6 +51,7 @@ export interface ToolbarProps {
   onToc: () => void;
   tableMenu: TableMenuProps;
   onFormat: (() => void) | undefined;
+  children?: ReactNode;
 }
 
 interface HiddenEnds {
@@ -85,7 +86,7 @@ function useHiddenEnds(): [RefObject<HTMLDivElement | null>, HiddenEnds] {
   return [ref, ends];
 }
 
-export function Toolbar({ onAction, onPickImage, onToc, tableMenu, onFormat }: ToolbarProps): JSX.Element {
+export function Toolbar({ onAction, onPickImage, onToc, tableMenu, onFormat, children }: ToolbarProps): JSX.Element {
   const [stripRef, hidden] = useHiddenEnds();
 
   return (
@@ -121,6 +122,8 @@ export function Toolbar({ onAction, onPickImage, onToc, tableMenu, onFormat }: T
           <IconWand size={layout.iconSizeTool} />
         </ToolButton>
       )}
+      {children !== undefined && <span className={classes.toolSeparator} aria-hidden />}
+      {children}
     </div>
   );
 }

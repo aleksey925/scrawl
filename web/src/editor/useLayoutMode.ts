@@ -22,10 +22,6 @@ function isStoredMode(value: string | null | undefined): value is StoredMode {
   return value === 'source' || value === 'split' || value === 'preview';
 }
 
-export function isLayoutMode(value: string | null): value is LayoutMode {
-  return isStoredMode(value) || value === 'changes';
-}
-
 function storedSplit(): number {
   const raw = Number.parseFloat(readText(localStore(), splitKey) ?? '');
   return Number.isNaN(raw) ? splitDefault : Math.min(splitMax, Math.max(splitMin, raw));

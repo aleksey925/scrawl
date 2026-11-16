@@ -68,6 +68,7 @@ export interface SourceEditorProps {
   onChange: (value: string) => void;
   onCreate: (view: EditorView) => void;
   onFiles?: (dropped: DroppedFiles) => void;
+  coveredBelow?: () => number;
 }
 
 function useCodeLanguage(kind: EditorKind, name: string): Extension | undefined {
@@ -95,12 +96,12 @@ function useCodeLanguage(kind: EditorKind, name: string): Extension | undefined 
 }
 
 export function SourceEditor(props: SourceEditorProps): JSX.Element {
-  const { kind, name, value, readOnly, autoFocus, wrap, onChange, onCreate, onFiles } = props;
+  const { kind, name, value, readOnly, autoFocus, wrap, onChange, onCreate, onFiles, coveredBelow } = props;
   const scheme = useComputedColorScheme('light');
   const [dropping, setDropping] = useState(false);
 
-  const handlers = useRef({ onFiles, readOnly });
-  handlers.current = { onFiles, readOnly };
+  const handlers = useRef({ onFiles, readOnly, coveredBelow });
+  handlers.current = { onFiles, readOnly, coveredBelow };
 
   const code = useCodeLanguage(kind, name);
 
@@ -112,6 +113,7 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
       surface(scheme === 'dark'),
       ...(wrap ? [EditorView.lineWrapping] : []),
       ...(readOnly || kind !== 'markdown' ? [] : [placeholder('Start writing in markdown')]),
+      EditorView.scrollMargins.of(() => ({ bottom: handlers.current.coveredBelow?.() ?? 0 })),
       EditorView.domEventHandlers({
         paste: (event) => {
           const data = event.clipboardData;

@@ -28,15 +28,19 @@ How the app works on a phone.
   apart from its button. The search and the history take the whole screen and
   the outline is a sheet, each over the bar. The search keeps its field at the
   bottom, over the keyboard, with the results above it: a field at the top of a
-  tall phone is out of the thumb's reach. The editor has no bar, and a site has
-  none. The search field is placed by the visible area of the screen, not by
-  CSS alone: a phone's keyboard covers the bottom of the page without making it
-  shorter, and a field fixed to the bottom sat under the keys. The find bar of
-  a note follows the visible area too: with the keyboard up, the scroll to a
-  match moved the visible area down the page, and the bar fixed to the top of
-  the page was left above the screen until the keyboard closed. The bar is
-  moved in the scroll event itself, not by a React render: a render came a
-  frame late, and the bar jumped on every step to a match.
+  tall phone is out of the thumb's reach. The editor has no tab bar, and a site
+  has none: the editor of a note keeps one strip of its own at the bottom, its
+  layout tabs, and while text is typed the formatting toolbar over the keyboard
+  in their place ([editor](editor.md)). The search field is placed by the
+  visible area of the screen, not by CSS alone: a phone's keyboard covers the
+  bottom of the page without making it shorter, and a field fixed to the bottom
+  sat under the keys. The find bar of a note follows the visible area too: with
+  the keyboard up, the scroll to a match moved the visible area down the page,
+  and the bar fixed to the top of the page was left above the screen until the
+  keyboard closed. The bar is moved in the scroll event itself, not by a React
+  render: a render came a frame late, and the bar jumped on every step to a
+  match. The toolbar of the editor over the keyboard is moved the same way, to
+  the bottom of the visible area.
 - On a phone everything starts on a 16px line: the page text and the first and
   last icon of the bar on top.
 - On a phone a dialog stands in the middle of the screen, where the system's

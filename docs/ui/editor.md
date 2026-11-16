@@ -15,15 +15,36 @@ The editor screen.
   page's ground and so does the strip left of them, so a line scrolled sideways
   slides under them; on a transparent ground the text ran over the numbers. The
   topbar holds the sync control, the state of the save, the layout as Source,
-  Split, Preview or Changes, Cancel and Save; on a phone Cancel and Save are
-  the two ends of the bar and the sync control stands between them, in the
-  middle. Below the `lg` width the layout shows only its icons, because the
-  four names squeezed the note's name in the topbar to a few letters. Each
-  layout shows its name on hover at every width, also where the name is on
-  screen, as a title cannot follow the width without a script. This is
-  `compact` of `Segmented`, and only this switch has it: the other icon
-  switches always show their names. On a phone the layouts are the tabs Text,
-  Preview and Changes, as Split has no room there.
+  Split, Preview or Changes, Cancel and Save. Below the `lg` width the layout
+  shows only its icons, because the four names squeezed the note's name in the
+  topbar to a few letters. Each layout shows its name on hover at every width,
+  also where the name is on screen, as a title cannot follow the width without
+  a script. This is `compact` of `Segmented`, and only this switch has it: the
+  other icon switches always show their names.
+- On a phone the bar on top is the way back at the left, the file's name in the
+  middle with the state of the save under it, and Save at the right
+  ([ADR 30](../adr/0030-the-phone-editor-bars.md)). Back is the arrow in the
+  text color and does what Cancel does. Save is a word in the accent, gray and
+  disabled while there is nothing to save, so the bar does not jump; a note not
+  created yet can be saved at once. The sync control is not there: it tells
+  about the whole space and not the note, a problem of the space is the banner
+  over the text, and Save leads to the reader, which has the control. The
+  bottom of the screen is one strip. While no text is typed it is the layouts
+  as a choice of three, Text, Preview and Changes, as Split has no room there,
+  at the bottom, under the thumb, with the home indicator's room under it;
+  Changes carries an orange dot while there are unsaved changes. A dot and not
+  a count: a count needs a diff in the browser or a call to the server on every
+  pause. While the text has the focus, the formatting toolbar takes the strip's
+  place over the keyboard: the same tools, 44px each, in the text's color, with
+  the wrap button at its end, and a button outside the scroll that puts the
+  keyboard away. The strip switches on the focus of the text and does not guess
+  where the keyboard is; the table menu of the toolbar keeps it while open. The
+  toolbar follows the bottom of the visible area, as the find bar does
+  ([phone](phone.md)), and the text scrolls the cursor out from under it. The
+  line count and the head of the source are not on a phone; an upload in
+  progress shows in the state of the save. A text file keeps the head with its
+  language and the wrap button, and its line count at the bottom, as it has no
+  layouts or toolbar.
 - Save saves and opens the reader, as an edit is a trip from the page and back.
   The editor leaves no entry in the history: opened from the note's page, Save
   and Cancel go back to it, and opened from elsewhere the reader takes the
@@ -38,6 +59,12 @@ The editor screen.
   `Ctrl`/`Cmd` + `S`. Cancel opens the reader without saving and asks first
   when there are unsaved changes. A phone has no shortcut, so a save there
   always leaves; the local draft keeps the text between saves.
+- The state of the save is Saved, Saving, Waiting for the upload, New note or
+  New file, and for unsaved changes Draft on device once the text is copied to
+  the browser's storage, which happens 800ms after the last change. Before
+  that, or when the storage refused the copy, as a private window or a full
+  storage does, it is Unsaved changes. "Draft saved" read as saved to the
+  server. On a phone an orange dot stands before both unsaved states.
 - A note's draft ([entries](entries.md)) is the same editor with a name not
   chosen yet: it opens with `# ` as both its text and its saved text, so a
   draft left as it opened has nothing unsaved, and the state reads New note.

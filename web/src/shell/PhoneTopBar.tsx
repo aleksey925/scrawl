@@ -87,25 +87,23 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
       <div data-testid="topbar" data-editing="true" data-renaming={namingDraft ? 'true' : 'false'} className={classes.bar}>
         <div data-testid="topbar-actions" className={classes.editActions} ref={actionsRef} />
         {namingDraft ? (
-          <div className={classes.editName}>
+          <div className={classes.editField}>
             <DraftNameField draft={draft} className={classes.field} onDone={() => setNaming(false)} />
           </div>
+        ) : draft === undefined ? (
+          <span data-testid="topbar-edit-name" className={classes.editName}>
+            {chrome.name}
+          </span>
         ) : (
-          <div className={classes.editEnd}>
-            {draft === undefined ? (
-              end
-            ) : (
-              <button
-                type="button"
-                data-testid="topbar-draft-name"
-                className={classes.draftName}
-                aria-label={`Name the new note, now ${chrome.name}`}
-                onClick={() => setNaming(true)}
-              >
-                {chrome.name}
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            data-testid="topbar-draft-name"
+            className={`${classes.editName} ${classes.draftName}`}
+            aria-label={`Name the new note, now ${chrome.name}`}
+            onClick={() => setNaming(true)}
+          >
+            {chrome.name}
+          </button>
         )}
       </div>
     );

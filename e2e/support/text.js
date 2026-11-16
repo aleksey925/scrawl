@@ -2,6 +2,7 @@ module.exports = {
     status: {
         saved: 'Saved',
         dirty: 'Unsaved changes',
+        drafted: 'Draft on device',
         new: 'New note',
         saving: 'Saving',
         uploading: 'Waiting for the upload',

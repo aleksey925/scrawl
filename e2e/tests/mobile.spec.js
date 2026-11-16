@@ -1841,6 +1841,8 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-editor');
 
         await setSource(page, '# Заметка\n\nновый текст\n');
+        await page.getByTestId('editor-hide-keyboard').tap();
+        await expect(page.getByTestId('editor-changes-mark')).toBeVisible();
         await page.getByTestId('editor-tab-preview').tap();
         await expect(page.getByTestId('editor-preview')).toContainText('новый текст');
         await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'preview');
@@ -1863,6 +1865,103 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('doc')).toContainText('новый текст');
     });
 
+    test('the editor bar holds the back arrow, the name over the state, and a Save that is gray until there is a change', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
+        await page.goto(routes.edit(SCRATCH));
+        const saveButton = page.getByTestId('editor-save');
+        const status = page.getByTestId('editor-status');
+        const name = page.getByTestId('topbar-edit-name');
+
+        // act & assert
+        await expect(name).toHaveText(nameOf(SCRATCH));
+        await expect(status).toHaveText(text.status.saved);
+        await expect(saveButton).toBeDisabled();
+        await expect(saveButton).toHaveCSS('color', rgb(lightTheme.palette.textFaint));
+        await expect(page.getByTestId('editor-cancel')).toHaveCSS('color', rgb(lightTheme.palette.text));
+        await expect(page.getByTestId('sync-control')).toHaveCount(0);
+        const width = page.viewportSize().width;
+        const back = await page.getByTestId('editor-cancel').boundingBox();
+        const nameBox = await name.boundingBox();
+        const statusBox = await status.boundingBox();
+        const saveBox = await saveButton.boundingBox();
+        expect(back.x + back.width).toBeLessThanOrEqual(nameBox.x);
+        expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(saveBox.x);
+        expect(Math.round(nameBox.x + nameBox.width / 2)).toBe(width / 2);
+        expect(Math.round(statusBox.x + statusBox.width / 2)).toBe(width / 2);
+        expect(statusBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height);
+        expect(Math.round(saveBox.x + saveBox.width)).toBeLessThanOrEqual(width);
+
+        await setSource(page, '# Заметка\n\nновый текст\n');
+        await expect(status).toHaveText(text.status.drafted);
+        await expect(saveButton).toBeEnabled();
+        await expect(saveButton).toHaveCSS('color', rgb(lightTheme.palette.accent));
+        await expect(saveButton).toHaveCSS('font-weight', '600');
+        await shot(page, 'mobile-editor-dirty');
+
+        await saveButton.tap();
+        await expect(page).toHaveURL(MAIN.url.doc(SCRATCH));
+        expect(readFixture(SCRATCH)).toBe('# Заметка\n\nновый текст\n');
+    });
+
+    test('the bottom of the editor is the layout tabs, and the toolbar over the keyboard while typing', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
+        await page.goto(routes.edit(SCRATCH));
+        const tabs = page.getByTestId('editor-tabs');
+        const keyboardBar = page.getByTestId('editor-keyboard-bar');
+        const height = page.viewportSize().height;
+
+        // act & assert
+        await expect(tabs).toBeInViewport({ratio: 1});
+        await expect(keyboardBar).toHaveCount(0);
+        await expect(page.getByTestId('editor-lines')).toHaveCount(0);
+        await expect(page.getByTestId('editor-changes-mark')).toHaveCount(0);
+        const tabsBox = await tabs.boundingBox();
+        expect(tabsBox.y + tabsBox.height).toBeLessThanOrEqual(height);
+
+        await page.locator('[data-testid=editor-source] .cm-line').nth(2).tap();
+        await expect(keyboardBar).toBeVisible();
+        await expect(tabs).toHaveCount(0);
+        const barBox = await keyboardBar.boundingBox();
+        expect(Math.round(barBox.y + barBox.height)).toBe(height);
+        await expect(page.getByTestId('editor-wrap')).toBeVisible();
+        await expect(page.getByTestId('editor-toolbar-bold')).toHaveCSS('color', rgb(lightTheme.palette.icon));
+        await page.keyboard.type('!');
+        await page.getByTestId('editor-toolbar-bold').tap();
+        await expect(keyboardBar).toBeVisible();
+        await expect(page.locator('[data-testid=editor-source] .cm-content')).toBeFocused();
+        await shot(page, 'mobile-editor-typing');
+
+        await page.getByTestId('editor-hide-keyboard').tap();
+        await expect(keyboardBar).toHaveCount(0);
+        await expect(tabs).toBeVisible();
+        await expect(page.getByTestId('editor-changes-mark')).toBeVisible();
+        await shot(page, 'mobile-editor-tabs');
+
+        await page.getByTestId('editor-tab-preview').tap();
+        await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'preview');
+        await expect(keyboardBar).toHaveCount(0);
+    });
+
+    test('the table menu of the toolbar keeps the toolbar while it is open', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
+        await page.goto(routes.edit(SCRATCH));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(2).tap();
+
+        // act
+        await page.getByTestId('editor-toolbar-table').tap();
+        await openedMenu(page, 'editor-table-menu');
+
+        // assert
+        await expect(page.getByTestId('editor-keyboard-bar')).toBeVisible();
+        await page.getByTestId('editor-table-grid').locator('[data-column="2"][data-row="2"]').tap();
+        await expect(page.getByTestId('editor-table-menu')).toBeHidden();
+        await expect(page.getByTestId('editor-keyboard-bar')).toBeVisible();
+        await expect(page.locator('[data-testid=editor-source] .cm-content')).toBeFocused();
+    });
+
     test('a split kept on a wide screen opens on the Text tab of a phone', async ({page}) => {
         // arrange
         writeFixture(SCRATCH, '# Заметка\n');
@@ -1873,7 +1972,7 @@ test.describe('mobile', () => {
 
         // assert
         await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'source');
-        await expect(page.getByTestId('editor-tab-source')).toHaveAttribute('aria-selected', 'true');
+        await expect(page.getByTestId('editor-tabs').getByRole('radio', {name: 'Text'})).toBeChecked();
         await expect(page.getByTestId('editor-source')).toBeVisible();
     });
 
@@ -2122,9 +2221,11 @@ test.describe('mobile', () => {
         await page.goto(routes.edit(SCRATCH));
         await expect(page.getByTestId('editor-tabs')).toBeVisible();
 
-        expect(await tooSmall(page, '[data-testid^=editor-tab-]'))
-            .toEqual([]);
-        expect(await tooSmall(page, '[data-testid=editor-toolbar] button')).toEqual([]);
+        expect(await tooSmall(page, '[data-testid=editor-tabs] label', BUTTON_HEIGHT)).toEqual([]);
+        expect(await tooSmall(page, '[data-testid=topbar] button')).toEqual([]);
+        await page.locator('[data-testid=editor-source] .cm-line').first().tap();
+        await expect(page.getByTestId('editor-keyboard-bar')).toBeVisible();
+        expect(await tooSmall(page, '[data-testid=editor-keyboard-bar] button')).toEqual([]);
     });
 
     test('the top bar controls are big enough to tap', async ({page}) => {
@@ -2573,6 +2674,7 @@ test.describe('mobile', () => {
         // arrange
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
         await page.goto(routes.edit(SCRATCH));
+        await page.locator('[data-testid=editor-source] .cm-line').first().tap();
         const toolbar = page.getByTestId('editor-toolbar');
         await expect(toolbar).toBeVisible();
 
@@ -2716,23 +2818,20 @@ test.describe('mobile sync state', () => {
         expect(offenders, 'elements smaller than the touch minimum').toEqual([]);
     });
 
-    test('the control stands between Cancel and Save in the editor', async ({page}) => {
+    test('the editor has no control, and the banner stays over the text with the tabs still on screen', async ({page}) => {
         // arrange
-        await mockMe(page, {pushing: true});
+        breakOrigin(wiki.origin);
+        await saveStuck(page, SYNC_DOC, '# Mobile sync\n\nstuck.\n');
 
         // act
         await page.goto(WIKI.edit(SYNC_DOC));
 
         // assert
-        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'sending');
-        await expect(page.getByTestId('sync-control')).toBeInViewport({ratio: 1});
+        await expect(page.getByTestId('space-alert')).toBeVisible();
+        await expect(page.getByTestId('editor-tabs')).toBeInViewport({ratio: 1});
+        await expect(page.getByTestId('sync-control')).toHaveCount(0);
         await expect(page.getByTestId('editor-cancel')).toBeInViewport({ratio: 1});
         await expect(page.getByTestId('editor-save')).toBeInViewport({ratio: 1});
-        const cancel = await page.getByTestId('editor-cancel').boundingBox();
-        const sync = await page.getByTestId('sync-control').boundingBox();
-        const saveButton = await page.getByTestId('editor-save').boundingBox();
-        expect(cancel.x + cancel.width).toBeLessThanOrEqual(sync.x);
-        expect(sync.x + sync.width).toBeLessThanOrEqual(saveButton.x);
         await shot(page, 'mobile-sync-editor');
     });
 

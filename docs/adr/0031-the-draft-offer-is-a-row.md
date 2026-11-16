@@ -14,9 +14,12 @@ accent and an orange dot for unsaved text
 
 ## Decision
 
-- The offer is a flat row right under the topbar, across the screen, on the
-  ground of a code block with a line under it, on a phone and a wide screen
-  alike.
+- The offer is a flat row right under the topbar, across the screen, with a
+  line under it, on a phone and a wide screen alike. Its ground is the theme's
+  `draftBg`: a pale warm tone in the light theme, near the orange of the dot,
+  and the ground of a code block in the dark one. The gray of a code block in
+  the light theme was nearly white on a wide screen, and the row read as one
+  more strip of tools between the topbar and the toolbar.
 - It reads the orange dot, Unsaved draft and the time in the history's form:
   Today, Yesterday or the date, with hours and minutes. Discard is a word in
   the secondary color and Restore a word in the accent, in 600.

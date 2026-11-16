@@ -428,6 +428,7 @@
   --scrawl-overlay: #0000004d;
   --scrawl-scrim: #ffffff99;
   --scrawl-code-bg: #f5f5f7;
+  --scrawl-draft-bg: #fff6ed;
   --scrawl-diagram-paper: #ffffff;
   --scrawl-link: #0066cc;
   --scrawl-link-line: #0066cc40;
@@ -672,6 +673,7 @@
   --scrawl-overlay: #0f0f0fb3;
   --scrawl-scrim: #0f0f0f99;
   --scrawl-code-bg: #ffffff08;
+  --scrawl-draft-bg: #ffffff08;
   --scrawl-diagram-paper: #f7f6f3;
   --scrawl-link: currentColor;
   --scrawl-link-line: #ffffff40;
@@ -915,6 +917,7 @@
   --scrawl-overlay: #0000004d;
   --scrawl-scrim: #ffffff99;
   --scrawl-code-bg: #f5f5f7;
+  --scrawl-draft-bg: #fff6ed;
   --scrawl-diagram-paper: #ffffff;
   --scrawl-link: #0066cc;
   --scrawl-link-line: #0066cc40;
@@ -1157,6 +1160,7 @@
   --scrawl-overlay: #0f0f0fb3;
   --scrawl-scrim: #0f0f0f99;
   --scrawl-code-bg: #ffffff08;
+  --scrawl-draft-bg: #ffffff08;
   --scrawl-diagram-paper: #f7f6f3;
   --scrawl-link: currentColor;
   --scrawl-link-line: #ffffff40;

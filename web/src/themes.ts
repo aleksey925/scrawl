@@ -31,6 +31,7 @@ export interface Palette {
   overlay: string;
   scrim: string;
   codeBg: string;
+  draftBg: string;
   diagramPaper: string;
   link: string;
   linkLine: string;

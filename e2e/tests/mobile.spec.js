@@ -2116,6 +2116,7 @@ test.describe('mobile', () => {
         }).toEqual({top: barBottom, left: 0, right: width, restoreTall: true, discardTall: true});
         await expect(page.getByTestId('editor-draft-restore')).toHaveCSS('color', rgb(lightTheme.palette.accent));
         await expect(page.getByTestId('editor-draft-discard')).toHaveCSS('color', rgb(lightTheme.palette.textSecondary));
+        await expect(page.getByTestId('editor-draft')).toHaveCSS('background-color', rgb(lightTheme.palette.draftBg));
         await shot(page, 'mobile-editor-draft');
     });
 

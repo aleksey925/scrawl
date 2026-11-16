@@ -42,6 +42,7 @@
     "overlay": "#0f0f0fb3",
     "scrim": "#0f0f0f99",
     "codeBg": "#ffffff08",
+    "draftBg": "#ffffff08",
     "diagramPaper": "#f7f6f3",
     "link": "currentColor",
     "linkLine": "#ffffff40",

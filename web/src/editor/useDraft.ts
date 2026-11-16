@@ -52,7 +52,7 @@ export function useDraft(options: UseDraftOptions): DraftControl {
 
   const [offered, setOffered] = useState<Draft | undefined>(undefined);
   const [stale, setStale] = useState(false);
-  const [written, setWritten] = useState<Draft & { key: string } | undefined>(undefined);
+  const [written, setWritten] = useState<{ key: string; rev: string; content: string } | undefined>(undefined);
 
   const latest = useRef({ rev, content, dirty, key });
   latest.current = { rev, content, dirty, key };
@@ -62,8 +62,8 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     if (!now.dirty) {
       return;
     }
-    const draft: Draft = { rev: now.rev, content: now.content, at: Date.now() };
-    setWritten(writeJson(localStore(), now.key, draft) ? { ...draft, key: now.key } : undefined);
+    const stored = writeJson(localStore(), now.key, { rev: now.rev, content: now.content, at: Date.now() });
+    setWritten(stored ? { key: now.key, rev: now.rev, content: now.content } : undefined);
   }, []);
 
   const clear = useCallback((): void => {

@@ -250,7 +250,10 @@ lines are wrapped so that `git diff` and your git host show changes cleanly.
 
 - **While you type**, the text you have not saved yet is kept in the browser.
   If the tab closes or the phone unloads it, the next time you open the note
-  scrawl offers to restore it, and warns if the note has changed since.
+  scrawl offers to restore it, and warns if the note has changed since. The
+  editor reads "Draft on device" once the browser has kept the text, and
+  "Unsaved changes" before that or when the browser cannot keep it, as in a
+  private window.
 - **When you save**, the note is written to a temporary file and renamed into
   place, so a crash never leaves half a note behind.
 - **If the note changed on disk** since you opened it, the save is refused and

@@ -1,5 +1,5 @@
 import { Menu } from '@mantine/core';
-import { Fragment, useState, type ComponentType, type JSX } from 'react';
+import { Fragment, useEffect, useState, type ComponentType, type JSX } from 'react';
 
 import { PopupMenu } from '../components/PopupMenu';
 import {
@@ -47,12 +47,16 @@ export interface TableMenuProps {
 }
 
 export function TableMenu({ editsAtCursor, onEdit, onInsert, onOpenedChange }: TableMenuProps): JSX.Element {
-  const [opened, setShown] = useState(false);
-  const setOpened = (next: boolean): void => {
-    setShown(next);
-    onOpenedChange?.(next);
-  };
+  const [opened, setOpened] = useState(false);
   const [edits, setEdits] = useState<ReadonlySet<TableEdit> | undefined>(undefined);
+
+  useEffect(() => {
+    if (!opened) {
+      return undefined;
+    }
+    onOpenedChange?.(true);
+    return () => onOpenedChange?.(false);
+  }, [opened, onOpenedChange]);
 
   return (
     <PopupMenu

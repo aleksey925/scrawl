@@ -55,7 +55,9 @@ export function useVisibleBottom(bar: RefObject<HTMLElement | null>, active: boo
       return undefined;
     }
     const follow = (): void => {
-      element.style.transform = `translateY(${view.offsetTop + view.height - element.offsetHeight}px)`;
+      const bottom = view.offsetTop + view.height;
+      element.dataset.keyboard = window.innerHeight - bottom > 1 ? 'true' : 'false';
+      element.style.transform = `translateY(${bottom - element.offsetHeight}px)`;
     };
     element.style.inset = '0 0 auto';
     follow();
@@ -71,6 +73,7 @@ export function useVisibleBottom(bar: RefObject<HTMLElement | null>, active: boo
       window.removeEventListener('scroll', follow);
       element.style.inset = '';
       element.style.transform = '';
+      delete element.dataset.keyboard;
     };
   }, [bar, active]);
 }

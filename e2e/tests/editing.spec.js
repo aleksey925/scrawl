@@ -131,7 +131,8 @@ test.describe('editing', () => {
         await expect.poll(() => sourceText(page)).toBe('# Заголовок\n');
 
         // act & assert
-        await page.clock.install();
+        await page.clock.install({time: new Date('2026-01-01T10:00:00')});
+        await page.clock.pauseAt(new Date('2026-01-01T10:00:01'));
         await setSource(page, '# Заголовок\n\nпервый\n');
         await expect(editorStatus(page)).toHaveText(text.status.dirty);
         await expect(editorStatus(page)).toHaveAttribute('data-state', 'dirty');
@@ -139,11 +140,11 @@ test.describe('editing', () => {
         await expect(editorStatus(page)).toHaveText(text.status.drafted);
         await expect(editorStatus(page)).toHaveAttribute('data-state', 'drafted');
 
-        await setSource(page, '# Заголовок\n\nвторой\n');
-        await expect(editorStatus(page)).toHaveText(text.status.dirty);
         await page.evaluate(() => {
             window.refuseDrafts = true;
         });
+        await setSource(page, '# Заголовок\n\nвторой\n');
+        await expect(editorStatus(page)).toHaveText(text.status.dirty);
         await page.clock.runFor(1000);
         await stays(() => editorStatus(page).textContent(), text.status.dirty, 500);
         removeFixture(docPath);
@@ -1601,6 +1602,30 @@ test.describe('editing', () => {
 
         // assert
         await expect.poll(options).toEqual(['Source', 'Split', 'Preview', 'Changes'].map((title) => ({title, shown: true})));
+        removeFixture(docPath);
+    });
+
+    test('between a phone and a wide screen the editor keeps the desktop bar and toolbar, with no Split', async ({page}) => {
+        // arrange
+        const docPath = scratch('layout-between');
+        writeFixture(docPath, '# Заметка\n');
+        await page.addInitScript(() => localStorage.setItem('scrawl.editor.mode', 'split'));
+        await page.setViewportSize({width: 900, height: 900});
+
+        // act
+        await page.goto(routes.edit(docPath));
+
+        // assert
+        const layoutMode = page.getByTestId('editor-layout-mode');
+        await expect(layoutMode.getByRole('radio')).toHaveCount(3);
+        expect(await layoutMode.locator('[data-segment-text]').allTextContents()).toEqual(['Source', 'Preview', 'Changes']);
+        await expect(layoutMode.getByRole('radio', {name: 'Source'})).toBeChecked();
+        await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'source');
+        await expect(page.getByTestId('editor-cancel')).toHaveText('Cancel');
+        await expect(page.getByTestId('editor-toolbar')).toBeVisible();
+        await expect(page.getByTestId('editor-tabs')).toHaveCount(0);
+        await expect(page.getByTestId('editor-keyboard-bar')).toHaveCount(0);
+        await expect(page.getByTestId('topbar-edit-name')).toHaveCount(0);
         removeFixture(docPath);
     });
 

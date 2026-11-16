@@ -35,10 +35,7 @@ opens over them.
   in the topbar's group at the right, in the reader and the editor, just before
   the page's "Edited" date or the editor's save state, as Google Docs keeps its
   saved cloud by the document: when the note last changed and whether that
-  change reached the remote read as one status. The editor of a phone has no
-  sync control: the bar there is the way back, the name with the save state and
-  Save, a problem of the space is the banner over the text, and Save leads to
-  the reader, where the control is ([editor](editor.md)). It says where the
+  change reached the remote read as one status. The control says where the
   person's changes are: a gray spinner while they are on their way, a gray
   cloud with a check once all is sent, an orange crossed cloud when something
   is not sent or not synced, and an orange warning sign when a person must act,
@@ -46,42 +43,45 @@ opens over them.
   read-only or local space shows the control only when something is wrong. The
   calm states have no word, so a save does not make the bar jump, and the
   problem states add one on a wide screen: Not synced, No connection, Conflict,
-  Access refused. No connection is a failed fetch, so it is not mistaken for a
-  change that was not sent. "Synced" is the check that stays, with no toast and
-  no timer, the way Notion keeps a small quiet state in its bar. A click on a
-  calm state shows its word, Syncing or Synced, in a small dark tip centered
-  under the button, as Notion draws one, with a gray line "This note is not
-  sent yet" under it when the open note is not sent, and the offline mark shows
-  its tip the same way; the button stays gray while its tip is open. A click on
-  a problem state opens the facts behind it, in a popover as wide as its text
-  and no wider than 320px, so a short state is not a half-empty box. In a
-  conflict it lists the files under "Conflicting files:" and has no button:
-  Replace local copy is in the banner, which every screen shows. Its dialog is
-  the prototype's alert: a bold title ending in a question, gray text, the
-  files on a gray ground with their icons, no colored callout and no close
-  button, and a blue Replace, since nothing is lost. Under reduced motion the
-  spinner is a still cloud with an arrow. A folder is always its list, the root
-  included: a Notion database of Name, Size and Modified led by a `..` row, and
-  a click anywhere on a row opens it. A right click on a row opens the menu the
-  tree row has, at the pointer as a desktop has it, over the row's name and its
-  selected text too, as a tree row does. It creates nothing: from a row a new
-  entry was named in the tree, away from the list. On the free space of the
-  page a right click opens a menu of New note and New folder, a note's draft
-  and a row of the table for the folder; there a link, a button and selected
-  text keep the browser's own menu, so text is still copied from there. The
-  free space is the page, which grows to the bottom of the window. A row keeps
-  the hover gray while its menu is up. A rename draws the field in the name
-  cell of the row, on the gray a new row has, and the row then takes no click,
-  no right click and no hover. New is a large main button at the right of the
-  folder's title, where Notion puts New page: a click opens a note's draft, and
-  the arrow joined to it opens a menu of New folder alone, as wide as its
-  label, which puts a row with the field after the last folder. Its tip names
-  the key `N`. The page has no `⋯` in the topbar: its Copy link, Rename, Move
-  to and Delete are the row menu's, in the tree and in the list of the folder
-  above, and a menu of a folder on its own page was a second place for them.
-  There is no gray pill of the one view and no count of the items over the
-  table: the pill switched nothing, and the count said what the rows show. The
-  table is Notion's too: no line between the columns, which read as a
+  Access refused. The editor of a phone has no sync control: the bar there is
+  the way back, the name with the save state and Save, a problem of the space
+  is the banner over the text, and Save leads to the reader, where the control
+  is ([editor](editor.md)). No connection is a failed fetch, so it is not
+  mistaken for a change that was not sent. "Synced" is the check that stays,
+  with no toast and no timer, the way Notion keeps a small quiet state in its
+  bar. A click on a calm state shows its word, Syncing or Synced, in a small
+  dark tip centered under the button, as Notion draws one, with a gray line
+  "This note is not sent yet" under it when the open note is not sent, and the
+  offline mark shows its tip the same way; the button stays gray while its tip
+  is open. A click on a problem state opens the facts behind it, in a popover
+  as wide as its text and no wider than 320px, so a short state is not a
+  half-empty box. In a conflict it lists the files under "Conflicting files:"
+  and has no button: Replace local copy is in the banner, which every screen
+  shows. Its dialog is the prototype's alert: a bold title ending in a
+  question, gray text, the files on a gray ground with their icons, no colored
+  callout and no close button, and a blue Replace, since nothing is lost. Under
+  reduced motion the spinner is a still cloud with an arrow. A folder is always
+  its list, the root included: a Notion database of Name, Size and Modified led
+  by a `..` row, and a click anywhere on a row opens it. A right click on a row
+  opens the menu the tree row has, at the pointer as a desktop has it, over the
+  row's name and its selected text too, as a tree row does. It creates nothing:
+  from a row a new entry was named in the tree, away from the list. On the free
+  space of the page a right click opens a menu of New note and New folder, a
+  note's draft and a row of the table for the folder; there a link, a button
+  and selected text keep the browser's own menu, so text is still copied from
+  there. The free space is the page, which grows to the bottom of the window. A
+  row keeps the hover gray while its menu is up. A rename draws the field in
+  the name cell of the row, on the gray a new row has, and the row then takes
+  no click, no right click and no hover. New is a large main button at the
+  right of the folder's title, where Notion puts New page: a click opens a
+  note's draft, and the arrow joined to it opens a menu of New folder alone, as
+  wide as its label, which puts a row with the field after the last folder. Its
+  tip names the key `N`. The page has no `⋯` in the topbar: its Copy link,
+  Rename, Move to and Delete are the row menu's, in the tree and in the list of
+  the folder above, and a menu of a folder on its own page was a second place
+  for them. There is no gray pill of the one view and no count of the items
+  over the table: the pill switched nothing, and the count said what the rows
+  show. The table is Notion's too: no line between the columns, which read as a
   spreadsheet, and columns of their own width, the name 530px and the others
   150px, as a file name carries its extension, with an empty one at the end
   taking the rest and the row lines running across it, so a date is not a
@@ -290,8 +290,11 @@ opens over them.
 
 - With offline access on and no network, the topbar's group at the right starts
   with a mark: the crossed wifi icon, with "Offline" beside it on a wide screen
-  and alone on a phone's bar on top. A click shows `No network` and, under it
-  in gray, `Last sync 14:30`, the time of the copy on the device.
+  and alone on a phone's bar on top, apart from the phone's editor, which shows
+  neither the mark nor the sync control: the cells beside the name have no room
+  for it, the draft keeps the text on the device, and a save with no network
+  shows its toast ([editor](editor.md)). A click shows `No network` and, under
+  it in gray, `Last sync 14:30`, the time of the copy on the device.
 - The pages read the copy on the device. Every write control, history, search
   and the sync control are gone, the tree's filter stays, and the note's menu
   loses Export as Markdown and as HTML; Export as PDF, which is a print, and

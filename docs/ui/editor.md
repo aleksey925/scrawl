@@ -13,49 +13,58 @@ The editor screen.
   the source, across the whole room, and that is accepted: a narrow column only
   for that case would bring the empty sides back. The line numbers have the
   page's ground and so does the strip left of them, so a line scrolled sideways
-  slides under them; on a transparent ground the text ran over the numbers. The
-  topbar holds the sync control, the state of the save, the layout as Source,
-  Split, Preview or Changes, Cancel and Save. Below the `lg` width the layout
-  shows only its icons, because the four names squeezed the note's name in the
-  topbar to a few letters. Each layout shows its name on hover at every width,
-  also where the name is on screen, as a title cannot follow the width without
-  a script. This is `compact` of `Segmented`, and only this switch has it: the
+  slides under them; on a transparent ground the text ran over the numbers. On
+  a wide screen the topbar holds the sync control, the state of the save, the
+  layout as Source, Split, Preview or Changes, Cancel and Save. Between a phone
+  and a wide screen it holds the same without the state of the save and without
+  Split, as two panes have no room there. Below the `lg` width the layout shows
+  only its icons, because the four names squeezed the note's name in the topbar
+  to a few letters. Each layout shows its name on hover at every width, also
+  where the name is on screen, as a title cannot follow the width without a
+  script. This is `compact` of `Segmented`, and only this switch has it: the
   other icon switches always show their names.
-- On a phone the bar on top is the way back at the left, the file's name in the
-  middle with the state of the save under it, and Save at the right
-  ([ADR 30](../adr/0030-the-phone-editor-bars.md)). Back is the arrow in the
-  text color and does what Cancel does. Save is a word in the accent, gray and
-  disabled while there is nothing to save, so the bar does not jump; a note not
-  created yet can be saved at once. The sync control is not there: it tells
-  about the whole space and not the note, a problem of the space is the banner
-  over the text, and Save leads to the reader, which has the control. The
-  bottom of the screen is one strip. While no text is typed it is the layouts
-  as a choice of three, Text, Preview and Changes, as Split has no room there,
-  at the bottom, under the thumb, with the home indicator's room under it;
-  Changes carries an orange dot while there are unsaved changes. A dot and not
-  a count: a count needs a diff in the browser or a call to the server on every
-  pause. While the text has the focus, the formatting toolbar takes the strip's
-  place over the keyboard: the same tools, 44px each, in the text's color, with
-  the wrap button at its end, and a button outside the scroll that puts the
-  keyboard away. The strip switches on the focus of the text and does not guess
-  where the keyboard is; the table menu of the toolbar keeps it while open. The
-  toolbar follows the bottom of the visible area, as the find bar does
-  ([phone](phone.md)), and the text scrolls the cursor out from under it. The
-  line count and the head of the source are not on a phone; an upload in
-  progress shows in the state of the save. A text file keeps the head with its
-  language and the wrap button, and its line count at the bottom, as it has no
-  layouts or toolbar.
+- On a phone, below the phone width, the bar on top is the way back at the
+  left, the file's name in the middle with the state of the save under it, and
+  Save at the right ([ADR 30](../adr/0030-the-phone-editor-bars.md)). Back is
+  the arrow in the text color and does what Cancel does. Save is a word in the
+  accent, gray and disabled while there is nothing to save, so the bar does not
+  jump; a note not created yet can be saved at once. The sync control is not
+  there: it tells about the whole space and not the note, a problem of the
+  space is the banner over the text, and Save leads to the reader, which has
+  the control. The offline mark is not there either: the cells beside the name
+  are 64px wide and have no room for it without moving the name off the middle,
+  the draft keeps the text on the device, and a save with no network shows its
+  toast. The bottom of the screen is one strip. While no text is typed it is
+  the layouts as a choice of three, Text, Preview and Changes, as Split has no
+  room there, at the bottom, under the thumb, with the home indicator's room
+  under it; Changes carries an orange dot while there are unsaved changes. A
+  dot and not a count: a count needs a diff in the browser or a call to the
+  server on every pause. While the text has the focus, the formatting toolbar
+  takes the strip's place over the keyboard: the same tools, 44px each, in the
+  text's color, with the wrap button at its end, and a button outside the
+  scroll that puts the keyboard away. The strip switches on the focus of the
+  text and does not guess where the keyboard is; the table menu of the toolbar
+  keeps it while open. The toolbar follows the bottom of the visible area, as
+  the find bar does ([phone](phone.md)), keeps the home indicator's room under
+  it while no keyboard is up, as with a hardware keyboard, and the text scrolls
+  the cursor out from under it. The line count and the head of the source are
+  not on a phone; an upload in progress shows in the state of the save. In a
+  read-only space the head of the source stays, with the wrap button, as the
+  toolbar that carries it on a phone is never shown there. A text file keeps
+  the head with its language and the wrap button, and its line count at the
+  bottom, as it has no layouts or toolbar.
 - Save saves and opens the reader, as an edit is a trip from the page and back.
   The editor leaves no entry in the history: opened from the note's page, Save
   and Cancel go back to it, and opened from elsewhere the reader takes the
   editor's entry, so a back from the note never opens the editor again. With
   nothing to save it only opens the reader, and a note not created yet is
-  created. The editor stays when the save fails, when it meets a conflict,
-  whatever the conflict dialog then does, and when the text changed while the
-  save ran. A person who went elsewhere while the save ran stays there. Once
-  the save is done and the reader is on its way, the text can no longer be
-  changed: the guard on leaving is asked only as the move starts, and the
-  reader may still be loading. A save midway that keeps the editor is
+  created. On a phone Save is disabled while there is nothing to save, and the
+  back arrow opens the reader. The editor stays when the save fails, when it
+  meets a conflict, whatever the conflict dialog then does, and when the text
+  changed while the save ran. A person who went elsewhere while the save ran
+  stays there. Once the save is done and the reader is on its way, the text can
+  no longer be changed: the guard on leaving is asked only as the move starts,
+  and the reader may still be loading. A save midway that keeps the editor is
   `Ctrl`/`Cmd` + `S`. Cancel opens the reader without saving and asks first
   when there are unsaved changes. A phone has no shortcut, so a save there
   always leaves; the local draft keeps the text between saves.
@@ -89,14 +98,15 @@ The editor screen.
   editor opens with: it is not kept as the other three are, and the editor
   opens in the last of those.
 - A text file that is not a note is edited as text alone: the source, colored
-  by its language, with Save, Cancel and the wrap, and no modes, toolbar,
-  preview, formatter, contents or picture upload, none of which means anything
-  for it. It is the same editor screen with the markdown parts left out, not a
-  second one: the save, the draft, the conflict and the guard on leaving stay
-  one flow. A copy kept from a conflict keeps the file's extension, and a file
-  that is text by its whole name, a `Makefile` or `go.mod`, gets a `.txt` copy,
-  which the editor still opens. The language comes from the name: codemirror's
-  set, and for what it lacks or guesses wrong the closest language it holds, in
+  by its language, with Save, Cancel, which is the back arrow on a phone, and
+  the wrap, and no modes, toolbar, preview, formatter, contents or picture
+  upload, none of which means anything for it. It is the same editor screen
+  with the markdown parts left out, not a second one: the save, the draft, the
+  conflict and the guard on leaving stay one flow. A copy kept from a conflict
+  keeps the file's extension, and a file that is text by its whole name, a
+  `Makefile` or `go.mod`, gets a `.txt` copy, which the editor still opens. The
+  language comes from the name: codemirror's set, and for what it lacks or
+  guesses wrong the closest language it holds, in
   `web/src/editor/codeLanguages.ts` (a svelte component as html, elixir as
   ruby, a makefile as shell). No new grammar is a dependency of ours, so a name
   with nothing close (terraform, graphql, zig) stays plain.

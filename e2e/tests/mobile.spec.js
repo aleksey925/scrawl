@@ -6,7 +6,7 @@ const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
     DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
-    mockMe, nameOf, readFixture, recordMoves, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
+    holdRoute, mockMe, nameOf, readFixture, recordMoves, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const lightTheme = require('../../theme/themes/light.json');
@@ -16,6 +16,8 @@ const BUTTON_HEIGHT = 40;
 const CHOICE_HEIGHT = 36;
 const ROW_HEIGHT = 48;
 const NO_LINE = 'rgba(0, 0, 0, 0)';
+const PNG_BASE64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const DOC = docs.doc.path;
 const SCRATCH = 'e2e-mobile/zametka.md';
 const EMPTY_FOLDER = 'e2e-mobile/pusto';
@@ -109,6 +111,36 @@ async function boxOf(page, testId) {
     };
 }
 
+function editorFit(page) {
+    return page.evaluate(() => {
+        const boxOfId = (testId) => document.querySelector(`[data-testid="${testId}"]`)?.getBoundingClientRect();
+        const source = boxOfId('editor-source');
+        const strip = boxOfId('editor-strip');
+        const alert = boxOfId('space-alert');
+        return {
+            sourceOverStrip: Math.round(source.bottom) <= Math.round(strip.top),
+            alertOverSource: alert === undefined ? 'no banner' : Math.round(alert.bottom) <= Math.round(source.top),
+            scroll: document.documentElement.scrollHeight - window.innerHeight,
+        };
+    });
+}
+
+async function fakeVisibleArea(page) {
+    await page.addInitScript(() => {
+        const view = Object.assign(new EventTarget(), {
+            offsetTop: 0, offsetLeft: 0, width: window.innerWidth, height: window.innerHeight, scale: 1,
+        });
+        Object.defineProperty(window, 'visualViewport', {value: view, configurable: true});
+    });
+}
+
+function moveVisibleArea(page, top, height) {
+    return page.evaluate(({offsetTop, visible}) => {
+        Object.assign(window.visualViewport, {offsetTop, height: visible});
+        window.visualViewport.dispatchEvent(new Event('resize'));
+    }, {offsetTop: top, visible: height});
+}
+
 test.describe('mobile', () => {
     test.beforeEach(async ({page}) => {
         await signIn(page);
@@ -138,35 +170,47 @@ test.describe('mobile', () => {
 
     test('the current tab is the accent with a filled icon and a bold label, the others gray', async ({page}) => {
         // arrange
-        const look = (name) => page.getByTestId(`tab-${name}`).evaluate((el) => ({
-            color: getComputedStyle(el).color,
-            weight: getComputedStyle(el.querySelector('span')).fontWeight,
-            drawing: el.querySelector('svg').innerHTML,
-            ground: getComputedStyle(el).backgroundColor,
-        }));
-        const accent = rgb(lightTheme.palette.accent);
-        const gray = rgb(lightTheme.palette.textTertiary);
+        const names = ['notes', 'search', 'new', 'recent', 'profile'];
+        const look = (name) => page.getByTestId(`tab-${name}`).evaluate((el) => {
+            const style = getComputedStyle(el);
+            return {
+                color: style.color,
+                weight: getComputedStyle(el.querySelector('span')).fontWeight,
+                ground: style.backgroundColor,
+                border: style.borderStyle,
+                shadow: style.boxShadow,
+                outline: style.outlineStyle,
+            };
+        });
+        const looks = async () => Object.fromEntries(
+            await Promise.all(names.map(async (name) => [name, await look(name)])));
+        const drawing = (name) => page.getByTestId(`tab-${name}`).locator('svg').innerHTML();
+        const bare = {ground: NO_LINE, border: 'none', shadow: 'none', outline: 'none'};
+        const expected = (current) => Object.fromEntries(names.map((name) => [name, name === current
+            ? {...bare, color: rgb(lightTheme.palette.accent), weight: '600'}
+            : {...bare, color: rgb(lightTheme.palette.textTertiary), weight: '400'}]));
         await page.goto(routes.home());
-        const plain = await look('notes');
-        await page.getByTestId('tab-recent').tap();
-        await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
-        const plainNotes = await look('notes');
-
-        // act
-        await page.getByTestId('tab-notes').tap();
         await expect(page.getByTestId('tab-notes')).toHaveAttribute('data-current', 'true');
 
-        // assert
-        const notes = await look('notes');
-        expect([notes.color, notes.weight, notes.ground]).toEqual([accent, '600', NO_LINE]);
-        expect(notes.drawing).toBe(plain.drawing);
-        expect(notes.drawing).not.toBe(plainNotes.drawing);
-        expect([plainNotes.color, plainNotes.weight]).toEqual([gray, '400']);
-        for (const name of ['search', 'new', 'recent', 'profile']) {
-            const other = await look(name);
-            expect([name, other.color, other.weight]).toEqual([name, gray, '400']);
-        }
+        // act
+        const seen = {notes: await looks()};
         await shot(page, 'mobile-tab-current');
+        const filled = {notes: await drawing('notes')};
+        const regular = {search: await drawing('search'), recent: await drawing('recent')};
+        await page.getByTestId('tab-recent').tap();
+        await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
+        seen.recent = await looks();
+        filled.recent = await drawing('recent');
+        regular.notes = await drawing('notes');
+        await page.getByTestId('tab-search').tap();
+        await expect(page.getByTestId('tab-search')).toHaveAttribute('data-current', 'true');
+        seen.search = await looks();
+        filled.search = await drawing('search');
+
+        // assert
+        expect(seen).toEqual({notes: expected('notes'), recent: expected('recent'), search: expected('search')});
+        expect(['notes', 'search', 'recent'].map((name) => filled[name] === regular[name]))
+            .toEqual([false, false, false]);
     });
 
     test.describe('the action of the tab bar', () => {
@@ -1872,10 +1916,12 @@ test.describe('mobile', () => {
         const saveButton = page.getByTestId('editor-save');
         const status = page.getByTestId('editor-status');
         const name = page.getByTestId('topbar-edit-name');
+        const mark = page.getByTestId('editor-unsaved-mark');
 
         // act & assert
         await expect(name).toHaveText(nameOf(SCRATCH));
         await expect(status).toHaveText(text.status.saved);
+        await expect(mark).toHaveCount(0);
         await expect(saveButton).toBeDisabled();
         await expect(saveButton).toHaveCSS('color', rgb(lightTheme.palette.textFaint));
         await expect(page.getByTestId('editor-cancel')).toHaveCSS('color', rgb(lightTheme.palette.text));
@@ -1893,7 +1939,9 @@ test.describe('mobile', () => {
         expect(Math.round(saveBox.x + saveBox.width)).toBeLessThanOrEqual(width);
 
         await setSource(page, '# Заметка\n\nновый текст\n');
+        await expect(mark).toBeVisible();
         await expect(status).toHaveText(text.status.drafted);
+        await expect(mark).toBeVisible();
         await expect(saveButton).toBeEnabled();
         await expect(saveButton).toHaveCSS('color', rgb(lightTheme.palette.accent));
         await expect(saveButton).toHaveCSS('font-weight', '600');
@@ -1902,6 +1950,25 @@ test.describe('mobile', () => {
         await saveButton.tap();
         await expect(page).toHaveURL(MAIN.url.doc(SCRATCH));
         expect(readFixture(SCRATCH)).toBe('# Заметка\n\nновый текст\n');
+    });
+
+    test('a new note left as it opened can be saved at once', async ({page}) => {
+        // arrange
+        const folder = 'e2e-mobile/new-untouched';
+        const created = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.draft(created));
+        const saveButton = page.getByTestId('editor-save');
+        await expect(page.getByTestId('editor-status')).toHaveAttribute('data-state', 'new');
+        await expect(saveButton).toBeEnabled();
+
+        // act
+        await saveButton.tap();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(created));
+        expect(fs.existsSync(fixtureFile(created))).toBe(true);
+        removeFixture(folder);
     });
 
     test('the bottom of the editor is the layout tabs, and the toolbar over the keyboard while typing', async ({page}) => {
@@ -1913,12 +1980,13 @@ test.describe('mobile', () => {
         const height = page.viewportSize().height;
 
         // act & assert
-        await expect(tabs).toBeInViewport({ratio: 1});
+        await expect(tabs).toBeVisible();
         await expect(keyboardBar).toHaveCount(0);
         await expect(page.getByTestId('editor-lines')).toHaveCount(0);
         await expect(page.getByTestId('editor-changes-mark')).toHaveCount(0);
-        const tabsBox = await tabs.boundingBox();
-        expect(tabsBox.y + tabsBox.height).toBeLessThanOrEqual(height);
+        expect(await editorFit(page)).toEqual({sourceOverStrip: true, alertOverSource: 'no banner', scroll: 0});
+        const stripBox = await page.getByTestId('editor-strip').boundingBox();
+        expect(Math.round(stripBox.y + stripBox.height)).toBe(height);
 
         await page.locator('[data-testid=editor-source] .cm-line').nth(2).tap();
         await expect(keyboardBar).toBeVisible();
@@ -1944,18 +2012,95 @@ test.describe('mobile', () => {
         await expect(keyboardBar).toHaveCount(0);
     });
 
-    test('the table menu of the toolbar keeps the toolbar while it is open', async ({page}) => {
+    test('the toolbar over the keyboard follows the bottom of the visible area, and knows the keyboard is up', async ({page}) => {
+        // arrange
+        await fakeVisibleArea(page);
+        writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
+        await page.goto(routes.edit(SCRATCH));
+        await page.locator('[data-testid=editor-source] .cm-line').nth(2).tap();
+        await expect(page.getByTestId('editor-keyboard-bar')).toBeVisible();
+        const strip = page.getByTestId('editor-strip');
+        const height = page.viewportSize().height;
+        const placeAt = async (top, visible) => {
+            await moveVisibleArea(page, top, visible);
+            return strip.evaluate((el) => ({
+                bottom: Math.round(el.getBoundingClientRect().bottom),
+                height: Math.round(el.getBoundingClientRect().height),
+                keyboard: el.dataset.keyboard,
+            }));
+        };
+
+        // act
+        const raised = await placeAt(120, 400);
+        const lowered = await placeAt(0, height);
+
+        // assert
+        expect({raised, lowered}).toEqual({
+            raised: {bottom: 520, height: 50, keyboard: 'true'},
+            lowered: {bottom: height, height: 50, keyboard: 'false'},
+        });
+    });
+
+    test('typing keeps the cursor out from under the toolbar over the keyboard', async ({page}) => {
+        // arrange
+        await fakeVisibleArea(page);
+        const filler = Array.from({length: 80}, (_, index) => `строка ${index}`).join('\n');
+        writeFixture(SCRATCH, `# Заметка\n\n${filler}\n`);
+        await page.goto(routes.edit(SCRATCH));
+        await expect(page.locator('[data-testid=editor-source] .cm-line').nth(20)).toBeVisible();
+        await page.touchscreen.tap(100, 650);
+        await expect(page.getByTestId('editor-keyboard-bar')).toBeVisible();
+        await moveVisibleArea(page, 0, 400);
+        const cursorClear = () => page.evaluate(() => {
+            const cursor = document.querySelector('[data-testid=editor-source] .cm-cursor-primary').getBoundingClientRect();
+            const bar = document.querySelector('[data-testid=editor-keyboard-bar]').getBoundingClientRect();
+            return Math.round(cursor.bottom) <= Math.round(bar.top) && cursor.top > 0;
+        });
+        expect(await cursorClear()).toBe(false);
+
+        // act
+        await page.keyboard.type('!');
+
+        // assert
+        await expect.poll(cursorClear).toBe(true);
+    });
+
+    test('an upload in progress shows in the state of the save', async ({page}) => {
+        // arrange
+        const folder = 'e2e-mobile/upload';
+        const notePath = `${folder}/picture.md`;
+        writeFixture(notePath, '# Картинка\n\n');
+        const {release, reached} = await holdRoute(page, '**/api/upload/**');
+        await page.goto(routes.edit(notePath));
+        await expect.poll(() => sourceText(page)).toBe('# Картинка\n\n');
+        const status = page.getByTestId('editor-status');
+
+        // act & assert
+        await page.getByTestId('editor-upload-input').setInputFiles({
+            name: 'e2e-phone.png',
+            mimeType: 'image/png',
+            buffer: Buffer.from(PNG_BASE64, 'base64'),
+        });
+        await reached;
+        await expect(status).toHaveAttribute('data-state', 'uploading');
+        await expect(status).toHaveText(text.status.uploading);
+
+        release();
+        await expect(status).not.toHaveAttribute('data-state', 'uploading');
+        removeFixture(folder);
+    });
+
+    test('the table menu of the toolbar keeps the toolbar while it is open and after a pick', async ({page}) => {
         // arrange
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
         await page.goto(routes.edit(SCRATCH));
         await page.locator('[data-testid=editor-source] .cm-line').nth(2).tap();
 
-        // act
+        // act & assert
         await page.getByTestId('editor-toolbar-table').tap();
         await openedMenu(page, 'editor-table-menu');
-
-        // assert
         await expect(page.getByTestId('editor-keyboard-bar')).toBeVisible();
+
         await page.getByTestId('editor-table-grid').locator('[data-column="2"][data-row="2"]').tap();
         await expect(page.getByTestId('editor-table-menu')).toBeHidden();
         await expect(page.getByTestId('editor-keyboard-bar')).toBeVisible();
@@ -2000,15 +2145,18 @@ test.describe('mobile', () => {
         const filePath = 'e2e-mobile/plain.txt';
         writeFixture(filePath, 'just text\n');
 
-        // act
+        // act & assert
         await page.goto(routes.edit(filePath));
-
-        // assert
         await expect(page.getByTestId('editor')).toHaveAttribute('data-kind', 'text');
         await expect(page.getByTestId('editor-source')).toContainText('just text');
         await expect(page.getByTestId('editor-tabs')).toHaveCount(0);
         await expect(page.getByTestId('editor-language')).toHaveText('Plain text');
+        await expect(page.getByTestId('editor-lines')).toBeVisible();
+        await expect(page.getByTestId('editor-language').locator('..').getByTestId('editor-wrap')).toBeVisible();
         await shot(page, 'mobile-plain-text-editor');
+        await page.locator('[data-testid=editor-source] .cm-line').first().tap();
+        await expect(page.locator('[data-testid=editor-source] .cm-content')).toBeFocused();
+        await stays(() => page.getByTestId('editor-keyboard-bar').count(), 0, 300);
     });
 
     test('the editor pane takes the width of the screen', async ({page}) => {
@@ -2828,7 +2976,7 @@ test.describe('mobile sync state', () => {
 
         // assert
         await expect(page.getByTestId('space-alert')).toBeVisible();
-        await expect(page.getByTestId('editor-tabs')).toBeInViewport({ratio: 1});
+        expect(await editorFit(page)).toEqual({sourceOverStrip: true, alertOverSource: true, scroll: 0});
         await expect(page.getByTestId('sync-control')).toHaveCount(0);
         await expect(page.getByTestId('editor-cancel')).toBeInViewport({ratio: 1});
         await expect(page.getByTestId('editor-save')).toBeInViewport({ratio: 1});

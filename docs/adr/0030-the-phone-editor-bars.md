@@ -19,7 +19,13 @@ from the thumb, and the toolbar was away from the keyboard the person typed on.
   change, so the bar does not jump. It still saves and opens the reader.
 - The sync control is not in the phone's editor. It tells about the whole
   space; a problem there is the banner, and Save leads to the reader, which has
-  the control.
+  the control. The offline mark is not there either: the 64px cells beside the
+  name have no room for it without moving the name off the middle, the draft
+  keeps the text on the device, and a save with no network shows its toast.
+- The phone's editor is the one below the phone width, the width the phone's
+  bar on top and its tab bar start at. Between that and a wide screen the
+  editor keeps the desktop's bar and toolbar, and its layouts leave out Split,
+  which needs a wide screen.
 - The state of unsaved changes is Draft on device once the browser's storage
   holds the draft, and Unsaved changes before that or when the storage refused
   it. The desktop reads the same words.

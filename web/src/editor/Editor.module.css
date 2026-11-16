@@ -386,6 +386,11 @@
 }
 
 .phoneBar[data-typing='true'] {
+  height: calc(50px + env(safe-area-inset-bottom, 0px));
+  padding: 0 0 env(safe-area-inset-bottom, 0px);
+}
+
+.phoneBar[data-typing='true'][data-keyboard='true'] {
   height: 50px;
   padding: 0;
 }
@@ -414,10 +419,6 @@
 .keyboardBar .tool svg {
   width: 22px;
   height: 22px;
-}
-
-.keyboardBar .tool[aria-pressed='true'] {
-  color: var(--scrawl-accent);
 }
 
 .keyboardBar .toolSeparator {

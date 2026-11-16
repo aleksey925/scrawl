@@ -27,7 +27,7 @@ export function Segmented<T extends string>({ options, compact = false, ...rest 
       data={options.map(({ value, label, icon: OptionIcon, testId, mark }) => ({
         value,
         label:
-          OptionIcon === undefined && testId === undefined && mark === undefined ? (
+          OptionIcon === undefined && testId === undefined ? (
             label
           ) : (
             <span data-testid={testId} className={controls.segmentOption} title={compact ? label : undefined}>

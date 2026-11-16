@@ -67,6 +67,22 @@ test.describe('read-only mode', () => {
         await shot(page, 'readonly-editor-refused');
     });
 
+    test('the editor of a phone keeps the wrap button of the source', async ({page}) => {
+        // arrange
+        await page.setViewportSize({width: 390, height: 844});
+        await page.goto(READONLY.url.edit(DOC));
+        const wrap = page.getByTestId('editor-wrap');
+        await expect(page.getByTestId('editor-tabs')).toBeVisible();
+        const pressed = await wrap.getAttribute('aria-pressed');
+
+        // act
+        await wrap.click();
+
+        // assert
+        await expect(wrap).toHaveAttribute('aria-pressed', pressed === 'true' ? 'false' : 'true');
+        await expect(page.getByTestId('editor-keyboard-bar')).toHaveCount(0);
+    });
+
     test('the write api refuses every mutating call', async ({page}) => {
         const calls = [
             ['PUT', routes.api(`/file/${DOC}`), {content: 'nope', rev: ''}],

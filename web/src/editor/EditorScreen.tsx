@@ -30,7 +30,7 @@ import { basenameOf, joinPath, nameProblem, newFilePath, noteNameOf, parentOf } 
 import { useDraftChrome } from '../shell/PageChrome';
 import { PageActions } from '../shell/ShellSlots';
 import { useVisibleBottom } from '../shell/useVisibleArea';
-import { layout } from '../theme';
+import { layout, layoutBreakpoints, useBelow } from '../theme';
 import { showToast } from '../toast';
 
 import { ChangesPane } from './ChangesPane';
@@ -73,6 +73,8 @@ const modeOptions: SegmentedOption<LayoutMode>[] = [
   { value: 'preview', icon: IconEye, label: 'Preview' },
   { value: 'changes', icon: IconDiff, label: 'Changes' },
 ];
+
+const narrowModeOptions = modeOptions.filter((option) => option.value !== 'split');
 
 type SaveState = 'saving' | 'uploading' | 'dirty' | 'drafted' | 'new' | 'saved';
 
@@ -164,7 +166,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   revRef.current = rev;
 
   const layoutControl = useEditorLayout();
-  const { chosen, choose, split, setSplit, wide } = layoutControl;
+  const { choose, split, setSplit, wide } = layoutControl;
   const mode = kind === 'markdown' ? layoutControl.mode : 'source';
   const lineWrap = useLineWrap();
   const touch = useMediaQuery('(hover: none)', false, { getInitialValueInEffect: false }) ?? false;
@@ -179,12 +181,14 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const draftRef = useRef(draft);
   draftRef.current = draft;
 
-  const phoneModes = !wide && kind === 'markdown';
+  const phone = useBelow(layoutBreakpoints.phone);
+  const phoneModes = phone && kind === 'markdown';
   const phoneBarRef = useRef<HTMLDivElement>(null);
   const keyboardBarRef = useRef<HTMLDivElement>(null);
   const [tableOpen, setTableOpen] = useState(false);
-  const editing = useEditing(view, keyboardBarRef, phoneModes && !readOnly && mode === 'source');
-  const typing = phoneModes && !readOnly && mode === 'source' && (editing || tableOpen);
+  const keyboardTools = phoneModes && !readOnly && mode === 'source';
+  const editing = useEditing(view, keyboardBarRef, keyboardTools);
+  const typing = keyboardTools && (editing || tableOpen);
   useVisibleBottom(phoneBarRef, phoneModes);
 
   const coveredBelow = useCallback((): number => {
@@ -194,6 +198,13 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       return 0;
     }
     return Math.max(0, scroller.getBoundingClientRect().bottom - bar.getBoundingClientRect().top);
+  }, []);
+
+  const hideKeyboard = useCallback((): void => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && (keyboardBarRef.current?.contains(active) === true || viewRef.current?.dom.contains(active) === true)) {
+      active.blur();
+    }
   }, []);
 
   const onCreate = useCallback((created: EditorView): void => {
@@ -507,13 +518,14 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   return (
     <div data-testid="editor" data-kind={kind} data-fill className={classes.screen}>
       <PageActions>
-        {wide ? (
+        {!phone ? (
           <>
             <Text
               data-testid="editor-status"
               data-dirty={dirty ? 'true' : 'false'}
               data-state={saveState}
               className={classes.status}
+              hidden={!wide}
               aria-live="polite"
             >
               {statusText}
@@ -521,13 +533,13 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             {kind === 'markdown' && (
               <Segmented
                 data-testid="editor-layout-mode"
-                data-mode={chosen}
+                data-mode={mode}
                 size="xs"
-                value={chosen}
+                value={mode}
                 onChange={chooseMode}
                 aria-label="Editor layout"
                 classNames={{ root: classes.modes, label: classes.mode }}
-                options={modeOptions}
+                options={wide ? modeOptions : narrowModeOptions}
                 compact
               />
             )}
@@ -552,7 +564,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               className={classes.phoneStatus}
               aria-live="polite"
             >
-              {unsaved && <span className={classes.unsavedMark} aria-hidden />}
+              {unsaved && <span data-testid="editor-unsaved-mark" className={classes.unsavedMark} aria-hidden />}
               {statusText}
             </span>
             {!readOnly && (
@@ -627,11 +639,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         </div>
       )}
 
-
       <div data-testid="editor-panes" data-mode={mode} className={classes.panes} ref={panesRef}>
         {showSource && (
           <div className={classes.pane} style={sourceStyle}>
-            {!phoneModes && (
+            {(!phoneModes || readOnly) && (
             <div className={classes.paneHead}>
               {mode === 'split' && <span className={classes.paneLabel}>Source</span>}
               {kind === 'text' && (
@@ -671,7 +682,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
               onChange={setContent}
               onCreate={onCreate}
               onFiles={kind === 'markdown' ? onFiles : undefined}
-              coveredBelow={typing ? coveredBelow : undefined}
+              coveredBelow={coveredBelow}
             />
           </div>
         )}
@@ -704,7 +715,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
       {phoneModes && (
         <div className={classes.phoneDock}>
-          <div ref={phoneBarRef} data-typing={typing ? 'true' : 'false'} className={classes.phoneBar}>
+          <div ref={phoneBarRef} data-testid="editor-strip" data-typing={typing ? 'true' : 'false'} className={classes.phoneBar}>
             {typing ? (
               <div ref={keyboardBarRef} data-testid="editor-keyboard-bar" className={classes.keyboardBar}>
                 {toolbar}
@@ -712,7 +723,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
                   <ToolButton
                     testId="editor-hide-keyboard"
                     label="Hide the keyboard"
-                    onClick={() => liveView()?.contentDOM.blur()}
+                    onClick={hideKeyboard}
                   >
                     <IconKeyboard size={layout.iconSizeTool} />
                   </ToolButton>

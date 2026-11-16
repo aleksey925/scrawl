@@ -286,7 +286,7 @@ function PhoneRow({ entry, routed, runs, href }: PhoneRowProps): JSX.Element {
 
 function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming }): JSX.Element {
   return (
-    <div {...rowAttributes(entry)} className={classes.listRow}>
+    <div {...rowAttributes(entry)} className={`${classes.listRow} ${classes.naming}`}>
       <div className={classes.listLink}>
         <RenameField
           session={session}
@@ -415,7 +415,7 @@ function DraftRow({ onSubmit, onCancel }: DraftRowProps): JSX.Element {
 
 function PhoneDraftRow({ onSubmit, onCancel }: DraftRowProps): JSX.Element {
   return (
-    <div data-testid="dir-draft" data-entry="dir" className={classes.listRow}>
+    <div data-testid="dir-draft" data-entry="dir" className={`${classes.listRow} ${classes.naming}`}>
       <div className={classes.listLink}>
         <NameField
           initial=""

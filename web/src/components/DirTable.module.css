@@ -208,12 +208,21 @@
 
 .listField {
   gap: 12px;
-  min-height: 40px;
-  margin-inline-start: -10px;
-  padding: 0 10px;
-  border-radius: var(--mantine-radius-md);
-  background: var(--scrawl-popover);
-  box-shadow: var(--scrawl-shadow-medium);
+}
+
+.listRow.naming {
+  margin-inline: calc(-1 * var(--mantine-spacing-lg));
+  padding-inline: var(--mantine-spacing-lg);
+  border-bottom-color: transparent;
+  background: var(--scrawl-hover);
+}
+
+.naming > .listLink {
+  padding-block: 4px;
+}
+
+.listRow:has(+ .naming) {
+  border-bottom-color: transparent;
 }
 
 @media (hover: none) {

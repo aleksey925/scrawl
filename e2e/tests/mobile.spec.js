@@ -1381,6 +1381,25 @@ test.describe('mobile', () => {
         removeFixture(folder);
     });
 
+    test('the row of a new folder is one gray band from edge to edge, with no line above or below it', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+
+        // act
+        await page.getByTestId('tab-new').tap();
+        await page.getByTestId('new-menu-folder').tap();
+
+        // assert
+        const draft = page.getByTestId('dir-draft');
+        await expect(draft).toBeVisible();
+        const band = await draft.evaluate((row) => {
+            const rect = row.getBoundingClientRect();
+            const line = (el) => getComputedStyle(el).borderBottomColor;
+            return {edges: [rect.left, rect.right], lines: [line(row.previousElementSibling), line(row)]};
+        });
+        expect(band).toEqual({edges: [0, page.viewportSize().width], lines: ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)']});
+    });
+
     test('the note menu opens under its button, on the screen', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));

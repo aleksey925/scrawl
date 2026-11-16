@@ -7,6 +7,7 @@ import { useLocation } from 'react-router';
 import type { MeResponse, NavNode } from '../api/types';
 import { answerKeys, forgetResponses, useApi } from '../api/useApi';
 import { usePlatform } from '../platform';
+import { markBranch } from '../reader/tree';
 import { localStore, readJson, writeJson } from '../storage';
 
 import { contentPathOf } from './naming';
@@ -45,13 +46,14 @@ export interface TreeState {
   isOpen: (path: string) => boolean;
   toggleFolder: (path: string) => void;
   openFolder: (path: string) => void;
-  query: string;
   setQuery: (query: string) => void;
 }
 
 const AccountContext = createContext<AccountState | undefined>(undefined);
 
 const TreeContext = createContext<TreeState | undefined>(undefined);
+
+const TreeQueryContext = createContext('');
 
 export function useAccount(): AccountState {
   const state = useContext(AccountContext);
@@ -67,6 +69,10 @@ export function useTree(): TreeState {
     throw new Error('the tree is only available inside the app shell');
   }
   return state;
+}
+
+export function useTreeQuery(): string {
+  return useContext(TreeQueryContext);
 }
 
 export function spaceLabel(me: MeResponse | undefined): string {
@@ -120,12 +126,12 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
   const [token, setToken] = useState(0);
   const { source, storageScope } = usePlatform();
   const storageKey = openKey(storageScope);
-  const nav = useApi((signal) => source.nav(currentPath, { signal }), [source, currentPath, token], answerKeys.nav(currentPath));
+  const nav = useApi((signal) => source.nav('', { signal }), [source, currentPath, token], answerKeys.nav);
   const { me, refreshMe } = status;
 
   const [open, setOpen] = useState<ReadonlySet<string>>(() => readOpen(storageKey));
   const [query, setQuery] = useState('');
-  const tree = useMemo(() => nav.data?.tree ?? [], [nav.data]);
+  const tree = useMemo(() => markBranch(nav.data?.tree ?? [], currentPath), [nav.data, currentPath]);
 
   const seenActive = useRef<{ page: string; folders: ReadonlySet<string> }>({ page: '', folders: new Set() });
   useEffect(() => {
@@ -241,15 +247,16 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       isOpen,
       toggleFolder,
       openFolder,
-      query,
       setQuery,
     }),
-    [tree, nav.error, nav.loading, currentPath, refreshTree, token, isOpen, toggleFolder, openFolder, query],
+    [tree, nav.error, nav.loading, currentPath, refreshTree, token, isOpen, toggleFolder, openFolder],
   );
 
   return (
     <AccountContext.Provider value={account}>
-      <TreeContext.Provider value={treeState}>{children}</TreeContext.Provider>
+      <TreeContext.Provider value={treeState}>
+        <TreeQueryContext.Provider value={query}>{children}</TreeQueryContext.Provider>
+      </TreeContext.Provider>
     </AccountContext.Provider>
   );
 }

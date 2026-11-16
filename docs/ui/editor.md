@@ -14,15 +14,21 @@ The editor screen.
   for that case would bring the empty sides back. The line numbers have the
   page's ground and so does the strip left of them, so a line scrolled sideways
   slides under them; on a transparent ground the text ran over the numbers. On
-  a wide screen the topbar holds the sync control, the state of the save, the
-  layout as Source, Split, Preview or Changes, Cancel and Save. Between a phone
-  and a wide screen it holds the same without the state of the save and without
-  Split, as two panes have no room there. Below the `lg` width the layout shows
-  only its icons, because the four names squeezed the note's name in the topbar
-  to a few letters. Each layout shows its name on hover at every width, also
-  where the name is on screen, as a title cannot follow the width without a
-  script. This is `compact` of `Segmented`, and only this switch has it: the
-  other icon switches always show their names.
+  a touch screen with no Split, the text with wrap off goes up and down in the
+  pane and sideways in the editor inside it, two boxes each scrolled one way:
+  in one box that scrolled both ways a swipe up drifted to the right on iOS,
+  which locks no axis there ([quirks](../quirks.md#phones-and-touch-screens)).
+  The place the editor opens at and the place it gives back to the reader are
+  read from the pane then. On a wide screen the topbar holds the sync control,
+  the state of the save, the layout as Source, Split, Preview or Changes,
+  Cancel and Save. Between a phone and a wide screen it holds the same without
+  the state of the save and without Split, as two panes have no room there.
+  Below the `lg` width the layout shows only its icons, because the four names
+  squeezed the note's name in the topbar to a few letters. Each layout shows
+  its name on hover at every width, also where the name is on screen, as a
+  title cannot follow the width without a script. This is `compact` of
+  `Segmented`, and only this switch has it: the other icon switches always show
+  their names.
 - On a phone, below the phone width, the bar on top is the way back at the
   left, the file's name in the middle with the state of the save under it, and
   Save at the right ([ADR 30](../adr/0030-the-phone-editor-bars.md)). Back is

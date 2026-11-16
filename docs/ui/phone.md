@@ -115,6 +115,10 @@ How the app works on a phone.
   before the move takes it, and the page jumped back to where the move starts.
   `main` clips with `overflow-x: clip` and never `hidden`, which makes it a
   scroll container, and every sticky bar inside it stopped sticking.
+- A field that finds something, the search, the find bar of a note, the filter
+  of the tree and Move to, starts in lower case with no autocorrect and no
+  spell check, as a name or a word is looked up as typed; its return key reads
+  Search, and Go in Move to.
 - The icon of the app on the home screen is the logo on the theme's ground,
   drawn by `web/icons.ts` from `server/assets/logo.svg`. Android gets one more,
   marked maskable, with the logo at half the width: Android cuts an icon to its

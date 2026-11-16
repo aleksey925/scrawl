@@ -6,8 +6,12 @@ How the react app in `web/` is built, shipped and wired.
 
 - The frontend is a react and mantine app in `web/`. It owns the whole origin:
   every page route boots the same shell and the client router decides what it
-  is. `server/templates/` holds one page, the sign-in form, because it has to
-  work before the bundle loads and with javascript off.
+  is. The one difference is a `modulepreload` of the chunks of the route's
+  page, `routePages` in `server/shell.go`, so the browser fetches the page's
+  code with the entry and not after it; a cold start on a slow network waited
+  for the entry, then the page, then its data. The offline shell serves every
+  route and preloads no page. `server/templates/` holds one page, the sign-in
+  form, because it has to work before the bundle loads and with javascript off.
 - Nothing is fetched from a CDN at runtime, and the build stays out of the
   release path: vite writes into `server/assets/app/` and `page/assets/`, which
   are committed and picked up by `//go:embed`
@@ -121,15 +125,26 @@ How the react app in `web/` is built, shipped and wired.
 - `useApi` drops the answer of a run it has canceled, a success as well as an
   error: a source may not watch the signal, the copy's reads do not, and a slow
   answer of the note before would then land under the next one's address.
+- The tree is one answer for the whole space: the app asks `/api/nav` with no
+  path and marks the branch of the file on screen itself, with the `markBranch`
+  the site and the offline copy use. It asks again on every move, so a file
+  made elsewhere shows up, and the server answers with an `ETag` of the tree,
+  so an unchanged tree comes back as a 304 with no body. Asked per file, the
+  whole tree came again on every tap, though only its marks changed.
 - The file on screen is the route. A folder is always its list, so a note is
   shown under its own address only, and a per-file signal keys off the route.
 - A context that many components read carries one kind of value, so a change
   draws only the components that read it. The account (`useAccount`) and the
   tree (`useTree`) are apart: a folder opened or a filter typed draws no note
-  again, and a poll of the account draws no tree row. The page chrome's setters
+  again, and a poll of the account draws no tree row. The filter of the tree is
+  a third context, read by the sidebar alone, so a letter typed draws no
+  folder's list or bar, and the rows take the filter as a deferred value: the
+  field shows each key at once and the rows catch up. The page chrome's setters
   are a context of their own, apart from the value, so a page that sets its
-  title is not drawn again by its own title. A value that comes back the same,
-  the account's answer or a scroll that moves nothing, keeps the object it had.
+  title is not drawn again by its own title. A page sets its chrome in a layout
+  effect, before the browser draws: set in an effect, the bar on top showed the
+  title of the page before for a frame. A value that comes back the same, the
+  account's answer or a scroll that moves nothing, keeps the object it had.
 - Rendered notes never share an id namespace with app chrome. A heading becomes
   an element id, so a note carrying "Toasts" took `id="toasts"` and every toast
   was appended invisibly inside it. Chrome is mantine components, portals and

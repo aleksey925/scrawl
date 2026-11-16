@@ -82,6 +82,19 @@ async function longPress(page, x, y) {
     await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
 }
 
+async function touchDrag(page, from, to, {steps = 10, pauseMs = 0} = {}) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [from]});
+    for (let index = 1; index <= steps; index += 1) {
+        const point = {x: from.x + ((to.x - from.x) * index) / steps, y: from.y + ((to.y - from.y) * index) / steps};
+        await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [point]});
+        if (pauseMs > 0) {
+            await page.waitForTimeout(pauseMs);
+        }
+    }
+    await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+}
+
 async function pressedBand(page, selector) {
     const element = page.locator(selector).first();
     await expect(element).toBeVisible();
@@ -2259,8 +2272,10 @@ test.describe('mobile', () => {
         expect(box.width).toBeGreaterThan(300);
     });
 
-    test('the editor opens with the heading at the top where it was, and comes back to it', async ({page}) => {
+    for (const wrap of ['true', 'false']) {
+        test(`the editor opens with the heading at the top where it was, and comes back to it, with wrap ${wrap}`, async ({page}) => {
         // arrange
+        await page.addInitScript((value) => localStorage.setItem('scrawl.editor.wrap', value), wrap);
         const filler = (mark) => Array.from({length: 12}, (_, index) =>
             `Абзац ${mark}-${index}: длинная строка, которая в редакторе на телефоне переносится `
             + 'на несколько рядов, а на странице занимает меньше места.').join('\n\n');
@@ -2279,7 +2294,7 @@ test.describe('mobile', () => {
         // act
         await page.getByTestId('tab-edit').dispatchEvent('click');
         const inEditor = () => page.locator('.cm-line', {hasText: '## Середина'}).evaluate((line) =>
-            Math.round(line.getBoundingClientRect().top - line.closest('.cm-scroller').getBoundingClientRect().top));
+            Math.round(line.getBoundingClientRect().top - line.closest('[data-testid=editor-source]').getBoundingClientRect().top));
 
         // assert
         await expect.poll(inEditor).toBeGreaterThanOrEqual(0);
@@ -2291,6 +2306,34 @@ test.describe('mobile', () => {
         // assert
         await expect.poll(onPage).toBeGreaterThanOrEqual(before - 2);
         await expect.poll(onPage).toBeLessThanOrEqual(before + 2);
+    });
+    }
+
+    test('with wrap off a touch screen scrolls the text up and down in the pane and sideways in the editor', async ({page}) => {
+        // arrange
+        await page.addInitScript(() => localStorage.setItem('scrawl.editor.wrap', 'false'));
+        const lines = Array.from({length: 80}, (_, index) => `строка ${index} ${'очень длинная '.repeat(12)}`).join('\n');
+        writeFixture(SCRATCH, `# Длинные строки\n\n${lines}\n`);
+
+        // act
+        await page.goto(routes.edit(SCRATCH));
+        await expect(page.locator('[data-testid=editor-source] .cm-line').nth(10)).toBeVisible();
+
+        // assert
+        const scrolls = await page.evaluate(() => {
+            const pane = document.querySelector('[data-testid=editor-source]');
+            const scroller = pane.querySelector('.cm-scroller');
+            const across = (el) => el.scrollWidth > el.clientWidth;
+            const down = (el) => el.scrollHeight > el.clientHeight;
+            return {
+                pane: {x: getComputedStyle(pane).overflowX, y: getComputedStyle(pane).overflowY, down: down(pane)},
+                scroller: {x: getComputedStyle(scroller).overflowX, y: getComputedStyle(scroller).overflowY, across: across(scroller)},
+            };
+        });
+        expect(scrolls).toEqual({
+            pane: {x: 'hidden', y: 'auto', down: true},
+            scroller: {x: 'auto', y: 'hidden', across: true},
+        });
     });
 
     test('a line inside a code block survives the trip to the editor and back', async ({page}) => {
@@ -2744,7 +2787,14 @@ test.describe('mobile', () => {
         await page.getByTestId('history-diff-view').getByText('Source').tap();
         const diff = page.getByTestId('history-diff');
         await expect(diff).toBeVisible();
-        expect(await diff.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+        expect(await diff.evaluate((el) => {
+            const patch = el.querySelector('pre');
+            return {
+                box: getComputedStyle(el).overflowX,
+                patch: [getComputedStyle(patch).overflowX, getComputedStyle(patch).overflowY],
+                across: patch.scrollWidth > patch.clientWidth,
+            };
+        }), 'the box scrolls down and the patch alone sideways').toEqual({box: 'hidden', patch: ['auto', 'hidden'], across: true});
         await expectNoHorizontalScroll(page);
         await shot(page, 'mobile-history');
     });
@@ -2828,6 +2878,72 @@ test.describe('mobile', () => {
         await expect(picture).toHaveAttribute('data-zoomed', 'false');
         await page.touchscreen.tap(8, page.viewportSize().height - 8);
         await expect(picture).toHaveCount(0);
+    });
+
+    test('a picture of the space keeps its room on the page before it loads', async ({page}) => {
+        // arrange
+        await page.route('**/raw/**', () => undefined);
+
+        // act
+        await page.goto(routes.doc(docs.illustrated.doc));
+
+        // assert
+        const image = page.getByTestId('doc-image').first();
+        await expect(image).toHaveAttribute('width', /^\d+$/);
+        const box = await image.evaluate((el) => {
+            const rect = el.getBoundingClientRect();
+            return {ratio: Number(el.getAttribute('width')) / Number(el.getAttribute('height')), shown: rect.width / rect.height};
+        });
+        expect(Math.abs(box.ratio - box.shown)).toBeLessThan(0.02);
+    });
+
+    test('the fields that find something start in lower case with no autocorrect', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+
+        // act
+        await page.getByTestId('tab-search').tap();
+
+        // assert
+        const field = page.getByTestId('search-input');
+        await expect(field).toBeVisible();
+        expect(await field.evaluate((el) => [el.getAttribute('autocapitalize'), el.getAttribute('autocorrect'), el.spellcheck, el.enterKeyHint]))
+            .toEqual(['off', 'off', false, 'search']);
+    });
+
+    test('a picture pulled down far enough closes the viewer', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.illustrated.doc));
+        await page.getByTestId('doc-image').first().tap();
+        const picture = page.getByTestId('doc-lightbox-image');
+        await expect(picture).toBeVisible();
+        const box = await picture.boundingBox();
+        const centre = {x: box.x + box.width / 2, y: box.y + box.height / 2};
+
+        // act
+        await touchDrag(page, centre, {x: centre.x, y: centre.y + 220});
+
+        // assert
+        await expect(page.getByTestId('doc-lightbox')).toHaveCount(0);
+        await expect(page.getByTestId('doc-image').first()).toBeVisible();
+    });
+
+    test('a picture pulled a little and let go slowly comes back and the viewer stays', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.illustrated.doc));
+        await page.getByTestId('doc-image').first().tap();
+        const picture = page.getByTestId('doc-lightbox-image');
+        await expect(picture).toBeVisible();
+        const box = await picture.boundingBox();
+        const centre = {x: box.x + box.width / 2, y: box.y + box.height / 2};
+
+        // act
+        await touchDrag(page, centre, {x: centre.x, y: centre.y + 50}, {pauseMs: 30});
+
+        // assert
+        await expect(picture).toBeVisible();
+        await expect.poll(() => picture.evaluate((el) => el.style.transform)).toBe('');
+        await expect(page.getByTestId('doc-lightbox')).not.toHaveAttribute('data-pull');
     });
 
     test('a double tap zooms the picture in the viewer and another fits it back', async ({page}) => {

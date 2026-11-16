@@ -41,6 +41,7 @@ type Result struct {
 
 type Options struct {
 	LinkExists func(contentPath string) bool
+	ImageSize  func(contentPath string) (width, height int, ok bool)
 	PagePrefix string
 	RawPrefix  string
 	Relative   bool
@@ -70,6 +71,7 @@ func New(opts Options) *Renderer {
 		folderPage: opts.FolderPage,
 		indexPage:  opts.IndexPage,
 		exists:     opts.LinkExists,
+		imageSize:  opts.ImageSize,
 	}
 	md := goldmark.New(
 		goldmark.WithExtensions(

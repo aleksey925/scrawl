@@ -451,6 +451,24 @@ func TestAPINav(t *testing.T) {
 		"is_dir": false, "active": false, "current": true, "children": []any{}}, deep)
 }
 
+func TestAPINavAnswersNotModifiedForTheTreeTheBrowserHas(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	first, _ := ts.do(t, request{path: "/api/nav"})
+	etag := first.header.Get("ETag")
+	elsewhere, _ := ts.do(t, request{path: "/api/nav?path=guide.md"})
+
+	// act
+	again, body := ts.do(t, request{path: "/api/nav", headers: map[string]string{"If-None-Match": etag}})
+
+	// assert
+	assert.Equal(t, http.StatusNotModified, again.status)
+	assert.Empty(t, body)
+	assert.Equal(t, etag, again.header.Get("ETag"))
+	assert.Equal(t, pageCacheControl, first.header.Get("Cache-Control"))
+	assert.NotEqual(t, etag, elsewhere.header.Get("ETag"))
+}
+
 func TestAPINavMarksNothingWithoutACurrentPath(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})

@@ -2,7 +2,7 @@ import {
   ActionIcon, Anchor, Box, Group, Highlight, ScrollArea, Skeleton, Stack, Text, TextInput, UnstyledButton,
 } from '@mantine/core';
 import {
-  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
+  createContext, useCallback, useContext, useDeferredValue, useEffect, useMemo, useRef, useState,
   type CSSProperties, type DragEvent, type JSX, type KeyboardEvent, type MouseEvent, type ReactNode,
 } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -21,7 +21,7 @@ import { layout } from '../theme';
 
 import { rowMenuIconSize, useReaderExtensions } from './extensions';
 import { useFileActions, useOptionalFileActions, useRenamingHere, type Renaming } from './fileActionsContext';
-import { spaceLabel, useAccount, useTree } from './NavContext';
+import { spaceLabel, useAccount, useTree, useTreeQuery } from './NavContext';
 import { basenameOf, folderFor, parentOf } from './naming';
 import { useShownChrome } from './PageChrome';
 import { useSearchControl } from './searchOpener';
@@ -362,7 +362,9 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const { canWrite: mayWrite, me } = useAccount();
-  const { tree, error, loading, currentPath, query, setQuery, isOpen, openFolder } = useTree();
+  const { tree, error, loading, currentPath, setQuery, isOpen, openFolder } = useTree();
+  const query = useTreeQuery();
+  const shownQuery = useDeferredValue(query);
   const actions = useOptionalFileActions();
   const openSearch = useSearchControl()?.open;
   const keyboard = useKeyboardPlace();
@@ -380,7 +382,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const dragged = useRef<readonly string[]>([]);
   const spring = useRef<{ folder: string; timer: number } | undefined>(undefined);
 
-  const trimmed = query.trim().toLowerCase();
+  const trimmed = shownQuery.trim().toLowerCase();
   const filtered = useMemo(() => filterTree(tree, trimmed), [tree, trimmed]);
 
   const rowOrder = useMemo(
@@ -527,10 +529,11 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   function onFilterKey(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key === 'Enter') {
       event.preventDefault();
-      if (trimmed === '') {
+      const typed = query.trim().toLowerCase();
+      if (typed === '') {
         return;
       }
-      const first = filtered.matches[0];
+      const first = (typed === trimmed ? filtered : filterTree(tree, typed)).matches[0];
       if (first !== undefined) {
         void navigate(first.url);
       } else if (openSearch !== undefined) {
@@ -635,6 +638,11 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
           onKeyDown={onFilterKey}
           placeholder="Filter notes"
           aria-label="Filter notes"
+          autoComplete="off"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="search"
           size="sm"
           leftSection={<IconSearch size={treeIconSize} />}
           rightSectionPointerEvents="all"

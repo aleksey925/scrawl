@@ -2,6 +2,9 @@ package server
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"html/template"
 	"log"
@@ -232,10 +235,28 @@ func (m *mount) apiNav(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, "bad path")
 		return
 	}
-	writeJSON(w, http.StatusOK, navResponse{
+	body, err := json.Marshal(navResponse{
 		Tree:        m.treeNodes(current),
 		Breadcrumbs: view.Breadcrumbs(current),
 	})
+	if err != nil {
+		log.Printf("[ERROR] encode the tree: %v", err)
+		jsonError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	sum := sha256.Sum256(body)
+	etag := strconv.Quote(hex.EncodeToString(sum[:16]))
+	h := w.Header()
+	h.Set("ETag", etag)
+	h.Set("Cache-Control", pageCacheControl)
+	if matchesETag(r.Header.Get("If-None-Match"), etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	h.Set("Content-Type", "application/json; charset=utf-8")
+	if _, err := w.Write(body); err != nil {
+		log.Printf("[DEBUG] write the tree: %v", err)
+	}
 }
 
 func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {

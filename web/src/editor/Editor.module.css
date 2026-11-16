@@ -197,6 +197,24 @@
   height: 100%;
 }
 
+.source[data-scroll='outer'] {
+  overflow: hidden auto;
+  overscroll-behavior: none;
+}
+
+.source[data-scroll='outer'] > * {
+  flex: none;
+  min-height: 100%;
+}
+
+.source[data-scroll='outer'] :global(.cm-editor) {
+  min-height: 100%;
+}
+
+.source[data-scroll='outer'] :global(.cm-scroller) {
+  overflow: auto hidden;
+}
+
 .source :global(.cm-editor.cm-focused) {
   outline: none;
 }

@@ -1,5 +1,6 @@
-import { Box } from '@mantine/core';
 import type { JSX } from 'react';
+
+import classes from './DiffView.module.css';
 
 const metaPrefixes = [
   'diff --git', 'index ', 'new file', 'deleted file', 'old mode', 'new mode',
@@ -28,37 +29,14 @@ export interface DiffViewProps {
 
 export function DiffView({ patch }: DiffViewProps): JSX.Element {
   return (
-    <Box
-      data-testid="history-diff"
-      style={{
-        minWidth: 0,
-        maxHeight: 460,
-        overflow: 'auto',
-        border: '1px solid var(--scrawl-border)',
-        borderRadius: 'var(--mantine-radius-md)',
-        background: 'var(--scrawl-sidebar)',
-      }}
-    >
-      <pre
-        style={{
-          margin: 0,
-          padding: '8px 0',
-          width: 'max-content',
-          minWidth: '100%',
-          fontFamily: 'var(--mantine-font-family-monospace)',
-          fontSize: 12,
-          lineHeight: 1.5,
-        }}
-      >
+    <div data-testid="history-diff" className={classes.box}>
+      <pre className={classes.patch}>
         {patch.split('\n').map((line, index) => (
-          <span
-            key={index}
-            style={{ display: 'block', padding: '0 12px', whiteSpace: 'pre', color: lineColor(line) }}
-          >
+          <span key={index} className={classes.line} style={{ color: lineColor(line) }}>
             {line === '' ? ' ' : line}
           </span>
         ))}
       </pre>
-    </Box>
+    </div>
   );
 }

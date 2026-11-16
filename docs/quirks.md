@@ -55,6 +55,9 @@ words; the fact itself is written here.
   element fixed to the page moves with it. React renders a state set in a
   scroll listener after the frame is drawn, so the element is seen in the wrong
   place for a frame. [Phone](ui/phone.md)
+- iOS locks no axis in a box that scrolls both ways, so a swipe up drifts
+  sideways with the finger. A box that scrolls one way inside a box that
+  scrolls the other gives each swipe to one of them. [Editor](ui/editor.md)
 - With the keyboard up, a scrolling box as tall as the page runs under the
   keys, and a drag in it moves either the box or the visible area across the
   page. [Editor](ui/editor.md)

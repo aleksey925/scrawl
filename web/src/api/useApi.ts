@@ -34,7 +34,7 @@ function remember(key: string, data: unknown): void {
 export const answerKeys = {
   page: (path: string): string => `page:${path}`,
   dir: (path: string): string => `dir:${path}`,
-  nav: (path: string): string => `nav:${path}`,
+  nav: 'nav',
 };
 
 export function seedResponse(key: string, data: unknown): void {

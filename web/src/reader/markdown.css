@@ -1041,7 +1041,17 @@
 .md-viewer::backdrop {
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(12px);
+  opacity: var(--md-viewer-pull, 1);
   animation: md-viewer-fade 160ms ease-out;
+}
+
+.md-viewer[data-pull='leaving']::backdrop {
+  transition: opacity 200ms ease-out;
+}
+
+.md-viewer[data-pull] :is(.md-viewer-caption, .md-viewer-count, .md-viewer-close, .md-viewer-step, .md-viewer-tools) {
+  opacity: 0;
+  transition: opacity 150ms ease-out;
 }
 
 .md-viewer-image {
@@ -1229,6 +1239,11 @@
   .md-viewer[open],
   .md-viewer::backdrop {
     animation: none;
+  }
+
+  .md-viewer[data-pull='leaving']::backdrop,
+  .md-viewer[data-pull] :is(.md-viewer-caption, .md-viewer-count, .md-viewer-close, .md-viewer-step, .md-viewer-tools) {
+    transition: none;
   }
 
   .md-viewer-glide {

@@ -36,7 +36,7 @@ type workerConfig struct {
 }
 
 func (wb *Web) newOfflineApp() (*offlineApp, error) {
-	shell, err := wb.renderShell(autoTheme(wb.Version), "")
+	shell, err := wb.renderShell(autoTheme(wb.Version), "", nil)
 	if err != nil {
 		return nil, err
 	}

@@ -116,3 +116,50 @@ func TestShellCSSLinksTheImportedChunksAfterTheEntry(t *testing.T) {
 	// assert
 	assert.Equal(t, []string{"assets/index.css", "assets/chrome.css", "assets/deep.css"}, got)
 }
+
+func TestPageModulesWalkThePageAndItsImportsButNotTheEntry(t *testing.T) {
+	// arrange
+	chunks := map[string]manifestChunk{
+		"index.html":             {File: "assets/index.js", IsEntry: true},
+		"src/pages/EditPage.tsx": {File: "assets/EditPage.js", Imports: []string{"index.html", "_codemirror.js", "_naming.js"}},
+		"_codemirror.js":         {File: "assets/codemirror.js", Imports: []string{"_naming.js", "_lezer.js"}},
+		"_naming.js":             {File: "assets/naming.js"},
+		"_lezer.js":              {File: "assets/lezer.js"},
+	}
+
+	// act
+	got := pageModules(chunks, "src/pages/EditPage.tsx", chunks["index.html"])
+
+	// assert
+	assert.Equal(t, []string{"assets/EditPage.js", "assets/codemirror.js", "assets/naming.js", "assets/lezer.js"}, got)
+}
+
+func TestAppShellPreloadsThePageOfItsRoute(t *testing.T) {
+	ts := newTestServer(t, testOpts{})
+	base := appBase(ts.appShell.version)
+	preload := func(file string) string {
+		return `<link rel="modulepreload" crossorigin href="` + base + file + `">`
+	}
+
+	tests := []struct {
+		name    string
+		path    string
+		page    string
+		notPage string
+	}{
+		{name: "the root", path: "/", page: "assets/HomePage.js", notPage: "assets/EditPage.js"},
+		{name: "a note", path: "/doc/guide.md", page: "assets/DocumentPage.js", notPage: "assets/EditPage.js"},
+		{name: "the editor", path: "/edit/guide.md", page: "assets/EditPage.js", notPage: "assets/DocumentPage.js"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			_, body := ts.do(t, request{path: tc.path})
+
+			// assert
+			assert.Contains(t, body, preload(tc.page))
+			assert.NotContains(t, body, preload(tc.notPage))
+		})
+	}
+}

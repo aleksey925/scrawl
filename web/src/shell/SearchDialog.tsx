@@ -180,6 +180,9 @@ export function SearchDialog({ initial, onClose }: { initial: string; onClose: (
               aria-label="Search the space"
               autoComplete="off"
               spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              enterKeyHint="search"
               onChange={(event) => {
                 setText(event.currentTarget.value);
                 setOpenPending(false);

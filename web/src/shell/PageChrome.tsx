@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type JSX, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, useState, type JSX, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
 
 import type { Crumb } from '../api/types';
@@ -43,7 +43,7 @@ export function standaloneChrome(title: string): PageChrome {
 export function usePageChrome({ crumbs, name, title, ownTitle }: PageChrome): void {
   const setChrome = useContext(SetPageChromeContext);
   const crumbsKey = crumbs.map((step) => `${step.url}\n${step.name}`).join('\n');
-  useEffect(() => {
+  useLayoutEffect(() => {
     setChrome?.({ crumbs, name, title, ownTitle });
   }, [crumbsKey, name, title, ownTitle, setChrome]);
 }
@@ -63,7 +63,7 @@ export function useDraftChrome(draft: DraftChrome | undefined): void {
   const setChrome = useContext(SetPageChromeContext);
   const path = draft?.path;
   const rename = draft?.rename;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (path !== undefined && rename !== undefined) {
       setChrome?.({ ...chromeOfPath(path), draft: { path, rename } });
     }

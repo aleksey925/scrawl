@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/aleksey925/scrawl/gzassets"
 	"github.com/aleksey925/scrawl/store"
@@ -39,6 +40,16 @@ type appShell struct {
 	entry   string
 	css     []string
 	preload []string
+	pages   map[string][]string
+}
+
+var routePages = map[string]string{
+	"":        "src/pages/HomePage.tsx",
+	"doc":     "src/pages/DocumentPage.tsx",
+	"edit":    "src/pages/EditPage.tsx",
+	"search":  "src/pages/SearchPage.tsx",
+	"recent":  "src/pages/RecentPage.tsx",
+	"history": "src/pages/HistoryPage.tsx",
 }
 
 func (s *appShell) base() string {
@@ -125,7 +136,40 @@ func newAppShell(files gzassets.Files) (*appShell, error) {
 			shell.preload = append(shell.preload, base+chunk.File)
 		}
 	}
+	shell.pages = map[string][]string{}
+	for route, page := range routePages {
+		for _, file := range pageModules(chunks, page, entry) {
+			if href := base + file; !slices.Contains(shell.preload, href) {
+				shell.pages[route] = append(shell.pages[route], href)
+			}
+		}
+	}
 	return shell, nil
+}
+
+func pageModules(chunks map[string]manifestChunk, page string, entry manifestChunk) []string {
+	var res []string
+	seen := map[string]bool{}
+	var walk func(name string)
+	walk = func(name string) {
+		chunk, ok := chunks[name]
+		if !ok || seen[name] || chunk.IsEntry || chunk.File == entry.File {
+			return
+		}
+		seen[name] = true
+		res = append(res, chunk.File)
+		for _, imported := range chunk.Imports {
+			walk(imported)
+		}
+	}
+	walk(page)
+	return res
+}
+
+func routeOf(urlPath, prefix string) string {
+	rest := strings.TrimPrefix(strings.TrimPrefix(urlPath, prefix), "/")
+	route, _, _ := strings.Cut(rest, "/")
+	return route
 }
 
 func shellCSS(chunks map[string]manifestChunk, entry manifestChunk) []string {
@@ -190,7 +234,7 @@ func (m *mount) docHandler(w http.ResponseWriter, r *http.Request) {
 	m.serveShell(w, r, http.StatusOK)
 }
 
-func (wb *Web) renderShell(theme pageTheme, base string) ([]byte, error) {
+func (wb *Web) renderShell(theme pageTheme, base string, pagePreload []string) ([]byte, error) {
 	data := shellData{
 		Title:   wb.Title,
 		Theme:   theme,
@@ -199,7 +243,7 @@ func (wb *Web) renderShell(theme pageTheme, base string) ([]byte, error) {
 		Base:    base,
 		Entry:   wb.appShell.entry,
 		CSS:     wb.appShell.css,
-		Preload: wb.appShell.preload,
+		Preload: slices.Concat(wb.appShell.preload, pagePreload),
 	}
 	var buf bytes.Buffer
 	if err := wb.appShell.tmpl.Execute(&buf, data); err != nil {
@@ -209,7 +253,8 @@ func (wb *Web) renderShell(theme pageTheme, base string) ([]byte, error) {
 }
 
 func (m *mount) serveShell(w http.ResponseWriter, r *http.Request, status int) {
-	body, err := m.renderShell(themeOf(r, m.Version), m.spc.Prefix())
+	pagePreload := m.appShell.pages[routeOf(r.URL.Path, m.spc.Prefix())]
+	body, err := m.renderShell(themeOf(r, m.Version), m.spc.Prefix(), pagePreload)
 	if err != nil {
 		log.Printf("[ERROR] %v", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)

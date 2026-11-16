@@ -68,6 +68,7 @@ export interface SourceEditorProps {
   onChange: (value: string) => void;
   onCreate: (view: EditorView) => void;
   onFiles?: (dropped: DroppedFiles) => void;
+  outerScroll?: boolean;
 }
 
 function useCodeLanguage(kind: EditorKind, name: string): Extension | undefined {
@@ -95,7 +96,7 @@ function useCodeLanguage(kind: EditorKind, name: string): Extension | undefined 
 }
 
 export function SourceEditor(props: SourceEditorProps): JSX.Element {
-  const { kind, name, value, readOnly, autoFocus, wrap, onChange, onCreate, onFiles } = props;
+  const { kind, name, value, readOnly, autoFocus, wrap, onChange, onCreate, onFiles, outerScroll = false } = props;
   const scheme = useComputedColorScheme('light');
   const [dropping, setDropping] = useState(false);
 
@@ -158,11 +159,12 @@ export function SourceEditor(props: SourceEditorProps): JSX.Element {
     <div
       data-testid="editor-source"
       data-dropping={dropping ? 'true' : 'false'}
+      data-scroll={outerScroll ? 'outer' : undefined}
       className={`${classes.pane} ${classes.grow} ${classes.source} ${dropping ? classes.dropping : ''}`}
     >
       <CodeMirror
         value={value}
-        height="100%"
+        height={outerScroll ? undefined : '100%'}
         theme="none"
         extensions={extensions}
         editable={!readOnly}

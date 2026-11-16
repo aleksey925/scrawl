@@ -3,7 +3,7 @@ import { useRef, useState, type ComponentPropsWithRef, type JSX } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { PopupMenu } from '../components/PopupMenu';
-import { planMotion } from '../components/screenMotion';
+import { planMotion, reducedMotion } from '../components/screenMotion';
 import {
   IconClock,
   IconFolder,
@@ -127,6 +127,10 @@ export function TabBar(): JSX.Element | null {
   const atRecent = location.pathname === recentUrl();
   const atNotes = !searching && !atRecent;
   const go = (url: string): void => {
+    if (!searching && location.pathname === url) {
+      window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      return;
+    }
     search?.close();
     planMotion(url, 'none');
     void navigate(url);

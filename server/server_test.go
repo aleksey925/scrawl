@@ -2734,4 +2734,5 @@ func TestTheIconsCarryTheDrawingOfTheLogo(t *testing.T) {
 	assert.Contains(t, login, favicon)
 	assert.Contains(t, shell, favicon)
 	assert.Contains(t, manifest, "/icons/icon-512.png"+stamp)
+	assert.Contains(t, manifest, `"src":"/static/`+ts.Version+`/icons/icon-maskable-512.png`+stamp+`","sizes":"512x512","type":"image/png","purpose":"maskable"`)
 }

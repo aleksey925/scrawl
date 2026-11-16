@@ -42,8 +42,12 @@ export function standalone(): boolean {
   return (navigator as { standalone?: boolean }).standalone === true;
 }
 
+export function reducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 export function motionMs(ms: number): number {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : ms;
+  return reducedMotion() ? 0 : ms;
 }
 
 export function leaveScreen(element: HTMLElement, from: number, speed: number): Promise<boolean> {

@@ -51,7 +51,6 @@
   font: inherit;
   font-size: 14px;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
   transition: var(--scrawl-press-out);
 }
 
@@ -393,7 +392,6 @@
   background: none;
   font: inherit;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
   transition: var(--scrawl-press-out);
 }
 

@@ -9,7 +9,6 @@
   position: absolute;
   inset: 0;
   background: var(--scrawl-scrim);
-  -webkit-tap-highlight-color: transparent;
 }
 
 .tiles {
@@ -44,7 +43,6 @@
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .tile::before {

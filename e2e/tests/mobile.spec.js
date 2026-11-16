@@ -2120,6 +2120,42 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-editor-draft');
     });
 
+    test('a tap on the current tab where its page already is scrolls the page to the top', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+        await expect(page.getByTestId('tab-notes')).toHaveAttribute('data-current', 'true');
+        await page.evaluate(() => {
+            const filler = document.createElement('div');
+            filler.style.height = '3000px';
+            document.querySelector('.mantine-AppShell-main').append(filler);
+            window.scrollTo(0, 1200);
+        });
+        await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+        const entries = await page.evaluate(() => window.history.length);
+
+        // act
+        await page.getByTestId('tab-notes').tap();
+
+        // assert
+        await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+        await expect(page).toHaveURL(atHome());
+        expect(await page.evaluate(() => window.history.length)).toBe(entries);
+    });
+
+    test('a tap leaves no gray highlight of the browser on a link or a tab', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC));
+        await expect(page.getByTestId('topbar-up')).toBeVisible();
+
+        // act
+        const colors = await page.evaluate(() => ['topbar-up', 'tab-notes'].map(
+            (testId) => getComputedStyle(document.querySelector(`[data-testid="${testId}"]`)).webkitTapHighlightColor,
+        ));
+
+        // assert
+        expect(colors).toEqual(['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)']);
+    });
+
     test('an upload in progress shows in the state of the save', async ({page}) => {
         // arrange
         const folder = 'e2e-mobile/upload';

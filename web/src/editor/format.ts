@@ -20,41 +20,68 @@ export interface Formatted {
 
 const noteLineWidth = 79;
 
-let loading: Promise<Formatter> | undefined;
-
-function load(): Promise<Formatter> {
-  if (loading !== undefined) {
-    return loading;
-  }
-  const started = loadChunk(
-    Promise.all([
-      import('prettier/standalone'),
-      import('prettier/doc'),
-      import('prettier/plugins/markdown'),
-      import('prettier/plugins/yaml'),
-      import('prettier/plugins/babel'),
-      import('prettier/plugins/estree'),
-      import('prettier/plugins/typescript'),
-      import('prettier/plugins/postcss'),
-      import('prettier/plugins/html'),
-      import('prettier/plugins/graphql'),
-      import('prettier/plugins/glimmer'),
-    ]),
-  ).then(([prettier, doc, markdown, ...plugins]) => ({
-    formatWithCursor: prettier.formatWithCursor,
-    plugins: [markdown, ...plugins, keepAlertMarkers(markdown, doc.builders.hardline)] as Plugin[],
-  }));
-  loading = started;
-  started.catch(() => {
-    if (loading === started) {
-      loading = undefined;
-    }
-  });
-  return started;
+interface Base {
+  formatWithCursor: FormatWithCursor;
+  markdown: Plugin;
+  yaml: Plugin;
+  alertMarkers: Plugin;
 }
 
-export function warmFormatter(): void {
-  load().catch(() => undefined);
+const fenceWithLanguage = /(?:`{3,}|~{3,})[ \t]*[^\s`~]/;
+
+function once<T>(load: () => Promise<T>): () => Promise<T> {
+  let loading: Promise<T> | undefined;
+  return () => {
+    if (loading !== undefined) {
+      return loading;
+    }
+    const started = loadChunk(load());
+    loading = started;
+    started.catch(() => {
+      if (loading === started) {
+        loading = undefined;
+      }
+    });
+    return started;
+  };
+}
+
+const loadBase = once(() =>
+  Promise.all([
+    import('prettier/standalone'),
+    import('prettier/doc'),
+    import('prettier/plugins/markdown'),
+    import('prettier/plugins/yaml'),
+  ]).then(([prettier, doc, markdown, yaml]): Base => ({
+    formatWithCursor: prettier.formatWithCursor,
+    markdown: markdown as Plugin,
+    yaml: yaml as Plugin,
+    alertMarkers: keepAlertMarkers(markdown, doc.builders.hardline),
+  })),
+);
+
+const loadCode = once(() =>
+  Promise.all([
+    import('prettier/plugins/babel'),
+    import('prettier/plugins/estree'),
+    import('prettier/plugins/typescript'),
+    import('prettier/plugins/postcss'),
+    import('prettier/plugins/html'),
+    import('prettier/plugins/graphql'),
+    import('prettier/plugins/glimmer'),
+  ]).then((plugins) => plugins as Plugin[]),
+);
+
+async function load(text: string): Promise<Formatter> {
+  const [base, code] = await Promise.all([loadBase(), fenceWithLanguage.test(text) ? loadCode() : []]);
+  return {
+    formatWithCursor: base.formatWithCursor,
+    plugins: [base.markdown, base.yaml, ...code, base.alertMarkers],
+  };
+}
+
+export function warmFormatter(text: string): void {
+  load(text).catch(() => undefined);
 }
 
 function clamp(value: number, max: number): number {
@@ -62,7 +89,7 @@ function clamp(value: number, max: number): number {
 }
 
 export async function formatMarkdown(text: string, cursor: number): Promise<Formatted> {
-  const { formatWithCursor, plugins } = await load();
+  const { formatWithCursor, plugins } = await load(text);
   const res = await formatWithCursor(text, {
     parser: 'markdown',
     proseWrap: 'always',

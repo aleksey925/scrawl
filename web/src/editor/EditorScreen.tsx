@@ -309,7 +309,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   useEffect(() => {
     if (formatOnSave) {
-      warmFormatter();
+      warmFormatter(contentRef.current);
     }
   }, [formatOnSave]);
 

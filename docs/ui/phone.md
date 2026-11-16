@@ -18,30 +18,32 @@ How the app works on a phone.
   ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)). Profile opens the
   space's menu, the one the sidebar's foot opens: in the bar on top it was on
   the root alone. Its "Offline access" row is the same as in the sidebar's
-  menu, and with no network the tabs keep only Notes, Recent and Profile. The
-  bar stays put while the page scrolls, as an app's tab bar does: put away on a
-  scroll down, it read as the toolbar of a browser. A page ends at the bar, so
-  a list that fits the screen does not scroll. Nine controls and the crumbs
-  once shared one row on top, and the crumbs got 25px, wrapped and fell over
-  the note as a column. A menu opens beside the control that opened it, the way
-  a phone's own menus do; drawn as a sheet from the bottom, every menu sat
-  apart from its button. The search and the history take the whole screen and
-  the outline is a sheet, each over the bar. The search keeps its field at the
-  bottom, over the keyboard, with the results above it: a field at the top of a
-  tall phone is out of the thumb's reach. The editor has no tab bar, and a site
-  has none: the editor of a note keeps one strip of its own at the bottom, its
-  layout tabs, and while text is typed the formatting toolbar over the keyboard
-  in their place ([editor](editor.md)). The search field is placed by the
-  visible area of the screen, not by CSS alone: a phone's keyboard covers the
-  bottom of the page without making it shorter, and a field fixed to the bottom
-  sat under the keys. The find bar of a note follows the visible area too: with
-  the keyboard up, the scroll to a match moved the visible area down the page,
-  and the bar fixed to the top of the page was left above the screen until the
-  keyboard closed. The bar is moved in the scroll event itself, not by a React
-  render: a render came a frame late, and the bar jumped on every step to a
-  match. The editor of a note is placed the same way: the whole screen, its bar
-  on top included, takes the visible area, so its toolbar is over the keyboard
-  and no text is under it.
+  menu, and with no network the tabs keep only Notes, Recent and Profile. A tap
+  on Notes or Recent where the page already is scrolls it to the top, as a tab
+  of iOS does, and elsewhere opens the tab's page. The bar stays put while the
+  page scrolls, as an app's tab bar does: put away on a scroll down, it read as
+  the toolbar of a browser. A page ends at the bar, so a list that fits the
+  screen does not scroll. Nine controls and the crumbs once shared one row on
+  top, and the crumbs got 25px, wrapped and fell over the note as a column. A
+  menu opens beside the control that opened it, the way a phone's own menus do;
+  drawn as a sheet from the bottom, every menu sat apart from its button. The
+  search and the history take the whole screen and the outline is a sheet, each
+  over the bar. The search keeps its field at the bottom, over the keyboard,
+  with the results above it: a field at the top of a tall phone is out of the
+  thumb's reach. The editor has no tab bar, and a site has none: the editor of
+  a note keeps one strip of its own at the bottom, its layout tabs, and while
+  text is typed the formatting toolbar over the keyboard in their place
+  ([editor](editor.md)). The search field is placed by the visible area of the
+  screen, not by CSS alone: a phone's keyboard covers the bottom of the page
+  without making it shorter, and a field fixed to the bottom sat under the
+  keys. The find bar of a note follows the visible area too: with the keyboard
+  up, the scroll to a match moved the visible area down the page, and the bar
+  fixed to the top of the page was left above the screen until the keyboard
+  closed. The bar is moved in the scroll event itself, not by a React render: a
+  render came a frame late, and the bar jumped on every step to a match. The
+  editor of a note is placed the same way: the whole screen, its bar on top
+  included, takes the visible area, so its toolbar is over the keyboard and no
+  text is under it.
 - On a phone everything starts on a 16px line: the page text and the first and
   last icon of the bar on top.
 - On a phone a dialog stands in the middle of the screen, where the system's
@@ -113,6 +115,12 @@ How the app works on a phone.
   before the move takes it, and the page jumped back to where the move starts.
   `main` clips with `overflow-x: clip` and never `hidden`, which makes it a
   scroll container, and every sticky bar inside it stopped sticking.
+- The icon of the app on the home screen is the logo on the theme's ground,
+  drawn by `web/icons.ts` from `server/assets/logo.svg`. Android gets one more,
+  marked maskable, with the logo at half the width: Android cuts an icon to its
+  own shape, a circle or a squircle, and an icon not marked so is shrunk onto a
+  white plate. Half the width keeps the corners of the logo inside the circle
+  Android keeps whole, 80% of the width.
 - In an app opened from an iPhone's home screen a finger drags the page off
   from the left edge and goes to the folder above, the way up in the bar on top
   does, as an app's swipe goes where its back button says. Back in the history

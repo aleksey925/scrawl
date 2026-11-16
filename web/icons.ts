@@ -41,8 +41,7 @@ function favicon(light: Colors, dark: Colors): string {
   ].join('\n');
 }
 
-function filled(colors: Colors, size: number): Buffer {
-  const scale = 0.62;
+function filled(colors: Colors, size: number, scale: number): Buffer {
   const svg = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${size}" height="${size}">`,
     `<rect width="${width}" height="${width}" fill="${colors.bg}"/>`,
@@ -57,12 +56,15 @@ const light = colorsOf('light');
 const dark = colorsOf('dark');
 
 writeFileSync(join(assets, 'favicon.svg'), favicon(light, dark));
-const icons: ReadonlyArray<[string, Colors, number]> = [
-  ['apple-touch-icon.png', light, 180],
-  ['apple-touch-icon-dark.png', dark, 180],
-  ['icon-192.png', light, 192],
-  ['icon-512.png', light, 512],
+const iconScale = 0.62;
+const maskableScale = 0.5;
+const icons: ReadonlyArray<[string, Colors, number, number]> = [
+  ['apple-touch-icon.png', light, 180, iconScale],
+  ['apple-touch-icon-dark.png', dark, 180, iconScale],
+  ['icon-192.png', light, 192, iconScale],
+  ['icon-512.png', light, 512, iconScale],
+  ['icon-maskable-512.png', light, 512, maskableScale],
 ];
-for (const [name, colors, size] of icons) {
-  writeFileSync(join(assets, 'icons', name), filled(colors, size));
+for (const [name, colors, size, scale] of icons) {
+  writeFileSync(join(assets, 'icons', name), filled(colors, size, scale));
 }

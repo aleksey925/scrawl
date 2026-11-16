@@ -1,5 +1,6 @@
 import { useEffect, useState, type ComponentType, type JSX } from 'react';
 
+import { whenIdle } from '../idle';
 import { loadChunk } from '../staleBundle';
 import { showToast } from '../toast';
 
@@ -58,23 +59,6 @@ export const ResetDialog = chunkDialog(
   'Replace local copy',
   () => import('./ResetDialog').then((module) => module.ResetDialog),
 );
-
-const idleWaitMs = 300;
-
-function whenIdle(task: () => void): void {
-  const later = (): void => {
-    if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(task);
-    } else {
-      setTimeout(task, idleWaitMs);
-    }
-  };
-  if (document.readyState === 'complete') {
-    later();
-  } else {
-    window.addEventListener('load', later, { once: true });
-  }
-}
 
 export function preloadDialogs(): void {
   whenIdle(() => {

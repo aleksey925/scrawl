@@ -28,10 +28,16 @@ Prettier inside the binary and in the browser.
   up to date ([editor](../ui/editor.md)), and says so with `formatted` in the
   request. Every other writer - an API client, a restore, an editor whose
   prettier would not load - leaves that out and the server formats, in
-  `formatOnSave`. A test holds the two versions together. It is on unless a
-  space turns it off, and only `.md` is formatted. A change on disk and a pull
-  are not writes of ours and stay as they came: a commit made to format what
-  the remote sent would be a reason to diverge.
+  `formatOnSave`. A test holds the two versions together. The browser's copy
+  loads in two parts: prettier with the markdown and yaml plugins, about 130KB,
+  when the editor opens, and the plugins of code, babel, typescript, css, html,
+  graphql and handlebars, about 490KB, only for a text with a fence that names
+  a language, since prettier formats code in a fence by its language and leaves
+  everything else to markdown. A fence is found by its marks anywhere in the
+  text, so a fence in a list or a quote counts too, and a false find only loads
+  more. It is on unless a space turns it off, and only `.md` is formatted. A
+  change on disk and a pull are not writes of ours and stay as they came: a
+  commit made to format what the remote sent would be a reason to diverge.
 - Prettier runs in worker processes, copies of this binary started with
   `SCRAWL_FORMAT_WORKER` set, and never inside the server. The pool is
   `workerpool`, which PlantUML's engine on the server runs in as well

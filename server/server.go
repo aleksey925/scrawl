@@ -369,6 +369,7 @@ func (wb *Web) manifestHandler(w http.ResponseWriter, r *http.Request) {
 		Icons: []icon{
 			{Src: iconURL(wb.Version, "icons/icon-192.png"), Sizes: "192x192", Type: "image/png", Purpose: "any"},
 			{Src: iconURL(wb.Version, "icons/icon-512.png"), Sizes: "512x512", Type: "image/png", Purpose: "any"},
+			{Src: iconURL(wb.Version, "icons/icon-maskable-512.png"), Sizes: "512x512", Type: "image/png", Purpose: "maskable"},
 		},
 	}
 

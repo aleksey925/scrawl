@@ -3,6 +3,7 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 import { RouteError } from './components/RouteError';
 import { noteEntry } from './historyTrail';
 import { mountBase } from './mount';
+import { documentPage, editPage } from './pageChunks';
 import { loadChunk } from './staleBundle';
 import { AppLayout } from './shell/AppLayout';
 
@@ -22,8 +23,8 @@ const routes: RouteObject[] = [
     HydrateFallback: Blank,
     children: [
       { index: true, lazy: lazyPage(() => import('./pages/HomePage')) },
-      { path: 'doc/*', lazy: lazyPage(() => import('./pages/DocumentPage')) },
-      { path: 'edit/*', lazy: lazyPage(() => import('./pages/EditPage')) },
+      { path: 'doc/*', lazy: lazyPage(documentPage) },
+      { path: 'edit/*', lazy: lazyPage(editPage) },
       { path: 'search', lazy: lazyPage(() => import('./pages/SearchPage')) },
       { path: 'recent', lazy: lazyPage(() => import('./pages/RecentPage')) },
       { path: 'history/*', lazy: lazyPage(() => import('./pages/HistoryPage')) },

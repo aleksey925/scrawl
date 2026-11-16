@@ -285,10 +285,10 @@ test.describe('editing', () => {
         // arrange
         const docPath = scratch('save-reader-loads');
         writeFixture(docPath, 'kept\n');
+        const {release, reached} = await holdRoute(page, '**/assets/DocumentPage.js');
         await page.goto(routes.edit(docPath));
         await expect.poll(() => sourceText(page)).toBe('kept\n');
         await setSource(page, 'written\n');
-        const {release, reached} = await holdRoute(page, '**/assets/DocumentPage.js');
         const source = page.locator('[data-testid=editor-source] .cm-content');
 
         // act

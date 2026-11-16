@@ -6,6 +6,7 @@ import type { MeResponse } from '../api/types';
 import { goToLogin } from '../login';
 import { useReadingCopy } from '../offline/connection';
 import { offlineMe, storedMe } from '../offline/source';
+import { documentPage, editPage, preloadPage } from '../pageChunks';
 
 import { BarEditProvider } from './BarEditProvider';
 import { preloadDialogs } from './dialogChunks';
@@ -13,7 +14,7 @@ import { DocumentExtras } from './DocumentExtras';
 import { ReaderExtensionsProvider, type ReaderExtensions } from './extensions';
 import { FileActionsProvider } from './FileActions';
 import { FileView } from './FileView';
-import { NavProvider } from './NavContext';
+import { NavProvider, useAccount } from './NavContext';
 import { NetworkGate } from './NeedsNetwork';
 import { OfflineMark } from './OfflineMark';
 import { ReaderLayout, type ReaderChrome } from './ReaderLayout';
@@ -57,7 +58,18 @@ export function AppLayout(): JSX.Element {
   );
 }
 
+function usePreloadPages(): void {
+  const { canWrite } = useAccount();
+  useEffect(() => preloadPage(documentPage), []);
+  useEffect(() => {
+    if (canWrite) {
+      preloadPage(editPage);
+    }
+  }, [canWrite]);
+}
+
 function AppProviders({ children }: { children: ReactNode }): JSX.Element {
+  usePreloadPages();
   const fromCopy = useReadingCopy();
   return (
     <ResetProvider>

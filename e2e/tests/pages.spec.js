@@ -59,10 +59,21 @@ test.describe('pages', () => {
         }
     });
 
+    test('the pages of a note and of the editor load while the browser is idle', async ({page}) => {
+        // arrange
+        const documentPage = page.waitForRequest((request) => request.url().endsWith('/assets/DocumentPage.js'));
+        const editPage = page.waitForRequest((request) => request.url().endsWith('/assets/EditPage.js'));
+
+        // act
+        await page.goto(routes.home());
+
+        // assert
+        await expect(page.getByTestId('tree-row').first()).toBeVisible();
+        await Promise.all([documentPage, editPage]);
+    });
+
     test('a chunk that is gone reloads the page into the screen asked for', async ({page}) => {
         // arrange
-        await page.goto(routes.doc(docs.doc.path));
-        await expect(page.getByTestId('doc')).toBeVisible();
         let asked = 0;
         await page.route('**/assets/EditPage.js', async (route) => {
             asked += 1;
@@ -72,6 +83,8 @@ test.describe('pages', () => {
             }
             await route.continue();
         });
+        await page.goto(routes.doc(docs.doc.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
         const reloaded = page.waitForEvent('load');
 
         // act

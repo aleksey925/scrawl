@@ -176,6 +176,32 @@ test.describe('formatting', () => {
         expect(readFixture(docPath)).toBe(rough);
     });
 
+    test('the code plugins of prettier load only once the text has a fence that names a language', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/no-fence.md`;
+        writeFixture(docPath, '#  Заголовок\n');
+        const codeChunks = [];
+        page.on('request', (request) => {
+            const name = new URL(request.url()).pathname.split('/').pop();
+            if (name === 'babel.js' || name === 'typescript.js') {
+                codeChunks.push(name);
+            }
+        });
+        await signIn(page, {from: routes.edit(docPath)});
+        await expect.poll(() => sourceText(page)).toBe('#  Заголовок\n');
+        await page.getByTestId('editor-toolbar-format').click();
+        await expect.poll(() => sourceText(page)).toBe('# Заголовок\n');
+        const beforeFence = [...codeChunks];
+
+        // act
+        await setSource(page, '```json\n{"a":1}\n```\n');
+        await page.getByTestId('editor-toolbar-format').click();
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe('```json\n{ "a": 1 }\n```\n');
+        expect({beforeFence, afterFence: [...codeChunks].sort()}).toEqual({beforeFence: [], afterFence: ['babel.js', 'typescript.js']});
+    });
+
     test('the shortcut formats the buffer and one undo takes it back', async ({page}) => {
         // arrange
         const docPath = `${FOLDER}/shortcut.md`;

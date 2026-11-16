@@ -28,7 +28,6 @@
   font: inherit;
   text-decoration: none;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
   transition: var(--scrawl-press-out);
 }
 

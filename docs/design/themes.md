@@ -33,4 +33,5 @@ How a theme file becomes the colors of the app, a page and the code.
   page and in a page of the command line; the fonts, the spacing and the shape
   of a control are the mantine theme's. A tap latches `:hover` onto what it
   landed on until the next tap somewhere else, so every decorative hover is
-  gated on `@media (hover: hover)` and the platform tap highlight is off.
+  gated on `@media (hover: hover)` and the platform tap highlight is off, once
+  on the root in `web/src/global.css`.

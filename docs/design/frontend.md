@@ -134,6 +134,10 @@ How the react app in `web/` is built, shipped and wired.
   ([offline copy](offline.md#offline-in-the-app)). `mountBase()` takes the
   space from the address when the shell's `data-base` is empty, which is the
   offline shell; a page with no `data-base` at all, a site, has no base.
+- On a phone the page's gutter is `--mantine-spacing-lg`, set in
+  `web/src/components/Page.module.css`. The pressed band of a row in a folder's
+  list and the row a name is typed into reach past the gutter by the same value
+  to run from edge to edge, so a new gutter has to change them too.
 - A global shortcut gives way to an editor. It does nothing when the event was
   already handled or was pressed inside an element that owns the app's
   shortcuts (`data-owns-shortcuts`), because a keymap may leave a key

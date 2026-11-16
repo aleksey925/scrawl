@@ -47,6 +47,31 @@ async function openedMenu(page, testId) {
         .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
 }
 
+const NO_LINE = 'rgba(0, 0, 0, 0)';
+
+async function namingBand(row) {
+    return row.evaluate((el) => {
+        const probe = document.createElement('div');
+        probe.style.background = 'var(--scrawl-hover)';
+        probe.style.borderBottom = '1px solid var(--scrawl-border-light)';
+        document.body.append(probe);
+        const {backgroundColor: hover, borderBottomColor: line} = getComputedStyle(probe);
+        probe.remove();
+        const rect = el.getBoundingClientRect();
+        const below = el.nextElementSibling;
+        const lineOf = (item) => getComputedStyle(item).borderBottomColor;
+        return {
+            band: {
+                edges: [rect.left, rect.right],
+                background: getComputedStyle(el).backgroundColor,
+                height: rect.height,
+                lines: [lineOf(el.previousElementSibling), lineOf(el), lineOf(below)],
+            },
+            reference: {hover, line, height: below.getBoundingClientRect().height},
+        };
+    });
+}
+
 async function tapSpaceMenu(page) {
     await page.goto(routes.home());
     await page.getByTestId('tab-profile').tap();
@@ -1024,6 +1049,26 @@ test.describe('mobile', () => {
             expect([file, renamed, tapped].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([false, false, true]);
         });
 
+        test('the row being renamed is one gray band from edge to edge, with no line above or below it', async ({page}) => {
+            // arrange
+            const folder = `${FOLDER}/band`;
+            const files = ['a-first', 'b-middle', 'c-last'].map((name) => `${folder}/${name}.md`);
+            files.forEach((file) => writeFixture(file, `# ${nameOf(file)}\n`));
+            await page.goto(MAIN.url.dir(folder));
+
+            // act
+            await startRowRename(page, files[1]);
+
+            // assert
+            const {band, reference} = await namingBand(rowOf(page, files[1]));
+            expect(band).toEqual({
+                edges: [0, page.viewportSize().width],
+                background: reference.hover,
+                height: reference.height,
+                lines: [NO_LINE, NO_LINE, reference.line],
+            });
+        });
+
         test('a tap outside saves the field even when the field keeps the focus', async ({page}) => {
             // arrange
             const file = `${FOLDER}/kept-focus.md`;
@@ -1392,12 +1437,13 @@ test.describe('mobile', () => {
         // assert
         const draft = page.getByTestId('dir-draft');
         await expect(draft).toBeVisible();
-        const band = await draft.evaluate((row) => {
-            const rect = row.getBoundingClientRect();
-            const line = (el) => getComputedStyle(el).borderBottomColor;
-            return {edges: [rect.left, rect.right], lines: [line(row.previousElementSibling), line(row)]};
+        const {band, reference} = await namingBand(draft);
+        expect(band).toEqual({
+            edges: [0, page.viewportSize().width],
+            background: reference.hover,
+            height: reference.height,
+            lines: [NO_LINE, NO_LINE, reference.line],
         });
-        expect(band).toEqual({edges: [0, page.viewportSize().width], lines: ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)']});
     });
 
     test('the note menu opens under its button, on the screen', async ({page}) => {

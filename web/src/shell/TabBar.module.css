@@ -32,12 +32,11 @@
   transition: var(--scrawl-press-out);
 }
 
-.tab[data-current='true'],
-.action {
+.tab[data-current='true'] {
   color: var(--scrawl-text);
 }
 
-.action[aria-disabled='true'] {
+.tab[aria-disabled='true'] {
   color: var(--scrawl-text-faint);
   cursor: default;
 }

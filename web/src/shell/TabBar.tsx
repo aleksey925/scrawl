@@ -32,15 +32,10 @@ interface TabProps extends Omit<ComponentPropsWithRef<'button'>, 'children'> {
   label: string;
   icon: Icon;
   current: boolean;
-  action?: boolean;
 }
 
 function tabTestId(name: TabName): string {
   return `tab-${name}`;
-}
-
-function tabClass(action: boolean): string | undefined {
-  return action ? `${classes.tab} ${classes.action}` : classes.tab;
 }
 
 function TabBody({ icon: TabIcon, label }: { icon: Icon; label: string }): JSX.Element {
@@ -52,7 +47,7 @@ function TabBody({ icon: TabIcon, label }: { icon: Icon; label: string }): JSX.E
   );
 }
 
-function Tab({ name, label, icon, current, action = false, ...rest }: TabProps): JSX.Element {
+function Tab({ name, label, icon, current, ...rest }: TabProps): JSX.Element {
   return (
     <button
       {...rest}
@@ -60,7 +55,7 @@ function Tab({ name, label, icon, current, action = false, ...rest }: TabProps):
       data-testid={tabTestId(name)}
       data-current={current ? 'true' : 'false'}
       aria-current={current ? 'page' : undefined}
-      className={tabClass(action)}
+      className={classes.tab}
     >
       <TabBody icon={icon} label={label} />
     </button>
@@ -70,11 +65,11 @@ function Tab({ name, label, icon, current, action = false, ...rest }: TabProps):
 function EditCell({ edit }: { edit: BarEdit }): JSX.Element {
   const body = <TabBody icon={IconPencil} label="Edit" />;
   return edit.kind === 'edit' ? (
-    <Link data-testid={tabTestId('edit')} to={edit.to} className={tabClass(true)}>
+    <Link data-testid={tabTestId('edit')} to={edit.to} className={classes.tab}>
       {body}
     </Link>
   ) : (
-    <a data-testid={tabTestId('edit')} role="link" aria-disabled="true" className={tabClass(true)}>
+    <a data-testid={tabTestId('edit')} role="link" aria-disabled="true" className={classes.tab}>
       {body}
     </a>
   );
@@ -101,7 +96,6 @@ function NewCell({ here }: { here: string }): JSX.Element {
         label="New"
         icon={IconPlus}
         current={false}
-        action
         aria-haspopup="menu"
         aria-expanded={opened}
         onClick={() => setOpened((was) => !was)}

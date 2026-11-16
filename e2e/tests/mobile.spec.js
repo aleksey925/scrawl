@@ -151,8 +151,7 @@ test.describe('mobile', () => {
             await page.goto(routes.doc(DOC));
             await expect(cells(page)).toHaveText(['Notes', 'Search', 'Edit', 'Recent', 'Profile']);
             await expect(edit).toHaveAttribute('href', routes.edit(DOC));
-            await expect(edit).toHaveCSS('color', rgb(lightTheme.palette.text));
-            await expect(page.getByTestId('tab-recent')).toHaveCSS('color', rgb(lightTheme.palette.textTertiary));
+            await expect(edit).toHaveCSS('color', rgb(lightTheme.palette.textTertiary));
             await expect(page.getByTestId('tab-new')).toHaveCount(0);
             await shot(page, 'mobile-tab-edit');
 
@@ -173,6 +172,7 @@ test.describe('mobile', () => {
             await page.getByTestId('tab-notes').tap();
             await expect(page).toHaveURL(atHome());
             await expect(cells(page)).toHaveText(['Notes', 'Search', 'New', 'Recent', 'Profile']);
+            await expect(page.getByTestId('tab-new')).toHaveCSS('color', rgb(lightTheme.palette.textTertiary));
             await expect(edit).toHaveCount(0);
             const boxes = await cells(page).evaluateAll((items) => items.map((el) => Math.round(el.getBoundingClientRect().width)));
             expect(new Set(boxes).size).toBe(1);

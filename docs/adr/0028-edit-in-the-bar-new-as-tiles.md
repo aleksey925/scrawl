@@ -18,8 +18,8 @@ from under it. New opened a card menu of two items, New note and New folder.
     a picture;
   - New in a list and on every other screen;
   - nothing when the person cannot write, and the four tabs share the width.
-- The cell is drawn in the color of text, the tabs in a lighter gray: it is an
-  action, not a place. A disabled Edit is faint.
+- The cell is drawn in the gray of the tabs, so the dark current tab stays the
+  one dark cell. A disabled Edit is faint.
 - A note has no New: Edit takes the cell, and a note is made from a list.
 - The blue round Edit button goes away on a phone. A desktop keeps its Edit in
   the topbar.

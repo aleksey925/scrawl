@@ -6,9 +6,9 @@ How the app works on a phone.
   cells: Notes, Search, the action, Recent, Profile. The action is Edit on a
   note or a text file, a faint disabled Edit on any other file, so the cell
   keeps its place from a note to a picture, and New on every other screen. It
-  is drawn darker than the tabs, as an action and not a place, and with no
-  right to write there is no cell and the four tabs share the width. A note has
-  no New: a note is made from a list. A round Edit button over the page covered
+  is drawn in the gray of the tabs, a disabled Edit fainter, and with no right
+  to write there is no cell and the four tabs share the width. A note has no
+  New: a note is made from a list. A round Edit button over the page covered
   the text under it and was one more thing on the screen
   ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)). Profile opens the
   space's menu, the one the sidebar's foot opens: in the bar on top it was on

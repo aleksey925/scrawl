@@ -9,7 +9,7 @@ import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
 import {
   IconDots, IconEdit, IconFile, IconFolder, IconLink, IconMoveTo, IconPlay, IconTrash,
 } from '../icons';
-import { directoryUrl, documentUrl, isHtmlApp, runState, runUrl } from '../paths';
+import { directoryUrl, documentUrl, runState, runUrl } from '../paths';
 import { layout } from '../theme';
 
 import { rowMenuIconSize, type RowMenuProps } from './extensions';
@@ -31,12 +31,11 @@ export function RowMenu({
   useCloseOnScroll(opened, setOpened);
 
   const open = (): void => void navigate(isDir ? directoryUrl(path) : documentUrl(path));
-  const runTarget = runPath ?? (!isDir && isHtmlApp(path) ? path : undefined);
-  const run = (target: string): void => {
+  const run = (app: string): void => {
     if (runInTab === undefined) {
-      void navigate(runUrl(target), { state: runState(location) });
+      void navigate(runUrl(app), { state: runState(location) });
     } else {
-      runInTab(target);
+      runInTab(app);
     }
   };
   const placement = at !== undefined ? pointerPlacement : target === undefined ? buttonPlacement : targetPlacement;
@@ -75,11 +74,11 @@ export function RowMenu({
         >
           Open
         </Menu.Item>
-        {runTarget !== undefined && (
+        {runPath !== undefined && (
           <Menu.Item
             data-testid="tree-row-menu-run"
             leftSection={<IconPlay size={rowMenuIconSize} />}
-            onClick={() => run(runTarget)}
+            onClick={() => run(runPath)}
           >
             Run
           </Menu.Item>

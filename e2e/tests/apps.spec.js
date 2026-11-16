@@ -295,6 +295,15 @@ test.describe('html apps', () => {
 
         await appRow.getByTestId('dir-row-name').click();
         await expect(page).toHaveURL(`${PLAIN.prefix}/doc/${encodePath(COUNTER)}/`);
+        const treeMenu = (name) => page.getByRole('menu', {name: `Actions for ${name}`});
+        await page.locator(`[data-testid=tree-row][data-path="${COUNTER}"] [data-testid=tree-link]`).click({button: 'right'});
+        await expect(treeMenu('counter').getByTestId('tree-row-menu-open')).toBeVisible();
+        await expect(treeMenu('counter').getByTestId('tree-row-menu-run')).toHaveCount(0);
+        await page.keyboard.press('Escape');
+        await expect(treeMenu('counter')).toHaveCount(0);
+
+        await page.locator(`[data-testid=dir-row][data-path="${COUNTER}/page2.html"]`).getByTestId('dir-row-run').click();
+        await expect(page.getByTestId('run-name')).toHaveText('page2.html');
     });
 
     test.describe('in Safari', () => {

@@ -1,5 +1,5 @@
 import { Menu } from '@mantine/core';
-import { useCallback, useRef, useState, type ComponentPropsWithRef, type JSX } from 'react';
+import { useRef, useState, type ComponentPropsWithRef, type JSX } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { PopupMenu } from '../components/PopupMenu';
@@ -73,10 +73,10 @@ function NewCell({ here }: { here: string }): JSX.Element {
   const actions = useFileActions();
   const [opened, setOpened] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
-  const close = useCallback(() => {
+  const close = (): void => {
     setOpened(false);
     button.current?.focus({ preventScroll: true });
-  }, []);
+  };
   const create = (make: (dir: string) => void): void => {
     setOpened(false);
     make(here);

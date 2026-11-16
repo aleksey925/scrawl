@@ -52,11 +52,12 @@ var counterFiles = map[string]string{
 func seedApps(t *testing.T, root string) {
 	t.Helper()
 	files := map[string]string{
-		otherFile:     "<p>other</p>",
-		"root.html":   "<p>root</p>",
-		"upper.HTM":   "<p>upper</p>",
-		"secret.js":   "outside",
-		".git/config": "[core]",
+		otherFile:         "<p>other</p>",
+		"apps/plain/a.md": "# plain",
+		"root.html":       "<p>root</p>",
+		"upper.HTM":       "<p>upper</p>",
+		"secret.js":       "outside",
+		".git/config":     "[core]",
 	}
 	for name, data := range counterFiles {
 		files[counterFolder+"/"+name] = data
@@ -348,18 +349,22 @@ func TestAPIDirNamesTheIndexOfAnAppFolder(t *testing.T) {
 	ts := newAppsServer(t, testOpts{})
 
 	// act
-	resp, body := ts.json(t, request{path: "/api/dir/apps"})
+	resp, body := ts.do(t, request{path: "/api/dir/apps", headers: map[string]string{"Accept": "application/json"}})
 
 	// assert
 	require.Equal(t, http.StatusOK, resp.status)
-	entries, ok := body["entries"].([]any)
-	require.True(t, ok)
-	got := map[string]any{}
-	for _, row := range entries {
-		ent := row.(map[string]any)
-		got[ent["path"].(string)] = ent["run_path"]
+	var listing struct {
+		Entries []struct {
+			Path    string `json:"path"`
+			RunPath string `json:"run_path"`
+		} `json:"entries"`
 	}
-	assert.Equal(t, map[string]any{counterFolder: counterFile, path.Dir(otherFile): otherFile}, got)
+	require.NoError(t, json.Unmarshal([]byte(body), &listing))
+	got := map[string]string{}
+	for _, ent := range listing.Entries {
+		got[ent.Path] = ent.RunPath
+	}
+	assert.Equal(t, map[string]string{counterFolder: counterFile, path.Dir(otherFile): otherFile, "apps/plain": ""}, got)
 }
 
 func TestAppsEnter(t *testing.T) {

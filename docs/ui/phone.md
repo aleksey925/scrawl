@@ -13,10 +13,10 @@ How the app works on a phone.
   ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)). Profile opens the
   space's menu, the one the sidebar's foot opens: in the bar on top it was on
   the root alone. Its "Offline access" row is the same as in the sidebar's
-  menu, and with no network the tabs keep only Notes, Recent and Profile. Both
-  stay put while the page scrolls, as an app's tab bar does: put away on a
-  scroll down, they read as the toolbar of a browser. A page ends at the bar,
-  so a list that fits the screen does not scroll. Nine controls and the crumbs
+  menu, and with no network the tabs keep only Notes, Recent and Profile. The
+  bar stays put while the page scrolls, as an app's tab bar does: put away on a
+  scroll down, it read as the toolbar of a browser. A page ends at the bar, so
+  a list that fits the screen does not scroll. Nine controls and the crumbs
   once shared one row on top, and the crumbs got 25px, wrapped and fell over
   the note as a column. A menu opens beside the control that opened it, the way
   a phone's own menus do; drawn as a sheet from the bottom, every menu sat
@@ -46,10 +46,14 @@ How the app works on a phone.
   tiles over the bar, New folder at the left and New note at the right, under
   the right thumb: from edge to edge with 8px to spare, 88px high, on the
   ground and blur of a menu, an icon over its label. A light scrim covers the
-  page, a tap on it only closes, and so does Escape. Two items fit two big
-  tiles better than a card menu, which Profile keeps for its long list. New
-  note opens a note's draft, with its faint name in the editor's bar, which a
-  tap turns into the name field. New folder opens the list of the folder on
+  page and the bar: a tap on it, a tab included, only closes the tiles, and so
+  does Escape, and the page under it does not scroll. The focus goes to New
+  folder when they open and back to New when they close, apart from a tile's
+  tap, whose note or folder takes the focus. While they fade out they take no
+  tap: a second quick tap on a tile made a second note or folder. Two items fit
+  two big tiles better than a card menu, which Profile keeps for its long list.
+  New note opens a note's draft, with its faint name in the editor's bar, which
+  a tap turns into the name field. New folder opens the list of the folder on
   screen with a row after the last folder, the way a desktop puts it in the
   table: a dialog in the middle of the screen covered the list the folder went
   into. That row, and a row of the list being renamed, is drawn on the gray of

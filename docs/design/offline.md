@@ -314,8 +314,10 @@ needs.
 
 - Rule 4 of the worker answers `/s/<name>/run/...` with the offline shell, as
   any page, and a stored `/api/page/` keeps its `run_url`, so Run on a file's
-  page works offline. The run screen calls `useMe`, as `AppLayout` does: only
-  it ends the start check and brings the app back online.
+  page works offline. A stored `/api/dir/` keeps the `run_path` of a folder, so
+  the Run of a folder's row works offline too. The run screen calls `useMe`, as
+  `AppLayout` does: only it ends the start check and brings the app back
+  online.
 - With the copy on, the run screen asks its ticket with `offline: true`. When
   the enter page in the frame posts `{type: 'scrawl-htmlapp', offline}` from
   the frame's window and the app's origin, the run screen writes

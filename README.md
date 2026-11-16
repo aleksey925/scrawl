@@ -303,10 +303,11 @@ history are hidden, since they need the server.
 
 A mini app is a `.html` file of your notes that runs inside scrawl. Run on the
 file's page opens it inside scrawl, under one bar with Back and "Open in a new
-tab". The app works as on any site, with its own `localStorage`, IndexedDB,
-cookies and service worker, and the file is not changed. It can load the web
-files of its folder and anything on the internet. It cannot read your notes,
-act as you or call the API.
+tab". If a folder has an `index.html` file, its row in a folder's list has Run
+too, and Run opens that file. The app works as on any site, with its own
+`localStorage`, IndexedDB, cookies and service worker, and the file is not
+changed. It can load the web files of its folder and anything on the internet.
+It cannot read your notes, act as you or call the API.
 
 Every mini app runs on a host of its own. All `.html` files of one folder are
 one mini app and share its data, so keep each mini app in a folder of its own,

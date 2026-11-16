@@ -220,7 +220,7 @@ func (wb *Web) appsFile(w http.ResponseWriter, r *http.Request, id string) {
 	}
 	target := path.Join(cookie.Folder, strings.TrimPrefix(clean, "/"))
 	if strings.HasSuffix(r.URL.Path, "/") {
-		target = path.Join(target, "index.html")
+		target = path.Join(target, store.AppIndex)
 	} else if fi, err := spc.Store.Stat(target); err == nil && fi.IsDir {
 		location := (&url.URL{Path: clean + "/", RawQuery: r.URL.RawQuery}).RequestURI()
 		http.Redirect(w, r, location, http.StatusMovedPermanently)

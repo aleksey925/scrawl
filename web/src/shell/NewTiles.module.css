@@ -8,7 +8,7 @@
 .scrim {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--scrawl-bg) 60%, transparent);
+  background: var(--scrawl-scrim);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -24,6 +24,8 @@
 }
 
 .tile {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -43,6 +45,17 @@
   font-weight: 500;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+.tile::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--scrawl-pressed);
+  opacity: 0;
+  pointer-events: none;
   transition: var(--scrawl-press-out);
 }
 
@@ -51,13 +64,15 @@
 }
 
 @media (hover: hover) {
-  .tile:hover {
-    background: linear-gradient(var(--scrawl-hover), var(--scrawl-hover)), var(--scrawl-menu);
+  .tile:hover::before {
+    background: var(--scrawl-hover);
+    opacity: 1;
   }
 }
 
-.tile:active {
-  background: linear-gradient(var(--scrawl-pressed), var(--scrawl-pressed)), var(--scrawl-menu);
+.tile:active::before {
+  background: var(--scrawl-pressed);
+  opacity: 1;
   transition: var(--scrawl-press-in);
 }
 

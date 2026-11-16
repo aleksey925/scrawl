@@ -8,6 +8,8 @@ const {
 } = require('../support/helpers');
 const text = require('../support/text');
 
+const PAST_DRAFT_DELAY_MS = 1000;
+
 function scratch(name) {
     return `e2e-scratch/${name}.md`;
 }
@@ -136,7 +138,7 @@ test.describe('editing', () => {
         await setSource(page, '# Заголовок\n\nпервый\n');
         await expect(editorStatus(page)).toHaveText(text.status.dirty);
         await expect(editorStatus(page)).toHaveAttribute('data-state', 'dirty');
-        await page.clock.runFor(1000);
+        await page.clock.runFor(PAST_DRAFT_DELAY_MS);
         await expect(editorStatus(page)).toHaveText(text.status.drafted);
         await expect(editorStatus(page)).toHaveAttribute('data-state', 'drafted');
 
@@ -145,7 +147,7 @@ test.describe('editing', () => {
         });
         await setSource(page, '# Заголовок\n\nвторой\n');
         await expect(editorStatus(page)).toHaveText(text.status.dirty);
-        await page.clock.runFor(1000);
+        await page.clock.runFor(PAST_DRAFT_DELAY_MS);
         await stays(() => editorStatus(page).textContent(), text.status.dirty, 500);
         removeFixture(docPath);
     });

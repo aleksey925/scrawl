@@ -4,10 +4,6 @@
   min-height: 0;
 }
 
-:global(.mantine-AppShell-main):has(> .screen) {
-  height: 100dvh;
-}
-
 .notices {
   display: flex;
   flex-direction: column;
@@ -396,7 +392,7 @@
 }
 
 .phoneMode {
-  min-height: 40px;
+  min-height: var(--scrawl-touch-control);
   font-size: 15px;
 }
 
@@ -414,11 +410,6 @@
 .keyboardBar .tool {
   --ai-size: var(--scrawl-tap-target);
   color: var(--scrawl-icon);
-}
-
-.keyboardBar .tool svg {
-  width: 22px;
-  height: 22px;
 }
 
 .keyboardBar .toolSeparator {

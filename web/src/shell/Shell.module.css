@@ -17,6 +17,10 @@
   flex-grow: 1;
 }
 
+.main:has(> [data-fill='screen']) {
+  height: 100dvh;
+}
+
 @mixin larger-than $mantine-breakpoint-sm {
   :global(html) {
     overscroll-behavior-y: none;

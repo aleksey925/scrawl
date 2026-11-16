@@ -7,7 +7,7 @@ import {
   Text,
 } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import { api } from '../api/client';
 import { errorText } from '../api/useApi';
@@ -50,6 +50,7 @@ import { insertTable, runTableEdit, tableEditsAtCursor } from './table';
 import { tocBlock, tocRangeIn, writeToc, writeTocInText } from './toc';
 import { useChanges } from './useChanges';
 import { useDraft } from './useDraft';
+import { useEditing } from './useEditing';
 import { useEditorPosition } from './useEditorPosition';
 import { useEditSession } from './useEditSession';
 import { useEditorLayout, type LayoutMode } from './useLayoutMode';
@@ -91,35 +92,6 @@ type PhoneMode = Exclude<LayoutMode, 'split'>;
 
 const tocFailed = 'Could not build the contents';
 const tocNoAnswer = `The server did not answer in ${tocRefreshMs / 1000} seconds.`;
-
-function useEditing(view: EditorView | undefined, bar: RefObject<HTMLElement | null>, enabled: boolean): boolean {
-  const [editing, setEditing] = useState(false);
-
-  useEffect(() => {
-    if (!enabled || view === undefined) {
-      setEditing(false);
-      return undefined;
-    }
-    let timer = 0;
-    const check = (): void => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        const active = document.activeElement;
-        setEditing(view.hasFocus || (active !== null && bar.current?.contains(active) === true));
-      });
-    };
-    check();
-    document.addEventListener('focusin', check);
-    document.addEventListener('focusout', check);
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener('focusin', check);
-      document.removeEventListener('focusout', check);
-    };
-  }, [view, bar, enabled]);
-
-  return editing;
-}
 
 function LineCount({ lines, className }: { lines: number; className: string | undefined }): JSX.Element {
   return (
@@ -492,7 +464,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       value: 'changes',
       label: 'Changes',
       testId: 'editor-tab-changes',
-      mark: dirty ? <span data-testid="editor-changes-mark" className={classes.changesMark} /> : undefined,
+      mark: dirty ? <span data-testid="editor-changes-mark" className={classes.changesMark} aria-hidden /> : undefined,
     },
   ];
   const wrapButton = (size: number): JSX.Element => (
@@ -507,29 +479,34 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       onToc={insertToc}
       tableMenu={tableMenu}
       onFormat={formattable ? format : undefined}
+      iconSize={phoneModes ? layout.iconSizeLarge : layout.iconSizeTool}
     >
-      {phoneModes ? wrapButton(layout.iconSizeTool) : undefined}
+      {phoneModes ? wrapButton(layout.iconSizeLarge) : undefined}
     </Toolbar>
+  );
+  const status = (
+    <Text
+      data-testid="editor-status"
+      data-dirty={dirty ? 'true' : 'false'}
+      data-state={saveState}
+      className={phone ? classes.phoneStatus : classes.status}
+      hidden={!phone && !wide}
+      aria-live="polite"
+    >
+      {phone && unsaved && <span data-testid="editor-unsaved-mark" className={classes.unsavedMark} aria-hidden />}
+      {statusText}
+    </Text>
   );
 
   const sourceStyle = mode === 'split' ? { flex: `0 0 ${split * 100}%` } : undefined;
   const previewStyle = mode === 'split' ? { flex: '1 1 0' } : undefined;
 
   return (
-    <div data-testid="editor" data-kind={kind} data-fill className={classes.screen}>
+    <div data-testid="editor" data-kind={kind} data-fill="screen" className={classes.screen}>
       <PageActions>
         {!phone ? (
           <>
-            <Text
-              data-testid="editor-status"
-              data-dirty={dirty ? 'true' : 'false'}
-              data-state={saveState}
-              className={classes.status}
-              hidden={!wide}
-              aria-live="polite"
-            >
-              {statusText}
-            </Text>
+            {status}
             {kind === 'markdown' && (
               <Segmented
                 data-testid="editor-layout-mode"
@@ -557,16 +534,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             <button type="button" data-testid="editor-cancel" className={classes.back} aria-label="Back" onClick={cancel}>
               <IconChevronLeft size={layout.iconSizeLarge} />
             </button>
-            <span
-              data-testid="editor-status"
-              data-dirty={dirty ? 'true' : 'false'}
-              data-state={saveState}
-              className={classes.phoneStatus}
-              aria-live="polite"
-            >
-              {unsaved && <span data-testid="editor-unsaved-mark" className={classes.unsavedMark} aria-hidden />}
-              {statusText}
-            </span>
+            {status}
             {!readOnly && (
               <button
                 type="button"
@@ -643,34 +611,34 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         {showSource && (
           <div className={classes.pane} style={sourceStyle}>
             {(!phoneModes || readOnly) && (
-            <div className={classes.paneHead}>
-              {mode === 'split' && <span className={classes.paneLabel}>Source</span>}
-              {kind === 'text' && (
-                <span data-testid="editor-language" className={classes.paneLabel}>
-                  {codeLanguageOf(fileName)?.name ?? 'Plain text'}
-                </span>
-              )}
-              {toolbar}
-              <div className={classes.paneTools}>
-                {uploads.pending > 0 && (
-                  <ActionIcon
-                    data-testid="editor-upload-pending"
-                    data-pending={uploads.pending}
-                    className={classes.tool}
-                    variant="subtle"
-                    color="gray"
-                    loading
-                    aria-label="Uploading"
-                  >
-                    <IconPhoto size={layout.iconSizeSmall} />
-                  </ActionIcon>
+              <div className={classes.paneHead}>
+                {mode === 'split' && <span className={classes.paneLabel}>Source</span>}
+                {kind === 'text' && (
+                  <span data-testid="editor-language" className={classes.paneLabel}>
+                    {codeLanguageOf(fileName)?.name ?? 'Plain text'}
+                  </span>
                 )}
-                {wide && (
-                  <LineCount lines={lines} className={classes.lines} />
-                )}
-                {wrapButton(layout.iconSizeSmall)}
+                {toolbar}
+                <div className={classes.paneTools}>
+                  {uploads.pending > 0 && (
+                    <ActionIcon
+                      data-testid="editor-upload-pending"
+                      data-pending={uploads.pending}
+                      className={classes.tool}
+                      variant="subtle"
+                      color="gray"
+                      loading
+                      aria-label="Uploading"
+                    >
+                      <IconPhoto size={layout.iconSizeSmall} />
+                    </ActionIcon>
+                  )}
+                  {wide && (
+                    <LineCount lines={lines} className={classes.lines} />
+                  )}
+                  {wrapButton(layout.iconSizeSmall)}
+                </div>
               </div>
-            </div>
             )}
             <SourceEditor
               kind={kind}
@@ -725,7 +693,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
                     label="Hide the keyboard"
                     onClick={hideKeyboard}
                   >
-                    <IconKeyboard size={layout.iconSizeTool} />
+                    <IconKeyboard size={layout.iconSizeLarge} />
                   </ToolButton>
                 </div>
               </div>

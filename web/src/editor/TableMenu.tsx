@@ -44,9 +44,16 @@ export interface TableMenuProps {
   onEdit: (edit: TableEdit) => void;
   onInsert: (size: TableSize) => void;
   onOpenedChange?: (opened: boolean) => void;
+  iconSize?: number;
 }
 
-export function TableMenu({ editsAtCursor, onEdit, onInsert, onOpenedChange }: TableMenuProps): JSX.Element {
+export function TableMenu({
+  editsAtCursor,
+  onEdit,
+  onInsert,
+  onOpenedChange,
+  iconSize = layout.iconSizeTool,
+}: TableMenuProps): JSX.Element {
   const [opened, setOpened] = useState(false);
   const [edits, setEdits] = useState<ReadonlySet<TableEdit> | undefined>(undefined);
 
@@ -71,7 +78,7 @@ export function TableMenu({ editsAtCursor, onEdit, onInsert, onOpenedChange }: T
     >
       <Menu.Target>
         <ToolButton testId="editor-toolbar-table" label="Table">
-          <IconTable size={layout.iconSizeTool} />
+          <IconTable size={iconSize} />
         </ToolButton>
       </Menu.Target>
       <Menu.Dropdown data-testid="editor-table-menu">

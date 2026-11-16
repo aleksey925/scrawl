@@ -183,10 +183,10 @@ test.describe('mobile', () => {
             };
         });
         const looks = async () => Object.fromEntries(
-            await Promise.all(names.map(async (name) => [name, await look(name)])));
+            await Promise.all(names.map(async (tab) => [tab, await look(tab)])));
         const drawing = (name) => page.getByTestId(`tab-${name}`).locator('svg').innerHTML();
         const bare = {ground: NO_LINE, border: 'none', shadow: 'none', outline: 'none'};
-        const expected = (current) => Object.fromEntries(names.map((name) => [name, name === current
+        const expected = (current) => Object.fromEntries(names.map((tab) => [tab, tab === current
             ? {...bare, color: rgb(lightTheme.palette.accent), weight: '600'}
             : {...bare, color: rgb(lightTheme.palette.textTertiary), weight: '400'}]));
         await page.goto(routes.home());
@@ -1939,7 +1939,6 @@ test.describe('mobile', () => {
         expect(Math.round(saveBox.x + saveBox.width)).toBeLessThanOrEqual(width);
 
         await setSource(page, '# Заметка\n\nновый текст\n');
-        await expect(mark).toBeVisible();
         await expect(status).toHaveText(text.status.drafted);
         await expect(mark).toBeVisible();
         await expect(saveButton).toBeEnabled();
@@ -2029,14 +2028,16 @@ test.describe('mobile', () => {
                 keyboard: el.dataset.keyboard,
             }));
         };
+        const raisedTop = 120;
+        const raisedVisible = 400;
 
         // act
-        const raised = await placeAt(120, 400);
+        const raised = await placeAt(raisedTop, raisedVisible);
         const lowered = await placeAt(0, height);
 
         // assert
         expect({raised, lowered}).toEqual({
-            raised: {bottom: 520, height: 50, keyboard: 'true'},
+            raised: {bottom: raisedTop + raisedVisible, height: 50, keyboard: 'true'},
             lowered: {bottom: height, height: 50, keyboard: 'false'},
         });
     });

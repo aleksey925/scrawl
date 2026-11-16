@@ -10,6 +10,12 @@ export interface Draft {
   at: number;
 }
 
+interface WrittenDraft {
+  key: string;
+  rev: string;
+  content: string;
+}
+
 export interface DraftControl {
   offered: Draft | undefined;
   stale: boolean;
@@ -52,7 +58,7 @@ export function useDraft(options: UseDraftOptions): DraftControl {
 
   const [offered, setOffered] = useState<Draft | undefined>(undefined);
   const [stale, setStale] = useState(false);
-  const [written, setWritten] = useState<{ key: string; rev: string; content: string } | undefined>(undefined);
+  const [written, setWritten] = useState<WrittenDraft | undefined>(undefined);
 
   const latest = useRef({ rev, content, dirty, key });
   latest.current = { rev, content, dirty, key };

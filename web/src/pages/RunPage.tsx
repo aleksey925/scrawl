@@ -9,7 +9,7 @@ import { goToLogin } from '../login';
 import { useConnection } from '../offline/connection';
 import { mountedSpace, writeRun } from '../offline/records';
 import { runBack } from '../paths';
-import { basenameOf } from '../shell/naming';
+import { basenameOf, parentOf } from '../shell/naming';
 import { needsNetworkTitle, ScreenMessage } from '../shell/NeedsNetwork';
 import { enterInTab, keepsApps, keptApp, openBlankTab, runFailedText } from '../shell/runInTab';
 import { useMe } from '../shell/useMe';
@@ -40,6 +40,13 @@ async function offlineState(path: string): Promise<RunState> {
     return { kind: 'offline', message: kept.message };
   }
   return { kind: 'frame', frame: { src: kept.url, app: kept.url, kept: true } };
+}
+
+const appIndex = 'index.html';
+
+function runName(path: string): string {
+  const folder = parentOf(path);
+  return basenameOf(path) === appIndex && folder !== '' ? basenameOf(folder) : basenameOf(path);
 }
 
 export function Component(): JSX.Element {
@@ -125,7 +132,7 @@ function RunScreen({ path, back }: { path: string; back: string }): JSX.Element 
     enterInTab(tab, path);
   };
 
-  const name = basenameOf(path);
+  const name = runName(path);
   const outsideAvailable = connection !== 'offline' || kept;
 
   return (

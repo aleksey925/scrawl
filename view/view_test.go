@@ -139,7 +139,7 @@ func TestMissingPage(t *testing.T) {
 	}, got)
 }
 
-func noItems(string) (int, error) { return 0, nil }
+func noItems(string) (store.DirCount, error) { return store.DirCount{}, nil }
 
 func TestNewDir(t *testing.T) {
 	tests := []struct {
@@ -176,13 +176,16 @@ func TestDirEntries(t *testing.T) {
 	mod := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
 	entries := []store.FileInfo{
 		{Name: "sub", Path: "docs/sub", IsDir: true, ModTime: mod},
+		{Name: "app", Path: "docs/app", IsDir: true, ModTime: mod},
 		{Name: "a.md", Path: "docs/a.md", Size: 3, ModTime: mod},
 		{Name: "b.png", Path: "docs/b.png", Size: 4, ModTime: mod},
 		{Name: "Index.md", Path: "docs/Index.md", Size: 5, ModTime: mod},
 	}
 
 	notes := func(fi store.FileInfo) bool { return strings.HasSuffix(fi.Name, ".md") }
-	count := func(dir string) (int, error) { return len(dir), nil }
+	count := func(dir string) (store.DirCount, error) {
+		return store.DirCount{Items: len(dir), AppIndex: dir == "docs/app"}, nil
+	}
 
 	// act
 	got := DirEntries(entries, count, notes)
@@ -190,6 +193,8 @@ func TestDirEntries(t *testing.T) {
 	// assert
 	assert.Equal(t, []DirEntry{
 		{Name: "sub", Path: "docs/sub", URL: "/doc/docs/sub/", IsDir: true, ModTime: mod, Items: len("docs/sub")},
+		{Name: "app", Path: "docs/app", URL: "/doc/docs/app/", IsDir: true, ModTime: mod, Items: len("docs/app"),
+			RunPath: "docs/app/" + store.AppIndex},
 		{Name: "a.md", Path: "docs/a.md", URL: "/doc/docs/a.md", Size: 3, ModTime: mod, EditURL: "/edit/docs/a.md"},
 		{Name: "b.png", Path: "docs/b.png", URL: "/doc/docs/b.png", Size: 4, ModTime: mod},
 		{Name: "Index.md", Path: "docs/Index.md", URL: "/doc/docs/Index.md", Size: 5, ModTime: mod, FolderPage: true,
@@ -200,7 +205,9 @@ func TestDirEntries(t *testing.T) {
 func TestDirEntriesOfAFolderThatCannotBeCounted(t *testing.T) {
 	// arrange
 	entries := []store.FileInfo{{Name: "gone", Path: "gone", IsDir: true}}
-	count := func(string) (int, error) { return 7, store.ErrNotFound }
+	count := func(string) (store.DirCount, error) {
+		return store.DirCount{Items: 7, AppIndex: true}, store.ErrNotFound
+	}
 
 	// act
 	got := DirEntries(entries, count, NotEditable)

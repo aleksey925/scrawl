@@ -76,6 +76,7 @@ export interface DirEntry {
   folder_page?: boolean;
   items?: number;
   edit_url?: string;
+  run_path?: string;
 }
 
 export interface DirListing {

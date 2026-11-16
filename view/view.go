@@ -68,6 +68,7 @@ type DirEntry struct {
 	FolderPage bool      `json:"folder_page,omitempty"`
 	Items      int       `json:"items,omitempty"`
 	EditURL    string    `json:"edit_url,omitempty"`
+	RunPath    string    `json:"run_path,omitempty"`
 }
 
 type File struct {
@@ -159,7 +160,7 @@ type Editable func(store.FileInfo) bool
 
 func NotEditable(store.FileInfo) bool { return false }
 
-type Count func(dir string) (int, error)
+type Count func(dir string) (store.DirCount, error)
 
 func DirEntries(entries []store.FileInfo, count Count, editable Editable) []DirEntry {
 	index := IndexOf(entries)
@@ -168,11 +169,15 @@ func DirEntries(entries []store.FileInfo, count Count, editable Editable) []DirE
 		target := ContentURL(ent.Path)
 		items := 0
 		edit := ""
+		run := ""
 		switch {
 		case ent.IsDir:
 			target = DirURL(ent.Path)
 			if n, err := count(ent.Path); err == nil {
-				items = n
+				items = n.Items
+				if n.AppIndex {
+					run = path.Join(ent.Path, store.AppIndex)
+				}
 			}
 		case editable(ent):
 			edit = EditURL(ent.Path)
@@ -187,6 +192,7 @@ func DirEntries(entries []store.FileInfo, count Count, editable Editable) []DirE
 			FolderPage: index != "" && ent.Path == index,
 			Items:      items,
 			EditURL:    edit,
+			RunPath:    run,
 		})
 	}
 	return res

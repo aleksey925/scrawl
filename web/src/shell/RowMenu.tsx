@@ -21,7 +21,7 @@ const buttonPlacement: MenuPlacement = { position: 'bottom-end' };
 const targetPlacement: MenuPlacement = { position: 'bottom-end', offset: 8 };
 
 export function RowMenu({
-  path, isDir, name, touch, inTree = false, editUrl, opened, onOpenedChange: setOpened, target, at,
+  path, isDir, name, touch, inTree = false, editUrl, runPath, opened, onOpenedChange: setOpened, target, at,
 }: RowMenuProps): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,11 +31,12 @@ export function RowMenu({
   useCloseOnScroll(opened, setOpened);
 
   const open = (): void => void navigate(isDir ? directoryUrl(path) : documentUrl(path));
-  const run = (): void => {
+  const runTarget = runPath ?? (!isDir && isHtmlApp(path) ? path : undefined);
+  const run = (target: string): void => {
     if (runInTab === undefined) {
-      void navigate(runUrl(path), { state: runState(location) });
+      void navigate(runUrl(target), { state: runState(location) });
     } else {
-      runInTab(path);
+      runInTab(target);
     }
   };
   const placement = at !== undefined ? pointerPlacement : target === undefined ? buttonPlacement : targetPlacement;
@@ -74,11 +75,11 @@ export function RowMenu({
         >
           Open
         </Menu.Item>
-        {!isDir && isHtmlApp(path) && (
+        {runTarget !== undefined && (
           <Menu.Item
             data-testid="tree-row-menu-run"
             leftSection={<IconPlay size={rowMenuIconSize} />}
-            onClick={run}
+            onClick={() => run(runTarget)}
           >
             Run
           </Menu.Item>

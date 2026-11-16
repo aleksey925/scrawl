@@ -178,6 +178,30 @@ test.describe('mobile', () => {
         await expect(page).toHaveURL(routes.dir('e2e-mobile/app'));
     });
 
+    test('a folder with an index.html has a Run button and a Run in its long press menu on an iPhone', async ({page, context}) => {
+        // arrange
+        writeFixture('e2e-mobile/runs/app/index.html', '<!doctype html><h1 id="title">Folder app</h1>\n');
+        writeFixture('e2e-mobile/runs/plain/note.md', '# Plain\n');
+        await page.goto(routes.dir('e2e-mobile/runs'));
+        const row = page.locator('[data-testid=dir-row][data-path="e2e-mobile/runs/app"]');
+
+        // act & assert
+        await expect(row.getByTestId('dir-row-run')).toHaveText('Run');
+        await expect(page.locator('[data-testid=dir-row][data-path="e2e-mobile/runs/plain"]').getByTestId('dir-row-run'))
+            .toHaveCount(0);
+        await shot(page, 'mobile-folder-run-button');
+        const [fromButton] = await Promise.all([context.waitForEvent('page'), row.getByTestId('dir-row-run').tap()]);
+        await expect(fromButton.locator('#title')).toHaveText('Folder app');
+        await fromButton.close();
+
+        const box = await row.boundingBox();
+        await longPress(page, box.x + 80, box.y + box.height / 2);
+        await openedMenu(page, 'tree-row-menu-dropdown');
+        const [fromMenu] = await Promise.all([context.waitForEvent('page'), page.getByTestId('tree-row-menu-run').tap()]);
+        await expect(fromMenu.locator('#title')).toHaveText('Folder app');
+        await expect(page).toHaveURL(routes.dir('e2e-mobile/runs'));
+    });
+
     test('Notes opens the root list, a folder opens its list, and the back link goes up', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));

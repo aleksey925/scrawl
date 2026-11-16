@@ -48,7 +48,15 @@ export function DirTable({ path, entries, drafting = false, onDraftSubmit, onDra
   const draftable = drafting && onDraftSubmit !== undefined && onDraftCancel !== undefined;
 
   const routed = (entry: DirEntry): boolean => filePages || entry.is_dir || isMarkdown(entry.path);
-  const runs = (entry: DirEntry): boolean => RunLink !== undefined && !entry.is_dir && isHtmlApp(entry.path);
+  const runPath = (entry: DirEntry): string | undefined => {
+    if (RunLink === undefined) {
+      return undefined;
+    }
+    if (entry.is_dir) {
+      return entry.run_path;
+    }
+    return isHtmlApp(entry.path) ? entry.path : undefined;
+  };
   const open = (entry: DirEntry): void => {
     if (routed(entry)) {
       void navigate(entry.url);
@@ -62,7 +70,7 @@ export function DirTable({ path, entries, drafting = false, onDraftSubmit, onDra
       key={entry.path}
       entry={entry}
       routed={routed(entry)}
-      runs={runs(entry)}
+      runPath={runPath(entry)}
       href={physicalUrl(entry.url)}
       menuOpen={menu.opened && menu.target?.path === entry.path}
       onOpen={() => open(entry)}
@@ -74,11 +82,11 @@ export function DirTable({ path, entries, drafting = false, onDraftSubmit, onDra
     return (
       <div data-testid="dir-table" data-variant="list" className={classes.list}>
         {folders.map((entry) => (
-          <PhoneRow key={entry.path} entry={entry} routed={routed(entry)} runs={runs(entry)} href={physicalUrl(entry.url)} />
+          <PhoneRow key={entry.path} entry={entry} routed={routed(entry)} runPath={runPath(entry)} href={physicalUrl(entry.url)} />
         ))}
         {draftable && <PhoneDraftRow onSubmit={onDraftSubmit} onCancel={onDraftCancel} />}
         {files.map((entry) => (
-          <PhoneRow key={entry.path} entry={entry} routed={routed(entry)} runs={runs(entry)} href={physicalUrl(entry.url)} />
+          <PhoneRow key={entry.path} entry={entry} routed={routed(entry)} runPath={runPath(entry)} href={physicalUrl(entry.url)} />
         ))}
       </div>
     );
@@ -149,6 +157,7 @@ export function DirTable({ path, entries, drafting = false, onDraftSubmit, onDra
           name={menu.target.name}
           touch={false}
           editUrl={menu.target.edit_url}
+          runPath={runPath(menu.target)}
           opened={menu.opened}
           onOpenedChange={menu.setOpened}
           at={menu.at}
@@ -165,14 +174,14 @@ function rowAttributes(entry: DirEntry): { 'data-testid': string; 'data-path': s
 interface TableRowProps {
   entry: DirEntry;
   routed: boolean;
-  runs: boolean;
+  runPath: string | undefined;
   href: string;
   menuOpen: boolean;
   onOpen: () => void;
   onMenu: ((event: MouseEvent) => void) | undefined;
 }
 
-function TableRow({ entry, routed, runs, href, menuOpen, onOpen, onMenu }: TableRowProps): JSX.Element {
+function TableRow({ entry, routed, runPath, href, menuOpen, onOpen, onMenu }: TableRowProps): JSX.Element {
   const renaming = useRenamingHere('list', entry.path);
   const cells = (
     <>
@@ -231,7 +240,7 @@ function TableRow({ entry, routed, runs, href, menuOpen, onOpen, onMenu }: Table
             </a>
           )}
           <RowTags entry={entry} />
-          {runs && <RunEntry path={entry.path} className={classes.run} />}
+          {runPath !== undefined && <RunEntry path={runPath} className={classes.run} />}
         </span>
       </td>
       {cells}
@@ -271,14 +280,14 @@ function onMenuButton(event: MouseEvent | PointerEvent): boolean {
 interface PhoneRowProps {
   entry: DirEntry;
   routed: boolean;
-  runs: boolean;
+  runPath: string | undefined;
   href: string;
 }
 
-function PhoneRow({ entry, routed, runs, href }: PhoneRowProps): JSX.Element {
+function PhoneRow({ entry, routed, runPath, href }: PhoneRowProps): JSX.Element {
   const renaming = useRenamingHere('list', entry.path);
   return renaming === undefined ? (
-    <PhoneLinkRow entry={entry} routed={routed} runs={runs} href={href} />
+    <PhoneLinkRow entry={entry} routed={routed} runPath={runPath} href={href} />
   ) : (
     <PhoneRenameRow entry={entry} session={renaming} />
   );
@@ -299,7 +308,7 @@ function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming
   );
 }
 
-function PhoneLinkRow({ entry, routed, runs, href }: PhoneRowProps): JSX.Element {
+function PhoneLinkRow({ entry, routed, runPath, href }: PhoneRowProps): JSX.Element {
   const body = (
     <>
       <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSize} className={classes.listIcon} />
@@ -326,6 +335,7 @@ function PhoneLinkRow({ entry, routed, runs, href }: PhoneRowProps): JSX.Element
         name={entry.name}
         touch
         editUrl={entry.edit_url}
+        runPath={runPath}
         opened={opened}
         onOpenedChange={setOpened}
         target={target}
@@ -367,7 +377,7 @@ function PhoneLinkRow({ entry, routed, runs, href }: PhoneRowProps): JSX.Element
             })}
       >
         {link}
-        {runs && <RunEntry path={entry.path} className={classes.listRun} />}
+        {runPath !== undefined && <RunEntry path={runPath} className={classes.listRun} />}
         {menu(menuOpened, setMenuOpened)}
       </div>
       {RowMenu !== undefined && lifted !== undefined && (

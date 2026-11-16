@@ -238,15 +238,22 @@ opens over them.
   it is a filled pill, `Run` in plain case, before the row's menu, its tap area
   the 44px of a tap. The menu of such a row has Run after Open. Both open the
   run screen. A site has neither, as it has no run screen.
+- A folder whose own files include one named exactly `index.html` has the same
+  Run in its row and Run after Open in its menu, on a desktop and a phone, and
+  they run that `index.html`. Its name still opens the folder, and the rest of
+  the menu acts on the folder. `index.htm`, another case, a folder or a symlink
+  with that name, and an `index.html` deeper down give no Run. The tree of the
+  sidebar has no Run on a folder.
 - Run opens the run screen, `/run/<path>`, outside the layout: no sidebar, no
   topbar, no tab bar and no banner, since the app wants the whole screen. One
   bar on top holds Back, the file name with an ellipsis, and Open in a new tab.
-  The frame fills the rest with no border. Back goes to the screen Run was
-  tapped on, the file's page or the folder's list, kept in the state of the run
-  screen's entry in the history; a run screen opened by its address goes back
-  to the file's page. Back never steps back in the history: the frame's own
-  pages go into the tab's history, and a step back could land on an earlier
-  page of the app.
+  The name of an `index.html` below the root is its folder's: `todo-app`, not
+  `index.html`, whether the file's Run or the folder's started it. The frame
+  fills the rest with no border. Back goes to the screen Run was tapped on, the
+  file's page or the folder's list, kept in the state of the run screen's entry
+  in the history; a run screen opened by its address goes back to the file's
+  page. Back never steps back in the history: the frame's own pages go into the
+  tab's history, and a step back could land on an earlier page of the app.
 - In Safari, on a Mac and on an iPhone, every Run opens the app as Open in a
   new tab does, and the screen Run was tapped on stays under it; in an app from
   the home screen the tab is a browser view over scrawl, whose close goes back.

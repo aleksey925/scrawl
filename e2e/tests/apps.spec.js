@@ -7,6 +7,8 @@ const ROOT = 'e2e-apps';
 const COUNTER = `${ROOT}/counter`;
 const COUNTER_FILE = `${COUNTER}/index.html`;
 const OTHER_FILE = `${ROOT}/other/index.html`;
+const PLAIN_FOLDER = `${ROOT}/plain`;
+const PLAIN_NOTE = `${PLAIN_FOLDER}/note.md`;
 const OWN_WORKER = `${ROOT}/own-worker`;
 const WAITING_WORKER = `${ROOT}/waiting-worker`;
 const APP_HOST = /^app-[a-z2-7]{12}\.(scrawl\.)?localhost$/;
@@ -201,7 +203,7 @@ test.describe('html apps', () => {
         await run(page, PLAIN, COUNTER_FILE, 'Counter');
         await expect(page).toHaveURL(PLAIN.run(COUNTER_FILE));
         await expect(page.getByTestId('run-bar')).toBeVisible();
-        await expect(page.getByTestId('run-name')).toHaveText('index.html');
+        await expect(page.getByTestId('run-name')).toHaveText(COUNTER.split('/').pop());
         const src = await page.getByTestId('run-frame').getAttribute('src');
         expect(new URL(src).hostname).toMatch(/^app-[a-z2-7]{12}\.localhost$/);
         const first = Number(await appFrame(page).locator('#count').textContent());
@@ -257,6 +259,44 @@ test.describe('html apps', () => {
         await expect(page.getByTestId('tree-row-menu-run')).toHaveCount(0);
     });
 
+    test('a folder with an index.html runs it from its Run button and its menu', async ({page}) => {
+        // arrange
+        writeFixture(PLAIN_NOTE, '# Plain\n', SHARED);
+        await signIn(page, {baseURL: PLAIN.base, from: SHARED.routes.dir(ROOT)});
+        const appRow = page.locator(`[data-testid=dir-row][data-path="${COUNTER}"]`);
+        const plainRow = page.locator(`[data-testid=dir-row][data-path="${PLAIN_FOLDER}"]`);
+        const list = `${PLAIN.prefix}/doc/${encodePath(ROOT)}/`;
+
+        // act & assert
+        await expect(appRow.getByTestId('dir-row-run')).toHaveText('Run');
+        await expect(plainRow).toBeVisible();
+        await expect(plainRow.getByTestId('dir-row-run')).toHaveCount(0);
+        await shot(page, 'apps-folder-run-button');
+        await appRow.getByTestId('dir-row-run').click();
+        await expect(page).toHaveURL(PLAIN.run(COUNTER_FILE));
+        await expect(appFrame(page).locator('#title')).toHaveText('Counter');
+        await expect(page.getByTestId('run-name')).toHaveText(COUNTER.split('/').pop());
+
+        await page.getByTestId('run-back').click();
+        await expect(page).toHaveURL(list);
+        await appRow.click({button: 'right'});
+        await expect(page.getByTestId('tree-row-menu-dropdown').getByRole('menuitem'))
+            .toHaveText(['Open', 'Run', 'Rename', 'Move to', 'Copy link', 'Delete']);
+        await page.getByTestId('tree-row-menu-run').click();
+        await expect(page).toHaveURL(PLAIN.run(COUNTER_FILE));
+        await expect(appFrame(page).locator('#title')).toHaveText('Counter');
+
+        await page.getByTestId('run-back').click();
+        await expect(page).toHaveURL(list);
+        await plainRow.click({button: 'right'});
+        await expect(page.getByTestId('tree-row-menu-open')).toBeVisible();
+        await expect(page.getByTestId('tree-row-menu-run')).toHaveCount(0);
+        await page.keyboard.press('Escape');
+
+        await appRow.getByTestId('dir-row-name').click();
+        await expect(page).toHaveURL(`${PLAIN.prefix}/doc/${encodePath(COUNTER)}/`);
+    });
+
     test.describe('in Safari', () => {
         test.use({userAgent: SAFARI});
 
@@ -284,6 +324,14 @@ test.describe('html apps', () => {
             await expect(fromMenu.locator('#count')).toHaveText(String(first + 2));
             await fromMenu.close();
             await expect(page.getByTestId('run-frame')).toHaveCount(0);
+
+            await page.goto(`${PLAIN.base}${SHARED.routes.dir(ROOT)}`);
+            await page.waitForLoadState('networkidle');
+            await page.locator(`[data-testid=dir-row][data-path="${COUNTER}"]`).click({button: 'right'});
+            const fromFolder = await runInTab(context, page.getByTestId('tree-row-menu-run'));
+            await expect(page).toHaveURL(`${PLAIN.prefix}/doc/${encodePath(ROOT)}/`);
+            await expect(fromFolder.locator('#count')).toHaveText(String(first + 3));
+            await fromFolder.close();
         });
 
         test('runs the kept app in a tab with no network', async ({page, context}) => {
@@ -405,6 +453,25 @@ test.describe('html apps', () => {
         const after = await run(page, SAME_SITE, COUNTER_FILE, 'Counter changed');
         await expect.poll(() => hasAppCache(after)).toBe(false);
         await expect.poll(() => rootWorker(after)).toBeNull();
+    });
+
+    test('a folder runs the app its file kept with no network', async ({page, context}) => {
+        // arrange
+        await copyOn(page, SAME_SITE);
+        await keptFolder(page, SAME_SITE);
+        const before = Number(await appFrame(page).locator('#count').textContent());
+        await page.goto(`${SAME_SITE.base}${SHARED.routes.dir(ROOT)}`);
+        await page.waitForLoadState('networkidle');
+
+        // act
+        await context.setOffline(true);
+        await page.reload();
+        await page.locator(`[data-testid=dir-row][data-path="${COUNTER}"]`).getByTestId('dir-row-run').click();
+
+        // assert
+        await expect(page).toHaveURL(SAME_SITE.run(COUNTER_FILE));
+        await expect(appFrame(page).locator('#count')).toHaveText(String(before + 1));
+        await context.setOffline(false);
     });
 
     test('keeps one copy of a file whatever its url', async ({page, context}) => {

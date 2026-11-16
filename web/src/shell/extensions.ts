@@ -13,6 +13,7 @@ export interface RowMenuProps {
   touch: boolean;
   inTree?: boolean;
   editUrl?: string;
+  runPath?: string;
   opened: boolean;
   onOpenedChange: (opened: boolean) => void;
   target?: ReactElement;

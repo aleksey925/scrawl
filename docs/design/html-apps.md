@@ -139,6 +139,12 @@ with `no-store`:
 - It writes nothing, so read-only does not refuse it. The run screen is reached
   from every `.html` and `.htm` file: `writeFile` sets `run_url` in every
   branch. Where Run cannot work, the run screen shows the 409.
+- A folder's entry in `/api/dir/` names its `index.html` in `run_path` when one
+  of its own children is a regular file with exactly that name, read from the
+  listing `Store.Count` already makes, and the Run of a folder is the Run of
+  that file. Any other name or case gives none: the apps host serves only
+  `index.html` for `/`. The tree's `NavNode` carries no such field, since it
+  would read every folder of the tree.
 
 ## The apps host
 

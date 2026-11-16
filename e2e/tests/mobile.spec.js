@@ -15,6 +15,7 @@ const MIN_TAP = 44;
 const BUTTON_HEIGHT = 40;
 const CHOICE_HEIGHT = 36;
 const ROW_HEIGHT = 48;
+const NO_LINE = 'rgba(0, 0, 0, 0)';
 const DOC = docs.doc.path;
 const SCRATCH = 'e2e-mobile/zametka.md';
 const EMPTY_FOLDER = 'e2e-mobile/pusto';
@@ -47,16 +48,8 @@ async function openedMenu(page, testId) {
         .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
 }
 
-const NO_LINE = 'rgba(0, 0, 0, 0)';
-
 async function namingBand(row) {
     return row.evaluate((el) => {
-        const probe = document.createElement('div');
-        probe.style.background = 'var(--scrawl-hover)';
-        probe.style.borderBottom = '1px solid var(--scrawl-border-light)';
-        document.body.append(probe);
-        const {backgroundColor: hover, borderBottomColor: line} = getComputedStyle(probe);
-        probe.remove();
         const rect = el.getBoundingClientRect();
         const below = el.nextElementSibling;
         const lineOf = (item) => getComputedStyle(item).borderBottomColor;
@@ -67,7 +60,7 @@ async function namingBand(row) {
                 height: rect.height,
                 lines: [lineOf(el.previousElementSibling), lineOf(el), lineOf(below)],
             },
-            reference: {hover, line, height: below.getBoundingClientRect().height},
+            rowHeight: below.getBoundingClientRect().height,
         };
     });
 }
@@ -1053,19 +1046,19 @@ test.describe('mobile', () => {
             // arrange
             const folder = `${FOLDER}/band`;
             const files = ['a-first', 'b-middle', 'c-last'].map((name) => `${folder}/${name}.md`);
-            files.forEach((file) => writeFixture(file, `# ${nameOf(file)}\n`));
+            files.forEach((path) => writeFixture(path, `# ${nameOf(path)}\n`));
             await page.goto(MAIN.url.dir(folder));
 
             // act
             await startRowRename(page, files[1]);
 
             // assert
-            const {band, reference} = await namingBand(rowOf(page, files[1]));
+            const {band, rowHeight} = await namingBand(rowOf(page, files[1]));
             expect(band).toEqual({
                 edges: [0, page.viewportSize().width],
-                background: reference.hover,
-                height: reference.height,
-                lines: [NO_LINE, NO_LINE, reference.line],
+                background: rgb(lightTheme.palette.hover),
+                height: rowHeight,
+                lines: [NO_LINE, NO_LINE, rgb(lightTheme.palette.borderLight)],
             });
         });
 
@@ -1437,12 +1430,12 @@ test.describe('mobile', () => {
         // assert
         const draft = page.getByTestId('dir-draft');
         await expect(draft).toBeVisible();
-        const {band, reference} = await namingBand(draft);
+        const {band, rowHeight} = await namingBand(draft);
         expect(band).toEqual({
             edges: [0, page.viewportSize().width],
-            background: reference.hover,
-            height: reference.height,
-            lines: [NO_LINE, NO_LINE, reference.line],
+            background: rgb(lightTheme.palette.hover),
+            height: rowHeight,
+            lines: [NO_LINE, NO_LINE, rgb(lightTheme.palette.borderLight)],
         });
     });
 

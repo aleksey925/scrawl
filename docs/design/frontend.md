@@ -103,6 +103,10 @@ How the react app in `web/` is built, shipped and wired.
   stylesheet answered at 767/899/999/1199 while the javascript answered at
   900/1000, and the drawer closed at a different width than the one that hid
   the sidebar.
+- On a phone the page's gutter is `--mantine-spacing-lg`, set in
+  `web/src/components/Page.module.css`. A band that runs from edge to edge of
+  the screen pulls out past the gutter by the same value, so a new gutter has
+  to change it too.
 - A screen keeps the answer it has while it fetches the next one, and answers
   are remembered across a route swap (`useApi`, cleared whole by any mutation).
   Clearing the data before the request blanked the tree, the note and every
@@ -134,10 +138,6 @@ How the react app in `web/` is built, shipped and wired.
   ([offline copy](offline.md#offline-in-the-app)). `mountBase()` takes the
   space from the address when the shell's `data-base` is empty, which is the
   offline shell; a page with no `data-base` at all, a site, has no base.
-- On a phone the page's gutter is `--mantine-spacing-lg`, set in
-  `web/src/components/Page.module.css`. The pressed band of a row in a folder's
-  list and the row a name is typed into reach past the gutter by the same value
-  to run from edge to edge, so a new gutter has to change them too.
 - A global shortcut gives way to an editor. It does nothing when the event was
   already handled or was pressed inside an element that owns the app's
   shortcuts (`data-owns-shortcuts`), because a keymap may leave a key

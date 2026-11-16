@@ -35,10 +35,10 @@ Colors, controls and type: how a note and the chrome are drawn.
   drew as a lighter line, one state drawn two ways. A row a name is typed into
   lifts the same way in the tree, over the sidebar's gray. In a folder's table
   and in a phone's list it does not: the field is plain text and the whole row
-  takes the hover tint, on a phone from edge to edge with no line above or
-  below it, as a lifted field with its shadow stuck out of the row and broke
-  the rhythm of the lines, and a ring glared across the page. The tint is the
-  hover's and not the picked row's gray, which read as a picked row. The
+  takes the hover tint, as a lifted field with its shadow stuck out of the row
+  and broke the rhythm of the lines, and a ring glared across the page. The
+  tint is the hover's and not the picked row's gray, which read as a picked
+  row. A phone draws that row from edge to edge ([phone](phone.md)). The
   keyboard's focus on a grid of the editor lifts the same way too. The accent
   is spent the way Notion spends it, read off its own pages: the one main
   button and a toggle that is on; the search field has no ring, the back link

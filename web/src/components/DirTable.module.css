@@ -218,7 +218,7 @@
 }
 
 .naming > .listLink {
-  padding-block: 4px;
+  padding-block: calc((52px - var(--scrawl-tap-target)) / 2);
 }
 
 .listRow:has(+ .naming) {

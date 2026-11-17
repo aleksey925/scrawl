@@ -2060,6 +2060,8 @@ test.describe('mobile', () => {
                     bottom: Math.round(strip.bottom),
                     height: Math.round(strip.height),
                     keyboard: document.querySelector('[data-testid=editor]').dataset.keyboard,
+                    moved: document.querySelector('.mantine-AppShell-main').style.translate !== ''
+                        || getComputedStyle(document.querySelector('.mantine-AppShell-main')).translate !== 'none',
                 };
             });
         };
@@ -2072,8 +2074,8 @@ test.describe('mobile', () => {
 
         // assert
         expect({raised, lowered}).toEqual({
-            raised: {top: raisedTop, sourceOverStrip: true, bottom: raisedTop + raisedVisible, height: 50, keyboard: 'true'},
-            lowered: {top: 0, sourceOverStrip: true, bottom: height, height: 50, keyboard: 'false'},
+            raised: {top: raisedTop, sourceOverStrip: true, bottom: raisedTop + raisedVisible, height: 50, keyboard: 'true', moved: true},
+            lowered: {top: 0, sourceOverStrip: true, bottom: height, height: 50, keyboard: 'false', moved: false},
         });
     });
 

@@ -55,10 +55,19 @@ export function useVisibleScreen(screen: RefObject<HTMLElement | null>, active: 
       return undefined;
     }
     const root = document.documentElement.style;
+    const release = (): void => {
+      root.removeProperty('--scrawl-visible-height');
+      root.removeProperty('--scrawl-visible-top');
+    };
     const follow = (): void => {
+      const keyboard = window.innerHeight - view.offsetTop - view.height > 1;
+      element.dataset.keyboard = keyboard ? 'true' : 'false';
+      if (!keyboard) {
+        release();
+        return;
+      }
       root.setProperty('--scrawl-visible-height', `${view.height}px`);
       root.setProperty('--scrawl-visible-top', `${view.offsetTop}px`);
-      element.dataset.keyboard = window.innerHeight - view.offsetTop - view.height > 1 ? 'true' : 'false';
     };
     follow();
     view.addEventListener('resize', follow);
@@ -66,8 +75,7 @@ export function useVisibleScreen(screen: RefObject<HTMLElement | null>, active: 
     return () => {
       view.removeEventListener('resize', follow);
       view.removeEventListener('scroll', follow);
-      root.removeProperty('--scrawl-visible-height');
-      root.removeProperty('--scrawl-visible-top');
+      release();
       delete element.dataset.keyboard;
     };
   }, [screen, active]);

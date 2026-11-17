@@ -54,16 +54,20 @@ The editor screen.
   is seen, over the keyboard ([phone](phone.md)). An editor as tall as the page
   ran under the keyboard: its last lines could not be reached, and a drag moved
   either the text or the whole page, which then stuck with the start of the
-  note above the screen. The toolbar keeps the home indicator's room under it
-  while no keyboard is up, as with a hardware keyboard. The text scrolls the
-  cursor into sight when the keyboard opens and when the visible area gets
-  shorter, and not when it gets taller, so a scroll away from the cursor stays.
-  The line count and the head of the source are not on a phone; an upload in
-  progress shows in the state of the save. In a read-only space the head of the
-  source stays, with the wrap button, as the toolbar that carries it on a phone
-  is never shown there. A text file keeps the head with its language and the
-  wrap button, and its line count at the bottom, as it has no layouts or
-  toolbar.
+  note above the screen. It does so only while the keyboard is up: with no
+  keyboard the visible area is the page, and the bar and the page are not moved
+  at all. Moved with a shift of zero, they were taken out of their place in the
+  page's layers, and leaving the editor gave them back in the same frame the
+  note slid in, which shook the slide on an iPhone. The toolbar keeps the home
+  indicator's room under it while no keyboard is up, as with a hardware
+  keyboard. The text scrolls the cursor into sight when the keyboard opens and
+  when the visible area gets shorter, and not when it gets taller, so a scroll
+  away from the cursor stays. The line count and the head of the source are not
+  on a phone; an upload in progress shows in the state of the save. In a
+  read-only space the head of the source stays, with the wrap button, as the
+  toolbar that carries it on a phone is never shown there. A text file keeps
+  the head with its language and the wrap button, and its line count at the
+  bottom, as it has no layouts or toolbar.
 - Save saves and opens the reader, as an edit is a trip from the page and back.
   The editor leaves no entry in the history: opened from the note's page, Save
   and Cancel go back to it, and opened from elsewhere the reader takes the

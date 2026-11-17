@@ -2447,6 +2447,21 @@ test.describe('mobile', () => {
         }
     });
 
+    test('the back arrow with unsaved changes asks nothing and says the draft is kept', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n');
+        await page.goto(routes.edit(SCRATCH));
+        await setSource(page, '# Заметка\n\nправка\n');
+
+        // act
+        await page.getByTestId('editor-cancel').tap();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(SCRATCH));
+        await expect(page.getByTestId('modal')).toHaveCount(0);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toHaveText(text.toast.draftKept);
+    });
+
     test('the discard dialog shares its row between its two buttons in equal parts', async ({page}) => {
         // arrange
         writeFixture(SCRATCH, '# Заметка\n');

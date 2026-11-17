@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { usePlatform } from '../platform';
 import { keysWithPrefix, localStore, readJson, removeKey, writeJson } from '../storage';
 
 import { draftDelayMs, draftMaxAgeMs, draftPrefix } from './constants';
@@ -54,7 +55,8 @@ export interface UseDraftOptions {
 
 export function useDraft(options: UseDraftOptions): DraftControl {
   const { path, rev, content, dirty, savedContent } = options;
-  const key = `${draftPrefix}${path}`;
+  const { storageScope } = usePlatform();
+  const key = `${draftPrefix}${storageScope}:${path}`;
 
   const [offered, setOffered] = useState<Draft | undefined>(undefined);
   const [stale, setStale] = useState(false);
@@ -101,11 +103,7 @@ export function useDraft(options: UseDraftOptions): DraftControl {
 
   useEffect(() => {
     window.addEventListener('pagehide', flush);
-    window.addEventListener('beforeunload', flush);
-    return () => {
-      window.removeEventListener('pagehide', flush);
-      window.removeEventListener('beforeunload', flush);
-    };
+    return () => window.removeEventListener('pagehide', flush);
   }, [flush]);
 
   const dismiss = useCallback((): void => setOffered(undefined), []);

@@ -223,16 +223,17 @@ function recordMoves(page) {
     return sent;
 }
 
-function refuseDrafts(page) {
-    return page.addInitScript(() => {
+function refuseDrafts(page, refusing = true) {
+    return page.addInitScript((initial) => {
+        window.refuseDrafts = initial;
         const setItem = Storage.prototype.setItem;
         Storage.prototype.setItem = function (key, value) {
-            if (key.startsWith('scrawl.draft.')) {
+            if (window.refuseDrafts && key.startsWith('scrawl.draft.')) {
                 throw new DOMException('full', 'QuotaExceededError');
             }
             return setItem.call(this, key, value);
         };
-    });
+    }, refusing);
 }
 
 async function holdRoute(page, url, matches = () => true) {
@@ -364,7 +365,6 @@ module.exports = {
     fixtureFile,
     headingAnchorGeometry,
     holdRoute,
-    refuseDrafts,
     inStep,
     jsonRequest,
     mockMe,
@@ -374,6 +374,7 @@ module.exports = {
     pressShortcut,
     readFixture,
     recordMoves,
+    refuseDrafts,
     removeFixture,
     mediumShadow,
     rgb,

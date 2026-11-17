@@ -118,12 +118,14 @@ export function useEditSession({
 
   useEffect(() => installUnauthorizedHandler('screen', () => draftRef.current.flush()), [draftRef]);
 
+  const uploading = uploads.pending > 0;
+
   useEffect(() => {
     if (!dirty) {
       return;
     }
     const warn = (event: BeforeUnloadEvent): void => {
-      if (event.isTrusted && draftRef.current.flush()) {
+      if (leavingRef.current || (event.isTrusted && !uploading && draftRef.current.flush())) {
         return;
       }
       event.preventDefault();
@@ -131,7 +133,7 @@ export function useEditSession({
     };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty, draftRef]);
+  }, [dirty, draftRef, uploading]);
 
   const blocker = useBlocker(
     useCallback(
@@ -145,23 +147,28 @@ export function useEditSession({
     if (blocker.state !== 'blocked' || promptedRef.current) {
       return;
     }
-    if (draftRef.current.flush()) {
+    const leave = (): void => {
+      leavingRef.current = true;
       blocker.proceed();
+    };
+    if (!uploading && draftRef.current.flush()) {
+      leave();
       if (!savingRef.current) {
         showToast('ok', { message: 'Changes kept as a draft on this device' });
       }
       return;
     }
     promptedRef.current = true;
-    void confirmDiscard().then((discard) => {
+    void confirmDiscard(uploading).then((discard) => {
       promptedRef.current = false;
       if (discard) {
-        blocker.proceed();
+        draftRef.current.discard();
+        leave();
       } else {
         blocker.reset();
       }
     });
-  }, [blocker, draftRef]);
+  }, [blocker, draftRef, uploading]);
 
   const markSaved = useCallback((stored: string, nextRev: string, shown: boolean): void => {
     setSaved(stored);

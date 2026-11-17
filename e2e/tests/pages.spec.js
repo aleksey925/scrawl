@@ -179,11 +179,24 @@ test.describe('pages', () => {
         await stays(() => loads, 1, 500);
     });
 
-    test('a chunk that is gone under unsaved changes shows its error and brings up no leave prompt', async ({page}) => {
+    test('a chunk that is gone as the editor is left with a kept draft reloads into the reader and brings up no prompt', async ({page}) => {
         // arrange
         writeFixture(GUARDED, 'kept\n');
         try {
-            await page.route('**/assets/DocumentPage.js', (route) => route.fulfill({status: 404, body: 'gone'}));
+            let asked = 0;
+            let click = () => {};
+            const clicked = new Promise((resolve) => {
+                click = resolve;
+            });
+            await page.route('**/assets/DocumentPage.js', async (route) => {
+                asked += 1;
+                if (asked === 1) {
+                    await clicked;
+                    await route.fulfill({status: 404, body: 'gone'});
+                    return;
+                }
+                await route.continue();
+            });
             await page.goto(routes.edit(GUARDED));
             await expect(page.getByTestId('editor-source')).toBeVisible();
             await setSource(page, 'typed but not saved\n');
@@ -193,12 +206,16 @@ test.describe('pages', () => {
                 prompts.push(dialog.type());
                 void dialog.dismiss();
             });
+            const reloaded = page.waitForEvent('load');
 
             // act
             await page.getByTestId('editor-cancel').click();
+            click();
 
             // assert
-            await expect(page.getByTestId('app-error-message')).toBeVisible();
+            await reloaded;
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await expect(page).toHaveURL(MAIN.url.doc(GUARDED));
             expect(prompts).toEqual([]);
         } finally {
             removeFixture(GUARDED);

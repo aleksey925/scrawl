@@ -17,13 +17,16 @@ apps that keep a draft, Notes and Mail's draft among them, leave at once.
 
 - A way out of the editor with unsaved changes writes the draft and leaves with
   no question. A toast says "Changes kept as a draft on this device", with no
-  button: the person knows the way back, and the editor offers the draft there.
+  button: the way back is the note, or for a note not created yet the next New
+  note in its folder, and the editor offers the draft there.
 - When the browser refuses the draft, as a private window or a full storage
-  does, the text would be lost, and only then a dialog asks "Discard changes?"
-  with Discard in red and Keep editing, as Calendar asks.
-- Closing the tab asks the browser's question in that case alone. The app's own
-  check before a reload for a new release still counts any unsaved text as a
-  reason to wait, as the reload would lose the place and the undo.
+  does, or a picture is still uploading, the text would be lost, and only then
+  a dialog asks "Discard changes?" with Discard in red and Keep editing, as
+  Calendar asks.
+- Closing the tab asks the browser's question in those cases alone. The app's
+  own check before a reload for a new release still counts any unsaved text as
+  a reason to wait, as the reload would lose the place and the undo, until the
+  person has left the editor.
 - Leaving does not save. A save writes the file, commits and pushes, and stays
   the person's own step.
 

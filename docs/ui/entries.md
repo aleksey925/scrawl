@@ -6,9 +6,10 @@ Creating, naming, moving and deleting files and folders.
   ([ADR 26](../adr/0026-a-new-note-is-a-draft-named-by-its-heading.md)). The
   editor opens at once at `/edit/<folder>/untitled.md?draft`, with `# ` and the
   cursor after it, and nothing is on disk until the first Save. A draft left
-  with nothing typed leaves nothing and asks nothing; one with text asks, as
-  any editor with unsaved text does. Its name follows the first line that is
-  not empty, without its `#`, as a lowercase slug: `Weekly plan` is
+  with nothing typed leaves nothing and asks nothing; one with text leaves as
+  any editor with unsaved text does, keeping a draft that the next New note in
+  the folder offers ([editor](editor.md)). Its name follows the first line that
+  is not empty, without its `#`, as a lowercase slug: `Weekly plan` is
   `weekly-plan.md`, `План на неделю` is `plan-na-nedelyu.md`, and no text is
   `untitled.md`. The name shows faint in the last crumb, and in the tree as a
   faint row in its folder, since the draft is the page on screen. Save looks at

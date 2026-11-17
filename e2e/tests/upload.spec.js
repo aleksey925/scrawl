@@ -3,7 +3,7 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    SHARED, fixtureFile, routes, save, shot, signIn, sourceText, writeFixture,
+    MAIN, SHARED, fixtureFile, holdRoute, routes, save, shot, signIn, sourceText, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -101,5 +101,26 @@ test.describe.serial('upload', () => {
         expect(fs.existsSync(fixtureFile('attachments/e2e-shared.png', SHARED))).toBe(true);
         expect(fs.existsSync(fixtureFile(`${FOLDER}/shared`, SHARED))).toBe(false);
         await shot(page, 'upload-shared-dir');
+    });
+
+    test('leaving while a picture uploads asks Discard changes, and Keep editing lets the link land', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/leave-uploading.md`;
+        writeFixture(docPath, '# Загрузка\n\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toContain('Загрузка');
+        const {release, reached} = await holdRoute(page, '**/api/upload/**');
+        await page.locator('[data-testid=editor-source] .cm-content').click();
+        await sendFile(page, 'paste', 'e2e-leave-uploading.png');
+        await reached;
+
+        // act & assert
+        await page.getByTestId('editor-cancel').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
+        await expect(page.getByTestId('modal')).toHaveText(text.modal.discardUploading);
+        await page.getByTestId('modal-cancel').click();
+        await expect(page).toHaveURL(MAIN.url.edit(docPath));
+        release();
+        await expect.poll(() => sourceText(page)).toContain('![](leave-uploading/e2e-leave-uploading.png)');
     });
 });

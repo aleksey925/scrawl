@@ -33,6 +33,24 @@ async function editFromReader(page, docPath, body) {
     await expect.poll(() => sourceText(page)).toBe(body);
 }
 
+function okToast(page) {
+    return page.locator('[data-testid=toast][data-kind="ok"]');
+}
+
+function recordPrompts(page) {
+    const prompts = [];
+    page.on('dialog', (dialog) => {
+        prompts.push(dialog.type());
+        void dialog.dismiss();
+    });
+    return prompts;
+}
+
+async function typeInSource(page, typed) {
+    await page.locator('[data-testid=editor-source] .cm-content').click();
+    await page.keyboard.type(typed);
+}
+
 function holdSave(page) {
     return holdRoute(page, '**/api/file/**', (req) => req.method() === 'PUT');
 }
@@ -119,16 +137,7 @@ test.describe('editing', () => {
         // arrange
         const docPath = scratch('draft-state');
         writeFixture(docPath, '# Заголовок\n');
-        await page.addInitScript(() => {
-            window.refuseDrafts = false;
-            const setItem = Storage.prototype.setItem;
-            Storage.prototype.setItem = function (key, value) {
-                if (window.refuseDrafts && key.startsWith('scrawl.draft.')) {
-                    throw new DOMException('full', 'QuotaExceededError');
-                }
-                return setItem.call(this, key, value);
-            };
-        });
+        await refuseDrafts(page, false);
         await page.goto(routes.edit(docPath));
         await expect.poll(() => sourceText(page)).toBe('# Заголовок\n');
 
@@ -211,13 +220,11 @@ test.describe('editing', () => {
         await setSource(page, 'typed but not saved\n');
         await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'true');
 
-        // act
+        // act & assert
         await page.getByTestId('editor-cancel').click();
-
-        // assert
         await expect(page).toHaveURL(MAIN.url.doc(docPath));
         await expect(page.getByTestId('modal')).toHaveCount(0);
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toHaveText(text.toast.draftKept);
+        await expect(okToast(page)).toHaveText(text.toast.draftKept);
         await shot(page, 'editing-draft-kept');
         await page.goto(routes.edit(docPath));
         await expect(page.getByTestId('editor-draft')).toContainText(text.editor.draft);
@@ -229,7 +236,59 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    test('leaving changes the browser could not keep asks first, and Keep editing stays', async ({page}) => {
+    test('a back of the browser with unsaved changes asks nothing and says the draft is kept', async ({page}) => {
+        // arrange
+        const docPath = scratch('dirty-back');
+        await editFromReader(page, docPath, 'kept\n');
+        await setSource(page, 'typed but not saved\n');
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await expect(page.getByTestId('modal')).toHaveCount(0);
+        await expect(okToast(page)).toHaveText(text.toast.draftKept);
+        removeFixture(docPath);
+    });
+
+    test('leaving with nothing changed shows no draft toast', async ({page}) => {
+        // arrange
+        const docPath = scratch('clean-leave');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+
+        // act
+        await page.getByTestId('editor-cancel').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await stays(() => page.getByTestId('toast').count(), 0, 500);
+        removeFixture(docPath);
+    });
+
+    test('a new note left with text keeps its draft for the next New note in its folder', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-left';
+        const created = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.draft(created));
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
+        await setSource(page, '# Черновик\n');
+
+        // act & assert
+        await page.getByTestId('editor-cancel').click();
+        await expect(page).toHaveURL(MAIN.url.dir(folder));
+        await expect(okToast(page)).toHaveText(text.toast.draftKept);
+        await page.goto(routes.draft(created));
+        await page.getByTestId('editor-draft-restore').click();
+        await expect.poll(() => sourceText(page)).toBe('# Черновик\n');
+        expect(fs.existsSync(fixtureFile(created))).toBe(false);
+        removeFixture(folder);
+    });
+
+    test('leaving changes the browser could not keep asks Discard changes, and Keep editing stays', async ({page}) => {
         // arrange
         const docPath = scratch('dirty-unkept');
         writeFixture(docPath, 'kept\n');
@@ -238,19 +297,82 @@ test.describe('editing', () => {
         await expect.poll(() => sourceText(page)).toBe('kept\n');
         await setSource(page, 'typed but not saved\n');
 
-        // act
+        // act & assert
         await page.getByTestId('editor-cancel').click();
-
-        // assert
         await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
         await shot(page, 'editing-discard-guard');
         await page.getByTestId('modal-cancel').click();
         await expect(page).toHaveURL(MAIN.url.edit(docPath));
         expect(await sourceText(page)).toBe('typed but not saved\n');
+        removeFixture(docPath);
+    });
+
+    test('Discard leaves without saving, drops the draft kept before, and shows no draft toast', async ({page}) => {
+        // arrange
+        const docPath = scratch('dirty-discard');
+        writeFixture(docPath, 'kept\n');
+        await refuseDrafts(page, false);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'kept as a draft\n');
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        await page.evaluate(() => {
+            window.refuseDrafts = true;
+        });
+        await setSource(page, 'not kept\n');
         await page.getByTestId('editor-cancel').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
+
+        // act
         await page.getByTestId('modal-confirm').click();
+
+        // assert
         await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await stays(() => page.getByTestId('toast').count(), 0, 500);
         expect(readFixture(docPath)).toBe('kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        removeFixture(docPath);
+    });
+
+    test('closing the tab with unsaved changes asks nothing and keeps the draft', async ({page}) => {
+        // arrange
+        const docPath = scratch('close-kept');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await typeInSource(page, 'x');
+        const prompts = recordPrompts(page);
+
+        // act
+        await page.close({runBeforeUnload: true});
+
+        // assert
+        await expect.poll(() => page.isClosed()).toBe(true);
+        expect(prompts).toEqual([]);
+        const next = await page.context().newPage();
+        await next.goto(routes.edit(docPath));
+        await expect(next.getByTestId('editor-draft')).toContainText(text.editor.draft);
+        removeFixture(docPath);
+    });
+
+    test('closing the tab with changes the browser could not keep brings up the browser prompt', async ({page}) => {
+        // arrange
+        const docPath = scratch('close-unkept');
+        writeFixture(docPath, 'kept\n');
+        await refuseDrafts(page);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await typeInSource(page, 'x');
+        const prompts = recordPrompts(page);
+
+        // act
+        await page.close({runBeforeUnload: true});
+
+        // assert
+        await expect.poll(() => prompts).toEqual(['beforeunload']);
+        expect(page.isClosed()).toBe(false);
         removeFixture(docPath);
     });
 
@@ -437,6 +559,7 @@ test.describe('editing', () => {
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.saved);
+        await expect(page.getByTestId('toast').filter({hasText: text.toast.draftKept})).toHaveCount(0);
         await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
         expect(readFixture(docPath)).toBe('written\n');
         removeFixture(docPath);

@@ -254,6 +254,9 @@ lines are wrapped so that `git diff` and your git host show changes cleanly.
   editor reads "Draft on device" once the browser has kept the text, and
   "Unsaved changes" before that or when the browser cannot keep it, as in a
   private window.
+- **When you leave the editor** without saving, the text stays as a draft and a
+  toast says so. scrawl asks first only when the browser cannot keep the draft,
+  as in a private window or with full storage.
 - **When you save**, the note is written to a temporary file and renamed into
   place, so a crash never leaves half a note behind.
 - **If the note changed on disk** since you opened it, the save is refused and

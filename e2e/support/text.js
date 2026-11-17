@@ -10,6 +10,7 @@ module.exports = {
 
     modal: {
         discard: 'Discard changes?',
+        discardUploading: 'A picture is still uploading, so the changes are lost if you leave.',
         conflict: 'This file changed on disk',
         restore: 'Restore this version?',
         restoreConflict: 'This page changed while the history was open',

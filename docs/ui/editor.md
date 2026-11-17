@@ -81,13 +81,17 @@ The editor screen.
   the device as the editor goes, a toast says "Changes kept as a draft on this
   device", and the editor offers the draft back the next time
   ([ADR 32](../adr/0032-leaving-keeps-the-draft.md)). The toast has no button:
-  the person knows the way back to the note. A leave while a save is on its way
-  shows no such toast, as the save's own follows. Only when the browser refuses
-  the draft, as a private window or a full storage does, would the text be
-  lost, and then a dialog asks "Discard changes?" with Discard in red and Keep
-  editing. Closing the tab asks the browser's own question in that case alone.
-  A phone has no shortcut, so a save there always leaves; the local draft keeps
-  the text between saves.
+  the way back is the note itself, and for a note not created yet the next New
+  note in its folder, which opens at the same address and offers the draft;
+  text typed there instead of Restore replaces it. A draft belongs to its space
+  and path. A leave while a save is on its way shows no such toast, as the
+  save's own follows. Only when the browser refuses the draft, as a private
+  window or a full storage does, or while a picture is still uploading, whose
+  link would never land, would the text be lost, and then a dialog asks
+  "Discard changes?" with Discard in red and Keep editing. Discard drops any
+  draft kept before. Closing the tab asks the browser's own question in those
+  cases alone. A phone has no shortcut, so a save there always leaves; the
+  local draft keeps the text between saves.
 - The state of the save is Saved, Saving, Waiting for the upload, New note or
   New file, and for unsaved changes Draft on device once the text is copied to
   the browser's storage, which happens 800ms after the last change. Before

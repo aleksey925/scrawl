@@ -25,13 +25,17 @@ How the react app in `web/` is built, shipped and wired.
   answers that digest only, and lets a browser keep the files a year. A page
   left open across an upgrade finds its next chunk, or the find's worker, gone
   and loads again, at the address it was going to or else at its own, unless
-  leaving would ask about unsaved changes, which the editor answers yes to
-  whenever its text is unsaved, kept as a draft or not, as a reload in the
-  middle of typing loses the place and the undo: a reload that prompt refused
-  left every chunk waiting for a page that never came. A chunk made of a
-  package's index is named after the package: rolldown names it after the file,
-  and the index of every codemirror language came out as `dist`, `dist2` and on
-  in the order met, so one language more renamed the rest.
+  the editor holds unsaved text: a reload that the browser's prompt refused
+  left every chunk waiting for a page that never came. The check is a
+  `beforeunload` event the app sends itself, which the editor tells from the
+  browser's own by `isTrusted`. The editor cancels the app's event whenever its
+  text is unsaved, kept as a draft or not, as a reload in the middle of typing
+  loses the place and the undo, and stops once the person has left the editor.
+  It cancels the browser's only when the draft could not be kept or a picture
+  is still uploading. A chunk made of a package's index is named after the
+  package: rolldown names it after the file, and the index of every codemirror
+  language came out as `dist`, `dist2` and on in the order met, so one language
+  more renamed the rest.
 - A release embeds the bundle, the pages' assets, the formatter and the
   server's PlantUML engine gzip-compressed, under the `gzassets` build tag:
   `make build`, the image and goreleaser run `go run ./gzassets/pack` first,
@@ -72,11 +76,11 @@ How the react app in `web/` is built, shipped and wired.
   window, from the page's load until the browser is idle and the chunks have
   come, is short and is left open: holding the keys and the tap would take a
   second field drawn in the main bundle. A chunk that does not load, on idle or
-  as the dialog opens, loads the page again as a stale chunk does, when leaving
-  may. When it may not, a dialog that was opening closes with a toast that asks
-  to load the page again: Chromium keeps a failed import of a module for the
-  life of the page ([quirks](../quirks.md#browsers)), so asking again would
-  fail the same way.
+  as the dialog opens, loads the page again as a stale chunk does, when the
+  editor holds no unsaved text. When it does, a dialog that was opening closes
+  with a toast that asks to load the page again: Chromium keeps a failed import
+  of a module for the life of the page ([quirks](../quirks.md#browsers)), so
+  asking again would fail the same way.
 - Mantine's styles come in one file per component, listed in
   `web/src/mantine.css`, which the app and a site import, in the order of
   mantine's own `styles.css`. The full file was 277 KB, most of it for

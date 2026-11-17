@@ -9,16 +9,16 @@ import classes from './Editor.module.css';
 const conflictId = 'editor-conflict';
 const sessionId = 'editor-session';
 
-export function confirmLeave(): Promise<boolean> {
+export function confirmDiscard(): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     modals.openConfirmModal({
-      title: 'Leave without saving?',
+      title: 'Discard changes?',
       children: (
         <Text data-testid="modal" data-variant="confirm" size="sm">
-          Your changes are kept as a local draft, but they are not written to disk.
+          This browser could not keep a draft, so the changes are lost if you leave.
         </Text>
       ),
-      labels: { confirm: 'Leave', cancel: 'Stay' },
+      labels: { confirm: 'Discard', cancel: 'Keep editing' },
       confirmProps: { color: 'red', 'data-testid': 'modal-confirm' },
       cancelProps: { 'data-testid': 'modal-cancel' },
       groupProps: dialogActionsProps,

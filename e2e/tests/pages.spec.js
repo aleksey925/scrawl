@@ -196,7 +196,6 @@ test.describe('pages', () => {
 
             // act
             await page.getByTestId('editor-cancel').click();
-            await page.getByTestId('modal-confirm').click();
 
             // assert
             await expect(page.getByTestId('app-error-message')).toBeVisible();

@@ -3,7 +3,7 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    MAIN, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, readFixture, removeFixture, routes, save,
+    MAIN, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, readFixture, refuseDrafts, removeFixture, routes, save,
     setSource, shot, signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -202,30 +202,55 @@ test.describe('editing', () => {
         removeFixture(docPath, SHARED);
     });
 
-    test('leaving with unsaved changes asks first and keeps a draft', async ({page}) => {
+    test('leaving with unsaved changes asks nothing, says the draft is kept, and the editor offers it back', async ({page}) => {
+        // arrange
         const docPath = scratch('dirty-guard');
         writeFixture(docPath, 'kept\n');
         await page.goto(routes.edit(docPath));
         await expect.poll(() => sourceText(page)).toBe('kept\n');
-
         await setSource(page, 'typed but not saved\n');
         await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'true');
+
+        // act
         await page.getByTestId('editor-cancel').click();
 
-        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.leave);
-        await shot(page, 'editing-leave-guard');
-        await page.getByTestId('modal-cancel').click();
-        await expect(page).toHaveURL(MAIN.url.edit(docPath));
-
-        await page.waitForTimeout(1000);
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await expect(page.getByTestId('modal')).toHaveCount(0);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toHaveText(text.toast.draftKept);
+        await shot(page, 'editing-draft-kept');
         await page.goto(routes.edit(docPath));
         await expect(page.getByTestId('editor-draft')).toContainText(text.editor.draft);
         await shot(page, 'editing-draft-bar');
-
         await page.getByTestId('editor-draft-restore').click();
         await expect.poll(() => sourceText(page)).toBe('typed but not saved\n');
         await expect(page.getByTestId('editor-draft')).toHaveCount(0);
         expect(readFixture(docPath), 'nothing is written to disk without a save').toBe('kept\n');
+        removeFixture(docPath);
+    });
+
+    test('leaving changes the browser could not keep asks first, and Keep editing stays', async ({page}) => {
+        // arrange
+        const docPath = scratch('dirty-unkept');
+        writeFixture(docPath, 'kept\n');
+        await refuseDrafts(page);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'typed but not saved\n');
+
+        // act
+        await page.getByTestId('editor-cancel').click();
+
+        // assert
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
+        await shot(page, 'editing-discard-guard');
+        await page.getByTestId('modal-cancel').click();
+        await expect(page).toHaveURL(MAIN.url.edit(docPath));
+        expect(await sourceText(page)).toBe('typed but not saved\n');
+        await page.getByTestId('editor-cancel').click();
+        await page.getByTestId('modal-confirm').click();
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        expect(readFixture(docPath)).toBe('kept\n');
         removeFixture(docPath);
     });
 
@@ -407,7 +432,6 @@ test.describe('editing', () => {
         await page.getByTestId('editor-save').click();
         await reached;
         await other.click();
-        await page.getByTestId('modal-confirm').click();
         await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
         release();
 
@@ -1305,10 +1329,11 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    test('the leave dialog has the buttons every dialog has: one height, side by side at its end', async ({page}) => {
+    test('the discard dialog has the buttons every dialog has: one height, side by side at its end', async ({page}) => {
         // arrange
         const docPath = scratch('leave-buttons');
         writeFixture(docPath, '# Заметка\n');
+        await refuseDrafts(page);
         await page.goto(routes.edit(docPath));
         await page.locator('[data-testid=editor-source] .cm-content').click();
         await page.keyboard.type('x');
@@ -1596,7 +1621,6 @@ test.describe('editing', () => {
                     await page.getByTestId('editor-save').click();
                 } else {
                     await page.getByTestId('editor-cancel').click();
-                    await page.getByTestId('modal-confirm').click();
                 }
 
                 // assert

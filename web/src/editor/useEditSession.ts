@@ -18,7 +18,7 @@ import { showToast } from '../toast';
 import type { ReadingAnchor } from './anchor';
 import { captureFromSource } from './cmAnchor';
 import { draftOpening } from './constants';
-import { confirmLeave, openConflict, openSessionExpired } from './dialogs';
+import { confirmDiscard, openConflict, openSessionExpired } from './dialogs';
 import { toEditorText, withLineBreak } from './lineBreaks';
 import type { DraftControl } from './useDraft';
 import type { UploadControl } from './useUploads';
@@ -123,12 +123,15 @@ export function useEditSession({
       return;
     }
     const warn = (event: BeforeUnloadEvent): void => {
+      if (event.isTrusted && draftRef.current.flush()) {
+        return;
+      }
       event.preventDefault();
       event.returnValue = '';
     };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+  }, [dirty, draftRef]);
 
   const blocker = useBlocker(
     useCallback(
@@ -142,11 +145,17 @@ export function useEditSession({
     if (blocker.state !== 'blocked' || promptedRef.current) {
       return;
     }
+    if (draftRef.current.flush()) {
+      blocker.proceed();
+      if (!savingRef.current) {
+        showToast('ok', { message: 'Changes kept as a draft on this device' });
+      }
+      return;
+    }
     promptedRef.current = true;
-    void confirmLeave().then((leave) => {
+    void confirmDiscard().then((discard) => {
       promptedRef.current = false;
-      if (leave) {
-        draftRef.current.flush();
+      if (discard) {
         blocker.proceed();
       } else {
         blocker.reset();

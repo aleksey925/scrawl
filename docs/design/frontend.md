@@ -25,11 +25,13 @@ How the react app in `web/` is built, shipped and wired.
   answers that digest only, and lets a browser keep the files a year. A page
   left open across an upgrade finds its next chunk, or the find's worker, gone
   and loads again, at the address it was going to or else at its own, unless
-  leaving would ask about unsaved changes: a reload that prompt refused left
-  every chunk waiting for a page that never came. A chunk made of a package's
-  index is named after the package: rolldown names it after the file, and the
-  index of every codemirror language came out as `dist`, `dist2` and on in the
-  order met, so one language more renamed the rest.
+  leaving would ask about unsaved changes, which the editor answers yes to
+  whenever its text is unsaved, kept as a draft or not, as a reload in the
+  middle of typing loses the place and the undo: a reload that prompt refused
+  left every chunk waiting for a page that never came. A chunk made of a
+  package's index is named after the package: rolldown names it after the file,
+  and the index of every codemirror language came out as `dist`, `dist2` and on
+  in the order met, so one language more renamed the rest.
 - A release embeds the bundle, the pages' assets, the formatter and the
   server's PlantUML engine gzip-compressed, under the `gzassets` build tag:
   `make build`, the image and goreleaser run `go run ./gzassets/pack` first,

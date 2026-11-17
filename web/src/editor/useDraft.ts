@@ -22,7 +22,7 @@ export interface DraftControl {
   stored: boolean;
   dismiss: () => void;
   discard: () => void;
-  flush: () => void;
+  flush: () => boolean;
   clear: () => void;
 }
 
@@ -63,13 +63,14 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   const latest = useRef({ rev, content, dirty, key });
   latest.current = { rev, content, dirty, key };
 
-  const flush = useCallback((): void => {
+  const flush = useCallback((): boolean => {
     const now = latest.current;
     if (!now.dirty) {
-      return;
+      return true;
     }
     const stored = writeJson(localStore(), now.key, { rev: now.rev, content: now.content, at: Date.now() });
     setWritten(stored ? { key: now.key, rev: now.rev, content: now.content } : undefined);
+    return stored;
   }, []);
 
   const clear = useCallback((): void => {

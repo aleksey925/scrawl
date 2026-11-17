@@ -6,7 +6,7 @@ const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
     DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
-    holdRoute, mockMe, nameOf, readFixture, recordMoves, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
+    holdRoute, mockMe, nameOf, readFixture, recordMoves, refuseDrafts, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const lightTheme = require('../../theme/themes/light.json');
@@ -2447,9 +2447,10 @@ test.describe('mobile', () => {
         }
     });
 
-    test('the leave dialog shares its row between its two buttons in equal parts', async ({page}) => {
+    test('the discard dialog shares its row between its two buttons in equal parts', async ({page}) => {
         // arrange
         writeFixture(SCRATCH, '# Заметка\n');
+        await refuseDrafts(page);
         await page.goto(routes.edit(SCRATCH));
         await setSource(page, '# Заметка\n\nправка\n');
 
@@ -2700,6 +2701,7 @@ test.describe('mobile', () => {
         // arrange
         const note = 'e2e-mobile/centered.md';
         writeFixture(note, '# Centered\n');
+        await refuseDrafts(page);
         await page.goto(routes.edit(note));
         await setSource(page, '# Centered\n\nedit\n');
 

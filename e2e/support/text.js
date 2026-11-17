@@ -9,7 +9,7 @@ module.exports = {
     },
 
     modal: {
-        leave: 'Leave without saving?',
+        discard: 'Discard changes?',
         conflict: 'This file changed on disk',
         restore: 'Restore this version?',
         restoreConflict: 'This page changed while the history was open',
@@ -18,6 +18,7 @@ module.exports = {
 
     toast: {
         saved: 'Saved',
+        draftKept: 'Changes kept as a draft on this device',
         restored: 'Restored',
         created: 'Created',
         folderCreated: 'Created folder',

@@ -223,6 +223,18 @@ function recordMoves(page) {
     return sent;
 }
 
+function refuseDrafts(page) {
+    return page.addInitScript(() => {
+        const setItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (key, value) {
+            if (key.startsWith('scrawl.draft.')) {
+                throw new DOMException('full', 'QuotaExceededError');
+            }
+            return setItem.call(this, key, value);
+        };
+    });
+}
+
 async function holdRoute(page, url, matches = () => true) {
     let release = () => {};
     const held = new Promise((resolve) => {
@@ -352,6 +364,7 @@ module.exports = {
     fixtureFile,
     headingAnchorGeometry,
     holdRoute,
+    refuseDrafts,
     inStep,
     jsonRequest,
     mockMe,

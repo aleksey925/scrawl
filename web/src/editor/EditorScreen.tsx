@@ -571,6 +571,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         <DraftOffer
           at={draft.offered.at}
           stale={draft.stale}
+          disabled={leaving}
           onRestore={() => {
             const current = viewRef.current;
             const text = draft.offered?.content ?? '';

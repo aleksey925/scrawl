@@ -585,6 +585,35 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('while the reader loads after Cancel the draft offer does nothing, so the newer text stays kept', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-leave');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'an older draft\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        const {release, reached} = await holdRoute(page, '**/assets/DocumentPage.js');
+        await page.goto(routes.edit(docPath));
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+        await reached;
+        await setSource(page, 'the newer text\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+
+        // act
+        await page.getByTestId('editor-cancel').click();
+        await expect(page.getByTestId('editor-draft-discard')).toBeDisabled();
+        await expect(page.getByTestId('editor-draft-restore')).toBeDisabled();
+        release();
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-draft-restore').click();
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe('the newer text\n');
+        removeFixture(docPath);
+    });
+
     test('a draft offer names the time it was written, and says when the file changed since', async ({page}) => {
         // arrange
         const docPath = scratch('draft-stale');

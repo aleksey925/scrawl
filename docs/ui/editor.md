@@ -78,8 +78,9 @@ The editor screen.
   and the reader may still be loading. A save midway that keeps the editor is
   `Ctrl`/`Cmd` + `S`. Cancel, the back arrow and any other way out leave
   without saving and ask nothing: the unsaved text is written to the draft on
-  the device as the editor goes, a toast says "Changes kept as a draft on this
-  device", and the editor offers the draft back the next time
+  the device as the editor goes, the text can no longer be changed while the
+  next page loads, a toast says "Changes kept as a draft on this device", and
+  the editor offers the draft back the next time
   ([ADR 32](../adr/0032-leaving-keeps-the-draft.md)). The toast has no button:
   the way back is the note itself, and for a note not created yet the next New
   note in its folder, which opens at the same address and offers the draft;
@@ -89,7 +90,8 @@ The editor screen.
   window or a full storage does, or while a picture is still uploading, whose
   link would never land, would the text be lost, and then a dialog asks
   "Discard changes?" with Discard in red and Keep editing. Discard drops any
-  draft kept before. Closing the tab asks the browser's own question in those
+  draft kept before and writes no new one, and the text can no longer be
+  changed either. Closing the tab asks the browser's own question in those
   cases alone. A phone has no shortcut, so a save there always leaves; the
   local draft keeps the text between saves.
 - The state of the save is Saved, Saving, Waiting for the upload, New note or

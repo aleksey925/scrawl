@@ -3,7 +3,7 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    MAIN, SHARED, fixtureFile, holdRoute, routes, save, shot, signIn, sourceText, writeFixture,
+    MAIN, SHARED, fixtureFile, holdRoute, routes, save, shot, signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -122,5 +122,36 @@ test.describe.serial('upload', () => {
         await expect(page).toHaveURL(MAIN.url.edit(docPath));
         release();
         await expect.poll(() => sourceText(page)).toContain('![](leave-uploading/e2e-leave-uploading.png)');
+    });
+
+    test('Discard while a picture uploads stops the editing and the draft while the reader loads', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/discard-uploading.md`;
+        writeFixture(docPath, '# Сброс\n\n');
+        const reader = await holdRoute(page, '**/assets/DocumentPage.js');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toContain('Сброс');
+        const upload = await holdRoute(page, '**/api/upload/**');
+        await page.locator('[data-testid=editor-source] .cm-content').click();
+        await sendFile(page, 'paste', 'e2e-discard-uploading.png');
+        await upload.reached;
+        const before = await sourceText(page);
+        await page.getByTestId('editor-cancel').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
+
+        // act
+        await page.getByTestId('modal-confirm').click();
+        await expect(page.getByTestId('modal')).toHaveCount(0);
+        await page.locator('[data-testid=editor-source] .cm-content').click();
+        await page.keyboard.type('typed after Discard');
+        await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+
+        // assert
+        const drafts = () => page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('scrawl.draft:')));
+        await stays(drafts, [], 1500);
+        expect(await sourceText(page)).toBe(before);
+        reader.release();
+        upload.release();
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
     });
 });

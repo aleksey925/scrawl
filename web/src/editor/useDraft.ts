@@ -23,6 +23,7 @@ export interface DraftControl {
   stored: boolean;
   dismiss: () => void;
   discard: () => void;
+  abandon: () => void;
   flush: () => boolean;
   clear: () => void;
 }
@@ -64,10 +65,11 @@ export function useDraft(options: UseDraftOptions): DraftControl {
 
   const latest = useRef({ rev, content, dirty, key });
   latest.current = { rev, content, dirty, key };
+  const abandonedRef = useRef(false);
 
   const flush = useCallback((): boolean => {
     const now = latest.current;
-    if (!now.dirty) {
+    if (!now.dirty || abandonedRef.current) {
       return true;
     }
     const stored = writeJson(localStore(), now.key, { rev: now.rev, content: now.content, at: Date.now() });
@@ -112,8 +114,12 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     setWritten(undefined);
     setOffered(undefined);
   }, []);
+  const abandon = useCallback((): void => {
+    abandonedRef.current = true;
+    discard();
+  }, [discard]);
 
   const stored = written?.key === key && written.rev === rev && written.content === content;
 
-  return { offered, stale, stored, dismiss, discard, flush, clear };
+  return { offered, stale, stored, dismiss, discard, abandon, flush, clear };
 }

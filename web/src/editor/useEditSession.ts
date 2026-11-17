@@ -168,6 +168,7 @@ export function useEditSession({
     }
     const leave = (): void => {
       leavingRef.current = true;
+      setLeaving(true);
       blocker.proceed();
     };
     const kept = keepDraft();
@@ -182,7 +183,7 @@ export function useEditSession({
     void confirmDiscard(uploading ? 'uploading' : 'unkept').then((discard) => {
       promptedRef.current = false;
       if (discard) {
-        draftRef.current.discard();
+        draftRef.current.abandon();
         leave();
       } else {
         blocker.reset();

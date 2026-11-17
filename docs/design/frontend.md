@@ -26,16 +26,17 @@ How the react app in `web/` is built, shipped and wired.
   left open across an upgrade finds its next chunk, or the find's worker, gone
   and loads again, at the address it was going to or else at its own, unless
   the editor holds unsaved text: a reload that the browser's prompt refused
-  left every chunk waiting for a page that never came. The check is a
-  `beforeunload` event the app sends itself, which the editor tells from the
-  browser's own by `isTrusted`. The editor cancels the app's event whenever its
-  text is unsaved, kept as a draft or not, as a reload in the middle of typing
-  loses the place and the undo, and stops once the person has left the editor.
-  It cancels the browser's only when the draft could not be kept or a picture
-  is still uploading. A chunk made of a package's index is named after the
-  package: rolldown names it after the file, and the index of every codemirror
-  language came out as `dist`, `dist2` and on in the order met, so one language
-  more renamed the rest.
+  left every chunk waiting for a page that never came. The editor tells the
+  reload so through `holdReload` in `staleBundle.ts`, not through a
+  `beforeunload` event: it holds the reload whenever its text is unsaved, kept
+  as a draft or not, as a reload in the middle of typing loses the place and
+  the undo, and lets go once the person has left the editor. Its `beforeunload`
+  listener answers only the browser, and asks only when the draft could not be
+  kept or a picture is still uploading.
+- A chunk made of a package's index is named after the package: rolldown names
+  it after the file, and the index of every codemirror language came out as
+  `dist`, `dist2` and on in the order met, so one language more renamed the
+  rest.
 - A release embeds the bundle, the pages' assets, the formatter and the
   server's PlantUML engine gzip-compressed, under the `gzassets` build tag:
   `make build`, the image and goreleaser run `go run ./gzassets/pack` first,

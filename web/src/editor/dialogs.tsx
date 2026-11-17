@@ -9,15 +9,20 @@ import classes from './Editor.module.css';
 const conflictId = 'editor-conflict';
 const sessionId = 'editor-session';
 
-export function confirmDiscard(uploading: boolean): Promise<boolean> {
+export type DiscardReason = 'uploading' | 'unkept';
+
+const discardReasons: Record<DiscardReason, string> = {
+  uploading: 'A picture is still uploading, so the changes are lost if you leave.',
+  unkept: 'This browser could not keep a draft, so the changes are lost if you leave.',
+};
+
+export function confirmDiscard(reason: DiscardReason): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     modals.openConfirmModal({
       title: 'Discard changes?',
       children: (
         <Text data-testid="modal" data-variant="confirm" size="sm">
-          {uploading
-            ? 'A picture is still uploading, so the changes are lost if you leave.'
-            : 'This browser could not keep a draft, so the changes are lost if you leave.'}
+          {discardReasons[reason]}
         </Text>
       ),
       labels: { confirm: 'Discard', cancel: 'Keep editing' },

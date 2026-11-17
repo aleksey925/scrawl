@@ -8,10 +8,17 @@ let reloading = false;
 
 let recover: () => boolean = () => false;
 
-function leavingIsGuarded(): boolean {
-  const probe = new Event('beforeunload', { cancelable: true });
-  window.dispatchEvent(probe);
-  return probe.defaultPrevented;
+const holds = new Set<() => boolean>();
+
+export function holdReload(held: () => boolean): () => void {
+  holds.add(held);
+  return () => {
+    holds.delete(held);
+  };
+}
+
+function reloadIsHeld(): boolean {
+  return [...holds].some((check) => check());
 }
 
 export function reloadOnStaleBundle(pending: () => string | undefined): void {
@@ -22,7 +29,7 @@ export function reloadOnStaleBundle(pending: () => string | undefined): void {
       return true;
     }
     const last = readJson<number>(store, reloadedAtKey) ?? lastReload;
-    if (Date.now() - last < reloadIntervalMs || leavingIsGuarded()) {
+    if (Date.now() - last < reloadIntervalMs || reloadIsHeld()) {
       return false;
     }
     lastReload = Date.now();

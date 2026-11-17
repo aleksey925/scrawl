@@ -11,7 +11,7 @@ export const splitMin = 0.2;
 export const splitMax = 0.8;
 export const splitDefault = 0.5;
 
-export const draftPrefix = 'scrawl.draft.';
+export const draftPrefix = 'scrawl.draft:';
 export const anchorPrefix = 'scrawl.anchor.';
 export const modeKey = 'scrawl.editor.mode';
 export const splitKey = 'scrawl.editor.split';

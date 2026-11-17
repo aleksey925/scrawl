@@ -6,7 +6,7 @@ const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
     DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
-    holdRoute, mockMe, nameOf, readFixture, recordMoves, refuseDrafts, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
+    holdRoute, mockMe, nameOf, okToast, readFixture, recordMoves, refuseDrafts, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const lightTheme = require('../../theme/themes/light.json');
@@ -2170,7 +2170,7 @@ test.describe('mobile', () => {
         await expect.poll(() => sourceText(page)).toBe('# Заметка\n\nтекст\n');
         await setSource(page, '# Заметка\n\nчерновик\n');
         await expect.poll(() => page.evaluate(() => Object.keys(localStorage)
-            .some((key) => key.startsWith('scrawl.draft.') && localStorage.getItem(key).includes('черновик')))).toBe(true);
+            .some((key) => key.startsWith('scrawl.draft:') && localStorage.getItem(key).includes('черновик')))).toBe(true);
         const width = page.viewportSize().width;
 
         // act
@@ -2459,7 +2459,7 @@ test.describe('mobile', () => {
         // assert
         await expect(page).toHaveURL(MAIN.url.doc(SCRATCH));
         await expect(page.getByTestId('modal')).toHaveCount(0);
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toHaveText(text.toast.draftKept);
+        await expect(okToast(page)).toHaveText(text.toast.draftKept);
     });
 
     test('the discard dialog shares its row between its two buttons in equal parts', async ({page}) => {

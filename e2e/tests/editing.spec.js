@@ -3,8 +3,8 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    MAIN, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, readFixture, refuseDrafts, removeFixture, routes, save,
-    setSource, shot, signIn, sourceText, stays, writeFixture,
+    MAIN, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, okToast, readFixture, recordPrompts, refuseDrafts,
+    removeFixture, routes, save, setRefusingDrafts, setSource, shot, signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -31,19 +31,6 @@ async function editFromReader(page, docPath, body) {
     await page.goto(routes.doc(docPath));
     await page.getByTestId('doc-edit').click();
     await expect.poll(() => sourceText(page)).toBe(body);
-}
-
-function okToast(page) {
-    return page.locator('[data-testid=toast][data-kind="ok"]');
-}
-
-function recordPrompts(page) {
-    const prompts = [];
-    page.on('dialog', (dialog) => {
-        prompts.push(dialog.type());
-        void dialog.dismiss();
-    });
-    return prompts;
 }
 
 async function typeInSource(page, typed) {
@@ -151,9 +138,7 @@ test.describe('editing', () => {
         await expect(editorStatus(page)).toHaveText(text.status.drafted);
         await expect(editorStatus(page)).toHaveAttribute('data-state', 'drafted');
 
-        await page.evaluate(() => {
-            window.refuseDrafts = true;
-        });
+        await setRefusingDrafts(page, true);
         await setSource(page, '# Заголовок\n\nвторой\n');
         await expect(editorStatus(page)).toHaveText(text.status.dirty);
         await page.clock.runFor(PAST_DRAFT_DELAY_MS);
@@ -316,9 +301,7 @@ test.describe('editing', () => {
         await expect.poll(() => sourceText(page)).toBe('kept\n');
         await setSource(page, 'kept as a draft\n');
         await expect(editorStatus(page)).toHaveText(text.status.drafted);
-        await page.evaluate(() => {
-            window.refuseDrafts = true;
-        });
+        await setRefusingDrafts(page, true);
         await setSource(page, 'not kept\n');
         await page.getByTestId('editor-cancel').click();
         await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
@@ -535,7 +518,7 @@ test.describe('editing', () => {
 
         // assert
         await expect.poll(() => readFixture(docPath)).toBe('written\n');
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.saved);
+        await expect(okToast(page)).toContainText(text.toast.saved);
         await expect(page).toHaveURL(MAIN.url.edit(docPath));
         await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'true');
         expect(await sourceText(page)).toBe('written and more\n');
@@ -558,7 +541,7 @@ test.describe('editing', () => {
         release();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.saved);
+        await expect(okToast(page)).toContainText(text.toast.saved);
         await expect(page.getByTestId('toast').filter({hasText: text.toast.draftKept})).toHaveCount(0);
         await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
         expect(readFixture(docPath)).toBe('written\n');
@@ -1133,7 +1116,7 @@ test.describe('editing', () => {
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText(text.toast.contentsNotUpdated);
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.saved);
+        await expect(okToast(page)).toContainText(text.toast.saved);
         expect(readFixture(docPath)).toBe(written);
         expect(await sourceText(page)).toBe(written);
         removeFixture(docPath);
@@ -1454,23 +1437,22 @@ test.describe('editing', () => {
 
     test('the discard dialog has the buttons every dialog has: one height, side by side at its end', async ({page}) => {
         // arrange
-        const docPath = scratch('leave-buttons');
+        const docPath = scratch('discard-buttons');
         writeFixture(docPath, '# Заметка\n');
         await refuseDrafts(page);
         await page.goto(routes.edit(docPath));
-        await page.locator('[data-testid=editor-source] .cm-content').click();
-        await page.keyboard.type('x');
+        await typeInSource(page, 'x');
 
         // act
         await page.getByTestId('editor-cancel').click();
 
         // assert
         await expect(page.getByTestId('modal-confirm')).toBeVisible();
-        const leave = await dialogButtons(page, ['modal-cancel', 'modal-confirm']);
-        expect(leave.heights).toEqual([32, 32]);
-        expect(leave.rights[0]).toBeLessThan(leave.lefts[1]);
-        expect(leave.tops[0]).toBe(leave.tops[1]);
-        expect(leave.end).toBe(leave.bodyEnd);
+        const discard = await dialogButtons(page, ['modal-cancel', 'modal-confirm']);
+        expect(discard.heights).toEqual([32, 32]);
+        expect(discard.rights[0]).toBeLessThan(discard.lefts[1]);
+        expect(discard.tops[0]).toBe(discard.tops[1]);
+        expect(discard.end).toBe(discard.bodyEnd);
         await page.getByTestId('modal-cancel').click();
         removeFixture(docPath);
     });

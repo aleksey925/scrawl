@@ -223,12 +223,31 @@ function recordMoves(page) {
     return sent;
 }
 
+function recordPrompts(page) {
+    const prompts = [];
+    page.on('dialog', (dialog) => {
+        prompts.push(dialog.type());
+        void dialog.dismiss();
+    });
+    return prompts;
+}
+
+function okToast(page) {
+    return page.locator('[data-testid=toast][data-kind="ok"]');
+}
+
+function setRefusingDrafts(page, refusing) {
+    return page.evaluate((next) => {
+        window.refuseDrafts = next;
+    }, refusing);
+}
+
 function refuseDrafts(page, refusing = true) {
     return page.addInitScript((initial) => {
         window.refuseDrafts = initial;
         const setItem = Storage.prototype.setItem;
         Storage.prototype.setItem = function (key, value) {
-            if (window.refuseDrafts && key.startsWith('scrawl.draft.')) {
+            if (window.refuseDrafts && key.startsWith('scrawl.draft:')) {
                 throw new DOMException('full', 'QuotaExceededError');
             }
             return setItem.call(this, key, value);
@@ -370,10 +389,12 @@ module.exports = {
     mockMe,
     modifier,
     nameOf,
+    okToast,
     openSpaceMenu,
     pressShortcut,
     readFixture,
     recordMoves,
+    recordPrompts,
     refuseDrafts,
     removeFixture,
     mediumShadow,
@@ -381,6 +402,7 @@ module.exports = {
     rightClickPrevented,
     routes,
     save,
+    setRefusingDrafts,
     setSource,
     shot,
     showOutline,

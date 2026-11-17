@@ -2,8 +2,8 @@ const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    MAIN, chooseTheme, holdRoute, mockMe, openSpaceMenu, readFixture, removeFixture, rgb, routes, save, setSource, shot,
-    signIn, stays, writeFixture,
+    MAIN, chooseTheme, holdRoute, mockMe, openSpaceMenu, readFixture, recordPrompts, removeFixture, rgb, routes, save, setSource,
+    shot, signIn, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const darkTheme = require('../../theme/themes/dark.json');
@@ -201,11 +201,7 @@ test.describe('pages', () => {
             await expect(page.getByTestId('editor-source')).toBeVisible();
             await setSource(page, 'typed but not saved\n');
             await expect(page.getByTestId('editor-status')).toHaveAttribute('data-dirty', 'true');
-            const prompts = [];
-            page.on('dialog', (dialog) => {
-                prompts.push(dialog.type());
-                void dialog.dismiss();
-            });
+            const prompts = recordPrompts(page);
             const reloaded = page.waitForEvent('load');
 
             // act

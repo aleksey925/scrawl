@@ -13,6 +13,7 @@ import { useAccount } from '../shell/NavContext';
 import { basenameOf, freeName, joinPath, noteNameOf } from '../shell/naming';
 import { modChord } from '../shell/shortcuts';
 import { useMutationState } from '../shell/useMutationState';
+import { holdReload } from '../staleBundle';
 import { showToast } from '../toast';
 
 import type { ReadingAnchor } from './anchor';
@@ -120,12 +121,30 @@ export function useEditSession({
 
   const uploading = uploads.pending > 0;
 
+  const keepDraft = useCallback((): boolean => {
+    if (uploading) {
+      return false;
+    }
+    return draftRef.current.flush();
+  }, [draftRef, uploading]);
+
+  useEffect(() => {
+    if (!dirty) {
+      return;
+    }
+    return holdReload(() => !leavingRef.current);
+  }, [dirty]);
+
   useEffect(() => {
     if (!dirty) {
       return;
     }
     const warn = (event: BeforeUnloadEvent): void => {
-      if (leavingRef.current || (event.isTrusted && !uploading && draftRef.current.flush())) {
+      if (leavingRef.current) {
+        return;
+      }
+      const kept = keepDraft();
+      if (kept) {
         return;
       }
       event.preventDefault();
@@ -133,7 +152,7 @@ export function useEditSession({
     };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty, draftRef, uploading]);
+  }, [dirty, keepDraft]);
 
   const blocker = useBlocker(
     useCallback(
@@ -151,7 +170,8 @@ export function useEditSession({
       leavingRef.current = true;
       blocker.proceed();
     };
-    if (!uploading && draftRef.current.flush()) {
+    const kept = keepDraft();
+    if (kept) {
       leave();
       if (!savingRef.current) {
         showToast('ok', { message: 'Changes kept as a draft on this device' });
@@ -159,7 +179,7 @@ export function useEditSession({
       return;
     }
     promptedRef.current = true;
-    void confirmDiscard(uploading).then((discard) => {
+    void confirmDiscard(uploading ? 'uploading' : 'unkept').then((discard) => {
       promptedRef.current = false;
       if (discard) {
         draftRef.current.discard();
@@ -168,7 +188,7 @@ export function useEditSession({
         blocker.reset();
       }
     });
-  }, [blocker, draftRef, uploading]);
+  }, [blocker, draftRef, keepDraft, uploading]);
 
   const markSaved = useCallback((stored: string, nextRev: string, shown: boolean): void => {
     setSaved(stored);

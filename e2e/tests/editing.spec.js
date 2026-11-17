@@ -614,6 +614,30 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('renaming the open note from the tree takes its unsaved text along as a draft of the new name', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-renamed');
+        const renamed = scratch('draft-renamed-new');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'typed before the rename\n');
+        await page.locator(`[data-testid=tree-row][data-path="${docPath}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-rename').click();
+        await page.getByTestId('tree-rename-input').fill(nameOf(renamed));
+
+        // act
+        await page.getByTestId('tree-rename-input').press('Enter');
+        await expect(page).toHaveURL(MAIN.url.doc(renamed));
+        await page.goto(routes.edit(renamed));
+        await page.getByTestId('editor-draft-restore').click();
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe('typed before the rename\n');
+        expect(readFixture(renamed)).toBe('kept\n');
+        removeFixture(renamed);
+    });
+
     test('a draft offer names the time it was written, and says when the file changed since', async ({page}) => {
         // arrange
         const docPath = scratch('draft-stale');

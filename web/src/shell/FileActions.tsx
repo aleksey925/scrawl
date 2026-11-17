@@ -8,7 +8,9 @@ import { api } from '../api/client';
 import { ApiError } from '../api/errors';
 import type { DeleteResponse, EntryPathResponse, NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
+import { moveDrafts } from '../editor/draftKeys';
 import { mountBase } from '../mount';
+import { usePlatform } from '../platform';
 import { copyText } from '../reader/clipboard';
 import { directoryUrl, documentUrl, draftUrl, isDirectoryPath, isEditPath, isMarkdown, slugPath } from '../paths';
 import { layoutBreakpoints, useBelow } from '../theme';
@@ -112,6 +114,15 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const [marks] = useState(() => new UndoMarks());
   const latestTree = useRef(tree);
   latestTree.current = tree;
+  const { storageScope } = usePlatform();
+  const draftMoves = useRef<readonly Relocation[]>([]);
+
+  const relocateDrafts = useCallback((steps: readonly Relocation[], leaving: boolean) => {
+    steps.forEach((step) => moveDrafts(storageScope, step.from, step.to));
+    if (leaving) {
+      draftMoves.current = [...draftMoves.current, ...steps];
+    }
+  }, [storageScope]);
 
   useEffect(() => {
     const follow = followed.current;
@@ -120,6 +131,12 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       prev !== undefined && follow?.url === location.pathname && !replaces(follow.path, prev.path) ? prev : undefined,
     );
   }, [location.pathname]);
+
+  useEffect(() => {
+    const steps = draftMoves.current;
+    draftMoves.current = [];
+    steps.forEach((step) => moveDrafts(storageScope, step.from, step.to));
+  }, [location.pathname, storageScope]);
 
   const copyLink = useCallback(async (path: string, isDir: boolean): Promise<void> => {
     if (await copyText(appUrl(path, isDir))) {
@@ -305,6 +322,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
           const here = done
             .map((step) => pathAfterMove(shown.current.path, step.from, step.to))
             .find((moved) => moved !== undefined);
+          relocateDrafts(done, here !== undefined);
           if (here !== undefined) {
             await navigate(shown.current.onFolder ? directoryUrl(here) : documentUrl(here));
           }
@@ -331,7 +349,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
         .move(paths.map((from) => ({ from, to: joinPath(folder, basenameOf(from)) })))
         .then((res) => report(res, false, res.undo === undefined ? undefined : undoAction(res.undo)));
     },
-    [marks, navigate, openFolder, refreshTree, reportMutation, space],
+    [marks, navigate, openFolder, refreshTree, relocateDrafts, reportMutation, space],
   );
 
   const submitRename = useCallback(
@@ -355,6 +373,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       marks.touch([path, res.path]);
       reportMutation(res, renamedMessage(path, res.path, isDir, space));
       const here = pathAfterMove(shown.current.path, path, res.path);
+      relocateDrafts([{ from: path, to: res.path }], here !== undefined);
       if (here !== undefined) {
         const url = shown.current.onFolder ? directoryUrl(here) : documentUrl(here);
         followed.current = { path, url };
@@ -364,7 +383,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       refreshTree();
       return true;
     },
-    [marks, navigate, refreshTree, reportMutation, space],
+    [marks, navigate, refreshTree, relocateDrafts, reportMutation, space],
   );
 
   const startRename = useCallback(

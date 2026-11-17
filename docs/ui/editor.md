@@ -85,15 +85,17 @@ The editor screen.
   the way back is the note itself, and for a note not created yet the next New
   note in its folder, which opens at the same address and offers the draft;
   text typed there instead of Restore replaces it. A draft belongs to its space
-  and path. A leave while a save is on its way shows no such toast, as the
-  save's own follows. Only when the browser refuses the draft, as a private
-  window or a full storage does, or while a picture is still uploading, whose
-  link would never land, would the text be lost, and then a dialog asks
-  "Discard changes?" with Discard in red and Keep editing. Discard drops any
-  draft kept before and writes no new one, and the text can no longer be
-  changed either. Closing the tab asks the browser's own question in those
-  cases alone. A phone has no shortcut, so a save there always leaves; the
-  local draft keeps the text between saves.
+  and path, and follows the note when it or its folder is renamed or moved, an
+  Undo of the move included, the open note too: its text is written as the
+  editor goes and moved once the next page opens. A leave while a save is on
+  its way shows no such toast, as the save's own follows. Only when the browser
+  refuses the draft, as a private window or a full storage does, or while a
+  picture is still uploading, whose link would never land, would the text be
+  lost, and then a dialog asks "Discard changes?" with Discard in red and Keep
+  editing. Discard drops any draft kept before and writes no new one, and the
+  text can no longer be changed either. Closing the tab asks the browser's own
+  question in those cases alone. A phone has no shortcut, so a save there
+  always leaves; the local draft keeps the text between saves.
 - The state of the save is Saved, Saving, Waiting for the upload, New note or
   New file, and for unsaved changes Draft on device once the text is copied to
   the browser's storage, which happens 800ms after the last change. Before

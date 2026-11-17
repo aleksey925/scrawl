@@ -4,6 +4,7 @@ import { usePlatform } from '../platform';
 import { keysWithPrefix, localStore, readJson, removeKey, writeJson } from '../storage';
 
 import { draftDelayMs, draftMaxAgeMs, draftPrefix } from './constants';
+import { draftKey } from './draftKeys';
 
 export interface Draft {
   rev: string;
@@ -57,7 +58,7 @@ export interface UseDraftOptions {
 export function useDraft(options: UseDraftOptions): DraftControl {
   const { path, rev, content, dirty, savedContent } = options;
   const { storageScope } = usePlatform();
-  const key = `${draftPrefix}${storageScope}:${path}`;
+  const key = draftKey(storageScope, path);
 
   const [offered, setOffered] = useState<Draft | undefined>(undefined);
   const [stale, setStale] = useState(false);

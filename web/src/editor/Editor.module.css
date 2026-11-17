@@ -59,11 +59,6 @@
   font-weight: 600;
 }
 
-.draftButton:active {
-  opacity: 0.4;
-  transition: var(--scrawl-press-in);
-}
-
 @media (hover: hover) {
   .draftButton:hover {
     background: var(--scrawl-hover);
@@ -93,9 +88,6 @@
 }
 
 .notices {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mantine-spacing-sm);
   padding: var(--mantine-spacing-md) var(--mantine-spacing-lg) 0;
 }
 
@@ -434,7 +426,8 @@
 }
 
 .back:active,
-.phoneSave:not(:disabled):active {
+.phoneSave:not(:disabled):active,
+.draftButton:active {
   opacity: 0.4;
   transition: var(--scrawl-press-in);
 }

@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type JSX, type ReactElement, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+import { motionMs } from '../motion';
+
 import classes from './LiftedRow.module.css';
-import { motionMs, springEasing } from './screenMotion';
+import { springEasing } from './screenMotion';
 
 const liftMs = 220;
 const dropMs = 160;

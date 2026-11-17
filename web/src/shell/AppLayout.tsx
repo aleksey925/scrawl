@@ -6,7 +6,7 @@ import type { MeResponse } from '../api/types';
 import { goToLogin } from '../login';
 import { useReadingCopy } from '../offline/connection';
 import { offlineMe, storedMe } from '../offline/source';
-import { documentPage, editPage, preloadPage } from '../pageChunks';
+import { documentPage, editPage, preloadPage } from '../pagePreloads';
 
 import { BarEditProvider } from './BarEditProvider';
 import { preloadDialogs } from './dialogChunks';
@@ -49,6 +49,7 @@ export function AppLayout(): JSX.Element {
     <SpaceNavProvider>
       <ReaderExtensionsProvider value={extensions}>
         <ReaderLayout chrome={chrome} providers={AppProviders} banner={<SpaceAlerts />}>
+          <PagePreloads />
           <NetworkGate>
             <Outlet />
           </NetworkGate>
@@ -58,7 +59,7 @@ export function AppLayout(): JSX.Element {
   );
 }
 
-function usePreloadPages(): void {
+function PagePreloads(): null {
   const { canWrite } = useAccount();
   useEffect(() => preloadPage(documentPage), []);
   useEffect(() => {
@@ -66,10 +67,10 @@ function usePreloadPages(): void {
       preloadPage(editPage);
     }
   }, [canWrite]);
+  return null;
 }
 
 function AppProviders({ children }: { children: ReactNode }): JSX.Element {
-  usePreloadPages();
   const fromCopy = useReadingCopy();
   return (
     <ResetProvider>

@@ -1,6 +1,7 @@
 import { createContext, useContext, useLayoutEffect, type RefObject } from 'react';
 import { useLocation, useNavigationType } from 'react-router';
 
+import { motionMs } from '../motion';
 import { layoutBreakpoints, maxWidthQuery } from '../theme';
 
 type Motion = 'forward' | 'back' | 'none';
@@ -40,14 +41,6 @@ export function releaseMotion(distance: number, speed: number): Release {
 
 export function standalone(): boolean {
   return (navigator as { standalone?: boolean }).standalone === true;
-}
-
-export function reducedMotion(): boolean {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-export function motionMs(ms: number): number {
-  return reducedMotion() ? 0 : ms;
 }
 
 export function leaveScreen(element: HTMLElement, from: number, speed: number): Promise<boolean> {

@@ -3,7 +3,7 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 import { RouteError } from './components/RouteError';
 import { noteEntry } from './historyTrail';
 import { mountBase } from './mount';
-import { documentPage, editPage } from './pageChunks';
+import { documentPage, editPage } from './pagePreloads';
 import { loadChunk } from './staleBundle';
 import { AppLayout } from './shell/AppLayout';
 

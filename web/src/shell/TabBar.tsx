@@ -3,7 +3,7 @@ import { useRef, useState, type ComponentPropsWithRef, type JSX } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { PopupMenu } from '../components/PopupMenu';
-import { planMotion, reducedMotion } from '../components/screenMotion';
+import { planMotion } from '../components/screenMotion';
 import {
   IconClock,
   IconFolder,
@@ -13,6 +13,7 @@ import {
   IconUserCircle,
   type Icon,
 } from '../icons';
+import { reducedMotion } from '../motion';
 import { isDirectoryPath, isEditPath, recentUrl } from '../paths';
 import { layout } from '../theme';
 

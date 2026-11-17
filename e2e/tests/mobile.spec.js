@@ -2107,9 +2107,9 @@ test.describe('mobile', () => {
         await moveVisibleArea(page, 120, 400);
         const visibleVars = () => page.evaluate(() => {
             const root = document.documentElement.style;
-            return [root.getPropertyValue('--scrawl-visible-height'), root.getPropertyValue('--scrawl-visible-shift')];
+            return [root.getPropertyValue('--scrawl-visible-height'), root.getPropertyValue('--scrawl-visible-top')];
         });
-        await expect.poll(visibleVars).toEqual(['400px', 'translateY(120px)']);
+        await expect.poll(visibleVars).toEqual(['400px', '120px']);
 
         // act
         await page.getByTestId('editor-cancel').tap();

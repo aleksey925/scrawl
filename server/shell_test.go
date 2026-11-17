@@ -1,8 +1,12 @@
 package server
 
 import (
+	"encoding/json"
+	"maps"
 	"net/http"
 	"regexp"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -166,4 +170,24 @@ func TestAppShellPreloadsThePageOfItsRoute(t *testing.T) {
 			assert.NotContains(t, body, preload(tc.notPage))
 		})
 	}
+}
+
+func TestRoutePagesNameEveryPageOfTheRouter(t *testing.T) {
+	// arrange
+	raw, err := assets.ReadFile(appManifest)
+	require.NoError(t, err)
+	var chunks map[string]manifestChunk
+	require.NoError(t, json.Unmarshal(raw, &chunks))
+	unrouted := []string{"src/pages/NotFoundPage.tsx", "src/pages/RunPage.tsx"}
+
+	// act
+	var built []string
+	for name := range chunks {
+		if strings.HasPrefix(name, "src/pages/") && !slices.Contains(unrouted, name) {
+			built = append(built, name)
+		}
+	}
+
+	// assert
+	assert.ElementsMatch(t, slices.Collect(maps.Values(routePages)), built)
 }

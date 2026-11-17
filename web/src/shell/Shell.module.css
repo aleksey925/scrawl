@@ -1,7 +1,7 @@
 .header {
   border: 0;
   background: var(--scrawl-bg);
-  transform: var(--scrawl-visible-shift, none);
+  translate: 0 var(--scrawl-visible-top);
   transition-property: margin-inline-start, margin-inline-end;
 }
 
@@ -22,7 +22,7 @@
 .main:has(> [data-fill='screen']) {
   min-height: 0;
   height: var(--scrawl-visible-height, 100dvh);
-  transform: var(--scrawl-visible-shift, none);
+  translate: 0 var(--scrawl-visible-top);
 }
 
 @mixin larger-than $mantine-breakpoint-sm {
@@ -43,7 +43,7 @@
   padding: 12px 16px 0;
 }
 
-.main:has(> [data-fill='screen']) > .banner:not(:has(> * > *)) {
+.main:has(> [data-fill='screen']) > .banner:has(> [data-empty='true']) {
   padding: 0;
 }
 

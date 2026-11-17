@@ -58,8 +58,8 @@ How the react app in `web/` is built, shipped and wired.
   own, in `web/src/shell/dialogChunks.tsx`, and the app loads them when the
   browser is idle after the page has loaded. The first load runs less. The
   pages of a note and, with the right to write, of the editor are loaded on
-  idle the same way, in `web/src/pageChunks.ts`, so the first tap on a note or
-  on Edit does not wait for its code. A load on idle that fails is kept by
+  idle the same way, in `web/src/pagePreloads.ts`, so the first tap on a note
+  or on Edit does not wait for its code. A load on idle that fails is kept by
   Chromium as a dialog's is, so the way to that page then loads the app again,
   as a stale chunk does. A dialog whose chunk is there draws in the same render
   as the click that opened it, with no `Suspense`: one that waited for its

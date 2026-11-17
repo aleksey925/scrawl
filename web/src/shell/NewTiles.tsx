@@ -2,8 +2,8 @@ import { Portal, Transition } from '@mantine/core';
 import { useFocusTrap } from '@mantine/hooks';
 import type { JSX } from 'react';
 
-import { motionMs } from '../components/screenMotion';
 import { IconFilePlus, IconFolderPlus, type Icon } from '../icons';
+import { motionMs } from '../motion';
 import { layout } from '../theme';
 
 import classes from './NewTiles.module.css';

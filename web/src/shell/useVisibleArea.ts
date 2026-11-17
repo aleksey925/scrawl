@@ -57,7 +57,7 @@ export function useVisibleScreen(screen: RefObject<HTMLElement | null>, active: 
     const root = document.documentElement.style;
     const follow = (): void => {
       root.setProperty('--scrawl-visible-height', `${view.height}px`);
-      root.setProperty('--scrawl-visible-shift', `translateY(${view.offsetTop}px)`);
+      root.setProperty('--scrawl-visible-top', `${view.offsetTop}px`);
       element.dataset.keyboard = window.innerHeight - view.offsetTop - view.height > 1 ? 'true' : 'false';
     };
     follow();
@@ -67,7 +67,7 @@ export function useVisibleScreen(screen: RefObject<HTMLElement | null>, active: 
       view.removeEventListener('resize', follow);
       view.removeEventListener('scroll', follow);
       root.removeProperty('--scrawl-visible-height');
-      root.removeProperty('--scrawl-visible-shift');
+      root.removeProperty('--scrawl-visible-top');
       delete element.dataset.keyboard;
     };
   }, [screen, active]);

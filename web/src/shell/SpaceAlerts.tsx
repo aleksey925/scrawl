@@ -12,7 +12,7 @@ export function SpaceAlerts(): JSX.Element {
   const { sync } = useAccount();
 
   return (
-    <div data-testid="space-alerts" data-print="hide" role="status" aria-live="polite">
+    <div data-testid="space-alerts" data-empty={sync === undefined} data-print="hide" role="status" aria-live="polite">
       {sync !== undefined && (
         <Alert
           data-testid="space-alert"

@@ -1,3 +1,5 @@
+import { motionMs } from '../motion';
+
 import { paperClass, scopeIds } from './diagramSvg';
 import { imageCaption } from './dom';
 
@@ -356,7 +358,7 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
       return;
     }
     const element = stage.element;
-    const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : dismissMs;
+    const duration = motionMs(dismissMs);
     const away = dismiss && (Math.abs(ended.dy) > dismissMin || Math.abs(ended.speed) > dismissFlick);
     if (away) {
       dialog.dataset.pull = 'leaving';

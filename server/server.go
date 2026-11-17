@@ -13,6 +13,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -473,6 +474,22 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func jsonError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
+}
+
+func writeTaggedJSON(w http.ResponseWriter, r *http.Request, body []byte) {
+	sum := sha256.Sum256(body)
+	etag := strconv.Quote(hex.EncodeToString(sum[:16]))
+	h := w.Header()
+	h.Set("ETag", etag)
+	h.Set("Cache-Control", pageCacheControl)
+	if matchesETag(r.Header.Get("If-None-Match"), etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	h.Set("Content-Type", "application/json; charset=utf-8")
+	if _, err := w.Write(body); err != nil {
+		log.Printf("[DEBUG] write %s: %v", r.URL.Path, err)
+	}
 }
 
 func failJSON(w http.ResponseWriter, r *http.Request, err error) {

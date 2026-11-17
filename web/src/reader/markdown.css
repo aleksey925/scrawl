@@ -1051,7 +1051,7 @@
 
 .md-viewer[data-pull] :is(.md-viewer-caption, .md-viewer-count, .md-viewer-close, .md-viewer-step, .md-viewer-tools) {
   opacity: 0;
-  transition: opacity 150ms ease-out;
+  transition: opacity var(--md-viewer-chrome-fade, 150ms) ease-out;
 }
 
 .md-viewer-image {
@@ -1241,8 +1241,11 @@
     animation: none;
   }
 
-  .md-viewer[data-pull='leaving']::backdrop,
-  .md-viewer[data-pull] :is(.md-viewer-caption, .md-viewer-count, .md-viewer-close, .md-viewer-step, .md-viewer-tools) {
+  .md-viewer {
+    --md-viewer-chrome-fade: 0ms;
+  }
+
+  .md-viewer[data-pull='leaving']::backdrop {
     transition: none;
   }
 

@@ -118,11 +118,12 @@ opens over them.
   server from the head of the file through `store`, so the page keeps its room
   before the picture comes and the text under it does not jump. That is PNG,
   JPEG, with the sides swapped when its EXIF turns it a quarter, and GIF; an
-  SVG or a WebP has no size read, and the text still moves when it loads. The
-  size is part of the rendered note, kept as long as the note is, so a picture
-  replaced by one of another size keeps the old room until the note changes, as
-  the mark of a broken link does. A page of the command line and a site read no
-  sizes.
+  SVG or a WebP has no size read, and the text still moves when it loads. At
+  most 1 MiB of the head is read, so a picture with more metadata before its
+  size gets none. The size is part of the rendered note, kept as long as the
+  note is, so a picture replaced by one of another size keeps the old room
+  until the note changes, as the mark of a broken link does. A page of the
+  command line and a site read no sizes.
 - A task box on the page is disabled, as GitHub shows a file and unlike Notion.
   A task is ticked in the editor and saved like any change, because a click on
   the page would be a write, and every tick a commit and a push.

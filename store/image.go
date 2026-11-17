@@ -17,7 +17,7 @@ func (s *Store) ImageSize(p string) (width, height int, ok bool) {
 	}
 	defer f.Close()
 	var head bytes.Buffer
-	cfg, format, err := image.DecodeConfig(io.TeeReader(f, &head))
+	cfg, format, err := image.DecodeConfig(io.TeeReader(io.LimitReader(f, imageHeadCap), &head))
 	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
 		return 0, 0, false
 	}
@@ -28,6 +28,7 @@ func (s *Store) ImageSize(p string) (width, height int, ok bool) {
 }
 
 const (
+	imageHeadCap    = 1 << 20
 	jpegStartOfScan = 0xDA
 	jpegApp1        = 0xE1
 	exifOrientation = 0x0112
@@ -38,8 +39,9 @@ func quarterTurned(jpeg []byte) bool {
 	at := 2
 	for at+4 <= len(jpeg) && jpeg[at] == 0xFF {
 		marker := jpeg[at+1]
-		end := at + 2 + int(binary.BigEndian.Uint16(jpeg[at+2:]))
-		if marker == jpegStartOfScan || end > len(jpeg) {
+		length := int(binary.BigEndian.Uint16(jpeg[at+2:]))
+		end := at + 2 + length
+		if marker == jpegStartOfScan || length < 2 || end > len(jpeg) {
 			return false
 		}
 		if marker == jpegApp1 {

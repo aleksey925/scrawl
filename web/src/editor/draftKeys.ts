@@ -16,7 +16,8 @@ export function moveDrafts(scope: string, from: string, to: string): void {
     if (moved === undefined || text === undefined) {
       continue;
     }
-    writeText(store, draftKey(scope, moved), text);
-    removeKey(store, key);
+    if (writeText(store, draftKey(scope, moved), text)) {
+      removeKey(store, key);
+    }
   }
 }

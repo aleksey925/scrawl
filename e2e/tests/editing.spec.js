@@ -638,6 +638,40 @@ test.describe('editing', () => {
         removeFixture(renamed);
     });
 
+    test('a rename keeps the draft under the old name when the browser refuses it under the new one', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-rename-refused');
+        const renamed = scratch('draft-rename-refused-new');
+        writeFixture(docPath, 'kept\n');
+        await page.addInitScript((refused) => {
+            const setItem = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (key, value) {
+                if (key.startsWith('scrawl.draft:') && key.endsWith(`:${refused}`)) {
+                    throw new DOMException('full', 'QuotaExceededError');
+                }
+                return setItem.call(this, key, value);
+            };
+        }, renamed);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'typed before the rename\n');
+        await page.locator(`[data-testid=tree-row][data-path="${docPath}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-rename').click();
+        await page.getByTestId('tree-rename-input').fill(nameOf(renamed));
+
+        // act
+        await page.getByTestId('tree-rename-input').press('Enter');
+        await expect(page).toHaveURL(MAIN.url.doc(renamed));
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+
+        // assert
+        const drafts = await page.evaluate(() => Object.keys(localStorage)
+            .filter((key) => key.startsWith('scrawl.draft:'))
+            .map((key) => ({path: key.slice(key.lastIndexOf(':') + 1), content: JSON.parse(localStorage.getItem(key)).content})));
+        expect(drafts).toEqual([{path: docPath, content: 'typed before the rename\n'}]);
+        removeFixture(renamed);
+    });
+
     test('a draft offer names the time it was written, and says when the file changed since', async ({page}) => {
         // arrange
         const docPath = scratch('draft-stale');

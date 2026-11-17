@@ -87,8 +87,9 @@ The editor screen.
   text typed there instead of Restore replaces it. A draft belongs to its space
   and path, and follows the note when it or its folder is renamed or moved, an
   Undo of the move included, the open note too: its text is written as the
-  editor goes and moved once the next page opens. A leave while a save is on
-  its way shows no such toast, as the save's own follows. Only when the browser
+  editor goes and moved once the next page opens. A draft the browser refuses
+  under the new name stays under the old one. A leave while a save is on its
+  way shows no such toast, as the save's own follows. Only when the browser
   refuses the draft, as a private window or a full storage does, or while a
   picture is still uploading, whose link would never land, would the text be
   lost, and then a dialog asks "Discard changes?" with Discard in red and Keep

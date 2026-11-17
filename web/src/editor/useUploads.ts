@@ -51,7 +51,7 @@ export function useUploads(path: string, getView: () => EditorView | undefined):
   const upload = useCallback(
     (files: readonly File[], at?: number): void => {
       const view = getView();
-      if (view === undefined || files.length === 0) {
+      if (view === undefined || view.state.readOnly || files.length === 0) {
         return;
       }
       for (const file of files) {

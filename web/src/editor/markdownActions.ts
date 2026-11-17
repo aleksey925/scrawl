@@ -161,6 +161,9 @@ const bulletMarker = /^\s*-\s+/;
 const orderedMarker = /^\s*\d+[.)]\s+/;
 
 export function runMarkdownAction(view: EditorView, action: MarkdownAction): void {
+  if (view.state.readOnly) {
+    return;
+  }
   switch (action) {
     case 'bold':
       toggleWrap(view, '**', 'bold text');

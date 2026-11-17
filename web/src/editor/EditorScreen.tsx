@@ -236,6 +236,9 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   }, [bufferText, liveView, putIfUnchanged]);
 
   const format = useCallback((): void => {
+    if (viewRef.current?.state.readOnly === true) {
+      return;
+    }
     formatBuffer().catch((error: unknown) => {
       showToast('error', { title: 'Could not format the note', message: errorText(error) });
     });

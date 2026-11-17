@@ -305,6 +305,9 @@ function deleteTable(view: EditorView, spot: TableSpot): void {
 }
 
 export function runTableEdit(view: EditorView, edit: TableEdit): void {
+  if (view.state.readOnly) {
+    return;
+  }
   const spot = tableSpot(view.state, view.state.selection.main.head);
   if (spot !== undefined && editsOf(spot).has(edit)) {
     if (edit === 'deleteTable') {
@@ -323,6 +326,9 @@ export function runTableEdit(view: EditorView, edit: TableEdit): void {
 }
 
 export function insertTable(view: EditorView, { columns, rows }: TableSize): void {
+  if (view.state.readOnly) {
+    return;
+  }
   const { state } = view;
   const { doc } = state;
   const line = doc.lineAt(state.selection.main.head);

@@ -124,7 +124,7 @@ test.describe.serial('upload', () => {
         await expect.poll(() => sourceText(page)).toContain('![](leave-uploading/e2e-leave-uploading.png)');
     });
 
-    test('Discard while a picture uploads stops the editing and the draft while the reader loads', async ({page}) => {
+    test('Discard while a picture uploads stops the typing, the toolbar and the draft while the reader loads', async ({page}) => {
         // arrange
         const docPath = `${FOLDER}/discard-uploading.md`;
         writeFixture(docPath, '# Сброс\n\n');
@@ -144,6 +144,12 @@ test.describe.serial('upload', () => {
         await expect(page.getByTestId('modal')).toHaveCount(0);
         await page.locator('[data-testid=editor-source] .cm-content').click();
         await page.keyboard.type('typed after Discard');
+        await page.getByTestId('editor-toolbar-bold').click();
+        await page.getByTestId('editor-upload-input').setInputFiles({
+            name: 'e2e-picked-after-discard.png',
+            mimeType: 'image/png',
+            buffer: Buffer.from(PNG_BASE64, 'base64'),
+        });
         await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
 
         // assert

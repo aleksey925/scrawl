@@ -177,6 +177,9 @@ function placeToc(state: EditorState, block: string): TocChange {
 }
 
 export function writeToc(view: EditorView, block: string): void {
+  if (view.state.readOnly) {
+    return;
+  }
   const change = placeToc(view.state, block);
   view.dispatch({ changes: change, effects: EditorView.scrollIntoView(change.from, { y: 'nearest' }) });
 }

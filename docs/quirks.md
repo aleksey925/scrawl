@@ -210,6 +210,10 @@ words; the fact itself is written here.
 - React Router asks a blocker once, as a navigation starts, not while the code
   of the next page loads, so a change made in that time passes the guard on
   leaving. [Editor](ui/editor.md)
+- `EditorState.readOnly` of codemirror stops only what the person types, pastes
+  or drops: a change the code dispatches still goes in, so each toolbar action,
+  the contents, the formatter and a picture's upload first check that the state
+  is not read-only. [Editor](ui/editor.md)
 - `router.state.location` of React Router holds the path with the basename,
   `/s/<name>/doc/...`, while `useLocation` and every link of the app hold it
   without. [Phone](ui/phone.md)

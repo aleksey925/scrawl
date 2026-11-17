@@ -411,7 +411,7 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    test('after Save the text cannot change while the reader loads', async ({page}) => {
+    test('after Save neither typing nor the toolbar changes the text while the reader loads', async ({page}) => {
         // arrange
         const docPath = scratch('save-reader-loads');
         writeFixture(docPath, 'kept\n');
@@ -426,6 +426,7 @@ test.describe('editing', () => {
         await page.getByTestId('editor-save').click();
         await expect(source).toHaveAttribute('contenteditable', 'false');
         await page.keyboard.type(' and more');
+        await page.getByTestId('editor-toolbar-bold').click();
         const shown = await sourceText(page);
         release();
 

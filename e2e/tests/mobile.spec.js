@@ -715,14 +715,8 @@ test.describe('mobile', () => {
                 window.copyFrames = [];
                 let seen = false;
                 let after = 0;
-                const onTop = (cover, x) => {
-                    if (cover !== null) {
-                        cover.inert = false;
-                    }
+                const onTop = (x) => {
                     const hit = document.elementFromPoint(x, 400);
-                    if (cover !== null) {
-                        cover.inert = true;
-                    }
                     const screen = hit?.closest('[data-screen]');
                     if (hit?.closest('[data-leaving]')) {
                         return 'copy';
@@ -735,12 +729,14 @@ test.describe('mobile', () => {
                     const cover = document.querySelector('[data-leaving]');
                     seen = seen || cover !== null;
                     after += seen && cover === null ? 1 : 0;
+                    const edge = cover === null ? 0 : cover.getBoundingClientRect().left;
                     window.copyFrames.push({
                         copy: cover !== null,
-                        left: onTop(cover, 20),
-                        right: onTop(cover, window.innerWidth - 10),
+                        left: onTop(20),
+                        right: onTop(window.innerWidth - 10),
+                        seam: edge > 4 ? onTop(edge - 2) : 'none',
                         opaque: cover === null || getComputedStyle(cover).backgroundColor !== 'rgba(0, 0, 0, 0)',
-                        inert: cover === null || cover.inert,
+                        catches: cover === null || (!cover.inert && cover.firstElementChild.inert),
                         marks: cover === null ? 0 : cover.querySelectorAll('[id], [data-testid], [data-screen]').length
                             + (cover.matches('[id], [data-testid], [data-screen]') ? 1 : 0),
                     });
@@ -762,11 +758,11 @@ test.describe('mobile', () => {
             const from = frames.findIndex((frame) => frame.copy);
             const under = frames.findIndex((frame) => frame.copy && frame.left === 'list');
             expect(from).toBeGreaterThanOrEqual(0);
-            expect(frames.filter((frame) => frame.copy).every((frame) => frame.opaque && frame.inert && frame.marks === 0)).toBe(true);
+            expect(frames.filter((frame) => frame.copy).every((frame) => frame.opaque && frame.catches && frame.marks === 0)).toBe(true);
             expect(frames[from].right).toBe('copy');
             expect(under).toBeGreaterThanOrEqual(0);
-            expect(frames.slice(under).filter((frame) => frame.left !== 'list')).toEqual([]);
-            expect(frames.at(-1)).toEqual({copy: false, left: 'list', right: 'list', opaque: true, inert: true, marks: 0});
+            expect(frames.slice(under).filter((frame) => frame.left !== 'list' || frame.seam === 'nothing')).toEqual([]);
+            expect(frames.at(-1)).toEqual({copy: false, left: 'list', right: 'list', seam: 'none', opaque: true, catches: true, marks: 0});
             await expect(page).toHaveURL(folder());
         });
 
@@ -993,7 +989,7 @@ test.describe('mobile', () => {
             await page.goto(routes.doc(DOC));
             await expect(page.locator('[data-screen]')).toBeVisible();
             await page.route(/\/api\/(dir|page)\//, async (route) => {
-                await new Promise((resolve) => setTimeout(resolve, 1000));
+                await new Promise((resolve) => setTimeout(resolve, 2000));
                 await route.continue();
             });
             await page.evaluate(() => {
@@ -1177,6 +1173,200 @@ test.describe('mobile', () => {
             await swipe(page, 300);
             await expect(page).toHaveURL(MAIN.url.dir(docs.deep.above));
             held.release();
+        });
+
+        test('a folder the drag asked for and still on its way is not asked for again, and shows when it comes', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(docs.folder.entry));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await page.waitForLoadState('networkidle');
+            const asked = [];
+            page.on('request', (request) => {
+                if (request.url().includes(`/api/dir/${docs.folder.path}`)) {
+                    asked.push(request.url());
+                }
+            });
+            const held = await holdRoute(page, new RegExp(`/api/dir/${docs.folder.path}`));
+
+            // act
+            await swipe(page, 300);
+            await expect(page).toHaveURL(folder());
+            await held.reached;
+            await page.waitForTimeout(300);
+            held.release();
+
+            // assert
+            await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.folder.entry}"]`)).toBeVisible();
+            expect(asked).toHaveLength(1);
+        });
+
+        test('a folder the drag asked for before a change does not come back from the answers the app keeps', async ({page}) => {
+            // arrange
+            const above = 'e2e-mobile/asked-before';
+            const gone = `${above}/gone.md`;
+            const kept = `${above}/kept.md`;
+            writeFixture(gone, '# Gone\n');
+            writeFixture(kept, '# Kept\n');
+            await asStandalone(page);
+            await page.goto(MAIN.url.dir(above));
+            await page.locator(`[data-testid=dir-row][data-path="${gone}"]`).tap();
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await page.waitForLoadState('networkidle');
+            let answer = () => {};
+            const late = new Promise((resolve) => {
+                answer = resolve;
+            });
+            await page.route(new RegExp(`/api/dir/${above}`), async (route) => {
+                const response = await route.fetch();
+                await late;
+                await route.fulfill({response});
+            }, {times: 1});
+            const cdp = await page.context().newCDPSession(page);
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y: 400}]});
+            for (const x of [10, 20, 40, 80]) {
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: 400}]});
+            }
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
+            await settled(page);
+            await page.getByTestId('note-menu').tap();
+            await openedMenu(page, 'note-menu-dropdown');
+            await page.getByTestId('note-menu-delete').tap();
+            await expect.poll(() => fs.existsSync(fixtureFile(gone))).toBe(false);
+            await page.waitForLoadState('networkidle');
+            answer();
+            await page.waitForTimeout(300);
+            await expect(page).toHaveURL(atHome());
+            await page.locator('[data-testid=dir-row][data-path="e2e-mobile"]').tap();
+            const row = page.locator(`[data-testid=dir-row][data-path="${above}"]`);
+            await expect(row).toBeVisible();
+            const held = await holdRoute(page, new RegExp(`/api/dir/${above}`));
+
+            // act
+            await row.tap();
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.dir(above));
+            await stays(() => page.locator(`[data-screen] [data-testid=dir-row][data-path="${gone}"]`).count(), 0, 500);
+            held.release();
+            await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${kept}"]`)).toBeVisible();
+        });
+
+        test('a drag held while a folder\'s answer comes keeps the page at the finger', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(docs.deep.path));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            const held = await holdRoute(page, /\/api\/dir\//);
+            await swipe(page, 300);
+            await expect(page).toHaveURL(MAIN.url.dir(docs.deep.folder));
+            await held.reached;
+            await expect(page.locator('[data-leaving]')).toHaveCount(0);
+            await addTouchSender(page);
+            await page.evaluate(async () => {
+                window.sendTouch('touchstart', [4, 400]);
+                for (const x of [10, 20, 40, 70, 104]) {
+                    window.sendTouch('touchmove', [x, 400]);
+                    await new Promise((resolve) => setTimeout(resolve, 16));
+                }
+            });
+
+            // act
+            held.release();
+            await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.deep.path}"]`)).toBeVisible();
+            await page.waitForTimeout(100);
+
+            // assert
+            const shift = await page.locator('[data-screen]').evaluate((el) => Math.round(new DOMMatrix(getComputedStyle(el).transform).m41));
+            await page.evaluate(() => window.sendTouch('touchcancel'));
+            expect(shift).toBe(100);
+        });
+
+        test('a swipe on the root while it still loads after a swipe to it goes nowhere', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(folder());
+            await expect(page.getByTestId('dir-row').first()).toBeVisible();
+            const held = await holdRoute(page, /\/api\/dir\//);
+            await swipe(page, 300);
+            await expect(page).toHaveURL(atHome());
+            await expect(page.locator('[data-leaving]')).toHaveCount(0);
+            const length = await page.evaluate(() => history.length);
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await page.waitForTimeout(300);
+            expect(await page.evaluate(() => history.length)).toBe(length);
+            await expect(page).toHaveURL(atHome());
+            held.release();
+        });
+
+        test('a part of the page scrolled sideways keeps its place on the copy', async ({page}) => {
+            // arrange
+            const note = 'e2e-mobile/copy-scrolled.md';
+            writeFixture(note, `# Copy scrolled\n\n\`\`\`\n${'wide '.repeat(80)}\n\`\`\`\n`);
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(note));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            const scrolled = await page.evaluate(() => {
+                const wide = Array.from(document.querySelectorAll('[data-screen] *'))
+                    .find((node) => node.scrollWidth > node.clientWidth + 100 && getComputedStyle(node).overflowX !== 'visible');
+                wide.scrollLeft = 120;
+                wide.dataset.wide = 'true';
+                window.addEventListener('touchend', () => {
+                    window.copiedScroll = document.querySelector('[data-leaving] [data-wide]')?.scrollLeft;
+                }, {once: true});
+                return wide.scrollLeft;
+            });
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect.poll(() => page.evaluate(() => window.copiedScroll)).toBe(scrolled);
+            removeFixture(note);
+        });
+
+        test('a diagram on a note dragged while it slides in waits for the finger to lift', async ({page}) => {
+            // arrange
+            const note = 'e2e-mobile/drawn-after-drag.md';
+            const warm = 'e2e-mobile/drawn-before-drag.md';
+            writeFixture(note, '# Drawn after drag\n\n```mermaid\ngraph TD\n  A --> B\n```\n');
+            writeFixture(warm, '# Drawn before drag\n\n```mermaid\ngraph TD\n  C --> D\n```\n');
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(warm));
+            await expect(page.locator('.md-diagram[data-state="done"]')).toBeVisible();
+            await page.getByTestId('topbar-up').tap();
+            const row = page.locator(`[data-testid=dir-row][data-path="${note}"]`);
+            await expect(row).toBeVisible();
+            await settled(page);
+            await addTouchSender(page);
+
+            // act
+            await row.tap();
+            const during = await page.evaluate(async () => {
+                const running = () => document.querySelector('[data-testid=doc]')?.closest('[data-screen]')?.getAnimations()
+                    .some((animation) => animation.playState === 'running') === true;
+                for (let frame = 0; frame < 300 && !running(); frame++) {
+                    await new Promise((resolve) => requestAnimationFrame(resolve));
+                }
+                window.sendTouch('touchstart', [4, 400]);
+                for (const x of [10, 20, 40, 70]) {
+                    window.sendTouch('touchmove', [x, 400]);
+                    await new Promise((resolve) => setTimeout(resolve, 16));
+                }
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                return document.querySelector('[data-screen] .md-diagram')?.dataset.state;
+            });
+            await page.evaluate(() => window.sendTouch('touchcancel'));
+
+            // assert
+            expect(during).toBe('drawing');
+            await expect(page.locator('[data-screen] .md-diagram[data-state="done"]')).toBeVisible();
+            removeFixture(note);
+            removeFixture(warm);
         });
 
         test('with less motion asked for, a swipe let go goes back with no copy left over', async ({page}) => {

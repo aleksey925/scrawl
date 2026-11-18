@@ -1,7 +1,7 @@
 import { createContext, useContext, useLayoutEffect, type RefObject } from 'react';
 import { useLocation, useNavigationType } from 'react-router';
 
-import { motionMs, noteEntering } from '../motion';
+import { holdScreen, motionMs, noteEntering } from '../motion';
 import { scopeDiagramIds } from '../reader/diagramSvg';
 import { layoutBreakpoints, maxWidthQuery } from '../theme';
 
@@ -17,7 +17,14 @@ export function planMotion(pathname: string, motion: Motion): void {
   planned = { pathname, motion };
 }
 
-let leavingSheet: HTMLElement | undefined;
+interface Leaving {
+  sheet: HTMLElement;
+  animation: Animation;
+  duration: number;
+  easing: string;
+}
+
+let leaving: Leaving | undefined;
 
 let hidden: { element: HTMLElement; timer: number } | undefined;
 
@@ -67,11 +74,43 @@ function stripMarks(copy: HTMLElement): void {
   }
 }
 
+interface Scrolled {
+  index: number;
+  left: number;
+  top: number;
+}
+
+function scrolledParts(element: HTMLElement): Scrolled[] {
+  const parts: Scrolled[] = [];
+  for (const [index, node] of element.querySelectorAll('*').entries()) {
+    if (node.scrollLeft !== 0 || node.scrollTop !== 0) {
+      parts.push({ index, left: node.scrollLeft, top: node.scrollTop });
+    }
+  }
+  return parts;
+}
+
+function keepScroll(copy: HTMLElement, parts: Scrolled[]): void {
+  if (parts.length === 0) {
+    return;
+  }
+  const nodes = copy.querySelectorAll('*');
+  for (const { index, left, top } of parts) {
+    const node = nodes[index];
+    if (node !== undefined) {
+      node.scrollLeft = left;
+      node.scrollTop = top;
+    }
+  }
+}
+
 export function sendOff(element: HTMLElement, from: number, speed: number): void {
   reveal();
   const box = element.getBoundingClientRect();
+  const scrolled = scrolledParts(element);
   const copy = element.cloneNode(true) as HTMLElement;
   stripMarks(copy);
+  copy.inert = true;
   Object.assign(copy.style, {
     position: 'absolute',
     top: `${box.top}px`,
@@ -81,36 +120,66 @@ export function sendOff(element: HTMLElement, from: number, speed: number): void
   });
   const sheet = document.createElement('div');
   sheet.className = classes.sheet ?? '';
-  sheet.inert = true;
   sheet.dataset.leaving = 'true';
   sheet.style.transform = `translateX(${from}px)`;
   sheet.append(copy);
   element.after(sheet);
+  keepScroll(copy, scrolled);
   element.style.visibility = 'hidden';
   hidden = { element, timer: window.setTimeout(reveal, hideHoldMs) };
-  leavingSheet = sheet;
+  const timing = releaseMotion(box.width - from, speed);
   const animation = sheet.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100%)' }], {
-    ...releaseMotion(box.width - from, speed),
+    ...timing,
     fill: 'forwards',
   });
+  leaving = { sheet, animation, ...timing };
+  const held = holdScreen();
   const cap = window.setTimeout(() => animation.cancel(), hideHoldMs);
   const remove = (): void => {
     window.clearTimeout(cap);
+    held();
     sheet.remove();
-    if (leavingSheet === sheet) {
-      leavingSheet = undefined;
+    if (leaving?.sheet === sheet) {
+      leaving = undefined;
     }
   };
   void animation.finished.then(remove, remove);
 }
 
 export function leavingScreen(): boolean {
-  return leavingSheet !== undefined;
+  return leaving !== undefined;
 }
 
-export function takeScreen(element: HTMLElement): void {
+export interface Drag {
+  element: HTMLElement;
+  release: (settled?: Promise<unknown>) => void;
+}
+
+let drag: Drag | undefined;
+
+export function takeScreen(element: HTMLElement): Drag {
   for (const animation of element.getAnimations()) {
     animation.finish();
+  }
+  const held = holdScreen();
+  const taken: Drag = {
+    element,
+    release: (settled) => {
+      if (drag === taken) {
+        drag = undefined;
+      }
+      void (settled ?? Promise.resolve()).then(held, held);
+    },
+  };
+  drag = taken;
+  return taken;
+}
+
+function handToDrag(taken: Drag, element: HTMLElement): void {
+  if (taken.element !== element) {
+    element.style.transform = taken.element.style.transform;
+    element.style.willChange = taken.element.style.willChange;
+    taken.element = element;
   }
 }
 
@@ -124,7 +193,25 @@ export function useOffScreen(): void {
 }
 
 const enterMs = 300;
-const offset = '28%';
+const offsetPercent = 28;
+
+interface Enter {
+  start: string;
+  duration: number;
+  easing: string;
+}
+
+function alongLeaving(): Enter | undefined {
+  if (leaving === undefined) {
+    return undefined;
+  }
+  const rest = leaving.duration - Number(leaving.animation.currentTime ?? 0);
+  if (rest <= 0) {
+    return undefined;
+  }
+  const behind = leaving.sheet.offsetWidth - leaving.sheet.getBoundingClientRect().left;
+  return { start: `translateX(${-Math.round((offsetPercent / 100) * behind)}px)`, duration: rest, easing: leaving.easing };
+}
 
 function motionOf(pathname: string, navigation: string): Motion {
   const asked = planned?.pathname === pathname ? planned.motion : undefined;
@@ -160,16 +247,23 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
     offScreen = false;
     const motion = motionOf(location.pathname, navigation);
     const element = ref.current;
+    if (drag !== undefined && element !== null) {
+      handToDrag(drag, element);
+      return;
+    }
     const duration = motionMs(enterMs);
     if (first || motion === 'none' || element === null || !moves() || duration === 0) {
       return;
     }
+    const along = motion === 'back' ? alongLeaving() : undefined;
     const start =
-      motion === 'forward' ? { transform: `translateX(${offset})`, opacity: '0' } : { transform: `translateX(-${offset})`, opacity: '1' };
+      motion === 'forward'
+        ? { transform: `translateX(${offsetPercent}%)`, opacity: '0' }
+        : { transform: along?.start ?? `translateX(-${offsetPercent}%)`, opacity: '1' };
     Object.assign(element.style, start);
     const animation = element.animate([start, { transform: 'none', opacity: '1' }], {
-      duration,
-      easing: screenEasing,
+      duration: along?.duration ?? duration,
+      easing: along?.easing ?? screenEasing,
       fill: 'forwards',
     });
     const done = (): void => {

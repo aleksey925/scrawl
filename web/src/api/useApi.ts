@@ -42,15 +42,33 @@ export function seedResponse(key: string, data: unknown): void {
   remember(key, data);
 }
 
+const pending = new Map<string, Promise<unknown>>();
+
+let generation = 0;
+
 export function prefetchDir(source: Pick<ScrawlApi, 'dir'>, path: string): Promise<void> {
-  return source.dir(path).then(
-    (dir) => seedResponse(answerKeys.dir(path), dir),
-    () => undefined,
-  );
+  const key = answerKeys.dir(path);
+  const before = responses.get(key);
+  const asked = generation;
+  const answer = source.dir(path);
+  pending.set(key, answer);
+  const settle = (): void => {
+    if (pending.get(key) === answer) {
+      pending.delete(key);
+    }
+  };
+  return answer.then((dir) => {
+    settle();
+    if (generation === asked && responses.get(key) === before) {
+      remember(key, dir);
+    }
+  }, settle);
 }
 
 export function forgetResponses(): void {
+  generation += 1;
   responses.clear();
+  pending.clear();
 }
 
 interface Answer<T> {
@@ -76,7 +94,9 @@ export function useApi<T>(
     setState((prev) =>
       cached === undefined ? { ...prev, error: undefined, loading: true } : { data: cached, dataKey: key, loading: true },
     );
-    run(controller.signal).then(
+    const shared = key === undefined ? undefined : (pending.get(key) as Promise<T> | undefined);
+    const answer = shared === undefined ? run(controller.signal) : shared.catch(() => run(controller.signal));
+    answer.then(
       (data) => {
         if (controller.signal.aborted) {
           return;

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { leavingScreen, releaseMotion, sendOff, standalone, takeScreen } from '../components/screenMotion';
+import { leavingScreen, releaseMotion, sendOff, standalone, takeScreen, type Drag } from '../components/screenMotion';
 
 const edgePx = 24;
 const decidePx = 6;
@@ -20,7 +20,7 @@ interface Track {
   dx: number;
   samples: Sample[];
   across: boolean;
-  element?: HTMLElement;
+  taken?: Drag;
 }
 
 function speedOf(samples: Sample[], now: number): number {
@@ -50,9 +50,10 @@ function clearDrag(element: HTMLElement): void {
   element.style.willChange = '';
 }
 
-function settle(element: HTMLElement, from: number, speed: number): void {
+function settle({ element, release }: Drag, from: number, speed: number): void {
   clearDrag(element);
-  element.animate([{ transform: `translateX(${from}px)` }, { transform: 'none' }], releaseMotion(from, speed));
+  const animation = element.animate([{ transform: `translateX(${from}px)` }, { transform: 'none' }], releaseMotion(from, speed));
+  release(animation.finished);
 }
 
 export function useSwipeBack(goBack: (() => void) | null, prepare?: () => void): void {
@@ -72,13 +73,13 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => void):
     const drop = (): void => {
       const ended = track;
       track = undefined;
-      if (ended?.element !== undefined) {
-        settle(ended.element, ended.dx, 0);
+      if (ended?.taken !== undefined) {
+        settle(ended.taken, ended.dx, 0);
       }
     };
 
     const onStart = (event: TouchEvent): void => {
-      if (track?.element !== undefined) {
+      if (track?.taken !== undefined) {
         drop();
         return;
       }
@@ -111,7 +112,7 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => void):
         track.across = decided;
       }
       event.preventDefault();
-      if (track.element === undefined) {
+      if (track.taken === undefined) {
         const element = screen();
         if (element === null) {
           track = undefined;
@@ -120,33 +121,34 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => void):
         if (dx < startPx) {
           return;
         }
-        takeScreen(element);
+        track.taken = takeScreen(element);
         element.style.willChange = 'transform';
-        track.element = element;
         prepareRef.current?.();
       }
       track.dx = dx;
       const recent = track.samples.filter((point) => event.timeStamp - point.at <= flickWindowMs);
       track.samples = [...recent, { dx, at: event.timeStamp }];
-      track.element.style.transform = `translateX(${dx}px)`;
+      track.taken.element.style.transform = `translateX(${dx}px)`;
     };
 
     const onEnd = (event: TouchEvent): void => {
       const ended = track;
       track = undefined;
-      const element = ended?.element;
-      if (ended === undefined || element === undefined) {
+      const taken = ended?.taken;
+      if (ended === undefined || taken === undefined) {
         return;
       }
+      const { element, release } = taken;
       const speed = speedOf(ended.samples, event.timeStamp);
       const done = speed > flickPxPerMs || (ended.dx > element.offsetWidth * completeShare && speed > -flickPxPerMs);
       const back = goBackRef.current;
       if (!done || back === null) {
-        settle(element, ended.dx, -speed);
+        settle(taken, ended.dx, -speed);
         return;
       }
       clearDrag(element);
       sendOff(element, ended.dx, speed);
+      release();
       back();
     };
 

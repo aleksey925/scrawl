@@ -8,10 +8,31 @@ export function motionMs(ms: number): number {
 
 let entering: Promise<void> | undefined;
 
+let held: { released: Promise<void> } | undefined;
+
 export function noteEntering(settled: Promise<void>): void {
   entering = settled;
 }
 
-export function screenSettled(): Promise<void> {
-  return entering ?? Promise.resolve();
+export function holdScreen(): () => void {
+  let resolve = (): void => {};
+  const hold = {
+    released: new Promise<void>((done) => {
+      resolve = done;
+    }),
+  };
+  held = hold;
+  return () => {
+    if (held === hold) {
+      held = undefined;
+    }
+    resolve();
+  };
+}
+
+export async function screenSettled(): Promise<void> {
+  await entering;
+  while (held !== undefined) {
+    await held.released;
+  }
 }

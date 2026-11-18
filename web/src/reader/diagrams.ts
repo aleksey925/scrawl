@@ -297,6 +297,10 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
       if (item.kind !== kind) {
         continue;
       }
+      await screenSettled();
+      if (cancelled) {
+        return;
+      }
       const result = await drawOne(draw, item, `md-${kind.name}-${thisPass}-${index}`);
       if (cancelled) {
         return;

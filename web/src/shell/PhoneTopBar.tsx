@@ -89,7 +89,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
     return true;
   };
   useSwipeBack(
-    editing || atRoot
+    editing || atRoot || location.pathname === directoryUrl('')
       ? null
       : () => {
           commit();

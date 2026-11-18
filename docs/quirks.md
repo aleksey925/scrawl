@@ -99,6 +99,9 @@ words; the fact itself is written here.
   bar inside it stops sticking; `clip` does not. [Phone](ui/phone.md)
 - A fixed element inside a scaled element is placed in that element.
   [Touch](ui/touch.md)
+- The pictures of a View Transition are drawn in the top layer, above every
+  fixed bar of the page, and the page is not drawn again until the promise of
+  its update settles. [ADR 33](adr/0033-a-swiped-page-leaves-as-a-copy.md)
 - A word joiner (U+2060) keeps a letter with the next letter, but Chromium and
   WebKit still break a line between it and an inline box, an icon say, unless
   the joiner and the box share a `white-space: nowrap` element.

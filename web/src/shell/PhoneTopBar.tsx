@@ -13,14 +13,14 @@ import { layout } from '../theme';
 import { AppLogo } from './AppLogo';
 import { DraftNameField } from './DraftName';
 import { usePageRenaming } from './fileActionsContext';
-import { contentPathOf, parentOf } from './naming';
+import { basenameOf, contentPathOf, parentOf } from './naming';
 import { spaceLabel, useAccount } from './NavContext';
 import { useShownChrome } from './PageChrome';
 import classes from './PhoneTopBar.module.css';
 import { useSwipeBack } from './useSwipeBack';
 
 function titleGone(): boolean {
-  const heading = document.querySelector('.mantine-AppShell-main h1');
+  const heading = document.querySelector('[data-screen] h1');
   if (heading === null) {
     return window.scrollY > 0;
   }
@@ -60,7 +60,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const location = useLocation();
   const onContent = location.pathname.startsWith('/doc/');
   const above = parentOf(contentPathOf(location.pathname));
-  const parent = onContent ? { name: crumb.name, url: directoryUrl(above) } : crumb;
+  const parent = onContent ? { name: above === '' ? space : basenameOf(above), url: directoryUrl(above) } : crumb;
   const { source } = usePlatform();
   const editing = isEditPath(location.pathname);
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);

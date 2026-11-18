@@ -140,12 +140,14 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => void):
       }
       const speed = speedOf(ended.samples, event.timeStamp);
       const done = speed > flickPxPerMs || (ended.dx > element.offsetWidth * completeShare && speed > -flickPxPerMs);
-      if (!done) {
+      const back = goBackRef.current;
+      if (!done || back === null) {
         settle(element, ended.dx, -speed);
         return;
       }
+      clearDrag(element);
       sendOff(element, ended.dx, speed);
-      goBackRef.current?.();
+      back();
     };
 
     document.addEventListener('touchstart', onStart, { passive: true });

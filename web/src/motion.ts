@@ -6,18 +6,12 @@ export function motionMs(ms: number): number {
   return reducedMotion() ? 0 : ms;
 }
 
-let entering: Animation | undefined;
+let entering: Promise<void> | undefined;
 
-export function noteEntering(animation: Animation): void {
-  entering = animation;
+export function noteEntering(settled: Promise<void>): void {
+  entering = settled;
 }
 
 export function screenSettled(): Promise<void> {
-  const running = entering;
-  return running === undefined || running.playState === 'finished' || running.playState === 'idle'
-    ? Promise.resolve()
-    : running.finished.then(
-        () => undefined,
-        () => undefined,
-      );
+  return entering ?? Promise.resolve();
 }

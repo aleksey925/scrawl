@@ -10,6 +10,15 @@ export function noteEntry(): void {
   trail.set(entryIndex(), window.location.pathname);
 }
 
+function decoded(pathname: string): string {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return pathname;
+  }
+}
+
 export function cameFrom(pathname: string): boolean {
-  return trail.get(entryIndex() - 1) === new URL(mountBase() + pathname, window.location.origin).pathname;
+  const before = trail.get(entryIndex() - 1);
+  return before !== undefined && decoded(before) === decoded(new URL(mountBase() + pathname, window.location.origin).pathname);
 }

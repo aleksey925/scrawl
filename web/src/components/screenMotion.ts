@@ -2,6 +2,7 @@ import { createContext, useContext, useLayoutEffect, type RefObject } from 'reac
 import { useLocation, useNavigationType } from 'react-router';
 
 import { motionMs, noteEntering } from '../motion';
+import { scopeIds } from '../reader/diagramSvg';
 import { layoutBreakpoints, maxWidthQuery } from '../theme';
 
 type Motion = 'forward' | 'back' | 'none';
@@ -53,46 +54,66 @@ function reveal(): void {
   }
 }
 
-export function sendOff(element: HTMLElement, from: number, speed: number): void {
-  ghost?.remove();
-  reveal();
-  const box = element.getBoundingClientRect();
-  const copy = element.cloneNode(true) as HTMLElement;
+function stripMarks(copy: HTMLElement): void {
+  const diagrams = Array.from(copy.querySelectorAll<SVGSVGElement>('svg[id]')).filter(
+    (svg) => svg.parentElement?.closest('svg') === null,
+  );
+  for (const svg of diagrams) {
+    scopeIds(svg, `leaving-${svg.id}`);
+  }
   for (const node of [copy, ...copy.querySelectorAll<HTMLElement>('[id], [data-testid], [data-screen]')]) {
-    node.removeAttribute('id');
+    if (!diagrams.some((svg) => svg.contains(node))) {
+      node.removeAttribute('id');
+    }
     node.removeAttribute('data-testid');
     node.removeAttribute('data-screen');
   }
-  copy.inert = true;
-  copy.setAttribute('aria-hidden', 'true');
-  copy.dataset.leaving = 'true';
+}
+
+export function sendOff(element: HTMLElement, from: number, speed: number): void {
+  reveal();
+  const box = element.getBoundingClientRect();
+  const copy = element.cloneNode(true) as HTMLElement;
+  stripMarks(copy);
   Object.assign(copy.style, {
-    position: 'fixed',
+    position: 'absolute',
     top: `${box.top}px`,
-    left: `${box.left - from}px`,
-    width: `${element.offsetWidth}px`,
+    left: `${box.left}px`,
+    width: `${box.width}px`,
     margin: '0',
-    pointerEvents: 'none',
+  });
+  const cover = document.createElement('div');
+  cover.inert = true;
+  cover.dataset.leaving = 'true';
+  Object.assign(cover.style, {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+    background: 'var(--scrawl-bg)',
+    zIndex: '90',
     transform: `translateX(${from}px)`,
     willChange: 'transform',
   });
-  element.after(copy);
-  element.style.transform = '';
-  element.style.willChange = '';
+  cover.append(copy);
+  element.after(cover);
   element.style.visibility = 'hidden';
   hidden = { element, timer: window.setTimeout(reveal, hideHoldMs) };
-  ghost = copy;
-  const animation = copy.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100vw)' }], {
-    ...releaseMotion(element.offsetWidth - from, speed),
+  ghost = cover;
+  const animation = cover.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100%)' }], {
+    ...releaseMotion(box.width - from, speed),
     fill: 'forwards',
   });
   const remove = (): void => {
-    copy.remove();
-    if (ghost === copy) {
+    cover.remove();
+    if (ghost === cover) {
       ghost = undefined;
     }
   };
   void animation.finished.then(remove, remove);
+  window.setTimeout(remove, hideHoldMs);
 }
 
 export function leavingScreen(): boolean {
@@ -139,13 +160,16 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
   const navigation = useNavigationType();
 
   useLayoutEffect(() => {
-    if (!ready || (enteredFor === location.key && !offScreen)) {
+    if (!ready) {
+      return;
+    }
+    reveal();
+    if (enteredFor === location.key && !offScreen) {
       return;
     }
     const first = enteredFor === undefined;
     enteredFor = location.key;
     offScreen = false;
-    reveal();
     const motion = motionOf(location.pathname, navigation);
     const element = ref.current;
     const duration = motionMs(enterMs);
@@ -160,7 +184,6 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
       easing: screenEasing,
       fill: 'forwards',
     });
-    noteEntering(animation);
     const done = (): void => {
       if (element.style.transform === start.transform) {
         element.style.transform = '';
@@ -168,6 +191,6 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
       element.style.opacity = '';
       animation.cancel();
     };
-    void animation.finished.then(done, done);
+    noteEntering(animation.finished.then(done, done));
   }, [ready, location.key]);
 }

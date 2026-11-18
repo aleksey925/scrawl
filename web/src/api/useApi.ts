@@ -1,5 +1,6 @@
 import { useEffect, useState, type DependencyList } from 'react';
 
+import type { ScrawlApi } from './client';
 import { ApiError } from './errors';
 
 export interface AsyncState<T> {
@@ -39,6 +40,13 @@ export const answerKeys = {
 
 export function seedResponse(key: string, data: unknown): void {
   remember(key, data);
+}
+
+export function prefetchDir(source: Pick<ScrawlApi, 'dir'>, path: string): Promise<void> {
+  return source.dir(path).then(
+    (dir) => seedResponse(answerKeys.dir(path), dir),
+    () => undefined,
+  );
 }
 
 export function forgetResponses(): void {

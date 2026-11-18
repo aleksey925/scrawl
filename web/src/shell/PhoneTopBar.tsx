@@ -1,12 +1,13 @@
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
-import { answerKeys, seedResponse } from '../api/useApi';
+import type { Crumb } from '../api/types';
+import { prefetchDir } from '../api/useApi';
 import { RenameField } from '../components/RenameField';
 import { planMotion } from '../components/screenMotion';
 import { cameFrom } from '../historyTrail';
 import { IconChevronLeft } from '../icons';
-import { directoryUrl, isEditPath } from '../paths';
+import { directoryUrl, isDocPath, isEditPath } from '../paths';
 import { usePlatform } from '../platform';
 import { layout } from '../theme';
 
@@ -25,6 +26,18 @@ function titleGone(): boolean {
     return window.scrollY > 0;
   }
   return heading.getBoundingClientRect().bottom <= layout.topbarHeightCompact;
+}
+
+interface WayUp extends Crumb {
+  dir?: string;
+}
+
+function wayUp(pathname: string, crumb: Crumb | undefined, space: string): WayUp {
+  if (!isDocPath(pathname)) {
+    return crumb ?? { name: space, url: '/' };
+  }
+  const dir = parentOf(contentPathOf(pathname));
+  return { name: dir === '' ? space : basenameOf(dir), url: directoryUrl(dir), dir };
 }
 
 function useScrolled(watchTitle: boolean): { scrolled: boolean; showTitle: boolean } {
@@ -56,11 +69,9 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const chrome = useShownChrome();
   const space = spaceLabel(me);
   const atRoot = chrome.title === '';
-  const crumb = chrome.crumbs[chrome.crumbs.length - 1] ?? { name: space, url: '/' };
   const location = useLocation();
-  const onContent = location.pathname.startsWith('/doc/');
-  const above = parentOf(contentPathOf(location.pathname));
-  const parent = onContent ? { name: above === '' ? space : basenameOf(above), url: directoryUrl(above) } : crumb;
+  const parent = wayUp(location.pathname, chrome.crumbs[chrome.crumbs.length - 1], space);
+  const above = parent.dir;
   const { source } = usePlatform();
   const editing = isEditPath(location.pathname);
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
@@ -86,14 +97,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
             void navigate(parent.url);
           }
         },
-    onContent
-      ? () => {
-          source.dir(above).then(
-            (dir) => seedResponse(answerKeys.dir(above), dir),
-            () => undefined,
-          );
-        }
-      : undefined,
+    above === undefined ? undefined : () => void prefetchDir(source, above),
   );
 
   if (editing) {

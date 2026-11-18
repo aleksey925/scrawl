@@ -25,5 +25,7 @@ const docs = {
 };
 
 docs.missing = `${docs.doc.folder}/nothing-here.md`;
+docs.deep.folder = docs.deep.path.slice(0, docs.deep.path.lastIndexOf('/'));
+docs.deep.above = docs.deep.folder.slice(0, docs.deep.folder.lastIndexOf('/'));
 
 module.exports = docs;

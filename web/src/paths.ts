@@ -90,6 +90,10 @@ export function isEditPath(pathname: string): boolean {
   return pathname.startsWith('/edit/');
 }
 
+export function isDocPath(pathname: string): boolean {
+  return pathname.startsWith('/doc/');
+}
+
 export function searchUrl(query: string): string {
   return `/search?q=${encodeURIComponent(query)}`;
 }

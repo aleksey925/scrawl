@@ -7,12 +7,6 @@ import { track } from './pending';
 import { preserveScroll } from './scroll';
 import { openDiagramViewer } from './viewer';
 
-function nextTask(): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve);
-  });
-}
-
 export type Mermaid = typeof import('mermaid').default;
 
 export type PlantUML = typeof import('./plantuml').plantUML;
@@ -37,6 +31,12 @@ interface Diagram {
 type Drawn = { item: Diagram; svg: SVGElement } | { item: Diagram; error: string };
 
 const errorLimit = 200;
+
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve);
+  });
+}
 
 let pass = 0;
 

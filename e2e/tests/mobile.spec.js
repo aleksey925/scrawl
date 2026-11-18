@@ -154,6 +154,11 @@ function moveVisibleArea(page, top, height) {
     }, {offsetTop: top, visible: height});
 }
 
+async function settled(page) {
+    await expect.poll(() => page.evaluate(() => document.getAnimations()
+        .filter((animation) => animation.playState === 'running').length)).toBe(0);
+}
+
 test.describe('mobile', () => {
     test.beforeEach(async ({page}) => {
         await signIn(page);
@@ -625,14 +630,9 @@ test.describe('mobile', () => {
             await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
         }
 
-        async function settled(page) {
-            await expect.poll(() => page.evaluate(() => document.getAnimations()
-                .filter((animation) => animation.playState === 'running').length)).toBe(0);
-        }
-
-        async function touchesFrom(page, [start, ...moves], end = 'touchcancel') {
-            return page.evaluate(async ({start, moves, end}) => {
-                const send = (type, point) => {
+        async function addTouchSender(page) {
+            await page.evaluate(() => {
+                window.sendTouch = (type, point) => {
                     const touches = point === undefined
                         ? []
                         : [new Touch({identifier: 1, target: document.body, clientX: point[0], clientY: point[1]})];
@@ -640,6 +640,13 @@ test.describe('mobile', () => {
                     document.body.dispatchEvent(event);
                     return event.defaultPrevented;
                 };
+            });
+        }
+
+        async function touchesFrom(page, [start, ...moves], end = 'touchcancel') {
+            await addTouchSender(page);
+            return page.evaluate(async ({start, moves, end}) => {
+                const send = window.sendTouch;
                 send('touchstart', start);
                 const taken = [];
                 for (const point of moves) {
@@ -671,25 +678,21 @@ test.describe('mobile', () => {
             // arrange
             await asStandalone(page);
             await page.goto(folder());
+            await addTouchSender(page);
             await page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`).tap();
 
             // act
             const drag = await page.evaluate(async () => {
-                const send = (type, x) => {
-                    const touches = x === undefined
-                        ? []
-                        : [new Touch({identifier: 1, target: document.body, clientX: x, clientY: 400})];
-                    document.body.dispatchEvent(new TouchEvent(type, {touches, changedTouches: touches, bubbles: true, cancelable: true}));
-                };
+                const send = window.sendTouch;
                 const running = () => document.querySelector('[data-testid=doc]')?.closest('[data-screen]')?.getAnimations()
                     .some((animation) => animation.playState === 'running') === true;
                 for (let frame = 0; frame < 300 && !running(); frame++) {
                     await new Promise((resolve) => requestAnimationFrame(resolve));
                 }
                 const entering = running();
-                send('touchstart', 4);
+                send('touchstart', [4, 400]);
                 for (const x of [10, 20, 40, 70, 104]) {
-                    send('touchmove', x);
+                    send('touchmove', [x, 400]);
                     await new Promise((resolve) => setTimeout(resolve, 16));
                 }
                 const moved = new DOMMatrix(getComputedStyle(document.querySelector('[data-screen]')).transform).m41;
@@ -709,7 +712,7 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('doc')).toBeVisible();
             await settled(page);
             await page.evaluate(() => {
-                window.frames = [];
+                window.copyFrames = [];
                 let seen = false;
                 let after = 0;
                 const onTop = (cover, x) => {
@@ -732,7 +735,7 @@ test.describe('mobile', () => {
                     const cover = document.querySelector('[data-leaving]');
                     seen = seen || cover !== null;
                     after += seen && cover === null ? 1 : 0;
-                    window.frames.push({
+                    window.copyFrames.push({
                         copy: cover !== null,
                         left: onTop(cover, 20),
                         right: onTop(cover, window.innerWidth - 10),
@@ -741,7 +744,7 @@ test.describe('mobile', () => {
                         marks: cover === null ? 0 : cover.querySelectorAll('[id], [data-testid], [data-screen]').length
                             + (cover.matches('[id], [data-testid], [data-screen]') ? 1 : 0),
                     });
-                    if (after < 5 && window.frames.length < 600) {
+                    if (after < 5 && window.copyFrames.length < 600) {
                         requestAnimationFrame(watch);
                     } else {
                         window.watched = true;
@@ -755,7 +758,7 @@ test.describe('mobile', () => {
 
             // assert
             await expect.poll(() => page.evaluate(() => window.watched === true)).toBe(true);
-            const frames = await page.evaluate(() => window.frames);
+            const frames = await page.evaluate(() => window.copyFrames);
             const from = frames.findIndex((frame) => frame.copy);
             const under = frames.findIndex((frame) => frame.copy && frame.left === 'list');
             expect(from).toBeGreaterThanOrEqual(0);
@@ -1110,6 +1113,7 @@ test.describe('mobile', () => {
             await asStandalone(page);
             await page.goto(MAIN.url.doc(docs.folder.entry));
             await expect(page.getByTestId('doc')).toBeVisible();
+            await addTouchSender(page);
             await page.evaluate(() => {
                 window.addEventListener('touchend', () => {
                     if (window.second !== undefined) {
@@ -1118,17 +1122,9 @@ test.describe('mobile', () => {
                     window.second = new Promise((resolve) => {
                         setTimeout(() => {
                             const leaving = document.querySelector('[data-leaving]') !== null;
-                            const send = (type, x) => {
-                                const touches = x === undefined
-                                    ? []
-                                    : [new Touch({identifier: 2, target: document.body, clientX: x, clientY: 400})];
-                                const event = new TouchEvent(type, {touches, changedTouches: touches, bubbles: true, cancelable: true});
-                                document.body.dispatchEvent(event);
-                                return event.defaultPrevented;
-                            };
-                            send('touchstart', 4);
-                            const taken = [20, 60, 200, 300].map((x) => send('touchmove', x));
-                            send('touchend');
+                            window.sendTouch('touchstart', [4, 400]);
+                            const taken = [20, 60, 200, 300].map((x) => window.sendTouch('touchmove', [x, 400]));
+                            window.sendTouch('touchend');
                             resolve({leaving, taken});
                         });
                     });
@@ -1148,19 +1144,19 @@ test.describe('mobile', () => {
         test('a folder swiped back to while its subfolder still loads shows at once', async ({page}) => {
             // arrange
             await asStandalone(page);
-            await page.goto(MAIN.url.dir('notes'));
-            const sub = page.locator('[data-testid=dir-row][data-path="notes/deep"]');
+            await page.goto(MAIN.url.dir(docs.deep.above));
+            const sub = page.locator(`[data-testid=dir-row][data-path="${docs.deep.folder}"]`);
             await expect(sub).toBeVisible();
-            const held = await holdRoute(page, /\/api\/dir\/notes\/deep/);
+            const held = await holdRoute(page, new RegExp(`/api/dir/${docs.deep.folder}`));
             await sub.tap();
-            await expect(page).toHaveURL(MAIN.url.dir('notes/deep'));
+            await expect(page).toHaveURL(MAIN.url.dir(docs.deep.folder));
             await held.reached;
 
             // act
             await swipe(page, 300);
 
             // assert
-            await expect(page).toHaveURL(MAIN.url.dir('notes'));
+            await expect(page).toHaveURL(MAIN.url.dir(docs.deep.above));
             await expect(page.locator('[data-screen]')).toBeVisible({timeout: 1000});
             await expect(sub).toBeVisible();
             held.release();
@@ -1175,11 +1171,11 @@ test.describe('mobile', () => {
 
             // act & assert
             await swipe(page, 300);
-            await expect(page).toHaveURL(MAIN.url.dir('notes/deep'));
-            await expect(page.getByTestId('topbar-up')).toHaveAttribute('aria-label', 'Back to notes');
+            await expect(page).toHaveURL(MAIN.url.dir(docs.deep.folder));
+            await expect(page.getByTestId('topbar-up')).toHaveAttribute('aria-label', text.phone.backTo(nameOf(docs.deep.above)));
             await expect(page.locator('[data-leaving]')).toHaveCount(0);
             await swipe(page, 300);
-            await expect(page).toHaveURL(MAIN.url.dir('notes'));
+            await expect(page).toHaveURL(MAIN.url.dir(docs.deep.above));
             held.release();
         });
 
@@ -3442,8 +3438,7 @@ test.describe('mobile', () => {
         await page.getByTestId('topbar-up').tap();
         const row = page.locator(`[data-testid=dir-row][data-path="${note}"]`);
         await expect(row).toBeVisible();
-        await expect.poll(() => page.evaluate(() => document.getAnimations()
-            .filter((animation) => animation.playState === 'running').length)).toBe(0);
+        await settled(page);
         await page.evaluate(() => {
             window.drawnAt = undefined;
             window.settledAt = undefined;

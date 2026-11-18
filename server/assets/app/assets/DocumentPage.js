@@ -1,1 +1,1 @@
-import{En as e,X as t,ft as n,z as r}from"./naming.js";import{t as i}from"./DirectoryView.js";import{t as a}from"./DocumentView.js";var o=e();function s(){let e=n()[`*`]??``;return r(e)?(0,o.jsx)(i,{path:t(e)}):(0,o.jsx)(a,{path:e})}export{s as Component};
+import{Dn as e,Z as t,pt as n,z as r}from"./naming.js";import{t as i}from"./DirectoryView.js";import{t as a}from"./DocumentView.js";var o=e();function s(){let e=n()[`*`]??``;return r(e)?(0,o.jsx)(i,{path:t(e)}):(0,o.jsx)(a,{path:e})}export{s as Component};

@@ -2,8 +2,10 @@ import { createContext, useContext, useLayoutEffect, type RefObject } from 'reac
 import { useLocation, useNavigationType } from 'react-router';
 
 import { motionMs, noteEntering } from '../motion';
-import { scopeIds } from '../reader/diagramSvg';
+import { scopeDiagramIds } from '../reader/diagramSvg';
 import { layoutBreakpoints, maxWidthQuery } from '../theme';
+
+import classes from './screenMotion.module.css';
 
 type Motion = 'forward' | 'back' | 'none';
 
@@ -15,7 +17,7 @@ export function planMotion(pathname: string, motion: Motion): void {
   planned = { pathname, motion };
 }
 
-let ghost: HTMLElement | undefined;
+let leavingSheet: HTMLElement | undefined;
 
 let hidden: { element: HTMLElement; timer: number } | undefined;
 
@@ -55,12 +57,7 @@ function reveal(): void {
 }
 
 function stripMarks(copy: HTMLElement): void {
-  const diagrams = Array.from(copy.querySelectorAll<SVGSVGElement>('svg[id]')).filter(
-    (svg) => svg.parentElement?.closest('svg') === null,
-  );
-  for (const svg of diagrams) {
-    scopeIds(svg, `leaving-${svg.id}`);
-  }
+  const diagrams = scopeDiagramIds(copy, 'leaving');
   for (const node of [copy, ...copy.querySelectorAll<HTMLElement>('[id], [data-testid], [data-screen]')]) {
     if (!diagrams.some((svg) => svg.contains(node))) {
       node.removeAttribute('id');
@@ -82,42 +79,33 @@ export function sendOff(element: HTMLElement, from: number, speed: number): void
     width: `${box.width}px`,
     margin: '0',
   });
-  const cover = document.createElement('div');
-  cover.inert = true;
-  cover.dataset.leaving = 'true';
-  Object.assign(cover.style, {
-    position: 'fixed',
-    top: '0',
-    left: '0',
-    width: '100%',
-    height: '100%',
-    overflow: 'hidden',
-    background: 'var(--scrawl-bg)',
-    zIndex: '90',
-    transform: `translateX(${from}px)`,
-    willChange: 'transform',
-  });
-  cover.append(copy);
-  element.after(cover);
+  const sheet = document.createElement('div');
+  sheet.className = classes.sheet ?? '';
+  sheet.inert = true;
+  sheet.dataset.leaving = 'true';
+  sheet.style.transform = `translateX(${from}px)`;
+  sheet.append(copy);
+  element.after(sheet);
   element.style.visibility = 'hidden';
   hidden = { element, timer: window.setTimeout(reveal, hideHoldMs) };
-  ghost = cover;
-  const animation = cover.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100%)' }], {
+  leavingSheet = sheet;
+  const animation = sheet.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100%)' }], {
     ...releaseMotion(box.width - from, speed),
     fill: 'forwards',
   });
+  const cap = window.setTimeout(() => animation.cancel(), hideHoldMs);
   const remove = (): void => {
-    cover.remove();
-    if (ghost === cover) {
-      ghost = undefined;
+    window.clearTimeout(cap);
+    sheet.remove();
+    if (leavingSheet === sheet) {
+      leavingSheet = undefined;
     }
   };
   void animation.finished.then(remove, remove);
-  window.setTimeout(remove, hideHoldMs);
 }
 
 export function leavingScreen(): boolean {
-  return ghost !== undefined;
+  return leavingSheet !== undefined;
 }
 
 export function takeScreen(element: HTMLElement): void {

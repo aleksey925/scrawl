@@ -1,4 +1,5 @@
 import { mountBase } from './mount';
+import { decodeFragment } from './reader/dom';
 
 const trail = new Map<number, string>();
 
@@ -10,15 +11,7 @@ export function noteEntry(): void {
   trail.set(entryIndex(), window.location.pathname);
 }
 
-function decoded(pathname: string): string {
-  try {
-    return decodeURIComponent(pathname);
-  } catch {
-    return pathname;
-  }
-}
-
 export function cameFrom(pathname: string): boolean {
   const before = trail.get(entryIndex() - 1);
-  return before !== undefined && decoded(before) === decoded(new URL(mountBase() + pathname, window.location.origin).pathname);
+  return before !== undefined && decodeFragment(before) === decodeFragment(new URL(mountBase() + pathname, window.location.origin).pathname);
 }

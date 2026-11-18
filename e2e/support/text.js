@@ -102,6 +102,10 @@ module.exports = {
 
     notFound: 'Nothing here',
 
+    phone: {
+        backTo: (name) => `Back to ${name}`,
+    },
+
     code: {
         copy: 'Copy',
         copied: 'Copied',

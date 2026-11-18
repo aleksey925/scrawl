@@ -137,22 +137,33 @@ How the app works on a phone.
   edge until the next one enters, and the way back follows only a leave that
   got there, from the entry of the history the drag ended on: a tab tapped
   meanwhile won, and was then taken back, whether its screen had come in or was
-  still loading. The swipe never starts under a dialog, a sheet or a menu, nor
-  in the editor, and for a reader who asked for less motion it moves nothing on
-  its own. A touch at the edge holds every move until its direction is known,
-  since a move let through starts the page's own scroll, which shook the page
-  up and down under the drag; one that goes up or down is the scroll. The
-  dragged page is a layer of its own, or WebKit paints a long note again on
-  every move. Let go, the page goes on at the finger's speed, and a finger
-  drawn back toward the edge as it lifts keeps the page. The swipe saves a
-  rename field before it goes back, since it blurs nothing, and the field would
-  have gone without saving. The field is gone before the server answers, so a
-  save that fails after a swipe, or after a tap on a link, shows its error
-  toast and the name typed is lost. The back button, Android's back gesture and
-  the swipe of a Safari tab change the page without the app's swipe, and a
-  field left open then is dropped. A screen still loading shows its spinner
-  only after 400ms: one that came up the moment the swiped page was gone read
-  as the page jerking.
+  still loading. A touch at the edge while a page is still leaving starts
+  nothing, as on iOS: it canceled the leave before it, whose way back then
+  never came, so quick swipes climbed one level for five, and the page jumped
+  back to the finger. A drag that starts while the next screen still slides in
+  ends that move and takes the page where it stands; the move held the page in
+  its own place, away from the finger, and cleared the drag's place when it
+  ended. The way up is the folder above in the address, not the one the bar on
+  top names, as the bar still names the page before while the next one loads,
+  and a quick second swipe went to the same folder again. As a drag starts it
+  asks for the folder above, so a folder not yet visited is often there when
+  the page has left; asked only after the leave, it slid in a round trip later.
+  The swipe never starts under a dialog, a sheet or a menu, nor in the editor,
+  and for a reader who asked for less motion it moves nothing on its own. A
+  touch at the edge holds every move until its direction is known, since a move
+  let through starts the page's own scroll, which shook the page up and down
+  under the drag; one that goes up or down is the scroll. The dragged page is a
+  layer of its own, or WebKit paints a long note again on every move. Let go,
+  the page goes on at the finger's speed, and a finger drawn back toward the
+  edge as it lifts keeps the page. The swipe saves a rename field before it
+  goes back, since it blurs nothing, and the field would have gone without
+  saving. The field is gone before the server answers, so a save that fails
+  after a swipe, or after a tap on a link, shows its error toast and the name
+  typed is lost. The back button, Android's back gesture and the swipe of a
+  Safari tab change the page without the app's swipe, and a field left open
+  then is dropped. A screen still loading shows its spinner only after 400ms:
+  one that came up the moment the swiped page was gone read as the page
+  jerking.
 - The run screen of an HTML app is one bar on top and the frame under it to the
   bottom of the screen: no tab bar and no swipe back from the edge, since the
   screen is outside the layout that owns them and a swipe over the frame

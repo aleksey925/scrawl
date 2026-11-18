@@ -220,7 +220,12 @@ How the react app in `web/` is built, shipped and wired.
   and draw side by side, so a mermaid diagram does not wait for PlantUML's
   engine. Within a kind the blocks are drawn one at a time, since a drawing
   holds the main thread and cannot be stopped. A canceled pass stops between
-  two blocks. Each diagram is put in as soon as it is drawn.
+  two blocks. Each diagram is put in as soon as it is drawn, and the next one
+  waits for a task of its own, so a tap is answered between two drawings. A
+  pass starts only when the screen's move on a phone has ended (`screenSettled`
+  in `web/src/motion.ts`): drawn during the move, the first note with diagrams
+  of a session took twice as long to slide in, with frames held a third of a
+  second.
 - The whole pass goes to `track` in `pending.ts`, which a PDF waits for, so a
   print has every diagram drawn.
 - Every pass draws under fresh ids, `md-<kind>-<pass>-<index>`. PlantUML's own

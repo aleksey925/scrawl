@@ -1,16 +1,19 @@
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
+import { answerKeys, seedResponse } from '../api/useApi';
 import { RenameField } from '../components/RenameField';
 import { planMotion } from '../components/screenMotion';
 import { cameFrom } from '../historyTrail';
 import { IconChevronLeft } from '../icons';
-import { isEditPath } from '../paths';
+import { directoryUrl, isEditPath } from '../paths';
+import { usePlatform } from '../platform';
 import { layout } from '../theme';
 
 import { AppLogo } from './AppLogo';
 import { DraftNameField } from './DraftName';
 import { usePageRenaming } from './fileActionsContext';
+import { contentPathOf, parentOf } from './naming';
 import { spaceLabel, useAccount } from './NavContext';
 import { useShownChrome } from './PageChrome';
 import classes from './PhoneTopBar.module.css';
@@ -53,8 +56,12 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const chrome = useShownChrome();
   const space = spaceLabel(me);
   const atRoot = chrome.title === '';
-  const parent = chrome.crumbs[chrome.crumbs.length - 1] ?? { name: space, url: '/' };
+  const crumb = chrome.crumbs[chrome.crumbs.length - 1] ?? { name: space, url: '/' };
   const location = useLocation();
+  const onContent = location.pathname.startsWith('/doc/');
+  const above = parentOf(contentPathOf(location.pathname));
+  const parent = onContent ? { name: crumb.name, url: directoryUrl(above) } : crumb;
+  const { source } = usePlatform();
   const editing = isEditPath(location.pathname);
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
@@ -79,6 +86,14 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
             void navigate(parent.url);
           }
         },
+    onContent
+      ? () => {
+          source.dir(above).then(
+            (dir) => seedResponse(answerKeys.dir(above), dir),
+            () => undefined,
+          );
+        }
+      : undefined,
   );
 
   if (editing) {

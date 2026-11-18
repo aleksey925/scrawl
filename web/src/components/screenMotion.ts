@@ -1,7 +1,7 @@
 import { createContext, useContext, useLayoutEffect, type RefObject } from 'react';
 import { useLocation, useNavigationType } from 'react-router';
 
-import { motionMs } from '../motion';
+import { motionMs, noteEntering } from '../motion';
 import { layoutBreakpoints, maxWidthQuery } from '../theme';
 
 type Motion = 'forward' | 'back' | 'none';
@@ -62,6 +62,16 @@ export function leaveScreen(element: HTMLElement, from: number, speed: number): 
   );
 }
 
+export function leavingScreen(): boolean {
+  return leaving !== undefined;
+}
+
+export function takeScreen(element: HTMLElement): void {
+  for (const animation of element.getAnimations()) {
+    animation.finish();
+  }
+}
+
 let enteredFor: string | undefined;
 let offScreen = false;
 
@@ -117,8 +127,11 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
       easing: screenEasing,
       fill: 'forwards',
     });
+    noteEntering(animation);
     const done = (): void => {
-      element.style.transform = '';
+      if (element.style.transform === start.transform) {
+        element.style.transform = '';
+      }
       element.style.opacity = '';
       animation.cancel();
     };

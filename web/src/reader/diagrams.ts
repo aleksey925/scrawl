@@ -1,10 +1,17 @@
 import type { MermaidConfig } from 'mermaid';
 
+import { screenSettled } from '../motion';
 import type { Platform } from '../platform';
 import { isPlainClick } from './links';
 import { track } from './pending';
 import { preserveScroll } from './scroll';
 import { openDiagramViewer } from './viewer';
+
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve);
+  });
+}
 
 export type Mermaid = typeof import('mermaid').default;
 
@@ -278,6 +285,10 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
   pass += 1;
   const thisPass = pass;
   const drawKind = async (kind: Kind): Promise<void> => {
+    await screenSettled();
+    if (cancelled) {
+      return;
+    }
     const draw = await prepare(kind, loaders, dark);
     for (const [index, item] of diagrams.entries()) {
       if (cancelled) {
@@ -291,6 +302,7 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
         return;
       }
       preserveScroll(root, () => place(result));
+      await nextTask();
     }
   };
   const kinds = Array.from(new Set(diagrams.map((item) => item.kind)));

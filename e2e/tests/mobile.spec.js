@@ -673,6 +673,58 @@ test.describe('mobile', () => {
             await expect.poll(() => page.locator('[data-screen]').evaluate((el) => el.style.willChange)).toBe('');
         });
 
+        test('a drag that starts while the next screen still slides in moves the page with the finger', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(folder());
+            await page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`).tap();
+            await expect.poll(() => page.evaluate(() => document.getAnimations()
+                .filter((animation) => animation.effect?.target?.matches?.('[data-screen]')).length)).toBeGreaterThan(0);
+
+            // act
+            const shift = await page.evaluate(async () => {
+                const send = (type, x) => {
+                    const touches = x === undefined
+                        ? []
+                        : [new Touch({identifier: 1, target: document.body, clientX: x, clientY: 400})];
+                    document.body.dispatchEvent(new TouchEvent(type, {touches, changedTouches: touches, bubbles: true, cancelable: true}));
+                };
+                send('touchstart', 4);
+                for (const x of [10, 20, 40, 70, 104]) {
+                    send('touchmove', x);
+                    await new Promise((resolve) => setTimeout(resolve, 16));
+                }
+                const moved = new DOMMatrix(getComputedStyle(document.querySelector('[data-screen]')).transform).m41;
+                send('touchcancel');
+                return Math.round(moved);
+            });
+
+            // assert
+            expect(shift).toBe(100);
+        });
+
+        test('a drag from the edge asks for the folder above before the page is let go', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(docs.folder.entry));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            const asked = [];
+            page.on('request', (request) => {
+                if (request.url().includes(`/api/dir/${docs.folder.path}`)) {
+                    asked.push(request.url());
+                }
+            });
+            await page.waitForLoadState('networkidle');
+            const before = asked.length;
+
+            // act
+            await touchesFrom(page, [[4, 400], [10, 399], [20, 398], [40, 396], [80, 394]]);
+
+            // assert
+            await expect.poll(() => asked.length).toBe(before + 1);
+            await expect(page).toHaveURL(MAIN.url.doc(docs.folder.entry));
+        });
+
         test('a drag from the edge while the New tiles are open is no swipe back', async ({page}) => {
             // arrange
             await asStandalone(page);
@@ -3161,6 +3213,46 @@ test.describe('mobile', () => {
         await page.touchscreen.tap(centre.x, centre.y);
         await page.touchscreen.tap(centre.x, centre.y);
         await expect(picture).toHaveAttribute('data-zoomed', 'false');
+    });
+
+    test('a note with a diagram draws it only after the note has slid in', async ({page}) => {
+        // arrange
+        const note = 'e2e-mobile/drawn-after.md';
+        writeFixture(note, '# Drawn after\n\n```mermaid\ngraph TD\n  A --> B\n```\n');
+        await page.goto(MAIN.url.dir('e2e-mobile'));
+        const row = page.locator(`[data-testid=dir-row][data-path="${note}"]`);
+        await expect(row).toBeVisible();
+        await page.evaluate(() => {
+            window.drawnAt = undefined;
+            window.settledAt = undefined;
+            let seen = false;
+            const watch = () => {
+                const moving = document.getAnimations()
+                    .some((animation) => animation.effect?.target?.matches?.('[data-screen]') && animation.playState === 'running');
+                if (moving) {
+                    seen = true;
+                } else if (seen && window.settledAt === undefined) {
+                    window.settledAt = performance.now();
+                }
+                if (window.drawnAt === undefined && document.querySelector('.md-diagram[data-state="done"]') !== null) {
+                    window.drawnAt = performance.now();
+                }
+                if (window.drawnAt === undefined || window.settledAt === undefined) {
+                    requestAnimationFrame(watch);
+                }
+            };
+            requestAnimationFrame(watch);
+        });
+
+        // act
+        await row.tap();
+
+        // assert
+        await expect(page.locator('.md-diagram[data-state="done"]')).toBeVisible();
+        await expect.poll(() => page.evaluate(() => window.settledAt !== undefined)).toBe(true);
+        const times = await page.evaluate(() => ({drawn: window.drawnAt, settled: window.settledAt}));
+        expect(times.drawn).toBeGreaterThanOrEqual(times.settled);
+        removeFixture(note);
     });
 
     test('a tap on a diagram opens it in the viewer, where a double tap zooms it', async ({page}) => {

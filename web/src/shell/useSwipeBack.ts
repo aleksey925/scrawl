@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { leaveScreen, releaseMotion, standalone } from '../components/screenMotion';
+import { leaveScreen, leavingScreen, releaseMotion, standalone, takeScreen } from '../components/screenMotion';
 
 const edgePx = 24;
 const decidePx = 6;
@@ -59,10 +59,12 @@ function settle(element: HTMLElement, from: number, speed: number): void {
   element.animate([{ transform: `translateX(${from}px)` }, { transform: 'none' }], releaseMotion(from, speed));
 }
 
-export function useSwipeBack(goBack: (() => void) | null): void {
+export function useSwipeBack(goBack: (() => void) | null, prepare?: () => void): void {
   const goBackRef = useRef(goBack);
+  const prepareRef = useRef(prepare);
   useEffect(() => {
     goBackRef.current = goBack;
+    prepareRef.current = prepare;
   });
 
   useEffect(() => {
@@ -86,7 +88,12 @@ export function useSwipeBack(goBack: (() => void) | null): void {
       }
       const touch = event.touches[0];
       track =
-        event.touches.length === 1 && touch !== undefined && touch.clientX <= edgePx && goBackRef.current !== null && !covered()
+        event.touches.length === 1 &&
+        touch !== undefined &&
+        touch.clientX <= edgePx &&
+        goBackRef.current !== null &&
+        !leavingScreen() &&
+        !covered()
           ? { x: touch.clientX, y: touch.clientY, dx: 0, samples: [], across: false }
           : undefined;
     };
@@ -117,8 +124,10 @@ export function useSwipeBack(goBack: (() => void) | null): void {
         if (dx < startPx) {
           return;
         }
+        takeScreen(element);
         element.style.willChange = 'transform';
         track.element = element;
+        prepareRef.current?.();
       }
       track.dx = dx;
       const recent = track.samples.filter((point) => event.timeStamp - point.at <= flickWindowMs);

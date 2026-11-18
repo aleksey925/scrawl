@@ -65,7 +65,7 @@ function reveal(): void {
 }
 
 export function screenHidden(): boolean {
-  return hidden !== undefined;
+  return hidden?.element.isConnected === true;
 }
 
 function stripMarks(copy: HTMLElement): void {

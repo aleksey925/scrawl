@@ -45,36 +45,32 @@ export function seedResponse(key: string, data: unknown): void {
 
 type DirSource = Pick<ScrawlApi, 'dir'>;
 
-const pending = new Map<string, { source: DirSource; answer: Promise<DirListing> }>();
+let prefetched: { source: DirSource; path: string; answer: Promise<DirListing> } | undefined;
 
-export function prefetchDir(source: DirSource, path: string): Promise<void> {
-  const before = responses.get(answerKeys.dir(path));
-  const answer = source.dir(path);
-  pending.set(path, { source, answer });
-  const latest = (): boolean => {
-    const newest = pending.get(path)?.answer === answer;
-    if (newest) {
-      pending.delete(path);
+export function prefetchDir(source: DirSource, path: string): () => void {
+  const answer = source.dir(path, { background: true });
+  answer.catch(() => undefined);
+  const asked = { source, path, answer };
+  prefetched = asked;
+  return () => {
+    if (prefetched === asked) {
+      prefetched = undefined;
     }
-    return newest;
   };
-  return answer.then((dir) => {
-    if (latest() && responses.get(answerKeys.dir(path)) === before) {
-      remember(answerKeys.dir(path), dir);
-    }
-  }, () => void latest());
 }
 
 export function dirOf(source: DirSource, path: string, signal: AbortSignal): Promise<DirListing> {
-  const shared = pending.get(path);
-  return shared?.source === source
-    ? shared.answer.catch(() => source.dir(path, { signal }))
-    : source.dir(path, { signal });
+  const taken = prefetched;
+  if (taken?.source !== source || taken.path !== path) {
+    return source.dir(path, { signal });
+  }
+  prefetched = undefined;
+  return taken.answer.catch(() => source.dir(path, { signal }));
 }
 
 export function forgetResponses(): void {
   responses.clear();
-  pending.clear();
+  prefetched = undefined;
 }
 
 interface Answer<T> {

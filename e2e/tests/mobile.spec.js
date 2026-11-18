@@ -1436,7 +1436,7 @@ test.describe('mobile', () => {
             held.release();
         });
 
-        test('of two drags that ask for the folder above, the answer to the older one is not kept', async ({page}) => {
+        test('of two drags that ask for the folder above, the folder swiped back to shows the answer to the newer one', async ({page}) => {
             // arrange
             await asStandalone(page);
             await page.goto(MAIN.url.doc(docs.folder.entry));
@@ -1459,27 +1459,128 @@ test.describe('mobile', () => {
                 await route.fulfill({response, json: {...body, entries}});
             });
             const cdp = await page.context().newCDPSession(page);
-            for (let round = 0; round < 2; round++) {
-                await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y: 400}]});
-                for (const x of [10, 20, 40, 80]) {
-                    await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: 400}]});
-                }
-                await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
-                await expect.poll(() => answers.length).toBe(round + 1);
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y: 400}]});
+            for (const x of [10, 20, 40, 80]) {
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: 400}]});
             }
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
+            await expect.poll(() => answers.length).toBe(1);
             await settled(page);
+            await swipe(page, 300);
+            await expect(page).toHaveURL(folder());
+            await expect.poll(() => answers.length).toBe(2);
 
             // act
             answers[0]();
             await page.waitForTimeout(300);
             answers[1]();
-            await page.waitForTimeout(300);
+
+            // assert
+            await expect(page.locator('[data-screen] [data-testid=dir-row]').first()).toBeVisible({timeout: 1000});
+            await stays(() => page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.folder.entry}"]`).count(), 1, 1000);
+        });
+
+        test('a drag given up leaves its question for the folder above to no screen opened later', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(docs.folder.entry));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await page.waitForLoadState('networkidle');
+            const asked = [];
+            page.on('request', (request) => {
+                if (new RegExp(`/api/dir/${docs.folder.path}$`).test(request.url())) {
+                    asked.push(request.url());
+                }
+            });
+            const answered = page.waitForResponse((response) => response.url().includes(`/api/dir/${docs.folder.path}`));
+            const cdp = await page.context().newCDPSession(page);
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y: 400}]});
+            for (const x of [10, 20, 40, 80]) {
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: 400}]});
+            }
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
+            await answered;
+            await settled(page);
+
+            // act
             await page.getByTestId('topbar-up').tap();
 
             // assert
             await expect(page).toHaveURL(folder());
-            await expect(page.locator('[data-screen] [data-testid=dir-row]').first()).toBeVisible({timeout: 1000});
-            await stays(() => page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.folder.entry}"]`).count(), 1, 1000);
+            await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.folder.entry}"]`)).toBeVisible();
+            await expect.poll(() => asked.length).toBe(2);
+        });
+
+        test('a drag whose question for the folder above is refused keeps the note and asks for no sign-in', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(docs.folder.entry));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await page.waitForLoadState('networkidle');
+            await page.route(new RegExp(`/api/dir/${docs.folder.path}$`), (route) => route.fulfill({status: 401, json: {error: 'unauthorized'}}), {times: 1});
+            const refused = page.waitForResponse((response) => response.url().includes(`/api/dir/${docs.folder.path}`));
+            const loads = [];
+            page.on('load', () => loads.push(page.url()));
+            const cdp = await page.context().newCDPSession(page);
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: 4, y: 400}]});
+            for (const x of [10, 20, 40, 80]) {
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: 400}]});
+            }
+            await refused;
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
+
+            // assert
+            await page.waitForTimeout(500);
+            expect(loads).toEqual([]);
+            await expect(page).toHaveURL(MAIN.url.doc(docs.folder.entry));
+        });
+
+        test('a folder swiped back to from a long folder scrolled down shows its spinner on the screen', async ({page}) => {
+            // arrange
+            const above = 'e2e-mobile/long-above';
+            const long = `${above}/long`;
+            for (let index = 0; index < 60; index++) {
+                writeFixture(`${long}/note-${String(index).padStart(2, '0')}.md`, `# Note ${index}\n`);
+            }
+            await asStandalone(page);
+            await page.goto(MAIN.url.dir(long));
+            await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${long}/note-59.md"]`)).toBeVisible();
+            await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+            await settled(page);
+            const held = await holdRoute(page, new RegExp(`/api/dir/${above}$`));
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.dir(above));
+            await expect(page.getByTestId('dir-loading')).toBeInViewport();
+            held.release();
+            await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${long}"]`)).toBeVisible();
+            removeFixture(above);
+        });
+
+        test('a swipe while the folder gone back to still loads under the hidden folder left starts nothing', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.dir(docs.deep.folder));
+            await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.deep.path}"]`)).toBeVisible();
+            await settled(page);
+            const held = await holdRoute(page, new RegExp(`/api/dir/${docs.deep.above}$`));
+            await swipe(page, 300);
+            await expect(page).toHaveURL(MAIN.url.dir(docs.deep.above));
+            await expect(page.locator('[data-leaving]')).toHaveCount(0);
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect(page.locator('[data-leaving]')).toHaveCount(0);
+            await stays(() => page.url(), MAIN.url.dir(docs.deep.above), 300);
+            held.release();
+            await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.deep.folder}"]`)).toBeVisible();
         });
 
         test('with less motion asked for, a swipe let go goes back with no copy left over', async ({page}) => {

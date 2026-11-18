@@ -101,7 +101,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
             void navigate(parent.url);
           }
         },
-    above === undefined ? undefined : () => void prefetchDir(source, above),
+    above === undefined ? undefined : () => prefetchDir(source, above),
   );
 
   if (editing) {

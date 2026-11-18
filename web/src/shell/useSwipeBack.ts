@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 
-import { leavingScreen, releaseMotion, sendOff, standalone, takeScreen, type Drag } from '../components/screenMotion';
+import {
+  leavingScreen, releaseMotion, screenHidden, sendOff, standalone, takeScreen, type Drag,
+} from '../components/screenMotion';
 
 const edgePx = 24;
 const decidePx = 6;
@@ -21,6 +23,7 @@ interface Track {
   samples: Sample[];
   across: boolean;
   taken?: Drag;
+  giveUp?: () => void;
 }
 
 function speedOf(samples: Sample[], now: number): number {
@@ -50,13 +53,14 @@ function clearDrag(element: HTMLElement): void {
   element.style.willChange = '';
 }
 
-function settle({ element, release }: Drag, from: number, speed: number): void {
+function settle({ dx: from, giveUp }: Track, { element, release }: Drag, speed: number): void {
+  giveUp?.();
   clearDrag(element);
   const animation = element.animate([{ transform: `translateX(${from}px)` }, { transform: 'none' }], releaseMotion(from, speed));
   release(animation.finished);
 }
 
-export function useSwipeBack(goBack: (() => void) | null, prepare?: () => void): void {
+export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => void): void {
   const goBackRef = useRef(goBack);
   const prepareRef = useRef(prepare);
   useEffect(() => {
@@ -74,7 +78,7 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => void):
       const ended = track;
       track = undefined;
       if (ended?.taken !== undefined) {
-        settle(ended.taken, ended.dx, 0);
+        settle(ended, ended.taken, 0);
       }
     };
 
@@ -90,6 +94,7 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => void):
         touch.clientX <= edgePx &&
         goBackRef.current !== null &&
         !leavingScreen() &&
+        !screenHidden() &&
         !covered()
           ? { x: touch.clientX, y: touch.clientY, dx: 0, samples: [], across: false }
           : undefined;
@@ -123,7 +128,7 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => void):
         }
         track.taken = takeScreen(element);
         element.style.willChange = 'transform';
-        prepareRef.current?.();
+        track.giveUp = prepareRef.current?.();
       }
       track.dx = dx;
       const recent = track.samples.filter((point) => event.timeStamp - point.at <= flickWindowMs);
@@ -143,7 +148,7 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => void):
       const done = speed > flickPxPerMs || (ended.dx > element.offsetWidth * completeShare && speed > -flickPxPerMs);
       const back = goBackRef.current;
       if (!done || back === null) {
-        settle(taken, ended.dx, -speed);
+        settle(ended, taken, -speed);
         return;
       }
       clearDrag(element);

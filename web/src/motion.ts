@@ -11,7 +11,13 @@ let entering: Promise<void> | undefined;
 let held: { released: Promise<void> } | undefined;
 
 export function noteEntering(settled: Promise<void>): void {
-  entering = settled;
+  const clear = (): void => {
+    if (entering === mine) {
+      entering = undefined;
+    }
+  };
+  const mine: Promise<void> = settled.then(clear, clear);
+  entering = mine;
 }
 
 export function holdScreen(): () => void {
@@ -31,8 +37,7 @@ export function holdScreen(): () => void {
 }
 
 export async function screenSettled(): Promise<void> {
-  await entering;
-  while (held !== undefined) {
-    await held.released;
+  while (held !== undefined || entering !== undefined) {
+    await (held?.released ?? entering);
   }
 }

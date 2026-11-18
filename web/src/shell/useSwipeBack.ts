@@ -56,6 +56,14 @@ function clearDrag(element: HTMLElement): void {
   element.style.willChange = '';
 }
 
+function detached(handler: (event: TouchEvent) => void): (event: Event) => void {
+  return (event) => {
+    if (event.currentTarget instanceof Node && !event.currentTarget.isConnected) {
+      handler(event as TouchEvent);
+    }
+  };
+}
+
 function settle({ dx: from, giveUp }: Track, { element, release }: Drag, speed: number): void {
   giveUp?.();
   clearDrag(element);
@@ -79,8 +87,28 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
       return undefined;
     }
     let track: Track | undefined;
+    let origin: EventTarget | undefined;
+
+    const unwatch = (): void => {
+      origin?.removeEventListener('touchmove', onLostMove);
+      origin?.removeEventListener('touchend', onLostEnd);
+      origin?.removeEventListener('touchcancel', onLostCancel);
+      origin = undefined;
+    };
+
+    const watch = (target: EventTarget | null): void => {
+      unwatch();
+      if (target === null) {
+        return;
+      }
+      origin = target;
+      target.addEventListener('touchmove', onLostMove, { passive: false });
+      target.addEventListener('touchend', onLostEnd);
+      target.addEventListener('touchcancel', onLostCancel);
+    };
 
     const drop = (): void => {
+      unwatch();
       const ended = track;
       track = undefined;
       if (ended?.taken !== undefined) {
@@ -102,8 +130,20 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
         !leavingScreen() &&
         !screenHidden() &&
         !covered()
-          ? { entry: entryRef.current, x: touch.clientX, y: touch.clientY, dx: 0, samples: [], across: false }
+          ? {
+              entry: entryRef.current,
+              x: touch.clientX,
+              y: touch.clientY,
+              dx: 0,
+              samples: [{ dx: 0, at: event.timeStamp }],
+              across: false,
+            }
           : undefined;
+      if (track === undefined) {
+        unwatch();
+      } else {
+        watch(event.target);
+      }
     };
 
     const onMove = (event: TouchEvent): void => {
@@ -143,6 +183,7 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
     };
 
     const onEnd = (event: TouchEvent): void => {
+      unwatch();
       const ended = track;
       track = undefined;
       const taken = ended?.taken;
@@ -165,6 +206,10 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
       }
       back();
     };
+
+    const onLostMove = detached(onMove);
+    const onLostEnd = detached(onEnd);
+    const onLostCancel = detached(drop);
 
     document.addEventListener('touchstart', onStart, { passive: true });
     document.addEventListener('touchmove', onMove, { passive: false });

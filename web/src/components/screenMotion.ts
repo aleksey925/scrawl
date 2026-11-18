@@ -28,6 +28,8 @@ interface Leaving {
 
 let leaving: Leaving | undefined;
 
+let swiped = false;
+
 let hidden: { element: HTMLElement; timer: number } | undefined;
 
 const hideHoldMs = 3000;
@@ -141,6 +143,7 @@ export function sendOff(element: HTMLElement, from: number, speed: number): void
     fill: 'forwards',
   });
   leaving = { sheet, animation, from, ...timing };
+  swiped = true;
   const held = holdScreen();
   const cap = window.setTimeout(() => animation.cancel(), hideHoldMs);
   const remove = (): void => {
@@ -258,6 +261,8 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
     const first = enteredFor === undefined;
     enteredFor = location.key;
     offScreen = false;
+    const afterSwipe = swiped;
+    swiped = false;
     const motion = motionOf(location.pathname, navigation);
     const element = ref.current;
     if (drag !== undefined && element !== null) {
@@ -269,6 +274,9 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
       return;
     }
     const along = motion === 'back' ? alongLeaving() : undefined;
+    if (motion === 'back' && afterSwipe && along === undefined) {
+      return;
+    }
     const start =
       motion === 'forward'
         ? { transform: `translateX(${offsetPercent}%)`, opacity: '0' }

@@ -65,6 +65,9 @@ words; the fact itself is written here.
 - The click a browser sends after a touch end lands on what is under the finger
   by then, so when the touch end closed a menu, the click goes to what the menu
   covered. [Editor](ui/editor.md)
+- A touch's moves and its end go to the element it started on, even after that
+  element is removed from the page, and then no longer reach the document.
+  [Phone](ui/phone.md)
 - A finger that only starts a scroll sends `pointerdown` too, so only the
   `click` after it tells a tap. [Touch](ui/touch.md)
 - A tap on text that takes no focus may leave a field focused, with no blur.

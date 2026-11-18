@@ -284,6 +284,24 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
   let cancelled = false;
   pass += 1;
   const thisPass = pass;
+  let turn = Promise.resolve();
+  const drawInTurn = (item: Diagram, draw: Draw | undefined, id: string): Promise<void> => {
+    const mine = turn.then(async () => {
+      await screenSettled();
+      if (cancelled) {
+        return;
+      }
+      const result = await drawOne(draw, item, id);
+      await screenSettled();
+      if (cancelled) {
+        return;
+      }
+      preserveScroll(root, () => place(result));
+      await nextTask();
+    });
+    turn = mine.catch(() => {});
+    return mine;
+  };
   const drawKind = async (kind: Kind): Promise<void> => {
     await screenSettled();
     if (cancelled) {
@@ -294,20 +312,9 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
       if (cancelled) {
         return;
       }
-      if (item.kind !== kind) {
-        continue;
+      if (item.kind === kind) {
+        await drawInTurn(item, draw, `md-${kind.name}-${thisPass}-${index}`);
       }
-      await screenSettled();
-      if (cancelled) {
-        return;
-      }
-      const result = await drawOne(draw, item, `md-${kind.name}-${thisPass}-${index}`);
-      await screenSettled();
-      if (cancelled) {
-        return;
-      }
-      preserveScroll(root, () => place(result));
-      await nextTask();
     }
   };
   const kinds = Array.from(new Set(diagrams.map((item) => item.kind)));

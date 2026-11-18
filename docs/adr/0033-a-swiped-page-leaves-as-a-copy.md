@@ -17,7 +17,8 @@ it slides in from the left.
   over the page gone back to, which is drawn under it and slides in as the copy
   slides off. The page under starts where it would stand under the copy and
   moves on the copy's clock and curve, so it keeps its place under the copy and
-  both end together.
+  both end together. A page that comes only after the copy has left shows in
+  its place with no move of its own.
 - The copy lies on a sheet as large as the screen, with the page's ground,
   above the page and under the bars. The copy takes no touch and the sheet
   takes every tap while it covers the page. The copy carries no test id, and no

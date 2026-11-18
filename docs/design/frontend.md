@@ -232,14 +232,16 @@ How the react app in `web/` is built, shipped and wired.
   the scroll keeping and the redraw on a theme change are shared.
 - An engine is a lazy chunk, loaded through the platform's `loadMermaid` or
   `loadPlantUML` only by a note that has a block of its kind. The kinds load
-  and draw side by side, so a mermaid diagram does not wait for PlantUML's
-  engine. Within a kind the blocks are drawn one at a time, since a drawing
-  holds the main thread and cannot be stopped. A canceled pass stops between
-  two blocks. Each diagram is put in as soon as it is drawn, and the next one
-  waits for a task of its own, so a tap is answered between two drawings. A
-  pass starts only when the screen's move on a phone has ended (`screenSettled`
-  in `web/src/motion.ts`): drawn during the move, the first note with diagrams
-  of a session took twice as long to slide in, with frames held a third of a
+  side by side, so a mermaid diagram does not wait for PlantUML's engine. The
+  blocks of both kinds are drawn one at a time, through one queue of the pass,
+  since a drawing holds the main thread and cannot be stopped: with a loop per
+  kind, a mermaid and a PlantUML block waiting for the same move to end were
+  drawn in the same task. A canceled pass stops between two blocks. Each
+  diagram is put in as soon as it is drawn, and the next one waits for a task
+  of its own, so a tap is answered between two drawings. A pass starts only
+  when the screen's move on a phone has ended (`screenSettled` in
+  `web/src/motion.ts`): drawn during the move, the first note with diagrams of
+  a session took twice as long to slide in, with frames held a third of a
   second. A drag of the swipe back and a swiped page's copy still leaving hold
   the pass the same way (`holdScreen`). `screenSettled` waits until no move and
   no hold is left, so a move that starts while it waits is waited for too, and

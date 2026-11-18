@@ -661,12 +661,12 @@ test.describe('mobile', () => {
 
         async function addTouchSender(page) {
             await page.evaluate(() => {
-                window.sendTouch = (type, point) => {
+                window.sendTouch = (type, point, target = document.body) => {
                     const touches = point === undefined
                         ? []
-                        : [new Touch({identifier: 1, target: document.body, clientX: point[0], clientY: point[1]})];
+                        : [new Touch({identifier: 1, target, clientX: point[0], clientY: point[1]})];
                     const event = new TouchEvent(type, {touches, changedTouches: touches, bubbles: true, cancelable: true});
-                    document.body.dispatchEvent(event);
+                    target.dispatchEvent(event);
                     return event.defaultPrevented;
                 };
             });
@@ -1646,6 +1646,95 @@ test.describe('mobile', () => {
             await expect(page).toHaveURL(MAIN.url.doc(docs.folder.entry));
             await expect(page.locator('[data-leaving]')).toHaveCount(0);
             await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
+        });
+
+        test('a drag whose touch lost its element to the page opened under it is still the finger\'s and is put back', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(folder());
+            const row = page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.folder.entry}"]`);
+            await expect(row).toBeVisible();
+            await settled(page);
+            await addTouchSender(page);
+            await row.evaluate(async (element) => {
+                window.touched = element;
+                window.sendTouch('touchstart', [4, 400], element);
+                for (const x of [10, 20, 40, 80]) {
+                    window.sendTouch('touchmove', [x, 400], element);
+                    await new Promise((resolve) => setTimeout(resolve, 16));
+                }
+            });
+            await row.evaluate((element) => element.querySelector('a').click());
+            await expect(page.locator('[data-screen] [data-testid=doc]')).toBeVisible();
+
+            // act
+            const gone = await page.evaluate(async () => {
+                const removed = !window.touched.isConnected;
+                for (const x of [160, 240, 300]) {
+                    window.sendTouch('touchmove', [x, 400], window.touched);
+                    await new Promise((resolve) => setTimeout(resolve, 16));
+                }
+                window.sendTouch('touchend', [300, 400], window.touched);
+                return removed;
+            });
+
+            // assert
+            expect(gone).toBe(true);
+            await settled(page);
+            await expect(page).toHaveURL(MAIN.url.doc(docs.folder.entry));
+            await expect(page.locator('[data-leaving]')).toHaveCount(0);
+            await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
+        });
+
+        test('a flick of one move goes back', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(docs.folder.entry));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await settled(page);
+            await addTouchSender(page);
+
+            // act
+            await page.evaluate(async () => {
+                window.sendTouch('touchstart', [4, 400]);
+                await new Promise((resolve) => setTimeout(resolve, 16));
+                window.sendTouch('touchmove', [100, 400]);
+                await new Promise((resolve) => setTimeout(resolve, 16));
+                window.sendTouch('touchend');
+            });
+
+            // assert
+            await expect(page).toHaveURL(folder());
+        });
+
+        test('a folder that comes after the copy has left shows in its place with no move', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.addInitScript(() => {
+                window.screenMoves = [];
+                const animate = Element.prototype.animate;
+                Element.prototype.animate = function (keyframes, options) {
+                    if (this.hasAttribute('data-screen') && Array.isArray(keyframes)) {
+                        window.screenMoves.push(String(keyframes[0]?.transform));
+                    }
+                    return animate.call(this, keyframes, options);
+                };
+            });
+            await page.goto(MAIN.url.doc(docs.folder.entry));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await settled(page);
+            await page.route(new RegExp(`/api/dir/${docs.folder.path}$`), async (route) => {
+                await new Promise((resolve) => setTimeout(resolve, 600));
+                await route.continue();
+            });
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.folder.entry}"]`)).toBeVisible();
+            await settled(page);
+            expect(await page.evaluate(() => window.screenMoves)).toEqual([]);
         });
 
         test('a folder that comes while the copy leaves starts on the copy\'s clock', async ({page}) => {

@@ -60,6 +60,7 @@ export const appPlatform: Platform = {
   editing: true,
   runFind,
   boundedFind: true,
+  prefetch: true,
 };
 
 export const offlinePlatform: Platform = {

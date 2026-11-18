@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useLocation } from 'react-router';
 
 import {
   leavingScreen, releaseMotion, screenHidden, sendOff, standalone, takeScreen, type Drag,
@@ -10,6 +11,7 @@ const startPx = 8;
 const completeShare = 0.35;
 const flickPxPerMs = 0.4;
 const flickWindowMs = 100;
+const prefetchKeepMs = 3000;
 
 interface Sample {
   dx: number;
@@ -17,6 +19,7 @@ interface Sample {
 }
 
 interface Track {
+  entry: string;
   x: number;
   y: number;
   dx: number;
@@ -63,9 +66,12 @@ function settle({ dx: from, giveUp }: Track, { element, release }: Drag, speed: 
 export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => void): void {
   const goBackRef = useRef(goBack);
   const prepareRef = useRef(prepare);
+  const { key } = useLocation();
+  const entryRef = useRef(key);
   useEffect(() => {
     goBackRef.current = goBack;
     prepareRef.current = prepare;
+    entryRef.current = key;
   });
 
   useEffect(() => {
@@ -96,7 +102,7 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
         !leavingScreen() &&
         !screenHidden() &&
         !covered()
-          ? { x: touch.clientX, y: touch.clientY, dx: 0, samples: [], across: false }
+          ? { entry: entryRef.current, x: touch.clientX, y: touch.clientY, dx: 0, samples: [], across: false }
           : undefined;
     };
 
@@ -147,13 +153,16 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
       const speed = speedOf(ended.samples, event.timeStamp);
       const done = speed > flickPxPerMs || (ended.dx > element.offsetWidth * completeShare && speed > -flickPxPerMs);
       const back = goBackRef.current;
-      if (!done || back === null) {
+      if (!done || back === null || entryRef.current !== ended.entry) {
         settle(ended, taken, -speed);
         return;
       }
       clearDrag(element);
       sendOff(element, ended.dx, speed);
       release();
+      if (ended.giveUp !== undefined) {
+        window.setTimeout(ended.giveUp, prefetchKeepMs);
+      }
       back();
     };
 

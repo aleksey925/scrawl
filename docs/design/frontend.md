@@ -131,15 +131,19 @@ How the react app in `web/` is built, shipped and wired.
   from the answer.
 - `prefetchDir` asks for a folder ahead of its screen and keeps the question in
   one slot with its source and path. A newer question replaces it, and
-  `forgetResponses` and a drag given up clear it: kept after a drag given up, a
-  screen opened minutes later took an old answer and asked nothing. The next
-  screen of that folder that asks the same source takes the question once, as
-  its own request (`dirOf`), and asks again if it failed; the copy kept offline
-  is another source, and its answer is not the folder online. The question
-  never writes to the answers `useApi` keeps: stored when it came, a late
-  answer brought back a folder from before a rename or a delete, and an older
-  question answered first pushed out the newer one. It is a background request,
-  so a refusal sends nobody to sign in while the person stays on the page.
+  `forgetResponses`, a drag given up and three seconds after a swipe let go
+  clear it: kept after a drag given up, or after a swipe whose folder never
+  came, a screen opened minutes later took an old answer and asked nothing. The
+  next screen of that folder that asks the same source takes the question once,
+  as its own request (`dirOf`), and asks again if it failed; the copy kept
+  offline is another source, and its answer is not the folder online. The
+  question never writes to the answers `useApi` keeps: stored when it came, a
+  late answer brought back a folder from before a rename or a delete, and an
+  older question answered first pushed out the newer one. It is a background
+  request, so a refusal sends nobody to sign in while the person stays on the
+  page. A site asks nothing ahead (the platform's `prefetch` is false): its
+  source answers from the pages it has read, and an older one took the place of
+  the fresh page its router had just fetched and seeded.
 - `useApi` drops the answer of a run it has canceled, a success as well as an
   error: a source may not watch the signal, the copy's reads do not, and a slow
   answer of the note before would then land under the next one's address.

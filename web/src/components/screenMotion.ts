@@ -3,6 +3,7 @@ import { useLocation, useNavigationType } from 'react-router';
 
 import { holdScreen, motionMs, noteEntering } from '../motion';
 import { scopeDiagramIds } from '../reader/diagramSvg';
+import { decodeFragment } from '../reader/dom';
 import { layoutBreakpoints, maxWidthQuery } from '../theme';
 
 import classes from './screenMotion.module.css';
@@ -85,9 +86,11 @@ interface Scrolled {
   top: number;
 }
 
+const sideways = 'pre, table, .table-wrap, .math-display, .math-inline, .md-diagram-view';
+
 function scrolledParts(element: HTMLElement): Scrolled[] {
   const parts: Scrolled[] = [];
-  for (const [index, node] of element.querySelectorAll('*').entries()) {
+  for (const [index, node] of element.querySelectorAll(sideways).entries()) {
     if (node.scrollLeft !== 0 || node.scrollTop !== 0) {
       parts.push({ index, left: node.scrollLeft, top: node.scrollTop });
     }
@@ -99,7 +102,7 @@ function keepScroll(copy: HTMLElement, parts: Scrolled[]): void {
   if (parts.length === 0) {
     return;
   }
-  const nodes = copy.querySelectorAll('*');
+  const nodes = copy.querySelectorAll(sideways);
   for (const { index, left, top } of parts) {
     const node = nodes[index];
     if (node !== undefined) {
@@ -204,15 +207,14 @@ interface Enter {
   start: string;
   duration: number;
   easing: string;
-  at: number;
+  clock: Animation;
 }
 
 function alongLeaving(): Enter | undefined {
   if (leaving === undefined) {
     return undefined;
   }
-  const at = Number(leaving.animation.currentTime ?? 0);
-  if (at >= leaving.duration) {
+  if (Number(leaving.animation.currentTime ?? 0) >= leaving.duration) {
     return undefined;
   }
   const behind = leaving.sheet.offsetWidth - leaving.from;
@@ -220,12 +222,12 @@ function alongLeaving(): Enter | undefined {
     start: `translateX(${-Math.round((offsetPercent / 100) * behind)}px)`,
     duration: leaving.duration,
     easing: leaving.easing,
-    at,
+    clock: leaving.animation,
   };
 }
 
 function motionOf(pathname: string, navigation: string): Motion {
-  const asked = planned?.pathname === pathname ? planned.motion : undefined;
+  const asked = planned !== undefined && decodeFragment(planned.pathname) === decodeFragment(pathname) ? planned.motion : undefined;
   planned = undefined;
   if (asked !== undefined) {
     return asked;
@@ -278,7 +280,13 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
       fill: 'forwards',
     });
     if (along !== undefined) {
-      animation.currentTime = along.at;
+      const { clock } = along;
+      const follow = (): void => {
+        if (animation.playState !== 'idle' && clock.startTime !== null) {
+          animation.startTime = clock.startTime;
+        }
+      };
+      void clock.ready.then(follow, follow);
     }
     const done = (): void => {
       if (element.style.transform === start.transform) {

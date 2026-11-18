@@ -18,6 +18,7 @@ export interface Platform {
   editing: boolean;
   runFind: (texts: string[], pattern: FindPattern, signal: AbortSignal) => Promise<FindMatch[]>;
   boundedFind: boolean;
+  prefetch: boolean;
 }
 
 const PlatformContext = createContext<Platform | undefined>(undefined);

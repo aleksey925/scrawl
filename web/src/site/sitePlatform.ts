@@ -23,6 +23,7 @@ export function sitePlatform(root: URL, store: PageStore, site: SiteData): Platf
     editing: false,
     runFind: async (texts, pattern) => findMatches(texts, pattern),
     boundedFind: false,
+    prefetch: false,
   };
 }
 export function siteStatus(title: string): MeState {

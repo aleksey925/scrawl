@@ -76,7 +76,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const location = useLocation();
   const parent = wayUp(location.pathname, chrome.crumbs[chrome.crumbs.length - 1], space);
   const above = parent.dir;
-  const { source } = usePlatform();
+  const { source, prefetch } = usePlatform();
   const editing = isEditPath(location.pathname);
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
@@ -101,7 +101,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
             void navigate(parent.url);
           }
         },
-    above === undefined ? undefined : () => prefetchDir(source, above),
+    above === undefined || !prefetch ? undefined : () => prefetchDir(source, above),
   );
 
   if (editing) {

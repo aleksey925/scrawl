@@ -563,6 +563,35 @@ test.describe('mobile', () => {
         await expect.poll(moves).toEqual(['translateX(28%)', 'translateX(-28%)']);
     });
 
+    test('the way up to a folder the history wrote in another way slides in from the left', async ({page}) => {
+        // arrange
+        const above = 'e2e-mobile/up(1)';
+        writeFixture(`${above}/note.md`, '# Up\n');
+        await page.addInitScript(() => {
+            window.moves = [];
+            const animate = Element.prototype.animate;
+            Element.prototype.animate = function (keyframes, options) {
+                if (Array.isArray(keyframes) && String(keyframes[0]?.transform).startsWith('translateX')) {
+                    window.moves.push(keyframes[0].transform);
+                }
+                return animate.call(this, keyframes, options);
+            };
+        });
+        const moves = () => page.evaluate(() => window.moves);
+        await page.goto(MAIN.url.dir(above).replace('(1)', '%281%29'));
+        await page.locator(`[data-screen] [data-testid=dir-row][data-path="${above}/note.md"]`).tap();
+        await expect(page.locator('[data-screen] [data-testid=doc]')).toBeVisible();
+        await expect.poll(moves).toEqual(['translateX(28%)']);
+
+        // act
+        await page.getByTestId('topbar-up').tap();
+
+        // assert
+        await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${above}/note.md"]`)).toBeVisible();
+        await expect.poll(moves).toEqual(['translateX(28%)', 'translateX(-28%)']);
+        removeFixture(above);
+    });
+
     test('a back the browser takes moves nothing in a tab, and slides in from the left in an app', async ({page}) => {
         // arrange
         await page.addInitScript(() => {
@@ -1581,6 +1610,78 @@ test.describe('mobile', () => {
             await stays(() => page.url(), MAIN.url.dir(docs.deep.above), 300);
             held.release();
             await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.deep.folder}"]`)).toBeVisible();
+        });
+
+        test('a drag under which another page opens is put back when let go and stays on that page', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(folder());
+            const row = page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.folder.entry}"]`);
+            await expect(row).toBeVisible();
+            await settled(page);
+            await addTouchSender(page);
+            await page.evaluate(async () => {
+                window.sendTouch('touchstart', [4, 400]);
+                for (const x of [10, 20, 40, 80]) {
+                    window.sendTouch('touchmove', [x, 400]);
+                    await new Promise((resolve) => setTimeout(resolve, 16));
+                }
+            });
+            await row.evaluate((element) => element.querySelector('a').click());
+            await expect(page).toHaveURL(MAIN.url.doc(docs.folder.entry));
+            await expect(page.locator('[data-screen] [data-testid=doc]')).toBeVisible();
+
+            // act
+            await page.evaluate(async () => {
+                for (const x of [160, 240, 300]) {
+                    window.sendTouch('touchmove', [x, 400]);
+                    await new Promise((resolve) => setTimeout(resolve, 16));
+                }
+                window.sendTouch('touchend');
+            });
+
+            // assert
+            await settled(page);
+            await stays(() => page.url(), page.url(), 500);
+            await expect(page).toHaveURL(MAIN.url.doc(docs.folder.entry));
+            await expect(page.locator('[data-leaving]')).toHaveCount(0);
+            await expect(page.locator('[data-screen]')).toHaveCSS('transform', 'none');
+        });
+
+        test('a folder that comes while the copy leaves starts on the copy\'s clock', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(docs.folder.entry));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await settled(page);
+            await page.route(new RegExp(`/api/dir/${docs.folder.path}$`), async (route) => {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+                await route.continue();
+            });
+            await page.evaluate(() => {
+                window.clocks = new Promise((resolve) => {
+                    const watch = () => {
+                        const sheet = document.querySelector('[data-leaving]')?.getAnimations()[0];
+                        const under = Array.from(document.querySelectorAll('[data-screen]'))
+                            .flatMap((element) => element.getAnimations())
+                            .find((animation) => animation.playState === 'running');
+                        if (sheet?.startTime != null && under?.startTime != null) {
+                            resolve({sheet: sheet.startTime, under: under.startTime});
+                            return;
+                        }
+                        requestAnimationFrame(watch);
+                    };
+                    requestAnimationFrame(watch);
+                });
+            });
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            const clocks = await page.evaluate(() => window.clocks);
+            expect(clocks.under).toBe(clocks.sheet);
+            await expect(page).toHaveURL(folder());
         });
 
         test('with less motion asked for, a swipe let go goes back with no copy left over', async ({page}) => {

@@ -100,23 +100,26 @@ How the app works on a phone.
   gone back to slides in from the left with no fade, as an app moves its
   screens, on an even ease-out of 300ms: the curve before put most of the way
   into the first frames, and the screen seemed to jump into place; a tab is
-  switched to with no move, and the way up moves back. The way up goes back in
-  the history when the page before is the folder above, and pushes the folder
-  only when it is not: a pushed folder left the note behind it, and the back of
-  the browser or of Android opened the note again. A note an editor is left for
-  slides in from the left too. A screen moves once for its entry of the
-  history, and the editor, which is not such a screen, marks that one was left:
-  going back to the note's own entry, the note came up with no move. The move
-  starts when the page first shows the answer of its route, not on the tap: a
-  screen keeps the last answer while the next one loads, and a move on the tap
-  slid in the old screen and then swapped it. Only the page moves, never the
-  bars, and `main` clips what reaches past its edge. A back the browser takes
-  moves nothing outside an app from the home screen: Safari draws the page gone
-  back to under its own swipe, and a move of ours after it shook the page. The
-  move's start is also held inline, because WebKit paints a page just put in
-  once at rest before the move takes it, and the page jumped back to where the
-  move starts. `main` clips with `overflow-x: clip` and never `hidden`, which
-  makes it a scroll container, and every sticky bar inside it stopped sticking.
+  switched to with no move, and the way up moves back, its address compared as
+  the names it spells, as the way back in the history compares it: compared as
+  written, a folder whose address the history wrote in another way came up with
+  no move. The way up goes back in the history when the page before is the
+  folder above, and pushes the folder only when it is not: a pushed folder left
+  the note behind it, and the back of the browser or of Android opened the note
+  again. A note an editor is left for slides in from the left too. A screen
+  moves once for its entry of the history, and the editor, which is not such a
+  screen, marks that one was left: going back to the note's own entry, the note
+  came up with no move. The move starts when the page first shows the answer of
+  its route, not on the tap: a screen keeps the last answer while the next one
+  loads, and a move on the tap slid in the old screen and then swapped it. Only
+  the page moves, never the bars, and `main` clips what reaches past its edge.
+  A back the browser takes moves nothing outside an app from the home screen:
+  Safari draws the page gone back to under its own swipe, and a move of ours
+  after it shook the page. The move's start is also held inline, because WebKit
+  paints a page just put in once at rest before the move takes it, and the page
+  jumped back to where the move starts. `main` clips with `overflow-x: clip`
+  and never `hidden`, which makes it a scroll container, and every sticky bar
+  inside it stopped sticking.
 - A field that finds something, the search, the find bar of a note, the filter
   of the tree and Move to, starts in lower case with no autocorrect and no
   spell check, as a name or a word is looked up as typed; its return key reads
@@ -144,20 +147,23 @@ How the app works on a phone.
   which is drawn under it and slides in from the left as the copy slides off,
   as a phone's own back moves both. The page under keeps a 28% share of the
   copy's way left behind it on every frame: it moves on the copy's clock and
-  curve, from the point the copy has reached, so both end together. On its own
-  300ms it fell behind a copy that left in 200ms, and a strip of empty screen
-  showed between them, and a curve of its own started again changed speed
-  against the copy ([ADR 33](../adr/0033-a-swiped-page-leaves-as-a-copy.md)).
-  The page itself is hidden until the next one enters, three seconds at most,
-  and so is the copy. The copy lies on a sheet as large as the screen, with the
-  page's ground, above the page and under the bars: with no ground the page
-  under showed through, and a page under that moves is painted above a copy
-  with no layer of its own. The sheet also keeps the copy to the screen, so a
-  long note is not one tall layer. The copy takes no touch, and the sheet takes
-  every tap while it covers the page: a sheet that let taps through opened a
-  row of the page under it. A part of the page scrolled sideways, such as a
-  code block or a table, keeps its place on the copy. The copy carries no test
-  id, and no id but those of its diagrams, which get ids of their own: a
+  curve, with the copy's own start time, so both end together. Set to the point
+  the copy had reached, it could start a frame later and end after the copy. On
+  its own 300ms it fell behind a copy that left in 200ms, and a strip of empty
+  screen showed between them, and a curve of its own started again changed
+  speed against the copy
+  ([ADR 33](../adr/0033-a-swiped-page-leaves-as-a-copy.md)). The page itself is
+  hidden until the next one enters, three seconds at most, and so is the copy.
+  The copy lies on a sheet as large as the screen, with the page's ground,
+  above the page and under the bars: with no ground the page under showed
+  through, and a page under that moves is painted above a copy with no layer of
+  its own. The sheet also keeps the copy to the screen, so a long note is not
+  one tall layer. The copy takes no touch, and the sheet takes every tap while
+  it covers the page: a sheet that let taps through opened a row of the page
+  under it. A code block, a table, a formula or a diagram scrolled sideways
+  keeps its place on the copy. Only these are read for it, as reading every
+  part of a long note held up the first frame of the leave. The copy carries no
+  test id, and no id but those of its diagrams, which get ids of their own: a
   diagram's styles and arrow heads find its parts by id, and the copy of a
   diagram whose ids were dropped lost its colors and arrows. A folder gone back
   to that is not yet in the answers the app keeps has nothing to show under the
@@ -179,36 +185,40 @@ How the app works on a phone.
   finger; the move held the page in its own place, away from the finger, and
   cleared the drag's place when it ended. A screen that comes in while the
   finger is down, such as a folder whose answer came, has no move of its own
-  and is handed to the drag at the finger. The way up is the folder above in
-  the address, and the bar on top names that folder too, not the folder of the
-  page before, as the bar still shows the page before while the next one loads,
-  and a quick second swipe went to the same folder again. The way up goes back
-  in the history when the page before is that folder, the address of either
-  compared as the names it spells: the server and the app write some characters
-  of a name, such as brackets, differently. As a drag starts it asks for the
-  folder above, so a folder not yet visited is often there when the page has
-  left; asked only after the leave, it slid in a round trip later. The next
-  screen of that folder takes the question as its own and asks nothing again,
-  unless the question went to the copy kept offline and the app is online
-  again, or a change or a newer drag came since, or the drag was given up. The
-  answer is not kept for later, so a folder never comes back with a name
-  already renamed or deleted, and a refused question sends nobody to sign in.
-  The swipe never starts under a dialog, a sheet or a menu, nor in the editor,
-  and for a reader who asked for less motion it moves nothing on its own. A
-  touch at the edge holds every move until its direction is known, since a move
-  let through starts the page's own scroll, which shook the page up and down
-  under the drag; one that goes up or down is the scroll. The dragged page is a
-  layer of its own, or WebKit paints a long note again on every move. Let go,
-  the page goes on at the finger's speed, and a finger drawn back toward the
-  edge as it lifts keeps the page. The swipe saves a rename field before it
-  goes back, since it blurs nothing, and the field would have gone without
-  saving. The field is gone before the server answers, so a save that fails
-  after a swipe, or after a tap on a link, shows its error toast and the name
-  typed is lost. The back button, Android's back gesture and the swipe of a
-  Safari tab change the page without the app's swipe, and a field left open
-  then is dropped. A screen still loading shows its spinner only after 400ms:
-  one that came up the moment the swiped page was gone read as the page
-  jerking.
+  and is handed to the drag at the finger. A drag under which the history moves
+  to another entry, such as a page tapped before it whose code came late, is
+  put back when let go: the way back was the new page's, and the swipe left the
+  page just opened. The way up is the folder above in the address, and the bar
+  on top names that folder too, not the folder of the page before, as the bar
+  still shows the page before while the next one loads, and a quick second
+  swipe went to the same folder again. The way up goes back in the history when
+  the page before is that folder, the address of either compared as the names
+  it spells: the server and the app write some characters of a name, such as
+  brackets, differently. As a drag starts it asks for the folder above, so a
+  folder not yet visited is often there when the page has left; asked only
+  after the leave, it slid in a round trip later. The next screen of that
+  folder takes the question as its own and asks nothing again, unless the
+  question went to the copy kept offline and the app is online again, or a
+  change or a newer drag came since, or the drag was given up, or the swipe was
+  let go more than three seconds before: a folder that never came, as a tab was
+  tapped while it loaded, left its question for a later visit. The answer is
+  not kept for later, so a folder never comes back with a name already renamed
+  or deleted, and a refused question sends nobody to sign in. The swipe never
+  starts under a dialog, a sheet or a menu, nor in the editor, and for a reader
+  who asked for less motion it moves nothing on its own. A touch at the edge
+  holds every move until its direction is known, since a move let through
+  starts the page's own scroll, which shook the page up and down under the
+  drag; one that goes up or down is the scroll. The dragged page is a layer of
+  its own, or WebKit paints a long note again on every move. Let go, the page
+  goes on at the finger's speed, and a finger drawn back toward the edge as it
+  lifts keeps the page. The swipe saves a rename field before it goes back,
+  since it blurs nothing, and the field would have gone without saving. The
+  field is gone before the server answers, so a save that fails after a swipe,
+  or after a tap on a link, shows its error toast and the name typed is lost.
+  The back button, Android's back gesture and the swipe of a Safari tab change
+  the page without the app's swipe, and a field left open then is dropped. A
+  screen still loading shows its spinner only after 400ms: one that came up the
+  moment the swiped page was gone read as the page jerking.
 - The run screen of an HTML app is one bar on top and the frame under it to the
   bottom of the screen: no tab bar and no swipe back from the edge, since the
   screen is outside the layout that owns them and a swipe over the frame

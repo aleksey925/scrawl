@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { leaveScreen, leavingScreen, releaseMotion, standalone, takeScreen } from '../components/screenMotion';
+import { leavingScreen, releaseMotion, sendOff, standalone, takeScreen } from '../components/screenMotion';
 
 const edgePx = 24;
 const decidePx = 6;
@@ -39,10 +39,6 @@ function covered(): boolean {
       'dialog[open], .mantine-Modal-content, .mantine-Drawer-content, .mantine-Popover-dropdown, [role="menu"]',
     ) !== null
   );
-}
-
-function entryKey(): string | undefined {
-  return (window.history.state as { key?: string } | null)?.key;
 }
 
 function screen(): HTMLElement | null {
@@ -148,13 +144,8 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => void):
         settle(element, ended.dx, -speed);
         return;
       }
-      clearDrag(element);
-      const from = entryKey();
-      void leaveScreen(element, ended.dx, speed).then((gone) => {
-        if (gone && entryKey() === from) {
-          goBackRef.current?.();
-        }
-      });
+      sendOff(element, ended.dx, speed);
+      goBackRef.current?.();
     };
 
     document.addEventListener('touchstart', onStart, { passive: true });

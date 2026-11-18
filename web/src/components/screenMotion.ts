@@ -14,11 +14,13 @@ export function planMotion(pathname: string, motion: Motion): void {
   planned = { pathname, motion };
 }
 
-let leaving: Animation | undefined;
+let ghost: HTMLElement | undefined;
 
-const leaveHoldMs = 3000;
+let hidden: { element: HTMLElement; timer: number } | undefined;
 
-const screenEasing = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+const hideHoldMs = 3000;
+
+const screenEasing = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
 export const springEasing = 'cubic-bezier(0.2, 0.9, 0.3, 1.15)';
 const swipeEndMs = 200;
 const minReleaseMs = 120;
@@ -43,27 +45,58 @@ export function standalone(): boolean {
   return (navigator as { standalone?: boolean }).standalone === true;
 }
 
-export function leaveScreen(element: HTMLElement, from: number, speed: number): Promise<boolean> {
-  leaving?.cancel();
-  const animation = element.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100%)' }], {
+function reveal(): void {
+  if (hidden !== undefined) {
+    window.clearTimeout(hidden.timer);
+    hidden.element.style.visibility = '';
+    hidden = undefined;
+  }
+}
+
+export function sendOff(element: HTMLElement, from: number, speed: number): void {
+  ghost?.remove();
+  reveal();
+  const box = element.getBoundingClientRect();
+  const copy = element.cloneNode(true) as HTMLElement;
+  for (const node of [copy, ...copy.querySelectorAll<HTMLElement>('[id], [data-testid], [data-screen]')]) {
+    node.removeAttribute('id');
+    node.removeAttribute('data-testid');
+    node.removeAttribute('data-screen');
+  }
+  copy.inert = true;
+  copy.setAttribute('aria-hidden', 'true');
+  copy.dataset.leaving = 'true';
+  Object.assign(copy.style, {
+    position: 'fixed',
+    top: `${box.top}px`,
+    left: `${box.left - from}px`,
+    width: `${element.offsetWidth}px`,
+    margin: '0',
+    pointerEvents: 'none',
+    transform: `translateX(${from}px)`,
+    willChange: 'transform',
+  });
+  element.after(copy);
+  element.style.transform = '';
+  element.style.willChange = '';
+  element.style.visibility = 'hidden';
+  hidden = { element, timer: window.setTimeout(reveal, hideHoldMs) };
+  ghost = copy;
+  const animation = copy.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100vw)' }], {
     ...releaseMotion(element.offsetWidth - from, speed),
     fill: 'forwards',
   });
-  leaving = animation;
-  window.setTimeout(() => {
-    if (leaving === animation) {
-      animation.cancel();
-      leaving = undefined;
+  const remove = (): void => {
+    copy.remove();
+    if (ghost === copy) {
+      ghost = undefined;
     }
-  }, leaveHoldMs);
-  return animation.finished.then(
-    () => true,
-    () => false,
-  );
+  };
+  void animation.finished.then(remove, remove);
 }
 
 export function leavingScreen(): boolean {
-  return leaving !== undefined;
+  return ghost !== undefined;
 }
 
 export function takeScreen(element: HTMLElement): void {
@@ -81,7 +114,7 @@ export function useOffScreen(): void {
   }, []);
 }
 
-const enterMs = 280;
+const enterMs = 300;
 const offset = '28%';
 
 function motionOf(pathname: string, navigation: string): Motion {
@@ -112,15 +145,15 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
     const first = enteredFor === undefined;
     enteredFor = location.key;
     offScreen = false;
-    leaving?.cancel();
-    leaving = undefined;
+    reveal();
     const motion = motionOf(location.pathname, navigation);
     const element = ref.current;
     const duration = motionMs(enterMs);
     if (first || motion === 'none' || element === null || !moves() || duration === 0) {
       return;
     }
-    const start = { transform: `translateX(${motion === 'forward' ? offset : `-${offset}`})`, opacity: '0' };
+    const start =
+      motion === 'forward' ? { transform: `translateX(${offset})`, opacity: '0' } : { transform: `translateX(-${offset})`, opacity: '1' };
     Object.assign(element.style, start);
     const animation = element.animate([start, { transform: 'none', opacity: '1' }], {
       duration,

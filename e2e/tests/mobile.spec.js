@@ -601,19 +601,9 @@ test.describe('mobile', () => {
         async function inStandalone(page) {
             await asStandalone(page);
             await page.addInitScript(() => {
-                window.visited = [];
-                const log = () => window.visited.push(location.pathname.replace(/\/$/, ''));
-                for (const name of ['pushState', 'replaceState']) {
-                    const original = history[name];
-                    history[name] = function (...args) {
-                        const res = original.apply(this, args);
-                        log();
-                        return res;
-                    };
-                }
-                window.addEventListener('popstate', log);
                 document.addEventListener('touchstart', () => {
-                    window.tappedMoving = (document.querySelector('[data-screen]')?.getAnimations() ?? [])
+                    window.tappedMoving = Array.from(document.querySelectorAll('[data-screen], [data-leaving]'))
+                        .flatMap((element) => element.getAnimations())
                         .some((animation) => animation.playState === 'running');
                 }, {capture: true});
             });
@@ -655,8 +645,6 @@ test.describe('mobile', () => {
             }, {start, moves, end});
         }
 
-        const visited = (page) => page.evaluate(() => window.visited);
-        const pathOf = (url) => new URL(url, MAIN.baseURL).pathname.replace(/\/$/, '');
 
         test('every move of a drag from the edge is the drag\'s, and the page is a layer while it is dragged', async ({page}) => {
             // arrange
@@ -701,6 +689,45 @@ test.describe('mobile', () => {
 
             // assert
             expect(shift).toBe(100);
+        });
+
+        test('the page let go leaves as a copy over the page gone back to, with no empty screen between', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(folder());
+            await page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`).tap();
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await settled(page);
+            await page.evaluate(() => {
+                window.frames = [];
+                const watch = () => {
+                    const copy = document.querySelector('[data-leaving]');
+                    window.frames.push({
+                        copy: copy !== null,
+                        list: document.querySelector('[data-screen] [data-testid=dir-row]') !== null,
+                        marks: copy === null ? 0 : copy.querySelectorAll('[id], [data-testid], [data-screen]').length,
+                    });
+                    if (window.frames.length < 60) {
+                        requestAnimationFrame(watch);
+                    }
+                };
+                requestAnimationFrame(watch);
+            });
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect.poll(() => page.evaluate(() => window.frames.length)).toBe(60);
+            const frames = await page.evaluate(() => window.frames);
+            const leaving = frames.filter((frame) => frame.copy);
+            expect(leaving.length).toBeGreaterThan(0);
+            expect(leaving.some((frame) => frame.list)).toBe(true);
+            expect(leaving.every((frame) => frame.marks === 0)).toBe(true);
+            const after = frames.slice(frames.findIndex((frame) => frame.copy));
+            expect(after.every((frame) => frame.copy || frame.list)).toBe(true);
+            await expect(page).toHaveURL(folder());
+            await expect(page.locator('[data-leaving]')).toHaveCount(0);
         });
 
         test('a drag from the edge asks for the folder above before the page is let go', async ({page}) => {
@@ -825,7 +852,7 @@ test.describe('mobile', () => {
                 window.leaves = [];
                 const animate = Element.prototype.animate;
                 Element.prototype.animate = function (keyframes, options) {
-                    if (Array.isArray(keyframes) && keyframes[1]?.transform === 'translateX(100%)') {
+                    if (Array.isArray(keyframes) && keyframes[1]?.transform === 'translateX(100vw)') {
                         window.leaves.push(options.duration);
                     }
                     return animate.call(this, keyframes, options);
@@ -964,7 +991,7 @@ test.describe('mobile', () => {
             await expect(page).toHaveURL(folder());
         });
 
-        test('a tab tapped while the swiped page is leaving wins over the way back', async ({page}) => {
+        test('a tab tapped while the swiped page is leaving goes after the way back and stays', async ({page}) => {
             // arrange
             await inStandalone(page);
             await page.goto(folder());
@@ -978,7 +1005,7 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
             await settled(page);
             await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
-            expect(await visited(page)).not.toContain(pathOf(routes.home()));
+            await stays(() => page.getByTestId('tab-recent').getAttribute('data-current'), 'true', 500);
         });
 
         test('a tab whose screen is still loading when the leave ends keeps its place', async ({page}) => {
@@ -1000,7 +1027,7 @@ test.describe('mobile', () => {
             await expect(page.locator(`[data-testid=dir-row][data-path="${docs.doc.folder}"]`)).toBeVisible();
             await settled(page);
             await expect(page).toHaveURL(atHome());
-            expect(await visited(page)).not.toContain(pathOf(MAIN.url.dir(docs.doc.folder)));
+            await stays(() => page.url(), page.url(), 1500);
         });
 
         test('with less motion asked for, a short drag puts the page back with no move', async ({page}) => {

@@ -302,6 +302,7 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
         return;
       }
       const result = await drawOne(draw, item, `md-${kind.name}-${thisPass}-${index}`);
+      await screenSettled();
       if (cancelled) {
         return;
       }

@@ -20,6 +20,7 @@ export function planMotion(pathname: string, motion: Motion): void {
 interface Leaving {
   sheet: HTMLElement;
   animation: Animation;
+  from: number;
   duration: number;
   easing: string;
 }
@@ -61,6 +62,10 @@ function reveal(): void {
     hidden.element.style.visibility = '';
     hidden = undefined;
   }
+}
+
+export function screenHidden(): boolean {
+  return hidden !== undefined;
 }
 
 function stripMarks(copy: HTMLElement): void {
@@ -132,7 +137,7 @@ export function sendOff(element: HTMLElement, from: number, speed: number): void
     ...timing,
     fill: 'forwards',
   });
-  leaving = { sheet, animation, ...timing };
+  leaving = { sheet, animation, from, ...timing };
   const held = holdScreen();
   const cap = window.setTimeout(() => animation.cancel(), hideHoldMs);
   const remove = (): void => {
@@ -199,18 +204,24 @@ interface Enter {
   start: string;
   duration: number;
   easing: string;
+  at: number;
 }
 
 function alongLeaving(): Enter | undefined {
   if (leaving === undefined) {
     return undefined;
   }
-  const rest = leaving.duration - Number(leaving.animation.currentTime ?? 0);
-  if (rest <= 0) {
+  const at = Number(leaving.animation.currentTime ?? 0);
+  if (at >= leaving.duration) {
     return undefined;
   }
-  const behind = leaving.sheet.offsetWidth - leaving.sheet.getBoundingClientRect().left;
-  return { start: `translateX(${-Math.round((offsetPercent / 100) * behind)}px)`, duration: rest, easing: leaving.easing };
+  const behind = leaving.sheet.offsetWidth - leaving.from;
+  return {
+    start: `translateX(${-Math.round((offsetPercent / 100) * behind)}px)`,
+    duration: leaving.duration,
+    easing: leaving.easing,
+    at,
+  };
 }
 
 function motionOf(pathname: string, navigation: string): Motion {
@@ -266,6 +277,9 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
       easing: along?.easing ?? screenEasing,
       fill: 'forwards',
     });
+    if (along !== undefined) {
+      animation.currentTime = along.at;
+    }
     const done = (): void => {
       if (element.style.transform === start.transform) {
         element.style.transform = '';

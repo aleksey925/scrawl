@@ -16,7 +16,8 @@ it slides in from the left.
 - A swipe let go goes back at once. The page leaves as a copy of itself, laid
   over the page gone back to, which is drawn under it and slides in as the copy
   slides off. The page under starts where it would stand under the copy and
-  takes the copy's remaining time and curve, so both end together.
+  moves on the copy's clock and curve, so it keeps its place under the copy and
+  both end together.
 - The copy lies on a sheet as large as the screen, with the page's ground,
   above the page and under the bars. The copy takes no touch and the sheet
   takes every tap while it covers the page. The copy carries no test id, and no

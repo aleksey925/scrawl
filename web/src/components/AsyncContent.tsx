@@ -10,7 +10,7 @@ import { layout } from '../theme';
 
 import classes from './AsyncContent.module.css';
 import { Page } from './Page';
-import { ScreenReady } from './screenMotion';
+import { ScreenReady, screenHidden } from './screenMotion';
 
 export interface AsyncContentProps<T> {
   state: AsyncState<T>;
@@ -21,6 +21,11 @@ export interface AsyncContentProps<T> {
 
 export function AsyncContent<T>({ state, testId, page = false, children }: AsyncContentProps<T>): JSX.Element {
   const framed = (content: JSX.Element): JSX.Element => (page ? <Page>{content}</Page> : content);
+  const waiting = (
+    <Center data-testid={testId === undefined ? undefined : `${testId}-loading`} py="3xl" className={classes.waiting}>
+      <Loader size="sm" />
+    </Center>
+  );
   if (state.error !== undefined) {
     const elsewhere = handoffOf(state.error);
     if (elsewhere !== undefined) {
@@ -43,13 +48,14 @@ export function AsyncContent<T>({ state, testId, page = false, children }: Async
   if (state.data === undefined) {
     return (
       <ScreenReady value={false}>
-        {framed(
-          <Center data-testid={testId === undefined ? undefined : `${testId}-loading`} py="3xl" className={classes.waiting}>
-            <Loader size="sm" />
-          </Center>,
-        )}
+        {framed(waiting)}
       </ScreenReady>
     );
   }
-  return <ScreenReady value={!state.stale}>{children(state.data)}</ScreenReady>;
+  return (
+    <ScreenReady value={!state.stale}>
+      {state.stale && screenHidden() && waiting}
+      {children(state.data)}
+    </ScreenReady>
+  );
 }

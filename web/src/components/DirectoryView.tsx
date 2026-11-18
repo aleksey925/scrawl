@@ -2,7 +2,7 @@ import { Button, Menu } from '@mantine/core';
 import { useEffect, useState, type JSX } from 'react';
 
 import type { DirListing } from '../api/types';
-import { answerKeys, useApi } from '../api/useApi';
+import { answerKeys, dirOf, useApi } from '../api/useApi';
 import { IconChevronDown, IconFolderOpen, IconFolderPlus } from '../icons';
 import { usePlatform } from '../platform';
 import { useOptionalFileActions } from '../shell/fileActionsContext';
@@ -25,7 +25,7 @@ export interface DirectoryViewProps {
 export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
   const { source } = usePlatform();
   const { changes } = useTree();
-  const state = useApi((signal) => source.dir(path, { signal }), [source, path, changes], answerKeys.dir(path));
+  const state = useApi((signal) => dirOf(source, path, signal), [source, path, changes], answerKeys.dir(path));
 
   return (
     <AsyncContent state={state} testId="dir" page>

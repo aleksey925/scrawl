@@ -1,6 +1,7 @@
 import { useEffect, useState, type DependencyList } from 'react';
 
 import type { ScrawlApi } from './client';
+import type { DirListing } from './types';
 import { ApiError } from './errors';
 
 export interface AsyncState<T> {
@@ -42,31 +43,36 @@ export function seedResponse(key: string, data: unknown): void {
   remember(key, data);
 }
 
-const pending = new Map<string, Promise<unknown>>();
+type DirSource = Pick<ScrawlApi, 'dir'>;
 
-let generation = 0;
+const pending = new Map<string, { source: DirSource; answer: Promise<DirListing> }>();
 
-export function prefetchDir(source: Pick<ScrawlApi, 'dir'>, path: string): Promise<void> {
-  const key = answerKeys.dir(path);
-  const before = responses.get(key);
-  const asked = generation;
+export function prefetchDir(source: DirSource, path: string): Promise<void> {
+  const before = responses.get(answerKeys.dir(path));
   const answer = source.dir(path);
-  pending.set(key, answer);
-  const settle = (): void => {
-    if (pending.get(key) === answer) {
-      pending.delete(key);
+  pending.set(path, { source, answer });
+  const latest = (): boolean => {
+    const newest = pending.get(path)?.answer === answer;
+    if (newest) {
+      pending.delete(path);
     }
+    return newest;
   };
   return answer.then((dir) => {
-    settle();
-    if (generation === asked && responses.get(key) === before) {
-      remember(key, dir);
+    if (latest() && responses.get(answerKeys.dir(path)) === before) {
+      remember(answerKeys.dir(path), dir);
     }
-  }, settle);
+  }, () => void latest());
+}
+
+export function dirOf(source: DirSource, path: string, signal: AbortSignal): Promise<DirListing> {
+  const shared = pending.get(path);
+  return shared?.source === source
+    ? shared.answer.catch(() => source.dir(path, { signal }))
+    : source.dir(path, { signal });
 }
 
 export function forgetResponses(): void {
-  generation += 1;
   responses.clear();
   pending.clear();
 }
@@ -94,9 +100,7 @@ export function useApi<T>(
     setState((prev) =>
       cached === undefined ? { ...prev, error: undefined, loading: true } : { data: cached, dataKey: key, loading: true },
     );
-    const shared = key === undefined ? undefined : (pending.get(key) as Promise<T> | undefined);
-    const answer = shared === undefined ? run(controller.signal) : shared.catch(() => run(controller.signal));
-    answer.then(
+    run(controller.signal).then(
       (data) => {
         if (controller.signal.aborted) {
           return;

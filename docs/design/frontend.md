@@ -129,11 +129,14 @@ How the react app in `web/` is built, shipped and wired.
   control on every click, for the length of a round trip. What a click may not
   wait for is the highlight: the current row comes from the route and never
   from the answer.
-- `prefetchDir` asks for a folder ahead of its screen. A `useApi` of the same
-  key that starts while that question is on its way takes its answer instead of
-  asking again. The answer is kept only if nothing newer was stored for the key
-  and the answers were not cleared since it was asked: a late answer brought
-  back a folder from before a rename or a delete.
+- `prefetchDir` asks for a folder ahead of its screen. A folder's screen that
+  asks the same source while that question is on its way takes its answer
+  instead of asking again (`dirOf`); the copy kept offline is another source,
+  and its answer is not the folder online. The answer is kept only if nothing
+  newer was stored for the key, no newer question for the folder was asked and
+  the answers were not cleared since it was asked: a late answer brought back a
+  folder from before a rename or a delete, and an older question answered first
+  pushed out the newer one.
 - `useApi` drops the answer of a run it has canceled, a success as well as an
   error: a source may not watch the signal, the copy's reads do not, and a slow
   answer of the note before would then land under the next one's address.
@@ -232,8 +235,9 @@ How the react app in `web/` is built, shipped and wired.
   of a session took twice as long to slide in, with frames held a third of a
   second. A drag of the swipe back and a swiped page's copy still leaving hold
   the pass the same way (`holdScreen`), and every block waits again before it
-  is drawn, so a drag that takes a note sliding in ends its move and still
-  draws nothing under the finger.
+  is drawn and before it is put in, as a block drawn when the finger came down
+  is put in only after the move, so a drag that takes a note sliding in ends
+  its move and still draws nothing under the finger.
 - The whole pass goes to `track` in `pending.ts`, which a PDF waits for, so a
   print has every diagram drawn.
 - Every pass draws under fresh ids, `md-<kind>-<pass>-<index>`. PlantUML's own

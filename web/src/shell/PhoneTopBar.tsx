@@ -40,6 +40,10 @@ function wayUp(pathname: string, crumb: Crumb | undefined, space: string): WayUp
   return { name: dir === '' ? space : basenameOf(dir), url: directoryUrl(dir), dir };
 }
 
+function atRootOf(pathname: string, rootTitle: boolean): boolean {
+  return isDocPath(pathname) ? contentPathOf(pathname) === '' : pathname === directoryUrl('') || rootTitle;
+}
+
 function useScrolled(watchTitle: boolean): { scrolled: boolean; showTitle: boolean } {
   const location = useLocation();
   const [state, setState] = useState({ scrolled: false, showTitle: !watchTitle });
@@ -89,7 +93,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
     return true;
   };
   useSwipeBack(
-    editing || atRoot || location.pathname === directoryUrl('')
+    editing || atRootOf(location.pathname, atRoot)
       ? null
       : () => {
           commit();

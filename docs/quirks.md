@@ -31,6 +31,18 @@ words; the fact itself is written here.
   sideways with the finger. A box that scrolls one way inside a box that
   scrolls the other gives each swipe to one of them. [Editor](ui/editor.md),
   [History](design/history.md)
+- iOS 27 runs JavaScript and WebAssembly with no JIT on a page that is not a
+  secure context, such as `http://` to a LAN address: Enhanced Security, by
+  design ([WebKit bug 324968](https://bugs.webkit.org/show_bug.cgi?id=324968)).
+  A note with C4 PlantUML diagrams, opened that way from a computer on the same
+  network, froze the app for many seconds, and ran smoothly over `https://` or
+  with the feature flag `Enable EnhancedSecurity Heuristics` off. Speed on a
+  phone is measured over `https://` or with that flag off.
+- A `touchmove` listener on the document with `passive: false` makes a scroll
+  wait for the main thread. The app from the home screen has one for its swipe
+  back (`useSwipeBack` in `web/src/shell/useSwipeBack.ts`), so a long script
+  stops its scrolling, while a tab of Safari, with no such listener, keeps
+  scrolling and only lags. [Phone](ui/phone.md)
 
 ## WebKit
 

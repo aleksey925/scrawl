@@ -15,6 +15,21 @@ How a theme file becomes the colors of the app, a page and the code.
   `app/themes.css`; `render` builds a chroma style from the six code colors
   each one lists; the server takes the list and the bar color. `light` and
   `dark` must exist, because they are what Auto follows.
+- The keys of a theme file, whose name is its id: `name`, what the pickers
+  show; `scheme`, `light` or `dark`, what the browser draws for a form control,
+  and the editor and diagram defaults; `code`, six colors of code, `keyword`,
+  `string`, `comment`, `function`, `number` and `builtin`; `strongWeight`, the
+  weight of bold in a note; `currentWeight`, the weight of the current row of
+  the sidebar; `fontSmoothing`, `auto` or `antialiased`; `palette`, every token
+  of `Palette` in `web/src/themes.ts`, read as `--scrawl-<key>`; `blocks`, the
+  nine block colors, a text and a ground each, as `--scrawl-color-<name>` and
+  `--scrawl-bg-<name>`; `shadows`, `small`, `medium` and `large`, as
+  `--scrawl-shadow-<name>`; and `colors`, optional, which replaces mantine's
+  `accent`, `gray` or `dark` scale of `web/src/theme.ts`. To add a theme, copy
+  `light.json` or `dark.json`, change the values and run `make ui`. The go
+  tests and the build both refuse a theme with a token missing. In both entries
+  the theme stylesheet is imported after mantine's own: it replaces their
+  defaults at equal specificity, so the order of the imports decides.
 - The theme is one attribute, `data-scrawl-theme`, absent on Auto, where the
   system preference picks between `light` and `dark`. Every stylesheet keys on
   it, `theme.Scopes` and `themeStylesheet` place the rules the same way, and no

@@ -2,7 +2,60 @@
 
 How the react app in `web/` is built, shipped and wired.
 
+## Develop
+
+- The dev server proxies everything the app talks to, so it needs a real binary
+  behind it: `make run` in one terminal, which serves `./examples/data` as the
+  "notes" space on :7272, and `npm install` and `npm run dev` in `web/` in
+  another, which serves `http://localhost:5173`. The proxy is required, not a
+  convenience: the server's CSRF check is `Sec-Fetch-Site` based, so a mutating
+  request has to look same-origin. CORS cannot make that work.
+- Proxied to `http://127.0.0.1:7272`: `/api`, `/raw`, `/static`, `/sw.js`,
+  `/logout`, `/ping`, `/manifest.webmanifest`, plus `/s` and `/login`. The
+  first group is the server's alone. `/s` and `/login` are shared: a browser
+  navigation to an app route is answered with Vite's `index.html` and
+  everything else on them still reaches the server, so deep links work in both
+  directions. `/plantuml` is proxied to `/static/dev/plantuml`: a built app
+  asks for PlantUML's library next to its bundle, `../../plantuml/` from
+  `/static/<digest>/app/assets/`, and from the source the dev server serves
+  that comes out as `/plantuml/`.
+- The bypass is decided on the path and not on the `Accept` header alone. A
+  space owns its whole subtree, so `/s/<name>/api`, `/s/<name>/raw` and
+  `/s/<name>/hook` always proxy: an attachment opened as a top-level navigation
+  carries `Accept: text/html` like any other, and deciding on the header would
+  hand it `index.html` and never ask the raw handler.
+- The dev shell's base is a constant. The Go shell hands the client its space
+  prefix, and `web/index.html` hardcodes `data-base="/s/notes"` to match the
+  `--space.name=notes` that `make run` passes. Running the backend with another
+  space name means editing that attribute too.
+- The dev shell has no release. `web/index.html` carries no `data-version`, and
+  the offline copy reads only the answers of the shell's release, so reading
+  offline does not work against `npm run dev`. Try it against the binary.
+- Run does not work against the dev server. An app host is on the port of the
+  page, `app-<id>.localhost:5173`, which the dev server does not proxy to the
+  binary. Try HTML apps against the binary.
+
 ## Build and release
+
+- `npm run build` in `web/` runs `tsc --noEmit` for the app and the workers,
+  then a vite build for the app, the workers and the pages. The app goes to
+  `server/assets/app/` (`index.html`, `manifest.json`, `assets/*.js` and
+  `assets/*.css`), the offline copy's worker to `server/assets/sw/sw.js`, and
+  the two scripts of an HTML app's host to `server/assets/htmlapp/`. The pages
+  of `render`, `diff` and `site` get their scripts and stylesheets in
+  `page/assets/`, built by `vite.page.config.ts`, one classic script per entry,
+  because a page opened from disk can load no module. The pages are one vite
+  build per entry, because rolldown splits chunks whenever a build has more
+  than one input, and a script inlined into a page cannot load a chunk. A chunk
+  name never starts with `_` or `.`, which `go:embed` skips.
+- `build.manifest` is the plain name `manifest.json` rather than Vite's default
+  `.vite/manifest.json`. `go:embed` on a directory skips dot-prefixed entries,
+  so the default would embed the bundle and none of its index. The Go side
+  parses `server/assets/app/manifest.json` to find the entry chunk plus the CSS
+  it needs. `base` is `./` for a build and `/` for the dev server.
+- `build.assetsInlineLimit` is `0`. The CSP allows `img-src 'self' data:` but
+  not fonts from `data:`, and an inlined font would fail at runtime with
+  nothing in the build output hinting at why.
 
 - The frontend is a react and mantine app in `web/`. It owns the whole origin:
   every page route boots the same shell and the client router decides what it
@@ -113,8 +166,31 @@ How the react app in `web/` is built, shipped and wired.
 
 ## App
 
+- The server renders the shell, so it and the client agree on two things. The
+  theme choice lives in the `theme` cookie, `auto` or the id of a theme; for a
+  theme the server puts it and its scheme on the root element before the first
+  byte, `data-scrawl-theme` and `data-mantine-color-scheme`, and on `auto`
+  neither. The client writes the cookie and both attributes on every change.
+  Mantine's `ColorSchemeScript` is not used: it emits an inline `<script>`, and
+  `script-src` is `'self'`. On `auto` and on the dev server the client sets the
+  scheme from the cookie and the system before React mounts. The shell has to
+  contain an empty `<div id="scrawl-app-root">`, the one id the app reads, once
+  before any note exists
+  ([ADR 33](../adr/0033-no-logo-while-the-app-loads.md)).
+- Html from the server is injected in three components only:
+  `components/DocumentHtml.tsx` for a note, `diff/RenderedDiff.tsx` for the two
+  sides of a version and `shell/FileView.tsx` for a highlighted text file. It
+  is safe because the server made it: a note and a diff side are sanitized with
+  the bluemonday policy in `render/policy.go`, and a text file is highlighted
+  by `render` from escaped source. Keeping the injection in these three places
+  keeps that trust boundary small. The one other `dangerouslySetInnerHTML` is
+  `shell/AppLogo.tsx`, which draws the logo, a file of the bundle and never
+  input.
 - Breakpoints have one home, `web/src/breakpoints.json`, reached through the
-  theme. No component reads `window.innerWidth` or names a pixel width. The old
+  theme: `breakpoints`, `minWidthQuery`, `maxWidthQuery`, `useAtLeast` and
+  `useBelow` of `web/src/theme.ts`, `$mantine-breakpoint-*` in PostCSS, and
+  `layoutBreakpoints`, which names the one a piece of layout belongs to. No
+  component reads `window.innerWidth` or names a pixel width. The old
   stylesheet answered at 767/899/999/1199 while the javascript answered at
   900/1000, and the drawer closed at a different width than the one that hid
   the sidebar.

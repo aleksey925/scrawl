@@ -53,6 +53,25 @@ async function offerDraft(page, docPath, draft) {
     await expect(page.getByTestId('editor-draft')).toBeVisible();
 }
 
+async function leaveDraft(page, docPath, draft) {
+    writeFixture(docPath, 'kept\n');
+    await page.goto(routes.edit(docPath));
+    await expect.poll(() => sourceText(page)).toBe('kept\n');
+    await setSource(page, draft);
+    await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+    await page.goto(MAIN.url.doc(docPath));
+    await expect.poll(() => storedDrafts(page)).toEqual([{path: docPath, content: draft}]);
+}
+
+async function moveTo(page, folder) {
+    await page.getByTestId('note-menu').click();
+    await page.getByTestId('note-menu-move').click();
+    await page.getByTestId('move-input').fill(nameOf(folder));
+    await expect(page.getByTestId('move-preview')).toContainText(`Moves to ${folder}/`);
+    await page.getByTestId('move-input').press('Enter');
+    await expect(page).toHaveURL(new RegExp(`${folder}/`));
+}
+
 function hidePage(page) {
     return page.evaluate(() => {
         Object.defineProperty(document, 'hidden', {value: true, configurable: true});
@@ -955,6 +974,61 @@ test.describe('editing', () => {
         // assert
         expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed before the rename\n'}]);
         removeFixture(renamed);
+    });
+
+    test('renaming a folder takes along the draft of a note in it', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/draft-folder';
+        const renamed = 'e2e-scratch/draft-folder-new';
+        const docPath = `${folder}/note.md`;
+        await leaveDraft(page, docPath, 'typed in the folder\n');
+        await page.locator(`[data-testid=tree-row][data-path="${folder}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-rename').click();
+        await page.getByTestId('tree-rename-input').fill(nameOf(renamed));
+
+        // act
+        await page.getByTestId('tree-rename-input').press('Enter');
+        await expect(page).toHaveURL(MAIN.url.doc(`${renamed}/note.md`));
+
+        // assert
+        await expect.poll(() => storedDrafts(page)).toEqual([{path: `${renamed}/note.md`, content: 'typed in the folder\n'}]);
+        removeFixture(renamed);
+    });
+
+    test('moving a note takes its draft along', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-moved');
+        const into = 'e2e-scratch/draft-moved-into';
+        fs.mkdirSync(fixtureFile(into), {recursive: true});
+        await leaveDraft(page, docPath, 'typed before the move\n');
+
+        // act
+        await moveTo(page, into);
+
+        // assert
+        await expect.poll(() => storedDrafts(page))
+            .toEqual([{path: `${into}/${nameOf(docPath)}`, content: 'typed before the move\n'}]);
+        removeFixture(into);
+    });
+
+    test('Undo of a move brings the draft back to the note\'s old place', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-undone');
+        const into = 'e2e-scratch/draft-undone-into';
+        fs.mkdirSync(fixtureFile(into), {recursive: true});
+        await leaveDraft(page, docPath, 'typed before the undo\n');
+        await moveTo(page, into);
+        await expect.poll(() => storedDrafts(page))
+            .toEqual([{path: `${into}/${nameOf(docPath)}`, content: 'typed before the undo\n'}]);
+
+        // act
+        await page.getByTestId('toast-action').click();
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+
+        // assert
+        await expect.poll(() => storedDrafts(page)).toEqual([{path: docPath, content: 'typed before the undo\n'}]);
+        removeFixture(docPath);
+        removeFixture(into);
     });
 
     test('a draft offer names the time it was written, and says when the file changed since', async ({page}) => {

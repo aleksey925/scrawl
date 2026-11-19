@@ -212,9 +212,9 @@ Before changing a part, read its doc:
 - why something is built the way it is: [`docs/adr/`](docs/adr/)
 - a strange browser, library or git behavior:
   [`docs/quirks.md`](docs/quirks.md)
-- the dev server, the build output, the shell's contract, the theme file
-  format, the three places that inject the server's HTML:
-  [`web/README.md`](web/README.md)
+- the dev server, the build output, the shell's contract, the three places that
+  inject the server's HTML: [frontend](docs/design/frontend.md); the theme file
+  format: [themes](docs/design/themes.md)
 - the browser suite: [`e2e/README.md`](e2e/README.md)
 
 ## Commands

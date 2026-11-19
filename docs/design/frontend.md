@@ -336,14 +336,15 @@ How the react app in `web/` is built, shipped and wired.
   `FieldMenuItem`, which tells its `PopupMenu` not to give the focus back to
   its button, or the field would lose it
   ([quirks](../quirks.md#react-mantine-and-the-editor)). A Rename row of a
-  sheet turns off the sheet's `returnFocus` for the same reason. Every name
-  field in place, in the tree, a folder's list or the bar on top, is
-  `NameField`, in `web/src/components/NameField.tsx`, the name of a note's
-  draft too. A draft is no rename: the editor owns its name and hands the crumb
-  and the phone's bar a `rename` through the page chrome (`useDraftChrome`),
-  and the tree draws the faint row from the same chrome. A rename is one
-  session held by `FileActionsProvider`: a place asks `useRenamingHere` whether
-  the session is its own and draws it with `RenameField`.
+  sheet, and a tile of New, turn off the sheet's `returnFocus` for the same
+  reason, through `useKeptFocus` beside `Sheet`. Every name field in place, in
+  the tree, a folder's list or the bar on top, is `NameField`, in
+  `web/src/components/NameField.tsx`, the name of a note's draft too. A draft
+  is no rename: the editor owns its name and hands the crumb and the phone's
+  bar a `rename` through the page chrome (`useDraftChrome`), and the tree draws
+  the faint row from the same chrome. A rename is one session held by
+  `FileActionsProvider`: a place asks `useRenamingHere` whether the session is
+  its own and draws it with `RenameField`.
 
 ## Diagrams
 

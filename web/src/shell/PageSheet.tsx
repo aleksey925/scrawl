@@ -1,6 +1,6 @@
-import { useState, type JSX, type ReactNode } from 'react';
+import type { JSX, ReactNode } from 'react';
 
-import { Sheet, SheetGroup, SheetRow } from '../components/Sheet';
+import { Sheet, SheetGroup, SheetRow, useKeptFocus } from '../components/Sheet';
 import { IconEdit, IconLink, IconMoveTo, IconTrash } from '../icons';
 
 import { useFileActions } from './fileActionsContext';
@@ -20,10 +20,7 @@ export interface PageSheetProps {
 export function PageSheet({ path, title, testPrefix, opened, onClose, tiles, lead, about }: PageSheetProps): JSX.Element {
   const { canWrite } = useAccount();
   const actions = useFileActions();
-  const [focusKept, setFocusKept] = useState(false);
-  if (opened && focusKept) {
-    setFocusKept(false);
-  }
+  const { returnFocus, keepFocus } = useKeptFocus(opened);
 
   const pick = (action: () => void): void => {
     onClose();
@@ -31,7 +28,7 @@ export function PageSheet({ path, title, testPrefix, opened, onClose, tiles, lea
   };
 
   return (
-    <Sheet opened={opened} onClose={onClose} title={title} testId={`${testPrefix}-dropdown`} returnFocus={!focusKept}>
+    <Sheet opened={opened} onClose={onClose} title={title} testId={`${testPrefix}-dropdown`} returnFocus={returnFocus}>
       {tiles}
       <SheetGroup>
         {lead}
@@ -48,7 +45,7 @@ export function PageSheet({ path, title, testPrefix, opened, onClose, tiles, lea
               icon={IconEdit}
               label="Rename"
               onClick={() => {
-                setFocusKept(true);
+                keepFocus();
                 pick(() => actions.startRename(path, false, 'page'));
               }}
             />

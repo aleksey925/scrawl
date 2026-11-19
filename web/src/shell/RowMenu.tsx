@@ -1,5 +1,5 @@
 import { ActionIcon, Menu } from '@mantine/core';
-import { useState, type ComponentPropsWithRef, type JSX } from 'react';
+import type { ComponentPropsWithRef, JSX } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
 import { EntryIcon } from '../components/EntryIcon';
@@ -7,7 +7,7 @@ import {
   FixedAnchor, pointerPlacement, rectAt, useCloseOnScroll, type MenuPlacement,
 } from '../components/pointerMenu';
 import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
-import { Sheet, SheetGroup, SheetRow } from '../components/Sheet';
+import { Sheet, SheetGroup, SheetRow, useKeptFocus } from '../components/Sheet';
 import {
   IconDots, IconEdit, IconFile, IconFolder, IconLink, IconMoveTo, IconPlay, IconTrash,
 } from '../icons';
@@ -74,7 +74,7 @@ function RowSheet({
   const { me, canWrite } = useAccount();
   const actions = useFileActions();
   const { open, run } = useRowActions(path, isDir);
-  const [keepFocus, setKeepFocus] = useState(false);
+  const { returnFocus, keepFocus } = useKeptFocus(opened);
   const writable = canWrite && path !== '';
 
   const pick = (action: () => void): void => {
@@ -89,10 +89,7 @@ function RowSheet({
         name={name}
         touch={touch}
         opened={opened}
-        onClick={() => {
-          setKeepFocus(false);
-          setOpened(true);
-        }}
+        onClick={() => setOpened(true)}
       />
       <Sheet
         opened={opened}
@@ -101,7 +98,7 @@ function RowSheet({
         icon={<EntryIcon name={name} isDir={isDir} size={layout.iconSizeLarge} />}
         title={name}
         subtitle={folderLabel(path, spaceLabel(me))}
-        returnFocus={!keepFocus}
+        returnFocus={returnFocus}
       >
         <SheetGroup>
           <SheetRow testId="tree-row-menu-open" icon={isDir ? IconFolder : IconFile} label="Open" onClick={() => pick(open)} />
@@ -125,7 +122,7 @@ function RowSheet({
                 icon={IconEdit}
                 label="Rename"
                 onClick={() => {
-                  setKeepFocus(true);
+                  keepFocus();
                   pick(() => actions.startRename(path, isDir, 'list'));
                 }}
               />

@@ -1,7 +1,7 @@
 import { useState, type ComponentPropsWithoutRef, type JSX, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
-import { Sheet, SheetTile, SheetTiles } from '../components/Sheet';
+import { Sheet, SheetTile, SheetTiles, useKeptFocus } from '../components/Sheet';
 import { planMotion } from '../components/screenMotion';
 import { IconFilePlus, IconFolder, IconFolderPlus, IconPlus, IconSearch } from '../icons';
 import { reducedMotion } from '../motion';
@@ -48,15 +48,12 @@ function NewButton({ here }: { here: string }): JSX.Element {
   const actions = useFileActions();
   const { me } = useAccount();
   const [opened, setOpened] = useState(false);
-  const [focusKept, setFocusKept] = useState(false);
-  if (opened && focusKept) {
-    setFocusKept(false);
-  }
+  const { returnFocus, keepFocus } = useKeptFocus(opened);
   const create = (make: (dir: string) => void): void => {
     if (!opened) {
       return;
     }
-    setFocusKept(true);
+    keepFocus();
     setOpened(false);
     make(here);
   };
@@ -80,7 +77,7 @@ function NewButton({ here }: { here: string }): JSX.Element {
         onClose={() => setOpened(false)}
         testId="new-menu"
         overlayTestId="new-scrim"
-        returnFocus={!focusKept}
+        returnFocus={returnFocus}
         title={
           <>
             Create in <span className={classes.folder}>{here === '' ? spaceLabel(me) : basenameOf(here)}</span>

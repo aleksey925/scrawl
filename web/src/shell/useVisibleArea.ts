@@ -1,5 +1,9 @@
 import { useEffect, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
 
+export function keyboardShown(view: VisualViewport): boolean {
+  return window.innerHeight - view.offsetTop - view.height > 1;
+}
+
 interface VisibleArea {
   height: number;
   top: number;
@@ -11,7 +15,7 @@ function areaOf(): VisibleArea {
   if (view === null) {
     return { height: window.innerHeight, top: 0, keyboard: false };
   }
-  return { height: view.height, top: view.offsetTop, keyboard: window.innerHeight - view.offsetTop - view.height > 1 };
+  return { height: view.height, top: view.offsetTop, keyboard: keyboardShown(view) };
 }
 
 function useVisibleArea(active: boolean): VisibleArea | undefined {
@@ -65,7 +69,7 @@ export function useVisibleScreen(screen: RefObject<HTMLElement | null>, active: 
       root.removeProperty('--scrawl-visible-top');
     };
     const follow = (): void => {
-      const keyboard = window.innerHeight - view.offsetTop - view.height > 1;
+      const keyboard = keyboardShown(view);
       element.dataset.keyboard = keyboard ? 'true' : 'false';
       if (!keyboard) {
         release();

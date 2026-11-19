@@ -3,6 +3,7 @@ import { useEffect, useRef, type JSX, type KeyboardEvent, type ReactNode } from 
 
 import { IconChevronDown, IconChevronUp, IconSearch, IconX } from '../icons';
 import { composing, ownsShortcuts } from '../shell/shortcuts';
+import { keyboardShown } from '../shell/useVisibleArea';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import classes from './FindBar.module.css';
@@ -48,7 +49,7 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
       if (atBottom) {
         element.style.transform = '';
         element.style.setProperty('--scrawl-find-bottom', `${view.offsetTop + view.height}px`);
-        element.dataset.keyboard = window.innerHeight - view.offsetTop - view.height > 1 ? 'true' : 'false';
+        element.dataset.keyboard = keyboardShown(view) ? 'true' : 'false';
         return;
       }
       element.style.removeProperty('--scrawl-find-bottom');

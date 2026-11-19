@@ -1,5 +1,5 @@
 import { Drawer } from '@mantine/core';
-import type { ComponentPropsWithoutRef, JSX, MouseEvent, ReactNode } from 'react';
+import { useState, type ComponentPropsWithoutRef, type JSX, type MouseEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { IconX, type Icon } from '../icons';
@@ -51,6 +51,19 @@ export function Sheet({
       </Drawer.Content>
     </Drawer.Root>
   );
+}
+
+export interface KeptFocus {
+  returnFocus: boolean;
+  keepFocus: () => void;
+}
+
+export function useKeptFocus(opened: boolean): KeptFocus {
+  const [kept, setKept] = useState(false);
+  if (opened && kept) {
+    setKept(false);
+  }
+  return { returnFocus: !kept, keepFocus: () => setKept(true) };
 }
 
 export function SheetGroup({ children, className, ...rest }: ComponentPropsWithoutRef<'div'>): JSX.Element {

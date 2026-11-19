@@ -53,13 +53,14 @@ export function useSheetDrag(opened: boolean, onClose: () => void): RefCallback<
     let lastY = 0;
     let lastTime = 0;
     let speed = 0;
+    let closing: number | undefined;
 
     const settle = (dismiss: boolean): void => {
       const ms = motionMs(settleMs);
       node.style.transition = `translate ${ms}ms ease-out`;
       node.style.translate = dismiss ? '0 100%' : '';
       if (dismiss) {
-        window.setTimeout(() => close.current(), ms);
+        closing = window.setTimeout(() => close.current(), ms);
       }
     };
 
@@ -133,6 +134,7 @@ export function useSheetDrag(opened: boolean, onClose: () => void): RefCallback<
       node.removeEventListener('touchmove', onMove);
       node.removeEventListener('touchend', onEnd);
       node.removeEventListener('touchcancel', onCancel);
+      window.clearTimeout(closing);
     };
   }, [node]);
 

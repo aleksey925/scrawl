@@ -2,6 +2,7 @@ import { Notifications, notifications, type NotificationData } from '@mantine/no
 import { useEffect, useRef, useState, type JSX, type MouseEvent, type PointerEvent } from 'react';
 
 import { IconAlertTriangle, IconCheck } from '../icons';
+import { keyboardShown } from '../shell/useVisibleArea';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 import type { ToastKind } from '../toast';
 
@@ -87,7 +88,7 @@ function useKeyboardRoom(active: boolean): void {
       root.removeProperty('--scrawl-toast-view-height');
     };
     const follow = (): void => {
-      if (window.innerHeight - view.offsetTop - view.height <= 1) {
+      if (!keyboardShown(view)) {
         release();
         return;
       }

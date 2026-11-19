@@ -29,7 +29,6 @@ export interface Palette {
   menuHighlightText: string;
   menuHighlightMuted: string;
   overlay: string;
-  scrim: string;
   codeBg: string;
   draftBg: string;
   groupedBg: string;

@@ -603,9 +603,9 @@
     "file": "assets/storage.js",
     "name": "storage"
   },
-  "_useVisibleArea.js": {
-    "file": "assets/useVisibleArea.js",
-    "name": "useVisibleArea",
+  "_use-debounced-value.js": {
+    "file": "assets/use-debounced-value.js",
+    "name": "use-debounced-value",
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js"
@@ -2526,7 +2526,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_useVisibleArea.js",
+      "_use-debounced-value.js",
       "_DocumentHtml.js",
       "_Text.js",
       "_AsyncContent.js",
@@ -2826,7 +2826,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_useVisibleArea.js",
+      "_use-debounced-value.js",
       "_client.js",
       "index.html",
       "_recentNotes.js",

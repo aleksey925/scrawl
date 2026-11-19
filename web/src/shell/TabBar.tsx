@@ -128,7 +128,7 @@ export function TabBar(): JSX.Element | null {
   const atRecent = isRecentPath(location.pathname);
   const atNotes = !searching && !atRecent;
   const go = (url: string): void => {
-    if (!searching && location.pathname === url) {
+    if (!searching && (isRecentPath(url) ? atRecent : location.pathname === url)) {
       window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
       return;
     }

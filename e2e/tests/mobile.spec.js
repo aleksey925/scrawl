@@ -1525,6 +1525,9 @@ test.describe('mobile', () => {
                 await expect(page.getByTestId('recent')).toBeVisible();
                 await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
                 await expect(page.getByTestId('topbar-up')).toHaveCount(0);
+                const entries = await page.evaluate(() => window.history.length);
+                await page.getByTestId('tab-recent').tap();
+                await stays(() => page.evaluate(() => window.history.length), entries, MOVE_WAIT_MS);
             }
         });
 
@@ -2270,6 +2273,8 @@ test.describe('mobile', () => {
             await press(`${row} [data-testid=dir-row-run]`);
             await expect(run).toHaveCSS('background-color', rgb(lightTheme.palette.pressed));
             await expect.poll(rowBackground).toBe(NO_LINE);
+            const [tab] = await Promise.all([page.waitForEvent('popup'), page.touchscreen.tap(pill.x + pill.width / 2, pill.y - 3)]);
+            await expect(tab.locator('h1')).toHaveText('Tablet app');
             removeFixture(folder);
         });
 

@@ -60,6 +60,7 @@ export interface EditSession {
 interface SaveResult {
   shownStored: boolean;
   savedTo?: string;
+  rev?: string;
 }
 
 const dottedTextNames: ReadonlySet<string> = new Set(['go.mod', 'go.sum']);
@@ -211,7 +212,7 @@ export function useEditSession({
       setSaved(sent);
       draftRef.current.clear();
       leavingRef.current = true;
-      await navigate(editUrl(copyPath));
+      await navigate(editUrl(copyPath), { replace: true });
     } catch (error: unknown) {
       showToast('error', { message: errorText(error) });
     }
@@ -288,10 +289,11 @@ export function useEditSession({
           showToast('warn', { title: 'Could not update the contents', message: tocFailure });
         }
         if (first) {
+          draftRef.current.forget(path);
           savedAsRef.current = dest;
           setSavedAs(dest);
           reportMutation(res, `Created "${basenameOf(dest)}"`);
-          return { shownStored: shown, savedTo: dest };
+          return { shownStored: shown, savedTo: dest, rev: res.rev };
         }
         reportMutation(res, 'Saved');
         return { shownStored: shown };
@@ -374,13 +376,16 @@ export function useEditSession({
       event.preventDefault();
       void save().then((res) => {
         if (res.savedTo !== undefined && mountedRef.current) {
+          if (!res.shownStored) {
+            draftRef.current.keepAs(res.savedTo, res.rev ?? '');
+          }
           reopenAt(res.savedTo);
         }
       });
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [reopenAt, save]);
+  }, [draftRef, reopenAt, save]);
 
   const openReader = useCallback((target?: string): void => {
     rememberReadingPosition();

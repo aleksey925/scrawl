@@ -26,6 +26,8 @@ export interface DraftControl {
   dismiss: () => void;
   abandon: () => void;
   flush: () => boolean;
+  keepAs: (path: string, rev: string) => boolean;
+  forget: (path: string) => void;
   replace: () => boolean;
   clear: () => void;
 }
@@ -82,6 +84,21 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     setWritten(stored ? { key: now.key, rev: now.rev, content: now.content } : undefined);
     return stored;
   }, []);
+
+  const keepAs = useCallback(
+    (target: string, targetRev: string): boolean =>
+      writeJson(localStore(), draftKey(storageScope, target), {
+        rev: targetRev,
+        content: latest.current.content,
+        at: Date.now(),
+      }),
+    [storageScope],
+  );
+
+  const forget = useCallback(
+    (target: string): void => removeKey(localStore(), draftKey(storageScope, target)),
+    [storageScope],
+  );
 
   const replace = useCallback((): boolean => {
     const wrote = latest.current.dirty && flush();
@@ -142,5 +159,5 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   const stale = offered !== undefined && offered.rev !== rev;
   const stored = written?.key === key && written.rev === rev && written.content === content;
 
-  return { offered, stale, stored, dismiss, abandon, flush, replace, clear };
+  return { offered, stale, stored, dismiss, abandon, flush, keepAs, forget, replace, clear };
 }

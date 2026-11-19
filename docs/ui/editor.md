@@ -155,9 +155,13 @@ The editor screen.
   modes, the toolbar and the preview at once. Its first save writes to the name
   it has then and reports Created instead of Saved; Save opens the reader of
   the new file, and `Cmd+S` replaces the address with the editor of the new
-  file and keeps the place in the text. Cancel goes back, as nothing of the
-  draft is a page to go back to. The name field is the draft's own and not a
-  rename: nothing on disk is moved.
+  file and keeps the place in the text. From that save on the draft is the new
+  file's: text typed while the first save ran is kept under the new name, and
+  the editor of the new file offers it, where under the draft's own address it
+  was never offered again. A note not created yet reads New note only until its
+  first save, then Saved. Cancel goes back, as nothing of the draft is a page
+  to go back to. The name field is the draft's own and not a rename: nothing on
+  disk is moved.
 - Changes shows the unsaved edits: the text in the editor against the text last
   saved, drawn as the history draws a version
   ([history](../design/history.md#comparing-versions)), side by side on a wide
@@ -177,10 +181,11 @@ The editor screen.
   upload, none of which means anything for it. It is the same editor screen
   with the markdown parts left out, not a second one: the save, the draft, the
   conflict and the guard on leaving stay one flow. A copy kept from a conflict
-  keeps the file's extension, and a file that is text by its whole name, a
-  `Makefile` or `go.mod`, gets a `.txt` copy, which the editor still opens. The
-  language comes from the name: codemirror's set, and for what it lacks or
-  guesses wrong the closest language it holds, in
+  takes the place of the editor in the history, so Back goes where the editor
+  was opened from, and keeps the file's extension, and a file that is text by
+  its whole name, a `Makefile` or `go.mod`, gets a `.txt` copy, which the
+  editor still opens. The language comes from the name: codemirror's set, and
+  for what it lacks or guesses wrong the closest language it holds, in
   `web/src/editor/codeLanguages.ts` (a svelte component as html, elixir as
   ruby, a makefile as shell). No new grammar is a dependency of ours, so a name
   with nothing close (terraform, graphql, zig) stays plain.

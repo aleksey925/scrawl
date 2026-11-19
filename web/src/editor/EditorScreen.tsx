@@ -150,7 +150,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const changes = useChanges({ saved, content, path, enabled: mode === 'changes', paused: saving });
   const uploads = useUploads(path, useCallback(() => viewRef.current, []));
   const draft = useDraft({
-    path,
+    path: drafting ? (savedAs ?? path) : path,
     rev,
     content,
     dirty,
@@ -475,7 +475,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         ? draft.stored
           ? 'drafted'
           : 'dirty'
-        : isNew
+        : isNew && rev === ''
           ? 'new'
           : 'saved';
 

@@ -690,6 +690,70 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('text typed while Cmd+S creates a new note is offered as a draft of the note created', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-typed-on';
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.draft(`${folder}/${text.create.untitled}`));
+        await setSource(page, '# Plan\n');
+        const {release, reached} = await holdSave(page);
+        await page.keyboard.press('ControlOrMeta+s');
+        await reached;
+        await setSource(page, '# Plan\n\nmore\n');
+
+        // act
+        release();
+        await expect(page).toHaveURL(MAIN.url.edit(created));
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+
+        // assert
+        expect(await storedDrafts(page)).toEqual([{path: created, content: '# Plan\n\nmore\n'}]);
+        await page.getByTestId('editor-draft-restore').click();
+        await expect.poll(() => sourceText(page)).toBe('# Plan\n\nmore\n');
+        removeFixture(folder);
+    });
+
+    test('text typed while Save creates a new note is kept as a draft of the note created once the editor is left', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-typed-save';
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.draft(`${folder}/${text.create.untitled}`));
+        await setSource(page, '# Plan\n');
+        const {release, reached} = await holdSave(page);
+        await page.getByTestId('editor-save').click();
+        await reached;
+        await setSource(page, '# Plan\n\nmore\n');
+        release();
+        await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'true');
+        await expect(editorStatus(page)).not.toHaveAttribute('data-state', 'saving');
+
+        // act
+        await page.getByTestId('editor-cancel').click();
+        await expect(okToast(page).filter({hasText: text.toast.draftKept})).toHaveCount(1);
+
+        // assert
+        expect(await storedDrafts(page)).toEqual([{path: created, content: '# Plan\n\nmore\n'}]);
+        removeFixture(folder);
+    });
+
+    test('Cmd+S on a note not created yet turns its state from New note to Saved', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-new-cmd-s');
+        await page.goto(routes.doc(docPath));
+        await page.getByTestId('doc-create').click();
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
+
+        // act
+        await save(page);
+
+        // assert
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'saved');
+        expect(readFixture(docPath)).toBe('');
+        removeFixture(docPath);
+    });
+
     test('Save of a new note with nothing typed writes an empty file, with format on save as well', async ({page}) => {
         // arrange
         const folder = 'e2e-scratch/new-empty';
@@ -1140,6 +1204,26 @@ test.describe('editing', () => {
         expect(readFixture(docPath), 'the disk version must be left alone').toBe('disk wins\n');
         await shot(page, 'editing-conflict-copy');
 
+        removeFixture(copyPath);
+        removeFixture(docPath);
+    });
+
+    test('Save as copy takes the place of the editor in the history, so Back goes where the editor was opened from', async ({page}) => {
+        // arrange
+        const docPath = scratch('conflict-copy-back');
+        await editFromReader(page, docPath, 'original\n');
+        writeFixture(docPath, 'disk wins\n');
+        await setSource(page, 'mine to keep\n');
+        await page.getByTestId('editor-save').click();
+        await page.getByTestId('editor-conflict-copy').click();
+        await expect(page).toHaveURL(/\/edit\/e2e-scratch\/conflict-copy-back\.conflict-[\d-]+T[\d-]+\.md$/);
+        const copyPath = decodeURIComponent(new URL(page.url()).pathname.replace(`${routes.edit('')}`, ''));
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
         removeFixture(copyPath);
         removeFixture(docPath);
     });

@@ -106,11 +106,12 @@ opens over them.
   the sync control stays after the field. The sync control is the icon alone on
   a phone, left of the page actions, with its words in its popover: a word next
   to a title of half the bar did not fit. The root has no way up, and the app's
-  logo and the space's name stand there instead. Every screen has the bar as a
-  row of its own and its title on one line under it: a root drawn another way
-  made the page jump on the way to a folder. A folder there is a list and not a
-  table: a row is the icon and the name on one line, with no size, date or
-  count, no chevron, and no `..` row.
+  logo and the space's name stand there instead. Recent, a tab, has no way up
+  and no swipe either, as the first screen of a tab of iOS has none. Every
+  screen has the bar as a row of its own and its title on one line under it: a
+  root drawn another way made the page jump on the way to a folder. A folder
+  there is a list and not a table: a row is the icon and the name on one line,
+  with no size, date or count, no chevron, and no `..` row.
 
 ## Note
 
@@ -255,8 +256,10 @@ opens over them.
 - In the list of a folder a `.html` or `.htm` file has a Run button in its row,
   an outlined RUN in capitals after the name, as Notion draws Open; on a phone
   it is a filled pill, `Run` in plain case, before the row's menu, its tap area
-  the 44px of a tap. The menu of such a row has Run after Open. Both open the
-  run screen. A site has neither, as it has no run screen.
+  the 44px of a tap. On a touch screen both take the 44px tap area and the
+  pressed tone of their own, and the row under them stays as it is, as for its
+  menu button. The menu of such a row has Run after Open. Both open the run
+  screen. A site has neither, as it has no run screen.
 - A folder whose own files include one named exactly `index.html` has the same
   Run in its row and Run after Open in its menu, on a desktop and a phone, and
   they run that `index.html`. Its name still opens the folder, and the rest of
@@ -266,13 +269,16 @@ opens over them.
 - Run opens the run screen, `/run/<path>`, outside the layout: no sidebar, no
   topbar, no tab bar and no banner, since the app wants the whole screen. One
   bar on top holds Back, the file name with an ellipsis, and Open in a new tab.
-  The name of an `index.html` below the root is its folder's: `todo-app`, not
-  `index.html`, whether the file's Run or the folder's started it. The frame
-  fills the rest with no border. Back goes to the screen Run was tapped on, the
-  file's page or the folder's list, kept in the state of the run screen's entry
-  in the history; a run screen opened by its address goes back to the file's
-  page. Back never steps back in the history: the frame's own pages go into the
-  tab's history, and a step back could land on an earlier page of the app.
+  Back is the arrow alone, drawn as the way up of the reader is, 20px in the
+  secondary color and dim while pressed. On a phone the bar is as tall as the
+  other bars there, 48px, with the name at 16px. The name of an `index.html`
+  below the root is its folder's: `todo-app`, not `index.html`, whether the
+  file's Run or the folder's started it. The frame fills the rest with no
+  border. Back goes to the screen Run was tapped on, the file's page or the
+  folder's list, kept in the state of the run screen's entry in the history; a
+  run screen opened by its address goes back to the file's page. Back never
+  steps back in the history: the frame's own pages go into the tab's history,
+  and a step back could land on an earlier page of the app.
 - In Safari, on a Mac and on an iPhone, every Run opens the app as Open in a
   new tab does, and the screen Run was tapped on stays under it; in an app from
   the home screen the tab is a browser view over scrawl, whose close goes back.

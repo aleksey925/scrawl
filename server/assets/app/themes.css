@@ -224,6 +224,7 @@
   --scrawl-page-margin-min: 48px;
   --scrawl-page-margin-max: 96px;
   --scrawl-topbar-height: 45px;
+  --scrawl-topbar-height-compact: 48px;
   --scrawl-row-height: 30px;
   --scrawl-tap-target: 44px;
   --scrawl-focus-room: 4px;

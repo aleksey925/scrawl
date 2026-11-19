@@ -1,5 +1,5 @@
 import { ActionIcon } from '@mantine/core';
-import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 
 import { api, installUnauthorizedHandler } from '../api/client';
@@ -134,17 +134,9 @@ function RunScreen({ path, back }: { path: string; back: string }): JSX.Element 
   return (
     <div className={classes.screen} data-testid="run">
       <header className={classes.bar} data-testid="run-bar">
-        <ActionIcon
-          data-testid="run-back"
-          variant="subtle"
-          color="gray"
-          size="lg"
-          aria-label="Back"
-          title="Back"
-          renderRoot={(props: Record<string, unknown>): ReactNode => <Link to={back} {...props} />}
-        >
+        <Link data-testid="run-back" to={back} className={classes.back} aria-label="Back" title="Back">
           <IconChevronLeft size={layout.iconSize} />
-        </ActionIcon>
+        </Link>
         <span className={classes.name} data-testid="run-name" title={name}>
           {name}
         </span>

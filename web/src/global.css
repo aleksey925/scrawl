@@ -14,6 +14,11 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+:where(button, a, [role='button']):focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+
 :root {
   --scrawl-press-in: background-color 0s 60ms, opacity 0s 60ms;
   --scrawl-press-out: background-color 150ms ease-out, opacity 150ms ease-out;

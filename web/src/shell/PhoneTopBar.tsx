@@ -7,7 +7,7 @@ import { RenameField } from '../components/RenameField';
 import { planMotion } from '../components/screenMotion';
 import { cameFrom } from '../historyTrail';
 import { IconChevronLeft } from '../icons';
-import { directoryUrl, isDocPath, isEditPath } from '../paths';
+import { directoryUrl, isDocPath, isEditPath, recentUrl } from '../paths';
 import { usePlatform } from '../platform';
 import { layout } from '../theme';
 
@@ -78,6 +78,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const above = parent.dir;
   const { source, prefetch } = usePlatform();
   const editing = isEditPath(location.pathname);
+  const tabRoot = location.pathname === recentUrl();
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
   const { renaming, commit } = usePageRenaming();
@@ -93,7 +94,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
     return true;
   };
   useSwipeBack(
-    editing || atRootOf(location.pathname, atRoot)
+    editing || tabRoot || atRootOf(location.pathname, atRoot)
       ? null
       : () => {
           commit();
@@ -145,7 +146,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
             <AppLogo />
             <span className={classes.homeName}>{space}</span>
           </span>
-        ) : (
+        ) : tabRoot ? null : (
           <Link
             data-testid="topbar-up"
             to={parent.url}

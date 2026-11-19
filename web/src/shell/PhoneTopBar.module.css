@@ -130,11 +130,18 @@
 }
 
 .draftName {
-  padding: 0;
+  margin-block: calc((1.3em - var(--scrawl-tap-target)) / 2);
+  padding: calc((var(--scrawl-tap-target) - 1.3em) / 2) 0;
   border: 0;
   background: none;
   color: var(--scrawl-text-tertiary);
   font-family: inherit;
+  transition: var(--scrawl-press-out);
+}
+
+.draftName:active {
+  opacity: 0.4;
+  transition: var(--scrawl-press-in);
 }
 
 .editField {

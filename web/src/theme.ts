@@ -178,6 +178,7 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-page-margin-min': `${layout.pageMarginMin}px`,
   '--scrawl-page-margin-max': `${layout.pageMarginMax}px`,
   '--scrawl-topbar-height': `${layout.topbarHeight}px`,
+  '--scrawl-topbar-height-compact': `${layout.topbarHeightCompact}px`,
   '--scrawl-row-height': `${layout.rowHeight}px`,
   '--scrawl-tap-target': `${layout.tapTarget}px`,
   '--scrawl-focus-room': `${layout.focusRoom}px`,

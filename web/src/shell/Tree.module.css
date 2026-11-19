@@ -40,7 +40,6 @@
 .ghost,
 .ghost .icon {
   color: var(--scrawl-text-tertiary);
-  font-style: italic;
 }
 
 .icon {

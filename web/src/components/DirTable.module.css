@@ -230,7 +230,28 @@
     transition: var(--scrawl-press-out);
   }
 
-  .row:active {
+  .row:active:not(:has(button:active, [data-row-action]:active)) {
+    background: var(--scrawl-pressed);
+    transition: var(--scrawl-press-in);
+  }
+
+  .run {
+    position: relative;
+  }
+
+  .run::after {
+    position: absolute;
+    inset: calc((20px - var(--scrawl-tap-target)) / 2) -9px;
+    content: '';
+  }
+
+  .run,
+  .listRun {
+    transition: var(--scrawl-press-out);
+  }
+
+  .run:active,
+  .listRun:active {
     background: var(--scrawl-pressed);
     transition: var(--scrawl-press-in);
   }

@@ -549,7 +549,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         ) : (
           <>
             <button type="button" data-testid="editor-cancel" className={classes.back} aria-label="Back" onClick={cancel}>
-              <IconChevronLeft size={layout.iconSizeLarge} />
+              <IconChevronLeft size={layout.iconSize} />
             </button>
             {status}
             {!readOnly && (

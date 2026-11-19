@@ -59,9 +59,19 @@
   font-weight: 600;
 }
 
+.draftButton:disabled {
+  color: var(--scrawl-text-faint);
+  cursor: default;
+}
+
 @media (hover: hover) {
-  .draftButton:hover {
+  .draftButton:not(:disabled):hover {
     background: var(--scrawl-hover);
+  }
+
+  .draftButton:not(:disabled):active {
+    background: var(--scrawl-pressed);
+    transition: var(--scrawl-press-in);
   }
 }
 
@@ -69,12 +79,16 @@
   .draftButton {
     min-height: var(--scrawl-tap-target);
   }
+
+  .draftButton:not(:disabled):active {
+    opacity: 0.4;
+    transition: var(--scrawl-press-in);
+  }
 }
 
 @mixin smaller-than $mantine-breakpoint-sm {
   .draftOffer {
     min-height: 56px;
-    padding-inline-end: var(--mantine-spacing-xs);
   }
 
   .draftText {
@@ -397,7 +411,6 @@
   align-items: center;
   min-width: var(--scrawl-tap-target);
   min-height: var(--scrawl-tap-target);
-  padding: 0 8px;
   border: 0;
   background: none;
   font: inherit;
@@ -408,13 +421,15 @@
 .back {
   grid-area: start;
   justify-self: start;
-  color: var(--scrawl-text);
+  padding-inline: 12px 8px;
+  color: var(--scrawl-text-secondary);
 }
 
 .phoneSave {
   grid-area: end;
   justify-self: end;
   justify-content: flex-end;
+  padding-inline: 8px 12px;
   color: var(--scrawl-accent);
   font-size: 17px;
   font-weight: 600;
@@ -426,8 +441,7 @@
 }
 
 .back:active,
-.phoneSave:not(:disabled):active,
-.draftButton:active {
+.phoneSave:not(:disabled):active {
   opacity: 0.4;
   transition: var(--scrawl-press-in);
 }
@@ -466,7 +480,7 @@
 .phoneBar {
   flex: none;
   box-sizing: border-box;
-  height: calc(60px + env(safe-area-inset-bottom, 0px));
+  height: calc(var(--scrawl-tabbar-height) + env(safe-area-inset-bottom, 0px));
   padding: 8px var(--mantine-spacing-lg) calc(8px + env(safe-area-inset-bottom, 0px));
   background: var(--scrawl-bg);
   box-shadow: inset 0 1px var(--scrawl-border-light);

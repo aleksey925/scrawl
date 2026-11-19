@@ -124,6 +124,13 @@ async function boxOf(page, testId) {
     };
 }
 
+function wayBack(page, testId) {
+    return page.getByTestId(testId).evaluate((el) => {
+        const arrow = el.querySelector('svg').getBoundingClientRect();
+        return {left: Math.round(arrow.left), size: Math.round(arrow.width), color: getComputedStyle(el).color};
+    });
+}
+
 function editorFit(page) {
     return page.evaluate(() => {
         const boxOfId = (testId) => document.querySelector(`[data-testid="${testId}"]`)?.getBoundingClientRect();
@@ -363,6 +370,23 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('run-bar')).toHaveCSS('position', 'fixed');
             await shot(page, 'mobile-html-app');
         });
+
+        test('the bar of the run screen is as tall as the other bars, and its way back is drawn as the reader\'s', async ({page}) => {
+            // arrange
+            writeFixture('e2e-mobile/app/index.html', '<!doctype html><h1 id="title">Phone app</h1>\n');
+            await page.goto(routes.doc('e2e-mobile/app/index.html'));
+            const reader = await wayBack(page, 'topbar-up');
+            const topbar = await page.getByTestId('topbar').boundingBox();
+
+            // act
+            await page.getByTestId('file-run').tap();
+
+            // assert
+            await expect(page.getByTestId('run-bar')).toBeVisible();
+            expect(await wayBack(page, 'run-back')).toEqual(reader);
+            expect((await page.getByTestId('run-bar').boundingBox()).height).toBe(topbar.height);
+            await expect(page.getByTestId('run-name')).toHaveCSS('font-size', '16px');
+        });
     });
 
     test('an html file in a folder list has a Run button that starts it in a tab on an iPhone', async ({page, context}) => {
@@ -381,6 +405,29 @@ test.describe('mobile', () => {
         const [tab] = await Promise.all([context.waitForEvent('page'), row.getByTestId('dir-row-run').tap()]);
         await expect(tab.locator('#title')).toHaveText('Phone app');
         await expect(page).toHaveURL(routes.dir('e2e-mobile/app'));
+    });
+
+    test('a pressed Run takes the press alone, and its row stays as it is', async ({page}) => {
+        // arrange
+        writeFixture('e2e-mobile/app/index.html', '<!doctype html><h1 id="title">Phone app</h1>\n');
+        await page.goto(routes.dir('e2e-mobile/app'));
+        const row = '[data-testid=dir-row][data-path="e2e-mobile/app/index.html"]';
+        const run = `${row} [data-testid=dir-row-run]`;
+        await expect(page.locator(run)).toBeVisible();
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send('DOM.enable');
+        await cdp.send('CSS.enable');
+        const {root} = await cdp.send('DOM.getDocument');
+
+        // act
+        for (const selector of [row, run]) {
+            const {nodeId} = await cdp.send('DOM.querySelector', {nodeId: root.nodeId, selector});
+            await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: ['active']});
+        }
+
+        // assert
+        await expect(page.locator(run)).toHaveCSS('background-color', rgb(lightTheme.palette.pressed));
+        await stays(() => page.locator(row).evaluate((el) => getComputedStyle(el, '::before').opacity), '0', 300);
     });
 
     test('a folder with an index.html has a Run button and a Run in its long press menu on an iPhone', async ({page, context}) => {
@@ -1412,6 +1459,22 @@ test.describe('mobile', () => {
             expect(await page.evaluate(() => history.length)).toBe(length);
             await expect(page).toHaveURL(atHome());
             held.release();
+        });
+
+        test('Recent, a tab, has no way up and no swipe', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(routes.doc(DOC));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await page.getByTestId('tab-recent').tap();
+            await expect(page.getByTestId('recent')).toBeVisible();
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect(page.getByTestId('topbar-up')).toHaveCount(0);
+            await stays(() => new URL(page.url()).pathname, routes.recent(), MOVE_WAIT_MS);
         });
 
         test('a part of the page scrolled sideways keeps its place on the copy', async ({page}) => {
@@ -2539,6 +2602,19 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('recent-empty-title')).toHaveText('Nothing opened yet');
     });
 
+    test('the faint name of a new note in the editor bar is a full tap', async ({page}) => {
+        // arrange
+        const folder = 'e2e-mobile/new-note-tap';
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+
+        // act
+        await page.goto(routes.draft(`${folder}/${text.create.untitled}`));
+
+        // assert
+        await expect(page.getByTestId('topbar-draft-name')).toHaveText(text.create.untitled);
+        expect(await tooSmall(page, '[data-testid=topbar-draft-name]')).toEqual([]);
+    });
+
     test('New offers a note and a folder, and New note opens a draft named in the bar', async ({page}) => {
         // arrange
         const folder = 'e2e-mobile/new-note';
@@ -2876,6 +2952,21 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('doc')).toContainText('новый текст');
     });
 
+    test('the way back of the editor is drawn as the reader\'s, and its strip is as tall as the tab bar', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
+        await page.goto(routes.doc(SCRATCH));
+        const reader = await wayBack(page, 'topbar-up');
+        const tabBar = await page.getByTestId('tab-bar').boundingBox();
+
+        // act
+        await page.goto(routes.edit(SCRATCH));
+
+        // assert
+        expect(await wayBack(page, 'editor-cancel')).toEqual(reader);
+        expect((await page.getByTestId('editor-strip').boundingBox()).height).toBe(tabBar.height);
+    });
+
     test('the editor bar holds the back arrow, the name over the state, and a Save that is gray until there is a change', async ({page}) => {
         // arrange
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
@@ -2891,7 +2982,7 @@ test.describe('mobile', () => {
         await expect(mark).toHaveCount(0);
         await expect(saveButton).toBeDisabled();
         await expect(saveButton).toHaveCSS('color', rgb(lightTheme.palette.textFaint));
-        await expect(page.getByTestId('editor-cancel')).toHaveCSS('color', rgb(lightTheme.palette.text));
+        await expect(page.getByTestId('editor-cancel')).toHaveCSS('color', rgb(lightTheme.palette.textSecondary));
         await expect(page.getByTestId('sync-control')).toHaveCount(0);
         const width = page.viewportSize().width;
         const back = await page.getByTestId('editor-cancel').boundingBox();

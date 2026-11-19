@@ -134,26 +134,26 @@ How the app works on a phone.
   from the left edge and goes to the folder above, the way up in the bar on top
   does, as an app's swipe goes where its back button says. Back in the history
   it went to the page before, the Recent tab of a note opened from there, while
-  the bar said the folder. On the root there is no way up and no swipe, and the
-  root is known from the address too: the bar still shows the folder before
-  while the root loads, and a swipe then opened the root once more. A note or a
-  folder is known from its address as well: a folder opened from the root
-  showed the root's bar while it loaded, and a swipe then did nothing. A short
-  or slow drag puts the page back, and so does a second finger or a touch the
-  system takes: a drag given up any other way left the page shifted. Only
-  there: a tab of Safari has its own swipe back, and both went back once each,
-  and Android's back gesture is the system's. A swipe let go goes back one
-  frame after its copy starts to move: drawn in the same task, the page gone
-  back to held that first frame some 100ms in Chromium on a CPU four times
-  slower, and after it the copy moves on its own. The page leaves as a copy of
-  itself, laid over the page gone back to, which is drawn under it and slides
-  in from the left as the copy slides off, as a phone's own back moves both.
-  The page under keeps a 28% share of the copy's way left behind it on every
-  frame: it moves on the copy's clock and curve, with the copy's own start
-  time, so both end together. Set to the point the copy had reached, it could
-  start a frame later and end after the copy. On its own 300ms it fell behind a
-  copy that left in 200ms, and a strip of empty screen showed between them, and
-  a curve of its own started again changed speed against the copy
+  the bar said the folder. On the root and on Recent, a tab, there is no way up
+  and no swipe, and the root is known from the address too: the bar still shows
+  the folder before while the root loads, and a swipe then opened the root once
+  more. A note or a folder is known from its address as well: a folder opened
+  from the root showed the root's bar while it loaded, and a swipe then did
+  nothing. A short or slow drag puts the page back, and so does a second finger
+  or a touch the system takes: a drag given up any other way left the page
+  shifted. Only there: a tab of Safari has its own swipe back, and both went
+  back once each, and Android's back gesture is the system's. A swipe let go
+  goes back one frame after its copy starts to move: drawn in the same task,
+  the page gone back to held that first frame some 100ms in Chromium on a CPU
+  four times slower, and after it the copy moves on its own. The page leaves as
+  a copy of itself, laid over the page gone back to, which is drawn under it
+  and slides in from the left as the copy slides off, as a phone's own back
+  moves both. The page under keeps a 28% share of the copy's way left behind it
+  on every frame: it moves on the copy's clock and curve, with the copy's own
+  start time, so both end together. Set to the point the copy had reached, it
+  could start a frame later and end after the copy. On its own 300ms it fell
+  behind a copy that left in 200ms, and a strip of empty screen showed between
+  them, and a curve of its own started again changed speed against the copy
   ([ADR 32](../adr/0032-a-swiped-page-leaves-as-a-copy.md)). The page itself is
   hidden until the next one enters, three seconds at most, and so is the copy.
   The copy lies on a sheet as large as the screen, with the page's ground,

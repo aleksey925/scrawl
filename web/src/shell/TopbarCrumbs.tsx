@@ -112,7 +112,7 @@ export function TopbarCrumbs(): JSX.Element {
               )}
             </Popover.Dropdown>
           </Popover>
-          <TapGuard active={renaming !== undefined} onClose={commit} />
+          <TapGuard active={editing} onClose={renaming !== undefined ? commit : () => setNaming(false)} />
         </span>
       )}
     </nav>

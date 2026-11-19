@@ -32,22 +32,28 @@ Sizes and feedback on a touch screen, phone or tablet.
   ([quirks](../quirks.md#phones-and-touch-screens)). The rename popover of a
   page on a tablet has a `TapGuard` under it, whose tap saves the field and
   opens nothing beneath; after a failed save its next tap closes the field, as
-  Escape does, or the guard held the page until the name changed. The tap whose
-  own save fails keeps the field, even when the name is refused at once, before
-  the server is asked. The popover shows with no transition, in the render of
-  the tap that asked for it, so the field takes the focus inside the tap
-  ([quirks](../quirks.md#ios-and-safari)). The ✕ that cancels the field keeps
-  the focus in it on its press, or the tap blurred the field and the blur saved
-  before the ✕ could cancel, and Tab skips it for the same reason; it shows on
-  every touch screen, a tablet without a keyboard having no Escape either.
+  Escape does, or the guard held the page until the name changed. The name
+  field of a new note there has the same guard, whose tap closes it. The tap
+  whose own save fails keeps the field, even when the name is refused at once,
+  before the server is asked. The popover shows with no transition, in the
+  render of the tap that asked for it, so the field takes the focus inside the
+  tap ([quirks](../quirks.md#ios-and-safari)). The ✕ that cancels the field
+  keeps the focus in it on its press, or the tap blurred the field and the blur
+  saved before the ✕ could cancel, and Tab skips it for the same reason; it
+  shows on every touch screen, a tablet without a keyboard having no Escape
+  either.
 - A touch screen answers a tap the way an app does. A pressed row or menu item
   darkens, a list row from edge to edge of the screen, and a tab and the way
   back dim, apart from a disabled Edit, as the bars of iOS do; the press shows
   60ms after the finger lands, so a finger that only starts a scroll leaves no
-  flash. A list row's press is one band under the whole row: drawn as its
-  background with a shadow for the gutter, the two ends lit and went out apart
-  from the middle. A row shrinks for a long press only once the finger has
-  rested 150ms, so a tap moves nothing. A long press on the chrome selects
-  nothing and opens no preview of a link, while a note, code and what a reader
-  types still select. iOS draws `:active` only under a `touchstart` listener,
-  so the document carries an empty one.
+  flash. Every pressed control keeps that delay, the buttons and icon buttons
+  of Mantine and the ✕ of a field included. A button in a row, its menu or its
+  Run, takes the press alone, and the row under it stays as it is. The faint
+  name of a new note in a phone's editor bar is a tap of 44px, as tall as the
+  bar's other controls, though its line is 21px. A list row's press is one band
+  under the whole row: drawn as its background with a shadow for the gutter,
+  the two ends lit and went out apart from the middle. A row shrinks for a long
+  press only once the finger has rested 150ms, so a tap moves nothing. A long
+  press on the chrome selects nothing and opens no preview of a link, while a
+  note, code and what a reader types still select. iOS draws `:active` only
+  under a `touchstart` listener, so the document carries an empty one.

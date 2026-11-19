@@ -31,34 +31,37 @@ The editor screen.
 - On a phone, below the phone width, the bar on top is the way back at the
   left, the file's name in the middle with the state of the save under it, and
   Save at the right ([ADR 29](../adr/0029-the-phone-editor-bars.md)). Back is
-  the arrow in the text color and does what Cancel does. Save is a word in the
-  accent, gray and disabled while there is nothing to save, so the bar does not
-  jump; a note not created yet can be saved at once. The sync control is not
-  there: it tells about the whole space and not the note, a problem of the
-  space is the banner over the text, and Save leads to the reader, which has
-  the control. The offline mark is not there either: the cells beside the name
-  are 64px wide and have no room for it without moving the name off the middle,
-  the draft keeps the text on the device, and a save with no network shows its
-  toast. The bottom of the screen is one strip. While no text is typed it is
-  the layouts as a choice of three, Text, Preview and Changes, as Split has no
-  room there, at the bottom, under the thumb, with the home indicator's room
-  under it; Changes carries an orange dot while there are unsaved changes. A
-  dot and not a count: a count needs a diff in the browser or a call to the
-  server on every pause. While the text has the focus, the formatting toolbar
-  takes the strip's place over the keyboard: the same tools, 44px each, in the
-  text's color, with the wrap button at its end, and a button outside the
-  scroll that puts the keyboard away. The strip switches on the focus of the
-  text and does not guess where the keyboard is; the table menu of the toolbar
-  keeps it while open. The editor on a phone is as tall as the visible area and
-  follows it, the bar on top included, so the toolbar is at the bottom of what
-  is seen, over the keyboard ([phone](phone.md)). An editor as tall as the page
-  ran under the keyboard: its last lines could not be reached, and a drag moved
-  either the text or the whole page, which then stuck with the start of the
-  note above the screen. It does so only while the keyboard is up: with no
-  keyboard the visible area is the page, and the bar and the page are not moved
-  at all. Moved with a shift of zero, they were taken out of their place in the
-  page's layers, and leaving the editor gave them back in the same frame the
-  note slid in, which shook the slide on an iPhone. The toolbar keeps the home
+  the arrow alone, drawn as the way up of the reader is, 20px in the secondary
+  color and dim while pressed, 16px from the edge as the reader's is, and does
+  what Cancel does. Save is a word in the accent, gray and disabled while there
+  is nothing to save, so the bar does not jump; a note not created yet can be
+  saved at once. The sync control is not there: it tells about the whole space
+  and not the note, a problem of the space is the banner over the text, and
+  Save leads to the reader, which has the control. The offline mark is not
+  there either: the cells beside the name are 64px wide and have no room for it
+  without moving the name off the middle, the draft keeps the text on the
+  device, and a save with no network shows its toast. The bottom of the screen
+  is one strip, as tall as the tab bar, so the edge does not move when the
+  editor opens. While no text is typed it is the layouts as a choice of three,
+  Text, Preview and Changes, as Split has no room there, at the bottom, under
+  the thumb, with the home indicator's room under it; Changes carries an orange
+  dot while there are unsaved changes. A dot and not a count: a count needs a
+  diff in the browser or a call to the server on every pause. While the text
+  has the focus, the formatting toolbar takes the strip's place over the
+  keyboard: the same tools, 44px each, in the text's color, with the wrap
+  button at its end, and a button outside the scroll that puts the keyboard
+  away. The strip switches on the focus of the text and does not guess where
+  the keyboard is; the table menu of the toolbar keeps it while open. The
+  editor on a phone is as tall as the visible area and follows it, the bar on
+  top included, so the toolbar is at the bottom of what is seen, over the
+  keyboard ([phone](phone.md)). An editor as tall as the page ran under the
+  keyboard: its last lines could not be reached, and a drag moved either the
+  text or the whole page, which then stuck with the start of the note above the
+  screen. It does so only while the keyboard is up: with no keyboard the
+  visible area is the page, and the bar and the page are not moved at all.
+  Moved with a shift of zero, they were taken out of their place in the page's
+  layers, and leaving the editor gave them back in the same frame the note slid
+  in, which shook the slide on an iPhone. The toolbar keeps the home
   indicator's room under it while no keyboard is up, as with a hardware
   keyboard. The text scrolls the cursor into sight when the keyboard opens and
   when the visible area gets shorter, and not when it gets taller, so a scroll
@@ -133,12 +136,15 @@ The editor screen.
   version, then Discard in the secondary color and Restore in the accent, as
   Save is on a phone. A draft written against another version of the file adds
   "file changed" to the time, and the time turns orange. On a phone the name
-  and the time are two lines and the buttons are 44px tall. Restore puts the
-  draft's text in the editor, Discard drops the draft, and either takes the row
-  away. The row is plain and not a yellow box: a draft found is an offer, not a
-  fault. Its ground is a pale warm tone in the light theme and the ground of a
-  code block in the dark one. The empty room over the sync banner is left out
-  on the editor screen, so the row meets the topbar.
+  and the time are two lines and the buttons are 44px tall. While the editor is
+  being left the buttons are disabled and faint. A press dims them on a touch
+  screen and fills them with the pressed tone under a mouse, as every other
+  text button there. Restore puts the draft's text in the editor, Discard drops
+  the draft, and either takes the row away. The row is plain and not a yellow
+  box: a draft found is an offer, not a fault. Its ground is a pale warm tone
+  in the light theme and the ground of a code block in the dark one. The empty
+  room over the sync banner is left out on the editor screen, so the row meets
+  the topbar.
 - A note's draft ([entries](entries.md)) is the same editor with a name not
   chosen yet: it opens with `# ` as both its text and its saved text, so a
   draft left as it opened has nothing unsaved, and the state reads New note.

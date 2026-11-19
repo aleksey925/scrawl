@@ -33,10 +33,12 @@
   border: 0;
   background: none;
   color: var(--scrawl-icon-secondary);
+  transition: var(--scrawl-press-out);
 }
 
 .cancel:active {
   opacity: 0.4;
+  transition: var(--scrawl-press-in);
 }
 
 @media (pointer: coarse) {

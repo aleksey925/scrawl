@@ -1,7 +1,13 @@
 import { createContext, useContext, useLayoutEffect, type RefObject } from 'react';
 import { useLocation, useNavigationType } from 'react-router';
 
+import { iosHomeScreenApp } from '../homeScreen';
+import { holdScreen, motionMs, noteEntering } from '../motion';
+import { scopeDiagramIds } from '../reader/diagramSvg';
+import { decodeFragment } from '../reader/dom';
 import { layoutBreakpoints, maxWidthQuery } from '../theme';
+
+import classes from './screenMotion.module.css';
 
 type Motion = 'forward' | 'back' | 'none';
 
@@ -13,11 +19,23 @@ export function planMotion(pathname: string, motion: Motion): void {
   planned = { pathname, motion };
 }
 
-let leaving: Animation | undefined;
+interface Leaving {
+  sheet: HTMLElement;
+  animation: Animation;
+  from: number;
+  duration: number;
+  easing: string;
+}
 
-const leaveHoldMs = 3000;
+let leaving: Leaving | undefined;
 
-const screenEasing = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+let swiped = false;
+
+let hidden: { element: HTMLElement; timer: number } | undefined;
+
+const hideHoldMs = 3000;
+
+const screenEasing = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
 export const springEasing = 'cubic-bezier(0.2, 0.9, 0.3, 1.15)';
 const swipeEndMs = 200;
 const minReleaseMs = 120;
@@ -38,46 +56,184 @@ export function releaseMotion(distance: number, speed: number): Release {
   return { duration: motionMs(duration), easing: `cubic-bezier(0.25, ${(0.25 * slope).toFixed(3)}, 0.25, 1)` };
 }
 
-export function standalone(): boolean {
-  return (navigator as { standalone?: boolean }).standalone === true;
+function reveal(): void {
+  if (hidden !== undefined) {
+    window.clearTimeout(hidden.timer);
+    hidden.element.style.visibility = '';
+    hidden = undefined;
+  }
 }
 
-export function motionMs(ms: number): number {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : ms;
+export function screenHidden(): boolean {
+  return hidden?.element.isConnected === true;
 }
 
-export function leaveScreen(element: HTMLElement, from: number, speed: number): Promise<boolean> {
-  leaving?.cancel();
-  const animation = element.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100%)' }], {
-    ...releaseMotion(element.offsetWidth - from, speed),
+function stripMarks(copy: HTMLElement): void {
+  const diagrams = scopeDiagramIds(copy, 'leaving');
+  for (const node of [copy, ...copy.querySelectorAll<HTMLElement>('[id], [data-testid], [data-screen]')]) {
+    if (!diagrams.some((svg) => svg.contains(node))) {
+      node.removeAttribute('id');
+    }
+    node.removeAttribute('data-testid');
+    node.removeAttribute('data-screen');
+  }
+}
+
+interface Scrolled {
+  index: number;
+  left: number;
+  top: number;
+}
+
+const sideways = 'pre, table, .table-wrap, .math-display, .math-inline, .md-diagram-view';
+
+function scrolledParts(element: HTMLElement): Scrolled[] {
+  const parts: Scrolled[] = [];
+  for (const [index, node] of element.querySelectorAll(sideways).entries()) {
+    if (node.scrollLeft !== 0 || node.scrollTop !== 0) {
+      parts.push({ index, left: node.scrollLeft, top: node.scrollTop });
+    }
+  }
+  return parts;
+}
+
+function keepScroll(copy: HTMLElement, parts: Scrolled[]): void {
+  if (parts.length === 0) {
+    return;
+  }
+  const nodes = copy.querySelectorAll(sideways);
+  for (const { index, left, top } of parts) {
+    const node = nodes[index];
+    if (node !== undefined) {
+      node.scrollLeft = left;
+      node.scrollTop = top;
+    }
+  }
+}
+
+export function sendOff(element: HTMLElement, from: number, speed: number): void {
+  reveal();
+  const box = element.getBoundingClientRect();
+  const scrolled = scrolledParts(element);
+  const copy = element.cloneNode(true) as HTMLElement;
+  stripMarks(copy);
+  copy.inert = true;
+  Object.assign(copy.style, {
+    position: 'absolute',
+    top: `${box.top}px`,
+    left: `${box.left}px`,
+    width: `${box.width}px`,
+    margin: '0',
+  });
+  const sheet = document.createElement('div');
+  sheet.className = classes.sheet ?? '';
+  sheet.dataset.leaving = 'true';
+  sheet.style.transform = `translateX(${from}px)`;
+  sheet.append(copy);
+  element.after(sheet);
+  keepScroll(copy, scrolled);
+  element.style.visibility = 'hidden';
+  hidden = { element, timer: window.setTimeout(reveal, hideHoldMs) };
+  const timing = releaseMotion(box.width - from, speed);
+  const animation = sheet.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100%)' }], {
+    ...timing,
     fill: 'forwards',
   });
-  leaving = animation;
-  window.setTimeout(() => {
-    if (leaving === animation) {
-      animation.cancel();
+  leaving = { sheet, animation, from, ...timing };
+  swiped = true;
+  const held = holdScreen();
+  const cap = window.setTimeout(() => animation.cancel(), hideHoldMs);
+  const remove = (): void => {
+    window.clearTimeout(cap);
+    held();
+    sheet.remove();
+    if (leaving?.sheet === sheet) {
       leaving = undefined;
     }
-  }, leaveHoldMs);
-  return animation.finished.then(
-    () => true,
-    () => false,
-  );
+  };
+  void animation.finished.then(remove, remove);
+}
+
+export function leavingScreen(): boolean {
+  return leaving !== undefined;
+}
+
+export interface Drag {
+  element: HTMLElement;
+  release: (settled?: Promise<unknown>) => void;
+}
+
+let drag: Drag | undefined;
+
+export function takeScreen(element: HTMLElement): Drag {
+  for (const animation of element.getAnimations()) {
+    animation.cancel();
+  }
+  const held = holdScreen();
+  const taken: Drag = {
+    element,
+    release: (settled) => {
+      if (drag === taken) {
+        drag = undefined;
+      }
+      void (settled ?? Promise.resolve()).then(held, held);
+    },
+  };
+  drag = taken;
+  return taken;
+}
+
+function handToDrag(taken: Drag, element: HTMLElement): void {
+  if (taken.element !== element) {
+    element.style.transform = taken.element.style.transform;
+    element.style.willChange = taken.element.style.willChange;
+    taken.element = element;
+  }
 }
 
 let enteredFor: string | undefined;
+let offScreen = false;
 
-const enterMs = 280;
-const offset = '28%';
+export function useOffScreen(): void {
+  useLayoutEffect(() => {
+    offScreen = true;
+  }, []);
+}
+
+const enterMs = 300;
+const offsetPercent = 28;
+
+interface Enter {
+  start: string;
+  duration: number;
+  easing: string;
+  clock: Animation;
+}
+
+function alongLeaving(): Enter | undefined {
+  if (leaving === undefined) {
+    return undefined;
+  }
+  if (Number(leaving.animation.currentTime ?? 0) >= leaving.duration) {
+    return undefined;
+  }
+  const behind = leaving.sheet.offsetWidth - leaving.from;
+  return {
+    start: `translateX(${-Math.round((offsetPercent / 100) * behind)}px)`,
+    duration: leaving.duration,
+    easing: leaving.easing,
+    clock: leaving.animation,
+  };
+}
 
 function motionOf(pathname: string, navigation: string): Motion {
-  const asked = planned?.pathname === pathname ? planned.motion : undefined;
+  const asked = planned !== undefined && decodeFragment(planned.pathname) === decodeFragment(pathname) ? planned.motion : undefined;
   planned = undefined;
   if (asked !== undefined) {
     return asked;
   }
   if (navigation === 'POP') {
-    return standalone() ? 'back' : 'none';
+    return iosHomeScreenApp() ? 'back' : 'none';
   }
   return navigation === 'PUSH' ? 'forward' : 'none';
 }
@@ -92,31 +248,58 @@ export function useScreenEnter(ref: RefObject<HTMLElement | null>): void {
   const navigation = useNavigationType();
 
   useLayoutEffect(() => {
-    if (!ready || enteredFor === location.key) {
+    if (!ready) {
+      return;
+    }
+    reveal();
+    if (enteredFor === location.key && !offScreen) {
       return;
     }
     const first = enteredFor === undefined;
     enteredFor = location.key;
-    leaving?.cancel();
-    leaving = undefined;
+    offScreen = false;
+    const afterSwipe = swiped;
+    swiped = false;
     const motion = motionOf(location.pathname, navigation);
     const element = ref.current;
+    if (drag !== undefined && element !== null) {
+      handToDrag(drag, element);
+      return;
+    }
     const duration = motionMs(enterMs);
     if (first || motion === 'none' || element === null || !moves() || duration === 0) {
       return;
     }
-    const start = { transform: `translateX(${motion === 'forward' ? offset : `-${offset}`})`, opacity: '0' };
+    const along = motion === 'back' ? alongLeaving() : undefined;
+    if (motion === 'back' && afterSwipe && along === undefined) {
+      return;
+    }
+    const start =
+      motion === 'forward'
+        ? { transform: `translateX(${offsetPercent}%)`, opacity: '0' }
+        : { transform: along?.start ?? `translateX(-${offsetPercent}%)`, opacity: '1' };
     Object.assign(element.style, start);
     const animation = element.animate([start, { transform: 'none', opacity: '1' }], {
-      duration,
-      easing: screenEasing,
+      duration: along?.duration ?? duration,
+      easing: along?.easing ?? screenEasing,
       fill: 'forwards',
     });
+    if (along !== undefined) {
+      const { clock } = along;
+      const follow = (): void => {
+        if (animation.playState !== 'idle' && clock.startTime !== null) {
+          animation.startTime = clock.startTime;
+        }
+      };
+      void clock.ready.then(follow, follow);
+    }
     const done = (): void => {
-      element.style.transform = '';
+      if (element.style.transform === start.transform) {
+        element.style.transform = '';
+      }
       element.style.opacity = '';
       animation.cancel();
     };
-    void animation.finished.then(done, done);
+    noteEntering(animation.finished.then(done, done));
   }, [ready, location.key]);
 }

@@ -17,9 +17,8 @@ import { layout, layoutBreakpoints, useBelow } from '../theme';
 import { useRecentNotes, type RecentNote } from './recentNotes';
 import picker from './Picker.module.css';
 import classes from './Search.module.css';
-import { SearchControlProvider, type SearchControl } from './searchOpener';
 import { hintOf, SearchResults, targetsOf } from './SearchResults';
-import { altKey, appShortcut, keysLabel, modChord } from './shortcuts';
+import { altKey, keysLabel } from './shortcuts';
 import { useFullScreenStyle } from './useVisibleArea';
 
 const debounceMs = 200;
@@ -58,41 +57,7 @@ interface Answer {
   error?: string;
 }
 
-export function SearchProvider({ enabled, children }: { enabled: boolean; children: ReactNode }): JSX.Element {
-  const [opened, setOpened] = useState(false);
-  const [initial, setInitial] = useState('');
-
-  const open = useCallback((text?: string) => {
-    setInitial(text ?? '');
-    setOpened(true);
-  }, []);
-  const close = useCallback(() => setOpened(false), []);
-  const control = useMemo<SearchControl>(() => ({ opened, open, close }), [opened, open, close]);
-
-  useEffect(() => {
-    if (!enabled) {
-      return undefined;
-    }
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (!modChord(event, 'k') || !appShortcut(event)) {
-        return;
-      }
-      event.preventDefault();
-      open();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [open, enabled]);
-
-  return (
-    <SearchControlProvider value={enabled ? control : undefined}>
-      {children}
-      {enabled && opened && <SearchDialog initial={initial} onClose={close} />}
-    </SearchControlProvider>
-  );
-}
-
-function SearchDialog({ initial, onClose }: { initial: string; onClose: () => void }): JSX.Element {
+export function SearchDialog({ initial, onClose }: { initial: string; onClose: () => void }): JSX.Element {
   const navigate = useNavigate();
   const phone = useBelow(layoutBreakpoints.phone);
   const screenStyle = useFullScreenStyle(phone);
@@ -215,6 +180,9 @@ function SearchDialog({ initial, onClose }: { initial: string; onClose: () => vo
               aria-label="Search the space"
               autoComplete="off"
               spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              enterKeyHint="search"
               onChange={(event) => {
                 setText(event.currentTarget.value);
                 setOpenPending(false);

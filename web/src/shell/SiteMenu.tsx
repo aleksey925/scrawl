@@ -5,7 +5,7 @@ import { PopupMenu } from '../components/PopupMenu';
 import { IconDots, IconListSearch } from '../icons';
 import { layout } from '../theme';
 
-import { useNav } from './NavContext';
+import { useAccount } from './NavContext';
 import { PageWidthControl } from './PageWidthControl';
 import { useReaderLayout } from './ReaderLayout';
 import { ShortcutsMenuItem } from './ShortcutHelp';
@@ -14,7 +14,7 @@ import { SpaceButton } from './SpaceButton';
 import { ThemePicker } from './ThemePicker';
 
 export function SiteMenu({ dots = false }: { dots?: boolean }): JSX.Element {
-  const { me } = useNav();
+  const { me } = useAccount();
   const { openShortcuts, openOutline } = useReaderLayout();
   const keyboard = useKeyboardPlace();
   const name = me?.site_title ?? 'Notes';

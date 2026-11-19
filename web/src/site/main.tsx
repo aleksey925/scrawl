@@ -1,5 +1,4 @@
-import '@mantine/core/styles.css';
-import '@mantine/notifications/styles.css';
+import '../mantine.css';
 import 'virtual:theme-stylesheet.css';
 import '../global.css';
 import './site.css';

@@ -1,26 +1,22 @@
-import { ActionIcon, Button, Menu } from '@mantine/core';
+import { Button, Menu } from '@mantine/core';
 import { useEffect, useState, type JSX } from 'react';
 
-import type { DirListing, EntryKind } from '../api/types';
-import { answerKeys, useApi } from '../api/useApi';
-import {
-  IconChevronDown, IconDots, IconEdit, IconFilePlus, IconFolderOpen, IconFolderPlus, IconLink, IconMoveTo, IconPlus, IconTable, IconTrash,
-} from '../icons';
+import type { DirListing } from '../api/types';
+import { answerKeys, dirOf, useApi } from '../api/useApi';
+import { IconChevronDown, IconFolderOpen, IconFolderPlus } from '../icons';
 import { usePlatform } from '../platform';
-import { useOptionalFileActions, type FileActions } from '../shell/fileActionsContext';
-import { spaceLabel, useNav } from '../shell/NavContext';
+import { useOptionalFileActions } from '../shell/fileActionsContext';
+import { spaceLabel, useAccount, useTree } from '../shell/NavContext';
 import { chromeOf, usePageChrome } from '../shell/PageChrome';
-import { PageActions } from '../shell/ShellSlots';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { AsyncContent } from './AsyncContent';
 import classes from './DirectoryView.module.css';
 import { DirTable } from './DirTable';
 import { EmptyState } from './EmptyState';
-import { countOf } from './formats';
 import { Page, PageTitle } from './Page';
 import { NewEntryMenu, usePointerMenu } from './pointerMenu';
-import { FieldMenuItem, menuRectOf, PopupMenu } from './PopupMenu';
+import { FieldMenuItem, PopupMenu } from './PopupMenu';
 
 export interface DirectoryViewProps {
   path: string;
@@ -28,8 +24,8 @@ export interface DirectoryViewProps {
 
 export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
   const { source } = usePlatform();
-  const { changes } = useNav();
-  const state = useApi((signal) => source.dir(path, { signal }), [source, path, changes], answerKeys.dir(path));
+  const { changes } = useTree();
+  const state = useApi((signal) => dirOf(source, path, signal), [source, path, changes], answerKeys.dir(path));
 
   return (
     <AsyncContent state={state} testId="dir" page>
@@ -39,30 +35,42 @@ export function DirectoryView({ path }: DirectoryViewProps): JSX.Element {
 }
 
 function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Element {
-  const { canWrite, me } = useNav();
+  const { canWrite, me } = useAccount();
   const actions = useOptionalFileActions();
-  const [draft, setDraft] = useState<EntryKind | undefined>(undefined);
+  const [adding, setAdding] = useState(false);
   const contextMenu = usePointerMenu<string>();
   const phone = useBelow(layoutBreakpoints.phone);
   const space = spaceLabel(me);
   usePageChrome(chromeOf(dir.breadcrumbs, path === '' ? '' : dir.title, true));
-  useEffect(() => setDraft(undefined), [path]);
+  useEffect(() => setAdding(false), [path]);
 
   const writable = canWrite && actions !== undefined;
-  const startDraft = (kind: EntryKind): void => {
-    if (phone && actions !== undefined) {
-      actions.createDraft(kind, path);
+  const drafting = phone ? actions?.draft?.parent === path : adding;
+  const newNote = (): void => actions?.newNote(path);
+  const newFolder = (): void => {
+    if (phone) {
+      actions?.newFolder(path);
       return;
     }
-    setDraft(kind);
+    setAdding(true);
+  };
+  const cancel = (): void => {
+    if (phone) {
+      actions?.cancelDraft();
+      return;
+    }
+    setAdding(false);
   };
   const submit = async (name: string): Promise<boolean> => {
-    if (actions === undefined || draft === undefined) {
+    if (actions === undefined) {
       return false;
     }
-    const created = await actions.createEntry({ kind: draft, parent: path }, name);
+    if (phone) {
+      return actions.submitDraft(name);
+    }
+    const created = await actions.createFolder(path, name);
     if (created) {
-      setDraft(undefined);
+      setAdding(false);
     }
     return created;
   };
@@ -75,70 +83,19 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
       className={classes.page}
       onContextMenu={writable && !phone ? (event) => contextMenu.onFreeSpace(event, path) : undefined}
     >
-      {writable && (
-        <PageActions>
-          <FolderMenu path={path} actions={actions} />
-        </PageActions>
-      )}
-      <NewEntryMenu menu={contextMenu} testId="dir-context-menu" onCreate={(kind) => startDraft(kind)} />
+      <NewEntryMenu
+        menu={contextMenu}
+        testId="dir-context-menu"
+        onCreate={(kind) => (kind === 'note' ? newNote() : newFolder())}
+      />
       <div className={classes.head}>
         <PageTitle testId="dir-title">{path === '' ? space : dir.title}</PageTitle>
-        {writable && !phone && (
-          <PopupMenu position="bottom-end" width={layout.menuWidthNarrow} withinPortal>
-            <Menu.Target>
-              <Button
-                data-testid="dir-new"
-                size="lg"
-                className={classes.new}
-                rightSection={<IconChevronDown size={layout.iconSizeSmall} />}
-              >
-                New
-              </Button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <FieldMenuItem
-                data-testid="dir-new-file"
-                leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-                onClick={() => startDraft('file')}
-              >
-                New file
-              </FieldMenuItem>
-              <FieldMenuItem
-                data-testid="dir-new-folder"
-                leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-                onClick={() => startDraft('dir')}
-              >
-                New folder
-              </FieldMenuItem>
-            </Menu.Dropdown>
-          </PopupMenu>
-        )}
+        {writable && !phone && <NewButton onNote={newNote} onFolder={newFolder} />}
       </div>
-      <div className={classes.bar}>
-        <div className={classes.tab}>
-          <IconTable size={layout.iconSizeSmall} />
-          Files
-        </div>
-        <span data-testid="dir-count" className={classes.count}>
-          {countOf(dir.entries.length, 'item')}
-        </span>
-      </div>
-      {(dir.entries.length > 0 || draft !== undefined || !phone) && (
-        <DirTable
-          path={path}
-          entries={dir.entries}
-          draft={draft}
-          onDraftSubmit={submit}
-          onDraftCancel={() => setDraft(undefined)}
-        />
+      {(dir.entries.length > 0 || drafting || !phone) && (
+        <DirTable path={path} entries={dir.entries} drafting={drafting} onDraftSubmit={submit} onDraftCancel={cancel} />
       )}
-      {draft === undefined && dir.entries.length > 0 && writable && !phone && (
-        <button type="button" data-testid="dir-add-row" className={classes.add} onClick={() => startDraft('file')}>
-          <IconPlus size={layout.iconSizeSmall} />
-          New file
-        </button>
-      )}
-      {draft === undefined && dir.entries.length === 0 && (
+      {!drafting && dir.entries.length === 0 && (
         <div className={classes.empty}>
           <EmptyState
             testId="dir-empty"
@@ -146,9 +103,14 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
             title="This folder is empty"
             actions={
               writable && (
-                <Button data-testid="dir-empty-new-file" variant="default" onClick={() => startDraft('file')}>
-                  New file
-                </Button>
+                <>
+                  <Button data-testid="dir-empty-new-note" onClick={newNote}>
+                    New note
+                  </Button>
+                  <Button data-testid="dir-empty-new-folder" variant="default" onClick={newFolder}>
+                    New folder
+                  </Button>
+                </>
               )
             }
           >
@@ -160,64 +122,28 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
   );
 }
 
-function FolderMenu({ path, actions }: { path: string; actions: FileActions }): JSX.Element {
+function NewButton({ onNote, onFolder }: { onNote: () => void; onFolder: () => void }): JSX.Element {
   return (
-    <PopupMenu position="bottom-end" width={layout.menuWidth} withinPortal>
-      <Menu.Target>
-        <ActionIcon data-testid="folder-menu" variant="subtle" color="gray" size="lg" aria-label="More actions">
-          <IconDots size={layout.iconSize} />
-        </ActionIcon>
-      </Menu.Target>
-      <Menu.Dropdown data-testid="folder-menu-dropdown">
-        <FieldMenuItem
-          data-testid="folder-menu-new-file"
-          leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-          onClick={() => actions.createDraft('file', path)}
-        >
-          New file
-        </FieldMenuItem>
-        <FieldMenuItem
-          data-testid="folder-menu-new-folder"
-          leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-          onClick={() => actions.createDraft('dir', path)}
-        >
-          New folder
-        </FieldMenuItem>
-        <Menu.Divider />
-        <Menu.Item
-          data-testid="folder-menu-copy-link"
-          leftSection={<IconLink size={layout.iconSizeSmall} />}
-          onClick={() => actions.copyLink(path, true)}
-        >
-          Copy link
-        </Menu.Item>
-        {path !== '' && (
-          <>
-            <FieldMenuItem
-              data-testid="folder-menu-rename"
-              leftSection={<IconEdit size={layout.iconSizeSmall} />}
-              onClick={() => actions.startRename(path, true, 'page')}
-            >
-              Rename
-            </FieldMenuItem>
-            <Menu.Item
-              data-testid="folder-menu-move"
-              leftSection={<IconMoveTo size={layout.iconSizeSmall} />}
-              onClick={(event) => actions.moveTo(path, menuRectOf(event.currentTarget))}
-            >
-              Move to
-            </Menu.Item>
-            <Menu.Item
-              data-testid="folder-menu-delete"
-              color="red"
-              leftSection={<IconTrash size={layout.iconSizeSmall} />}
-              onClick={() => actions.remove(path)}
-            >
-              Delete
-            </Menu.Item>
-          </>
-        )}
-      </Menu.Dropdown>
-    </PopupMenu>
+    <Button.Group className={classes.new}>
+      <Button data-testid="dir-new" size="md" title="New note (N)" onClick={onNote}>
+        New
+      </Button>
+      <PopupMenu position="bottom-end" offset={4} withinPortal>
+        <Menu.Target>
+          <Button data-testid="dir-new-more" size="md" className={classes.more} aria-label="More to create">
+            <IconChevronDown size={layout.iconSizeSmall} />
+          </Button>
+        </Menu.Target>
+        <Menu.Dropdown data-testid="dir-new-menu">
+          <FieldMenuItem
+            data-testid="dir-new-folder"
+            leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
+            onClick={onFolder}
+          >
+            New folder
+          </FieldMenuItem>
+        </Menu.Dropdown>
+      </PopupMenu>
+    </Button.Group>
   );
 }

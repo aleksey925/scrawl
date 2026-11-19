@@ -29,7 +29,9 @@ export interface Palette {
   menuHighlightText: string;
   menuHighlightMuted: string;
   overlay: string;
+  scrim: string;
   codeBg: string;
+  draftBg: string;
   diagramPaper: string;
   link: string;
   linkLine: string;
@@ -37,8 +39,6 @@ export interface Palette {
   accent: string;
   accentStrong: string;
   accentTint: string;
-  focusRing: string;
-  focusRingOuter: string;
   onAccent: string;
   inlineCode: string;
   inlineCodeBg: string;

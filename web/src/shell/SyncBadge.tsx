@@ -4,14 +4,14 @@ import type { JSX } from 'react';
 import { IconCloudUp } from '../icons';
 import { layout } from '../theme';
 
-import { useNav } from './NavContext';
+import { useAccount } from './NavContext';
 
 export interface SyncBadgeProps {
   path: string;
 }
 
 export function SyncBadge({ path }: SyncBadgeProps): JSX.Element | null {
-  const { isUnsynced } = useNav();
+  const { isUnsynced } = useAccount();
   if (!isUnsynced(path)) {
     return null;
   }

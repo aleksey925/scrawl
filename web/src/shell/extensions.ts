@@ -12,12 +12,17 @@ export interface RowMenuProps {
   name: string;
   touch: boolean;
   inTree?: boolean;
-  withCreate?: boolean;
   editUrl?: string;
+  runPath?: string;
   opened: boolean;
   onOpenedChange: (opened: boolean) => void;
   target?: ReactElement;
   at?: Point;
+}
+
+export interface RunLinkProps {
+  path: string;
+  className: string | undefined;
 }
 
 export interface DocumentExtrasProps {
@@ -29,6 +34,7 @@ export interface ReaderExtensions {
   DocumentExtras?: ComponentType<DocumentExtrasProps>;
   RowMenu?: ComponentType<RowMenuProps>;
   FileView?: ComponentType<{ file: FilePageResponse }>;
+  RunLink?: ComponentType<RunLinkProps>;
 }
 
 const none: ReaderExtensions = {};

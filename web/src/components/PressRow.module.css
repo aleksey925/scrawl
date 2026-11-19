@@ -16,7 +16,7 @@
     transition: var(--scrawl-press-out);
   }
 
-  .row:active:not(:has(button:active))::before {
+  .row:active:not(:has(button:active, [data-row-action]:active))::before {
     opacity: 1;
     transition: var(--scrawl-press-in);
   }

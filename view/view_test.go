@@ -28,6 +28,7 @@ func TestURLsEscapeAwkwardPaths(t *testing.T) {
 	}{
 		{name: "document", got: ContentURL(awkward), want: "/doc/" + escaped},
 		{name: "editor", got: EditURL(awkward), want: "/edit/" + escaped},
+		{name: "run", got: RunURL(awkward), want: "/run/" + escaped},
 		{name: "directory", got: DirURL("notes/что? да"), want: "/doc/notes/%D1%87%D1%82%D0%BE%3F%20%D0%B4%D0%B0/"},
 		{name: "search hit", got: SearchURL(awkward, "да"), want: "/doc/" + escaped + "?q=%D0%B4%D0%B0"},
 	}
@@ -138,7 +139,7 @@ func TestMissingPage(t *testing.T) {
 	}, got)
 }
 
-func noItems(string) (int, error) { return 0, nil }
+func noItems(string) (store.DirCount, error) { return store.DirCount{}, nil }
 
 func TestNewDir(t *testing.T) {
 	tests := []struct {
@@ -175,13 +176,16 @@ func TestDirEntries(t *testing.T) {
 	mod := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
 	entries := []store.FileInfo{
 		{Name: "sub", Path: "docs/sub", IsDir: true, ModTime: mod},
+		{Name: "app", Path: "docs/app", IsDir: true, ModTime: mod},
 		{Name: "a.md", Path: "docs/a.md", Size: 3, ModTime: mod},
 		{Name: "b.png", Path: "docs/b.png", Size: 4, ModTime: mod},
 		{Name: "Index.md", Path: "docs/Index.md", Size: 5, ModTime: mod},
 	}
 
 	notes := func(fi store.FileInfo) bool { return strings.HasSuffix(fi.Name, ".md") }
-	count := func(dir string) (int, error) { return len(dir), nil }
+	count := func(dir string) (store.DirCount, error) {
+		return store.DirCount{Items: len(dir), HasAppIndex: dir == "docs/app"}, nil
+	}
 
 	// act
 	got := DirEntries(entries, count, notes)
@@ -189,6 +193,8 @@ func TestDirEntries(t *testing.T) {
 	// assert
 	assert.Equal(t, []DirEntry{
 		{Name: "sub", Path: "docs/sub", URL: "/doc/docs/sub/", IsDir: true, ModTime: mod, Items: len("docs/sub")},
+		{Name: "app", Path: "docs/app", URL: "/doc/docs/app/", IsDir: true, ModTime: mod, Items: len("docs/app"),
+			RunPath: "docs/app/" + store.AppIndex},
 		{Name: "a.md", Path: "docs/a.md", URL: "/doc/docs/a.md", Size: 3, ModTime: mod, EditURL: "/edit/docs/a.md"},
 		{Name: "b.png", Path: "docs/b.png", URL: "/doc/docs/b.png", Size: 4, ModTime: mod},
 		{Name: "Index.md", Path: "docs/Index.md", URL: "/doc/docs/Index.md", Size: 5, ModTime: mod, FolderPage: true,
@@ -199,7 +205,9 @@ func TestDirEntries(t *testing.T) {
 func TestDirEntriesOfAFolderThatCannotBeCounted(t *testing.T) {
 	// arrange
 	entries := []store.FileInfo{{Name: "gone", Path: "gone", IsDir: true}}
-	count := func(string) (int, error) { return 7, store.ErrNotFound }
+	count := func(string) (store.DirCount, error) {
+		return store.DirCount{Items: 7, HasAppIndex: true}, store.ErrNotFound
+	}
 
 	// act
 	got := DirEntries(entries, count, NotEditable)
@@ -258,13 +266,13 @@ func TestNav(t *testing.T) {
 	require.NoError(t, err)
 
 	// act
-	got := Nav(root, "docs/sub/deep.md")
+	got := Nav(root)
 
 	// assert
 	assert.Equal(t, []NavNode{
-		{Name: "docs", Path: "docs", URL: "/doc/docs/", IsDir: true, Active: true, Children: []NavNode{
-			{Name: "sub", Path: "docs/sub", URL: "/doc/docs/sub/", IsDir: true, Active: true, Children: []NavNode{
-				{Name: "deep.md", Path: "docs/sub/deep.md", URL: "/doc/docs/sub/deep.md", Current: true, Children: []NavNode{}},
+		{Name: "docs", Path: "docs", URL: "/doc/docs/", IsDir: true, Children: []NavNode{
+			{Name: "sub", Path: "docs/sub", URL: "/doc/docs/sub/", IsDir: true, Children: []NavNode{
+				{Name: "deep.md", Path: "docs/sub/deep.md", URL: "/doc/docs/sub/deep.md", Children: []NavNode{}},
 			}},
 			{Name: "index.md", Path: "docs/index.md", URL: "/doc/docs/index.md", FolderPage: true, Children: []NavNode{}},
 		}},

@@ -6,25 +6,29 @@ import type { MeResponse } from '../api/types';
 import { goToLogin } from '../login';
 import { useReadingCopy } from '../offline/connection';
 import { offlineMe, storedMe } from '../offline/source';
+import { documentPage, editPage, preloadPage } from '../pagePreloads';
 
+import { BarEditProvider } from './BarEditProvider';
+import { preloadDialogs } from './dialogChunks';
 import { DocumentExtras } from './DocumentExtras';
 import { ReaderExtensionsProvider, type ReaderExtensions } from './extensions';
 import { FileActionsProvider } from './FileActions';
 import { FileView } from './FileView';
-import { NavProvider } from './NavContext';
+import { NavProvider, useAccount } from './NavContext';
 import { NetworkGate } from './NeedsNetwork';
 import { OfflineMark } from './OfflineMark';
 import { ReaderLayout, type ReaderChrome } from './ReaderLayout';
-import { ResetProvider } from './ResetDialog';
+import { ResetProvider } from './ResetProvider';
 import { RowMenu } from './RowMenu';
-import { SearchProvider } from './SearchDialog';
+import { RunLink } from './RunLink';
+import { SearchProvider } from './SearchProvider';
 import { SpaceAlerts } from './SpaceAlerts';
 import { SpaceMenu } from './SpaceMenu';
 import { SyncControl } from './SyncControl';
 import { TabBar } from './TabBar';
 import { useMe, type MeState } from './useMe';
 
-const extensions: ReaderExtensions = { DocumentExtras, FileView, RowMenu };
+const extensions: ReaderExtensions = { DocumentExtras, FileView, RowMenu, RunLink };
 
 const chrome: ReaderChrome = {
   sidebarFoot: <SpaceMenu />,
@@ -39,11 +43,13 @@ const chrome: ReaderChrome = {
 
 export function AppLayout(): JSX.Element {
   useEffect(() => installUnauthorizedHandler('shell', goToLogin), []);
+  useEffect(preloadDialogs, []);
 
   return (
     <SpaceNavProvider>
       <ReaderExtensionsProvider value={extensions}>
         <ReaderLayout chrome={chrome} providers={AppProviders} banner={<SpaceAlerts />}>
+          <PagePreloads />
           <NetworkGate>
             <Outlet />
           </NetworkGate>
@@ -53,12 +59,25 @@ export function AppLayout(): JSX.Element {
   );
 }
 
+function PagePreloads(): null {
+  const { canWrite } = useAccount();
+  useEffect(() => preloadPage(documentPage), []);
+  useEffect(() => {
+    if (canWrite) {
+      preloadPage(editPage);
+    }
+  }, [canWrite]);
+  return null;
+}
+
 function AppProviders({ children }: { children: ReactNode }): JSX.Element {
   const fromCopy = useReadingCopy();
   return (
     <ResetProvider>
       <FileActionsProvider>
-        <SearchProvider enabled={!fromCopy}>{children}</SearchProvider>
+        <SearchProvider enabled={!fromCopy}>
+          <BarEditProvider>{children}</BarEditProvider>
+        </SearchProvider>
       </FileActionsProvider>
     </ResetProvider>
   );

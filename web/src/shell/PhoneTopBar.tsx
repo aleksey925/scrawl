@@ -1,25 +1,48 @@
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
+import type { Crumb } from '../api/types';
+import { prefetchDir } from '../api/useApi';
 import { RenameField } from '../components/RenameField';
 import { planMotion } from '../components/screenMotion';
+import controls from '../controls.module.css';
+import { cameFrom } from '../historyTrail';
 import { IconChevronLeft } from '../icons';
-import { isEditPath } from '../paths';
+import { directoryUrl, isDocPath, isEditPath, isRecentPath } from '../paths';
+import { usePlatform } from '../platform';
 import { layout } from '../theme';
 
 import { AppLogo } from './AppLogo';
+import { DraftNameField } from './DraftName';
 import { usePageRenaming } from './fileActionsContext';
-import { spaceLabel, useNav } from './NavContext';
+import { basenameOf, contentPathOf, parentOf } from './naming';
+import { spaceLabel, useAccount } from './NavContext';
 import { useShownChrome } from './PageChrome';
 import classes from './PhoneTopBar.module.css';
 import { useSwipeBack } from './useSwipeBack';
 
 function titleGone(): boolean {
-  const heading = document.querySelector('.mantine-AppShell-main h1');
+  const heading = document.querySelector('[data-screen] h1');
   if (heading === null) {
     return window.scrollY > 0;
   }
   return heading.getBoundingClientRect().bottom <= layout.topbarHeightCompact;
+}
+
+interface WayUp extends Crumb {
+  dir?: string;
+}
+
+function wayUp(pathname: string, crumb: Crumb | undefined, space: string): WayUp {
+  if (!isDocPath(pathname)) {
+    return crumb ?? { name: space, url: '/' };
+  }
+  const dir = parentOf(contentPathOf(pathname));
+  return { name: dir === '' ? space : basenameOf(dir), url: directoryUrl(dir), dir };
+}
+
+function atRootOf(pathname: string, rootTitle: boolean): boolean {
+  return isDocPath(pathname) ? contentPathOf(pathname) === '' : pathname === directoryUrl('') || rootTitle;
 }
 
 function useScrolled(watchTitle: boolean): { scrolled: boolean; showTitle: boolean } {
@@ -28,7 +51,9 @@ function useScrolled(watchTitle: boolean): { scrolled: boolean; showTitle: boole
 
   useEffect(() => {
     const update = (): void => {
-      setState({ scrolled: window.scrollY > 0, showTitle: !watchTitle || titleGone() });
+      const scrolled = window.scrollY > 0;
+      const showTitle = !watchTitle || titleGone();
+      setState((prev) => (prev.scrolled === scrolled && prev.showTitle === showTitle ? prev : { scrolled, showTitle }));
     };
     update();
     window.addEventListener('scroll', update, { passive: true });
@@ -45,36 +70,66 @@ export interface PhoneTopBarProps {
 }
 
 export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.Element {
-  const { me } = useNav();
+  const { me } = useAccount();
   const chrome = useShownChrome();
   const space = spaceLabel(me);
   const atRoot = chrome.title === '';
-  const parent = chrome.crumbs[chrome.crumbs.length - 1] ?? { name: space, url: '/' };
   const location = useLocation();
+  const parent = wayUp(location.pathname, chrome.crumbs[chrome.crumbs.length - 1], space);
+  const above = parent.dir;
+  const { source, prefetch } = usePlatform();
   const editing = isEditPath(location.pathname);
+  const tabRoot = isRecentPath(location.pathname);
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
-  const inHistory = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
   const { renaming, commit } = usePageRenaming();
+  const draft = chrome.draft;
+  const [naming, setNaming] = useState(false);
+  useEffect(() => setNaming(false), [location.pathname]);
+  const goUp = (): boolean => {
+    planMotion(parent.url, 'back');
+    if (!cameFrom(parent.url)) {
+      return false;
+    }
+    void navigate(-1);
+    return true;
+  };
   useSwipeBack(
-    editing || (atRoot && !inHistory)
+    editing || tabRoot || atRootOf(location.pathname, atRoot)
       ? null
       : () => {
           commit();
-          if (inHistory) {
-            void navigate(-1);
-            return;
+          if (!goUp()) {
+            void navigate(parent.url);
           }
-          planMotion(parent.url, 'back');
-          void navigate(parent.url);
         },
+    above === undefined || !prefetch ? undefined : () => prefetchDir(source, above),
   );
 
   if (editing) {
+    const namingDraft = naming && draft !== undefined;
     return (
-      <div data-testid="topbar" data-editing="true" className={classes.bar}>
+      <div data-testid="topbar" data-editing="true" data-renaming={namingDraft ? 'true' : 'false'} className={classes.bar}>
         <div data-testid="topbar-actions" className={classes.editActions} ref={actionsRef} />
-        <div className={classes.editEnd}>{end}</div>
+        {namingDraft ? (
+          <div className={classes.editField}>
+            <DraftNameField draft={draft} className={classes.field} onDone={() => setNaming(false)} />
+          </div>
+        ) : draft === undefined ? (
+          <span data-testid="topbar-edit-name" className={classes.editName}>
+            {chrome.name}
+          </span>
+        ) : (
+          <button
+            type="button"
+            data-testid="topbar-draft-name"
+            className={`${classes.editName} ${classes.draftName}`}
+            aria-label={`Name the new note, now ${chrome.name}`}
+            onClick={() => setNaming(true)}
+          >
+            {chrome.name}
+          </button>
+        )}
       </div>
     );
   }
@@ -87,17 +142,22 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
       className={classes.bar}
     >
       <div className={classes.start}>
-        {atRoot ? (
+        {atRoot && (
           <span data-testid="topbar-home" className={classes.home}>
             <AppLogo />
             <span className={classes.homeName}>{space}</span>
           </span>
-        ) : (
+        )}
+        {!atRoot && !tabRoot && (
           <Link
             data-testid="topbar-up"
             to={parent.url}
-            onClick={() => planMotion(parent.url, 'back')}
-            className={classes.up}
+            onClick={(event) => {
+              if (goUp()) {
+                event.preventDefault();
+              }
+            }}
+            className={`${controls.wayBack} ${classes.up}`}
             aria-label={`Back to ${parent.name}`}
           >
             <IconChevronLeft size={layout.iconSize} />

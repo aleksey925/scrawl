@@ -11,6 +11,7 @@ const HISTORY = instances.history;
 const MULTI = instances.multi;
 const DIALOG_TITLE = {room: 4, tall: 60};
 const MOVE_WAIT_MS = 300;
+const PAST_DRAFT_DELAY_MS = 1000;
 
 let shotSeq = 0;
 
@@ -133,6 +134,14 @@ async function openSpaceMenu(page) {
     await expect(page.getByTestId('space-menu-dropdown')).toBeVisible();
 }
 
+async function switchCopy(page, on) {
+    await openSpaceMenu(page);
+    const row = page.getByTestId('space-menu-offline');
+    await expect(row).toHaveAttribute('data-on', String(!on));
+    await row.click();
+    await expect(row).toHaveAttribute('data-on', String(on));
+}
+
 async function chooseTheme(page, theme) {
     const picker = page.getByTestId('space-menu-theme');
     await picker.getByText(THEME_LABELS[theme], {exact: true}).click();
@@ -153,6 +162,17 @@ async function inStep(page, space) {
         }
         return me.space.sync_error;
     }, space.api('')), {timeout: 30_000}).toBe('');
+}
+
+function mediumShadow(page) {
+    return page.evaluate(() => {
+        const probe = document.createElement('div');
+        probe.style.boxShadow = 'var(--scrawl-shadow-medium)';
+        document.body.append(probe);
+        const shadow = getComputedStyle(probe).boxShadow;
+        probe.remove();
+        return shadow;
+    });
 }
 
 function rgb(hex) {
@@ -210,6 +230,47 @@ function recordMoves(page) {
         }
     });
     return sent;
+}
+
+function recordPrompts(page) {
+    const prompts = [];
+    page.on('dialog', (dialog) => {
+        prompts.push(dialog.type());
+        void dialog.dismiss();
+    });
+    return prompts;
+}
+
+function okToast(page) {
+    return page.locator('[data-testid=toast][data-kind="ok"]');
+}
+
+function storedDrafts(page) {
+    return page.evaluate(() => Object.keys(localStorage)
+        .filter((key) => key.startsWith('scrawl.draft:'))
+        .map((key) => {
+            const {content, name} = JSON.parse(localStorage.getItem(key));
+            return {path: key.slice(key.lastIndexOf(':') + 1), content, name};
+        }));
+}
+
+function setRefusingDrafts(page, refusing) {
+    return page.evaluate((next) => {
+        window.refuseDrafts = next;
+    }, refusing);
+}
+
+function refuseDrafts(page, refusing = true) {
+    return page.addInitScript((initial) => {
+        window.refuseDrafts = initial;
+        const setItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (key, value) {
+            if (window.refuseDrafts && key.startsWith('scrawl.draft:')) {
+                throw new DOMException('full', 'QuotaExceededError');
+            }
+            return setItem.call(this, key, value);
+        };
+    }, refusing);
 }
 
 async function holdRoute(page, url, matches = () => true) {
@@ -331,6 +392,7 @@ module.exports = {
     MAIN,
     MOVE_WAIT_MS,
     MULTI,
+    PAST_DRAFT_DELAY_MS,
     READONLY,
     SHARED,
     atHome,
@@ -346,22 +408,29 @@ module.exports = {
     mockMe,
     modifier,
     nameOf,
+    okToast,
     openSpaceMenu,
     pressShortcut,
     readFixture,
     recordMoves,
+    recordPrompts,
+    refuseDrafts,
     removeFixture,
+    mediumShadow,
     rgb,
     rightClickPrevented,
     routes,
     save,
+    setRefusingDrafts,
     setSource,
     shot,
     showOutline,
     signIn,
     sourceText,
     stays,
+    storedDrafts,
     submitCredentials,
+    switchCopy,
     titleRoom,
     user,
     writeFixture,

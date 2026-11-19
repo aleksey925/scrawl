@@ -1,38 +1,36 @@
-import type { EditorView } from '@codemirror/view';
+import { EditorView } from '@codemirror/view';
 import {
   ActionIcon,
   Alert,
   Button,
-  Group,
-  Tabs,
   Text,
 } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { useBlocker, useLocation, useNavigate } from 'react-router';
 
-import { api, installUnauthorizedHandler } from '../api/client';
-import { ApiError, type ApiConflict } from '../api/errors';
+import { api } from '../api/client';
 import { errorText } from '../api/useApi';
 import { countOf } from '../components/formats';
 import { Segmented, type SegmentedOption } from '../components/Segmented';
+import { useOffScreen } from '../components/screenMotion';
+import controls from '../controls.module.css';
 import {
   IconBraces,
+  IconChevronLeft,
   IconColumns,
   IconDiff,
   IconEye,
+  IconKeyboard,
   IconPhoto,
   IconTextWrap,
   IconTextWrapDisabled,
 } from '../icons';
-import { documentUrl, editUrl, isMarkdown } from '../paths';
-import { holdPosition, interactionEvents } from '../reader/position';
-import { useNav } from '../shell/NavContext';
-import { basenameOf } from '../shell/naming';
+import { isMarkdown } from '../paths';
+import { basenameOf, joinPath, nameProblem, newFilePath, noteNameOf, parentOf } from '../shell/naming';
+import { useDraftChrome } from '../shell/PageChrome';
 import { PageActions } from '../shell/ShellSlots';
-import { modChord } from '../shell/shortcuts';
-import { useMutationState } from '../shell/useMutationState';
-import { layout } from '../theme';
+import { useVisibleScreen } from '../shell/useVisibleArea';
+import { layout, layoutBreakpoints, useBelow } from '../theme';
 import { showToast } from '../toast';
 
 import { ChangesPane } from './ChangesPane';
@@ -41,28 +39,22 @@ import { SourceEditor, type DroppedFiles, type EditorKind } from './SourceEditor
 import { Splitter } from './Splitter';
 import type { TableMenuProps } from './TableMenu';
 import { Toolbar } from './Toolbar';
-import {
-  captureFromPane,
-  isReadingAnchor,
-  paneTopForAnchor,
-  rememberAnchor,
-  recallAnchor,
-  type ReadingAnchor,
-} from './anchor';
-import { captureFromSource, holdAnchorAtTop } from './cmAnchor';
+import { ToolButton } from './ToolButton';
 import { codeLanguageOf } from './codeLanguages';
-import { tocAttempts, uploadAccept } from './constants';
-import { confirmLeave, openConflict, openSessionExpired } from './dialogs';
+import { DraftOffer } from './DraftOffer';
+import { draftOpening, tocAttempts, tocRefreshMs, uploadAccept } from './constants';
 import { formatMarkdown, replaceText, warmFormatter } from './format';
 import classes from './Editor.module.css';
-import { lineBreakOf, toEditorText, withLineBreak } from './lineBreaks';
+import { lineBreakOf, toEditorText } from './lineBreaks';
 import { runMarkdownAction, type MarkdownAction } from './markdownActions';
-import { createPaneSync } from './paneSync';
 import { insertTable, runTableEdit, tableEditsAtCursor } from './table';
-import { tocBlock, writeToc, writeTocInText } from './toc';
+import { tocBlock, tocRangeIn, writeToc, writeTocInText } from './toc';
 import { useChanges } from './useChanges';
 import { useDraft } from './useDraft';
-import { isLayoutMode, useEditorLayout, type LayoutMode } from './useLayoutMode';
+import { useEditing } from './useEditing';
+import { useEditorPosition } from './useEditorPosition';
+import { useEditSession } from './useEditSession';
+import { useEditorLayout, type LayoutMode } from './useLayoutMode';
 import { useLineWrap } from './useLineWrap';
 import { usePreview } from './usePreview';
 import { useUploads } from './useUploads';
@@ -72,6 +64,7 @@ export interface EditorScreenProps {
   initialContent: string;
   initialRev: string;
   isNew: boolean;
+  draft: boolean;
   readOnly: boolean;
   formatOnSave: boolean;
 }
@@ -83,29 +76,23 @@ const modeOptions: SegmentedOption<LayoutMode>[] = [
   { value: 'changes', icon: IconDiff, label: 'Changes' },
 ];
 
-type SaveState = 'saving' | 'uploading' | 'dirty' | 'new' | 'saved';
+const narrowModeOptions = modeOptions.filter((option) => option.value !== 'split');
+
+type SaveState = 'saving' | 'uploading' | 'dirty' | 'drafted' | 'new' | 'saved';
 
 const saveStateText: Record<SaveState, string> = {
   saving: 'Saving',
   uploading: 'Waiting for the upload',
   dirty: 'Unsaved changes',
+  drafted: 'Draft on device',
   new: 'New note',
   saved: 'Saved',
 };
 
-const dottedTextNames: ReadonlySet<string> = new Set(['go.mod', 'go.sum']);
+type PhoneMode = Exclude<LayoutMode, 'split'>;
 
 const tocFailed = 'Could not build the contents';
-
-function conflictCopyPath(path: string, stamp: string): string {
-  const name = basenameOf(path);
-  const dot = name.lastIndexOf('.');
-  if (dot <= 0 || dottedTextNames.has(name)) {
-    return `${path}.conflict-${stamp}.txt`;
-  }
-  const ext = name.slice(dot);
-  return `${path.slice(0, path.length - ext.length)}.conflict-${stamp}${ext}`;
-}
+const tocNoAnswer = `The server did not answer in ${tocRefreshMs / 1000} seconds.`;
 
 function LineCount({ lines, className }: { lines: number; className: string | undefined }): JSX.Element {
   return (
@@ -116,23 +103,30 @@ function LineCount({ lines, className }: { lines: number; className: string | un
 }
 
 export function EditorScreen(props: EditorScreenProps): JSX.Element {
-  const { path, initialContent, initialRev, isNew, readOnly } = props;
-  const kind: EditorKind = isMarkdown(path) ? 'markdown' : 'text';
-  const fileName = basenameOf(path);
+  const { path, initialContent, initialRev, isNew, readOnly, draft: drafting } = props;
+  const folder = parentOf(path);
+  const opening = drafting ? draftOpening : initialContent;
+  const editorText = useMemo(() => toEditorText(opening), [opening]);
+  const [content, setContent] = useState(editorText);
+  const [manual, setManual] = useState<string | undefined>(undefined);
+  const [savedAs, setSavedAs] = useState<string | undefined>(undefined);
+  const manualRef = useRef(manual);
+  const savedAsRef = useRef(savedAs);
+  manualRef.current = manual;
+  savedAsRef.current = savedAs;
+  const notCreated = drafting && savedAs === undefined;
+  const named = manual ?? joinPath(folder, noteNameOf(content));
+  const filePath = drafting ? (savedAs ?? named) : path;
+  const kind: EditorKind = isMarkdown(filePath) ? 'markdown' : 'text';
+  const fileName = basenameOf(filePath);
   const formattable = !readOnly && kind === 'markdown';
   const formatOnSave = props.formatOnSave && formattable;
-  const lineBreak = formatOnSave ? '\n' : lineBreakOf(initialContent);
-  const editorText = useMemo(() => toEditorText(initialContent), [initialContent]);
-  const navigate = useNavigate();
-  const { refreshMe } = useNav();
-  const reportMutation = useMutationState();
-  const location = useLocation();
+  const lineBreak = formatOnSave ? '\n' : lineBreakOf(opening);
 
-  const [content, setContent] = useState(editorText);
   const [saved, setSaved] = useState(editorText);
   const [rev, setRev] = useState(initialRev);
+  const exists = rev !== '';
   const [saving, setSaving] = useState(false);
-  const [leaving, setLeaving] = useState(false);
   const [view, setView] = useState<EditorView | undefined>(undefined);
 
   const dirty = content !== saved;
@@ -140,22 +134,14 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const viewRef = useRef<EditorView | undefined>(undefined);
   const contentRef = useRef(content);
   const revRef = useRef(rev);
-  const savingRef = useRef(false);
-  const leavingRef = useRef(false);
-  const mountedRef = useRef(true);
-  const leaderRef = useRef<'source' | 'preview' | undefined>(undefined);
-  const promptedRef = useRef(false);
-  const previewRef = useRef<HTMLDivElement>(null);
   const panesRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const arrivedWith = useRef(location.state);
-  const leftForChangesRef = useRef<ReadingAnchor | undefined>(undefined);
 
   contentRef.current = content;
   revRef.current = rev;
 
   const layoutControl = useEditorLayout();
-  const { chosen, choose, split, setSplit, wide } = layoutControl;
+  const { choose, split, setSplit, wide } = layoutControl;
   const mode = kind === 'markdown' ? layoutControl.mode : 'source';
   const lineWrap = useLineWrap();
   const touch = useMediaQuery('(hover: none)', false, { getInitialValueInEffect: false }) ?? false;
@@ -165,15 +151,65 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const preview = usePreview(content, path, showPreview);
   const changes = useChanges({ saved, content, path, enabled: mode === 'changes', paused: saving });
   const uploads = useUploads(path, useCallback(() => viewRef.current, []));
-  const draft = useDraft({ path, rev, content, dirty, savedContent: editorText });
+  const draft = useDraft({
+    path: savedAs ?? path,
+    rev,
+    content,
+    dirty,
+    savedContent: editorText,
+    name: notCreated && manual !== undefined ? basenameOf(manual) : undefined,
+  });
 
   const draftRef = useRef(draft);
   draftRef.current = draft;
 
+  const phone = useBelow(layoutBreakpoints.phone);
+  const phoneModes = phone && kind === 'markdown';
+  const screenRef = useRef<HTMLDivElement>(null);
+  const keyboardBarRef = useRef<HTMLDivElement>(null);
+  const [tableOpen, setTableOpen] = useState(false);
+  const keyboardTools = phoneModes && !readOnly && mode === 'source';
+  const editing = useEditing(view, keyboardBarRef, keyboardTools);
+  const typing = keyboardTools && (editing || tableOpen);
+  useVisibleScreen(screenRef, phone);
+
+  useEffect(() => {
+    const visual = window.visualViewport;
+    if (!typing || view === undefined) {
+      return undefined;
+    }
+    let height = visual?.height ?? 0;
+    const reveal = (): void => {
+      view.dispatch({ effects: EditorView.scrollIntoView(view.state.selection.main.head) });
+    };
+    const shrink = (): void => {
+      const next = visual?.height ?? 0;
+      if (next < height) {
+        reveal();
+      }
+      height = next;
+    };
+    reveal();
+    visual?.addEventListener('resize', shrink);
+    return () => {
+      visual?.removeEventListener('resize', shrink);
+    };
+  }, [typing, view]);
+
+  const hideKeyboard = useCallback((): void => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && (keyboardBarRef.current?.contains(active) === true || viewRef.current?.dom.contains(active) === true)) {
+      active.blur();
+    }
+  }, []);
+
   const onCreate = useCallback((created: EditorView): void => {
     viewRef.current = created;
     setView(created);
-  }, []);
+    if (drafting) {
+      created.dispatch({ selection: { anchor: created.state.doc.length } });
+    }
+  }, [drafting]);
 
   const liveView = useCallback((): EditorView | undefined => {
     const current = viewRef.current;
@@ -185,16 +221,17 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     [liveView],
   );
 
-  const putFormatted = useCallback(
-    (sent: string, formatted: string, cursor?: number): boolean => {
+  const putIfUnchanged = useCallback(
+    (sent: string, text: string, cursor?: number): boolean => {
       if (bufferText() !== sent) {
         return false;
       }
       const current = liveView();
       if (current === undefined) {
-        setContent(formatted);
+        contentRef.current = text;
+        setContent(text);
       } else {
-        replaceText(current, formatted, cursor);
+        replaceText(current, text, cursor);
       }
       return true;
     },
@@ -204,11 +241,14 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const formatBuffer = useCallback(async (): Promise<string> => {
     const sent = bufferText();
     const res = await formatMarkdown(sent, liveView()?.state.selection.main.head ?? 0);
-    putFormatted(sent, res.text, res.cursor);
+    putIfUnchanged(sent, res.text, res.cursor);
     return res.text;
-  }, [bufferText, liveView, putFormatted]);
+  }, [bufferText, liveView, putIfUnchanged]);
 
   const format = useCallback((): void => {
+    if (viewRef.current?.state.readOnly === true) {
+      return;
+    }
     formatBuffer().catch((error: unknown) => {
       showToast('error', { title: 'Could not format the note', message: errorText(error) });
     });
@@ -218,12 +258,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   useEffect(() => () => tocAbortRef.current?.abort(), []);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
+  useOffScreen();
 
   const insertToc = useCallback((): void => {
     tocAbortRef.current?.abort();
@@ -247,11 +282,11 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             });
             return;
           }
-          const block = tocBlock(res.toc);
-          if (block === undefined) {
+          if (res.toc.length === 0) {
             showToast('warn', { title: 'No headings to list', message: 'The contents lists the headings under the title.' });
             return;
           }
+          const block = tocBlock(res.toc);
           const current = liveView();
           if (current === undefined) {
             setContent(writeTocInText(sent, viewRef.current?.state.selection.main.head ?? 0, block));
@@ -270,320 +305,64 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     build(1);
   }, [bufferText, liveView, path]);
 
+  const refreshToc = useCallback(async (): Promise<string | undefined> => {
+    const sent = bufferText();
+    const range = kind === 'markdown' ? tocRangeIn(sent) : undefined;
+    if (range === undefined) {
+      return undefined;
+    }
+    try {
+      const res = await api.preview({ content: sent, path }, { signal: AbortSignal.timeout(tocRefreshMs) });
+      putIfUnchanged(sent, `${sent.slice(0, range.from)}${tocBlock(res.toc)}${sent.slice(range.to)}`);
+      return undefined;
+    } catch (error: unknown) {
+      return error instanceof DOMException && error.name === 'TimeoutError' ? tocNoAnswer : errorText(error);
+    }
+  }, [bufferText, kind, path, putIfUnchanged]);
+
   useEffect(() => {
     if (formatOnSave) {
-      warmFormatter();
+      warmFormatter(contentRef.current);
     }
   }, [formatOnSave]);
 
-  const [openedAt, setOpenedAt] = useState<ReadingAnchor | undefined>(undefined);
+  const { previewRef, rememberReadingPosition, chooseMode } = useEditorPosition({
+    path,
+    drafting,
+    view,
+    liveView,
+    revRef,
+    mode,
+    previewHtml: preview.html,
+    choose,
+  });
 
-  const previewPlaced = useRef(false);
-  const readerMoved = useRef(false);
-
-  useEffect(() => {
-    previewPlaced.current = false;
-    readerMoved.current = false;
-    const carried = arrivedWith.current;
-    const anchor =
-      isReadingAnchor(carried) && carried.path === path ? carried : recallAnchor('edit', path);
-    if (anchor !== undefined) {
-      setOpenedAt(anchor);
-    }
-  }, [path]);
-
-  useEffect(() => {
-    if (view === undefined || openedAt === undefined) {
-      return;
-    }
-    return holdAnchorAtTop(view, openedAt);
-  }, [view, openedAt]);
-
-  useEffect(() => {
-    const targets = [view?.dom, previewRef.current].filter((el): el is HTMLElement => el != null);
-    const moved = (): void => {
-      readerMoved.current = true;
-    };
-    for (const target of targets) {
-      for (const name of interactionEvents) {
-        target.addEventListener(name, moved, { passive: true, capture: true });
-      }
-    }
-    return () => {
-      for (const target of targets) {
-        for (const name of interactionEvents) {
-          target.removeEventListener(name, moved, { capture: true });
-        }
-      }
-    };
-  }, [view, mode]);
-
-  const panes = useMemo(createPaneSync, []);
-
-  useEffect(() => {
-    const pane = previewRef.current;
-    if (pane === null || openedAt === undefined || previewPlaced.current || preview.html === '') {
-      return;
-    }
-    previewPlaced.current = true;
-    return holdPosition(() => {
-      const source = liveView();
-      const top = mode === 'split' && source !== undefined
-        ? panes.paneTop(source, pane)
-        : paneTopForAnchor(pane, openedAt);
-      if (top !== undefined) {
-        pane.scrollTop = top;
-      }
-    }, pane);
-  }, [openedAt, preview.html, mode, liveView, panes]);
-
-  const captureReadingPosition = useCallback((): ReadingAnchor | undefined => {
-    const source = liveView();
-    const pane = previewRef.current;
-    if (openedAt?.path === path && !readerMoved.current) {
-      return { ...openedAt, rev: revRef.current };
-    }
-    if (pane !== null && (source === undefined || leaderRef.current === 'preview')) {
-      return captureFromPane(pane, path, revRef.current);
-    }
-    if (source !== undefined) {
-      return captureFromSource(source, path, revRef.current);
-    }
-    const left = leftForChangesRef.current;
-    return left?.path === path ? { ...left, rev: revRef.current } : undefined;
-  }, [path, liveView, openedAt]);
-
-  const rememberReadingPosition = useCallback((): ReadingAnchor | undefined => {
-    const anchor = captureReadingPosition();
-    if (anchor !== undefined) {
-      rememberAnchor('view', anchor);
-    }
-    return anchor;
-  }, [captureReadingPosition]);
-
-  const chooseMode = useCallback(
-    (next: LayoutMode): void => {
-      if (next === 'changes' && mode !== 'changes') {
-        leftForChangesRef.current = captureReadingPosition();
-      }
-      choose(next);
-    },
-    [captureReadingPosition, choose, mode],
-  );
-
-  const syncFromSource = useCallback((): void => {
-    const current = viewRef.current;
-    const pane = previewRef.current;
-    if (leaderRef.current !== 'source' || current === undefined || pane === null) {
-      return;
-    }
-    pane.scrollTop = panes.paneTop(current, pane);
-  }, [panes]);
-
-  const syncFromPreview = useCallback((): void => {
-    const current = viewRef.current;
-    const pane = previewRef.current;
-    if (leaderRef.current !== 'preview' || current === undefined || pane === null) {
-      return;
-    }
-    current.scrollDOM.scrollTop = panes.sourceTop(current, pane);
-  }, [panes]);
-
-  useEffect(() => {
-    const pane = previewRef.current;
-    if (view === undefined || mode !== 'split' || pane === null) {
-      return;
-    }
-    const scroller = view.scrollDOM;
-    const takeSource = (): void => {
-      leaderRef.current = 'source';
-    };
-    const takePreview = (): void => {
-      leaderRef.current = 'preview';
-    };
-
-    scroller.addEventListener('scroll', syncFromSource, { passive: true });
-    pane.addEventListener('scroll', syncFromPreview, { passive: true });
-    for (const name of interactionEvents) {
-      scroller.addEventListener(name, takeSource, { passive: true, capture: true });
-      pane.addEventListener(name, takePreview, { passive: true, capture: true });
-    }
-    return () => {
-      scroller.removeEventListener('scroll', syncFromSource);
-      pane.removeEventListener('scroll', syncFromPreview);
-      for (const name of interactionEvents) {
-        scroller.removeEventListener(name, takeSource, { capture: true });
-        pane.removeEventListener(name, takePreview, { capture: true });
-      }
-    };
-  }, [view, mode, syncFromSource, syncFromPreview, preview.html]);
-
-  useEffect(() => installUnauthorizedHandler('screen', () => draftRef.current.flush()), []);
-
-  useEffect(() => {
-    if (!dirty) {
-      return;
-    }
-    const warn = (event: BeforeUnloadEvent): void => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
-
-  const blocker = useBlocker(
-    useCallback(
-      ({ currentLocation, nextLocation }) =>
-        dirty && !leavingRef.current && currentLocation.pathname !== nextLocation.pathname,
-      [dirty],
-    ),
-  );
-
-  useEffect(() => {
-    if (blocker.state !== 'blocked' || promptedRef.current) {
-      return;
-    }
-    promptedRef.current = true;
-    void confirmLeave().then((leave) => {
-      promptedRef.current = false;
-      if (leave) {
-        draftRef.current.flush();
-        blocker.proceed();
-      } else {
-        blocker.reset();
-      }
-    });
-  }, [blocker]);
-
-  const markSaved = useCallback((stored: string, nextRev: string, shown: boolean): void => {
-    setSaved(stored);
-    setRev(nextRev);
-    if (shown) {
-      draftRef.current.clear();
-    }
-  }, []);
-
-  const saveCopy = useCallback(async (): Promise<void> => {
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const copyPath = conflictCopyPath(path, stamp);
-    const sent = contentRef.current;
-    try {
-      reportMutation(
-        await api.saveFile(copyPath, { content: withLineBreak(sent, lineBreak), rev: '' }),
-        'Saved as a copy',
-      );
-      setSaved(sent);
-      draftRef.current.clear();
-      leavingRef.current = true;
-      await navigate(editUrl(copyPath));
-    } catch (error: unknown) {
-      showToast('error', { message: errorText(error) });
-    }
-  }, [lineBreak, navigate, path, reportMutation]);
-
-  const save = useCallback(
-    async (withRev?: string): Promise<{ shownStored: boolean }> => {
-      if (savingRef.current || readOnly) {
-        return { shownStored: false };
-      }
-      savingRef.current = true;
-      setSaving(true);
-      rememberReadingPosition();
-      let sent = bufferText();
-      try {
-        await uploads.wait();
-        sent = bufferText();
-        let formatted = false;
-        if (formatOnSave) {
-          try {
-            sent = await formatBuffer();
-            formatted = true;
-          } catch {
-            sent = bufferText();
-          }
-        }
-        draftRef.current.flush();
-        const res = await api.saveFile(path, {
-          content: withLineBreak(sent, lineBreak),
-          rev: withRev ?? revRef.current,
-          formatted,
-        });
-        const stored = res.content === undefined ? undefined : toEditorText(res.content);
-        const shown = stored === undefined ? bufferText() === sent : putFormatted(sent, stored);
-        markSaved(stored ?? sent, res.rev, shown);
-        if (res.format_failed === true) {
-          showToast('warn', {
-            title: 'Saved without formatting',
-            message: 'Prettier could not format this note, so it is stored as written.',
-          });
-        }
-        reportMutation(res, 'Saved');
-        return { shownStored: shown };
-      } catch (error: unknown) {
-        if (error instanceof ApiError && (error.status === 412 || error.status === 409)) {
-          const current: ApiConflict | undefined =
-            error.conflict ?? (await api.file(path).catch(() => undefined));
-          if (current === undefined) {
-            showToast('error', { message: errorText(error) });
-            return { shownStored: false };
-          }
-          const theirs = toEditorText(current.content);
-          if (theirs === sent) {
-            const shown = bufferText() === sent;
-            markSaved(sent, current.rev, shown);
-            showToast('ok', { message: 'Saved' });
-            refreshMe();
-            return { shownStored: shown };
-          }
-          openConflict({
-            mine: sent,
-            theirs,
-            onOverwrite: () => void save(current.rev),
-            onCopy: () => void saveCopy(),
-          });
-          return { shownStored: false };
-        }
-        if (error instanceof ApiError && error.status === 401) {
-          draftRef.current.flush();
-          openSessionExpired();
-          return { shownStored: false };
-        }
-        showToast('error', { message: errorText(error) });
-        return { shownStored: false };
-      } finally {
-        savingRef.current = false;
-        setSaving(false);
-      }
-    },
-    [
-      bufferText,
-      formatBuffer,
-      formatOnSave,
-      lineBreak,
-      markSaved,
-      path,
-      putFormatted,
-      readOnly,
-      refreshMe,
-      rememberReadingPosition,
-      reportMutation,
-      saveCopy,
-      uploads,
-    ],
-  );
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (!modChord(event, 's')) {
-        return;
-      }
-      event.preventDefault();
-      void save();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [save]);
+  const { leaving, cancel, saveAndLeave } = useEditSession({
+    path,
+    folder,
+    drafting,
+    readOnly,
+    formatOnSave,
+    lineBreak,
+    dirty,
+    exists,
+    contentRef,
+    revRef,
+    manualRef,
+    savedAsRef,
+    setSaved,
+    setRev,
+    setSaving,
+    setSavedAs,
+    liveView,
+    bufferText,
+    putIfUnchanged,
+    formatBuffer,
+    refreshToc,
+    uploads,
+    draftRef,
+    rememberReadingPosition,
+  });
 
   useEffect(() => {
     if (!formattable) {
@@ -600,23 +379,37 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     return () => document.removeEventListener('keydown', onKey);
   }, [format, formattable]);
 
-  const openReader = useCallback((): void => {
-    const anchor = rememberReadingPosition();
-    void navigate(documentUrl(path), { state: anchor });
-  }, [navigate, path, rememberReadingPosition]);
+  const renameDraft = useCallback(
+    (typed: string): boolean => {
+      const problem = nameProblem(typed);
+      if (problem !== undefined) {
+        showToast('error', { title: 'Nothing was renamed', message: problem });
+        return false;
+      }
+      const next = newFilePath(folder, typed);
+      if (next === '') {
+        showToast('error', { message: 'A file needs a letter or a digit in its name' });
+        return false;
+      }
+      if (manualRef.current === undefined && next === joinPath(folder, noteNameOf(bufferText()))) {
+        return true;
+      }
+      if (!isMarkdown(next) && bufferText() === draftOpening) {
+        const current = liveView();
+        if (current === undefined) {
+          setContent('');
+        } else {
+          replaceText(current, '');
+        }
+        setSaved('');
+      }
+      setManual(next);
+      return true;
+    },
+    [bufferText, folder, liveView],
+  );
 
-  const exists = rev !== '';
-
-  const saveAndLeave = useCallback(async (): Promise<void> => {
-    if ((dirty || !exists) && !(await save()).shownStored) {
-      return;
-    }
-    if (mountedRef.current) {
-      leavingRef.current = true;
-      setLeaving(true);
-      openReader();
-    }
-  }, [dirty, exists, openReader, save]);
+  useDraftChrome(notCreated ? { path: named, rename: renameDraft } : undefined);
 
   const onAction = useCallback((action: MarkdownAction): void => {
     const current = viewRef.current;
@@ -643,6 +436,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           insertTable(current, size);
         }
       },
+      onOpenedChange: setTableOpen,
     }),
     [],
   );
@@ -680,192 +474,186 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     : uploads.pending > 0
       ? 'uploading'
       : dirty
-        ? 'dirty'
-        : isNew
+        ? draft.stored
+          ? 'drafted'
+          : 'dirty'
+        : isNew && !exists
           ? 'new'
           : 'saved';
+
+  const statusText = saveState === 'new' && kind === 'text' ? 'New file' : saveStateText[saveState];
+  const unsaved = saveState === 'dirty' || saveState === 'drafted';
+  const savable = dirty || !exists;
+  const phoneOptions: SegmentedOption<PhoneMode>[] = [
+    { value: 'source', label: 'Text', testId: 'editor-tab-source' },
+    { value: 'preview', label: 'Preview', testId: 'editor-tab-preview' },
+    {
+      value: 'changes',
+      label: 'Changes',
+      testId: 'editor-tab-changes',
+      mark: dirty ? <span data-testid="editor-changes-mark" className={classes.changesMark} aria-hidden /> : undefined,
+    },
+  ];
+  const wrapButton = (size: number): JSX.Element => (
+    <ToolButton testId="editor-wrap" label="Wrap long lines" aria-pressed={lineWrap.wrap} onClick={lineWrap.toggle}>
+      {lineWrap.wrap ? <IconTextWrap size={size} /> : <IconTextWrapDisabled size={size} />}
+    </ToolButton>
+  );
+  const toolbar = !readOnly && kind === 'markdown' && (
+    <Toolbar
+      onAction={onAction}
+      onPickImage={() => fileRef.current?.click()}
+      onToc={insertToc}
+      tableMenu={tableMenu}
+      onFormat={formattable ? format : undefined}
+      iconSize={phoneModes ? layout.iconSizeLarge : layout.iconSizeTool}
+    >
+      {phoneModes ? wrapButton(layout.iconSizeLarge) : undefined}
+    </Toolbar>
+  );
+  const status = (
+    <Text
+      data-testid="editor-status"
+      data-dirty={dirty ? 'true' : 'false'}
+      data-state={saveState}
+      className={phone ? classes.phoneStatus : classes.status}
+      hidden={!phone && !wide}
+      aria-live="polite"
+    >
+      {phone && unsaved && <span data-testid="editor-unsaved-mark" className={classes.unsavedMark} aria-hidden />}
+      {statusText}
+    </Text>
+  );
 
   const sourceStyle = mode === 'split' ? { flex: `0 0 ${split * 100}%` } : undefined;
   const previewStyle = mode === 'split' ? { flex: '1 1 0' } : undefined;
 
   return (
-    <div data-testid="editor" data-kind={kind} className={classes.screen}>
+    <div ref={screenRef} data-testid="editor" data-kind={kind} data-fill="screen" className={classes.screen}>
       <PageActions>
-        <Text
-          data-testid="editor-status"
-          data-dirty={dirty ? 'true' : 'false'}
-          data-state={saveState}
-          className={classes.status}
-          hidden={!wide}
-          aria-live="polite"
-        >
-          {saveState === 'new' && kind === 'text' ? 'New file' : saveStateText[saveState]}
-        </Text>
-        {wide && kind === 'markdown' && (
-          <Segmented
-            data-testid="editor-layout-mode"
-            data-mode={chosen}
-            size="xs"
-            value={chosen}
-            onChange={chooseMode}
-            aria-label="Editor layout"
-            classNames={{ root: classes.modes, label: classes.mode }}
-            options={modeOptions}
-            compact
-          />
-        )}
-        <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" className={classes.cancel} onClick={openReader}>
-          Cancel
-        </Button>
-        {!readOnly && (
-          <Button data-testid="editor-save" size="sm" className={classes.save} loading={saving} onClick={() => void saveAndLeave()}>
-            Save
-          </Button>
+        {!phone ? (
+          <>
+            {status}
+            {kind === 'markdown' && (
+              <Segmented
+                data-testid="editor-layout-mode"
+                data-mode={mode}
+                size="xs"
+                value={mode}
+                onChange={chooseMode}
+                aria-label="Editor layout"
+                classNames={{ root: classes.modes, label: classes.mode }}
+                options={wide ? modeOptions : narrowModeOptions}
+                compact
+              />
+            )}
+            <Button data-testid="editor-cancel" size="sm" variant="subtle" color="gray" onClick={cancel}>
+              Cancel
+            </Button>
+            {!readOnly && (
+              <Button data-testid="editor-save" size="sm" loading={saving} onClick={() => void saveAndLeave()}>
+                Save
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <button type="button" data-testid="editor-cancel" className={`${controls.wayBack} ${classes.back}`} aria-label="Back" onClick={cancel}>
+              <IconChevronLeft size={layout.iconSize} />
+            </button>
+            {status}
+            {!readOnly && (
+              <button
+                type="button"
+                data-testid="editor-save"
+                className={classes.phoneSave}
+                disabled={!savable || saving || leaving}
+                onClick={() => void saveAndLeave()}
+              >
+                Save
+              </button>
+            )}
+          </>
         )}
       </PageActions>
 
-      {(readOnly || draft.offered !== undefined) && (
-        <div className={classes.notices}>
-          {readOnly && (
-            <Alert data-testid="editor-readonly" color="yellow" variant="light">
-              This server is read-only. You can read the source here, but it cannot be saved.
-            </Alert>
-          )}
-
-          {draft.offered !== undefined && (
-            <Alert
-              data-testid="editor-draft"
-              data-stale={draft.stale ? 'true' : 'false'}
-              color="yellow"
-              variant="light"
-              title="An unsaved draft was found"
-            >
-              <Group justify="space-between" wrap="wrap" gap="sm">
-                <Text size="sm">
-                  {`Written ${new Date(draft.offered.at).toLocaleString()}`}
-                  {draft.stale ? ', against an older version of this page.' : '.'}
-                </Text>
-                <Group gap="xs">
-                  <Button
-                    data-testid="editor-draft-restore"
-                    size="xs"
-                    variant="default"
-                    onClick={() => {
-                      const current = viewRef.current;
-                      const text = draft.offered?.content ?? '';
-                      if (current !== undefined) {
-                        current.dispatch({
-                          changes: { from: 0, to: current.state.doc.length, insert: text },
-                        });
-                      } else {
-                        setContent(text);
-                      }
-                      draft.dismiss();
-                    }}
-                  >
-                    Restore
-                  </Button>
-                  <Button
-                    data-testid="editor-draft-discard"
-                    size="xs"
-                    variant="subtle"
-                    color="gray"
-                    onClick={draft.discard}
-                  >
-                    Discard
-                  </Button>
-                </Group>
-              </Group>
-            </Alert>
-          )}
-        </div>
+      {draft.offered !== undefined && (
+        <DraftOffer
+          at={draft.offered.at}
+          stale={draft.stale}
+          disabled={leaving}
+          onRestore={() => {
+            const current = viewRef.current;
+            const text = draft.offered?.content ?? '';
+            const name = draft.offered?.name;
+            if (drafting && name !== undefined) {
+              setManual(joinPath(folder, name));
+            }
+            if (current !== undefined) {
+              current.dispatch({
+                changes: { from: 0, to: current.state.doc.length, insert: text },
+              });
+            } else {
+              setContent(text);
+            }
+            draft.dismiss();
+          }}
+          onDiscard={draft.clear}
+        />
       )}
 
-      {!wide && kind === 'markdown' && (
-        <Tabs
-          data-testid="editor-tabs"
-          value={mode}
-          onChange={(value) => chooseMode(isLayoutMode(value) ? value : 'source')}
-        >
-          <Tabs.List grow>
-            <Tabs.Tab data-testid="editor-tab-source" value="source" h={layout.tapTarget}>
-              Text
-            </Tabs.Tab>
-            <Tabs.Tab data-testid="editor-tab-preview" value="preview" h={layout.tapTarget}>
-              Preview
-            </Tabs.Tab>
-            <Tabs.Tab data-testid="editor-tab-changes" value="changes" h={layout.tapTarget}>
-              Changes
-            </Tabs.Tab>
-          </Tabs.List>
-        </Tabs>
+      {readOnly && (
+        <div className={classes.notices}>
+          <Alert data-testid="editor-readonly" color="yellow" variant="light">
+            This server is read-only. You can read the source here, but it cannot be saved.
+          </Alert>
+        </div>
       )}
 
       <div data-testid="editor-panes" data-mode={mode} className={classes.panes} ref={panesRef}>
         {showSource && (
           <div className={classes.pane} style={sourceStyle}>
-            <div className={classes.paneHead}>
-              {mode === 'split' && <span className={classes.paneLabel}>Source</span>}
-              {kind === 'text' && (
-                <span data-testid="editor-language" className={classes.paneLabel}>
-                  {codeLanguageOf(fileName)?.name ?? 'Plain text'}
-                </span>
-              )}
-              {!readOnly && kind === 'markdown' && (
-                <Toolbar
-                  onAction={onAction}
-                  onPickImage={() => fileRef.current?.click()}
-                  onToc={insertToc}
-                  tableMenu={tableMenu}
-                  onFormat={formattable ? format : undefined}
-                />
-              )}
-              <div className={classes.paneTools}>
-                {uploads.pending > 0 && (
-                  <ActionIcon
-                    data-testid="editor-upload-pending"
-                    data-pending={uploads.pending}
-                    className={classes.tool}
-                    variant="subtle"
-                    color="gray"
-                    loading
-                    aria-label="Uploading"
-                  >
-                    <IconPhoto size={layout.iconSizeSmall} />
-                  </ActionIcon>
+            {(!phoneModes || readOnly) && (
+              <div className={classes.paneHead}>
+                {mode === 'split' && <span className={classes.paneLabel}>Source</span>}
+                {kind === 'text' && (
+                  <span data-testid="editor-language" className={classes.paneLabel}>
+                    {codeLanguageOf(fileName)?.name ?? 'Plain text'}
+                  </span>
                 )}
-                {wide && (
-                  <LineCount lines={lines} className={classes.lines} />
-                )}
-                <ActionIcon
-                  data-testid="editor-wrap"
-                  className={classes.tool}
-                  variant="subtle"
-                  color="gray"
-                  aria-label="Wrap long lines"
-                  aria-pressed={lineWrap.wrap}
-                  title="Wrap long lines"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={lineWrap.toggle}
-                >
-                  {lineWrap.wrap ? (
-                    <IconTextWrap size={layout.iconSizeSmall} />
-                  ) : (
-                    <IconTextWrapDisabled size={layout.iconSizeSmall} />
+                {toolbar}
+                <div className={classes.paneTools}>
+                  {uploads.pending > 0 && (
+                    <ActionIcon
+                      data-testid="editor-upload-pending"
+                      data-pending={uploads.pending}
+                      className={classes.tool}
+                      variant="subtle"
+                      color="gray"
+                      loading
+                      aria-label="Uploading"
+                    >
+                      <IconPhoto size={layout.iconSizeSmall} />
+                    </ActionIcon>
                   )}
-                </ActionIcon>
+                  {wide && (
+                    <LineCount lines={lines} className={classes.lines} />
+                  )}
+                  {wrapButton(layout.iconSizeSmall)}
+                </div>
               </div>
-            </div>
+            )}
             <SourceEditor
               kind={kind}
               name={fileName}
               value={content}
               readOnly={readOnly || leaving}
-              autoFocus={!touch}
+              autoFocus={!touch || drafting}
               wrap={lineWrap.wrap}
               onChange={setContent}
               onCreate={onCreate}
               onFiles={kind === 'markdown' ? onFiles : undefined}
+              outerScroll={touch && mode !== 'split' && !lineWrap.wrap}
             />
           </div>
         )}
@@ -892,8 +680,38 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         )}
       </div>
 
-      {!wide && (
+      {!wide && kind === 'text' && (
         <LineCount lines={lines} className={classes.footLines} />
+      )}
+
+      {phoneModes && (
+          <div data-testid="editor-strip" data-typing={typing ? 'true' : 'false'} className={classes.phoneBar}>
+            {typing ? (
+              <div ref={keyboardBarRef} data-testid="editor-keyboard-bar" className={classes.keyboardBar}>
+                {toolbar}
+                <div className={classes.keyboardEnd}>
+                  <ToolButton
+                    testId="editor-hide-keyboard"
+                    label="Hide the keyboard"
+                    onClick={hideKeyboard}
+                  >
+                    <IconKeyboard size={layout.iconSizeLarge} />
+                  </ToolButton>
+                </div>
+              </div>
+            ) : (
+              <Segmented<PhoneMode>
+                data-testid="editor-tabs"
+                data-mode={mode}
+                fullWidth
+                value={mode === 'split' ? 'source' : mode}
+                onChange={chooseMode}
+                aria-label="Editor layout"
+                classNames={{ label: classes.phoneMode }}
+                options={phoneOptions}
+              />
+            )}
+          </div>
       )}
 
       <input

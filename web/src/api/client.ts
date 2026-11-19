@@ -31,6 +31,7 @@ import type {
   ResetResponse,
   RestoreRequest,
   RestoreResponse,
+  RunTicket,
   SaveFileRequest,
   SaveFileResponse,
   SearchResponse,
@@ -83,7 +84,7 @@ interface CallOptions extends RequestOptions {
 
 export const backgroundHeader = 'X-Scrawl-Background';
 
-const readingPost = /\/api\/(preview|compare|sync\/check|login|logout)$/;
+const readingPost = /\/api\/(preview|compare|sync\/check|login|logout|run\/.+)$/;
 
 function spaceUrl(path: string): string {
   return mountBase() + path;
@@ -232,7 +233,7 @@ export type RestoreOutcome = { ok: true; state: MutationState } | { ok: false; c
 export interface ScrawlApi {
   page(path: string, options?: RequestOptions): Promise<PageResponse>;
   dir(path: string, options?: RequestOptions): Promise<DirListing>;
-  nav(path: string, options?: RequestOptions): Promise<NavResponse>;
+  nav(options?: RequestOptions): Promise<NavResponse>;
   me(options?: RequestOptions): Promise<MeResponse>;
   spaces(options?: RequestOptions): Promise<SpaceEntry[]>;
   tree(options?: RequestOptions): Promise<TreeResponse>;
@@ -252,6 +253,7 @@ export interface ScrawlApi {
   syncCheck(options?: RequestOptions): Promise<Divergence>;
   syncReset(body: ResetRequest, options?: RequestOptions): Promise<ResetResponse>;
   exportNote(path: string, format: ExportFormat, options?: RequestOptions): Promise<Blob>;
+  runTicket(path: string, offline: boolean, options?: RequestOptions): Promise<RunTicket>;
   logout(options?: RequestOptions): Promise<void>;
 }
 
@@ -270,8 +272,8 @@ export const api: ScrawlApi = {
     return call<DirListing>('GET', url, { ...options, stored: url });
   },
 
-  nav: (path, options) =>
-    call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path }), {
+  nav: (options) =>
+    call<NavResponse>('GET', spaceUrl('/api/nav'), {
       ...options,
       stored: answerUrl.nav(mountBase()),
     }),
@@ -343,6 +345,9 @@ export const api: ScrawlApi = {
     const url = withQuery(spaceUrl(`/api/export/${encodeContentPath(path)}`), { format });
     return (await send('GET', url, options)).blob();
   },
+
+  runTicket: (path, offline, options) =>
+    call<RunTicket>('POST', spaceUrl(`/api/run/${encodeContentPath(path)}`), { ...options, body: { offline } }),
 
   logout: (options) => call<void>('POST', globalUrl('/api/logout'), options),
 };

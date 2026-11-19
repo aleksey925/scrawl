@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import { useParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
 
 import { api } from '../api/client';
 import { ApiError } from '../api/errors';
@@ -18,6 +18,8 @@ interface EditData {
 export function Component(): JSX.Element {
   const params = useParams();
   const path = params['*'] ?? '';
+  const [search] = useSearchParams();
+  const asked = search.has('draft');
 
   const state = useApi<EditData>(async (signal) => {
     const [me, file] = await Promise.all([
@@ -44,6 +46,7 @@ export function Component(): JSX.Element {
             initialContent={file?.content ?? ''}
             initialRev={file?.rev ?? ''}
             isNew={file === undefined}
+            draft={asked && file === undefined}
             readOnly={me.read_only}
             formatOnSave={me.space.format_on_save}
           />

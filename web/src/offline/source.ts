@@ -3,17 +3,12 @@ import type { DirListing, MeResponse, NavResponse, PageResponse, SpaceEntry } fr
 import { mountBase, mountRelease } from '../mount';
 import { directoryUrl } from '../paths';
 import type { Platform } from '../platform';
-import { markBranch } from '../reader/tree';
 
 import { answerUrl, dataCache } from './keys';
 import { ownerChecked } from './owner';
-import { meEntry, navEntry, readSpace, type StoredEntry } from './records';
+import { meEntry, mountedSpace, navEntry, readSpace, type StoredEntry } from './records';
 
 export const notOnDevice = 'This is not on this device';
-
-function spaceName(): string {
-  return decodeURIComponent(mountBase().replace(/^\/s\//, ''));
-}
 
 export function notStored(error: unknown): boolean {
   return error instanceof ApiError && error.status === 404 && error.message === notOnDevice;
@@ -25,7 +20,7 @@ function missing(): ApiError {
 
 async function storedEntry(key: string): Promise<StoredEntry | undefined> {
   await ownerChecked;
-  const entry = (await readSpace(spaceName())).entries[key];
+  const entry = (await readSpace(mountedSpace())).entries[key];
   return entry?.release === mountRelease() ? entry : undefined;
 }
 
@@ -55,12 +50,11 @@ export const offlineSource: Platform['source'] = {
     }
     return storedAnswer<DirListing>(answerUrl.dir(mountBase(), path));
   },
-  nav: async (path) => {
+  nav: async () => {
     if ((await storedEntry(navEntry)) === undefined) {
       throw missing();
     }
-    const nav = await storedAnswer<NavResponse>(answerUrl.nav(mountBase()));
-    return { tree: markBranch(nav.tree, path), breadcrumbs: [] };
+    return storedAnswer<NavResponse>(answerUrl.nav(mountBase()));
   },
 };
 

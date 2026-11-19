@@ -4,11 +4,11 @@ import {
 } from 'react';
 import { Link, useNavigate } from 'react-router';
 
-import type { DirEntry, EntryKind } from '../api/types';
-import { IconArrowUp, IconChevronRight, IconClock, IconFile, IconFileText, IconFolder, IconHash } from '../icons';
-import { directoryUrl, isMarkdown } from '../paths';
+import type { DirEntry } from '../api/types';
+import { IconArrowUp, IconClock, IconFile, IconFolder, IconHash } from '../icons';
+import { directoryUrl, isHtmlApp, isMarkdown } from '../paths';
 import { usePlatform } from '../platform';
-import { useReaderExtensions } from '../shell/extensions';
+import { useReaderExtensions, type RunLinkProps } from '../shell/extensions';
 import { useRenamingHere, type Renaming } from '../shell/fileActionsContext';
 import { parentOf } from '../shell/naming';
 import { SyncBadge } from '../shell/SyncBadge';
@@ -22,12 +22,12 @@ import { NameField } from './NameField';
 import { usePointerMenu } from './pointerMenu';
 import pressClasses from './PressRow.module.css';
 import { RenameField } from './RenameField';
-import { absoluteTime, countOf, fileSize, shortDate, shortTime } from './formats';
+import { absoluteTime, fileSize, shortTime } from './formats';
 
 export interface DirTableProps {
   path: string;
   entries: readonly DirEntry[];
-  draft?: EntryKind;
+  drafting?: boolean;
   onDraftSubmit?: (name: string) => Promise<boolean>;
   onDraftCancel?: () => void;
 }
@@ -36,21 +36,27 @@ function opensRow(event: MouseEvent): boolean {
   return !(event.target instanceof Element && event.target.closest('a') !== null);
 }
 
-export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }: DirTableProps): JSX.Element {
+export function DirTable({ path, entries, drafting = false, onDraftSubmit, onDraftCancel }: DirTableProps): JSX.Element {
   const { physicalUrl } = usePlatform();
-  const { FileView, RowMenu } = useReaderExtensions();
+  const { FileView, RowMenu, RunLink } = useReaderExtensions();
   const filePages = FileView !== undefined;
   const navigate = useNavigate();
   const phone = useBelow(layoutBreakpoints.phone);
   const menu = usePointerMenu<DirEntry>();
   const folders = entries.filter((listed) => listed.is_dir);
   const files = entries.filter((listed) => !listed.is_dir);
-  const draftRow =
-    draft === undefined || onDraftSubmit === undefined || onDraftCancel === undefined ? null : (
-      <DraftRow kind={draft} onSubmit={onDraftSubmit} onCancel={onDraftCancel} />
-    );
+  const draftable = drafting && onDraftSubmit !== undefined && onDraftCancel !== undefined;
 
   const routed = (entry: DirEntry): boolean => filePages || entry.is_dir || isMarkdown(entry.path);
+  const runPath = (entry: DirEntry): string | undefined => {
+    if (RunLink === undefined) {
+      return undefined;
+    }
+    if (entry.is_dir) {
+      return entry.run_path;
+    }
+    return isHtmlApp(entry.path) ? entry.path : undefined;
+  };
   const open = (entry: DirEntry): void => {
     if (routed(entry)) {
       void navigate(entry.url);
@@ -64,6 +70,7 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
       key={entry.path}
       entry={entry}
       routed={routed(entry)}
+      runPath={runPath(entry)}
       href={physicalUrl(entry.url)}
       menuOpen={menu.opened && menu.target?.path === entry.path}
       onOpen={() => open(entry)}
@@ -74,8 +81,12 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
   if (phone) {
     return (
       <div data-testid="dir-table" data-variant="list" className={classes.list}>
-        {[...folders, ...files].map((entry) => (
-          <PhoneRow key={entry.path} entry={entry} routed={routed(entry)} href={physicalUrl(entry.url)} />
+        {folders.map((entry) => (
+          <PhoneRow key={entry.path} entry={entry} routed={routed(entry)} runPath={runPath(entry)} href={physicalUrl(entry.url)} />
+        ))}
+        {draftable && <PhoneDraftRow onSubmit={onDraftSubmit} onCancel={onDraftCancel} />}
+        {files.map((entry) => (
+          <PhoneRow key={entry.path} entry={entry} routed={routed(entry)} runPath={runPath(entry)} href={physicalUrl(entry.url)} />
         ))}
       </div>
     );
@@ -134,9 +145,8 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
             </tr>
           )}
           {folders.map(row)}
-          {draft === 'dir' && draftRow}
+          {draftable && <DraftRow onSubmit={onDraftSubmit} onCancel={onDraftCancel} />}
           {files.map(row)}
-          {draft === 'file' && draftRow}
         </tbody>
       </table>
       {RowMenu !== undefined && menu.target !== undefined && menu.at !== undefined && (
@@ -146,8 +156,8 @@ export function DirTable({ path, entries, draft, onDraftSubmit, onDraftCancel }:
           isDir={menu.target.is_dir}
           name={menu.target.name}
           touch={false}
-          withCreate={false}
           editUrl={menu.target.edit_url}
+          runPath={runPath(menu.target)}
           opened={menu.opened}
           onOpenedChange={menu.setOpened}
           at={menu.at}
@@ -164,13 +174,14 @@ function rowAttributes(entry: DirEntry): { 'data-testid': string; 'data-path': s
 interface TableRowProps {
   entry: DirEntry;
   routed: boolean;
+  runPath: string | undefined;
   href: string;
   menuOpen: boolean;
   onOpen: () => void;
   onMenu: ((event: MouseEvent) => void) | undefined;
 }
 
-function TableRow({ entry, routed, href, menuOpen, onOpen, onMenu }: TableRowProps): JSX.Element {
+function TableRow({ entry, routed, runPath, href, menuOpen, onOpen, onMenu }: TableRowProps): JSX.Element {
   const renaming = useRenamingHere('list', entry.path);
   const cells = (
     <>
@@ -229,6 +240,7 @@ function TableRow({ entry, routed, href, menuOpen, onOpen, onMenu }: TableRowPro
             </a>
           )}
           <RowTags entry={entry} />
+          {runPath !== undefined && <RunEntry path={runPath} className={classes.run} />}
         </span>
       </td>
       {cells}
@@ -249,6 +261,11 @@ function RowTags({ entry }: { entry: DirEntry }): JSX.Element {
   );
 }
 
+function RunEntry({ path, className }: RunLinkProps): JSX.Element | null {
+  const { RunLink } = useReaderExtensions();
+  return RunLink === undefined ? null : <RunLink path={path} className={className} />;
+}
+
 function restingRect(element: HTMLElement): DOMRect {
   const rect = element.getBoundingClientRect();
   const width = element.offsetWidth;
@@ -257,19 +274,20 @@ function restingRect(element: HTMLElement): DOMRect {
 }
 
 function onMenuButton(event: MouseEvent | PointerEvent): boolean {
-  return event.target instanceof Element && event.target.closest('button') !== null;
+  return event.target instanceof Element && event.target.closest('button, [data-row-action]') !== null;
 }
 
 interface PhoneRowProps {
   entry: DirEntry;
   routed: boolean;
+  runPath: string | undefined;
   href: string;
 }
 
-function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
+function PhoneRow({ entry, routed, runPath, href }: PhoneRowProps): JSX.Element {
   const renaming = useRenamingHere('list', entry.path);
   return renaming === undefined ? (
-    <PhoneLinkRow entry={entry} routed={routed} href={href} />
+    <PhoneLinkRow entry={entry} routed={routed} runPath={runPath} href={href} />
   ) : (
     <PhoneRenameRow entry={entry} session={renaming} />
   );
@@ -277,7 +295,7 @@ function PhoneRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
 
 function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming }): JSX.Element {
   return (
-    <div {...rowAttributes(entry)} className={classes.listRow}>
+    <div {...rowAttributes(entry)} className={`${classes.listRow} ${classes.naming}`}>
       <div className={classes.listLink}>
         <RenameField
           session={session}
@@ -290,23 +308,16 @@ function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming
   );
 }
 
-function PhoneLinkRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
-  const meta = entry.is_dir ? countOf(entry.items ?? 0, 'item') : `${fileSize(entry.size)} · ${shortDate(entry.mod_time)}`;
+function PhoneLinkRow({ entry, routed, runPath, href }: PhoneRowProps): JSX.Element {
   const body = (
     <>
       <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSize} className={classes.listIcon} />
-      <span className={classes.listText}>
-        <span className={classes.listName}>
-          <span data-testid="dir-row-name" className={classes.listLabel}>
-            {entry.name}
-          </span>
-          <RowTags entry={entry} />
+      <span className={classes.listName}>
+        <span data-testid="dir-row-name" className={classes.listLabel}>
+          {entry.name}
         </span>
-        <span data-testid="dir-row-meta" className={classes.listMeta}>
-          {meta}
-        </span>
+        <RowTags entry={entry} />
       </span>
-      {entry.is_dir && <IconChevronRight size={layout.iconSizeSmall} aria-hidden className={classes.listChevron} />}
     </>
   );
   const { RowMenu } = useReaderExtensions();
@@ -324,6 +335,7 @@ function PhoneLinkRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
         name={entry.name}
         touch
         editUrl={entry.edit_url}
+        runPath={runPath}
         opened={opened}
         onOpenedChange={setOpened}
         target={target}
@@ -365,6 +377,7 @@ function PhoneLinkRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
             })}
       >
         {link}
+        {runPath !== undefined && <RunEntry path={runPath} className={classes.listRun} />}
         {menu(menuOpened, setMenuOpened)}
       </div>
       {RowMenu !== undefined && lifted !== undefined && (
@@ -381,25 +394,22 @@ function PhoneLinkRow({ entry, routed, href }: PhoneRowProps): JSX.Element {
 }
 
 interface DraftRowProps {
-  kind: EntryKind;
   onSubmit: (name: string) => Promise<boolean>;
   onCancel: () => void;
 }
 
-function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
+function DraftRow({ onSubmit, onCancel }: DraftRowProps): JSX.Element {
   return (
-    <tr data-testid="dir-draft" data-entry={kind} className={classes.draft}>
+    <tr data-testid="dir-draft" data-entry="dir" className={classes.draft}>
       <td className={classes.name}>
         <span>
           <NameField
             initial=""
             testId="dir-draft"
-            icon={
-              kind === 'file' ? <IconFileText size={layout.iconSizeSmall} aria-hidden /> : <IconFolder size={layout.iconSizeSmall} aria-hidden />
-            }
+            icon={<IconFolder size={layout.iconSizeSmall} aria-hidden />}
             className={classes.field}
-            placeholder={kind === 'file' ? 'File name' : 'Folder name'}
-            label={kind === 'file' ? 'Name of the new file' : 'Name of the new folder'}
+            placeholder="Folder name"
+            label="Name of the new folder"
             keepOnLeave
             onSubmit={onSubmit}
             onCancel={onCancel}
@@ -410,5 +420,25 @@ function DraftRow({ kind, onSubmit, onCancel }: DraftRowProps): JSX.Element {
       <td />
       <td className={classes.fill} />
     </tr>
+  );
+}
+
+function PhoneDraftRow({ onSubmit, onCancel }: DraftRowProps): JSX.Element {
+  return (
+    <div data-testid="dir-draft" data-entry="dir" className={`${classes.listRow} ${classes.naming}`}>
+      <div className={classes.listLink}>
+        <NameField
+          initial=""
+          testId="dir-draft"
+          icon={<IconFolder size={layout.iconSize} className={classes.listIcon} aria-hidden />}
+          className={classes.listField}
+          placeholder="Folder name"
+          label="Name of the new folder"
+          keepOnLeave
+          onSubmit={onSubmit}
+          onCancel={onCancel}
+        />
+      </div>
+    </div>
   );
 }

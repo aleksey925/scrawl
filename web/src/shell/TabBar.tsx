@@ -1,30 +1,32 @@
 import { Menu } from '@mantine/core';
-import type { ComponentPropsWithRef, JSX } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useRef, useState, type ComponentPropsWithRef, type JSX } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router';
 
-import { FieldMenuItem, PopupMenu } from '../components/PopupMenu';
+import { PopupMenu } from '../components/PopupMenu';
 import { planMotion } from '../components/screenMotion';
 import {
   IconClock,
-  IconFilePlus,
   IconFolder,
-  IconFolderPlus,
+  IconPencil,
   IconPlus,
   IconSearch,
   IconUserCircle,
   type Icon,
 } from '../icons';
-import { isDirectoryPath, isEditPath, recentUrl } from '../paths';
+import { reducedMotion } from '../motion';
+import { isDirectoryPath, isEditPath, isRecentPath, recentUrl } from '../paths';
 import { layout } from '../theme';
 
+import { useBarEdit, type BarEdit } from './BarEditProvider';
 import { useFileActions } from './fileActionsContext';
-import { useNav } from './NavContext';
+import { useAccount, useTree } from './NavContext';
 import { folderFor } from './naming';
+import { NewTiles } from './NewTiles';
 import { useSearchControl } from './searchOpener';
 import { SpaceMenuDropdown } from './SpaceMenu';
 import classes from './TabBar.module.css';
 
-type TabName = 'notes' | 'search' | 'recent' | 'new' | 'profile';
+type TabName = 'notes' | 'search' | 'recent' | 'new' | 'edit' | 'profile';
 
 interface TabProps extends Omit<ComponentPropsWithRef<'button'>, 'children'> {
   name: TabName;
@@ -33,19 +35,79 @@ interface TabProps extends Omit<ComponentPropsWithRef<'button'>, 'children'> {
   current: boolean;
 }
 
-function Tab({ name, label, icon: TabIcon, current, ...rest }: TabProps): JSX.Element {
+function tabTestId(name: TabName): string {
+  return `tab-${name}`;
+}
+
+function TabBody({ icon: TabIcon, label, current = false }: { icon: Icon; label: string; current?: boolean }): JSX.Element {
+  return (
+    <>
+      <TabIcon size={layout.iconSizeLarge} weight={current ? 'fill' : 'regular'} />
+      <span className={classes.label}>{label}</span>
+    </>
+  );
+}
+
+function Tab({ name, label, icon, current, ...rest }: TabProps): JSX.Element {
   return (
     <button
       {...rest}
       type="button"
-      data-testid={`tab-${name}`}
+      data-testid={tabTestId(name)}
       data-current={current ? 'true' : 'false'}
       aria-current={current ? 'page' : undefined}
       className={classes.tab}
     >
-      <TabIcon size={layout.iconSizeLarge} />
-      <span className={classes.label}>{label}</span>
+      <TabBody icon={icon} label={label} current={current} />
     </button>
+  );
+}
+
+function EditCell({ edit }: { edit: BarEdit }): JSX.Element {
+  const body = <TabBody icon={IconPencil} label="Edit" />;
+  return edit.kind === 'edit' ? (
+    <Link data-testid={tabTestId('edit')} to={edit.to} className={classes.tab}>
+      {body}
+    </Link>
+  ) : (
+    <a data-testid={tabTestId('edit')} role="link" aria-disabled="true" className={classes.tab}>
+      {body}
+    </a>
+  );
+}
+
+function NewCell({ here }: { here: string }): JSX.Element {
+  const actions = useFileActions();
+  const [opened, setOpened] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const close = (): void => {
+    setOpened(false);
+    button.current?.focus({ preventScroll: true });
+  };
+  const create = (make: (dir: string) => void): void => {
+    setOpened(false);
+    make(here);
+  };
+
+  return (
+    <>
+      <Tab
+        ref={button}
+        name="new"
+        label="New"
+        icon={IconPlus}
+        current={false}
+        aria-haspopup="menu"
+        aria-expanded={opened}
+        onClick={() => setOpened((was) => !was)}
+      />
+      <NewTiles
+        opened={opened}
+        onClose={close}
+        onFolder={() => create(actions.newFolder)}
+        onNote={() => create(actions.newNote)}
+      />
+    </>
   );
 }
 
@@ -53,8 +115,9 @@ export function TabBar(): JSX.Element | null {
   const location = useLocation();
   const navigate = useNavigate();
   const search = useSearchControl();
-  const actions = useFileActions();
-  const { canWrite, currentPath } = useNav();
+  const { canWrite } = useAccount();
+  const { currentPath } = useTree();
+  const edit = useBarEdit();
 
   if (isEditPath(location.pathname)) {
     return null;
@@ -62,9 +125,13 @@ export function TabBar(): JSX.Element | null {
 
   const searching = search?.opened ?? false;
   const here = folderFor(currentPath, currentPath === '' || isDirectoryPath(location.pathname));
-  const atRecent = location.pathname === recentUrl();
+  const atRecent = isRecentPath(location.pathname);
   const atNotes = !searching && !atRecent;
   const go = (url: string): void => {
+    if (!searching && (isRecentPath(url) ? atRecent : location.pathname === url)) {
+      window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      return;
+    }
     search?.close();
     planMotion(url, 'none');
     void navigate(url);
@@ -76,30 +143,8 @@ export function TabBar(): JSX.Element | null {
       {search !== undefined && (
         <Tab name="search" label="Search" icon={IconSearch} current={searching} onClick={() => search.open()} />
       )}
+      {canWrite && (edit === undefined ? <NewCell here={here} /> : <EditCell edit={edit} />)}
       <Tab name="recent" label="Recent" icon={IconClock} current={!searching && atRecent} onClick={() => go(recentUrl())} />
-      {canWrite && (
-        <PopupMenu position="top-end" offset={4} width={layout.menuWidth} withinPortal>
-          <Menu.Target>
-            <Tab name="new" label="New" icon={IconPlus} current={false} />
-          </Menu.Target>
-          <Menu.Dropdown data-testid="new-menu">
-            <FieldMenuItem
-              data-testid="new-menu-note"
-              leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-              onClick={() => actions.createDraft('file', here)}
-            >
-              New file
-            </FieldMenuItem>
-            <FieldMenuItem
-              data-testid="new-menu-folder"
-              leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-              onClick={() => actions.createDraft('dir', here)}
-            >
-              New folder
-            </FieldMenuItem>
-          </Menu.Dropdown>
-        </PopupMenu>
-      )}
       <PopupMenu position="top-end" offset={4} width={layout.menuWidthWide} withinPortal>
         <Menu.Target>
           <Tab name="profile" label="Profile" icon={IconUserCircle} current={false} />

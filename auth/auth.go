@@ -114,7 +114,9 @@ func NewService(cfg Config) (*Service, error) {
 		limiter:      newLimiter(time.Now()),
 		now:          time.Now,
 	}
-	if !cfg.Disabled {
+	if cfg.Disabled {
+		svc.secret = randomSecret()
+	} else {
 		svc.secret = loadSecret(cfg.Secret, cfg.SecretFile)
 	}
 	return svc, nil

@@ -1,7 +1,20 @@
-.burger {
+.wayBack {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  min-height: var(--scrawl-tap-target);
+  padding-inline: 12px 8px;
+  color: var(--scrawl-text-secondary);
+  text-decoration: none;
+  transition: var(--scrawl-press-out);
+}
+
+.wayBack:active {
+  opacity: 0.4;
+  transition: var(--scrawl-press-in);
+}
+
+.wayBack:focus-visible {
+  outline-offset: -2px;
 }
 
 .menuControl {
@@ -86,10 +99,9 @@
 }
 
 .input[data-variant='default'] .inputField:focus {
-  border-color: var(--scrawl-focus-ring-outer);
-  box-shadow:
-    inset 0 0 0 1px var(--scrawl-focus-ring),
-    0 0 0 1px var(--scrawl-focus-ring-outer);
+  border-color: transparent;
+  background: var(--scrawl-popover);
+  box-shadow: var(--scrawl-shadow-medium);
 }
 
 .input .inputField::placeholder {
@@ -120,10 +132,17 @@
 @media (hover: none) {
   .menuItem {
     --menu-item-hover: var(--scrawl-hover);
+  }
+
+  .menuItem,
+  .actionIcon[data-variant='subtle'],
+  .button:is([data-variant='default'], [data-variant='subtle']) {
     transition: var(--scrawl-press-out);
   }
 
-  .menuItem:active {
+  .menuItem:active,
+  .actionIcon[data-variant='subtle']:active,
+  .button:is([data-variant='default'], [data-variant='subtle']):active {
     background: var(--scrawl-pressed);
     transition: var(--scrawl-press-in);
   }

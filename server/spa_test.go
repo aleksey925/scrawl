@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -395,12 +396,35 @@ func TestAPIDirListsWhatTheDirectoryPageLists(t *testing.T) {
 	assert.NotContains(t, body, "readme_html")
 }
 
+func TestAPIDirNamesTheIndexOfAnAppFolder(t *testing.T) {
+	// arrange
+	ts := newAppsServer(t, testOpts{})
+
+	// act
+	resp, body := ts.do(t, request{path: "/api/dir/apps", headers: map[string]string{"Accept": "application/json"}})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	var listing struct {
+		Entries []struct {
+			Path    string `json:"path"`
+			RunPath string `json:"run_path"`
+		} `json:"entries"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &listing))
+	got := map[string]string{}
+	for _, ent := range listing.Entries {
+		got[ent.Path] = ent.RunPath
+	}
+	assert.Equal(t, map[string]string{counterFolder: counterFile, path.Dir(otherFile): otherFile, "apps/plain": ""}, got)
+}
+
 func TestAPINav(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	resp, body := ts.json(t, request{path: "/api/nav?path=docs/sub/deep.md"})
+	resp, body := ts.json(t, request{path: "/api/nav"})
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
@@ -416,18 +440,63 @@ func TestAPINav(t *testing.T) {
 
 	docs := nodeByName(t, tree, "docs")
 	assert.Equal(t, map[string]any{"name": "docs", "path": "docs", "url": "/doc/docs/", "is_dir": true,
-		"active": true, "current": false, "children": children(t, docs)}, docs)
+		"children": children(t, docs)}, docs)
 
 	sub := nodeByName(t, children(t, docs), "sub")
-	assert.Equal(t, true, sub["active"])
-	assert.Equal(t, false, sub["current"])
 
 	deep := nodeByName(t, children(t, sub), "deep.md")
 	assert.Equal(t, map[string]any{"name": "deep.md", "path": "docs/sub/deep.md", "url": "/doc/docs/sub/deep.md",
-		"is_dir": false, "active": false, "current": true, "children": []any{}}, deep)
+		"is_dir": false, "children": []any{}}, deep)
 }
 
-func TestAPINavMarksNothingWithoutACurrentPath(t *testing.T) {
+func TestAPINavAnswersNotModifiedForTheTreeTheBrowserHas(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	first, _ := ts.do(t, request{path: "/api/nav"})
+	etag := first.header.Get("ETag")
+
+	// act
+	again, body := ts.do(t, request{path: "/api/nav", headers: map[string]string{"If-None-Match": etag}})
+
+	// assert
+	assert.Equal(t, http.StatusOK, first.status)
+	assert.Equal(t, http.StatusNotModified, again.status)
+	assert.Empty(t, body)
+	assert.Equal(t, etag, again.header.Get("ETag"))
+	assert.Equal(t, pageCacheControl, first.header.Get("Cache-Control"))
+}
+
+func TestAPINavAnswersAnOldClientAskingForAPathTheSameTree(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	plain, plainBody := ts.do(t, request{path: "/api/nav"})
+
+	// act
+	old, oldBody := ts.do(t, request{path: "/api/nav?path=docs/sub/deep.md"})
+
+	// assert
+	assert.Equal(t, http.StatusOK, old.status)
+	assert.Equal(t, plainBody, oldBody)
+	assert.Equal(t, plain.header.Get("ETag"), old.header.Get("ETag"))
+}
+
+func TestAPINavAnswersAChangedTreeInFull(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	first, _ := ts.do(t, request{path: "/api/nav"})
+	_, err := ts.Spaces[0].Store.Create("added.md", false)
+	require.NoError(t, err)
+
+	// act
+	resp, body := ts.do(t, request{path: "/api/nav", headers: map[string]string{"If-None-Match": first.header.Get("ETag")}})
+
+	// assert
+	assert.Equal(t, http.StatusOK, resp.status)
+	assert.NotEqual(t, first.header.Get("ETag"), resp.header.Get("ETag"))
+	assert.Contains(t, body, `"path":"added.md"`)
+}
+
+func TestAPINavAnswersTheTreeAlone(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
 
@@ -436,10 +505,7 @@ func TestAPINavMarksNothingWithoutACurrentPath(t *testing.T) {
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
-	assert.Equal(t, jsonValue(t, ts.mount().treeNodes("")), body["tree"])
-	assert.Equal(t, jsonValue(t, view.Breadcrumbs("")), body["breadcrumbs"])
-	docs := nodeByName(t, body["tree"].([]any), "docs")
-	assert.Equal(t, false, docs["active"])
+	assert.Equal(t, map[string]any{"tree": jsonValue(t, ts.mount().treeNodes())}, body)
 }
 
 func TestAPINavIsNotTheTokenTree(t *testing.T) {
@@ -447,7 +513,7 @@ func TestAPINavIsNotTheTokenTree(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	_, nav := ts.json(t, request{path: "/api/nav?path=guide.md"})
+	_, nav := ts.json(t, request{path: "/api/nav"})
 	_, tokenTree := ts.json(t, request{path: "/api/tree"})
 
 	// assert
@@ -455,7 +521,7 @@ func TestAPINavIsNotTheTokenTree(t *testing.T) {
 	require.True(t, ok)
 	tokenFirst, ok := tokenTree["tree"].([]any)[0].(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, []string{"active", "children", "current", "is_dir", "name", "path", "url"}, sortedKeys(navFirst))
+	assert.Equal(t, []string{"children", "is_dir", "name", "path", "url"}, sortedKeys(navFirst))
 	assert.Equal(t, []string{"children", "is_dir", "name", "path"}, sortedKeys(tokenFirst))
 }
 
@@ -466,7 +532,6 @@ func TestSPABreadcrumbsMatchThePageTrail(t *testing.T) {
 
 	// act
 	_, page := ts.json(t, request{path: "/api/page/docs/sub/deep.md"})
-	_, nav := ts.json(t, request{path: "/api/nav?path=docs/sub/deep.md"})
 	_, dir := ts.json(t, request{path: "/api/dir/docs/sub"})
 
 	// assert
@@ -477,7 +542,6 @@ func TestSPABreadcrumbsMatchThePageTrail(t *testing.T) {
 		map[string]any{"name": "deep.md", "url": ""},
 	}, want)
 	assert.Equal(t, want, page["breadcrumbs"])
-	assert.Equal(t, want, nav["breadcrumbs"])
 	assert.Equal(t, jsonValue(t, view.Breadcrumbs("docs/sub")), dir["breadcrumbs"])
 }
 
@@ -486,7 +550,7 @@ func TestSPARefusesABadPath(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	resp, body := ts.json(t, request{path: "/api/nav?path=%00"})
+	resp, body := ts.json(t, request{path: "/api/page/%00"})
 
 	// assert
 	assert.Equal(t, http.StatusBadRequest, resp.status)
@@ -564,7 +628,7 @@ func TestSPAReadsNeedACredential(t *testing.T) {
 	}{
 		{name: "page", path: "/api/page/guide.md"},
 		{name: "dir", path: "/api/dir/docs"},
-		{name: "nav", path: "/api/nav?path=guide.md"},
+		{name: "nav", path: "/api/nav"},
 		{name: "me", path: "/api/me"},
 	}
 

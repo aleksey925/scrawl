@@ -4,9 +4,10 @@ const {expect, test} = require('../support/test');
 
 const {otherUser, user} = require('../support/env');
 const {
-    MAIN, MULTI, fixtureFile, holdRoute, openSpaceMenu, readFixture, removeFixture, routes, save, setSource, shot,
-    signIn, stays, submitCredentials, writeFixture,
+    MAIN, MULTI, fixtureFile, holdRoute, jsonRequest, openSpaceMenu, readFixture, removeFixture, routes, save, setSource, shot,
+    signIn, stays, submitCredentials, switchCopy, writeFixture,
 } = require('../support/helpers');
+const text = require('../support/text');
 
 const FOLDER = 'e2e-offline';
 const NOTE = `${FOLDER}/everything.md`;
@@ -60,18 +61,10 @@ function copyRequests(page) {
     return seen;
 }
 
-async function turnOn(page) {
-    await openSpaceMenu(page);
-    const row = page.getByTestId('space-menu-offline');
-    await expect(row).toHaveAttribute('data-on', 'false');
-    await row.click();
-    await expect(row).toHaveAttribute('data-on', 'true');
-}
-
 async function copyOn(page, home = routes.home()) {
     await page.goto(home);
-    await turnOn(page);
-    await expect(status(page)).toContainText('updated at', {timeout: 60_000});
+    await switchCopy(page, true);
+    await expect(status(page)).toContainText(text.offline.updated, {timeout: 60_000});
     await page.keyboard.press('Escape');
     await expect.poll(() => workerState(page), {timeout: 60_000}).toBe('activated');
 }
@@ -198,10 +191,10 @@ test.describe('offline access', () => {
         await page.goto(routes.home());
 
         // act
-        await turnOn(page);
+        await switchCopy(page, true);
 
         // assert
-        await expect(status(page)).toContainText('Downloading');
+        await expect(status(page)).toContainText(text.offline.downloading);
         await expect(status(page)).toContainText(/MB, updated at \d\d:\d\d/, {timeout: 60_000});
         await expect.poll(() => workerState(page), {timeout: 60_000}).toBe('activated');
         const names = await cacheNames(page);
@@ -1095,8 +1088,8 @@ test.describe('offline access', () => {
         // arrange
         await context.route(/\/api\/page\/db\//, (route) => route.fulfill({status: 500, body: 'down'}));
         await page.goto(routes.home());
-        await turnOn(page);
-        await expect(status(page)).toContainText('Could not update', {timeout: 60_000});
+        await switchCopy(page, true);
+        await expect(status(page)).toContainText(text.offline.notUpdated, {timeout: 60_000});
         expect(await storedUrls(page)).not.toContain('/s/notes/api/page/db/locks.md');
         await context.unroute(/\/api\/page\/db\//);
         const asked = copyRequests(page);
@@ -1119,10 +1112,10 @@ test.describe('offline access', () => {
         await page.goto(routes.home());
 
         // act
-        await turnOn(page);
+        await switchCopy(page, true);
 
         // assert
-        await expect(status(page)).toContainText('updated at', {timeout: 60_000});
+        await expect(status(page)).toContainText(text.offline.updated, {timeout: 60_000});
         expect(await storedState(page)).toMatchObject({error: ''});
         expect(await storedUrls(page)).not.toContain('/s/notes/api/page/db/locks.md');
         expect(JSON.parse(await storedBody(page, SPACE_RECORD)).etag).toBe('');
@@ -1210,10 +1203,10 @@ test.describe('offline access', () => {
         await page.goto(routes.home());
 
         // act
-        await turnOn(page);
+        await switchCopy(page, true);
 
         // assert
-        await expect(status(page)).toContainText('updated at', {timeout: 60_000});
+        await expect(status(page)).toContainText(text.offline.updated, {timeout: 60_000});
         const record = JSON.parse(await storedBody(page, SPACE_RECORD));
         expect(names.map((name) => Object.hasOwn(record.entries, name) && record.entries[name].kind))
             .toEqual(names.map(() => 'dir'));
@@ -1235,6 +1228,15 @@ test.describe('offline access', () => {
         expect(await storedUrls(page)).toContain(`/s/notes/raw/${PICTURE}`);
     });
 
+    test('the nav is kept under the URL older releases asked', async ({page}) => {
+        // act
+        await copyOn(page);
+
+        // assert
+        const nav = await jsonRequest(page, 'GET', '/s/notes/api/nav');
+        expect(JSON.parse(await storedBody(page, '/s/notes/api/nav?path='))).toEqual(JSON.parse(nav.body));
+    });
+
     test('off deletes the copy and the worker at once', async ({page}) => {
         // arrange
         await copyOn(page);
@@ -1254,8 +1256,7 @@ test.describe('offline access', () => {
         // arrange
         await copyOn(page);
         const [appCache] = (await cacheNames(page)).filter((name) => name.startsWith('scrawl-app-'));
-        await openSpaceMenu(page);
-        await page.getByTestId('space-menu-offline').click();
+        await switchCopy(page, false);
         await expect.poll(() => cacheNames(page)).toEqual([]);
         await page.evaluate((name) => caches.open(name), appCache);
         await page.evaluate(() => fetch(document.querySelector('script[src^="/static/"]').src));
@@ -1264,7 +1265,7 @@ test.describe('offline access', () => {
         await page.getByTestId('space-menu-offline').click();
 
         // assert
-        await expect(status(page)).toContainText('updated at', {timeout: 60_000});
+        await expect(status(page)).toContainText(text.offline.updated, {timeout: 60_000});
         await expect.poll(async () => (await cacheNames(page)).filter((name) => name.startsWith('scrawl-app-')))
             .toHaveLength(1);
 
@@ -1287,17 +1288,15 @@ test.describe('offline access', () => {
             };
         });
         await page.reload();
-        await openSpaceMenu(page);
+        await switchCopy(page, false);
         const row = page.getByTestId('space-menu-offline');
-        await row.click();
-        await expect(row).toHaveAttribute('data-on', 'false');
 
         // act
         await row.click();
 
         // assert
         await expect(row).toHaveAttribute('data-on', 'true');
-        await expect(status(page)).toContainText('updated at', {timeout: 60_000});
+        await expect(status(page)).toContainText(text.offline.updated, {timeout: 60_000});
         await expect.poll(() => workerState(page), {timeout: 60_000}).toBe('activated');
         await stays(() => workerState(page), 'activated', 1_500);
         await expect.poll(async () => (await cacheNames(page)).filter((name) => name.startsWith('scrawl-app-')))
@@ -1316,14 +1315,14 @@ test.describe('offline access', () => {
         await openSpaceMenu(page);
 
         // assert
-        await expect(status(page)).toContainText('Could not update', {timeout: 30_000});
+        await expect(status(page)).toContainText(text.offline.notUpdated, {timeout: 30_000});
     });
 
     test('off in another tab waits for the round and leaves nothing behind', async ({page, context}) => {
         // arrange
         const held = await holdRoute(context, /\/api\/page\/db\//);
         await page.goto(routes.home());
-        await turnOn(page);
+        await switchCopy(page, true);
         await held.reached;
         const second = await context.newPage();
         await second.goto(routes.home());
@@ -1345,10 +1344,10 @@ test.describe('offline access', () => {
         await page.goto(routes.home());
 
         // act
-        await turnOn(page);
+        await switchCopy(page, true);
 
         // assert
-        await expect(status(page)).toContainText('Could not update', {timeout: 60_000});
+        await expect(status(page)).toContainText(text.offline.notUpdated, {timeout: 60_000});
         expect((await cacheNames(page)).filter((name) => name.startsWith('scrawl-app-'))).toEqual([]);
     });
 
@@ -1383,6 +1382,30 @@ test.describe('offline access', () => {
         // assert
         expect(await storedState(page)).toEqual({...before, owner: user});
         expect(await storedUrls(page)).toContain(`/s/notes/api/page/${NOTE}`);
+    });
+
+    test('a plain sign-in cookie left behind is not read once the secure one was seen', async ({page, context}) => {
+        // arrange
+        await copyOn(page);
+        await page.evaluate((name) => {
+            document.cookie = `__Host-scrawl_signin=${name}; Path=/; Secure`;
+        }, user);
+        expect(await page.evaluate(() => document.cookie.includes('__Host-scrawl_signin'))).toBe(true);
+        await page.reload();
+        await expect.poll(() => page.evaluate(() => localStorage.getItem('scrawl-secure-sign-in'))).toBe('true');
+        await expect.poll(() => page.evaluate(() => document.cookie.includes('__Host-scrawl_signin'))).toBe(false);
+        await context.addCookies([
+            {name: 'scrawl_signin', value: otherUser, domain: new URL(MAIN.baseURL).hostname, path: '/s'},
+        ]);
+
+        // act
+        await page.goto(routes.doc(NOTE));
+        await expect(page.getByTestId('doc')).toBeVisible();
+
+        // assert
+        await stays(async () => (await storedState(page)).owner, user, 1500);
+        expect(await storedUrls(page)).toContain(`/s/notes/api/page/${NOTE}`);
+        expect(await page.evaluate(() => document.cookie.includes('scrawl_signin'))).toBe(true);
     });
 
     test('a file opened right after another user signs in never comes from the copy', async ({page, context}) => {
@@ -1433,7 +1456,7 @@ test.describe('offline access', () => {
         });
         const held = await holdRoute(context, /\/api\/page\/db\//);
         await page.goto(routes.home());
-        await turnOn(page);
+        await switchCopy(page, true);
         await held.reached;
         const second = await context.newPage();
         const answered = second.waitForResponse((response) => response.url().endsWith('/api/me'));
@@ -1451,7 +1474,7 @@ test.describe('offline access', () => {
         held.release();
 
         // assert
-        await expect(status(second)).toContainText('updated at', {timeout: 60_000});
+        await expect(status(second)).toContainText(text.offline.updated, {timeout: 60_000});
         expect(versions).toHaveLength(1);
     });
 });

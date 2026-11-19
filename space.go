@@ -306,6 +306,7 @@ func newSpace(ctx context.Context, opts *options, cfg spaceConfig, root string) 
 	}
 	rp.web.Renderer = render.New(render.Options{
 		LinkExists: notes.Exists,
+		ImageSize:  notes.ImageSize,
 		PagePrefix: rp.web.Prefix() + "/doc/",
 		RawPrefix:  rp.web.Prefix() + "/raw/",
 	})

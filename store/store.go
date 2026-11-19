@@ -185,19 +185,30 @@ func (s *Store) list(cleaned string) ([]FileInfo, error) {
 	return res, nil
 }
 
-func (s *Store) Count(dir string) (int, error) {
+const AppIndex = "index.html"
+
+type DirCount struct {
+	Items       int
+	HasAppIndex bool
+}
+
+func (s *Store) Count(dir string) (DirCount, error) {
 	cleaned, err := s.checkPath(dir)
 	if err != nil {
-		return 0, err
+		return DirCount{}, err
 	}
 	entries, err := fs.ReadDir(s.root.FS(), cleaned)
 	if err != nil {
-		return 0, osError("list", displayPath(cleaned), err)
+		return DirCount{}, osError("list", displayPath(cleaned), err)
 	}
-	res := 0
+	var res DirCount
 	for _, ent := range entries {
-		if !s.unlisted(join(cleaned, ent.Name()), ent) {
-			res++
+		if s.unlisted(join(cleaned, ent.Name()), ent) {
+			continue
+		}
+		res.Items++
+		if ent.Name() == AppIndex && ent.Type().IsRegular() {
+			res.HasAppIndex = true
 		}
 	}
 	return res, nil

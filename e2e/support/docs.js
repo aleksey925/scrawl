@@ -1,5 +1,5 @@
 const docs = {
-    home: {title: 'Test Notes'},
+    home: {path: 'index.md', title: 'Test Notes'},
     doc: {
         path: 'db/storage.md',
         title: 'Data storage',
@@ -14,6 +14,7 @@ const docs = {
         crumbs: [/notes/, /deep/, /nested\.md/],
     },
     folder: {path: 'db', name: 'db', entry: 'db/vacuum.md'},
+    lowInTree: {path: 'showcase/plantuml/index.md', link: 'PlantUML'},
     illustrated: {doc: 'guide.md', image: 'images/logo.png'},
     filter: {term: 'vacuum', path: 'db/vacuum.md'},
     search: {
@@ -25,5 +26,7 @@ const docs = {
 };
 
 docs.missing = `${docs.doc.folder}/nothing-here.md`;
+docs.deep.folder = docs.deep.path.slice(0, docs.deep.path.lastIndexOf('/'));
+docs.deep.above = docs.deep.folder.slice(0, docs.deep.folder.lastIndexOf('/'));
 
 module.exports = docs;

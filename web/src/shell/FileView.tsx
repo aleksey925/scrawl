@@ -1,28 +1,34 @@
 import { ActionIcon, Button, Menu } from '@mantine/core';
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX, type MouseEvent } from 'react';
+import { useLocation } from 'react-router';
 
 import type { FilePageResponse } from '../api/types';
 import { EmptyState } from '../components/EmptyState';
 import { absoluteTime, fileSize, shortTime } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
 import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
-import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconMoveTo, IconTrash } from '../icons';
+import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconMoveTo, IconPlay, IconTrash } from '../icons';
+import { runState } from '../paths';
 import { usePlatform } from '../platform';
 import { useDocumentControls } from '../reader/useDocumentControls';
 import { openViewer } from '../reader/viewer';
 import { layout } from '../theme';
 
-import { EditAction } from './EditButton';
+import { useOfferEdit } from './BarEditProvider';
+import { EditAction } from './EditAction';
 import { useFileActions } from './fileActionsContext';
 import classes from './FileView.module.css';
-import { useNav } from './NavContext';
+import { useAccount } from './NavContext';
 import { chromeOf, usePageChrome } from './PageChrome';
+import { useRunInTab } from './runInTab';
 import { PageActions } from './ShellSlots';
+import { TopbarAction } from './TopbarAction';
 
 export function FileView({ file }: { file: FilePageResponse }): JSX.Element {
   const { physicalUrl } = usePlatform();
   const raw = physicalUrl(file.raw_url);
   usePageChrome(chromeOf(file.breadcrumbs, file.name, true));
+  useOfferEdit(file.edit_url);
 
   return (
     <>
@@ -138,12 +144,22 @@ function TextLines({ file }: { file: FilePageResponse }): JSX.Element {
 }
 
 function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }): JSX.Element {
-  const { canWrite } = useNav();
+  const { canWrite } = useAccount();
+  const location = useLocation();
   const actions = useFileActions();
+  const runInTab = useRunInTab();
+  const runHere =
+    runInTab === undefined
+      ? undefined
+      : (event: MouseEvent<HTMLElement>): void => {
+          event.preventDefault();
+          runInTab(file.path);
+        };
 
   return (
     <>
       {canWrite && file.edit_url !== undefined && <EditAction testId="file-edit" to={file.edit_url} />}
+      {file.run_url !== undefined && <TopbarAction testId="file-run" label="Run" icon={IconPlay} to={file.run_url} state={runState(location)} onClick={runHere} />}
       <ActionIcon
         data-testid="file-download"
         component="a"

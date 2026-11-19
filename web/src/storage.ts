@@ -26,13 +26,15 @@ export function readJson<T>(store: Storage | undefined, key: string): T | undefi
   }
 }
 
-export function writeJson(store: Storage | undefined, key: string, value: unknown): void {
+export function writeJson(store: Storage | undefined, key: string, value: unknown): boolean {
   if (store === undefined) {
-    return;
+    return false;
   }
   try {
     store.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
+    return false;
   }
 }
 
@@ -47,13 +49,15 @@ export function readText(store: Storage | undefined, key: string): string | unde
   }
 }
 
-export function writeText(store: Storage | undefined, key: string, value: string): void {
+export function writeText(store: Storage | undefined, key: string, value: string): boolean {
   if (store === undefined) {
-    return;
+    return false;
   }
   try {
     store.setItem(key, value);
+    return true;
   } catch {
+    return false;
   }
 }
 

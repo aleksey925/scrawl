@@ -58,6 +58,7 @@ export interface FilePageResponse {
   raw_url: string;
   rev?: string;
   edit_url?: string;
+  run_url?: string;
   language?: string;
   lines?: number;
   html?: string;
@@ -75,6 +76,7 @@ export interface DirEntry {
   folder_page?: boolean;
   items?: number;
   edit_url?: string;
+  run_path?: string;
 }
 
 export interface DirListing {
@@ -90,15 +92,12 @@ export interface NavNode {
   path: string;
   url: string;
   is_dir: boolean;
-  active: boolean;
-  current: boolean;
   folder_page?: boolean;
   children: NavNode[];
 }
 
 export interface NavResponse {
   tree: NavNode[];
-  breadcrumbs: Crumb[];
 }
 
 export interface TreeNode {
@@ -309,6 +308,11 @@ export interface RestoreResponse extends MutationState {
 export interface PreviewRequest {
   content: string;
   path: string;
+}
+
+export interface RunTicket {
+  url: string;
+  app: string;
 }
 
 export interface PreviewResponse {

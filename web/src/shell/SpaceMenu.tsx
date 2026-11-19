@@ -11,7 +11,7 @@ import { deleteOfflineData } from '../offline/register';
 import { storedSpaces } from '../offline/source';
 import { layout } from '../theme';
 
-import { spaceLabel, useNav } from './NavContext';
+import { spaceLabel, useAccount } from './NavContext';
 import { OfflineAccessItem } from './OfflineAccess';
 import { useReaderLayout } from './ReaderLayout';
 import { ShortcutsMenuItem } from './ShortcutHelp';
@@ -27,7 +27,7 @@ async function signOut(): Promise<void> {
 }
 
 export function SpaceMenu(): JSX.Element {
-  const { me } = useNav();
+  const { me } = useAccount();
   const name = spaceLabel(me);
 
   return (
@@ -41,7 +41,7 @@ export function SpaceMenu(): JSX.Element {
 }
 
 export function SpaceMenuDropdown(): JSX.Element {
-  const { me } = useNav();
+  const { me } = useAccount();
   const { openShortcuts } = useReaderLayout();
   const keyboard = useKeyboardPlace();
   const fromCopy = useReadingCopy();

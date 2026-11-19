@@ -2,49 +2,77 @@
 
 Creating, naming, moving and deleting files and folders.
 
-- An entry is made where the action was started: from the sidebar a name field
-  appears in the tree, in the folder the action came from, and from a folder's
-  list a name row appears in that table. Enter creates it, through the one
-  create path both share. A click or a tap outside the tree's field creates it
-  too, while the row of a list keeps a typed name and drops only an empty one,
-  so a click on another row of the list does not make an entry with half a
-  name; Escape, or the ✕ on a touch screen, drops either. A dialog asked for
-  the folder the tree already knew and then covered it, and a create started
-  from a list jumped to the tree, away from what the reader was looking at.
-  Rows drag into folders, one or the whole picked run; a plain click picks,
-  shift takes the range from the row picked last, at first the current one, a
-  file's folder on its page, and a modified click stays the browser's "open in
-  a tab". On a phone there is no tree to type into: the New tab opens a menu
-  over itself, New file or New folder, and the name is asked in a small dialog
-  in the middle, the way a phone asks for a new folder's name, with a line
-  saying a name without an extension makes a note. A create started from a list
-  asks the same. Every place says New file, the tree, the menus and the dialog,
-  since one action makes a note or any file; the editor calls a new note a
-  note. The rows being dragged are kept in state as well as in the drag's data,
-  because a page cannot read that data during `dragover`, when a folder says
-  whether it takes the drop.
-- A name typed for a file is a note unless it carries an extension of its own:
-  a title becomes its slug with `.md`, and `notes.txt` or `Main.java` is that
-  file, named as typed. A slug, of a note or a folder, keeps the case typed, so
-  `My Plan` is `My-Plan.md`: a space usually lives on a file system that tells
-  the cases apart, and a name lowercased behind the person's back was not the
-  name they typed. An extension is a dot and a word starting with a letter, so
-  the date or the version in a title is not one. A name typed with `.md` is a
-  title too, so `My Notes.md` is `My-Notes.md`. A rename does not take this
-  rule: it starts from a file name, not a title, and the new name is what was
-  typed, only the spaces around it trimmed, so `guide.en.md` stays
-  `guide.en.md` and a bare `guide` is a file without an extension
-  ([ADR 22](../adr/0022-names-show-their-extension.md)). A note renamed without
-  `.md` is not a note any more: it leaves the tree, the page follows it to the
-  view of a text file, and the toast says so. A name left as it was renames
-  nothing, so a click away from the field of `spaced.md ` does not lose its
-  space to the trim. A name that starts with a dot is refused with a toast, as
-  a slash is: the store hides such a name, and the server would answer only
-  that nothing is found. The slug turns Cyrillic into Latin with the same table
-  `store/upload.go` uses for attachment names, letter for letter, a capital
-  into a capital (`Ж` is `Zh`), and no test holds the two together: a page and
-  the pictures beside it must not spell one word two ways, apart from the case,
-  which the name of an attachment drops.
+- A new note is a draft
+  ([ADR 26](../adr/0026-a-new-note-is-a-draft-named-by-its-heading.md)). The
+  editor opens at once at `/edit/<folder>/untitled.md?draft`, with `# ` and the
+  cursor after it, and nothing is on disk until the first Save. A draft left
+  with nothing typed leaves nothing and asks nothing; one with text leaves as
+  any editor with unsaved text does, keeping a draft that the next New note in
+  the folder offers ([editor](editor.md)). Its name follows the first line that
+  is not empty, without its `#`, as a lowercase slug: `Weekly plan` is
+  `weekly-plan.md`, `План на неделю` is `plan-na-nedelyu.md`, and no text is
+  `untitled.md`. The name shows faint in the last crumb, and in the tree as a
+  faint row in its folder, since the draft is the page on screen. Save looks at
+  the folder and takes `-2`, `-3` for a name already there, writes the file
+  with `Created "weekly-plan.md"` and opens it in the reader; `Cmd+S` stays in
+  the editor at the new address. A draft saved as it opened, with nothing
+  typed, writes an empty `untitled.md`: no `# `, and format on save leaves it
+  empty. `Cmd+S` then shows it empty as well. Cancel goes back to the screen
+  the draft was started on. A click on the faint crumb, or on the faint name in
+  the bar of a phone, opens a field with the name: the name typed there stops
+  following the heading and keeps its case, and goes by the rules of a typed
+  name below, so `todo.txt` turns the draft into that file and the editor into
+  the one of a text file, dropping a `# ` that was all the text. A name taken
+  by the time of Save is refused with a toast, as a name with a slash or a
+  leading dot is at once. The draft is the one way to make a file that is not a
+  note.
+- A note is made in the folder on screen, or in the folder the action came
+  from: the sidebar's compose icon, `+` on a folder of the tree, `N` where no
+  field has the focus outside the editor, the blue New of a folder's page, the
+  empty folder's New note, a right click on the free space of the tree, made in
+  the root, or of a folder's page, and on a phone the New note tile of the
+  bar's New. A folder is made from the arrow beside the blue New, whose menu
+  holds New folder alone, the empty folder's New folder, the right click on
+  free space, the phone's New folder tile and `Shift` + `N`, which works where
+  `N` does. Its name is typed in a row where it will stand: in the tree for the
+  tree's menu, and in a folder's list, on a desktop and on a phone, in a row
+  after the last folder, so a long list is not scrolled to its end. Enter
+  creates it, and so does a click or a tap outside the tree's field, while the
+  row of a list keeps a typed name and drops only an empty one, so a click on
+  another row of the list does not make a folder with half a name; Escape, or
+  the ✕ on a touch screen, drops either. A row's `⋯` creates nothing, and a
+  folder's page has no `⋯` of its own. A dialog asked for the folder the tree
+  already knew and then covered it, and one menu that named the entry in the
+  tree in one place and in the table in another sent the eye away from what the
+  reader was looking at. Rows drag into folders, one or the whole picked run; a
+  plain click picks, shift takes the range from the row picked last, at first
+  the current one, a file's folder on its page, and a modified click stays the
+  browser's "open in a tab". The rows being dragged are kept in state as well
+  as in the drag's data, because a page cannot read that data during
+  `dragover`, when a folder says whether it takes the drop.
+- A name typed by hand for a draft is a note unless it carries an extension of
+  its own: a title becomes its slug with `.md`, and `notes.txt` or `Main.java`
+  is that file, named as typed. A slug, of a note or a folder, keeps the case
+  typed, so `My Plan` is `My-Plan.md`: a space usually lives on a file system
+  that tells the cases apart, and a name lowercased behind the person's back
+  was not the name they typed. The name a draft takes from its heading is
+  lowercased, as no name was typed for it. An extension is a dot and a word
+  starting with a letter, so the date or the version in a title is not one. A
+  name typed with `.md` is a title too, so `My Notes.md` is `My-Notes.md`. A
+  rename does not take this rule: it starts from a file name, not a title, and
+  the new name is what was typed, only the spaces around it trimmed, so
+  `guide.en.md` stays `guide.en.md` and a bare `guide` is a file without an
+  extension ([ADR 22](../adr/0022-names-show-their-extension.md)). A note
+  renamed without `.md` is not a note any more: it leaves the tree, the page
+  follows it to the view of a text file, and the toast says so. A name left as
+  it was renames nothing, so a click away from the field of `spaced.md ` does
+  not lose its space to the trim. A name that starts with a dot is refused with
+  a toast, as a slash is: the store hides such a name, and the server would
+  answer only that nothing is found. The slug turns Cyrillic into Latin with
+  the same table `store/upload.go` uses for attachment names, letter for
+  letter, a capital into a capital (`Ж` is `Zh`), and no test holds the two
+  together: a page and the pictures beside it must not spell one word two ways,
+  apart from the case, which the name of an attachment drops.
 - Rename and Move to are two actions, as in Notion. A rename asks only the name
   and refuses a slash: one field for the whole path made every rename a
   possible move, and a slip in the folder part sent the file away. A rename

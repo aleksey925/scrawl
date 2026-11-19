@@ -13,8 +13,12 @@ import {
   type ReadingAnchor,
 } from './anchor';
 
+function sourceScroller(view: EditorView): HTMLElement {
+  return view.dom.closest<HTMLElement>('[data-scroll="outer"]') ?? view.scrollDOM;
+}
+
 function documentOffset(view: EditorView): number {
-  const scroller = view.scrollDOM;
+  const scroller = sourceScroller(view);
   return view.documentTop - scroller.getBoundingClientRect().top + scroller.scrollTop;
 }
 
@@ -27,7 +31,7 @@ export function lineSpan(view: EditorView, range: LineRange): { top: number; bot
 }
 
 export function captureFromSource(view: EditorView, path: string, rev: string): ReadingAnchor {
-  const scroller = view.scrollDOM;
+  const scroller = sourceScroller(view);
   if (scroller.scrollTop <= 0) {
     return documentStart(path, rev);
   }
@@ -106,7 +110,7 @@ function blockLineFrom(view: EditorView, number: number): number | undefined {
 
 export function scrollAnchorToTop(view: EditorView, anchor: ReadingAnchor): void {
   if (atDocumentStart(anchor)) {
-    view.scrollDOM.scrollTop = 0;
+    sourceScroller(view).scrollTop = 0;
     return;
   }
   const doc = view.state.doc;

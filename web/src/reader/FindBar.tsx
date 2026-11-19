@@ -106,6 +106,9 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
         aria-label="Find in the note"
         autoComplete="off"
         spellCheck={false}
+        autoCapitalize="off"
+        autoCorrect="off"
+        enterKeyHint="search"
         onChange={(event) => setQuery({ ...query, text: event.currentTarget.value })}
         onKeyDown={onKeyDown}
       />

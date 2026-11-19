@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type JSX, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, useState, type JSX, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
 
 import type { Crumb } from '../api/types';
@@ -6,28 +6,30 @@ import { directoryUrl } from '../paths';
 
 import { ancestorsOf, basenameOf, contentPathOf } from './naming';
 
+export interface DraftChrome {
+  path: string;
+  rename: (name: string) => boolean;
+}
+
 export interface PageChrome {
   crumbs: readonly Crumb[];
   name: string;
   title: string;
   ownTitle: boolean;
+  draft?: DraftChrome;
 }
 
-interface PageChromeState {
-  chrome: PageChrome | undefined;
-  setChrome: (chrome: PageChrome) => void;
-}
+const PageChromeContext = createContext<PageChrome | undefined>(undefined);
 
-const PageChromeContext = createContext<PageChromeState | undefined>(undefined);
+const SetPageChromeContext = createContext<((chrome: PageChrome) => void) | undefined>(undefined);
 
 export function PageChromeProvider({ children }: { children: ReactNode }): JSX.Element {
   const [chrome, setChrome] = useState<PageChrome | undefined>(undefined);
-  const value = useMemo(() => ({ chrome, setChrome }), [chrome]);
-  return <PageChromeContext.Provider value={value}>{children}</PageChromeContext.Provider>;
-}
-
-function usePageChromeValue(): PageChrome | undefined {
-  return useContext(PageChromeContext)?.chrome;
+  return (
+    <SetPageChromeContext.Provider value={setChrome}>
+      <PageChromeContext.Provider value={chrome}>{children}</PageChromeContext.Provider>
+    </SetPageChromeContext.Provider>
+  );
 }
 
 export function chromeOf(breadcrumbs: readonly Crumb[], title: string, ownTitle: boolean, name = title): PageChrome {
@@ -39,18 +41,33 @@ export function standaloneChrome(title: string): PageChrome {
 }
 
 export function usePageChrome({ crumbs, name, title, ownTitle }: PageChrome): void {
-  const setChrome = useContext(PageChromeContext)?.setChrome;
+  const setChrome = useContext(SetPageChromeContext);
   const crumbsKey = crumbs.map((step) => `${step.url}\n${step.name}`).join('\n');
-  useEffect(() => {
+  useLayoutEffect(() => {
     setChrome?.({ crumbs, name, title, ownTitle });
   }, [crumbsKey, name, title, ownTitle, setChrome]);
 }
 
-function chromeFromRoute(pathname: string): PageChrome {
-  const ancestors = ancestorsOf(contentPathOf(pathname));
+function chromeOfPath(path: string): PageChrome {
+  const ancestors = ancestorsOf(path);
   const crumbs = ancestors.slice(1, -1).map((folder) => ({ name: basenameOf(folder), url: directoryUrl(folder) }));
   const last = basenameOf(ancestors[ancestors.length - 1] ?? '');
   return { crumbs, name: last, title: last, ownTitle: false };
+}
+
+function chromeFromRoute(pathname: string): PageChrome {
+  return chromeOfPath(contentPathOf(pathname));
+}
+
+export function useDraftChrome(draft: DraftChrome | undefined): void {
+  const setChrome = useContext(SetPageChromeContext);
+  const path = draft?.path;
+  const rename = draft?.rename;
+  useLayoutEffect(() => {
+    if (path !== undefined && rename !== undefined) {
+      setChrome?.({ ...chromeOfPath(path), draft: { path, rename } });
+    }
+  }, [path, rename, setChrome]);
 }
 
 export function RouteChrome(): null {
@@ -61,5 +78,5 @@ export function RouteChrome(): null {
 
 export function useShownChrome(): PageChrome {
   const location = useLocation();
-  return usePageChromeValue() ?? chromeFromRoute(location.pathname);
+  return useContext(PageChromeContext) ?? chromeFromRoute(location.pathname);
 }

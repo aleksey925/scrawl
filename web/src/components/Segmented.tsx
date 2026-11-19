@@ -1,5 +1,5 @@
 import { SegmentedControl, type SegmentedControlProps } from '@mantine/core';
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 
 import controls from '../controls.module.css';
 import type { Icon } from '../icons';
@@ -9,6 +9,8 @@ export interface SegmentedOption<T extends string> {
   value: T;
   label: string;
   icon?: Icon;
+  testId?: string;
+  mark?: ReactNode;
 }
 
 type SegmentedProps<T extends string> = Omit<SegmentedControlProps<T>, 'data' | 'value' | 'onChange'> & {
@@ -22,16 +24,17 @@ export function Segmented<T extends string>({ options, compact = false, ...rest 
   return (
     <SegmentedControl<T>
       {...rest}
-      data={options.map(({ value, label, icon: OptionIcon }) => ({
+      data={options.map(({ value, label, icon: OptionIcon, testId, mark }) => ({
         value,
         label:
-          OptionIcon === undefined ? (
+          OptionIcon === undefined && testId === undefined && mark === undefined ? (
             label
           ) : (
-            <span className={controls.segmentOption} title={compact ? label : undefined}>
-              <OptionIcon size={layout.iconSizeSmall} />
+            <span data-testid={testId} className={controls.segmentOption} title={compact ? label : undefined}>
+              {OptionIcon !== undefined && <OptionIcon size={layout.iconSizeSmall} />}
               <span data-segment-text className={compact ? controls.segmentTextCompact : undefined}>
                 {label}
+                {mark}
               </span>
             </span>
           ),

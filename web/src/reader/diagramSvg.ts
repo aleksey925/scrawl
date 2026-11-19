@@ -36,3 +36,13 @@ export function scopeIds(svg: SVGSVGElement, id: string): void {
     );
   }
 }
+
+export function scopeDiagramIds(root: HTMLElement, prefix: string): SVGSVGElement[] {
+  const diagrams = Array.from(root.querySelectorAll<SVGSVGElement>('svg[id]')).filter(
+    (svg) => svg.parentElement?.closest('svg') === null,
+  );
+  for (const svg of diagrams) {
+    scopeIds(svg, `${prefix}-${svg.id}`);
+  }
+  return diagrams;
+}

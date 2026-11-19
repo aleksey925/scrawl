@@ -41,8 +41,18 @@
   white-space: nowrap;
 }
 
+.crumb:focus-visible {
+  outline-offset: -2px;
+}
+
 .current {
   color: var(--scrawl-text);
+}
+
+.draft {
+  color: var(--scrawl-text-tertiary);
+  font: inherit;
+  cursor: text;
 }
 
 .last .crumb {

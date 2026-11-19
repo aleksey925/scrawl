@@ -1,0 +1,42 @@
+.box {
+  min-width: 0;
+  max-height: 460px;
+  overflow: auto;
+  border: 1px solid var(--scrawl-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--scrawl-sidebar);
+}
+
+.patch {
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  padding: 8px 0;
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.line {
+  display: block;
+  padding: 0 12px;
+  white-space: pre;
+}
+
+@media (hover: none) {
+  .box {
+    overflow: hidden auto;
+  }
+
+  .patch {
+    width: auto;
+    overflow: auto hidden;
+  }
+
+  .line {
+    width: max-content;
+    min-width: 100%;
+    box-sizing: border-box;
+  }
+}

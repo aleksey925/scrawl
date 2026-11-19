@@ -8,7 +8,7 @@ const {pathToFileURL} = require('node:url');
 const {expect, test} = require('@playwright/test');
 
 const {binary} = require('../support/env');
-const {openSpaceMenu, rightClickPrevented, showOutline} = require('../support/helpers');
+const {chooseTheme, openSpaceMenu, rightClickPrevented, showOutline} = require('../support/helpers');
 
 const PIXEL = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
@@ -94,10 +94,9 @@ const TARGETS = {
 const active = (page) => page.locator('[data-testid=toc-entry][data-active="true"]');
 const row = (page, contentPath) => page.locator(`[data-testid=tree-row][data-path="${contentPath}"]`);
 
-async function chooseTheme(page, name) {
+async function pickTheme(page, theme) {
     await openSpaceMenu(page);
-    const picker = page.getByTestId('space-menu-theme');
-    await picker.getByText(name, {exact: true}).click();
+    await chooseTheme(page, theme);
     await page.keyboard.press('Escape');
 }
 
@@ -302,7 +301,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
         test('a theme picked on one page holds on the next and after Back', async ({page}) => {
             // arrange
             await page.goto(at('index.md.html'));
-            await chooseTheme(page, 'Dark');
+            await pickTheme(page, 'dark');
 
             // act
             await page.getByRole('link', {name: 'Guide', exact: true}).click();
@@ -310,7 +309,7 @@ for (const [target, at] of Object.entries(TARGETS)) {
             // assert
             await expect(page).toHaveURL(at('docs/guide.html'));
             await expect(page.locator('html')).toHaveAttribute('data-scrawl-theme', 'dark');
-            await chooseTheme(page, 'Light');
+            await pickTheme(page, 'light');
             await page.goBack();
             await expect(page.locator('html')).toHaveAttribute('data-scrawl-theme', 'light');
             await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'light');
@@ -336,8 +335,8 @@ for (const [target, at] of Object.entries(TARGETS)) {
         test('auto picked on a page holds on the next', async ({page}) => {
             // arrange
             await page.goto(at('index.md.html'));
-            await chooseTheme(page, 'Dark');
-            await chooseTheme(page, 'Auto');
+            await pickTheme(page, 'dark');
+            await pickTheme(page, 'auto');
 
             // act
             await page.getByRole('link', {name: 'Guide', exact: true}).click();
@@ -432,9 +431,12 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await page.keyboard.press('Control+K');
 
             // assert
-            await expect(page.getByTestId('topbar-search')).toHaveCount(0);
+            await expect(page.getByTestId('sidebar')).toBeVisible();
+            await expect(page.getByTestId('sidebar-search')).toHaveCount(0);
             await expect(page.getByTestId('search-dialog')).toHaveCount(0);
+            await openSpaceMenu(page);
             await expect(page.getByTestId('space-menu-signout')).toHaveCount(0);
+            await page.keyboard.press('Escape');
             await expect(page.getByTestId('note-menu')).toHaveCount(0);
             await expect(page.getByTestId('doc-edit')).toHaveCount(0);
             await expect(page.getByTestId('doc-history')).toHaveCount(0);
@@ -769,7 +771,7 @@ test('a page Back brings out of the cache takes the theme picked since and close
     await page.getByTestId('site-menu-outline').click();
     await expect(page.getByTestId('toc-entry').first()).toBeVisible();
     await page.goto(TARGETS.host('pictures.html'));
-    await chooseTheme(page, 'Dark');
+    await pickTheme(page, 'dark');
 
     // act
     await page.goBack({waitUntil: 'commit'});

@@ -1,1 +1,1 @@
-import{en as e,et as t,gt as n,q as r}from"./PageChrome.js";import{t as i}from"./DirectoryView.js";import{t as a}from"./DocumentView.js";var o=e();function s(){let e=n()[`*`]??``;return r(e)?(0,o.jsx)(i,{path:t(e)}):(0,o.jsx)(a,{path:e})}export{s as Component};
+import{Q as e,ht as t,kn as n,z as r}from"./naming.js";import{t as i}from"./DirectoryView.js";import{t as a}from"./DocumentView.js";var o=n();function s(){let n=t()[`*`]??``;return r(n)?(0,o.jsx)(i,{path:e(n)}):(0,o.jsx)(a,{path:n})}export{s as Component};

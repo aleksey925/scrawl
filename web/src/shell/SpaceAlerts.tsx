@@ -4,15 +4,15 @@ import type { JSX } from 'react';
 import { IconAlertTriangle } from '../icons';
 import { layout } from '../theme';
 
-import { useNav } from './NavContext';
-import { ResetAction } from './ResetDialog';
+import { useAccount } from './NavContext';
+import { ResetAction } from './ResetProvider';
 import { factText } from './syncMessage';
 
 export function SpaceAlerts(): JSX.Element {
-  const { sync } = useNav();
+  const { sync } = useAccount();
 
   return (
-    <div data-testid="space-alerts" data-print="hide" role="status" aria-live="polite">
+    <div data-testid="space-alerts" data-empty={sync === undefined} data-print="hide" role="status" aria-live="polite">
       {sync !== undefined && (
         <Alert
           data-testid="space-alert"

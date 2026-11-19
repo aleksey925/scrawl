@@ -61,8 +61,37 @@ export function editUrl(path: string): string {
   return `/edit/${encodeContentPath(path)}`;
 }
 
+export function draftUrl(path: string): string {
+  return `${editUrl(path)}?draft`;
+}
+
+export function isHtmlApp(path: string): boolean {
+  return /\.html?$/i.test(path);
+}
+
+export function runUrl(path: string): string {
+  return `/run/${encodeContentPath(path)}`;
+}
+
+export interface RunState {
+  back: string;
+}
+
+export function runState(from: { pathname: string; search: string }): RunState {
+  return { back: `${from.pathname}${from.search}` };
+}
+
+export function runBack(state: unknown, path: string): string {
+  const back = (state as Partial<RunState> | null)?.back;
+  return typeof back === 'string' && back.startsWith('/') && !back.startsWith('//') ? back : documentUrl(path);
+}
+
 export function isEditPath(pathname: string): boolean {
   return pathname.startsWith('/edit/');
+}
+
+export function isDocPath(pathname: string): boolean {
+  return pathname.startsWith('/doc/');
 }
 
 export function searchUrl(query: string): string {
@@ -83,4 +112,8 @@ export function trimTrailingSlash(path: string): string {
 
 export function recentUrl(): string {
   return '/recent';
+}
+
+export function isRecentPath(pathname: string): boolean {
+  return trimTrailingSlash(pathname).toLowerCase() === recentUrl();
 }

@@ -1,6 +1,5 @@
 import {
   ActionIcon,
-  Burger,
   Button,
   CloseButton,
   createTheme,
@@ -75,6 +74,7 @@ export const layout = {
   iconSizeTool: 18,
   iconSizeColumn: 15,
   iconSizeTiny: 14,
+  iconSizeTile: 26,
   controlHeight: 28,
   controlHeightLarge: 36,
   buttonHeight: 32,
@@ -89,7 +89,6 @@ export const layout = {
   menuWidthWide: 280,
   popoverWidth: 320,
   tabBarHeight: 56,
-  editButtonSize: 54,
   inputFontSize: 16,
 } as const;
 
@@ -178,6 +177,7 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-page-margin-min': `${layout.pageMarginMin}px`,
   '--scrawl-page-margin-max': `${layout.pageMarginMax}px`,
   '--scrawl-topbar-height': `${layout.topbarHeight}px`,
+  '--scrawl-topbar-height-compact': `${layout.topbarHeightCompact}px`,
   '--scrawl-row-height': `${layout.rowHeight}px`,
   '--scrawl-tap-target': `${layout.tapTarget}px`,
   '--scrawl-focus-room': `${layout.focusRoom}px`,
@@ -192,7 +192,6 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-menu-width': `${layout.menuWidth}px`,
   '--scrawl-popover-width': `${layout.popoverWidth}px`,
   '--scrawl-tabbar-height': `${layout.tabBarHeight}px`,
-  '--scrawl-edit-button': `${layout.editButtonSize}px`,
 };
 
 function blockVariables(blocks: BlockColors): Record<string, string> {
@@ -279,7 +278,6 @@ export const theme: MantineThemeOverride = createTheme({
 
   components: {
     ActionIcon: ActionIcon.extend({ classNames: { root: `${controls.tapTarget} ${controls.actionIcon}` } }),
-    Burger: Burger.extend({ classNames: { root: `${controls.tapTarget} ${controls.burger}` } }),
     Button: Button.extend({ classNames: { root: controls.button } }),
     CloseButton: CloseButton.extend({ classNames: { root: controls.tapTarget } }),
     Input: Input.extend({ classNames: { wrapper: controls.input, input: controls.inputField } }),

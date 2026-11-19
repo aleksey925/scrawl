@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"html/template"
 	"log"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/htmlapp"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/store"
 	"github.com/aleksey925/scrawl/view"
@@ -26,8 +28,7 @@ type handoff struct {
 }
 
 type navResponse struct {
-	Tree        []view.NavNode `json:"tree"`
-	Breadcrumbs []view.Crumb   `json:"breadcrumbs"`
+	Tree []view.NavNode `json:"tree"`
 }
 
 type meResponse struct {
@@ -157,31 +158,39 @@ func (m *mount) writeDoc(w http.ResponseWriter, r *http.Request, p string) {
 }
 
 func (m *mount) writeFile(w http.ResponseWriter, r *http.Request, fi store.FileInfo) {
-	contentType, _ := rawContentType(fi.Name)
-	switch {
-	case strings.HasPrefix(contentType, "image/"):
-		writeJSON(w, http.StatusOK, view.NewFile(fi, view.FileImage))
-		return
-	case !editable(fi):
-		writeJSON(w, http.StatusOK, view.NewFile(fi, view.FileOther))
-		return
-	}
-
-	data, read, err := m.spc.Store.Read(fi.Path)
+	res, err := m.fileView(fi)
 	if err != nil {
 		failJSON(w, r, err)
 		return
 	}
+	if htmlapp.Runnable(res.Path) {
+		res.RunURL = view.RunURL(res.Path)
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (m *mount) fileView(fi store.FileInfo) (view.File, error) {
+	contentType, _ := rawContentType(fi.Name)
+	switch {
+	case strings.HasPrefix(contentType, "image/"):
+		return view.NewFile(fi, view.FileImage), nil
+	case !editable(fi):
+		return view.NewFile(fi, view.FileOther), nil
+	}
+
+	data, read, err := m.spc.Store.Read(fi.Path)
+	if err != nil {
+		return view.File{}, err
+	}
 	if !textContent(data) {
-		writeJSON(w, http.StatusOK, view.NewFile(read, view.FileOther))
-		return
+		return view.NewFile(read, view.FileOther), nil
 	}
 	res := view.NewFile(read, view.FileText)
 	res.Rev = store.Rev(data)
 	res.EditURL = view.EditURL(read.Path)
 	res.Lines = lineCount(data)
 	res.HTML, res.Language = m.highlight(read.Path, data)
-	writeJSON(w, http.StatusOK, res)
+	return res, nil
 }
 
 func (m *mount) highlight(p string, data []byte) (string, string) {
@@ -218,15 +227,13 @@ func lineCount(data []byte) int {
 }
 
 func (m *mount) apiNav(w http.ResponseWriter, r *http.Request) {
-	current, ok := contentPathOf(r.URL.Query().Get("path"))
-	if !ok {
-		jsonError(w, http.StatusBadRequest, "bad path")
+	body, err := json.Marshal(navResponse{Tree: m.treeNodes()})
+	if err != nil {
+		logFailure(r, http.StatusInternalServerError, err)
+		jsonError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	writeJSON(w, http.StatusOK, navResponse{
-		Tree:        m.treeNodes(current),
-		Breadcrumbs: view.Breadcrumbs(current),
-	})
+	writeTaggedJSON(w, r, body)
 }
 
 func (m *mount) apiMe(w http.ResponseWriter, r *http.Request) {

@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/aleksey925/scrawl/auth"
+	"github.com/aleksey925/scrawl/htmlapp"
 	"github.com/aleksey925/scrawl/render"
 	"github.com/aleksey925/scrawl/search"
 	"github.com/aleksey925/scrawl/store"
@@ -55,6 +56,7 @@ var globalPaths = []string{
 
 type testServer struct {
 	*Web
+	handler    http.Handler
 	url        string
 	root       string
 	secondRoot string
@@ -88,11 +90,18 @@ type testOpts struct {
 	second string
 
 	hook bool
+
+	apps         string
+	trustedProxy bool
+	prepare      func(root string)
 }
 
 func newTestServer(t *testing.T, opts testOpts) *testServer {
 	t.Helper()
 	root := testNotes(t)
+	if opts.prepare != nil {
+		opts.prepare(root)
+	}
 
 	spc := testSpaceAt(t, testSpace, root, opts.readOnly || opts.spaceReadOnly)
 	spc.ReadOnly = opts.spaceReadOnly
@@ -121,17 +130,22 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 		}
 	}
 	svc, err := auth.NewService(auth.Config{
-		Users:       users,
-		Tokens:      tokens,
-		Secret:      "test-signing-secret",
-		Disabled:    !opts.withAuth,
-		TTL:         time.Hour,
-		PublicPaths: public,
+		Users:        users,
+		Tokens:       tokens,
+		Secret:       "test-signing-secret",
+		Disabled:     !opts.withAuth,
+		TTL:          time.Hour,
+		PublicPaths:  public,
+		TrustedProxy: opts.trustedProxy,
 	})
+	require.NoError(t, err)
+	apps, err := htmlapp.Parse(opts.apps)
 	require.NoError(t, err)
 
 	res.Web = &Web{
 		Config: Config{
+			Apps:         apps,
+			TrustedProxy: opts.trustedProxy,
 			Title:        "Test Notes",
 			Version:      "v1.2.3",
 			ReadOnly:     opts.readOnly,
@@ -149,6 +163,7 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 
 	router, err := res.router()
 	require.NoError(t, err)
+	res.handler = router
 	ts := httptest.NewServer(router)
 	t.Cleanup(ts.Close)
 	res.url = ts.URL
@@ -603,7 +618,7 @@ func TestOnlyDotMDIsADocument(t *testing.T) {
 	assert.Empty(t, found["hits"])
 
 	paths := []string{}
-	for _, node := range ts.mount().treeNodes("") {
+	for _, node := range ts.mount().treeNodes() {
 		paths = append(paths, node.Path)
 	}
 	assert.Equal(t, []string{"docs", "images", "notes", "guide.md", "index.md", "links.md"}, paths)
@@ -806,7 +821,7 @@ func TestTreeKeepsEveryFolder(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(ts.root, "empty"), 0o750))
 
 	// act
-	nodes := ts.mount().treeNodes("")
+	nodes := ts.mount().treeNodes()
 
 	// assert
 	paths := []string{}
@@ -816,67 +831,6 @@ func TestTreeKeepsEveryFolder(t *testing.T) {
 	assert.Equal(t, []string{"attachments", "docs", "empty", "images", "notes",
 		"guide.md", "index.md", "links.md"}, paths,
 		"a folder is where a page is created, so it is listed before it holds one")
-}
-
-func TestTreeDirectoriesCarryTheirPageURL(t *testing.T) {
-	// arrange
-	ts := newTestServer(t, testOpts{})
-
-	// act
-	nodes := ts.mount().treeNodes("docs/page.md")
-
-	// assert
-	docs := nodes[0]
-	require.True(t, docs.IsDir)
-	assert.Equal(t, "/doc/docs/", docs.URL)
-	assert.True(t, docs.Active)
-	assert.False(t, docs.Current, "the current page is the document, not the folder holding it")
-	assert.Equal(t, "/doc/docs/sub/", docs.Children[0].URL)
-}
-
-func TestTreeMarksTheFolderBeingViewed(t *testing.T) {
-	// arrange
-	ts := newTestServer(t, testOpts{})
-
-	// act
-	nodes := ts.mount().treeNodes("docs/sub")
-
-	// assert
-	docs := nodes[0]
-	require.Equal(t, "docs", docs.Path)
-	assert.True(t, docs.Active)
-	assert.False(t, docs.Current)
-	assert.True(t, docs.Children[0].Current)
-	assert.True(t, docs.Children[0].Active, "the current folder is also on its own path")
-}
-
-func TestNavMarksTheFolderBeingViewed(t *testing.T) {
-	// arrange
-	ts := newTestServer(t, testOpts{})
-
-	// act
-	page, _ := ts.do(t, request{path: "/doc/docs/sub/"})
-	_, nav := ts.json(t, request{path: "/api/nav?path=docs/sub"})
-
-	// assert
-	assert.Equal(t, http.StatusOK, page.status)
-
-	docs, ok := nav["tree"].([]any)
-	require.True(t, ok)
-	require.NotEmpty(t, docs)
-	top, ok := docs[0].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "docs", top["path"])
-	assert.Equal(t, true, top["active"], "the branch holding the page is open")
-
-	children, ok := top["children"].([]any)
-	require.True(t, ok)
-	require.NotEmpty(t, children)
-	sub, ok := children[0].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "docs/sub", sub["path"])
-	assert.Equal(t, true, sub["current"])
-	assert.Equal(t, "/doc/docs/sub/", sub["url"])
 }
 
 func TestAPIFileGet(t *testing.T) {
@@ -2719,4 +2673,5 @@ func TestTheIconsCarryTheDrawingOfTheLogo(t *testing.T) {
 	assert.Contains(t, login, favicon)
 	assert.Contains(t, shell, favicon)
 	assert.Contains(t, manifest, "/icons/icon-512.png"+stamp)
+	assert.Contains(t, manifest, `"src":"/static/`+ts.Version+`/icons/icon-maskable-512.png`+stamp+`","sizes":"512x512","type":"image/png","purpose":"maskable"`)
 }

@@ -1,35 +1,43 @@
 import { ActionIcon, Menu } from '@mantine/core';
 import type { JSX } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import {
   FixedAnchor, pointerPlacement, rectAt, useCloseOnScroll, type MenuPlacement,
 } from '../components/pointerMenu';
 import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
 import {
-  IconDots, IconEdit, IconFile, IconFolder, IconFolderPlus, IconLink, IconMoveTo, IconPlus, IconTrash,
+  IconDots, IconEdit, IconFile, IconFolder, IconLink, IconMoveTo, IconPlay, IconTrash,
 } from '../icons';
-import { directoryUrl, documentUrl } from '../paths';
+import { directoryUrl, documentUrl, runState, runUrl } from '../paths';
 import { layout } from '../theme';
 
 import { rowMenuIconSize, type RowMenuProps } from './extensions';
 import { useFileActions } from './fileActionsContext';
-import { useNav } from './NavContext';
-import { parentOf } from './naming';
+import { useAccount } from './NavContext';
+import { useRunInTab } from './runInTab';
 
 const buttonPlacement: MenuPlacement = { position: 'bottom-end' };
 const targetPlacement: MenuPlacement = { position: 'bottom-end', offset: 8 };
 
 export function RowMenu({
-  path, isDir, name, touch, inTree = false, withCreate = true, editUrl, opened, onOpenedChange: setOpened, target, at,
+  path, isDir, name, touch, inTree = false, editUrl, runPath, opened, onOpenedChange: setOpened, target, at,
 }: RowMenuProps): JSX.Element {
   const navigate = useNavigate();
-  const { canWrite } = useNav();
+  const location = useLocation();
+  const { canWrite } = useAccount();
   const actions = useFileActions();
+  const runInTab = useRunInTab();
   useCloseOnScroll(opened, setOpened);
 
-  const folder = isDir ? path : parentOf(path);
   const open = (): void => void navigate(isDir ? directoryUrl(path) : documentUrl(path));
+  const run = (app: string): void => {
+    if (runInTab === undefined) {
+      void navigate(runUrl(app), { state: runState(location) });
+    } else {
+      runInTab(app);
+    }
+  };
   const placement = at !== undefined ? pointerPlacement : target === undefined ? buttonPlacement : targetPlacement;
 
   return (
@@ -66,6 +74,15 @@ export function RowMenu({
         >
           Open
         </Menu.Item>
+        {runPath !== undefined && (
+          <Menu.Item
+            data-testid="tree-row-menu-run"
+            leftSection={<IconPlay size={rowMenuIconSize} />}
+            onClick={() => run(runPath)}
+          >
+            Run
+          </Menu.Item>
+        )}
         {editUrl !== undefined && canWrite && (
           <Menu.Item
             data-testid="tree-row-menu-edit"
@@ -74,26 +91,6 @@ export function RowMenu({
           >
             Edit
           </Menu.Item>
-        )}
-
-        {canWrite && withCreate && (
-          <>
-            <Menu.Divider />
-            <FieldMenuItem
-              data-testid="tree-row-menu-new-page"
-              leftSection={<IconPlus size={rowMenuIconSize} />}
-              onClick={() => actions.createDraft('file', folder)}
-            >
-              New file
-            </FieldMenuItem>
-            <FieldMenuItem
-              data-testid="tree-row-menu-new-folder"
-              leftSection={<IconFolderPlus size={rowMenuIconSize} />}
-              onClick={() => actions.createDraft('dir', folder)}
-            >
-              New folder
-            </FieldMenuItem>
-          </>
         )}
 
         <Menu.Divider />

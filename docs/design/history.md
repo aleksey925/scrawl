@@ -65,8 +65,10 @@ Git-backed versions of the notes, and how two versions are compared.
   each block that changed: a changed block is one block with its lost words
   struck and its new words marked, which `htmldiff` builds as `Inline`, and a
   removed block is struck through. The patch stays beside them as the `Source`
-  view, and a version too large or too slow to compare still answers with the
-  patch alone.
+  view, which on a touch screen goes down in its box and sideways in the patch
+  inside it, for the reason the editor with wrap off does
+  ([quirks](../quirks.md#ios-and-safari)), and a version too large or too slow
+  to compare still answers with the patch alone.
 - The editor's Changes compares the text in the editor with the text last
   saved, through `POST /api/compare`, which takes both and answers with the
   rows. Both sides are rendered as the preview is, under its size cap each and

@@ -1,6 +1,8 @@
 .header {
   border: 0;
   background: var(--scrawl-bg);
+  translate: 0 var(--scrawl-visible-top);
+  transition-property: margin-inline-start, margin-inline-end;
 }
 
 .main {
@@ -15,6 +17,12 @@
 
 .main > [data-fill] {
   flex-grow: 1;
+}
+
+.main:has(> [data-fill='screen']) {
+  min-height: 0;
+  height: var(--scrawl-visible-height, 100dvh);
+  translate: 0 var(--scrawl-visible-top);
 }
 
 @mixin larger-than $mantine-breakpoint-sm {
@@ -33,6 +41,10 @@
 
 .banner:not(:empty) {
   padding: 12px 16px 0;
+}
+
+.main:has(> [data-fill='screen']) > .banner:has(> [data-empty='true']) {
+  padding: 0;
 }
 
 .sheet {

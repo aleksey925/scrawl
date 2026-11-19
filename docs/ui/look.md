@@ -28,40 +28,65 @@ Colors, controls and type: how a note and the chrome are drawn.
   says so. A control is Notion's: 28px (36px when it runs the width of its
   column) with 6px corners and a 500 weight, transparent until hovered; a field
   is filled with the hover tint and a faint line, also when the browser filled
-  it in, whose own yellow read as a warning, and in focus has the theme's focus
-  ring and no halo: in the light theme one solid band of a light blue three
-  pixels wide, as macOS rings a field; the field's border takes the band's
-  color, or its tint shows through as a gap and the band reads as two rings. In
-  the dark one a lighter line and no color, the way Raycast and Vercel draw it.
-  A solid blue line on the dark ground glared, and Notion's own dark fields
-  disagree with each other on it. A row a name is typed into in the tree is
-  framed by the same ring; in a folder's list it is filled with the picked
-  row's gray instead, as a ring the width of the page glared. The accent is
-  spent the way Notion spends it, read off its own pages: the one main button,
-  a focused field in the light theme and a toggle that is on; the search field
-  has no ring, the back link and Cancel are plain text, and a main button that
-  cannot be pressed yet fades in its color. The light theme spends it the way
-  macOS does on two more things: a link in a note, which the dark theme draws
-  in the text's color, and the menu row under the pointer, filled with the
-  accent and lettered white, which in the dark is the hover tint. A tap latches
-  the hover, so a touch screen keeps the tint in both. A menu has 10px corners
-  and the theme's shadow, a dialog 12px; a translucent menu ground blurs what
-  is under it, as a menu of macOS does. Icons are Phosphor's regular weight at
-  20px, 16px in menus, and `web/src/icons.ts` is the one place that says which
-  drawing each one is: Notion's own set cannot be taken, and Phosphor is the
-  open one closest to it. The note's own controls are the one exception: the
-  picture viewer in `web/src/reader/viewer.ts` and the buttons and marks of
-  `markdown.css` are plain DOM and CSS, and run on a page of the command line
-  too, which carries no React, so they write their few drawings themselves;
-  `icons.ts` would bring React and the icon set into that page. The new entry
-  in the sidebar's head is drawn in `icons.ts` in Phosphor's line, a rounded
-  square with a slim pencil as Notion's and Apple's apps draw it, because
-  Phosphor's has sharp corners. A choice of a few is a tray of the hover tint
-  with the picked one raised on the popover ground, which slides to a new pick
-  in 200ms. In the app it is always `Segmented`, the theme's included: its
-  indicator keeps its own transition while mantine turns them all off for a new
-  theme ([quirks](../quirks.md#react-mantine-and-the-editor)). The theme
-  buttons of a page of the command line slide the same way.
+  it in, whose own yellow read as a warning, and in focus lifts the way the
+  find bar of a note sits: the ground of a popover and the medium shadow of the
+  theme, with no ring, in both themes. A blue ring on the gray sidebar read as
+  a field of another app, and the light theme ringed in blue what the dark one
+  drew as a lighter line, one state drawn two ways. A row a name is typed into
+  lifts the same way in the tree, over the sidebar's gray. In a folder's table
+  and in a phone's list it does not: the field is plain text and the whole row
+  takes the hover tint, as a lifted field with its shadow stuck out of the row
+  and broke the rhythm of the lines, and a ring glared across the page. The
+  tint is the hover's and not the picked row's gray, which read as a picked
+  row. A phone draws that row from edge to edge ([phone](phone.md)). The
+  keyboard's focus on a grid of the editor lifts the same way too. The accent
+  is spent the way Notion spends it, read off its own pages: the one main
+  button and a toggle that is on, and on a phone the current tab of the bar
+  ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)); the search field has
+  no ring, the back link and Cancel are plain text, and a main button that
+  cannot be pressed yet fades in its color. The focus of the keyboard is one
+  ring on the chrome, 2px of the accent 2px off the edge, as Mantine draws it:
+  a plain button or link of the chrome takes it from one rule in `global.css`,
+  where the browser drew a ring of its own that differed from control to
+  control. A crumb of the topbar draws it 2px inside its edge, as the row of
+  crumbs clips what is outside it, and so does a tab of a phone's bar, as the
+  edge of the screen would clip the first, the last and the bottom of each, and
+  so do the way back and the Save of a phone's bars, which have 2px of the bar
+  above them. The note's own controls in `markdown.css` and the mini outline
+  draw theirs to fit their box. The Save of a phone's editor is the exception:
+  a word and not a filled button, it is the faint gray of a disabled tab while
+  there is nothing to save, so the accent appears only with a change
+  ([ADR 29](../adr/0029-the-phone-editor-bars.md)). The light theme spends it
+  the way macOS does on two more things: a link in a note, which the dark theme
+  draws in the text's color, and the menu row under the pointer, filled with
+  the accent and lettered white, which in the dark is the hover tint. A tap
+  latches the hover, so a touch screen keeps the tint in both. A menu has 10px
+  corners and the theme's shadow, a dialog 12px; a translucent menu ground
+  blurs what is under it, as a menu of macOS does. Icons are Phosphor's regular
+  weight at 20px, 16px in menus. The other sizes are named in `layout` of
+  `web/src/theme.ts`, each for its own place: 22px in the tabs of a phone's bar
+  and in the 44px tools over a phone's keyboard
+  ([ADR 29](../adr/0029-the-phone-editor-bars.md)), 26px on the New tiles, 18px
+  in the desktop's formatting toolbar, 15px in the heads of a folder's list and
+  14px in small marks such as the sync badge; an empty state draws 32px. The
+  current tab of a phone's bar draws its icon filled
+  ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)). `web/src/icons.ts`
+  is the one place that says which drawing each one is: Notion's own set cannot
+  be taken, and Phosphor is the open one closest to it. A build keeps only the
+  weights the app draws ([frontend](../design/frontend.md#build-and-release)).
+  The note's own controls are the one exception: the picture viewer in
+  `web/src/reader/viewer.ts` and the buttons and marks of `markdown.css` are
+  plain DOM and CSS, and run on a page of the command line too, which carries
+  no React, so they write their few drawings themselves; `icons.ts` would bring
+  React and the icon set into that page. The compose icon in the sidebar's head
+  is drawn in `icons.ts` in Phosphor's line, a rounded square with a slim
+  pencil as Notion's and Apple's apps draw it, because Phosphor's has sharp
+  corners. A choice of a few is a tray of the hover tint with the picked one
+  raised on the popover ground, which slides to a new pick in 200ms. In the app
+  it is always `Segmented`, the theme's included: its indicator keeps its own
+  transition while mantine turns them all off for a new theme
+  ([quirks](../quirks.md#react-mantine-and-the-editor)). The theme buttons of a
+  page of the command line slide the same way.
 - A status the topbar shows with no facts behind it, a calm sync state or the
   offline mark, opens a small dark tip under its button rather than a popover:
   `StatusTip`, Notion's tooltip: 6px by 10px of padding, the medium radius and
@@ -78,12 +103,12 @@ Colors, controls and type: how a note and the chrome are drawn.
   dialog sets a height of its own: the editor's gave its buttons the 44px of an
   icon button on every screen, and they stood taller than the buttons of every
   other dialog. A dialog or a drawer with a title keeps 4px between the title
-  and what comes first under it, the room of a focus ring outside a field or a
-  button, so the ring of a field right under the title shows whole. The 4px are
-  taken from the bottom padding and the least height of the title, so the title
-  and the room together are as tall as a Mantine title alone, with a close
-  button or without. The Outline sheet sets the padding of its title itself, so
-  it leaves the bottom one at 0. One with no title gets no room, as nothing is
+  and what comes first under it, the room of a focus ring outside a button, so
+  the ring of a button right under the title shows whole. The 4px are taken
+  from the bottom padding and the least height of the title, so the title and
+  the room together are as tall as a Mantine title alone, with a close button
+  or without. The Outline sheet sets the padding of its title itself, so it
+  leaves the bottom one at 0. One with no title gets no room, as nothing is
   drawn over it ([quirks](../quirks.md#react-mantine-and-the-editor)).
 - The dark scheme is Notion's dark: a `#191919` page, a `#202020` sidebar and
   `#f0efed` text. Bold there is 700 instead of 600. Near-white letters on a

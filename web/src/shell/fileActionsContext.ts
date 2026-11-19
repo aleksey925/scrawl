@@ -1,12 +1,9 @@
 import { createContext, useCallback, useContext, type MutableRefObject } from 'react';
 import { useLocation } from 'react-router';
 
-import type { EntryKind } from '../api/types';
-
 import { contentPathOf } from './naming';
 
-export interface TreeDraft {
-  kind: EntryKind;
+export interface FolderDraft {
   parent: string;
 }
 
@@ -20,7 +17,8 @@ export interface Renaming {
 }
 
 export interface FileActions {
-  createDraft: (kind: EntryKind, folder: string) => void;
+  newNote: (folder: string) => void;
+  newFolder: (parent: string) => void;
   renaming: Renaming | undefined;
   startRename: (path: string, isDir: boolean, place: RenamePlace) => void;
   endRename: (id: number) => void;
@@ -30,10 +28,10 @@ export interface FileActions {
   remove: (path: string) => void;
   copyLink: (path: string, isDir: boolean) => void;
   moveInto: (paths: readonly string[], folder: string) => void;
-  draft: TreeDraft | undefined;
+  draft: FolderDraft | undefined;
   submitDraft: (name: string) => Promise<boolean>;
   cancelDraft: () => void;
-  createEntry: (draft: TreeDraft, name: string) => Promise<boolean>;
+  createFolder: (parent: string, name: string) => Promise<boolean>;
 }
 
 export const FileActionsContext = createContext<FileActions | undefined>(undefined);

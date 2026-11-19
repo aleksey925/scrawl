@@ -42,7 +42,7 @@ func TestAppShell(t *testing.T) {
 			// assert
 			require.Equal(t, http.StatusOK, resp.status)
 			assert.Contains(t, resp.header.Get("Content-Type"), "text/html")
-			assert.Contains(t, body, `<div id="scrawl-app-root" data-base="`+ts.prefix()+`" data-version="`+ts.Version+`">`+"\n"+`<div class="scrawl-splash" aria-hidden="true"><svg xmlns=`)
+			assert.Contains(t, body, `<div id="scrawl-app-root" data-base="`+ts.prefix()+`" data-version="`+ts.Version+`"></div>`)
 			if tc.scheme == "" {
 				assert.NotContains(t, body, "data-mantine-color-scheme")
 				assert.NotContains(t, body, "data-scrawl-theme")
@@ -98,6 +98,21 @@ func TestAppShellLoadsTheBuiltBundle(t *testing.T) {
 	for _, tag := range regexp.MustCompile(`<script[^>]*>`).FindAllString(body, -1) {
 		assert.Contains(t, tag, "src=", "inline script in the app shell")
 	}
+}
+
+func TestAppShellPreloadsNoPageOfTheRoute(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	preloads := regexp.MustCompile(`<link rel="modulepreload"[^>]*>`)
+	_, root := ts.do(t, request{path: "/"})
+
+	// act
+	resp, body := ts.do(t, request{path: "/edit/guide.md"})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, preloads.FindAllString(root, -1), preloads.FindAllString(body, -1))
+	assert.NotContains(t, body, "EditPage")
 }
 
 func TestShellCSSLinksTheImportedChunksAfterTheEntry(t *testing.T) {

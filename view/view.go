@@ -68,6 +68,7 @@ type DirEntry struct {
 	FolderPage bool      `json:"folder_page,omitempty"`
 	Items      int       `json:"items,omitempty"`
 	EditURL    string    `json:"edit_url,omitempty"`
+	RunPath    string    `json:"run_path,omitempty"`
 }
 
 type File struct {
@@ -81,6 +82,7 @@ type File struct {
 	RawURL      string    `json:"raw_url"`
 	Rev         string    `json:"rev,omitempty"`
 	EditURL     string    `json:"edit_url,omitempty"`
+	RunURL      string    `json:"run_url,omitempty"`
 	Language    string    `json:"language,omitempty"`
 	Lines       int       `json:"lines,omitempty"`
 	HTML        string    `json:"html,omitempty"`
@@ -91,8 +93,6 @@ type NavNode struct {
 	Path       string    `json:"path"`
 	URL        string    `json:"url"`
 	IsDir      bool      `json:"is_dir"`
-	Active     bool      `json:"active"`
-	Current    bool      `json:"current"`
 	FolderPage bool      `json:"folder_page,omitempty"`
 	Children   []NavNode `json:"children"`
 }
@@ -158,7 +158,7 @@ type Editable func(store.FileInfo) bool
 
 func NotEditable(store.FileInfo) bool { return false }
 
-type Count func(dir string) (int, error)
+type Count func(dir string) (store.DirCount, error)
 
 func DirEntries(entries []store.FileInfo, count Count, editable Editable) []DirEntry {
 	index := IndexOf(entries)
@@ -167,11 +167,15 @@ func DirEntries(entries []store.FileInfo, count Count, editable Editable) []DirE
 		target := ContentURL(ent.Path)
 		items := 0
 		edit := ""
+		run := ""
 		switch {
 		case ent.IsDir:
 			target = DirURL(ent.Path)
-			if n, err := count(ent.Path); err == nil {
-				items = n
+			if counted, err := count(ent.Path); err == nil {
+				items = counted.Items
+				if counted.HasAppIndex {
+					run = path.Join(ent.Path, store.AppIndex)
+				}
 			}
 		case editable(ent):
 			edit = EditURL(ent.Path)
@@ -186,6 +190,7 @@ func DirEntries(entries []store.FileInfo, count Count, editable Editable) []DirE
 			FolderPage: index != "" && ent.Path == index,
 			Items:      items,
 			EditURL:    edit,
+			RunPath:    run,
 		})
 	}
 	return res
@@ -213,31 +218,28 @@ func IndexOfNode(node *store.Node) string {
 	return IndexOf(infos)
 }
 
-func Nav(root *store.Node, current string) []NavNode {
+func Nav(root *store.Node) []NavNode {
 	index := IndexOfNode(root)
 	res := make([]NavNode, 0, len(root.Children))
 	for _, child := range root.Children {
 		if !child.InNavTree() {
 			continue
 		}
-		node := navNodeOf(child, current)
+		node := navNodeOf(child)
 		node.FolderPage = index != "" && child.Path == index
 		res = append(res, node)
 	}
 	return res
 }
 
-func navNodeOf(node *store.Node, current string) NavNode {
+func navNodeOf(node *store.Node) NavNode {
 	res := NavNode{Name: node.Name, Path: node.Path, IsDir: node.IsDir}
 	if node.IsDir {
-		res.Current = current == node.Path
-		res.Active = res.Current || strings.HasPrefix(current, node.Path+"/")
 		res.URL = DirURL(node.Path)
-		res.Children = Nav(node, current)
+		res.Children = Nav(node)
 		return res
 	}
 	res.URL = ContentURL(node.Path)
-	res.Current = node.Path == current
 	res.Children = []NavNode{}
 	return res
 }
@@ -306,6 +308,8 @@ func DirURL(p string) string {
 }
 
 func EditURL(p string) string { return "/edit/" + EncodePath(p) }
+
+func RunURL(p string) string { return "/run/" + EncodePath(p) }
 
 func EncodePath(p string) string {
 	segments := strings.Split(p, "/")

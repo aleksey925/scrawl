@@ -120,6 +120,32 @@ test.describe('formatting', () => {
         await expect.poll(() => sourceText(page)).toBe(formatted);
     });
 
+    test('a save the server could not format says it was saved without formatting', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/format-failed.md`;
+        writeFixture(docPath, 'начало\n');
+        await signIn(page, {from: routes.edit(docPath)});
+        await expect.poll(() => sourceText(page)).toBe('начало\n');
+        await page.route(`**${routes.api(`/file/${docPath}`)}`, async (route) => {
+            if (route.request().method() !== 'PUT') {
+                await route.continue();
+                return;
+            }
+            const response = await route.fetch();
+            await route.fulfill({response, json: {...(await response.json()), format_failed: true}});
+        });
+        await setSource(page, 'дальше\n');
+
+        // act
+        await save(page);
+
+        // assert
+        const warning = page.locator('[data-testid=toast][data-kind="warn"]');
+        await expect(warning).toContainText('Saved without formatting');
+        await expect(warning).toContainText('Prettier could not format this note, so it is stored as written.');
+        await expect(editorStatus(page)).toHaveText(text.status.saved);
+    });
+
     test('a write through the API is formatted with no editor in the way', async ({page}) => {
         // arrange
         const docPath = `${FOLDER}/api.md`;
@@ -148,6 +174,58 @@ test.describe('formatting', () => {
         await expect.poll(() => sourceText(page)).toBe(formatted);
         await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'true');
         expect(readFixture(docPath)).toBe(rough);
+    });
+
+    test('the code plugins of prettier load only once the text has a fence that names a language', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/no-fence.md`;
+        writeFixture(docPath, '#  Заголовок\n');
+        const codeChunks = [];
+        page.on('request', (request) => {
+            const name = new URL(request.url()).pathname.split('/').pop();
+            if (name === 'babel.js' || name === 'typescript.js') {
+                codeChunks.push(name);
+            }
+        });
+        await signIn(page, {from: routes.edit(docPath)});
+        await expect.poll(() => sourceText(page)).toBe('#  Заголовок\n');
+        await page.getByTestId('editor-toolbar-format').click();
+        await expect.poll(() => sourceText(page)).toBe('# Заголовок\n');
+        const beforeFence = [...codeChunks];
+
+        // act
+        await setSource(page, '```json\n{"a":1}\n```\n');
+        await page.getByTestId('editor-toolbar-format').click();
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe('```json\n{ "a": 1 }\n```\n');
+        expect({beforeFence, afterFence: [...codeChunks].sort()}).toEqual({beforeFence: [], afterFence: ['babel.js', 'typescript.js']});
+    });
+
+    test('a fence with no language loads no code plugins, and a tilde fence that names one does', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/plain-fence.md`;
+        writeFixture(docPath, '#  Заголовок\n\n```\nplain\n```\n');
+        const codeChunks = [];
+        page.on('request', (request) => {
+            const name = new URL(request.url()).pathname.split('/').pop();
+            if (name === 'babel.js' || name === 'typescript.js') {
+                codeChunks.push(name);
+            }
+        });
+        await signIn(page, {from: routes.edit(docPath)});
+        await expect.poll(() => sourceText(page)).toBe('#  Заголовок\n\n```\nplain\n```\n');
+        await page.getByTestId('editor-toolbar-format').click();
+        await expect.poll(() => sourceText(page)).toBe('# Заголовок\n\n```\nplain\n```\n');
+        const plainFence = [...codeChunks];
+
+        // act
+        await setSource(page, '~~~ts\nconst a={b:1}\n~~~\n');
+        await page.getByTestId('editor-toolbar-format').click();
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe('```ts\nconst a = { b: 1 };\n```\n');
+        expect({plainFence, tildeFence: [...codeChunks].sort()}).toEqual({plainFence: [], tildeFence: ['babel.js', 'typescript.js']});
     });
 
     test('the shortcut formats the buffer and one undo takes it back', async ({page}) => {

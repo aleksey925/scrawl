@@ -189,6 +189,9 @@ function MovePicker({
             aria-label={`Move ${name} to a folder`}
             autoComplete="off"
             spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            enterKeyHint="go"
             onChange={(event) => setText(event.currentTarget.value)}
             onKeyDown={onKeyDown}
           />

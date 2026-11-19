@@ -179,10 +179,15 @@ test.describe('search', () => {
         await expect(counter).toHaveAttribute('data-total', String(await hits.count()));
         await shot(page, 'search-jump-to-match');
 
+        const active = page.locator('[data-testid=find-hit][data-active="true"]');
         await page.getByTestId('doc-find-next').click();
         await expect(counter).toHaveAttribute('data-position', '2');
+        await expect(active).toHaveCount(1);
+        await expect(hits.first()).toHaveAttribute('data-active', 'false');
         await page.getByTestId('doc-find-prev').click();
         await expect(counter).toHaveAttribute('data-position', '1');
+        await expect(active).toHaveCount(1);
+        await expect(hits.first()).toHaveAttribute('data-active', 'true');
 
         await page.getByTestId('doc-find-close').click();
         await expect(page.getByTestId('doc-find')).toHaveCount(0);

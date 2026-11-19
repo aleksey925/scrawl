@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type ComponentType, type JSX, type RefObject } from 'react';
+import { Fragment, useEffect, useRef, useState, type ComponentType, type JSX, type ReactNode, type RefObject } from 'react';
 
 import {
   IconBold,
@@ -51,6 +51,8 @@ export interface ToolbarProps {
   onToc: () => void;
   tableMenu: TableMenuProps;
   onFormat: (() => void) | undefined;
+  iconSize?: number;
+  children?: ReactNode;
 }
 
 interface HiddenEnds {
@@ -85,7 +87,15 @@ function useHiddenEnds(): [RefObject<HTMLDivElement | null>, HiddenEnds] {
   return [ref, ends];
 }
 
-export function Toolbar({ onAction, onPickImage, onToc, tableMenu, onFormat }: ToolbarProps): JSX.Element {
+export function Toolbar({
+  onAction,
+  onPickImage,
+  onToc,
+  tableMenu,
+  onFormat,
+  iconSize = layout.iconSizeTool,
+  children,
+}: ToolbarProps): JSX.Element {
   const [stripRef, hidden] = useHiddenEnds();
 
   return (
@@ -103,24 +113,26 @@ export function Toolbar({ onAction, onPickImage, onToc, tableMenu, onFormat }: T
           {index > 0 && <span className={classes.toolSeparator} aria-hidden />}
           {tools.map(({ action, label, Icon }) => (
             <ToolButton key={action} testId={`editor-toolbar-${action}`} label={label} onClick={() => onAction(action)}>
-              <Icon size={layout.iconSizeTool} />
+              <Icon size={iconSize} />
             </ToolButton>
           ))}
         </Fragment>
       ))}
-      <TableMenu {...tableMenu} />
+      <TableMenu {...tableMenu} iconSize={iconSize} />
       <span className={classes.toolSeparator} aria-hidden />
       <ToolButton testId="editor-toolbar-image" label="Upload image" onClick={onPickImage}>
-        <IconPhoto size={layout.iconSizeTool} />
+        <IconPhoto size={iconSize} />
       </ToolButton>
       <ToolButton testId="editor-toolbar-toc" label="Insert table of contents" onClick={onToc}>
-        <IconToc size={layout.iconSizeTool} />
+        <IconToc size={iconSize} />
       </ToolButton>
       {onFormat !== undefined && (
         <ToolButton testId="editor-toolbar-format" label="Format with prettier" onClick={onFormat}>
-          <IconWand size={layout.iconSizeTool} />
+          <IconWand size={iconSize} />
         </ToolButton>
       )}
+      {children !== undefined && <span className={classes.toolSeparator} aria-hidden />}
+      {children}
     </div>
   );
 }

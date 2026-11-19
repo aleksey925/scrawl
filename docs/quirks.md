@@ -9,6 +9,10 @@ words; the fact itself is written here.
 
 - A long press sends no `contextmenu`, so a row times the press itself.
   [Sidebar](ui/sidebar.md)
+- Safari on an iPhone blurred the run screen's bar of an HTML app while the bar
+  sat in the page's flow; the topbar of the other screens, fixed to the top,
+  never showed it. The fixed bar is the fix; not yet checked on a real iPhone
+  here. [Phone](ui/phone.md)
 - A field whose text is under 16px zooms the page when it takes the focus and
   never zooms back. [Touch](ui/touch.md)
 - `:active` is drawn only when the document has a `touchstart` listener.
@@ -23,8 +27,34 @@ words; the fact itself is written here.
   [Phone](ui/phone.md)
 - With the bars of mobile Safari out, a picture capped in `vh` and its caption
   stood taller than the dialog. [Pages](ui/pages.md)
+- iOS locks no axis in a box that scrolls both ways, so a swipe up drifts
+  sideways with the finger. A box that scrolls one way inside a box that
+  scrolls the other gives each swipe to one of them. [Editor](ui/editor.md),
+  [History](design/history.md)
+- iOS 27 runs JavaScript and WebAssembly with no JIT on a page that is not a
+  secure context, such as `http://` to a LAN address: Enhanced Security, by
+  design ([WebKit bug 324968](https://bugs.webkit.org/show_bug.cgi?id=324968)).
+  A note with C4 PlantUML diagrams, opened that way from a computer on the same
+  network, froze the app for many seconds, and ran smoothly over `https://` or
+  with the feature flag `Enable EnhancedSecurity Heuristics` off. Speed on a
+  phone is measured over `https://` or with that flag off.
+- A `touchmove` listener on the document with `passive: false` makes a scroll
+  wait for the main thread. The app from the home screen has one for its swipe
+  back (`useSwipeBack` in `web/src/shell/useSwipeBack.ts`), so a long script
+  stops its scrolling, while a tab of Safari, with no such listener, keeps
+  scrolling and only lags. [Phone](ui/phone.md)
 
 ## WebKit
+
+- The `localStorage` of a frame whose origin is not the page's lives in memory
+  only, even on a subdomain of the page's site: `canAccessResource` compares
+  origins, and `localStorageArea` then takes the transient namespace. On an
+  iPhone, in Safari and in an app from the home screen, an HTML app's choices
+  in the frame were there after Back and Run, and gone once the app was closed;
+  in Safari on a Mac they were gone after a reload of the page; in a tab of its
+  own they stayed. In an app from the home screen a tab of its own is a browser
+  view over the app, with reload and close.
+  [HTML apps](design/html-apps.md#safari)
 
 - A page just put in is painted once at rest before an animation takes it, so
   the start of a move is also held inline. [Phone](ui/phone.md)
@@ -41,9 +71,15 @@ words; the fact itself is written here.
   element fixed to the page moves with it. React renders a state set in a
   scroll listener after the frame is drawn, so the element is seen in the wrong
   place for a frame. [Phone](ui/phone.md)
+- With the keyboard up, a scrolling box as tall as the page runs under the
+  keys, and a drag in it moves either the box or the visible area across the
+  page. [Editor](ui/editor.md)
 - The click a browser sends after a touch end lands on what is under the finger
   by then, so when the touch end closed a menu, the click goes to what the menu
   covered. [Editor](ui/editor.md)
+- A touch's moves and its end go to the element it started on, even after that
+  element is removed from the page, and then no longer reach the document.
+  [Phone](ui/phone.md)
 - A finger that only starts a scroll sends `pointerdown` too, so only the
   `click` after it tells a tap. [Touch](ui/touch.md)
 - A tap on text that takes no focus may leave a field focused, with no blur.
@@ -52,6 +88,8 @@ words; the fact itself is written here.
 
 ## Browsers
 
+- Not every browser passes a dialog's custom properties on to its `::backdrop`;
+  where it does not, the backdrop reads none of them. [Pages](ui/pages.md)
 - A plain http page that is not localhost has no clipboard api.
   [Frontend](design/frontend.md)
 - A page cannot read a drag's data during `dragover`. [Entries](ui/entries.md)
@@ -69,10 +107,21 @@ words; the fact itself is written here.
 - A scroll event says an element moved, never who moved it, and the echo of a
   programmatic scroll arrives a frame later.
   [Editor position](design/editor-position.md)
+- Chromium keeps a failed `import()` of a module for the life of the page:
+  importing it again fails at once and sends no request.
+  [Frontend](design/frontend.md)
+- Vite asks for a stylesheet a dynamic import needs once per page: when it
+  failed, the next import of the same chunk loads the script without it, and an
+  import made while it is still on its way does not wait for it. And
+  `vite:preloadError` carries only the error, not the import it came from.
+  [Frontend](design/frontend.md)
 - `overflow-x: hidden` makes an element a scroll container, and every sticky
   bar inside it stops sticking; `clip` does not. [Phone](ui/phone.md)
 - A fixed element inside a scaled element is placed in that element.
   [Touch](ui/touch.md)
+- The pictures of a View Transition are drawn in the top layer, above every
+  fixed bar of the page, and the page is not drawn again until the promise of
+  its update settles. [ADR 32](adr/0032-a-swiped-page-leaves-as-a-copy.md)
 - A word joiner (U+2060) keeps a letter with the next letter, but Chromium and
   WebKit still break a line between it and an inline box, an icon say, unless
   the joiner and the box share a `white-space: nowrap` element.
@@ -95,6 +144,32 @@ words; the fact itself is written here.
   open, and a `register()` of the same script from that page brings it back
   with no install, so the caches deleted with it stay empty.
   [Offline copy](design/offline.md#on-and-off)
+- HTML apps, checked in Chromium 153, the one Playwright drives; Firefox only
+  for a frame over plain http, and Safari only for the storage of a frame,
+  under WebKit above. [HTML apps](design/html-apps.md)
+  - A frame from `http://172.30.0.2` to `http://app-<id>.apps.home.lan`, in
+    Chromium and Firefox: its enter request carried no `Sec-Fetch-Site` or
+    `Sec-Fetch-Dest`, and the `Lax` cookie it set was dropped as cross-site,
+    which Firefox says in its console. In a tab of its own the same cookie was
+    kept. [HTML apps](design/html-apps.md#plain-http-on-a-network)
+  - A page at `127.0.0.1` opens `app-<id>.localhost` and
+    `app-<id>.scrawl.localhost`: Chromium sends every `*.localhost` name to the
+    loopback itself.
+  - A frame from `127.0.0.1` to `app-<id>.localhost` is cross-site. The cookie
+    `SameSite=None; Secure; Partitioned` the frame's page sets over plain http
+    is kept and sent on the frame's own requests, and the app's `localStorage`
+    keeps across a reload of the page around the frame.
+  - In that cross-site frame a service worker of the frame's origin, with
+    `Service-Worker-Allowed: /` and the scope `/`, registers and controls the
+    frame, but its own fetches carry no cookie of the origin, the partitioned
+    one: every request of the worker got a 401. In a same-site frame, from
+    `scrawl.localhost` to `app-<id>.scrawl.localhost`, its fetches carry the
+    `Lax` cookie. So scrawl keeps an app offline only in a same-site frame.
+    [HTML apps](design/html-apps.md#offline)
+  - A worker of the app that waits behind another one becomes active once the
+    last page of the app is closed, a frame included: a second run from the
+    same tab closes the frame first, so only a run in a second tab finds it
+    still waiting.
 
 ## Firefox and Chromium from disk
 
@@ -148,6 +223,13 @@ words; the fact itself is written here.
 - `PopupMenu` uses `floatingStrategy="fixed"`: a menu placed in the page moved
   the page, because the focus it takes on opening scrolled to where it stood
   before it was placed.
+- codemirror marks every `Escape` in its text as handled, `defaultPrevented` on
+  the document, as it turns on its own mode where Tab moves the focus, and
+  binds `Mod-Enter` to a new line. A key of the app over the text listens in
+  the capture phase, before it. [editor](ui/editor.md)
+- react-codemirror sets the whole editor up again whenever `basicSetup`,
+  `extensions`, `theme`, `onChange` or `onUpdate` is a new object, so each of
+  them is made once, outside the render, or memoized.
 - react-codemirror wraps the editor in a div with `display: block` and no
   height, so the stylesheet makes that div a flex child, or the editor grows to
   the whole document and nothing scrolls.
@@ -160,8 +242,18 @@ words; the fact itself is written here.
 - React Router asks a blocker once, as a navigation starts, not while the code
   of the next page loads, so a change made in that time passes the guard on
   leaving. [Editor](ui/editor.md)
-- A phone that puts a tab away and later drops it fires no `beforeunload`, so a
-  draft is also saved on `pagehide`.
+- `EditorState.readOnly` of codemirror stops only what the person types, pastes
+  or drops: a change the code dispatches still goes in, so each toolbar action,
+  the contents, the formatter and a picture's upload first check that the state
+  is not read-only. [Editor](ui/editor.md)
+- `router.state.location` of React Router holds the path with the basename,
+  `/s/<name>/doc/...`, while `useLocation` and every link of the app hold it
+  without. [Phone](ui/phone.md)
+- React Router calls a route's `lazy` before it sets `router.state.navigation`,
+  so code that reads the navigation inside the call sees none and does not know
+  the address the click was going to. [Frontend](design/frontend.md)
+- A phone that puts a tab away and later drops it fires no `beforeunload`.
+  [Editor](ui/editor.md)
 - A paste that carries `text/plain` is never taken as a picture: Word and Excel
   put a picture on the clipboard beside the text.
 - Rolldown names a chunk after its file, so the index of every codemirror

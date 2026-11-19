@@ -49,7 +49,7 @@ export function useMe(): MeState {
         meAnswered();
         releaseAnswered(res.version);
         if (generation.current === mine) {
-          setMe(res);
+          setMe((prev) => (prev !== undefined && JSON.stringify(prev) === JSON.stringify(res) ? prev : res));
         }
       })
       .catch((error: unknown) => {

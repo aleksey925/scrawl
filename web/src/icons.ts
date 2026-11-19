@@ -5,6 +5,7 @@ export type { Icon } from '@phosphor-icons/react';
 
 export {
   ArrowBendUpRightIcon as IconMoveTo,
+  ArrowSquareOutIcon as IconOpenOutside,
   ArrowUDownLeftIcon as IconTextWrap,
   ArrowUpIcon as IconArrowUp,
   ArrowsHorizontalIcon as IconTextWrapDisabled,
@@ -54,6 +55,7 @@ export {
   MoonIcon as IconMoon,
   PencilSimpleIcon as IconPencil,
   PencilSimpleLineIcon as IconEdit,
+  PlayIcon as IconPlay,
   PlusIcon as IconPlus,
   QuotesIcon as IconQuote,
   RowsIcon as IconRows,

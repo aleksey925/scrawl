@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 import { changeSignal } from '../changeSignal';
+import { iosHomeScreenApp } from '../homeScreen';
 import { localStore, readText, writeText } from '../storage';
 
 const choiceKey = 'scrawl.offline';
@@ -11,9 +12,8 @@ export function offlineSupported(): boolean {
   return window.isSecureContext && 'serviceWorker' in navigator && 'caches' in window && 'locks' in navigator;
 }
 
-function standalone(): boolean {
-  const apple = (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return apple || window.matchMedia('(display-mode: standalone)').matches;
+function installedApp(): boolean {
+  return iosHomeScreenApp() || window.matchMedia('(display-mode: standalone)').matches;
 }
 
 export function offlineWanted(): boolean {
@@ -21,7 +21,7 @@ export function offlineWanted(): boolean {
     return false;
   }
   const choice = readText(localStore(), choiceKey);
-  return choice === undefined ? standalone() : choice === 'on';
+  return choice === undefined ? installedApp() : choice === 'on';
 }
 
 export function setOfflineChoice(on: boolean): void {

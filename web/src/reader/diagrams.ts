@@ -1,5 +1,6 @@
 import type { MermaidConfig } from 'mermaid';
 
+import { screenSettled } from '../motion';
 import type { Platform } from '../platform';
 import { isPlainClick } from './links';
 import { track } from './pending';
@@ -30,6 +31,12 @@ interface Diagram {
 type Drawn = { item: Diagram; svg: SVGElement } | { item: Diagram; error: string };
 
 const errorLimit = 200;
+
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve);
+  });
+}
 
 let pass = 0;
 
@@ -277,20 +284,37 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
   let cancelled = false;
   pass += 1;
   const thisPass = pass;
+  let turn = Promise.resolve();
+  const drawInTurn = (item: Diagram, draw: Draw | undefined, id: string): Promise<void> => {
+    const mine = turn.then(async () => {
+      await screenSettled();
+      if (cancelled) {
+        return;
+      }
+      const result = await drawOne(draw, item, id);
+      await screenSettled();
+      if (cancelled) {
+        return;
+      }
+      preserveScroll(root, () => place(result));
+      await nextTask();
+    });
+    turn = mine.catch(() => {});
+    return mine;
+  };
   const drawKind = async (kind: Kind): Promise<void> => {
+    await screenSettled();
+    if (cancelled) {
+      return;
+    }
     const draw = await prepare(kind, loaders, dark);
     for (const [index, item] of diagrams.entries()) {
       if (cancelled) {
         return;
       }
-      if (item.kind !== kind) {
-        continue;
+      if (item.kind === kind) {
+        await drawInTurn(item, draw, `md-${kind.name}-${thisPass}-${index}`);
       }
-      const result = await drawOne(draw, item, `md-${kind.name}-${thisPass}-${index}`);
-      if (cancelled) {
-        return;
-      }
-      preserveScroll(root, () => place(result));
     }
   };
   const kinds = Array.from(new Set(diagrams.map((item) => item.kind)));

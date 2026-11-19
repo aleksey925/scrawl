@@ -3,7 +3,7 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    SHARED, fixtureFile, routes, save, shot, signIn, sourceText, writeFixture,
+    MAIN, SHARED, fixtureFile, holdRoute, routes, save, shot, signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -101,5 +101,63 @@ test.describe.serial('upload', () => {
         expect(fs.existsSync(fixtureFile('attachments/e2e-shared.png', SHARED))).toBe(true);
         expect(fs.existsSync(fixtureFile(`${FOLDER}/shared`, SHARED))).toBe(false);
         await shot(page, 'upload-shared-dir');
+    });
+
+    test('leaving while a picture uploads asks Discard changes, and Keep editing lets the link land', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/leave-uploading.md`;
+        writeFixture(docPath, '# Загрузка\n\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toContain('Загрузка');
+        const {release, reached} = await holdRoute(page, '**/api/upload/**');
+        await page.locator('[data-testid=editor-source] .cm-content').click();
+        await sendFile(page, 'paste', 'e2e-leave-uploading.png');
+        await reached;
+
+        // act & assert
+        await page.getByTestId('editor-cancel').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
+        await expect(page.getByTestId('modal')).toHaveText(text.modal.discardUploading);
+        await page.getByTestId('modal-cancel').click();
+        await expect(page).toHaveURL(MAIN.url.edit(docPath));
+        release();
+        await expect.poll(() => sourceText(page)).toContain('![](leave-uploading/e2e-leave-uploading.png)');
+    });
+
+    test('Discard while a picture uploads stops the typing, the toolbar and the draft while the reader loads', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/discard-uploading.md`;
+        writeFixture(docPath, '# Сброс\n\n');
+        const reader = await holdRoute(page, '**/assets/DocumentPage.js');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toContain('Сброс');
+        const upload = await holdRoute(page, '**/api/upload/**');
+        await page.locator('[data-testid=editor-source] .cm-content').click();
+        await sendFile(page, 'paste', 'e2e-discard-uploading.png');
+        await upload.reached;
+        const before = await sourceText(page);
+        await page.getByTestId('editor-cancel').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
+
+        // act
+        await page.getByTestId('modal-confirm').click();
+        await expect(page.getByTestId('modal')).toHaveCount(0);
+        await page.locator('[data-testid=editor-source] .cm-content').click();
+        await page.keyboard.type('typed after Discard');
+        await page.getByTestId('editor-toolbar-bold').click();
+        await page.getByTestId('editor-upload-input').setInputFiles({
+            name: 'e2e-picked-after-discard.png',
+            mimeType: 'image/png',
+            buffer: Buffer.from(PNG_BASE64, 'base64'),
+        });
+        await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+
+        // assert
+        const drafts = () => page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('scrawl.draft:')));
+        await stays(drafts, [], 1500);
+        expect(await sourceText(page)).toBe(before);
+        reader.release();
+        upload.release();
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
     });
 });

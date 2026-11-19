@@ -11,7 +11,6 @@ type StoredMode = Exclude<LayoutMode, 'changes'>;
 
 export interface LayoutControl {
   mode: LayoutMode;
-  chosen: LayoutMode;
   choose: (mode: LayoutMode) => void;
   split: number;
   setSplit: (fraction: number) => void;
@@ -20,10 +19,6 @@ export interface LayoutControl {
 
 function isStoredMode(value: string | null | undefined): value is StoredMode {
   return value === 'source' || value === 'split' || value === 'preview';
-}
-
-export function isLayoutMode(value: string | null): value is LayoutMode {
-  return isStoredMode(value) || value === 'changes';
 }
 
 function storedSplit(): number {
@@ -55,5 +50,5 @@ export function useEditorLayout(): LayoutControl {
 
   const mode: LayoutMode = wide || chosen !== 'split' ? chosen : 'source';
 
-  return { mode, chosen, choose, split, setSplit, wide };
+  return { mode, choose, split, setSplit, wide };
 }

@@ -9,16 +9,23 @@ import classes from './Editor.module.css';
 const conflictId = 'editor-conflict';
 const sessionId = 'editor-session';
 
-export function confirmLeave(): Promise<boolean> {
+export type DiscardReason = 'uploading' | 'unkept';
+
+const discardReasons: Record<DiscardReason, string> = {
+  uploading: 'A picture is still uploading, so the changes are lost if you leave.',
+  unkept: 'This browser could not keep a draft, so the changes are lost if you leave.',
+};
+
+export function confirmDiscard(reason: DiscardReason): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     modals.openConfirmModal({
-      title: 'Leave without saving?',
+      title: 'Discard changes?',
       children: (
         <Text data-testid="modal" data-variant="confirm" size="sm">
-          Your changes are kept as a local draft, but they are not written to disk.
+          {discardReasons[reason]}
         </Text>
       ),
-      labels: { confirm: 'Leave', cancel: 'Stay' },
+      labels: { confirm: 'Discard', cancel: 'Keep editing' },
       confirmProps: { color: 'red', 'data-testid': 'modal-confirm' },
       cancelProps: { 'data-testid': 'modal-cancel' },
       groupProps: dialogActionsProps,

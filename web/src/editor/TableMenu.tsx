@@ -1,5 +1,5 @@
 import { Menu } from '@mantine/core';
-import { Fragment, useState, type ComponentType, type JSX } from 'react';
+import { Fragment, useEffect, useState, type ComponentType, type JSX } from 'react';
 
 import { PopupMenu } from '../components/PopupMenu';
 import {
@@ -43,11 +43,27 @@ export interface TableMenuProps {
   editsAtCursor: () => ReadonlySet<TableEdit> | undefined;
   onEdit: (edit: TableEdit) => void;
   onInsert: (size: TableSize) => void;
+  onOpenedChange?: (opened: boolean) => void;
+  iconSize?: number;
 }
 
-export function TableMenu({ editsAtCursor, onEdit, onInsert }: TableMenuProps): JSX.Element {
+export function TableMenu({
+  editsAtCursor,
+  onEdit,
+  onInsert,
+  onOpenedChange,
+  iconSize = layout.iconSizeTool,
+}: TableMenuProps): JSX.Element {
   const [opened, setOpened] = useState(false);
   const [edits, setEdits] = useState<ReadonlySet<TableEdit> | undefined>(undefined);
+
+  useEffect(() => {
+    if (!opened) {
+      return undefined;
+    }
+    onOpenedChange?.(true);
+    return () => onOpenedChange?.(false);
+  }, [opened, onOpenedChange]);
 
   return (
     <PopupMenu
@@ -62,7 +78,7 @@ export function TableMenu({ editsAtCursor, onEdit, onInsert }: TableMenuProps): 
     >
       <Menu.Target>
         <ToolButton testId="editor-toolbar-table" label="Table">
-          <IconTable size={layout.iconSizeTool} />
+          <IconTable size={iconSize} />
         </ToolButton>
       </Menu.Target>
       <Menu.Dropdown data-testid="editor-table-menu">

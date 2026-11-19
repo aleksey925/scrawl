@@ -9,7 +9,7 @@ import {
   anchorClass,
   copyClass,
   copyCode,
-  injectCopyButtons,
+  injectCodeControls,
   injectHeadingAnchors,
   pictureKeyed,
   pictureOf,
@@ -60,7 +60,7 @@ window.addEventListener('pageshow', (event) => {
 
 function prepareNote(note: HTMLElement): void {
   injectHeadingAnchors(note);
-  injectCopyButtons(note);
+  injectCodeControls(note);
   wrapTables(note);
   prepareImages(note);
   const timers = new Set<number>();

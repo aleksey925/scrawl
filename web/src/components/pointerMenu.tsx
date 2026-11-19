@@ -2,7 +2,6 @@ import { Menu, type FloatingPosition } from '@mantine/core';
 import { useEffect, useState, type ComponentPropsWithRef, type JSX, type MouseEvent, type ReactPortal } from 'react';
 import { createPortal } from 'react-dom';
 
-import type { EntryKind } from '../api/types';
 import { IconFilePlus, IconFolderPlus } from '../icons';
 import { layout } from '../theme';
 
@@ -98,10 +97,12 @@ export function usePointerMenu<T>(): PointerMenu<T> {
   return { at: place?.at, target: place?.target, opened, setOpened, open, onFreeSpace };
 }
 
+export type NewEntryKind = 'note' | 'folder';
+
 export interface NewEntryMenuProps {
   menu: PointerMenu<string>;
   testId: string;
-  onCreate: (kind: EntryKind, folder: string) => void;
+  onCreate: (kind: NewEntryKind, folder: string) => void;
 }
 
 export function NewEntryMenu({ menu, testId, onCreate }: NewEntryMenuProps): JSX.Element | null {
@@ -125,16 +126,16 @@ export function NewEntryMenu({ menu, testId, onCreate }: NewEntryMenuProps): JSX
       </Menu.Target>
       <Menu.Dropdown data-testid={testId}>
         <FieldMenuItem
-          data-testid={`${testId}-new-file`}
+          data-testid={`${testId}-new-note`}
           leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-          onClick={() => onCreate('file', folder)}
+          onClick={() => onCreate('note', folder)}
         >
-          New file
+          New note
         </FieldMenuItem>
         <FieldMenuItem
           data-testid={`${testId}-new-folder`}
           leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-          onClick={() => onCreate('dir', folder)}
+          onClick={() => onCreate('folder', folder)}
         >
           New folder
         </FieldMenuItem>

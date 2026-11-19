@@ -450,8 +450,49 @@ func TestStoreCount(t *testing.T) {
 
 			// assert
 			require.ErrorIs(t, err, tc.err)
-			assert.Equal(t, len(entries), got)
-			assert.Equal(t, tc.hasEntries, got > 0)
+			assert.Equal(t, len(entries), got.Items)
+			assert.Equal(t, tc.hasEntries, got.Items > 0)
+			assert.False(t, got.HasAppIndex)
+		})
+	}
+}
+
+func TestStoreCountAppIndex(t *testing.T) {
+	tests := []struct {
+		name    string
+		files   map[string]string
+		link    bool
+		exclude []string
+		want    DirCount
+	}{
+		{name: "a plain file", files: map[string]string{"app/index.html": "<p>", "app/a.md": "# a"},
+			want: DirCount{Items: 2, HasAppIndex: true}},
+		{name: "a folder named index.html", files: map[string]string{"app/index.html/": ""},
+			want: DirCount{Items: 1}},
+		{name: "a symlink", files: map[string]string{"app/page.html": "<p>"}, link: true,
+			want: DirCount{Items: 1}},
+		{name: "an excluded name", files: map[string]string{"app/index.html": "<p>"},
+			exclude: []string{AppIndex}, want: DirCount{}},
+		{name: "another case", files: map[string]string{"app/Index.html": "<p>"}, want: DirCount{Items: 1}},
+		{name: "another extension", files: map[string]string{"app/index.htm": "<p>"}, want: DirCount{Items: 1}},
+		{name: "no file", files: map[string]string{"app/a.md": "# a"}, want: DirCount{Items: 1}},
+		{name: "deeper in a subfolder", files: map[string]string{"app/sub/index.html": "<p>"},
+			want: DirCount{Items: 1}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			s := newStore(t, tc.files, func(c *Config) { c.Exclude = tc.exclude })
+			if tc.link {
+				require.NoError(t, os.Symlink("page.html", filepath.Join(s.Dir(), "app", AppIndex)))
+			}
+
+			// act
+			got, err := s.Count("app")
+
+			// assert
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }

@@ -4,7 +4,7 @@ const {expect, test} = require('../support/test');
 
 const docs = require('../support/docs');
 const {
-    DIALOG_TITLE, MAIN, chooseTheme, headingAnchorGeometry, modifier, nameOf, openSpaceMenu, pressShortcut, removeFixture,
+    DIALOG_TITLE, MAIN, chooseTheme, headingAnchorGeometry, mediumShadow, modifier, nameOf, openSpaceMenu, pressShortcut, removeFixture,
     rgb, routes, shot, showOutline, signIn, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -20,6 +20,7 @@ const LAYOUT = 'e2e-layout.md';
 const DIAGRAM = 'e2e-diagram.md';
 const DIAGRAM_VIEWER = 'e2e-diagram-viewer.md';
 const LOOK = 'e2e-look.md';
+const CODE = 'e2e-code.md';
 const TALL = 'e2e-tall.md';
 const TALL_PICTURE = 'e2e-tall.png';
 const HEADINGS = 'e2e-headings.md';
@@ -76,6 +77,7 @@ test.describe('reading', () => {
         removeFixture(TALL);
         removeFixture(TALL_PICTURE);
         removeFixture(HEADINGS);
+        removeFixture(CODE);
     });
 
     test('the root page lists the root folder, its index a row tagged as the folder page', async ({page}) => {
@@ -175,6 +177,35 @@ test.describe('reading', () => {
         await shot(page, 'reading-folder-page');
     });
 
+    test('a folder opened by its address opens its row and the rows above it', async ({page}) => {
+        // act
+        await page.goto(routes.dir(docs.deep.folder));
+
+        // assert
+        await expect(page.getByTestId('dir')).toBeVisible();
+        await expect(page.locator(`[data-testid=tree-row][data-path="${docs.deep.above}"] [data-testid=tree-twisty]`))
+            .toHaveAttribute('data-open', 'true');
+        await expect(page.locator(`[data-testid=tree-row][data-path="${docs.deep.folder}"] [data-testid=tree-twisty]`))
+            .toHaveAttribute('data-open', 'true');
+    });
+
+    test('a link to a note in a closed folder low in the tree scrolls the tree to its row', async ({page}) => {
+        // arrange
+        await page.setViewportSize({width: 1280, height: 360});
+        await page.goto(routes.doc(docs.home.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
+        const target = page.locator(`[data-testid=tree-row][data-path="${docs.lowInTree.path}"]`);
+        await expect(target).toHaveCount(0);
+
+        // act
+        await page.getByTestId('doc').getByRole('link', {name: docs.lowInTree.link, exact: true}).click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docs.lowInTree.path));
+        await expect(target).toHaveAttribute('data-current', 'true');
+        await expect(target).toBeInViewport({ratio: 1});
+    });
+
     test('a right click on a tree row opens its menu and stays on the page', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC.path));
@@ -224,7 +255,7 @@ test.describe('reading', () => {
     });
 
     for (const theme of [lightTheme, darkTheme]) {
-        test(`a field in focus is drawn with the focus ring of the theme, ${theme.scheme}`, async ({page}) => {
+        test(`a field in focus is lifted on the popover ground with no ring, ${theme.scheme}`, async ({page}) => {
             // arrange
             await page.emulateMedia({colorScheme: theme.scheme});
             await page.goto(routes.home());
@@ -234,8 +265,8 @@ test.describe('reading', () => {
             await filter.focus();
 
             // assert
-            const [inner, outer] = [rgb(theme.palette.focusRing), rgb(theme.palette.focusRingOuter)];
-            await expect(filter).toHaveCSS('box-shadow', `${inner} 0px 0px 0px 1px inset, ${outer} 0px 0px 0px 1px`);
+            await expect(filter).toHaveCSS('box-shadow', await mediumShadow(page));
+            await expect(filter).toHaveCSS('background-color', rgb(theme.palette.popover));
             await shot(page, `reading-field-focus-${theme.scheme}`);
         });
     }
@@ -622,14 +653,59 @@ test.describe('reading', () => {
 
         const code = (await block.locator('pre').innerText()).trim();
         const copy = block.getByTestId('code-copy');
-        await expect(copy).toHaveText(text.code.copy);
+        await expect(copy).toHaveAttribute('aria-label', text.code.copy);
         await copy.click();
         await expect(copy).toHaveAttribute('data-done', 'true');
-        await expect(copy).toHaveText(text.code.copied);
+        await expect(copy).toHaveAttribute('aria-label', text.code.copied);
 
         const clipboard = await page.evaluate(() => navigator.clipboard.readText());
         expect(clipboard.trim()).toBe(code);
         await shot(page, 'reading-code-copy');
+    });
+
+    test('a code block with no language says text, and the indicator and the fade show only on a long line', async ({page}) => {
+        // arrange
+        const long = 'x'.repeat(400);
+        writeFixture(CODE, `# Code\n\n\`\`\`\n${long}\n\`\`\`\n\n\`\`\`js\nconst total = sum(items);\n\`\`\`\n`);
+        await page.goto(routes.doc(CODE));
+        const [wide, short] = [page.getByTestId('doc-code').first(), page.getByTestId('doc-code').last()];
+        await expect(wide).toHaveAttribute('data-scroll', 'start');
+        const pre = wide.locator('pre');
+        const fadeAtStart = await pre.evaluate((node) => getComputedStyle(node).maskImage);
+
+        // act
+        await pre.evaluate((node) => node.scrollTo({left: node.scrollWidth}));
+
+        // assert
+        await expect(wide.getByTestId('code-language')).toHaveText('text');
+        await expect(short.getByTestId('code-language')).toHaveText('js');
+        expect(fadeAtStart).toContain('linear-gradient');
+        await expect(wide).toHaveAttribute('data-scroll', 'end');
+        await expect(wide.locator('.md-code-bar')).toBeVisible();
+        await expect(short).toHaveAttribute('data-scroll', 'none');
+        await expect(short.locator('.md-code-bar')).toBeHidden();
+        expect(await short.locator('pre').evaluate((node) => getComputedStyle(node).maskImage)).toBe('none');
+        await shot(page, 'reading-code-blocks');
+    });
+
+    test('the indicator of a long line shows only while the code scrolls', async ({page}) => {
+        // arrange
+        writeFixture(CODE, `# Code\n\n\`\`\`\n${'x'.repeat(400)}\n\`\`\`\n`);
+        await page.goto(routes.doc(CODE));
+        const block = page.getByTestId('doc-code');
+        await expect(block).toHaveAttribute('data-scroll', 'start');
+        const bar = block.locator('.md-code-bar');
+        const opacity = () => bar.evaluate((node) => getComputedStyle(node).opacity);
+        const before = await opacity();
+
+        // act
+        await block.locator('pre').evaluate((node) => node.scrollBy({left: 100}));
+
+        // assert
+        expect(before).toBe('0');
+        await expect(bar).toHaveAttribute('data-shown', 'true');
+        await expect(bar).toHaveAttribute('data-shown', 'false');
+        await expect.poll(opacity).toBe('0');
     });
 
     test('a heading\'s link mark is a regular # of its own font, just under the baseline of its last line', async ({page}) => {
@@ -835,6 +911,19 @@ test.describe('reading', () => {
         await expect(page.getByTestId('shortcuts-group')).toHaveText([
             /^General/, /^Note/, /^Search/, /^Editor/,
         ]);
+    });
+
+    test('the shortcuts name N for a new note, Shift+N for a new folder, and the keys that close the editor', async ({page}) => {
+        // act
+        await pressShortcut(page, '?');
+
+        // assert
+        const general = page.getByTestId('shortcuts-group').filter({hasText: /^General/});
+        await expect(general).toContainText(`${text.create.shortcut}N`);
+        await expect(general).toContainText(`${text.create.folderShortcut}ShiftN`);
+        const editor = page.getByTestId('shortcuts-group').filter({hasText: /^Editor/});
+        await expect(editor).toContainText(new RegExp(`${text.editor.saveAndClose}(⌘|Ctrl)↵`));
+        await expect(editor).toContainText(`${text.editor.closeKeepingDraft}Esc`);
     });
 
     test('the title of the shortcuts, with its close button and the room under it, is as tall as a title alone', async ({page}) => {

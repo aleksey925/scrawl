@@ -5,6 +5,7 @@ import { defineConfig, type ProxyOptions } from 'vite';
 
 import { plantUMLLibraryDir } from './src/plantumlLibrary.ts';
 import { woff2Only } from './vite.fonts.ts';
+import { phosphorWeights } from './vite.icons.ts';
 import { themeStylesheet } from './vite.themes.ts';
 
 const backend = 'http://127.0.0.1:7272';
@@ -47,7 +48,7 @@ function proxy(): Record<string, ProxyOptions> {
 }
 
 export default defineConfig(({ command }) => ({
-  plugins: [react(), themeStylesheet('themes.css'), woff2Only()],
+  plugins: [react(), themeStylesheet('themes.css'), woff2Only(), phosphorWeights()],
 
   base: command === 'build' ? './' : '/',
 

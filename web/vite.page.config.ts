@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
 import { woff2Only } from './vite.fonts.ts';
+import { phosphorWeights } from './vite.icons.ts';
 import { themeStylesheet } from './vite.themes.ts';
 
 const outDir = '../page/assets';
@@ -23,11 +24,11 @@ function entryOf(name: string | undefined): Entry {
 
 const appOnly = [
   /\/src\/editor\//,
-  /\/src\/(offline|sw)\//,
+  /\/src\/(offline|sw|htmlapp)\//,
   /\/src\/api\/client\.ts$/,
   /\/src\/(App|appPlatform|findWorker|routes|main)\.tsx?$/,
-  /\/src\/pages\/(EditPage|HistoryPage|SearchPage)\.tsx$/,
-  /\/src\/shell\/(AppLayout|DocumentExtras|EditButton|ExportMenu|FileActions|FileView|HistoryDialog|NeedsNetwork|NewEntryDialog|NoteMenu|OfflineAccess|OfflineMark|ResetDialog|RowMenu|SearchDialog|SearchResults|SpaceAlerts|SpaceMenu|SyncControl|TabBar|useMe|useMutationState)\.tsx?$/,
+  /\/src\/pages\/(EditPage|HistoryPage|RunPage|SearchPage)\.tsx$/,
+  /\/src\/shell\/(AppLayout|BarEditProvider|DocumentExtras|EditAction|ExportMenu|FileActions|FileView|HistoryDialog|NeedsNetwork|NewTiles|NoteMenu|OfflineAccess|OfflineMark|ResetDialog|RowMenu|SearchDialog|SearchResults|SpaceAlerts|SpaceMenu|SyncControl|TabBar|useMe|useMutationState)\.tsx?$/,
   /\/node_modules\/(@codemirror|@uiw|prettier|mermaid|katex|@plantuml|dompurify)\//,
 ];
 
@@ -53,7 +54,7 @@ function siteFence(): Plugin {
 export default defineConfig(() => {
   const entry = entryOf(process.env['SCRAWL_PAGE_ENTRY']);
   return {
-    plugins: [react(), themeStylesheet(), woff2Only(), ...(entry === 'site' ? [siteFence()] : [])],
+    plugins: [react(), themeStylesheet(), woff2Only(), phosphorWeights(), ...(entry === 'site' ? [siteFence()] : [])],
     publicDir: false,
     build: {
       outDir,

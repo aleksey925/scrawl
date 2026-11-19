@@ -111,8 +111,50 @@
   line-height: 18px;
 }
 
-.draft {
-  background: var(--scrawl-selected);
+.run {
+  position: relative;
+  flex: none;
+  margin-inline-start: auto;
+  padding: 0 8px;
+  border: 1px solid var(--scrawl-border);
+  border-radius: 6px;
+  color: var(--scrawl-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  line-height: 20px;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.listRun {
+  position: relative;
+  flex: none;
+  padding: 0 14px;
+  border-radius: 15px;
+  background: var(--scrawl-hover);
+  color: var(--scrawl-text);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  line-height: 30px;
+  text-decoration: none;
+}
+
+.listRun::after {
+  position: absolute;
+  inset: calc((30px - var(--scrawl-tap-target)) / 2) -4px;
+  content: '';
+}
+
+@media (hover: hover) {
+  .run:hover {
+    background: var(--scrawl-hover);
+    color: var(--scrawl-text);
+  }
+}
+
+.draft td {
+  background: var(--scrawl-hover);
 }
 
 .field {
@@ -138,27 +180,20 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
-  min-height: 56px;
+  min-height: 52px;
   padding-block: 8px;
   color: var(--scrawl-text);
   text-decoration: none;
 }
 
-.listIcon,
-.listChevron {
+.listIcon {
   flex: none;
   color: var(--scrawl-icon-secondary);
 }
 
-.listText {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-width: 0;
-}
-
 .listName {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -174,12 +209,21 @@
 
 .listField {
   gap: 12px;
-  min-height: 40px;
 }
 
-.listMeta {
-  color: var(--scrawl-text-tertiary);
-  font-size: 13px;
+.naming {
+  margin-inline: calc(-1 * var(--mantine-spacing-lg));
+  padding-inline: var(--mantine-spacing-lg);
+  border-bottom-color: transparent;
+  background: var(--scrawl-hover);
+}
+
+.naming > .listLink {
+  padding-block: calc((52px - var(--scrawl-tap-target)) / 2);
+}
+
+.listRow:has(+ .naming) {
+  border-bottom-color: transparent;
 }
 
 @media (hover: none) {
@@ -187,7 +231,24 @@
     transition: var(--scrawl-press-out);
   }
 
-  .row:active {
+  .row:active:not(:has(button:active, [data-row-action]:active)) {
+    background: var(--scrawl-pressed);
+    transition: var(--scrawl-press-in);
+  }
+
+  .run::after {
+    position: absolute;
+    inset: -7px -6px;
+    content: '';
+  }
+
+  .run,
+  .listRun {
+    transition: var(--scrawl-press-out);
+  }
+
+  .run:active,
+  .listRun:active {
     background: var(--scrawl-pressed);
     transition: var(--scrawl-press-in);
   }

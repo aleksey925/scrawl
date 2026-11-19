@@ -51,6 +51,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
   const [index, setIndex] = useState(0);
   const [total, setTotal] = useState(0);
   const groups = useRef<HTMLElement[][]>([]);
+  const activeGroup = useRef<readonly HTMLElement[]>([]);
   const line = useRef<number | undefined>(undefined);
 
   const fromUrl = queryOf(searchParams);
@@ -84,12 +85,15 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
       return;
     }
     const next = ((at % found.length) + found.length) % found.length;
-    found.forEach((group, position) => {
-      for (const mark of group) {
-        mark.dataset.active = position === next ? 'true' : 'false';
-      }
-    });
-    const first = found[next]?.[0];
+    for (const mark of activeGroup.current) {
+      mark.dataset.active = 'false';
+    }
+    const group = found[next] ?? [];
+    for (const mark of group) {
+      mark.dataset.active = 'true';
+    }
+    activeGroup.current = group;
+    const first = group[0];
     if (first !== undefined && scroll) {
       reveal(first);
       first.scrollIntoView({ block: 'center', behavior: 'instant' });

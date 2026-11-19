@@ -3,10 +3,12 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    MAIN, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, readFixture, removeFixture, routes, save,
-    setSource, shot, signIn, sourceText, writeFixture,
+    MAIN, PAST_DRAFT_DELAY_MS, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, okToast, pressShortcut, readFixture, recordPrompts,
+    refuseDrafts, removeFixture, rgb, routes, save, setRefusingDrafts, setSource, shot, signIn, sourceText, stays, storedDrafts,
+    writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
+const lightTheme = require('../../theme/themes/light.json');
 
 function scratch(name) {
     return `e2e-scratch/${name}.md`;
@@ -31,6 +33,48 @@ async function editFromReader(page, docPath, body) {
     await expect.poll(() => sourceText(page)).toBe(body);
 }
 
+async function typeInSource(page, typed) {
+    await page.locator('[data-testid=editor-source] .cm-content').click();
+    await page.keyboard.type(typed);
+}
+
+async function offerDraft(page, docPath, draft) {
+    writeFixture(docPath, 'kept\n');
+    await page.goto(routes.edit(docPath));
+    await expect.poll(() => sourceText(page)).toBe('kept\n');
+    await setSource(page, draft);
+    await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+    await page.goto(routes.edit(docPath));
+    await expect(page.getByTestId('editor-draft')).toBeVisible();
+}
+
+async function leaveDraft(page, docPath, draft) {
+    writeFixture(docPath, 'kept\n');
+    await page.goto(routes.edit(docPath));
+    await expect.poll(() => sourceText(page)).toBe('kept\n');
+    await setSource(page, draft);
+    await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+    await page.goto(MAIN.url.doc(docPath));
+    await expect.poll(() => storedDrafts(page)).toEqual([{path: docPath, content: draft}]);
+}
+
+async function moveTo(page, folder) {
+    await page.getByTestId('note-menu').click();
+    await page.getByTestId('note-menu-move').click();
+    await page.getByTestId('move-input').fill(nameOf(folder));
+    await expect(page.getByTestId('move-preview')).toContainText(`Moves to ${folder}/`);
+    await page.getByTestId('move-input').press('Enter');
+    await expect(page).toHaveURL(new RegExp(`${folder}/`));
+}
+
+function hidePage(page) {
+    return page.evaluate(() => {
+        Object.defineProperty(document, 'hidden', {value: true, configurable: true});
+        Object.defineProperty(document, 'visibilityState', {value: 'hidden', configurable: true});
+        document.dispatchEvent(new Event('visibilitychange'));
+    });
+}
+
 function holdSave(page) {
     return holdRoute(page, '**/api/file/**', (req) => req.method() === 'PUT');
 }
@@ -39,6 +83,27 @@ function failSave(page, status) {
     return page.route('**/api/file/**', (route) => (route.request().method() === 'PUT'
         ? route.fulfill({status, json: {error: 'refused'}})
         : route.continue()));
+}
+
+async function holdFailedSave(page, status) {
+    let release = () => {};
+    const held = new Promise((resolve) => {
+        release = resolve;
+    });
+    let reach = () => {};
+    const reached = new Promise((resolve) => {
+        reach = resolve;
+    });
+    await page.route('**/api/file/**', async (route) => {
+        if (route.request().method() !== 'PUT') {
+            await route.continue();
+            return;
+        }
+        reach();
+        await held;
+        await route.fulfill({status, json: {error: 'refused'}});
+    });
+    return {release, reached};
 }
 
 async function wheelOverSource(page, {steps = 20, delta = 60} = {}) {
@@ -99,7 +164,7 @@ test.describe('editing', () => {
 
         await setSource(page, '# Заголовок\n\nновый текст\n');
         await expect(page.getByTestId('editor-preview')).toContainText('новый текст');
-        await expect(editorStatus(page)).toHaveText(text.status.dirty);
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
         await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'true');
         await shot(page, 'editing-preview');
 
@@ -110,6 +175,32 @@ test.describe('editing', () => {
         await page.reload();
         await expect.poll(() => sourceText(page)).toBe('# Заголовок\n\nновый текст\n');
         await shot(page, 'editing-saved');
+        removeFixture(docPath);
+    });
+
+    test('the state reads Unsaved changes until the draft is on the device, and stays so when it cannot be stored', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-state');
+        writeFixture(docPath, '# Заголовок\n');
+        await refuseDrafts(page, false);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('# Заголовок\n');
+
+        // act & assert
+        await page.clock.install({time: new Date('2026-01-01T10:00:00')});
+        await page.clock.pauseAt(new Date('2026-01-01T10:00:01'));
+        await setSource(page, '# Заголовок\n\nпервый\n');
+        await expect(editorStatus(page)).toHaveText(text.status.dirty);
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'dirty');
+        await page.clock.runFor(PAST_DRAFT_DELAY_MS);
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'drafted');
+
+        await setRefusingDrafts(page, true);
+        await setSource(page, '# Заголовок\n\nвторой\n');
+        await expect(editorStatus(page)).toHaveText(text.status.dirty);
+        await page.clock.runFor(PAST_DRAFT_DELAY_MS);
+        await stays(() => editorStatus(page).textContent(), text.status.dirty, 500);
         removeFixture(docPath);
     });
 
@@ -163,30 +254,166 @@ test.describe('editing', () => {
         removeFixture(docPath, SHARED);
     });
 
-    test('leaving with unsaved changes asks first and keeps a draft', async ({page}) => {
+    test('leaving with unsaved changes asks nothing, says the draft is kept, and the editor offers it back', async ({page}) => {
+        // arrange
         const docPath = scratch('dirty-guard');
         writeFixture(docPath, 'kept\n');
         await page.goto(routes.edit(docPath));
         await expect.poll(() => sourceText(page)).toBe('kept\n');
-
         await setSource(page, 'typed but not saved\n');
         await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'true');
+
+        // act & assert
         await page.getByTestId('editor-cancel').click();
-
-        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.leave);
-        await shot(page, 'editing-leave-guard');
-        await page.getByTestId('modal-cancel').click();
-        await expect(page).toHaveURL(MAIN.url.edit(docPath));
-
-        await page.waitForTimeout(1000);
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await expect(page.getByTestId('modal')).toHaveCount(0);
+        await expect(okToast(page)).toHaveText(text.toast.draftKept);
+        await shot(page, 'editing-draft-kept');
         await page.goto(routes.edit(docPath));
         await expect(page.getByTestId('editor-draft')).toContainText(text.editor.draft);
         await shot(page, 'editing-draft-bar');
-
         await page.getByTestId('editor-draft-restore').click();
         await expect.poll(() => sourceText(page)).toBe('typed but not saved\n');
         await expect(page.getByTestId('editor-draft')).toHaveCount(0);
         expect(readFixture(docPath), 'nothing is written to disk without a save').toBe('kept\n');
+        removeFixture(docPath);
+    });
+
+    test('a back of the browser with unsaved changes asks nothing and says the draft is kept', async ({page}) => {
+        // arrange
+        const docPath = scratch('dirty-back');
+        await editFromReader(page, docPath, 'kept\n');
+        await setSource(page, 'typed but not saved\n');
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await expect(page.getByTestId('modal')).toHaveCount(0);
+        await expect(okToast(page)).toHaveText(text.toast.draftKept);
+        removeFixture(docPath);
+    });
+
+    test('leaving with nothing changed shows no draft toast', async ({page}) => {
+        // arrange
+        const docPath = scratch('clean-leave');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+
+        // act
+        await page.getByTestId('editor-cancel').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await stays(() => page.getByTestId('toast').count(), 0, 500);
+        removeFixture(docPath);
+    });
+
+    test('a new note left with text keeps its draft for the next New note in its folder', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-left';
+        const created = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.draft(created));
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
+        await setSource(page, '# Черновик\n');
+
+        // act & assert
+        await page.getByTestId('editor-cancel').click();
+        await expect(page).toHaveURL(MAIN.url.dir(folder));
+        await expect(okToast(page)).toHaveText(text.toast.draftKept);
+        await page.goto(routes.draft(created));
+        await page.getByTestId('editor-draft-restore').click();
+        await expect.poll(() => sourceText(page)).toBe('# Черновик\n');
+        expect(fs.existsSync(fixtureFile(created))).toBe(false);
+        removeFixture(folder);
+    });
+
+    test('leaving changes the browser could not keep asks Discard changes, and Keep editing stays', async ({page}) => {
+        // arrange
+        const docPath = scratch('dirty-unkept');
+        writeFixture(docPath, 'kept\n');
+        await refuseDrafts(page);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'typed but not saved\n');
+
+        // act & assert
+        await page.getByTestId('editor-cancel').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
+        await shot(page, 'editing-discard-guard');
+        await page.getByTestId('modal-cancel').click();
+        await expect(page).toHaveURL(MAIN.url.edit(docPath));
+        expect(await sourceText(page)).toBe('typed but not saved\n');
+        removeFixture(docPath);
+    });
+
+    test('Discard leaves without saving, drops the draft kept before, and shows no draft toast', async ({page}) => {
+        // arrange
+        const docPath = scratch('dirty-discard');
+        writeFixture(docPath, 'kept\n');
+        await refuseDrafts(page, false);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'kept as a draft\n');
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        await setRefusingDrafts(page, true);
+        await setSource(page, 'not kept\n');
+        await page.getByTestId('editor-cancel').click();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
+
+        // act
+        await page.getByTestId('modal-confirm').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await stays(() => page.getByTestId('toast').count(), 0, 500);
+        expect(readFixture(docPath)).toBe('kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        removeFixture(docPath);
+    });
+
+    test('closing the tab with unsaved changes asks nothing and keeps the draft', async ({page}) => {
+        // arrange
+        const docPath = scratch('close-kept');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await typeInSource(page, 'x');
+        const prompts = recordPrompts(page);
+
+        // act
+        await page.close({runBeforeUnload: true});
+
+        // assert
+        await expect.poll(() => page.isClosed()).toBe(true);
+        expect(prompts).toEqual([]);
+        const next = await page.context().newPage();
+        await next.goto(routes.edit(docPath));
+        await expect(next.getByTestId('editor-draft')).toContainText(text.editor.draft);
+        removeFixture(docPath);
+    });
+
+    test('closing the tab with changes the browser could not keep brings up the browser prompt', async ({page}) => {
+        // arrange
+        const docPath = scratch('close-unkept');
+        writeFixture(docPath, 'kept\n');
+        await refuseDrafts(page);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await typeInSource(page, 'x');
+        const prompts = recordPrompts(page);
+
+        // act
+        await page.close({runBeforeUnload: true});
+
+        // assert
+        await expect.poll(() => prompts).toEqual(['beforeunload']);
+        expect(page.isClosed()).toBe(false);
         removeFixture(docPath);
     });
 
@@ -206,21 +433,58 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    test('after Save the text cannot change while the reader loads', async ({page}) => {
+    test('Save goes back to the reader the editor was opened from, and a back from there skips the editor', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-goes-back');
+        await page.goto(routes.dir('db'));
+        await editFromReader(page, docPath, 'kept\n');
+        await setSource(page, 'written\n');
+        await page.getByTestId('editor-save').click();
+        await expect(page.getByTestId('doc')).toContainText('written');
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.dir('db'));
+        removeFixture(docPath);
+    });
+
+    test('Cancel in an editor opened straight away puts the reader in its place in the history', async ({page}) => {
+        // arrange
+        const docPath = scratch('cancel-replaces');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.dir('db'));
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await page.getByTestId('editor-cancel').click();
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await expect(page.getByTestId('doc')).toContainText('kept');
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.dir('db'));
+        removeFixture(docPath);
+    });
+
+    test('after Save neither typing nor the toolbar changes the text while the reader loads', async ({page}) => {
         // arrange
         const docPath = scratch('save-reader-loads');
         writeFixture(docPath, 'kept\n');
+        const {release, reached} = await holdRoute(page, '**/assets/DocumentPage.js');
         await page.goto(routes.edit(docPath));
         await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await reached;
         await setSource(page, 'written\n');
-        const {release, reached} = await holdRoute(page, '**/assets/DocumentPage.js');
         const source = page.locator('[data-testid=editor-source] .cm-content');
 
         // act
         await page.getByTestId('editor-save').click();
-        await reached;
         await expect(source).toHaveAttribute('contenteditable', 'false');
         await page.keyboard.type(' and more');
+        await page.getByTestId('editor-toolbar-bold').click();
         const shown = await sourceText(page);
         release();
 
@@ -298,6 +562,242 @@ test.describe('editing', () => {
         });
     }
 
+    test('a save refused as the session ended keeps the text typed while it ran as a draft at once', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-fails-session');
+        await editFromReader(page, docPath, 'kept\n');
+        await setSource(page, 'my version\n');
+        const {release, reached} = await holdFailedSave(page, 401);
+
+        // act
+        await page.getByTestId('editor-save').click();
+        await reached;
+        await setSource(page, 'my version and more\n');
+        release();
+
+        // assert
+        await expect(page.getByTestId('editor-session-signin')).toBeVisible();
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'my version and more\n'}]);
+        removeFixture(docPath);
+    });
+
+    test('Cmd+Enter in the text saves, opens the reader and adds no line', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-cmd-enter');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            await setSource(page, 'written\n');
+
+            // act
+            await page.keyboard.press('ControlOrMeta+Enter');
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
+            await expect.poll(() => readFixture(docPath)).toBe('written\n');
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('Esc in the text leaves the editor and keeps the changes as a draft', async ({page}) => {
+        // arrange
+        const docPath = scratch('leave-esc');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            await setSource(page, 'typed and left\n');
+
+            // act
+            await page.keyboard.press('Escape');
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
+            await expect(okToast(page)).toHaveText(text.toast.draftKept);
+            expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed and left\n'}]);
+            expect(readFixture(docPath)).toBe('kept\n');
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('Esc in the filter of the sidebar clears the filter and leaves the editor open', async ({page}) => {
+        // arrange
+        const docPath = scratch('esc-filter');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            const filter = page.getByTestId('sidebar-filter');
+            await filter.fill('kept');
+
+            // act
+            await filter.press('Escape');
+
+            // assert
+            await expect(filter).toHaveValue('');
+            await stays(() => page.url(), MAIN.url.edit(docPath), 500);
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('Cmd+Enter with nothing focused saves and opens the reader', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-cmd-enter-blurred');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            await setSource(page, 'written\n');
+            await page.evaluate(() => document.activeElement.blur());
+
+            // act
+            await page.keyboard.press('ControlOrMeta+Enter');
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
+            await expect.poll(() => readFixture(docPath)).toBe('written\n');
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('Esc with nothing focused leaves the editor and keeps the changes as a draft', async ({page}) => {
+        // arrange
+        const docPath = scratch('leave-esc-blurred');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            await setSource(page, 'typed and left\n');
+            await page.evaluate(() => document.activeElement.blur());
+
+            // act
+            await page.keyboard.press('Escape');
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
+            await expect(okToast(page)).toHaveText(text.toast.draftKept);
+            expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed and left\n'}]);
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('the first Esc over an open list of completions closes only the list', async ({page}) => {
+        // arrange
+        const docPath = scratch('esc-completions');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            await typeInSource(page, '\n<di');
+            await expect(page.locator('.cm-tooltip-autocomplete')).toBeVisible();
+
+            // act
+            await page.keyboard.press('Escape');
+
+            // assert
+            await expect(page.locator('.cm-tooltip-autocomplete')).toHaveCount(0);
+            await stays(() => page.url(), MAIN.url.edit(docPath), 500);
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('Esc in the search panel of the text, on its buttons or back in the text closes the panel and leaves the editor open', async ({page}) => {
+        // arrange
+        const docPath = scratch('esc-search-panel');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            const content = page.locator('[data-testid=editor-source] .cm-content');
+            const panel = page.locator('[data-testid=editor-source] .cm-search');
+
+            // act & assert
+            await content.click();
+            await page.keyboard.press('ControlOrMeta+f');
+            await expect(panel.locator('input[name=search]')).toBeFocused();
+            await page.keyboard.press('Escape');
+            await expect(panel).toHaveCount(0);
+            await stays(() => page.url(), MAIN.url.edit(docPath), 300);
+
+            await content.click();
+            await page.keyboard.press('ControlOrMeta+f');
+            await panel.locator('button[name=next]').focus();
+            await page.keyboard.press('Escape');
+            await expect(panel).toHaveCount(0);
+            await stays(() => page.url(), MAIN.url.edit(docPath), 300);
+
+            await content.click();
+            await page.keyboard.press('ControlOrMeta+f');
+            await content.click();
+            await page.keyboard.press('Escape');
+            await expect(panel).toHaveCount(0);
+            await stays(() => page.url(), MAIN.url.edit(docPath), 300);
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('Esc with nothing focused leaves the editor even with the search panel of the text open', async ({page}) => {
+        // arrange
+        const docPath = scratch('esc-search-blurred');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            await setSource(page, 'typed and left\n');
+            const panel = page.locator('[data-testid=editor-source] .cm-search');
+            await page.locator('[data-testid=editor-source] .cm-content').click();
+            await page.keyboard.press('ControlOrMeta+f');
+            await expect(panel.locator('input[name=search]')).toBeFocused();
+            await page.evaluate(() => document.activeElement.blur());
+
+            // act
+            await page.keyboard.press('Escape');
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
+            expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed and left\n'}]);
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('Esc while a save is on its way leaves the editor as Cancel does', async ({page}) => {
+        // arrange
+        const docPath = scratch('esc-while-saving');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            await setSource(page, 'written\n');
+            const {release, reached} = await holdSave(page);
+            await page.keyboard.press('ControlOrMeta+s');
+            await reached;
+
+            // act
+            await page.keyboard.press('Escape');
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
+            release();
+            await expect(okToast(page).filter({hasText: text.toast.saved})).toHaveCount(1);
+            expect(readFixture(docPath)).toBe('written\n');
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('Esc with several cursors keeps one and leaves the editor open', async ({page}) => {
+        // arrange
+        const docPath = scratch('esc-cursors');
+        try {
+            await editFromReader(page, docPath, 'word word\n');
+            await page.locator('[data-testid=editor-source] .cm-content').click();
+            await page.keyboard.press('ControlOrMeta+Home');
+            await page.keyboard.press('ControlOrMeta+d');
+            await page.keyboard.press('ControlOrMeta+d');
+            await expect(page.locator('[data-testid=editor-source] .cm-selectionBackground')).toHaveCount(2);
+
+            // act
+            await page.keyboard.press('Escape');
+
+            // assert
+            await expect(page.locator('[data-testid=editor-source] .cm-selectionBackground')).toHaveCount(1);
+            await stays(() => page.url(), MAIN.url.edit(docPath), 500);
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
     test('Save stays in the editor when the text changed while the save ran', async ({page}) => {
         // arrange
         const docPath = scratch('save-typed-midway');
@@ -313,10 +813,52 @@ test.describe('editing', () => {
 
         // assert
         await expect.poll(() => readFixture(docPath)).toBe('written\n');
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.saved);
+        await expect(okToast(page)).toContainText(text.toast.saved);
         await expect(page).toHaveURL(MAIN.url.edit(docPath));
         await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'true');
         expect(await sourceText(page)).toBe('written and more\n');
+        removeFixture(docPath);
+    });
+
+    test('text typed while a save runs offers no draft once the save is done', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-typed-no-offer');
+        await editFromReader(page, docPath, 'kept\n');
+        await setSource(page, 'written\n');
+        const {release, reached} = await holdSave(page);
+
+        // act
+        await page.getByTestId('editor-save').click();
+        await reached;
+        await setSource(page, 'written and more\n');
+        release();
+
+        // assert
+        await expect(okToast(page)).toContainText(text.toast.saved);
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        expect(await sourceText(page)).toBe('written and more\n');
+        removeFixture(docPath);
+    });
+
+    test('text kept as a draft while a save runs is shown as the draft once the save is done', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-typed-drafted');
+        await editFromReader(page, docPath, 'kept\n');
+        await setSource(page, 'written\n');
+        const {release, reached} = await holdSave(page);
+
+        // act
+        await page.getByTestId('editor-save').click();
+        await reached;
+        await setSource(page, 'written and more\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        release();
+
+        // assert
+        await expect(okToast(page)).toContainText(text.toast.saved);
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'written and more\n'}]);
         removeFixture(docPath);
     });
 
@@ -332,12 +874,12 @@ test.describe('editing', () => {
         await page.getByTestId('editor-save').click();
         await reached;
         await other.click();
-        await page.getByTestId('modal-confirm').click();
         await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
         release();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.saved);
+        await expect(okToast(page)).toContainText(text.toast.saved);
+        await expect(page.getByTestId('toast').filter({hasText: text.toast.draftKept})).toHaveCount(0);
         await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
         expect(readFixture(docPath)).toBe('written\n');
         removeFixture(docPath);
@@ -360,6 +902,580 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('text typed while Cmd+S creates a new note is offered as a draft of the note created', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-typed-on';
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.draft(`${folder}/${text.create.untitled}`));
+        await setSource(page, '# Plan\n');
+        const {release, reached} = await holdSave(page);
+        await page.keyboard.press('ControlOrMeta+s');
+        await reached;
+        await setSource(page, '# Plan\n\nmore\n');
+
+        // act & assert
+        release();
+        await expect(page).toHaveURL(MAIN.url.edit(created));
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+        await expect(page.getByTestId('editor-draft')).not.toContainText(text.editor.draftStale);
+        expect(await storedDrafts(page)).toEqual([{path: created, content: '# Plan\n\nmore\n'}]);
+
+        await page.getByTestId('editor-draft-restore').click();
+        await expect.poll(() => sourceText(page)).toBe('# Plan\n\nmore\n');
+        removeFixture(folder);
+    });
+
+    test('text typed while Save creates a new note is kept as a draft of the note created when the editor is left before the save ends', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-typed-left';
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.draft(`${folder}/${text.create.untitled}`));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await setSource(page, '# Plan\n\nmore\n');
+            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            await expect.poll(() => storedDrafts(page)).toEqual([{path: created, content: '# Plan\n\nmore\n'}]);
+            expect(readFixture(created)).toBe('# Plan\n');
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('text typed while Save creates a new note stays a draft of the draft\'s address when the browser refuses it under the name created', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-typed-refused';
+        const untitled = `${folder}/${text.create.untitled}`;
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.addInitScript((refused) => {
+            const setItem = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (key, value) {
+                if (key.startsWith('scrawl.draft:') && key.endsWith(`:${refused}`)) {
+                    throw new DOMException('full', 'QuotaExceededError');
+                }
+                return setItem.call(this, key, value);
+            };
+        }, created);
+        try {
+            await page.goto(routes.draft(untitled));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await setSource(page, '# Plan\n\nmore\n');
+            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            expect(await storedDrafts(page)).toEqual([{path: untitled, content: '# Plan\n\nmore\n'}]);
+            expect(readFixture(created)).toBe('# Plan\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('a first save that answers after a second new note in its folder was left keeps the second note\'s draft', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-second-draft';
+        const untitled = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.dir(folder));
+            await pressShortcut(page, 'n');
+            await expect(page).toHaveURL(MAIN.url.draft(untitled));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await page.goBack();
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            await page.keyboard.press('n');
+            await expect(page).toHaveURL(MAIN.url.draft(untitled));
+            await expect(page.getByTestId('editor-draft')).toBeVisible();
+            await setSource(page, '# Other\n');
+            await page.goBack();
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            await expect.poll(() => storedDrafts(page)).toEqual([{path: untitled, content: '# Other\n'}]);
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            expect(readFixture(`${folder}/plan.md`)).toBe('# Plan\n');
+            expect(await storedDrafts(page)).toEqual([{path: untitled, content: '# Other\n'}]);
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('text typed while Save creates a new note at the draft\'s own address is kept as its draft once the editor is left', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-typed-same-address';
+        const untitled = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.draft(untitled));
+            await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await setSource(page, '# \n\nmore\n');
+            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            expect(await storedDrafts(page)).toEqual([{path: untitled, content: '# \n\nmore\n'}]);
+            expect(readFixture(untitled)).toBe('');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('text typed while Save creates a new note stays a draft of the draft\'s address when the browser refuses it under the name created and the editor stays', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-typed-refused-open';
+        const untitled = `${folder}/${text.create.untitled}`;
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.addInitScript((refused) => {
+            const setItem = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (key, value) {
+                if (key.startsWith('scrawl.draft:') && key.endsWith(`:${refused}`)) {
+                    throw new DOMException('full', 'QuotaExceededError');
+                }
+                return setItem.call(this, key, value);
+            };
+        }, created);
+        try {
+            await page.goto(routes.draft(untitled));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await setSource(page, '# Plan\n\nmore\n');
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            expect(await storedDrafts(page)).toEqual([{path: untitled, content: '# Plan\n\nmore\n'}]);
+            expect(readFixture(created)).toBe('# Plan\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('a first save with text typed while it ran keeps the draft a second new note in its folder wrote meanwhile', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-second-draft-typed';
+        const untitled = `${folder}/${text.create.untitled}`;
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.dir(folder));
+            await pressShortcut(page, 'n');
+            await expect(page).toHaveURL(MAIN.url.draft(untitled));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await setSource(page, '# Plan\n\nmore\n');
+            await page.goBack();
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            await page.keyboard.press('n');
+            await expect(page).toHaveURL(MAIN.url.draft(untitled));
+            await expect(page.getByTestId('editor-draft')).toBeVisible();
+            await setSource(page, '# Other\n');
+            await page.goBack();
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            await expect.poll(() => storedDrafts(page)).toEqual([{path: untitled, content: '# Other\n'}]);
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            const kept = await storedDrafts(page);
+            expect(kept.sort((left, right) => left.path.localeCompare(right.path))).toEqual([
+                {path: created, content: '# Plan\n\nmore\n'},
+                {path: untitled, content: '# Other\n'},
+            ]);
+            expect(readFixture(created)).toBe('# Plan\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('Save of a new note with nothing typed leaves the person on the page they went to while it ran, also while that page still loads', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-save-went-elsewhere';
+        const untitled = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
+            await page.goto(routes.draft(untitled));
+            await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
+            await chunk.reached;
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+
+            // act
+            release();
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            chunk.release();
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await stays(() => page.url(), MAIN.url.doc('guide.md'), 500);
+            expect(readFixture(untitled)).toBe('');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('Cmd+S on a new note with nothing typed shows the empty file it wrote, Saved', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-empty-cmd-s';
+        const created = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.draft(created));
+            await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
+
+            // act
+            await page.keyboard.press('ControlOrMeta+s');
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.edit(created));
+            await expect(editorStatus(page)).toHaveAttribute('data-state', 'saved');
+            await expect(page.locator('[data-testid=editor-source] .cm-placeholder')).toBeVisible();
+            expect(readFixture(created)).toBe('');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('after Cmd+S creates a new note at the draft\'s own address, Esc leaves the editor and keeps the text typed after as a draft', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-same-address-esc';
+        const created = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.draft(created));
+            await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
+            await page.keyboard.press('ControlOrMeta+s');
+            await expect(page).toHaveURL(MAIN.url.edit(created));
+            await expect(editorStatus(page)).toHaveAttribute('data-state', 'saved');
+            await setSource(page, 'later\n');
+
+            // act
+            await page.keyboard.press('Escape');
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(created));
+            await expect(okToast(page).filter({hasText: text.toast.draftKept})).toHaveCount(1);
+            expect(await storedDrafts(page)).toEqual([{path: created, content: 'later\n'}]);
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('a first save at the draft\'s own address keeps the draft a second new note there wrote while it ran', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-second-draft-same-address';
+        const untitled = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.dir(folder));
+            await pressShortcut(page, 'n');
+            await expect(page).toHaveURL(MAIN.url.draft(untitled));
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await setSource(page, '# \n\nmore\n');
+            await page.goBack();
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            await page.keyboard.press('n');
+            await expect(page).toHaveURL(MAIN.url.draft(untitled));
+            await expect(page.getByTestId('editor-draft')).toBeVisible();
+            await setSource(page, '# Other\n');
+            await page.goBack();
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            await expect.poll(() => storedDrafts(page)).toEqual([{path: untitled, content: '# Other\n'}]);
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            await stays(() => storedDrafts(page), [{path: untitled, content: '# Other\n'}], 500);
+            expect(readFixture(untitled)).toBe('');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('Discard while a new note is first saved keeps no draft once the save answers', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-discard-while-saving';
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await refuseDrafts(page, false);
+        try {
+            await page.goto(routes.draft(`${folder}/${text.create.untitled}`));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await setSource(page, '# Plan\n\nmore\n');
+            await setRefusingDrafts(page, true);
+            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+            await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
+            await page.getByTestId('modal-confirm').click();
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await setRefusingDrafts(page, false);
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            await stays(() => storedDrafts(page), [], 500);
+            expect(readFixture(created)).toBe('# Plan\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('a first save whose newer text stays at the draft\'s address drops it there once the created note is saved', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-left-behind';
+        const untitled = `${folder}/${text.create.untitled}`;
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.draft(untitled));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await setSource(page, '# Plan\n\nmore\n');
+            await page.evaluate((target) => {
+                const key = Object.keys(localStorage).find((name) => name.startsWith('scrawl.draft:'));
+                const draft = {rev: '', content: '# Elsewhere\n', at: Date.now(), by: 'another-tab'};
+                localStorage.setItem(`${key.slice(0, key.lastIndexOf(':') + 1)}${target}`, JSON.stringify(draft));
+            }, created);
+            release();
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            await expect(page.getByTestId('editor-draft')).toBeVisible();
+
+            // act
+            await page.getByTestId('editor-save').click();
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(created));
+            await stays(() => storedDrafts(page), [], 500);
+            expect(readFixture(created)).toBe('# Plan\n\nmore\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('a first save with text typed while it ran offers a draft left from before at the name created instead of writing over it', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-old-draft-there';
+        const untitled = `${folder}/${text.create.untitled}`;
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.draft(untitled));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await page.evaluate((target) => {
+                const key = Object.keys(localStorage).find((name) => name.startsWith('scrawl.draft:'));
+                const draft = {rev: 'gone', content: '# Old plan\n', at: Date.now() - 60_000};
+                localStorage.setItem(`${key.slice(0, key.lastIndexOf(':') + 1)}${target}`, JSON.stringify(draft));
+            }, created);
+            await setSource(page, '# Plan\n\nmore\n');
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            await expect(page.getByTestId('editor-draft')).toBeVisible();
+            const kept = await storedDrafts(page);
+            expect(kept.sort((left, right) => left.path.localeCompare(right.path))).toEqual([
+                {path: created, content: '# Old plan\n'},
+                {path: untitled, content: '# Plan\n\nmore\n'},
+            ]);
+            expect(readFixture(created)).toBe('# Plan\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('Save leaves the person on the page they went to while it ran, also while that page still loads', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-went-elsewhere');
+        writeFixture(docPath, 'kept\n');
+        try {
+            const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
+            await page.goto(routes.edit(docPath));
+            await expect.poll(() => sourceText(page)).toBe('kept\n');
+            await chunk.reached;
+            await setSource(page, 'written\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+
+            // act
+            release();
+            await expect(okToast(page).filter({hasText: text.toast.saved})).toHaveCount(1);
+            chunk.release();
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await stays(() => page.url(), MAIN.url.doc('guide.md'), 500);
+            expect(readFixture(docPath)).toBe('written\n');
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('text typed while Save creates a new note is kept as a draft of the note created once the editor is left', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-typed-save';
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.draft(`${folder}/${text.create.untitled}`));
+        await setSource(page, '# Plan\n');
+        const {release, reached} = await holdSave(page);
+        await page.getByTestId('editor-save').click();
+        await reached;
+        await setSource(page, '# Plan\n\nmore\n');
+        release();
+        await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'true');
+        await expect(editorStatus(page)).not.toHaveAttribute('data-state', 'saving');
+
+        // act
+        await page.getByTestId('editor-cancel').click();
+        await expect(okToast(page).filter({hasText: text.toast.draftKept})).toHaveCount(1);
+
+        // assert
+        expect(await storedDrafts(page)).toEqual([{path: created, content: '# Plan\n\nmore\n'}]);
+        removeFixture(folder);
+    });
+
+    test('Cmd+S on a note not created yet turns its state from New note to Saved', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-new-cmd-s');
+        await page.goto(routes.doc(docPath));
+        await page.getByTestId('doc-create').click();
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
+
+        // act
+        await save(page);
+
+        // assert
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'saved');
+        expect(readFixture(docPath)).toBe('');
+        removeFixture(docPath);
+    });
+
+    test('Save of a new note with nothing typed writes an empty file, with format on save as well', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-empty';
+        const created = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.draft(created));
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
+
+        // act
+        await page.getByTestId('editor-save').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(created));
+        expect(readFixture(created)).toBe('');
+        removeFixture(folder);
+    });
+
+    test('Save on a note not created yet with nothing typed keeps the offered draft', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-new-draft-offered');
+        await page.goto(routes.edit(docPath));
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
+        await setSource(page, 'the offered draft\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        await page.goto(routes.edit(docPath));
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+
+        // act
+        await page.getByTestId('editor-save').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        expect(readFixture(docPath)).toBe('');
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'the offered draft\n'}]);
+        removeFixture(docPath);
+    });
+
+    test('Save of a New note with nothing typed keeps the draft it offers', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-draft-offered';
+        const untitled = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.draft(untitled));
+            await setSource(page, 'the offered draft\n');
+            await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+            await page.getByTestId('editor-cancel').click();
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            await page.goto(routes.draft(untitled));
+            await expect(page.getByTestId('editor-draft')).toBeVisible();
+
+            // act
+            await page.getByTestId('editor-save').click();
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(untitled));
+            expect(readFixture(untitled)).toBe('');
+            expect(await storedDrafts(page)).toEqual([{path: untitled, content: 'the offered draft\n'}]);
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
     test('a draft can be thrown away instead of restored', async ({page}) => {
         const docPath = scratch('draft-discard');
         writeFixture(docPath, 'kept\n');
@@ -376,6 +1492,341 @@ test.describe('editing', () => {
 
         await page.goto(routes.edit(docPath));
         await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        removeFixture(docPath);
+    });
+
+    test('text typed instead of Restore keeps the offered draft while the editor stays open', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-kept');
+        await offerDraft(page, docPath, 'the offered draft\n');
+
+        // act
+        await setSource(page, 'typed over it\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+
+        // assert
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'the offered draft\n'}]);
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+        await expect(editorStatus(page)).toHaveText(text.status.dirty);
+        removeFixture(docPath);
+    });
+
+    test('text typed after an offered draft is thrown away is kept as a draft again', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-discarded');
+        await offerDraft(page, docPath, 'the offered draft\n');
+        await page.getByTestId('editor-draft-discard').click();
+
+        // act
+        await setSource(page, 'typed after the discard\n');
+
+        // assert
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed after the discard\n'}]);
+        removeFixture(docPath);
+    });
+
+    test('a save that stays in the editor ends the offered draft, and text typed after it is kept as a draft', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-saved');
+        await offerDraft(page, docPath, 'the offered draft\n');
+        await setSource(page, 'saved over it\n');
+        await save(page);
+
+        // act
+        await setSource(page, 'typed after the save\n');
+
+        // assert
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed after the save\n'}]);
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        expect(readFixture(docPath)).toBe('saved over it\n');
+        removeFixture(docPath);
+    });
+
+    test('a save the server refuses while a draft is offered ends the offer, and text typed after it is kept as a draft', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-save-fails');
+        await offerDraft(page, docPath, 'the offered draft\n');
+        await setSource(page, 'saved over it\n');
+        await failSave(page, 500);
+        await page.keyboard.press('ControlOrMeta+s');
+        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toBeVisible();
+
+        // act
+        await setSource(page, 'typed after the save\n');
+
+        // assert
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed after the save\n'}]);
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        expect(readFixture(docPath)).toBe('kept\n');
+        removeFixture(docPath);
+    });
+
+    test('a preview refused for an ended session while a draft is offered keeps the typed text as the draft and takes the offer away', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-preview-401');
+        await offerDraft(page, docPath, 'the offered draft\n');
+        await page.route('**/api/preview', (route) => route.fulfill({status: 401, json: {error: 'refused'}}));
+
+        // act
+        await setSource(page, 'typed over it\n');
+
+        // assert
+        await expect.poll(() => storedDrafts(page)).toEqual([{path: docPath, content: 'typed over it\n'}]);
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        removeFixture(docPath);
+    });
+
+    test('a page hidden while a draft is offered keeps the typed text as the draft and takes the offer away', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-hidden');
+        await offerDraft(page, docPath, 'the offered draft\n');
+        await setSource(page, 'typed over it\n');
+
+        // act
+        await hidePage(page);
+
+        // assert
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed over it\n'}]);
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        removeFixture(docPath);
+    });
+
+    test('the keyboard focus on a button of the draft offer and on a crumb is one ring of the accent, a crumb\'s inside its row', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-focus');
+        await offerDraft(page, docPath, 'the offered draft\n');
+        const ring = (locator) => locator.evaluate((el) => {
+            const style = getComputedStyle(el);
+            return [style.outlineStyle, style.outlineWidth, style.outlineColor, style.outlineOffset];
+        });
+        const expected = ['solid', '2px', rgb(lightTheme.palette.accent), '2px'];
+        const crumbs = page.getByTestId('topbar-crumbs');
+        const space = crumbs.getByTestId('crumb').first();
+
+        // act & assert
+        await page.getByTestId('editor-draft-discard').focus();
+        await page.keyboard.press('Tab');
+        await expect(page.getByTestId('editor-draft-restore')).toBeFocused();
+        expect(await ring(page.getByTestId('editor-draft-restore'))).toEqual(expected);
+        await space.focus();
+        expect(await ring(space)).toEqual(['solid', '2px', rgb(lightTheme.palette.accent), '-2px']);
+        const [row, crumb] = [await crumbs.boundingBox(), await space.boundingBox()];
+        expect(crumb.x >= row.x && crumb.y >= row.y && crumb.y + crumb.height <= row.y + row.height).toBe(true);
+        removeFixture(docPath);
+    });
+
+    test('a button of the draft offer takes the pressed tone at once under a mouse', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-press');
+        await offerDraft(page, docPath, 'the offered draft\n');
+        const restore = page.getByTestId('editor-draft-restore');
+        const box = await restore.boundingBox();
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+        // act
+        await page.mouse.down();
+        const pressed = await restore.evaluate((el) => [getComputedStyle(el).backgroundColor, el.getAnimations().length]);
+
+        // assert
+        expect(pressed).toEqual([rgb(lightTheme.palette.pressed), 0]);
+        await page.mouse.up();
+        removeFixture(docPath);
+    });
+
+    test('a page hidden before the draft delay writes the draft at once', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-hidden');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'typed just before the app went away\n');
+        const before = await storedDrafts(page);
+
+        // act
+        await hidePage(page);
+
+        // assert
+        expect(before).toEqual([]);
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed just before the app went away\n'}]);
+        removeFixture(docPath);
+    });
+
+    test('while the reader loads after Cancel the draft offer does nothing, so the newer text stays kept', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-leave');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'an older draft\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        const {release, reached} = await holdRoute(page, '**/assets/DocumentPage.js');
+        await page.goto(routes.edit(docPath));
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+        await reached;
+        await setSource(page, 'the newer text\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+
+        // act
+        await page.getByTestId('editor-cancel').click();
+        await expect(page.getByTestId('editor-draft-discard')).toBeDisabled();
+        await expect(page.getByTestId('editor-draft-restore')).toBeDisabled();
+        await expect(page.getByTestId('editor-draft-discard')).toHaveCSS('color', rgb(lightTheme.palette.textFaint));
+        await expect(page.getByTestId('editor-draft-restore')).toHaveCSS('color', rgb(lightTheme.palette.textFaint));
+        release();
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-draft-restore').click();
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe('the newer text\n');
+        removeFixture(docPath);
+    });
+
+    test('renaming the open note from the tree takes its unsaved text along as a draft of the new name', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-renamed');
+        const renamed = scratch('draft-renamed-new');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'typed before the rename\n');
+        await page.locator(`[data-testid=tree-row][data-path="${docPath}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-rename').click();
+        await page.getByTestId('tree-rename-input').fill(nameOf(renamed));
+
+        // act
+        await page.getByTestId('tree-rename-input').press('Enter');
+        await expect(page).toHaveURL(MAIN.url.doc(renamed));
+        await page.goto(routes.edit(renamed));
+        await page.getByTestId('editor-draft-restore').click();
+
+        // assert
+        await expect.poll(() => sourceText(page)).toBe('typed before the rename\n');
+        expect(readFixture(renamed)).toBe('kept\n');
+        removeFixture(renamed);
+    });
+
+    test('a rename keeps the draft under the old name when the browser refuses it under the new one', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-rename-refused');
+        const renamed = scratch('draft-rename-refused-new');
+        writeFixture(docPath, 'kept\n');
+        await page.addInitScript((refused) => {
+            const setItem = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (key, value) {
+                if (key.startsWith('scrawl.draft:') && key.endsWith(`:${refused}`)) {
+                    throw new DOMException('full', 'QuotaExceededError');
+                }
+                return setItem.call(this, key, value);
+            };
+        }, renamed);
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'typed before the rename\n');
+        await page.locator(`[data-testid=tree-row][data-path="${docPath}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-rename').click();
+        await page.getByTestId('tree-rename-input').fill(nameOf(renamed));
+
+        // act
+        await page.getByTestId('tree-rename-input').press('Enter');
+        await expect(page).toHaveURL(MAIN.url.doc(renamed));
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+
+        // assert
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed before the rename\n'}]);
+        removeFixture(renamed);
+    });
+
+    test('renaming a folder takes along the draft of a note in it', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/draft-folder';
+        const renamed = 'e2e-scratch/draft-folder-new';
+        const docPath = `${folder}/note.md`;
+        await leaveDraft(page, docPath, 'typed in the folder\n');
+        await page.locator(`[data-testid=tree-row][data-path="${folder}"] [data-testid=tree-row-menu]`).click();
+        await page.getByTestId('tree-row-menu-rename').click();
+        await page.getByTestId('tree-rename-input').fill(nameOf(renamed));
+
+        // act
+        await page.getByTestId('tree-rename-input').press('Enter');
+        await expect(page).toHaveURL(MAIN.url.doc(`${renamed}/note.md`));
+
+        // assert
+        await expect.poll(() => storedDrafts(page)).toEqual([{path: `${renamed}/note.md`, content: 'typed in the folder\n'}]);
+        removeFixture(renamed);
+    });
+
+    test('moving a note takes its draft along', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-moved');
+        const into = 'e2e-scratch/draft-moved-into';
+        fs.mkdirSync(fixtureFile(into), {recursive: true});
+        try {
+            await leaveDraft(page, docPath, 'typed before the move\n');
+
+            // act
+            await moveTo(page, into);
+
+            // assert
+            await expect.poll(() => storedDrafts(page))
+                .toEqual([{path: `${into}/${nameOf(docPath)}`, content: 'typed before the move\n'}]);
+        } finally {
+            removeFixture(docPath);
+            removeFixture(into);
+        }
+    });
+
+    test('Undo of a move brings the draft back to the note\'s old place', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-undone');
+        const into = 'e2e-scratch/draft-undone-into';
+        fs.mkdirSync(fixtureFile(into), {recursive: true});
+        try {
+            await leaveDraft(page, docPath, 'typed before the undo\n');
+            await moveTo(page, into);
+            await expect.poll(() => storedDrafts(page))
+                .toEqual([{path: `${into}/${nameOf(docPath)}`, content: 'typed before the undo\n'}]);
+
+            // act
+            await page.getByTestId('toast-action').click();
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
+
+            // assert
+            await expect.poll(() => storedDrafts(page)).toEqual([{path: docPath, content: 'typed before the undo\n'}]);
+        } finally {
+            removeFixture(docPath);
+            removeFixture(into);
+        }
+    });
+
+    test('a draft offer names the time it was written, and says when the file changed since', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-stale');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'a draft against the old text\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        await page.goto(routes.edit(docPath));
+        const offer = page.getByTestId('editor-draft');
+        const when = page.getByTestId('editor-draft-when');
+        await expect(offer).toContainText(text.editor.draft);
+        const fresh = {stale: await offer.getAttribute('data-stale'), when: await when.textContent()};
+        writeFixture(docPath, 'changed on disk\n');
+
+        // act
+        await page.goto(routes.edit(docPath));
+
+        // assert
+        await expect(offer).toHaveAttribute('data-stale', 'true');
+        expect(fresh.stale).toBe('false');
+        expect(fresh.when).toMatch(/^(Today|Yesterday), \d{2}:\d{2}$/);
+        await expect(when).toHaveText(`${fresh.when} · ${text.editor.draftStale}`);
         removeFixture(docPath);
     });
 
@@ -449,6 +1900,152 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('Save as copy takes the place of the editor in the history, so Back goes where the editor was opened from', async ({page}) => {
+        // arrange
+        const docPath = scratch('conflict-copy-back');
+        await editFromReader(page, docPath, 'original\n');
+        writeFixture(docPath, 'disk wins\n');
+        await setSource(page, 'mine to keep\n');
+        await page.getByTestId('editor-save').click();
+        await page.getByTestId('editor-conflict-copy').click();
+        await expect(page).toHaveURL(/\/edit\/e2e-scratch\/conflict-copy-back\.conflict-[\d-]+T[\d-]+\.md$/);
+        const copyPath = decodeURIComponent(new URL(page.url()).pathname.replace(`${routes.edit('')}`, ''));
+
+        // act
+        await page.goBack();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        removeFixture(copyPath);
+        removeFixture(docPath);
+    });
+
+    test('Save as copy leaves the person on the page they went to while it ran', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/conflict-copy-left';
+        const docPath = `${folder}/note.md`;
+        writeFixture(docPath, 'original\n');
+        try {
+            await page.goto(routes.edit(docPath));
+            await expect.poll(() => sourceText(page)).toBe('original\n');
+            writeFixture(docPath, 'disk wins\n');
+            await setSource(page, 'mine to keep\n');
+            await page.getByTestId('editor-save').click();
+            await expect(page.locator('[data-testid=modal][data-variant="conflict"]')).toBeVisible();
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-conflict-copy').click();
+            await reached;
+            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.saved})).toHaveCount(1);
+            await stays(() => page.url(), MAIN.url.doc('guide.md'), 500);
+            expect(readFixture(docPath)).toBe('disk wins\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('Save as copy keeps the text typed while it ran as the file\'s draft when the copy\'s editor opens', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/conflict-copy-typed';
+        const docPath = `${folder}/note.md`;
+        writeFixture(docPath, 'original\n');
+        try {
+            await page.goto(routes.edit(docPath));
+            await expect.poll(() => sourceText(page)).toBe('original\n');
+            writeFixture(docPath, 'disk wins\n');
+            await setSource(page, 'mine to keep\n');
+            await page.getByTestId('editor-save').click();
+            await expect(page.locator('[data-testid=modal][data-variant="conflict"]')).toBeVisible();
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-conflict-copy').click();
+            await reached;
+            await setSource(page, 'mine to keep\n\nmore\n');
+
+            // act
+            release();
+
+            // assert
+            await expect(page).toHaveURL(/\/edit\/e2e-scratch\/conflict-copy-typed\/note\.conflict-/);
+            await expect(okToast(page).filter({hasText: text.toast.draftKept})).toHaveCount(1);
+            expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'mine to keep\n\nmore\n'}]);
+            expect(readFixture(docPath)).toBe('disk wins\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('Save as copy keeps the text typed while it ran as the file\'s draft when the person went elsewhere', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/conflict-copy-typed-left';
+        const docPath = `${folder}/note.md`;
+        writeFixture(docPath, 'original\n');
+        try {
+            await page.goto(routes.edit(docPath));
+            await expect.poll(() => sourceText(page)).toBe('original\n');
+            writeFixture(docPath, 'disk wins\n');
+            await setSource(page, 'mine to keep\n');
+            await page.getByTestId('editor-save').click();
+            await expect(page.locator('[data-testid=modal][data-variant="conflict"]')).toBeVisible();
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-conflict-copy').click();
+            await reached;
+            await setSource(page, 'mine to keep\n\nmore\n');
+            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.saved})).toHaveCount(1);
+            await stays(() => storedDrafts(page), [{path: docPath, content: 'mine to keep\n\nmore\n'}], 500);
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('Keep editing after Save as copy could not keep the newer text leaves the file unsaved, also undone back to the copy\'s text', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/conflict-copy-keep-editing';
+        const docPath = `${folder}/note.md`;
+        writeFixture(docPath, 'original\n');
+        await refuseDrafts(page, false);
+        try {
+            await page.goto(routes.edit(docPath));
+            await expect.poll(() => sourceText(page)).toBe('original\n');
+            writeFixture(docPath, 'disk wins\n');
+            await setSource(page, 'mine to keep\n');
+            await page.getByTestId('editor-save').click();
+            await expect(page.locator('[data-testid=modal][data-variant="conflict"]')).toBeVisible();
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-conflict-copy').click();
+            await reached;
+            await setSource(page, 'mine to keep\n\nmore\n');
+            await setRefusingDrafts(page, true);
+            release();
+            await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
+            await page.getByTestId('modal-cancel').click();
+            await expect(page).toHaveURL(MAIN.url.edit(docPath));
+
+            // act
+            await setSource(page, 'mine to keep\n');
+
+            // assert
+            await expect(editorStatus(page)).toHaveAttribute('data-state', 'dirty');
+            await page.getByTestId('editor-save').click();
+            await expect(page.locator('[data-testid=modal][data-variant="conflict"]')).toBeVisible();
+            expect(readFixture(docPath)).toBe('disk wins\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
     test.describe('a text file that is not a note', () => {
         const TEXT_DIR = 'e2e-scratch/text';
 
@@ -459,7 +2056,7 @@ test.describe('editing', () => {
         test('opens as plain text with no modes, no toolbar and no preview, and saves as written', async ({page}) => {
             // arrange
             const filePath = `${TEXT_DIR}/plain.txt`;
-            const written = '  * not a list\n# not a heading\n';
+            const written = '  * not a list\n# not a heading\n<!-- toc -->\n';
             writeFixture(filePath, 'before\n');
             const previews = [];
             page.on('request', (request) => {
@@ -742,6 +2339,173 @@ test.describe('editing', () => {
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText(text.toast.noHeadings);
         expect(await sourceText(page)).toBe('# Заметка\n\nТолько текст.\n');
+        removeFixture(docPath);
+    });
+
+    test('a save brings the contents between its markers up to date', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save');
+        writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n\n## B\n');
+        await page.goto(routes.edit(docPath));
+        const refreshed = '# T\n\n<!-- toc -->\n\n- [A](#a)\n  - [Deep](#deep)\n- [C](#c)\n\n<!-- tocstop -->\n\n## A\n\n### Deep\n\n## C\n';
+
+        // act
+        await setSource(page, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n\n### Deep\n\n## C\n');
+        await save(page);
+
+        // assert
+        expect(readFixture(docPath)).toBe(refreshed);
+        expect(await sourceText(page)).toBe(refreshed);
+        removeFixture(docPath);
+    });
+
+    test('a save empties the contents between its markers once no heading is left', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-empty');
+        writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        const emptied = '# T\n\n<!-- toc -->\n\n<!-- tocstop -->\n\nText.\n';
+
+        // act
+        await setSource(page, '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\nText.\n');
+        await save(page);
+
+        // assert
+        expect(readFixture(docPath)).toBe(emptied);
+        expect(await sourceText(page)).toBe(emptied);
+        removeFixture(docPath);
+    });
+
+    test('a save fills in a start marker that has no stop, as the contents button does', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-lone');
+        writeFixture(docPath, '# T\n');
+        await page.goto(routes.edit(docPath));
+        const filled = '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n';
+
+        // act
+        await setSource(page, '# T\n\n<!-- toc -->\n\n## A\n');
+        await save(page);
+
+        // assert
+        expect(readFixture(docPath)).toBe(filled);
+        expect(await sourceText(page)).toBe(filled);
+        removeFixture(docPath);
+    });
+
+    test('a save closes a start marker that has no stop even when no heading is there', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-lone-empty');
+        writeFixture(docPath, '# T\n');
+        await page.goto(routes.edit(docPath));
+        const closed = '# T\n\n<!-- toc -->\n\n<!-- tocstop -->\n\nText.\n';
+
+        // act
+        await setSource(page, '# T\n\n<!-- toc -->\n\nText.\n');
+        await save(page);
+
+        // assert
+        expect(readFixture(docPath)).toBe(closed);
+        expect(await sourceText(page)).toBe(closed);
+        removeFixture(docPath);
+    });
+
+    test('a save made in the preview brings the contents up to date', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-preview');
+        writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await setSource(page, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n\n## B\n');
+        await page.getByTestId('editor-layout-mode').getByText('Preview').click();
+        const refreshed = '# T\n\n<!-- toc -->\n\n- [A](#a)\n- [B](#b)\n\n<!-- tocstop -->\n\n## A\n\n## B\n';
+
+        // act
+        await save(page);
+
+        // assert
+        expect(readFixture(docPath)).toBe(refreshed);
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await expect.poll(() => sourceText(page)).toBe(refreshed);
+        removeFixture(docPath);
+    });
+
+    test('a save keeps the text typed while the contents was asked for, with the list it had', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-typed');
+        writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await setSource(page, '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n\n## B\n');
+        const {release, reached} = await holdRoute(page, '**/api/preview');
+        const typed = '# T\n\n<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n## A\n\n## B\n\n## C\n';
+
+        // act
+        await page.keyboard.press('ControlOrMeta+s');
+        await reached;
+        await setSource(page, typed);
+        release();
+
+        // assert
+        await expect(editorStatus(page)).toHaveAttribute('data-dirty', 'false');
+        await expect.poll(() => readFixture(docPath)).toBe(typed);
+        expect(await sourceText(page)).toBe(typed);
+        removeFixture(docPath);
+    });
+
+    test('a save with no contents markers adds no contents', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-none');
+        writeFixture(docPath, '# T\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+
+        // act
+        await setSource(page, '# T\n\n## A\n\n## B\n');
+        await save(page);
+
+        // assert
+        expect(readFixture(docPath)).toBe('# T\n\n## A\n\n## B\n');
+        removeFixture(docPath);
+    });
+
+    test('a save whose contents could not be built stores the note as written and says so', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-failed');
+        writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await page.route('**/api/preview', (route) => route.fulfill({status: 500, body: 'broken'}));
+        const written = '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n\n## B\n';
+
+        // act
+        await setSource(page, written);
+        await save(page);
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText(text.toast.contentsNotUpdated);
+        await expect(okToast(page)).toContainText(text.toast.saved);
+        expect(readFixture(docPath)).toBe(written);
+        expect(await sourceText(page)).toBe(written);
+        removeFixture(docPath);
+    });
+
+    test('a save whose contents takes over three seconds stores the note as written and says so', async ({page}) => {
+        // arrange
+        const docPath = scratch('toc-on-save-slow');
+        writeFixture(docPath, '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n');
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await page.route('**/api/preview', () => {});
+        const written = '# T\n\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n## A\n\n## B\n';
+
+        // act
+        await setSource(page, written);
+        await save(page);
+
+        // assert
+        const warn = page.locator('[data-testid=toast][data-kind="warn"]');
+        await expect(warn).toContainText(text.toast.contentsNotUpdated);
+        await expect(warn).toContainText(text.toast.contentsNoAnswer);
+        expect(readFixture(docPath)).toBe(written);
         removeFixture(docPath);
     });
 
@@ -1037,24 +2801,24 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    test('the leave dialog has the buttons every dialog has: one height, side by side at its end', async ({page}) => {
+    test('the discard dialog has the buttons every dialog has: one height, side by side at its end', async ({page}) => {
         // arrange
-        const docPath = scratch('leave-buttons');
+        const docPath = scratch('discard-buttons');
         writeFixture(docPath, '# Заметка\n');
+        await refuseDrafts(page);
         await page.goto(routes.edit(docPath));
-        await page.locator('[data-testid=editor-source] .cm-content').click();
-        await page.keyboard.type('x');
+        await typeInSource(page, 'x');
 
         // act
         await page.getByTestId('editor-cancel').click();
 
         // assert
         await expect(page.getByTestId('modal-confirm')).toBeVisible();
-        const leave = await dialogButtons(page, ['modal-cancel', 'modal-confirm']);
-        expect(leave.heights).toEqual([32, 32]);
-        expect(leave.rights[0]).toBeLessThan(leave.lefts[1]);
-        expect(leave.tops[0]).toBe(leave.tops[1]);
-        expect(leave.end).toBe(leave.bodyEnd);
+        const discard = await dialogButtons(page, ['modal-cancel', 'modal-confirm']);
+        expect(discard.heights).toEqual([32, 32]);
+        expect(discard.rights[0]).toBeLessThan(discard.lefts[1]);
+        expect(discard.tops[0]).toBe(discard.tops[1]);
+        expect(discard.end).toBe(discard.bodyEnd);
         await page.getByTestId('modal-cancel').click();
         removeFixture(docPath);
     });
@@ -1328,7 +3092,6 @@ test.describe('editing', () => {
                     await page.getByTestId('editor-save').click();
                 } else {
                     await page.getByTestId('editor-cancel').click();
-                    await page.getByTestId('modal-confirm').click();
                 }
 
                 // assert
@@ -1362,6 +3125,30 @@ test.describe('editing', () => {
 
         // assert
         await expect.poll(options).toEqual(['Source', 'Split', 'Preview', 'Changes'].map((title) => ({title, shown: true})));
+        removeFixture(docPath);
+    });
+
+    test('between a phone and a wide screen the editor keeps the desktop bar and toolbar, with no Split', async ({page}) => {
+        // arrange
+        const docPath = scratch('layout-between');
+        writeFixture(docPath, '# Заметка\n');
+        await page.addInitScript(() => localStorage.setItem('scrawl.editor.mode', 'split'));
+        await page.setViewportSize({width: 900, height: 900});
+
+        // act
+        await page.goto(routes.edit(docPath));
+
+        // assert
+        const layoutMode = page.getByTestId('editor-layout-mode');
+        await expect(layoutMode.getByRole('radio')).toHaveCount(3);
+        expect(await layoutMode.locator('[data-segment-text]').allTextContents()).toEqual(['Source', 'Preview', 'Changes']);
+        await expect(layoutMode.getByRole('radio', {name: 'Source'})).toBeChecked();
+        await expect(page.getByTestId('editor-panes')).toHaveAttribute('data-mode', 'source');
+        await expect(page.getByTestId('editor-cancel')).toHaveText('Cancel');
+        await expect(page.getByTestId('editor-toolbar')).toBeVisible();
+        await expect(page.getByTestId('editor-tabs')).toHaveCount(0);
+        await expect(page.getByTestId('editor-keyboard-bar')).toHaveCount(0);
+        await expect(page.getByTestId('topbar-edit-name')).toHaveCount(0);
         removeFixture(docPath);
     });
 

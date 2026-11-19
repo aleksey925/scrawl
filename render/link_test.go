@@ -165,6 +165,26 @@ func TestRenderBrokenLinks(t *testing.T) {
 		withoutSourceRanges(string(out)))
 }
 
+func TestRenderGivesALocalPictureItsSize(t *testing.T) {
+	// arrange
+	sizes := map[string][2]int{"dir/shot.png": {640, 480}}
+	r := New(Options{ImageSize: func(p string) (int, int, bool) {
+		size, ok := sizes[p]
+		return size[0], size[1], ok
+	}})
+
+	// act
+	out, err := htmlOf(r, []byte("![a](shot.png) ![b](unknown.svg) ![c](https://example.com/x.png)"), "dir/doc.md")
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t,
+		`<p><img src="/raw/dir/shot.png" alt="a" loading="lazy" decoding="async" width="640" height="480"> `+
+			`<img src="/raw/dir/unknown.svg" alt="b" loading="lazy" decoding="async"> `+
+			`<img src="https://example.com/x.png" alt="c"></p>`+"\n",
+		withoutSourceRanges(string(out)))
+}
+
 func TestRenderCustomPrefixes(t *testing.T) {
 	// arrange
 	r := New(Options{PagePrefix: "/view/", RawPrefix: "/files/"})

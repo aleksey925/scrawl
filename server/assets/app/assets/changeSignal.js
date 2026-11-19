@@ -1,0 +1,1 @@
+function e(){let e=new Set;return{subscribe:t=>(e.add(t),()=>e.delete(t)),notify:()=>{for(let t of e)t()}}}export{e as t};

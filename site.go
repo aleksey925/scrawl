@@ -319,7 +319,7 @@ func (b *siteBuilder) writeTree(root *store.Node) error {
 		}
 		title = res.Title
 	}
-	raw, err := json.Marshal(siteData{Title: title, Tree: withNotes(view.Nav(root, ""))})
+	raw, err := json.Marshal(siteData{Title: title, Tree: withNotes(view.Nav(root))})
 	if err != nil {
 		return fmt.Errorf("write %s: %w", siteTreeFile, err)
 	}

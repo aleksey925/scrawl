@@ -256,7 +256,7 @@ func TestRunSite(t *testing.T) {
 		require.True(t, strings.HasPrefix(tree, "self.scrawlSite = "))
 		var got siteData
 		require.NoError(t, json.Unmarshal([]byte(strings.TrimSuffix(strings.TrimPrefix(tree, "self.scrawlSite = "), ";\n")), &got))
-		assert.Equal(t, siteData{Title: "Home", Tree: withNotes(view.Nav(root, ""))}, got)
+		assert.Equal(t, siteData{Title: "Home", Tree: withNotes(view.Nav(root))}, got)
 		assert.Equal(t, []string{"docs", "drafts", "index.md"}, []string{got.Tree[0].Name, got.Tree[1].Name, got.Tree[2].Name})
 		assert.Equal(t, []string{"guide.md", "README.md"}, []string{got.Tree[0].Children[0].Name, got.Tree[0].Children[1].Name})
 	})

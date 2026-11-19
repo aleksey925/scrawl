@@ -1,5 +1,7 @@
-import { useEffect, useState, type DependencyList } from 'react';
+import { useEffect, useRef, useState, type DependencyList } from 'react';
 
+import type { ScrawlApi } from './client';
+import type { DirListing } from './types';
 import { ApiError } from './errors';
 
 export interface AsyncState<T> {
@@ -31,18 +33,48 @@ function remember(key: string, data: unknown): void {
   }
 }
 
+function heldIfEqual<T>(held: T | undefined, data: T): T {
+  return held !== undefined && (held === data || JSON.stringify(held) === JSON.stringify(data)) ? held : data;
+}
+
 export const answerKeys = {
   page: (path: string): string => `page:${path}`,
   dir: (path: string): string => `dir:${path}`,
-  nav: (path: string): string => `nav:${path}`,
+  nav: 'nav',
 };
 
 export function seedResponse(key: string, data: unknown): void {
   remember(key, data);
 }
 
+type DirSource = Pick<ScrawlApi, 'dir'>;
+
+let prefetched: { source: DirSource; path: string; answer: Promise<DirListing> } | undefined;
+
+export function prefetchDir(source: DirSource, path: string): () => void {
+  const answer = source.dir(path, { background: true });
+  answer.catch(() => undefined);
+  const asked = { source, path, answer };
+  prefetched = asked;
+  return () => {
+    if (prefetched === asked) {
+      prefetched = undefined;
+    }
+  };
+}
+
+export function dirOf(source: DirSource, path: string, signal: AbortSignal): Promise<DirListing> {
+  const taken = prefetched;
+  if (taken?.source !== source || taken.path !== path) {
+    return source.dir(path, { signal });
+  }
+  prefetched = undefined;
+  return taken.answer.catch(() => source.dir(path, { signal }));
+}
+
 export function forgetResponses(): void {
   responses.clear();
+  prefetched = undefined;
 }
 
 interface Answer<T> {
@@ -56,11 +88,14 @@ export function useApi<T>(
   run: (signal: AbortSignal) => Promise<T>,
   deps: DependencyList,
   key?: string,
+  { keepEqual = false }: { keepEqual?: boolean } = {},
 ): AsyncState<T> {
   const [state, setState] = useState<Answer<T>>(() => {
     const cached = key === undefined ? undefined : (responses.get(key) as T | undefined);
     return { data: cached, dataKey: cached === undefined ? undefined : key, loading: true };
   });
+  const shown = useRef(state.data);
+  shown.current = state.data;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -73,10 +108,11 @@ export function useApi<T>(
         if (controller.signal.aborted) {
           return;
         }
+        const kept = keepEqual ? heldIfEqual(shown.current, data) : data;
         if (key !== undefined) {
-          remember(key, data);
+          remember(key, kept);
         }
-        setState({ data, dataKey: key, loading: false });
+        setState({ data: kept, dataKey: key, loading: false });
       },
       (error: unknown) => {
         if (!controller.signal.aborted) {

@@ -9,8 +9,9 @@ import { historyUrl } from '../paths';
 import { layoutBreakpoints, useAtLeast } from '../theme';
 
 import type { DocumentExtrasProps } from './extensions';
-import { EditAction } from './EditButton';
-import { useNav } from './NavContext';
+import { useOfferEdit } from './BarEditProvider';
+import { EditAction } from './EditAction';
+import { useAccount } from './NavContext';
 import { NoteMenu } from './NoteMenu';
 import { PageActions } from './ShellSlots';
 import { plainShortcut } from './shortcuts';
@@ -18,6 +19,7 @@ import classes from './Topbar.module.css';
 import { TopbarAction } from './TopbarAction';
 
 export function DocumentExtras({ doc, placed }: DocumentExtrasProps): JSX.Element {
+  useOfferEdit(doc.edit_url);
   return (
     <>
       <PageActions>
@@ -30,7 +32,7 @@ export function DocumentExtras({ doc, placed }: DocumentExtrasProps): JSX.Elemen
 }
 
 function NoteActions({ doc }: { doc: DocumentExtrasProps['doc'] }): JSX.Element {
-  const { canWrite, me } = useNav();
+  const { canWrite, me } = useAccount();
   const wide = useAtLeast(layoutBreakpoints.compactTopbar);
   useEditShortcut(canWrite ? doc.edit_url : undefined);
 

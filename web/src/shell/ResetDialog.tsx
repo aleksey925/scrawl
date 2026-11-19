@@ -1,8 +1,5 @@
 import { Anchor, Button, Checkbox, Code, Group, Loader, Modal, Stack, Text } from '@mantine/core';
-import {
-  createContext, useCallback, useContext, useEffect, useMemo, useState,
-  type JSX, type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 
 import { api } from '../api/client';
 import { ApiError } from '../api/errors';
@@ -14,43 +11,8 @@ import { mountBase } from '../mount';
 import { documentUrl, isMarkdown, rawUrl } from '../paths';
 import { layout } from '../theme';
 
-import { useNav } from './NavContext';
+import { useAccount } from './NavContext';
 import classes from './ResetDialog.module.css';
-
-const ResetContext = createContext<(() => void) | undefined>(undefined);
-
-export function ResetProvider({ children }: { children: ReactNode }): JSX.Element {
-  const [opened, setOpened] = useState(false);
-  const open = useCallback(() => setOpened(true), []);
-  const close = useCallback(() => setOpened(false), []);
-
-  return (
-    <ResetContext.Provider value={open}>
-      {children}
-      {opened && <ResetDialog onClose={close} />}
-    </ResetContext.Provider>
-  );
-}
-
-export function ResetAction(): JSX.Element | null {
-  const open = useContext(ResetContext);
-  const { sync } = useNav();
-  if (open === undefined || sync?.canReset !== true) {
-    return null;
-  }
-  return (
-    <Group>
-      <Button
-        data-testid="sync-reset"
-        size="xs"
-        variant="default"
-        onClick={open}
-      >
-        Replace local copy…
-      </Button>
-    </Group>
-  );
-}
 
 type Step =
   | { name: 'checking' }
@@ -65,8 +27,8 @@ function isInStep(error: unknown): boolean {
   return error instanceof ApiError && error.status === 409;
 }
 
-function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
-  const { refreshMe } = useNav();
+export function ResetDialog({ onClose }: { onClose: () => void }): JSX.Element {
+  const { refreshMe } = useAccount();
   const [step, setStep] = useState<Step>({ name: 'checking' });
   const [pushBackup, setPushBackup] = useState(true);
 

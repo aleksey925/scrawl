@@ -26,46 +26,66 @@ function writeOpen(storageKey: string, open: ReadonlySet<string>): void {
   writeJson(localStore(), storageKey, [...open]);
 }
 
-export interface NavState {
-  tree: readonly NavNode[];
-  error: unknown;
-  loading: boolean;
+export interface AccountState {
   me: MeResponse | undefined;
   canWrite: boolean;
-  currentPath: string;
   sync: SyncMessage | undefined;
   syncStatus: SyncStatus | undefined;
   isUnsynced: (path: string) => boolean;
-  refreshNav: () => void;
   refreshMe: () => void;
+}
+
+export interface TreeState {
+  tree: readonly NavNode[];
+  error: unknown;
+  loading: boolean;
+  currentPath: string;
+  refreshTree: () => void;
   changes: number;
   isOpen: (path: string) => boolean;
   toggleFolder: (path: string) => void;
   openFolder: (path: string) => void;
-  query: string;
   setQuery: (query: string) => void;
 }
 
-const NavContext = createContext<NavState | undefined>(undefined);
+const AccountContext = createContext<AccountState | undefined>(undefined);
 
-export function useNav(): NavState {
-  const state = useContext(NavContext);
+const TreeContext = createContext<TreeState | undefined>(undefined);
+
+const TreeQueryContext = createContext('');
+
+export function useAccount(): AccountState {
+  const state = useContext(AccountContext);
   if (state === undefined) {
-    throw new Error('navigation state is only available inside the app shell');
+    throw new Error('the account is only available inside the app shell');
   }
   return state;
+}
+
+export function useTree(): TreeState {
+  const state = useContext(TreeContext);
+  if (state === undefined) {
+    throw new Error('the tree is only available inside the app shell');
+  }
+  return state;
+}
+
+export function useTreeQuery(): string {
+  return useContext(TreeQueryContext);
 }
 
 export function spaceLabel(me: MeResponse | undefined): string {
   return me?.space.label ?? me?.site_title ?? 'Notes';
 }
 
-function activeFolders(nodes: readonly NavNode[], into: Set<string>): void {
+const noNodes: readonly NavNode[] = [];
+
+function foldersOnPath(nodes: readonly NavNode[], current: string, into: Set<string>): void {
   for (const entry of nodes) {
-    if (entry.is_dir && entry.active) {
+    if (entry.is_dir && (entry.path === current || current.startsWith(`${entry.path}/`))) {
       into.add(entry.path);
+      foldersOnPath(entry.children, current, into);
     }
-    activeFolders(entry.children, into);
   }
 }
 
@@ -107,23 +127,23 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
   const [token, setToken] = useState(0);
   const { source, storageScope } = usePlatform();
   const storageKey = openKey(storageScope);
-  const nav = useApi((signal) => source.nav(currentPath, { signal }), [source, currentPath, token], answerKeys.nav(currentPath));
+  const nav = useApi((signal) => source.nav({ signal }), [source, currentPath, token], answerKeys.nav, {
+    keepEqual: true,
+  });
   const { me, refreshMe } = status;
 
   const [open, setOpen] = useState<ReadonlySet<string>>(() => readOpen(storageKey));
   const [query, setQuery] = useState('');
-  const tree = useMemo(() => nav.data?.tree ?? [], [nav.data]);
+  const tree = nav.data?.tree ?? noNodes;
+  const loading = nav.loading && nav.data === undefined;
 
-  const seenActive = useRef<{ page: string; folders: ReadonlySet<string> }>({ page: '', folders: new Set() });
+  const seenOnPath = useRef<{ page: string; folders: ReadonlySet<string> }>({ page: '', folders: new Set() });
   useEffect(() => {
-    if (nav.stale) {
-      return;
-    }
-    const active = new Set<string>();
-    activeFolders(tree, active);
-    const seen = seenActive.current.page === currentPath ? seenActive.current.folders : new Set<string>();
-    const arrived = [...active].filter((path) => !seen.has(path));
-    seenActive.current = { page: currentPath, folders: active };
+    const onPath = new Set<string>();
+    foldersOnPath(tree, currentPath, onPath);
+    const seen = seenOnPath.current.page === currentPath ? seenOnPath.current.folders : new Set<string>();
+    const arrived = [...onPath].filter((path) => !seen.has(path));
+    seenOnPath.current = { page: currentPath, folders: onPath };
     if (arrived.length === 0) {
       return;
     }
@@ -135,11 +155,11 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       writeOpen(storageKey, next);
       return next;
     });
-  }, [tree, nav.stale, currentPath, storageKey]);
+  }, [tree, currentPath, storageKey]);
 
   const lastFill = useRef<ReadonlyMap<string, boolean> | undefined>(undefined);
   useEffect(() => {
-    if (nav.stale || nav.loading || nav.data === undefined) {
+    if (nav.loading || nav.data === undefined) {
       return;
     }
     const fill = new Map<string, boolean>();
@@ -163,7 +183,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       writeOpen(storageKey, next);
       return next;
     });
-  }, [tree, nav.stale, nav.loading, nav.data, storageKey]);
+  }, [tree, nav.loading, nav.data, storageKey]);
 
   const toggleFolder = useCallback((path: string) => {
     setOpen((prev) => {
@@ -188,7 +208,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
   }, [storageKey]);
 
   const isOpen = useCallback((path: string) => open.has(path), [open]);
-  const refreshNav = useCallback(() => {
+  const refreshTree = useCallback(() => {
     forgetResponses();
     setToken((seen) => seen + 1);
   }, []);
@@ -205,31 +225,39 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
   }, [me?.space.unsynced]);
   const isUnsynced = useCallback((path: string) => unsynced?.has(path) ?? false, [unsynced]);
 
-  const value = useMemo<NavState>(
+  const account = useMemo<AccountState>(
     () => ({
-      tree,
-      error: nav.error,
-      loading: nav.loading,
       me,
       canWrite: me !== undefined && !me.read_only && (!me.auth_on || me.user !== ''),
-      currentPath,
       sync,
       syncStatus,
       isUnsynced,
-      refreshNav,
       refreshMe,
+    }),
+    [me, sync, syncStatus, isUnsynced, refreshMe],
+  );
+
+  const treeState = useMemo<TreeState>(
+    () => ({
+      tree,
+      error: nav.error,
+      loading,
+      currentPath,
+      refreshTree,
       changes: token,
       isOpen,
       toggleFolder,
       openFolder,
-      query,
       setQuery,
     }),
-    [
-      tree, nav.error, nav.loading, me, currentPath, sync, syncStatus, isUnsynced,
-      refreshNav, refreshMe, token, isOpen, toggleFolder, openFolder, query,
-    ],
+    [tree, nav.error, loading, currentPath, refreshTree, token, isOpen, toggleFolder, openFolder],
   );
 
-  return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
+  return (
+    <AccountContext.Provider value={account}>
+      <TreeContext.Provider value={treeState}>
+        <TreeQueryContext.Provider value={query}>{children}</TreeQueryContext.Provider>
+      </TreeContext.Provider>
+    </AccountContext.Provider>
+  );
 }

@@ -1,8 +1,14 @@
+import { motionMs } from '../motion';
+
 import { paperClass, scopeIds } from './diagramSvg';
 import { imageCaption } from './dom';
 
 const swipeMin = 40;
+const dismissMin = 100;
+const dismissFlick = 0.5;
+const dismissMs = 200;
 const tapSlop = 8;
+const flickWindowMs = 100;
 const doubleTapMs = 300;
 const maxScale = 8;
 const ceilingOverActual = 2;
@@ -339,6 +345,42 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
   const pointers = new Map<number, Point>();
   let gesture = { from: { x: 0, y: 0 }, travel: 0, pinched: false, touch: false };
   let lastTap: { time: number; point: Point } | null = null;
+  let pull: { dy: number; speed: number; at: number } | null = null;
+
+  const pullTo = (dy: number): void => {
+    stage.element.style.transform = `translateY(${dy}px)`;
+    dialog.style.setProperty('--md-viewer-pull', String(Math.max(0, 1 - Math.abs(dy) / (window.innerHeight / 2))));
+  };
+  const endPull = (dismiss: boolean): void => {
+    const ended = pull;
+    pull = null;
+    if (ended === null) {
+      return;
+    }
+    const element = stage.element;
+    const duration = motionMs(dismissMs);
+    const away = dismiss && (Math.abs(ended.dy) > dismissMin || Math.abs(ended.speed) > dismissFlick);
+    if (away) {
+      dialog.dataset.pull = 'leaving';
+      dialog.style.setProperty('--md-viewer-pull', '0');
+      const to = Math.sign(ended.dy === 0 ? ended.speed : ended.dy) * window.innerHeight;
+      element
+        .animate([{ transform: `translateY(${ended.dy}px)` }, { transform: `translateY(${to}px)` }], {
+          duration,
+          easing: 'ease-out',
+          fill: 'forwards',
+        })
+        .finished.then(
+          () => dialog.close(),
+          () => dialog.close(),
+        );
+      return;
+    }
+    delete dialog.dataset.pull;
+    element.style.transform = '';
+    dialog.style.removeProperty('--md-viewer-pull');
+    element.animate([{ transform: `translateY(${ended.dy}px)` }, { transform: 'none' }], { duration, easing: 'ease-out' });
+  };
 
   dialog.addEventListener('pointerdown', (event) => {
     pointers.set(event.pointerId, pointOf(event));
@@ -346,6 +388,7 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
       gesture = { from: pointOf(event), travel: 0, pinched: false, touch: event.pointerType === 'touch' };
     } else {
       gesture.pinched = true;
+      endPull(false);
     }
   });
   dialog.addEventListener('pointermove', (event) => {
@@ -374,14 +417,37 @@ function openItems(items: readonly ViewerItem[], start: number, label: string): 
         dialog.setPointerCapture(event.pointerId);
       }
       zoom.panBy(now.x - last.x, now.y - last.y);
+    } else if (gesture.touch && !gesture.pinched) {
+      const dy = now.y - gesture.from.y;
+      if (pull === null && gesture.travel > tapSlop && Math.abs(dy) > Math.abs(now.x - gesture.from.x)) {
+        pull = { dy, speed: 0, at: event.timeStamp };
+        dialog.dataset.pull = 'pulling';
+        stage.element.classList.remove('md-viewer-glide');
+        dialog.setPointerCapture(event.pointerId);
+      }
+      if (pull !== null) {
+        const elapsed = event.timeStamp - pull.at;
+        pull = { dy, speed: elapsed > 0 ? (dy - pull.dy) / elapsed : pull.speed, at: event.timeStamp };
+        pullTo(dy);
+      }
     }
   });
   const release = (event: PointerEvent): void => {
     pointers.delete(event.pointerId);
   };
-  dialog.addEventListener('pointercancel', release);
+  dialog.addEventListener('pointercancel', (event) => {
+    release(event);
+    endPull(false);
+  });
   dialog.addEventListener('pointerup', (event) => {
     release(event);
+    if (pull !== null) {
+      if (event.timeStamp - pull.at > flickWindowMs) {
+        pull = { ...pull, speed: 0 };
+      }
+      endPull(true);
+      return;
+    }
     if (pointers.size > 0 || gesture.pinched || zoom.scale() > 1 || !several) {
       return;
     }

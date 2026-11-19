@@ -1,8 +1,8 @@
 import {
-  ActionIcon, Anchor, Box, Group, Highlight, Menu, ScrollArea, Skeleton, Stack, Text, TextInput, UnstyledButton,
+  ActionIcon, Anchor, Box, Group, Highlight, ScrollArea, Skeleton, Stack, Text, TextInput, UnstyledButton,
 } from '@mantine/core';
 import {
-  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
+  createContext, memo, useCallback, useContext, useDeferredValue, useEffect, useMemo, useRef, useState,
   type CSSProperties, type DragEvent, type JSX, type KeyboardEvent, type MouseEvent, type ReactNode,
 } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -11,19 +11,19 @@ import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
 import { NameField } from '../components/NameField';
 import { NewEntryMenu, usePointerMenu } from '../components/pointerMenu';
-import { FieldMenuItem, PopupMenu } from '../components/PopupMenu';
 import { RenameField } from '../components/RenameField';
 import {
-  IconChevronDown, IconChevronRight, IconCompose, IconFile, IconFilePlus, IconFileText, IconFolder, IconFolderOpen,
-  IconFolderPlus, IconHome, IconPlus, IconSearch, IconSidebar, IconX,
+  IconChevronDown, IconChevronRight, IconCompose, IconFileText, IconFolder, IconFolderOpen,
+  IconHome, IconPlus, IconSearch, IconSidebar, IconX,
 } from '../icons';
 import { editUrl, isDirectoryPath, isMarkdown } from '../paths';
 import { layout } from '../theme';
 
 import { rowMenuIconSize, useReaderExtensions } from './extensions';
 import { useFileActions, useOptionalFileActions, useRenamingHere, type Renaming } from './fileActionsContext';
-import { spaceLabel, useNav } from './NavContext';
+import { spaceLabel, useAccount, useTree, useTreeQuery } from './NavContext';
 import { basenameOf, folderFor, parentOf } from './naming';
+import { useShownChrome } from './PageChrome';
 import { useSearchControl } from './searchOpener';
 import { keysLabel, modKey, useKeyboardPlace } from './shortcuts';
 import sidebarClasses from './Sidebar.module.css';
@@ -71,8 +71,8 @@ interface RowsProps {
 
 type TreeRowProps = Omit<RowsProps, 'nodes'> & { node: NavNode };
 
-function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | null {
-  const { isOpen, openFolder, toggleFolder, currentPath, canWrite } = useNav();
+const TreeRow = memo(function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | null {
+  const { isOpen, openFolder, toggleFolder, currentPath } = useTree();
   const actions = useOptionalFileActions();
   const draft = actions?.draft;
   const { RowMenu } = useReaderExtensions();
@@ -81,6 +81,7 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
   const openMenu = useCallback(() => setMenuOpened(true), []);
   const longPress = useLongPress(openMenu);
   const renaming = useRenamingHere('tree', node.path);
+  const ghost = useGhostIn(node.path, query);
   const empty = node.is_dir && node.children.length === 0;
 
   if (query !== '' && !filtered.visible.has(node.path)) {
@@ -89,8 +90,9 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
 
   const drafting = draft !== undefined && draft.parent === node.path;
   const unfolded = query !== '' ? filtered.forcedOpen.has(node.path) : isOpen(node.path);
-  const open = empty ? drafting : unfolded;
-  const folderOpen = empty ? isOpen(node.path) || drafting : unfolded;
+  const added = drafting || ghost !== undefined;
+  const open = empty ? added : unfolded;
+  const folderOpen = empty ? isOpen(node.path) || added : unfolded;
   const shown = node.path === currentPath;
   const marked = node.path === ui.currentRow;
   const picked = ui.selected.has(node.path);
@@ -176,17 +178,17 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
                 opened={menuOpened}
                 onOpenedChange={setMenuOpened}
               />
-              {node.is_dir && canWrite && actions !== undefined && (
+              {node.is_dir && ui.canWrite && actions !== undefined && (
                 <ActionIcon
                   data-testid="tree-row-add"
                   variant="subtle"
                   color="gray"
                   size="sm"
                   className={treeClasses.add}
-                  aria-label={`New file in ${node.name}`}
+                  aria-label={`New note in ${node.name}`}
                   onClick={() => {
                     openFolder(node.path);
-                    actions.createDraft('file', node.path);
+                    actions.newNote(node.path);
                   }}
                 >
                   <IconPlus size={rowMenuIconSize} />
@@ -203,11 +205,12 @@ function TreeRow({ node, depth, filtered, query }: TreeRowProps): JSX.Element | 
           {!empty && (
             <TreeRows nodes={node.children} depth={depth + 1} filtered={filtered} query={query} />
           )}
+          {ghost !== undefined && <GhostRow name={ghost} depth={depth + 1} />}
         </div>
       )}
     </Box>
   );
-}
+});
 
 interface FolderIconProps {
   name: string;
@@ -288,21 +291,36 @@ function NameRow({ depth, testId, isFile, children }: NameRowProps): JSX.Element
 }
 
 function DraftRow({ depth }: { depth: number }): JSX.Element {
-  const { draft, submitDraft, cancelDraft } = useFileActions();
-  const isFile = draft?.kind === 'file';
+  const { submitDraft, cancelDraft } = useFileActions();
   return (
-    <NameRow depth={depth} testId="tree-draft" isFile={isFile}>
+    <NameRow depth={depth} testId="tree-draft" isFile={false}>
       <NameField
         initial=""
         testId="tree-draft"
-        icon={<IconBox>{isFile ? <IconFile size={treeIconSize} /> : <IconFolder size={treeIconSize} />}</IconBox>}
+        icon={<IconBox><IconFolder size={treeIconSize} /></IconBox>}
         className={treeClasses.field}
-        placeholder={isFile ? 'File name' : 'Folder name'}
-        label={isFile ? 'Name of the new file' : 'Name of the new folder'}
+        placeholder="Folder name"
+        label="Name of the new folder"
         onSubmit={submitDraft}
         onCancel={cancelDraft}
       />
     </NameRow>
+  );
+}
+
+function useGhostIn(folder: string, query: string): string | undefined {
+  const { draft } = useShownChrome();
+  return draft !== undefined && query === '' && parentOf(draft.path) === folder ? basenameOf(draft.path) : undefined;
+}
+
+function GhostRow({ name, depth }: { name: string; depth: number }): JSX.Element {
+  return (
+    <div data-testid="tree-ghost" data-current="true" className={`${treeClasses.row} ${treeClasses.ghost}`} style={rowInsets(depth)}>
+      <IconBox>
+        <IconFileText size={treeIconSize} />
+      </IconBox>
+      <span className={treeClasses.label}>{name}</span>
+    </div>
   );
 }
 
@@ -343,7 +361,10 @@ export interface SidebarNavProps {
 export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
-  const { tree, error, loading, canWrite: mayWrite, currentPath, query, setQuery, isOpen, openFolder, me } = useNav();
+  const { canWrite: mayWrite, me } = useAccount();
+  const { tree, error, loading, currentPath, setQuery, isOpen, openFolder } = useTree();
+  const query = useTreeQuery();
+  const shownQuery = useDeferredValue(query);
   const actions = useOptionalFileActions();
   const openSearch = useSearchControl()?.open;
   const keyboard = useKeyboardPlace();
@@ -361,13 +382,14 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const dragged = useRef<readonly string[]>([]);
   const spring = useRef<{ folder: string; timer: number } | undefined>(undefined);
 
-  const trimmed = query.trim().toLowerCase();
+  const trimmed = shownQuery.trim().toLowerCase();
   const filtered = useMemo(() => filterTree(tree, trimmed), [tree, trimmed]);
 
   const rowOrder = useMemo(
     () => flatten(tree, (node) => (trimmed === '' ? isOpen(node.path) : true), []),
     [tree, trimmed, isOpen],
   );
+  const currentRowShown = rowOrder.includes(currentRow);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -381,7 +403,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
       return;
     }
     viewport.scrollTop += rowBox.top - hostBox.top - (viewport.clientHeight - rowBox.height) / 2;
-  }, [currentPath, tree]);
+  }, [currentPath, tree, currentRowShown]);
 
   const pick = useCallback(
     (path: string, event: MouseEvent) => {
@@ -501,16 +523,18 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
   const at = selected.size === 1 ? ([...selected][0] ?? currentPath) : currentPath;
   const here = folderFor(at, nodeAt(tree, at)?.is_dir ?? at === '');
   const draftAtRoot = actions?.draft !== undefined && actions.draft.parent === '';
+  const rootGhost = useGhostIn('', trimmed);
   const home = tree.find((node) => node.folder_page === true);
   const atHome = home !== undefined ? currentPath === home.path : rootListRoutes.has(location.pathname);
 
   function onFilterKey(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key === 'Enter') {
       event.preventDefault();
-      if (trimmed === '') {
+      const typed = query.trim().toLowerCase();
+      if (typed === '') {
         return;
       }
-      const first = filtered.matches[0];
+      const first = filterTree(tree, typed).matches[0];
       if (first !== undefined) {
         void navigate(first.url);
       } else if (openSearch !== undefined) {
@@ -555,37 +579,19 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
             </ActionIcon>
           )}
           {canWrite && actions !== undefined && (
-            <PopupMenu position="bottom-end" withinPortal width={layout.menuWidth}>
-              <Menu.Target>
-                <ActionIcon
-                  data-testid="sidebar-new"
-                  variant="subtle"
-                  color="gray"
-                  size={layout.controlHeight}
-                  className={sidebarClasses.compose}
-                  aria-label="New file or folder"
-                >
-                  <IconCompose size={layout.iconSize} />
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label data-testid="sidebar-new-where">{inFolder(here, spaceName)}</Menu.Label>
-                <FieldMenuItem
-                  data-testid="sidebar-new-page"
-                  leftSection={<IconFilePlus size={layout.iconSizeSmall} />}
-                  onClick={() => actions.createDraft('file', here)}
-                >
-                  New file
-                </FieldMenuItem>
-                <FieldMenuItem
-                  data-testid="sidebar-new-folder"
-                  leftSection={<IconFolderPlus size={layout.iconSizeSmall} />}
-                  onClick={() => actions.createDraft('dir', here)}
-                >
-                  New folder
-                </FieldMenuItem>
-              </Menu.Dropdown>
-            </PopupMenu>
+            <ActionIcon
+              data-testid="sidebar-new"
+              data-folder={here}
+              variant="subtle"
+              color="gray"
+              size={layout.controlHeight}
+              className={sidebarClasses.compose}
+              aria-label="New note"
+              title={`New note ${inFolder(here, spaceName).toLowerCase()} (N)`}
+              onClick={() => actions.newNote(here)}
+            >
+              <IconCompose size={layout.iconSize} />
+            </ActionIcon>
           )}
         </div>
       )}
@@ -633,6 +639,11 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
           onKeyDown={onFilterKey}
           placeholder="Filter notes"
           aria-label="Filter notes"
+          autoComplete="off"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="search"
           size="sm"
           leftSection={<IconSearch size={treeIconSize} />}
           rightSectionPointerEvents="all"
@@ -687,6 +698,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
               <>
                 {draftAtRoot && <DraftRow depth={0} />}
                 <TreeRows nodes={tree} depth={0} filtered={filtered} query={trimmed} />
+                {rootGhost !== undefined && <GhostRow name={rootGhost} depth={0} />}
               </>
             )}
           </Stack>
@@ -696,7 +708,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
         <NewEntryMenu
           menu={contextMenu}
           testId="tree-context-menu"
-          onCreate={actions.createDraft}
+          onCreate={(kind, folder) => (kind === 'note' ? actions.newNote(folder) : actions.newFolder(folder))}
         />
       )}
 

@@ -19,19 +19,20 @@ The tree, its head and its foot.
   indented tree. A hidden rail holds nothing: mantine only moves it out of
   sight, and the rows left in it would still answer the tab key.
 - The head of the sidebar is two icons and nothing else, as Notion's Mail and
-  Calendar have it: the sidebar's own at the left, which hides it, and a new
-  entry at the right, the sidebar's one way to make one: New file or New
-  folder, in the row that is picked, else in the folder of the page on screen,
-  and the menu names that folder. Search and Home are the two rows under it.
-  Search shows its key, `⌘K`, at its end where there is a keyboard, and Home is
-  always filled with the current row's gray, on the home page or not. The label
-  over the tree is the space's name and the root folder: it opens the root's
-  list and takes a drop. The foot is the space's button under a line across the
-  sidebar, as wide as it: the app's logo, the space's name and a chevron at the
-  right edge, and it opens one menu upward: the account, the spaces with a
-  check on this one, the theme and the shortcuts, then "Offline access" and
-  sign out. A site's foot is its title, with a menu of the theme, the page
-  width and the shortcuts.
+  Calendar have it: the sidebar's own at the left, which hides it, and the
+  compose icon at the right, which opens a new note's draft at once, with no
+  menu, in the row that is picked, else in the folder of the page on screen,
+  and its tip names that folder and the key `N`. The same icon makes a note
+  wherever it stands, so it never opens a menu here and a draft there. Search
+  and Home are the two rows under it. Search shows its key, `⌘K`, at its end
+  where there is a keyboard, and Home is always filled with the current row's
+  gray, on the home page or not. The label over the tree is the space's name
+  and the root folder: it opens the root's list and takes a drop. The foot is
+  the space's button under a line across the sidebar, as wide as it: the app's
+  logo, the space's name and a chevron at the right edge, and it opens one menu
+  upward: the account, the spaces with a check on this one, the theme and the
+  shortcuts, then "Offline access" and sign out. A site's foot is its title,
+  with a menu of the theme, the page width and the shortcuts.
 - A folder's icon opens and closes it. The rows of an open folder are indented
   14px and there is no guide line. Every row, a nested one too, keeps 1px under
   it, so two gray rows next to each other, the current one and a picked one, do
@@ -65,30 +66,31 @@ The tree, its head and its foot.
   opens its page. A filter shows an empty folder open or closed as its clicks
   left it. A line saying the folder was empty only took a row to say what the
   missing arrow says, so an empty space shows no rows under its name either,
-  and a right click there still offers New file and New folder. A row's `⋯`,
-  and a folder's `+`, show under the pointer, under the keyboard's focus and
-  while the menu is open; a touch screen has no hover, so there the `⋯` always
-  shows and the `+` never. The same menu is the row's context menu: a right
-  click opens it at the `⋯`, not at the pointer, and on a tablet a long press,
-  timed by the row because iOS sends no `contextmenu` for one. A right click on
-  the free space of the tree, under the rows, opens a menu of New file and New
-  folder, made in the root, as the space under the rows stands for it. A site
-  has no menu to offer and leaves the browser's own. A phone has no tree, so a
-  row of a folder's list carries the same menu: a `⋯` beside the row, which a
-  link cannot hold, and a long press anywhere on it. They feel the way iOS has
-  them: the `⋯` leaves the row as it is, and a resting finger shrinks the row a
-  little, then lifts a copy of it as a card over the dimmed and blurred page,
-  with the menu growing out of the card and hanging from the row's right edge,
-  inside the page's gutter, where a right thumb reaches it, as iOS's own lists
-  hang it; tied to the card's start it stood against the left edge. Closing the
-  menu sets the row back down. A row lit gray while its menu was up read as a
-  web page. React hands a press inside a menu's portal up to the row it belongs
-  to, so a long press only times a press that started inside the row itself.
-  The menu offers Edit only where the answer gives an edit address: the server
-  writes one on a listing row the editor opens, a text name within the size it
-  loads, so a picture's row offers none, and a site's rows never carry one. A
-  folder's list asks for its answer again after every write the tree is
-  refreshed for: it kept showing a file deleted from the tree beside it.
+  and a right click there still offers New note and New folder. A row's `⋯`,
+  and a folder's `+`, which opens a note's draft in that folder, show under the
+  pointer, under the keyboard's focus and while the menu is open; a touch
+  screen has no hover, so there the `⋯` always shows and the `+` never. The
+  same menu is the row's context menu: a right click opens it at the `⋯`, not
+  at the pointer, and on a tablet a long press, timed by the row because iOS
+  sends no `contextmenu` for one. A right click on the free space of the tree,
+  under the rows, opens a menu of New note and New folder, made in the root, as
+  the space under the rows stands for it. A site has no menu to offer and
+  leaves the browser's own. A phone has no tree, so a row of a folder's list
+  carries the same menu: a `⋯` beside the row, which a link cannot hold, and a
+  long press anywhere on it. They feel the way iOS has them: the `⋯` leaves the
+  row as it is, and a resting finger shrinks the row a little, then lifts a
+  copy of it as a card over the dimmed and blurred page, with the menu growing
+  out of the card and hanging from the row's right edge, inside the page's
+  gutter, where a right thumb reaches it, as iOS's own lists hang it; tied to
+  the card's start it stood against the left edge. Closing the menu sets the
+  row back down. A row lit gray while its menu was up read as a web page. React
+  hands a press inside a menu's portal up to the row it belongs to, so a long
+  press only times a press that started inside the row itself. The menu offers
+  Edit only where the answer gives an edit address: the server writes one on a
+  listing row the editor opens, a text name within the size it loads, so a
+  picture's row offers none, and a site's rows never carry one. A folder's list
+  asks for its answer again after every write the tree is refreshed for: it
+  kept showing a file deleted from the tree beside it.
 - "Offline access" is a row with a switch, above sign out, and one line in
   small text under it while it is on: `120 MB, updated at 14:30` (a date when
   it was not today), `Downloading... 45 of 300`, `Downloading...` before the

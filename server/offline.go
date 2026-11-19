@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -40,7 +39,7 @@ func (wb *Web) newOfflineApp() (*offlineApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256(shell)
+	sum := sha256.Sum256(slices.Concat(shell, []byte("\n"+wb.csp)))
 	res := &offlineApp{shell: shell, shellFile: hex.EncodeToString(sum[:6]) + ".html"}
 
 	shellURL := offlineShellBase + res.shellFile
@@ -126,17 +125,5 @@ func (m *mount) apiVersions(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusInternalServerError, "the list of files could not be built")
 		return
 	}
-	sum := sha256.Sum256(body)
-	etag := strconv.Quote(hex.EncodeToString(sum[:8]))
-	h := w.Header()
-	h.Set("ETag", etag)
-	h.Set("Cache-Control", pageCacheControl)
-	if matchesETag(r.Header.Get("If-None-Match"), etag) {
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
-	h.Set("Content-Type", "application/json; charset=utf-8")
-	if _, err := w.Write(body); err != nil {
-		log.Printf("[DEBUG] write versions response: %v", err)
-	}
+	writeTaggedJSON(w, r, body)
 }

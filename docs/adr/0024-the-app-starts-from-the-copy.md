@@ -2,7 +2,8 @@
 
 Status: accepted. Where it applies: [offline copy](../design/offline.md),
 [pages](../ui/pages.md). It replaces the network-first navigation of
-[ADR 23](0023-offline-copy-by-a-worker-and-the-reader.md).
+[ADR 23](0023-offline-copy-by-a-worker-and-the-reader.md). Its logo drawn while
+the app loads is replaced by [ADR 33](0033-no-logo-while-the-app-loads.md).
 
 ## Context
 

@@ -3,6 +3,7 @@ package render
 import (
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/yuin/goldmark/ast"
@@ -22,6 +23,7 @@ type linkTransformer struct {
 	folderPage string
 	indexPage  string
 	exists     func(contentPath string) bool
+	imageSize  func(contentPath string) (width, height int, ok bool)
 }
 
 type target struct {
@@ -65,10 +67,23 @@ func (t *linkTransformer) decorate(n ast.Node, tg target, isImage bool) {
 	case tg.rewrote && isImage:
 		n.SetAttributeString("loading", []byte("lazy"))
 		n.SetAttributeString("decoding", []byte("async"))
+		t.sizeImage(n, tg.content)
 	}
 	if tg.broken || (tg.content != "" && t.exists != nil && !t.exists(tg.content)) {
 		n.SetAttributeString("class", []byte(brokenClass))
 	}
+}
+
+func (t *linkTransformer) sizeImage(n ast.Node, content string) {
+	if t.imageSize == nil || content == "" {
+		return
+	}
+	width, height, ok := t.imageSize(content)
+	if !ok {
+		return
+	}
+	n.SetAttributeString("width", []byte(strconv.Itoa(width)))
+	n.SetAttributeString("height", []byte(strconv.Itoa(height)))
 }
 
 func setExternal(n ast.Node) {

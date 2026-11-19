@@ -21,7 +21,7 @@ type LoginPage struct {
 	From      string
 }
 
-func (m *mount) treeNodes(current string) []view.NavNode {
+func (m *mount) treeNodes() []view.NavNode {
 	if m.spc.Store == nil {
 		return []view.NavNode{}
 	}
@@ -30,7 +30,7 @@ func (m *mount) treeNodes(current string) []view.NavNode {
 		log.Printf("[WARN] build tree: %v", err)
 		return []view.NavNode{}
 	}
-	return view.Nav(root, current)
+	return view.Nav(root)
 }
 
 func isMarkdown(p string) bool { return strings.EqualFold(path.Ext(p), ".md") }

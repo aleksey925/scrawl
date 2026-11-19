@@ -13,49 +13,216 @@ The editor screen.
   the source, across the whole room, and that is accepted: a narrow column only
   for that case would bring the empty sides back. The line numbers have the
   page's ground and so does the strip left of them, so a line scrolled sideways
-  slides under them; on a transparent ground the text ran over the numbers. The
-  topbar holds the sync control, the state of the save, the layout as Source,
-  Split, Preview or Changes, Cancel and Save; on a phone Cancel and Save are
-  the two ends of the bar and the sync control stands between them, in the
-  middle. Below the `lg` width the layout shows only its icons, because the
-  four names squeezed the note's name in the topbar to a few letters. Each
-  layout shows its name on hover at every width, also where the name is on
-  screen, as a title cannot follow the width without a script. This is
-  `compact` of `Segmented`, and only this switch has it: the other icon
-  switches always show their names. On a phone the layouts are the tabs Text,
-  Preview and Changes, as Split has no room there.
+  slides under them; on a transparent ground the text ran over the numbers. On
+  a touch screen with no Split, the text with wrap off goes up and down in the
+  pane and sideways in the editor inside it, two boxes each scrolled one way:
+  in one box that scrolled both ways a swipe up drifted to the right on iOS,
+  which locks no axis there ([quirks](../quirks.md#ios-and-safari)). The place
+  the editor opens at and the place it gives back to the reader are read from
+  the pane then. On a wide screen the topbar holds the sync control, the state
+  of the save, the layout as Source, Split, Preview or Changes, Cancel and
+  Save. Between a phone and a wide screen it holds the same without the state
+  of the save and without Split, as two panes have no room there. Below the
+  `lg` width the layout shows only its icons, because the four names squeezed
+  the note's name in the topbar to a few letters. Each layout shows its name on
+  hover at every width, also where the name is on screen, as a title cannot
+  follow the width without a script. This is `compact` of `Segmented`, and only
+  this switch has it: the other icon switches always show their names.
+- On a phone, below the phone width, the bar on top is the way back at the
+  left, the file's name in the middle with the state of the save under it, and
+  Save at the right ([ADR 29](../adr/0029-the-phone-editor-bars.md)). Back is
+  the arrow alone, drawn as the way up of the reader is, 20px in the secondary
+  color and dim while pressed, 16px from the edge as the reader's is, and does
+  what Cancel does. Save is a word in the accent, gray and disabled while there
+  is nothing to save, so the bar does not jump; a note not created yet can be
+  saved at once. The sync control is not there: it tells about the whole space
+  and not the note, a problem of the space is the banner over the text, and
+  Save leads to the reader, which has the control. The offline mark is not
+  there either: the cells beside the name are 64px wide and have no room for it
+  without moving the name off the middle, the draft keeps the text on the
+  device, and a save with no network shows its toast. The bottom of the screen
+  is one strip. With the layouts in it, it is as tall as the tab bar, so the
+  edge does not move when the editor opens; with the toolbar over the keyboard
+  it is 50px. While no text is typed it is the layouts as a choice of three,
+  Text, Preview and Changes, as Split has no room there, at the bottom, under
+  the thumb, with the home indicator's room under it; Changes carries an orange
+  dot while there are unsaved changes. A dot and not a count: a count needs a
+  diff in the browser or a call to the server on every pause. While the text
+  has the focus, the formatting toolbar takes the strip's place over the
+  keyboard: the same tools, 44px each, in the text's color, with the wrap
+  button at its end, and a button outside the scroll that puts the keyboard
+  away. The strip switches on the focus of the text and does not guess where
+  the keyboard is; the table menu of the toolbar keeps it while open. The
+  editor on a phone is as tall as the visible area and follows it, the bar on
+  top included, so the toolbar is at the bottom of what is seen, over the
+  keyboard ([phone](phone.md)). An editor as tall as the page ran under the
+  keyboard: its last lines could not be reached, and a drag moved either the
+  text or the whole page, which then stuck with the start of the note above the
+  screen. It does so only while the keyboard is up: with no keyboard the
+  visible area is the page, and the bar and the page are not moved at all.
+  Moved with a shift of zero, they were taken out of their place in the page's
+  layers, and leaving the editor gave them back in the same frame the note slid
+  in, which shook the slide on an iPhone. The toolbar keeps the home
+  indicator's room under it while no keyboard is up, as with a hardware
+  keyboard. The text scrolls the cursor into sight when the keyboard opens and
+  when the visible area gets shorter, and not when it gets taller, so a scroll
+  away from the cursor stays. The line count and the head of the source are not
+  on a phone; an upload in progress shows in the state of the save. In a
+  read-only space the head of the source stays, with the wrap button, as the
+  toolbar that carries it on a phone is never shown there. A text file keeps
+  the head with its language and the wrap button, and its line count at the
+  bottom, as it has no layouts or toolbar.
 - Save saves and opens the reader, as an edit is a trip from the page and back.
-  With nothing to save it only opens the reader, and a note not created yet is
-  created. The editor stays when the save fails, when it meets a conflict,
-  whatever the conflict dialog then does, and when the text changed while the
-  save ran. A person who went elsewhere while the save ran stays there. Once
-  the save is done and the reader is on its way, the text can no longer be
-  changed: the guard on leaving is asked only as the move starts, and the
-  reader may still be loading. A save midway that keeps the editor is
-  `Ctrl`/`Cmd` + `S`. Cancel opens the reader without saving and asks first
-  when there are unsaved changes. A phone has no shortcut, so a save there
-  always leaves; the local draft keeps the text between saves.
+  The editor leaves no entry in the history: opened from the note's page, Save
+  and Cancel go back to it, and opened from elsewhere the reader takes the
+  editor's entry, so a back from the note never opens the editor again. With
+  nothing to save it only opens the reader, and a note not created yet is
+  created. On a phone Save is disabled while there is nothing to save, and the
+  back arrow opens the reader. The editor stays when the save fails, when it
+  meets a conflict, whatever the conflict dialog then does, and when the text
+  changed while the save ran. Save as copy in the conflict dialog writes the
+  text to a copy beside the file, `.conflict-<time>` before its extension, and
+  opens the copy's editor in the editor's place in the history, so Back goes
+  where the editor was opened from. Text typed while the copy was written is
+  not in the copy: it stays the file's draft, kept as the editor goes to the
+  copy with the toast below, and a person who left before the copy was written
+  keeps it the same way. When that text cannot be kept and Keep editing is
+  chosen, the editor stays on the file and its text is still unsaved against
+  the file, even undone back to the copy's. A person who went elsewhere while
+  the save ran stays there. Once the save is done and the reader is on its way,
+  the text can no longer be changed: the guard on leaving is asked only as the
+  move starts, and the reader may still be loading. A save midway that keeps
+  the editor is `Ctrl`/`Cmd` + `S`, from anywhere on the screen, a field too.
+  `Ctrl`/`Cmd` + `Enter` is Save and `Esc` is Cancel, from the text or with
+  nothing focused; in a field, a menu, a dialog or the sidebar `Esc` closes
+  what it closed before. In the text `Esc` first closes what codemirror has
+  open: a list of completions, the search panel, from its field, its buttons or
+  the text, and several cursors, which it makes one. With nothing focused `Esc`
+  is Cancel even while these are open, as codemirror does not get the key
+  there. Both are taken before the text
+  ([quirks](../quirks.md#react-mantine-and-the-editor)). Cancel, the back arrow
+  and any other way out leave without saving and ask nothing: the unsaved text
+  is written to the draft on the device as the editor goes, neither the text
+  nor an offered draft can be changed while the next page loads, a toast says
+  "Changes kept as a draft on this device", and the editor offers the draft
+  back the next time ([ADR 31](../adr/0031-leaving-keeps-the-draft.md)). The
+  toast has no button: the way back is the note itself, and for a note not
+  created yet the next New note in its folder, which opens at the same address
+  and offers the draft. Text typed there instead of Restore leaves the offered
+  draft as it is while the editor stays open, and replaces it only when the
+  editor is left, saved or put in the background: a new note takes the focus on
+  a phone, and its first keys wiped a draft whose row was easy to miss. A save
+  that keeps the editor, one the server refuses too, the page put in the
+  background with new text, or a preview or Changes refused as the session
+  ended, also takes the row away, and the text typed after it is kept as a
+  draft again: the save writes its text over the offered draft before it is
+  sent, and a row left after a refused save held back the drafts after it, and
+  its Discard dropped the newer text. A save with no new text, as a note not
+  created yet saved as it opened, keeps the offered draft, as nothing has
+  replaced it. A save or a Discard drops only a draft the editor wrote or found
+  as it opened: one written later at the same address by another editor, as a
+  second New note in the folder while the first one's save is on its way,
+  stays, and a first save that answers after its editor was left does not write
+  over it. Two editors open at once at one address, as two tabs, keep one draft
+  between them: each writes its text over the other's, and the one written last
+  stays. A draft the editor wrote is never offered back to the same editor. A
+  draft belongs to its space and path, and follows the note when it or its
+  folder is renamed or moved, an Undo of the move included, the open note too:
+  its text is written as the editor goes and moved once the next page opens. A
+  draft the browser refuses under the new name stays under the old one. A leave
+  while a save is on its way shows no such toast, as the save's own follows.
+  Only when the browser refuses the draft, as a private window or a full
+  storage does, or while a picture is still uploading, whose link would never
+  land, would the text be lost, and then a dialog asks "Discard changes?" with
+  Discard in red and Keep editing. Discard drops any draft kept before and
+  writes no new one, and the text can no longer be changed either. Closing the
+  tab asks the browser's own question in those cases alone. A phone has no
+  shortcut, so a save there always leaves; the local draft keeps the text
+  between saves.
+- The draft is also written on `pagehide` and when the page turns hidden, as a
+  phone that drops a tab put away fires no `beforeunload`
+  ([quirks](../quirks.md)). Both events are kept. MDN and the Page Lifecycle
+  API of Chrome say a mobile browser that ends a page in the background may
+  fire no `pagehide`, and `visibilitychange` is the last event it fires for
+  sure; this is not yet seen on a device. Safari before 14.1 fired no
+  `visibilitychange` on leaving a page. A second write of the same text is kept
+  over the risk of no write at all.
+- The state of the save is Saved, Saving, Waiting for the upload, New note or
+  New file, and for unsaved changes Draft on device once the text is copied to
+  the browser's storage, which happens 800ms after the last change or after a
+  save gives the file a new version, and not while an earlier draft is offered.
+  Before that, or when the storage refused the copy, as a private window or a
+  full storage does, it is Unsaved changes. "Draft saved" read as saved to the
+  server. On a phone an orange dot stands before both unsaved states.
+- A draft left in the browser from an earlier visit is offered in a row right
+  under the topbar, across the whole screen
+  ([ADR 30](../adr/0030-the-draft-offer-is-a-row.md)): the orange dot of the
+  unsaved state, Unsaved draft, the time it was written as the history writes a
+  version, then Discard in the secondary color and Restore in the accent, as
+  Save is on a phone. A draft written against another version of the file adds
+  "file changed" to the time, and the time turns orange. On a phone the name
+  and the time are two lines and the buttons are 44px tall. While the editor is
+  being left the buttons are disabled and faint. A press dims them on a touch
+  screen and fills them with the pressed tone under a mouse, as every other
+  text button there. Restore puts the draft's text in the editor, and in a new
+  note the name typed for it as well, Discard drops the draft, and either takes
+  the row away. The draft keeps that name without its folder, so a folder
+  renamed or moved takes the draft along with the name still right. The row is
+  plain and not a yellow box: a draft found is an offer, not a fault. Its
+  ground is a pale warm tone in the light theme and the ground of a code block
+  in the dark one. The empty room over the sync banner is left out on the
+  editor screen, so the row meets the topbar.
+- A note's draft ([entries](entries.md)) is the same editor with a name not
+  chosen yet: it opens with `# ` as both its text and its saved text, so a
+  draft left as it opened, even with a name typed, has nothing unsaved, and the
+  state reads New note: leaving it keeps neither a draft nor the name. The kind
+  of editor follows the name, so a draft named `todo.txt` drops the modes, the
+  toolbar and the preview at once. Its first save writes to the name it has
+  then and reports Created instead of Saved; Save opens the reader of the new
+  file, and `Cmd+S` replaces the address with the editor of the new file and
+  keeps the place in the text; a note created at the draft's own address, as
+  `untitled.md`, keeps the same editor, and the address only loses its
+  `?draft`. From that save on the draft is the new file's: text typed while the
+  first save ran is kept under the new name, the editor left before the save
+  answered too, and the editor of the new file offers it, where under the
+  draft's own address it was never offered again. When that text cannot be kept
+  under the new name, as the browser refuses it or a draft the editor did not
+  write is there, another editor's or one left by a deleted note of that name,
+  it stays under the draft's address, an editor still open offers the draft it
+  found, and it drops that copy once it writes its draft under the new name,
+  saves or is discarded. An offered draft that was not restored stays under the
+  draft's address. After Discard nothing of that text is kept, even when the
+  save answers later. A draft equal to the text on screen is never offered. A
+  first save that finds the file just written with the same text elsewhere,
+  between the look at the folder and the write, says Saved and leaves the note
+  not created yet: the next save takes another free name, or with a typed name
+  says the name is taken, and nothing typed is lost. It is rare and is left so.
+  A note not created yet reads New note only until its first save, then Saved.
+  Cancel goes back, as nothing of the draft is a page to go back to. The name
+  field is the draft's own and not a rename: nothing on disk is moved.
 - Changes shows the unsaved edits: the text in the editor against the text last
   saved, drawn as the history draws a version
   ([history](../design/history.md#comparing-versions)), side by side on a wide
-  screen and in one column on a phone. The sides are named Saved and Unsaved.
-  With format on save, a save writes the formatted text, so Changes is not
-  always what Save writes. With nothing changed it says so and asks the server
-  nothing. Coming back to Changes with the same texts asks nothing again, but a
-  compare that failed is asked again. A save with the shortcut made in Changes
-  moves what it compares against, so the pane then says there are no changes;
-  while the save runs, the pane keeps the last diff and asks nothing for the
-  formatted text. Changes is never the layout the editor opens with: it is not
-  kept as the other three are, and the editor opens in the last of those.
+  screen and in one column on a phone. The sides are named Saved and Unsaved. A
+  save brings the contents up to date and, with format on save, formats the
+  text, so Changes is not always what Save writes. With nothing changed it says
+  so and asks the server nothing. Coming back to Changes with the same texts
+  asks nothing again, but a compare that failed is asked again. A save with the
+  shortcut made in Changes moves what it compares against, so the pane then
+  says there are no changes; while the save runs, the pane keeps the last diff
+  and asks nothing for the formatted text. Changes is never the layout the
+  editor opens with: it is not kept as the other three are, and the editor
+  opens in the last of those.
 - A text file that is not a note is edited as text alone: the source, colored
-  by its language, with Save, Cancel and the wrap, and no modes, toolbar,
-  preview, formatter or picture upload, none of which means anything for it. It
-  is the same editor screen with the markdown parts left out, not a second one:
-  the save, the draft, the conflict and the guard on leaving stay one flow. A
-  copy kept from a conflict keeps the file's extension, and a file that is text
-  by its whole name, a `Makefile` or `go.mod`, gets a `.txt` copy, which the
-  editor still opens. The language comes from the name: codemirror's set, and
-  for what it lacks or guesses wrong the closest language it holds, in
+  by its language, with Save, Cancel, which is the back arrow on a phone, and
+  the wrap, and no modes, toolbar, preview, formatter, contents or picture
+  upload, none of which means anything for it. It is the same editor screen
+  with the markdown parts left out, not a second one: the save, the draft, the
+  conflict and the guard on leaving stay one flow. A copy kept from a conflict
+  keeps the file's extension, and a file that is text by its whole name, a
+  `Makefile` or `go.mod`, gets a `.txt` copy, which the editor still opens. The
+  language comes from the name: codemirror's set, and for what it lacks or
+  guesses wrong the closest language it holds, in
   `web/src/editor/codeLanguages.ts` (a svelte component as html, elixir as
   ruby, a makefile as shell). No new grammar is a dependency of ours, so a name
   with nothing close (terraform, graphql, zig) stays plain.
@@ -89,6 +256,25 @@ The editor screen.
   still goes into the text, after the block the cursor was last in. A note with
   no heading under its title gets a toast and no change. The markers are
   comments, which the page never shows.
+- A save brings the contents up to date by itself. When the note holds a block,
+  the editor asks `POST /api/preview` for the headings before it formats and
+  writes, and puts a fresh list in the first block, the list the button would
+  write. A note with no heading left keeps its markers with nothing between
+  them, where the button keeps the old list and says so. A save never adds a
+  block where there is no start marker, but a `<!-- toc -->` with no stop is
+  filled in as the button fills it in, and gets its stop even with no heading
+  to list. The Save button on a note with no change still sends nothing;
+  `Cmd+S` saves even then, and brings the list up to date. The text between the
+  markers belongs to the editor, so an edit made there by hand is gone after
+  the next save. If the answer fails or does not come in three seconds, the
+  note is saved as written and a toast says the contents could not be updated.
+  The toast comes after the save, and only when the save worked, so a save that
+  fails as well shows its own error alone. A note too large for the preview
+  gets that toast on every save. If the text changed before the answer came,
+  the save takes the text as it is, and the next save brings the list up to
+  date. Only the editor does this: a write with an API token or a restore
+  stores the text it was given, so the list has one source, the editor's
+  ([ADR 27](../adr/0027-the-contents-is-refreshed-by-the-editor.md)).
 - The editor toolbar is a strip that moves sideways only and stops at its ends,
   and the editor screen takes the page's rubber band away. Left to the defaults
   the strip followed a finger up and down with the page behind it. It has no

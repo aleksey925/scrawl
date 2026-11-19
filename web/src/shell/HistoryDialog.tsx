@@ -30,7 +30,7 @@ import { showToast } from '../toast';
 
 import { DiffView } from './DiffView';
 import classes from './HistoryDialog.module.css';
-import { useNav } from './NavContext';
+import { useAccount } from './NavContext';
 import { useMutationState } from './useMutationState';
 
 function whoOf(actor: string): string {
@@ -220,7 +220,7 @@ export interface HistoryDialogProps {
 }
 
 export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogProps): JSX.Element {
-  const { canWrite } = useNav();
+  const { canWrite } = useAccount();
   const reportMutation = useMutationState();
   const phone = useBelow(layoutBreakpoints.phone);
   const [mode, setMode] = useStoredChoice('scrawl.history.diff', diffModes);

@@ -10,6 +10,7 @@ export interface Draft {
   rev: string;
   content: string;
   at: number;
+  name?: string;
 }
 
 interface WrittenDraft {
@@ -34,7 +35,11 @@ function isDraft(value: unknown): value is Draft {
     return false;
   }
   const candidate = value as Partial<Draft>;
-  return typeof candidate.content === 'string' && typeof candidate.rev === 'string';
+  return (
+    typeof candidate.content === 'string' &&
+    typeof candidate.rev === 'string' &&
+    (candidate.name === undefined || typeof candidate.name === 'string')
+  );
 }
 
 function prune(): void {
@@ -53,18 +58,19 @@ export interface UseDraftOptions {
   content: string;
   dirty: boolean;
   savedContent: string;
+  name?: string;
 }
 
 export function useDraft(options: UseDraftOptions): DraftControl {
-  const { path, rev, content, dirty, savedContent } = options;
+  const { path, rev, content, dirty, savedContent, name } = options;
   const { storageScope } = usePlatform();
   const key = draftKey(storageScope, path);
 
   const [offered, setOffered] = useState<Draft | undefined>(undefined);
   const [written, setWritten] = useState<WrittenDraft | undefined>(undefined);
 
-  const latest = useRef({ rev, content, dirty, key });
-  latest.current = { rev, content, dirty, key };
+  const latest = useRef({ rev, content, dirty, key, name });
+  latest.current = { rev, content, dirty, key, name };
   const abandonedRef = useRef(false);
 
   const flush = useCallback((): boolean => {
@@ -72,7 +78,7 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     if (!now.dirty || abandonedRef.current) {
       return true;
     }
-    const stored = writeJson(localStore(), now.key, { rev: now.rev, content: now.content, at: Date.now() });
+    const stored = writeJson(localStore(), now.key, { rev: now.rev, content: now.content, at: Date.now(), name: now.name });
     setWritten(stored ? { key: now.key, rev: now.rev, content: now.content } : undefined);
     return stored;
   }, []);
@@ -111,7 +117,7 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     }
     const timer = window.setTimeout(flush, draftDelayMs);
     return () => window.clearTimeout(timer);
-  }, [content, rev, dirty, offering, flush]);
+  }, [content, rev, name, dirty, offering, flush]);
 
   useEffect(() => {
     const onHidden = (): void => {

@@ -252,8 +252,9 @@ export function useEditSession({
         await uploads.wait();
         const tocFailure = await refreshToc();
         sent = bufferText();
+        const untouched = first && sent === draftOpening;
         let formatted = false;
-        if (formatOnSave) {
+        if (formatOnSave && !untouched) {
           try {
             sent = await formatBuffer();
             formatted = true;
@@ -270,7 +271,7 @@ export function useEditSession({
           dest = target;
         }
         const res = await api.saveFile(dest, {
-          content: withLineBreak(first && sent === draftOpening ? '' : sent, lineBreak),
+          content: withLineBreak(untouched ? '' : sent, lineBreak),
           rev: withRev ?? revRef.current,
           formatted,
         });

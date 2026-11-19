@@ -149,7 +149,14 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const preview = usePreview(content, path, showPreview);
   const changes = useChanges({ saved, content, path, enabled: mode === 'changes', paused: saving });
   const uploads = useUploads(path, useCallback(() => viewRef.current, []));
-  const draft = useDraft({ path, rev, content, dirty, savedContent: editorText });
+  const draft = useDraft({
+    path,
+    rev,
+    content,
+    dirty,
+    savedContent: editorText,
+    name: drafting && manual !== undefined ? basenameOf(manual) : undefined,
+  });
 
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -576,6 +583,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           onRestore={() => {
             const current = viewRef.current;
             const text = draft.offered?.content ?? '';
+            const name = draft.offered?.name;
+            if (drafting && savedAsRef.current === undefined && name !== undefined) {
+              setManual(joinPath(folder, name));
+            }
             if (current !== undefined) {
               current.dispatch({
                 changes: { from: 0, to: current.state.doc.length, insert: text },

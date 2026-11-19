@@ -244,7 +244,28 @@ test.describe('pages', () => {
         }
     });
 
-    test('a dialog\'s chunk that is gone while the browser is idle reloads the page, and the dialog opens after', async ({page}) => {
+    test('a page\'s chunk that is gone while the browser is idle leaves the note on screen as it is', async ({page}) => {
+        // arrange
+        let asked = 0;
+        await page.route('**/assets/EditPage.js', (route) => {
+            asked += 1;
+            return route.fulfill({status: 404, body: 'gone'});
+        });
+        let loads = 0;
+        page.on('load', () => {
+            loads += 1;
+        });
+
+        // act
+        await page.goto(routes.doc(docs.doc.path));
+        await expect.poll(() => asked).toBe(1);
+
+        // assert
+        await stays(() => loads, 1, 1000);
+        await expect(page.getByTestId('doc')).toBeVisible();
+    });
+
+    test('a dialog\'s chunk that is gone while the browser is idle leaves the page as it is, and opening the dialog loads the page again', async ({page}) => {
         // arrange
         let asked = 0;
         await page.route('**/assets/SearchDialog.js', async (route) => {
@@ -255,11 +276,19 @@ test.describe('pages', () => {
             }
             await route.continue();
         });
+        let loads = 0;
+        page.on('load', () => {
+            loads += 1;
+        });
         await page.goto(routes.doc(docs.doc.path));
-        await expect.poll(() => asked).toBe(2);
-        await expect(page.getByTestId('doc')).toBeVisible();
+        await expect.poll(() => asked).toBe(1);
+        await stays(() => loads, 1, 1000);
 
         // act
+        const reloaded = page.waitForEvent('load');
+        await page.keyboard.press('ControlOrMeta+k');
+        await reloaded;
+        await expect.poll(() => asked).toBe(2);
         await page.keyboard.press('ControlOrMeta+k');
 
         // assert
@@ -277,7 +306,7 @@ test.describe('pages', () => {
                 await route.fulfill({status: 404, body: 'gone'});
             });
             await page.goto(routes.edit(GUARDED));
-            await expect.poll(() => asked).toBe(2);
+            await expect.poll(() => asked).toBe(1);
             await expect(page.getByTestId('editor-source')).toBeVisible();
             await setSource(page, 'typed but not saved\n');
             await expect(page.getByTestId('editor-status')).toHaveAttribute('data-dirty', 'true');

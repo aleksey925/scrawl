@@ -4,7 +4,7 @@ const fs = require('fs');
 
 const docs = require('../support/docs');
 const {
-    MAIN, MOVE_WAIT_MS, atHome, fixtureFile, holdRoute, nameOf, pressShortcut, readFixture, recordMoves, removeFixture, rightClickPrevented,
+    MAIN, MOVE_WAIT_MS, PAST_DRAFT_DELAY_MS, atHome, fixtureFile, holdRoute, nameOf, pressShortcut, readFixture, recordMoves, removeFixture, rightClickPrevented,
     routes, save, setSource, shot, signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -265,6 +265,29 @@ test.describe.serial('file management', () => {
         await page.getByTestId('editor-save').click();
         await expect(page).toHaveURL(MAIN.url.doc(SLUG_PAGE));
         expect(readFixture(SLUG_PAGE)).toBe('# Something else\n');
+    });
+
+    test('Restore of a new note\'s draft brings back the name typed for it', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/draft-named';
+        const created = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.draft(created));
+        await nameDraft(page, 'shopping.md');
+        await setSource(page, 'milk\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        await page.getByTestId('editor-cancel').click();
+        await expect(page).toHaveURL(MAIN.url.dir(folder));
+        await page.goto(routes.draft(created));
+
+        // act
+        await page.getByTestId('editor-draft-restore').click();
+        await page.getByTestId('editor-save').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(`${folder}/shopping.md`));
+        expect(readFixture(`${folder}/shopping.md`)).toBe('milk\n');
+        removeFixture(folder);
     });
 
     test('the name field of a draft refuses a slash and a leading dot and keeps the name typed', async ({page}) => {

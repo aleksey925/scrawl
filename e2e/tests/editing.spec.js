@@ -690,6 +690,23 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('Save of a new note with nothing typed writes an empty file, with format on save as well', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-empty';
+        const created = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.goto(routes.draft(created));
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
+
+        // act
+        await page.getByTestId('editor-save').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(created));
+        expect(readFixture(created)).toBe('');
+        removeFixture(folder);
+    });
+
     test('Save on a note not created yet with nothing typed keeps the offered draft', async ({page}) => {
         // arrange
         const docPath = scratch('save-new-draft-offered');

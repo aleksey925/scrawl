@@ -6,6 +6,8 @@ const reloadIntervalMs = 60_000;
 
 let reloading = false;
 
+let quietLoads = 0;
+
 let recover: () => boolean = () => false;
 
 const holds = new Set<() => boolean>();
@@ -44,6 +46,9 @@ export function reloadOnStaleBundle(pending: () => string | undefined): void {
     return true;
   };
   window.addEventListener('vite:preloadError', (event) => {
+    if (quietLoads > 0 && pending() === undefined) {
+      return;
+    }
     if (reloadForStaleBundle()) {
       event.preventDefault();
     }
@@ -65,4 +70,13 @@ export function loadChunk<T>(load: Promise<T>): Promise<T> {
       throw error;
     },
   );
+}
+
+export function loadQuietly(load: () => Promise<unknown>): void {
+  quietLoads += 1;
+  void load()
+    .catch(() => undefined)
+    .finally(() => {
+      quietLoads -= 1;
+    });
 }

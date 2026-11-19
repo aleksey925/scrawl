@@ -1,7 +1,7 @@
 import { useEffect, useState, type ComponentType, type JSX } from 'react';
 
 import { whenIdle } from '../idle';
-import { loadChunk } from '../staleBundle';
+import { loadChunk, loadQuietly } from '../staleBundle';
 import { showToast } from '../toast';
 
 type DialogProps = { onClose: () => void };
@@ -14,10 +14,16 @@ function chunkDialog<P extends DialogProps>(
   let loaded: ComponentType<P> | undefined;
   let pending: Promise<ComponentType<P>> | undefined;
   const fetchDialog = (): Promise<ComponentType<P>> => {
-    pending ??= loadChunk(load()).then((component) => {
-      loaded = component;
-      return component;
-    });
+    pending ??= loadChunk(load()).then(
+      (component) => {
+        loaded = component;
+        return component;
+      },
+      (error: unknown) => {
+        pending = undefined;
+        throw error;
+      },
+    );
     return pending;
   };
   preloads.push(fetchDialog);
@@ -63,7 +69,7 @@ export const ResetDialog = chunkDialog(
 export function preloadDialogs(): void {
   whenIdle(() => {
     for (const fetchDialog of preloads) {
-      void fetchDialog().catch(() => undefined);
+      loadQuietly(fetchDialog);
     }
   });
 }

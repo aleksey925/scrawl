@@ -140,12 +140,14 @@ The editor screen.
   and the time are two lines and the buttons are 44px tall. While the editor is
   being left the buttons are disabled and faint. A press dims them on a touch
   screen and fills them with the pressed tone under a mouse, as every other
-  text button there. Restore puts the draft's text in the editor, Discard drops
-  the draft, and either takes the row away. The row is plain and not a yellow
-  box: a draft found is an offer, not a fault. Its ground is a pale warm tone
-  in the light theme and the ground of a code block in the dark one. The empty
-  room over the sync banner is left out on the editor screen, so the row meets
-  the topbar.
+  text button there. Restore puts the draft's text in the editor, and in a new
+  note the name typed for it as well, Discard drops the draft, and either takes
+  the row away. The draft keeps that name without its folder, so a folder
+  renamed or moved takes the draft along with the name still right. The row is
+  plain and not a yellow box: a draft found is an offer, not a fault. Its
+  ground is a pale warm tone in the light theme and the ground of a code block
+  in the dark one. The empty room over the sync banner is left out on the
+  editor screen, so the row meets the topbar.
 - A note's draft ([entries](entries.md)) is the same editor with a name not
   chosen yet: it opens with `# ` as both its text and its saved text, so a
   draft left as it opened has nothing unsaved, and the state reads New note.

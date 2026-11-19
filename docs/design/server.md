@@ -245,5 +245,4 @@ Spaces, routes, settings and the guards on every request.
   zone, written `%25` in the URL as RFC 6874 has it, since a link-local address
   without it names no interface. In a container these are the container's own
   addresses, which no other machine can open, and the server cannot learn the
-  host's address or the port it publishes, so the links stay as they are and
-  the README says so.
+  host's address or the port it publishes, so the links stay as they are.

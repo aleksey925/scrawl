@@ -21,11 +21,11 @@ as a `goto` can turn it back on: with it, or in the headless shell, a page
 never loses the window's focus.
 
 The suite starts the binary itself. Every other spec takes `test` from
-`support/test.js`, which brings up five instances for each Playwright worker
-before its first test, each against its own throwaway copy of the corpus made
-by `support/serve.js`, so a run never touches the source tree and two workers
-never share a tree. The ports below are the first worker's; worker `N` adds
-`10 * N` to each:
+`e2e/support/test.js`, which brings up five instances for each Playwright
+worker before its first test, each against its own throwaway copy of the corpus
+made by `e2e/support/serve.js`, so a run never touches the source tree and two
+workers never share a tree. The ports below are the first worker's; worker `N`
+adds `10 * N` to each:
 
 - `127.0.0.1:8731` - normal mode, used by nearly every spec
 - `127.0.0.1:8732` - `--read-only --history=on`, used by `readonly.spec.js` and
@@ -55,8 +55,8 @@ directory, so the remote mode runs with no network:
 - `hooked` - a clone with `pull: 0` and a webhook secret, so a note that
   appears there appeared because a delivery arrived and for no other reason
 
-`support/git.js` is what a spec uses to move the origin: `pushToOrigin` is a
-second writer, and `breakOrigin` moves the repository aside rather than
+`e2e/support/git.js` is what a spec uses to move the origin: `pushToOrigin` is
+a second writer, and `breakOrigin` moves the repository aside rather than
 changing the space's configuration, which is what a remote going away actually
 looks like.
 
@@ -64,7 +64,7 @@ looks like.
 
 Every space owns one contiguous subtree, `/s/<name>/`, and the handful of
 routes that read no store answer at the root. `routesFor(space)` in
-`support/env.js` builds both halves and no spec writes a url by hand:
+`e2e/support/env.js` builds both halves and no spec writes a url by hand:
 
 ```js
 routes.doc("db/notes.md"); // /s/notes/doc/db/notes.md
@@ -109,23 +109,24 @@ Nothing inside a rendered note is addressed by id: a heading becomes an element
 id, and `pages.spec.js` keeps a note that claims the names of the chrome to
 prove it stays out of the way.
 
-Asserted interface strings live in `support/text.js`, so a wording change is
-one edit there.
+Asserted interface strings live in `e2e/support/text.js`, so a wording change
+is one edit there.
 
 ## Fixtures
 
 The suite runs against `examples/data`, the notes in this repository, on every
 machine.
 
-No spec names a document. `support/docs.js` maps a role - the document with an
-outline, the folder without an index, the word that is found in more than one
-page - onto a path in that tree, and the specs ask for roles. A new spec that
-needs something new adds the role there instead of hard coding another path.
+No spec names a document. `e2e/support/docs.js` maps a role - the document with
+an outline, the folder without an index, the word that is found in more than
+one page - onto a path in that tree, and the specs ask for roles. A new spec
+that needs something new adds the role there instead of hard coding another
+path.
 
 ## The editor
 
 The editor is codemirror, so there is no field with a value to set or read.
-`support/helpers.js` carries the two ways around that:
+`e2e/support/helpers.js` carries the two ways around that:
 
 - `setSource(page, text)` selects everything and inserts the text as one input
   event, which goes in byte for byte. Typing it would run through the markdown
@@ -155,14 +156,14 @@ host - a build on one side swaps the binary under a run on the other, so point
 one of them at a binary of its own:
 
 ```
-SCRAWL_E2E_BINARY=/tmp/scrawl npx playwright test
+cd e2e && SCRAWL_E2E_BINARY=/tmp/scrawl npx playwright test
 ```
 
 With Playwright already installed somewhere else, point `NODE_PATH` at it
 instead of installing again:
 
 ```
-NODE_PATH=/path/to/playwright/node_modules \
+cd e2e && NODE_PATH=/path/to/playwright/node_modules \
   /path/to/playwright/node_modules/.bin/playwright test
 ```
 

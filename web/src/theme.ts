@@ -1,6 +1,5 @@
 import {
   ActionIcon,
-  Burger,
   Button,
   CloseButton,
   createTheme,
@@ -279,7 +278,6 @@ export const theme: MantineThemeOverride = createTheme({
 
   components: {
     ActionIcon: ActionIcon.extend({ classNames: { root: `${controls.tapTarget} ${controls.actionIcon}` } }),
-    Burger: Burger.extend({ classNames: { root: `${controls.tapTarget} ${controls.burger}` } }),
     Button: Button.extend({ classNames: { root: controls.button } }),
     CloseButton: CloseButton.extend({ classNames: { root: controls.tapTarget } }),
     Input: Input.extend({ classNames: { wrapper: controls.input, input: controls.inputField } }),

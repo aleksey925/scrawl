@@ -410,6 +410,22 @@ test.describe('html apps', () => {
             await offline.close();
             await context.setOffline(false);
         });
+
+        test('a Run with no network of an app never run closes its tab and says why', async ({page, context}) => {
+            // arrange
+            await copyOn(page, PLAIN);
+            await openFile(page, PLAIN, COUNTER_FILE);
+            await context.setOffline(true);
+            await page.reload();
+
+            // act
+            const [tab] = await Promise.all([context.waitForEvent('page'), page.getByTestId('file-run').click()]);
+
+            // assert
+            await expect.poll(() => tab.isClosed()).toBe(true);
+            await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText(NO_RECORD);
+            await context.setOffline(false);
+        });
     });
 
     test('a Run at a network address over http opens a tab of its own, which closes on the 409 with a toast', async ({playwright}) => {

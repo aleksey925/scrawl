@@ -88,7 +88,7 @@ function appUrl(path: string, isDir: boolean): string {
 function childrenOf(tree: readonly NavNode[], folder: string): readonly NavNode[] {
   let nodes = tree;
   for (const step of ancestorsOf(folder).slice(1)) {
-    nodes = nodes.find((node) => node.path === step)?.children ?? [];
+    nodes = nodes.find((entry) => entry.path === step)?.children ?? [];
   }
   return nodes;
 }
@@ -118,7 +118,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   const draftMoves = useRef<readonly Relocation[]>([]);
 
   const relocateDrafts = useCallback((steps: readonly Relocation[], leaving: boolean) => {
-    steps.forEach((step) => moveDrafts(storageScope, step.from, step.to));
+    steps.forEach((move) => moveDrafts(storageScope, move.from, move.to));
     if (leaving) {
       draftMoves.current = [...draftMoves.current, ...steps];
     }
@@ -135,7 +135,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
   useEffect(() => {
     const steps = draftMoves.current;
     draftMoves.current = [];
-    steps.forEach((step) => moveDrafts(storageScope, step.from, step.to));
+    steps.forEach((move) => moveDrafts(storageScope, move.from, move.to));
   }, [location.pathname, storageScope]);
 
   const copyLink = useCallback(async (path: string, isDir: boolean): Promise<void> => {

@@ -1708,7 +1708,7 @@ test.describe.serial('file management', () => {
         await page.goto(routes.dir(SPLIT_FOLDER));
         const draft = page.getByTestId('dir-draft');
         const listed = () => page.getByTestId('dir-table').locator('[data-testid=dir-row], [data-testid=dir-draft]')
-            .evaluateAll((rows) => rows.map((row) => row.dataset.path ?? row.dataset.testid));
+            .evaluateAll((rows) => rows.map((el) => el.dataset.path ?? el.dataset.testid));
 
         // act & assert
         await page.getByTestId('dir-new-more').click();

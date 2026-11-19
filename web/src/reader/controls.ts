@@ -100,8 +100,8 @@ export function injectCodeControls(root: HTMLElement): Teardown {
     });
   }
   return () => {
-    for (const teardown of teardowns) {
-      teardown();
+    for (const undo of teardowns) {
+      undo();
     }
     untag();
   };

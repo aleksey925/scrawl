@@ -198,11 +198,12 @@ Before changing a part, read its doc:
   [sidebar](docs/ui/sidebar.md)
 - the page width, the outline, the topbar and a phone's bar on top, a folder's
   list, a note not created yet, empty states, task boxes, code blocks, the
-  picture viewer, the history dialog, the start screen:
-  [pages](docs/ui/pages.md)
+  picture viewer, the history dialog, the run screen of an HTML app, the start
+  screen, the app with no network: [pages](docs/ui/pages.md)
 - creating, naming, dragging and deleting files and folders:
   [entries](docs/ui/entries.md)
-- the editor screen and its toolbar, the Changes layout, text files:
+- the editor screen and its toolbar, the Changes layout, text files, the draft
+  kept on the device, the draft offer, leaving the editor:
   [editor](docs/ui/editor.md)
 - palettes, controls, the focus ring, menus, icons: [look](docs/ui/look.md)
 - the tab bar, dialogs, toasts, screen moves, swipe back, the find bar above
@@ -215,7 +216,7 @@ Before changing a part, read its doc:
 - the dev server, the build output, the shell's contract, the three places that
   inject the server's HTML: [frontend](docs/design/frontend.md); the theme file
   format: [themes](docs/design/themes.md)
-- the browser suite: [`e2e/README.md`](e2e/README.md)
+- the browser suite: [browser suite](docs/design/browser-suite.md)
 
 ## Commands
 

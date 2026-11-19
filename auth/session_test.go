@@ -341,14 +341,14 @@ func TestServiceSetSignInCookie(t *testing.T) {
 			res := rec.Result()
 			defer res.Body.Close()
 			got := make([]string, 0, len(res.Cookies()))
-			for _, cookie := range res.Cookies() {
-				got = append(got, cookie.Name)
-				assert.Equal(t, url.QueryEscape(user), cookie.Value)
-				assert.Equal(t, "/", cookie.Path)
-				assert.False(t, cookie.HttpOnly)
-				assert.Equal(t, tc.secure == SecureAlways, cookie.Secure)
-				assert.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
-				assert.Zero(t, cookie.MaxAge)
+			for _, set := range res.Cookies() {
+				got = append(got, set.Name)
+				assert.Equal(t, url.QueryEscape(user), set.Value)
+				assert.Equal(t, "/", set.Path)
+				assert.False(t, set.HttpOnly)
+				assert.Equal(t, tc.secure == SecureAlways, set.Secure)
+				assert.Equal(t, http.SameSiteLaxMode, set.SameSite)
+				assert.Zero(t, set.MaxAge)
 			}
 			assert.Equal(t, tc.names, got)
 		})

@@ -368,7 +368,7 @@ test.describe('mobile', () => {
             await expect(cells(page)).toHaveText(['Notes', 'Search', 'Recent', 'Profile']);
             const width = page.viewportSize().width;
             const boxes = await cells(page).evaluateAll((items) => items.map((el) => el.getBoundingClientRect().width));
-            expect(boxes.map((box) => Math.round(box * 4))).toEqual(Array(4).fill(width));
+            expect(boxes.map((wide) => Math.round(wide * 4))).toEqual(Array(4).fill(width));
         });
 
         test('New opens two tiles over the bar, a tap on the scrim or a tab only closes them, and so does Escape', async ({page}) => {
@@ -988,13 +988,13 @@ test.describe('mobile', () => {
             // assert
             await expect.poll(() => page.evaluate(() => window.watched === true)).toBe(true);
             const frames = await page.evaluate(() => window.copyFrames);
-            const from = frames.findIndex((frame) => frame.copy);
-            const under = frames.findIndex((frame) => frame.copy && frame.left === 'list');
+            const from = frames.findIndex((shown) => shown.copy);
+            const under = frames.findIndex((shown) => shown.copy && shown.left === 'list');
             expect(from).toBeGreaterThanOrEqual(0);
-            expect(frames.filter((frame) => frame.copy).every((frame) => frame.opaque && frame.catches && frame.marks === 0)).toBe(true);
+            expect(frames.filter((shown) => shown.copy).every((shown) => shown.opaque && shown.catches && shown.marks === 0)).toBe(true);
             expect(frames[from].right).toBe('copy');
             expect(under).toBeGreaterThanOrEqual(0);
-            expect(frames.slice(under).filter((frame) => frame.left !== 'list' || frame.seam === 'nothing')).toEqual([]);
+            expect(frames.slice(under).filter((shown) => shown.left !== 'list' || shown.seam === 'nothing')).toEqual([]);
             expect(frames.at(-1)).toEqual({copy: false, left: 'list', right: 'list', seam: 'none', opaque: true, catches: true, marks: 0});
             await expect(page).toHaveURL(folder());
         });
@@ -1558,8 +1558,8 @@ test.describe('mobile', () => {
             const addresses = [`${routes.recent()}/`, routes.recent().replace('/recent', '/Recent')];
 
             // act & assert
-            for (const address of addresses) {
-                await page.goto(address);
+            for (const typed of addresses) {
+                await page.goto(typed);
                 await expect(page.getByTestId('recent')).toBeVisible();
                 await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
                 await expect(page.getByTestId('topbar-up')).toHaveCount(0);
@@ -2828,7 +2828,7 @@ test.describe('mobile', () => {
         await page.goto(routes.doc(`${folder}/missing.md`));
         const draft = page.getByTestId('dir-draft');
         const listed = () => page.getByTestId('dir-table').locator('[data-testid=dir-row], [data-testid=dir-draft]')
-            .evaluateAll((rows) => rows.map((row) => row.dataset.path ?? row.dataset.testid));
+            .evaluateAll((rows) => rows.map((el) => el.dataset.path ?? el.dataset.testid));
 
         // act & assert
         await page.getByTestId('tab-new').tap();

@@ -389,9 +389,7 @@ the proxy needs:
    [Server settings](#server-settings).
 
 Then set `MINI_APPS_URL=https://app-{id}.example.com` and `TRUSTED_PROXY=true`.
-With Cloudflare Tunnel, see [Cloudflare Tunnel](#cloudflare-tunnel). Up to
-v0.6.0-dev16 this setting was `APPS_URL`: scrawl no longer reads that name, so
-rename it.
+With Cloudflare Tunnel, see [Cloudflare Tunnel](#cloudflare-tunnel).
 
 What can go wrong:
 

@@ -1,4 +1,4 @@
-import type { EditorView } from '@codemirror/view';
+import { runScopeHandlers, type EditorView } from '@codemirror/view';
 import { useCallback, useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { useBlocker, useNavigate } from 'react-router';
 
@@ -291,10 +291,10 @@ export function useEditSession({
         }
         if (first) {
           const draft = draftRef.current;
-          if (!shown && draft.offered === undefined) {
+          const kept = shown || draft.keepAs(dest, res.rev, bufferText());
+          if (!shown && kept && draft.offered === undefined) {
             draft.clear();
           }
-          const kept = shown || draft.keepAs(dest, res.rev, bufferText());
           savedAsRef.current = dest;
           setSavedAs(dest);
           reportMutation(res, `Created "${basenameOf(dest)}"`);
@@ -410,7 +410,7 @@ export function useEditSession({
     if (!res.shownStored) {
       return;
     }
-    if (mountedRef.current) {
+    if (mountedRef.current && !leavingRef.current) {
       leavingRef.current = true;
       setLeaving(true);
       openReader(res.created);
@@ -421,17 +421,23 @@ export function useEditSession({
     const inText = (target: EventTarget | null): boolean =>
       target === document.body ||
       (target instanceof HTMLElement && target.closest('.cm-editor') !== null && target.closest('.cm-panels') === null);
-    const textHoldsEscape = (): boolean => {
+    const holdingEscape = (): EditorView | undefined => {
       const current = liveView();
-      return (
+      const holds =
         current !== undefined &&
-        (current.state.selection.ranges.length > 1 || current.dom.querySelector('.cm-tooltip-autocomplete, .cm-search') !== null)
-      );
+        (current.state.selection.ranges.length > 1 || current.dom.querySelector('.cm-tooltip-autocomplete, .cm-search') !== null);
+      return holds ? current : undefined;
     };
     const onKey = (event: KeyboardEvent): void => {
       const saveChord = modChord(event, 'enter');
-      const closeKey = event.key === 'Escape' && !textHoldsEscape();
-      if ((!saveChord && !closeKey) || !inText(event.target) || composing(event)) {
+      if ((!saveChord && event.key !== 'Escape') || !inText(event.target) || composing(event)) {
+        return;
+      }
+      const holder = saveChord ? undefined : holdingEscape();
+      if (holder !== undefined) {
+        if (event.target === document.body && runScopeHandlers(holder, event, 'editor')) {
+          event.preventDefault();
+        }
         return;
       }
       if (saveChord) {

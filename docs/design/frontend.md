@@ -130,20 +130,24 @@ How the react app in `web/` is built, shipped and wired.
   `vite:preloadError`. A chunk the app waits for, a page, a dialog opened or a
   diagram engine, goes through `loadChunk`, which then loads the page again
   itself: a note with math opened at the start lost its KaTeX that way. The
-  formatter's chunks do not, and a failed one only fails that format. A dialog
-  whose chunk is there draws in the same render as the click that opened it,
-  with no `Suspense`: one that waited for its chunk let the keys typed after
-  Cmd+K go to the page, and on a phone its field took the focus outside the
-  tap, so no keyboard opened ([quirks](../quirks.md#ios-and-safari)). A dialog
-  opened before the idle load is done draws nothing until its chunk comes, and
-  has those two faults. That window, from the page's load until the browser is
-  idle and the chunks have come, is short and is left open: holding the keys
-  and the tap would take a second field drawn in the main bundle. A chunk that
-  does not load as the dialog opens loads the page again as a stale chunk does,
-  when the editor holds no unsaved text. When it does, a dialog that was
-  opening closes with a toast that asks to load the page again: Chromium keeps
-  a failed import of a module for the life of the page
-  ([quirks](../quirks.md#browsers)), so asking again would fail the same way.
+  formatter's chunks go through it as well, and while the editor holds unsaved
+  text a failed one only fails that format. A dialog whose chunk is there draws
+  in the same render as the click that opened it, with no `Suspense`: one that
+  waited for its chunk let the keys typed after Cmd+K go to the page, and on a
+  phone its field took the focus outside the tap, so no keyboard opened
+  ([quirks](../quirks.md#ios-and-safari)). A dialog opened before the idle load
+  is done draws nothing until its chunk comes, and has those two faults. That
+  window, from the page's load until the browser is idle and the chunks have
+  come, is short and is left open: holding the keys and the tap would take a
+  second field drawn in the main bundle. A chunk that does not load as the
+  dialog opens loads the page again as a stale chunk does, when the editor
+  holds no unsaved text. When it does, a dialog that was opening closes with a
+  toast that asks to load the page again: Chromium keeps a failed import of a
+  module for the life of the page ([quirks](../quirks.md#browsers)), so asking
+  again would fail the same way. Under unsaved text a dialog whose load on idle
+  failed closes with that toast too and keeps its mark for the next time: vite
+  does not ask for a failed stylesheet again, and the dialog would open with no
+  style.
 - Mantine's styles come in one file per component, listed in
   `web/src/mantine.css`, which the app and a site import, in the order of
   mantine's own `styles.css`. The full file was 277 KB, most of it for

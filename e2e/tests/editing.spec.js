@@ -3,8 +3,8 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    MAIN, PAST_DRAFT_DELAY_MS, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, okToast, readFixture, recordPrompts, refuseDrafts,
-    removeFixture, rgb, routes, save, setRefusingDrafts, setSource, shot, signIn, sourceText, stays, storedDrafts,
+    MAIN, PAST_DRAFT_DELAY_MS, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, okToast, pressShortcut, readFixture, recordPrompts,
+    refuseDrafts, removeFixture, rgb, routes, save, setRefusingDrafts, setSource, shot, signIn, sourceText, stays, storedDrafts,
     writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -730,6 +730,28 @@ test.describe('editing', () => {
         }
     });
 
+    test('Esc with nothing focused closes the search panel of the text first and leaves the editor open', async ({page}) => {
+        // arrange
+        const docPath = scratch('esc-search-blurred');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            const panel = page.locator('[data-testid=editor-source] .cm-search');
+            await page.locator('[data-testid=editor-source] .cm-content').click();
+            await page.keyboard.press('ControlOrMeta+f');
+            await expect(panel.locator('input[name=search]')).toBeFocused();
+            await page.evaluate(() => document.activeElement.blur());
+
+            // act
+            await page.keyboard.press('Escape');
+
+            // assert
+            await expect(panel).toHaveCount(0);
+            await stays(() => page.url(), MAIN.url.edit(docPath), 500);
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
     test('Esc with several cursors keeps one and leaves the editor open', async ({page}) => {
         // arrange
         const docPath = scratch('esc-cursors');
@@ -905,6 +927,108 @@ test.describe('editing', () => {
             await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
         } finally {
             removeFixture(folder);
+        }
+    });
+
+    test('text typed while Save creates a new note stays a draft of the draft\'s address when the browser refuses it under the name created', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-typed-refused';
+        const untitled = `${folder}/${text.create.untitled}`;
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        await page.addInitScript((refused) => {
+            const setItem = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (key, value) {
+                if (key.startsWith('scrawl.draft:') && key.endsWith(`:${refused}`)) {
+                    throw new DOMException('full', 'QuotaExceededError');
+                }
+                return setItem.call(this, key, value);
+            };
+        }, created);
+        try {
+            await page.goto(routes.draft(untitled));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await setSource(page, '# Plan\n\nmore\n');
+            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            expect(await storedDrafts(page)).toEqual([{path: untitled, content: '# Plan\n\nmore\n'}]);
+            expect(readFixture(created)).toBe('# Plan\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('a first save that answers after a second new note in its folder was left keeps the second note\'s draft', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-second-draft';
+        const untitled = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.dir(folder));
+            await pressShortcut(page, 'n');
+            await expect(page).toHaveURL(MAIN.url.draft(untitled));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await page.goBack();
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            await page.keyboard.press('n');
+            await expect(page).toHaveURL(MAIN.url.draft(untitled));
+            await expect(page.getByTestId('editor-draft')).toBeVisible();
+            await setSource(page, '# Other\n');
+            await page.goBack();
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            await expect.poll(() => storedDrafts(page)).toEqual([{path: untitled, content: '# Other\n'}]);
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            expect(readFixture(`${folder}/plan.md`)).toBe('# Plan\n');
+            expect(await storedDrafts(page)).toEqual([{path: untitled, content: '# Other\n'}]);
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('Save leaves the person on the page they went to while it ran, also while that page still loads', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-went-elsewhere');
+        writeFixture(docPath, 'kept\n');
+        try {
+            const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
+            await page.goto(routes.edit(docPath));
+            await expect.poll(() => sourceText(page)).toBe('kept\n');
+            await chunk.reached;
+            await setSource(page, 'written\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+
+            // act
+            release();
+            await expect(okToast(page).filter({hasText: text.toast.saved})).toHaveCount(1);
+            chunk.release();
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await stays(() => page.url(), MAIN.url.doc('guide.md'), 500);
+            expect(readFixture(docPath)).toBe('written\n');
+        } finally {
+            removeFixture(docPath);
         }
     });
 

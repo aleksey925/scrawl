@@ -43,10 +43,6 @@ function isDraft(value: unknown): value is Draft {
   );
 }
 
-function writeDraft(key: string, rev: string, content: string, name?: string): boolean {
-  return writeJson(localStore(), key, { rev, content, at: Date.now(), name });
-}
-
 function prune(): void {
   const store = localStore();
   for (const key of keysWithPrefix(store, draftPrefix)) {
@@ -77,6 +73,16 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   const latest = useRef({ rev, content, dirty, key, name });
   latest.current = { rev, content, dirty, key, name };
   const abandonedRef = useRef(false);
+  const ownSinceRef = useRef(0);
+
+  const writeDraft = useCallback((target: string, draftRev: string, text: string, draftName?: string): boolean => {
+    const at = Date.now();
+    const wrote = writeJson(localStore(), target, { rev: draftRev, content: text, at, name: draftName });
+    if (wrote) {
+      ownSinceRef.current = at;
+    }
+    return wrote;
+  }, []);
 
   const flush = useCallback((): boolean => {
     const now = latest.current;
@@ -86,11 +92,11 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     const stored = writeDraft(now.key, now.rev, now.content, now.name);
     setWritten(stored ? { key: now.key, rev: now.rev, content: now.content } : undefined);
     return stored;
-  }, []);
+  }, [writeDraft]);
 
   const keepAs = useCallback(
     (target: string, targetRev: string, text: string): boolean => writeDraft(draftKey(storageScope, target), targetRev, text),
-    [storageScope],
+    [storageScope, writeDraft],
   );
 
   const replace = useCallback((): boolean => {
@@ -102,12 +108,17 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   }, [flush]);
 
   const clear = useCallback((): void => {
-    removeKey(localStore(), latest.current.key);
+    const store = localStore();
+    const current = latest.current.key;
+    if ((readJson<Draft>(store, current)?.at ?? 0) <= ownSinceRef.current) {
+      removeKey(store, current);
+    }
     setWritten(undefined);
     setOffered(undefined);
   }, []);
 
   useEffect(() => {
+    ownSinceRef.current = Date.now();
     prune();
   }, []);
 

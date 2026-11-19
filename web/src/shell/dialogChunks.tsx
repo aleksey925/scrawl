@@ -40,20 +40,21 @@ function chunkDialog<P extends DialogProps>(
         return undefined;
       }
       let live = true;
-      reloadIfFailedQuietly(preload);
-      fetchDialog().then(
-        (component) => {
-          if (live) {
-            setDialog(() => component);
-          }
-        },
-        () => {
-          if (live) {
-            showToast('error', { title: `${name} did not open`, message: 'Its part of the app did not load. Load the page again to open it.' });
-            onClose();
-          }
-        },
-      );
+      const refuse = (): void => {
+        if (live) {
+          showToast('error', { title: `${name} did not open`, message: 'Its part of the app did not load. Load the page again to open it.' });
+          onClose();
+        }
+      };
+      if (reloadIfFailedQuietly(preload)) {
+        refuse();
+        return undefined;
+      }
+      fetchDialog().then((component) => {
+        if (live) {
+          setDialog(() => component);
+        }
+      }, refuse);
       return () => {
         live = false;
       };

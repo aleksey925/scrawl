@@ -398,6 +398,68 @@ test.describe('pages', () => {
         }
     });
 
+    test('Move to whose stylesheet failed while the browser was idle says so under unsaved changes and opens no dialog', async ({page}) => {
+        // arrange
+        writeFixture(GUARDED, 'kept\n');
+        try {
+            let asked = 0;
+            await page.route('**/assets/MoveDialog.css', async (route) => {
+                asked += 1;
+                await route.fulfill({status: 404, body: 'gone'});
+            });
+            await page.goto(routes.edit(GUARDED));
+            await expect.poll(() => asked).toBe(1);
+            await expect(page.getByTestId('editor-source')).toBeVisible();
+            await setSource(page, 'typed but not saved\n');
+            await expect(page.getByTestId('editor-status')).toHaveAttribute('data-dirty', 'true');
+            await page.locator(`[data-testid=tree-row][data-path="${GUARDED}"] [data-testid=tree-row-menu]`).click();
+
+            // act
+            await page.getByTestId('tree-row-menu-move').click();
+
+            // assert
+            await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText('Move to did not open');
+            await expect(page.getByTestId('move-dialog')).toHaveCount(0);
+            await expect(page.getByTestId('editor-status')).toHaveAttribute('data-dirty', 'true');
+            await expect(page).toHaveURL(MAIN.url.edit(GUARDED));
+        } finally {
+            removeFixture(GUARDED);
+        }
+    });
+
+    test('a dialog\'s chunk that fails while the browser is idle and a page is on its way does not load the app again', async ({page}) => {
+        // arrange
+        let fail = () => {};
+        const failing = new Promise((resolve) => {
+            fail = resolve;
+        });
+        let asked = 0;
+        await page.route('**/assets/SearchDialog.js', async (route) => {
+            asked += 1;
+            await failing;
+            await route.fulfill({status: 404, body: 'gone'});
+        });
+        const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
+        let loads = 0;
+        page.on('load', () => {
+            loads += 1;
+        });
+        await page.goto(routes.recent());
+        await chunk.reached;
+        await expect.poll(() => asked).toBe(1);
+        await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+
+        // act
+        fail();
+        await stays(() => loads, 1, 1000);
+        chunk.release();
+
+        // assert
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+        expect(loads).toBe(1);
+    });
+
     test('mantine\'s sizes follow the root font size, as in a browser set to a larger font', async ({page}) => {
         // arrange
         await page.goto(routes.doc(docs.doc.path));

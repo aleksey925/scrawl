@@ -56,12 +56,13 @@ on a server, opened from any browser. A device can also keep a copy, so the
 notes still open with no network, read-only: see [Offline](#offline). With a
 remote repository every change is also pushed to your git host, which keeps a
 second copy with the whole history. Out of the box, Obsidian syncs between
-devices only through its paid Sync service. The free way is to research
-community plugins and pick one, and each comes at a cost: some need
-infrastructure of their own, such as a database server or a storage bucket, and
-the git plugin warns that it is very unstable on mobile. scrawl is one small
-binary: run it on any server, point it at a repository, and nothing else is
-needed.
+devices only through its paid Sync service. The free ways are to keep the notes
+in a folder another tool syncs, such as iCloud or Syncthing, or to pick a
+community plugin, and each comes at a cost: the other tool has to run on every
+device, some plugins need infrastructure of their own, such as a database
+server or a storage bucket, and the git plugin warns that it is very unstable
+on mobile. scrawl is one small binary: run it on any server, point it at a
+repository, and nothing else is needed.
 
 **When something else fits better.** If you want to edit notes with no network
 at all, or a plugin for every need, Obsidian is the better tool. Offline,

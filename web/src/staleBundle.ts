@@ -48,7 +48,7 @@ export function reloadOnStaleBundle(pending: () => string | undefined): void {
     return true;
   };
   window.addEventListener('vite:preloadError', (event) => {
-    if (quietLoads > 0 && pending() === undefined) {
+    if (quietLoads > 0) {
       return;
     }
     if (reloadForStaleBundle()) {
@@ -85,8 +85,6 @@ export function loadQuietly(load: () => Promise<unknown>): void {
     });
 }
 
-export function reloadIfFailedQuietly(load: () => Promise<unknown>): void {
-  if (failedQuietly.delete(load)) {
-    reloadForStaleBundle();
-  }
+export function reloadIfFailedQuietly(load: () => Promise<unknown>): boolean {
+  return failedQuietly.has(load) && !reloadForStaleBundle();
 }

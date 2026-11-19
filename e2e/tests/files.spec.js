@@ -2272,7 +2272,9 @@ test.describe.serial('file management', () => {
         const rows = names.map((name) => `[data-testid=tree-row][data-path="${pair}/${name}"]`);
         await page.locator(`${rows[0]} [data-testid=tree-link]`).click();
         await page.locator(`${rows[1]} [data-testid=tree-link]`).click({modifiers: ['Shift']});
-        await page.locator(rows[1]).dragTo(page.locator(`[data-testid=tree-row][data-path="${into}"]`));
+        const target = page.locator(`[data-testid=tree-row][data-path="${into}"]`);
+        await target.scrollIntoViewIfNeeded();
+        await page.locator(rows[1]).dragTo(target);
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.movedMany);
 
         // act

@@ -263,25 +263,22 @@ lines are wrapped so that `git diff` and your git host show changes cleanly.
 
 ## How your changes are kept
 
-- **While you type**, the text you have not saved yet is kept in the browser.
-  If the tab closes or the phone unloads it, the next time you open the note
-  scrawl offers to restore it, and warns if the note has changed since. The
-  editor reads "Draft on device" once the browser has kept the text, and
-  "Unsaved changes" before that or when the browser cannot keep it, as in a
-  private window.
-- **When you leave the editor** without saving, the text stays as a draft and a
-  toast says so. scrawl asks first only when the browser cannot keep the draft,
-  as in a private window or with full storage.
-- **When you save**, the note is written to a temporary file and renamed into
-  place, so a crash never leaves half a note behind.
-- **If the note changed on disk** since you opened it, the save is refused and
-  you see both versions, instead of one overwriting the other.
-- **Every save is a git commit** while history is on, which is the default: the
-  notes folder is then a git repository, and any earlier version can be
-  restored from the history. In a git space it is also pushed, and scrawl keeps
-  retrying until the push goes through.
-- **A deleted file or folder** waits 5 minutes in a trash, and Undo in the
-  toast puts it back.
+scrawl makes sure a change is not lost and does not overwrite another one.
+
+- **Unsaved text** is kept in the browser. If you close the tab or leave the
+  editor without saving, scrawl offers to bring the text back next time. The
+  editor shows "Draft on device" when the text is kept. In a private window the
+  browser cannot keep it, so scrawl asks before you leave.
+- **A save is all or nothing**: if the server stops in the middle, the note
+  stays as it was.
+- **Nothing is overwritten**: if the note changed since you opened it, on
+  another device or in another editor, scrawl does not save over it and shows
+  you both versions.
+- **Every save goes into the history** (a git commit), so any earlier version
+  can be restored. History is on by default. With a remote repository the
+  change is also pushed to your git host, and scrawl retries until the push
+  goes through.
+- **A deleted file or folder** comes back with Undo for 5 minutes.
 
 ## Static site
 
@@ -370,18 +367,15 @@ Some limits:
 
 ### On your machine
 
-Nothing to set. Open scrawl in Chrome or Firefox at the link it prints at
-start, `http://127.0.0.1:7272`, with or without a password. Run opens the mini
-app at `http://app-<id>.localhost:7272`.
+Nothing to set. Open scrawl at the link it prints at start,
+`http://127.0.0.1:7272`, not at `localhost`. In this setup the names under
+`localhost`, such as `app-<id>.localhost`, belong to mini apps. If scrawl has a
+password and is opened at `localhost` too, a mini app written to do harm could
+sign you out of scrawl or sign you in as another user. A usual mini app does
+nothing like this.
 
-- `http://localhost:7272` works too, but with a password use `127.0.0.1`:
-  `localhost` and `app-<id>.localhost` are neighbor names, and a mini app there
-  can sign you out, or into another account. The same goes for
-  `scrawl.localhost`. scrawl logs a warning about this at start.
-- Safari on macOS likely cannot open `app-<id>.localhost` and shows its error
-  page instead of the mini app. Use Chrome or Firefox.
-- At `127.0.0.1` and `localhost` a mini app inside scrawl is not kept for use
-  with no network, see [With no network](#with-no-network).
+Here a mini app is not kept for use with no network, see
+[With no network](#with-no-network).
 
 ### On server
 
@@ -448,20 +442,13 @@ and mini apps check their own cookie.
 
 ### With no network
 
-With Offline access on, a mini app opens with no network once it ran with one,
-and keeps the data it saved in the browser.
+If Offline access is on, a mini app opens with no network too, with the data it
+saved, but only after you have run it once with a network in that browser.
 
-- The whole folder of the mini app is kept, not files from other sites such as
-  a CDN.
-- Inside scrawl, it works where scrawl and the mini app are on one site: a
-  domain with `MINI_APPS_URL`, or locally `http://scrawl.localhost:7272`, which
-  with a password is a neighbor name, see [On your machine](#on-your-machine).
-  At `127.0.0.1` and `localhost` the mini app runs inside scrawl but is not
-  kept there, and with no network Run shows
-  `This browser does not keep this mini app for offline use.`: there the
-  browser treats the mini app as another site and gives scrawl's worker no
-  cookie. In a new tab it is kept.
-- A mini app with a service worker of its own keeps its files its own way.
+- Only the files in the mini app's folder are kept. What it loads from the
+  internet, such as a library from a CDN, is not, so such a mini app may not
+  work with no network.
+- A mini app with a service worker of its own decides itself what to keep.
 
 ## Configuration
 

@@ -23,7 +23,6 @@ export interface DraftControl {
   stale: boolean;
   stored: boolean;
   dismiss: () => void;
-  discard: () => void;
   abandon: () => void;
   flush: () => boolean;
   clear: () => void;
@@ -111,32 +110,27 @@ export function useDraft(options: UseDraftOptions): DraftControl {
         setOffered(undefined);
       }
     };
-    const hidden = (): void => {
-      if (document.visibilityState === 'hidden') {
+    const onHidden = (): void => {
+      if (document.hidden) {
         putAway();
       }
     };
     window.addEventListener('pagehide', putAway);
-    document.addEventListener('visibilitychange', hidden);
+    document.addEventListener('visibilitychange', onHidden);
     return () => {
       window.removeEventListener('pagehide', putAway);
-      document.removeEventListener('visibilitychange', hidden);
+      document.removeEventListener('visibilitychange', onHidden);
     };
   }, [flush]);
 
   const dismiss = useCallback((): void => setOffered(undefined), []);
-  const discard = useCallback((): void => {
-    removeKey(localStore(), latest.current.key);
-    setWritten(undefined);
-    setOffered(undefined);
-  }, []);
   const abandon = useCallback((): void => {
     abandonedRef.current = true;
-    discard();
-  }, [discard]);
+    clear();
+  }, [clear]);
 
   const stale = offered !== undefined && offered.rev !== rev;
   const stored = written?.key === key && written.rev === rev && written.content === content;
 
-  return { offered, stale, stored, dismiss, discard, abandon, flush, clear };
+  return { offered, stale, stored, dismiss, abandon, flush, clear };
 }

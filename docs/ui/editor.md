@@ -106,6 +106,14 @@ The editor screen.
   and the text can no longer be changed either. Closing the tab asks the
   browser's own question in those cases alone. A phone has no shortcut, so a
   save there always leaves; the local draft keeps the text between saves.
+- The draft is also written on `pagehide` and when the page turns hidden, as a
+  phone that drops a tab put away fires no `beforeunload`
+  ([quirks](../quirks.md)). Both events are kept. MDN and the Page Lifecycle
+  API of Chrome say a mobile browser that ends a page in the background may
+  fire no `pagehide`, and `visibilitychange` is the last event it fires for
+  sure; this is not yet seen on a device. Safari before 14.1 fired no
+  `visibilitychange` on leaving a page. The second write of the same text costs
+  nothing.
 - The state of the save is Saved, Saving, Waiting for the upload, New note or
   New file, and for unsaved changes Draft on device once the text is copied to
   the browser's storage, which happens 800ms after the last change, and not

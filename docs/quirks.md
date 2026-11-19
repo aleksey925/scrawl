@@ -235,13 +235,8 @@ words; the fact itself is written here.
 - `router.state.location` of React Router holds the path with the basename,
   `/s/<name>/doc/...`, while `useLocation` and every link of the app hold it
   without. [Phone](ui/phone.md)
-- A phone that puts a tab away and later drops it fires no `beforeunload`, so a
-  draft is also saved on `pagehide`, and when the page turns hidden. MDN and
-  the Page Lifecycle API of Chrome say a mobile browser that ends a page in the
-  background may fire no `pagehide` either, and `visibilitychange` is the last
-  event it fires for sure; not yet seen on a device. Both are kept, as Safari
-  before 14.1 fired no `visibilitychange` on leaving a page, and the second
-  write of the same text costs nothing.
+- A phone that puts a tab away and later drops it fires no `beforeunload`.
+  [Editor](ui/editor.md)
 - A paste that carries `text/plain` is never taken as a picture: Word and Excel
   put a picture on the clipboard beside the text.
 - Rolldown names a chunk after its file, so the index of every codemirror

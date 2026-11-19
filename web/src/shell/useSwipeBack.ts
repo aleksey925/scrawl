@@ -56,6 +56,19 @@ function clearDrag(element: HTMLElement): void {
   element.style.willChange = '';
 }
 
+function catchUp(track: Track, element: HTMLElement, dx: number): number {
+  const offset = Math.max(0, new DOMMatrix(getComputedStyle(element).transform).m41 - dx);
+  track.x -= offset;
+  track.samples = track.samples.map((point) => ({ dx: point.dx + offset, at: point.at }));
+  return dx + offset;
+}
+
+function afterPaint(run: () => void): void {
+  window.requestAnimationFrame(() => {
+    window.setTimeout(run);
+  });
+}
+
 function detached(handler: (event: TouchEvent) => void): (event: Event) => void {
   return (event) => {
     if (event.currentTarget instanceof Node && !event.currentTarget.isConnected) {
@@ -172,10 +185,7 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
         if (dx < startPx) {
           return;
         }
-        const offset = Math.max(0, new DOMMatrix(getComputedStyle(element).transform).m41 - dx);
-        track.x -= offset;
-        track.samples = track.samples.map((point) => ({ dx: point.dx + offset, at: point.at }));
-        dx += offset;
+        dx = catchUp(track, element, dx);
         track.taken = takeScreen(element);
         element.style.willChange = 'transform';
         track.giveUp = prepareRef.current?.();
@@ -208,12 +218,10 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
       if (ended.giveUp !== undefined) {
         window.setTimeout(ended.giveUp, prefetchKeepMs);
       }
-      window.requestAnimationFrame(() => {
-        window.setTimeout(() => {
-          if (entryRef.current === ended.entry) {
-            back();
-          }
-        });
+      afterPaint(() => {
+        if (entryRef.current === ended.entry) {
+          back();
+        }
       });
     };
 

@@ -584,7 +584,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             }
             draft.dismiss();
           }}
-          onDiscard={draft.discard}
+          onDiscard={draft.clear}
         />
       )}
 

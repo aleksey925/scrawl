@@ -44,6 +44,24 @@ function storedDrafts(page) {
         .map((key) => ({path: key.slice(key.lastIndexOf(':') + 1), content: JSON.parse(localStorage.getItem(key)).content})));
 }
 
+async function offerDraft(page, docPath, draft) {
+    writeFixture(docPath, 'kept\n');
+    await page.goto(routes.edit(docPath));
+    await expect.poll(() => sourceText(page)).toBe('kept\n');
+    await setSource(page, draft);
+    await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+    await page.goto(routes.edit(docPath));
+    await expect(page.getByTestId('editor-draft')).toBeVisible();
+}
+
+function hidePage(page) {
+    return page.evaluate(() => {
+        Object.defineProperty(document, 'hidden', {value: true, configurable: true});
+        Object.defineProperty(document, 'visibilityState', {value: 'hidden', configurable: true});
+        document.dispatchEvent(new Event('visibilitychange'));
+    });
+}
+
 function holdSave(page) {
     return holdRoute(page, '**/api/file/**', (req) => req.method() === 'PUT');
 }
@@ -615,13 +633,7 @@ test.describe('editing', () => {
     test('text typed instead of Restore keeps the offered draft while the editor stays open', async ({page}) => {
         // arrange
         const docPath = scratch('draft-offer-kept');
-        writeFixture(docPath, 'kept\n');
-        await page.goto(routes.edit(docPath));
-        await expect.poll(() => sourceText(page)).toBe('kept\n');
-        await setSource(page, 'the offered draft\n');
-        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
-        await page.goto(routes.edit(docPath));
-        await expect(page.getByTestId('editor-draft')).toBeVisible();
+        await offerDraft(page, docPath, 'the offered draft\n');
 
         // act
         await setSource(page, 'typed over it\n');
@@ -637,12 +649,7 @@ test.describe('editing', () => {
     test('text typed after an offered draft is thrown away is kept as a draft again', async ({page}) => {
         // arrange
         const docPath = scratch('draft-offer-discarded');
-        writeFixture(docPath, 'kept\n');
-        await page.goto(routes.edit(docPath));
-        await expect.poll(() => sourceText(page)).toBe('kept\n');
-        await setSource(page, 'the offered draft\n');
-        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
-        await page.goto(routes.edit(docPath));
+        await offerDraft(page, docPath, 'the offered draft\n');
         await page.getByTestId('editor-draft-discard').click();
 
         // act
@@ -657,13 +664,7 @@ test.describe('editing', () => {
     test('a save that stays in the editor ends the offered draft, and text typed after it is kept as a draft', async ({page}) => {
         // arrange
         const docPath = scratch('draft-offer-saved');
-        writeFixture(docPath, 'kept\n');
-        await page.goto(routes.edit(docPath));
-        await expect.poll(() => sourceText(page)).toBe('kept\n');
-        await setSource(page, 'the offered draft\n');
-        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
-        await page.goto(routes.edit(docPath));
-        await expect(page.getByTestId('editor-draft')).toBeVisible();
+        await offerDraft(page, docPath, 'the offered draft\n');
         await setSource(page, 'saved over it\n');
         await save(page);
 
@@ -681,20 +682,11 @@ test.describe('editing', () => {
     test('a page hidden while a draft is offered keeps the typed text as the draft and takes the offer away', async ({page}) => {
         // arrange
         const docPath = scratch('draft-offer-hidden');
-        writeFixture(docPath, 'kept\n');
-        await page.goto(routes.edit(docPath));
-        await expect.poll(() => sourceText(page)).toBe('kept\n');
-        await setSource(page, 'the offered draft\n');
-        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
-        await page.goto(routes.edit(docPath));
-        await expect(page.getByTestId('editor-draft')).toBeVisible();
+        await offerDraft(page, docPath, 'the offered draft\n');
         await setSource(page, 'typed over it\n');
 
         // act
-        await page.evaluate(() => {
-            Object.defineProperty(document, 'visibilityState', {value: 'hidden', configurable: true});
-            document.dispatchEvent(new Event('visibilitychange'));
-        });
+        await hidePage(page);
 
         // assert
         expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed over it\n'}]);
@@ -713,10 +705,7 @@ test.describe('editing', () => {
         const before = await storedDrafts(page);
 
         // act
-        await page.evaluate(() => {
-            Object.defineProperty(document, 'visibilityState', {value: 'hidden', configurable: true});
-            document.dispatchEvent(new Event('visibilitychange'));
-        });
+        await hidePage(page);
 
         // assert
         expect(before).toEqual([]);

@@ -672,6 +672,19 @@ test.describe('mobile', () => {
             });
         }
 
+        async function addEnteringWait(page) {
+            await page.evaluate(() => {
+                window.untilEntering = async () => {
+                    const running = () => document.querySelector('[data-testid=doc]')?.closest('[data-screen]')?.getAnimations()
+                        .some((animation) => animation.playState === 'running') === true;
+                    for (let frame = 0; frame < 300 && !running(); frame++) {
+                        await new Promise((resolve) => requestAnimationFrame(resolve));
+                    }
+                    return running();
+                };
+            });
+        }
+
         async function touchesFrom(page, [start, ...moves], end = 'touchcancel') {
             await addTouchSender(page);
             return page.evaluate(async ({start, moves, end}) => {
@@ -708,17 +721,13 @@ test.describe('mobile', () => {
             await asStandalone(page);
             await page.goto(folder());
             await addTouchSender(page);
+            await addEnteringWait(page);
             await page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`).tap();
 
             // act
             const drag = await page.evaluate(async () => {
                 const send = window.sendTouch;
-                const running = () => document.querySelector('[data-testid=doc]')?.closest('[data-screen]')?.getAnimations()
-                    .some((animation) => animation.playState === 'running') === true;
-                for (let frame = 0; frame < 300 && !running(); frame++) {
-                    await new Promise((resolve) => requestAnimationFrame(resolve));
-                }
-                const entering = running();
+                const entering = await window.untilEntering();
                 const shift = () => new DOMMatrix(getComputedStyle(document.querySelector('[data-screen]')).transform).m41;
                 send('touchstart', [4, 400]);
                 send('touchmove', [10, 400]);
@@ -731,11 +740,11 @@ test.describe('mobile', () => {
                 }
                 const moved = shift();
                 send('touchcancel');
-                return {entering, sliding: before > 0, jump: Math.round(taken - before), followed: Math.round(moved - taken)};
+                return {entering, shifted: before > 0, jump: Math.round(taken - before), followed: Math.round(moved - taken)};
             });
 
             // assert
-            expect(drag).toEqual({entering: true, sliding: true, jump: 0, followed: 84});
+            expect(drag).toEqual({entering: true, shifted: true, jump: 0, followed: 84});
         });
 
         test('a short slow drag of a screen still sliding in puts the page back when let go', async ({page}) => {
@@ -743,24 +752,20 @@ test.describe('mobile', () => {
             await asStandalone(page);
             await page.goto(folder());
             await addTouchSender(page);
+            await addEnteringWait(page);
             await page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`).tap();
 
             // act
             const entering = await page.evaluate(async () => {
                 const send = window.sendTouch;
-                const running = () => document.querySelector('[data-testid=doc]')?.closest('[data-screen]')?.getAnimations()
-                    .some((animation) => animation.playState === 'running') === true;
-                for (let frame = 0; frame < 300 && !running(); frame++) {
-                    await new Promise((resolve) => requestAnimationFrame(resolve));
-                }
-                const sliding = running();
+                const entering = await window.untilEntering();
                 send('touchstart', [4, 400]);
                 send('touchmove', [10, 400]);
                 send('touchmove', [20, 400]);
                 await new Promise((resolve) => setTimeout(resolve, 60));
                 send('touchmove', [24, 400]);
                 send('touchend');
-                return sliding;
+                return entering;
             });
             await settled(page);
 
@@ -1449,15 +1454,12 @@ test.describe('mobile', () => {
             await expect(row).toBeVisible();
             await settled(page);
             await addTouchSender(page);
+            await addEnteringWait(page);
 
             // act
             await row.tap();
             const during = await page.evaluate(async () => {
-                const running = () => document.querySelector('[data-testid=doc]')?.closest('[data-screen]')?.getAnimations()
-                    .some((animation) => animation.playState === 'running') === true;
-                for (let frame = 0; frame < 300 && !running(); frame++) {
-                    await new Promise((resolve) => requestAnimationFrame(resolve));
-                }
+                await window.untilEntering();
                 window.sendTouch('touchstart', [4, 400]);
                 for (const x of [10, 20, 40, 70]) {
                     window.sendTouch('touchmove', [x, 400]);

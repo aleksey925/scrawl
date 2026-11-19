@@ -32,7 +32,7 @@ function useSyncSummary(): SyncSummary | undefined {
   return { status: syncStatus, here, label: here ? `${syncStatus.name}. ${thisNote}` : syncStatus.name };
 }
 
-function SyncIcon({ state, size }: { state: SyncStatus['state']; size: number }): JSX.Element {
+export function SyncIcon({ state, size }: { state: SyncStatus['state']; size: number }): JSX.Element {
   const reduceMotion = useReducedMotion();
   switch (state) {
     case 'sending':

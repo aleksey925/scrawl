@@ -25,3 +25,10 @@ The server's search and the note's find bar.
   worker, so there a pattern that came in the address waits for Enter. A search
   result hands its query, its options and its line over in the url the server
   built.
+- On a phone the search and Find in note are cards over the keyboard at the
+  bottom of the screen, placed by the visible area ([phone](../ui/phone.md)).
+  The search there opens on the notes read last, which the browser keeps in
+  local storage, with Clear to empty that list. With the reading copy a phone
+  keeps the search, with the field disabled, and it shows only those notes, so
+  they stay a tap away with no network; a desktop hides the search then, as the
+  search is the server's.

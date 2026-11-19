@@ -32,6 +32,7 @@ function routesFor(space) {
         history: (contentPath) => inSpace(`/history/${encodePath(contentPath)}`),
         search: (query) => inSpace(`/search?q=${encodeURIComponent(query)}`),
         recent: () => inSpace('/recent'),
+        profile: () => inSpace('/profile'),
         raw: (contentPath) => inSpace(`/raw/${encodePath(contentPath)}`),
         api: (suffix) => inSpace(`/api${suffix}`),
         hook: () => inSpace('/hook'),

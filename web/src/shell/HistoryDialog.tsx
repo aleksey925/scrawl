@@ -11,7 +11,7 @@ import {
   type MantineTransition,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useState, type JSX, type ReactNode } from 'react';
 
 import { api } from '../api/client';
 import { ApiError } from '../api/errors';
@@ -21,6 +21,7 @@ import { AsyncContent } from '../components/AsyncContent';
 import { DialogActions, dialogActionsProps } from '../components/DialogActions';
 import { absoluteTime, versionTime } from '../components/formats';
 import { Segmented, type SegmentedOption } from '../components/Segmented';
+import { Sheet, SheetButton } from '../components/Sheet';
 import { RenderedDiff, type DiffLayout } from '../diff/RenderedDiff';
 import { IconMaximize, IconMinimize } from '../icons';
 import { localStore, readText, writeText } from '../storage';
@@ -30,6 +31,7 @@ import { showToast } from '../toast';
 
 import { DiffView } from './DiffView';
 import classes from './HistoryDialog.module.css';
+import { basenameOf } from './naming';
 import { useAccount } from './NavContext';
 import { useMutationState } from './useMutationState';
 
@@ -157,31 +159,22 @@ function VersionDiff({ state, rev, mode, layout }: VersionDiffProps): JSX.Elemen
   return <DiffView patch={diff} />;
 }
 
-interface VersionRowProps {
+interface VersionFactsProps {
   entry: HistoryEntry;
   path: string;
-  selected: boolean;
-  onPick: () => void;
+  currentMark: string;
 }
 
-function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Element {
+function VersionFacts({ entry, path, currentMark }: VersionFactsProps): JSX.Element {
   const who = whoOf(entry.actor);
   const tag = tagOf(entry);
   const color = blockColorOf(who);
   return (
-    <button
-      type="button"
-      data-testid="version"
-      data-rev={entry.rev}
-      data-selected={selected ? 'true' : 'false'}
-      aria-current={selected ? 'true' : undefined}
-      className={classes.row}
-      onClick={onPick}
-    >
+    <>
       <span className={classes.line}>
         <span data-testid="version-when" className={classes.time} title={absoluteTime(entry.at)}>
           {versionTime(entry.at)}
-          {sameAsNow(entry) && <span className={classes.current}> current</span>}
+          {sameAsNow(entry) && <span className={classes.current}>{currentMark}</span>}
         </span>
       </span>
       <span className={classes.line}>
@@ -209,8 +202,53 @@ function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Ele
           as {entry.path}
         </span>
       )}
+    </>
+  );
+}
+
+interface VersionRowProps {
+  entry: HistoryEntry;
+  path: string;
+  selected: boolean;
+  onPick: () => void;
+}
+
+function versionAttributes(entry: HistoryEntry, selected: boolean): Record<string, string | undefined> {
+  return {
+    'data-testid': 'version',
+    'data-rev': entry.rev,
+    'data-selected': selected ? 'true' : 'false',
+    'aria-current': selected ? 'true' : undefined,
+  };
+}
+
+function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Element {
+  return (
+    <button type="button" {...versionAttributes(entry, selected)} className={classes.row} onClick={onPick}>
+      <VersionFacts entry={entry} path={path} currentMark=" current" />
     </button>
   );
+}
+
+function VersionCard({ entry, path, selected, onPick, children }: VersionRowProps & { children: ReactNode }): JSX.Element {
+  return (
+    <div data-selected={selected ? 'true' : 'false'} className={classes.card}>
+      <button
+        type="button"
+        {...versionAttributes(entry, selected)}
+        aria-expanded={selected}
+        className={classes.cardHead}
+        onClick={onPick}
+      >
+        <VersionFacts entry={entry} path={path} currentMark=" · current" />
+      </button>
+      {selected && <div className={classes.cardBody}>{children}</div>}
+    </div>
+  );
+}
+
+function versionCount(count: number): string {
+  return count === 1 ? '1 version' : `${count} versions`;
 }
 
 export interface HistoryDialogProps {
@@ -297,67 +335,130 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
   }
 
   const reason = selected === undefined ? undefined : restoreReason(selected);
+  const restoreBlocked = reason !== undefined || restoring || rev === undefined || disk.loading || history.loading;
+  const changes = detail.data?.changes !== undefined;
+  const modeToggle = changes && (
+    <Segmented
+      data-testid="history-diff-view"
+      className={classes.toggle}
+      size={phone ? 'sm' : 'xs'}
+      value={mode}
+      onChange={setMode}
+      aria-label="Show the change"
+      options={diffModeOptions}
+    />
+  );
+  const layoutToggle = changes && mode === 'rendered' && (
+    <Segmented
+      data-testid="history-diff-layout"
+      className={classes.toggle}
+      size={phone ? 'sm' : 'xs'}
+      value={diffLayout}
+      onChange={setDiffLayout}
+      aria-label="Lay out the change"
+      options={diffLayoutOptions}
+    />
+  );
 
   return (
     <>
-      <Modal
-        opened
-        onClose={onClose}
-        size={expanded ? '100%' : 1100}
-        xOffset={expanded ? expandedGap : undefined}
-        yOffset={expanded ? expandedGap : undefined}
-        fullScreen={phone}
-        transitionProps={{ transition: dialogTransition }}
-        withCloseButton={false}
-        padding={0}
-        centered
-        aria-label="History"
-        classNames={{ content: classes.content, body: classes.body }}
-        data-testid="history-dialog"
-        data-expanded={expanded ? 'true' : 'false'}
-      >
-        <section data-testid="history-version" className={classes.version}>
-          <div className={classes.bar}>
-            {detail.data?.changes !== undefined && (
-              <Segmented
-                data-testid="history-diff-view"
-                className={classes.toggle}
-                size="xs"
-                value={mode}
-                onChange={setMode}
-                aria-label="Show the change"
-                options={diffModeOptions}
-              />
-            )}
-            {detail.data?.changes !== undefined && mode === 'rendered' && (
-              <Segmented
-                data-testid="history-diff-layout"
-                className={classes.toggle}
-                size="xs"
-                value={diffLayout}
-                onChange={setDiffLayout}
-                aria-label="Lay out the change"
-                options={diffLayoutOptions}
-              />
-            )}
-            <span data-testid="history-when" className={classes.when}>
-              {selected === undefined ? 'What changed' : `What changed in ${versionTime(selected.at)}`}
-            </span>
+      {phone ? (
+        <Sheet
+          opened
+          onClose={onClose}
+          testId="history-dialog"
+          tall
+          title={
+            <>
+              <span data-testid="history-title">History</span>
+              {history.data !== undefined && (
+                <span data-testid="history-count" className={classes.sheetCount}>
+                  {` · ${versionCount(history.data.entries.length)}`}
+                </span>
+              )}
+            </>
+          }
+          subtitle={basenameOf(path)}
+        >
+          <div data-testid="history-list" className={classes.cards}>
+            <AsyncContent state={history} testId="history">
+              {(data) =>
+                data.entries.length === 0 ? (
+                  <div data-testid="history-empty" className={classes.sheetEmpty}>
+                    Nothing was recorded for this note.
+                  </div>
+                ) : (
+                  data.entries.map((version) => (
+                    <VersionCard
+                      key={version.rev}
+                      entry={version}
+                      path={path}
+                      selected={version.rev === selected?.rev}
+                      onPick={() => setSelectedRev(version.rev)}
+                    >
+                      {changes && (
+                        <div className={classes.cardTools}>
+                          {modeToggle}
+                          {layoutToggle}
+                        </div>
+                      )}
+                      <section data-testid="history-version" className={classes.cardDiff}>
+                        <VersionDiff state={detail} rev={version.rev} mode={mode} layout={diffLayout} />
+                      </section>
+                      {canWrite && (
+                        <SheetButton testId="version-restore" disabled={restoreBlocked} onClick={() => askRestore(version)}>
+                          Restore this version
+                        </SheetButton>
+                      )}
+                      {canWrite && reason !== undefined && (
+                        <span data-testid="history-restore-reason" className={classes.reason}>
+                          {reason}
+                        </span>
+                      )}
+                    </VersionCard>
+                  ))
+                )
+              }
+            </AsyncContent>
           </div>
-          <div className={classes.diff}>
-            {selected !== undefined && <VersionDiff state={detail} rev={selected.rev} mode={mode} layout={diffLayout} />}
-          </div>
-        </section>
+        </Sheet>
+      ) : (
+        <Modal
+          opened
+          onClose={onClose}
+          size={expanded ? '100%' : 1100}
+          xOffset={expanded ? expandedGap : undefined}
+          yOffset={expanded ? expandedGap : undefined}
+          transitionProps={{ transition: dialogTransition }}
+          withCloseButton={false}
+          padding={0}
+          centered
+          aria-label="History"
+          classNames={{ content: classes.content, body: classes.body }}
+          data-testid="history-dialog"
+          data-expanded={expanded ? 'true' : 'false'}
+        >
+          <section data-testid="history-version" className={classes.version}>
+            <div className={classes.bar}>
+              {modeToggle}
+              {layoutToggle}
+              <span data-testid="history-when" className={classes.when}>
+                {selected === undefined ? 'What changed' : `What changed in ${versionTime(selected.at)}`}
+              </span>
+            </div>
+            <div className={classes.diff}>
+              {selected !== undefined && <VersionDiff state={detail} rev={selected.rev} mode={mode} layout={diffLayout} />}
+            </div>
+          </section>
 
-        <aside data-testid="history-list" className={classes.panel}>
-          <div className={classes.head}>
-            <h2 data-testid="history-title" className={classes.title}>
-              Versions
-            </h2>
-            <span data-testid="history-count" className={classes.count}>
-              {history.data?.entries.length}
-            </span>
-            {!phone && (
+          <aside data-testid="history-list" className={classes.panel}>
+            <div className={classes.head}>
+              <h2 data-testid="history-title" className={classes.title}>
+                Versions
+              </h2>
+              <span data-testid="history-count" className={classes.count}>
+                {history.data?.entries.length}
+              </span>
               <ActionIcon
                 data-testid="history-expand"
                 variant="subtle"
@@ -369,48 +470,48 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
               >
                 {expanded ? <IconMinimize size={layout.iconSizeSmall} /> : <IconMaximize size={layout.iconSizeSmall} />}
               </ActionIcon>
-            )}
-            <CloseButton data-testid="history-close" aria-label="Close the history" onClick={onClose} />
-          </div>
-          <div className={classes.list} tabIndex={-1} data-autofocus>
-            <AsyncContent state={history} testId="history">
-              {(data) =>
-                data.entries.length === 0 ? (
-                  <div data-testid="history-empty" className={classes.empty}>
-                    Nothing was recorded for this note.
-                  </div>
-                ) : (
-                  data.entries.map((version) => (
-                    <VersionRow
-                      key={version.rev}
-                      entry={version}
-                      path={path}
-                      selected={version.rev === selected?.rev}
-                      onPick={() => setSelectedRev(version.rev)}
-                    />
-                  ))
-                )
-              }
-            </AsyncContent>
-          </div>
-          {canWrite && selected !== undefined && (
-            <div className={classes.foot}>
-              <Button
-                data-testid="version-restore"
-                fullWidth
-                size="md"
-                disabled={reason !== undefined || restoring || rev === undefined || disk.loading || history.loading}
-                onClick={() => askRestore(selected)}
-              >
-                Restore version
-              </Button>
-              <span data-testid="history-restore-reason" className={classes.reason}>
-                {reason ?? 'A restore is a new version. Nothing is lost.'}
-              </span>
+              <CloseButton data-testid="history-close" aria-label="Close the history" onClick={onClose} />
             </div>
-          )}
-        </aside>
-      </Modal>
+            <div className={classes.list} tabIndex={-1} data-autofocus>
+              <AsyncContent state={history} testId="history">
+                {(data) =>
+                  data.entries.length === 0 ? (
+                    <div data-testid="history-empty" className={classes.empty}>
+                      Nothing was recorded for this note.
+                    </div>
+                  ) : (
+                    data.entries.map((version) => (
+                      <VersionRow
+                        key={version.rev}
+                        entry={version}
+                        path={path}
+                        selected={version.rev === selected?.rev}
+                        onPick={() => setSelectedRev(version.rev)}
+                      />
+                    ))
+                  )
+                }
+              </AsyncContent>
+            </div>
+            {canWrite && selected !== undefined && (
+              <div className={classes.foot}>
+                <Button
+                  data-testid="version-restore"
+                  fullWidth
+                  size="md"
+                  disabled={restoreBlocked}
+                  onClick={() => askRestore(selected)}
+                >
+                  Restore version
+                </Button>
+                <span data-testid="history-restore-reason" className={classes.reason}>
+                  {reason ?? 'A restore is a new version. Nothing is lost.'}
+                </span>
+              </div>
+            )}
+          </aside>
+        </Modal>
+      )}
 
       <Modal
         data-testid="modal"

@@ -3,11 +3,15 @@ import { useEffect, useLayoutEffect, useState, type CSSProperties, type RefObjec
 interface VisibleArea {
   height: number;
   top: number;
+  keyboard: boolean;
 }
 
 function areaOf(): VisibleArea {
   const view = window.visualViewport;
-  return view === null ? { height: window.innerHeight, top: 0 } : { height: view.height, top: view.offsetTop };
+  if (view === null) {
+    return { height: window.innerHeight, top: 0, keyboard: false };
+  }
+  return { height: view.height, top: view.offsetTop, keyboard: window.innerHeight - view.offsetTop - view.height > 1 };
 }
 
 function useVisibleArea(active: boolean): VisibleArea | undefined {
@@ -21,7 +25,7 @@ function useVisibleArea(active: boolean): VisibleArea | undefined {
     const view = window.visualViewport;
     const update = (): void => {
       const next = areaOf();
-      setArea((prev) => (prev?.height === next.height && prev.top === next.top ? prev : next));
+      setArea((prev) => (prev?.height === next.height && prev.top === next.top && prev.keyboard === next.keyboard ? prev : next));
     };
     update();
     view?.addEventListener('resize', update);
@@ -44,7 +48,8 @@ export function useFullScreenStyle(active: boolean): CSSProperties | undefined {
     maxHeight: 'none',
     height: area === undefined ? '100dvh' : area.height,
     transform: `translateY(${area?.top ?? 0}px)`,
-  };
+    '--scrawl-screen-foot': area?.keyboard === true ? '0px' : 'env(safe-area-inset-bottom, 0px)',
+  } as CSSProperties;
 }
 
 export function useVisibleScreen(screen: RefObject<HTMLElement | null>, active: boolean): void {

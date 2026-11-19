@@ -15,57 +15,6 @@
   color: var(--scrawl-icon-secondary);
 }
 
-@mixin smaller-than $mantine-breakpoint-sm {
-  .bar {
-    inset-inline: 8px;
-    flex-wrap: wrap;
-    row-gap: 0;
-    width: auto;
-    height: auto;
-    padding: 2px 2px 2px 12px;
-  }
-
-  .icon {
-    order: 1;
-  }
-
-  .input {
-    order: 2;
-    flex: 1 1 auto;
-    height: 44px;
-  }
-
-  .count {
-    order: 3;
-  }
-
-  .close {
-    order: 4;
-  }
-
-  .bar .break {
-    display: block;
-    order: 5;
-    flex-basis: 100%;
-    height: 0;
-  }
-
-  .toggle {
-    order: 6;
-    height: 36px;
-    min-width: 40px;
-  }
-
-  .prev {
-    order: 7;
-    margin-inline-start: auto;
-  }
-
-  .next {
-    order: 8;
-  }
-}
-
 .input {
   flex: 1 1 auto;
   min-width: 60px;
@@ -142,4 +91,80 @@
 .next:disabled {
   background: transparent;
   color: var(--scrawl-text-faint);
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .bar {
+    top: 0;
+    bottom: auto;
+    inset-inline: 8px;
+    transform: translateY(calc(var(--scrawl-find-bottom, 100dvh) - 100% - 8px - env(safe-area-inset-bottom, 0px)));
+    flex-wrap: wrap;
+    gap: 0;
+    width: auto;
+    height: auto;
+    padding: 0 4px 4px 16px;
+    border: 1px solid var(--scrawl-capsule-border);
+    border-radius: 16px;
+    background: var(--scrawl-capsule);
+    box-shadow: var(--scrawl-shadow-capsule);
+  }
+
+  .bar[data-keyboard='true'] {
+    transform: translateY(calc(var(--scrawl-find-bottom, 100dvh) - 100% - 8px));
+  }
+
+  .icon {
+    order: 1;
+    margin-inline-end: 12px;
+  }
+
+  .input {
+    order: 2;
+    height: 52px;
+  }
+
+  .count {
+    order: 3;
+    padding-inline: 8px 4px;
+    font-size: 13px;
+  }
+
+  .close {
+    order: 4;
+  }
+
+  .bar .break {
+    display: block;
+    order: 5;
+    flex: 0 0 calc(100% - 12px);
+    height: 1px;
+    margin-bottom: 4px;
+    background: var(--scrawl-border-translucent);
+  }
+
+  .toggle {
+    order: 6;
+    min-width: 44px;
+    height: 44px;
+    font-size: 14px;
+  }
+
+  .prev {
+    order: 7;
+    margin-inline-start: auto;
+  }
+
+  .next {
+    order: 8;
+  }
+
+  .close,
+  .prev,
+  .next {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
 }

@@ -49,15 +49,47 @@
 
 .sheet {
   flex: none !important;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: auto;
   max-height: 75dvh;
+  overflow: hidden;
   border-radius: var(--mantine-radius-xl) var(--mantine-radius-xl) 0 0;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+.sheet::before {
+  content: '';
+  display: block;
+  flex: none;
+  width: 36px;
+  height: 5px;
+  margin: 6px auto 0;
+  border-radius: 3px;
+  background: var(--scrawl-text-faint);
+}
+
 .sheet .sheetHead {
-  padding-block: 12px 0;
+  padding: 8px 16px 4px;
+}
+
+.sheet .sheetBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-inline: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sheetClose {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  border-radius: 50%;
+  background: var(--scrawl-sheet-close);
+  color: var(--scrawl-icon-secondary);
 }
 
 .sheetTitle {

@@ -1,4 +1,4 @@
-import { createContext, useContext, type ComponentType, type ReactElement, type RefObject } from 'react';
+import { createContext, useContext, type ComponentType, type RefObject } from 'react';
 
 import type { DocumentResponse, FilePageResponse } from '../api/types';
 import type { Point } from '../components/pointerMenu';
@@ -16,7 +16,6 @@ export interface RowMenuProps {
   runPath?: string;
   opened: boolean;
   onOpenedChange: (opened: boolean) => void;
-  target?: ReactElement;
   at?: Point;
 }
 

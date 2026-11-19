@@ -43,6 +43,12 @@
     "scrim": "#ffffff99",
     "codeBg": "#f5f5f7",
     "draftBg": "#fff6ed",
+    "sheet": "#f2f2f7",
+    "sheetGroup": "#ffffff",
+    "sheetClose": "#e3e3e8",
+    "capsule": "#ffffff",
+    "capsuleBorder": "#0000001a",
+    "tabCurrent": "#e6ebf3",
     "diagramPaper": "#ffffff",
     "link": "#0066cc",
     "linkLine": "#0066cc40",
@@ -79,7 +85,8 @@
   "shadows": {
     "small": "0 1px 2px #0000001f, 0 0 0 0.5px #0000001f",
     "medium": "0 0 0 0.5px #00000026, 0 10px 30px #00000026, 0 2px 6px #00000014",
-    "large": "0 0 0 0.5px #00000033, 0 22px 70px #00000040, 0 6px 16px #0000001f"
+    "large": "0 0 0 0.5px #00000033, 0 22px 70px #00000040, 0 6px 16px #0000001f",
+    "capsule": "0 4px 20px #0000001a"
   },
   "colors": {
     "accent": ["#e5f1ff", "#cce3ff", "#99c7ff", "#66abff", "#338fff", "#007aff", "#006ee6", "#0062cc", "#004c9e", "#003670"],

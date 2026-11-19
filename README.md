@@ -631,9 +631,9 @@ A few rules:
   startup with an error.
 
 `/` redirects to the first space, and the space's button at the foot of the
-sidebar, or the Profile tab on a phone, opens a menu that switches to another
-one. Everything else is shared: one login, one session, one set of API tokens,
-and a search that searches the space you are in.
+sidebar opens a menu that switches to another one. On a phone the spaces are
+listed on the Profile tab. Everything else is shared: one login, one session,
+one set of API tokens, and a search that searches the space you are in.
 
 For full separation between spaces - separate users, separate processes - run
 one scrawl per folder behind a reverse proxy.

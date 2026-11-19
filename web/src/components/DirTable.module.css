@@ -262,7 +262,3 @@
     transition: transform 350ms ease-out 150ms;
   }
 }
-
-.listRow[data-lifted='true'] > * {
-  visibility: hidden;
-}

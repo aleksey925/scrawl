@@ -685,7 +685,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       )}
 
       {phoneModes && (
-          <div data-testid="editor-strip" data-typing={typing ? 'true' : 'false'} className={classes.phoneBar}>
+          <div data-testid="editor-strip" data-typing={typing ? 'true' : 'false'} className={classes.phoneBar} data-print="hide">
             {typing ? (
               <div ref={keyboardBarRef} data-testid="editor-keyboard-bar" className={classes.keyboardBar}>
                 {toolbar}
@@ -707,7 +707,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
                 value={mode === 'split' ? 'source' : mode}
                 onChange={chooseMode}
                 aria-label="Editor layout"
-                classNames={{ label: classes.phoneMode }}
+                classNames={{ root: classes.phoneModes, label: classes.phoneMode }}
                 options={phoneOptions}
               />
             )}

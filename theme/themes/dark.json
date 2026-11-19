@@ -43,6 +43,12 @@
     "scrim": "#0f0f0f99",
     "codeBg": "#ffffff08",
     "draftBg": "#ffffff08",
+    "sheet": "#202020",
+    "sheetGroup": "#2c2c2b",
+    "sheetClose": "#383836",
+    "capsule": "#252525",
+    "capsuleBorder": "#383836",
+    "tabCurrent": "#2383e240",
     "diagramPaper": "#f7f6f3",
     "link": "currentColor",
     "linkLine": "#ffffff40",
@@ -79,6 +85,7 @@
   "shadows": {
     "small": "0 2px 4px #00000033, 0 0 0 1px #383836",
     "medium": "0 8px 12px #00000040, 0 2px 6px #00000033, 0 0 0 1px #383836",
-    "large": "0 24px 48px #00000080, 0 4px 12px #00000059, 0 0 0 1px #383836"
+    "large": "0 24px 48px #00000080, 0 4px 12px #00000059, 0 0 0 1px #383836",
+    "capsule": "0 4px 20px #00000080"
   }
 }

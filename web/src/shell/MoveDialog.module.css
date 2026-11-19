@@ -93,3 +93,143 @@
 .popover .place {
   min-height: 28px;
 }
+
+.sheetSearch {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--scrawl-sheet-group);
+  color: var(--scrawl-icon-secondary);
+}
+
+.sheetInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--scrawl-text);
+  font: inherit;
+  font-size: 17px;
+}
+
+.sheetInput::placeholder {
+  color: var(--scrawl-text-tertiary);
+}
+
+.sheetList {
+  flex: none;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--scrawl-sheet-group);
+}
+
+.sheetEmpty {
+  padding: 14px 16px;
+  color: var(--scrawl-text-tertiary);
+  font-size: 15px;
+}
+
+.sheetPlace {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 50px;
+  padding: 0 16px;
+  color: var(--scrawl-text);
+  font-size: 17px;
+  cursor: pointer;
+  transition: var(--scrawl-press-out);
+}
+
+.sheetPlace + .sheetPlace::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 16px;
+  border-top: 1px solid var(--scrawl-border-translucent);
+}
+
+.sheetPlace:not([data-current='true'], [data-active='true']):active {
+  background: var(--scrawl-pressed);
+  transition: var(--scrawl-press-in);
+}
+
+.sheetPlace[data-active='true'] {
+  background: var(--scrawl-accent-tint);
+}
+
+.sheetPlace[data-current='true'] {
+  color: var(--scrawl-text-tertiary);
+  cursor: default;
+}
+
+.sheetIcon {
+  flex: none;
+  color: var(--scrawl-icon-secondary);
+}
+
+.sheetPlace[data-active='true'] .sheetIcon {
+  color: var(--scrawl-accent);
+}
+
+.sheetName {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheetPath {
+  overflow: hidden;
+  color: var(--scrawl-text-secondary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+}
+
+.sheetCurrent {
+  flex: none;
+  color: var(--scrawl-text-secondary);
+  font-size: 13px;
+}
+
+.sheetTwisty {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-inline-end: -12px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--scrawl-icon-secondary);
+  cursor: pointer;
+}
+
+.sheetTwisty:active {
+  background: var(--scrawl-pressed);
+}
+
+.sheetFoot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sheetFoot .taken {
+  font-size: 13px;
+  text-align: center;
+}

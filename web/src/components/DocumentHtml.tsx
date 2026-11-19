@@ -31,7 +31,7 @@ export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Elem
   const rootRef = useRef<HTMLDivElement>(null);
   const outline = useOutline(rootRef, html, toc);
   const find = useFindOnPage(rootRef, html);
-  useFindShortcut(rootRef, find.open);
+  useFindShortcut(rootRef, find.open, find.opened);
   const floating = useAtLeast(layoutBreakpoints.miniOutline);
 
   const closeViewer = useRef<(() => void) | null>(null);
@@ -84,7 +84,7 @@ function selectedText(root: HTMLElement): string | undefined {
   return text === '' || text.includes('\n') ? undefined : text;
 }
 
-function useFindShortcut(rootRef: RefObject<HTMLDivElement | null>, open: (text?: string) => void): void {
+function useFindShortcut(rootRef: RefObject<HTMLDivElement | null>, open: (text?: string) => void, opened: boolean): void {
   const { register } = useFindControl();
 
   useEffect(() => {
@@ -100,10 +100,10 @@ function useFindShortcut(rootRef: RefObject<HTMLDivElement | null>, open: (text?
       openHere();
     };
     document.addEventListener('keydown', onKeyDown);
-    register(openHere);
+    register({ open: openHere, opened });
     return () => {
       document.removeEventListener('keydown', onKeyDown);
       register(undefined);
     };
-  }, [rootRef, open, register]);
+  }, [rootRef, open, opened, register]);
 }

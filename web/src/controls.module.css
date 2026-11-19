@@ -249,6 +249,28 @@
   color: var(--scrawl-text);
 }
 
+@mixin smaller-than $mantine-breakpoint-sm {
+  .segmentRoot {
+    --sc-padding: 3px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--scrawl-segment-track, var(--scrawl-border-light));
+  }
+
+  .segmentIndicator {
+    border-radius: 999px;
+    background: var(--scrawl-bg);
+  }
+
+  .segment {
+    min-height: calc(var(--scrawl-touch-choice) - 6px);
+  }
+
+  .segment[data-active] {
+    font-weight: 600;
+  }
+}
+
 .modalHeader {
   min-height: calc(var(--scrawl-modal-header-height) - var(--scrawl-focus-room));
   padding-bottom: calc(var(--mb-padding, var(--mantine-spacing-md)) - var(--scrawl-focus-room));

@@ -7,14 +7,24 @@ import { IconDeviceDesktop, IconMoon, IconSun } from '../icons';
 import { setThemeChoice, useThemeChoice } from '../themeChoice';
 import { autoChoice, themes } from '../themes';
 
-const options: SegmentedOption<string>[] = [
+export const themeOptions: SegmentedOption<string>[] = [
   { value: autoChoice, icon: IconDeviceDesktop, label: 'Auto' },
   ...themes.map((entry) => ({ value: entry.id, icon: entry.scheme === 'dark' ? IconMoon : IconSun, label: entry.name })),
 ];
 
-export function ThemePicker(): JSX.Element {
+export interface ThemeState {
+  choice: string;
+  choose: (value: string) => void;
+}
+
+export function useTheme(): ThemeState {
   const { setColorScheme } = useMantineColorScheme();
   const choice = useThemeChoice();
+  return { choice, choose: (value) => setThemeChoice(value, setColorScheme) };
+}
+
+export function ThemePicker(): JSX.Element {
+  const { choice, choose } = useTheme();
 
   return (
     <>
@@ -27,9 +37,9 @@ export function ThemePicker(): JSX.Element {
           size="sm"
           classNames={{ label: controls.menuSegment }}
           value={choice}
-          onChange={(value) => setThemeChoice(value, setColorScheme)}
+          onChange={choose}
           aria-label="Theme"
-          options={options}
+          options={themeOptions}
         />
       </div>
     </>

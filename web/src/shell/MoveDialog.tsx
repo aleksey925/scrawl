@@ -1,8 +1,9 @@
-import { Highlight, Modal, Popover, Portal } from '@mantine/core';
-import { useEffect, useMemo, useRef, useState, type JSX, type KeyboardEvent } from 'react';
+import { Highlight, Popover, Portal } from '@mantine/core';
+import { useEffect, useMemo, useRef, useState, type JSX, type KeyboardEvent, type RefObject } from 'react';
 
 import type { NavNode } from '../api/types';
 import { FixedAnchor } from '../components/pointerMenu';
+import { Sheet, SheetButton } from '../components/Sheet';
 import { TapGuard, useTouchScreen } from '../components/TapGuard';
 import controls from '../controls.module.css';
 import { IconChevronDown, IconChevronRight, IconFolder, IconHome, IconSearch } from '../icons';
@@ -11,7 +12,6 @@ import { layout, layoutBreakpoints, useBelow } from '../theme';
 import moveClasses from './MoveDialog.module.css';
 import picker from './Picker.module.css';
 import { basenameOf, joinPath, parentOf } from './naming';
-import { useFullScreenStyle } from './useVisibleArea';
 
 interface Place {
   path: string;
@@ -23,6 +23,7 @@ interface Place {
 
 const indentStep = 16;
 const rowStart = 6;
+const sheetRowStart = 16;
 
 function namesOf(nodes: readonly NavNode[]): ReadonlySet<string> {
   return new Set(nodes.map((node) => node.name));
@@ -61,18 +62,7 @@ export interface MoveDialogProps {
 
 export function MoveDialog(props: MoveDialogProps): JSX.Element {
   const phone = useBelow(layoutBreakpoints.phone);
-  return phone ? <MoveScreen {...props} /> : <MovePopover {...props} />;
-}
-
-function MoveScreen(props: MoveDialogProps): JSX.Element {
-  const screenStyle = useFullScreenStyle(true);
-  return (
-    <Modal opened onClose={props.onClose} fullScreen withCloseButton={false} padding={0} trapFocus>
-      <div data-testid="move-dialog" className={picker.dialog} style={screenStyle}>
-        <MovePicker {...props} phone />
-      </div>
-    </Modal>
-  );
+  return phone ? <MoveSheet {...props} /> : <MovePopover {...props} />;
 }
 
 function MovePopover(props: MoveDialogProps): JSX.Element {
@@ -100,7 +90,7 @@ function MovePopover(props: MoveDialogProps): JSX.Element {
         </Popover.Target>
         <Popover.Dropdown p={0}>
           <div data-testid="move-dialog" className={moveClasses.popover}>
-            <MovePicker {...props} phone={false} />
+            <MovePicker {...props} />
           </div>
         </Popover.Dropdown>
       </Popover>
@@ -109,9 +99,23 @@ function MovePopover(props: MoveDialogProps): JSX.Element {
   );
 }
 
-function MovePicker({
-  path, tree, spaceName, onMove, onClose, phone,
-}: MoveDialogProps & { phone: boolean }): JSX.Element {
+interface MovePlaces {
+  name: string;
+  here: string;
+  text: string;
+  setText: (text: string) => void;
+  query: string;
+  shown: readonly Place[];
+  picked: Place | undefined;
+  setActive: (path: string) => void;
+  open: ReadonlySet<string>;
+  fold: (folder: string, opened: boolean) => void;
+  choose: (place: Place | undefined) => void;
+  bodyRef: RefObject<HTMLDivElement | null>;
+  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+}
+
+function useMovePlaces({ path, tree, spaceName, onMove }: MoveDialogProps, pickFirst: boolean): MovePlaces {
   const [text, setText] = useState('');
   const bodyRef = useRef<HTMLDivElement>(null);
   const name = basenameOf(path);
@@ -127,7 +131,8 @@ function MovePicker({
     [tree, spaceName, path, open, query],
   );
   const [active, setActive] = useState<string | undefined>(undefined);
-  const picked = shown.find((place) => place.path === active) ?? shown.find((place) => place.path !== here);
+  const first = pickFirst || query !== '' ? shown.find((place) => place.path !== here) : undefined;
+  const picked = shown.find((place) => place.path === active) ?? first;
 
   useEffect(() => setActive(undefined), [query]);
 
@@ -175,40 +180,86 @@ function MovePicker({
     }
   };
 
+  return { name, here, text, setText, query, shown, picked, setActive, open, fold, choose, bodyRef, onKeyDown };
+}
+
+interface MoveInputProps {
+  places: MovePlaces;
+  className: string | undefined;
+  autoFocus: boolean;
+}
+
+function MoveInput({ places, className, autoFocus }: MoveInputProps): JSX.Element {
+  const { name, text, setText, onKeyDown } = places;
+  return (
+    <input
+      data-testid="move-input"
+      className={className}
+      value={text}
+      autoFocus={autoFocus}
+      placeholder={`Move ${name} to…`}
+      aria-label={`Move ${name} to a folder`}
+      autoComplete="off"
+      spellCheck={false}
+      autoCapitalize="off"
+      autoCorrect="off"
+      enterKeyHint="go"
+      onChange={(event) => setText(event.currentTarget.value)}
+      onKeyDown={onKeyDown}
+    />
+  );
+}
+
+function placeAttributes(place: Place, places: MovePlaces): Record<string, string | boolean> {
+  const current = place.path === places.here;
+  return {
+    role: 'option',
+    'data-testid': 'move-place',
+    'data-path': place.path,
+    'data-current': current ? 'true' : 'false',
+    'data-active': place === places.picked ? 'true' : 'false',
+    'data-open': places.open.has(place.path) ? 'true' : 'false',
+    'aria-selected': place === places.picked,
+    'aria-disabled': current,
+  };
+}
+
+function MoveTwisty({ place, places, className }: { place: Place; places: MovePlaces; className: string | undefined }): JSX.Element {
+  const opened = places.open.has(place.path);
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      data-testid="move-twisty"
+      className={className}
+      aria-label={`${opened ? 'Collapse' : 'Expand'} ${place.name}`}
+      aria-expanded={opened}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={(event) => {
+        event.stopPropagation();
+        places.fold(place.path, !opened);
+      }}
+    >
+      {opened ? <IconChevronDown size={layout.iconSizeTiny} /> : <IconChevronRight size={layout.iconSizeTiny} />}
+    </button>
+  );
+}
+
+function MovePicker(props: MoveDialogProps): JSX.Element {
+  const { spaceName } = props;
+  const places = useMovePlaces(props, true);
+  const { name, here, query, shown, picked, setActive, choose, bodyRef } = places;
+
   return (
     <>
-      <div className={phone ? picker.inputRow : moveClasses.search}>
-        <div className={phone ? picker.field : moveClasses.searchBox}>
-          <IconSearch size={phone ? layout.iconSize : layout.iconSizeSmall} />
-          <input
-            data-testid="move-input"
-            className={phone ? picker.input : moveClasses.input}
-            value={text}
-            autoFocus
-            placeholder={`Move ${name} to…`}
-            aria-label={`Move ${name} to a folder`}
-            autoComplete="off"
-            spellCheck={false}
-            autoCapitalize="off"
-            autoCorrect="off"
-            enterKeyHint="go"
-            onChange={(event) => setText(event.currentTarget.value)}
-            onKeyDown={onKeyDown}
-          />
+      <div className={moveClasses.search}>
+        <div className={moveClasses.searchBox}>
+          <IconSearch size={layout.iconSizeSmall} />
+          <MoveInput places={places} className={moveClasses.input} autoFocus />
         </div>
-        {phone && (
-          <button type="button" data-testid="move-close" className={picker.cancel} onClick={onClose}>
-            Cancel
-          </button>
-        )}
       </div>
 
-      <div
-        ref={bodyRef}
-        className={`${picker.body} ${moveClasses.body}`}
-        role="listbox"
-        aria-label="Folders"
-      >
+      <div ref={bodyRef} className={`${picker.body} ${moveClasses.body}`} role="listbox" aria-label="Folders">
         {shown.length === 0 && (
           <div data-testid="move-empty" className={picker.empty}>
             No folder matches that.
@@ -216,18 +267,10 @@ function MovePicker({
         )}
         {shown.map((place) => {
           const current = place.path === here;
-          const opened = open.has(place.path);
           return (
             <div
               key={place.path}
-              role="option"
-              data-testid="move-place"
-              data-path={place.path}
-              data-current={current ? 'true' : 'false'}
-              data-active={place === picked ? 'true' : 'false'}
-              data-open={opened ? 'true' : 'false'}
-              aria-selected={place === picked}
-              aria-disabled={current}
+              {...placeAttributes(place, places)}
               className={`${picker.head} ${moveClasses.place}`}
               style={query === '' ? { paddingLeft: rowStart + place.depth * indentStep } : undefined}
               onMouseMove={() => !current && setActive(place.path)}
@@ -235,21 +278,7 @@ function MovePicker({
             >
               {query === '' &&
                 (place.foldable ? (
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    data-testid="move-twisty"
-                    className={moveClasses.twisty}
-                    aria-label={`${opened ? 'Collapse' : 'Expand'} ${place.name}`}
-                    aria-expanded={opened}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      fold(place.path, !opened);
-                    }}
-                  >
-                    {opened ? <IconChevronDown size={layout.iconSizeTiny} /> : <IconChevronRight size={layout.iconSizeTiny} />}
-                  </button>
+                  <MoveTwisty place={place} places={places} className={moveClasses.twisty} />
                 ) : (
                   <span className={moveClasses.twisty} />
                 ))}
@@ -280,5 +309,71 @@ function MovePicker({
         )}
       </div>
     </>
+  );
+}
+
+function MoveSheet(props: MoveDialogProps): JSX.Element {
+  const { spaceName, onClose } = props;
+  const places = useMovePlaces(props, false);
+  const { name, here, query, shown, picked, setActive, choose, bodyRef } = places;
+  const taken = picked !== undefined && picked.holds.has(name);
+
+  return (
+    <Sheet
+      opened
+      onClose={onClose}
+      testId="move-dialog"
+      tall
+      title={`Move ${name}`}
+      subtitle="Pick a folder"
+      footer={
+        <div data-testid="move-preview" className={moveClasses.sheetFoot}>
+          {taken && (
+            <span data-testid="move-taken" className={moveClasses.taken}>
+              {picked.name} already holds {name}
+            </span>
+          )}
+          <SheetButton testId="move-submit" disabled={picked === undefined || taken} onClick={() => choose(picked)}>
+            {picked === undefined ? 'Move' : `Move to ${picked.name}`}
+          </SheetButton>
+        </div>
+      }
+    >
+      <label className={moveClasses.sheetSearch}>
+        <IconSearch size={layout.iconSizeSmall} aria-hidden />
+        <MoveInput places={places} className={moveClasses.sheetInput} autoFocus={false} />
+      </label>
+      <div ref={bodyRef} className={moveClasses.sheetList} role="listbox" aria-label="Folders">
+        {shown.length === 0 && (
+          <div data-testid="move-empty" className={moveClasses.sheetEmpty}>
+            No folder matches that.
+          </div>
+        )}
+        {shown.map((place) => {
+          const current = place.path === here;
+          return (
+            <div
+              key={place.path}
+              {...placeAttributes(place, places)}
+              className={moveClasses.sheetPlace}
+              style={query === '' ? { paddingLeft: sheetRowStart + place.depth * indentStep } : undefined}
+              onClick={() => !current && setActive(place.path)}
+            >
+              <IconFolder size={layout.iconSizeLarge} className={moveClasses.sheetIcon} aria-hidden />
+              <span className={moveClasses.sheetName}>
+                <Highlight component="span" highlight={query === '' ? [] : query} fw="inherit" fz="inherit">
+                  {place.name}
+                </Highlight>
+                {query !== '' && place.path !== '' && (
+                  <span className={moveClasses.sheetPath}>{parentOf(place.path) === '' ? spaceName : parentOf(place.path)}</span>
+                )}
+              </span>
+              {current && <span className={moveClasses.sheetCurrent}>current</span>}
+              {query === '' && place.foldable && <MoveTwisty place={place} places={places} className={moveClasses.sheetTwisty} />}
+            </div>
+          );
+        })}
+      </div>
+    </Sheet>
   );
 }

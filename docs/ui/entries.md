@@ -31,12 +31,12 @@ Creating, naming, moving and deleting files and folders.
   field has the focus outside the editor, the blue New of a folder's page, the
   empty folder's New note, a right click on the free space of the tree, made in
   the root, or of a folder's page, and on a phone the New note tile of the
-  bar's New. A folder is made from the arrow beside the blue New, whose menu
-  holds New folder alone, the empty folder's New folder, the right click on
-  free space, the phone's New folder tile and `Shift` + `N`, which works where
-  `N` does. Its name is typed in a row where it will stand: in the tree for the
-  tree's menu, and in a folder's list, on a desktop and on a phone, in a row
-  after the last folder, so a long list is not scrolled to its end. Enter
+  sheet New opens. A folder is made from the arrow beside the blue New, whose
+  menu holds New folder alone, the empty folder's New folder, the right click
+  on free space, the phone's New folder tile and `Shift` + `N`, which works
+  where `N` does. Its name is typed in a row where it will stand: in the tree
+  for the tree's menu, and in a folder's list, on a desktop and on a phone, in
+  a row after the last folder, so a long list is not scrolled to its end. Enter
   creates it, and so does a click or a tap outside the tree's field, while the
   row of a list keeps a typed name and drops only an empty one, so a click on
   another row of the list does not make a folder with half a name; Escape, or
@@ -104,23 +104,33 @@ Creating, naming, moving and deleting files and folders.
   the field, so a click on a link saves and goes. Move to opens a popover where
   the menu it was picked from was, on the side of the screen the menu sat on,
   as Notion does; a dialog in the middle of the screen took the eye away from
-  the row or the page being moved. On a phone it fills the screen. It holds a
-  search field over the folders of the space, the space itself first: empty, it
-  shows them as a tree with every folder folded, the one the entry is in too, a
-  chevron or the right and left arrows unfold and fold a folder, a click on the
-  chevron leaving the focus in the search field for the arrows and Enter, and
-  typed, the folders whose name matches, each with the folder it sits in. The
-  whole tree open was a long list to scroll through in a real space. The folder
-  the entry is in now is marked Current and cannot be picked, a folder being
-  moved leaves itself and everything inside it out of the list, and the foot
-  shows the path the entry will get, or that the folder already holds that
-  name, which is then not moved to. That check knows only the names the tree
-  shows: a symlink or a file an exclude glob hides, under the same name, is
-  found only by the server, and the toast of the failed move says so. Up and
-  down pick, Enter or a click on the row moves, through the same path a drag
-  takes, and the page follows an entry that was on screen. The arrows stop on
-  the Current folder too, so the right arrow unfolds it to reach the folders
-  inside, but Enter there moves nothing.
+  the row or the page being moved. It holds a search field over the folders of
+  the space, the space itself first: empty, it shows them as a tree with every
+  folder folded, the one the entry is in too, a chevron or the right and left
+  arrows unfold and fold a folder, a click on the chevron leaving the focus in
+  the search field for the arrows and Enter, and typed, the folders whose name
+  matches, each with the folder it sits in. The whole tree open was a long list
+  to scroll through in a real space. The folder the entry is in now is marked
+  Current and cannot be picked, a folder being moved leaves itself and
+  everything inside it out of the list, and the foot shows the path the entry
+  will get, or that the folder already holds that name, which is then not moved
+  to. That check knows only the names the tree shows: a symlink or a file an
+  exclude glob hides, under the same name, is found only by the server, and the
+  toast of the failed move says so. Up and down pick, Enter or a click on the
+  row moves, through the same path a drag takes, and the page follows an entry
+  that was on screen. The arrows stop on the Current folder too, so the right
+  arrow unfolds it to reach the folders inside, but Enter there moves nothing.
+  On a phone Move to is a tall sheet, "Move" and the name over "Pick a folder",
+  with the search field, which takes no focus as the sheet opens, and the
+  folders under it, the space first, a chevron at the right of a folder that
+  unfolds it in place. The folder the entry is in is gray, marked current, and
+  cannot be picked. A tap on a folder picks it and tints it, and the button at
+  the foot, "Move to" and the folder's name, moves the entry: the tap alone
+  moves nothing, so a slip of the finger on a row sends nothing away. Before a
+  pick the button reads Move and is disabled. A folder that already holds the
+  name can be picked, and the button is then disabled under a red line that
+  says why. While a search is typed its first match is picked, so Go on the
+  keyboard moves.
 - The toast of a move, by Move to or a drag, carries Undo for 6 seconds, which
   moves the entries back the same way and takes the page back with them. The
   move is made at once and Undo is a second move, as Notion and Finder do it,

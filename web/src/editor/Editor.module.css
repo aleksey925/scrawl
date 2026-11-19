@@ -95,6 +95,10 @@
     align-items: flex-start;
   }
 
+  .draftTitle {
+    font-size: 15px;
+  }
+
   .draftButton {
     font-size: 15px;
   }
@@ -480,36 +484,43 @@
 .phoneBar {
   flex: none;
   box-sizing: border-box;
-  height: calc(var(--scrawl-tabbar-height) + env(safe-area-inset-bottom, 0px));
-  padding: 6px var(--mantine-spacing-lg) calc(6px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 16px var(--scrawl-capsule-bottom);
   background: var(--scrawl-bg);
-  box-shadow: inset 0 1px var(--scrawl-border-light);
 }
 
 .phoneBar[data-typing='true'] {
-  height: calc(50px + env(safe-area-inset-bottom, 0px));
-  padding: 0 0 env(safe-area-inset-bottom, 0px);
+  padding: 6px 8px max(8px, env(safe-area-inset-bottom, 0px));
 }
 
 .screen[data-keyboard='true'] .phoneBar[data-typing='true'] {
-  height: 50px;
-  padding: 0;
+  padding-bottom: 8px;
 }
 
-.phoneMode {
-  min-height: var(--scrawl-touch-control);
+.phoneBar .phoneModes {
+  --sc-padding: 2px;
+  padding: 2px;
+  box-shadow: var(--scrawl-shadow-capsule);
+}
+
+.phoneModes .phoneMode {
+  min-height: calc(var(--scrawl-tap-target) - 4px);
   font-size: 15px;
 }
 
 .keyboardBar {
   display: flex;
   align-items: center;
-  height: 100%;
+  box-sizing: border-box;
+  height: 50px;
+  padding: 0 4px 0 8px;
+  border: 1px solid var(--scrawl-capsule-border);
+  border-radius: 25px;
+  background: var(--scrawl-capsule);
+  box-shadow: var(--scrawl-shadow-capsule);
 }
 
 .keyboardBar .toolbarScroll {
   height: 100%;
-  padding-inline: 6px;
 }
 
 .keyboardBar .tool {
@@ -518,17 +529,22 @@
 }
 
 .keyboardBar .toolSeparator {
-  height: 22px;
-  margin-inline: 4px;
+  display: none;
 }
 
 .keyboardEnd {
   display: flex;
   flex: none;
   align-items: center;
+  gap: 4px;
   height: 100%;
-  padding-inline: 4px;
-  box-shadow: inset 1px 0 var(--scrawl-border-light);
+}
+
+.keyboardEnd::before {
+  width: 1px;
+  height: 26px;
+  background: var(--scrawl-border-light);
+  content: '';
 }
 
 .tool[aria-pressed='true'] {

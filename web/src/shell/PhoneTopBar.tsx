@@ -8,7 +8,7 @@ import { planMotion } from '../components/screenMotion';
 import controls from '../controls.module.css';
 import { cameFrom } from '../historyTrail';
 import { IconChevronLeft } from '../icons';
-import { directoryUrl, isDocPath, isEditPath, isRecentPath } from '../paths';
+import { directoryUrl, isDocPath, isEditPath, isProfilePath, isRecentPath } from '../paths';
 import { usePlatform } from '../platform';
 import { layout } from '../theme';
 
@@ -79,7 +79,8 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const above = parent.dir;
   const { source, prefetch } = usePlatform();
   const editing = isEditPath(location.pathname);
-  const tabRoot = isRecentPath(location.pathname);
+  const atProfile = isProfilePath(location.pathname);
+  const tabRoot = atProfile || isRecentPath(location.pathname);
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
   const { renaming, commit } = usePageRenaming();

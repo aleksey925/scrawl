@@ -10,7 +10,7 @@ import { api, searchTextOf } from '../api/client';
 import type { SearchMode, SearchResponse, SearchSettings } from '../api/types';
 import { errorText } from '../api/useApi';
 import { Segmented, type SegmentedOption } from '../components/Segmented';
-import { IconFileText, IconSearch } from '../icons';
+import { IconFileText, IconSearch, IconX } from '../icons';
 import { documentUrl } from '../paths';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
@@ -57,11 +57,17 @@ interface Answer {
   error?: string;
 }
 
-export function SearchDialog({ initial, onClose }: { initial: string; onClose: () => void }): JSX.Element {
+export interface SearchDialogProps {
+  initial: string;
+  offline: boolean;
+  onClose: () => void;
+}
+
+export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): JSX.Element {
   const navigate = useNavigate();
   const phone = useBelow(layoutBreakpoints.phone);
   const screenStyle = useFullScreenStyle(phone);
-  const { notes: recent } = useRecentNotes();
+  const { notes: recent, clear: clearRecent } = useRecentNotes();
   const [text, setText] = useState(initial);
   const [settings, setSettings] = useState<SearchSettings>(defaultSettings);
   const [debounced] = useDebouncedValue(text, debounceMs);
@@ -71,7 +77,7 @@ export function SearchDialog({ initial, onClose }: { initial: string; onClose: (
   const [openPending, setOpenPending] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const query = searchTextOf(debounced, settings);
+  const query = offline ? '' : searchTextOf(debounced, settings);
   const empty = query.trim() === '';
   useEffect(() => {
     setExpanded(new Set());
@@ -152,6 +158,107 @@ export function SearchDialog({ initial, onClose }: { initial: string; onClose: (
   const toggles = togglesOn(settings);
   const matches = hits.reduce((sum, row) => sum + (row.match_count ?? 0), 0);
 
+  const icon = <IconSearch size={layout.iconSize} />;
+  const input = (
+    <input
+      data-testid="search-input"
+      className={picker.input}
+      value={offline ? '' : text}
+      autoFocus={!offline}
+      disabled={offline}
+      placeholder="Search the space"
+      aria-label="Search the space"
+      autoComplete="off"
+      spellCheck={false}
+      autoCapitalize="off"
+      autoCorrect="off"
+      enterKeyHint="search"
+      onChange={(event) => {
+        setText(event.currentTarget.value);
+        setOpenPending(false);
+      }}
+      onKeyDown={onKeyDown}
+    />
+  );
+  const toggleButtons = (
+    <div className={classes.toggles}>
+      <Toggle testId="search-case" label="Match case" on={settings.matchCase} disabled={!toggles}
+        onClick={() => setSettings({ ...settings, matchCase: !settings.matchCase })}>
+        Aa
+      </Toggle>
+      <Toggle testId="search-word" label="Whole word" on={settings.word} disabled={!toggles}
+        onClick={() => setSettings({ ...settings, word: !settings.word })}>
+        <u>ab</u>
+      </Toggle>
+      <Toggle testId="search-regex" label="Regular expression" on={settings.regex}
+        onClick={() => setSettings({ ...settings, regex: !settings.regex })}>
+        .*
+      </Toggle>
+    </div>
+  );
+  const modeControls = (
+    <>
+      <Segmented
+        data-testid="search-mode"
+        data-mode={settings.mode}
+        className={phone ? classes.phoneMode : undefined}
+        size="xs"
+        value={settings.mode}
+        disabled={settings.regex}
+        onChange={(mode) => setSettings({ ...settings, mode })}
+        options={modeOptions}
+      />
+      <button
+        type="button"
+        data-testid="search-titles"
+        data-on={settings.titles ? 'true' : 'false'}
+        aria-pressed={settings.titles}
+        className={classes.chip}
+        onClick={() => setSettings({ ...settings, titles: !settings.titles })}
+      >
+        Titles only
+      </button>
+    </>
+  );
+  const hint = (
+    <span data-testid="search-hint" className={classes.hint}>
+      {hintOf(settings)}
+    </span>
+  );
+  const stats = answer.response !== undefined && !empty && (
+    <span data-testid="search-stats" className={classes.stats}>
+      {matches} {matches === 1 ? 'match' : 'matches'} in {hits.length} {hits.length === 1 ? 'note' : 'notes'},{' '}
+      {answer.response.elapsed_ms} ms{answer.response.truncated === true ? ', stopped early' : ''}
+    </span>
+  );
+  const body = (
+    <div ref={bodyRef} className={phone ? `${picker.body} ${classes.phoneBody}` : picker.body}>
+      {empty ? (
+        phone ? (
+          <PhoneRecent notes={recent} offline={offline} onOpen={onClose} onClear={clearRecent} />
+        ) : (
+          <Recent notes={recent} onOpen={onClose} />
+        )
+      ) : answer.error !== undefined ? (
+        <div data-testid="search-error" className={classes.error}>
+          {answer.error}
+        </div>
+      ) : answer.response !== undefined && hits.length === 0 ? (
+        <div data-testid="search-empty" className={picker.empty}>
+          No notes match that.
+        </div>
+      ) : (
+        <SearchResults
+          hits={hits}
+          active={active}
+          expanded={expanded}
+          onExpand={(path) => setExpanded((prev) => new Set(prev).add(path))}
+          onOpen={onClose}
+        />
+      )}
+    </div>
+  );
+
   return (
     <Modal
       opened
@@ -163,123 +270,73 @@ export function SearchDialog({ initial, onClose }: { initial: string; onClose: (
       padding={0}
       trapFocus
     >
-      <div
-        data-testid="search-dialog"
-        className={picker.dialog}
-        style={screenStyle}
-      >
-        <div className={picker.inputRow}>
-          <div className={picker.field}>
-            <IconSearch size={layout.iconSize} />
-            <input
-              data-testid="search-input"
-              className={picker.input}
-              value={text}
-              autoFocus
-              placeholder="Search the space"
-              aria-label="Search the space"
-              autoComplete="off"
-              spellCheck={false}
-              autoCapitalize="off"
-              autoCorrect="off"
-              enterKeyHint="search"
-              onChange={(event) => {
-                setText(event.currentTarget.value);
-                setOpenPending(false);
-              }}
-              onKeyDown={onKeyDown}
-            />
-            <div className={classes.toggles}>
-              <Toggle testId="search-case" label="Match case" on={settings.matchCase} disabled={!toggles}
-                onClick={() => setSettings({ ...settings, matchCase: !settings.matchCase })}>
-                Aa
-              </Toggle>
-              <Toggle testId="search-word" label="Whole word" on={settings.word} disabled={!toggles}
-                onClick={() => setSettings({ ...settings, word: !settings.word })}>
-                <u>ab</u>
-              </Toggle>
-              <Toggle testId="search-regex" label="Regular expression" on={settings.regex}
-                onClick={() => setSettings({ ...settings, regex: !settings.regex })}>
-                .*
-              </Toggle>
+      {phone ? (
+        <div
+          data-testid="search-dialog"
+          data-offline={offline ? 'true' : 'false'}
+          className={classes.screen}
+          style={screenStyle}
+        >
+          {body}
+          {stats !== false && (
+            <div data-testid="search-footer" className={classes.phoneStats}>
+              {stats}
+            </div>
+          )}
+          <div data-testid="search-card" role="search" className={classes.card} data-print="hide">
+            {!offline && <div className={classes.cardOptions}>{modeControls}</div>}
+            {offline ? (
+              <span data-testid="search-offline" className={classes.hint}>
+                Search needs the network
+              </span>
+            ) : (
+              hint
+            )}
+            <div className={classes.fieldRow}>
+              {icon}
+              {input}
+              {!offline && toggleButtons}
+              <button
+                type="button"
+                data-testid="search-close"
+                className={classes.close}
+                aria-label="Cancel search"
+                title="Cancel search"
+                onClick={onClose}
+              >
+                <IconX size={layout.iconSize} />
+              </button>
             </div>
           </div>
-          {phone && (
-            <button type="button" data-testid="search-close" className={picker.cancel} onClick={onClose}>
-              Cancel
-            </button>
-          )}
         </div>
-
-        <div className={classes.options}>
-          <Segmented
-            data-testid="search-mode"
-            data-mode={settings.mode}
-            size="xs"
-            value={settings.mode}
-            disabled={settings.regex}
-            onChange={(mode) => setSettings({ ...settings, mode })}
-            options={modeOptions}
-          />
-          <button
-            type="button"
-            data-testid="search-titles"
-            data-on={settings.titles ? 'true' : 'false'}
-            aria-pressed={settings.titles}
-            className={classes.chip}
-            onClick={() => setSettings({ ...settings, titles: !settings.titles })}
-          >
-            Titles only
-          </button>
-          <span data-testid="search-hint" className={classes.hint}>
-            {hintOf(settings)}
-          </span>
-        </div>
-
-        <div ref={bodyRef} className={picker.body}>
-          {empty ? (
-            <Recent notes={recent} onOpen={onClose} />
-          ) : answer.error !== undefined ? (
-            <div data-testid="search-error" className={classes.error}>
-              {answer.error}
+      ) : (
+        <div data-testid="search-dialog" className={picker.dialog}>
+          <div className={picker.inputRow}>
+            <div className={picker.field}>
+              {icon}
+              {input}
+              {toggleButtons}
             </div>
-          ) : answer.response !== undefined && hits.length === 0 ? (
-            <div data-testid="search-empty" className={picker.empty}>
-              No notes match that.
-            </div>
-          ) : (
-            <SearchResults
-              hits={hits}
-              active={active}
-              expanded={expanded}
-              onExpand={(path) => setExpanded((prev) => new Set(prev).add(path))}
-              onOpen={onClose}
-            />
-          )}
-        </div>
-
-        <div data-testid="search-footer" className={picker.footer}>
-          {!phone && (
-            <>
-              <span>
-                <kbd>↑↓</kbd>Select
-              </span>
-              <span>
-                <kbd>↵</kbd>Open
-              </span>
-              <span>
-                <kbd>{keysLabel(altKey, 'F')}</kbd>Fuzzy or exact
-              </span>
-            </>
-          )}
-          {answer.response !== undefined && !empty && (
-            <span data-testid="search-stats" className={classes.stats}>
-              {matches} {matches === 1 ? 'match' : 'matches'} in {hits.length} {hits.length === 1 ? 'note' : 'notes'},{' '}
-              {answer.response.elapsed_ms} ms{answer.response.truncated === true ? ', stopped early' : ''}
+          </div>
+          <div className={classes.options}>
+            {modeControls}
+            {hint}
+          </div>
+          {body}
+          <div data-testid="search-footer" className={picker.footer}>
+            <span>
+              <kbd>↑↓</kbd>Select
             </span>
-          )}
+            <span>
+              <kbd>↵</kbd>Open
+            </span>
+            <span>
+              <kbd>{keysLabel(altKey, 'F')}</kbd>Fuzzy or exact
+            </span>
+            {stats}
+          </div>
         </div>
-      </div>
+      )}
     </Modal>
   );
 }
@@ -327,6 +384,49 @@ function Recent({ notes, onOpen }: { notes: readonly RecentNote[]; onOpen: () =>
           <IconFileText size={layout.iconSizeSmall} />
           <span className={picker.title}>{recent.title === '' ? recent.path : recent.title}</span>
           <span className={picker.path}>{recent.path}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+interface PhoneRecentProps {
+  notes: readonly RecentNote[];
+  offline: boolean;
+  onOpen: () => void;
+  onClear: () => void;
+}
+
+function PhoneRecent({ notes, offline, onOpen, onClear }: PhoneRecentProps): JSX.Element {
+  if (notes.length === 0) {
+    return (
+      <div data-testid="search-recent-empty" className={picker.empty}>
+        {offline ? 'The notes you open on this device are listed here.' : 'Type to search every note in the space.'}
+      </div>
+    );
+  }
+  return (
+    <div data-testid="search-recent">
+      <div className={classes.recentHead}>
+        <span>Recent</span>
+        <button type="button" data-testid="search-recent-clear" className={classes.recentClear} onClick={onClear}>
+          Clear
+        </button>
+      </div>
+      {notes.map((recent) => (
+        <Link
+          key={recent.path}
+          data-testid="search-recent-item"
+          data-path={recent.path}
+          to={documentUrl(recent.path)}
+          className={classes.recentRow}
+          onClick={onOpen}
+        >
+          <IconFileText size={layout.iconSize} aria-hidden />
+          <span className={classes.recentText}>
+            <span className={classes.recentTitle}>{recent.title === '' ? recent.path : recent.title}</span>
+            <span className={classes.recentPath}>{recent.path}</span>
+          </span>
         </Link>
       ))}
     </div>

@@ -8,7 +8,6 @@ import { useReadingCopy } from '../offline/connection';
 import { offlineMe, storedMe } from '../offline/source';
 import { documentPage, editPage, preloadPage } from '../pagePreloads';
 
-import { BarEditProvider } from './BarEditProvider';
 import { preloadDialogs } from './dialogChunks';
 import { DocumentExtras } from './DocumentExtras';
 import { ReaderExtensionsProvider, type ReaderExtensions } from './extensions';
@@ -71,13 +70,10 @@ function PagePreloads(): null {
 }
 
 function AppProviders({ children }: { children: ReactNode }): JSX.Element {
-  const fromCopy = useReadingCopy();
   return (
     <ResetProvider>
       <FileActionsProvider>
-        <SearchProvider enabled={!fromCopy}>
-          <BarEditProvider>{children}</BarEditProvider>
-        </SearchProvider>
+        <SearchProvider>{children}</SearchProvider>
       </FileActionsProvider>
     </ResetProvider>
   );

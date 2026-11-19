@@ -8,6 +8,7 @@
     "name": "AsyncContent",
     "imports": [
       "_naming.js",
+      "_errors.js",
       "index.html"
     ],
     "css": [
@@ -33,8 +34,8 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "_AsyncContent.js",
-      "index.html",
-      "_PressRow.module.js"
+      "_PressRow.module.js",
+      "index.html"
     ],
     "css": [
       "assets/DirectoryView.css"
@@ -51,6 +52,7 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "_Text.js",
+      "_findMatches.js",
       "index.html"
     ],
     "css": [
@@ -94,6 +96,11 @@
   "_PressRow.module.js": {
     "file": "assets/PressRow.module.js",
     "name": "PressRow.module",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js",
+      "index.html"
+    ],
     "css": [
       "assets/PressRow.css"
     ]
@@ -405,6 +412,18 @@
       "_d3-shape.js"
     ]
   },
+  "_client.js": {
+    "file": "assets/client.js",
+    "name": "client",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js",
+      "_changeSignal.js",
+      "_storage.js",
+      "_findMatches.js",
+      "_errors.js"
+    ]
+  },
   "_codemirror-autocomplete.js": {
     "file": "assets/codemirror-autocomplete.js",
     "name": "dist",
@@ -426,6 +445,14 @@
   "_defaultLocale.js": {
     "file": "assets/defaultLocale.js",
     "name": "defaultLocale"
+  },
+  "_errors.js": {
+    "file": "assets/errors.js",
+    "name": "errors"
+  },
+  "_findMatches.js": {
+    "file": "assets/findMatches.js",
+    "name": "findMatches"
   },
   "_graphlib.js": {
     "file": "assets/graphlib.js",
@@ -576,14 +603,6 @@
     "file": "assets/storage.js",
     "name": "storage"
   },
-  "_use-debounced-value.js": {
-    "file": "assets/use-debounced-value.js",
-    "name": "use-debounced-value",
-    "imports": [
-      "_rolldown-runtime.js",
-      "_naming.js"
-    ]
-  },
   "_useVisibleArea.js": {
     "file": "assets/useVisibleArea.js",
     "name": "useVisibleArea",
@@ -602,7 +621,10 @@
       "_naming.js",
       "_Text.js",
       "_changeSignal.js",
-      "_storage.js"
+      "_storage.js",
+      "_client.js",
+      "_findMatches.js",
+      "_errors.js"
     ],
     "dynamicImports": [
       "node_modules/mermaid/dist/mermaid.core.mjs",
@@ -616,6 +638,7 @@
       "src/pages/HomePage.tsx",
       "src/pages/SearchPage.tsx",
       "src/pages/RecentPage.tsx",
+      "src/pages/ProfilePage.tsx",
       "src/pages/HistoryPage.tsx",
       "src/pages/NotFoundPage.tsx",
       "src/pages/RunPage.tsx"
@@ -2503,16 +2526,17 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_use-debounced-value.js",
+      "_useVisibleArea.js",
       "_DocumentHtml.js",
       "_Text.js",
       "_AsyncContent.js",
       "_storage.js",
+      "_client.js",
+      "_errors.js",
       "index.html",
       "_lezer-common.js",
       "_lezer-html.js",
       "_codemirror-autocomplete.js",
-      "_useVisibleArea.js",
       "_RenderedDiff.js",
       "_DialogActions.js"
     ],
@@ -2659,6 +2683,8 @@
       "_Text.js",
       "_AsyncContent.js",
       "_storage.js",
+      "_client.js",
+      "_errors.js",
       "index.html",
       "_DocumentView.js",
       "_RenderedDiff.js",
@@ -2689,6 +2715,20 @@
       "index.html"
     ]
   },
+  "src/pages/ProfilePage.tsx": {
+    "file": "assets/ProfilePage.js",
+    "name": "ProfilePage",
+    "src": "src/pages/ProfilePage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_naming.js",
+      "_client.js",
+      "index.html"
+    ],
+    "css": [
+      "assets/ProfilePage.css"
+    ]
+  },
   "src/pages/RecentPage.tsx": {
     "file": "assets/RecentPage.js",
     "name": "RecentPage",
@@ -2696,8 +2736,8 @@
     "isDynamicEntry": true,
     "imports": [
       "_naming.js",
-      "index.html",
       "_PressRow.module.js",
+      "index.html",
       "_recentNotes.js"
     ],
     "css": [
@@ -2712,6 +2752,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_client.js",
       "index.html"
     ],
     "css": [
@@ -2728,6 +2769,7 @@
       "_naming.js",
       "_Text.js",
       "_AsyncContent.js",
+      "_client.js",
       "index.html",
       "_SearchResults.js"
     ]
@@ -2752,7 +2794,6 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "index.html",
-      "_useVisibleArea.js",
       "_Picker.module.js"
     ],
     "css": [
@@ -2768,6 +2809,8 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "_Text.js",
+      "_client.js",
+      "_errors.js",
       "index.html",
       "_DialogActions.js"
     ],
@@ -2783,10 +2826,10 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_use-debounced-value.js",
+      "_useVisibleArea.js",
+      "_client.js",
       "index.html",
       "_recentNotes.js",
-      "_useVisibleArea.js",
       "_Picker.module.js",
       "_SearchResults.js"
     ]

@@ -1,0 +1,91 @@
+:global(:root):has(.capsule) {
+  --scrawl-tabbar-space: calc(var(--scrawl-capsule-height) + var(--scrawl-capsule-bottom) + 12px);
+}
+
+.capsule {
+  position: fixed;
+  right: calc(var(--scrawl-capsule-inset) + env(safe-area-inset-right, 0px));
+  bottom: var(--scrawl-capsule-bottom);
+  left: calc(var(--scrawl-capsule-inset) + env(safe-area-inset-left, 0px));
+  z-index: 150;
+  display: flex;
+  align-items: stretch;
+  height: var(--scrawl-capsule-height);
+  padding: 4px;
+  border: 1px solid var(--scrawl-capsule-border);
+  border-radius: calc(var(--scrawl-capsule-height) / 2);
+  background: var(--scrawl-capsule);
+  box-shadow: var(--scrawl-shadow-capsule);
+}
+
+.capsule[data-kind='tabs'] {
+  --scrawl-capsule-inset: 16px;
+}
+
+.capsule[data-kind='tabs'][data-with-new='true'] {
+  right: calc(16px + var(--scrawl-capsule-height) + 10px + env(safe-area-inset-right, 0px));
+}
+
+.capsule[data-kind='actions'] {
+  --scrawl-capsule-inset: 120px;
+}
+
+.capsule[data-kind='actions']:has(> :nth-child(2)) {
+  --scrawl-capsule-inset: 96px;
+}
+
+.capsule[data-kind='actions']:has(> :nth-child(3)) {
+  --scrawl-capsule-inset: 72px;
+}
+
+.capsule[data-kind='actions']:has(> :nth-child(4)) {
+  --scrawl-capsule-inset: 48px;
+}
+
+.round {
+  position: fixed;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: var(--scrawl-capsule-bottom);
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--scrawl-capsule-height);
+  height: var(--scrawl-capsule-height);
+  padding: 0;
+  border: 1px solid var(--scrawl-capsule-border);
+  border-radius: 50%;
+  background: var(--scrawl-capsule);
+  box-shadow: var(--scrawl-shadow-capsule);
+  color: var(--scrawl-icon);
+  cursor: pointer;
+  transition: var(--scrawl-press-out);
+}
+
+.action {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--scrawl-tap-target);
+  padding: 0;
+  border: 0;
+  border-radius: calc((var(--scrawl-capsule-height) - 8px) / 2);
+  background: none;
+  color: var(--scrawl-icon);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: var(--scrawl-press-out);
+}
+
+.action:focus-visible,
+.round:focus-visible {
+  outline-offset: -2px;
+}
+
+.action:active,
+.round:active {
+  opacity: 0.4;
+  transition: var(--scrawl-press-in);
+}

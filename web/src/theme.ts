@@ -89,6 +89,7 @@ export const layout = {
   menuWidthWide: 280,
   popoverWidth: 320,
   tabBarHeight: 56,
+  capsuleHeight: 62,
   inputFontSize: 16,
 } as const;
 
@@ -192,6 +193,7 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-menu-width': `${layout.menuWidth}px`,
   '--scrawl-popover-width': `${layout.popoverWidth}px`,
   '--scrawl-tabbar-height': `${layout.tabBarHeight}px`,
+  '--scrawl-capsule-height': `${layout.capsuleHeight}px`,
 };
 
 function blockVariables(blocks: BlockColors): Record<string, string> {

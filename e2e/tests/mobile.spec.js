@@ -4473,7 +4473,7 @@ test.describe('mobile offline access', () => {
         await tapSpaceMenu(page);
         const row = page.getByTestId('space-menu-offline');
         await row.tap();
-        await expect(page.getByTestId('space-menu-offline-status')).toContainText('updated at', {timeout: 60_000});
+        await expect(page.getByTestId('space-menu-offline-status')).toContainText(text.offline.updated, {timeout: 60_000});
         await shot(page, 'mobile-offline-row');
         await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.active?.state),
             {timeout: 60_000}).toBe('activated');

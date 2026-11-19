@@ -48,7 +48,6 @@ module.exports = {
 
     doc: {
         missing: 'This note does not exist yet.',
-        create: 'Create it',
         edit: 'Edit',
         history: 'History',
         empty: 'This note is empty',
@@ -81,7 +80,6 @@ module.exports = {
         title: 'Versions',
         restore: 'Restore',
         empty: 'Nothing was recorded for this note.',
-        placeholder: 'Pick a version to see what it changed.',
         degraded: 'History fell behind',
     },
 
@@ -109,5 +107,9 @@ module.exports = {
     code: {
         copy: 'Copy',
         copied: 'Copied',
+    },
+
+    offline: {
+        updated: 'updated at',
     },
 };

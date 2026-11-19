@@ -266,13 +266,13 @@ func TestNav(t *testing.T) {
 	require.NoError(t, err)
 
 	// act
-	got := Nav(root, "docs/sub/deep.md")
+	got := Nav(root)
 
 	// assert
 	assert.Equal(t, []NavNode{
-		{Name: "docs", Path: "docs", URL: "/doc/docs/", IsDir: true, Active: true, Children: []NavNode{
-			{Name: "sub", Path: "docs/sub", URL: "/doc/docs/sub/", IsDir: true, Active: true, Children: []NavNode{
-				{Name: "deep.md", Path: "docs/sub/deep.md", URL: "/doc/docs/sub/deep.md", Current: true, Children: []NavNode{}},
+		{Name: "docs", Path: "docs", URL: "/doc/docs/", IsDir: true, Children: []NavNode{
+			{Name: "sub", Path: "docs/sub", URL: "/doc/docs/sub/", IsDir: true, Children: []NavNode{
+				{Name: "deep.md", Path: "docs/sub/deep.md", URL: "/doc/docs/sub/deep.md", Children: []NavNode{}},
 			}},
 			{Name: "index.md", Path: "docs/index.md", URL: "/doc/docs/index.md", FolderPage: true, Children: []NavNode{}},
 		}},

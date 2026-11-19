@@ -146,13 +146,16 @@ How the react app in `web/` is built, shipped and wired.
 - `useApi` drops the answer of a run it has canceled, a success as well as an
   error: a source may not watch the signal, the copy's reads do not, and a slow
   answer of the note before would then land under the next one's address.
-- The tree is one answer for the whole space: the app asks `/api/nav` with an
-  empty `path`, and `NavProvider` marks the branch of the file on screen with
-  `markBranch`, for the server, the site and the offline copy alike. It asks
-  again on every move, so a file made elsewhere shows up, and the server
-  answers with an `ETag` of the tree, so an unchanged tree comes back as a 304
-  with no body. Asked per file, the whole tree came again on every tap, though
-  only its marks changed.
+- The tree is one answer for the whole space, with no mark of the file on
+  screen: the app asks `/api/nav`, and `NavProvider` opens the folders above
+  the file on screen itself, for the server, the site and the offline copy
+  alike. It asks again on every move, so a file made elsewhere shows up, and
+  the server answers with an `ETag` of the tree, so an unchanged tree comes
+  back as a 304 with no body. Asked per file, the whole tree came again on
+  every tap, though only its marks changed.
+- An answer `useApi` gets that equals the one it holds for the same key keeps
+  the held object. A 304 still gives the page a newly parsed answer, and a new
+  tree object drew every row of the sidebar again on each move.
 - The file on screen is the route. A folder is always its list, so a note is
   shown under its own address only, and a per-file signal keys off the route.
 - A context that many components read carries one kind of value, so a change

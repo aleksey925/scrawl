@@ -43,8 +43,8 @@ copy", never "sync": sync is the git remote of a space
   registration finds it without the shell. It reads it with `caches.match`,
   never `caches.open`: that makes an empty cache.
 - `scrawl-data` holds the user's data: the answers of every space
-  (`/api/page/`, `/api/dir/`, `/api/nav?path=`, `/api/me`, `/raw/`),
-  `/api/spaces`, and two kinds of record under keys no route answers:
+  (`/api/page/`, `/api/dir/`, `/api/nav`, `/api/me`, `/raw/`), `/api/spaces`,
+  and two kinds of record under keys no route answers:
   `/__scrawl-offline/state` (`{owner, updatedAt, error}`) and
   `/__scrawl-offline/space/<name>` (`{etag, entries}`). The page writes it, the
   worker only reads it. `entries` is read into an object with no prototype, so

@@ -618,7 +618,7 @@ func TestOnlyDotMDIsADocument(t *testing.T) {
 	assert.Empty(t, found["hits"])
 
 	paths := []string{}
-	for _, node := range ts.mount().treeNodes("") {
+	for _, node := range ts.mount().treeNodes() {
 		paths = append(paths, node.Path)
 	}
 	assert.Equal(t, []string{"docs", "images", "notes", "guide.md", "index.md", "links.md"}, paths)
@@ -821,7 +821,7 @@ func TestTreeKeepsEveryFolder(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(ts.root, "empty"), 0o750))
 
 	// act
-	nodes := ts.mount().treeNodes("")
+	nodes := ts.mount().treeNodes()
 
 	// assert
 	paths := []string{}
@@ -838,60 +838,13 @@ func TestTreeDirectoriesCarryTheirPageURL(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
 
 	// act
-	nodes := ts.mount().treeNodes("docs/page.md")
+	nodes := ts.mount().treeNodes()
 
 	// assert
 	docs := nodes[0]
 	require.True(t, docs.IsDir)
 	assert.Equal(t, "/doc/docs/", docs.URL)
-	assert.True(t, docs.Active)
-	assert.False(t, docs.Current, "the current page is the document, not the folder holding it")
 	assert.Equal(t, "/doc/docs/sub/", docs.Children[0].URL)
-}
-
-func TestTreeMarksTheFolderBeingViewed(t *testing.T) {
-	// arrange
-	ts := newTestServer(t, testOpts{})
-
-	// act
-	nodes := ts.mount().treeNodes("docs/sub")
-
-	// assert
-	docs := nodes[0]
-	require.Equal(t, "docs", docs.Path)
-	assert.True(t, docs.Active)
-	assert.False(t, docs.Current)
-	assert.True(t, docs.Children[0].Current)
-	assert.True(t, docs.Children[0].Active, "the current folder is also on its own path")
-}
-
-func TestNavMarksTheFolderBeingViewed(t *testing.T) {
-	// arrange
-	ts := newTestServer(t, testOpts{})
-
-	// act
-	page, _ := ts.do(t, request{path: "/doc/docs/sub/"})
-	_, nav := ts.json(t, request{path: "/api/nav?path=docs/sub"})
-
-	// assert
-	assert.Equal(t, http.StatusOK, page.status)
-
-	docs, ok := nav["tree"].([]any)
-	require.True(t, ok)
-	require.NotEmpty(t, docs)
-	top, ok := docs[0].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "docs", top["path"])
-	assert.Equal(t, true, top["active"], "the branch holding the page is open")
-
-	children, ok := top["children"].([]any)
-	require.True(t, ok)
-	require.NotEmpty(t, children)
-	sub, ok := children[0].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "docs/sub", sub["path"])
-	assert.Equal(t, true, sub["current"])
-	assert.Equal(t, "/doc/docs/sub/", sub["url"])
 }
 
 func TestAPIFileGet(t *testing.T) {

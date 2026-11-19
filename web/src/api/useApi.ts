@@ -101,10 +101,12 @@ export function useApi<T>(
         if (controller.signal.aborted) {
           return;
         }
+        const before = key === undefined ? undefined : responses.get(key);
+        const kept = before !== undefined && JSON.stringify(before) === JSON.stringify(data) ? (before as T) : data;
         if (key !== undefined) {
-          remember(key, data);
+          remember(key, kept);
         }
-        setState({ data, dataKey: key, loading: false });
+        setState({ data: kept, dataKey: key, loading: false });
       },
       (error: unknown) => {
         if (!controller.signal.aborted) {

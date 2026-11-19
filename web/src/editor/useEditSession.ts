@@ -319,7 +319,6 @@ export function useEditSession({
           return { shownStored: false };
         }
         if (error instanceof ApiError && error.status === 401) {
-          draftRef.current.flush();
           openSessionExpired();
           return { shownStored: false };
         }

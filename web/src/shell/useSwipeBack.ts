@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router';
 
 import {
-  leavingScreen, releaseMotion, screenHidden, sendOff, standalone, takeScreen, type Drag,
+  iosHomeScreenApp, leavingScreen, releaseMotion, screenHidden, sendOff, takeScreen, type Drag,
 } from '../components/screenMotion';
 
 const edgePx = 24;
@@ -96,7 +96,7 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
   });
 
   useEffect(() => {
-    if (!standalone()) {
+    if (!iosHomeScreenApp()) {
       return undefined;
     }
     let track: Track | undefined;

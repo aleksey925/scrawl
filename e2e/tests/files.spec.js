@@ -2531,7 +2531,7 @@ const PIXEL = Buffer.from(
 );
 const CODE = 'def greet(name):\n    return f"hello, {name}"\n\nprint(greet("you"))\n';
 
-async function settled(locator) {
+async function animationsDone(locator) {
     await locator.evaluate((el) => Promise.all(el.getAnimations({subtree: true}).map((motion) => motion.finished)));
 }
 
@@ -2627,14 +2627,14 @@ test.describe('file pages', () => {
         await page.getByTestId('file-preview').click();
         const picture = page.getByTestId('doc-lightbox-image');
         await expect(picture).toBeVisible();
-        await settled(page.getByTestId('doc-lightbox'));
+        await animationsDone(page.getByTestId('doc-lightbox'));
         const fitted = await picture.boundingBox();
         const centre = {x: fitted.x + fitted.width / 2, y: fitted.y + fitted.height / 2};
 
         // act
         await page.mouse.click(centre.x, centre.y);
         await expect(picture).toHaveAttribute('data-zoomed', 'true');
-        await settled(picture);
+        await animationsDone(picture);
         const zoomed = await picture.boundingBox();
         await page.mouse.move(centre.x, centre.y);
         await page.mouse.down();
@@ -2657,7 +2657,7 @@ test.describe('file pages', () => {
         await page.getByTestId('file-preview').click();
         const picture = page.getByTestId('doc-lightbox-image');
         await expect(picture).toBeVisible();
-        await settled(page.getByTestId('doc-lightbox'));
+        await animationsDone(page.getByTestId('doc-lightbox'));
         const box = await picture.boundingBox();
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 

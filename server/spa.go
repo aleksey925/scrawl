@@ -28,8 +28,7 @@ type handoff struct {
 }
 
 type navResponse struct {
-	Tree        []view.NavNode `json:"tree"`
-	Breadcrumbs []view.Crumb   `json:"breadcrumbs"`
+	Tree []view.NavNode `json:"tree"`
 }
 
 type meResponse struct {
@@ -228,15 +227,7 @@ func lineCount(data []byte) int {
 }
 
 func (m *mount) apiNav(w http.ResponseWriter, r *http.Request) {
-	current, ok := contentPathOf(r.URL.Query().Get("path"))
-	if !ok {
-		jsonError(w, http.StatusBadRequest, "bad path")
-		return
-	}
-	body, err := json.Marshal(navResponse{
-		Tree:        m.treeNodes(current),
-		Breadcrumbs: view.Breadcrumbs(current),
-	})
+	body, err := json.Marshal(navResponse{Tree: m.treeNodes()})
 	if err != nil {
 		logFailure(r, http.StatusInternalServerError, err)
 		jsonError(w, http.StatusInternalServerError, "internal error")

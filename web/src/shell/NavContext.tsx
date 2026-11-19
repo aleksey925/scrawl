@@ -7,7 +7,6 @@ import { useLocation } from 'react-router';
 import type { MeResponse, NavNode } from '../api/types';
 import { answerKeys, forgetResponses, useApi } from '../api/useApi';
 import { usePlatform } from '../platform';
-import { markBranch } from '../reader/tree';
 import { localStore, readJson, writeJson } from '../storage';
 
 import { contentPathOf } from './naming';
@@ -79,12 +78,14 @@ export function spaceLabel(me: MeResponse | undefined): string {
   return me?.space.label ?? me?.site_title ?? 'Notes';
 }
 
-function activeFolders(nodes: readonly NavNode[], into: Set<string>): void {
+const noNodes: readonly NavNode[] = [];
+
+function activeFolders(nodes: readonly NavNode[], current: string, into: Set<string>): void {
   for (const entry of nodes) {
-    if (entry.is_dir && entry.active) {
+    if (entry.is_dir && (entry.path === current || current.startsWith(`${entry.path}/`))) {
       into.add(entry.path);
+      activeFolders(entry.children, current, into);
     }
-    activeFolders(entry.children, into);
   }
 }
 
@@ -131,7 +132,8 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
 
   const [open, setOpen] = useState<ReadonlySet<string>>(() => readOpen(storageKey));
   const [query, setQuery] = useState('');
-  const tree = useMemo(() => markBranch(nav.data?.tree ?? [], currentPath), [nav.data, currentPath]);
+  const tree = nav.data?.tree ?? noNodes;
+  const loading = nav.loading && nav.data === undefined;
 
   const seenActive = useRef<{ page: string; folders: ReadonlySet<string> }>({ page: '', folders: new Set() });
   useEffect(() => {
@@ -139,7 +141,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       return;
     }
     const active = new Set<string>();
-    activeFolders(tree, active);
+    activeFolders(tree, currentPath, active);
     const seen = seenActive.current.page === currentPath ? seenActive.current.folders : new Set<string>();
     const arrived = [...active].filter((path) => !seen.has(path));
     seenActive.current = { page: currentPath, folders: active };
@@ -240,7 +242,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
     () => ({
       tree,
       error: nav.error,
-      loading: nav.loading,
+      loading,
       currentPath,
       refreshTree,
       changes: token,
@@ -249,7 +251,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       openFolder,
       setQuery,
     }),
-    [tree, nav.error, nav.loading, currentPath, refreshTree, token, isOpen, toggleFolder, openFolder],
+    [tree, nav.error, loading, currentPath, refreshTree, token, isOpen, toggleFolder, openFolder],
   );
 
   return (

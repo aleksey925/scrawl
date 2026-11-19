@@ -273,7 +273,7 @@ export const api: ScrawlApi = {
   },
 
   nav: (options) =>
-    call<NavResponse>('GET', withQuery(spaceUrl('/api/nav'), { path: '' }), {
+    call<NavResponse>('GET', spaceUrl('/api/nav'), {
       ...options,
       stored: answerUrl.nav(mountBase()),
     }),

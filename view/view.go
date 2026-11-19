@@ -93,8 +93,6 @@ type NavNode struct {
 	Path       string    `json:"path"`
 	URL        string    `json:"url"`
 	IsDir      bool      `json:"is_dir"`
-	Active     bool      `json:"active"`
-	Current    bool      `json:"current"`
 	FolderPage bool      `json:"folder_page,omitempty"`
 	Children   []NavNode `json:"children"`
 }
@@ -220,31 +218,28 @@ func IndexOfNode(node *store.Node) string {
 	return IndexOf(infos)
 }
 
-func Nav(root *store.Node, current string) []NavNode {
+func Nav(root *store.Node) []NavNode {
 	index := IndexOfNode(root)
 	res := make([]NavNode, 0, len(root.Children))
 	for _, child := range root.Children {
 		if !child.InNavTree() {
 			continue
 		}
-		node := navNodeOf(child, current)
+		node := navNodeOf(child)
 		node.FolderPage = index != "" && child.Path == index
 		res = append(res, node)
 	}
 	return res
 }
 
-func navNodeOf(node *store.Node, current string) NavNode {
+func navNodeOf(node *store.Node) NavNode {
 	res := NavNode{Name: node.Name, Path: node.Path, IsDir: node.IsDir}
 	if node.IsDir {
-		res.Current = current == node.Path
-		res.Active = res.Current || strings.HasPrefix(current, node.Path+"/")
 		res.URL = DirURL(node.Path)
-		res.Children = Nav(node, current)
+		res.Children = Nav(node)
 		return res
 	}
 	res.URL = ContentURL(node.Path)
-	res.Current = node.Path == current
 	res.Children = []NavNode{}
 	return res
 }

@@ -494,7 +494,7 @@ test.describe('pages', () => {
 
     test('a slow page keeps the one on screen instead of blanking', async ({page}) => {
         await page.goto(routes.doc(docs.doc.path));
-        await expect(page.getByTestId('doc-title').or(page.locator('h1')).first()).toBeVisible();
+        await expect(page.getByTestId('doc').locator('h1')).toBeVisible();
 
         const slow = /\/api\/(page|dir|nav)\b/;
         await page.route(slow, async (route) => {

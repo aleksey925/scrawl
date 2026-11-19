@@ -1,7 +1,8 @@
 const {expect, test} = require('../support/test');
 
 const {encodePath} = require('../support/env');
-const {SHARED, openSpaceMenu, removeFixture, shot, signIn, stays, writeFixture} = require('../support/helpers');
+const {SHARED, removeFixture, shot, signIn, stays, switchCopy, writeFixture} = require('../support/helpers');
+const text = require('../support/text');
 
 const ROOT = 'e2e-apps';
 const COUNTER = `${ROOT}/counter`;
@@ -116,13 +117,9 @@ async function runInTab(context, button) {
 }
 
 async function setCopy(page, on) {
-    await openSpaceMenu(page);
-    const row = page.getByTestId('space-menu-offline');
-    await expect(row).toHaveAttribute('data-on', String(!on));
-    await row.click();
-    await expect(row).toHaveAttribute('data-on', String(on));
+    await switchCopy(page, on);
     if (on) {
-        await expect(page.getByTestId('space-menu-offline-status')).toContainText('updated at', {timeout: 60_000});
+        await expect(page.getByTestId('space-menu-offline-status')).toContainText(text.offline.updated, {timeout: 60_000});
     }
     await page.keyboard.press('Escape');
 }

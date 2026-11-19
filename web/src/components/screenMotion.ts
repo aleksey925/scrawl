@@ -55,7 +55,7 @@ export function releaseMotion(distance: number, speed: number): Release {
   return { duration: motionMs(duration), easing: `cubic-bezier(0.25, ${(0.25 * slope).toFixed(3)}, 0.25, 1)` };
 }
 
-export function standalone(): boolean {
+export function iosHomeScreenApp(): boolean {
   return (navigator as { standalone?: boolean }).standalone === true;
 }
 
@@ -236,7 +236,7 @@ function motionOf(pathname: string, navigation: string): Motion {
     return asked;
   }
   if (navigation === 'POP') {
-    return standalone() ? 'back' : 'none';
+    return iosHomeScreenApp() ? 'back' : 'none';
   }
   return navigation === 'PUSH' ? 'forward' : 'none';
 }

@@ -92,15 +92,12 @@ export interface NavNode {
   path: string;
   url: string;
   is_dir: boolean;
-  active: boolean;
-  current: boolean;
   folder_page?: boolean;
   children: NavNode[];
 }
 
 export interface NavResponse {
   tree: NavNode[];
-  breadcrumbs: Crumb[];
 }
 
 export interface TreeNode {

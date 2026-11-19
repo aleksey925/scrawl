@@ -121,11 +121,7 @@ function RunScreen({ path, back }: { path: string; back: string }): JSX.Element 
     if (tab === null) {
       return;
     }
-    if (connection === 'offline') {
-      if (!kept || app === undefined) {
-        tab.close();
-        return;
-      }
+    if (connection === 'offline' && app !== undefined) {
       tab.location.href = app;
       return;
     }

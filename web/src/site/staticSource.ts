@@ -19,6 +19,6 @@ export function staticSource(store: PageStore, site: SiteData): Platform['source
       const answer = store.answer(answerKeys.dir(path));
       return answer !== undefined && answer.kind === 'directory' ? Promise.resolve(answer) : missing();
     },
-    nav: () => Promise.resolve({ tree: site.tree, breadcrumbs: [] }),
+    nav: () => Promise.resolve({ tree: site.tree }),
   };
 }

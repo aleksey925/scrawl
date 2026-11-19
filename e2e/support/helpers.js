@@ -133,6 +133,14 @@ async function openSpaceMenu(page) {
     await expect(page.getByTestId('space-menu-dropdown')).toBeVisible();
 }
 
+async function switchCopy(page, on) {
+    await openSpaceMenu(page);
+    const row = page.getByTestId('space-menu-offline');
+    await expect(row).toHaveAttribute('data-on', String(!on));
+    await row.click();
+    await expect(row).toHaveAttribute('data-on', String(on));
+}
+
 async function chooseTheme(page, theme) {
     const picker = page.getByTestId('space-menu-theme');
     await picker.getByText(THEME_LABELS[theme], {exact: true}).click();
@@ -410,6 +418,7 @@ module.exports = {
     sourceText,
     stays,
     submitCredentials,
+    switchCopy,
     titleRoom,
     user,
     writeFixture,

@@ -46,3 +46,48 @@
     font-size: var(--scrawl-input-font-size);
   }
 }
+
+.listRow {
+  gap: 12px;
+}
+
+.box {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  height: 36px;
+  padding-inline-start: 8px;
+  border-radius: 8px;
+  background: var(--scrawl-grouped-field);
+}
+
+.listRow .input {
+  font-size: 17px;
+}
+
+.clear {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--scrawl-icon-tertiary);
+  transition: var(--scrawl-press-out);
+}
+
+.clear::after {
+  position: absolute;
+  inset: calc((36px - var(--scrawl-tap-target)) / 2);
+  content: '';
+}
+
+.clear:active {
+  opacity: 0.4;
+  transition: var(--scrawl-press-in);
+}

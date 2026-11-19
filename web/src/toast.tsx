@@ -3,6 +3,7 @@ import { notifications, type NotificationData } from '@mantine/notifications';
 import { useRef, type JSX, type ReactNode } from 'react';
 
 import type { MutationState } from './api/types';
+import { layoutBreakpoints, useBelow } from './theme';
 import classes from './toast.module.css';
 
 export type ToastKind = 'ok' | 'error' | 'warn';
@@ -55,25 +56,62 @@ function ActionButton({ action, hold, close }: ActionButtonProps): JSX.Element {
   );
 }
 
+interface ToastContentProps {
+  title: string | undefined;
+  message: ReactNode;
+  action: ReactNode;
+}
+
+function ToastContent({ title, message, action }: ToastContentProps): JSX.Element {
+  const phone = useBelow(layoutBreakpoints.phone);
+  if (phone) {
+    return (
+      <span className={classes.line}>
+        <span data-toast-text className={classes.lineText}>
+          {title !== undefined && <span className={classes.title}>{title} </span>}
+          {message}
+        </span>
+        {action}
+      </span>
+    );
+  }
+  return (
+    <>
+      {title !== undefined && <div className={classes.title}>{title}</div>}
+      <div className={classes.message}>
+        {action === undefined ? (
+          message
+        ) : (
+          <span data-toast-row className={classes.withAction}>
+            <span data-toast-text className={classes.text}>{message}</span>
+            {action}
+          </span>
+        )}
+      </div>
+    </>
+  );
+}
+
 export function showToast(kind: ToastKind, options: ToastOptions): void {
   const { action } = options;
   const id = randomId('toast-');
   const toast: NotificationData = {
     id,
-    title: options.title,
-    message:
-      action === undefined ? (
-        options.message
-      ) : (
-        <span data-toast-row className={classes.withAction}>
-          <span data-toast-text className={classes.text}>{options.message}</span>
-          <ActionButton
-            action={action}
-            hold={(held) => notifications.update({ ...toast, autoClose: held ? false : actionToastMs })}
-            close={() => notifications.hide(id)}
-          />
-        </span>
-      ),
+    message: (
+      <ToastContent
+        title={options.title}
+        message={options.message}
+        action={
+          action === undefined ? undefined : (
+            <ActionButton
+              action={action}
+              hold={(held) => notifications.update({ ...toast, autoClose: held ? false : actionToastMs })}
+              close={() => notifications.hide(id)}
+            />
+          )
+        }
+      />
+    ),
     autoClose: action === undefined ? undefined : actionToastMs,
     onClose: action?.onClose,
     'data-testid': 'toast',

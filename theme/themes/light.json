@@ -45,6 +45,7 @@
     "groupedBg": "#f2f2f7",
     "groupedCard": "#ffffff",
     "groupedSeparator": "#d2d2d7",
+    "groupedField": "#f2f2f7",
     "rowPressed": "#d1d1d6",
     "sheetClose": "#e3e3e8",
     "capsule": "#ffffff",

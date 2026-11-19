@@ -45,6 +45,7 @@
     "groupedBg": "#202020",
     "groupedCard": "#2c2c2b",
     "groupedSeparator": "#383836",
+    "groupedField": "#383836",
     "rowPressed": "#383836",
     "sheetClose": "#383836",
     "capsule": "#252525",

@@ -24,7 +24,7 @@
   }
 
   .page {
-    padding-bottom: calc(var(--scrawl-tabbar-space) + var(--mantine-spacing-lg));
+    padding-bottom: calc(var(--scrawl-tabbar-space) + var(--mantine-spacing-lg) + var(--scrawl-keyboard-room, 0px));
   }
 
   :global(:root):has(.page[data-variant='list']) {

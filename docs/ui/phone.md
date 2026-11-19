@@ -56,10 +56,10 @@ How the app works on a phone.
   note's draft, with its faint name in the editor's bar, which a tap turns into
   the name field. New folder opens the list of the folder on screen with a row
   after the last folder, the way a desktop puts it in the table: a dialog in
-  the middle of the screen covered the list the folder went into. That row, and
-  a row of the list being renamed, is drawn on the gray of a desktop's new row
-  across its row of the group, with no separator above or below it: a card with
-  a shadow read as a window over the list.
+  the middle of the screen covered the list the folder went into. That row is
+  drawn on the gray of a desktop's new row across its row of the group, with no
+  separator above or below it: a card with a shadow read as a window over the
+  list.
 - A list is drawn in the grouped style of iOS: the root, a folder, the recent
   notes and the results of the search, and the folders of Move to. The page is
   the theme's `groupedBg` and the list one card of `groupedCard` with 12px
@@ -194,39 +194,61 @@ How the app works on a phone.
   place of the title in the bar on top, the way back gone from the bar until it
   is done, and the sync control kept after it. The page of a folder has no `⋯`
   of its own on a phone either, and its actions are in the row of the list
-  above. Done on the keyboard saves (`enterkeyhint="done"`), a tap outside the
-  field saves, and a ✕ at the end of the field cancels, as a phone has no
-  Escape. Rename in a sheet puts the field in place in the same tap, and the
-  sheet does not give the focus back to the button that opened it: the field
-  lost the focus, and iOS then showed no keyboard.
-- A toast on a phone is a capsule across the bottom row of the screen, 8px over
-  the tab bar or the bar of a note, or over the edge of the screen where there
-  is none: 16px from each side, from the tab bar's left edge to New's right
-  edge, 48px high and fully round, with the fill, line and shadow of the
-  capsule, so it reads as one more bar of the same family. A check or a warning
-  sign and the text sit at the left on one line, cut with an ellipsis, and the
-  button, Undo or the folder of a move, at the right in the accent; there is no
-  close button. It comes up and fades in and goes after 2.5 seconds, 6 with a
-  button, or at a tap on it or a flick down. At the top it stood far from the
-  thumb and the controls that made it, which all live at the bottom. With the
-  keyboard up it stands over the keyboard, placed by the visible area the way
-  the editor is, as a toast fixed to the bottom of the page sat under the keys.
-  Mantine's card slid in sideways from the edge and read as a web page. Only
-  the pill takes a touch: the containers span the screen, took the taps meant
-  for the bar under them, and on iOS kept the hover that pauses a toast, which
-  then never left. A press on a button in the pill, the Undo or the folder of a
-  move, is that button's and does not dismiss it. A desktop shows the same dark
-  toast with 10px corners at the bottom in the middle, as Notion does, gone
-  after 4 seconds or 6 with a button, or at a click on it outside its buttons,
-  and kept while the pointer is on it; a click that ends a text selection in it
-  leaves it, so an error is still copied from it; mantine's white card with a
-  colored bar and a close button stood at the top right, over Edit and the
-  page's menu, and looked like a web page of years ago. The button of a
-  desktop's toast is lettered in its own lighter blue, which the theme names,
-  since the accent is too dark on the toast's ground. A long name without
-  spaces breaks inside the word on a desktop and is cut on a phone, so it never
-  pushes the button out of the toast or off the screen. `Toasts` draws both,
-  for the app and for a site.
+  above. In the bar on top Done on the keyboard saves (`enterkeyhint="done"`),
+  a tap outside the field saves, and a ✕ at the end of the field cancels, as a
+  phone has no Escape. Rename in a sheet puts the field in place in the same
+  tap, and the sheet does not give the focus back to the button that opened it:
+  the field lost the focus, and iOS then showed no keyboard.
+- In a list the rename is done in the row, as in the Files app of iOS. The row
+  keeps its look: the ground of the group, its corners, its separators and its
+  52px, so nothing moves. Its `⋯` is gone while the field is open, and the name
+  is a field of 36px with 8px corners on `groupedField` in 17px text, with the
+  name picked up to its extension, so typing replaces only the name. A gray
+  round ✕ of 17px at the end of the field clears it, as the clear button of iOS
+  does. Done on the keyboard saves, and a tap outside the field or Escape
+  cancels; the field losing the focus does nothing, so hiding the keyboard
+  keeps what was typed. A swipe back saves it. The field turns off
+  autocomplete, autocorrect, capitalizing and spell check, and has no name or
+  id, as Safari offered to fill it in from the contacts. The field takes the
+  focus without scrolling the page. When the keyboard comes up over the row,
+  the page scrolls just enough to keep the row 16px above it, and the bottom of
+  the page gets the keyboard's height as room, so a row at the end of the list
+  scrolls up too instead of Safari moving the whole screen and the bar on top
+  under the status bar.
+- A toast on a phone is a capsule 8px over the tab bar or the bar of a note, or
+  over the edge of the screen where there is none, 48px high and fully round,
+  with the fill of the capsule and the fainter line and shadow it has on a
+  group, `capsuleBorderGrouped` and the `capsuleGrouped` shadow, on every page,
+  so it reads as one more bar of the same family. Over the tab bar it spans the
+  row 16px from each side, from the tab bar's left edge to New's right edge.
+  Over the bar of a note or a file it stands in the middle, as wide as its
+  content with 16px at the sides, never narrower than that bar and never wider
+  than the screen less 16px at each side; `Capsule` puts the bar's width in
+  `--scrawl-action-bar-width` for it. With a button, Undo or the folder of a
+  move, a check or a warning sign and the text sit at the left and the button
+  at the right in the accent, in the 600 weight; without one the sign and the
+  text stand in the middle. A long text wraps to a second line and is cut with
+  an ellipsis after it; there is no close button. It comes up and fades in and
+  goes after 2.5 seconds, 6 with a button, or at a tap on it or a flick down.
+  At the top it stood far from the thumb and the controls that made it, which
+  all live at the bottom. With the keyboard up it stands over the keyboard,
+  placed by the visible area the way the editor is, as a toast fixed to the
+  bottom of the page sat under the keys. Mantine's card slid in sideways from
+  the edge and read as a web page. Only the pill takes a touch: the containers
+  span the screen, took the taps meant for the bar under them, and on iOS kept
+  the hover that pauses a toast, which then never left. A press on a button in
+  the pill, the Undo or the folder of a move, is that button's and does not
+  dismiss it. A desktop shows a dark toast with 10px corners at the bottom in
+  the middle, as Notion does, gone after 4 seconds or 6 with a button, or at a
+  click on it outside its buttons, and kept while the pointer is on it; a click
+  that ends a text selection in it leaves it, so an error is still copied from
+  it; mantine's white card with a colored bar and a close button stood at the
+  top right, over Edit and the page's menu, and looked like a web page of years
+  ago. The button of a desktop's toast is lettered in its own lighter blue,
+  which the theme names, since the accent is too dark on the toast's ground. A
+  long name without spaces breaks inside the word, and on a phone is cut after
+  two lines, so it never pushes the button out of the toast or off the screen.
+  `Toasts` draws both, for the app and for a site.
 - On a phone a screen opened slides in from the right and fades in, and one
   gone back to slides in from the left with no fade, as an app moves its
   screens, on an even ease-out of 300ms: the curve before put most of the way

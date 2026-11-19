@@ -74,6 +74,7 @@ export {
   UserCircleIcon as IconUserCircle,
   WarningIcon as IconAlertTriangle,
   WifiSlashIcon as IconWifiOff,
+  XCircleIcon as IconClear,
   XIcon as IconX,
 } from '@phosphor-icons/react';
 

@@ -1,4 +1,4 @@
-import type { JSX, MouseEvent, ReactNode } from 'react';
+import { Children, useLayoutEffect, useRef, type JSX, type MouseEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import type { Icon } from '../icons';
@@ -15,8 +15,22 @@ export interface CapsuleProps {
 }
 
 export function Capsule({ testId, label, kind, withNew = false, children }: CapsuleProps): JSX.Element {
+  const ref = useRef<HTMLElement>(null);
+  const count = Children.toArray(children).length;
+  useLayoutEffect(() => {
+    const bar = ref.current;
+    if (kind !== 'actions' || bar === null) {
+      return undefined;
+    }
+    const root = document.documentElement.style;
+    root.setProperty('--scrawl-action-bar-width', `${bar.offsetWidth}px`);
+    return () => {
+      root.removeProperty('--scrawl-action-bar-width');
+    };
+  }, [kind, count]);
   return (
     <nav
+      ref={ref}
       data-testid={testId}
       aria-label={label}
       data-kind={kind}

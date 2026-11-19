@@ -434,6 +434,7 @@
   --scrawl-grouped-bg: #f2f2f7;
   --scrawl-grouped-card: #ffffff;
   --scrawl-grouped-separator: #d2d2d7;
+  --scrawl-grouped-field: #f2f2f7;
   --scrawl-row-pressed: #d1d1d6;
   --scrawl-sheet-close: #e3e3e8;
   --scrawl-capsule: #ffffff;
@@ -689,6 +690,7 @@
   --scrawl-grouped-bg: #202020;
   --scrawl-grouped-card: #2c2c2b;
   --scrawl-grouped-separator: #383836;
+  --scrawl-grouped-field: #383836;
   --scrawl-row-pressed: #383836;
   --scrawl-sheet-close: #383836;
   --scrawl-capsule: #252525;
@@ -943,6 +945,7 @@
   --scrawl-grouped-bg: #f2f2f7;
   --scrawl-grouped-card: #ffffff;
   --scrawl-grouped-separator: #d2d2d7;
+  --scrawl-grouped-field: #f2f2f7;
   --scrawl-row-pressed: #d1d1d6;
   --scrawl-sheet-close: #e3e3e8;
   --scrawl-capsule: #ffffff;
@@ -1196,6 +1199,7 @@
   --scrawl-grouped-bg: #202020;
   --scrawl-grouped-card: #2c2c2b;
   --scrawl-grouped-separator: #383836;
+  --scrawl-grouped-field: #383836;
   --scrawl-row-pressed: #383836;
   --scrawl-sheet-close: #383836;
   --scrawl-capsule: #252525;

@@ -1,4 +1,4 @@
-import { useCallback, useState, type JSX, type MouseEvent, type PointerEvent } from 'react';
+import { useCallback, useRef, useState, type JSX, type MouseEvent, type PointerEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import type { DirEntry } from '../api/types';
@@ -10,6 +10,7 @@ import { useRenamingHere, type Renaming } from '../shell/fileActionsContext';
 import { parentOf } from '../shell/naming';
 import { SyncBadge } from '../shell/SyncBadge';
 import { useLongPress } from '../shell/useLongPress';
+import { useAboveKeyboard } from '../shell/useVisibleArea';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import classes from './DirTable.module.css';
@@ -283,14 +284,16 @@ function PhoneRow({ entry, routed, runPath, href }: PhoneRowProps): JSX.Element 
 }
 
 function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming }): JSX.Element {
+  const rowRef = useRef<HTMLDivElement>(null);
+  useAboveKeyboard(rowRef);
   return (
-    <div {...rowAttributes(entry)} className={`${classes.listRow} ${classes.naming}`}>
+    <div ref={rowRef} {...rowAttributes(entry)} className={`${classes.listRow} ${classes.renaming}`}>
       <div className={classes.listLink}>
         <RenameField
           session={session}
           testId="dir-rename"
           icon={<EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSizeRow} className={classes.listIcon} />}
-          className={classes.listField}
+          listRow
         />
       </div>
     </div>

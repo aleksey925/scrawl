@@ -70,10 +70,11 @@ Colors, controls and type: how a note and the chrome are drawn.
   in `layout` of `web/src/theme.ts`, each for its own place: 22px in the
   capsule of a phone, in the rows of a sheet and in the 44px tools over a
   phone's keyboard ([ADR 29](../adr/0029-the-phone-editor-bars.md)), 26px on
-  New and on the big tiles of its sheet, 18px in the desktop's formatting
-  toolbar, 15px in the heads of a folder's list and 14px in small marks such as
-  the sync badge; an empty state draws 32px. The current tab of a phone's tab
-  bar draws its icon filled, on a pill of the accent's tint, `tabCurrent`
+  New and on the big tiles of its sheet, 17px on the clear button of a name
+  field in a phone's list, 18px in the desktop's formatting toolbar, 15px in
+  the heads of a folder's list and 14px in small marks such as the sync badge;
+  an empty state draws 32px. The current tab of a phone's tab bar draws its
+  icon filled, on a pill of the accent's tint, `tabCurrent`
   ([ADR 28](../adr/0028-the-phone-controls-float-at-the-bottom.md)).
   `web/src/icons.ts` is the one place that says which drawing each one is:
   Notion's own set cannot be taken, and Phosphor is the open one closest to it.

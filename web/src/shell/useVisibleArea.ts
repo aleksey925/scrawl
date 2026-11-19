@@ -89,3 +89,31 @@ export function useVisibleScreen(screen: RefObject<HTMLElement | null>, active: 
     };
   }, [screen, active]);
 }
+
+const keyboardGap = 16;
+
+export function useAboveKeyboard(target: RefObject<HTMLElement | null>): void {
+  useLayoutEffect(() => {
+    const view = window.visualViewport;
+    const element = target.current;
+    if (view === null || element === null) {
+      return undefined;
+    }
+    const root = document.documentElement.style;
+    const startY = window.scrollY;
+    const bottom = element.getBoundingClientRect().bottom + startY;
+    const follow = (): void => {
+      if (!keyboardShown(view)) {
+        root.removeProperty('--scrawl-keyboard-room');
+        return;
+      }
+      root.setProperty('--scrawl-keyboard-room', `${window.innerHeight - view.height}px`);
+      window.scrollTo({ top: Math.max(startY, bottom + keyboardGap - view.height), behavior: 'instant' });
+    };
+    view.addEventListener('resize', follow);
+    return () => {
+      view.removeEventListener('resize', follow);
+      root.removeProperty('--scrawl-keyboard-room');
+    };
+  }, [target]);
+}

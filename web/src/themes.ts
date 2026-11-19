@@ -34,6 +34,7 @@ export interface Palette {
   groupedBg: string;
   groupedCard: string;
   groupedSeparator: string;
+  groupedField: string;
   rowPressed: string;
   sheetClose: string;
   capsule: string;

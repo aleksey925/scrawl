@@ -1,9 +1,9 @@
 import {
-  useEffect, useRef, useState,
+  useEffect, useLayoutEffect, useRef, useState,
   type FocusEvent, type JSX, type KeyboardEvent, type MutableRefObject, type ReactNode, type RefObject, type SyntheticEvent,
 } from 'react';
 
-import { IconX } from '../icons';
+import { IconClear, IconX } from '../icons';
 import { caretOf } from '../shell/naming';
 import { composing } from '../shell/shortcuts';
 import { layout } from '../theme';
@@ -27,17 +27,19 @@ export interface NameFieldProps {
   icon?: ReactNode;
   className?: string;
   keepOnLeave?: boolean;
+  listRow?: boolean;
   commitRef?: MutableRefObject<(() => void) | undefined>;
   onSubmit: (name: string) => Promise<boolean>;
   onCancel: () => void;
 }
 
-function useOutsideTap(boxRef: RefObject<HTMLElement | null>, onTap: () => void): void {
+function useOutsideTap(boxRef: RefObject<HTMLElement | null>, onTap: () => void, always: boolean): void {
   const touch = useTouchScreen();
   const onTapRef = useRef(onTap);
   onTapRef.current = onTap;
+  const active = touch || always;
   useEffect(() => {
-    if (!touch) {
+    if (!active) {
       return undefined;
     }
     const onClick = (event: MouseEvent): void => {
@@ -47,11 +49,11 @@ function useOutsideTap(boxRef: RefObject<HTMLElement | null>, onTap: () => void)
     };
     document.addEventListener('click', onClick, true);
     return () => document.removeEventListener('click', onClick, true);
-  }, [boxRef, touch]);
+  }, [boxRef, active]);
 }
 
 export function NameField({
-  initial, isDir = false, label, testId, placeholder, icon, className, keepOnLeave = false, commitRef, onSubmit, onCancel,
+  initial, isDir = false, label, testId, placeholder, icon, className, keepOnLeave = false, listRow = false, commitRef, onSubmit, onCancel,
 }: NameFieldProps): JSX.Element {
   const touch = useTouchScreen();
   const [name, setName] = useState(initial);
@@ -101,7 +103,7 @@ export function NameField({
   };
 
   const leaveOnBlur = (): void => {
-    if (document.activeElement === inputRef.current && !document.hasFocus()) {
+    if (listRow || (document.activeElement === inputRef.current && !document.hasFocus())) {
       return;
     }
     leave();
@@ -116,9 +118,21 @@ export function NameField({
     leave();
   };
 
+  const cancelUnlessBusy = (): void => {
+    if (!state.current.busy) {
+      cancel();
+    }
+  };
+
   const leaveRef = useRef(leaveOrClose);
   leaveRef.current = leaveOrClose;
-  useOutsideTap(boxRef, leave);
+  useOutsideTap(boxRef, listRow ? cancelUnlessBusy : leave, listRow);
+
+  useLayoutEffect(() => {
+    if (listRow) {
+      inputRef.current?.focus({ preventScroll: true });
+    }
+  }, [listRow]);
 
   useEffect(() => {
     const onPointerDown = (): void => {
@@ -157,51 +171,79 @@ export function NameField({
     }
   };
 
+  const input = (
+    <input
+      ref={inputRef}
+      data-testid={`${testId}-input`}
+      className={classes.input}
+      autoFocus={!listRow}
+      value={name}
+      disabled={busy}
+      placeholder={placeholder}
+      aria-label={label}
+      autoComplete="off"
+      autoCorrect="off"
+      autoCapitalize="off"
+      spellCheck={false}
+      enterKeyHint="done"
+      onFocus={(event: FocusEvent<HTMLInputElement>) => {
+        if (!placed.current) {
+          placed.current = true;
+          const at = caretOf(event.currentTarget.value, isDir);
+          event.currentTarget.setSelectionRange(listRow ? 0 : at, at);
+        }
+      }}
+      onChange={(event) => setName(event.currentTarget.value)}
+      onBlur={leaveOnBlur}
+      onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+        event.stopPropagation();
+        if (event.key === 'Enter' && !composing(event.nativeEvent)) {
+          event.preventDefault();
+          commit();
+          return;
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          cancel();
+        }
+      }}
+    />
+  );
+
+  const fieldClass = listRow ? `${classes.field} ${classes.listRow}` : classes.field;
+
   return (
     <span
       ref={boxRef}
       data-testid={`${testId}-field`}
-      className={className === undefined ? classes.field : `${classes.field} ${className}`}
+      className={className === undefined ? fieldClass : `${fieldClass} ${className}`}
       onPointerDown={keepFocus}
       onMouseDown={keepFocus}
     >
       {icon}
-      <input
-        ref={inputRef}
-        data-testid={`${testId}-input`}
-        className={classes.input}
-        autoFocus
-        value={name}
-        disabled={busy}
-        placeholder={placeholder}
-        aria-label={label}
-        autoComplete="off"
-        autoCapitalize="off"
-        spellCheck={false}
-        enterKeyHint="done"
-        onFocus={(event: FocusEvent<HTMLInputElement>) => {
-          if (!placed.current) {
-            placed.current = true;
-            const at = caretOf(event.currentTarget.value, isDir);
-            event.currentTarget.setSelectionRange(at, at);
-          }
-        }}
-        onChange={(event) => setName(event.currentTarget.value)}
-        onBlur={leaveOnBlur}
-        onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-          event.stopPropagation();
-          if (event.key === 'Enter' && !composing(event.nativeEvent)) {
-            event.preventDefault();
-            commit();
-            return;
-          }
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            cancel();
-          }
-        }}
-      />
-      {touch && (
+      {listRow ? (
+        <span className={classes.box}>
+          {input}
+          {name !== '' && (
+            <button
+              type="button"
+              tabIndex={-1}
+              data-testid={`${testId}-clear`}
+              className={classes.clear}
+              aria-label="Clear"
+              onClick={() => {
+                setName('');
+                inputRef.current?.focus();
+              }}
+            >
+              <IconClear size={layout.iconSizeClear} weight="fill" aria-hidden />
+            </button>
+          )}
+        </span>
+      ) : (
+        input
+      )}
+      {touch && !listRow && (
         <button
           type="button"
           tabIndex={-1}

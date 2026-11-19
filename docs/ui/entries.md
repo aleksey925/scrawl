@@ -85,30 +85,33 @@ Creating, naming, moving and deleting files and folders.
   phone it takes the place of the title in the bar on top. The field holds the
   whole name with its extension, nothing selected and the cursor before the
   last dot, or at the end of a folder's name, where a dot is part of the name.
-  Enter, or Done on a phone's keyboard, saves, and so does a click or a tap
-  outside the field, but not a switch to another window or app: the field stays
-  open with the name typed, and a slip saved a half-typed name, whose links are
-  not rewritten ([quirks](../quirks.md#browsers)). Escape drops it, and on a
-  touch screen a ✕ inside the field does. A failed save keeps the field with
-  the name typed, and a save started with Enter gives the focus back to it,
-  unless the focus was put elsewhere while the save was going. Leaving the
-  field, by a blur, a tap outside or the swipe back, does not send a name that
-  has just failed again: on a touch screen every later tap, the close of the
-  error toast too, sent it once more and showed the same error. Enter sends it
-  again, and on a tablet a tap beside the popover of a page closes the field
-  ([touch](touch.md)). An Enter that ends the composition of an input method
-  saves nothing ([quirks](../quirks.md#browsers)). Every rename is a session of
-  its own, and a save closes only its own field: a slow save that answers after
-  another rename has started leaves the new field open, also when the page
-  follows the renamed entry to its new address. Any other page change closes
-  the field, so a click on a link saves and goes. Move to opens a popover where
-  the menu it was picked from was, on the side of the screen the menu sat on,
-  as Notion does; a dialog in the middle of the screen took the eye away from
-  the row or the page being moved. It holds a search field over the folders of
-  the space, the space itself first: empty, it shows them as a tree with every
-  folder folded, the one the entry is in too, a chevron or the right and left
-  arrows unfold and fold a folder, a click on the chevron leaving the focus in
-  the search field for the arrows and Enter, and typed, the folders whose name
+  A phone's list is the exception: there the name up to its extension is
+  picked, a tap outside cancels and a ✕ clears the field, as in the Files app
+  of iOS ([phone](phone.md)). Enter, or Done on a phone's keyboard, saves, and
+  so does a click or a tap outside the field, but not a switch to another
+  window or app: the field stays open with the name typed, and a slip saved a
+  half-typed name, whose links are not rewritten
+  ([quirks](../quirks.md#browsers)). Escape drops it, and on a touch screen a ✕
+  inside the field does. A failed save keeps the field with the name typed, and
+  a save started with Enter gives the focus back to it, unless the focus was
+  put elsewhere while the save was going. Leaving the field, by a blur, a tap
+  outside or the swipe back, does not send a name that has just failed again:
+  on a touch screen every later tap, the close of the error toast too, sent it
+  once more and showed the same error. Enter sends it again, and on a tablet a
+  tap beside the popover of a page closes the field ([touch](touch.md)). An
+  Enter that ends the composition of an input method saves nothing
+  ([quirks](../quirks.md#browsers)). Every rename is a session of its own, and
+  a save closes only its own field: a slow save that answers after another
+  rename has started leaves the new field open, also when the page follows the
+  renamed entry to its new address. Any other page change closes the field, so
+  a click on a link saves and goes. Move to opens a popover where the menu it
+  was picked from was, on the side of the screen the menu sat on, as Notion
+  does; a dialog in the middle of the screen took the eye away from the row or
+  the page being moved. It holds a search field over the folders of the space,
+  the space itself first: empty, it shows them as a tree with every folder
+  folded, the one the entry is in too, a chevron or the right and left arrows
+  unfold and fold a folder, a click on the chevron leaving the focus in the
+  search field for the arrows and Enter, and typed, the folders whose name
   matches, each with the folder it sits in. The whole tree open was a long list
   to scroll through in a real space. The folder the entry is in now is marked
   Current and cannot be picked, a folder being moved leaves itself and

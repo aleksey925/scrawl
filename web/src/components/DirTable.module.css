@@ -230,6 +230,10 @@
   gap: 12px;
 }
 
+.renaming {
+  padding-inline-end: 16px;
+}
+
 .naming {
   padding-inline-end: 16px;
   background: var(--scrawl-hover);

@@ -29,8 +29,9 @@ Sizes and feedback on a touch screen, phone or tablet.
   under it instead.
 - A name field, for a new entry or a rename, saves on a tap outside it, apart
   from the new row of a folder's list, which keeps a typed name
-  ([entries](entries.md)). The field hears the tap as a `click` on the page and
-  not only as a blur, and not as a `pointerdown`
+  ([entries](entries.md)), and a rename in a row of a phone's list, which
+  cancels ([phone](phone.md)). The field hears the tap as a `click` on the page
+  and not only as a blur, and not as a `pointerdown`
   ([quirks](../quirks.md#phones-and-touch-screens)). The rename popover of a
   page on a tablet has a `TapGuard` under it, whose tap saves the field and
   opens nothing beneath; after a failed save its next tap closes the field, as

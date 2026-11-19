@@ -4715,6 +4715,58 @@ test.describe('mobile', () => {
         expect(placed.bottom).toBe(placed.visible - 8);
     });
 
+    test.describe('with a home indicator', () => {
+        const indicator = 34;
+        const keyboard = 300;
+
+        test.beforeEach(async ({page}) => {
+            const cdp = await page.context().newCDPSession(page);
+            await cdp.send('Emulation.setSafeAreaInsetsOverride', {insets: {bottom: indicator}});
+            await fakeVisibleArea(page);
+        });
+
+        for (const [shrinks, way] of [[false, 'the window keeps its height'], [true, 'the window shrinks and the visible area is panned to the bottom']]) {
+        for (const [name, open, card] of [
+            ['the search card', async (page) => {
+                await page.goto(routes.home());
+                await page.getByTestId('tab-search').tap();
+            }, 'search-card'],
+            ['the find card', async (page) => {
+                await page.goto(routes.doc(DOC));
+                await page.getByTestId('note-bar-find').tap();
+            }, 'doc-find'],
+        ]) {
+            test(`${name} stands 8px over the keyboard, with no room for the home indicator under it, when ${way}`, async ({page}) => {
+                // arrange
+                if (shrinks) {
+                    await page.addInitScript(() => {
+                        Object.defineProperty(window, 'innerHeight', {
+                            get: () => window.visualViewport.height,
+                            configurable: true,
+                        });
+                    });
+                }
+                await open(page);
+                await expect(page.getByTestId(card)).toBeVisible();
+                await settled(page);
+                const {height} = page.viewportSize();
+                await moveVisibleArea(page, 0, height);
+                const restingGap = height - (await boxOf(page, card)).bottom;
+
+                // act
+                const pan = shrinks ? keyboard : 0;
+                await moveVisibleArea(page, pan, height - keyboard);
+                const overKeyboard = pan + height - keyboard - (await boxOf(page, card)).bottom;
+                await moveVisibleArea(page, 0, height);
+
+                // assert
+                await expect.poll(async () => height - (await boxOf(page, card)).bottom).toBe(restingGap);
+                expect({overKeyboard, restingGap: restingGap >= indicator}).toEqual({overKeyboard: 8, restingGap: true});
+            });
+        }
+        }
+    });
+
     test('the menu of a file is a sheet with Download, and the top bar of the file keeps no action', async ({page}) => {
         // arrange
         const file = 'e2e-mobile/file-sheet/plain.txt';

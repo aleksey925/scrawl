@@ -144,7 +144,14 @@ How the app works on a phone.
   and the tab bar does not come in its place. The search card and the find card
   are placed by the visible area of the screen, not by CSS alone: a phone's
   keyboard covers the bottom of the page without making it shorter, and a card
-  fixed to the bottom sat under the keys. With the keyboard up, the scroll to a
+  fixed to the bottom sat under the keys. The keyboard counts as up when the
+  visible area is shorter than the page, the larger of the window's height and
+  the page's, wherever it is panned to. An app on the home screen of an iPhone
+  shrinks the window with the keyboard and pans the visible area to the bottom
+  of the page, so a check that the visible area ends above the bottom missed
+  the keyboard, and the card kept the room of the home indicator, about 40px
+  over the keys. With the keyboard up the card leaves no room for the home
+  indicator, which the keyboard covers. With the keyboard up, the scroll to a
   match moves the visible area down the page, and the find card follows it. It
   is moved in the scroll event itself, not by a React render: a render came a
   frame late, and the card jumped on every step to a match. The editor of a

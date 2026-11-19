@@ -67,6 +67,11 @@ words; the fact itself is written here.
   else. [Themes](design/themes.md)
 - A phone's keyboard covers the bottom of the page without making it shorter,
   so a field fixed to the bottom sits under the keys. [Phone](ui/phone.md)
+- In an app on the home screen of an iPhone the keyboard shrinks
+  `window.innerHeight` to the visible height and pans the visible area to the
+  bottom of the page, while `document.documentElement.clientHeight` keeps the
+  page's height: `innerHeight` 459, `offsetTop` 414, `clientHeight` 873.
+  [Phone](ui/phone.md)
 - With the keyboard up, a scroll moves the visible area across the page, and an
   element fixed to the page moves with it. React renders a state set in a
   scroll listener after the frame is drawn, so the element is seen in the wrong

@@ -1,7 +1,11 @@
 import { useEffect, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
 
+function layoutHeight(): number {
+  return Math.max(window.innerHeight, document.documentElement.clientHeight);
+}
+
 export function keyboardShown(view: VisualViewport): boolean {
-  return window.innerHeight - view.offsetTop - view.height > 1;
+  return layoutHeight() - view.height > 1;
 }
 
 interface VisibleArea {
@@ -107,7 +111,7 @@ export function useAboveKeyboard(target: RefObject<HTMLElement | null>): void {
         root.removeProperty('--scrawl-keyboard-room');
         return;
       }
-      root.setProperty('--scrawl-keyboard-room', `${window.innerHeight - view.height}px`);
+      root.setProperty('--scrawl-keyboard-room', `${layoutHeight() - view.height}px`);
       window.scrollTo({ top: Math.max(startY, bottom + keyboardGap - view.height), behavior: 'instant' });
     };
     view.addEventListener('resize', follow);

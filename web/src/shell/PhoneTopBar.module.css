@@ -4,7 +4,8 @@
   align-items: center;
   gap: 4px;
   height: 100%;
-  padding-inline: calc(var(--mantine-spacing-lg) - 12px);
+  --bar-edge: calc(var(--mantine-spacing-lg) - 12px);
+  padding-inline: var(--bar-edge);
   transition: box-shadow 150ms;
 }
 
@@ -20,21 +21,9 @@
 }
 
 .up {
-  display: inline-flex;
-  align-items: center;
   gap: 2px;
   min-width: 0;
-  min-height: var(--scrawl-tap-target);
-  padding-inline: 12px 8px;
-  color: var(--scrawl-text-secondary);
   font-size: 16px;
-  text-decoration: none;
-  transition: var(--scrawl-press-out);
-}
-
-.up:active {
-  opacity: 0.4;
-  transition: var(--scrawl-press-in);
 }
 
 .home {
@@ -102,9 +91,10 @@
 
 .bar[data-editing='true'] {
   display: grid;
+  --edit-side: 64px;
   grid-template:
     'start name end' auto
-    'start status end' auto / 64px minmax(0, 1fr) 64px;
+    'start status end' auto / var(--edit-side) minmax(0, 1fr) var(--edit-side);
   align-content: center;
   align-items: center;
   row-gap: 1px;
@@ -139,7 +129,7 @@
 
 .draftName::after {
   position: absolute;
-  inset: 0 calc(var(--mantine-spacing-lg) - 12px + 64px);
+  inset: 0 calc(var(--bar-edge) + var(--edit-side));
   content: '';
 }
 

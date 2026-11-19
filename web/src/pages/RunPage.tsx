@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 
 import { api, installUnauthorizedHandler } from '../api/client';
+import controls from '../controls.module.css';
 import { enterMessage } from '../htmlapp/protocol';
 import { IconChevronLeft, IconOpenOutside } from '../icons';
 import { goToLogin } from '../login';
@@ -134,7 +135,7 @@ function RunScreen({ path, back }: { path: string; back: string }): JSX.Element 
   return (
     <div className={classes.screen} data-testid="run">
       <header className={classes.bar} data-testid="run-bar">
-        <Link data-testid="run-back" to={back} className={classes.back} aria-label="Back" title="Back">
+        <Link data-testid="run-back" to={back} className={`${controls.wayBack} ${classes.back}`} aria-label="Back" title="Back">
           <IconChevronLeft size={layout.iconSize} />
         </Link>
         <span className={classes.name} data-testid="run-name" title={name}>

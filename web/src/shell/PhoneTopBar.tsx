@@ -5,6 +5,7 @@ import type { Crumb } from '../api/types';
 import { prefetchDir } from '../api/useApi';
 import { RenameField } from '../components/RenameField';
 import { planMotion } from '../components/screenMotion';
+import controls from '../controls.module.css';
 import { cameFrom } from '../historyTrail';
 import { IconChevronLeft } from '../icons';
 import { directoryUrl, isDocPath, isEditPath, recentUrl } from '../paths';
@@ -141,12 +142,13 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
       className={classes.bar}
     >
       <div className={classes.start}>
-        {atRoot ? (
+        {atRoot && (
           <span data-testid="topbar-home" className={classes.home}>
             <AppLogo />
             <span className={classes.homeName}>{space}</span>
           </span>
-        ) : tabRoot ? null : (
+        )}
+        {!atRoot && !tabRoot && (
           <Link
             data-testid="topbar-up"
             to={parent.url}
@@ -155,7 +157,7 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
                 event.preventDefault();
               }
             }}
-            className={classes.up}
+            className={`${controls.wayBack} ${classes.up}`}
             aria-label={`Back to ${parent.name}`}
           >
             <IconChevronLeft size={layout.iconSize} />

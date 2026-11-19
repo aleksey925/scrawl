@@ -11,6 +11,7 @@ const HISTORY = instances.history;
 const MULTI = instances.multi;
 const DIALOG_TITLE = {room: 4, tall: 60};
 const MOVE_WAIT_MS = 300;
+const PAST_DRAFT_DELAY_MS = 1000;
 
 let shotSeq = 0;
 
@@ -382,6 +383,7 @@ module.exports = {
     MAIN,
     MOVE_WAIT_MS,
     MULTI,
+    PAST_DRAFT_DELAY_MS,
     READONLY,
     SHARED,
     atHome,

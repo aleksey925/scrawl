@@ -51,7 +51,6 @@
   font: inherit;
   font-size: 14px;
   cursor: pointer;
-  transition: var(--scrawl-press-out);
 }
 
 .draftRestore {
@@ -71,13 +70,13 @@
 
   .draftButton:not(:disabled):active {
     background: var(--scrawl-pressed);
-    transition: var(--scrawl-press-in);
   }
 }
 
 @media (hover: none) {
   .draftButton {
     min-height: var(--scrawl-tap-target);
+    transition: var(--scrawl-press-out);
   }
 
   .draftButton:not(:disabled):active {
@@ -407,32 +406,30 @@
 
 .back,
 .phoneSave {
-  display: flex;
-  align-items: center;
   min-width: var(--scrawl-tap-target);
-  min-height: var(--scrawl-tap-target);
   border: 0;
   background: none;
   font: inherit;
   cursor: pointer;
-  transition: var(--scrawl-press-out);
 }
 
 .back {
   grid-area: start;
   justify-self: start;
-  padding-inline: 12px 8px;
-  color: var(--scrawl-text-secondary);
 }
 
 .phoneSave {
+  display: flex;
   grid-area: end;
   justify-self: end;
+  align-items: center;
   justify-content: flex-end;
+  min-height: var(--scrawl-tap-target);
   padding-inline: 8px 12px;
   color: var(--scrawl-accent);
   font-size: 17px;
   font-weight: 600;
+  transition: var(--scrawl-press-out);
 }
 
 .phoneSave:disabled {
@@ -440,7 +437,6 @@
   cursor: default;
 }
 
-.back:active,
 .phoneSave:not(:disabled):active {
   opacity: 0.4;
   transition: var(--scrawl-press-in);

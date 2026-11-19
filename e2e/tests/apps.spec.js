@@ -227,6 +227,23 @@ test.describe('html apps', () => {
         await tab.close();
     });
 
+    test('the icons of the run bar sit as far from the two edges of the screen under a mouse', async ({page}) => {
+        // arrange
+        await signIn(page, {baseURL: PLAIN.base, from: SHARED.routes.doc(COUNTER_FILE)});
+
+        // act
+        await run(page, PLAIN, COUNTER_FILE, 'Counter');
+
+        // assert
+        const edge = (testId) => page.getByTestId(testId).evaluate((el) => {
+            const icon = el.querySelector('svg').getBoundingClientRect();
+            return [Math.round(icon.left), Math.round(window.innerWidth - icon.right)];
+        });
+        const [backLeft] = await edge('run-back');
+        const [, openRight] = await edge('run-open-outside');
+        expect(openRight).toBe(backLeft);
+    });
+
     test('a folder list runs an html file from its Run button and its menu', async ({page}) => {
         // arrange
         await signIn(page, {baseURL: PLAIN.base, from: SHARED.routes.dir(COUNTER)});

@@ -13,6 +13,7 @@ import { errorText } from '../api/useApi';
 import { countOf } from '../components/formats';
 import { Segmented, type SegmentedOption } from '../components/Segmented';
 import { useOffScreen } from '../components/screenMotion';
+import controls from '../controls.module.css';
 import {
   IconBraces,
   IconChevronLeft,
@@ -548,7 +549,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           </>
         ) : (
           <>
-            <button type="button" data-testid="editor-cancel" className={classes.back} aria-label="Back" onClick={cancel}>
+            <button type="button" data-testid="editor-cancel" className={`${controls.wayBack} ${classes.back}`} aria-label="Back" onClick={cancel}>
               <IconChevronLeft size={layout.iconSize} />
             </button>
             {status}

@@ -3,13 +3,11 @@ const {expect, test} = require('../support/test');
 const fs = require('fs');
 
 const {
-    MAIN, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, okToast, readFixture, recordPrompts, refuseDrafts,
+    MAIN, PAST_DRAFT_DELAY_MS, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, okToast, readFixture, recordPrompts, refuseDrafts,
     removeFixture, rgb, routes, save, setRefusingDrafts, setSource, shot, signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const lightTheme = require('../../theme/themes/light.json');
-
-const PAST_DRAFT_DELAY_MS = 1000;
 
 function scratch(name) {
     return `e2e-scratch/${name}.md`;
@@ -831,6 +829,24 @@ test.describe('editing', () => {
         expect(await ring(page.getByTestId('editor-draft-restore'))).toEqual(expected);
         await space.focus();
         expect(await ring(space)).toEqual(expected);
+        removeFixture(docPath);
+    });
+
+    test('a button of the draft offer takes the pressed tone at once under a mouse', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-press');
+        await offerDraft(page, docPath, 'the offered draft\n');
+        const restore = page.getByTestId('editor-draft-restore');
+        const box = await restore.boundingBox();
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+        // act
+        await page.mouse.down();
+        const pressed = await restore.evaluate((el) => [getComputedStyle(el).backgroundColor, el.getAnimations().length]);
+
+        // assert
+        expect(pressed).toEqual([rgb(lightTheme.palette.pressed), 0]);
+        await page.mouse.up();
         removeFixture(docPath);
     });
 

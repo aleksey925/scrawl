@@ -4,6 +4,21 @@
   justify-content: center;
 }
 
+.wayBack {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--scrawl-tap-target);
+  padding-inline: 12px 8px;
+  color: var(--scrawl-text-secondary);
+  text-decoration: none;
+  transition: var(--scrawl-press-out);
+}
+
+.wayBack:active {
+  opacity: 0.4;
+  transition: var(--scrawl-press-in);
+}
+
 .menuControl {
   padding: 0 var(--mantine-spacing-sm) var(--mantine-spacing-xs);
 }

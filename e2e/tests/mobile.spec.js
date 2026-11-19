@@ -5,7 +5,7 @@ const fs = require('fs');
 const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
-    DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
+    DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, PAST_DRAFT_DELAY_MS, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
     holdRoute, mockMe, nameOf, okToast, readFixture, recordMoves, refuseDrafts, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -15,7 +15,6 @@ const MIN_TAP = 44;
 const BUTTON_HEIGHT = 40;
 const CHOICE_HEIGHT = 36;
 const ROW_HEIGHT = 48;
-const PAST_DRAFT_DELAY_MS = 1000;
 const NO_LINE = 'rgba(0, 0, 0, 0)';
 const PNG_BASE64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -96,15 +95,27 @@ async function touchDrag(page, from, to, {steps = 10, pauseMs = 0} = {}) {
     await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
 }
 
-async function pressedBand(page, selector) {
-    const element = page.locator(selector).first();
-    await expect(element).toBeVisible();
+async function forcePress(page) {
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('DOM.enable');
     await cdp.send('CSS.enable');
     const {root} = await cdp.send('DOM.getDocument');
-    const {nodeId} = await cdp.send('DOM.querySelector', {nodeId: root.nodeId, selector});
-    await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: ['active']});
+    return async (selector) => {
+        const {nodeId} = await cdp.send('DOM.querySelector', {nodeId: root.nodeId, selector});
+        await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: ['active']});
+    };
+}
+
+function hitsDown(page, x, box) {
+    return page.evaluate(([left, heights]) => heights.map((y) => document.elementFromPoint(left, y)?.dataset.testid),
+        [x, [box.y + 2, box.y + box.height / 2, box.y + box.height - 2]]);
+}
+
+async function pressedBand(page, selector) {
+    const element = page.locator(selector).first();
+    await expect(element).toBeVisible();
+    const press = await forcePress(page);
+    await press(selector);
     await expect.poll(() => element.evaluate((el) => getComputedStyle(el, '::before').opacity)).toBe('1');
     return element.evaluate((el) => {
         const band = getComputedStyle(el, '::before');
@@ -427,14 +438,7 @@ test.describe('mobile', () => {
         const row = '[data-testid=dir-row][data-path="e2e-mobile/app/index.html"]';
         const run = `${row} [data-testid=dir-row-run]`;
         await expect(page.locator(run)).toBeVisible();
-        const cdp = await page.context().newCDPSession(page);
-        await cdp.send('DOM.enable');
-        await cdp.send('CSS.enable');
-        const {root} = await cdp.send('DOM.getDocument');
-        const press = async (selector) => {
-            const {nodeId} = await cdp.send('DOM.querySelector', {nodeId: root.nodeId, selector});
-            await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: ['active']});
-        };
+        const press = await forcePress(page);
         const band = () => page.locator(row).evaluate((el) => getComputedStyle(el, '::before').opacity);
 
         // act & assert
@@ -2220,20 +2224,11 @@ test.describe('mobile', () => {
             await expect(run).toBeVisible();
             const pill = await run.boundingBox();
             const line = await page.locator(row).boundingBox();
-            const cdp = await page.context().newCDPSession(page);
-            await cdp.send('DOM.enable');
-            await cdp.send('CSS.enable');
-            const {root} = await cdp.send('DOM.getDocument');
-            const press = async (selector) => {
-                const {nodeId} = await cdp.send('DOM.querySelector', {nodeId: root.nodeId, selector});
-                await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: ['active']});
-            };
+            const press = await forcePress(page);
             const rowBackground = () => page.locator(row).evaluate((el) => getComputedStyle(el).backgroundColor);
 
             // act & assert
-            const reached = await page.evaluate(([x, heights]) => heights.map((y) => document.elementFromPoint(x, y)?.dataset.testid),
-                [pill.x + pill.width / 2, [line.y + 2, pill.y + pill.height / 2, line.y + line.height - 2]]);
-            expect(reached).toEqual(['dir-row-run', 'dir-row-run', 'dir-row-run']);
+            expect(await hitsDown(page, pill.x + pill.width / 2, line)).toEqual(['dir-row-run', 'dir-row-run', 'dir-row-run']);
             await press(row);
             await expect.poll(rowBackground).toBe(rgb(lightTheme.palette.pressed));
             await press(`${row} [data-testid=dir-row-run]`);
@@ -2709,9 +2704,7 @@ test.describe('mobile', () => {
         // assert
         await expect(page.getByTestId('topbar-draft-name')).toHaveText(text.create.untitled);
         const bar = await page.getByTestId('topbar').boundingBox();
-        const reached = await page.evaluate(([x, heights]) => heights.map((y) => document.elementFromPoint(x, y)?.dataset.testid),
-            [bar.x + bar.width / 2, [bar.y + 2, bar.y + bar.height / 2, bar.y + bar.height - 2]]);
-        expect(reached).toEqual(['topbar-draft-name', 'topbar-draft-name', 'topbar-draft-name']);
+        expect(await hitsDown(page, bar.x + bar.width / 2, bar)).toEqual(['topbar-draft-name', 'topbar-draft-name', 'topbar-draft-name']);
         removeFixture(folder);
     });
 

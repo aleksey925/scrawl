@@ -15,7 +15,7 @@ import { Avatar } from '../shell/Avatar';
 import { spaceLabel, useAccount } from '../shell/NavContext';
 import { useOfflineAccess } from '../shell/OfflineAccess';
 import { standaloneChrome, usePageChrome } from '../shell/PageChrome';
-import { ResetAction } from '../shell/ResetProvider';
+import { useResetOpener } from '../shell/ResetProvider';
 import { signOut, useSpaces } from '../shell/SpaceMenu';
 import { SpaceTile } from '../shell/SpaceTile';
 import { SyncIcon } from '../shell/SyncControl';
@@ -36,7 +36,7 @@ export function Component(): JSX.Element {
         <SyncGroup />
         <WorkspaceGroup />
         <ThemeGroup />
-        <DeviceGroup />
+        <DeviceGroups />
       </div>
     </Page>
   );
@@ -46,7 +46,7 @@ function Section({ label, testId, children }: { label: string; testId: string; c
   return (
     <section data-testid={testId} className={classes.section}>
       <div className={classes.caption}>{label}</div>
-      {children}
+      <div className={classes.stack}>{children}</div>
     </section>
   );
 }
@@ -73,6 +73,7 @@ function AccountCard(): JSX.Element {
 function SyncGroup(): JSX.Element | null {
   const { syncStatus, sync, me } = useAccount();
   const offline = useConnection() === 'offline';
+  const reset = useResetOpener();
 
   if (offline && me?.space.kind === 'remote') {
     return (
@@ -101,38 +102,46 @@ function SyncGroup(): JSX.Element | null {
     );
   }
   const paths = me?.space.unsynced.paths ?? [];
+  const facts = sync?.facts ?? [];
 
   return (
     <Section label="Sync" testId="profile-sync">
-      <SheetGroup className={classes.card}>
-        <div data-testid="profile-sync-status" className={classes.problem}>
-          {icon}
-          <div className={classes.problemText}>
-            <span className={classes.problemTitle}>{sync?.title ?? syncStatus.name}</span>
-            {sync?.facts.map((entry) => (
+      <div>
+        <SheetGroup className={classes.card}>
+          <SheetRow testId="profile-sync-status" lead={icon} label={sync?.title ?? syncStatus.name} />
+        </SheetGroup>
+        {facts.length > 0 && (
+          <div data-testid="profile-sync-facts" className={classes.footer}>
+            {facts.map((entry) => (
               <div key={entry.kind} className={classes.fact}>
                 <span>{factText(entry, paths.length > 0)}</span>
                 {entry.reason !== '' && <pre className={classes.reason}>{entry.reason}</pre>}
               </div>
             ))}
-            {paths.length > 0 && me?.space.diverged === true && <span className={classes.fact}>Conflicting files:</span>}
-            <ResetAction />
           </div>
+        )}
+      </div>
+      {paths.length > 0 && (
+        <div className={classes.section}>
+          {me?.space.diverged === true && <div className={classes.caption}>Conflicting files</div>}
+          <SheetGroup className={classes.card}>
+            {paths.map((unsynced) => (
+              <SheetRow
+                key={unsynced}
+                testId="profile-sync-path"
+                icon={IconFile}
+                label={unsynced}
+                to={documentUrl(unsynced)}
+              />
+            ))}
+          </SheetGroup>
         </div>
-        {paths.map((unsynced) => (
-          <SheetRow
-            key={unsynced}
-            testId="profile-sync-path"
-            lead={
-              <span className={classes.pathIcon}>
-                <IconFile size={layout.iconSize} aria-hidden />
-              </span>
-            }
-            label={unsynced}
-            to={documentUrl(unsynced)}
-          />
-        ))}
-      </SheetGroup>
+      )}
+      {reset !== undefined && (
+        <SheetGroup className={classes.card}>
+          <SheetRow testId="sync-reset" label="Replace local copy…" danger onClick={reset} />
+        </SheetGroup>
+      )}
     </Section>
   );
 }
@@ -196,46 +205,59 @@ function ThemeGroup(): JSX.Element {
   );
 }
 
-function DeviceGroup(): JSX.Element {
+function DeviceGroups(): JSX.Element {
   const { me } = useAccount();
   const fromCopy = useReadingCopy();
   const offline = useOfflineAccess();
   const signedIn = me !== undefined && me.user !== '';
 
   return (
-    <SheetGroup className={classes.card} data-testid="profile-device">
-      <Switch
-        data-testid="profile-offline"
-        checked={offline.wanted}
-        disabled={!offline.supported}
-        onChange={offline.toggle}
-        size="lg"
-        withThumbIndicator={false}
-        labelPosition="left"
-        label={
-          <span className={classes.switchLabel}>
-            <IconCloudDown size={layout.iconSizeLarge} aria-hidden className={classes.rowIcon} />
-            Offline access
-          </span>
-        }
-        description={offline.line === undefined ? undefined : <span data-testid="profile-offline-status">{offline.line}</span>}
-        classNames={{
-          root: classes.switchRow,
-          body: classes.switchBody,
-          labelWrapper: classes.switchText,
-          label: classes.switchName,
-          description: classes.switchLine,
-        }}
-      />
+    <>
+      <div data-testid="profile-device">
+        <SheetGroup className={classes.card}>
+          <Switch
+            data-testid="profile-offline"
+            checked={offline.wanted}
+            disabled={!offline.supported}
+            onChange={offline.toggle}
+            size="lg"
+            withThumbIndicator={false}
+            labelPosition="left"
+            label={
+              <span className={classes.switchLabel}>
+                <IconCloudDown size={layout.iconSizeLarge} aria-hidden className={classes.rowIcon} />
+                Offline access
+              </span>
+            }
+            classNames={{
+              root: classes.switchRow,
+              body: classes.switchBody,
+              track: classes.switchTrack,
+              labelWrapper: classes.switchText,
+              label: classes.switchName,
+            }}
+          />
+        </SheetGroup>
+        {offline.line !== undefined && (
+          <div data-testid="profile-offline-status" className={classes.footer}>
+            {offline.line}
+          </div>
+        )}
+      </div>
       {!fromCopy && me?.read_only === true && (
-        <SheetRow testId="profile-readonly" icon={IconEyeOff} label="Read-only mode" />
+        <SheetGroup className={`${classes.card} ${classes.short}`}>
+          <SheetRow testId="profile-readonly" icon={IconEyeOff} label="Read-only mode" />
+        </SheetGroup>
       )}
-      {!fromCopy &&
-        (signedIn ? (
-          <SheetRow testId="profile-signout" icon={IconLogout} label="Sign out" danger onClick={() => void signOut()} />
-        ) : (
-          <SheetRow testId="profile-signin" icon={IconLogin} label="Sign in" onClick={goToLogin} />
-        ))}
-    </SheetGroup>
+      {!fromCopy && (
+        <SheetGroup className={`${classes.card} ${classes.short}`}>
+          {signedIn ? (
+            <SheetRow testId="profile-signout" icon={IconLogout} label="Sign out" danger onClick={() => void signOut()} />
+          ) : (
+            <SheetRow testId="profile-signin" icon={IconLogin} label="Sign in" onClick={goToLogin} />
+          )}
+        </SheetGroup>
+      )}
+    </>
   );
 }

@@ -106,11 +106,15 @@ Colors, controls and type: how a note and the chrome are drawn.
   corners. A row is 50px tall with a 22px icon and 17px text, and the rows of a
   group are split by `borderTranslucent`: in the dark theme `borderLight` is
   the color of a group itself. A destructive row is red in a group of its own.
-  A tile is 72px tall and a big one 104px, on the ground of a group. The note
-  at the foot is 13px in the tertiary text color. The capsule's colors are
-  `capsule` for the fill, `capsuleBorder` for its 1px line and the `capsule`
-  shadow: white with a faint line in the light theme, the popover's gray with
-  the dark border in the dark one.
+  A row of a group is one line: its icon at the left and its control at the
+  right, a switch, a check, a time or a chevron, sit in the middle of the row's
+  height, never on its first line of text, and a longer explanation is a footer
+  under the group, 13px in the secondary text color with 6px over it and 16px
+  at the sides, as in the Settings of iOS. A tile is 72px tall and a big one
+  104px, on the ground of a group. The note at the foot is 13px in the tertiary
+  text color. The capsule's colors are `capsule` for the fill, `capsuleBorder`
+  for its 1px line and the `capsule` shadow: white with a faint line in the
+  light theme, the popover's gray with the dark border in the dark one.
 - A status the topbar shows with no facts behind it, a calm sync state or the
   offline mark, opens a small dark tip under its button rather than a popover:
   `StatusTip`, Notion's tooltip: 6px by 10px of padding, the medium radius and

@@ -156,25 +156,30 @@ How the app works on a phone.
   place and not a menu
   ([ADR 28](../adr/0028-the-phone-controls-float-at-the-bottom.md)). From the
   top: the large title Profile in the bar, a card with the initial, the name
-  and the space, the Sync group, Workspace, Theme, and a last group of Offline
-  access, Read-only mode where it applies, and Sign out, or Sign in when nobody
-  is signed in; with the reading copy there is neither, and no Read-only mode.
-  A desktop has no link to the page and keeps the space's menu. With nobody
-  signed in the card reads "Not signed in" beside the user icon. Workspace
-  lists the spaces with a check on the current one and a "read-only" badge on a
-  read-only one, and Theme is Auto, Light and Dark as one pill. "Offline
-  access" is the same row as in the sidebar's menu ([sidebar](sidebar.md)). The
-  list of keys stays on a desktop. The page has no way up and no swipe back, as
-  the first screen of a tab of iOS has none. The Sync group says what the
-  popover of the sync control says on a desktop: one row while all is sent or
-  is being sent, with no time, as `/api/me` carries none; with a problem the
-  name of the state, its facts and "Replace local copy..." where it is allowed,
-  then the files not synced as rows that open them. A space whose bar shows no
-  sync control has no Sync group, and with the reading copy the group is one
-  row, Offline. The yellow banner of a problem is hidden on this page, as the
-  group says the same. The sync control at the top right stays as it was, on
-  Profile too, and a tap on it opens its popover, as on a desktop
-  ([pages](pages.md#layout)).
+  and the space, the Sync group, Workspace, Theme, then Offline access,
+  Read-only mode where it applies, and Sign out, or Sign in when nobody is
+  signed in, each a group of its own 14px apart; with the reading copy there is
+  neither, and no Read-only mode. Offline access is one row of 48px, its icon,
+  its name and the switch in the middle of the row, and what the copy holds,
+  such as "181 MB, updated at 21:29", or why it is off, such as "Needs HTTPS"
+  with the switch off and dimmed, is the footer under the group
+  ([look](look.md)). Sign out is one red row of 48px. A desktop has no link to
+  the page and keeps the space's menu. With nobody signed in the card reads
+  "Not signed in" beside the user icon. Workspace lists the spaces with a check
+  on the current one and a "read-only" badge on a read-only one, and Theme is
+  Auto, Light and Dark as one pill. The list of keys stays on a desktop. The
+  page has no way up and no swipe back, as the first screen of a tab of iOS has
+  none. The Sync group says what the popover of the sync control says on a
+  desktop: one row while all is sent or is being sent, with no time, as
+  `/api/me` carries none; with a problem a row with the name of the state and
+  its facts as the footer under it, then the files not synced as a group of
+  rows that open them, under "Conflicting files" when the clone has diverged,
+  and "Replace local copy..." where it is allowed, a red row in a group of its
+  own. A space whose bar shows no sync control has no Sync group, and with the
+  reading copy the group is one row, Offline. The yellow banner of a problem is
+  hidden on this page, as the group says the same. The sync control at the top
+  right stays as it was, on Profile too, and a tap on it opens its popover, as
+  on a desktop ([pages](pages.md#layout)).
 - On a phone everything starts on a 16px line: the page text, the first and
   last icon of the bar on top, the way back and Save of the editor's bar, the
   way back and the last icon of the run screen's bar, and the text and buttons

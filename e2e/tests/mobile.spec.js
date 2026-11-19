@@ -3015,6 +3015,45 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-profile');
     });
 
+    test('Offline access and Sign out are one-line rows of 48px in groups of their own, the icon and the switch centered', async ({page}) => {
+        // act
+        await openProfile(page);
+
+        // assert
+        const geometry = await page.evaluate(() => {
+            const middle = (element) => {
+                const box = element.getBoundingClientRect();
+                return box.top + box.height / 2;
+            };
+            const device = document.querySelector('[data-testid=profile-device]');
+            const offlineGroup = device.firstElementChild;
+            const signOut = document.querySelector('[data-testid=profile-signout]');
+            return {
+                offlineHeight: offlineGroup.getBoundingClientRect().height,
+                offlineRows: offlineGroup.childElementCount,
+                iconOff: Math.abs(middle(offlineGroup.querySelector('svg')) - middle(offlineGroup)),
+                switchOff: Math.abs(middle(offlineGroup.querySelector('.mantine-Switch-track')) - middle(offlineGroup)),
+                signOutHeight: signOut.getBoundingClientRect().height,
+                signOutRows: signOut.parentElement.childElementCount,
+                signOutIconOff: Math.abs(middle(signOut.querySelector('svg')) - middle(signOut)),
+                gap: signOut.parentElement.getBoundingClientRect().top - device.getBoundingClientRect().bottom,
+            };
+        });
+        expect(geometry).toEqual({
+            offlineHeight: 48,
+            offlineRows: 1,
+            iconOff: expect.any(Number),
+            switchOff: expect.any(Number),
+            signOutHeight: 48,
+            signOutRows: 1,
+            signOutIconOff: expect.any(Number),
+            gap: 14,
+        });
+        expect(Math.max(geometry.iconOff, geometry.switchOff, geometry.signOutIconOff)).toBeLessThanOrEqual(1);
+        await expect(page.getByTestId('profile-offline-status')).toHaveCount(0);
+        await expect(page.getByTestId('profile-signout')).toHaveCSS('color', rgb(lightTheme.blocks.red.text));
+    });
+
     test('a tap beside an open menu closes it and opens nothing', async ({page}) => {
         // arrange
         await page.goto(routes.dir(docs.folder.path));
@@ -5200,7 +5239,8 @@ test.describe('mobile sync state', () => {
         await expect(page).toHaveURL(WIKI.profile());
         const details = page.getByTestId('profile-sync');
         await expect(details.getByTestId('profile-sync-status')).toContainText('Conflict with the remote repository');
-        await expect(details.getByTestId('profile-sync-status')).toContainText('Conflicting files:');
+        await expect(details).toContainText('Conflicting files');
+        await expect(details.getByTestId('profile-sync-facts')).toBeVisible();
         await expect(details.getByTestId('profile-sync-path')).toHaveText([SYNC_DOC]);
         await expect(details.getByTestId('sync-reset')).toBeVisible();
         await expect(page.getByTestId('space-alert')).toHaveCount(0);
@@ -5264,6 +5304,12 @@ test.describe('mobile offline access', () => {
         await page.getByTestId('profile-offline').tap();
         await expect(page.getByTestId('profile-offline')).toBeChecked();
         await expect(page.getByTestId('profile-offline-status')).toContainText(text.offline.updated, {timeout: 60_000});
+        await expect(page.getByTestId('profile-offline-status')).toHaveCSS('font-size', '13px');
+        await expect(page.getByTestId('profile-offline-status')).toHaveCSS('padding', '6px 16px 0px');
+        expect(await page.getByTestId('profile-offline-status').evaluate((footer) => ({
+            under: footer.previousElementSibling.contains(document.querySelector('[data-testid=profile-offline]')),
+            height: footer.previousElementSibling.getBoundingClientRect().height,
+        }))).toEqual({under: true, height: 48});
         await shot(page, 'mobile-offline-row');
         await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.active?.state),
             {timeout: 60_000}).toBe('activated');

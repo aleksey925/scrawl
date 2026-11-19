@@ -20,8 +20,8 @@ A space written out as static pages that run the app's reader.
   dependency on the server unnoticed.
 - The reader runs from a third source too: the app's offline copy, which reads
   the answers it stored on the device ([offline copy](offline.md)). The tree of
-  each source comes unmarked, and `NavProvider` marks the branch of the file on
-  screen.
+  each source carries no mark of the file on screen, and `NavProvider` opens
+  the folders on its path itself.
 - A site's answers are the server's. The JSON shapes and their builders live in
   `view`, which the handlers and `site` both call, so a page describes a note
   exactly as `/api/page/` would; HTTP caching, auth and the space's state stay

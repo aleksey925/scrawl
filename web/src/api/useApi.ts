@@ -101,8 +101,10 @@ export function useApi<T>(
         if (controller.signal.aborted) {
           return;
         }
-        const before = key === undefined ? undefined : responses.get(key);
-        const kept = before !== undefined && JSON.stringify(before) === JSON.stringify(data) ? (before as T) : data;
+        const before = key === answerKeys.nav ? responses.get(key) : undefined;
+        const kept = before !== undefined && (before === data || JSON.stringify(before) === JSON.stringify(data))
+          ? (before as T)
+          : data;
         if (key !== undefined) {
           remember(key, kept);
         }

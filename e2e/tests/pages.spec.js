@@ -120,8 +120,8 @@ test.describe('pages', () => {
         await expect(current).toHaveAttribute('data-current', 'true');
         await expect.poll(() => asked.length).toBe(2);
         const [first, second] = asked;
-        expect(second).toEqual({search: '?path=', sent: first.tag, tag: first.tag});
-        expect(first.search).toBe('?path=');
+        expect(second).toEqual({search: '', sent: first.tag, tag: first.tag});
+        expect(first.search).toBe('');
     });
 
     test('a chunk that is gone reloads the page into the screen asked for', async ({page}) => {

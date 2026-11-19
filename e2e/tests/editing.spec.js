@@ -528,6 +528,22 @@ test.describe('editing', () => {
         });
     }
 
+    test('a save refused as the session ended keeps the text as a draft at once', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-fails-session');
+        await editFromReader(page, docPath, 'kept\n');
+        await setSource(page, 'my version\n');
+        await failSave(page, 401);
+
+        // act
+        await page.getByTestId('editor-save').click();
+
+        // assert
+        await expect(page.getByTestId('editor-session-signin')).toBeVisible();
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'my version\n'}]);
+        removeFixture(docPath);
+    });
+
     test('Save stays in the editor when the text changed while the save ran', async ({page}) => {
         // arrange
         const docPath = scratch('save-typed-midway');

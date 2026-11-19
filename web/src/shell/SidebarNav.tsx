@@ -389,6 +389,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
     () => flatten(tree, (node) => (trimmed === '' ? isOpen(node.path) : true), []),
     [tree, trimmed, isOpen],
   );
+  const currentRowShown = rowOrder.includes(currentRow);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -402,7 +403,7 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
       return;
     }
     viewport.scrollTop += rowBox.top - hostBox.top - (viewport.clientHeight - rowBox.height) / 2;
-  }, [currentPath, tree]);
+  }, [currentPath, tree, currentRowShown]);
 
   const pick = useCallback(
     (path: string, event: MouseEvent) => {

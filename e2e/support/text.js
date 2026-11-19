@@ -4,7 +4,6 @@ module.exports = {
         dirty: 'Unsaved changes',
         drafted: 'Draft on device',
         new: 'New note',
-        saving: 'Saving',
         uploading: 'Waiting for the upload',
     },
 
@@ -14,7 +13,6 @@ module.exports = {
         conflict: 'This file changed on disk',
         restore: 'Restore this version?',
         restoreConflict: 'This page changed while the history was open',
-        session: 'Your session expired',
     },
 
     toast: {
@@ -25,10 +23,8 @@ module.exports = {
         folderCreated: 'Created folder',
         moved: 'Moved',
         movedMany: 'Moved 2 items',
-        renamed: 'Renamed',
         notNoteNow: 'It is not a note now, so the tree does not show it',
         deleted: 'Deleted',
-        notDeleted: 'Nothing was deleted',
         notMovedBack: 'Nothing was moved back',
         partlyMovedBack: 'Some of it did not move back',
         changedSince: 'It was renamed, moved or deleted since',
@@ -48,8 +44,6 @@ module.exports = {
 
     doc: {
         missing: 'This note does not exist yet.',
-        edit: 'Edit',
-        history: 'History',
         empty: 'This note is empty',
     },
 
@@ -59,7 +53,6 @@ module.exports = {
 
     search: {
         empty: 'No notes match that.',
-        prompt: 'Type a query to search every note.',
         results: 'results',
         regexHint: 'Regular expression over the text as shown, line by line',
     },
@@ -78,23 +71,17 @@ module.exports = {
 
     history: {
         title: 'Versions',
-        restore: 'Restore',
-        empty: 'Nothing was recorded for this note.',
-        degraded: 'History fell behind',
     },
 
     editor: {
         readOnly: 'This server is read-only. You can read the source here, but it cannot be saved.',
         draft: 'Unsaved draft',
         draftStale: 'file changed',
-        conflictMine: 'Your version',
-        conflictTheirs: 'On disk',
         changesTooLarge: 'This document is too large to compare. Editing and saving still work.',
         changesFailed: 'Could not compare',
     },
 
     login: {
-        title: 'Sign in',
         wrong: 'Wrong user name or password',
     },
 

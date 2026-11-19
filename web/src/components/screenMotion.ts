@@ -1,6 +1,7 @@
 import { createContext, useContext, useLayoutEffect, type RefObject } from 'react';
 import { useLocation, useNavigationType } from 'react-router';
 
+import { iosHomeScreenApp } from '../homeScreen';
 import { holdScreen, motionMs, noteEntering } from '../motion';
 import { scopeDiagramIds } from '../reader/diagramSvg';
 import { decodeFragment } from '../reader/dom';
@@ -53,10 +54,6 @@ export function releaseMotion(distance: number, speed: number): Release {
       : Math.max(minReleaseMs, (maxReleaseSlope * distance) / toward);
   const slope = distance <= 0 ? 1 : Math.min(maxReleaseSlope, Math.max(1, (toward * duration) / distance));
   return { duration: motionMs(duration), easing: `cubic-bezier(0.25, ${(0.25 * slope).toFixed(3)}, 0.25, 1)` };
-}
-
-export function iosHomeScreenApp(): boolean {
-  return (navigator as { standalone?: boolean }).standalone === true;
 }
 
 function reveal(): void {

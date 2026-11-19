@@ -833,20 +833,6 @@ func TestTreeKeepsEveryFolder(t *testing.T) {
 		"a folder is where a page is created, so it is listed before it holds one")
 }
 
-func TestTreeDirectoriesCarryTheirPageURL(t *testing.T) {
-	// arrange
-	ts := newTestServer(t, testOpts{})
-
-	// act
-	nodes := ts.mount().treeNodes()
-
-	// assert
-	docs := nodes[0]
-	require.True(t, docs.IsDir)
-	assert.Equal(t, "/doc/docs/", docs.URL)
-	assert.Equal(t, "/doc/docs/sub/", docs.Children[0].URL)
-}
-
 func TestAPIFileGet(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})

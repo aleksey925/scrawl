@@ -147,15 +147,20 @@ How the react app in `web/` is built, shipped and wired.
   error: a source may not watch the signal, the copy's reads do not, and a slow
   answer of the note before would then land under the next one's address.
 - The tree is one answer for the whole space, with no mark of the file on
-  screen: the app asks `/api/nav`, and `NavProvider` opens the folders above
-  the file on screen itself, for the server, the site and the offline copy
-  alike. It asks again on every move, so a file made elsewhere shows up, and
+  screen: the app asks `/api/nav`, and `NavProvider` opens the folders on the
+  path of the file on screen itself, a folder on screen its own row as well,
+  for the server, the site and the offline copy alike. It opens each of them
+  once, when the person arrives there, so a folder folded on that page stays
+  folded. It asks again on every move, so a file made elsewhere shows up, and
   the server answers with an `ETag` of the tree, so an unchanged tree comes
   back as a 304 with no body. Asked per file, the whole tree came again on
-  every tap, though only its marks changed.
-- An answer `useApi` gets that equals the one it holds for the same key keeps
-  the held object. A 304 still gives the page a newly parsed answer, and a new
-  tree object drew every row of the sidebar again on each move.
+  every tap, though it was the same tree.
+- A tree answer `useApi` gets that equals the one it holds keeps the held
+  object. A 304 still gives the page a newly parsed answer, and a new tree
+  object drew every row of the sidebar a second time on each move, once for the
+  move and once for the answer. Only the tree is compared: a page or a folder's
+  list is drawn anew with each answer anyway, and turning a whole rendered note
+  into a string twice costs a phone with no JIT.
 - The file on screen is the route. A folder is always its list, so a note is
   shown under its own address only, and a per-file signal keys off the route.
 - A context that many components read carries one kind of value, so a change

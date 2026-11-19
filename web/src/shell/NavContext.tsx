@@ -137,9 +137,6 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
 
   const seenActive = useRef<{ page: string; folders: ReadonlySet<string> }>({ page: '', folders: new Set() });
   useEffect(() => {
-    if (nav.stale) {
-      return;
-    }
     const active = new Set<string>();
     activeFolders(tree, currentPath, active);
     const seen = seenActive.current.page === currentPath ? seenActive.current.folders : new Set<string>();
@@ -156,11 +153,11 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       writeOpen(storageKey, next);
       return next;
     });
-  }, [tree, nav.stale, currentPath, storageKey]);
+  }, [tree, currentPath, storageKey]);
 
   const lastFill = useRef<ReadonlyMap<string, boolean> | undefined>(undefined);
   useEffect(() => {
-    if (nav.stale || nav.loading || nav.data === undefined) {
+    if (nav.loading || nav.data === undefined) {
       return;
     }
     const fill = new Map<string, boolean>();
@@ -184,7 +181,7 @@ export function NavProvider({ status, children }: NavProviderProps): JSX.Element
       writeOpen(storageKey, next);
       return next;
     });
-  }, [tree, nav.stale, nav.loading, nav.data, storageKey]);
+  }, [tree, nav.loading, nav.data, storageKey]);
 
   const toggleFolder = useCallback((path: string) => {
     setOpen((prev) => {

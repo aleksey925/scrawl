@@ -1,9 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router';
 
-import {
-  iosHomeScreenApp, leavingScreen, releaseMotion, screenHidden, sendOff, takeScreen, type Drag,
-} from '../components/screenMotion';
+import { leavingScreen, releaseMotion, screenHidden, sendOff, takeScreen, type Drag } from '../components/screenMotion';
+import { iosHomeScreenApp } from '../homeScreen';
 
 const edgePx = 24;
 const decidePx = 6;

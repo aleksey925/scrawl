@@ -466,6 +466,20 @@ func TestAPINavAnswersNotModifiedForTheTreeTheBrowserHas(t *testing.T) {
 	assert.Equal(t, pageCacheControl, first.header.Get("Cache-Control"))
 }
 
+func TestAPINavAnswersAnOldClientAskingForAPathTheSameTree(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	plain, plainBody := ts.do(t, request{path: "/api/nav"})
+
+	// act
+	old, oldBody := ts.do(t, request{path: "/api/nav?path=docs/sub/deep.md"})
+
+	// assert
+	assert.Equal(t, http.StatusOK, old.status)
+	assert.Equal(t, plainBody, oldBody)
+	assert.Equal(t, plain.header.Get("ETag"), old.header.Get("ETag"))
+}
+
 func TestAPINavAnswersAChangedTreeInFull(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})

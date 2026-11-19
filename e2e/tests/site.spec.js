@@ -431,9 +431,12 @@ for (const [target, at] of Object.entries(TARGETS)) {
             await page.keyboard.press('Control+K');
 
             // assert
+            await expect(page.getByTestId('sidebar')).toBeVisible();
             await expect(page.getByTestId('sidebar-search')).toHaveCount(0);
             await expect(page.getByTestId('search-dialog')).toHaveCount(0);
+            await openSpaceMenu(page);
             await expect(page.getByTestId('space-menu-signout')).toHaveCount(0);
+            await page.keyboard.press('Escape');
             await expect(page.getByTestId('note-menu')).toHaveCount(0);
             await expect(page.getByTestId('doc-edit')).toHaveCount(0);
             await expect(page.getByTestId('doc-history')).toHaveCount(0);

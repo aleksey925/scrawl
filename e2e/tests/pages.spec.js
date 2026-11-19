@@ -500,12 +500,10 @@ test.describe('pages', () => {
 
         const slow = /\/api\/(page|dir|nav)\b/;
         const {release} = await holdRoute(page, slow);
-        const other = page.locator('[data-testid=tree-row][data-current="false"][data-dir="false"]').first();
-        const target = await other.getAttribute('data-path');
-        await other.getByTestId('tree-link').click();
+        await page.locator(`[data-testid=tree-row][data-path="${docs.linked.path}"] [data-testid=tree-link]`).click();
 
         await expect(page.locator('[data-testid=tree-row][data-current="true"]'))
-            .toHaveAttribute('data-path', target);
+            .toHaveAttribute('data-path', docs.linked.path);
         await expect(page.getByTestId('tree-row').first()).toBeVisible();
         await expect(title).toHaveText(shown);
         await expect(page.getByTestId('doc-loading')).toHaveCount(0);
@@ -514,7 +512,7 @@ test.describe('pages', () => {
         await shot(page, 'pages-slow-navigation');
 
         release();
-        await expect(title).toHaveText(readFixture(target).split('\n')[0].replace(/^# /, ''));
+        await expect(title).toHaveText(docs.linked.title);
         await page.unroute(slow);
     });
 

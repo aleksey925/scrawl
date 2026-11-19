@@ -72,6 +72,27 @@ function failSave(page, status) {
         : route.continue()));
 }
 
+async function holdFailedSave(page, status) {
+    let release = () => {};
+    const held = new Promise((resolve) => {
+        release = resolve;
+    });
+    let reach = () => {};
+    const reached = new Promise((resolve) => {
+        reach = resolve;
+    });
+    await page.route('**/api/file/**', async (route) => {
+        if (route.request().method() !== 'PUT') {
+            await route.continue();
+            return;
+        }
+        reach();
+        await held;
+        await route.fulfill({status, json: {error: 'refused'}});
+    });
+    return {release, reached};
+}
+
 async function wheelOverSource(page, {steps = 20, delta = 60} = {}) {
     const box = await page.getByTestId('editor-source').boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -528,19 +549,22 @@ test.describe('editing', () => {
         });
     }
 
-    test('a save refused as the session ended keeps the text as a draft at once', async ({page}) => {
+    test('a save refused as the session ended keeps the text typed while it ran as a draft at once', async ({page}) => {
         // arrange
         const docPath = scratch('save-fails-session');
         await editFromReader(page, docPath, 'kept\n');
         await setSource(page, 'my version\n');
-        await failSave(page, 401);
+        const {release, reached} = await holdFailedSave(page, 401);
 
         // act
         await page.getByTestId('editor-save').click();
+        await reached;
+        await setSource(page, 'my version and more\n');
+        release();
 
         // assert
         await expect(page.getByTestId('editor-session-signin')).toBeVisible();
-        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'my version\n'}]);
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'my version and more\n'}]);
         removeFixture(docPath);
     });
 

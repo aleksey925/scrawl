@@ -21,7 +21,7 @@ import classes from './RunPage.module.css';
 const frameSandbox =
   'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads';
 
-const frameAllow = 'clipboard-read; clipboard-write; fullscreen';
+const frameAllow = 'clipboard-write; fullscreen';
 
 const appIndex = 'index.html';
 

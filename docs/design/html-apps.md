@@ -206,6 +206,12 @@ with `no-store`:
   name is what a tossed cookie would use. A sign-in then sets
   `__Host-scrawl_signin` and the plain `scrawl_signin` beside it
   ([offline copy](offline.md#users)).
+- The run screen's frame has the sandbox
+  `allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads`
+  and `allow="clipboard-write; fullscreen"`. `clipboard-read` is left out:
+  Chrome asks for it in the name of scrawl, and once allowed every app in the
+  frame reads the clipboard without asking. A paste the person makes needs no
+  permission; an app that reads the clipboard itself works in a tab of its own.
 - CSRF needs no change: a POST from an app on a sibling host carries
   `Sec-Fetch-Site: same-site` and is refused. No GET of the scrawl host writes.
 

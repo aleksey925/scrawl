@@ -227,6 +227,23 @@ test.describe('html apps', () => {
         await tab.close();
     });
 
+    test('the frame lets an app write the clipboard but not read it', async ({page, browserName}) => {
+        test.skip(browserName !== 'chromium', 'document.featurePolicy is in Chromium only');
+        // arrange
+        await signIn(page, {baseURL: PLAIN.base, from: SHARED.routes.doc(COUNTER_FILE)});
+        const frame = await run(page, PLAIN, COUNTER_FILE, 'Counter');
+
+        // act
+        const allowed = await frame.evaluate(() => ({
+            read: document.featurePolicy.allowsFeature('clipboard-read'),
+            write: document.featurePolicy.allowsFeature('clipboard-write'),
+            fullscreen: document.featurePolicy.allowsFeature('fullscreen'),
+        }));
+
+        // assert
+        expect(allowed).toEqual({read: false, write: true, fullscreen: true});
+    });
+
     test('the icons of the run bar sit as far from the two edges of the screen under a mouse', async ({page}) => {
         // arrange
         await signIn(page, {baseURL: PLAIN.base, from: SHARED.routes.doc(COUNTER_FILE)});
